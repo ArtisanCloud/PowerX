@@ -61,17 +61,12 @@ func TestConvertPluginMenuItemHierarchy(t *testing.T) {
 	require.Equal(t, plugin_mgr.MenuKey("plugin:com.example.base:base"), item.Key)
 	require.Equal(t, "Base Plugin", item.Title)
 	require.Equal(t, "0.8.6", item.PluginVersion)
-	require.ElementsMatch(t, []string{
-		"example:template:read",
-		"menu:plugin.com.example.base.base:read",
-	}, item.Permissions)
+	require.ElementsMatch(t, []string{"example:template:read"}, item.Permissions)
 	require.Len(t, item.Children, 1)
 	child := item.Children[0]
 	require.Equal(t, item.Key, child.ParentID)
 	require.Equal(t, "Dashboard", child.Title)
-	require.ElementsMatch(t, []string{
-		"menu:plugin.com.example.base.base.dashboard:read",
-	}, child.Permissions)
+	require.Empty(t, child.Permissions)
 }
 
 func TestBuildPluginMenusPublicReturnsEmptyWhenPluginDisabled(t *testing.T) {

@@ -50,14 +50,14 @@
 - Fields:
   - `module` = `menu`
   - `resource` (string，例如 `agent`, `agent.chat`, `skills`, `workflow`, `settings.users`)
-  - `action` = `read`
+  - `action` = `view`
   - `meta.type` = `menu`
   - `source` = `core` 或插件 ID
 - Validation Rules:
   - 菜单权限必须绑定到角色，不直接绑定到用户。
   - `/api/v1/admin/menus` 只能返回当前 `tenant_uuid + member_id` 通过角色拥有的菜单项。
   - root 可通过平台身份看到 root 菜单，但 root 不应被自动视为业务租户 admin。
-  - `role_user`、`role_readonly`、`role_vendor` 只能获得显式白名单菜单权限，不能因为 `action=read` 自动拥有全部菜单。
+  - `role_user`、`role_readonly`、`role_vendor` 只能获得显式白名单菜单权限，不能因为 `action=view` 自动拥有全部菜单。
   - 菜单可见性只控制导航入口，不替代页面路由和 API 授权。
 
 ### 3A.1 PluginMenuPermission
@@ -69,17 +69,17 @@
   - 管理员不能人工创建或修改插件菜单资源本身，只能把已有菜单权限授予角色
 - Fields:
   - `module` = `menu`
-  - `resource` = `plugin.<plugin_id>.<menu_id>`
-  - `action` = `read`
+  - `resource` = `<menu_path>`，例如 `operations.sessions`
+  - `action` = `view`
   - `source` = `plugin:<plugin_id>`
   - `meta.type` = `menu`
   - `meta.origin` = `plugin`
-  - `meta.plugin_id` / `meta.plugin_name` / `meta.menu_id` / `meta.label`
+  - `meta.plugin_id` / `meta.menu_path` / `meta.permission` / `meta.page_permission_codes`
 - Validation Rules:
-  - 插件菜单聚合返回的每个插件菜单项必须自动附加 `menu:plugin.<plugin_id>.<menu_id>:read`。
+  - 插件菜单聚合返回的每个插件菜单项必须使用其 `required_policies` 中声明的 `menu.<path>:view` 权限。
   - 插件菜单权限只控制菜单显示，不替代租户插件实例启用校验、插件代理入口校验和插件 API/能力权限校验。
   - 插件菜单子项必须递归生成独立菜单权限，父菜单在子项有权限时可作为容器保留。
-  - 插件菜单资源 ID 必须由 manifest 的稳定 `id` 优先生成；缺少 `id` 时只能从 route/path 派生稳定段，不允许前端或管理员临时造菜单资源。
+  - 插件菜单 `menu_path` 必须和 `frontend.admin.menus` 的真实层级一致，不允许使用插件 ID、`/_p`、API path 或 URL。
 
 ## 4. UserManagementAction
 

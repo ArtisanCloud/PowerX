@@ -27,10 +27,14 @@ PowerX 在插件安装或同步时校验这些声明，登记到 Capability Regi
 
 关键边界：
 
+- 插件声明的是业务语义，PowerX 负责强校验、登记、渲染、授权、Gateway 预检和权限快照下发。PowerX 不被动展示插件任意拼出来的权限字符串；不符合本指南的声明必须同步失败或标记登记异常，不得进入正式授权。
+- 角色权限页固定渲染两类授权视图：菜单权限、能力/API 权限。菜单权限由 `type=menu` 的 `menu_path` 和 i18n 元数据生成；能力/API 权限按“来源 → 模块 → 操作权限/API 权限”展示，其中来源第一层固定为 `PowerX 底座` 或具体插件，`module` 只能作为第二层业务模块。`admin`、`production`、`settings` 等 module 不得被展示或声明为来源。
+- 能力/API 权限视图中，`page/action/data/admin_action` 统一归入“操作权限”，是管理员主要勾选对象；`api` 归入“API 权限”，默认作为 Gateway 与插件后端 enforcement mapping 展示。API 绑定挂在 `business_permission_code` 指向的业务能力下面；只有 `independent: true` 的 API 才表达独立授权边界。
+- `api_key` 不是“API 权限”的同义词。它表示 API Key 机器凭证的授权范围，归属 API Key Profile 配置，不得作为角色权限页能力/API 视图的顶层类型与 `api` 混排。
 - `type=page` 只声明插件后台 SPA 页面访问，不会自动放开该页面里调用的接口。
 - 每一个真实业务接口都必须声明 `type=api` + `protocol_bindings`。同一个页面下的 `GET/POST/PUT/DELETE` 接口要逐个声明 method 和 path。
 - API 的授权键统一使用 `effective_permission_code`：`business_permission_code` 非空时取 `business_permission_code`；否则仅当 `independent: true` 时取 API 自身 `permission_code`；两者都没有时声明无效。Gateway 预检、插件后端二次校验和前端按钮判断必须使用同一个 effective 权限。
-- PowerX 角色授权保存时会用插件菜单的 `path/route` 与 `type=page` 的 GET `protocol_bindings` 做关联：管理员勾选插件菜单入口时，底座会自动补齐对应页面读取权限。该补齐只覆盖页面 read，不会自动授予 `type=action` 或写接口权限。
+- PowerX 角色授权保存时只依据显式声明做联动。插件如需“勾选菜单时自动补齐页面读取权限”，必须在菜单声明中提供明确的页面关联字段，指向已声明的 `type=page` 权限；底座不得仅按 `permission_code`、菜单标题或插件 ID 猜测关联。该补齐只覆盖页面 read，不会自动授予 `type=action` 或写接口权限。
 - 老的 `rbac.resources`、`routes.permissions`、`required_policies` 只属于插件本地运行时或历史兼容元数据，不能替代 PowerX Gateway 的正式权限登记。
 - PowerX Gateway 只按安装后登记成功的 `permissions[].protocol_bindings` 做预检；没有登记的接口会直接 403，不会转发给插件后端。
 - delegated/host 模式下，PowerX 下发给插件后端的授权字段固定为 `permission_codes`、`policy_version`、`perms_hash`。插件后端不得只读取旧 `permissions` 字段，也不得在 claims 缺失时回退到旧粗权限。
@@ -38,6 +42,202 @@ PowerX 在插件安装或同步时校验这些声明，登记到 Capability Regi
 - 插件服务态 STS token 的 `aud` 固定表达目标受众，例如 `powerx:api`；插件身份固定来自 `plugin_id` claim。不得把 `plugin:<plugin_id>` 塞进 audience，也不得从 audience 反推插件身份。
 - 插件后端通过 STS 调用 PowerX runtime ws-bus/taskbus 发布事件时，`event_fabric` manifest 必须给插件 principal 显式授权，例如 `principal_type: plugin` + `principal_id: "{{plugin_id}}"` + `actions: [publish]`。只给 `member:system` 或 `role:role_admin` 授权不能代表插件服务态 principal。
 - 插件后端通过 STS 调用 PowerX Core HTTP 接口时，还必须满足 STS direct route policy。Host Scheduler 是明确的插件服务运行时合同，`/api/v1/admin/scheduler/jobs` 系列必须由 PowerX Core 静态放行；Event Fabric topic bootstrap 的推荐入口是正式能力 `POST /api/v1/event-fabric/topics`，历史 admin 入口 `POST /api/v1/admin/event-fabric/topics` 仅作为显式运行时合同例外。否则会返回 `sts token not allowed for this route`。这不是插件 page/api RBAC，也不是 topic ACL。
+
+## 1.1 权限层级与命名标准
+
+PowerX 角色权限页不是简单按 `permission_code` 字符串切分渲染。插件必须提交足够结构化的字段，让底座按同一规则渲染和校验。
+
+### 1.1.1 菜单树
+
+菜单树只来自 `type=menu` 权限。它控制导航入口可见，不代表页面内 API 已授权。
+
+插件后台菜单有两个职责不同的声明入口：
+
+| 声明位置 | 职责 | 是否是正式授权 |
+|---|---|---|
+| `frontend.admin.menus` | 声明左侧导航 UI 树、路由、图标、排序、父子关系。 | 否。它只是导航结构。 |
+| `permissions[]` 中的 `type=menu` | 声明 PowerX IAM 可授权菜单能力。 | 是。它进入角色权限页和授权结果。 |
+
+两者不是可互相替代的重复配置。插件必须用菜单项的 `required_policies` 指向已声明的 `type=menu.permission_code`，并保证该权限的 `menu_path` 与菜单项在 `frontend.admin.menus` 中的真实祖先链一致。
+
+PowerX 角色权限页按以下逻辑展示菜单权限：
+
+1. PowerX 先按插件分组，把插件菜单挂到左侧菜单的 `APPS` 分类下。
+2. 插件内部层级只按 `type=menu.menu_path` 渲染。
+3. `menu_path` 不包含 `APPS`、插件 ID、插件名称、`/_p/<plugin_id>`、`/api/v1` 或真实 URL。
+4. 如果 `frontend.admin.menus` 与 `permissions[].menu_path` 不一致，插件声明无效；PowerX 不得按权限码、标题或插件 ID 自动猜测和修正。
+
+必填字段：
+
+| 字段 | 规则 |
+|---|---|
+| `type` | 固定为 `menu`。 |
+| `permission_code` | 格式为 `menu.<business_module>.<menu_key>:view`。 |
+| `module` | 业务域，例如 `production`、`settings`、`integration`，不得写成 `menu`。 |
+| `menu_path` | 从插件内部一级菜单到叶子菜单的稳定业务路径数组，例如 `[business_operations, production, sample_tracks]`。必须与对应 `frontend.admin.menus` 菜单项的祖先链一致。 |
+| `title_i18n` / `description_i18n` | 用户可见菜单名称和说明。 |
+| `page_permission_codes` | 可选。菜单入口对应的页面读取权限列表；需要菜单勾选联动页面时必须显式提供。 |
+
+示例：
+
+```yaml
+frontend:
+  admin:
+    menus:
+      - id: business_operations
+        title_i18n:
+          key: menus.businessOperations
+          default: 业务运营
+        children:
+          - id: production
+            title_i18n:
+              key: menus.production
+              default: 生产单
+            children:
+              - id: sample_tracks
+                route: /production/sample-tracks
+                title_i18n:
+                  key: menus.sampleTracks
+                  default: 小样跟踪单
+                required_policies:
+                  - menu.production.sample_tracks:view
+
+permissions:
+  - type: menu
+    permission_code: menu.production.sample_tracks:view
+    module: production
+    menu_path:
+      - business_operations
+      - production
+      - sample_tracks
+    title_i18n:
+      zh-CN: 小样跟踪单
+      en: Sample tracking
+    description_i18n:
+      zh-CN: 允许查看生产模块下的小样跟踪单菜单入口。
+      en: Allows viewing the sample tracking menu entry in production.
+    page_permission_codes:
+      - production.sample_track:read
+    risk_level: low
+    data_scope: tenant
+```
+
+这个例子里的对照关系是：
+
+- 左侧菜单层级来自 `frontend.admin.menus.children`。
+- 菜单授权层级来自 `permissions[].menu_path`。
+- `frontend.admin.menus[].required_policies` 必须命中 `permissions[].permission_code`。
+- `menu_path` 必须等于该菜单项在插件内部菜单树里的 ID 祖先链：`business_operations / production / sample_tracks`。
+
+禁止写法：
+
+```yaml
+- type: menu
+  permission_code: menu.plugin.com.powerx.plugins.ai-craft.plugins.operations:view
+  module: menu
+```
+
+原因：
+
+- `menu_path` 缺失，PowerX 只能从字符串猜层级。
+- `module=menu` 把权限类型和业务域混在一起。
+- 插件 ID 被拼进业务权限树，管理员看到的是技术来源，不是业务结构。
+- `frontend.admin.menus` 没有用 `required_policies` 指向正式 `type=menu` 权限，PowerX 无法校验导航入口和授权入口是否一致。
+
+### 1.1.2 业务能力树
+
+业务能力树来自 `type=page` 和 `type=action`。它是管理员主要勾选对象，控制页面访问、按钮、节点流转和业务动作。
+
+必填字段：
+
+| 字段 | 规则 |
+|---|---|
+| `permission_code` | 格式为 `<business_module>.<resource>:<action>`。 |
+| `module` | 业务域，不是插件 ID，也不是权限类型。 |
+| `resource` | 业务资源名，例如 `sample_track`、`bulk_order`、`template`。 |
+| `action` | 动作名，例如 `read`、`create`、`update`、`delivery`、`factory_schedule`。 |
+| `title_i18n` / `description_i18n` | 管理员可理解的业务名称和说明。 |
+
+示例：
+
+```yaml
+- type: action
+  permission_code: production.sample_track:delivery
+  module: production
+  resource: sample_track
+  action: delivery
+  title_i18n:
+    zh-CN: 小样交付资料
+    en: Deliver sample materials
+  description_i18n:
+    zh-CN: 允许提交小样交付资料。
+    en: Allows submitting sample delivery materials.
+  risk_level: medium
+  data_scope: tenant
+```
+
+禁止写法：
+
+```yaml
+- type: action
+  permission_code: com.powerx.plugins.ai-craft.production.sample_track:delivery
+  module: com.powerx.plugins.ai-craft
+  resource: production.sample_track
+```
+
+插件 ID 只能作为来源字段保存，例如 `plugin_id=com.powerx.plugins.ai-craft`、`iam_permission.source=plugin:com.powerx.plugins.ai-craft`。它不得进入 `permission_code`、`module`、`resource`、`action` 或 `menu_path`。
+
+### 1.1.3 API 绑定明细
+
+API 绑定来自 `type=api`。它描述真实接口如何落到业务能力，不是管理员默认主勾选对象。
+
+规则：
+
+- API `permission_code` 推荐格式为 `<business_module>.<resource>_api:<operation>`，只作为技术登记键。
+- 普通业务接口必须写 `business_permission_code`，指向一个已声明的 `type=page` 或 `type=action`。
+- PowerX Gateway、插件后端和前端按钮都使用 `effective_permission_code`，即 `business_permission_code`。
+- 只有 API 本身就是独立授权边界时，才允许 `independent: true` 并把 raw API `permission_code` 作为授权键。
+
+示例：
+
+```yaml
+- type: api
+  permission_code: production.sample_track_api:delivery
+  business_permission_code: production.sample_track:delivery
+  module: production
+  resource: sample_track_api
+  action: delivery
+  title_i18n:
+    zh-CN: 小样交付接口
+    en: Sample delivery API
+  description_i18n:
+    zh-CN: 允许调用小样交付资料提交接口。
+    en: Allows calling the sample delivery submission API.
+  risk_level: medium
+  data_scope: tenant
+  protocol_bindings:
+    - channel: rest
+      method: POST
+      path: /sample-tracks/*/nodes/delivery
+      actor_context: admin_user
+      resource_scope: tenant
+```
+
+在角色权限页中，这条 API 应显示为 `production.sample_track:delivery` 的接口绑定明细。管理员主勾选的是“小样交付资料”，不是“小样交付接口”。
+
+### 1.1.4 登记异常与拒绝规则
+
+以下情况必须登记为异常或同步失败，不得进入正式授权：
+
+- 缺少 `permission_code`、`module`、`title_i18n`、`description_i18n`、`risk_level`、`data_scope`。
+- `type=menu` 缺少 `menu_path`，或 `module=menu`。
+- `type=page/action` 缺少 `resource/action`，或 `permission_code` 与 `module/resource/action` 不一致。
+- `type=api` 缺少 `protocol_bindings`。
+- `type=api` 同时缺少 `business_permission_code` 和 `independent: true`。
+- `business_permission_code` 指向不存在、已废弃或非 active 的业务权限。
+- `permission_code`、`module`、`resource`、`action`、`menu_path` 拼入插件 ID、UUID、host route、`/_p/<plugin_id>` 或 `/api/v1`。
+- 动态路径使用 `{uuid}`、`:id` 或真实 UUID 样本，而不是 `*`。
+- 旧 `rbac.resources`、`routes.permissions`、`required_policies` 试图替代正式 `permissions[]`。
 
 ## 2. 角色与适用范围
 
@@ -87,7 +287,7 @@ flowchart LR
 | 模块 | 职责 |
 |---|---|
 | 插件包 | 声明权限，不做正式角色授权。 |
-| Capability Sync Worker | 校验 `permission_code`、i18n、page/api binding、风险等级和真实 transport。 |
+| Capability Sync Worker | 校验 `permission_code`、`menu_path`、`module/resource/action`、i18n、page/api binding、风险等级和真实 transport。 |
 | IAM Permission | 保存可授权项，`source=plugin:<plugin_id>`。 |
 | PowerX 角色权限页 | 管理员给角色授权的唯一主入口。 |
 | Gateway | 按 `plugin_id + method + path` 映射到 `effective_permission_code` 并预检。 |
@@ -113,7 +313,7 @@ flowchart TD
 
 失败分支的处理原则：
 
-- 缺 `permission_code`、i18n、page/api binding、`actor_context`、`resource_scope` 时，同步失败。
+- 缺 `permission_code`、`menu_path`、`module/resource/action`、i18n、page/api binding、`actor_context`、`resource_scope` 时，同步失败。
 - 旧粗权限只用于迁移报告，不作为运行时 alias。
 - 旧 `rbac.resources`、`routes.permissions` 和菜单 `required_policies` 不能自动转换为 PowerX 正式授权项。插件必须补 `permissions[]`。
 - 迁移窗口内 PowerX 对历史插件 HTML 页面做 warn/allow 只能作为运维保护；新插件和新版本必须按本指南声明。
@@ -178,20 +378,27 @@ PowerX 环境必须具备：
 ```yaml
 permissions:
   - type: menu
-    permission_code: example.record:view_menu
+    permission_code: menu.example.records:view
     module: example
+    menu_path:
+      - example
+      - records
     title_i18n:
       zh-CN: 示例记录菜单
       en: Example record menu
     description_i18n:
       zh-CN: 允许查看示例记录菜单入口。
       en: Allows viewing the example record menu entry.
+    page_permission_codes:
+      - example.record:read
     risk_level: low
     data_scope: tenant
 
   - type: page
     permission_code: example.record:read
     module: example
+    resource: record
+    action: read
     title_i18n:
       zh-CN: 示例记录读取
       en: Read example records
@@ -215,6 +422,8 @@ permissions:
   - type: action
     permission_code: example.record:approve
     module: example
+    resource: record
+    action: approve
     title_i18n:
       zh-CN: 示例记录审批
       en: Approve example record
@@ -228,6 +437,8 @@ permissions:
     permission_code: example.record_api:update
     business_permission_code: example.record:approve
     module: example
+    resource: record_api
+    action: update
     title_i18n:
       zh-CN: 示例记录审批接口
       en: Example record approval API
@@ -244,14 +455,83 @@ permissions:
         resource_scope: tenant
 ```
 
+### 1.1.3 能力/API 权限页展示层级
+
+PowerX 角色权限页的能力/API 权限不按 `permission_code` 字符串切分，也不按 URL 前缀切分。统一展示层级如下：
+
+```text
+PowerX 底座
+  <module>
+    操作权限
+      page/action/data
+    API 权限
+      api
+
+<plugin display name>
+  <module>
+    操作权限
+      page/action/data
+    API 权限
+      api binding
+```
+
+规则：
+
+- 第一层是来源，只能是 `PowerX 底座` 或插件。插件来源来自 `plugin_id` / `iam_permission.source=plugin:<plugin_id>`；底座来源来自非插件系统权限。
+- 第二层是业务模块 `module`。例如 `admin` 是 PowerX 底座下的后台管理模块，不是来源；插件的 `production`、`marketing`、`settings` 也是插件来源下的业务模块。
+- `module=admin` 表示该能力归属 PowerX 底座的后台管理业务域，不等于“所有 `/api/v1/admin/*` 路径前缀”。路径前缀只属于 `protocol_bindings` 技术入口，不能反向决定角色权限页层级。
+- 第三层固定分为“操作权限”和“API 权限”。`page/action/data/admin_action` 进入操作权限；`api` 进入 API 权限。`admin_action` 是底座内部 subtype，用户界面必须显示为“操作权限”，不得作为独立筛选项暴露。
+- `api_key` 表示 API Key 机器凭证授权范围，不是 endpoint API 权限。角色权限页能力/API 视图不得把 `api_key` 与 `api` 混为同类；需要配置机器凭证 scope 时，应进入 API Key Profile 专用配置。
+- `type=menu` 不进入能力/API 权限页，只在菜单权限页展示。
+- 来源筛选必须包含 `全部来源`、`PowerX 底座` 和已安装插件。筛选器不得命名为“全部插件”后继续显示底座权限。
+- API 权限也必须有 i18n 标题和说明。`permission_code`、HTTP method/path、`/_p/<plugin_id>` 或 `/api/v1` 只能作为技术辅助信息，不能作为角色权限页的主标题。PowerX 底座能力与插件能力遵守同一规则；缺少可读标题的 API 应显示为登记缺陷并要求补齐能力元数据。
+- PowerX 底座操作/API 权限的正式来源是 `backend/config/platform_capabilities/*.yaml` 中手写或治理通过的业务能力声明。每条正式 capability 必须有 `permission_code`、`title_i18n`、`description_i18n`；seed 时会用 `permission_code` 生成一条“操作权限”，并把 REST protocol binding 生成“API 权限”。`generated.auto.yaml`、Swagger/OpenAPI、Gin route 自动识别结果只能作为 `api_candidate` 候选审计项，必须以 deprecated/invalid 状态写入或展示在专门审计视图，不能作为 active 角色授权项，也不能进入角色页主授权树。
+- 插件 API 权限的正式来源是插件包内的 `permissions[]`，使用 `catalogs.rbac` 时写在 `plugin.d/rbac.yaml`。每个 `type=api` 项必须声明 `title_i18n`、`description_i18n`、`protocol_bindings`，并通过 `business_permission_code` 指向对应业务能力；缺少这些字段应登记为 invalid，而不是让 PowerX 从 URL 或权限码推断展示文案。
+
+底座 seed 后的验收标准：
+
+```bash
+make seed
+```
+
+必须满足：
+
+```sql
+-- 1. 不允许 active API 缺少可读标题
+SELECT count(*)
+FROM public.iam_permission
+WHERE status = 'active'
+  AND meta->>'type' = 'api'
+  AND COALESCE(meta->'title_i18n'->>'zh-CN', meta->'title_i18n'->>'zh', meta->'title_i18n'->>'en', meta->'title_i18n'->>'en-US', '') = '';
+
+-- 2. 不允许自动候选或 swagger raw 权限进入 active 授权树
+SELECT source, meta->>'type', status, count(*)
+FROM public.iam_permission
+WHERE source IN ('platform_capability_generated', 'swagger')
+   OR meta->>'type' = 'api_candidate'
+GROUP BY source, meta->>'type', status;
+
+-- 3. 插件权限 source 必须统一为 plugin:<plugin_id>
+SELECT source, count(*)
+FROM public.iam_permission
+WHERE source LIKE 'com.powerx.plugin.%'
+   OR source LIKE 'com.powerx.plugins.%'
+GROUP BY source;
+```
+
+第一条必须返回 `0`；第二条不得出现 `status=active`；第三条必须无结果。`make seed` 内置的 permission audit 会按同一规则失败退出，不能靠页面隐藏错误数据。
+
 预期结果：
 
 - `menu/page/action` 会在 PowerX 角色权限页成为可理解的授权项。
-- `api` 默认作为后端 enforcement mapping；只有标记 `independent: true` 时才表达独立业务授权边界。
+- `menu` 按 `menu_path` 渲染菜单树；`page/action/data` 按来源和 `module/resource/action` 渲染操作权限。
+- `api` 默认作为后端 enforcement mapping，按来源和 module 展示在 API 权限下；只有标记 `independent: true` 时才表达独立业务授权边界。
 
 失败处理：
 
 - page 缺 `protocol_bindings`：补 GET page binding。
+- menu 缺 `menu_path`：补稳定业务路径数组，不要从 `permission_code` 或插件 ID 推断菜单层级。
+- page/action 缺 `resource/action`：补结构化业务资源和动作，确保与 `permission_code` 一致。
 - api 缺 `business_permission_code`：补业务动作权限，或显式 `independent: true`。
 - 路径写了 `/_p/<plugin_id>`：改为插件内部业务路径。
 
@@ -316,6 +596,8 @@ page binding 固定要求：
 - type: page
   permission_code: base.templates:read
   module: base
+  resource: templates
+  action: read
   title_i18n:
     zh-CN: 模板 CRUD 页面
     en: Template CRUD page
@@ -362,6 +644,8 @@ permissions:
   - type: action
     permission_code: base.templates:read
     module: base
+    resource: templates
+    action: read
     title_i18n:
       zh-CN: 读取模板
       en: Read templates
@@ -374,6 +658,8 @@ permissions:
   - type: action
     permission_code: base.templates:create
     module: base
+    resource: templates
+    action: create
     title_i18n:
       zh-CN: 创建模板
       en: Create templates
@@ -386,6 +672,8 @@ permissions:
   - type: action
     permission_code: base.templates:update
     module: base
+    resource: templates
+    action: update
     title_i18n:
       zh-CN: 更新模板
       en: Update templates
@@ -398,6 +686,8 @@ permissions:
   - type: action
     permission_code: base.templates:delete
     module: base
+    resource: templates
+    action: delete
     title_i18n:
       zh-CN: 删除模板
       en: Delete templates
@@ -411,6 +701,8 @@ permissions:
     permission_code: base.templates_api:list
     business_permission_code: base.templates:read
     module: base
+    resource: templates_api
+    action: list
     title_i18n:
       zh-CN: 模板列表接口
       en: Template list API
@@ -430,6 +722,8 @@ permissions:
     permission_code: base.templates_api:create
     business_permission_code: base.templates:create
     module: base
+    resource: templates_api
+    action: create
     title_i18n:
       zh-CN: 模板创建接口
       en: Template create API
@@ -449,6 +743,8 @@ permissions:
     permission_code: base.templates_api:update
     business_permission_code: base.templates:update
     module: base
+    resource: templates_api
+    action: update
     title_i18n:
       zh-CN: 模板更新接口
       en: Template update API
@@ -468,6 +764,8 @@ permissions:
     permission_code: base.templates_api:delete
     business_permission_code: base.templates:delete
     module: base
+    resource: templates_api
+    action: delete
     title_i18n:
       zh-CN: 模板删除接口
       en: Template delete API
@@ -575,9 +873,9 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 预期结果：
 
-- 返回按插件、模块、菜单、页面、动作分组的权限项。
+- 返回按插件分组的菜单树、业务能力树和 API 绑定明细。
 - 每项含 `permission_code`、i18n 展示元数据、风险等级。
-- page/api 项包含 `protocol_bindings`。
+- menu 项包含 `menu_path`；page/action 项包含 `module/resource/action`；page/api 项包含 `protocol_bindings`。
 - 登记失败时能看到明确同步错误，而不是空白目录。
 
 失败处理：
@@ -734,9 +1032,11 @@ topics:
 发布前必须满足：
 
 - 插件包有效 manifest 位置存在 `permissions[]`：简单包在 `plugin.yaml`，分片包在 `catalogs.rbac` 指向的 `plugin.d/rbac.yaml`。
+- 每个菜单入口都有 `type=menu` + `menu_path`，且 `module` 是业务域。
 - 每个用户可访问的插件后台业务页面都有 `type=page` + GET binding。
+- 每个 page/action/api 都有与 `permission_code` 一致的 `module/resource/action`。
 - 每个敏感接口都有 `type=api` binding，并映射到业务 `action` 或显式独立授权。
-- `permission_code` 均为 `module.resource:action`。
+- `permission_code` 均遵守菜单、业务能力、API 技术登记的命名格式。
 - 用户可见文案来自 i18n。
 - PowerX `plugin-catalog` 能查到插件权限。
 - 未授权用户访问页面或接口返回明确 403。

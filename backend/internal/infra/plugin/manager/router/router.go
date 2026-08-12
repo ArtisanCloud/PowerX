@@ -693,20 +693,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			return
 		}
 	}
-	runtimeWSBusRoute := publicRoute != true && isTenantScopedWSBusPath(gatePath)
-	if r.gate != nil && runtimeWSBusRoute {
-		tok, err := r.gate.mintPluginToken(pluginID, claims)
-		if err != nil {
-			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
-				pluginID, c.Request.Method, gatePath, logTenantUUID, requestID, traceID, "mint runtime token failed")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": "mint runtime token failed"})
-			return
-		}
-		pluginToken = tok
-		logger.DebugF(c.Request.Context(), "[GATE-RUNTIME] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s",
-			pluginID, c.Request.Method, gatePath, logTenantUUID, requestID, traceID)
-	}
-	if r.gate != nil && publicRoute != true && !runtimeWSBusRoute {
+	if r.gate != nil && publicRoute != true {
 		tok, allowed, reason := r.checkPluginRoutePermission(c, pluginID, c.Request.Method, gatePath, claims)
 		if !allowed {
 			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",

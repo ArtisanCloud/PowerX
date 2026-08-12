@@ -17,6 +17,47 @@ func TestPermissionServiceListPluginCatalogGroupsPluginPermissions(t *testing.T)
 	db := newPermissionServiceTestDB(t)
 	require.NoError(t, db.Create(&[]dbm.Permission{
 		{
+			Module:   "menu.production",
+			Resource: "sample_tracks",
+			Action:   "view",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:demo.plugin",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"menu",
+				"module":"production",
+				"plugin_id":"demo.plugin",
+				"permission":"menu.production.sample_tracks:view",
+				"menu_path":["production","sample_tracks"],
+				"page_permission_codes":["production.sample_track:read"],
+				"title_i18n":{"zh-CN":"小样跟踪单","en":"Sample tracking"},
+				"description_i18n":{"zh-CN":"允许查看小样跟踪单菜单","en":"Allows viewing sample tracking menu"},
+				"risk_level":"low",
+				"data_scope":"tenant"
+			}`)),
+		},
+		{
+			Module:   "production",
+			Resource: "sample_track",
+			Action:   "read",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:demo.plugin",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"page",
+				"module":"production",
+				"resource":"sample_track",
+				"action":"read",
+				"plugin_id":"demo.plugin",
+				"permission":"production.sample_track:read",
+				"title_i18n":{"zh-CN":"小样读取","en":"Read samples"},
+				"description_i18n":{"zh-CN":"允许读取小样单","en":"Allows reading samples"},
+				"risk_level":"low",
+				"data_scope":"tenant",
+				"protocol_bindings":[{"channel":"rest","method":"GET","path":"/sample-tracks","actor_context":"admin_user","resource_scope":"tenant"}]
+			}`)),
+		},
+		{
 			Module:   "production",
 			Resource: "sample_track",
 			Action:   "factory_schedule",
@@ -26,6 +67,8 @@ func TestPermissionServiceListPluginCatalogGroupsPluginPermissions(t *testing.T)
 			Meta: datatypes.JSON([]byte(`{
 				"type":"action",
 				"module":"production",
+				"resource":"sample_track",
+				"action":"factory_schedule",
 				"plugin_id":"demo.plugin",
 				"permission":"production.sample_track:factory_schedule",
 				"title_i18n":{"zh-CN":"小样打样排产","en":"Sample schedule"},
@@ -45,12 +88,16 @@ func TestPermissionServiceListPluginCatalogGroupsPluginPermissions(t *testing.T)
 			Meta: datatypes.JSON([]byte(`{
 				"type":"api",
 				"module":"production",
+				"resource":"sample_track_api",
+				"action":"sample_schedule",
 				"plugin_id":"demo.plugin",
 				"permission":"production.sample_track_api:sample_schedule",
 				"title_i18n":{"zh-CN":"小样打样排产接口","en":"Sample schedule API"},
 				"description_i18n":{"zh-CN":"允许调用小样打样排产接口","en":"Allows calling sample schedule API"},
 				"risk_level":"medium",
-				"business_permission_code":"production.sample_track:factory_schedule"
+				"data_scope":"tenant",
+				"business_permission_code":"production.sample_track:factory_schedule",
+				"protocol_bindings":[{"channel":"rest","method":"POST","path":"/sample-tracks/*/nodes/sample-schedule","actor_context":"admin_user","resource_scope":"tenant"}]
 			}`)),
 		},
 		{
@@ -70,15 +117,96 @@ func TestPermissionServiceListPluginCatalogGroupsPluginPermissions(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, catalog.Plugins, 1)
 	require.Equal(t, "demo.plugin", catalog.Plugins[0].PluginID)
-	require.Len(t, catalog.Plugins[0].Modules, 1)
-	require.Equal(t, "production", catalog.Plugins[0].Modules[0].Module)
-	require.Len(t, catalog.Plugins[0].Modules[0].Types, 2)
-	require.Equal(t, "action", catalog.Plugins[0].Modules[0].Types[0].Type)
-	require.Equal(t, "production.sample_track:factory_schedule", catalog.Plugins[0].Modules[0].Types[0].Permissions[0].PermissionCode)
-	require.Equal(t, map[string]string{"zh-CN": "小样打样排产", "en": "Sample schedule"}, catalog.Plugins[0].Modules[0].Types[0].Permissions[0].TitleI18n)
-	require.Equal(t, "registered", catalog.Plugins[0].Modules[0].Types[0].Permissions[0].RegistrationStatus)
-	require.Equal(t, "api", catalog.Plugins[0].Modules[0].Types[1].Type)
-	require.Equal(t, "production.sample_track:factory_schedule", catalog.Plugins[0].Modules[0].Types[1].Permissions[0].BusinessPermissionCode)
+	require.Len(t, catalog.Plugins[0].MenuTree, 1)
+	require.Equal(t, "production", catalog.Plugins[0].MenuTree[0].Key)
+	require.Len(t, catalog.Plugins[0].MenuTree[0].Children, 1)
+	require.Equal(t, "sample_tracks", catalog.Plugins[0].MenuTree[0].Children[0].Key)
+	require.Equal(t, []string{"production.sample_track:read"}, catalog.Plugins[0].MenuTree[0].Children[0].PagePermissionCodes)
+	require.Len(t, catalog.Plugins[0].BusinessModules, 1)
+	require.Equal(t, "production", catalog.Plugins[0].BusinessModules[0].Module)
+	require.Len(t, catalog.Plugins[0].BusinessModules[0].Resources, 1)
+	require.Len(t, catalog.Plugins[0].BusinessModules[0].Resources[0].Pages, 1)
+	require.Len(t, catalog.Plugins[0].BusinessModules[0].Resources[0].Actions, 1)
+	require.Equal(t, "production.sample_track:factory_schedule", catalog.Plugins[0].BusinessModules[0].Resources[0].Actions[0].PermissionCode)
+	require.Equal(t, map[string]string{"zh-CN": "小样打样排产", "en": "Sample schedule"}, catalog.Plugins[0].BusinessModules[0].Resources[0].Actions[0].TitleI18n)
+	require.Equal(t, "registered", catalog.Plugins[0].BusinessModules[0].Resources[0].Actions[0].RegistrationStatus)
+	require.Len(t, catalog.Plugins[0].APIBindings, 1)
+	require.Equal(t, "production.sample_track:factory_schedule", catalog.Plugins[0].APIBindings[0].BusinessPermissionCode)
+}
+
+func TestPermissionServiceCleanupInvalidPluginPermissionsDeletesOnlyInvalidPluginRows(t *testing.T) {
+	ctx := context.Background()
+	db := newPermissionServiceTestDB(t)
+	rows := []dbm.Permission{
+		{
+			Module:   "menu",
+			Resource: "plugin.demo.invalid",
+			Action:   "read",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:demo.plugin",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"menu",
+				"module":"menu",
+				"plugin_id":"demo.plugin",
+				"permission":"menu.plugin.demo.invalid:read"
+			}`)),
+		},
+		{
+			Module:   "production",
+			Resource: "sample_track",
+			Action:   "read",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:demo.plugin",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"action",
+				"module":"production",
+				"plugin_id":"demo.plugin",
+				"permission":"production.sample_track:read",
+				"title_i18n":{"zh-CN":"小样读取"},
+				"description_i18n":{"zh-CN":"允许读取小样单"},
+				"risk_level":"low",
+				"data_scope":"tenant",
+				"resource":"sample_track",
+				"action":"read"
+			}`)),
+		},
+		{
+			Module:   "menu",
+			Resource: "plugin.other.invalid",
+			Action:   "read",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:other.plugin",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"menu",
+				"module":"menu",
+				"plugin_id":"other.plugin",
+				"permission":"menu.plugin.other.invalid:read"
+			}`)),
+		},
+	}
+	require.NoError(t, db.Create(&rows).Error)
+	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 10, PermissionID: rows[0].ID}).Error)
+	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 10, PermissionID: rows[1].ID}).Error)
+
+	result, err := NewPermissionService(db).CleanupInvalidPluginPermissions(ctx, "demo.plugin")
+	require.NoError(t, err)
+	require.Equal(t, "demo.plugin", result.PluginID)
+	require.Equal(t, []uint64{rows[0].ID}, result.DeletedPermissionIDs)
+	require.EqualValues(t, 1, result.DeletedPermissions)
+	require.EqualValues(t, 1, result.DeletedBindings)
+
+	var remaining []dbm.Permission
+	require.NoError(t, db.Order("id ASC").Find(&remaining).Error)
+	require.Len(t, remaining, 2)
+	require.Equal(t, rows[1].ID, remaining[0].ID)
+	require.Equal(t, rows[2].ID, remaining[1].ID)
+
+	var bindingCount int64
+	require.NoError(t, db.Model(&dbm.RolePermission{}).Count(&bindingCount).Error)
+	require.EqualValues(t, 1, bindingCount)
 }
 
 func newPermissionServiceTestDB(t *testing.T) *gorm.DB {
@@ -97,6 +225,6 @@ func newPermissionServiceTestDB(t *testing.T) *gorm.DB {
 	t.Cleanup(func() {
 		coremodel.PowerXSchema = prevSchema
 	})
-	require.NoError(t, db.AutoMigrate(&dbm.Permission{}))
+	require.NoError(t, db.AutoMigrate(&dbm.Permission{}, &dbm.RolePermission{}))
 	return db
 }

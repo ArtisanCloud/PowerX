@@ -28,11 +28,11 @@ func TestSetPermissionIDsExpandsPluginMenuToMatchingPageRead(t *testing.T) {
 	}
 
 	menu := dbm.Permission{
-		Module: "menu", Resource: "plugin.com.powerx.plugins.demo.demo", Action: "read",
+		Module: "menu", Resource: "demo", Action: "view",
 		Effect: "allow", Status: dbm.PermissionStatusActive, Source: "plugin:com.powerx.plugins.demo",
 		Meta: mustJSON(t, map[string]any{
 			"type": "menu", "origin": "plugin", "plugin_id": "com.powerx.plugins.demo",
-			"path": "/operations/demo",
+			"permission": "menu.demo:view", "menu_path": []string{"demo"}, "page_permission_codes": []string{"operations.demo:read"},
 		}),
 	}
 	page := dbm.Permission{

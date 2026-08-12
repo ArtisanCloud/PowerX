@@ -152,16 +152,16 @@
 
 **Why this priority**: 菜单是后台功能的第一层入口。若菜单不受角色权限控制，会造成越权感知、误操作和排障混乱；但菜单隐藏不等于 API 授权，目标页面和接口仍必须独立校验权限。
 
-**Independent Test**: 给同一租户下两个普通成员绑定不同角色，分别登录并请求 `/api/v1/admin/menus`，验证返回菜单只包含该角色拥有的 `menu:*:read` 权限项。
+**Independent Test**: 给同一租户下两个普通成员绑定不同角色，分别登录并请求 `/api/v1/admin/menus`，验证返回菜单只包含该角色拥有的 `menu.<path>:view` 权限项。
 
 **Acceptance Scenarios**:
 
 1. **Given** 成员只绑定 `role_user`，**When** 加载后台菜单，**Then** 只显示该角色拥有的菜单权限入口，不显示未授权 Pinned 项。
-2. **Given** 成员绑定自定义角色且该角色拥有 `menu:workflow:read`，**When** 加载后台菜单，**Then** 显示工作流菜单。
-3. **Given** 成员没有 `menu:skills:read`，**When** 加载后台菜单，**Then** 不显示 Skill 管理入口。
+2. **Given** 成员绑定自定义角色且该角色拥有 `menu.workflow:view`，**When** 加载后台菜单，**Then** 显示工作流菜单。
+3. **Given** 成员没有 `menu.skills:view`，**When** 加载后台菜单，**Then** 不显示 Skill 管理入口。
 4. **Given** root 登录，**When** 加载后台菜单，**Then** root 可看到平台授权入口，且仍受 root/tenant 身份边界约束。
 5. **Given** 供应商成员绑定 `role_vendor`，**When** 加载后台菜单，**Then** 默认只看到供应商默认入口，例如 Dashboard、Agent 对话和插件智能体对话入口。
-6. **Given** 插件声明了 `frontend.admin.menus` 且已安装/启用，**When** 插件 manifest 权限同步完成，**Then** 系统自动生成 `module=menu, resource=plugin.<plugin_id>.<menu_id>, action=read` 的插件菜单权限，管理员可在角色权限页授权该 App 菜单。
+6. **Given** 插件声明了 `frontend.admin.menus` 且已安装/启用，**When** 插件 manifest 权限同步完成，**Then** 系统自动生成 `module=menu, resource=<menu_path>, action=view` 的插件菜单权限，管理员可在角色权限页授权该 App 菜单。
 7. **Given** 某角色未拥有目标插件菜单权限，**When** 请求 `/api/v1/admin/menus`，**Then** 即使租户已启用该插件，也不返回该插件菜单入口。
 8. **Given** 插件通过 Capability Sync 声明了 `menu/page/action/api` 细颗粒度权限，**When** 租户管理员进入角色权限页，**Then** 页面按插件、模块、菜单、页面、动作分组展示可授权项，角色绑定同一 `permission_code`，接口 binding 只作为 enforcement 元数据。
 9. **Given** 角色未拥有插件 action 权限，**When** 用户进入插件业务页，**Then** 对应按钮不展示；若直接调用绑定接口，Gateway 和插件后端都必须按同一 `permission_code` 拒绝。
@@ -280,14 +280,14 @@
 - **FR-024**: IAM 迁移必须提供只读巡检能力，报告 root、system tenant、业务租户 owner/admin 缺失情况。
 - **FR-025**: 对缺少 `role_owner` 但存在 active `role_admin` 的历史租户，系统可以自动补齐 owner，并必须写审计。
 - **FR-026**: 对缺少 active admin 的历史租户，系统必须只报告异常，禁止自动猜测 owner。
-- **FR-042**: 系统菜单可见性必须接入 IAM RBAC，菜单权限用 `module=menu, resource=<menu_key>, action=read` 表达。
+- **FR-042**: 系统菜单可见性必须接入 IAM RBAC，菜单权限用 `module=menu, resource=<menu_path>, action=view` 表达。
 - **FR-043**: 菜单权限必须授予角色，不直接授予单个用户；用户通过当前租户 member 绑定角色获得菜单可见性。
 - **FR-044**: `/api/v1/admin/menus` 必须按当前 `tenant_uuid + member_id` 执行角色权限过滤；未授权菜单不得返回给前端。
 - **FR-045**: 菜单隐藏不得替代页面/API 权限校验；直接访问 URL 或调用 API 时仍必须由目标模块执行授权。
 - **FR-046**: 系统必须内置供应商角色 `role_vendor`，作为租户级 builtin role，可通过 seed/upsert 写入每个租户。
-- **FR-047**: `role_user`、`role_readonly`、`role_vendor` 的菜单权限必须显式白名单授权，禁止因为 `action=read` 自动继承全部菜单。
+- **FR-047**: `role_user`、`role_readonly`、`role_vendor` 的菜单权限必须显式白名单授权，禁止因为 `action=view` 自动继承全部菜单。
 - **FR-048**: 插件/App 菜单权限必须从插件 manifest 的 `frontend.admin.menus` 自动同步生成，禁止管理员手工创建插件菜单资源。
-- **FR-049**: 插件/App 菜单权限必须统一使用 `module=menu, resource=plugin.<plugin_id>.<menu_id>, action=read`；插件菜单聚合返回的每个插件菜单项必须自动附加对应权限策略。
+- **FR-049**: 插件/App 菜单权限必须统一使用 `module=menu, resource=<menu_path>, action=view`；插件菜单聚合返回的每个插件菜单项必须自动附加对应权限策略。
 - **FR-050**: 插件菜单权限只控制菜单可见性；插件能力/API、`/_p/<plugin>/admin` 和 `/_p/<plugin>/api` 仍必须按插件实例、页面和接口各自的授权规则独立校验。
 
 ### Key Entities *(include if feature involves data)*
@@ -306,7 +306,7 @@
 - **Tenant Plugin Instance**: 某租户启用某全局插件包后的租户实例状态和配置。
 - **Plugin Drain Job**: root 发起的插件下架或卸载前 drain 计划，负责按目标插件/版本逐租户关闭新增入口、等待存量任务清零并驱动 final uninstall。
 - **IAM Migration Report**: 历史 IAM 数据巡检结果，包含可自动补齐项和必须人工处理项。
-- **Menu Permission**: 后台菜单入口可见性权限，固定使用 `module=menu/resource/action=read`，由角色授权控制。系统菜单由 seed 创建，插件/App 菜单由插件 manifest 同步创建。
+- **Menu Permission**: 后台菜单入口可见性权限，固定使用 `module=menu/resource/action=view`，由角色授权控制。系统菜单由 seed 创建，插件/App 菜单由插件 manifest 同步创建。
 
 ## Success Criteria *(mandatory)*
 

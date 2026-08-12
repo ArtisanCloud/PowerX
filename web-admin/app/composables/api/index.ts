@@ -12,6 +12,7 @@ import {
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
 import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
+import { isAccessTokenExpired, syncExpiresAtFromJWT } from "~/utils/auth-token";
 
 /** =========================
  * API 客户端配置
@@ -98,11 +99,7 @@ const updateClientAuthStorage = (payload: any) => {
 
 const isTokenExpiredByLocalClock = (): boolean => {
   if (!process.client) return true;
-  const expiresAtRaw = localStorage.getItem("expires_at");
-  if (!expiresAtRaw) return true;
-  const expiresAt = Number(expiresAtRaw);
-  if (!Number.isFinite(expiresAt) || expiresAt <= 0) return true;
-  return Date.now() >= expiresAt;
+  return isAccessTokenExpired(localStorage.getItem("access_token"));
 };
 
 const tryRefreshAccessToken = async (): Promise<string | null> => {
@@ -174,6 +171,7 @@ let globalConfig: ApiClientConfig = {
           }
           const tokenType = localStorage.getItem("token_type") || "Bearer";
           if (token) {
+            syncExpiresAtFromJWT(token);
             config.headers = {
               ...config.headers,
               Authorization: `${tokenType} ${token}`,

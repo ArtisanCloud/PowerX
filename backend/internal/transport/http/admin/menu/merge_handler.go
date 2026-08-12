@@ -720,10 +720,22 @@ func indexSystemSlots(sys []admdto.AdminMenuItem) map[plugin_mgr.MenuKey]*admdto
 }
 
 func splitPolicyTriple(p string) (string, string, string) {
-	parts := strings.Split(strings.TrimSpace(p), ":")
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return "", "", ""
+	}
+	parts := strings.Split(p, ":")
 	switch len(parts) {
 	case 2:
-		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), "view"
+		left := strings.TrimSpace(parts[0])
+		action := strings.TrimSpace(parts[1])
+		if left == "" || action == "" {
+			return "", "", ""
+		}
+		if idx := strings.LastIndex(left, "."); idx > 0 && idx < len(left)-1 {
+			return strings.TrimSpace(left[:idx]), strings.TrimSpace(left[idx+1:]), action
+		}
+		return left, strings.TrimSpace(parts[1]), "view"
 	case 3:
 		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
 	default:
@@ -780,6 +792,12 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 		case strings.HasPrefix(string(item.Slot), string(plugin_mgr.SlotPlugins)+""):
 			if pluginID == "" {
 				byID[catAppsKey].Children = append(byID[catAppsKey].Children, item)
+				continue
+			}
+			if item.Slot == plugin_mgr.SlotPlugins {
+				groupKey := catAppsPrefixKey + pluginID
+				title := formatPluginGroupTitle(item.Title, i18n, locales)
+				addToPluginGroup(plugGroups, groupKey, title, item)
 				continue
 			}
 			suffix := strings.TrimPrefix(string(item.Slot), string(plugin_mgr.SlotPlugins)+".")

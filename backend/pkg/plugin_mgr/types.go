@@ -266,6 +266,9 @@ type PermissionSpec struct {
 	Module                 string                      `yaml:"module,omitempty" json:"module,omitempty"`
 	Type                   string                      `yaml:"type,omitempty" json:"type,omitempty"`
 	PermissionCode         string                      `yaml:"permission_code,omitempty" json:"permission_code,omitempty"`
+	Action                 string                      `yaml:"action,omitempty" json:"action,omitempty"`
+	MenuPath               []string                    `yaml:"menu_path,omitempty" json:"menu_path,omitempty"`
+	PagePermissionCodes    []string                    `yaml:"page_permission_codes,omitempty" json:"page_permission_codes,omitempty"`
 	BusinessPermissionCode string                      `yaml:"business_permission_code,omitempty" json:"business_permission_code,omitempty"`
 	TitleI18n              map[string]string           `yaml:"title_i18n,omitempty" json:"title_i18n,omitempty"`
 	DescriptionI18n        map[string]string           `yaml:"description_i18n,omitempty" json:"description_i18n,omitempty"`

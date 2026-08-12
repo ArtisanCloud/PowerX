@@ -140,7 +140,7 @@ func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_m
 		Origin:        plugin_mgr.OriginPlugin,
 		Visible:       visible,
 		Slot:          slot,
-		Permissions:   appendPluginMenuPermission(m.RequiredPolicies, pluginID, m),
+		Permissions:   dedupePolicies(m.RequiredPolicies),
 		TitleI18n:     titleI18n,
 		PluginVersion: strings.TrimSpace(pluginVersion),
 	}
@@ -156,16 +156,6 @@ func convertPluginMenuItem(pluginID, pluginVersion, root string, parent plugin_m
 		}
 	}
 	return item
-}
-
-func appendPluginMenuPermission(existing []string, pluginID string, item plugin_mgr.MenuItem) []string {
-	policy := plugin_mgr.PluginMenuPermissionPolicy(pluginID, item)
-	if strings.TrimSpace(policy) == "" {
-		return dedupePolicies(existing)
-	}
-	out := append([]string{}, existing...)
-	out = append(out, policy)
-	return dedupePolicies(out)
 }
 
 func dedupePolicies(items []string) []string {

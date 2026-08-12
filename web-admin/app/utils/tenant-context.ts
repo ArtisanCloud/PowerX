@@ -1,23 +1,10 @@
 import { useCookie } from "#app";
+import { decodeJwtPayload } from "~/utils/auth-token";
 
 export const TENANT_UUID_STORAGE_KEY = "px_current_tenant_uuid";
 
 const normalize = (value?: string | null) =>
   value ? value.trim().toLowerCase() : "";
-
-const decodeJwtPayload = (token?: string | null): Record<string, any> | null => {
-  if (!token) return null;
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  try {
-    const padded =
-      parts[1].padEnd(parts[1].length + ((4 - (parts[1].length % 4)) % 4), "=");
-    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-};
 
 export const getStoredTenantUUID = (): string | null => {
   if (process.client) {

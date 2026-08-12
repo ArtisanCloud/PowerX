@@ -32,10 +32,14 @@ type platformCapabilityFile struct {
 }
 
 type platformCapabilityEntry struct {
-	CapabilityID string                           `yaml:"capability_id"`
-	Module       string                           `yaml:"module"`
-	Title        string                           `yaml:"title"`
-	Protocols    []platformCapabilityProtocolItem `yaml:"protocols"`
+	CapabilityID    string                           `yaml:"capability_id"`
+	Module          string                           `yaml:"module"`
+	Title           string                           `yaml:"title"`
+	Description     string                           `yaml:"description"`
+	PermissionCode  string                           `yaml:"permission_code"`
+	TitleI18n       map[string]string                `yaml:"title_i18n"`
+	DescriptionI18n map[string]string                `yaml:"description_i18n"`
+	Protocols       []platformCapabilityProtocolItem `yaml:"protocols"`
 }
 
 type platformCapabilityProtocolItem struct {
@@ -98,7 +102,8 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 	sort.Strings(paths)
 
 	out := make([]modelsiam.Permission, 0, 512)
-	seen := make(map[string]struct{}, 1024)
+	seenOperations := make(map[string]struct{}, 512)
+	seenAPIs := make(map[string]struct{}, 1024)
 	for _, path := range paths {
 		raw, readErr := os.ReadFile(path)
 		if readErr != nil {
@@ -108,7 +113,20 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 		if unmarshalErr := yaml.Unmarshal(raw, &file); unmarshalErr != nil {
 			return nil, fmt.Errorf("parse %s failed: %w", path, unmarshalErr)
 		}
+		generatedCandidateFile := isGeneratedPlatformCapabilityFile(path)
 		for _, capItem := range file.Capabilities {
+			if !generatedCandidateFile {
+				if err := validateFormalPlatformCapabilityPermissionMeta(path, capItem); err != nil {
+					return nil, err
+				}
+				if operation, ok := platformCapabilityOperationPermission(capItem); ok {
+					key := operation.Module + "|" + operation.Resource + "|" + operation.Action
+					if _, exists := seenOperations[key]; !exists {
+						seenOperations[key] = struct{}{}
+						out = append(out, operation)
+					}
+				}
+			}
 			for _, proto := range capItem.Protocols {
 				if !strings.EqualFold(strings.TrimSpace(proto.Channel), "rest") {
 					continue
@@ -125,22 +143,29 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 				}
 
 				key := module + "|" + resource + "|" + action
-				if _, ok := seen[key]; ok {
+				if _, ok := seenAPIs[key]; ok {
 					continue
 				}
-				seen[key] = struct{}{}
+				seenAPIs[key] = struct{}{}
 
-				meta := map[string]any{
-					"type":          "api",
-					"module":        module,
-					"label":         strings.TrimSpace(capItem.Title),
-					"http_method":   method,
-					"api_endpoint":  endpoint,
-					"capability_id": strings.TrimSpace(capItem.CapabilityID),
-					"source":        "platform_capabilities",
+				if generatedCandidateFile {
+					out = append(out, generatedPlatformCapabilityCandidate(module, resource, action, method, endpoint, capItem))
+					continue
 				}
-				if strings.TrimSpace(anyToString(meta["label"])) == "" {
-					meta["label"] = method + " " + endpoint
+
+				titleI18n := normalizedLocaleMap(capItem.TitleI18n)
+				descriptionI18n := normalizedLocaleMap(capItem.DescriptionI18n)
+				meta := map[string]any{
+					"type":             "api",
+					"module":           module,
+					"label":            preferredLocaleText(titleI18n),
+					"title_i18n":       titleI18n,
+					"description_i18n": descriptionI18n,
+					"http_method":      method,
+					"api_endpoint":     endpoint,
+					"capability_id":    strings.TrimSpace(capItem.CapabilityID),
+					"permission_code":  strings.TrimSpace(capItem.PermissionCode),
+					"source":           "platform_capabilities",
 				}
 				metaBytes, _ := json.Marshal(meta)
 
@@ -149,7 +174,7 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 					Resource:    resource,
 					Action:      action,
 					Effect:      "allow",
-					Description: method + " " + endpoint,
+					Description: preferredLocaleText(descriptionI18n),
 					Meta:        metaBytes,
 					Status:      modelsiam.PermissionStatusActive,
 					Source:      platformPermissionSource,
@@ -169,6 +194,138 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 		}
 	}
 	return out, nil
+}
+
+func platformCapabilityOperationPermission(capItem platformCapabilityEntry) (modelsiam.Permission, bool) {
+	module, resource, action, ok := operationTripleFromPermissionCode(capItem.Module, capItem.PermissionCode)
+	if !ok {
+		return modelsiam.Permission{}, false
+	}
+	titleI18n := normalizedLocaleMap(capItem.TitleI18n)
+	descriptionI18n := normalizedLocaleMap(capItem.DescriptionI18n)
+	meta := map[string]any{
+		"type":             "action",
+		"module":           module,
+		"label":            preferredLocaleText(titleI18n),
+		"title_i18n":       titleI18n,
+		"description_i18n": descriptionI18n,
+		"capability_id":    strings.TrimSpace(capItem.CapabilityID),
+		"permission_code":  strings.TrimSpace(capItem.PermissionCode),
+		"source":           "platform_capabilities",
+	}
+	metaBytes, _ := json.Marshal(meta)
+	return modelsiam.Permission{
+		Module:      module,
+		Resource:    resource,
+		Action:      action,
+		Effect:      "allow",
+		Description: preferredLocaleText(descriptionI18n),
+		Meta:        metaBytes,
+		Status:      modelsiam.PermissionStatusActive,
+		Source:      platformPermissionSource,
+		Introduced:  IntroducedVersion(),
+		AllowAPIKey: false,
+	}, true
+}
+
+func operationTripleFromPermissionCode(moduleHint, permissionCode string) (module, resource, action string, ok bool) {
+	module = sanitizeToken(moduleHint)
+	code := strings.TrimSpace(permissionCode)
+	parts := strings.Split(code, ":")
+	if len(parts) != 2 {
+		return "", "", "", false
+	}
+	left := strings.TrimSpace(parts[0])
+	action = sanitizeToken(parts[1])
+	if strings.HasPrefix(left, "corex.") {
+		left = strings.TrimPrefix(left, "corex.")
+	}
+	if module != "" {
+		prefix := module + "."
+		if strings.HasPrefix(left, prefix) {
+			left = strings.TrimPrefix(left, prefix)
+		}
+	}
+	resource = sanitizeToken(left)
+	if resource == "" && module != "" {
+		resource = module
+	}
+	return module, resource, action, module != "" && resource != "" && action != ""
+}
+
+func validateFormalPlatformCapabilityPermissionMeta(path string, capItem platformCapabilityEntry) error {
+	capabilityID := strings.TrimSpace(capItem.CapabilityID)
+	if capabilityID == "" {
+		return fmt.Errorf("%s: capability_id is required", path)
+	}
+	if strings.TrimSpace(capItem.PermissionCode) == "" {
+		return fmt.Errorf("%s: capability %s permission_code is required", path, capabilityID)
+	}
+	if preferredLocaleText(normalizedLocaleMap(capItem.TitleI18n)) == "" {
+		return fmt.Errorf("%s: capability %s title_i18n is required for formal api permission", path, capabilityID)
+	}
+	if preferredLocaleText(normalizedLocaleMap(capItem.DescriptionI18n)) == "" {
+		return fmt.Errorf("%s: capability %s description_i18n is required for formal api permission", path, capabilityID)
+	}
+	return nil
+}
+
+func isGeneratedPlatformCapabilityFile(path string) bool {
+	return strings.EqualFold(filepath.Base(path), "generated.auto.yaml")
+}
+
+func generatedPlatformCapabilityCandidate(module, resource, action, method, endpoint string, capItem platformCapabilityEntry) modelsiam.Permission {
+	meta := map[string]any{
+		"type":                "api_candidate",
+		"module":              module,
+		"http_method":         method,
+		"api_endpoint":        endpoint,
+		"capability_id":       strings.TrimSpace(capItem.CapabilityID),
+		"permission_code":     strings.TrimSpace(capItem.PermissionCode),
+		"generated_from":      "platform_capability_generated",
+		"registration_status": "invalid",
+		"registration_errors": []string{"api_permission_platform_capability_missing", "api_permission_i18n_missing"},
+		"title_i18n":          map[string]string{},
+		"description_i18n":    map[string]string{},
+	}
+	metaBytes, _ := json.Marshal(meta)
+	return modelsiam.Permission{
+		Module:      module,
+		Resource:    resource,
+		Action:      action,
+		Effect:      "allow",
+		Meta:        metaBytes,
+		Status:      modelsiam.PermissionStatusDeprecated,
+		Source:      "platform_capability_generated",
+		Introduced:  IntroducedVersion(),
+		AllowAPIKey: false,
+	}
+}
+
+func normalizedLocaleMap(values map[string]string) map[string]string {
+	out := make(map[string]string, len(values))
+	for locale, value := range values {
+		key := strings.TrimSpace(locale)
+		text := strings.TrimSpace(value)
+		if key != "" && text != "" {
+			out[key] = text
+		}
+	}
+	return out
+}
+
+func preferredLocaleText(values map[string]string) string {
+	for _, locale := range []string{"zh-CN", "zh", "en", "en-US"} {
+		if text := strings.TrimSpace(values[locale]); text != "" {
+			return text
+		}
+	}
+	for _, text := range values {
+		if trimmed := strings.TrimSpace(text); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func resolvePlatformCapabilitiesDir() (string, error) {

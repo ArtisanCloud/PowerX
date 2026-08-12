@@ -141,6 +141,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		// 系统权限：注册、同步、更新、状态切换
 		gSysPerm.POST("register", hPerm.Register)
 		gSysPerm.POST("sync", hPerm.Sync)
+		gSysPerm.DELETE("/plugin-invalid", hPerm.CleanupInvalidPluginPermissions)
 		gSysPerm.PATCH("/:id", hPerm.Update)         // 更新描述 /（可选）状态
 		gSysPerm.PUT("/:id/status", hPerm.SetStatus) // 仅状态切换
 	}

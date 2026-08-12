@@ -71,7 +71,7 @@ func TestDynamicRouter_NonPublicRouteUsesAPIMiddleware(t *testing.T) {
 	}
 }
 
-func TestDynamicRouter_RuntimeWSBusRouteBypassesBusinessPermissionBinding(t *testing.T) {
+func TestDynamicRouter_RuntimeWSBusRouteRequiresRegisteredPermissionSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	auth.SetJWTSecret([]byte("test-secret"))
 
@@ -79,8 +79,22 @@ func TestDynamicRouter_RuntimeWSBusRouteBypassesBusinessPermissionBinding(t *tes
 		if r.URL.Path != "/api/v1/admin/runtime/ws-bus/grant" {
 			t.Fatalf("upstream path = %q", r.URL.Path)
 		}
-		if got := r.Header.Get("Authorization"); !strings.HasPrefix(got, "Bearer ") {
-			t.Fatalf("missing plugin token authorization header: %q", got)
+		authz := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authz, "Bearer ") {
+			t.Fatalf("missing plugin token authorization header: %q", authz)
+		}
+		claims, err := auth.ParseAndValidate(strings.TrimPrefix(authz, "Bearer "), []byte("test-secret"), "powerx-auth", "plugin:com.powerx.plugins.test")
+		if err != nil {
+			t.Fatalf("ParseAndValidate error: %v", err)
+		}
+		if len(claims.PermissionCodes) != 1 || claims.PermissionCodes[0] != "runtime.ops:manage" {
+			t.Fatalf("permission codes = %#v, want runtime.ops:manage", claims.PermissionCodes)
+		}
+		if claims.PolicyVersion == "" {
+			t.Fatalf("expected policy_version in delegated snapshot")
+		}
+		if claims.PermsHash == "" {
+			t.Fatalf("expected perms_hash in delegated snapshot")
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -106,7 +120,15 @@ func TestDynamicRouter_RuntimeWSBusRouteBypassesBusinessPermissionBinding(t *tes
 		c.Set("auth_claims", claims)
 		c.Next()
 	})
-	dr.BindAuthorizer(&registeredRouteAuthorizer{routes: map[string]Permission{}}, "powerx-auth", 0)
+	dr.BindAuthorizer(&registeredRouteAuthorizer{
+		routes: map[string]Permission{
+			"POST:/admin/runtime/ws-bus/grant": {
+				Resource: "runtime.ops",
+				Action:   "manage",
+			},
+		},
+		perms: []string{"runtime.ops:manage"},
+	}, "powerx-auth", 0)
 	dr.BindTenantPluginGuard(func(context.Context, string, string) error { return nil })
 	dr.MountAPIProxy("com.powerx.plugins.test", upstreamURL, "/api/v1", "/healthz")
 

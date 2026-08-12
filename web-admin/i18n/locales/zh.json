@@ -607,8 +607,14 @@
       "disabled": "已停用"
     },
     "skill": {
-      "marketingAudioOrDocumentParse": "解析营销音频或文档",
-      "marketingExtractMethodology": "提取营销方法论"
+      "marketingSourceParse": {
+        "summary": "解析营销文本、链接、音频或文档素材。",
+        "releaseNote": "内置营销素材解析技能。"
+      },
+      "marketingMethodologyExtract": {
+        "summary": "从营销素材中抽取可审核的方法论草稿。",
+        "releaseNote": "内置营销方法论抽取技能。"
+      }
     },
     "runtimeError": {
       "tokenMissing": "缺少登录凭证",
@@ -790,16 +796,6 @@
       },
       "compensation": {
         "rollback": "补偿回滚"
-      }
-    },
-    "skill": {
-      "marketingSourceParse": {
-        "summary": "解析营销文本、链接、音频或文档素材。",
-        "releaseNote": "内置营销素材解析技能。"
-      },
-      "marketingMethodologyExtract": {
-        "summary": "从营销素材中抽取可审核的方法论草稿。",
-        "releaseNote": "内置营销方法论抽取技能。"
       }
     },
     "pack": {
@@ -1073,12 +1069,71 @@
       "roleConfig": "角色权限配置",
       "configDesc": "为当前角色勾选并保存权限项。",
       "add": "新增角色",
+      "systemRole": "系统",
+      "userCount": "用户",
+      "permissionSearch": {
+        "placeholder": "搜索菜单、能力、API、权限码或插件",
+        "clear": "清空权限搜索",
+        "results": "匹配 {count} 项",
+        "empty": "没有匹配的权限项。"
+      },
       "pluginCatalog": {
         "title": "插件声明权限",
         "description": "按插件、业务模块和权限类型展示已登记的菜单、页面、动作和接口权限。",
         "plugin": "插件",
         "invalid": "登记异常",
-        "businessPermission": "业务动作权限"
+        "businessPermission": "业务动作权限",
+        "unnamedApi": "未命名 API 权限",
+        "dataScope": "数据范围",
+        "levels": {
+          "source": "来源",
+          "module": "模块"
+        },
+        "sources": {
+          "core": "PowerX 底座"
+        },
+        "groups": {
+          "operation": "操作权限",
+          "api": "API 权限"
+        },
+        "filters": {
+          "source": "来源筛选",
+          "plugin": "插件筛选",
+          "module": "模块筛选",
+          "type": "类型筛选",
+          "registration": "登记状态筛选",
+          "allSources": "全部来源",
+          "allPlugins": "全部插件",
+          "allModules": "全部模块",
+          "allTypes": "全部类型",
+          "allRegistration": "全部登记状态",
+          "registered": "登记正常",
+          "invalid": "登记异常",
+          "reset": "重置筛选"
+        },
+        "cleanup": {
+          "action": "清理异常登记",
+          "confirm": "确认清理插件 {plugin} 的 {count} 条异常权限登记？该操作会先解除角色绑定，再删除异常权限行。",
+          "successTitle": "异常登记已清理",
+          "successDescription": "已删除 {count} 条异常权限登记。",
+          "errorTitle": "清理异常登记失败"
+        },
+        "errors": {
+          "menu_permission_declaration_missing": "菜单项 required_policies 指向的菜单权限未在 permissions[] 中声明。",
+          "menu_permission_orphan": "该菜单权限没有被任何 frontend.admin.menus 菜单项引用。",
+          "menu_path_mismatch": "menu_path 与 frontend.admin.menus 的真实菜单路径不一致。",
+          "menu_path_invalid_technical_segment": "menu_path 包含插件 ID、/_p 路径、API 路径或 URL 等技术片段。",
+          "menuPathExpected": "期望路径：{path}",
+          "menuPathActual": "实际路径：{path}"
+        },
+        "types": {
+          "menu": "菜单",
+          "page": "页面",
+          "action": "操作",
+          "data": "数据",
+          "api": "API",
+          "apiKeyGrant": "API Key 授权范围"
+        }
       },
       "empty": {
         "title": "暂无角色",

@@ -336,12 +336,14 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, 
 }
 
 type pluginRBACPermissionMeta struct {
-	Type             string                      `json:"type"`
-	Origin           string                      `json:"origin"`
-	PluginID         string                      `json:"plugin_id"`
-	Path             string                      `json:"path"`
-	Route            string                      `json:"route"`
-	ProtocolBindings []pluginRBACProtocolBinding `json:"protocol_bindings"`
+	Type                string                      `json:"type"`
+	Origin              string                      `json:"origin"`
+	PluginID            string                      `json:"plugin_id"`
+	Path                string                      `json:"path"`
+	Route               string                      `json:"route"`
+	Permission          string                      `json:"permission"`
+	PagePermissionCodes []string                    `json:"page_permission_codes"`
+	ProtocolBindings    []pluginRBACProtocolBinding `json:"protocol_bindings"`
 }
 
 type pluginRBACProtocolBinding struct {
@@ -355,8 +357,9 @@ func (s *RBACService) expandPluginMenuPagePermissionIDs(ctx context.Context, sel
 		return nil, nil
 	}
 	type sourceMenuPaths struct {
-		source string
-		paths  map[string]struct{}
+		source              string
+		paths               map[string]struct{}
+		pagePermissionCodes map[string]struct{}
 	}
 	menusBySource := map[string]sourceMenuPaths{}
 	for _, perm := range selected {
@@ -368,16 +371,20 @@ func (s *RBACService) expandPluginMenuPagePermissionIDs(ctx context.Context, sel
 			continue
 		}
 		paths := pluginMenuAdminPathCandidates(meta.Path, meta.Route)
-		if len(paths) == 0 {
+		pagePermissionCodes := normalizePermissionCodeSet(meta.PagePermissionCodes)
+		if len(paths) == 0 && len(pagePermissionCodes) == 0 {
 			continue
 		}
 		source := strings.TrimSpace(perm.Source)
 		bucket := menusBySource[source]
 		if bucket.paths == nil {
-			bucket = sourceMenuPaths{source: source, paths: map[string]struct{}{}}
+			bucket = sourceMenuPaths{source: source, paths: map[string]struct{}{}, pagePermissionCodes: map[string]struct{}{}}
 		}
 		for _, item := range paths {
 			bucket.paths[item] = struct{}{}
+		}
+		for item := range pagePermissionCodes {
+			bucket.pagePermissionCodes[item] = struct{}{}
 		}
 		menusBySource[source] = bucket
 	}
@@ -398,7 +405,7 @@ func (s *RBACService) expandPluginMenuPagePermissionIDs(ctx context.Context, sel
 			if !strings.EqualFold(strings.TrimSpace(meta.Type), "page") {
 				continue
 			}
-			if pluginPagePermissionMatchesMenuPath(meta, bucket.paths) {
+			if permissionCodeInSet(meta.Permission, bucket.pagePermissionCodes) || pluginPagePermissionMatchesMenuPath(meta, bucket.paths) {
 				expanded[rows[i].ID] = struct{}{}
 			}
 		}
@@ -412,6 +419,27 @@ func (s *RBACService) expandPluginMenuPagePermissionIDs(ctx context.Context, sel
 	}
 	slices.Sort(ids)
 	return ids, nil
+}
+
+func normalizePermissionCodeSet(items []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, raw := range items {
+		item := strings.TrimSpace(raw)
+		if item == "" {
+			continue
+		}
+		out[item] = struct{}{}
+	}
+	return out
+}
+
+func permissionCodeInSet(permission string, set map[string]struct{}) bool {
+	permission = strings.TrimSpace(permission)
+	if permission == "" || len(set) == 0 {
+		return false
+	}
+	_, ok := set[permission]
+	return ok
 }
 
 func decodePluginRBACPermissionMeta(raw []byte) pluginRBACPermissionMeta {

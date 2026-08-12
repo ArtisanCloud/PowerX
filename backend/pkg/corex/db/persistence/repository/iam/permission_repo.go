@@ -106,8 +106,8 @@ func (r *PermissionRepository) List(ctx context.Context, filter map[string]strin
 	if kw := strings.TrimSpace(filter["keyword"]); kw != "" {
 		like := "%" + strings.ToLower(kw) + "%"
 		q = q.Where(
-			"LOWER(module) LIKE ? OR LOWER(resource) LIKE ? OR LOWER(action) LIKE ? OR LOWER(description) LIKE ? OR LOWER(meta->>'label') LIKE ?",
-			like, like, like, like, like,
+			"LOWER(module) LIKE ? OR LOWER(resource) LIKE ? OR LOWER(action) LIKE ? OR LOWER(description) LIKE ? OR LOWER(meta->>'label') LIKE ? OR LOWER(meta->'title_i18n'->>'zh-CN') LIKE ? OR LOWER(meta->'title_i18n'->>'zh') LIKE ? OR LOWER(meta->'title_i18n'->>'en') LIKE ? OR LOWER(meta->'title_i18n'->>'en-US') LIKE ? OR LOWER(meta->'description_i18n'->>'zh-CN') LIKE ? OR LOWER(meta->'description_i18n'->>'zh') LIKE ? OR LOWER(meta->'description_i18n'->>'en') LIKE ? OR LOWER(meta->'description_i18n'->>'en-US') LIKE ?",
+			like, like, like, like, like, like, like, like, like, like, like, like, like,
 		)
 	}
 	if err = q.Count(&total).Error; err != nil {

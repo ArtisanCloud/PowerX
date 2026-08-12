@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildPluginPermissionRowsIncludesFrontendAdminMenus(t *testing.T) {
+func TestBuildPluginPermissionRowsIgnoresFrontendAdminMenusWithoutPermissionDeclarations(t *testing.T) {
 	manifest := plugin_mgr.Manifest{
 		ID:      "com.example.app",
 		Version: "1.2.3",
@@ -26,25 +26,10 @@ func TestBuildPluginPermissionRowsIncludesFrontendAdminMenus(t *testing.T) {
 
 	rows := buildPluginPermissionRows(manifest)
 
-	require.Len(t, rows, 2)
-	require.Equal(t, "menu", rows[0].Module)
-	require.Equal(t, "plugin.com.example.app.templates", rows[0].Resource)
-	require.Equal(t, "read", rows[0].Action)
-	require.Equal(t, "plugin:com.example.app", rows[0].Source)
-	require.False(t, rows[0].AllowAPIKey)
-
-	var meta map[string]any
-	require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
-	require.Equal(t, "menu", meta["type"])
-	require.Equal(t, "com.example.app", meta["plugin_id"])
-	require.Equal(t, "Example App", meta["plugin_name"])
-	require.Equal(t, "templates", meta["menu_id"])
-	require.Equal(t, "模板", meta["label"])
-
-	require.Equal(t, "plugin.com.example.app.templates.detail", rows[1].Resource)
+	require.Empty(t, rows)
 }
 
-func TestBuildPluginPermissionRowsKeepsManifestPermissionsAndMenuPermissions(t *testing.T) {
+func TestBuildPluginPermissionRowsKeepsOnlyManifestPermissions(t *testing.T) {
 	manifest := plugin_mgr.Manifest{
 		ID:      "com.example.app",
 		Version: "1.2.3",
@@ -63,13 +48,10 @@ func TestBuildPluginPermissionRowsKeepsManifestPermissionsAndMenuPermissions(t *
 
 	rows := buildPluginPermissionRows(manifest)
 
-	require.Len(t, rows, 3)
+	require.Len(t, rows, 2)
 	require.Equal(t, "com.example.app", rows[0].Module)
 	require.Equal(t, "template", rows[0].Resource)
 	require.Equal(t, "read", rows[0].Action)
-	require.Equal(t, "menu", rows[2].Module)
-	require.Equal(t, "plugin.com.example.app.templates", rows[2].Resource)
-	require.Equal(t, "read", rows[2].Action)
 }
 
 func TestBuildPluginPermissionRowsSupportsGranularPermissionDeclarations(t *testing.T) {
@@ -81,6 +63,8 @@ func TestBuildPluginPermissionRowsSupportsGranularPermissionDeclarations(t *test
 				Type:           "page",
 				PermissionCode: "workspace.case_file:read",
 				Module:         "workspace",
+				Resource:       "case_file",
+				Action:         "read",
 				TitleI18n: map[string]string{
 					"zh-CN": "示例记录读取",
 					"en":    "Read example records",
@@ -106,13 +90,15 @@ func TestBuildPluginPermissionRowsSupportsGranularPermissionDeclarations(t *test
 				PermissionCode:         "workspace.case_file_api:approve",
 				BusinessPermissionCode: "workspace.case_file:approve",
 				Module:                 "workspace",
+				Resource:               "case_file_api",
+				Action:                 "approve",
 				RiskLevel:              "medium",
 				DataScope:              "tenant",
 				ProtocolBindings: []plugin_mgr.PermissionProtocolBinding{
 					{
 						Channel:       "rest",
 						Method:        "POST",
-						Path:          "/admin/example/records/{uuid}/approve",
+						Path:          "/admin/example/records/*/approve",
 						ActorContext:  "admin_user",
 						ResourceScope: "tenant",
 					},
@@ -145,7 +131,7 @@ func TestBuildPluginPermissionRowsSupportsGranularPermissionDeclarations(t *test
 	require.NotEmpty(t, apiMeta["protocol_bindings"])
 }
 
-func TestBuildPluginPermissionRowsAllowsLongPluginMenuResources(t *testing.T) {
+func TestBuildPluginPermissionRowsDoesNotAutoGeneratePluginMenuPermissions(t *testing.T) {
 	manifest := plugin_mgr.Manifest{
 		ID:      "com.powerx.plugins.base",
 		Version: "0.1.3",
@@ -160,9 +146,118 @@ func TestBuildPluginPermissionRowsAllowsLongPluginMenuResources(t *testing.T) {
 
 	rows := buildPluginPermissionRows(manifest)
 
+	require.Empty(t, rows)
+}
+
+func TestBuildPluginPermissionRowsFlagsMenuPermissionMissingDeclaration(t *testing.T) {
+	manifest := plugin_mgr.Manifest{
+		ID:      "com.example.app",
+		Version: "1.2.3",
+		Frontend: plugin_mgr.FrontendSpec{Admin: plugin_mgr.FrontendAdminSpec{Menus: []plugin_mgr.MenuItem{
+			{
+				ID: "business",
+				Children: []plugin_mgr.MenuItem{{
+					ID:               "records",
+					RequiredPolicies: []string{"menu.example.records:view"},
+				}},
+			},
+		}}},
+	}
+
+	rows := buildPluginPermissionRows(manifest)
+
 	require.Len(t, rows, 1)
-	require.Greater(t, len(rows[0].Resource), 64)
-	require.Equal(t, "plugin.com.powerx.plugins.base.plugins.com.powerx.plugins.base.templates.framework_lab", rows[0].Resource)
-	require.Equal(t, "menu", rows[0].Module)
-	require.Equal(t, "read", rows[0].Action)
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
+	require.Equal(t, "menu.example.records:view", meta["permission"])
+	require.Equal(t, []any{"business", "records"}, meta["menu_path"])
+	require.Contains(t, meta["registration_errors"], "menu_permission_declaration_missing")
+}
+
+func TestBuildPluginPermissionRowsFlagsOrphanMenuPermission(t *testing.T) {
+	manifest := plugin_mgr.Manifest{
+		ID:      "com.example.app",
+		Version: "1.2.3",
+		Permissions: []plugin_mgr.PermissionSpec{validMenuPermissionSpec(
+			"menu.example.records:view",
+			[]string{"business", "records"},
+		)},
+	}
+
+	rows := buildPluginPermissionRows(manifest)
+
+	require.Len(t, rows, 1)
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
+	require.Contains(t, meta["registration_errors"], "menu_permission_orphan")
+}
+
+func TestBuildPluginPermissionRowsFlagsMenuPathMismatch(t *testing.T) {
+	manifest := plugin_mgr.Manifest{
+		ID:      "com.example.app",
+		Version: "1.2.3",
+		Frontend: plugin_mgr.FrontendSpec{Admin: plugin_mgr.FrontendAdminSpec{Menus: []plugin_mgr.MenuItem{
+			{
+				ID: "business",
+				Children: []plugin_mgr.MenuItem{{
+					ID:               "records",
+					RequiredPolicies: []string{"menu.example.records:view"},
+				}},
+			},
+		}}},
+		Permissions: []plugin_mgr.PermissionSpec{validMenuPermissionSpec(
+			"menu.example.records:view",
+			[]string{"records"},
+		)},
+	}
+
+	rows := buildPluginPermissionRows(manifest)
+
+	require.Len(t, rows, 1)
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
+	require.Contains(t, meta["registration_errors"], "menu_path_mismatch")
+	require.Contains(t, meta["registration_errors"], "menu_path_expected:business/records")
+	require.Contains(t, meta["registration_errors"], "menu_path_actual:records")
+}
+
+func TestBuildPluginPermissionRowsFlagsTechnicalMenuPath(t *testing.T) {
+	manifest := plugin_mgr.Manifest{
+		ID:      "com.example.app",
+		Version: "1.2.3",
+		Frontend: plugin_mgr.FrontendSpec{Admin: plugin_mgr.FrontendAdminSpec{Menus: []plugin_mgr.MenuItem{
+			{
+				ID:               "_p/com.example.app/admin/records",
+				RequiredPolicies: []string{"menu.example.records:view"},
+			},
+		}}},
+		Permissions: []plugin_mgr.PermissionSpec{validMenuPermissionSpec(
+			"menu.example.records:view",
+			[]string{"_p/com.example.app/admin/records"},
+		)},
+	}
+
+	rows := buildPluginPermissionRows(manifest)
+
+	require.Len(t, rows, 1)
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
+	require.Contains(t, meta["registration_errors"], "menu_path_invalid_technical_segment")
+}
+
+func validMenuPermissionSpec(code string, menuPath []string) plugin_mgr.PermissionSpec {
+	return plugin_mgr.PermissionSpec{
+		Type:           "menu",
+		PermissionCode: code,
+		Module:         "example",
+		MenuPath:       menuPath,
+		TitleI18n: map[string]string{
+			"zh-CN": "示例菜单",
+		},
+		DescriptionI18n: map[string]string{
+			"zh-CN": "允许查看示例菜单。",
+		},
+		RiskLevel: "low",
+		DataScope: "tenant",
+	}
 }
