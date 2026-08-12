@@ -563,8 +563,14 @@
       "disabled": "Disabled"
     },
     "skill": {
-      "marketingAudioOrDocumentParse": "Parse marketing audio or document",
-      "marketingExtractMethodology": "Extract marketing methodology"
+      "marketingSourceParse": {
+        "summary": "Parse marketing text, links, audio, or document material.",
+        "releaseNote": "Built-in marketing source parsing skill."
+      },
+      "marketingMethodologyExtract": {
+        "summary": "Extract reviewable methodology drafts from marketing material.",
+        "releaseNote": "Built-in marketing methodology extraction skill."
+      }
     },
     "runtimeError": {
       "tokenMissing": "Missing login credential",
@@ -746,16 +752,6 @@
       },
       "compensation": {
         "rollback": "Compensation Rollback"
-      }
-    },
-    "skill": {
-      "marketingSourceParse": {
-        "summary": "Parse marketing text, links, audio, or document material.",
-        "releaseNote": "Built-in marketing source parsing skill."
-      },
-      "marketingMethodologyExtract": {
-        "summary": "Extract reviewable methodology drafts from marketing material.",
-        "releaseNote": "Built-in marketing methodology extraction skill."
       }
     },
     "pack": {
@@ -1029,12 +1025,71 @@
       "roleConfig": "Role Permission Config",
       "configDesc": "Select permissions for the current role and save.",
       "add": "Add role",
+      "systemRole": "System",
+      "userCount": "Users",
+      "permissionSearch": {
+        "placeholder": "Search menus, capabilities, APIs, permission codes, or plugins",
+        "clear": "Clear permission search",
+        "results": "{count} matches",
+        "empty": "No matching permissions."
+      },
       "pluginCatalog": {
         "title": "Plugin declared permissions",
         "description": "View registered menu, page, action and API permissions by plugin, business module and permission type.",
         "plugin": "Plugin",
         "invalid": "Registration issue",
-        "businessPermission": "Business action permission"
+        "businessPermission": "Business action permission",
+        "unnamedApi": "Unnamed API permission",
+        "dataScope": "Data scope",
+        "levels": {
+          "source": "Source",
+          "module": "Module"
+        },
+        "sources": {
+          "core": "PowerX Core"
+        },
+        "groups": {
+          "operation": "Operation permissions",
+          "api": "API permissions"
+        },
+        "filters": {
+          "source": "Source filter",
+          "plugin": "Plugin filter",
+          "module": "Module filter",
+          "type": "Type filter",
+          "registration": "Registration status filter",
+          "allSources": "All sources",
+          "allPlugins": "All plugins",
+          "allModules": "All modules",
+          "allTypes": "All types",
+          "allRegistration": "All registration statuses",
+          "registered": "Registered",
+          "invalid": "Registration issue",
+          "reset": "Reset filters"
+        },
+        "cleanup": {
+          "action": "Clean registration issues",
+          "confirm": "Clean {count} invalid permission registrations for plugin {plugin}? This will remove role bindings first, then delete invalid permission rows.",
+          "successTitle": "Registration issues cleaned",
+          "successDescription": "Deleted {count} invalid permission registrations.",
+          "errorTitle": "Failed to clean registration issues"
+        },
+        "errors": {
+          "menu_permission_declaration_missing": "The menu item's required_policies references a menu permission that is not declared in permissions[].",
+          "menu_permission_orphan": "This menu permission is not referenced by any frontend.admin.menus menu item.",
+          "menu_path_mismatch": "menu_path does not match the real frontend.admin.menus menu path.",
+          "menu_path_invalid_technical_segment": "menu_path contains technical segments such as plugin ID, /_p path, API path, or URL.",
+          "menuPathExpected": "Expected path: {path}",
+          "menuPathActual": "Actual path: {path}"
+        },
+        "types": {
+          "menu": "Menu",
+          "page": "Page",
+          "action": "Operation",
+          "data": "Data",
+          "api": "API",
+          "apiKeyGrant": "API Key grant scope"
+        }
       },
       "empty": {
         "title": "No roles yet",

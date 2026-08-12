@@ -4,8 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
@@ -21,12 +24,12 @@ func TestDynamicRouter_PublicExposureBypassesAPIMiddleware(t *testing.T) {
 	dr.BindAuthorizer(nil, "powerx-auth", 0)
 	dr.InstallPolicy("com.powerx.plugins.test", &Policy{
 		PublicRoutes: []PublicRoute{
-			{Method: http.MethodPost, Path: "/api/v1/integration/test/webhooks/shopify"},
+			{Method: http.MethodPost, Path: "/integration/test/webhooks/callback"},
 		},
 	})
 	dr.MountAPIProxy("com.powerx.plugins.test", nil, "/api/v1", "/healthz")
 
-	req := httptest.NewRequest(http.MethodPost, "/_p/com.powerx.plugins.test/api/v1/integration/test/webhooks/shopify", nil)
+	req := httptest.NewRequest(http.MethodPost, "/_p/com.powerx.plugins.test/api/v1/integration/test/webhooks/callback", nil)
 	rec := httptest.NewRecorder()
 	engine.ServeHTTP(rec, req)
 
@@ -52,7 +55,7 @@ func TestDynamicRouter_NonPublicRouteUsesAPIMiddleware(t *testing.T) {
 	dr.BindAuthorizer(nil, "powerx-auth", 0)
 	dr.InstallPolicy("com.powerx.plugins.test", &Policy{
 		PublicRoutes: []PublicRoute{
-			{Method: http.MethodPost, Path: "/api/v1/integration/test/webhooks/shopify"},
+			{Method: http.MethodPost, Path: "/integration/test/webhooks/callback"},
 		},
 	})
 
@@ -65,6 +68,80 @@ func TestDynamicRouter_NonPublicRouteUsesAPIMiddleware(t *testing.T) {
 	}
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("code=%d, want 401", rec.Code)
+	}
+}
+
+func TestDynamicRouter_RuntimeWSBusRouteRequiresRegisteredPermissionSnapshot(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	auth.SetJWTSecret([]byte("test-secret"))
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/admin/runtime/ws-bus/grant" {
+			t.Fatalf("upstream path = %q", r.URL.Path)
+		}
+		authz := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authz, "Bearer ") {
+			t.Fatalf("missing plugin token authorization header: %q", authz)
+		}
+		claims, err := auth.ParseAndValidate(strings.TrimPrefix(authz, "Bearer "), []byte("test-secret"), "powerx-auth", "plugin:com.powerx.plugins.test")
+		if err != nil {
+			t.Fatalf("ParseAndValidate error: %v", err)
+		}
+		if len(claims.PermissionCodes) != 1 || claims.PermissionCodes[0] != "runtime.ops:manage" {
+			t.Fatalf("permission codes = %#v, want runtime.ops:manage", claims.PermissionCodes)
+		}
+		if claims.PolicyVersion == "" {
+			t.Fatalf("expected policy_version in delegated snapshot")
+		}
+		if claims.PermsHash == "" {
+			t.Fatalf("expected perms_hash in delegated snapshot")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(upstream.Close)
+	upstreamURL, err := url.Parse(upstream.URL)
+	if err != nil {
+		t.Fatalf("parse upstream url: %v", err)
+	}
+
+	engine := gin.New()
+	tenantUUID := "6b5d0240-9920-46da-b707-88200e0f51ea"
+	dr := NewDynamicRouter("/_p", engine, func(c *gin.Context) {
+		claims := reqctx.CoreXClaims{
+			TenantUUID: tenantUUID,
+			UserID:     101,
+			MemberID:   202,
+		}
+		ctx := reqctx.WithClaims(c.Request.Context(), &claims)
+		ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
+		ctx = reqctx.WithUserID(ctx, claims.UserID)
+		ctx = reqctx.WithMemberID(ctx, claims.MemberID)
+		c.Request = c.Request.WithContext(ctx)
+		c.Set("auth_claims", claims)
+		c.Next()
+	})
+	dr.BindAuthorizer(&registeredRouteAuthorizer{
+		routes: map[string]Permission{
+			"POST:/admin/runtime/ws-bus/grant": {
+				Resource: "runtime.ops",
+				Action:   "manage",
+			},
+		},
+		perms: []string{"runtime.ops:manage"},
+	}, "powerx-auth", 0)
+	dr.BindTenantPluginGuard(func(context.Context, string, string) error { return nil })
+	dr.MountAPIProxy("com.powerx.plugins.test", upstreamURL, "/api/v1", "/healthz")
+
+	host := httptest.NewServer(engine)
+	t.Cleanup(host.Close)
+
+	resp, err := http.Post(host.URL+"/_p/com.powerx.plugins.test/api/v1/admin/runtime/ws-bus/grant", "application/json", nil)
+	if err != nil {
+		t.Fatalf("post runtime route: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("code=%d, want 204", resp.StatusCode)
 	}
 }
 

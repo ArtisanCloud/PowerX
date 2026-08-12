@@ -80,9 +80,9 @@ func TestPolicyFromPlugin_AddPublicExposureRoutes(t *testing.T) {
 				{
 					Type:       "rest",
 					Method:     "POST",
-					Entrypoint: "${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/integration/acme/webhooks/shopify",
+					Entrypoint: "${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/integration/example/webhooks/callback",
 					Auth:       "public",
-					Security:   map[string]any{"verifier": "shopify_hmac"},
+					Security:   map[string]any{"verifier": "external_hmac"},
 				},
 			},
 		},
@@ -96,7 +96,7 @@ func TestPolicyFromPlugin_AddPublicExposureRoutes(t *testing.T) {
 		t.Fatalf("PublicRoutes len=%d, want 1", len(pol.PublicRoutes))
 	}
 	got := pol.PublicRoutes[0]
-	if got.Method != "POST" || got.Path != "/api/v1/integration/acme/webhooks/shopify" {
+	if got.Method != "POST" || got.Path != "/api/v1/integration/example/webhooks/callback" {
 		t.Fatalf("unexpected public route: %+v", got)
 	}
 }

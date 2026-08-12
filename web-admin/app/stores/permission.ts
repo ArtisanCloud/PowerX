@@ -17,6 +17,8 @@ export interface Permission {
   deprecated_at?: number | null;
   meta?: {
     label?: string;
+    title_i18n?: Record<string, string>;
+    description_i18n?: Record<string, string>;
     module?: string;
     type?: "menu" | "action" | "api" | "data" | string;
     api_endpoint?: string;
@@ -31,6 +33,8 @@ export interface Permission {
 // ✅ 追加到顶部类型区
 export type PermissionMeta = {
   label?: string;
+  title_i18n?: Record<string, string>;
+  description_i18n?: Record<string, string>;
   module?: string;
   type?: "menu" | "action" | "data" | "api";
   api_endpoint?: string;
@@ -56,7 +60,14 @@ export type PermissionCatalog = Record<string, Record<string, Permission[]>>;
 
 export interface PluginPermissionCatalogItem {
   id: number;
+  type: "menu" | "page" | "action" | "api" | string;
   permission_code: string;
+  effective_permission_code: string;
+  module: string;
+  resource: string;
+  action: string;
+  menu_path?: string[];
+  page_permission_codes?: string[];
   title_i18n?: Record<string, string>;
   description_i18n?: Record<string, string>;
   risk_level?: string;
@@ -66,25 +77,80 @@ export interface PluginPermissionCatalogItem {
   default_role_grants?: string[];
   status: "active" | "deprecated";
   registration_status: "registered" | "invalid" | string;
+  registration_errors?: string[];
 }
 
-export interface PluginPermissionCatalogTypeGroup {
-  type: "menu" | "page" | "action" | "api" | string;
-  permissions: PluginPermissionCatalogItem[];
+export interface PluginPermissionCatalogMenuNode {
+  key: string;
+  label_i18n?: Record<string, string>;
+  permission?: PluginPermissionCatalogItem;
+  page_permission_codes?: string[];
+  children?: PluginPermissionCatalogMenuNode[];
 }
 
-export interface PluginPermissionCatalogModule {
+export interface PluginPermissionCatalogBusinessResource {
+  resource: string;
+  pages?: PluginPermissionCatalogItem[];
+  actions?: PluginPermissionCatalogItem[];
+}
+
+export interface PluginPermissionCatalogBusinessModule {
   module: string;
-  types: PluginPermissionCatalogTypeGroup[];
+  resources: PluginPermissionCatalogBusinessResource[];
+}
+
+export interface PluginPermissionCatalogAPIBinding {
+  business_permission_code: string;
+  independent: boolean;
+  permission: PluginPermissionCatalogItem;
+  protocol_bindings?: unknown;
 }
 
 export interface PluginPermissionCatalogPlugin {
   plugin_id: string;
-  modules: PluginPermissionCatalogModule[];
+  menu_tree?: PluginPermissionCatalogMenuNode[];
+  business_modules?: PluginPermissionCatalogBusinessModule[];
+  api_bindings?: PluginPermissionCatalogAPIBinding[];
 }
 
 export interface PluginPermissionCatalogResponse {
   plugins: PluginPermissionCatalogPlugin[];
+}
+
+const countMenuCatalogPermissions = (
+  nodes: PluginPermissionCatalogMenuNode[] = [],
+): number =>
+  nodes.reduce(
+    (total, node) =>
+      total +
+      (node.permission ? 1 : 0) +
+      countMenuCatalogPermissions(node.children || []),
+    0,
+  );
+
+const countPluginCatalogPermissions = (
+  plugin: PluginPermissionCatalogPlugin,
+): number =>
+  countMenuCatalogPermissions(plugin.menu_tree || []) +
+  (plugin.business_modules || []).reduce(
+    (total, module) =>
+      total +
+      module.resources.reduce(
+        (resourceTotal, resource) =>
+          resourceTotal +
+          (resource.pages || []).length +
+          (resource.actions || []).length,
+        0,
+      ),
+    0,
+  ) +
+  (plugin.api_bindings || []).length;
+
+export interface PluginInvalidPermissionCleanupResult {
+  plugin_id: string;
+  deleted_permission_ids: number[];
+  deleted_bindings: number;
+  deleted_permissions: number;
 }
 
 // List 查询参数
@@ -177,7 +243,7 @@ export const usePermissionStore = defineStore("permission", () => {
           : `${resource}.${action}`.replace(/^\./, "");
       return {
         id: p.id,
-        // 展示名称优先 label
+        // 展示名称由消费端按当前 locale 解析；这里保留稳定兜底。
         name: m.label || code,
         code,
         module: moduleName,
@@ -206,9 +272,7 @@ export const usePermissionStore = defineStore("permission", () => {
 
   const pluginPermissionCount = computed(() =>
     pluginCatalog.value.plugins
-      .flatMap((plugin) => plugin.modules)
-      .flatMap((module) => module.types)
-      .reduce((total, group) => total + group.permissions.length, 0),
+      .reduce((total, plugin) => total + countPluginCatalogPermissions(plugin), 0),
   );
 
   // 获取权限目录（用于角色授权树形结构）
@@ -272,6 +336,43 @@ export const usePermissionStore = defineStore("permission", () => {
     } catch (err) {
       error.value =
         err instanceof Error ? err.message : "plugin_permission_catalog_load_failed";
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const cleanupInvalidPluginPermissions = async (pluginId: string) => {
+    const normalizedPluginId = pluginId.trim();
+    if (!normalizedPluginId) {
+      throw new Error("plugin_id_required");
+    }
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await del<any>(`${baseUrl}/permissions/plugin-invalid`, {
+        params: { plugin_id: normalizedPluginId },
+      });
+      const result = (response.data || response) as PluginInvalidPermissionCleanupResult;
+      const deletedIDs = new Set(result.deleted_permission_ids || []);
+      if (deletedIDs.size > 0) {
+        for (const roleId of Object.keys(roleSelection.value)) {
+          roleSelection.value[Number(roleId)] = (
+            roleSelection.value[Number(roleId)] || []
+          ).filter((id) => !deletedIDs.has(id));
+        }
+        for (const roleId of Object.keys(roleInitialSelection.value)) {
+          roleInitialSelection.value[Number(roleId)] = (
+            roleInitialSelection.value[Number(roleId)] || []
+          ).filter((id) => !deletedIDs.has(id));
+        }
+      }
+      await fetchAllActive();
+      await fetchPluginCatalog();
+      return result;
+    } catch (err) {
+      error.value =
+        err instanceof Error ? err.message : "plugin_invalid_permission_cleanup_failed";
       throw err;
     } finally {
       isLoading.value = false;
@@ -543,6 +644,7 @@ export const usePermissionStore = defineStore("permission", () => {
     createPermission,
     updatePermission,
     deletePermission,
+    cleanupInvalidPluginPermissions,
     fetchTenantPermissions,
     updateTenantPermission,
     syncPermissions,

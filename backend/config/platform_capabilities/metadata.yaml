@@ -1,306 +1,371 @@
+---
 version: 1
 capabilities:
-  - capability_id: com.corex.metadata.dictionary.read
-    module: metadata
-    title: Metadata Dictionary Read
-    description: Read tenant metadata dictionary namespaces and items.
-    permission_code: metadata.dictionary:read
-    agent_usable: false
-    risk_level: low
-    categories: [metadata, dictionary]
-    intents: [metadata.dictionary.read]
-    tool_scopes: [metadata.dictionary.read]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/dictionaries
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.dictionary.read
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/dictionaries/{namespace_uuid}/items
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.dictionary.read
-  - capability_id: com.corex.metadata.dictionary.manage
-    module: metadata
-    title: Metadata Dictionary Management
-    description: Create, update, and delete tenant metadata dictionary definitions.
-    permission_code: metadata.dictionary:manage
-    agent_usable: false
-    risk_level: medium
-    categories: [metadata, dictionary]
-    intents: [metadata.dictionary.manage]
-    tool_scopes: [metadata.dictionary.manage]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/dictionaries
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.dictionary.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/dictionaries/{namespace_uuid}
-        method: PATCH
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.dictionary.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/dictionary-items/{item_uuid}
-        method: PATCH
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.dictionary.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/dictionaries/{namespace_uuid}/items
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.dictionary.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/dictionary-items/{item_uuid}
-        method: DELETE
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.dictionary.manage
-  - capability_id: com.corex.metadata.taxonomy.read
-    module: metadata
-    title: Metadata Taxonomy Read
-    description: Read tenant metadata taxonomies and taxonomy nodes.
-    permission_code: metadata.taxonomy:read
-    agent_usable: false
-    risk_level: low
-    categories: [metadata, taxonomy]
-    intents: [metadata.taxonomy.read]
-    tool_scopes: [metadata.taxonomy.read]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomies
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.read
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomies/{taxonomy_uuid}/nodes
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.read
-  - capability_id: com.corex.metadata.taxonomy.manage
-    module: metadata
-    title: Metadata Taxonomy Management
-    description: Manage tenant metadata taxonomy definitions and node hierarchy.
-    permission_code: metadata.taxonomy:manage
-    agent_usable: false
-    risk_level: medium
-    categories: [metadata, taxonomy]
-    intents: [metadata.taxonomy.manage]
-    tool_scopes: [metadata.taxonomy.manage]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomies
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomies/{taxonomy_uuid}
-        method: PATCH
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomies/{taxonomy_uuid}/nodes
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomy-nodes/{node_uuid}
-        method: PATCH
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomy-nodes/{node_uuid}
-        method: DELETE
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/taxonomy-nodes/{node_uuid}/move
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.taxonomy.manage
-  - capability_id: com.corex.metadata.tag.read
-    module: metadata
-    title: Metadata Tag Read
-    description: Read tenant metadata tags and tag bindings.
-    permission_code: metadata.tag:read
-    agent_usable: false
-    risk_level: low
-    categories: [metadata, tag]
-    intents: [metadata.tag.read]
-    tool_scopes: [metadata.tag.read]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/tags
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.tag.read
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/tag-bindings
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.tag.read
-  - capability_id: com.corex.metadata.tag.manage
-    module: metadata
-    title: Metadata Tag Management
-    description: Manage tenant metadata tags and tag bindings.
-    permission_code: metadata.tag:manage
-    agent_usable: false
-    risk_level: medium
-    categories: [metadata, tag]
-    intents: [metadata.tag.manage]
-    tool_scopes: [metadata.tag.manage]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/tags
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.tag.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/tag-bindings
-        method: PUT
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.tag.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/tags/{tag_uuid}
-        method: PATCH
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.tag.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/tags/{tag_uuid}
-        method: DELETE
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.tag.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/tags/merge
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.tag.manage
-  - capability_id: com.corex.metadata.resource_type.read
-    module: metadata
-    title: Metadata Resource Type Read
-    description: Read tenant metadata resource type definitions.
-    permission_code: metadata.resource_type:read
-    agent_usable: false
-    risk_level: low
-    categories: [metadata, resource_type]
-    intents: [metadata.resource_type.read]
-    tool_scopes: [metadata.resource_type.read]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/resource-types
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.resource_type.read
-  - capability_id: com.corex.metadata.resource_type.manage
-    module: metadata
-    title: Metadata Resource Type Management
-    description: Manage tenant metadata resource type definitions.
-    permission_code: metadata.resource_type:manage
-    agent_usable: false
-    risk_level: medium
-    categories: [metadata, resource_type]
-    intents: [metadata.resource_type.manage]
-    tool_scopes: [metadata.resource_type.manage]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/resource-types
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.resource_type.manage
-      - channel: rest
-        endpoint: /api/v1/admin/metadata/resource-types/{resource_type_uuid}
-        method: PATCH
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: metadata.resource_type.manage
+- capability_id: com.corex.metadata.dictionary.read
+  module: metadata
+  title: Metadata Dictionary Read
+  description: Read tenant metadata dictionary namespaces and items.
+  permission_code: metadata.dictionary:read
+  agent_usable: false
+  risk_level: low
+  categories:
+  - metadata
+  - dictionary
+  intents:
+  - metadata.dictionary.read
+  tool_scopes:
+  - metadata.dictionary.read
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/dictionaries"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.dictionary.read
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/dictionaries/{namespace_uuid}/items"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.dictionary.read
+  title_i18n:
+    en: Metadata Dictionary Read
+  description_i18n:
+    en: Read tenant metadata dictionary namespaces and items.
+- capability_id: com.corex.metadata.dictionary.manage
+  module: metadata
+  title: Metadata Dictionary Management
+  description: Create, update, and delete tenant metadata dictionary definitions.
+  permission_code: metadata.dictionary:manage
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - metadata
+  - dictionary
+  intents:
+  - metadata.dictionary.manage
+  tool_scopes:
+  - metadata.dictionary.manage
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/dictionaries"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.dictionary.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/dictionaries/{namespace_uuid}"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.dictionary.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/dictionary-items/{item_uuid}"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.dictionary.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/dictionaries/{namespace_uuid}/items"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.dictionary.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/dictionary-items/{item_uuid}"
+    method: DELETE
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.dictionary.manage
+  title_i18n:
+    en: Metadata Dictionary Management
+  description_i18n:
+    en: Create, update, and delete tenant metadata dictionary definitions.
+- capability_id: com.corex.metadata.taxonomy.read
+  module: metadata
+  title: Metadata Taxonomy Read
+  description: Read tenant metadata taxonomies and taxonomy nodes.
+  permission_code: metadata.taxonomy:read
+  agent_usable: false
+  risk_level: low
+  categories:
+  - metadata
+  - taxonomy
+  intents:
+  - metadata.taxonomy.read
+  tool_scopes:
+  - metadata.taxonomy.read
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomies"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.read
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomies/{taxonomy_uuid}/nodes"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.read
+  title_i18n:
+    en: Metadata Taxonomy Read
+  description_i18n:
+    en: Read tenant metadata taxonomies and taxonomy nodes.
+- capability_id: com.corex.metadata.taxonomy.manage
+  module: metadata
+  title: Metadata Taxonomy Management
+  description: Manage tenant metadata taxonomy definitions and node hierarchy.
+  permission_code: metadata.taxonomy:manage
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - metadata
+  - taxonomy
+  intents:
+  - metadata.taxonomy.manage
+  tool_scopes:
+  - metadata.taxonomy.manage
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomies"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomies/{taxonomy_uuid}"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomies/{taxonomy_uuid}/nodes"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomy-nodes/{node_uuid}"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomy-nodes/{node_uuid}"
+    method: DELETE
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/taxonomy-nodes/{node_uuid}/move"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.taxonomy.manage
+  title_i18n:
+    en: Metadata Taxonomy Management
+  description_i18n:
+    en: Manage tenant metadata taxonomy definitions and node hierarchy.
+- capability_id: com.corex.metadata.tag.read
+  module: metadata
+  title: Metadata Tag Read
+  description: Read tenant metadata tags and tag bindings.
+  permission_code: metadata.tag:read
+  agent_usable: false
+  risk_level: low
+  categories:
+  - metadata
+  - tag
+  intents:
+  - metadata.tag.read
+  tool_scopes:
+  - metadata.tag.read
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tags"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.read
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tag-bindings"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.read
+  title_i18n:
+    en: Metadata Tag Read
+  description_i18n:
+    en: Read tenant metadata tags and tag bindings.
+- capability_id: com.corex.metadata.tag.manage
+  module: metadata
+  title: Metadata Tag Management
+  description: Manage tenant metadata tags and tag bindings.
+  permission_code: metadata.tag:manage
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - metadata
+  - tag
+  intents:
+  - metadata.tag.manage
+  tool_scopes:
+  - metadata.tag.manage
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tags"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tag-bindings"
+    method: PUT
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tags/{tag_uuid}"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tags/{tag_uuid}"
+    method: DELETE
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tags/merge"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.manage
+  title_i18n:
+    en: Metadata Tag Management
+  description_i18n:
+    en: Manage tenant metadata tags and tag bindings.
+- capability_id: com.corex.metadata.resource_type.read
+  module: metadata
+  title: Metadata Resource Type Read
+  description: Read tenant metadata resource type definitions.
+  permission_code: metadata.resource_type:read
+  agent_usable: false
+  risk_level: low
+  categories:
+  - metadata
+  - resource_type
+  intents:
+  - metadata.resource_type.read
+  tool_scopes:
+  - metadata.resource_type.read
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/resource-types"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.resource_type.read
+  title_i18n:
+    en: Metadata Resource Type Read
+  description_i18n:
+    en: Read tenant metadata resource type definitions.
+- capability_id: com.corex.metadata.resource_type.manage
+  module: metadata
+  title: Metadata Resource Type Management
+  description: Manage tenant metadata resource type definitions.
+  permission_code: metadata.resource_type:manage
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - metadata
+  - resource_type
+  intents:
+  - metadata.resource_type.manage
+  tool_scopes:
+  - metadata.resource_type.manage
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/resource-types"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.resource_type.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/resource-types/{resource_type_uuid}"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.resource_type.manage
+  title_i18n:
+    en: Metadata Resource Type Management
+  description_i18n:
+    en: Manage tenant metadata resource type definitions.

@@ -115,18 +115,18 @@ exposure:
   channels:
     - type: rest
       method: POST
-      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/integration/acme/webhooks/shopify
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/integration/example/webhooks/callback
       auth: public
       purpose: external_webhook
       security:
-        verifier: shopify_hmac
+        verifier: external_hmac
 `)
 
 	manifest, err := loadManifestWithCatalogs(root)
 	require.NoError(t, err)
 	require.Len(t, manifest.Exposure.Channels, 1)
 	require.Equal(t, "public", manifest.Exposure.Channels[0].Auth)
-	require.Equal(t, "shopify_hmac", manifest.Exposure.Channels[0].Security["verifier"])
+	require.Equal(t, "external_hmac", manifest.Exposure.Channels[0].Security["verifier"])
 }
 
 func TestLoadManifestWithCatalogs_Conflict(t *testing.T) {

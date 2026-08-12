@@ -23,7 +23,7 @@ func TestSTSAllowedHTTPRoutesRequireExplicitPolicy(t *testing.T) {
 			t.Fatalf("STS route policy missing pattern: %#v", route)
 		}
 		switch route.Match {
-		case stsRouteMatchSuffix, stsRouteMatchCorePattern:
+		case stsRouteMatchSuffix, stsRouteMatchCorePattern, stsRouteMatchExact:
 		default:
 			t.Fatalf("STS route policy has unsupported match mode: %#v", route)
 		}
@@ -35,6 +35,12 @@ func TestSTSAllowedHTTPRoutesRequireExplicitPolicy(t *testing.T) {
 			t.Fatalf("STS route policy duplicated: %s", key)
 		}
 		seen[key] = struct{}{}
+	}
+	if _, ok := seen["POST /event-fabric/topics core_pattern"]; !ok {
+		t.Fatal("STS route policy must load POST /event-fabric/topics from platform capabilities")
+	}
+	if _, ok := seen["POST /admin/event-fabric/topics exact"]; !ok {
+		t.Fatal("STS route policy must keep admin event-fabric topic bootstrap as explicit runtime contract")
 	}
 }
 
@@ -64,6 +70,8 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		{"POST", "/api/v1/admin/runtime/task-queue/nack"},
 		{"POST", "/api/v1/admin/runtime/task-queue/retry"},
 		{"POST", "/api/v1/notifications/test"},
+		{"POST", "/api/v1/event-fabric/topics"},
+		{"POST", "/api/v1/admin/event-fabric/topics"},
 		{"GET", "/api/v1/media/assets"},
 		{"POST", "/api/v1/media/assets"},
 		{"GET", "/api/v1/media/assets/asset-001"},
@@ -90,6 +98,14 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		{"POST", "/api/v1/ai/embedding/invoke"},
 		{"POST", "/api/v1/ai/vlm/invoke"},
 		{"POST", "/custom-prefix/ai/llm/invoke"},
+		{"GET", "/api/v1/admin/scheduler/jobs"},
+		{"POST", "/api/v1/admin/scheduler/jobs"},
+		{"GET", "/api/v1/admin/scheduler/jobs/sch-001"},
+		{"PATCH", "/api/v1/admin/scheduler/jobs/sch-001"},
+		{"POST", "/api/v1/admin/scheduler/jobs/sch-001/trigger"},
+		{"POST", "/api/v1/admin/scheduler/jobs/sch-001/pause"},
+		{"POST", "/api/v1/admin/scheduler/jobs/sch-001/resume"},
+		{"GET", "/api/v1/admin/scheduler/jobs/sch-001/runs"},
 	} {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
 			ctx := reqctx.WithRequestPath(context.Background(), tt.path)
@@ -138,7 +154,14 @@ func TestValidateSTSRouteOnlyRejectsNonGatewayRoutes(t *testing.T) {
 		{"GET", "/api/v1/admin/runtime/task-queue/enqueue"},
 		{"POST", "/api/v1/admin/runtime/task-queue/unknown"},
 		{"POST", "/api/v1/admin/tenants"},
-		{"GET", "/api/v1/admin/scheduler/jobs"},
+		{"GET", "/api/v1/event-fabric/topics"},
+		{"PATCH", "/api/v1/event-fabric/topics/topic-001/lifecycle"},
+		{"GET", "/api/v1/admin/event-fabric/topics"},
+		{"POST", "/api/v1/admin/event-fabric/acl"},
+		{"DELETE", "/api/v1/admin/scheduler/jobs/sch-001"},
+		{"POST", "/api/v1/admin/scheduler/jobs/sch-001/runs"},
+		{"POST", "/api/v1/admin/scheduler/jobs/sch-001/trigger/extra"},
+		{"POST", "/api/v1/admin/scheduler/other"},
 		{"GET", "/api/v1/internal/plugins/templates"},
 		{"POST", "/api/v1/public/saas/signup"},
 	} {

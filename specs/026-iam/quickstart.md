@@ -59,28 +59,28 @@ curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/admin/user/auth/me/context
 ```text
 module=menu
 resource=<menu resource>
-action=read
+action=view
 ```
 
 常用菜单权限示例：
 
 ```text
-menu:agent:read
-menu:agent.chat:read
-menu:skills:read
-menu:knowledge:read
-menu:workflow:read
-menu:dashboard:read
-menu:settings.users:read
-menu:plugin.com.powerx.plugins.base.templates:read
+menu.agent:view
+menu.agent.chat:view
+menu.skills:view
+menu.knowledge:view
+menu.workflow:view
+menu.dashboard:view
+menu.settings.users:view
+menu.templates:view
 ```
 
 插件/App 菜单权限不通过人工创建。插件 manifest 声明 `frontend.admin.menus` 后，插件安装/启用/权限同步会自动生成：
 
 ```text
 module=menu
-resource=plugin.<plugin_id>.<menu_id>
-action=read
+resource=<menu_path>
+action=view
 source=plugin:<plugin_id>
 ```
 
@@ -173,8 +173,8 @@ curl --noproxy '*' -sS "$BASE/admin/menus" \
 - `role_admin` 默认拥有租户可用菜单；
 - `role_user`/`role_readonly` 只拥有白名单菜单；
 - `role_vendor` 默认只拥有 Dashboard、Agent、Agent Chat、Plugin Chat 等供应商工作台入口；
-- 插件/App 菜单只有在插件 manifest 同步出 `menu:plugin.<plugin_id>.<menu_id>:read`，且当前角色拥有该权限时才显示；
-- 没有对应 `menu:*:read` 的菜单不应出现在响应里。
+- 插件/App 菜单只有在插件 manifest/catalog 同步出 `menu.<path>:view`，且当前角色拥有该权限时才显示；
+- 没有对应 `menu.<path>:view` 的菜单不应出现在响应里。
 - 插件 action 权限只影响对应按钮和接口，不得靠菜单权限隐式放行写操作；
 - 角色未拥有 `production.sample_track:delivery` 时，交付按钮不展示，直接调用 delivery 接口必须返回 403；
 - local 模式调试权限必须来自同一份插件声明，不能成为正式授权来源。

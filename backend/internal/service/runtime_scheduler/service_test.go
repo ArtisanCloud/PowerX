@@ -281,8 +281,9 @@ func newTestServiceWithClockAndClaims(t *testing.T, clock func() time.Time, bus 
 		MemberID:   22,
 		UserUUID:   "user-1",
 		UserID:     33,
+		PluginID:   "com.powerx.plugins.ai-craft",
 		RegisteredClaims: jwt.RegisteredClaims{
-			Audience: jwt.ClaimStrings{"plugin:com.powerx.plugins.ai-craft"},
+			Audience: jwt.ClaimStrings{"powerx:api"},
 		},
 	}
 	if mutateClaims != nil {

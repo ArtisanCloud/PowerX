@@ -316,10 +316,15 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 		gatePath := normalizeAdminGatePath(clientPath)
 		tok, allowed, reason := r.checkPluginRoutePermission(c, pluginID, c.Request.Method, gatePath, claims)
 		if !allowed {
-			logger.WarnF(c.Request.Context(), "[ADMIN-GATE-DENY] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
-				pluginID, c.Request.Method, clientPath, gatePath, reason)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
-			return
+			if reason == "no registered permission binding for this route" {
+				logger.WarnF(c.Request.Context(), "[ADMIN-GATE-SKIP] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
+					pluginID, c.Request.Method, clientPath, gatePath, reason)
+			} else {
+				logger.WarnF(c.Request.Context(), "[ADMIN-GATE-DENY] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
+					pluginID, c.Request.Method, clientPath, gatePath, reason)
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
+				return
+			}
 		}
 		_ = tok
 	}
@@ -910,13 +915,20 @@ func normalizeGatePathForPolicy(clientPath, basePath string) string {
 	}
 	base = strings.TrimRight(base, "/")
 
-	// 常见场景：route 是 "/_p/:id/api/*filepath"，传入 clientPath 变为 "/v1/..."
-	// 而策略希望在 "/api/v1/..." 坐标匹配。这里按插件声明的 basePath 进行归一。
-	if strings.HasPrefix(base, "/api/") && strings.HasPrefix(path, "/v1/") {
-		return "/api" + path
+	if path == base {
+		return "/"
 	}
-	if strings.HasPrefix(base, "/api") && !strings.HasPrefix(path, "/api/") {
-		return joinURLPath("/api", path)
+	if strings.HasPrefix(path, base+"/") {
+		return strings.TrimPrefix(path, base)
+	}
+	if strings.HasPrefix(base, "/api/") {
+		withoutAPI := strings.TrimPrefix(base, "/api")
+		if withoutAPI != "" && path == withoutAPI {
+			return "/"
+		}
+		if withoutAPI != "" && strings.HasPrefix(path, withoutAPI+"/") {
+			return strings.TrimPrefix(path, withoutAPI)
+		}
 	}
 	return path
 }

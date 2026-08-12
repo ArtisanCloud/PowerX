@@ -355,7 +355,7 @@ func (w *SyncWorker) syncCapabilityPermissions(ctx context.Context, plugin plugi
 				"permission":    code,
 			})),
 			Status:     iammodel.PermissionStatusActive,
-			Source:     pluginID,
+			Source:     "plugin:" + pluginID,
 			Introduced: firstNonEmptyCatalogString(strings.TrimSpace(capability.Version), strings.TrimSpace(plugin.Version)),
 		})
 	}
@@ -400,12 +400,16 @@ func permissionRowFromPluginDeclaration(plugin pluginMetadata, capability catalo
 		"title_i18n":               titleI18n,
 		"description_i18n":         descriptionI18n,
 		"module":                   firstNonEmptyCatalogString(strings.TrimSpace(declaration.Module), module),
+		"resource":                 firstNonEmptyCatalogString(strings.TrimSpace(declaration.Resource), resource),
+		"action":                   firstNonEmptyCatalogString(strings.TrimSpace(declaration.Action), action),
 		"type":                     strings.TrimSpace(declaration.Type),
 		"plugin_id":                pluginID,
 		"capability_id":            capability.capabilityID(),
 		"permission":               code,
 		"risk_level":               strings.TrimSpace(declaration.RiskLevel),
 		"data_scope":               strings.TrimSpace(declaration.DataScope),
+		"menu_path":                dedupeStringsPreserveOrder(declaration.MenuPath),
+		"page_permission_codes":    dedupeSortedStrings(declaration.PagePermissionCodes),
 		"default_role_grants":      dedupeSortedStrings(declaration.DefaultRoleGrants),
 		"business_permission_code": strings.TrimSpace(declaration.BusinessPermissionCode),
 		"independent":              declaration.Independent,
@@ -574,8 +578,16 @@ func permissionCodesFromCatalogCapability(pluginID string, capability catalogCap
 }
 
 func validatePluginPermissionDeclarations(pluginID, capabilityID string, capabilityProtocols []models.ProtocolBinding, declarations []pluginPermissionDeclaration) error {
+	permissionCodes := map[string]pluginPermissionDeclaration{}
 	for idx := range declarations {
 		declaration := normalizePluginPermissionDeclaration(declarations[idx])
+		declarations[idx] = declaration
+		if declaration.PermissionCode != "" {
+			permissionCodes[declaration.PermissionCode] = declaration
+		}
+	}
+	for idx := range declarations {
+		declaration := declarations[idx]
 		prefix := fmt.Sprintf("capability %s permissions[%d]", capabilityID, idx)
 		switch declaration.Type {
 		case "menu", "page", "action", "api":
@@ -584,6 +596,43 @@ func validatePluginPermissionDeclarations(pluginID, capabilityID string, capabil
 		}
 		if _, _, _, ok := parsePluginPermissionCode(declaration.PermissionCode, pluginID); !ok {
 			return fmt.Errorf("%s invalid permission_code: %s", prefix, declaration.PermissionCode)
+		}
+		module, resource, action, _ := parsePluginPermissionCode(declaration.PermissionCode, pluginID)
+		if strings.TrimSpace(declaration.Module) == "" {
+			return fmt.Errorf("%s module missing", prefix)
+		}
+		if declaration.Type == "menu" {
+			if declaration.Module == "menu" {
+				return fmt.Errorf("%s module must be business domain, got menu", prefix)
+			}
+			if len(declaration.MenuPath) == 0 {
+				return fmt.Errorf("%s menu_path missing", prefix)
+			}
+			if !strings.HasPrefix(declaration.PermissionCode, "menu.") {
+				return fmt.Errorf("%s menu permission_code must start with menu.: %s", prefix, declaration.PermissionCode)
+			}
+			for pathIdx, path := range declaration.MenuPath {
+				if pluginPermissionDeclarationContainsPluginID(path, pluginID) {
+					return fmt.Errorf("%s menu_path[%d] must not include plugin id: %s", prefix, pathIdx, path)
+				}
+			}
+		}
+		if declaration.Type == "page" || declaration.Type == "action" || declaration.Type == "api" {
+			if strings.TrimSpace(declaration.Resource) == "" {
+				return fmt.Errorf("%s resource missing", prefix)
+			}
+			if strings.TrimSpace(declaration.Action) == "" {
+				return fmt.Errorf("%s action missing", prefix)
+			}
+			if declaration.Module != module || declaration.Resource != resource || declaration.Action != action {
+				return fmt.Errorf("%s module/resource/action mismatch permission_code: %s", prefix, declaration.PermissionCode)
+			}
+		}
+		if pluginPermissionDeclarationContainsPluginID(declaration.PermissionCode, pluginID) ||
+			pluginPermissionDeclarationContainsPluginID(declaration.Module, pluginID) ||
+			pluginPermissionDeclarationContainsPluginID(declaration.Resource, pluginID) ||
+			pluginPermissionDeclarationContainsPluginID(declaration.Action, pluginID) {
+			return fmt.Errorf("%s business permission fields must not include plugin id", prefix)
 		}
 		if len(cleanLocaleTextMap(declaration.TitleI18n)) == 0 {
 			return fmt.Errorf("%s title_i18n missing", prefix)
@@ -596,12 +645,28 @@ func validatePluginPermissionDeclarations(pluginID, capabilityID string, capabil
 		default:
 			return fmt.Errorf("%s invalid risk_level: %s", prefix, declaration.RiskLevel)
 		}
+		if strings.TrimSpace(declaration.DataScope) == "" {
+			return fmt.Errorf("%s data_scope missing", prefix)
+		}
 		if _, err := defaultCapabilityRoleCodes(declaration.DefaultRoleGrants); err != nil {
 			return fmt.Errorf("%s %w", prefix, err)
 		}
 		if declaration.BusinessPermissionCode != "" {
 			if _, _, _, ok := parsePluginPermissionCode(declaration.BusinessPermissionCode, pluginID); !ok {
 				return fmt.Errorf("%s invalid business_permission_code: %s", prefix, declaration.BusinessPermissionCode)
+			}
+			target, exists := permissionCodes[declaration.BusinessPermissionCode]
+			if !exists || (target.Type != "page" && target.Type != "action") {
+				return fmt.Errorf("%s business_permission_code target missing: %s", prefix, declaration.BusinessPermissionCode)
+			}
+		}
+		for _, pagePermissionCode := range declaration.PagePermissionCodes {
+			if _, _, _, ok := parsePluginPermissionCode(pagePermissionCode, pluginID); !ok {
+				return fmt.Errorf("%s invalid page_permission_code: %s", prefix, pagePermissionCode)
+			}
+			target, exists := permissionCodes[pagePermissionCode]
+			if !exists || target.Type != "page" {
+				return fmt.Errorf("%s page_permission_code target missing: %s", prefix, pagePermissionCode)
 			}
 		}
 		if declaration.Type == "api" {
@@ -626,6 +691,12 @@ func validatePluginPermissionDeclarations(pluginID, capabilityID string, capabil
 			if binding.Path == "" || !strings.HasPrefix(binding.Path, "/") {
 				return fmt.Errorf("%s path must start with /", bindingPrefix)
 			}
+			if strings.Contains(binding.Path, "{") || strings.Contains(binding.Path, "}") || strings.Contains(binding.Path, ":") {
+				return fmt.Errorf("%s dynamic path must use *: %s", bindingPrefix, binding.Path)
+			}
+			if strings.Contains(binding.Path, "/_p/") || strings.HasPrefix(binding.Path, "/api/v1") {
+				return fmt.Errorf("%s path must be plugin internal route: %s", bindingPrefix, binding.Path)
+			}
 			if binding.ActorContext == "" {
 				return fmt.Errorf("%s actor_context missing", bindingPrefix)
 			}
@@ -645,6 +716,10 @@ func normalizePluginPermissionDeclaration(declaration pluginPermissionDeclaratio
 	declaration.Type = strings.ToLower(strings.TrimSpace(declaration.Type))
 	declaration.PermissionCode = strings.TrimSpace(declaration.PermissionCode)
 	declaration.Module = strings.TrimSpace(declaration.Module)
+	declaration.Resource = strings.TrimSpace(declaration.Resource)
+	declaration.Action = strings.TrimSpace(declaration.Action)
+	declaration.MenuPath = dedupeStringsPreserveOrder(declaration.MenuPath)
+	declaration.PagePermissionCodes = dedupeSortedStrings(declaration.PagePermissionCodes)
 	declaration.TitleI18n = cleanLocaleTextMap(declaration.TitleI18n)
 	declaration.DescriptionI18n = cleanLocaleTextMap(declaration.DescriptionI18n)
 	declaration.RiskLevel = strings.ToLower(strings.TrimSpace(declaration.RiskLevel))
@@ -728,6 +803,20 @@ func parsePluginPermissionCode(code string, pluginID string) (module, resource, 
 		return "", "", "", false
 	}
 	return module, resource, action, true
+}
+
+func pluginPermissionDeclarationContainsPluginID(value string, pluginID string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	pluginID = strings.ToLower(strings.TrimSpace(pluginID))
+	if value == "" {
+		return false
+	}
+	if pluginID != "" && strings.Contains(value, pluginID) {
+		return true
+	}
+	return strings.Contains(value, "com.powerx.plugin") ||
+		strings.Contains(value, "com.powerx.plugins") ||
+		strings.Contains(value, "plugin.")
 }
 
 func stringListFromAnyCapability(value any) []string {
@@ -1273,6 +1362,24 @@ func dedupeSortedStrings(items []string) []string {
 	return out
 }
 
+func dedupeStringsPreserveOrder(items []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		normalized := strings.TrimSpace(item)
+		if normalized == "" {
+			continue
+		}
+		key := strings.ToLower(normalized)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
 func loadDescriptorCapability(root string, provide capabilityManifestProvide) (catalogCapability, error) {
 	descriptor := strings.TrimSpace(provide.Descriptor)
 	if descriptor == "" {
@@ -1639,6 +1746,10 @@ type pluginPermissionDeclaration struct {
 	Type                   string                      `json:"type" yaml:"type"`
 	PermissionCode         string                      `json:"permission_code" yaml:"permission_code"`
 	Module                 string                      `json:"module,omitempty" yaml:"module"`
+	Resource               string                      `json:"resource,omitempty" yaml:"resource"`
+	Action                 string                      `json:"action,omitempty" yaml:"action"`
+	MenuPath               []string                    `json:"menu_path,omitempty" yaml:"menu_path"`
+	PagePermissionCodes    []string                    `json:"page_permission_codes,omitempty" yaml:"page_permission_codes"`
 	TitleI18n              map[string]string           `json:"title_i18n" yaml:"title_i18n"`
 	DescriptionI18n        map[string]string           `json:"description_i18n" yaml:"description_i18n"`
 	RiskLevel              string                      `json:"risk_level" yaml:"risk_level"`

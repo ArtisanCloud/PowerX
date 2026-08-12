@@ -149,7 +149,7 @@ func TestSyncWorkerRegistersCapabilityPermissionCodesToIAM(t *testing.T) {
 	require.NoError(t, db.WithContext(ctx).
 		Where("module = ? AND resource = ? AND action = ?", "demo.plugin", "template", "create").
 		First(&perm).Error)
-	require.Equal(t, "demo.plugin", perm.Source)
+	require.Equal(t, "plugin:demo.plugin", perm.Source)
 	require.Equal(t, iammodel.PermissionStatusActive, perm.Status)
 	require.False(t, perm.AllowAPIKey)
 }
@@ -250,6 +250,8 @@ func TestSyncWorkerRegistersPluginPermissionDeclarationsToIAM(t *testing.T) {
 	require.Equal(t, "demo.plugin", meta["plugin_id"])
 	require.Equal(t, "demo.permissions.capability", meta["capability_id"])
 	require.Equal(t, "medium", meta["risk_level"])
+	require.Equal(t, "sample_track", meta["resource"])
+	require.Equal(t, "factory_schedule", meta["action"])
 	require.Equal(t, map[string]any{"zh-CN": "小样打样排产", "en": "Sample schedule"}, meta["title_i18n"])
 
 	var count int64
@@ -263,6 +265,7 @@ func TestSyncWorkerRegistersPluginPermissionDeclarationsToIAM(t *testing.T) {
 	require.NoError(t, db.WithContext(ctx).
 		Where("module = ? AND resource = ? AND action = ?", "production", "sample_track_api", "sample_schedule").
 		First(&apiPerm).Error)
+	require.Equal(t, "plugin:demo.plugin", apiPerm.Source)
 	require.NoError(t, json.Unmarshal(apiPerm.Meta, &meta))
 	require.Equal(t, "api", meta["type"])
 	require.Equal(t, "production.sample_track:factory_schedule", meta["business_permission_code"])
@@ -476,13 +479,15 @@ description: Permission descriptor capability
 metadata:
   protocols:
     rest:
-      path: /api/v1/sample-tracks/{uuid}/nodes/sample-schedule
+      path: /sample-tracks/*/nodes/sample-schedule
       method: POST
       auth_type: tenant_jwt
 permissions:
   - type: action
     permission_code: `+actionPermissionCode+`
     module: production
+    resource: sample_track
+    action: factory_schedule
     title_i18n:`+titleI18n+`
     description_i18n:
       zh-CN: 允许提交小样打样排产节点
@@ -494,6 +499,8 @@ permissions:
   - type: api
     permission_code: production.sample_track_api:sample_schedule
     module: production
+    resource: sample_track_api
+    action: sample_schedule
     title_i18n:
       zh-CN: 小样打样排产接口
       en: Sample schedule API
@@ -506,7 +513,7 @@ permissions:
     protocol_bindings:
       - channel: rest
         method: `+apiMethod+`
-        path: /api/v1/sample-tracks/{uuid}/nodes/sample-schedule
+        path: /sample-tracks/*/nodes/sample-schedule
         actor_context: `+apiActorContext+`
         resource_scope: `+apiResourceScope+`
 `), 0o644))

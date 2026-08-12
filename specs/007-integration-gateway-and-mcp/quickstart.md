@@ -113,7 +113,20 @@ ORDER BY created_at ASC;
 ### 步骤 0：自动播种 Event Fabric Topic/ACL
 1. 在插件仓库提供 `event_fabric.yaml`（支持放在 `config/`、`platform_capabilities/` 或包根目录），并声明 Topic/ACL 模板。Manifest 可引用 `{{ tenant_uuid }}`、`{{ plugin_id }}`、`{{ variables.cluster }}` 等变量。
 2. 插件启用/升级后，安装 orchestrator 会自动调用 `event_fabric.SeedService` 播种 Topic 与 ACL；若记录已存在，则根据 binding 表跳过重复授权，无需手动访问 Admin Topic/ACL API。
-3. 如需在本地或 CI 预览，运行：
+3. delegated 插件后端如果通过 STS 调用 runtime ws-bus/taskbus 发布事件，topic ACL 必须授权插件服务态 principal：
+   ```yaml
+   version: v1
+   topics:
+     - key: powerx.runtime.scheduler.triggered.v1
+       namespace: powerx.runtime.scheduler.triggered
+       name: v1
+       acl:
+         - principal_type: plugin
+           principal_id: "{{plugin_id}}"
+           actions: [publish]
+   ```
+   只给 `member:system` 或 `role:role_admin` 授权不能代表 `plugin:<plugin_id>`；运行时会被 `/api/v1/admin/runtime/ws-bus/publish` 拒绝，典型错误是 `PUBLISH_UPSTREAM_REJECTED` / `topic not allowed`。
+4. 如需在本地或 CI 预览，运行：
    ```bash
    cd backend
    go run ./cmd/event_fabric_seed \
@@ -122,7 +135,7 @@ ORDER BY created_at ASC;
      --dry-run
    ```
    不带 `--dry-run` 将实际写入（用于补齐权限）。
-4. `scripts/capability_registry/verify.sh` 默认会在执行 capability sync 后自动跑一遍上述 dry-run，可通过 `--skip-event-seed` 跳过或用 `--event-seed-manifest` 指定自定义路径，使 CI 也能及时发现 manifest 模板错误。
+5. `scripts/capability_registry/verify.sh` 默认会在执行 capability sync 后自动跑一遍上述 dry-run，可通过 `--skip-event-seed` 跳过或用 `--event-seed-manifest` 指定自定义路径，使 CI 也能及时发现 manifest 模板错误。
 
 ### 步骤 1：触发并验证 Capability Sync（含缓存刷新）
 1. 将 `.pxp` 包上传到 `tmp/plugins/`，执行 `make capability-sync`（包装 `cmd/capability_sync`）。
@@ -139,19 +152,40 @@ ORDER BY created_at ASC;
 
 示例插件需要在能力声明中包含 `menu/page/action/api` 权限项。最小示例：
 
+若插件使用 `catalogs.rbac: ./plugin.d/rbac.yaml` 分片，下面的 `permissions[]` 必须写在 `plugin.d/rbac.yaml`，主 `plugin.yaml` 只保留 catalog 路径；不得在主 manifest 和分片中重复声明 `permissions`、`rbac` 或 `routes`。
+
 ```yaml
 permissions:
-  - capability_id: com.powerx.plugin.production.sample_track.factory_schedule
-    permission_code: production.sample_track:factory_schedule
+  - capability_id: com.example.plugin.record.read
+    permission_code: example.record:read
+    type: page
+    module: example
+    title_i18n:
+      zh-CN: 示例记录读取
+      en: Read example records
+    description_i18n:
+      zh-CN: 允许查看示例记录列表、详情和状态信息。
+      en: Allows reading example record lists, details, and status fields.
+    risk_level: low
+    data_scope: tenant
+    protocol_bindings:
+      - channel: rest
+        method: GET
+        path: /admin/example/records
+        actor_context: admin_user
+        resource_scope: tenant
+
+  - capability_id: com.example.plugin.record.approve
+    permission_code: example.record:approve
     type: action
-    module: production
-    title_i18n: production.permissions.sample_track_factory_schedule
-    description_i18n: production.permissions.sample_track_factory_schedule_desc
+    module: example
+    title_i18n: example.permissions.record_approve
+    description_i18n: example.permissions.record_approve_desc
     risk_level: medium
     protocols:
       rest:
         - method: POST
-          path: /sample-tracks/{uuid}/nodes/sample-schedule
+          path: /records/*/approve
           actor_context: admin_user
           resource_scope: tenant
 ```
@@ -173,6 +207,7 @@ ORDER BY plugin, resource, action;
 预期：
 
 - 每个 `menu/page/action` 授权项都有稳定 `permission_code` 和 i18n 元数据。
+- 每个插件后台业务页面都有 `type=page` 和 GET `protocol_bindings`；静态资产、`/_nuxt/**`、图片、CSS、JS 不声明 page 权限。
 - REST binding 精确包含 HTTP method、path、`actor_context`、`resource_scope`。
 - 缺少 `permission_code`、i18n、method/path 或 actor/resource scope 时同步失败，并产生 `capability.catalog.sync_failed`。
 - `api` binding 默认不作为管理员可见勾选项，除非它被显式声明为独立业务授权能力。
@@ -182,17 +217,21 @@ local 模式通过同一份 descriptor `permissions[]` 生成调试快照，不�
 ```json
 {
   "local_permission_snapshot": {
-    "plugin_id": "com.powerx.plugins.production.local",
+    "plugin_id": "com.example.plugins.local",
     "source": "local_mock",
     "permission_codes": [
-      "production.sample_track:factory_schedule",
-      "production.sample_track_api:sample_schedule"
+      "example.record:approve",
+      "example.record_api:update"
     ],
     "perms_hash": "sha256:<hash>",
     "policy_version": "iam:sha256:<hash>"
   }
 }
 ```
+
+local mock 只能模拟 PowerX delegated 授权快照，不得维护另一份正式授权定义。字段名必须保持 `permission_codes/policy_version/perms_hash/source=local_mock`，插件前端和后端不得在 local 模式读取另一套字段。
+
+发布包检查必须基于合并 catalog 后的 effective manifest。使用 Makefile 的插件，`make dist` 或 release target 必须执行权限声明检查，并对实际 route dump / 后端 RBAC route 表与 `permissions[].protocol_bindings` 做差异审计。
 
 角色授权矩阵验证：
 
@@ -201,11 +240,11 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
      "$POWERX_BASE_URL/admin/iam/permissions/plugin-catalog?plugin_id=$PLUGIN_ID"
 ```
 
-给测试角色只授予 `production.sample_track:read` 和 `production.sample_track:factory_schedule` 后：
+给测试角色只授予 `example.record:read` 和 `example.record:approve` 后：
 
 - 插件菜单和页面只显示已授权入口。
-- `sample_schedule` 按钮可见，`delivery` 按钮不可见。
-- 直接调用 `POST /sample-tracks/{uuid}/nodes/delivery` 必须返回 403。
+- `approve` 按钮可见，`delete` 按钮不可见。
+- 直接调用 `POST /records/*/delete` 必须返回 403。
 - 审计记录包含 `tenant_uuid/member_uuid/plugin_id/capability_id/permission_code/route/method/trace_id`。
 
 旧粗权限迁移只输出报告和缺失授权清单，不生成运行时 alias：
@@ -214,7 +253,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 node scripts/migrations/plugin-permission-granularity-report.mjs . --format=markdown
 ```
 
-报告会扫描 `operations.order:read/manage` 使用点，并输出需要补齐的细权限，例如 `production.sample_track:read`、`production.sample_track:factory_schedule`、`production.bulk_order:manage`。缺少细权限时，网关和插件后端都必须拒绝请求。
+报告会扫描 `legacy.record:read/manage` 使用点，并输出需要补齐的细权限，例如 `example.record:read`、`example.record:approve`、`example.workflow:manage`。缺少细权限时，网关和插件后端都必须拒绝请求。
 
 迁移报告回归测试：
 

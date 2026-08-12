@@ -673,6 +673,70 @@
       "roleConfig": "権限設定",
       "configDesc": "この役割がアクセスできる機能と操作を設定",
       "add": "役割追加",
+      "permissionSearch": {
+        "placeholder": "メニュー、機能、API、権限コード、プラグインを検索",
+        "clear": "権限検索をクリア",
+        "results": "{count} 件一致",
+        "empty": "一致する権限はありません。"
+      },
+      "pluginCatalog": {
+        "title": "プラグイン宣言権限",
+        "description": "登録済みのメニュー、ページ、アクション、API 権限をプラグイン、業務モジュール、権限タイプ別に表示します。",
+        "plugin": "プラグイン",
+        "invalid": "登録異常",
+        "businessPermission": "業務アクション権限",
+        "unnamedApi": "未命名 API 権限",
+        "dataScope": "データ範囲",
+        "levels": {
+          "source": "ソース",
+          "module": "モジュール"
+        },
+        "sources": {
+          "core": "PowerX 基盤"
+        },
+        "groups": {
+          "operation": "操作権限",
+          "api": "API 権限"
+        },
+        "filters": {
+          "source": "ソースフィルター",
+          "plugin": "プラグインフィルター",
+          "module": "モジュールフィルター",
+          "type": "タイプフィルター",
+          "registration": "登録状態フィルター",
+          "allSources": "すべてのソース",
+          "allPlugins": "すべてのプラグイン",
+          "allModules": "すべてのモジュール",
+          "allTypes": "すべてのタイプ",
+          "allRegistration": "すべての登録状態",
+          "registered": "登録済み",
+          "invalid": "登録異常",
+          "reset": "フィルターをリセット"
+        },
+        "cleanup": {
+          "action": "異常登録をクリーンアップ",
+          "confirm": "プラグイン {plugin} の異常な権限登録 {count} 件をクリーンアップしますか？先にロール紐付けを解除し、その後で異常な権限行を削除します。",
+          "successTitle": "異常登録をクリーンアップしました",
+          "successDescription": "異常な権限登録 {count} 件を削除しました。",
+          "errorTitle": "異常登録のクリーンアップに失敗しました"
+        },
+        "errors": {
+          "menu_permission_declaration_missing": "メニュー項目の required_policies が permissions[] に未宣言のメニュー権限を参照しています。",
+          "menu_permission_orphan": "このメニュー権限は frontend.admin.menus のどのメニュー項目からも参照されていません。",
+          "menu_path_mismatch": "menu_path が frontend.admin.menus の実際のメニューパスと一致していません。",
+          "menu_path_invalid_technical_segment": "menu_path にプラグイン ID、/_p パス、API パス、URL などの技術的な断片が含まれています。",
+          "menuPathExpected": "期待パス: {path}",
+          "menuPathActual": "実際パス: {path}"
+        },
+        "types": {
+          "menu": "メニュー",
+          "page": "ページ",
+          "action": "操作",
+          "data": "データ",
+          "api": "API",
+          "apiKeyGrant": "API Key 権限範囲"
+        }
+      },
       "edit": "役割編集",
       "delete": "役割削除",
       "systemRole": "システム",
@@ -1409,20 +1473,20 @@
         "color": "色",
         "validatorKey": "バリデーター Key",
         "validatorKeyPlaceholder": "例 customer.account",
-      "bindingEnabled": "バインドを許可",
-      "localizedNames": "多言語名",
-      "localizedDescriptions": "多言語説明",
-      "localizedName": "名前",
-      "localizedDescription": "説明",
-      "localizedNamePlaceholder": "名前を入力",
-      "localizedDescriptionPlaceholder": "説明を入力",
-      "requiredLocaleSection": "既定言語",
-      "requiredLocaleDescription": "バックエンド契約では既定言語の名前が必須です。",
-      "optionalLocaleSection": "その他の言語",
-      "optionalLocaleDescription": "言語を選択して名前と説明を編集します。入力済みの言語は下に表示されます。",
-      "localeSelectPlaceholder": "言語を選択",
-      "localeSearchPlaceholder": "言語を検索",
-      "locale": {
+        "bindingEnabled": "バインドを許可",
+        "localizedNames": "多言語名",
+        "localizedDescriptions": "多言語説明",
+        "localizedName": "名前",
+        "localizedDescription": "説明",
+        "localizedNamePlaceholder": "名前を入力",
+        "localizedDescriptionPlaceholder": "説明を入力",
+        "requiredLocaleSection": "既定言語",
+        "requiredLocaleDescription": "バックエンド契約では既定言語の名前が必須です。",
+        "optionalLocaleSection": "その他の言語",
+        "optionalLocaleDescription": "言語を選択して名前と説明を編集します。入力済みの言語は下に表示されます。",
+        "localeSelectPlaceholder": "言語を選択",
+        "localeSearchPlaceholder": "言語を検索",
+        "locale": {
           "zh_CN": "简体中文",
           "en": "English",
           "ja": "日本語",
@@ -1475,12 +1539,30 @@
         "corex_sales": "営業"
       },
       "states": {
-        "loading": { "title": "読み込み中", "description": "メタデータを読み込んでいます。" },
-        "no_permission": { "title": "権限がありません", "description": "現在のユーザーは閲覧できません。" },
-        "missing_selection": { "title": "項目を選択", "description": "左側の項目を選択してください。" },
-        "empty": { "title": "データなし", "description": "現在の条件に一致するデータがありません。" },
-        "error": { "title": "読み込み失敗", "description": "バックエンドがエラーを返しました。" },
-        "ready": { "title": "読み込み済み", "description": "データを読み込みました。" }
+        "loading": {
+          "title": "読み込み中",
+          "description": "メタデータを読み込んでいます。"
+        },
+        "no_permission": {
+          "title": "権限がありません",
+          "description": "現在のユーザーは閲覧できません。"
+        },
+        "missing_selection": {
+          "title": "項目を選択",
+          "description": "左側の項目を選択してください。"
+        },
+        "empty": {
+          "title": "データなし",
+          "description": "現在の条件に一致するデータがありません。"
+        },
+        "error": {
+          "title": "読み込み失敗",
+          "description": "バックエンドがエラーを返しました。"
+        },
+        "ready": {
+          "title": "読み込み済み",
+          "description": "データを読み込みました。"
+        }
       },
       "empty": {
         "title": "データなし",
@@ -1511,8 +1593,16 @@
         "module": "モジュール",
         "validator": "バリデーター"
       },
-      "status": { "enabled": "有効", "disabled": "無効", "archived": "アーカイブ" },
-      "validator": { "available": "利用可能", "missing": "未設定", "disabled": "無効" },
+      "status": {
+        "enabled": "有効",
+        "disabled": "無効",
+        "archived": "アーカイブ"
+      },
+      "validator": {
+        "available": "利用可能",
+        "missing": "未設定",
+        "disabled": "無効"
+      },
       "pagination": {
         "summary": "{start}-{end} / 全 {total} 件、{page} ページ",
         "pageSize": "1ページあたり"

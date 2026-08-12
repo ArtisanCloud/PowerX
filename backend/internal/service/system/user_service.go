@@ -524,7 +524,7 @@ func (s *UserService) applyMemberRolesTx(ctx context.Context, tx *gorm.DB, tenan
 	}
 
 	if err := tx.WithContext(ctx).
-		Where("tenant_uuid = ? AND subject_type = ? AND subject_uuid = ?", tenantUUID, m.SubMember, memberUUID).
+		Where("tenant_uuid = ? AND subject_type = ? AND (subject_uuid = ? OR subject_id = ?)", tenantUUID, m.SubMember, memberUUID, memberID).
 		Delete(&m.RoleBinding{}).Error; err != nil {
 		return err
 	}

@@ -35,7 +35,7 @@
     "permission": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "permission_code", "title_i18n", "description_i18n", "risk_level"],
+      "required": ["type", "permission_code", "module", "title_i18n", "description_i18n", "risk_level", "data_scope"],
       "properties": {
         "type": {
           "type": "string",
@@ -44,7 +44,32 @@
         "permission_code": { "$ref": "#/$defs/permissionCode" },
         "module": {
           "type": "string",
+          "minLength": 1,
+          "not": { "const": "menu" }
+        },
+        "resource": {
+          "type": "string",
           "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "menu_path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "not": {
+              "pattern": "(com\\.powerx\\.plugins?|plugin\\.|/_p/|/api/v1)"
+            }
+          }
+        },
+        "page_permission_codes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/permissionCode" },
+          "uniqueItems": true
         },
         "title_i18n": { "$ref": "#/$defs/localeText" },
         "description_i18n": { "$ref": "#/$defs/localeText" },
@@ -74,6 +99,30 @@
       "allOf": [
         {
           "if": {
+            "properties": { "type": { "const": "menu" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["menu_path"],
+            "properties": {
+              "permission_code": {
+                "type": "string",
+                "pattern": "^menu\\.[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+:[a-z][a-z0-9_]*$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "enum": ["page", "action", "api"] } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["resource", "action"]
+          }
+        },
+        {
+          "if": {
             "properties": { "type": { "const": "api" } },
             "required": ["type"]
           },
@@ -86,6 +135,33 @@
                 "required": ["independent"]
               }
             ]
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "page" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["protocol_bindings"],
+            "properties": {
+              "protocol_bindings": {
+                "minItems": 1,
+                "items": {
+                  "allOf": [
+                    { "$ref": "#/$defs/protocolBinding" },
+                    {
+                      "properties": {
+                        "channel": { "const": "rest" },
+                        "method": { "const": "GET" },
+                        "actor_context": { "const": "admin_user" },
+                        "resource_scope": { "const": "tenant" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       ]
@@ -106,7 +182,7 @@
         "path": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^/"
+          "pattern": "^/(?!api/v1)(?!_p/)(?!.*[{}:]).*"
         },
         "actor_context": {
           "type": "string",

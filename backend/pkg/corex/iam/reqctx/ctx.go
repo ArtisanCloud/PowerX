@@ -46,6 +46,7 @@ type CoreXClaims struct {
 	Roles      []string `json:"roles,omitempty"`
 	Platforms  []string `json:"plats,omitempty"`
 	Scope      string   `json:"scope"`
+	PluginID   string   `json:"plugin_id,omitempty"`
 
 	PermissionCodes []string `json:"permission_codes,omitempty"`
 	PolicyVersion   string   `json:"policy_version,omitempty"`

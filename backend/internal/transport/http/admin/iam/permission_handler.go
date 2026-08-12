@@ -112,6 +112,20 @@ func (h *PermissionHandler) PluginCatalog(c *gin.Context) {
 	dto.ResponseSuccess(c, data)
 }
 
+func (h *PermissionHandler) CleanupInvalidPluginPermissions(c *gin.Context) {
+	pluginID := strings.TrimSpace(c.Query("plugin_id"))
+	if pluginID == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "iam.permission.plugin_id_required", nil)
+		return
+	}
+	result, err := h.svc.CleanupInvalidPluginPermissions(c.Request.Context(), pluginID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "iam.permission.plugin_invalid_cleanup_failed", err)
+		return
+	}
+	dto.ResponseSuccess(c, result)
+}
+
 /* ---------- 同步/差异 ---------- */
 
 type syncReq struct {

@@ -3,6 +3,7 @@ package iam
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -281,6 +282,13 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, 
 				skipped = append(skipped, p.ID)
 			}
 		}
+		expanded, err := s.expandPluginMenuPagePermissionIDs(ctx, ps)
+		if err != nil {
+			return SetIDsResult{}, err
+		}
+		for _, id := range expanded {
+			validSet[id] = struct{}{}
+		}
 	}
 
 	var toAdd, toRemove []uint64
@@ -325,6 +333,184 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, 
 	slices.Sort(toRemove)
 	slices.Sort(skipped)
 	return SetIDsResult{Added: toAdd, Removed: toRemove, Now: now, SkippedDeprecated: skipped}, nil
+}
+
+type pluginRBACPermissionMeta struct {
+	Type                string                      `json:"type"`
+	Origin              string                      `json:"origin"`
+	PluginID            string                      `json:"plugin_id"`
+	Path                string                      `json:"path"`
+	Route               string                      `json:"route"`
+	Permission          string                      `json:"permission"`
+	PagePermissionCodes []string                    `json:"page_permission_codes"`
+	ProtocolBindings    []pluginRBACProtocolBinding `json:"protocol_bindings"`
+}
+
+type pluginRBACProtocolBinding struct {
+	Channel string `json:"channel"`
+	Method  string `json:"method"`
+	Path    string `json:"path"`
+}
+
+func (s *RBACService) expandPluginMenuPagePermissionIDs(ctx context.Context, selected []*dbm.Permission) ([]uint64, error) {
+	if s == nil || s.db == nil || len(selected) == 0 {
+		return nil, nil
+	}
+	type sourceMenuPaths struct {
+		source              string
+		paths               map[string]struct{}
+		pagePermissionCodes map[string]struct{}
+	}
+	menusBySource := map[string]sourceMenuPaths{}
+	for _, perm := range selected {
+		if perm == nil || strings.TrimSpace(perm.Source) == "" || !strings.HasPrefix(strings.TrimSpace(perm.Source), "plugin:") {
+			continue
+		}
+		meta := decodePluginRBACPermissionMeta(perm.Meta)
+		if !strings.EqualFold(strings.TrimSpace(meta.Type), "menu") || !strings.EqualFold(strings.TrimSpace(meta.Origin), "plugin") {
+			continue
+		}
+		paths := pluginMenuAdminPathCandidates(meta.Path, meta.Route)
+		pagePermissionCodes := normalizePermissionCodeSet(meta.PagePermissionCodes)
+		if len(paths) == 0 && len(pagePermissionCodes) == 0 {
+			continue
+		}
+		source := strings.TrimSpace(perm.Source)
+		bucket := menusBySource[source]
+		if bucket.paths == nil {
+			bucket = sourceMenuPaths{source: source, paths: map[string]struct{}{}, pagePermissionCodes: map[string]struct{}{}}
+		}
+		for _, item := range paths {
+			bucket.paths[item] = struct{}{}
+		}
+		for item := range pagePermissionCodes {
+			bucket.pagePermissionCodes[item] = struct{}{}
+		}
+		menusBySource[source] = bucket
+	}
+	if len(menusBySource) == 0 {
+		return nil, nil
+	}
+
+	expanded := map[uint64]struct{}{}
+	for source, bucket := range menusBySource {
+		var rows []dbm.Permission
+		if err := s.db.WithContext(ctx).
+			Where("source = ? AND status = ?", source, dbm.PermissionStatusActive).
+			Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		for i := range rows {
+			meta := decodePluginRBACPermissionMeta(rows[i].Meta)
+			if !strings.EqualFold(strings.TrimSpace(meta.Type), "page") {
+				continue
+			}
+			if permissionCodeInSet(meta.Permission, bucket.pagePermissionCodes) || pluginPagePermissionMatchesMenuPath(meta, bucket.paths) {
+				expanded[rows[i].ID] = struct{}{}
+			}
+		}
+	}
+	if len(expanded) == 0 {
+		return nil, nil
+	}
+	ids := make([]uint64, 0, len(expanded))
+	for id := range expanded {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids, nil
+}
+
+func normalizePermissionCodeSet(items []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, raw := range items {
+		item := strings.TrimSpace(raw)
+		if item == "" {
+			continue
+		}
+		out[item] = struct{}{}
+	}
+	return out
+}
+
+func permissionCodeInSet(permission string, set map[string]struct{}) bool {
+	permission = strings.TrimSpace(permission)
+	if permission == "" || len(set) == 0 {
+		return false
+	}
+	_, ok := set[permission]
+	return ok
+}
+
+func decodePluginRBACPermissionMeta(raw []byte) pluginRBACPermissionMeta {
+	var meta pluginRBACPermissionMeta
+	if len(raw) == 0 {
+		return meta
+	}
+	_ = json.Unmarshal(raw, &meta)
+	return meta
+}
+
+func pluginMenuAdminPathCandidates(values ...string) []string {
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		candidates := []string{value}
+		if !strings.HasPrefix(value, "/") {
+			candidates = append(candidates, "/"+value)
+		}
+		for _, candidate := range candidates {
+			normalized := normalizePluginRBACPath(candidate)
+			if normalized == "" {
+				continue
+			}
+			seen[normalized] = struct{}{}
+			if !strings.HasPrefix(normalized, "/admin/") && normalized != "/admin" {
+				seen[normalizePluginRBACPath("/admin"+normalized)] = struct{}{}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for item := range seen {
+		out = append(out, item)
+	}
+	slices.Sort(out)
+	return out
+}
+
+func pluginPagePermissionMatchesMenuPath(meta pluginRBACPermissionMeta, menuPaths map[string]struct{}) bool {
+	for _, binding := range meta.ProtocolBindings {
+		if !strings.EqualFold(strings.TrimSpace(binding.Channel), "rest") {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(binding.Method), "GET") {
+			continue
+		}
+		if _, ok := menuPaths[normalizePluginRBACPath(binding.Path)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizePluginRBACPath(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if !strings.HasPrefix(value, "/") {
+		value = "/" + value
+	}
+	for strings.Contains(value, "//") {
+		value = strings.ReplaceAll(value, "//", "/")
+	}
+	if len(value) > 1 {
+		value = strings.TrimRight(value, "/")
+	}
+	return value
 }
 
 func invalidateAgentEffectivePermissionsIAMCache(ctx context.Context, tenantUUID string) error {

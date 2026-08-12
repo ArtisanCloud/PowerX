@@ -272,17 +272,17 @@
 
 ### Tests for User Story 9
 
-- [x] T096 [P] [US9] 校验系统菜单定义包含 `menu:*:read` 权限：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
+- [x] T096 [P] [US9] 校验系统菜单定义包含 `menu.<path>:view` 权限：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
 - [x] T097 [P] [US9] 校验默认角色 seed 后包含 `role_vendor` 与菜单权限白名单：`backend/cmd/database/seed/seed_permission.go`、`backend/cmd/database/seed/seed_role.go`
 
 ### Implementation for User Story 9
 
 - [x] T098 [US9] 新增 `role_vendor` 内置角色常量与默认角色 upsert：`backend/pkg/corex/iam/const.go`、`backend/pkg/corex/db/persistence/repository/iam/role_repo.go`
-- [x] T099 [US9] 注册核心菜单权限 `module=menu/resource/action=read`：`backend/cmd/database/seed/seed_permission.go`
+- [x] T099 [US9] 注册核心菜单权限 `module=menu/resource/action=view`：`backend/cmd/database/seed/seed_permission.go`
 - [x] T100 [US9] 系统菜单补充 `Permissions`：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
 - [x] T101 [US9] 菜单聚合接口接入 `RBACService.Enforce`：`backend/internal/transport/http/admin/menu/merge_handler.go`
 - [x] T102 [US9] 文档补充角色级菜单权限、供应商角色和验收方法：`specs/026-iam/spec.md`、`specs/026-iam/data-model.md`、`specs/026-iam/quickstart.md`
-- [x] T103 [US9] 插件 manifest 菜单递归同步为 `module=menu/resource=plugin.<plugin_id>.<menu_id>/action=read` 权限：`backend/internal/bootstrap/plugin_permission_sync.go`、`backend/pkg/plugin_mgr/menu_permissions.go`
+- [x] T103 [US9] 插件 manifest 菜单递归同步为 `module=menu/resource=<menu_path>/action=view` 权限：`backend/internal/bootstrap/plugin_permission_sync.go`、`backend/pkg/plugin_mgr/menu_permissions.go`
 - [x] T104 [US9] 插件菜单聚合时自动附加对应菜单权限策略并保留插件声明策略：`backend/internal/transport/http/admin/plugin/menus_agg.go`
 - [x] T105 [US9] 角色权限页把插件/App 菜单权限展示到“已安装 App / 插件名称”分组：`web-admin/app/components/settings/users/PermissionManager.vue`、`web-admin/app/stores/permission.ts`
 

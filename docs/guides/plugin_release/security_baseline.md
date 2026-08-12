@@ -39,6 +39,16 @@
 2. OpenAPI 租户路由需强制携带 Authorization 头（`offline_import_handler.go` 为实现示例）。
 3. gRPC 服务需部署在 API Gateway 后并通过 mTLS/JWT 鉴权，仅放行 `px publish` CLI 与受信自动化账号。
 
+## 第 3.5 步：插件权限声明准入
+
+1. 插件包必须提供 `permissions[]`，并按 `docs/guides/plugin_release/permission_declaration.md` 声明 `menu/page/action/api`。
+2. 每个插件后台业务页面必须有 `type=page` 和 GET `protocol_bindings`；静态资产、`/_nuxt/**`、图片、CSS、JS 不声明 page 权限。
+3. 每个敏感接口必须有 `type=api` binding，并通过 `business_permission_code` 指向业务 action，除非该接口显式 `independent: true`。
+4. delegated/host 模式插件后端必须消费 `permission_codes`、`policy_version`、`perms_hash`，并按接口 effective permission 做二次校验，不得回退旧粗权限或 raw API 权限。
+5. 插件通过 runtime ws-bus/taskbus 发布事件时，`event_fabric` manifest 必须给插件服务态 principal 授权 `publish`：`principal_type=plugin`、`principal_id="{{plugin_id}}"`。只给 `member:system` 或 `role:role_admin` 授权不得通过发布审核。
+6. 插件通过 STS/Bearer 调用 PowerX Core 运行时合同接口时，底座必须有明确 STS direct route policy。Host Scheduler 的 `/api/v1/admin/scheduler/jobs` 系列属于显式例外；Event Fabric topic bootstrap 推荐使用正式能力 `POST /api/v1/event-fabric/topics`，`POST /api/v1/admin/event-fabric/topics` 只作为显式运行时合同例外；其他 `/api/v1/admin/*` 不得因为普通插件声明或 topic ACL 自动放开。
+7. `permission_code`、i18n、风险等级、`actor_context`、`resource_scope` 缺失时必须拒绝发布或同步，不得降级到旧粗权限。
+
 ## 第 4 步：审计与日志
 1. 确认以下审计钩子生效：
    - `local/audit_hooks.go`

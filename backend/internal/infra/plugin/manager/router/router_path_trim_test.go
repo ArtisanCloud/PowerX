@@ -48,16 +48,16 @@ func TestNormalizeGatePathForPolicy(t *testing.T) {
 		want     string
 	}{
 		{
-			name:     "v1 path normalized to api v1 when base is api v1",
+			name:     "v1 path strips api v1 base alias",
 			inPath:   "/v1/admin/runtime/ws-bus/test-flow",
 			basePath: "/api/v1",
-			want:     "/api/v1/admin/runtime/ws-bus/test-flow",
+			want:     "/admin/runtime/ws-bus/test-flow",
 		},
 		{
-			name:     "api path kept",
+			name:     "api path strips base",
 			inPath:   "/api/v1/admin/runtime/ws-bus/test-flow",
 			basePath: "/api/v1",
-			want:     "/api/v1/admin/runtime/ws-bus/test-flow",
+			want:     "/admin/runtime/ws-bus/test-flow",
 		},
 		{
 			name:     "no base no change",

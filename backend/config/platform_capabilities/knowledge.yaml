@@ -1,44 +1,53 @@
+---
 version: 1
 capabilities:
-  - capability_id: com.corex.knowledge.space
-    module: knowledge_space
-    title: Knowledge Space Admin
-    description: 管理知识空间配额、策略与增量任务，供插件直接复用。
-    permission_code: corex.knowledge.space:manage
-    agent_usable: true
-    risk_level: high
-    categories: [knowledge, ai]
-    intents: [knowledge.space.manage]
-    tool_scopes: [knowledge.space]
-    policy:
-      prefer: grpc
-    docs:
-      - backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto
-    protocols:
-      - channel: grpc
-        endpoint: powerx.knowledge.v1.KnowledgeSpaceAdminService
-        rpc: CreateKnowledgeSpace
-        schema_ref: backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto#KnowledgeSpaceAdminService
-        auth_type: tenant_jwt
-        tool_scope: knowledge.space
-      - channel: grpc
-        endpoint: powerx.knowledge.v1.KnowledgeSpaceAdminService
-        rpc: UpdateKnowledgeSpace
-        schema_ref: backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto#KnowledgeSpaceAdminService
-        auth_type: tenant_jwt
-        tool_scope: knowledge.space
-      - channel: grpc
-        endpoint: powerx.knowledge.v1.KnowledgeSpaceAdminService
-        rpc: TriggerIngestion
-        schema_ref: backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto#KnowledgeSpaceAdminService
-        auth_type: tenant_jwt
-        tool_scope: knowledge.space
-      - channel: rest
-        endpoint: /api/v1/admin/knowledge-spaces/builtin/seed
-        method: POST
-        schema_ref: backend/internal/transport/http/admin/knowledge_space/handlers.go#source
-        auth_type: tenant_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: knowledge.space
+- capability_id: com.corex.knowledge.space
+  module: knowledge_space
+  title: Knowledge Space Admin
+  description: 管理知识空间配额、策略与增量任务，供插件直接复用。
+  permission_code: corex.knowledge.space:manage
+  agent_usable: true
+  risk_level: high
+  categories:
+  - knowledge
+  - ai
+  intents:
+  - knowledge.space.manage
+  tool_scopes:
+  - knowledge.space
+  policy:
+    prefer: grpc
+  docs:
+  - backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto
+  protocols:
+  - channel: grpc
+    endpoint: powerx.knowledge.v1.KnowledgeSpaceAdminService
+    rpc: CreateKnowledgeSpace
+    schema_ref: backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto#KnowledgeSpaceAdminService
+    auth_type: tenant_jwt
+    tool_scope: knowledge.space
+  - channel: grpc
+    endpoint: powerx.knowledge.v1.KnowledgeSpaceAdminService
+    rpc: UpdateKnowledgeSpace
+    schema_ref: backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto#KnowledgeSpaceAdminService
+    auth_type: tenant_jwt
+    tool_scope: knowledge.space
+  - channel: grpc
+    endpoint: powerx.knowledge.v1.KnowledgeSpaceAdminService
+    rpc: TriggerIngestion
+    schema_ref: backend/api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto#KnowledgeSpaceAdminService
+    auth_type: tenant_jwt
+    tool_scope: knowledge.space
+  - channel: rest
+    endpoint: "/api/v1/admin/knowledge-spaces/builtin/seed"
+    method: POST
+    schema_ref: backend/internal/transport/http/admin/knowledge_space/handlers.go#source
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.space
+  title_i18n:
+    en: Knowledge Space Admin
+  description_i18n:
+    en: 管理知识空间配额、策略与增量任务，供插件直接复用。

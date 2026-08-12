@@ -15,17 +15,17 @@ func TestCheckAndMintUsesRegisteredRoutePermissionCode(t *testing.T) {
 	auth.SetJWTSecret([]byte("test-secret"))
 	az := &registeredRouteAuthorizer{
 		routes: map[string]Permission{
-			"POST:/api/v1/sample-tracks/42/nodes/sample-schedule": {
-				Module:   "production",
-				Resource: "sample_track",
-				Action:   "factory_schedule",
+			"POST:/api/v1/example/records/42/approve": {
+				Module:   "workspace",
+				Resource: "case_file",
+				Action:   "approve",
 			},
 		},
-		perms: []string{"production.sample_track:factory_schedule"},
+		perms: []string{"workspace.case_file:approve"},
 	}
 	g := newAuthzGate(az, "powerx-auth", time.Minute)
 
-	token, allowed, reason := g.CheckAndMint(context.Background(), "demo.plugin", "POST", "/api/v1/sample-tracks/42/nodes/sample-schedule", reqctx.CoreXClaims{
+	token, allowed, reason := g.CheckAndMint(context.Background(), "demo.plugin", "POST", "/api/v1/example/records/42/approve", reqctx.CoreXClaims{
 		TenantUUID: "tenant-uuid",
 		MemberID:   22,
 		UserID:     33,
@@ -40,7 +40,7 @@ func TestCheckAndMintUsesRegisteredRoutePermissionCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseAndValidate error: %v", err)
 	}
-	if len(claims.PermissionCodes) != 1 || claims.PermissionCodes[0] != "production.sample_track:factory_schedule" {
+	if len(claims.PermissionCodes) != 1 || claims.PermissionCodes[0] != "workspace.case_file:approve" {
 		t.Fatalf("permission codes = %#v", claims.PermissionCodes)
 	}
 	if claims.PermsHash == "" {
@@ -77,17 +77,17 @@ func TestCheckAndMintRejectsMissingPermissionCode(t *testing.T) {
 	auth.SetJWTSecret([]byte("test-secret"))
 	az := &registeredRouteAuthorizer{
 		routes: map[string]Permission{
-			"POST:/api/v1/sample-tracks/42/nodes/sample-schedule": {
-				Module:   "production",
-				Resource: "sample_track",
-				Action:   "factory_schedule",
+			"POST:/api/v1/example/records/42/approve": {
+				Module:   "workspace",
+				Resource: "case_file",
+				Action:   "approve",
 			},
 		},
-		perms: []string{"production.sample_track:read"},
+		perms: []string{"workspace.case_file:read"},
 	}
 	g := newAuthzGate(az, "powerx-auth", time.Minute)
 
-	_, allowed, reason := g.CheckAndMint(context.Background(), "demo.plugin", "POST", "/api/v1/sample-tracks/42/nodes/sample-schedule", reqctx.CoreXClaims{
+	_, allowed, reason := g.CheckAndMint(context.Background(), "demo.plugin", "POST", "/api/v1/example/records/42/approve", reqctx.CoreXClaims{
 		TenantUUID: "tenant-uuid",
 		MemberID:   22,
 		UserID:     33,
@@ -95,7 +95,7 @@ func TestCheckAndMintRejectsMissingPermissionCode(t *testing.T) {
 	if allowed {
 		t.Fatalf("expected deny for missing permission")
 	}
-	if reason != "permission required: sample_track:factory_schedule" {
+	if reason != "permission required: case_file:approve" {
 		t.Fatalf("reason=%q", reason)
 	}
 }
@@ -106,15 +106,15 @@ func TestValidatePermissionSnapshotRejectsMissingOrExpiredClaims(t *testing.T) {
 	}
 
 	claims := reqctx.CoreXClaims{
-		PermissionCodes: []string{"production.sample_track:read"},
-		PermsHash:       permissionCodesHash([]string{"production.sample_track:read"}),
-		PolicyVersion:   permissionPolicyVersion(permissionCodesHash([]string{"production.sample_track:read"})),
+		PermissionCodes: []string{"workspace.case_file:read"},
+		PermsHash:       permissionCodesHash([]string{"workspace.case_file:read"}),
+		PolicyVersion:   permissionPolicyVersion(permissionCodesHash([]string{"workspace.case_file:read"})),
 	}
 	if err := ValidatePermissionSnapshot(claims, "iam:stale"); !errors.Is(err, ErrPermissionSnapshotExpired) {
 		t.Fatalf("stale policy version error=%v", err)
 	}
 
-	claims.PermsHash = permissionCodesHash([]string{"production.sample_track:delivery"})
+	claims.PermsHash = permissionCodesHash([]string{"workspace.case_file:delete"})
 	if err := ValidatePermissionSnapshot(claims, ""); !errors.Is(err, ErrPermissionSnapshotExpired) {
 		t.Fatalf("stale hash error=%v", err)
 	}

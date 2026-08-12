@@ -442,7 +442,27 @@ watch(
 
 watch(
   () => menuResponse.value,
-  () => expandByRoute(),
+  () => {
+    if (process.dev && process.client) {
+      const categories = menuResponse.value?.categories || [];
+      const countItems = (items?: MenuItem[]): number =>
+        (items || []).reduce(
+          (total, item) => total + 1 + countItems(item.children),
+          0
+        );
+      console.info("[sidebar] menus loaded", {
+        identity: menuIdentityKey.value,
+        category_count: categories.length,
+        item_count: countItems(categories.flatMap((category) => category.children || [])),
+        categories: categories.map((category) => ({
+          id: category.id,
+          title: category.title,
+          count: countItems(category.children),
+        })),
+      });
+    }
+    expandByRoute();
+  },
   { deep: true }
 );
 

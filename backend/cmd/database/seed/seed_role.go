@@ -36,8 +36,8 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 		return fmt.Errorf("find role_vendor: %w", err)
 	}
 
-	// 2) 查全量和只读权限 ID（全局 permission 表）
-	var allIDs, readIDs, allMenuIDs, tenantDefaultMenuIDs, vendorIDs []uint64
+	// 2) 查全量、普通用户基础权限和只读权限 ID（全局 permission 表）
+	var allIDs, userIDs, readIDs, allMenuIDs, tenantDefaultMenuIDs, vendorIDs []uint64
 	if err := db.WithContext(seedCtx()).
 		Model(&dbm.Permission{}).Pluck("id", &allIDs).Error; err != nil {
 		return err
@@ -51,7 +51,15 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 	}
 	if err := db.WithContext(seedCtx()).
 		Model(&dbm.Permission{}).
-		Where("module = ? AND action = ?", "menu", "read").
+		Where("status = ?", dbm.PermissionStatusActive).
+		Where("module <> ?", "menu").
+		Where("action IN ? OR module = ?", []string{"read", "list"}, "agent").
+		Pluck("id", &userIDs).Error; err != nil {
+		return err
+	}
+	if err := db.WithContext(seedCtx()).
+		Model(&dbm.Permission{}).
+		Where("module = ? AND action = ?", "menu", "view").
 		Pluck("id", &allMenuIDs).Error; err != nil {
 		return err
 	}
@@ -60,7 +68,7 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 		Where("module = ? AND resource IN ? AND action = ?",
 			"menu",
 			[]string{"dashboard", "agent", "agent.chat", "knowledge"},
-			"read",
+			"view",
 		).
 		Pluck("id", &tenantDefaultMenuIDs).Error; err != nil {
 		return err
@@ -78,10 +86,12 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 			return fmt.Errorf("grant to admin: %w", err)
 		}
 	}
-	if len(readIDs) > 0 {
-		if err := rpRepo.BindPermissions(seedCtx(), user.ID, readIDs...); err != nil {
+	if len(userIDs) > 0 {
+		if err := rpRepo.BindPermissions(seedCtx(), user.ID, userIDs...); err != nil {
 			return fmt.Errorf("grant to user: %w", err)
 		}
+	}
+	if len(readIDs) > 0 {
 		if err := rpRepo.BindPermissions(seedCtx(), readonly.ID, readIDs...); err != nil {
 			return fmt.Errorf("grant to readonly: %w", err)
 		}
@@ -100,6 +110,6 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 		}
 	}
 
-	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d, vendor:%d)", tenantUUID, len(allIDs), len(readIDs), len(readIDs), len(vendorIDs))
+	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] granted defaults for tenant=%s (admin:%d, user:%d, readonly:%d, vendor:%d)", tenantUUID, len(allIDs), len(userIDs), len(readIDs), len(vendorIDs))
 	return nil
 }

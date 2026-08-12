@@ -2,7 +2,7 @@
 
 本指南基于 `specs/009-install-plugin-pxp` 的交付内容，串联开发者、审核员、运维和租户管理员在现实场景中的操作步骤。按照顺序执行即可完成从本地调试到多渠道分发的整条流水线。
 
-插件与底座之间的 token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
+插件与底座之间的 token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。插件包内菜单、页面、动作与接口权限声明以 `docs/guides/plugin_release/permission_declaration.md` 为对外执行指南。
 
 ## 0. 角色及工具准备
 - **开发者**：安装 `px-plugin` 与 `px` CLI。
@@ -40,6 +40,27 @@
    - `POST /api/admin/plugin-release/candidates/:id/gates`
    - `POST /api/admin/plugin-release/plans`
 3. 质量门禁由 GateRunner 执行：确保 Release Notes ≥ 20 字、Commit Hash ≥ 7 位、`coverage` 标签达标。
+
+### 2.1 权限声明门禁
+
+提交候选前，插件包必须按 `docs/guides/plugin_release/permission_declaration.md` 声明 `permissions[]`：
+
+- 每个菜单入口声明 `type=menu`。
+- 菜单入口必须声明 `menu_path`，PowerX 按它渲染菜单层级；不得使用 `module=menu`，也不得把插件 ID 拼进 `permission_code/module/menu_path`。
+- 菜单如果需要联动授予页面读取权限，必须声明 `page_permission_codes` 并指向已声明的 `type=page` 权限；底座不得按标题、路径或插件 ID 猜测关联。
+- 每个插件后台业务页面和详情页声明 `type=page`，并提供 GET `protocol_bindings`。
+- 每个按钮、节点流转或业务动作声明 `type=action`。
+- 每个敏感接口声明 `type=api`，并通过 `business_permission_code` 指向业务 action，除非该接口是独立授权边界。
+- `page/action/api` 必须声明 `module/resource/action`；`module` 是业务域，例如 `production`、`settings`、`integration`，不是插件 ID 或权限类型。
+- 若主 `plugin.yaml` 使用 `catalogs.rbac`，则 `permissions[]`、`rbac`、`routes` 只能放在 `plugin.d/rbac.yaml`；主 manifest 不得重复声明这些字段。
+- delegated/host 模式下，插件前后端必须消费 PowerX 下发的 `permission_codes`、`policy_version`、`perms_hash`，不得只读取旧 `permissions` 字段或回退旧粗权限。
+- 插件后端二次校验必须使用接口 binding 的 `effective_permission_code`：优先 `business_permission_code`；只有 `independent: true` 的 API 才校验 raw API `permission_code`。
+- 插件如果通过 runtime ws-bus/taskbus 发布事件，必须在 `event_fabric` manifest 中给插件服务态 principal 显式授权：`principal_type: plugin`、`principal_id: "{{plugin_id}}"`、`actions: [publish]`。只给 `member:system` 或 `role:role_admin` 授权不能代表插件 STS principal。
+- 插件如果通过 STS/Bearer 调用 PowerX Core 的运行时合同接口，还必须确认底座 STS direct route policy 已显式放行。例如 Host Scheduler 需要允许 `/api/v1/admin/scheduler/jobs`、`/api/v1/admin/scheduler/jobs/{job_id}`、`trigger/pause/resume/runs`。Event Fabric topic bootstrap 推荐走正式能力 `POST /api/v1/event-fabric/topics`；历史 admin 入口 `POST /api/v1/admin/event-fabric/topics` 只是显式运行时合同例外。只补插件权限或 topic ACL 不能解决 `sts token not allowed for this route`。
+
+缺少 `permission_code`、i18n、`menu_path`、`module/resource/action`、page/api binding、`actor_context`、`resource_scope`，或主 manifest 与 `catalogs.rbac` 分片重复声明同一字段的插件包不得进入正式发布。`business_permission_code` 指向不存在的业务权限，或把插件 ID 拼进业务权限码、菜单路径、资源名，也不得进入正式发布。
+
+若运行时报 `sts token not allowed for this route`，先看插件服务态调用的是哪个 PowerX Core HTTP 路由：Scheduler 仅允许 `/api/v1/admin/scheduler/jobs` 系列；topic bootstrap 优先使用 `POST /api/v1/event-fabric/topics`。若运行时报 `taskbus host publish failed: PUBLISH_UPSTREAM_REJECTED` 或 `topic not allowed`，再检查 Event Fabric topic 是否注册，以及 `event_acl_bindings` 是否存在 `principal_id=plugin:<plugin_id>` 的 `publish` 权限。
 
 ## 3. 灰度部署与回滚（Phase 5，T041-T049）
 1. 生成计划后，使用 CLI 触发灰度：
@@ -145,6 +166,7 @@ web-admin/app/services/menuConfig.ts
 ## 7. 文档与 SOP 更新
 - 快速入门：`specs/009-install-plugin-pxp/quickstart.md`
 - Use Case：`docs/use_cases/_from_hub/SCN-PUBLISH-HUB-001/*.md`
+- 权限声明：`docs/guides/plugin_release/permission_declaration.md`
 - 观测指南：`docs/guides/plugin_release/observability.md`
 - 安全基线：`docs/guides/plugin_release/security_baseline.md`
 
