@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -142,6 +143,67 @@ func TestDynamicRouter_RuntimeWSBusRouteRequiresRegisteredPermissionSnapshot(t *
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("code=%d, want 204", resp.StatusCode)
+	}
+}
+
+func TestDynamicRouter_GatewayDenyResponseIncludesRequestID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	auth.SetJWTSecret([]byte("test-secret"))
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("upstream should not be called")
+	}))
+	t.Cleanup(upstream.Close)
+	upstreamURL, err := url.Parse(upstream.URL)
+	if err != nil {
+		t.Fatalf("parse upstream url: %v", err)
+	}
+
+	engine := gin.New()
+	dr := NewDynamicRouter("/_p", engine, func(c *gin.Context) {
+		claims := reqctx.CoreXClaims{
+			TenantUUID: "tenant-uuid",
+			UserID:     101,
+			MemberID:   202,
+		}
+		ctx := reqctx.WithClaims(c.Request.Context(), &claims)
+		ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
+		ctx = reqctx.WithUserID(ctx, claims.UserID)
+		ctx = reqctx.WithMemberID(ctx, claims.MemberID)
+		c.Request = c.Request.WithContext(ctx)
+		c.Set("auth_claims", claims)
+		c.Next()
+	})
+	dr.BindAuthorizer(&registeredRouteAuthorizer{
+		routes: map[string]Permission{
+			"POST:/admin/example/records": {
+				Module:   "example",
+				Resource: "record",
+				Action:   "create",
+			},
+		},
+		perms: []string{"example.record:read"},
+	}, "powerx-auth", 0)
+	dr.BindTenantPluginGuard(func(context.Context, string, string) error { return nil })
+	dr.MountAPIProxy("com.powerx.plugins.test", upstreamURL, "/api/v1", "/healthz")
+
+	req := httptest.NewRequest(http.MethodPost, "/_p/com.powerx.plugins.test/api/v1/admin/example/records", nil)
+	req.Header.Set("X-Request-ID", "req-test-123")
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("code=%d, want 403 body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("json body error: %v body=%s", err, rec.Body.String())
+	}
+	if body["request_id"] != "req-test-123" {
+		t.Fatalf("request_id=%v, want req-test-123 body=%v", body["request_id"], body)
+	}
+	if body["trace_id"] == "" {
+		t.Fatalf("expected trace_id body=%v", body)
 	}
 }
 

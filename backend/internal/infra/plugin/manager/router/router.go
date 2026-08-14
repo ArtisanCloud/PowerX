@@ -322,7 +322,7 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 			} else {
 				logger.WarnF(c.Request.Context(), "[ADMIN-GATE-DENY] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
 					pluginID, c.Request.Method, clientPath, gatePath, reason)
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
+				abortGatewayAccessDenied(c, http.StatusForbidden, reason)
 				return
 			}
 		}
@@ -532,10 +532,23 @@ func abortTenantPluginGuard(c *gin.Context, err error) {
 	} else if err != nil && strings.TrimSpace(err.Error()) != "" {
 		reason = err.Error()
 	}
+	requestID, traceID := getRequestTraceIDs(c)
 	c.AbortWithStatusJSON(status, gin.H{
 		"error":      "access denied at gateway",
 		"error_code": code,
 		"reason":     reason,
+		"request_id": requestID,
+		"trace_id":   traceID,
+	})
+}
+
+func abortGatewayAccessDenied(c *gin.Context, status int, reason string) {
+	requestID, traceID := getRequestTraceIDs(c)
+	c.AbortWithStatusJSON(status, gin.H{
+		"error":      "access denied at gateway",
+		"reason":     strings.TrimSpace(reason),
+		"request_id": requestID,
+		"trace_id":   traceID,
 	})
 }
 
@@ -686,10 +699,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if resolvedTenant == "" {
 			logger.WarnF(c.Request.Context(), "[PROXY-TENANT-DENY] plugin=%s method=%s clientPath=%s normalized=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
 				pluginID, c.Request.Method, clientPath, gatePath, resolvedTenant, requestID, traceID, "tenant scoped ws-bus route requires tenant from auth context")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":  "access denied at gateway",
-				"reason": "tenant scoped ws-bus route requires tenant from auth context",
-			})
+			abortGatewayAccessDenied(c, http.StatusForbidden, "tenant scoped ws-bus route requires tenant from auth context")
 			return
 		}
 	}
@@ -698,7 +708,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if !allowed {
 			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
 				pluginID, c.Request.Method, gatePath, logTenantUUID, requestID, traceID, reason)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
+			abortGatewayAccessDenied(c, http.StatusForbidden, reason)
 			return
 		}
 		pluginToken = tok

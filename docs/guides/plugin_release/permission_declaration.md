@@ -971,10 +971,12 @@ delegated 模式只代表身份来源、租户上下文和授权快照由 PowerX
 |---|---|---|
 | health/readiness | `/healthz`、`/readyz` | 明确排除业务 RBAC，只做部署健康检查。 |
 | 静态资源 / dev bridge | `/_nuxt/**`、`/bridge-dev/*` | 明确排除业务 RBAC 或限制为开发环境。 |
-| runtime contract | `/admin/runtime/ws-bus/grant`、`/admin/runtime/ws-bus/publish` | 明确声明为运行时合同入口，要求 delegated 身份和 tenant context；如需角色授权，声明独立 `type=api` + `independent: true`。 |
+| runtime contract | `/admin/runtime/ws-bus/grant`、`/admin/runtime/ws-bus/publish` | 明确声明为运行时合同入口，要求 delegated 身份和 tenant context；PowerX Gateway 只要求 route binding 存在、登录态有效、tenant context 有效、插件已启用，不要求业务角色手动勾选 `runtime.contract:*`。 |
 | debug / test-flow | `/admin/runtime/ws-bus/test-flow`、调试探针 | 生产包默认关闭；如保留，必须独立授权并标记风险等级。 |
 
-运行时合同入口不是业务页面动作，不能被路径推断为 `runtime.ws_bus:manage`、`admin.runtime:manage` 这类未声明权限；也不能借用业务 action，例如模板更新、记录审批等。
+运行时合同入口不是业务页面动作，不能被路径推断为 `runtime.ws_bus:manage`、`admin.runtime:manage` 这类未声明权限；也不能借用业务 action，例如模板更新、记录审批等。`runtime.contract:*` 只表达 PowerX 与插件之间的基础设施合同，必须注册但不得作为管理员给企划、工厂、运营等业务角色手动配置的权限项。若某个 runtime 入口本身是可被业务角色控制的操作或生产调试能力，必须另外声明业务语义清晰的 `type=action` 或 `type=api independent=true` 权限，不能复用 `runtime.contract:*`。
+
+PowerX 角色权限页必须把 `runtime.contract:*` 从业务“操作/API 权限”可勾选列表中排除，最多在插件权限登记状态或诊断视图中展示。业务角色授权只配置菜单、页面、业务 action，以及确实需要独立授权的业务 API。
 
 ### 7.7 Event Fabric / ws-bus / taskbus 声明
 

@@ -100,6 +100,99 @@ func TestCheckAndMintRejectsMissingPermissionCode(t *testing.T) {
 	}
 }
 
+func TestCheckAndMintAllowsRegisteredRuntimeContractWithoutRolePermission(t *testing.T) {
+	auth.SetJWTSecret([]byte("test-secret"))
+	az := &registeredRouteAuthorizer{
+		routes: map[string]Permission{
+			"POST:/admin/runtime/ws-bus/grant": {
+				Module:   "runtime",
+				Resource: "contract",
+				Action:   "tenant_context",
+			},
+		},
+		perms: []string{"operations.ai_craft:read"},
+	}
+	g := newAuthzGate(az, "powerx-auth", time.Minute)
+
+	token, allowed, reason := g.CheckAndMint(context.Background(), "demo.plugin", "POST", "/admin/runtime/ws-bus/grant", reqctx.CoreXClaims{
+		TenantUUID: "tenant-uuid",
+		MemberID:   22,
+		UserID:     33,
+	})
+	if !allowed {
+		t.Fatalf("allowed=false reason=%q", reason)
+	}
+	claims, err := auth.ParseAndValidate(token, []byte("test-secret"), "powerx-auth", "plugin:demo.plugin")
+	if err != nil {
+		t.Fatalf("ParseAndValidate error: %v", err)
+	}
+	if len(claims.PermissionCodes) != 1 || claims.PermissionCodes[0] != "runtime.contract:tenant_context" {
+		t.Fatalf("permission codes = %#v", claims.PermissionCodes)
+	}
+	if err := ValidatePermissionSnapshot(*claims, ""); err != nil {
+		t.Fatalf("ValidatePermissionSnapshot error: %v", err)
+	}
+}
+
+func TestCheckAndMintAllowsTenantContextContractWithoutModule(t *testing.T) {
+	auth.SetJWTSecret([]byte("test-secret"))
+	az := &registeredRouteAuthorizer{
+		routes: map[string]Permission{
+			"POST:/admin/runtime/ws-bus/grant": {
+				Resource: "contract",
+				Action:   "tenant_context",
+			},
+		},
+		perms: []string{"operations.ai_craft:read"},
+	}
+	g := newAuthzGate(az, "powerx-auth", time.Minute)
+
+	token, allowed, reason := g.CheckAndMint(context.Background(), "demo.plugin", "POST", "/admin/runtime/ws-bus/grant", reqctx.CoreXClaims{
+		TenantUUID: "tenant-uuid",
+		MemberID:   22,
+		UserID:     33,
+	})
+	if !allowed {
+		t.Fatalf("allowed=false reason=%q", reason)
+	}
+	claims, err := auth.ParseAndValidate(token, []byte("test-secret"), "powerx-auth", "plugin:demo.plugin")
+	if err != nil {
+		t.Fatalf("ParseAndValidate error: %v", err)
+	}
+	if len(claims.PermissionCodes) != 1 || claims.PermissionCodes[0] != "contract:tenant_context" {
+		t.Fatalf("permission codes = %#v", claims.PermissionCodes)
+	}
+	if err := ValidatePermissionSnapshot(*claims, ""); err != nil {
+		t.Fatalf("ValidatePermissionSnapshot error: %v", err)
+	}
+}
+
+func TestCheckAndMintRejectsRuntimeContractWithoutTenantContext(t *testing.T) {
+	auth.SetJWTSecret([]byte("test-secret"))
+	az := &registeredRouteAuthorizer{
+		routes: map[string]Permission{
+			"POST:/admin/runtime/ws-bus/grant": {
+				Module:   "runtime",
+				Resource: "contract",
+				Action:   "tenant_context",
+			},
+		},
+		perms: []string{"operations.ai_craft:read"},
+	}
+	g := newAuthzGate(az, "powerx-auth", time.Minute)
+
+	_, allowed, reason := g.CheckAndMint(context.Background(), "demo.plugin", "POST", "/admin/runtime/ws-bus/grant", reqctx.CoreXClaims{
+		UserID:   33,
+		MemberID: 22,
+	})
+	if allowed {
+		t.Fatalf("expected deny without tenant context")
+	}
+	if reason != "runtime contract tenant context missing" {
+		t.Fatalf("reason=%q", reason)
+	}
+}
+
 func TestValidatePermissionSnapshotRejectsMissingOrExpiredClaims(t *testing.T) {
 	if err := ValidatePermissionSnapshot(reqctx.CoreXClaims{}, ""); !errors.Is(err, ErrPermissionSnapshotClaimsMissing) {
 		t.Fatalf("missing claims error=%v", err)

@@ -101,6 +101,27 @@ func TestPermissionServiceListPluginCatalogGroupsPluginPermissions(t *testing.T)
 			}`)),
 		},
 		{
+			Module:   "runtime",
+			Resource: "contract",
+			Action:   "tenant_context",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:demo.plugin",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"api",
+				"module":"runtime",
+				"resource":"contract",
+				"action":"tenant_context",
+				"plugin_id":"demo.plugin",
+				"permission":"runtime.contract:tenant_context",
+				"title_i18n":{"zh-CN":"租户上下文运行时合同","en":"Tenant context runtime contract"},
+				"description_i18n":{"zh-CN":"PowerX 与插件之间的 ws-bus 租户上下文合同","en":"WS-bus tenant context contract between PowerX and the plugin"},
+				"risk_level":"low",
+				"data_scope":"tenant",
+				"protocol_bindings":[{"channel":"rest","method":"POST","path":"/admin/runtime/ws-bus/grant","actor_context":"admin_user","resource_scope":"tenant"}]
+			}`)),
+		},
+		{
 			Module:   "system",
 			Resource: "tenant",
 			Action:   "manage",
@@ -132,6 +153,17 @@ func TestPermissionServiceListPluginCatalogGroupsPluginPermissions(t *testing.T)
 	require.Equal(t, "registered", catalog.Plugins[0].BusinessModules[0].Resources[0].Actions[0].RegistrationStatus)
 	require.Len(t, catalog.Plugins[0].APIBindings, 1)
 	require.Equal(t, "production.sample_track:factory_schedule", catalog.Plugins[0].APIBindings[0].BusinessPermissionCode)
+	require.Empty(t, catalog.Plugins[0].RuntimeContracts)
+
+	fullCatalog, err := NewPermissionService(db).ListPluginCatalog(ctx, PluginPermissionCatalogFilter{
+		PluginID: "demo.plugin",
+	})
+	require.NoError(t, err)
+	require.Len(t, fullCatalog.Plugins, 1)
+	require.Len(t, fullCatalog.Plugins[0].RuntimeContracts, 1)
+	require.Equal(t, "runtime.contract:tenant_context", fullCatalog.Plugins[0].RuntimeContracts[0].PermissionCode)
+	require.Len(t, fullCatalog.Plugins[0].BusinessModules, 1)
+	require.Len(t, fullCatalog.Plugins[0].APIBindings, 1)
 }
 
 func TestPermissionServiceCleanupInvalidPluginPermissionsDeletesOnlyInvalidPluginRows(t *testing.T) {
