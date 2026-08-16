@@ -183,28 +183,4 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  const tenantOnlyRoots = [
-    "/settings/ai",
-  ];
-  const isTenantOnlyPath = tenantOnlyRoots.some((path) =>
-    withLocale(path).test(to.path)
-  );
-  if (isTenantOnlyPath) {
-    const userStore = useUserStore();
-    try {
-      if (!userStore.context) {
-        await userStore.fetchUserContext({ force: true });
-      }
-      if (!userStore.isRoot && !userStore.isCurrentTenantAdmin) {
-        const { resolveDefaultRoute } = useDefaultMenuRoute();
-        try {
-          return navigateTo(await resolveDefaultRoute(), { replace: true });
-        } catch {
-          return navigateTo("/home", { replace: true });
-        }
-      }
-    } catch {
-      return redirectToLogin();
-    }
-  }
 });

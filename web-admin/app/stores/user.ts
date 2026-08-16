@@ -262,7 +262,7 @@ export const useUserStore = defineStore("user", {
           await this.fetchUserContext({ force: true });
         } catch (error: any) {
           const statusCode = extractStatusCode(error);
-          if (statusCode === 401 || statusCode === 403) {
+          if (statusCode === 401) {
             options?.onUnauthorized?.();
           }
         }

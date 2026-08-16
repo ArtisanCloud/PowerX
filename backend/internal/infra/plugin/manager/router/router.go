@@ -281,6 +281,11 @@ func (r *DynamicRouter) isPublicAPIRequest(pluginID, method, clientPath string) 
 
 func (r *DynamicRouter) adminAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isAdminStaticAssetRequest(c.Request, c.Param("filepath")) {
+			c.Writer.Header().Set("X-PowerX-Plugin-Admin-Asset", "1")
+			c.Next()
+			return
+		}
 		for _, mw := range r.apiMiddleware {
 			mw(c)
 			if c.IsAborted() {
@@ -299,17 +304,20 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	if clientPath == "" {
 		clientPath = "/"
 	}
-	if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
-		abortTenantPluginGuard(c, err)
-		return
-	}
 	if clean, changed := normalizeAdminClientPath(pluginID, clientPath); changed {
 		logger.InfoF(c.Request.Context(), "[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
 		clientPath = clean
 	}
 
+	adminStaticAsset := isAdminStaticAssetRequest(c.Request, clientPath)
 	if r.tryServeAdminStaticAsset(c, pluginID, clientPath) {
 		return
+	}
+	if !adminStaticAsset {
+		if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
+			abortTenantPluginGuard(c, err)
+			return
+		}
 	}
 	if r.requiresAdminPagePermission(c.Request, clientPath) {
 		claims := claimsFromGinContext(c)
@@ -580,6 +588,30 @@ func shouldRewriteAdminDocToIndex(req *http.Request, clientPath string) bool {
 		return false
 	}
 	return true
+}
+
+func isAdminStaticAssetRequest(req *http.Request, clientPath string) bool {
+	if req == nil {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return false
+	}
+	lower := strings.ToLower(p)
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/_nuxt/") ||
+		strings.HasPrefix(lower, "/_nuxt_icon/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/favicon") ||
+		strings.HasPrefix(lower, "/__") {
+		return true
+	}
+	return strings.ToLower(filepath.Ext(lower)) != ""
 }
 
 // ===== API 反代（带授权预检 + 短期 Token） =====

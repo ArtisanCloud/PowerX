@@ -14,11 +14,13 @@ import { useI18n } from "#imports";
 import { storeToRefs } from "pinia";
 import { useRoleStore } from "~/stores/role";
 import { usePermissionStore } from "~/stores/permission"; // ✅ 权限 store
+import { useUserStore } from "~/stores/user";
 import SelectTree from "~/components/ui/SelectTree.vue";
 import MenuPermissionTree from "~/components/settings/users/MenuPermissionTree.vue";
 import { useOneShotAlert } from "~/composables/useOneShotAlert";
 import { useTenantService } from "~/composables/api/services/tenantService";
 import { normalizeApiError } from "~/composables/api/normalizeApiError";
+import { invalidateUserMenusCache } from "~/composables/api/services/menuService";
 
 const { t, te, locale } = useI18n();
 const { notifyOnce, visible, title, description, color, variant, hide } =
@@ -106,6 +108,17 @@ roleStore.ensureInitialized?.();
 const permissionStore = usePermissionStore();
 const { normalizedList, roleSelection, pluginCatalog } =
   storeToRefs(permissionStore);
+const userStore = useUserStore();
+
+const refreshPermissionSensitiveShell = async () => {
+  invalidateUserMenusCache();
+  try {
+    await userStore.fetchUserContext({ force: true });
+  } finally {
+    const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+    menuRefreshToken.value += 1;
+  }
+};
 
 // 租户相关状态
 interface TreeNode {
@@ -1070,6 +1083,7 @@ const saveRole = async () => {
         editingId.value,
         roleForm.permissions,
       );
+      await refreshPermissionSensitiveShell();
     } else {
       // 创建角色（直接带权限）
       const result = await roleStore.createRole({
@@ -1090,6 +1104,7 @@ const saveRole = async () => {
           ...finalPermIds,
         ];
       }
+      await refreshPermissionSensitiveShell();
     }
     showRoleForm.value = false;
     resetRoleForm();
@@ -1832,6 +1847,7 @@ const saveRolePermissions = async () => {
     saving.value = true;
     const ids = roleSelection.value[roleId] || [];
     await permissionStore.setRolePermissionIDs(roleId, ids);
+    await refreshPermissionSensitiveShell();
   } catch (e) {
     console.error(e);
     const { title, description } = normalizeApiError(e, {

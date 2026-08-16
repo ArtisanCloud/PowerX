@@ -129,6 +129,25 @@ func TestPermissionServiceListPluginCatalogGroupsPluginPermissions(t *testing.T)
 			Status:   dbm.PermissionStatusActive,
 			Source:   "core",
 		},
+		{
+			Module:   "menu.production",
+			Resource: "spoofed",
+			Action:   "view",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"menu",
+				"module":"production",
+				"plugin_id":"demo.plugin",
+				"permission":"menu.production.spoofed:view",
+				"menu_path":["production","spoofed"],
+				"title_i18n":{"zh-CN":"伪造菜单"},
+				"description_i18n":{"zh-CN":"source 不合法时不能进入插件 catalog"},
+				"risk_level":"low",
+				"data_scope":"tenant"
+			}`)),
+		},
 	}).Error)
 
 	catalog, err := NewPermissionService(db).ListPluginCatalog(ctx, PluginPermissionCatalogFilter{

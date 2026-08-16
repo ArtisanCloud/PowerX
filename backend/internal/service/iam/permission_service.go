@@ -216,6 +216,10 @@ func (s *PermissionService) ListPluginCatalog(ctx context.Context, filter Plugin
 
 	pluginMap := map[string][]PluginPermissionCatalogItem{}
 	for _, row := range rows {
+		pluginID := pluginIDFromPluginPermissionSource(row.Source)
+		if pluginID == "" {
+			continue
+		}
 		var meta map[string]any
 		_ = json.Unmarshal(row.Meta, &meta)
 		item := pluginPermissionCatalogItemFromRow(row, meta)
@@ -223,13 +227,6 @@ func (s *PermissionService) ListPluginCatalog(ctx context.Context, filter Plugin
 			continue
 		}
 		if requestedModule := strings.TrimSpace(filter.Module); requestedModule != "" && requestedModule != item.Module {
-			continue
-		}
-		pluginID := strings.TrimPrefix(strings.TrimSpace(row.Source), "plugin:")
-		if pluginID == "" {
-			pluginID = strings.TrimSpace(utils.ToStr(meta["plugin_id"]))
-		}
-		if pluginID == "" {
 			continue
 		}
 		pluginMap[pluginID] = append(pluginMap[pluginID], item)
@@ -317,6 +314,19 @@ func pluginPermissionCatalogItemFromRow(row dbm.Permission, meta map[string]any)
 func pluginPermissionRegistrationStatus(meta map[string]any) string {
 	item := pluginPermissionCatalogItemFromRow(dbm.Permission{}, meta)
 	return item.RegistrationStatus
+}
+
+func pluginIDFromPluginPermissionSource(source string) string {
+	source = strings.TrimSpace(source)
+	const prefix = "plugin:"
+	if !strings.HasPrefix(source, prefix) {
+		return ""
+	}
+	pluginID := strings.TrimSpace(strings.TrimPrefix(source, prefix))
+	if pluginID == "" || strings.Contains(pluginID, " ") {
+		return ""
+	}
+	return pluginID
 }
 
 func pluginPermissionRegistrationErrors(item PluginPermissionCatalogItem, independent bool) []string {
@@ -671,7 +681,7 @@ func (s *PermissionService) CleanupInvalidPluginPermissions(ctx context.Context,
 		if bindings.Error != nil {
 			return bindings.Error
 		}
-		perms := tx.Where("id IN ?", ids).Delete(&dbm.Permission{})
+		perms := tx.Where("id IN ? AND source = ?", ids, source).Delete(&dbm.Permission{})
 		if perms.Error != nil {
 			return perms.Error
 		}

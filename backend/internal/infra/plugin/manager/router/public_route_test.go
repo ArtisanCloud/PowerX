@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -253,5 +255,48 @@ func TestDynamicRouter_AdminRouteUsesAPIMiddlewareBeforeTenantGuard(t *testing.T
 	}
 	if rec.Code == http.StatusForbidden {
 		t.Fatalf("admin route should not fail tenant guard after auth context injection, body=%s", rec.Body.String())
+	}
+}
+
+func TestDynamicRouter_AdminStaticAssetBypassesAuthAndTenantGuard(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	authCalled := false
+	guardCalled := false
+
+	dr := NewDynamicRouter("/_p", engine, func(c *gin.Context) {
+		authCalled = true
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid Authorization header"})
+	})
+	dr.BindTenantPluginGuard(func(context.Context, string, string) error {
+		guardCalled = true
+		return nil
+	})
+
+	adminDir := t.TempDir()
+	assetDir := filepath.Join(adminDir, "assets")
+	if err := os.MkdirAll(assetDir, 0o755); err != nil {
+		t.Fatalf("mkdir asset dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetDir, "app.js"), []byte("console.log('ok')"), 0o644); err != nil {
+		t.Fatalf("write asset: %v", err)
+	}
+	dr.MountAdminStatic("com.powerx.plugins.test", adminDir)
+
+	req := httptest.NewRequest(http.MethodGet, "/_p/com.powerx.plugins.test/admin/assets/app.js", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if authCalled {
+		t.Fatal("admin static asset should not run auth middleware")
+	}
+	if guardCalled {
+		t.Fatal("admin static asset should not run tenant plugin guard")
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code=%d, want 200 body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("X-PowerX-Plugin-Admin-Asset"); got != "1" {
+		t.Fatalf("admin asset header = %q, want 1", got)
 	}
 }

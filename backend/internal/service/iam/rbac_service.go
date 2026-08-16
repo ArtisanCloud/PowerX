@@ -197,6 +197,26 @@ func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUI
 	return s.pr.MemberHasPermissionViaBindingWithModule(ctx, tenantUUID, memberID, module, resource, action)
 }
 
+func (s *RBACService) EnforceWithSource(ctx context.Context, actor ActorContext, tenantUUID string, memberID uint64, module, resource, action, source string) (bool, error) {
+	if actor.IsRoot {
+		return true, nil
+	}
+	if strings.TrimSpace(tenantUUID) == "" {
+		tenantUUID = strings.TrimSpace(actor.TenantUUID)
+	}
+	if strings.TrimSpace(tenantUUID) == "" || memberID == 0 {
+		return false, errors.New("tenant/member required")
+	}
+	module = strings.TrimSpace(module)
+	resource = strings.TrimSpace(resource)
+	action = strings.TrimSpace(action)
+	source = strings.TrimSpace(source)
+	if module == "" || resource == "" || action == "" || source == "" {
+		return false, errors.New("permission source required")
+	}
+	return s.pr.MemberHasPermissionViaBindingWithModuleAndSource(ctx, tenantUUID, memberID, module, resource, action, source)
+}
+
 func triplesToTuples(ts []PermTriple) [][3]string {
 	out := make([][3]string, 0, len(ts))
 	for _, t := range ts {

@@ -287,6 +287,22 @@ func (r *PermissionRepository) MemberHasPermissionViaBindingWithModule(
 	return cnt > 0, err
 }
 
+func (r *PermissionRepository) MemberHasPermissionViaBindingWithModuleAndSource(
+	ctx context.Context,
+	tenantUUID string, memberID uint64,
+	module, resource, action, source string,
+) (bool, error) {
+	var cnt int64
+	err := r.db.WithContext(ctx).
+		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
+		Select("COUNT(1)").
+		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
+		Joins("JOIN ("+effectiveRoleIDsForMemberSQL()+") erb ON erb.role_id = rp.role_id", tenantUUID, dbm.SubMember, memberID, tenantUUID, memberID).
+		Where("p.module = ? AND p.resource = ? AND p.action = ? AND p.source = ? AND p.status = ?", module, resource, action, source, dbm.PermissionStatusActive).
+		Count(&cnt).Error
+	return cnt > 0, err
+}
+
 func effectiveRoleIDsForMemberSQL() string {
 	tRB := (&dbm.RoleBinding{}).GetTableName(true)
 	tMA := (&dbm.MemberAssignment{}).GetTableName(true)
