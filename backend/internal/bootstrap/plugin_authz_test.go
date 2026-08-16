@@ -86,6 +86,55 @@ func TestPluginIAMAuthorizerRoutePermissionUsesEffectivePermission(t *testing.T)
 	require.Equal(t, "approve", permission.Action)
 }
 
+func TestPluginIAMAuthorizerRoutePermissionRequiresPluginSource(t *testing.T) {
+	db := newPluginAuthzTestDB(t)
+	rows := []dbm.Permission{
+		{
+			Module:   "workspace",
+			Resource: "core_case_file_api",
+			Action:   "approve",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "core",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"api",
+				"permission":"workspace.case_file_api:approve",
+				"business_permission_code":"workspace.case_file:approve",
+				"protocol_bindings":[
+					{"channel":"rest","method":"POST","path":"/admin/example/records/*/approve","actor_context":"admin_user","resource_scope":"tenant"}
+				]
+			}`)),
+		},
+		{
+			Module:   "workspace",
+			Resource: "other_case_file_api",
+			Action:   "approve",
+			Effect:   "allow",
+			Status:   dbm.PermissionStatusActive,
+			Source:   "plugin:other.plugin",
+			Meta: datatypes.JSON([]byte(`{
+				"type":"api",
+				"permission":"workspace.case_file_api:approve",
+				"business_permission_code":"workspace.case_file:approve",
+				"protocol_bindings":[
+					{"channel":"rest","method":"POST","path":"/admin/example/records/*/approve","actor_context":"admin_user","resource_scope":"tenant"}
+				]
+			}`)),
+		},
+	}
+	require.NoError(t, db.Create(&rows).Error)
+
+	permission, err := (pluginIAMAuthorizer{db: db}).RoutePermission(
+		context.Background(),
+		"demo.plugin",
+		"POST",
+		"/admin/example/records/42/approve",
+	)
+
+	require.NoError(t, err)
+	require.Nil(t, permission)
+}
+
 func newPluginAuthzTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,

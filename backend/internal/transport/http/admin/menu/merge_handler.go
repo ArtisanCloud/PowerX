@@ -51,17 +51,20 @@ func uniqAppend(list []string, s string) []string {
 
 func filterMenusByPermission(
 	items []admdto.AdminMenuItem,
-	allow func([]string) bool,
+	allow func(admdto.AdminMenuItem) bool,
 ) []admdto.AdminMenuItem {
 	out := make([]admdto.AdminMenuItem, 0, len(items))
 	for _, item := range items {
-		allowedSelf := allow(item.Permissions)
+		allowedSelf := allow(item)
 		if len(item.Children) > 0 {
 			item.Children = filterMenusByPermission(item.Children, allow)
 		}
 		if !allowedSelf && len(item.Children) == 0 {
 			logger.DebugF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.menu.rbac"}), "[menus] filtered by RBAC item=%s perms=%v", item.Key, item.Permissions)
 			continue
+		}
+		if !allowedSelf {
+			item.URL = ""
 		}
 		// 目录节点若无可见子项且自身无 path，则跳过，避免空分组
 		if strings.TrimSpace(item.URL) == "" && len(item.Children) == 0 {
@@ -70,6 +73,64 @@ func filterMenusByPermission(
 		out = append(out, item)
 	}
 	return out
+}
+
+func menuScopedPolicies(perms []string) []string {
+	out := make([]string, 0, len(perms))
+	for _, pol := range perms {
+		module, _, _ := splitPolicyTriple(pol)
+		if module == "menu" || strings.HasPrefix(module, "menu.") {
+			out = append(out, pol)
+		}
+	}
+	return out
+}
+
+func pluginSourceForMenuItem(item admdto.AdminMenuItem) string {
+	if item.Origin != plugin_mgr.OriginPlugin {
+		return "core"
+	}
+	key := string(item.Key)
+	const prefix = "plugin:"
+	if !strings.HasPrefix(key, prefix) {
+		return ""
+	}
+	rest := strings.TrimPrefix(key, prefix)
+	parts := strings.SplitN(rest, ":", 2)
+	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+		return ""
+	}
+	return "plugin:" + strings.TrimSpace(parts[0])
+}
+
+func splitMenuPolicyTripleForItem(item admdto.AdminMenuItem, policy string) (string, string, string) {
+	module, resource, action := splitPolicyTriple(policy)
+	if item.Origin == plugin_mgr.OriginSystem && (module == "menu" || strings.HasPrefix(module, "menu.")) {
+		left, act, ok := splitTwoPartPolicy(policy)
+		if !ok {
+			return module, resource, action
+		}
+		if left == "menu" {
+			return "menu", resource, action
+		}
+		if strings.HasPrefix(left, "menu.") {
+			return "menu", strings.TrimPrefix(left, "menu."), act
+		}
+	}
+	return module, resource, action
+}
+
+func splitTwoPartPolicy(policy string) (string, string, bool) {
+	parts := strings.Split(strings.TrimSpace(policy), ":")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	left := strings.TrimSpace(parts[0])
+	action := strings.TrimSpace(parts[1])
+	if left == "" || action == "" {
+		return "", "", false
+	}
+	return left, action, true
 }
 
 // ---------- locale 优先级与标准化 ----------
@@ -497,12 +558,22 @@ func AdminMenusHandler(deps *shared.Deps) gin.HandlerFunc {
 			TenantUUID: tenantUUID,
 		}
 		rbacDecisionCache := map[string]bool{}
-		allow := func(perms []string) bool {
+		allow := func(item admdto.AdminMenuItem) bool {
+			perms := item.Permissions
 			if len(perms) == 0 {
 				return true
 			}
-			for _, pol := range perms {
-				module, res, act := splitPolicyTriple(pol)
+			if isRoot {
+				return true
+			}
+
+			policies := menuScopedPolicies(perms)
+			if len(policies) == 0 {
+				policies = perms
+			}
+
+			for _, pol := range policies {
+				module, res, act := splitMenuPolicyTripleForItem(item, pol)
 				if module == "" || res == "" || act == "" {
 					continue
 				}
@@ -517,13 +588,35 @@ func AdminMenusHandler(deps *shared.Deps) gin.HandlerFunc {
 					}
 					continue
 				}
-				if isRoot {
-					return true
-				}
 				if tenantUUID == "" || memberID == 0 {
 					continue
 				}
 				cacheKey := module + ":" + res + ":" + act
+				if module == "menu" || strings.HasPrefix(module, "menu.") {
+					source := pluginSourceForMenuItem(item)
+					if source == "" {
+						logger.WarnF(c.Request.Context(), "[menus] menu permission source missing item=%s permission=%s", item.Key, pol)
+						continue
+					}
+					cacheKey = source + ":" + cacheKey
+					if allowed, ok := rbacDecisionCache[cacheKey]; ok {
+						if allowed {
+							return true
+						}
+						continue
+					}
+					allowed, err := rbac.EnforceWithSource(c.Request.Context(), actor, tenantUUID, memberID, module, res, act, source)
+					if err != nil {
+						logger.WarnF(c.Request.Context(), "[menus] RBAC source check failed permission=%s source=%s tenant=%s member=%d err=%v", module+":"+res+":"+act, source, tenantUUID, memberID, err)
+						rbacDecisionCache[cacheKey] = false
+						continue
+					}
+					rbacDecisionCache[cacheKey] = allowed
+					if allowed {
+						return true
+					}
+					continue
+				}
 				if allowed, ok := rbacDecisionCache[cacheKey]; ok {
 					if allowed {
 						return true

@@ -14,11 +14,13 @@ import { useI18n } from "#imports";
 import { storeToRefs } from "pinia";
 import { useRoleStore } from "~/stores/role";
 import { usePermissionStore } from "~/stores/permission"; // ✅ 权限 store
+import { useUserStore } from "~/stores/user";
 import SelectTree from "~/components/ui/SelectTree.vue";
 import MenuPermissionTree from "~/components/settings/users/MenuPermissionTree.vue";
 import { useOneShotAlert } from "~/composables/useOneShotAlert";
 import { useTenantService } from "~/composables/api/services/tenantService";
 import { normalizeApiError } from "~/composables/api/normalizeApiError";
+import { invalidateUserMenusCache } from "~/composables/api/services/menuService";
 
 const { t, te, locale } = useI18n();
 const { notifyOnce, visible, title, description, color, variant, hide } =
@@ -106,6 +108,17 @@ roleStore.ensureInitialized?.();
 const permissionStore = usePermissionStore();
 const { normalizedList, roleSelection, pluginCatalog } =
   storeToRefs(permissionStore);
+const userStore = useUserStore();
+
+const refreshPermissionSensitiveShell = async () => {
+  invalidateUserMenusCache();
+  try {
+    await userStore.fetchUserContext({ force: true });
+  } finally {
+    const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+    menuRefreshToken.value += 1;
+  }
+};
 
 // 租户相关状态
 interface TreeNode {
@@ -803,7 +816,8 @@ const allMenuPermissionSections = computed<MenuPermissionSection[]>(() => {
 
   const pluginMenuNodes = pluginPermissionPlugins.value
     .map((plugin) => pluginMenuRootNode(plugin))
-    .filter((node): node is MenuPermissionNode => Boolean(node));
+    .filter((node): node is MenuPermissionNode => Boolean(node))
+    .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
   if (pluginMenuNodes.length > 0) {
     const sectionKey = "system:APPS";
     let section = sections.get(sectionKey);
@@ -1069,6 +1083,7 @@ const saveRole = async () => {
         editingId.value,
         roleForm.permissions,
       );
+      await refreshPermissionSensitiveShell();
     } else {
       // 创建角色（直接带权限）
       const result = await roleStore.createRole({
@@ -1089,6 +1104,7 @@ const saveRole = async () => {
           ...finalPermIds,
         ];
       }
+      await refreshPermissionSensitiveShell();
     }
     showRoleForm.value = false;
     resetRoleForm();
@@ -1160,7 +1176,21 @@ const hasPermission = (permissionId: number) => {
   return (roleSelection.value[roleId] || []).includes(permissionId);
 };
 
-const pluginPermissionPlugins = computed(() => pluginCatalog.value.plugins || []);
+const pluginDisplayLabel = (plugin: any) =>
+  String(plugin?.plugin_name || plugin?.name || plugin?.plugin_id || "").trim();
+
+const comparePluginCatalogItems = (a: any, b: any) => {
+  const labelDelta = pluginDisplayLabel(a).localeCompare(
+    pluginDisplayLabel(b),
+    "zh-CN",
+  );
+  if (labelDelta !== 0) return labelDelta;
+  return String(a?.plugin_id || "").localeCompare(String(b?.plugin_id || ""), "en");
+};
+
+const pluginPermissionPlugins = computed(() =>
+  [...(pluginCatalog.value.plugins || [])].sort(comparePluginCatalogItems),
+);
 
 const collectPluginMenuPermissions = (nodes: any[] = []): any[] =>
   nodes.flatMap((node) => [
@@ -1237,11 +1267,20 @@ const collectPluginCatalogItems = (plugin: any): any[] => [
     ]),
   ),
   ...(plugin.api_bindings || []).map((binding: any) => binding.permission),
+  ...(plugin.runtime_contracts || []),
 ].filter(Boolean);
+
+const isRuntimeContractCatalogItem = (item: any) =>
+  String(item?.effective_permission_code || item?.permission_code || "").startsWith(
+    "runtime.contract:",
+  ) ||
+  (String(item?.module || "") === "runtime" &&
+    String(item?.resource || "") === "contract" &&
+    String(item?.action || "") !== "");
 
 const collectPluginCapabilityItems = (plugin: any): any[] =>
   collectPluginCatalogItems(plugin).filter((item) =>
-    isVisibleCapabilityType(item.type),
+    isVisibleCapabilityType(item.type) && !isRuntimeContractCatalogItem(item),
   );
 
 const pluginPermissionPluginFilterItems = computed(() => [
@@ -1363,6 +1402,9 @@ watch(pluginPermissionPluginFilter, () => {
 });
 
 const pluginPermissionCatalogFilterMatches = (item: any, pluginID: string) => {
+  if (isRuntimeContractCatalogItem(item)) {
+    return false;
+  }
   if (
     pluginPermissionPluginFilter.value !== PERMISSION_FILTER_ALL &&
     pluginID !== pluginPermissionPluginFilter.value
@@ -1805,6 +1847,7 @@ const saveRolePermissions = async () => {
     saving.value = true;
     const ids = roleSelection.value[roleId] || [];
     await permissionStore.setRolePermissionIDs(roleId, ids);
+    await refreshPermissionSensitiveShell();
   } catch (e) {
     console.error(e);
     const { title, description } = normalizeApiError(e, {

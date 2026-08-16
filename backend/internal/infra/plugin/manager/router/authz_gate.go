@@ -310,6 +310,19 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 	if need == nil {
 		return "", false, "no permission rule for this route"
 	}
+	if isRuntimeContractPermission(*need) {
+		if !hasDelegatedRuntimeContext(base) {
+			return "", false, "runtime contract tenant context missing"
+		}
+		base.PermissionCodes = []string{formatPermission(need)}
+		base.PermsHash = permissionCodesHash(base.PermissionCodes)
+		base.PolicyVersion = permissionPolicyVersion(base.PermsHash)
+		tok, err := g.mintPluginToken(pluginID, base)
+		if err != nil {
+			return "", false, "mint token failed"
+		}
+		return tok, true, ""
+	}
 
 	// 拉取授权（谁拥有什么）
 	if g.az != nil {
@@ -344,6 +357,28 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 		return "", false, "mint token failed"
 	}
 	return tok, true, ""
+}
+
+func isRuntimeContractPermission(need Permission) bool {
+	module := strings.TrimSpace(need.Module)
+	resource := strings.TrimSpace(need.Resource)
+	action := strings.TrimSpace(need.Action)
+	if action == "" {
+		return false
+	}
+	if module == "runtime" && resource == "contract" {
+		return true
+	}
+	return module == "" && resource == "contract" && action == "tenant_context"
+}
+
+func hasDelegatedRuntimeContext(base reqctx.CoreXClaims) bool {
+	if strings.TrimSpace(base.TenantUUID) == "" {
+		return false
+	}
+	hasUser := base.UserID > 0 || strings.TrimSpace(base.UserUUID) != ""
+	hasMember := base.MemberID > 0 || strings.TrimSpace(base.MemberUUID) != ""
+	return hasUser && hasMember
 }
 
 func formatPermission(p *Permission) string {

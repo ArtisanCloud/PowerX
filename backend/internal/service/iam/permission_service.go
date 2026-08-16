@@ -61,10 +61,11 @@ type PluginPermissionCatalog struct {
 }
 
 type PluginPermissionCatalogPlugin struct {
-	PluginID        string                                  `json:"plugin_id"`
-	MenuTree        []PluginPermissionCatalogMenuNode       `json:"menu_tree"`
-	BusinessModules []PluginPermissionCatalogBusinessModule `json:"business_modules"`
-	APIBindings     []PluginPermissionCatalogAPIBinding     `json:"api_bindings"`
+	PluginID         string                                  `json:"plugin_id"`
+	MenuTree         []PluginPermissionCatalogMenuNode       `json:"menu_tree"`
+	BusinessModules  []PluginPermissionCatalogBusinessModule `json:"business_modules"`
+	APIBindings      []PluginPermissionCatalogAPIBinding     `json:"api_bindings"`
+	RuntimeContracts []PluginPermissionCatalogItem           `json:"runtime_contracts,omitempty"`
 }
 
 type PluginPermissionCatalogMenuNode struct {
@@ -215,6 +216,10 @@ func (s *PermissionService) ListPluginCatalog(ctx context.Context, filter Plugin
 
 	pluginMap := map[string][]PluginPermissionCatalogItem{}
 	for _, row := range rows {
+		pluginID := pluginIDFromPluginPermissionSource(row.Source)
+		if pluginID == "" {
+			continue
+		}
 		var meta map[string]any
 		_ = json.Unmarshal(row.Meta, &meta)
 		item := pluginPermissionCatalogItemFromRow(row, meta)
@@ -222,13 +227,6 @@ func (s *PermissionService) ListPluginCatalog(ctx context.Context, filter Plugin
 			continue
 		}
 		if requestedModule := strings.TrimSpace(filter.Module); requestedModule != "" && requestedModule != item.Module {
-			continue
-		}
-		pluginID := strings.TrimPrefix(strings.TrimSpace(row.Source), "plugin:")
-		if pluginID == "" {
-			pluginID = strings.TrimSpace(utils.ToStr(meta["plugin_id"]))
-		}
-		if pluginID == "" {
 			continue
 		}
 		pluginMap[pluginID] = append(pluginMap[pluginID], item)
@@ -244,10 +242,11 @@ func (s *PermissionService) ListPluginCatalog(ctx context.Context, filter Plugin
 		items := pluginMap[pluginID]
 		sortPluginPermissionCatalogItems(items)
 		plugin := PluginPermissionCatalogPlugin{
-			PluginID:        pluginID,
-			MenuTree:        buildPluginPermissionMenuTree(items),
-			BusinessModules: buildPluginPermissionBusinessModules(items),
-			APIBindings:     buildPluginPermissionAPIBindings(items),
+			PluginID:         pluginID,
+			MenuTree:         buildPluginPermissionMenuTree(items),
+			BusinessModules:  buildPluginPermissionBusinessModules(items),
+			APIBindings:      buildPluginPermissionAPIBindings(items),
+			RuntimeContracts: buildPluginPermissionRuntimeContracts(items),
 		}
 		catalog.Plugins = append(catalog.Plugins, plugin)
 	}
@@ -315,6 +314,19 @@ func pluginPermissionCatalogItemFromRow(row dbm.Permission, meta map[string]any)
 func pluginPermissionRegistrationStatus(meta map[string]any) string {
 	item := pluginPermissionCatalogItemFromRow(dbm.Permission{}, meta)
 	return item.RegistrationStatus
+}
+
+func pluginIDFromPluginPermissionSource(source string) string {
+	source = strings.TrimSpace(source)
+	const prefix = "plugin:"
+	if !strings.HasPrefix(source, prefix) {
+		return ""
+	}
+	pluginID := strings.TrimSpace(strings.TrimPrefix(source, prefix))
+	if pluginID == "" || strings.Contains(pluginID, " ") {
+		return ""
+	}
+	return pluginID
 }
 
 func pluginPermissionRegistrationErrors(item PluginPermissionCatalogItem, independent bool) []string {
@@ -514,6 +526,9 @@ func sortPluginPermissionMenuNodes(nodes []PluginPermissionCatalogMenuNode) {
 func buildPluginPermissionBusinessModules(items []PluginPermissionCatalogItem) []PluginPermissionCatalogBusinessModule {
 	moduleMap := map[string]map[string]*PluginPermissionCatalogBusinessResource{}
 	for _, item := range items {
+		if isPluginRuntimeContractPermission(item) {
+			continue
+		}
 		if item.Type != "page" && item.Type != "action" {
 			continue
 		}
@@ -558,6 +573,9 @@ func buildPluginPermissionBusinessModules(items []PluginPermissionCatalogItem) [
 func buildPluginPermissionAPIBindings(items []PluginPermissionCatalogItem) []PluginPermissionCatalogAPIBinding {
 	out := make([]PluginPermissionCatalogAPIBinding, 0)
 	for _, item := range items {
+		if isPluginRuntimeContractPermission(item) {
+			continue
+		}
 		if item.Type != "api" {
 			continue
 		}
@@ -575,6 +593,25 @@ func buildPluginPermissionAPIBindings(items []PluginPermissionCatalogItem) []Plu
 		return out[i].Permission.PermissionCode < out[j].Permission.PermissionCode
 	})
 	return out
+}
+
+func buildPluginPermissionRuntimeContracts(items []PluginPermissionCatalogItem) []PluginPermissionCatalogItem {
+	out := make([]PluginPermissionCatalogItem, 0)
+	for _, item := range items {
+		if isPluginRuntimeContractPermission(item) {
+			out = append(out, item)
+		}
+	}
+	sortPluginPermissionCatalogItems(out)
+	return out
+}
+
+func isPluginRuntimeContractPermission(item PluginPermissionCatalogItem) bool {
+	if item.Module == "runtime" && item.Resource == "contract" && item.Action != "" {
+		return true
+	}
+	return strings.HasPrefix(strings.TrimSpace(item.EffectivePermissionCode), "runtime.contract:") ||
+		strings.HasPrefix(strings.TrimSpace(item.PermissionCode), "runtime.contract:")
 }
 
 func boolFromAny(value any) bool {
@@ -644,7 +681,7 @@ func (s *PermissionService) CleanupInvalidPluginPermissions(ctx context.Context,
 		if bindings.Error != nil {
 			return bindings.Error
 		}
-		perms := tx.Where("id IN ?", ids).Delete(&dbm.Permission{})
+		perms := tx.Where("id IN ? AND source = ?", ids, source).Delete(&dbm.Permission{})
 		if perms.Error != nil {
 			return perms.Error
 		}

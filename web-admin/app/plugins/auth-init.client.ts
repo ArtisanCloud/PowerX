@@ -31,14 +31,14 @@ export default defineNuxtPlugin((nuxtApp) => {
       return;
     }
 
-    // 关键：每次刷新都强制走一次 me/context，失效 token 立即清理并跳登录
+    // 关键：每次刷新都强制走一次 me/context；只有认证失效才清理登录态。
     const token = getToken();
     if (!token) return;
     try {
       await userStore.fetchUserContext({ force: true });
     } catch (error: any) {
       const statusCode = extractStatusCode(error);
-      if (statusCode === 401 || statusCode === 403) {
+      if (statusCode === 401) {
         clearAuth();
         userStore.clearUserState();
         await navigateTo("/users/login");

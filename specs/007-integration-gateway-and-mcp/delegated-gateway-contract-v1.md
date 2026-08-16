@@ -93,6 +93,7 @@ delegated 模式下，PowerX 是权限源，插件只声明并执行权限结果
 5. Gateway 转发插件 API 前按 `plugin_id + method + path` 映射到注册的 effective permission 并先行拦截；插件后端仍需按同一 effective permission 做二次校验。effective 规则固定为：API 有 `business_permission_code` 时使用业务权限；API 显式 `independent: true` 时才使用 raw API `permission_code`；否则声明无效。
 6. local 模式只能用同一份权限声明模拟 PowerX 的授权快照，字段名、hash/version 语义必须与 delegated 模式一致，不得维护另一份正式授权定义。
 7. delegated 插件后端使用 STS 调用 runtime ws-bus/taskbus 发布事件时，Event Fabric ACL 必须授权 `plugin:<plugin_id>` publish。`member:system` 与 `role:role_admin` 不代表插件服务态 principal。
+8. `runtime.contract:*` 是 PowerX 与插件之间的基础设施合同权限，不是业务角色授权项。Gateway 解析到已注册的 `runtime.contract:*` route binding 后，只校验登录态、tenant context、插件租户启用状态和 route binding 存在；不得要求管理员把 `runtime.contract:*` 勾给普通业务角色。Gateway 下发给插件的 delegated token 仍必须包含该 contract permission code、`policy_version` 和 `perms_hash`，供插件后端验证快照来源。
 
 如果采用 introspection 而不是 token claims，响应结构必须与上述快照等价：
 

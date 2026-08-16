@@ -281,6 +281,11 @@ func (r *DynamicRouter) isPublicAPIRequest(pluginID, method, clientPath string) 
 
 func (r *DynamicRouter) adminAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isAdminStaticAssetRequest(c.Request, c.Param("filepath")) {
+			c.Writer.Header().Set("X-PowerX-Plugin-Admin-Asset", "1")
+			c.Next()
+			return
+		}
 		for _, mw := range r.apiMiddleware {
 			mw(c)
 			if c.IsAborted() {
@@ -299,17 +304,20 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	if clientPath == "" {
 		clientPath = "/"
 	}
-	if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
-		abortTenantPluginGuard(c, err)
-		return
-	}
 	if clean, changed := normalizeAdminClientPath(pluginID, clientPath); changed {
 		logger.InfoF(c.Request.Context(), "[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
 		clientPath = clean
 	}
 
+	adminStaticAsset := isAdminStaticAssetRequest(c.Request, clientPath)
 	if r.tryServeAdminStaticAsset(c, pluginID, clientPath) {
 		return
+	}
+	if !adminStaticAsset {
+		if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
+			abortTenantPluginGuard(c, err)
+			return
+		}
 	}
 	if r.requiresAdminPagePermission(c.Request, clientPath) {
 		claims := claimsFromGinContext(c)
@@ -322,7 +330,7 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 			} else {
 				logger.WarnF(c.Request.Context(), "[ADMIN-GATE-DENY] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
 					pluginID, c.Request.Method, clientPath, gatePath, reason)
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
+				abortGatewayAccessDenied(c, http.StatusForbidden, reason)
 				return
 			}
 		}
@@ -532,10 +540,23 @@ func abortTenantPluginGuard(c *gin.Context, err error) {
 	} else if err != nil && strings.TrimSpace(err.Error()) != "" {
 		reason = err.Error()
 	}
+	requestID, traceID := getRequestTraceIDs(c)
 	c.AbortWithStatusJSON(status, gin.H{
 		"error":      "access denied at gateway",
 		"error_code": code,
 		"reason":     reason,
+		"request_id": requestID,
+		"trace_id":   traceID,
+	})
+}
+
+func abortGatewayAccessDenied(c *gin.Context, status int, reason string) {
+	requestID, traceID := getRequestTraceIDs(c)
+	c.AbortWithStatusJSON(status, gin.H{
+		"error":      "access denied at gateway",
+		"reason":     strings.TrimSpace(reason),
+		"request_id": requestID,
+		"trace_id":   traceID,
 	})
 }
 
@@ -567,6 +588,30 @@ func shouldRewriteAdminDocToIndex(req *http.Request, clientPath string) bool {
 		return false
 	}
 	return true
+}
+
+func isAdminStaticAssetRequest(req *http.Request, clientPath string) bool {
+	if req == nil {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return false
+	}
+	lower := strings.ToLower(p)
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/_nuxt/") ||
+		strings.HasPrefix(lower, "/_nuxt_icon/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/favicon") ||
+		strings.HasPrefix(lower, "/__") {
+		return true
+	}
+	return strings.ToLower(filepath.Ext(lower)) != ""
 }
 
 // ===== API 反代（带授权预检 + 短期 Token） =====
@@ -686,10 +731,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if resolvedTenant == "" {
 			logger.WarnF(c.Request.Context(), "[PROXY-TENANT-DENY] plugin=%s method=%s clientPath=%s normalized=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
 				pluginID, c.Request.Method, clientPath, gatePath, resolvedTenant, requestID, traceID, "tenant scoped ws-bus route requires tenant from auth context")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":  "access denied at gateway",
-				"reason": "tenant scoped ws-bus route requires tenant from auth context",
-			})
+			abortGatewayAccessDenied(c, http.StatusForbidden, "tenant scoped ws-bus route requires tenant from auth context")
 			return
 		}
 	}
@@ -698,7 +740,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if !allowed {
 			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
 				pluginID, c.Request.Method, gatePath, logTenantUUID, requestID, traceID, reason)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
+			abortGatewayAccessDenied(c, http.StatusForbidden, reason)
 			return
 		}
 		pluginToken = tok
