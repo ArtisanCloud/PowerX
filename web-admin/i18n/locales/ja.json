@@ -698,6 +698,12 @@
           "operation": "操作権限",
           "api": "API 権限"
         },
+        "bulkSelect": {
+          "short": "全選択",
+          "source": "現在のソースを全選択",
+          "module": "現在のモジュールを全選択",
+          "currentModule": "現在のモジュールを全選択"
+        },
         "filters": {
           "source": "ソースフィルター",
           "plugin": "プラグインフィルター",

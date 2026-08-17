@@ -1096,6 +1096,12 @@
           "operation": "操作权限",
           "api": "API 权限"
         },
+        "bulkSelect": {
+          "short": "全选",
+          "source": "全选当前来源",
+          "module": "全选当前模块",
+          "currentModule": "全选当前模块"
+        },
         "filters": {
           "source": "来源筛选",
           "plugin": "插件筛选",

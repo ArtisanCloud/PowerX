@@ -1052,6 +1052,12 @@
           "operation": "Operation permissions",
           "api": "API permissions"
         },
+        "bulkSelect": {
+          "short": "All",
+          "source": "Select all in this source",
+          "module": "Select all in this module",
+          "currentModule": "Select current module"
+        },
         "filters": {
           "source": "Source filter",
           "plugin": "Plugin filter",
