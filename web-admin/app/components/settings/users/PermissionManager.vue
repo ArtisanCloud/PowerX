@@ -211,10 +211,15 @@ const nonMenuPermissions = computed(() =>
 );
 
 /** ====== 当前选中角色 ====== */
+const PERMISSION_MANAGER_VIEW_STATE_KEY = "powerx.permission.manager.view.v1";
+const restoredRoleId = ref<number | null>(null);
 const selectedRole = ref<Role | null>((roles.value as any[])[0] ?? null);
 watchEffect(() => {
   if (!selectedRole.value && roles.value.length > 0) {
-    selectedRole.value = roles.value[0] as unknown as Role;
+    const restored = restoredRoleId.value
+      ? roles.value.find((role: any) => Number(role.id) === restoredRoleId.value)
+      : null;
+    selectedRole.value = (restored || roles.value[0]) as unknown as Role;
   }
 });
 
@@ -249,6 +254,76 @@ const permissionTabItems = [
     icon: "i-heroicons-command-line",
   },
 ];
+
+const readPermissionManagerViewState = () => {
+  if (!process.client) return;
+  try {
+    const raw = localStorage.getItem(PERMISSION_MANAGER_VIEW_STATE_KEY);
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    const roleId = Number(state?.roleId || 0);
+    if (Number.isFinite(roleId) && roleId > 0) {
+      restoredRoleId.value = roleId;
+      const role = roles.value.find((item: any) => Number(item.id) === roleId);
+      if (role) selectedRole.value = role as unknown as Role;
+    }
+    if (state?.permissionTab === "menus" || state?.permissionTab === "capabilities") {
+      permissionTab.value = state.permissionTab;
+    }
+    permissionSearchQuery.value = String(state?.permissionSearchQuery || "");
+    pluginPermissionPluginFilter.value =
+      String(state?.pluginPermissionPluginFilter || PERMISSION_FILTER_ALL) ||
+      PERMISSION_FILTER_ALL;
+    pluginPermissionModuleFilter.value =
+      String(state?.pluginPermissionModuleFilter || PERMISSION_FILTER_ALL) ||
+      PERMISSION_FILTER_ALL;
+    pluginPermissionTypeFilter.value =
+      String(state?.pluginPermissionTypeFilter || PERMISSION_FILTER_ALL) ||
+      PERMISSION_FILTER_ALL;
+    pluginPermissionRegistrationFilter.value =
+      String(state?.pluginPermissionRegistrationFilter || PERMISSION_FILTER_ALL) ||
+      PERMISSION_FILTER_ALL;
+    selectedCapabilitySourceKey.value = String(
+      state?.selectedCapabilitySourceKey || "",
+    );
+    selectedCapabilityModuleKey.value = String(
+      state?.selectedCapabilityModuleKey || "",
+    );
+  } catch (error) {
+    console.warn("[permission-manager] failed to restore view state", error);
+  }
+};
+
+watch(
+  [
+    () => selectedRole.value?.id,
+    permissionTab,
+    permissionSearchQuery,
+    pluginPermissionPluginFilter,
+    pluginPermissionModuleFilter,
+    pluginPermissionTypeFilter,
+    pluginPermissionRegistrationFilter,
+    selectedCapabilitySourceKey,
+    selectedCapabilityModuleKey,
+  ],
+  () => {
+    if (!process.client) return;
+    localStorage.setItem(
+      PERMISSION_MANAGER_VIEW_STATE_KEY,
+      JSON.stringify({
+        roleId: selectedRole.value?.id || null,
+        permissionTab: permissionTab.value,
+        permissionSearchQuery: permissionSearchQuery.value,
+        pluginPermissionPluginFilter: pluginPermissionPluginFilter.value,
+        pluginPermissionModuleFilter: pluginPermissionModuleFilter.value,
+        pluginPermissionTypeFilter: pluginPermissionTypeFilter.value,
+        pluginPermissionRegistrationFilter: pluginPermissionRegistrationFilter.value,
+        selectedCapabilitySourceKey: selectedCapabilitySourceKey.value,
+        selectedCapabilityModuleKey: selectedCapabilityModuleKey.value,
+      }),
+    );
+  },
+);
 
 type CapabilityFilterGroup = "operation" | "api";
 
@@ -380,6 +455,7 @@ const roleForm = reactive({
 
 /** ====== 首屏加载权限 & 当前角色权限 ====== */
 onMounted(async () => {
+  readPermissionManagerViewState();
   await Promise.all([
     permissionStore.fetchAllActive(),
     permissionStore.fetchPluginCatalog(),
@@ -1737,6 +1813,88 @@ const pluginPermissionRegistrationErrors = (item: any) =>
 const isPluginPermissionSelectable = (item: any) =>
   item.status === "active" && item.registration_status === "registered";
 
+const collectCapabilityTypeGroupPermissionIds = (
+  typeGroup?: CapabilityTypeGroup,
+) =>
+  Object.values(typeGroup?.types || {})
+    .flat()
+    .map((perm) => Number(perm.id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+const collectPluginOperationResourcePermissionIds = (resource: any) =>
+  [...(resource?.pages || []), ...(resource?.actions || [])]
+    .filter((item) => isPluginPermissionSelectable(item))
+    .map((item) => Number(item.id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+const collectPluginAPIBindingPermissionIds = (binding: any) => {
+  const permission = binding?.permission;
+  if (!binding?.independent || !isPluginPermissionSelectable(permission)) {
+    return [];
+  }
+  const id = Number(permission.id);
+  return Number.isFinite(id) && id > 0 ? [id] : [];
+};
+
+const collectCapabilityModulePermissionIds = (module: any): number[] => {
+  if (!module) return [];
+  if (Array.isArray(module.typeGroups)) {
+    return Array.from(
+      new Set(
+        module.typeGroups.flatMap((group: CapabilityTypeGroup) =>
+          collectCapabilityTypeGroupPermissionIds(group),
+        ),
+      ),
+    );
+  }
+  return Array.from(
+    new Set([
+      ...(module.operationResources || []).flatMap((resource: any) =>
+        collectPluginOperationResourcePermissionIds(resource),
+      ),
+      ...(module.apiBindings || []).flatMap((binding: any) =>
+        collectPluginAPIBindingPermissionIds(binding),
+      ),
+    ]),
+  );
+};
+
+const collectCapabilitySourcePermissionIds = (source: any): number[] =>
+  Array.from(
+    new Set(
+      (source?.modules || []).flatMap((module: any) =>
+        collectCapabilityModulePermissionIds(module),
+      ),
+    ),
+  );
+
+const currentRoleCapabilityPermissionIds = computed(() => {
+  const roleId = selectedRole.value?.id;
+  return new Set(roleId ? roleSelection.value[roleId] || [] : []);
+});
+
+const capabilityPermissionIdsCheckboxValue = (ids: number[]) => {
+  if (!ids.length) return false;
+  const cur = currentRoleCapabilityPermissionIds.value;
+  const picked = ids.filter((id) => cur.has(id)).length;
+  if (picked === ids.length) return true;
+  if (picked > 0) return "indeterminate";
+  return false;
+};
+
+const toggleCapabilityPermissionIds = (ids: number[], checked: boolean) => {
+  const roleId = selectedRole.value?.id;
+  if (!roleId || !ids.length) return;
+  const set = new Set(roleSelection.value[roleId] || []);
+  if (checked) ids.forEach((id) => set.add(id));
+  else ids.forEach((id) => set.delete(id));
+  roleSelection.value[roleId] = Array.from(set);
+};
+
+const selectedCapabilityModulePermissionIds = computed(() =>
+  collectCapabilityModulePermissionIds(selectedCapabilityModule.value),
+);
+
 const togglePluginPermission = (item: any) => {
   if (!isPluginPermissionSelectable(item)) return;
   togglePermission(Number(item.id));
@@ -2345,6 +2503,44 @@ const isFormModulePartiallySelected = (module: string) => {
                     "
                     @click="selectedCapabilitySourceKey = source.key"
                   >
+                    <div
+                      class="flex shrink-0 items-center gap-1 rounded px-1 py-0.5"
+                      :title="
+                        $t(
+                          'organization.permission.pluginCatalog.bulkSelect.source',
+                        )
+                      "
+                      @click.stop
+                    >
+                      <UCheckbox
+                        :model-value="
+                          capabilityPermissionIdsCheckboxValue(
+                            collectCapabilitySourcePermissionIds(source),
+                          )
+                        "
+                        :disabled="
+                          collectCapabilitySourcePermissionIds(source).length === 0
+                        "
+                        :aria-label="
+                          $t(
+                            'organization.permission.pluginCatalog.bulkSelect.source',
+                          )
+                        "
+                        @update:model-value="
+                          toggleCapabilityPermissionIds(
+                            collectCapabilitySourcePermissionIds(source),
+                            $event as boolean,
+                          )
+                        "
+                      />
+                      <span class="hidden text-[11px] text-gray-500 xl:inline">
+                        {{
+                          $t(
+                            'organization.permission.pluginCatalog.bulkSelect.short',
+                          )
+                        }}
+                      </span>
+                    </div>
                     <UIcon :name="source.icon" class="h-4 w-4 shrink-0" />
                     <span class="min-w-0 flex-1 truncate">{{ source.label }}</span>
                     <UBadge size="xs" color="neutral" variant="subtle">
@@ -2371,6 +2567,44 @@ const isFormModulePartiallySelected = (module: string) => {
                     "
                     @click="selectedCapabilityModuleKey = module.key"
                   >
+                    <div
+                      class="flex shrink-0 items-center gap-1 rounded px-1 py-0.5"
+                      :title="
+                        $t(
+                          'organization.permission.pluginCatalog.bulkSelect.module',
+                        )
+                      "
+                      @click.stop
+                    >
+                      <UCheckbox
+                        :model-value="
+                          capabilityPermissionIdsCheckboxValue(
+                            collectCapabilityModulePermissionIds(module),
+                          )
+                        "
+                        :disabled="
+                          collectCapabilityModulePermissionIds(module).length === 0
+                        "
+                        :aria-label="
+                          $t(
+                            'organization.permission.pluginCatalog.bulkSelect.module',
+                          )
+                        "
+                        @update:model-value="
+                          toggleCapabilityPermissionIds(
+                            collectCapabilityModulePermissionIds(module),
+                            $event as boolean,
+                          )
+                        "
+                      />
+                      <span class="hidden text-[11px] text-gray-500 xl:inline">
+                        {{
+                          $t(
+                            'organization.permission.pluginCatalog.bulkSelect.short',
+                          )
+                        }}
+                      </span>
+                    </div>
                     <span class="min-w-0 flex-1 truncate">{{ module.label }}</span>
                     <UBadge size="xs" color="neutral" variant="subtle">
                       {{ module.count }}
@@ -2380,7 +2614,42 @@ const isFormModulePartiallySelected = (module: string) => {
               </div>
 
               <div class="min-w-0 bg-white">
-                <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
+                <div class="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-3">
+                  <label
+                    class="flex shrink-0 cursor-pointer items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-200 dark:hover:bg-gray-800"
+                    :class="
+                      selectedCapabilityModulePermissionIds.length === 0
+                        ? 'cursor-not-allowed opacity-60'
+                        : ''
+                    "
+                  >
+                    <UCheckbox
+                      :model-value="
+                        capabilityPermissionIdsCheckboxValue(
+                          selectedCapabilityModulePermissionIds,
+                        )
+                      "
+                      :disabled="selectedCapabilityModulePermissionIds.length === 0"
+                      :aria-label="
+                        $t(
+                          'organization.permission.pluginCatalog.bulkSelect.currentModule',
+                        )
+                      "
+                      @update:model-value="
+                        toggleCapabilityPermissionIds(
+                          selectedCapabilityModulePermissionIds,
+                          $event as boolean,
+                        )
+                      "
+                    />
+                    <span>
+                      {{
+                        $t(
+                          'organization.permission.pluginCatalog.bulkSelect.currentModule',
+                        )
+                      }}
+                    </span>
+                  </label>
                   <div class="min-w-0 flex-1">
                     <div class="truncate text-sm font-semibold text-gray-900">
                       {{ selectedCapabilitySource?.label }}
