@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -108,6 +109,36 @@ func (r *DefinitionRepository) GetLatestPublished(ctx context.Context, tenantUUI
 	return &def, nil
 }
 
+// ListVersionsByWorkflow 返回同一工作流的全部定义版本。
+func (r *DefinitionRepository) ListVersionsByWorkflow(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID) ([]modelworkflow.WorkflowDefinition, error) {
+	source, err := r.GetByUUID(ctx, tenantUUID, definitionUUID, nil)
+	if err != nil {
+		return nil, err
+	}
+	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+	sourceType := strings.TrimSpace(strings.ToLower(source.SourceType))
+	packKey := strings.TrimSpace(source.WorkflowPackKey)
+	name := strings.TrimSpace(source.Name)
+
+	query := r.db.WithContext(ctx).
+		Where("tenant_uuid = ?", tenantUUID).
+		Where("LOWER(source_type) = ?", sourceType)
+	if packKey != "" {
+		query = query.Where("workflow_pack_key = ?", packKey)
+	} else {
+		if name == "" {
+			return nil, errors.New("workflow definition name is required")
+		}
+		query = query.Where("name = ?", name)
+	}
+
+	var defs []modelworkflow.WorkflowDefinition
+	if err := query.Order("version DESC, updated_at DESC").Find(&defs).Error; err != nil {
+		return nil, err
+	}
+	return defs, nil
+}
+
 // ListByTenant 按条件分页查询定义。
 func (r *DefinitionRepository) ListByTenant(ctx context.Context, filter DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	tenantUUID := strings.TrimSpace(strings.ToLower(filter.TenantUUID))
@@ -134,10 +165,13 @@ func (r *DefinitionRepository) ListByTenant(ctx context.Context, filter Definiti
 		q = q.Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ?", like, like)
 	}
 
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
+	var candidates []modelworkflow.WorkflowDefinition
+	if err := q.Order("version DESC, updated_at DESC").Find(&candidates).Error; err != nil {
 		return nil, 0, err
 	}
+
+	defs := latestWorkflowDefinitions(candidates)
+	total := int64(len(defs))
 
 	limit := filter.Limit
 	if limit <= 0 {
@@ -150,10 +184,53 @@ func (r *DefinitionRepository) ListByTenant(ctx context.Context, filter Definiti
 	if offset < 0 {
 		offset = 0
 	}
+	if offset >= len(defs) {
+		return []modelworkflow.WorkflowDefinition{}, total, nil
+	}
+	end := offset + limit
+	if end > len(defs) {
+		end = len(defs)
+	}
+	return defs[offset:end], total, nil
+}
 
-	var defs []modelworkflow.WorkflowDefinition
-	err := q.Order("updated_at DESC, version DESC").Limit(limit).Offset(offset).Find(&defs).Error
-	return defs, total, err
+func latestWorkflowDefinitions(candidates []modelworkflow.WorkflowDefinition) []modelworkflow.WorkflowDefinition {
+	latestByWorkflow := make(map[string]modelworkflow.WorkflowDefinition, len(candidates))
+	for _, def := range candidates {
+		key := workflowDefinitionListKey(def)
+		if key == "" {
+			continue
+		}
+		current, exists := latestByWorkflow[key]
+		if !exists || def.Version > current.Version || (def.Version == current.Version && def.UpdatedAt.After(current.UpdatedAt)) {
+			latestByWorkflow[key] = def
+		}
+	}
+
+	defs := make([]modelworkflow.WorkflowDefinition, 0, len(latestByWorkflow))
+	for _, def := range latestByWorkflow {
+		defs = append(defs, def)
+	}
+	sort.SliceStable(defs, func(i, j int) bool {
+		if defs[i].UpdatedAt.Equal(defs[j].UpdatedAt) {
+			return defs[i].Version > defs[j].Version
+		}
+		return defs[i].UpdatedAt.After(defs[j].UpdatedAt)
+	})
+	return defs
+}
+
+func workflowDefinitionListKey(def modelworkflow.WorkflowDefinition) string {
+	sourceType := strings.TrimSpace(strings.ToLower(def.SourceType))
+	packKey := strings.TrimSpace(strings.ToLower(def.WorkflowPackKey))
+	if packKey != "" {
+		return sourceType + "|pack|" + packKey
+	}
+	name := strings.TrimSpace(strings.ToLower(def.Name))
+	if name == "" {
+		return ""
+	}
+	return sourceType + "|name|" + name
 }
 
 // UpdateStatus 更新状态及相关字段。

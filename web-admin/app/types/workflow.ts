@@ -33,6 +33,8 @@ export interface WfNode {
   paletteId: string;
   label: string;
   props: Record<string, any>;
+  inputMapping?: Record<string, any>;
+  outputMapping?: Record<string, any>;
   ui: {
     shape: string;
     colorToken?: string;

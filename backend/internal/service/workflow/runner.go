@@ -237,7 +237,10 @@ func (r *Runner) runLeasedStep(ctx context.Context, record *modelworkflow.Workfl
 		return "failed", r.failStep(ctx, record, instance, "workflow.node_validation_failed", err.Error())
 	}
 
-	payload := jsonMap(record.PayloadIn)
+	payload, err := applyWorkflowInputMapping(jsonMap(record.PayloadIn), step.InputMapping)
+	if err != nil {
+		return "failed", r.failStep(ctx, record, instance, "workflow.input_mapping_failed", err.Error())
+	}
 	nodeResult, execErr := adapter.Execute(ctx, NodeExecutionContext{
 		TenantUUID: strings.TrimSpace(instance.TenantUUID),
 		Instance:   instance,
@@ -263,6 +266,11 @@ func (r *Runner) runLeasedStep(ctx context.Context, record *modelworkflow.Workfl
 	case NodeResultStatusFailed:
 		return "failed", r.failStep(ctx, record, instance, firstNonEmpty(nodeResult.ErrorCode, "workflow.node_failed"), firstNonEmpty(nodeResult.ErrorMessage, "workflow.node_failed"))
 	case NodeResultStatusSucceeded:
+		mappedOutput, err := applyWorkflowOutputMapping(nodeResult.Output, step.OutputMapping)
+		if err != nil {
+			return "failed", r.failStep(ctx, record, instance, "workflow.output_mapping_failed", err.Error())
+		}
+		nodeResult.Output = mappedOutput
 		if err := r.completeStep(ctx, record, instance, nodeResult); err != nil {
 			return "failed", err
 		}
@@ -518,4 +526,88 @@ func jsonMap(data datatypes.JSON) map[string]any {
 		return nil
 	}
 	return out
+}
+
+func applyWorkflowInputMapping(payload map[string]any, mapping map[string]any) (map[string]any, error) {
+	if len(mapping) == 0 {
+		return cloneMap(payload), nil
+	}
+	out := make(map[string]any, len(mapping))
+	for targetField, sourceSpec := range mapping {
+		target := strings.TrimSpace(targetField)
+		source := strings.TrimSpace(fmt.Sprint(sourceSpec))
+		if target == "" || source == "" {
+			return nil, fmt.Errorf("workflow.input_mapping_invalid: %s", targetField)
+		}
+		value, ok := workflowFieldValue(payload, source)
+		if !ok {
+			return nil, fmt.Errorf("workflow.input_field_missing: %s", source)
+		}
+		workflowSetFieldValue(out, target, value)
+	}
+	return out, nil
+}
+
+func applyWorkflowOutputMapping(payload map[string]any, mapping map[string]any) (map[string]any, error) {
+	if len(mapping) == 0 {
+		return cloneMap(payload), nil
+	}
+	out := make(map[string]any, len(mapping))
+	for sourceField, targetSpec := range mapping {
+		source := strings.TrimSpace(sourceField)
+		target := strings.TrimSpace(fmt.Sprint(targetSpec))
+		if source == "" || target == "" {
+			return nil, fmt.Errorf("workflow.output_mapping_invalid: %s", sourceField)
+		}
+		value, ok := workflowFieldValue(payload, source)
+		if !ok {
+			return nil, fmt.Errorf("workflow.output_field_missing: %s", source)
+		}
+		workflowSetFieldValue(out, target, value)
+	}
+	return out, nil
+}
+
+func workflowFieldValue(payload map[string]any, field string) (any, bool) {
+	if len(payload) == 0 {
+		return nil, false
+	}
+	parts := strings.Split(field, ".")
+	var current any = payload
+	for _, part := range parts {
+		key := strings.TrimSpace(part)
+		if key == "" {
+			return nil, false
+		}
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = object[key]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func workflowSetFieldValue(payload map[string]any, field string, value any) {
+	parts := strings.Split(field, ".")
+	current := payload
+	for i, raw := range parts {
+		key := strings.TrimSpace(raw)
+		if key == "" {
+			return
+		}
+		if i == len(parts)-1 {
+			current[key] = value
+			return
+		}
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			next = map[string]any{}
+			current[key] = next
+		}
+		current = next
+	}
 }

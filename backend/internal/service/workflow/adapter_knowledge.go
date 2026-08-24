@@ -67,9 +67,13 @@ func (a *KnowledgeStageAdapter) Execute(ctx context.Context, exec NodeExecutionC
 	if a == nil || a.operator == nil {
 		return NodeResult{Status: NodeResultStatusFailed, ErrorCode: ErrKnowledgeOperatorUnavailable.Error()}, ErrKnowledgeOperatorUnavailable
 	}
+	knowledgeSpaceUUID, err := resolveRuntimeConfigString(exec, "knowledge_space_uuid")
+	if err != nil {
+		return NodeResult{Status: NodeResultStatusFailed, ErrorCode: "workflow.knowledge_config_invalid", ErrorMessage: err.Error()}, err
+	}
 	resp, err := a.operator.StageKnowledge(ctx, KnowledgeStageRequest{
 		TenantUUID:         exec.TenantUUID,
-		KnowledgeSpaceUUID: configString(exec.Step.Config, "knowledge_space_uuid"),
+		KnowledgeSpaceUUID: knowledgeSpaceUUID,
 		DraftSchemaRef:     configString(exec.Step.Config, "draft_schema_ref"),
 		Config:             cloneMap(exec.Step.Config),
 		Input:              cloneMap(exec.Payload),
@@ -115,9 +119,13 @@ func (a *KnowledgePublishAdapter) Execute(ctx context.Context, exec NodeExecutio
 	if a == nil || a.operator == nil {
 		return NodeResult{Status: NodeResultStatusFailed, ErrorCode: ErrKnowledgeOperatorUnavailable.Error()}, ErrKnowledgeOperatorUnavailable
 	}
+	knowledgeSpaceUUID, err := resolveRuntimeConfigString(exec, "knowledge_space_uuid")
+	if err != nil {
+		return NodeResult{Status: NodeResultStatusFailed, ErrorCode: "workflow.knowledge_config_invalid", ErrorMessage: err.Error()}, err
+	}
 	resp, err := a.operator.PublishKnowledge(ctx, KnowledgePublishRequest{
 		TenantUUID:         exec.TenantUUID,
-		KnowledgeSpaceUUID: configString(exec.Step.Config, "knowledge_space_uuid"),
+		KnowledgeSpaceUUID: knowledgeSpaceUUID,
 		PublishPolicy:      configString(exec.Step.Config, "publish_policy"),
 		Config:             cloneMap(exec.Step.Config),
 		Input:              cloneMap(exec.Payload),

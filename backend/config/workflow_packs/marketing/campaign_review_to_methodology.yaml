@@ -41,6 +41,7 @@ steps:
     depends_on: [capture_input]
     config:
       skill_id: marketing.metric_extract
+      entrypoint: default
       input_path: $.artifacts.source
       output_path: $.vars.metrics
     next_step_ids: [summarize_review]
@@ -51,6 +52,7 @@ steps:
     depends_on: [extract_metrics]
     config:
       skill_id: marketing.review_summarize
+      entrypoint: default
       input_path: $.vars.metrics
       output_path: $.vars.extracted
     next_step_ids: [classify_metadata]

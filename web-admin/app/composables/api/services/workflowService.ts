@@ -51,13 +51,23 @@ export interface WorkflowDefinition {
 }
 
 export interface CreateWorkflowDefinitionRequest {
-  name: string;
-  description?: string;
+	name: string;
+	description?: string;
   steps: WorkflowStepDefinition[];
   default_retry_policy?: Record<string, any>;
   compensation_policy?: Record<string, any>;
   sla_policy?: Record<string, any>;
-  metadata?: Record<string, any>;
+	metadata?: Record<string, any>;
+}
+
+export interface CreateWorkflowDefinitionRevisionRequest {
+	name?: string;
+	description?: string;
+	steps: WorkflowStepDefinition[];
+	default_retry_policy?: Record<string, any>;
+	compensation_policy?: Record<string, any>;
+	sla_policy?: Record<string, any>;
+	metadata?: Record<string, any>;
 }
 
 export interface ListWorkflowDefinitionParams extends PaginationParams {
@@ -193,8 +203,29 @@ export const useWorkflowService = () => {
       return unwrap<WorkflowDefinition>(response);
     },
 
+    listDefinitionRevisions: async (definitionUUID: string): Promise<ListResponse<WorkflowDefinition>> => {
+      const response = await apiClient.get(`${baseUrl}/definitions/${definitionUUID}/revisions`);
+      return unwrap<ListResponse<WorkflowDefinition>>(response);
+    },
+
     createDefinition: async (data: CreateWorkflowDefinitionRequest): Promise<WorkflowDefinition> => {
       const response = await apiClient.post(`${baseUrl}/definitions`, data);
+      return unwrap<WorkflowDefinition>(response);
+    },
+
+    createDefinitionRevision: async (
+      definitionUUID: string,
+      data: CreateWorkflowDefinitionRevisionRequest,
+    ): Promise<WorkflowDefinition> => {
+      const response = await apiClient.post(`${baseUrl}/definitions/${definitionUUID}/revisions`, data);
+      return unwrap<WorkflowDefinition>(response);
+    },
+
+    publishDefinition: async (
+      definitionUUID: string,
+      payload?: { version?: number; change_note?: string },
+    ): Promise<WorkflowDefinition> => {
+      const response = await apiClient.post(`${baseUrl}/definitions/${definitionUUID}/publish`, payload || {});
       return unwrap<WorkflowDefinition>(response);
     },
 

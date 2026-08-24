@@ -17,6 +17,8 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 	group.POST("/definitions", handler.CreateDefinition)
 	group.GET("/definitions", handler.ListDefinitions)
 	group.GET("/definitions/:definition_uuid", handler.GetDefinition)
+	group.GET("/definitions/:definition_uuid/revisions", handler.ListDefinitionRevisions)
+	group.POST("/definitions/:definition_uuid/revisions", handler.CreateDefinitionRevision)
 	group.POST("/definitions/:definition_uuid/publish", handler.PublishDefinition)
 	group.POST("/definitions/:definition_uuid/validate", handler.ValidateDefinition)
 
