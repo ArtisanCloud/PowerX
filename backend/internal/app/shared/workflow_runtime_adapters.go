@@ -37,6 +37,9 @@ func (i workflowSkillInvoker) InvokeSkill(ctx context.Context, req workflowsvc.S
 	}
 	version := strings.TrimSpace(stringFromMap(req.Config, "skill_version", "version"))
 	entrypoint := strings.TrimSpace(stringFromMap(req.Config, "entrypoint"))
+	if entrypoint == "" {
+		return workflowsvc.SkillInvokeResponse{}, fmt.Errorf("workflow.skill_entrypoint_required")
+	}
 	contextMap := map[string]interface{}{
 		"source":          "workflow",
 		"node_ref":        strings.TrimSpace(req.NodeRef),

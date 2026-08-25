@@ -35,6 +35,13 @@ func (s runnerDefinitionStore) GetLatestPublished(context.Context, string, uuid.
 	return s.definition, nil
 }
 
+func (s runnerDefinitionStore) ListVersionsByWorkflow(context.Context, string, uuid.UUID) ([]modelworkflow.WorkflowDefinition, error) {
+	if s.definition == nil {
+		return nil, nil
+	}
+	return []modelworkflow.WorkflowDefinition{*s.definition}, nil
+}
+
 func (s runnerDefinitionStore) ListByTenant(context.Context, workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	return nil, 0, errors.New("not used")
 }

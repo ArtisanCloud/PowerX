@@ -42,6 +42,7 @@ steps:
     depends_on: [capture_input]
     config:
       skill_id: knowledge.parse_source
+      entrypoint: default
       input_path: $.artifacts.source
       output_path: $.vars.parsed
     next_step_ids: [extract_knowledge]
@@ -52,6 +53,7 @@ steps:
     depends_on: [parse_source]
     config:
       skill_id: knowledge.extract_expert_methodology
+      entrypoint: default
       input_path: $.vars.parsed
       output_path: $.vars.extracted
     next_step_ids: [classify_metadata]

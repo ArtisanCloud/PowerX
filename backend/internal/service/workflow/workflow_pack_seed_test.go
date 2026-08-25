@@ -52,6 +52,10 @@ func (s *packDefinitionStore) GetLatestPublished(context.Context, string, uuid.U
 	return nil, errors.New("not used")
 }
 
+func (s *packDefinitionStore) ListVersionsByWorkflow(context.Context, string, uuid.UUID) ([]modelworkflow.WorkflowDefinition, error) {
+	return nil, errors.New("not used")
+}
+
 func (s *packDefinitionStore) ListByTenant(context.Context, workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	return nil, 0, errors.New("not used")
 }

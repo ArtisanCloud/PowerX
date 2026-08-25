@@ -42,6 +42,7 @@ steps:
     depends_on: [capture_input]
     config:
       skill_id: marketing.audio_or_document_parse
+      entrypoint: default
       input_path: $.artifacts.source
       output_path: $.vars.parsed
     next_step_ids: [extract_marketing]
@@ -52,6 +53,7 @@ steps:
     depends_on: [parse_source]
     config:
       skill_id: marketing.extract_methodology
+      entrypoint: default
       input_path: $.vars.parsed
       output_path: $.vars.extracted
     next_step_ids: [classify_metadata]

@@ -215,10 +215,11 @@ func (s *Service) applyHumanReviewDecision(ctx context.Context, task *modelworkf
 		return nil
 	}
 
+	resultPayload := humanReviewResultPayload(record, task, action, payload)
 	result := StepResult{
 		Status:      NodeResultStatusSucceeded,
 		Decision:    action,
-		Output:      cloneMap(payload),
+		Output:      cloneMap(resultPayload),
 		Approved:    approved,
 		HasApproval: true,
 	}
@@ -227,7 +228,7 @@ func (s *Service) applyHumanReviewDecision(ctx context.Context, task *modelworkf
 		return err
 	}
 	if err := s.steps.UpdateState(ctx, record.ID, "completed", map[string]interface{}{
-		"payload_out":    toJSONOrEmpty(payload),
+		"payload_out":    toJSONOrEmpty(resultPayload),
 		"awaiting_human": false,
 	}); err != nil {
 		return err
@@ -261,6 +262,38 @@ func (s *Service) applyHumanReviewDecision(ctx context.Context, task *modelworkf
 		}
 	}
 	return runner.convergeInstanceState(ctx, instance)
+}
+
+func humanReviewResultPayload(record *modelworkflow.WorkflowStepRecord, task *modelworkflow.HumanReviewTask, action string, decisionPayload map[string]any) map[string]any {
+	out := jsonMap(record.PayloadIn)
+	if len(out) == 0 && task != nil {
+		out = jsonMap(task.Payload)
+	}
+	if out == nil {
+		out = map[string]any{}
+	}
+	review := cloneMap(decisionPayload)
+	if review == nil {
+		review = map[string]any{}
+	}
+	review["action"] = action
+	if task != nil {
+		review["step_id"] = task.StepID
+		review["workflow_instance_uuid"] = task.WorkflowInstanceUUID.String()
+	}
+	out["decision"] = humanReviewDecisionForWorkflow(action)
+	out["review"] = review
+	return out
+}
+
+func humanReviewDecisionForWorkflow(action string) string {
+	if action == "approve" {
+		return "approved"
+	}
+	if action == "reject" {
+		return "rejected"
+	}
+	return action
 }
 
 func normalizeHumanReviewAction(action string) string {
