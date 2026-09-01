@@ -1,54 +1,104 @@
 # Data Model — PowerX Skills 管理与治理
 
+## AgentTeamOrchestration
+
+- **归属**: `agent_teams.orchestration_spec`（JSONB），由 `agent_teams.uuid` 标识所属团队。
+- **版本**: 当前唯一支持 `powerx.agent.team-orchestration/v1`。
+- **作用**: 是团队任务图的唯一权威来源；Runtime 不得根据 `team_key`、显示名称、固有 Agent Key 或 Demo 名称构造任务图。
+- **结构**:
+
+```json
+{
+  "schema": "powerx.agent.team-orchestration/v1",
+  "tasks": [
+    {
+      "task_id": "source_analysis",
+      "node_kind": "agent_handoff",
+      "assignee_role": "retriever",
+      "skill_id": "marketing.audio_or_document_parse",
+      "stage": 1,
+      "depends_on": [],
+      "failure_policy": "fail-fast"
+    },
+    {
+      "task_id": "synthesis",
+      "node_kind": "skill",
+      "assignee_role": "planner",
+      "skill_id": "marketing.review_summarize",
+      "stage": 2,
+      "depends_on": ["source_analysis"],
+      "failure_policy": "fail-fast"
+    }
+  ]
+}
+```
+
+- **任务规则**:
+  - `task_id` 在团队内唯一；依赖必须指向已有任务，且整个图必须无环。
+  - `node_kind=agent_handoff` 只能分配给 `retriever|executor|reviewer`；运行时按成员角色找到唯一启用的子 Agent，并验证该 Agent 绑定了 `skill_id`。
+  - `node_kind=skill` 只能分配给 `planner`；运行时验证团队主 Agent 绑定了 `skill_id`。
+  - `stage` 仅决定可视化和调度批次；真实执行先后以 `depends_on` 为准。
+  - 依赖任务的输出以 `upstream_<task_id>` 注入下游参数，禁止通过自然语言猜测或复制整个会话历史。
+- **状态规则**:
+  - 新建但没有编排图的团队必须为 `disabled`，不能被选择为可执行团队。
+  - 仅含有效编排图的团队可切换至 `active`；成员、技能绑定或编排图不匹配时，本轮明确失败，不得退回为单 Agent `normal_chat`。
+
 ## SkillPackageSource
-- **标识**: `package_id`
-- **作用**: 保存 `SKILL.md` 目录包的源格式快照；数据库 Registry 是治理态索引，不替代源格式。
+
+- **表与标识**: `skills_package_sources.uuid`。
+- **作用**: 记录外部导入包或主智能体生成 Draft 包的不可变对象存储来源；包字节不写入 PostgreSQL。
 - **核心字段**:
-  - `skill_id`
-  - `version`
-  - `source_format`（固定 `skill_package`）
-  - `package_uri`
-  - `package_path`
-  - `skill_md_path`
-  - `raw_markdown`
-  - `frontmatter_json`
-  - `body_markdown`
-  - `input_schema_json`
-  - `output_schema_json`
-  - `executor_json`
-  - `references_manifest_json`
-  - `package_checksum`
-  - `imported_by`
-  - `imported_at`
+  - `tenant_uuid`、`source_kind`（当前 `external_import|agent_authoring`）
+  - `artifact_uri`（只允许 PowerX Media Storage 的 `local://`、`s3://` 或 `minio://`）、`checksum`（`sha256:`）和 `content_type`
+  - `source_url`、`source_ref`（仅审计追溯）
+  - `parser_version`、`standard_manifest_json`、`powerx_extension_json`
+  - `created_by_member_uuid`
 - **规则**:
-  - `SKILL.md` 必须包含 YAML frontmatter 与 Markdown body。
-  - schema/executor 可以内联，也可以引用包内相对路径；禁止越权引用包外文件。
-  - `package_checksum` 必须覆盖 `SKILL.md`、schema、executor、scripts、references、assets。
-  - 已发布版本不可在不变更 version 的情况下覆盖 `raw_markdown/package_checksum`。
+  - 导入任务在临时目录完成解压或 clone，再把原始包冻结到当前配置的 Media Storage driver；运行时不得依赖远程仓库、OS 本地路径或 `file://` URI。默认 `local` driver 使用受控的 `local://` 逻辑 URI，并非直接文件路径。
+  - `standard_manifest_json` 至少含标准 `SKILL.md` 的 `name`、`description`；可选 `powerx/` 扩展另存为 `powerx_extension_json`。
+
+## SkillDefinitionDraft
+
+- **表与标识**: `skills_definition_drafts.uuid`；唯一键为 `tenant_uuid + skill_id`。
+- **作用**: 一个租户可编辑的 Skill 定义头，`current_revision_uuid` 是唯一当前修订指针。
+- **核心字段**:
+  - `tenant_uuid`、`skill_id`、`display_name_i18n`、`description_i18n`
+  - `source_kind`、`package_source_uuid`（`external_import` 与 `agent_authoring` 均必填）
+  - `status`（`draft|ready_for_review|instruction_only|rejected|published`）
+  - `current_revision_uuid`、`created_by_member_uuid`、`updated_by_member_uuid`
+- **规则**:
+  - 主智能体只能调用 `skill_definition` 创作服务；其结构化 Draft 原件必须先冻结为对象存储包并创建 `agent_authoring` 来源，不能直接写 Registry 或绕过修订记录。
+  - 仅标准 `SKILL.md` 的导入包必须是 `instruction_only`；补全 PowerX 执行合同前不得绑定为可执行 Team Skill。
+
+## SkillDefinitionRevision
+
+- **表与标识**: `skills_definition_revisions.uuid`；唯一键为 `draft_uuid + revision_number`。
+- **作用**: 不可变的结构化定义快照；Definition Schema 固定为 `powerx.skill-definition/v2`。
+- **核心字段**:
+  - `tenant_uuid`、`draft_uuid`、`revision_number`、`definition_json`
+  - `change_summary`、`source_message_uuid`、`authored_by_member_uuid`
+  - `status`（`draft|published|superseded`）、`published_artifact_uri`、`published_checksum`、`published_at`
+- **规则**:
+  - 每次主智能体或人工修改都追加 revision，不能原地覆盖已发布修订。
+  - 发布必须提供由当前修订生成的对象存储包和 `sha256:` 校验值；禁止把运行时指向本地目录、Git URL 或可变 Draft。
+
+## SkillExecutorDeclaration
+
+- **归属**: `SkillDefinitionRevision.definition_json.executor`。
+- **版本**: `powerx.skill-definition/v2`。
+- **核心字段**:
+  - `type` (`llm_prompt|capability|workflow|instruction_only`)
+  - `prompt_template_i18n`（仅 `llm_prompt`，按调用 locale 精确选择）、`capability_id`（仅 `capability`）、`workflow_uuid`（仅 `workflow`）
+- **规则**:
+  - Runtime 只能按 `executor.type` 分派，禁止按 `skill_id`、`team_key`、Agent Key 或显示名分支。
+  - 每个可执行定义必须有明确输入/输出合同；`instruction_only` 不可作为 Team 执行节点。
+  - `capability` 必须引用已发布且授权给当前 Agent 的 capability；禁止 Core 为示例或客户 Skill 注册业务专用 invoker。
 
 ## SkillRegistryRecord
-- **标识**: `skill_id` + `version`（唯一）
-- **核心字段**:
-  - `source` (`builtin|plugin|third_party`)
-  - `source_format` (`skill_package|legacy_manifest`)
-  - `package_source_id`
-  - `status` (`draft|published|deprecated|disabled`)
-  - `is_latest_published`（同 skill_id 仅一个 true）
-  - `bundle_uri`
-  - `checksum`
-  - `signature`（可空）
-  - `manifest_json`
-  - `raw_markdown`
-  - `frontmatter_json`
-  - `body_markdown`
-  - `source_url`（可空，仅追溯）
-  - `source_ref`（可空，仅追溯）
-  - `import_type`（首版固定 `upload`）
-  - `created_by`, `created_at`, `updated_at`
-- **规则**:
-  - 已发布版本不可覆盖内容
-  - `published` 必须有有效 `checksum`
-  - 当策略开启时，`published` 需有效 `signature`
+
+- **现状定位**: 旧导入和平台目录的 Registry 记录；不再是用户创作的可变来源。
+- **迁移目标**: Runtime 将只解析已发布的 `SkillDefinitionRevision`，Registry 保留为目录/安装索引，直至其完全收敛为发布 revision 的投影。
+- **规则**: 新建或更新用户 Skill 必须走 `SkillPackageSource → SkillDefinitionDraft → SkillDefinitionRevision`，不得直接把本地或远程包写成可运行 Registry 记录。
 
 ## OfficialSkillCatalogEntry
 - **标识**: `catalog_skill_id`
@@ -332,6 +382,28 @@
   - `response_guidance` 不得携带租户、用户、token、session 或权限判断等运行时身份信息。
   - `general` 可作为所有 mode 的通用规范；其他分组必须按 `mode: text` 形式进入候选能力上下文。
 
+## AgentResponseEnvelope
+
+- **标识**: `schema = powerx.agent.response/v1`
+- **作用**: 承载用户可见业务结果的结构化事实，供 Core 校验、SSE/历史持久化、Trace 和 Web Admin 的统一 Markdown Preview 使用。
+- **核心字段**:
+  - `schema`：固定 `powerx.agent.response/v1`
+  - `kind`：`answer|execution_result|review_result|multi_agent_summary`
+  - `outcome`：`completed|needs_action|blocked|failed`
+  - `summary`：本轮可读结论
+  - `answer`：对当前用户消息的直接回答
+  - `acceptance[]`：每项包含 `name/status/detail`
+  - `evidence[]`：可核验事实、artifact 或受控 trace 引用
+  - `gaps[]`：尚不能确认的事实或阻塞原因
+  - `next_actions[]`：用户或操作人员下一步
+  - `artifacts[]`：可选的结果链接或下载引用
+- **规则**:
+  - `answer` 必填；执行、审核、发布和多智能体汇总还必须有非空 `acceptance[]`。
+  - `outcome=completed` 至少需要一项可核验 `evidence[]`，否则 envelope 无效。
+  - 平台显示文案、Markdown 标题和段落顺序不进入 envelope；由前端依据当前 locale 统一渲染。
+  - 该对象必须同时保存在 final SSE payload、assistant message meta、AgentRunState 历史快照和 Trace final node 摘要中。
+  - 不合法对象必须产生 `agent.response_contract_invalid`；禁止将其降级为任意 string 或原始 Markdown。
+
 ## AssistantMessageMeta
 - **标识**: `message_id`
 - **作用**: assistant 消息的结构化 metadata，用于上下文去重、追问、质量评估和 Trace 关联。
@@ -346,10 +418,12 @@
   - `trace_id`
   - `run_id`
   - `plan_id`
+  - `response_envelope`
 - **规则**:
   - 去重判断必须基于 `response_mode/capability_ids` 等 meta，不得依赖自然语言文本匹配。
   - `capability_ids[]` 只能包含当前 Agent 可见能力。
   - 不得保存完整 executor payload、原始 prompt 或敏感 context；这些内容必须进入受控 artifact。
+  - `response_envelope` 保存经校验和脱敏后的结构化最终答复，用于刷新后重建统一 Preview。
 
 ## AgentContextDriver
 - **作用**: 定义 Agent Runtime 中上下文来源的职责边界。
@@ -442,18 +516,20 @@
   - 支持按 trace_id 或 skill/version 关联检索
 
 ## AgentTeam
-- **标识**: `team_id`
+- **标识**: `uuid`
 - **核心字段**:
   - `tenant_uuid`
-  - `parent_agent_id`
-  - `team_name`
+  - `parent_agent_uuid`
+  - `team_key`（租户内稳定机器标识；不可作为显示名称）
+  - `display_name_i18n`（必须含 `zh-CN`、`en-US`、`ja`、`ko`）
   - `dispatch_mode`（`serial|parallel|mixed`）
   - `default_failure_policy`（`fail-fast|continue|retry-once`）
   - `status`（`active|disabled`）
   - `created_by`, `created_at`, `updated_at`
 - **规则**:
-  - `team_id` 仅在单租户作用域内有效
-  - `parent_agent_id` 必须属于同租户
+  - `uuid` 是跨域/API/审计唯一身份；内部数值主键不得出现在外部契约。
+  - `team_key` 在同一租户内唯一，创建后不可由运行时解释为业务名称。
+  - 当前语言缺少名称翻译时应提示配置缺失，不得显示 `team_key` 作为名称。
 
 ## AgentTeamMember
 - **标识**: `team_id` + `child_agent_id`

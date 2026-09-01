@@ -1,6 +1,7 @@
 package database
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -113,13 +114,12 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.Member{},
 		&modelIAM.Credential{},
 		&modelIAM.Role{},
-		&modelIAM.Permission{},
-		&modelIAM.RolePermission{},
+		&legacyIAMPermission{},
+		&legacyIAMRolePermission{},
 		&modelIAM.RoleBinding{},
 		&modelIAM.RefreshToken{},
-		&modelIAM.Department{},
-		&modelIAM.MemberDepartment{},
-		&modelIAM.Department{},
+		&legacyIAMDepartment{},
+		&legacyIAMMemberDepartment{},
 		&modelIAM.DepartmentClosure{},
 		&modelIAM.Group{},
 		&modelIAM.MemberAssignment{},
@@ -142,6 +142,12 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	if err = backfillIAMRelationshipUUIDs(db); err != nil {
+		return err
+	}
+	if err = applyIAMPhase2UUIDMigration(db); err != nil {
+		return err
+	}
+	if err = applyIAMPhase2UUIDIntegrityMigration(db); err != nil {
 		return err
 	}
 	if err = ensureIAMUserPhoneIndex(db); err != nil {
@@ -202,6 +208,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migratePluginReleaseModels(db); err != nil {
+		return err
+	}
+	if err = migratePluginReleaseDeveloperMemberUUID(db); err != nil {
 		return err
 	}
 	if err = migration.EnsurePluginReleaseCandidateUniqueIndex(db); err != nil {
@@ -465,6 +474,13 @@ func migrateCustomerModels(db *gorm.DB) error {
 }
 
 func migrateCapabilityRegistryModels(db *gorm.DB) error {
+	// trace_id 是一条分布式链路的关联键；同一链路可包含多个 capability invocation。
+	// 旧索引错误地把 trace_id 当成调用记录唯一键，必须在 AutoMigrate 前显式移除。
+	if db.Migrator().HasIndex(&modelCapabilityRegistry.InvocationTrace{}, "uk_capability_invocation_trace") {
+		if err := db.Migrator().DropIndex(&modelCapabilityRegistry.InvocationTrace{}, "uk_capability_invocation_trace"); err != nil {
+			return err
+		}
+	}
 	return db.AutoMigrate(
 		&modelCapabilityRegistry.CapabilityRegistration{},
 		&modelCapabilityRegistry.AdapterEndpoint{},
@@ -494,12 +510,38 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 }
 
 func migrateAgentA2AModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if db == nil {
+		return fmt.Errorf("agent a2a database is required")
+	}
+	// team_name was incorrectly used as both a mutable display label and a
+	// machine key. Rename it once, then make names explicitly localized.
+	if !db.Migrator().HasColumn(&modelAgent.AgentTeam{}, "team_key") && db.Migrator().HasColumn(&modelAgent.AgentTeam{}, "team_name") {
+		if err := db.Migrator().RenameColumn(&modelAgent.AgentTeam{}, "team_name", "team_key"); err != nil {
+			return fmt.Errorf("rename agent team_name to team_key: %w", err)
+		}
+	}
+	if err := db.AutoMigrate(
 		&modelAgent.AgentTeam{},
 		&modelAgent.AgentTeamMember{},
 		&modelAgent.AgentHandoffTask{},
 		&modelAgent.AgentSharedContextRef{},
-	)
+	); err != nil {
+		return err
+	}
+	var teams []modelAgent.AgentTeam
+	if err := db.Where("display_name_i18n IS NULL OR display_name_i18n = ?", "{}").Find(&teams).Error; err != nil {
+		return fmt.Errorf("load agent teams for display-name migration: %w", err)
+	}
+	for _, team := range teams {
+		displayNames, err := json.Marshal(map[string]string{"zh-CN": team.TeamKey, "en-US": team.TeamKey, "ja": team.TeamKey, "ko": team.TeamKey})
+		if err != nil {
+			return fmt.Errorf("encode agent team display-name migration: %w", err)
+		}
+		if err = db.Model(&modelAgent.AgentTeam{}).Where("id = ?", team.ID).Update("display_name_i18n", displayNames).Error; err != nil {
+			return fmt.Errorf("backfill agent team display-name: %w", err)
+		}
+	}
+	return nil
 }
 
 func migrateOpsModels(db *gorm.DB) error {
@@ -844,6 +886,9 @@ func migrateAgentModelHubModels(db *gorm.DB) error {
 
 func migrateSkillsModels(db *gorm.DB) error {
 	return db.AutoMigrate(
+		&modelSkills.SkillPackageSource{},
+		&modelSkills.SkillDefinitionDraft{},
+		&modelSkills.SkillDefinitionRevision{},
 		&modelSkills.SkillRegistryRecord{},
 		&modelSkills.OfficialSkillCatalogEntry{},
 		&modelSkills.SkillCapabilityBinding{},

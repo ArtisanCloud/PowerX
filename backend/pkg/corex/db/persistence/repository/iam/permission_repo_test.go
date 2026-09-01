@@ -21,7 +21,7 @@ func TestMemberHasPermissionViaBindingUsesEffectiveAssignments(t *testing.T) {
 	const memberID uint64 = 42
 
 	perm := createPermission(t, db, "corex.customer", "accounts", "list")
-	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 100, PermissionID: perm.ID}).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&dbm.RolePermission{RoleID: 100, PermissionID: perm.ID}).Error)
 	require.NoError(t, db.Create(&dbm.RoleBinding{
 		TenantUUID:  tenantUUID,
 		RoleID:      100,
@@ -53,7 +53,7 @@ func TestMemberHasPermissionViaBindingMapsOrgAssignmentToOrgUnitSubject(t *testi
 	const memberID uint64 = 42
 
 	perm := createPermission(t, db, "corex.iam", "members", "read")
-	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 200, PermissionID: perm.ID}).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&dbm.RolePermission{RoleID: 200, PermissionID: perm.ID}).Error)
 	require.NoError(t, db.Create(&dbm.RoleBinding{
 		TenantUUID:  tenantUUID,
 		RoleID:      200,
@@ -81,7 +81,7 @@ func TestMemberHasPermissionViaBindingStillSupportsDirectMemberBinding(t *testin
 	const memberID uint64 = 42
 
 	perm := createPermission(t, db, "corex.agent", "agents", "read")
-	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 300, PermissionID: perm.ID}).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&dbm.RolePermission{RoleID: 300, PermissionID: perm.ID}).Error)
 	require.NoError(t, db.Create(&dbm.RoleBinding{
 		TenantUUID:  tenantUUID,
 		RoleID:      300,

@@ -57,7 +57,9 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 			EventBus:    deps.EventBus,
 			Auditor:     deps.Auditor,
 			VersionLock: deps.VersionLockStore,
-			CoreInvoker: customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB)),
+			CoreInvoker: capservice.NewCoreCapabilityMux(
+				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB)),
+			),
 		})
 	}
 	selector := deps.CapabilitySelector

@@ -10,19 +10,20 @@ type Manifest struct {
 	Description  string `yaml:"description"   json:"description"`
 	CoreXVersion string `yaml:"corex_version" json:"corex_version"`
 
-	Runtime     RuntimeSpec      `yaml:"runtime"   json:"runtime"`
-	Endpoints   EndpointSpec     `yaml:"endpoints" json:"endpoints"`
-	Frontend    FrontendSpec     `yaml:"frontend"  json:"frontend"`
-	Catalogs    CatalogSpec      `yaml:"catalogs,omitempty" json:"catalogs,omitempty"`
-	Exposure    ExposureSpec     `yaml:"exposure,omitempty" json:"exposure,omitempty"`
-	RBAC        RBACSpec         `yaml:"rbac"      json:"rbac"`
-	Events      EventSpec        `yaml:"events"    json:"events"`
-	Backend     *BackendSpec     `yaml:"backend"   json:"backend,omitempty"`
-	Routes      *RouteSpec       `yaml:"routes"    json:"routes,omitempty"`
-	Permissions []PermissionSpec `yaml:"permissions" json:"permissions,omitempty"`
-	Agents      []AgentSpec      `yaml:"agents" json:"agents,omitempty"`
-	Tools       []ToolSpec       `yaml:"tools" json:"tools,omitempty"`
-	Workflows   []WorkflowSpec   `yaml:"workflows" json:"workflows,omitempty"`
+	Runtime      RuntimeSpec        `yaml:"runtime"   json:"runtime"`
+	Endpoints    EndpointSpec       `yaml:"endpoints" json:"endpoints"`
+	Frontend     FrontendSpec       `yaml:"frontend"  json:"frontend"`
+	Catalogs     CatalogSpec        `yaml:"catalogs,omitempty" json:"catalogs,omitempty"`
+	Capabilities HostCapabilitySpec `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	Exposure     ExposureSpec       `yaml:"exposure,omitempty" json:"exposure,omitempty"`
+	RBAC         RBACSpec           `yaml:"rbac"      json:"rbac"`
+	Events       EventSpec          `yaml:"events"    json:"events"`
+	Backend      *BackendSpec       `yaml:"backend"   json:"backend,omitempty"`
+	Routes       *RouteSpec         `yaml:"routes"    json:"routes,omitempty"`
+	Permissions  []PermissionSpec   `yaml:"permissions" json:"permissions,omitempty"`
+	Agents       []AgentSpec        `yaml:"agents" json:"agents,omitempty"`
+	Tools        []ToolSpec         `yaml:"tools" json:"tools,omitempty"`
+	Workflows    []WorkflowSpec     `yaml:"workflows" json:"workflows,omitempty"`
 
 	Migrations *MigrationsSpec `yaml:"migrations" json:"migrations,omitempty"`
 	Assets     *AssetsSpec     `yaml:"assets"     json:"assets,omitempty"`
@@ -30,6 +31,12 @@ type Manifest struct {
 	Signature  *SignatureSpec  `yaml:"signature"  json:"signature,omitempty"`
 
 	Metadata Metadata `yaml:"metadata" json:"metadata"`
+}
+
+// HostCapabilitySpec declares the published Core capabilities required by the
+// plugin service actor. These are distinct from plugin-provided capabilities.
+type HostCapabilitySpec struct {
+	Required []string `yaml:"required,omitempty" json:"required,omitempty"`
 }
 
 type Metadata struct {

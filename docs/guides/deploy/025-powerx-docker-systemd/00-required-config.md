@@ -31,7 +31,19 @@
 
 至少要改下面这些对象（不要使用示例默认值）：
 
-### 1.1 `server`
+### 1.1 `deployment`
+
+```yaml
+deployment:
+  env: prod
+```
+
+- 必填，只允许 `dev/test/staging/prod`；生产必须明确选择 `prod`。
+- 这是 PowerX 实例身份，也是插件 Role/User 命名的唯一环境来源；Schema/Database 名称不随环境改变。
+- 不得从 `POWERX_ENV`、`version`、`plugin.dev_mode`、目录名或插件安装元数据推导。
+- 配置、setup 与 plugin manager 必须共同消费该字段；只在 YAML 中添加字段不能形成角色隔离。
+
+### 1.2 `server`
 - `server.mode`：生产环境建议 `release`
 - `server.secret_key`：必须替换为你自己的 32 字节随机 Base64 密钥
 
@@ -41,24 +53,24 @@
 umask 077 && head -c 32 /dev/urandom | base64
 ```
 
-### 1.2 `database`
+### 1.3 `database`
 - `database.dsn`：必须指向真实 PostgreSQL
 - 推荐同时核对：`database.host/port/username/password/database`
 - 若启用知识库向量能力（pgvector）：目标库必须可用 `vector` 扩展（已安装，且账号具备创建扩展权限或已由 DBA 预装）
 
-### 1.3 `cache`
+### 1.4 `cache`
 - `cache.host`
 - `cache.port`
 - `cache.password`（有密码时必须配置）
 
-### 1.4 `queue.redis`
+### 1.5 `queue.redis`
 - `queue.redis.addr`
 - `queue.redis.password`（有密码时必须配置）
 
-### 1.5 `auth`
+### 1.6 `auth`
 - `auth.jwt_secret`：必须替换，禁止使用示例值
 
-### 1.6 `media.s3`（启用对象存储时必须）
+### 1.7 `media.s3`（启用对象存储时必须）
 - `media.s3.endpoint`
 - `media.s3.bucket`
 - `media.s3.access_key`
@@ -120,8 +132,10 @@ Docker 模式建议新增：
 
 - [ ] `/etc/powerx/config.yaml` 中 `server.secret_key` 已替换
 - [ ] `/etc/powerx/config.yaml` 中 `auth.jwt_secret` 已替换
+- [ ] `/etc/powerx/config.yaml` 中 `deployment.env=prod` 已明确配置并通过校验
 - [ ] PostgreSQL 可连通（`database.dsn` 正确）
 - [ ] Redis 可连通（`cache` 与 `queue.redis` 正确）
 - [ ] `/etc/powerx/powerx.env` 已从模板复制并改成真实值
 - [ ] web-admin 的 `POWERX_BACKEND/WS_UPSTREAM` 指向正确地址
 - [ ] Docker 宿主机目录已准备：`/etc/powerx` 与 `/var/lib/powerx/{postgres,redis,uploads}`
+- [ ] 启用插件安装时，数据库管理员账号具备创建受限 Role/User 与 Schema/Database 的权限

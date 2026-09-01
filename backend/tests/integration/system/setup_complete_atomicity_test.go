@@ -21,12 +21,13 @@ func TestSetupCompleteAtomicity(t *testing.T) {
 	tmp := t.TempDir()
 	runtimeConfigPath := filepath.Join(tmp, "config.yaml")
 	draftPath := filepath.Join(tmp, "setup.wizard.config.json")
-	require.NoError(t, osWriteFile(runtimeConfigPath, []byte("version: v1.0.0\nserver:\n  port: 8077\ninstall:\n  status: uninstalled\n  lock_mode: strict\n  allow_without_db: true\n"), 0o644))
+	require.NoError(t, osWriteFile(runtimeConfigPath, []byte("version: v1.0.0\ndeployment:\n  env: dev\nserver:\n  port: 8077\ninstall:\n  status: uninstalled\n  lock_mode: strict\n  allow_without_db: true\n"), 0o644))
 
 	t.Setenv("POWERX_SETUP_RUNTIME_CONFIG_PATH", runtimeConfigPath)
 	t.Setenv("POWERX_SETUP_DRAFT_PATH", draftPath)
 
 	corecfg.GlobalConfig = &corecfg.Config{}
+	corecfg.GlobalConfig.Deployment.Env = "dev"
 	corecfg.GlobalConfig.Install.Status = "uninstalled"
 	corecfg.GlobalConfig.Install.LockMode = "strict"
 
@@ -36,12 +37,17 @@ func TestSetupCompleteAtomicity(t *testing.T) {
 	r.POST("/admin/setup/complete", h.Complete)
 
 	payload := map[string]any{
-		"domain":  map[string]any{"domain": "powerx.local"},
-		"https":   map[string]any{"mode": "auto"},
-		"storage": map[string]any{"type": "local", "local_path": "/data/uploads"},
-		"cache":   map[string]any{"type": "redis", "redis_host": "127.0.0.1", "redis_port": 6379, "redis_db": 0},
-		"email":   map[string]any{"enabled": false},
-		"ports":   map[string]any{"backend_port": 18080, "web_admin_port": 13000},
+		"deployment": map[string]any{"env": "dev"},
+		"domain":     map[string]any{"domain": "powerx.local"},
+		"https":      map[string]any{"mode": "auto"},
+		"storage":    map[string]any{"type": "local", "local_path": "/data/uploads"},
+		"cache":      map[string]any{"type": "redis", "redis_host": "127.0.0.1", "redis_port": 6379, "redis_db": 0},
+		"email":      map[string]any{"enabled": false},
+		"database": map[string]any{
+			"type":        "sqlite",
+			"sqlite_path": filepath.Join(tmp, "powerx.db"),
+		},
+		"ports": map[string]any{"backend_port": 18080, "web_admin_port": 13000},
 	}
 	body, _ := json.Marshal(payload)
 
@@ -58,7 +64,7 @@ func TestSetupCompleteAtomicity(t *testing.T) {
 	t.Setenv("POWERX_SETUP_SIMULATE_PHASE2_FAIL", "false")
 	okResp := httptest.NewRecorder()
 	r.ServeHTTP(okResp, httptest.NewRequest(http.MethodPost, "/admin/setup/complete", bytes.NewReader([]byte(`{"licenseAccepted":true}`))))
-	require.Equal(t, http.StatusOK, okResp.Code)
+	require.Equal(t, http.StatusOK, okResp.Code, okResp.Body.String())
 	require.Equal(t, "installed", readInstallStatus(t, runtimeConfigPath))
 }
 

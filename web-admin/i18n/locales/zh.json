@@ -1,4 +1,16 @@
 {
+	"setup": {
+		"deployment": {
+			"title": "部署环境",
+			"description": "请选择这套 PowerX 实例的稳定环境标识。插件数据库角色和 schema 将使用该标识进行隔离；安装插件后请勿直接修改。",
+			"options": { "dev": "开发 dev", "test": "测试 test", "staging": "预发布 staging", "prod": "生产 prod" }
+		},
+		"errors": {
+			"deploymentEnvRequired": "请选择部署环境",
+			"deploymentEnvInvalid": "部署环境必须是 dev、test、staging 或 prod",
+			"unknown": "安装配置保存失败"
+		}
+	},
   "menu": {
     "openMarket": "开放市场",
     "plugins": "插件",
@@ -706,6 +718,14 @@
       "marketingMethodologyExtract": {
         "summary": "从营销素材中抽取可审核的方法论草稿。",
         "releaseNote": "内置营销方法论抽取技能。"
+      },
+      "marketingMetricExtract": {
+        "summary": "从营销活动复盘、报表或渠道材料中抽取曝光、点击、转化、成本等关键指标。",
+        "releaseNote": "内置营销活动指标抽取技能。"
+      },
+      "marketingReviewSummarize": {
+        "summary": "总结营销活动复盘中的问题、归因、结论和优化动作。",
+        "releaseNote": "内置营销活动复盘总结技能。"
       }
     },
     "runtimeError": {
@@ -1163,6 +1183,10 @@
       "add": "新增角色",
       "systemRole": "系统",
       "userCount": "用户",
+      "toast": {
+        "missingTenantContextTitle": "缺少当前租户",
+        "missingTenantContextDescription": "请先切换到要管理的租户后再创建角色。"
+      },
       "permissionSearch": {
         "placeholder": "搜索菜单、能力、API、权限码或插件",
         "clear": "清空权限搜索",
@@ -2524,11 +2548,13 @@
     }
   },
   "agent": {
+	"response": {"conclusion": "本轮结论", "answer": "直接回答", "acceptance": "验收项", "evidence": "已有证据", "gaps": "缺口或阻塞", "nextActions": "下一步", "metrics": "指标与计算", "metric": "指标", "value": "结果", "formula": "计算公式", "facts": "已确认事实", "hypotheses": "待验证假设", "outcomes": {"completed": "本轮已完成，结果如下。", "needs_action": "已完成分析，仍需执行以下行动。", "blocked": "本轮受阻，需要先解决以下缺口。", "failed": "本轮失败，请查看运行追踪。"}},
     "sessions": {
       "title": "智能会话"
     },
     "confirmDelete": "确定删除吗？",
     "teamManagement": {
+      "unnamedTeam": "未命名团队",
       "roles": {
         "retriever": "资料检索（Retriever）",
         "executor": "任务执行（Executor）",
@@ -2544,6 +2570,12 @@
       },
       "create": {
         "tlFixedRoleHint": "TL 固定为 planner（不可修改）"
+      },
+      "orchestration": {
+        "label": "团队编排图",
+        "help": "保存后才可启用团队。运行时会验证任务角色、Skill 绑定和依赖图；团队名称不会触发任务。",
+        "placeholder": "请输入 powerx.agent.team-orchestration/v1 格式的 JSON；完整示例见团队编排文档。",
+        "invalidJson": "团队编排图必须是有效 JSON。"
       }
     },
     "list": {
@@ -2561,10 +2593,27 @@
         "active": "启用",
         "disabled": "停用"
       },
-      "sources": {
-        "core": "底座创建",
-        "plugin": "插件托管"
-      },
+    "sources": {
+      "core": "底座创建",
+      "plugin": "插件托管",
+      "builtin": "固有智能体",
+      "protected": "不可编辑"
+    },
+    "teamRoles": {
+      "coordinator": "团队负责人 ×{count}",
+      "member": "团队成员 ×{count}"
+    },
+    "categories": {
+      "all": "全部分类",
+      "allDescription": "按当前筛选条件显示全部智能体；分页只作用于当前视图。",
+      "count": "{count} 个",
+      "empty": "当前分类下没有符合筛选条件的智能体",
+      "loading": "正在加载智能体分类字典",
+      "loadFailed": "智能体分类字典加载失败",
+      "loadFailedDescription": "请检查数据字典 corex.agent.category 是否已 seed 并启用。",
+      "unconfigured": "分类未配置：{code}",
+      "unconfiguredDescription": "该分类没有在数据字典 corex.agent.category 中登记。"
+    },
       "filters": {
         "searchPlaceholder": "搜索智能体名称、Key 或插件",
         "allSources": "全部来源",
@@ -2656,12 +2705,13 @@
         "saved": "权限配置已保存",
         "saveFailed": "保存权限配置失败"
       },
-      "actions": {
-        "chat": "智能会话",
-        "team": "创建团队",
-        "permissions": "配置权限",
-        "edit": "编辑"
-      },
+    "actions": {
+      "chat": "智能会话",
+      "team": "创建团队",
+      "permissions": "配置权限",
+      "edit": "编辑",
+      "locked": "固有智能体不可编辑"
+    },
       "pagination": {
         "total": "共 {total} 个智能体"
       },
@@ -2682,13 +2732,73 @@
           "title": "智能视频重构大师",
           "description": "规划并重构产品发布视频脚本和制作流程。"
         },
-        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
-          "title": "营销大师",
-          "description": "生成短视频营销脚本和投放传播文案。"
-        }
+      "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+        "title": "营销大师",
+        "description": "生成短视频营销脚本和投放传播文案。"
       },
-      "accessGrants": "使用授权"
+      "marketing_director_advisor": {
+        "title": "营销负责人智能体",
+        "description": "面向市场负责人，沉淀营销策略、渠道复盘、客户信号和跨团队协作方法论。"
+      },
+      "marketing_content_strategist": {
+        "title": "内容营销智能体",
+        "description": "面向内容团队，整理选题、脚本、素材复用和内容活动复盘，沉淀可复用内容方法。"
+      },
+      "knowledge_expert_curator": {
+        "title": "专家知识策展智能体",
+        "description": "把专家访谈、会议纪要、文档和经验输入转成结构化知识草稿，并进入审核发布流程。"
+      },
+      "marketing_campaign_reviewer": {
+        "title": "活动复盘分析智能体",
+        "description": "面向营销活动复盘，抽取指标、问题、结论和优化动作，并沉淀为活动方法论知识。"
+      },
+      "release_coordinator": {
+        "title": "发布准备协调员",
+        "description": "统筹发布准备协作任务，拆分子智能体工作并汇总最终发布准备报告。"
+      },
+      "release_knowledge_analyst": {
+        "title": "发布知识分析员",
+        "description": "分析发布知识、历史事故和风险证据，输出发布风险摘要。"
+      },
+      "release_workflow_planner": {
+        "title": "发布流程规划员",
+        "description": "根据风险分析生成发布执行步骤、验证清单和回滚计划。"
+      },
+      "release_notification_scheduler": {
+        "title": "发布通知计划员",
+        "description": "生成发布通知对象、提醒节奏和值班升级路径。"
+      }
     },
+	      "accessGrants": "使用授权"
+	    },
+	    "teamTasks": {
+      "badge": "团队任务",
+      "newTask": "新建任务",
+      "workspaceTitle": "团队任务工作台",
+	      "workspaceSubtitle": "当前为多智能体协作任务模式（主智能体 + 子智能体）。",
+	      "memberCount": "{count} 人",
+	      "membersTitle": "团队成员",
+	      "membersSubtitle": "当前协作团队",
+      "manage": "管理",
+      "noKey": "无 Key",
+      "notices": {
+        "loadFailed": "团队列表加载失败，请先检查团队配置后重试。",
+        "loadFailedTitle": "加载团队失败",
+        "emptyTeams": "当前租户暂无可用团队，请先到“团队管理”创建团队。",
+        "teamUnavailable": "team_id={id} 不存在或不可用，已自动切换到默认团队。"
+      },
+      "selector": {
+        "label": "选择团队",
+        "teamLabel": "团队：{name}"
+	      }
+	    },
+	    "teams": {
+	      "catalog": {
+	        "release_readiness_team": {
+	          "title": "发布准备协作团队"
+	        }
+	      }
+	    },
     "effectivePermissions": {
       "title": "生效权限",
       "description": "当前会话实际可用权限由用户 IAM 权限、Agent 授权、租户能力启用状态和策略结果取交集得出。",
@@ -2721,6 +2831,7 @@
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",
+      "lockedAgent": "固有智能体不可编辑",
       "newAgent": "新建智能体",
       "searchSessions": "搜索会话",
       "pickAgentToSeeSessions": "选择智能体查看会话",
@@ -2807,8 +2918,11 @@
       "save": "保存",
       "update": "更新"
     },
-    "chat": {
-      "defaultAgent": "默认智能体",
+	    "chat": {
+	      "badge": "智能会话",
+	      "workspaceTitle": "智能会话工作台",
+	      "workspaceSubtitle": "当前为单智能体会话模式。",
+	      "defaultAgent": "默认智能体",
       "connected": "已连接",
       "disconnected": "连接已断开",
       "welcomeTitle": "欢迎",
@@ -2825,6 +2939,73 @@
       "untitledSession": "未命名会话",
       "responding": "正在回复",
       "generating": "生成中",
+      "traceThisRun": "追踪本轮",
+      "traceDetails": "追踪详情",
+      "traceReport": {
+        "title": "本轮运行追踪",
+        "loading": "正在加载运行报告…",
+        "loadFailed": "运行报告加载失败",
+        "empty": "当前运行没有可展示的追踪数据。",
+        "missingIdentity": "当前消息缺少运行标识，无法打开报告。",
+        "runId": "运行 ID",
+        "traceId": "追踪 ID"
+      },
+      "traceTimeline": {
+        "title": "执行时间轴",
+        "description": "仅展示当前运行；同一节点的开始与结束事件合并为一个步骤。",
+        "nodeCount": "{count} 个节点",
+        "step": "步骤 {index}",
+        "sequence": "节点序号 {sequence}",
+        "empty": "当前运行没有可展示的节点事件。",
+        "errorWithoutDetails": "节点执行失败，但未记录错误详情。",
+        "metrics": {
+          "status": "状态",
+          "nodes": "节点",
+          "events": "事件",
+          "errors": "错误"
+        },
+        "status": {
+          "running": "执行中",
+          "success": "完成",
+          "error": "失败"
+        },
+        "nodeKinds": {
+          "receiveMessage": "接收消息",
+          "responsePlanner": "响应规划",
+          "intentRecognition": "意图识别",
+          "planner": "任务规划",
+          "contextBuilder": "上下文构建",
+          "agentHandoff": "子智能体分发",
+          "skill": "技能执行",
+          "tooling": "工具执行",
+          "workflow": "工作流",
+          "llmCall": "模型调用",
+          "finalResponse": "最终回复"
+        }
+      },
+      "traceNodeDetails": {
+        "empty": "从左侧时间轴选择一个节点查看详情",
+        "nodeRef": "节点引用",
+        "capability": "能力",
+        "skill": "技能",
+        "plugin": "插件",
+        "responsePlan": "响应规划",
+        "mode": "模式",
+        "model": "模型",
+        "capabilities": "目标能力",
+        "contextLayers": "上下文层",
+        "input": "输入",
+        "output": "输出"
+      },
+      "retryBusyTitle": "暂时无法重试",
+      "retryBusyDescription": "当前回答仍在生成，请等待完成后再重试。",
+      "retryUnavailableTitle": "无法重试这条回答",
+      "retryUnavailableDescription": "未找到对应的已保存用户消息，请刷新会话后再试。",
+      "retryFailedTitle": "重试失败",
+      "retryFailedDescription": "智能体未能重新生成回答，请查看运行追踪。",
+      "executionFailed": "本轮执行失败。请查看运行追踪并修复后重试。",
+      "executionTimeout": "模型服务响应超时。本轮结果未完成，请查看运行追踪后重试。",
+      "retryTeamContextMissing": "当前团队上下文无效，请重新选择团队后再试。",
       "you": "你",
       "assistant": "助手",
       "system": "系统",
@@ -3046,7 +3227,7 @@
         "label": "命名空间（可选）",
         "placeholder": "如: company.crm"
       },
-      "environment": "目标环境",
+		"releaseChannel": "发布渠道",
       "autoUpdate": "自动更新",
       "forceInstall": "强制覆盖同版本（Force）",
       "permissions": {

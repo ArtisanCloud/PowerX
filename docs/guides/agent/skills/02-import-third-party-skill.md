@@ -1,65 +1,44 @@
-# 受控导入 Skill（开发者/第三方）
+# 导入第三方 Skill
 
-本文说明如何通过 `POST /admin/skills/import` 导入 Skill。
+## 结论
 
-## 规则摘要
+外部 Skill 可以使用 Claude Code/Codex 都能识别的 `SKILL.md` 作为互操作基础；要在 PowerX Team 中执行，必须补充受校验的 PowerX 定义。导入包不会直接被 Runtime 从本地目录或 Git 地址执行。
 
-1. 仅支持 `upload` 模式（接口内部固定，不能远程在线拉取）。
-2. `bundle_uri` 必须是上传后的地址（例如 `s3://...`）。
-3. `checksum` 必填，且需为 `sha256:` 或 `sha256-` 前缀。
-4. `signature` 是否必填由策略控制（环境变量 `POWERX_SKILL_REQUIRE_SIGNATURE`）。
+## 兼容包结构
 
-## 步骤 1：准备导入请求
-
-```json
-{
-  "skill_id": "skill.thirdparty.demo",
-  "version": "1.0.0",
-  "source": "third_party",
-  "bundle_uri": "s3://skills/skill.thirdparty.demo-1.0.0.tgz",
-  "checksum": "sha256:123abc",
-  "signature": "optional-signature",
-  "source_url": "https://github.com/example/skills",
-  "source_ref": "refs/tags/v1.0.0"
-}
+```text
+my-skill/
+  SKILL.md
+  powerx/manifest.json
+  powerx/prompts/zh-CN.md
+  powerx/schemas/input.json
+  powerx/schemas/output.json
 ```
 
-## 步骤 2：执行导入
+`SKILL.md` 的 YAML frontmatter 至少有 `name` 和 `description`。`powerx/` 是可选扩展：没有它时可导入为 `instruction_only`，但不能成为 Team 的可执行节点。
 
-```bash
-curl -sS -X POST "$POWERX_HTTP_BASE/admin/skills/import" \
-  -H "Authorization: Bearer $ROOT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d @import.json
-```
+## 保存位置
 
-预期：HTTP `202`，返回状态 `draft`。
+| 数据 | 保存位置 | Runtime 用途 |
+| --- | --- | --- |
+| 原始导入压缩包/下载快照 | 当前配置的 Media Storage driver；`skill_package_sources` 保存 URI、checksum、解析元数据。默认 `local` 为 `local://`，明确配置 `s3` 时为 `s3://` | 审计、再次导入；不直接执行 |
+| 结构化 Draft 与 Revision | PostgreSQL `skills_definition_drafts`、`skills_definition_revisions` | Runtime 只读取已发布 Revision |
+| Canonical 导出包 | 当前配置的 Media Storage driver；Revision 保存 URI、checksum | 下载、迁移、再导入；不直接作为定义来源 |
+| 临时 clone/解压目录 | 本地临时空间 | 任务结束后清理；Runtime 不读取 |
 
-## 步骤 3：验证导入结果
+## 导入与发布流程
 
-```bash
-curl -sS "$POWERX_HTTP_BASE/admin/skills?skill_id=skill.thirdparty.demo" \
-  -H "Authorization: Bearer $ROOT_TOKEN"
-```
+1. 上传或下载用户明确指定的包到临时工作区，解析并做安全检查。
+2. 原始内容写入当前配置的 Media Storage driver，记录 `skill_package_sources`。
+3. 解析成 `powerx.skill-definition/v2` Draft。`executor.type` 必须是 `llm_prompt`、`capability`、`workflow` 或 `instruction_only`；其中 `llm_prompt` 必须提供 `prompt_template_i18n`，Runtime 按本轮 locale 精确选择。
+4. 审核后由发布器生成 Canonical Package，得到 URI 和 SHA256，再把当前 Revision 标记为 `published`。
+5. 仅已发布 Revision 可以被 Agent/Team 调用。
 
-预期：能看到 `source_url/source_ref/import_type` 已落库。
+## 失败规则
 
-## 常见失败与处理
+- 不接受 `file://`、本地 `SKILL.md` 路径或远程 Git URL 作为 Runtime 来源。
+- 缺 checksum、Media Storage URI、executor 定义或租户权限时明确失败。
+- 不能通过“普通聊天”降级执行 `instruction_only` 包。
+- 修改已发布 Skill 必须创建新 Revision，不能覆盖历史包或数据库快照。
 
-1. `checksum is required`  
-   原因：未提供 checksum。  
-   处理：补充 `checksum` 字段。
-
-2. `checksum mismatch`  
-   原因：格式不符合策略（非 `sha256:` 或 `sha256-` 前缀）。  
-   处理：改为合规 SHA256 摘要格式。
-
-3. `remote repository online pull is disabled`  
-   原因：`bundle_uri` 使用了 `http(s)` 在线地址。  
-   处理：先上传包，再使用内部存储 URI（如 `s3://`）。
-
-## UI 操作路径（页面）
-
-1. `左侧菜单 -> 技能库`。
-2. 在“导入 Skill（仅 upload）”表单填入字段。
-3. 点击“导入”，成功后自动刷新 Registry。
+详细的运行时和验收说明见 [声明式 Skill Runtime](../runtime/declarative-skill-runtime.md)。

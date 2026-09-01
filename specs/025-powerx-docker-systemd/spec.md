@@ -22,6 +22,12 @@
 - Q: 未安装状态下是否允许业务 API 正常访问？ → A: 不允许，采用全局硬拦截，仅放行 setup/health/静态资源。
 - Q: 运行态配置最终落点在哪里？ → A: `/etc/powerx`（`config.yaml` + `powerx.env`），以外置运行时配置作为生产真相，版本目录仅承载代码与静态产物。
 
+### Session 2026-08-28
+
+- Q: dev/prod Core 共用 PostgreSQL 集群时，插件角色如何隔离？ → A: 新增实例级必填配置 `deployment.env`，只允许 `dev/test/staging/prod`；Schema/Database 沿用现有名称，Role/User 名称必须包含环境段。
+- Q: 能否复用 `plugin.dev_mode`、`version`、`POWERX_ENV` 或安装请求 `metadata.environment`？ → A: 不能。它们不是实例部署身份，缺少 `deployment.env` 时必须明确失败。
+- Q: 已安装插件后能否直接修改部署环境？ → A: 不能自动修改。必须通过独立、默认 dry-run、人工确认的数据库迁移/repair 流程处理对象重命名、数据、授权和 Registry；同一环境重新安装只允许收敛既有插件 Schema 内对象的 owner 到当前正确 Role。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 平台管理员完成双模式生产部署 (Priority: P1)
@@ -51,6 +57,8 @@
 
 1. **Given** 插件当前有稳定版本，**When** 运维安装新版本并完成验证后切换版本，**Then** 新版本生效且状态可追踪。
 2. **Given** 新版本出现异常，**When** 运维执行版本回切，**Then** 系统恢复到上一稳定版本并保留操作审计。
+3. **Given** dev 与 prod Core 共用 PostgreSQL 集群，**When** 两套实例安装同一插件，**Then** Schema 名称保持不变，分别生成带 `dev` 与 `prod` 环境段的 Role/User，且账号权限不得跨越其目标数据库和 Schema。
+4. **Given** `deployment.env` 缺失、非法或与插件安装记录不一致，**When** 执行安装、替换、自动恢复、迁移或 purge，**Then** 操作在数据库副作用前失败并返回明确修复指引。
 
 ---
 
@@ -91,6 +99,8 @@
 - 当备份任务连续失败时，如何阻断风险扩大并触发升级告警？
 - 当恢复演练长期未执行时，如何识别“有备份但不可恢复”的隐患？
 - 当迁移目标环境缺少必要基础条件时，如何在切换前阻断上线？
+- 当旧插件安装记录没有 `deployment_env` 或 Role/User 仍使用无环境段名称时，如何在同环境重新安装中将 Schema 内对象 owner 收敛到正确 Role，并在实例环境变更时阻断并引导显式迁移？Schema/Database 名称保持不变。
+- 当安装请求仍携带旧 `metadata.environment` 时，如何明确拒绝并确保它不会覆盖数据库隔离身份？
 
 ## Requirements *(mandatory)*
 
@@ -128,6 +138,14 @@
 - **FR-025**: 系统在 `install.status=installed` 时必须禁止 setup 写操作（`setup/config`、`setup/provision`、`setup/complete`），避免已安装实例被误重置。
 - **FR-026**: 系统必须区分“首次安装流程”与“版本升级流程”：已安装实例升级默认仅切换代码版本，数据库变更通过显式 `migrate/seed` 通道执行，不依赖 `/setup`。
 - **FR-024**: 前端必须将“系统安装引导”与“AI 功能引导”解耦，未安装状态不得出现 AI onboarding 弹层。
+- **FR-027**: 系统必须定义实例级必填配置 `deployment.env`，只允许 `dev/test/staging/prod`；不得从版本、运行模式、目录、域名、`POWERX_ENV` 或插件包/安装元数据推导。
+- **FR-028**: 首次安装向导必须要求用户明确选择部署环境，并将结构化 `deployment.env` 写入最终外置 `config.yaml`；字段缺失或非法时保存、provision 与 complete 必须失败。
+- **FR-029**: 插件 Schema/PostgreSQL 或 Database/MySQL 沿用 `px_<plugin_slug>`；Role/User 必须命名为 `pxu_<env>_<plugin_slug>_<hash8>`，角色名称裁剪不得移除环境段或稳定摘要。
+- **FR-030**: 插件安装、replace、enable 自修复、migration、uninstall/purge 必须使用 Core 的 `deployment.env` 并校验 Registry 中记录的环境与数据库对象；不一致时必须阻断，不得静默创建、复用、重命名或删除对象。
+- **FR-031**: 插件专用账号只能访问本环境、本插件对应的 Schema/Database；不得访问宿主业务表、其他插件或其他部署环境的数据库对象。
+- **FR-032**: host-values、Registry、审计、结构化日志、metrics 与 trace 必须记录同一 `deployment_env`；密码不得进入日志、指标、trace 或审计。
+- **FR-033**: 单次安装/发布渠道只使用 `metadata.release_channel`。旧 `metadata.environment` 必须返回字段弃用错误，不能覆盖或映射为 `deployment.env`，也不能参与数据库对象命名。
+- **FR-034**: 已安装插件的实例变更 `deployment.env` 必须走独立 migration/repair 工具；工具默认 dry-run，执行需要人工确认、备份验证、权限复核、Registry 更新与旧对象清理审批。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -139,7 +157,9 @@
 - **Restore Drill Record**: 一次恢复演练记录，包含演练来源、结果、报告和时间。
 - **Migration Runbook Record**: 一次环境迁移执行记录，包含阶段结果、切换结果、回滚结果和验收结论。
 - **Install State**: 系统安装状态配置实体，包含 `status`、`lock_mode`、`allow_without_db`，用于启动阶段判定访问策略。
-- **Setup Draft**: 安装向导草稿配置，包含域名、端口、数据库、缓存、存储等字段，用于安装完成前校验与回显。
+- **Setup Draft**: 安装向导草稿配置，包含部署环境、域名、端口、数据库、缓存、存储等字段，用于安装完成前校验与回显。
+- **Deployment Identity**: PowerX 实例级稳定身份，字段为 `deployment.env`；它不是数据库实体，也不由插件或单次安装请求拥有。
+- **Plugin Database Binding**: 独立可审计的数据库绑定，拥有稳定 `binding_uuid`，通过 `plugin_uuid` 关联插件，并包含用于命名的 `plugin_key`、`deployment_env`、Schema/Database、Role/User 与创建状态，用于恢复、迁移、清理和审计一致性校验。
 
 ## Success Criteria *(mandatory)*
 
@@ -157,6 +177,8 @@
 - **SC-007**: 实例迁移演练中，100% 的执行记录包含切换前校验、切换结果和回滚预案验证结果。
 - **SC-008**: P0 管理页面上线后，运维团队可在单一入口完成部署、插件、备份三类核心操作，且关键操作审计覆盖率达到 100%。
 - **SC-008a**: 审批策略切换后，高风险操作的执行路径必须与当前环境策略一致，抽样校验一致率达到 100%。
+- **SC-009**: dev 与 prod Core 共用数据库服务器安装同一插件的隔离测试 100% 通过，专用账号跨环境和跨插件访问均被数据库拒绝。
+- **SC-010**: `deployment.env` 缺失、非法、安装记录缺失环境或环境不一致的失败用例 100% 在数据库副作用前阻断。
 
 ## Assumptions
 
@@ -166,3 +188,4 @@
 - 实例迁移默认采用停写窗口方式保证数据一致性，不以零停机为首版强制目标。
 - 备份策略以关系型主数据为核心，缓存类临时数据不作为迁移一致性强制项。
 - 日志告警与备份告警默认接入现有企业通知链路，由运维侧统一管理收敛。
+- `deployment.env` 在首次插件安装后视为不可变；环境迁移不属于普通配置变更或版本升级。

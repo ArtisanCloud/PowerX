@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAgentRunTraceReportQueryByMessageID(t *testing.T) {
+func TestAgentRunTraceReportQueryByRunID(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("AGENT_TRACE_ENABLED", "true")
 	t.Setenv("AGENT_TRACE_LOCAL_ENABLED", "true")
@@ -65,13 +65,13 @@ func TestAgentRunTraceReportQueryByMessageID(t *testing.T) {
 	group := router.Group("/api/v1")
 	agenttraceapi.RegisterAPIRoutes(nil, group, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-integration/timeline?tenant_uuid=tenant-integration&session_id=session-integration", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-integration/timeline?tenant_uuid=tenant-integration&session_id=session-integration&run_id=run-integration-1", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), "001_receive_message")
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-integration/report?tenant_uuid=tenant-integration&session_id=session-integration&format=markdown", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-integration/report?tenant_uuid=tenant-integration&session_id=session-integration&run_id=run-integration-1&format=markdown", nil)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())

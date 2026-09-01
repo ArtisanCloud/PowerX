@@ -31,6 +31,7 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 		&models.CanaryDeploymentRecord{},
 		&models.OfflineDistributionPackage{},
 		&models.MarketplaceListing{},
+		&models.PluginImportRun{},
 	))
 
 	candidateRepo := repo.NewReleaseCandidateRepository(db)
@@ -51,6 +52,7 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 	svc := NewService(Dependencies{
 		Candidates: candidateRepo,
 		Repository: distRepo,
+		ImportRuns: repo.NewImportRepository(db),
 		Clock: func() time.Time {
 			return time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 		},
@@ -121,7 +123,7 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 	require.Equal(t, "completed", job.Status)
 	require.NotEmpty(t, job.ID)
 
-	fetched, err := svc.GetImportJob(job.ID)
+	fetched, err := svc.GetImportJob(context.Background(), job.TenantUUID, job.ID)
 	require.NoError(t, err)
 	require.Equal(t, job.ID, fetched.ID)
 	require.Equal(t, job.PackageURI, fetched.PackageURI)

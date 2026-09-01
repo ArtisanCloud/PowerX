@@ -55,26 +55,26 @@ func (h *auditHooks) OnSessionStarted(ctx context.Context, session *models.Local
 			}
 			return meta.FeatureFlags
 		}(),
-		"reset_cache":     meta.ResetCache,
-		"status":          session.Status,
-		"developer_id":    session.DeveloperID,
-		"hotload_started": time.Now().UTC().Format(time.RFC3339Nano),
-		"hotload_expires": session.ExpiredAt,
-		"tenant_uuid":     strings.TrimSpace(session.TenantUUID),
-		"actor":           actorFromContext(ctx),
+		"reset_cache":           meta.ResetCache,
+		"status":                session.Status,
+		"developer_member_uuid": session.DeveloperMemberUUID,
+		"hotload_started":       time.Now().UTC().Format(time.RFC3339Nano),
+		"hotload_expires":       session.ExpiredAt,
+		"tenant_uuid":           strings.TrimSpace(session.TenantUUID),
+		"actor":                 actorFromContext(ctx),
 	}
 	h.emit(ctx, "plugin_release.local_install.start", metaPayload)
 }
 
 func (h *auditHooks) OnSessionStopped(ctx context.Context, session *models.LocalInstallSession, meta AuditMetadata) {
 	metaPayload := map[string]any{
-		"session_id":       session.UUID.String(),
-		"status":           session.Status,
-		"force":            meta.Force,
-		"tenant_uuid":      strings.TrimSpace(session.TenantUUID),
-		"developer_id":     session.DeveloperID,
-		"hotload_finished": time.Now().UTC().Format(time.RFC3339Nano),
-		"actor":            actorFromContext(ctx),
+		"session_id":            session.UUID.String(),
+		"status":                session.Status,
+		"force":                 meta.Force,
+		"tenant_uuid":           strings.TrimSpace(session.TenantUUID),
+		"developer_member_uuid": session.DeveloperMemberUUID,
+		"hotload_finished":      time.Now().UTC().Format(time.RFC3339Nano),
+		"actor":                 actorFromContext(ctx),
 	}
 	h.emit(ctx, "plugin_release.local_install.stop", metaPayload)
 }

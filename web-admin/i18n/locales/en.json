@@ -1,4 +1,16 @@
 {
+	"setup": {
+		"deployment": {
+			"title": "Deployment environment",
+			"description": "Choose the stable environment identity for this PowerX instance. Plugin database roles and schemas use it for isolation; do not change it directly after installing plugins.",
+			"options": { "dev": "Development dev", "test": "Test", "staging": "Staging", "prod": "Production prod" }
+		},
+		"errors": {
+			"deploymentEnvRequired": "Select a deployment environment",
+			"deploymentEnvInvalid": "Deployment environment must be dev, test, staging, or prod",
+			"unknown": "Failed to save setup configuration"
+		}
+	},
   "menu": {
     "openMarket": "Open Market",
     "plugins": "Plugins",
@@ -662,6 +674,14 @@
       "marketingMethodologyExtract": {
         "summary": "Extract reviewable methodology drafts from marketing material.",
         "releaseNote": "Built-in marketing methodology extraction skill."
+      },
+      "marketingMetricExtract": {
+        "summary": "Extract key metrics such as impressions, clicks, conversions, and cost from campaign reviews, reports, or channel material.",
+        "releaseNote": "Built-in marketing campaign metric extraction skill."
+      },
+      "marketingReviewSummarize": {
+        "summary": "Summarize issues, attribution, conclusions, and optimization actions from marketing campaign reviews.",
+        "releaseNote": "Built-in marketing campaign review summarization skill."
       }
     },
     "runtimeError": {
@@ -1119,6 +1139,10 @@
       "add": "Add role",
       "systemRole": "System",
       "userCount": "Users",
+      "toast": {
+        "missingTenantContextTitle": "Current tenant is missing",
+        "missingTenantContextDescription": "Switch to the tenant you want to manage before creating a role."
+      },
       "permissionSearch": {
         "placeholder": "Search menus, capabilities, APIs, permission codes, or plugins",
         "clear": "Clear permission search",
@@ -2308,10 +2332,12 @@
     }
   },
   "agent": {
+	"response": {"conclusion": "Conclusion", "answer": "Answer", "acceptance": "Acceptance", "evidence": "Evidence", "gaps": "Gaps or blockers", "nextActions": "Next actions", "metrics": "Metrics and calculations", "metric": "Metric", "value": "Value", "formula": "Formula", "facts": "Confirmed facts", "hypotheses": "Hypotheses to validate", "outcomes": {"completed": "This run is complete. The result is below.", "needs_action": "The analysis is complete. The following actions remain.", "blocked": "This run is blocked. Resolve the following gaps first.", "failed": "This run failed. See the run trace."}},
     "sessions": {
       "title": "Smart sessions"
     },
     "teamManagement": {
+      "unnamedTeam": "Unnamed team",
       "roles": {
         "retriever": "Retriever",
         "executor": "Executor",
@@ -2327,6 +2353,12 @@
       },
       "create": {
         "tlFixedRoleHint": "TL is fixed to planner (read-only)"
+      },
+      "orchestration": {
+        "label": "Team orchestration graph",
+        "help": "A team can be enabled only after this is saved. Runtime validates roles, skill bindings, and dependencies; a team name never triggers tasks.",
+        "placeholder": "Enter JSON in powerx.agent.team-orchestration/v1 format; see the team orchestration guide for a complete example.",
+        "invalidJson": "The team orchestration graph must be valid JSON."
       }
     },
     "list": {
@@ -2344,10 +2376,27 @@
         "active": "Active",
         "disabled": "Disabled"
       },
-      "sources": {
-        "core": "Core-created",
-        "plugin": "Plugin-managed"
-      },
+    "sources": {
+      "core": "Core-created",
+      "plugin": "Plugin-managed",
+      "builtin": "Built-in agent",
+      "protected": "Locked"
+    },
+    "teamRoles": {
+      "coordinator": "Team coordinator ×{count}",
+      "member": "Team member ×{count}"
+    },
+    "categories": {
+      "all": "All categories",
+      "allDescription": "Shows all agents matching the current filters. Pagination applies only to the current view.",
+      "count": "{count} agents",
+      "empty": "No agents in this category match the current filters.",
+      "loading": "Loading agent category dictionary",
+      "loadFailed": "Failed to load agent category dictionary",
+      "loadFailedDescription": "Check that the corex.agent.category dictionary has been seeded and enabled.",
+      "unconfigured": "Category not configured: {code}",
+      "unconfiguredDescription": "This category is not registered in the corex.agent.category dictionary."
+    },
       "filters": {
         "searchPlaceholder": "Search agent name, key, or plugin",
         "allSources": "All sources",
@@ -2439,12 +2488,13 @@
         "saved": "Permission settings saved",
         "saveFailed": "Failed to save permission settings"
       },
-      "actions": {
-        "chat": "Smart chat",
-        "team": "Create team",
-        "permissions": "Configure permissions",
-        "edit": "Edit"
-      },
+    "actions": {
+      "chat": "Smart chat",
+      "team": "Create team",
+      "permissions": "Configure permissions",
+      "edit": "Edit",
+      "locked": "Built-in agents cannot be edited"
+    },
       "pagination": {
         "total": "{total} agents"
       },
@@ -2465,13 +2515,73 @@
           "title": "AI Video Refactoring Master",
           "description": "Plans and restructures product launch video scripts and production workflows."
         },
-        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
-          "title": "Marketing Master",
-          "description": "Creates short-form marketing scripts and campaign messaging."
-        }
+      "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+        "title": "Marketing Master",
+        "description": "Creates short-form marketing scripts and campaign messaging."
       },
-      "accessGrants": "Use authorization"
+      "marketing_director_advisor": {
+        "title": "Marketing Director Advisor",
+        "description": "For marketing leaders. Curates strategy, channel reviews, customer signals, and cross-team collaboration methodology."
+      },
+      "marketing_content_strategist": {
+        "title": "Content Marketing Strategist",
+        "description": "For content teams. Organizes topics, scripts, asset reuse, and content campaign reviews into reusable content methodology."
+      },
+      "knowledge_expert_curator": {
+        "title": "Expert Knowledge Curator",
+        "description": "Turns expert interviews, meeting notes, documents, and experience input into structured knowledge drafts for review and publishing."
+      },
+      "marketing_campaign_reviewer": {
+        "title": "Campaign Review Analyst",
+        "description": "For campaign reviews. Extracts metrics, issues, conclusions, and optimization actions into campaign methodology knowledge."
+      },
+      "release_coordinator": {
+        "title": "Release Readiness Coordinator",
+        "description": "Coordinates release readiness collaboration, delegates child-agent work, and synthesizes the final release readiness report."
+      },
+      "release_knowledge_analyst": {
+        "title": "Release Knowledge Analyst",
+        "description": "Analyzes release knowledge, historical incidents, and risk evidence to produce the release risk summary."
+      },
+      "release_workflow_planner": {
+        "title": "Release Process Planner",
+        "description": "Creates release execution steps, validation checklist, and rollback plan from risk analysis."
+      },
+      "release_notification_scheduler": {
+        "title": "Release Notification Planner",
+        "description": "Creates release recipients, reminder timing, and escalation path."
+      }
     },
+	      "accessGrants": "Use authorization"
+	    },
+	    "teamTasks": {
+      "badge": "Team task",
+      "newTask": "New task",
+      "workspaceTitle": "Team Task Workspace",
+	      "workspaceSubtitle": "Multi-agent collaboration mode is active.",
+	      "memberCount": "{count} members",
+	      "membersTitle": "Team Members",
+	      "membersSubtitle": "Current collaboration team",
+      "manage": "Manage",
+      "noKey": "No key",
+      "notices": {
+        "loadFailed": "Failed to load teams. Check the team configuration and retry.",
+        "loadFailedTitle": "Failed to load teams",
+        "emptyTeams": "No available teams for the current tenant. Create one in Team Management first.",
+        "teamUnavailable": "team_id={id} does not exist or is unavailable. Switched to the default team."
+      },
+      "selector": {
+        "label": "Select team",
+        "teamLabel": "Team: {name}"
+	      }
+	    },
+	    "teams": {
+	      "catalog": {
+	        "release_readiness_team": {
+	          "title": "Release Readiness Team"
+	        }
+	      }
+	    },
     "effectivePermissions": {
       "title": "Effective permissions",
       "description": "The current session can use only the intersection of user IAM permissions, agent grants, tenant capability enablement, and policy result.",
@@ -2504,6 +2614,7 @@
     "selector": {
       "pickAgent": "Pick an agent",
       "editAgent": "Edit agent",
+      "lockedAgent": "Built-in agents cannot be edited",
       "newAgent": "New agent",
       "searchSessions": "Search sessions",
       "pickAgentToSeeSessions": "Pick an agent to see sessions",
@@ -2542,8 +2653,11 @@
       "selectProvider": "Select provider",
       "selectModel": "Select model"
     },
-    "chat": {
-      "defaultAgent": "Default agent",
+	    "chat": {
+	      "badge": "Smart chat",
+	      "workspaceTitle": "Smart Chat Workspace",
+	      "workspaceSubtitle": "Single-agent chat mode is active.",
+	      "defaultAgent": "Default agent",
       "connected": "Connected",
       "disconnected": "Connection lost",
       "welcomeTitle": "Welcome",
@@ -2560,6 +2674,73 @@
       "untitledSession": "Untitled session",
       "responding": "Responding",
       "generating": "Generating",
+      "traceThisRun": "Trace this run",
+      "traceDetails": "Trace details",
+      "traceReport": {
+        "title": "Run trace",
+        "loading": "Loading run report…",
+        "loadFailed": "Failed to load run report",
+        "empty": "This run has no trace data to display.",
+        "missingIdentity": "This message has no run identity, so its report cannot be opened.",
+        "runId": "Run ID",
+        "traceId": "Trace ID"
+      },
+      "traceTimeline": {
+        "title": "Execution timeline",
+        "description": "Shows only the current run and merges each node's start and terminal events into one step.",
+        "nodeCount": "{count} nodes",
+        "step": "Step {index}",
+        "sequence": "Node sequence {sequence}",
+        "empty": "This run has no node events to display.",
+        "errorWithoutDetails": "The node failed without recorded error details.",
+        "metrics": {
+          "status": "Status",
+          "nodes": "Nodes",
+          "events": "Events",
+          "errors": "Errors"
+        },
+        "status": {
+          "running": "Running",
+          "success": "Completed",
+          "error": "Failed"
+        },
+        "nodeKinds": {
+          "receiveMessage": "Receive message",
+          "responsePlanner": "Response planning",
+          "intentRecognition": "Intent recognition",
+          "planner": "Task planning",
+          "contextBuilder": "Context building",
+          "agentHandoff": "Agent handoff",
+          "skill": "Skill execution",
+          "tooling": "Tool execution",
+          "workflow": "Workflow",
+          "llmCall": "Model call",
+          "finalResponse": "Final response"
+        }
+      },
+      "traceNodeDetails": {
+        "empty": "Select a node from the timeline to view its details",
+        "nodeRef": "Node reference",
+        "capability": "Capability",
+        "skill": "Skill",
+        "plugin": "Plugin",
+        "responsePlan": "Response plan",
+        "mode": "Mode",
+        "model": "Model",
+        "capabilities": "Target capabilities",
+        "contextLayers": "Context layers",
+        "input": "Input",
+        "output": "Output"
+      },
+      "retryBusyTitle": "Retry unavailable",
+      "retryBusyDescription": "The current response is still being generated. Wait for it to finish before retrying.",
+      "retryUnavailableTitle": "This response cannot be retried",
+      "retryUnavailableDescription": "The persisted user message was not found. Refresh the session and try again.",
+      "retryFailedTitle": "Retry failed",
+      "retryFailedDescription": "The agent could not regenerate the response. Open the run trace for details.",
+      "executionFailed": "This run failed. Open the run trace, resolve the issue, and retry.",
+      "executionTimeout": "The model service timed out. This run did not complete; open the run trace and retry.",
+      "retryTeamContextMissing": "The current team context is invalid. Select the team again and retry.",
       "you": "You",
       "assistant": "Assistant",
       "system": "System",
@@ -2781,7 +2962,7 @@
         "label": "Namespace (optional)",
         "placeholder": "Example: company.crm"
       },
-      "environment": "Target environment",
+		"releaseChannel": "Release channel",
       "autoUpdate": "Auto update",
       "forceInstall": "Force overwrite same version",
       "permissions": {

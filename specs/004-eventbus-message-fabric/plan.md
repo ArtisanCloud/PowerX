@@ -9,7 +9,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24  
+**Language/Version**: Go 1.26.7
 **Primary Dependencies**: `google.golang.org/grpc`, Gin HTTP（既有 admin API）、`pkg/event_bus`（现有实现）、Redis 客户端 `github.com/redis/go-redis/v9`, GORM + PostgreSQL, OpenTelemetry SDK  
 **Storage**: PostgreSQL（主题目录、ACL、DLQ、回放任务）、Redis（重试/幂等窗口、订阅游标缓存）  
 **Testing**: `go test`（单元/集成）、`internal/tests/...` 合同测试、基准测试覆盖重试/投递性能  

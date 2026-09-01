@@ -1,5 +1,7 @@
 # Phase 1 Data Model: PowerX 运维治理域
 
+> UUID 规则优先：下列早期模型中的通用 `id`、`plugin_id`、`policy_id`、`job_id` 等是历史计划遗留。新增或修正实现必须为可寻址/可审计业务对象提供稳定 UUID，并使用 `*_uuid` 建立关系；API、事件和审计不得暴露 numeric ID，也不得提供 numeric-to-UUID 兼容翻译。第 9 节 `PluginDatabaseBinding` 已按当前规则定义。
+
 ## 1. DeployReleaseRecord
 
 - Purpose: 记录每次部署发布与回滚动作。
@@ -116,16 +118,49 @@
 - Validation Rules:
   - 每个 `environment` 仅允许一条生效策略。
 
+## 8. DeploymentIdentity（配置对象）
+
+- Purpose: 表示整套 PowerX 实例的稳定部署身份；权威来源是 Core 实际加载的 `config.yaml`，不建立数据库表。
+- Fields:
+  - `env` (`dev` / `test` / `staging` / `prod`)
+- Validation Rules:
+  - 必填且只允许上述枚举。
+  - 不从 `POWERX_ENV`、版本、运行模式、目录、域名或插件安装 metadata 推导。
+  - 首次插件安装后不能通过普通 setup 或运行配置修改；变更必须走显式迁移。
+
+## 9. PluginDatabaseBinding
+
+- Purpose: 记录插件安装对应的 Schema/Database 与 Role/User，是恢复、迁移、清理和审计的权威引用。
+- Fields:
+  - `binding_uuid`（自身稳定业务 UUID）
+  - `tenant_uuid`
+  - `plugin_uuid`
+  - `plugin_key`（用于命名的稳定 manifest 标识，不作为关系键）
+  - `deployment_env`
+  - `driver`
+  - `database_name`
+  - `schema_name`
+  - `role_name`
+  - `status` (`provisioning` / `active` / `repair_required` / `purging` / `purged` / `failed`)
+  - `created_at`
+  - `updated_at`
+- Validation Rules:
+  - 所有 API、审计、事件和跨表引用使用 `binding_uuid` / `tenant_uuid` / `plugin_uuid`，不得暴露 numeric ID。
+  - 有效绑定按 (`tenant_uuid`, `plugin_uuid`, `deployment_env`) 唯一。
+  - 对象名必须符合带环境段与稳定 hash 的命名规范。
+  - 密码只进入受控 secret/host-values 写入链路，不进入本模型、日志、trace 或审计。
+  - 旧绑定缺少 UUID、环境或对象名时进入 `repair_required`，不得自动翻译。
+
 ## Relationships
 
 - `BackupPolicy` 1:N `BackupJob`
 - `BackupJob` 1:N `BackupArtifact`
 - `BackupJob` 1:N `RestoreDrillRecord`（按演练来源关联）
 - `DeployReleaseRecord` 与 `ApprovalPolicyProfile` 按 `environment` 关联验证
+- `PluginDatabaseBinding` 通过 `plugin_uuid` / `tenant_uuid` 关联业务对象，并以 `binding_uuid` 被审计和 repair 任务引用
 
 ## State Transitions
 
 - `DeployReleaseRecord.status`: `pending -> running -> success|failed`
 - `BackupJob.status`: `pending -> running -> success|failed`
 - `RestoreDrillRecord.status`: `running -> success|failed`
-

@@ -53,7 +53,9 @@ func APIKeyOrJwtMiddleware(
 
 		parts := strings.SplitN(authz, " ", 2)
 		if len(parts) != 2 || strings.TrimSpace(parts[1]) == "" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid authorization header"})
+			if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid authorization header"})
+			}
 			return
 		}
 		scheme := strings.ToLower(strings.TrimSpace(parts[0]))
@@ -77,7 +79,9 @@ func APIKeyOrJwtMiddleware(
 					shortFingerprint(keyHash),
 					err,
 				)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key unauthorized: " + err.Error()})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key unauthorized: " + err.Error()})
+				}
 				return
 			}
 			if !ok {
@@ -87,14 +91,18 @@ func APIKeyOrJwtMiddleware(
 					c.Request.URL.Path,
 					shortFingerprint(keyHash),
 				)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key unauthorized: invalid api key"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key unauthorized: invalid api key"})
+				}
 				return
 			}
 			c.Next()
 			return
 		}
 		if scheme != "bearer" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "unsupported authorization scheme"})
+			if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "unsupported authorization scheme"})
+			}
 			return
 		}
 		jwtMW(c)

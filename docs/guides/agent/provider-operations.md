@@ -5,7 +5,7 @@
 > **环境约定**
 > - Web 管理端：`http://localhost:3030`
 > - 后端 API：`http://127.0.0.1:8077/api`
-> - CLI/脚本：仓库根目录运行，Node 20 + Go 1.24。
+> - CLI/脚本：仓库根目录运行，Node 20 + Go 1.26.7。
 
 ## 1. 配置 Provider
 

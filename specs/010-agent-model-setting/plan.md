@@ -5,11 +5,11 @@
 
 ## Summary
 
-Deliver a governed Agent Model Hub that standardizes provider onboarding, adaptive routing, external connector control, and FinOps guardrails across PowerX tenants. The technical approach extends the existing Go 1.24 CoreX backend with dual HTTP/gRPC contracts, Buf-managed protobufs, PostgreSQL-backed registries, Redis-backed health caches, and OpenTelemetry metrics so that provider, routing, connector, and cost signals share one governance plane.
+Deliver a governed Agent Model Hub that standardizes provider onboarding, adaptive routing, external connector control, and FinOps guardrails across PowerX tenants. The technical approach extends the existing Go 1.26.7 CoreX backend with dual HTTP/gRPC contracts, Buf-managed protobufs, PostgreSQL-backed registries, Redis-backed health caches, and OpenTelemetry metrics so that provider, routing, connector, and cost signals share one governance plane.
 
 ## Technical Context
 
-**Language/Version**: Go 1.24 (backend services, CLIs), Node 20 (validation scripts), Go 1.21 (px-plugin CLI)  
+**Language/Version**: Go 1.26.7 (backend services, CLIs), Node 20 (validation scripts), Go 1.21 (px-plugin CLI)
 **Primary Dependencies**: Gin HTTP stack, google.golang.org/grpc, Buf toolchain, GORM + PostgreSQL, Redis, MinIO/S3 SDK, OpenTelemetry + Prometheus exporters  
 **Storage**: PostgreSQL (provider profiles, routing policies, quota config), Redis (health scores, safe-mode, feature flags), MinIO/S3 (validator artifacts), Vault-backed secret store  
 **Testing**: `go test ./...`, `buf lint`, `npm run lint`, scenario simulators (`scripts/ops/provider-validator.mjs`, `scripts/ops/routing-simulator.mjs`, `scripts/ops/quota-degrade.mjs`)  

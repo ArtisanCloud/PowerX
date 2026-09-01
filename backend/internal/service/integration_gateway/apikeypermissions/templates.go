@@ -22,7 +22,34 @@ func EnsureTemplatePermissions(ctx context.Context, repo *iamrepo.PermissionRepo
 	if platformRows, err := BuildPlatformCapabilityPermissions(); err == nil {
 		rows = append(rows, platformRows...)
 	}
-	return repo.UpsertBatch(ctx, rows)
+	return repo.UpsertBatch(ctx, mergePermissionTriples(rows))
+}
+
+// mergePermissionTriples establishes one authoritative row for the unique
+// database key `(module, resource, action)` before PostgreSQL receives the
+// batch. Platform capability rows are appended after built-in templates and
+// therefore intentionally replace a template that describes the same
+// permission triple.
+func mergePermissionTriples(rows []modelsiam.Permission) []modelsiam.Permission {
+	if len(rows) == 0 {
+		return nil
+	}
+	result := make([]modelsiam.Permission, 0, len(rows))
+	indexByTriple := make(map[string]int, len(rows))
+	for _, row := range rows {
+		key := strings.Join([]string{
+			strings.ToLower(strings.TrimSpace(row.Module)),
+			strings.ToLower(strings.TrimSpace(row.Resource)),
+			strings.ToLower(strings.TrimSpace(row.Action)),
+		}, "\x00")
+		if index, exists := indexByTriple[key]; exists {
+			result[index] = row
+			continue
+		}
+		indexByTriple[key] = len(result)
+		result = append(result, row)
+	}
+	return result
 }
 
 const (
@@ -205,6 +232,15 @@ func BuildTemplatePermissions() []modelsiam.Permission {
 		}),
 		build("integration_gateway", "api_key.iam.member", "read", "API Key：组织架构-成员详情只读", map[string]string{
 			"scope": "_scope.iam.member.read", "action": "read", "resource_type": "api", "resource_pattern": "GET:/api/v1/admin/iam/members/:id",
+		}),
+		build("integration_gateway", "api_key.iam.members.directory", "read", "API Key：租户成员目录只读", map[string]string{
+			"scope": "_scope.iam.members.directory.read", "action": "read", "resource_type": "api", "resource_pattern": "*",
+		}),
+		build("integration_gateway", "api_key.iam.directory.catalog", "read", "API Key：IAM 租户目录只读", map[string]string{
+			"scope": "_scope.iam.directory.catalog.read", "action": "read", "resource_type": "api", "resource_pattern": "*",
+		}),
+		build("integration_gateway", "api_key.iam.authorization", "check", "API Key：IAM 租户授权判定", map[string]string{
+			"scope": "_scope.iam.authorization.check", "action": "read", "resource_type": "api", "resource_pattern": "*",
 		}),
 		build("integration_gateway", "api_key.agent", "invoke", "API Key：Agent 对话调用", map[string]string{
 			"scope": "_scope.agent.invoke", "action": "invoke", "resource_type": "api", "resource_pattern": "POST:/api/v1/agents/invoke",

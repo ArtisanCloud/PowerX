@@ -36,6 +36,9 @@ func InitGlobalConfig(configPath string) error {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
 	loadFromEnv(&config)
+	if err := config.ValidateDeploymentIdentity(); err != nil {
+		return fmt.Errorf("部署身份配置无效: %w", err)
+	}
 
 	// AI: default fill + global snapshot (read-only)
 	config.AI.SetDefaults()
@@ -229,6 +232,7 @@ func (c InstallConfig) EffectiveLockMode() string {
 // CoreX 全局配置
 type Config struct {
 	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
+	Deployment         DeploymentConfig         `yaml:"deployment"`          // 当前 PowerX 实例的稳定部署身份
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
 	WebAdminPort       int                      `yaml:"web_admin_port"`      // Web Admin 公开访问端口（setup/install 写入）
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关

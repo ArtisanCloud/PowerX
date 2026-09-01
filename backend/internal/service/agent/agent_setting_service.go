@@ -634,6 +634,16 @@ func (s *AgentSettingService) resolveConnFromStore(
 	if apiKey == "" && !req.NeedKey {
 		logger.InfoF(ctx, "[agent_setting] resolve_conn skip_api_key env=%s tenant=%s provider=%s name=%s reason=provider_does_not_require_key", env, s.tenantScopeKey(tenantUUID), provider, name)
 	}
+	if strings.TrimSpace(baseURL) == "" && strings.TrimSpace(req.DefaultBaseURL) != "" {
+		// Provider 默认地址是协议的一部分（例如 Ollama 的本地默认端口），
+		// 不是从其他环境或其他凭据复制配置。
+		baseURL = strings.TrimSpace(req.DefaultBaseURL)
+		logger.InfoF(ctx, "[agent_setting] resolved provider default base_url env=%s tenant=%s provider=%s name=%s", env, s.tenantScopeKey(tenantUUID), provider, name)
+	}
+	if req.NeedBaseURL && strings.TrimSpace(baseURL) == "" {
+		logger.WarnF(ctx, "[agent_setting] resolved empty required base_url env=%s tenant=%s provider=%s name=%s", env, s.tenantScopeKey(tenantUUID), provider, name)
+		return baseURL, apiKey, fmt.Errorf("agent.llm_base_url_required")
+	}
 	return baseURL, apiKey, nil
 }
 
@@ -680,10 +690,8 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 	}
 	_ = cli // 仅做 provider 驱动可用性校验；真实探活统一走 QuickCallLLMResult 链路。
 
-	c2, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
 	_, err = s.QuickCallLLMResult(
-		c2, "", nil,
+		ctx, "", nil,
 		provider, model, baseURL, apiKey, secretID, secretKey, region, "",
 		0, 0,
 		"ping",
@@ -1528,13 +1536,7 @@ func (s *AgentSettingService) QuickCallLLMResult(
 				MaxTokens:    maxTokens,
 				Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
 			}
-			cli, err := agentllm.NewClient("hunyuan")
-			if err != nil {
-				return nil, err
-			}
-			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			defer cancel()
-			return cli.Invoke(ctx, &mc, prompt)
+			return agentllm.Invoke(ctx, &mc, prompt)
 		}
 		// OpenAI SDK 兼容：走 openai client
 		bu, ak, err := s.prepareHunyuanOpenAIInputs(ctx, env, tenantUUID, baseURL, apiKey)
@@ -1552,13 +1554,7 @@ func (s *AgentSettingService) QuickCallLLMResult(
 			AccessToken:  ak,
 			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
 		}
-		cli, err := agentllm.NewClient("openai")
-		if err != nil {
-			return nil, err
-		}
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		return cli.Invoke(ctx, &mc, prompt)
+		return agentllm.Invoke(ctx, &mc, prompt)
 	}
 
 	// 通用 LLM：统一走 catalog 鉴权规则与默认 base_url 回退，
@@ -1615,13 +1611,7 @@ func (s *AgentSettingService) QuickCallLLMResult(
 		AccessToken:  ak,
 		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
-	cli, err := agentllm.NewClient(provider)
-	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	return cli.Invoke(ctx, &mc, prompt)
+	return agentllm.Invoke(ctx, &mc, prompt)
 }
 
 // QuickCallLLM：兼容旧调用，仅返回文本内容。

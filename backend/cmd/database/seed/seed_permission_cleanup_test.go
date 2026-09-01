@@ -5,6 +5,7 @@ import (
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -46,8 +47,8 @@ func TestCleanupInvalidPermissionRowsDeletesInvalidRowsAndBindings(t *testing.T)
 	require.NoError(t, db.Create(&candidate).Error)
 	require.NoError(t, db.Create(&legacyPlugin).Error)
 	require.NoError(t, db.Create(&unnamedAPI).Error)
-	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 1, PermissionID: candidate.ID}).Error)
-	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 1, PermissionID: valid.ID}).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&dbm.RolePermission{RoleID: 1, PermissionID: candidate.ID, RoleUUID: uuid.New(), PermissionUUID: uuid.New()}).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&dbm.RolePermission{RoleID: 1, PermissionID: valid.ID, RoleUUID: uuid.New(), PermissionUUID: uuid.New()}).Error)
 	require.NoError(t, db.Create(&dbm.APIKeyProfilePermission{ProfileID: 1, PermissionID: unnamedAPI.ID}).Error)
 
 	require.NoError(t, CleanupInvalidPermissionRows(db))

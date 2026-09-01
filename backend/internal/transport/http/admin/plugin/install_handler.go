@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -112,7 +113,11 @@ func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
 			return
 		}
 		ctx := c.Request.Context()
-		meta := coalesceInstallMetadata(c, req.Metadata)
+		meta, err := coalesceInstallMetadata(c, req.Metadata)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "PLUGIN_INSTALL_METADATA_INVALID", err)
+			return
+		}
 		hostSeed, err := installTenantHostConfigSeed(c)
 		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "PLUGIN_INSTALL_TENANT_CONTEXT_REQUIRED", err)
@@ -623,7 +628,11 @@ func PluginInstallURLHandler(deps *shared.Deps) gin.HandlerFunc {
 		ctx := c.Request.Context()
 
 		// 安装（只登记、不自动启用）
-		meta := coalesceInstallMetadata(c, req.Metadata)
+		meta, err := coalesceInstallMetadata(c, req.Metadata)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "PLUGIN_INSTALL_METADATA_INVALID", err)
+			return
+		}
 		hostSeed, err := installTenantHostConfigSeed(c)
 		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "PLUGIN_INSTALL_TENANT_CONTEXT_REQUIRED", err)
@@ -758,16 +767,23 @@ func platformPreflightErrorDetails(err error) gin.H {
 	}
 }
 
-func coalesceInstallMetadata(c *gin.Context, body plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {
+func coalesceInstallMetadata(c *gin.Context, body plugin_mgr.InstallMetadata) (plugin_mgr.InstallMetadata, error) {
+	if len(body.DeprecatedEnvironment) > 0 {
+		return plugin_mgr.InstallMetadata{}, errors.New("PLUGIN_INSTALL_METADATA_ENVIRONMENT_DEPRECATED: use metadata.release_channel")
+	}
 	fromForm := plugin_mgr.InstallMetadata{}
 	if raw := strings.TrimSpace(c.PostForm("metadata")); raw != "" {
 		var parsed plugin_mgr.InstallMetadata
-		if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
-			fromForm = parsed
+		if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+			return plugin_mgr.InstallMetadata{}, fmt.Errorf("PLUGIN_INSTALL_METADATA_INVALID_JSON: %w", err)
 		}
+		if len(parsed.DeprecatedEnvironment) > 0 {
+			return plugin_mgr.InstallMetadata{}, errors.New("PLUGIN_INSTALL_METADATA_ENVIRONMENT_DEPRECATED: use metadata.release_channel")
+		}
+		fromForm = parsed
 	}
 	meta := mergeInstallMetadata(body, fromForm)
-	return normalizeInstallMetadata(meta)
+	return normalizeInstallMetadata(meta), nil
 }
 
 func installTenantHostConfigSeed(c *gin.Context) (*plugin_mgr.HostConfig, error) {
@@ -802,8 +818,8 @@ func mergeInstallMetadata(primary, secondary plugin_mgr.InstallMetadata) plugin_
 	if meta.Namespace == "" {
 		meta.Namespace = secondary.Namespace
 	}
-	if meta.Environment == "" {
-		meta.Environment = secondary.Environment
+	if meta.ReleaseChannel == "" {
+		meta.ReleaseChannel = secondary.ReleaseChannel
 	}
 	if !meta.AutoUpdate && secondary.AutoUpdate {
 		meta.AutoUpdate = true
@@ -825,11 +841,7 @@ func mergeInstallMetadata(primary, secondary plugin_mgr.InstallMetadata) plugin_
 
 func normalizeInstallMetadata(meta plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {
 	meta.Scope = normalizeScope(meta.Scope)
-	if meta.Environment == "" {
-		meta.Environment = "default"
-	} else {
-		meta.Environment = strings.ToLower(strings.TrimSpace(meta.Environment))
-	}
+	meta.ReleaseChannel = strings.TrimSpace(meta.ReleaseChannel)
 	meta.Namespace = strings.TrimSpace(meta.Namespace)
 	meta.Notes = strings.TrimSpace(meta.Notes)
 	return meta
@@ -838,7 +850,8 @@ func normalizeInstallMetadata(meta plugin_mgr.InstallMetadata) plugin_mgr.Instal
 func isZeroMetadata(meta plugin_mgr.InstallMetadata) bool {
 	return strings.TrimSpace(meta.Scope) == "" &&
 		strings.TrimSpace(meta.Namespace) == "" &&
-		strings.TrimSpace(meta.Environment) == "" &&
+		strings.TrimSpace(meta.ReleaseChannel) == "" &&
+		len(meta.DeprecatedEnvironment) == 0 &&
 		!meta.AutoUpdate &&
 		!meta.Permissions.Network &&
 		!meta.Permissions.Storage &&

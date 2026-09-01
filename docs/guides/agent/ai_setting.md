@@ -2,6 +2,17 @@
 
 PowerX 的「AI 设置」页面提供了统一的 Provider/模型管理；理解其落库与生效顺序，能帮你快速定位“为什么切换 provider 没有真正生效”的问题。
 
+## LLM 请求超时
+
+所有 LLM 请求都使用同一个平台配置：`ai.defaults.llm.request_timeout`，默认值为 `5m`。它同时适用于：
+
+- 单智能体对话；
+- 团队主智能体及其 LLM 节点；
+- AI 设置中的模型连接测试；
+- 系统 Setup 中的模型测试。
+
+Provider Driver 只负责协议转换，不得自行设置 30 秒、60 秒或其他超时。团队整轮运行的上限是另一层治理，不能替代单次 LLM 请求超时。
+
 ## 默认配置
 
 1. **开发期种子默认值**：`backend/etc/config_example.yaml` 的 `ai.defaults` 主要用于“本地开发/初次启动”的演示默认（例如默认选中哪个 provider/model）。在生产环境里，如果数据库里没有保存任何 AI Settings（含凭据），系统应提示用户先完成安装/配置，而不是静默使用 config.yaml 的值继续执行。

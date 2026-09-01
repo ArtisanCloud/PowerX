@@ -2,7 +2,7 @@
 
 ## 前提条件
 
-- Go 1.24、buf CLI、Docker（PostgreSQL + Redis）、Kafka（复用 SOAR 队列）
+- Go 1.26.7、buf CLI、Docker（PostgreSQL + Redis）、Kafka（复用 SOAR 队列）
 - PowerX 仓库已执行 `make deps-tidy`
 
 ## 启动步骤

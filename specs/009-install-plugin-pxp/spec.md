@@ -111,6 +111,8 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - CLI 模板索引或依赖镜像不可用时需自动回退到缓存模板并提示离线步骤，防止 `px plugin init` 半成品目录残留。
 - 沙箱数据集同步失败或脱敏策略缺失时，必须阻断 `plugin-sandbox-suite` 并回滚资源配额，避免敏感数据泄露。
 - 兼容性矩阵或版本扫描数据过期时，默认阻断安装/升级并提示治理团队刷新矩阵或重新执行 `px version scan`。
+- Core 的 `deployment.env` 缺失、非法、与插件安装记录不一致，或目标数据库对象所有权异常时，安装/升级/恢复/清理必须在副作用前阻断，不得使用插件元数据、目录或运行模式推导。
+- 旧插件安装记录没有 `deployment_env` 或仍使用无环境段的 Role/User 名称时，重新安装必须创建当前环境的正确 Role，并由 Core 数据库管理连接把原 Schema/Database 对象 owner 收敛到该 Role；Schema/Database 名称不迁移。数据库管理账号无权转移时必须明确失败。
 
 ## Requirements *(mandatory)*
 
@@ -141,6 +143,11 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-023**: Registry 必须暴露 `/internal/plugins/releases` REST API（`POST` 创建、`GET /:id` 查询、`PATCH /:id` 审核状态、`POST /:id/artifacts` 追加制品），供 `px-plugin publish` 及 Web Admin 发布入口统一接入；接口需校验插件/租户可见性、版本号唯一性、artifact 签名与 manifest 元数据，成功后返回 release candidate ID、审计引用与下一步处理指引（如审批/灰度计划）。API 应复用 AdminOnly/Token 校验，失败时提供机器可读错误码，便于 CLI 重试与补件。
 - **FR-024**: 插件包必须携带可被 Capability Sync Worker 消费的权限声明资产，覆盖 `menu/page/action/api` 细颗粒度授权项、`permission_code`、i18n key、风险等级、默认角色建议和协议 binding；安装/发布校验发现缺失或不合法时必须阻断，不得生成半登记权限。
 - **FR-025**: 发布与安装流程只负责校验并交付权限声明资产，不负责正式角色授权。正式授权入口归属 PowerX IAM 角色权限中心，主流程规格见 `specs/007-integration-gateway-and-mcp` 与 `specs/026-iam`。
+- **FR-026**: 插件安装必须使用宿主 Core 的全局 `deployment.env` 作为数据库隔离环境，且只能接受 `dev/test/staging/prod`；不得从插件包、请求 metadata、`version`、`plugin.dev_mode`、`POWERX_ENV` 或安装路径推导。
+- **FR-027**: 插件 Schema/PostgreSQL 或 Database/MySQL 沿用 `px_<plugin_slug>`；Role/User 必须使用 `pxu_<env>_<plugin_slug>_<hash8>`，并在长度裁剪后保持环境段和摘要。`deployment.env` 不得改变 Schema/Database 名称。
+- **FR-028**: 插件专用 Role/User 只能访问本环境、本插件的 Schema/Database；安装、replace、restore、migration 与 purge 必须校验安装记录中的 `deployment_env` 和对象所有权。
+- **FR-029**: host-values、Registry、审计与 telemetry 必须记录实际 `deployment_env` 和数据库对象名；密码不得进入日志、指标、trace 或审计。
+- **FR-030**: 同一部署环境下的重新安装必须将同一插件 Schema/Database 内历史对象 owner 收敛到当前正确 Role，并撤销历史插件 Role 的对象权限；不得改变 Schema/Database 名称或静默修改 `deployment.env`。实例环境变更仍必须由独立、默认 dry-run 的 repair/migration 工具执行。
 
 ### API 扩展：安装元数据（新增）
 
@@ -150,14 +157,14 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 | --- | --- | --- | --- |
 | `scope` | `user/org/system` | `system` | 预期安装范围，区分用户级/组织级/系统级插件。 |
 | `namespace` | string | 空 | 逻辑命名空间或产品线标识，供多租户隔离。 |
-| `environment` | `default/staging/production` | `default` | 安装目标环境或渠道标签。 |
+| `release_channel` | string | 空 | 单次安装/发布渠道标签；不得作为 PowerX 实例身份、不得覆盖 `deployment.env`、不得参与数据库对象命名。 |
 | `auto_update` | bool | `false` | 是否允许宿主在有新版本时自动升级。 |
 | `permissions.network` | bool | `false` | 插件声明的最小权限——外部网络访问。 |
 | `permissions.storage` | bool | `false` | 插件声明的最小权限——本地存储。 |
 | `permissions.files` | bool | `false` | 插件声明的最小权限——文件读写。 |
 | `notes` | string | 空 | 管理员填写的备注或审批链接。 |
 
-Web Admin 安装弹窗会将上述字段写入请求；未提供时后端会按默认值归一化，并随响应返回 `metadata` 对象供后续审计。
+Web Admin 安装弹窗可将上述非环境身份字段写入请求，并随响应返回 `metadata` 对象供后续审计。旧字段 `metadata.environment` 必须返回明确的字段弃用错误，不得被后端接受、归一化或翻译成 `deployment.env`；数据库隔离只读取 Core 启动配置。
 
 ## Future Work – Dev API Hotload Gateway *(Planned in follow-up milestone)*
 
@@ -199,6 +206,7 @@ Web Admin 安装弹窗会将上述字段写入请求；未提供时后端会按�
 - **Version Governance Report**: 记录扫描批次、租户清单、推荐版本、风险等级与管理员决策，供版本态势看板消费。
 - **Compatibility Exception**: 保存被阻断的安装/升级请求、冲突项、审批链、附加监控要求与执行结果，支撑 365 天追溯。
 - **Plugin Permission Manifest**: 插件包内的权限声明资产，描述菜单、页面、动作、接口 binding、i18n 与默认授权建议，作为安装/升级和 Capability Sync 的输入。
+- **Plugin Database Binding**: 插件安装时生成并登记的独立可审计对象，拥有稳定 `binding_uuid`，通过 `plugin_uuid` 关联插件，并包含 `plugin_key`、`deployment_env`、Schema/Database、Role/User 与创建状态，是 replace、restore、migration、purge 的权威对象引用。
 
 ## Success Criteria *(mandatory)*
 
@@ -214,6 +222,8 @@ Web Admin 安装弹窗会将上述字段写入请求；未提供时后端会按�
 - **SC-008**: 热更新迭代耗时 p95 ≤ 2 秒、成功率 ≥ 98%；调试诊断报告生成 ≤ 60 秒；沙箱验证关键用例覆盖率 ≥ 95%，脱敏失败率 0。
 - **SC-009**: 版本扫描覆盖率 ≥ 99%，升级建议推送延迟 ≤ 5 分钟，管理员决策 100% 记录审计；兼容性阻断准确率 ≥ 98%。
 - **SC-010**: 多租户版本治理能在 7 天内将 90% 的版本偏差控制在 1 个稳定版本内，且全部例外审批/受控执行记录在 365 天审计窗口内可检索。
+- **SC-011**: dev/prod 使用同一 PostgreSQL 集群中的不同数据库安装同一插件时，Role/User 命名隔离测试 100% 通过，跨数据库与跨插件访问 100% 被拒绝。
+- **SC-012**: 缺失、非法或不一致 `deployment.env` 的安装/恢复/清理请求 100% 在数据库副作用前失败。
 
 ## Assumptions
 

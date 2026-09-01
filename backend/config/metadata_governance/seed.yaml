@@ -54,6 +54,71 @@ dictionaries:
           zh-CN: 未分类
           en-US: Uncategorized
         sort_order: 999
+  - namespace: corex.agent.category
+    module: corex.agent
+    name_i18n:
+      zh-CN: 智能体分类
+      en-US: Agent Category
+    description_i18n:
+      zh-CN: 智能体管理、固有智能体和业务演示智能体使用的分类。
+      en-US: Categories used by Agent Management, built-in agents, and business demo agents.
+    items:
+      - code: marketing_growth
+        label_i18n:
+          zh-CN: 营销增长
+          en-US: Marketing Growth
+        description_i18n:
+          zh-CN: 面向营销策略、内容、活动复盘和增长方法论沉淀的业务智能体。
+          en-US: Business agents for marketing strategy, content, campaign reviews, and growth methodology curation.
+        sort_order: 10
+      - code: knowledge_curation
+        label_i18n:
+          zh-CN: 知识策展
+          en-US: Knowledge Curation
+        description_i18n:
+          zh-CN: 把专家经验、访谈、文档和业务材料整理为可审核、可发布的结构化知识。
+          en-US: Agents that turn expert experience, interviews, documents, and business material into reviewable structured knowledge.
+        sort_order: 20
+      - code: release_readiness
+        label_i18n:
+          zh-CN: 发布准备协作
+          en-US: Release Readiness
+        description_i18n:
+          zh-CN: 用于验证多智能体分工、Skill 调用、执行追踪和最终汇总的内置演示智能体。
+          en-US: Built-in demo agents for validating multi-agent handoff, Skill execution, trace, and final synthesis.
+        sort_order: 30
+      - code: plugin_managed
+        label_i18n:
+          zh-CN: 插件托管智能体
+          en-US: Plugin-managed Agents
+        description_i18n:
+          zh-CN: 由已安装插件提供的智能体，生命周期跟随插件管理。
+          en-US: Agents provided by installed plugins. Their lifecycle follows plugin management.
+        sort_order: 40
+      - code: core_builtin
+        label_i18n:
+          zh-CN: 底座固有智能体
+          en-US: Core Built-in Agents
+        description_i18n:
+          zh-CN: 由 PowerX 底座提供和维护的智能体，身份与职责不可编辑。
+          en-US: Agents provided and maintained by PowerX Core. Their identity and responsibility are locked.
+        sort_order: 50
+      - code: custom
+        label_i18n:
+          zh-CN: 自定义智能体
+          en-US: Custom Agents
+        description_i18n:
+          zh-CN: 租户自行创建和维护的业务智能体。
+          en-US: Business agents created and maintained by this tenant.
+        sort_order: 60
+      - code: uncategorized
+        label_i18n:
+          zh-CN: 未分类
+          en-US: Uncategorized
+        description_i18n:
+          zh-CN: 尚未配置分类的智能体。
+          en-US: Agents without a configured category.
+        sort_order: 999
   - namespace: corex.marketing
     module: corex.marketing
     name_i18n:

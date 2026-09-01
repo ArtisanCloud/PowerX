@@ -157,6 +157,9 @@ components:
           type: string
         version:
           type: string
+        deployment_env:
+          type: string
+          enum: [dev, test, staging, prod]
         checks:
           type: object
         desired_ports:
@@ -247,7 +250,15 @@ components:
           type: string
     SetupConfig:
       type: object
+      required: [deployment]
       properties:
+        deployment:
+          type: object
+          required: [env]
+          properties:
+            env:
+              type: string
+              enum: [dev, test, staging, prod]
         domain:
           type: object
         https:

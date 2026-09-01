@@ -88,17 +88,13 @@ type bridgeLifecycleResponse struct {
 }
 
 type bridgeControlRequest struct {
-	TenantUUID  string `json:"tenant_uuid" binding:"required"`
-	Reason      string `json:"reason"`
-	RequestedBy string `json:"requested_by"`
-	TraceID     string `json:"trace_id"`
+	Reason  string `json:"reason"`
+	TraceID string `json:"trace_id"`
 }
 
 type bridgeRebalanceRequest struct {
-	TenantUUID              string `json:"tenant_uuid" binding:"required"`
 	TargetCapacityInstances int32  `json:"target_capacity_instances" binding:"required"`
 	Reason                  string `json:"reason"`
-	RequestedBy             string `json:"requested_by"`
 	TraceID                 string `json:"trace_id"`
 }
 

@@ -13,6 +13,11 @@ import (
 func (c *Config) Validate() error {
 	var errors []string
 
+	// --- Deployment Identity ---
+	if err := c.ValidateDeploymentIdentity(); err != nil {
+		errors = append(errors, err.Error())
+	}
+
 	// --- Server ---
 	if strings.TrimSpace(c.Server.Host) == "" {
 		errors = append(errors, "server.host 不能为空")

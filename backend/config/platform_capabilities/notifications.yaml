@@ -1,35 +1,37 @@
 ---
 version: 1
 capabilities:
-- capability_id: com.corex.notifications.test
+- capability_id: com.corex.notifications.create
   module: notifications
-  title: System Notification Test
-  description: 发送一条系统测试通知，用于验证 Gateway -> Bell 通知链路。
-  permission_code: corex.notifications:test
+  title: Create Tenant Notification
+  description: Create a tenant-scoped notification for an optional member recipient.
+  permission_code: corex.notifications:create
   agent_usable: false
   risk_level: low
   categories:
   - notification
-  - system
+  - tenant
   intents:
-  - notifications.test.push
+  - notifications.create
   tool_scopes:
-  - notifications.test
+  - notifications.create
   policy:
     prefer: rest
   docs:
   - backend/internal/transport/http/openapi/notifications/routes.go
   protocols:
   - channel: rest
-    endpoint: "/api/v1/notifications/test"
+    endpoint: "/api/v1/notifications"
     method: POST
-    schema_ref: backend/internal/transport/http/openapi/notifications/routes.go#POST:/notifications/test
+    schema_ref: backend/internal/transport/http/openapi/notifications/routes.go#POST:/notifications
     auth_type: tenant_jwt
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: notifications.test
+    tool_scope: notifications.create
   title_i18n:
-    en: System Notification Test
+    en: Create Tenant Notification
+    zh-CN: 创建租户通知
   description_i18n:
-    en: 发送一条系统测试通知，用于验证 Gateway -> Bell 通知链路。
+    en: Create a tenant-scoped notification for an optional member recipient.
+    zh-CN: 为可选的成员接收人创建租户范围通知。

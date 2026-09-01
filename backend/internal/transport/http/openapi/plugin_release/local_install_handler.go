@@ -22,23 +22,21 @@ type localInstallHandler struct {
 }
 
 type startLocalInstallRequest struct {
-	TenantUUID   string   `json:"tenant_uuid" binding:"required"`
-	DeveloperID  uint64   `json:"developerId" binding:"required"`
 	ArtifactURI  string   `json:"artifactUri" binding:"required"`
 	FeatureFlags []string `json:"featureFlags"`
 	ResetCache   bool     `json:"resetCache"`
 }
 
 type localInstallSessionResponse struct {
-	SessionID    string   `json:"sessionId"`
-	TenantUUID   string   `json:"tenant_uuid"`
-	DeveloperID  uint64   `json:"developerId"`
-	ArtifactURI  string   `json:"artifactUri"`
-	FeatureFlags []string `json:"featureFlags,omitempty"`
-	Status       string   `json:"status"`
-	LogURL       string   `json:"logUrl,omitempty"`
-	CreatedAt    string   `json:"createdAt"`
-	ExpiresAt    string   `json:"expiresAt,omitempty"`
+	SessionID           string   `json:"sessionId"`
+	TenantUUID          string   `json:"tenant_uuid"`
+	DeveloperMemberUUID string   `json:"developer_member_uuid"`
+	ArtifactURI         string   `json:"artifactUri"`
+	FeatureFlags        []string `json:"featureFlags,omitempty"`
+	Status              string   `json:"status"`
+	LogURL              string   `json:"logUrl,omitempty"`
+	CreatedAt           string   `json:"createdAt"`
+	ExpiresAt           string   `json:"expiresAt,omitempty"`
 }
 
 func newLocalInstallHandler(svc *local.InstallService) *localInstallHandler {
@@ -60,23 +58,25 @@ func (h *localInstallHandler) startSession(c *gin.Context) {
 		return
 	}
 
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	if tenantUUID == "" {
-		dto.ResponseValidationError(c, gin.Error{
-			Err:  errTenantUUIDRequired,
-			Type: gin.ErrorTypeBind,
-		})
+	tenantUUID, err := resolveTenantUUIDFromRequest(c)
+	if err != nil {
+		dto.ResponseValidationError(c, gin.Error{Err: err, Type: gin.ErrorTypeBind})
+		return
+	}
+	developerMemberUUID, err := currentUserMemberUUID(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "PLUGIN_RELEASE_UNAUTHORIZED", err)
 		return
 	}
 
 	actor := c.GetHeader("Authorization")
 	session, err := h.svc.Start(c.Request.Context(), local.StartInput{
-		TenantUUID:   tenantUUID,
-		DeveloperID:  req.DeveloperID,
-		ArtifactURI:  req.ArtifactURI,
-		FeatureFlags: req.FeatureFlags,
-		ResetCache:   req.ResetCache,
-		Actor:        actor,
+		TenantUUID:          tenantUUID,
+		DeveloperMemberUUID: developerMemberUUID,
+		ArtifactURI:         req.ArtifactURI,
+		FeatureFlags:        req.FeatureFlags,
+		ResetCache:          req.ResetCache,
+		Actor:               actor,
 	})
 	if err != nil {
 		h.writeError(c, err)
@@ -98,7 +98,12 @@ func (h *localInstallHandler) getSession(c *gin.Context) {
 		return
 	}
 
-	session, err := h.svc.Get(c.Request.Context(), sessionUUID)
+	tenantUUID, err := resolveTenantUUIDFromRequest(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "PLUGIN_RELEASE_UNAUTHORIZED", err)
+		return
+	}
+	session, err := h.svc.Get(c.Request.Context(), tenantUUID, sessionUUID)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -167,11 +172,11 @@ func resolveTenantUUIDFromRequest(c *gin.Context) (string, error) {
 func (h *localInstallHandler) writeError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, local.ErrFeatureDisabled):
-		dto.ResponseError(c, http.StatusForbidden, "local install disabled", err)
+		dto.ResponseError(c, http.StatusForbidden, "PLUGIN_RELEASE_FORBIDDEN", err)
 	case errors.Is(err, local.ErrInvalidInput):
-		dto.ResponseError(c, http.StatusBadRequest, "invalid local install request", err)
+		dto.ResponseError(c, http.StatusBadRequest, "PLUGIN_RELEASE_INVALID_ARGUMENT", err)
 	case errors.Is(err, local.ErrPermissionDenied):
-		dto.ResponseError(c, http.StatusForbidden, "insufficient permission for local install", err)
+		dto.ResponseError(c, http.StatusForbidden, "PLUGIN_RELEASE_FORBIDDEN", err)
 	case errors.Is(err, local.ErrSignatureInvalid):
 		dto.ResponseError(c, http.StatusUnprocessableEntity, "artifact signature verification failed", err)
 	case errors.Is(err, local.ErrActiveSession):
@@ -179,9 +184,9 @@ func (h *localInstallHandler) writeError(c *gin.Context, err error) {
 	case errors.Is(err, local.ErrArtifactTooLarge):
 		dto.ResponseError(c, http.StatusRequestEntityTooLarge, "artifact exceeds configured limit", err)
 	case errors.Is(err, local.ErrSessionNotFound):
-		dto.ResponseError(c, http.StatusNotFound, "local install session not found", err)
+		dto.ResponseError(c, http.StatusNotFound, "PLUGIN_RELEASE_SESSION_NOT_FOUND", err)
 	default:
-		dto.ResponseError(c, http.StatusInternalServerError, "local install operation failed", err)
+		dto.ResponseError(c, http.StatusServiceUnavailable, "PLUGIN_RELEASE_UPSTREAM_DEPENDENCY", err)
 	}
 }
 
@@ -192,10 +197,10 @@ func (h *localInstallHandler) toResponse(session *models.LocalInstallSession) lo
 	}
 
 	return localInstallSessionResponse{
-		SessionID:   session.UUID.String(),
-		TenantUUID:  sessionTenantUUID(session),
-		DeveloperID: session.DeveloperID,
-		ArtifactURI: session.ArtifactURI,
+		SessionID:           session.UUID.String(),
+		TenantUUID:          sessionTenantUUID(session),
+		DeveloperMemberUUID: session.DeveloperMemberUUID,
+		ArtifactURI:         session.ArtifactURI,
 		FeatureFlags: func() []string {
 			flags := local.ExtractFeatureFlags(session.FeatureFlags)
 			if flags == nil {
@@ -208,6 +213,14 @@ func (h *localInstallHandler) toResponse(session *models.LocalInstallSession) lo
 		CreatedAt: session.CreatedAt.UTC().Format(time.RFC3339),
 		ExpiresAt: expiresAt,
 	}
+}
+
+func currentUserMemberUUID(c *gin.Context) (string, error) {
+	memberUUID := strings.TrimSpace(reqctx.GetMemberUUID(c.Request.Context()))
+	if _, err := uuid.Parse(memberUUID); err != nil {
+		return "", err
+	}
+	return memberUUID, nil
 }
 
 func extractLogURL(raw datatypes.JSON) string {

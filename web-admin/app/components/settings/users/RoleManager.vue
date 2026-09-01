@@ -3,8 +3,7 @@ import { ref, reactive, computed, h, resolveComponent, onMounted } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import { useI18n } from "#imports";
 import { useRoleStore } from "~/stores/role";
-import { useTenantService } from "~/composables/api/services/tenantService";
-import type { Tenant } from "~/composables/api/services/tenantService";
+import { useUserStore } from "~/stores/user";
 import { useOneShotAlert } from "~/composables/useOneShotAlert";
 import type {
   Role,
@@ -14,76 +13,13 @@ import type {
 
 const { t, locale } = useI18n();
 const roleStore = useRoleStore();
-const tenantService = useTenantService();
+const userStore = useUserStore();
 const { notifyOnce, visible, title, description, color, variant, hide } =
   useOneShotAlert();
 
 /* ================= 租户相关 ================= */
-type Option = { label: string; value: string; description?: string };
-
-const tenants = ref<Tenant[]>([]);
-const loadingTenants = ref(false);
-const isRootUser = ref(true);
-
-// ✅ 对象当值（不再是 number）
-const selectedTenant = ref<Option | null>(null);
-
-// 搜索关键词（受控）
-const tenantKeyword = ref("");
-
-// ✅ 从后端映射 + 并入当前已选项，避免异步时丢失回显
-const tenantOptions = computed<Option[]>(() => {
-  const list = tenants.value.map((t) => ({
-    label: t.name,
-    value: t.uuid || String(t.id),
-    description: t.domain || `租户: ${t.name}`,
-  }));
-  if (
-    selectedTenant.value &&
-    !list.some((o) => o.value === selectedTenant.value!.value)
-  ) {
-    list.unshift(selectedTenant.value);
-  }
-  return list;
-});
-
-/* —— 缓冲同步选中值到表单（对象 → id） —— */
-watchDebounced(
-  selectedTenant,
-  (opt) => {
-    roleForm.tenant_uuid = opt?.value ?? undefined;
-  },
-  { debounce: 300 }
-);
-
-/* —— 远程搜索（防抖） —— */
-watchDebounced(
-  tenantKeyword,
-  (q) => {
-    const s = (q ?? "").trim();
-    if (!s) {
-      // 推荐：拉默认一页（若后端允许）
-      loadTenants();
-      return;
-    }
-    loadTenants(s);
-  },
-  { debounce: 400 }
-);
-
-/* —— 远程搜索（防抖） —— */
-watchDebounced(
-  tenantKeyword,
-  (q) => {
-    const s = (q ?? "").trim();
-    if (!s) {
-      // ✅ 推荐：拉一页默认（如果后端允许）
-      loadTenants();
-      return;
-    }
-    loadTenants(s);
-  },
-  { debounce: 400 }
+const currentTenantUuid = computed(() =>
+  String(userStore.currentTenantUuid || "").trim()
 );
 
 /* ================= 角色相关/状态 ================= */
@@ -125,29 +61,6 @@ const roleForm = reactive<RoleCreateParams & { id?: number }>({
 });
 
 /* ================= API ================= */
-const loadTenants = async (keyword?: string) => {
-  if (!isRootUser.value) return;
-  loadingTenants.value = true;
-  try {
-    // 参数清洗：只在有值时传 q，避免后端解析 undefined/null
-    const params: Record<string, any> = { page: 1, page_size: 10 };
-    const q = (keyword ?? "").trim();
-    if (q) params.q = q;
-
-    const response = await tenantService.getTenants(params);
-    if (response?.code === 200 && response.data) {
-      tenants.value = response.data.items;
-    } else {
-      // 可选：对非 200 的后端返回做兜底
-      // console.warn("getTenants 非 200：", response);
-    }
-  } catch (err) {
-    console.error("加载租户列表失败:", err);
-  } finally {
-    loadingTenants.value = false;
-  }
-};
-
 const loadRoles = async () => {
   try {
     const params: Record<string, any> = {
@@ -177,7 +90,6 @@ const resetForm = () => {
   roleForm.name = "";
   roleForm.description = "";
   delete roleForm.id;
-  selectedTenant.value = null;
   isEditing.value = false;
   editingId.value = null;
 };
@@ -211,9 +123,18 @@ const saveRole = async () => {
       };
       await roleStore.updateRole(editingId.value, updateData);
     } else {
+      if (roleForm.scope === "tenant" && !currentTenantUuid.value) {
+        notifyOnce(
+          t("settings.permission.toast.missingTenantContextTitle"),
+          t("settings.permission.toast.missingTenantContextDescription"),
+          "error"
+        );
+        return;
+      }
       const createData: RoleCreateParams = {
         scope: roleForm.scope,
-        tenant_uuid: roleForm.tenant_uuid,
+        tenant_uuid:
+          roleForm.scope === "tenant" ? currentTenantUuid.value : undefined,
         code: roleForm.code,
         name: roleForm.name,
         description: roleForm.description,
@@ -418,11 +339,6 @@ const columns = computed(() => {
 /* ================= 生命周期 ================= */
 onMounted(() => {
   loadRoles();
-  if (isRootUser.value) {
-    // 若你的后端允许无关键字的默认列表，这里可以直接 loadTenants()
-    // 否则保持空，等待用户输入搜索词
-    // loadTenants();
-  }
 });
 </script>
 
@@ -602,31 +518,6 @@ onMounted(() => {
                   ]"
                 />
               </UFormField> -->
-
-              <UFormField
-                v-if="!isEditing && isRootUser && roleForm.scope === 'tenant'"
-                label="选择租户"
-                required
-              >
-                <USelectMenu
-                  v-model="selectedTenant"
-                  :items="tenantOptions"
-                  :loading="loadingTenants"
-                  searchable
-                  v-model:search-term="tenantKeyword"
-                  placeholder="选择租户"
-                  class="w-full"
-                >
-                  <template #option="{ option }">
-                    <div class="flex flex-col">
-                      <span class="font-medium">{{ option.label }}</span>
-                      <span class="text-xs text-gray-500">{{
-                        option.description
-                      }}</span>
-                    </div>
-                  </template>
-                </USelectMenu>
-              </UFormField>
 
               <UFormField label="角色描述">
                 <UTextarea

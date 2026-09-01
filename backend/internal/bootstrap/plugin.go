@@ -94,7 +94,10 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		HTTP:          dr,
 		Supervisor:    sup,
 		PostInstallManifest: func(ctx context.Context, manifest pm.Manifest) error {
-			return syncPluginManifestPermissions(ctx, deps.DB, manifest)
+			if err := syncPluginManifestPermissions(ctx, deps.DB, manifest); err != nil {
+				return err
+			}
+			return tenantPluginSvc.SyncManifestRequiredCapabilities(ctx, manifest)
 		},
 		PostEnablePlugin: func(ctx context.Context, plugin pm.Plugin, apiBaseURL string) error {
 			requiresDiscovery, err := pluginRequiresSkillDiscovery(plugin)

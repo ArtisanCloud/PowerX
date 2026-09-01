@@ -542,7 +542,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			HTTPBaseURL:       httpBaseURL,
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
-			CoreInvoker:       customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db)),
+			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
+				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db)),
+			),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
 		if toolStore != nil {

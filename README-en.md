@@ -2,7 +2,7 @@
 
 [![中文](https://img.shields.io/badge/中文-README-red)](./README.md)
 [![Official Docs](https://img.shields.io/badge/Official_Docs-powerx--doc.artisan--cloud.com-green)](https://powerx-doc.artisan-cloud.com)
-[![Go](https://img.shields.io/badge/Go-1.24-00ADD8)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.26.7-00ADD8)](https://go.dev/)
 [![Nuxt](https://img.shields.io/badge/Nuxt-4-00DC82)](https://nuxt.com/)
 
 PowerX is an **AgentOS foundation for enterprise AI applications and plugin ecosystems**. It brings IAM, plugin runtime, integration gateway, event fabric, runtime scheduler, AI engine, knowledge space, notifications, and operational monitoring into one extensible core, so SCRM, e-commerce, marketing automation, and other business modules can be connected as plugins and assisted by agents.
@@ -140,7 +140,7 @@ flowchart LR
 
 | Layer | Technology |
 | --- | --- |
-| Backend | Go 1.24, Gin, gRPC, GORM |
+| Backend | Go 1.26.7, Gin, gRPC, GORM |
 | Frontend | Nuxt 4, Vue 3, Pinia, Nuxt UI |
 | Storage | PostgreSQL, Redis, MinIO/S3 |
 | Protocols | REST, gRPC, WebSocket, MCP |
@@ -155,7 +155,7 @@ flowchart LR
 
 ### Requirements
 
-- Go 1.24+
+- Go 1.26.7
 - Node.js 20+
 - PostgreSQL
 - Redis

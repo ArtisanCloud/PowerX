@@ -181,13 +181,7 @@ func (c *openaiClient) logRequest(ctx context.Context, reqURL string, mc *config
 }
 
 func (c *openaiClient) httpClient(mc *config.ModelConfig) *http.Client {
-	to := mc.Timeout
-	if to <= 0 {
-		// Chat/SSE 场景默认要足够长，避免“模型慢一点就被 30s 掐断”
-		// 由上层 ctx 超时兜底（Engine 默认 10min）。
-		to = 10 * time.Minute
-	}
-	return &http.Client{Timeout: to}
+	return &http.Client{Timeout: mc.Timeout}
 }
 
 /* ------------ Invoke（非流） ------------ */

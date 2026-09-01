@@ -262,9 +262,9 @@ capabilities:
   - specs/026-iam/contracts/http-openapi.yaml
   protocols:
   - channel: rest
-    endpoint: "/api/v1/tenant/iam/roles"
+    endpoint: "/api/v1/tenant/iam/roles/provisionable"
     method: GET
-    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1roles/get
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1roles~1provisionable/get
     auth_type: tenant_jwt
     actor_context: service_actor
     resource_scope: tenant
@@ -338,3 +338,144 @@ capabilities:
     en: IAM Tenant Member Provisioning
   description_i18n:
     en: Provision tenant users and members from a plugin service identity. The endpoint is tenant-scoped, forbids root/system admin creation, and only binds role_user or plugin-managed roles.
+- capability_id: com.corex.iam.members.read
+  module: iam
+  title: IAM Tenant Member Directory Read
+  description: Read tenant members by stable member UUID for plugin service workflows without exposing numeric identifiers.
+  permission_code: corex.iam.members:read
+  agent_usable: false
+  risk_level: high
+  categories: [iam, directory]
+  intents: [iam.members.read]
+  tool_scopes: [iam.members.read]
+  policy:
+    prefer: rest
+  docs: [specs/026-iam/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/members/{member_uuid}"
+    method: GET
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1members~1{member_uuid}/get
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.members.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/members:batch-get"
+    method: POST
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1members:batch-get/post
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.members.read
+  title_i18n:
+    en: IAM Tenant Member Directory Read
+    zh-CN: IAM 租户成员目录查询
+  description_i18n:
+    en: Read tenant members by stable member UUID for plugin service workflows without exposing numeric identifiers.
+    zh-CN: 插件服务通过稳定的成员 UUID 查询租户成员，不暴露数值标识。
+- capability_id: com.corex.iam.directory.read
+  module: iam
+  title: IAM Tenant Directory Read
+  description: Read tenant departments, complete tenant roles, and permission catalog using UUID-only directory DTOs.
+  permission_code: corex.iam.directory:read
+  agent_usable: false
+  risk_level: high
+  categories: [iam, directory]
+  intents: [iam.directory.read]
+  tool_scopes: [iam.directory.read]
+  policy:
+    prefer: rest
+  docs: [specs/026-iam/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/tenant"
+    method: GET
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1tenant/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.directory.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/members"
+    method: GET
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1members/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.directory.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/members:batch-resolve"
+    method: POST
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1members:batch-resolve/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.directory.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/departments"
+    method: GET
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1departments/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.directory.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/roles"
+    method: GET
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1roles/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.directory.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/permissions"
+    method: GET
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1permissions/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.directory.read
+  title_i18n:
+    en: IAM Tenant Directory Read
+    zh-CN: IAM 租户目录查询
+  description_i18n:
+    en: Read tenant departments, complete tenant roles, and permission catalog using UUID-only directory DTOs.
+    zh-CN: 使用仅含 UUID 标识的目录 DTO 查询租户部门、完整角色与权限目录。
+- capability_id: com.corex.iam.authorization.check
+  module: iam
+  title: IAM Tenant Authorization Check
+  description: Evaluate a declared IAM permission for a tenant member without allowing any IAM mutation.
+  permission_code: corex.iam.authorization:check
+  agent_usable: false
+  risk_level: high
+  categories: [iam, authorization]
+  intents: [iam.authorization.check]
+  tool_scopes: [iam.authorization.check]
+  policy:
+    prefer: rest
+  docs: [specs/026-iam/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/iam/authorization:check"
+    method: POST
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1authorization:check/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.authorization.check
+  title_i18n:
+    en: IAM Tenant Authorization Check
+    zh-CN: IAM 租户授权判定
+  description_i18n:
+    en: Evaluate a declared IAM permission for a tenant member without allowing any IAM mutation.
+    zh-CN: 判定租户成员的已声明 IAM 权限，不允许通过该能力修改 IAM 数据。

@@ -1,0 +1,73 @@
+---
+version: 1
+capabilities:
+- capability_id: com.corex.agent.lifecycle.manage
+  module: agent
+  title: Agent Lifecycle Operations
+  description: Read tenant-scoped agent health and manage lifecycle state through a PowerX STS service identity.
+  permission_code: corex.agent.lifecycle:manage
+  agent_usable: false
+  risk_level: high
+  categories: [agent, lifecycle]
+  intents: [agent.lifecycle.manage]
+  tool_scopes: [agent.lifecycle]
+  policy:
+    prefer: rest
+  docs: [specs/008-agent-lifecycle-observability/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/openapi/agents/{agent_id}/health/summary"
+    method: GET
+    schema_ref: specs/008-agent-lifecycle-observability/contracts/http-openapi.yaml#/paths/~1agents~1{agentId}~1health~1summary/get
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: agent.lifecycle
+  - channel: rest
+    endpoint: "/api/v1/openapi/agents/{agent_id}/health/history"
+    method: GET
+    schema_ref: specs/008-agent-lifecycle-observability/contracts/http-openapi.yaml#/paths/~1agents~1{agentId}~1health~1history/get
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: agent.lifecycle
+  - channel: rest
+    endpoint: "/api/v1/openapi/agents/{agent_id}/bridge/state"
+    method: GET
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: agent.lifecycle
+  - channel: rest
+    endpoint: "/api/v1/openapi/agents/{agent_id}/bridge/freeze"
+    method: POST
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: agent.lifecycle
+  - channel: rest
+    endpoint: "/api/v1/openapi/agents/{agent_id}/bridge/recover"
+    method: POST
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: agent.lifecycle
+  - channel: rest
+    endpoint: "/api/v1/openapi/agents/{agent_id}/bridge/rebalance"
+    method: POST
+    auth_type: tenant_jwt
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: agent.lifecycle
+  title_i18n:
+    en: Agent Lifecycle Operations
+    zh-CN: Agent 生命周期操作
+  description_i18n:
+    en: Read tenant-scoped agent health and manage lifecycle state through a PowerX STS service identity.
+    zh-CN: 通过 PowerX STS 服务身份读取租户 Agent 健康状态并管理其生命周期。

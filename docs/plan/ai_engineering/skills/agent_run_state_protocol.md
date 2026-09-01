@@ -63,7 +63,7 @@ User Message
 | `agent_run.awaiting_params` | 缺必要参数，等待用户补充 | 参数校验未通过且可追问 |
 | `agent_run.task_completed` | 任务完成并产生结果 | Skill/Tool/A2A 节点成功 |
 | `agent_run.task_failed` | 任务失败 | fail-fast 或执行异常 |
-| `agent_run.final` | 最终回复内容与可见结果摘要 | Final Response 完成 |
+| `agent_run.final` | 最终回复内容与 `powerx.agent.response/v3` 可见结果摘要 | Final Response 完成 |
 | `agent_run.ended` | 一轮 Message Run 结束 | history/trace 持久化完成 |
 
 标准状态枚举：
@@ -93,6 +93,25 @@ pending | awaiting_params | running | completed | failed | skipped
 4. `completed` 必须有真实执行结果来源：Skill result、Capability result、A2A child result 或等价结构化 task result。
 5. 如果没有真实执行结果，但 final response 文案包含“已创建、已更新、已删除、已发布、已同步、已完成”等成功性业务结论，Runtime 必须拦截或改写，UI 也不得据此生成成功任务卡。
 6. 旧事件 `intent/plan/node_start/node_end/final/end` 只能作为兼容期内部输入，进入 UI 前必须转换为 `agent_run.*`；其中 `final/end` 只能更新 run 级状态，不能更新 task 级状态。
+
+## 4.1.1 最终答复 Envelope
+
+`agent_run.final` 必须携带通过校验的 `response_envelope`，其 schema 固定为 `powerx.agent.response/v3`。它是 Chat、Team Task、Trace 和历史恢复的共同渲染输入；`content` 只是同一 envelope 在当前 locale 下生成的 Markdown Preview，不能成为唯一事实源。
+
+```json
+{
+  "data": {
+    "response_envelope": {
+      "schema": "powerx.agent.response/v3",
+      "kind": "multi_agent_summary",
+      "outcome": "needs_action",
+      "presentation": {"facts": [], "metrics": [], "hypotheses": [], "gaps": ["尚缺真实安装环境的验收证据。"], "actions": ["补充真实安装环境后执行验收。"]}
+    }
+  }
+}
+```
+
+若 envelope 不合法，Runtime 必须以 `agent.response_contract_invalid` 结束本轮业务结果并写入 Trace；UI 不得把原始 Skill Markdown 作为成功答案展示。
 
 ## 4.2 Run Summary 与 Task Graph
 

@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/instrumentation"
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
 	"github.com/google/uuid"
@@ -51,6 +51,7 @@ type Options struct {
 type Dependencies struct {
 	Candidates  *repo.ReleaseCandidateRepository
 	Repository  *repo.DistributionRepository
+	ImportRuns  *repo.ImportRepository
 	Instruments *instrumentation.Instruments
 	Validator   *Validator
 	Hooks       AuditHooks
@@ -61,14 +62,12 @@ type Dependencies struct {
 type Service struct {
 	candidates  *repo.ReleaseCandidateRepository
 	repo        *repo.DistributionRepository
+	importRuns  *repo.ImportRepository
 	instruments *instrumentation.Instruments
 	validator   *Validator
 	hooks       AuditHooks
 	clock       func() time.Time
 	opts        Options
-
-	jobsMu     sync.RWMutex
-	importJobs map[string]ImportJob
 }
 
 // StoreOfflinePackageInput captures data required to persist an offline package.
@@ -170,7 +169,7 @@ func NewService(deps Dependencies, opts Options) *Service {
 		hooks:       deps.Hooks,
 		clock:       deps.Clock,
 		opts:        opts,
-		importJobs:  make(map[string]ImportJob),
+		importRuns:  deps.ImportRuns,
 	}
 }
 
@@ -352,7 +351,7 @@ func (s *Service) ReviewListing(ctx context.Context, input ReviewListingInput) (
 	return s.repo.GetListingByID(ctx, listing.ID)
 }
 
-// StartOfflineImport kicks off a tenant-side import job and stores its state in memory.
+// StartOfflineImport persists a tenant-scoped import job.
 func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInput) (*ImportJob, error) {
 	if !s.opts.FeatureEnabled {
 		return nil, ErrFeatureDisabled
@@ -367,11 +366,27 @@ func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInp
 		return nil, err
 	}
 
-	jobID := uuid.NewString()
 	now := s.clock()
 	completedAt := now
+	run := &models.PluginImportRun{
+		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.New()},
+		TenantUUID:     strings.TrimSpace(input.TenantUUID),
+		PackageName:    strings.TrimSpace(input.PackageURI),
+		SourceURI:      strings.TrimSpace(input.PackageURI),
+		Checksum:       normalizeChecksum(input.Checksum),
+		SubmittedBy:    strings.TrimSpace(input.Actor),
+		Status:         models.PluginImportStatusApproved,
+		RiskLevel:      models.PluginImportRiskLow,
+		CompletedAt:    &completedAt,
+	}
+	if s.importRuns == nil {
+		return nil, errors.New("plugin release import repository unavailable")
+	}
+	if err := s.importRuns.Create(ctx, run); err != nil {
+		return nil, err
+	}
 	job := ImportJob{
-		ID:          jobID,
+		ID:          run.UUID.String(),
 		TenantUUID:  strings.TrimSpace(input.TenantUUID),
 		PackageURI:  strings.TrimSpace(input.PackageURI),
 		Checksum:    normalizeChecksum(input.Checksum),
@@ -381,28 +396,31 @@ func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInp
 		CompletedAt: &completedAt,
 	}
 
-	s.jobsMu.Lock()
-	s.importJobs[jobID] = job
-	s.jobsMu.Unlock()
-
 	s.hooks.OnOfflineImportStarted(ctx, job)
 	return &job, nil
 }
 
 // GetImportJob returns the job by identifier.
-func (s *Service) GetImportJob(jobID string) (*ImportJob, error) {
+func (s *Service) GetImportJob(ctx context.Context, tenantUUID, jobID string) (*ImportJob, error) {
 	id := strings.TrimSpace(jobID)
 	if id == "" {
 		return nil, ErrInvalidInput
 	}
-	s.jobsMu.RLock()
-	defer s.jobsMu.RUnlock()
-	job, ok := s.importJobs[id]
-	if !ok {
+	jobUUID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	if s.importRuns == nil {
+		return nil, errors.New("plugin release import repository unavailable")
+	}
+	run, err := s.importRuns.FindByTenantUUID(ctx, strings.TrimSpace(tenantUUID), jobUUID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	copy := job
-	return &copy, nil
+	if err != nil {
+		return nil, err
+	}
+	return &ImportJob{ID: run.UUID.String(), TenantUUID: run.TenantUUID, PackageURI: run.SourceURI, Checksum: run.Checksum, Status: "completed", StartedAt: run.CreatedAt, CompletedAt: run.CompletedAt}, nil
 }
 
 // ListMarketplaceListings returns listings with pagination data.

@@ -2,9 +2,13 @@
 package iam
 
 import (
+	"fmt"
+
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type Role struct {
@@ -36,6 +40,7 @@ const (
 
 type Permission struct {
 	model.PowerModel
+	PermissionUUID uuid.UUID `gorm:"column:permission_uuid;type:uuid;uniqueIndex:uk_iam_permission_permission_uuid" json:"permission_uuid"`
 
 	Module      string `gorm:"column:module;type:varchar(255);not null;index:uk_perm_plugin_res_act,unique" json:"module"`
 	Resource    string `gorm:"type:varchar(255);not null;index:uk_perm_plugin_res_act,unique" json:"resource"`
@@ -52,6 +57,13 @@ type Permission struct {
 	DeprecatedAt *int64           `gorm:"index" json:"deprecated_at,omitempty"`  // 废弃时间戳（秒）
 }
 
+func (mdl *Permission) BeforeCreate(tx *gorm.DB) error {
+	if mdl.PermissionUUID == uuid.Nil {
+		mdl.PermissionUUID = uuid.New()
+	}
+	return nil
+}
+
 func (mdl *Permission) TableName() string { return model.PowerXSchema + "." + model.TableIAMPermission }
 func (mdl *Permission) GetTableName(needFull bool) string {
 	if needFull {
@@ -61,10 +73,40 @@ func (mdl *Permission) GetTableName(needFull bool) string {
 }
 
 type RolePermission struct {
-	RoleID       uint64 `gorm:"column:role_id;primaryKey"       json:"role_id"`
-	PermissionID uint64 `gorm:"column:permission_id;primaryKey" json:"permission_id"`
+	RoleID         uint64    `gorm:"column:role_id;primaryKey"       json:"role_id"`
+	PermissionID   uint64    `gorm:"column:permission_id;primaryKey" json:"permission_id"`
+	RoleUUID       uuid.UUID `gorm:"column:role_uuid;type:uuid;uniqueIndex:uk_iam_role_permission_role_permission_uuid" json:"role_uuid"`
+	PermissionUUID uuid.UUID `gorm:"column:permission_uuid;type:uuid;uniqueIndex:uk_iam_role_permission_role_permission_uuid" json:"permission_uuid"`
 
 	CreatedAt int64 `gorm:"column:created_at;autoCreateTime:milli" json:"created_at"`
+}
+
+func (mdl *RolePermission) BeforeCreate(tx *gorm.DB) error {
+	if mdl.RoleUUID == uuid.Nil {
+		var role struct {
+			UUID uuid.UUID `gorm:"column:uuid"`
+		}
+		if err := tx.Table((&Role{}).GetTableName(true)).Select("uuid").Where("id = ?", mdl.RoleID).First(&role).Error; err != nil {
+			return fmt.Errorf("resolve IAM role UUID: %w", err)
+		}
+		if role.UUID == uuid.Nil {
+			return fmt.Errorf("IAM role UUID missing")
+		}
+		mdl.RoleUUID = role.UUID
+	}
+	if mdl.PermissionUUID == uuid.Nil {
+		var permission struct {
+			PermissionUUID uuid.UUID `gorm:"column:permission_uuid"`
+		}
+		if err := tx.Table((&Permission{}).GetTableName(true)).Select("permission_uuid").Where("id = ?", mdl.PermissionID).First(&permission).Error; err != nil {
+			return fmt.Errorf("resolve IAM permission UUID: %w", err)
+		}
+		if permission.PermissionUUID == uuid.Nil {
+			return fmt.Errorf("IAM permission UUID missing")
+		}
+		mdl.PermissionUUID = permission.PermissionUUID
+	}
+	return nil
 }
 
 func (mdl *RolePermission) TableName() string {

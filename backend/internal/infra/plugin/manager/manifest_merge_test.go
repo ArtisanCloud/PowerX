@@ -60,6 +60,34 @@ routes:
 	require.Equal(t, "write", manifest.Routes.Permissions[0].Permission.Action)
 }
 
+func TestLoadManifestWithCatalogs_MergeRequiredHostCapabilities(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "plugin.yaml", `
+id: com.powerx.plugins.base
+name: base
+version: 0.8.0
+runtime:
+  kind: process
+  entry: backend/bin/plugin
+endpoints:
+  http_base_path: /api/v1
+frontend:
+  admin:
+    kind: process
+catalogs:
+  capabilities: plugin.d/capabilities.yaml
+`)
+	writeTestFile(t, root, "plugin.d/capabilities.yaml", `
+capabilities:
+  required:
+    - com.corex.iam.members.read
+`)
+
+	manifest, err := loadManifestWithCatalogs(root)
+	require.NoError(t, err)
+	require.Equal(t, []string{"com.corex.iam.members.read"}, manifest.Capabilities.Required)
+}
+
 func TestLoadManifestWithCatalogs_MergeEvents(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, "plugin.yaml", `

@@ -12,7 +12,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // Ollama /api/chat 的返回是 NDJSON（每行一个 JSON 对象），不是 SSE。
@@ -57,11 +56,7 @@ func (c *ollamaClient) endpoint(mc *config.ModelConfig) string {
 }
 
 func (c *ollamaClient) httpClient(mc *config.ModelConfig) *http.Client {
-	to := mc.Timeout
-	if to <= 0 {
-		to = 60 * time.Second
-	}
-	return &http.Client{Timeout: to}
+	return &http.Client{Timeout: mc.Timeout}
 }
 
 func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, streaming bool) ([]byte, error) {

@@ -104,11 +104,10 @@ func (r *InvocationTraceRepository) List(ctx context.Context, filter InvocationT
 	return records, nil
 }
 
-// MarkEventPublished 更新追踪记录的事件状态。
-func (r *InvocationTraceRepository) MarkEventPublished(ctx context.Context, traceID string, publicationID uuid.UUID) error {
-	traceID = strings.TrimSpace(traceID)
-	if traceID == "" {
-		return errors.New("trace_id is required")
+// MarkEventPublished 更新单条调用记录的事件状态。
+func (r *InvocationTraceRepository) MarkEventPublished(ctx context.Context, invocationUUID uuid.UUID, publicationID uuid.UUID) error {
+	if invocationUUID == uuid.Nil {
+		return errors.New("invocation_uuid is required")
 	}
 	payload := map[string]interface{}{
 		"event_published": true,
@@ -118,7 +117,7 @@ func (r *InvocationTraceRepository) MarkEventPublished(ctx context.Context, trac
 	}
 	result := r.db.WithContext(ctx).
 		Model(&models.InvocationTrace{}).
-		Where("trace_id = ?", traceID).
+		Where("uuid = ?", invocationUUID).
 		Updates(payload)
 	if result.Error != nil {
 		return result.Error

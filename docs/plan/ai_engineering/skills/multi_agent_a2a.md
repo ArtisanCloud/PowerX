@@ -2,6 +2,8 @@
 
 本文定义 PowerX 底座自有的 A2A 多智能体协作机制。该机制不依赖 PowerXPlugin、MediaX、AI Craft 或任意插件 executor；插件能力可以后续作为某个子 Agent 绑定的 Skill 进入候选池，但不是本机制的 MVP 验收前提。
 
+> **当前权威规则（2026-08-30）**：团队的 `orchestration_spec` 是唯一任务图来源。Runtime 不得通过 `team_key`、显示名称、Demo 名称、Agent Key 或静态 Go 分支识别任何团队。本文后续发布准备示例仅用于说明任务结构；实际图必须保存到团队数据中，并按 [TeamOrchestration](../../../../specs/024-ai-engineering-skills/data-model.md#agentteamorchestration) 校验。
+
 ## 1. 机制定位
 
 PowerX Core A2A 是 Agent Runtime 内部的多智能体任务编排机制：
@@ -19,9 +21,9 @@ PowerX Core A2A 是 Agent Runtime 内部的多智能体任务编排机制：
 
 它解决的问题是：一个复杂业务作业不应由单个 Agent 在一个 prompt 中一次性完成，而应由主 Agent 根据团队配置把任务拆给具备不同职责和绑定能力的子 Agent，并按计划依赖、失败策略、上下文隔离和审计 trace 汇总结果。
 
-## 2. MVP 业务故事：发布准备多智能体作业
+## 2. 默认业务故事：营销活动复盘多智能体作业
 
-首个 Core-only MVP 采用“发布准备报告”场景，用于验证主 Agent、三个子 Agent、Skill 绑定、Team 成员、handoff plan、trace 与最终汇总。
+默认 Core-only A2A Demo 采用“营销活动复盘 → 可审核方法论草稿”场景，用于验证主 Agent、三个子 Agent、Skill 绑定、Team 成员、handoff plan、trace 与最终汇总。发布准备保留为专项团队模板，不作为默认验收入口。
 
 用户输入：
 
@@ -53,7 +55,7 @@ PowerX Core A2A 是 Agent Runtime 内部的多智能体任务编排机制：
 
 Agent Team：
 
-- `release.readiness.team`（落库字段建议使用 `team_name`）
+- `发布准备协作团队`（业务显示名；团队 UUID 是稳定身份）
 - TL：`release.coordinator`
 - Members：三个子 Agent
 - 角色枚举：平台固定协作角色，集中定义为 `planner/retriever/executor/reviewer`；不开放租户或用户自定义维护。
@@ -87,7 +89,7 @@ make seed
 | Skill | `powerx.release.workflow_planning` | 平台内置 demo Skill，流程规划 |
 | Skill | `powerx.release.notification_schedule` | 平台内置 demo Skill，通知计划 |
 | Skill | `powerx.release.report_synthesis` | 平台内置 demo Skill，主 Agent 汇总 |
-| Team | `release.readiness.team` | 发布准备协作团队，落库字段使用 `team_name` |
+| Team | `release.readiness` | 显示名为“发布准备协作团队”；`team_key` 仅作管理标识，运行时身份使用团队 UUID |
 
 Team Role 约束：
 
@@ -111,9 +113,9 @@ Agent-Skill Binding 约束：
 2. 主 Agent 只能默认看到汇总 Skill 与团队 handoff 能力。
 3. Runtime 构建候选池时必须按当前 `agent_id` 收敛，不得把全局 system/public Skill 暴露成当前 Agent 能力。
 
-## 4. ExecutionPlan MVP
+## 4. ExecutionPlan
 
-MVP 阶段可以先显式构造 `ExecutionPlan`，不要求自然语言自动稳定拆分为三个子 Agent。这样可以先验证底座执行语义，再推进 Team-aware Planner。
+Runtime 从当前团队的 `orchestration_spec` 编译 `ExecutionPlan`，不允许为任何固有 Demo 显式构造或在代码中选择计划。团队管理员可以配置任务、成员角色、Skill、依赖和失败策略；运行前必须验证角色成员唯一、成员/主智能体均绑定了所声明 Skill、依赖无环。
 
 建议计划：
 
@@ -126,7 +128,7 @@ MVP 阶段可以先显式构造 `ExecutionPlan`，不要求自然语言自动稳
       "node_kind": "agent_handoff",
       "node_ref": "release.knowledge_analyst",
       "params": {
-        "team_name": "release.readiness.team",
+        "team_key": "release.readiness",
         "child_agent_key": "release.knowledge_analyst",
         "message": "分析 PowerX Core v0.9.2 发布相关知识、历史风险和 Agent Skill Bridge / 插件安装风险。",
         "failure_policy": "continue"
@@ -138,7 +140,7 @@ MVP 阶段可以先显式构造 `ExecutionPlan`，不要求自然语言自动稳
       "node_ref": "release.workflow_planner",
       "depends_on": ["knowledge_analysis"],
       "params": {
-        "team_name": "release.readiness.team",
+        "team_key": "release.readiness",
         "child_agent_key": "release.workflow_planner",
         "message": "基于风险分析生成发布流程、验证清单和回滚步骤。",
         "failure_policy": "continue"
@@ -150,7 +152,7 @@ MVP 阶段可以先显式构造 `ExecutionPlan`，不要求自然语言自动稳
       "node_ref": "release.notification_scheduler",
       "depends_on": ["workflow_planning"],
       "params": {
-        "team_name": "release.readiness.team",
+        "team_key": "release.readiness",
         "child_agent_key": "release.notification_scheduler",
         "message": "根据发布流程生成通知计划、提醒计划和值班升级路径。",
         "failure_policy": "continue"

@@ -341,48 +341,11 @@
 
       <div v-if="isDetailMode" class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
         <div class="space-y-5">
-          <TraceTimeline :events="timeline" @select="selectNode" />
-          <div class="rounded-lg border border-gray-200 bg-white p-4">
-            <div class="mb-3 text-sm font-semibold text-gray-900">节点输入输出</div>
-            <div v-if="nodes.length" class="space-y-3">
-              <button
-                v-for="node in nodes"
-                :key="node.node_id"
-                type="button"
-                class="w-full rounded-md border border-gray-200 p-3 text-left hover:bg-gray-50"
-                :class="selectedNode?.node_id === node.node_id ? 'border-primary-500 bg-primary-50/60' : ''"
-                @click="selectNode(node.node_id)"
-              >
-                <div class="flex items-center justify-between gap-3">
-                  <div class="min-w-0">
-                    <div class="truncate text-sm font-medium text-gray-900">
-                      {{ formatNodeKind(node.node_kind) }} · {{ node.node_ref || node.node_id }}
-                    </div>
-                    <div class="mt-1 text-xs text-gray-500">
-                      {{ node.phase_status || 'running' }}
-                      <span v-if="node.skill_id"> · {{ node.skill_id }}</span>
-                    </div>
-                  </div>
-                  <UBadge size="xs" :color="node.error_summary ? 'error' : 'success'" variant="soft">
-                    {{ node.error_summary ? '失败' : '完成' }}
-                  </UBadge>
-                </div>
-                <div class="mt-2 grid gap-2 md:grid-cols-2">
-                  <div class="rounded bg-gray-50 p-2">
-                    <div class="mb-1 text-[11px] font-medium text-gray-500">输入</div>
-                    <pre class="max-h-28 overflow-auto whitespace-pre-wrap text-[11px] text-gray-700">{{ stringifyNode(node.input_summary) }}</pre>
-                  </div>
-                  <div class="rounded bg-gray-50 p-2">
-                    <div class="mb-1 text-[11px] font-medium text-gray-500">输出</div>
-                    <pre class="max-h-28 overflow-auto whitespace-pre-wrap text-[11px] text-gray-700">{{ stringifyNode(node.output_summary || { error: node.error_summary }) }}</pre>
-                  </div>
-                </div>
-              </button>
-            </div>
-            <div v-else class="rounded-md bg-gray-50 p-4 text-sm text-gray-500">
-              当前消息没有节点快照。请确认 Agent Trace 已开启，并从新消息入口进入追踪页。
-            </div>
-          </div>
+          <TraceTimeline
+            :events="timeline"
+            :selected-node-id="selectedNode?.node_id"
+            @select="selectNode"
+          />
         </div>
         <TraceNodeDetails :node="selectedNode" />
       </div>
@@ -397,9 +360,11 @@ import { useAgentTraceService } from "~/composables/api/services/agentTraceServi
 import { useTenantService, type Tenant } from "~/composables/api/services/tenantService";
 import type { AgentRunListItem, AgentSessionListItem, AgentTraceNode, AgentTraceQuery, AgentTraceReport } from "~/composables/api/types/agentTrace";
 import { useUserStore } from "~/stores/user";
+import { filterTraceEventsForRun } from "~/utils/agent/traceTimeline";
 
 const userStore = useUserStore();
 const isRoot = computed(() => userStore.isRoot);
+const { t } = useI18n();
 const service = useAgentTraceService();
 const tenantService = useTenantService();
 const route = useRoute();
@@ -409,6 +374,7 @@ const query = reactive<AgentTraceQuery>({
   tenant_uuid: String(route.query.tenant_uuid || ""),
   session_id: String(route.query.session_id || ""),
   message_id: String(route.query.message_id || ""),
+  run_id: String(route.query.run_id || "") || undefined,
   trace_id: String(route.query.trace_id || "") || undefined,
 });
 const loading = ref(false);
@@ -438,7 +404,7 @@ const pageSizeItems = [
   { label: "50 条", value: 50 },
   { label: "100 条", value: 100 },
 ];
-const isDetailMode = computed(() => Boolean(query.tenant_uuid && query.session_id && query.message_id));
+const isDetailMode = computed(() => Boolean(query.tenant_uuid && query.session_id && query.message_id && query.run_id));
 const isSessionMode = computed(() => Boolean(query.tenant_uuid && query.session_id && !query.message_id));
 const runsPageCount = computed(() => Math.max(1, Math.ceil(runsTotal.value / runsPageSize.value)));
 const sessionsPageCount = computed(() => Math.max(1, Math.ceil(sessionsTotal.value / sessionsPageSize.value)));
@@ -462,7 +428,12 @@ const tenantOptions = computed(() => {
     }));
 });
 
-const timeline = computed(() => report.value?.timeline || []);
+const timeline = computed(() =>
+  filterTraceEventsForRun(
+    report.value?.timeline || [],
+    String(report.value?.run_id || "")
+  )
+);
 const nodes = computed(() => report.value?.nodes || []);
 const selectedNode = computed<AgentTraceNode | null>(() => nodes.value.find((node) => node.node_id === selectedNodeID.value) || nodes.value[0] || null);
 const responsePlannerNode = computed(() => findNodeByKind("response_planner"));
@@ -507,11 +478,21 @@ const hasContextState = computed(() => {
   );
 });
 
+const currentRunNodeCount = computed(
+  () => new Set(timeline.value.map((event) => event.node_id)).size
+);
+const currentRunErrorCount = computed(
+  () =>
+    timeline.value.filter(
+      (event) => event.phase === "error" || event.status === "error"
+    ).length
+);
+
 const metricCards = computed(() => [
-  { label: "状态", value: String(report.value?.summary?.status || "-") },
-  { label: "节点", value: String(report.value?.nodes?.length || 0) },
-  { label: "事件", value: String(report.value?.timeline?.length || 0) },
-  { label: "错误", value: String(report.value?.errors?.length || 0) },
+  { label: t("agent.chat.traceTimeline.metrics.status"), value: String(report.value?.summary?.status || "-") },
+  { label: t("agent.chat.traceTimeline.metrics.nodes"), value: String(currentRunNodeCount.value) },
+  { label: t("agent.chat.traceTimeline.metrics.events"), value: String(timeline.value.length) },
+  { label: t("agent.chat.traceTimeline.metrics.errors"), value: String(currentRunErrorCount.value) },
 ]);
 
 const jsonDownloadUrl = computed(() => (report.value ? service.downloadUrl(query, "json") : undefined));
@@ -597,6 +578,7 @@ const selectSession = async (item: AgentSessionListItem) => {
   query.tenant_uuid = item.tenant_uuid;
   query.session_id = item.session_id;
   query.message_id = "";
+  query.run_id = undefined;
   query.trace_id = undefined;
   report.value = null;
   selectedNodeID.value = "";
@@ -614,12 +596,14 @@ const selectRun = async (item: AgentRunListItem) => {
   query.tenant_uuid = item.tenant_uuid;
   query.session_id = item.session_id;
   query.message_id = item.message_id;
+  query.run_id = item.run_id;
   query.trace_id = item.trace_id || undefined;
   await router.replace({
     query: {
       tenant_uuid: query.tenant_uuid,
       session_id: query.session_id,
       message_id: query.message_id,
+      run_id: query.run_id,
       ...(query.trace_id ? { trace_id: query.trace_id } : {}),
     },
   });
@@ -632,6 +616,7 @@ const backToSessionRuns = async () => {
     return;
   }
   query.message_id = "";
+  query.run_id = undefined;
   query.trace_id = undefined;
   report.value = null;
   selectedNodeID.value = "";
@@ -647,6 +632,7 @@ const backToSessionRuns = async () => {
 const backToList = async () => {
   query.session_id = "";
   query.message_id = "";
+  query.run_id = undefined;
   query.trace_id = undefined;
   report.value = null;
   selectedNodeID.value = "";
@@ -784,6 +770,7 @@ watch(
     if (!tenantUUID || tenantUUID === oldTenantUUID || isDetailMode.value) return;
     query.session_id = "";
     query.message_id = "";
+    query.run_id = undefined;
     query.trace_id = undefined;
     report.value = null;
     runsPage.value = 1;

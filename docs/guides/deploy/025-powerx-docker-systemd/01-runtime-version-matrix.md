@@ -8,7 +8,7 @@
 | 组件 | 固定版本 | 说明 |
 |---|---|---|
 | PowerX | `${POWERX_VERSION}`（明确版本号） | 禁止使用漂移值 |
-| Go（构建工具链） | `1.24.12` | 用于构建/本地工具运行 |
+| Go（构建工具链） | `1.26.7` | 用于构建/本地工具运行 |
 | Node.js（web-admin/runner） | `20.20.2` | systemd 与镜像内运行时都应对齐 |
 | PostgreSQL | `16` | Docker 对齐 `pgvector/pgvector:pg16` |
 | Redis | `7` | Docker 对齐 `redis:7-alpine` |

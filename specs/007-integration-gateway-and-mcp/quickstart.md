@@ -1,7 +1,7 @@
 ## Quickstart: Capability Registry + Integration Gateway（多插件能力）
 
 ### 前置条件
-- 已安装 Go 1.24、Buf CLI、px-plugin CLI，并在 `backend/` 下完成依赖下载（`make deps`）。
+- 已安装 Go 1.26.7、Buf CLI、px-plugin CLI，并在 `backend/` 下完成依赖下载（`make deps`）。
 - Postgres、Redis、EventBus、OpenTelemetry Collector 已根据 `config/config.yaml` 配置，尤其是：
   ```yaml
   capability_registry:

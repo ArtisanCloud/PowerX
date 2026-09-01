@@ -20,18 +20,18 @@
 
 - 生产建议严格使用上述推荐组合，避免跨大版本兼容差异。
 - 若你使用外部 PostgreSQL，必须确认目标库可用 `vector` 扩展（`CREATE EXTENSION vector;`）。
-- 若构建时报 `sonic/loader ... runtime.lastmoduledatap`，优先确认 Go 已升级到 `1.24.12`。
+- 若构建时报 `sonic/loader`、`GoMapIterator` 或 runtime ABI 相关错误，必须确认 Go 为 `1.26.7`，并同步升级 Sonic 与 loader 到仓库锁定版本。
 
 ## 3. Ubuntu 安装示例（可直接执行）
 
-### 3.0 Go 1.24.12（构建 PowerX 必备）
+### 3.0 Go 1.26.7（构建 PowerX 必备）
 
 先移除旧版（若存在），再安装官方二进制包：
 
 ```bash
 sudo rm -rf /usr/local/go
-curl -fL https://go.dev/dl/go1.24.12.linux-amd64.tar.gz -o /tmp/go1.24.12.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf /tmp/go1.24.12.linux-amd64.tar.gz
+curl -fL https://go.dev/dl/go1.26.7.linux-amd64.tar.gz -o /tmp/go1.26.7.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf /tmp/go1.26.7.linux-amd64.tar.gz
 ```
 
 设置 PATH（按当前用户）：
@@ -44,7 +44,7 @@ source ~/.bashrc
 固定工具链版本，避免自动漂移：
 
 ```bash
-go env -w GOTOOLCHAIN=go1.24.12
+go env -w GOTOOLCHAIN=go1.26.7
 go version
 go env GOVERSION GOTOOLCHAIN
 ```
@@ -116,7 +116,7 @@ ALTER ROLE powerx SUPERUSER;
 SQL
 ```
 
-若要启用“插件隔离库账号”安装（会自动创建 `pxu_*` 角色），还必须给 `powerx` 额外授权 `CREATEROLE`，否则插件安装会报：
+若要启用“插件隔离库账号”安装（目标命名为 `pxu_<deployment_env>_<plugin_slug>_<hash8>`），还必须给 `powerx` 额外授权 `CREATEROLE`，否则插件安装会报：
 `permission denied to create role (SQLSTATE 42501)`。
 
 先检查：
@@ -311,5 +311,5 @@ journalctl -u powerx-backend.service -n 100 --no-pager | grep -Ei "mkdir logs|pe
 
 1. `permission denied to create role (SQLSTATE 42501)`
 
-- 原因：应用账号 `powerx` 没有 `CREATEROLE`，无法创建插件隔离角色（`pxu_*`）。
+- 原因：应用账号 `powerx` 没有 `CREATEROLE`，无法创建插件隔离角色（目标命名 `pxu_<deployment_env>_*`）。
 - 处理：按 3.2 中“插件隔离库账号”章节执行 `ALTER ROLE powerx CREATEROLE;`。

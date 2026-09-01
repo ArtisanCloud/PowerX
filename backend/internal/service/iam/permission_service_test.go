@@ -6,6 +6,7 @@ import (
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
@@ -239,8 +240,8 @@ func TestPermissionServiceCleanupInvalidPluginPermissionsDeletesOnlyInvalidPlugi
 		},
 	}
 	require.NoError(t, db.Create(&rows).Error)
-	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 10, PermissionID: rows[0].ID}).Error)
-	require.NoError(t, db.Create(&dbm.RolePermission{RoleID: 10, PermissionID: rows[1].ID}).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&dbm.RolePermission{RoleID: 10, PermissionID: rows[0].ID, RoleUUID: uuid.New(), PermissionUUID: uuid.New()}).Error)
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&dbm.RolePermission{RoleID: 10, PermissionID: rows[1].ID, RoleUUID: uuid.New(), PermissionUUID: uuid.New()}).Error)
 
 	result, err := NewPermissionService(db).CleanupInvalidPluginPermissions(ctx, "demo.plugin")
 	require.NoError(t, err)

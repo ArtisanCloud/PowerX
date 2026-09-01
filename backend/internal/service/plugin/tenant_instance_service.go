@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	capmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -141,6 +142,9 @@ func (s *TenantPluginInstanceService) Enable(ctx context.Context, tenantUUID str
 		return nil, "", "", dto.NewErrorWithCode(http.StatusInternalServerError, ErrCodeTenantPluginNotFound, "租户插件实例创建失败", errors.New("tenant plugin instance missing after credentials ensure"))
 	}
 	cfg.ValueJSON = datatypes.JSON(mergePluginInstanceConfig(cfg.ValueJSON, clientID, config))
+	if err := s.syncRequiredCapabilities(ctx, tenantUUID, p, cfg); err != nil {
+		return nil, "", "", err
+	}
 	cfg.Enabled = true
 	cfg.Status = dbsetting.PluginInstanceStatusEnabled
 	cfg.DrainJobID = ""
@@ -152,6 +156,117 @@ func (s *TenantPluginInstanceService) Enable(ctx context.Context, tenantUUID str
 	}
 	instance := toTenantPluginInstance(tenantUUID, p, cfg)
 	return &instance, clientID, clientSecret, nil
+}
+
+// SyncManifestRequiredCapabilities repairs every existing tenant instance of a
+// globally installed plugin. It is idempotent and deliberately grants only
+// capabilities that are both published and registered for that tenant.
+func (s *TenantPluginInstanceService) SyncManifestRequiredCapabilities(ctx context.Context, manifest plugin_mgr.Manifest) error {
+	pluginID := strings.TrimSpace(manifest.ID)
+	if pluginID == "" {
+		return errors.New("plugin_id required")
+	}
+	plugin := plugin_mgr.Plugin{ID: pluginID, Version: strings.TrimSpace(manifest.Version), RequiredCapabilities: append([]string(nil), manifest.Capabilities.Required...)}
+	bindings, err := s.requireRepo().ListTenantPluginBindings(ctx, reposetting.ListTenantPluginOptions{
+		PluginIDs: []string{pluginID},
+		Key:       reposetting.KeyClientCredentials,
+	})
+	if err != nil {
+		return err
+	}
+	for _, binding := range bindings {
+		cfg, err := s.requireRepo().Get(ctx, binding.TenantUUID, pluginID, reposetting.KeyClientCredentials)
+		if err != nil {
+			return err
+		}
+		if cfg == nil {
+			continue
+		}
+		if err := s.syncRequiredCapabilities(ctx, binding.TenantUUID, plugin, cfg); err != nil {
+			return err
+		}
+		if err := s.requireRepo().Upsert(ctx, cfg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *TenantPluginInstanceService) syncRequiredCapabilities(ctx context.Context, tenantUUID string, plugin plugin_mgr.Plugin, cfg *dbsetting.PluginInstanceConfig) error {
+	required, err := normalizedRequiredCapabilities(plugin.RequiredCapabilities)
+	if err != nil {
+		return err
+	}
+	if len(required) == 0 {
+		return nil
+	}
+	if cfg == nil {
+		return errors.New("plugin credentials required")
+	}
+	db := s.requireRepo().DB()
+	if db == nil {
+		return errors.New("plugin credentials database unavailable")
+	}
+	for _, capabilityID := range required {
+		var record capmodels.CapabilityRecord
+		if err := db.WithContext(ctx).Where("capability_id = ? AND status = ?", capabilityID, "published").First(&record).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("required capability %s is not published", capabilityID)
+			}
+			return err
+		}
+		var registration capmodels.CapabilityRegistration
+		if err := db.WithContext(ctx).Where("capability_id = ? AND tenant_uuid = ? AND status = ?", capabilityID, tenantUUID, "published").First(&registration).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("required capability %s is not registered for tenant", capabilityID)
+			}
+			return err
+		}
+	}
+	var credential struct {
+		AllowedCapabilities []string `json:"allowed_capabilities,omitempty"`
+	}
+	if len(cfg.ValueJSON) > 0 {
+		if err := json.Unmarshal(cfg.ValueJSON, &credential); err != nil {
+			return fmt.Errorf("invalid plugin credentials: %w", err)
+		}
+	}
+	credential.AllowedCapabilities = append(credential.AllowedCapabilities, required...)
+	credential.AllowedCapabilities, err = normalizedRequiredCapabilities(credential.AllowedCapabilities)
+	if err != nil {
+		return fmt.Errorf("invalid plugin credential capability grant: %w", err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(cfg.ValueJSON, &doc); err != nil {
+		return fmt.Errorf("invalid plugin credentials: %w", err)
+	}
+	if doc == nil {
+		doc = map[string]any{}
+	}
+	doc["allowed_capabilities"] = credential.AllowedCapabilities
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	cfg.ValueJSON = datatypes.JSON(raw)
+	return nil
+}
+
+func normalizedRequiredCapabilities(values []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		capabilityID := strings.TrimSpace(value)
+		if capabilityID == "" {
+			return nil, errors.New("required capability_id is empty")
+		}
+		if _, exists := seen[capabilityID]; exists {
+			continue
+		}
+		seen[capabilityID] = struct{}{}
+		out = append(out, capabilityID)
+	}
+	return out, nil
 }
 
 func (s *TenantPluginInstanceService) Disable(ctx context.Context, tenantUUID, pluginID string) (*TenantPluginInstance, error) {

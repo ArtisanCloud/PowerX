@@ -13,7 +13,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24（backend）, TypeScript + Nuxt 4（web-admin）  
+**Language/Version**: Go 1.26.7（backend）, TypeScript + Nuxt 4（web-admin）
 **Primary Dependencies**: Gin HTTP, GORM, PostgreSQL, Redis, systemd/ops scripts, Nuxt UI  
 **Storage**: PostgreSQL（策略/作业/恢复/告警元数据）+ 文件或对象存储（备份产物）+ 日志后端（loki/file/stdio）  
 **Testing**: Go test（service/handler）, Nuxt build + E2E smoke（ops/backup, monitor/logs）  

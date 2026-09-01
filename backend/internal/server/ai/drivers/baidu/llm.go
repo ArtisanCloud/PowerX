@@ -12,7 +12,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // 百度（文心）Chat Completions：
@@ -86,11 +85,7 @@ func (c *baiduClient) endpoint(mc *config.ModelConfig, mode qianfanMode) string 
 }
 
 func (c *baiduClient) httpClient(mc *config.ModelConfig) *http.Client {
-	to := mc.Timeout
-	if to <= 0 {
-		to = 60 * time.Second
-	}
-	return &http.Client{Timeout: to}
+	return &http.Client{Timeout: mc.Timeout}
 }
 
 func (c *baiduClient) makeBody(mc *config.ModelConfig, userMessage string, streaming bool, includeModel bool) ([]byte, error) {

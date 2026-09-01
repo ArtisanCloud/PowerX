@@ -270,13 +270,14 @@ func (h *handler) startLocalInstall(c *gin.Context) {
 		return
 	}
 	start := time.Now()
+	developerMemberUUID := reqctx.GetMemberUUID(c.Request.Context())
 	session, err := h.local.Start(c.Request.Context(), local.StartInput{
-		TenantUUID:   tenantUUID,
-		DeveloperID:  req.DeveloperID,
-		ArtifactURI:  req.ArtifactURI,
-		FeatureFlags: req.FeatureFlags,
-		ResetCache:   req.ResetCache,
-		Actor:        c.GetHeader("Authorization"),
+		TenantUUID:          tenantUUID,
+		DeveloperMemberUUID: developerMemberUUID,
+		ArtifactURI:         req.ArtifactURI,
+		FeatureFlags:        req.FeatureFlags,
+		ResetCache:          req.ResetCache,
+		Actor:               c.GetHeader("Authorization"),
 	})
 	if err != nil {
 		h.writeLocalError(c, err)
@@ -291,7 +292,7 @@ func (h *handler) startLocalInstall(c *gin.Context) {
 		h.host.RecordInstall(c.Request.Context(), plugindebughost.InstallEvent{
 			SessionID:   session.UUID,
 			TenantUUID:  tenantUUID,
-			DeveloperID: req.DeveloperID,
+			DeveloperID: reqctx.GetMemberID(c.Request.Context()),
 			ArtifactURI: req.ArtifactURI,
 			Duration:    duration,
 			FeatureFlag: flag,
@@ -403,7 +404,6 @@ type debugHostRequest struct {
 }
 
 type localInstallRequest struct {
-	DeveloperID  uint64   `json:"developerId"`
 	ArtifactURI  string   `json:"artifactUri"`
 	FeatureFlags []string `json:"featureFlags"`
 	ResetCache   bool     `json:"resetCache"`

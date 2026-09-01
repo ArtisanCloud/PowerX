@@ -1,7 +1,7 @@
 # Quickstart — Knowledge Space Provisioning & Lifecycle Governance
 
 ## 1. Prerequisites
-- Go 1.24+ toolchain + `buf` CLI + `powerx` CLI installed.
+- Go 1.26.7 toolchain + `buf` CLI + `powerx` CLI installed.
 - Node 20 + npm (per constitution) for the Web Admin workspace.
 - Local PostgreSQL + Redis instances (see `config/docker-compose.*`), plus MinIO for artifact staging.
 - 确认 `backend/etc/config.yaml` 已配置可用的 DB/Redis，并启用 `feature_gate.enable_knowledge_space: true`。

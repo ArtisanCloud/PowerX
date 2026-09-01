@@ -68,7 +68,7 @@ func (s *RunStateSink) translate(event string, payload any) (string, any, bool) 
 	case dto.EventNodeEnd:
 		rawStatus := strings.ToLower(strings.TrimSpace(stringFromAny(mapValue(payload, "status"))))
 		status := dto.AgentTaskStatusPending
-		if strings.EqualFold(rawStatus, dto.AgentTaskStatusFailed) {
+		if strings.EqualFold(rawStatus, dto.AgentTaskStatusFailed) || taskPayloadIndicatesFailure(payload) {
 			status = dto.AgentTaskStatusFailed
 		} else if strings.EqualFold(rawStatus, dto.AgentTaskStatusCompleted) && hasTaskCompletionEvidence(payload) {
 			status = dto.AgentTaskStatusCompleted
@@ -89,6 +89,19 @@ func (s *RunStateSink) translate(event string, payload any) (string, any, bool) 
 	default:
 		return "", nil, false
 	}
+}
+
+func taskPayloadIndicatesFailure(payload any) bool {
+	if strings.TrimSpace(stringFromAny(mapValue(payload, "error"))) != "" {
+		return true
+	}
+	resultSummary, ok := mapValue(payload, "result_summary").(map[string]any)
+	if !ok {
+		return false
+	}
+	success, exists := resultSummary["success"]
+	value, isBoolean := success.(bool)
+	return exists && isBoolean && !value
 }
 
 func hasTaskCompletionEvidence(payload any) bool {
@@ -187,7 +200,7 @@ func (s *RunStateSink) taskState(payload any, status string) dto.AgentTaskState 
 		Message:       firstNonEmpty(stringFromAny(mapValue(payload, "message")), stringFromAny(mapValue(payload, "display_message"))),
 		Summary:       firstNonEmpty(stringFromAny(mapValue(payload, "summary")), stringFromAny(mapValue(payload, "result_message"))),
 		Result:        firstPresent(mapValue(payload, "result"), mapValue(payload, "result_summary"), mapValue(payload, "data")),
-		Error:         firstPresent(mapValue(payload, "error"), mapValue(payload, "detail"), mapValue(payload, "message")),
+		Error:         taskErrorFromPayload(payload, status),
 		UpdatedAt:     time.Now().UTC().Format(time.RFC3339Nano),
 	}
 	if state.TaskID == "" {
@@ -204,6 +217,15 @@ func (s *RunStateSink) taskState(payload any, status string) dto.AgentTaskState 
 		state.Links = links
 	}
 	return state
+}
+
+func taskErrorFromPayload(payload any, status string) any {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case dto.AgentTaskStatusFailed, "canceled", "cancelled":
+		return firstPresent(mapValue(payload, "error"), mapValue(payload, "detail"), mapValue(payload, "message"))
+	default:
+		return firstPresent(mapValue(payload, "error"), mapValue(payload, "detail"))
+	}
 }
 
 func planTasksFromPayload(payload any) []dto.AgentTaskState {

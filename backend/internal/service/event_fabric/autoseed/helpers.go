@@ -61,7 +61,7 @@ func BuildSeedVariables(plugin pm.Plugin) map[string]string {
 	}
 	add("scope", plugin.InstallMetadata.Scope)
 	add("namespace", plugin.InstallMetadata.Namespace)
-	add("environment", plugin.InstallMetadata.Environment)
+	add("release_channel", plugin.InstallMetadata.ReleaseChannel)
 	add("notes", plugin.InstallMetadata.Notes)
 
 	if len(vars) == 0 {

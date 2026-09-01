@@ -47,3 +47,15 @@ func TestAsStringFromMapTreatsMissingOrNilAsEmpty(t *testing.T) {
 		t.Fatalf("protocol = %q, want rest", got)
 	}
 }
+
+func TestResolveSkillPreferredProtocolDoesNotDefaultToREST(t *testing.T) {
+	if got := resolveSkillPreferredProtocol(nil, nil); got != "" {
+		t.Fatalf("preferred protocol = %q, want empty", got)
+	}
+	if got := resolveSkillPreferredProtocol(map[string]any{"preferred_protocol": " core_internal "}, nil); got != "core_internal" {
+		t.Fatalf("preferred protocol from payload = %q, want core_internal", got)
+	}
+	if got := resolveSkillPreferredProtocol(nil, map[string]any{"preferred_protocol": " grpc "}); got != "grpc" {
+		t.Fatalf("preferred protocol from context = %q, want grpc", got)
+	}
+}

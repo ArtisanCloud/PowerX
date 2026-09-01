@@ -2,6 +2,7 @@ package seed
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -32,8 +33,6 @@ func SeedOfficialBuiltinSkills(db *gorm.DB) error {
 	}
 
 	now := time.Now().UTC()
-	manifest := datatypes.JSON([]byte(`{"name":"builtin skill","description":"seeded by platform","entrypoints":["default"],"schema_version":"1.0"}`))
-
 	seeds := []builtinSkillSeed{
 		{CatalogSkillID: "catalog.healthcheck", SkillID: "skill.builtin.healthcheck", Version: "1.0.0", RiskLevel: "L1", Category: "platform", Summary: "环境连通性与依赖健康检查", Maintainer: "powerx-core", OfficialReleaseNote: "Builtin health diagnostics", BundleURI: "builtin://skills/healthcheck/1.0.0", Checksum: "sha256:builtin-healthcheck-1.0.0"},
 		{CatalogSkillID: "catalog.session-logs", SkillID: "skill.builtin.session-logs", Version: "1.0.0", RiskLevel: "L1", Category: "platform", Summary: "会话日志检索与摘要", Maintainer: "powerx-core", OfficialReleaseNote: "Builtin session log triage", BundleURI: "builtin://skills/session-logs/1.0.0", Checksum: "sha256:builtin-session-logs-1.0.0"},
@@ -54,6 +53,8 @@ func SeedOfficialBuiltinSkills(db *gorm.DB) error {
 		{CatalogSkillID: "catalog.video-frames", SkillID: "skill.builtin.video-frames", Version: "1.0.0", RiskLevel: "L2", Category: "media", Summary: "视频抽帧处理", Maintainer: "powerx-core", OfficialReleaseNote: "Builtin video frame utility", BundleURI: "builtin://skills/video-frames/1.0.0", Checksum: "sha256:builtin-video-frames-1.0.0"},
 		{CatalogSkillID: "catalog.marketing-source-parse", SkillID: "marketing.audio_or_document_parse", Version: "1.0.0", RiskLevel: "L2", Category: "marketing", Summary: "workflow.skill.marketingSourceParse.summary", Maintainer: "powerx-core", OfficialReleaseNote: "workflow.skill.marketingSourceParse.releaseNote", BundleURI: "builtin://skills/marketing/audio-or-document-parse/1.0.0", Checksum: "sha256:builtin-marketing-audio-or-document-parse-1.0.0"},
 		{CatalogSkillID: "catalog.marketing-methodology-extract", SkillID: "marketing.extract_methodology", Version: "1.0.0", RiskLevel: "L2", Category: "marketing", Summary: "workflow.skill.marketingMethodologyExtract.summary", Maintainer: "powerx-core", OfficialReleaseNote: "workflow.skill.marketingMethodologyExtract.releaseNote", BundleURI: "builtin://skills/marketing/extract-methodology/1.0.0", Checksum: "sha256:builtin-marketing-extract-methodology-1.0.0"},
+		{CatalogSkillID: "catalog.marketing-metric-extract", SkillID: "marketing.metric_extract", Version: "1.0.0", RiskLevel: "L2", Category: "marketing", Summary: "workflow.skill.marketingMetricExtract.summary", Maintainer: "powerx-core", OfficialReleaseNote: "workflow.skill.marketingMetricExtract.releaseNote", BundleURI: "builtin://skills/marketing/metric-extract/1.0.0", Checksum: "sha256:builtin-marketing-metric-extract-1.0.0"},
+		{CatalogSkillID: "catalog.marketing-review-summarize", SkillID: "marketing.review_summarize", Version: "1.0.0", RiskLevel: "L2", Category: "marketing", Summary: "workflow.skill.marketingReviewSummarize.summary", Maintainer: "powerx-core", OfficialReleaseNote: "workflow.skill.marketingReviewSummarize.releaseNote", BundleURI: "builtin://skills/marketing/review-summarize/1.0.0", Checksum: "sha256:builtin-marketing-review-summarize-1.0.0"},
 		{CatalogSkillID: "catalog.camsnap", SkillID: "skill.builtin.camsnap", Version: "1.0.0", RiskLevel: "L3", Category: "device", Summary: "摄像头抓拍", Maintainer: "powerx-core", OfficialReleaseNote: "Builtin camera capture", BundleURI: "builtin://skills/camsnap/1.0.0", Checksum: "sha256:builtin-camsnap-1.0.0"},
 		{CatalogSkillID: "catalog.voice-call", SkillID: "skill.builtin.voice-call", Version: "1.0.0", RiskLevel: "L3", Category: "channel", Summary: "语音通话控制", Maintainer: "powerx-core", OfficialReleaseNote: "Builtin voice calling", BundleURI: "builtin://skills/voice-call/1.0.0", Checksum: "sha256:builtin-voice-call-1.0.0"},
 		{CatalogSkillID: "catalog.1password", SkillID: "skill.builtin.1password", Version: "1.0.0", RiskLevel: "L3", Category: "security", Summary: "凭据安全读取与填充", Maintainer: "powerx-core", OfficialReleaseNote: "Builtin secret workflow", BundleURI: "builtin://skills/1password/1.0.0", Checksum: "sha256:builtin-1password-1.0.0"},
@@ -61,6 +62,10 @@ func SeedOfficialBuiltinSkills(db *gorm.DB) error {
 
 	for i := range seeds {
 		s := seeds[i]
+		manifest, err := builtinSkillManifest(s)
+		if err != nil {
+			return fmt.Errorf("build builtin manifest %s: %w", s.SkillID, err)
+		}
 
 		catalog := &skillmodel.OfficialSkillCatalogEntry{
 			CatalogSkillID:      s.CatalogSkillID,
@@ -132,4 +137,21 @@ func SeedOfficialBuiltinSkills(db *gorm.DB) error {
 
 	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "[seed] skills builtin catalog ready: %d", len(seeds))
 	return nil
+}
+
+// builtinSkillManifest only persists catalog metadata. A skill becomes
+// executable exclusively through its published declarative manifest; Core
+// never branches by a business Skill ID.
+func builtinSkillManifest(seed builtinSkillSeed) (datatypes.JSON, error) {
+	manifest := map[string]any{
+		"name":           "builtin skill",
+		"description":    "seeded by platform",
+		"entrypoints":    []string{"default"},
+		"schema_version": "1.0",
+	}
+	raw, err := json.Marshal(manifest)
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(raw), nil
 }

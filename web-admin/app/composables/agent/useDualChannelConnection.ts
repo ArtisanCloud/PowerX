@@ -28,9 +28,10 @@ export interface DualChannelConnection {
     meta?: Record<string, any>
   ) => Promise<void>;
   regenerateFrom: (
-    messageId: number,
+    messageId: string | number,
     flowId?: string,
-    editedMessage?: string
+    editedMessage?: string,
+    meta?: Record<string, any>
   ) => Promise<void>;
   sendCommand: (command: any) => boolean;
   messages: Ref<any[]>;
@@ -46,6 +47,7 @@ export function useDualChannelConnection(
   sessionId?: Ref<string | null>
 ): DualChannelConnection {
   const config = useRuntimeConfig();
+  const { t } = useI18n();
   const apiBase = config.public.apiBase;
   const wsAgentPrefix = String((config.public as any).wsAgentPrefix || "/ws").trim() || "/ws";
   const envStore = useEnvStore();
@@ -518,8 +520,32 @@ export function useDualChannelConnection(
         };
 
         const applyRunStateEvent = (eventType: string, payload: any) => {
-          const { idx, msg } = getPendingAssistant();
-          if (idx < 0 || !msg) return;
+          mergeTraceMetaIntoPending(payload);
+          let { idx, msg } = getPendingAssistant();
+          if (idx < 0 || !msg) {
+            pendingAssistantId = `a_${Date.now()}`;
+            msg = {
+              id: pendingAssistantId,
+              role: "assistant",
+              content: "",
+              timestamp: Date.now(),
+              isStreaming: true,
+              done: false,
+              isThinking: true,
+              isError: false,
+              meta: {
+                trace: currentTraceMeta,
+                think: {
+                  blocks: [],
+                  current: "",
+                  hasActiveThink: false,
+                  hasThink: false,
+                },
+              },
+            };
+            messages.value.push(msg);
+            idx = messages.value.length - 1;
+          }
           const runState = ensureRunState(msg);
           mergeRunIdentity(runState, payload);
           const inner = payload?.payload && typeof payload.payload === "object" ? payload.payload : payload;
@@ -554,6 +580,28 @@ export function useDualChannelConnection(
             runState.ended = true;
           }
           runState.updatedAt = Date.now();
+          bumpMessagesRef();
+        };
+
+        const markRunFailure = (payload: any) => {
+          const inner = payload?.payload && typeof payload.payload === "object"
+            ? payload.payload
+            : payload;
+          const code = String(inner?.code || inner?.error?.code || "").trim();
+          const { msg } = getPendingAssistant();
+          if (!msg) return;
+          msg.isThinking = false;
+          msg.isStreaming = false;
+          msg.done = true;
+          msg.isError = true;
+          msg.content = code === "agent_run.timeout"
+            ? t("agent.chat.executionTimeout")
+            : t("agent.chat.executionFailed");
+          msg.meta = {
+            ...(msg.meta || {}),
+            failure: { code, retryable: !!inner?.retryable },
+          };
+          attachTraceMeta(msg, resolveTraceMetaForAssistantError());
           bumpMessagesRef();
         };
 
@@ -628,6 +676,7 @@ export function useDualChannelConnection(
           };
           pick("tenant_uuid");
           pick("trace_id");
+          pick("run_id", "runId");
           pick("session_id", "session_id_num");
           pick("session_uuid");
           pick("message_id", "user_message_id");
@@ -768,11 +817,35 @@ export function useDualChannelConnection(
           if (!payload.type && eventName) payload.type = eventName;
 
           onMessageCallback?.(payload);
-          const type = String(payload.type || eventName || "").toLowerCase();
+          let type = String(payload.type || eventName || "").toLowerCase();
 
           if (type.startsWith("agent_run.")) {
             applyRunStateEvent(type, payload);
-            return;
+            if (type === SSE_EVENT_TYPES.AGENT_RUN_ENDED) {
+              const inner = payload?.payload && typeof payload.payload === "object"
+                ? payload.payload
+                : payload;
+              if (inner?.success === false) {
+                markRunFailure(payload);
+                finalize({ abort: true });
+              }
+              return;
+            }
+            if (type !== SSE_EVENT_TYPES.AGENT_RUN_FINAL) return;
+
+            // Agent Run Protocol 的 final 包裹在 payload.data 中。将其标准化为
+            // 聊天渲染使用的 final 结构，保证执行卡片与最终回复写入同一条消息。
+            const finalPayload =
+              payload?.payload && typeof payload.payload === "object"
+                ? payload.payload
+                : payload;
+            payload = {
+              ...payload,
+              ...finalPayload,
+              data: finalPayload?.data ?? payload?.data,
+              metadata: finalPayload?.metadata ?? payload?.metadata,
+            };
+            type = SSE_EVENT_TYPES.FINAL;
           }
 
           // meta：用于把“前端临时消息 id”映射到“DB message id”（支持立即重新生成）
@@ -919,6 +992,10 @@ export function useDualChannelConnection(
                   !!currentThinkContent,
               },
             };
+            const responseEnvelope = payload?.data?.response_envelope;
+            if (responseEnvelope?.schema === "powerx.agent.response/v3") {
+              answer.meta.responseEnvelope = responseEnvelope;
+            }
 
             // 6) FINAL 收尾
             if (type === SSE_EVENT_TYPES.FINAL) {
@@ -1144,14 +1221,20 @@ export function useDualChannelConnection(
   };
 
   const regenerateFrom = async (
-    messageId: number,
+    messageId: string | number,
     flowId = BaseFlowKey,
-    editedMessage?: string
+    editedMessage?: string,
+    meta?: Record<string, any>
   ) => {
-    if (!messageId) return;
+    const persistedMessageId = String(messageId ?? "").trim();
+    if (!/^[1-9]\d*$/.test(persistedMessageId)) {
+      throw new Error("INVALID_REGEN_FROM_MESSAGE_ID");
+    }
 
     // 裁剪本地消息：保留到该 user message（含）为止
-    const cutoff = messages.value.findIndex((m) => m.id === messageId);
+    const cutoff = messages.value.findIndex(
+      (m) => String(m.id) === persistedMessageId
+    );
     if (cutoff >= 0) {
       if (typeof editedMessage === "string") {
         const trimmed = editedMessage.trim();
@@ -1188,8 +1271,9 @@ export function useDualChannelConnection(
     bumpMessagesRef();
 
     await sendSSEMessage((editedMessage ?? "").trim(), flowId, {
+      ...(meta || {}),
       noUserEcho: true,
-      regen_from_message_id: messageId,
+      regen_from_message_id: persistedMessageId,
     });
   };
 

@@ -4,7 +4,7 @@
 
 - Working branch: `029-metadata-governance`.
 - PostgreSQL and Redis available for normal PowerX development.
-- Backend dependencies ready for Go 1.24.
+- Backend dependencies ready for Go 1.26.7.
 - Web Admin dependencies installed for Nuxt 4.
 
 ## Backend Development Flow

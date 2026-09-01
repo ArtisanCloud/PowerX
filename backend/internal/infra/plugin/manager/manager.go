@@ -58,6 +58,9 @@ type managerImpl struct {
 
 	// 内部通信令牌：pluginID -> token（仅内存，不落盘）
 	tokens map[string]string
+
+	// databaseSectionBuilder 仅用于隔离数据库单元测试注入；生产路径始终使用 buildDatabaseSection。
+	databaseSectionBuilder func(pluginID string) (*databaseSection, error)
 }
 
 // New 生成一个内嵌管理器实现

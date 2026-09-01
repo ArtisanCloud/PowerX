@@ -7,7 +7,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // GetBridgeState 返回 Agent 的聚合状态与事件时间线。
@@ -16,9 +15,8 @@ func (h *Handler) GetBridgeState(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-	agentID, err := uuid.Parse(c.Param("agent_id"))
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid agent_id", err)
+	agentID, _, ok := h.requireServiceTenantAgent(c)
+	if !ok {
 		return
 	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -46,9 +44,8 @@ func (h *Handler) RebalanceAgent(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-	agentID, err := uuid.Parse(c.Param("agent_id"))
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid agent_id", err)
+	agentID, tenantUUID, ok := h.requireServiceTenantAgent(c)
+	if !ok {
 		return
 	}
 	var req bridgeRebalanceRequest
@@ -58,10 +55,10 @@ func (h *Handler) RebalanceAgent(c *gin.Context) {
 	}
 	result, err := h.service.Scale(c.Request.Context(), agent_lifecycle.ScaleInput{
 		AgentID:     agentID,
-		TenantUUID:  req.TenantUUID,
+		TenantUUID:  tenantUUID,
 		Target:      req.TargetCapacityInstances,
 		Reason:      req.Reason,
-		RequestedBy: req.RequestedBy,
+		RequestedBy: serviceActorSubject(c),
 		TraceID:     req.TraceID,
 	})
 	if err != nil {
@@ -76,9 +73,8 @@ func (h *Handler) performLifecycleControl(c *gin.Context, action string) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-	agentID, err := uuid.Parse(c.Param("agent_id"))
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid agent_id", err)
+	agentID, tenantUUID, ok := h.requireServiceTenantAgent(c)
+	if !ok {
 		return
 	}
 	var req bridgeControlRequest
@@ -88,21 +84,22 @@ func (h *Handler) performLifecycleControl(c *gin.Context, action string) {
 	}
 
 	var result *agent_lifecycle.LifecycleResult
+	var err error
 	switch action {
 	case "freeze":
 		result, err = h.service.Pause(c.Request.Context(), agent_lifecycle.PauseInput{
 			AgentID:     agentID,
-			TenantUUID:  req.TenantUUID,
+			TenantUUID:  tenantUUID,
 			Reason:      req.Reason,
-			RequestedBy: req.RequestedBy,
+			RequestedBy: serviceActorSubject(c),
 			TraceID:     req.TraceID,
 		})
 	case "recover":
 		result, err = h.service.Resume(c.Request.Context(), agent_lifecycle.ResumeInput{
 			AgentID:     agentID,
-			TenantUUID:  req.TenantUUID,
+			TenantUUID:  tenantUUID,
 			Reason:      req.Reason,
-			RequestedBy: req.RequestedBy,
+			RequestedBy: serviceActorSubject(c),
 			TraceID:     req.TraceID,
 		})
 	default:

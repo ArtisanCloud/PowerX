@@ -694,69 +694,24 @@ func execLLM(a *AgentClient) NodeExec {
 			return nil, fmt.Errorf("llm config missing model")
 		}
 		applyLLMCacheStrategy(mc.Provider, mc)
-		cli, err := llm.NewClient(mc.Provider)
-		if err != nil {
-			return nil, fmt.Errorf("llm provider init failed: %w", err)
-		}
-
 		// 3) 是否需要流式：从上下文拿 emitter（注意要用 tokenEmitterFrom，而不是 tokenEmitterKey{}）
 		emitter := tokenEmitterFrom(ctx)
 
 		// 4) 若需要流式，优先尝试 provider 原生流
 		if emitter != nil {
-			if final, err := cli.Stream(ctx, mc, prompt, func(delta string) {
+			final, err := llm.StreamOrFallback(ctx, mc, prompt, func(delta string) {
 				if strings.TrimSpace(delta) != "" {
 					emitter(delta)
 				}
-			}); err == nil {
-				return flowschema.Result{"content": final}, nil
+			})
+			if err != nil {
+				return nil, fmt.Errorf("llm stream failed: %w", err)
 			}
-
-			// 5) 原生流不可用 -> 回退到同步 + 本地分块回放
-			invokeResult, invErr := cli.Invoke(ctx, mc, prompt)
-			if invErr != nil {
-				return nil, fmt.Errorf("llm invoke failed: %w", invErr)
-			}
-			content := ""
-			if invokeResult != nil {
-				content = invokeResult.Text
-			}
-
-			// 分块配置：优先节点参数，可不配就用默认
-			chunkSize := 8
-			if v, ok := node.Params["stream_chunk"].(int); ok && v > 0 {
-				chunkSize = v
-			}
-			delayMs := 20
-			if v, ok := node.Params["stream_delay_ms"].(int); ok && v >= 0 {
-				delayMs = v
-			}
-
-			rs := []rune(content)
-			for i := 0; i < len(rs); i += chunkSize {
-				select {
-				case <-ctx.Done():
-					return flowschema.Result{"content": content}, ctx.Err()
-				default:
-				}
-				j := i + chunkSize
-				if j > len(rs) {
-					j = len(rs)
-				}
-				emitter(string(rs[i:j]))
-				if delayMs > 0 {
-					select {
-					case <-ctx.Done():
-						return flowschema.Result{"content": content}, ctx.Err()
-					case <-time.After(time.Duration(delayMs) * time.Millisecond):
-					}
-				}
-			}
-			return flowschema.Result{"content": content}, nil
+			return flowschema.Result{"content": final}, nil
 		}
 
 		// 6) 上层不需要流式 -> 直接同步调用
-		invokeResult, err := cli.Invoke(ctx, mc, prompt)
+		invokeResult, err := llm.Invoke(ctx, mc, prompt)
 		if err != nil {
 			return nil, fmt.Errorf("llm invoke failed: %w", err)
 		}

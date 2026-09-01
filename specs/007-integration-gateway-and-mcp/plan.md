@@ -89,7 +89,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24（backend）、Node 20（脚本+CLI）  
+**Language/Version**: Go 1.26.7（backend）、Node 20（脚本+CLI）
 **Primary Dependencies**: Gin、gRPC（Buf toolchain）、GORM、Redis、PostgreSQL、EventBus、OpenTelemetry  
 **Storage**: PostgreSQL（CapabilityRecord/SyncJob/InvocationTrace）、Redis（SelectorPolicySnapshot、能力缓存）、MinIO/S3（媒资对象）  
 **Testing**: `make contracts-test`、`make unit-test`、`go test ./backend/internal/...`；契约测试覆盖 HTTP+gRPC  
