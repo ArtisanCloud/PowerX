@@ -281,6 +281,11 @@ func (r *DynamicRouter) isPublicAPIRequest(pluginID, method, clientPath string) 
 
 func (r *DynamicRouter) adminAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isAdminStaticAssetRequest(c.Request, c.Param("filepath")) {
+			c.Writer.Header().Set("X-PowerX-Plugin-Admin-Asset", "1")
+			c.Next()
+			return
+		}
 		for _, mw := range r.apiMiddleware {
 			mw(c)
 			if c.IsAborted() {
@@ -299,17 +304,37 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	if clientPath == "" {
 		clientPath = "/"
 	}
-	if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
-		abortTenantPluginGuard(c, err)
-		return
-	}
 	if clean, changed := normalizeAdminClientPath(pluginID, clientPath); changed {
 		logger.InfoF(c.Request.Context(), "[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
 		clientPath = clean
 	}
 
+	adminStaticAsset := isAdminStaticAssetRequest(c.Request, clientPath)
 	if r.tryServeAdminStaticAsset(c, pluginID, clientPath) {
 		return
+	}
+	if !adminStaticAsset {
+		if err := r.requireTenantPluginEnabled(c, pluginID); err != nil {
+			abortTenantPluginGuard(c, err)
+			return
+		}
+	}
+	if r.requiresAdminPagePermission(c.Request, clientPath) {
+		claims := claimsFromGinContext(c)
+		gatePath := normalizeAdminGatePath(clientPath)
+		tok, allowed, reason := r.checkPluginRoutePermission(c, pluginID, c.Request.Method, gatePath, claims)
+		if !allowed {
+			if reason == "no registered permission binding for this route" {
+				logger.WarnF(c.Request.Context(), "[ADMIN-GATE-SKIP] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
+					pluginID, c.Request.Method, clientPath, gatePath, reason)
+			} else {
+				logger.WarnF(c.Request.Context(), "[ADMIN-GATE-DENY] plugin=%s method=%s clientPath=%s gatePath=%s reason=%s",
+					pluginID, c.Request.Method, clientPath, gatePath, reason)
+				abortGatewayAccessDenied(c, http.StatusForbidden, reason)
+				return
+			}
+		}
+		_ = tok
 	}
 
 	// 反代优先
@@ -515,10 +540,23 @@ func abortTenantPluginGuard(c *gin.Context, err error) {
 	} else if err != nil && strings.TrimSpace(err.Error()) != "" {
 		reason = err.Error()
 	}
+	requestID, traceID := getRequestTraceIDs(c)
 	c.AbortWithStatusJSON(status, gin.H{
 		"error":      "access denied at gateway",
 		"error_code": code,
 		"reason":     reason,
+		"request_id": requestID,
+		"trace_id":   traceID,
+	})
+}
+
+func abortGatewayAccessDenied(c *gin.Context, status int, reason string) {
+	requestID, traceID := getRequestTraceIDs(c)
+	c.AbortWithStatusJSON(status, gin.H{
+		"error":      "access denied at gateway",
+		"reason":     strings.TrimSpace(reason),
+		"request_id": requestID,
+		"trace_id":   traceID,
 	})
 }
 
@@ -550,6 +588,30 @@ func shouldRewriteAdminDocToIndex(req *http.Request, clientPath string) bool {
 		return false
 	}
 	return true
+}
+
+func isAdminStaticAssetRequest(req *http.Request, clientPath string) bool {
+	if req == nil {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return false
+	}
+	lower := strings.ToLower(p)
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/_nuxt/") ||
+		strings.HasPrefix(lower, "/_nuxt_icon/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/favicon") ||
+		strings.HasPrefix(lower, "/__") {
+		return true
+	}
+	return strings.ToLower(filepath.Ext(lower)) != ""
 }
 
 // ===== API 反代（带授权预检 + 短期 Token） =====
@@ -669,19 +731,16 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if resolvedTenant == "" {
 			logger.WarnF(c.Request.Context(), "[PROXY-TENANT-DENY] plugin=%s method=%s clientPath=%s normalized=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
 				pluginID, c.Request.Method, clientPath, gatePath, resolvedTenant, requestID, traceID, "tenant scoped ws-bus route requires tenant from auth context")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error":  "access denied at gateway",
-				"reason": "tenant scoped ws-bus route requires tenant from auth context",
-			})
+			abortGatewayAccessDenied(c, http.StatusForbidden, "tenant scoped ws-bus route requires tenant from auth context")
 			return
 		}
 	}
 	if r.gate != nil && publicRoute != true {
-		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, gatePath, claims)
+		tok, allowed, reason := r.checkPluginRoutePermission(c, pluginID, c.Request.Method, gatePath, claims)
 		if !allowed {
 			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s tenant_uuid=%s request_id=%s trace_id=%s reason=%s",
 				pluginID, c.Request.Method, gatePath, logTenantUUID, requestID, traceID, reason)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
+			abortGatewayAccessDenied(c, http.StatusForbidden, reason)
 			return
 		}
 		pluginToken = tok
@@ -787,6 +846,99 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	proxy.ServeHTTP(c.Writer, c.Request)
 }
 
+func (r *DynamicRouter) checkPluginRoutePermission(c *gin.Context, pluginID, method, gatePath string, claims reqctx.CoreXClaims) (string, bool, string) {
+	if r == nil || r.gate == nil {
+		return "", true, ""
+	}
+	return r.gate.CheckAndMint(c.Request.Context(), pluginID, method, gatePath, claims)
+}
+
+func (r *DynamicRouter) requiresAdminPagePermission(req *http.Request, clientPath string) bool {
+	if r == nil || r.gate == nil || req == nil {
+		return false
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	p := strings.TrimSpace(clientPath)
+	if p == "" || p == "/" {
+		return true
+	}
+	lower := strings.ToLower(p)
+	if strings.HasPrefix(lower, "/assets/") ||
+		strings.HasPrefix(lower, "/_nuxt/") ||
+		strings.HasPrefix(lower, "/images/") ||
+		strings.HasPrefix(lower, "/favicon") ||
+		strings.HasPrefix(lower, "/__") {
+		return false
+	}
+	if ext := strings.ToLower(filepath.Ext(lower)); ext != "" {
+		return false
+	}
+	return true
+}
+
+func normalizeAdminGatePath(clientPath string) string {
+	clientPath = strings.TrimSpace(clientPath)
+	if clientPath == "" || clientPath == "/" {
+		return "/admin"
+	}
+	if !strings.HasPrefix(clientPath, "/") {
+		clientPath = "/" + clientPath
+	}
+	return normalizePath("/admin" + clientPath)
+}
+
+func claimsFromGinContext(c *gin.Context) reqctx.CoreXClaims {
+	var claims reqctx.CoreXClaims
+	if c == nil || c.Request == nil {
+		return claims
+	}
+	if v, ok := c.Get("auth_claims"); ok {
+		if cc, ok := v.(reqctx.CoreXClaims); ok {
+			claims = cc
+		}
+	}
+	ctx := c.Request.Context()
+	if tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx)); tenantUUID != "" {
+		claims.TenantUUID = tenantUUID
+	}
+	if claims.UserID == 0 {
+		claims.UserID = reqctx.GetUserID(ctx)
+	}
+	if claims.MemberID == 0 {
+		claims.MemberID = reqctx.GetMemberID(ctx)
+	}
+	if claims.MemberUUID == "" {
+		claims.MemberUUID = strings.TrimSpace(reqctx.GetSubject(ctx))
+	}
+	if rc := reqctx.GetClaims(ctx); rc != nil {
+		if claims.TenantUUID == "" {
+			claims.TenantUUID = strings.TrimSpace(rc.TenantUUID)
+		}
+		if claims.UserUUID == "" {
+			claims.UserUUID = strings.TrimSpace(rc.UserUUID)
+		}
+		if claims.Email == "" {
+			claims.Email = strings.TrimSpace(rc.Email)
+		}
+		if claims.Phone == "" {
+			claims.Phone = strings.TrimSpace(rc.Phone)
+		}
+		if !claims.IsRoot {
+			claims.IsRoot = rc.IsRoot
+		}
+		if len(claims.Roles) == 0 && len(rc.Roles) > 0 {
+			claims.Roles = append([]string(nil), rc.Roles...)
+		}
+	}
+	if !claims.IsRoot {
+		claims.IsRoot = reqctx.IsRoot(ctx)
+	}
+	return claims
+}
+
 func normalizeGatePathForPolicy(clientPath, basePath string) string {
 	path := strings.TrimSpace(clientPath)
 	if path == "" {
@@ -805,13 +957,20 @@ func normalizeGatePathForPolicy(clientPath, basePath string) string {
 	}
 	base = strings.TrimRight(base, "/")
 
-	// 常见场景：route 是 "/_p/:id/api/*filepath"，传入 clientPath 变为 "/v1/..."
-	// 而策略希望在 "/api/v1/..." 坐标匹配。这里按插件声明的 basePath 进行归一。
-	if strings.HasPrefix(base, "/api/") && strings.HasPrefix(path, "/v1/") {
-		return "/api" + path
+	if path == base {
+		return "/"
 	}
-	if strings.HasPrefix(base, "/api") && !strings.HasPrefix(path, "/api/") {
-		return joinURLPath("/api", path)
+	if strings.HasPrefix(path, base+"/") {
+		return strings.TrimPrefix(path, base)
+	}
+	if strings.HasPrefix(base, "/api/") {
+		withoutAPI := strings.TrimPrefix(base, "/api")
+		if withoutAPI != "" && path == withoutAPI {
+			return "/"
+		}
+		if withoutAPI != "" && strings.HasPrefix(path, withoutAPI+"/") {
+			return strings.TrimPrefix(path, withoutAPI)
+		}
 	}
 	return path
 }

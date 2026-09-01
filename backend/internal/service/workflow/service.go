@@ -27,6 +27,7 @@ type DefinitionStore interface {
 	NextVersion(ctx context.Context, tenantUUID string, name string) (int32, error)
 	GetByUUID(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error)
 	GetLatestPublished(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID) (*modelworkflow.WorkflowDefinition, error)
+	ListVersionsByWorkflow(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID) ([]modelworkflow.WorkflowDefinition, error)
 	ListByTenant(ctx context.Context, filter workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error)
 	UpdateStatus(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version int32, status string, updates map[string]interface{}) error
 }
@@ -275,6 +276,20 @@ type CreateDefinitionInput struct {
 	Metadata           map[string]any
 }
 
+// CreateDefinitionRevisionInput 定义从既有定义创建新版本所需参数。
+type CreateDefinitionRevisionInput struct {
+	TenantUUID         string
+	SourceUUID         uuid.UUID
+	CreatedBy          uuid.UUID
+	Name               string
+	Description        string
+	Steps              []StepDefinition
+	DefaultRetryPolicy map[string]any
+	CompensationPolicy map[string]any
+	SlaPolicy          map[string]any
+	Metadata           map[string]any
+}
+
 // PublishDefinitionInput 定义发布工作流所需参数。
 type PublishDefinitionInput struct {
 	TenantUUID     string
@@ -343,6 +358,97 @@ func (s *Service) CreateDefinition(ctx context.Context, input CreateDefinitionIn
 		map[string]any{"definition_uuid": created.UUID.String()},
 	))
 
+	return created, nil
+}
+
+// CreateDefinitionRevision 基于已有定义创建新的草稿版本；已发布定义不可原地修改。
+func (s *Service) CreateDefinitionRevision(ctx context.Context, input CreateDefinitionRevisionInput) (*modelworkflow.WorkflowDefinition, error) {
+	if s == nil {
+		return nil, errors.New("workflow service unavailable")
+	}
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	if input.SourceUUID == uuid.Nil {
+		return nil, errors.New("definition_id is required")
+	}
+	if input.CreatedBy == uuid.Nil {
+		return nil, errors.New("created_by is required")
+	}
+	source, err := s.definitions.GetByUUID(ctx, tenantUUID, input.SourceUUID, nil)
+	if err != nil {
+		return nil, err
+	}
+	if source.Status == "archived" {
+		return nil, errors.New("workflow.definition_archived")
+	}
+
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		name = source.Name
+	}
+	description := strings.TrimSpace(input.Description)
+	if description == "" {
+		description = source.Description
+	}
+	steps := input.Steps
+	if len(steps) == 0 {
+		steps, err = loadStepGraph(source.StepGraph)
+		if err != nil {
+			return nil, err
+		}
+	}
+	result, err := ValidateStepDefinitions(steps)
+	if err != nil {
+		return nil, err
+	}
+	if s.adapters == nil {
+		return nil, ErrNodeAdapterNotFound
+	}
+	for _, step := range result.Steps {
+		if err := s.adapters.ValidateDefinition(step); err != nil {
+			return nil, err
+		}
+	}
+
+	version, err := s.definitions.NextVersion(ctx, tenantUUID, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve next version: %w", err)
+	}
+	stepJSON, err := json.Marshal(result.Steps)
+	if err != nil {
+		return nil, fmt.Errorf("marshal step graph failed: %w", err)
+	}
+	definition := &modelworkflow.WorkflowDefinition{
+		TenantUUID:           tenantUUID,
+		Name:                 name,
+		Description:          description,
+		Version:              version,
+		Status:               "draft",
+		StepGraph:            datatypes.JSON(stepJSON),
+		DefaultRetryPolicy:   jsonOrInherited(input.DefaultRetryPolicy, source.DefaultRetryPolicy),
+		CompensationPolicy:   jsonOrInherited(input.CompensationPolicy, source.CompensationPolicy),
+		SlaPolicy:            jsonOrInherited(input.SlaPolicy, source.SlaPolicy),
+		Metadata:             jsonOrInherited(input.Metadata, source.Metadata),
+		CreatedBy:            input.CreatedBy,
+		InitialContextSchema: source.InitialContextSchema,
+		InputSchema:          source.InputSchema,
+		WorkflowPackKey:      source.WorkflowPackKey,
+		SourceType:           source.SourceType,
+		Checksum:             "",
+	}
+	created, err := s.definitions.CreateDefinition(ctx, definition)
+	if err != nil {
+		return nil, err
+	}
+	s.em.emit(ctx, newWorkflowEvent(
+		created.TenantUUID,
+		uuid.Nil,
+		"workflow.definition.revision_created",
+		fmt.Sprintf("workflow %s@v%d revision created", created.Name, created.Version),
+		map[string]any{"definition_uuid": created.UUID.String(), "source_definition_uuid": source.UUID.String()},
+	))
 	return created, nil
 }
 
@@ -578,6 +684,21 @@ func (s *Service) GetDefinition(ctx context.Context, tenantUUID string, definiti
 	return s.definitions.GetByUUID(ctx, tenantUUID, definitionUUID, version)
 }
 
+// ListDefinitionRevisions 查询同一工作流的全部版本。
+func (s *Service) ListDefinitionRevisions(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID) ([]modelworkflow.WorkflowDefinition, error) {
+	if s == nil {
+		return nil, errors.New("workflow service unavailable")
+	}
+	normalizedTenantUUID, err := normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	if definitionUUID == uuid.Nil {
+		return nil, errors.New("definition UUID is required")
+	}
+	return s.definitions.ListVersionsByWorkflow(ctx, normalizedTenantUUID, definitionUUID)
+}
+
 // ListDefinitions 分页查询工作流定义。
 func (s *Service) ListDefinitions(ctx context.Context, filter workflowrepo.DefinitionListFilter) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	if s == nil {
@@ -634,6 +755,16 @@ func toJSONOrEmpty(v any) datatypes.JSON {
 		return datatypes.JSON([]byte(`{}`))
 	}
 	return datatypes.JSON(bytes)
+}
+
+func jsonOrInherited(v any, inherited datatypes.JSON) datatypes.JSON {
+	if v == nil {
+		if len(inherited) > 0 {
+			return inherited
+		}
+		return datatypes.JSON([]byte(`{}`))
+	}
+	return toJSONOrEmpty(v)
 }
 
 func loadStepGraph(jsonData datatypes.JSON) ([]StepDefinition, error) {

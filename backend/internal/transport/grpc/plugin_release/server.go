@@ -50,17 +50,17 @@ func (s *server) StartLocalInstall(ctx context.Context, req *pluginreleasepb.Sta
 		return nil, status.Error(codes.Unavailable, "local install service unavailable")
 	}
 
-	tenantUUID, err := s.resolveTenantUUID(ctx, req.GetTenantUuid())
+	tenantUUID, err := s.resolveTenantUUID(ctx, "")
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	session, err := localSvc.Start(ctx, local.StartInput{
-		TenantUUID:   tenantUUID,
-		DeveloperID:  req.GetDeveloperId(),
-		ArtifactURI:  req.GetArtifactUri(),
-		FeatureFlags: req.GetFeatureFlags(),
-		ResetCache:   req.GetResetCache(),
-		Actor:        actorFromContext(ctx),
+		TenantUUID:          tenantUUID,
+		DeveloperMemberUUID: reqctx.GetMemberUUID(ctx),
+		ArtifactURI:         req.GetArtifactUri(),
+		FeatureFlags:        req.GetFeatureFlags(),
+		ResetCache:          req.GetResetCache(),
+		Actor:               actorFromContext(ctx),
 	})
 	if err != nil {
 		return nil, mapLocalError(err)
@@ -113,15 +113,13 @@ func (s *server) GetLocalInstallSession(ctx context.Context, req *pluginreleasep
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	session, err := localSvc.Get(ctx, sessionUUID)
+	tenantUUID, err := s.resolveTenantUUID(ctx, "")
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+	session, err := localSvc.Get(ctx, tenantUUID, sessionUUID)
 	if err != nil {
 		return nil, mapLocalError(err)
-	}
-
-	if requestUUID, err := s.optionalTenantUUID(ctx, req.GetTenantUuid()); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	} else if requestUUID != "" && !strings.EqualFold(requestUUID, strings.TrimSpace(session.TenantUUID)) {
-		return nil, status.Error(codes.NotFound, "local install session not found")
 	}
 
 	return toProtoSession(session), nil
@@ -169,7 +167,11 @@ func (s *server) PushHotReload(stream pluginreleasepb.PluginReleaseService_PushH
 			if parseErr != nil {
 				return status.Error(codes.InvalidArgument, "invalid session_id")
 			}
-			if _, err := localSvc.Get(ctx, sessionUUID); err != nil {
+			tenantUUID, tenantErr := s.resolveTenantUUID(ctx, "")
+			if tenantErr != nil {
+				return status.Error(codes.Unauthenticated, tenantErr.Error())
+			}
+			if _, err := localSvc.Get(ctx, tenantUUID, sessionUUID); err != nil {
 				return mapLocalError(err)
 			}
 		} else if sessionID != chunkSession {
@@ -198,7 +200,7 @@ func (s *server) CreateReleaseCandidate(ctx context.Context, req *pluginreleasep
 	if pipelineSvc == nil {
 		return nil, status.Error(codes.Unavailable, "pipeline service unavailable")
 	}
-	tenantUUID, err := s.resolveTenantUUID(ctx, req.GetTenantUuid())
+	tenantUUID, err := s.resolveTenantUUID(ctx, "")
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -430,7 +432,7 @@ func (s *server) ImportOfflinePackage(ctx context.Context, req *pluginreleasepb.
 	if distSvc == nil {
 		return nil, status.Error(codes.Unavailable, "distribution service unavailable")
 	}
-	tenantUUID, err := s.resolveTenantUUID(ctx, req.GetTenantUuid())
+	tenantUUID, err := s.resolveTenantUUID(ctx, "")
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -566,10 +568,10 @@ func toProtoSession(session *models.LocalInstallSession) *pluginreleasepb.LocalI
 		return nil
 	}
 	resp := &pluginreleasepb.LocalInstallSession{
-		SessionId:   session.UUID.String(),
-		TenantUuid:  strings.TrimSpace(session.TenantUUID),
-		DeveloperId: session.DeveloperID,
-		ArtifactUri: session.ArtifactURI,
+		SessionId:           session.UUID.String(),
+		TenantUuid:          strings.TrimSpace(session.TenantUUID),
+		DeveloperMemberUuid: session.DeveloperMemberUUID,
+		ArtifactUri:         session.ArtifactURI,
 		FeatureFlags: func() []string {
 			flags := local.ExtractFeatureFlags(session.FeatureFlags)
 			if flags == nil {

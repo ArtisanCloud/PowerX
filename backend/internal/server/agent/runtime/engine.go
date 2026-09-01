@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	modelagent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -42,6 +44,7 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	execTimeout := 10 * time.Minute
 	ctx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
+	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.stream")
 	if traceErr != nil {
@@ -76,22 +79,45 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 		_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
 	}
 
-	intentNode := tr.startNode(ctx, "intent_recognition", "DetectTasksWithToolCalling", nil)
-	// 1) 多意图识别
-	tasks, err := e.detectTasks(ctx, msg, reqCfg)
-	if err != nil {
-		tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
-		runErr = err
-		emitAgentRunFailure(ctx, sink, explicitFlow, "intent.detect_error", "意图识别失败", err, "")
-		return err
+	teamPlan, teamPlanHandled, teamPlanErr := builtInTeamPlanFromContext(ctx)
+	if teamPlanErr != nil {
+		runErr = teamPlanErr
+		emitAgentRunFailure(ctx, sink, explicitFlow, "planner.team_plan_error", "团队执行计划生成失败", teamPlanErr, "")
+		return teamPlanErr
 	}
-	tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
-	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
+	var (
+		tasks []flowschema.DetectedTask
+		err   error
+	)
+	if !teamPlanHandled {
+		intentNode := tr.startNode(ctx, "intent_recognition", "DetectTasksWithToolCalling", nil)
+		// 非团队会话才由通用意图规划器判断任务；已声明团队图不得被它覆盖。
+		tasks, err = e.detectTasks(ctx, msg, reqCfg)
+		if err != nil {
+			tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
+			runErr = err
+			emitAgentRunFailure(ctx, sink, explicitFlow, "intent.detect_error", "意图识别失败", err, "")
+			return err
+		}
+		tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
+		_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
+	} else {
+		_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "team_orchestration", "planner_mode": "persisted_declaration", "tasks": teamPlan.Tasks})
+	}
 
-	plannerNode := tr.startNode(ctx, "planner", "BuildPlan", map[string]any{"task_count": len(tasks)})
-	// 2) 生成计划（强/弱类型兼容）
-	rawPlan := e.mgr.BuildPlan(tasks) // FIX: 原来写成了 BuildPl
-	plan, ok := NormalizeExecPlan(rawPlan)
+	plannerNode := tr.startNode(ctx, "planner", "BuildPlan", map[string]any{"task_count": len(tasks), "team_orchestration": teamPlanHandled})
+	// 1) 团队图由持久化声明编译；其他会话才使用通用 BuildPlan。
+	var rawPlan any
+	var plan *flowschema.ExecutionPlan
+	ok := false
+	if teamPlanHandled {
+		rawPlan = teamPlan
+		plan = teamPlan
+		ok = true
+	} else {
+		rawPlan = e.mgr.BuildPlan(tasks)
+		plan, ok = NormalizeExecPlan(rawPlan)
+	}
 	if ok && plan != nil {
 		tr.withPlan(plan.PlanID)
 		plan = e.applyRuntimeParamState(ctx, plan)
@@ -346,6 +372,7 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 	execTimeout := 10 * time.Minute
 	ctx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
+	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.invoke")
 	if traceErr != nil {
@@ -379,20 +406,43 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		_ = sink.Emit("response_plan", responsePlan.ToDebugEvent())
 	}
 
-	intentNode := tr.startNode(ctx, "intent_recognition", "DetectTasksWithToolCalling", nil)
-	tasks, err := e.detectTasks(ctx, msg, reqCfg)
-	if err != nil {
-		tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
-		runErr = err
-		emitAgentRunFailure(ctx, sink, explicitFlow, "intent.detect_error", "意图识别失败", err, "")
-		return nil, nil, err
+	teamPlan, teamPlanHandled, teamPlanErr := builtInTeamPlanFromContext(ctx)
+	if teamPlanErr != nil {
+		runErr = teamPlanErr
+		emitAgentRunFailure(ctx, sink, explicitFlow, "planner.team_plan_error", "团队执行计划生成失败", teamPlanErr, "")
+		return nil, nil, teamPlanErr
 	}
-	tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
-	_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
+	var (
+		tasks []flowschema.DetectedTask
+		err   error
+	)
+	if !teamPlanHandled {
+		intentNode := tr.startNode(ctx, "intent_recognition", "DetectTasksWithToolCalling", nil)
+		tasks, err = e.detectTasks(ctx, msg, reqCfg)
+		if err != nil {
+			tr.failNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", err)
+			runErr = err
+			emitAgentRunFailure(ctx, sink, explicitFlow, "intent.detect_error", "意图识别失败", err, "")
+			return nil, nil, err
+		}
+		tr.endNode(ctx, intentNode, "intent_recognition", "DetectTasksWithToolCalling", map[string]any{"task_count": len(tasks)})
+		_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "intent_multi", "planner_mode": dto.PlannerModeUnified, "tasks": tasks})
+	} else {
+		_ = sink.Emit(dto.EventIntent, map[string]any{"mode": "team_orchestration", "planner_mode": "persisted_declaration", "tasks": teamPlan.Tasks})
+	}
 
-	plannerNode := tr.startNode(ctx, "planner", "BuildPlan", map[string]any{"task_count": len(tasks)})
-	rawPlan := e.mgr.BuildPlan(tasks)
-	plan, ok := NormalizeExecPlan(rawPlan)
+	plannerNode := tr.startNode(ctx, "planner", "BuildPlan", map[string]any{"task_count": len(tasks), "team_orchestration": teamPlanHandled})
+	var rawPlan any
+	var plan *flowschema.ExecutionPlan
+	ok := false
+	if teamPlanHandled {
+		rawPlan = teamPlan
+		plan = teamPlan
+		ok = true
+	} else {
+		rawPlan = e.mgr.BuildPlan(tasks)
+		plan, ok = NormalizeExecPlan(rawPlan)
+	}
 	if ok && plan != nil {
 		tr.withPlan(plan.PlanID)
 		plan = e.applyRuntimeParamState(ctx, plan)
@@ -587,13 +637,14 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		OnTaskEnd: func(task flowschema.PlanTask, out *agentschema.ExecutionResult, runErr error) error {
 			emitMu.Lock()
 			defer emitMu.Unlock()
+			taskErr := taskExecutionError(out, runErr)
 			status := "completed"
-			if runErr != nil {
+			if taskErr != nil {
 				status = "failed"
 			} else if out != nil && isAwaitingParamsResult(out) {
 				status = dto.AgentTaskStatusAwaitingParams
 			}
-			if err := persistTaskSkillState(ctx, task, status, out, runErr); err != nil {
+			if err := persistTaskSkillState(ctx, task, status, out, taskErr); err != nil {
 				_ = sink.Emit(dto.EventError, map[string]any{"message": "保存 Skill 状态失败", "detail": err.Error()})
 				return err
 			}
@@ -616,10 +667,10 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 				"depends_on":      task.DependsOn,
 				"status":          status,
 				"error": func() string {
-					if runErr == nil {
+					if taskErr == nil {
 						return ""
 					}
-					return runErr.Error()
+					return taskErr.Error()
 				}(),
 				"result_summary": func() map[string]any {
 					if out == nil {
@@ -709,7 +760,19 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		return out, nil
 	}
 	responsePlan := responsePlanFromContext(ctx)
-	content := BuildFinalResponseContent(responsePlan, buildFinalContent(out), nil)
+	envelope, envelopeErr := responseEnvelopeFromExecutionResult(out.Data)
+	if envelopeErr != nil {
+		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", envelopeErr, "")
+		return nil, envelopeErr
+	}
+	if envelope == nil {
+		err := fmt.Errorf("agent.response_contract_invalid: response_envelope is required for an execution plan")
+		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", err, "")
+		return nil, err
+	}
+	// The response envelope is the sole final-result source. Each channel renders
+	// it with its locale; do not persist a second, model-authored summary.
+	content := ""
 	contextLayers := responseContextLayersFromContext(ctx)
 	cbNode := tr.startNode(ctx, "context_builder", responseModeString(responsePlan), map[string]any{
 		"response_mode":       responseModeString(responsePlan),
@@ -725,9 +788,9 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 	})
 	_ = sink.Emit(dto.EventFinal, map[string]any{
 		"success": true,
-		"data": map[string]any{
-			"content": content,
-		},
+		"data": mergeFinalContent(flowschema.Result{
+			"response_envelope": envelope,
+		}, content),
 		"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
 			"trace_id": traceID,
 			"plan_id":  plan.PlanID,
@@ -867,6 +930,194 @@ func (e *Engine) emitClarifyFinal(ctx context.Context, sink EventSink, tr *trace
 		"used_context_layers":   contextLayers,
 	})
 	_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+}
+
+type teamMemberRuntime struct {
+	ChildAgentID  uint64
+	ChildAgentKey string
+	Role          string
+	SkillIDs      []string
+}
+
+// builtInTeamPlanFromContext compiles the selected team's persisted graph. The
+// name intentionally remains for call-site stability only: no built-in team
+// name, agent key or task graph is recognised here.
+func builtInTeamPlanFromContext(ctx context.Context) (*flowschema.ExecutionPlan, bool, error) {
+	if ctx == nil || !strings.EqualFold(strings.TrimSpace(contextString(ctx, "agent_workspace_mode")), "team") {
+		return nil, false, nil
+	}
+	teamID := strings.TrimSpace(contextString(ctx, "team_id"))
+	parentAgentID := contextUint64(ctx, "parent_agent_id")
+	if teamID == "" || parentAgentID == 0 {
+		return nil, true, fmt.Errorf("team runtime context is incomplete")
+	}
+	material := strings.TrimSpace(contextString(ctx, "team_user_message"))
+	if material == "" {
+		return nil, true, fmt.Errorf("team user message is required")
+	}
+	locale := strings.TrimSpace(contextString(ctx, "locale"))
+	if locale == "" {
+		return nil, true, fmt.Errorf("team runtime locale is required")
+	}
+	rawSpec, ok := ctx.Value("team_orchestration").(map[string]any)
+	if !ok || len(rawSpec) == 0 {
+		return nil, true, fmt.Errorf("team orchestration is required")
+	}
+	raw, err := json.Marshal(rawSpec)
+	if err != nil {
+		return nil, true, fmt.Errorf("team orchestration serialization failed: %w", err)
+	}
+	spec, err := modelagent.ParseTeamOrchestrationSpec(raw)
+	if err != nil {
+		return nil, true, err
+	}
+	members := make(map[string]teamMemberRuntime, len(spec.Tasks))
+	for _, member := range teamMembersFromContext(ctx) {
+		role := strings.ToLower(strings.TrimSpace(member.Role))
+		if role == "" {
+			continue
+		}
+		if _, exists := members[role]; exists {
+			return nil, true, fmt.Errorf("team member role is duplicated: %s", role)
+		}
+		members[role] = member
+	}
+	parentSkillIDs := normalizeStringList(anyStringSlice(ctx.Value("agent_bound_skill_ids")))
+	teamKey := strings.TrimSpace(contextString(ctx, "team_key"))
+	plan := &flowschema.ExecutionPlan{PlanID: fmt.Sprintf("team_orchestration_%d", time.Now().UnixNano()), Tasks: make([]flowschema.PlanTask, 0, len(spec.Tasks))}
+	for _, configuredTask := range spec.Tasks {
+		taskID := strings.TrimSpace(configuredTask.TaskID)
+		dependsOn := normalizeStringList(configuredTask.DependsOn)
+		paramRefs := teamTaskDependencyRefs(dependsOn)
+		failurePolicy := strings.TrimSpace(configuredTask.FailurePolicy)
+		if failurePolicy == "" {
+			failurePolicy = "fail-fast"
+		}
+		switch strings.ToLower(strings.TrimSpace(configuredTask.NodeKind)) {
+		case "agent_handoff":
+			member, ok := members[strings.ToLower(strings.TrimSpace(configuredTask.AssigneeRole))]
+			if !ok || member.ChildAgentID == 0 || strings.TrimSpace(member.ChildAgentKey) == "" {
+				return nil, true, fmt.Errorf("team task assignee is unavailable: %s", taskID)
+			}
+			if !containsNormalizedString(member.SkillIDs, configuredTask.SkillID) {
+				return nil, true, fmt.Errorf("team task skill is not bound to assignee: task=%s skill=%s", taskID, configuredTask.SkillID)
+			}
+			plan.Tasks = append(plan.Tasks, flowschema.PlanTask{TaskID: taskID, FlowID: member.ChildAgentKey, NodeKind: dto.NodeKindHandoff, NodeRef: member.ChildAgentKey, AgentID: member.ChildAgentKey, TeamID: teamID, HandoffTaskID: taskID, FailurePolicy: failurePolicy, Stage: configuredTask.Stage, DependsOn: dependsOn, ParamRefs: paramRefs, Params: map[string]any{"team_key": teamKey, "child_agent_id": member.ChildAgentID, "child_agent_key": member.ChildAgentKey, "message": material, "context": map[string]any{"locale": locale}, "payload": map[string]any{"child_skill_id": configuredTask.SkillID, "content": material, "context": "team_orchestration", "source": map[string]any{"type": "text", "content": material, "context": "team_orchestration"}}}})
+		case "skill":
+			if !containsNormalizedString(parentSkillIDs, configuredTask.SkillID) {
+				return nil, true, fmt.Errorf("team task skill is not bound to parent agent: task=%s skill=%s", taskID, configuredTask.SkillID)
+			}
+			plan.Tasks = append(plan.Tasks, flowschema.PlanTask{TaskID: taskID, FlowID: configuredTask.SkillID, NodeKind: dto.NodeKindSkill, NodeRef: configuredTask.SkillID, SourceScope: "agent", AgentID: fmt.Sprintf("%d", parentAgentID), FailurePolicy: failurePolicy, Stage: configuredTask.Stage, DependsOn: dependsOn, ParamRefs: paramRefs, Params: map[string]any{"context": map[string]any{"locale": locale}, "payload": map[string]any{"content": material, "context": "team_orchestration"}}})
+		}
+	}
+	return plan, true, nil
+}
+
+func teamTaskDependencyRefs(dependsOn []string) map[string]string {
+	if len(dependsOn) == 0 {
+		return nil
+	}
+	refs := make(map[string]string, len(dependsOn))
+	for _, taskID := range dependsOn {
+		// ParamRef must address a concrete member of task output. Handoff
+		// tasks expose their business payload at output.result.
+		refs["upstream_"+strings.TrimSpace(taskID)] = "{{task." + strings.TrimSpace(taskID) + ".output.result}}"
+	}
+	return refs
+}
+
+func containsNormalizedString(values []string, expected string) bool {
+	expected = strings.ToLower(strings.TrimSpace(expected))
+	for _, value := range values {
+		if strings.ToLower(strings.TrimSpace(value)) == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func teamMembersFromContext(ctx context.Context) []teamMemberRuntime {
+	raw := ctx.Value("team_members")
+	switch v := raw.(type) {
+	case []map[string]any:
+		out := make([]teamMemberRuntime, 0, len(v))
+		for _, item := range v {
+			if member := teamMemberFromMap(item); member.ChildAgentID != 0 || member.ChildAgentKey != "" || member.Role != "" {
+				out = append(out, member)
+			}
+		}
+		return out
+	case []any:
+		out := make([]teamMemberRuntime, 0, len(v))
+		for _, item := range v {
+			if member := teamMemberFromMap(mapFromAny(item)); member.ChildAgentID != 0 || member.ChildAgentKey != "" || member.Role != "" {
+				out = append(out, member)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func teamMemberFromMap(item map[string]any) teamMemberRuntime {
+	if len(item) == 0 {
+		return teamMemberRuntime{}
+	}
+	return teamMemberRuntime{
+		ChildAgentID:  uint64FromAny(item["child_agent_id"]),
+		ChildAgentKey: strings.TrimSpace(anyToString(item["child_agent_key"])),
+		Role:          strings.ToLower(strings.TrimSpace(anyToString(item["role"]))),
+		SkillIDs:      normalizeStringList(anyStringSlice(item["skill_ids"])),
+	}
+}
+
+func contextString(ctx context.Context, key string) string {
+	if ctx == nil {
+		return ""
+	}
+	return strings.TrimSpace(anyToString(ctx.Value(key)))
+}
+
+func contextUint64(ctx context.Context, key string) uint64 {
+	if ctx == nil {
+		return 0
+	}
+	return uint64FromAny(ctx.Value(key))
+}
+
+func uint64FromAny(v any) uint64 {
+	switch n := v.(type) {
+	case uint64:
+		return n
+	case uint:
+		return uint64(n)
+	case uint32:
+		return uint64(n)
+	case int:
+		if n > 0 {
+			return uint64(n)
+		}
+	case int64:
+		if n > 0 {
+			return uint64(n)
+		}
+	case float64:
+		if n > 0 {
+			return uint64(n)
+		}
+	case json.Number:
+		parsed, err := strconv.ParseUint(strings.TrimSpace(string(n)), 10, 64)
+		if err == nil {
+			return parsed
+		}
+	case string:
+		parsed, err := strconv.ParseUint(strings.TrimSpace(n), 10, 64)
+		if err == nil {
+			return parsed
+		}
+	}
+	return 0
 }
 
 func (e *Engine) missingRequiredArgsForPlan(ctx context.Context, plan *flowschema.ExecutionPlan) []string {
@@ -1503,9 +1754,35 @@ func enrichTaskEndPayload(payload map[string]any, out *agentschema.ExecutionResu
 	}
 }
 
+func taskExecutionError(out *agentschema.ExecutionResult, runErr error) error {
+	if runErr != nil {
+		return runErr
+	}
+	if out == nil || out.Success {
+		return nil
+	}
+	message := firstNonEmpty(
+		strings.TrimSpace(out.Error),
+		strings.TrimSpace(anyToString(out.Data["error"])),
+		strings.TrimSpace(anyToString(out.Metadata["error"])),
+		"agent_task_unsuccessful",
+	)
+	return errors.New(message)
+}
+
 func buildFinalContent(out *agentschema.ExecutionResult) string {
 	if out == nil {
 		return ""
+	}
+	if out.Data != nil {
+		if result, ok := out.Data["result"].(map[string]any); ok {
+			if envelope, err := responseEnvelopeFromResult(result); err == nil && envelope != nil {
+				return ""
+			}
+		}
+		if envelope, err := responseEnvelopeFromResult(out.Data); err == nil && envelope != nil {
+			return ""
+		}
 	}
 	if s := strings.TrimSpace(ExtractAssistantText(out)); s != "" {
 		return s

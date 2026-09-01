@@ -1,4 +1,16 @@
 {
+	"setup": {
+		"deployment": {
+			"title": "部署环境",
+			"description": "请选择这套 PowerX 实例的稳定环境标识。插件数据库角色和 schema 将使用该标识进行隔离；安装插件后请勿直接修改。",
+			"options": { "dev": "开发 dev", "test": "测试 test", "staging": "预发布 staging", "prod": "生产 prod" }
+		},
+		"errors": {
+			"deploymentEnvRequired": "请选择部署环境",
+			"deploymentEnvInvalid": "部署环境必须是 dev、test、staging 或 prod",
+			"unknown": "安装配置保存失败"
+		}
+	},
   "menu": {
     "openMarket": "开放市场",
     "plugins": "插件",
@@ -105,6 +117,7 @@
     "settings": "设置",
     "trash": "回收站",
     "cancel": "取消",
+    "close": "关闭",
     "delete": "删除",
     "save": "保存",
     "reload": "重新加载",
@@ -213,6 +226,16 @@
       "propertyCount": "{count} 个属性",
       "untitled": "未命名工作流",
       "version": "版本 {version}",
+      "currentVersion": "当前版本 v{version}",
+      "versionShort": "v{version}",
+      "versionHistoryTitle": "版本历史",
+      "versionHistoryDescription": "查看同一个工作流的历史定义版本，切换后可查看对应画布和运行记录。",
+      "versionHistoryLoading": "正在加载版本历史...",
+      "versionHistoryEmpty": "当前工作流没有版本历史",
+      "versionHistoryLoadFailed": "版本历史加载失败",
+      "currentWorkflow": "当前工作流",
+      "currentVersionBadge": "当前",
+      "versionTimeMissing": "时间未记录",
       "nodeCount": "{count} 个节点",
       "edgeCount": "{count} 条连线",
       "globalSearch": "搜索智能体、工作流、插件...",
@@ -237,6 +260,11 @@
       "latestRun": "最近运行",
       "runDetail": "运行详情",
       "noRuns": "尚未运行",
+      "saveSuccess": "工作流新版本已保存",
+      "savedRevision": "草稿版本 {version} 已生成，可继续发布和测试。",
+      "publishSuccess": "工作流已发布",
+      "publishedRevision": "版本 {version} 已可运行。",
+      "publishFailed": "工作流发布失败",
       "runStarted": "工作流已启动",
       "runFailed": "工作流运行失败",
       "runtimeConnected": "实时通道已连接",
@@ -535,6 +563,83 @@
         "flow_control": "流程控制",
         "data_knowledge": "数据与知识",
         "exception": "异常处理"
+      },
+      "nodePayloadIn": "节点输入",
+      "nodePayloadOut": "节点输出",
+      "globalContext": "全局上下文",
+      "decisionResult": "决策结果",
+      "runtimeMaterial": "材料内容",
+      "runtimeParsedContent": "解析后的内容",
+      "runtimeBusinessContext": "业务场景",
+      "runtimeSourceType": "素材类型",
+      "runtimeLanguage": "语言",
+      "runtimeLanguageChinese": "中文",
+      "runtimeSummary": "摘要",
+      "runtimeObservation": "观察结论",
+      "runtimeMethod": "沉淀方法",
+      "runtimeDraftItems": "草稿条目",
+      "runtimeDraftRefs": "知识草稿",
+      "runtimeDecisionBasis": "决策依据",
+      "runtimeMetadata": "分类结果",
+      "runtimeResourceType": "资源类型",
+      "runtimeTagCount": "标签数量",
+      "runtimeSampleTags": "示例标签",
+      "runtimePublishedRefs": "发布记录",
+      "runtimeReviewTask": "审核任务",
+      "runtimeSkill": "执行技能",
+      "runtimePreviousSkill": "上一步技能",
+      "runtimeKnowledgeSpace": "目标知识库",
+      "skillModelOverrideOptionalHint": "未选择模型 Profile 时，不写入节点级模型覆盖；不依赖模型的内置 Skill 可以继续执行。需要指定模型时，请先在 AI 设置 > 模型配置中保存模型。",
+      "dataMappingTitle": "数据映射",
+      "dataMappingDescription": "配置当前节点从哪个上下文路径读取输入，以及把本节点结果写入哪个路径。",
+      "globalInputMappingDescription": "配置工作流开始时采集到的全局输入写入哪个上下文路径，后续节点通过这个路径读取。",
+      "dataMappingHelp": {
+        "artifact_output_path": "开始节点把运行测试表单输入写入这里。",
+        "input_path": "当前节点执行时读取的上游数据路径。",
+        "output_path": "当前节点执行完成后写回的结果路径。",
+        "review_payload_path": "人工审核节点展示给审核人的业务内容来源。",
+        "draft_refs_path": "发布节点读取候选知识草稿的位置。",
+        "review_result_path": "发布节点读取审核结果的位置。",
+        "condition_source_path": "决策节点判断分支时读取的数据位置。",
+        "payload_path": "事件节点发送事件时读取的载荷位置。"
+      },
+      "fieldConfigTitle": "字段配置",
+      "nodeSettingsSectionTitle": "节点设置",
+      "nodeFieldConfigDescription": "配置当前节点实际读取哪些字段，以及本节点输出哪些字段给后续节点使用。",
+      "globalFieldConfigDescription": "开始节点的输入字段在上方全局输入字段里配置；这里显示它会输出给后续节点的全局字段。",
+      "inputFieldConfigTitle": "节点输入字段",
+      "outputFieldConfigTitle": "节点输出字段",
+      "nodeFieldDefaultDescription": "节点字段",
+      "nodeField": {
+        "content": { "label": "内容", "description": "营销材料或解析后的正文" },
+        "context": { "label": "业务场景", "description": "材料发生的业务背景" },
+        "language": { "label": "语言", "description": "材料语言" },
+        "type": { "label": "材料类型", "description": "文本、文档、音频或链接" },
+        "source": { "label": "原始材料", "description": "开始节点采集到的完整材料对象" },
+        "source_type": { "label": "来源类型", "description": "解析后的材料类型" },
+        "summary": { "label": "摘要", "description": "从材料中提炼出的业务摘要" },
+        "methodology": { "label": "方法论", "description": "沉淀出的观察、方法和适用场景" },
+        "draft_items": { "label": "草稿条目", "description": "准备进入知识暂存的结构化条目" },
+        "metadata": { "label": "元数据", "description": "分类、标签、资源类型等治理信息" },
+        "draft_refs": { "label": "知识草稿", "description": "暂存后生成的候选知识引用" },
+        "decision": { "label": "决策结果", "description": "决策节点选择的后续分支" },
+        "review_result": { "label": "审核结果", "description": "人工审核通过、拒绝或要求修改的结果" },
+        "review_task_uuid": { "label": "审核任务", "description": "人工审核任务引用" },
+        "review_status": { "label": "审核状态", "description": "当前人工审核状态" },
+        "published_refs": { "label": "发布记录", "description": "发布到知识库后的知识引用" },
+        "publish_policy": { "label": "发布策略", "description": "发布节点使用的策略" },
+        "payload": { "label": "事件载荷", "description": "事件节点发送给订阅方的数据" },
+        "event_id": { "label": "事件记录", "description": "事件发送后的记录引用" },
+        "topic": { "label": "事件主题", "description": "事件发布主题" },
+        "skill_id": { "label": "执行技能", "description": "实际执行的技能" },
+        "trace_id": { "label": "链路追踪", "description": "本次节点执行链路标识" },
+        "parsed_at": { "label": "解析时间", "description": "材料解析完成时间" },
+        "knowledge_space_uuid": { "label": "目标知识库", "description": "本次写入的知识库" },
+        "note": { "label": "备注", "description": "运行测试时填写的备注" },
+        "input": { "label": "技能输入", "description": "传给技能的输入对象" },
+        "output": { "label": "技能输出", "description": "技能返回的输出对象" },
+        "request": { "label": "能力请求", "description": "传给平台能力的请求字段" },
+        "capability_result": { "label": "能力结果", "description": "平台能力返回的结果" }
       }
     },
     "protocol": {
@@ -606,8 +711,22 @@
       "disabled": "已停用"
     },
     "skill": {
-      "marketingAudioOrDocumentParse": "解析营销音频或文档",
-      "marketingExtractMethodology": "提取营销方法论"
+      "marketingSourceParse": {
+        "summary": "解析营销文本、链接、音频或文档素材。",
+        "releaseNote": "内置营销素材解析技能。"
+      },
+      "marketingMethodologyExtract": {
+        "summary": "从营销素材中抽取可审核的方法论草稿。",
+        "releaseNote": "内置营销方法论抽取技能。"
+      },
+      "marketingMetricExtract": {
+        "summary": "从营销活动复盘、报表或渠道材料中抽取曝光、点击、转化、成本等关键指标。",
+        "releaseNote": "内置营销活动指标抽取技能。"
+      },
+      "marketingReviewSummarize": {
+        "summary": "总结营销活动复盘中的问题、归因、结论和优化动作。",
+        "releaseNote": "内置营销活动复盘总结技能。"
+      }
     },
     "runtimeError": {
       "tokenMissing": "缺少登录凭证",
@@ -789,16 +908,6 @@
       },
       "compensation": {
         "rollback": "补偿回滚"
-      }
-    },
-    "skill": {
-      "marketingSourceParse": {
-        "summary": "解析营销文本、链接、音频或文档素材。",
-        "releaseNote": "内置营销素材解析技能。"
-      },
-      "marketingMethodologyExtract": {
-        "summary": "从营销素材中抽取可审核的方法论草稿。",
-        "releaseNote": "内置营销方法论抽取技能。"
       }
     },
     "pack": {
@@ -1072,6 +1181,82 @@
       "roleConfig": "角色权限配置",
       "configDesc": "为当前角色勾选并保存权限项。",
       "add": "新增角色",
+      "systemRole": "系统",
+      "userCount": "用户",
+      "toast": {
+        "missingTenantContextTitle": "缺少当前租户",
+        "missingTenantContextDescription": "请先切换到要管理的租户后再创建角色。"
+      },
+      "permissionSearch": {
+        "placeholder": "搜索菜单、能力、API、权限码或插件",
+        "clear": "清空权限搜索",
+        "results": "匹配 {count} 项",
+        "empty": "没有匹配的权限项。"
+      },
+      "pluginCatalog": {
+        "title": "插件声明权限",
+        "description": "按插件、业务模块和权限类型展示已登记的菜单、页面、动作和接口权限。",
+        "plugin": "插件",
+        "invalid": "登记异常",
+        "businessPermission": "业务动作权限",
+        "unnamedApi": "未命名 API 权限",
+        "dataScope": "数据范围",
+        "levels": {
+          "source": "来源",
+          "module": "模块"
+        },
+        "sources": {
+          "core": "PowerX 底座"
+        },
+        "groups": {
+          "operation": "操作权限",
+          "api": "API 权限"
+        },
+        "bulkSelect": {
+          "short": "全选",
+          "source": "全选当前来源",
+          "module": "全选当前模块",
+          "currentModule": "全选当前模块"
+        },
+        "filters": {
+          "source": "来源筛选",
+          "plugin": "插件筛选",
+          "module": "模块筛选",
+          "type": "类型筛选",
+          "registration": "登记状态筛选",
+          "allSources": "全部来源",
+          "allPlugins": "全部插件",
+          "allModules": "全部模块",
+          "allTypes": "全部类型",
+          "allRegistration": "全部登记状态",
+          "registered": "登记正常",
+          "invalid": "登记异常",
+          "reset": "重置筛选"
+        },
+        "cleanup": {
+          "action": "清理异常登记",
+          "confirm": "确认清理插件 {plugin} 的 {count} 条异常权限登记？该操作会先解除角色绑定，再删除异常权限行。",
+          "successTitle": "异常登记已清理",
+          "successDescription": "已删除 {count} 条异常权限登记。",
+          "errorTitle": "清理异常登记失败"
+        },
+        "errors": {
+          "menu_permission_declaration_missing": "菜单项 required_policies 指向的菜单权限未在 permissions[] 中声明。",
+          "menu_permission_orphan": "该菜单权限没有被任何 frontend.admin.menus 菜单项引用。",
+          "menu_path_mismatch": "menu_path 与 frontend.admin.menus 的真实菜单路径不一致。",
+          "menu_path_invalid_technical_segment": "menu_path 包含插件 ID、/_p 路径、API 路径或 URL 等技术片段。",
+          "menuPathExpected": "期望路径：{path}",
+          "menuPathActual": "实际路径：{path}"
+        },
+        "types": {
+          "menu": "菜单",
+          "page": "页面",
+          "action": "操作",
+          "data": "数据",
+          "api": "API",
+          "apiKeyGrant": "API Key 授权范围"
+        }
+      },
       "empty": {
         "title": "暂无角色",
         "create": "创建第一个角色"
@@ -1701,6 +1886,170 @@
       "aboutUs": "关于我们"
     }
   },
+  "registration": {
+    "policy": {
+      "mode": {
+        "closed": "关闭注册",
+        "open": "完全开放",
+        "invite_only": "邀请制",
+        "waitlist": "候补名单",
+        "approval_required": "人工审核",
+        "allowlist": "白名单",
+        "progressive_rollout": "灰度放量"
+      }
+    },
+    "public": {
+      "open": "当前允许直接创建租户。",
+      "closed": "当前暂未开放新租户注册，请使用已有账号登录或联系系统管理员。",
+      "inviteOnly": "当前仅允许持邀请码的用户创建租户。",
+      "waitlist": "当前处于内测候补阶段，提交申请后等待通知。",
+      "approvalRequired": "当前需要 root 审核，通过后再开通租户。",
+      "allowlist": "当前仅允许命中白名单的邮箱、手机号或渠道注册。",
+      "progressiveRollout": "当前处于灰度放量阶段，系统会按策略判断是否准入。",
+      "policyLoadFailed": "注册策略加载失败",
+      "invalidVerificationCode": "请输入 6 位验证码",
+      "inviteCodeRequired": "请填写邀请码",
+      "inviteCode": "邀请码",
+      "inviteCodePlaceholder": "输入邀请码",
+      "contactRequired": "请先填写邮箱或手机号",
+      "verificationSendFailed": "验证码发送失败",
+      "backToLogin": "返回登录",
+      "submitRequest": "提交申请",
+      "errors": {
+        "contactExists": "该邮箱或手机号已注册，请直接登录后创建或切换租户。",
+        "tenantKeyExists": "组织标识已被占用，请更换后再试。",
+        "tenantDomainExists": "租户域名已被占用，请更换组织标识后再试。",
+        "invalidCredentials": "该账号已存在，密码不正确。",
+        "inviteCodeInvalid": "邀请码无效或不可用，请检查后再试。",
+        "registrationDenied": "当前注册策略不允许创建租户，请检查邀请码或联系管理员。",
+        "policyMissing": "注册策略尚未初始化，请联系管理员。",
+        "policyInvalid": "注册策略配置异常，请联系管理员。",
+        "conflict": "注册信息与已有数据冲突，请更换邮箱、手机号或组织标识后再试。"
+      }
+    },
+    "admin": {
+      "title": "租户注册策略",
+      "subtitle": "配置 SaaS 租户注册准入、灰度、邀请码和审核。",
+      "configCategoryDescription": "SaaS 租户注册准入、邀请码和审核",
+      "notInitialized": "尚未初始化，请保存并激活第一条策略",
+      "loadFailed": "注册策略加载失败",
+      "saveFailed": "注册策略保存失败",
+      "inviteFailed": "邀请码批次创建失败",
+      "draftUuidMissing": "注册策略草稿缺少 UUID",
+      "batchUuidMissing": "邀请码批次缺少 UUID",
+      "activePolicy": "当前生效策略",
+      "activePolicyDescription": "查看当前正在执行的注册策略和历史版本。",
+      "updatePolicy": "更新策略",
+      "updatePolicyDescription": "创建新的策略版本并立即激活。",
+      "tabs": {
+        "activePolicy": "生效策略",
+        "inviteManagement": "邀请码管理",
+        "requests": "注册申请"
+      },
+      "mode": "注册模式",
+      "version": "版本",
+      "requiresVerification": "需要验证码",
+      "requiresInvite": "需要邀请码",
+      "requiresApproval": "需要 root 审核",
+      "policyHistory": "策略历史",
+      "noPolicyHistory": "暂无策略历史",
+      "policyStatus": {
+        "draft": "草稿",
+        "active": "生效中",
+        "archived": "已归档",
+        "unknown": "未知"
+      },
+      "policyHistoryTable": {
+        "version": "版本",
+        "mode": "注册模式",
+        "status": "状态",
+        "gates": "准入要求",
+        "activatedAt": "激活时间"
+      },
+      "modeHint": {
+        "closed": "关闭注册会拒绝验证码发送和租户注册请求，邀请码、审核和配额不会参与判定。",
+        "open": "完全开放允许符合基础校验的用户直接创建租户，可按需开启验证码和配额限制。",
+        "invite_only": "邀请制强制要求有效邀请码；验证码可选，邀请码会在租户创建事务内消耗。",
+        "waitlist": "候补名单只提交注册申请，不创建租户，也不消耗邀请码。",
+        "approval_required": "人工审核会提交完整注册申请并等待 root 审核；审核通过创建租户的凭证流程需按合同补齐。",
+        "allowlist": "白名单模式由后端按结构化规则校验联系人、邮箱域名或渠道，可按需叠加验证码和配额。",
+        "progressive_rollout": "灰度放量按规则、时间窗口、渠道、配额和稳定百分比桶判定，可按需叠加验证码。"
+      },
+      "dailyQuota": "每日租户限额",
+      "totalQuota": "总租户限额",
+      "saveAndActivate": "保存并激活",
+      "inviteBatches": "邀请码批次",
+      "batchName": "批次名称",
+      "defaultBatchName": "{mode}批次 {timestamp}",
+      "allowedDomains": "允许邮箱域名，逗号分隔",
+      "allowedChannels": "允许渠道，逗号分隔",
+      "allowedPlan": "允许套餐",
+      "createCodes": "创建并生成",
+      "details": "详情",
+      "selectedInviteBatches": "已选择 {count} 个批次",
+      "selectAllInviteBatches": "选择全部邀请码批次",
+      "selectInviteBatch": "选择邀请码批次：{name}",
+      "deleteSelectedInviteBatches": "批量删除",
+      "deleteInviteBatchesTitle": "确认删除邀请码批次",
+      "deleteInviteBatchesDescription": "将删除已选择的 {count} 个邀请码批次及其未使用的邀请码。",
+      "deleteInviteBatchesWarning": "已使用过的邀请码批次不会被删除，系统会明确返回错误。",
+      "confirmDeleteInviteBatches": "确认删除",
+      "deleteInviteBatchesFailed": "邀请码批次删除失败",
+      "copyCodes": "复制邀请码",
+      "copySingleCode": "复制当前邀请码",
+      "clickToCopy": "点击复制",
+      "codeCopied": "已复制",
+      "downloadCodes": "下载 CSV",
+      "generatedCodesTitle": "本次生成的邀请码",
+      "generatedCodesDescription": "邀请码已保存到当前批次，后续可在批次详情中查看、复制或下载。",
+      "batchDetailTitle": "邀请码批次详情",
+      "batchCodes": "批次邀请码",
+      "loadingCodes": "正在加载邀请码清单…",
+      "noInviteCodes": "当前批次暂无邀请码",
+      "missingPlainCode": "需重置生成",
+      "missingPlainCodeNotice": "这个历史批次的邀请码没有可恢复明文。点击“重置并显示明文”会为未使用的邀请码生成新码并保存，之后 root 可随时查看、复制和下载。",
+      "resetMissingPlainCodes": "重置并显示明文",
+      "resetMissingPlainCodesFailed": "重置缺失明文失败",
+      "noInviteBatches": "暂无邀请码批次",
+      "inviteStatus": {
+        "draft": "草稿",
+        "active": "启用中",
+        "consumed": "已使用",
+        "paused": "已暂停",
+        "expired": "已过期",
+        "revoked": "已撤销",
+        "unknown": "未知"
+      },
+      "codeUsageStatus": {
+        "unused": "未使用",
+        "partiallyUsed": "部分使用",
+        "used": "已使用",
+        "revoked": "已撤销"
+      },
+      "batchTable": {
+        "name": "批次名称",
+        "status": "状态",
+        "maxCodes": "最大码数",
+        "maxUses": "单码次数",
+        "channels": "允许渠道",
+        "emailDomains": "允许邮箱域名",
+        "startsAt": "开始时间",
+        "expiresAt": "过期时间",
+        "actions": "操作"
+      },
+      "codeTable": {
+        "code": "邀请码",
+        "status": "状态",
+        "uses": "使用次数",
+        "lastUsedAt": "最后使用时间",
+        "consumedTenant": "消耗租户"
+      },
+      "loadCodesFailed": "邀请码清单加载失败",
+      "requests": "注册申请",
+      "approve": "通过",
+      "reject": "拒绝"
+    }
+  },
   "privacyPolicy": "隐私政策",
   "termsOfService": "服务条款",
   "header": {
@@ -2199,11 +2548,13 @@
     }
   },
   "agent": {
+	"response": {"conclusion": "本轮结论", "answer": "直接回答", "acceptance": "验收项", "evidence": "已有证据", "gaps": "缺口或阻塞", "nextActions": "下一步", "metrics": "指标与计算", "metric": "指标", "value": "结果", "formula": "计算公式", "facts": "已确认事实", "hypotheses": "待验证假设", "outcomes": {"completed": "本轮已完成，结果如下。", "needs_action": "已完成分析，仍需执行以下行动。", "blocked": "本轮受阻，需要先解决以下缺口。", "failed": "本轮失败，请查看运行追踪。"}},
     "sessions": {
       "title": "智能会话"
     },
     "confirmDelete": "确定删除吗？",
     "teamManagement": {
+      "unnamedTeam": "未命名团队",
       "roles": {
         "retriever": "资料检索（Retriever）",
         "executor": "任务执行（Executor）",
@@ -2219,6 +2570,12 @@
       },
       "create": {
         "tlFixedRoleHint": "TL 固定为 planner（不可修改）"
+      },
+      "orchestration": {
+        "label": "团队编排图",
+        "help": "保存后才可启用团队。运行时会验证任务角色、Skill 绑定和依赖图；团队名称不会触发任务。",
+        "placeholder": "请输入 powerx.agent.team-orchestration/v1 格式的 JSON；完整示例见团队编排文档。",
+        "invalidJson": "团队编排图必须是有效 JSON。"
       }
     },
     "list": {
@@ -2236,10 +2593,27 @@
         "active": "启用",
         "disabled": "停用"
       },
-      "sources": {
-        "core": "底座创建",
-        "plugin": "插件托管"
-      },
+    "sources": {
+      "core": "底座创建",
+      "plugin": "插件托管",
+      "builtin": "固有智能体",
+      "protected": "不可编辑"
+    },
+    "teamRoles": {
+      "coordinator": "团队负责人 ×{count}",
+      "member": "团队成员 ×{count}"
+    },
+    "categories": {
+      "all": "全部分类",
+      "allDescription": "按当前筛选条件显示全部智能体；分页只作用于当前视图。",
+      "count": "{count} 个",
+      "empty": "当前分类下没有符合筛选条件的智能体",
+      "loading": "正在加载智能体分类字典",
+      "loadFailed": "智能体分类字典加载失败",
+      "loadFailedDescription": "请检查数据字典 corex.agent.category 是否已 seed 并启用。",
+      "unconfigured": "分类未配置：{code}",
+      "unconfiguredDescription": "该分类没有在数据字典 corex.agent.category 中登记。"
+    },
       "filters": {
         "searchPlaceholder": "搜索智能体名称、Key 或插件",
         "allSources": "全部来源",
@@ -2331,12 +2705,13 @@
         "saved": "权限配置已保存",
         "saveFailed": "保存权限配置失败"
       },
-      "actions": {
-        "chat": "智能会话",
-        "team": "创建团队",
-        "permissions": "配置权限",
-        "edit": "编辑"
-      },
+    "actions": {
+      "chat": "智能会话",
+      "team": "创建团队",
+      "permissions": "配置权限",
+      "edit": "编辑",
+      "locked": "固有智能体不可编辑"
+    },
       "pagination": {
         "total": "共 {total} 个智能体"
       },
@@ -2357,13 +2732,73 @@
           "title": "智能视频重构大师",
           "description": "规划并重构产品发布视频脚本和制作流程。"
         },
-        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
-          "title": "营销大师",
-          "description": "生成短视频营销脚本和投放传播文案。"
-        }
+      "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+        "title": "营销大师",
+        "description": "生成短视频营销脚本和投放传播文案。"
       },
-      "accessGrants": "使用授权"
+      "marketing_director_advisor": {
+        "title": "营销负责人智能体",
+        "description": "面向市场负责人，沉淀营销策略、渠道复盘、客户信号和跨团队协作方法论。"
+      },
+      "marketing_content_strategist": {
+        "title": "内容营销智能体",
+        "description": "面向内容团队，整理选题、脚本、素材复用和内容活动复盘，沉淀可复用内容方法。"
+      },
+      "knowledge_expert_curator": {
+        "title": "专家知识策展智能体",
+        "description": "把专家访谈、会议纪要、文档和经验输入转成结构化知识草稿，并进入审核发布流程。"
+      },
+      "marketing_campaign_reviewer": {
+        "title": "活动复盘分析智能体",
+        "description": "面向营销活动复盘，抽取指标、问题、结论和优化动作，并沉淀为活动方法论知识。"
+      },
+      "release_coordinator": {
+        "title": "发布准备协调员",
+        "description": "统筹发布准备协作任务，拆分子智能体工作并汇总最终发布准备报告。"
+      },
+      "release_knowledge_analyst": {
+        "title": "发布知识分析员",
+        "description": "分析发布知识、历史事故和风险证据，输出发布风险摘要。"
+      },
+      "release_workflow_planner": {
+        "title": "发布流程规划员",
+        "description": "根据风险分析生成发布执行步骤、验证清单和回滚计划。"
+      },
+      "release_notification_scheduler": {
+        "title": "发布通知计划员",
+        "description": "生成发布通知对象、提醒节奏和值班升级路径。"
+      }
     },
+	      "accessGrants": "使用授权"
+	    },
+	    "teamTasks": {
+      "badge": "团队任务",
+      "newTask": "新建任务",
+      "workspaceTitle": "团队任务工作台",
+	      "workspaceSubtitle": "当前为多智能体协作任务模式（主智能体 + 子智能体）。",
+	      "memberCount": "{count} 人",
+	      "membersTitle": "团队成员",
+	      "membersSubtitle": "当前协作团队",
+      "manage": "管理",
+      "noKey": "无 Key",
+      "notices": {
+        "loadFailed": "团队列表加载失败，请先检查团队配置后重试。",
+        "loadFailedTitle": "加载团队失败",
+        "emptyTeams": "当前租户暂无可用团队，请先到“团队管理”创建团队。",
+        "teamUnavailable": "team_id={id} 不存在或不可用，已自动切换到默认团队。"
+      },
+      "selector": {
+        "label": "选择团队",
+        "teamLabel": "团队：{name}"
+	      }
+	    },
+	    "teams": {
+	      "catalog": {
+	        "release_readiness_team": {
+	          "title": "发布准备协作团队"
+	        }
+	      }
+	    },
     "effectivePermissions": {
       "title": "生效权限",
       "description": "当前会话实际可用权限由用户 IAM 权限、Agent 授权、租户能力启用状态和策略结果取交集得出。",
@@ -2396,6 +2831,7 @@
     "selector": {
       "pickAgent": "选择一个智能体",
       "editAgent": "编辑智能体",
+      "lockedAgent": "固有智能体不可编辑",
       "newAgent": "新建智能体",
       "searchSessions": "搜索会话",
       "pickAgentToSeeSessions": "选择智能体查看会话",
@@ -2482,8 +2918,11 @@
       "save": "保存",
       "update": "更新"
     },
-    "chat": {
-      "defaultAgent": "默认智能体",
+	    "chat": {
+	      "badge": "智能会话",
+	      "workspaceTitle": "智能会话工作台",
+	      "workspaceSubtitle": "当前为单智能体会话模式。",
+	      "defaultAgent": "默认智能体",
       "connected": "已连接",
       "disconnected": "连接已断开",
       "welcomeTitle": "欢迎",
@@ -2500,6 +2939,73 @@
       "untitledSession": "未命名会话",
       "responding": "正在回复",
       "generating": "生成中",
+      "traceThisRun": "追踪本轮",
+      "traceDetails": "追踪详情",
+      "traceReport": {
+        "title": "本轮运行追踪",
+        "loading": "正在加载运行报告…",
+        "loadFailed": "运行报告加载失败",
+        "empty": "当前运行没有可展示的追踪数据。",
+        "missingIdentity": "当前消息缺少运行标识，无法打开报告。",
+        "runId": "运行 ID",
+        "traceId": "追踪 ID"
+      },
+      "traceTimeline": {
+        "title": "执行时间轴",
+        "description": "仅展示当前运行；同一节点的开始与结束事件合并为一个步骤。",
+        "nodeCount": "{count} 个节点",
+        "step": "步骤 {index}",
+        "sequence": "节点序号 {sequence}",
+        "empty": "当前运行没有可展示的节点事件。",
+        "errorWithoutDetails": "节点执行失败，但未记录错误详情。",
+        "metrics": {
+          "status": "状态",
+          "nodes": "节点",
+          "events": "事件",
+          "errors": "错误"
+        },
+        "status": {
+          "running": "执行中",
+          "success": "完成",
+          "error": "失败"
+        },
+        "nodeKinds": {
+          "receiveMessage": "接收消息",
+          "responsePlanner": "响应规划",
+          "intentRecognition": "意图识别",
+          "planner": "任务规划",
+          "contextBuilder": "上下文构建",
+          "agentHandoff": "子智能体分发",
+          "skill": "技能执行",
+          "tooling": "工具执行",
+          "workflow": "工作流",
+          "llmCall": "模型调用",
+          "finalResponse": "最终回复"
+        }
+      },
+      "traceNodeDetails": {
+        "empty": "从左侧时间轴选择一个节点查看详情",
+        "nodeRef": "节点引用",
+        "capability": "能力",
+        "skill": "技能",
+        "plugin": "插件",
+        "responsePlan": "响应规划",
+        "mode": "模式",
+        "model": "模型",
+        "capabilities": "目标能力",
+        "contextLayers": "上下文层",
+        "input": "输入",
+        "output": "输出"
+      },
+      "retryBusyTitle": "暂时无法重试",
+      "retryBusyDescription": "当前回答仍在生成，请等待完成后再重试。",
+      "retryUnavailableTitle": "无法重试这条回答",
+      "retryUnavailableDescription": "未找到对应的已保存用户消息，请刷新会话后再试。",
+      "retryFailedTitle": "重试失败",
+      "retryFailedDescription": "智能体未能重新生成回答，请查看运行追踪。",
+      "executionFailed": "本轮执行失败。请查看运行追踪并修复后重试。",
+      "executionTimeout": "模型服务响应超时。本轮结果未完成，请查看运行追踪后重试。",
+      "retryTeamContextMissing": "当前团队上下文无效，请重新选择团队后再试。",
       "you": "你",
       "assistant": "助手",
       "system": "系统",
@@ -2721,7 +3227,7 @@
         "label": "命名空间（可选）",
         "placeholder": "如: company.crm"
       },
-      "environment": "目标环境",
+		"releaseChannel": "发布渠道",
       "autoUpdate": "自动更新",
       "forceInstall": "强制覆盖同版本（Force）",
       "permissions": {

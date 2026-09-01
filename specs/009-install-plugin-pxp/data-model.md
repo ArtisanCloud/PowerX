@@ -1,6 +1,8 @@
 # Data Model — Plugin Release & Marketplace Publishing Foundation
 
-> 所有实体存放于 Postgres，表名采用 `px_plugin_release_*` 前缀。GORM 模型位于 `pkg/corex/db/persistence/model/plugin_release`，并通过 `pkg/corex/db/database/migration.go` 注册 AutoMigrate。所有记录均包含 `TenantID`, `CreatedAt`, `UpdatedAt`, `CreatedBy`, `UpdatedBy`, `TraceID`.
+> 所有实体存放于 Postgres，表名采用 `px_plugin_release_*` 前缀。GORM 模型位于 `pkg/corex/db/persistence/model/plugin_release`，并通过 `pkg/corex/db/database/migration.go` 注册 AutoMigrate。
+>
+> UUID 规则优先：本文件早期章节中的 numeric `ID/TenantID/*ID` 是历史计划遗留，不得用于新增实现、API、事件、审计或跨表关系。后续修订必须迁移为对象自身 `*_uuid` 与关系 `*_uuid`，缺失 UUID 时明确失败；不得把 numeric ID 作为兼容输入。本文新增的 `PluginDatabaseBinding` 直接按当前 UUID 规则定义。
 
 ## 1. PluginReleaseCandidate
 - **Purpose**: 描述每次提交的构建、扫描与审批状态，是发布流程的单一真相源。
@@ -106,6 +108,32 @@
 - **Purpose**: 180 天审计要求。
 - **Implementation**: `AuditTrailRef` 列统一引用 `pkg/corex/db/persistence/model/audit.AuditEvent` 表。所有服务层方法必须调用 `audit.Service.RecordReleaseEvent(...)`，包含 `tenant_id`, `actor`, `action`, `resource`.
 
+## 8. PluginDatabaseBinding（新增目标模型）
+
+- **Purpose**: 保存插件安装实际使用的部署环境和数据库对象，是 replace、restore、migration、purge 与 repair 的权威绑定；该对象独立可审计，因此必须拥有自身 UUID。
+- **Key Fields**
+
+  | Field | Type | Notes |
+  |-------|------|-------|
+  | `BindingUUID` | `uuid` | 稳定业务主键；API、审计、事件统一使用该 UUID |
+  | `TenantUUID` | `uuid` | 租户业务 UUID，不得使用 numeric tenant ID |
+  | `PluginUUID` | `uuid` | 关联插件业务对象 UUID |
+  | `PluginKey` | `varchar(255)` | manifest 稳定插件标识，仅用于数据库对象命名与诊断，不替代 `PluginUUID` 关系 |
+  | `DeploymentEnv` | `enum(dev,test,staging,prod)` | 来自 Core `deployment.env` |
+  | `Driver` | `enum(postgres,mysql)` | 数据库驱动 |
+  | `DatabaseName` | `varchar(64)` | MySQL 隔离 Database；PostgreSQL 可记录宿主 DB 名 |
+  | `SchemaName` | `varchar(63)` | PostgreSQL 隔离 Schema |
+  | `RoleName` | `varchar(63)` | PostgreSQL Role / MySQL User；不保存明文密码 |
+  | `Status` | `enum(provisioning,active,repair_required,purging,purged,failed)` | 生命周期状态 |
+  | `CreatedAt/UpdatedAt` | `timestamptz` | 审计时间 |
+
+- **Constraints**:
+  - (`TenantUUID`, `PluginUUID`, `DeploymentEnv`) 在有效状态下唯一。
+  - (`Driver`, `DatabaseName`, `SchemaName`, `RoleName`) 必须能唯一定位实际对象。
+  - `DeploymentEnv` 必须与当前 Core 配置一致；不一致时生命周期操作失败。
+  - Schema/Database 名称沿用 `px_<plugin_slug>`；Role/User 按 `pxu_<env>_<plugin_slug>_<hash8>` 生成，`hash8` 为稳定插件 ID 的 SHA-256 前 8 位十六进制摘要。
+  - 旧记录缺少 UUID、环境或对象名时标记 `repair_required`，不得在读取时根据 numeric ID 或旧名称静默补齐。
+
 ## Derived Views & Indexes
 - Materialized view `mv_plugin_release_status`（按租户/渠道聚合当前状态）供仪表盘使用。
 - Timescale/Partitioning：`plugin_release_candidates` 按月分区，支撑 180 天留存并便于清理。
@@ -117,3 +145,4 @@
 3. `OfflineDistributionPackage` 状态不为 `approved` 时禁止生成 `MarketplaceListing`.
 4. Local Install Session 15 分钟 TTL，超时自动回滚并通知开发者。
 5. 每个 `CanaryDeploymentRecord` 在记录 `ThresholdBreached = true` 时必须关联 `ActionTaken = rollback` 并在 5 分钟内落日志，用于自动化回滚 KPI。
+6. 插件数据库 DDL 前必须完成 `PluginDatabaseBinding` 环境、名称和对象所有权校验；部分失败只清理本次明确创建的对象。

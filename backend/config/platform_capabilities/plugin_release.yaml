@@ -1,0 +1,71 @@
+---
+version: 1
+capabilities:
+- capability_id: com.corex.plugin_release.local_install.manage
+  module: plugin_release
+  title: Plugin Release Local Install Manage
+  description: Create, read, and stop current-member local plugin install sessions within the credential tenant.
+  permission_code: corex.plugin_release.local_install:manage
+  agent_usable: false
+  risk_level: high
+  categories: [plugin_release]
+  intents: [plugin_release.local_install.manage]
+  tool_scopes: [plugin_release.local_install.manage]
+  policy: { prefer: rest }
+  docs: [specs/009-install-plugin-pxp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/tenant/plugin-release/local/sessions
+    method: POST
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1local~1sessions/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: plugin_release.local_install.manage
+  - channel: rest
+    endpoint: /api/v1/tenant/plugin-release/local/sessions/:sessionId
+    method: GET
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1local~1sessions~1{sessionId}/get
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: plugin_release.local_install.manage
+  - channel: rest
+    endpoint: /api/v1/tenant/plugin-release/local/sessions/:sessionId
+    method: DELETE
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1local~1sessions~1{sessionId}/delete
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: plugin_release.local_install.manage
+- capability_id: com.corex.plugin_release.offline_import.manage
+  module: plugin_release
+  title: Plugin Release Offline Import Manage
+  description: Create and read tenant-scoped offline plugin import jobs.
+  permission_code: corex.plugin_release.offline_import:manage
+  agent_usable: false
+  risk_level: high
+  categories: [plugin_release]
+  intents: [plugin_release.offline_import.manage]
+  tool_scopes: [plugin_release.offline_import.manage]
+  policy: { prefer: rest }
+  docs: [specs/009-install-plugin-pxp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/tenant/offline-imports
+    method: POST
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1offline-imports/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: plugin_release.offline_import.manage
+  - channel: rest
+    endpoint: /api/v1/tenant/offline-imports/:jobId
+    method: GET
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1offline-imports~1{jobId}/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: plugin_release.offline_import.manage

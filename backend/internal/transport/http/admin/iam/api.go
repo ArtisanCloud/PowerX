@@ -4,6 +4,7 @@ package iam
 import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	service "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -85,6 +86,37 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gMigration.POST("/fix-owner", hMigration.FixOwner)
 	}
 
+	policySvc := authsvc.NewRegistrationPolicyService(deps.DB)
+	hRegistration := NewRegistrationAdminHandler(
+		policySvc,
+		authsvc.NewInviteCodeService(deps.DB),
+		authsvc.NewRegistrationRequestService(deps.DB, authsvc.WithRegistrationRequestPolicy(policySvc)),
+	)
+	gRegistrationPolicy := protectedGroup.Group("/admin/registration-policy")
+	{
+		gRegistrationPolicy.GET("", hRegistration.GetPolicy)
+		gRegistrationPolicy.GET("/history", hRegistration.ListPolicyHistory)
+		gRegistrationPolicy.PUT("", hRegistration.UpdateDraft)
+		gRegistrationPolicy.POST("/activate", hRegistration.ActivatePolicy)
+	}
+	gRegistrationInvites := protectedGroup.Group("/admin/registration-invite-batches")
+	{
+		gRegistrationInvites.GET("", hRegistration.ListInviteBatches)
+		gRegistrationInvites.POST("", hRegistration.CreateInviteBatch)
+		gRegistrationInvites.DELETE("", hRegistration.DeleteInviteBatches)
+		gRegistrationInvites.GET("/:batch_uuid/codes", hRegistration.ListInviteCodes)
+		gRegistrationInvites.POST("/:batch_uuid/codes", hRegistration.GenerateInviteCodes)
+		gRegistrationInvites.POST("/:batch_uuid/codes/reset-missing-plain", hRegistration.ResetMissingInviteCodePlaintext)
+		gRegistrationInvites.POST("/:batch_uuid/pause", hRegistration.PauseInviteBatch)
+		gRegistrationInvites.POST("/:batch_uuid/revoke", hRegistration.RevokeInviteBatch)
+	}
+	gRegistrationRequests := protectedGroup.Group("/admin/registration-requests")
+	{
+		gRegistrationRequests.GET("", hRegistration.ListRequests)
+		gRegistrationRequests.POST("/:request_uuid/approve", hRegistration.ApproveRequest)
+		gRegistrationRequests.POST("/:request_uuid/reject", hRegistration.RejectRequest)
+	}
+
 	// permission
 	hPerm := NewPermissionHandler(deps)
 
@@ -103,11 +135,13 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	))
 	{
 		gPerm.GET("", hPerm.List)
+		gPerm.GET("/plugin-catalog", hPerm.PluginCatalog)
 		gPerm.GET("catalog", hPerm.Catalog)
 
 		// 系统权限：注册、同步、更新、状态切换
 		gSysPerm.POST("register", hPerm.Register)
 		gSysPerm.POST("sync", hPerm.Sync)
+		gSysPerm.DELETE("/plugin-invalid", hPerm.CleanupInvalidPluginPermissions)
 		gSysPerm.PATCH("/:id", hPerm.Update)         // 更新描述 /（可选）状态
 		gSysPerm.PUT("/:id/status", hPerm.SetStatus) // 仅状态切换
 	}

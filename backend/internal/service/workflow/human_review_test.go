@@ -121,6 +121,7 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 		State:          "waiting",
 		SubjectType:    "human",
 		AwaitingHuman:  true,
+		PayloadIn:      toJSONOrEmpty(map[string]any{"draft_refs": []any{"draft-a"}, "summary": "demo"}),
 		ScheduledAt:    time.Unix(1000, 0).UTC(),
 		LastTransition: time.Unix(1000, 0).UTC(),
 	}}}
@@ -130,6 +131,7 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 		WorkflowInstanceUUID: instanceUUID,
 		StepID:               "review",
 		ReviewType:           "knowledge_publish",
+		Payload:              toJSONOrEmpty(map[string]any{"draft_refs": []any{"draft-a"}, "summary": "demo"}),
 		Status:               "pending",
 	}}
 	instanceStore := &runnerInstanceStore{instance: &modelworkflow.WorkflowInstance{
@@ -172,6 +174,14 @@ func TestActHumanReviewTaskApproveCompletesStepAndQueuesApprovedRoute(t *testing
 	}
 	if records[0].State != "completed" || records[1].StepID != "publish" || records[1].State != "completed" || records[2].StepID != "end" || records[2].State != "completed" {
 		t.Fatalf("unexpected records: %#v", records)
+	}
+	publishInput := jsonMap(records[1].PayloadIn)
+	if _, ok := publishInput["draft_refs"]; !ok {
+		t.Fatalf("expected publish payload to preserve draft_refs, got %#v", publishInput)
+	}
+	reviewPayload, ok := publishInput["review"].(map[string]any)
+	if !ok || reviewPayload["action"] != "approve" {
+		t.Fatalf("expected publish payload to include review action, got %#v", publishInput)
 	}
 	if instanceStore.instance.State != "succeeded" {
 		t.Fatalf("expected instance succeeded, got %s", instanceStore.instance.State)

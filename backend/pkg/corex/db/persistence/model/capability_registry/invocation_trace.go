@@ -13,7 +13,7 @@ import (
 type InvocationTrace struct {
 	coremodel.PowerUUIDModel
 
-	TraceID            string         `gorm:"column:trace_id;type:varchar(128);not null;uniqueIndex:uk_capability_invocation_trace" json:"trace_id"`
+	TraceID            string         `gorm:"column:trace_id;type:varchar(128);not null;index:idx_capability_invocation_trace" json:"trace_id"`
 	TenantUUID         string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_capability_invocation_tenant" json:"tenant_uuid"`
 	PluginID           string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_invocation_plugin" json:"plugin_id"`
 	CapabilityID       string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_capability_invocation_capability" json:"capability_id"`

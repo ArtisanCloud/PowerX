@@ -94,7 +94,12 @@ func (a *DecisionGatewayAdapter) Execute(ctx context.Context, exec NodeExecution
 		err := errors.New("workflow.decision_required")
 		return NodeResult{Status: NodeResultStatusFailed, ErrorCode: err.Error()}, err
 	}
-	return NodeResult{Status: NodeResultStatusSucceeded, Decision: decision, Output: map[string]any{"decision": decision}}, nil
+	out := cloneMap(exec.Payload)
+	if out == nil {
+		out = map[string]any{}
+	}
+	out["decision"] = decision
+	return NodeResult{Status: NodeResultStatusSucceeded, Decision: decision, Output: out}, nil
 }
 
 type ParallelAdapter struct {

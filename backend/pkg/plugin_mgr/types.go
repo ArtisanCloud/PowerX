@@ -1,6 +1,9 @@
 package plugin_mgr
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // ------- 安装与运行期公共类型 -------
 
@@ -16,12 +19,13 @@ type InstallOptions struct {
 
 // InstallMetadata 记录一次安装请求携带的额外上下文。
 type InstallMetadata struct {
-	Scope       string             `json:"scope"`
-	Namespace   string             `json:"namespace"`
-	Environment string             `json:"environment"`
-	AutoUpdate  bool               `json:"auto_update"`
-	Permissions InstallPermissions `json:"permissions"`
-	Notes       string             `json:"notes"`
+	Scope                 string             `json:"scope"`
+	Namespace             string             `json:"namespace"`
+	ReleaseChannel        string             `json:"release_channel"`
+	DeprecatedEnvironment json.RawMessage    `json:"environment,omitempty"`
+	AutoUpdate            bool               `json:"auto_update"`
+	Permissions           InstallPermissions `json:"permissions"`
+	Notes                 string             `json:"notes"`
 }
 
 // InstallPermissions 描述插件在安装阶段声明的最小权限需求。
@@ -103,11 +107,12 @@ type Plugin struct {
 	State   PluginState `json:"state"`
 
 	// 这些来自 manifest：
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Metadata    Metadata     `json:"metadata"` // ✅ 建议用值类型，避免 nil
-	Catalogs    CatalogSpec  `json:"catalogs,omitempty"`
-	Exposure    ExposureSpec `json:"exposure,omitempty"`
+	Name                 string       `json:"name"`
+	Description          string       `json:"description"`
+	Metadata             Metadata     `json:"metadata"` // ✅ 建议用值类型，避免 nil
+	Catalogs             CatalogSpec  `json:"catalogs,omitempty"`
+	RequiredCapabilities []string     `json:"required_capabilities,omitempty"`
+	Exposure             ExposureSpec `json:"exposure,omitempty"`
 
 	Runtime     RuntimeSpec      `json:"runtime"`
 	Frontend    FrontendSpec     `json:"frontend"`
@@ -258,15 +263,37 @@ type ExposureChannel struct {
 }
 
 type PermissionSpec struct {
-	Resource    string                `yaml:"resource" json:"resource"`
-	Actions     []string              `yaml:"actions"  json:"actions"`
-	Path        string                `yaml:"path,omitempty" json:"path,omitempty"`
-	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
-	Label       string                `yaml:"label,omitempty" json:"label,omitempty"`
-	Module      string                `yaml:"module,omitempty" json:"module,omitempty"`
-	Type        string                `yaml:"type,omitempty" json:"type,omitempty"`
-	AllowAPIKey bool                  `yaml:"allow_api_key,omitempty" json:"allow_api_key,omitempty"`
-	APIKey      *APIKeyPermissionSpec `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+	Resource               string                      `yaml:"resource" json:"resource"`
+	Actions                []string                    `yaml:"actions"  json:"actions"`
+	Path                   string                      `yaml:"path,omitempty" json:"path,omitempty"`
+	Description            string                      `yaml:"description,omitempty" json:"description,omitempty"`
+	Label                  string                      `yaml:"label,omitempty" json:"label,omitempty"`
+	Module                 string                      `yaml:"module,omitempty" json:"module,omitempty"`
+	Type                   string                      `yaml:"type,omitempty" json:"type,omitempty"`
+	PermissionCode         string                      `yaml:"permission_code,omitempty" json:"permission_code,omitempty"`
+	Action                 string                      `yaml:"action,omitempty" json:"action,omitempty"`
+	MenuPath               []string                    `yaml:"menu_path,omitempty" json:"menu_path,omitempty"`
+	PagePermissionCodes    []string                    `yaml:"page_permission_codes,omitempty" json:"page_permission_codes,omitempty"`
+	BusinessPermissionCode string                      `yaml:"business_permission_code,omitempty" json:"business_permission_code,omitempty"`
+	TitleI18n              map[string]string           `yaml:"title_i18n,omitempty" json:"title_i18n,omitempty"`
+	DescriptionI18n        map[string]string           `yaml:"description_i18n,omitempty" json:"description_i18n,omitempty"`
+	RiskLevel              string                      `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`
+	DataScope              string                      `yaml:"data_scope,omitempty" json:"data_scope,omitempty"`
+	DefaultRoleGrants      []string                    `yaml:"default_role_grants,omitempty" json:"default_role_grants,omitempty"`
+	ProtocolBindings       []PermissionProtocolBinding `yaml:"protocol_bindings,omitempty" json:"protocol_bindings,omitempty"`
+	Independent            bool                        `yaml:"independent,omitempty" json:"independent,omitempty"`
+	AllowAPIKey            bool                        `yaml:"allow_api_key,omitempty" json:"allow_api_key,omitempty"`
+	APIKey                 *APIKeyPermissionSpec       `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+}
+
+type PermissionProtocolBinding struct {
+	Channel       string `yaml:"channel,omitempty" json:"channel,omitempty"`
+	Method        string `yaml:"method,omitempty" json:"method,omitempty"`
+	Path          string `yaml:"path,omitempty" json:"path,omitempty"`
+	RPC           string `yaml:"rpc,omitempty" json:"rpc,omitempty"`
+	Tool          string `yaml:"tool,omitempty" json:"tool,omitempty"`
+	ActorContext  string `yaml:"actor_context,omitempty" json:"actor_context,omitempty"`
+	ResourceScope string `yaml:"resource_scope,omitempty" json:"resource_scope,omitempty"`
 }
 
 type APIKeyPermissionSpec struct {

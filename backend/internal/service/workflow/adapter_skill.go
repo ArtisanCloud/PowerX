@@ -38,13 +38,16 @@ func (a *SkillAdapter) Spec() NodeAdapterSpec {
 		NodeKind:     "skill.invoke",
 		DisplayName:  "workflow.node.skill.invoke",
 		Category:     "skill",
-		InputSchema:  requiredObjectSchema("skill_id", "input_path", "output_path"),
+		InputSchema:  requiredObjectSchema("skill_id", "entrypoint", "input_path", "output_path"),
 		OutputSchema: objectSchema(),
 	}
 }
 
 func (a *SkillAdapter) Validate(step StepDefinition) error {
 	if err := requireConfigString(step, "skill_id"); err != nil {
+		return err
+	}
+	if err := requireConfigString(step, "entrypoint"); err != nil {
 		return err
 	}
 	if err := requireConfigString(step, "input_path"); err != nil {

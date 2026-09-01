@@ -58,7 +58,7 @@ git checkout ${POWERX_VERSION}
 
 ```bash
 # 固定 Go 工具链版本（推荐）
-go env -w GOTOOLCHAIN=go1.24.12
+go env -w GOTOOLCHAIN=go1.26.7
 go version
 go env GOVERSION GOTOOLCHAIN
 
@@ -168,6 +168,14 @@ sudo systemctl status powerx-backend powerx-web-admin powerx-runner --no-pager
 ## 10. 配置说明
 - 必改：`/etc/powerx/config.yaml`（运行时外置配置，跨版本保持）
 - 配置清单：`../00-required-config.md`
+- 生产必须显式配置：
+
+```yaml
+deployment:
+  env: prod
+```
+
+该值是插件 Role/User 命名的唯一环境来源；Schema/Database 名称保持不变。配置结构、setup、plugin manager 和迁移测试必须共同使用该字段。
 
 当前 unit 行为：
 - `powerx-backend.service`：读取 `/etc/powerx/config.yaml`（`POWERX_CONFIG`）

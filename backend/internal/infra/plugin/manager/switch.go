@@ -23,6 +23,22 @@ func (m *managerImpl) SwitchVersion(ctx context.Context, id, version string, ena
 			plugin_mgr.WithMsg("target version not installed"),
 		)
 	}
+	target, ok := m.opts.Registry.GetVersion(ctx, id, version)
+	if !ok {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeNotFound, plugin_mgr.WithOp("switch_version.database_binding"),
+			plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(version),
+		)
+	}
+	if err := m.validatePluginDatabaseBinding(id, target.HostConfig); err != nil {
+		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+			plugin_mgr.CodeConflict,
+			err,
+			plugin_mgr.WithOp("switch_version.database_binding"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+		)
+	}
 
 	// 2) 如当前启用，先停
 	if cur, ok := m.opts.Registry.Get(ctx, id); ok && cur.State == plugin_mgr.StateEnabled {

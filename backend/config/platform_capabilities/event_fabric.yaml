@@ -1,29 +1,72 @@
+---
 version: 1
 capabilities:
-  - capability_id: com.corex.eventfabric.publish
-    module: event_fabric
-    title: Event Fabric Publish & Subscribe
-    description: 使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。
-    permission_code: corex.event_fabric:publish
-    agent_usable: true
-    risk_level: medium
-    categories: [event, integration]
-    intents: [event.fabric.publish]
-    tool_scopes: [event.fabric]
-    policy:
-      prefer: grpc
-    docs:
-      - backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto
-    protocols:
-      - channel: grpc
-        endpoint: powerx.event_fabric.v1.EventDeliveryService
-        rpc: PublishEvent
-        schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService
-        auth_type: tenant_jwt
-        tool_scope: event.fabric
-      - channel: grpc
-        endpoint: powerx.event_fabric.v1.EventSubscriberService
-        rpc: Subscribe
-        schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventSubscriberService
-        auth_type: tenant_jwt
-        tool_scope: event.fabric
+- capability_id: com.corex.eventfabric.publish
+  module: event_fabric
+  title: Event Fabric Publish & Subscribe
+  description: 使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。
+  permission_code: corex.event_fabric:publish
+  agent_usable: true
+  risk_level: medium
+  categories:
+  - event
+  - integration
+  intents:
+  - event.fabric.publish
+  tool_scopes:
+  - event.fabric
+  policy:
+    prefer: grpc
+  docs:
+  - backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto
+  protocols:
+  - channel: grpc
+    endpoint: powerx.event_fabric.v1.EventDeliveryService
+    rpc: PublishEvent
+    schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService
+    auth_type: tenant_jwt
+    tool_scope: event.fabric
+  - channel: grpc
+    endpoint: powerx.event_fabric.v1.EventSubscriberService
+    rpc: Subscribe
+    schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventSubscriberService
+    auth_type: tenant_jwt
+    tool_scope: event.fabric
+  title_i18n:
+    en: Event Fabric Publish & Subscribe
+  description_i18n:
+    en: 使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。
+- capability_id: com.corex.eventfabric.topic_bootstrap
+  module: event_fabric
+  title: Event Fabric Topic Bootstrap
+  description: 允许插件服务态在租户范围内幂等创建自身运行所需的 Event Fabric topic。
+  permission_code: corex.event_fabric.topic:bootstrap
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - event
+  - integration
+  - runtime
+  intents:
+  - event.fabric.topic.bootstrap
+  tool_scopes:
+  - event.fabric.topic.bootstrap
+  policy:
+    prefer: rest
+  docs:
+  - backend/internal/transport/http/admin/event_fabric/routes.go
+  - docs/guides/plugin_release/permission_declaration.md
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/event-fabric/topics"
+    method: POST
+    schema_ref: backend/internal/transport/http/admin/event_fabric/routes.go#RegisterAPIRoutes
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: event.fabric.topic.bootstrap
+  title_i18n:
+    en: Event Fabric Topic Bootstrap
+  description_i18n:
+    en: 允许插件服务态在租户范围内幂等创建自身运行所需的 Event Fabric topic。

@@ -156,6 +156,7 @@ func (s *STSServiceServer) Exchange(ctx context.Context, req *stsv1.ExchangeRequ
 		TenantUUID: tenantUUID,
 		TenantID:   tenantID,
 		Scope:      scope,
+		PluginID:   pluginID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Subject:   subject,

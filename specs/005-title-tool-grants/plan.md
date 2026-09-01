@@ -11,7 +11,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24  
+**Language/Version**: Go 1.26.7
 **Primary Dependencies**: Gin、gRPC-Go、GORM、Redis（go-redis）、OpenTelemetry、buf CLI、stretchr/testify  
 **Storage**: PostgreSQL（GORM 模型）、Redis（授权/审批缓存）  
 **Testing**: Go `testing`、`stretchr/testify`、`httptest`、gRPC InProcess 测试、buf lint  

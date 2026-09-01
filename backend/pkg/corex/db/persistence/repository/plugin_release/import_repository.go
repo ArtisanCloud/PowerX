@@ -51,9 +51,17 @@ func (r *ImportRepository) MarkCompleted(ctx context.Context, id uuid.UUID, stat
 }
 
 // FindByID returns the run by identifier.
+func (r *ImportRepository) FindByTenantUUID(ctx context.Context, tenantUUID string, id uuid.UUID) (*model.PluginImportRun, error) {
+	var run model.PluginImportRun
+	if err := r.db.WithContext(ctx).Where("tenant_uuid = ? AND CAST(uuid AS TEXT) = ?", tenantUUID, id.String()).First(&run).Error; err != nil {
+		return nil, err
+	}
+	return &run, nil
+}
+
 func (r *ImportRepository) FindByID(ctx context.Context, id uuid.UUID) (*model.PluginImportRun, error) {
 	var run model.PluginImportRun
-	if err := r.db.WithContext(ctx).First(&run, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("CAST(uuid AS TEXT) = ?", id.String()).First(&run).Error; err != nil {
 		return nil, err
 	}
 	return &run, nil

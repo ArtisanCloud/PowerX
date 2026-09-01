@@ -46,9 +46,9 @@ func systemPerm(module, resource, action string) dbm.Permission {
 }
 
 func menuPerm(resource string) dbm.Permission {
-	permission := systemPerm("menu", resource, "read")
+	permission := systemPerm("menu", resource, "view")
 	permission.Description = fmt.Sprintf("Allow viewing admin menu %s", resource)
-	permission.Meta = permissionMeta("menu", resource, "read", "menu")
+	permission.Meta = permissionMeta("menu", resource, "view", "menu")
 	return permission
 }
 
@@ -83,6 +83,8 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		systemPerm("metadata", "tag", "manage"),
 		systemPerm("metadata", "resource_type", "read"),
 		systemPerm("metadata", "resource_type", "manage"),
+		// Agent runtime scenarios
+		systemPerm("agent", "release_readiness", "use"),
 		// Admin menu visibility permissions. These only control menu visibility;
 		// route/API authorization must still be enforced by the target module.
 		menuPerm("agent"),
@@ -177,7 +179,8 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 		allActiveIDs         []uint64 // root 全部
 		readOnlyIDs          []uint64 // system_monitor 只读
 		tenantActiveIDs      []uint64 // role_admin 租户可用
-		tenantReadOnlyIDs    []uint64 // role_user 租户非菜单只读
+		tenantUserIDs        []uint64 // role_user 租户基础使用权限
+		tenantReadOnlyIDs    []uint64 // role_readonly 租户非菜单只读
 		allMenuIDs           []uint64
 		tenantDefaultMenuIDs []uint64 // role_user/role_readonly 默认菜单入口
 		vendorIDs            []uint64 // role_vendor 供应商默认权限
@@ -209,7 +212,24 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 		return fmt.Errorf("list tenant active ids: %w", err)
 	}
 
-	// role_user：租户只读（租户可用 + read/list）
+	// role_user：租户基础使用权限。普通用户默认可访问智能会话，
+	// 但不获得 IAM/Capability Registry 等后台治理写权限。
+	if err := db.WithContext(ctx).
+		Raw(`
+			SELECT id FROM public.iam_permission
+			WHERE status = ?
+			  AND (meta->>'module' IS NULL OR (meta->>'module') != ?)
+			  AND module != 'menu'
+			  AND (
+			    action IN ('read','list')
+			    OR module = 'agent'
+			  )
+		`, dbm.PermissionStatusActive, "system").
+		Scan(&tenantUserIDs).Error; err != nil {
+		return fmt.Errorf("list tenant user ids: %w", err)
+	}
+
+	// role_readonly：只读权限，不默认授予 Agent 会话创建/调用能力。
 	if err := db.WithContext(ctx).
 		Raw(`
 			SELECT id FROM public.iam_permission
@@ -225,7 +245,7 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 	if err := db.WithContext(ctx).
 		Model(&dbm.Permission{}).
 		Where("status = ?", dbm.PermissionStatusActive).
-		Where("module = ? AND action = ?", "menu", "read").
+		Where("module = ? AND action = ?", "menu", "view").
 		Pluck("id", &allMenuIDs).Error; err != nil {
 		return fmt.Errorf("list menu ids: %w", err)
 	}
@@ -236,7 +256,7 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 		Where("module = ? AND resource IN ? AND action = ?",
 			"menu",
 			[]string{"dashboard", "agent", "agent.chat", "knowledge"},
-			"read",
+			"view",
 		).
 		Pluck("id", &tenantDefaultMenuIDs).Error; err != nil {
 		return fmt.Errorf("list tenant default menu ids: %w", err)
@@ -267,10 +287,12 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 				return err
 			}
 		}
-		if len(tenantReadOnlyIDs) > 0 {
-			if err := rpr.GrantByIDsTx(tx, roleUser.ID, tenantReadOnlyIDs); err != nil {
+		if len(tenantUserIDs) > 0 {
+			if err := rpr.GrantByIDsTx(tx, roleUser.ID, tenantUserIDs); err != nil {
 				return err
 			}
+		}
+		if len(tenantReadOnlyIDs) > 0 {
 			if err := rpr.GrantByIDsTx(tx, roleReadonly.ID, tenantReadOnlyIDs); err != nil {
 				return err
 			}

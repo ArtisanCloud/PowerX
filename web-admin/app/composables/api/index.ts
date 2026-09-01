@@ -12,6 +12,7 @@ import {
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
 import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
+import { isAccessTokenExpired, syncExpiresAtFromJWT } from "~/utils/auth-token";
 
 /** =========================
  * API 客户端配置
@@ -45,10 +46,10 @@ const getRequestPath = (url?: string): string => {
 const shouldRefreshForRequest = (url?: string): boolean => {
   const path = getRequestPath(url);
   if (!path) return false;
-  if (path.startsWith("/_p/") || path.startsWith("/__up/") || path === "/api/ws") {
+  if (path.startsWith("/__up/") || path === "/api/ws") {
     return false;
   }
-  return path.startsWith("/api/");
+  return path.startsWith("/api/") || path.startsWith("/_p/");
 };
 
 const getErrorStatusCode = (error: any): number => {
@@ -98,11 +99,7 @@ const updateClientAuthStorage = (payload: any) => {
 
 const isTokenExpiredByLocalClock = (): boolean => {
   if (!process.client) return true;
-  const expiresAtRaw = localStorage.getItem("expires_at");
-  if (!expiresAtRaw) return true;
-  const expiresAt = Number(expiresAtRaw);
-  if (!Number.isFinite(expiresAt) || expiresAt <= 0) return true;
-  return Date.now() >= expiresAt;
+  return isAccessTokenExpired(localStorage.getItem("access_token"));
 };
 
 const tryRefreshAccessToken = async (): Promise<string | null> => {
@@ -135,15 +132,27 @@ const tryRefreshAccessToken = async (): Promise<string | null> => {
 
       updateClientAuthStorage(payload);
       return String(payload.access_token);
-    } catch {
-      clearClientAuthStorage();
-      return null;
+    } catch (error: any) {
+      const statusCode = getErrorStatusCode(error);
+      if (statusCode === 401) {
+        clearClientAuthStorage();
+        return null;
+      }
+      throw error;
     } finally {
       refreshingAccessTokenPromise = null;
     }
   })();
 
   return refreshingAccessTokenPromise;
+};
+
+const resolveAccessTokenForRequest = async (url?: string): Promise<string | null> => {
+  let token = localStorage.getItem("access_token");
+  if ((!token || isTokenExpiredByLocalClock()) && !isAuthRefreshEndpoint(url)) {
+    token = await tryRefreshAccessToken();
+  }
+  return token;
 };
 
 /**
@@ -168,12 +177,10 @@ let globalConfig: ApiClientConfig = {
       onRequest: async (config) => {
         // 自动添加认证头（仅客户端）
         if (process.client && !config.skipAuth) {
-          let token = localStorage.getItem("access_token");
-          if ((!token || isTokenExpiredByLocalClock()) && !isAuthRefreshEndpoint((config as any).url)) {
-            token = await tryRefreshAccessToken();
-          }
+          const token = await resolveAccessTokenForRequest((config as any).url);
           const tokenType = localStorage.getItem("token_type") || "Bearer";
           if (token) {
+            syncExpiresAtFromJWT(token);
             config.headers = {
               ...config.headers,
               Authorization: `${tokenType} ${token}`,

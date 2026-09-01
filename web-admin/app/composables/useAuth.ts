@@ -1,6 +1,7 @@
 import type { LoginResponse } from "./api/services/authService";
 import { useAuthService } from "./api/services/authService";
 import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
+import { isAccessTokenExpired, syncExpiresAtFromJWT } from "~/utils/auth-token";
 /**
  * 认证状态管理
  */
@@ -72,11 +73,7 @@ export const useAuth = () => {
    */
   const isTokenExpired = (): boolean => {
     if (!process.client) return true;
-
-    const expiresAt = localStorage.getItem("expires_at");
-    if (!expiresAt) return true;
-
-    return Date.now() > parseInt(expiresAt);
+    return isAccessTokenExpired(localStorage.getItem("access_token"));
   };
 
   /**
@@ -90,7 +87,9 @@ export const useAuth = () => {
       return null;
     }
 
-    return localStorage.getItem("access_token");
+    const current = localStorage.getItem("access_token");
+    syncExpiresAtFromJWT(current);
+    return current;
   };
 
   /**
@@ -101,6 +100,7 @@ export const useAuth = () => {
 
     const accessToken = localStorage.getItem("access_token");
     if (accessToken && !isTokenExpired()) {
+      syncExpiresAtFromJWT(accessToken);
       token.value = accessToken;
       isAuthenticated.value = true;
     } else {

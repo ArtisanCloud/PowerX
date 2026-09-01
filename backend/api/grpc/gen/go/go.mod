@@ -1,6 +1,6 @@
 module github.com/ArtisanCloud/PowerX/api/grpc/gen/go
 
-go 1.24.0
+go 1.26.7
 
 require (
 	google.golang.org/grpc v1.75.0

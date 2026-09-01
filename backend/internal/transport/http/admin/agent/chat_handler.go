@@ -25,6 +25,7 @@ import (
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
+	modelagent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -45,6 +46,7 @@ type AgentChatHandler struct {
 	ctxOptSvc   *agentSvc.ContextOptimizerConfigService
 	skillBinds  *agentrepo.AgentSkillBindingRepository
 	skillStates *agentSvc.SkillStateService
+	teams       *agentSvc.TeamService
 }
 
 type runtimeSkillStateStore struct {
@@ -872,7 +874,77 @@ func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 		ctxOptSvc:   agentSvc.NewContextOptimizerConfigService(dep.DB),
 		skillBinds:  agentrepo.NewAgentSkillBindingRepository(dep.DB),
 		skillStates: agentSvc.NewSkillStateService(dep.DB),
+		teams:       agentSvc.NewTeamService(dep.DB),
 	}
+}
+
+func (h *AgentChatHandler) resolveTeamRuntimeContext(ctx context.Context, env, tenantUUID string, agentID, teamID, parentAgentID uint64) (map[string]any, error) {
+	if teamID == 0 {
+		return nil, nil
+	}
+	if h == nil || h.teams == nil {
+		return nil, fmt.Errorf("agent team service is not configured")
+	}
+	team, err := h.teams.ValidateTeamTenant(ctx, teamID, tenantUUID)
+	if err != nil {
+		return nil, fmt.Errorf("团队不可用: %w", err)
+	}
+	if parentAgentID > 0 && parentAgentID != team.ParentAgentID {
+		return nil, fmt.Errorf("parent_agent_id 与团队主智能体不一致")
+	}
+	if agentID != team.ParentAgentID {
+		return nil, fmt.Errorf("agent_id 与团队主智能体不一致")
+	}
+	if !strings.EqualFold(strings.TrimSpace(team.Status), modelagent.TeamStatusActive) {
+		return nil, fmt.Errorf("团队未启用")
+	}
+	spec, err := modelagent.ParseTeamOrchestrationSpec(team.OrchestrationSpec)
+	if err != nil {
+		return nil, fmt.Errorf("团队编排不可执行: %w", err)
+	}
+	var orchestration map[string]any
+	if err = json.Unmarshal(team.OrchestrationSpec, &orchestration); err != nil || len(orchestration) == 0 {
+		return nil, fmt.Errorf("团队编排读取失败")
+	}
+	members, err := h.teams.ListMembers(ctx, teamID, tenantUUID)
+	if err != nil {
+		return nil, fmt.Errorf("读取团队成员失败: %w", err)
+	}
+	if len(members) == 0 {
+		return nil, fmt.Errorf("团队没有可用子智能体")
+	}
+	tenantRef := strings.TrimSpace(tenantUUID)
+	outMembers := make([]map[string]any, 0, len(members))
+	for _, member := range members {
+		child, err := h.ag.Get(ctx, env, &tenantRef, member.ChildAgentID)
+		if err != nil {
+			return nil, fmt.Errorf("团队子智能体不可用: child_agent_id=%d", member.ChildAgentID)
+		}
+		skillIDs, skillErr := h.listBoundSkillIDs(ctx, env, &tenantRef, member.ChildAgentID)
+		if skillErr != nil {
+			return nil, fmt.Errorf("读取团队子智能体技能失败: child_agent_id=%d", member.ChildAgentID)
+		}
+		outMembers = append(outMembers, map[string]any{
+			"child_agent_id":  member.ChildAgentID,
+			"child_agent_key": strings.TrimSpace(child.Key),
+			"role":            strings.TrimSpace(member.Role),
+			"priority":        member.Priority,
+			"skill_ids":       skillIDs,
+		})
+	}
+	// Parsing above is intentionally retained even though the runtime parses the
+	// map again: invalid configuration fails before the response planner may
+	// silently route this message to normal chat.
+	_ = spec
+	return map[string]any{
+		"agent_workspace_mode":   "team",
+		"team_id":                fmt.Sprintf("%d", team.ID),
+		"team_key":               strings.TrimSpace(team.TeamKey),
+		"team_display_name_i18n": json.RawMessage(team.DisplayNameI18n),
+		"parent_agent_id":        team.ParentAgentID,
+		"team_members":           outMembers,
+		"team_orchestration":     orchestration,
+	}, nil
 }
 
 func (h *AgentChatHandler) SimulateSSE(c *gin.Context) {
@@ -1064,6 +1136,13 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		dto.ResponseError(c, 404, "未找到指定的 Agent", err)
 		return
 	}
+	teamID, _ := utils.ParseUintID(getParam("team_id"))
+	parentAgentID, _ := utils.ParseUintID(getParam("parent_agent_id"))
+	teamRuntimeContext, err := h.resolveTeamRuntimeContext(c.Request.Context(), env, tenantCtx.UUID(), agentID, teamID, parentAgentID)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), err)
+		return
+	}
 	boundSkillIDs, err := h.listBoundSkillIDs(c.Request.Context(), env, tenantRef, agentID)
 	if err != nil {
 		dto.ResponseError(c, 500, "读取 Agent 绑定技能失败", err)
@@ -1094,6 +1173,9 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		"session_uuid":  sess.UUID.String(),
 		"client_msg_id": clientMsgID,
 		"flow_id":       strings.TrimSpace(c.Query("flow_id")),
+	}
+	for key, value := range teamRuntimeContext {
+		debugReqBody[key] = value
 	}
 	debugMeta := map[string]any{
 		"tenant_uuid": strings.TrimSpace(tenantCtx.UUID()),
@@ -1200,6 +1282,10 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 	modelPolicy := runtime.BuildDefaultNodeModelPolicy(cfg)
 	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	// 运行标识必须在 RunStateSink 建立之前生成；否则 SSE/历史消息会缺少
+	// run_id，刷新后无法精确打开这条消息对应的 Trace 报告。
+	runCtx = context.WithValue(runCtx, "run_id", fmt.Sprintf("run_%d", time.Now().UnixNano()))
+	runCtx = context.WithValue(runCtx, "runId", runCtx.Value("run_id"))
 	runCtx = context.WithValue(runCtx, "env", env)
 	runCtx = context.WithValue(runCtx, "agent_env", env)
 	if authz := strings.TrimSpace(c.GetHeader("Authorization")); authz != "" {
@@ -1228,8 +1314,17 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	runCtx = context.WithValue(runCtx, "planner_optimizer_quota_llm", plannerCfg.PerKindQuota.LLM)
 	runCtx = context.WithValue(runCtx, "agent_id", fmt.Sprintf("%d", agentID))
 	runCtx = context.WithValue(runCtx, "agentId", fmt.Sprintf("%d", agentID))
+	for key, value := range teamRuntimeContext {
+		runCtx = context.WithValue(runCtx, key, value)
+	}
 	runCtx = context.WithValue(runCtx, "agent_bound_skill_ids", boundSkillIDs)
 	runCtx = context.WithValue(runCtx, "agentBoundSkillIDs", boundSkillIDs)
+	locale, localeErr := declaredAgentLocale(map[string]interface{}{"locale": getParam("locale")})
+	if localeErr != nil {
+		dto.ResponseError(c, 400, localeErr.Error(), nil)
+		return
+	}
+	runCtx = context.WithValue(runCtx, "locale", locale)
 	runCtx = runtime.ContextWithSkillStateStore(runCtx, runtimeSkillStateStore{service: h.skillStates})
 	var pendingTask map[string]any
 	if latestPendingTask, ok, err := h.latestRuntimePendingTask(c.Request.Context(), env, tenantRef, sess.ID, agentID, boundSkillIDs); err == nil && ok {
@@ -1276,7 +1371,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	})
 	responsePlan, responsePlanErr := runtime.NewResponsePlanner().Plan(runCtx, runtime.ResponsePlanInput{
 		UserMessage:           q,
-		PlanHasExecutableNode: false,
+		PlanHasExecutableNode: teamRuntimeContextHasExecutablePlan(teamRuntimeContext),
 		AllowedCapabilities:   capabilityItems,
 		RecentCapabilityIntro: recentIntro,
 		PendingTask:           pendingTask,
@@ -1450,6 +1545,27 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	h.recordAgentInvocation(c.Request.Context(), agentStreamCapability, tenantCtx.UUID(), agentID, sess.ID, q, traceID, "rest", status, err, time.Since(startedAt), debugSink.UsageSnapshot())
 }
 
+func declaredAgentLocale(meta map[string]interface{}) (string, error) {
+	raw, _ := meta["locale"].(string)
+	switch strings.TrimSpace(raw) {
+	case "zh", "zh-CN":
+		return "zh-CN", nil
+	case "en", "en-US":
+		return "en-US", nil
+	case "ja":
+		return "ja", nil
+	case "ko":
+		return "ko", nil
+	default:
+		return "", fmt.Errorf("agent_chat_locale_required_or_invalid")
+	}
+}
+
+func teamRuntimeContextHasExecutablePlan(teamRuntimeContext map[string]any) bool {
+	spec, ok := teamRuntimeContext["team_orchestration"].(map[string]any)
+	return ok && len(spec) > 0
+}
+
 // ---- 核心 ----
 func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest) {
 	msg := strings.TrimSpace(req.Message)
@@ -1458,6 +1574,12 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		return
 	}
 	ctx := c.Request.Context()
+	locale, localeErr := declaredAgentLocale(req.Context)
+	if localeErr != nil {
+		c.SSEvent(dto.EventError, gin.H{"message": localeErr.Error()})
+		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		return
+	}
 
 	// 解析上下文（容错类型）
 	env := reqctx.GetEnv(c.Request.Context())
@@ -1572,6 +1694,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 			"agent_id":    agentID,
 			"session_id":  sess.ID,
 			"user_id":     userID,
+			"locale":      locale,
 		},
 		"plan": plan,
 	}
@@ -1784,6 +1907,8 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		return
 	}
 	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	runCtx = context.WithValue(runCtx, "run_id", fmt.Sprintf("run_%d", time.Now().UnixNano()))
+	runCtx = context.WithValue(runCtx, "runId", runCtx.Value("run_id"))
 	runCtx = context.WithValue(runCtx, "env", env)
 	runCtx = context.WithValue(runCtx, "agent_env", env)
 	if authz := strings.TrimSpace(c.GetHeader("Authorization")); authz != "" {

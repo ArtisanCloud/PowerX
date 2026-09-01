@@ -149,8 +149,33 @@ export function useWorkflowManager() {
       return null;
     }
     const converted = makeWorkflowFromVueFlow(nodes, edges);
-    currentWorkflow.value.nodes = converted.nodes;
-    currentWorkflow.value.edges = converted.edges;
+    const steps = vueFlowToStepGraph(nodes, edges);
+    const saved = await workflowService.createDefinitionRevision(currentWorkflow.value.uuid, {
+      name: currentWorkflow.value.name,
+      description: currentWorkflow.value.description,
+      steps,
+      default_retry_policy: currentWorkflow.value.raw?.default_retry_policy,
+      compensation_policy: currentWorkflow.value.raw?.compensation_policy,
+      sla_policy: currentWorkflow.value.raw?.sla_policy,
+      metadata: currentWorkflow.value.raw?.metadata,
+    });
+    currentWorkflow.value = {
+      ...workflowFromDefinition(saved),
+      nodes: converted.nodes,
+      edges: converted.edges,
+    };
+    return currentWorkflow.value;
+  }
+
+  async function publishWorkflow() {
+    if (!currentWorkflow.value) {
+      error.value = "workflow.errors.noCurrentDefinition";
+      return null;
+    }
+    const published = await workflowService.publishDefinition(currentWorkflow.value.uuid, {
+      version: Number(currentWorkflow.value.version || 0),
+    });
+    currentWorkflow.value = workflowFromDefinition(published);
     return currentWorkflow.value;
   }
 
@@ -194,9 +219,109 @@ export function useWorkflowManager() {
     loadWorkflow,
     addNodeFromPalette,
     saveWorkflow,
+    publishWorkflow,
     createNewWorkflow,
     getWorkflowList,
   };
+}
+
+function vueFlowToStepGraph(nodes: Node[], edges: Edge[]): WorkflowStepDefinition[] {
+  const nodeIDs = new Set(nodes.map((node) => node.id));
+  const incoming = new Map<string, Set<string>>();
+  const ordinaryNext = new Map<string, Set<string>>();
+  const humanRoutes = new Map<string, { approved_route?: string; rejected_route?: string }>();
+  const decisionRoutes = new Map<string, Record<string, string>>();
+
+  const ensureIncoming = (target: string) => {
+    if (!incoming.has(target)) incoming.set(target, new Set<string>());
+    return incoming.get(target)!;
+  };
+  const ensureNext = (source: string) => {
+    if (!ordinaryNext.has(source)) ordinaryNext.set(source, new Set<string>());
+    return ordinaryNext.get(source)!;
+  };
+
+  for (const edge of edges) {
+    const source = String(edge.source || "").trim();
+    const target = String(edge.target || "").trim();
+    if (!source || !target || !nodeIDs.has(source) || !nodeIDs.has(target)) continue;
+    ensureIncoming(target).add(source);
+
+    const sourceNode = nodes.find((node) => node.id === source);
+    const nodeKind = String(sourceNode?.data?.kind || "").trim();
+    const handle = String(edge.sourceHandle || edge.label || "out").trim() || "out";
+
+    if (nodeKind === "human.review" && (handle === "approved" || handle === "rejected")) {
+      const routes = humanRoutes.get(source) || {};
+      if (handle === "approved") routes.approved_route = target;
+      if (handle === "rejected") routes.rejected_route = target;
+      humanRoutes.set(source, routes);
+      continue;
+    }
+
+    if (nodeKind === "decision.gateway" && handle !== "out") {
+      const routes = decisionRoutes.get(source) || {};
+      routes[handle] = target;
+      decisionRoutes.set(source, routes);
+      continue;
+    }
+
+    if (handle === "out") {
+      ensureNext(source).add(target);
+    }
+  }
+
+  return nodes.map((node) => {
+    const nodeKind = String(node.data?.kind || "").trim();
+    const props = { ...((node.data?.props || {}) as Record<string, any>) };
+    const nodeRef = String(props.node_ref || props.skill_id || props.capability_id || "").trim();
+    delete props.node_ref;
+
+    if (nodeKind === "human.review") {
+      delete props.approved_route;
+      delete props.rejected_route;
+      Object.assign(props, humanRoutes.get(node.id) || {});
+    }
+    if (nodeKind === "decision.gateway") {
+      props.routes = decisionRoutes.get(node.id) || {};
+      if (!props.default_route) {
+        const firstRoute = Object.keys(props.routes)[0];
+        if (firstRoute) props.default_route = firstRoute;
+      }
+    }
+
+    return {
+      id: node.id,
+      type: workflowStepTypeForNodeKind(nodeKind),
+      node_kind: nodeKind,
+      node_ref: nodeRef || undefined,
+      depends_on: Array.from(incoming.get(node.id) || []),
+      next_step_ids: Array.from(ordinaryNext.get(node.id) || []),
+      input_mapping: normalizeMappingObject(node.data?.inputMapping),
+      output_mapping: normalizeMappingObject(node.data?.outputMapping),
+      config: props,
+    };
+  });
+}
+
+function normalizeMappingObject(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const out: Record<string, any> = {};
+  for (const [key, item] of Object.entries(value as Record<string, any>)) {
+    const normalizedKey = String(key || "").trim();
+    if (!normalizedKey) continue;
+    if (item === undefined || item === null || item === "") continue;
+    out[normalizedKey] = item;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function workflowStepTypeForNodeKind(nodeKind: string): WorkflowStepDefinition["type"] {
+  if (nodeKind === "human.review") return "human_approval";
+  if (nodeKind === "decision.gateway") return "decision";
+  if (nodeKind.startsWith("parallel.")) return "parallel";
+  if (nodeKind.startsWith("compensation.")) return "compensation";
+  return "system";
 }
 
 function iconForNodeKind(nodeKind: string) {
@@ -269,6 +394,8 @@ function stepGraphToWorkflowNodes(steps: WorkflowStepDefinition[]): WfNode[] {
       paletteId: kind,
       label: `workflow.node.${kind}`,
       props: { ...(step.config || {}) },
+      inputMapping: { ...(step.input_mapping || {}) },
+      outputMapping: { ...(step.output_mapping || {}) },
       ui: {
         shape: shapeForNodeKind(kind),
         colorToken: colorTokenForNodeKind(kind),
@@ -291,7 +418,7 @@ function stepGraphToWorkflowEdges(steps: WorkflowStepDefinition[]): WorkflowEdge
     edges.set(id, {
       id,
       source,
-      sourceHandle: "out",
+      sourceHandle: label || "out",
       target,
       targetHandle: "in",
       label,

@@ -36,6 +36,7 @@ func TestSetupBootstrapFlow(t *testing.T) {
 
 	// 2) 写入配置草稿
 	payload := map[string]any{
+		"deployment": map[string]any{"env": "dev"},
 		"domain": map[string]any{
 			"domain":        "powerx.local",
 			"api_subdomain": "api",
@@ -58,6 +59,10 @@ func TestSetupBootstrapFlow(t *testing.T) {
 		"email": map[string]any{
 			"enabled": false,
 		},
+		"database": map[string]any{
+			"type":        "sqlite",
+			"sqlite_path": filepath.Join(t.TempDir(), "powerx.db"),
+		},
 		"ports": map[string]any{
 			"backend_port":   18080,
 			"web_admin_port": 13000,
@@ -71,18 +76,22 @@ func TestSetupBootstrapFlow(t *testing.T) {
 	cfgResp := performSetupRequest(t, router, http.MethodGet, "/admin/setup/config", nil)
 	require.Equal(t, http.StatusOK, cfgResp.Code)
 	require.Contains(t, cfgResp.Body.String(), `"domain":"powerx.local"`)
+	require.Contains(t, cfgResp.Body.String(), `"deployment":{"env":"dev"}`)
 	require.Contains(t, cfgResp.Body.String(), `"backend_port":18080`)
 	require.Contains(t, cfgResp.Body.String(), `"web_admin_port":13000`)
 
 	// 4) 完成初始化
 	completeResp := performSetupRequest(t, router, http.MethodPost, "/admin/setup/complete", map[string]any{"licenseAccepted": true})
-	require.Equal(t, http.StatusOK, completeResp.Code)
+	require.Equal(t, http.StatusOK, completeResp.Code, completeResp.Body.String())
 	require.Contains(t, completeResp.Body.String(), `"configured":true`)
 
 	// 5) 状态变为 configured=true
 	statusResp2 := performSetupRequest(t, router, http.MethodGet, "/admin/setup/status", nil)
 	require.Equal(t, http.StatusOK, statusResp2.Code)
 	require.Contains(t, statusResp2.Body.String(), `"configured":true`)
+	runtimeConfig, err := os.ReadFile(os.Getenv("POWERX_SETUP_RUNTIME_CONFIG_PATH"))
+	require.NoError(t, err)
+	require.Contains(t, string(runtimeConfig), "deployment:\n    env: dev")
 }
 
 func TestSetupSaveConfigRejectInvalidPayload(t *testing.T) {
@@ -91,6 +100,7 @@ func TestSetupSaveConfigRejectInvalidPayload(t *testing.T) {
 	router := setupSetupRouter(db)
 
 	invalidPayload := map[string]any{
+		"deployment": map[string]any{"env": "dev"},
 		"domain": map[string]any{
 			"domain": "",
 		},
@@ -111,8 +121,34 @@ func TestSetupSaveConfigRejectInvalidPayload(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, resp.Code)
 }
 
+func TestSetupSaveConfigRequiresValidDeploymentEnv(t *testing.T) {
+	setupInstallRuntime(t, "uninstalled")
+	db := setupSetupDB(t)
+	router := setupSetupRouter(db)
+
+	basePayload := map[string]any{
+		"deployment": map[string]any{"env": ""},
+		"domain":     map[string]any{"domain": "powerx.local"},
+		"https":      map[string]any{"mode": "auto"},
+		"storage":    map[string]any{"type": "local", "local_path": "/data/uploads"},
+		"cache":      map[string]any{"type": "redis", "redis_host": "127.0.0.1", "redis_port": 6379},
+		"email":      map[string]any{"enabled": false},
+		"ports":      map[string]any{"backend_port": 8080, "web_admin_port": 3000},
+	}
+
+	missing := performSetupRequest(t, router, http.MethodPut, "/admin/setup/config", basePayload)
+	require.Equal(t, http.StatusBadRequest, missing.Code)
+	require.Contains(t, missing.Body.String(), "setup.errors.deploymentEnvRequired")
+
+	basePayload["deployment"] = map[string]any{"env": "production"}
+	invalid := performSetupRequest(t, router, http.MethodPut, "/admin/setup/config", basePayload)
+	require.Equal(t, http.StatusBadRequest, invalid.Code)
+	require.Contains(t, invalid.Body.String(), "setup.errors.deploymentEnvInvalid")
+}
+
 func TestSetupCompleteWhenAlreadyInstalled(t *testing.T) {
 	setupInstallRuntime(t, "installed")
+	t.Setenv("POWERX_ALLOW_SETUP_REENTRY", "true")
 	db := setupSetupDB(t)
 
 	router := setupSetupRouter(db)
@@ -147,6 +183,7 @@ func TestSetupSaveConfigRejectInvalidPorts(t *testing.T) {
 	router := setupSetupRouter(db)
 
 	payload := map[string]any{
+		"deployment": map[string]any{"env": "dev"},
 		"domain": map[string]any{
 			"domain": "powerx.local",
 		},
@@ -165,6 +202,10 @@ func TestSetupSaveConfigRejectInvalidPorts(t *testing.T) {
 		},
 		"email": map[string]any{
 			"enabled": false,
+		},
+		"database": map[string]any{
+			"type":        "sqlite",
+			"sqlite_path": filepath.Join(t.TempDir(), "powerx.db"),
 		},
 		"ports": map[string]any{
 			"backend_port":   8080,
@@ -199,13 +240,14 @@ func setupInstallRuntime(t *testing.T, status string) {
 	tmp := t.TempDir()
 	runtimeConfigPath := filepath.Join(tmp, "config.yaml")
 	draftPath := filepath.Join(tmp, "setup.wizard.config.json")
-	content := fmt.Sprintf("version: v1.0.0\nserver:\n  port: 8077\ninstall:\n  status: %s\n  lock_mode: strict\n  allow_without_db: true\n", status)
+	content := fmt.Sprintf("version: v1.0.0\ndeployment:\n  env: dev\nserver:\n  port: 8077\ninstall:\n  status: %s\n  lock_mode: strict\n  allow_without_db: true\n", status)
 	require.NoError(t, os.WriteFile(runtimeConfigPath, []byte(content), 0o644))
 	t.Setenv("POWERX_SETUP_RUNTIME_CONFIG_PATH", runtimeConfigPath)
 	t.Setenv("POWERX_SETUP_DRAFT_PATH", draftPath)
 	t.Setenv("POWERX_SETUP_SIMULATE_PHASE2_FAIL", "false")
 	corecfg.GlobalConfig = &corecfg.Config{}
 	corecfg.GlobalConfig.Version = "v1.0.0"
+	corecfg.GlobalConfig.Deployment.Env = "dev"
 	corecfg.GlobalConfig.Server.APIPrefix = "/api/v1"
 	corecfg.GlobalConfig.Install.Status = status
 	corecfg.GlobalConfig.Install.LockMode = "strict"

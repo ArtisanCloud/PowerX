@@ -36,24 +36,23 @@ run "文档入口一致性检查" rg -n "integration_playbook\\.md" \
 mkdir -p tmp/gocache tmp/gomodcache
 export GOCACHE="$ROOT_DIR/tmp/gocache"
 export GOMODCACHE="$ROOT_DIR/tmp/gomodcache"
-export GOTOOLCHAIN=local
+export GOTOOLCHAIN=go1.26.7
 
 GO_VERSION_RAW="$(go version 2>/dev/null | awk '{print $3}' || true)"
-if [[ "$GO_VERSION_RAW" == go1.24* || "$GO_VERSION_RAW" == go1.25* || "$GO_VERSION_RAW" == go1.26* ]]; then
-  run "Go 编译检查: admin event_fabric transport" \
-    go -C backend test ./internal/transport/http/admin/event_fabric -count=1
+[[ "$GO_VERSION_RAW" == "go1.26.7" ]] || \
+  fail "Go 工具链必须为 go1.26.7，当前为 ${GO_VERSION_RAW:-unknown}"
 
-  run "Go 编译检查: admin runtime ws-bus transport" \
-    go -C backend test ./internal/transport/http/admin/runtime -count=1
+run "Go 编译检查: admin event_fabric transport" \
+  go -C backend test ./internal/transport/http/admin/event_fabric -count=1
 
-  run "Go 编译检查: event_fabric replay service" \
-    go -C backend test ./internal/service/event_fabric/replay -count=1
+run "Go 编译检查: admin runtime ws-bus transport" \
+  go -C backend test ./internal/transport/http/admin/runtime -count=1
 
-  run "Go 编译检查: shared task history decorator" \
-    go -C backend test ./internal/app/shared -run TestTaskHistory -count=1
-else
-  warn "检测到本机 Go 版本不足 1.24（${GO_VERSION_RAW:-unknown}），跳过 Go 编译检查；请在 CI Go1.24 环境执行。"
-fi
+run "Go 编译检查: event_fabric replay service" \
+  go -C backend test ./internal/service/event_fabric/replay -count=1
+
+run "Go 编译检查: shared task history decorator" \
+  go -C backend test ./internal/app/shared -run TestTaskHistory -count=1
 
 echo
 info "========== Summary =========="

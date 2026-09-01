@@ -18,7 +18,6 @@
             </UBadge>
           </div>
           <div class="workflow-subtitle">
-            <span>{{ t("workflow.editor.version", { version: currentWorkflow?.version || "-" }) }}</span>
             <span>{{ t("workflow.editor.nodeCount", { count: nodes.length }) }}</span>
             <span>{{ t("workflow.editor.edgeCount", { count: edges.length }) }}</span>
           </div>
@@ -45,6 +44,15 @@
           <Icon v-if="!workflowRuntimeBus.connected.value" name="i-heroicons-arrow-path" />
         </button>
         <UButton
+          icon="i-heroicons-clock"
+          color="neutral"
+          variant="subtle"
+          :loading="workflowRevisionsLoading"
+          @click="openWorkflowRevisions"
+        >
+          {{ t("workflow.editor.currentVersion", { version: currentWorkflow?.version || "-" }) }}
+        </UButton>
+        <UButton
           icon="i-heroicons-sun"
           color="neutral"
           variant="ghost"
@@ -65,7 +73,7 @@
         >
           {{ t("workflow.editor.runTest") }}
         </UButton>
-        <UButton icon="i-heroicons-paper-airplane" color="primary">
+        <UButton icon="i-heroicons-paper-airplane" color="primary" :loading="publishLoading" @click="handlePublishWorkflow">
           {{ t("workflow.editor.publish") }}
         </UButton>
       </div>
@@ -321,6 +329,20 @@
             <USeparator />
 
             <div v-if="propertiesTab === 'config'" class="properties-form">
+              <div class="config-collapse-section">
+                <button
+                  class="config-collapse-header"
+                  type="button"
+                  :aria-expanded="isConfigSectionOpen('node_settings')"
+                  @click="toggleConfigSection('node_settings')"
+                >
+                  <span>{{ t("workflow.editor.nodeSettingsSectionTitle") }}</span>
+                  <Icon
+                    class="config-collapse-icon"
+                    :name="isConfigSectionOpen('node_settings') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                  />
+                </button>
+                <div v-if="isConfigSectionOpen('node_settings')" class="config-collapse-body">
               <template v-if="selectedNode.data.kind === 'human.review'">
                 <div class="business-config-card">
                   <strong>{{ t("workflow.editor.humanReviewBusinessTitle") }}</strong>
@@ -482,11 +504,8 @@
                     />
                   </UFormField>
                 </div>
-                <div v-if="modelProfilesError" class="properties-note state-error">
-                  {{ modelProfilesError }}
-                </div>
-                <div v-else class="properties-note">
-                  {{ t("workflow.editor.skillModelOverrideHint") }}
+                <div class="properties-note" :class="{ 'state-error': modelProfilesError && modelProfiles.length > 0 }">
+                  {{ selectedNodeSkillModelProfileHint }}
                 </div>
                 <div class="business-config-grid">
                   <div
@@ -742,7 +761,70 @@
                   </UFormField>
                 </template>
               </template>
+                </div>
+              </div>
 
+              <div v-if="selectedNodeFieldConfig.visible" class="config-collapse-section">
+                <button
+                  class="config-collapse-header"
+                  type="button"
+                  :aria-expanded="isConfigSectionOpen('field_config')"
+                  @click="toggleConfigSection('field_config')"
+                >
+                  <span>{{ t("workflow.editor.fieldConfigTitle") }}</span>
+                  <Icon
+                    class="config-collapse-icon"
+                    :name="isConfigSectionOpen('field_config') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                  />
+                </button>
+                <div v-if="isConfigSectionOpen('field_config')" class="config-collapse-body field-config-editor">
+                  <div class="field-config-header">
+                    <span>{{ selectedNodeFieldConfig.description }}</span>
+                  </div>
+
+                  <div v-if="selectedNodeInputFieldDefinitions.length" class="field-config-section">
+                    <div class="field-config-section-title">
+                      {{ t("workflow.editor.inputFieldConfigTitle") }}
+                    </div>
+                    <div
+                      v-for="field in selectedNodeInputFieldDefinitions"
+                      :key="`input-${field.key}`"
+                      class="field-config-row"
+                    >
+                      <div class="field-config-label">
+                        <strong>{{ field.label }}</strong>
+                        <span>{{ field.description }}</span>
+                      </div>
+                      <UInput
+                        :model-value="selectedNodeInputMappingValue(field.key)"
+                        :placeholder="field.placeholder"
+                        @update:model-value="updateSelectedNodeInputMapping(field.key, String($event || ''))"
+                      />
+                    </div>
+                  </div>
+
+                  <div v-if="selectedNodeOutputFieldDefinitions.length" class="field-config-section">
+                    <div class="field-config-section-title">
+                      {{ t("workflow.editor.outputFieldConfigTitle") }}
+                    </div>
+                    <div
+                      v-for="field in selectedNodeOutputFieldDefinitions"
+                      :key="`output-${field.key}`"
+                      class="field-config-row"
+                    >
+                      <div class="field-config-label">
+                        <strong>{{ field.label }}</strong>
+                        <span>{{ field.description }}</span>
+                      </div>
+                      <UInput
+                        :model-value="selectedNodeOutputMappingValue(field.key)"
+                        :placeholder="field.placeholder"
+                        @update:model-value="updateSelectedNodeOutputMapping(field.key, String($event || ''))"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div v-else-if="propertiesTab === 'runtime'" class="node-runtime-panel">
               <div class="node-runtime-summary" :class="`state-${selectedNodeRunState}`">
@@ -779,9 +861,20 @@
                     </UButton>
                   </div>
                 </div>
-                <div class="runtime-summary-card">
-                  <span>{{ t("workflow.editor.reviewPayload") }}</span>
-                  <div class="runtime-summary-list">
+                <div class="config-collapse-section">
+                  <button
+                    class="config-collapse-header"
+                    type="button"
+                    :aria-expanded="isRuntimeSectionOpen('review_record')"
+                    @click="toggleRuntimeSection('review_record')"
+                  >
+                    <span>{{ t("workflow.editor.reviewPayload") }}</span>
+                    <Icon
+                      class="config-collapse-icon"
+                      :name="isRuntimeSectionOpen('review_record') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    />
+                  </button>
+                  <div v-if="isRuntimeSectionOpen('review_record')" class="config-collapse-body runtime-summary-list">
                     <div
                       v-for="entry in selectedReviewPayloadEntries"
                       :key="entry.key"
@@ -792,13 +885,120 @@
                     </div>
                   </div>
                 </div>
+                <div class="config-collapse-section">
+                  <button
+                    class="config-collapse-header"
+                    type="button"
+                    :aria-expanded="isRuntimeSectionOpen('review_payload')"
+                    @click="toggleRuntimeSection('review_payload')"
+                  >
+                    <span>{{ t("workflow.editor.nodePayloadIn") }}</span>
+                    <Icon
+                      class="config-collapse-icon"
+                      :name="isRuntimeSectionOpen('review_payload') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    />
+                  </button>
+                  <div v-if="isRuntimeSectionOpen('review_payload')" class="config-collapse-body runtime-summary-list">
+                    <div
+                      v-for="entry in selectedReviewBusinessEntries"
+                      :key="entry.key"
+                      class="runtime-summary-row"
+                    >
+                      <span>{{ entry.label }}</span>
+                      <strong>{{ entry.value }}</strong>
+                    </div>
+                  </div>
+                </div>
               </template>
               <template v-else-if="selectedNodeRunStep">
-                <div class="runtime-summary-card">
-                  <span>{{ t("workflow.editor.nodeRunRecord") }}</span>
-                  <div class="runtime-summary-list">
+                <div class="config-collapse-section">
+                  <button
+                    class="config-collapse-header"
+                    type="button"
+                    :aria-expanded="isRuntimeSectionOpen('run_record')"
+                    @click="toggleRuntimeSection('run_record')"
+                  >
+                    <span>{{ t("workflow.editor.nodeRunRecord") }}</span>
+                    <Icon
+                      class="config-collapse-icon"
+                      :name="isRuntimeSectionOpen('run_record') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    />
+                  </button>
+                  <div v-if="isRuntimeSectionOpen('run_record')" class="config-collapse-body runtime-summary-list">
                     <div
                       v-for="entry in selectedNodeRunSummaryEntries"
+                      :key="entry.key"
+                      class="runtime-summary-row"
+                    >
+                      <span>{{ entry.label }}</span>
+                      <strong>{{ entry.value }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="config-collapse-section">
+                  <button
+                    class="config-collapse-header"
+                    type="button"
+                    :aria-expanded="isRuntimeSectionOpen('global_context')"
+                    @click="toggleRuntimeSection('global_context')"
+                  >
+                    <span>{{ t("workflow.editor.globalContext") }}</span>
+                    <Icon
+                      class="config-collapse-icon"
+                      :name="isRuntimeSectionOpen('global_context') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    />
+                  </button>
+                  <div v-if="isRuntimeSectionOpen('global_context')" class="config-collapse-body runtime-summary-list">
+                    <div
+                      v-for="entry in selectedNodeRuntimeGlobalEntries"
+                      :key="entry.key"
+                      class="runtime-summary-row"
+                    >
+                      <span>{{ entry.label }}</span>
+                      <strong>{{ entry.value }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="config-collapse-section">
+                  <button
+                    class="config-collapse-header"
+                    type="button"
+                    :aria-expanded="isRuntimeSectionOpen('node_input')"
+                    @click="toggleRuntimeSection('node_input')"
+                  >
+                    <span>{{ t("workflow.editor.nodePayloadIn") }}</span>
+                    <Icon
+                      class="config-collapse-icon"
+                      :name="isRuntimeSectionOpen('node_input') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    />
+                  </button>
+                  <div v-if="isRuntimeSectionOpen('node_input')" class="config-collapse-body runtime-summary-list">
+                    <div
+                      v-for="entry in selectedNodeRuntimeInputEntries"
+                      :key="entry.key"
+                      class="runtime-summary-row"
+                    >
+                      <span>{{ entry.label }}</span>
+                      <strong>{{ entry.value }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="config-collapse-section">
+                  <button
+                    class="config-collapse-header"
+                    type="button"
+                    :aria-expanded="isRuntimeSectionOpen('node_output')"
+                    @click="toggleRuntimeSection('node_output')"
+                  >
+                    <span>{{ t("workflow.editor.nodePayloadOut") }}</span>
+                    <Icon
+                      class="config-collapse-icon"
+                      :name="isRuntimeSectionOpen('node_output') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    />
+                  </button>
+                  <div v-if="isRuntimeSectionOpen('node_output')" class="config-collapse-body runtime-summary-list">
+                    <div
+                      v-for="entry in selectedNodeRuntimeOutputEntries"
                       :key="entry.key"
                       class="runtime-summary-row"
                     >
@@ -814,16 +1014,20 @@
               <div v-else class="runtime-empty-card">
                 {{ t("workflow.editor.noRuntimeForNode") }}
               </div>
-              <div v-if="selectedRuntimeDiagnosticsEntries.length" class="advanced-config-section">
+              <div v-if="selectedRuntimeDiagnosticsEntries.length" class="config-collapse-section">
                 <button
-                  class="advanced-config-toggle"
+                  class="config-collapse-header"
                   type="button"
-                  @click="showRuntimeDiagnostics = !showRuntimeDiagnostics"
+                  :aria-expanded="isRuntimeSectionOpen('diagnostics')"
+                  @click="toggleRuntimeSection('diagnostics')"
                 >
                   <span>{{ t("workflow.editor.runtimeDiagnostics") }}</span>
-                  <Icon :name="showRuntimeDiagnostics ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" />
+                  <Icon
+                    class="config-collapse-icon"
+                    :name="isRuntimeSectionOpen('diagnostics') ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                  />
                 </button>
-                <div v-if="showRuntimeDiagnostics" class="advanced-config-list">
+                <div v-if="isRuntimeSectionOpen('diagnostics')" class="config-collapse-body advanced-config-list">
                   <div
                     v-for="entry in selectedRuntimeDiagnosticsEntries"
                     :key="entry.key"
@@ -1267,12 +1471,57 @@
       </template>
     </UModal>
 
+    <UModal
+      v-model:open="workflowRevisionsOpen"
+      :title="t('workflow.editor.versionHistoryTitle')"
+      :description="t('workflow.editor.versionHistoryDescription')"
+      :ui="{ content: 'max-w-3xl w-[82vw]' }"
+    >
+      <template #body>
+        <div class="workflow-revisions">
+          <div class="workflow-revisions-current">
+            <span>{{ t("workflow.editor.currentWorkflow") }}</span>
+            <strong>{{ workflowDisplayName }}</strong>
+          </div>
+          <div v-if="workflowRevisionsLoading" class="workflow-revisions-empty">
+            {{ t("workflow.editor.versionHistoryLoading") }}
+          </div>
+          <div v-else-if="workflowRevisions.length === 0" class="workflow-revisions-empty">
+            {{ t("workflow.editor.versionHistoryEmpty") }}
+          </div>
+          <div v-else class="workflow-revision-list">
+            <button
+              v-for="revision in workflowRevisions"
+              :key="revision.uuid"
+              class="workflow-revision-row"
+              :class="{ active: revision.uuid === currentWorkflow?.uuid }"
+              type="button"
+              @click="openWorkflowRevision(revision.uuid)"
+            >
+              <div class="workflow-revision-main">
+                <strong>{{ t("workflow.editor.versionShort", { version: revision.version }) }}</strong>
+                <UBadge :color="revisionStatusColor(revision.status)" variant="soft" size="sm">
+                  {{ t(`workflow.status.${revision.status}`) }}
+                </UBadge>
+                <UBadge v-if="revision.uuid === currentWorkflow?.uuid" color="primary" variant="soft" size="sm">
+                  {{ t("workflow.editor.currentVersionBadge") }}
+                </UBadge>
+              </div>
+              <div class="workflow-revision-meta">
+                <span>{{ formatWorkflowRevisionTimestamp(revision.updated_at || revision.created_at) }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, reactive, watch, nextTick } from "vue";
-import { useColorMode, useI18n, useRoute, useToast } from "#imports";
+import { navigateTo, useColorMode, useI18n, useRoute, useToast } from "#imports";
 import { VueFlow, useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
@@ -1286,7 +1535,7 @@ import "@vue-flow/controls/dist/style.css";
 import "@vue-flow/minimap/dist/style.css";
 import { useWorkflowManager } from "~/composables/workflow/useWorkflowManager";
 import GenericNode from "./nodes/GenericNode.vue";
-import { useWorkflowService, type HumanReviewTask, type WorkflowInstance, type WorkflowStepRecord } from "~/composables/api/services/workflowService";
+import { useWorkflowService, type HumanReviewTask, type WorkflowDefinition, type WorkflowInstance, type WorkflowStepRecord } from "~/composables/api/services/workflowService";
 import { useWorkflowRuntimeBus, type WorkflowRuntimeEvent } from "~/composables/workflow/useWorkflowRuntimeBus";
 import { PlatformCapabilityService, type PlatformCapability } from "~/composables/api/services/platformCapabilityService";
 import { AISettingService, useMetadataGovernanceService, useSkillsService, type AgentProfile, type SkillRecord } from "~/composables/api/services";
@@ -1314,6 +1563,7 @@ const {
   loadWorkflow,
   addNodeFromPalette,
   saveWorkflow,
+  publishWorkflow,
 } = useWorkflowManager();
 
 // Vue Flow 实例
@@ -1339,8 +1589,12 @@ const objectProps = reactive<Record<string, string>>({});
 const hasLoadedCanvas = ref(false);
 const showMinimap = ref(true);
 const runLoading = ref(false);
+const publishLoading = ref(false);
 const cancelRunLoading = ref(false);
 const runDialogOpen = ref(false);
+const workflowRevisionsOpen = ref(false);
+const workflowRevisionsLoading = ref(false);
+const workflowRevisions = ref<WorkflowDefinition[]>([]);
 const latestRun = ref<WorkflowInstance | null>(null);
 const latestReviewTasks = ref<HumanReviewTask[]>([]);
 const runError = ref("");
@@ -1353,6 +1607,12 @@ type RunCapabilityOption = PlatformCapability & {
 type SelectOption = {
   label: string;
   value: string;
+};
+type NodeFieldDefinition = {
+  key: string;
+  label: string;
+  description: string;
+  placeholder: string;
 };
 type RunFormFieldKind = "text" | "textarea" | "select" | "boolean" | "number" | "object";
 type RunFormField = {
@@ -1437,7 +1697,6 @@ const metadataOptionsError = ref("");
 const actingReviewTaskUUID = ref("");
 const actingReviewAction = ref("");
 const bottomPanelHeight = ref(260);
-const showRuntimeDiagnostics = ref(false);
 let stopBottomResize: (() => void) | null = null;
 let unsubscribeWorkflowRuntime: (() => void) | null = null;
 
@@ -1446,6 +1705,19 @@ type BottomTab = "runs" | "logs" | "snapshots" | "evaluations";
 
 const propertiesTab = ref<PropertiesTab>("config");
 const bottomTab = ref<BottomTab>("runs");
+const configSectionOpen = reactive<Record<string, boolean>>({
+  node_settings: true,
+  field_config: true,
+});
+const runtimeSectionOpen = reactive<Record<string, boolean>>({
+  review_record: true,
+  review_payload: true,
+  run_record: true,
+  global_context: true,
+  node_input: true,
+  node_output: true,
+  diagnostics: false,
+});
 
 const bottomTabs = computed(() => [
   { value: "runs" as const, label: t("workflow.editor.runRecords") },
@@ -2214,6 +2486,14 @@ const selectedNodeSkillModelProfile = computed<ModelProfileSelectOption | null>(
   },
 });
 
+const selectedNodeSkillModelProfileHint = computed(() => {
+  if (modelProfilesError.value && modelProfiles.value.length > 0) return modelProfilesError.value;
+  if (!modelProfilesLoading.value && modelProfiles.value.length === 0) {
+    return t("workflow.editor.skillModelOverrideOptionalHint");
+  }
+  return t("workflow.editor.skillModelOverrideHint");
+});
+
 const metadataStrategyOptions = computed<SelectOption[]>(() => [
   { label: t("workflow.metadataStrategy.ruleBased"), value: "rule_based" },
   { label: t("workflow.metadataStrategy.llmAssisted"), value: "llm_assisted" },
@@ -2612,6 +2892,26 @@ const selectedNodeBusinessConfigEntries = computed(() => {
   }
 });
 
+const selectedNodeInputFieldDefinitions = computed<NodeFieldDefinition[]>(() => {
+  const node = selectedNode.value;
+  if (!node) return [];
+  return nodeInputFieldDefinitions(node.data.kind, String(node.data.props?.skill_id || ""));
+});
+
+const selectedNodeOutputFieldDefinitions = computed<NodeFieldDefinition[]>(() => {
+  const node = selectedNode.value;
+  if (!node) return [];
+  return nodeOutputFieldDefinitions(node.data.kind, String(node.data.props?.skill_id || ""));
+});
+
+const selectedNodeFieldConfig = computed(() => {
+  const visible = selectedNodeInputFieldDefinitions.value.length > 0 || selectedNodeOutputFieldDefinitions.value.length > 0;
+  const description = selectedNode.value?.data.kind === "input.capture"
+    ? t("workflow.editor.globalFieldConfigDescription")
+    : t("workflow.editor.nodeFieldConfigDescription");
+  return { visible, description };
+});
+
 const selectedReviewPayloadEntries = computed(() => {
   const payload = selectedNodeReviewTask.value?.payload || {};
   return [
@@ -2638,10 +2938,20 @@ const selectedReviewPayloadEntries = computed(() => {
   ];
 });
 
+const selectedReviewBusinessEntries = computed(() => {
+  const payload = selectedNodeReviewTask.value?.payload || {};
+  const entries = runtimePayloadEntries(payload, "review");
+  return entries.length ? entries : [{
+    key: "empty",
+    label: t("workflow.editor.reviewPayload"),
+    value: t("workflow.editor.emptyPayload"),
+  }];
+});
+
 const selectedNodeRunSummaryEntries = computed(() => {
   const step = selectedNodeRunStep.value;
   if (!step) return [];
-  return [
+  const entries = [
     {
       key: "state",
       label: t("workflow.editor.currentNodeState"),
@@ -2663,6 +2973,41 @@ const selectedNodeRunSummaryEntries = computed(() => {
       value: String(step.attempt || 1),
     },
   ];
+  if (selectedNode.value?.data?.kind === "decision.gateway") {
+    entries.push({
+      key: "decision",
+      label: t("workflow.editor.decisionResult"),
+      value: String(step.payload_out?.decision || selectedNode.value?.data?.props?.default_route || t("workflow.editor.none")),
+    });
+  }
+  return entries;
+});
+
+const selectedNodeRuntimeGlobalEntries = computed(() => {
+  const entries = runtimeGlobalContextEntries(latestRun.value?.input_context || selectedNodeRunStep.value?.payload_in || {});
+  return entries.length ? entries : [{
+    key: "empty_global",
+    label: t("workflow.editor.globalContext"),
+    value: t("workflow.editor.emptyPayload"),
+  }];
+});
+
+const selectedNodeRuntimeInputEntries = computed(() => {
+  const entries = runtimeNodeInputEntries(selectedNodeRunStep.value?.payload_in || {});
+  return entries.length ? entries : [{
+    key: "empty_input",
+    label: t("workflow.editor.nodePayloadIn"),
+    value: t("workflow.editor.emptyPayload"),
+  }];
+});
+
+const selectedNodeRuntimeOutputEntries = computed(() => {
+  const entries = runtimePayloadEntries(selectedNodeRunStep.value?.payload_out || {}, "output");
+  return entries.length ? entries : [{
+    key: "empty_output",
+    label: t("workflow.editor.nodePayloadOut"),
+    value: t("workflow.editor.emptyPayload"),
+  }];
 });
 
 const selectedRuntimeDiagnosticsEntries = computed(() => {
@@ -2745,6 +3090,270 @@ function paletteCategoryForKind(kind: string) {
 }
 
 function formatReviewPayload(payload?: Record<string, any>) {
+  if (!payload || Object.keys(payload).length === 0) return t("workflow.editor.emptyPayload");
+  return JSON.stringify(payload, null, 2);
+}
+
+function runtimeGlobalContextEntries(payload: Record<string, any> | null | undefined) {
+  if (!payload || Object.keys(payload).length === 0) return [];
+  const entries: Array<{ key: string; label: string; value: string }> = [];
+  const add = (key: string, labelKey: string, value: unknown) => {
+    const formatted = formatRuntimeBusinessValue(key, value);
+    if (!formatted) return;
+    entries.push({ key, label: t(labelKey), value: formatted });
+  };
+  const source = runtimeObject(payload.source);
+  add("knowledge_space_uuid", "workflow.editor.runtimeKnowledgeSpace", payload.knowledge_space_uuid);
+  add("note", "workflow.fields.note", payload.note);
+  add("context", "workflow.editor.runtimeBusinessContext", source.context || payload.context);
+  add("source_type", "workflow.editor.runtimeSourceType", source.type || payload.source_type);
+  add("language", "workflow.editor.runtimeLanguage", source.language || payload.language);
+  return entries;
+}
+
+function runtimeNodeInputEntries(payload: Record<string, any> | null | undefined) {
+  if (!payload || Object.keys(payload).length === 0) return [];
+  const nodeKind = selectedNode.value?.data?.kind || "";
+  const skillID = String(selectedNode.value?.data?.props?.skill_id || "").trim();
+  const entries: Array<{ key: string; label: string; value: string }> = [];
+  const add = (key: string, labelKey: string, value: unknown) => {
+    const formatted = formatRuntimeBusinessValue(key, value);
+    if (!formatted) return;
+    entries.push({ key, label: t(labelKey), value: formatted });
+  };
+  const source = runtimeObject(payload.source);
+  const methodology = runtimeObject(payload.methodology);
+
+  if (nodeKind === "input.capture") {
+    add("content", "workflow.editor.runtimeMaterial", source.content || payload.content);
+    add("knowledge_space_uuid", "workflow.editor.runtimeKnowledgeSpace", payload.knowledge_space_uuid);
+    return entries;
+  }
+  if (nodeKind === "skill.invoke" && skillID === "marketing.audio_or_document_parse") {
+    add("content", "workflow.editor.runtimeMaterial", source.content || payload.content);
+    add("source_type", "workflow.editor.runtimeSourceType", source.type || payload.source_type);
+    return entries;
+  }
+  if (nodeKind === "skill.invoke" && skillID === "marketing.extract_methodology") {
+    add("content", "workflow.editor.runtimeParsedContent", payload.content);
+    add("source_type", "workflow.editor.runtimeSourceType", payload.source_type);
+    add("skill_id", "workflow.editor.runtimePreviousSkill", payload.skill_id);
+    return entries;
+  }
+  if (nodeKind === "metadata.classify") {
+    add("summary", "workflow.editor.runtimeSummary", payload.summary);
+    add("methodology_observation", "workflow.editor.runtimeObservation", methodology.observation);
+    add("draft_items", "workflow.editor.runtimeDraftItems", payload.draft_items);
+    return entries;
+  }
+  if (nodeKind === "knowledge.stage") {
+    add("summary", "workflow.editor.runtimeSummary", payload.summary);
+    add("metadata", "workflow.editor.runtimeMetadata", payload.metadata);
+    add("draft_items", "workflow.editor.runtimeDraftItems", payload.draft_items);
+    return entries;
+  }
+  if (nodeKind === "decision.gateway") {
+    add("draft_refs", "workflow.editor.runtimeDraftRefs", payload.draft_refs);
+    add("metadata", "workflow.editor.runtimeMetadata", payload.metadata);
+    return entries;
+  }
+  if (nodeKind === "human.review") {
+    add("decision", "workflow.editor.decisionResult", payload.decision);
+    add("draft_refs", "workflow.editor.runtimeDraftRefs", payload.draft_refs);
+    add("summary", "workflow.editor.runtimeSummary", payload.summary);
+    return entries;
+  }
+  if (nodeKind === "knowledge.publish") {
+    add("decision", "workflow.editor.decisionResult", payload.decision);
+    add("draft_refs", "workflow.editor.runtimeDraftRefs", payload.draft_refs);
+    return entries;
+  }
+  return runtimePayloadEntries(payload, "input");
+}
+
+function runtimePayloadEntries(payload: Record<string, any> | null | undefined, scope: "input" | "output" | "review") {
+  if (!payload || Object.keys(payload).length === 0) return [];
+  if (scope === "output") {
+    const nodeEntries = runtimeNodeOutputEntries(payload);
+    if (nodeEntries.length) return nodeEntries;
+  }
+  const entries: Array<{ key: string; label: string; value: string }> = [];
+  const add = (key: string, labelKey: string, value: unknown) => {
+    const formatted = formatRuntimeBusinessValue(key, value);
+    if (!formatted) return;
+    entries.push({ key, label: t(labelKey), value: formatted });
+  };
+  const source = runtimeObject(payload.source);
+  const methodology = runtimeObject(payload.methodology);
+
+  if (source.content || payload.content) {
+    add("content", "workflow.editor.runtimeMaterial", source.content || payload.content);
+  }
+  if (source.context || payload.context) {
+    add("context", "workflow.editor.runtimeBusinessContext", source.context || payload.context);
+  }
+  if (source.type || payload.source_type) {
+    add("source_type", "workflow.editor.runtimeSourceType", source.type || payload.source_type);
+  }
+  if (source.language || payload.language) {
+    add("language", "workflow.editor.runtimeLanguage", source.language || payload.language);
+  }
+  if (payload.summary) {
+    add("summary", "workflow.editor.runtimeSummary", payload.summary);
+  }
+  if (methodology.observation) {
+    add("methodology_observation", "workflow.editor.runtimeObservation", methodology.observation);
+  }
+  if (methodology.method) {
+    add("methodology_method", "workflow.editor.runtimeMethod", methodology.method);
+  }
+  if (payload.decision) {
+    add("decision", "workflow.editor.decisionResult", payload.decision);
+  }
+  if (Array.isArray(payload.draft_items) && payload.draft_items.length) {
+    add("draft_items", "workflow.editor.runtimeDraftItems", payload.draft_items);
+  }
+  if (Array.isArray(payload.draft_refs) && payload.draft_refs.length) {
+    add("draft_refs", "workflow.editor.runtimeDraftRefs", payload.draft_refs);
+  }
+  if (Array.isArray(payload.published_refs) && payload.published_refs.length) {
+    add("published_refs", "workflow.editor.runtimePublishedRefs", payload.published_refs);
+  }
+  if (payload.skill_id) {
+    add("skill_id", "workflow.editor.runtimeSkill", payload.skill_id);
+  }
+  if (payload.knowledge_space_uuid && scope !== "review") {
+    add("knowledge_space_uuid", "workflow.editor.runtimeKnowledgeSpace", payload.knowledge_space_uuid);
+  }
+  return entries.length ? entries : runtimeFallbackEntries(payload);
+}
+
+function runtimeNodeOutputEntries(payload: Record<string, any>) {
+  const nodeKind = selectedNode.value?.data?.kind || "";
+  const skillID = String(selectedNode.value?.data?.props?.skill_id || payload.skill_id || "").trim();
+  const entries: Array<{ key: string; label: string; value: string }> = [];
+  const add = (key: string, labelKey: string, value: unknown) => {
+    const formatted = formatRuntimeBusinessValue(key, value);
+    if (!formatted) return;
+    entries.push({ key, label: t(labelKey), value: formatted });
+  };
+  const methodology = runtimeObject(payload.methodology);
+
+  if (nodeKind === "skill.invoke" && skillID === "marketing.audio_or_document_parse") {
+    add("content", "workflow.editor.runtimeParsedContent", payload.content);
+    add("source_type", "workflow.editor.runtimeSourceType", payload.source_type);
+    add("language", "workflow.editor.runtimeLanguage", payload.language);
+    add("skill_id", "workflow.editor.runtimeSkill", payload.skill_id);
+    return entries;
+  }
+  if (nodeKind === "skill.invoke" && skillID === "marketing.extract_methodology") {
+    add("summary", "workflow.editor.runtimeSummary", payload.summary);
+    add("methodology_observation", "workflow.editor.runtimeObservation", methodology.observation);
+    add("methodology_method", "workflow.editor.runtimeMethod", methodology.method);
+    add("draft_items", "workflow.editor.runtimeDraftItems", payload.draft_items);
+    add("skill_id", "workflow.editor.runtimeSkill", payload.skill_id);
+    return entries;
+  }
+  if (nodeKind === "metadata.classify") {
+    add("metadata", "workflow.editor.runtimeMetadata", payload.metadata);
+    add("summary", "workflow.editor.runtimeSummary", payload.summary);
+    return entries;
+  }
+  if (nodeKind === "knowledge.stage") {
+    add("draft_refs", "workflow.editor.runtimeDraftRefs", payload.draft_refs);
+    add("summary", "workflow.editor.runtimeSummary", payload.summary);
+    return entries;
+  }
+  if (nodeKind === "decision.gateway") {
+    add("decision", "workflow.editor.decisionResult", payload.decision);
+    add("draft_refs", "workflow.editor.runtimeDecisionBasis", payload.draft_refs);
+    return entries;
+  }
+  if (nodeKind === "human.review") {
+    add("review_task_uuid", "workflow.editor.runtimeReviewTask", payload.review_task_uuid);
+    add("decision", "workflow.editor.decisionResult", payload.decision);
+    return entries;
+  }
+  if (nodeKind === "knowledge.publish") {
+    add("published_refs", "workflow.editor.runtimePublishedRefs", payload.published_refs);
+    add("publish_policy", "workflow.fields.publish_policy", payload.publish_policy);
+    return entries;
+  }
+  return entries;
+}
+
+function runtimeFallbackEntries(payload: Record<string, any>) {
+  return Object.entries(payload)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .slice(0, 6)
+    .map(([key, value]) => ({
+      key,
+      label: schemaFieldLabel(key),
+      value: formatRuntimeBusinessValue(key, value) || t("workflow.editor.configured"),
+    }));
+}
+
+function runtimeObject(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
+}
+
+function formatRuntimeBusinessValue(key: string, value: unknown) {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value === "string") {
+    if (key === "skill_id") return humanizeSkillID(value);
+    if (key.endsWith("_uuid")) return shortUUID(value);
+    if (key === "language" && value === "zh") return t("workflow.editor.runtimeLanguageChinese");
+    if (key === "source_type") return humanizeModuleKey(value);
+    if (["content", "context", "summary", "methodology_observation"].includes(key)) {
+      return truncateRuntimeText(value, 220);
+    }
+    return truncateRuntimeText(humanizeModuleKey(value), 220);
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    if (!value.length) return "";
+    return value.map((item) => formatRuntimeListItem(item)).join("\n");
+  }
+  if (typeof value === "object") return formatRuntimeObjectSummary(value as Record<string, any>);
+  return String(value);
+}
+
+function formatRuntimeListItem(value: unknown) {
+  if (typeof value === "string") return truncateRuntimeText(value, 180);
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const row = value as Record<string, any>;
+    const title = String(row.title || row.type || row.kind || row.chunk_uuid || "").trim();
+    const content = String(row.content || row.summary || row.evidence || "").trim();
+    return [title, truncateRuntimeText(content, 160)].filter(Boolean).join("：") || formatRuntimeObjectSummary(row);
+  }
+  return String(value);
+}
+
+function formatRuntimeObjectSummary(value: Record<string, any>) {
+  if (value.tag_count || value.resource_type || value.sample_tag_codes) {
+    const parts = [
+      value.resource_type ? `${t("workflow.editor.runtimeResourceType")}: ${humanizeModuleKey(String(value.resource_type))}` : "",
+      value.tag_count ? `${t("workflow.editor.runtimeTagCount")}: ${value.tag_count}` : "",
+      Array.isArray(value.sample_tag_codes) && value.sample_tag_codes.length
+        ? `${t("workflow.editor.runtimeSampleTags")}: ${value.sample_tag_codes.map((item) => humanizeModuleKey(String(item))).join(", ")}`
+        : "",
+    ].filter(Boolean);
+    return parts.join("；");
+  }
+  const pairs = Object.entries(value)
+    .filter(([, item]) => item !== undefined && item !== null && item !== "")
+    .slice(0, 4)
+    .map(([key, item]) => `${schemaFieldLabel(key)}: ${formatRuntimeBusinessValue(key, item)}`);
+  return pairs.join("；") || t("workflow.editor.configured");
+}
+
+function truncateRuntimeText(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength)}...`;
+}
+
+function formatRuntimePayload(payload?: Record<string, any> | null) {
   if (!payload || Object.keys(payload).length === 0) return t("workflow.editor.emptyPayload");
   return JSON.stringify(payload, null, 2);
 }
@@ -3046,15 +3655,265 @@ function inputFieldKindLabel(kind: RunFormFieldKind) {
   return te(key) ? t(key) : kind;
 }
 
+function nodeField(key: string, sourceField = key): NodeFieldDefinition {
+  return {
+    key,
+    label: te(`workflow.editor.nodeField.${key}.label`) ? t(`workflow.editor.nodeField.${key}.label`) : key,
+    description: te(`workflow.editor.nodeField.${key}.description`) ? t(`workflow.editor.nodeField.${key}.description`) : t("workflow.editor.nodeFieldDefaultDescription"),
+    placeholder: sourceField,
+  };
+}
+
+function nodeInputFieldDefinitions(nodeKind: string, skillID: string): NodeFieldDefinition[] {
+  if (nodeKind === "input.capture") return [];
+  if (nodeKind === "skill.invoke" && skillID === "marketing.audio_or_document_parse") {
+    return [
+      nodeField("content", "source.content"),
+      nodeField("context", "source.context"),
+      nodeField("language", "source.language"),
+      nodeField("type", "source.type"),
+    ];
+  }
+  if (nodeKind === "skill.invoke" && skillID === "marketing.extract_methodology") {
+    return [
+      nodeField("content"),
+      nodeField("context"),
+      nodeField("language"),
+      nodeField("source_type"),
+    ];
+  }
+  if (nodeKind === "skill.invoke") {
+    return [
+      nodeField("input", "previous_output"),
+    ];
+  }
+  if (nodeKind === "metadata.classify") {
+    return [
+      nodeField("summary"),
+      nodeField("methodology"),
+      nodeField("draft_items"),
+    ];
+  }
+  if (nodeKind === "knowledge.stage") {
+    return [
+      nodeField("summary"),
+      nodeField("methodology"),
+      nodeField("draft_items"),
+      nodeField("metadata"),
+    ];
+  }
+  if (nodeKind === "decision.gateway") {
+    return [
+      nodeField("draft_refs"),
+      nodeField("metadata"),
+    ];
+  }
+  if (nodeKind === "human.review") {
+    return [
+      nodeField("draft_refs"),
+      nodeField("summary"),
+      nodeField("metadata"),
+    ];
+  }
+  if (nodeKind === "knowledge.publish") {
+    return [
+      nodeField("draft_refs"),
+      nodeField("review_result", "review"),
+    ];
+  }
+  if (nodeKind === "event.emit") {
+    return [
+      nodeField("payload", "published_refs"),
+    ];
+  }
+  if (nodeKind === "capability.invoke") {
+    return [
+      nodeField("request", "previous_output"),
+    ];
+  }
+  return [];
+}
+
+function nodeOutputFieldDefinitions(nodeKind: string, skillID: string): NodeFieldDefinition[] {
+  if (nodeKind === "input.capture") {
+    return [
+      nodeField("source"),
+      nodeField("knowledge_space_uuid"),
+      nodeField("note"),
+    ];
+  }
+  if (nodeKind === "skill.invoke" && skillID === "marketing.audio_or_document_parse") {
+    return [
+      nodeField("content"),
+      nodeField("context"),
+      nodeField("language"),
+      nodeField("source_type"),
+      nodeField("skill_id"),
+      nodeField("trace_id"),
+      nodeField("parsed_at"),
+    ];
+  }
+  if (nodeKind === "skill.invoke" && skillID === "marketing.extract_methodology") {
+    return [
+      nodeField("summary"),
+      nodeField("methodology"),
+      nodeField("draft_items"),
+      nodeField("skill_id"),
+    ];
+  }
+  if (nodeKind === "skill.invoke") {
+    return [
+      nodeField("output", "skill_result"),
+    ];
+  }
+  if (nodeKind === "metadata.classify") {
+    return [
+      nodeField("metadata"),
+      nodeField("summary"),
+      nodeField("draft_items"),
+      nodeField("methodology"),
+    ];
+  }
+  if (nodeKind === "knowledge.stage") {
+    return [
+      nodeField("draft_refs"),
+      nodeField("summary"),
+      nodeField("metadata"),
+    ];
+  }
+  if (nodeKind === "decision.gateway") {
+    return [
+      nodeField("decision"),
+      nodeField("draft_refs"),
+    ];
+  }
+  if (nodeKind === "human.review") {
+    return [
+      nodeField("review_task_uuid"),
+      nodeField("review_status"),
+      nodeField("decision"),
+    ];
+  }
+  if (nodeKind === "knowledge.publish") {
+    return [
+      nodeField("published_refs"),
+      nodeField("publish_policy"),
+    ];
+  }
+  if (nodeKind === "event.emit") return [];
+  if (nodeKind === "capability.invoke") {
+    return [
+      nodeField("capability_result"),
+    ];
+  }
+  return [];
+}
+
+function selectedNodeInputMappingValue(fieldKey: string) {
+  const node = selectedNode.value;
+  if (!node) return "";
+  const value = node.data.inputMapping?.[fieldKey];
+  return String(value || defaultNodeInputMappingValue(node.data.kind, String(node.data.props?.skill_id || ""), fieldKey));
+}
+
+function selectedNodeOutputMappingValue(fieldKey: string) {
+  const node = selectedNode.value;
+  if (!node) return "";
+  const value = node.data.outputMapping?.[fieldKey];
+  return String(value || defaultNodeOutputMappingValue(node.data.kind, String(node.data.props?.skill_id || ""), fieldKey));
+}
+
+function updateSelectedNodeInputMapping(fieldKey: string, value: string) {
+  const node = selectedNode.value;
+  if (!node) return;
+  node.data.inputMapping = { ...(node.data.inputMapping || {}) };
+  const normalized = value.trim();
+  if (normalized) node.data.inputMapping[fieldKey] = normalized;
+  else delete node.data.inputMapping[fieldKey];
+}
+
+function updateSelectedNodeOutputMapping(fieldKey: string, value: string) {
+  const node = selectedNode.value;
+  if (!node) return;
+  node.data.outputMapping = { ...(node.data.outputMapping || {}) };
+  const normalized = value.trim();
+  if (normalized) node.data.outputMapping[fieldKey] = normalized;
+  else delete node.data.outputMapping[fieldKey];
+}
+
+function defaultNodeInputMappingValue(nodeKind: string, skillID: string, fieldKey: string) {
+  return nodeInputFieldDefinitions(nodeKind, skillID).find((field) => field.key === fieldKey)?.placeholder || fieldKey;
+}
+
+function defaultNodeOutputMappingValue(nodeKind: string, skillID: string, fieldKey: string) {
+  return nodeOutputFieldDefinitions(nodeKind, skillID).find((field) => field.key === fieldKey)?.placeholder || fieldKey;
+}
+
+function isConfigSectionOpen(sectionKey: string) {
+  return configSectionOpen[sectionKey] !== false;
+}
+
+function toggleConfigSection(sectionKey: string) {
+  configSectionOpen[sectionKey] = !isConfigSectionOpen(sectionKey);
+}
+
+function isRuntimeSectionOpen(sectionKey: string) {
+  return runtimeSectionOpen[sectionKey] === true;
+}
+
+function toggleRuntimeSection(sectionKey: string) {
+  runtimeSectionOpen[sectionKey] = !isRuntimeSectionOpen(sectionKey);
+}
+
 function normalizeSelectedNodeProps(node: Node) {
   node.data.props = node.data.props || {};
+  node.data.inputMapping = node.data.inputMapping || {};
+  node.data.outputMapping = node.data.outputMapping || {};
   if (node.data.kind === "human.review") {
     node.data.props.approver_policy = node.data.props.approver_policy || { roles: [] };
+    node.data.props.review_payload_path = String(node.data.props.review_payload_path || "$.vars.drafts");
   }
   if (node.data.kind === "input.capture") {
     node.data.props.source_policy = node.data.props.source_policy || { text: false, form: false };
     node.data.props.artifact_output_path = String(node.data.props.artifact_output_path || "$.artifacts.source");
     ensureInputRunFormSchema(node);
+  }
+  if (node.data.kind === "skill.invoke") {
+    node.data.props.input_path = String(node.data.props.input_path || "$.vars.parsed");
+    node.data.props.output_path = String(node.data.props.output_path || "$.vars.extracted");
+  }
+  if (node.data.kind === "capability.invoke") {
+    node.data.props.input_path = String(node.data.props.input_path || "$.request.payload");
+    node.data.props.output_path = String(node.data.props.output_path || "$.vars.capability_result");
+  }
+  if (node.data.kind === "metadata.classify") {
+    node.data.props.input_path = String(node.data.props.input_path || "$.vars.extracted");
+    node.data.props.output_path = String(node.data.props.output_path || "$.vars.metadata");
+  }
+  if (node.data.kind === "knowledge.stage") {
+    node.data.props.input_path = String(node.data.props.input_path || "$.vars.metadata");
+    node.data.props.output_path = String(node.data.props.output_path || "$.vars.drafts");
+  }
+  if (node.data.kind === "knowledge.publish") {
+    node.data.props.draft_refs_path = String(node.data.props.draft_refs_path || "$.vars.drafts");
+    node.data.props.review_result_path = String(node.data.props.review_result_path || "$.review");
+  }
+  if (node.data.kind === "decision.gateway") {
+    node.data.props.condition_source_path = String(node.data.props.condition_source_path || "$.vars.drafts");
+  }
+  if (node.data.kind === "event.emit") {
+    node.data.props.payload_path = String(node.data.props.payload_path || "$.vars.published");
+  }
+  const skillID = String(node.data.props?.skill_id || "");
+  for (const field of nodeInputFieldDefinitions(node.data.kind, skillID)) {
+    if (!node.data.inputMapping[field.key]) {
+      node.data.inputMapping[field.key] = field.placeholder;
+    }
+  }
+  for (const field of nodeOutputFieldDefinitions(node.data.kind, skillID)) {
+    if (!node.data.outputMapping[field.key]) {
+      node.data.outputMapping[field.key] = field.placeholder;
+    }
   }
 }
 
@@ -3189,7 +4048,85 @@ function startBottomResize(event: PointerEvent) {
 
 // 保存工作流
 async function handleSaveWorkflow() {
-  await saveWorkflow(nodes.value, edges.value);
+  const saved = await saveWorkflow(nodes.value, edges.value);
+  if (!saved?.uuid) return;
+  toast.add({
+    title: t("workflow.editor.saveSuccess"),
+    description: t("workflow.editor.savedRevision", { version: saved.version }),
+    color: "success",
+  });
+  await loadWorkflowRevisions(saved.uuid);
+  await navigateTo({ path: "/workflow/workspace", query: { id: saved.uuid } }, { replace: true });
+}
+
+async function handlePublishWorkflow() {
+  publishLoading.value = true;
+  try {
+    const published = await publishWorkflow();
+    if (!published) return;
+    toast.add({
+      title: t("workflow.editor.publishSuccess"),
+      description: t("workflow.editor.publishedRevision", { version: published.version }),
+      color: "success",
+    });
+    await loadWorkflowRevisions(published.uuid);
+  } catch (err: any) {
+    toast.add({
+      title: t("workflow.editor.publishFailed"),
+      description: err?.message || t("workflow.editor.publishFailed"),
+      color: "error",
+    });
+  } finally {
+    publishLoading.value = false;
+  }
+}
+
+async function loadWorkflowRevisions(definitionUUID?: string) {
+  const uuid = definitionUUID || currentWorkflow.value?.uuid;
+  if (!uuid) {
+    workflowRevisions.value = [];
+    return;
+  }
+  workflowRevisionsLoading.value = true;
+  try {
+    const result = await workflowService.listDefinitionRevisions(uuid);
+    workflowRevisions.value = result.items;
+  } catch (err: any) {
+    workflowRevisions.value = [];
+    toast.add({
+      title: t("workflow.editor.versionHistoryLoadFailed"),
+      description: err?.message || t("workflow.editor.versionHistoryLoadFailed"),
+      color: "error",
+    });
+  } finally {
+    workflowRevisionsLoading.value = false;
+  }
+}
+
+async function openWorkflowRevisions() {
+  workflowRevisionsOpen.value = true;
+  await loadWorkflowRevisions();
+}
+
+async function openWorkflowRevision(definitionUUID: string) {
+  if (!definitionUUID || definitionUUID === currentWorkflow.value?.uuid) {
+    workflowRevisionsOpen.value = false;
+    return;
+  }
+  await loadWorkflow(definitionUUID);
+  hasLoadedCanvas.value = false;
+  syncWorkflowToCanvas();
+  resetDebugInput();
+  await restoreLatestRun(definitionUUID);
+  await loadWorkflowRevisions(definitionUUID);
+  workflowRevisionsOpen.value = false;
+  await navigateTo({ path: "/workflow/workspace", query: { id: definitionUUID } }, { replace: true });
+}
+
+function revisionStatusColor(status: string) {
+  if (status === "published") return "success";
+  if (status === "archived") return "neutral";
+  return "warning";
 }
 
 // 撤销/重做功能（简单实现）
@@ -3250,9 +4187,11 @@ function onNodeClick(event: { node: Node }) {
   if (node.data.kind === "metadata.classify") {
     void loadMetadataReferenceData({ notify: false });
   }
-  propertiesTab.value = latestReviewTasks.value.some((task) => task.step_id === node.id && task.status === "pending")
-    ? "runtime"
-    : "config";
+  propertiesTab.value =
+    latestReviewTasks.value.some((task) => task.step_id === node.id && task.status === "pending") ||
+    Boolean(latestRun.value?.steps?.some((step) => step.step_id === node.id))
+      ? "runtime"
+      : "config";
 
   // 初始化对象属性编辑器
   if (node.data.props) {
@@ -3464,14 +4403,7 @@ async function loadModelProfileReferenceData(options: { notify?: boolean } = {})
     const result = await AISettingService.getProfiles("default", ["llm", "vlm", "audio_asr", "embedding"]);
     modelProfiles.value = result.profiles || [];
     if (!modelProfiles.value.length) {
-      modelProfilesError.value = t("workflow.editor.modelProfileOptionsEmpty");
-      if (notify) {
-        toast.add({
-          title: t("workflow.editor.modelProfileOptionsLoadFailed"),
-          description: modelProfilesError.value,
-          color: "error",
-        });
-      }
+      modelProfilesError.value = "";
     }
   } catch (err: any) {
     modelProfilesError.value = err?.message || t("workflow.editor.modelProfileOptionsLoadFailed");
@@ -3689,8 +4621,8 @@ function applyCapabilityToSelectedNode(capabilityID: string) {
     capability_id: capability.capabilityId,
     capability_label: capabilityOptionLabel(capability),
     preferred_protocol: preferredProtocol,
-    input_path: String(node.data.props?.input_path || "request.payload"),
-    output_path: String(node.data.props?.output_path || "capability_result"),
+    input_path: String(node.data.props?.input_path || "$.request.payload"),
+    output_path: String(node.data.props?.output_path || "$.vars.capability_result"),
   };
 }
 
@@ -4661,6 +5593,13 @@ function shortUUID(value: string) {
   return value.length > 8 ? value.slice(0, 8) : value;
 }
 
+function formatWorkflowRevisionTimestamp(value?: string | null) {
+  if (!value) return t("workflow.editor.versionTimeMissing");
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return t("workflow.editor.versionTimeMissing");
+  return date.toLocaleString();
+}
+
 function formatRunTimestamp(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -4689,6 +5628,7 @@ onMounted(async () => {
     await loadWorkflow(workflowId);
     syncWorkflowToCanvas();
     resetDebugInput();
+    await loadWorkflowRevisions(workflowId);
     await restoreLatestRun(workflowId);
   }
   void loadCapabilityReferenceData({ notify: false });
@@ -4842,6 +5782,95 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: currentColor;
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.workflow-revisions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.workflow-revisions-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wf-panel-soft) 82%, var(--wf-panel));
+}
+
+.workflow-revisions-current span {
+  flex: none;
+  color: var(--wf-dim);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-revisions-current strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wf-text);
+  font-size: 14px;
+}
+
+.workflow-revision-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workflow-revision-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 56px;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.workflow-revision-row:hover,
+.workflow-revision-row.active {
+  border-color: color-mix(in srgb, var(--wf-accent) 64%, var(--wf-border));
+  background: color-mix(in srgb, var(--wf-accent) 9%, var(--wf-panel));
+}
+
+.workflow-revision-main,
+.workflow-revision-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.workflow-revision-main strong {
+  color: var(--wf-text);
+  font-size: 14px;
+}
+
+.workflow-revision-meta {
+  flex: none;
+  color: var(--wf-dim);
+  font-size: 12px;
+}
+
+.workflow-revisions-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  border: 1px dashed var(--wf-border);
+  border-radius: 8px;
+  color: var(--wf-dim);
+  font-size: 13px;
 }
 
 .workflow-global-search {
@@ -5188,8 +6217,59 @@ onBeforeUnmount(() => {
 .properties-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   margin-top: 10px;
+}
+
+.config-collapse-section {
+  display: grid;
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel-soft);
+  overflow: hidden;
+}
+
+.config-collapse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  color: var(--wf-text);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.config-collapse-header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-collapse-header:hover {
+  background: color-mix(in srgb, var(--wf-accent) 7%, transparent);
+  color: var(--wf-accent);
+}
+
+.config-collapse-icon {
+  flex: none;
+  color: var(--wf-muted);
+}
+
+.config-collapse-body {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  border-top: 1px solid var(--wf-border);
+  background: var(--wf-panel);
+  padding: 10px;
 }
 
 .properties-field,
@@ -5218,7 +6298,8 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 8px;
   border-top: 1px solid var(--wf-border);
-  padding-top: 10px;
+  margin-inline: -2px;
+  padding: 12px 2px 0;
 }
 
 .input-fields-header {
@@ -5248,34 +6329,33 @@ onBeforeUnmount(() => {
 
 .input-field-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .input-field-list-item {
   display: grid;
-  gap: 6px;
+  min-width: 0;
+  gap: 8px;
   border: 1px solid var(--wf-border);
   border-radius: 8px;
   background: var(--wf-panel);
-  padding: 8px 8px 7px;
+  padding: 10px 12px 9px;
 }
 
 .input-field-list-head {
   display: flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
 
 .input-field-list-head strong {
   min-width: 0;
-  overflow: hidden;
   color: var(--wf-text);
   font-size: 13px;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .input-field-list-badges,
@@ -5289,6 +6369,7 @@ onBeforeUnmount(() => {
 .input-field-list-actions {
   flex: 0 0 auto;
   justify-content: flex-end;
+  margin-right: -4px;
 }
 
 .input-field-badge {
@@ -5466,6 +6547,76 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.field-config-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.field-config-header {
+  display: grid;
+  gap: 4px;
+}
+
+.field-config-header strong {
+  color: var(--wf-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.field-config-header span {
+  color: var(--wf-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.field-config-section {
+  display: grid;
+  gap: 10px;
+}
+
+.field-config-section-title {
+  color: var(--wf-dim);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.field-config-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  background: var(--wf-panel-soft);
+  padding: 9px 10px;
+}
+
+.field-config-label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.field-config-label strong {
+  overflow-wrap: anywhere;
+  color: var(--wf-text);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.field-config-label span {
+  overflow-wrap: anywhere;
+  color: var(--wf-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@media (max-width: 1280px) {
+  .field-config-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .business-config-item {
   min-width: 0;
   border: 1px solid var(--wf-border);
@@ -5569,6 +6720,7 @@ onBeforeUnmount(() => {
 
 .node-runtime-panel {
   display: grid;
+  min-width: 0;
   gap: 14px;
 }
 
@@ -5662,12 +6814,14 @@ onBeforeUnmount(() => {
 
 .runtime-summary-list {
   display: grid;
+  min-width: 0;
   gap: 8px;
 }
 
 .runtime-summary-row {
   display: grid;
-  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  grid-template-columns: minmax(108px, 0.32fr) minmax(0, 1fr);
+  min-width: 0;
   align-items: start;
   gap: 10px;
   border-radius: 7px;
@@ -5676,6 +6830,8 @@ onBeforeUnmount(() => {
 }
 
 .runtime-summary-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--wf-dim);
   font-size: 11px;
   font-weight: 700;
@@ -5684,6 +6840,7 @@ onBeforeUnmount(() => {
 .runtime-summary-row strong {
   min-width: 0;
   overflow-wrap: anywhere;
+  word-break: break-word;
   color: var(--wf-text);
   font-size: 12px;
   line-height: 1.45;

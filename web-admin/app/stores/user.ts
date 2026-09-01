@@ -147,6 +147,8 @@ export const useUserStore = defineStore("user", {
         this.lastFetchedAt = Date.now();
         if (force) {
           this.lastForcedContextRefreshAt = this.lastFetchedAt;
+          const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+          menuRefreshToken.value += 1;
         }
         this.persistCurrentTenantUUID();
       };
@@ -191,6 +193,8 @@ export const useUserStore = defineStore("user", {
 
         this.context = response.context;
         this.lastFetchedAt = Date.now();
+        const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
+        menuRefreshToken.value += 1;
         this.persistCurrentTenantUUID();
       } catch (error: any) {
         console.error("切换租户失败:", error);
@@ -258,7 +262,7 @@ export const useUserStore = defineStore("user", {
           await this.fetchUserContext({ force: true });
         } catch (error: any) {
           const statusCode = extractStatusCode(error);
-          if (statusCode === 401 || statusCode === 403) {
+          if (statusCode === 401) {
             options?.onUnauthorized?.();
           }
         }

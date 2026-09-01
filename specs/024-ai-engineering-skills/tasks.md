@@ -303,15 +303,15 @@
 
 ---
 
-## Phase 19: Core-only A2A 发布准备 MVP
+## Phase 19: 声明式 A2A 团队示例
 
-- [X] T159 [Shared] 文档对齐：新增 PowerX Core A2A 多智能体设计，明确不依赖插件 capability handler，并补齐发布准备业务故事、seed 对象、计划结构、trace 字段和测试矩阵：`docs/plan/ai_engineering/skills/multi_agent_a2a.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `docs/plan/ai_engineering/skills/testing_and_rollout.md`, `specs/024-ai-engineering-skills/*.md`
-- [X] T160 [Shared] 实现 Core A2A demo seed：upsert `release.coordinator`、`release.knowledge_analyst`、`release.workflow_planner`、`release.notification_scheduler`、`release.readiness.team`、`powerx.release.*` Skills、Agent-Skill Binding、Team Members：`backend/cmd/database/seed/seed_a2a_release_readiness.go`, `backend/cmd/database/seed/seed.go`
+- [X] T159 [Shared] 文档对齐：定义由 Team 配置、已发布 Skill Revision 和通用 Runtime 组成的 A2A 团队边界，业务场景不进入 Core 路由：`docs/guides/agent/runtime/declarative-skill-runtime.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T160 [Shared] 实现声明式 A2A demo seed：创建营销活动复盘团队、成员绑定、对象存储包与营销 Skill Revision；不以业务 key 选择 Core executor：`backend/cmd/database/seed/seed_native_marketing_agents.go`, `backend/cmd/database/seed/seed.go`
 - [X] T161 [P] [US5] Seed 回归测试：重复 seed 三次后 Agent、Skill、Binding、Team、TeamMember 数量稳定，Skill 均为 latest published：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
 - [X] T162 [US5] Core-only A2A MVP 执行测试：读取 seed 数据，显式构造 3 个 `agent_handoff` 节点和 1 个汇总节点，注入 deterministic handoff invoker，验证最终报告包含风险摘要、发布流程、回滚步骤、通知计划：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
 - [X] T163 [P] [US5] A2A 部分失败测试：`failure_policy=continue` 时单个子 Agent 失败，主 Agent 返回部分成功并在 trace/report 中标注失败子任务：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
 - [X] T164 [P] [US5] A2A 上下文隔离测试：子 Agent 只收到主 Agent 显式下发的 release metadata/context_refs/上游摘要，不能默认继承完整 session 或未授权候选：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`
-- [X] T165 [US7] Agent Trace 对齐：`agent_handoff` 节点写入 `team_id/team_name/parent_agent_id/child_agent_id/handoff_task_id/failure_policy/child_run_id`，Message 报告展示三个子 Agent 输入输出摘要：`backend/internal/server/agent/manager_execute.go`
+- [X] T165 [US7] Agent Trace 对齐：`agent_handoff` 节点写入 `team_uuid/team_key/parent_agent_uuid/child_agent_uuid/handoff_task_id/failure_policy/child_run_id`，Message 报告展示三个子 Agent 输入输出摘要：`backend/internal/server/agent/manager_execute.go`
 - [X] T166 [Shared] Quickstart 回写：记录 seed 命令、SQL 校验、Core-only 测试命令和 Agent Trace 验收证据：`specs/024-ai-engineering-skills/quickstart.md`
 
 ---

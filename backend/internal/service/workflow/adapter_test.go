@@ -44,6 +44,19 @@ func (o testKnowledgeOperator) PublishKnowledge(context.Context, KnowledgePublis
 	return KnowledgeOperationResponse{Output: map[string]any{"published": true}}, nil
 }
 
+type captureKnowledgeOperator struct {
+	stageReq KnowledgeStageRequest
+}
+
+func (o *captureKnowledgeOperator) StageKnowledge(_ context.Context, req KnowledgeStageRequest) (KnowledgeOperationResponse, error) {
+	o.stageReq = req
+	return KnowledgeOperationResponse{Output: map[string]any{"staged": true}}, nil
+}
+
+func (o *captureKnowledgeOperator) PublishKnowledge(context.Context, KnowledgePublishRequest) (KnowledgeOperationResponse, error) {
+	return KnowledgeOperationResponse{Output: map[string]any{"published": true}}, nil
+}
+
 type testWorkflowEventPublisher struct {
 	topic string
 }
@@ -68,6 +81,7 @@ func TestSkillAdapterValidatesAndInvokes(t *testing.T) {
 		TenantUUID: "tenant-a",
 		Step: StepDefinition{NodeRef: "skill.ref", Config: map[string]any{
 			"skill_id":    "knowledge.extract",
+			"entrypoint":  "default",
 			"input_path":  "$.in",
 			"output_path": "$.out",
 		}},
@@ -183,5 +197,57 @@ func TestCapabilityAdapterDryRunSkipsInvokerAndResolvesInputPlaceholder(t *testi
 	}
 	if result.Output["capability_id"] != "com.corex.llm.models.list" || result.Output["dry_run"] != true {
 		t.Fatalf("unexpected dry-run output=%#v", result.Output)
+	}
+}
+
+func TestKnowledgeStageAdapterResolvesKnowledgeSpacePlaceholder(t *testing.T) {
+	operator := &captureKnowledgeOperator{}
+	adapter := NewKnowledgeStageAdapter(operator)
+	result, err := adapter.Execute(context.Background(), NodeExecutionContext{
+		Instance: &modelworkflow.WorkflowInstance{
+			InputContext: toJSONOrEmpty(map[string]any{
+				"knowledge_space_uuid": "2e1ab018-f7e6-4b1d-aaac-4c3d0d21cb71",
+			}),
+		},
+		Step: StepDefinition{ID: "stage", Config: map[string]any{
+			"knowledge_space_uuid": "${knowledge_space_uuid}",
+			"draft_schema_ref":     "knowledge.draft.v1",
+			"input_path":           "$.in",
+			"output_path":          "$.out",
+		}},
+		Payload: map[string]any{"content": "demo"},
+	})
+	if err != nil {
+		t.Fatalf("execute knowledge stage: %v", err)
+	}
+	if result.Status != NodeResultStatusSucceeded {
+		t.Fatalf("expected succeeded, got %#v", result)
+	}
+	if operator.stageReq.KnowledgeSpaceUUID != "2e1ab018-f7e6-4b1d-aaac-4c3d0d21cb71" {
+		t.Fatalf("placeholder was not resolved: %#v", operator.stageReq)
+	}
+}
+
+func TestDecisionGatewayPreservesPayloadAndAddsDecision(t *testing.T) {
+	adapter := NewDecisionGatewayAdapter()
+	result, err := adapter.Execute(context.Background(), NodeExecutionContext{
+		Step: StepDefinition{ID: "route", Config: map[string]any{
+			"routes":                map[string]any{"needs_review": "review"},
+			"default_route":         "needs_review",
+			"condition_source_path": "$.vars.drafts",
+		}},
+		Payload: map[string]any{
+			"content":    "demo",
+			"draft_refs": []map[string]any{{"chunk_uuid": "chunk-a"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute decision gateway: %v", err)
+	}
+	if result.Decision != "needs_review" || result.Output["decision"] != "needs_review" {
+		t.Fatalf("unexpected decision result=%#v", result)
+	}
+	if result.Output["content"] != "demo" || result.Output["draft_refs"] == nil {
+		t.Fatalf("decision gateway dropped payload: %#v", result.Output)
 	}
 }

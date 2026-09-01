@@ -3,27 +3,27 @@
 Auto-generated from all feature plans. Last updated: 2025-11-05
 
 ## Active Technologies
-- Go 1.24（backend 单体，Buf toolchain） + Gin HTTP 栈、google.golang.org/grpc、Buf、GORM、Redis、PostgreSQL、EventBus、OpenTelemetry、px-plugin CLI (007-integration-gateway-and-mcp)
+- Go 1.26.7（backend 单体，Buf toolchain） + Gin HTTP 栈、google.golang.org/grpc、Buf、GORM、Redis、PostgreSQL、EventBus、OpenTelemetry、px-plugin CLI (007-integration-gateway-and-mcp)
 - PostgreSQL（CapabilityRecord, CapabilitySyncJob, InvocationTrace）、Redis（Capability cache、ToolStore、RateLimit、SelectorPolicySnapshot）、MinIO/S3（插件 workflow/composite 资产引用，仅存 URI） (007-integration-gateway-and-mcp)
-- Go 1.24（backend），Node 20 + Nuxt 4（web-admin） + Gin HTTP 栈、gorilla/websocket、Pinia、Nuxt UI (012-websocket-docs-plan)
+- Go 1.26.7（backend），Node 20 + Nuxt 4（web-admin） + Gin HTTP 栈、gorilla/websocket、Pinia、Nuxt UI (012-websocket-docs-plan)
 - PostgreSQL（ai_model_profiles/knowledge_*），Redis（现有队列/缓存） (012-websocket-docs-plan)
-- Go 1.24（backend services），Node 20 + Nuxt 4（web-admin） + Gin HTTP、google.golang.org/grpc（Buf）、GORM、Redis、PostgreSQL、OpenTelemetry、Nuxt UI、Pinia (024-ai-engineering-skills)
+- Go 1.26.7（backend services），Node 20 + Nuxt 4（web-admin） + Gin HTTP、google.golang.org/grpc（Buf）、GORM、Redis、PostgreSQL、OpenTelemetry、Nuxt UI、Pinia (024-ai-engineering-skills)
 - PostgreSQL（skills registry + execution trace + audit refs）、Redis（selector/cache/policy snapshot） (024-ai-engineering-skills)
-- Go 1.24（backend services）、TypeScript/Nuxt 4（web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、PostgreSQL、Redis、Loki、Grafana、Promtail (025-powerx-docker-systemd)
+- Go 1.26.7（backend services）、TypeScript/Nuxt 4（web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、PostgreSQL、Redis、Loki、Grafana、Promtail (025-powerx-docker-systemd)
 - PostgreSQL（主数据）、Redis（缓存/队列）、MinIO/S3（备份与对象产物） (025-powerx-docker-systemd)
-- Go 1.24（backend），TypeScript（Nuxt 4 / Vue 3，web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、Pinia、Nuxt UI (026-iam)
+- Go 1.26.7（backend），TypeScript（Nuxt 4 / Vue 3，web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、Pinia、Nuxt UI (026-iam)
 - PostgreSQL（IAM 用户/成员/角色数据）、Redis（会话与缓存） (026-iam)
-- Go 1.24（backend）, TypeScript + Nuxt 4（web-admin） + Gin HTTP, GORM, PostgreSQL, Redis, systemd/ops scripts, Nuxt UI (027-monitor-center)
+- Go 1.26.7（backend）, TypeScript + Nuxt 4（web-admin） + Gin HTTP, GORM, PostgreSQL, Redis, systemd/ops scripts, Nuxt UI (027-monitor-center)
 - PostgreSQL（策略/作业/演练/告警元数据）+ 文件或对象存储（备份产物） (027-monitor-center)
-- Go 1.24 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts. + Gin HTTP stack, GORM, PostgreSQL JSONB, Redis only if later used for read caches, google.golang.org/grpc, Buf, Pinia/Nuxt UI, existing PowerX capability registry and IAM/RBAC services. (029-metadata-governance)
+- Go 1.26.7 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts. + Gin HTTP stack, GORM, PostgreSQL JSONB, Redis only if later used for read caches, google.golang.org/grpc, Buf, Pinia/Nuxt UI, existing PowerX capability registry and IAM/RBAC services. (029-metadata-governance)
 - PostgreSQL tables for metadata definitions, tag bindings, references, audit events through existing audit infrastructure; seed YAML under `backend/config/metadata_governance`. (029-metadata-governance)
 
-- Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI） + Gin HTTP 栈、google.golang.org/grpc、Buf toolchain、GORM + PostgreSQL、Redis（队列与 Feature Flag）、MinIO/S3 SDK（离线包存储）、OpenTelemetry + Prometheus Exporter、PowerX CLI (`powerx`, `px-plugin`) (001-install-plugin-pxp)
-- Go 1.24 (backend services, CLIs), Node 20 (validation scripts), Go 1.21 (px-plugin CLI) + Gin HTTP stack, google.golang.org/grpc, Buf toolchain, GORM + PostgreSQL, Redis, MinIO/S3 SDK, OpenTelemetry + Prometheus exporters (010-agent-model-setting)
+- Go 1.26.7（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI） + Gin HTTP 栈、google.golang.org/grpc、Buf toolchain、GORM + PostgreSQL、Redis（队列与 Feature Flag）、MinIO/S3 SDK（离线包存储）、OpenTelemetry + Prometheus Exporter、PowerX CLI (`powerx`, `px-plugin`) (001-install-plugin-pxp)
+- Go 1.26.7 (backend services, CLIs), Node 20 (validation scripts), Go 1.21 (px-plugin CLI) + Gin HTTP stack, google.golang.org/grpc, Buf toolchain, GORM + PostgreSQL, Redis, MinIO/S3 SDK, OpenTelemetry + Prometheus exporters (010-agent-model-setting)
 - PostgreSQL (provider profiles, routing policies, quota config), Redis (health scores, safe-mode, feature flags), MinIO/S3 (validator artifacts), Vault-backed secret store (010-agent-model-setting)
-- Go 1.24 (backend services, CLIs) + Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI (011-docs-use-cases)
+- Go 1.26.7 (backend services, CLIs) + Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI (011-docs-use-cases)
 - PostgreSQL (knowledge space metadata, quota, policy versions), Redis (workflow queues, throttles), MinIO/S3 (artifact staging) (011-docs-use-cases)
-- Go 1.24 (backend services, CLIs); Node 20 + Nuxt 4 (Vue 3 Web Admin) + Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI, Nuxt 4, Vue 3, Pinia, Nuxt UI, VueUse, Playwright, Vites (011-docs-use-cases)
+- Go 1.26.7 (backend services, CLIs); Node 20 + Nuxt 4 (Vue 3 Web Admin) + Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI, Nuxt 4, Vue 3, Pinia, Nuxt UI, VueUse, Playwright, Vites (011-docs-use-cases)
 
 ## Project Structure
 
@@ -34,7 +34,7 @@ tests/
 
 ## Commands
 
-# Add commands for Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）
+# Add commands for Go 1.26.7（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）
 
 ## QA & Observability Checklist
 
@@ -45,12 +45,12 @@ tests/
 
 ## Code Style
 
-Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）: Follow standard conventions
+Go 1.26.7（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）: Follow standard conventions
 
 ## Recent Changes
-- 029-metadata-governance: Added Go 1.24 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts. + Gin HTTP stack, GORM, PostgreSQL JSONB, Redis only if later used for read caches, google.golang.org/grpc, Buf, Pinia/Nuxt UI, existing PowerX capability registry and IAM/RBAC services.
-- 027-monitor-center: Added Go 1.24（backend）, TypeScript + Nuxt 4（web-admin） + Gin HTTP, GORM, PostgreSQL, Redis, systemd/ops scripts, Nuxt UI
-- 026-iam: Added Go 1.24（backend），TypeScript（Nuxt 4 / Vue 3，web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、Pinia、Nuxt UI
+- 029-metadata-governance: Added Go 1.26.7 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts. + Gin HTTP stack, GORM, PostgreSQL JSONB, Redis only if later used for read caches, google.golang.org/grpc, Buf, Pinia/Nuxt UI, existing PowerX capability registry and IAM/RBAC services.
+- 027-monitor-center: Added Go 1.26.7（backend）, TypeScript + Nuxt 4（web-admin） + Gin HTTP, GORM, PostgreSQL, Redis, systemd/ops scripts, Nuxt UI
+- 026-iam: Added Go 1.26.7（backend），TypeScript（Nuxt 4 / Vue 3，web-admin） + Gin HTTP、gRPC（Buf contracts）、GORM、Pinia、Nuxt UI
 
 
 <!-- MANUAL ADDITIONS START -->

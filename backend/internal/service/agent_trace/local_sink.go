@@ -49,7 +49,7 @@ func (s *LocalSink) StartRun(_ context.Context, run AgentRunTrace) error {
 	if run.Status == "" {
 		run.Status = RunStatusRunning
 	}
-	dir := s.runDir(run.TenantUUID, run.SessionID, run.MessageID)
+	dir := s.runDir(run.TenantUUID, run.SessionID, run.MessageID, run.RunID)
 	if err := os.MkdirAll(filepath.Join(dir, "nodes"), 0o755); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (s *LocalSink) AppendEvent(_ context.Context, event AgentTraceEvent) error 
 		return err
 	}
 	event.CreatedAt = defaultTime(event.CreatedAt)
-	dir := s.runDir(event.TenantUUID, event.SessionID, event.MessageID)
+	dir := s.runDir(event.TenantUUID, event.SessionID, event.MessageID, event.RunID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (s *LocalSink) AppendRunStateEvent(_ context.Context, meta AgentRunMeta, ev
 	if event == "" {
 		return missingFieldsError("event")
 	}
-	dir := s.runDir(meta.TenantUUID, meta.SessionID, meta.MessageID)
+	dir := s.runDir(meta.TenantUUID, meta.SessionID, meta.MessageID, meta.RunID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (s *LocalSink) WriteNodeSnapshot(_ context.Context, meta AgentRunMeta, snap
 	if strings.TrimSpace(snapshot.NodeKind) == "" {
 		return missingFieldsError("node_kind")
 	}
-	dir := filepath.Join(s.runDir(meta.TenantUUID, meta.SessionID, meta.MessageID), "nodes")
+	dir := filepath.Join(s.runDir(meta.TenantUUID, meta.SessionID, meta.MessageID, meta.RunID), "nodes")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -160,16 +160,38 @@ func (s *LocalSink) CompleteRun(_ context.Context, run AgentRunTrace) error {
 	if run.StartedAt != nil && run.DurationMS <= 0 {
 		run.DurationMS = run.EndedAt.Sub(*run.StartedAt).Milliseconds()
 	}
-	dir := s.runDir(run.TenantUUID, run.SessionID, run.MessageID)
+	dir := s.runDir(run.TenantUUID, run.SessionID, run.MessageID, run.RunID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	run.ArtifactRoot = filepath.Join(dir, "artifacts")
-	return writeJSONFile(filepath.Join(dir, "run.json"), run)
+	if err := writeJSONFile(filepath.Join(dir, "run.json"), run); err != nil {
+		return err
+	}
+	return s.writeRunReport(dir, run)
 }
 
-func (s *LocalSink) runDir(tenantUUID, sessionID, messageID string) string {
-	return filepath.Join(s.rootDir, safePathPart(tenantUUID), safePathPart(sessionID), safePathPart(messageID))
+func (s *LocalSink) writeRunReport(dir string, run AgentRunTrace) error {
+	report, err := s.BuildReport(context.Background(), AgentReportQuery{
+		TenantUUID: run.TenantUUID,
+		SessionID:  run.SessionID,
+		MessageID:  run.MessageID,
+		RunID:      run.RunID,
+		TraceID:    run.TraceID,
+		Source:     "local",
+		Format:     "json",
+	})
+	if err != nil {
+		return err
+	}
+	if err := writeJSONFile(filepath.Join(dir, "report.json"), report); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "report.md"), []byte(s.RenderMarkdown(report)), 0o644)
+}
+
+func (s *LocalSink) runDir(tenantUUID, sessionID, messageID, runID string) string {
+	return filepath.Join(s.rootDir, safePathPart(tenantUUID), safePathPart(sessionID), safePathPart(messageID), safePathPart(runID))
 }
 
 func writeJSONFile(path string, value any) error {
@@ -439,7 +461,7 @@ func runStateTaskFromPayload(payload any) AgentTaskStateItem {
 		Message:       firstNonEmpty(stringFromRunState(m["message"]), stringFromRunState(m["display_message"])),
 		Summary:       firstNonEmpty(stringFromRunState(m["summary"]), stringFromRunState(m["result_message"])),
 		Result:        firstRunStateValue(m["result"], m["result_summary"], m["data"]),
-		Error:         firstRunStateValue(m["error"], m["detail"], m["message"]),
+		Error:         runStateTaskError(m),
 		UpdatedAt:     firstNonEmpty(stringFromRunState(m["updated_at"]), time.Now().UTC().Format(time.RFC3339Nano)),
 	}
 	task.MissingFields = stringListFromRunState(m["missing_fields"])
@@ -448,6 +470,16 @@ func runStateTaskFromPayload(payload any) AgentTaskStateItem {
 	}
 	task.Links = mapListFromRunState(m["links"])
 	return task
+}
+
+func runStateTaskError(m map[string]any) any {
+	status := strings.ToLower(strings.TrimSpace(stringFromRunState(m["status"])))
+	switch status {
+	case "failed", "canceled", "cancelled":
+		return firstRunStateValue(m["error"], m["detail"], m["message"])
+	default:
+		return firstRunStateValue(m["error"], m["detail"])
+	}
 }
 
 func upsertRunStateTask(tasks []AgentTaskStateItem, task AgentTaskStateItem) []AgentTaskStateItem {

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
-	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"gorm.io/gorm"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -128,29 +128,30 @@ func permFromPathAndMethod(path, method string) dbm.Permission {
 	}
 
 	meta := map[string]any{
-		"type":         "api",
-		"module":       module,
-		"label":        method + " " + path,
-		"http_method":  method,
-		"api_endpoint": path,
+		"type":                "api_candidate",
+		"module":              module,
+		"http_method":         method,
+		"api_endpoint":        path,
+		"generated_from":      "swagger",
+		"registration_status": "invalid",
+		"registration_errors": []string{"api_permission_platform_capability_missing", "api_permission_i18n_missing"},
+		"title_i18n":          map[string]string{},
+		"description_i18n":    map[string]string{},
 	}
+	now := time.Now().Unix()
 	permission := dbm.Permission{
-		Module:     moduleName, // 关键：来自路径
-		Resource:   res,
-		Action:     act,
-		Effect:     "allow",
-		Status:     dbm.PermissionStatusActive,
-		Source:     moduleName, // 也用 module
-		Introduced: config.GetSystemVersion(),
+		Module:       moduleName, // 关键：来自路径
+		Resource:     res,
+		Action:       act,
+		Effect:       "allow",
+		Status:       dbm.PermissionStatusDeprecated,
+		Source:       "swagger",
+		Introduced:   config.GetSystemVersion(),
+		DeprecatedAt: &now,
 	}
 	baseMetaBytes, _ := json.Marshal(meta)
 	permission.Meta = baseMetaBytes
-	permission.AllowAPIKey = apikeypermissions.DefaultAllowAPIKey(permission)
-	if permission.AllowAPIKey {
-		if apiMeta := apikeypermissions.BuildAPIKeyMeta(permission); len(apiMeta) > 0 {
-			meta["api_key"] = apiMeta
-		}
-	}
+	permission.AllowAPIKey = false
 	mb, _ := json.Marshal(meta)
 	permission.Meta = mb
 	return permission

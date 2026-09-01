@@ -127,11 +127,7 @@ func (s *Service) LLMInvoke(
 	applyLLMRuntimeExtras(provider, mc, defaults, params)
 	applyReasoningConfig(provider, mc, params)
 
-	cli, err := llmfactory.NewClient(provider)
-	if err != nil {
-		return nil, err
-	}
-	invokeResult, err := cli.Invoke(ctx, mc, prompt)
+	invokeResult, err := llmfactory.Invoke(ctx, mc, prompt)
 	if err != nil {
 		return nil, err
 	}
@@ -220,11 +216,7 @@ func (s *Service) LLMStream(
 	applyLLMRuntimeExtras(provider, mc, defaults, params)
 	applyReasoningConfig(provider, mc, params)
 
-	cli, err := llmfactory.NewClient(provider)
-	if err != nil {
-		return "", err
-	}
-	final, err := llmfactory.StreamOrFallback(ctx, cli, mc, prompt, onDelta)
+	final, err := llmfactory.StreamOrFallback(ctx, mc, prompt, onDelta)
 	if err != nil {
 		return "", err
 	}

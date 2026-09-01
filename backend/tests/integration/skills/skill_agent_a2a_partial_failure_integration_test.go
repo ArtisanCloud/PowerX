@@ -17,6 +17,7 @@ func TestSkillAgentA2APartialFailureContinue(t *testing.T) {
 	require.NoError(t, m.Register("agent.child", child, &agentschema.AgentMeta{FlowID: "flow.child.ok"}))
 	require.NoError(t, m.Register("agent.parent", parent, &agentschema.AgentMeta{FlowID: "flow.final"}))
 	require.NoError(t, m.SetDefaultAgent("agent.parent", "flow.final"))
+	m.SetAgentHandoffInvoker(newA2AHandoffInvoker(map[string]bool{"flow.child.fail": true}))
 
 	plan := flowschema.ExecutionPlan{
 		PlanID: "plan-a2a-partial-fail",

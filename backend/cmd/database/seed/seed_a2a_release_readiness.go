@@ -25,7 +25,12 @@ const (
 	ReleaseWorkflowPlannerAgentKey       = "release.workflow_planner"
 	ReleaseNotificationSchedulerAgentKey = "release.notification_scheduler"
 
-	ReleaseReadinessTeamName = "release.readiness.team"
+	ReleaseReadinessTeamKey        = "release.readiness"
+	ReleaseReadinessTeamName       = "发布准备协作团队"
+	ReleaseReadinessTeamNameEN     = "Release Readiness Team"
+	ReleaseReadinessTeamNameJA     = "リリース準備協働チーム"
+	ReleaseReadinessTeamNameKO     = "릴리스 준비 협업 팀"
+	legacyReleaseReadinessTeamName = "release.readiness.team"
 
 	ReleaseKnowledgeAnalysisSkillID    = "powerx.release.knowledge_analysis"
 	ReleaseWorkflowPlanningSkillID     = "powerx.release.workflow_planning"
@@ -34,11 +39,14 @@ const (
 )
 
 type releaseAgentSeed struct {
-	Key         string
-	Name        string
-	Description string
-	Role        string
-	SkillIDs    []string
+	Key           string
+	Name          string
+	NameEN        string
+	Description   string
+	DescriptionEN string
+	Role          string
+	Category      string
+	SkillIDs      []string
 }
 
 type releaseSkillSeed struct {
@@ -118,32 +126,44 @@ func SeedA2AReleaseReadinessDemo(db *gorm.DB) error {
 func releaseReadinessAgentSeeds() []releaseAgentSeed {
 	return []releaseAgentSeed{
 		{
-			Key:         ReleaseCoordinatorAgentKey,
-			Name:        "Release Coordinator",
-			Description: "Coordinates release readiness multi-agent jobs and synthesizes the final report.",
-			Role:        "planner",
-			SkillIDs:    []string{ReleaseReportSynthesisSkillID},
+			Key:           ReleaseCoordinatorAgentKey,
+			Name:          "发布准备协调员",
+			NameEN:        "Release Readiness Coordinator",
+			Description:   "统筹发布准备协作任务，拆分子智能体工作并汇总最终发布准备报告。",
+			DescriptionEN: "Coordinates release readiness collaboration, delegates child-agent work, and synthesizes the final release readiness report.",
+			Role:          "planner",
+			Category:      "release_readiness",
+			SkillIDs:      []string{ReleaseReportSynthesisSkillID},
 		},
 		{
-			Key:         ReleaseKnowledgeAnalystAgentKey,
-			Name:        "Release Knowledge Analyst",
-			Description: "Analyzes release knowledge, historical incidents, and risk evidence.",
-			Role:        "retriever",
-			SkillIDs:    []string{ReleaseKnowledgeAnalysisSkillID},
+			Key:           ReleaseKnowledgeAnalystAgentKey,
+			Name:          "发布知识分析员",
+			NameEN:        "Release Knowledge Analyst",
+			Description:   "分析发布知识、历史事故和风险证据，输出发布风险摘要。",
+			DescriptionEN: "Analyzes release knowledge, historical incidents, and risk evidence to produce the release risk summary.",
+			Role:          "retriever",
+			Category:      "release_readiness",
+			SkillIDs:      []string{ReleaseKnowledgeAnalysisSkillID},
 		},
 		{
-			Key:         ReleaseWorkflowPlannerAgentKey,
-			Name:        "Release Workflow Planner",
-			Description: "Builds release execution steps, validation checklist, and rollback plan.",
-			Role:        "executor",
-			SkillIDs:    []string{ReleaseWorkflowPlanningSkillID},
+			Key:           ReleaseWorkflowPlannerAgentKey,
+			Name:          "发布流程规划员",
+			NameEN:        "Release Process Planner",
+			Description:   "根据风险分析生成发布执行步骤、验证清单和回滚计划。",
+			DescriptionEN: "Creates release execution steps, validation checklist, and rollback plan from risk analysis.",
+			Role:          "executor",
+			Category:      "release_readiness",
+			SkillIDs:      []string{ReleaseWorkflowPlanningSkillID},
 		},
 		{
-			Key:         ReleaseNotificationSchedulerAgentKey,
-			Name:        "Release Notification Scheduler",
-			Description: "Builds notification, reminder, and escalation schedules for releases.",
-			Role:        "reviewer",
-			SkillIDs:    []string{ReleaseNotificationScheduleSkillID},
+			Key:           ReleaseNotificationSchedulerAgentKey,
+			Name:          "发布通知计划员",
+			NameEN:        "Release Notification Planner",
+			Description:   "生成发布通知对象、提醒节奏和值班升级路径。",
+			DescriptionEN: "Creates release recipients, reminder timing, and escalation path.",
+			Role:          "reviewer",
+			Category:      "release_readiness",
+			SkillIDs:      []string{ReleaseNotificationScheduleSkillID},
 		},
 	}
 }
@@ -194,11 +214,16 @@ func seedReleaseReadinessSkills(ctx context.Context, db *gorm.DB) error {
 			"version":"1.0.0",
 			"schema":"powerx.skill-manifest.v1",
 			"source":"builtin",
-			"entrypoints":["runbook.default"],
+			"entrypoints":["default"],
+			"executor":{
+				"type":"capability",
+				"capability":%q,
+				"prepare_capability":%q
+			},
 			"intent_examples":%s,
 			"input_schema":%s,
 			"output_schema":%s
-		}`, item.Name, item.Description, jsonStringArray(item.Examples), item.InputSchema, item.OutputSchema)))
+		}`, item.Name, item.Description, item.SkillID+".execute", item.SkillID+".prepare", jsonStringArray(item.Examples), item.InputSchema, item.OutputSchema)))
 		record := &skillmodel.SkillRegistryRecord{
 			SkillID:            item.SkillID,
 			Version:            "1.0.0",
@@ -261,10 +286,17 @@ func seedReleaseReadinessAgent(ctx context.Context, db *gorm.DB, env string, ten
 		ToolAllowlist:  datatypes.JSON([]byte(`[]`)),
 		KBStrategy:     agentmodel.KBStrategyUnion,
 		Meta: datatypes.JSONMap{
-			"builtin_demo": true,
-			"a2a_demo":     "release_readiness",
-			"role":         item.Role,
-			"managed_by":   "powerx_core_seed",
+			"builtin":             true,
+			"builtin_demo":        true,
+			"protected":           true,
+			"protect_from_delete": true,
+			"readonly_reason":     "core_seed_demo",
+			"category":            item.Category,
+			"title_i18n":          map[string]string{"zh-CN": item.Name, "zh": item.Name, "en": item.NameEN, "en-US": item.NameEN},
+			"description_i18n":    map[string]string{"zh-CN": item.Description, "zh": item.Description, "en": item.DescriptionEN, "en-US": item.DescriptionEN},
+			"a2a_demo":            "release_readiness",
+			"role":                item.Role,
+			"managed_by":          "powerx_core_seed",
 		},
 	}
 	if err := agentRepo.UpsertByScopeKey(ctx, env, &tenantUUID, a); err != nil {
@@ -281,17 +313,47 @@ func seedReleaseReadinessTeam(ctx context.Context, db *gorm.DB, tenantUUID strin
 	if parentAgentID == 0 {
 		return nil, fmt.Errorf("release readiness parent agent id is required")
 	}
+	orchestrationSpec, err := teamOrchestrationSpecJSON([]modelagent.TeamOrchestrationTask{
+		{TaskID: "knowledge_analysis", NodeKind: "agent_handoff", AssigneeRole: modelagent.TeamRoleRetriever, SkillID: ReleaseKnowledgeAnalysisSkillID, Stage: 1, FailurePolicy: modelagent.FailurePolicyFailFast},
+		{TaskID: "workflow_planning", NodeKind: "agent_handoff", AssigneeRole: modelagent.TeamRoleExecutor, SkillID: ReleaseWorkflowPlanningSkillID, Stage: 2, DependsOn: []string{"knowledge_analysis"}, FailurePolicy: modelagent.FailurePolicyFailFast},
+		{TaskID: "notification_schedule", NodeKind: "agent_handoff", AssigneeRole: modelagent.TeamRoleReviewer, SkillID: ReleaseNotificationScheduleSkillID, Stage: 3, DependsOn: []string{"workflow_planning"}, FailurePolicy: modelagent.FailurePolicyFailFast},
+		{TaskID: "report_synthesis", NodeKind: "skill", AssigneeRole: modelagent.TeamRolePlanner, SkillID: ReleaseReportSynthesisSkillID, Stage: 4, DependsOn: []string{"knowledge_analysis", "workflow_planning", "notification_schedule"}, FailurePolicy: modelagent.FailurePolicyFailFast},
+	})
+	if err != nil {
+		return nil, err
+	}
+	displayNames, err := teamDisplayNameI18n(ReleaseReadinessTeamName, ReleaseReadinessTeamNameEN, ReleaseReadinessTeamNameJA, ReleaseReadinessTeamNameKO)
+	if err != nil {
+		return nil, err
+	}
+	var teams []modelagent.AgentTeam
+	err = db.WithContext(ctx).
+		Where("tenant_uuid = ? AND parent_agent_id = ? AND team_key IN ?", strings.ToLower(strings.TrimSpace(tenantUUID)), parentAgentID, []string{ReleaseReadinessTeamKey, ReleaseReadinessTeamName, legacyReleaseReadinessTeamName}).
+		Order("id ASC").
+		Find(&teams).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(teams) > 1 {
+		return nil, fmt.Errorf("duplicated release readiness seed teams require manual cleanup")
+	}
 	var team modelagent.AgentTeam
-	err := db.WithContext(ctx).
-		Where("tenant_uuid = ? AND parent_agent_id = ? AND team_name = ?", strings.ToLower(strings.TrimSpace(tenantUUID)), parentAgentID, ReleaseReadinessTeamName).
-		First(&team).Error
+	if len(teams) == 1 {
+		team = teams[0]
+		err = nil
+	} else {
+		err = gorm.ErrRecordNotFound
+	}
 	switch err {
 	case nil:
 		updates := map[string]any{
+			"team_key":               ReleaseReadinessTeamKey,
+			"display_name_i18n":      displayNames,
 			"dispatch_mode":          modelagent.DispatchModeMixed,
-			"default_failure_policy": modelagent.FailurePolicyContinue,
+			"default_failure_policy": modelagent.FailurePolicyFailFast,
 			"status":                 modelagent.TeamStatusActive,
 			"created_by":             "seed",
+			"orchestration_spec":     orchestrationSpec,
 			"updated_at":             time.Now().UTC(),
 		}
 		if err = db.WithContext(ctx).Model(&modelagent.AgentTeam{}).Where("id = ?", team.ID).Updates(updates).Error; err != nil {
@@ -305,11 +367,13 @@ func seedReleaseReadinessTeam(ctx context.Context, db *gorm.DB, tenantUUID strin
 		team = modelagent.AgentTeam{
 			TenantUUID:           tenantUUID,
 			ParentAgentID:        parentAgentID,
-			TeamName:             ReleaseReadinessTeamName,
+			TeamKey:              ReleaseReadinessTeamKey,
+			DisplayNameI18n:      displayNames,
 			DispatchMode:         modelagent.DispatchModeMixed,
-			DefaultFailurePolicy: modelagent.FailurePolicyContinue,
+			DefaultFailurePolicy: modelagent.FailurePolicyFailFast,
 			Status:               modelagent.TeamStatusActive,
 			CreatedBy:            "seed",
+			OrchestrationSpec:    orchestrationSpec,
 		}
 		team.Normalize()
 		if err = db.WithContext(ctx).Create(&team).Error; err != nil {

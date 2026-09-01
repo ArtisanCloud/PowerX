@@ -40,7 +40,7 @@ const (
 )
 
 const (
-	DefaultLocalDir         = "backend/logs/agents"
+	DefaultLocalDir         = "logs/agents"
 	DefaultArtifactPolicy   = ArtifactPolicyRedacted
 	DefaultMaxArtifactBytes = int64(1024 * 1024)
 )

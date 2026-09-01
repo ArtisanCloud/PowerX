@@ -7,9 +7,13 @@
 
 交付一个 CoreX `plugin_release` 模块（domain：`corex.plugin_release`，随 CoreX 一体交付），串起本地构建 (`px-plugin build/dev`)、测试租户流水线、审批计划、灰度/全量部署与 Marketplace 多渠道上架。技术方案：以 Postgres + GORM 建立 Release Candidate/Plan/OfflinePackage 模型，复用 Gin/gRPC 双入口承载审批与执行指令，CLI (`px publish/package/import`) 通过 gRPC 调度流水线，Prometheus + Grafana 观测栈输出 5 分钟内的异常告警，离线包落盘到现有对象存储并携带签名/指纹元数据。
 
+补充：插件发布/安装包必须携带权限声明资产，供 `specs/007-integration-gateway-and-mcp` 的 Capability Sync Worker 登记 `menu/page/action/api` 细颗粒度权限。plugin_release 只负责打包、扫描和阻断不合法资产，不负责正式角色授权；授权入口归属 IAM 角色权限中心。
+
+插件数据库角色隔离使用宿主实例级 `deployment.env`，不使用插件包或单次安装请求的环境标签。安装时沿用 `px_<plugin_slug>` Schema/Database，生成 `pxu_<env>_<plugin_slug>_<hash8>` Role/User，并把绑定写入 host-values、Registry 和审计。同一环境重新安装时，Core 数据库管理连接会把该 Schema/Database 内历史插件对象 owner 收敛到目标 Role 并撤销旧插件 Role 权限；缺少环境、环境不一致或管理账号无法转移 owner 时 fail-fast。实例环境变更仍仅能通过独立 dry-run repair/migration 工具处理。
+
 ## Technical Context
 
-**Language/Version**: Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）  
+**Language/Version**: Go 1.26.7（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）
 **Primary Dependencies**: Gin HTTP 栈、google.golang.org/grpc、Buf toolchain、GORM + PostgreSQL、Redis（队列与 Feature Flag）、MinIO/S3 SDK（离线包存储）、OpenTelemetry + Prometheus Exporter、PowerX CLI (`powerx`, `px-plugin`)  
 **Storage**: Postgres（release candidates、计划、审批日志）、Redis（流水线状态/令牌）、对象存储 `media_storage` 集群（离线包体 + 校验文件）、Audit Trail（现有 pg schema）  
 **Testing**: Go `testing` + `testify`（service/repository）、`httpexpect`（REST 合同）、`buf conn/grpce2e`（gRPC）、CLI smoke（`px-plugin` integration shell）、GitHub Actions make targets（proto/test/deps）  
@@ -85,6 +89,18 @@ backend/
 
 **Structure Decision**: 采用 CoreX 模块分层（model → repository → service → transport），以 `shared.Deps` 注入数据库/缓存/对象存储；HTTP Admin + OpenAPI 负责人机交互，gRPC 供 CLI / 自动化调用，确保 Constitution 要求的双传输、统一 Buf 配置与 Make 流程。上述目录严格遵循 Constitution 0.2 表格中的 `pkg/corex` + `internal/{service,transport}` 约束，所有模型与仓储均落在 CoreX 规定的路径下。
 
+### Plugin Database Isolation Alignment
+
+- 配置真源：`Config.Deployment.Env`，允许值 `dev/test/staging/prod`。
+- 安装边界：在解包落盘、DDL 和 migration 前完成配置与旧绑定校验。
+- 命名边界：环境段和稳定 `hash8` 不可被长度裁剪移除。
+- 权限边界：专用账号仅访问本环境、本插件对象。
+- 生命周期边界：install/replace/restore/migration/purge 使用 Registry 中记录的实际对象名并校验环境。
+- metadata 边界：发布渠道只使用 `metadata.release_channel`；旧 `metadata.environment` 返回字段弃用错误，不作为配置别名且不保留隐式翻译。
+- 迁移边界：启动不做旧名称兼容；同环境安装可执行受控的对象 owner 收敛，实例环境变更 repair 工具默认 dry-run 并要求显式批准。
+
+详细部署与迁移设计见 `docs/plan/deploy/plugin-database-isolation.md`。
+
 ### Web Admin 扩展（Node 20）
 
 ```
@@ -151,6 +167,7 @@ web-admin/
 - **Telemetry**: 扩展 `backend/internal/service/plugin_release/instrumentation`，新增 `debug.hot_reload.*`、`debug.host.version_mismatch_total`、`debug.report.generate_ms`、`sandbox.*`、`version.scan.*` 指标与 trace。
 - **Storage**: 需要新的表/视图：`plugin_scaffold_templates`（元数据）、`plugin_import_runs`、`debug_sessions`、`sandbox_validation_runs`、`version_governance_reports`、`compat_exceptions`。
 - **Docs & Tooling**: Update `specs/009-install-plugin-pxp/quickstart.md` + README，新增 CLI 手册章节；在 `docs/use_cases/_from_hub/...` 反向链接新的实现路径。
+- **Permission Manifest Gate**: 发布与安装校验必须检查插件包内权限声明资产是否存在、schema 是否合法、i18n key 是否完整、REST method/path 与 actor/resource scope 是否明确；失败时阻断发布或安装。
 
 ## Registry Publish API（Phase 4~6）落地补充
 

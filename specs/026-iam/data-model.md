@@ -50,14 +50,14 @@
 - Fields:
   - `module` = `menu`
   - `resource` (string，例如 `agent`, `agent.chat`, `skills`, `workflow`, `settings.users`)
-  - `action` = `read`
+  - `action` = `view`
   - `meta.type` = `menu`
   - `source` = `core` 或插件 ID
 - Validation Rules:
   - 菜单权限必须绑定到角色，不直接绑定到用户。
   - `/api/v1/admin/menus` 只能返回当前 `tenant_uuid + member_id` 通过角色拥有的菜单项。
   - root 可通过平台身份看到 root 菜单，但 root 不应被自动视为业务租户 admin。
-  - `role_user`、`role_readonly`、`role_vendor` 只能获得显式白名单菜单权限，不能因为 `action=read` 自动拥有全部菜单。
+  - `role_user`、`role_readonly`、`role_vendor` 只能获得显式白名单菜单权限，不能因为 `action=view` 自动拥有全部菜单。
   - 菜单可见性只控制导航入口，不替代页面路由和 API 授权。
 
 ### 3A.1 PluginMenuPermission
@@ -69,17 +69,17 @@
   - 管理员不能人工创建或修改插件菜单资源本身，只能把已有菜单权限授予角色
 - Fields:
   - `module` = `menu`
-  - `resource` = `plugin.<plugin_id>.<menu_id>`
-  - `action` = `read`
+  - `resource` = `<menu_path>`，例如 `operations.sessions`
+  - `action` = `view`
   - `source` = `plugin:<plugin_id>`
   - `meta.type` = `menu`
   - `meta.origin` = `plugin`
-  - `meta.plugin_id` / `meta.plugin_name` / `meta.menu_id` / `meta.label`
+  - `meta.plugin_id` / `meta.menu_path` / `meta.permission` / `meta.page_permission_codes`
 - Validation Rules:
-  - 插件菜单聚合返回的每个插件菜单项必须自动附加 `menu:plugin.<plugin_id>.<menu_id>:read`。
+  - 插件菜单聚合返回的每个插件菜单项必须使用其 `required_policies` 中声明的 `menu.<path>:view` 权限。
   - 插件菜单权限只控制菜单显示，不替代租户插件实例启用校验、插件代理入口校验和插件 API/能力权限校验。
   - 插件菜单子项必须递归生成独立菜单权限，父菜单在子项有权限时可作为容器保留。
-  - 插件菜单资源 ID 必须由 manifest 的稳定 `id` 优先生成；缺少 `id` 时只能从 route/path 派生稳定段，不允许前端或管理员临时造菜单资源。
+  - 插件菜单 `menu_path` 必须和 `frontend.admin.menus` 的真实层级一致，不允许使用插件 ID、`/_p`、API path 或 URL。
 
 ## 4. UserManagementAction
 
@@ -145,17 +145,157 @@
   - `owner_password` (string)
   - `owner_display_name` (string)
   - `verification_code` (string, optional)
+  - `invite_code` (string, optional)
+  - `channel` (string, optional)
+  - `campaign` (string, optional)
+  - `registration_request_uuid` (string, optional)
 - Validation Rules:
   - `tenant_key` 未填写时根据 `tenant_name` 自动生成唯一 key。
   - `tenant_key` 显式填写时必须 slug 规范化且全局唯一，冲突必须失败。
   - 租户名称可以重复；租户唯一性由 `tenant_key/domain` 保证。
   - `owner_email` 与 `owner_phone` 至少一个存在。
   - 已有 user 必须校验密码正确后才能创建新租户 member。
-  - 验证码仅在 `feature_gate.enable_saas_signup_verification_code=true` 时必填。
+  - 验证码由 active `RegistrationPolicy.requires_verification` 控制。
+  - `invite_code`、`channel`、`campaign` 必须是结构化字段，不得从自由文本解析。
+  - `invite_only` 或策略要求邀请码时，`invite_code` 必填且必须命中 active invite code。
+  - `waitlist` 模式不得创建 tenant/user/member，只能创建 `RegistrationRequest`。
+  - `approval_required` 模式必须先创建 `RegistrationRequest`，root 审核通过后才执行租户创建。
   - 创建 tenant、member、role binding、默认设置必须具备事务语义。
-  - 失败时不得留下半成品 tenant/member/role binding。
+  - 邀请码消耗与 tenant/member/role binding 创建必须处于同一事务；失败时不得留下半成品数据，也不得消耗邀请码。
 
-## 7. RootSupportSession
+## 7. RegistrationPolicy
+
+- Purpose: 表达租户注册准入策略，是 setup、root 后台和公开注册入口共同使用的权威策略。
+- Fields:
+  - `id` (number)
+  - `uuid` (string)
+  - `version` (number)
+  - `mode` (`closed` | `open` | `invite_only` | `waitlist` | `approval_required` | `allowlist` | `progressive_rollout`)
+  - `status` (`draft` | `active` | `archived`)
+  - `requires_verification` (bool)
+  - `requires_invite_code` (bool)
+  - `requires_root_approval` (bool)
+  - `daily_tenant_quota` (number, optional)
+  - `total_tenant_quota` (number, optional)
+  - `start_at` (timestamp, optional)
+  - `end_at` (timestamp, optional)
+  - `rules` (array of RegistrationPolicyRule)
+  - `activated_at` (timestamp, optional)
+  - `created_by_user_uuid` (string)
+  - `updated_by_user_uuid` (string)
+- Validation Rules:
+  - 同一时间只能有一个 active 策略。
+  - 修改策略必须生成新版本，不能原地覆盖 active 策略。
+  - 缺少 active 策略时，公开 effective policy、验证码发送和 signup 必须 fail fast。
+  - 未识别的 `mode` 或 rule type 必须 fail fast。
+  - 旧 `enable_saas_signup` 布尔开关只能在迁移时转换为策略对象，不得作为运行时 fallback。
+
+## 8. RegistrationPolicyRule
+
+- Purpose: 表达注册策略中的结构化准入规则。
+- Fields:
+  - `type` (`email_domain_allowlist` | `contact_allowlist` | `invite_batch` | `channel_allowlist` | `percentage` | `time_window` | `daily_quota` | `total_quota`)
+  - `values` (array, optional)
+  - `batch_uuid` (string, optional)
+  - `value` (number, optional)
+  - `seed` (`contact` | `email` | `phone`, optional)
+- Validation Rules:
+  - `percentage.value` 必须在 0 到 100 之间。
+  - `percentage.seed` 必须使用稳定输入，例如 contact hash；不得使用每次请求随机值。
+  - `invite_batch.batch_uuid` 必须引用 active `RegistrationInviteBatch`。
+  - allowlist 规则只接受结构化 contact、domain 或 channel，不解析自由文本。
+
+## 9. RegistrationInviteBatch
+
+- Purpose: 表达邀请码批次，用于内测、合作伙伴、灰度批次和限量放号。
+- Fields:
+  - `id` (number)
+  - `uuid` (string)
+  - `name` (string)
+  - `status` (`draft` | `active` | `paused` | `expired` | `revoked`)
+  - `max_codes` (number)
+  - `max_uses_per_code` (number)
+  - `allowed_plan` (string, optional)
+  - `allowed_email_domains` (array, optional)
+  - `allowed_channels` (array, optional)
+  - `starts_at` (timestamp, optional)
+  - `expires_at` (timestamp, optional)
+  - `created_by_user_uuid` (string)
+- Validation Rules:
+  - 只有 `active` 且处于有效期内的批次可用于注册。
+  - 批次暂停或撤销后，所有关联邀请码都不得继续用于新注册。
+  - 批次规则必须参与准入审计。
+
+## 10. RegistrationInviteCode
+
+- Purpose: 表达单个邀请码。
+- Fields:
+  - `id` (number)
+  - `uuid` (string)
+  - `batch_uuid` (string)
+  - `code_hash` (string)
+  - `status` (`active` | `used` | `paused` | `expired` | `revoked`)
+  - `max_uses` (number)
+  - `used_count` (number)
+  - `bound_contact_hash` (string, optional)
+  - `expires_at` (timestamp, optional)
+- Validation Rules:
+  - 邀请码明文不得落库。
+  - 校验时使用 hash 查询。
+  - 使用次数更新必须与 SaaS signup 租户创建在同一事务内完成。
+  - 失败注册不得增加 `used_count`。
+
+## 11. RegistrationRequest
+
+- Purpose: 表达候补名单或人工审核注册申请。
+- Fields:
+  - `id` (number)
+  - `uuid` (string)
+  - `mode` (`waitlist` | `approval_required`)
+  - `status` (`submitted` | `approved` | `rejected` | `converted` | `cancelled`)
+  - `tenant_name` (string)
+  - `tenant_key` (string, optional)
+  - `owner_email` (string, optional)
+  - `owner_phone` (string, optional)
+  - `plan` (string)
+  - `invite_code_uuid` (string, optional)
+  - `policy_uuid` (string)
+  - `policy_version` (number)
+  - `reviewed_by_user_uuid` (string, optional)
+  - `reviewed_at` (timestamp, optional)
+  - `reject_reason_code` (string, optional)
+  - `created_tenant_uuid` (string, optional)
+- Validation Rules:
+  - `waitlist` 提交不得创建 tenant/user/member。
+  - `approval_required` 只有审核通过后才能转换为租户创建事务。
+  - 审核拒绝必须保留机器可读拒绝原因。
+  - `created_tenant_uuid` 只能在转换成功后写入。
+
+## 12. RegistrationPolicyAuditEvent
+
+- Purpose: 表达注册准入判定、策略变更、邀请码消耗和审核动作审计。
+- Fields:
+  - `id` (number)
+  - `uuid` (string)
+  - `event_type` (`policy_changed` | `evaluate_allowed` | `evaluate_denied` | `evaluate_pending` | `invite_consumed` | `request_approved` | `request_rejected`)
+  - `policy_uuid` (string)
+  - `policy_version` (number)
+  - `contact_hash` (string, optional)
+  - `tenant_uuid` (string, optional)
+  - `request_uuid` (string, optional)
+  - `invite_code_uuid` (string, optional)
+  - `decision` (`allow` | `deny` | `pending`)
+  - `reason_code` (string)
+  - `matched_rules` (array)
+  - `ip` (string, optional)
+  - `user_agent` (string, optional)
+  - `trace_id` (string, optional)
+- Validation Rules:
+  - 注册允许、拒绝、候补、审核和策略变更都必须写审计。
+  - 审计字段必须脱敏，不能记录邀请码明文或完整敏感 contact。
+  - 每条 signup 相关审计必须可追溯到策略 UUID 和版本。
+
+## 13. RootSupportSession
 
 - Purpose: 表达 root 显式进入业务租户上下文的支持会话。
 - Fields:
@@ -173,7 +313,7 @@
   - 默认 `mode=read_only`。
   - 写操作必须记录 root actor、target tenant、support session id。
 
-## 8. TenantPluginInstance
+## 14. TenantPluginInstance
 
 - Purpose: 表达某租户对某全局插件包的启用状态和配置。
 - Fields:
@@ -198,7 +338,7 @@
   - `status=drained` 必须表示入口已关闭且存量 session/request/task/job/event 全部清零；单纯 idle 不得标记为 drained。
   - `disabled_by_platform` 表示 Root/Platform 对目标插件实例执行了平台级禁用，不等于租户主动停用。
 
-## 9. PluginRuntimeProcess
+## 15. PluginRuntimeProcess
 
 - Purpose: 表达 PowerX 节点内存中的插件全局运行时进程。
 - Fields:
@@ -216,7 +356,7 @@
   - 多租户共享同一运行进程，租户隔离必须发生在请求上下文、事件 payload、租户配置和数据访问层。
   - 进程启动环境只能包含平台级 runtime 配置，不应绑定某一个业务租户的 STS client 或 tenant secret。
 
-## 10. PluginDrainJob
+## 16. PluginDrainJob
 
 - Purpose: 表达 Root/Platform 对某个插件或插件版本发起的下架、删除或安全禁用计划。
 - Fields:
@@ -239,7 +379,7 @@
   - 只有所有目标 `TenantPluginInstance` 都进入 `drained` 后，才能进入 `ready_to_uninstall`。
   - 取消 drain job 必须保留审计记录，并明确是否恢复目标插件新增入口。
 
-## 11. PluginReplaceOperation
+## 17. PluginReplaceOperation
 
 - Purpose: 表达同一个 `plugin_id + version` 的物理包替换动作，主要用于本地开发或受控热修。
 - Fields:
@@ -255,7 +395,7 @@
   - replace 不得删除 TenantPluginInstance、订阅、权限、租户配置、凭证引用或业务数据。
   - 生产常规升级应使用新版本安装与 current version 切换，不应使用同版本 replace 作为发布路径。
 
-## 12. IAMMigrationReport
+## 18. IAMMigrationReport
 
 - Purpose: 表达 SaaS IAM 语义上线前后的历史数据巡检结果。
 - Fields:

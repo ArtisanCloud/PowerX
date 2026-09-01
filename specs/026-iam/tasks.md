@@ -272,19 +272,76 @@
 
 ### Tests for User Story 9
 
-- [x] T096 [P] [US9] 校验系统菜单定义包含 `menu:*:read` 权限：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
+- [x] T096 [P] [US9] 校验系统菜单定义包含 `menu.<path>:view` 权限：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
 - [x] T097 [P] [US9] 校验默认角色 seed 后包含 `role_vendor` 与菜单权限白名单：`backend/cmd/database/seed/seed_permission.go`、`backend/cmd/database/seed/seed_role.go`
 
 ### Implementation for User Story 9
 
 - [x] T098 [US9] 新增 `role_vendor` 内置角色常量与默认角色 upsert：`backend/pkg/corex/iam/const.go`、`backend/pkg/corex/db/persistence/repository/iam/role_repo.go`
-- [x] T099 [US9] 注册核心菜单权限 `module=menu/resource/action=read`：`backend/cmd/database/seed/seed_permission.go`
+- [x] T099 [US9] 注册核心菜单权限 `module=menu/resource/action=view`：`backend/cmd/database/seed/seed_permission.go`
 - [x] T100 [US9] 系统菜单补充 `Permissions`：`backend/internal/transport/http/admin/menu/system_menus_handler.go`
 - [x] T101 [US9] 菜单聚合接口接入 `RBACService.Enforce`：`backend/internal/transport/http/admin/menu/merge_handler.go`
 - [x] T102 [US9] 文档补充角色级菜单权限、供应商角色和验收方法：`specs/026-iam/spec.md`、`specs/026-iam/data-model.md`、`specs/026-iam/quickstart.md`
-- [x] T103 [US9] 插件 manifest 菜单递归同步为 `module=menu/resource=plugin.<plugin_id>.<menu_id>/action=read` 权限：`backend/internal/bootstrap/plugin_permission_sync.go`、`backend/pkg/plugin_mgr/menu_permissions.go`
+- [x] T103 [US9] 插件 manifest 菜单递归同步为 `module=menu/resource=<menu_path>/action=view` 权限：`backend/internal/bootstrap/plugin_permission_sync.go`、`backend/pkg/plugin_mgr/menu_permissions.go`
 - [x] T104 [US9] 插件菜单聚合时自动附加对应菜单权限策略并保留插件声明策略：`backend/internal/transport/http/admin/plugin/menus_agg.go`
 - [x] T105 [US9] 角色权限页把插件/App 菜单权限展示到“已安装 App / 插件名称”分组：`web-admin/app/components/settings/users/PermissionManager.vue`、`web-admin/app/stores/permission.ts`
+
+---
+
+## Phase 14: User Story 10 - 租户注册准入与灰度开放 (Priority: P1)
+
+**Goal**: 用权威注册准入策略替代 SaaS signup 布尔开关，支持关闭、开放、邀请制、候补、审核、白名单和灰度放量。
+
+**Independent Test**: 依次激活七种策略模式，验证 effective policy、验证码发送、signup、邀请码消耗、注册申请、root 审核、审计和一键关闭行为。
+
+### Tests for User Story 10
+
+- [x] T106 [P] [US10] 新增注册策略 service 单测，覆盖 `closed/open/invite_only/waitlist/approval_required/allowlist/progressive_rollout`：`backend/internal/service/auth/registration_policy_service_test.go`
+- [x] T107 [P] [US10] 新增邀请码消耗事务测试，覆盖成功、失败、重复提交和回滚不消耗：`backend/tests/integration/iam/registration_invite_integration_test.go`
+- [x] T108 [P] [US10] 新增注册申请审核集成测试，覆盖 waitlist 不建租户、approval 通过后建租户、拒绝保留原因：`backend/tests/integration/iam/registration_request_integration_test.go`
+- [x] T109 [P] [US10] 新增 HTTP 合同测试，覆盖 effective policy、root 策略、邀请码批次和审核接口：`backend/tests/contract/iam/registration_policy_contract_test.go`
+- [ ] T110 [P] [US10] 新增前端注册页策略展示单测，覆盖关闭、邀请制、候补、审核和开放：`web-admin/tests/unit/iam/registration-policy.spec.ts`
+
+### Implementation for User Story 10
+
+- [x] T111 [US10] 新增注册策略 GORM 模型与迁移：`backend/pkg/corex/db/persistence/model/iam/registration_policy_gorm.go`、`backend/pkg/corex/db/database/migration.go`
+- [x] T112 [US10] 新增邀请码批次与邀请码 GORM 模型，邀请码只存 hash：`backend/pkg/corex/db/persistence/model/iam/registration_invite_gorm.go`
+- [x] T113 [US10] 新增注册申请与准入审计模型：`backend/pkg/corex/db/persistence/model/iam/registration_request_gorm.go`、`registration_policy_audit_gorm.go`
+- [x] T114 [US10] 实现 `RegistrationPolicyService.Evaluate`，缺 active 策略、未知 mode、未知 rule type 必须 fail fast：`backend/internal/service/auth/registration_policy_service.go`
+- [x] T115 [US10] 实现 `InviteCodeService`，支持批次、hash 校验、暂停、撤销和事务化消耗：`backend/internal/service/auth/registration_invite_service.go`
+- [x] T116 [US10] 实现 `RegistrationRequestService`，支持候补、审核、通过后创建租户和拒绝原因：`backend/internal/service/auth/registration_request_service.go`
+- [x] T117 [US10] 改造 SaaS signup handler/service，在验证码发送和 signup 前统一执行策略判定：`backend/internal/transport/http/public/saas/signup_handler.go`、`backend/internal/service/auth/saas_signup_service.go`
+- [x] T118 [US10] 新增 public effective policy 与 registration request HTTP handler：`backend/internal/transport/http/public/saas/registration_policy_handler.go`
+- [x] T119 [US10] 新增 root 后台策略、邀请码和申请审核 HTTP handler：`backend/internal/transport/http/admin/iam/registration_policy_handler.go`
+- [x] T120 [US10] setup 安装流程初始化 `platform.registration.policy`，默认 `mode=closed`：`backend/internal/transport/http/admin/system/setup_handler.go`、`web-admin/app/pages/setup/index.vue`
+- [x] T121 [US10] root 后台在系统配置中新增租户注册策略页面：`web-admin/app/pages/settings/config/index.vue`、`web-admin/app/components/settings/RegistrationPolicyPanel.vue`
+- [x] T122 [US10] 改造公开注册页，根据 effective policy 展示关闭、邀请码、候补、审核、白名单/灰度或开放状态：`web-admin/app/pages/users/register.vue`
+- [x] T123 [US10] 补充 i18n 文案，所有用户可见文本写入 locale：`web-admin/i18n/locales/zh.json`、`web-admin/i18n/locales/en.json`
+- [x] T124 [US10] 补 platform capability 声明，root 后台策略接口为 `admin_user`、`sts_direct=false`，公开入口不作为租户能力：`backend/config/platform_capabilities/*.yaml`
+- [x] T125 [US10] 更新 IAM 使用指南和灰度上线操作手册：`docs/guides/features/026-iam/guide.md`、`docs/plan/iam/tenant-registration-rollout.md`
+
+---
+
+## Phase 15: User Story 9 Extension - 插件细颗粒度权限中心展示与授权
+
+**Goal**: 角色权限中心消费 `specs/007-integration-gateway-and-mcp` 同步出的插件 `menu/page/action` 权限，按插件与业务模块授权，并保持菜单、按钮、接口权限一致。
+
+**Independent Test**: 安装示例插件后，只给测试角色授予 `production.sample_track:read` 和 `production.sample_track:factory_schedule`，验证角色权限页展示、授权保存、菜单返回和未授权 action 拒绝一致。
+
+### Tests
+
+- [ ] T140 [P] [US9] 插件权限目录合同测试：`backend/tests/contract/iam/plugin_permission_catalog_contract_test.go`，验证 `source=plugin` 权限按插件/模块/type 分组返回且展示字段来自 i18n。
+- [ ] T141 [P] [US9] 角色授权矩阵集成测试：`backend/tests/integration/iam/plugin_action_permission_matrix_test.go`，覆盖 read/factory_schedule/delivery 的允许与拒绝。
+- [ ] T142 [P] [US9] 前端角色权限页单测：`web-admin/tests/unit/iam/plugin-permission-catalog.spec.ts`，验证插件权限分组、登记失败状态和 UUID/raw route 非主展示。
+
+### Implementation
+
+- [x] T143 [US9] 扩展 IAM 权限目录服务：`backend/internal/service/iam/rbac_service.go` 或对应 permission service，按 `source=plugin`、`meta.type=menu|page|action` 聚合插件权限。
+- [x] T144 [US9] 扩展管理端权限目录接口：`backend/internal/transport/http/admin/iam/*permission*`，支持按插件、模块、type、状态查询，返回 i18n key 与登记状态。
+- [ ] T145 [US9] 调整角色授权保存逻辑：确保角色绑定 `permission_code` 对应 IAM Permission，不接受 URL、数字 ID 或旧粗权限 alias。
+- [x] T146 [US9] 改造 Web Admin 角色权限页：`web-admin/app/stores/permission.ts`、`web-admin/app/pages/settings/users/index.vue`、相关组件，按插件/模块/菜单/页面/动作展示授权项。
+- [x] T147 [US9] 登记失败状态展示：当插件权限同步失败或缺 i18n/binding 元数据时，在角色权限页展示只读错误状态，不允许勾选半登记权限。
+- [ ] T148 [US9] 更新验收文档：`specs/026-iam/quickstart.md` 增加插件权限中心回归步骤，并链接 `specs/007-integration-gateway-and-mcp/quickstart.md`。
 
 ---
 
@@ -303,6 +360,8 @@
 - **User Story 2 (P1)**: Can start after Foundational - 与 US1 并行，但需复用 US1 边界语义
 - **User Story 3 (P2)**: Depends on US1 + US2 的上下文与页面语义收敛结果
 - **User Story 4 (P3)**: Depends on US1 角色边界稳定后再扩展注册路径
+- **User Story 10 (P1)**: Depends on US5 的 SaaS signup 主事务和 US8 的上线前巡检；可与 root 后台页面并行，但后端策略判定必须先于前端展示。
+- **User Story 9 Extension**: Depends on `specs/007-integration-gateway-and-mcp` 的插件权限声明同步；IAM 侧只消费 Registry/IAM Permission 结果，不重新解析插件声明。
 
 ### Within Each User Story
 

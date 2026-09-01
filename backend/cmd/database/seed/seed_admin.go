@@ -39,6 +39,12 @@ func SeedRoot(db *gorm.DB) error {
 	if err := apikeypermissions.EnsureTemplatePermissions(seedCtx(), infraiam.NewPermissionRepository(db)); err != nil {
 		return fmt.Errorf("seed api key permissions: %w", err)
 	}
+	if err := CleanupInvalidPermissionRows(db); err != nil {
+		return fmt.Errorf("cleanup invalid permissions: %w", err)
+	}
+	if err := EnsureSeededPermissionRowsValid(db); err != nil {
+		return fmt.Errorf("audit seeded permissions: %w", err)
+	}
 
 	// 3) 确保 system 租户存在
 	const tenantKey = "system"

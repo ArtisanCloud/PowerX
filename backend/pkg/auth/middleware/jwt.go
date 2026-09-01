@@ -4,6 +4,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
@@ -56,7 +58,9 @@ func JwtMiddleware(
 				issuer,
 				audiences,
 			)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid Authorization header"})
+			if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid Authorization header"})
+			}
 			return
 		}
 		tokenString := strings.TrimSpace(authz[len("Bearer "):])
@@ -71,7 +75,9 @@ func JwtMiddleware(
 				issuer,
 				audiences,
 			)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid bearer token"})
+			if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid bearer token"})
+			}
 			return
 		}
 
@@ -92,13 +98,17 @@ func JwtMiddleware(
 				issuer,
 				audiences,
 			)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			}
 			return
 		}
 
 		// B. scope 检查
 		if len(requiredScopes) > 0 && !scopeAllowed(claims.Scope, requiredScopes) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "scope not allowed"})
+			if !abortIAMMemberDirectoryAuthError(c, http.StatusForbidden, "IAM_FORBIDDEN") {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "scope not allowed"})
+			}
 			return
 		}
 
@@ -116,7 +126,9 @@ func JwtMiddleware(
 					issuer,
 					audiences,
 				)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token revoked"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token revoked"})
+				}
 				return
 			}
 		}
@@ -130,14 +142,18 @@ func JwtMiddleware(
 		if tenantUUID == "" {
 			if cfg.headerPolicy.RequireUUID {
 				incTenantHeaderReject()
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "tenant uuid required"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "tenant uuid required"})
+				}
 				return
 			}
 		} else {
 			canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
 			if err != nil {
 				incTenantHeaderReject()
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid tenant uuid"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
+					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid tenant uuid"})
+				}
 				return
 			}
 			tenantUUID = canonical
@@ -163,22 +179,30 @@ func JwtMiddleware(
 		// F. 轻量状态校验（仅在命中缓存时执行）
 		if userSnap != nil {
 			if st, ok := utils.AsInt16(userSnap["status"]); ok && st != 1 {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user disabled"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusForbidden, "IAM_FORBIDDEN") {
+					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user disabled"})
+				}
 				return
 			}
 		}
 		// Root 场景不校验 member（代理租户时可能没有成员记录）
 		if !claims.IsRoot && memberSnap != nil {
 			if st, ok := utils.AsInt16(memberSnap["status"]); ok && st != 1 {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "member disabled"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusForbidden, "IAM_FORBIDDEN") {
+					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "member disabled"})
+				}
 				return
 			}
 			if mtid, ok := utils.AsUint64(memberSnap["tenant_id"]); ok && mtid != tenantID {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "tenant mismatch"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusForbidden, "IAM_FORBIDDEN") {
+					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "tenant mismatch"})
+				}
 				return
 			}
 			if uid, ok := utils.AsUint64(memberSnap["user_id"]); ok && uid != claims.UserID {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user mismatch"})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusForbidden, "IAM_FORBIDDEN") {
+					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user mismatch"})
+				}
 				return
 			}
 		}
@@ -227,7 +251,9 @@ func JwtMiddleware(
 		// H. 业务回调：缓存 miss 或需要强校验时，cb 回源 DB
 		if cb != nil {
 			if err := cb(reqCtx, claims); err != nil {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
+				if !abortIAMMemberDirectoryAuthError(c, http.StatusForbidden, "IAM_FORBIDDEN") {
+					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
+				}
 				return
 			}
 		}
@@ -235,6 +261,43 @@ func JwtMiddleware(
 		incTenantUUIDOnlyRequest()
 		c.Next()
 	}
+}
+
+// abortIAMMemberDirectoryAuthError keeps the published IAM delegated-directory
+// contract intact when the request is rejected before its route handler runs.
+// The global middleware deliberately owns authentication, so this mapping must
+// live here rather than in the directory handler.
+func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode string) bool {
+	if !isIAMMemberDirectoryPath(c.Request.URL.Path) {
+		return false
+	}
+	dto.ResponseError(c, status, reasonCode, dto.NewErrorWithCode(status, reasonCode, reasonCode, errors.New(reasonCode)))
+	c.Abort()
+	return true
+}
+
+func isIAMMemberDirectoryPath(path string) bool {
+	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
+	for _, prefix := range []string{"/api/v1/tenant/iam/members", "/api/tenant/iam/members"} {
+		if path == prefix+":batch-get" || path == prefix+":batch-resolve" || path == prefix+":batch-find-by-display-names" || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	for _, candidate := range []string{
+		"/api/v1/tenant/iam/departments",
+		"/api/v1/tenant/iam/roles",
+		"/api/v1/tenant/iam/permissions",
+		"/api/v1/tenant/iam/authorization:check",
+		"/api/tenant/iam/departments",
+		"/api/tenant/iam/roles",
+		"/api/tenant/iam/permissions",
+		"/api/tenant/iam/authorization:check",
+	} {
+		if strings.EqualFold(strings.TrimSpace(path), candidate) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseWithConfiguredChecks(tokenString string, secret []byte, issuer string, audiences []string, extra []TokenCheck) (*reqctx.CoreXClaims, error) {

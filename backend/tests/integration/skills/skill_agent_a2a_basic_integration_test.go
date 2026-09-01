@@ -17,6 +17,7 @@ func TestSkillAgentA2ABasicParallel(t *testing.T) {
 	require.NoError(t, m.Register("agent.child", child, &agentschema.AgentMeta{FlowID: "flow.child"}))
 	require.NoError(t, m.Register("agent.parent", parent, &agentschema.AgentMeta{FlowID: "flow.final"}))
 	require.NoError(t, m.SetDefaultAgent("agent.parent", "flow.final"))
+	m.SetAgentHandoffInvoker(newA2AHandoffInvoker(nil))
 
 	plan := flowschema.ExecutionPlan{
 		PlanID: "plan-a2a-basic",

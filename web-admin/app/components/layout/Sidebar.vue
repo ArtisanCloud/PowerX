@@ -100,7 +100,7 @@ const translateMenuTitle = (item: MenuItem) => {
   const key = item.titleI18n?.key?.trim();
 
   if (key) {
-    const fallback = item.titleI18n?.default ?? item.title ?? key;
+    const fallback = item.title || item.titleI18n?.default || key;
     // 先看前端是否已加载到这个 key
     if (te(key)) return t(key);
     // 否则直接用预翻译/默认值，不要把 fallback 误传给 t()
@@ -123,7 +123,7 @@ const translateMenuTitle = (item: MenuItem) => {
 const translateCategoryTitle = (category: MenuCategory) => {
   const key = category.titleI18n?.key?.trim();
   if (key) {
-    const fallback = category.titleI18n?.default ?? category.title ?? key;
+    const fallback = category.title || category.titleI18n?.default || key;
     return te(key) ? t(key) : fallback;
   }
   if (category.title?.startsWith?.("menu.")) {
@@ -442,7 +442,27 @@ watch(
 
 watch(
   () => menuResponse.value,
-  () => expandByRoute(),
+  () => {
+    if (process.dev && process.client) {
+      const categories = menuResponse.value?.categories || [];
+      const countItems = (items?: MenuItem[]): number =>
+        (items || []).reduce(
+          (total, item) => total + 1 + countItems(item.children),
+          0
+        );
+      console.info("[sidebar] menus loaded", {
+        identity: menuIdentityKey.value,
+        category_count: categories.length,
+        item_count: countItems(categories.flatMap((category) => category.children || [])),
+        categories: categories.map((category) => ({
+          id: category.id,
+          title: category.title,
+          count: countItems(category.children),
+        })),
+      });
+    }
+    expandByRoute();
+  },
   { deep: true }
 );
 

@@ -14,6 +14,7 @@ import {
 import type { ChatMessage } from "~/types/message";
 import type { AgentConfig } from "~/composables/agent/useAgentManager";
 import MessageItem from "~/components/agent/MessageItem.vue";
+import { findPreviousPersistedUserMessageId } from "~/utils/agent/messageActions";
 
 type ViewAgent = AgentConfig | DeepReadonly<AgentConfig>;
 type MessageArray = ChatMessage[] | ReadonlyArray<ChatMessage>;
@@ -59,22 +60,12 @@ const currentSessionIdText = computed(() =>
 const tenantUuidText = computed(() => String(props.tenantUuid ?? "").trim());
 
 const findPreviousUserMessageId = (messageId: string | number) => {
-  const list = messages.value as any[];
-  const index = list.findIndex((item) => String(item?.id) === String(messageId));
-  if (index <= 0) return "";
-  for (let i = index - 1; i >= 0; i--) {
-    const candidate = list[i];
-    if (candidate?.role !== "user") continue;
-    const id = String(candidate?.id || "").trim();
-    if (!id) continue;
-    if (/^\d+$/.test(id)) return id;
-  }
-  return "";
+  return findPreviousPersistedUserMessageId(messages.value, messageId);
 };
 
 const emit = defineEmits<{
   (e: "send-message", content: string): void;
-  (e: "retry-message"): void;
+  (e: "retry-message", messageId: string | number | null): void;
   (e: "regenerate-from", messageId: string | number): void;
   (e: "clear-messages"): void;
 }>();
@@ -543,7 +534,7 @@ function onSendClick() {
             :fallback-trace-tenant-uuid="tenantUuidText"
             :fallback-trace-session-id="currentSessionIdText"
             :fallback-trace-message-id="findPreviousUserMessageId(message.id)"
-            @retry="$emit('retry-message')"
+            @retry="$emit('retry-message', findPreviousUserMessageId(message.id))"
             @regenerate="(id) => $emit('regenerate-from', id)"
             @copy="() => {}"
             @delete="() => {}"

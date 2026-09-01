@@ -27,6 +27,8 @@ export function useWorkflowTranslator() {
       paletteId: p.id,
       label: p.label ?? k.label,
       props,
+      inputMapping: {},
+      outputMapping: {},
       ui: mergedUI,
       ports: k.ports,
       schema: k.schema, // 供属性面板渲染与即时校验
@@ -71,6 +73,8 @@ export function useWorkflowTranslator() {
       paletteId: node.data.paletteId,
       label: node.data.label,
       props: node.data.props,
+      inputMapping: node.data.inputMapping || {},
+      outputMapping: node.data.outputMapping || {},
       ui: node.data.ui,
       position: node.position,
     }));

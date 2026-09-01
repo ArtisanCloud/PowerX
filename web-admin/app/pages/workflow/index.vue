@@ -150,7 +150,6 @@
 
           <div class="definition-card-footer">
             <div class="definition-meta">
-              <span>{{ t("workflow.list.version", { version: definition.version }) }}</span>
               <span>{{ formatDate(definition.updated_at || definition.created_at) }}</span>
             </div>
             <div class="definition-footer-actions">

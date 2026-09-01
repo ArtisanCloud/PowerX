@@ -200,18 +200,19 @@ components:
       type: object
       required:
       - sessionId
-      - tenantId
-      - developerId
+      - tenant_uuid
+      - developer_member_uuid
       - artifactUri
       - status
       properties:
         sessionId:
           type: string
-        tenantId:
+        tenant_uuid:
           type: string
-        developerId:
-          type: integer
-          format: int64
+          format: uuid
+        developer_member_uuid:
+          type: string
+          format: uuid
         artifactUri:
           type: string
         featureFlags:
@@ -236,15 +237,8 @@ components:
     StartLocalInstallRequest:
       type: object
       required:
-      - tenantId
-      - developerId
       - artifactUri
       properties:
-        tenantId:
-          type: string
-        developerId:
-          type: integer
-          format: int64
         artifactUri:
           type: string
         featureFlags:
@@ -261,6 +255,38 @@ components:
           type: boolean
           default: false
 paths:
+  /tenant/plugin-release/local/sessions:
+    post:
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }]
+      summary: Start a local install session for the current member
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/StartLocalInstallRequest' } } }
+      responses:
+        '201': { description: Session created, content: { application/json: { schema: { $ref: '#/components/schemas/LocalInstallSession' } } } }
+        '401': { description: PLUGIN_RELEASE_UNAUTHORIZED }
+        '403': { description: PLUGIN_RELEASE_FORBIDDEN }
+        '503': { description: PLUGIN_RELEASE_UPSTREAM_DEPENDENCY }
+  /tenant/plugin-release/local/sessions/{sessionId}:
+    get:
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }]
+      summary: Get a current-tenant local install session
+      parameters: [{ name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Session, content: { application/json: { schema: { $ref: '#/components/schemas/LocalInstallSession' } } } }
+        '404': { description: PLUGIN_RELEASE_SESSION_NOT_FOUND }
+    delete:
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }]
+      summary: Stop a current-tenant local install session
+      parameters: [{ name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/StopLocalInstallRequest' } } }
+      responses:
+        '202': { description: Stop accepted }
+        '404': { description: PLUGIN_RELEASE_SESSION_NOT_FOUND }
   /candidates:
     post:
       tags:

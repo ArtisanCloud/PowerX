@@ -76,7 +76,7 @@ const toSegments = (path: string): string[] =>
 const translateMenuTitle = (item: MenuItem): string => {
   const key = item.titleI18n?.key?.trim();
   if (key) {
-    const fallback = item.titleI18n?.default ?? item.title ?? key;
+    const fallback = item.title || item.titleI18n?.default || key;
     return te(key) ? t(key) : fallback;
   }
   if (item.title?.startsWith?.("menu.")) {

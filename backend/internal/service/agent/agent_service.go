@@ -30,6 +30,7 @@ type AgentService struct {
 }
 
 var ErrAgentOwnerForbidden = errors.New("agent.owner_forbidden")
+var ErrAgentProtectedReadonly = errors.New("agent.protected_readonly")
 
 func NewAgentService(db *gorm.DB) *AgentService {
 	return &AgentService{
@@ -123,6 +124,9 @@ func (s *AgentService) Update(ctx context.Context, env string, tenantUUID *strin
 	}
 	if err := assertPluginOwnership(exist, patch.ExpectedOwnerPluginID, patch.CallerPluginID); err != nil {
 		return nil, err
+	}
+	if isProtectedCoreAgent(exist) {
+		return nil, ErrAgentProtectedReadonly
 	}
 
 	// 组装要更新字段
@@ -404,6 +408,9 @@ func (s *AgentService) SetStatus(ctx context.Context, env string, tenantUUID *st
 	if !equalTenant(tenantUUID, exist.TenantUUID) {
 		return gorm.ErrRecordNotFound
 	}
+	if isProtectedCoreAgent(exist) {
+		return ErrAgentProtectedReadonly
+	}
 	return s.agRepo.UpdateStatus(ctx, agentID, status)
 }
 
@@ -418,11 +425,8 @@ func (s *AgentService) Delete(ctx context.Context, env string, tenantUUID *strin
 	if err := assertPluginOwnership(exist, expectedOwnerPluginID, callerPluginID); err != nil {
 		return err
 	}
-	// 保护：内置不可删
-	if v, ok := exist.Meta["protect_from_delete"]; ok {
-		if vb, ok2 := v.(bool); ok2 && vb {
-			return errors.New("内置系统 Agent 禁止删除")
-		}
+	if isProtectedCoreAgent(exist) {
+		return ErrAgentProtectedReadonly
 	}
 	return s.agRepo.DeleteSoft(ctx, agentID)
 }
@@ -573,4 +577,35 @@ func pluginOwner(rec *dbmodel.Agent) string {
 		return strings.TrimSpace(src[len("plugin:"):])
 	}
 	return ""
+}
+
+func isProtectedCoreAgent(rec *dbmodel.Agent) bool {
+	if rec == nil {
+		return false
+	}
+	source := strings.ToLower(strings.TrimSpace(rec.Source))
+	if source != "" && source != "core" {
+		return false
+	}
+	return truthyMetaBool(rec.Meta, "protected") ||
+		truthyMetaBool(rec.Meta, "protect_from_delete") ||
+		truthyMetaBool(rec.Meta, "builtin")
+}
+
+func truthyMetaBool(meta datatypes.JSONMap, key string) bool {
+	if len(meta) == 0 {
+		return false
+	}
+	value, ok := meta[key]
+	if !ok {
+		return false
+	}
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		return strings.EqualFold(strings.TrimSpace(v), "true")
+	default:
+		return false
+	}
 }

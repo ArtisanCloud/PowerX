@@ -96,9 +96,10 @@ sudo systemctl status powerx-backend powerx-web-admin
 
 ## 6. 插件目录与配置（必须）
 
+- `config.yaml` 必须显式配置 `deployment.env: prod`。它是该 PowerX 实例的稳定身份，也是插件 Role/User 命名的唯一环境来源；Schema/Database 名称保持不变。
 - `config.yaml` 中插件路径需固定到持久目录：
   - `/opt/powerx/plugins/registry.json`
   - `/opt/powerx/plugins/installed`
   - `/opt/powerx/plugins/market_cache`
 - systemd 重启后，CoreX 会根据 registry 自动恢复已启用插件。
-
+- 若 `deployment.env` 与 registry 中记录的插件环境不一致，自动恢复必须阻断；不得按新环境静默创建第二套对象或复用旧对象。处理流程见 [插件数据库部署环境隔离计划](./plugin-database-isolation.md)。

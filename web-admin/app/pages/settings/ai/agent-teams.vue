@@ -50,7 +50,7 @@
 
     <UModal
       v-model:open="editOpen"
-      :title="`编辑团队 · ${editingTeamForm.team_name || '未命名团队'}`"
+      :title="`编辑团队 · ${editingTeamForm.display_name_zh || '未命名团队'}`"
       description="可编辑 TL、团队名称、分发模式、失败策略。"
       :ui="{ content: 'max-w-2xl' }"
     >
@@ -64,8 +64,20 @@
               value-attribute="value"
             />
           </UFormField>
-          <UFormField label="团队名称">
-            <UInput v-model="editingTeamForm.team_name" />
+          <UFormField label="团队 Key">
+            <UInput v-model="editingTeamForm.team_key" />
+          </UFormField>
+          <UFormField label="中文名称">
+            <UInput v-model="editingTeamForm.display_name_zh" />
+          </UFormField>
+          <UFormField label="英文名称">
+            <UInput v-model="editingTeamForm.display_name_en" />
+          </UFormField>
+          <UFormField label="日文名称">
+            <UInput v-model="editingTeamForm.display_name_ja" />
+          </UFormField>
+          <UFormField label="韩文名称">
+            <UInput v-model="editingTeamForm.display_name_ko" />
           </UFormField>
           <UFormField label="分发模式">
             <USelect v-model="editingTeamForm.dispatch_mode" :items="dispatchModeOptions" />
@@ -74,6 +86,14 @@
             <USelect v-model="editingTeamForm.default_failure_policy" :items="failurePolicyOptions" />
           </UFormField>
         </div>
+        <UFormField class="mt-3" :label="t('agent.teamManagement.orchestration.label')" :help="t('agent.teamManagement.orchestration.help')">
+          <UTextarea
+            v-model="editingTeamForm.orchestrationText"
+            :placeholder="t('agent.teamManagement.orchestration.placeholder')"
+            :rows="14"
+            class="font-mono text-xs"
+          />
+        </UFormField>
       </template>
       <template #footer>
         <div class="flex w-full items-center justify-end gap-2">
@@ -85,14 +105,14 @@
 
     <UModal
       v-model:open="memberOpen"
-      :title="`成员管理 · ${editingTeam?.team_name || '未命名团队'}`"
+      :title="`成员管理 · ${editingTeam ? teamDisplayName(editingTeam) : '未命名团队'}`"
       description="支持新增/更新/删除子智能体成员。主智能体（TL）请通过重建团队调整。"
       :ui="{ content: 'max-w-5xl' }"
     >
       <template #body>
         <div class="space-y-4">
           <div class="rounded-md border border-gray-200 p-3 text-xs text-gray-500">
-            团队：{{ editingTeam?.team_name || "-" }} · TL：{{ resolveAgentProfile(editingTeam?.parent_agent_id || 0).title }} ·
+            团队：{{ editingTeam ? teamDisplayName(editingTeam) : "-" }} · TL：{{ resolveAgentProfile(editingTeam?.parent_agent_id || 0).title }} ·
             Mode：{{ editingTeam?.dispatch_mode || "-" }} · Failure：{{ editingTeam?.default_failure_policy || "-" }}
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -280,8 +300,20 @@
             </div>
 
             <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <UFormField label="团队名称">
+              <UFormField label="团队 Key">
+                <UInput v-model="teamKey" placeholder="例如 marketing.campaign_review" />
+              </UFormField>
+              <UFormField label="中文名称">
                 <UInput v-model="teamName" placeholder="例如 incident-a2a-demo" />
+              </UFormField>
+              <UFormField label="英文名称">
+                <UInput v-model="teamNameEn" placeholder="For example, Incident Collaboration Team" />
+              </UFormField>
+              <UFormField label="日文名称">
+                <UInput v-model="teamNameJa" />
+              </UFormField>
+              <UFormField label="韩文名称">
+                <UInput v-model="teamNameKo" />
               </UFormField>
               <UFormField label="分发模式">
                 <USelect v-model="dispatchMode" :items="dispatchModeOptions" />
@@ -316,7 +348,7 @@ import { useAgentTeamService, type AgentTeamRecord } from "~/composables/api/ser
 import type { Agent } from "~/types/agent";
 
 const localePath = useLocalePath();
-const { t } = useI18n();
+const { t, te, locale } = useI18n();
 
 definePageMeta({
   title: "团队管理",
@@ -338,7 +370,11 @@ const createOpen = ref(false);
 const memberOpen = ref(false);
 const editOpen = ref(false);
 const searchKeyword = ref("");
-const teamName = ref("incident-a2a-demo");
+const teamKey = ref("");
+const teamName = ref("");
+const teamNameEn = ref("");
+const teamNameJa = ref("");
+const teamNameKo = ref("");
 const dispatchMode = ref<"parallel" | "serial" | "mixed">("parallel");
 const failurePolicy = ref<"continue" | "fail-fast" | "retry-once">("continue");
 const tlAgentId = ref<number | null>(null);
@@ -353,15 +389,25 @@ const newMemberRole = ref<ChildRole>("executor");
 const editingTeamForm = ref<{
   id: number;
   parent_agent_id: number;
-  team_name: string;
+  team_key: string;
+  display_name_zh: string;
+  display_name_en: string;
+  display_name_ja: string;
+  display_name_ko: string;
   dispatch_mode: "parallel" | "serial" | "mixed";
   default_failure_policy: "continue" | "fail-fast" | "retry-once";
+  orchestrationText: string;
 }>({
   id: 0,
   parent_agent_id: 0,
-  team_name: "",
+  team_key: "",
+  display_name_zh: "",
+  display_name_en: "",
+  display_name_ja: "",
+  display_name_ko: "",
   dispatch_mode: "parallel",
   default_failure_policy: "continue",
+  orchestrationText: "",
 });
 
 const roleOptions = [
@@ -374,6 +420,10 @@ const failurePolicyOptions = ["continue", "fail-fast", "retry-once"];
 const agentPool = computed<Agent[]>(() =>
   (agentCatalog.value && agentCatalog.value.length ? agentCatalog.value : ((agents.value || []) as Agent[]))
 );
+const teamDisplayName = (team: AgentTeamRecord) => {
+  const localeKey = locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : locale.value;
+  return String(team.display_name_i18n?.[localeKey] || t("agent.teamManagement.unnamedTeam")).trim();
+};
 const agentOptions = computed(() =>
   agentPool.value.map((agent) => ({
     label: `${agent.name || "未命名"} (${agent.key || "无 Key"})`,
@@ -411,13 +461,15 @@ const filteredAgents = computed(() => {
 
 const columns = [
   {
-    accessorKey: "team_name",
+    accessorKey: "team_key",
     header: "Team",
     cell: ({ row }: any) => {
       const id = Number(row.original.id || 0);
+      const team = row.original as AgentTeamRecord;
       return h("div", { class: "space-y-0.5" }, [
-        h("div", { class: "font-medium text-gray-900" }, row.original.team_name || "未命名团队"),
-        h("div", { class: "text-xs text-gray-500" }, `ID: ${id}`),
+        h("div", { class: "font-medium text-gray-900" }, teamDisplayName(team)),
+        h("div", { class: "text-xs text-gray-500" }, team.team_key || "无 Key"),
+        h("div", { class: "text-[11px] text-gray-400" }, `ID: ${id}`),
       ]);
     },
   },
@@ -465,7 +517,7 @@ const columns = [
             variant: "outline",
             onClick: () =>
               navigateTo(
-                `${localePath("/agent")}?workspace=team&team_id=${row.original.id}&parent_agent_id=${row.original.parent_agent_id}`
+                `${localePath("/agent/team-tasks")}?team_id=${row.original.id}&parent_agent_id=${row.original.parent_agent_id}`
               ),
           },
           () => "进入任务"
@@ -564,9 +616,14 @@ const openEditModal = (team: AgentTeamRecord) => {
   editingTeamForm.value = {
     id: Number(team.id),
     parent_agent_id: Number(team.parent_agent_id),
-    team_name: String(team.team_name || ""),
+    team_key: String(team.team_key || ""),
+    display_name_zh: String(team.display_name_i18n?.["zh-CN"] || ""),
+    display_name_en: String(team.display_name_i18n?.["en-US"] || ""),
+    display_name_ja: String(team.display_name_i18n?.ja || ""),
+    display_name_ko: String(team.display_name_i18n?.ko || ""),
     dispatch_mode: team.dispatch_mode,
     default_failure_policy: team.default_failure_policy,
+    orchestrationText: team.orchestration_spec ? JSON.stringify(team.orchestration_spec, null, 2) : "",
   };
   editOpen.value = true;
 };
@@ -578,19 +635,30 @@ const submitTeamEdit = async () => {
     message.value = "请选择 TL（主智能体）";
     return;
   }
-  if (!editingTeamForm.value.team_name.trim()) {
-    message.value = "团队名称不能为空";
+  if (!editingTeamForm.value.team_key.trim() || !editingTeamForm.value.display_name_zh.trim() || !editingTeamForm.value.display_name_en.trim() || !editingTeamForm.value.display_name_ja.trim() || !editingTeamForm.value.display_name_ko.trim()) {
+    message.value = "团队 Key 与四种语言名称不能为空";
     return;
   }
   editSubmitting.value = true;
   try {
+    let orchestration_spec: Record<string, unknown> | undefined;
+    if (editingTeamForm.value.orchestrationText.trim()) {
+      try {
+        orchestration_spec = JSON.parse(editingTeamForm.value.orchestrationText) as Record<string, unknown>;
+      } catch {
+        message.value = t("agent.teamManagement.orchestration.invalidJson");
+        return;
+      }
+    }
     const updated = await svc.updateTeam(teamId, {
       parent_agent_id: Number(editingTeamForm.value.parent_agent_id),
-      team_name: editingTeamForm.value.team_name.trim(),
+      team_key: editingTeamForm.value.team_key.trim(),
+      display_name_i18n: { "zh-CN": editingTeamForm.value.display_name_zh.trim(), "en-US": editingTeamForm.value.display_name_en.trim(), ja: editingTeamForm.value.display_name_ja.trim(), ko: editingTeamForm.value.display_name_ko.trim() },
       dispatch_mode: editingTeamForm.value.dispatch_mode,
       default_failure_policy: editingTeamForm.value.default_failure_policy,
+      ...(orchestration_spec ? { orchestration_spec } : {}),
     });
-    message.value = `团队已更新：${updated.team_name}`;
+    message.value = `团队已更新：${teamDisplayName(updated)}`;
     editOpen.value = false;
     parentAgentId.value = Number(updated.parent_agent_id);
     await loadTeams();
@@ -602,11 +670,11 @@ const submitTeamEdit = async () => {
 };
 
 const deleteTeam = async (team: AgentTeamRecord) => {
-  const ok = window.confirm(`确认删除团队 #${team.id}（${team.team_name}）？此操作会删除成员绑定与handoff记录。`);
+  const ok = window.confirm(`确认删除团队 #${team.id}（${teamDisplayName(team)}）？此操作会删除成员绑定与handoff记录。`);
   if (!ok) return;
   try {
     await svc.deleteTeam(Number(team.id));
-    message.value = `团队已删除：${team.team_name}`;
+    message.value = `团队已删除：${teamDisplayName(team)}`;
     if (Number(parentAgentId.value) === Number(team.parent_agent_id)) {
       await loadTeams();
       return;
@@ -715,8 +783,8 @@ const loadTeams = async () => {
 };
 
 const createTeamFromModal = async () => {
-  if (!teamName.value.trim()) {
-    message.value = "请填写团队名称";
+  if (!teamKey.value.trim() || !teamName.value.trim() || !teamNameEn.value.trim() || !teamNameJa.value.trim() || !teamNameKo.value.trim()) {
+    message.value = "请填写团队 Key 与四种语言名称";
     return;
   }
   if (!selectedMembers.value.length) {
@@ -732,7 +800,8 @@ const createTeamFromModal = async () => {
   try {
     const created = await svc.createTeam({
       parent_agent_id: tlAgentId.value,
-      team_name: teamName.value.trim(),
+      team_key: teamKey.value.trim(),
+      display_name_i18n: { "zh-CN": teamName.value.trim(), "en-US": teamNameEn.value.trim(), ja: teamNameJa.value.trim(), ko: teamNameKo.value.trim() },
       dispatch_mode: dispatchMode.value,
       default_failure_policy: failurePolicy.value,
     });
@@ -748,7 +817,7 @@ const createTeamFromModal = async () => {
     }
 
     parentAgentId.value = created.parent_agent_id;
-    message.value = `创建成功：${created.team_name}，成员写入 ${children.length} 个`;
+    message.value = `创建成功：${teamDisplayName(created)}，成员写入 ${children.length} 个`;
     createOpen.value = false;
     resetModalForm();
     await loadTeams();

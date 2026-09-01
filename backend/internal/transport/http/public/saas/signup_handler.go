@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -24,10 +23,9 @@ func NewSignupHandler(deps *shared.Deps) *SignupHandler {
 	var verifier *authsvc.SignupVerificationService
 	if deps != nil {
 		var opt authsvc.SaaSSignupOptions
-		if cfg := config.GetGlobalConfig(); cfg != nil && cfg.FeatureGate.EnableSaaSSignupVerificationCode {
-			verifier = authsvc.NewSignupVerificationService(authsvc.LocalSignupVerificationDriver{}, 10*time.Minute)
-			opt.Verifier = verifier
-		}
+		verifier = authsvc.NewSignupVerificationService(authsvc.LocalSignupVerificationDriver{}, 10*time.Minute)
+		opt.Verifier = verifier
+		opt.RegistrationPolicy = authsvc.NewRegistrationPolicyService(deps.DB)
 		if deps.TenantBuiltinObjects != nil {
 			opt.BuiltinObjectFactory = func(db *gorm.DB) authsvc.BuiltinObjectBootstrapper {
 				return deps.TenantBuiltinObjects(db)
@@ -47,10 +45,14 @@ type SignupRequest struct {
 	OwnerPassword    string `json:"owner_password" binding:"required,min=6,max=64"`
 	OwnerDisplayName string `json:"owner_display_name" binding:"omitempty,max=128"`
 	VerificationCode string `json:"verification_code" binding:"omitempty,len=6"`
+	InviteCode       string `json:"invite_code" binding:"omitempty,max=128"`
+	Channel          string `json:"channel" binding:"omitempty,max=64"`
+	Campaign         string `json:"campaign" binding:"omitempty,max=128"`
 }
 
 type SendVerificationCodeRequest struct {
 	Contact string `json:"contact" binding:"required,min=6,max=128"`
+	Channel string `json:"channel" binding:"omitempty,max=64"`
 }
 
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, deps *shared.Deps) {
@@ -58,27 +60,38 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, deps *shared.Deps) {
 		return
 	}
 	h := NewSignupHandler(deps)
+	policy := NewRegistrationPolicyHandler(deps)
+	publicGroup.GET("/public/saas/registration-policy/effective", policy.Effective)
+	publicGroup.POST("/public/saas/registration-requests", policy.SubmitRequest)
 	publicGroup.POST("/public/saas/signup/verification-code", h.SendVerificationCode)
 	publicGroup.POST("/public/saas/signup", h.Signup)
 }
 
-func saasSignupEnabled() bool {
-	cfg := config.GetGlobalConfig()
-	return cfg != nil && cfg.FeatureGate.EnableSaaSSignup
-}
-
 func (h *SignupHandler) SendVerificationCode(c *gin.Context) {
-	if !saasSignupEnabled() {
-		dtoRequest.ResponseError(c, http.StatusForbidden, "saas signup disabled", nil)
-		return
-	}
-	if h == nil || h.verifier == nil {
-		dtoRequest.ResponseError(c, http.StatusNotFound, "saas signup verification code disabled", nil)
+	if h == nil || h.service == nil || h.verifier == nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "saas signup service not configured", nil)
 		return
 	}
 	var req SendVerificationCodeRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	policy, err := h.service.EvaluateRegistrationPolicy(c.Request.Context(), authsvc.SaaSSignupInput{
+		OwnerEmail: req.Contact,
+		OwnerPhone: req.Contact,
+		Channel:    req.Channel,
+	})
+	if err != nil {
+		dtoRequest.ResponseError(c, registrationPolicyHTTPStatus(err), err.Error(), err)
+		return
+	}
+	if !policy.CanSignup {
+		dtoRequest.ResponseError(c, http.StatusForbidden, policy.ReasonCode, authsvc.ErrSaaSSignupRegistrationDenied)
+		return
+	}
+	if !policy.RequiresVerification {
+		dtoRequest.ResponseError(c, http.StatusNotFound, "saas signup verification code disabled by registration policy", nil)
 		return
 	}
 	if err := h.verifier.Send(c.Request.Context(), req.Contact); err != nil {
@@ -93,10 +106,6 @@ func (h *SignupHandler) SendVerificationCode(c *gin.Context) {
 }
 
 func (h *SignupHandler) Signup(c *gin.Context) {
-	if !saasSignupEnabled() {
-		dtoRequest.ResponseError(c, http.StatusForbidden, "saas signup disabled", nil)
-		return
-	}
 	if h == nil || h.service == nil {
 		dtoRequest.ResponseError(c, http.StatusInternalServerError, "saas signup service not configured", nil)
 		return
@@ -115,18 +124,37 @@ func (h *SignupHandler) Signup(c *gin.Context) {
 		OwnerPassword:    req.OwnerPassword,
 		OwnerDisplayName: req.OwnerDisplayName,
 		VerificationCode: req.VerificationCode,
+		InviteCode:       req.InviteCode,
+		Channel:          req.Channel,
+		Campaign:         req.Campaign,
 	})
 	if err != nil {
 		status := http.StatusBadRequest
+		message := "signup_failed"
 		switch {
 		case errors.Is(err, authsvc.ErrSaaSSignupTenantKeyExists):
 			status = http.StatusConflict
+			message = "tenant_key_exists"
 		case errors.Is(err, authsvc.ErrSaaSSignupTenantDomainExists):
 			status = http.StatusConflict
+			message = "tenant_domain_exists"
 		case errors.Is(err, authsvc.ErrSaaSSignupInvalidCredentials):
 			status = http.StatusUnauthorized
+			message = "invalid_credentials"
+		case errors.Is(err, authsvc.ErrSaaSSignupContactExists):
+			status = http.StatusConflict
+			message = "signup_contact_exists"
+		case errors.Is(err, authsvc.ErrSaaSSignupRegistrationDenied):
+			status = http.StatusLocked
+			message = "registration_denied"
+		case errors.Is(err, authsvc.ErrRegistrationPolicyActiveMissing):
+			status = http.StatusServiceUnavailable
+			message = "registration_policy_missing"
+		case errors.Is(err, authsvc.ErrRegistrationPolicyInvalid):
+			status = http.StatusInternalServerError
+			message = "registration_policy_invalid"
 		}
-		dtoRequest.ResponseError(c, status, err.Error(), err)
+		dtoRequest.ResponseError(c, status, message, err)
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{
@@ -158,4 +186,15 @@ func (h *SignupHandler) Signup(c *gin.Context) {
 			}},
 		},
 	})
+}
+
+func registrationPolicyHTTPStatus(err error) int {
+	switch {
+	case errors.Is(err, authsvc.ErrRegistrationPolicyActiveMissing):
+		return http.StatusServiceUnavailable
+	case errors.Is(err, authsvc.ErrRegistrationPolicyInvalid):
+		return http.StatusInternalServerError
+	default:
+		return http.StatusBadRequest
+	}
 }

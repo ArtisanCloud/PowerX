@@ -37,9 +37,11 @@ type TeamService struct {
 type TeamCreateInput struct {
 	TenantUUID           string
 	ParentAgentID        uint64
-	TeamName             string
+	TeamKey              string
+	DisplayNameI18n      []byte
 	DispatchMode         string
 	DefaultFailurePolicy string
+	OrchestrationSpec    []byte
 	CreatedBy            string
 }
 
@@ -53,12 +55,16 @@ type TeamMemberUpsertInput struct {
 }
 
 type TeamUpdateInput struct {
-	TeamID               uint64
-	TenantUUID           string
-	ParentAgentID        uint64
-	TeamName             string
-	DispatchMode         string
-	DefaultFailurePolicy string
+	TeamID                uint64
+	TenantUUID            string
+	ParentAgentID         uint64
+	TeamKey               string
+	DisplayNameI18n       []byte
+	UpdateDisplayNameI18n bool
+	DispatchMode          string
+	DefaultFailurePolicy  string
+	OrchestrationSpec     []byte
+	UpdateOrchestration   bool
 }
 
 type HandoffRecordInput struct {
@@ -102,13 +108,26 @@ func (s *TeamService) CreateTeam(ctx context.Context, in TeamCreateInput) (*mode
 	if s == nil || s.teamRepo == nil {
 		return nil, gorm.ErrInvalidDB
 	}
+	if err := modelagent.ValidateTeamIdentity(in.TeamKey, in.DisplayNameI18n); err != nil {
+		return nil, err
+	}
+	orchestrationSpec := append([]byte(nil), in.OrchestrationSpec...)
+	status := modelagent.TeamStatusDisabled
+	if len(orchestrationSpec) > 0 {
+		if _, err := modelagent.ParseTeamOrchestrationSpec(orchestrationSpec); err != nil {
+			return nil, err
+		}
+		status = modelagent.TeamStatusActive
+	}
 	rec := &modelagent.AgentTeam{
 		TenantUUID:           strings.TrimSpace(in.TenantUUID),
 		ParentAgentID:        in.ParentAgentID,
-		TeamName:             strings.TrimSpace(in.TeamName),
+		TeamKey:              strings.TrimSpace(in.TeamKey),
+		DisplayNameI18n:      append([]byte(nil), in.DisplayNameI18n...),
 		DispatchMode:         strings.TrimSpace(in.DispatchMode),
 		DefaultFailurePolicy: strings.TrimSpace(in.DefaultFailurePolicy),
-		Status:               modelagent.TeamStatusActive,
+		OrchestrationSpec:    orchestrationSpec,
+		Status:               status,
 		CreatedBy:            strings.TrimSpace(in.CreatedBy),
 	}
 	rec.Normalize()
@@ -133,8 +152,14 @@ func (s *TeamService) SetTeamStatus(ctx context.Context, teamID uint64, tenantUU
 	if s == nil || s.teamRepo == nil {
 		return gorm.ErrInvalidDB
 	}
-	if _, err := s.ValidateTeamTenant(ctx, teamID, tenantUUID); err != nil {
+	team, err := s.ValidateTeamTenant(ctx, teamID, tenantUUID)
+	if err != nil {
 		return err
+	}
+	if strings.EqualFold(strings.TrimSpace(status), modelagent.TeamStatusActive) {
+		if _, err := modelagent.ParseTeamOrchestrationSpec(team.OrchestrationSpec); err != nil {
+			return err
+		}
 	}
 	return s.teamRepo.UpdateStatus(ctx, teamID, status)
 }
@@ -147,6 +172,17 @@ func (s *TeamService) UpdateTeam(ctx context.Context, in TeamUpdateInput) (*mode
 	if err != nil {
 		return nil, err
 	}
+	nextTeamKey := team.TeamKey
+	if strings.TrimSpace(in.TeamKey) != "" {
+		nextTeamKey = strings.TrimSpace(in.TeamKey)
+	}
+	nextDisplayNames := []byte(team.DisplayNameI18n)
+	if in.UpdateDisplayNameI18n {
+		nextDisplayNames = in.DisplayNameI18n
+	}
+	if err := modelagent.ValidateTeamIdentity(nextTeamKey, nextDisplayNames); err != nil {
+		return nil, err
+	}
 
 	updates := map[string]any{}
 	nextParent := team.ParentAgentID
@@ -156,14 +192,23 @@ func (s *TeamService) UpdateTeam(ctx context.Context, in TeamUpdateInput) (*mode
 		nextParent = in.ParentAgentID
 		parentChanged = true
 	}
-	if strings.TrimSpace(in.TeamName) != "" {
-		updates["team_name"] = strings.TrimSpace(in.TeamName)
+	if strings.TrimSpace(in.TeamKey) != "" {
+		updates["team_key"] = strings.TrimSpace(in.TeamKey)
+	}
+	if in.UpdateDisplayNameI18n {
+		updates["display_name_i18n"] = append([]byte(nil), in.DisplayNameI18n...)
 	}
 	if strings.TrimSpace(in.DispatchMode) != "" {
 		updates["dispatch_mode"] = strings.TrimSpace(in.DispatchMode)
 	}
 	if strings.TrimSpace(in.DefaultFailurePolicy) != "" {
 		updates["default_failure_policy"] = strings.TrimSpace(in.DefaultFailurePolicy)
+	}
+	if in.UpdateOrchestration {
+		if _, err := modelagent.ParseTeamOrchestrationSpec(in.OrchestrationSpec); err != nil {
+			return nil, err
+		}
+		updates["orchestration_spec"] = append([]byte(nil), in.OrchestrationSpec...)
 	}
 
 	if err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

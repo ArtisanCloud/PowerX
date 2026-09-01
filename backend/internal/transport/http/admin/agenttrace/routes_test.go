@@ -78,7 +78,7 @@ func TestAgentTraceReportAndTimelineAPI(t *testing.T) {
 	group := router.Group("/api/v1")
 	RegisterAPIRoutes(nil, group, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-1/timeline?tenant_uuid=tenant-1&session_id=session-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-1/timeline?tenant_uuid=tenant-1&session_id=session-1&run_id=run-1", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -98,7 +98,7 @@ func TestAgentTraceReportAndTimelineAPI(t *testing.T) {
 		t.Fatalf("runs body is not json: %s", rec.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-1/report?tenant_uuid=tenant-1&session_id=session-1&format=markdown", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/agent-traces/messages/message-1/report?tenant_uuid=tenant-1&session_id=session-1&run_id=run-1&format=markdown", nil)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

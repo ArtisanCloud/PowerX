@@ -94,7 +94,10 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		HTTP:          dr,
 		Supervisor:    sup,
 		PostInstallManifest: func(ctx context.Context, manifest pm.Manifest) error {
-			return syncPluginManifestPermissions(ctx, deps.DB, manifest)
+			if err := syncPluginManifestPermissions(ctx, deps.DB, manifest); err != nil {
+				return err
+			}
+			return tenantPluginSvc.SyncManifestRequiredCapabilities(ctx, manifest)
 		},
 		PostEnablePlugin: func(ctx context.Context, plugin pm.Plugin, apiBaseURL string) error {
 			requiresDiscovery, err := pluginRequiresSkillDiscovery(plugin)
@@ -144,7 +147,7 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	}
 
 	// ★ 绑定 Authorizer（issuer/ttl 可配）
-	pmimpl.BindAuthorizer(dr, devAuthorizer{}, "powerx-auth", 60*time.Second)
+	pmimpl.BindAuthorizer(dr, pluginIAMAuthorizer{db: deps.DB}, "powerx-auth", 60*time.Second)
 
 	// ★ 为每个已知插件安装策略（基于 HTTPBasePath + RBAC.Resources）
 	if list, err := mgr.List(ctx); err == nil {

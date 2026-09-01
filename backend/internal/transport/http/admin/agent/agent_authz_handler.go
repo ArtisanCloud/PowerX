@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -95,6 +96,10 @@ func (h *AgentAuthzHandler) ReplaceAgentGrants(c *gin.Context) {
 	}
 	items, err := h.svc.ReplaceAgentGrants(c.Request.Context(), env, tenantCtx.UUID(), agentUUID, reqctx.GetUserUUID(c.Request.Context()), inputs)
 	if err != nil {
+		if errors.Is(err, agentauthz.ErrAgentProtectedReadonly) {
+			dtoRequest.ResponseError(c, http.StatusForbidden, "agent.protected_readonly", nil)
+			return
+		}
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "agent.replace_grants_failed", err)
 		return
 	}
@@ -127,6 +132,10 @@ func (h *AgentAuthzHandler) PatchAgentGrants(c *gin.Context) {
 	}
 	items, err := h.svc.PatchAgentGrants(c.Request.Context(), env, tenantCtx.UUID(), agentUUID, reqctx.GetUserUUID(c.Request.Context()), inputs)
 	if err != nil {
+		if errors.Is(err, agentauthz.ErrAgentProtectedReadonly) {
+			dtoRequest.ResponseError(c, http.StatusForbidden, "agent.protected_readonly", nil)
+			return
+		}
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "agent.patch_grants_failed", err)
 		return
 	}

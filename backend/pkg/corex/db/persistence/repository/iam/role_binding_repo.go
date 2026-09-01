@@ -37,6 +37,24 @@ func (r *RoleBindingRepository) Create(ctx context.Context, rb *dbm.RoleBinding)
 		rb.SubjectType == "" {
 		return errors.New("invalid role binding")
 	}
+	dataScope := rb.DataScope
+	if dataScope == "" {
+		dataScope = dbm.ScopeTenant
+		rb.DataScope = dataScope
+	}
+	var existingID uint64
+	if err := r.db.WithContext(ctx).
+		Model(&dbm.RoleBinding{}).
+		Where("tenant_uuid = ? AND subject_type = ? AND subject_uuid = ? AND role_uuid = ? AND data_scope = ?",
+			rb.TenantUUID, rb.SubjectType, rb.SubjectUUID, rb.RoleUUID, dataScope).
+		Limit(1).
+		Pluck("id", &existingID).Error; err != nil {
+		return err
+	}
+	if existingID != 0 {
+		rb.ID = existingID
+		return nil
+	}
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{DoNothing: true}).
 		Create(rb).Error
@@ -160,9 +178,7 @@ func (r *RoleBindingRepository) AssignRolesByCodes(ctx context.Context, tenantUU
 			SubjectID:   memberID,
 			// DataScope/ScopeDim/ScopeID/Condition 可按需要补
 		}
-		if err := r.db.WithContext(ctx).
-			Clauses(clause.OnConflict{DoNothing: true}).
-			Create(rb).Error; err != nil {
+		if err := r.Create(ctx, rb); err != nil {
 			return err
 		}
 	}

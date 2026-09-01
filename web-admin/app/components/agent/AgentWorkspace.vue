@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Agent, AgentEffectivePermissions } from "~/types/agent";
+import type { Agent } from "~/types/agent";
 import ChatInterface from "@/components/agent/ChatInterface.vue";
 import ConfigPanel from "@/components/agent/ConfigPanel.vue";
 import ConnectionIndicators from "@/components/agent/ConnectionIndicators.vue";
@@ -13,6 +13,7 @@ import { useApiClient } from "~/composables/api";
 import { usePrompt } from "~/composables/usePrompt";
 import { useEnvStore } from "~/stores/envStore";
 import { useUserStore } from "~/stores/user";
+import { normalizePersistedMessageId } from "~/utils/agent/messageActions";
 import {
   useAgentTeamService,
   type AgentTeamMemberRecord,
@@ -29,7 +30,7 @@ const props = withDefaults(
   }
 );
 
-const { t } = useI18n();
+const { t, te, locale } = useI18n();
 const { confirm } = useConfirm();
 const { prompt } = usePrompt();
 const { get, put, delete: del } = useApiClient();
@@ -75,6 +76,27 @@ const teamMemberAgents = ref<Array<{
 }>>([]);
 const teamWorkspaceNotice = ref("");
 
+const agentDisplayName = (agent: Agent) =>
+  localizedAgentCatalogText(agent, "title") ||
+  String(agent.name || agent.key || t("agent.chat.defaultAgent")).trim();
+
+const agentDescription = (agent: Agent) =>
+  localizedAgentCatalogText(agent, "description") ||
+  String(agent.description || "").trim();
+
+const localizedAgentCatalogText = (agent: Agent, field: "title" | "description") => {
+  const key = String(agent.key || "").trim();
+  if (!key) return "";
+  const normalized = key.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const i18nKey = `agent.management.catalog.${normalized}.${field}`;
+  return te(i18nKey) ? String(t(i18nKey)).trim() : "";
+};
+
+const teamDisplayName = (team: AgentTeamRecord) => {
+  const localeKey = locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : locale.value;
+  return String(team.display_name_i18n?.[localeKey] || t("agent.teamManagement.unnamedTeam")).trim();
+};
+
 const findAgentUUIDByNumericID = (id: number) => {
   const hit = (agents.value || []).find((a) => Number(a.id) === Number(id));
   return hit?.uuid || "";
@@ -107,8 +129,8 @@ const loadTeamsForSelector = async () => {
     teamOptions.value = [];
     teamMap.value = {};
     teamMemberAgents.value = [];
-    teamWorkspaceNotice.value = "团队列表加载失败，请先检查团队配置后重试。";
-    notifyOnce("加载团队失败", e?.message || "");
+    teamWorkspaceNotice.value = t("agent.teamTasks.notices.loadFailed");
+    notifyOnce(t("agent.teamTasks.notices.loadFailedTitle"), e?.message || "");
     return;
   }
 
@@ -119,7 +141,7 @@ const loadTeamsForSelector = async () => {
     if (map[key]) continue;
     map[key] = team;
     options.push({
-      label: `团队: ${team.team_name}`,
+      label: teamDisplayName(team),
       value: key,
       // @ts-expect-error UI 层会读取 icon 字段
       icon: "i-heroicons-user-group",
@@ -131,7 +153,7 @@ const loadTeamsForSelector = async () => {
 
   if (!options.length) {
     teamMemberAgents.value = [];
-    teamWorkspaceNotice.value = "当前租户暂无可用团队，请先到“团队管理”创建团队。";
+    teamWorkspaceNotice.value = t("agent.teamTasks.notices.emptyTeams");
     return;
   }
 
@@ -141,7 +163,7 @@ const loadTeamsForSelector = async () => {
   if (!picked) return;
 
   if (workspaceTeamId.value && !map[workspaceTeamId.value]) {
-    teamWorkspaceNotice.value = `team_id=${workspaceTeamId.value} 不存在或不可用，已自动切换到默认团队。`;
+    teamWorkspaceNotice.value = t("agent.teamTasks.notices.teamUnavailable", { id: workspaceTeamId.value });
   }
 
   const pickedTeam = map[picked];
@@ -153,7 +175,7 @@ const loadTeamsForSelector = async () => {
     ? [
         {
           id: Number(parentAgent.id),
-          name: parentAgent.name,
+          name: agentDisplayName(parentAgent),
           avatar:
             typeof parentAgent.meta?.avatar === "string"
               ? parentAgent.meta.avatar
@@ -196,7 +218,7 @@ const loadTeamMembers = async (teamId: string) => {
       )
       .map((agent) => ({
         id: Number(agent.id),
-        name: agent.name,
+        name: agentDisplayName(agent),
         key: agent.key,
         role: Number(agent.id) === parentID ? "planner" : roleByAgent.get(Number(agent.id)) || "executor",
         isTL: Number(agent.id) === parentID,
@@ -212,7 +234,7 @@ const loadTeamMembers = async (teamId: string) => {
       ? [
           {
             id: Number(parent.id),
-            name: parent.name,
+            name: agentDisplayName(parent),
             key: parent.key,
             role: "planner",
             isTL: true,
@@ -226,12 +248,12 @@ const loadTeamMembers = async (teamId: string) => {
   }
 };
 const workspaceTitle = computed(() =>
-  workspaceMode.value === "team" ? "团队任务工作台" : "智能会话工作台"
+  workspaceMode.value === "team" ? t("agent.teamTasks.workspaceTitle") : t("agent.chat.workspaceTitle")
 );
 const workspaceSubtitle = computed(() =>
   workspaceMode.value === "team"
-    ? "当前为多智能体协作任务模式（主智能体 + 子智能体）。"
-    : "当前为单智能体会话模式。"
+    ? t("agent.teamTasks.workspaceSubtitle")
+    : t("agent.chat.workspaceSubtitle")
 );
 
 // 会话状态管理
@@ -304,48 +326,6 @@ const { notifyOnce } = useOneShotAlert();
 // Agent 管理
 const agentManager = useAgentManager();
 const { agents } = agentManager;
-const effectivePermissions = ref<AgentEffectivePermissions | null>(null);
-const effectivePermissionsLoading = ref(false);
-const effectivePermissionsError = ref("");
-
-const loadEffectivePermissions = async (agentId: string) => {
-  const uuid = String(agentId || "").trim();
-  effectivePermissions.value = null;
-  effectivePermissionsError.value = "";
-  if (!uuid) return;
-  effectivePermissionsLoading.value = true;
-  try {
-    effectivePermissions.value = await agentManager.fetchMyEffectivePermissions(uuid);
-  } catch (e: any) {
-    effectivePermissionsError.value =
-      e?.message || t("agent.effectivePermissions.loadFailed");
-  } finally {
-    effectivePermissionsLoading.value = false;
-  }
-};
-
-const effectivePermissionItems = computed(
-  () => effectivePermissions.value?.items || []
-);
-const effectivePermissionSummary = computed(() => {
-  const items = effectivePermissionItems.value;
-  const allowed = items.filter((item) => item.effective_allowed).length;
-  return { allowed, total: items.length };
-});
-const effectivePermissionStatusColor = (allowed: boolean) =>
-  allowed ? "success" : "neutral";
-const effectivePermissionStatusLabel = (allowed: boolean) =>
-  allowed
-    ? t("agent.effectivePermissions.status.allowed")
-    : t("agent.effectivePermissions.status.denied");
-const effectivePermissionReasonLabel = (reason?: string) => {
-  const key = String(reason || "").trim();
-  if (!key) return t("agent.effectivePermissions.reason.none");
-  const mapped = `agent.effectivePermissions.reason.${key}`;
-  const translated = t(mapped);
-  return translated === mapped ? key : translated;
-};
-
 const agentOwnerPluginID = (agent?: Agent | null) =>
   String(
     (agent as any)?.ownerPluginId ||
@@ -433,10 +413,6 @@ const ensureSessionForSend = async (): Promise<string | number | null> => {
     chatSessions.selectSession(currentAgentId.value, id);
   }
   return id;
-};
-
-const retryLastMessage = async () => {
-  console.info("重试最后一条消息");
 };
 
 // 初始化
@@ -629,7 +605,6 @@ const handleAgentSelect = async (agentId: string) => {
     chat.clearMessages();
     runtimeLLM.value = {};
     await loadAgentAISetting(agentId);
-    await loadEffectivePermissions(agentId);
   } catch (error) {
     console.error("选择 Agent 失败:", error);
     notifyOnce("加载会话列表失败", error instanceof Error ? error.message : "");
@@ -668,7 +643,7 @@ const handleSendMessage = async (content: string) => {
   if (isSending.value) return;
   if (chat.isGenerating.value) return;
   isSending.value = true;
-  const meta: any = {};
+  const meta: any = { locale: locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : String(locale.value || "").trim() };
   try {
     const ensuredSessionId = await ensureSessionForSend();
     // 若当前会话仍是“未命名”，用首条问题自动命名（ChatGPT 风格）
@@ -694,14 +669,85 @@ const handleSendMessage = async (content: string) => {
     if (ensuredSessionId != null) meta.sessionId = ensuredSessionId;
     else if (currentSessionId.value) meta.sessionId = currentSessionId.value;
     if (currentAgentId.value) meta.agentId = currentAgentId.value;
+    const teamContext = await resolveTeamContextForSend();
+    if (teamContext === null) {
+      teamWorkspaceNotice.value = t("agent.chat.retryTeamContextMissing");
+      return;
+    }
+    Object.assign(meta, teamContext);
     await chat.sendMessage(content, "chat", meta);
   } finally {
     isSending.value = false;
   }
 };
 
-const handleRetryMessage = async () => {
-  await retryLastMessage();
+const resolveTeamContextForSend = async (): Promise<Record<string, string | number> | null> => {
+  if (workspaceMode.value !== "team") return {};
+  // 团队身份只能来自当前团队路由的显式 team_id；不会从会话或智能体猜测。
+  const teamId = String(route.query.team_id || workspaceTeamId.value || "").trim();
+  if (!teamId) return null;
+  if (!teamMap.value[teamId]) {
+    await loadTeamsForSelector();
+  }
+  const team = teamMap.value[teamId];
+  if (!teamId || !team || Number(team.parent_agent_id || 0) <= 0) {
+    return null;
+  }
+  return {
+    team_id: teamId,
+    parent_agent_id: Number(team.parent_agent_id),
+  };
+};
+
+const handleRetryMessage = async (messageId: string | number | null) => {
+  if (isSending.value || chat.isGenerating.value) {
+    notifyOnce(
+      t("agent.chat.retryBusyTitle"),
+      t("agent.chat.retryBusyDescription")
+    );
+    return;
+  }
+  const persistedMessageId = normalizePersistedMessageId(messageId);
+  if (!currentSessionId.value || persistedMessageId === null) {
+    notifyOnce(
+      t("agent.chat.retryUnavailableTitle"),
+      t("agent.chat.retryUnavailableDescription")
+    );
+    return;
+  }
+  const teamContext = await resolveTeamContextForSend();
+  if (teamContext === null) {
+    notifyOnce(
+      t("agent.chat.retryUnavailableTitle"),
+      t("agent.chat.retryTeamContextMissing")
+    );
+    return;
+  }
+
+  isSending.value = true;
+  try {
+    await chat.regenerateFrom(
+      persistedMessageId,
+      "chat",
+      undefined,
+      {
+        ...teamContext,
+        locale: locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : String(locale.value || "").trim(),
+      }
+    );
+  } catch (error) {
+    console.error("[agent.retry]", {
+      session_id: currentSessionId.value,
+      message_id: persistedMessageId,
+      error,
+    });
+    notifyOnce(
+      t("agent.chat.retryFailedTitle"),
+      t("agent.chat.retryFailedDescription")
+    );
+  } finally {
+    isSending.value = false;
+  }
 };
 
 const handleRegenerateFrom = async (messageId: string | number) => {
@@ -731,7 +777,15 @@ const handleRegenerateFrom = async (messageId: string | number) => {
       rows: 3,
     });
     if (edited == null) return;
-    await chat.regenerateFrom(idNum, "chat", edited);
+    const teamContext = await resolveTeamContextForSend();
+    if (teamContext === null) {
+      teamWorkspaceNotice.value = t("agent.chat.retryTeamContextMissing");
+      return;
+    }
+    await chat.regenerateFrom(idNum, "chat", edited, {
+      ...teamContext,
+      locale: locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : String(locale.value || "").trim(),
+    });
   } finally {
     isSending.value = false;
   }
@@ -949,8 +1003,8 @@ const currentAgentForChat = computed(() => {
   const resolvedTopP = cfg?.params?.topP ?? defaultParams?.topP ?? 1;
   return {
     id: agent.uuid,
-    name: agent.name,
-    description: agent.description,
+    name: agentDisplayName(agent),
+    description: agentDescription(agent),
     avatar: "",
     model: modelDisplay,
     systemPrompt: cfg?.params?.systemPrompt ?? "",
@@ -964,29 +1018,12 @@ const currentAgentForChat = computed(() => {
   };
 });
 const currentTenantUuid = computed(() => userStore.currentTenantUuid || "");
-const hasCurrentTraceSession = computed(
-  () => Boolean(currentTenantUuid.value && currentSessionId.value)
-);
-const currentTraceSessionUrl = computed(() => {
-  if (!hasCurrentTraceSession.value) return "";
-  const q = new URLSearchParams();
-  q.set("tenant_uuid", currentTenantUuid.value);
-  q.set("session_id", String(currentSessionId.value));
-  return `${localePath("/agent/traces")}?${q.toString()}`;
-});
-const currentTraceSessionTitle = computed(() =>
-  hasCurrentTraceSession.value
-    ? "查看当前会话下所有消息的运行追踪"
-    : "请先选择、新建或发送一条消息生成当前会话"
-);
-
 watch(
   () => ENV.value,
   async () => {
     await loadSystemDefaultLLM();
     if (currentAgentId.value) {
       await loadAgentAISetting(String(currentAgentId.value));
-      await loadEffectivePermissions(String(currentAgentId.value));
     }
   },
   { immediate: true }
@@ -1063,8 +1100,8 @@ const getAgentIcon = (agent: Agent) => {
             :selector-mode="workspaceMode === 'team' ? 'team' : 'agent'"
             :selector-options="workspaceMode === 'team' ? teamOptions : undefined"
             :selector-value="workspaceMode === 'team' ? workspaceTeamId : undefined"
-            :selector-label="workspaceMode === 'team' ? '选择团队' : '选择智能体'"
-            :selector-placeholder="workspaceMode === 'team' ? '选择团队' : '选择智能体'"
+            :selector-label="workspaceMode === 'team' ? t('agent.teamTasks.selector.label') : t('agent.selector.pickAgent')"
+            :selector-placeholder="workspaceMode === 'team' ? t('agent.teamTasks.selector.label') : t('agent.selector.pickAgent')"
             :show-sessions="true"
             :current-session-id="currentSessionId || undefined"
             :busy="isUiBusy"
@@ -1118,7 +1155,7 @@ const getAgentIcon = (agent: Agent) => {
                 :color="workspaceMode === 'team' ? 'warning' : 'primary'"
                 variant="soft"
               >
-                {{ workspaceMode === "team" ? "团队任务" : "智能会话" }}
+                {{ workspaceMode === "team" ? t("agent.teamTasks.badge") : t("agent.chat.badge") }}
               </UBadge>
               <div>
                 <div class="text-sm font-medium text-gray-900">{{ workspaceTitle }}</div>
@@ -1139,17 +1176,17 @@ const getAgentIcon = (agent: Agent) => {
                       class="ring-2 ring-white"
                     />
                   </div>
-                  <span class="text-xs text-gray-400">{{ teamMemberAgents.length }} 人</span>
+	                  <span class="text-xs text-gray-400">{{ t("agent.teamTasks.memberCount", { count: teamMemberAgents.length }) }}</span>
                 </button>
                 <template #content>
                   <div class="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-gray-900">
                     <div class="mb-2 flex items-center justify-between">
                       <div>
-                        <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">团队成员</div>
-                        <div class="text-xs text-gray-500">当前协作团队</div>
+	                        <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t("agent.teamTasks.membersTitle") }}</div>
+	                        <div class="text-xs text-gray-500">{{ t("agent.teamTasks.membersSubtitle") }}</div>
                       </div>
                       <UButton size="xs" variant="ghost" icon="i-heroicons-cog-6-tooth" :to="localePath('/settings/ai/agent-teams')">
-                        管理
+	                        {{ t("agent.teamTasks.manage") }}
                       </UButton>
                     </div>
                     <div class="max-h-80 space-y-2 overflow-auto">
@@ -1166,7 +1203,7 @@ const getAgentIcon = (agent: Agent) => {
                               {{ member.isTL ? 'TL' : member.role }}
                             </UBadge>
                           </div>
-                          <div class="truncate text-xs text-gray-500">{{ member.key || '无 Key' }}</div>
+	                          <div class="truncate text-xs text-gray-500">{{ member.key || t('agent.teamTasks.noKey') }}</div>
                           <div v-if="member.skillHint" class="truncate text-[11px] text-gray-400">{{ member.skillHint }}</div>
                         </div>
                       </div>
@@ -1176,145 +1213,6 @@ const getAgentIcon = (agent: Agent) => {
               </UPopover>
             </div>
             <div class="flex items-center gap-2">
-              <UPopover
-                v-if="currentAgentId"
-                :ui="{ content: 'w-[32rem] max-w-[calc(100vw-2rem)] p-0' }"
-              >
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  icon="i-heroicons-shield-check"
-                  :loading="effectivePermissionsLoading"
-                >
-                  {{ t("agent.effectivePermissions.title") }}
-                  <UBadge size="xs" color="neutral" variant="soft" class="ml-1">
-                    {{
-                      t("agent.effectivePermissions.summary", {
-                        allowed: effectivePermissionSummary.allowed,
-                        total: effectivePermissionSummary.total,
-                      })
-                    }}
-                  </UBadge>
-                </UButton>
-                <template #content>
-                  <div class="rounded-lg border border-gray-200 bg-white shadow-lg dark:border-white/10 dark:bg-gray-900">
-                    <div class="border-b border-gray-100 p-3 dark:border-white/10">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                          <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {{ t("agent.effectivePermissions.title") }}
-                          </div>
-                          <div class="mt-0.5 text-xs text-gray-500">
-                            {{ t("agent.effectivePermissions.description") }}
-                          </div>
-                        </div>
-                        <UButton
-                          size="xs"
-                          variant="ghost"
-                          icon="i-heroicons-arrow-path"
-                          :loading="effectivePermissionsLoading"
-                          :title="t('agent.effectivePermissions.refresh')"
-                          @click="loadEffectivePermissions(String(currentAgentId || ''))"
-                        />
-                      </div>
-                    </div>
-                    <div class="max-h-96 overflow-auto p-3">
-                      <UAlert
-                        v-if="effectivePermissionsError"
-                        color="error"
-                        variant="soft"
-                        icon="i-heroicons-exclamation-circle"
-                        :title="t('agent.effectivePermissions.loadFailed')"
-                        :description="effectivePermissionsError"
-                      />
-                      <div
-                        v-else-if="effectivePermissionsLoading"
-                        class="space-y-2"
-                      >
-                        <USkeleton v-for="i in 4" :key="i" class="h-14 w-full" />
-                      </div>
-                      <div
-                        v-else-if="!effectivePermissionItems.length"
-                        class="rounded-md border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500 dark:border-white/10"
-                      >
-                        {{ t("agent.effectivePermissions.empty") }}
-                      </div>
-                      <div v-else class="space-y-2">
-                        <div
-                          v-for="item in effectivePermissionItems"
-                          :key="`${item.capability_uuid}:${item.permission_code}`"
-                          class="rounded-md border border-gray-100 p-3 dark:border-white/10"
-                        >
-                          <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                              <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {{ item.display_name || item.capability_id }}
-                              </div>
-                              <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
-                                <UBadge size="xs" color="neutral" variant="soft">
-                                  {{ item.permission_code }}
-                                </UBadge>
-                                <span>{{ item.plugin_id }}</span>
-                              </div>
-                            </div>
-                            <UBadge
-                              size="xs"
-                              :color="effectivePermissionStatusColor(item.effective_allowed)"
-                              variant="soft"
-                            >
-                              {{ effectivePermissionStatusLabel(item.effective_allowed) }}
-                            </UBadge>
-                          </div>
-                          <div class="mt-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
-                            <div>
-                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.user") }}</span>
-                              <div class="font-medium" :class="item.user_allowed ? 'text-emerald-600' : 'text-gray-500'">
-                                {{ effectivePermissionStatusLabel(item.user_allowed) }}
-                              </div>
-                            </div>
-                            <div>
-                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.agent") }}</span>
-                              <div class="font-medium" :class="item.agent_allowed ? 'text-emerald-600' : 'text-gray-500'">
-                                {{ effectivePermissionStatusLabel(item.agent_allowed) }}
-                              </div>
-                            </div>
-                            <div>
-                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.tenant") }}</span>
-                              <div class="font-medium" :class="item.tenant_enabled ? 'text-emerald-600' : 'text-gray-500'">
-                                {{ effectivePermissionStatusLabel(item.tenant_enabled) }}
-                              </div>
-                            </div>
-                            <div>
-                              <span class="text-gray-400">{{ t("agent.effectivePermissions.columns.policy") }}</span>
-                              <div class="font-medium" :class="item.policy_allowed ? 'text-emerald-600' : 'text-gray-500'">
-                                {{ effectivePermissionStatusLabel(item.policy_allowed) }}
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            v-if="!item.effective_allowed"
-                            class="mt-2 text-xs text-amber-700 dark:text-amber-300"
-                          >
-                            {{ t("agent.effectivePermissions.columns.reason") }}:
-                            {{ effectivePermissionReasonLabel(item.deny_reason) }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-              </UPopover>
-              <UButton
-                v-if="currentAgentId"
-                size="xs"
-                variant="ghost"
-                icon="i-heroicons-bug-ant"
-                :to="hasCurrentTraceSession ? currentTraceSessionUrl : undefined"
-                :disabled="!hasCurrentTraceSession"
-                :title="currentTraceSessionTitle"
-              >
-                运行追踪
-              </UButton>
               <UButton
                 v-if="workspaceMode !== 'smart'"
                 size="xs"

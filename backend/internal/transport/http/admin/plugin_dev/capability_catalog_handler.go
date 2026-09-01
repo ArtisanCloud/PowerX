@@ -1,12 +1,15 @@
 package plugin_dev
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -62,6 +65,7 @@ type catalogDescriptorMetadata struct {
 	Description     string
 	DescriptionI18n map[string]string
 	PermissionCodes []string
+	Permissions     []catalogPluginPermissionDeclaration
 	RiskLevel       string
 	AgentUsable     *bool
 }
@@ -83,6 +87,37 @@ type catalogDescriptorDoc struct {
 		Resource string   `yaml:"resource"`
 		Actions  []string `yaml:"actions"`
 	} `yaml:"rbac"`
+	Permissions []catalogPluginPermissionDeclaration `yaml:"permissions"`
+}
+
+type catalogPluginPermissionDeclaration struct {
+	Type                   string                             `json:"type" yaml:"type"`
+	PermissionCode         string                             `json:"permission_code" yaml:"permission_code"`
+	Module                 string                             `json:"module,omitempty" yaml:"module"`
+	TitleI18n              map[string]string                  `json:"title_i18n" yaml:"title_i18n"`
+	DescriptionI18n        map[string]string                  `json:"description_i18n" yaml:"description_i18n"`
+	RiskLevel              string                             `json:"risk_level" yaml:"risk_level"`
+	DataScope              string                             `json:"data_scope,omitempty" yaml:"data_scope"`
+	DefaultRoleGrants      []string                           `json:"default_role_grants,omitempty" yaml:"default_role_grants"`
+	BusinessPermissionCode string                             `json:"business_permission_code,omitempty" yaml:"business_permission_code"`
+	Independent            bool                               `json:"independent,omitempty" yaml:"independent"`
+	ProtocolBindings       []catalogPermissionProtocolBinding `json:"protocol_bindings,omitempty" yaml:"protocol_bindings"`
+}
+
+type catalogPermissionProtocolBinding struct {
+	Channel       string `json:"channel" yaml:"channel"`
+	Method        string `json:"method" yaml:"method"`
+	Path          string `json:"path" yaml:"path"`
+	ActorContext  string `json:"actor_context" yaml:"actor_context"`
+	ResourceScope string `json:"resource_scope" yaml:"resource_scope"`
+}
+
+type localPermissionSnapshot struct {
+	PluginID        string   `json:"plugin_id"`
+	Source          string   `json:"source"`
+	PermissionCodes []string `json:"permission_codes"`
+	PermsHash       string   `json:"perms_hash"`
+	PolicyVersion   string   `json:"policy_version"`
 }
 
 type capabilityCatalogAsset struct {
@@ -108,6 +143,11 @@ func (h *handler) syncCapabilityCatalog(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid capability catalog payload", err)
 		return
 	}
+	localSnapshot, err := localPermissionSnapshotFromCatalog(req)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
+		return
+	}
 	artifactPath, cleanup, err := materializeCapabilityCatalog(req)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
@@ -126,9 +166,10 @@ func (h *handler) syncCapabilityCatalog(c *gin.Context) {
 		zap.Int("capability_count", len(req.Catalog.Entries)),
 	)
 	dto.ResponseSuccess(c, gin.H{
-		"plugin_id":        req.Catalog.PluginID,
-		"manifest_version": req.Catalog.ManifestVersion,
-		"capability_count": len(req.Catalog.Entries),
+		"plugin_id":                 req.Catalog.PluginID,
+		"manifest_version":          req.Catalog.ManifestVersion,
+		"capability_count":          len(req.Catalog.Entries),
+		"local_permission_snapshot": localSnapshot,
 	})
 }
 
@@ -216,6 +257,10 @@ func buildSyncCapabilities(catalog capabilityCatalogSnapshot, exposurePermission
 		if risk := strings.TrimSpace(descriptor.RiskLevel); risk != "" {
 			annotations["risk_level"] = risk
 		}
+		permissions := normalizeCatalogPluginPermissions(descriptor.Permissions)
+		if len(permissions) > 0 {
+			annotations["permissions"] = permissions
+		}
 		out = append(out, map[string]interface{}{
 			"id":           id,
 			"title":        firstNonEmpty(strings.TrimSpace(entry.Title), strings.TrimSpace(descriptor.Title), firstCatalogLocaleValue(titleI18n), id),
@@ -223,6 +268,7 @@ func buildSyncCapabilities(catalog capabilityCatalogSnapshot, exposurePermission
 			"categories":   entry.Tags,
 			"tool_scope":   permissionCodes,
 			"protocols":    protocolsForSync(entry),
+			"permissions":  permissions,
 			"annotations":  annotations,
 			"status":       "published",
 			"published_at": now,
@@ -265,11 +311,83 @@ func descriptorMetadataFromCatalogAssets(pluginID string, entries []capabilityCa
 			Description:     strings.TrimSpace(doc.Description),
 			DescriptionI18n: cleanCatalogLocaleMap(doc.DescriptionI18n),
 			PermissionCodes: permissionCodesFromDescriptor(pluginID, doc),
+			Permissions:     normalizeCatalogPluginPermissions(doc.Permissions),
 			RiskLevel:       firstNonEmpty(strings.TrimSpace(doc.Agent.RiskLevel), strings.TrimSpace(doc.Security.RiskLevel)),
 			AgentUsable:     doc.Agent.Usable,
 		}
 	}
 	return out, nil
+}
+
+func localPermissionSnapshotFromCatalog(req capabilityCatalogRequest) (localPermissionSnapshot, error) {
+	descriptors, err := descriptorMetadataFromCatalogAssets(req.Catalog.PluginID, req.Catalog.Entries, req.Assets)
+	if err != nil {
+		return localPermissionSnapshot{}, err
+	}
+	codes := make([]string, 0)
+	for _, descriptor := range descriptors {
+		for _, permission := range descriptor.Permissions {
+			code := strings.TrimSpace(permission.PermissionCode)
+			if code == "" {
+				continue
+			}
+			codes = append(codes, code)
+		}
+	}
+	codes = dedupeCatalogStrings(codes)
+	sort.Strings(codes)
+	hash := localPermissionCodesHash(codes)
+	return localPermissionSnapshot{
+		PluginID:        strings.TrimSpace(req.Catalog.PluginID),
+		Source:          "local_mock",
+		PermissionCodes: codes,
+		PermsHash:       hash,
+		PolicyVersion:   localPermissionPolicyVersion(hash),
+	}, nil
+}
+
+func normalizeCatalogPluginPermissions(in []catalogPluginPermissionDeclaration) []catalogPluginPermissionDeclaration {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]catalogPluginPermissionDeclaration, 0, len(in))
+	for _, permission := range in {
+		permission.Type = strings.TrimSpace(permission.Type)
+		permission.PermissionCode = strings.TrimSpace(permission.PermissionCode)
+		permission.Module = strings.TrimSpace(permission.Module)
+		permission.TitleI18n = cleanCatalogLocaleMap(permission.TitleI18n)
+		permission.DescriptionI18n = cleanCatalogLocaleMap(permission.DescriptionI18n)
+		permission.RiskLevel = strings.TrimSpace(permission.RiskLevel)
+		permission.DataScope = strings.TrimSpace(permission.DataScope)
+		permission.BusinessPermissionCode = strings.TrimSpace(permission.BusinessPermissionCode)
+		permission.DefaultRoleGrants = dedupeCatalogStrings(permission.DefaultRoleGrants)
+		for idx, binding := range permission.ProtocolBindings {
+			permission.ProtocolBindings[idx] = catalogPermissionProtocolBinding{
+				Channel:       strings.TrimSpace(binding.Channel),
+				Method:        strings.ToUpper(strings.TrimSpace(binding.Method)),
+				Path:          strings.TrimSpace(binding.Path),
+				ActorContext:  strings.TrimSpace(binding.ActorContext),
+				ResourceScope: strings.TrimSpace(binding.ResourceScope),
+			}
+		}
+		out = append(out, permission)
+	}
+	return out
+}
+
+func localPermissionCodesHash(items []string) string {
+	codes := dedupeCatalogStrings(items)
+	sort.Strings(codes)
+	sum := sha256.Sum256([]byte(strings.Join(codes, "\n")))
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func localPermissionPolicyVersion(permsHash string) string {
+	permsHash = strings.TrimSpace(permsHash)
+	if permsHash == "" {
+		return ""
+	}
+	return "iam:" + permsHash
 }
 
 func permissionCodesFromDescriptor(pluginID string, doc catalogDescriptorDoc) []string {

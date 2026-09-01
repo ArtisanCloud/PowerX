@@ -6,9 +6,13 @@ import { computed, watch, onBeforeUnmount } from "vue";
 import { useI18n } from "#imports";
 import { useThinkParser } from "~/composables/agent/useThinkParser";
 import { useMessageTypewriter } from "~/composables/agent/useTypewriter";
+import { useUserStore } from "~/stores/user";
 import ThinkBlock from "~/components/agent/ThinkBlock.vue";
 import AgentMarkdown from "~/components/agent/AgentMarkdown.vue";
+import AgentTraceReportModal from "~/components/agent/trace/AgentTraceReportModal.vue";
+import type { AgentTraceQuery } from "~/composables/api/types/agentTrace";
 import { MESSAGE_TYPES } from "~/types/message";
+import { isAgentResponseEnvelope, renderAgentResponseEnvelope } from "~/utils/agent/responseEnvelope";
 
 declare global {
   interface Window {
@@ -33,7 +37,8 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const localePath = useLocalePath();
+const userStore = useUserStore();
+const traceModalOpen = ref(false);
 
 const canRegenerateFromThisUserMessage = computed(() => {
   const m: any = props.message as any;
@@ -46,7 +51,9 @@ const canRegenerateFromThisUserMessage = computed(() => {
 
 // 原始完整文本
 const normalizedRawContent = computed(() => {
-  const c = (props.message as any)?.content;
+	const envelope = (props.message as any)?.meta?.responseEnvelope ?? (props.message as any)?.metadata?.response_envelope;
+	if (isAgentResponseEnvelope(envelope)) return renderAgentResponseEnvelope(envelope, t);
+	const c = (props.message as any)?.content;
   if (typeof c === "string") return c;
   // ✅ 单对象（MessageContent）
   if (c && typeof c === "object" && !Array.isArray(c)) {
@@ -303,6 +310,7 @@ const traceMeta = computed(() => {
     tenantUUID,
     sessionID,
     messageID,
+    runID: String(meta.run_id || meta.runId || "").trim(),
     traceID: String(meta.trace_id || "").trim(),
   };
 });
@@ -310,7 +318,6 @@ const traceMeta = computed(() => {
 const fallbackTraceMeta = computed(() => {
   const m: any = props.message as any;
   if (m?.role !== "assistant") return null;
-  if (m?.isError !== true && m?.status !== "error") return null;
   const msgMeta = m?.meta || m?.metadata || {};
   const tenantUUID = String(
     props.fallbackTraceTenantUuid ||
@@ -338,22 +345,29 @@ const fallbackTraceMeta = computed(() => {
     tenantUUID,
     sessionID,
     messageID,
+    runID: String(msgMeta?.run_id || msgMeta?.runId || msgMeta?.run_state?.run?.run_id || msgMeta?.runState?.run?.run_id || "").trim(),
     traceID: String(msgMeta?.trace_id || msgMeta?.trace?.trace_id || "").trim(),
   };
 });
 
 const resolvedTraceMeta = computed(() => traceMeta.value || fallbackTraceMeta.value);
 
-const traceUrl = computed(() => {
-  if (!resolvedTraceMeta.value) return "";
-  const q = new URLSearchParams({
+const traceQuery = computed<AgentTraceQuery | null>(() => {
+  if (!userStore.isRoot || !resolvedTraceMeta.value) return null;
+  const runID = resolvedTraceMeta.value.runID || String(runStateMeta.value?.run?.run_id || "").trim();
+  if (!runID) return null;
+  return {
     tenant_uuid: resolvedTraceMeta.value.tenantUUID,
     session_id: resolvedTraceMeta.value.sessionID,
     message_id: resolvedTraceMeta.value.messageID,
-  });
-  if (resolvedTraceMeta.value.traceID) q.set("trace_id", resolvedTraceMeta.value.traceID);
-  return `${localePath("/agent/traces")}?${q.toString()}`;
+    run_id: runID,
+    trace_id: resolvedTraceMeta.value.traceID || undefined,
+  };
 });
+
+const openTraceReport = () => {
+  if (traceQuery.value) traceModalOpen.value = true;
+};
 
 const messageTracePayload = computed(() =>
   buildTracePayload({ error: (props.message as any)?.content })
@@ -505,11 +519,18 @@ const errorText = (value: any): string => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "";
   return String(value.message || value.error || value.code || value.detail || "").trim();
 };
+const isFailureStatus = (status: any) => {
+  const value = String(status || "")
+    .trim()
+    .toLowerCase();
+  return value === "failed" || value === "canceled" || value === "cancelled";
+};
 const compactObject = (value: Record<string, any>) =>
   Object.fromEntries(Object.entries(value).filter(([, item]) => item !== "" && item !== undefined && item !== null));
 const buildTracePayload = (task?: any) => {
   const run = runStateMeta.value?.run && typeof runStateMeta.value.run === "object" ? runStateMeta.value.run : {};
   const meta = resolvedTraceMeta.value;
+  const failed = isFailureStatus(task?.status);
   return compactObject({
     tenant_uuid: meta?.tenantUUID || (props.message as any)?.meta?.tenant_uuid || (props.message as any)?.metadata?.tenant_uuid,
     trace_id: task?.trace_id || run.trace_id || meta?.traceID,
@@ -526,7 +547,8 @@ const buildTracePayload = (task?: any) => {
     action: task?.action,
     status: task?.status,
     request_id: task?.request_id || task?.error?.request_id || task?.result?.request_id,
-    error: errorText(task?.error ?? task?.result ?? task?.message ?? task?.summary),
+    result: failed ? undefined : task?.result,
+    error: failed ? errorText(task?.error ?? task?.message ?? task?.summary) : errorText(task?.error),
   });
 };
 const copyTracePayload = (task?: any) => {
@@ -771,15 +793,6 @@ const downloadFile = (url: string, downloadUrl?: string) => {
               }}</span>
             </div>
           </div>
-          <UButton
-            v-if="message.role === 'assistant' && traceUrl"
-            size="xs"
-            :variant="(message as any).isError ? 'soft' : 'ghost'"
-            icon="i-heroicons-bug-ant"
-            :to="traceUrl"
-          >
-            追踪本轮
-          </UButton>
         </div>
 
         <!-- 执行过程：只消费 Agent Run State Protocol -->
@@ -1301,7 +1314,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
         <!-- 操作区 -->
         <div
           class="flex items-center space-x-2 mt-3 transition-opacity"
-          :class="(message as any).isError ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+          :class="(message as any).isError || traceQuery ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
         >
           <UButton
             v-if="canRegenerateFromThisUserMessage"
@@ -1317,16 +1330,16 @@ const downloadFile = (url: string, downloadUrl?: string) => {
             variant="ghost"
             icon="i-heroicons-arrow-path"
             @click="emit('retry')"
-            >重试</UButton
+            >{{ t("common.retry") }}</UButton
           >
           <UButton
-            v-if="message.role === 'assistant' && traceUrl"
+            v-if="message.role === 'assistant' && traceQuery"
             size="xs"
             :variant="(message as any).isError ? 'soft' : 'ghost'"
             icon="i-heroicons-bug-ant"
-            :to="traceUrl"
+            @click="openTraceReport"
           >
-            追踪本轮
+            {{ t("agent.chat.traceThisRun") }}
           </UButton>
           <UButton
             v-if="(message as any).isError"
@@ -1360,6 +1373,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
         </div>
       </div>
     </div>
+    <AgentTraceReportModal v-model="traceModalOpen" :query="traceQuery" />
   </div>
 </template>
 

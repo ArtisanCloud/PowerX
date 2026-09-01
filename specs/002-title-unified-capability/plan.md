@@ -17,7 +17,7 @@
   the iteration process.
 -->
 
-**Language/Version**: Go 1.24  
+**Language/Version**: Go 1.26.7
 **Primary Dependencies**: `github.com/gin-gonic/gin`, `google.golang.org/grpc`, `github.com/bufbuild/buf` toolchain, `gorm.io/gorm`  
 **Client SDK**: 复用现有 PowerX gRPC SDK（现成生成的客户端封装直接消费 CapabilityRegistryService）  
 **Storage**: Postgres（CoreX 多租户实例 + `gorm.io/gorm`）  

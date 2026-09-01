@@ -2,8 +2,11 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/service"
@@ -47,6 +50,9 @@ type MeContextResp struct {
 	CurrentMemberUUID string          `json:"current_member_uuid,omitempty"`
 	User              *MeUserBrief    `json:"user,omitempty"`
 	Members           []MeMemberBrief `json:"members"`
+	PermissionCodes   []string        `json:"permission_codes"`
+	PolicyVersion     string          `json:"policy_version"`
+	PermsHash         string          `json:"perms_hash"`
 }
 
 type UpdateMyProfileInput struct {
@@ -240,6 +246,11 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 		}
 	}
 
+	permissionCodes, permsHash, policyVersion, err := s.currentPermissionSnapshot(ctx, isRoot, tenantUUID, currentMemberID)
+	if err != nil {
+		return nil, dto.NewError(http.StatusInternalServerError, "查询授权快照失败", err)
+	}
+
 	return &MeContextResp{
 		IsRoot:            isRoot,
 		CurrentTenantUUID: tenantUUID,
@@ -247,7 +258,115 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 		CurrentMemberUUID: memberUUID,
 		User:              userBrief,
 		Members:           brs,
+		PermissionCodes:   permissionCodes,
+		PermsHash:         permsHash,
+		PolicyVersion:     policyVersion,
 	}, nil
+}
+
+func (s *MeService) currentPermissionSnapshot(ctx context.Context, isRoot bool, tenantUUID string, currentMemberID *uint64) ([]string, string, string, error) {
+	if s == nil || s.DB == nil {
+		return nil, "", "", nil
+	}
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	var rows []modelIAM.Permission
+	query := s.DB.WithContext(ctx).
+		Table((&modelIAM.Permission{}).GetTableName(true)+" AS p").
+		Select("DISTINCT p.*").
+		Where("p.status = ?", modelIAM.PermissionStatusActive)
+	if isRoot {
+		if err := query.Find(&rows).Error; err != nil {
+			return nil, "", "", err
+		}
+	} else {
+		if tenantUUID == "" || currentMemberID == nil || *currentMemberID == 0 {
+			return []string{}, permissionCodesHash(nil), permissionPolicyVersion(permissionCodesHash(nil)), nil
+		}
+		query = query.
+			Joins("JOIN "+(&modelIAM.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
+			Joins("JOIN ("+effectiveRoleIDsForMemberSQL()+") erb ON erb.role_id = rp.role_id", tenantUUID, modelIAM.SubMember, *currentMemberID, tenantUUID, *currentMemberID)
+		if err := query.Find(&rows).Error; err != nil {
+			return nil, "", "", err
+		}
+	}
+
+	codes := make([]string, 0, len(rows))
+	for _, row := range rows {
+		code := permissionCodeFromIAMRow(row)
+		if code != "" {
+			codes = append(codes, code)
+		}
+	}
+	codes = dedupeSortedPermissionCodes(codes)
+	hash := permissionCodesHash(codes)
+	return codes, hash, permissionPolicyVersion(hash), nil
+}
+
+func effectiveRoleIDsForMemberSQL() string {
+	tRB := (&modelIAM.RoleBinding{}).GetTableName(true)
+	tMA := (&modelIAM.MemberAssignment{}).GetTableName(true)
+	return `
+		SELECT DISTINCT rb.role_id
+		FROM ` + tRB + ` rb
+		WHERE rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?
+		UNION
+		SELECT DISTINCT rb.role_id
+		FROM ` + tRB + ` rb
+		JOIN ` + tMA + ` ma
+		  ON ma.tenant_uuid = rb.tenant_uuid
+		 AND rb.subject_id = ma.dim_id
+		 AND rb.subject_type = CASE ma.dim_type
+		   WHEN 'ORG' THEN 'ORG_UNIT'
+		   WHEN 'TEAM' THEN 'TEAM'
+		   WHEN 'POSITION' THEN 'POSITION'
+		   WHEN 'GROUP' THEN 'GROUP'
+		 END
+		WHERE rb.tenant_uuid = ? AND ma.member_id = ?`
+}
+
+func permissionCodeFromIAMRow(row modelIAM.Permission) string {
+	module := strings.TrimSpace(row.Module)
+	resource := strings.TrimSpace(row.Resource)
+	action := strings.TrimSpace(row.Action)
+	if resource == "" || action == "" {
+		return ""
+	}
+	if module == "" {
+		return resource + ":" + action
+	}
+	return module + "." + resource + ":" + action
+}
+
+func dedupeSortedPermissionCodes(items []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, exists := seen[item]; exists {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func permissionCodesHash(items []string) string {
+	codes := dedupeSortedPermissionCodes(items)
+	sum := sha256.Sum256([]byte(strings.Join(codes, "\n")))
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func permissionPolicyVersion(permsHash string) string {
+	permsHash = strings.TrimSpace(permsHash)
+	if permsHash == "" {
+		return ""
+	}
+	return "iam:" + permsHash
 }
 
 // TenantExists 用于 root 跨租户切换时校验目标租户是否存在。

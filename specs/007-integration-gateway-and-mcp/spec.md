@@ -39,6 +39,11 @@
 
 - Q: 插件业务 schedule 是否应该通过 Gateway 暴露为底座能力？ → A: 是，但能力 ID 必须是 `com.corex.scheduler.jobs`，实现归属 `specs/028-runtime-scheduler`；Gateway 只负责 STS/delegated 调用和能力治理，不复用 Event Fabric Cron 运维接口。
 
+### Session 2026-08-10
+
+- Q: 插件页面内按钮、页面访问和业务接口权限是否应该长期放在插件设置页配置？ → A: 否。插件只声明 `menu/page/action/api` 细颗粒度权限，PowerX 在安装/同步时登记到 Capability Registry 与 IAM Permission，并由 PowerX 角色权限中心统一授权；local 模式只模拟同一授权结果。
+- Q: delegated 模式下细颗粒度授权如何传递？ → A: 目标采用 `token claims + gateway pre-check`，复杂或强实时撤权场景采用 `authz/introspection + gateway pre-check`；插件后端必须按同一 `permission_code` 做二次校验。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 3 分钟能力目录同步与治理 (Priority: P1)
@@ -94,6 +99,10 @@
 - MCP Session 中断或心跳超时 → Selector 自动切换至 gRPC 并标记 Session 不健康，直至 `capabilities_hash` 与插件恢复一致。
 - Workflow 节点依赖的插件版本回滚 → Builder/Engine 需检测 hash 变化并提示租户重新发布或选择 fallback 节点。
 - 事件总线不可用 → 调用结果仍需返回，但事件需写入补偿队列，在恢复后补发并对失败次数打点。
+- 插件权限声明缺少用户可见 i18n 元数据 → 同步失败并显示可操作错误，不允许使用 `capability_id` 或 raw route 作为主展示文案。
+- 插件只声明 API binding 但没有对应 `menu/page/action` 业务授权项 → 同步失败，除非该接口本身被明确标记为独立可授权业务能力。
+- 同一路径不同 HTTP method 绑定不同动作 → Gateway 必须精确匹配 method，不得因 `GET` 授权隐式放开 `POST/PUT/PATCH/DELETE`。
+- token claims 中权限版本过期 → Gateway 拒绝或触发 introspection，插件后端不得使用过期 claims 静默放行。
 
 ### User Story 4 - Admin 开放能力总览（Priority: P2）
 
@@ -109,6 +118,25 @@
 2. **Given** 普通租户管理员（非 Root）访问“设置”菜单，**When** 渲染侧边栏，**Then** “开放能力”入口不会出现，避免无授权用户访问底座能力说明。
 3. **Given** Registry 新增/下架某平台能力，**When** Admin 页面刷新或触发“立即同步”，**Then** 列表 1 秒内更新数据，并通过 Badge 标记“新”或“已下线”状态；点击“查看契约”可打开对应 OpenAPI/gRPC 文档链接。
 4. **Given** 管理员点击“复制 `tenant/invocations` Snippet”，**When** 页面调用 Selector 提供的模板，**Then** 复制的内容包含 `capability_id`、`preferred_protocol`、租户来源说明（JWT claims）等必要字段，方便宿主/Skeleton 插件直接调用。
+
+---
+
+### User Story 5 - 插件细颗粒度权限统一登记与授权（Priority: P1）
+
+作为租户管理员，我希望插件安装或升级后，PowerX 能把插件声明的菜单、页面、页面内动作和接口权限统一登记到角色权限中心，以便我在一个地方给不同岗位角色授权，而不是进入每个插件设置页重复配置。
+
+**Why this priority**：插件业务权限如果分散在插件设置页、前端按钮判断和后端接口中，会导致菜单、按钮和接口各自为政，出现越权、误隐藏和排障困难。PowerX 必须成为正式角色授权的唯一主入口。
+
+**Independent Test**：准备一个示例插件，其 capability descriptor 声明 `menu/page/action/api` 权限，其中每个插件后台业务页面都有 `type=page` 与 GET `protocol_bindings`。安装并同步后，在 PowerX 角色权限页给一个角色只授予 `example.record:read` 与 `example.record:approve`，验证菜单/页面/按钮可见性、Gateway 预检和插件后端二次校验均按同一 `permission_code` 生效。
+
+**Acceptance Scenarios**：
+
+1. **Given** 插件包声明 `example.record:approve` 且绑定 `POST /records/*/approve`，**When** Capability Sync Worker 校验成功，**Then** Registry 中出现对应 `source=plugin` 能力，IAM Permission 中出现同一 `permission_code`，并可在角色权限页看到本地化标题。
+2. **Given** 插件声明缺少 `permission_code`、i18n key、REST method、`actor_context`、`resource_scope`，或后台业务页面缺少 `type=page` GET binding，**When** 插件安装/同步执行，**Then** 同步失败并记录 `capability.catalog.sync_failed`，不得把该能力降级成粗权限或静默忽略。
+3. **Given** 角色没有 `example.record:delete`，**When** 用户访问删除按钮或直接调用 `POST /records/*/delete`，**Then** 前端不展示按钮，Gateway 拒绝未授权请求，插件后端二次校验也返回明确 403。
+4. **Given** 插件运行在 local 模式，**When** 开发者配置本地模拟角色，**Then** local 模式读取同一份权限声明生成授权结果，字段结构与 delegated 模式一致，不产生独立正式授权语义。
+5. **Given** 插件打包 release，**When** 执行发布检查，**Then** 检查对象必须是合并 catalog 后的 effective manifest，并通过 route dump / 后端 RBAC route 表与 `permissions[].protocol_bindings` 的差异审计。
+6. **Given** 旧插件仍使用粗权限 `legacy.record:read/manage`，**When** 升级到细颗粒度权限模型，**Then** 系统输出迁移报告和缺失授权清单；缺少细权限时明确失败，不保留长期兼容分支。
 
 ## Requirements *(mandatory)*
 
@@ -147,6 +175,13 @@
 - **FR-031**: delegated 模式下，插件启用完成后必须执行 Gateway 契约探活（health + dry-run）；探活目标由接口元数据决策（`auth_required`、`tenant_scoped`），不得写死到单一路径；失败时返回 `enable_failed_gateway_contract` 并记录审计字段 `gateway_base_url_present`、`sts_client_present`、`auth_scheme`、`tenant_uuid_present`。
 - **FR-032**: 插件调用 PowerX Gateway 时，凭证策略必须由接口元数据驱动而非 URL 前缀驱动：`auth_required=true` 走 STS exchange，`tenant_scoped=true` 的交换结果必须包含 tenant claim；`auth_required=false` 的开放接口允许匿名调用。
 - **FR-033**: 平台必须将 Runtime Scheduler 纳入 `source=corex` 的能力目录，能力 ID 固定为 `com.corex.scheduler.jobs`，scope 至少包含 `scheduler.job.read`、`scheduler.job.manage`、`scheduler.job.run`；插件通过 STS/delegated gateway 调用该能力，禁止通过 Gateway 暴露 `/admin/event-fabric/cron/jobs` 作为插件业务 scheduler。
+- **FR-034**: Capability Sync Worker 必须支持插件细颗粒度权限声明，覆盖 `menu/page/action/api` 类型、`permission_code`、`title_i18n`、`description_i18n`、`risk_level`、`default_role_grants`、REST/gRPC/MCP binding 与数据范围字段。
+- **FR-035**: 插件权限声明同步成功后，PowerX 必须将 `source=plugin` 的授权项写入 Capability Registry，并同步到 IAM Permission；角色授权必须绑定 `permission_code`，不得绑定 URL、数字 ID 或临时 action key。
+- **FR-036**: 管理端角色权限页必须按插件、模块、菜单、页面和动作分组展示插件权限；用户可见标题和描述必须来自 i18n 元数据，UUID、`capability_id` 和 raw route 只能作为调试/审计元数据展示。
+- **FR-037**: Gateway 对进入插件的用户态请求必须按 `plugin_id + method + path + permission_code` 做预检；插件后端必须按同一 `permission_code` 做二次校验。缺少 binding 或缺少授权上下文时必须拒绝，不允许放行。
+- **FR-038**: delegated 模式的权限传递必须支持 `permission claims + policy_version/perms_hash` 或 `authz/introspection`；权限版本过期、claims 缺失、introspection 失败或主体上下文缺失时必须 fail-fast。版本过期和 hash mismatch 的判断必须来自 PowerX signed context、短期 signed claims 或 introspection。
+- **FR-039**: local 模式必须读取同一份插件权限声明来模拟 PowerX 授权结果，输出字段与 delegated 模式一致；插件设置页不得成为正式角色授权入口，local 不得维护另一份正式授权定义。
+- **FR-040**: 旧粗权限升级到细颗粒度权限时，系统必须输出迁移报告和缺失授权清单；不得长期保留旧 permission_code、旧字段名或兼容 alias 作为运行时授权路径。
 
 #### Gateway Proxy Envelope（请求/响应）
 
@@ -206,6 +241,9 @@
 - **GatewayAPIKey**: 租户 API Key 主实体，记录 `tenant_uuid/name/key_prefix/key_hash/status/expires_at/last_used_at`。
 - **GatewayAPIKeyPermission**: API Key 权限映射实体，记录 `scope/action/resource_pattern/plugin_id/effect`。
 - **GatewayAPIKeyAuditLog**: API Key 调用审计实体，记录 `api_key_id/path/method/result/reason/trace_id/requested_at`。
+- **PluginPermissionDeclaration**: 插件提交的细颗粒度权限声明，字段包含 `capability_id`, `plugin_id`, `type=menu|page|action|api`, `permission_code`, `module`, `title_i18n`, `description_i18n`, `risk_level`, `default_role_grants`, `data_scope` 与 protocol bindings。
+- **PermissionProtocolBinding**: 描述接口与业务权限的绑定关系，字段包含 `protocol`, `method`, `path/rpc/tool`, `actor_context`, `resource_scope`, `permission_code`；Gateway 和插件后端 enforcement 均以此为准。
+- **EffectivePluginPermissionSnapshot**: 当前用户在某租户、某插件下的有效权限快照，字段包含 `tenant_uuid`, `member_uuid`, `plugin_id`, `permission_codes[]`, `policy_version` 或 `perms_hash`，用于 token claims 或 introspection 响应。
 
 ## Success Criteria *(mandatory)*
 
@@ -217,9 +255,12 @@
 - **SC-004**: Workflow Builder 导入插件模板后，80% 的新建 Workflow 能直接复用插件节点并在一次执行内完成编排；对于复合任务，95% 的节点在策略调整或插件更新后无需重新配置即可继续运行。
 - **SC-005**: 100% Gateway 入口支持 API Key + JWT 双鉴权，并在 API Key 命中时记录 `auth_source=api_key`。
 - **SC-006**: 95% API Key 请求在 1 分钟内可按 `api_key_id`/`tenant_uuid`/`trace_id` 检索到审计记录。
+- **SC-007**: 100% 已启用插件的 `menu/page/action/api` 权限声明在安装/升级后 3 分钟内进入 Registry 与 IAM Permission；声明不完整的插件同步失败可被审计查询准确检索。
+- **SC-008**: 对示例插件的三类角色授权矩阵回归中，菜单、页面、按钮、Gateway 和插件后端二次校验的允许与拒绝结果 100% 一致。
 
 ## Assumptions
 
 - 插件与 CLI 已按《006/多插件指南》完成能力声明、协议资产与 lint；本特性仅消费其产物。
 - Registry、EventBus、Redis、Postgres 基础设施具备既定 SLA，本特性默认它们可用并只在失败时做补偿。
 - 平台已有 Tool Grant、安全审计与追踪基础能力，本特性复用其接口，不新增独立的身份或计费系统。
+- 插件正式角色授权由 PowerX 统一权限中心负责；插件设置页只用于 local 调试、业务配置或登记状态展示。

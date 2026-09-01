@@ -26,15 +26,16 @@ const (
 
 // 插件凭证（落在 value_json）
 type ClientCredential struct {
-	ClientID          string   `json:"client_id"`
-	ClientSecretHash  string   `json:"client_secret_hash"`
-	SecretVersion     int      `json:"secret_version,omitempty"` // 可选：便于灰度/双活切换
-	AllowedAudiences  []string `json:"allowed_audiences,omitempty"`
-	AllowedScopes     []string `json:"allowed_scopes,omitempty"`
-	AllowedActorKinds []string `json:"allowed_actor_kinds,omitempty"` // e.g. USER/CUSTOMER/SUPPLIER...
-	ExpiresAt         *int64   `json:"expires_at,omitempty"`          // unix 秒，可选
-	IssuedAt          int64    `json:"issued_at"`                     // unix 秒
-	RotatedAt         *int64   `json:"rotated_at,omitempty"`
+	ClientID            string   `json:"client_id"`
+	ClientSecretHash    string   `json:"client_secret_hash"`
+	SecretVersion       int      `json:"secret_version,omitempty"` // 可选：便于灰度/双活切换
+	AllowedAudiences    []string `json:"allowed_audiences,omitempty"`
+	AllowedScopes       []string `json:"allowed_scopes,omitempty"`
+	AllowedActorKinds   []string `json:"allowed_actor_kinds,omitempty"` // e.g. USER/CUSTOMER/SUPPLIER...
+	AllowedCapabilities []string `json:"allowed_capabilities,omitempty"`
+	ExpiresAt           *int64   `json:"expires_at,omitempty"` // unix 秒，可选
+	IssuedAt            int64    `json:"issued_at"`            // unix 秒
+	RotatedAt           *int64   `json:"rotated_at,omitempty"`
 }
 
 // Service
@@ -129,6 +130,7 @@ func (s *PluginInstanceConfigService) EnsureCredentials(
 		cc.AllowedAudiences = opts.AllowedAudiences
 		cc.AllowedScopes = opts.AllowedScopes
 		cc.AllowedActorKinds = opts.AllowedActorKinds
+		cc.AllowedCapabilities = opts.AllowedCapabilities
 		cc.ExpiresAt = opts.ExpiresAt
 	}
 	b, _ := json.Marshal(cc)

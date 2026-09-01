@@ -131,7 +131,7 @@ message MarketplaceListing {
 }
 
 message ImportOfflinePackageRequest {
-  string tenant_uuid = 1;
+  reserved 1;
   string package_uri = 2;
   string checksum = 3;
   bool dry_run = 4;
@@ -143,8 +143,8 @@ message ImportOfflinePackageResponse {
 }
 
 message StartLocalInstallRequest {
-  string tenant_uuid = 1;
-  uint64 developer_id = 2;
+  reserved 1;
+  string developer_member_uuid = 2;
   string artifact_uri = 3;
   repeated string feature_flags = 4;
   bool reset_cache = 5;
@@ -152,13 +152,13 @@ message StartLocalInstallRequest {
 
 message GetLocalInstallSessionRequest {
   string session_id = 1;
-  string tenant_uuid = 2;
+  reserved 2;
 }
 
 message LocalInstallSession {
   string session_id = 1;
   string tenant_uuid = 2;
-  uint64 developer_id = 3;
+  string developer_member_uuid = 3;
   string artifact_uri = 4;
   repeated string feature_flags = 5;
   string status = 6;

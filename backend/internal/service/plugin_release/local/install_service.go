@@ -46,12 +46,12 @@ type SignatureVerifier interface {
 
 // PermissionChecker validates tenant/developer combinations.
 type PermissionChecker interface {
-	EnsureDeveloperAllowed(ctx context.Context, tenantUUID string, developerID uint64) error
+	EnsureDeveloperAllowed(ctx context.Context, tenantUUID, developerMemberUUID string) error
 }
 
 // CacheController coordinates cache invalidation for hotload assets.
 type CacheController interface {
-	ResetDeveloperCache(ctx context.Context, tenantUUID string, developerID uint64) error
+	ResetDeveloperCache(ctx context.Context, tenantUUID, developerMemberUUID string) error
 	OnSessionStarted(ctx context.Context, session *models.LocalInstallSession) error
 	OnSessionStopped(ctx context.Context, sessionID uuid.UUID, status string) error
 }
@@ -103,12 +103,12 @@ type InstallService struct {
 
 // StartInput contains data necessary to start a local hotload session.
 type StartInput struct {
-	TenantUUID   string
-	DeveloperID  uint64
-	ArtifactURI  string
-	FeatureFlags []string
-	ResetCache   bool
-	Actor        string
+	TenantUUID          string
+	DeveloperMemberUUID string
+	ArtifactURI         string
+	FeatureFlags        []string
+	ResetCache          bool
+	Actor               string
 }
 
 // StopInput captures information for stopping a session.
@@ -165,7 +165,7 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	tenantUUID := strings.TrimSpace(input.TenantUUID)
 
 	if s.perm != nil {
-		if err := s.perm.EnsureDeveloperAllowed(ctx, tenantUUID, input.DeveloperID); err != nil {
+		if err := s.perm.EnsureDeveloperAllowed(ctx, tenantUUID, input.DeveloperMemberUUID); err != nil {
 			if errors.Is(err, ErrPermissionDenied) {
 				return nil, ErrPermissionDenied
 			}
@@ -200,13 +200,13 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	}
 
 	if input.ResetCache && s.cache != nil {
-		if err := s.cache.ResetDeveloperCache(ctx, tenantUUID, input.DeveloperID); err != nil {
+		if err := s.cache.ResetDeveloperCache(ctx, tenantUUID, input.DeveloperMemberUUID); err != nil {
 			return nil, err
 		}
 	}
 
 	// prevent duplicate in-progress sessions for same developer within tenant
-	existing, err := s.repo.GetActiveSession(ctx, tenantUUID, input.DeveloperID)
+	existing, err := s.repo.GetActiveSession(ctx, tenantUUID, input.DeveloperMemberUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -226,13 +226,13 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	}
 
 	session := &models.LocalInstallSession{
-		TenantUUID:   tenantUUID,
-		DeveloperID:  input.DeveloperID,
-		ArtifactURI:  strings.TrimSpace(input.ArtifactURI),
-		Status:       models.LocalInstallStatusInProgress,
-		FeatureFlags: featureFlags,
-		LogPointers:  logPointers,
-		ExpiredAt:    &expiredAt,
+		TenantUUID:          tenantUUID,
+		DeveloperMemberUUID: strings.TrimSpace(input.DeveloperMemberUUID),
+		ArtifactURI:         strings.TrimSpace(input.ArtifactURI),
+		Status:              models.LocalInstallStatusInProgress,
+		FeatureFlags:        featureFlags,
+		LogPointers:         logPointers,
+		ExpiredAt:           &expiredAt,
 	}
 
 	created, err := s.repo.CreateSession(ctx, session)
@@ -269,7 +269,7 @@ func (s *InstallService) Stop(ctx context.Context, input StopInput) error {
 		return fmt.Errorf("%w: tenant_uuid is required", ErrInvalidInput)
 	}
 
-	session, err := s.repo.GetSessionByUUID(ctx, input.SessionID)
+	session, err := s.repo.GetSessionByTenantUUID(ctx, tenantUUID, input.SessionID)
 	if err != nil {
 		return err
 	}
@@ -313,8 +313,8 @@ func (s *InstallService) validateStartInput(input StartInput) error {
 	if strings.TrimSpace(input.TenantUUID) == "" {
 		return errors.New("tenant_uuid must be provided")
 	}
-	if input.DeveloperID == 0 {
-		return errors.New("developer_id must be positive")
+	if _, err := uuid.Parse(strings.TrimSpace(input.DeveloperMemberUUID)); err != nil {
+		return errors.New("developer_member_uuid must be a UUID")
 	}
 	if strings.TrimSpace(input.ArtifactURI) == "" {
 		return errors.New("artifact_uri is required")
@@ -368,11 +368,11 @@ func ExtractFeatureFlags(raw datatypes.JSON) []string {
 }
 
 // Get retrieves a local install session by UUID.
-func (s *InstallService) Get(ctx context.Context, sessionID uuid.UUID) (*models.LocalInstallSession, error) {
+func (s *InstallService) Get(ctx context.Context, tenantUUID string, sessionID uuid.UUID) (*models.LocalInstallSession, error) {
 	if sessionID == uuid.Nil {
 		return nil, fmt.Errorf("%w: session_id is required", ErrInvalidInput)
 	}
-	session, err := s.repo.GetSessionByUUID(ctx, sessionID)
+	session, err := s.repo.GetSessionByTenantUUID(ctx, tenantUUID, sessionID)
 	if err != nil {
 		return nil, err
 	}

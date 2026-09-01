@@ -40,6 +40,18 @@ type CreateDefinitionRequest struct {
 	Metadata           map[string]any            `json:"metadata"`
 }
 
+// CreateDefinitionRevisionRequest DTO.
+type CreateDefinitionRevisionRequest struct {
+	Name               string                    `json:"name"`
+	Description        string                    `json:"description"`
+	CreatedBy          string                    `json:"created_by" validate:"omitempty,uuid4"`
+	Steps              []workflow.StepDefinition `json:"steps" validate:"required,dive"`
+	DefaultRetryPolicy map[string]any            `json:"default_retry_policy"`
+	CompensationPolicy map[string]any            `json:"compensation_policy"`
+	SlaPolicy          map[string]any            `json:"sla_policy"`
+	Metadata           map[string]any            `json:"metadata"`
+}
+
 // PublishDefinitionRequest DTO.
 type PublishDefinitionRequest struct {
 	Version     int32  `json:"version"`
@@ -122,6 +134,52 @@ func (h *Handler) CreateDefinition(c *gin.Context) {
 		return
 	}
 
+	dto.ResponseSuccessWithStatus(c, http.StatusCreated, mapDefinition(definition, tenantUUID))
+}
+
+func (h *Handler) CreateDefinitionRevision(c *gin.Context) {
+	if h.svc == nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("workflow service unavailable", nil))
+		return
+	}
+	definitionUUID, err := uuid.Parse(c.Param("definition_uuid"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_uuid", err))
+		return
+	}
+	var req CreateDefinitionRevisionRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid payload", err))
+		return
+	}
+	createdBy := uuid.New()
+	if req.CreatedBy != "" {
+		createdBy, err = uuid.Parse(req.CreatedBy)
+		if err != nil {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid created_by", err))
+			return
+		}
+	}
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+	definition, err := h.svc.CreateDefinitionRevision(c.Request.Context(), workflow.CreateDefinitionRevisionInput{
+		TenantUUID:         tenantUUID,
+		SourceUUID:         definitionUUID,
+		CreatedBy:          createdBy,
+		Name:               strings.TrimSpace(req.Name),
+		Description:        strings.TrimSpace(req.Description),
+		Steps:              req.Steps,
+		DefaultRetryPolicy: req.DefaultRetryPolicy,
+		CompensationPolicy: req.CompensationPolicy,
+		SlaPolicy:          req.SlaPolicy,
+		Metadata:           req.Metadata,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("create workflow definition revision failed", err))
+		return
+	}
 	dto.ResponseSuccessWithStatus(c, http.StatusCreated, mapDefinition(definition, tenantUUID))
 }
 
@@ -249,6 +307,38 @@ func (h *Handler) GetDefinition(c *gin.Context) {
 	}
 
 	dto.ResponseSuccess(c, mapDefinition(definition, tenantUUID))
+}
+
+func (h *Handler) ListDefinitionRevisions(c *gin.Context) {
+	if h.svc == nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("workflow service unavailable", nil))
+		return
+	}
+
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+
+	definitionUUID, err := uuid.Parse(c.Param("definition_uuid"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition id", err))
+		return
+	}
+
+	definitions, err := h.svc.ListDefinitionRevisions(c.Request.Context(), tenantUUID, definitionUUID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("list definition revisions failed", err))
+		return
+	}
+	items := make([]map[string]any, 0, len(definitions))
+	for i := range definitions {
+		items = append(items, mapDefinition(&definitions[i], tenantUUID))
+	}
+	dto.ResponseSuccess(c, map[string]any{
+		"items": items,
+		"total": len(items),
+	})
 }
 
 func (h *Handler) StartInstance(c *gin.Context) {

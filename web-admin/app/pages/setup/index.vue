@@ -22,7 +22,7 @@ const manualCheckLoading = ref(false);
 const setupStatus = ref<SetupStatus | null>(null);
 const settingsService = useSettingsService();
 const toast = useToast();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 const showLicenseModal = ref(false);
 const showTermsModal = ref(false);
 const showPrivacyModal = ref(false);
@@ -161,6 +161,7 @@ const step1Data = reactive({
     email: { status: "pending", message: "检测中..." },
     ai: { status: "pending", message: "检测中..." },
   },
+  deploymentEnv: "",
   deploymentMode: "multi-tenant",
   authMode: "builtin",
   licenseAccepted: false,
@@ -622,6 +623,9 @@ const dbTestState = reactive({
 });
 
 const setupPayload = computed(() => ({
+  deployment: {
+    env: step1Data.deploymentEnv,
+  },
   domain: {
     domain: step2Data.domain,
     api_subdomain: "",
@@ -696,6 +700,16 @@ const setupPayload = computed(() => ({
   },
 }));
 
+const resolveSetupError = (error: any): string => {
+  const message = String(
+    error?.data?.error || error?.data?.message || error?.message || ""
+  );
+  if (message.startsWith("setup.")) {
+    return t(message);
+  }
+  return message || t("setup.errors.unknown");
+};
+
 const setupTestDatabaseConnection = async () => {
   dbTestState.database.testing = true;
   dbTestState.database.message = "";
@@ -769,7 +783,7 @@ const provisionSetupAtDatabaseStep = async (): Promise<boolean> => {
     dbTestState.provisioned = false;
     toast.add({
       title: isZh.value ? "数据库初始化失败" : "Database provision failed",
-      description: String(error?.data?.error || error?.data?.message || error?.message || "unknown error"),
+      description: resolveSetupError(error),
       color: "error",
     });
     return false;
@@ -802,7 +816,11 @@ watch(
 const validateCurrentStep = () => {
   switch (currentStep.value) {
     case 0:
-      return step1Data.licenseAccepted && step1Data.termsAccepted;
+      return (
+        ["dev", "test", "staging", "prod"].includes(step1Data.deploymentEnv) &&
+        step1Data.licenseAccepted &&
+        step1Data.termsAccepted
+      );
     case 1:
       return step3Data.dbType === "sqlite" || step3Data.dbHost.trim() !== "";
     case 2:
@@ -1048,7 +1066,7 @@ const completeSetup = async () => {
     restarting.value = false;
     toast.add({
       title: "保存失败",
-      description: String(error?.data?.message || error?.message || "安装配置保存失败"),
+      description: resolveSetupError(error),
       color: "error",
     });
   } finally {
@@ -1122,6 +1140,7 @@ const loadSetupConfig = async () => {
     const payload = resp?.data ?? resp;
     const cfg = payload?.config;
     if (!cfg) return;
+    step1Data.deploymentEnv = String(cfg.deployment?.env || "");
 
     step2Data.domain = String(cfg.domain?.domain || step2Data.domain);
     step2Data.apiSubdomain = "";
@@ -1293,6 +1312,33 @@ onMounted(async () => {
                       </span>
                     </div>
                   </div>
+                </div>
+
+                <!-- PowerX 实例部署身份 -->
+                <div class="mb-8">
+                  <h4 class="text-md font-medium mb-2">
+                    {{ t("setup.deployment.title") }}
+                  </h4>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    {{ t("setup.deployment.description") }}
+                  </p>
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <UButton
+                      v-for="env in ['dev', 'test', 'staging', 'prod']"
+                      :key="env"
+                      :label="t(`setup.deployment.options.${env}`)"
+                      :color="step1Data.deploymentEnv === env ? 'primary' : 'neutral'"
+                      :variant="step1Data.deploymentEnv === env ? 'solid' : 'outline'"
+                      block
+                      @click="step1Data.deploymentEnv = env"
+                    />
+                  </div>
+                  <p
+                    v-if="!step1Data.deploymentEnv"
+                    class="text-sm text-red-600 mt-2"
+                  >
+                    {{ t("setup.errors.deploymentEnvRequired") }}
+                  </p>
                 </div>
 
                 <!-- 部署模式选择 -->

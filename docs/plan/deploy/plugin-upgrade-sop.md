@@ -11,6 +11,8 @@
 - 后端服务健康：`GET /api/v1/health`
 - 目标插件当前状态：`GET /api/v1/admin/plugins/:id/status`
 - 插件包可用（目录或离线包解压目录包含 `plugin.yaml`）
+- Core 运行配置已显式设置 `deployment.env`，生产必须为 `prod`
+- Registry 中已有版本的 `deployment_env` 与当前 Core 一致；缺失或不一致时停止升级并先执行 repair/migration dry-run
 
 ## 3. 标准升级步骤
 
@@ -24,9 +26,11 @@ curl -X POST http://127.0.0.1:8077/api/v1/admin/plugins/install/local \
     "src_dir": "/data/plugin_pkgs/com.powerx.demo/v1.2.3",
     "enable": false,
     "force": false,
-    "metadata": {"scope":"prod","environment":"production"}
+    "metadata": {"scope":"system","release_channel":"production","notes":"production rollout v1.2.3"}
   }'
 ```
+
+数据库 Schema/Database 名称保持不变；Role/User 的环境段只能来自 Core 的 `deployment.env`。发布渠道使用 `metadata.release_channel`；旧 `metadata.environment` 必须被接口拒绝，不能选择或覆盖部署环境。
 
 ### Step 2：检查安装结果
 
@@ -73,10 +77,10 @@ curl -X POST http://127.0.0.1:8077/api/v1/admin/plugins/com.powerx.demo/uninstal
 - 不经验证直接 `enable=true` 安装并上线
 - 无回滚版本时执行生产切换
 - 在高峰期同时切多个高风险插件
+- 通过修改 `metadata.environment`、`plugin.dev_mode`、目录名或版本号绕过 `deployment.env` 校验
 
 ## 6. 运行保障建议
 
 - 设置 `CORE_X_PLUGIN_AUTORESTORE_PARALLELISM=2~4`
 - 升级窗口内开启更高日志级别并采集审计事件
 - 将插件包与版本元数据统一归档（包体、checksum、安装人、安装时间）
-

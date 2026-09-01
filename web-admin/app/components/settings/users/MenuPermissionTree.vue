@@ -18,10 +18,33 @@ const emit = defineEmits<{
   toggle: [ids: number[], checked: boolean];
 }>();
 
+const collectExpandableKeys = (nodes: MenuPermissionNode[] = []): string[] => {
+  const keys: string[] = [];
+  for (const node of nodes) {
+    if (node.children?.length) {
+      keys.push(node.key, ...collectExpandableKeys(node.children));
+    }
+  }
+  return keys;
+};
+
+const expandedKeys = ref<Set<string>>(new Set());
+
+watch(
+  () => props.nodes,
+  (nodes) => {
+    expandedKeys.value = new Set(collectExpandableKeys(nodes));
+  },
+  { immediate: true },
+);
+
 const collectIds = (node: MenuPermissionNode): number[] => {
-  const ids = node.permission ? [node.permission.id] : [];
-  for (const child of node.children || []) ids.push(...collectIds(child));
-  return ids;
+  const ids = new Set<number>();
+  if (node.permission) ids.add(node.permission.id);
+  for (const child of node.children || []) {
+    for (const id of collectIds(child)) ids.add(id);
+  }
+  return Array.from(ids);
 };
 
 const collectVisibleStateIds = (node: MenuPermissionNode): number[] => {
@@ -53,6 +76,21 @@ const checkboxValue = (node: MenuPermissionNode) => {
 const toggleNode = (node: MenuPermissionNode, checked: boolean) => {
   emit("toggle", collectIds(node), checked === true);
 };
+
+const isExpandable = (node: MenuPermissionNode) => (node.children || []).length > 0;
+
+const isExpanded = (node: MenuPermissionNode) => {
+  if (!isExpandable(node)) return false;
+  return expandedKeys.value.has(node.key);
+};
+
+const toggleExpanded = (node: MenuPermissionNode) => {
+  if (!isExpandable(node)) return;
+  const next = new Set(expandedKeys.value);
+  if (next.has(node.key)) next.delete(node.key);
+  else next.add(node.key);
+  expandedKeys.value = next;
+};
 </script>
 
 <template>
@@ -62,6 +100,20 @@ const toggleNode = (node: MenuPermissionNode, checked: boolean) => {
         class="flex items-center gap-2 rounded-md border border-gray-100 px-3 py-2 hover:bg-gray-50"
         :style="{ marginLeft: `${(level || 0) * 18}px` }"
       >
+        <UButton
+          v-if="isExpandable(node)"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          square
+          :icon="
+            isExpanded(node)
+              ? 'i-heroicons-chevron-down'
+              : 'i-heroicons-chevron-right'
+          "
+          @click.stop="toggleExpanded(node)"
+        />
+        <span v-else class="h-6 w-6 shrink-0" />
         <UCheckbox
           :model-value="checkboxValue(node)"
           @update:model-value="toggleNode(node, $event as boolean)"
@@ -93,7 +145,7 @@ const toggleNode = (node: MenuPermissionNode, checked: boolean) => {
       </div>
 
       <MenuPermissionTree
-        v-if="node.children?.length"
+        v-if="node.children?.length && isExpanded(node)"
         class="mt-1"
         :nodes="node.children"
         :selected-ids="selectedIds"

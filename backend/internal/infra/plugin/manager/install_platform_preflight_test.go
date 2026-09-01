@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"testing"
 
+	coreconfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +27,11 @@ func TestInstallFromFileRejectsIncompatibleExecutableBeforeReplacing(t *testing.
 			InstalledRoot: installedRoot,
 			Registry:      registry,
 			Loader:        NewFSLoader(),
+			CoreConfig: &coreconfig.Config{
+				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+			},
 		},
+		databaseSectionBuilder: testDatabaseSection,
 	}
 
 	installed, err := m.InstallFromFile(ctx, srcV1, plugin_mgr.InstallOptions{})

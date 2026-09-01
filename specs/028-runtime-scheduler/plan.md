@@ -6,7 +6,7 @@
 
 ## 技术栈
 
-- Go 1.24
+- Go 1.26.7
 - Gin HTTP
 - gRPC / Buf
 - GORM

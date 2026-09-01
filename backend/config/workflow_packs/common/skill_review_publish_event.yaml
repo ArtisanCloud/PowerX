@@ -33,6 +33,7 @@ steps:
     depends_on: [capture_input]
     config:
       skill_id: ${skill_id}
+      entrypoint: default
       input_path: $.artifacts.input
       output_path: $.vars.skill_result
     next_step_ids: [review_result]

@@ -38,6 +38,15 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if err := m.validatePluginDatabaseBinding(p.ID, p.HostConfig); err != nil {
+		return plugin_mgr.Wrap(
+			plugin_mgr.CodeLifecycleError,
+			err,
+			plugin_mgr.WithOp("enable.database_binding"),
+			plugin_mgr.WithPlugin(p.ID),
+			plugin_mgr.WithVersion(p.Version),
+		)
+	}
 	runtimeCred, err := m.resolvePluginRuntimeCredential(ctx, p.ID)
 	if err != nil {
 		return plugin_mgr.NewError(

@@ -110,6 +110,9 @@ sudo setfacl -m u:ubuntu:rw,u:powerx:r /etc/powerx-dev/config.yaml
 
 必须修改：
 ```yaml
+deployment:
+  env: dev
+
 server:
   port: <dev-backend-port>
   bind_addr: ":<dev-backend-port>"
@@ -127,6 +130,8 @@ storage:
   local:
     base_path: "/opt/powerx-dev/storage/media"
 ```
+
+`deployment.env: dev` 是 dev Core 的稳定部署身份。它用于区分 PostgreSQL 集群级的插件 Role/User；插件 Schema/Database 名称保持不变，数据隔离仍由 dev 的独立 Core 数据库承担。不得用 `/opt/powerx-dev` 路径或 `plugin.dev_mode` 代替该配置。
 
 数据库必须隔离。选择一种：
 ```yaml

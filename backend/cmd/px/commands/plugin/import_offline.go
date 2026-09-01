@@ -67,7 +67,6 @@ func runPluginImport(cmd *cobra.Command, _ []string) error {
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
 	callCtx := attachAuth(ctx, importOpts.token)
 	resp, err := client.ImportOfflinePackage(callCtx, &pluginreleasepb.ImportOfflinePackageRequest{
-		TenantUuid: strings.TrimSpace(importOpts.tenantUUID),
 		PackageUri: strings.TrimSpace(importOpts.packageURI),
 		Checksum:   strings.TrimSpace(importOpts.checksum),
 		DryRun:     importOpts.dryRun,

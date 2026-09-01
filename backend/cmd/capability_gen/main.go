@@ -496,6 +496,9 @@ func genFromGinSource(path, prefix, auth, apiPrefix string, seenRoute map[string
 		if !strings.HasPrefix(full, "/api/") {
 			continue
 		}
+		if generatedRouteExcluded(method, full) {
+			continue
+		}
 		routeKey := method + " " + full
 		if _, ok := seenRoute[routeKey]; ok {
 			continue
@@ -533,6 +536,18 @@ func genFromGinSource(path, prefix, auth, apiPrefix string, seenRoute map[string
 		})
 	}
 	return out, nil
+}
+
+func generatedRouteExcluded(method, path string) bool {
+	method = strings.ToUpper(strings.TrimSpace(method))
+	path = cleanPath(path)
+	switch method + " " + path {
+	case "GET /api/v1/public/saas/registration-policy/effective",
+		"POST /api/v1/public/saas/registration-requests":
+		return true
+	default:
+		return false
+	}
 }
 
 func joinPath(parts ...string) string {

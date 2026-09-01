@@ -483,6 +483,10 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 			dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
 			return
 		}
+		if errors.Is(err, agentSvc.ErrAgentProtectedReadonly) {
+			dtoRequest.ResponseError(c, 403, "agent.protected_readonly", nil)
+			return
+		}
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -620,6 +624,10 @@ func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 		return
 	}
 	if err := h.srv.SetStatus(c.Request.Context(), env, tenantRef, exist.ID, status); err != nil {
+		if errors.Is(err, agentSvc.ErrAgentProtectedReadonly) {
+			dtoRequest.ResponseError(c, 403, "agent.protected_readonly", nil)
+			return
+		}
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -652,6 +660,10 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	if err := h.srv.Delete(c.Request.Context(), env, tenantRef, exist.ID, expectedOwnerPluginID, callerPluginID); err != nil {
 		if errors.Is(err, agentSvc.ErrAgentOwnerForbidden) {
 			dtoRequest.ResponseError(c, 403, "agent.owner_forbidden", nil)
+			return
+		}
+		if errors.Is(err, agentSvc.ErrAgentProtectedReadonly) {
+			dtoRequest.ResponseError(c, 403, "agent.protected_readonly", nil)
 			return
 		}
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)

@@ -10,6 +10,7 @@ import (
 	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
+	modelsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/driver/sqlite"
@@ -84,7 +85,7 @@ func newTestServer(t *testing.T) (*Server, context.Context) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&models.SchedulerJob{}, &models.SchedulerJobRun{}); err != nil {
+	if err := db.AutoMigrate(&models.SchedulerJob{}, &models.SchedulerJobRun{}, &modelsetting.PluginInstanceConfig{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	svc := runtimescheduler.NewService(runtimescheduler.Options{
@@ -95,8 +96,9 @@ func newTestServer(t *testing.T) (*Server, context.Context) {
 	claims := &reqctx.CoreXClaims{
 		TenantUUID: schedulerGRPCTestTenant,
 		MemberUUID: "member-1",
+		PluginID:   "com.powerx.plugins.ai-craft",
 		RegisteredClaims: jwt.RegisteredClaims{
-			Audience: jwt.ClaimStrings{"plugin:com.powerx.plugins.ai-craft"},
+			Audience: jwt.ClaimStrings{"powerx:api"},
 		},
 	}
 	ctx = reqctx.WithClaims(ctx, claims)

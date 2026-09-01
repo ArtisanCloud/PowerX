@@ -15,7 +15,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24（backend services），Node 20 + Nuxt 4（web-admin）  
+**Language/Version**: Go 1.26.7（backend services），Node 20 + Nuxt 4（web-admin）
 **Primary Dependencies**: Gin HTTP、google.golang.org/grpc（Buf）、GORM、Redis、PostgreSQL、OpenTelemetry、Nuxt UI、Pinia  
 **Storage**: PostgreSQL（skills registry/execution trace/audit refs + plugin skill invocation trace + capability registry tooling catalog/trace）、Redis（selector/cache/policy snapshot）  
 **Plugin Registry Storage**: PowerX 底座保存插件 Registry 来源映射与同步审计（`provider_plugin_id/plugin_agent_id/plugin_skill_id -> powerx_agent_uuid/powerx_skill_id`）；PowerXPlugin 插件侧保存开发态插件记录，二者通过同步 API 对齐。
@@ -173,8 +173,8 @@ Reference: [`context-optimization.md`](./context-optimization.md)
 3. **上下文隔离**：handoff 仅透传结构化输入与上下文引用（`context_ref`），禁止默认传递完整历史会话。  
 4. **失败策略**：统一支持 `fail-fast|continue|retry-once`，并在最终汇总中返回子任务级状态。  
 5. **审计与观测**：新增 `team_id/task_id/parent_agent_id/child_agent_id/handoff_trace_id` 字段，接入审计与 trace。  
-6. **最小用例验证**：以“发布准备多智能体作业（1 主 3 子 + 1 汇总）”作为 PowerX Core-only 验收基线，验证分发、回收、部分失败与越权阻断。  
-7. **Seed 初始化**：通过 PowerX Core seed upsert 初始化 `release.coordinator`、`release.knowledge_analyst`、`release.workflow_planner`、`release.notification_scheduler`、`release.readiness.team` 与 `powerx.release.*` 内置 demo Skills；这些记录是底座运行态数据，不依赖 PowerXPlugin 或插件同步。
+6. **最小用例验证**：以“营销活动复盘协作（1 主 3 子 + 1 汇总）”作为 PowerX Core-only 验收基线，验证分发、回收、部分失败与越权阻断。
+7. **Seed 初始化**：通过 PowerX Core seed 初始化营销负责人、内容营销、活动复盘分析、专家知识策展 Agent，及其四个 `marketing.*` 声明式 Skill Revision 和营销活动复盘团队。来源包与发布包都存对象存储；团队 UUID 是稳定身份，显示名不得被 Runtime 用作路由条件；这些记录是底座运行态数据，不依赖 PowerXPlugin 或插件同步。
 8. **MVP 执行方式**：首版测试可显式构造 ExecutionPlan 并注入 deterministic handoff invoker，用于验证运行时语义；Team-aware Planner 自然语言自动拆分作为后续产品化任务。
 9. **设计文档**：详细业务故事、seed 对象、计划结构、trace 字段和测试矩阵见 `docs/plan/ai_engineering/skills/multi_agent_a2a.md`。
 
@@ -232,6 +232,8 @@ Reference: [`docs/plan/ai_engineering/skills/agent_response_planning.md`](../../
 5. **模型策略**：新增 `response_planner` 节点模型选择预留点，首版可继承 Agent 默认模型；`context_builder` 为 deterministic，不使用模型做授权判断。
 6. **SSE 与 Trace**：Agent Stream 输出 `response_plan` debug event；Agent Trace 记录 `response_planner/context_builder/final_response/history_persist` 节点。
 7. **上下文驱动**：Runtime Memory 只保存过程态；DB 是业务上下文权威源；Redis 只做短 TTL 缓存；Local File/Loki 保存调试追踪。
+8. **统一最终答复契约**：执行、审核、发布和 A2A 汇总结果统一使用 `powerx.agent.response/v1`；Skill/Tool/子 Agent 只提交业务事实，Core 校验 `outcome/answer/acceptance/evidence` 并负责最终答复结构。
+9. **追问语义**：每轮 final 必须回答当前消息；团队上下文只能提供事实和状态，不能触发固定计划或报告重放。按 ResponsePlan 与 SkillState 决定解释、补参、局部复查或重新规划。
 
 ## Phase 22 – Agent Run State Protocol
 
@@ -240,11 +242,12 @@ Reference: [`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`](../..
 1. **标准事件**：定义 `agent_run.started/response_plan/intent_detected/plan_created/task_status/task_started/awaiting_params/task_completed/task_failed/final/ended`，作为 UI 首选事件语义。
 2. **任务状态模型**：统一 `pending|awaiting_params|running|completed|failed|skipped` 状态，并要求 task payload 携带 run/session/message/trace/task/agent/skill/capability/action/result/error。
 3. **缺参闭环**：Skill manifest 的 `action_required_args/slot_mapping/pending_task_policy` 是缺参判断和跨轮补参合并的业务事实源；Core 只执行通用校验和状态流转。
-4. **结果展示**：Skill manifest 的 `result_presentation` 决定业务对象摘要与跳转链接；Final Response 没有真实 task result 时禁止输出成功性结论。
+4. **结果展示**：Skill manifest 的 `result_presentation` 只决定业务对象摘要、链接和素材；平台最终答复的区块、状态标签与 Markdown Preview 必须由 `powerx.agent.response/v1` 的统一渲染器决定。Final Response 没有真实 task result 时禁止输出成功性结论。
 5. **历史恢复**：建立 `AgentRunState` 快照，页面刷新或从 Trace 页面进入时可恢复 session/message/task 状态。
 6. **UI 对齐**：PowerX Agent Chat、Team Task、Agent Trace 与 PowerXPlugin Agent Chat 调试页必须消费同一 reducer 语义和组件模型。
 7. **A2A 映射**：A2A `agent_handoff` 仍是多智能体调度能力，但必须映射为 `agent_run.task_status` 让用户看见子 Agent 节点状态。
 8. **Run/Task 边界**：`agent_run.final/ended` 只代表本轮回复流程结束，不代表业务任务完成；UI 只能依据 `agent_run.task_completed` 或 task snapshot `status=completed + result/links` 展示任务完成。
+9. **持久化一致性**：`agent_run.final`、assistant message meta、历史快照与 Trace Report 必须保存同一最终答复 envelope；刷新页面后不得丢失结构化区块或退回原始 Skill 文本。
 
 ## Implementation Backwrite (2026-03-19)
 

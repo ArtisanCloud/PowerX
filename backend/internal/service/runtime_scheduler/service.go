@@ -848,13 +848,7 @@ func pluginIDFromClaims(claims *reqctx.CoreXClaims) string {
 	if claims == nil {
 		return ""
 	}
-	for _, aud := range claims.Audience {
-		aud = strings.TrimSpace(aud)
-		if strings.HasPrefix(aud, "plugin:") {
-			return strings.TrimPrefix(aud, "plugin:")
-		}
-	}
-	return ""
+	return strings.TrimSpace(claims.PluginID)
 }
 
 func resolveTenant(ctx context.Context, requested string) (string, error) {

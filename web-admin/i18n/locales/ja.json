@@ -1,4 +1,16 @@
 {
+	"setup": {
+		"deployment": {
+			"title": "デプロイ環境",
+			"description": "この PowerX インスタンスの固定環境識別子を選択してください。プラグインの DB ロールとスキーマの分離に使用されるため、インストール後に直接変更しないでください。",
+			"options": { "dev": "開発 dev", "test": "テスト test", "staging": "ステージング", "prod": "本番 prod" }
+		},
+		"errors": {
+			"deploymentEnvRequired": "デプロイ環境を選択してください",
+			"deploymentEnvInvalid": "デプロイ環境は dev、test、staging、prod のいずれかである必要があります",
+			"unknown": "セットアップ設定を保存できませんでした"
+		}
+	},
   "welcome": "ようこそ",
   "login": "ログイン",
   "register": "登録",
@@ -673,10 +685,84 @@
       "roleConfig": "権限設定",
       "configDesc": "この役割がアクセスできる機能と操作を設定",
       "add": "役割追加",
+      "permissionSearch": {
+        "placeholder": "メニュー、機能、API、権限コード、プラグインを検索",
+        "clear": "権限検索をクリア",
+        "results": "{count} 件一致",
+        "empty": "一致する権限はありません。"
+      },
+      "pluginCatalog": {
+        "title": "プラグイン宣言権限",
+        "description": "登録済みのメニュー、ページ、アクション、API 権限をプラグイン、業務モジュール、権限タイプ別に表示します。",
+        "plugin": "プラグイン",
+        "invalid": "登録異常",
+        "businessPermission": "業務アクション権限",
+        "unnamedApi": "未命名 API 権限",
+        "dataScope": "データ範囲",
+        "levels": {
+          "source": "ソース",
+          "module": "モジュール"
+        },
+        "sources": {
+          "core": "PowerX 基盤"
+        },
+        "groups": {
+          "operation": "操作権限",
+          "api": "API 権限"
+        },
+        "bulkSelect": {
+          "short": "全選択",
+          "source": "現在のソースを全選択",
+          "module": "現在のモジュールを全選択",
+          "currentModule": "現在のモジュールを全選択"
+        },
+        "filters": {
+          "source": "ソースフィルター",
+          "plugin": "プラグインフィルター",
+          "module": "モジュールフィルター",
+          "type": "タイプフィルター",
+          "registration": "登録状態フィルター",
+          "allSources": "すべてのソース",
+          "allPlugins": "すべてのプラグイン",
+          "allModules": "すべてのモジュール",
+          "allTypes": "すべてのタイプ",
+          "allRegistration": "すべての登録状態",
+          "registered": "登録済み",
+          "invalid": "登録異常",
+          "reset": "フィルターをリセット"
+        },
+        "cleanup": {
+          "action": "異常登録をクリーンアップ",
+          "confirm": "プラグイン {plugin} の異常な権限登録 {count} 件をクリーンアップしますか？先にロール紐付けを解除し、その後で異常な権限行を削除します。",
+          "successTitle": "異常登録をクリーンアップしました",
+          "successDescription": "異常な権限登録 {count} 件を削除しました。",
+          "errorTitle": "異常登録のクリーンアップに失敗しました"
+        },
+        "errors": {
+          "menu_permission_declaration_missing": "メニュー項目の required_policies が permissions[] に未宣言のメニュー権限を参照しています。",
+          "menu_permission_orphan": "このメニュー権限は frontend.admin.menus のどのメニュー項目からも参照されていません。",
+          "menu_path_mismatch": "menu_path が frontend.admin.menus の実際のメニューパスと一致していません。",
+          "menu_path_invalid_technical_segment": "menu_path にプラグイン ID、/_p パス、API パス、URL などの技術的な断片が含まれています。",
+          "menuPathExpected": "期待パス: {path}",
+          "menuPathActual": "実際パス: {path}"
+        },
+        "types": {
+          "menu": "メニュー",
+          "page": "ページ",
+          "action": "操作",
+          "data": "データ",
+          "api": "API",
+          "apiKeyGrant": "API Key 権限範囲"
+        }
+      },
       "edit": "役割編集",
       "delete": "役割削除",
       "systemRole": "システム",
       "userCount": "ユーザー",
+      "toast": {
+        "missingTenantContextTitle": "現在のテナントがありません",
+        "missingTenantContextDescription": "役割を作成する前に、管理対象のテナントへ切り替えてください。"
+      },
       "confirmDelete": "この役割を削除してもよろしいですか？",
       "systemRoleError": "システム役割は削除できません",
       "form": {
@@ -744,6 +830,7 @@
     }
   },
   "agent": {
+    "response": {"conclusion": "結論", "answer": "回答", "acceptance": "受入項目", "evidence": "証拠", "gaps": "不足または阻害要因", "nextActions": "次の対応"},
     "sessions": {
       "title": "スマートセッション"
     },
@@ -761,7 +848,13 @@
       },
       "sources": {
         "core": "基盤作成",
-        "plugin": "プラグイン管理"
+        "plugin": "プラグイン管理",
+        "builtin": "組み込みエージェント",
+        "protected": "編集不可"
+      },
+      "teamRoles": {
+        "coordinator": "チーム責任者 ×{count}",
+        "member": "チームメンバー ×{count}"
       },
       "filters": {
         "searchPlaceholder": "エージェント名、Key、プラグインを検索",
@@ -962,6 +1055,71 @@
       "disconnected": "未接続",
       "connected": "接続済み",
       "responding": "応答中",
+      "traceThisRun": "この実行を追跡",
+      "traceDetails": "追跡詳細",
+      "traceReport": {
+        "title": "今回の実行追跡",
+        "loading": "実行レポートを読み込み中…",
+        "loadFailed": "実行レポートの読み込みに失敗しました",
+        "empty": "この実行には表示できる追跡データがありません。",
+        "missingIdentity": "このメッセージには実行 ID がないため、レポートを開けません。",
+        "runId": "実行 ID",
+        "traceId": "追跡 ID"
+      },
+      "traceTimeline": {
+        "title": "実行タイムライン",
+        "description": "現在の実行のみを表示し、各ノードの開始イベントと終了イベントを1つのステップにまとめます。",
+        "nodeCount": "{count} ノード",
+        "step": "ステップ {index}",
+        "sequence": "ノード順序 {sequence}",
+        "empty": "現在の実行には表示できるノードイベントがありません。",
+        "errorWithoutDetails": "ノードは失敗しましたが、エラー詳細は記録されていません。",
+        "metrics": {
+          "status": "ステータス",
+          "nodes": "ノード",
+          "events": "イベント",
+          "errors": "エラー"
+        },
+        "status": {
+          "running": "実行中",
+          "success": "完了",
+          "error": "失敗"
+        },
+        "nodeKinds": {
+          "receiveMessage": "メッセージ受信",
+          "responsePlanner": "応答計画",
+          "intentRecognition": "意図認識",
+          "planner": "タスク計画",
+          "contextBuilder": "コンテキスト構築",
+          "agentHandoff": "サブエージェント委任",
+          "skill": "スキル実行",
+          "tooling": "ツール実行",
+          "workflow": "ワークフロー",
+          "llmCall": "モデル呼び出し",
+          "finalResponse": "最終応答"
+        }
+      },
+      "traceNodeDetails": {
+        "empty": "タイムラインからノードを選択して詳細を表示します",
+        "nodeRef": "ノード参照",
+        "capability": "ケイパビリティ",
+        "skill": "スキル",
+        "plugin": "プラグイン",
+        "responsePlan": "応答計画",
+        "mode": "モード",
+        "model": "モデル",
+        "capabilities": "対象ケイパビリティ",
+        "contextLayers": "コンテキストレイヤー",
+        "input": "入力",
+        "output": "出力"
+      },
+      "retryBusyTitle": "現在再試行できません",
+      "retryBusyDescription": "現在の回答を生成中です。完了後に再試行してください。",
+      "retryUnavailableTitle": "この回答は再試行できません",
+      "retryUnavailableDescription": "保存済みのユーザーメッセージが見つかりません。セッションを更新して再試行してください。",
+      "retryFailedTitle": "再試行に失敗しました",
+      "retryFailedDescription": "エージェントは回答を再生成できませんでした。実行トレースを確認してください。",
+      "retryTeamContextMissing": "現在のチームコンテキストが無効です。チームを選択し直して再試行してください。",
       "typing": "入力中",
       "clear": "クリア",
       "realtimeFailed": "リアルタイム接続に失敗しました",
@@ -1409,20 +1567,20 @@
         "color": "色",
         "validatorKey": "バリデーター Key",
         "validatorKeyPlaceholder": "例 customer.account",
-      "bindingEnabled": "バインドを許可",
-      "localizedNames": "多言語名",
-      "localizedDescriptions": "多言語説明",
-      "localizedName": "名前",
-      "localizedDescription": "説明",
-      "localizedNamePlaceholder": "名前を入力",
-      "localizedDescriptionPlaceholder": "説明を入力",
-      "requiredLocaleSection": "既定言語",
-      "requiredLocaleDescription": "バックエンド契約では既定言語の名前が必須です。",
-      "optionalLocaleSection": "その他の言語",
-      "optionalLocaleDescription": "言語を選択して名前と説明を編集します。入力済みの言語は下に表示されます。",
-      "localeSelectPlaceholder": "言語を選択",
-      "localeSearchPlaceholder": "言語を検索",
-      "locale": {
+        "bindingEnabled": "バインドを許可",
+        "localizedNames": "多言語名",
+        "localizedDescriptions": "多言語説明",
+        "localizedName": "名前",
+        "localizedDescription": "説明",
+        "localizedNamePlaceholder": "名前を入力",
+        "localizedDescriptionPlaceholder": "説明を入力",
+        "requiredLocaleSection": "既定言語",
+        "requiredLocaleDescription": "バックエンド契約では既定言語の名前が必須です。",
+        "optionalLocaleSection": "その他の言語",
+        "optionalLocaleDescription": "言語を選択して名前と説明を編集します。入力済みの言語は下に表示されます。",
+        "localeSelectPlaceholder": "言語を選択",
+        "localeSearchPlaceholder": "言語を検索",
+        "locale": {
           "zh_CN": "简体中文",
           "en": "English",
           "ja": "日本語",
@@ -1475,12 +1633,30 @@
         "corex_sales": "営業"
       },
       "states": {
-        "loading": { "title": "読み込み中", "description": "メタデータを読み込んでいます。" },
-        "no_permission": { "title": "権限がありません", "description": "現在のユーザーは閲覧できません。" },
-        "missing_selection": { "title": "項目を選択", "description": "左側の項目を選択してください。" },
-        "empty": { "title": "データなし", "description": "現在の条件に一致するデータがありません。" },
-        "error": { "title": "読み込み失敗", "description": "バックエンドがエラーを返しました。" },
-        "ready": { "title": "読み込み済み", "description": "データを読み込みました。" }
+        "loading": {
+          "title": "読み込み中",
+          "description": "メタデータを読み込んでいます。"
+        },
+        "no_permission": {
+          "title": "権限がありません",
+          "description": "現在のユーザーは閲覧できません。"
+        },
+        "missing_selection": {
+          "title": "項目を選択",
+          "description": "左側の項目を選択してください。"
+        },
+        "empty": {
+          "title": "データなし",
+          "description": "現在の条件に一致するデータがありません。"
+        },
+        "error": {
+          "title": "読み込み失敗",
+          "description": "バックエンドがエラーを返しました。"
+        },
+        "ready": {
+          "title": "読み込み済み",
+          "description": "データを読み込みました。"
+        }
       },
       "empty": {
         "title": "データなし",
@@ -1511,8 +1687,16 @@
         "module": "モジュール",
         "validator": "バリデーター"
       },
-      "status": { "enabled": "有効", "disabled": "無効", "archived": "アーカイブ" },
-      "validator": { "available": "利用可能", "missing": "未設定", "disabled": "無効" },
+      "status": {
+        "enabled": "有効",
+        "disabled": "無効",
+        "archived": "アーカイブ"
+      },
+      "validator": {
+        "available": "利用可能",
+        "missing": "未設定",
+        "disabled": "無効"
+      },
       "pagination": {
         "summary": "{start}-{end} / 全 {total} 件、{page} ページ",
         "pageSize": "1ページあたり"
@@ -1595,7 +1779,7 @@
         "label": "名前空間（任意）",
         "placeholder": "例: company.crm"
       },
-      "environment": "対象環境",
+		"releaseChannel": "リリースチャネル",
       "autoUpdate": "自動更新",
       "forceInstall": "同一バージョンを強制上書き",
       "permissions": {

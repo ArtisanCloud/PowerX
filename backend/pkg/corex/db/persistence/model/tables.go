@@ -34,6 +34,11 @@ const TableIAMAPIKeyProfile = "iam_api_key_profile"
 const TableIAMAPIKeyProfilePermission = "iam_api_key_profile_permission"
 const TableIAMAPIKey = "iam_api_key"
 const TableIAMRootSupportSession = "iam_root_support_sessions"
+const TableIAMRegistrationPolicy = "iam_registration_policies"
+const TableIAMRegistrationInviteBatch = "iam_registration_invite_batches"
+const TableIAMRegistrationInviteCode = "iam_registration_invite_codes"
+const TableIAMRegistrationRequest = "iam_registration_requests"
+const TableIAMRegistrationPolicyAudit = "iam_registration_policy_audits"
 
 const TableCustomerAccounts = "customer_accounts"
 const TableCustomerAuthIdentities = "customer_auth_identities"
@@ -107,6 +112,12 @@ const TableWorkflowEvents = "workflow_events"
 const TableWorkflowHumanReviewTasks = "workflow_human_review_tasks"
 const TableWorkflowPackSeedRecords = "workflow_pack_seed_records"
 const TableWorkflowPackInstallations = "workflow_pack_installations"
+
+// Skills definition lifecycle. A runtime resolves only a published immutable
+// revision; package objects are kept outside PostgreSQL and referenced here.
+const TableSkillsPackageSources = "skills_package_sources"
+const TableSkillsDefinitionDrafts = "skills_definition_drafts"
+const TableSkillsDefinitionRevisions = "skills_definition_revisions"
 
 const TablePluginReleaseCandidates = "plugin_release_candidates"
 const TablePluginReleasePlans = "plugin_release_plans"

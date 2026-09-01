@@ -35,6 +35,55 @@ User Message
 4. PowerX Core 不写业务型回复规则；业务表达规范必须来自 Agent persona/prompt_seed 或 Skill `response_guidance`。
 5. 多轮业务状态必须来自 SkillState，不得只靠最近消息文本让 LLM 每轮重新猜参数。
 
+这里的“业务型回复规则”不包括平台统一的呈现结构。PowerX 必须拥有用户可见答复的结构、状态语义和渲染规范；Skill 不能通过拼接一段 Markdown 来决定平台答复长什么样。
+
+## 2.1 统一最终答复契约（目标协议）
+
+> 状态：已确认的产品与运行时契约；本节是后续实现和验收的唯一口径。现有只返回 `content` 字符串的 Skill 不符合此契约，必须迁移，不能作为兼容输入静默保留。
+
+所有会产生用户可见结果的 Skill、Tool、A2A 汇总节点必须返回 `powerx.agent.response/v3` 结构化结果。其权威 Schema 位于 [`backend/config/agent/response_envelope.v3.schema.json`](../../../../backend/config/agent/response_envelope.v3.schema.json)。Skill 只提供有来源的业务数据；Core 负责结论、验收清单、当前语言下的最终答复和 Markdown Preview。
+
+```json
+{
+  "schema": "powerx.agent.response/v3",
+  "kind": "execution_result",
+  "outcome": "needs_action",
+  "presentation": {
+    "facts": [], "metrics": [], "hypotheses": [],
+    "gaps": ["缺少目标插件、版本和目标环境。"],
+    "actions": ["补充插件标识和环境后执行真实检查。"]
+  }
+}
+```
+
+字段约束：
+
+| 字段 | 责任方 | 规则 |
+| --- | --- | --- |
+| `schema`、`kind`、`outcome` | Core 契约 | 必填；`outcome` 只能是 `completed`、`needs_action`、`blocked`、`failed`。 |
+| `presentation` | Skill/子智能体 | 必填，且必须同时含有 `facts`、`metrics`、`hypotheses`、`gaps`、`actions` 五个数组。`facts` 是 `{statement,source}`；`metrics` 是 `{label,numerator?,denominator?,formula,display_value?,source}`；后面三个数组只允许非空字符串。事实与指标必须使用 `{type: input|task, ref: ...}` 来源对象。 |
+| `metrics` 的百分比 | Core 校验 | 当 `numerator`、`denominator` 和带 `%` 的 `display_value` 同时存在时，必须满足 `display_value = numerator / denominator × 100`，误差超过 0.06 个百分点即失败。 |
+| `hypotheses`、`gaps`、`actions` | Skill/子智能体 | 分别表示待验证判断、无法确认的信息和用户可执行的后续动作；无证据时不得填“完成”。``hypotheses`` 或 `gaps` 非空时必须使用 `needs_action`，且 `actions` 不得为空。 |
+| 结论、验收项、Markdown 标题、段落顺序、状态标签、折叠/复制 | PowerX Core + Web Admin | 平台统一负责，按当前 locale 从 `outcome`、`gaps` 和 `actions` 派生；不得由 Skill 写死。 |
+
+统一的最终答复顺序固定为：**结论 → 指标表 → 已确认事实 → 待验证假设 → 缺口/阻塞 → 下一步 → 验收项**。验收项由 `gaps + actions` 派生，不接受 Skill 自带的验收文案。普通问答可以省略没有业务意义的区块；执行、审核、发布和多智能体汇总不得省略结论、验收项和下一步。
+
+当结构不合法、缺少五个 `presentation` 数组、出现未声明字段（包括旧的 `summary`、`summary_refs`、`acceptance`、`answer`）、百分比计算错误，或 `outcome=completed` 却包含假设或缺口时，Core 必须 fail-fast 为 `agent.response_contract_invalid`，在 Trace 记录字段错误，并返回可操作的错误说明；不得回退为原始 Markdown 或“任务已完成”。
+
+### 2.1.1 实施映射与验收边界
+
+截至 2026-08-29，此协议是已确认的目标契约，不应被文档误写为已上线行为。落地时必须同时改动以下边界，不能只调整某个发布 Skill 的文案：
+
+| 层 | 目标位置 | 必须完成的职责 |
+| --- | --- | --- |
+| 执行结果 | `backend/internal/server/agent/runtime/` | 校验 `powerx.agent.response/v3`，将非法结果投影为明确失败。 |
+| Skill / A2A | `backend/internal/service/*`、Skill manifest | 返回业务事实和当前问题的直接回答，不拼最终 Markdown。 |
+| SSE 与消息持久化 | `backend/internal/transport/http/admin/agent/`、`sink_history.go` | 将结构化 envelope 与文本消息一起传输、落库和恢复。 |
+| Web Admin | `web-admin/app/composables/agent/`、`components/agent/` | 用 locale 词条统一渲染 Preview、状态和区块；刷新后展示必须与实时结果一致。 |
+| Trace 与测试 | Agent Trace、runtime/transport/frontend tests | Trace 记录契约校验结果；覆盖直接回答追问、缺证据、失败和历史刷新。 |
+
+验收时不接受“渲染得像 Markdown”作为通过条件；必须验证 Skill 不含展示模板、同一 envelope 在实时 SSE 与刷新历史中呈现一致、以及无证据的 `completed` 被拒绝。
+
 ## 2. 角色与适用范围
 
 适用入口：

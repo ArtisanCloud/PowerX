@@ -2,7 +2,7 @@
 
 ## 1. 前置条件
 
-- Go 1.24、Node 20、Nuxt 4 开发环境可用
+- Go 1.26.7、Node 20、Nuxt 4 开发环境可用
 - PostgreSQL、Redis 已启动并可连接
 - 已切换到分支 `024-ai-engineering-skills`
 
@@ -770,9 +770,9 @@ cd web-admin && npm run build
 3. 删除或隐藏 `/agent/traces` 菜单入口不影响后端 API；后端 root-only 仍保留权限边界。
 4. 插件 Skill 发现接入在插件 enable 阶段执行；如插件暂未实现 `GET /api/v1/plugin/skills`，启用会 fail-fast，应先补插件 Framework Skill 路由再启用。
 
-## 16. Core-only A2A 发布准备 MVP
+## 16. 已废止：Core-only A2A 发布准备 MVP
 
-目标：验证 PowerX 底座自己的多智能体机制，不依赖 PowerXPlugin、MediaX、AI Craft 或任意插件 capability handler。
+本节保留为历史验证记录，不能用于当前 seed、验收或运行时实现。当前唯一默认示例是营销活动复盘协作，且只允许通过 `SkillDefinitionRevision` 的声明式 Runtime 执行；请使用 [`docs/guides/agent/runtime/declarative-skill-runtime.md`](../../docs/guides/agent/runtime/declarative-skill-runtime.md) 的迁移、seed 与验证步骤。
 
 ### 16.1 Seed 初始化
 
@@ -791,7 +791,7 @@ make seed
 | Agent | `release.knowledge_analyst` |
 | Agent | `release.workflow_planner` |
 | Agent | `release.notification_scheduler` |
-| Team | `release.readiness.team` |
+| Team | `发布准备协作团队` |
 | Skill | `powerx.release.knowledge_analysis` |
 | Skill | `powerx.release.workflow_planning` |
 | Skill | `powerx.release.notification_schedule` |
@@ -812,16 +812,16 @@ select skill_id, status, is_latest_published
 from skills_registry_records
 where skill_id like 'powerx.release.%';
 
-select team_name, status
+select team_key, display_name_i18n, status
 from agent_teams
-where team_name = 'release.readiness.team';
+where team_key = 'release.readiness';
 ```
 
 预期：
 
 1. 四个 Agent 均存在。
 2. 四个 `powerx.release.*` Skill 均为 `published` 且 `is_latest_published=true`。
-3. `release.readiness.team` 为 active。
+3. `发布准备协作团队` 为 active。
 4. Agent-Skill Binding 与 TeamMember 关系存在。
 
 ### 16.2 MVP 测试命令
@@ -864,7 +864,7 @@ cd backend && go test ./tests/integration/skills \
 root 用户在 Agent Trace 中应能看到：
 
 1. `node_kind=agent_handoff` 的三个子节点。
-2. 每个节点包含 `team_id/team_name/parent_agent_id/child_agent_id/handoff_task_id/failure_policy`。
+2. 每个节点包含 `team_uuid/team_key/parent_agent_uuid/child_agent_uuid/handoff_task_id/failure_policy`。
 3. 汇总节点依赖三个子节点。
 4. Message 报告包含三个子 Agent 的输入摘要、输出摘要或失败原因。
 

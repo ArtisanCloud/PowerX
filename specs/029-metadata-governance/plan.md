@@ -11,7 +11,7 @@ The implementation uses normal PowerX Core paths: GORM models under `backend/pkg
 
 ## Technical Context
 
-**Language/Version**: Go 1.24 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts.
+**Language/Version**: Go 1.26.7 for backend/CoreX services and CLIs; TypeScript with Nuxt 4/Vue 3 for Web Admin; Buf toolchain for gRPC contracts.
 **Primary Dependencies**: Gin HTTP stack, GORM, PostgreSQL JSONB, Redis only if later used for read caches, google.golang.org/grpc, Buf, Pinia/Nuxt UI, existing PowerX capability registry and IAM/RBAC services.
 **Storage**: PostgreSQL tables for metadata definitions, tag bindings, references, audit events through existing audit infrastructure; seed YAML under `backend/config/metadata_governance`.
 **Testing**: Go unit and integration tests via `go test`; HTTP contract tests under existing backend test layout; Nuxt/Vitest component/store tests where page logic is non-trivial; `make capability-check`; explicit migration/seed command verification.

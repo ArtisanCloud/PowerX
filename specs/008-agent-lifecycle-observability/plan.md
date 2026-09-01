@@ -9,7 +9,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24  
+**Language/Version**: Go 1.26.7
 **Primary Dependencies**: Gin HTTP 栈、grpc-go + buf 工具链、OpenTelemetry SDK、Redis（容量/健康缓存）、Postgres（CoreX GORM）、EventBus 抽象、企业 IM Webhook 适配、内部审计与限流组件  
 **Storage**: Postgres（AgentProfile、LifecycleEvent、HealthSignalSnapshot）、Redis（实例容量与健康状态缓存）、Log/Trace 后端沿用现有基础设施  
 **Testing**: Go `testing` + `testify`、HTTP Contract Tests（resty / httpexpect）、gRPC buf 生成桩、指标/告警模拟器（自研 fixture）、集成回归测试  

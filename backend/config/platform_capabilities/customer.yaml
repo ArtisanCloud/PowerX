@@ -1,55 +1,64 @@
+---
 version: 1
 capabilities:
-  - capability_id: com.corex.customer.accounts.admin_manage
-    module: customer
-    title: Customer Accounts Admin Management
-    description: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.
-    permission_code: corex.customer.accounts.admin_manage
-    agent_usable: false
-    risk_level: high
-    categories: [customer, admin]
-    intents: [customer.accounts.admin_manage]
-    tool_scopes: [customer.accounts.admin_manage]
-    policy:
-      prefer: rest
-    protocols:
-      - channel: core_internal
-        endpoint: core://customer/accounts/admin_manage
-        method: INVOKE
-        auth_type: sts
-        actor_context: service_actor
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: customer.accounts.admin_manage
-      - channel: rest
-        endpoint: /api/v1/admin/customers/overview
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: customer.accounts.admin_manage
-      - channel: rest
-        endpoint: /api/v1/admin/customers/accounts
-        method: GET
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: customer.accounts.admin_manage
-      - channel: rest
-        endpoint: /api/v1/admin/customers/accounts
-        method: POST
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: customer.accounts.admin_manage
-      - channel: rest
-        endpoint: /api/v1/admin/customers/accounts/{customer_uuid}/status
-        method: PATCH
-        auth_type: user_jwt
-        actor_context: admin_user
-        resource_scope: tenant
-        sts_direct: false
-        tool_scope: customer.accounts.admin_manage
+- capability_id: com.corex.customer.accounts.admin_manage
+  module: customer
+  title: Customer Accounts Admin Management
+  description: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.
+  permission_code: corex.customer.accounts.admin_manage
+  agent_usable: false
+  risk_level: high
+  categories:
+  - customer
+  - admin
+  intents:
+  - customer.accounts.admin_manage
+  tool_scopes:
+  - customer.accounts.admin_manage
+  policy:
+    prefer: rest
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/accounts/admin_manage
+    method: INVOKE
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/overview"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}/status"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  title_i18n:
+    en: Customer Accounts Admin Management
+  description_i18n:
+    en: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.

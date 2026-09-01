@@ -425,10 +425,7 @@ func startLocalSession(cmd *cobra.Command, ctx context.Context, client pluginrel
 	if hostAPIEnabled() {
 		return startSessionViaHTTP(ctx, artifactURI)
 	}
-	tenantUUID := strings.TrimSpace(devWatchOpts.tenantUUID)
 	startResp, err := client.StartLocalInstall(ctx, &pluginreleasepb.StartLocalInstallRequest{
-		TenantUuid:   tenantUUID,
-		DeveloperId:  devWatchOpts.developerID,
 		ArtifactUri:  artifactURI,
 		FeatureFlags: devWatchOpts.featureFlags,
 		ResetCache:   devWatchOpts.resetCache,
@@ -438,7 +435,7 @@ func startLocalSession(cmd *cobra.Command, ctx context.Context, client pluginrel
 	}
 	responseTenant := strings.TrimSpace(startResp.GetTenantUuid())
 	if responseTenant == "" {
-		responseTenant = tenantUUID
+		responseTenant = strings.TrimSpace(devWatchOpts.tenantUUID)
 	}
 	return &localSession{
 		SessionID:  startResp.GetSessionId(),
@@ -453,7 +450,6 @@ func startSessionViaHTTP(ctx context.Context, artifactURI string) (*localSession
 		return nil, errors.New("tenant-uuid is required when --host-api is set")
 	}
 	payload := localInstallHTTPRequest{
-		DeveloperID:  devWatchOpts.developerID,
 		ArtifactURI:  artifactURI,
 		FeatureFlags: devWatchOpts.featureFlags,
 		ResetCache:   devWatchOpts.resetCache,
@@ -546,7 +542,6 @@ func doHostAPIRequest(ctx context.Context, method, path string, payload any, des
 }
 
 type localInstallHTTPRequest struct {
-	DeveloperID  uint64   `json:"developerId"`
 	ArtifactURI  string   `json:"artifactUri"`
 	FeatureFlags []string `json:"featureFlags"`
 	ResetCache   bool     `json:"resetCache"`

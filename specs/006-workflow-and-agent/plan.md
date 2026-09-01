@@ -11,7 +11,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24（遵循仓库 go.mod）  
+**Language/Version**: Go 1.26.7（遵循仓库 go.mod）
 **Primary Dependencies**: GORM、Redis（通过 go-redis 客户端）、OTEL SDK、现有 EventBus、Proto 生成工具链（buf + protoc）  
 **Storage**: PostgreSQL（工作流定义/实例/步骤表），Redis Sorted Set/Stream（调度延迟队列），ClickHouse（审计投影）  
 **Testing**: Go `testing` + testify（契约/集成/单元测试），`make unit-test`、`make test-all`  

@@ -3,14 +3,14 @@
 > 目标：在本地拉起 plugin_release 模块的 HTTP/gRPC/API + CLI 流程，完成一次从本地构建到测试租户审批的端到端演练。
 
 ## 1. 环境准备
-1. 安装 Go 1.24、Node 20、buf CLI、Docker（提供本地 Postgres/Redis/MinIO）。
+1. 安装 Go 1.26.7、Node 20、buf CLI、Docker（提供本地 Postgres/Redis/MinIO）。
 2. 克隆 PowerX 仓库，切换到 `001-install-plugin-pxp` 分支：  
    ```bash
    git checkout 001-install-plugin-pxp
    make deps
    ```
 3. 启动依赖服务（Postgres/Redis/MinIO 可直接复用 `make dev-up` 或 `docker compose -f docker/dev-release.yml up -d`）。
-4. 配置 `backend/etc/config.yaml` 中的 `database`, `cache`, `media_storage`，并开启 Feature Flag `plugin_release`.
+4. 配置 `backend/etc/config.yaml` 中的 `deployment.env`、`database`、`cache`、`media_storage`，并开启 Feature Flag `plugin_release`。开发环境必须显式使用 `deployment.env: dev`，不能从 `POWERX_ENV`、`plugin.dev_mode` 或目录推导。
 
 ## 1.5 插件初始化与环境自检
 1. 使用新的 CLI 校验模板与 Git/权限参数：
@@ -37,7 +37,37 @@ make proto-gen proto-lint           # 生成/校验 plugin_release proto
 go run cmd/database/migrate.go up   # 自动迁移 plugin_release 表
 ```
 
+## 2.5 校验插件权限声明资产
+
+插件包必须携带权限声明资产，供 PowerX 安装/同步后登记 `menu/page/action/api` 细颗粒度权限。plugin_release 阶段只做资产校验和发布阻断，正式角色授权在 PowerX IAM 角色权限中心完成。
+
+最小校验项：
+
+- `permission_code` 存在且稳定；
+- 用户可见标题和说明使用 i18n key；
+- `menu/page/action/api` 类型明确；
+- REST binding 显式声明 method、path、`actor_context`、`resource_scope`；
+- 缺字段时打包、发布或安装必须失败，不允许生成半登记权限。
+
+示例本地校验：
+
+```bash
+px-plugin capabilities lint --strict
+px-plugin build --target local
+```
+
+预期：若权限声明缺少 i18n、`permission_code`、method/path 或 actor/resource scope，CLI 返回非 0，并输出机器可读错误码。后续 Capability Sync 和角色权限中心验收见 `specs/007-integration-gateway-and-mcp/quickstart.md` 与 `specs/026-iam/quickstart.md`。
+
 ## 3. 启动 CoreX 服务
+
+安装任何插件前先确认 Core 配置：
+
+```yaml
+deployment:
+  env: dev
+```
+
+`deployment.env` 缺失或非法时，预期行为是安装明确失败且不创建部分 Schema/Database 或 Role/User。安装请求只能使用 `metadata.release_channel` 表达发布渠道；旧 `metadata.environment` 必须返回字段弃用错误，不能覆盖实例身份。
 ```bash
 cd backend
 go run cmd/server/main.go --enable-plugin-release

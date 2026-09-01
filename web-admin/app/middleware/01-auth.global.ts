@@ -1,5 +1,6 @@
 // middleware/app.global.ts
 export default defineNuxtRouteMiddleware(async (to) => {
+  const { isAccessTokenExpired, syncExpiresAtFromJWT } = await import("~/utils/auth-token");
   const skipAuth = process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true";
   const setupStatus = useSetupStatus();
 
@@ -79,9 +80,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // 3) 其余路由需要登录
   const isTokenExpired = (): boolean => {
-    const expiresAt = localStorage.getItem("expires_at");
-    if (!expiresAt) return true;
-    return Date.now() > Number(expiresAt);
+    return isAccessTokenExpired(localStorage.getItem("access_token"));
   };
 
   const clearAuthStorage = () => {
@@ -110,6 +109,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const token = localStorage.getItem("access_token");
   const refreshToken = localStorage.getItem("refresh_token");
   const needRefresh = !token || isTokenExpired();
+  if (token && !needRefresh) {
+    syncExpiresAtFromJWT(token);
+  }
   accessTokenCookie.value = needRefresh ? null : String(token || "").trim() || null;
   refreshTokenCookie.value = String(refreshToken || "").trim() || null;
 
@@ -181,28 +183,4 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  const tenantOnlyRoots = [
-    "/settings/ai",
-  ];
-  const isTenantOnlyPath = tenantOnlyRoots.some((path) =>
-    withLocale(path).test(to.path)
-  );
-  if (isTenantOnlyPath) {
-    const userStore = useUserStore();
-    try {
-      if (!userStore.context) {
-        await userStore.fetchUserContext({ force: true });
-      }
-      if (!userStore.isRoot && !userStore.isCurrentTenantAdmin) {
-        const { resolveDefaultRoute } = useDefaultMenuRoute();
-        try {
-          return navigateTo(await resolveDefaultRoute(), { replace: true });
-        } catch {
-          return navigateTo("/home", { replace: true });
-        }
-      }
-    } catch {
-      return redirectToLogin();
-    }
-  }
 });

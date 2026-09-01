@@ -105,7 +105,7 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 		return
 	}
 
-	traceErr := a.insertInvocationTrace(ctx, input)
+	invocationUUID, traceErr := a.insertInvocationTrace(ctx, input)
 
 	topic := chooseInvocationTopic(input.Status)
 	eventPayload := a.buildInvocationPayload(input)
@@ -146,8 +146,8 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 		}
 	}
 
-	if publicationID != uuid.Nil && a.traces != nil {
-		_ = a.traces.MarkEventPublished(ctx, input.TraceID, publicationID)
+	if publicationID != uuid.Nil && invocationUUID != uuid.Nil && a.traces != nil {
+		_ = a.traces.MarkEventPublished(ctx, invocationUUID, publicationID)
 	}
 
 	var metricErr error
@@ -159,9 +159,9 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 	a.emitInvocationMetric(ctx, input, metricErr)
 }
 
-func (a *AuditService) insertInvocationTrace(ctx context.Context, input InvocationAuditInput) error {
+func (a *AuditService) insertInvocationTrace(ctx context.Context, input InvocationAuditInput) (uuid.UUID, error) {
 	if a == nil || a.traces == nil {
-		return nil
+		return uuid.Nil, nil
 	}
 	payload := &models.InvocationTrace{
 		TraceID:           input.TraceID,
@@ -178,10 +178,11 @@ func (a *AuditService) insertInvocationTrace(ctx context.Context, input Invocati
 		ErrorSummary:      input.ErrorSummary,
 		LatencyMS:         int(input.Latency / time.Millisecond),
 	}
-	if _, err := a.traces.Create(ctx, payload); err != nil {
-		return err
+	saved, err := a.traces.Create(ctx, payload)
+	if err != nil {
+		return uuid.Nil, err
 	}
-	return nil
+	return saved.UUID, nil
 }
 
 func (a *AuditService) buildInvocationPayload(input InvocationAuditInput) map[string]any {
