@@ -133,11 +133,11 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm mb-1 text-[var(--text-secondary)]"
-                  >{{ t("plugins.installDialog.environment") }}</label
+                  >{{ t("plugins.installDialog.releaseChannel") }}</label
                 >
                 <USelect
-                  v-model="state.env"
-                  :items="envOptions"
+                  v-model="state.releaseChannel"
+                  :items="releaseChannelOptions"
                   icon="i-heroicons-circle-stack"
                 />
               </div>
@@ -289,10 +289,10 @@ const scopeOptions = computed(() => [
   { label: t("plugins.installDialog.scope.org"), value: "org" },
   { label: t("plugins.installDialog.scope.user"), value: "user" },
 ]);
-const envOptions = [
-  { label: "default", value: "default" },
-  { label: "staging", value: "staging" },
-  { label: "production", value: "production" },
+const releaseChannelOptions = [
+  { label: "stable", value: "stable" },
+  { label: "beta", value: "beta" },
+  { label: "canary", value: "canary" },
 ];
 
 const state = reactive({
@@ -304,7 +304,7 @@ const state = reactive({
   localDirName: "",
   scope: resolveDefaultScope(),
   namespace: "",
-  env: envOptions[0].value,
+  releaseChannel: releaseChannelOptions[0].value,
   autoUpdate: true,
   forceInstall: true,
   perms: {
@@ -393,7 +393,7 @@ function buildInstallMetadataPayload() {
   return {
     scope: state.scope || "system",
     namespace: (state.namespace || "").trim(),
-    environment: state.env || "default",
+    release_channel: state.releaseChannel || "",
     auto_update: Boolean(state.autoUpdate),
     permissions: {
       network: Boolean(state.perms.network),

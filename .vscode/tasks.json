@@ -26,7 +26,7 @@
     {
       "label": "backend: go run cmd/app",
       "type": "shell",
-      "command": "set -a; . ./.env; set +a; LOG_LEVEL=debug go run ./cmd/app",
+      "command": "set -a; . ./.env; set +a; GOTOOLCHAIN=go1.26.7 LOG_LEVEL=debug go run ./cmd/app",
       "options": {
         "cwd": "${workspaceFolder}/backend"
       },

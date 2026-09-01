@@ -218,6 +218,16 @@
 - [ ] T094 [FR-025] 文档对齐：更新 `specs/009-install-plugin-pxp/quickstart.md`，说明 plugin_release 只校验权限声明资产，正式授权归属 PowerX IAM 角色权限中心。
 - [ ] T095 [P] [FR-024] 合同测试：新增发布包缺 i18n、缺 `permission_code`、缺 method/path、缺 actor/resource scope 的失败用例，验证不会创建 release candidate 或安装记录。
 
+## Phase 15: 插件数据库部署环境隔离（Planned / FR-026~FR-030）
+
+- [ ] T096 [P] [FR-026] 安装配置合同测试：`deployment.env` 缺失/非法时在落盘和 DDL 前失败；旧 `metadata.environment` 返回字段弃用错误且不能覆盖
+- [ ] T097 [P] [FR-027] 数据库命名单元测试：Schema 名称保持不变；Role/User 环境段、稳定 hash、长度上限和长 ID 防碰撞
+- [ ] T098 [P] [FR-028] PostgreSQL/MySQL 权限集成测试：跨环境、跨插件与宿主表访问均被拒绝
+- [ ] T099 [FR-026/027] plugin manager 沿用 Schema/Database 名称，从 `CoreConfig.Deployment.Env` 生成 Role/User，并写入 host-values
+- [ ] T100 [FR-028/029] Registry、审计和 telemetry 以 `binding_uuid` 记录 `plugin_uuid`、`plugin_key`、`deployment_env` 与对象名，replace/restore/migration/purge 严格校验
+- [ ] T101 [FR-030] 独立 repair/migration 工具：默认 dry-run、人工确认、备份验证、权限复核、Registry 更新、旧对象清理审批
+- [ ] T102 文档与示例验证：对齐 `specs/025`、部署计划、setup 指南与插件 Host Contract
+
 ---
 
 ## Regression & Certification

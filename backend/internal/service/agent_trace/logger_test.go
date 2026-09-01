@@ -2,6 +2,7 @@ package agent_trace
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -82,16 +83,28 @@ func TestLocalSinkWritesRunTimelineNodesAndReport(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CompleteRun: %v", err)
 	}
-	base := filepath.Join(root, "tenant-1", "session-1", "message-1")
+	base := filepath.Join(root, "tenant-1", "session-1", "message-1", "run-1")
 	for _, rel := range []string{"run.json", "timeline.jsonl", "nodes/001_intent_recognition.json", "report.json", "report.md"} {
 		if _, err := os.Stat(filepath.Join(base, rel)); err != nil {
 			t.Fatalf("expected %s: %v", rel, err)
 		}
 	}
+	reportRaw, err := os.ReadFile(filepath.Join(base, "report.json"))
+	if err != nil {
+		t.Fatalf("read persisted report: %v", err)
+	}
+	var persisted AgentRunReport
+	if err := json.Unmarshal(reportRaw, &persisted); err != nil {
+		t.Fatalf("decode persisted report: %v", err)
+	}
+	if persisted.Summary["status"] != RunStatusCompleted || persisted.Summary["node_count"] != float64(1) || persisted.Summary["event_count"] != float64(2) {
+		t.Fatalf("persisted report was not refreshed on completion: %#v", persisted.Summary)
+	}
 	report, err := logger.BuildReport(ctx, AgentReportQuery{
 		TenantUUID: "tenant-1",
 		SessionID:  "session-1",
 		MessageID:  "message-1",
+		RunID:      "run-1",
 	})
 	if err != nil {
 		t.Fatalf("BuildReport: %v", err)
@@ -145,13 +158,14 @@ func TestLocalSinkPersistsRunStateSnapshot(t *testing.T) {
 	if err := logger.CompleteRun(ctx, AgentRunResult{AgentRunMeta: meta, Status: RunStatusCompleted}); err != nil {
 		t.Fatalf("CompleteRun: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(root, "tenant-state", "session-state", "message-state", "run_state.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(root, "tenant-state", "session-state", "message-state", "run-state", "run_state.json")); err != nil {
 		t.Fatalf("expected run_state.json: %v", err)
 	}
 	report, err := logger.BuildReport(ctx, AgentReportQuery{
 		TenantUUID: meta.TenantUUID,
 		SessionID:  meta.SessionID,
 		MessageID:  meta.MessageID,
+		RunID:      meta.RunID,
 	})
 	if err != nil {
 		t.Fatalf("BuildReport: %v", err)
@@ -165,5 +179,47 @@ func TestLocalSinkPersistsRunStateSnapshot(t *testing.T) {
 	task := report.RunState.PendingParams[0]
 	if task.TaskID != "task-create" || task.Status != "awaiting_params" || len(task.MissingFields) != 2 {
 		t.Fatalf("bad task state: %#v", task)
+	}
+}
+
+func TestLocalSinkSeparatesRepeatedRunsForSameMessage(t *testing.T) {
+	root := t.TempDir()
+	logger := NewLogger(Config{Enabled: true, LocalEnabled: true, LocalDir: root})
+	ctx := context.Background()
+	base := AgentRunMeta{
+		TenantUUID: "tenant-repeat",
+		AgentID:    "agent-repeat",
+		SessionID:  "session-repeat",
+		MessageID:  "message-repeat",
+	}
+	first := base
+	first.RunID = "run-first"
+	first.TraceID = "trace-first"
+	second := base
+	second.RunID = "run-second"
+	second.TraceID = "trace-second"
+
+	for _, meta := range []AgentRunMeta{first, second} {
+		if _, err := logger.StartRun(ctx, meta); err != nil {
+			t.Fatalf("start %s: %v", meta.RunID, err)
+		}
+		if err := logger.CompleteRun(ctx, AgentRunResult{AgentRunMeta: meta, Status: RunStatusCompleted}); err != nil {
+			t.Fatalf("complete %s: %v", meta.RunID, err)
+		}
+	}
+
+	for _, meta := range []AgentRunMeta{first, second} {
+		report, err := logger.BuildReport(ctx, AgentReportQuery{
+			TenantUUID: meta.TenantUUID,
+			SessionID:  meta.SessionID,
+			MessageID:  meta.MessageID,
+			RunID:      meta.RunID,
+		})
+		if err != nil {
+			t.Fatalf("build %s: %v", meta.RunID, err)
+		}
+		if report.RunID != meta.RunID || report.TraceID != meta.TraceID {
+			t.Fatalf("report for %s mixed another run: %#v", meta.RunID, report)
+		}
 	}
 }

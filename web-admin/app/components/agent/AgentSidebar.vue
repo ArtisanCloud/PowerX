@@ -68,10 +68,10 @@ const props = withDefaults(defineProps<Props>(), {
   hasMoreByAgent: () => ({}),
 });
 
-const { t } = useI18n();
+const { t, te, locale } = useI18n();
 const isBusy = computed(() => !!props.busy);
 const primaryActionLabel = computed(() =>
-  props.selectorMode === "team" ? "新建任务" : (t("agent.selector.newSession") || "新会话")
+  props.selectorMode === "team" ? t("agent.teamTasks.newTask") : t("agent.selector.newSession")
 );
 
 /* ---------- 顶部：Agent 选择 + 新建 ---------- */
@@ -83,17 +83,25 @@ const effectiveSelectorOptions = computed<SelectOption[]>(() => {
     return [];
   }
   return (props.agents || []).map((a) => ({
-    label: a.name,
+    label: agentDisplayName(a),
     value: a.uuid,
   }));
 });
 
 const agentOptionsWithIcon = computed(() =>
   (props.agents || []).map((a) => ({
-    label: a.name,
+    label: agentDisplayName(a),
     value: a.uuid,
     icon: getAgentIcon(a),
   }))
+);
+
+const currentAgent = computed(() =>
+  (props.agents || []).find((agent) => agent.uuid === selectedAgentId.value) || null
+);
+
+const currentAgentCanEdit = computed(() =>
+  !!currentAgent.value && !isProtectedAgent(currentAgent.value)
 );
 
 function getAgentIcon(agent: Agent) {
@@ -149,8 +157,53 @@ function createAgent() {
 function editAgent() {
   if (isBusy.value) return;
   if (!props.currentAgentId) return;
+  if (!currentAgentCanEdit.value) return;
   emit("edit-agent", props.currentAgentId);
 }
+
+function isProtectedAgent(agent: Agent) {
+  const meta = agent.meta || {};
+  return agent.source === "core" && (
+    Boolean((meta as any).protected) ||
+    Boolean((meta as any).protect_from_delete) ||
+    Boolean((meta as any).builtin)
+  );
+}
+
+const localizedText = (values?: Record<string, string>) => {
+  if (!values) return "";
+  const current = String(locale.value || "").trim();
+  const short = current.split("-")[0];
+  for (const key of [current, current.replace("_", "-"), short, "zh-CN", "zh", "en", "en-US"]) {
+    const value = String(values[key] || "").trim();
+    if (value) return value;
+  }
+  return "";
+};
+
+const isLocaleTextMap = (value: unknown): value is Record<string, string> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.values(value as Record<string, unknown>).every((item) => typeof item === "string");
+};
+
+const localizedAgentText = (agent: Agent, key: "title_i18n" | "description_i18n") => {
+  const direct = (agent as any)[key];
+  const fromMeta = (agent.meta as any)?.[key];
+  return localizedText(isLocaleTextMap(direct) ? direct : isLocaleTextMap(fromMeta) ? fromMeta : undefined);
+};
+
+const localizedAgentCatalogText = (agent: Agent, field: "title" | "description") => {
+  const key = String(agent.key || "").trim();
+  if (!key) return "";
+  const normalized = key.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const i18nKey = `agent.management.catalog.${normalized}.${field}`;
+  return normalized && te(i18nKey) ? String(t(i18nKey)).trim() : "";
+};
+
+const agentDisplayName = (agent: Agent) =>
+  localizedAgentText(agent, "title_i18n") ||
+  localizedAgentCatalogText(agent, "title") ||
+  String(agent.name || agent.key || "Agent").trim();
 
 /* ---------- 搜索框（搜会话，如 ChatGPT） ---------- */
 const searchQuery = ref("");
@@ -295,9 +348,9 @@ function fmtTime(ts?: string | number | Date) {
           icon="i-heroicons-pencil-square"
           size="sm"
           variant="ghost"
-          :disabled="isBusy || !currentAgentId"
+          :disabled="isBusy || !currentAgentId || !currentAgentCanEdit"
           @click="editAgent"
-          :title="t('agent.selector.editAgent') || '编辑 Agent'"
+          :title="currentAgentCanEdit ? t('agent.selector.editAgent') : t('agent.selector.lockedAgent')"
         />
 
         <!-- 新建 Agent 按钮 -->

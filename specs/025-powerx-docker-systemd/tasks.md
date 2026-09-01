@@ -299,11 +299,32 @@
 
 ---
 
+## Phase 13: Deployment Identity 与插件数据库跨环境隔离 (Priority: P1)
+
+**Goal**: 建立实例级 `deployment.env` 首真相，并使插件 Role/User、host-values、Registry、审计与恢复/清理链路按环境严格隔离；Schema/Database 名称保持不变。
+
+**Independent Test**: dev 与 prod Core 使用同一 PostgreSQL 集群中的不同数据库安装同一插件，Schema 名称一致而 Role/User 不同；专用账号跨数据库访问被拒绝；缺失/非法/不一致环境在 DDL 前失败。
+
+- [ ] T130 [P] 配置单元测试：`deployment.env` 仅接受 `dev/test/staging/prod`，缺失与非法值 fail-fast
+- [ ] T131 [P] setup 合同与 E2E：选择、保存、回显并写入 `deployment.env`，所有可见文案走 locale
+- [ ] T132 [P] 命名单元测试：`px_<slug>` Schema 保持不变，`pxu_<env>_<slug>_<hash8>` Role/User 稳定且无截断碰撞
+- [ ] T133 新增 `DeploymentConfig`、严格加载校验与配置示例，禁止从 `POWERX_ENV/version/dev_mode/path` 推导
+- [ ] T134 setup DTO、校验、草稿、最终 YAML 与前端必选项闭环
+- [ ] T135 plugin manager 安装/replace/restore/migration/purge 接入环境命名与数据库绑定一致性校验；旧 `metadata.environment` 返回弃用错误，渠道字段改为 `metadata.release_channel`
+- [ ] T136 host-values、审计、结构化日志、metrics、trace 通过 `binding_uuid` 关联 `plugin_uuid`、`plugin_key` 与 `deployment_env`，敏感密码保持脱敏
+- [ ] T137 [P] PostgreSQL/MySQL 集成测试：跨环境、跨插件权限拒绝与失败清理
+- [ ] T138 提供独立 repair/migration 工具：默认 dry-run、人工确认、备份/权限/Registry 验证、旧对象清理审批
+- [ ] T139 更新部署、插件开发与排障文档，并验证文档示例和实际配置/测试一致
+
+**Checkpoint**: T130-T139 完成前，`deployment.env` 文档保持“目标契约，待实现”标记，不得宣称跨 Core 实例数据库对象隔离已交付。
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
 
-- Phase 1 -> Phase 2 -> Phase 3/4/5/6 -> Phase 7 -> Phase 8 -> Phase 9 -> Phase 10 -> Phase 11
+- Phase 1 -> Phase 2 -> Phase 3/4/5/6 -> Phase 7 -> Phase 8 -> Phase 9 -> Phase 10 -> Phase 11 -> Phase 12 -> Phase 13
 - User Stories 必须在 Phase 2 完成后开始
 - US1/US2/US3/US4/US5/US6 可并行推进（团队资源允许时）
 
@@ -317,6 +338,7 @@
 - **US6 (P1)**: 依赖 US5（setup 闭环）完成后推进；用于统一 dev/prod 端口策略并补齐 setup 端口配置
 - **US7 (P1)**: 依赖 US5/US6，重构安装态真相与拦截策略；完成后才能标记 setup 闭环“生产可用”
 - **US8 (P1)**: 依赖 US6/US7，收敛端口真源与生效状态模型，补齐 dist 构建与运行态一致性
+- **Deployment Identity (P1)**: 依赖 US7 的 YAML/setup 真源，完成后插件数据库跨环境隔离才可宣称交付
 
 ### Within Each User Story
 
@@ -338,6 +360,7 @@
 - US5 测试任务 T091/T092/T093 可并行
 - US6 测试任务 T098/T099 可并行
 - US8 测试任务 T113/T114/T115/T116 可并行
+- Deployment Identity 测试任务 T130/T131/T132/T137 可并行，完成后再接入 T135/T136/T138
 
 ## Parallel Example
 

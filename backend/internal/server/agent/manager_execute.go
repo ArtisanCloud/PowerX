@@ -633,7 +633,7 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 	taskID := firstNonEmpty(t.HandoffTaskID, t.TaskID)
 	failurePolicy := firstNonEmpty(strings.ToLower(strings.TrimSpace(t.FailurePolicy)), asString(t.Params["failure_policy"]), asString(params["failure_policy"]), "continue")
 	teamID := firstNonEmpty(t.TeamID, asString(t.Params["team_id"]), asString(params["team_id"]))
-	teamName := firstNonEmpty(asString(t.Params["team_name"]), asString(params["team_name"]))
+	teamKey := firstNonEmpty(asString(t.Params["team_key"]), asString(params["team_key"]))
 	sessionID := firstPositiveUint64(asUint64(params["session_id"]), asUint64(t.Params["session_id"]))
 	handoffTraceID := firstNonEmpty(asString(mt.Metadata["trace_id"]), mt.TraceID, fmt.Sprintf("handoff_%d", time.Now().UnixNano()))
 
@@ -641,7 +641,7 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 	contextMap := contextFromTaskParams(t, params)
 	contextMap["context_ref_id"] = contextRefID
 	contextMap["team_id"] = teamID
-	contextMap["team_name"] = teamName
+	contextMap["team_key"] = teamKey
 	contextMap["parent_agent_id"] = firstPositiveUint64(asUint64(mt.Metadata["agent_id"]), asUint64(params["parent_agent_id"]))
 	contextMap["child_agent_id"] = childAgentID
 	contextMap["child_agent_key"] = childAgentKey
@@ -664,82 +664,41 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 		Payload:        payload,
 		Context:        contextMap,
 	}
-	if inv != nil {
-		out, err := inv(ctx, in)
-		if err != nil {
-			return nil, err
-		}
-		if out == nil {
-			return nil, errors.New("agent_handoff invoker returns nil output")
-		}
-		return &aschema.ExecutionResult{
-			Success: !strings.EqualFold(strings.TrimSpace(out.Status), "failed"),
-			Data: map[string]any{
-				"task_id":          out.TaskID,
-				"handoff_trace_id": out.HandoffTraceID,
-				"status":           out.Status,
-				"result":           out.Result,
-				"content":          asString(out.Result["content"]),
-			},
-			Metadata: flowschema.Result{
-				"is_final":        false,
-				"node_kind":       "agent_handoff",
-				"node_ref":        firstNonEmpty(ref, flowID),
-				"team_id":         teamID,
-				"team_name":       teamName,
-				"parent_agent_id": in.ParentAgentID,
-				"child_agent_id":  in.ChildAgentID,
-				"child_agent_key": childAgentKey,
-				"handoff_task_id": out.TaskID,
-				"failure_policy":  failurePolicy,
-				"context_ref_id":  contextRefID,
-				"trace_id":        out.HandoffTraceID,
-				"planner_mode":    "unified",
-			},
-		}, nil
+	if inv == nil {
+		return nil, errors.New("agent.handoff_invoker_unavailable")
 	}
-
-	// fallback: no explicit handoff invoker configured, directly dispatch to child agent route.
-	childTask := flowschema.PlanTask{
-		TaskID:   taskID,
-		FlowID:   flowID,
-		AgentID:  childAgentKey,
-		NodeKind: "workflow",
-	}
-	if childTask.AgentID == "" && childAgentID > 0 {
-		childTask.AgentID = strconv.FormatUint(childAgentID, 10)
-	}
-	ag, _, err := m.resolveAgentForTask(childTask)
-	if err != nil {
-		return nil, err
-	}
-	out, err := ag.Invoke(ctx, flowID, flowschema.Context{
-		"message": msg,
-		"payload": payload,
-		"context": contextMap,
-	}, mt)
+	out, err := inv(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	if out == nil {
-		return nil, errors.New("agent_handoff fallback output is nil")
+		return nil, errors.New("agent_handoff invoker returns nil output")
 	}
-	if out.Metadata == nil {
-		out.Metadata = flowschema.Result{}
-	}
-	out.Metadata["node_kind"] = "agent_handoff"
-	out.Metadata["node_ref"] = firstNonEmpty(ref, flowID)
-	out.Metadata["team_id"] = teamID
-	out.Metadata["team_name"] = teamName
-	out.Metadata["parent_agent_id"] = in.ParentAgentID
-	out.Metadata["child_agent_id"] = in.ChildAgentID
-	out.Metadata["child_agent_key"] = childAgentKey
-	out.Metadata["handoff_task_id"] = taskID
-	out.Metadata["failure_policy"] = failurePolicy
-	out.Metadata["context_ref_id"] = contextRefID
-	out.Metadata["trace_id"] = handoffTraceID
-	out.Metadata["planner_mode"] = "unified"
-	return out, nil
+	return &aschema.ExecutionResult{
+		Success: !strings.EqualFold(strings.TrimSpace(out.Status), "failed"),
+		Data: map[string]any{
+			"task_id":          out.TaskID,
+			"handoff_trace_id": out.HandoffTraceID,
+			"status":           out.Status,
+			"result":           out.Result,
+			"content":          asString(out.Result["content"]),
+		},
+		Metadata: flowschema.Result{
+			"is_final":        false,
+			"node_kind":       "agent_handoff",
+			"node_ref":        firstNonEmpty(ref, flowID),
+			"team_id":         teamID,
+			"team_key":        teamKey,
+			"parent_agent_id": in.ParentAgentID,
+			"child_agent_id":  in.ChildAgentID,
+			"child_agent_key": childAgentKey,
+			"handoff_task_id": out.TaskID,
+			"failure_policy":  failurePolicy,
+			"context_ref_id":  contextRefID,
+			"trace_id":        out.HandoffTraceID,
+			"planner_mode":    "unified",
+		},
+	}, nil
 }
 
 func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta, ref string) (*aschema.ExecutionResult, error) {
@@ -780,69 +739,6 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 	in.Context["plugin_id"] = in.PluginID
 	in.Context["capability_id"] = in.CapabilityID
 	enrichPayloadWithSkillState(in.Payload, in.Context)
-	prepareOut, err := m.prepareSkillTask(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	if prepareOut != nil && !prepareOut.ReadyToExecute {
-		result := map[string]any{}
-		for k, v := range prepareOut.Result {
-			result[k] = v
-		}
-		if prepareOut.Message != "" {
-			result["message"] = prepareOut.Message
-		}
-		if len(prepareOut.MissingFields) > 0 {
-			result["missing_fields"] = prepareOut.MissingFields
-		}
-		if len(prepareOut.StatePatch) > 0 {
-			result["state_patch"] = prepareOut.StatePatch
-		}
-		return &aschema.ExecutionResult{
-			Success: false,
-			StepID:  t.TaskID,
-			Data: flowschema.Result{
-				"trace_id":         prepareOut.TraceID,
-				"status":           "awaiting_params",
-				"protocol_used":    firstNonEmpty(prepareOut.ProtocolUsed, "skill.prepare"),
-				"fallback_used":    prepareOut.FallbackUsed,
-				"skill_id":         in.SkillID,
-				"version":          firstNonEmpty(prepareOut.Version, in.Version),
-				"result":           result,
-				"message":          prepareOut.Message,
-				"missing_fields":   prepareOut.MissingFields,
-				"ready_to_execute": false,
-			},
-			Metadata: flowschema.Result{
-				"is_final":         false,
-				"node_kind":        "skill",
-				"node_ref":         ref,
-				"trace_id":         prepareOut.TraceID,
-				"run_id":           in.RunID,
-				"plan_id":          in.PlanID,
-				"node_id":          in.NodeID,
-				"plugin_id":        in.PluginID,
-				"capability_id":    in.CapabilityID,
-				"status":           "awaiting_params",
-				"protocol_used":    firstNonEmpty(prepareOut.ProtocolUsed, "skill.prepare"),
-				"fallback_used":    prepareOut.FallbackUsed,
-				"planner_mode":     "unified",
-				"missing_fields":   prepareOut.MissingFields,
-				"ready_to_execute": false,
-			},
-		}, nil
-	}
-	if prepareOut != nil && prepareOut.ReadyToExecute {
-		if strings.TrimSpace(prepareOut.CapabilityID) == "" {
-			return nil, errors.New("skill prepare ready_to_execute=true requires capability_request.capability_id")
-		}
-		if len(prepareOut.CapabilityPayload) == 0 {
-			return nil, errors.New("skill prepare ready_to_execute=true requires capability_request.payload")
-		}
-		in.CapabilityID = strings.TrimSpace(prepareOut.CapabilityID)
-		in.Context["capability_id"] = in.CapabilityID
-		in.Payload = prepareOut.CapabilityPayload
-	}
 	logger.InfoF(ctx, "[agent.skill.invoke] skill_id=%s action=%s capability_id=%s plugin_id=%s trace_id=%s payload=%s",
 		in.SkillID,
 		firstNonEmpty(asString(in.Payload["action"]), asString(in.Payload["operation"]), asString(params["action"]), asString(t.Params["action"])),
@@ -892,45 +788,11 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 	}, nil
 }
 
-func (m *Manager) prepareSkillTask(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
-	m.mu.RLock()
-	inv := m.skillInvoker
-	m.mu.RUnlock()
-	if inv == nil {
-		return nil, errors.New("skill invoker is not configured")
-	}
-	prepareIn := in
-	prepareIn.Entrypoint = "prepare"
-	prepareIn.CapabilityID = ""
-	if prepareIn.Context == nil {
-		prepareIn.Context = map[string]any{}
-	}
-	prepareIn.Context["entrypoint"] = "prepare"
-	out, err := inv(ctx, prepareIn)
-	if err != nil {
-		return nil, err
-	}
-	if out == nil {
-		return nil, errors.New("skill prepare output is nil")
-	}
-	status := strings.TrimSpace(out.Status)
-	if status == "" {
-		return nil, errors.New("skill prepare status is required")
-	}
-	if strings.EqualFold(status, "completed") {
-		if !out.ReadyToExecute {
-			return nil, errors.New("skill prepare completed without ready_to_execute=true")
-		}
-		return out, nil
-	}
-	if strings.EqualFold(status, "awaiting_params") || strings.EqualFold(status, "collecting") {
-		return out, nil
-	}
-	return nil, fmt.Errorf("skill prepare failed: status=%s trace_id=%s protocol=%s", status, strings.TrimSpace(out.TraceID), strings.TrimSpace(out.ProtocolUsed))
-}
-
 func pickSkillVisibleContent(result map[string]any) string {
 	if len(result) == 0 {
+		return ""
+	}
+	if _, ok := result["response_envelope"].(map[string]any); ok {
 		return ""
 	}
 	for _, key := range []string{"content", "rendered_text", "text", "output", "answer", "message"} {
@@ -999,21 +861,32 @@ func (m *Manager) executeToolingTask(ctx context.Context, t flowschema.PlanTask,
 }
 
 func payloadFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map[string]any {
+	out := map[string]any{}
 	if p, ok := params["payload"].(map[string]any); ok && len(p) > 0 {
-		return p
+		for key, value := range p {
+			out[key] = value
+		}
+	} else if p, ok := t.Params["payload"].(map[string]any); ok && len(p) > 0 {
+		for key, value := range p {
+			out[key] = value
+		}
 	}
-	if p, ok := t.Params["payload"].(map[string]any); ok && len(p) > 0 {
-		return p
+	// ParamRefs are the explicit data contract between plan tasks. Preserve all
+	// materialized references in the callee payload; unrelated runtime params
+	// remain excluded.
+	for key := range t.ParamRefs {
+		if value, ok := params[key]; ok {
+			out[key] = value
+		}
 	}
-	out := make(map[string]any, len(t.Params))
-	for k, v := range t.Params {
-		if strings.HasPrefix(k, "_") {
+	if len(out) > 0 {
+		return out
+	}
+	for key, value := range t.Params {
+		if strings.HasPrefix(key, "_") || key == "payload" || key == "context" || key == "tool_grant_ids" {
 			continue
 		}
-		if k == "payload" || k == "context" || k == "tool_grant_ids" {
-			continue
-		}
-		out[k] = v
+		out[key] = value
 	}
 	if len(out) == 0 {
 		return map[string]any{}

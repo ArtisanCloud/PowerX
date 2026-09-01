@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -128,26 +127,23 @@ type pluginReleaseServer struct {
 }
 
 func (s *pluginReleaseServer) StartLocalInstall(ctx context.Context, req *pluginreleasepb.StartLocalInstallRequest) (*pluginreleasepb.LocalInstallSession, error) {
-	tenantUUID := strings.TrimSpace(req.GetTenantUuid())
-	if tenantUUID == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_uuid is required")
-	}
+	tenantUUID := localTenantUUID
 	session, err := s.svc.LocalInstall().Start(ctx, local.StartInput{
-		TenantUUID:   tenantUUID,
-		DeveloperID:  req.GetDeveloperId(),
-		ArtifactURI:  req.GetArtifactUri(),
-		FeatureFlags: req.GetFeatureFlags(),
-		ResetCache:   req.GetResetCache(),
+		TenantUUID:          tenantUUID,
+		DeveloperMemberUUID: "a4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
+		ArtifactURI:         req.GetArtifactUri(),
+		FeatureFlags:        req.GetFeatureFlags(),
+		ResetCache:          req.GetResetCache(),
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	resp := &pluginreleasepb.LocalInstallSession{
-		SessionId:   session.UUID.String(),
-		TenantUuid:  tenantUUID,
-		DeveloperId: session.DeveloperID,
-		ArtifactUri: session.ArtifactURI,
+		SessionId:           session.UUID.String(),
+		TenantUuid:          tenantUUID,
+		DeveloperMemberUuid: session.DeveloperMemberUUID,
+		ArtifactUri:         session.ArtifactURI,
 		FeatureFlags: func() []string {
 			flags := local.ExtractFeatureFlags(session.FeatureFlags)
 			if flags == nil {
@@ -193,8 +189,6 @@ func TestLocalHotloadFlow(t *testing.T) {
 
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
 	startResp, err := client.StartLocalInstall(ctx, &pluginreleasepb.StartLocalInstallRequest{
-		TenantUuid:   localTenantUUID,
-		DeveloperId:  2025,
 		ArtifactUri:  "s3://bucket/hotload.zip",
 		FeatureFlags: []string{"beta_ui"},
 		ResetCache:   true,

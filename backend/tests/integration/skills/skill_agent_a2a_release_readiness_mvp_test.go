@@ -2,6 +2,7 @@ package skillsintegration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -72,7 +73,7 @@ func TestSkillAgentA2AReleaseReadinessSeed(t *testing.T) {
 	require.Equal(t, int64(4), countReleaseSkills(t, db))
 
 	var team modelagent.AgentTeam
-	require.NoError(t, db.Where("team_name = ?", dbseed.ReleaseReadinessTeamName).First(&team).Error)
+	require.NoError(t, db.Where("team_key = ?", dbseed.ReleaseReadinessTeamKey).First(&team).Error)
 	require.Equal(t, modelagent.TeamStatusActive, team.Status)
 
 	var members int64
@@ -82,6 +83,19 @@ func TestSkillAgentA2AReleaseReadinessSeed(t *testing.T) {
 	var bindings int64
 	require.NoError(t, db.Model(&agentmodel.AgentSkillBinding{}).Where("skill_id IN ?", releaseSkillIDs()).Where("enabled = ?", true).Count(&bindings).Error)
 	require.Equal(t, int64(4), bindings)
+
+	var records []skillmodel.SkillRegistryRecord
+	require.NoError(t, db.Where("skill_id IN ?", releaseSkillIDs()).Find(&records).Error)
+	require.Len(t, records, 4)
+	for _, record := range records {
+		var manifest map[string]any
+		require.NoError(t, json.Unmarshal(record.ManifestJSON, &manifest))
+		executor, ok := manifest["executor"].(map[string]any)
+		require.True(t, ok, "skill %s missing executor", record.SkillID)
+		require.Equal(t, "capability", strings.TrimSpace(fmt.Sprintf("%v", executor["type"])))
+		require.Equal(t, record.SkillID+".prepare", strings.TrimSpace(fmt.Sprintf("%v", executor["prepare_capability"])))
+		require.Equal(t, record.SkillID+".execute", strings.TrimSpace(fmt.Sprintf("%v", executor["capability"])))
+	}
 }
 
 func TestSkillAgentA2AReleaseReadinessMVP(t *testing.T) {
@@ -97,6 +111,9 @@ func TestSkillAgentA2AReleaseReadinessMVP(t *testing.T) {
 	recorder := &releaseHandoffRecorder{}
 	m.SetAgentHandoffInvoker(recorder.invoke)
 	m.SetSkillInvoker(func(ctx context.Context, in agentpkg.SkillInvokeInput) (*agentpkg.SkillInvokeOutput, error) {
+		if in.Entrypoint == "prepare" {
+			return releaseReportSynthesisPrepareOutput(in), nil
+		}
 		return &agentpkg.SkillInvokeOutput{
 			TraceID:      "trace-report-synthesis",
 			Status:       "completed",
@@ -132,7 +149,7 @@ func TestSkillAgentA2AReleaseReadinessMVP(t *testing.T) {
 		require.NotZero(t, call.ChildAgentID)
 		require.Equal(t, "continue", call.FailurePolicy)
 		require.NotContains(t, call.Context, "session_messages")
-		require.Equal(t, dbseed.ReleaseReadinessTeamName, call.Context["team_name"])
+		require.Equal(t, dbseed.ReleaseReadinessTeamKey, call.Context["team_key"])
 	}
 }
 
@@ -148,6 +165,9 @@ func TestSkillAgentA2AReleaseReadinessPartialFailure(t *testing.T) {
 	require.NoError(t, m.SetDefaultAgent(dbseed.ReleaseCoordinatorAgentKey, "release.final"))
 	m.SetAgentHandoffInvoker((&releaseHandoffRecorder{failTasks: map[string]bool{"notification_schedule": true}}).invoke)
 	m.SetSkillInvoker(func(ctx context.Context, in agentpkg.SkillInvokeInput) (*agentpkg.SkillInvokeOutput, error) {
+		if in.Entrypoint == "prepare" {
+			return releaseReportSynthesisPrepareOutput(in), nil
+		}
 		deps := in.Context["_deps"]
 		return &agentpkg.SkillInvokeOutput{
 			TraceID:      "trace-report-partial",
@@ -201,7 +221,7 @@ func TestSkillAgentA2AReleaseReadinessContextIsolation(t *testing.T) {
 				FailurePolicy: "continue",
 				Stage:         1,
 				Params: map[string]any{
-					"team_name":       dbseed.ReleaseReadinessTeamName,
+					"team_key":        dbseed.ReleaseReadinessTeamKey,
 					"child_agent_id":  ids[dbseed.ReleaseKnowledgeAnalystAgentKey],
 					"child_agent_key": dbseed.ReleaseKnowledgeAnalystAgentKey,
 					"message":         "分析发布风险",
@@ -336,6 +356,35 @@ func createReleaseReadinessSQLiteTables(db *gorm.DB) error {
 	return nil
 }
 
+func releaseReportSynthesisPrepareOutput(in agentpkg.SkillInvokeInput) *agentpkg.SkillInvokeOutput {
+	return &agentpkg.SkillInvokeOutput{
+		TraceID:        firstNonEmptyString(in.TraceID, "trace-report-prepare"),
+		Status:         "completed",
+		ProtocolUsed:   "skill.prepare",
+		SkillID:        in.SkillID,
+		Version:        "1.0.0",
+		ReadyToExecute: true,
+		CapabilityID:   "powerx.release.report_synthesis.prepare",
+		CapabilityPayload: map[string]any{
+			"release_name": in.Payload["release_name"],
+			"release_date": in.Payload["release_date"],
+			"_deps":        in.Context["_deps"],
+		},
+		Result: map[string]any{
+			"ready_to_execute": true,
+		},
+	}
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
 func releaseReadinessPlan(ids map[string]uint64, teamID uint64) flowschema.ExecutionPlan {
 	return flowschema.ExecutionPlan{
 		PlanID: "release_readiness_multi_agent_mvp",
@@ -375,7 +424,7 @@ func releaseHandoffTask(taskID, flowID, childKey string, childID uint64, teamID 
 		Stage:         stage,
 		DependsOn:     dependsOn,
 		Params: map[string]any{
-			"team_name":       dbseed.ReleaseReadinessTeamName,
+			"team_key":        dbseed.ReleaseReadinessTeamKey,
 			"child_agent_id":  childID,
 			"child_agent_key": childKey,
 			"message":         message,
@@ -403,7 +452,7 @@ func loadReleaseAgentIDs(t *testing.T, db *gorm.DB) map[string]uint64 {
 func loadReleaseTeam(t *testing.T, db *gorm.DB) modelagent.AgentTeam {
 	t.Helper()
 	var team modelagent.AgentTeam
-	require.NoError(t, db.Where("team_name = ?", dbseed.ReleaseReadinessTeamName).First(&team).Error)
+	require.NoError(t, db.Where("team_key = ?", dbseed.ReleaseReadinessTeamKey).First(&team).Error)
 	return team
 }
 

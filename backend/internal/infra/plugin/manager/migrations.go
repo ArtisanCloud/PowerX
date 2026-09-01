@@ -27,7 +27,6 @@ func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opt
 	if entry == "" {
 		return nil, nil
 	}
-
 	record := &plugin_mgr.MigrationRecord{
 		Entry:   spec.Entry,
 		WorkDir: spec.WorkDir,
@@ -172,8 +171,12 @@ func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opt
 	}
 	cmd.Env = cmdEnv
 	logger.InfoF(ctx, "[plugin-install] 运行迁移：plugin=%s version=%s entry=%s args=%v workdir=%s", desc.Manifest.ID, desc.Manifest.Version, resolvedEntry, record.Args, workDir)
-	if dsn := envMap["POWERX_DB_DSN"]; dsn != "" {
-		logger.InfoF(ctx, "[plugin-install] 使用数据库 DSN: %s", dsn)
+	if envMap["POWERX_DB_DSN"] != "" {
+		logger.InfoF(logger.WithLogFields(ctx, map[string]interface{}{
+			"plugin_id":            desc.Manifest.ID,
+			"plugin_version":       desc.Manifest.Version,
+			"database_dsn_present": true,
+		}), "[plugin-install] migration database binding ready")
 	}
 
 	var stdout, stderr bytes.Buffer

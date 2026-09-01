@@ -76,6 +76,44 @@ func TestAuditServiceRecordInvocation(t *testing.T) {
 	require.Equal(t, "trace-123", records[0].TraceID)
 }
 
+func TestAuditServiceAllowsMultipleInvocationsInOneTrace(t *testing.T) {
+	ctx := context.Background()
+	db := newAuditMemoryDB(t)
+
+	traceRepo := repo.NewInvocationTraceRepository(db)
+	eventRepo := repo.NewCapabilityEventPublicationRepository(db)
+	audit := NewAuditService(AuditServiceOptions{
+		TraceRepo: traceRepo,
+		EventRepo: eventRepo,
+	})
+
+	for _, capabilityID := range []string{"powerx.release.report_synthesis.execute", "com.corex.agent.stream"} {
+		audit.RecordInvocation(ctx, InvocationAuditInput{
+			TraceID:      "shared-trace-123",
+			TenantUUID:   "tenant-001",
+			PluginID:     "corex.platform",
+			CapabilityID: capabilityID,
+			ProtocolUsed: "core_internal",
+			Status:       "completed",
+		})
+	}
+
+	traces, err := traceRepo.List(ctx, repo.InvocationTraceFilter{
+		TenantUUID: "tenant-001",
+		OrderBy:    "created_at ASC, id ASC",
+	})
+	require.NoError(t, err)
+	require.Len(t, traces, 2)
+	require.Equal(t, "shared-trace-123", traces[0].TraceID)
+	require.Equal(t, "shared-trace-123", traces[1].TraceID)
+	require.NotEqual(t, traces[0].UUID, traces[1].UUID)
+	require.True(t, traces[0].EventPublished)
+	require.True(t, traces[1].EventPublished)
+	require.NotNil(t, traces[0].EventPublicationID)
+	require.NotNil(t, traces[1].EventPublicationID)
+	require.NotEqual(t, *traces[0].EventPublicationID, *traces[1].EventPublicationID)
+}
+
 func newAuditMemoryDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{

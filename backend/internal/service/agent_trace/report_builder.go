@@ -35,7 +35,7 @@ func (s *LocalSink) BuildReport(_ context.Context, query AgentReportQuery) (*Age
 	if err := validateReportQuery(query); err != nil {
 		return nil, err
 	}
-	dir := s.runDir(query.TenantUUID, query.SessionID, query.MessageID)
+	dir := s.runDir(query.TenantUUID, query.SessionID, query.MessageID, query.RunID)
 	run, err := readJSONFile[AgentRunTrace](filepath.Join(dir, "run.json"))
 	if err != nil {
 		return nil, err
@@ -104,6 +104,7 @@ func (s *LocalSink) BuildReport(_ context.Context, query AgentReportQuery) (*Age
 			"duration_ms":           run.DurationMS,
 			"user_message_digest":   run.UserMessageDigest,
 			"final_response_digest": run.FinalResponseDigest,
+			"storage_path":          absolutePath(dir),
 			"started_at":            run.StartedAt,
 			"ended_at":              run.EndedAt,
 		},
@@ -132,17 +133,26 @@ func (s *LocalSink) BuildSessionReport(_ context.Context, query AgentReportQuery
 			continue
 		}
 		messageID := entry.Name()
-		report, err := s.BuildReport(context.Background(), AgentReportQuery{
-			TenantUUID: query.TenantUUID,
-			SessionID:  query.SessionID,
-			MessageID:  messageID,
-			Source:     query.Source,
-			Format:     query.Format,
-		})
+		runEntries, err := os.ReadDir(filepath.Join(sessionDir, messageID))
 		if err != nil {
 			continue
 		}
-		messageReports = append(messageReports, report)
+		for _, runEntry := range runEntries {
+			if !runEntry.IsDir() {
+				continue
+			}
+			report, err := s.BuildReport(context.Background(), AgentReportQuery{
+				TenantUUID: query.TenantUUID,
+				SessionID:  query.SessionID,
+				MessageID:  messageID,
+				RunID:      runEntry.Name(),
+				Source:     query.Source,
+				Format:     query.Format,
+			})
+			if err == nil {
+				messageReports = append(messageReports, report)
+			}
+		}
 	}
 	sort.SliceStable(messageReports, func(i, j int) bool {
 		return reportStartedAt(messageReports[i]).Before(reportStartedAt(messageReports[j]))
@@ -270,29 +280,25 @@ func (s *LocalSink) collectRunItems(tenantUUID string, sessionFilter string, sta
 				continue
 			}
 			messageID := messageEntry.Name()
-			run, err := readJSONFile[AgentRunTrace](filepath.Join(tenantDir, sessionID, messageID, "run.json"))
+			runEntries, err := os.ReadDir(filepath.Join(tenantDir, sessionID, messageID))
 			if err != nil {
 				continue
 			}
-			if status != "" && strings.ToLower(strings.TrimSpace(run.Status)) != status {
-				continue
+			for _, runEntry := range runEntries {
+				if !runEntry.IsDir() {
+					continue
+				}
+				run, err := readJSONFile[AgentRunTrace](filepath.Join(tenantDir, sessionID, messageID, runEntry.Name(), "run.json"))
+				if err != nil || (status != "" && strings.ToLower(strings.TrimSpace(run.Status)) != status) {
+					continue
+				}
+				items = append(items, AgentRunListItem{
+					TenantUUID: run.TenantUUID, SessionID: run.SessionID, MessageID: run.MessageID, RunID: run.RunID,
+					TraceID: run.TraceID, AgentID: run.AgentID, Status: run.Status, NodeCount: run.NodeCount,
+					EventCount: run.EventCount, ErrorCount: run.ErrorCount, DurationMS: run.DurationMS,
+					StartedAt: run.StartedAt, EndedAt: run.EndedAt, CreatedAt: run.CreatedAt,
+				})
 			}
-			items = append(items, AgentRunListItem{
-				TenantUUID: run.TenantUUID,
-				SessionID:  run.SessionID,
-				MessageID:  run.MessageID,
-				RunID:      run.RunID,
-				TraceID:    run.TraceID,
-				AgentID:    run.AgentID,
-				Status:     run.Status,
-				NodeCount:  run.NodeCount,
-				EventCount: run.EventCount,
-				ErrorCount: run.ErrorCount,
-				DurationMS: run.DurationMS,
-				StartedAt:  run.StartedAt,
-				EndedAt:    run.EndedAt,
-				CreatedAt:  run.CreatedAt,
-			})
 		}
 	}
 	sort.SliceStable(items, func(i, j int) bool {
@@ -462,7 +468,16 @@ func validateReportQuery(query AgentReportQuery) error {
 		"tenant_uuid": query.TenantUUID,
 		"session_id":  query.SessionID,
 		"message_id":  query.MessageID,
+		"run_id":      query.RunID,
 	})
+}
+
+func absolutePath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return abs
 }
 
 func validateSessionReportQuery(query AgentReportQuery) error {

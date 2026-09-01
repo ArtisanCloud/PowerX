@@ -18,7 +18,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24（backend），TypeScript（Nuxt 4 / Vue 3，web-admin）  
+**Language/Version**: Go 1.26.7（backend），TypeScript（Nuxt 4 / Vue 3，web-admin）
 **Primary Dependencies**: Gin HTTP、gRPC（Buf contracts）、GORM、Pinia、Nuxt UI  
 **Storage**: PostgreSQL（IAM 用户/成员/角色数据）、Redis（会话与缓存）  
 **Testing**: Go test（service/http）、前端 Vitest + 手工回归脚本（setup/status + users 页面）  

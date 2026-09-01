@@ -33,7 +33,12 @@ func (e *Engine) newTraceRuntime(ctx context.Context, msg string, reqCfg *dto.Ch
 	if traceID == "" {
 		traceID = fmt.Sprintf("trace_%d", time.Now().UnixNano())
 	}
-	runID := fmt.Sprintf("run_%d", time.Now().UnixNano())
+	// RunStateSink 位于 Engine 外层。调用方必须先在 context 中声明本轮
+	// run_id，确保 SSE、历史消息和落盘 Trace 使用同一个不可变运行标识。
+	runID := firstTraceString(traceContextValue(ctx, "run_id"), traceContextValue(ctx, "runId"))
+	if runID == "" {
+		runID = fmt.Sprintf("run_%d", time.Now().UnixNano())
+	}
 	sessionID := firstTraceString(
 		traceContextValue(ctx, "session_id"),
 		traceContextValue(ctx, "sessionId"),
@@ -118,7 +123,7 @@ func (tr *traceRuntime) startNode(ctx context.Context, kind, ref string, attrs m
 		return ""
 	}
 	tr.seq++
-	nodeID := firstTraceString(fmt.Sprint(attrs["node_id"]), fmt.Sprintf("%03d_%s", tr.seq, kind))
+	nodeID := firstTraceString(traceAttrString(attrs, "node_id"), fmt.Sprintf("%03d_%s", tr.seq, kind))
 	now := time.Now().UTC()
 	tr.starts[nodeID] = now
 	tr.nodeSeq[nodeID] = tr.seq
@@ -132,11 +137,11 @@ func (tr *traceRuntime) startNode(ctx context.Context, kind, ref string, attrs m
 		Attributes:   cloneMap(attrs),
 		StartedAt:    now,
 	}
-	node.ContextRef = fmt.Sprint(attrs["context_ref_id"])
-	node.SkillID = fmt.Sprint(attrs["skill_id"])
-	node.PluginID = fmt.Sprint(attrs["plugin_id"])
-	node.CapabilityID = fmt.Sprint(attrs["capability_id"])
-	node.ExecutorPath = fmt.Sprint(attrs["executor_path"])
+	node.ContextRef = traceAttrString(attrs, "context_ref_id")
+	node.SkillID = traceAttrString(attrs, "skill_id")
+	node.PluginID = traceAttrString(attrs, "plugin_id")
+	node.CapabilityID = traceAttrString(attrs, "capability_id")
+	node.ExecutorPath = traceAttrString(attrs, "executor_path")
 	_ = tr.logger.StartNode(ctx, node)
 	return nodeID
 }
@@ -263,6 +268,13 @@ func firstTraceString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func traceAttrString(attrs map[string]any, key string) string {
+	if attrs == nil {
+		return ""
+	}
+	return firstTraceString(fmt.Sprint(attrs[key]))
 }
 
 func digestString(v string) string {

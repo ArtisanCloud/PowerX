@@ -83,6 +83,8 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		systemPerm("metadata", "tag", "manage"),
 		systemPerm("metadata", "resource_type", "read"),
 		systemPerm("metadata", "resource_type", "manage"),
+		// Agent runtime scenarios
+		systemPerm("agent", "release_readiness", "use"),
 		// Admin menu visibility permissions. These only control menu visibility;
 		// route/API authorization must still be enforced by the target module.
 		menuPerm("agent"),

@@ -23,7 +23,6 @@ func newOfflineImportHandler(svc *distribution.Service) *offlineImportHandler {
 }
 
 type offlineImportRequest struct {
-	TenantUUID      string `json:"tenant_uuid"`
 	PackageURI      string `json:"packageUri" binding:"required"`
 	Checksum        string `json:"checksum" binding:"required"`
 	LicenseAccepted bool   `json:"licenseAccepted" binding:"required"`
@@ -45,14 +44,9 @@ func (h *offlineImportHandler) startImport(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantUUID := strings.TrimSpace(req.TenantUUID)
-	if tenantUUID == "" {
-		if ctxUUID := reqctx.TenantUUIDFromGin(c); ctxUUID != "" {
-			tenantUUID = ctxUUID
-		}
-	}
-	if tenantUUID == "" {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid is required", nil)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "PLUGIN_RELEASE_UNAUTHORIZED", err)
 		return
 	}
 
@@ -89,13 +83,18 @@ func (h *offlineImportHandler) getImport(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "jobId is required", nil)
 		return
 	}
-	job, err := h.svc.GetImportJob(jobID)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "PLUGIN_RELEASE_UNAUTHORIZED", err)
+		return
+	}
+	job, err := h.svc.GetImportJob(c.Request.Context(), tenantUUID, jobID)
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
 	if job == nil {
-		dto.ResponseError(c, http.StatusNotFound, "import job not found", nil)
+		dto.ResponseError(c, http.StatusNotFound, "PLUGIN_RELEASE_IMPORT_NOT_FOUND", nil)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{
@@ -109,10 +108,10 @@ func (h *offlineImportHandler) getImport(c *gin.Context) {
 func (h *offlineImportHandler) writeError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, distribution.ErrFeatureDisabled):
-		dto.ResponseError(c, http.StatusForbidden, "offline distribution disabled", err)
+		dto.ResponseError(c, http.StatusForbidden, "PLUGIN_RELEASE_FORBIDDEN", err)
 	case errors.Is(err, distribution.ErrInvalidInput):
-		dto.ResponseError(c, http.StatusBadRequest, "invalid offline import request", err)
+		dto.ResponseError(c, http.StatusBadRequest, "PLUGIN_RELEASE_INVALID_ARGUMENT", err)
 	default:
-		dto.ResponseError(c, http.StatusInternalServerError, "offline import operation failed", err)
+		dto.ResponseError(c, http.StatusServiceUnavailable, "PLUGIN_RELEASE_UPSTREAM_DEPENDENCY", err)
 	}
 }

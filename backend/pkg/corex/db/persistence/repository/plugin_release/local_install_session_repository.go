@@ -74,10 +74,10 @@ func (r *LocalInstallSessionRepository) updateSessionStatus(ctx context.Context,
 }
 
 // GetActiveSession fetches the active session for a developer within a tenant.
-func (r *LocalInstallSessionRepository) GetActiveSession(ctx context.Context, tenantUUID string, developerID uint64) (*models.LocalInstallSession, error) {
+func (r *LocalInstallSessionRepository) GetActiveSession(ctx context.Context, tenantUUID, developerMemberUUID string) (*models.LocalInstallSession, error) {
 	var session models.LocalInstallSession
 	err := r.db.WithContext(ctx).
-		Where("tenant_uuid = ? AND developer_id = ? AND status = ?", strings.TrimSpace(tenantUUID), developerID, models.LocalInstallStatusInProgress).
+		Where("tenant_uuid = ? AND developer_member_uuid = ? AND status = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(developerMemberUUID), models.LocalInstallStatusInProgress).
 		Order("created_at DESC").
 		Take(&session).Error
 	if err != nil {
@@ -98,29 +98,29 @@ func (r *LocalInstallSessionRepository) CleanupExpired(ctx context.Context, now 
 }
 
 // GetSessionByUUID returns a session by its UUID (nil when not found).
-func (r *LocalInstallSessionRepository) GetSessionByUUID(ctx context.Context, sessionUUID uuid.UUID) (*models.LocalInstallSession, error) {
+func (r *LocalInstallSessionRepository) GetSessionByTenantUUID(ctx context.Context, tenantUUID string, sessionUUID uuid.UUID) (*models.LocalInstallSession, error) {
 	if sessionUUID == uuid.Nil {
 		return nil, gorm.ErrInvalidData
 	}
 	type sessionRow struct {
-		ID           uint64
-		UUID         string
-		TenantUUID   string
-		DeveloperID  uint64
-		ArtifactURI  string
-		Status       string
-		LogPointers  datatypes.JSON
-		FeatureFlags datatypes.JSON
-		CreatedAt    time.Time
-		UpdatedAt    time.Time
-		ExpiredAt    string
+		ID                  uint64
+		UUID                string
+		TenantUUID          string
+		DeveloperMemberUUID string
+		ArtifactURI         string
+		Status              string
+		LogPointers         datatypes.JSON
+		FeatureFlags        datatypes.JSON
+		CreatedAt           time.Time
+		UpdatedAt           time.Time
+		ExpiredAt           string
 	}
 
 	var row sessionRow
 	err := r.db.WithContext(ctx).
 		Table(models.LocalInstallSession{}.TableName()).
-		Select("id", "uuid", "tenant_uuid", "developer_id", "artifact_uri", "status", "log_pointers", "feature_flags", "created_at", "updated_at", "expired_at").
-		Where("uuid = ?", sessionUUID).
+		Select("id", "uuid", "tenant_uuid", "developer_member_uuid", "artifact_uri", "status", "log_pointers", "feature_flags", "created_at", "updated_at", "expired_at").
+		Where("uuid = ? AND tenant_uuid = ?", sessionUUID, strings.TrimSpace(tenantUUID)).
 		Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -141,12 +141,12 @@ func (r *LocalInstallSessionRepository) GetSessionByUUID(ctx context.Context, se
 			CreatedAt: row.CreatedAt,
 			UpdatedAt: row.UpdatedAt,
 		},
-		TenantUUID:   strings.TrimSpace(row.TenantUUID),
-		DeveloperID:  row.DeveloperID,
-		ArtifactURI:  row.ArtifactURI,
-		Status:       row.Status,
-		LogPointers:  row.LogPointers,
-		FeatureFlags: row.FeatureFlags,
+		TenantUUID:          strings.TrimSpace(row.TenantUUID),
+		DeveloperMemberUUID: strings.TrimSpace(row.DeveloperMemberUUID),
+		ArtifactURI:         row.ArtifactURI,
+		Status:              row.Status,
+		LogPointers:         row.LogPointers,
+		FeatureFlags:        row.FeatureFlags,
 	}
 	if ts := strings.TrimSpace(row.ExpiredAt); ts != "" {
 		if parsed, err := parseTimestamp(ts); err == nil {

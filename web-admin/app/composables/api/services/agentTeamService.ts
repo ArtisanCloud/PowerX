@@ -6,13 +6,30 @@ export interface AgentTeamRecord {
   uuid?: string;
   tenant_uuid: string;
   parent_agent_id: number;
-  team_name: string;
+  team_key: string;
+  display_name_i18n: Record<string, string>;
   dispatch_mode: "serial" | "parallel" | "mixed";
   default_failure_policy: "fail-fast" | "continue" | "retry-once";
   status: "active" | "disabled";
   created_by?: string;
+  orchestration_spec?: TeamOrchestrationSpec;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface TeamOrchestrationTask {
+  task_id: string;
+  node_kind: "agent_handoff" | "skill";
+  assignee_role: "planner" | "retriever" | "executor" | "reviewer";
+  skill_id: string;
+  stage: number;
+  depends_on?: string[];
+  failure_policy?: "fail-fast" | "continue" | "retry-once";
+}
+
+export interface TeamOrchestrationSpec {
+  schema: "powerx.agent.team-orchestration/v1";
+  tasks: TeamOrchestrationTask[];
 }
 
 export interface AgentTeamMemberRecord {
@@ -37,9 +54,11 @@ export const useAgentTeamService = () => {
   return {
     createTeam: async (payload: {
       parent_agent_id: number;
-      team_name: string;
+      team_key: string;
+      display_name_i18n: Record<string, string>;
       dispatch_mode?: string;
       default_failure_policy?: string;
+      orchestration_spec?: TeamOrchestrationSpec;
     }) => {
       const resp = await api.post<ApiResponse<AgentTeamRecord>>(base, payload);
       return unwrap<AgentTeamRecord>(resp);
@@ -70,9 +89,11 @@ export const useAgentTeamService = () => {
       teamId: number,
       payload: {
         parent_agent_id?: number;
-        team_name?: string;
+        team_key?: string;
+        display_name_i18n?: Record<string, string>;
         dispatch_mode?: "serial" | "parallel" | "mixed";
         default_failure_policy?: "fail-fast" | "continue" | "retry-once";
+        orchestration_spec?: TeamOrchestrationSpec;
       }
     ) => {
       const resp = await api.patch<ApiResponse<AgentTeamRecord>>(`${base}/${teamId}`, payload);

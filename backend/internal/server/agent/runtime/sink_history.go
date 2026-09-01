@@ -68,8 +68,11 @@ func (h *HistorySink) Emit(event string, payload any) error {
 		if strings.TrimSpace(text) == "" {
 			text = SanitizeAssistantVisibleText(h.buf.String())
 		}
-		if strings.TrimSpace(text) != "" {
-			meta := extractAssistantTraceMeta(payload)
+		meta := extractAssistantTraceMeta(payload)
+		// Structured final responses are rendered by the channel from meta. They
+		// intentionally have no duplicate plain-text summary in storage.
+		_, hasEnvelope := meta["response_envelope"].(map[string]any)
+		if strings.TrimSpace(text) != "" || hasEnvelope {
 			h.mergeRunStateMeta(meta)
 			msg, _ := h.his.AppendMessage(h.ginCtx.Request.Context(),
 				h.env, h.tenantUUID, h.session.ID, h.agentID, "assistant", text, "text", 0, 0, false, meta)
@@ -334,6 +337,11 @@ func extractAssistantTraceMeta(payload any) datatypes.JSONMap {
 		copyResponseMeta(out, raw, md)
 	} else {
 		copyResponseMeta(out, md, md)
+	}
+	if data, ok := m["data"].(map[string]any); ok {
+		if envelope, ok := data["response_envelope"].(map[string]any); ok {
+			out["response_envelope"] = envelope
+		}
 	}
 	return out
 }

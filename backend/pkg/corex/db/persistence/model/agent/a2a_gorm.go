@@ -1,10 +1,13 @@
 package agent
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"gorm.io/datatypes"
 )
 
 const (
@@ -83,13 +86,151 @@ const (
 type AgentTeam struct {
 	coremodel.PowerUUIDModel
 
-	TenantUUID           string `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_agent_team_tenant" json:"tenant_uuid"`
-	ParentAgentID        uint64 `gorm:"column:parent_agent_id;not null;index:idx_agent_team_parent" json:"parent_agent_id"`
-	TeamName             string `gorm:"column:team_name;type:varchar(128);not null" json:"team_name"`
-	DispatchMode         string `gorm:"column:dispatch_mode;type:varchar(16);not null;default:'parallel'" json:"dispatch_mode"`
-	DefaultFailurePolicy string `gorm:"column:default_failure_policy;type:varchar(16);not null;default:'continue'" json:"default_failure_policy"`
-	Status               string `gorm:"column:status;type:varchar(16);not null;default:'active';index:idx_agent_team_status" json:"status"`
-	CreatedBy            string `gorm:"column:created_by;type:varchar(64)" json:"created_by"`
+	TenantUUID    string `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_agent_team_tenant;uniqueIndex:idx_agent_team_tenant_key,priority:1" json:"tenant_uuid"`
+	ParentAgentID uint64 `gorm:"column:parent_agent_id;not null;index:idx_agent_team_parent" json:"parent_agent_id"`
+	// TeamKey is a stable machine-semantic identifier. It is never rendered as
+	// the business name and is unique only within a tenant.
+	TeamKey              string         `gorm:"column:team_key;type:varchar(128);not null;uniqueIndex:idx_agent_team_tenant_key,priority:2" json:"team_key"`
+	DisplayNameI18n      datatypes.JSON `gorm:"column:display_name_i18n;type:jsonb;not null;default:'{}'" json:"display_name_i18n"`
+	DispatchMode         string         `gorm:"column:dispatch_mode;type:varchar(16);not null;default:'parallel'" json:"dispatch_mode"`
+	DefaultFailurePolicy string         `gorm:"column:default_failure_policy;type:varchar(16);not null;default:'continue'" json:"default_failure_policy"`
+	Status               string         `gorm:"column:status;type:varchar(16);not null;default:'active';index:idx_agent_team_status" json:"status"`
+	CreatedBy            string         `gorm:"column:created_by;type:varchar(64)" json:"created_by"`
+	// OrchestrationSpec is the authoritative, versioned team task graph. Runtime
+	// must compile this data and must not branch on a mutable team name.
+	OrchestrationSpec datatypes.JSON `gorm:"column:orchestration_spec;type:jsonb;not null;default:'{}'" json:"orchestration_spec"`
+}
+
+const TeamOrchestrationSchemaV1 = "powerx.agent.team-orchestration/v1"
+
+type TeamOrchestrationSpec struct {
+	Schema string                  `json:"schema"`
+	Tasks  []TeamOrchestrationTask `json:"tasks"`
+}
+
+type TeamOrchestrationTask struct {
+	TaskID        string   `json:"task_id"`
+	NodeKind      string   `json:"node_kind"`
+	AssigneeRole  string   `json:"assignee_role"`
+	SkillID       string   `json:"skill_id"`
+	Stage         int      `json:"stage"`
+	DependsOn     []string `json:"depends_on,omitempty"`
+	FailurePolicy string   `json:"failure_policy,omitempty"`
+}
+
+func ParseTeamOrchestrationSpec(raw []byte) (TeamOrchestrationSpec, error) {
+	var spec TeamOrchestrationSpec
+	if len(raw) == 0 || strings.TrimSpace(string(raw)) == "" || strings.TrimSpace(string(raw)) == "{}" {
+		return spec, fmt.Errorf("team orchestration is required")
+	}
+	if err := json.Unmarshal(raw, &spec); err != nil {
+		return spec, fmt.Errorf("team orchestration is invalid: %w", err)
+	}
+	if spec.Schema != TeamOrchestrationSchemaV1 {
+		return spec, fmt.Errorf("unsupported team orchestration schema: %s", strings.TrimSpace(spec.Schema))
+	}
+	if len(spec.Tasks) == 0 {
+		return spec, fmt.Errorf("team orchestration requires tasks")
+	}
+	seen := map[string]struct{}{}
+	for _, task := range spec.Tasks {
+		taskID := strings.TrimSpace(task.TaskID)
+		if taskID == "" {
+			return spec, fmt.Errorf("team orchestration task_id is required")
+		}
+		if _, ok := seen[taskID]; ok {
+			return spec, fmt.Errorf("team orchestration task_id duplicated: %s", taskID)
+		}
+		seen[taskID] = struct{}{}
+		if task.Stage <= 0 {
+			return spec, fmt.Errorf("team orchestration task stage is required: %s", taskID)
+		}
+		if strings.TrimSpace(task.SkillID) == "" {
+			return spec, fmt.Errorf("team orchestration task skill_id is required: %s", taskID)
+		}
+		switch strings.ToLower(strings.TrimSpace(task.NodeKind)) {
+		case "agent_handoff":
+			if !IsChildTeamRole(task.AssigneeRole) {
+				return spec, fmt.Errorf("team orchestration handoff role is invalid: %s", taskID)
+			}
+		case "skill":
+			if !strings.EqualFold(strings.TrimSpace(task.AssigneeRole), TeamRolePlanner) {
+				return spec, fmt.Errorf("team orchestration skill task must be assigned to planner: %s", taskID)
+			}
+		default:
+			return spec, fmt.Errorf("team orchestration node_kind is invalid: %s", taskID)
+		}
+		for _, dependency := range task.DependsOn {
+			if strings.TrimSpace(dependency) == "" {
+				return spec, fmt.Errorf("team orchestration dependency is empty: %s", taskID)
+			}
+		}
+	}
+	for _, task := range spec.Tasks {
+		for _, dependency := range task.DependsOn {
+			dependency = strings.TrimSpace(dependency)
+			if dependency == strings.TrimSpace(task.TaskID) {
+				return spec, fmt.Errorf("team orchestration task cannot depend on itself: %s", task.TaskID)
+			}
+			if _, ok := seen[dependency]; !ok {
+				return spec, fmt.Errorf("team orchestration dependency not found: %s", dependency)
+			}
+		}
+	}
+	// The stage is a scheduling hint, not a substitute for a DAG check. A
+	// cyclic graph would otherwise be accepted and fail only after a run starts.
+	visiting := make(map[string]bool, len(spec.Tasks))
+	visited := make(map[string]bool, len(spec.Tasks))
+	byID := make(map[string]TeamOrchestrationTask, len(spec.Tasks))
+	for _, task := range spec.Tasks {
+		byID[strings.TrimSpace(task.TaskID)] = task
+	}
+	var visit func(string) error
+	visit = func(taskID string) error {
+		if visiting[taskID] {
+			return fmt.Errorf("team orchestration dependency cycle detected at: %s", taskID)
+		}
+		if visited[taskID] {
+			return nil
+		}
+		visiting[taskID] = true
+		for _, dependency := range byID[taskID].DependsOn {
+			if err := visit(strings.TrimSpace(dependency)); err != nil {
+				return err
+			}
+		}
+		visiting[taskID] = false
+		visited[taskID] = true
+		return nil
+	}
+	for taskID := range byID {
+		if err := visit(taskID); err != nil {
+			return spec, err
+		}
+	}
+	return spec, nil
+}
+
+func ValidateTeamIdentity(teamKey string, displayNameI18n []byte) error {
+	teamKey = strings.TrimSpace(teamKey)
+	if teamKey == "" {
+		return fmt.Errorf("team_key is required")
+	}
+	for _, char := range teamKey {
+		if !(char >= 'a' && char <= 'z') && !(char >= '0' && char <= '9') && char != '.' && char != '_' && char != '-' {
+			return fmt.Errorf("team_key contains unsupported character")
+		}
+	}
+	var names map[string]string
+	if err := json.Unmarshal(displayNameI18n, &names); err != nil {
+		return fmt.Errorf("display_name_i18n is invalid: %w", err)
+	}
+	for _, locale := range []string{"zh-CN", "en-US", "ja", "ko"} {
+		if strings.TrimSpace(names[locale]) == "" {
+			return fmt.Errorf("display_name_i18n requires %s", locale)
+		}
+	}
+	return nil
 }
 
 func (AgentTeam) TableName() string {
@@ -98,7 +239,7 @@ func (AgentTeam) TableName() string {
 
 func (m *AgentTeam) Normalize() {
 	m.TenantUUID = strings.ToLower(strings.TrimSpace(m.TenantUUID))
-	m.TeamName = strings.TrimSpace(m.TeamName)
+	m.TeamKey = strings.TrimSpace(m.TeamKey)
 	m.DispatchMode = normalizeDispatchMode(m.DispatchMode)
 	m.DefaultFailurePolicy = normalizeFailurePolicy(m.DefaultFailurePolicy)
 	m.Status = normalizeTeamStatus(m.Status)

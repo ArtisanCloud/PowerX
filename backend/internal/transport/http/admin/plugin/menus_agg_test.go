@@ -96,7 +96,7 @@ func TestBuildPluginMenusPublicReadsConfigFromEtcWhenGlobalNil(t *testing.T) {
 	require.NoError(t, os.MkdirAll(etc, 0o755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(etc, "config.yaml"),
-		[]byte("plugin:\n  enabled: false\n"),
+		[]byte("deployment:\n  env: dev\nplugin:\n  enabled: false\n"),
 		0o644,
 	))
 

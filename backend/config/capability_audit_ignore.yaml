@@ -7,3 +7,7 @@ routes:
     path: /api/v1/public/saas/registration-requests
     category: public_registration
     reason: Public registration request submission is an anonymous tenant signup entry and must not be registered as a tenant capability.
+  - method: POST
+    path: /api/v1/tenant/iam/members:operation
+    category: transport_route_adapter
+    reason: Gin requires the two declared colon-action member directory contracts to share a parameterized dispatcher route; the formal IAM directory capability declares the concrete batch-get and batch-resolve endpoints.

@@ -71,6 +71,9 @@ type LLMDefaults struct {
 	MaxTokens   int     `yaml:"max_tokens"  mapstructure:"max_tokens"`
 	TopP        float64 `yaml:"top_p"       mapstructure:"top_p"`
 	Stream      bool    `yaml:"stream"      mapstructure:"stream"`
+	// RequestTimeout is the sole per-request deadline for all LLM invocation
+	// entry points, including Agent chat, team orchestration and connection tests.
+	RequestTimeout time.Duration `yaml:"request_timeout" mapstructure:"request_timeout"`
 }
 
 type EmbeddingDefaults struct {
@@ -129,6 +132,9 @@ func (c *AIConfig) SetDefaults() {
 	}
 	if c.Defaults.LLM.TopP == 0 {
 		c.Defaults.LLM.TopP = 1.0
+	}
+	if c.Defaults.LLM.RequestTimeout <= 0 {
+		c.Defaults.LLM.RequestTimeout = 5 * time.Minute
 	}
 	// Embedding
 	if c.Defaults.Embedding.Batch == 0 {

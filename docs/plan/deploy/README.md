@@ -33,6 +33,7 @@
 - [systemd 生产部署方案](./systemd.md)
 - [Nginx 同域反代方案](./nginx.md)
 - [插件安装与平滑升级 SOP](./plugin-upgrade-sop.md)
+- [插件数据库部署环境隔离计划](./plugin-database-isolation.md)
 - [上线验收与演练清单](./checklist.md)
 - [Docker 镜像存储策略（独立讨论）](./image-registry-strategy.md)
 - [生产日志方案：Loki + Grafana](./logging-loki-grafana.md)
@@ -77,11 +78,14 @@
 
 ### 5.1 `config.yaml`（关键）
 
+- `deployment.env: prod`（必填；仅允许 `dev/test/staging/prod`，插件数据库对象命名的唯一环境来源）
 - `plugin.enabled: true`
 - `plugin.registry_file: /opt/powerx/plugins/registry.json`
 - `plugin.installed_dir: /opt/powerx/plugins/installed`
 - `plugin.market_cache_dir: /opt/powerx/plugins/market_cache`
 - `plugin.auto_restore_parallelism: 2`（按机器规格可调）
+
+`deployment.env` 是 PowerX 实例级身份，不属于 `plugin:`。不得从 `version`、`plugin.dev_mode`、目录名或插件安装请求的 `metadata.environment` 推导。详细命名、失败和迁移规则见[插件数据库部署环境隔离计划](./plugin-database-isolation.md)。
 
 ### 5.2 环境变量（建议放 EnvironmentFile）
 

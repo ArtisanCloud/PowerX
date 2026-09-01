@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	coreconfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/stretchr/testify/require"
 )
@@ -25,11 +26,15 @@ func TestInstallFromFileForceRejectsEnabledRuntimeWithTenantInstances(t *testing
 			InstalledRoot: installedRoot,
 			Registry:      registry,
 			Loader:        NewFSLoader(),
+			CoreConfig: &coreconfig.Config{
+				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+			},
 			TenantInstanceCount: func(ctx context.Context, pluginID string) (int64, error) {
 				require.Equal(t, "com.powerx.plugins.replace-test", pluginID)
 				return 1, nil
 			},
 		},
+		databaseSectionBuilder: testDatabaseSection,
 	}
 
 	installed, err := m.InstallFromFile(ctx, srcV1, plugin_mgr.InstallOptions{})
@@ -65,11 +70,15 @@ func TestSwitchVersionRejectsEnabledRuntimeWithTenantInstances(t *testing.T) {
 			InstalledRoot: installedRoot,
 			Registry:      registry,
 			Loader:        NewFSLoader(),
+			CoreConfig: &coreconfig.Config{
+				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+			},
 			TenantInstanceCount: func(ctx context.Context, pluginID string) (int64, error) {
 				require.Equal(t, "com.powerx.plugins.replace-test", pluginID)
 				return 1, nil
 			},
 		},
+		databaseSectionBuilder: testDatabaseSection,
 	}
 
 	v1 := writeReplaceTestPluginVersion(t, filepath.Join(root, "src-v1"), "0.1.0", "first")

@@ -50,7 +50,7 @@ const props = withDefaults(defineProps<Props>(), {
   hasMoreByAgent: () => ({}),
 });
 const emit = defineEmits<Emits>();
-const { t } = useI18n();
+const { t, te, locale } = useI18n();
 
 // 统一的"安全数组"
 const list = computed<Agent[]>(() =>
@@ -65,8 +65,8 @@ const filteredAgents = computed<Agent[]>(() => {
   if (!q) return list.value;
 
   return list.value.filter((a) => {
-    const name = a.name?.toLowerCase() || "";
-    const desc = a.description?.toLowerCase() || "";
+    const name = agentDisplayName(a).toLowerCase();
+    const desc = agentDescription(a).toLowerCase();
     const key = a.key?.toLowerCase() || "";
     const tags = (a.meta?.tags || []).join(" ").toLowerCase();
     return (
@@ -130,20 +130,75 @@ const getAgentInitials = (name: string) => {
   );
 };
 
+const localizedText = (values?: Record<string, string>) => {
+  if (!values) return "";
+  const current = String(locale.value || "").trim();
+  const short = current.split("-")[0];
+  for (const key of [current, current.replace("_", "-"), short, "zh-CN", "zh", "en", "en-US"]) {
+    const value = String(values[key] || "").trim();
+    if (value) return value;
+  }
+  return "";
+};
+
+const isLocaleTextMap = (value: unknown): value is Record<string, string> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.values(value as Record<string, unknown>).every((item) => typeof item === "string");
+};
+
+const localizedAgentText = (agent: Agent, key: "title_i18n" | "description_i18n") => {
+  const direct = (agent as any)[key];
+  const fromMeta = (agent.meta as any)?.[key];
+  return localizedText(isLocaleTextMap(direct) ? direct : isLocaleTextMap(fromMeta) ? fromMeta : undefined);
+};
+
+const localizedAgentCatalogText = (agent: Agent, field: "title" | "description") => {
+  const key = String(agent.key || "").trim();
+  if (!key) return "";
+  const normalized = key.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const i18nKey = `agent.management.catalog.${normalized}.${field}`;
+  return normalized && te(i18nKey) ? String(t(i18nKey)).trim() : "";
+};
+
+const agentDisplayName = (agent: Agent) =>
+  localizedAgentText(agent, "title_i18n") ||
+  localizedAgentCatalogText(agent, "title") ||
+  String(agent.name || agent.key || "Agent").trim();
+
+const agentDescription = (agent: Agent) =>
+  localizedAgentText(agent, "description_i18n") ||
+  localizedAgentCatalogText(agent, "description") ||
+  String(agent.description || "").trim();
+
 const canDelete = (agent: Agent) => {
-  return !agent.meta?.protect_from_delete;
+  return !isProtectedAgent(agent);
+};
+
+const canEdit = (agent: Agent) => {
+  return !isProtectedAgent(agent);
+};
+
+const isProtectedAgent = (agent: Agent) => {
+  const meta = agent.meta || {};
+  return agent.source === "core" && (
+    Boolean((meta as any).protected) ||
+    Boolean((meta as any).protect_from_delete) ||
+    Boolean((meta as any).builtin)
+  );
 };
 
 const makeMenuItems = (agent: Agent): any[][] => {
-  const items: any[][] = [
-    [
+  const items: any[][] = [];
+
+  if (canEdit(agent)) {
+    items.push([
       {
         label: t("agent.selector.edit"),
         icon: "i-heroicons-pencil",
         onSelect: () => emit("edit", agent.uuid),
       },
-    ],
-  ];
+    ]);
+  }
 
   if (canDelete(agent)) {
     items.push([
@@ -164,8 +219,8 @@ const makeMenuItems = (agent: Agent): any[][] => {
 
 const onDropdownSelect = (item: any, agent: Agent) => {
   console.info(item);
-  if (item?.value === "edit") emit("edit", agent.uuid);
-  if (item?.value === "delete") emit("delete", agent.uuid);
+  if (item?.value === "edit" && canEdit(agent)) emit("edit", agent.uuid);
+  if (item?.value === "delete" && canDelete(agent)) emit("delete", agent.uuid);
 };
 
 // ✅ 记录哪些行处于展开态
@@ -299,7 +354,7 @@ watch(
                 'hover:bg-gray-50': agent.uuid !== currentAgentId,
               }"
               @click="selectAgent(agent.uuid)"
-              @dblclick.stop="emit('edit', agent.uuid)"
+              @dblclick.stop="canEdit(agent) && emit('edit', agent.uuid)"
             >
               <div class="flex items-start gap-3">
                 <!-- 左侧头像/图标 -->
@@ -316,7 +371,7 @@ watch(
                   <!-- 行头部：名称 + 右侧工具区（展开按钮/状态/操作） -->
                   <div class="flex items-center gap-2">
                     <h3 class="text-sm font-medium text-gray-900 truncate">
-                      {{ agent.name }}
+                      {{ agentDisplayName(agent) }}
                     </h3>
 
                     <!-- 展开/收起按钮（放在名称右边） -->
@@ -345,6 +400,7 @@ watch(
 
                       <!-- 直接编辑按钮（非透明，不重叠） -->
                       <UButton
+                        v-if="canEdit(agent)"
                         icon="i-heroicons-pencil"
                         size="xs"
                         variant="outline"
@@ -353,7 +409,7 @@ watch(
                       />
 
                       <!-- Kebab 菜单 -->
-                      <UDropdownMenu :items="makeMenuItems(agent)">
+                      <UDropdownMenu v-if="canEdit(agent) || canDelete(agent)" :items="makeMenuItems(agent)">
                         <UButton
                           icon="i-heroicons-ellipsis-vertical"
                           size="xs"
@@ -370,7 +426,7 @@ watch(
                     v-if="!isExpanded(agent.uuid)"
                     class="text-xs text-gray-500 mt-1 line-clamp-2"
                   >
-                    {{ agent.description }}
+                    {{ agentDescription(agent) }}
                   </p>
 
                   <!-- 展开区（详尽信息 + 小屏操作按钮） -->
@@ -378,7 +434,7 @@ watch(
                     v-show="agent.uuid === currentAgentId || isExpanded(agent.uuid)"
                     class="mt-2 space-y-2"
                   >
-                    <p class="text-xs text-gray-600">{{ agent.description }}</p>
+                    <p class="text-xs text-gray-600">{{ agentDescription(agent) }}</p>
 
                     <div
                       class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500"
@@ -398,6 +454,7 @@ watch(
                     <!-- 小屏操作按钮：展开时显示，避免与徽标拥挤 -->
                     <div class="flex items-center gap-2 sm:hidden pt-1">
                       <UButton
+                        v-if="canEdit(agent)"
                         size="xs"
                         icon="i-heroicons-pencil"
                         variant="outline"
@@ -536,7 +593,7 @@ watch(
               :key="agent.uuid"
               class="group relative p-3 rounded-lg cursor-pointer transition-colors duration-200 hover:bg-gray-50 opacity-60"
               @click="selectAgent(agent.uuid)"
-              @dblclick.stop="emit('edit', agent.uuid)"
+              @dblclick.stop="canEdit(agent) && emit('edit', agent.uuid)"
             >
               <div class="flex items-start gap-3">
                 <!-- 左侧头像/图标 -->
@@ -574,6 +631,7 @@ watch(
 
                       <!-- 直接编辑按钮（非透明，不重叠） -->
                       <UButton
+                        v-if="canEdit(agent)"
                         icon="i-heroicons-pencil"
                         size="xs"
                         variant="outline"
@@ -583,6 +641,7 @@ watch(
 
                       <!-- Kebab 菜单 -->
                       <UDropdownMenu
+                        v-if="canEdit(agent) || canDelete(agent)"
                         :items="makeMenuItems(agent)"
                         @select="(item) => onDropdownSelect(item, agent)"
                       >
@@ -602,7 +661,7 @@ watch(
                     v-if="!isExpanded(agent.uuid)"
                     class="text-xs text-gray-400 mt-1 line-clamp-2"
                   >
-                    {{ agent.description }}
+                    {{ agentDescription(agent) }}
                   </p>
 
                   <!-- 展开区（详尽信息 + 小屏操作按钮） -->
@@ -610,7 +669,7 @@ watch(
                     v-show="agent.uuid === currentAgentId || isExpanded(agent.uuid)"
                     class="mt-2 space-y-2"
                   >
-                    <p class="text-xs text-gray-500">{{ agent.description }}</p>
+                    <p class="text-xs text-gray-500">{{ agentDescription(agent) }}</p>
 
                     <div
                       class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400"
@@ -630,6 +689,7 @@ watch(
                     <!-- 小屏操作按钮：展开时显示，避免与徽标拥挤 -->
                     <div class="flex items-center gap-2 sm:hidden pt-1">
                       <UButton
+                        v-if="canEdit(agent)"
                         size="xs"
                         icon="i-heroicons-pencil"
                         variant="outline"

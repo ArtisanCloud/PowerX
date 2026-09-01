@@ -24,7 +24,7 @@ templates:
       language: go
       framework: gin
       template: go-gin
-      min_version: 1.24.0
+      min_version: 1.26.7
     tooling:
       required: ["git","go"]
 `)
@@ -59,7 +59,7 @@ templates:
       language: go
       framework: gin
       template: go-gin
-      min_version: 1.24.0
+      min_version: 1.26.7
     tooling:
       required: ["git","docker"]
 `)

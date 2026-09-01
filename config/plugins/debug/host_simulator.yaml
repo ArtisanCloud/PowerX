@@ -5,9 +5,9 @@ defaults:
   grpc_port: 52701
 
 runtimes:
-  - id: go1.24
-    description: Default Go 1.24 host simulator image
-    image: registry.powerx.dev/px-host-sim:go1.24
+  - id: go1.26.7
+    description: Default Go 1.26.7 host simulator image
+    image: registry.powerx.dev/px-host-sim:go1.26.7
     healthcheck: /healthz
   - id: node20
     description: Node 20 + Vite host simulator image

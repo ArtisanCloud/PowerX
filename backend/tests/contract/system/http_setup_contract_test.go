@@ -23,6 +23,12 @@ func TestSetupHTTPContract(t *testing.T) {
 
 	schema := doc.Components.Schemas["SetupConfig"]
 	require.NotNil(t, schema, "SetupConfig schema missing")
+	require.Contains(t, schema.Value.Required, "deployment", "SetupConfig.deployment must be required")
+	require.Contains(t, schema.Value.Properties, "deployment", "SetupConfig.deployment schema missing")
+	deployment := schema.Value.Properties["deployment"]
+	require.NotNil(t, deployment.Value)
+	require.Contains(t, deployment.Value.Required, "env", "SetupConfig.deployment.env must be required")
+	require.Equal(t, []any{"dev", "test", "staging", "prod"}, deployment.Value.Properties["env"].Value.Enum)
 	require.Contains(t, schema.Value.Properties, "ports", "SetupConfig.ports schema missing")
 }
 

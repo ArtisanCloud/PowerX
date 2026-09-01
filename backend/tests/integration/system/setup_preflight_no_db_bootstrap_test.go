@@ -17,6 +17,8 @@ func TestSetupPreflightSkipsDatabaseBootstrap(t *testing.T) {
 	repoRoot := repoRootFromIntegrationTest(t)
 	runtimeCfg := filepath.Join(t.TempDir(), "config.yaml")
 	cfgText := `version: v2.0.2
+deployment:
+  env: dev
 server:
   port: 18098
   api_prefix: /api/v1

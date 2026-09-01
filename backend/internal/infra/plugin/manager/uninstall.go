@@ -85,7 +85,7 @@ func (m *managerImpl) uninstall(ctx context.Context, clearDatabase bool, id stri
 	for _, ver := range removeVersions {
 		if pl, ok := m.opts.Registry.GetVersion(ctx, id, ver); ok {
 			if clearDatabase {
-				if err := m.cleanupPluginDatabaseResources(pl.HostConfig); err != nil {
+				if err := m.cleanupPluginDatabaseResources(id, pl.HostConfig); err != nil {
 					return plugin_mgr.Wrap(
 						plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.db_cleanup"),
 						plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(ver),

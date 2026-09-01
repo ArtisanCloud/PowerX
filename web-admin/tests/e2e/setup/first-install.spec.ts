@@ -31,6 +31,7 @@ test.describe("first install setup", () => {
           body: JSON.stringify({
             data: {
               config: {
+				deployment: { env: "" },
                 domain: { domain: "" },
                 https: { mode: "auto" },
                 storage: { type: "local", local_path: "/data/uploads" },
@@ -69,13 +70,29 @@ test.describe("first install setup", () => {
     });
   };
 
+  test("部署环境为必选且可选择 dev", async ({ page }) => {
+    await mockSetupApis(page);
+
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/setup$/);
+
+    const checks = page.getByRole("checkbox");
+    await checks.nth(0).check();
+    await checks.nth(1).check();
+    await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();
+
+    await page.getByRole("button", { name: "开发 dev" }).click();
+    await expect(page.getByRole("button", { name: "下一步" })).toBeEnabled();
+  });
+
   test("访问根路径自动进入 setup，完成后回到首页", async ({ page }) => {
     await mockSetupApis(page);
 
     await page.goto("/");
     await expect(page).toHaveURL(/\/setup$/);
 
-    const checks = page.locator('input[type="checkbox"]');
+    const checks = page.getByRole("checkbox");
+    await page.getByRole("button", { name: /dev/i }).click();
     await checks.nth(0).check();
     await checks.nth(1).check();
     await page.getByRole("button", { name: "下一步" }).click();
@@ -102,7 +119,8 @@ test.describe("first install setup", () => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/setup$/);
 
-    const checks = page.locator('input[type="checkbox"]');
+    const checks = page.getByRole("checkbox");
+    await page.getByRole("button", { name: /dev/i }).click();
     await checks.nth(0).check();
     await checks.nth(1).check();
     await page.getByRole("button", { name: "下一步" }).click();

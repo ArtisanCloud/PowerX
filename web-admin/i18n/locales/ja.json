@@ -1,4 +1,16 @@
 {
+	"setup": {
+		"deployment": {
+			"title": "デプロイ環境",
+			"description": "この PowerX インスタンスの固定環境識別子を選択してください。プラグインの DB ロールとスキーマの分離に使用されるため、インストール後に直接変更しないでください。",
+			"options": { "dev": "開発 dev", "test": "テスト test", "staging": "ステージング", "prod": "本番 prod" }
+		},
+		"errors": {
+			"deploymentEnvRequired": "デプロイ環境を選択してください",
+			"deploymentEnvInvalid": "デプロイ環境は dev、test、staging、prod のいずれかである必要があります",
+			"unknown": "セットアップ設定を保存できませんでした"
+		}
+	},
   "welcome": "ようこそ",
   "login": "ログイン",
   "register": "登録",
@@ -747,6 +759,10 @@
       "delete": "役割削除",
       "systemRole": "システム",
       "userCount": "ユーザー",
+      "toast": {
+        "missingTenantContextTitle": "現在のテナントがありません",
+        "missingTenantContextDescription": "役割を作成する前に、管理対象のテナントへ切り替えてください。"
+      },
       "confirmDelete": "この役割を削除してもよろしいですか？",
       "systemRoleError": "システム役割は削除できません",
       "form": {
@@ -814,6 +830,7 @@
     }
   },
   "agent": {
+    "response": {"conclusion": "結論", "answer": "回答", "acceptance": "受入項目", "evidence": "証拠", "gaps": "不足または阻害要因", "nextActions": "次の対応"},
     "sessions": {
       "title": "スマートセッション"
     },
@@ -831,7 +848,13 @@
       },
       "sources": {
         "core": "基盤作成",
-        "plugin": "プラグイン管理"
+        "plugin": "プラグイン管理",
+        "builtin": "組み込みエージェント",
+        "protected": "編集不可"
+      },
+      "teamRoles": {
+        "coordinator": "チーム責任者 ×{count}",
+        "member": "チームメンバー ×{count}"
       },
       "filters": {
         "searchPlaceholder": "エージェント名、Key、プラグインを検索",
@@ -1032,6 +1055,71 @@
       "disconnected": "未接続",
       "connected": "接続済み",
       "responding": "応答中",
+      "traceThisRun": "この実行を追跡",
+      "traceDetails": "追跡詳細",
+      "traceReport": {
+        "title": "今回の実行追跡",
+        "loading": "実行レポートを読み込み中…",
+        "loadFailed": "実行レポートの読み込みに失敗しました",
+        "empty": "この実行には表示できる追跡データがありません。",
+        "missingIdentity": "このメッセージには実行 ID がないため、レポートを開けません。",
+        "runId": "実行 ID",
+        "traceId": "追跡 ID"
+      },
+      "traceTimeline": {
+        "title": "実行タイムライン",
+        "description": "現在の実行のみを表示し、各ノードの開始イベントと終了イベントを1つのステップにまとめます。",
+        "nodeCount": "{count} ノード",
+        "step": "ステップ {index}",
+        "sequence": "ノード順序 {sequence}",
+        "empty": "現在の実行には表示できるノードイベントがありません。",
+        "errorWithoutDetails": "ノードは失敗しましたが、エラー詳細は記録されていません。",
+        "metrics": {
+          "status": "ステータス",
+          "nodes": "ノード",
+          "events": "イベント",
+          "errors": "エラー"
+        },
+        "status": {
+          "running": "実行中",
+          "success": "完了",
+          "error": "失敗"
+        },
+        "nodeKinds": {
+          "receiveMessage": "メッセージ受信",
+          "responsePlanner": "応答計画",
+          "intentRecognition": "意図認識",
+          "planner": "タスク計画",
+          "contextBuilder": "コンテキスト構築",
+          "agentHandoff": "サブエージェント委任",
+          "skill": "スキル実行",
+          "tooling": "ツール実行",
+          "workflow": "ワークフロー",
+          "llmCall": "モデル呼び出し",
+          "finalResponse": "最終応答"
+        }
+      },
+      "traceNodeDetails": {
+        "empty": "タイムラインからノードを選択して詳細を表示します",
+        "nodeRef": "ノード参照",
+        "capability": "ケイパビリティ",
+        "skill": "スキル",
+        "plugin": "プラグイン",
+        "responsePlan": "応答計画",
+        "mode": "モード",
+        "model": "モデル",
+        "capabilities": "対象ケイパビリティ",
+        "contextLayers": "コンテキストレイヤー",
+        "input": "入力",
+        "output": "出力"
+      },
+      "retryBusyTitle": "現在再試行できません",
+      "retryBusyDescription": "現在の回答を生成中です。完了後に再試行してください。",
+      "retryUnavailableTitle": "この回答は再試行できません",
+      "retryUnavailableDescription": "保存済みのユーザーメッセージが見つかりません。セッションを更新して再試行してください。",
+      "retryFailedTitle": "再試行に失敗しました",
+      "retryFailedDescription": "エージェントは回答を再生成できませんでした。実行トレースを確認してください。",
+      "retryTeamContextMissing": "現在のチームコンテキストが無効です。チームを選択し直して再試行してください。",
       "typing": "入力中",
       "clear": "クリア",
       "realtimeFailed": "リアルタイム接続に失敗しました",
@@ -1691,7 +1779,7 @@
         "label": "名前空間（任意）",
         "placeholder": "例: company.crm"
       },
-      "environment": "対象環境",
+		"releaseChannel": "リリースチャネル",
       "autoUpdate": "自動更新",
       "forceInstall": "同一バージョンを強制上書き",
       "permissions": {

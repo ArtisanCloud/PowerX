@@ -81,7 +81,8 @@ func TestBootstrapDoesNotRestoreEnabledPluginSynchronously(t *testing.T) {
 			HTTP:          dr,
 			Supervisor:    supervisor.New(),
 			CoreConfig: &config.Config{
-				Server: config.ServerConfig{Port: 8077},
+				Server:     config.ServerConfig{Port: 8077},
+				Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev},
 			},
 			RuntimeCredential: func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
 				require.Equal(t, "com.powerx.plugins.restore-test", pluginID)
@@ -144,7 +145,8 @@ func TestRestoreEnabledPluginsMountsEnabledPlugin(t *testing.T) {
 			HTTP:          dr,
 			Supervisor:    supervisor.New(),
 			CoreConfig: &config.Config{
-				Server: config.ServerConfig{Port: 8077},
+				Server:     config.ServerConfig{Port: 8077},
+				Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev},
 			},
 			RuntimeCredential: func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
 				require.Equal(t, "com.powerx.plugins.restore-test", pluginID)
@@ -336,6 +338,7 @@ func writeBootstrapRestoreTestPlugin(t *testing.T, root string) {
 	require.NoError(t, err)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "backend", "bin"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "web-admin"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "config"), 0o755))
 	wrapper := "#!/bin/sh\nPOWERX_TEST_PLUGIN_PROCESS=1 exec " + exe + "\n"
 	require.NoError(t, os.WriteFile(filepath.Join(root, "backend", "bin", "plugin"), []byte(wrapper), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
@@ -356,4 +359,15 @@ frontend:
     kind: static
     static_dir: web-admin
 `), 0o644))
+	pluginID := "com.powerx.plugins.restore-test"
+	env := config.DeploymentEnvDev
+	hostValues := "database:\n" +
+		"  managed: true\n" +
+		"  deployment_env: " + env + "\n" +
+		"  plugin_key: " + pluginID + "\n" +
+		"  plugin_uuid: " + pluginDatabasePluginUUID(pluginID) + "\n" +
+		"  binding_uuid: " + pluginDatabaseBindingUUID(env, pluginID) + "\n" +
+		"  schema: " + makePluginSchema(pluginID) + "\n" +
+		"  user: " + makePluginUser(env, pluginID) + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(root, "config", hostValuesFileName), []byte(hostValues), 0o640))
 }

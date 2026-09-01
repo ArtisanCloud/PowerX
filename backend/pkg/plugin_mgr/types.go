@@ -1,6 +1,9 @@
 package plugin_mgr
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // ------- 安装与运行期公共类型 -------
 
@@ -16,12 +19,13 @@ type InstallOptions struct {
 
 // InstallMetadata 记录一次安装请求携带的额外上下文。
 type InstallMetadata struct {
-	Scope       string             `json:"scope"`
-	Namespace   string             `json:"namespace"`
-	Environment string             `json:"environment"`
-	AutoUpdate  bool               `json:"auto_update"`
-	Permissions InstallPermissions `json:"permissions"`
-	Notes       string             `json:"notes"`
+	Scope                 string             `json:"scope"`
+	Namespace             string             `json:"namespace"`
+	ReleaseChannel        string             `json:"release_channel"`
+	DeprecatedEnvironment json.RawMessage    `json:"environment,omitempty"`
+	AutoUpdate            bool               `json:"auto_update"`
+	Permissions           InstallPermissions `json:"permissions"`
+	Notes                 string             `json:"notes"`
 }
 
 // InstallPermissions 描述插件在安装阶段声明的最小权限需求。
@@ -103,11 +107,12 @@ type Plugin struct {
 	State   PluginState `json:"state"`
 
 	// 这些来自 manifest：
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Metadata    Metadata     `json:"metadata"` // ✅ 建议用值类型，避免 nil
-	Catalogs    CatalogSpec  `json:"catalogs,omitempty"`
-	Exposure    ExposureSpec `json:"exposure,omitempty"`
+	Name                 string       `json:"name"`
+	Description          string       `json:"description"`
+	Metadata             Metadata     `json:"metadata"` // ✅ 建议用值类型，避免 nil
+	Catalogs             CatalogSpec  `json:"catalogs,omitempty"`
+	RequiredCapabilities []string     `json:"required_capabilities,omitempty"`
+	Exposure             ExposureSpec `json:"exposure,omitempty"`
 
 	Runtime     RuntimeSpec      `json:"runtime"`
 	Frontend    FrontendSpec     `json:"frontend"`

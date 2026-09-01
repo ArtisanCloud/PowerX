@@ -166,6 +166,9 @@ export interface CacheSettings {
 }
 
 export interface SetupConfig {
+  deployment: {
+    env: "dev" | "test" | "staging" | "prod";
+  };
   domain: {
     domain: string;
     api_subdomain?: string;
@@ -238,6 +241,7 @@ export interface SetupStatus {
   configured?: boolean;
   install_status?: string;
   version?: string;
+  deployment_env?: "dev" | "test" | "staging" | "prod";
   saas_signup_enabled?: boolean;
   desired_ports?: SetupPortStatus;
   effective_ports?: SetupPortStatus;

@@ -214,7 +214,7 @@ make test-coverage
 ## Code Style & Conventions
 
 ### Backend (Go)
-- Go 1.24+
+- Go 1.26.7
 - Format with `go fmt`, keep imports tidy
 - Files: snake_case naming
 - Tests: `_test.go` suffix

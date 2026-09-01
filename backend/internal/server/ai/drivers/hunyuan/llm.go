@@ -152,8 +152,7 @@ func (c *hunyuanClient) Invoke(ctx context.Context, mc *config.ModelConfig, prom
 		httpReq.Header.Set("X-TC-Timestamp", strconv.FormatInt(ts, 10))
 		httpReq.Header.Set("Authorization", auth)
 
-		// 默认超时要覆盖常见对话时长；上层 ctx 仍会兜底取消（Engine 默认 10min）
-		client := &http.Client{Timeout: effectiveTimeout(mc.Timeout, 10*time.Minute)}
+		client := &http.Client{Timeout: mc.Timeout}
 		resp, err := client.Do(httpReq)
 		if err != nil {
 			return nil, nil, err
@@ -238,13 +237,6 @@ func toInvokeResult(resp *hunyuanChatResp) *config.InvokeResult {
 		}
 	}
 	return result
-}
-
-func effectiveTimeout(v time.Duration, def time.Duration) time.Duration {
-	if v <= 0 {
-		return def
-	}
-	return v
 }
 
 func tc3Authorization(service, secretID, secretKey, host string, timestamp int64, payload []byte) (string, error) {

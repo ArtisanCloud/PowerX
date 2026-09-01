@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "powerx.agent.response/v3",
+  "title": "PowerX Agent Response Envelope v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "outcome", "presentation"],
+  "properties": {
+    "schema": {"const": "powerx.agent.response/v3"},
+    "kind": {"type": "string", "minLength": 1},
+    "outcome": {"enum": ["completed", "needs_action", "blocked", "failed"]},
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facts", "metrics", "hypotheses", "gaps", "actions"],
+      "properties": {
+        "facts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/fact"}
+        },
+        "metrics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/metric"}
+        },
+        "hypotheses": {"$ref": "#/$defs/nonEmptyStrings"},
+        "gaps": {"$ref": "#/$defs/nonEmptyStrings"},
+        "actions": {"$ref": "#/$defs/nonEmptyStrings"}
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ref"],
+      "properties": {
+        "type": {"enum": ["input", "task"]},
+        "ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "source"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "numerator", "denominator", "formula", "display_value", "source"],
+      "properties": {
+        "label": {"type": "string", "minLength": 1},
+        "numerator": {"type": ["number", "string"]},
+        "denominator": {"type": ["number", "string"]},
+        "formula": {"type": "string", "minLength": 1},
+        "display_value": {"type": "string"},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

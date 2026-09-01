@@ -9,7 +9,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24  
+**Language/Version**: Go 1.26.7
 **Primary Dependencies**: gRPC + buf、Gin HTTP 栈、OpenTelemetry、Kafka/NATS EventBus、Redis、Postgres  
 **Storage**: Postgres (持久化注册 & 审计)、Redis (Discovery 缓存)、Kafka/NATS (事件广播)  
 **Testing**: Go `testing` + testify、gRPC 交互用 buf generated stubs、HTTP contract tests via resty  

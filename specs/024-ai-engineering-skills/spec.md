@@ -49,6 +49,20 @@
 - Q: Core 是否可以为某个插件业务硬编码缺参字段、结果链接或成功文案？ → A: 不可以。Core 只实现通用状态机、参数校验、trace 和 UI 协议；业务字段、slot 映射、结果展示来自 Agent persona/prompt_seed 与 Skill manifest。
 - Q: 实时 SSE 能否作为历史权威？ → A: 不可以。SSE/WS 只负责实时事件；历史恢复以 PostgreSQL 的 session/message/message meta/run state snapshot 和 Agent Trace artifact 为权威。
 
+### Session 2026-08-29
+
+- Q: Skill 或租户自建 Agent 是否各自决定最终回复的文本格式？ → A: 不可以。Skill、Tool 与子 Agent 只返回结构化业务事实；PowerX Core 定义统一的 `powerx.agent.response/v1` 最终答复契约，Web Admin 按当前 locale 统一渲染 Markdown Preview。
+- Q: 用户在团队会话中追问一个风险点时，是否可以重放上一次固定报告？ → A: 不可以。最终答复必须直接回答当前消息；若需要执行检查，计划必须针对当前问题生成。无真实证据时只能返回 `needs_action` 或 `blocked`，不得声称完成。
+- Q: 发布准备演示的固定示例文本能否作为发布准入结论？ → A: 不可以。它只验证运行链路；真实发布准入必须带可核验的验收项和证据。
+
+### Session 2026-08-30
+
+- Q: 固有智能体和固有团队是否可以在 Core 中按业务 Skill ID、团队 Key 或显示名实现执行逻辑？ → A: 不可以。固有对象只是平台随附的 Package/seed 配置；固有与客户自建对象都必须由同一份已发布 Skill Manifest 和团队编排图驱动。
+- Q: 文本分析类自建 Skill 如何复用平台模型调用而不改 Core？ → A: Skill Package 声明 `executor.type=llm_prompt`、本地化 Prompt、输入/输出 Schema 和模型策略；Core 的通用 dispatcher 调用唯一 AI Service/LLM Service，不识别业务 Skill ID。
+- Q: 普通用户是否必须通过编写或上传 `SKILL.md` 才能创建 Skill？ → A: 不必须。数据库版本快照是创作和运行时权威；Package 仅是从已发布定义生成的导出物，或作为导入草稿来源，二者最终进入相同的审核与发布流程。
+- Q: 普通用户创建或修改 Skill 的主要入口是什么？ → A: 用户可在对话中委托具备 `skill_definition` 权限的 PowerX 主智能体生成版本化 Draft；主智能体只能调用受审计的创作服务，不能直接写数据库或自动修改已发布版本。
+- Q: 如何兼容 Claude Code/Codex 等外部 Skill？ → A: 导入其共同的 `SKILL.md` + YAML frontmatter 作为标准核心；PowerX 专属的 Schema、权限、执行器和模型策略置于可选 `powerx/` 扩展目录。只有标准核心的包导入为 `instruction_only` Draft，未补全 PowerX 合同前不可执行。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 管理员统一管理 Skills 生命周期 (Priority: P1)
@@ -120,13 +134,13 @@
 
 **Why this priority**: 现有单 Agent 编排已可用，但复杂任务在“规划、检索、执行、复核”多环节下需要明确的 A2A 分工与调度协议。
 
-**Independent Test**: 通过 PowerX Core seed 初始化一个发布准备团队（1 个主 Agent + 3 个子 Agent + 4 个内置 demo Skills），然后显式执行包含 3 个 `agent_handoff` 节点和 1 个汇总节点的计划；该测试不得依赖 PowerXPlugin、MediaX、AI Craft 或插件 capability handler。
+**Independent Test**: 通过 PowerX Core seed 初始化一个营销活动复盘团队（1 个主 Agent + 3 个子 Agent + 4 个内置营销 Skills），然后显式执行包含 3 个 `agent_handoff` 节点和 1 个汇总节点的计划；该测试不得依赖 PowerXPlugin、MediaX、AI Craft 或插件 capability handler。
 
 **Acceptance Scenarios**:
 
-1. **Given** seed 已创建 `release.coordinator`、`release.knowledge_analyst`、`release.workflow_planner`、`release.notification_scheduler` 和 `release.readiness.team`，**When** 重复执行 seed，**Then** Agent、Skill、Binding、Team 与 TeamMember 均按 upsert 语义保持幂等。
-2. **Given** 主 Agent 收到发布准备复合任务，**When** 系统执行 release readiness MVP plan，**Then** 系统依次或按依赖执行知识分析、流程规划、通知调度三个子 Agent handoff，并由主 Agent 汇总报告。
-3. **Given** 一个子 Agent 执行失败且策略为 `continue`，**When** 其他子任务成功完成，**Then** 主 Agent 返回部分成功结果并标注失败子任务详情。
+1. **Given** seed 已创建营销负责人、内容营销、活动复盘分析、专家知识策展四个 Agent 和“营销活动复盘协作团队”，**When** 重复执行 seed，**Then** Agent、Skill、Binding、Team 与 TeamMember 均按 upsert 语义保持幂等。
+2. **Given** 主 Agent 收到活动复盘材料，**When** 系统执行营销活动复盘计划，**Then** 系统按依赖执行素材解析、活动复盘、知识草稿三个子 Agent handoff，并由主 Agent 汇总可审核的方法论草稿。
+3. **Given** 营销活动复盘演示中的任一子 Agent 执行失败，**When** 该团队采用固定 `fail-fast` 策略，**Then** 系统立即停止下游节点，整轮运行标记为失败，并返回失败节点和恢复动作；不得生成部分成功报告。
 4. **Given** 子 Agent 访问上下文，**When** 请求超出授权上下文范围，**Then** 系统阻断访问并记录拒绝审计。
 
 ---
@@ -274,8 +288,12 @@
 - **FR-040q**: Skill manifest 必须支持 Agent Run State 展示元数据，至少包含 `action_required_args/action_optional_args/slot_mapping/pending_task_policy/result_presentation` 的解析与治理态保存能力。
 - **FR-040r**: Final Response 在没有真实 `task_completed`、Skill result、Capability result 或 A2A child result 时，不得输出“已创建/已更新/已删除/已完成”等成功性业务结论。
 - **FR-040s**: UI 与历史快照必须区分 Run 完成和 Task 完成：`agent_run.final/ended` 或旧 `final/end success=true` 只能表示本轮回复流程结束，不得驱动业务 task 进入 `completed`；只有 `agent_run.task_completed` 或 task snapshot `status=completed` 且包含真实 `result/links` 时，才能展示“任务完成”。
+- **FR-040t**: 所有产生用户可见业务结果的 Skill、Tool 和 A2A 汇总节点必须返回 `powerx.agent.response/v1`。该 envelope 至少包含 `schema/kind/outcome/summary/answer/acceptance/evidence/gaps/next_actions`；Skill 不得以拼接最终 Markdown 代替结构化结果。
+- **FR-040u**: Core 必须校验最终答复 envelope。缺少 `answer`、执行结果缺少验收项、`outcome=completed` 缺少可验证证据或状态非法时，必须 fail-fast 为 `agent.response_contract_invalid`，写入 Trace 和用户可操作的错误摘要；不得退回原始文本或通用“任务完成”。
+- **FR-040v**: Final Response 必须直接回答当前用户消息。对同一 session 的追问，Runtime 必须依据当前 `ResponsePlan`、SkillState 和已有结构化结果选择解释、补参、局部复查或重新规划；禁止因为团队上下文存在而无条件重放固定任务计划或历史报告。
+- **FR-040w**: Web Admin、PowerXPlugin Agent Chat 与消息历史恢复必须使用同一 envelope 渲染器，按当前 locale 输出统一的“结论、直接回答、验收项、证据、缺口/阻塞、下一步”Markdown Preview；Skill manifest 只能补充业务字段说明、结果链接和展示素材，不能定义平台答复区块或标签文案。
 - **FR-041**: 系统必须支持主 Agent 在单次请求内创建 A2A 执行计划，并将子任务分发给多个子 Agent（至少支持串行与并行两种调度模式）。
-- **FR-041a**: 系统必须提供 PowerX Core 内置 A2A seed 数据，用于初始化发布准备多智能体演示团队；seed 至少包含 `release.coordinator`、三个发布准备子 Agent、四个 `powerx.release.*` 内置 demo Skills、Agent-Skill Binding、Agent Team 与 Team Members。
+- **FR-041a**: 系统必须提供 PowerX Core 内置 A2A seed 数据，用于初始化营销活动复盘多智能体演示团队；seed 至少包含营销负责人、内容营销、活动复盘分析、专家知识策展四个 Agent，四个 `marketing.*` 内置 Skills、Agent-Skill Binding、Agent Team 与 Team Members。发布准备是可选专项团队，不得作为默认演示验收对象。
 - **FR-041b**: A2A seed 必须是 upsert 幂等语义，重复执行不得删除用户已有绑定，不得因唯一索引冲突失败。
 - **FR-041c**: 发布准备 A2A MVP 测试必须只依赖 PowerX Core 数据库与运行时，不得依赖插件安装、插件 capability handler 或 PowerXPlugin 本地记录。
 - **FR-042**: 系统必须支持 A2A 任务级上下文隔离，子 Agent 仅可读取主 Agent 显式下发的上下文切片与引用，不得默认继承完整会话。
@@ -333,6 +351,7 @@
 - **Agent Trace Node Snapshot**: 单个 Runtime 节点的结构化快照，包含节点输入摘要、输出摘要、上下文引用、模型/skill/tool 调用信息和错误详情。
 - **Agent Run Report**: 面向 root 开发者下载的人读/机读报告，包含 Summary、User Message、Runtime Timeline、Intent/Planner、Skill/Tool Invocation、Final Response、Errors/Warnings。
 - **Agent Run State**: 一轮 Message Run 的 UI 可渲染状态树，包含 run、session、message、response plan、tasks、agents、pending params、results、errors 和 trace links。
+- **Agent Response Envelope**: 用户可见业务结果的统一结构，版本固定为 `powerx.agent.response/v1`，包含结果状态、对当前问题的回答、验收项、证据、缺口、下一步和 artifact 引用；它是 PowerX 渲染与持久化的输入，不是某个 Skill 的 Markdown 模板。
 - **Agent Task State**: 单个任务节点的状态对象，关联 Agent、Skill、Capability、action、参数收集、结果、错误和 trace。
 - **Plugin Agent Plugin Source**: 插件自有 Agent 开发态记录在 PowerX 侧的来源映射，包含插件 ID、插件 Agent ID、同步动作、底座 Agent UUID 和绑定 Skill 快照。
 - **Plugin Skill Plugin Source**: 插件自有 Skill 开发态记录在 PowerX 侧的来源映射，包含插件 ID、插件 Skill ID、版本、manifest 快照、executor、capability 和 checksum。
@@ -353,7 +372,7 @@
 - **SC-008**: 上线 Context 优化后，在稳定流量样本中，Agent 主入口 `prompt_tokens` P50 相对基线下降至少 30%。
 - **SC-009**: 在支持缓存能力的模型上，固定前缀缓存命中率达到 60% 以上（以平台观测字段为准）。
 - **SC-010**: 在 30 轮以上会话中，超上下文窗口错误发生率降至 1% 以下，且请求失败可通过 `trim_actions` 与 token 指标定位。
-- **SC-011**: 在发布准备 A2A MVP 用例中（1 主 3 子 + 1 汇总），95% 请求可在目标 SLA 内返回完整或部分成功结果，且子任务状态可按 `team_id/handoff_task_id/child_agent_id` 追溯。
+- **SC-011**: 在发布准备 A2A MVP 用例中（1 主 3 子 + 1 汇总），95% 请求可在目标 SLA 内返回完整结果或明确失败；演示团队任一子任务失败时必须停止下游节点，且子任务状态可按 `team_id/handoff_task_id/child_agent_id` 追溯。
 - **SC-011a**: A2A seed 重复执行 3 次后，Agent、Skill、Binding、Team、TeamMember 记录数量保持稳定，且 latest published Skill 指针正确。
 - **SC-012**: 团队任务验收中，100% 用例可在页面看到 `Intent + Plan + Node` 三段执行过程；不可见字段可在 3 分钟内通过审计接口定位。
 - **SC-013**: 插件 Skill 发现后，95% 合法 Skill 在 3 分钟内被导入为草稿治理记录，非法 manifest 100% 被拒绝并返回明确错误。
@@ -373,6 +392,8 @@
 - **SC-027**: 多 Agent 团队任务中，100% 用例可在页面看到主 Agent 与子 Agent task 状态，并可从任一失败 task 精确跳转到对应 Trace。
 - **SC-028**: 页面刷新后，95% 以上已完成或失败的 Message Run 可从历史快照恢复 `AgentRunState`，不依赖重新执行 SSE。
 - **SC-029**: 没有真实 task result 的业务执行请求，最终回复成功性误报率为 0。
+- **SC-030**: 100% 执行、审核、发布和多 Agent 汇总结果通过 `powerx.agent.response/v1` 校验；非法 envelope 不得以成功或原始 Markdown 进入消息历史。
+- **SC-031**: 对同一团队连续追问“某风险项具体检查什么”时，100% 最终答复直接覆盖当前问题，不重放无关的固定报告；实时 SSE 与刷新后的历史渲染结构一致。
 
 ## Assumptions
 
@@ -391,5 +412,6 @@
 - Agent Run Trace & Report 归属本 feature 的 Agent Runtime 可观测扩展；首版以本地文件 sink 为必选 MVP，Loki sink 为生产目标能力。
 - PowerXPlugin 插件 Agent/Skill Local 是开发态与声明源，不是运行态权威源；PowerX 底座 Agent/Skill/Binding 记录才是 Agent Runtime 权威源。
 - Agent Response Planning 归属 Core Agent Runtime；插件只提供 Skill 源事实材料，不负责最终自然语言话术和上下文选择。
+- 最终答复的区块、状态语义与 locale 渲染由 PowerX 平台统一治理；Skill/Agent 自定义只提供业务事实、业务字段说明、链接与素材，不得覆盖平台答复契约。
 - Runtime Memory 不是 Agent 上下文权威源；任何影响权限、候选、message meta、会话历史或模型策略的上下文都必须可从 DB 权威记录恢复。
 - Agent Run State Protocol 是 PowerX Runtime/UI/Trace 的内部状态协议，不替代 Google A2A；A2A handoff 节点必须映射为该协议中的 task 状态。

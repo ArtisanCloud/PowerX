@@ -131,16 +131,21 @@ type setupAdminConfig struct {
 	CompanyName              string `json:"company_name,omitempty"`
 }
 
+type setupDeploymentConfig struct {
+	Env string `json:"env"`
+}
+
 type setupConfigPayload struct {
-	Domain   setupDomainConfig   `json:"domain"`
-	HTTPS    setupHTTPSConfig    `json:"https"`
-	Storage  setupStorageConfig  `json:"storage"`
-	Cache    setupCacheConfig    `json:"cache"`
-	Email    setupEmailConfig    `json:"email"`
-	Database setupDatabaseConfig `json:"database"`
-	Admin    setupAdminConfig    `json:"admin"`
-	LLM      setupLLMConfig      `json:"llm"`
-	Ports    setupPortsConfig    `json:"ports"`
+	Deployment setupDeploymentConfig `json:"deployment"`
+	Domain     setupDomainConfig     `json:"domain"`
+	HTTPS      setupHTTPSConfig      `json:"https"`
+	Storage    setupStorageConfig    `json:"storage"`
+	Cache      setupCacheConfig      `json:"cache"`
+	Email      setupEmailConfig      `json:"email"`
+	Database   setupDatabaseConfig   `json:"database"`
+	Admin      setupAdminConfig      `json:"admin"`
+	LLM        setupLLMConfig        `json:"llm"`
+	Ports      setupPortsConfig      `json:"ports"`
 }
 
 type SetupHandler struct {
@@ -185,11 +190,13 @@ func (h *SetupHandler) Status(c *gin.Context) {
 	installStatus := "installed"
 	guardMode := "strict"
 	version := ""
+	deploymentEnv := ""
 	saasSignupEnabled := false
 	if cfg := config.GetGlobalConfig(); cfg != nil {
 		installStatus = cfg.Install.EffectiveStatus()
 		guardMode = cfg.Install.EffectiveLockMode()
 		version = cfg.EffectiveSystemVersion()
+		deploymentEnv = cfg.Deployment.Env
 		saasSignupEnabled = cfg.FeatureGate.EnableSaaSSignup
 	}
 
@@ -245,6 +252,7 @@ func (h *SetupHandler) Status(c *gin.Context) {
 		"install_status":      installStatus,
 		"guard_mode":          guardMode,
 		"version":             version,
+		"deployment_env":      deploymentEnv,
 		"saas_signup_enabled": saasSignupEnabled,
 		"desired_ports": gin.H{
 			"backend_port":   desiredPorts.BackendPort,
@@ -282,6 +290,7 @@ func (h *SetupHandler) GetConfig(c *gin.Context) {
 	if draft, ok := h.loadDraftConfig(); ok {
 		cfg = draft
 	}
+	applyRuntimeDeploymentConfig(&cfg)
 	applyRuntimePortOverrides(&cfg)
 	dto.ResponseSuccess(c, gin.H{"config": cfg})
 }
@@ -869,13 +878,7 @@ func (h *SetupHandler) invokeLLMWithoutStore(
 		return nil, err
 	}
 
-	cli, err := agentllm.NewClient(provider)
-	if err != nil {
-		return nil, err
-	}
-	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	return cli.Invoke(callCtx, &agentcfg.ModelConfig{
+	return agentllm.Invoke(ctx, &agentcfg.ModelConfig{
 		Provider:     provider,
 		Endpoint:     baseURL,
 		APIKey:       apiKey,
@@ -921,13 +924,7 @@ func invokeHunyuanWithoutStore(
 		if region == "" {
 			region = "ap-guangzhou"
 		}
-		cli, err := agentllm.NewClient("hunyuan")
-		if err != nil {
-			return nil, err
-		}
-		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		return cli.Invoke(callCtx, &agentcfg.ModelConfig{
+		return agentllm.Invoke(ctx, &agentcfg.ModelConfig{
 			Provider:     "hunyuan",
 			Endpoint:     baseURL,
 			SecretID:     secretID,
@@ -960,13 +957,7 @@ func invokeHunyuanWithoutStore(
 	if apiKey == "" {
 		return nil, fmt.Errorf("缺少 API Key（hunyuan OpenAI 模式需要 api_key）")
 	}
-	cli, err := agentllm.NewClient("openai")
-	if err != nil {
-		return nil, err
-	}
-	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	return cli.Invoke(callCtx, &agentcfg.ModelConfig{
+	return agentllm.Invoke(ctx, &agentcfg.ModelConfig{
 		Provider:     "openai",
 		Endpoint:     baseURL,
 		APIKey:       apiKey,
@@ -1217,6 +1208,13 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 	if root == nil {
 		root = make(map[string]any)
 	}
+
+	if err := config.ValidateDeploymentEnv(payload.Deployment.Env); err != nil {
+		return err
+	}
+	deployment := asMap(root["deployment"])
+	deployment["env"] = payload.Deployment.Env
+	root["deployment"] = deployment
 
 	server := asMap(root["server"])
 	if payload.Ports.BackendPort > 0 {
@@ -1752,6 +1750,7 @@ func asMap(v any) map[string]any {
 func defaultSetupConfig() setupConfigPayload {
 	defaultPorts := defaultPortsByEnv()
 	return setupConfigPayload{
+		Deployment: setupDeploymentConfig{},
 		Domain: setupDomainConfig{
 			Domain:       "",
 			APISubdomain: "",
@@ -1911,6 +1910,12 @@ func validateSetupConfig(in setupConfigPayload) error {
 }
 
 func validateSetupConfigInternal(in setupConfigPayload, requireDomain bool) error {
+	if strings.TrimSpace(in.Deployment.Env) == "" {
+		return errors.New("setup.errors.deploymentEnvRequired")
+	}
+	if err := config.ValidateDeploymentEnv(in.Deployment.Env); err != nil {
+		return errors.New("setup.errors.deploymentEnvInvalid")
+	}
 	if requireDomain && strings.TrimSpace(in.Domain.Domain) == "" {
 		return errors.New("domain.domain 不能为空")
 	}
@@ -2009,6 +2014,29 @@ func validateSetupConfigInternal(in setupConfigPayload, requireDomain bool) erro
 	}
 
 	return nil
+}
+
+func applyRuntimeDeploymentConfig(in *setupConfigPayload) {
+	if in == nil || strings.TrimSpace(in.Deployment.Env) != "" {
+		return
+	}
+	runtimePath := resolveRuntimeConfigPath()
+	if strings.TrimSpace(runtimePath) == "" {
+		return
+	}
+	raw, err := os.ReadFile(runtimePath)
+	if err != nil {
+		return
+	}
+	var root map[string]any
+	if yaml.Unmarshal(raw, &root) != nil {
+		return
+	}
+	deployment := asMap(root["deployment"])
+	env, _ := deployment["env"].(string)
+	if config.ValidateDeploymentEnv(env) == nil {
+		in.Deployment.Env = env
+	}
 }
 
 func normalizeSetupPorts(in *setupConfigPayload) {

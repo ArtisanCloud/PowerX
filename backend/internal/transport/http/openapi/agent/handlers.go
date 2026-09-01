@@ -8,7 +8,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Handler 负责 OpenAPI 侧的健康查询。
@@ -27,9 +26,8 @@ func (h *Handler) GetHealthSummary(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-	agentID, err := uuid.Parse(c.Param("agent_id"))
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid agent_id", err)
+	agentID, _, ok := h.requireServiceTenantAgent(c)
+	if !ok {
 		return
 	}
 	summary, err := h.service.GetHealthSummary(c.Request.Context(), agentID)
@@ -46,9 +44,8 @@ func (h *Handler) ListHealthHistory(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-	agentID, err := uuid.Parse(c.Param("agent_id"))
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "invalid agent_id", err)
+	agentID, _, ok := h.requireServiceTenantAgent(c)
+	if !ok {
 		return
 	}
 	rangeHours, _ := strconv.Atoi(c.DefaultQuery("range_hours", "24"))

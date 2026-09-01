@@ -130,7 +130,6 @@ type instantiateAgentRequest struct {
 }
 
 type agentRuntimeItem struct {
-	ID               uint64                 `json:"id"`
 	UUID             string                 `json:"uuid"`
 	Key              string                 `json:"key"`
 	Name             string                 `json:"name"`
@@ -277,7 +276,6 @@ func (h *tenantRuntimeHandler) ListAgents(c *gin.Context) {
 
 func toAgentRuntimeItem(agent dbmodel.Agent) agentRuntimeItem {
 	item := agentRuntimeItem{
-		ID:          agent.ID,
 		UUID:        agent.UUID.String(),
 		Key:         agent.Key,
 		Name:        agent.Name,

@@ -50,18 +50,18 @@ func TestInstallServiceStartPersistsSession(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantUUID:   testTenantUUID,
-		DeveloperID:  2025,
-		ArtifactURI:  "s3://bucket/hotload.zip",
-		FeatureFlags: []string{"beta_ui"},
-		Actor:        "tester",
+		TenantUUID:          testTenantUUID,
+		DeveloperMemberUUID: "b4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
+		ArtifactURI:         "s3://bucket/hotload.zip",
+		FeatureFlags:        []string{"beta_ui"},
+		Actor:               "tester",
 	})
 	require.NoError(t, err)
 	require.Equal(t, models.LocalInstallStatusInProgress, session.Status)
 	require.NotNil(t, session.ExpiredAt)
 	require.Equal(t, now.Add(10*time.Minute), session.ExpiredAt.UTC())
 
-	stored, err := repository.GetSessionByUUID(context.Background(), session.UUID)
+	stored, err := repository.GetSessionByTenantUUID(context.Background(), testTenantUUID, session.UUID)
 	require.NoError(t, err)
 	require.Equal(t, session.UUID, stored.UUID)
 	require.Equal(t, testTenantUUID, stored.TenantUUID)
@@ -84,10 +84,10 @@ func TestInstallServiceRejectsLargeArtifact(t *testing.T) {
 	})
 
 	_, err = svc.Start(context.Background(), StartInput{
-		TenantUUID:   testTenantUUID,
-		DeveloperID:  1,
-		ArtifactURI:  "s3://bucket/huge.zip",
-		FeatureFlags: []string{},
+		TenantUUID:          testTenantUUID,
+		DeveloperMemberUUID: "c4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
+		ArtifactURI:         "s3://bucket/huge.zip",
+		FeatureFlags:        []string{},
 	})
 	require.ErrorIs(t, err, ErrArtifactTooLarge)
 }
@@ -114,9 +114,9 @@ func TestInstallServiceStopMarksSession(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantUUID:  testTenantUUID,
-		DeveloperID: 1,
-		ArtifactURI: "file://bundle.zip",
+		TenantUUID:          testTenantUUID,
+		DeveloperMemberUUID: "d4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
+		ArtifactURI:         "file://bundle.zip",
 	})
 	require.NoError(t, err)
 
@@ -127,7 +127,7 @@ func TestInstallServiceStopMarksSession(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	stored, err := repository.GetSessionByUUID(context.Background(), session.UUID)
+	stored, err := repository.GetSessionByTenantUUID(context.Background(), testTenantUUID, session.UUID)
 	require.NoError(t, err)
 	require.Equal(t, models.LocalInstallStatusSuccess, stored.Status)
 	require.NotNil(t, stored.ExpiredAt)
@@ -153,9 +153,9 @@ func TestInstallServiceStopRejectsCrossTenant(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantUUID:  testTenantUUID,
-		DeveloperID: 1,
-		ArtifactURI: "file://bundle.zip",
+		TenantUUID:          testTenantUUID,
+		DeveloperMemberUUID: "e4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
+		ArtifactURI:         "file://bundle.zip",
 	})
 	require.NoError(t, err)
 

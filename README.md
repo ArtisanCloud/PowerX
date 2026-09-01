@@ -2,7 +2,7 @@
 
 [![English](https://img.shields.io/badge/English-README-blue)](./README-en.md)
 [![Official Docs](https://img.shields.io/badge/Official_Docs-powerx--doc.artisan--cloud.com-green)](https://powerx-doc.artisan-cloud.com)
-[![Go](https://img.shields.io/badge/Go-1.24-00ADD8)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.26.7-00ADD8)](https://go.dev/)
 [![Nuxt](https://img.shields.io/badge/Nuxt-4-00DC82)](https://nuxt.com/)
 
 PowerX 是面向企业 AI 应用与插件生态的 **AgentOS 底座**。它把 IAM、插件运行时、集成网关、事件骨干、Runtime Scheduler、AI Engine、Knowledge Space、通知与运维监控放在同一个可扩展内核里，让 SCRM、电商、营销自动化等业务能力以插件和智能体的方式接入、运行和协作。
@@ -138,7 +138,7 @@ flowchart LR
 
 | 层 | 技术 |
 | --- | --- |
-| Backend | Go 1.24, Gin, gRPC, GORM |
+| Backend | Go 1.26.7, Gin, gRPC, GORM |
 | Frontend | Nuxt 4, Vue 3, Pinia, Nuxt UI |
 | Storage | PostgreSQL, Redis, MinIO/S3 |
 | Protocols | REST, gRPC, WebSocket, MCP |
@@ -153,7 +153,7 @@ flowchart LR
 
 ### 环境要求
 
-- Go 1.24+
+- Go 1.26.7
 - Node.js 20+
 - PostgreSQL
 - Redis

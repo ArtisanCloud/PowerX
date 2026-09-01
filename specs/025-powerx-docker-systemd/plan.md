@@ -5,18 +5,18 @@
 
 ## Summary
 
-围绕 PowerX 生产可用性建立统一运维治理基线：提供 Docker/systemd 双模式部署规范、插件无市场阶段平滑升级规范、Loki+Grafana 日志聚合、数据库备份恢复与清理流程、实例迁移 runbook，并定义 P0 运维管理控制台（部署发布、插件生命周期、备份恢复）的后端契约与前端交互基线。
+围绕 PowerX 生产可用性建立统一运维治理基线：提供 Docker/systemd 双模式部署规范、实例级 `deployment.env`、插件数据库跨环境隔离、插件无市场阶段平滑升级规范、Loki+Grafana 日志聚合、数据库备份恢复与清理流程、实例迁移 runbook，并定义 P0 运维管理控制台（部署发布、插件生命周期、备份恢复）的后端契约与前端交互基线。
 
 ## Technical Context
 
-**Language/Version**: Go 1.24（backend services）、TypeScript/Nuxt 4（web-admin）  
+**Language/Version**: Go 1.26.7（backend services）、TypeScript/Nuxt 4（web-admin）
 **Primary Dependencies**: Gin HTTP、gRPC（Buf contracts）、GORM、PostgreSQL、Redis、Loki、Grafana、Promtail  
 **Storage**: PostgreSQL（主数据）、Redis（缓存/队列）、MinIO/S3（备份与对象产物）  
 **Testing**: Go test（unit/contract/integration）、Playwright（web-admin E2E）、备份恢复演练脚本校验  
 **Target Platform**: Linux server（单节点首发，预留 K8s 多节点兼容）
 **Project Type**: Web application（backend + web-admin + ops scripts）  
 **Performance Goals**: 生产发布回滚 15 分钟内可完成；日志 3 分钟内可定位；备份成功率 >=99%  
-**Constraints**: RTO 1 小时、RPO 15 分钟、Loki 默认保留 30 天、审批策略按环境可配置  
+**Constraints**: RTO 1 小时、RPO 15 分钟、Loki 默认保留 30 天、审批策略按环境可配置；`deployment.env` 必填且只允许 `dev/test/staging/prod`，首次插件安装后不可通过普通配置写入修改
 **Scale/Scope**: 覆盖 1 套生产环境首发 + P0 运维控制台 3 个域（deploy/plugin/backup）
 
 ## Constitution Check
@@ -123,6 +123,18 @@ web-admin/
 ```
 
 **Structure Decision**: 采用“现有 backend + web-admin 双子项目”结构，新增运维域子模块，不引入独立新工程。
+
+## Plugin Database Environment Isolation
+
+权威设计见 `docs/plan/deploy/plugin-database-isolation.md`，实现按以下链路一次性闭环：
+
+1. `backend/config` 新增 `DeploymentConfig` 与严格枚举校验，配置缺失时不推导、不降级。
+2. setup DTO、草稿、页面选择、locale 和最终 YAML 同步增加 `deployment.env`。
+3. plugin manager 在任何 DDL 前读取 `CoreConfig.Deployment.Env`，沿用 `px_<slug>` Schema/Database，只生成 `pxu_<env>_<slug>_<hash8>` Role/User。
+4. host-values、Registry、审计和 telemetry 记录同一 `deployment_env`，并在 replace/restore/migration/purge 校验一致性。
+5. 旧安装不做兼容翻译；另行提供默认 dry-run 的 repair/migration 工具。
+
+安装请求使用 `metadata.release_channel` 表示发布渠道；旧 `metadata.environment` 返回字段弃用错误，不得作为实例部署身份的别名或覆盖来源。
 
 ## Complexity Tracking
 

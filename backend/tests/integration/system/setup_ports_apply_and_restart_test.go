@@ -16,6 +16,7 @@ func TestSetupStatusDesiredEffectivePortsAndRestartRequired(t *testing.T) {
 	router := setupSetupRouter(db)
 
 	savePayload := map[string]any{
+		"deployment": map[string]any{"env": "dev"},
 		"domain": map[string]any{
 			"domain": "powerx.local",
 		},
@@ -73,7 +74,7 @@ func TestSetupStatusDesiredEffectivePortsAndRestartRequired(t *testing.T) {
 
 	runtimeConfigPath := os.Getenv("POWERX_SETUP_RUNTIME_CONFIG_PATH")
 	require.NotEmpty(t, runtimeConfigPath)
-	runtimeText := "version: v1.0.0\nserver:\n  port: 18080\ninstall:\n  status: uninstalled\n  lock_mode: strict\n  allow_without_db: true\n"
+	runtimeText := "version: v1.0.0\ndeployment:\n  env: dev\nserver:\n  port: 18080\ninstall:\n  status: uninstalled\n  lock_mode: strict\n  allow_without_db: true\n"
 	require.NoError(t, os.WriteFile(runtimeConfigPath, []byte(runtimeText), 0o644))
 	t.Setenv("POWERX_WEB_ADMIN_PORT", "13000")
 

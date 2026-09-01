@@ -3,7 +3,9 @@ package manager
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -16,6 +18,7 @@ import (
 	"time"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 
@@ -28,7 +31,13 @@ import (
 
 const hostValuesFileName = "host-values.yaml"
 
+var pluginDatabaseBindingNamespace = uuid.MustParse("28943ca2-58c5-5f53-8df5-a20a162f4452")
+
 func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot string, seed *plugin_mgr.HostConfig) (*plugin_mgr.HostConfig, error) {
+	deploymentEnv, err := m.requireDeploymentEnv()
+	if err != nil {
+		return nil, err
+	}
 	cfgDir := filepath.Join(destRoot, "config")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		return nil, err
@@ -37,6 +46,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	envAll := m.collectSystemEnv()
 	bindOverride := strings.TrimSpace(envAll["POWERX_HTTP_ADDR"])
 	envAll["POWERX_PLUGIN_CONFIG_DIR"] = cfgDir
+	envAll["POWERX_DEPLOYMENT_ENV"] = deploymentEnv
 	selected := mergeEnvWithRuntime(envAll, man.Runtime.Env)
 	normalizePluginLogEnv(selected)
 
@@ -62,13 +72,23 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 
 	now := time.Now().UTC()
 	structured["generated_at"] = now.Format(time.RFC3339)
+	setNestedValue(structured, []string{"deployment", "env"}, deploymentEnv)
 
 	// 注入数据库 DSN + Schema（若宿主配置可用）
-	dbSection, err := m.buildDatabaseSection(man.ID)
+	dbSection, err := m.provisionDatabaseSection(man.ID)
 	if err != nil {
 		return nil, err
 	}
 	if dbSection != nil {
+		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{
+			"module":         "plugin.database_binding",
+			"plugin_id":      dbSection.PluginKey,
+			"plugin_uuid":    dbSection.PluginUUID,
+			"binding_uuid":   dbSection.BindingUUID,
+			"deployment_env": dbSection.DeploymentEnv,
+			"schema":         dbSection.Schema,
+			"database_user":  dbSection.User,
+		}), "[plugin-database-binding] created")
 		if dbSection.DSN != "" {
 			setNestedValue(structured, []string{"database", "dsn"}, dbSection.DSN)
 			selected["POWERX_DB_DSN"] = dbSection.DSN
@@ -96,6 +116,10 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 			setNestedValue(structured, []string{"database", "user_host"}, dbSection.UserHost)
 		}
 		setNestedValue(structured, []string{"database", "managed"}, dbSection.Managed)
+		setNestedValue(structured, []string{"database", "deployment_env"}, dbSection.DeploymentEnv)
+		setNestedValue(structured, []string{"database", "plugin_key"}, dbSection.PluginKey)
+		setNestedValue(structured, []string{"database", "plugin_uuid"}, dbSection.PluginUUID)
+		setNestedValue(structured, []string{"database", "binding_uuid"}, dbSection.BindingUUID)
 		// 共享库回退模式必须显式剔除隔离字段，避免 values.example 里的默认值（例如 public）被误带入清理流程。
 		if !dbSection.Managed {
 			deleteNestedValue(structured, []string{"database", "schema"})
@@ -193,6 +217,13 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		GeneratedAt: now,
 		Spec:        stripHostConfigMeta(structured),
 	}, nil
+}
+
+func (m *managerImpl) provisionDatabaseSection(pluginID string) (*databaseSection, error) {
+	if m != nil && m.databaseSectionBuilder != nil {
+		return m.databaseSectionBuilder(pluginID)
+	}
+	return m.buildDatabaseSection(pluginID)
 }
 
 // applyDelegatedHostContract enforces delegated_proxy runtime hints in host config.
@@ -700,19 +731,24 @@ func firstNonEmptyMapValue(m map[string]string, keys ...string) string {
 }
 
 type databaseSection struct {
-	Driver     string
-	DSN        string
-	Schema     string
-	User       string
-	Password   string
-	UserHost   string
-	SearchPath string
-	Managed    bool
+	Driver        string
+	DSN           string
+	Schema        string
+	User          string
+	Password      string
+	UserHost      string
+	SearchPath    string
+	Managed       bool
+	DeploymentEnv string
+	PluginKey     string
+	PluginUUID    string
+	BindingUUID   string
 }
 
 func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, error) {
-	if m.opts.CoreConfig == nil {
-		return nil, nil
+	deploymentEnv, err := m.requireDeploymentEnv()
+	if err != nil {
+		return nil, err
 	}
 
 	dbCfg := m.opts.CoreConfig.Database
@@ -723,9 +759,9 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 
 	schemaName := makePluginSchema(pluginID)
 	if schemaName == "" {
-		return nil, nil
+		return nil, fmt.Errorf("plugin database isolation requires a non-empty plugin id")
 	}
-	userName := makePluginUser(pluginID)
+	userName := makePluginUser(deploymentEnv, pluginID)
 	password, err := generateStrongPassword(32)
 	if err != nil {
 		return nil, err
@@ -742,17 +778,29 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	}
 
 	section := &databaseSection{
-		Driver:   driver,
-		Schema:   schemaName,
-		User:     userName,
-		Password: password,
-		Managed:  true,
+		Driver:        driver,
+		Schema:        schemaName,
+		User:          userName,
+		Password:      password,
+		Managed:       true,
+		DeploymentEnv: deploymentEnv,
+		PluginKey:     pluginID,
+		PluginUUID:    pluginDatabasePluginUUID(pluginID),
+		BindingUUID:   pluginDatabaseBindingUUID(deploymentEnv, pluginID),
 	}
 
 	switch driver {
 	case "postgres":
 		if err := ensurePostgresUser(db, dbCfg, section); err != nil {
 			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure postgres user %s: %w", pluginID, section.User, err)
+		}
+		// Role 名称在 deployment.env 改造后会发生变化。旧安装保留 Schema
+		// 与业务表时，仅有 GRANT 不足以让新 Role 执行插件 AutoMigrate：
+		// PostgreSQL 的 ALTER TABLE/SEQUENCE/VIEW 要求对象 owner。由 Core
+		// 的数据库管理连接在安装前将该插件 Schema 内对象统一交给目标 Role，
+		// 失败则显式阻断，不能带着半授权状态继续运行迁移。
+		if err := reconcilePostgresPluginOwnership(db, dbCfg, section); err != nil {
+			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: reconcile postgres ownership for %s: %w", pluginID, section.Schema, err)
 		}
 		section.DSN = buildPostgresPluginDSN(dbCfg, section)
 		section.SearchPath = section.Schema
@@ -797,7 +845,7 @@ func normalizeDriver(driver string) string {
 func makePluginSchema(id string) string {
 	base := pluginSlug(id)
 	if base == "" {
-		base = "plugin"
+		return ""
 	}
 	name := "px_" + base
 	if len(name) > 63 {
@@ -806,16 +854,99 @@ func makePluginSchema(id string) string {
 	return strings.Trim(name, "_")
 }
 
-func makePluginUser(id string) string {
+func makePluginUser(deploymentEnv, id string) string {
+	return makePluginRoleName(deploymentEnv, id)
+}
+
+func makePluginRoleName(deploymentEnv, id string) string {
 	base := pluginSlug(id)
 	if base == "" {
-		base = "plugin"
+		return ""
+	}
+	hash := sha256.Sum256([]byte(strings.TrimSpace(id)))
+	hash8 := hex.EncodeToString(hash[:])[:8]
+	fixedLength := len("pxu") + len(deploymentEnv) + len(hash8) + 3
+	maxBaseLength := 63 - fixedLength
+	if maxBaseLength <= 0 {
+		return ""
+	}
+	if len(base) > maxBaseLength {
+		base = strings.TrimRight(base[:maxBaseLength], "_")
+	}
+	if base == "" {
+		return ""
+	}
+	return "pxu_" + deploymentEnv + "_" + base + "_" + hash8
+}
+
+// makeLegacyPluginRoleName 仅用于所有权收敛时识别 deployment.env 改造前
+// 的历史插件 Role。它绝不能作为插件运行时的回退身份。
+func makeLegacyPluginRoleName(id string) string {
+	base := pluginSlug(id)
+	if base == "" {
+		return ""
 	}
 	name := "pxu_" + base
 	if len(name) > 63 {
 		name = name[:63]
 	}
 	return strings.Trim(name, "_")
+}
+
+func pluginDatabasePluginUUID(pluginID string) string {
+	return uuid.NewSHA1(pluginDatabaseBindingNamespace, []byte("plugin:"+strings.TrimSpace(pluginID))).String()
+}
+
+func pluginDatabaseBindingUUID(deploymentEnv, pluginID string) string {
+	key := "binding:" + deploymentEnv + ":" + strings.TrimSpace(pluginID)
+	return uuid.NewSHA1(pluginDatabaseBindingNamespace, []byte(key)).String()
+}
+
+func (m *managerImpl) requireDeploymentEnv() (string, error) {
+	if m == nil || m.opts.CoreConfig == nil {
+		return "", errors.New("plugin database isolation requires CoreConfig.deployment.env")
+	}
+	env := m.opts.CoreConfig.Deployment.Env
+	if err := coreconfig.ValidateDeploymentEnv(env); err != nil {
+		return "", fmt.Errorf("plugin database isolation: %w", err)
+	}
+	return env, nil
+}
+
+func (m *managerImpl) validatePluginDatabaseBinding(pluginID string, hostCfg *plugin_mgr.HostConfig) error {
+	deploymentEnv, err := m.requireDeploymentEnv()
+	if err != nil {
+		return err
+	}
+	if hostCfg == nil || hostCfg.Spec == nil {
+		return fmt.Errorf("plugin %s database binding is missing; reinstall or run explicit repair", pluginID)
+	}
+	rawDB, ok := hostCfg.Spec["database"]
+	if !ok {
+		return fmt.Errorf("plugin %s database binding is missing; reinstall or run explicit repair", pluginID)
+	}
+	dbSpec, ok := rawDB.(map[string]any)
+	if !ok {
+		return fmt.Errorf("plugin %s database binding has invalid format", pluginID)
+	}
+	expected := map[string]string{
+		"deployment_env": deploymentEnv,
+		"plugin_key":     pluginID,
+		"plugin_uuid":    pluginDatabasePluginUUID(pluginID),
+		"binding_uuid":   pluginDatabaseBindingUUID(deploymentEnv, pluginID),
+		"schema":         makePluginSchema(pluginID),
+		"user":           makePluginUser(deploymentEnv, pluginID),
+	}
+	for key, want := range expected {
+		got := getStringFromMap(dbSpec, key)
+		if got == "" {
+			return fmt.Errorf("plugin %s database binding field database.%s is missing; reinstall or run explicit repair", pluginID, key)
+		}
+		if got != want {
+			return fmt.Errorf("plugin %s database binding mismatch: database.%s=%q, expected %q", pluginID, key, got, want)
+		}
+	}
+	return nil
 }
 
 func pluginSlug(id string) string {
@@ -915,6 +1046,185 @@ func ensurePostgresUser(db *gorm.DB, cfg corexdb.DatabaseConfig, section *databa
 		for _, stmt := range stmts {
 			if err := db.Exec(stmt).Error; err != nil {
 				return err
+			}
+		}
+	}
+	return nil
+}
+
+type postgresPluginRelation struct {
+	Name string
+	Kind string
+}
+
+type postgresPluginFunction struct {
+	Name      string
+	Arguments string
+}
+
+// reconcilePostgresPluginOwnership 让插件数据库绑定的目标 Role 成为该插件
+// Schema 内全部可迁移对象的 owner。权限授予只能保证 DML；插件迁移的 DDL
+// 必须由 owner 执行。所有语句均在一个事务内完成，任一步失败即回滚。
+func reconcilePostgresPluginOwnership(db *gorm.DB, cfg corexdb.DatabaseConfig, section *databaseSection) error {
+	if db == nil || section == nil {
+		return errors.New("postgres ownership reconciliation requires database and database section")
+	}
+	if strings.TrimSpace(section.Schema) == "" || strings.TrimSpace(section.User) == "" {
+		return errors.New("postgres ownership reconciliation requires schema and target role")
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		schemaIdent := quoteIdentifier("postgres", section.Schema)
+		targetRoleIdent := quoteIdentifier("postgres", section.User)
+		legacyRoles, err := postgresPluginSchemaOwnerRoles(tx, section.Schema, section.User)
+		if err != nil {
+			return err
+		}
+		if err := validatePostgresPluginOwnershipSources(legacyRoles, cfg, section); err != nil {
+			return err
+		}
+
+		// 无论 Schema 是新建还是旧安装遗留，都使目标插件 Role 成为 owner。
+		// 若 Core 的数据库管理账号无权转移，将在此处以明确错误阻断安装。
+		if err := tx.Exec(fmt.Sprintf("ALTER SCHEMA %s OWNER TO %s", schemaIdent, targetRoleIdent)).Error; err != nil {
+			return fmt.Errorf("alter schema owner to %s: %w", section.User, err)
+		}
+
+		var relations []postgresPluginRelation
+		if err := tx.Raw(`
+SELECT c.relname AS name, c.relkind AS kind
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = ?
+  AND c.relkind IN ('r', 'p', 'S', 'v', 'm', 'f')
+  -- serial/identity 列的 sequence 由 ALTER TABLE OWNER 连带转移，PostgreSQL
+  -- 禁止在其所属表 owner 变更前单独 ALTER SEQUENCE OWNER。
+  AND NOT (
+    c.relkind = 'S'
+    AND EXISTS (
+      SELECT 1
+      FROM pg_depend d
+      WHERE d.objid = c.oid
+        AND d.deptype IN ('a', 'i')
+    )
+  )
+ORDER BY CASE c.relkind
+  WHEN 'r' THEN 1
+  WHEN 'p' THEN 2
+  WHEN 'f' THEN 3
+  WHEN 'v' THEN 4
+  WHEN 'm' THEN 5
+  WHEN 'S' THEN 6
+  ELSE 99
+END, c.relname`, section.Schema).Scan(&relations).Error; err != nil {
+			return fmt.Errorf("list schema relations: %w", err)
+		}
+		for _, relation := range relations {
+			relationIdent := schemaIdent + "." + quoteIdentifier("postgres", relation.Name)
+			var stmt string
+			switch relation.Kind {
+			case "S":
+				stmt = fmt.Sprintf("ALTER SEQUENCE %s OWNER TO %s", relationIdent, targetRoleIdent)
+			case "v":
+				stmt = fmt.Sprintf("ALTER VIEW %s OWNER TO %s", relationIdent, targetRoleIdent)
+			case "m":
+				stmt = fmt.Sprintf("ALTER MATERIALIZED VIEW %s OWNER TO %s", relationIdent, targetRoleIdent)
+			case "r", "p", "f":
+				stmt = fmt.Sprintf("ALTER TABLE %s OWNER TO %s", relationIdent, targetRoleIdent)
+			default:
+				return fmt.Errorf("unsupported relation kind %q for %s", relation.Kind, relation.Name)
+			}
+			if err := tx.Exec(stmt).Error; err != nil {
+				return fmt.Errorf("transfer relation %s ownership: %w", relation.Name, err)
+			}
+		}
+
+		var functions []postgresPluginFunction
+		if err := tx.Raw(`
+SELECT p.proname AS name, pg_get_function_identity_arguments(p.oid) AS arguments
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = ?
+ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)`, section.Schema).Scan(&functions).Error; err != nil {
+			return fmt.Errorf("list schema functions: %w", err)
+		}
+		for _, function := range functions {
+			functionIdent := schemaIdent + "." + quoteIdentifier("postgres", function.Name) + "(" + function.Arguments + ")"
+			if err := tx.Exec(fmt.Sprintf("ALTER FUNCTION %s OWNER TO %s", functionIdent, targetRoleIdent)).Error; err != nil {
+				return fmt.Errorf("transfer function %s ownership: %w", function.Name, err)
+			}
+		}
+
+		return revokeLegacyPostgresPluginRolePrivileges(tx, cfg, section, legacyRoles)
+	})
+}
+
+func postgresPluginSchemaOwnerRoles(tx *gorm.DB, schema, targetRole string) ([]string, error) {
+	var roles []string
+	if err := tx.Raw(`
+SELECT DISTINCT r.rolname
+FROM pg_roles r
+JOIN pg_namespace n ON n.nspowner = r.oid
+WHERE n.nspname = ? AND r.rolname <> ?
+UNION
+SELECT DISTINCT r.rolname
+FROM pg_roles r
+JOIN pg_class c ON c.relowner = r.oid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = ? AND r.rolname <> ?
+UNION
+SELECT DISTINCT r.rolname
+FROM pg_roles r
+JOIN pg_proc p ON p.proowner = r.oid
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = ? AND r.rolname <> ?`, schema, targetRole, schema, targetRole, schema, targetRole).Scan(&roles).Error; err != nil {
+		return nil, fmt.Errorf("list existing schema object owners: %w", err)
+	}
+	return roles, nil
+}
+
+// validatePostgresPluginOwnershipSources 防止安装流程接管非本插件对象。
+// 允许的历史 owner 只有 Core 数据库管理账号（首次由 Core 创建 Schema 时）
+// 或该插件部署环境改造前的精确旧 Role；其余 owner 一律要求人工排查，
+// 不得以“同名 Schema”作为接管其他主体对象的充分依据。
+func validatePostgresPluginOwnershipSources(owners []string, cfg corexdb.DatabaseConfig, section *databaseSection) error {
+	coreUser := strings.TrimSpace(cfg.UserName)
+	legacyRole := makeLegacyPluginRoleName(section.PluginKey)
+	for _, owner := range owners {
+		owner = strings.TrimSpace(owner)
+		switch owner {
+		case "", section.User, coreUser, legacyRole:
+			continue
+		default:
+			return fmt.Errorf("refuse ownership transfer for schema %s: unexpected existing owner %q; expected Core database user %q or legacy plugin role %q", section.Schema, owner, coreUser, legacyRole)
+		}
+	}
+	return nil
+}
+
+// revokeLegacyPostgresPluginRolePrivileges 移除旧插件 Role 对目标 Schema
+// 的显式权限。仅处理旧插件 Role 命名，避免撤销 Core 数据库管理账号或其他
+// 非插件主体的运维权限。
+func revokeLegacyPostgresPluginRolePrivileges(tx *gorm.DB, cfg corexdb.DatabaseConfig, section *databaseSection, previousOwners []string) error {
+
+	schemaIdent := quoteIdentifier("postgres", section.Schema)
+	for _, role := range previousOwners {
+		if role == section.User || role == strings.TrimSpace(cfg.UserName) {
+			continue
+		}
+		if !strings.HasPrefix(role, "pxu_") {
+			continue
+		}
+		roleIdent := quoteIdentifier("postgres", role)
+		stmts := []string{
+			fmt.Sprintf("REVOKE ALL PRIVILEGES ON SCHEMA %s FROM %s", schemaIdent, roleIdent),
+			fmt.Sprintf("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s FROM %s", schemaIdent, roleIdent),
+			fmt.Sprintf("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %s FROM %s", schemaIdent, roleIdent),
+			fmt.Sprintf("REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA %s FROM %s", schemaIdent, roleIdent),
+		}
+		for _, stmt := range stmts {
+			if err := tx.Exec(stmt).Error; err != nil {
+				return fmt.Errorf("revoke legacy role %s privileges: %w", role, err)
 			}
 		}
 	}
@@ -1100,12 +1410,15 @@ func mysqlUserIdent(user, host string) string {
 	return fmt.Sprintf("'%s'@'%s'", u, h)
 }
 
-func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostConfig) error {
+func (m *managerImpl) cleanupPluginDatabaseResources(pluginID string, hostCfg *plugin_mgr.HostConfig) error {
 	if hostCfg == nil || m.opts.CoreConfig == nil {
 		return nil
 	}
 	if !m.opts.CoreConfig.Plugin.AllowDestructiveDBCleanup {
 		return nil
+	}
+	if err := m.validatePluginDatabaseBinding(pluginID, hostCfg); err != nil {
+		return err
 	}
 	if hostCfg.Spec == nil {
 		return nil

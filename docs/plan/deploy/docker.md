@@ -91,11 +91,13 @@ networks:
 
 ## 5. 插件目录持久化要求（必须）
 
+- 容器挂载的 `config.yaml` 必须显式包含 `deployment.env: prod`；该值是插件 Role/User 命名的唯一环境来源，Schema/Database 名称保持不变。
 - 容器内插件配置需指向宿主持久目录：
   - `plugin.registry_file=/opt/powerx/plugins/registry.json`
   - `plugin.installed_dir=/opt/powerx/plugins/installed`
   - `plugin.market_cache_dir=/opt/powerx/plugins/market_cache`
 - 挂载后，容器替换不会影响已安装插件版本与 current 指针。
+- 不得用 compose 项目名、容器名、`NODE_ENV`、插件目录或安装请求元数据推导数据库隔离环境。若 `deployment.env` 缺失或与已有插件安装记录不一致，插件安装/恢复必须失败并要求显式迁移。
 
 ## 6. K8s 演进建议
 
@@ -103,4 +105,3 @@ networks:
 - 将 `/opt/powerx/plugins` 映射为 PVC（ReadWriteOnce）
 - 将 `config.yaml`/env 映射为 ConfigMap + Secret
 - 健康探针与本方案保持一致（`/api/v1/health`、`/healthz`）
-

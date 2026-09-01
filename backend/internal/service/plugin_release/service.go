@@ -138,6 +138,7 @@ func NewService(
 	svc.distributionSvc = distribution.NewService(distribution.Dependencies{
 		Candidates:  candidates,
 		Repository:  distributionRepo,
+		ImportRuns:  repo.NewImportRepository(localSessions.BaseRepository.DB),
 		Instruments: svc.instruments,
 		Validator:   distribution.NewValidator(),
 		Hooks:       distHooks,

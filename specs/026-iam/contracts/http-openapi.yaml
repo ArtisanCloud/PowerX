@@ -390,7 +390,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RegistrationInviteCodeGenerateResponse'
+  /tenant/iam/departments:
+    get:
+      summary: List tenant departments using UUID-only directory records
+      operationId: listTenantDirectoryDepartments
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      responses:
+        '200':
+          description: Tenant department directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMDirectoryDepartmentListResponse'
+        '401': { description: Unauthorized (IAM_UNAUTHORIZED), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden (IAM_FORBIDDEN), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable (IAM_UPSTREAM_DEPENDENCY), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
   /tenant/iam/roles:
+    get:
+      summary: List complete tenant role directory using UUID-only records
+      operationId: listTenantDirectoryRoles
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      responses:
+        '200':
+          description: Complete tenant role directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMDirectoryRoleListResponse'
+        '401': { description: Unauthorized (IAM_UNAUTHORIZED), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden (IAM_FORBIDDEN), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable (IAM_UPSTREAM_DEPENDENCY), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /tenant/iam/permissions:
+    get:
+      summary: List active IAM permission directory using UUID-only records
+      operationId: listTenantDirectoryPermissions
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      responses:
+        '200':
+          description: Active permission directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMDirectoryPermissionListResponse'
+        '401': { description: Unauthorized (IAM_UNAUTHORIZED), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden (IAM_FORBIDDEN), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable (IAM_UPSTREAM_DEPENDENCY), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /tenant/iam/authorization:check:
+    post:
+      summary: Check a declared IAM permission for a tenant member
+      operationId: checkTenantIAMAuthorization
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      description: Tenant context comes solely from the service credential. This endpoint is read-only; only resource iam.member and action read are currently declared.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IAMAuthorizationCheckRequest'
+      responses:
+        '200':
+          description: Authorization decision; a business deny is allowed false with IAM_PERMISSION_DENIED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMAuthorizationCheckResponse'
+        '400': { description: Invalid input or subject mismatch (IAM_INVALID_ARGUMENT or IAM_SUBJECT_MISMATCH), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized (IAM_UNAUTHORIZED), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden (IAM_FORBIDDEN), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Member missing or outside tenant (IAM_MEMBER_NOT_FOUND), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable (IAM_UPSTREAM_DEPENDENCY), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /tenant/iam/roles/provisionable:
     get:
       summary: List bindable tenant roles for plugin service workflows
       operationId: listTenantProvisionRoles
@@ -437,6 +518,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/tenant:
+    get:
+      summary: Get the current service credential tenant directory entry
+      operationId: getTenantDirectoryTenant
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      responses:
+        '200': { description: Current tenant, content: { application/json: { schema: { $ref: '#/components/schemas/IAMDirectoryTenantResponse' } } } }
+        '401': { description: Unauthorized (IAM_UNAUTHORIZED), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden (IAM_FORBIDDEN), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable (IAM_UPSTREAM_DEPENDENCY), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /tenant/iam/members:
+    get:
+      summary: List current tenant members by UUID
+      operationId: listTenantDirectoryMembers
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      description: Tenant context is derived only from the service credential. Supplying tenant_uuid as query input is invalid.
+      responses:
+        '200': { description: UUID-only member page, content: { application/json: { schema: { $ref: '#/components/schemas/IAMDirectoryMemberPageResponse' } } } }
+        '400': { description: Invalid pagination or tenant override (IAM_INVALID_ARGUMENT), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unauthorized (IAM_UNAUTHORIZED), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Forbidden (IAM_FORBIDDEN), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '503': { description: Dependency unavailable (IAM_UPSTREAM_DEPENDENCY), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
   /tenant/iam/roles/provision:
     post:
       summary: Provision a plugin-managed tenant role
@@ -508,6 +624,168 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Caller is not a PowerX STS service actor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/members/{member_uuid}:
+    get:
+      summary: Get a tenant member by stable member UUID
+      operationId: getTenantDirectoryMember
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      description: >
+        Service-actor endpoint for plugin backends. The tenant is resolved from
+        the Gateway API key or STS token, never from request input. Numeric IDs,
+        user IDs and display names are not accepted as member identifiers. The
+        API key or tenant plugin credential must explicitly grant
+        com.corex.iam.members.read.
+      parameters:
+        - name: member_uuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Directory member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMDirectoryMemberResponse'
+        '400':
+          description: Invalid member UUID (IAM_INVALID_ARGUMENT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid STS service identity (IAM_UNAUTHORIZED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: STS service lacks the directory capability grant (IAM_FORBIDDEN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Member does not exist in the STS tenant (IAM_MEMBER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Capability registration or directory dependency unavailable (IAM_UPSTREAM_DEPENDENCY)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/members:batch-get:
+    post:
+      summary: Get tenant members by stable member UUIDs
+      operationId: batchGetTenantDirectoryMembers
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      description: >
+        Service-actor endpoint for plugin backends. The request is all-or-error:
+        duplicate UUIDs are rejected with IAM_INVALID_ARGUMENT. If any requested
+        member is absent, it returns IAM_MEMBER_NOT_FOUND instead of silently
+        returning a partial or empty success list.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IAMDirectoryBatchGetRequest'
+      responses:
+        '200':
+          description: Directory members in request order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMDirectoryMemberListResponse'
+        '400':
+          description: Invalid or duplicate member UUID list (IAM_INVALID_ARGUMENT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid STS service identity (IAM_UNAUTHORIZED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: STS service lacks the directory capability grant (IAM_FORBIDDEN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: At least one member does not exist in the STS tenant (IAM_MEMBER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Capability registration or directory dependency unavailable (IAM_UPSTREAM_DEPENDENCY)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/members:batch-resolve:
+    post:
+      summary: Resolve tenant members by stable member UUIDs while retaining missing references
+      operationId: batchResolveTenantDirectoryMembers
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      description: >
+        Service-actor endpoint for historical audit and trace references. Invalid
+        or duplicate UUIDs are rejected with IAM_INVALID_ARGUMENT before lookup.
+        Missing and cross-tenant member UUIDs are returned in
+        missing_member_uuids and do not fail the complete request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IAMDirectoryBatchGetRequest'
+      responses:
+        '200':
+          description: Resolved directory members and explicit missing UUIDs in request order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMDirectoryMemberResolveResponse'
+        '400':
+          description: Invalid or duplicate member UUID list (IAM_INVALID_ARGUMENT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid service identity (IAM_UNAUTHORIZED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Service identity lacks the directory capability grant (IAM_FORBIDDEN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Capability registration or directory dependency unavailable (IAM_UPSTREAM_DEPENDENCY)
           content:
             application/json:
               schema:
@@ -834,6 +1112,11 @@ paths:
           description: Drain job not found
 components:
   securitySchemes:
+    GatewayAPIKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: PowerX Gateway API key in the form ApiKey <key>.
     StsTenantJWT:
       type: http
       scheme: bearer
@@ -1355,6 +1638,218 @@ components:
         tenant_uuid:
           type: string
           format: uuid
+    IAMDirectoryBatchGetRequest:
+      type: object
+      required: [member_uuids]
+      properties:
+        member_uuids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+    IAMDirectoryMember:
+      type: object
+      required: [member_uuid, tenant_uuid, user_uuid, department_uuids, status]
+      properties:
+        member_uuid:
+          type: string
+          format: uuid
+        tenant_uuid:
+          type: string
+          format: uuid
+        user_uuid:
+          type: string
+          format: uuid
+        display_name: { type: string }
+        department_uuids:
+          type: array
+          items: { type: string, format: uuid }
+        status: { type: integer }
+    IAMDirectoryTenant:
+      type: object
+      required: [tenant_uuid, key, name, status, type, plan]
+      properties:
+        tenant_uuid: { type: string, format: uuid }
+        key: { type: string }
+        name: { type: string }
+        status: { type: integer }
+        type: { type: string }
+        plan: { type: string }
+    IAMDirectoryTenantResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data: { $ref: '#/components/schemas/IAMDirectoryTenant' }
+    IAMDirectoryMemberResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/IAMDirectoryMember'
+    IAMDirectoryMemberListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/IAMDirectoryMember'
+    IAMDirectoryMemberPageResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          required: [items, pagination]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/IAMDirectoryMember' }
+            pagination:
+              type: object
+              required: [page, page_size, total]
+              properties:
+                page: { type: integer }
+                page_size: { type: integer }
+                total: { type: integer, format: int64 }
+    IAMDirectoryMemberResolve:
+      type: object
+      required: [member_uuid, user_uuid]
+      properties:
+        member_uuid:
+          type: string
+          format: uuid
+        user_uuid:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+    IAMDirectoryMemberResolveResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          required: [items, missing_member_uuids]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/IAMDirectoryMemberResolve'
+            missing_member_uuids:
+              type: array
+              items:
+                type: string
+                format: uuid
+    IAMDirectoryDepartment:
+      type: object
+      required: [department_uuid, tenant_uuid, key, name, path, depth, sort, status]
+      properties:
+        department_uuid: { type: string, format: uuid }
+        tenant_uuid: { type: string, format: uuid }
+        key: { type: string }
+        name: { type: string }
+        parent_department_uuid: { type: string, format: uuid, nullable: true }
+        leader_member_uuid: { type: string, format: uuid, nullable: true }
+        path: { type: string }
+        depth: { type: integer }
+        sort: { type: integer }
+        status: { type: integer }
+    IAMDirectoryDepartmentListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/IAMDirectoryDepartment' }
+    IAMDirectoryRole:
+      type: object
+      required: [role_uuid, tenant_uuid, code, name, builtin]
+      properties:
+        role_uuid: { type: string, format: uuid }
+        tenant_uuid: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string }
+        builtin: { type: boolean }
+    IAMDirectoryRoleListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/IAMDirectoryRole' }
+    IAMDirectoryPermission:
+      type: object
+      required: [permission_uuid, module, resource, action, effect, status]
+      properties:
+        permission_uuid: { type: string, format: uuid }
+        module: { type: string }
+        resource: { type: string }
+        action: { type: string }
+        effect: { type: string }
+        description: { type: string }
+        status: { type: string }
+        source: { type: string }
+    IAMDirectoryPermissionListResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/IAMDirectoryPermission' }
+    IAMAuthorizationCheckRequest:
+      type: object
+      required: [member_uuid, user_uuid, resource, action]
+      properties:
+        member_uuid: { type: string, format: uuid }
+        user_uuid: { type: string, format: uuid }
+        resource: { type: string, enum: [iam.member] }
+        action: { type: string, enum: [read] }
+        trace_id: { type: string }
+    IAMAuthorizationCheck:
+      type: object
+      required: [allowed, reason_code, tenant_uuid, member_uuid, user_uuid, resource, action]
+      properties:
+        allowed: { type: boolean }
+        reason_code: { type: string, enum: ['', IAM_PERMISSION_DENIED] }
+        tenant_uuid: { type: string, format: uuid }
+        member_uuid: { type: string, format: uuid }
+        user_uuid: { type: string, format: uuid }
+        resource: { type: string, enum: [iam.member] }
+        action: { type: string, enum: [read] }
+        trace_id: { type: string }
+    IAMAuthorizationCheckResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data: { $ref: '#/components/schemas/IAMAuthorizationCheck' }
     SwitchTenantResponse:
       type: object
       properties:
@@ -1539,6 +2034,8 @@ components:
         code: { type: integer }
         message: { type: string }
         error: { type: string }
+        error_code: { type: string }
+        reason_code: { type: string }
         request_id: { type: string }
     Pagination:
       type: object

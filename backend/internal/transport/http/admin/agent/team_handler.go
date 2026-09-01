@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -24,17 +25,21 @@ func NewTeamHandler(dep *shared.Deps) *TeamHandler {
 }
 
 type createTeamRequest struct {
-	ParentAgentID        uint64 `json:"parent_agent_id" binding:"required"`
-	TeamName             string `json:"team_name" binding:"required"`
-	DispatchMode         string `json:"dispatch_mode"`
-	DefaultFailurePolicy string `json:"default_failure_policy"`
+	ParentAgentID        uint64          `json:"parent_agent_id" binding:"required"`
+	TeamKey              string          `json:"team_key" binding:"required"`
+	DisplayNameI18n      json.RawMessage `json:"display_name_i18n" binding:"required"`
+	DispatchMode         string          `json:"dispatch_mode"`
+	DefaultFailurePolicy string          `json:"default_failure_policy"`
+	OrchestrationSpec    json.RawMessage `json:"orchestration_spec"`
 }
 
 type updateTeamRequest struct {
-	ParentAgentID        *uint64 `json:"parent_agent_id"`
-	TeamName             *string `json:"team_name"`
-	DispatchMode         *string `json:"dispatch_mode"`
-	DefaultFailurePolicy *string `json:"default_failure_policy"`
+	ParentAgentID        *uint64         `json:"parent_agent_id"`
+	TeamKey              *string         `json:"team_key"`
+	DisplayNameI18n      json.RawMessage `json:"display_name_i18n"`
+	DispatchMode         *string         `json:"dispatch_mode"`
+	DefaultFailurePolicy *string         `json:"default_failure_policy"`
+	OrchestrationSpec    json.RawMessage `json:"orchestration_spec"`
 }
 
 type upsertTeamMemberRequest struct {
@@ -62,9 +67,11 @@ func (h *TeamHandler) CreateTeam(c *gin.Context) {
 	created, err := h.svc.CreateTeam(c.Request.Context(), agentSvc.TeamCreateInput{
 		TenantUUID:           tenantCtx.UUID(),
 		ParentAgentID:        req.ParentAgentID,
-		TeamName:             req.TeamName,
+		TeamKey:              req.TeamKey,
+		DisplayNameI18n:      req.DisplayNameI18n,
 		DispatchMode:         req.DispatchMode,
 		DefaultFailurePolicy: req.DefaultFailurePolicy,
+		OrchestrationSpec:    req.OrchestrationSpec,
 		CreatedBy:            "admin",
 	})
 	if err != nil {
@@ -159,7 +166,7 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
 		return
 	}
-	if req.ParentAgentID == nil && req.TeamName == nil && req.DispatchMode == nil && req.DefaultFailurePolicy == nil {
+	if req.ParentAgentID == nil && req.TeamKey == nil && req.DisplayNameI18n == nil && req.DispatchMode == nil && req.DefaultFailurePolicy == nil && req.OrchestrationSpec == nil {
 		dto.ResponseError(c, http.StatusBadRequest, "empty update payload", nil)
 		return
 	}
@@ -171,14 +178,22 @@ func (h *TeamHandler) UpdateTeam(c *gin.Context) {
 	if req.ParentAgentID != nil {
 		in.ParentAgentID = *req.ParentAgentID
 	}
-	if req.TeamName != nil {
-		in.TeamName = *req.TeamName
+	if req.TeamKey != nil {
+		in.TeamKey = *req.TeamKey
+	}
+	if req.DisplayNameI18n != nil {
+		in.DisplayNameI18n = req.DisplayNameI18n
+		in.UpdateDisplayNameI18n = true
 	}
 	if req.DispatchMode != nil {
 		in.DispatchMode = *req.DispatchMode
 	}
 	if req.DefaultFailurePolicy != nil {
 		in.DefaultFailurePolicy = *req.DefaultFailurePolicy
+	}
+	if req.OrchestrationSpec != nil {
+		in.OrchestrationSpec = req.OrchestrationSpec
+		in.UpdateOrchestration = true
 	}
 
 	updated, updateErr := h.svc.UpdateTeam(c.Request.Context(), in)

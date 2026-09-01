@@ -22,7 +22,7 @@ type handler struct {
 	svc *notificationssvc.Service
 }
 
-type pushTestNotificationRequest struct {
+type createNotificationRequest struct {
 	Title       string         `json:"title"`
 	Content     string         `json:"content"`
 	Type        string         `json:"type"`
@@ -59,7 +59,7 @@ func newHandler(deps *shared.Deps) *handler {
 	return &handler{}
 }
 
-func (h *handler) pushTest(c *gin.Context) {
+func (h *handler) create(c *gin.Context) {
 	if h == nil || h.svc == nil {
 		c.Status(http.StatusNotImplemented)
 		return
@@ -70,31 +70,29 @@ func (h *handler) pushTest(c *gin.Context) {
 		return
 	}
 
-	var req pushTestNotificationRequest
+	var req createNotificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid request", err)
 		return
 	}
 
-	// 优先使用当前登录主体；ApiKey 场景可能无 subject。
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
-	if memberUUID == "" {
-		memberUUID = strings.TrimSpace(req.MemberUUID)
-	}
-	// 仅接受 UUID 形态。非 UUID（如 "1"）视为租户级广播通知（member_uuid 置空）。
+	memberUUID := strings.TrimSpace(req.MemberUUID)
 	if memberUUID != "" {
 		if _, parseErr := uuid.Parse(memberUUID); parseErr != nil {
-			memberUUID = ""
+			dto.ResponseError(c, http.StatusBadRequest, "notification.member_uuid_invalid", parseErr)
+			return
 		}
 	}
 
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
-		title = "系统通知"
+		dto.ResponseError(c, http.StatusBadRequest, "notification.title_required", nil)
+		return
 	}
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
-		content = "来自 Capability Gateway 的测试通知"
+		dto.ResponseError(c, http.StatusBadRequest, "notification.content_required", nil)
+		return
 	}
 
 	var metadata datatypes.JSON

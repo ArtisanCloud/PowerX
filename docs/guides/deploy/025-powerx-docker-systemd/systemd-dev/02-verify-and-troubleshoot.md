@@ -99,13 +99,15 @@ sudo cat /etc/powerx-dev/powerx.env | grep -E 'POWERX|NUXT|WS'
 ### 6.4 Dev 与生产插件互相影响
 检查 config 中插件运行路径：
 ```bash
-grep -n "installed_dir\\|registry_file" /etc/powerx-dev/config.yaml
+grep -n "deployment:\\|env:\\|installed_dir\\|registry_file" /etc/powerx-dev/config.yaml
 ```
 
 处理：
+- `deployment.env` 必须明确为 `dev`；不能用 `version`、`dev_mode` 或目录名推导
 - `installed_dir` 必须在 `/opt/powerx-dev/plugins/installed`
 - `registry_file` 必须在 `/opt/powerx-dev/plugins/registry.json`
 - dev 插件 ID 建议使用 `.dev` 后缀，避免 taskqueue、scheduler、ws topic 与生产插件共享状态
+- 插件 Schema/Database 沿用 `px_<plugin_slug>`；Role/User 必须带 `pxu_dev_` 前缀。如果 Role/User 仍为无环境段的旧名称，停止自动恢复并先执行迁移 dry-run
 
 ### 6.5 数据写入生产库
 检查数据库配置：

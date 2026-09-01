@@ -12,12 +12,20 @@
   - 生效语义：修改 setup 端口后需要重启 backend/web-admin，重启前 `desired_ports` 可变更但 `effective_ports` 不变
 - 安装状态机制：参考 `specs/025-powerx-docker-systemd/install-mechanism.md`（`config.install.status` 为首判定源）。
 - 运行时配置真源：`/etc/powerx/config.yaml`（版本切换不覆盖）。
+- 部署身份：`/etc/powerx/config.yaml` 必须显式配置 `deployment.env`；生产为 `prod`，开发为 `dev`，不得从 `POWERX_ENV` 或目录推导。
 - Docker 目录规范：配置层 `/etc/powerx`，数据层 `/var/lib/powerx`（建议映射 `postgres/redis/uploads` 子目录）。
 
 ## 2. 部署基线验证
 
 1. 按 `docs/plan/deploy/docker.md` 或 `systemd.md` 完成一次冷启动。
 2. 首装场景确认系统进入 `/setup`，并完成安装流程（含 DB 连通性校验与初始化）。
+3. 在 setup 中明确选择部署环境，并验证最终配置：
+
+```bash
+sed -n '/^deployment:/,/^[^[:space:]]/p' /etc/powerx/config.yaml
+```
+
+预期生产配置包含 `env: prod`。字段缺失或非法时，setup 完成和插件安装均应失败。
 3. 验证健康状态：
 
 ```bash
@@ -62,6 +70,14 @@ POWERX_CONFIG=/etc/powerx/config.yaml ./database migrate
 1. 执行“安装不启用”。
 2. 执行版本切换。
 3. 触发回滚并确认恢复。
+4. 核对 Role/User 包含当前部署环境段，Schema 保持原命名：
+
+```bash
+psql "$DATABASE_DSN" -Atc "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'px_%' ORDER BY nspname;"
+psql "$DATABASE_DSN" -Atc "SELECT rolname FROM pg_roles WHERE rolname LIKE 'pxu_prod_%' ORDER BY rolname;"
+```
+
+预期同一插件的 dev/prod Schema 名称一致，Role/User 名称分别包含 `dev`/`prod`，且专用账号不能读取非目标数据库、其他插件或宿主 Schema。`px_*` Schema 不带环境段是正确行为；只有无环境段的旧 `pxu_*` Role/User 需要 repair/migration。
 
 参考：`docs/plan/deploy/plugin-upgrade-sop.md`
 

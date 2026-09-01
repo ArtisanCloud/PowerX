@@ -23,7 +23,7 @@
 
 ## 后端阶段设计
 
-- **环境**：Go 1.24，设置 `GOMODCACHE`/`GOCACHE` 对应的 GitHub Actions 缓存键，减少安装时间。
+- **环境**：Go 1.26.7，设置 `GOMODCACHE`/`GOCACHE` 对应的 GitHub Actions 缓存键，减少安装时间。
 - **静态检查**  
 - `make lint`：统一包裹 `golangci-lint`、`buf lint`、`go vet`。  
   - `scripts/ci/check-tenant-uuid-canonical.sh`：扫描 `uuid.Parse(tenantUUID` 等违规写法。
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26.7'
       - run: make lint
       - run: make test-backend
 

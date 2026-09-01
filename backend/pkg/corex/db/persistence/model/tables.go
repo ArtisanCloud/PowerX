@@ -113,6 +113,12 @@ const TableWorkflowHumanReviewTasks = "workflow_human_review_tasks"
 const TableWorkflowPackSeedRecords = "workflow_pack_seed_records"
 const TableWorkflowPackInstallations = "workflow_pack_installations"
 
+// Skills definition lifecycle. A runtime resolves only a published immutable
+// revision; package objects are kept outside PostgreSQL and referenced here.
+const TableSkillsPackageSources = "skills_package_sources"
+const TableSkillsDefinitionDrafts = "skills_definition_drafts"
+const TableSkillsDefinitionRevisions = "skills_definition_revisions"
+
 const TablePluginReleaseCandidates = "plugin_release_candidates"
 const TablePluginReleasePlans = "plugin_release_plans"
 const TablePluginReleaseCanaryRecords = "plugin_release_canary_records"

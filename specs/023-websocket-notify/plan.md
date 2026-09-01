@@ -11,7 +11,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.24（backend），Node 20 + Nuxt 4（web-admin）  
+**Language/Version**: Go 1.26.7（backend），Node 20 + Nuxt 4（web-admin）
 **Primary Dependencies**: Gin HTTP 栈、gorilla/websocket、Pinia、Nuxt UI  
 **Storage**: PostgreSQL（ai_model_profiles/knowledge_*），Redis（现有队列/缓存）  
 **Testing**: Go `go test`（backend），Playwright（web-admin 既有）  

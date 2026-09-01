@@ -287,6 +287,26 @@ func (r *PermissionRepository) MemberHasPermissionViaBindingWithModule(
 	return cnt > 0, err
 }
 
+// MemberHasPermissionViaUUIDBindingWithModule is the UUID-based equivalent of
+// MemberHasPermissionViaBindingWithModule. The role-permission relationship is
+// resolved exclusively through role_uuid and permission_uuid; numeric columns
+// are not used to evaluate delegated directory authorization.
+func (r *PermissionRepository) MemberHasPermissionViaUUIDBindingWithModule(
+	ctx context.Context,
+	tenantUUID string, memberID uint64, memberUUID string,
+	module, resource, action string,
+) (bool, error) {
+	var cnt int64
+	err := r.db.WithContext(ctx).
+		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
+		Select("COUNT(1)").
+		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_uuid = p.permission_uuid").
+		Joins("JOIN ("+effectiveRoleUUIDsForMemberSQL()+") erb ON erb.role_uuid = rp.role_uuid", tenantUUID, dbm.SubMember, memberUUID, tenantUUID, memberID).
+		Where("p.module = ? AND p.resource = ? AND p.action = ?", module, resource, action).
+		Count(&cnt).Error
+	return cnt > 0, err
+}
+
 func (r *PermissionRepository) MemberHasPermissionViaBindingWithModuleAndSource(
 	ctx context.Context,
 	tenantUUID string, memberID uint64,
@@ -312,6 +332,28 @@ func effectiveRoleIDsForMemberSQL() string {
 		WHERE rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?
 		UNION
 		SELECT DISTINCT rb.role_id
+		FROM ` + tRB + ` rb
+		JOIN ` + tMA + ` ma
+		  ON ma.tenant_uuid = rb.tenant_uuid
+		 AND rb.subject_id = ma.dim_id
+		 AND rb.subject_type = CASE ma.dim_type
+		   WHEN 'ORG' THEN 'ORG_UNIT'
+		   WHEN 'TEAM' THEN 'TEAM'
+		   WHEN 'POSITION' THEN 'POSITION'
+		   WHEN 'GROUP' THEN 'GROUP'
+		 END
+		WHERE rb.tenant_uuid = ? AND ma.member_id = ?`
+}
+
+func effectiveRoleUUIDsForMemberSQL() string {
+	tRB := (&dbm.RoleBinding{}).GetTableName(true)
+	tMA := (&dbm.MemberAssignment{}).GetTableName(true)
+	return `
+		SELECT DISTINCT rb.role_uuid
+		FROM ` + tRB + ` rb
+		WHERE rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_uuid = ?
+		UNION
+		SELECT DISTINCT rb.role_uuid
 		FROM ` + tRB + ` rb
 		JOIN ` + tMA + ` ma
 		  ON ma.tenant_uuid = rb.tenant_uuid

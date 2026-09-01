@@ -24,6 +24,7 @@ func TestRunStateSinkTranslatesNodeEvents(t *testing.T) {
 	base := &captureSink{}
 	ctx := context.WithValue(context.Background(), "session_id", "s1")
 	ctx = context.WithValue(ctx, "message_id", "m1")
+	ctx = context.WithValue(ctx, "run_id", "run_1")
 	sink := NewRunStateSink(ctx, base)
 
 	if err := sink.Emit(dto.EventNodeStart, map[string]any{
@@ -59,7 +60,7 @@ func TestRunStateSinkTranslatesNodeEvents(t *testing.T) {
 	if !ok {
 		t.Fatalf("first payload type=%T", base.data[0])
 	}
-	if state.Status != dto.AgentTaskStatusRunning || state.SkillID != "skill.template" || state.SessionID != "s1" || state.MessageID != "m1" {
+	if state.Status != dto.AgentTaskStatusRunning || state.SkillID != "skill.template" || state.RunID != "run_1" || state.SessionID != "s1" || state.MessageID != "m1" {
 		t.Fatalf("bad mirrored state: %#v", state)
 	}
 }
@@ -108,6 +109,36 @@ func TestRunStateSinkCompletesTaskWithResultEvidence(t *testing.T) {
 
 	if len(base.events) != 1 || base.events[0] != dto.EventAgentRunTaskCompleted {
 		t.Fatalf("events=%v", base.events)
+	}
+	state, ok := base.data[0].(dto.AgentTaskState)
+	if !ok {
+		t.Fatalf("payload type=%T", base.data[0])
+	}
+	if state.Error != nil {
+		t.Fatalf("completed task should not carry error: %#v", state.Error)
+	}
+}
+
+func TestRunStateSinkFailsTaskWhenResultExplicitlyFailed(t *testing.T) {
+	base := &captureSink{}
+	sink := NewRunStateSink(context.Background(), base)
+
+	if err := sink.Emit(dto.EventNodeEnd, map[string]any{
+		"task_id": "t1",
+		"status":  dto.AgentTaskStatusCompleted,
+		"result_summary": map[string]any{
+			"success": false,
+		},
+	}); err != nil {
+		t.Fatalf("emit end: %v", err)
+	}
+
+	if len(base.events) != 1 || base.events[0] != dto.EventAgentRunTaskFailed {
+		t.Fatalf("events=%v", base.events)
+	}
+	state, ok := base.data[0].(dto.AgentTaskState)
+	if !ok || state.Status != dto.AgentTaskStatusFailed {
+		t.Fatalf("state=%#v", base.data[0])
 	}
 }
 

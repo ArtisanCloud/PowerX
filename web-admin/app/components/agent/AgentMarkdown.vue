@@ -100,7 +100,9 @@ watch(
 
 <template>
   <div class="px-md">
-    <MDCRenderer v-if="parsed?.body" :body="parsed.body" :data="parsed.data" prose />
+    <div v-if="parsed?.body" class="px-md__content">
+      <MDCRenderer :body="parsed.body" :data="parsed.data" prose />
+    </div>
     <pre v-else-if="parseErr" class="px-md__fallback">{{ source }}</pre>
   </div>
 </template>
@@ -108,6 +110,53 @@ watch(
 <style scoped>
 .px-md {
   width: 100%;
+}
+.px-md__content {
+  width: 100%;
+  overflow-x: auto;
+}
+.px-md__content :deep(table) {
+  width: 100%;
+  min-width: 36rem;
+  margin: 1rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 0.625rem;
+}
+.px-md__content :deep(h1),
+.px-md__content :deep(h2),
+.px-md__content :deep(h3) {
+  margin: 1.25rem 0 0.625rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.px-md__content :deep(h1) { font-size: 1.25rem; }
+.px-md__content :deep(h2) { font-size: 1.125rem; }
+.px-md__content :deep(h3) { font-size: 1rem; }
+.px-md__content :deep(p) { margin: 0.5rem 0; }
+.px-md__content :deep(ul),
+.px-md__content :deep(ol) { margin: 0.5rem 0; padding-left: 1.5rem; }
+.px-md__content :deep(li + li) { margin-top: 0.25rem; }
+.px-md__content :deep(th),
+.px-md__content :deep(td) {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-right: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+.px-md__content :deep(th) {
+  font-weight: 600;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.px-md__content :deep(th:last-child),
+.px-md__content :deep(td:last-child) {
+  border-right: 0;
+}
+.px-md__content :deep(tbody tr:last-child td) {
+  border-bottom: 0;
 }
 .px-md__fallback {
   white-space: pre-wrap;
@@ -118,4 +167,3 @@ watch(
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 </style>
-

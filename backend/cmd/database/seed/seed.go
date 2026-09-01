@@ -80,10 +80,6 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	if err = SeedDemoSkillInstallTasks(db); err != nil {
 		return err
 	}
-	if err = SeedA2AReleaseReadinessDemo(db); err != nil {
-		return err
-	}
-
 	if err = SeedCapabilityErrorTaxonomies(db); err != nil {
 		return err
 	}
@@ -96,6 +92,9 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	}
 
 	if err = SeedWorkflowPacks(ctx, db); err != nil {
+		return err
+	}
+	if err = SeedNativeMarketingAgents(db, cfg); err != nil {
 		return err
 	}
 

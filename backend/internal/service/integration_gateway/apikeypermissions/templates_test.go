@@ -1,26 +1,20 @@
 package apikeypermissions
 
-import "testing"
+import (
+	"testing"
 
-func TestBuildTemplatePermissionsIncludesPluginDebugHostRegister(t *testing.T) {
-	rows := BuildTemplatePermissions()
-	for _, row := range rows {
-		resolved, ok := ResolvePermission(row)
-		if !ok {
-			continue
-		}
-		if resolved.Scope == "_scope.plugin.debug_host.register" {
-			if resolved.Action != "sync" {
-				t.Fatalf("unexpected action: %s", resolved.Action)
-			}
-			if resolved.ResourceType != "api" {
-				t.Fatalf("unexpected resource type: %s", resolved.ResourceType)
-			}
-			if resolved.ResourcePattern != "POST:/api/v1/internal/plugins/debug-hosts" {
-				t.Fatalf("unexpected resource pattern: %s", resolved.ResourcePattern)
-			}
-			return
-		}
-	}
-	t.Fatal("missing plugin debug host register API key permission")
+	modelsiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	"github.com/stretchr/testify/require"
+)
+
+func TestMergePermissionTriples_PlatformRowOverridesTemplateRow(t *testing.T) {
+	rows := mergePermissionTriples([]modelsiam.Permission{
+		{Module: "integration_gateway", Resource: "agent", Action: "invoke", Description: "template", Source: "template"},
+		{Module: "integration_gateway", Resource: "agent", Action: "invoke", Description: "platform", Source: "platform_capability"},
+		{Module: "integration_gateway", Resource: "agent", Action: "stream", Description: "different"},
+	})
+	require.Len(t, rows, 2)
+	require.Equal(t, "platform", rows[0].Description)
+	require.Equal(t, "platform_capability", rows[0].Source)
+	require.Equal(t, "stream", rows[1].Action)
 }

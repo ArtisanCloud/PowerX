@@ -26,7 +26,7 @@ Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped 
   the iteration process.
 -->
 
-**Language/Version**: Go 1.24 (backend services, CLIs); Node 20 + Nuxt 4 (Vue 3 Web Admin)  
+**Language/Version**: Go 1.26.7 (backend services, CLIs); Node 20 + Nuxt 4 (Vue 3 Web Admin)
 **Primary Dependencies**: Gin HTTP stack, google.golang.org/grpc (Buf toolchain), GORM, Redis, PostgreSQL, MinIO/S3 SDK, OpenTelemetry, PowerX CLI, Nuxt 4, Vue 3, Pinia, Nuxt UI, VueUse, Playwright, Vitest, Tool Runtime SDK, audit-ledger client libraries  
 **Storage**: PostgreSQL (knowledge space metadata, quota, policy versions), Redis (workflow queues, throttles, conversation-memory cache), MinIO/S3 (artifact staging), pgvector driver (vector store abstraction)  
 **Testing**: go test + testify for units, buf + make proto targets, contract tests under `tests/contract/knowledge_space`, integration flows under `tests/integration/knowledge_space`, Vitest unit suites for Nuxt pages/components, Playwright E2E focused on `/knowledge-spaces` wizard, QA bridge contract + failover simulations under `tests/contract/knowledge_space/qa_bridge_*`  
@@ -154,7 +154,7 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 - Models quota payloads, ingestion stats, fusion weights, and SLA metadata with validation constraints (weights 0–1, severity enums, etc.).
 
 ### Quickstart (`quickstart.md`)
-- Documents prerequisites (Go 1.24, buf, feature flags), proto generation commands, targeted migration runs, module bootstrap, and contract/integration test suites.
+- Documents prerequisites (Go 1.26.7, buf, feature flags), proto generation commands, targeted migration runs, module bootstrap, and contract/integration test suites.
 - Provides step-by-step smoke flow covering provisioning → ingestion → fusion → feedback plus observability checkpoints.
 
 ### Strategy Package → Scene Mapping (align `docs/plan/ai_engineering/knowledge/rag.md`)

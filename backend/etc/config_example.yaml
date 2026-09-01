@@ -2,6 +2,9 @@
 # 生产环境请使用同目录下的 config_example.prod.yaml（HTTP 8080 / gRPC 9010）。
 version: v1.0.0
 
+deployment:
+  env: dev
+
 server:
   host: 127.0.0.1
   port: 8077
@@ -299,6 +302,7 @@ ai:
       temperature: 0.7
       max_tokens: 512
       top_p: 1.0
+      request_timeout: 5m
       stream: false
     embedding:
       # 默认使用 OpenAI embedding（需要在 Web Admin「AI Settings」或此处配置 api_key 才能生效）。

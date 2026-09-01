@@ -31,87 +31,161 @@
       <USelect v-model="agentStatusFilter" class="lg:col-span-3" :items="agentStatusItems" />
     </div>
 
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <UCard v-for="agent in paginatedAgents" :key="agent.uuid" class="border border-[var(--border-color)]">
-        <div class="space-y-3">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex min-w-0 items-start gap-3">
-              <UAvatar
-                :src="agentAvatar(agent)"
-                :alt="agentDisplayName(agent)"
-                :text="agentInitials(agent)"
-                size="lg"
-                class="shrink-0"
-              />
-              <div class="min-w-0">
-                <div class="truncate text-base font-medium text-[var(--text-primary)]">{{ agentDisplayName(agent) }}</div>
-                <div class="break-all text-xs text-[var(--text-secondary)]">{{ agent.key }}</div>
+    <UAlert
+      v-if="agentCategoryLoadFailed"
+      color="error"
+      variant="soft"
+      icon="i-heroicons-exclamation-triangle"
+      :title="t('agent.management.categories.loadFailed')"
+      :description="t('agent.management.categories.loadFailedDescription')"
+    />
+
+    <UAlert
+      v-else-if="agentCategoryLoading"
+      color="neutral"
+      variant="soft"
+      icon="i-heroicons-arrow-path"
+      :title="t('agent.management.categories.loading')"
+    />
+
+    <div v-if="!agentCategoryLoading && !agentCategoryLoadFailed" class="space-y-4">
+      <div class="flex gap-2 overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-2">
+        <UButton
+          v-for="item in agentCategoryFilterItems"
+          :key="item.value"
+          size="sm"
+          :variant="activeAgentCategory === item.value ? 'solid' : 'soft'"
+          :color="activeAgentCategory === item.value ? 'primary' : 'neutral'"
+          class="shrink-0"
+          @click="activeAgentCategory = item.value"
+        >
+          {{ item.label }}
+          <UBadge size="xs" variant="soft" :color="activeAgentCategory === item.value ? 'neutral' : 'primary'">
+            {{ item.count }}
+          </UBadge>
+        </UButton>
+      </div>
+
+      <section class="space-y-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-sm font-semibold text-[var(--text-primary)]">{{ activeCategorySummary.label }}</h2>
+            <p class="text-xs text-[var(--text-secondary)]">{{ activeCategorySummary.description }}</p>
+          </div>
+          <UBadge variant="soft" color="neutral">{{ t('agent.management.categories.count', { count: visibleAgents.length }) }}</UBadge>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <UCard v-for="agent in paginatedVisibleAgents" :key="agent.uuid" class="border border-[var(--border-color)]">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex min-w-0 items-start gap-3">
+                  <UAvatar
+                    :src="agentAvatar(agent)"
+                    :alt="agentDisplayName(agent)"
+                    :text="agentInitials(agent)"
+                    size="lg"
+                    class="shrink-0"
+                  />
+                  <div class="min-w-0">
+                    <div class="truncate text-base font-medium text-[var(--text-primary)]">{{ agentDisplayName(agent) }}</div>
+                    <div class="break-all text-xs text-[var(--text-secondary)]">{{ agent.key }}</div>
+                  </div>
+                </div>
+                <UBadge class="shrink-0" :color="agent.status === 'active' ? 'success' : 'neutral'" variant="soft">
+                  {{ agentStatusLabel(agent.status) }}
+                </UBadge>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <UBadge size="xs" variant="soft" :color="agentSourceColor(agent)">
+                  {{ agentSourceLabel(agent) }}
+                </UBadge>
+                <UBadge v-if="isProtectedAgent(agent)" size="xs" variant="soft" color="neutral">
+                  {{ t('agent.management.sources.protected') }}
+                </UBadge>
+                <UBadge v-if="teamLeadCount(agent) > 0" size="xs" variant="soft" color="primary">
+                  {{ t('agent.management.teamRoles.coordinator', { count: teamLeadCount(agent) }) }}
+                </UBadge>
+                <UBadge v-if="teamMemberCount(agent) > 0" size="xs" variant="soft" color="secondary">
+                  {{ t('agent.management.teamRoles.member', { count: teamMemberCount(agent) }) }}
+                </UBadge>
+                <span v-if="agentPluginID(agent)" class="break-all text-xs text-[var(--text-muted)]">
+                  {{ agentPluginID(agent) }}
+                </span>
+              </div>
+
+              <p class="line-clamp-2 text-sm text-[var(--text-secondary)]">
+                {{ agentDescription(agent) }}
+              </p>
+
+              <div class="flex items-center gap-1">
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  icon="i-heroicons-chat-bubble-left-right"
+                  :to="`${localePath('/agent/sessions')}?agent_uuid=${encodeURIComponent(agent.uuid)}`"
+                  :title="t('agent.management.actions.chat')"
+                  :aria-label="t('agent.management.actions.chat')"
+                />
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  icon="i-heroicons-user-group"
+                  :to="`${localePath('/settings/ai/agent-teams')}?parent_agent_uuid=${encodeURIComponent(agent.uuid)}`"
+                  :title="t('agent.management.actions.team')"
+                  :aria-label="t('agent.management.actions.team')"
+                />
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  icon="i-heroicons-shield-check"
+                  :title="canEditAgent(agent) ? t('agent.management.actions.permissions') : t('agent.management.actions.locked')"
+                  :aria-label="canEditAgent(agent) ? t('agent.management.actions.permissions') : t('agent.management.actions.locked')"
+                  :disabled="!canEditAgent(agent)"
+                  @click="openPermissionForm(agent)"
+                />
+                <UButton
+                  v-if="canEditAgent(agent)"
+                  size="xs"
+                  variant="ghost"
+                  icon="i-heroicons-pencil-square"
+                  :title="t('agent.management.actions.edit')"
+                  :aria-label="t('agent.management.actions.edit')"
+                  @click="openEditForm(agent)"
+                />
+                <UButton
+                  v-else
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  icon="i-heroicons-lock-closed"
+                  :title="t('agent.management.actions.locked')"
+                  :aria-label="t('agent.management.actions.locked')"
+                  disabled
+                />
               </div>
             </div>
-            <UBadge class="shrink-0" :color="agent.status === 'active' ? 'success' : 'neutral'" variant="soft">
-              {{ agentStatusLabel(agent.status) }}
-            </UBadge>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <UBadge size="xs" variant="soft" :color="agentSourceColor(agent)">
-              {{ agentSourceLabel(agent) }}
-            </UBadge>
-            <span v-if="agentPluginID(agent)" class="break-all text-xs text-[var(--text-muted)]">
-              {{ agentPluginID(agent) }}
-            </span>
-          </div>
-
-          <p class="line-clamp-2 text-sm text-[var(--text-secondary)]">
-            {{ agentDescription(agent) }}
-          </p>
-
-          <div class="flex items-center gap-1">
-            <UButton
-              size="xs"
-              variant="soft"
-              icon="i-heroicons-chat-bubble-left-right"
-              :to="`${localePath('/agent/sessions')}?agent_uuid=${encodeURIComponent(agent.uuid)}`"
-              :title="t('agent.management.actions.chat')"
-              :aria-label="t('agent.management.actions.chat')"
-            />
-            <UButton
-              size="xs"
-              variant="soft"
-              icon="i-heroicons-user-group"
-              :to="`${localePath('/settings/ai/agent-teams')}?parent_agent_uuid=${encodeURIComponent(agent.uuid)}`"
-              :title="t('agent.management.actions.team')"
-              :aria-label="t('agent.management.actions.team')"
-            />
-            <UButton
-              size="xs"
-              variant="soft"
-              icon="i-heroicons-shield-check"
-              :title="t('agent.management.actions.permissions')"
-              :aria-label="t('agent.management.actions.permissions')"
-              @click="openPermissionForm(agent)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              icon="i-heroicons-pencil-square"
-              :title="t('agent.management.actions.edit')"
-              :aria-label="t('agent.management.actions.edit')"
-              @click="openEditForm(agent)"
-            />
-          </div>
+          </UCard>
         </div>
-      </UCard>
+        <UAlert
+          v-if="visibleAgents.length === 0"
+          color="neutral"
+          variant="soft"
+          icon="i-heroicons-information-circle"
+          :title="t('agent.management.categories.empty')"
+        />
+      </section>
     </div>
 
-    <div v-if="filteredAgents.length > pageSize" class="flex items-center justify-between gap-3">
+    <div v-if="visibleAgents.length > pageSize" class="flex items-center justify-between gap-3">
       <div class="text-sm text-[var(--text-secondary)]">
-        {{ t('agent.management.pagination.total', { total: filteredAgents.length }) }}
+        {{ t('agent.management.pagination.total', { total: visibleAgents.length }) }}
       </div>
       <UPagination
         v-model:page="currentPage"
         :items-per-page="pageSize"
-        :total="filteredAgents.length"
+        :total="visibleAgents.length"
         :sibling-count="1"
         show-edges
       />
@@ -437,11 +511,19 @@
 
 <script setup lang="ts">
 import { useAgentManager } from '~/composables/agent/useAgentManager'
+import { useAgentTeamService } from '~/composables/api/services/agentTeamService'
+import { useMetadataGovernanceService } from '~/composables/api/services/metadataGovernanceService'
 import type { Agent, AgentGrantableCapability } from '~/types/agent'
+import type { DictionaryItem } from '~/types/metadata-governance'
+
+const AGENT_CATEGORY_MODULE = 'corex.agent'
+const AGENT_CATEGORY_NAMESPACE = 'corex.agent.category'
 
 const localePath = useLocalePath()
 const { t, te, locale } = useI18n()
 const toast = useToast()
+const metadataService = useMetadataGovernanceService()
+const teamService = useAgentTeamService()
 const {
   agents,
   fetchAgents,
@@ -467,6 +549,10 @@ const grantCategoryTab = ref<'own' | 'core' | 'other'>('own')
 const grantPluginFilter = ref('__all__')
 const grantAvailabilityFilter = ref<'all' | 'available' | 'unavailable'>('all')
 const grantSelectionFilter = ref<'all' | 'selected' | 'unselected'>('all')
+const agentCategoryLoading = ref(false)
+const agentCategoryLoadFailed = ref(false)
+const agentCategoryItems = ref<DictionaryItem[]>([])
+const activeAgentCategory = ref('__all__')
 const activeGrantAgent = ref<Agent | null>(null)
 const editUUID = ref('')
 const permissionUUID = ref('')
@@ -476,6 +562,8 @@ const pageSize = 9
 const agentSearch = ref('')
 const agentSourceFilter = ref<'all' | 'core' | 'plugin'>('all')
 const agentStatusFilter = ref<'all' | 'active' | 'draft' | 'disabled'>('all')
+const teamLeadCounts = ref<Record<number, number>>({})
+const teamMemberCounts = ref<Record<number, number>>({})
 const editForm = reactive({
   key: '',
   name: '',
@@ -523,9 +611,50 @@ const filteredAgents = computed(() => {
     ].some((value) => String(value || '').toLowerCase().includes(keyword))
   })
 })
-const paginatedAgents = computed(() => {
+const agentCategoryCounts = computed(() => {
+  const counts = new Map<string, number>()
+  for (const agent of filteredAgents.value) {
+    const key = agentCategoryKey(agent)
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  return counts
+})
+const agentCategoryFilterItems = computed(() => {
+  const categories = Array.from(agentCategoryCounts.value.keys())
+    .sort((a, b) => agentCategorySortOrder(a) - agentCategorySortOrder(b))
+    .map((category) => ({
+      value: category,
+      label: agentCategoryLabel(category),
+      count: agentCategoryCounts.value.get(category) || 0,
+    }))
+  return [
+    {
+      value: '__all__',
+      label: t('agent.management.categories.all'),
+      count: filteredAgents.value.length,
+    },
+    ...categories,
+  ]
+})
+const visibleAgents = computed(() => {
+  if (activeAgentCategory.value === '__all__') return filteredAgents.value
+  return filteredAgents.value.filter((agent) => agentCategoryKey(agent) === activeAgentCategory.value)
+})
+const paginatedVisibleAgents = computed(() => {
   const start = (currentPage.value - 1) * pageSize
-  return filteredAgents.value.slice(start, start + pageSize)
+  return visibleAgents.value.slice(start, start + pageSize)
+})
+const activeCategorySummary = computed(() => {
+  if (activeAgentCategory.value === '__all__') {
+    return {
+      label: t('agent.management.categories.all'),
+      description: t('agent.management.categories.allDescription'),
+    }
+  }
+  return {
+    label: agentCategoryLabel(activeAgentCategory.value),
+    description: agentCategoryDescription(activeAgentCategory.value),
+  }
 })
 const activeAgentPluginID = computed(() => agentPluginID(activeGrantAgent.value))
 const ownPluginGrantCapabilities = computed(() => {
@@ -703,7 +832,7 @@ const readableCapabilityText = (value?: string, capabilityID?: string) => {
 }
 
 watch(
-  () => filteredAgents.value.length,
+  () => visibleAgents.value.length,
   (total) => {
     const maxPage = Math.max(1, Math.ceil(total / pageSize))
     if (currentPage.value > maxPage) currentPage.value = maxPage
@@ -711,7 +840,18 @@ watch(
 )
 
 watch([agentSearch, agentSourceFilter, agentStatusFilter], () => {
+  activeAgentCategory.value = '__all__'
   currentPage.value = 1
+})
+
+watch(activeAgentCategory, () => {
+  currentPage.value = 1
+})
+
+watch(agentCategoryFilterItems, (items) => {
+  if (!items.some((item) => item.value === activeAgentCategory.value)) {
+    activeAgentCategory.value = '__all__'
+  }
 })
 
 const agentAvatar = (agent: Agent) => {
@@ -735,16 +875,126 @@ const agentStatusLabel = (status?: string) => {
 const agentSourceType = (agent: Agent) => agentPluginID(agent) ? 'plugin' : 'core'
 
 const agentSourceLabel = (agent: Agent) => {
-  if (agentSourceType(agent) === 'plugin') return t('agent.management.sources.plugin')
-  return t('agent.management.sources.core')
+	if (agentSourceType(agent) === 'plugin') return t('agent.management.sources.plugin')
+	if (isProtectedAgent(agent)) return t('agent.management.sources.builtin')
+	return t('agent.management.sources.core')
 }
 
 const agentSourceColor = (agent: Agent) => agentSourceType(agent) === 'plugin' ? 'warning' : 'info'
 
+const agentCategoryKey = (agent: Agent) => {
+	const category = String((agent.meta as any)?.category || '').trim()
+	if (category) return category
+	if (agentSourceType(agent) === 'plugin') return 'plugin_managed'
+	if (isProtectedAgent(agent)) return 'core_builtin'
+	return 'custom'
+}
+
+const isProtectedAgent = (agent: Agent) => {
+	const meta = agent.meta || {}
+	return agentSourceType(agent) === 'core' && (
+		Boolean((meta as any).protected) ||
+		Boolean((meta as any).protect_from_delete) ||
+		Boolean((meta as any).builtin)
+	)
+}
+
+const agentNumericID = (agent: Agent) => Number((agent as any).id || 0)
+const teamLeadCount = (agent: Agent) => teamLeadCounts.value[agentNumericID(agent)] || 0
+const teamMemberCount = (agent: Agent) => teamMemberCounts.value[agentNumericID(agent)] || 0
+
+const loadAgentTeamRelationships = async () => {
+  const teams = await teamService.listTeams(undefined, true)
+  const nextLeads: Record<number, number> = {}
+  const nextMembers: Record<number, number> = {}
+  await Promise.all(teams.items.map(async (team) => {
+    const parentID = Number(team.parent_agent_id || 0)
+    if (parentID > 0) nextLeads[parentID] = (nextLeads[parentID] || 0) + 1
+    const members = await teamService.listMembers(team.id)
+    for (const member of members.items) {
+      if (!member.enabled) continue
+      const childID = Number(member.child_agent_id || 0)
+      if (childID > 0) nextMembers[childID] = (nextMembers[childID] || 0) + 1
+    }
+  }))
+  teamLeadCounts.value = nextLeads
+  teamMemberCounts.value = nextMembers
+}
+
+const canEditAgent = (agent: Agent) => !isProtectedAgent(agent)
+
+const agentCategoryItem = (category: string) =>
+  agentCategoryItems.value.find((item) => item.code === category)
+
+const agentCategorySortOrder = (category: string) => {
+  const item = agentCategoryItem(category)
+  if (!item) return 999999
+  return Number(item.sort_order || 999999)
+}
+
+const agentCategoryLabel = (category: string) => {
+  const item = agentCategoryItem(category)
+  if (!item) return t('agent.management.categories.unconfigured', { code: category })
+  return dictionaryItemLabel(item)
+}
+
+const agentCategoryDescription = (category: string) => {
+  const item = agentCategoryItem(category)
+  if (!item) return t('agent.management.categories.unconfiguredDescription')
+  return dictionaryItemDescription(item)
+}
+
+const dictionaryItemLabel = (item: DictionaryItem) =>
+  localizedCapabilityText(item.label_i18n) || item.display_name
+
+const dictionaryItemDescription = (item: DictionaryItem) =>
+  localizedCapabilityText(item.description_i18n) || item.display_description || ''
+
+const metadataLocale = () => {
+  const value = String(locale.value || '')
+  if (value.toLowerCase().startsWith('zh')) return 'zh-CN'
+  if (value.toLowerCase().startsWith('en')) return 'en-US'
+  return value || 'zh-CN'
+}
+
+const loadAgentCategories = async () => {
+  agentCategoryLoading.value = true
+  agentCategoryLoadFailed.value = false
+  try {
+    const namespaces = await metadataService.listDictionaries({
+      module: AGENT_CATEGORY_MODULE,
+      q: AGENT_CATEGORY_NAMESPACE,
+      status: 'enabled',
+      locale: metadataLocale(),
+      page_size: 20,
+    })
+    const namespace = namespaces.items.find((item) => item.namespace === AGENT_CATEGORY_NAMESPACE)
+    if (!namespace) {
+      throw new Error('agent_category_dictionary_missing')
+    }
+    const items = await metadataService.listDictionaryItems(namespace.uuid, {
+      status: 'enabled',
+      locale: metadataLocale(),
+      page_size: 100,
+    })
+    agentCategoryItems.value = items.items
+  } catch (e: any) {
+    agentCategoryItems.value = []
+    agentCategoryLoadFailed.value = true
+    toast.add({
+      title: t('agent.management.categories.loadFailed'),
+      description: e?.message || t('agent.management.categories.loadFailedDescription'),
+      color: 'error',
+    })
+  } finally {
+    agentCategoryLoading.value = false
+  }
+}
+
 const load = async () => {
   try {
     errorText.value = ''
-    await fetchAgents()
+    await Promise.all([loadAgentCategories(), fetchAgents(), loadAgentTeamRelationships()])
   } catch (e: any) {
     errorText.value = e?.message || t('agent.list.loadFailed')
   }
@@ -773,7 +1023,11 @@ const createAgentQuick = async () => {
 }
 
 const openEditForm = async (agent: Agent) => {
-  resetGrantFilters(agent)
+	if (!canEditAgent(agent)) {
+		toast.add({ title: t('agent.management.actions.locked'), color: 'warning' })
+		return
+	}
+	resetGrantFilters(agent)
   editUUID.value = agent.uuid
   editForm.key = agent.key || ''
   editForm.name = agent.name || ''
@@ -790,7 +1044,11 @@ const openEditForm = async (agent: Agent) => {
 }
 
 const openPermissionForm = async (agent: Agent) => {
-  resetGrantFilters(agent)
+	if (!canEditAgent(agent)) {
+		toast.add({ title: t('agent.management.actions.locked'), color: 'warning' })
+		return
+	}
+	resetGrantFilters(agent)
   permissionUUID.value = agent.uuid
   permissionAgentName.value = agentDisplayName(agent)
   permissionOpen.value = true

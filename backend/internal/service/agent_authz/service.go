@@ -30,6 +30,7 @@ var (
 	ErrAgentGrantMissing      = errors.New("agent grant missing")
 	ErrUserPermissionMissing  = errors.New("user permission missing")
 	ErrTenantCapabilityOff    = errors.New("tenant capability disabled")
+	ErrAgentProtectedReadonly = errors.New("agent.protected_readonly")
 )
 
 type Service struct {
@@ -218,6 +219,9 @@ func (s *Service) PatchAgentGrants(ctx context.Context, env, tenantUUID string, 
 	if err != nil {
 		return nil, err
 	}
+	if isProtectedCoreAgent(agent) {
+		return nil, ErrAgentProtectedReadonly
+	}
 	catalog, err := s.ListGrantableCapabilities(ctx, tenantUUID)
 	if err != nil {
 		return nil, err
@@ -343,6 +347,9 @@ func (s *Service) ReplaceAgentGrants(ctx context.Context, env, tenantUUID string
 	agent, err := s.agentByUUID(ctx, env, tenantUUID, agentUUID)
 	if err != nil {
 		return nil, err
+	}
+	if isProtectedCoreAgent(agent) {
+		return nil, ErrAgentProtectedReadonly
 	}
 	catalog, err := s.ListGrantableCapabilities(ctx, tenantUUID)
 	if err != nil {
@@ -568,6 +575,37 @@ func (s *Service) AuthorizeCapability(ctx context.Context, in AuthorizeInput) (r
 		return AuthorizeResult{Allowed: false, DenyReason: "user_permission_missing", PermissionCode: permissionCode}, nil
 	}
 	return AuthorizeResult{Allowed: true, PermissionCode: permissionCode}, nil
+}
+
+func isProtectedCoreAgent(agent *agentmodel.Agent) bool {
+	if agent == nil {
+		return false
+	}
+	source := strings.ToLower(strings.TrimSpace(agent.Source))
+	if source != "" && source != "core" {
+		return false
+	}
+	return truthyMetaBool(agent.Meta, "protected") ||
+		truthyMetaBool(agent.Meta, "protect_from_delete") ||
+		truthyMetaBool(agent.Meta, "builtin")
+}
+
+func truthyMetaBool(meta datatypes.JSONMap, key string) bool {
+	if len(meta) == 0 {
+		return false
+	}
+	value, ok := meta[key]
+	if !ok {
+		return false
+	}
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		return strings.EqualFold(strings.TrimSpace(v), "true")
+	default:
+		return false
+	}
 }
 
 func (s *Service) requireAgent(ctx context.Context, env, tenantUUID string, agentUUID uuid.UUID) error {

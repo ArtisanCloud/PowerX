@@ -41,6 +41,15 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	if err := validateInstallPackagePlatform(man, absSrc); err != nil {
 		return plugin_mgr.Plugin{}, err
 	}
+	if _, err := m.requireDeploymentEnv(); err != nil {
+		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+			plugin_mgr.CodeInvalidArg,
+			err,
+			plugin_mgr.WithOp("install_file.database_isolation_preflight"),
+			plugin_mgr.WithPlugin(man.ID),
+			plugin_mgr.WithVersion(man.Version),
+		)
+	}
 
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
@@ -68,6 +77,19 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 				)
 			}
 		} else {
+			if m.opts.Registry != nil {
+				if existing, ok := m.opts.Registry.GetVersion(ctx, man.ID, man.Version); ok {
+					if err := m.validatePluginDatabaseBinding(man.ID, existing.HostConfig); err != nil {
+						return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+							plugin_mgr.CodeConflict,
+							err,
+							plugin_mgr.WithOp("install_file.database_binding"),
+							plugin_mgr.WithPlugin(man.ID),
+							plugin_mgr.WithVersion(man.Version),
+						)
+					}
+				}
+			}
 			// 同版本重复安装按幂等处理：仍执行一次权限同步（upsert），再返回已安装版本。
 			if m.opts.PostInstallManifest != nil {
 				if err := m.opts.PostInstallManifest(ctx, man); err != nil {
@@ -89,21 +111,22 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 				}
 			}
 			return plugin_mgr.Plugin{
-				ID:          man.ID,
-				Version:     man.Version,
-				State:       plugin_mgr.StateInstalled,
-				Runtime:     man.Runtime,
-				Frontend:    man.Frontend,
-				Endpoints:   man.Endpoints,
-				Exposure:    man.Exposure,
-				RBAC:        man.RBAC,
-				Events:      man.Events,
-				Backend:     man.Backend,
-				Routes:      man.Routes,
-				Permissions: append([]plugin_mgr.PermissionSpec(nil), man.Permissions...),
-				Agents:      append([]plugin_mgr.AgentSpec(nil), man.Agents...),
-				Tools:       append([]plugin_mgr.ToolSpec(nil), man.Tools...),
-				Workflows:   append([]plugin_mgr.WorkflowSpec(nil), man.Workflows...),
+				ID:                   man.ID,
+				Version:              man.Version,
+				State:                plugin_mgr.StateInstalled,
+				Runtime:              man.Runtime,
+				Frontend:             man.Frontend,
+				Endpoints:            man.Endpoints,
+				Exposure:             man.Exposure,
+				RBAC:                 man.RBAC,
+				Events:               man.Events,
+				RequiredCapabilities: append([]string(nil), man.Capabilities.Required...),
+				Backend:              man.Backend,
+				Routes:               man.Routes,
+				Permissions:          append([]plugin_mgr.PermissionSpec(nil), man.Permissions...),
+				Agents:               append([]plugin_mgr.AgentSpec(nil), man.Agents...),
+				Tools:                append([]plugin_mgr.ToolSpec(nil), man.Tools...),
+				Workflows:            append([]plugin_mgr.WorkflowSpec(nil), man.Workflows...),
 				Paths: plugin_mgr.InstalledPaths{
 					Root:              destRoot,
 					FrontendAdminDir:  ResolvePath(destRoot, man.Frontend.Admin.StaticDir),
@@ -211,17 +234,18 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 
 	// 7) 直接返回“刚安装的版本”视图（避免读 current 造成显示老版本）
 	return plugin_mgr.Plugin{
-		ID:              man.ID,
-		Version:         man.Version,
-		State:           installedState,
-		Runtime:         man.Runtime,
-		Frontend:        man.Frontend,
-		Endpoints:       man.Endpoints,
-		RBAC:            man.RBAC,
-		Events:          man.Events,
-		Paths:           desc.Paths,
-		HostConfig:      hostCfg,
-		InstallMetadata: opts.Metadata,
+		ID:                   man.ID,
+		Version:              man.Version,
+		State:                installedState,
+		Runtime:              man.Runtime,
+		Frontend:             man.Frontend,
+		Endpoints:            man.Endpoints,
+		RBAC:                 man.RBAC,
+		Events:               man.Events,
+		RequiredCapabilities: append([]string(nil), man.Capabilities.Required...),
+		Paths:                desc.Paths,
+		HostConfig:           hostCfg,
+		InstallMetadata:      opts.Metadata,
 	}, nil
 }
 
