@@ -34,6 +34,7 @@ func TestTenantMemberDirectoryAuthenticationHTTPContract(t *testing.T) {
 			}{
 				{method: http.MethodGet, path: "/api/v1/tenant/iam/members/6c1f9e8d-7a62-4810-aec3-d2c63a866358"},
 				{method: http.MethodPost, path: "/api/v1/tenant/iam/members:batch-resolve"},
+				{method: http.MethodPost, path: "/api/v1/tenant/iam/members:batch-find-by-display-names"},
 			} {
 				req := httptest.NewRequest(endpoint.method, endpoint.path, nil)
 				if authorization != "" {

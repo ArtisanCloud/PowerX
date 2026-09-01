@@ -790,6 +790,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /tenant/iam/members:batch-find-by-display-names:
+    post:
+      summary: Resolve tenant members by exact display names for import workflows
+      operationId: batchFindTenantDirectoryMembersByDisplayNames
+      tags: [IAMDirectory]
+      security:
+        - GatewayAPIKey: []
+        - StsTenantJWT: []
+      description: >
+        Service-actor endpoint for import adapters. The tenant is derived from
+        the Gateway API key or STS token and is never supplied by the caller.
+        Every requested display name receives one result in request order:
+        found, not_found, or ambiguous. Exact matching is performed after
+        trimming input whitespace; ambiguous names are never selected
+        arbitrarily. Numeric identifiers are not accepted or returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IAMDirectoryBatchFindByDisplayNamesRequest'
+      responses:
+        '200':
+          description: Per-display-name directory resolutions in request order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IAMDirectoryDisplayNameResolutionResponse'
+        '400':
+          description: Invalid display name list (IAM_INVALID_ARGUMENT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid service identity (IAM_UNAUTHORIZED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Service identity lacks the directory capability grant (IAM_FORBIDDEN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Capability registration or directory dependency unavailable (IAM_UPSTREAM_DEPENDENCY)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /admin/user/auth/me/context:
     get:
       summary: Get current identity context for UI routing
@@ -1648,6 +1700,17 @@ components:
           items:
             type: string
             format: uuid
+    IAMDirectoryBatchFindByDisplayNamesRequest:
+      type: object
+      required: [display_names]
+      properties:
+        display_names:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: string
+            minLength: 1
     IAMDirectoryMember:
       type: object
       required: [member_uuid, tenant_uuid, user_uuid, department_uuids, status]
@@ -1751,6 +1814,40 @@ components:
               items:
                 type: string
                 format: uuid
+    IAMDirectoryDisplayNameMatch:
+      type: object
+      required: [member_uuid, user_uuid, display_name]
+      properties:
+        member_uuid: { type: string, format: uuid }
+        user_uuid: { type: string, format: uuid }
+        display_name: { type: string }
+    IAMDirectoryDisplayNameResolution:
+      type: object
+      required: [display_name, status]
+      properties:
+        display_name: { type: string }
+        status:
+          type: string
+          enum: [found, not_found, ambiguous]
+        member:
+          $ref: '#/components/schemas/IAMDirectoryDisplayNameMatch'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/IAMDirectoryDisplayNameMatch'
+    IAMDirectoryDisplayNameResolutionResponse:
+      type: object
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/IAMDirectoryDisplayNameResolution'
     IAMDirectoryDepartment:
       type: object
       required: [department_uuid, tenant_uuid, key, name, path, depth, sort, status]

@@ -20,6 +20,12 @@ const (
 	authorizationActionRead             = "read"
 )
 
+const (
+	DirectoryDisplayNameFound     = "found"
+	DirectoryDisplayNameNotFound  = "not_found"
+	DirectoryDisplayNameAmbiguous = "ambiguous"
+)
+
 // TenantDirectoryService is the read-only service boundary used by delegated
 // plugin adapters. It exposes UUID-only DTOs and never accepts numeric IDs.
 type TenantDirectoryService struct {
@@ -71,6 +77,81 @@ type TenantDirectoryTenant struct {
 	Status     int16  `json:"status"`
 	Type       string `json:"type"`
 	Plan       string `json:"plan"`
+}
+
+// TenantDirectoryDisplayNameMember is the UUID-only result used by import
+// adapters. Numeric storage IDs are deliberately never exposed.
+type TenantDirectoryDisplayNameMember struct {
+	MemberUUID  string `json:"member_uuid"`
+	UserUUID    string `json:"user_uuid"`
+	DisplayName string `json:"display_name"`
+}
+
+type TenantDirectoryDisplayNameResolution struct {
+	DisplayName string                             `json:"display_name"`
+	Status      string                             `json:"status"`
+	Members     []TenantDirectoryDisplayNameMember `json:"members"`
+}
+
+// FindMembersByDisplayNames performs exact display_name matching in the
+// credential tenant. It preserves request order (including repeated names) so
+// import callers can associate every row deterministically.
+func (s *TenantDirectoryService) FindMembersByDisplayNames(ctx context.Context, tenantUUID string, displayNames []string) ([]TenantDirectoryDisplayNameResolution, error) {
+	if err := s.requireDB(); err != nil {
+		return nil, err
+	}
+	tenantUUID, err := canonicalDirectoryTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	normalized := make([]string, 0, len(displayNames))
+	unique := make([]string, 0, len(displayNames))
+	seen := make(map[string]struct{}, len(displayNames))
+	for _, raw := range displayNames {
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			return nil, errors.New("IAM member display name is required")
+		}
+		normalized = append(normalized, name)
+		if _, exists := seen[name]; !exists {
+			seen[name] = struct{}{}
+			unique = append(unique, name)
+		}
+	}
+	if len(normalized) == 0 {
+		return nil, errors.New("IAM member display names are required")
+	}
+
+	var rows []struct {
+		MemberUUID  uuid.UUID `gorm:"column:member_uuid"`
+		UserUUID    string    `gorm:"column:user_uuid"`
+		DisplayName string    `gorm:"column:display_name"`
+	}
+	if err := s.db.WithContext(ctx).Table((&modeliam.Member{}).GetTableName(true)).
+		Select("uuid AS member_uuid, user_uuid, display_name").
+		Where("tenant_uuid = ? AND username <> ? AND display_name IN ?", tenantUUID, ROOT_USERNAME, unique).
+		Order("display_name ASC, uuid ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	byName := make(map[string][]TenantDirectoryDisplayNameMember, len(unique))
+	for _, row := range rows {
+		if row.MemberUUID == uuid.Nil || strings.TrimSpace(row.UserUUID) == "" || strings.TrimSpace(row.DisplayName) == "" {
+			return nil, errors.New("IAM member UUID, user UUID, or display name is missing")
+		}
+		byName[row.DisplayName] = append(byName[row.DisplayName], TenantDirectoryDisplayNameMember{MemberUUID: row.MemberUUID.String(), UserUUID: strings.TrimSpace(row.UserUUID), DisplayName: row.DisplayName})
+	}
+	result := make([]TenantDirectoryDisplayNameResolution, 0, len(normalized))
+	for _, name := range normalized {
+		matches := byName[name]
+		status := DirectoryDisplayNameNotFound
+		if len(matches) == 1 {
+			status = DirectoryDisplayNameFound
+		} else if len(matches) > 1 {
+			status = DirectoryDisplayNameAmbiguous
+		}
+		result = append(result, TenantDirectoryDisplayNameResolution{DisplayName: name, Status: status, Members: matches})
+	}
+	return result, nil
 }
 
 func (s *TenantDirectoryService) GetTenant(ctx context.Context, tenantUUID string) (TenantDirectoryTenant, error) {

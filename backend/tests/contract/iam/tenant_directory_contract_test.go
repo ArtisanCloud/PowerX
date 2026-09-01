@@ -67,6 +67,20 @@ func TestTenantMemberDirectoryHTTPContract(t *testing.T) {
 	require.Contains(t, resolveData.Required, "items")
 	require.Contains(t, resolveData.Required, "missing_member_uuids")
 
+	findPath := doc.Paths.Find("/tenant/iam/members:batch-find-by-display-names")
+	require.NotNil(t, findPath)
+	require.NotNil(t, findPath.Post)
+	assertResolveErrors(t, findPath.Post)
+	require.Len(t, *findPath.Post.Security, 2)
+	require.Contains(t, (*findPath.Post.Security)[0], "GatewayAPIKey")
+	require.Contains(t, (*findPath.Post.Security)[1], "StsTenantJWT")
+	findRequest := findPath.Post.RequestBody.Value.Content.Get("application/json").Schema.Value
+	require.NotNil(t, findRequest.Properties["display_names"])
+	findResponse := doc.Components.Schemas["IAMDirectoryDisplayNameResolutionResponse"].Value
+	require.Contains(t, findResponse.Properties["data"].Value.Required, "items")
+	resolution := doc.Components.Schemas["IAMDirectoryDisplayNameResolution"].Value
+	require.ElementsMatch(t, []any{"found", "not_found", "ambiguous"}, resolution.Properties["status"].Value.Enum)
+
 	errorSchema := doc.Components.Schemas["ErrorResponse"].Value
 	require.NotNil(t, errorSchema.Properties["reason_code"])
 	require.NotNil(t, errorSchema.Properties["error_code"])
