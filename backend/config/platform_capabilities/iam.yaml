@@ -418,6 +418,15 @@ capabilities:
     sts_direct: true
     tool_scope: iam.directory.read
   - channel: rest
+    endpoint: "/api/v1/tenant/iam/members:batch-find-by-display-names"
+    method: POST
+    schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1members:batch-find-by-display-names/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: iam.directory.read
+  - channel: rest
     endpoint: "/api/v1/tenant/iam/departments"
     method: GET
     schema_ref: specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1departments/get

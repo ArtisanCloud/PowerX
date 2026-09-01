@@ -103,6 +103,42 @@ func TestTenantMemberDirectoryRoutes(t *testing.T) {
 		require.Equal(t, "IAM_INVALID_ARGUMENT", directoryRouteBody(t, response)["reason_code"])
 	})
 
+	t.Run("batch find by display names returns found not found and ambiguous in request order", func(t *testing.T) {
+		duplicate := directoryRouteTestMember(t, db, directoryTestTenant, "Ada Lovelace")
+		payload := map[string]any{"display_names": []string{"Ada Lovelace", "Missing Planner", "Ada Lovelace"}}
+		response := directoryRouteRequest(router, http.MethodPost, "/tenant/iam/members:batch-find-by-display-names", payload, directoryTestPlugin)
+		require.Equal(t, http.StatusOK, response.Code)
+		items := directoryRouteBody(t, response)["data"].(map[string]any)["items"].([]any)
+		require.Len(t, items, 3)
+		for _, index := range []int{0, 2} {
+			item := items[index].(map[string]any)
+			require.Equal(t, "Ada Lovelace", item["display_name"])
+			require.Equal(t, "ambiguous", item["status"])
+			matches := item["members"].([]any)
+			require.Len(t, matches, 2)
+			got := map[string]bool{}
+			for _, match := range matches {
+				got[match.(map[string]any)["member_uuid"].(string)] = true
+			}
+			require.True(t, got[member.UUID.String()])
+			require.True(t, got[duplicate.UUID.String()])
+		}
+		missing := items[1].(map[string]any)
+		require.Equal(t, "not_found", missing["status"])
+		require.NotContains(t, missing, "member")
+		require.NotContains(t, missing, "members")
+	})
+
+	t.Run("batch find rejects empty display name and requires directory capability", func(t *testing.T) {
+		empty := directoryRouteRequest(router, http.MethodPost, "/tenant/iam/members:batch-find-by-display-names", map[string]any{"display_names": []string{"  "}}, directoryTestPlugin)
+		require.Equal(t, http.StatusBadRequest, empty.Code)
+		require.Equal(t, "IAM_INVALID_ARGUMENT", directoryRouteBody(t, empty)["reason_code"])
+
+		ungranted := directoryRouteRequest(router, http.MethodPost, "/tenant/iam/members:batch-find-by-display-names", map[string]any{"display_names": []string{"Ada Lovelace"}}, "com.powerx.plugin.ungranted")
+		require.Equal(t, http.StatusForbidden, ungranted.Code)
+		require.Equal(t, "IAM_FORBIDDEN", directoryRouteBody(t, ungranted)["reason_code"])
+	})
+
 	t.Run("missing service identity is unauthorized", func(t *testing.T) {
 		response := directoryRouteRequest(router, http.MethodGet, "/tenant/iam/members/"+member.UUID.String(), nil, "")
 		require.Equal(t, http.StatusUnauthorized, response.Code)

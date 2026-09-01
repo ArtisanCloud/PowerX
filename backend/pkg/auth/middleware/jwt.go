@@ -279,7 +279,7 @@ func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode str
 func isIAMMemberDirectoryPath(path string) bool {
 	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
 	for _, prefix := range []string{"/api/v1/tenant/iam/members", "/api/tenant/iam/members"} {
-		if path == prefix+":batch-get" || path == prefix+":batch-resolve" || strings.HasPrefix(path, prefix+"/") {
+		if path == prefix+":batch-get" || path == prefix+":batch-resolve" || path == prefix+":batch-find-by-display-names" || strings.HasPrefix(path, prefix+"/") {
 			return true
 		}
 	}

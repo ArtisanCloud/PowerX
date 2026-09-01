@@ -60,6 +60,7 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		{"POST", "/api/v1/tenant/invocations"},
 		{"POST", "/api/v1/tenant/invocations/stream"},
 		{"GET", "/api/v1/tenant/iam/roles"},
+		{"POST", "/api/v1/tenant/iam/members:batch-find-by-display-names"},
 		{"POST", "/api/v1/tenant/iam/roles/provision"},
 		{"POST", "/api/v1/tenant/iam/members/provision"},
 		{"POST", "/api/v1/admin/runtime/ws-bus/grant"},

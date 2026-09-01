@@ -54,6 +54,25 @@ type batchGetMembersRequest struct {
 	MemberUUIDs []string `json:"member_uuids" validate:"required,min=1"`
 }
 
+// batchFindMembersByDisplayNamesRequest deliberately has no tenant field. The
+// tenant is always derived from the authenticated service actor.
+type batchFindMembersByDisplayNamesRequest struct {
+	DisplayNames []string `json:"display_names" validate:"required,min=1,max=200"`
+}
+
+type memberDisplayNameMatchResponse struct {
+	MemberUUID  string `json:"member_uuid"`
+	UserUUID    string `json:"user_uuid"`
+	DisplayName string `json:"display_name"`
+}
+
+type memberDisplayNameResolutionResponse struct {
+	DisplayName string                           `json:"display_name"`
+	Status      string                           `json:"status"`
+	Member      *memberDisplayNameMatchResponse  `json:"member,omitempty"`
+	Members     []memberDisplayNameMatchResponse `json:"members,omitempty"`
+}
+
 type memberResponse struct {
 	MemberUUID      string   `json:"member_uuid"`
 	TenantUUID      string   `json:"tenant_uuid"`
@@ -182,9 +201,55 @@ func (h *handler) batchMemberOperation(c *gin.Context) {
 		h.batchGetMembers(c)
 	case "batch-resolve":
 		h.batchResolveMembers(c)
+	case "batch-find-by-display-names":
+		h.batchFindMembersByDisplayNames(c)
 	default:
 		c.Status(http.StatusNotFound)
 	}
+}
+
+// batchFindMembersByDisplayNames resolves import-facing display names without
+// ever accepting a caller-controlled tenant. A display name is not an
+// identifier: each input item is explicitly found, not_found, or ambiguous.
+func (h *handler) batchFindMembersByDisplayNames(c *gin.Context) {
+	var req batchFindMembersByDisplayNamesRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, iamsvc.DirectoryInvalidArgumentError(err))
+		return
+	}
+	for _, raw := range req.DisplayNames {
+		if strings.TrimSpace(raw) == "" {
+			dto.RespondErrorFrom(c, iamsvc.DirectoryInvalidArgumentError(errors.New("display_name must not be empty")))
+			return
+		}
+	}
+	tenantUUID, err := h.authorizeDirectoryRead(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	items, err := h.directory.FindMembersByDisplayNames(c.Request.Context(), tenantUUID, req.DisplayNames)
+	if err != nil {
+		dto.RespondErrorFrom(c, iamsvc.DirectoryUpstreamDependencyError(err))
+		return
+	}
+	response := make([]memberDisplayNameResolutionResponse, 0, len(items))
+	for _, item := range items {
+		out := memberDisplayNameResolutionResponse{DisplayName: item.DisplayName, Status: item.Status}
+		matches := make([]memberDisplayNameMatchResponse, 0, len(item.Members))
+		for _, member := range item.Members {
+			matches = append(matches, memberDisplayNameMatchResponse{MemberUUID: member.MemberUUID, UserUUID: member.UserUUID, DisplayName: member.DisplayName})
+		}
+		switch item.Status {
+		case iamsvc.DirectoryDisplayNameFound:
+			match := matches[0]
+			out.Member = &match
+		case iamsvc.DirectoryDisplayNameAmbiguous:
+			out.Members = matches
+		}
+		response = append(response, out)
+	}
+	dto.ResponseSuccess(c, gin.H{"items": response})
 }
 
 func (h *handler) getMember(c *gin.Context) {
