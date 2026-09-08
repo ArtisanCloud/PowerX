@@ -1,0 +1,36 @@
+version: 1
+capabilities:
+- capability_id: com.corex.capabilities.grant_status.read
+  module: capability_registry
+  title: Capability Grant Status Read
+  description: Read the current service credential's effective status for requested capability identifiers.
+  permission_code: corex.capabilities.grant_status:read
+  agent_usable: false
+  risk_level: low
+  categories: [capability, authorization]
+  intents: [capabilities.grant_status.read]
+  tool_scopes: [capabilities.grant_status.read]
+  policy:
+    prefer: rest
+  docs: [specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/capabilities:grant-status"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1capabilities:grant-status/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: capabilities.grant_status.read
+    api_key:
+      scope: _scope.capabilities.grant_status.read
+      action: read
+      resource_type: api
+      resource_pattern: grant-status
+  title_i18n:
+    en: Capability Grant Status Read
+    zh-CN: 能力授权状态查询
+  description_i18n:
+    en: Read only the effective grants of the service credential making this request.
+    zh-CN: 仅查询当前服务凭证自身的实际能力授权状态。

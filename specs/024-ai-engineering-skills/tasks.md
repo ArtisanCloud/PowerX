@@ -361,6 +361,24 @@
 
 ---
 
+## Phase 23: Skill / Tool / Runtime 分层与计算证据（FR-079～FR-086）
+
+架构约束已确认；仅文档项完成，不将现有 V3 算术校验视为以下实现的完成证据。按下列顺序交付，完整定义见 [分层开发规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)。
+
+- [X] T197 [Shared] 补充分层职责、工具扩展、依赖缺失、结果证据及实现状态规范，挂接开发指南、Skill 标准、Runtime、spec/plan/tasks。
+- [ ] T198 [Shared] 核查现有工具/Capability/executor 的真实能力与接入边界，列出可复用和待实现项；清查按 Agent/Team/Skill 标识分派业务代码的违规点。
+- [ ] T199 [Shared] 定义版本化工具依赖及结果证据契约与失败用例；包含 UUID 引用、固定版本、权限、来源定位、报告值/计算值/冲突，确定正式 Schema 版本和旧数据迁移说明。
+- [ ] T200 [Shared] 实现发布、可运行绑定和执行前依赖检查；验证缺工具、版本不符、未授权、不支持 executor 均显式阻断，Draft 可保存且不可运行。
+- [X] T201 [Shared] 复用或实现受限通用计算工具，支持明确精度/单位/舍入、资源限制与真实执行记录；禁止任意 eval 和模型填值冒充计算结果。
+- [ ] T202 [Shared] 实现操作数来源、租户权限、输入可信状态及工具执行结果核验；拒绝伪造引用，不把百分比改写为虚构客户人数。
+- [ ] T203 [Shared] 对齐 Runtime、响应 Schema/DTO、平台 locale 渲染、历史和 Trace；将业务缺参、冲突与系统执行失败区分，最终校验错误必须有失败节点。
+- [ ] T204 [US3] 更新固有示例的 Skill Revision/依赖与公式口径；用客户自建非营销 Skill 接入插件工具，验证无需新增 Core 业务分支。
+- [ ] T205 [Shared] 运行变化数值、同口径/跨口径、百分比无计数、除零、缺依赖、伪造来源、工具超时和刷新回读测试，并记录真实工具调用、版本和报告证据。
+
+2026-09-08 实施检查点：V4 类型/导出 Schema、受限计算、内置依赖预检、来源词面校验、同次执行 ledger、原文/计算/冲突的 locale 渲染与定向测试已落地；`make seed` 成功。T199/T200/T202/T203/T204/T205 仍有外部工具生产接线或真实业务验收缺项，不因代码入口存在而勾选完成。详细状态见 `docs/guides/develop/agent-response-evidence-v4.md`。
+
+同日补充：已落地 Skill calculation_policy 与 unit_tokens、平台原文 token 取证、模型字段映射、声明式公式执行和无数值说明投影。已发布营销汇总 Skill 经真实 Ollama 的原始数据与替换数据两组测试通过，验证结果分别为 1.35/0.85 和 2/0.5，原文冲突保持独立；不代表完整团队、历史 UI 或外部插件接线已验收。
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

@@ -67,6 +67,7 @@ const emit = defineEmits<{
   (e: "send-message", content: string): void;
   (e: "retry-message", messageId: string | number | null): void;
   (e: "regenerate-from", messageId: string | number): void;
+  (e: "stop-generation"): void;
   (e: "clear-messages"): void;
 }>();
 
@@ -370,7 +371,7 @@ function stopRecording() {
   console.info("停止录音");
 }
 function stopGeneration() {
-  console.info("停止生成");
+	emit("stop-generation");
 }
 
 function handleFileUpload() {
@@ -721,7 +722,7 @@ function onSendClick() {
                 </UButton>
                 <UButton
                   size="sm"
-                  :aria-label="isStreaming ? '停止生成' : '发送'"
+                  :aria-label="isStreaming ? t('agent.chat.stopGeneration') : t('agent.chat.send')"
                   class="w-8 h-8 transition-all"
                   :class="
                     isStreaming

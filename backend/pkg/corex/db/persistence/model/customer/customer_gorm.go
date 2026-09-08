@@ -97,15 +97,17 @@ func (MiniAppEntry) TableName() string {
 type Session struct {
 	coremodel.PowerUUIDModel
 
-	CustomerUUID     string         `gorm:"column:customer_uuid;type:uuid;not null;index" json:"customer_uuid"`
-	TenantUUID       string         `gorm:"column:tenant_uuid;type:uuid;index" json:"tenant_uuid,omitempty"`
-	MembershipUUID   string         `gorm:"column:membership_uuid;type:uuid;index" json:"membership_uuid,omitempty"`
-	RefreshTokenHash string         `gorm:"column:refresh_token_hash;type:text;index" json:"-"`
-	Source           string         `gorm:"column:source;type:varchar(32);not null;default:'platform';index" json:"source"`
-	IssuedAt         time.Time      `gorm:"column:issued_at;not null;index" json:"issued_at"`
-	ExpiresAt        time.Time      `gorm:"column:expires_at;not null;index" json:"expires_at"`
-	RevokedAt        *time.Time     `gorm:"column:revoked_at;index" json:"revoked_at,omitempty"`
-	Metadata         datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'::jsonb" json:"metadata,omitempty"`
+	CustomerUUID      string         `gorm:"column:customer_uuid;type:uuid;not null;index" json:"customer_uuid"`
+	TenantUUID        string         `gorm:"column:tenant_uuid;type:uuid;index" json:"tenant_uuid,omitempty"`
+	MembershipUUID    string         `gorm:"column:membership_uuid;type:uuid;index" json:"membership_uuid,omitempty"`
+	SessionFamilyUUID string         `gorm:"column:session_family_uuid;type:uuid;not null;index:idx_customer_session_family" json:"-"`
+	AccessTokenJTI    string         `gorm:"column:access_token_jti;type:uuid;uniqueIndex:uk_customer_session_access_jti" json:"-"`
+	RefreshTokenHash  string         `gorm:"column:refresh_token_hash;type:text;index" json:"-"`
+	Source            string         `gorm:"column:source;type:varchar(32);not null;default:'platform';index" json:"source"`
+	IssuedAt          time.Time      `gorm:"column:issued_at;not null;index" json:"issued_at"`
+	ExpiresAt         time.Time      `gorm:"column:expires_at;not null;index" json:"expires_at"`
+	RevokedAt         *time.Time     `gorm:"column:revoked_at;index" json:"revoked_at,omitempty"`
+	Metadata          datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'::jsonb" json:"metadata,omitempty"`
 }
 
 func (Session) TableName() string {
@@ -118,10 +120,13 @@ type LoginEvent struct {
 	TenantUUID       string         `gorm:"column:tenant_uuid;type:uuid;index" json:"tenant_uuid,omitempty"`
 	CustomerUUID     string         `gorm:"column:customer_uuid;type:uuid;index" json:"customer_uuid,omitempty"`
 	IdentityProvider string         `gorm:"column:identity_provider;type:varchar(32);index" json:"identity_provider,omitempty"`
+	PluginID         string         `gorm:"column:plugin_id;type:varchar(255);index:idx_customer_login_rate,priority:2" json:"plugin_id,omitempty"`
+	Channel          string         `gorm:"column:channel;type:varchar(64);index:idx_customer_login_rate,priority:3" json:"channel,omitempty"`
+	IdentifierHash   string         `gorm:"column:identifier_hash;type:char(64);index:idx_customer_login_rate,priority:4" json:"-"`
 	EventType        string         `gorm:"column:event_type;type:varchar(32);not null;index" json:"event_type"`
 	OK               bool           `gorm:"column:ok;not null;default:false;index" json:"ok"`
 	ErrorCode        string         `gorm:"column:error_code;type:varchar(64);index" json:"error_code,omitempty"`
-	IP               string         `gorm:"column:ip;type:varchar(64)" json:"ip,omitempty"`
+	IP               string         `gorm:"column:ip;type:varchar(64);index:idx_customer_login_rate,priority:5" json:"ip,omitempty"`
 	UserAgent        string         `gorm:"column:user_agent;type:text" json:"user_agent,omitempty"`
 	TraceID          string         `gorm:"column:trace_id;type:varchar(128);index" json:"trace_id,omitempty"`
 	Metadata         datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'::jsonb" json:"metadata,omitempty"`

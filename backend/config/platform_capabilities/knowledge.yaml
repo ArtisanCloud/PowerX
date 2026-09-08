@@ -1,6 +1,150 @@
 ---
 version: 1
 capabilities:
+- capability_id: com.corex.knowledge.directory.read
+  module: knowledge_space
+  title: Knowledge Space Directory Read
+  description: List the authenticated tenant's knowledge spaces using UUID-only service DTOs.
+  permission_code: corex.knowledge.directory:read
+  agent_usable: false
+  risk_level: medium
+  categories: [knowledge, directory]
+  intents: [knowledge.directory.read]
+  tool_scopes: [knowledge.directory.read]
+  policy:
+    prefer: rest
+  docs: [specs/011-knowledge-space/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/knowledge/spaces"
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/paths/~1tenant~1knowledge~1spaces/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.directory.read
+    api_key:
+      scope: _scope.knowledge.directory.read
+      action: read
+      resource_type: api
+      resource_pattern: directory
+  title_i18n:
+    en: Knowledge Space Directory Read
+    zh-CN: 知识空间目录查询
+  description_i18n:
+    en: List only knowledge spaces belonging to the authenticated tenant.
+    zh-CN: 仅列出当前凭证所属租户的知识空间。
+- capability_id: com.corex.knowledge.search.read
+  module: knowledge_space
+  title: Knowledge Search Read
+  description: Search indexed tenant knowledge and return stable citations.
+  permission_code: corex.knowledge.search:read
+  agent_usable: false
+  risk_level: high
+  categories: [knowledge, search]
+  intents: [knowledge.search.read]
+  tool_scopes: [knowledge.search.read]
+  policy:
+    prefer: rest
+  docs: [specs/011-knowledge-space/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/knowledge/search"
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/paths/~1tenant~1knowledge~1search/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.search.read
+    api_key:
+      scope: _scope.knowledge.search.read
+      action: read
+      resource_type: api
+      resource_pattern: search
+  title_i18n:
+    en: Knowledge Search Read
+    zh-CN: 知识检索
+  description_i18n:
+    en: Search indexed knowledge belonging to the authenticated tenant.
+    zh-CN: 检索当前凭证所属租户已建立索引的知识内容。
+- capability_id: com.corex.knowledge.document.manage
+  module: knowledge_space
+  title: Knowledge Document Manage
+  description: Submit tenant documents and asynchronous index operations.
+  permission_code: corex.knowledge.document:manage
+  agent_usable: false
+  risk_level: high
+  categories: [knowledge, document]
+  intents: [knowledge.document.manage]
+  tool_scopes: [knowledge.document.manage]
+  policy:
+    prefer: rest
+  docs: [specs/011-knowledge-space/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/knowledge/spaces/{space_uuid}/documents"
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1documents/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.document.manage
+    api_key:
+      scope: _scope.knowledge.document.manage
+      action: manage
+      resource_type: api
+      resource_pattern: document
+  - channel: rest
+    endpoint: "/api/v1/tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}"
+    method: DELETE
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1documents~1{document_uuid}/delete
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.document.manage
+    api_key:
+      scope: _scope.knowledge.document.manage
+      action: manage
+      resource_type: api
+      resource_pattern: document
+  - channel: rest
+    endpoint: "/api/v1/tenant/knowledge/spaces/{space_uuid}/indexes:rebuild"
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1indexes:rebuild/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.document.manage
+    api_key:
+      scope: _scope.knowledge.document.manage
+      action: manage
+      resource_type: api
+      resource_pattern: document
+  - channel: rest
+    endpoint: "/api/v1/tenant/knowledge/index-jobs/{job_uuid}"
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/paths/~1tenant~1knowledge~1index-jobs~1{job_uuid}/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.document.manage
+    api_key:
+      scope: _scope.knowledge.document.manage
+      action: manage
+      resource_type: api
+      resource_pattern: document
+  title_i18n:
+    en: Knowledge Document Manage
+    zh-CN: 知识文档管理
+  description_i18n:
+    en: Submit, delete and rebuild tenant knowledge documents through auditable asynchronous jobs.
+    zh-CN: 通过可审计的异步任务写入、删除和重建租户知识文档索引。
 - capability_id: com.corex.knowledge.space
   module: knowledge_space
   title: Knowledge Space Admin

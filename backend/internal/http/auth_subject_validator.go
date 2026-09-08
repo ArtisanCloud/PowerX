@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -40,9 +41,10 @@ const (
 )
 
 type stsAllowedHTTPRoute struct {
-	Method  string
-	Pattern string
-	Match   stsRouteMatchMode
+	CapabilityID string
+	Method       string
+	Pattern      string
+	Match        stsRouteMatchMode
 }
 
 type stsCapabilityConfigFile struct {
@@ -50,7 +52,8 @@ type stsCapabilityConfigFile struct {
 }
 
 type stsCapabilityConfigEntry struct {
-	Protocols []stsCapabilityProtocolEntry `yaml:"protocols"`
+	CapabilityID string                       `yaml:"capability_id"`
+	Protocols    []stsCapabilityProtocolEntry `yaml:"protocols"`
 }
 
 type stsCapabilityProtocolEntry struct {
@@ -111,7 +114,7 @@ func buildJWTSubjectValidationCallback(db *gorm.DB) func(ctx context.Context, cl
 			return err
 		}
 		if isPowerXAPISTSClaims(claims) {
-			return nil
+			return validateSTSDirectGrants(ctx, db)
 		}
 		if claims.UserID == 0 {
 			return fmt.Errorf("user id missing")
@@ -163,6 +166,28 @@ func buildJWTSubjectValidationCallback(db *gorm.DB) func(ctx context.Context, cl
 		}
 		return nil
 	}
+}
+
+func validateSTSDirectGrants(ctx context.Context, db *gorm.DB) error {
+	path, method := reqctx.GetRequestPath(ctx), reqctx.GetRequestMethod(ctx)
+	capabilities := map[string]bool{}
+	for _, route := range stsAllowedHTTPRoutes() {
+		if route.CapabilityID != "" && route.matches(method, path) {
+			capabilities[route.CapabilityID] = true
+		}
+	}
+	// Static runtime contracts retain their own operation-specific authorizers;
+	// no new route is admitted here and no wildcard grant is introduced.
+	if len(capabilities) == 0 {
+		return nil
+	}
+	service := capservice.NewDirectGrantService(db)
+	for capability := range capabilities {
+		if err := service.AuthorizeSTS(ctx, capability); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validateSTSRouteOnly(ctx context.Context, claims *reqctx.CoreXClaims) error {
@@ -218,7 +243,7 @@ func stsAllowedHTTPRoutes() []stsAllowedHTTPRoute {
 			if route.Method == "" || route.Pattern == "" {
 				return
 			}
-			key := route.Method + " " + route.Pattern + " " + string(route.Match)
+			key := route.Method + " " + route.Pattern + " " + string(route.Match) + " " + route.CapabilityID
 			if _, ok := seen[key]; ok {
 				return
 			}
@@ -271,6 +296,9 @@ func loadSTSPlatformCapabilityRoutesFromFile(path string) []stsAllowedHTTPRoute 
 	}
 	routes := make([]stsAllowedHTTPRoute, 0)
 	for _, capability := range file.Capabilities {
+		if strings.TrimSpace(capability.CapabilityID) == "" {
+			continue
+		}
 		for _, protocol := range capability.Protocols {
 			if !isSTSDirectProtocolBinding(protocol) {
 				continue
@@ -281,9 +309,10 @@ func loadSTSPlatformCapabilityRoutesFromFile(path string) []stsAllowedHTTPRoute 
 				continue
 			}
 			routes = append(routes, stsAllowedHTTPRoute{
-				Method:  method,
-				Pattern: pattern,
-				Match:   stsRouteMatchCorePattern,
+				CapabilityID: capability.CapabilityID,
+				Method:       method,
+				Pattern:      pattern,
+				Match:        stsRouteMatchCorePattern,
 			})
 		}
 	}
@@ -426,14 +455,17 @@ func isSTSExplicitCapabilityPath(path string, pattern string) bool {
 
 func isSTSCoreCapabilityPath(path string, pattern string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	for _, part := range parts {
-		switch strings.ToLower(strings.TrimSpace(part)) {
-		case "admin", "internal", "public", "auth", "setup":
-			return false
-		}
-	}
 	for start := range parts {
 		if matchSTSRoutePattern(parts[start:], pattern) {
+			// Namespace restrictions apply before the declared business binding.
+			// A formally declared /tenant/customer/auth/... operation is not the
+			// prohibited root /auth namespace.
+			for _, part := range parts[:start] {
+				switch strings.ToLower(strings.TrimSpace(part)) {
+				case "admin", "internal", "public", "auth", "setup":
+					return false
+				}
+			}
 			return true
 		}
 	}

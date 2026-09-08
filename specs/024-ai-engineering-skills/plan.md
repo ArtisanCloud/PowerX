@@ -13,6 +13,16 @@
 新增响应规划目标：建立 Agent ResponsePlanner / Context Builder / Final Response 分层机制；自然语言回答必须先生成 `response_plan`，按 `response_mode` 选择上下文，再由 final response 模型生成用户话术，并将 assistant message meta 落库用于去重、追问和 Trace 回放。
 新增运行状态协议目标：建立 Agent Run State Protocol，统一 PowerX Agent Chat、Team Task、Agent Trace 与 PowerXPlugin 调试页对多任务、多 Agent、缺参等待、执行状态、结果链接和 trace 入口的展示语义。该协议以 `agent_run.*` 事件和 `AgentRunState` 历史快照为核心，不等同于 Google A2A，但 A2A handoff 必须映射到同一 task 状态模型。
 
+## 2026-09-08 分层规范交付增量
+
+遵守 [Agent/Skill/Tool/Runtime 分层规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)，对应 FR-079～FR-086、Phase 23。架构约束已确认，以下实现尚未验收：
+
+1. 审计现有 executor、工具与 Capability 复用点，形成能力清单；业务公式保留在 Skill/领域工具。
+2. 先定义版本化依赖与结果证据契约：工具版本、权限、数据来源、原文报告值/计算值/冲突。新 wire 版本须在正式 Schema 中确定，不修改 V3 含义或静默兼容旧字段。
+3. 实现发布/绑定/运行依赖检查，以及受限计算工具或已有工具接线；复用支持的插件协议扩展算法。脚本 executor 只在明确支持的隔离环境可用，不能因导入而启用。
+4. 接入真实执行结果核验、统一渲染、历史与 Trace；业务缺参和系统失败分开处理。
+5. 更新示例 Skill 和回归测试，以变化输入及自建非营销 Skill 验证通用性；数据库迁移、seed 与实际调用分别验证。
+
 ## Technical Context
 
 **Language/Version**: Go 1.26.7（backend services），Node 20 + Nuxt 4（web-admin）

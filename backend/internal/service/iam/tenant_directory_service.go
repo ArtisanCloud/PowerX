@@ -113,9 +113,10 @@ func (s *TenantDirectoryService) FindMembersByDisplayNames(ctx context.Context, 
 			return nil, errors.New("IAM member display name is required")
 		}
 		normalized = append(normalized, name)
-		if _, exists := seen[name]; !exists {
-			seen[name] = struct{}{}
-			unique = append(unique, name)
+		key := strings.ToLower(name)
+		if _, exists := seen[key]; !exists {
+			seen[key] = struct{}{}
+			unique = append(unique, key)
 		}
 	}
 	if len(normalized) == 0 {
@@ -129,7 +130,8 @@ func (s *TenantDirectoryService) FindMembersByDisplayNames(ctx context.Context, 
 	}
 	if err := s.db.WithContext(ctx).Table((&modeliam.Member{}).GetTableName(true)).
 		Select("uuid AS member_uuid, user_uuid, display_name").
-		Where("tenant_uuid = ? AND username <> ? AND display_name IN ?", tenantUUID, ROOT_USERNAME, unique).
+		Where("tenant_uuid = ? AND username <> ? AND status = 1 AND deleted_at IS NULL", tenantUUID, ROOT_USERNAME).
+		Where("lower(trim(display_name)) IN ?", unique).
 		Order("display_name ASC, uuid ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -138,11 +140,12 @@ func (s *TenantDirectoryService) FindMembersByDisplayNames(ctx context.Context, 
 		if row.MemberUUID == uuid.Nil || strings.TrimSpace(row.UserUUID) == "" || strings.TrimSpace(row.DisplayName) == "" {
 			return nil, errors.New("IAM member UUID, user UUID, or display name is missing")
 		}
-		byName[row.DisplayName] = append(byName[row.DisplayName], TenantDirectoryDisplayNameMember{MemberUUID: row.MemberUUID.String(), UserUUID: strings.TrimSpace(row.UserUUID), DisplayName: row.DisplayName})
+		key := strings.ToLower(strings.TrimSpace(row.DisplayName))
+		byName[key] = append(byName[key], TenantDirectoryDisplayNameMember{MemberUUID: row.MemberUUID.String(), UserUUID: strings.TrimSpace(row.UserUUID), DisplayName: row.DisplayName})
 	}
 	result := make([]TenantDirectoryDisplayNameResolution, 0, len(normalized))
 	for _, name := range normalized {
-		matches := byName[name]
+		matches := byName[strings.ToLower(name)]
 		status := DirectoryDisplayNameNotFound
 		if len(matches) == 1 {
 			status = DirectoryDisplayNameFound

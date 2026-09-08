@@ -42,6 +42,10 @@ func TestTeamPlanFromPersistedOrchestration(t *testing.T) {
 	if final.NodeKind != dto.NodeKindSkill || final.NodeRef != "team.synthesis" || final.ParamRefs["upstream_analyse"] != "{{task.analyse.output.result}}" {
 		t.Fatalf("final task=%#v", final)
 	}
+	payload, ok := final.Params["payload"].(map[string]any)
+	if !ok || payload["message"] != "请基于本次材料形成结论。" || payload["content"] != "请基于本次材料形成结论。" {
+		t.Fatalf("final evidence payload=%#v", final.Params["payload"])
+	}
 }
 
 func TestTeamPlanRejectsUnboundConfiguredSkill(t *testing.T) {

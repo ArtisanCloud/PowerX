@@ -224,6 +224,7 @@ func traceMetaMap(tr *traceRuntime) map[string]any {
 		return nil
 	}
 	return map[string]any{
+		"tenant_uuid": tr.meta.TenantUUID,
 		"trace_id":   tr.meta.TraceID,
 		"run_id":     tr.meta.RunID,
 		"session_id": tr.meta.SessionID,

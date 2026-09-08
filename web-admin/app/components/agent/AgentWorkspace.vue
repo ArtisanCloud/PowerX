@@ -375,6 +375,11 @@ const isSending = ref(false);
 const isUiBusy = computed(() => isSending.value || isStreaming.value);
 let createSessionInFlight: Promise<any> | null = null;
 
+const handleStopGeneration = () => {
+  chat.cancel();
+  isSending.value = false;
+};
+
 // Agent 级模型覆盖（来自 /admin/agents/:uuid/ai-setting）
 const agentAiSetting = ref<{ provider?: string; model?: string; params?: any } | null>(
   null
@@ -1263,6 +1268,7 @@ const getAgentIcon = (agent: Agent) => {
             @send-message="handleSendMessage"
             @retry-message="handleRetryMessage"
             @regenerate-from="handleRegenerateFrom"
+            @stop-generation="handleStopGeneration"
             @clear-messages="handleClearMessages"
           />
         </ClientOnly>

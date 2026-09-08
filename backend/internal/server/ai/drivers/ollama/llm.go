@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // Ollama /api/chat 的返回是 NDJSON（每行一个 JSON 对象），不是 SSE。
@@ -30,6 +31,7 @@ type ollamaChatReq struct {
 	Model    string              `json:"model"`
 	Messages []map[string]string `json:"messages"`
 	Stream   bool                `json:"stream"`
+	Format   any                 `json:"format,omitempty"`
 	Think    *bool               `json:"think,omitempty"`
 	Options  map[string]any      `json:"options,omitempty"`
 }
@@ -102,6 +104,9 @@ func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 		Stream:   streaming,
 		Think:    thinkPtr,
 	}
+	if len(mc.ResponseSchema) > 0 {
+		req.Format = mc.ResponseSchema
+	}
 	if len(opts) > 0 {
 		req.Options = opts
 	}
@@ -130,26 +135,28 @@ func (c *ollamaClient) Invoke(ctx context.Context, mc *config.ModelConfig, userM
 	if err != nil {
 		return nil, err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint(mc), bytes.NewReader(body))
+	endpoint := c.endpoint(mc)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
+	startedAt := time.Now()
 	resp, err := c.httpClient(mc).Do(req)
 	if err != nil {
-		return nil, err
+		return nil, providerCallError(mc, endpoint, "response_headers", startedAt, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
 		bt, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("ollama invoke status=%d body=%s", resp.StatusCode, string(bt))
+		return nil, providerCallError(mc, endpoint, "response_body", startedAt, fmt.Errorf("ollama invoke status=%d body=%s", resp.StatusCode, string(bt)))
 	}
 
 	var jr ollamaChatResp
 	if err := json.NewDecoder(resp.Body).Decode(&jr); err != nil {
-		return nil, err
+		return nil, providerCallError(mc, endpoint, "response_body", startedAt, err)
 	}
 	if jr.Error != "" {
-		return nil, errors.New(jr.Error)
+		return nil, providerCallError(mc, endpoint, "provider_response", startedAt, errors.New(jr.Error))
 	}
 	result := &config.InvokeResult{
 		Text:         jr.Message.Content,
@@ -180,19 +187,21 @@ func (c *ollamaClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 	if err != nil {
 		return "", err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint(mc), bytes.NewReader(body))
+	endpoint := c.endpoint(mc)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
+	startedAt := time.Now()
 	resp, err := c.httpClient(mc).Do(req)
 	if err != nil {
-		return "", err
+		return "", providerCallError(mc, endpoint, "response_headers", startedAt, err)
 	}
 	defer resp.Body.Close()
 
 	// Ollama 的流是 NDJSON。如果返回不是 2xx，认为不支持或失败
 	if resp.StatusCode/100 != 2 {
 		// 让上层决定是否回退到 Invoke
-		return "", core.ErrStreamNotSupported
+		return "", providerCallError(mc, endpoint, "response_headers", startedAt, core.ErrStreamNotSupported)
 	}
 
 	reader := bufio.NewScanner(resp.Body)
@@ -217,7 +226,7 @@ func (c *ollamaClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 			continue
 		}
 		if chunk.Error != "" {
-			return final.String(), errors.New(chunk.Error)
+			return final.String(), providerCallError(mc, endpoint, "stream_body", startedAt, errors.New(chunk.Error))
 		}
 		// 增量内容
 		if s := chunk.Message.Content; s != "" {
@@ -232,7 +241,29 @@ func (c *ollamaClient) Stream(ctx context.Context, mc *config.ModelConfig, promp
 		}
 	}
 	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
-		return final.String(), err
+		return final.String(), providerCallError(mc, endpoint, "stream_body", startedAt, err)
 	}
 	return final.String(), nil
+}
+
+func providerCallError(mc *config.ModelConfig, endpoint, phase string, startedAt time.Time, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	timeout := time.Duration(0)
+	provider, model := "", ""
+	if mc != nil {
+		timeout = mc.Timeout
+		provider = strings.TrimSpace(mc.Provider)
+		model = strings.TrimSpace(mc.Model)
+	}
+	return &core.ProviderCallError{
+		Provider:       provider,
+		Model:          model,
+		Endpoint:       endpoint,
+		Phase:          phase,
+		Elapsed:        time.Since(startedAt),
+		RequestTimeout: timeout,
+		Cause:          cause,
+	}
 }

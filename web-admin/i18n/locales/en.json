@@ -1104,6 +1104,9 @@
         "passwordMismatch": "Passwords do not match",
         "usernameRequired": "Username is required",
         "usernameFormat": "Username must start with a lowercase letter, be 3-64 characters long, and contain only lowercase letters, numbers, dots, underscores, and hyphens",
+        "displayNameConflict": "An active member with this name already exists in this tenant. Change the name and try again.",
+        "phoneConflict": "This phone number is already in use. Use a different number and try again.",
+        "emailConflict": "This email address is already in use. Use a different address and try again.",
         "roleRequired": "Select at least one role",
         "missingUserId": "This record is missing the user identifier. Refresh and try again.",
         "rootEditSelfOnly": "Only root can edit the root account.",
@@ -2332,7 +2335,7 @@
     }
   },
   "agent": {
-	"response": {"conclusion": "Conclusion", "answer": "Answer", "acceptance": "Acceptance", "evidence": "Evidence", "gaps": "Gaps or blockers", "nextActions": "Next actions", "metrics": "Metrics and calculations", "metric": "Metric", "value": "Value", "formula": "Formula", "facts": "Confirmed facts", "hypotheses": "Hypotheses to validate", "outcomes": {"completed": "This run is complete. The result is below.", "needs_action": "The analysis is complete. The following actions remain.", "blocked": "This run is blocked. Resolve the following gaps first.", "failed": "This run failed. See the run trace."}},
+	"response": {"conclusion":"Conclusion","answer":"Answer","acceptance":"Acceptance","evidence":"Evidence","gaps":"Gaps or blockers","nextActions":"Next actions","metrics":"Metrics and calculations","metric":"Metric","value":"Value","formula":"Formula","facts":"Confirmed facts","hypotheses":"Hypotheses to validate","outcomes":{"completed":"This run is complete. The result is below.","needs_action":"The analysis is complete. The following actions remain.","blocked":"This run is blocked. Resolve the following gaps first.","failed":"This run failed. See the run trace."},"reported":"Source-reported values (not independently verified)","computed":"Tool-calculated values","conflicts":"Source and calculation conflicts","sourceQuote":"Source quotation","operands":"Input values","reportedValue":"Reported value","calculatedValue":"Calculated value","calculationBoundary":"The calculation verifies arithmetic for the supplied inputs only. Inputs and business attribution have not been independently verified.","conflictAction":"Provide the source formula, data scope, and attribution definition before confirming the conclusion.","contractUpgradeRequired":"This historical response uses a retired contract. Inspect its original trace and explicitly retry after publishing the upgraded skill."},
     "sessions": {
       "title": "Smart sessions"
     },
@@ -2674,6 +2677,8 @@
       "untitledSession": "Untitled session",
       "responding": "Responding",
       "generating": "Generating",
+      "stopGeneration": "Stop generation",
+      "send": "Send",
       "traceThisRun": "Trace this run",
       "traceDetails": "Trace details",
       "traceReport": {

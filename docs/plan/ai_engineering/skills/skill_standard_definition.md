@@ -1,5 +1,7 @@
 # Skill 标准定义与使用原理（含外部出处）
 
+PowerX 分层开发的权威约束见 [Agent、Skill、工具与 Runtime 分层开发规范](../../../guides/develop/agent-skill-tool-boundaries.md)。Skill 声明业务规则和版本化工具依赖；导入包或保存 Prompt 不代表工具已安装或脚本已获授权。缺少执行能力必须明确阻断，固有示例与客户自建 Skill 遵循同一机制。
+
 本文用于回答三个问题：
 
 1. Skill 标准到底是什么  

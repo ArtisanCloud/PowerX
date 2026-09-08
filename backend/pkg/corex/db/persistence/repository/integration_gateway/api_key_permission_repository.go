@@ -65,13 +65,22 @@ func (r *IntegrationGatewayAPIKeyPermissionRepository) HasPermission(
 	if err != nil {
 		return false, err
 	}
+	return APIKeyPermissionGranted(items, scope, action, resourceType, resource), nil
+}
+
+// APIKeyPermissionGranted is shared by actual Host authorization and the
+// credential grant-status projection, using the same exact permission tuple.
+func APIKeyPermissionGranted(items []models.IntegrationGatewayAPIKeyPermission, scope, action, resourceType, resource string) bool {
 	resource = strings.TrimSpace(resource)
 	for i := range items {
+		if items[i].Effect != "allow" || items[i].Scope != strings.TrimSpace(scope) || items[i].Action != strings.TrimSpace(action) || items[i].ResourceType != strings.TrimSpace(resourceType) {
+			continue
+		}
 		if resourcePatternMatch(items[i].ResourcePattern, resource) {
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
 }
 
 func resourcePatternMatch(pattern string, resource string) bool {

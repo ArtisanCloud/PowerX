@@ -17,6 +17,7 @@ import (
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	skillsvc "github.com/ArtisanCloud/PowerX/internal/service/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	modelagent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	iammodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
@@ -78,19 +79,19 @@ func nativeMarketingSkillSeeds() []nativeMarketingSkillSeed {
 	return []nativeMarketingSkillSeed{
 		{
 			SkillID: MarketingSourceParseSkillID, Name: "营销素材事实提取", NameEN: "Marketing Source Fact Extraction", Description: "从输入材料中提取可追溯事实、渠道、素材和数据缺口。", DescriptionEN: "Extracts traceable facts, channels, assets, and data gaps from campaign materials.",
-			PromptI18n: map[string]string{"zh-CN": "你是营销素材事实提取助手。仅依据输入材料和上下文，输出 Markdown：\n# 素材事实提取\n## 已确认事实\n## 渠道与素材\n## 数据缺口\n## 待验证假设\n每条已确认事实都要标注来源为 input；不得补造目标、行业基准、归因、效果或素材表现；未提供或无法验证的内容只能写入数据缺口或待验证假设。", "en-US": "You extract marketing-source facts. Use only the provided material and context. Output Markdown with confirmed facts, channels and assets, data gaps, and hypotheses to validate. Mark every confirmed fact with source input. Never invent targets, benchmarks, attribution, effects, or asset performance; put any unprovided or unverifiable item only under data gaps or hypotheses."},
+			PromptI18n: nativeMarketingPromptI18n["source_analysis"],
 		},
 		{
 			SkillID: MarketingMetricExtractSkillID, Name: "营销指标分析", NameEN: "Marketing Metric Analysis", Description: "计算活动漏斗指标并区分数据结论与待验证归因。", DescriptionEN: "Calculates campaign funnel metrics and separates evidence from unverified attribution.",
-			PromptI18n: map[string]string{"zh-CN": "你是营销指标分析助手。仅根据输入数据计算可复核指标，输出 Markdown：\n# 活动指标分析\n## 指标与计算\n## 漏斗发现\n## 已确认结论\n## 待验证归因\n## 数据缺口\n每个计算必须写出输入分子、分母和公式，并标注来源为 input；没有分母、目标或行业基准时必须明确说明无法计算或比较；不得补造目标、基准、归因、预期效果或因果结论。", "en-US": "You analyse marketing metrics. Calculate only reproducible metrics from the input. Output Markdown with calculations, funnel findings, confirmed conclusions, attribution to validate, and data gaps. Every calculation must state its input numerator, denominator, formula, and source input. Explicitly state when a denominator, target, or benchmark is absent; never invent targets, benchmarks, attribution, expected effects, or causal conclusions."},
+			PromptI18n: nativeMarketingPromptI18n["campaign_analysis"],
 		},
 		{
 			SkillID: MarketingMethodologyExtractSkillID, Name: "营销方法论沉淀", NameEN: "Marketing Methodology Curation", Description: "根据上游事实和指标，形成可验证的营销方法论草稿。", DescriptionEN: "Creates a verifiable marketing-methodology draft from upstream facts and metrics.",
-			PromptI18n: map[string]string{"zh-CN": "你是营销方法论策展助手。仅使用上游素材事实和指标分析，输出 Markdown：\n# 方法论草稿\n## 可复用做法\n## 适用条件\n## 证据与限制\n## 下一轮验证\n## 验收标准\n每项事实、建议和验收条件都要标明上游 task_id 或 input 来源；必须区分事实、假设和建议；没有输入依据时不得给出数值目标、行业基准、因果归因或预期提升。", "en-US": "You curate marketing methodology only from upstream source facts and metric analysis. Output Markdown with reusable practices, applicability, evidence and limits, next validation, and acceptance criteria. Mark every fact, recommendation, and acceptance condition with an upstream task_id or input source. Separate facts, hypotheses, and recommendations; do not state a numeric target, benchmark, causal attribution, or expected uplift without supplied evidence."},
+			PromptI18n: nativeMarketingPromptI18n["knowledge_curation"],
 		},
 		{
 			SkillID: MarketingReviewSummarizeSkillID, Name: "营销活动复盘汇总", NameEN: "Marketing Campaign Review Synthesis", Description: "汇总团队子任务产物，形成包含结论、行动和验收标准的复盘报告。", DescriptionEN: "Synthesizes team outputs into a review report with conclusions, actions, and acceptance criteria.",
-			PromptI18n: map[string]string{"zh-CN": "你是营销活动复盘负责人。只依据上游任务产物汇总。只输出一个合法 JSON 对象，不要使用 Markdown、代码围栏或附加说明。对象必须严格符合 powerx.agent.response/v3，且不得有任何额外字段：{schema:\"powerx.agent.response/v3\",kind:\"multi_agent_summary\",outcome:\"completed|needs_action|blocked|failed\",presentation:{facts:[],metrics:[],hypotheses:[],gaps:[],actions:[]}}。presentation 的五个数组都必须存在。facts 的每项为 {statement,source:{type,ref}}；metrics 的每项为 {label,numerator,denominator,formula,display_value,source:{type,ref}}；hypotheses、gaps、actions 均为非空字符串数组。source.type 只能为 input 或 task；source.ref 必须是 input:message 或真实上游 task_id。只把有来源支撑的陈述放进 facts 和 metrics。未提供的行业基准、目标、归因、因果或预期效果只能写入 hypotheses 或 gaps，绝不可写成事实、指标、结论或行动的既定效果；不得自行创建行业基准或数值阈值。带 % 的 display_value 必须精确等于 numerator/denominator×100，formula 必须写实际数字算式，例如 36000/1200000。只要存在 hypothesis 或 gap，outcome 必须是 needs_action，且 actions 不能为空；只有没有 hypothesis/gap 且至少有一个事实或指标时才可使用 completed。PowerX 会从这些数组生成结论、验收项和 Markdown 页面；不得输出 summary、summary_refs、acceptance、answer、id 或任何展示模板。", "en-US": "You lead the marketing campaign review. Use only upstream task outputs. Return one valid JSON object only; no Markdown, code fence, or extra text. It must strictly conform to powerx.agent.response/v3 and have no extra fields: {schema:\"powerx.agent.response/v3\",kind:\"multi_agent_summary\",outcome:\"completed|needs_action|blocked|failed\",presentation:{facts:[],metrics:[],hypotheses:[],gaps:[],actions:[]}}. All five presentation arrays are required. Each fact is {statement,source:{type,ref}}; each metric is {label,numerator,denominator,formula,display_value,source:{type,ref}}; hypotheses, gaps, and actions are arrays of non-empty strings. source.type is only input or task; source.ref is input:message or a real upstream task_id. Put only source-supported statements in facts and metrics. Unsupplied benchmarks, targets, attribution, causality, or expected effects may appear only as hypotheses or gaps, never as facts, metrics, conclusions, or asserted action effects. Never invent a benchmark or numeric threshold. A percentage display_value must exactly equal numerator/denominator times 100; formula must be the actual numeric expression, for example 36000/1200000. If any hypothesis or gap exists, outcome must be needs_action and actions must not be empty; use completed only when there are no hypotheses or gaps and at least one fact or metric. PowerX derives the conclusion, acceptance list, and Markdown UI from these arrays. Do not output summary, summary_refs, acceptance, answer, id, or any presentation template."},
+			PromptI18n: nativeMarketingPromptI18n["summary"],
 		},
 	}
 }
@@ -129,7 +130,10 @@ func seedNativeMarketingSkillDefinition(ctx context.Context, repo *skillrepo.Ski
 	if strings.TrimSpace(item.SkillID) == "" || strings.TrimSpace(item.Name) == "" || strings.TrimSpace(item.NameEN) == "" || strings.TrimSpace(item.Description) == "" || strings.TrimSpace(item.DescriptionEN) == "" || strings.TrimSpace(item.PromptI18n["zh-CN"]) == "" || strings.TrimSpace(item.PromptI18n["en-US"]) == "" {
 		return fmt.Errorf("seed_native_marketing_skill_definition_invalid")
 	}
-	definition := nativeMarketingSkillDefinition(item)
+	definition, err := nativeMarketingSkillDefinition(item)
+	if err != nil {
+		return fmt.Errorf("build native marketing skill definition %s: %w", item.SkillID, err)
+	}
 	existing, err := repo.GetDraftBySkillID(ctx, tenantUUID, item.SkillID)
 	if err == nil {
 		if existing.Status != skillmodel.SkillDefinitionDraftStatusPublished {
@@ -208,21 +212,63 @@ func seedNativeMarketingSkillDefinition(ctx context.Context, repo *skillrepo.Ski
 	return nil
 }
 
-func nativeMarketingSkillDefinition(item nativeMarketingSkillSeed) map[string]any {
+func nativeMarketingSkillDefinition(item nativeMarketingSkillSeed) (map[string]any, error) {
 	outputMode := "markdown"
 	if item.SkillID == MarketingReviewSummarizeSkillID {
 		outputMode = "response_envelope"
 	}
-	return map[string]any{
+	promptI18n := make(map[string]any, len(item.PromptI18n))
+	for locale, prompt := range item.PromptI18n {
+		guard := nativeMarketingNumericEvidenceRulesI18n[locale]
+		if guard == "" {
+			return nil, fmt.Errorf("native_marketing_numeric_evidence_rule_locale_required: %s", locale)
+		}
+		formulaGuide := nativeMarketingFormulaGuideI18n[locale]
+		if formulaGuide == "" {
+			return nil, fmt.Errorf("native_marketing_formula_guide_locale_required: %s", locale)
+		}
+		promptI18n[locale] = strings.TrimSpace(fmt.Sprintf("%s\n%s\n%s", prompt, guard, formulaGuide))
+	}
+
+	definition := map[string]any{
 		"schema": skillsvc.SkillDefinitionSchemaV2,
 		"executor": map[string]any{
 			"type":                 "llm_prompt",
-			"prompt_template_i18n": map[string]any{"zh-CN": item.PromptI18n["zh-CN"], "en-US": item.PromptI18n["en-US"]},
+			"prompt_template_i18n": promptI18n,
 			"output_mode":          outputMode,
 			"model_policy":         map[string]any{"mode": "inherit_current_agent"},
 		},
 		"entrypoints": []any{"runbook.default"},
 	}
+	if outputMode == "response_envelope" {
+		executor := definition["executor"].(map[string]any)
+		policy, err := nativeMarketingCalculationPolicy()
+		if err != nil {
+			return nil, err
+		}
+		executor["calculation_policy"] = policy
+		executor["response_contract"] = evidence.ReportSchema
+		executor["evidence_sources"] = []string{"/message"}
+		executor["model_policy"].(map[string]any)["parameters"] = map[string]any{"thinking": false, "max_tokens": 4096}
+		definition["tool_dependencies"] = skillsvc.ToolRequirements{Schema: skillsvc.ToolDependencySchema, Tools: []skillsvc.ToolDependency{skillsvc.CalculatorDependency()}}
+	}
+	return definition, nil
+}
+
+// nativeMarketingNumericEvidenceRulesI18n applies to every demo subtask. It
+// prevents a Markdown handoff from upgrading a stated rate into a computed
+// fact before the platform-owned response envelope has verified it.
+var nativeMarketingNumericEvidenceRulesI18n = map[string]string{
+	"zh-CN": "数值证据规则：只有同一来源明确给出原始数量或金额分子和分母时，才可进行比率计算。ROI、CTR、转化率、百分比、四舍五入结果和归因主张本身不是可继续相除的原始分子或分母；即使文本同时出现多个百分比，也不得互相相除、换算或反推新比率。无法按此规则复算的数值必须标为口径缺口或待验证主张，不能写成已确认事实、指标计算或方法论证据。",
+	"en-US": "Numeric evidence rule: calculate a rate only when the same source explicitly supplies raw count or currency numerator and denominator. An ROI, CTR, conversion rate, percentage, rounded result, or attribution assertion is not a raw numerator or denominator for another calculation; never divide, transform, or reverse-engineer one percentage from another even when several are present. Any value that cannot be recomputed under this rule is a definition gap or hypothesis to validate, never a confirmed fact, calculated metric, or methodology evidence.",
+}
+
+// nativeMarketingFormulaGuideI18n is a versioned, business-level formula
+// dictionary for the marketing-review demo. It is prompt data packaged with
+// the Skills, not a runtime branch for a particular Team or tenant.
+var nativeMarketingFormulaGuideI18n = map[string]string{
+	"zh-CN": "营销复盘公式词典：1) 活动产投比（GMV/投入）= 活动标记GMV÷活动投入；只有业务明确把该口径命名为“财务 ROI”时，才可在标签中保留该原文名称，绝不可改为“投入÷GMV”。2) 严格 ROI（收益-成本）÷成本，只有原始输入明确给出收益定义、成本范围并要求该口径时才计算；不得把产投比冒充严格 ROI。3) 增量产投比=可归因增量GMV÷活动投入；若原文声称的“增量 ROI”与该式结果不同，必须把它写为口径冲突，要求提供归因模型、收益定义、分子和分母，不能任选其一作为已确认指标。4) 点击率=点击数÷曝光数；落地页转化率=表单提交数÷落地页访问数；点击到下单转化率=下单数÷点击数；线索转化率=有效线索数÷表单提交数；成交转化率=成交数÷有效线索数。5) 复购率=规定周期内复购客户数÷对应客户池总数；留存率=期末仍活跃客户数÷期初客户数。6) 增量转化提升=实验组转化率-对照组转化率，必须有同口径实验组、对照组和样本量。所有公式只能在对应的原始计数或金额齐全时计算；缺任一操作数、归因模型或口径定义，一律写入 gaps/hypotheses。",
+	"en-US": "Marketing review formula guide: 1) Campaign return multiple (GMV/cost) = attributed campaign GMV divided by campaign spend. Preserve a business source's label of financial ROI only when that source explicitly defines it this way; never invert it to cost/GMV. 2) Strict ROI = (return - cost) / cost, and may be calculated only when the source defines return and cost scope and requests that metric; never present a return multiple as strict ROI. 3) Incremental return multiple = attributable incremental GMV divided by campaign spend. If a claimed incremental ROI conflicts with this calculation, record a definition conflict and request the attribution model, return definition, numerator, and denominator; never choose either as a confirmed metric. 4) CTR = clicks/impressions; landing-page conversion = form submissions/landing-page visits; click-to-order conversion = orders/clicks; lead conversion = qualified leads/form submissions; deal conversion = deals/qualified leads. 5) Repeat-purchase rate = customers repurchasing in the stated period / total matching customer cohort; retention = active customers at period end / customers at period start. 6) Incremental conversion lift = treatment conversion rate - control conversion rate and requires comparable treatment/control cohorts and sample sizes. Calculate a formula only when all matching raw counts or currency operands are supplied; if any operand, attribution model, or definition is missing, put it in gaps or hypotheses.",
 }
 
 func nativeMarketingDefinitionMatches(current datatypes.JSON, expected map[string]any) bool {
@@ -471,7 +517,7 @@ func nativeMarketingAgentSeeds() []nativeMarketingAgentSeed {
 			Role:          "marketing_director",
 			Category:      "marketing_growth",
 			Scene:         "marketing.knowledge_curation",
-			PromptSeed:    "你是营销活动复盘团队负责人。你只基于已传入的子任务产物汇总报告，必须区分已确认事实、待验证假设和行动建议；输出 Markdown 复盘报告、验收标准和待补数据，不能回显原始材料，也不能把未经验证的归因写成事实。",
+			PromptSeed:    "你是营销活动复盘团队负责人。你只基于已传入的子任务产物汇总报告，必须区分已确认事实、待验证假设、数据缺口和行动建议；最终回复必须由已绑定的汇总 Skill 返回平台响应契约，PowerX 统一生成 Markdown、结论和验收项。不能回显原始材料，也不能把未经验证的归因写成事实。",
 			SkillIDs:      []string{MarketingSourceParseSkillID, MarketingMethodologyExtractSkillID, MarketingMetricExtractSkillID, MarketingReviewSummarizeSkillID},
 			WorkflowKeys:  []string{MarketingKnowledgeCaptureWorkflowKey, CampaignReviewToMethodologyWorkflowKey},
 		},
@@ -497,7 +543,7 @@ func nativeMarketingAgentSeeds() []nativeMarketingAgentSeed {
 			Role:          "knowledge_curator",
 			Category:      "knowledge_curation",
 			Scene:         "knowledge.expert_curation",
-			PromptSeed:    "你是专家知识策展智能体。你必须基于素材解析与指标分析产物提炼方法论，输出事实、待验证假设、下一轮行动和验收标准；缺失证据必须明确标注，不得把推断写成事实。",
+			PromptSeed:    "你是专家知识策展智能体。你必须基于素材解析与指标分析产物提炼方法论，输出事实、待验证假设和下一轮验证动作；缺失证据必须明确标注，不得把推断写成事实，也不得自行创建验收阈值或数值目标。",
 			SkillIDs:      []string{MarketingSourceParseSkillID, MarketingMethodologyExtractSkillID},
 			WorkflowKeys:  []string{MarketingKnowledgeCaptureWorkflowKey},
 		},

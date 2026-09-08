@@ -29,6 +29,8 @@ var (
 	ErrPackageNotFound = errors.New("plugin_release.distribution: offline package not found")
 	// ErrListingNotFound indicates the marketplace listing cannot be located.
 	ErrListingNotFound = errors.New("plugin_release.distribution: marketplace listing not found")
+	// ErrSigningKeyNotFound indicates that a Core-owned signing key cannot be located.
+	ErrSigningKeyNotFound = errors.New("plugin_release.distribution: signing key not found")
 )
 
 const (
@@ -77,9 +79,18 @@ type StoreOfflinePackageInput struct {
 	Content              []byte
 	Checksum             string
 	SignatureFingerprint string
+	SigningKeyID         string
 	Dependencies         []string
 	LicenseReport        map[string]any
 	Actor                string
+}
+
+// RegisterSigningKeyInput is restricted to the Core administration plane. A
+// package producer can select an existing key ID, but can never supply the
+// public key used to establish package trust.
+type RegisterSigningKeyInput struct {
+	KeyID     string
+	PublicKey string
 }
 
 // SubmitListingInput captures payload for listing submissions.
@@ -103,8 +114,7 @@ type ReviewListingInput struct {
 // OfflineImportInput captures tenant import requests.
 type OfflineImportInput struct {
 	TenantUUID      string
-	PackageURI      string
-	Checksum        string
+	PackageUUID     string
 	DryRun          bool
 	LicenseAccepted bool
 	Actor           string
@@ -112,14 +122,14 @@ type OfflineImportInput struct {
 
 // ImportJob tracks offline import progress for tenant APIs.
 type ImportJob struct {
-	ID          string     `json:"jobId"`
+	ID          string     `json:"job_uuid"`
 	TenantUUID  string     `json:"tenant_uuid"`
-	PackageURI  string     `json:"packageUri"`
+	PackageURI  string     `json:"package_uri"`
 	Checksum    string     `json:"checksum"`
 	Status      string     `json:"status"`
-	DryRun      bool       `json:"dryRun"`
-	StartedAt   time.Time  `json:"startedAt"`
-	CompletedAt *time.Time `json:"completedAt,omitempty"`
+	DryRun      bool       `json:"dry_run"`
+	StartedAt   time.Time  `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
 // ListMarketplaceListingsInput controls listing filters and pagination.
@@ -173,6 +183,39 @@ func NewService(deps Dependencies, opts Options) *Service {
 	}
 }
 
+// RegisterSigningKey adds Core-owned Ed25519 trust material used by offline
+// package validation. It deliberately has no tenant or plugin caller input.
+func (s *Service) RegisterSigningKey(ctx context.Context, input RegisterSigningKeyInput) (*models.SigningKey, error) {
+	keyID := strings.TrimSpace(input.KeyID)
+	if keyID == "" || !s.validator.IsEd25519PublicKey(input.PublicKey) {
+		return nil, ErrInvalidInput
+	}
+	key := &models.SigningKey{KeyID: keyID, PublicKey: strings.TrimSpace(input.PublicKey), Enabled: true}
+	if err := s.repo.DB().WithContext(ctx).Create(key).Error; err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+// DisableSigningKey immediately prevents new package registrations from using
+// this key. Existing packages retain their stored trust decision for audit.
+func (s *Service) DisableSigningKey(ctx context.Context, keyUUID uuid.UUID) error {
+	if keyUUID == uuid.Nil {
+		return ErrInvalidInput
+	}
+	result := s.repo.DB().WithContext(ctx).
+		Model(&models.SigningKey{}).
+		Where("uuid = ? AND enabled = ?", keyUUID, true).
+		Update("enabled", false)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrSigningKeyNotFound
+	}
+	return nil
+}
+
 // StoreOfflinePackage records an offline package entry backing future distribution.
 func (s *Service) StoreOfflinePackage(ctx context.Context, input StoreOfflinePackageInput) (*models.OfflineDistributionPackage, error) {
 	if !s.opts.FeatureEnabled {
@@ -189,10 +232,17 @@ func (s *Service) StoreOfflinePackage(ctx context.Context, input StoreOfflinePac
 		return nil, err
 	}
 	signature := strings.TrimSpace(input.SignatureFingerprint)
-	if signature == "" {
-		signature = normalizedChecksum
+	if strings.TrimSpace(input.SigningKeyID) == "" || signature == "" {
+		return nil, ErrInvalidInput
 	}
-	if err := s.validator.RequireSignature(signature); err != nil {
+	var signingKey models.SigningKey
+	if err := s.repo.DB().WithContext(ctx).Where("key_id = ? AND enabled = ?", strings.TrimSpace(input.SigningKeyID), true).First(&signingKey).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidInput
+		}
+		return nil, err
+	}
+	if err := s.validator.VerifyEd25519(input.Content, signature, signingKey.PublicKey); err != nil {
 		return nil, err
 	}
 	if input.LicenseReport == nil {
@@ -229,6 +279,11 @@ func (s *Service) StoreOfflinePackage(ctx context.Context, input StoreOfflinePac
 	now := s.clock()
 	slaDeadline := now.Add(s.opts.ReviewSLA)
 	pkg := &models.OfflineDistributionPackage{
+		PackageUUID:          uuid.New(),
+		PluginID:             candidate.PluginID,
+		Version:              candidate.Version,
+		Signature:            signature,
+		SigningKeyID:         signingKey.KeyID,
 		ReleaseCandidateID:   candidate.ID,
 		PackageURI:           packageURI,
 		Checksum:             normalizedChecksum,
@@ -356,13 +411,34 @@ func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInp
 	if !s.opts.FeatureEnabled {
 		return nil, ErrFeatureDisabled
 	}
-	if strings.TrimSpace(input.TenantUUID) == "" || strings.TrimSpace(input.PackageURI) == "" || strings.TrimSpace(input.Checksum) == "" {
+	if strings.TrimSpace(input.TenantUUID) == "" || strings.TrimSpace(input.PackageUUID) == "" {
 		return nil, ErrInvalidInput
 	}
 	if !input.LicenseAccepted {
 		return nil, fmt.Errorf("%w: license must be accepted before importing", ErrInvalidInput)
 	}
-	if err := s.validator.VerifyChecksum(nil, input.Checksum); err != nil {
+	packageUUID, err := uuid.Parse(strings.TrimSpace(input.PackageUUID))
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	pkg, err := s.repo.GetPackageByUUID(ctx, packageUUID)
+	if err != nil {
+		return nil, err
+	}
+	if pkg == nil || pkg.Status != models.OfflinePackageStatusApproved {
+		return nil, ErrPackageNotFound
+	}
+	if err := s.validator.VerifyChecksum(nil, pkg.Checksum); err != nil {
+		return nil, err
+	}
+	if err := s.validator.RequireSignature(pkg.Signature); err != nil {
+		return nil, err
+	}
+	var license map[string]any
+	if err := json.Unmarshal(pkg.LicenseReport, &license); err != nil {
+		return nil, err
+	}
+	if err := s.validator.VerifyLicense(license); err != nil {
 		return nil, err
 	}
 
@@ -371,9 +447,9 @@ func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInp
 	run := &models.PluginImportRun{
 		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.New()},
 		TenantUUID:     strings.TrimSpace(input.TenantUUID),
-		PackageName:    strings.TrimSpace(input.PackageURI),
-		SourceURI:      strings.TrimSpace(input.PackageURI),
-		Checksum:       normalizeChecksum(input.Checksum),
+		PackageName:    pkg.PluginID + "@" + pkg.Version,
+		SourceURI:      pkg.PackageURI,
+		Checksum:       normalizeChecksum(pkg.Checksum),
 		SubmittedBy:    strings.TrimSpace(input.Actor),
 		Status:         models.PluginImportStatusApproved,
 		RiskLevel:      models.PluginImportRiskLow,
@@ -388,8 +464,8 @@ func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInp
 	job := ImportJob{
 		ID:          run.UUID.String(),
 		TenantUUID:  strings.TrimSpace(input.TenantUUID),
-		PackageURI:  strings.TrimSpace(input.PackageURI),
-		Checksum:    normalizeChecksum(input.Checksum),
+		PackageURI:  pkg.PackageURI,
+		Checksum:    normalizeChecksum(pkg.Checksum),
 		Status:      "completed",
 		DryRun:      input.DryRun,
 		StartedAt:   now,

@@ -1,71 +1,162 @@
----
 version: 1
 capabilities:
-- capability_id: com.corex.plugin_release.local_install.manage
+- capability_id: com.corex.plugin_release.signing_keys.manage
+  title_i18n: {en: Manage Package Signing Keys, zh-CN: 管理安装包签名密钥}
+  description_i18n: {en: Administer Core-owned offline package signing keys., zh-CN: 通过管理端治理底座托管的离线安装包签名密钥。}
   module: plugin_release
-  title: Plugin Release Local Install Manage
-  description: Create, read, and stop current-member local plugin install sessions within the credential tenant.
-  permission_code: corex.plugin_release.local_install:manage
+  title: Plugin Release Signing Key Manage
+  description: Manage Core-owned offline package signing keys from the administration plane.
+  permission_code: corex.plugin_release.signing_keys:manage
+  agent_usable: false
+  risk_level: critical
+  categories: [plugin_release]
+  intents: [plugin_release.signing_keys.manage]
+  tool_scopes: [plugin_release.signing_keys.manage]
+  policy: { prefer: rest }
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/plugin-release/signing-keys
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: platform
+    sts_direct: false
+    tool_scope: plugin_release.signing_keys.manage
+  - channel: rest
+    endpoint: /api/v1/plugin-release/signing-keys/{key_uuid}/disable
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: platform
+    sts_direct: false
+    tool_scope: plugin_release.signing_keys.manage
+- capability_id: com.corex.plugin_release.sessions.read
+  title_i18n: {en: Read Install Sessions, zh-CN: 读取安装会话}
+  description_i18n: {en: Read install sessions in the credential tenant., zh-CN: 读取凭证所属租户的安装会话。}
+  module: plugin_release
+  title: Plugin Release Session Read
+  description: Read an install session scoped to the calling service credential tenant.
+  permission_code: corex.plugin_release.sessions:read
   agent_usable: false
   risk_level: high
   categories: [plugin_release]
-  intents: [plugin_release.local_install.manage]
-  tool_scopes: [plugin_release.local_install.manage]
+  intents: [plugin_release.sessions.read]
+  tool_scopes: [plugin_release.sessions.read]
   policy: { prefer: rest }
   docs: [specs/009-install-plugin-pxp/contracts/http-openapi.yaml]
   protocols:
   - channel: rest
-    endpoint: /api/v1/tenant/plugin-release/local/sessions
-    method: POST
-    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1local~1sessions/post
-    auth_type: user_jwt
-    actor_context: admin_user
-    resource_scope: tenant
-    tool_scope: plugin_release.local_install.manage
-  - channel: rest
-    endpoint: /api/v1/tenant/plugin-release/local/sessions/:sessionId
+    endpoint: /api/v1/tenant/plugin-release/install-sessions/{session_uuid}
     method: GET
-    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1local~1sessions~1{sessionId}/get
-    auth_type: user_jwt
-    actor_context: admin_user
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1install-sessions~1{session_uuid}/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
     resource_scope: tenant
-    tool_scope: plugin_release.local_install.manage
-  - channel: rest
-    endpoint: /api/v1/tenant/plugin-release/local/sessions/:sessionId
-    method: DELETE
-    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1local~1sessions~1{sessionId}/delete
-    auth_type: user_jwt
-    actor_context: admin_user
-    resource_scope: tenant
-    tool_scope: plugin_release.local_install.manage
-- capability_id: com.corex.plugin_release.offline_import.manage
+    sts_direct: true
+    tool_scope: plugin_release.sessions.read
+    api_key:
+      scope: _scope.plugin_release.sessions.read
+      action: read
+      resource_type: api
+      resource_pattern: sessions
+- capability_id: com.corex.plugin_release.sessions.manage
+  title_i18n: {en: Manage Install Sessions, zh-CN: 管理安装会话}
+  description_i18n: {en: Create or stop service actor install sessions in the credential tenant., zh-CN: 创建或停止凭证所属租户的服务主体安装会话。}
   module: plugin_release
-  title: Plugin Release Offline Import Manage
-  description: Create and read tenant-scoped offline plugin import jobs.
-  permission_code: corex.plugin_release.offline_import:manage
+  title: Plugin Release Session Manage
+  description: Create or stop the calling service actor's install session in its credential tenant.
+  permission_code: corex.plugin_release.sessions:manage
   agent_usable: false
   risk_level: high
   categories: [plugin_release]
-  intents: [plugin_release.offline_import.manage]
-  tool_scopes: [plugin_release.offline_import.manage]
+  intents: [plugin_release.sessions.manage]
+  tool_scopes: [plugin_release.sessions.manage]
   policy: { prefer: rest }
   docs: [specs/009-install-plugin-pxp/contracts/http-openapi.yaml]
   protocols:
   - channel: rest
-    endpoint: /api/v1/tenant/offline-imports
+    endpoint: /api/v1/tenant/plugin-release/install-sessions
     method: POST
-    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1offline-imports/post
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1install-sessions/post
     auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: plugin_release.offline_import.manage
+    tool_scope: plugin_release.sessions.manage
+    api_key:
+      scope: _scope.plugin_release.sessions.manage
+      action: manage
+      resource_type: api
+      resource_pattern: sessions
   - channel: rest
-    endpoint: /api/v1/tenant/offline-imports/:jobId
-    method: GET
-    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1offline-imports~1{jobId}/get
+    endpoint: /api/v1/tenant/plugin-release/install-sessions/{session_uuid}/stop
+    method: POST
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1install-sessions~1{session_uuid}~1stop/post
     auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: plugin_release.offline_import.manage
+    tool_scope: plugin_release.sessions.manage
+    api_key:
+      scope: _scope.plugin_release.sessions.manage
+      action: manage
+      resource_type: api
+      resource_pattern: sessions
+- capability_id: com.corex.plugin_release.imports.read
+  title_i18n: {en: Read Import Jobs, zh-CN: 读取导入任务}
+  description_i18n: {en: Read offline import jobs in the credential tenant., zh-CN: 读取凭证所属租户的离线导入任务。}
+  module: plugin_release
+  title: Plugin Release Import Read
+  description: Read an offline import job scoped to the calling credential tenant.
+  permission_code: corex.plugin_release.imports:read
+  agent_usable: false
+  risk_level: high
+  categories: [plugin_release]
+  intents: [plugin_release.imports.read]
+  tool_scopes: [plugin_release.imports.read]
+  policy: { prefer: rest }
+  docs: [specs/009-install-plugin-pxp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/tenant/plugin-release/import-jobs/{job_uuid}
+    method: GET
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1import-jobs~1{job_uuid}/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: plugin_release.imports.read
+    api_key:
+      scope: _scope.plugin_release.imports.read
+      action: read
+      resource_type: api
+      resource_pattern: imports
+- capability_id: com.corex.plugin_release.imports.manage
+  title_i18n: {en: Manage Import Jobs, zh-CN: 管理导入任务}
+  description_i18n: {en: Submit verified offline packages for import in the credential tenant., zh-CN: 在凭证所属租户提交经过验证的离线安装包导入任务。}
+  module: plugin_release
+  title: Plugin Release Import Manage
+  description: Submit a verified offline import job scoped to the calling credential tenant.
+  permission_code: corex.plugin_release.imports:manage
+  agent_usable: false
+  risk_level: high
+  categories: [plugin_release]
+  intents: [plugin_release.imports.manage]
+  tool_scopes: [plugin_release.imports.manage]
+  policy: { prefer: rest }
+  docs: [specs/009-install-plugin-pxp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/tenant/plugin-release/import-jobs
+    method: POST
+    schema_ref: specs/009-install-plugin-pxp/contracts/http-openapi.yaml#/paths/~1tenant~1plugin-release~1import-jobs/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: plugin_release.imports.manage
+    api_key:
+      scope: _scope.plugin_release.imports.manage
+      action: manage
+      resource_type: api
+      resource_pattern: imports

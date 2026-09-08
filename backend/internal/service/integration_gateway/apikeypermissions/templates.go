@@ -19,9 +19,11 @@ func EnsureTemplatePermissions(ctx context.Context, repo *iamrepo.PermissionRepo
 		return nil
 	}
 	rows := BuildTemplatePermissions()
-	if platformRows, err := BuildPlatformCapabilityPermissions(); err == nil {
-		rows = append(rows, platformRows...)
+	platformRows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		return fmt.Errorf("platform permission catalog: %w", err)
 	}
+	rows = append(rows, platformRows...)
 	return repo.UpsertBatch(ctx, mergePermissionTriples(rows))
 }
 

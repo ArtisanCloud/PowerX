@@ -26,6 +26,7 @@ const (
 	ErrorTenantUUIDMissing        ErrorCode = "tenant.uuid_missing"
 	ErrorTenantUUIDInvalid        ErrorCode = "tenant.uuid_invalid"
 	ErrorTenantMismatch           ErrorCode = "tenant.mismatch"
+	ErrorUnauthorized             ErrorCode = "registry.unauthorized"
 	ErrorInvokeFailed             ErrorCode = "integration.invoke_failed"
 	ErrorCapabilityForbidden      ErrorCode = "registry.capability_forbidden"
 	ErrorSafeModeActive           ErrorCode = "tenant.safe_mode_active"
@@ -191,6 +192,11 @@ var (
 		GRPCStatus: codes.InvalidArgument,
 		Code:       ErrorTenantUUIDInvalid,
 		Hint:       "tenant_uuid 格式错误",
+	}
+	ErrUnauthorized = ErrorTemplate{
+		HTTPStatus: http.StatusUnauthorized,
+		GRPCStatus: codes.Unauthenticated,
+		Code:       ErrorUnauthorized,
 	}
 	ErrTenantMismatch = ErrorTemplate{
 		HTTPStatus: http.StatusForbidden,

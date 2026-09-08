@@ -1,564 +1,84 @@
 openapi: 3.0.3
-info:
-  title: PowerX Media Capability API
-  version: 0.1.0
-  description: >-
-    面向插件与外部应用的媒资存储能力接口，支持文件上传、列表查询、生成预签名链接与软删除。
-servers:
-  - url: '{apiPrefix}'
-    description: 公开入口，通常对应 `server.api_prefix`（默认 /api/v1）
-    variables:
-      apiPrefix:
-        default: /api/v1
-        description: 与后端 `server.api_prefix` 配置保持一致，可根据部署调整
-security:
-  - bearerAuth: []
-tags:
-  - name: MediaAssets
-    description: 媒资资源对外开放接口，所有请求需携带 Bearer Token，租户由 JWT claims 提供
+info: {title: PowerX Tenant Media Host Contract, version: 1.0.0}
+servers: [{url: /api/v1}]
+security: [{bearerAuth: []}, {apiKeyAuth: []}]
 paths:
-  /media/assets:
+  /tenant/media/assets:
+    get: {operationId: listTenantMediaAssets, responses: {'200': {$ref: '#/components/responses/AssetList'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
     post:
-      summary: 上传/注册媒体资产
-      tags: [MediaAssets]
-      operationId: createMediaAsset
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/CreateMediaAssetPayload'
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateMediaAssetPayload'
-      responses:
-        '201':
-          description: 创建成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MediaAsset'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          description: 名称或对象键冲突
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    get:
-      summary: 列出当前租户可访问的媒体资产
-      tags: [MediaAssets]
-      operationId: listMediaAssets
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
-        - name: keyword
-          in: query
-          schema:
-            type: string
-        - name: driver
-          in: query
-          schema:
-            type: string
-        - name: tags
-          in: query
-          schema:
-            type: array
-            items:
-              type: string
-        - name: ownerSubjectType
-          in: query
-          schema:
-            type: string
-        - name: ownerSubjectId
-          in: query
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 列表返回
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MediaAssetList'
-  /media/assets/{uuid}:
-    get:
-      summary: 获取媒体资产详情
-      tags: [MediaAssets]
-      operationId: getMediaAsset
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-      responses:
-        '200':
-          description: 查询成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MediaAsset'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    delete:
-      summary: 软删除媒体资产
-      tags: [MediaAssets]
-      operationId: deleteMediaAsset
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-      responses:
-        '200':
-          description: 删除成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteMediaAssetResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
+      operationId: createTenantMediaAsset
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AssetCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Asset'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}
+  /tenant/media/assets/{asset_uuid}:
+    parameters: [{$ref: '#/components/parameters/AssetUUID'}]
+    get: {operationId: getTenantMediaAsset, responses: {'200': {$ref: '#/components/responses/Asset'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
     patch:
-      summary: 更新媒体资产元数据
-      tags: [MediaAssets]
-      operationId: updateMediaAsset
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateMediaAssetPayload'
-      responses:
-        '200':
-          description: 更新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MediaAsset'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /media/assets/{uuid}/presign:
+      operationId: updateTenantMediaAsset
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AssetUpdate'}}}}
+      responses: {'200': {$ref: '#/components/responses/Asset'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
+    delete: {operationId: deleteTenantMediaAsset, responses: {'204': {description: Deleted and transfer tickets revoked.}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /tenant/media/assets/{asset_uuid}/presign-upload:
+    post: {operationId: presignTenantMediaAssetUpload, parameters: [{$ref: '#/components/parameters/AssetUUID'}], responses: {'200': {$ref: '#/components/responses/Ticket'}, '409': {$ref: '#/components/responses/StateInvalid'}}}
+  /tenant/media/assets/{asset_uuid}/complete-upload:
     post:
-      summary: 生成上传/下载预签名链接
-      tags: [MediaAssets]
-      operationId: presignMediaAsset
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PresignRequestPayload'
-      responses:
-        '200':
-          description: 返回预签名数据
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PresignResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /media/assets/{uuid}/resource:
-    get:
-      summary: 获取媒体资产原图内容
-      description: >
-        返回该 asset 的 origin 主资源。该接口只用于原图下载或后端原始文件处理；
-        Web UI、插件页面、外部嵌入页等 inline 预览不得使用该接口作为预览图，
-        必须改用 `/media/assets/{uuid}/variants/preview/resource` 或
-        `/media/assets/{uuid}/variants/thumbnail/resource`。
-      tags: [MediaAssets]
-      operationId: downloadMediaAsset
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-        - name: disposition
-          in: query
-          schema:
-            type: string
-            enum: [inline, attachment]
-          description: 控制 `Content-Disposition`。原图下载必须使用 attachment；inline 不表示可作为 UI 预览。
-      responses:
-        '200':
-          description: 返回二进制内容
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '302':
-          description: 若该资产为外链，将重定向到目标 URL
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /media/assets/{uuid}/variants/{variant}:
+      operationId: completeTenantMediaAssetUpload
+      parameters: [{$ref: '#/components/parameters/AssetUUID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CompleteUpload'}}}}
+      responses: {'200': {$ref: '#/components/responses/Asset'}, '400': {$ref: '#/components/responses/UploadValidationFailed'}, '409': {$ref: '#/components/responses/StateInvalid'}}
+  /tenant/media/assets/{asset_uuid}/presign-download:
+    post: {operationId: presignTenantMediaAssetDownload, parameters: [{$ref: '#/components/parameters/AssetUUID'}], responses: {'200': {$ref: '#/components/responses/Ticket'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/StateInvalid'}}}
+  /tenant/media/assets/{asset_uuid}/variants:
     post:
-      summary: 创建或声明媒体资产资源版本
-      tags: [MediaAssets]
-      operationId: createMediaAssetVariant
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-        - $ref: '#/components/parameters/Variant'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateMediaAssetVariantPayload'
-      responses:
-        '201':
-          description: 创建成功；已存在时返回现有版本
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MediaAssetVariant'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /media/assets/{uuid}/variants/{variant}/presign:
-    post:
-      summary: 生成指定资源版本的上传/下载预签名链接
-      tags: [MediaAssets]
-      operationId: presignMediaAssetVariant
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-        - $ref: '#/components/parameters/Variant'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PresignRequestPayload'
-      responses:
-        '200':
-          description: 返回预签名数据
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PresignResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /media/assets/{uuid}/variants/{variant}/resource:
-    get:
-      summary: 获取指定媒体资产资源版本内容
-      description: >
-        返回同一 asset 的指定资源版本。Web UI 和外部插件的页面渲染必须使用
-        `preview` 或 `thumbnail` variant；缺少 variant 时应显示预览未就绪或触发补偿，
-        不得 fallback 到 origin 资源接口。
-      tags: [MediaAssets]
-      operationId: downloadMediaAssetVariant
-      parameters:
-        - $ref: '#/components/parameters/UUID'
-        - $ref: '#/components/parameters/Variant'
-        - name: disposition
-          in: query
-          schema:
-            type: string
-            enum: [inline, attachment]
-          description: 控制 `Content-Disposition`，默认 inline
-      responses:
-        '200':
-          description: 返回二进制内容
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '404':
-          $ref: '#/components/responses/NotFound'
+      operationId: createTenantMediaAssetVariant
+      parameters: [{$ref: '#/components/parameters/AssetUUID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VariantCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Variant'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
+  /tenant/media/assets/variants/{variant_uuid}:
+    get: {operationId: getTenantMediaAssetVariant, parameters: [{$ref: '#/components/parameters/VariantUUID'}], responses: {'200': {$ref: '#/components/responses/Variant'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /media/transfers/{asset_uuid}/upload:
+    put: {operationId: uploadMediaAssetByTicket, parameters: [{$ref: '#/components/parameters/AssetUUID'}, {$ref: '#/components/parameters/Ticket'}, {$ref: '#/components/parameters/Expiry'}, {$ref: '#/components/parameters/Version'}], responses: {'204': {description: Stored; complete-upload still required.}, '400': {$ref: '#/components/responses/UploadValidationFailed'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/StateInvalid'}}}
+  /media/transfers/{asset_uuid}/download:
+    get: {operationId: downloadMediaAssetByTicket, parameters: [{$ref: '#/components/parameters/AssetUUID'}, {$ref: '#/components/parameters/Ticket'}, {$ref: '#/components/parameters/Expiry'}, {$ref: '#/components/parameters/Version'}], responses: {'200': {description: Media bytes}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/StateInvalid'}}}
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    bearerAuth: {type: http, scheme: bearer}
+    apiKeyAuth: {type: apiKey, in: header, name: X-API-Key}
   parameters:
-    UUID:
-      name: uuid
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    Page:
-      name: page
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        default: 1
-    PageSize:
-      name: pageSize
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 20
-    Variant:
-      name: variant
-      in: path
-      required: true
-      description: >
-        资源版本名称。页面/插件 inline 渲染只能使用 preview 或 thumbnail；
-        origin 只代表原始文件，不作为预览版本。
-      schema:
-        type: string
-        enum: [origin, preview, thumbnail]
-  responses:
-    BadRequest:
-      description: 参数校验失败
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    NotFound:
-      description: 资源不存在或已软删除
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
+    AssetUUID: {name: asset_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    VariantUUID: {name: variant_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    Ticket: {name: ticket, in: query, required: true, schema: {type: string}}
+    Expiry: {name: exp, in: query, required: true, schema: {type: integer}}
+    Version: {name: version, in: query, required: true, schema: {type: integer}}
   schemas:
-    Error:
+    AssetCreate:
       type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        traceId:
-          type: string
-    MediaAsset:
+      additionalProperties: false
+      required: [name, mime_type, size_bytes, checksum]
+      properties: {name: {type: string}, mime_type: {type: string}, size_bytes: {type: integer, format: int64}, checksum: {type: string}}
+    AssetUpdate: {type: object, additionalProperties: false, properties: {name: {type: string}, tags: {type: array, items: {type: string}}}}
+    CompleteUpload: {type: object, additionalProperties: false, required: [checksum], properties: {checksum: {type: string}}}
+    VariantCreate:
       type: object
-      required:
-        - uuid
-        - name
-        - driver
-        - businessStatus
-        - createdAt
-      properties:
-        uuid:
-          type: string
-          format: uuid
-        tenantId:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-          nullable: true
-        driver:
-          type: string
-        folder:
-          type: string
-          nullable: true
-        objectKey:
-          type: string
-        externalUrl:
-          type: string
-          nullable: true
-        sizeBytes:
-          type: integer
-          format: int64
-          nullable: true
-        mimeType:
-          type: string
-          nullable: true
-        ownerSubjectType:
-          type: string
-        ownerSubjectId:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        businessStatus:
-          type: string
-          enum: [draft, under_review, published, archived]
-        downloadUrl:
-          type: string
-          nullable: true
-        downloadExpiredAt:
-          type: string
-          format: date-time
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    MediaAssetList:
+      additionalProperties: false
+      required: [variant_type, mime_type, size_bytes]
+      properties: {variant_type: {type: string, enum: [preview, thumbnail]}, name: {type: string}, mime_type: {type: string}, size_bytes: {type: integer, format: int64}}
+    Asset:
       type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/MediaAsset'
-        total:
-          type: integer
-        page:
-          type: integer
-        pageSize:
-          type: integer
-    MediaAssetVariant:
+      required: [asset_uuid, name, size_bytes, mime_type, status]
+      properties: {asset_uuid: {type: string, format: uuid}, name: {type: string}, size_bytes: {type: integer, format: int64}, mime_type: {type: string}, owner_subject_uuid: {type: string, format: uuid}, status: {type: string, enum: [pending_upload, uploaded, ready, failed, deleted]}, created_at: {type: string, format: date-time}, updated_at: {type: string, format: date-time}}
+    Variant:
       type: object
-      required:
-        - assetUuid
-        - variant
-        - driver
-        - objectKey
-      properties:
-        uuid:
-          type: string
-          format: uuid
-        tenant_uuid:
-          type: string
-        assetUuid:
-          type: string
-          format: uuid
-        variant:
-          type: string
-          enum: [origin, preview, thumbnail]
-          description: origin 为原始文件；preview/thumbnail 为页面渲染版本。
-        name:
-          type: string
-        driver:
-          type: string
-        objectKey:
-          type: string
-        sizeBytes:
-          type: integer
-          format: int64
-          nullable: true
-        mimeType:
-          type: string
-          nullable: true
-        downloadUrl:
-          type: string
-          nullable: true
-        downloadExpiredAt:
-          type: string
-          format: date-time
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-    CreateMediaAssetPayload:
-      type: object
-      required:
-        - name
-        - driver
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-          nullable: true
-        driver:
-          type: string
-        folder:
-          type: string
-          nullable: true
-        ownerSubjectType:
-          type: string
-        ownerSubjectId:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        uploadMethod:
-          type: string
-          enum: [direct_upload, external_link, presign_upload]
-        file:
-          type: string
-          format: binary
-        externalUrl:
-          type: string
-          nullable: true
-        presignToken:
-          type: object
-          nullable: true
-    PresignRequestPayload:
-      type: object
-      required:
-        - action
-      properties:
-        action:
-          type: string
-          enum: [upload, download]
-        method:
-          type: string
-          enum: [GET, PUT, POST]
-          nullable: true
-        expiresInSeconds:
-          type: integer
-          default: 43200
-        metadata:
-          type: object
-          additionalProperties:
-            type: string
-    CreateMediaAssetVariantPayload:
-      type: object
-      properties:
-        name:
-          type: string
-        driver:
-          type: string
-        objectKey:
-          type: string
-        sizeBytes:
-          type: integer
-          format: int64
-        mimeType:
-          type: string
-        metadata:
-          type: object
-          additionalProperties:
-            type: string
-    PresignResponse:
-      type: object
-      required:
-        - url
-        - method
-        - expiresInSeconds
-      properties:
-        url:
-          type: string
-        method:
-          type: string
-        expiresInSeconds:
-          type: integer
-        headers:
-          type: object
-          additionalProperties:
-            type: string
-        fields:
-          type: object
-          additionalProperties:
-            type: string
-    DeleteMediaAssetResponse:
-      type: object
-      required:
-        - deleted
-      properties:
-        deleted:
-          type: boolean
-    UpdateMediaAssetPayload:
-      type: object
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-          nullable: true
-        businessStatus:
-          type: string
-          enum: [draft, under_review, published, archived]
-        tags:
-          type: array
-          items:
-            type: string
-        metadata:
-          type: object
-          additionalProperties:
-            type: string
+      required: [variant_uuid, asset_uuid, mime_type, size_bytes]
+      properties: {variant_uuid: {type: string, format: uuid}, asset_uuid: {type: string, format: uuid}, name: {type: string}, mime_type: {type: string}, size_bytes: {type: integer, format: int64}}
+    Ticket: {type: object, properties: {url: {type: string, format: uri}, method: {type: string, enum: [GET, PUT]}, expires_at: {type: string, format: date-time}, headers: {type: object, additionalProperties: {type: string}}}}
+  responses:
+    Asset: {description: Media asset, content: {application/json: {schema: {$ref: '#/components/schemas/Asset'}}}}
+    AssetList: {description: Media assets, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/Asset'}}, total: {type: integer}, page: {type: integer}, page_size: {type: integer}}}}}}
+    Variant: {description: Media variant, content: {application/json: {schema: {$ref: '#/components/schemas/Variant'}}}}
+    Ticket: {description: Temporary transfer ticket, content: {application/json: {schema: {$ref: '#/components/schemas/Ticket'}}}}
+    InvalidArgument: {description: MEDIA_INVALID_ARGUMENT}
+    Unauthorized: {description: MEDIA_UNAUTHORIZED}
+    Forbidden: {description: MEDIA_FORBIDDEN}
+    NotFound: {description: MEDIA_ASSET_NOT_FOUND}
+    StateInvalid: {description: MEDIA_ASSET_STATE_INVALID}
+    UploadValidationFailed: {description: MEDIA_UPLOAD_VALIDATION_FAILED}

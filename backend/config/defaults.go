@@ -222,7 +222,11 @@ func GetDefaults() *Config {
 				WindowSeconds: 60,
 			},
 			DefaultHTTPTimeoutSeconds:      20,
-			AIMultimodalHTTPTimeoutSeconds: 300,
+			// This is the Core capability-proxy response deadline, not the LLM
+			// provider deadline. Keep a small explicit response window beyond the
+			// configured provider request timeout so structured provider failures
+			// can be returned to the caller.
+			AIMultimodalHTTPTimeoutSeconds: 310,
 			Notifications: CapabilityRegistryNotificationConfig{
 				IMWebhook:        "",
 				RetryIntervalSec: 30,

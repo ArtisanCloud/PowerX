@@ -125,6 +125,10 @@ func (s *Service) LLMInvoke(
 		mc.MaxTokens = maxTokens
 	}
 	applyLLMRuntimeExtras(provider, mc, defaults, params)
+	applyResponseSchema(mc, params)
+	if len(mc.ResponseSchema) > 0 && !llmfactory.SupportsResponseSchema(provider) {
+		return nil, errors.New("ai.response_schema_provider_unsupported")
+	}
 	applyReasoningConfig(provider, mc, params)
 
 	invokeResult, err := llmfactory.Invoke(ctx, mc, prompt)
@@ -256,6 +260,36 @@ func applyLLMRuntimeExtras(provider string, mc *aiconfig.ModelConfig, defaults m
 	if len(mc.Extra) == 0 {
 		mc.Extra = nil
 	}
+}
+
+// applyResponseSchema accepts a typed caller's JSON Schema. It is deliberately
+// separate from provider options: response format is a top-level provider
+// contract, never an Ollama generation option.
+func applyResponseSchema(mc *aiconfig.ModelConfig, params map[string]interface{}) {
+	if mc == nil || len(params) == 0 {
+		return
+	}
+	raw, ok := params["response_schema"]
+	if !ok || raw == nil {
+		return
+	}
+	schema, ok := raw.(map[string]any)
+	if !ok || len(schema) == 0 {
+		return
+	}
+	mc.ResponseSchema = cloneResponseSchema(schema)
+}
+
+func cloneResponseSchema(schema map[string]any) map[string]any {
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return nil
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil
+	}
+	return cloned
 }
 
 func firstPositiveInt(values map[string]interface{}, keys ...string) int {

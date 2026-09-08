@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	modelagent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -39,11 +40,6 @@ func (e *Engine) detectTasks(ctx context.Context, msg string, reqCfg *dto.ChatCo
 }
 
 func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) error {
-	// 统一超时：避免 LLM/下游卡死导致“前端永远生成中”
-	// - 目标体验是“不断开连接、持续可见”，但也要有上限兜底（默认 10 分钟）。
-	execTimeout := 10 * time.Minute
-	ctx, cancel := context.WithTimeout(ctx, execTimeout)
-	defer cancel()
 	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.stream")
@@ -139,7 +135,10 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	// 不能再把 node_ref 当 flow_id 交给 ag.Stream。
 	if planHasNonWorkflow(plan) {
 		if shouldExecutePlanForResponse(responsePlan, plan) {
-			_, err := e.runResolvedPlan(ctx, plan, sink, tr)
+			out, err := e.runResolvedPlan(ctx, plan, sink, tr)
+			if err == nil {
+				finalText = finalTraceContent(out)
+			}
 			runErr = err
 			return err
 		}
@@ -182,7 +181,6 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 		RequestID:  execID,
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
-		Timeout:    execTimeout,
 		TraceID:    strings.TrimSpace(reqctx.GetTraceID(ctx)),
 		Metadata: map[string]any{
 			"transport": "engine",
@@ -369,9 +367,6 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 }
 
 func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) (*agentschema.ExecutionResult, *flowschema.ExecutionPlan, error) {
-	execTimeout := 10 * time.Minute
-	ctx, cancel := context.WithTimeout(ctx, execTimeout)
-	defer cancel()
 	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.invoke")
@@ -485,7 +480,6 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
 		TraceID:    strings.TrimSpace(reqctx.GetTraceID(ctx)),
-		Timeout:    execTimeout,
 		Metadata: map[string]any{
 			"transport": "engine.invoke",
 			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
@@ -558,8 +552,74 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		runErr = execErr
 		return nil, plan, execErr
 	}
-	finalText = BuildFinalResponseContent(responsePlan, buildFinalContent(out), nil)
+	finalText = finalTraceContent(out)
 	return out, plan, nil
+}
+
+// finalResponseUpstreamTaskRefs returns only tasks transitively upstream of a
+// terminal task. Final results cannot cite their own task or model-invented
+// labels as provenance.
+func finalResponseUpstreamTaskRefs(plan *flowschema.ExecutionPlan) map[string]struct{} {
+	if plan == nil || len(plan.Tasks) == 0 {
+		return map[string]struct{}{}
+	}
+	tasks := make(map[string]flowschema.PlanTask, len(plan.Tasks))
+	dependedOn := make(map[string]struct{}, len(plan.Tasks))
+	for _, task := range plan.Tasks {
+		taskID := strings.TrimSpace(task.TaskID)
+		if taskID == "" {
+			continue
+		}
+		tasks[taskID] = task
+		for _, dependency := range task.DependsOn {
+			if dependency = strings.TrimSpace(dependency); dependency != "" {
+				dependedOn[dependency] = struct{}{}
+			}
+		}
+	}
+	refs := make(map[string]struct{}, len(tasks))
+	var collect func(string)
+	collect = func(taskID string) {
+		task, ok := tasks[taskID]
+		if !ok {
+			return
+		}
+		for _, dependency := range task.DependsOn {
+			dependency = strings.TrimSpace(dependency)
+			if dependency == "" {
+				continue
+			}
+			if _, exists := refs[dependency]; exists {
+				continue
+			}
+			refs[dependency] = struct{}{}
+			collect(dependency)
+		}
+	}
+	for taskID := range tasks {
+		if _, isUpstream := dependedOn[taskID]; !isUpstream {
+			collect(taskID)
+		}
+	}
+	return refs
+}
+
+// finalTraceContent is canonical trace-only data. It is never emitted as a
+// second model-authored response, but gives response-envelope runs a durable
+// final digest in their trace report.
+func finalTraceContent(out *agentschema.ExecutionResult) string {
+	if out == nil || out.Data == nil {
+		return ""
+	}
+	envelope, err := responseEnvelopeFromExecutionResult(out.Data)
+	if err != nil || envelope == nil {
+		return buildFinalContent(out)
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 func sanitizeExecutionData(in flowschema.Result) flowschema.Result {
@@ -589,6 +649,7 @@ func sanitizeExecutionData(in flowschema.Result) flowschema.Result {
 }
 
 func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.ExecutionPlan, sink EventSink, tr *traceRuntime) (*agentschema.ExecutionResult, error) {
+	ctx = evidence.WithLedger(ctx)
 	if plan == nil || len(plan.Tasks) == 0 {
 		return nil, fmt.Errorf("empty plan")
 	}
@@ -602,7 +663,6 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
 		TraceID:    traceID,
-		Timeout:    10 * time.Minute,
 		Metadata: map[string]any{
 			"transport": "engine.invoke",
 			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
@@ -644,10 +704,6 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			} else if out != nil && isAwaitingParamsResult(out) {
 				status = dto.AgentTaskStatusAwaitingParams
 			}
-			if err := persistTaskSkillState(ctx, task, status, out, taskErr); err != nil {
-				_ = sink.Emit(dto.EventError, map[string]any{"message": "保存 Skill 状态失败", "detail": err.Error()})
-				return err
-			}
 			taskEndPayload := map[string]any{
 				"planner_mode":    dto.PlannerModeUnified,
 				"plan_id":         plan.PlanID,
@@ -681,6 +737,26 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 						"step_id": out.StepID,
 					}
 				}(),
+			}
+			if err := persistTaskSkillState(ctx, task, status, out, taskErr); err != nil {
+				taskEndPayload["status"] = dto.AgentTaskStatusFailed
+				taskEndPayload["error"] = err.Error()
+				enrichTaskEndPayload(taskEndPayload, out)
+				_ = sink.Emit(dto.EventNodeEnd, taskEndPayload)
+				_ = sink.Emit(dto.EventError, map[string]any{
+					"message":        "保存 Skill 状态失败",
+					"detail":         err.Error(),
+					"plan_id":        plan.PlanID,
+					"task_id":        task.TaskID,
+					"flow_id":        task.FlowID,
+					"node_id":        task.TaskID,
+					"node_kind":      normalizeNodeKind(task.NodeKind),
+					"node_ref":       normalizeNodeRef(task),
+					"stage":          task.Stage,
+					"depends_on":     task.DependsOn,
+					"failure_policy": strings.TrimSpace(task.FailurePolicy),
+				})
+				return err
 			}
 			enrichTaskEndPayload(taskEndPayload, out)
 			_ = sink.Emit(dto.EventNodeEnd, taskEndPayload)
@@ -760,13 +836,30 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		return out, nil
 	}
 	responsePlan := responsePlanFromContext(ctx)
-	envelope, envelopeErr := responseEnvelopeFromExecutionResult(out.Data)
+	envelope, envelopeErr := responseEnvelopeFromExecutionResultWithTaskRefs(out.Data, finalResponseUpstreamTaskRefs(plan))
+	if envelopeErr == nil && envelope != nil {
+		envelopeErr = evidence.Verify(ctx, envelope)
+	}
 	if envelopeErr != nil {
+		// The final Skill invocation may succeed while its result is rejected by
+		// the platform contract. Persist that validation as a real failed trace
+		// node; otherwise Trace only shows the successful Skill call and a red
+		// run badge with no actionable failure detail.
+		validationNode := tr.startNode(ctx, "final_response", "response_envelope_validation", map[string]any{
+			"plan_id":      plan.PlanID,
+			"failure_kind": "response_contract_invalid",
+		})
+		tr.failNode(ctx, validationNode, "final_response", "response_envelope_validation", envelopeErr)
 		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", envelopeErr, "")
 		return nil, envelopeErr
 	}
 	if envelope == nil {
 		err := fmt.Errorf("agent.response_contract_invalid: response_envelope is required for an execution plan")
+		validationNode := tr.startNode(ctx, "final_response", "response_envelope_validation", map[string]any{
+			"plan_id":      plan.PlanID,
+			"failure_kind": "response_contract_invalid",
+		})
+		tr.failNode(ctx, validationNode, "final_response", "response_envelope_validation", err)
 		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", err, "")
 		return nil, err
 	}
@@ -797,7 +890,8 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
 	})
 	tr.endNode(ctx, finalNode, "final_response", "plan.final", map[string]any{
-		"content_digest":        digestString(content),
+		"content_digest":        digestAny(envelope),
+		"calculation_evidence":  evidence.TraceSummary(envelope),
 		"response_mode":         responseModeString(responsePlan),
 		"target_capability_ids": responseTargetIDs(responsePlan),
 		"used_context_layers":   contextLayers,
@@ -1007,7 +1101,9 @@ func builtInTeamPlanFromContext(ctx context.Context) (*flowschema.ExecutionPlan,
 			if !containsNormalizedString(parentSkillIDs, configuredTask.SkillID) {
 				return nil, true, fmt.Errorf("team task skill is not bound to parent agent: task=%s skill=%s", taskID, configuredTask.SkillID)
 			}
-			plan.Tasks = append(plan.Tasks, flowschema.PlanTask{TaskID: taskID, FlowID: configuredTask.SkillID, NodeKind: dto.NodeKindSkill, NodeRef: configuredTask.SkillID, SourceScope: "agent", AgentID: fmt.Sprintf("%d", parentAgentID), FailurePolicy: failurePolicy, Stage: configuredTask.Stage, DependsOn: dependsOn, ParamRefs: paramRefs, Params: map[string]any{"context": map[string]any{"locale": locale}, "payload": map[string]any{"content": material, "context": "team_orchestration"}}})
+			// 团队 Skill 的原始用户材料使用 payload.message 作为稳定契约。content
+			// 只保留为同一 payload 中的业务材料字段，不能替代 evidence_sources 声明的来源。
+			plan.Tasks = append(plan.Tasks, flowschema.PlanTask{TaskID: taskID, FlowID: configuredTask.SkillID, NodeKind: dto.NodeKindSkill, NodeRef: configuredTask.SkillID, SourceScope: "agent", AgentID: fmt.Sprintf("%d", parentAgentID), FailurePolicy: failurePolicy, Stage: configuredTask.Stage, DependsOn: dependsOn, ParamRefs: paramRefs, Params: map[string]any{"context": map[string]any{"locale": locale}, "payload": map[string]any{"message": material, "content": material, "context": "team_orchestration"}}})
 		}
 	}
 	return plan, true, nil

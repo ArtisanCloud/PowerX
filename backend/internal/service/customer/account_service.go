@@ -45,6 +45,10 @@ type CreateAccountInput struct {
 	MemberSource string
 }
 
+type ResolveExternalIdentityInput struct {
+	TenantUUID, ProviderSubject, DisplayName string
+}
+
 func (s *AccountService) Overview(ctx context.Context, tenantUUID string) (customerrepo.OverviewRow, error) {
 	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
 	if err != nil {
@@ -127,6 +131,43 @@ func (s *AccountService) Create(ctx context.Context, in CreateAccountInput) (cus
 		return customerrepo.AccountRow{}, gorm.ErrRecordNotFound
 	}
 	return rows[0], nil
+}
+
+func (s *AccountService) ResolveExternalIdentity(ctx context.Context, in ResolveExternalIdentityInput) (customerrepo.ExternalIdentityResolution, error) {
+	tenantUUID, err := reqctx.CanonicalTenantUUID(in.TenantUUID)
+	if err != nil {
+		return customerrepo.ExternalIdentityResolution{}, err
+	}
+	pluginID, err := externalIdentityPluginID(ctx)
+	if err != nil {
+		return customerrepo.ExternalIdentityResolution{}, err
+	}
+	providerKey, err := customerrepo.ExternalIdentityProviderKey(pluginID)
+	if err != nil {
+		return customerrepo.ExternalIdentityResolution{}, err
+	}
+	return s.repo.ResolveOrCreateExternalIdentity(ctx, customerrepo.ExternalIdentityInput{TenantUUID: tenantUUID, ProviderKey: providerKey, ProviderPluginID: pluginID, ProviderSubject: strings.TrimSpace(in.ProviderSubject), DisplayName: strings.TrimSpace(in.DisplayName)})
+}
+
+func externalIdentityPluginID(ctx context.Context) (string, error) {
+	claims := reqctx.GetClaims(ctx)
+	if claims == nil || !strings.EqualFold(strings.TrimSpace(claims.Issuer), "powerx-sts") || !containsAudience(claims.Audience, "powerx:api") {
+		return "", customerrepo.ErrExternalIdentityServiceActorInvalid
+	}
+	pluginID := strings.TrimSpace(claims.PluginID)
+	if pluginID == "" {
+		return "", customerrepo.ErrExternalIdentityRequired
+	}
+	return pluginID, nil
+}
+
+func containsAudience(values []string, want string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), want) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *AccountService) UpdateStatus(ctx context.Context, tenantUUID string, customerUUID string, status string) error {

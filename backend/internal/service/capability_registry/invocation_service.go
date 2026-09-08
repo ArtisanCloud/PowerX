@@ -89,6 +89,39 @@ type CoreCapabilityInvokeInput struct {
 	Context      map[string]interface{}
 }
 
+// RESTUpstreamError preserves the machine-readable error details returned by a
+// Core REST capability. Callers must not have to parse a JSON fragment from an
+// error string to identify a provider timeout.
+type RESTUpstreamError struct {
+	StatusCode int
+	Method     string
+	Endpoint   string
+	RemoteCode string
+	Details    map[string]interface{}
+	Cause      string
+}
+
+func (e *RESTUpstreamError) Error() string {
+	if e == nil {
+		return "REST upstream invocation failed"
+	}
+	return fmt.Sprintf("proxy REST %s %s failed: status=%d code=%s cause=%s", e.Method, e.Endpoint, e.StatusCode, e.RemoteCode, e.Cause)
+}
+
+// InvocationFailureDetails exposes only structured remote diagnostics that
+// are explicitly returned by the invoked capability.
+func InvocationFailureDetails(err error) map[string]interface{} {
+	var upstreamErr *RESTUpstreamError
+	if !errors.As(err, &upstreamErr) || len(upstreamErr.Details) == 0 {
+		return nil
+	}
+	details := make(map[string]interface{}, len(upstreamErr.Details))
+	for key, value := range upstreamErr.Details {
+		details[key] = value
+	}
+	return details
+}
+
 // InvocationInput 描述调用��求。
 type InvocationInput struct {
 	CapabilityID      string
@@ -730,11 +763,7 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 		)
 	}
 	if resp.StatusCode >= 400 {
-		snippet := string(respBytes)
-		if len(snippet) > 512 {
-			snippet = snippet[:512]
-		}
-		return nil, fmt.Errorf("proxy REST %s %s failed: status=%d body=%s", payload.Method, parsed.Path, resp.StatusCode, snippet)
+		return nil, newRESTUpstreamError(resp.StatusCode, payload.Method, parsed.Path, respBytes)
 	}
 	if len(respBytes) == 0 {
 		return map[string]interface{}{
@@ -755,6 +784,33 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 		"value":  out,
 		"status": resp.Status,
 	}, nil
+}
+
+func newRESTUpstreamError(statusCode int, method, endpoint string, raw []byte) error {
+	remote := struct {
+		Message string                 `json:"message"`
+		Error   string                 `json:"error"`
+		Details map[string]interface{} `json:"details"`
+	}{}
+	_ = json.Unmarshal(raw, &remote)
+	cause := strings.TrimSpace(remote.Error)
+	if cause == "" {
+		cause = strings.TrimSpace(remote.Message)
+	}
+	if cause == "" {
+		cause = strings.TrimSpace(string(raw))
+	}
+	if len(cause) > 512 {
+		cause = cause[:512]
+	}
+	return &RESTUpstreamError{
+		StatusCode: statusCode,
+		Method:     strings.ToUpper(strings.TrimSpace(method)),
+		Endpoint:   strings.TrimSpace(endpoint),
+		RemoteCode: strings.TrimSpace(remote.Message),
+		Details:    remote.Details,
+		Cause:      cause,
+	}
 }
 
 func firstRESTContextString(ctx context.Context, keys ...string) string {

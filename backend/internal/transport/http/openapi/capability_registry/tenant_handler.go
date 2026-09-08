@@ -2,6 +2,7 @@ package capability_registry
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	customerrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/customer"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -35,6 +37,11 @@ type tenantHandler struct {
 	skillAdapter *skillservice.AdapterService
 	memberSvc    *iamsvc.MemberService
 	httpClient   *http.Client
+	grantStatus  grantStatusReader
+}
+
+type grantStatusReader interface {
+	CheckCurrentCredential(ctx context.Context, capabilityIDs []string) ([]capservice.GrantStatusItem, error)
 }
 
 func newTenantHandler(deps *shared.Deps) *tenantHandler {
@@ -89,6 +96,89 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 		skillAdapter: skillAdapter,
 		memberSvc:    memberSvc,
 		httpClient:   &http.Client{},
+		grantStatus:  capservice.NewGrantStatusService(deps.DB),
+	}
+}
+
+// GetCapabilityGrantStatus returns effective status only for the credential
+// making this request. Tenant, plugin identity, and API-key profile are always
+// derived from the authenticated request context.
+func (h *tenantHandler) GetCapabilityGrantStatus(c *gin.Context) {
+	if h == nil || h.grantStatus == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+	if !isGrantStatusServiceActor(c.Request.Context()) {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_FORBIDDEN"}), nil)
+		return
+	}
+	if hasGrantStatusIdentityOverride(c) {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_INVALID_ARGUMENT"}), nil)
+		return
+	}
+	var request capability_registrydto.GrantStatusRequest
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_INVALID_ARGUMENT"}), err)
+		return
+	}
+	items, err := h.grantStatus.CheckCurrentCredential(c.Request.Context(), request.CapabilityIDs)
+	if err != nil {
+		respondGrantStatusError(c, err)
+		return
+	}
+	response := capability_registrydto.GrantStatusResponse{Items: make([]capability_registrydto.GrantStatusItem, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, capability_registrydto.GrantStatusItem{CapabilityID: item.CapabilityID, Status: item.Status, ReasonCode: item.ReasonCode})
+	}
+	dto.ResponseSuccess(c, response)
+}
+
+func hasGrantStatusIdentityOverride(c *gin.Context) bool {
+	if c == nil {
+		return true
+	}
+	for _, key := range []string{"tenant_uuid", "plugin_id"} {
+		if _, exists := c.GetQuery(key); exists {
+			return true
+		}
+	}
+	return strings.TrimSpace(c.GetHeader("X-Tenant-UUID")) != "" || strings.TrimSpace(c.GetHeader("X-Plugin-ID")) != ""
+}
+
+func isGrantStatusServiceActor(ctx context.Context) bool {
+	claims := reqctx.GetClaims(ctx)
+	if claims == nil {
+		return false
+	}
+	if grantStatusContainsFold(claims.Platforms, "api_key") {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(claims.Issuer), "powerx-sts") &&
+		grantStatusContainsFold(claims.Audience, "powerx:api") &&
+		strings.TrimSpace(claims.PluginID) != ""
+}
+
+func grantStatusContainsFold(values []string, want string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), want) {
+			return true
+		}
+	}
+	return false
+}
+
+func respondGrantStatusError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, capservice.ErrGrantStatusUnauthorized):
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnauthorized.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_UNAUTHORIZED"}), err)
+	case errors.Is(err, capservice.ErrGrantStatusForbidden):
+		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_FORBIDDEN"}), err)
+	case errors.Is(err, capservice.ErrGrantStatusInvalid):
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_INVALID_ARGUMENT"}), err)
+	default:
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_UPSTREAM_DEPENDENCY"}), err)
 	}
 }
 
@@ -342,7 +432,14 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	})
 	if err != nil {
 		template := selectInvokeErrorTemplate(err)
-		capability_registrydto.RespondError(c, template, err)
+		details := capservice.InvocationFailureDetails(err)
+		if traceID := strings.TrimSpace(req.TraceID); traceID != "" {
+			if details == nil {
+				details = map[string]interface{}{}
+			}
+			details["trace_id"] = traceID
+		}
+		capability_registrydto.RespondError(c, template, err, details)
 		return
 	}
 
@@ -735,11 +832,19 @@ func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):
 		return capability_registrydto.ErrNotFound.WithHint("capability not found or not published for tenant")
 	case errors.Is(err, capservice.ErrSelectorCapabilityForbidden):
-		return capability_registrydto.ErrCapabilityForbidden
+		return capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_FORBIDDEN"})
 	case errors.Is(err, capservice.ErrSelectorTenantRequired):
 		return capability_registrydto.ErrTenantUUIDMissing
 	case errors.Is(err, capservice.ErrSelectorSafeModeActive):
 		return capability_registrydto.ErrSafeModeActive
+	case errors.Is(err, customerrepo.ErrExternalIdentityRequired), errors.Is(err, customerrepo.ErrExternalIdentityDisplayNameRequired):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_INVALID"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityServiceActorInvalid):
+		return capability_registrydto.ErrUnauthorized.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_SERVICE_ACTOR_INVALID"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityBindingUntrusted):
+		return capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_BINDING_UNTRUSTED"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityUnavailable):
+		return capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_UNAVAILABLE"})
 	case errors.Is(err, capservice.ErrSelectorToolGrantRequired):
 		return capability_registrydto.ErrToolGrantMissing
 	case errors.Is(err, capservice.ErrSelectorFeatureFlagMissing):

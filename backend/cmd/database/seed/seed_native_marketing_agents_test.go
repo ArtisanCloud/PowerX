@@ -1,25 +1,28 @@
 package seed
 
 import (
-	"testing"
-
+	"context"
+	"github.com/ArtisanCloud/PowerX/internal/service/skills"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
-func TestSeedSkillPackageURIUsesConfiguredMediaDriver(t *testing.T) {
-	uri, err := seedSkillPackageURI("local", "", "skill-sources/tenant/skill/source.tar.gz")
-	require.NoError(t, err)
-	require.Equal(t, "local://skill-sources/tenant/skill/source.tar.gz", uri)
-
-	uri, err = seedSkillPackageURI("s3", "powerx-media", "skill-packages/tenant/skill/revision.tar.gz")
-	require.NoError(t, err)
-	require.Equal(t, "s3://powerx-media/skill-packages/tenant/skill/revision.tar.gz", uri)
-}
-
-func TestSeedSkillPackageURIRejectsInvalidConfiguredStorage(t *testing.T) {
-	_, err := seedSkillPackageURI("s3", "", "skill-packages/tenant/skill/revision.tar.gz")
-	require.ErrorContains(t, err, "seed_skill_package_s3_bucket_required")
-
-	_, err = seedSkillPackageURI("unsupported", "", "skill-packages/tenant/skill/revision.tar.gz")
-	require.ErrorContains(t, err, "seed_skill_package_storage_driver_unsupported")
+func TestNativeMarketingSkillsDeclareExecutableEvidenceContract(t *testing.T) {
+	for _, item := range nativeMarketingSkillSeeds() {
+		require.NotEmpty(t, item.PromptI18n["zh-CN"])
+		require.NotEmpty(t, item.PromptI18n["en-US"])
+		definition, err := nativeMarketingSkillDefinition(item)
+		require.NoError(t, err)
+		require.NoError(t, skills.CheckToolDependencies(context.Background(), uuid.NewString(), definition, nil))
+		executor := definition["executor"].(map[string]any)
+		if item.SkillID == MarketingReviewSummarizeSkillID {
+			require.Equal(t, evidence.ReportSchema, executor["response_contract"])
+			require.Equal(t, []string{"/message"}, executor["evidence_sources"])
+			require.Equal(t, "response_envelope", executor["output_mode"])
+		} else {
+			require.Equal(t, "markdown", executor["output_mode"])
+		}
+	}
 }

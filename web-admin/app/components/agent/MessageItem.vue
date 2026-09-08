@@ -53,6 +53,7 @@ const canRegenerateFromThisUserMessage = computed(() => {
 const normalizedRawContent = computed(() => {
 	const envelope = (props.message as any)?.meta?.responseEnvelope ?? (props.message as any)?.metadata?.response_envelope;
 	if (isAgentResponseEnvelope(envelope)) return renderAgentResponseEnvelope(envelope, t);
+	if (envelope) return t('agent.response.contractUpgradeRequired');
 	const c = (props.message as any)?.content;
   if (typeof c === "string") return c;
   // ✅ 单对象（MessageContent）

@@ -44,6 +44,10 @@ var (
 	ErrContentSHA256Invalid = errors.New("content_sha256 must be 64 hex characters")
 	// ErrContentSHA256Required 表示上传类资产必须提供内容哈希。
 	ErrContentSHA256Required = errors.New("content_sha256 is required for direct_upload and presign_upload")
+	// ErrUploadValidationFailed 表示存储端真实对象与创建资产时的上传约束不一致。
+	ErrUploadValidationFailed = errors.New("media upload validation failed")
+	// ErrUploadTicketExpired 表示上传票据已失效，不能再完成上传。
+	ErrUploadTicketExpired = errors.New("media upload ticket expired")
 )
 
 // UploadMethod 定义媒体上传方式。
@@ -73,6 +77,7 @@ type assetRepository interface {
 	HardDeleteByUUID(ctx context.Context, tenantUUID string, uuid string) error
 	FindByUUIDGlobal(ctx context.Context, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
 	FindVariant(ctx context.Context, tenantUUID, assetUUID, variant string) (*mediamodel.MediaAssetVariant, error)
+	FindVariantByUUID(ctx context.Context, tenantUUID, variantUUID string) (*mediamodel.MediaAssetVariant, error)
 	FindVariantByStorageKey(ctx context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error)
 	CreateVariant(ctx context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error)
 	UpdateVariant(ctx context.Context, variant *mediamodel.MediaAssetVariant) (*mediamodel.MediaAssetVariant, error)
@@ -176,24 +181,25 @@ func (s *MediaService) CanAccessPublicResource(asset *Asset, expStr, token strin
 
 // CreateAssetInput 定义创建媒体资产所需参数。
 type CreateAssetInput struct {
-	TenantUUID    string
-	OperatorID    *uint64
-	Name          string
-	Description   string
-	Driver        string
-	Bucket        string
-	BaseURL       string
-	Folder        string
-	StorageKey    string
-	SizeBytes     int64
-	MimeType      string
-	OwnerType     string
-	OwnerID       string
-	Tags          []string
-	UploadMethod  UploadMethod
-	ExternalURL   string
-	ContentSHA256 string
-	Metadata      map[string]any
+	TenantUUID       string
+	OperatorID       *uint64
+	Name             string
+	Description      string
+	Driver           string
+	Bucket           string
+	BaseURL          string
+	Folder           string
+	StorageKey       string
+	SizeBytes        int64
+	MimeType         string
+	OwnerType        string
+	OwnerID          string
+	OwnerSubjectUUID string
+	Tags             []string
+	UploadMethod     UploadMethod
+	ExternalURL      string
+	ContentSHA256    string
+	Metadata         map[string]any
 }
 
 // UpdateAssetInput 定义更新媒体资产所需参数。
@@ -215,6 +221,15 @@ type DeleteAssetInput struct {
 	OperatorID *uint64
 }
 
+// CompleteAssetUploadInput 定义预签名上传完成时由 Core 复核的声明值。
+// Checksum 必须是对象实际 SHA-256；Core 不信任客户端提交的 size 或 MIME。
+type CompleteAssetUploadInput struct {
+	TenantUUID string
+	UUID       string
+	OperatorID *uint64
+	Checksum   string
+}
+
 // PresignAssetInput 定义生成预签名链接所需参数。
 type PresignAssetInput struct {
 	TenantUUID  string
@@ -226,6 +241,107 @@ type PresignAssetInput struct {
 	TTL         time.Duration
 	Headers     http.Header
 	ContentType string
+}
+
+// HostTransferTicket is a revocable Core-mediated transfer credential. It is
+// intentionally not an object-storage presign URL: each use checks the asset
+// ticket version and state, so DeleteAsset invalidates it immediately.
+type HostTransferTicket struct {
+	AssetUUID string
+	Action    string
+	ExpiresAt time.Time
+	Version   uint64
+	Token     string
+}
+
+func (s *MediaService) IssueHostTransferTicket(ctx context.Context, tenantUUID, assetUUID, action string, ttl time.Duration) (*HostTransferTicket, error) {
+	action = strings.ToLower(strings.TrimSpace(action))
+	if action != "upload" && action != "download" {
+		return nil, ErrInvalidUploadMethod
+	}
+	entity, err := s.repo.FindByUUID(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(assetUUID), false)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrAssetNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if action == "upload" && entity.UploadState != mediamodel.UploadStatePending {
+		return nil, ErrInvalidStatusTransition
+	}
+	if action == "download" && entity.UploadState != mediamodel.UploadStateReady {
+		return nil, ErrInvalidStatusTransition
+	}
+	if action == "upload" && (entity.UploadExpiresAt == nil || !time.Now().Before(*entity.UploadExpiresAt)) {
+		return nil, ErrUploadTicketExpired
+	}
+	if len(s.publicResourceTokenSecret) == 0 {
+		return nil, fmt.Errorf("media transfer ticket secret is not configured")
+	}
+	if ttl < time.Minute || ttl > time.Hour {
+		return nil, ErrInvalidStatusTransition
+	}
+	expiresAt := time.Now().Add(ttl).UTC()
+	payload := fmt.Sprintf("%s\n%s\n%d\n%d", entity.UUID.String(), action, entity.UploadTicketVersion, expiresAt.Unix())
+	mac := hmac.New(sha256.New, s.publicResourceTokenSecret)
+	mac.Write([]byte(payload))
+	return &HostTransferTicket{AssetUUID: entity.UUID.String(), Action: action, ExpiresAt: expiresAt, Version: entity.UploadTicketVersion, Token: hex.EncodeToString(mac.Sum(nil))}, nil
+}
+
+// AuthorizeHostTransfer validates an opaque ticket against current persisted
+// state. It deliberately looks up by UUID globally only after HMAC validation;
+// the ticket does not reveal a tenant identifier.
+func (s *MediaService) AuthorizeHostTransfer(ctx context.Context, assetUUID, action, expRaw, versionRaw, token string) (*Asset, error) {
+	id, err := uuid.Parse(strings.TrimSpace(assetUUID))
+	if err != nil {
+		return nil, ErrAssetNotFound
+	}
+	action = strings.ToLower(strings.TrimSpace(action))
+	if action != "upload" && action != "download" {
+		return nil, ErrInvalidUploadMethod
+	}
+	exp, err := strconv.ParseInt(strings.TrimSpace(expRaw), 10, 64)
+	if err != nil || time.Now().Unix() > exp {
+		return nil, ErrUploadTicketExpired
+	}
+	version, err := strconv.ParseUint(strings.TrimSpace(versionRaw), 10, 64)
+	if err != nil {
+		return nil, ErrUploadTicketExpired
+	}
+	if len(s.publicResourceTokenSecret) == 0 {
+		return nil, ErrUploadTicketExpired
+	}
+	payload := fmt.Sprintf("%s\n%s\n%d\n%d", id.String(), action, version, exp)
+	mac := hmac.New(sha256.New, s.publicResourceTokenSecret)
+	mac.Write([]byte(payload))
+	if !hmac.Equal([]byte(hex.EncodeToString(mac.Sum(nil))), []byte(strings.TrimSpace(token))) {
+		return nil, ErrUploadTicketExpired
+	}
+	entity, err := s.repo.FindByUUIDGlobal(ctx, id.String(), false)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrAssetNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if entity.UploadTicketVersion != version {
+		return nil, ErrUploadTicketExpired
+	}
+	if action == "upload" && (entity.UploadState != mediamodel.UploadStatePending || entity.UploadExpiresAt == nil || !time.Now().Before(*entity.UploadExpiresAt)) {
+		return nil, ErrUploadTicketExpired
+	}
+	if action == "download" && entity.UploadState != mediamodel.UploadStateReady {
+		return nil, ErrAssetNotFound
+	}
+	return toAsset(entity), nil
+}
+
+func (s *MediaService) PutHostTransfer(ctx context.Context, asset *Asset, body io.Reader, size int64, contentType string) error {
+	if s == nil || s.manager == nil || asset == nil || body == nil || size != asset.SizeBytes || strings.TrimSpace(contentType) != strings.TrimSpace(asset.MimeType) {
+		return ErrUploadValidationFailed
+	}
+	_, err := s.manager.Put(ctx, asset.Driver, driver.PutObjectInput{Bucket: asset.Bucket, ObjectKey: asset.StorageKey, Body: body, Size: size, ContentType: contentType, Overwrite: true})
+	return err
 }
 
 // CreateAssetVariantInput 定义创建媒体资产资源版本所需参数。
@@ -246,47 +362,50 @@ type CreateAssetVariantInput struct {
 
 // ListAssetsInput 定义分页查询参数。
 type ListAssetsInput struct {
-	TenantUUID     string
-	UUIDs          []string
-	Drivers        []string
-	OwnerType      string
-	OwnerID        string
-	BusinessStatus []string
-	Keyword        string
-	TagsAll        []string
-	IncludeDeleted bool
-	OnlyDeleted    bool
-	Page           int
-	PageSize       int
-	OrderBy        string
+	TenantUUID       string
+	UUIDs            []string
+	Drivers          []string
+	OwnerType        string
+	OwnerID          string
+	OwnerSubjectUUID string
+	BusinessStatus   []string
+	Keyword          string
+	TagsAll          []string
+	IncludeDeleted   bool
+	OnlyDeleted      bool
+	Page             int
+	PageSize         int
+	OrderBy          string
 }
 
 // Asset 为对外视图。
 type Asset struct {
-	UUID           string
-	TenantUUID     string
-	Name           string
-	Description    string
-	Driver         string
-	Folder         string
-	StorageKey     string
-	Bucket         string
-	BaseURL        string
-	SizeBytes      int64
-	MimeType       string
-	OwnerType      string
-	OwnerID        string
-	Tags           []string
-	BusinessStatus string
-	ExternalURL    string
-	DownloadURL    string
-	DownloadExpiry *time.Time
-	Metadata       map[string]any
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	CreatedBy      *uint64
-	UpdatedBy      *uint64
-	Deleted        bool
+	UUID             string
+	TenantUUID       string
+	Name             string
+	Description      string
+	Driver           string
+	Folder           string
+	StorageKey       string
+	Bucket           string
+	BaseURL          string
+	SizeBytes        int64
+	MimeType         string
+	OwnerType        string
+	OwnerID          string
+	OwnerSubjectUUID string
+	Tags             []string
+	BusinessStatus   string
+	UploadState      string
+	ExternalURL      string
+	DownloadURL      string
+	DownloadExpiry   *time.Time
+	Metadata         map[string]any
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	CreatedBy        *uint64
+	UpdatedBy        *uint64
+	Deleted          bool
 }
 
 // AssetVariant 为媒体资产的资源版本视图。
@@ -426,6 +545,13 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 	if ttlSeconds <= 0 {
 		ttlSeconds = int32((12 * time.Hour) / time.Second)
 	}
+	uploadState := mediamodel.UploadStateReady
+	var uploadExpiresAt *time.Time
+	if method == UploadMethodPresign {
+		uploadState = mediamodel.UploadStatePending
+		expiresAt := time.Now().Add(s.defaultTTL)
+		uploadExpiresAt = &expiresAt
+	}
 
 	asset := &mediamodel.MediaAsset{
 		PowerUUIDModel:          coremodel.PowerUUIDModel{UUID: assetUUID},
@@ -439,7 +565,11 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		MimeType:                strings.TrimSpace(in.MimeType),
 		OwnerType:               strings.TrimSpace(in.OwnerType),
 		OwnerID:                 strings.TrimSpace(in.OwnerID),
+		OwnerSubjectUUID:        strings.TrimSpace(in.OwnerSubjectUUID),
 		BusinessStatus:          coremodel.MediaAssetStatusDraft,
+		UploadState:             uploadState,
+		ExpectedChecksum:        contentSHA256,
+		UploadExpiresAt:         uploadExpiresAt,
 		Tags:                    datatypes.JSON(tagsJSON),
 		Meta:                    datatypes.JSON(metaJSON),
 		LastPresignedTTLSeconds: ttlSeconds,
@@ -620,7 +750,23 @@ func (s *MediaService) UpdateAsset(ctx context.Context, in UpdateAssetInput) (*A
 // DeleteAsset 执行软删除。
 func (s *MediaService) DeleteAsset(ctx context.Context, in DeleteAssetInput) error {
 	tenantUUID := strings.TrimSpace(in.TenantUUID)
-	err := s.repo.SoftDeleteByUUID(ctx, tenantUUID, in.UUID, in.OperatorID)
+	entity, err := s.repo.FindByUUID(ctx, tenantUUID, in.UUID, false)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrAssetNotFound
+		}
+		return err
+	}
+	entity.UploadState = mediamodel.UploadStateDeleted
+	entity.UploadTicketVersion++
+	entity.UploadExpiresAt = nil
+	if in.OperatorID != nil {
+		entity.UpdatedBy = in.OperatorID
+	}
+	if _, err = s.repo.UpdateAsset(ctx, entity); err != nil {
+		return err
+	}
+	err = s.repo.SoftDeleteByUUID(ctx, tenantUUID, in.UUID, in.OperatorID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrAssetNotFound
@@ -629,6 +775,79 @@ func (s *MediaService) DeleteAsset(ctx context.Context, in DeleteAssetInput) err
 	}
 	s.emitAudit(ctx, tenantUUID, "media.asset.delete", in.UUID, in.OperatorID, nil)
 	return nil
+}
+
+// CompleteAssetUpload 在服务端读取真实对象并校验后推进上传状态。
+// 仅由 Core 创建且尚未过期的 pending_upload 资产允许完成。
+func (s *MediaService) CompleteAssetUpload(ctx context.Context, in CompleteAssetUploadInput) (*Asset, error) {
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	assetUUID := strings.TrimSpace(in.UUID)
+	if tenantUUID == "" || assetUUID == "" || s.manager == nil {
+		return nil, fmt.Errorf("tenant uuid, asset uuid and media manager required")
+	}
+	checksum, err := contentSHA256FromMetadata(map[string]any{"content_sha256": in.Checksum})
+	if err != nil || checksum == "" {
+		return nil, ErrUploadValidationFailed
+	}
+	entity, err := s.repo.FindByUUID(ctx, tenantUUID, assetUUID, false)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAssetNotFound
+		}
+		return nil, err
+	}
+	if entity.UploadState != mediamodel.UploadStatePending {
+		return nil, ErrInvalidStatusTransition
+	}
+	if entity.UploadExpiresAt == nil || !time.Now().Before(*entity.UploadExpiresAt) {
+		return nil, ErrUploadTicketExpired
+	}
+
+	stat, err := s.manager.Stat(ctx, entity.Driver, driver.StatObjectInput{Bucket: entity.Bucket, ObjectKey: entity.StorageKey})
+	if err != nil {
+		return nil, err
+	}
+	object, err := s.manager.Get(ctx, entity.Driver, driver.GetObjectInput{Bucket: entity.Bucket, ObjectKey: entity.StorageKey})
+	if err != nil {
+		return nil, err
+	}
+	defer object.Body.Close()
+	hash := sha256.New()
+	if _, err = io.Copy(hash, object.Body); err != nil {
+		return nil, err
+	}
+	actualChecksum := hex.EncodeToString(hash.Sum(nil))
+	valid := stat.Size == entity.SizeBytes &&
+		strings.EqualFold(strings.TrimSpace(stat.ContentType), strings.TrimSpace(entity.MimeType)) &&
+		strings.EqualFold(actualChecksum, checksum) &&
+		strings.EqualFold(actualChecksum, entity.ExpectedChecksum)
+	if !valid {
+		entity.UploadState = mediamodel.UploadStateFailed
+		entity.UploadTicketVersion++
+		entity.UploadExpiresAt = nil
+		if in.OperatorID != nil {
+			entity.UpdatedBy = in.OperatorID
+		}
+		_, _ = s.repo.UpdateAsset(ctx, entity)
+		return nil, ErrUploadValidationFailed
+	}
+
+	entity.UploadState = mediamodel.UploadStateUploaded
+	if in.OperatorID != nil {
+		entity.UpdatedBy = in.OperatorID
+	}
+	if _, err = s.repo.UpdateAsset(ctx, entity); err != nil {
+		return nil, err
+	}
+	entity.UploadState = mediamodel.UploadStateReady
+	entity.UploadExpiresAt = nil
+	entity.UploadTicketVersion++
+	updated, err := s.repo.UpdateAsset(ctx, entity)
+	if err != nil {
+		return nil, err
+	}
+	s.emitAudit(ctx, tenantUUID, "media.asset.complete_upload", assetUUID, in.OperatorID, map[string]any{"size_bytes": stat.Size})
+	return toAsset(updated), nil
 }
 
 // PurgeAsset 永久删除媒体资产及其所有资源版本，并释放底层存储对象。
@@ -862,6 +1081,21 @@ func (s *MediaService) ListAssetVariants(ctx context.Context, tenantUUID, assetU
 		out = append(out, *view)
 	}
 	return out, nil
+}
+
+// GetAssetVariantByUUID resolves an addressable variant under the caller tenant.
+func (s *MediaService) GetAssetVariantByUUID(ctx context.Context, tenantUUID, variantUUID string) (*AssetVariant, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("media repository not configured")
+	}
+	entity, err := s.repo.FindVariantByUUID(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(variantUUID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAssetNotFound
+		}
+		return nil, err
+	}
+	return toAssetVariant(entity), nil
 }
 
 // PresignAssetVariant 生成指定资源版本的上传/下载链接。
@@ -1142,30 +1376,32 @@ func toAsset(entity *mediamodel.MediaAsset) *Asset {
 	}
 
 	return &Asset{
-		UUID:           entity.UUID.String(),
-		TenantUUID:     entity.TenantUUID,
-		Name:           entity.Name,
-		Description:    description,
-		Driver:         entity.Driver,
-		Folder:         folder,
-		StorageKey:     entity.StorageKey,
-		Bucket:         entity.Bucket,
-		BaseURL:        entity.BaseURL,
-		SizeBytes:      entity.SizeBytes,
-		MimeType:       entity.MimeType,
-		OwnerType:      entity.OwnerType,
-		OwnerID:        entity.OwnerID,
-		Tags:           tags,
-		BusinessStatus: entity.BusinessStatus,
-		ExternalURL:    externalURL,
-		DownloadURL:    downloadURL,
-		DownloadExpiry: downloadExpiry,
-		Metadata:       cloneMetadata(meta),
-		CreatedAt:      entity.CreatedAt,
-		UpdatedAt:      entity.UpdatedAt,
-		CreatedBy:      entity.CreatedBy,
-		UpdatedBy:      entity.UpdatedBy,
-		Deleted:        entity.DeletedAt.Valid,
+		UUID:             entity.UUID.String(),
+		TenantUUID:       entity.TenantUUID,
+		Name:             entity.Name,
+		Description:      description,
+		Driver:           entity.Driver,
+		Folder:           folder,
+		StorageKey:       entity.StorageKey,
+		Bucket:           entity.Bucket,
+		BaseURL:          entity.BaseURL,
+		SizeBytes:        entity.SizeBytes,
+		MimeType:         entity.MimeType,
+		OwnerType:        entity.OwnerType,
+		OwnerID:          entity.OwnerID,
+		OwnerSubjectUUID: entity.OwnerSubjectUUID,
+		Tags:             tags,
+		BusinessStatus:   entity.BusinessStatus,
+		UploadState:      entity.UploadState,
+		ExternalURL:      externalURL,
+		DownloadURL:      downloadURL,
+		DownloadExpiry:   downloadExpiry,
+		Metadata:         cloneMetadata(meta),
+		CreatedAt:        entity.CreatedAt,
+		UpdatedAt:        entity.UpdatedAt,
+		CreatedBy:        entity.CreatedBy,
+		UpdatedBy:        entity.UpdatedBy,
+		Deleted:          entity.DeletedAt.Valid,
 	}
 }
 

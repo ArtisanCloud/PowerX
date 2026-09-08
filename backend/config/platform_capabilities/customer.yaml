@@ -1,6 +1,105 @@
 ---
 version: 1
 capabilities:
+- capability_id: com.corex.customer.memberships.delegated_read
+  module: customer
+  title: Customer Membership Delegated Read
+  description: Read only the current customer membership proven by a Core customer JWT and an authorized plugin STS actor.
+  permission_code: corex.customer.memberships.delegated_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.memberships.delegated_read]
+  tool_scopes: [customer.memberships.delegated_read]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/memberships:resolve"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1customer~1memberships:resolve/post
+    auth_type: sts_and_customer_jwt
+    actor_context: service_actor
+    resource_scope: customer_self
+    sts_direct: true
+    tool_scope: customer.memberships.delegated_read
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/memberships"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1customer~1memberships/get
+    auth_type: sts_and_customer_jwt
+    actor_context: service_actor
+    resource_scope: customer_self
+    sts_direct: true
+    tool_scope: customer.memberships.delegated_read
+  title_i18n: {en: Customer Membership Delegated Read, zh-CN: 客户成员关系委托读取}
+  description_i18n: {en: Read the membership of only the customer proven by the delegated customer credential., zh-CN: 仅读取由委托客户凭证证明的当前客户成员关系。}
+- capability_id: com.corex.customer.auth.validate
+  module: customer
+  title: Customer Auth Validate
+  description: Validate the current Core customer JWT with an authorized plugin service actor and return only the current membership context.
+  permission_code: corex.customer.auth:validate
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.auth.validate]
+  tool_scopes: [customer.auth.validate]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/auth/validate"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1customer~1auth~1validate/post
+    auth_type: sts_and_customer_jwt
+    actor_context: service_actor
+    resource_scope: customer_self
+    sts_direct: true
+    tool_scope: customer.auth.validate
+  title_i18n: {en: Customer Auth Validate, zh-CN: 客户认证校验}
+  description_i18n: {en: Validate the current customer credential without accepting a customer identifier in the request., zh-CN: 校验当前客户凭证，不接受请求中指定客户标识。}
+- capability_id: com.corex.customer.auth.register
+  title_i18n: {en: Customer Registration, zh-CN: 客户注册}
+  description_i18n: {en: Verify the storefront credential in Core and register the tenant customer identity., zh-CN: 由底座验证店铺凭证并注册当前租户的客户身份。}
+  module: customer
+  title: Customer Auth Register
+  description: Verify a Shopify Storefront customer access token in Core and register its Core customer identity for the current tenant.
+  permission_code: corex.customer.auth:register
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.auth.register]
+  tool_scopes: [customer.auth.register]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/auth/register"
+    method: POST
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: customer.auth.register
+- capability_id: com.corex.customer.auth.login
+  title_i18n: {en: Customer Login, zh-CN: 客户登录}
+  description_i18n: {en: Verify the storefront credential and issue a token for an existing tenant customer., zh-CN: 验证店铺凭证并为当前租户的已有客户签发令牌。}
+  module: customer
+  title: Customer Auth Login
+  description: Verify a Shopify Storefront customer access token in Core and issue a Core customer JWT for an existing tenant identity.
+  permission_code: corex.customer.auth:login
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.auth.login]
+  tool_scopes: [customer.auth.login]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/auth/login"
+    method: POST
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: customer.auth.login
 - capability_id: com.corex.customer.accounts.admin_manage
   module: customer
   title: Customer Accounts Admin Management
@@ -60,5 +159,38 @@ capabilities:
     tool_scope: customer.accounts.admin_manage
   title_i18n:
     en: Customer Accounts Admin Management
+    zh-CN: 客户账户后台管理
   description_i18n:
     en: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.
+    zh-CN: 在后台管理租户客户账户，包括概览、列表、创建和状态更新。
+- capability_id: com.corex.customer.external_identities.resolve
+  module: customer
+  title: Customer External Identity Resolve
+  description: Resolve a plugin-attested external customer subject into the current tenant without exposing admin customer routes. The same plugin provider subject maps to one global Customer and tenant-scoped memberships.
+  permission_code: corex.customer.external_identities.resolve
+  agent_usable: false
+  risk_level: high
+  categories:
+  - customer
+  - identity
+  intents:
+  - customer.external_identities.resolve
+  tool_scopes:
+  - customer.external_identities.resolve
+  policy:
+    prefer: core_internal
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/external-identities/resolve
+    method: INVOKE
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.external_identities.resolve
+  title_i18n:
+    en: Customer External Identity Resolve
+    zh-CN: 客户外部身份解析
+  description_i18n:
+    en: Resolve a plugin-attested external customer subject into the current tenant without exposing admin customer routes. The same plugin provider subject maps to one global Customer and tenant-scoped memberships.
+    zh-CN: 将插件声明的外部客户主体解析到当前租户，不开放后台客户管理路由。同一插件主体会映射为同一个全局客户，并建立租户范围的成员关系。

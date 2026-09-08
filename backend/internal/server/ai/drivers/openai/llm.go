@@ -122,10 +122,16 @@ func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 		MaxTokens:   mc.MaxTokens,
 		Stream:      streaming,
 	}
-	// 如需 JSON mode，可按你配置补上（示例）：
-	// if mc.JSONMode {
-	// 	req.ResponseFmt = map[string]any{"type": "json_object"}
-	// }
+	if len(mc.ResponseSchema) > 0 {
+		req.ResponseFmt = map[string]any{
+			"type": "json_schema",
+			"json_schema": map[string]any{
+				"name":   "powerx_skill_response",
+				"strict": true,
+				"schema": mc.ResponseSchema,
+			},
+		}
+	}
 
 	// 合并 Extra
 	if len(mc.Extra) > 0 {

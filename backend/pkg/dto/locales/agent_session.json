@@ -1,0 +1,22 @@
+{
+  "zh-CN": {
+    "AGENT_SESSION_INVALID_ARGUMENT": "会话请求参数不符合接口要求，请检查后重试。",
+    "AGENT_SESSION_UNAUTHORIZED": "需要有效的插件服务凭证。",
+    "AGENT_SESSION_FORBIDDEN": "当前插件未获授权执行此会话操作。",
+    "AGENT_SESSION_NOT_FOUND": "会话或会话资源不存在。",
+    "AGENT_SESSION_CONFLICT": "会话状态或重复请求发生冲突，请检查当前状态。",
+    "AGENT_SESSION_IDEMPOTENCY_EXPIRED": "请求幂等键已过期，请确认执行结果后使用新键。",
+    "AGENT_SESSION_CONTEXT_EXPIRED": "会话待处理状态已过期，请创建新会话后重新提交。",
+    "AGENT_SESSION_UPSTREAM_DEPENDENCY": "会话服务依赖暂时不可用。"
+  },
+  "en-US": {
+    "AGENT_SESSION_INVALID_ARGUMENT": "The session request does not match the API contract.",
+    "AGENT_SESSION_UNAUTHORIZED": "A valid plugin service credential is required.",
+    "AGENT_SESSION_FORBIDDEN": "This plugin is not authorized for the session operation.",
+    "AGENT_SESSION_NOT_FOUND": "The session or session resource was not found.",
+    "AGENT_SESSION_CONFLICT": "The session state or repeated request conflicts with the current operation.",
+    "AGENT_SESSION_IDEMPOTENCY_EXPIRED": "The idempotency key has expired. Check the execution outcome before using a new key.",
+    "AGENT_SESSION_CONTEXT_EXPIRED": "The pending session state has expired. Create a new session before resubmitting.",
+    "AGENT_SESSION_UPSTREAM_DEPENDENCY": "A session service dependency is unavailable."
+  }
+}

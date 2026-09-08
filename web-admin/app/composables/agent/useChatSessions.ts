@@ -4,6 +4,7 @@ import { useAgentSessionStore } from "~/stores/agentSession";
 import { useMessageStore } from "~/stores/message";
 import { useI18n } from "vue-i18n";
 import { useEnvStore } from "~/stores/envStore";
+import { normalizeHistoryMessageMeta } from "~/utils/agent/historyMessageMeta";
 
 // 后端会话数据结构
 interface SessionDTO {
@@ -135,17 +136,11 @@ export function useChatSessions(opts: { pageSize?: number } = {}) {
    * 将后端消息数据转换为前端格式
    */
   function mapMessageDTO(dto: MessageDTO): ChatMessage {
-    const meta = {
+    const meta = normalizeHistoryMessageMeta({
       ...(dto.meta || {}),
       session_id: (dto as any).sessionId ?? (dto as any).session_id,
       agent_id: (dto as any).agentId ?? (dto as any).agent_id,
-    };
-    if ((meta as any).run_state && !(meta as any).runState) {
-      (meta as any).runState = (meta as any).run_state;
-    }
-    if ((meta as any).pending_task && !(meta as any).pendingTask) {
-      (meta as any).pendingTask = (meta as any).pending_task;
-    }
+    });
     return {
       id: dto.id,
       role: dto.role,

@@ -1,6 +1,7 @@
 package plugin_release
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"strconv"
@@ -28,6 +29,8 @@ type createOfflinePackageRequest struct {
 	PackageURI           string         `json:"packageUri"`
 	Checksum             string         `json:"checksum" binding:"required"`
 	SignatureFingerprint string         `json:"signatureFingerprint"`
+	SigningKeyID         string         `json:"signingKeyId" binding:"required"`
+	ArtifactBase64       string         `json:"artifactBase64" binding:"required"`
 	Dependencies         []string       `json:"dependencies"`
 	LicenseReport        map[string]any `json:"licenseReport"`
 }
@@ -52,11 +55,18 @@ func (h *distributionHandler) createOfflinePackage(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid releaseCandidateId", err)
 		return
 	}
+	artifact, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(req.ArtifactBase64))
+	if err != nil || len(artifact) == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid artifactBase64", err)
+		return
+	}
 	pkg, err := h.svc.StoreOfflinePackage(c.Request.Context(), distribution.StoreOfflinePackageInput{
 		CandidateID:          candidateUUID,
 		PackageURI:           strings.TrimSpace(req.PackageURI),
+		Content:              artifact,
 		Checksum:             req.Checksum,
 		SignatureFingerprint: req.SignatureFingerprint,
+		SigningKeyID:         strings.TrimSpace(req.SigningKeyID),
 		Dependencies:         req.Dependencies,
 		LicenseReport:        req.LicenseReport,
 		Actor:                actor,

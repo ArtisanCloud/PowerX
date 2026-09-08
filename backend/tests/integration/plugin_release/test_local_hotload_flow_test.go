@@ -3,8 +3,6 @@ package pluginreleaseintegration
 import (
 	"context"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -12,11 +10,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	plugsvc "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
-	httpopenapi "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/plugin_release"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -129,21 +127,23 @@ type pluginReleaseServer struct {
 func (s *pluginReleaseServer) StartLocalInstall(ctx context.Context, req *pluginreleasepb.StartLocalInstallRequest) (*pluginreleasepb.LocalInstallSession, error) {
 	tenantUUID := localTenantUUID
 	session, err := s.svc.LocalInstall().Start(ctx, local.StartInput{
-		TenantUUID:          tenantUUID,
-		DeveloperMemberUUID: "a4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
-		ArtifactURI:         req.GetArtifactUri(),
-		FeatureFlags:        req.GetFeatureFlags(),
-		ResetCache:          req.GetResetCache(),
+		TenantUUID:   tenantUUID,
+		PluginID:     "com.powerx.plugins.integration-test",
+		ServiceActor: "plugin:com.powerx.plugins.integration-test",
+		ArtifactURI:  req.GetArtifactUri(),
+		FeatureFlags: req.GetFeatureFlags(),
+		ResetCache:   req.GetResetCache(),
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	resp := &pluginreleasepb.LocalInstallSession{
-		SessionId:           session.UUID.String(),
-		TenantUuid:          tenantUUID,
-		DeveloperMemberUuid: session.DeveloperMemberUUID,
-		ArtifactUri:         session.ArtifactURI,
+		SessionId:    session.UUID.String(),
+		TenantUuid:   tenantUUID,
+		ArtifactUri:  session.ArtifactURI,
+		PluginId:     session.PluginID,
+		ServiceActor: session.ServiceActor,
 		FeatureFlags: func() []string {
 			flags := local.ExtractFeatureFlags(session.FeatureFlags)
 			if flags == nil {
@@ -197,25 +197,14 @@ func TestLocalHotloadFlow(t *testing.T) {
 	require.NotEmpty(t, startResp.GetSessionId())
 	require.Equal(t, models.LocalInstallStatusInProgress, startResp.GetStatus())
 
-	engine := gin.New()
-	group := engine.Group("/api")
-	httpopenapi.RegisterTenantRoutes(group, env.Deps)
-
-	getReq := httptest.NewRequest(http.MethodGet, "/api/tenant/plugin-release/local/sessions/"+startResp.GetSessionId(), nil)
-	getReq.Header.Set("Authorization", "Bearer admin")
-	getResp := httptest.NewRecorder()
-	engine.ServeHTTP(getResp, getReq)
-	require.Equal(t, http.StatusOK, getResp.Code)
-
-	req := httptest.NewRequest(
-		http.MethodDelete,
-		"/api/tenant/plugin-release/local/sessions/"+startResp.GetSessionId()+"?tenant_uuid="+localTenantUUID,
-		nil,
-	)
-	req.Header.Set("Authorization", "Bearer admin")
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusAccepted, resp.Code)
+	sessionUUID, err := uuid.Parse(startResp.GetSessionId())
+	require.NoError(t, err)
+	err = env.Service.LocalInstall().Stop(ctx, local.StopInput{
+		SessionID:  sessionUUID,
+		TenantUUID: localTenantUUID,
+		Actor:      "plugin:com.powerx.plugins.integration-test",
+	})
+	require.NoError(t, err)
 
 	var stored struct {
 		Status    string
@@ -230,9 +219,4 @@ func TestLocalHotloadFlow(t *testing.T) {
 	require.Equal(t, models.LocalInstallStatusSuccess, stored.Status)
 	require.NotEmpty(t, stored.ExpiredAt)
 
-	afterStopReq := httptest.NewRequest(http.MethodGet, "/api/tenant/plugin-release/local/sessions/"+startResp.GetSessionId(), nil)
-	afterStopReq.Header.Set("Authorization", "Bearer admin")
-	afterStopResp := httptest.NewRecorder()
-	engine.ServeHTTP(afterStopResp, afterStopReq)
-	require.Equal(t, http.StatusOK, afterStopResp.Code)
 }

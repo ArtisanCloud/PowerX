@@ -138,6 +138,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err != nil {
 		return err
 	}
+	if err = migration.EnsureIAMMemberActiveDisplayNameUniqueMigration(db); err != nil {
+		return err
+	}
 	if err = backfillIAMRoleUUID(db); err != nil {
 		return err
 	}
@@ -164,6 +167,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelSetting.TLSCertRef{},
 		&modelSetting.AuthProviderConfig{},
 		&modelSetting.PluginInstanceConfig{},
+		&modelSetting.PluginCapabilityApproval{},
 		&modelSetting.PluginDrainJob{},
 	)
 	if err != nil {
@@ -206,11 +210,11 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateWorkflowModels(db); err != nil {
 		return err
 	}
-
-	if err = migratePluginReleaseModels(db); err != nil {
+	if err = migration.EnsurePluginReleaseServiceActorMigration(db); err != nil {
 		return err
 	}
-	if err = migratePluginReleaseDeveloperMemberUUID(db); err != nil {
+
+	if err = migratePluginReleaseModels(db); err != nil {
 		return err
 	}
 	if err = migration.EnsurePluginReleaseCandidateUniqueIndex(db); err != nil {
@@ -255,6 +259,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateAgentA2AModels(db); err != nil {
 		return err
 	}
+	if err = migrateAgentServiceSessionModels(db); err != nil {
+		return err
+	}
 
 	if err = migration.CreatePluginReleaseStatusView(db); err != nil {
 		return err
@@ -275,7 +282,18 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 }
 
 func migrateMetadataModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	// Tag bindings used to be a pure composite-key association. It is now an
+	// addressable tenant object, so backfill its stable public UUID before GORM
+	// applies the non-null model constraint.
+	if db.Dialector != nil && strings.EqualFold(db.Dialector.Name(), "postgres") {
+		if err := db.Exec(`ALTER TABLE IF EXISTS "public"."metadata_tag_bindings" ADD COLUMN IF NOT EXISTS binding_uuid uuid`).Error; err != nil {
+			return err
+		}
+		if err := db.Exec(`UPDATE "public"."metadata_tag_bindings" SET binding_uuid = gen_random_uuid() WHERE binding_uuid IS NULL`).Error; err != nil {
+			return err
+		}
+	}
+	if err := db.AutoMigrate(
 		&modelMetadata.DictionaryNamespace{},
 		&modelMetadata.DictionaryItem{},
 		&modelMetadata.Taxonomy{},
@@ -284,7 +302,13 @@ func migrateMetadataModels(db *gorm.DB) error {
 		&modelMetadata.TagBinding{},
 		&modelMetadata.ResourceType{},
 		&modelMetadata.Reference{},
-	)
+	); err != nil {
+		return err
+	}
+	if db.Dialector != nil && strings.EqualFold(db.Dialector.Name(), "postgres") {
+		return db.Exec(`ALTER TABLE "public"."metadata_tag_bindings" ALTER COLUMN binding_uuid SET NOT NULL`).Error
+	}
+	return nil
 }
 
 func backfillIAMRoleUUID(db *gorm.DB) error {
@@ -509,6 +533,10 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 	)
 }
 
+func migrateAgentServiceSessionModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelAgent.ServiceSession{}, &modelAgent.ServiceMessage{}, &modelAgent.ServiceInvocation{})
+}
+
 func migrateAgentA2AModels(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("agent a2a database is required")
@@ -689,6 +717,8 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 		&modelKnowledge.DecayTask{},
 		&modelKnowledge.TenantReleasePolicy{},
 		&modelKnowledge.TenantReleaseBatch{},
+		&modelKnowledge.TenantDocument{},
+		&modelKnowledge.IndexJob{},
 	)
 }
 
@@ -698,6 +728,7 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.ReleasePlan{},
 		&modelPluginRelease.CanaryDeploymentRecord{},
 		&modelPluginRelease.OfflineDistributionPackage{},
+		&modelPluginRelease.SigningKey{},
 		&modelPluginRelease.MarketplaceListing{},
 		&modelPluginRelease.LocalInstallSession{},
 		&modelPluginRelease.PluginImportRun{},

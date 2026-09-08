@@ -32,21 +32,22 @@ const (
 
 // CoreXClaims 统一的业务 Claims
 type CoreXClaims struct {
-	Env        string   `json:"env,omitempty"`
-	Envs       []string `json:"envs,omitempty"`
-	TenantUUID string   `json:"tid"`
-	TenantID   uint64   `json:"tid_n"`
-	MemberUUID string   `json:"mid"` // 也会作为 Subject
-	MemberID   uint64   `json:"mid_n"`
-	UserUUID   string   `json:"uid"`
-	UserID     uint64   `json:"uid_n"`
-	Email      string   `json:"email,omitempty"`
-	Phone      string   `json:"phone,omitempty"`
-	IsRoot     bool     `json:"is_root"`
-	Roles      []string `json:"roles,omitempty"`
-	Platforms  []string `json:"plats,omitempty"`
-	Scope      string   `json:"scope"`
-	PluginID   string   `json:"plugin_id,omitempty"`
+	Env          string   `json:"env,omitempty"`
+	Envs         []string `json:"envs,omitempty"`
+	TenantUUID   string   `json:"tid"`
+	TenantID     uint64   `json:"tid_n"`
+	MemberUUID   string   `json:"mid"` // 也会作为 Subject
+	MemberID     uint64   `json:"mid_n"`
+	UserUUID     string   `json:"uid"`
+	UserID       uint64   `json:"uid_n"`
+	CustomerUUID string   `json:"cid,omitempty"`
+	Email        string   `json:"email,omitempty"`
+	Phone        string   `json:"phone,omitempty"`
+	IsRoot       bool     `json:"is_root"`
+	Roles        []string `json:"roles,omitempty"`
+	Platforms    []string `json:"plats,omitempty"`
+	Scope        string   `json:"scope"`
+	PluginID     string   `json:"plugin_id,omitempty"`
 
 	PermissionCodes []string `json:"permission_codes,omitempty"`
 	PolicyVersion   string   `json:"policy_version,omitempty"`

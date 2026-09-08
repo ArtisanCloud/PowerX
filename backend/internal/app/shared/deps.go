@@ -20,10 +20,12 @@ import (
 	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	agentruntime "github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
+	agentsession "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
@@ -185,11 +187,12 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 }
 
 type Deps struct {
-	DB           *gorm.DB
-	ctx          *context.Context
-	AuthUser     *authsvc.AuthService
-	AuthCustomer *authsvc.AuthService
-	MeService    *authsvc.MeService
+	AgentSessionSvc *agentsession.Service
+	DB              *gorm.DB
+	ctx             *context.Context
+	AuthUser        *authsvc.AuthService
+	AuthCustomer    *authsvc.AuthService
+	MeService       *authsvc.MeService
 
 	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
 
@@ -256,7 +259,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 	aiMultimodalHTTPTimeout := opts.CapabilityRegistry.AIMultimodalHTTPTimeout
 	if aiMultimodalHTTPTimeout <= 0 {
-		aiMultimodalHTTPTimeout = 5 * time.Minute
+		aiMultimodalHTTPTimeout = 5*time.Minute + 10*time.Second
 	}
 	authUser := authsvc.NewAuthService(db, opts.AuthUser)
 	authCustomer := authsvc.NewAuthService(db, opts.AuthCustomer)
@@ -816,6 +819,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
+		AgentSessionSvc:                   agentsession.NewServiceWithExecutor(db, agentruntime.NewServiceSessionExecutor(db)),
 		DB:                                db,
 		TenantSvc:                         tenantSvc,
 		AuthUser:                          authUser,

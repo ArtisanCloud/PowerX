@@ -2,10 +2,13 @@ package media
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -108,6 +111,17 @@ func (s *stubAssetRepo) FindVariant(_ context.Context, tenantUUID, assetUUID, va
 		return nil, gorm.ErrRecordNotFound
 	}
 	return cloneVariant(item), nil
+}
+
+func (s *stubAssetRepo) FindVariantByUUID(_ context.Context, tenantUUID, variantUUID string) (*mediamodel.MediaAssetVariant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, item := range s.variants {
+		if item.UUID.String() == variantUUID && (tenantUUID == "" || item.TenantUUID == tenantUUID) {
+			return cloneVariant(item), nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
 }
 
 func (s *stubAssetRepo) FindVariantByStorageKey(_ context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error) {
@@ -460,6 +474,31 @@ func TestDeleteAsset_EmitAudit(t *testing.T) {
 	assert.Equal(t, "media.asset.delete", ops[0])
 }
 
+func TestHostTransferTicketIsRevokedWhenAssetIsDeleted(t *testing.T) {
+	repo := newStubAssetRepo()
+	assetID := uuid.New()
+	now := time.Now().Add(10 * time.Minute)
+	repo.assets[assetID.String()] = &mediamodel.MediaAsset{
+		PowerUUIDModel:      coremodel.PowerUUIDModel{UUID: assetID},
+		TenantUUID:          mediaTenantUUID,
+		Name:                "asset",
+		Driver:              "local",
+		StorageKey:          assetID.String(),
+		UploadState:         mediamodel.UploadStatePending,
+		UploadTicketVersion: 1,
+		UploadExpiresAt:     &now,
+	}
+	svc := NewMediaService(nil, repo, nil, &stubAuditService{}, time.Hour)
+	svc.SetPublicResourceTokenSecret("test-transfer-secret")
+	ticket, err := svc.IssueHostTransferTicket(context.Background(), mediaTenantUUID, assetID.String(), "upload", time.Minute)
+	require.NoError(t, err)
+	_, err = svc.AuthorizeHostTransfer(context.Background(), assetID.String(), "upload", strconv.FormatInt(ticket.ExpiresAt.Unix(), 10), strconv.FormatUint(ticket.Version, 10), ticket.Token)
+	require.NoError(t, err)
+	require.NoError(t, svc.DeleteAsset(context.Background(), DeleteAssetInput{TenantUUID: mediaTenantUUID, UUID: assetID.String()}))
+	_, err = svc.AuthorizeHostTransfer(context.Background(), assetID.String(), "upload", strconv.FormatInt(ticket.ExpiresAt.Unix(), 10), strconv.FormatUint(ticket.Version, 10), ticket.Token)
+	require.ErrorIs(t, err, ErrAssetNotFound)
+}
+
 func TestPurgeAsset_RemovesObjectsAndRecords(t *testing.T) {
 	repo := newStubAssetRepo()
 	assetID := uuid.New().String()
@@ -572,6 +611,78 @@ func TestMediaService_OpenAssetResource_LocalObject(t *testing.T) {
 	assert.Equal(t, int64(4), object.Size)
 }
 
+func TestMediaService_CompleteAssetUploadVerifiesStorageObject(t *testing.T) {
+	repo := newStubAssetRepo()
+	assetID := uuid.New().String()
+	payload := "verified media payload"
+	digest := sha256.Sum256([]byte(payload))
+	checksum := hex.EncodeToString(digest[:])
+	expiresAt := time.Now().Add(time.Minute)
+	repo.assets[assetID] = &mediamodel.MediaAsset{
+		PowerUUIDModel:   coremodel.PowerUUIDModel{UUID: uuid.MustParse(assetID)},
+		TenantUUID:       mediaTenantUUID,
+		Driver:           "local",
+		StorageKey:       "assets/" + assetID,
+		SizeBytes:        int64(len(payload)),
+		MimeType:         "text/plain",
+		UploadState:      mediamodel.UploadStatePending,
+		ExpectedChecksum: checksum,
+		UploadExpiresAt:  &expiresAt,
+	}
+	manager := mediamgr.New("local")
+	manager.RegisterDriver(&stubStorageDriver{
+		name: "local",
+		statResult: &driver.StatObjectResult{
+			Size:        int64(len(payload)),
+			ContentType: "text/plain",
+		},
+		getResult: &driver.GetObjectResult{Body: io.NopCloser(strings.NewReader(payload))},
+	})
+	svc := NewMediaService(nil, repo, manager, &stubAuditService{}, time.Hour)
+
+	asset, err := svc.CompleteAssetUpload(context.Background(), CompleteAssetUploadInput{
+		TenantUUID: mediaTenantUUID,
+		UUID:       assetID,
+		Checksum:   checksum,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, assetID, asset.UUID)
+	assert.Equal(t, mediamodel.UploadStateReady, repo.assets[assetID].UploadState)
+	assert.Nil(t, repo.assets[assetID].UploadExpiresAt)
+}
+
+func TestMediaService_CompleteAssetUploadFailsOnChecksumMismatch(t *testing.T) {
+	repo := newStubAssetRepo()
+	assetID := uuid.New().String()
+	expiresAt := time.Now().Add(time.Minute)
+	repo.assets[assetID] = &mediamodel.MediaAsset{
+		PowerUUIDModel:   coremodel.PowerUUIDModel{UUID: uuid.MustParse(assetID)},
+		TenantUUID:       mediaTenantUUID,
+		Driver:           "local",
+		StorageKey:       "assets/" + assetID,
+		SizeBytes:        7,
+		MimeType:         "text/plain",
+		UploadState:      mediamodel.UploadStatePending,
+		ExpectedChecksum: strings.Repeat("a", 64),
+		UploadExpiresAt:  &expiresAt,
+	}
+	manager := mediamgr.New("local")
+	manager.RegisterDriver(&stubStorageDriver{
+		name:       "local",
+		statResult: &driver.StatObjectResult{Size: 7, ContentType: "text/plain"},
+		getResult:  &driver.GetObjectResult{Body: io.NopCloser(strings.NewReader("payload"))},
+	})
+	svc := NewMediaService(nil, repo, manager, &stubAuditService{}, time.Hour)
+
+	_, err := svc.CompleteAssetUpload(context.Background(), CompleteAssetUploadInput{
+		TenantUUID: mediaTenantUUID,
+		UUID:       assetID,
+		Checksum:   strings.Repeat("a", 64),
+	})
+	require.ErrorIs(t, err, ErrUploadValidationFailed)
+	assert.Equal(t, mediamodel.UploadStateFailed, repo.assets[assetID].UploadState)
+}
+
 func TestMediaService_OpenAssetResource_ExternalLink(t *testing.T) {
 	repo := newStubAssetRepo()
 	assetID := uuid.New().String()
@@ -649,6 +760,8 @@ type stubStorageDriver struct {
 	name        string
 	getResult   *driver.GetObjectResult
 	getErr      error
+	statResult  *driver.StatObjectResult
+	statErr     error
 	deleteErr   error
 	deletedKeys []string
 }
@@ -669,6 +782,13 @@ func (s *stubStorageDriver) Get(ctx context.Context, in driver.GetObjectInput) (
 		return nil, s.getErr
 	}
 	return s.getResult, s.getErr
+}
+
+func (s *stubStorageDriver) Stat(ctx context.Context, in driver.StatObjectInput) (*driver.StatObjectResult, error) {
+	if s.statResult == nil {
+		return nil, s.statErr
+	}
+	return s.statResult, s.statErr
 }
 
 func (s *stubStorageDriver) Delete(ctx context.Context, in driver.DeleteObjectInput) error {

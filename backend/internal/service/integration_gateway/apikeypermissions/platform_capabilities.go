@@ -43,9 +43,22 @@ type platformCapabilityEntry struct {
 }
 
 type platformCapabilityProtocolItem struct {
-	Channel  string `yaml:"channel"`
-	Endpoint string `yaml:"endpoint"`
-	Method   string `yaml:"method"`
+	Channel  string                            `yaml:"channel"`
+	Endpoint string                            `yaml:"endpoint"`
+	Method   string                            `yaml:"method"`
+	APIKey   *platformCapabilityAPIKeyMetadata `yaml:"api_key"`
+}
+
+// platformCapabilityAPIKeyMetadata is the explicit API-key permission mapping
+// for a service-actor protocol. Route-derived scopes are unsuitable for a
+// stable Host Contract because its service authorization is capability-based.
+type platformCapabilityAPIKeyMetadata struct {
+	Scope           string `yaml:"scope"`
+	Action          string `yaml:"action"`
+	ResourceType    string `yaml:"resource_type"`
+	ResourcePattern string `yaml:"resource_pattern"`
+	PluginID        string `yaml:"plugin_id"`
+	Effect          string `yaml:"effect"`
 }
 
 func BuildPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
@@ -136,6 +149,11 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 				if method == "" || endpoint == "" {
 					continue
 				}
+				if proto.APIKey != nil {
+					if _, ok := proto.APIKey.toMap(); !ok {
+						return nil, fmt.Errorf("%s: capability %s endpoint %s has incomplete api_key grant metadata", path, capItem.CapabilityID, endpoint)
+					}
+				}
 
 				module, resource, action, ok := RESTPermissionTriple(capItem.Module, method, endpoint)
 				if !ok {
@@ -180,10 +198,16 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 					Source:      platformPermissionSource,
 					Introduced:  IntroducedVersion(),
 				}
-				permission.AllowAPIKey = DefaultAllowAPIKey(permission)
-				if permission.AllowAPIKey {
-					if apiMeta := BuildAPIKeyMeta(permission); len(apiMeta) > 0 {
-						meta["api_key"] = apiMeta
+				if explicit, ok := proto.APIKey.toMap(); ok {
+					permission.AllowAPIKey = true
+					meta["api_key_explicit"] = true
+					meta["api_key"] = explicit
+				} else {
+					permission.AllowAPIKey = DefaultAllowAPIKey(permission)
+					if permission.AllowAPIKey {
+						if apiMeta := BuildAPIKeyMeta(permission); len(apiMeta) > 0 {
+							meta["api_key"] = apiMeta
+						}
 					}
 				}
 				metaBytes, _ = json.Marshal(meta)
@@ -194,6 +218,31 @@ func loadPlatformCapabilityPermissions() ([]modelsiam.Permission, error) {
 		}
 	}
 	return out, nil
+}
+
+func (m *platformCapabilityAPIKeyMetadata) toMap() (map[string]any, bool) {
+	if m == nil {
+		return nil, false
+	}
+	scope := strings.TrimSpace(m.Scope)
+	action := strings.TrimSpace(m.Action)
+	resourceType := strings.TrimSpace(m.ResourceType)
+	resourcePattern := strings.TrimSpace(m.ResourcePattern)
+	if scope == "" || action == "" || resourceType == "" || resourcePattern == "" {
+		return nil, false
+	}
+	effect := strings.TrimSpace(m.Effect)
+	if effect == "" {
+		effect = "allow"
+	}
+	return map[string]any{
+		"scope":            scope,
+		"action":           action,
+		"resource_type":    resourceType,
+		"resource_pattern": resourcePattern,
+		"plugin_id":        strings.TrimSpace(m.PluginID),
+		"effect":           effect,
+	}, true
 }
 
 func platformCapabilityOperationPermission(capItem platformCapabilityEntry) (modelsiam.Permission, bool) {

@@ -36,7 +36,17 @@
       "properties": {
         "type": {"enum": ["input", "task"]},
         "ref": {"type": "string", "minLength": 1}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "input"}}},
+          "then": {"properties": {"ref": {"const": "input:message"}}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "task"}}},
+          "then": {"properties": {"ref": {"pattern": "^[A-Za-z0-9_-]+$"}}}
+        }
+      ]
     },
     "fact": {
       "type": "object",
@@ -53,10 +63,10 @@
       "required": ["label", "numerator", "denominator", "formula", "display_value", "source"],
       "properties": {
         "label": {"type": "string", "minLength": 1},
-        "numerator": {"type": ["number", "string"]},
-        "denominator": {"type": ["number", "string"]},
-        "formula": {"type": "string", "minLength": 1},
-        "display_value": {"type": "string"},
+        "numerator": {"type": "number"},
+        "denominator": {"type": "number", "exclusiveMinimum": 0},
+        "formula": {"type": "string", "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\s*/\\s*[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)$"},
+        "display_value": {"type": "string", "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)%?$"},
         "source": {"$ref": "#/$defs/source"}
       }
     },

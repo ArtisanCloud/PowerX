@@ -251,6 +251,14 @@ func JwtMiddleware(
 		// H. 业务回调：缓存 miss 或需要强校验时，cb 回源 DB
 		if cb != nil {
 			if err := cb(reqCtx, claims); err != nil {
+				var credentialError interface {
+					error
+					HTTPStatus() int
+				}
+				if errors.As(err, &credentialError) {
+					respondServiceCredentialError(c, credentialError.HTTPStatus())
+					return
+				}
 				if !abortIAMMemberDirectoryAuthError(c, http.StatusForbidden, "IAM_FORBIDDEN") {
 					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
 				}
@@ -263,17 +271,129 @@ func JwtMiddleware(
 	}
 }
 
-// abortIAMMemberDirectoryAuthError keeps the published IAM delegated-directory
-// contract intact when the request is rejected before its route handler runs.
-// The global middleware deliberately owns authentication, so this mapping must
-// live here rather than in the directory handler.
+func respondServiceCredentialError(c *gin.Context, status int) {
+	prefix := "CAPABILITY"
+	path := c.Request.URL.Path
+	switch {
+	case strings.HasPrefix(path, "/api/v1/tenant/agent/sessions"):
+		prefix = "AGENT_SESSION"
+	case isKnowledgeTenantPath(path):
+		prefix = "KNOWLEDGE"
+	case isMediaTenantPath(path):
+		prefix = "MEDIA"
+	case isCustomerAuthTenantPath(path):
+		prefix = "CUSTOMER"
+	case isPluginReleaseTenantPath(path):
+		prefix = "PLUGIN_RELEASE"
+	case isMetadataTenantPath(path):
+		prefix = "METADATA"
+	case isCapabilityGrantStatusPath(path):
+		prefix = "CAPABILITY_GRANT_STATUS"
+	case isIAMMemberDirectoryPath(path):
+		prefix = "IAM"
+	}
+	suffix := "UPSTREAM_DEPENDENCY"
+	switch status {
+	case 401:
+		suffix = "UNAUTHORIZED"
+	case 403:
+		suffix = "FORBIDDEN"
+	default:
+		status = 503
+	}
+	code := prefix + "_" + suffix
+	message := dto.ServiceCredentialErrorMessage(c.GetHeader("Accept-Language"), status)
+	dto.ResponseError(c, status, message, dto.NewErrorWithCode(status, code, message, nil))
+	c.Abort()
+}
+
+// abortIAMMemberDirectoryAuthError keeps tenant Host contracts intact when a
+// request is rejected before its route handler runs. The global middleware
+// deliberately owns credential parsing, so the route contract must select the
+// stable envelope here rather than relying on an unreachable handler.
 func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode string) bool {
-	if !isIAMMemberDirectoryPath(c.Request.URL.Path) {
+	if strings.HasPrefix(c.Request.URL.Path, "/api/v1/tenant/agent/sessions") {
+		reasonCode = "AGENT_SESSION_UNAUTHORIZED"
+		if status == http.StatusForbidden {
+			reasonCode = "AGENT_SESSION_FORBIDDEN"
+		}
+		message := dto.AgentSessionErrorMessage(c.GetHeader("Accept-Language"), reasonCode)
+		dto.ResponseError(c, status, message, dto.NewErrorWithCode(status, reasonCode, message, nil))
+		c.Abort()
+		return true
+	}
+	if isKnowledgeTenantPath(c.Request.URL.Path) {
+		if status == http.StatusForbidden {
+			reasonCode = "KNOWLEDGE_FORBIDDEN"
+		} else {
+			reasonCode = "KNOWLEDGE_UNAUTHORIZED"
+		}
+	} else if isMediaTenantPath(c.Request.URL.Path) {
+		if status == http.StatusForbidden {
+			reasonCode = "MEDIA_FORBIDDEN"
+		} else {
+			reasonCode = "MEDIA_UNAUTHORIZED"
+		}
+	} else if isCustomerAuthTenantPath(c.Request.URL.Path) {
+		if status == http.StatusForbidden {
+			reasonCode = "CUSTOMER_FORBIDDEN"
+		} else {
+			reasonCode = "CUSTOMER_UNAUTHORIZED"
+		}
+	} else if isPluginReleaseTenantPath(c.Request.URL.Path) {
+		if status == http.StatusForbidden {
+			reasonCode = "PLUGIN_RELEASE_FORBIDDEN"
+		} else {
+			reasonCode = "PLUGIN_RELEASE_UNAUTHORIZED"
+		}
+	} else if isMetadataTenantPath(c.Request.URL.Path) {
+		if status == http.StatusForbidden {
+			reasonCode = "METADATA_FORBIDDEN"
+		} else {
+			reasonCode = "METADATA_UNAUTHORIZED"
+		}
+	} else if isCapabilityGrantStatusPath(c.Request.URL.Path) {
+		if status == http.StatusForbidden {
+			reasonCode = "CAPABILITY_GRANT_STATUS_FORBIDDEN"
+		} else {
+			reasonCode = "CAPABILITY_GRANT_STATUS_UNAUTHORIZED"
+		}
+	} else if !isIAMMemberDirectoryPath(c.Request.URL.Path) {
 		return false
 	}
 	dto.ResponseError(c, status, reasonCode, dto.NewErrorWithCode(status, reasonCode, reasonCode, errors.New(reasonCode)))
 	c.Abort()
 	return true
+}
+
+func isMediaTenantPath(path string) bool {
+	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
+	return strings.HasPrefix(path, "/api/v1/tenant/media/") || strings.HasPrefix(path, "/api/tenant/media/")
+}
+
+func isCustomerAuthTenantPath(path string) bool {
+	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
+	return strings.HasPrefix(path, "/api/v1/tenant/customer/") || strings.HasPrefix(path, "/api/tenant/customer/")
+}
+
+func isPluginReleaseTenantPath(path string) bool {
+	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
+	return strings.HasPrefix(path, "/api/v1/tenant/plugin-release/") || strings.HasPrefix(path, "/api/tenant/plugin-release/")
+}
+
+func isMetadataTenantPath(path string) bool {
+	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
+	return strings.HasPrefix(path, "/api/v1/tenant/metadata/") || strings.HasPrefix(path, "/api/tenant/metadata/")
+}
+
+func isCapabilityGrantStatusPath(path string) bool {
+	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
+	return path == "/api/v1/tenant/capabilities:grant-status" || path == "/api/tenant/capabilities:grant-status"
+}
+
+func isKnowledgeTenantPath(path string) bool {
+	path = strings.TrimSuffix(strings.TrimSpace(path), "/")
+	return strings.HasPrefix(path, "/api/v1/tenant/knowledge/") || strings.HasPrefix(path, "/api/tenant/knowledge/")
 }
 
 func isIAMMemberDirectoryPath(path string) bool {

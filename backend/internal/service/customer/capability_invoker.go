@@ -1,7 +1,9 @@
 package customer
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,14 +11,42 @@ import (
 	"strings"
 
 	capabilityregistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	customerrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/customer"
 )
 
-const CustomerAccountsAdminManageCapabilityID = "com.corex.customer.accounts.admin_manage"
+const (
+	CustomerAccountsAdminManageCapabilityID       = "com.corex.customer.accounts.admin_manage"
+	CustomerExternalIdentitiesResolveCapabilityID = "com.corex.customer.external_identities.resolve"
+
+	customerExternalIdentityResolveEndpoint = "core://customer/external-identities/resolve"
+)
 
 // CapabilityInvoker exposes customer account management as a service_actor Core
 // capability for /tenant/invocations without opening admin HTTP routes to STS.
 type CapabilityInvoker struct {
 	accounts *AccountService
+}
+
+// ExternalIdentityResolveRequest is the Core-internal payload for a
+// plugin-attested external customer subject. provider and membership source are
+// deliberately absent: Core derives both from the STS plugin identity.
+type ExternalIdentityResolveRequest struct {
+	ProviderSubject string `json:"provider_subject"`
+	DisplayName     string `json:"display_name"`
+}
+
+// ExternalIdentityResolveResult is deliberately minimal: a plugin receives the
+// UUIDs it must persist plus a human label, but never unrelated customer PII.
+type ExternalIdentityResolveResult struct {
+	CustomerUUID   string `json:"customer_uuid"`
+	MembershipUUID string `json:"membership_uuid"`
+	DisplayName    string `json:"display_name"`
+}
+
+func (r ExternalIdentityResolveRequest) toServiceInput(tenantUUID string) ResolveExternalIdentityInput {
+	return ResolveExternalIdentityInput{
+		TenantUUID: tenantUUID, ProviderSubject: r.ProviderSubject, DisplayName: r.DisplayName,
+	}
 }
 
 func NewCapabilityInvoker(accounts *AccountService) *CapabilityInvoker {
@@ -27,11 +57,27 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabil
 	if i == nil || i.accounts == nil {
 		return nil, errors.New("customer capability invoker unavailable")
 	}
+	method := strings.ToUpper(strings.TrimSpace(in.Method))
+	endpoint := normalizeCustomerCapabilityEndpoint(in.Endpoint)
+	if strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerExternalIdentitiesResolveCapabilityID) {
+		if method != "INVOKE" || endpoint != customerExternalIdentityResolveEndpoint {
+			return nil, capabilityregistry.ErrCoreCapabilityNotHandled
+		}
+		request, err := decodeExternalIdentityResolveRequest(in.Body)
+		if err != nil {
+			return nil, err
+		}
+		item, err := i.accounts.ResolveExternalIdentity(ctx, request.toServiceInput(in.TenantUUID))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"item": ExternalIdentityResolveResult{
+			CustomerUUID: item.CustomerUUID, MembershipUUID: item.MembershipUUID, DisplayName: item.DisplayName,
+		}}, nil
+	}
 	if !strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerAccountsAdminManageCapabilityID) {
 		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
 	}
-	method := strings.ToUpper(strings.TrimSpace(in.Method))
-	endpoint := normalizeCustomerCapabilityEndpoint(in.Endpoint)
 	switch {
 	case method == http.MethodGet && endpoint == "/api/v1/admin/customers/overview":
 		overview, err := i.accounts.Overview(ctx, in.TenantUUID)
@@ -110,6 +156,9 @@ func normalizeCustomerCapabilityEndpoint(raw string) string {
 	if endpoint == "" {
 		return ""
 	}
+	if strings.HasPrefix(strings.ToLower(endpoint), "core://") {
+		return strings.TrimSuffix(endpoint, "/")
+	}
 	if !strings.HasPrefix(endpoint, "/") {
 		endpoint = "/" + endpoint
 	}
@@ -120,6 +169,23 @@ func normalizeCustomerCapabilityEndpoint(raw string) string {
 		endpoint = strings.TrimSuffix(endpoint, "/")
 	}
 	return endpoint
+}
+
+func decodeExternalIdentityResolveRequest(body map[string]interface{}) (ExternalIdentityResolveRequest, error) {
+	if len(body) == 0 {
+		return ExternalIdentityResolveRequest{}, customerrepo.ErrExternalIdentityRequired
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return ExternalIdentityResolveRequest{}, customerrepo.ErrExternalIdentityRequired
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var request ExternalIdentityResolveRequest
+	if err := decoder.Decode(&request); err != nil {
+		return ExternalIdentityResolveRequest{}, customerrepo.ErrExternalIdentityRequired
+	}
+	return request, nil
 }
 
 func positiveInt(raw string, fallback int) int {

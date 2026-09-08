@@ -188,8 +188,12 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 				}
 
 				depMap := results.GetMany(task.DependsOn)
-				ctxVars := make(flowschema.Context, len(finalParams)+2)
+				ctxVars := make(flowschema.Context, len(finalParams)+3)
 				ctxVars["_deps"] = depMap
+				// A response-envelope Skill may cite only real tasks that are
+				// transitively upstream of this task. The allowlist is derived
+				// from the submitted plan, never from a Team/Agent/Skill ID.
+				ctxVars["response_envelope_task_refs"] = responseEnvelopeTaskRefsForTask(plan, task.TaskID)
 
 				for pk, ref := range task.ParamRefs {
 					val, ok, rerr := aschema.ResolveParamRef(ref, results, task)
@@ -955,6 +959,9 @@ func contextFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map
 	if deps, ok := params["_deps"]; ok {
 		out["_deps"] = deps
 	}
+	if refs, ok := params["response_envelope_task_refs"]; ok {
+		out["response_envelope_task_refs"] = refs
+	}
 	if msg := asString(params["message"]); msg != "" {
 		out["message"] = msg
 	}
@@ -964,6 +971,49 @@ func contextFromTaskParams(t flowschema.PlanTask, params flowschema.Context) map
 	if prompt := asString(params["prompt"]); prompt != "" {
 		out["prompt"] = prompt
 	}
+	return out
+}
+
+// responseEnvelopeTaskRefsForTask returns the stable IDs of every task that
+// the specified task can legitimately cite as evidence. It intentionally uses
+// only the declarative dependency graph, so any user-created Team and Skill
+// receives the same provenance contract without a Core code change.
+func responseEnvelopeTaskRefsForTask(plan flowschema.ExecutionPlan, taskID string) []string {
+	taskID = strings.TrimSpace(taskID)
+	if taskID == "" || len(plan.Tasks) == 0 {
+		return []string{}
+	}
+	tasks := make(map[string]flowschema.PlanTask, len(plan.Tasks))
+	for _, task := range plan.Tasks {
+		if id := strings.TrimSpace(task.TaskID); id != "" {
+			tasks[id] = task
+		}
+	}
+	refs := make(map[string]struct{}, len(tasks))
+	var collect func(string)
+	collect = func(current string) {
+		task, ok := tasks[strings.TrimSpace(current)]
+		if !ok {
+			return
+		}
+		for _, dependency := range task.DependsOn {
+			dependency = strings.TrimSpace(dependency)
+			if dependency == "" {
+				continue
+			}
+			if _, exists := refs[dependency]; exists {
+				continue
+			}
+			refs[dependency] = struct{}{}
+			collect(dependency)
+		}
+	}
+	collect(taskID)
+	out := make([]string, 0, len(refs))
+	for ref := range refs {
+		out = append(out, ref)
+	}
+	sort.Strings(out)
 	return out
 }
 

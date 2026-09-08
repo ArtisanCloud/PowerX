@@ -1148,6 +1148,9 @@
         "passwordMismatch": "两次输入的密码不一致",
         "usernameRequired": "用户名为必填项",
         "usernameFormat": "用户名必须以小写字母开头，长度 3-64，只能包含小写字母、数字、点、下划线和短横线",
+        "displayNameConflict": "该租户已存在同名的启用成员，请修改姓名后重试",
+        "phoneConflict": "手机号已被占用，请更换后重试",
+        "emailConflict": "邮箱已被占用，请更换后重试",
         "roleRequired": "请至少选择一个角色",
         "missingUserId": "当前记录缺少用户标识，请刷新后重试",
         "rootEditSelfOnly": "仅 root 本人可编辑 root 账号",
@@ -2548,7 +2551,7 @@
     }
   },
   "agent": {
-	"response": {"conclusion": "本轮结论", "answer": "直接回答", "acceptance": "验收项", "evidence": "已有证据", "gaps": "缺口或阻塞", "nextActions": "下一步", "metrics": "指标与计算", "metric": "指标", "value": "结果", "formula": "计算公式", "facts": "已确认事实", "hypotheses": "待验证假设", "outcomes": {"completed": "本轮已完成，结果如下。", "needs_action": "已完成分析，仍需执行以下行动。", "blocked": "本轮受阻，需要先解决以下缺口。", "failed": "本轮失败，请查看运行追踪。"}},
+	"response": {"conclusion":"本轮结论","answer":"直接回答","acceptance":"验收项","evidence":"已有证据","gaps":"缺口或阻塞","nextActions":"下一步","metrics":"指标与计算","metric":"指标","value":"结果","formula":"计算公式","facts":"已确认事实","hypotheses":"待验证假设","outcomes":{"completed":"本轮已完成，结果如下。","needs_action":"已完成分析，仍需执行以下行动。","blocked":"本轮受阻，需要先解决以下缺口。","failed":"本轮失败，请查看运行追踪。"},"reported":"原文报告值（未经独立核实）","computed":"工具计算值","conflicts":"原文与计算口径冲突","sourceQuote":"原文引用","operands":"使用的数据","reportedValue":"原文报告值","calculatedValue":"本次计算值","calculationBoundary":"计算仅验证给定输入下的算术结果；输入及业务归因尚未经独立核实。","conflictAction":"请补充原文公式、数据范围及归因口径后再确认结论。","contractUpgradeRequired":"该历史回复使用已停用的契约。请查看原始运行追踪，并在技能升级发布后显式重试。"},
     "sessions": {
       "title": "智能会话"
     },
@@ -2939,6 +2942,8 @@
       "untitledSession": "未命名会话",
       "responding": "正在回复",
       "generating": "生成中",
+      "stopGeneration": "停止生成",
+      "send": "发送",
       "traceThisRun": "追踪本轮",
       "traceDetails": "追踪详情",
       "traceReport": {

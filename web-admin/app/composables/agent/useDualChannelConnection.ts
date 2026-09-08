@@ -660,17 +660,27 @@ export function useDualChannelConnection(
         };
 
         const mergeTraceMetaIntoPending = (payload: any) => {
-          const data =
-            payload?.data && typeof payload.data === "object"
-              ? payload.data
-              : {};
+          // Agent Run events are transported as an outer SSE envelope whose
+          // identity may live in `payload`, `payload.payload`, or either
+          // object's metadata/data.  Keep this normalization here so a
+          // terminal failure has the same trace affordance as a success.
+          const sources = [
+            payload,
+            payload?.data,
+            payload?.metadata,
+            payload?.payload,
+            payload?.payload?.data,
+            payload?.payload?.metadata,
+          ].filter((value) => value && typeof value === "object");
           const patch: Record<string, any> = {};
           const pick = (key: string, ...aliases: string[]) => {
             for (const name of [key, ...aliases]) {
-              const value = payload?.[name] ?? data?.[name];
-              if (value != null && String(value).trim() !== "") {
-                patch[key] = value;
-                return;
+              for (const source of sources) {
+                const value = source?.[name];
+                if (value != null && String(value).trim() !== "") {
+                  patch[key] = value;
+                  return;
+                }
               }
             }
           };
@@ -685,7 +695,7 @@ export function useDualChannelConnection(
           currentTraceMeta = { ...currentTraceMeta, ...patch };
           const messageID = String(currentTraceMeta.message_id || "").trim();
           const clientMsgID = String(
-            payload?.client_msg_id ?? data?.client_msg_id ?? ""
+            sources.map((source) => source?.client_msg_id).find((value) => value != null) ?? ""
           ).trim();
           if (messageID || clientMsgID) {
             const userIdx = messages.value.findIndex((m) => {
@@ -845,6 +855,7 @@ export function useDualChannelConnection(
               data: finalPayload?.data ?? payload?.data,
               metadata: finalPayload?.metadata ?? payload?.metadata,
             };
+            mergeTraceMetaIntoPending(payload);
             type = SSE_EVENT_TYPES.FINAL;
           }
 

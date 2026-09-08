@@ -51,7 +51,7 @@
 
 ### Session 2026-08-29
 
-- Q: Skill 或租户自建 Agent 是否各自决定最终回复的文本格式？ → A: 不可以。Skill、Tool 与子 Agent 只返回结构化业务事实；PowerX Core 定义统一的 `powerx.agent.response/v1` 最终答复契约，Web Admin 按当前 locale 统一渲染 Markdown Preview。
+- Q: Skill 或租户自建 Agent 是否各自决定最终回复的文本格式？ → A: 不可以。PowerX Core 定义统一的最终答复契约，当前为 `powerx.agent.response/v4`，Web Admin 按 locale 渲染；普通工具返回其声明的结构化结果，由最终答复节点组织展示。FR-083 的证据分类采用 V4；插件工具生产接入和真实环境验收按 Phase 23 跟踪。
 - Q: 用户在团队会话中追问一个风险点时，是否可以重放上一次固定报告？ → A: 不可以。最终答复必须直接回答当前消息；若需要执行检查，计划必须针对当前问题生成。无真实证据时只能返回 `needs_action` 或 `blocked`，不得声称完成。
 - Q: 发布准备演示的固定示例文本能否作为发布准入结论？ → A: 不可以。它只验证运行链路；真实发布准入必须带可核验的验收项和证据。
 
@@ -288,7 +288,7 @@
 - **FR-040q**: Skill manifest 必须支持 Agent Run State 展示元数据，至少包含 `action_required_args/action_optional_args/slot_mapping/pending_task_policy/result_presentation` 的解析与治理态保存能力。
 - **FR-040r**: Final Response 在没有真实 `task_completed`、Skill result、Capability result 或 A2A child result 时，不得输出“已创建/已更新/已删除/已完成”等成功性业务结论。
 - **FR-040s**: UI 与历史快照必须区分 Run 完成和 Task 完成：`agent_run.final/ended` 或旧 `final/end success=true` 只能表示本轮回复流程结束，不得驱动业务 task 进入 `completed`；只有 `agent_run.task_completed` 或 task snapshot `status=completed` 且包含真实 `result/links` 时，才能展示“任务完成”。
-- **FR-040t**: 所有产生用户可见业务结果的 Skill、Tool 和 A2A 汇总节点必须返回 `powerx.agent.response/v1`。该 envelope 至少包含 `schema/kind/outcome/summary/answer/acceptance/evidence/gaps/next_actions`；Skill 不得以拼接最终 Markdown 代替结构化结果。
+- **FR-040t**: 最终执行答复与 A2A 汇总节点必须返回平台响应契约；当前权威 Schema 为 `backend/config/agent/response_envelope.v4.schema.json`，包含 `schema/kind/outcome/presentation`，其中 `presentation` 包含 `reported/computed/conflicts/hypotheses/gaps/actions`。普通工具按自身版本化输出契约返回数据，不要求实现聊天展示信封。最终 Skill 不得以拼接 Markdown 代替结构化结果；模型只提交 response-draft/v1；V4 由平台实际执行生成，禁止模型自填计算结果。
 - **FR-040u**: Core 必须校验最终答复 envelope。缺少 `answer`、执行结果缺少验收项、`outcome=completed` 缺少可验证证据或状态非法时，必须 fail-fast 为 `agent.response_contract_invalid`，写入 Trace 和用户可操作的错误摘要；不得退回原始文本或通用“任务完成”。
 - **FR-040v**: Final Response 必须直接回答当前用户消息。对同一 session 的追问，Runtime 必须依据当前 `ResponsePlan`、SkillState 和已有结构化结果选择解释、补参、局部复查或重新规划；禁止因为团队上下文存在而无条件重放固定任务计划或历史报告。
 - **FR-040w**: Web Admin、PowerXPlugin Agent Chat 与消息历史恢复必须使用同一 envelope 渲染器，按当前 locale 输出统一的“结论、直接回答、验收项、证据、缺口/阻塞、下一步”Markdown Preview；Skill manifest 只能补充业务字段说明、结果链接和展示素材，不能定义平台答复区块或标签文案。
@@ -334,6 +334,21 @@
 - **FR-077**: 插件前端不得直接调用 PowerX Admin/Agent/Skill API；PowerX 面向插件的同步请求必须经插件 backend proxy 或受信任插件 runtime 发起，并携带 delegated 鉴权与租户上下文。
 - **FR-078**: PowerX 必须为插件 Plugin Registry 同步动作写入审计，至少包含 `provider_plugin_id/plugin_agent_id/plugin_skill_id/powerx_agent_uuid/powerx_skill_id/sync_action/sync_status/operator/trace_id`。
 
+### Agent / Skill / Tool / Runtime 分层要求（2026-09-08）
+
+以下是立即生效的开发约束，相关功能实现与验收尚待 Phase 23；不得将需求写入文档等同于 Runtime 已支持。详细定义见 [分层开发规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)。
+
+- **FR-079**: Core MUST 仅依据已发布定义、工具契约及授权调度；业务公式、指标口径、领域规则归属 Skill 或领域工具。固有示例与客户自建 Agent/Team/Skill 共享机制，MUST NOT 按业务对象标识增加 Core executor 分支。
+- **FR-080**: Skill MUST 声明可解析、版本化的工具依赖与输入输出契约、权限要求。发布、可运行绑定及执行前 MUST 检查适用条件；未满足依赖可保留 Draft，但不得标记为可运行。运行时 MUST 重新授权并记录实际工具版本。
+- **FR-081**: 缺失算法 MUST 支持通过已支持协议下的插件/外部工具扩展；缺失协议适配器或受控执行环境须显式声明最低 Runtime 要求。导入脚本 MUST NOT 自动获得执行权限；不支持的 executor、版本不符、未授权依赖 MUST 明确阻断，禁止模型心算或静默降级。
+- **FR-082**: 通用计算 MUST 接收受限表达式和可解析的结构化数据引用，明确单位、精度、舍入及资源约束，返回真实执行结果；MUST NOT 使用任意代码 eval 或理解特定营销业务。数据引用、模型提取状态和授权范围 MUST 可核验，模型不得伪造操作数来源或工具执行引用。
+- **FR-083**: 结果 MUST 区分原文报告值、工具计算值、冲突/缺失。计算值必须关联真实工具结果及版本；重复引用不得升级证据可信状态。仅有百分比不得反造业务计数；计算正确不得被解释为输入真实或归因成立。
+- **FR-084**: 缺工具/权限/执行环境与缺业务数据 MUST 采用不同处理：前者阻断并给出修复信息，后者进入声明的澄清或待补报告。工具及最终校验错误 MUST 形成明确失败节点；实时、历史及 Trace MUST 保持结果与状态一致。
+- **FR-085**: 工具、计算证据及响应结果的新契约 MUST 显式版本化并同步 Schema、DTO、Runtime、Skill 与渲染；旧格式明确报错并提供迁移/重新发布说明，不做隐式翻译。业务对象引用统一 UUID，用户/Agent 可见文案经 locale 资源。
+- **FR-086**: 验收 MUST 覆盖自建非营销 Skill、插件工具、能力缺失、伪造证据、变化数值、单位与口径冲突、超时及历史恢复；MUST 提供真实执行记录，不能以模型声明、Schema 合法或 completed 单独证明业务正确。
+
+计算证据报告执行约束：原文提取、声明式计算计划、确定性工具执行、解释说明必须分离。Skill Definition 的版本化 `calculation_policy` 声明业务字段、单位词面集合 unit_tokens、公式、操作数绑定、精度、百分比尺度、对照字段及触发条件；Core 解释策略，不识别业务 Skill/Agent/Team 标识，模型不得临时创造或修改公式。平台从声明来源生成原文数值片段；模型只提交以声明字段 key 为唯一键的 `data` 对象，值只含 scope/token_ref 映射，数值和单位必须从真实片段解析，不接受模型另填或换算。对象契约禁止同一字段重复选择；未知字段、未知 token_ref 与单位不匹配必须明确失败，并将阶段和选择映射记录到受保护执行追踪。计划阶段不能改写已校验数据；说明阶段只接收名称、冲突和缺口投影，不得修改计算凭证或重新计算数值。各模型阶段使用独立严格 Schema，任一阶段失败必须明确标识，禁止通过完整草稿自动修补、自由文本解析或旧版本转换绕过错误。模型阶段复用统一 LLM 单次超时，不以增加整轮硬超时替代阶段治理。详细协议见 `docs/guides/develop/agent-response-evidence-v4.md`。
+
 ### Key Entities *(include if feature involves data)*
 
 - **Skill Registry Record**: Skill 的注册与治理记录，包含标识、版本、来源、状态、清单快照、完整性信息和绑定关系。
@@ -351,7 +366,7 @@
 - **Agent Trace Node Snapshot**: 单个 Runtime 节点的结构化快照，包含节点输入摘要、输出摘要、上下文引用、模型/skill/tool 调用信息和错误详情。
 - **Agent Run Report**: 面向 root 开发者下载的人读/机读报告，包含 Summary、User Message、Runtime Timeline、Intent/Planner、Skill/Tool Invocation、Final Response、Errors/Warnings。
 - **Agent Run State**: 一轮 Message Run 的 UI 可渲染状态树，包含 run、session、message、response plan、tasks、agents、pending params、results、errors 和 trace links。
-- **Agent Response Envelope**: 用户可见业务结果的统一结构，版本固定为 `powerx.agent.response/v1`，包含结果状态、对当前问题的回答、验收项、证据、缺口、下一步和 artifact 引用；它是 PowerX 渲染与持久化的输入，不是某个 Skill 的 Markdown 模板。
+- **Agent Response Envelope**: 用户可见业务结果的统一结构，当前版本为 `powerx.agent.response/v4`，定义以仓库权威 Schema 为准；它是 PowerX 渲染与持久化的输入。报告值、计算证据及冲突分类采用 V4；旧运行不做静默转换。
 - **Agent Task State**: 单个任务节点的状态对象，关联 Agent、Skill、Capability、action、参数收集、结果、错误和 trace。
 - **Plugin Agent Plugin Source**: 插件自有 Agent 开发态记录在 PowerX 侧的来源映射，包含插件 ID、插件 Agent ID、同步动作、底座 Agent UUID 和绑定 Skill 快照。
 - **Plugin Skill Plugin Source**: 插件自有 Skill 开发态记录在 PowerX 侧的来源映射，包含插件 ID、插件 Skill ID、版本、manifest 快照、executor、capability 和 checksum。
@@ -392,7 +407,7 @@
 - **SC-027**: 多 Agent 团队任务中，100% 用例可在页面看到主 Agent 与子 Agent task 状态，并可从任一失败 task 精确跳转到对应 Trace。
 - **SC-028**: 页面刷新后，95% 以上已完成或失败的 Message Run 可从历史快照恢复 `AgentRunState`，不依赖重新执行 SSE。
 - **SC-029**: 没有真实 task result 的业务执行请求，最终回复成功性误报率为 0。
-- **SC-030**: 100% 执行、审核、发布和多 Agent 汇总结果通过 `powerx.agent.response/v1` 校验；非法 envelope 不得以成功或原始 Markdown 进入消息历史。
+- **SC-030**: 100% 最终执行、审核、发布和多 Agent 汇总答复通过当前正式响应契约校验（现行为 `powerx.agent.response/v4`）；非法 envelope 不得以成功或原始 Markdown 进入消息历史。Schema 合法不能替代 FR-083/FR-086 的计算证据及业务正确性验收。
 - **SC-031**: 对同一团队连续追问“某风险项具体检查什么”时，100% 最终答复直接覆盖当前问题，不重放无关的固定报告；实时 SSE 与刷新后的历史渲染结构一致。
 
 ## Assumptions

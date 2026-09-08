@@ -24,13 +24,21 @@ capabilities:
   - backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto
   protocols:
   - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.runtime
+  - channel: rest
     endpoint: "/api/v1/agents/invoke"
     method: POST
     schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1invoke/post
-    auth_type: tenant_jwt
-    actor_context: service_actor
+    auth_type: user_jwt
+    actor_context: admin_user
     resource_scope: tenant
-    sts_direct: true
     tool_scope: agent.runtime
   - channel: grpc
     endpoint: powerx.agent.v1.AgentInvokeService
@@ -66,10 +74,9 @@ capabilities:
     endpoint: "/api/v1/agents/stream/sse"
     method: GET
     schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1stream~1sse/get
-    auth_type: tenant_jwt
-    actor_context: service_actor
+    auth_type: user_jwt
+    actor_context: admin_user
     resource_scope: tenant
-    sts_direct: true
     tool_scope: agent.runtime
   - channel: grpc
     endpoint: powerx.agent.v1.AgentStreamService
@@ -104,13 +111,111 @@ capabilities:
   - backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto
   protocols:
   - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}"
+    method: PATCH
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}/patch
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}"
+    method: DELETE
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}/delete
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/archive"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1archive/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/messages"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1messages/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/messages"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1messages/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations~1{invocation_uuid}/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/cancel"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations~1{invocation_uuid}~1cancel/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/events"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations~1{invocation_uuid}~1events/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
     endpoint: "/api/v1/agents/sessions"
     method: POST
     schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1sessions/post
-    auth_type: tenant_jwt
-    actor_context: service_actor
+    auth_type: user_jwt
+    actor_context: admin_user
     resource_scope: tenant
-    sts_direct: true
     tool_scope: agent.session
   - channel: grpc
     endpoint: powerx.agent.v1.AgentSessionService

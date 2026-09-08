@@ -259,6 +259,9 @@ func (s *UserService) CreateSystemUser(
 			Meta:        user.Meta,
 		}
 		if err := tx.WithContext(ctx).Create(mem).Error; err != nil {
+			if iam.IsMemberDisplayNameConflict(err) {
+				return iam.MemberDisplayNameConflictError(iam.ErrMemberDisplayNameConflict)
+			}
 			return err
 		}
 		// 角色绑定：有显式角色时使用显式角色；否则默认 role_user。
@@ -720,6 +723,9 @@ func (s *UserService) UpdateUserInTenant(ctx context.Context, id uint64, tenantU
 			if err := tx.Model(&m.Member{}).
 				Where("tenant_uuid = ? AND user_id = ?", tenantUUID, id).
 				Updates(memberFields).Error; err != nil {
+				if iam.IsMemberDisplayNameConflict(err) {
+					return iam.MemberDisplayNameConflictError(iam.ErrMemberDisplayNameConflict)
+				}
 				return err
 			}
 		}

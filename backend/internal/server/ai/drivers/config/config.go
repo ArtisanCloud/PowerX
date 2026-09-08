@@ -18,7 +18,10 @@ type ModelConfig struct {
 	MaxTokens    int            `yaml:"max_tokens" json:"max_tokens"`
 	TopP         float32        `yaml:"top_p" json:"top_p"`
 	Extra        map[string]any `yaml:"extra" json:"extra"`
-	Timeout      time.Duration  `yaml:"timeout" json:"timeout"`
+	// ResponseSchema is a provider-neutral JSON Schema requested by a typed
+	// caller. Individual provider adapters translate it to their wire format.
+	ResponseSchema map[string]any `yaml:"response_schema" json:"response_schema"`
+	Timeout        time.Duration  `yaml:"timeout" json:"timeout"`
 
 	// 可选：OpenAI
 	Organization    string `yaml:"organization" json:"organization"`
@@ -116,6 +119,12 @@ func MergeConfig(base *ModelConfig, override *ModelConfig) *ModelConfig {
 		}
 		for k, v := range override.Extra {
 			out.Extra[k] = v
+		}
+	}
+	if len(override.ResponseSchema) > 0 {
+		out.ResponseSchema = make(map[string]any, len(override.ResponseSchema))
+		for key, value := range override.ResponseSchema {
+			out.ResponseSchema[key] = value
 		}
 	}
 	return out

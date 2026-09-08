@@ -2,11 +2,50 @@ package customer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"strings"
+	"time"
 
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelcustomer "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/customer"
+	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+var (
+	ErrExternalIdentityRequired            = errors.New("customer.external_identity_required")
+	ErrExternalIdentityDisplayNameRequired = errors.New("customer.external_identity_display_name_required")
+	ErrExternalIdentityServiceActorInvalid = errors.New("customer.external_identity_service_actor_invalid")
+	ErrExternalIdentityBindingUntrusted    = errors.New("customer.external_identity_binding_untrusted")
+	ErrExternalIdentityUnavailable         = errors.New("customer.external_identity_unavailable")
+)
+
+// ExternalIdentityInput is the plugin-attested channel-to-customer binding
+// contract. ProviderKey and ProviderPluginID are derived by Core from the STS
+// service actor; callers must never supply them in an invocation payload.
+type ExternalIdentityInput struct {
+	TenantUUID       string
+	ProviderKey      string
+	ProviderPluginID string
+	ProviderSubject  string
+	DisplayName      string
+}
+
+// ExternalIdentityProviderKey scopes a plugin-attested subject to exactly one
+// plugin identity while fitting the persistent provider column's 32-char limit.
+func ExternalIdentityProviderKey(pluginID string) (string, error) {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return "", ErrExternalIdentityRequired
+	}
+	digest := sha256.Sum256([]byte(pluginID))
+	return "plugin_" + hex.EncodeToString(digest[:])[:24], nil
+}
 
 type AccountRepository struct {
 	db *gorm.DB
@@ -45,12 +84,52 @@ type AccountRow struct {
 	UpdatedAt      string `json:"updated_at"`
 }
 
+// ExternalIdentityResolution is the deliberately minimal result available to a
+// plugin identity resolver. It avoids loading or exposing customer PII.
+type ExternalIdentityResolution struct {
+	CustomerUUID   string `json:"customer_uuid"`
+	MembershipUUID string `json:"membership_uuid"`
+	DisplayName    string `json:"display_name"`
+}
+
 type OverviewRow struct {
 	Total     int64 `json:"total"`
 	Active    int64 `json:"active"`
 	Pending   int64 `json:"pending"`
 	Suspended int64 `json:"suspended"`
 	Disabled  int64 `json:"disabled"`
+}
+
+// CurrentMembershipRow contains only the authorization data required by a
+// customer self/delegated membership check; it intentionally excludes PII.
+type CurrentMembershipRow struct {
+	TenantUUID     string
+	CustomerUUID   string
+	MembershipUUID string
+	Status         string
+	AccountStatus  string
+	Roles          datatypes.JSON
+	Scopes         datatypes.JSON
+	ExpiresAt      *time.Time
+}
+
+func (r *AccountRepository) CurrentMembership(ctx context.Context, tenantUUID, customerUUID string) (CurrentMembershipRow, error) {
+	if r == nil || r.db == nil {
+		return CurrentMembershipRow{}, gorm.ErrInvalidDB
+	}
+	var row CurrentMembershipRow
+	err := r.baseTenantQuery(ctx, tenantUUID).
+		Where("a.uuid = ?", customerUUID).
+		Select(`m.tenant_uuid AS tenant_uuid, m.customer_uuid AS customer_uuid, m.uuid AS membership_uuid,
+			m.status AS status, a.status AS account_status, m.roles AS roles, m.scopes AS scopes, m.expires_at AS expires_at`).
+		Limit(1).Scan(&row).Error
+	if err != nil {
+		return CurrentMembershipRow{}, err
+	}
+	if row.MembershipUUID == "" {
+		return CurrentMembershipRow{}, gorm.ErrRecordNotFound
+	}
+	return row, nil
 }
 
 func (r *AccountRepository) List(ctx context.Context, opt AccountListOptions) ([]AccountRow, int64, error) {
@@ -159,6 +238,161 @@ func (r *AccountRepository) CreateWithMembership(ctx context.Context, tenantUUID
 		}
 		return nil
 	})
+}
+
+// ResolveOrCreateExternalIdentity returns the single Core customer associated
+// with an external provider subject and ensures its tenant membership exists.
+func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context, in ExternalIdentityInput) (ExternalIdentityResolution, error) {
+	if r == nil || r.db == nil {
+		return ExternalIdentityResolution{}, gorm.ErrInvalidDB
+	}
+	in.TenantUUID = strings.TrimSpace(in.TenantUUID)
+	in.ProviderKey = strings.TrimSpace(in.ProviderKey)
+	in.ProviderPluginID = strings.TrimSpace(in.ProviderPluginID)
+	in.ProviderSubject = strings.TrimSpace(in.ProviderSubject)
+	in.DisplayName = strings.TrimSpace(in.DisplayName)
+	if in.TenantUUID == "" || in.ProviderKey == "" || in.ProviderPluginID == "" || in.ProviderSubject == "" {
+		return ExternalIdentityResolution{}, ErrExternalIdentityRequired
+	}
+	if in.DisplayName == "" {
+		return ExternalIdentityResolution{}, ErrExternalIdentityDisplayNameRequired
+	}
+	if len(in.ProviderKey) > 32 || len(in.ProviderSubject) > 255 || len(in.DisplayName) > 128 {
+		return ExternalIdentityResolution{}, ErrExternalIdentityRequired
+	}
+	var customerUUID string
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var identity modelcustomer.AuthIdentity
+		err := tx.Where("provider = ? AND provider_subject = ?", in.ProviderKey, in.ProviderSubject).First(&identity).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			customerUUID = uuid.NewString()
+			candidate := modelcustomer.AuthIdentity{
+				CustomerUUID: customerUUID,
+				Provider:     in.ProviderKey, ProviderSubject: in.ProviderSubject,
+				Status:   modelcustomer.StatusActive,
+				Metadata: externalIdentityMetadata(in.ProviderPluginID, in.ProviderKey),
+			}
+			result := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "provider"}, {Name: "provider_subject"}},
+				DoNothing: true,
+			}).Create(&candidate)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				if err := tx.Where("provider = ? AND provider_subject = ?", in.ProviderKey, in.ProviderSubject).First(&identity).Error; err != nil {
+					return err
+				}
+			} else {
+				accountUUID, parseErr := uuid.Parse(customerUUID)
+				if parseErr != nil {
+					return parseErr
+				}
+				account := &modelcustomer.Account{
+					PowerUUIDModel: coremodel.PowerUUIDModel{UUID: accountUUID},
+					Status:         modelcustomer.StatusActive, DisplayName: in.DisplayName,
+					Metadata: externalIdentityMetadata(in.ProviderPluginID, in.ProviderKey),
+				}
+				if err := tx.Create(account).Error; err != nil {
+					return err
+				}
+				identity = candidate
+			}
+		}
+		customerUUID = identity.CustomerUUID
+		if identity.Status != modelcustomer.StatusActive || customerUUID == "" || !isPluginAttestedIdentity(identity, in.ProviderPluginID, in.ProviderKey) {
+			return ErrExternalIdentityBindingUntrusted
+		}
+		var account modelcustomer.Account
+		if err := tx.Where("uuid = ?", customerUUID).First(&account).Error; err != nil {
+			return err
+		}
+		if account.Status != modelcustomer.StatusActive {
+			return ErrExternalIdentityUnavailable
+		}
+		var membership modelcustomer.TenantMembership
+		err = tx.Where("tenant_uuid = ? AND customer_uuid = ?", in.TenantUUID, customerUUID).First(&membership).Error
+		if err == nil {
+			if membership.Status != modelcustomer.StatusActive {
+				return ErrExternalIdentityUnavailable
+			}
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		created := modelcustomer.TenantMembership{
+			TenantUUID: in.TenantUUID, CustomerUUID: customerUUID, Status: modelcustomer.StatusActive,
+			Source: "plugin_identity", Roles: datatypes.JSON([]byte("[\"customer\"]")), Scopes: datatypes.JSON([]byte("[]")),
+			Metadata: externalIdentityMetadata(in.ProviderPluginID, in.ProviderKey),
+		}
+		result := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "tenant_uuid"}, {Name: "customer_uuid"}},
+			DoNothing: true,
+		}).Create(&created)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			if err := tx.Where("tenant_uuid = ? AND customer_uuid = ?", in.TenantUUID, customerUUID).First(&membership).Error; err != nil {
+				return err
+			}
+			if membership.Status != modelcustomer.StatusActive {
+				return ErrExternalIdentityUnavailable
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return ExternalIdentityResolution{}, err
+	}
+	return r.resolvedExternalIdentityRow(ctx, in.TenantUUID, customerUUID)
+}
+
+func (r *AccountRepository) resolvedExternalIdentityRow(ctx context.Context, tenantUUID, customerUUID string) (ExternalIdentityResolution, error) {
+	var row ExternalIdentityResolution
+	err := r.baseTenantQuery(ctx, tenantUUID).
+		Where("a.uuid = ?", customerUUID).
+		Select(`a.uuid AS customer_uuid,
+			a.display_name AS display_name,
+			m.uuid AS membership_uuid`).
+		Limit(1).
+		Scan(&row).Error
+	if err != nil {
+		return ExternalIdentityResolution{}, err
+	}
+	if row.CustomerUUID == "" {
+		return ExternalIdentityResolution{}, gorm.ErrRecordNotFound
+	}
+	return row, nil
+}
+
+func externalIdentityMetadata(pluginID, providerKey string) datatypes.JSON {
+	raw, err := json.Marshal(map[string]string{
+		"binding_kind":       "plugin_attested",
+		"provider_plugin_id": pluginID,
+		"provider_key":       providerKey,
+	})
+	if err != nil {
+		return datatypes.JSON([]byte("{}"))
+	}
+	return datatypes.JSON(raw)
+}
+
+func isPluginAttestedIdentity(identity modelcustomer.AuthIdentity, pluginID, providerKey string) bool {
+	if identity.VerifiedAt != nil {
+		return false
+	}
+	var metadata map[string]string
+	if err := json.Unmarshal(identity.Metadata, &metadata); err != nil {
+		return false
+	}
+	return metadata["binding_kind"] == "plugin_attested" &&
+		metadata["provider_plugin_id"] == pluginID &&
+		metadata["provider_key"] == providerKey
 }
 
 func (r *AccountRepository) UpdateTenantStatus(ctx context.Context, tenantUUID string, customerUUID string, status string) error {

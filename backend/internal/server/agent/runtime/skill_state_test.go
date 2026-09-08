@@ -5,17 +5,22 @@ import (
 	"errors"
 	"testing"
 
+	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeSkillStateStore struct {
-	got SkillStateUpsert
-	err error
+	got    SkillStateUpsert
+	err    error
+	ctxErr error
+	hasDL  bool
 }
 
 func (s *fakeSkillStateStore) UpsertSkillState(ctx context.Context, in SkillStateUpsert) error {
 	s.got = in
+	s.ctxErr = ctx.Err()
+	_, s.hasDL = ctx.Deadline()
 	return s.err
 }
 
@@ -90,4 +95,27 @@ func TestPersistAwaitingSkillStatePropagatesStoreError(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "db unavailable")
+}
+
+func TestPersistTaskSkillStateUsesIndependentBoundedPersistenceContext(t *testing.T) {
+	store := &fakeSkillStateStore{}
+	ctx, cancel := context.WithCancel(ContextWithSkillStateStore(context.Background(), store))
+	ctx = context.WithValue(ctx, "env", "dev")
+	ctx = context.WithValue(ctx, "tenant_uuid", "tenant-a")
+	ctx = context.WithValue(ctx, "session_id", "81")
+	ctx = context.WithValue(ctx, "agent_id", "18")
+	ctx = context.WithValue(ctx, "message_id", "99")
+	cancel()
+
+	err := persistTaskSkillState(ctx, flowschema.PlanTask{
+		TaskID:   "campaign_review_synthesis",
+		NodeKind: dto.NodeKindSkill,
+		NodeRef:  "marketing.review_summarize",
+	}, dto.AgentTaskStatusCompleted, nil, nil)
+
+	require.NoError(t, err)
+	require.NoError(t, store.ctxErr)
+	require.True(t, store.hasDL)
+	require.Equal(t, "marketing.review_summarize", store.got.SkillID)
+	require.Equal(t, "completed", store.got.Status)
 }

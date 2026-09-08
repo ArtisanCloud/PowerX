@@ -1,7 +1,9 @@
 package distribution
 
 import (
+	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -47,6 +49,30 @@ func (Validator) RequireSignature(fingerprint string) error {
 		return errSignatureRequired
 	}
 	return nil
+}
+
+func (Validator) VerifyEd25519(content []byte, signature, publicKey string) error {
+	if len(content) == 0 {
+		return errChecksumRequired
+	}
+	sig, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(signature))
+	if err != nil {
+		return errSignatureRequired
+	}
+	key, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(publicKey))
+	if err != nil || len(key) != ed25519.PublicKeySize {
+		return errSignatureRequired
+	}
+	if !ed25519.Verify(ed25519.PublicKey(key), content, sig) {
+		return fmt.Errorf("ed25519 signature verification failed")
+	}
+	return nil
+}
+
+// IsEd25519PublicKey checks the Core-owned key material before it is persisted.
+func (Validator) IsEd25519PublicKey(publicKey string) bool {
+	key, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(publicKey))
+	return err == nil && len(key) == ed25519.PublicKeySize
 }
 
 // VerifyLicense ensures at least one license entry is present.

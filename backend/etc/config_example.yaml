@@ -280,7 +280,9 @@ capability_registry:
     burst: 120
     window_seconds: 60
   default_http_timeout_seconds: 20
-  ai_multimodal_http_timeout_seconds: 300
+  # Core capability proxy response timeout. It must exceed the LLM request
+  # timeout so a provider-side timeout can be returned as a structured error.
+  ai_multimodal_http_timeout_seconds: 310
 
 low_code:
   max_concurrent_flows: 10

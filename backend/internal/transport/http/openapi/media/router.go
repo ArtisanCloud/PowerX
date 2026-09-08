@@ -1,34 +1,63 @@
 package media
 
 import (
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
 
-// Register mounts tenant-facing Media API routes.
+// Register mounts only the UUID-only tenant Media Host Contract.
 func Register(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
+	_ = publicGroup
 	if deps == nil || deps.MediaSvc == nil || protectedGroup == nil {
 		return
 	}
-	h := NewHandler(deps.MediaSvc)
-	group := protectedGroup.Group("/media/assets")
-	group.POST("", h.CreateAsset)
-	group.GET("", h.ListAssets)
-	group.GET("/:uuid", h.GetAsset)
-	group.GET("/:uuid/resource", h.StreamAssetResource)
-	group.PATCH("/:uuid", h.UpdateAsset)
-	group.DELETE("/:uuid", h.DeleteAsset)
-	group.POST("/:uuid/presign", h.PresignAsset)
-	group.POST("/:uuid/variants/:variant", h.CreateAssetVariant)
-	group.GET("/:uuid/variants/:variant/resource", h.StreamAssetVariantResource)
-	group.POST("/:uuid/variants/:variant/presign", h.PresignAssetVariant)
+	registerHostContract(protectedGroup, deps)
 }
 
-// RegisterPublicResource mounts anonymous resource endpoint at root level (e.g., /media/:uuid/resource).
+// RegisterPublicResource mounts only signed transfer endpoints. Asset and
+// variant resources are never anonymously addressable by a legacy UUID/name
+// route; callers must first obtain a scoped ticket from the tenant Host API.
 func RegisterPublicResource(engine *gin.Engine, deps *shared.Deps) {
 	if engine == nil || deps == nil || deps.MediaSvc == nil {
 		return
 	}
-	h := NewHandler(deps.MediaSvc)
-	engine.GET("/media/:uuid/resource", h.StreamAssetResourcePublic)
+	engine.GET("/media/transfers/:asset_uuid/download", serveHostTransfer(deps.MediaSvc, "download"))
+	engine.PUT("/media/transfers/:asset_uuid/upload", serveHostTransfer(deps.MediaSvc, "upload"))
+}
+
+func serveHostTransfer(svc *mediasvc.MediaService, action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		asset, err := svc.AuthorizeHostTransfer(c.Request.Context(), c.Param("asset_uuid"), action, c.Query("exp"), c.Query("version"), c.Query("ticket"))
+		if err != nil {
+			dto.RespondErrorFrom(c, hostMediaError(err))
+			return
+		}
+		if action == "upload" {
+			size, err := strconv.ParseInt(strings.TrimSpace(c.GetHeader("Content-Length")), 10, 64)
+			if err != nil {
+				dto.RespondErrorFrom(c, mediasvc.MediaUploadValidationFailedError(err))
+				return
+			}
+			if err := svc.PutHostTransfer(c.Request.Context(), asset, c.Request.Body, size, c.GetHeader("Content-Type")); err != nil {
+				dto.RespondErrorFrom(c, hostMediaError(err))
+				return
+			}
+			c.Status(http.StatusNoContent)
+			return
+		}
+		opened, object, err := svc.OpenAssetResource(c.Request.Context(), asset.TenantUUID, asset.UUID)
+		if err != nil || object == nil {
+			dto.RespondErrorFrom(c, hostMediaError(err))
+			return
+		}
+		defer object.Body.Close()
+		c.DataFromReader(http.StatusOK, object.Size, object.ContentType, object.Body, nil)
+		_ = opened
+	}
 }

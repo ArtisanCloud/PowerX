@@ -4,9 +4,12 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	httpmiddleware "github.com/ArtisanCloud/PowerX/internal/http/middleware"
+	metadataAdmin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/metadata"
 	agentOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/agent"
+	agentSessionOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/agent_session"
 	aiOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/ai"
 	capabilityRegistryOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry"
+	customerOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/customer"
 	iamOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/iam"
 	integrationGatewayOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/integration_gateway"
 	knowledgeSpaceOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
@@ -41,7 +44,9 @@ func RegisterAPIRoutes(
 	mediaOpenAPI.RegisterPublicResource(r, deps)
 
 	agentOpenAPI.Register(publicGroup, protectedGroup, deps)
+	agentSessionOpenAPI.NewHandler(deps.AgentSessionSvc).Register(protectedGroup)
 	capabilityRegistryOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
+	customerOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	iamOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	skillsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	integrationGatewayOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
@@ -51,4 +56,5 @@ func RegisterAPIRoutes(
 	pluginRuntimeOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	knowledgeSpaceOpenAPI.Register(publicGroup, protectedGroup, deps)
 	mediaOpenAPI.Register(publicGroup, protectedGroup, deps)
+	metadataAdmin.RegisterTenantHostRoutes(protectedGroup, deps)
 }
