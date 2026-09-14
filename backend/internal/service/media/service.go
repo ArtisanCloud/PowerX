@@ -66,6 +66,7 @@ const (
 
 // MediaService 聚合媒体资产业务逻辑（状态流转、审计、预签名等）。
 type assetRepository interface {
+	WithVariantTransfer(context.Context, string, string, string, func(*mediamodel.MediaAsset, *mediamodel.MediaAssetVariant) error) error
 	List(ctx context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error)
 	FindByUUID(ctx context.Context, tenantUUID string, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
 	FindByStorageKey(ctx context.Context, tenantUUID string, driver, storageKey string) (*mediamodel.MediaAsset, error)
@@ -346,6 +347,7 @@ func (s *MediaService) PutHostTransfer(ctx context.Context, asset *Asset, body i
 
 // CreateAssetVariantInput 定义创建媒体资产资源版本所需参数。
 type CreateAssetVariantInput struct {
+	Checksum   string
 	TenantUUID string
 	AssetUUID  string
 	Variant    string
@@ -410,6 +412,8 @@ type Asset struct {
 
 // AssetVariant 为媒体资产的资源版本视图。
 type AssetVariant struct {
+	UploadState    string
+	CompletedAt    *time.Time
 	UUID           string
 	TenantUUID     string
 	AssetUUID      string
@@ -437,6 +441,14 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return nil, fmt.Errorf("name required")
+	}
+	var ownerSubjectUUID *uuid.UUID
+	if in.OwnerSubjectUUID != "" {
+		parsed, parseErr := uuid.Parse(in.OwnerSubjectUUID)
+		if parseErr != nil || parsed == uuid.Nil || parsed.String() != in.OwnerSubjectUUID {
+			return nil, MediaInvalidArgumentError(errors.New("media.owner_subject_uuid_invalid"))
+		}
+		ownerSubjectUUID = &parsed
 	}
 
 	method := in.UploadMethod
@@ -565,7 +577,7 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		MimeType:                strings.TrimSpace(in.MimeType),
 		OwnerType:               strings.TrimSpace(in.OwnerType),
 		OwnerID:                 strings.TrimSpace(in.OwnerID),
-		OwnerSubjectUUID:        strings.TrimSpace(in.OwnerSubjectUUID),
+		OwnerSubjectUUID:        ownerSubjectUUID,
 		BusinessStatus:          coremodel.MediaAssetStatusDraft,
 		UploadState:             uploadState,
 		ExpectedChecksum:        contentSHA256,
@@ -946,6 +958,9 @@ func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVar
 		return nil, err
 	}
 	if existing, findErr := s.repo.FindVariant(ctx, tenantUUID, assetUUID, variantName); findErr == nil {
+		if in.Checksum != "" && (existing.ExpectedChecksum != in.Checksum || existing.SizeBytes != in.SizeBytes || existing.MimeType != in.MimeType) {
+			return nil, ErrInvalidStatusTransition
+		}
 		return toAssetVariant(existing), nil
 	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
 		return nil, findErr
@@ -1005,6 +1020,14 @@ func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVar
 		MimeType:                strings.TrimSpace(in.MimeType),
 		Meta:                    datatypes.JSON(metaJSON),
 		LastPresignedTTLSeconds: ttlSeconds,
+	}
+	if in.Checksum != "" {
+		checksum, err := contentSHA256FromMetadata(map[string]any{"content_sha256": in.Checksum})
+		if err != nil || checksum == "" {
+			return nil, ErrContentSHA256Invalid
+		}
+		expires := time.Now().Add(time.Hour).UTC()
+		entity.UploadState, entity.ExpectedChecksum, entity.UploadExpiresAt, entity.TicketVersion = mediamodel.UploadStatePending, checksum, &expires, 1
 	}
 	if in.OperatorID != nil {
 		entity.CreatedBy = in.OperatorID
@@ -1375,6 +1398,10 @@ func toAsset(entity *mediamodel.MediaAsset) *Asset {
 		downloadExpiry = &expiry
 	}
 
+	ownerSubjectUUID := ""
+	if entity.OwnerSubjectUUID != nil {
+		ownerSubjectUUID = entity.OwnerSubjectUUID.String()
+	}
 	return &Asset{
 		UUID:             entity.UUID.String(),
 		TenantUUID:       entity.TenantUUID,
@@ -1389,7 +1416,7 @@ func toAsset(entity *mediamodel.MediaAsset) *Asset {
 		MimeType:         entity.MimeType,
 		OwnerType:        entity.OwnerType,
 		OwnerID:          entity.OwnerID,
-		OwnerSubjectUUID: entity.OwnerSubjectUUID,
+		OwnerSubjectUUID: ownerSubjectUUID,
 		Tags:             tags,
 		BusinessStatus:   entity.BusinessStatus,
 		UploadState:      entity.UploadState,
@@ -1421,6 +1448,8 @@ func toAssetVariant(entity *mediamodel.MediaAssetVariant) *AssetVariant {
 	}
 	return &AssetVariant{
 		UUID:           entity.UUID.String(),
+		UploadState:    entity.UploadState,
+		CompletedAt:    entity.CompletedAt,
 		TenantUUID:     entity.TenantUUID,
 		AssetUUID:      entity.AssetUUID,
 		Variant:        entity.Variant,

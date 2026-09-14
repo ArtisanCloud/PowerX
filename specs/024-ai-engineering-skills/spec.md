@@ -347,7 +347,9 @@
 - **FR-085**: 工具、计算证据及响应结果的新契约 MUST 显式版本化并同步 Schema、DTO、Runtime、Skill 与渲染；旧格式明确报错并提供迁移/重新发布说明，不做隐式翻译。业务对象引用统一 UUID，用户/Agent 可见文案经 locale 资源。
 - **FR-086**: 验收 MUST 覆盖自建非营销 Skill、插件工具、能力缺失、伪造证据、变化数值、单位与口径冲突、超时及历史恢复；MUST 提供真实执行记录，不能以模型声明、Schema 合法或 completed 单独证明业务正确。
 
-计算证据报告执行约束：原文提取、声明式计算计划、确定性工具执行、解释说明必须分离。Skill Definition 的版本化 `calculation_policy` 声明业务字段、单位词面集合 unit_tokens、公式、操作数绑定、精度、百分比尺度、对照字段及触发条件；Core 解释策略，不识别业务 Skill/Agent/Team 标识，模型不得临时创造或修改公式。平台从声明来源生成原文数值片段；模型只提交以声明字段 key 为唯一键的 `data` 对象，值只含 scope/token_ref 映射，数值和单位必须从真实片段解析，不接受模型另填或换算。对象契约禁止同一字段重复选择；未知字段、未知 token_ref 与单位不匹配必须明确失败，并将阶段和选择映射记录到受保护执行追踪。计划阶段不能改写已校验数据；说明阶段只接收名称、冲突和缺口投影，不得修改计算凭证或重新计算数值。各模型阶段使用独立严格 Schema，任一阶段失败必须明确标识，禁止通过完整草稿自动修补、自由文本解析或旧版本转换绕过错误。模型阶段复用统一 LLM 单次超时，不以增加整轮硬超时替代阶段治理。详细协议见 `docs/guides/develop/agent-response-evidence-v4.md`。
+计算证据报告执行约束：原文提取、声明式计算计划、确定性工具执行、解释说明必须分离。Skill Definition 的版本化 `calculation_policy/v2` 声明 `activity_profiles`（适用业务类型及原文识别词）、输入字段的 `unit_tokens/evidence_terms_i18n/applies_to`，以及公式、操作数绑定、精度、百分比尺度、对照字段、触发条件和 `applies_to`。Core 只解释策略，不识别业务 Skill/Agent/Team 标识，模型不得临时创造或修改公式、业务类型或证据字段。平台先从声明来源确定 profile，再以 profile、单位与字段证据词面交集生成候选片段；模型只提交以声明字段 key 为唯一键的 `data` 对象，值只含 scope/token_ref 映射，数值和单位必须从真实片段解析，不接受模型另填、换算或把时间/金额/比例拼成业务计数。对象契约禁止同一字段重复选择；未知字段、未知 token_ref、单位不匹配、上下文不匹配或无 profile 命中必须明确失败，并将阶段和选择映射记录到受保护执行追踪。计划阶段不能改写已校验数据；说明阶段只接收名称、冲突和缺口投影，不得修改计算凭证或重新计算数值。各模型阶段使用独立严格 Schema，任一阶段失败必须明确标识，禁止通过完整草稿自动修补、自由文本解析或旧版本转换绕过错误。模型阶段复用统一 LLM 单次超时，不以增加整轮硬超时替代阶段治理。
+
+Skill Package 分层约束：`SKILL.md` 是开放、可移植的指令核心；`powerx/manifest.json` 是公开且版本化的 PowerX 执行扩展，承载 Schema、权限、executor、计算/证据策略与平台响应契约。标准核心包可导入为 `instruction_only` Draft；只有补齐并校验 PowerX 扩展的 Revision 才可执行。客户或插件新增业务场景、字段、profile、公式、外部工具或测试包必须通过自身 Skill Revision 发布，不得通过新增 Core 业务分支实现。Core 缺少所需通用执行器时，Skill 必须声明外部受控工具依赖与最低 Runtime 要求，并明确阻断；不得让模型自由心算或伪造工具结果。详细协议见 `docs/guides/develop/agent-response-evidence-v4.md`。
 
 ### Key Entities *(include if feature involves data)*
 

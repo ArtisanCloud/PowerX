@@ -26,6 +26,7 @@ import (
 	auditpkg "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -209,6 +210,19 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	if capabilityID == "" || tenantUUID == "" {
 		return result, errors.New("capability_id and tenant_uuid are required")
 	}
+	if ServiceCredential(ctx) {
+		access, err := s.catalog.credentialAccess.CurrentAccess(ctx)
+		if err != nil {
+			return result, err
+		}
+		if err = access.Require(capabilityID); err != nil {
+			return result, err
+		}
+		if tenantUUID != reqctx.GetTenantUUID(ctx) {
+			return result, &DirectGrantError{403}
+		}
+		ctx = context.WithValue(ctx, callerContextKey{}, access.Subject)
+	}
 
 	traceID := strings.TrimSpace(in.TraceID)
 	if traceID == "" {
@@ -376,6 +390,20 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 func (s *InvocationService) GetTrace(ctx context.Context, traceID string) (*models.InvocationTrace, error) {
 	if s == nil || s.traces == nil {
 		return nil, errors.New("invocation trace repository unavailable")
+	}
+	if ServiceCredential(ctx) {
+		access, err := s.catalog.credentialAccess.CurrentAccess(ctx)
+		if err != nil {
+			return nil, err
+		}
+		record, err := s.traces.GetByCaller(ctx, reqctx.GetTenantUUID(ctx), access.Subject, traceID)
+		if err != nil {
+			return nil, err
+		}
+		if err = access.Require(record.CapabilityID); err != nil {
+			return nil, err
+		}
+		return record, nil
 	}
 	return s.traces.GetByTraceID(ctx, traceID)
 }
@@ -1205,6 +1233,13 @@ func isModelListCapability(capabilityID string) bool {
 }
 
 func shouldSkipModelKeyVerification(capabilityID string, payload map[string]interface{}, modelKey string) bool {
+	// Catalog reads select available tenant configuration; they are not model
+	// invocations. Their access boundary is the granted catalog capability, not
+	// an individual model_key. Keep this an exact allowlist so no other AI
+	// capability can bypass model ownership verification.
+	if isAIModelCatalogReadCapability(capabilityID) {
+		return true
+	}
 	if strings.TrimSpace(modelKey) != "" {
 		return false
 	}
@@ -1223,6 +1258,15 @@ func shouldSkipModelKeyVerification(capabilityID string, payload map[string]inte
 		return false
 	}
 	return isLLMModelsListEndpoint(endpoint)
+}
+
+func isAIModelCatalogReadCapability(capabilityID string) bool {
+	switch strings.ToLower(strings.TrimSpace(capabilityID)) {
+	case "com.corex.ai.catalog.providers.read", "com.corex.ai.catalog.models.read":
+		return true
+	default:
+		return false
+	}
 }
 
 func isLLMModelsListEndpoint(endpoint string) bool {

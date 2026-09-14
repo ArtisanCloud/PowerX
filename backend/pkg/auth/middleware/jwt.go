@@ -275,6 +275,8 @@ func respondServiceCredentialError(c *gin.Context, status int) {
 	prefix := "CAPABILITY"
 	path := c.Request.URL.Path
 	switch {
+	case runtimeHostModule(path) != "":
+		prefix = runtimeHostModule(path)
 	case strings.HasPrefix(path, "/api/v1/tenant/agent/sessions"):
 		prefix = "AGENT_SESSION"
 	case isKnowledgeTenantPath(path):
@@ -312,6 +314,20 @@ func respondServiceCredentialError(c *gin.Context, status int) {
 // deliberately owns credential parsing, so the route contract must select the
 // stable envelope here rather than relying on an unreachable handler.
 func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode string) bool {
+	if module := runtimeHostModule(c.Request.URL.Path); module != "" {
+		suffix := "UNAUTHORIZED"
+		if status == http.StatusForbidden {
+			suffix = "FORBIDDEN"
+		}
+		if status == http.StatusBadRequest {
+			suffix = "INVALID_ARGUMENT"
+		}
+		reasonCode = module + "_" + suffix
+		message := dto.ServiceCredentialErrorMessage(c.GetHeader("Accept-Language"), status)
+		dto.ResponseError(c, status, message, dto.NewErrorWithCode(status, reasonCode, message, nil))
+		c.Abort()
+		return true
+	}
 	if strings.HasPrefix(c.Request.URL.Path, "/api/v1/tenant/agent/sessions") {
 		reasonCode = "AGENT_SESSION_UNAUTHORIZED"
 		if status == http.StatusForbidden {
@@ -358,12 +374,31 @@ func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode str
 		} else {
 			reasonCode = "CAPABILITY_GRANT_STATUS_UNAUTHORIZED"
 		}
+	} else if isRegistryGatewayTenantPath(c.Request.URL.Path) {
+		reasonCode = "CAPABILITY_UNAUTHORIZED"
+		if status == http.StatusForbidden {
+			reasonCode = "CAPABILITY_FORBIDDEN"
+		}
 	} else if !isIAMMemberDirectoryPath(c.Request.URL.Path) {
 		return false
 	}
 	dto.ResponseError(c, status, reasonCode, dto.NewErrorWithCode(status, reasonCode, reasonCode, errors.New(reasonCode)))
 	c.Abort()
 	return true
+}
+
+func runtimeHostModule(path string) string {
+	if path == "/api/v1/tenant/runtime/cache/entries" {
+		return "CACHE"
+	}
+	if path == "/api/v1/tenant/runtime/tasks" || strings.HasPrefix(path, "/api/v1/tenant/runtime/tasks/") {
+		return "TASKCENTER"
+	}
+	return ""
+}
+
+func isRegistryGatewayTenantPath(path string) bool {
+	return path == "/api/v1/tenant/capabilities" || path == "/api/v1/tenant/capabilities/resolve" || path == "/api/v1/tenant/invocations" || strings.HasPrefix(path, "/api/v1/tenant/invocations/") || path == "/api/v1/tenant/integration/routes" || strings.HasPrefix(path, "/api/v1/tenant/integration/routes/")
 }
 
 func isMediaTenantPath(path string) bool {

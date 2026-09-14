@@ -11,10 +11,10 @@ import (
 )
 
 func evidenceDefinition() map[string]any {
-	p := evidence.CalculationPolicy{Schema: evidence.PolicySchema, InputFields: []evidence.InputField{
-		{Key: "a", Kind: "quantity", UnitTokens: []string{""}, LabelI18n: map[string]string{"en-US": "a"}, DescriptionI18n: map[string]string{"en-US": "a"}},
-		{Key: "b", Kind: "quantity", UnitTokens: []string{""}, LabelI18n: map[string]string{"en-US": "b"}, DescriptionI18n: map[string]string{"en-US": "b"}},
-	}, Formulas: []evidence.Formula{{Key: "rate", LabelI18n: map[string]string{"en-US": "rate"}, Expression: "n/d", Bindings: map[string]string{"n": "a", "d": "b"}, Precision: 2, Percent: true, WhenAnyPresent: []string{"a"}}}}
+	field := func(key string) evidence.InputField {
+		return evidence.InputField{Key: key, Kind: "quantity", UnitTokens: []string{""}, LabelI18n: map[string]string{"en-US": key}, DescriptionI18n: map[string]string{"en-US": key}, EvidenceTermsI18n: map[string][]string{"en-US": {key}}, AppliesTo: []string{"test_profile"}}
+	}
+	p := evidence.CalculationPolicy{Schema: evidence.PolicySchema, ActivityProfiles: []evidence.ActivityProfile{{Key: "test_profile", LabelI18n: map[string]string{"en-US": "test"}, EvidenceAnyI18n: map[string][]string{"en-US": {"test"}}}}, InputFields: []evidence.InputField{field("a"), field("b")}, Formulas: []evidence.Formula{{Key: "rate", LabelI18n: map[string]string{"en-US": "rate"}, Expression: "n/d", Bindings: map[string]string{"n": "a", "d": "b"}, Precision: 2, Percent: true, WhenAnyPresent: []string{"a"}, AppliesTo: []string{"test_profile"}}}}
 	return map[string]any{"schema": SkillDefinitionSchemaV2, "executor": map[string]any{"type": "llm_prompt", "output_mode": "response_envelope", "response_contract": evidence.ReportSchema, "evidence_sources": []string{"/message"}, "calculation_policy": p, "prompt_template_i18n": map[string]any{"en-US": "test"}}, "tool_dependencies": ToolRequirements{ToolDependencySchema, []ToolDependency{CalculatorDependency()}}}
 }
 
@@ -35,7 +35,7 @@ func TestManifestEvidenceUsesToolAndIgnoresBusinessIdentity(t *testing.T) {
 			b, err := json.Marshal(evidence.SourceSelection{Schema: evidence.ExtractionSchema, Data: map[string]evidence.SelectedValue{"a": {Scope: "s", TokenRef: "token_0"}, "b": {Scope: "s", TokenRef: "token_1"}}})
 			return string(b), err
 		}})
-		out, err := executor.Execute(ctx, ExecuteInput{SkillID: key, TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(), Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "17 80"}})
+		out, err := executor.Execute(ctx, ExecuteInput{SkillID: key, TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(), Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "test a:17; b:80"}})
 		require.NoError(t, err)
 		require.Equal(t, 2, calls)
 		require.NoError(t, evidence.Verify(ctx, out["response_envelope"]))
@@ -50,7 +50,7 @@ func TestManifestEvidenceSelectionFailureCarriesTraceDetails(t *testing.T) {
 	}})
 	_, err := executor.Execute(evidence.WithLedger(context.Background()), ExecuteInput{
 		TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(),
-		Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "17 80"},
+		Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "test a:17; b:80"},
 	})
 	var validation *EvidenceValidationError
 	require.ErrorAs(t, err, &validation)

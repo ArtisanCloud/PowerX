@@ -33,6 +33,9 @@ func TestJwtMiddlewareUsesTenantHostEnvelopeBeforeHandler(t *testing.T) {
 		{"/api/v1/tenant/customer/auth/login", "CUSTOMER_UNAUTHORIZED"},
 		{"/api/v1/tenant/plugin-release/install-sessions", "PLUGIN_RELEASE_UNAUTHORIZED"},
 		{"/api/v1/tenant/metadata/dictionaries", "METADATA_UNAUTHORIZED"},
+		{"/api/v1/tenant/capabilities", "CAPABILITY_UNAUTHORIZED"},
+		{"/api/v1/tenant/invocations/test-trace", "CAPABILITY_UNAUTHORIZED"},
+		{"/api/v1/tenant/integration/routes", "CAPABILITY_UNAUTHORIZED"},
 	} {
 		t.Run(tt.code, func(t *testing.T) {
 			router := gin.New()

@@ -54,7 +54,11 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, err
 	}
-	descriptions, err := policy.InputDescriptions(locale)
+	activeProfiles, err := policy.DetectProfiles(in.Payload, sources, locale)
+	if err != nil {
+		return nil, fmt.Errorf("skill.evidence.profile: %w", err)
+	}
+	descriptions, err := policy.InputDescriptions(locale, activeProfiles)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +66,7 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, fmt.Errorf("skill.evidence.source: %w", err)
 	}
-	text, err := invoke("source", instructions.Extraction, evidence.SelectionJSONSchema(policy, tokens), map[string]any{"input": in.Payload, "fields": descriptions, "numeric_tokens": tokens})
+	text, err := invoke("source", instructions.Extraction, evidence.SelectionJSONSchema(policy, tokens, activeProfiles, locale), map[string]any{"input": in.Payload, "activity_profiles": activeProfiles, "fields": descriptions, "numeric_tokens": tokens})
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +74,13 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err := evidence.Decode([]byte(text), &selection); err != nil {
 		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "source_decode"}, Cause: fmt.Errorf("skill.evidence.source: %w", err)}
 	}
-	extracted, err := evidence.ResolveSelection(selection, tokens, policy)
+	extracted, err := evidence.ResolveSelection(selection, tokens, policy, activeProfiles, locale)
 	if err != nil {
-		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "source_selection", "selection": selection}, Cause: fmt.Errorf("skill.evidence.source: %w", err)}
+		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "source_selection", "profiles": activeProfiles, "selection": selection}, Cause: fmt.Errorf("skill.evidence.source: %w", err)}
 	}
-	plan, missing, err := policy.BuildPlan(extracted, locale)
+	plan, missing, err := policy.BuildPlan(extracted, activeProfiles, locale)
 	if err != nil {
-		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "plan", "selection": selection}, Cause: fmt.Errorf("skill.evidence.plan: %w", err)}
+		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "plan", "profiles": activeProfiles, "selection": selection}, Cause: fmt.Errorf("skill.evidence.plan: %w", err)}
 	}
 	prepared, err := evidence.ExecutePlan(ctx, plan, in.Payload, sources, in.TenantUUID, in.Version, in.TraceID)
 	if err != nil {

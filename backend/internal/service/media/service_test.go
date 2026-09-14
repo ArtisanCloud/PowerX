@@ -32,6 +32,25 @@ import (
 
 const mediaTenantUUID = "8a21845e-d1b6-4df1-b2ce-1d3bde3b8a03"
 
+func (s *stubAssetRepo) WithVariantTransfer(ctx context.Context, tenant, asset, variant string, apply func(*mediamodel.MediaAsset, *mediamodel.MediaAssetVariant) error) error {
+	p, err := s.FindByUUID(ctx, tenant, asset, false)
+	if err != nil {
+		return err
+	}
+	v, err := s.FindVariantByUUID(ctx, tenant, variant)
+	if err != nil {
+		return err
+	}
+	if v.AssetUUID != asset {
+		return gorm.ErrRecordNotFound
+	}
+	if err := apply(p, v); err != nil {
+		return err
+	}
+	_, err = s.UpdateVariant(ctx, v)
+	return err
+}
+
 type stubAssetRepo struct {
 	mu          sync.Mutex
 	assets      map[string]*mediamodel.MediaAsset

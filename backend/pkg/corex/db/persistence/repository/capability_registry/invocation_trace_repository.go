@@ -68,6 +68,15 @@ func (r *InvocationTraceRepository) GetByTraceID(ctx context.Context, traceID st
 }
 
 // List 根据过滤条件列出追踪记录。
+func (r *InvocationTraceRepository) GetByCaller(ctx context.Context, tenant, caller, trace string) (*models.InvocationTrace, error) {
+	var record models.InvocationTrace
+	err := r.db.WithContext(ctx).Where("tenant_uuid = ? AND caller_subject = ? AND trace_id = ?", tenant, caller, trace).Order("created_at DESC").First(&record).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrInvocationTraceNotFound
+	}
+	return &record, err
+}
+
 func (r *InvocationTraceRepository) List(ctx context.Context, filter InvocationTraceFilter) ([]models.InvocationTrace, error) {
 	query := r.db.WithContext(ctx).Model(&models.InvocationTrace{})
 

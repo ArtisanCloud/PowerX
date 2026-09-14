@@ -27,8 +27,10 @@ func RegisterPublicResource(engine *gin.Engine, deps *shared.Deps) {
 	if engine == nil || deps == nil || deps.MediaSvc == nil {
 		return
 	}
-	engine.GET("/media/transfers/:asset_uuid/download", serveHostTransfer(deps.MediaSvc, "download"))
-	engine.PUT("/media/transfers/:asset_uuid/upload", serveHostTransfer(deps.MediaSvc, "upload"))
+	engine.GET("/api/v1/media/transfers/:asset_uuid/download", serveHostTransfer(deps.MediaSvc, "download"))
+	engine.PUT("/api/v1/media/transfers/:asset_uuid/upload", serveHostTransfer(deps.MediaSvc, "upload"))
+	engine.PUT("/api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/upload", serveVariantTransfer(deps.MediaSvc, "upload"))
+	engine.GET("/api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/download", serveVariantTransfer(deps.MediaSvc, "download"))
 }
 
 func serveHostTransfer(svc *mediasvc.MediaService, action string) gin.HandlerFunc {

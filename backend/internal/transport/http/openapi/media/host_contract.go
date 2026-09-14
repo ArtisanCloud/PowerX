@@ -39,6 +39,7 @@ type hostCompleteUploadRequest struct {
 	TenantUUID string `json:"tenant_uuid"`
 }
 type hostCreateVariantRequest struct {
+	Checksum    string `json:"checksum" binding:"required,len=64,hexadecimal"`
 	VariantType string `json:"variant_type" binding:"required,oneof=preview thumbnail"`
 	Name        string `json:"name"`
 	MimeType    string `json:"mime_type" binding:"required"`
@@ -74,6 +75,9 @@ func registerHostContract(protected *gin.RouterGroup, deps *shared.Deps) {
 	group.DELETE("/:asset_uuid", h.delete)
 	group.POST("/:asset_uuid/variants", h.createVariant)
 	group.GET("/variants/:variant_uuid", h.getVariant)
+	group.POST("/:asset_uuid/variants/:variant_uuid/presign-upload", h.variantPresignUpload)
+	group.POST("/:asset_uuid/variants/:variant_uuid/complete-upload", h.variantComplete)
+	group.POST("/:asset_uuid/variants/:variant_uuid/presign-download", h.variantPresignDownload)
 	group.POST("/:asset_uuid/presign-upload", h.presignUpload)
 	group.POST("/:asset_uuid/complete-upload", h.completeUpload)
 	group.POST("/:asset_uuid/presign-download", h.presignDownload)
@@ -81,7 +85,7 @@ func registerHostContract(protected *gin.RouterGroup, deps *shared.Deps) {
 
 func (h *hostContractHandler) createVariant(c *gin.Context) {
 	var req hostCreateVariantRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := decodeVariantBody(c, &req, "variant_type", "name", "mime_type", "size_bytes", "checksum"); err != nil {
 		dto.RespondErrorFrom(c, mediasvc.MediaInvalidArgumentError(err))
 		return
 	}
@@ -101,12 +105,12 @@ func (h *hostContractHandler) createVariant(c *gin.Context) {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	variant, err := h.svc.CreateAssetVariant(c.Request.Context(), mediasvc.CreateAssetVariantInput{TenantUUID: tenantUUID, AssetUUID: assetUUID, Variant: req.VariantType, Name: req.Name, MimeType: req.MimeType, SizeBytes: req.SizeBytes})
+	variant, err := h.svc.CreateAssetVariant(c.Request.Context(), mediasvc.CreateAssetVariantInput{TenantUUID: tenantUUID, AssetUUID: assetUUID, Variant: req.VariantType, Name: req.Name, MimeType: req.MimeType, SizeBytes: req.SizeBytes, Checksum: strings.ToLower(req.Checksum)})
 	if err != nil {
 		dto.RespondErrorFrom(c, hostMediaError(err))
 		return
 	}
-	dto.ResponseSuccessWithStatus(c, http.StatusCreated, gin.H{"variant_uuid": variant.UUID, "asset_uuid": variant.AssetUUID, "name": variant.Name, "mime_type": variant.MimeType, "size_bytes": variant.SizeBytes})
+	dto.ResponseSuccessWithStatus(c, http.StatusCreated, gin.H{"variant_uuid": variant.UUID, "asset_uuid": variant.AssetUUID, "name": variant.Name, "mime_type": variant.MimeType, "size_bytes": variant.SizeBytes, "status": variant.UploadState, "completed_at": variant.CompletedAt})
 }
 
 func (h *hostContractHandler) getVariant(c *gin.Context) {
@@ -128,7 +132,7 @@ func (h *hostContractHandler) getVariant(c *gin.Context) {
 		dto.RespondErrorFrom(c, hostMediaError(err))
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"variant_uuid": variant.UUID, "asset_uuid": variant.AssetUUID, "name": variant.Name, "mime_type": variant.MimeType, "size_bytes": variant.SizeBytes})
+	dto.ResponseSuccess(c, gin.H{"variant_uuid": variant.UUID, "asset_uuid": variant.AssetUUID, "name": variant.Name, "mime_type": variant.MimeType, "size_bytes": variant.SizeBytes, "status": variant.UploadState, "completed_at": variant.CompletedAt})
 }
 
 func (h *hostContractHandler) list(c *gin.Context) {
@@ -327,7 +331,7 @@ func (h *hostContractHandler) presign(c *gin.Context, assetUUID, action string) 
 		dto.RespondErrorFrom(c, hostMediaError(err))
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"url": "/media/transfers/" + ticket.AssetUUID + "/" + ticket.Action + "?exp=" + strconv.FormatInt(ticket.ExpiresAt.Unix(), 10) + "&version=" + strconv.FormatUint(ticket.Version, 10) + "&ticket=" + ticket.Token, "method": map[bool]string{true: http.MethodPut, false: http.MethodGet}[action == "upload"], "expires_at": ticket.ExpiresAt, "headers": map[string]string{}})
+	dto.ResponseSuccess(c, gin.H{"url": "/api/v1/media/transfers/" + ticket.AssetUUID + "/" + ticket.Action + "?exp=" + strconv.FormatInt(ticket.ExpiresAt.Unix(), 10) + "&version=" + strconv.FormatUint(ticket.Version, 10) + "&ticket=" + ticket.Token, "method": map[bool]string{true: http.MethodPut, false: http.MethodGet}[action == "upload"], "expires_at": ticket.ExpiresAt, "headers": map[string]string{}})
 }
 
 func (h *hostContractHandler) complete(c *gin.Context, assetUUID string) {
@@ -359,9 +363,9 @@ func hostAssetView(asset *mediasvc.Asset) hostAssetResponse {
 	return hostAssetResponse{AssetUUID: asset.UUID, Name: asset.Name, SizeBytes: asset.SizeBytes, MimeType: asset.MimeType, OwnerSubjectUUID: asset.OwnerSubjectUUID, Status: asset.UploadState, CreatedAt: asset.CreatedAt, UpdatedAt: asset.UpdatedAt}
 }
 func hostUUID(raw string) (string, error) {
-	value, err := uuid.Parse(strings.TrimSpace(raw))
-	if err != nil {
-		return "", err
+	value, err := uuid.Parse(raw)
+	if err != nil || value == uuid.Nil || value.String() != raw {
+		return "", errors.New("media.invalid_uuid")
 	}
 	return value.String(), nil
 }
@@ -371,9 +375,17 @@ func hostAPIKeyHash(c *gin.Context) string {
 	return strings.TrimSpace(value)
 }
 func hostRejectTenantOverride(c *gin.Context) bool {
-	if strings.TrimSpace(c.Query("tenant_uuid")) != "" || strings.TrimSpace(c.GetHeader("X-Tenant-UUID")) != "" {
-		dto.RespondErrorFrom(c, mediasvc.MediaInvalidArgumentError(errors.New("tenant override must not be supplied")))
-		return false
+	for key := range c.Request.URL.Query() {
+		if strings.Contains(strings.ToLower(key), "tenant") {
+			dto.RespondErrorFrom(c, mediasvc.MediaInvalidArgumentError(errors.New("media.tenant_override")))
+			return false
+		}
+	}
+	for key := range c.Request.Header {
+		if strings.Contains(strings.ToLower(key), "tenant") {
+			dto.RespondErrorFrom(c, mediasvc.MediaInvalidArgumentError(errors.New("media.tenant_override")))
+			return false
+		}
 	}
 	return true
 }

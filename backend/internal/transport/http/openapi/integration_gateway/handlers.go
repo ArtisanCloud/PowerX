@@ -1,11 +1,15 @@
 package integration_gateway
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	capaccess "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -14,8 +18,18 @@ import (
 )
 
 type tenantHandler struct {
-	svc *integrationTenant.Service
+	svc tenantService
 }
+
+// The handler depends on operations, allowing the wire contract to be tested
+// independently of routing and storage dependency failures.
+type tenantService interface {
+	ListRoutes(context.Context, string, string, string) ([]manager.Route, error)
+	GetRoute(context.Context, string, string) (manager.Route, error)
+	Invoke(context.Context, integrationTenant.InvokeInput) (integrationTenant.InvokeResult, error)
+}
+
+var _ tenantService = (*integrationTenant.Service)(nil)
 
 type routeSummaryResponse struct {
 	RouteID        string   `json:"route_id"`
@@ -68,7 +82,7 @@ func (h *tenantHandler) ListRoutes(c *gin.Context) {
 
 	routes, err := h.svc.ListRoutes(c.Request.Context(), tenantUUID, capabilityID, channel)
 	if err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "list routes failed", err)
+		respondTenantError(c, err)
 		return
 	}
 
@@ -128,8 +142,9 @@ func (h *tenantHandler) InvokeRoute(c *gin.Context) {
 	}
 
 	var req invokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseValidationError(c, err)
+	decoder := json.NewDecoder(http.MaxBytesReader(c.Writer, c.Request.Body, 8<<20))
+	if err := decodeInvokeBody(decoder, &req); err != nil {
+		dto.RespondErrorFrom(c, gatewayError(c, 400, "CAPABILITY_INVALID_ARGUMENT"))
 		return
 	}
 
@@ -141,7 +156,6 @@ func (h *tenantHandler) InvokeRoute(c *gin.Context) {
 		Context:        req.Context,
 		IdempotencyKey: req.IdempotencyKey,
 		TraceID:        c.GetHeader("X-Trace-Id"),
-		Actor:          c.GetHeader("Authorization"),
 	}
 
 	result, err := h.svc.Invoke(c.Request.Context(), input)
@@ -155,7 +169,7 @@ func (h *tenantHandler) InvokeRoute(c *gin.Context) {
 				"retry_after": rlErr.RetryAfter.String(),
 				"quota_scope": rlErr.Scope,
 			}
-			dto.ResponseErrorWithDetails(c, http.StatusTooManyRequests, "rate limit exceeded", err, details)
+			dto.RespondErrorFrom(c, dto.WithDetails(gatewayError(c, http.StatusTooManyRequests, "CAPABILITY_RATE_LIMITED"), details))
 			return
 		}
 		if result.TraceID != "" {
@@ -181,25 +195,76 @@ func (h *tenantHandler) InvokeRoute(c *gin.Context) {
 
 	switch result.Status {
 	case integrationTenant.InvokeStatusDenied:
-		dto.ResponseError(c, http.StatusForbidden, "tool grant denied", nil)
+		dto.RespondErrorFrom(c, gatewayError(c, http.StatusForbidden, "CAPABILITY_FORBIDDEN"))
 		return
 	case integrationTenant.InvokeStatusFailed:
-		errMsg := result.ErrorMessage
-		if errMsg == "" {
-			errMsg = "capability invocation failed"
-		}
-		dto.ResponseError(c, http.StatusFailedDependency, errMsg, nil)
+		dto.RespondErrorFrom(c, gatewayError(c, http.StatusServiceUnavailable, "CAPABILITY_UPSTREAM_DEPENDENCY"))
 		return
 	case integrationTenant.InvokeStatusAccepted:
 		dto.ResponseSuccessWithStatus(c, http.StatusAccepted, resp)
-	default:
+	case integrationTenant.InvokeStatusOK:
 		dto.ResponseSuccess(c, resp)
+	default:
+		dto.RespondErrorFrom(c, gatewayError(c, http.StatusServiceUnavailable, "CAPABILITY_UPSTREAM_DEPENDENCY"))
 	}
+}
+
+func decodeInvokeBody(d *json.Decoder, req *invokeRequest) error {
+	token, err := d.Token()
+	if err != nil || token != json.Delim('{') {
+		return errors.New("capability.invalid_body")
+	}
+	fields := make(map[string]json.RawMessage)
+	for d.More() {
+		token, err = d.Token()
+		if err != nil {
+			return err
+		}
+		key, ok := token.(string)
+		if !ok || (key != "payload" && key != "context" && key != "idempotency_key") || fields[key] != nil {
+			return errors.New("capability.invalid_field")
+		}
+		var value json.RawMessage
+		if err := d.Decode(&value); err != nil {
+			return err
+		}
+		if string(value) == "null" {
+			return errors.New("capability.invalid_field")
+		}
+		fields[key] = value
+	}
+	if _, err := d.Token(); err != nil {
+		return err
+	}
+	if d.Decode(&struct{}{}) != io.EOF {
+		return errors.New("capability.invalid_body")
+	}
+	encoded, err := json.Marshal(fields)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(encoded, req); err != nil {
+		return err
+	}
+	if req.Payload == nil {
+		return errors.New("capability.payload_required")
+	}
+	return nil
 }
 
 func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 	if c == nil {
 		return "", reqctx.ErrTenantUUIDMissing
+	}
+	for key := range c.Request.URL.Query() {
+		if strings.Contains(strings.ToLower(key), "tenant") {
+			return "", errors.New("capability.tenant_override")
+		}
+	}
+	for key := range c.Request.Header {
+		if strings.Contains(strings.ToLower(key), "tenant") {
+			return "", errors.New("capability.tenant_override")
+		}
 	}
 	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 	if tenantUUID == "" {
@@ -210,27 +275,32 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 
 func respondTenantIdentityError(c *gin.Context, err error) {
 	if errors.Is(err, reqctx.ErrTenantUUIDMissing) {
-		dto.ResponseError(c, http.StatusUnauthorized, "missing tenant identifier", err)
+		dto.RespondErrorFrom(c, gatewayError(c, http.StatusUnauthorized, "CAPABILITY_UNAUTHORIZED"))
 		return
 	}
-	dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+	dto.RespondErrorFrom(c, gatewayError(c, http.StatusBadRequest, "CAPABILITY_INVALID_ARGUMENT"))
 }
 
 func respondTenantError(c *gin.Context, err error) {
+	var accessErr *capaccess.DirectGrantError
+	if errors.As(err, &accessErr) {
+		dto.RespondErrorFrom(c, gatewayError(c, accessErr.Status, accessErr.Error()))
+		return
+	}
 	var routeErr integrationTenant.ErrRouteNotAccessible
 	if errors.As(err, &routeErr) {
-		dto.ResponseError(c, http.StatusNotFound, "route not accessible", err)
+		dto.RespondErrorFrom(c, gatewayError(c, 404, "CAPABILITY_ROUTE_NOT_FOUND"))
 		return
 	}
 	var channelErr integrationTenant.ErrChannelDisabled
 	if errors.As(err, &channelErr) {
-		dto.ResponseError(c, http.StatusNotFound, "channel disabled", err)
+		dto.RespondErrorFrom(c, gatewayError(c, 404, "CAPABILITY_ROUTE_NOT_FOUND"))
 		return
 	}
 	var grantErr integrationTenant.ErrToolGrantDenied
 	if errors.As(err, &grantErr) {
-		dto.ResponseError(c, http.StatusForbidden, "tool grant denied", err)
+		dto.RespondErrorFrom(c, gatewayError(c, 403, "CAPABILITY_FORBIDDEN"))
 		return
 	}
-	dto.ResponseError(c, http.StatusInternalServerError, "integration gateway error", err)
+	dto.RespondErrorFrom(c, gatewayError(c, 503, "CAPABILITY_UPSTREAM_DEPENDENCY"))
 }

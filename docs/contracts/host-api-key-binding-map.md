@@ -4,6 +4,8 @@
 
 | Method | Path | Capability | Scope | Action | Resource type/pattern |
 | --- | --- | --- | --- | --- | --- |
+| `GET` | `/api/v1/admin/agents/providers` | `com.corex.ai.catalog.providers.read` | `_scope.ai.catalog.providers.read` | `read` | `api/ai-catalog-providers` |
+| `GET` | `/api/v1/admin/agents/models` | `com.corex.ai.catalog.models.read` | `_scope.ai.catalog.models.read` | `read` | `api/ai-catalog-models` |
 | `POST` | `/api/v1/tenant/capabilities:grant-status` | `com.corex.capabilities.grant_status.read` | `_scope.capabilities.grant_status.read` | `read` | `api/grant-status` |
 | `GET` | `/api/v1/tenant/iam/members/{member_uuid}` | `com.corex.iam.members.read` | `_scope.iam.members.directory.read` | `read` | `api/directory-members` |
 | `POST` | `/api/v1/tenant/iam/members:batch-get` | `com.corex.iam.members.read` | `_scope.iam.members.directory.read` | `read` | `api/directory-members` |

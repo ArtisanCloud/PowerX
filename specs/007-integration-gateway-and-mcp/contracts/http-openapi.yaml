@@ -10,6 +10,17 @@ info:
     Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 servers:
   - url: https://api.powerx.local
+x-powerx-service-authorization:
+  credential_types: [sts_service_token, gateway_api_key]
+  tenant_source: credential
+  directory_visibility: published_registered_current_credential_granted
+  execution_authorization: live_resolved_target_grant
+  trace_scope: [tenant_uuid, caller_subject, trace_id]
+  historical_trace_without_caller: not_found
+  api_key_permission_source: target_capability_explicit_api_key_binding
+  route_admission: exact_method_runtime_contract
+  grant_status_entry_capability: com.corex.capabilities.grant_status.read
+  independent_directory_capability: false
 paths:
   /tenant/customer/memberships:resolve:
     post:
@@ -620,17 +631,25 @@ components:
           type: string
     CapabilityInvokeRequest:
       type: object
-      required: [capability_id, tenant_uuid]
+      additionalProperties: false
+      anyOf:
+        - required: [capability_id]
+        - required: [intent]
       properties:
         capability_id:
           type: string
-        tenant_uuid:
+        intent:
           type: string
+        tool_scope:
+          type: string
+        tool_grant_ids:
+          type: array
+          items: {type: string}
         idempotency_key:
           type: string
         preferred_protocol:
           type: string
-          enum: [mcp, grpc, rest, workflow]
+          enum: [mcp, grpc, rest, workflow, core_internal]
         trace_id:
           type: string
         payload:

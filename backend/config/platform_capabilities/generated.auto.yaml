@@ -6454,6 +6454,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_metadata_tag_bindings_binding_uuid
+      module: admin
+      title: DELETE /api/v1/admin/metadata/tag-bindings/:binding_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_admin_metadata_tag_bindings_binding_uuid
+      agent_usable: false
+      risk_level: high
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.delete_api_v1_admin_metadata_tag_bindings_binding_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tag-bindings/:binding_uuid
+          method: DELETE
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_metadata_tags_tag_uuid
       module: admin
       title: DELETE /api/v1/admin/metadata/tags/:tag_uuid
@@ -14854,6 +14882,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_tag_bindings
+      module: admin
+      title: POST /api/v1/admin/metadata/tag-bindings
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_metadata_tag_bindings
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_metadata_tag_bindings
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/metadata/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/metadata/tag-bindings
+          method: POST
+          schema_ref: internal/transport/http/admin/metadata/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_metadata_tags
       module: admin
       title: POST /api/v1/admin/metadata/tags
@@ -22358,6 +22414,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: media.api
+    - capability_id: com.corex.rest.media.gin.get_api_v1_media_transfers_asset_uuid_variants_variant_uuid_download
+      module: media
+      title: GET /api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/download
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_media_transfers_asset_uuid_variants_variant_uuid_download
+      agent_usable: false
+      risk_level: low
+      categories:
+        - media
+        - gin
+        - generated
+      intents:
+        - media.get_api_v1_media_transfers_asset_uuid_variants_variant_uuid_download
+      tool_scopes:
+        - media.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/media/router.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/download
+          method: GET
+          schema_ref: internal/transport/http/openapi/media/router.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: media.api
     - capability_id: com.corex.rest.media.gin.put_api_v1_media_transfers_asset_uuid_upload
       module: media
       title: PUT /api/v1/media/transfers/:asset_uuid/upload
@@ -22380,6 +22464,34 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/media/transfers/:asset_uuid/upload
+          method: PUT
+          schema_ref: internal/transport/http/openapi/media/router.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: media.api
+    - capability_id: com.corex.rest.media.gin.put_api_v1_media_transfers_asset_uuid_variants_variant_uuid_upload
+      module: media
+      title: PUT /api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/upload
+      description: Generated from Gin route source
+      permission_code: corex.rest:put_api_v1_media_transfers_asset_uuid_variants_variant_uuid_upload
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - media
+        - gin
+        - generated
+      intents:
+        - media.put_api_v1_media_transfers_asset_uuid_variants_variant_uuid_upload
+      tool_scopes:
+        - media.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/media/router.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/upload
           method: PUT
           schema_ref: internal/transport/http/openapi/media/router.go#source
           auth_type: tenant_jwt
@@ -23646,6 +23758,90 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: restore_drills.api
+    - capability_id: com.corex.rest.routes.gin.get_api_v1_routes
+      module: routes
+      title: GET /api/v1/routes
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_routes
+      agent_usable: false
+      risk_level: low
+      categories:
+        - routes
+        - gin
+        - generated
+      intents:
+        - routes.get_api_v1_routes
+      tool_scopes:
+        - routes.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/integration_gateway/handlers_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/routes
+          method: GET
+          schema_ref: internal/transport/http/openapi/integration_gateway/handlers_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: routes.api
+    - capability_id: com.corex.rest.routes.gin.get_api_v1_routes_route_slug
+      module: routes
+      title: GET /api/v1/routes/:route_slug
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_routes_route_slug
+      agent_usable: false
+      risk_level: low
+      categories:
+        - routes
+        - gin
+        - generated
+      intents:
+        - routes.get_api_v1_routes_route_slug
+      tool_scopes:
+        - routes.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/integration_gateway/handlers_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/routes/:route_slug
+          method: GET
+          schema_ref: internal/transport/http/openapi/integration_gateway/handlers_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: routes.api
+    - capability_id: com.corex.rest.routes.gin.post_api_v1_routes_route_slug_invoke
+      module: routes
+      title: POST /api/v1/routes/:route_slug/invoke
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_routes_route_slug_invoke
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - routes
+        - gin
+        - generated
+      intents:
+        - routes.post_api_v1_routes_route_slug_invoke
+      tool_scopes:
+        - routes.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/integration_gateway/handlers_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/routes/:route_slug/invoke
+          method: POST
+          schema_ref: internal/transport/http/openapi/integration_gateway/handlers_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: routes.api
     - capability_id: com.corex.rest.targets.gin.post_api_v1_targets_test
       module: targets
       title: POST /api/v1/targets/test
@@ -23674,6 +23870,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: targets.api
+    - capability_id: com.corex.rest.tenant.gin.delete_api_v1_tenant_agent_sessions_session_uuid
+      module: tenant
+      title: DELETE /api/v1/tenant/agent/sessions/:session_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_tenant_agent_sessions_session_uuid
+      agent_usable: false
+      risk_level: high
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.delete_api_v1_tenant_agent_sessions_session_uuid
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid
+          method: DELETE
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.delete_api_v1_tenant_knowledge_spaces_space_uuid_documents_document_uuid
       module: tenant
       title: DELETE /api/v1/tenant/knowledge/spaces/:space_uuid/documents/:document_uuid
@@ -23726,6 +23950,174 @@ capabilities:
           endpoint: /api/v1/tenant/media/assets/:asset_uuid
           method: DELETE
           schema_ref: internal/transport/http/openapi/media/host_contract.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.delete_api_v1_tenant_runtime_cache_entries
+      module: tenant
+      title: DELETE /api/v1/tenant/runtime/cache/entries
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_tenant_runtime_cache_entries
+      agent_usable: false
+      risk_level: high
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.delete_api_v1_tenant_runtime_cache_entries
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/runtime_host/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/runtime/cache/entries
+          method: DELETE
+          schema_ref: internal/transport/http/openapi/runtime_host/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_agent_sessions
+      module: tenant
+      title: GET /api/v1/tenant/agent/sessions
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_agent_sessions
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_agent_sessions
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions
+          method: GET
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_agent_sessions_session_uuid
+      module: tenant
+      title: GET /api/v1/tenant/agent/sessions/:session_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_agent_sessions_session_uuid
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_agent_sessions_session_uuid
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid
+          method: GET
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid
+      module: tenant
+      title: GET /api/v1/tenant/agent/sessions/:session_uuid/invocations/:invocation_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid/invocations/:invocation_uuid
+          method: GET
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid_events
+      module: tenant
+      title: GET /api/v1/tenant/agent/sessions/:session_uuid/invocations/:invocation_uuid/events
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid_events
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid_events
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid/invocations/:invocation_uuid/events
+          method: GET
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_agent_sessions_session_uuid_messages
+      module: tenant
+      title: GET /api/v1/tenant/agent/sessions/:session_uuid/messages
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_agent_sessions_session_uuid_messages
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_agent_sessions_session_uuid_messages
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid/messages
+          method: GET
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
           auth_type: tenant_jwt
           actor_context: service_actor
           resource_scope: tenant
@@ -24346,6 +24738,90 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_runtime_cache_entries
+      module: tenant
+      title: GET /api/v1/tenant/runtime/cache/entries
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_runtime_cache_entries
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_runtime_cache_entries
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/runtime_host/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/runtime/cache/entries
+          method: GET
+          schema_ref: internal/transport/http/openapi/runtime_host/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_runtime_tasks_task_uuid
+      module: tenant
+      title: GET /api/v1/tenant/runtime/tasks/:task_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_runtime_tasks_task_uuid
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_runtime_tasks_task_uuid
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/runtime_host/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/runtime/tasks/:task_uuid
+          method: GET
+          schema_ref: internal/transport/http/openapi/runtime_host/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.patch_api_v1_tenant_agent_sessions_session_uuid
+      module: tenant
+      title: PATCH /api/v1/tenant/agent/sessions/:session_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_tenant_agent_sessions_session_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.patch_api_v1_tenant_agent_sessions_session_uuid
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.patch_api_v1_tenant_media_assets_asset_uuid
       module: tenant
       title: PATCH /api/v1/tenant/media/assets/:asset_uuid
@@ -24370,6 +24846,174 @@ capabilities:
           endpoint: /api/v1/tenant/media/assets/:asset_uuid
           method: PATCH
           schema_ref: internal/transport/http/openapi/media/host_contract.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.patch_api_v1_tenant_runtime_tasks_task_uuid
+      module: tenant
+      title: PATCH /api/v1/tenant/runtime/tasks/:task_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_tenant_runtime_tasks_task_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.patch_api_v1_tenant_runtime_tasks_task_uuid
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/runtime_host/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/runtime/tasks/:task_uuid
+          method: PATCH
+          schema_ref: internal/transport/http/openapi/runtime_host/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_agent_sessions
+      module: tenant
+      title: POST /api/v1/tenant/agent/sessions
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_agent_sessions
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_agent_sessions
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions
+          method: POST
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_agent_sessions_session_uuid_archive
+      module: tenant
+      title: POST /api/v1/tenant/agent/sessions/:session_uuid/archive
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_agent_sessions_session_uuid_archive
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_agent_sessions_session_uuid_archive
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid/archive
+          method: POST
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_agent_sessions_session_uuid_invocations
+      module: tenant
+      title: POST /api/v1/tenant/agent/sessions/:session_uuid/invocations
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_agent_sessions_session_uuid_invocations
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_agent_sessions_session_uuid_invocations
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid/invocations
+          method: POST
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid_cancel
+      module: tenant
+      title: POST /api/v1/tenant/agent/sessions/:session_uuid/invocations/:invocation_uuid/cancel
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid_cancel
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_agent_sessions_session_uuid_invocations_invocation_uuid_cancel
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid/invocations/:invocation_uuid/cancel
+          method: POST
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_agent_sessions_session_uuid_messages
+      module: tenant
+      title: POST /api/v1/tenant/agent/sessions/:session_uuid/messages
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_agent_sessions_session_uuid_messages
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_agent_sessions_session_uuid_messages
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/agent_session/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/agent/sessions/:session_uuid/messages
+          method: POST
+          schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
           auth_type: tenant_jwt
           actor_context: service_actor
           resource_scope: tenant
@@ -24934,6 +25578,90 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_complete_upload
+      module: tenant
+      title: POST /api/v1/tenant/media/assets/:asset_uuid/variants/:variant_uuid/complete-upload
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_complete_upload
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_complete_upload
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/media/host_contract.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/media/assets/:asset_uuid/variants/:variant_uuid/complete-upload
+          method: POST
+          schema_ref: internal/transport/http/openapi/media/host_contract.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_presign_download
+      module: tenant
+      title: POST /api/v1/tenant/media/assets/:asset_uuid/variants/:variant_uuid/presign-download
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_presign_download
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_presign_download
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/media/host_contract.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/media/assets/:asset_uuid/variants/:variant_uuid/presign-download
+          method: POST
+          schema_ref: internal/transport/http/openapi/media/host_contract.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_presign_upload
+      module: tenant
+      title: POST /api/v1/tenant/media/assets/:asset_uuid/variants/:variant_uuid/presign-upload
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_presign_upload
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_media_assets_asset_uuid_variants_variant_uuid_presign_upload
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/media/host_contract.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/media/assets/:asset_uuid/variants/:variant_uuid/presign-upload
+          method: POST
+          schema_ref: internal/transport/http/openapi/media/host_contract.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_plugin_release_import_jobs
       module: tenant
       title: POST /api/v1/tenant/plugin-release/import-jobs
@@ -25046,6 +25774,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_runtime_tasks
+      module: tenant
+      title: POST /api/v1/tenant/runtime/tasks
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_runtime_tasks
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_runtime_tasks
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/runtime_host/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/runtime/tasks
+          method: POST
+          schema_ref: internal/transport/http/openapi/runtime_host/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_skills_invoke
       module: tenant
       title: POST /api/v1/tenant/skills/invoke
@@ -25070,6 +25826,34 @@ capabilities:
           endpoint: /api/v1/tenant/skills/invoke
           method: POST
           schema_ref: internal/transport/http/openapi/skills/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.put_api_v1_tenant_runtime_cache_entries
+      module: tenant
+      title: PUT /api/v1/tenant/runtime/cache/entries
+      description: Generated from Gin route source
+      permission_code: corex.rest:put_api_v1_tenant_runtime_cache_entries
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.put_api_v1_tenant_runtime_cache_entries
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/runtime_host/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/runtime/cache/entries
+          method: PUT
+          schema_ref: internal/transport/http/openapi/runtime_host/routes.go#source
           auth_type: tenant_jwt
           actor_context: service_actor
           resource_scope: tenant

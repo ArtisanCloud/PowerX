@@ -15,6 +15,7 @@ type InvocationTrace struct {
 
 	TraceID            string         `gorm:"column:trace_id;type:varchar(128);not null;index:idx_capability_invocation_trace" json:"trace_id"`
 	TenantUUID         string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_capability_invocation_tenant" json:"tenant_uuid"`
+	CallerSubject      string         `gorm:"column:caller_subject;type:varchar(512);not null;default:'';index:idx_capability_invocation_caller" json:"-"`
 	PluginID           string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_invocation_plugin" json:"plugin_id"`
 	CapabilityID       string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_capability_invocation_capability" json:"capability_id"`
 	RouteID            *uuid.UUID     `gorm:"column:route_id;type:uuid" json:"route_id,omitempty"`

@@ -77,6 +77,7 @@ import (
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
+	runtimehost "github.com/ArtisanCloud/PowerX/internal/service/runtime_host"
 	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
@@ -187,6 +188,7 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 }
 
 type Deps struct {
+	RuntimeHostSvc  *runtimehost.Service
 	AgentSessionSvc *agentsession.Service
 	DB              *gorm.DB
 	ctx             *context.Context
@@ -820,6 +822,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	return &Deps{
 		AgentSessionSvc:                   agentsession.NewServiceWithExecutor(db, agentruntime.NewServiceSessionExecutor(db)),
+		RuntimeHostSvc:                    runtimehost.NewService(db, versionLockRedis),
 		DB:                                db,
 		TenantSvc:                         tenantSvc,
 		AuthUser:                          authUser,

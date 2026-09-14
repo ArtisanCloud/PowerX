@@ -163,6 +163,61 @@ capabilities:
       resource_type: api
       resource_pattern: assets
   - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/variants/{variant_uuid}/presign-upload"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/variants/{variant_uuid}/complete-upload"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/variants/{variant_uuid}/presign-download"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/media/transfers/{asset_uuid}/variants/{variant_uuid}/upload"
+    method: PUT
+    auth_type: signed_ticket
+    actor_context: service_actor
+    resource_scope: ticket_scoped_variant
+    sts_direct: false
+    tool_scope: media.assets.transfer
+  - channel: rest
+    endpoint: "/api/v1/media/transfers/{asset_uuid}/variants/{variant_uuid}/download"
+    method: GET
+    auth_type: signed_ticket
+    actor_context: service_actor
+    resource_scope: ticket_scoped_variant
+    sts_direct: false
+    tool_scope: media.assets.transfer
+  - channel: rest
     endpoint: "/api/v1/media/transfers/{asset_uuid}/upload"
     method: PUT
     auth_type: signed_ticket

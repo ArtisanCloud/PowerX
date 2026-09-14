@@ -31,13 +31,14 @@ import (
 const capabilityResolvePageSize = 200
 
 type tenantHandler struct {
-	catalog      *capservice.RegistryService
-	invoker      *capservice.InvocationService
-	selector     *capservice.Selector
-	skillAdapter *skillservice.AdapterService
-	memberSvc    *iamsvc.MemberService
-	httpClient   *http.Client
-	grantStatus  grantStatusReader
+	catalog          *capservice.RegistryService
+	invoker          *capservice.InvocationService
+	selector         *capservice.Selector
+	skillAdapter     *skillservice.AdapterService
+	memberSvc        *iamsvc.MemberService
+	httpClient       *http.Client
+	grantStatus      grantStatusReader
+	credentialAccess *capservice.GrantStatusService
 }
 
 type grantStatusReader interface {
@@ -90,13 +91,14 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 	}
 
 	return &tenantHandler{
-		catalog:      deps.CapabilityCatalogSvc,
-		invoker:      invocationSvc,
-		selector:     selector,
-		skillAdapter: skillAdapter,
-		memberSvc:    memberSvc,
-		httpClient:   &http.Client{},
-		grantStatus:  capservice.NewGrantStatusService(deps.DB),
+		catalog:          deps.CapabilityCatalogSvc,
+		invoker:          invocationSvc,
+		selector:         selector,
+		skillAdapter:     skillAdapter,
+		memberSvc:        memberSvc,
+		httpClient:       &http.Client{},
+		grantStatus:      capservice.NewGrantStatusService(deps.DB),
+		credentialAccess: capservice.NewGrantStatusService(deps.DB),
 	}
 }
 
@@ -225,6 +227,9 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 
 	records, total, err := h.catalog.ListCapabilities(c.Request.Context(), opts)
 	if err != nil {
+		if respondCredentialError(c, err) {
+			return
+		}
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		return
 	}
@@ -293,6 +298,9 @@ func (h *tenantHandler) ResolveCapability(c *gin.Context) {
 			IncludeTotal: includeTotal,
 		})
 		if listErr != nil {
+			if respondCredentialError(c, listErr) {
+				return
+			}
 			capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, listErr)
 			return
 		}
@@ -364,7 +372,7 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		return
 	}
 	var req capabilityInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := decodeInvocationRequest(c, &req); err != nil {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
@@ -376,6 +384,16 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	if strings.TrimSpace(req.CapabilityID) == "" && strings.TrimSpace(req.Intent) == "" {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
 		return
+	}
+	if capservice.ServiceCredential(c.Request.Context()) && req.CapabilityID != "" {
+		access, err := h.credentialAccess.CurrentAccess(c.Request.Context())
+		if err == nil {
+			err = access.Require(req.CapabilityID)
+		}
+		if err != nil {
+			respondCredentialError(c, err)
+			return
+		}
 	}
 	if strings.EqualFold(strings.TrimSpace(req.CapabilityID), "com.corex.rest.admin.gin.get_api_v1_admin_iam_members") {
 		h.invokeIAMMembersCapability(c, req, tenantUUID)
@@ -532,6 +550,9 @@ func (h *tenantHandler) GetInvocation(c *gin.Context) {
 	}
 	record, err := h.invoker.GetTrace(c.Request.Context(), traceID)
 	if err != nil {
+		if respondCredentialError(c, err) {
+			return
+		}
 		template := capability_registrydto.ErrInternal
 		if errors.Is(err, repo.ErrInvocationTraceNotFound) || errors.Is(err, repo.ErrCapabilityRecordNotFound) {
 			template = capability_registrydto.ErrNotFound
@@ -564,7 +585,7 @@ func (h *tenantHandler) InvokeCapabilityStream(c *gin.Context) {
 		return
 	}
 	var req capabilityInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := decodeInvocationRequest(c, &req); err != nil {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
@@ -758,7 +779,6 @@ type capabilityInvokeRequest struct {
 	CapabilityID      string                 `json:"capability_id"`
 	Intent            string                 `json:"intent"`
 	ToolScope         string                 `json:"tool_scope"`
-	TenantUUID        string                 `json:"tenant_uuid"`
 	IdempotencyKey    string                 `json:"idempotency_key"`
 	PreferredProtocol string                 `json:"preferred_protocol"`
 	TraceID           string                 `json:"trace_id"`
@@ -792,11 +812,31 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 	if c == nil {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
+	if _, ok := c.Request.URL.Query()["tenant_uuid"]; ok {
+		return "", errors.New("capability.tenant_override")
+	}
+	for key := range c.Request.Header {
+		if strings.Contains(strings.ToLower(key), "tenant") {
+			return "", errors.New("capability.tenant_override")
+		}
+	}
 	tenant := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 	if tenant == "" {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
 	return reqctx.CanonicalTenantUUID(tenant)
+}
+
+func decodeInvocationRequest(c *gin.Context, req *capabilityInvokeRequest) error {
+	decoder := json.NewDecoder(http.MaxBytesReader(c.Writer, c.Request.Body, 8<<20))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(req); err != nil {
+		return err
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		return errors.New("capability.invalid_body")
+	}
+	return nil
 }
 
 func respondTenantIdentityError(c *gin.Context, err error) {
@@ -826,6 +866,17 @@ func buildErrorObject(summary string) map[string]string {
 }
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
+	var accessErr *capservice.DirectGrantError
+	if errors.As(err, &accessErr) {
+		base := capability_registrydto.ErrUnavailable
+		if accessErr.Status == 401 {
+			base = capability_registrydto.ErrUnauthorized
+		}
+		if accessErr.Status == 403 {
+			base = capability_registrydto.ErrCapabilityForbidden
+		}
+		return base.WithDetails(map[string]interface{}{"reason_code": accessErr.Error()})
+	}
 	switch {
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
 		return capability_registrydto.ErrVersionLocked
@@ -854,6 +905,15 @@ func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	default:
 		return capability_registrydto.ErrInvokeFailed
 	}
+}
+
+func respondCredentialError(c *gin.Context, err error) bool {
+	var accessErr *capservice.DirectGrantError
+	if !errors.As(err, &accessErr) {
+		return false
+	}
+	capability_registrydto.RespondError(c, selectInvokeErrorTemplate(err), nil)
+	return true
 }
 
 func normalizeToolGrantIDs(ids []string) []string {

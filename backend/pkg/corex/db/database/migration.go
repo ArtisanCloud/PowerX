@@ -28,6 +28,7 @@ import (
 	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
 	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	modelPluginSandbox "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_sandbox"
+	modelRuntimeHost "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_host"
 	modelRuntimeScheduler "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelSkills "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
@@ -86,6 +87,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	if err = migrateMetadataModels(db); err != nil {
+		return err
+	}
+	if err = migrateRuntimeHostModels(db); err != nil {
 		return err
 	}
 
@@ -279,6 +283,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	return nil
+}
+
+func migrateRuntimeHostModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelRuntimeHost.Subject{}, &modelRuntimeHost.Task{}, &modelRuntimeHost.Operation{})
 }
 
 func migrateMetadataModels(db *gorm.DB) error {

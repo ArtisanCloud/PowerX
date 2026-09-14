@@ -67,6 +67,14 @@ func TokenizeSources(payload map[string]any, sources []string, policy Calculatio
 			unit := ""
 			for _, u := range units {
 				if strings.HasPrefix(trimmed, u) {
+					// A count unit is not allowed to consume the prefix of a
+					// compound duration such as "6个月". This is a generic
+					// numeric-lexing rule, not a business-field special case;
+					// authors may declare the complete duration unit when it is
+					// actually a supported input unit.
+					if isCompoundDurationUnit(u, strings.TrimPrefix(trimmed, u)) {
+						continue
+					}
 					unit = u
 					break
 				}
@@ -103,11 +111,29 @@ func TokenizeSources(payload map[string]any, sources []string, policy Calculatio
 	return out, nil
 }
 
-func SelectionJSONSchema(policy CalculationPolicy, tokens []NumericToken) map[string]any {
+func isCompoundDurationUnit(unit, suffix string) bool {
+	if unit != "个" {
+		return false
+	}
+	for _, duration := range []string{"月", "季度", "星期", "周", "年", "小时", "分钟", "秒"} {
+		if strings.HasPrefix(suffix, duration) {
+			return true
+		}
+	}
+	return false
+}
+
+func SelectionJSONSchema(policy CalculationPolicy, tokens []NumericToken, activeProfiles []string, locale string) map[string]any {
 	properties := map[string]any{}
 	for _, f := range policy.InputFields {
+		if !matchesProfile(f.AppliesTo, activeProfiles) {
+			continue
+		}
 		refs := []string{}
 		for _, token := range tokens {
+			if !fieldMatchesTokenEvidence(f, token, locale) {
+				continue
+			}
 			for _, unit := range f.UnitTokens {
 				if unit == token.Unit {
 					refs = append(refs, token.Key)
@@ -127,17 +153,19 @@ func SelectionJSONSchema(policy CalculationPolicy, tokens []NumericToken) map[st
 	return map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"schema": map[string]any{"const": ExtractionSchema}, "data": data}, "required": []string{"schema", "data"}}
 }
 
-func ResolveSelection(selection SourceSelection, tokens []NumericToken, policy CalculationPolicy) (PolicyExtraction, error) {
+func ResolveSelection(selection SourceSelection, tokens []NumericToken, policy CalculationPolicy, activeProfiles []string, locale string) (PolicyExtraction, error) {
 	out := PolicyExtraction{Schema: selection.Schema, Data: []InputValue{}}
 	if selection.Schema != ExtractionSchema || selection.Data == nil {
 		return out, fmt.Errorf("evidence.source_schema_invalid")
 	}
-	fields := map[string]bool{}
+	fields := map[string]InputField{}
 	for _, field := range policy.InputFields {
-		fields[field.Key] = true
+		if matchesProfile(field.AppliesTo, activeProfiles) {
+			fields[field.Key] = field
+		}
 	}
 	for key := range selection.Data {
-		if !fields[key] {
+		if _, ok := fields[key]; !ok {
 			return out, fmt.Errorf("evidence.source_input_key_unknown: %s", key)
 		}
 	}
@@ -147,6 +175,9 @@ func ResolveSelection(selection SourceSelection, tokens []NumericToken, policy C
 	}
 	// Preserve the Skill-declared field order in the execution plan.
 	for _, field := range policy.InputFields {
+		if !matchesProfile(field.AppliesTo, activeProfiles) {
+			continue
+		}
 		selected, selectedOK := selection.Data[field.Key]
 		if !selectedOK {
 			continue
@@ -155,7 +186,21 @@ func ResolveSelection(selection SourceSelection, tokens []NumericToken, policy C
 		if !ok {
 			return out, fmt.Errorf("evidence.source_token_missing")
 		}
+		if !fieldMatchesTokenEvidence(field, token, locale) {
+			return out, fmt.Errorf("evidence.source_context_invalid: %s", field.Key)
+		}
 		out.Data = append(out.Data, InputValue{Key: field.Key, Scope: selected.Scope, Unit: token.Unit, Source: token.Source})
 	}
 	return out, nil
+}
+
+// fieldMatchesTokenEvidence is a generic policy interpreter. The business words
+// come only from the published Skill field declaration, never from Core code.
+func fieldMatchesTokenEvidence(field InputField, token NumericToken, locale string) bool {
+	for _, term := range field.EvidenceTermsI18n[locale] {
+		if normalized := normalizeEvidenceText(term); normalized != "" && strings.Contains(normalizeEvidenceText(token.Source.Quote), normalized) {
+			return true
+		}
+	}
+	return false
 }

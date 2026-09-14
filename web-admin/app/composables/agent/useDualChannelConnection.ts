@@ -1004,7 +1004,7 @@ export function useDualChannelConnection(
               },
             };
             const responseEnvelope = payload?.data?.response_envelope;
-            if (responseEnvelope?.schema === "powerx.agent.response/v3") {
+            if (responseEnvelope?.schema === "powerx.agent.response/v4") {
               answer.meta.responseEnvelope = responseEnvelope;
             }
 

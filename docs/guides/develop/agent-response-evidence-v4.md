@@ -44,12 +44,15 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 
 ## Skill 中的声明式计算策略
 
-`executor.calculation_policy.schema=powerx.skill-calculation-policy/v1`，严格要求：
+`executor.calculation_policy.schema=powerx.skill-calculation-policy/v2`，严格要求：
 
-- `input_fields`：每项 `key/kind/unit_tokens/label_i18n/description_i18n`。unit_tokens 是允许的精确单位词面集合，空字符串明确表示无单位。业务含义由发布者描述；模型只能选择这些字段。用户自建 Skill 可声明自己的字段，无需新增 Core 代码。
-- `formulas`：每项 `key/label_i18n/expression/bindings/precision/percent/compare_to/when_any_present` 全部必填。bindings 从表达式变量映射到 quantity 字段；compare_to 是 reported 字段或空字符串。原文没给出该对照声明时只计算，不伪造对照值。
-- `when_any_present`：任何所列字段在原文提取结果中存在，才考虑该公式；全部不存在表示该公式不适用于这次输入，不引入无关缺口。条件成立但缺少绑定操作数时不执行，交给说明阶段明确补数；说明完全忽略缺口会失败。
-- 发布、可运行绑定和执行前校验字段引用、类型、公式白名单、精度和 locale。旧定义缺少策略明确报 `skill.calculation_policy_required`，不能退回模型自由编公式。
+- `activity_profiles`：每项 `key/label_i18n/evidence_any_i18n`。平台只在声明来源中按这些词面确定适用业务类型；模型不能把交易/留存材料改判为线索活动。无 profile 命中明确报 `evidence.activity_profile_unmatched`，不套用最近似模板。
+- `input_fields`：每项 `key/kind/unit_tokens/label_i18n/description_i18n/evidence_terms_i18n/applies_to`。`evidence_terms_i18n` 是字段的原文上下文约束；候选 token 必须同时符合单位与字段词面，`applies_to` 必须指向已激活 profile。单位相同不代表业务语义相同，例如“6个月”不能成为“6个访问”。
+- `formulas`：每项 `key/label_i18n/expression/bindings/precision/percent/compare_to/when_any_present/applies_to` 全部必填。公式只在其 `applies_to` 与当前 profile 相交时才会进入计划。bindings 从表达式变量映射到 quantity 字段；compare_to 是 reported 字段或空字符串。
+- `when_any_present`：任何所列字段在**同一适用 profile 的合格证据**中存在，才考虑该公式；全部不存在表示该公式不适用于这次输入，不引入无关缺口。条件成立但缺少绑定操作数时不执行，交给说明阶段明确补数；说明完全忽略缺口会失败。
+- 发布、可运行绑定和执行前校验 profile、字段、公式、类型、公式白名单、精度和 locale。V1 或缺少以上字段的策略明确报 `skill.calculation_policy_invalid`；必须升级 Skill Revision 后重新发布，不能退回模型自由编公式。
+
+该策略是 **PowerX 执行扩展**，不是把业务写入 Core：`SKILL.md` 仍可作为 Claude Code、Codex 等生态共同可读的包核心；可执行的 PowerX 能力放在 `powerx/manifest.json` 的 executor 扩展中。Core 只解释这个公开、版本化的声明，不识别营销、团队或 Agent 标识。外部仅含 `SKILL.md` 的包可作为 `instruction_only` Draft 导入；未补全 PowerX executor、权限与策略前不得执行。
 
 固有营销策略源文件为 [marketing_calculation_policy.json](../../../backend/cmd/database/seed/locales/marketing_calculation_policy.json)，seed 将其写入数据库的 Skill Revision。文件只声明公式与字段，不保存本次活动的金额、百分比或计算答案。客户的策略同样随自己的 Skill Definition 发布，不要求修改此 seed 文件。当前演示覆盖策略明确列出的字段和公式，不代表已支持任意渠道分组、跨单位成本指标或所有营销指标。
 
@@ -66,10 +69,10 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 ## 迁移与测试
 
 1. 本次没有新增数据库字段，不需要为本修改执行 migrate；migrate 与 seed 仍独立。
-2. 重新发布 Skill：最终 llm_prompt executor 声明 `output_mode=response_envelope`、`response_contract=powerx.agent.response/v4`、`evidence_sources`、`calculation_policy`，并声明工具依赖。固有营销种子定义已更新，需要成功运行 `make seed` 才进入数据库。
+2. 重新发布 Skill：最终 llm_prompt executor 声明 `output_mode=response_envelope`、`response_contract=powerx.agent.response/v4`、`evidence_sources`、V2 `calculation_policy`，并声明工具依赖。固有营销种子定义已更新，需要成功运行 `make seed` 才进入数据库；客户定义必须在页面或发布 API 中形成新的 Revision，不能依赖旧 Revision 自动迁移。
 3. 重启后端并更新 Web Admin，创建新任务验证。旧 V3 不自动转换为 V4；历史界面明确提示契约升级，保留原始数据供诊断，不伪造新执行凭证。
 4. 验证原文 29、34.2、3.37：在同口径声明成立时，按声明精度计算；营销策略为两位小数，输出 0.85，并与原文 3.37 分列为冲突。只有 27.8% 时必须保留报告值，不得产生人数。
-5. 同时更换数值和 Skill key；验证来源截断、跨输入引用、不同单位/口径、除零、缺依赖与其他运行凭证被拒绝。
+5. 同时更换数值和 Skill key；验证来源截断、跨输入引用、不同单位/口径、除零、缺依赖与其他运行凭证被拒绝。特别验证“6个月”等时间量词不能进入访问、线索或客户数候选；GMV/ROI/复购材料不得激活线索目标公式。
 
 定向验证：`go test ./pkg/corex/agent/evidence ./internal/service/skills ./cmd/database/seed ./internal/service/agent`；前端 `npx vitest run tests/unit/agent/response-envelope.spec.ts tests/unit/agent/history-message-meta.spec.ts`。真实模型成功、SSE 和历史 UI 回读仍需单独记录运行证据，单元测试不替代发布验收。
 

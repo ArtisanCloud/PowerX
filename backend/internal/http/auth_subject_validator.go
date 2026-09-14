@@ -75,6 +75,15 @@ var stsStaticAllowedHTTPRoutes = []stsAllowedHTTPRoute{
 	{Method: "POST", Pattern: "/notifications/test", Match: stsRouteMatchSuffix},
 	{Method: "POST", Pattern: "/tenant/invocations", Match: stsRouteMatchSuffix},
 	{Method: "POST", Pattern: "/tenant/invocations/stream", Match: stsRouteMatchSuffix},
+	// Registry/Gateway runtime contracts do not invent endpoint capabilities:
+	// directories filter by live target grants; invokes authorize the resolved
+	// target; trace reads additionally require the persisted caller subject.
+	{Method: "GET", Pattern: "/tenant/capabilities", Match: stsRouteMatchExact},
+	{Method: "GET", Pattern: "/tenant/capabilities/resolve", Match: stsRouteMatchExact},
+	{Method: "GET", Pattern: "/tenant/invocations/:traceId", Match: stsRouteMatchExact},
+	{Method: "GET", Pattern: "/tenant/integration/routes", Match: stsRouteMatchExact},
+	{Method: "GET", Pattern: "/tenant/integration/routes/:route_slug", Match: stsRouteMatchExact},
+	{Method: "POST", Pattern: "/tenant/integration/routes/:route_slug/invoke", Match: stsRouteMatchExact},
 	{Method: "GET", Pattern: "/admin/tenants", Match: stsRouteMatchSuffix},
 	{Method: "POST", Pattern: "/admin/event-fabric/topics", Match: stsRouteMatchExact},
 	{Method: "GET", Pattern: "/admin/scheduler/jobs", Match: stsRouteMatchExact},

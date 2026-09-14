@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	capaccess "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	authorization "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
 	"github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
@@ -16,6 +17,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -124,6 +126,18 @@ func NewService(opts ServiceOptions) *Service {
 
 // ListRoutes 返回租户可访问的路由集合。
 func (s *Service) ListRoutes(ctx context.Context, tenantUUID, capabilityID, channel string) ([]manager.Route, error) {
+	var access capaccess.CredentialAccess
+	serviceActor := capaccess.ServiceCredential(ctx)
+	if serviceActor {
+		var err error
+		access, err = capaccess.NewGrantStatusService(s.db).CurrentAccess(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if tenantUUID != reqctx.GetTenantUUID(ctx) {
+			return nil, &capaccess.DirectGrantError{Status: 403}
+		}
+	}
 	tenantUUID, err := normalizeTenantUUID(tenantUUID)
 	if err != nil {
 		return nil, err
@@ -138,6 +152,9 @@ func (s *Service) ListRoutes(ctx context.Context, tenantUUID, capabilityID, chan
 	result := make([]manager.Route, 0, len(records))
 	for i := range records {
 		route := routeFromModel(&records[i], s.config)
+		if serviceActor && !access.Granted[route.CapabilityID] {
+			continue
+		}
 		if route.LifecycleState != manager.LifecycleActive {
 			continue
 		}
@@ -168,10 +185,22 @@ func (s *Service) GetRoute(ctx context.Context, tenantUUID, slug string) (manage
 
 	record, err := s.routes.GetBySlug(ctx, tenantUUID, slug)
 	if err != nil {
+		if !errors.Is(err, repo.ErrRouteNotFound) {
+			return manager.Route{}, &capaccess.DirectGrantError{Status: 503}
+		}
 		return manager.Route{}, ErrRouteNotAccessible{Slug: slug, TenantUUID: tenantUUID}
 	}
 
 	route := routeFromModel(record, s.config)
+	if capaccess.ServiceCredential(ctx) {
+		access, err := capaccess.NewGrantStatusService(s.db).CurrentAccess(ctx)
+		if err != nil {
+			return manager.Route{}, err
+		}
+		if tenantUUID != reqctx.GetTenantUUID(ctx) || !access.Granted[route.CapabilityID] {
+			return manager.Route{}, ErrRouteNotAccessible{Slug: slug, TenantUUID: tenantUUID}
+		}
+	}
 	if route.LifecycleState != manager.LifecycleActive || route.Status != manager.StatusEnabled {
 		return manager.Route{}, ErrRouteNotAccessible{Slug: slug, TenantUUID: tenantUUID}
 	}
@@ -203,6 +232,9 @@ func (s *Service) Invoke(ctx context.Context, in InvokeInput) (result InvokeResu
 
 	record, err := s.routes.GetBySlug(ctx, tenantUUID, slug)
 	if err != nil {
+		if !errors.Is(err, repo.ErrRouteNotFound) {
+			return result, &capaccess.DirectGrantError{Status: 503}
+		}
 		return result, ErrRouteNotAccessible{Slug: slug, TenantUUID: tenantUUID}
 	}
 
@@ -215,6 +247,22 @@ func (s *Service) Invoke(ctx context.Context, in InvokeInput) (result InvokeResu
 	}
 
 	// Tool Grant 校验
+	if capaccess.ServiceCredential(ctx) {
+		access, err := capaccess.NewGrantStatusService(s.db).CurrentAccess(ctx)
+		if err != nil {
+			return result, err
+		}
+		if tenantUUID != reqctx.GetTenantUUID(ctx) {
+			return result, &capaccess.DirectGrantError{Status: 403}
+		}
+		if err = access.Require(route.CapabilityID); err != nil {
+			return result, err
+		}
+		in.Actor = access.Subject
+	}
+	if len(route.ToolGrantIDs) > 0 && s.toolGrants == nil {
+		return result, &capaccess.DirectGrantError{Status: 503}
+	}
 	if s.toolGrants != nil && len(route.ToolGrantIDs) > 0 {
 		if err = s.toolGrants.Validate(ctx, tenantUUID, route.ToolGrantIDs); err != nil {
 			s.telemetry.ObserveInvocation(ctx, InvokeStatusDenied, 0)
@@ -296,8 +344,11 @@ func (s *Service) Invoke(ctx context.Context, in InvokeInput) (result InvokeResu
 
 	var responsePayload map[string]any
 	if len(routerResult.Payload) > 0 {
-		if err := json.Unmarshal(routerResult.Payload, &responsePayload); err != nil {
-			responsePayload = map[string]any{"raw": string(routerResult.Payload)}
+		if decodeErr := json.Unmarshal(routerResult.Payload, &responsePayload); decodeErr != nil && routerErr == nil {
+			routerErr = fmt.Errorf("integration_gateway.response_invalid: %w", decodeErr)
+		}
+		if responsePayload == nil && routerErr == nil {
+			routerErr = errors.New("integration_gateway.response_object_required")
 		}
 	}
 	result.Result = responsePayload

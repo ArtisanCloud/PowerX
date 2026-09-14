@@ -27,6 +27,9 @@ func TestRegisterHostContractUsesSeparateActionPathSegments(t *testing.T) {
 	require.True(t, routes["/api/v1/tenant/media/assets/:asset_uuid/presign-upload"])
 	require.True(t, routes["/api/v1/tenant/media/assets/:asset_uuid/complete-upload"])
 	require.True(t, routes["/api/v1/tenant/media/assets/:asset_uuid/presign-download"])
+	for _, action := range []string{"presign-upload", "complete-upload", "presign-download"} {
+		require.True(t, routes["/api/v1/tenant/media/assets/:asset_uuid/variants/:variant_uuid/"+action])
+	}
 }
 
 func TestRegisterPublicResourceUsesCoreMediatedTransferRoutes(t *testing.T) {
@@ -36,8 +39,12 @@ func TestRegisterPublicResourceUsesCoreMediatedTransferRoutes(t *testing.T) {
 	for _, route := range engine.Routes() {
 		routes[route.Method+" "+route.Path] = true
 	}
-	require.True(t, routes["PUT /media/transfers/:asset_uuid/upload"])
-	require.True(t, routes["GET /media/transfers/:asset_uuid/download"])
+	require.True(t, routes["PUT /api/v1/media/transfers/:asset_uuid/upload"])
+	require.True(t, routes["GET /api/v1/media/transfers/:asset_uuid/download"])
+	require.False(t, routes["PUT /media/transfers/:asset_uuid/upload"])
+	require.False(t, routes["GET /media/transfers/:asset_uuid/download"])
+	require.True(t, routes["PUT /api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/upload"])
+	require.True(t, routes["GET /api/v1/media/transfers/:asset_uuid/variants/:variant_uuid/download"])
 	require.False(t, routes["GET /media/:uuid/resource"])
 }
 

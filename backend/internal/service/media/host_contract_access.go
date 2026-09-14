@@ -112,11 +112,14 @@ func (s *HostContractAccess) requirePublished(ctx context.Context, tenantUUID, c
 		return MediaUpstreamDependencyError(err)
 	}
 	var registration capmodels.CapabilityRegistration
-	if err := s.db.WithContext(ctx).Where("capability_id = ? AND tenant_uuid = ? AND status = ?", capabilityID, tenantUUID, "published").Order("version DESC").First(&registration).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("capability_id = ? AND tenant_uuid = ?", capabilityID, tenantUUID).Order("version DESC").First(&registration).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return MediaForbiddenError(errors.New("tenant capability registration missing"))
 		}
 		return MediaUpstreamDependencyError(err)
+	}
+	if registration.Status != "published" {
+		return MediaForbiddenError(errors.New("media.registration_inactive"))
 	}
 	return nil
 }
@@ -169,7 +172,7 @@ func MediaAssetStateInvalidError(err error) error {
 	return mediaError(http.StatusConflict, MediaReasonAssetStateInvalid, err)
 }
 func MediaUploadValidationFailedError(err error) error {
-	return mediaError(http.StatusBadRequest, MediaReasonUploadValidationFailed, err)
+	return mediaError(http.StatusUnprocessableEntity, MediaReasonUploadValidationFailed, err)
 }
 func MediaUpstreamDependencyError(err error) error {
 	return mediaError(http.StatusServiceUnavailable, MediaReasonUpstreamDependency, err)

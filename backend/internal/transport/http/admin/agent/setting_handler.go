@@ -39,6 +39,38 @@ type AgentSettingHandler struct {
 	audit          auditsvc.Service
 }
 
+// providerView is the REST contract for the AI provider catalog. Keep its
+// identity fields aligned with catalog.ProviderItem and the gRPC DTO: JSON
+// field names are lower camel case, never Go field names.
+type providerView struct {
+	ID         string                         `json:"id"`
+	Name       string                         `json:"name"`
+	Apps       []providerAppView              `json:"apps,omitempty"`
+	Configured bool                           `json:"configured"`
+	Health     *agentSvc.ProviderHealthRecord `json:"health,omitempty"`
+	Auth       *providerAuthView              `json:"auth,omitempty"`
+}
+
+type providerAppView struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type providerAuthView struct {
+	Scheme   string                 `json:"scheme,omitempty"`
+	Fields   []string               `json:"fields,omitempty"`
+	Defaults map[string]string      `json:"defaults,omitempty"`
+	Modes    []providerAuthModeView `json:"modes,omitempty"`
+}
+
+type providerAuthModeView struct {
+	ID       string            `json:"id"`
+	Label    string            `json:"label,omitempty"`
+	Scheme   string            `json:"scheme,omitempty"`
+	Fields   []string          `json:"fields,omitempty"`
+	Defaults map[string]string `json:"defaults,omitempty"`
+}
+
 const (
 	auditSourceAgentSettingHandler = "agent.setting_handler"
 	auditResourceTypeModalityTest  = "agent.modality_test"
@@ -313,28 +345,6 @@ func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 		healthNorm[p] = v
 	}
 
-	type providerView struct {
-		ID   string `json:"ID"`
-		Name string `json:"Name"`
-		Apps []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"apps,omitempty"`
-		Configured bool                           `json:"configured"`
-		Health     *agentSvc.ProviderHealthRecord `json:"health,omitempty"`
-		Auth       *struct {
-			Scheme   string            `json:"scheme,omitempty"`
-			Fields   []string          `json:"fields,omitempty"`
-			Defaults map[string]string `json:"defaults,omitempty"`
-			Modes    []struct {
-				ID       string            `json:"id"`
-				Label    string            `json:"label,omitempty"`
-				Scheme   string            `json:"scheme,omitempty"`
-				Fields   []string          `json:"fields,omitempty"`
-				Defaults map[string]string `json:"defaults,omitempty"`
-			} `json:"modes,omitempty"`
-		} `json:"auth,omitempty"`
-	}
 	out := make([]providerView, 0, len(list))
 	for _, it := range list {
 		p := strings.ToLower(strings.TrimSpace(it.ID))
@@ -344,59 +354,19 @@ func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 			clone := v
 			hr = &clone
 		}
-		var authView *struct {
-			Scheme   string            `json:"scheme,omitempty"`
-			Fields   []string          `json:"fields,omitempty"`
-			Defaults map[string]string `json:"defaults,omitempty"`
-			Modes    []struct {
-				ID       string            `json:"id"`
-				Label    string            `json:"label,omitempty"`
-				Scheme   string            `json:"scheme,omitempty"`
-				Fields   []string          `json:"fields,omitempty"`
-				Defaults map[string]string `json:"defaults,omitempty"`
-			} `json:"modes,omitempty"`
-		}
+		var authView *providerAuthView
 		if m, ok2 := reg.Manifest(it.ID); ok2 && m != nil {
-			authView = &struct {
-				Scheme   string            `json:"scheme,omitempty"`
-				Fields   []string          `json:"fields,omitempty"`
-				Defaults map[string]string `json:"defaults,omitempty"`
-				Modes    []struct {
-					ID       string            `json:"id"`
-					Label    string            `json:"label,omitempty"`
-					Scheme   string            `json:"scheme,omitempty"`
-					Fields   []string          `json:"fields,omitempty"`
-					Defaults map[string]string `json:"defaults,omitempty"`
-				} `json:"modes,omitempty"`
-			}{
+			authView = &providerAuthView{
 				Scheme:   m.Auth.Scheme,
 				Fields:   m.Auth.Fields,
 				Defaults: m.Auth.Defaults,
-				Modes: func() []struct {
-					ID       string            `json:"id"`
-					Label    string            `json:"label,omitempty"`
-					Scheme   string            `json:"scheme,omitempty"`
-					Fields   []string          `json:"fields,omitempty"`
-					Defaults map[string]string `json:"defaults,omitempty"`
-				} {
+				Modes: func() []providerAuthModeView {
 					if len(m.Auth.Modes) == 0 {
 						return nil
 					}
-					out := make([]struct {
-						ID       string            `json:"id"`
-						Label    string            `json:"label,omitempty"`
-						Scheme   string            `json:"scheme,omitempty"`
-						Fields   []string          `json:"fields,omitempty"`
-						Defaults map[string]string `json:"defaults,omitempty"`
-					}, 0, len(m.Auth.Modes))
+					out := make([]providerAuthModeView, 0, len(m.Auth.Modes))
 					for _, md := range m.Auth.Modes {
-						out = append(out, struct {
-							ID       string            `json:"id"`
-							Label    string            `json:"label,omitempty"`
-							Scheme   string            `json:"scheme,omitempty"`
-							Fields   []string          `json:"fields,omitempty"`
-							Defaults map[string]string `json:"defaults,omitempty"`
-						}{
+						out = append(out, providerAuthModeView{
 							ID:       md.ID,
 							Label:    md.Label,
 							Scheme:   md.Scheme,
@@ -408,15 +378,9 @@ func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 				}(),
 			}
 		}
-		apps := make([]struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		}, 0, len(it.Apps))
+		apps := make([]providerAppView, 0, len(it.Apps))
 		for _, a := range it.Apps {
-			apps = append(apps, struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
-			}{ID: a.ID, Name: a.Name})
+			apps = append(apps, providerAppView{ID: a.ID, Name: a.Name})
 		}
 		out = append(out, providerView{
 			ID:         it.ID,

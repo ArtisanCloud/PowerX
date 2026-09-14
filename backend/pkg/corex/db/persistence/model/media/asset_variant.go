@@ -22,8 +22,13 @@ type MediaAssetVariant struct {
 	Bucket     string `gorm:"column:bucket;type:varchar(128);not null;default:''" json:"bucket"`
 	BaseURL    string `gorm:"column:base_url;type:varchar(512);not null;default:''" json:"base_url"`
 
-	SizeBytes int64  `gorm:"column:size_bytes;not null;default:0" json:"size_bytes"`
-	MimeType  string `gorm:"column:mime_type;type:varchar(128);not null;default:''" json:"mime_type"`
+	SizeBytes        int64      `gorm:"column:size_bytes;not null;default:0" json:"size_bytes"`
+	MimeType         string     `gorm:"column:mime_type;type:varchar(128);not null;default:''" json:"mime_type"`
+	UploadState      string     `gorm:"column:upload_state;type:varchar(32);not null;default:'failed'" json:"-"`
+	ExpectedChecksum string     `gorm:"column:expected_checksum;type:varchar(64);not null;default:''" json:"-"`
+	UploadExpiresAt  *time.Time `gorm:"column:upload_expires_at" json:"-"`
+	CompletedAt      *time.Time `gorm:"column:completed_at" json:"-"`
+	TicketVersion    uint64     `gorm:"column:ticket_version;not null;default:1" json:"-"`
 
 	Meta                    datatypes.JSON `gorm:"column:meta;type:jsonb;not null;default:'{}'::jsonb" json:"meta,omitempty"`
 	LastPresignedAt         *time.Time     `gorm:"column:last_presigned_at" json:"last_presigned_at,omitempty"`
