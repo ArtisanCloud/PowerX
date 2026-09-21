@@ -64,7 +64,7 @@ func (h *HistorySink) Emit(event string, payload any) error {
 		h.captureRunStateTask(event, payload)
 	case dto.EventAgentRunEnded:
 		h.markRunStateEnded()
-	case dto.EventAgentRunFinal:
+	case dto.EventFinal:
 		// final 时落库 assistant 文本
 		text := extractAssistantText(payload)
 		if strings.TrimSpace(text) == "" {

@@ -342,6 +342,37 @@ func TestAgentSystemMenuContainsWorkspaceChildren(t *testing.T) {
 	}
 }
 
+func TestSystemMenuContainsCustomerMasterData(t *testing.T) {
+	for _, item := range BuildSystemMenus() {
+		if item.Key != plugin_mgr.MenuKey("customer_master_data") {
+			continue
+		}
+		if item.URL != "/customers" {
+			t.Fatalf("unexpected customer master-data path: %q", item.URL)
+		}
+		if item.Title != "menu.customers" {
+			t.Fatalf("unexpected customer master-data title: %q", item.Title)
+		}
+		return
+	}
+	t.Fatal("customer master-data menu is missing")
+}
+
+func TestCustomerMasterDataIsGroupedAsBusinessOperations(t *testing.T) {
+	menus := []admdto.AdminMenuItem{{Key: "customer_master_data", Origin: plugin_mgr.OriginSystem, URL: "/customers"}}
+	categories := groupAsCategories(menus, nil, []string{"zh-CN"})
+	for _, category := range categories {
+		if category.ID != plugin_mgr.MenuKey("cat:business_operations") {
+			continue
+		}
+		if category.Title != "menu.section.businessOperations" || len(category.Children) != 1 || category.Children[0].Key != "customer_master_data" {
+			t.Fatalf("unexpected business-operations category: %+v", category)
+		}
+		return
+	}
+	t.Fatal("business-operations category is missing")
+}
+
 func TestSettingsSystemMenuContainsGovernanceEntries(t *testing.T) {
 	want := map[plugin_mgr.MenuKey]string{
 		"metadata_governance":  "/settings/metadata-governance",

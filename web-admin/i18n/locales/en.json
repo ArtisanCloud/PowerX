@@ -58,7 +58,8 @@
     "itemCount": "{count} items",
     "untitled": "Untitled",
     "section": {
-      "untitled": "Untitled Section"
+      "untitled": "Untitled Section",
+      "businessOperations": "Business operations"
     },
     "aiSettingsAgentAccess": "Agent Authorization"
   },
@@ -67,6 +68,7 @@
     "back": "Back",
     "backToList": "Back to list",
     "loading": "Loading...",
+    "status": "Status",
     "error": "Error",
     "retry": "Retry",
     "toggleDensity": "Toggle density",
@@ -2140,6 +2142,7 @@
       },
       "uploadFile": "Upload file",
       "uploadHint": "Support PDF/Markdown/Table",
+      "selectedFiles": "{count} files selected",
       "retainSource": "Keep in Media (recommended)",
       "retainSourceHint": "Even if disabled, we still upload temporarily for ingestion fetch; later we will support policy-based cleanup.",
       "chunkSize": "Chunk size (chars / approx tokens)",
@@ -2167,6 +2170,7 @@
       "errors": {
         "missingSpaceId": "Please select a space",
         "missingSource": "Please upload a file or provide a URL",
+        "batchPartial": "Submitted {submitted} ingestion jobs; {failed} files could not be submitted. Fix them and select the failed files again.",
         "runFailed": "Failed to run ingestion"
       },
       "result": {
@@ -2336,6 +2340,7 @@
   },
   "agent": {
 	"response": {"conclusion":"Conclusion","answer":"Answer","acceptance":"Acceptance","evidence":"Evidence","gaps":"Gaps or blockers","nextActions":"Next actions","metrics":"Metrics and calculations","metric":"Metric","value":"Value","formula":"Formula","facts":"Confirmed facts","hypotheses":"Hypotheses to validate","outcomes":{"completed":"This run is complete. The result is below.","needs_action":"The analysis is complete. The following actions remain.","blocked":"This run is blocked. Resolve the following gaps first.","failed":"This run failed. See the run trace."},"reported":"Source-reported values (not independently verified)","computed":"Tool-calculated values","conflicts":"Source and calculation conflicts","sourceQuote":"Source quotation","operands":"Input values","reportedValue":"Reported value","calculatedValue":"Calculated value","calculationBoundary":"The calculation verifies arithmetic for the supplied inputs only. Inputs and business attribution have not been independently verified.","conflictAction":"Provide the source formula, data scope, and attribution definition before confirming the conclusion.","contractUpgradeRequired":"This historical response uses a retired contract. Inspect its original trace and explicitly retry after publishing the upgraded skill."},
+	"runtime":{"outcomes":{"partial":"A verifiable portion was delivered; the remaining scope is incomplete.","needsInput":"More information, files, authorization, or approval is required to continue.","blocked":"The run cannot continue safely because permission, capability, or an external dependency is unavailable.","failed":"The run did not complete. Review the run trace or retry as directed.","cancelled":"This run was cancelled."},"actions":{"provideRequiredInput":"Provide the required information to continue.","resolveAuthorization":"Obtain the required authorization or approval, then retry.","reviewPartial":"Review the delivered portion and decide whether to continue with the remaining scope."},"taskErrors":{"cancelled":"This step was cancelled.","timeout":"This step timed out.","executionFailed":"This step did not complete.","statePersistFailed":"The state of this step could not be saved.","unknown":"This step did not complete."}},
     "sessions": {
       "title": "Smart sessions"
     },
@@ -2989,5 +2994,7 @@
         "local": "Local upload"
       }
     }
-  }
+  },
+  "agentCapabilityApprovals": {"title":"Capability approvals","description":"Review pending high-risk Agent capability requests.","back":"Back to Agent management","loading":"Loading approvals…","loadFailed":"Unable to load approvals","emptyTitle":"No pending approvals","emptyDescription":"There are no high-risk Agent requests awaiting review.","requestTitle":"High-risk Agent capability request","requestedAt":"Requested {time}","approve":"Approve","approved":"Approval recorded","approveFailed":"Approval could not be recorded","reject":"Reject","rejected":"Request rejected","rejectFailed":"Request could not be rejected"},
+  "customerMaster": {"title":"Customer master data","description":"Manage customer identity, authentication sources, tenant memberships, and contacts. CRM owns customer profile and sales relationships.","search":"Search name, email, phone, or UUID","customer":"Customer","customerUuid":"Customer UUID","email":"Primary email","phone":"Primary phone","updatedAt":"Updated","open":"View details","notFound":"The customer was not found in this tenant.","loadFailed":"Customer master data could not be loaded.","empty":"There are no customers in this tenant.","basic":"Basic data","authIdentities":"Authentication identities","memberships":"Tenant memberships","loginEvents":"Login events","miniAppEntries":"Tenant MiniApp entries","contacts":"Contacts","provider":"Provider","subject":"External subject","source":"Source","expiresAt":"Expires at","event":"Event","result":"Result","channel":"Channel","entryCode":"Entry code","entryType":"Entry type","campaign":"Campaign","identity":"Channel identities","actions":"Actions","edit":"Edit","disable":"Deactivate","createContact":"Create contact","saveTemporary":"Save as temporary","displayName":"Name","givenName":"Given name","familyName":"Family name","roles":"Stable roles","tags":"Tags","tagsHint":"Comma-separated, up to 20.","contactEmpty":"No contacts.","identityEmpty":"No channel identities.","resolveIdentity":"Resolve channel identity","bindIdentity":"Bind channel identity explicitly","externalSubject":"Channel external identifier","resolveNotFound":"No bound contact was found. Explicitly create a contact or save one as temporary.","temporaryNotice":"Temporary contacts can only be created by an explicit human action.","identityConflict":"This channel identity is already bound to another contact.","statusActive":"Active","statusInactive":"Inactive","statusTemporary":"Temporary","rolePrimary":"Primary contact","roleLegalRepresentative":"Legal representative","tenantEntryDescription":"This is current-tenant configuration; it does not claim a binding to this customer.","loginSuccess":"Success","loginFailure":"Failure","saveFailed":"Save failed.","back":"Back to customers"}
 }

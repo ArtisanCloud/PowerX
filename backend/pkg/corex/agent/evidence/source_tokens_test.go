@@ -66,3 +66,44 @@ func TestSkillProfileAndEvidenceTermsRejectTemporalNumberAsLeadMetric(t *testing
 	require.Contains(t, properties, "gmv")
 	require.NotContains(t, properties, "visits")
 }
+
+func TestGenericFactsPreserveNewMetricButRejectMismatchedSourceOrUnit(t *testing.T) {
+	payload := map[string]any{"message": "直播间停留时长45秒，达人佣金率12%，订单号20260914"}
+	tokens, err := TokenizeGenericSources(payload, []string{"/message"})
+	require.NoError(t, err)
+	require.Len(t, tokens, 3)
+	facts, err := ResolveGenericFacts(GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{
+		{Label: "直播间停留时长", Scope: "直播间", TokenRef: "token_0"},
+		{Label: "达人佣金率", Scope: "达人", TokenRef: "token_1"},
+	}}, tokens)
+	require.NoError(t, err)
+	require.Len(t, facts, 2)
+	require.Equal(t, "reported", facts[0].Kind)
+	require.Equal(t, "45", facts[0].Source.Literal)
+	_, err = ResolveGenericFacts(GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{{Label: "不存在的指标", Scope: "直播间", TokenRef: "token_0"}}}, tokens)
+	require.ErrorContains(t, err, "evidence.generic_fact_label_not_in_source")
+	_, err = ResolveGenericFacts(GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{{Label: "订单号", Scope: "直播间", TokenRef: "token_2"}}}, tokens)
+	require.ErrorContains(t, err, "evidence.generic_fact_identifier_or_date_forbidden")
+	unknown, err := TokenizeGenericSources(map[string]any{"message": "新增收藏100UV"}, []string{"/message"})
+	require.NoError(t, err)
+	require.Equal(t, "UV", unknown[0].Unit)
+	_, err = ResolveGenericFacts(GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{{Label: "新增收藏", Scope: "本次活动", TokenRef: "token_0"}}}, unknown)
+	require.NoError(t, err)
+}
+
+func TestGenericFactsSchemaBindsEveryLabelToItsTokenSource(t *testing.T) {
+	tokens, err := TokenizeGenericSources(map[string]any{"message": "活动投入34.2万元，活动标记GMV 46.2万元"}, []string{"/message"})
+	require.NoError(t, err)
+	schema := GenericFactsJSONSchema(tokens)
+	items := schema["properties"].(map[string]any)["facts"].(map[string]any)["items"].(map[string]any)
+	choices := items["oneOf"].([]any)
+	require.Len(t, choices, 2)
+	first := choices[0].(map[string]any)["properties"].(map[string]any)
+	require.Equal(t, "token_0", first["token_ref"].(map[string]any)["const"])
+	require.Equal(t, []string{"活动投入"}, first["label"].(map[string]any)["enum"])
+	second := choices[1].(map[string]any)["properties"].(map[string]any)
+	require.Equal(t, []string{"活动标记GMV"}, second["label"].(map[string]any)["enum"])
+
+	_, err = ResolveGenericFacts(GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{{Label: "GMV", Scope: "活动", TokenRef: "token_1"}}}, tokens)
+	require.ErrorContains(t, err, "evidence.generic_fact_label_not_in_source")
+}

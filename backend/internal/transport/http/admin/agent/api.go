@@ -3,8 +3,16 @@ package agent
 // api/http/admin/agent/api.go
 
 import (
+	"context"
+	"net/http"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	adminauthz "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/authz"
+	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,6 +41,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		// 新增：POST 普通 Chat（非流）
 		agentGroup.POST("/invoke", chatH.Invoke)
 		agentGroup.POST("/sessions/:id/invoke", chatH.InvokeSession)
+		agentGroup.POST("/sessions/:id/capability-approvals/:approval_uuid/resume", chatH.ResumeApprovedCapability)
 		agentGroup.GET("/sessions/:id/stream/sse", chatH.StreamSessionSSE)
 
 		agentGroup.POST("/sessions", sessionH.CreateSession)
@@ -71,6 +80,10 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentAdminGroup.POST("", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.CreateAgent)
 		agentAdminGroup.GET("", agentH.ListAgents)
 		agentAdminGroup.GET("/grantable-capabilities", authzH.ListGrantableCapabilities)
+		agentAdminGroup.GET("/capability-approvals", requireAgentCapabilityApprovalAdmin(deps), chatH.ListPendingCapabilityApprovals)
+		agentAdminGroup.POST("/capability-approvals/:approval_uuid/approve", requireAgentCapabilityApprovalAdmin(deps), chatH.ApproveCapabilityApproval)
+		agentAdminGroup.POST("/capability-approvals/:approval_uuid/reject", requireAgentCapabilityApprovalAdmin(deps), chatH.RejectCapabilityApproval)
+		agentAdminGroup.GET("/runtime-replays/:run_uuid/snapshots/:snapshot_uuid/revisions/:revision_uuid/validate", requireAgentCapabilityApprovalAdmin(deps), chatH.ValidateRuntimeReplay)
 		agentAdminGroup.GET("/:uuid", agentH.GetAgent)
 		agentAdminGroup.PATCH("/:uuid", adminauthz.AdminOrPluginRegistrySyncMiddleware(deps, adminauthz.ScopePluginAgentRegistrySync), agentH.UpdateAgent)
 		agentAdminGroup.POST("/:uuid/enable", agentH.EnableAgent)
@@ -120,4 +133,39 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	{
 		adminAIGroup.GET("/llm/models", settingH.listOpenAILLMModels)
 	}
+}
+
+func requireAgentCapabilityApprovalAdmin(deps *shared.Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if reqctx.IsRoot(c.Request.Context()) || hasAgentCapabilityApprovalAdminRole(c.Request.Context(), deps) {
+			c.Next()
+			return
+		}
+		dto.ResponseError(c, http.StatusForbidden, "agent.capability_approval_admin_required", nil)
+		c.Abort()
+	}
+}
+
+func hasAgentCapabilityApprovalAdminRole(ctx context.Context, deps *shared.Deps) bool {
+	if deps == nil || deps.DB == nil {
+		return false
+	}
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	memberID := reqctx.GetMemberID(ctx)
+	if tenantUUID == "" || memberID == 0 {
+		return false
+	}
+	roles, err := iamrepo.NewRoleBindingRepository(deps.DB).ListRolesByMember(ctx, tenantUUID, memberID)
+	if err != nil {
+		return false
+	}
+	for _, role := range roles {
+		if strings.TrimSpace(role.TenantUUID) != tenantUUID || strings.TrimSpace(strings.ToLower(role.Scope)) != string(coreiam.RoleScopeTenant) {
+			continue
+		}
+		if role.Code == coreiam.CodeRoleOwner || role.Code == coreiam.CodeRoleAdmin {
+			return true
+		}
+	}
+	return false
 }

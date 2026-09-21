@@ -2,11 +2,14 @@ package evidence
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
 
 const PolicySchema = "powerx.skill-calculation-policy/v2"
+
+var ErrActivityProfileUnmatched = errors.New("evidence.activity_profile_unmatched")
 
 // ActivityProfile is a Skill-owned business applicability declaration. Core only
 // matches its terms against the declared evidence sources; it never recognises a
@@ -205,7 +208,7 @@ func (p CalculationPolicy) DetectProfiles(payload map[string]any, sources []stri
 	nextProfile:
 	}
 	if len(active) == 0 {
-		return nil, fmt.Errorf("evidence.activity_profile_unmatched")
+		return nil, ErrActivityProfileUnmatched
 	}
 	return active, nil
 }

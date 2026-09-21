@@ -46,6 +46,8 @@ const TableCustomerTenantMemberships = "customer_tenant_memberships"
 const TableMiniAppEntries = "mini_app_entries"
 const TableCustomerSessions = "customer_sessions"
 const TableCustomerLoginEvents = "customer_login_events"
+const TableCustomerContacts = "customer_contacts"
+const TableCustomerContactIdentities = "customer_contact_identities"
 
 const TableAuditEvent = "audit_event"
 

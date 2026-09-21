@@ -209,7 +209,7 @@ executor:
 
 Core 不把 `action_required_args` 当作业务执行引擎。它最多用于候选解释、提示构建和保护性校验；真正的执行请求必须来自 Skill prepare 输出的 `capability_request`。
 
-完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md) 与 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md)。
+完整协议见 [`agent_run_state_protocol.md`](../agent/agent_run_state_protocol.md) 与 [`agent_runtime_standard_services.md`](../agent/agent_runtime_standard_services.md)。
 
 ### 4.4 SkillState 协议字段
 
@@ -428,7 +428,7 @@ PowerX 统一策略是：LLM 意图识别后，在 `workflow|skill|tooling|llm` 
 
 ## 9. 与本目录其他文档关系
 
-- 插件桥接机制：`agent_skill_bridge.md`
+- 插件桥接机制：[`../agent/agent_skill_bridge.md`](../agent/agent_skill_bridge.md)
 - 规范映射细节：`standard_mapping.md`
 - 运行时实现：`runtime_architecture.md`
 - API 合同：`api_contracts.md`

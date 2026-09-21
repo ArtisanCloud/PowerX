@@ -14,6 +14,7 @@ import { SSE_EVENT_TYPES } from "~/types/message";
 import { BaseFlowKey } from "../api/types/agent";
 import { useStreamingThinkParser } from "./useThinkParser";
 import { useEnvStore } from "~/stores/envStore";
+import { isRunStateEvent } from "~/utils/agent/streamEvent";
 
 export interface DualChannelConnection {
   sseActive: Ref<boolean>;
@@ -578,6 +579,7 @@ export function useDualChannelConnection(
             runState.final = inner;
           } else if (eventType === SSE_EVENT_TYPES.AGENT_RUN_ENDED) {
             runState.ended = true;
+            runState.terminal = inner;
           }
           runState.updatedAt = Date.now();
           bumpMessagesRef();
@@ -829,7 +831,7 @@ export function useDualChannelConnection(
           onMessageCallback?.(payload);
           let type = String(payload.type || eventName || "").toLowerCase();
 
-          if (type.startsWith("agent_run.")) {
+          if (isRunStateEvent(type)) {
             applyRunStateEvent(type, payload);
             if (type === SSE_EVENT_TYPES.AGENT_RUN_ENDED) {
               const inner = payload?.payload && typeof payload.payload === "object"
@@ -841,22 +843,11 @@ export function useDualChannelConnection(
               }
               return;
             }
-            if (type !== SSE_EVENT_TYPES.AGENT_RUN_FINAL) return;
-
-            // Agent Run Protocol 的 final 包裹在 payload.data 中。将其标准化为
-            // 聊天渲染使用的 final 结构，保证执行卡片与最终回复写入同一条消息。
-            const finalPayload =
-              payload?.payload && typeof payload.payload === "object"
-                ? payload.payload
-                : payload;
-            payload = {
-              ...payload,
-              ...finalPayload,
-              data: finalPayload?.data ?? payload?.data,
-              metadata: finalPayload?.metadata ?? payload?.metadata,
-            };
-            mergeTraceMetaIntoPending(payload);
-            type = SSE_EVENT_TYPES.FINAL;
+            // agent_run.* is strictly the execution-state channel. Its final
+            // may describe a child Skill, so it must never overwrite the
+            // pending assistant message. The paired plain `final` event is
+            // the sole visible response channel.
+            return;
           }
 
           // meta：用于把“前端临时消息 id”映射到“DB message id”（支持立即重新生成）

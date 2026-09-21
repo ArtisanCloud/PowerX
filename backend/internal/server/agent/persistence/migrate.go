@@ -4,8 +4,10 @@ package persistence
 
 import (
 	"context"
+	"fmt"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"strings"
 )
@@ -32,6 +34,12 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AgentChatContextSummary{},
 		&dbmodel.AgentSessionSkillState{},
 		&dbmodel.AgentRuntimeConfig{},
+		&dbmodel.AgentRunSnapshot{},
+		&dbmodel.AgentRunObservation{},
+		&dbmodel.AgentPlanRevision{},
+		&dbmodel.AgentVerificationEvidence{},
+		&dbmodel.AgentCapabilityApproval{},
+		&dbmodel.AgentRunTaskState{},
 
 		&dbmodel.AgentProfileLifecycle{},
 		&dbmodel.AgentLifecycleEventRecord{},
@@ -58,8 +66,34 @@ func MigrateAgentModels(db *gorm.DB) error {
 	if err := backfillAgentStructuredFieldsFromMeta(db); err != nil {
 		return err
 	}
+	if err := backfillAgentChatMessageUUIDs(db); err != nil {
+		return err
+	}
 	return nil
 
+}
+
+// backfillAgentChatMessageUUIDs upgrades historical messages created before
+// message_uuid became a public runtime reference. The update is idempotent and
+// only fills absent/zero UUIDs; it never derives an identifier from the legacy
+// numeric storage ID.
+func backfillAgentChatMessageUUIDs(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("agent chat message UUID migration requires database")
+	}
+	var messages []dbmodel.AgentChatMessage
+	return db.Unscoped().
+		Where("uuid IS NULL OR uuid = ?", uuid.Nil).
+		FindInBatches(&messages, 200, func(tx *gorm.DB, _ int) error {
+			for _, message := range messages {
+				if err := tx.Unscoped().Model(&dbmodel.AgentChatMessage{}).
+					Where("id = ?", message.ID).
+					Update("uuid", uuid.New()).Error; err != nil {
+					return fmt.Errorf("backfill agent chat message UUID: %w", err)
+				}
+			}
+			return nil
+		}).Error
 }
 
 func backfillAgentStructuredFieldsFromMeta(db *gorm.DB) error {

@@ -17,6 +17,7 @@ func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps) {
 	tenantGroup := group.Group("/tenant")
 	{
 		tenantGroup.GET("/capabilities", handler.ListCapabilities)
+		tenantGroup.GET("/capabilities/catalog", handler.ListPlatformCatalog)
 		tenantGroup.GET("/capabilities/resolve", handler.ResolveCapability)
 		tenantGroup.POST("/capabilities:grant-status", handler.GetCapabilityGrantStatus)
 		tenantGroup.POST("/invocations", handler.InvokeCapability)

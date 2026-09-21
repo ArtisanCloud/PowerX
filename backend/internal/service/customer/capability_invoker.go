@@ -25,6 +25,7 @@ const (
 // capability for /tenant/invocations without opening admin HTTP routes to STS.
 type CapabilityInvoker struct {
 	accounts *AccountService
+	contacts *ContactCoreBinding
 }
 
 // ExternalIdentityResolveRequest is the Core-internal payload for a
@@ -49,8 +50,12 @@ func (r ExternalIdentityResolveRequest) toServiceInput(tenantUUID string) Resolv
 	}
 }
 
-func NewCapabilityInvoker(accounts *AccountService) *CapabilityInvoker {
-	return &CapabilityInvoker{accounts: accounts}
+func NewCapabilityInvoker(accounts *AccountService, contacts ...*ContactService) *CapabilityInvoker {
+	invoker := &CapabilityInvoker{accounts: accounts}
+	if len(contacts) > 0 && contacts[0] != nil {
+		invoker.contacts = NewContactCoreBinding(contacts[0])
+	}
+	return invoker
 }
 
 func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabilityregistry.CoreCapabilityInvokeInput) (map[string]interface{}, error) {
@@ -74,6 +79,9 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabil
 		return map[string]interface{}{"item": ExternalIdentityResolveResult{
 			CustomerUUID: item.CustomerUUID, MembershipUUID: item.MembershipUUID, DisplayName: item.DisplayName,
 		}}, nil
+	}
+	if strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceReadCapabilityID) || strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceManageCapabilityID) {
+		return i.invokeContactCapability(ctx, in, method, endpoint)
 	}
 	if !strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerAccountsAdminManageCapabilityID) {
 		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
@@ -149,6 +157,108 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabil
 	default:
 		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
 	}
+}
+
+type contactCapabilityRequest struct {
+	Operation       string    `json:"operation"`
+	CustomerUUID    string    `json:"customer_uuid"`
+	ContactUUID     string    `json:"contact_uuid,omitempty"`
+	Query           string    `json:"q,omitempty"`
+	Status          *string   `json:"status,omitempty"`
+	Page            int       `json:"page,omitempty"`
+	PageSize        int       `json:"page_size,omitempty"`
+	Channel         string    `json:"channel,omitempty"`
+	ExternalSubject string    `json:"external_subject,omitempty"`
+	DisplayName     *string   `json:"display_name,omitempty"`
+	GivenName       *string   `json:"given_name,omitempty"`
+	FamilyName      *string   `json:"family_name,omitempty"`
+	Roles           *[]string `json:"roles,omitempty"`
+	Tags            *[]string `json:"tags,omitempty"`
+	CreationIntent  string    `json:"creation_intent,omitempty"`
+}
+
+func (i *CapabilityInvoker) invokeContactCapability(ctx context.Context, in capabilityregistry.CoreCapabilityInvokeInput, method, endpoint string) (map[string]interface{}, error) {
+	if i == nil || i.contacts == nil || method != "INVOKE" || endpoint != CustomerContactsCoreEndpoint {
+		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
+	}
+	raw, err := json.Marshal(in.Body)
+	if err != nil {
+		return nil, ErrContactInvalidArgument
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var req contactCapabilityRequest
+	if err := decoder.Decode(&req); err != nil {
+		return nil, ErrContactInvalidArgument
+	}
+	read := map[string]bool{"list_by_customer": true, "get": true, "resolve_identity": true}[req.Operation]
+	manage := map[string]bool{"create": true, "update": true, "bind_identity": true}[req.Operation]
+	if (!read && !manage) || (read && in.CapabilityID != CustomerContactsServiceReadCapabilityID) || (manage && in.CapabilityID != CustomerContactsServiceManageCapabilityID) {
+		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
+	}
+	switch req.Operation {
+	case "list_by_customer":
+		status := ""
+		if req.Status != nil {
+			status = *req.Status
+		}
+		page, err := i.contacts.ListByCustomer(ctx, in.TenantUUID, ContactCoreListInput{CustomerUUID: req.CustomerUUID, Query: req.Query, Status: status, Page: req.Page, PageSize: req.PageSize})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"items": page.Items, "total": page.Total, "page": page.Page, "page_size": page.PageSize}, nil
+	case "get":
+		item, err := i.contacts.Get(ctx, in.TenantUUID, ContactCoreGetInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"item": item}, nil
+	case "resolve_identity":
+		item, err := i.contacts.ResolveIdentity(ctx, in.TenantUUID, ContactCoreResolveIdentityInput{CustomerUUID: req.CustomerUUID, Channel: req.Channel, ExternalSubject: req.ExternalSubject})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"item": item}, nil
+	case "create":
+		if req.DisplayName == nil {
+			return nil, ErrContactInvalidArgument
+		}
+		status := ""
+		if req.Status != nil {
+			status = *req.Status
+		}
+		item, err := i.contacts.Create(ctx, in.TenantUUID, ContactCoreCreateInput{CustomerUUID: req.CustomerUUID, DisplayName: *req.DisplayName, GivenName: deref(req.GivenName), FamilyName: deref(req.FamilyName), Status: status, Roles: derefSlice(req.Roles), Tags: derefSlice(req.Tags), CreationIntent: req.CreationIntent})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"item": item}, nil
+	case "update":
+		item, err := i.contacts.Update(ctx, in.TenantUUID, ContactCoreUpdateInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID, DisplayName: req.DisplayName, GivenName: req.GivenName, FamilyName: req.FamilyName, Status: req.Status, Roles: req.Roles, Tags: req.Tags})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"item": item}, nil
+	case "bind_identity":
+		item, err := i.contacts.BindIdentity(ctx, in.TenantUUID, ContactCoreBindIdentityInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID, Channel: req.Channel, ExternalSubject: req.ExternalSubject})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"item": item}, nil
+	}
+	return nil, capabilityregistry.ErrCoreCapabilityNotHandled
+}
+
+func deref(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+func derefSlice(value *[]string) []string {
+	if value == nil {
+		return nil
+	}
+	return *value
 }
 
 func normalizeCustomerCapabilityEndpoint(raw string) string {

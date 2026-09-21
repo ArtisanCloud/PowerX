@@ -24,11 +24,16 @@ func TestManifestEvidenceUsesToolAndIgnoresBusinessIdentity(t *testing.T) {
 		calls := 0
 		executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
 			calls++
-			if calls == 2 {
+			if calls == 3 {
 				require.Equal(t, evidence.NotesSchema, in.ResponseSchema["properties"].(map[string]any)["schema"].(map[string]any)["const"])
 				require.NotContains(t, in.Payload, "source")
 				require.Len(t, in.Payload["executed_calculations"], 1)
 				b, err := json.Marshal(evidence.Notes{Schema: evidence.NotesSchema, Hypotheses: []string{}, Gaps: []string{}, Actions: []string{}})
+				return string(b), err
+			}
+			if calls == 1 {
+				require.Equal(t, evidence.GenericFactsSchema, in.ResponseSchema["properties"].(map[string]any)["schema"].(map[string]any)["const"])
+				b, err := json.Marshal(evidence.GenericFactSelection{Schema: evidence.GenericFactsSchema, Facts: []evidence.GenericFactChoice{}})
 				return string(b), err
 			}
 			require.Equal(t, evidence.ExtractionSchema, in.ResponseSchema["properties"].(map[string]any)["schema"].(map[string]any)["const"])
@@ -37,15 +42,70 @@ func TestManifestEvidenceUsesToolAndIgnoresBusinessIdentity(t *testing.T) {
 		}})
 		out, err := executor.Execute(ctx, ExecuteInput{SkillID: key, TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(), Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "test a:17; b:80"}})
 		require.NoError(t, err)
-		require.Equal(t, 2, calls)
+		require.Equal(t, 3, calls)
 		require.NoError(t, evidence.Verify(ctx, out["response_envelope"]))
 		p := out["response_envelope"].(map[string]any)["presentation"].(map[string]any)
 		require.Equal(t, "21.25%", p["computed"].([]any)[0].(map[string]any)["display_value"])
 	}
 }
 
+func TestManifestEvidencePreservesUnlistedNumericFactWithoutCalculatingIt(t *testing.T) {
+	ctx := evidence.WithLedger(context.Background())
+	calls := 0
+	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
+		calls++
+		switch calls {
+		case 1:
+			b, err := json.Marshal(evidence.GenericFactSelection{Schema: evidence.GenericFactsSchema, Facts: []evidence.GenericFactChoice{{Label: "dwell time", Scope: "campaign", TokenRef: "token_2"}}})
+			return string(b), err
+		case 2:
+			b, err := json.Marshal(evidence.SourceSelection{Schema: evidence.ExtractionSchema, Data: map[string]evidence.SelectedValue{"a": {Scope: "campaign", TokenRef: "token_0"}, "b": {Scope: "campaign", TokenRef: "token_1"}}})
+			return string(b), err
+		default:
+			b, err := json.Marshal(evidence.Notes{Schema: evidence.NotesSchema, Hypotheses: []string{}, Gaps: []string{}, Actions: []string{}})
+			return string(b), err
+		}
+	}})
+	out, err := executor.Execute(ctx, ExecuteInput{SkillID: "customer.any", TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(), Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "test a:17; b:80; dwell time 45 seconds"}})
+	require.NoError(t, err)
+	presentation := out["response_envelope"].(map[string]any)["presentation"].(map[string]any)
+	require.Len(t, presentation["reported"], 3)
+	require.Equal(t, "dwell time", presentation["reported"].([]any)[2].(map[string]any)["label"])
+	require.Equal(t, "45", presentation["reported"].([]any)[2].(map[string]any)["value"])
+	require.Len(t, presentation["computed"], 1)
+}
+
+func TestManifestEvidencePreservesGenericFactWhenNoCalculationProfileMatches(t *testing.T) {
+	ctx := evidence.WithLedger(context.Background())
+	calls := 0
+	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
+		calls++
+		switch calls {
+		case 1:
+			b, err := json.Marshal(evidence.GenericFactSelection{Schema: evidence.GenericFactsSchema, Facts: []evidence.GenericFactChoice{{Label: "dwell time", Scope: "live room", TokenRef: "token_0"}}})
+			return string(b), err
+		case 2:
+			properties := in.ResponseSchema["properties"].(map[string]any)["data"].(map[string]any)["properties"].(map[string]any)
+			require.Empty(t, properties)
+			return `{"schema":"powerx.agent.evidence-source/v1","data":{}}`, nil
+		default:
+			return `{"schema":"powerx.agent.evidence-notes/v1","hypotheses":[],"gaps":[],"actions":[]}`, nil
+		}
+	}})
+	out, err := executor.Execute(ctx, ExecuteInput{SkillID: "customer.any", TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(), Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "dwell time 45 seconds"}})
+	require.NoError(t, err)
+	presentation := out["response_envelope"].(map[string]any)["presentation"].(map[string]any)
+	require.Len(t, presentation["reported"], 1)
+	require.Empty(t, presentation["computed"])
+}
+
 func TestManifestEvidenceSelectionFailureCarriesTraceDetails(t *testing.T) {
+	calls := 0
 	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, _ ManifestLLMInvocation) (string, error) {
+		calls++
+		if calls == 1 {
+			return `{"schema":"powerx.agent.evidence-facts/v1","facts":[]}`, nil
+		}
 		return `{"schema":"powerx.agent.evidence-source/v1","data":{"unknown":{"scope":"s","token_ref":"token_0"}}}`, nil
 	}})
 	_, err := executor.Execute(evidence.WithLedger(context.Background()), ExecuteInput{

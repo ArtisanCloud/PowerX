@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,7 +24,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	agentauthz "github.com/ArtisanCloud/PowerX/internal/service/agent_authz"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	modelagent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
@@ -34,19 +38,30 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type AgentChatHandler struct {
-	his         *agentSvc.ChatHistoryService
-	cfgResolver *agentSvc.ChatConfigResolver
-	ag          *agentSvc.AgentService
-	audit       *capservice.AuditService
-	settings    *agentSvc.AgentSettingService
-	skillAudit  *skillservice.AuditTraceService
-	ctxOptSvc   *agentSvc.ContextOptimizerConfigService
-	skillBinds  *agentrepo.AgentSkillBindingRepository
-	skillStates *agentSvc.SkillStateService
-	teams       *agentSvc.TeamService
+	his                 *agentSvc.ChatHistoryService
+	cfgResolver         *agentSvc.ChatConfigResolver
+	ag                  *agentSvc.AgentService
+	audit               *capservice.AuditService
+	settings            *agentSvc.AgentSettingService
+	skillAudit          *skillservice.AuditTraceService
+	ctxOptSvc           *agentSvc.ContextOptimizerConfigService
+	skillBinds          *agentrepo.AgentSkillBindingRepository
+	skillStates         *agentSvc.SkillStateService
+	teams               *agentSvc.TeamService
+	resourceAuthz       *agentauthz.Service
+	snapshotSvc         *runtime.RuntimeSnapshotService
+	observationSvc      *runtime.ObservationService
+	planRevisionSvc     *runtime.PlanRevisionService
+	verificationSvc     *runtime.VerificationEvidenceService
+	approvalSvc         *runtime.CapabilityApprovalService
+	taskStateSvc        *runtime.RunTaskStateService
+	completionVerifiers *runtime.CompletionVerifierRegistry
+	mediaSvc            *mediasvc.MediaService
 }
 
 type runtimeSkillStateStore struct {
@@ -76,10 +91,36 @@ func (s runtimeSkillStateStore) UpsertSkillState(ctx context.Context, in runtime
 }
 
 type agentInvokeRequest struct {
-	AgentID   string                 `json:"agent_id"`
-	SessionID string                 `json:"session_id,omitempty"`
-	Message   string                 `json:"message"`
-	Meta      map[string]interface{} `json:"meta,omitempty"`
+	AttachmentUUIDs []uuid.UUID            `json:"attachment_uuids,omitempty"`
+	AgentID         string                 `json:"agent_id"`
+	SessionID       string                 `json:"session_id,omitempty"`
+	Message         string                 `json:"message"`
+	Meta            map[string]interface{} `json:"meta,omitempty"`
+}
+
+func (h *AgentChatHandler) validateAttachmentUUIDs(ctx context.Context, tenantUUID string, attachmentUUIDs []uuid.UUID) ([]string, error) {
+	if len(attachmentUUIDs) == 0 {
+		return nil, nil
+	}
+	if h == nil || h.mediaSvc == nil || strings.TrimSpace(tenantUUID) == "" {
+		return nil, fmt.Errorf("agent attachment media service is not configured")
+	}
+	seen := make(map[uuid.UUID]struct{}, len(attachmentUUIDs))
+	validated := make([]string, 0, len(attachmentUUIDs))
+	for _, attachmentUUID := range attachmentUUIDs {
+		if attachmentUUID == uuid.Nil {
+			return nil, fmt.Errorf("attachment_uuid is required")
+		}
+		if _, exists := seen[attachmentUUID]; exists {
+			return nil, fmt.Errorf("duplicate attachment_uuid")
+		}
+		seen[attachmentUUID] = struct{}{}
+		if _, err := h.mediaSvc.GetAsset(ctx, tenantUUID, attachmentUUID.String(), false); err != nil {
+			return nil, fmt.Errorf("attachment asset is not readable: %w", err)
+		}
+		validated = append(validated, attachmentUUID.String())
+	}
+	return validated, nil
 }
 
 type agentInvokeSink struct {
@@ -864,17 +905,178 @@ func extractInvokeAssistantText(payload any) string {
 func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 	traceRepo := skillrepo.NewSkillExecutionTraceRepository(dep.DB)
 	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(dep.DB)
+	observationSvc := runtime.NewObservationService(dep.DB)
+	if err := observationSvc.RegisterReader(runtime.ResourceKindCapability, runtime.CapabilityMetadataReader{}); err != nil {
+		panic(err)
+	}
+	if err := observationSvc.RegisterReader(runtime.ResourceKindAgentProfile, runtime.NewAgentProfileReader(dep.DB)); err != nil {
+		panic(err)
+	}
+	if dep.MediaSvc != nil {
+		if err := observationSvc.RegisterReader(runtime.ResourceKindMediaAsset, runtime.NewMediaAssetReader(dep.MediaSvc)); err != nil {
+			panic(err)
+		}
+	}
+	completionVerifiers := runtime.NewCompletionVerifierRegistry()
+	if err := completionVerifiers.Register(runtimescheduler.CapabilityID, runtime.NewSchedulerCompletionVerifier(runtimescheduler.NewService(runtimescheduler.Options{DB: dep.DB, EventBus: dep.EventBus}))); err != nil {
+		panic(err)
+	}
 	return &AgentChatHandler{
-		his:         agentSvc.NewChatHistoryService(dep.DB),
-		cfgResolver: agentSvc.NewChatConfigResolver(dep.DB),
-		ag:          agentSvc.NewAgentService(dep.DB),
-		audit:       dep.CapabilityRegistryAudit,
-		settings:    agentSvc.NewAgentSettingService(dep.DB),
-		skillAudit:  skillservice.NewAuditTraceService(traceRepo, auditRepo),
-		ctxOptSvc:   agentSvc.NewContextOptimizerConfigService(dep.DB),
-		skillBinds:  agentrepo.NewAgentSkillBindingRepository(dep.DB),
-		skillStates: agentSvc.NewSkillStateService(dep.DB),
-		teams:       agentSvc.NewTeamService(dep.DB),
+		his:                 agentSvc.NewChatHistoryService(dep.DB),
+		cfgResolver:         agentSvc.NewChatConfigResolver(dep.DB),
+		ag:                  agentSvc.NewAgentService(dep.DB),
+		audit:               dep.CapabilityRegistryAudit,
+		settings:            agentSvc.NewAgentSettingService(dep.DB),
+		skillAudit:          skillservice.NewAuditTraceService(traceRepo, auditRepo),
+		ctxOptSvc:           agentSvc.NewContextOptimizerConfigService(dep.DB),
+		skillBinds:          agentrepo.NewAgentSkillBindingRepository(dep.DB),
+		skillStates:         agentSvc.NewSkillStateService(dep.DB),
+		teams:               agentSvc.NewTeamService(dep.DB),
+		resourceAuthz:       agentauthz.NewService(dep.DB),
+		snapshotSvc:         runtime.NewRuntimeSnapshotService(dep.DB),
+		observationSvc:      observationSvc,
+		planRevisionSvc:     runtime.NewPlanRevisionService(dep.DB),
+		verificationSvc:     runtime.NewVerificationEvidenceService(dep.DB),
+		approvalSvc:         runtime.NewCapabilityApprovalService(dep.DB),
+		taskStateSvc:        runtime.NewRunTaskStateService(dep.DB),
+		completionVerifiers: completionVerifiers,
+		mediaSvc:            dep.MediaSvc,
+	}
+}
+
+func (h *AgentChatHandler) withResourceSnapshot(ctx context.Context, env, tenantUUID string, agentID uint64) (context.Context, error) {
+	if h == nil || h.resourceAuthz == nil || h.snapshotSvc == nil || h.observationSvc == nil || h.planRevisionSvc == nil || h.verificationSvc == nil || h.approvalSvc == nil {
+		return nil, fmt.Errorf("agent resource authorization service is not configured")
+	}
+	tenantRef := strings.TrimSpace(tenantUUID)
+	ag, err := h.ag.Get(ctx, env, &tenantRef, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("load agent for resource snapshot: %w", err)
+	}
+	permissions, err := h.resourceAuthz.ResolveEffectivePermissions(ctx, env, tenantRef, reqctx.GetUserUUID(ctx), reqctx.GetMemberUUID(ctx), reqctx.GetMemberID(ctx), reqctx.IsRoot(ctx), ag.UUID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve resource permissions: %w", err)
+	}
+	capabilityUUIDByID := make(map[string]uuid.UUID, len(permissions.Items))
+	for _, item := range permissions.Items {
+		if item.EffectiveAllowed {
+			capabilityUUIDByID[item.CapabilityID] = item.CapabilityUUID
+		}
+	}
+	if strings.TrimSpace(ag.Name) == "" {
+		return nil, fmt.Errorf("agent display name is required for resource snapshot")
+	}
+	resources := make([]runtime.ResourceDescriptor, 0, len(permissions.Items)+1)
+	resources = append(resources, runtime.ResourceDescriptor{ResourceUUID: ag.UUID, Kind: runtime.ResourceKindAgentProfile, DisplayName: strings.TrimSpace(ag.Name), Description: strings.TrimSpace(ag.Description), TenantUUID: tenantRef, Source: strings.TrimSpace(ag.Source), Classification: "agent_metadata", DiscoveryGranted: true, ReadGranted: true, InvocationGranted: false, RiskLevel: "low", FreshnessObservedAt: time.Now().UTC()})
+	attachmentResources, attachmentErr := h.messageAttachmentResources(ctx, env, tenantRef, agentID)
+	if attachmentErr != nil {
+		return nil, attachmentErr
+	}
+	resources = append(resources, attachmentResources...)
+	for _, item := range permissions.Items {
+		if !item.EffectiveAllowed {
+			continue
+		}
+		contract, contractErr := runtime.ParseCapabilityRuntimeContract(item.Policy)
+		if contractErr != nil {
+			return nil, fmt.Errorf("decode capability runtime contract: %w", contractErr)
+		}
+		for _, alternativeID := range contract.AlternativeCapabilityIDs {
+			alternativeUUID, exists := capabilityUUIDByID[alternativeID]
+			if !exists {
+				return nil, fmt.Errorf("capability runtime contract alternative is not authorized in this snapshot")
+			}
+			contract.AlternativeCapabilityUUIDs = append(contract.AlternativeCapabilityUUIDs, alternativeUUID)
+		}
+		resources = append(resources, runtime.ResourceDescriptor{ResourceUUID: item.CapabilityUUID, Kind: runtime.ResourceKindCapability, DisplayName: item.DisplayName, TenantUUID: tenantRef, Source: item.PluginID, Classification: "capability_metadata", CapabilityUUID: item.CapabilityUUID, CapabilityID: item.CapabilityID, DiscoveryGranted: true, ReadGranted: true, InvocationGranted: true, RiskLevel: item.RiskLevel, RuntimeContract: contract, FreshnessObservedAt: time.Now().UTC()})
+	}
+	runUUID := uuid.New()
+	subjectUUID := strings.TrimSpace(reqctx.GetUserUUID(ctx))
+	if subjectUUID == "" {
+		return nil, fmt.Errorf("agent run subject_uuid is required")
+	}
+	snapshot, err := h.snapshotSvc.Freeze(ctx, runtime.FreezeRuntimeSnapshotInput{
+		Env: env, TenantUUID: tenantRef, SubjectUUID: subjectUUID, PolicyVersion: "agent_effective_permissions/v1",
+		RunUUID: runUUID, AgentUUID: ag.UUID, Resources: resources, ExpiresAt: time.Now().Add(15 * time.Minute),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("freeze resource snapshot: %w", err)
+	}
+	ctx = context.WithValue(ctx, "runtime_run_uuid", runUUID.String())
+	ctx = context.WithValue(ctx, "runtime_snapshot_uuid", snapshot.SnapshotUUID.String())
+	ctx = runtime.ContextWithObservationService(ctx, h.observationSvc)
+	ctx = runtime.ContextWithPlanRevisionService(ctx, h.planRevisionSvc)
+	ctx = runtime.ContextWithVerificationEvidenceService(ctx, h.verificationSvc)
+	ctx = runtime.ContextWithCapabilityApprovalService(ctx, h.approvalSvc)
+	ctx = runtime.ContextWithRunTaskStateService(ctx, h.taskStateSvc)
+	ctx = runtime.ContextWithPlanRevisionPlanner(ctx, runtime.SemanticReplanner{})
+	ctx = runtime.ContextWithCompletionVerifierRegistry(ctx, h.completionVerifiers)
+	return runtime.ContextWithResourceSnapshot(ctx, snapshot), nil
+}
+
+func (h *AgentChatHandler) messageAttachmentResources(ctx context.Context, env, tenantUUID string, agentID uint64) ([]runtime.ResourceDescriptor, error) {
+	messageUUIDText := strings.TrimSpace(fmt.Sprint(ctx.Value("message_uuid")))
+	if messageUUIDText == "" {
+		return nil, nil
+	}
+	messageUUID, err := uuid.Parse(messageUUIDText)
+	if err != nil || messageUUID == uuid.Nil {
+		return nil, fmt.Errorf("runtime message_uuid is invalid")
+	}
+	message, err := h.his.FindMessageByUUID(ctx, env, &tenantUUID, messageUUID)
+	if err != nil {
+		return nil, fmt.Errorf("load attachment message: %w", err)
+	}
+	if message.AgentID != agentID || strings.ToLower(strings.TrimSpace(message.Role)) != "user" {
+		return nil, fmt.Errorf("runtime message does not belong to this agent user request")
+	}
+	raw, ok := message.Meta["attachment_uuids"]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	values, err := attachmentUUIDStrings(raw)
+	if err != nil {
+		return nil, err
+	}
+	resources := make([]runtime.ResourceDescriptor, 0, len(values))
+	seen := make(map[uuid.UUID]struct{}, len(values))
+	for _, rawUUID := range values {
+		assetUUID, parseErr := uuid.Parse(strings.TrimSpace(rawUUID))
+		if parseErr != nil || assetUUID == uuid.Nil {
+			return nil, fmt.Errorf("message attachment_uuid is invalid")
+		}
+		if _, exists := seen[assetUUID]; exists {
+			return nil, fmt.Errorf("duplicate message attachment_uuid")
+		}
+		seen[assetUUID] = struct{}{}
+		if h.mediaSvc == nil {
+			return nil, fmt.Errorf("agent attachment media service is not configured")
+		}
+		asset, assetErr := h.mediaSvc.GetAsset(ctx, tenantUUID, assetUUID.String(), false)
+		if assetErr != nil || strings.TrimSpace(asset.Name) == "" {
+			return nil, fmt.Errorf("message attachment asset is not readable")
+		}
+		resources = append(resources, runtime.ResourceDescriptor{ResourceUUID: assetUUID, Kind: runtime.ResourceKindMediaAsset, DisplayName: asset.Name, TenantUUID: tenantUUID, Source: "core.media", Classification: "user_attached_media", DiscoveryGranted: true, ReadGranted: true, InvocationGranted: false, RiskLevel: "low", FreshnessObservedAt: time.Now().UTC()})
+	}
+	return resources, nil
+}
+
+func attachmentUUIDStrings(raw any) ([]string, error) {
+	switch values := raw.(type) {
+	case []string:
+		return values, nil
+	case []interface{}:
+		out := make([]string, 0, len(values))
+		for _, value := range values {
+			text, ok := value.(string)
+			if !ok {
+				return nil, fmt.Errorf("message attachment_uuids is invalid")
+			}
+			out = append(out, text)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("message attachment_uuids is invalid")
 	}
 }
 
@@ -1075,7 +1277,12 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 	q := strings.TrimSpace(utils.FirstNonEmpty(getParam("q"), getParam("message")))
 	regenFromID, _ := utils.ParseUintID(strings.TrimSpace(c.Query("regen_from_message_id")))
-	if q == "" && regenFromID == 0 {
+	messageUUIDParam := strings.TrimSpace(c.Query("message_uuid"))
+	if messageUUIDParam != "" && (q != "" || regenFromID != 0) {
+		dto.ResponseError(c, 400, "agent.message_uuid_conflicts_with_message", nil)
+		return
+	}
+	if q == "" && regenFromID == 0 && messageUUIDParam == "" {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
 		return
 	}
@@ -1229,8 +1436,19 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	defer debugSink.Flush()
 
 	userMessageID := uint64(0)
-	// 支持“从某条 user 消息重新生成”：裁剪后续消息并以该消息内容作为 prompt
-	if regenFromID > 0 {
+	userMessageUUID := uuid.Nil
+	// 已持久化消息模式只允许复用当前 session 的 user 消息。
+	if messageUUIDParam != "" {
+		messageUUID, parseErr := uuid.Parse(messageUUIDParam)
+		msgRec, findErr := h.his.FindMessageByUUID(c, env, tenantRef, messageUUID)
+		if parseErr != nil || findErr != nil || msgRec == nil || msgRec.SessionID != sess.ID || msgRec.AgentID != agentID || strings.ToLower(strings.TrimSpace(msgRec.Role)) != "user" {
+			_ = debugSink.Emit(dto.EventError, map[string]any{"message": "agent.message_uuid_invalid"})
+			_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
+			return
+		}
+		q, userMessageID, userMessageUUID = strings.TrimSpace(msgRec.Content), msgRec.ID, msgRec.UUID
+		// 支持“从某条 user 消息重新生成”：裁剪后续消息并以该消息内容作为 prompt
+	} else if regenFromID > 0 {
 		msgRec, err := h.his.FindMessageByID(c, env, tenantRef, regenFromID)
 		if err != nil || msgRec == nil || msgRec.SessionID != sess.ID || strings.ToLower(strings.TrimSpace(msgRec.Role)) != "user" {
 			_ = debugSink.Emit(dto.EventError, map[string]any{"message": "regen_from_message_id 无效或不属于该会话"})
@@ -1246,6 +1464,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		_, _ = h.his.TruncateMessagesAfter(c, env, tenantRef, sess.ID, regenFromID)
 		q = strings.TrimSpace(msgRec.Content)
 		userMessageID = msgRec.ID
+		userMessageUUID = msgRec.UUID
 		_ = debugSink.Emit(dto.EventMeta, map[string]any{
 			"session_id":              sess.ID,
 			"agent_id":                agentID,
@@ -1258,6 +1477,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 			userMsg, _ := h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
 			if userMsg != nil {
 				userMessageID = userMsg.ID
+				userMessageUUID = userMsg.UUID
 				_ = debugSink.Emit(dto.EventMeta, map[string]any{
 					"tenant_uuid":       strings.TrimSpace(tenantCtx.UUID()),
 					"trace_id":          traceID,
@@ -1303,6 +1523,9 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		runCtx = context.WithValue(runCtx, "message_id", fmt.Sprintf("%d", userMessageID))
 		runCtx = context.WithValue(runCtx, "messageId", fmt.Sprintf("%d", userMessageID))
 	}
+	if userMessageUUID != uuid.Nil {
+		runCtx = context.WithValue(runCtx, "message_uuid", userMessageUUID.String())
+	}
 	runCtx = context.WithValue(runCtx, "planner_optimizer_enabled", plannerCfg.Enabled)
 	runCtx = context.WithValue(runCtx, "planner_optimizer_candidate_top_k", plannerCfg.CandidateTopK)
 	runCtx = context.WithValue(runCtx, "planner_optimizer_prompt_slim_mode", plannerCfg.PromptSlimMode)
@@ -1319,6 +1542,11 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 	runCtx = context.WithValue(runCtx, "agent_bound_skill_ids", boundSkillIDs)
 	runCtx = context.WithValue(runCtx, "agentBoundSkillIDs", boundSkillIDs)
+	runCtx, err = h.withResourceSnapshot(runCtx, env, tenantCtx.UUID(), agentID)
+	if err != nil {
+		dto.ResponseError(c, 403, "无法建立当前 Agent 的资源授权快照", nil)
+		return
+	}
 	locale, localeErr := declaredAgentLocale(map[string]interface{}{"locale": getParam("locale")})
 	if localeErr != nil {
 		dto.ResponseError(c, 400, localeErr.Error(), nil)
@@ -1458,7 +1686,12 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 			},
 		)
 		if buildErr == nil && build != nil {
-			cfg.SystemPrompt = runtime.BuildModeSpecificSystemPrompt(strings.TrimSpace(build.SystemPrompt), responsePlan)
+			cfg.SystemPrompt, buildErr = runtime.BuildModeSpecificSystemPrompt(strings.TrimSpace(build.SystemPrompt), responsePlan, locale)
+			if buildErr != nil {
+				_ = debugSink.Emit(dto.EventError, map[string]any{"code": "agent.final_response_prompt_invalid", "message": buildErr.Error()})
+				_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
+				return
+			}
 			runCtx = context.WithValue(runCtx, "agent_response_context_layers", build.UsedContextLayers)
 			_ = runSink.Emit(dto.EventNodeEnd, map[string]any{
 				"task_id":    "context_builder",
@@ -1508,7 +1741,13 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 			})
 		}
 	} else {
-		cfg.SystemPrompt = runtime.BuildModeSpecificSystemPrompt(cfg.SystemPrompt, responsePlan)
+		var promptErr error
+		cfg.SystemPrompt, promptErr = runtime.BuildModeSpecificSystemPrompt(cfg.SystemPrompt, responsePlan, locale)
+		if promptErr != nil {
+			_ = debugSink.Emit(dto.EventError, map[string]any{"code": "agent.final_response_prompt_invalid", "message": promptErr.Error()})
+			_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
+			return
+		}
 	}
 	_ = debugSink.Emit(dto.EventMeta, map[string]any{
 		"planner_optimizer": map[string]any{
@@ -1566,6 +1805,15 @@ func teamRuntimeContextHasExecutablePlan(teamRuntimeContext map[string]any) bool
 	return ok && len(spec) > 0
 }
 
+// emitSSEFailure sends only stable, user-safe failure information to the chat
+// stream. The caller must persist or log the original error separately; raw
+// database, executor and provider errors must not become browser event data.
+func emitSSEFailure(c *gin.Context, message, reasonCode string) {
+	payload := gin.H{"message": message, "reason_code": reasonCode, "outcome": "failed"}
+	c.SSEvent(dto.EventError, payload)
+	c.SSEvent(dto.EventEnd, gin.H{"ok": false, "reason_code": reasonCode, "outcome": "failed"})
+}
+
 // ---- 核心 ----
 func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest) {
 	msg := strings.TrimSpace(req.Message)
@@ -1585,8 +1833,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	env := reqctx.GetEnv(c.Request.Context())
 	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
-		c.SSEvent(dto.EventError, gin.H{"message": "租户上下文缺失", "detail": err.Error()})
-		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		emitSSEFailure(c, "租户上下文缺失", "tenant.context_missing")
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
@@ -1599,8 +1846,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		return
 	}
 	if _, err := h.ag.Get(ctx, env, tenantRef, agentID); err != nil {
-		c.SSEvent(dto.EventError, gin.H{"message": "未找到指定的 Agent", "detail": err.Error()})
-		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		emitSSEFailure(c, "未找到指定的 Agent", "agent.not_found")
 		return
 	}
 
@@ -1615,8 +1861,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		var sessErr error
 		sess, sessErr = h.his.GetOrCreateSession(ctx, env, tenantRef, agentID, userID, false, nil)
 		if sessErr != nil {
-			c.SSEvent(dto.EventError, gin.H{"message": "创建会话失败", "detail": sessErr.Error()})
-			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+			emitSSEFailure(c, "创建会话失败", "session.create_failed")
 			return
 		}
 	}
@@ -1627,8 +1872,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 
 	// 写入 user 消息
 	if _, err := h.his.AppendMessage(ctx, env, tenantRef, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil); err != nil {
-		c.SSEvent(dto.EventError, gin.H{"message": "写入用户消息失败", "detail": err.Error()})
-		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		emitSSEFailure(c, "写入用户消息失败", "message.persist_failed")
 		return
 	}
 
@@ -1639,8 +1883,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	if flowID == "" {
 		tasks, err := mgr.DetectTasks(c, msg)
 		if err != nil {
-			c.SSEvent(dto.EventError, gin.H{"message": "意图识别失败", "detail": err.Error()})
-			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+			emitSSEFailure(c, "意图识别失败", "intent.detect_failed")
 			return
 		}
 		c.SSEvent(dto.EventIntent, gin.H{"mode": "intent_multi", "tasks": tasks})
@@ -1672,8 +1915,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	// 路由 & 兜底
 	ag, fallbackFlowID, err := mgr.GetDefaultRoute()
 	if err != nil {
-		c.SSEvent(dto.EventError, gin.H{"message": "获取默认 Agent 失败", "detail": err.Error()})
-		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		emitSSEFailure(c, "获取默认 Agent 失败", "agent.default_route_failed")
 		return
 	}
 	if strings.TrimSpace(flowID) == "" {
@@ -1713,8 +1955,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 
 	sr, err := ag.Stream(runCtx, flowID, params, meta)
 	if err != nil {
-		c.SSEvent(dto.EventError, gin.H{"message": "流式聊天执行失败", "detail": err.Error()})
-		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		emitSSEFailure(c, "流式聊天执行失败", "agent.stream_failed")
 		return
 	}
 
@@ -1779,6 +2020,265 @@ func (h *AgentChatHandler) InvokeSession(c *gin.Context) {
 		return
 	}
 	h.invokeWithSession(c, req, strings.TrimSpace(c.Param("id")))
+}
+
+// ResumeApprovedCapability executes the uncompleted portion of a persisted
+// plan after an administrator has approved one frozen capability. The current
+// caller must be the original requester; the request supplies no run, plan,
+// capability, or subject identifiers.
+func (h *AgentChatHandler) ResumeApprovedCapability(c *gin.Context) {
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_tenant_required", nil)
+		return
+	}
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_env_invalid", nil)
+		return
+	}
+	approvalUUID, err := uuid.Parse(strings.TrimSpace(c.Param("approval_uuid")))
+	if err != nil || approvalUUID == uuid.Nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_uuid_invalid", nil)
+		return
+	}
+	subjectUUID := strings.TrimSpace(reqctx.GetUserUUID(c.Request.Context()))
+	if subjectUUID == "" {
+		dto.ResponseError(c, 403, "agent.capability_approval_requester_required", nil)
+		return
+	}
+	if h == nil || h.approvalSvc == nil || h.snapshotSvc == nil || h.planRevisionSvc == nil || h.taskStateSvc == nil {
+		dto.ResponseError(c, 500, "agent.capability_approval_resume_unavailable", nil)
+		return
+	}
+	tenantRef := tenantCtx.UUIDPtr()
+	sess, err := h.resolveSessionByParam(c, env, tenantRef, strings.TrimSpace(c.Param("id")))
+	if err != nil || sess == nil {
+		dto.ResponseError(c, 404, "agent.capability_approval_session_not_found", nil)
+		return
+	}
+	agentRecord, err := h.ag.Get(c.Request.Context(), env, tenantRef, sess.AgentID)
+	if err != nil || agentRecord == nil || agentRecord.UUID == uuid.Nil {
+		dto.ResponseError(c, 404, "agent.capability_approval_agent_not_found", nil)
+		return
+	}
+	resume, err := h.approvalSvc.LoadApprovedForResume(c.Request.Context(), env, tenantCtx.UUID(), subjectUUID, agentRecord.UUID, sess.UUID, approvalUUID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dto.ResponseError(c, 404, "agent.capability_approval_not_found", nil)
+			return
+		}
+		dto.ResponseError(c, 409, "agent.capability_approval_not_resumable", nil)
+		return
+	}
+	message, err := h.his.FindMessageByUUID(c.Request.Context(), env, tenantRef, resume.Scope.MessageUUID)
+	if err != nil || message == nil || message.SessionID != sess.ID || message.AgentID != sess.AgentID || strings.ToLower(strings.TrimSpace(message.Role)) != "user" {
+		dto.ResponseError(c, 409, "agent.capability_approval_message_not_resumable", nil)
+		return
+	}
+	snapshot, err := h.snapshotSvc.Restore(c.Request.Context(), env, tenantCtx.UUID(), resume.Scope.RunUUID, resume.Scope.SnapshotUUID)
+	if err != nil || snapshot.AgentUUID != agentRecord.UUID {
+		dto.ResponseError(c, 409, "agent.capability_approval_snapshot_not_resumable", nil)
+		return
+	}
+	revision, err := h.planRevisionSvc.Restore(c.Request.Context(), env, tenantCtx.UUID(), resume.Scope.RunUUID, resume.Scope.SnapshotUUID, resume.Scope.PlanRevisionUUID)
+	if err != nil {
+		dto.ResponseError(c, 409, "agent.capability_approval_plan_not_resumable", nil)
+		return
+	}
+	plan, err := h.taskStateSvc.BuildResumePlan(c.Request.Context(), env, tenantCtx.UUID(), resume.Scope.RunUUID, resume.Scope.PlanRevisionUUID, revision.Plan)
+	if err != nil {
+		dto.ResponseError(c, 409, "agent.capability_approval_plan_not_resumable", nil)
+		return
+	}
+	traceID := uuid.NewString()
+	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	runCtx = context.WithValue(runCtx, "run_id", fmt.Sprintf("run_%d", time.Now().UnixNano()))
+	runCtx = context.WithValue(runCtx, "runId", runCtx.Value("run_id"))
+	runCtx = context.WithValue(runCtx, "env", env)
+	runCtx = context.WithValue(runCtx, "tenant_uuid", tenantCtx.UUID())
+	runCtx = context.WithValue(runCtx, "session_id", fmt.Sprintf("%d", sess.ID))
+	runCtx = context.WithValue(runCtx, "session_uuid", sess.UUID.String())
+	runCtx = context.WithValue(runCtx, "message_id", fmt.Sprintf("%d", message.ID))
+	runCtx = context.WithValue(runCtx, "message_uuid", message.UUID.String())
+	runCtx = context.WithValue(runCtx, "agent_id", fmt.Sprintf("%d", sess.AgentID))
+	runCtx = context.WithValue(runCtx, "runtime_run_uuid", resume.Scope.RunUUID.String())
+	runCtx = context.WithValue(runCtx, "runtime_snapshot_uuid", resume.Scope.SnapshotUUID.String())
+	runCtx = context.WithValue(runCtx, "runtime_plan_revision_uuid", resume.Scope.PlanRevisionUUID.String())
+	runCtx = context.WithValue(runCtx, "runtime_approved_resume", true)
+	runCtx = runtime.ContextWithResourceSnapshot(runCtx, snapshot)
+	runCtx = runtime.ContextWithObservationService(runCtx, h.observationSvc)
+	runCtx = runtime.ContextWithPlanRevisionService(runCtx, h.planRevisionSvc)
+	runCtx = runtime.ContextWithVerificationEvidenceService(runCtx, h.verificationSvc)
+	runCtx = runtime.ContextWithCapabilityApprovalService(runCtx, h.approvalSvc)
+	runCtx = runtime.ContextWithRunTaskStateService(runCtx, h.taskStateSvc)
+	runCtx = runtime.ContextWithCompletionVerifierRegistry(runCtx, h.completionVerifiers)
+	runCtx = runtime.ContextWithSkillStateStore(runCtx, runtimeSkillStateStore{service: h.skillStates})
+	runCtx, err = runtime.ContextWithCapabilityApprovals(runCtx, []runtime.CapabilityApproval{resume.Approval})
+	if err != nil {
+		dto.ResponseError(c, 500, "agent.capability_approval_context_invalid", nil)
+		return
+	}
+	baseSink := &agentInvokeSink{}
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, sess.AgentID, true).WithSkillStateService(h.skillStates)
+	traceSink := newPlannerTraceSink(histSink, h.skillAudit, tenantCtx.UUID(), traceID)
+	startedAt := time.Now()
+	err = runtime.NewEngine().RunApprovedResume(runCtx, plan, traceSink)
+	status := "completed"
+	if err != nil {
+		status = "failed"
+	}
+	h.recordAgentInvocation(c.Request.Context(), agentInvokeCapability, tenantCtx.UUID(), sess.AgentID, sess.ID, message.Content, traceID, "rest", status, err, time.Since(startedAt), nil)
+	if err != nil {
+		dto.ResponseError(c, 502, "agent.capability_approval_resume_failed", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"approval_uuid": approvalUUID.String(), "session_uuid": sess.UUID.String(), "plan_id": plan.PlanID, "reply": baseSink.Reply()})
+}
+
+// ApproveCapabilityApproval is an admin-only state transition. Scope and
+// requestor identity are loaded from storage by the service, not from HTTP.
+func (h *AgentChatHandler) ApproveCapabilityApproval(c *gin.Context) {
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_tenant_required", nil)
+		return
+	}
+	approvalUUID, err := uuid.Parse(strings.TrimSpace(c.Param("approval_uuid")))
+	if err != nil || approvalUUID == uuid.Nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_uuid_invalid", nil)
+		return
+	}
+	approverUUID := strings.TrimSpace(reqctx.GetUserUUID(c.Request.Context()))
+	if approverUUID == "" {
+		dto.ResponseError(c, 403, "agent.capability_approval_approver_required", nil)
+		return
+	}
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_env_invalid", nil)
+		return
+	}
+	if h == nil || h.approvalSvc == nil {
+		dto.ResponseError(c, 500, "agent.capability_approval_service_unavailable", nil)
+		return
+	}
+	if err := h.approvalSvc.ApproveByTenantAdmin(c.Request.Context(), env, tenantCtx.UUID(), approvalUUID, approverUUID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dto.ResponseError(c, 404, "agent.capability_approval_not_found", nil)
+			return
+		}
+		dto.ResponseError(c, 409, "agent.capability_approval_decision_failed", nil)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"approval_uuid": approvalUUID.String(), "status": "approved"})
+}
+
+// RejectCapabilityApproval is an admin-only terminal denial. It never accepts
+// scope or requester identifiers from HTTP.
+func (h *AgentChatHandler) RejectCapabilityApproval(c *gin.Context) {
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_tenant_required", nil)
+		return
+	}
+	approvalUUID, err := uuid.Parse(strings.TrimSpace(c.Param("approval_uuid")))
+	if err != nil || approvalUUID == uuid.Nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_uuid_invalid", nil)
+		return
+	}
+	approverUUID := strings.TrimSpace(reqctx.GetUserUUID(c.Request.Context()))
+	if approverUUID == "" {
+		dto.ResponseError(c, 403, "agent.capability_approval_approver_required", nil)
+		return
+	}
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_env_invalid", nil)
+		return
+	}
+	if h == nil || h.approvalSvc == nil {
+		dto.ResponseError(c, 500, "agent.capability_approval_service_unavailable", nil)
+		return
+	}
+	if err := h.approvalSvc.RejectByTenantAdmin(c.Request.Context(), env, tenantCtx.UUID(), approvalUUID, approverUUID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dto.ResponseError(c, 404, "agent.capability_approval_not_found", nil)
+			return
+		}
+		dto.ResponseError(c, 409, "agent.capability_approval_not_pending", nil)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"approval_uuid": approvalUUID.String(), "status": "rejected"})
+}
+
+func (h *AgentChatHandler) ListPendingCapabilityApprovals(c *gin.Context) {
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_tenant_required", nil)
+		return
+	}
+	if h == nil || h.approvalSvc == nil {
+		dto.ResponseError(c, 500, "agent.capability_approval_service_unavailable", nil)
+		return
+	}
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.capability_approval_env_invalid", nil)
+		return
+	}
+	items, err := h.approvalSvc.ListPendingForTenantAdmin(c.Request.Context(), env, tenantCtx.UUID())
+	if err != nil {
+		dto.ResponseError(c, 500, "agent.capability_approval_list_failed", nil)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"items": items})
+}
+
+// ValidateRuntimeReplay is an admin audit operation. It validates persisted
+// semantic planning only; no client-supplied plan or observation is accepted.
+func (h *AgentChatHandler) ValidateRuntimeReplay(c *gin.Context) {
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.runtime_replay_tenant_required", nil)
+		return
+	}
+	env, err := resolveAgentEnv(c, h.settings)
+	if err != nil {
+		dto.ResponseError(c, 400, "agent.runtime_replay_env_invalid", nil)
+		return
+	}
+	runUUID, runErr := uuid.Parse(strings.TrimSpace(c.Param("run_uuid")))
+	snapshotUUID, snapshotErr := uuid.Parse(strings.TrimSpace(c.Param("snapshot_uuid")))
+	revisionUUID, revisionErr := uuid.Parse(strings.TrimSpace(c.Param("revision_uuid")))
+	if runErr != nil || snapshotErr != nil || revisionErr != nil || runUUID == uuid.Nil || snapshotUUID == uuid.Nil || revisionUUID == uuid.Nil {
+		dto.ResponseError(c, 400, "agent.runtime_replay_uuid_invalid", nil)
+		return
+	}
+	if h == nil || h.snapshotSvc == nil || h.planRevisionSvc == nil || h.observationSvc == nil {
+		dto.ResponseError(c, 500, "agent.runtime_replay_service_unavailable", nil)
+		return
+	}
+	snapshot, err := h.snapshotSvc.Restore(c.Request.Context(), env, tenantCtx.UUID(), runUUID, snapshotUUID)
+	if err != nil {
+		dto.ResponseError(c, 404, "agent.runtime_replay_snapshot_not_found", nil)
+		return
+	}
+	revision, err := h.planRevisionSvc.Restore(c.Request.Context(), env, tenantCtx.UUID(), runUUID, snapshotUUID, revisionUUID)
+	if err != nil {
+		dto.ResponseError(c, 404, "agent.runtime_replay_revision_not_found", nil)
+		return
+	}
+	observations, err := h.observationSvc.RestoreObservations(c.Request.Context(), env, tenantCtx.UUID(), runUUID)
+	if err != nil {
+		dto.ResponseError(c, 500, "agent.runtime_replay_observations_unavailable", nil)
+		return
+	}
+	if err := h.planRevisionSvc.ValidateSemanticReplay(c.Request.Context(), env, tenantCtx.UUID(), runUUID, snapshot, revision, observations); err != nil {
+		dto.ResponseError(c, 409, "agent.runtime_replay_invalid", nil)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"run_uuid": runUUID.String(), "snapshot_uuid": snapshotUUID.String(), "revision_uuid": revisionUUID.String(), "valid": true})
 }
 
 // GET /agents/sessions/:id/stream/sse?q=...&env=...
@@ -1867,7 +2367,16 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		_ = h.his.RenameSession(c, env, tenantRef, sess.ID, title)
 	}
 
-	userMsg, _ := h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil)
+	attachmentUUIDs, attachmentErr := h.validateAttachmentUUIDs(c.Request.Context(), tenantUUID, req.AttachmentUUIDs)
+	if attachmentErr != nil {
+		dto.ResponseError(c, 400, "agent.attachment_invalid", nil)
+		return
+	}
+	meta := datatypes.JSONMap{}
+	if len(attachmentUUIDs) > 0 {
+		meta["attachment_uuids"] = attachmentUUIDs
+	}
+	userMsg, _ := h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "user", msg, "text", 0, 0, false, meta)
 
 	cfg, cfgErr := h.cfgResolver.ResolveForAgentChat(c.Request.Context(), env, tenantRef, agentID, nil)
 	if cfgErr != nil {
@@ -1923,10 +2432,18 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		runCtx = context.WithValue(runCtx, "message_id", fmt.Sprintf("%d", userMsg.ID))
 		runCtx = context.WithValue(runCtx, "messageId", fmt.Sprintf("%d", userMsg.ID))
 	}
+	if userMsg != nil && userMsg.UUID != uuid.Nil {
+		runCtx = context.WithValue(runCtx, "message_uuid", userMsg.UUID.String())
+	}
 	runCtx = context.WithValue(runCtx, "agent_id", fmt.Sprintf("%d", agentID))
 	runCtx = context.WithValue(runCtx, "agentId", fmt.Sprintf("%d", agentID))
 	runCtx = context.WithValue(runCtx, "agent_bound_skill_ids", boundSkillIDs)
 	runCtx = context.WithValue(runCtx, "agentBoundSkillIDs", boundSkillIDs)
+	runCtx, err = h.withResourceSnapshot(runCtx, env, tenantUUID, agentID)
+	if err != nil {
+		dto.ResponseError(c, 403, "无法建立当前 Agent 的资源授权快照", nil)
+		return
+	}
 	runCtx = runtime.ContextWithSkillStateStore(runCtx, runtimeSkillStateStore{service: h.skillStates})
 	if pendingTask, ok, err := h.latestRuntimePendingTask(c.Request.Context(), env, tenantRef, sess.ID, agentID, boundSkillIDs); err == nil && ok {
 		runCtx = context.WithValue(runCtx, "agent_pending_task", map[string]any(pendingTask))

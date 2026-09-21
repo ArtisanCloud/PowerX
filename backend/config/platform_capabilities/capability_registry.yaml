@@ -1,5 +1,39 @@
 version: 1
 capabilities:
+- capability_id: com.corex.capabilities.catalog.read
+  module: capability_registry
+  title: Platform Capability Catalog Read
+  description: Read tenant-visible CoreX capability metadata for configuration discovery. This does not grant invocation of listed capabilities.
+  permission_code: corex.capabilities.catalog:read
+  agent_usable: false
+  risk_level: low
+  categories: [capability, discovery]
+  intents: [capabilities.catalog.read]
+  tool_scopes: [capabilities.catalog.read]
+  policy:
+    prefer: rest
+  docs: [specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/capabilities/catalog"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1capabilities~1catalog/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: capabilities.catalog.read
+    api_key:
+      scope: _scope.capabilities.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: catalog
+  title_i18n:
+    en: Platform Capability Catalog Read
+    zh-CN: 底座能力目录读取
+  description_i18n:
+    en: Read tenant-visible CoreX capability metadata for configuration discovery only; it does not grant invocation.
+    zh-CN: 仅读取租户可见的底座能力配置目录，不授予目录中能力的调用权限。
 - capability_id: com.corex.capabilities.grant_status.read
   module: capability_registry
   title: Capability Grant Status Read

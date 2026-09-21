@@ -6,13 +6,13 @@
 
 开发设计入口：
 
-1. [Agent Runtime 标准服务设计](../../../plan/ai_engineering/skills/agent_runtime_standard_services.md)
+1. [Agent Runtime 标准服务设计](../../../plan/ai_engineering/agent/agent_runtime_standard_services.md)
    定义 Core 为 Agent/Skill 提供的 session、context、skill state、capability invocation、trace、artifact、progress event、model policy 和权限服务。
 
-2. [PowerX Agent Skill Bridge 机制设计](../../../plan/ai_engineering/skills/agent_skill_bridge.md)
+2. [PowerX Agent Skill Bridge 机制设计](../../../plan/ai_engineering/agent/agent_skill_bridge.md)
    定义插件 Skill 如何通过 Agent Runtime 和 Capability Invocation 执行业务。
 
-3. [Agent Run State Protocol 设计](../../../plan/ai_engineering/skills/agent_run_state_protocol.md)
+3. [Agent Run State Protocol 设计](../../../plan/ai_engineering/agent/agent_run_state_protocol.md)
    定义 Web Admin 与 PowerXPlugin 调试页统一展示任务状态、缺参、结果和 trace 的协议。
 
 ## 文档导航

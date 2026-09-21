@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const PlatformCatalogCapabilityID = "com.corex.capabilities.catalog.read"
+
 // RegistryServiceOptions configures RegistryService.
 type RegistryServiceOptions struct {
 	DB           *gorm.DB
@@ -102,6 +104,17 @@ type CapabilityListOptions struct {
 	IncludeTotal             bool
 }
 
+// PlatformCatalogOptions controls the tenant-scoped CoreX configuration
+// catalog. This catalog has a separate authorization boundary from
+// ListCapabilities: callers need catalog-read authorization, not invocation
+// grants for every listed capability.
+type PlatformCatalogOptions struct {
+	TenantUUID   string
+	Limit        int
+	Offset       int
+	IncludeTotal bool
+}
+
 // CapabilityRecordView extends CapabilityRecord with optional workflow templates.
 type CapabilityRecordView struct {
 	Record            *models.CapabilityRecord
@@ -110,9 +123,26 @@ type CapabilityRecordView struct {
 
 // ListCapabilities returns filtered capability records and optional total.
 func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityListOptions) ([]CapabilityRecordView, int64, error) {
+	return s.listCapabilities(ctx, opts, ServiceCredential(ctx))
+}
+
+// ListPublishedPlatformCatalog returns published, tenant-registered CoreX
+// capabilities for a separately authorized configuration discovery use case.
+// It must not be used to determine whether an invocation is allowed.
+func (s *RegistryService) ListPublishedPlatformCatalog(ctx context.Context, opts PlatformCatalogOptions) ([]CapabilityRecordView, int64, error) {
+	return s.listCapabilities(ctx, CapabilityListOptions{
+		Source:       CapabilitySourceCoreX,
+		TenantUUID:   opts.TenantUUID,
+		Status:       []string{"published"},
+		Limit:        opts.Limit,
+		Offset:       opts.Offset,
+		IncludeTotal: opts.IncludeTotal,
+	}, false)
+}
+
+func (s *RegistryService) listCapabilities(ctx context.Context, opts CapabilityListOptions, filterServiceCredentialGrants bool) ([]CapabilityRecordView, int64, error) {
 	var access CredentialAccess
-	serviceActor := ServiceCredential(ctx)
-	if serviceActor {
+	if filterServiceCredentialGrants {
 		var err error
 		access, err = s.credentialAccess.CurrentAccess(ctx)
 		if err != nil {
@@ -125,7 +155,7 @@ func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityL
 		Limit:    s.normalizeLimit(opts.Limit),
 		Offset:   opts.Offset,
 	}
-	postFilter := requiresPostFilter(opts) || serviceActor
+	postFilter := requiresPostFilter(opts) || filterServiceCredentialGrants
 	if postFilter {
 		filter.Limit = 0
 		filter.Offset = 0
@@ -150,7 +180,7 @@ func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityL
 	offset := opts.Offset
 	for i := range records {
 		record := records[i]
-		if serviceActor && !access.Granted[record.CapabilityID] {
+		if filterServiceCredentialGrants && !access.Granted[record.CapabilityID] {
 			continue
 		}
 		if !recordMatchesFilters(record, opts) {

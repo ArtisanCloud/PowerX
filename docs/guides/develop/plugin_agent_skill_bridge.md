@@ -35,10 +35,10 @@ PowerX Capability Invocation
 底座契约：
 
 - [PowerX Skills 管理与治理 Spec](../../../specs/024-ai-engineering-skills/spec.md)
-- [Agent Skill Bridge 机制设计](../../plan/ai_engineering/skills/agent_skill_bridge.md)
+- [Agent Skill Bridge 机制设计](../../plan/ai_engineering/agent/agent_skill_bridge.md)
 - [Skill 标准定义](../../plan/ai_engineering/skills/skill_standard_definition.md)
 - [插件第三方集成](../../plan/ai_engineering/skills/plugin_third_party_integration.md)
-- [Agent Run State Protocol](../../plan/ai_engineering/skills/agent_run_state_protocol.md)
+- [Agent Run State Protocol](../../plan/ai_engineering/agent/agent_run_state_protocol.md)
 
 能力调用：
 

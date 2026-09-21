@@ -111,13 +111,18 @@ func (m *Manager) ExpandWithPrereqs(tasks []flowschema.DetectedTask) []flowschem
  ****************/
 
 func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan, mt aschema.ExecutionMeta) (*aschema.ExecutionResult, error) {
-	return m.ExecutePlanWithHooks(ctx, plan, mt, nil)
+	report, err := m.ExecutePlanWithHooks(ctx, plan, mt, nil)
+	if err != nil {
+		return nil, err
+	}
+	return report.FinalResult, nil
 }
 
-func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.ExecutionPlan, mt aschema.ExecutionMeta, hooks *PlanExecutionHooks) (*aschema.ExecutionResult, error) {
+func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.ExecutionPlan, mt aschema.ExecutionMeta, hooks *PlanExecutionHooks) (*PlanExecutionReport, error) {
 	if len(plan.Tasks) == 0 {
 		return nil, errors.New("empty plan")
 	}
+	report := newPlanExecutionReport(plan.PlanID)
 
 	inSan := aschema.NewSanitizer(aschema.LogInputPolicy())
 	outSan := aschema.NewSanitizer(aschema.ResultSummaryPolicy())
@@ -264,12 +269,15 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 					return m.executeNonWorkflowTask(runCtx, task, ctxVars, mt)
 				}
 				// 执行：workflow 走 Agent；其余节点走统一节点执行器
+				attempts := 1
 				out, err := runOnce(egCtx)
 				if err != nil && planTaskFailurePolicy(task) == "retry-once" {
+					attempts++
 					out, err = runOnce(egCtx)
 				}
 				dur := time.Since(start).Milliseconds()
 				if err != nil {
+					report.record(task, PlanTaskExecutionFailed, attempts, out, err)
 					if hooks != nil && hooks.OnTaskEnd != nil {
 						if hookErr := hooks.OnTaskEnd(task, nil, err); hookErr != nil {
 							return hookErr
@@ -315,6 +323,11 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 
 					results.Put(task.TaskID, flowID, s, out)
 					stageOut[i] = out
+					status := PlanTaskExecutionCompleted
+					if !out.Success {
+						status = PlanTaskExecutionFailed
+					}
+					report.record(task, status, attempts, out, nil)
 
 					// 任务成功日志（输出做摘要&去循环）
 					safeOut := outSan.SanitizeResult(out) // 得到瘦身后的 ExecutionResult
@@ -342,7 +355,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 				PlanID: plan.PlanID, Kind: "plan.end", TenantUUID: tenantPtr, UserID: userID, CustomerID: customerID,
 				Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "failed", "error": err.Error()}),
 			})
-			return nil, err
+			return report, err
 		}
 
 		// 选择“本阶段最后一个非空输出”作为阶段结果（确定性）
@@ -360,7 +373,8 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 		Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "completed"}),
 	})
 
-	return finalOut, nil
+	report.finalize(finalOut)
+	return report, nil
 }
 
 /*************************
@@ -732,6 +746,13 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 		Payload:          payloadFromTaskParams(t, params),
 		Context:          contextFromTaskParams(t, params),
 		ToolGrantIDs:     toStringSlice(params["tool_grant_ids"]),
+	}
+	// The request locale is declared and validated at the runtime boundary. A
+	// planner-generated task does not repeat it in Params, so carry that
+	// authoritative context into each Skill invocation. Do not invent a locale:
+	// localized executors remain responsible for rejecting missing input.
+	if locale := strings.TrimSpace(asString(ctx.Value("locale"))); locale != "" {
+		in.Context["locale"] = locale
 	}
 	in.Context["trace_id"] = in.TraceID
 	if in.OriginTenantUUID != "" {

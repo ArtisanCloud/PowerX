@@ -58,7 +58,8 @@
     "itemCount": "共 {count} 项",
     "untitled": "未命名菜单",
     "section": {
-      "untitled": "未命名分类"
+      "untitled": "未命名分类",
+      "businessOperations": "业务运营"
     },
     "aiSettingsAgentAccess": "智能体授权"
   },
@@ -110,6 +111,7 @@
     "back": "返回",
     "backToList": "返回列表",
     "loading": "加载中…",
+    "status": "状态",
     "error": "错误",
     "retry": "重试",
     "refresh": "刷新",
@@ -2335,6 +2337,7 @@
       },
       "uploadFile": "上传文件",
       "uploadHint": "支持 PDF/Markdown/表格",
+      "selectedFiles": "已选择 {count} 个文件",
       "retainSource": "上传后保留到媒体库（推荐）",
       "retainSourceHint": "关闭后仍会临时上传到对象存储以便入库抓取；后续将支持按策略自动清理。",
       "chunkSize": "分段长度（字符/近似 token）",
@@ -2362,6 +2365,7 @@
       "errors": {
         "missingSpaceId": "请选择空间",
         "missingSource": "请上传文件或填写 URL",
+        "batchPartial": "已提交 {submitted} 个入库作业，{failed} 个文件未能提交。请修复后重新选择失败文件。",
         "runFailed": "入库执行失败"
       },
       "result": {
@@ -2552,6 +2556,7 @@
   },
   "agent": {
 	"response": {"conclusion":"本轮结论","answer":"直接回答","acceptance":"验收项","evidence":"已有证据","gaps":"缺口或阻塞","nextActions":"下一步","metrics":"指标与计算","metric":"指标","value":"结果","formula":"计算公式","facts":"已确认事实","hypotheses":"待验证假设","outcomes":{"completed":"本轮已完成，结果如下。","needs_action":"已完成分析，仍需执行以下行动。","blocked":"本轮受阻，需要先解决以下缺口。","failed":"本轮失败，请查看运行追踪。"},"reported":"原文报告值（未经独立核实）","computed":"工具计算值","conflicts":"原文与计算口径冲突","sourceQuote":"原文引用","operands":"使用的数据","reportedValue":"原文报告值","calculatedValue":"本次计算值","calculationBoundary":"计算仅验证给定输入下的算术结果；输入及业务归因尚未经独立核实。","conflictAction":"请补充原文公式、数据范围及归因口径后再确认结论。","contractUpgradeRequired":"该历史回复使用已停用的契约。请查看原始运行追踪，并在技能升级发布后显式重试。"},
+	"runtime":{"outcomes":{"partial":"已交付可验证部分；其余范围尚未完成。","needsInput":"需要补充信息、文件、授权或审批后才能继续。","blocked":"当前没有足够权限、能力或外部依赖，无法安全继续。","failed":"执行未能完成。可查看运行跟踪，或按提示重试。","cancelled":"本轮任务已取消。"},"actions":{"provideRequiredInput":"请补充所需信息后继续。","resolveAuthorization":"请获取所需授权或完成审批后重试。","reviewPartial":"请确认已交付部分，并决定是否继续处理剩余范围。"},"taskErrors":{"cancelled":"该步骤已取消。","timeout":"该步骤超时。","executionFailed":"该步骤未能完成。","statePersistFailed":"无法保存该步骤状态。","unknown":"该步骤未能完成。"}},
     "sessions": {
       "title": "智能会话"
     },
@@ -3254,5 +3259,7 @@
         "local": "本地上传"
       }
     }
-  }
+  },
+  "agentCapabilityApprovals": {"title":"能力审批","description":"审核待处理的高风险智能体能力请求。","back":"返回智能体管理","loading":"正在加载审批…","loadFailed":"无法加载审批列表","emptyTitle":"暂无待审批项","emptyDescription":"当前没有等待审核的高风险智能体请求。","requestTitle":"高风险智能体能力请求","requestedAt":"请求时间：{time}","approve":"批准","approved":"审批已记录","approveFailed":"无法记录审批","reject":"拒绝","rejected":"请求已拒绝","rejectFailed":"无法拒绝请求"},
+  "customerMaster": {"title":"客户主数据管理","description":"管理客户身份、认证来源、租户关系与联系人；客户画像和销售关系由 CRM 负责。","search":"搜索姓名、邮箱、手机或 UUID","customer":"客户","customerUuid":"客户 UUID","email":"主邮箱","phone":"主手机号","updatedAt":"更新时间","open":"查看详情","notFound":"未找到该租户下的客户。","loadFailed":"加载客户主数据失败。","empty":"当前租户暂无客户。","basic":"基础资料","authIdentities":"认证身份","memberships":"租户关系","loginEvents":"登录事件","miniAppEntries":"租户 MiniApp 入口","contacts":"联系人","provider":"认证来源","subject":"外部主体","source":"来源","expiresAt":"到期时间","event":"事件","result":"结果","channel":"渠道","entryCode":"入口码","entryType":"入口类型","campaign":"活动","identity":"渠道身份","actions":"操作","edit":"编辑","disable":"停用","createContact":"新建联系人","saveTemporary":"保存为临时联系人","displayName":"姓名","givenName":"名","familyName":"姓","roles":"通用角色","tags":"标签","tagsHint":"以逗号分隔，最多 20 个。","contactEmpty":"暂无联系人。","identityEmpty":"暂无渠道身份。","resolveIdentity":"解析渠道身份","bindIdentity":"显式绑定渠道身份","externalSubject":"渠道外部标识","resolveNotFound":"未找到已绑定联系人。请明确新建联系人或保存为临时联系人。","temporaryNotice":"临时联系人只能由明确的人工操作创建。","identityConflict":"该渠道身份已绑定给其他联系人。","statusActive":"启用","statusInactive":"停用","statusTemporary":"临时","rolePrimary":"主要联系人","roleLegalRepresentative":"法定代表人","tenantEntryDescription":"此数据属于当前租户配置，并不表示该入口与当前客户存在绑定关系。","loginSuccess":"成功","loginFailure":"失败","saveFailed":"保存失败。","back":"返回客户列表"}
 }

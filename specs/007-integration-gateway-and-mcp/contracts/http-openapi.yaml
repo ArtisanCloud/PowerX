@@ -294,6 +294,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CapabilityListResponse'
+  /tenant/capabilities/catalog:
+    get:
+      summary: Discover published CoreX capability metadata for tenant configuration
+      tags: [CapabilityRegistryTenant]
+      description: Returns a safe, published CoreX configuration catalog without filtering each listed capability by invocation grant. The caller must have the catalog-read capability. This endpoint does not return protocol bindings and cannot be used as an invocation contract.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000000
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Published CoreX capability catalog visible to the credential tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCapabilityCatalogListResponse'
+        '403':
+          description: A Gateway API Key or service STS credential with catalog-read authorization is required
   /tenant/capabilities:grant-status:
     x-api-key-grant-source: authenticated_key_uuid_and_explicit_host_binding_permissions
     x-api-key-profile-only-grant: forbidden
@@ -529,6 +558,50 @@ components:
               type: integer
             total:
               type: integer
+    PlatformCapabilityCatalogListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCapabilityCatalogEntryDTO'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            page_size:
+              type: integer
+            total:
+              type: integer
+    PlatformCapabilityCatalogEntryDTO:
+      type: object
+      required: [capability_id, title, source, status]
+      properties:
+        capability_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        source:
+          type: string
+          enum: [corex]
+        categories:
+          type: array
+          items:
+            type: string
+        intents:
+          type: array
+          items:
+            type: string
+        tool_scope:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [published]
     CapabilityDetailResponse:
       type: object
       properties:

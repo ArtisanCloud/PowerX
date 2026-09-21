@@ -38,6 +38,24 @@ func TokenizeSources(payload map[string]any, sources []string, policy Calculatio
 			}
 		}
 	}
+	return tokenizeSourcesWithUnits(payload, sources, units, false)
+}
+
+// TokenizeGenericSources preserves numeric statements before a Skill decides
+// whether any of them are eligible for a declared business calculation.  The
+// list is deliberately lexical: it does not contain marketing field names or
+// turn an unrecognised number into a metric.
+func TokenizeGenericSources(payload map[string]any, sources []string) ([]NumericToken, error) {
+	return tokenizeSourcesWithUnits(payload, sources, []string{
+		"万元", "亿元", "美元", "人民币", "元", "万", "亿", "%", "％",
+		"seconds", "minutes", "hours", "months", "weeks", "years",
+		"小时", "分钟", "个月", "季度", "星期", "秒", "天", "周", "年",
+		"人", "次", "单", "条", "个",
+	}, true)
+}
+
+func tokenizeSourcesWithUnits(payload map[string]any, sources []string, units []string, preserveUnknownUnit bool) ([]NumericToken, error) {
+	units = append([]string(nil), units...)
 	sort.Slice(units, func(i, j int) bool {
 		if len(units[i]) == len(units[j]) {
 			return units[i] < units[j]
@@ -83,7 +101,10 @@ func TokenizeSources(payload map[string]any, sources []string, policy Calculatio
 			if unit == "" && len(trimmed) > 0 {
 				r, _ := utf8.DecodeRuneInString(trimmed)
 				if unicode.IsLetter(r) || r == '%' || r == '％' {
-					continue
+					if !preserveUnknownUnit || !unicode.IsLetter(r) {
+						continue
+					}
+					unit = genericUnknownUnit(trimmed)
 				}
 			}
 			end := span[1]
@@ -109,6 +130,21 @@ func TokenizeSources(payload map[string]any, sources []string, policy Calculatio
 		}
 	}
 	return out, nil
+}
+
+func genericUnknownUnit(text string) string {
+	end := 0
+	for end < len(text) {
+		r, size := utf8.DecodeRuneInString(text[end:])
+		if !unicode.IsLetter(r) && r != '/' {
+			break
+		}
+		end += size
+		if end >= 24 {
+			break
+		}
+	}
+	return text[:end]
 }
 
 func isCompoundDurationUnit(unit, suffix string) bool {

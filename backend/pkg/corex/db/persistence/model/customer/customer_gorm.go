@@ -16,6 +16,18 @@ const (
 	StatusDeleted   = "deleted"
 )
 
+const (
+	ContactStatusActive    = "active"
+	ContactStatusInactive  = "inactive"
+	ContactStatusTemporary = "temporary"
+
+	ContactIdentityStatusActive   = "active"
+	ContactIdentityStatusInactive = "inactive"
+
+	ContactRolePrimary             = "primary"
+	ContactRoleLegalRepresentative = "legal_representative"
+)
+
 type Account struct {
 	coremodel.PowerUUIDModel
 
@@ -134,4 +146,44 @@ type LoginEvent struct {
 
 func (LoginEvent) TableName() string {
 	return coremodel.PowerXSchema + "." + coremodel.TableCustomerLoginEvents
+}
+
+// Contact is a tenant-scoped natural-person contact owned by a Customer. It
+// intentionally does not participate in customer authentication.
+type Contact struct {
+	coremodel.PowerUUIDModel
+
+	TenantUUID   string         `gorm:"column:tenant_uuid;type:uuid;not null;index:idx_customer_contact_tenant_customer_status,priority:1" json:"tenant_uuid"`
+	CustomerUUID string         `gorm:"column:customer_uuid;type:uuid;not null;index:idx_customer_contact_tenant_customer_status,priority:2" json:"customer_uuid"`
+	DisplayName  string         `gorm:"column:display_name;type:varchar(128);not null;index" json:"display_name"`
+	GivenName    string         `gorm:"column:given_name;type:varchar(128)" json:"given_name,omitempty"`
+	FamilyName   string         `gorm:"column:family_name;type:varchar(128)" json:"family_name,omitempty"`
+	Status       string         `gorm:"column:status;type:varchar(32);not null;default:'active';index:idx_customer_contact_tenant_customer_status,priority:3" json:"status"`
+	Roles        datatypes.JSON `gorm:"column:roles;type:jsonb;not null;default:'[]'::jsonb" json:"roles"`
+	Tags         datatypes.JSON `gorm:"column:tags;type:jsonb;not null;default:'[]'::jsonb" json:"tags"`
+	Metadata     datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'::jsonb" json:"metadata,omitempty"`
+}
+
+func (Contact) TableName() string {
+	return coremodel.PowerXSchema + "." + coremodel.TableCustomerContacts
+}
+
+// ContactIdentity is a stable channel identifier for one Contact. The
+// tenant/customer/contact triple is deliberately stored on the row so every
+// persistence boundary can validate ownership without implicit inference.
+type ContactIdentity struct {
+	coremodel.PowerUUIDModel
+
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_customer_contact_identity_subject,priority:1;index:idx_customer_contact_identity_contact,priority:1" json:"tenant_uuid"`
+	CustomerUUID    string         `gorm:"column:customer_uuid;type:uuid;not null;index:idx_customer_contact_identity_contact,priority:2" json:"customer_uuid"`
+	ContactUUID     string         `gorm:"column:contact_uuid;type:uuid;not null;index:idx_customer_contact_identity_contact,priority:3" json:"contact_uuid"`
+	Channel         string         `gorm:"column:channel;type:varchar(64);not null;uniqueIndex:uk_customer_contact_identity_subject,priority:2" json:"channel"`
+	ExternalSubject string         `gorm:"column:external_subject;type:varchar(255);not null;uniqueIndex:uk_customer_contact_identity_subject,priority:3" json:"external_subject"`
+	Status          string         `gorm:"column:status;type:varchar(32);not null;default:'active';index" json:"status"`
+	VerifiedAt      *time.Time     `gorm:"column:verified_at" json:"verified_at,omitempty"`
+	Metadata        datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'::jsonb" json:"metadata,omitempty"`
+}
+
+func (ContactIdentity) TableName() string {
+	return coremodel.PowerXSchema + "." + coremodel.TableCustomerContactIdentities
 }

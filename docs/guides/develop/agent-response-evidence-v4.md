@@ -4,15 +4,16 @@
 
 ## 执行边界
 
-Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径。`output_mode=response_envelope` 的平台执行链路分为原文提取、声明式计划、工具执行、说明生成与报告封装。模型不能临时创造公式、倒置分子分母或修改百分比尺度。Core 的 `pkg/corex/agent/evidence` 解释配置并执行通用计算，最终生成 `powerx.agent.response/v4`。这里没有营销 Skill/Agent/Team 标识分支。
+Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径。`output_mode=response_envelope` 的平台执行链路分为通用原文事实抽取、声明字段映射、声明式计划、工具执行、说明生成与报告封装。模型不能临时创造公式、倒置分子分母或修改百分比尺度。Core 的 `pkg/corex/agent/evidence` 解释配置并执行通用计算，最终生成 `powerx.agent.response/v4`。这里没有营销 Skill/Agent/Team 标识分支。
 
-1. 平台从明确声明的 evidence_sources 中生成原文数值片段，按 policy.unit_tokens 匹配单位，不换算数值。模型提交 `powerx.agent.evidence-source/v1`（schema、data），其中 data 是以 policy.input_fields 的字段 key 为键的对象；每个值只选择 token_ref 和 scope，不能填写或修改数字、单位。
-2. 平台按已发布的 calculation_policy 生成内部计划。公式、bindings、precision、percent、compare_to 来自 Skill Revision，不由模型生成。只有触发条件成立且操作数齐全时执行；缺操作数进入明确缺口，禁止反造人数。
-3. 平台组装内部 `response-draft/v1` 调用纯计算工具，产生数值、冲突和真实凭证。模型不提交 display_value。
-4. 模型单独提交 `powerx.agent.evidence-notes/v1`（schema、hypotheses、gaps、actions）。说明阶段不接受操作数、数值或凭证字段，不重跑计算。每个数组最多六条、每条最多三百字符，数值统一引用表格中的指标名称，不在自由说明中再次计算。
-5. 平台验证说明并封装 V4；任一阶段错误直接失败，错误带 source/plan/calculate/notes 阶段，不自动修补、不切换旧草稿或自由文本模式。
+1. 平台从明确声明的 evidence_sources 生成通用原文数值片段。模型先提交 `powerx.agent.evidence-facts/v1`，每项只能选择 token_ref，并以原文 quote 中出现的短语命名；平台从 token 回填数值和单位。该层保留任意明确数值业务陈述为 `reported`，但不授予计算资格。
+2. 平台再按 policy.unit_tokens、字段证据词和活动画像生成受控候选片段。模型提交 `powerx.agent.evidence-source/v1`（schema、data），其中 data 是以 policy.input_fields 的字段 key 为键的对象；每个值只选择 token_ref 和 scope，不能填写或修改数字、单位。
+3. 平台按已发布的 calculation_policy 生成内部计划。公式、bindings、precision、percent、compare_to 来自 Skill Revision，不由模型生成。只有触发条件成立且操作数齐全时执行；缺操作数进入明确缺口，禁止反造人数。
+4. 平台组装内部 `response-draft/v1` 调用纯计算工具，产生数值、冲突和真实凭证。模型不提交 display_value。
+5. 模型单独提交 `powerx.agent.evidence-notes/v1`（schema、hypotheses、gaps、actions）。说明阶段不接受操作数、数值或凭证字段，不重跑计算。每个数组最多六条、每条最多三百字符，数值统一引用表格中的指标名称，不在自由说明中再次计算。
+6. 平台验证说明并封装 V4；任一阶段错误直接失败，错误带 facts/source/plan/calculate/notes 阶段，不自动修补、不切换旧草稿或自由文本模式。
 
-两个模型阶段均复用统一 AI Service 的单次请求超时，未新增整轮超时。测试程序的总时限不等于生产 Runtime 超时。阶段提示词位于 `backend/internal/service/skills/locales/evidence.*.json`；业务公式来自已发布 Skill 的 calculation_policy，不从提示词自由文本解析或推断。该输出模式下，输入描述与业务标签也取自 policy 的 locale 字段；通用平台指令不包含营销业务。
+三个模型阶段均复用统一 AI Service 的单次请求超时，未新增整轮超时。测试程序的总时限不等于生产 Runtime 超时。阶段提示词位于 `backend/internal/service/skills/locales/evidence.*.json`；业务公式来自已发布 Skill 的 calculation_policy，不从提示词自由文本解析或推断。通用事实的 label 是原文短语，不能由平台或模型额外创造业务名称。
 
 - 模型的 `data` 以业务 key 为唯一键，值只包含 `scope/token_ref`；key 必须来自 policy.input_fields，token_ref 必须指向单位符合该字段声明的原文片段。对象结构在协议层禁止同一字段重复选择；未知 key、未知 token_ref 或单位不匹配均明确失败，并在受保护的执行追踪中记录阶段与已选映射。`label/kind` 来自 Skill；`unit/source` 来自平台数值片段。source 包含声明输入的 JSON pointer、精确引用 quote 和纯数字词面值 literal。原文数字、分组逗号、数字与单位间空白均保留，不把“万元”自行换成“元”。这是主流程的原文取证，不是从模型自由文本解析结构化结果的兜底。
 - 单个声明来源最多 128 KiB，总数值片段最多 512 个；未知单位不猜成无单位数量。支持新的单位须更新 Skill 的 unit_tokens，不能静默换算或丢弃单位后计算。字段映射和 scope 仍包含模型判断，不等于已独立核实业务口径。
@@ -46,7 +47,7 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 
 `executor.calculation_policy.schema=powerx.skill-calculation-policy/v2`，严格要求：
 
-- `activity_profiles`：每项 `key/label_i18n/evidence_any_i18n`。平台只在声明来源中按这些词面确定适用业务类型；模型不能把交易/留存材料改判为线索活动。无 profile 命中明确报 `evidence.activity_profile_unmatched`，不套用最近似模板。
+- `activity_profiles`：每项 `key/label_i18n/evidence_any_i18n`。平台只在声明来源中按这些词面确定适用业务类型；模型不能把交易/留存材料改判为线索活动。无 profile 命中时不套用最近似模板、不产生声明公式；已抽取的通用原文事实仍保留。
 - `input_fields`：每项 `key/kind/unit_tokens/label_i18n/description_i18n/evidence_terms_i18n/applies_to`。`evidence_terms_i18n` 是字段的原文上下文约束；候选 token 必须同时符合单位与字段词面，`applies_to` 必须指向已激活 profile。单位相同不代表业务语义相同，例如“6个月”不能成为“6个访问”。
 - `formulas`：每项 `key/label_i18n/expression/bindings/precision/percent/compare_to/when_any_present/applies_to` 全部必填。公式只在其 `applies_to` 与当前 profile 相交时才会进入计划。bindings 从表达式变量映射到 quantity 字段；compare_to 是 reported 字段或空字符串。
 - `when_any_present`：任何所列字段在**同一适用 profile 的合格证据**中存在，才考虑该公式；全部不存在表示该公式不适用于这次输入，不引入无关缺口。条件成立但缺少绑定操作数时不执行，交给说明阶段明确补数；说明完全忽略缺口会失败。

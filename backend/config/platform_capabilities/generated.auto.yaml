@@ -24150,6 +24150,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_capabilities_catalog
+      module: tenant
+      title: GET /api/v1/tenant/capabilities/catalog
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_capabilities_catalog
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_capabilities_catalog
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/capability_registry/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/capabilities/catalog
+          method: GET
+          schema_ref: internal/transport/http/openapi/capability_registry/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_capabilities_resolve
       module: tenant
       title: GET /api/v1/tenant/capabilities/resolve

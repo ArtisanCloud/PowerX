@@ -1,6 +1,80 @@
 ---
 version: 1
 capabilities:
+- capability_id: com.corex.agent.runtime_replay.read
+  module: agent
+  title: Agent Runtime Replay Audit
+  description: Validate a persisted Agent semantic plan revision against its frozen snapshot and observations.
+  permission_code: corex.agent.runtime_replay:read
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - agent
+  - governance
+  intents:
+  - agent.runtime_replay.read
+  tool_scopes:
+  - agent.governance
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/runtime-replays/{run_uuid}/snapshots/{snapshot_uuid}/revisions/{revision_uuid}/validate"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  title_i18n:
+    en: Agent Runtime Replay Audit
+  description_i18n:
+    en: Validate a persisted Agent semantic plan revision against its frozen snapshot and observations.
+- capability_id: com.corex.agent.capability_approval.manage
+  module: agent
+  title: Agent Capability Approval Management
+  description: Approve a pending high-risk Agent Capability invocation within its tenant and session scope.
+  permission_code: corex.agent.capability_approval:manage
+  agent_usable: false
+  risk_level: high
+  categories:
+  - agent
+  - governance
+  intents:
+  - agent.capability_approval.manage
+  tool_scopes:
+  - agent.governance
+  policy:
+    prefer: rest
+  docs:
+  - specs/007-integration-gateway-and-mcp/contracts/agent-capability-approval.http-openapi.yaml
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/capability-approvals"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-capability-approval.http-openapi.yaml#/paths/~1api~1v1~1admin~1agents~1capability-approvals/get
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/capability-approvals/{approval_uuid}/approve"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-capability-approval.http-openapi.yaml#/paths/~1api~1v1~1admin~1agents~1capability-approvals~1{approval_uuid}~1approve/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/capability-approvals/{approval_uuid}/reject"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  title_i18n:
+    en: Agent Capability Approval Management
+  description_i18n:
+    en: Approve a pending high-risk Agent Capability invocation within its tenant and session scope.
 - capability_id: com.corex.agent.invoke
   module: agent
   title: Agent Invoke
@@ -19,6 +93,10 @@ capabilities:
     prefer: rest
     fallback:
     - grpc
+    runtime_contract:
+      verification_required: true
+      side_effect_evidence_schema: agent.invocation/v1
+      retry_max_attempts: 0
   docs:
   - specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml
   - backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto
@@ -36,6 +114,14 @@ capabilities:
     endpoint: "/api/v1/agents/invoke"
     method: POST
     schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1invoke/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.runtime
+  - channel: rest
+    endpoint: "/api/v1/agents/sessions/{session_uuid}/capability-approvals/{approval_uuid}/resume"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1sessions~1{session_uuid}~1capability-approvals~1{approval_uuid}~1resume/post
     auth_type: user_jwt
     actor_context: admin_user
     resource_scope: tenant

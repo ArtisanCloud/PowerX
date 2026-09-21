@@ -8,6 +8,9 @@
         </p>
       </div>
       <div class="flex items-center gap-2">
+		<UButton variant="soft" icon="i-heroicons-shield-check" :to="localePath('/settings/ai/capability-approvals')">
+			{{ t('agentCapabilityApprovals.title') }}
+		</UButton>
         <UButton variant="soft" icon="i-heroicons-shield-check" :to="localePath('/settings/ai/agent-access-grants')">
           {{ t('agent.management.accessGrants') }}
         </UButton>

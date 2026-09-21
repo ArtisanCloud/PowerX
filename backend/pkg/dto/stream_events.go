@@ -109,9 +109,10 @@ const (
 
 // Unified planner node kinds
 const (
-	NodeKindWorkflow = "workflow"
-	NodeKindSkill    = "skill"
-	NodeKindTooling  = "tooling"
-	NodeKindLLM      = "llm"
-	NodeKindHandoff  = "agent_handoff"
+	NodeKindWorkflow    = "workflow"
+	NodeKindSkill       = "skill"
+	NodeKindTooling     = "tooling"
+	NodeKindLLM         = "llm"
+	NodeKindHandoff     = "agent_handoff"
+	NodeKindObservation = "observation"
 )

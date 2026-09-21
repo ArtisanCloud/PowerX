@@ -548,7 +548,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
-				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db)),
+				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
 			),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc

@@ -51,13 +51,13 @@ PowerX 管理端提供两组能力查询接口，分别面向“能力注册表�
 
 ## 插件侧查询有效接口
 
-插件运行时不要调用 `/admin/capabilities` 来判断 PowerX 能力是否可用。`/admin/*` 是后台管理/排障视角；插件侧应使用租户侧能力目录：
+插件运行时不要调用 `/admin/capabilities` 来判断 PowerX 能力是否可用。`/admin/*` 是后台管理/排障视角；真正调用前应使用当前凭证已获授权的租户侧能力目录：
 
 ```http
 GET /api/v1/tenant/capabilities?source=corex&page=1&page_size=500
 ```
 
-该接口返回当前 token 所属租户可见的、已发布的 CoreX 能力。插件从每条能力的 `protocols[]` 中读取 REST `method/endpoint` 或 gRPC `endpoint/rpc`。
+该接口返回当前凭证在所属租户内**已获授权、可调用**的已发布 CoreX 能力。插件从每条能力的 `protocols[]` 中读取 REST `method/endpoint` 或 gRPC `endpoint/rpc`。
 
 示例：
 
@@ -65,6 +65,14 @@ GET /api/v1/tenant/capabilities?source=corex&page=1&page_size=500
 curl -sS "$PX_GATEWAY_BASE_URL/api/v1/tenant/capabilities?source=corex&page=1&page_size=500" \
   -H "Authorization: ApiKey $PX_GATEWAY_API_KEY"
 ```
+
+配置页、调试选择器如果需要展示租户可见的全部已发布 CoreX 能力（包括当前 API Key 尚未获授权的能力），使用独立的目录接口：
+
+```http
+GET /api/v1/tenant/capabilities/catalog?page=1&page_size=500
+```
+
+该接口固定只返回 CoreX 已发布目录的安全配置元数据，不返回 `protocols` 或调用路由。调用方必须先在 API Key Profile 中授予 `com.corex.capabilities.catalog.read`，才能读取目录；这只授权发现目录，**不**授权目录中能力的调用。选中能力后必须调用 `POST /api/v1/tenant/capabilities:grant-status` 检查当前 Gateway API Key 或服务 STS 凭证的有效授权，再调用 `/tenant/invocations`。这样 Media 等已注册底座能力会在目录中可见，同时不会放宽真实调用边界。
 
 如果插件已知道 REST method + endpoint，想反查对应 capability，使用：
 
@@ -107,6 +115,8 @@ POST /api/v1/tenant/invocations
 | 场景 | 接口 |
 | --- | --- |
 | 查询当前租户可用 CoreX 能力 | `GET /api/v1/tenant/capabilities?source=corex` |
+| 配置/调试时发现已发布的 CoreX 能力目录 | `GET /api/v1/tenant/capabilities/catalog` |
+| 检查当前 API Key/服务 STS 对候选能力的授权 | `POST /api/v1/tenant/capabilities:grant-status` |
 | 按 method + endpoint 反查 capability | `GET /api/v1/tenant/capabilities/resolve?...` |
 | 调用能力 | `POST /api/v1/tenant/invocations` |
 | Root/Admin 排障查看全量注册表 | `GET /api/v1/admin/capabilities?source=corex` |

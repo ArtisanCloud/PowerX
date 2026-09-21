@@ -23,6 +23,11 @@ capabilities:
     prefer: rest
     fallback:
     - grpc
+    runtime_contract:
+      verification_required: true
+      side_effect_evidence_schema: scheduler.job/v1
+      business_completion_required: true
+      human_approval_required: true
   docs:
   - specs/028-runtime-scheduler/spec.md
   - backend/api/grpc/contracts/powerx/scheduler/v1/scheduler.proto

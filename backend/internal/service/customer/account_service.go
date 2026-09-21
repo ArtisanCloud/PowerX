@@ -76,6 +76,61 @@ func (s *AccountService) List(ctx context.Context, in ListAccountsInput) ([]cust
 	})
 }
 
+func (s *AccountService) Get(ctx context.Context, tenantUUID, customerUUID string) (customerrepo.AccountRow, error) {
+	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return customerrepo.AccountRow{}, err
+	}
+	if strings.TrimSpace(customerUUID) == "" {
+		return customerrepo.AccountRow{}, errors.New("customer.uuid_required")
+	}
+	return s.repo.Get(ctx, tenantUUID, customerUUID)
+}
+
+func (s *AccountService) ListAuthIdentities(ctx context.Context, tenantUUID, customerUUID string) ([]customerrepo.CustomerIdentityRow, error) {
+	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.repo.Get(ctx, tenantUUID, customerUUID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListAuthIdentities(ctx, tenantUUID, customerUUID)
+}
+
+func (s *AccountService) ListMemberships(ctx context.Context, tenantUUID, customerUUID string) ([]modelcustomer.TenantMembership, error) {
+	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.repo.Get(ctx, tenantUUID, customerUUID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListMemberships(ctx, tenantUUID, customerUUID)
+}
+
+func (s *AccountService) ListLoginEvents(ctx context.Context, tenantUUID, customerUUID string, page, pageSize int) ([]modelcustomer.LoginEvent, int64, error) {
+	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if _, err = s.repo.Get(ctx, tenantUUID, customerUUID); err != nil {
+		return nil, 0, err
+	}
+	return s.repo.ListLoginEvents(ctx, tenantUUID, customerUUID, page, pageSize)
+}
+
+// ListMiniAppEntries is tenant-scoped configuration. It is intentionally not
+// represented as a relation of a Customer because MiniAppEntry has no
+// customer_uuid ownership field.
+func (s *AccountService) ListMiniAppEntries(ctx context.Context, tenantUUID string, page, pageSize int) ([]modelcustomer.MiniAppEntry, int64, error) {
+	tenantUUID, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.repo.ListMiniAppEntries(ctx, tenantUUID, page, pageSize)
+}
+
 func (s *AccountService) Create(ctx context.Context, in CreateAccountInput) (customerrepo.AccountRow, error) {
 	tenantUUID, err := reqctx.CanonicalTenantUUID(in.TenantUUID)
 	if err != nil {

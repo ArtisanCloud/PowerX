@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
@@ -14,6 +15,7 @@ var evidenceLocales embed.FS
 
 type evidenceInstructions struct {
 	Extraction string `json:"extraction"`
+	Facts      string `json:"facts"`
 	Notes      string `json:"notes"`
 }
 
@@ -54,9 +56,29 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, err
 	}
-	activeProfiles, err := policy.DetectProfiles(in.Payload, sources, locale)
+	genericTokens, err := evidence.TokenizeGenericSources(in.Payload, sources)
 	if err != nil {
-		return nil, fmt.Errorf("skill.evidence.profile: %w", err)
+		return nil, fmt.Errorf("skill.evidence.facts: %w", err)
+	}
+	text, err := invoke("facts", instructions.Facts, evidence.GenericFactsJSONSchema(genericTokens), map[string]any{"input": in.Payload, "numeric_tokens": genericTokens})
+	if err != nil {
+		return nil, err
+	}
+	var genericSelection evidence.GenericFactSelection
+	if err := evidence.Decode([]byte(text), &genericSelection); err != nil {
+		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "facts_decode"}, Cause: fmt.Errorf("skill.evidence.facts: %w", err)}
+	}
+	genericFacts, err := evidence.ResolveGenericFacts(genericSelection, genericTokens)
+	if err != nil {
+		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "facts_selection", "selection": genericSelection}, Cause: fmt.Errorf("skill.evidence.facts: %w", err)}
+	}
+
+	activeProfiles, profileErr := policy.DetectProfiles(in.Payload, sources, locale)
+	if profileErr != nil && !errors.Is(profileErr, evidence.ErrActivityProfileUnmatched) {
+		return nil, fmt.Errorf("skill.evidence.profile: %w", profileErr)
+	}
+	if profileErr != nil {
+		activeProfiles = []string{}
 	}
 	descriptions, err := policy.InputDescriptions(locale, activeProfiles)
 	if err != nil {
@@ -66,7 +88,7 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, fmt.Errorf("skill.evidence.source: %w", err)
 	}
-	text, err := invoke("source", instructions.Extraction, evidence.SelectionJSONSchema(policy, tokens, activeProfiles, locale), map[string]any{"input": in.Payload, "activity_profiles": activeProfiles, "fields": descriptions, "numeric_tokens": tokens})
+	text, err = invoke("source", instructions.Extraction, evidence.SelectionJSONSchema(policy, tokens, activeProfiles, locale), map[string]any{"input": in.Payload, "activity_profiles": activeProfiles, "fields": descriptions, "numeric_tokens": tokens})
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +104,7 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "plan", "profiles": activeProfiles, "selection": selection}, Cause: fmt.Errorf("skill.evidence.plan: %w", err)}
 	}
+	plan.Data = mergeGenericFacts(plan.Data, genericFacts)
 	prepared, err := evidence.ExecutePlan(ctx, plan, in.Payload, sources, in.TenantUUID, in.Version, in.TraceID)
 	if err != nil {
 		return nil, &EvidenceValidationError{Draft: evidence.Draft{Schema: evidence.DraftSchema, Kind: plan.Kind, Data: plan.Data, Calculations: plan.Calculations}, Cause: fmt.Errorf("skill.evidence.calculate: %w", err)}
@@ -107,4 +130,21 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 		return nil, &EvidenceValidationError{Draft: evidence.Draft{Schema: evidence.DraftSchema, Kind: plan.Kind, Data: plan.Data, Calculations: plan.Calculations, Hypotheses: notes.Hypotheses, Gaps: notes.Gaps, Actions: notes.Actions}, Cause: fmt.Errorf("skill.evidence.notes: %w", err)}
 	}
 	return map[string]any{"response_envelope": report}, nil
+}
+
+func mergeGenericFacts(declared []evidence.DraftDatum, generic []evidence.DraftDatum) []evidence.DraftDatum {
+	seen := map[string]bool{}
+	for _, datum := range declared {
+		seen[datum.Source.Pointer+"\x00"+datum.Source.Literal+"\x00"+datum.Unit] = true
+	}
+	for _, datum := range generic {
+		identity := datum.Source.Pointer + "\x00" + datum.Source.Literal + "\x00" + datum.Unit
+		if seen[identity] {
+			continue
+		}
+		seen[identity] = true
+		datum.Key = fmt.Sprintf("reported_fact_%d", len(declared)+1)
+		declared = append(declared, datum)
+	}
+	return declared
 }

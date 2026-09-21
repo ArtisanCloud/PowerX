@@ -106,6 +106,9 @@
     "loadFailedDesc": "메뉴 데이터를 로드할 수 없습니다. 네트워크 연결을 확인하세요.",
     "itemCount": "메뉴 항목 수",
     "noItemsWarning": "경고: 표시할 메뉴 항목이 없습니다",
+    "section": {
+      "businessOperations": "비즈니스 운영"
+    },
     "badge": {
       "new": "신규"
     },
@@ -235,6 +238,7 @@
       },
       "uploadFile": "파일 업로드",
       "uploadHint": "파일은 객체 스토리지에 업로드된 후 파이프라인으로 전송됩니다.",
+      "selectedFiles": "파일 {count}개 선택됨",
       "selectedFile": "선택됨: {name}",
       "sourceUri": "소스 주소",
       "maskingProfile": "마스킹 정책",
@@ -252,6 +256,7 @@
       "errors": {
         "missingSpaceId": "공간 ID를 입력하세요",
         "missingSource": "파일을 업로드하거나 URL을 입력하세요",
+        "batchPartial": "입고 작업 {submitted}개를 제출했지만 파일 {failed}개를 제출하지 못했습니다. 문제를 해결한 뒤 실패한 파일을 다시 선택하세요.",
         "runFailed": "입고 실행에 실패했습니다"
       },
       "actions": {
@@ -563,6 +568,7 @@
   "termsOfService": "서비스 약관",
   "agent": {
     "response": {"conclusion": "결론", "answer": "직접 답변", "acceptance": "검수 항목", "evidence": "확인된 근거", "gaps": "누락 또는 차단 요인", "nextActions": "다음 단계"},
+    "runtime": {"outcomes":{"partial":"검증 가능한 일부 결과가 제공되었으며, 남은 범위는 완료되지 않았습니다.","needsInput":"계속하려면 정보, 파일, 권한 또는 승인이 더 필요합니다.","blocked":"권한, 기능 또는 외부 종속성이 부족하여 안전하게 계속할 수 없습니다.","failed":"실행이 완료되지 않았습니다. 실행 추적을 확인하거나 안내에 따라 다시 시도하세요.","cancelled":"이 실행은 취소되었습니다."},"actions":{"provideRequiredInput":"필요한 정보를 제공한 후 계속하세요.","resolveAuthorization":"필요한 권한이나 승인을 받은 후 다시 시도하세요.","reviewPartial":"제공된 부분을 검토하고 남은 범위를 계속할지 결정하세요."},"taskErrors":{"cancelled":"이 단계는 취소되었습니다.","timeout":"이 단계가 시간 초과되었습니다.","executionFailed":"이 단계가 완료되지 않았습니다.","statePersistFailed":"이 단계의 상태를 저장할 수 없습니다.","unknown":"이 단계가 완료되지 않았습니다."}},
     "sessions": {
       "title": "스마트 세션"
     },
@@ -1764,5 +1770,6 @@
         "local": "로컬 업로드"
       }
     }
-  }
+  },
+  "agentCapabilityApprovals": {"title":"기능 승인","description":"대기 중인 고위험 Agent 기능 요청을 검토합니다.","back":"Agent 관리로 돌아가기","loading":"승인 불러오는 중…","loadFailed":"승인을 불러올 수 없습니다","emptyTitle":"대기 중인 승인이 없습니다","emptyDescription":"검토 대기 중인 고위험 Agent 요청이 없습니다.","requestTitle":"고위험 Agent 기능 요청","requestedAt":"요청 시간: {time}","approve":"승인","approved":"승인이 기록되었습니다","approveFailed":"승인을 기록할 수 없습니다"}
 }

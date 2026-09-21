@@ -186,11 +186,11 @@ Reference: [`context-optimization.md`](./context-optimization.md)
 6. **最小用例验证**：以“营销活动复盘协作（1 主 3 子 + 1 汇总）”作为 PowerX Core-only 验收基线，验证分发、回收、部分失败与越权阻断。
 7. **Seed 初始化**：通过 PowerX Core seed 初始化营销负责人、内容营销、活动复盘分析、专家知识策展 Agent，及其四个 `marketing.*` 声明式 Skill Revision 和营销活动复盘团队。来源包与发布包都存对象存储；团队 UUID 是稳定身份，显示名不得被 Runtime 用作路由条件；这些记录是底座运行态数据，不依赖 PowerXPlugin 或插件同步。
 8. **MVP 执行方式**：首版测试可显式构造 ExecutionPlan 并注入 deterministic handoff invoker，用于验证运行时语义；Team-aware Planner 自然语言自动拆分作为后续产品化任务。
-9. **设计文档**：详细业务故事、seed 对象、计划结构、trace 字段和测试矩阵见 `docs/plan/ai_engineering/skills/multi_agent_a2a.md`。
+9. **设计文档**：详细业务故事、seed 对象、计划结构、trace 字段和测试矩阵见 `docs/plan/ai_engineering/agent/multi_agent_a2a.md`。
 
 ## Phase 16 – PowerX Agent Skill Bridge 与插件 Framework 对齐
 
-Reference: [`docs/plan/ai_engineering/skills/agent_skill_bridge.md`](../../docs/plan/ai_engineering/skills/agent_skill_bridge.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_skill_bridge.md`](../../docs/plan/ai_engineering/agent/agent_skill_bridge.md)
 
 1. **Skill Package 源格式**：PowerX 与插件统一采用 `SKILL.md` 目录包作为 Skill 源格式；manifest/DTO/DB 仅作为解析后对象与治理态索引。
 2. **桥接契约**：定义 `PluginSkillPackage/PluginSkillManifest/Invocation/Context/Result/Error`，明确插件源定义态 Skill 与 PowerX 治理态 Skill 的转换关系。
@@ -219,7 +219,7 @@ Reference: [`docs/plan/ai_engineering/skills/plugin_third_party_integration.md`]
 
 ## Phase 17 – Agent Run Trace & Report
 
-Reference: [`docs/plan/ai_engineering/skills/agent_run_trace_report.md`](../../docs/plan/ai_engineering/skills/agent_run_trace_report.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_run_trace_report.md`](../../docs/plan/ai_engineering/agent/agent_run_trace_report.md)
 
 1. **Trace DTO 与 Logger**：新增 `AgentRunMeta/AgentTraceEvent/AgentTraceNode/AgentRunReport` 与 `AgentTraceLogger`，作为 Agent Runtime 唯一结构化追踪入口。
 2. **Local Sink**：实现 `PluginAgentTraceSink`，按 `backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}` 写入 `run.json/timeline.jsonl/nodes/*.json/artifacts/*`。
@@ -233,7 +233,7 @@ Reference: [`docs/plan/ai_engineering/skills/agent_run_trace_report.md`](../../d
 
 ## Phase 21 – Agent Response Planning
 
-Reference: [`docs/plan/ai_engineering/skills/agent_response_planning.md`](../../docs/plan/ai_engineering/skills/agent_response_planning.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_response_planning.md`](../../docs/plan/ai_engineering/agent/agent_response_planning.md)
 
 1. **分层链路**：Agent 主入口 final 阶段拆为 `ResponsePlanner -> Context Builder -> Final Response LLM -> Persist Message Meta`，禁止把全局候选池直接塞进通用 prompt。
 2. **ResponseMode**：定义 `capability_intro/capability_howto/skill_execution/clarify_params/normal_chat/error_explain`，由结构化 `ResponsePlan` 决定本轮回答模式。
@@ -247,7 +247,7 @@ Reference: [`docs/plan/ai_engineering/skills/agent_response_planning.md`](../../
 
 ## Phase 22 – Agent Run State Protocol
 
-Reference: [`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`](../../docs/plan/ai_engineering/skills/agent_run_state_protocol.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_run_state_protocol.md`](../../docs/plan/ai_engineering/agent/agent_run_state_protocol.md)
 
 1. **标准事件**：定义 `agent_run.started/response_plan/intent_detected/plan_created/task_status/task_started/awaiting_params/task_completed/task_failed/final/ended`，作为 UI 首选事件语义。
 2. **任务状态模型**：统一 `pending|awaiting_params|running|completed|failed|skipped` 状态，并要求 task payload 携带 run/session/message/trace/task/agent/skill/capability/action/result/error。

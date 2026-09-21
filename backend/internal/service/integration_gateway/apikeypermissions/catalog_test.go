@@ -42,7 +42,7 @@ func TestCheckedInPlatformCatalogExplicitAPIKeyMappings(t *testing.T) {
 			require.NotEmpty(t, resolved.Scope)
 			explicitCapabilities[meta["capability_id"].(string)] = true
 		}
-		if meta["api_endpoint"] == "/api/v1/tenant/capabilities:grant-status" && meta["capability_id"] == "com.corex.capabilities.grant_status.read" {
+		if meta["api_endpoint"] == "/api/v1/tenant/capabilities/catalog" && meta["capability_id"] == "com.corex.capabilities.catalog.read" {
 			require.Equal(t, true, meta["api_key_explicit"])
 			require.True(t, row.AllowAPIKey)
 			found = true

@@ -60,6 +60,7 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		{"POST", "/api/v1/tenant/invocations"},
 		{"POST", "/api/v1/tenant/invocations/stream"},
 		{"GET", "/api/v1/tenant/capabilities"},
+		{"GET", "/api/v1/tenant/capabilities/catalog"},
 		{"GET", "/api/v1/tenant/capabilities/resolve"},
 		{"GET", "/api/v1/tenant/invocations/test-trace"},
 		{"GET", "/api/v1/tenant/integration/routes"},

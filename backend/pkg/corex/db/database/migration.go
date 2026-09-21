@@ -502,6 +502,8 @@ func migrateCustomerModels(db *gorm.DB) error {
 		&modelCustomer.MiniAppEntry{},
 		&modelCustomer.Session{},
 		&modelCustomer.LoginEvent{},
+		&modelCustomer.Contact{},
+		&modelCustomer.ContactIdentity{},
 	)
 }
 

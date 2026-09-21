@@ -6,7 +6,9 @@ import (
 )
 
 type AgentChatMessage struct {
-	coremodel.PowerModel
+	// Chat messages are referenced by approvals, traces and continuations.  They
+	// therefore carry a stable public UUID rather than exposing the storage ID.
+	coremodel.PowerUUIDModel
 
 	// 作用域
 	Env        string  `gorm:"size:32;index" json:"-"`

@@ -12,6 +12,7 @@ import (
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	"github.com/google/uuid"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -337,6 +338,26 @@ func (s *ChatHistoryService) FindMessageByID(
 		Model(&dbmodel.AgentChatMessage{}).
 		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
+		First(&out).Error
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// FindMessageByUUID resolves an externally referenced message without falling
+// back to its storage ID. Runtime continuation records use this UUID.
+func (s *ChatHistoryService) FindMessageByUUID(
+	ctx context.Context, env string, tenantUUID *string, messageUUID uuid.UUID,
+) (*dbmodel.AgentChatMessage, error) {
+	if messageUUID == uuid.Nil {
+		return nil, fmt.Errorf("message_uuid is required")
+	}
+	var out dbmodel.AgentChatMessage
+	err := s.db.WithContext(ctx).
+		Model(&dbmodel.AgentChatMessage{}).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
+		Where("uuid = ?", messageUUID).
 		First(&out).Error
 	if err != nil {
 		return nil, err

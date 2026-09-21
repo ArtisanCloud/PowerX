@@ -880,7 +880,7 @@ root 用户在 Agent Trace 中应能看到：
 完整设计见：
 
 ```text
-docs/plan/ai_engineering/skills/multi_agent_a2a.md
+docs/plan/ai_engineering/agent/multi_agent_a2a.md
 ```
 
 ### 16.6 本地验证记录（2026-06-15）

@@ -28,7 +28,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const capabilityResolvePageSize = 200
+const (
+	capabilityResolvePageSize = 200
+	platformCatalogMaxPage    = 1000000
+)
 
 type tenantHandler struct {
 	catalog          *capservice.RegistryService
@@ -66,7 +69,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 			Auditor:     deps.Auditor,
 			VersionLock: deps.VersionLockStore,
 			CoreInvoker: capservice.NewCoreCapabilityMux(
-				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB)),
+				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB), customersvc.NewContactService(deps.DB)),
 			),
 		})
 	}
@@ -244,6 +247,95 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 		Page:     page,
 		PageSize: pageSize,
 	})
+}
+
+// ListPlatformCatalog returns tenant-visible CoreX configuration metadata for
+// a separately authorized service credential. It intentionally does not filter
+// the directory by every listed capability's invocation grant. The regular
+// /tenant/capabilities endpoint remains the granted-and-callable list.
+func (h *tenantHandler) ListPlatformCatalog(c *gin.Context) {
+	if h == nil || h.catalog == nil || h.credentialAccess == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+	if !isGrantStatusServiceActor(c.Request.Context()) {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_PLATFORM_CATALOG_FORBIDDEN"}), nil)
+		return
+	}
+	access, err := h.credentialAccess.CurrentAccess(c.Request.Context())
+	if err == nil {
+		err = access.Require(capservice.PlatformCatalogCapabilityID)
+	}
+	if err != nil {
+		respondCredentialError(c, err)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		respondTenantIdentityError(c, err)
+		return
+	}
+	page, pageSize, valid := parsePlatformCatalogPagination(c)
+	if !valid {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_PLATFORM_CATALOG_INVALID_QUERY"}), nil)
+		return
+	}
+
+	records, total, err := h.catalog.ListPublishedPlatformCatalog(c.Request.Context(), capservice.PlatformCatalogOptions{
+		TenantUUID:   tenantUUID,
+		Limit:        pageSize,
+		Offset:       (page - 1) * pageSize,
+		IncludeTotal: true,
+	})
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
+		return
+	}
+
+	items := make([]capability_registrydto.PlatformCatalogEntryDTO, 0, len(records))
+	for _, view := range records {
+		items = append(items, capability_registrydto.CapabilityViewToPlatformCatalogEntry(view))
+	}
+	dto.ResponseList(c, items, &dto.PaginationResponse{
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	})
+}
+
+func parsePlatformCatalogPagination(c *gin.Context) (int, int, bool) {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return 0, 0, false
+	}
+	query := c.Request.URL.Query()
+	for key := range query {
+		if key != "page" && key != "page_size" {
+			return 0, 0, false
+		}
+	}
+	parse := func(key string, fallback, maximum int) (int, bool) {
+		raw, exists := query[key]
+		if !exists {
+			return fallback, true
+		}
+		if len(raw) != 1 {
+			return 0, false
+		}
+		value, parseErr := strconv.Atoi(strings.TrimSpace(raw[0]))
+		if parseErr != nil || value < 1 || value > maximum {
+			return 0, false
+		}
+		return value, true
+	}
+	page, ok := parse("page", 1, platformCatalogMaxPage)
+	if !ok {
+		return 0, 0, false
+	}
+	pageSize, ok := parse("page_size", 50, 500)
+	if !ok {
+		return 0, 0, false
+	}
+	return page, pageSize, true
 }
 
 type capabilityResolveMatch struct {

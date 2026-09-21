@@ -122,8 +122,21 @@ type platformCapabilityDefinition struct {
 }
 
 type capabilityPolicy struct {
-	Prefer   string   `json:"prefer,omitempty"`
-	Fallback []string `json:"fallback,omitempty"`
+	Prefer          string                    `json:"prefer,omitempty" yaml:"prefer,omitempty"`
+	Fallback        []string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
+	RuntimeContract capabilityRuntimeContract `json:"runtime_contract,omitempty" yaml:"runtime_contract,omitempty"`
+}
+
+// capabilityRuntimeContract is published with a capability record and governs
+// Agent recovery. Alternatives are stable capability IDs; UUID resolution is
+// deferred to the frozen per-run snapshot.
+type capabilityRuntimeContract struct {
+	VerificationRequired       bool     `json:"verification_required,omitempty" yaml:"verification_required,omitempty"`
+	SideEffectEvidenceSchema   string   `json:"side_effect_evidence_schema,omitempty" yaml:"side_effect_evidence_schema,omitempty"`
+	BusinessCompletionRequired bool     `json:"business_completion_required,omitempty" yaml:"business_completion_required,omitempty"`
+	RetryMaxAttempts           int      `json:"retry_max_attempts,omitempty" yaml:"retry_max_attempts,omitempty"`
+	AlternativeCapabilityIDs   []string `json:"alternative_capability_ids,omitempty" yaml:"alternative_capability_ids,omitempty"`
+	HumanApprovalRequired      bool     `json:"human_approval_required,omitempty" yaml:"human_approval_required,omitempty"`
 }
 
 type capabilityAnnotations struct {

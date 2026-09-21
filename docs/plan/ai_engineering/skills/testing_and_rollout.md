@@ -134,6 +134,18 @@ cd backend && go test ./tests/integration/skills \
 2. 重复介绍能力：查 assistant message meta 是否落库。
 3. 无法解释本轮回答：查 Agent Trace 是否缺少 `response_planner` 或 `context_builder` 节点。
 
+### 2.8 Business Agent Runtime Loop 专项（目标态）
+
+该专项对应 [`agent_runtime_loop_design.md`](../agent/agent_runtime_loop_design.md)，在 Resource Observation Plane 和 Bounded ReAct Controller 实现时启用。它不能由现有 Plan Executor 的单元测试替代。
+
+1. 资源隔离：同一请求只发现当前 tenant、用户、Agent binding 和数据策略允许的 Resource Descriptor；discovery 不自动获得读取或调用权。
+2. Core-first：Workflow/Core Capability 满足前置条件时优先于等价插件或自由组合路径；优先理由进入 Trace。
+3. 计划修订：Observation 触发 `plan_revision` 后，新任务不得越过最初授权快照、预算或风险策略。
+4. 恢复：重复结构化事实、临时依赖故障、缺业务数据、无权访问和不可恢复故障分别产出受控恢复、替代、`needs_input`、`blocked`、`failed`；普通用户不得看到原始内部错误。
+5. 验证：只有真实 Capability/Skill/Tool 执行证据满足完成条件时才为 `completed`；否则为 `partial` 或其他明确 outcome。
+6. HITL：R3/R4 Action 在批准前不得调用；批准只覆盖明确的 plan revision 与对象范围。
+7. 演进闭环：AI 生成的 Skill 草稿必须经过契约、权限、回归、灰度和人工发布测试；生产 Run 不得直接发布 Revision。
+
 ## 3. 验收标准
 
 1. 技能注册成功率达到既定目标（示例：99.9%）。
@@ -154,6 +166,10 @@ cd backend && go test ./tests/integration/skills \
 - `skill_invocation_latency_ms`
 - `skill_registry_publish_total`
 - `skill_registry_rollback_total`
+- `agent_runtime_recovery_success_total`
+- `agent_runtime_partial_delivery_total`
+- `agent_runtime_capability_gap_total`
+- `agent_runtime_raw_internal_error_exposure_total`
 
 ### 5.1 Agent Run Trace & Report 验收
 

@@ -100,6 +100,21 @@ type OverviewRow struct {
 	Disabled  int64 `json:"disabled"`
 }
 
+// CustomerIdentityRow deliberately omits authentication secrets. It is the
+// admin projection of an authentication identity, not a ContactIdentity.
+type CustomerIdentityRow struct {
+	UUID            string     `json:"uuid"`
+	CustomerUUID    string     `json:"customer_uuid"`
+	Provider        string     `json:"provider"`
+	ProviderSubject string     `json:"provider_subject,omitempty"`
+	Email           string     `json:"email,omitempty"`
+	Phone           string     `json:"phone,omitempty"`
+	Status          string     `json:"status"`
+	VerifiedAt      *time.Time `json:"verified_at,omitempty"`
+	CreatedAt       string     `json:"created_at"`
+	UpdatedAt       string     `json:"updated_at"`
+}
+
 // CurrentMembershipRow contains only the authorization data required by a
 // customer self/delegated membership check; it intentionally excludes PII.
 type CurrentMembershipRow struct {
@@ -187,6 +202,101 @@ func (r *AccountRepository) List(ctx context.Context, opt AccountListOptions) ([
 		return nil, 0, err
 	}
 	return rows, total, nil
+}
+
+// Get returns an account only when it is a member of the requested tenant.
+// A global Customer UUID alone is never sufficient to read its profile.
+func (r *AccountRepository) Get(ctx context.Context, tenantUUID, customerUUID string) (AccountRow, error) {
+	if r == nil || r.db == nil {
+		return AccountRow{}, gorm.ErrInvalidDB
+	}
+	var row AccountRow
+	err := r.baseTenantQuery(ctx, tenantUUID).
+		Where("a.uuid = ?", strings.TrimSpace(customerUUID)).
+		Select(`a.uuid::text AS uuid,
+			a.status AS status, a.primary_email AS primary_email, a.primary_phone AS primary_phone,
+			a.display_name AS display_name, a.nickname AS nickname, a.given_name AS given_name,
+			a.family_name AS family_name, a.avatar_url AS avatar_url, a.locale AS locale, a.timezone AS timezone,
+			m.status AS member_status, m.source AS member_source, m.uuid::text AS membership_uuid,
+			a.created_at::text AS created_at, a.updated_at::text AS updated_at`).
+		Limit(1).Scan(&row).Error
+	if err != nil {
+		return AccountRow{}, err
+	}
+	if row.UUID == "" {
+		return AccountRow{}, gorm.ErrRecordNotFound
+	}
+	return row, nil
+}
+
+func (r *AccountRepository) ListAuthIdentities(ctx context.Context, tenantUUID, customerUUID string) ([]CustomerIdentityRow, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	var rows []CustomerIdentityRow
+	err := r.db.WithContext(ctx).Table((modelcustomer.AuthIdentity{}).TableName()+" AS i").
+		Joins("JOIN "+(modelcustomer.TenantMembership{}).TableName()+" AS m ON m.customer_uuid = i.customer_uuid").
+		Where("m.tenant_uuid = ? AND m.customer_uuid = ? AND m.deleted_at IS NULL", strings.TrimSpace(tenantUUID), strings.TrimSpace(customerUUID)).
+		Select(`i.uuid::text AS uuid, i.customer_uuid::text AS customer_uuid, i.provider AS provider,
+			i.provider_subject AS provider_subject, i.email AS email, i.phone AS phone, i.status AS status,
+			i.verified_at AS verified_at, i.created_at::text AS created_at, i.updated_at::text AS updated_at`).
+		Order("i.created_at DESC").Scan(&rows).Error
+	return rows, err
+}
+
+func (r *AccountRepository) ListMemberships(ctx context.Context, tenantUUID, customerUUID string) ([]modelcustomer.TenantMembership, error) {
+	if r == nil || r.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	var rows []modelcustomer.TenantMembership
+	err := r.db.WithContext(ctx).Where("tenant_uuid = ? AND customer_uuid = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(customerUUID)).Order("created_at DESC").Find(&rows).Error
+	return rows, err
+}
+
+func (r *AccountRepository) ListLoginEvents(ctx context.Context, tenantUUID, customerUUID string, page, pageSize int) ([]modelcustomer.LoginEvent, int64, error) {
+	if r == nil || r.db == nil {
+		return nil, 0, gorm.ErrInvalidDB
+	}
+	query := r.db.WithContext(ctx).Model(&modelcustomer.LoginEvent{}).Where("tenant_uuid = ? AND customer_uuid = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(customerUUID))
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	var rows []modelcustomer.LoginEvent
+	err := query.Order("created_at DESC").Limit(pageSize).Offset((page - 1) * pageSize).Find(&rows).Error
+	return rows, total, err
+}
+
+func (r *AccountRepository) ListMiniAppEntries(ctx context.Context, tenantUUID string, page, pageSize int) ([]modelcustomer.MiniAppEntry, int64, error) {
+	if r == nil || r.db == nil {
+		return nil, 0, gorm.ErrInvalidDB
+	}
+	query := r.db.WithContext(ctx).Model(&modelcustomer.MiniAppEntry{}).Where("tenant_uuid = ?", strings.TrimSpace(tenantUUID))
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	var rows []modelcustomer.MiniAppEntry
+	err := query.Order("created_at DESC").Limit(pageSize).Offset((page - 1) * pageSize).Find(&rows).Error
+	return rows, total, err
 }
 
 func (r *AccountRepository) Overview(ctx context.Context, tenantUUID string) (OverviewRow, error) {

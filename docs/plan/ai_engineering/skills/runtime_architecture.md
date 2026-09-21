@@ -4,12 +4,13 @@
 
 补充机制：
 
-1. PowerX 与插件之间的 Agent Skill Bridge 统一桥接规范见 [`agent_skill_bridge.md`](./agent_skill_bridge.md)。本文的 Agent + Skill 主路径必须遵循该桥接边界：渠道进入 PowerX Agent Session，PowerX Agent Runtime 选择 Agent 已绑定 Skill，Skill action 映射到 capability_id，最终通过 PowerX Capability Invocation 执行业务。
-2. Agent Runtime 结构化日志、节点追踪与报告下载机制见 [`agent_run_trace_report.md`](./agent_run_trace_report.md)。所有 Agent 主入口、Skill/Tooling 节点、插件 Skill Bridge 调用都必须写入同一套 Agent Run Trace。
-3. PowerX Core 自有 A2A 多智能体协作机制见 [`multi_agent_a2a.md`](./multi_agent_a2a.md)。A2A 是底座 Agent Runtime 内部的 `agent_handoff` 编排能力，不依赖插件 capability handler；插件 Skill 只是在后续可作为子 Agent 绑定能力进入候选池。
-4. Agent 最终回复的 ResponsePlanner、Context Builder 与 Final Response 分层机制见 [`agent_response_planning.md`](./agent_response_planning.md)。自然语言回答不得直接复述全局候选池，必须先生成 `response_plan`，再按 `response_mode` 选择上下文并落库 message meta。
-5. Agent 对话、团队任务、插件调试页展示多任务/多智能体执行过程时，必须遵循 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md)。`agent_run.*` 是 Runtime 与 UI 的共享状态协议，覆盖 task 状态、缺参等待、执行结果链接和 trace 精确定位。
-6. Agent Runtime 标准服务面见 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md)。Core 只提供 session/context/skill state/capability invocation/trace/artifact/progress/model policy/tenant authz 等通用服务；业务字段、缺参规则、状态合并和执行就绪判断必须来自 Skill。
+1. PowerX 与插件之间的 Agent Skill Bridge 统一桥接规范见 [`../agent/agent_skill_bridge.md`](../agent/agent_skill_bridge.md)。本文的 Agent + Skill 主路径必须遵循该桥接边界：渠道进入 PowerX Agent Session，PowerX Agent Runtime 选择 Agent 已绑定 Skill，Skill action 映射到 capability_id，最终通过 PowerX Capability Invocation 执行业务。
+2. Agent Runtime 结构化日志、节点追踪与报告下载机制见 [`../agent/agent_run_trace_report.md`](../agent/agent_run_trace_report.md)。所有 Agent 主入口、Skill/Tooling 节点、插件 Skill Bridge 调用都必须写入同一套 Agent Run Trace。
+3. PowerX Core 自有 A2A 多智能体协作机制见 [`../agent/multi_agent_a2a.md`](../agent/multi_agent_a2a.md)。A2A 是底座 Agent Runtime 内部的 `agent_handoff` 编排能力，不依赖插件 capability handler；插件 Skill 只是在后续可作为子 Agent 绑定能力进入候选池。
+4. Agent 最终回复的 ResponsePlanner、Context Builder 与 Final Response 分层机制见 [`../agent/agent_response_planning.md`](../agent/agent_response_planning.md)。自然语言回答不得直接复述全局候选池，必须先生成 `response_plan`，再按 `response_mode` 选择上下文并落库 message meta。
+5. Agent 对话、团队任务、插件调试页展示多任务/多智能体执行过程时，必须遵循 [`../agent/agent_run_state_protocol.md`](../agent/agent_run_state_protocol.md)。`agent_run.*` 是 Runtime 与 UI 的共享状态协议，覆盖 task 状态、缺参等待、执行结果链接和 trace 精确定位。
+6. Agent Runtime 标准服务面见 [`../agent/agent_runtime_standard_services.md`](../agent/agent_runtime_standard_services.md)。Core 只提供 session/context/skill state/capability invocation/trace/artifact/progress/model policy/tenant authz 等通用服务；业务字段、缺参规则、状态合并和执行就绪判断必须来自 Skill。
+7. Agent Runtime 的目标控制机制见 [`../agent/agent_runtime_loop_design.md`](../agent/agent_runtime_loop_design.md)。本文描述现有 Skill 双路径和 Plan 执行链路；资源观察、Observation 驱动 Plan Revision、恢复策略与能力演进属于目标架构，不能写成当前已完成能力。
 
 ## 1. 总体架构
 
@@ -162,7 +163,11 @@ Agent Runtime 必须支持节点级模型选择。首版可以全部继承 Agent
 3. `tooling_catalog[]`（含 `source=system|agent`）
 4. 每项附参数 schema 与约束标签（授权/可见性/来源策略）
 
-### 2.2 执行流程（目标态：多 Skill + DAG）
+### 2.2 已实现计划执行与目标 Loop 的边界
+
+当前通用路径会在执行前从当前 Agent 已绑定、已授权的候选集中生成一个 `ExecutionPlan`，再由 Executor 调度节点。它具有多 Skill/DAG、依赖、并行、Trace 和结果回填基础，但不等价于“全系统资源可观察的自主 Loop”。
+
+以下流程是当前 Plan Executor 与后续 Loop 的衔接点：
 
 1. Intent 输出多候选 `candidate_skills[]`（top-k）
 2. Planner 生成计划 DAG（`serial stages + parallel groups`）
@@ -172,6 +177,8 @@ Agent Runtime 必须支持节点级模型选择。首版可以全部继承 Agent
 6. 节点结果回填 Planner 上下文（供后续节点引用）
 7. 输出到 Agent stream（intent/plan/node_start/token/node_end/final）
 8. 写审计与指标（trace_id + plan_id + node_id）
+
+节点结果可供同一已解析 Plan 的下游节点引用；在引入 [`agent_runtime_loop_design.md`](../agent/agent_runtime_loop_design.md) 的 `Observation Store + Plan Revision` 前，通用 Runtime 不得声称每一个错误都会自动重规划、换能力或修复。
 
 当计划节点命中 `source=plugin` 的 Skill 时，SkillRunner 不调用插件 Skill 私有 executor。它必须读取 Skill Manifest 的 `action_capabilities` 或 `executor.action_map`，将 planner 提取的 `action` 解析为 `capability_id`，再进入 PowerX Capability Invocation。
 
@@ -195,6 +202,8 @@ Agent skill node
 
 1. 可重试错误：依赖临时不可用、网络抖动
 2. 不可重试错误：鉴权失败、manifest 非法、签名不通过
+
+目标 Runtime 还必须将错误分为机械可修复、可替代、缺业务信息、权限阻断和不可恢复故障，并在用户答复前运行恢复决策；完整分类与用户可见结果见 [`agent_runtime_loop_design.md`](../agent/agent_runtime_loop_design.md#6-验证错误恢复与用户答复)。
 
 ## 3. 路径B：Capability Invocation
 
@@ -347,7 +356,7 @@ Agent 上下文不是 runtime 内存单点驱动。标准分层：
 
 Context Builder 必须优先读取 DB 权威记录；Redis 或内存命中只能作为缓存。去重判断必须读取 assistant message meta，不允许靠自然语言文本匹配。
 
-多轮业务任务不得只依赖最近消息窗口或上下文摘要恢复参数。跨轮业务参数、缺参状态、确认状态和执行就绪状态必须进入 `SkillStateService`，其权威协议见 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md#23-skillstateservice)。Core 可以持久化业务状态 envelope，但不能写死某个 Skill 的字段含义。
+多轮业务任务不得只依赖最近消息窗口或上下文摘要恢复参数。跨轮业务参数、缺参状态、确认状态和执行就绪状态必须进入 `SkillStateService`，其权威协议见 [`agent_runtime_standard_services.md`](../agent/agent_runtime_standard_services.md#23-skillstateservice)。Core 可以持久化业务状态 envelope，但不能写死某个 Skill 的字段含义。
 
 ## 4. 统一结果模型
 
@@ -444,7 +453,7 @@ A2A handoff 节点必须作为 Agent Run Trace 的一等节点记录，不能只
 
 主 Agent 最终回复必须能关联到所有子 Agent 的节点结果。root 下载 Message 报告时，应能看到“主 Agent 拆分了什么、每个子 Agent 收到什么、返回什么、失败策略如何生效”。
 
-Core-only MVP 使用 `release.readiness.team` 作为 seed 演示团队，详见 [`multi_agent_a2a.md`](./multi_agent_a2a.md)。
+Core-only MVP 使用 `release.readiness.team` 作为 seed 演示团队，详见 [`multi_agent_a2a.md`](../agent/multi_agent_a2a.md)。
 
 ## 7. 决策流程图（三层抉择）
 

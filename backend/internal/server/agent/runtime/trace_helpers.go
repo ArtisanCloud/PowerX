@@ -13,6 +13,7 @@ import (
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/google/uuid"
 )
 
 type traceRuntime struct {
@@ -67,9 +68,11 @@ func (e *Engine) newTraceRuntime(ctx context.Context, msg string, reqCfg *dto.Ch
 		Channel:           firstTraceString(traceValue(reqCfg, "channel"), transport),
 		UserMessageDigest: digestString(msg),
 		Attributes: map[string]any{
-			"explicit_flow": strings.TrimSpace(explicitFlow),
-			"transport":     transport,
-			"env":           strings.TrimSpace(reqctx.GetEnv(ctx)),
+			"explicit_flow":         strings.TrimSpace(explicitFlow),
+			"transport":             transport,
+			"env":                   strings.TrimSpace(reqctx.GetEnv(ctx)),
+			"runtime_run_uuid":      contextString(ctx, "runtime_run_uuid"),
+			"runtime_snapshot_uuid": contextString(ctx, "runtime_snapshot_uuid"),
 		},
 	}
 	runCtx, err := logger.StartRun(ctx, meta)
@@ -94,6 +97,16 @@ func (tr *traceRuntime) withPlan(planID string) {
 		return
 	}
 	tr.meta.PlanID = strings.TrimSpace(planID)
+}
+
+func (tr *traceRuntime) withRuntimeRevision(revisionUUID uuid.UUID) {
+	if tr == nil || revisionUUID == uuid.Nil {
+		return
+	}
+	if tr.meta.Attributes == nil {
+		tr.meta.Attributes = map[string]any{}
+	}
+	tr.meta.Attributes["runtime_plan_revision_uuid"] = revisionUUID.String()
 }
 
 func (tr *traceRuntime) applyExecutionMeta(mt agentschema.ExecutionMeta) agentschema.ExecutionMeta {
@@ -225,11 +238,11 @@ func traceMetaMap(tr *traceRuntime) map[string]any {
 	}
 	return map[string]any{
 		"tenant_uuid": tr.meta.TenantUUID,
-		"trace_id":   tr.meta.TraceID,
-		"run_id":     tr.meta.RunID,
-		"session_id": tr.meta.SessionID,
-		"message_id": tr.meta.MessageID,
-		"plan_id":    tr.meta.PlanID,
+		"trace_id":    tr.meta.TraceID,
+		"run_id":      tr.meta.RunID,
+		"session_id":  tr.meta.SessionID,
+		"message_id":  tr.meta.MessageID,
+		"plan_id":     tr.meta.PlanID,
 	}
 }
 
