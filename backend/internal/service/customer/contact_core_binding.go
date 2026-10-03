@@ -26,17 +26,17 @@ type ContactCoreListInput struct {
 	Page, PageSize              int
 }
 type ContactCoreGetInput struct{ CustomerUUID, ContactUUID string }
-type ContactCoreResolveIdentityInput struct{ CustomerUUID, Channel, ExternalSubject string }
+type ContactCoreResolveIdentityInput struct{ CustomerUUID, ChannelDictionaryItemUUID, ExternalSubject string }
 type ContactCoreCreateInput struct {
-	CustomerUUID, DisplayName, GivenName, FamilyName, Status, CreationIntent string
-	Roles, Tags                                                              []string
+	CustomerUUID, DisplayName, GivenName, FamilyName, Email, Phone, Status, CreationIntent string
+	Roles, Tags                                                                            []string
 }
 type ContactCoreUpdateInput struct {
-	CustomerUUID, ContactUUID                  string
-	DisplayName, GivenName, FamilyName, Status *string
-	Roles, Tags                                *[]string
+	CustomerUUID, ContactUUID                                string
+	DisplayName, GivenName, FamilyName, Email, Phone, Status *string
+	Roles, Tags                                              *[]string
 }
-type ContactCoreBindIdentityInput struct{ CustomerUUID, ContactUUID, Channel, ExternalSubject string }
+type ContactCoreBindIdentityInput struct{ CustomerUUID, ContactUUID, ChannelDictionaryItemUUID, ExternalSubject string }
 
 func (b *ContactCoreBinding) ListByCustomer(ctx context.Context, tenantUUID string, in ContactCoreListInput) (ContactPage, error) {
 	if b == nil || b.service == nil {
@@ -54,23 +54,23 @@ func (b *ContactCoreBinding) ResolveIdentity(ctx context.Context, tenantUUID str
 	if b == nil || b.service == nil {
 		return nil, errors.New("contact core binding unavailable")
 	}
-	return b.service.ResolveIdentity(ctx, ResolveContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, Channel: in.Channel, ExternalSubject: in.ExternalSubject})
+	return b.service.ResolveIdentity(ctx, ResolveContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, ChannelDictionaryItemUUID: in.ChannelDictionaryItemUUID, ExternalSubject: in.ExternalSubject})
 }
 func (b *ContactCoreBinding) Create(ctx context.Context, tenantUUID string, in ContactCoreCreateInput) (*modelcustomer.Contact, error) {
 	if b == nil || b.service == nil {
 		return nil, errors.New("contact core binding unavailable")
 	}
-	return b.service.Create(ctx, CreateContactInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, DisplayName: in.DisplayName, GivenName: in.GivenName, FamilyName: in.FamilyName, Status: in.Status, Roles: in.Roles, Tags: in.Tags, CreationIntent: in.CreationIntent})
+	return b.service.Create(ctx, CreateContactInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, DisplayName: in.DisplayName, GivenName: in.GivenName, FamilyName: in.FamilyName, Email: in.Email, Phone: in.Phone, Status: in.Status, Roles: in.Roles, Tags: in.Tags, CreationIntent: in.CreationIntent})
 }
 func (b *ContactCoreBinding) Update(ctx context.Context, tenantUUID string, in ContactCoreUpdateInput) (*modelcustomer.Contact, error) {
 	if b == nil || b.service == nil {
 		return nil, errors.New("contact core binding unavailable")
 	}
-	return b.service.Update(ctx, UpdateContactInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, ContactUUID: in.ContactUUID, DisplayName: in.DisplayName, GivenName: in.GivenName, FamilyName: in.FamilyName, Status: in.Status, Roles: in.Roles, Tags: in.Tags})
+	return b.service.Update(ctx, UpdateContactInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, ContactUUID: in.ContactUUID, DisplayName: in.DisplayName, GivenName: in.GivenName, FamilyName: in.FamilyName, Email: in.Email, Phone: in.Phone, Status: in.Status, Roles: in.Roles, Tags: in.Tags})
 }
 func (b *ContactCoreBinding) BindIdentity(ctx context.Context, tenantUUID string, in ContactCoreBindIdentityInput) (*modelcustomer.ContactIdentity, error) {
 	if b == nil || b.service == nil {
 		return nil, errors.New("contact core binding unavailable")
 	}
-	return b.service.BindIdentity(ctx, BindContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, ContactUUID: in.ContactUUID, Channel: in.Channel, ExternalSubject: in.ExternalSubject})
+	return b.service.BindIdentity(ctx, BindContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, ContactUUID: in.ContactUUID, ChannelDictionaryItemUUID: in.ChannelDictionaryItemUUID, ExternalSubject: in.ExternalSubject})
 }

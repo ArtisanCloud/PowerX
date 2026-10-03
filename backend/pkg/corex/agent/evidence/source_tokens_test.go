@@ -91,6 +91,18 @@ func TestGenericFactsPreserveNewMetricButRejectMismatchedSourceOrUnit(t *testing
 	require.NoError(t, err)
 }
 
+func TestGenericFactsDeduplicatesRepeatedSourceSelection(t *testing.T) {
+	tokens, err := TokenizeGenericSources(map[string]any{"message": "活动投入34.2万元"}, []string{"/message"})
+	require.NoError(t, err)
+	facts, err := ResolveGenericFacts(GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{
+		{Label: "活动投入", Scope: "全渠道", TokenRef: "token_0"},
+		{Label: "活动投入", Scope: "重复的范围描述", TokenRef: "token_0"},
+	}}, tokens)
+	require.NoError(t, err)
+	require.Len(t, facts, 1)
+	require.Equal(t, "全渠道", facts[0].Scope)
+}
+
 func TestGenericFactsSchemaBindsEveryLabelToItsTokenSource(t *testing.T) {
 	tokens, err := TokenizeGenericSources(map[string]any{"message": "活动投入34.2万元，活动标记GMV 46.2万元"}, []string{"/message"})
 	require.NoError(t, err)

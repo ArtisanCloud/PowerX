@@ -26,13 +26,15 @@ var (
 )
 
 type Membership struct {
-	TenantUUID     string     `json:"tenant_uuid"`
-	CustomerUUID   string     `json:"customer_uuid"`
-	MembershipUUID string     `json:"membership_uuid"`
-	Status         string     `json:"status"`
-	Roles          []string   `json:"roles"`
-	Scopes         []string   `json:"scopes"`
-	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
+	TenantUUID         string     `json:"tenant_uuid"`
+	CustomerUUID       string     `json:"customer_uuid"`
+	MembershipUUID     string     `json:"membership_uuid"`
+	Type               string     `json:"type"`
+	PrimaryContactUUID string     `json:"primary_contact_uuid,omitempty"`
+	Status             string     `json:"status"`
+	Roles              []string   `json:"roles"`
+	Scopes             []string   `json:"scopes"`
+	ExpiresAt          *time.Time `json:"expires_at,omitempty"`
 }
 
 type MembershipService struct {
@@ -62,7 +64,7 @@ func (s *MembershipService) ResolveCurrent(ctx context.Context, tenantUUID, cust
 	if json.Unmarshal(row.Roles, &roles) != nil || json.Unmarshal(row.Scopes, &scopes) != nil {
 		return Membership{}, ErrCustomerUpstreamDependency
 	}
-	return Membership{TenantUUID: row.TenantUUID, CustomerUUID: row.CustomerUUID, MembershipUUID: row.MembershipUUID, Status: row.Status, Roles: roles, Scopes: scopes, ExpiresAt: row.ExpiresAt}, nil
+	return Membership{TenantUUID: row.TenantUUID, CustomerUUID: row.CustomerUUID, MembershipUUID: row.MembershipUUID, Type: row.Type, PrimaryContactUUID: row.PrimaryContactUUID, Status: row.Status, Roles: roles, Scopes: scopes, ExpiresAt: row.ExpiresAt}, nil
 }
 
 // AuthorizeDelegatedActor proves the STS caller is registered and actually

@@ -37,6 +37,11 @@ func TestResolveOrCreateExternalIdentityIsScopedToProviderPlugin(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, first.CustomerUUID, again.CustomerUUID)
+	require.Equal(t, first.PrimaryContactUUID, again.PrimaryContactUUID)
+	require.Equal(t, modelcustomer.AccountTypePerson, again.Type)
+	var contactCount int64
+	require.NoError(t, db.Model(&modelcustomer.Contact{}).Where("tenant_uuid = ? AND customer_uuid = ?", "11111111-1111-1111-1111-111111111111", first.CustomerUUID).Count(&contactCount).Error)
+	require.EqualValues(t, 1, contactCount)
 
 	otherProvider, err := repo.ResolveOrCreateExternalIdentity(ctx, ExternalIdentityInput{
 		TenantUUID: "11111111-1111-1111-1111-111111111111", ProviderKey: providerB, ProviderPluginID: "com.powerx.plugins.channel-b",
@@ -118,6 +123,61 @@ func TestResolveOrCreateExternalIdentityRejectsDisabledIdentityOrMembership(t *t
 	require.ErrorIs(t, err, ErrExternalIdentityUnavailable)
 }
 
+func TestResolveOrCreateExternalIdentityRepairsMissingPrimaryContactIdempotently(t *testing.T) {
+	for _, reuse := range []bool{false, true} {
+		t.Run(fmt.Sprintf("reuse_existing_%t", reuse), func(t *testing.T) {
+			db := newExternalIdentityRepositoryDB(t)
+			repo := NewAccountRepository(db)
+			provider, err := ExternalIdentityProviderKey("com.powerx.plugins.channel-a")
+			require.NoError(t, err)
+			input := ExternalIdentityInput{TenantUUID: "11111111-1111-1111-1111-111111111111", ProviderKey: provider, ProviderPluginID: "com.powerx.plugins.channel-a", ProviderSubject: "channel-user-1", DisplayName: "客户甲", Email: "person@example.test"}
+			first, err := repo.ResolveOrCreateExternalIdentity(context.Background(), input)
+			require.NoError(t, err)
+			require.NoError(t, db.Model(&modelcustomer.TenantMembership{}).Where("uuid = ?", first.MembershipUUID).Update("primary_contact_uuid", "").Error)
+			if !reuse {
+				require.NoError(t, db.Where("uuid = ?", first.PrimaryContactUUID).Delete(&modelcustomer.Contact{}).Error)
+			}
+			second, err := repo.ResolveOrCreateExternalIdentity(context.Background(), input)
+			require.NoError(t, err)
+			require.Equal(t, first.CustomerUUID, second.CustomerUUID)
+			if reuse {
+				require.Equal(t, first.PrimaryContactUUID, second.PrimaryContactUUID)
+			} else {
+				require.NotEqual(t, first.PrimaryContactUUID, second.PrimaryContactUUID)
+			}
+			third, err := repo.ResolveOrCreateExternalIdentity(context.Background(), input)
+			require.NoError(t, err)
+			require.Equal(t, second.PrimaryContactUUID, third.PrimaryContactUUID)
+			var count int64
+			require.NoError(t, db.Model(&modelcustomer.Contact{}).Where("tenant_uuid = ? AND customer_uuid = ?", input.TenantUUID, first.CustomerUUID).Count(&count).Error)
+			require.EqualValues(t, 1, count)
+		})
+	}
+}
+
+func TestResolveOrCreateExternalIdentityRefusesAmbiguousOrStaleContact(t *testing.T) {
+	db := newExternalIdentityRepositoryDB(t)
+	repo := NewAccountRepository(db)
+	provider, err := ExternalIdentityProviderKey("com.powerx.plugins.channel-a")
+	require.NoError(t, err)
+	input := ExternalIdentityInput{TenantUUID: "11111111-1111-1111-1111-111111111111", ProviderKey: provider, ProviderPluginID: "com.powerx.plugins.channel-a", ProviderSubject: "channel-user-1", DisplayName: "客户甲"}
+	first, err := repo.ResolveOrCreateExternalIdentity(context.Background(), input)
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&modelcustomer.TenantMembership{}).Where("uuid = ?", first.MembershipUUID).Update("primary_contact_uuid", "").Error)
+	extra := modelcustomer.Contact{TenantUUID: input.TenantUUID, CustomerUUID: first.CustomerUUID, DisplayName: "另一人", Status: modelcustomer.ContactStatusActive, Roles: []byte(`[]`), Tags: []byte(`[]`), Metadata: []byte(`{}`)}
+	require.NoError(t, db.Create(&extra).Error)
+	require.NoError(t, db.Model(&modelcustomer.Account{}).Where("uuid = ?", first.CustomerUUID).Update("type", "").Error)
+	_, err = repo.ResolveOrCreateExternalIdentity(context.Background(), input)
+	require.ErrorIs(t, err, ErrExternalIdentityContactAmbiguous)
+	var unchanged modelcustomer.Account
+	require.NoError(t, db.Where("uuid = ?", first.CustomerUUID).First(&unchanged).Error)
+	require.Empty(t, unchanged.Type)
+	require.NoError(t, db.Delete(&extra).Error)
+	require.NoError(t, db.Model(&modelcustomer.TenantMembership{}).Where("uuid = ?", first.MembershipUUID).Update("primary_contact_uuid", extra.UUID.String()).Error)
+	_, err = repo.ResolveOrCreateExternalIdentity(context.Background(), input)
+	require.ErrorIs(t, err, ErrExternalIdentityContactRequired)
+}
+
 func newExternalIdentityRepositoryDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	previousSchema := coremodel.PowerXSchema
@@ -133,7 +193,7 @@ func createExternalIdentityTestTables(db *gorm.DB) error {
 	for _, statement := range []string{
 		`CREATE TABLE main.customer_accounts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
-			status TEXT NOT NULL, primary_email TEXT, primary_phone TEXT, display_name TEXT, nickname TEXT, given_name TEXT,
+			type TEXT, status TEXT NOT NULL, primary_email TEXT, primary_phone TEXT, display_name TEXT, nickname TEXT, given_name TEXT,
 			family_name TEXT, avatar_url TEXT, locale TEXT, timezone TEXT, metadata TEXT
 		)`,
 		`CREATE TABLE main.customer_auth_identities (
@@ -144,8 +204,13 @@ func createExternalIdentityTestTables(db *gorm.DB) error {
 		)`,
 		`CREATE TABLE main.customer_tenant_memberships (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
-			tenant_uuid TEXT NOT NULL, customer_uuid TEXT NOT NULL, status TEXT NOT NULL, roles TEXT, scopes TEXT,
+			tenant_uuid TEXT NOT NULL, customer_uuid TEXT NOT NULL, primary_contact_uuid TEXT, status TEXT NOT NULL, roles TEXT, scopes TEXT,
 			source TEXT NOT NULL, expires_at DATETIME, metadata TEXT, UNIQUE(tenant_uuid, customer_uuid)
+		)`,
+		`CREATE TABLE main.customer_contacts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
+			tenant_uuid TEXT NOT NULL, customer_uuid TEXT NOT NULL, display_name TEXT NOT NULL, given_name TEXT, family_name TEXT,
+			email TEXT, phone TEXT, status TEXT NOT NULL, roles TEXT NOT NULL, tags TEXT NOT NULL, metadata TEXT NOT NULL
 		)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
@@ -153,4 +218,51 @@ func createExternalIdentityTestTables(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+func TestVerifiedIdentityDefaultsMissingTypeAndPreservesCompany(t *testing.T) {
+	for _, kind := range []string{"", "company"} {
+		t.Run("type_"+kind, func(t *testing.T) {
+			db := newExternalIdentityRepositoryDB(t)
+			repo := NewAccountRepository(db)
+			provider, err := ExternalIdentityProviderKey("com.powerx.test.default")
+			require.NoError(t, err)
+			in := ExternalIdentityInput{TenantUUID: "11111111-1111-1111-1111-111111111111", ProviderKey: provider, ProviderPluginID: "com.powerx.test.default", ProviderSubject: "subject", DisplayName: "Saved name", Email: "saved@example.test", Phone: "123456"}
+			first, err := repo.ResolveOrCreateExternalIdentity(context.Background(), in)
+			require.NoError(t, err)
+			require.NoError(t, db.Model(&modelcustomer.Account{}).Where("uuid = ?", first.CustomerUUID).Update("type", kind).Error)
+			require.NoError(t, db.Model(&modelcustomer.TenantMembership{}).Where("uuid = ?", first.MembershipUUID).Update("primary_contact_uuid", nil).Error)
+			if kind == "" {
+				require.NoError(t, db.Unscoped().Where("uuid = ?", first.PrimaryContactUUID).Delete(&modelcustomer.Contact{}).Error)
+			}
+			in.DisplayName = "Incoming name"
+			in.Email = "incoming@example.test"
+			in.Phone = "999"
+			second, err := repo.ResolveOrCreateExternalIdentity(context.Background(), in)
+			require.NoError(t, err)
+			third, err := repo.ResolveOrCreateExternalIdentity(context.Background(), in)
+			require.NoError(t, err)
+			require.Equal(t, first.CustomerUUID, second.CustomerUUID)
+			require.Equal(t, second, third)
+			expected := kind
+			if expected == "" {
+				expected = "person"
+			}
+			require.Equal(t, expected, second.Type)
+			var stored modelcustomer.Account
+			require.NoError(t, db.Where("uuid = ?", first.CustomerUUID).First(&stored).Error)
+			require.Equal(t, expected, stored.Type)
+			var contact modelcustomer.Contact
+			require.NoError(t, db.Where("uuid = ?", second.PrimaryContactUUID).First(&contact).Error)
+			require.Equal(t, "saved@example.test", contact.Email)
+			require.Equal(t, "123456", contact.Phone)
+			require.Equal(t, "Saved name", contact.DisplayName)
+			if kind == "company" {
+				require.Equal(t, first.PrimaryContactUUID, second.PrimaryContactUUID)
+			}
+			var count int64
+			require.NoError(t, db.Model(&modelcustomer.Contact{}).Where("customer_uuid = ?", first.CustomerUUID).Count(&count).Error)
+			require.EqualValues(t, 1, count)
+		})
+	}
 }

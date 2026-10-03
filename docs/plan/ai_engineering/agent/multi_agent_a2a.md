@@ -21,6 +21,8 @@ PowerX Core A2A 是 Agent Runtime 内部的多智能体任务编排机制：
 
 它解决的问题是：一个复杂业务作业不应由单个 Agent 在一个 prompt 中一次性完成，而应由主 Agent 根据团队配置把任务拆给具备不同职责和绑定能力的子 Agent，并按计划依赖、失败策略、上下文隔离和审计 trace 汇总结果。
 
+当前 handoff 随一次请求在进程内执行；目标架构把同一消息的主/子 Agent 任务纳入同一个持久化 Run，独立任务可同时就绪，模型或 Worker 容量不足时有界排队。队列、租约、模型池、跨实例恢复和独立超时的权威合同见 [Agent Runtime 持久化调度与模型容量设计](./agent_runtime_durable_scheduling.md)。它尚未接入当前 A2A 执行链，不得把现有 handoff 事件记录误认为可恢复任务池。
+
 ## 2. 默认业务故事：营销活动复盘多智能体作业
 
 默认 Core-only A2A Demo 采用“营销活动复盘 → 可审核方法论草稿”场景，用于验证主 Agent、三个子 Agent、Skill 绑定、Team 成员、handoff plan、trace 与最终汇总。发布准备保留为专项团队模板，不作为默认验收入口。

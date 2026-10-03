@@ -59,6 +59,8 @@ PowerX Agent Runtime 的职责不是替每个 Skill 写业务逻辑，而是提�
 
 ContextService 输出的是 `context_ref/context_package`，Skill 可以读取，但不得把它当成业务状态唯一来源。
 
+此表仅描述 **ContextService** 的上下文层；Agent Run/Task 调度状态的 Redis 权威存储由下文 `AgentRunStore` 提供，不应误解为“Redis 在所有 Runtime 服务中只能是缓存”。
+
 ### 2.2.1 ResourceObservationService（目标服务）
 
 该服务是 [`agent_runtime_loop_design.md`](./agent_runtime_loop_design.md) 中 Resource Observation Plane 的通用入口，负责发现和读取当前主体可见的 Core/插件能力、业务对象、数据、报表、文件、知识和 Artifact 元数据。
@@ -126,7 +128,7 @@ collecting | ready | awaiting_confirmation | executing | completed | failed | ca
 2. Core 只校验 envelope、权限、版本、TTL 和 schema 引用是否存在。
 3. SkillStateService 必须按 `tenant_uuid + session_id + agent_id + skill_id + state_key` 隔离。
 4. 状态更新必须写入 Agent Trace，便于复盘“为什么缺参/为什么执行”。
-5. Redis 只能作为短 TTL 加速，PostgreSQL 才是权威状态源。
+5. 对本服务的 SkillState，Redis 只能作为短 TTL 加速，PostgreSQL 才是权威状态源；Agent Run/Task 调度状态另由 Redis AgentRunStore 持有。
 
 推荐落库表：`agent_session_skill_states`。如果后续需要跨 session 长期记忆，应另建 long-term memory，不得复用 session skill state。
 
@@ -205,6 +207,12 @@ Skill 通过 `result_presentation` 指定哪些结果字段可展示。Core 只�
 
 两个服务的完整目标状态、失败分类、人工确认和预算规则见 [`agent_runtime_loop_design.md`](./agent_runtime_loop_design.md)。
 
+### 2.6.2 AgentRunStore、AgentWorkQueue 与 ResourcePool（目标服务）
+
+`AgentRunStore` 以 Redis 为生产默认权威驱动，原子维护 Run/Task 状态、版本、事件序号、尝试、结果引用与短期快照。`AgentWorkQueue` 基于 PowerX Event Fabric TaskQueue 的增强合同完成就绪任务投递、租约、续租、重领、延迟重试、死信与去重。`ResourcePool` 按真实服务实例/模型槽位控制全局容量，同时限制租户与单 Run 配额。它们只负责通用调度，不解释 Skill 的业务字段或替 Capability 执行权限判断。
+
+单次请求只在拿到资源并发起调用后计时；排队等待和 Run 总预算独立计时。Redis 不可用或生产持久化门禁未通过时停止新 Run 接入，不退回进程内存或 PostgreSQL。长期报告与大 payload 归档对象存储；Session/Message、SkillState、业务对象和必要审计仍由各自权威服务持有。完整状态机、存储分工和故障恢复见 [持久化调度与模型容量设计](./agent_runtime_durable_scheduling.md)。
+
 ### 2.7 ProgressEventService
 
 负责把 Runtime 状态转成 UI 可消费的标准事件：
@@ -213,13 +221,14 @@ Skill 通过 `result_presentation` 指定哪些结果字段可展示。Core 只�
 2. `agent_run.response_plan`
 3. `agent_run.plan_created`
 4. `agent_run.task_status`
-5. `agent_run.awaiting_params`
-6. `agent_run.task_completed`
-7. `agent_run.task_failed`
-8. `agent_run.final`
-9. `agent_run.ended`
+5. `agent_run.task_queued` / `agent_run.task_leased` / `agent_run.task_retry_wait`（目标扩展）
+6. `agent_run.awaiting_params`
+7. `agent_run.task_completed`
+8. `agent_run.task_failed`
+9. `agent_run.final`
+10. `agent_run.ended`
 
-完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md)。PowerX Web Admin 与 PowerXPlugin 调试页必须消费同一套 run state reducer。
+完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md)。PowerX Web Admin 与 PowerXPlugin 调试页必须消费同一套 run state reducer；SSE/WS 只订阅，不能拥有 Run 生命周期。
 
 ### 2.8 ModelPolicyService
 

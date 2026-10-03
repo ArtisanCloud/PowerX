@@ -30,7 +30,7 @@ type ShopifyStorefrontConfig struct {
 	ShopDomain            string `json:"shop_domain"`
 	StorefrontAccessToken string `json:"storefront_access_token"`
 }
-type VerifiedShopifyCustomer struct{ Subject, DisplayName string }
+type VerifiedShopifyCustomer struct{ Subject, DisplayName, GivenName, FamilyName, Email, Phone string }
 
 type CustomerAuthService struct {
 	db          *gorm.DB
@@ -75,15 +75,18 @@ func (s *CustomerAuthService) RegisterShopify(ctx context.Context, tenantUUID, c
 	if err != nil {
 		return TokenPair{}, Membership{}, err
 	}
-	resolved, err := s.accounts.ResolveExternalIdentity(ctx, ResolveExternalIdentityInput{TenantUUID: tenantUUID, ProviderSubject: verified.Subject, DisplayName: verified.DisplayName})
+	resolved, err := s.accounts.resolveVerifiedExternalIdentity(ctx, ResolveExternalIdentityInput{TenantUUID: tenantUUID, ProviderSubject: verified.Subject, DisplayName: verified.DisplayName, GivenName: verified.GivenName, FamilyName: verified.FamilyName, Email: verified.Email, Phone: verified.Phone})
 	if err != nil {
-		return TokenPair{}, Membership{}, err
-	}
-	if err := s.markVerified(ctx, pluginID, verified.Subject); err != nil {
 		return TokenPair{}, Membership{}, err
 	}
 	m, err := s.memberships.ResolveCurrent(ctx, tenantUUID, resolved.CustomerUUID)
 	if err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	if err := s.ensureShopifyPrimaryContact(ctx, m); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	if err := s.markVerified(ctx, pluginID, verified.Subject); err != nil {
 		return TokenPair{}, Membership{}, err
 	}
 	pair, err := s.tokens.IssuePair(ctx, m)
@@ -105,15 +108,41 @@ func (s *CustomerAuthService) LoginShopify(ctx context.Context, tenantUUID, cred
 		}
 		return TokenPair{}, Membership{}, ErrCustomerUpstreamDependency
 	}
-	if err := s.markVerified(ctx, pluginID, verified.Subject); err != nil {
-		return TokenPair{}, Membership{}, err
-	}
 	m, err := s.memberships.ResolveCurrent(ctx, tenantUUID, identity.CustomerUUID)
 	if err != nil {
 		return TokenPair{}, Membership{}, err
 	}
+	// Login never creates a new identity or membership. After both are found,
+	// the verified Core path may repair only a missing primary contact binding.
+	if _, err := s.accounts.resolveVerifiedExternalIdentity(ctx, ResolveExternalIdentityInput{TenantUUID: tenantUUID, ProviderSubject: verified.Subject, DisplayName: verified.DisplayName, GivenName: verified.GivenName, FamilyName: verified.FamilyName, Email: verified.Email, Phone: verified.Phone}); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	m, err = s.memberships.ResolveCurrent(ctx, tenantUUID, identity.CustomerUUID)
+	if err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	if err := s.ensureShopifyPrimaryContact(ctx, m); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	if err := s.markVerified(ctx, pluginID, verified.Subject); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
 	pair, err := s.tokens.IssuePair(ctx, m)
 	return pair, m, err
+}
+
+func (s *CustomerAuthService) ensureShopifyPrimaryContact(ctx context.Context, m Membership) error {
+	if (m.Type != modelcustomer.AccountTypePerson && m.Type != modelcustomer.AccountTypeCompany) || m.PrimaryContactUUID == "" {
+		return customerrepo.ErrExternalIdentityContactRequired
+	}
+	var count int64
+	if err := s.db.WithContext(ctx).Model(&modelcustomer.Contact{}).Where("tenant_uuid = ? AND customer_uuid = ? AND uuid = ? AND status = ?", m.TenantUUID, m.CustomerUUID, m.PrimaryContactUUID, modelcustomer.ContactStatusActive).Count(&count).Error; err != nil {
+		return ErrCustomerUpstreamDependency
+	}
+	if count != 1 {
+		return customerrepo.ErrExternalIdentityContactRequired
+	}
+	return nil
 }
 func (s *CustomerAuthService) verifyShopify(ctx context.Context, tenantUUID, credential string) (VerifiedShopifyCustomer, string, error) {
 	claims := reqctx.GetClaims(ctx)
@@ -131,7 +160,7 @@ func (s *CustomerAuthService) verifyShopify(ctx context.Context, tenantUUID, cre
 	if json.Unmarshal(cfgRow.ValueJSON, &cfg) != nil || !strings.HasSuffix(strings.ToLower(strings.TrimSpace(cfg.ShopDomain)), ".myshopify.com") || strings.TrimSpace(cfg.StorefrontAccessToken) == "" {
 		return VerifiedShopifyCustomer{}, "", ErrCustomerUpstreamDependency
 	}
-	body, _ := json.Marshal(map[string]any{"query": "query($token: String!) { customer(customerAccessToken: $token) { id displayName } }", "variables": map[string]string{"token": credential}})
+	body, _ := json.Marshal(map[string]any{"query": "query($token: String!) { customer(customerAccessToken: $token) { id displayName firstName lastName email phone } }", "variables": map[string]string{"token": credential}})
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "https://"+strings.TrimSpace(cfg.ShopDomain)+"/api/2024-10/graphql.json", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Shopify-Storefront-Access-Token", cfg.StorefrontAccessToken)
@@ -148,13 +177,17 @@ func (s *CustomerAuthService) verifyShopify(ctx context.Context, tenantUUID, cre
 			Customer *struct {
 				ID          string `json:"id"`
 				DisplayName string `json:"displayName"`
+				FirstName   string `json:"firstName"`
+				LastName    string `json:"lastName"`
+				Email       string `json:"email"`
+				Phone       string `json:"phone"`
 			} `json:"customer"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || out.Data.Customer == nil || out.Data.Customer.ID == "" {
 		return VerifiedShopifyCustomer{}, "", ErrCustomerCredentialInvalid
 	}
-	return VerifiedShopifyCustomer{Subject: "shop:" + strings.TrimSpace(cfg.ShopDomain) + ":customer:" + out.Data.Customer.ID, DisplayName: out.Data.Customer.DisplayName}, claims.PluginID, nil
+	return VerifiedShopifyCustomer{Subject: ShopifyExternalIdentitySubject(cfg.ShopDomain, out.Data.Customer.ID), DisplayName: out.Data.Customer.DisplayName, GivenName: out.Data.Customer.FirstName, FamilyName: out.Data.Customer.LastName, Email: out.Data.Customer.Email, Phone: out.Data.Customer.Phone}, claims.PluginID, nil
 }
 func externalProviderKey(pluginID string) (string, error) {
 	return customerrepo.ExternalIdentityProviderKey(pluginID)
@@ -169,4 +202,10 @@ func (s *CustomerAuthService) markVerified(ctx context.Context, pluginID, subjec
 		return ErrCustomerUpstreamDependency
 	}
 	return nil
+}
+
+// ShopifyExternalIdentitySubject is shared by verified login and management callers.
+// Keep the full customer GID and the configured shop domain; do not substitute shop numeric IDs.
+func ShopifyExternalIdentitySubject(shopDomain, customerID string) string {
+	return "shop:" + strings.TrimSpace(shopDomain) + ":customer:" + strings.TrimSpace(customerID)
 }

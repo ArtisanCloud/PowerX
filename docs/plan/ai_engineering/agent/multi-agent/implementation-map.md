@@ -56,6 +56,8 @@ seed 后应具备：
 
 ## 5. 执行链路
 
+下图是**当前进程内**执行链路；Redis 权威 RunStore、跨实例 Worker、资源池、租约和事件续订是 [目标调度规范](../agent_runtime_durable_scheduling.md) 所述待实施能力。现有 Event Fabric Redis TaskQueue 未声明租约/消费组，不能直接视为 Agent 持久化任务池。
+
 ```mermaid
 flowchart TD
   User[用户消息] --> Stream[Agent SSE / Session]
@@ -97,6 +99,7 @@ flowchart TD
 4. 子智能体不能隐式继承完整 session。
 5. 没有 handoff invoker、child agent、Skill 或权限时必须显式失败。
 6. 最终答复不能在缺少真实子任务结果时输出“已完成”类成功结论。
+7. 目标运行中，同一 `run_id` 的并行 handoff 状态须留在同一消息任务图；排队等待、单次模型调用和整轮预算分别计时。
 
 ## 8. 测试映射
 

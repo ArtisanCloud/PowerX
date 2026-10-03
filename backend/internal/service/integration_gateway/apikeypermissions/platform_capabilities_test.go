@@ -152,6 +152,53 @@ capabilities:
 	}
 }
 
+func TestBuildPlatformCapabilityPermissionsMaterializesCoreInternalAPIKeyGrant(t *testing.T) {
+	dir := t.TempDir()
+	raw := []byte(`version: 1
+capabilities:
+  - capability_id: com.corex.customer.contacts.service_read
+    module: customer
+    title: Customer Contact Service Read
+    description: Read contacts through a typed Core contract.
+    permission_code: corex.customer.contacts.service_read
+    title_i18n: {en: Customer Contact Service Read}
+    description_i18n: {en: Read contacts through a typed Core contract.}
+    protocols:
+      - channel: core_internal
+        endpoint: core://customer/contacts
+        method: INVOKE
+        api_key:
+          scope: _scope.customer.contacts.service_read
+          action: read
+          resource_type: capability
+          resource_pattern: customer_contacts_service_read
+`)
+	if err := os.WriteFile(filepath.Join(dir, "customer.yaml"), raw, 0o644); err != nil {
+		t.Fatalf("write capability yaml: %v", err)
+	}
+	t.Setenv(platformCapabilitiesDirEnv, dir)
+	platformPermissionOnce = sync.Once{}
+	platformPermissionRows, platformPermissionErr = nil, nil
+	rows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		t.Fatalf("BuildPlatformCapabilityPermissions() error = %v", err)
+	}
+	var row *modelsiam.Permission
+	for i := range rows {
+		if rows[i].Resource == "contacts" && rows[i].Action == "service_read" {
+			row = &rows[i]
+			break
+		}
+	}
+	if row == nil || !row.AllowAPIKey {
+		t.Fatalf("core internal api-key permission = %#v", row)
+	}
+	resolved, ok := ResolvePermission(*row)
+	if !ok || resolved.Scope != "_scope.customer.contacts.service_read" {
+		t.Fatalf("resolved = %#v, ok=%v", resolved, ok)
+	}
+}
+
 func TestBuildPlatformCapabilityPermissionsRejectsFormalAPIWithoutI18n(t *testing.T) {
 	dir := t.TempDir()
 	raw := []byte(`version: 1

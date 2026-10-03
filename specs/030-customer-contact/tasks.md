@@ -13,8 +13,8 @@
 - [x] T006 Add Admin Contact DTOs, handlers, routes, and locale keys.
 - [x] T007 Add typed Core internal Contact operation types and invoker dispatch without generic endpoint selection.
 - [x] T008 Register `admin_manage`, `service_read`, and `service_manage` capabilities with actor/scope/method metadata.
-- [ ] T009 Add OpenAPI and Core-internal contract tests, including no `tenant_uuid` override on Admin routes.
-- [ ] T010 Run capability catalog validation and published/registered/granted denial tests.
+- [x] T009 Add OpenAPI and Core-internal contract tests, including no `tenant_uuid` override on Admin routes.
+- [x] T010 Run capability catalog validation and published/registered/granted denial tests.
 
 ## Phase 3 — Framework contract
 
@@ -37,3 +37,13 @@
 - [ ] T021 Replace designer input UI with localized Contact selection, explicit regular create, and explicit temporary create.
 - [ ] T022 Generate historic-order remediation inventory and block responsibility-dependent transitions for unresolved records.
 - [ ] T023 Perform authenticated admin, local plugin, delegated plugin, and browser acceptance runs; document unresolved operational prerequisites.
+
+## Phase 6 — Customer type and primary contact contract
+
+- [x] T024 Require `person|company` in Core basic Customer creation and return type plus `primary_contact_uuid` in list/get/create and Framework selector DTOs.
+- [x] T025 Create Customer, membership, and primary natural-person Contact in one transaction; require explicit contact data for a company, and copy person data when omitted. Verify rollback on Contact validation failure.
+- [x] T026 Make Core Shopify identity resolution create the person Customer, membership, and primary Contact atomically, and return the original UUIDs on repeated resolution.
+- [x] T027 Add typed Contact `email` and `phone` to Core/Framework contracts.
+- [x] T027A Add narrow idempotent repair for a verified plugin-attested person identity with a missing primary-contact pointer; reuse one active Contact or create one, and reject ambiguity/stale references.
+- [ ] T028 Provide a preview and explicit execution workflow for legacy Customer type/contact remediation. Never run remediation during login, reads, or a standard migration.
+- [ ] T029 Run installed-plugin delegated/STS and actual Shopify register/login acceptance, including repeat login and failed Contact creation.

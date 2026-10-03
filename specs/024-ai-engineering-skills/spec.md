@@ -47,7 +47,7 @@
 
 - Q: 多任务、多智能体、缺参等待和执行结果应该用什么协议在 PowerX 与 PowerXPlugin 页面统一展示？ → A: 定义 PowerX Agent Run State Protocol。它不是 Google A2A 本身，而是 PowerX Runtime、Trace、Web Admin 与插件调试页共享的 `agent_run.*` 状态协议。
 - Q: Core 是否可以为某个插件业务硬编码缺参字段、结果链接或成功文案？ → A: 不可以。Core 只实现通用状态机、参数校验、trace 和 UI 协议；业务字段、slot 映射、结果展示来自 Agent persona/prompt_seed 与 Skill manifest。
-- Q: 实时 SSE 能否作为历史权威？ → A: 不可以。SSE/WS 只负责实时事件；历史恢复以 PostgreSQL 的 session/message/message meta/run state snapshot 和 Agent Trace artifact 为权威。
+- Q: 实时 SSE 能否作为历史权威？ → A: 不可以。此条记录的是原有实现基线；目标 Run 状态权威改由 `specs/031-agent-runtime-durable-scheduling` 定义：活动状态与短期事件在 Redis，长期完成快照在对象存储，PostgreSQL 保留 Session/Message 与低频受理、归档引用。
 
 ### Session 2026-08-29
 
@@ -277,12 +277,12 @@
 - **FR-040f**: Context Builder 必须按 `response_mode` 动态注入上下文；能力介绍和能力使用说明只能读取当前 Agent 已绑定、已发布、租户可见且权限通过的能力，不得读取全局候选池作为用户可见事实。
 - **FR-040g**: assistant message 必须持久化 response meta，至少包含 `response_mode/capability_ids/response_plan_id/used_context_layers/tool_calls/final_response_model/model_selection`；后续去重和追问必须基于该 meta，不得基于自然语言文本匹配。
 - **FR-040h**: Agent Stream 必须输出 `response_plan` debug event，Agent Trace 必须记录 `response_planner/context_builder/final_response/history_persist` 节点，便于 root 用户回放本轮回答为什么这样生成。
-- **FR-040i**: Agent 上下文必须采用驱动分层：Runtime Memory 仅保存本轮过程态，PostgreSQL 作为 session/message/message meta/registry/binding/model policy/context_ref 权威源，Redis 仅作短 TTL 缓存，Local File/Loki 仅作 Trace/Report 存储。
+- **FR-040i**: Agent 业务上下文必须采用驱动分层：PostgreSQL 作为 session/message/message meta/registry/binding/model policy/context_ref 权威源，Redis 可作短 TTL 上下文缓存；Agent Run 调度状态、任务队列和事件的独立存储规则见 `../031-agent-runtime-durable-scheduling/spec.md`，不能把上下文缓存规则套用于 Run 状态。
 - **FR-040j**: Core Runtime 必须支持从 Agent `persona/prompt_seed` 与 Skill `response_guidance` 组合最终回复规范；Core 只允许实现通用安全和编排约束，禁止硬编码业务 Agent 的字段规则、专属话术或行业流程。
 - **FR-040k**: Skill `response_guidance` 必须支持 `general/capability_intro/capability_howto/clarify_params/skill_execution/error_explain` 分组，并在候选能力上下文中保留 mode 标签，供 Final Response 按当前 `response_mode` 使用。
 - **FR-040l**: 系统必须定义 Agent Run State Protocol，标准事件以 `agent_run.*` 为前缀，至少覆盖 `started/response_plan/intent_detected/plan_created/task_status/task_started/awaiting_params/task_completed/task_failed/final/ended`。
 - **FR-040m**: `agent_run.task_status` 必须携带 `run_id/session_id/message_id/trace_id/task_id/status`，并在适用时携带 `agent_key/agent_name/node_kind/skill_id/capability_id/action/missing_fields/result/links/error`。
-- **FR-040n**: Agent task 状态必须使用标准枚举 `pending|awaiting_params|running|completed|failed|skipped`；缺参时必须进入 `awaiting_params`，不得直接伪造成功或吞掉错误。
+- **FR-040n**: 当前 Agent task 展示状态采用 `pending|awaiting_params|running|completed|failed|skipped`；目标调度状态增加依赖等待、容量排队、租约、验证和重试等待，按 `../031-agent-runtime-durable-scheduling/spec.md` 版本化映射到同一 `agent_run.*` 协议；缺参不得伪造成功或吞掉错误。
 - **FR-040o**: 系统必须支持 `AgentRunState` 历史快照；页面刷新、从 Chat 跳转 Trace、从 Trace 返回 Session 时必须能恢复本轮 message 的任务状态。
 - **FR-040p**: Web Admin Agent Chat、Team Task、Agent Trace 与 PowerXPlugin Agent Chat 调试页必须消费同一套 `AgentRunState` 语义，禁止插件调试页自定义一套私有任务状态协议。
 - **FR-040q**: Skill manifest 必须支持 Agent Run State 展示元数据，至少包含 `action_required_args/action_optional_args/slot_mapping/pending_task_policy/result_presentation` 的解析与治理态保存能力。

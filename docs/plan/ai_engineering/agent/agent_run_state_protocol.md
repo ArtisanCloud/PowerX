@@ -2,9 +2,9 @@
 
 本文定义 PowerX Agent Runtime、Agent Trace、Web Admin 与 PowerXPlugin 调试页面之间共享的运行状态协议。它解决的问题不是“Agent 怎么想”，而是“用户在对话框里如何看懂当前这轮消息发生了哪些任务、哪些 Agent 参与、哪些参数缺失、哪个节点失败、结果在哪里、trace 怎么定位”。
 
-补充边界：`agent_run.*` 只负责 UI 可观察状态，业务任务状态权威由 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md) 中的 `SkillStateService` 提供。Runtime 必须先持久化或读取 SkillState，再生成 `awaiting_params/running/completed/failed` 等可见状态。
+补充边界：`agent_run.*` 是 UI 可观察协议，不是单独的存储。Skill 的跨轮业务参数权威由 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md) 中的 `SkillStateService` 提供；目标 Run/Task 调度状态权威由 Redis `AgentRunStore` 提供。Runtime 读取对应权威状态后再生成 `awaiting_params/queued/running/completed/failed` 等可见状态。
 
-目标 Runtime 引入资源观察、验证与 Plan Revision 后，事件扩展、完成语义和用户错误展示还必须遵守 [`agent_runtime_loop_design.md`](./agent_runtime_loop_design.md)。该目标扩展不表示当前所有事件均已实现。
+目标 Runtime 引入资源观察、验证与 Plan Revision 后，事件扩展、完成语义和用户错误展示还必须遵守 [`agent_runtime_loop_design.md`](./agent_runtime_loop_design.md)。持久化队列、租约和模型容量另遵守 [调度规范](./agent_runtime_durable_scheduling.md)。这些目标扩展不表示当前所有事件均已实现。
 
 ## 1. 功能背景与目标
 
@@ -63,20 +63,25 @@ User Message
 | `agent_run.resource_snapshot` | 本轮已授权资源与能力快照摘要，不携带敏感内容 | 目标 Runtime 的 Prepare 完成 |
 | `agent_run.observation` | 一次只读观察或 Action 结果的可展示摘要与来源引用 | 目标 Runtime 的 Observe/Act 完成 |
 | `agent_run.plan_revised` | 因 Observation、恢复策略或人工输入形成新的 plan revision | 目标 Runtime Re-plan 完成 |
-| `agent_run.task_status` | 任一任务状态变化 | pending/awaiting/running/completed/failed/skipped |
+| `agent_run.task_status` | 任一任务状态变化 | pending/queued/leased/running/verifying/awaiting/completed/failed/skipped |
+| `agent_run.task_queued` | 依赖已满足，等待 Worker 或资源池 | 目标持久化调度扩展 |
+| `agent_run.task_leased` | Worker 已领取并持有租约 | 目标持久化调度扩展；不等于任务已完成 |
+| `agent_run.task_retry_wait` | 可重试失败进入有界退避 | 目标持久化调度扩展 |
 | `agent_run.task_started` | 任务开始执行 | Executor 开始 |
 | `agent_run.awaiting_params` | 缺必要参数，等待用户补充 | 参数校验未通过且可追问 |
 | `agent_run.task_completed` | 任务完成并产生结果 | Skill/Tool/A2A 节点成功 |
 | `agent_run.task_failed` | 任务失败 | fail-fast 或执行异常 |
 | `agent_run.final` | 本轮已产生最终答复的运行状态快照；可含 envelope 供 Trace 诊断，但不是聊天正文 | Final Response 完成 |
-| `agent_run.ended` | 一轮 Message Run 结束 | history/trace 持久化完成 |
+| `agent_run.ended` | 一轮 Message Run 结束 | Run 终态与答复已持久化；长期 Trace 可后续归档 |
 
-目标新增事件必须继续使用同一 `run_id`，并带 `plan_revision`、脱敏的 Observation/Artifact 引用和策略原因；不得以自然语言错误代替结构化状态。
+目标新增事件必须继续使用同一 `run_id`，并带 `event_seq`、`plan_revision`、脱敏的 Observation/Artifact 引用和策略原因；不得以自然语言错误代替结构化状态。`event_seq` 在一个 Run 内严格递增，客户端按 `run_id + event_seq` 去重、排序和续订，事件过期时改读权威快照/归档报告。
 
 标准状态枚举：
 
 ```text
 pending | awaiting_params | running | completed | failed | skipped
+
+目标调度扩展：pending_dependency | queued | leased | retry_wait | verifying | cancelled
 ```
 
 ## 4.1 Run Completion 与 Task Completion 边界
@@ -88,6 +93,7 @@ pending | awaiting_params | running | completed | failed | skipped
 | Run 完成 | `agent_run.ended` | 本轮对话流程结束，assistant 回复已生成并持久化 | 可显示“已回复”或收起运行摘要 |
 | Task 等待参数 | `agent_run.awaiting_params` 或 task `status=awaiting_params` | Skill 参数不完整，等待用户补充 | 显示缺参卡片 |
 | Task 执行中 | `agent_run.task_started` 或 task `status=running` | Skill/Tool/A2A 节点正在执行 | 显示执行中、进度、参与 Agent |
+| Task 排队 | `agent_run.task_queued` 或 task `status=queued` | 依赖已满足，等待 Worker 或资源名额 | 显示排队原因和等待时长，不占单次请求时限 |
 | Task 完成 | `agent_run.task_completed` 或 task `status=completed` 且包含真实 `result` 或 `links` | 业务任务真实执行成功 | 显示任务完成和结果 |
 | Task 失败 | `agent_run.task_failed` 或 task `status=failed` 且包含 `error` | 业务任务真实执行失败 | 显示失败、错误摘要、trace 入口 |
 | 普通回复 | 没有 task 事件；有 `agent_run.final/ended`，并有一条配对的普通 `final` | 本轮只生成自然语言回复，没有执行业务任务 | 不显示任务完成卡，仅渲染普通 `final` 的正文 |
@@ -232,6 +238,7 @@ pending | awaiting_params | running | completed | failed | skipped
 6. `awaiting_params` 必须携带 `missing_fields` 与已收集参数摘要。
 7. `completed` 必须携带可见 `result` 或 `links`；没有真实执行结果时不得生成成功状态。
 8. `failed` 必须携带稳定 `error.code/error.message`，不得只返回 stack 或空 body。
+9. 目标调度扩展中，`queued/leased/retry_wait/running/verifying` 必须携带 `event_seq/attempt`；可用时携带 `queue_reason/pool_id/queued_at/leased_at/started_at/queue_wait_ms/execution_ms`。`leased` 仅表示领取，不得计入完成任务数。
 
 ## 6. Skill Manifest 扩展
 
@@ -337,25 +344,26 @@ AgentRunState
 
 ## 8. 存储与历史恢复
 
-实时链路：
+目标实时链路（当前 SSE 执行耦合尚待迁移）：
 
 ```text
-Agent Runtime -> SSE/WS agent_run.* -> UI reducer
+Redis AgentRunStore/Event Journal -> SSE/WS 订阅 -> UI reducer
 ```
 
-历史链路：
+目标历史链路：
 
 ```text
-Agent Runtime -> message meta / run state snapshot / Agent Trace artifact
+Redis 活动 Run 快照与事件 -> 对象存储归档报告
+Session/Message/SkillState/业务审计 -> 各自现有权威存储
 ```
 
 存储要求：
 
-1. SSE/WS 只负责实时，不是历史权威。
-2. PostgreSQL 保存 session/message/message meta 与可查询 run state snapshot。
-3. Local File/Loki 保存完整 Agent Trace 与报告 artifact。
-4. Redis 只允许做短 TTL 状态缓存，不得作为运行历史权威源。
-5. 页面刷新后必须能从历史 API 恢复 `AgentRunState`，不能要求用户重新执行。
+1. SSE/WS 只负责订阅，不拥有 Run 执行生命周期，也不是历史权威。
+2. Redis 是生产 Agent Run/Task 活动状态、队列与短期事件的默认权威；状态转换与事件序号须原子提交。Redis 持久化门禁和故障规则见 [调度规范](./agent_runtime_durable_scheduling.md)。
+3. PostgreSQL 继续保存 session/message/message meta、SkillState、业务事实与必要审计；不承载高频调度、租约、心跳或逐 token 事件。现有 DB run/task 表在迁移期用于兼容读取，不能与 Redis 同时作为新 Run 的双重权威。
+4. 对象存储保存长期 Run 报告与脱敏 Trace artifact；Loki/本地日志仅用于诊断检索，不决定执行状态。
+5. 页面刷新后从活动 Redis 快照或归档报告恢复同一 `run_id` 的 `AgentRunState`；断线按 `event_seq` 续订，不能重新执行。
 
 ## 9. 执行与缺参闭环
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	service "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -16,9 +17,11 @@ import (
 	capmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	setting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
@@ -143,8 +146,54 @@ func TestSignedSTSHTTPContract(t *testing.T) {
 	}, 3*time.Second, 20*time.Millisecond)
 	w = request("GET", runPath+"/events", "", token, "", nil)
 	require.Equal(t, 200, w.Code)
-	require.Contains(t, w.Body.String(), "event:final")
-	require.Contains(t, w.Body.String(), "event:end")
+	require.Contains(t, w.Body.String(), "id: 1\nevent: state")
+	require.Contains(t, w.Body.String(), "id: 2\nevent: final")
+	require.Contains(t, w.Body.String(), "id: 3\nevent: end")
+	// Cursor 1 acknowledges state, so a reconnect only replays terminal frames.
+	w = request("GET", runPath+"/events", "", token, "", map[string]string{"Last-Event-ID": "1"})
+	require.Equal(t, 200, w.Code)
+	require.NotContains(t, w.Body.String(), "id: 1\nevent: state")
+	require.Contains(t, w.Body.String(), "id: 2\nevent: final")
+	require.Contains(t, w.Body.String(), "id: 3\nevent: end")
+	w = request("GET", runPath+"/events", "", token, "", map[string]string{"Last-Event-ID": "4"})
+	require.Equal(t, 409, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), `"reason_code":"AGENT_SESSION_EVENT_CURSOR_EXPIRED"`)
+	// A durable reader uses the same authenticated route, with unbounded
+	// Redis event_seq cursors and no call to the execution method.
+	redisServer := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	store, err := agent_run.NewRedisStore(client)
+	require.NoError(t, err)
+	snapshot := agent_run.Snapshot{TenantUUID: tenant, Env: "dev", RunID: invocation.Data.InvocationUUID.String(),
+		SessionID: created.Data.SessionUUID.String(), MessageID: message.Data.MessageUUID.String(),
+		TraceID: invocation.Data.TraceUUID.String(), Status: "accepted", DeadlineAt: invocation.Data.DeadlineAt}
+	current, err := store.Create(context.Background(), snapshot)
+	require.NoError(t, err)
+	for i := 0; i < 4; i++ {
+		status := "running"
+		if i == 3 {
+			status = "completed"
+		}
+		current, err = store.Transition(context.Background(), snapshot, current.Version, status, "agent_run.task_status")
+		require.NoError(t, err)
+	}
+	durable := service.NewService(db)
+	require.NoError(t, durable.ConfigureRunEvents(store, "dev"))
+	h.svc = durable
+	w = request("GET", runPath+"/events", "", token, "", map[string]string{"Last-Event-ID": "3"})
+	require.Equal(t, 200, w.Code, w.Body.String())
+	require.NotContains(t, w.Body.String(), "id: 3\n")
+	require.Contains(t, w.Body.String(), "id: 4\nevent: agent_run.task_status")
+	require.Contains(t, w.Body.String(), "id: 5\nevent: agent_run.task_status")
+	w = request("GET", runPath+"/events", "", token, "", map[string]string{"Last-Event-ID": "6"})
+	require.Equal(t, 409, w.Code, w.Body.String())
+	eventKey := "agent:run:{" + tenant + ":dev:" + invocation.Data.InvocationUUID.String() + "}:events"
+	require.NoError(t, client.XDel(context.Background(), eventKey, "1-0").Err())
+	w = request("GET", runPath+"/events", "", token, "", nil)
+	require.Equal(t, 200, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), "id: 5\nevent: agent_run.snapshot")
+	require.Contains(t, w.Body.String(), `"tasks":[]`)
 	// Existing signed tokens lose access immediately when persisted grants change.
 	require.NoError(t, db.Model(&setting.PluginInstanceConfig{}).Where("tenant_uuid = ? AND plugin_id = ?", tenant, "plugin.test").Update("value_json", datatypes.JSON([]byte(`{"client_id":"plugin.test","allowed_capabilities":[]}`))).Error)
 	w = request("GET", path, "", token, "", nil)

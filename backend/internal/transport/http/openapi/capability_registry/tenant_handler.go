@@ -17,6 +17,7 @@ import (
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	metadatasvc "github.com/ArtisanCloud/PowerX/internal/service/metadata"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
@@ -70,6 +71,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 			VersionLock: deps.VersionLockStore,
 			CoreInvoker: capservice.NewCoreCapabilityMux(
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB), customersvc.NewContactService(deps.DB)),
+				metadatasvc.NewTagCapabilityInvoker(deps.DB),
 			),
 		})
 	}
@@ -958,6 +960,12 @@ func buildErrorObject(summary string) map[string]string {
 }
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
+	var metadataErr *dto.AppError
+	if errors.As(err, &metadataErr) && strings.HasPrefix(metadataErr.Code, "METADATA_") {
+		base := capability_registrydto.ErrInvalidRequest
+		base.HTTPStatus = metadataErr.HTTPCode
+		return base.WithDetails(map[string]interface{}{"reason_code": metadataErr.Code})
+	}
 	var accessErr *capservice.DirectGrantError
 	if errors.As(err, &accessErr) {
 		base := capability_registrydto.ErrUnavailable
@@ -970,6 +978,18 @@ func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 		return base.WithDetails(map[string]interface{}{"reason_code": accessErr.Error()})
 	}
 	switch {
+	case errors.Is(err, customerrepo.ErrExternalIdentityContactRequired):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_PRIMARY_CONTACT_REQUIRED"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityContactAmbiguous):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_PRIMARY_CONTACT_AMBIGUOUS"})
+	case errors.Is(err, customersvc.ErrExternalIdentityConflict):
+		base := capability_registrydto.ErrInvalidRequest
+		base.HTTPStatus = 409
+		return base.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_CONFLICT"})
+	case errors.Is(err, customersvc.ErrCustomerAccountInvalidArgument):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_ACCOUNT_INVALID_ARGUMENT"})
+	case errors.Is(err, customersvc.ErrCustomerAccountNotFound):
+		return capability_registrydto.ErrNotFound.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_ACCOUNT_NOT_FOUND"})
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
 		return capability_registrydto.ErrVersionLocked
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):

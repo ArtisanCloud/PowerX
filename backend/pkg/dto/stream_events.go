@@ -35,16 +35,23 @@ const (
 )
 
 const (
-	AgentTaskStatusPending        = "pending"
-	AgentTaskStatusAwaitingParams = "awaiting_params"
-	AgentTaskStatusRunning        = "running"
-	AgentTaskStatusCompleted      = "completed"
-	AgentTaskStatusFailed         = "failed"
-	AgentTaskStatusSkipped        = "skipped"
+	AgentTaskStatusPending           = "pending"
+	AgentTaskStatusPendingDependency = "pending_dependency"
+	AgentTaskStatusQueued            = "queued"
+	AgentTaskStatusLeased            = "leased"
+	AgentTaskStatusAwaitingParams    = "awaiting_params"
+	AgentTaskStatusRunning           = "running"
+	AgentTaskStatusVerifying         = "verifying"
+	AgentTaskStatusRetryWait         = "retry_wait"
+	AgentTaskStatusCompleted         = "completed"
+	AgentTaskStatusFailed            = "failed"
+	AgentTaskStatusSkipped           = "skipped"
+	AgentTaskStatusCancelled         = "cancelled"
 )
 
 type AgentRunEvent struct {
 	RunID     string `json:"run_id,omitempty"`
+	EventSeq  uint64 `json:"event_seq,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
 	MessageID string `json:"message_id,omitempty"`
 	TraceID   string `json:"trace_id,omitempty"`
@@ -58,6 +65,7 @@ type AgentRunSummary struct {
 	MessageID      string `json:"message_id,omitempty"`
 	TraceID        string `json:"trace_id,omitempty"`
 	Status         string `json:"status,omitempty"`
+	EventSeq       uint64 `json:"event_seq,omitempty"`
 	TotalTasks     int    `json:"total_tasks,omitempty"`
 	PendingTasks   int    `json:"pending_tasks,omitempty"`
 	AwaitingTasks  int    `json:"awaiting_tasks,omitempty"`
@@ -77,6 +85,15 @@ type AgentTaskState struct {
 	MessageID       string           `json:"message_id,omitempty"`
 	TraceID         string           `json:"trace_id,omitempty"`
 	TaskID          string           `json:"task_id,omitempty"`
+	PlanRevision    uint64           `json:"plan_revision,omitempty"`
+	EventSeq        uint64           `json:"event_seq,omitempty"`
+	Attempt         uint64           `json:"attempt,omitempty"`
+	PoolID          string           `json:"pool_id,omitempty"`
+	QueueReason     string           `json:"queue_reason,omitempty"`
+	QueuedAt        string           `json:"queued_at,omitempty"`
+	LeasedAt        string           `json:"leased_at,omitempty"`
+	StartedAt       string           `json:"started_at,omitempty"`
+	ReasonCode      string           `json:"reason_code,omitempty"`
 	ParentTaskID    string           `json:"parent_task_id,omitempty"`
 	DependsOn       []string         `json:"depends_on,omitempty"`
 	Stage           int              `json:"stage,omitempty"`

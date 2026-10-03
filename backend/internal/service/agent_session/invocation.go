@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	"strings"
 	"time"
 
@@ -31,20 +32,21 @@ func NewServiceWithExecutor(db *gorm.DB, executor Executor) *Service {
 }
 
 type Invocation struct {
-	InvocationUUID uuid.UUID  `json:"invocation_uuid"`
-	SessionUUID    uuid.UUID  `json:"session_uuid"`
-	MessageUUID    uuid.UUID  `json:"message_uuid"`
-	Status         string     `json:"status"`
-	ReasonCode     string     `json:"reason_code"`
-	Output         string     `json:"output"`
-	TraceUUID      uuid.UUID  `json:"trace_uuid"`
-	CreatedAt      time.Time  `json:"created_at"`
-	DeadlineAt     time.Time  `json:"deadline_at"`
-	FinishedAt     *time.Time `json:"finished_at"`
+	InvocationUUID   uuid.UUID       `json:"invocation_uuid"`
+	SessionUUID      uuid.UUID       `json:"session_uuid"`
+	MessageUUID      uuid.UUID       `json:"message_uuid"`
+	Status           string          `json:"status"`
+	ReasonCode       string          `json:"reason_code"`
+	Output           string          `json:"output"`
+	TraceUUID        uuid.UUID       `json:"trace_uuid"`
+	CreatedAt        time.Time       `json:"created_at"`
+	DeadlineAt       time.Time       `json:"deadline_at"`
+	FinishedAt       *time.Time      `json:"finished_at"`
+	ResponseEnvelope json.RawMessage `json:"response_envelope,omitempty"`
 }
 
 func invocationDTO(run *m.ServiceInvocation) Invocation {
-	return Invocation{run.UUID, run.SessionUUID, run.MessageUUID, run.Status, run.ReasonCode, run.Output, run.TraceUUID, run.CreatedAt, run.DeadlineAt, run.FinishedAt}
+	return Invocation{run.UUID, run.SessionUUID, run.MessageUUID, run.Status, run.ReasonCode, run.Output, run.TraceUUID, run.CreatedAt, run.DeadlineAt, run.FinishedAt, json.RawMessage(run.ResponseEnvelope)}
 }
 
 func (s *Service) Invoke(ctx context.Context, id, messageID uuid.UUID, key string) (Invocation, error) {
@@ -55,7 +57,7 @@ func (s *Service) Invoke(ctx context.Context, id, messageID uuid.UUID, key strin
 	if _, err = s.owner(ctx, InvokeCapability); err != nil {
 		return Invocation{}, err
 	}
-	if s.executor == nil {
+	if s.executor == nil && s.durableRuns == nil {
 		return Invocation{}, ErrDependency
 	}
 	if id == uuid.Nil || messageID == uuid.Nil || key == "" || len(key) > 128 || strings.TrimSpace(key) != key {
@@ -83,6 +85,9 @@ func (s *Service) Invoke(ctx context.Context, id, messageID uuid.UUID, key strin
 			}
 			if !s.now().Before(previous.IdempotencyExpiresAt) {
 				return ErrExpired
+			}
+			if (s.durableRuns != nil) != (previous.AdmissionState != "") {
+				return ErrConflict
 			}
 			run = previous
 			return nil
@@ -119,7 +124,7 @@ func (s *Service) Invoke(ctx context.Context, id, messageID uuid.UUID, key strin
 			if row.Role != "user" && row.Role != "assistant" {
 				return ErrDependency
 			}
-			bytes += len(row.Content)
+			bytes += len(row.Content) + len(row.ResponseEnvelope)
 			memory.History = append(memory.History, messageDTO(&row))
 		}
 		if bytes > MaxExecutionHistoryBytes {
@@ -140,7 +145,15 @@ func (s *Service) Invoke(ctx context.Context, id, messageID uuid.UUID, key strin
 				return ErrDependency
 			}
 		}
-		run = &m.ServiceInvocation{MessageUUID: messageID, Status: "running", IdempotencyKey: key, RequestHash: messageID.String(), IdempotencyExpiresAt: s.now().Add(IdempotencyTTL), DeadlineAt: s.now().Add(ExecutionTTL), TraceUUID: uuid.New()}
+		status, deadline := "running", s.now().Add(ExecutionTTL)
+		admissionState, runEnv := "", ""
+		if s.durableRuns != nil {
+			// PostgreSQL stores timestamps to microseconds; Redis must receive the same canonical deadline.
+			status, deadline = "accepted", s.now().Add(s.runDeadline).Truncate(time.Microsecond)
+			admissionState, runEnv = "pending_create", s.runEnv
+		}
+		run = &m.ServiceInvocation{MessageUUID: messageID, Status: status, RunEnv: runEnv, AdmissionState: admissionState,
+			IdempotencyKey: key, RequestHash: messageID.String(), IdempotencyExpiresAt: s.now().Add(IdempotencyTTL), DeadlineAt: deadline, TraceUUID: uuid.New()}
 		if err := tx.InsertInvocation(ctx, owner, session, run); err != nil {
 			return err
 		}
@@ -152,7 +165,14 @@ func (s *Service) Invoke(ctx context.Context, id, messageID uuid.UUID, key strin
 	if err != nil {
 		return Invocation{}, translate(err)
 	}
-	if created {
+	if s.durableRuns != nil {
+		if err := s.admitDurable(ctx, owner, run); err != nil {
+			return Invocation{}, err
+		}
+		if err := s.submitPlanning(ctx, owner, run); err != nil {
+			return Invocation{}, err
+		}
+	} else if created {
 		go s.execute(context.WithValue(context.WithoutCancel(ctx), executionMemoryKey{}, memory), owner, run, sessionDTOValue, messageDTOValue)
 	}
 	return invocationDTO(run), nil
@@ -262,6 +282,33 @@ func (s *Service) GetInvocation(ctx context.Context, sessionID, id uuid.UUID) (I
 	if err != nil {
 		return Invocation{}, translate(err)
 	}
+	if run.AdmissionState != "" {
+		if s.durableRuns == nil || run.AdmissionState != "admitted" || run.RunEnv != s.runEnv {
+			return Invocation{}, ErrDependency
+		}
+		current, err := s.durableRuns.Get(ctx, owner.TenantUUID.String(), run.RunEnv, run.UUID.String())
+		if err != nil || current.SessionID != sessionID.String() || current.MessageID != run.MessageUUID.String() ||
+			current.TraceID != run.TraceUUID.String() || !current.DeadlineAt.Equal(run.DeadlineAt) {
+			return Invocation{}, ErrDependency
+		}
+		// A terminal result is only exposed after the single assistant message is committed.
+		if durableTerminalStatus(current.Status) && run.FinishedAt == nil && s.finalOutput != nil {
+			if err := s.FinalizeRun(ctx, current); err != nil {
+				return Invocation{}, ErrDependency
+			}
+			run, err = s.repo.Invocation(ctx, owner, sessionID, id)
+			if err != nil {
+				return Invocation{}, translate(err)
+			}
+		}
+		result := invocationDTO(run)
+		result.Status = current.Status
+		if durableTerminalStatus(current.Status) {
+			finished := current.UpdatedAt
+			result.FinishedAt = &finished
+		}
+		return result, nil
+	}
 	if (run.Status == "running" || run.Status == "cancelling") && !s.now().Before(run.DeadlineAt) {
 		err = s.repo.WithSession(ctx, owner, sessionID, func(tx *repo.ServiceSessionRepository, _ *m.ServiceSession) error {
 			current, err := tx.Invocation(ctx, owner, sessionID, id)
@@ -290,6 +337,19 @@ func (s *Service) Cancel(ctx context.Context, sessionID, id uuid.UUID) (Invocati
 	}
 	if _, err = s.GetInvocation(ctx, sessionID, id); err != nil {
 		return Invocation{}, err
+	}
+	if s.durableRuns != nil {
+		canceller, ok := s.durableRuns.(interface {
+			Cancel(context.Context, agent_run.Snapshot) (agent_run.Snapshot, error)
+		})
+		if !ok {
+			return Invocation{}, ErrDependency
+		}
+		_, err := canceller.Cancel(ctx, agent_run.Snapshot{TenantUUID: owner.TenantUUID.String(), Env: s.runEnv, RunID: id.String()})
+		if err != nil {
+			return Invocation{}, ErrDependency
+		}
+		return s.GetInvocation(ctx, sessionID, id)
 	}
 	err = s.repo.WithSession(ctx, owner, sessionID, func(tx *repo.ServiceSessionRepository, _ *m.ServiceSession) error {
 		return tx.CancelInvocation(ctx, owner, sessionID, id)

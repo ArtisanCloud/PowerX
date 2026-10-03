@@ -18,10 +18,16 @@ type ModelConfig struct {
 	MaxTokens    int            `yaml:"max_tokens" json:"max_tokens"`
 	TopP         float32        `yaml:"top_p" json:"top_p"`
 	Extra        map[string]any `yaml:"extra" json:"extra"`
+
+	// TemperatureSet distinguishes an explicit zero from an omitted runtime override.
+	TemperatureSet bool `yaml:"-" json:"-"`
 	// ResponseSchema is a provider-neutral JSON Schema requested by a typed
 	// caller. Individual provider adapters translate it to their wire format.
 	ResponseSchema map[string]any `yaml:"response_schema" json:"response_schema"`
 	Timeout        time.Duration  `yaml:"timeout" json:"timeout"`
+	// MaxConcurrentRequests is the profile-governed maximum number of in-flight
+	// requests for the resolved tenant/provider/model target.
+	MaxConcurrentRequests int `yaml:"max_concurrent_requests" json:"-"`
 
 	// 可选：OpenAI
 	Organization    string `yaml:"organization" json:"organization"`
@@ -99,8 +105,9 @@ func MergeConfig(base *ModelConfig, override *ModelConfig) *ModelConfig {
 	}
 
 	// numeric fields (0 usually means "unspecified" in this project)
-	if override.Temperature > 0 {
+	if override.TemperatureSet || override.Temperature > 0 {
 		out.Temperature = override.Temperature
+		out.TemperatureSet = override.TemperatureSet
 	}
 	if override.MaxTokens > 0 {
 		out.MaxTokens = override.MaxTokens
@@ -110,6 +117,9 @@ func MergeConfig(base *ModelConfig, override *ModelConfig) *ModelConfig {
 	}
 	if override.Timeout > 0 {
 		out.Timeout = override.Timeout
+	}
+	if override.MaxConcurrentRequests > 0 {
+		out.MaxConcurrentRequests = override.MaxConcurrentRequests
 	}
 
 	// maps

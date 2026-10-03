@@ -117,14 +117,6 @@ capabilities:
   policy:
     prefer: rest
   protocols:
-  - channel: core_internal
-    endpoint: core://customer/accounts/admin_manage
-    method: INVOKE
-    auth_type: sts
-    actor_context: service_actor
-    resource_scope: tenant
-    sts_direct: false
-    tool_scope: customer.accounts.admin_manage
   - channel: rest
     endpoint: "/api/v1/admin/customers/overview"
     method: GET
@@ -203,6 +195,52 @@ capabilities:
   description_i18n:
     en: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.
     zh-CN: 在后台管理租户客户账户，包括概览、列表、创建和状态更新。
+- capability_id: com.corex.customer.accounts.service_read
+  module: customer
+  title: Customer Account Service Read
+  description: List tenant Customer accounts through the fixed typed Core-internal selector contract.
+  permission_code: corex.customer.accounts.service_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, directory]
+  intents: [customer.accounts.service_read]
+  tool_scopes: [customer.accounts.service_read]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/accounts
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.service_read
+    api_key: {scope: _scope.customer.accounts.service_read, action: read, resource_type: capability, resource_pattern: customer_accounts_service_read}
+  title_i18n: {en: Customer Account Service Read, zh-CN: 客户账户服务读取}
+  description_i18n: {en: List tenant Customer accounts using a fixed typed selector contract., zh-CN: 使用固定强类型选择器契约列出租户客户账户。}
+- capability_id: com.corex.customer.accounts.service_manage
+  module: customer
+  title: Customer Account Service Manage
+  description: Create a basic tenant customer and membership, or partially update customer profile fields, through a fixed typed Core-internal contract.
+  permission_code: corex.customer.accounts.service_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, directory]
+  intents: [customer.accounts.service_manage]
+  tool_scopes: [customer.accounts.service_manage]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/accounts
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.service_manage
+    api_key: {scope: _scope.customer.accounts.service_manage, action: manage, resource_type: capability, resource_pattern: customer_accounts_service_manage}
+  title_i18n: {en: Customer Account Service Manage, zh-CN: 客户账户服务管理}
+  description_i18n: {en: Create tenant customers or partially update customer profiles using a fixed typed contract., zh-CN: 使用固定强类型契约创建租户基础客户及成员关系，或按字段更新客户资料。}
 - capability_id: com.corex.customer.external_identities.resolve
   module: customer
   title: Customer External Identity Resolve
@@ -324,6 +362,7 @@ capabilities:
     resource_scope: tenant_customer
     sts_direct: false
     tool_scope: customer.contacts.service_read
+    api_key: {scope: _scope.customer.contacts.service_read, action: read, resource_type: capability, resource_pattern: customer_contacts_service_read}
   title_i18n: {en: Customer Contact Service Read, zh-CN: 客户联系人服务读取}
   description_i18n: {en: Read Contacts using fixed typed operations, not arbitrary endpoints., zh-CN: 使用固定强类型操作读取联系人，不接受任意端点。}
 - capability_id: com.corex.customer.contacts.service_manage
@@ -346,5 +385,54 @@ capabilities:
     resource_scope: tenant_customer
     sts_direct: false
     tool_scope: customer.contacts.service_manage
+    api_key: {scope: _scope.customer.contacts.service_manage, action: manage, resource_type: capability, resource_pattern: customer_contacts_service_manage}
   title_i18n: {en: Customer Contact Service Management, zh-CN: 客户联系人服务管理}
   description_i18n: {en: Explicitly manage Contacts with fixed typed operations., zh-CN: 使用固定强类型操作显式管理联系人。}
+
+- capability_id: com.corex.customer.external_identities.service_read
+  module: customer
+  title: Customer External Identity Read
+  description: Read external identity ownership without writes and list identities within the authenticated plugin namespace.
+  permission_code: corex.customer.external_identities.service_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, identity]
+  intents: [customer.external_identities.service_read]
+  tool_scopes: [customer.external_identities.service_read]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/external-identities
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.external_identities.service_read
+    api_key: {scope: _scope.customer.external_identities.service_read, action: read, resource_type: capability, resource_pattern: customer_external_identities_service_read}
+  title_i18n: {en: Customer External Identity Read, zh-CN: 客户外部身份读取}
+  description_i18n: {en: Read plugin-scoped external identities without writes., zh-CN: 只读查询当前插件命名空间内的客户外部身份，不创建或补写资料。}
+
+- capability_id: com.corex.customer.external_identities.service_manage
+  module: customer
+  title: Customer External Identity Manage
+  description: Explicitly bind an existing customer or atomically create a customer and external identity; no implicit email merge.
+  permission_code: corex.customer.external_identities.service_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, identity]
+  intents: [customer.external_identities.service_manage]
+  tool_scopes: [customer.external_identities.service_manage]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/external-identities
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.external_identities.service_manage
+    api_key: {scope: _scope.customer.external_identities.service_manage, action: manage, resource_type: capability, resource_pattern: customer_external_identities_service_manage}
+  title_i18n: {en: Customer External Identity Manage, zh-CN: 客户外部身份管理}
+  description_i18n: {en: Explicitly bind a customer or atomically create and bind an external identity., zh-CN: 显式绑定已有客户，或原子创建客户及外部身份，不按邮箱自动合并。}

@@ -128,7 +128,16 @@
     "newMessages": "{count} 条新消息",
     "unknown": "未知",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "contactChannelsTitle": "渠道账号",
+    "contactChannelsDescription": "以下是已明确绑定到联系人 {name} 的渠道账号。",
+    "boundContactChannels": "已绑定的渠道账号",
+    "resolveContactChannelDescription": "检查某个渠道账号是否已经绑定到当前客户下的联系人；此操作不会创建联系人或绑定。",
+    "bindContactChannelDescription": "将此渠道账号明确绑定到联系人 {name}。提交后不会自动改绑到其他联系人。",
+    "resolvedContactChannel": "已解析到联系人：{name}",
+    "contactChannelDictionaryUnavailable": "联系人渠道字典不可用；请先在元数据治理中启用该字典。",
+    "contactChannelAccount": "渠道账号归属",
+    "contactChannelRelationship": "渠道账号是外部系统中的账号，不是第二个联系人。先解析它当前绑定的联系人；只有人工确认该账号属于联系人 {name} 时，才执行显式绑定。"
   },
   "workflow": {
     "port": {
@@ -830,8 +839,16 @@
         },
         "emitRejected": {
           "name": "发送拒绝事件"
-        }
-      }
+  },
+  "customerContactChannels": {
+    "title": "渠道账号",
+    "description": "以下是已明确绑定到联系人 {name} 的渠道账号。",
+    "bound": "已绑定的渠道账号",
+    "resolveDescription": "检查某个渠道账号是否已经绑定到当前客户下的联系人；此操作不会创建联系人或绑定。",
+    "bindDescription": "将此渠道账号明确绑定到联系人 {name}。提交后不会自动改绑到其他联系人。",
+    "resolveFound": "已解析到联系人：{name}"
+  }
+}
     },
     "fields": {
       "method": "方法",
@@ -1296,6 +1313,11 @@
       "sections": {
         "general": "通用",
         "parameters": "参数"
+      },
+      "modelConcurrency": {
+        "label": "模型请求并发上限",
+        "placeholder": "例如 2",
+        "hint": "按租户、Provider 和模型隔离；本地 Ollama 应与其推理并发能力匹配。"
       },
       "errors": {
         "ollamaModelNotFound": "Ollama 模型不存在：{model}。请先执行 ollama pull {model}，或在模型下拉选择本机已安装的模型。"
@@ -2627,12 +2649,18 @@
         "allSources": "全部来源",
         "allStatuses": "全部状态"
       },
-      "quickCreate": {
-        "name": "新智能体-{suffix}",
-        "description": "请在智能体管理中完善配置",
-        "success": "创建成功",
-        "successDescription": "已创建默认智能体",
-        "failed": "创建失败"
+      "createForm": {
+        "keyInvalid": "系统 Key 只允许 1–64 位字母、数字、点、下划线和连字符",
+        "promptSeedHelp": "草稿可稍后填写；启用前需要填写主指令。",
+        "title": "新建智能体",
+        "description": "填写智能体信息后保存；草稿可以稍后完善主指令和能力授权。",
+        "systemKey": "系统 Key",
+        "systemKeyHelp": "创建后不能修改；只能使用字母、数字、点、下划线和连字符。",
+        "systemKeyPlaceholder": "如 marketing.content_assistant",
+        "keyRequired": "系统 Key 不能为空",
+        "promptRequired": "启用智能体前请填写系统提示词",
+        "created": "智能体已创建",
+        "createFailed": "创建失败"
       },
       "edit": {
         "title": "编辑智能体",

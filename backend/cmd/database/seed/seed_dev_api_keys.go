@@ -90,6 +90,11 @@ func SeedDefaultDevAPIKeys(db *gorm.DB) error {
 		if item.EnvName == "POWERX_PLUGIN_API_KEY" {
 			keyPermissions = appendUniqueAPIKeyPermissions(permissions, knowledgeHostPermissions)
 			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, metadataHostPermissions)
+			customerHostPermissions, customerErr := resolveCustomerHostDevPermissions(ctx, db)
+			if customerErr != nil {
+				return customerErr
+			}
+			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, customerHostPermissions)
 		}
 		if err := upsertDevAPIKey(ctx, db, tenantUUID, profile.ID, item, keyPermissions); err != nil {
 			return err
@@ -97,6 +102,33 @@ func SeedDefaultDevAPIKeys(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// resolveCustomerHostDevPermissions grants only the typed Customer/Contact
+// Host contracts to the local plugin key. Production API keys remain explicit.
+func resolveCustomerHostDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	wanted := map[string]struct{}{
+		"_scope.customer.accounts.service_read":   {},
+		"_scope.customer.accounts.service_manage": {},
+		"_scope.customer.contacts.service_read":   {},
+		"_scope.customer.contacts.service_manage": {},
+	}
+	var rows []modeliam.Permission
+	if err := db.WithContext(ctx).Where("module = ? AND allow_api_key = ? AND status = ?", "customer", true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load customer host api key permissions: %w", err)
+	}
+	out := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(wanted))
+	for _, row := range rows {
+		resolved, ok := apikeypermissions.ResolvePermission(row)
+		if !ok {
+			continue
+		}
+		if _, ok := wanted[resolved.Scope]; !ok {
+			continue
+		}
+		out = append(out, modeligw.IntegrationGatewayAPIKeyPermission{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: resolved.PluginID, Effect: resolved.Effect})
+	}
+	return out, nil
 }
 
 func resolveMetadataHostDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {

@@ -3,18 +3,23 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"strings"
 )
 
 type RunTaskStateService struct {
 	repo *repository.RunTaskStateRepository
 }
 type runTaskStateServiceKey struct{}
+
+const runTaskStatePersistTimeout = 5 * time.Second
 
 func NewRunTaskStateService(db *gorm.DB) *RunTaskStateService {
 	return &RunTaskStateService{repo: repository.NewRunTaskStateRepository(db)}
@@ -36,12 +41,17 @@ func (s *RunTaskStateService) Persist(ctx context.Context, task flowschema.PlanT
 	run, er := uuid.Parse(contextString(ctx, "runtime_run_uuid"))
 	snap, es := uuid.Parse(contextString(ctx, "runtime_snapshot_uuid"))
 	rev, ev := uuid.Parse(contextString(ctx, "runtime_plan_revision_uuid"))
-	tenant := strings.TrimSpace(contextString(ctx, "tenant_uuid"))
-	env := strings.TrimSpace(contextString(ctx, "env"))
+	tenant := firstNonEmpty(strings.TrimSpace(contextString(ctx, "tenant_uuid")), strings.TrimSpace(reqctx.GetTenantUUID(ctx)))
+	env := firstNonEmpty(strings.TrimSpace(contextString(ctx, "env")), strings.TrimSpace(reqctx.GetEnv(ctx)))
 	if er != nil || es != nil || ev != nil || tenant == "" || env == "" {
 		return fmt.Errorf("run task state references are required")
 	}
-	return s.repo.Upsert(ctx, &dbmodel.AgentRunTaskState{Env: env, TenantUUID: tenant, RunUUID: run, SnapshotUUID: snap, PlanRevisionUUID: rev, TaskID: task.TaskID, Status: status})
+	// A terminal task-state update must survive cancellation of the execution
+	// context that caused it. Its complete scope is already captured above, so
+	// persist it with an independent bounded context.
+	persistCtx, cancel := context.WithTimeout(context.Background(), runTaskStatePersistTimeout)
+	defer cancel()
+	return s.repo.Upsert(persistCtx, &dbmodel.AgentRunTaskState{Env: env, TenantUUID: tenant, RunUUID: run, SnapshotUUID: snap, PlanRevisionUUID: rev, TaskID: task.TaskID, Status: status})
 }
 
 func (s *RunTaskStateService) BuildResumePlan(ctx context.Context, env, tenantUUID string, runUUID, revisionUUID uuid.UUID, plan flowschema.ExecutionPlan) (flowschema.ExecutionPlan, error) {

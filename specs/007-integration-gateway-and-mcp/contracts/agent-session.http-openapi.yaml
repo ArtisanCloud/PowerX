@@ -8,6 +8,16 @@ servers:
 security:
   - STS: []
 x-contract:
+  implementation_status: current_baseline
+  target_runtime_contract:
+    spec: specs/031-agent-runtime-durable-scheduling/spec.md
+    schema: specs/031-agent-runtime-durable-scheduling/contracts/run-state.openapi.yaml
+    status: proposed_not_implemented
+    invocation_identity: one_message_one_run
+    process_restart: resume_or_explicit_unrecoverable_after_reconciliation
+    event_resume: run_id_and_event_seq
+    sse_role: subscription_only
+    note: Existing invocation schemas and x-contract fields below describe the current wire contract; update them with contract tests during 031 T002/T009 migration.
   execution_context:
     history_source: core_persisted_messages_before_selected_message
     snapshot: captured_under_session_lock_before_invocation
@@ -42,7 +52,8 @@ x-contract:
     token_deltas: false
     events: [state, final, error, end]
     reconnect: snapshot_same_invocation_no_execution
-    resume_event_cursor_supported: false
+    resume_event_cursor_supported: true
+    current_cursor_range: [1, 3]
 paths:
   /api/v1/tenant/agent/sessions:
     get:
@@ -466,6 +477,10 @@ components:
         session_uuid: {$ref: '#/components/schemas/UUID'}
         role: {type: string, enum: [user, assistant]}
         content: {type: string}
+        response_envelope:
+          type: object
+          description: 已验证的结构化报告；存在时 content 可以为空，客户端应只渲染一份报告。
+          additionalProperties: true
         sequence: {type: integer, format: int64, minimum: 1}
         created_at: {type: string, format: date-time}
     Invocation:
@@ -477,9 +492,13 @@ components:
         session_uuid: {$ref: '#/components/schemas/UUID'}
         message_uuid: {$ref: '#/components/schemas/UUID'}
         trace_uuid: {$ref: '#/components/schemas/UUID'}
-        status: {type: string, enum: [running, cancelling, succeeded, failed, cancelled]}
+        status: {type: string, enum: [accepted, planning, queued, running, cancelling, succeeded, completed, partial, needs_input, blocked, failed, cancelled]}
         reason_code: {type: string}
         output: {type: string}
+        response_envelope:
+          type: object
+          description: 终态任务回执中的结构化报告，与唯一助手消息保持一致。
+          additionalProperties: true
         created_at: {type: string, format: date-time}
         deadline_at: {type: string, format: date-time}
         finished_at: {type: string, format: date-time, nullable: true}

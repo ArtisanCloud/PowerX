@@ -25,6 +25,7 @@ import (
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	agentsession "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
@@ -190,6 +191,8 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 type Deps struct {
 	RuntimeHostSvc  *runtimehost.Service
 	AgentSessionSvc *agentsession.Service
+	AgentRunWorker  *agent_run.WorkerService
+	AgentAdminRun   *agentruntime.AdminRunService
 	DB              *gorm.DB
 	ctx             *context.Context
 	AuthUser        *authsvc.AuthService
@@ -549,6 +552,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
+				metadatasvc.NewTagCapabilityInvoker(db),
 			),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc

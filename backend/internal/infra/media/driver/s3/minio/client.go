@@ -38,6 +38,7 @@ type Client struct {
 	region       string
 	forcePath    bool
 	httpClient   *http.Client
+	now          func() time.Time
 }
 
 // PutObjectOptions 定义上传对象时的可选参数。
@@ -140,6 +141,7 @@ func New(endpoint string, opts *Options) (*Client, error) {
 		region:       opts.Region,
 		forcePath:    opts.ForcePathStyle,
 		httpClient:   opts.HTTPClient,
+		now:          time.Now,
 	}
 	if client.region == "" {
 		client.region = "us-east-1"
@@ -363,7 +365,7 @@ func (c *Client) buildURL(bucket, object string) (*url.URL, string, error) {
 }
 
 func (c *Client) signRequest(req *http.Request, canonicalPath, payloadHash string) error {
-	now := time.Now().UTC()
+	now := c.now().UTC()
 	if payloadHash == "" {
 		payloadHash = "UNSIGNED-PAYLOAD"
 	}
@@ -382,7 +384,6 @@ func (c *Client) signRequest(req *http.Request, canonicalPath, payloadHash strin
 		canonicalURI(canonicalPath),
 		canonicalQuery,
 		canonicalHeaders,
-		"",
 		signedHeaders,
 		payloadHash,
 	}, "\n")
@@ -410,7 +411,7 @@ func (c *Client) presignURL(ctx context.Context, method string, baseURL *url.URL
 	if seconds <= 0 {
 		seconds = 1
 	}
-	now := time.Now().UTC()
+	now := c.now().UTC()
 	if params == nil {
 		params = url.Values{}
 	} else {
@@ -439,7 +440,6 @@ func (c *Client) presignURL(ctx context.Context, method string, baseURL *url.URL
 		canonicalURI(canonicalPath),
 		canonicalQuery,
 		canonicalHeaders,
-		"",
 		signedHeaders,
 		payloadHash,
 	}, "\n")

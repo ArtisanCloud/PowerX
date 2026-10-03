@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -315,14 +316,9 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 		}
 	}
 
-	cli, err := llm.NewClient(provider)
-	if err != nil {
-		return fallback("new llm client failed: " + err.Error())
-	}
-
 	prompt := buildToolCallingPrompt(text, cands, plannerCfg)
 	dlogRun.Prompt = prompt
-	invokeResult, err := cli.Invoke(ctx, &config.ModelConfig{
+	invokeResult, err := llm.Invoke(ctx, &config.ModelConfig{
 		Provider:     provider,
 		Endpoint:     strings.TrimSpace(reqCfg.Endpoint),
 		APIKey:       strings.TrimSpace(reqCfg.APIKey),
@@ -341,6 +337,9 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 	dlogRun.LatencyMS = int(time.Since(dlogRun.At).Milliseconds())
 	if err != nil {
 		dlogRun.Error = err.Error()
+		if errors.Is(err, llm.ErrModelQueueTimeout) || errors.Is(err, llm.ErrPhysicalModelPoolUnavailable) || errors.Is(err, llm.ErrPhysicalModelPoolUnconfigured) {
+			return nil, err
+		}
 		return fallback("llm invoke failed: " + err.Error())
 	}
 	dlogRun.LLMRawOutput = content

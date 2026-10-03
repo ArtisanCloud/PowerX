@@ -71,7 +71,7 @@ func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 		{"role": "user", "content": userMessage},
 	}
 	opts := map[string]any{}
-	if mc.Temperature > 0 {
+	if mc.TemperatureSet || mc.Temperature > 0 {
 		opts["temperature"] = mc.Temperature
 	}
 	if mc.MaxTokens > 0 {

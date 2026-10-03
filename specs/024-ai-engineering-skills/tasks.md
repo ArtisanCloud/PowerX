@@ -379,6 +379,12 @@
 
 同日补充：已落地 Skill calculation_policy 与 unit_tokens、平台原文 token 取证、模型字段映射、声明式公式执行和无数值说明投影。已发布营销汇总 Skill 经真实 Ollama 的原始数据与替换数据两组测试通过，验证结果分别为 1.35/0.85 和 2/0.5，原文冲突保持独立；不代表完整团队、历史 UI 或外部插件接线已验收。
 
+---
+
+## Phase 24: 持久化调度与共享容量（未实施）
+
+`T186-T196` 仅覆盖当前 UI 状态协议和快照，不代表跨实例持久化调度已完成。目标需求、实施任务和验收证据见 [`031/tasks.md`](../031-agent-runtime-durable-scheduling/tasks.md)；目前仅完成调用链清点 `T001`，`T002-T012` 仍未完成。
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

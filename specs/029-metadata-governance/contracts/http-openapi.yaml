@@ -456,6 +456,30 @@ paths:
   /tenant/metadata/tags:
     get: { operationId: tenantListTags, tags: [TenantMetadata], responses: { '200': { description: Tags } } }
     post: { operationId: tenantCreateTag, tags: [TenantMetadata], responses: { '201': { description: Created } } }
+  /tenant/metadata/tags/{tag_uuid}:
+    patch:
+      operationId: tenantUpdateTag
+      tags: [TenantMetadata]
+      description: Update the authenticated tenant's tag with metadata.tag.manage. Omitted fields are unchanged; color may be cleared with an empty string.
+      parameters:
+        - $ref: '#/components/parameters/TagUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTagRequest'
+      responses:
+        '200':
+          description: Updated tag in data.payload.
+        '400':
+          description: Invalid fields or tenant override.
+        '401':
+          description: Missing or invalid service credential.
+        '403':
+          description: Missing published capability, tenant registration or credential grant.
+        '404':
+          $ref: '#/components/responses/MetadataNotFound'
   /tenant/metadata/tag-bindings:
     post: { operationId: tenantCreateTagBinding, tags: [TenantMetadata], responses: { '201': { description: Created } } }
   /tenant/metadata/tag-bindings/{binding_uuid}:

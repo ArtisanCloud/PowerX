@@ -715,6 +715,48 @@ components:
         priority:
           type: string
           enum: [normal, high]
+        ragSceneKey:
+          type: string
+        ragBundleKey:
+          type: string
+        ragPrimary:
+          type: string
+        segmentMode:
+          type: string
+          enum: [unit, heading, clause, semantic, table_row, code_block, conversation]
+        chunkSize:
+          type: integer
+          minimum: 0
+          maximum: 20000
+        chunkOverlap:
+          type: integer
+          minimum: 0
+          maximum: 5000
+        segmentSizePolicy:
+          type: string
+          enum: [cap, target]
+        segmentOrder:
+          type: array
+          items:
+            type: string
+            enum: [page, size, segment, separator]
+        separators:
+          type: array
+          items:
+            type: string
+            maxLength: 16
+        pagePriority:
+          type: boolean
+        anchorHeadingPath:
+          type: boolean
+        anchorClauseId:
+          type: boolean
+        anchorRowNumber:
+          type: boolean
+        anchorSpeaker:
+          type: boolean
+        anchorSentenceIndex:
+          type: boolean
     IngestionJob:
       type: object
       properties:

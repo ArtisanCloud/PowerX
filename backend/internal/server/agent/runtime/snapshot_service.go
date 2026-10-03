@@ -54,6 +54,7 @@ func (s *RuntimeSnapshotService) Freeze(ctx context.Context, in FreezeRuntimeSna
 		return nil, err
 	}
 	snapshot.SnapshotUUID = row.UUID
+	snapshot.ExpiresAt = row.ExpiresAt
 	return snapshot, nil
 }
 
@@ -77,5 +78,6 @@ func (s *RuntimeSnapshotService) Restore(ctx context.Context, env, tenantUUID st
 		return nil, err
 	}
 	snapshot.SnapshotUUID = row.UUID
+	snapshot.ExpiresAt = row.ExpiresAt
 	return snapshot, nil
 }

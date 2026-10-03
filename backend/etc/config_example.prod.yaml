@@ -177,7 +177,9 @@ audit:
     include_meta: true
 
 auth:
-  jwt_secret: K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0
+  # Required before first startup: generate once with `openssl rand -hex 32`.
+  # Persist per deployment, or supply CORE_X_AUTH_JWT_SECRET. Never commit it.
+  jwt_secret: ""
   issuer: powerx-auth
   audience_user: user
   audience_customer: customer
@@ -330,6 +332,33 @@ ai:
       fps: 24
       max_duration_sec: 10
       prompt_hint: ""
+  runtime:
+    # Agent Session 持久化执行。需先 migrate、Redis AOF/noeviction 和私有 S3 桶。
+    # admin_chat_enabled 将管理端聊天接入同一持久化 Worker。
+    durable_sessions:
+      enabled: false
+      admin_chat_enabled: false
+      report_bucket: powerx-agent-runs
+      worker_concurrency: 4
+      scan_interval: 5s
+      lease_ttl: 30s
+    max_plan_revisions: 2
+    max_observations: 4
+    max_steps: 16
+    max_capability_calls: 8
+    max_concurrent_tasks: 4
+    run_deadline: 30m
+    queue_wait_timeout: 10m
+    # Configure every deployed Ollama target with its real physical capacity.
+    # Requires durable Event Fabric Redis (AOF yes, noeviction) at startup.
+    # physical_model_pools:
+    #   - pool_id: ollama-prod-qwen3-8b
+    #     provider: ollama
+    #     endpoint: http://ollama.internal:11434
+    #     model: qwen3:8b
+    #     capacity: 1
+    #     max_waiting: 100
+    #     lease_ttl: 6m
   routing:
     enable: false
     policy_refresh: "30s"

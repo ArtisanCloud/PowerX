@@ -47,6 +47,9 @@ func recoveryDecisionFromVerdict(verdict VerificationVerdict) recoveryDecision {
 // code supplied by the caller instead of inspecting an arbitrary error string.
 // The original error remains available to server logs and Trace nodes.
 func runtimeFailureOutcome(reasonCode string, err error) runtimeOutcome {
+	if modelReason := modelFailureReason(err); modelReason != "" {
+		return runtimeOutcome{Status: RuntimeOutcomeFailed, ReasonCode: modelReason}
+	}
 	if errors.Is(err, context.Canceled) {
 		return runtimeOutcome{Status: RuntimeOutcomeCancelled, ReasonCode: "run.canceled"}
 	}

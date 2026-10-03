@@ -94,6 +94,7 @@ func RegisterTenantHostRoutes(protected *gin.RouterGroup, deps *shared.Deps) {
 	g.PATCH("/taxonomy-nodes/:node_uuid", manage("taxonomy"), h.updateTaxonomyNode)
 	g.GET("/tags", read("tag"), h.listTags)
 	g.POST("/tags", manage("tag"), h.createTag)
+	g.PATCH("/tags/:tag_uuid", manage("tag"), h.updateTag)
 	g.POST("/tag-bindings", manage("tag"), h.createTenantTagBinding)
 	g.DELETE("/tag-bindings/:binding_uuid", manage("tag"), h.deleteTenantTagBinding)
 	g.GET("/resource-types", read("resource_type"), h.listResourceTypes)

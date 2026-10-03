@@ -27,10 +27,8 @@ func (c *Config) Validate() error {
 	}
 
 	// --- Auth ---
-	if strings.TrimSpace(c.Auth.JWTSecret) == "" {
-		errors = append(errors, "auth.jwt_secret 不能为空")
-	} else if len(c.Auth.JWTSecret) < 32 {
-		errors = append(errors, "auth.jwt_secret 长度至少32个字符")
+	if err := validateJWTSecret(c.Auth.JWTSecret); err != nil {
+		errors = append(errors, err.Error())
 	}
 	if strings.TrimSpace(c.Auth.Issuer) == "" {
 		errors = append(errors, "auth.issuer 不能为空")

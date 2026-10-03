@@ -167,6 +167,9 @@ func (DeterministicExecutionVerifier) Verify(ctx context.Context, report *agent.
 		}
 		return VerificationVerdict{Class: VerificationBlocked, ReasonCode: "budget.exhausted", TaskRefs: incompleteTaskRefs(report)}, nil
 	}
+	if modelReason := modelFailureReason(runErr); modelReason != "" {
+		return VerificationVerdict{Class: VerificationFatal, ReasonCode: modelReason, TaskRefs: failedTaskRefs(report)}, nil
+	}
 	if errors.Is(runErr, context.Canceled) {
 		return VerificationVerdict{Class: VerificationFatal, ReasonCode: "run.canceled", TaskRefs: failedTaskRefs(report)}, nil
 	}

@@ -3,12 +3,42 @@ package agent
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	aschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/stretchr/testify/require"
 )
+
+func TestExecutePlanWithHooksQueuesSameStageAtConfiguredConcurrency(t *testing.T) {
+	m := NewAgentManager()
+	var active atomic.Int32
+	var peak atomic.Int32
+	m.SetSkillInvoker(func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+		current := active.Add(1)
+		defer active.Add(-1)
+		for {
+			seen := peak.Load()
+			if current <= seen || peak.CompareAndSwap(seen, current) {
+				break
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+		return &SkillInvokeOutput{Status: "completed", ProtocolUsed: "skill", SkillID: in.SkillID, Result: map[string]any{"content": in.SkillID}}, nil
+	})
+
+	_, err := m.ExecutePlanWithHooks(context.Background(), flowschema.ExecutionPlan{
+		PlanID: "plan-serial-stage",
+		Tasks: []flowschema.PlanTask{
+			{TaskID: "one", NodeKind: "skill", NodeRef: "skill.one", Stage: 1},
+			{TaskID: "two", NodeKind: "skill", NodeRef: "skill.two", Stage: 1},
+		},
+	}, aschema.ExecutionMeta{TenantUUID: "tenant-test"}, &PlanExecutionHooks{MaxConcurrentTasks: 1})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), peak.Load())
+}
 
 func TestExecutePlanWithHooksReportsContinuedFailure(t *testing.T) {
 	m := NewAgentManager()

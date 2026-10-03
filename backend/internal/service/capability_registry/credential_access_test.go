@@ -67,3 +67,35 @@ func TestCredentialAccessRevocationAndTraceOwnership(t *testing.T) {
 	require.NoError(t, e)
 	require.False(t, current.Granted[capID])
 }
+
+func TestCustomerContactCoreCapabilityRequiresLivePublishedTenantGrant(t *testing.T) {
+	db := newGrantStatusTestDB(t)
+	const capabilityID = "com.corex.customer.contacts.service_manage"
+	seedGrantStatusCapability(t, db, capabilityID, true)
+	credential := &setting.PluginInstanceConfig{
+		TenantUUID: grantStatusTestTenant,
+		PluginID:   "com.powerx.plugins.framework-test",
+		Key:        "auth.credentials",
+		Enabled:    true,
+		ValueJSON:  datatypes.JSON(`{"client_id":"framework-test","allowed_capabilities":["com.corex.customer.contacts.service_manage"]}`),
+	}
+	require.NoError(t, db.Create(credential).Error)
+	ctx := reqctx.WithClaims(reqctx.WithTenantUUID(context.Background(), grantStatusTestTenant), &reqctx.CoreXClaims{
+		TenantUUID: grantStatusTestTenant,
+		PluginID:   credential.PluginID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer: "powerx-sts", Subject: "client:framework-test", Audience: jwt.ClaimStrings{"powerx:api"}, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	})
+	access := NewGrantStatusService(db)
+	current, err := access.CurrentAccess(ctx)
+	require.NoError(t, err)
+	require.NoError(t, current.Require(capabilityID))
+
+	require.NoError(t, db.Model(credential).Update("value_json", datatypes.JSON(`{"client_id":"framework-test","allowed_capabilities":[]}`)).Error)
+	current, err = access.CurrentAccess(ctx)
+	require.NoError(t, err)
+	var denied *DirectGrantError
+	require.ErrorAs(t, current.Require(capabilityID), &denied)
+	require.Equal(t, 403, denied.Status)
+}

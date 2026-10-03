@@ -123,8 +123,8 @@ func ToGRPCError(tpl ErrorTemplate, err error) error {
 }
 
 var manualUpgradeSteps = []string{
-	"调用 GET /admin/capability-registry/capabilities/{capabilityId}/tenants/{tenant_uuid} 刷新最新版本",
-	"若 Workflow Builder 显示“需手动升级”，请在 Admin UI 或 CLI 中执行升级后重试",
+	"通过 GET /api/v1/admin/capabilities/{capabilityId} 核对当前发布的 capabilities_hash",
+	"租户管理员或 root 使用用户 JWT 调用 POST /api/v1/admin/capability-registry/capabilities/{capabilityId}/tenants/{tenant_uuid}/upgrade，提交 capabilities_hash 和 reason 后重试",
 }
 
 // 预定义错误模板，供 HTTP/gRPC Handler 复用。

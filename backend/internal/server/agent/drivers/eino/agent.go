@@ -772,14 +772,15 @@ func modelConfigFromChatConfig(c *dto.ChatConfig) *config2.ModelConfig {
 		}
 	}
 	return &config2.ModelConfig{
-		Provider:     strings.TrimSpace(c.Provider),
-		Endpoint:     strings.TrimSpace(c.Endpoint),
-		APIKey:       strings.TrimSpace(c.APIKey),
-		Model:        strings.TrimSpace(c.ModelName),
-		SystemPrompt: strings.TrimSpace(c.SystemPrompt),
-		Temperature:  c.Temperature,
-		MaxTokens:    c.MaxTokens,
-		Extra:        extra,
+		Provider:              strings.TrimSpace(c.Provider),
+		Endpoint:              strings.TrimSpace(c.Endpoint),
+		APIKey:                strings.TrimSpace(c.APIKey),
+		Model:                 strings.TrimSpace(c.ModelName),
+		SystemPrompt:          strings.TrimSpace(c.SystemPrompt),
+		Temperature:           c.Temperature,
+		MaxTokens:             c.MaxTokens,
+		MaxConcurrentRequests: c.MaxConcurrentRequests,
+		Extra:                 extra,
 	}
 }
 

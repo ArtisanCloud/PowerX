@@ -20,8 +20,12 @@ import (
 )
 
 type PlanExecutionHooks struct {
-	OnTaskStart func(task flowschema.PlanTask) error
-	OnTaskEnd   func(task flowschema.PlanTask, out *aschema.ExecutionResult, err error) error
+	// MaxConcurrentTasks limits the number of tasks running within one plan
+	// stage. A stage may declare more tasks than this limit; excess tasks wait
+	// for a slot rather than being rejected as an invalid plan.
+	MaxConcurrentTasks int
+	OnTaskStart        func(task flowschema.PlanTask) error
+	OnTaskEnd          func(task flowschema.PlanTask, out *aschema.ExecutionResult, err error) error
 }
 
 /***************
@@ -119,6 +123,71 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 }
 
 func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.ExecutionPlan, mt aschema.ExecutionMeta, hooks *PlanExecutionHooks) (*PlanExecutionReport, error) {
+	return m.executePlanWithResults(ctx, plan, plan, nil, mt, hooks)
+}
+
+// ExecutePlanTask executes exactly one task from a previously stored plan.
+// Prior results are supplied by the durable Worker after it verifies their
+// completed task records and object-store receipts.
+func (m *Manager) ExecutePlanTask(ctx context.Context, fullPlan flowschema.ExecutionPlan, taskID string,
+	prior map[string]*aschema.ExecutionResult, mt aschema.ExecutionMeta) (*aschema.ExecutionResult, error) {
+	if m == nil || strings.TrimSpace(taskID) == "" || taskID != strings.TrimSpace(taskID) {
+		return nil, errors.New("invalid plan task")
+	}
+	var selected *flowschema.PlanTask
+	byID := make(map[string]flowschema.PlanTask, len(fullPlan.Tasks))
+	for _, task := range fullPlan.Tasks {
+		if task.TaskID == "" || task.TaskID != strings.TrimSpace(task.TaskID) {
+			return nil, errors.New("invalid plan task identity")
+		}
+		if _, exists := byID[task.TaskID]; exists {
+			return nil, errors.New("duplicate plan task identity")
+		}
+		byID[task.TaskID] = task
+		if task.TaskID == taskID {
+			copyTask := task
+			selected = &copyTask
+		}
+	}
+	if selected == nil {
+		return nil, fmt.Errorf("plan task %s is missing", taskID)
+	}
+	// 持久化 Worker 负责重试和副作用核查，禁止进程内 retry-once 重复调用。
+	selected.FailurePolicy = "fail-fast"
+	for _, dependency := range selected.DependsOn {
+		upstream, ok := byID[dependency]
+		if !ok || upstream.Stage > selected.Stage || upstream.TaskID == taskID {
+			return nil, fmt.Errorf("invalid task dependency %s", dependency)
+		}
+		if prior[dependency] == nil || !prior[dependency].Success {
+			return nil, fmt.Errorf("task dependency %s has no successful receipt", dependency)
+		}
+	}
+	for id, result := range prior {
+		upstream, ok := byID[id]
+		sameStageDependency := false
+		for _, dependency := range selected.DependsOn {
+			sameStageDependency = sameStageDependency || dependency == id
+		}
+		if !ok || id == taskID || upstream.Stage > selected.Stage ||
+			(upstream.Stage == selected.Stage && !sameStageDependency) || result == nil || !result.Success {
+			return nil, fmt.Errorf("invalid prior task result %s", id)
+		}
+	}
+	report, err := m.executePlanWithResults(ctx, flowschema.ExecutionPlan{PlanID: fullPlan.PlanID,
+		Tasks: []flowschema.PlanTask{*selected}}, fullPlan, prior, mt, nil)
+	if err != nil {
+		return nil, err
+	}
+	if report == nil || len(report.Tasks) != 1 || report.Tasks[0].Status != PlanTaskExecutionCompleted ||
+		report.FinalResult == nil || !report.FinalResult.Success {
+		return nil, fmt.Errorf("plan task %s did not complete successfully", taskID)
+	}
+	return report.FinalResult, nil
+}
+
+func (m *Manager) executePlanWithResults(ctx context.Context, plan, referencePlan flowschema.ExecutionPlan,
+	prior map[string]*aschema.ExecutionResult, mt aschema.ExecutionMeta, hooks *PlanExecutionHooks) (*PlanExecutionReport, error) {
 	if len(plan.Tasks) == 0 {
 		return nil, errors.New("empty plan")
 	}
@@ -137,6 +206,11 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 	defer cancel()
 
 	results := aschema.NewResultStore() // 你自己的并发安全结果仓库
+	for _, task := range referencePlan.Tasks {
+		if result := prior[task.TaskID]; result != nil {
+			results.Put(task.TaskID, task.FlowID, task.Stage, result)
+		}
+	}
 	tenantUUID := strings.TrimSpace(mt.TenantUUID)
 	var tenantPtr *string
 	if tenantUUID != "" {
@@ -180,6 +254,9 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 		stageOut := make([]*aschema.ExecutionResult, len(stageTasks))
 
 		eg, egCtx := errgroup.WithContext(ctx)
+		if hooks != nil && hooks.MaxConcurrentTasks > 0 {
+			eg.SetLimit(hooks.MaxConcurrentTasks)
+		}
 		for i := range stageTasks {
 			i := i
 			task := stageTasks[i]
@@ -198,7 +275,7 @@ func (m *Manager) ExecutePlanWithHooks(ctx context.Context, plan flowschema.Exec
 				// A response-envelope Skill may cite only real tasks that are
 				// transitively upstream of this task. The allowlist is derived
 				// from the submitted plan, never from a Team/Agent/Skill ID.
-				ctxVars["response_envelope_task_refs"] = responseEnvelopeTaskRefsForTask(plan, task.TaskID)
+				ctxVars["response_envelope_task_refs"] = responseEnvelopeTaskRefsForTask(referencePlan, task.TaskID)
 
 				for pk, ref := range task.ParamRefs {
 					val, ok, rerr := aschema.ResolveParamRef(ref, results, task)

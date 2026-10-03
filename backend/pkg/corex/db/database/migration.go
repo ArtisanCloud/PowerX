@@ -495,7 +495,7 @@ func migrateCapabilityModels(db *gorm.DB) error {
 }
 
 func migrateCustomerModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&modelCustomer.Account{},
 		&modelCustomer.AuthIdentity{},
 		&modelCustomer.TenantMembership{},
@@ -504,7 +504,51 @@ func migrateCustomerModels(db *gorm.DB) error {
 		&modelCustomer.LoginEvent{},
 		&modelCustomer.Contact{},
 		&modelCustomer.ContactIdentity{},
-	)
+	); err != nil {
+		return err
+	}
+	return ensureCustomerContactIdentityDictionaryIndex(db)
+}
+
+func ensureCustomerContactIdentityDictionaryIndex(db *gorm.DB) error {
+	const indexName = "uk_customer_contact_identity_subject_v2"
+	if db.Dialector.Name() != "postgres" {
+		return nil
+	}
+	var row struct{ Definition string }
+	err := db.Raw(`SELECT indexdef AS definition FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'customer_contact_identities' AND indexname = ?`, indexName).Scan(&row).Error
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(row.Definition, "(tenant_uuid, channel_dictionary_item_uuid, external_subject)") {
+		if err := db.Exec("DROP INDEX IF EXISTS " + indexName).Error; err != nil {
+			return err
+		}
+		if err := db.Migrator().CreateIndex(&modelCustomer.ContactIdentity{}, indexName); err != nil {
+			return fmt.Errorf("create contact identity dictionary unique index: %w", err)
+		}
+	}
+	// The predecessor index enforces the retired free-text channel, and must
+	// not remain the source of truth after the dictionary UUID contract ships.
+	if err := db.Exec("DROP INDEX IF EXISTS uk_customer_contact_identity_subject").Error; err != nil {
+		return err
+	}
+	var pendingMappings int64
+	if err := db.Model(&modelCustomer.ContactIdentity{}).Where("channel_dictionary_item_uuid IS NULL").Count(&pendingMappings).Error; err != nil {
+		return err
+	}
+	if pendingMappings > 0 {
+		return fmt.Errorf("customer contact identity channel migration required: %d rows need explicit channel_dictionary_item_uuid mapping", pendingMappings)
+	}
+	if err := db.Exec("ALTER TABLE customer_contact_identities ALTER COLUMN channel_dictionary_item_uuid SET NOT NULL").Error; err != nil {
+		return fmt.Errorf("enforce contact identity channel dictionary item: %w", err)
+	}
+	if db.Migrator().HasColumn(&modelCustomer.ContactIdentity{}, "channel") {
+		if err := db.Migrator().DropColumn(&modelCustomer.ContactIdentity{}, "channel"); err != nil {
+			return fmt.Errorf("drop retired contact identity channel column: %w", err)
+		}
+	}
+	return nil
 }
 
 func migrateCapabilityRegistryModels(db *gorm.DB) error {
@@ -544,7 +588,7 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 }
 
 func migrateAgentServiceSessionModels(db *gorm.DB) error {
-	return db.AutoMigrate(&modelAgent.ServiceSession{}, &modelAgent.ServiceMessage{}, &modelAgent.ServiceInvocation{})
+	return db.AutoMigrate(&modelAgent.ServiceSession{}, &modelAgent.ServiceMessage{}, &modelAgent.ServiceInvocation{}, &modelAgent.AdminRunAdmission{})
 }
 
 func migrateAgentA2AModels(db *gorm.DB) error {

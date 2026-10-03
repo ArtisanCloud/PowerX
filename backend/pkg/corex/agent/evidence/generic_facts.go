@@ -154,7 +154,11 @@ func ResolveGenericFacts(selection GenericFactSelection, tokens []NumericToken) 
 		}
 		identity := token.Source.Pointer + "\x00" + token.Source.Literal + "\x00" + token.Unit + "\x00" + fact.Label
 		if seen[identity] {
-			return nil, fmt.Errorf("evidence.generic_fact_duplicate")
+			// A repeated selection names the exact same source-backed fact, not
+			// additional evidence. Keep the first declared scope deterministically
+			// and continue; failing the whole report would discard valid upstream
+			// work solely because an LLM repeated an already selected token.
+			continue
 		}
 		seen[identity] = true
 		out = append(out, DraftDatum{Key: fmt.Sprintf("reported_fact_%d", i+1), Label: strings.TrimSpace(fact.Label), Unit: token.Unit, Scope: strings.TrimSpace(fact.Scope), Kind: "reported", Source: token.Source})

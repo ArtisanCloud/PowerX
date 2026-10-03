@@ -43,6 +43,7 @@ import (
 )
 
 type AgentChatHandler struct {
+	durable             *runtime.AdminRunService
 	his                 *agentSvc.ChatHistoryService
 	cfgResolver         *agentSvc.ChatConfigResolver
 	ag                  *agentSvc.AgentService
@@ -934,6 +935,7 @@ func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 		teams:               agentSvc.NewTeamService(dep.DB),
 		resourceAuthz:       agentauthz.NewService(dep.DB),
 		snapshotSvc:         runtime.NewRuntimeSnapshotService(dep.DB),
+		durable:             dep.AgentAdminRun,
 		observationSvc:      observationSvc,
 		planRevisionSvc:     runtime.NewPlanRevisionService(dep.DB),
 		verificationSvc:     runtime.NewVerificationEvidenceService(dep.DB),
@@ -997,12 +999,16 @@ func (h *AgentChatHandler) withResourceSnapshot(ctx context.Context, env, tenant
 	}
 	snapshot, err := h.snapshotSvc.Freeze(ctx, runtime.FreezeRuntimeSnapshotInput{
 		Env: env, TenantUUID: tenantRef, SubjectUUID: subjectUUID, PolicyVersion: "agent_effective_permissions/v1",
-		RunUUID: runUUID, AgentUUID: ag.UUID, Resources: resources, ExpiresAt: time.Now().Add(15 * time.Minute),
+		RunUUID: runUUID, AgentUUID: ag.UUID, Resources: resources, ExpiresAt: time.Now().Add(h.runtimeSnapshotLifetime()),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("freeze resource snapshot: %w", err)
 	}
 	ctx = context.WithValue(ctx, "runtime_run_uuid", runUUID.String())
+	if h.durable != nil {
+		ctx = context.WithValue(ctx, "run_id", runUUID.String())
+		ctx = context.WithValue(ctx, "runId", runUUID.String())
+	}
 	ctx = context.WithValue(ctx, "runtime_snapshot_uuid", snapshot.SnapshotUUID.String())
 	ctx = runtime.ContextWithObservationService(ctx, h.observationSvc)
 	ctx = runtime.ContextWithPlanRevisionService(ctx, h.planRevisionSvc)
@@ -1254,6 +1260,11 @@ LOOP:
 // GET /api/agents/stream/sse?q=...&env=dev&agent_id=...&session_id=...
 // internal/app/http/admin/agent/chat_handler.go （节选）
 func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
+	if h.durable != nil && strings.TrimSpace(c.Query("run_id")) != "" {
+		h.subscribeDurableRun(c, strings.TrimSpace(c.Query("run_id")))
+		return
+	}
+
 	// 1) 探活
 	if strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true") {
 		runtime.SetSSEHeaders(c)
@@ -1369,7 +1380,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		traceID = uuid.NewString()
 	}
 	baseSink := runtime.NewSSESink(c)
-	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true).WithSkillStateService(h.skillStates)
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, h.durable == nil).WithSkillStateService(h.skillStates)
 	clientMsgID := strings.TrimSpace(c.Query("client_msg_id"))
 	debugReqBody := map[string]any{
 		"q":             q,
@@ -1763,6 +1774,16 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		},
 	})
 
+	if h.durable != nil {
+		admitted, admitErr := h.durable.Admit(runCtx, q, cfg, "", clientMsgID)
+		if admitErr != nil {
+			_ = debugSink.Emit(dto.EventError, map[string]any{"code": "agent_run.admission_failed", "message": admitErr.Error()})
+			_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
+			return
+		}
+		h.subscribeDurableRun(c, admitted.RunID)
+		return
+	}
 	err = runtime.NewEngine().Run(runCtx, q, cfg, "", runSink) // explicitFlow 传空，交给意图/plan 选择
 	if plannerUsage := agent.GetAgentManager().PopPlannerUsage(traceID); len(plannerUsage) > 0 {
 		if hops, ok := plannerUsage["hops"].([]map[string]any); ok {
@@ -2448,8 +2469,22 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	if pendingTask, ok, err := h.latestRuntimePendingTask(c.Request.Context(), env, tenantRef, sess.ID, agentID, boundSkillIDs); err == nil && ok {
 		runCtx = context.WithValue(runCtx, "agent_pending_task", map[string]any(pendingTask))
 	}
+	if h.durable != nil {
+		admitted, err := h.durable.Admit(runCtx, msg, cfg, "", strings.TrimSpace(c.GetHeader("Idempotency-Key")))
+		if err != nil {
+			dto.ResponseError(c, 503, "agent run admission failed", err)
+			return
+		}
+		reply, err := h.durable.WaitResult(c.Request.Context(), admitted.RunID)
+		if err != nil {
+			dto.ResponseError(c, 503, "agent run result unavailable", fmt.Errorf("run %s: %w", admitted.RunID, err))
+			return
+		}
+		dto.ResponseSuccess(c, gin.H{"session_id": sess.UUID.String(), "agent_id": req.AgentID, "run_id": admitted.RunID, "reply": reply})
+		return
+	}
 	baseSink := &agentInvokeSink{}
-	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true).WithSkillStateService(h.skillStates)
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, h.durable == nil).WithSkillStateService(h.skillStates)
 	traceSink := newPlannerTraceSink(histSink, h.skillAudit, tenantUUID, traceID)
 	_, plan, err := runtime.NewEngine().RunPlanInvoke(runCtx, msg, cfg, "", traceSink)
 	status := "completed"

@@ -29,6 +29,33 @@ func TestMakeBodyPassesTypedResponseSchemaAsOllamaFormat(t *testing.T) {
 	require.Equal(t, []any{"schema"}, format["required"])
 }
 
+func TestMakeBodySendsExplicitZeroTemperatureAndSeed(t *testing.T) {
+	for _, streaming := range []bool{false, true} {
+		body, err := NewLLMClient().makeBody(&config.ModelConfig{
+			Model:          "qwen3:8b",
+			Temperature:    0,
+			TemperatureSet: true,
+			Extra:          map[string]any{"seed": int64(42)},
+		}, "same prompt", streaming)
+		require.NoError(t, err)
+		var request map[string]any
+		require.NoError(t, json.Unmarshal(body, &request))
+		options := request["options"].(map[string]any)
+		require.Equal(t, float64(0), options["temperature"])
+		require.Equal(t, float64(42), options["seed"])
+		require.Equal(t, streaming, request["stream"])
+	}
+}
+
+func TestMakeBodyOmitsUnspecifiedZeroTemperature(t *testing.T) {
+	body, err := NewLLMClient().makeBody(&config.ModelConfig{Model: "qwen3:8b"}, "prompt", false)
+	require.NoError(t, err)
+	var request map[string]any
+	require.NoError(t, json.Unmarshal(body, &request))
+	_, hasOptions := request["options"]
+	require.False(t, hasOptions)
+}
+
 func TestInvokeReturnsProviderTimeoutPhaseWhenOllamaDoesNotSendHeaders(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)

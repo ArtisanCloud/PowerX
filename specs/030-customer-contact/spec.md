@@ -7,7 +7,7 @@
 
 ## Scope and non-goals
 
-`Customer` remains the customer subject, login identity, and tenant membership. `Contact` is a natural person that a tenant associates with one Customer for business communication. `ContactIdentity` is that Contact's stable identifier in a channel such as email, WeCom, or Shopify.
+`Customer` remains the customer subject, login identity, and tenant membership. `Contact` is a natural person that a tenant associates with one Customer for business communication. `ContactIdentity` is that Contact's stable identifier in a tenant-governed channel dictionary item such as email, WeCom, or Shopify.
 
 This feature does not replace `customer_auth_identities`, create industry-specific people records, infer a Contact from a display name, or make channel candidate data authoritative. AI Craft responsibilities such as `designer`, `purchaser`, and `finance` are plugin-domain assignments, not Contact roles.
 
@@ -34,8 +34,8 @@ As an administrator or authorized plugin flow, I can resolve a Contact by a stab
 
 **Acceptance scenarios**:
 
-1. A resolution input requires `customer_uuid`, `channel`, and `external_subject`; a display name is never an identity key.
-2. The same `(tenant_uuid, channel, external_subject)` cannot bind to two Contacts.
+1. A resolution input requires `customer_uuid`, `channel_dictionary_item_uuid`, and `external_subject`; a display name is never an identity key.
+2. The same `(tenant_uuid, channel_dictionary_item_uuid, external_subject)` cannot bind to two Contacts.
 3. A channel identity found for a different Customer is not returned as a match for the requested Customer.
 4. Creating a regular or `temporary` Contact is a separate explicit command and writes structured `creation_intent=explicit_create` or `explicit_temporary` audit data.
 
@@ -79,6 +79,11 @@ As an AI Craft operator, I choose or explicitly create a Contact before creating
 
 ## Functional Requirements
 
+- **FR-000A**: Customer type MUST be `person|company`; omitted or empty type defaults to `person` on creation; create, get, list, Shopify identity resolution, and Framework DTOs MUST preserve it. Existing empty types are persisted as `person` within customer-write or verified-identity transactions, never during reads or migrations. Explicit company types are preserved.
+- **FR-000B**: New Customer, tenant membership, and one `primary` natural-person Contact MUST commit atomically. A person without an explicit `primary_contact` copies their name and available email/phone into that Contact. A company MUST provide an explicit natural-person `primary_contact`; company name must never be used as a person's name. Success MUST include `primary_contact_uuid`.
+- **FR-000C**: Repeating the same Shopify identity MUST return the same Customer and primary Contact without inserting another. For a Core-verified, plugin-attested `person` identity whose membership has no primary-contact pointer, identity resolution or login MUST atomically reuse its sole active Contact or create one if none exists. Multiple candidates and an explicit stale pointer MUST fail. Empty historical types default to person atomically. Customer profile writes use the same primary-contact invariant; company customers can reuse an existing sole active natural-person Contact, but cannot derive a person from a company name.
+- **FR-000D**: Contact MUST have typed `email` and `phone` fields. Historical data repair is a separate previewable operator action that requires explicit execution.
+
 - **FR-001**: Core MUST provide `Contact` and `ContactIdentity` as separate business objects from Customer and Customer authentication identities.
 - **FR-002**: Every Contact and ContactIdentity MUST have a stable UUID; all public, audit, event, relationship, and plugin references MUST use UUIDs.
 - **FR-003**: Every Contact and ContactIdentity query and write MUST be constrained by authenticated `tenant_uuid`, `customer_uuid`, and the applicable object UUID.
@@ -99,6 +104,8 @@ As an AI Craft operator, I choose or explicitly create a Contact before creating
 - **FR-018**: New AI Craft orders MUST persist `customer_uuid` and `primary_contact_uuid`; they MUST NOT write a legacy designer/person text field.
 - **FR-019**: Historical records without a confirmed Contact MUST be surfaced for manual remediation, not automatically backfilled from names, emails, or channel candidates.
 - **FR-020**: Contact creates, updates, identity bindings, and status changes MUST be transactionally audited with tenant, actor, request ID, Contact UUID, Customer UUID, and trace ID.
+- **FR-021**: `ContactIdentity.channel_dictionary_item_uuid` MUST reference an enabled DictionaryItem in the current tenant's `corex.customer.contact_identity_channel` namespace. Free-text channel values are not accepted by any Contact API or typed binding.
+- **FR-022**: Pre-dictionary identity rows without `channel_dictionary_item_uuid` MUST fail with `CONTACT_IDENTITY_CHANNEL_MIGRATION_REQUIRED`; Core MUST NOT infer a dictionary item from a legacy channel string.
 
 ## Key Entities
 
@@ -110,6 +117,16 @@ As an AI Craft operator, I choose or explicitly create a Contact before creating
 | AI Craft ContactAssignment | AI Craft-only responsibility such as designer, purchaser, or finance. |
 | AICraftChannelContact | AI Craft-only synchronized candidate source; never authoritative Contact data. |
 
+## Channel dictionary boundaries
+
+| Namespace | Purpose | Consumers | Must not be used as |
+| --- | --- | --- | --- |
+| `corex.customer.contact_identity_channel` | Stable external account type for one natural-person Contact. | Contact API and Contact UI. | Marketing attribution or MediaX publication platform selection. |
+| `corex.marketing.acquisition_channel` | Customer first-touch and campaign attribution category. | CRM and marketing plugins. | A ContactIdentity channel. |
+| `corex.marketing.content_distribution_channel` | Content publishing/distribution platform catalog. | MediaX Studio and marketing plugins. | Proof that a platform account belongs to a Contact. |
+
+MediaX Studio must consume the marketing namespaces through the metadata capability after installation. Its own provider/account records remain the source of authentication and publishability; a catalog item does not grant credentials or enable a provider.
+
 ## Error contract
 
 | Code | Meaning |
@@ -120,6 +137,8 @@ As an AI Craft operator, I choose or explicitly create a Contact before creating
 | `CONTACT_CUSTOMER_MEMBERSHIP_INACTIVE` | Customer has no active membership in authenticated tenant. |
 | `CONTACT_IDENTITY_NOT_FOUND` | Identity resolution did not find a binding. |
 | `CONTACT_IDENTITY_CONFLICT` | Channel identity is already bound in tenant scope. |
+| `CONTACT_CHANNEL_DICTIONARY_INVALID` | Channel dictionary item is absent, disabled, outside the tenant, or outside the Contact channel namespace. |
+| `CONTACT_IDENTITY_CHANNEL_MIGRATION_REQUIRED` | A historical identity lacks an explicit channel dictionary item mapping. |
 | `CONTACT_DELEGATE_UNAVAILABLE` | Delegated Core binding cannot serve the request. |
 | `CONTACT_CAPABILITY_FORBIDDEN` | Caller lacks the declared Contact capability or grant. |
 

@@ -673,6 +673,10 @@ func respondAIError(c *gin.Context, err error) {
 	if err == nil {
 		return
 	}
+	if errors.Is(err, aisvc.ErrInvalidLLMParams) {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
+		return
+	}
 	switch err {
 	case aisvc.ErrInvalidModelKey:
 		dto.ResponseError(c, http.StatusBadRequest, "invalid model_key", err)

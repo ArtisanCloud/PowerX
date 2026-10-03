@@ -19,6 +19,8 @@ type createContactRequest struct {
 	DisplayName    string   `json:"display_name" validate:"required,max=128"`
 	GivenName      string   `json:"given_name" validate:"omitempty,max=128"`
 	FamilyName     string   `json:"family_name" validate:"omitempty,max=128"`
+	Email          string   `json:"email" validate:"omitempty,email,max=255"`
+	Phone          string   `json:"phone" validate:"omitempty,max=32"`
 	Status         string   `json:"status" validate:"omitempty,oneof=active inactive temporary"`
 	Roles          []string `json:"roles"`
 	Tags           []string `json:"tags"`
@@ -29,14 +31,16 @@ type updateContactRequest struct {
 	DisplayName *string   `json:"display_name" validate:"omitempty,max=128"`
 	GivenName   *string   `json:"given_name" validate:"omitempty,max=128"`
 	FamilyName  *string   `json:"family_name" validate:"omitempty,max=128"`
+	Email       *string   `json:"email" validate:"omitempty,email,max=255"`
+	Phone       *string   `json:"phone" validate:"omitempty,max=32"`
 	Status      *string   `json:"status" validate:"omitempty,oneof=active inactive temporary"`
 	Roles       *[]string `json:"roles"`
 	Tags        *[]string `json:"tags"`
 }
 
 type resolveContactIdentityRequest struct {
-	Channel         string `json:"channel" validate:"required,max=64"`
-	ExternalSubject string `json:"external_subject" validate:"required,max=255"`
+	ChannelDictionaryItemUUID string `json:"channel_dictionary_item_uuid" validate:"required,uuid4"`
+	ExternalSubject           string `json:"external_subject" validate:"required,max=255"`
 }
 
 func (h *Handler) ListContacts(c *gin.Context) {
@@ -68,7 +72,7 @@ func (h *Handler) CreateContact(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	contact, err := h.contacts.Create(c.Request.Context(), customersvc.CreateContactInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), DisplayName: req.DisplayName, GivenName: req.GivenName, FamilyName: req.FamilyName, Status: req.Status, Roles: req.Roles, Tags: req.Tags, CreationIntent: req.CreationIntent})
+	contact, err := h.contacts.Create(c.Request.Context(), customersvc.CreateContactInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), DisplayName: req.DisplayName, GivenName: req.GivenName, FamilyName: req.FamilyName, Email: req.Email, Phone: req.Phone, Status: req.Status, Roles: req.Roles, Tags: req.Tags, CreationIntent: req.CreationIntent})
 	if err != nil {
 		respondContactError(c, err)
 		return
@@ -99,7 +103,7 @@ func (h *Handler) UpdateContact(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	contact, err := h.contacts.Update(c.Request.Context(), customersvc.UpdateContactInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), ContactUUID: c.Param("contact_uuid"), DisplayName: req.DisplayName, GivenName: req.GivenName, FamilyName: req.FamilyName, Status: req.Status, Roles: req.Roles, Tags: req.Tags})
+	contact, err := h.contacts.Update(c.Request.Context(), customersvc.UpdateContactInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), ContactUUID: c.Param("contact_uuid"), DisplayName: req.DisplayName, GivenName: req.GivenName, FamilyName: req.FamilyName, Email: req.Email, Phone: req.Phone, Status: req.Status, Roles: req.Roles, Tags: req.Tags})
 	if err != nil {
 		respondContactError(c, err)
 		return
@@ -117,7 +121,7 @@ func (h *Handler) ResolveContactIdentity(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	result, err := h.contacts.ResolveIdentity(c.Request.Context(), customersvc.ResolveContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), Channel: req.Channel, ExternalSubject: req.ExternalSubject})
+	result, err := h.contacts.ResolveIdentity(c.Request.Context(), customersvc.ResolveContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), ChannelDictionaryItemUUID: req.ChannelDictionaryItemUUID, ExternalSubject: req.ExternalSubject})
 	if err != nil {
 		respondContactError(c, err)
 		return
@@ -135,7 +139,7 @@ func (h *Handler) BindContactIdentity(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	identity, err := h.contacts.BindIdentity(c.Request.Context(), customersvc.BindContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), ContactUUID: c.Param("contact_uuid"), Channel: req.Channel, ExternalSubject: req.ExternalSubject})
+	identity, err := h.contacts.BindIdentity(c.Request.Context(), customersvc.BindContactIdentityInput{TenantUUID: tenantUUID, CustomerUUID: c.Param("customer_uuid"), ContactUUID: c.Param("contact_uuid"), ChannelDictionaryItemUUID: req.ChannelDictionaryItemUUID, ExternalSubject: req.ExternalSubject})
 	if err != nil {
 		respondContactError(c, err)
 		return
@@ -166,6 +170,10 @@ func respondContactError(c *gin.Context, err error) {
 		dto.ResponseError(c, http.StatusConflict, "contact.customer_mismatch", err)
 	case errors.Is(err, customersvc.ErrContactIdentityConflict):
 		dto.ResponseError(c, http.StatusConflict, "contact.identity_conflict", err)
+	case errors.Is(err, customersvc.ErrContactChannelDictionaryInvalid):
+		dto.ResponseError(c, http.StatusBadRequest, "contact.channel_dictionary_invalid", err)
+	case errors.Is(err, customersvc.ErrContactIdentityChannelMigrationRequired):
+		dto.ResponseError(c, http.StatusConflict, "contact.identity_channel_migration_required", err)
 	case errors.Is(err, customersvc.ErrContactCustomerMembershipInactive):
 		dto.ResponseError(c, http.StatusForbidden, "contact.customer_membership_inactive", err)
 	default:

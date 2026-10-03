@@ -21,6 +21,8 @@ Workflow、Skill 和预绑定 Tool 仍是优先的业务黄金路径；它们不
 | 任务检测和计划 | `backend/internal/server/agent/runtime/engine.go` 的 `detectTasks`、`BuildPlan` | 已有一次性 Planner；有营销复盘确定性路由，通用路径仍为单次检测。 |
 | 候选安全过滤 | `backend/internal/server/agent/manager_tool_calling.go` 的 `CandidateBuildContext`、`isCandidateAllowed` | 已按 tenant、Agent binding、source、grant 过滤；它是**执行候选过滤器**，不是资源发现服务。 |
 | DAG 执行 | `backend/internal/server/agent/manager_execute.go` 的 `ExecutePlanWithHooks` | 已支持 stage 并发、依赖、`retry-once`、`continue`、节点 Trace；最终只返回最后一个阶段结果，不能表达整轮业务 Outcome。 |
+| Run 调度与模型容量 | `manager_execute.go`、`runtime/execution_budget.go`、`ai/factory/llm/concurrency.go` | 当前执行/限流在进程内；stage 并发与共享模型实际槽位没有统一调度，排队、请求和整轮时限未独立治理。 |
+| 运行态存储 | `agent_plan_runs`、`agent_task_events`、`agent_run_task_states`、消息 meta；Event Fabric Redis TaskQueue | 已有局部落库和 Redis 队列基础设施，但 DB 事件通道可丢事件，Redis 驱动未声明租约/消费组；均不是可恢复 Agent Run 的权威存储。 |
 | 状态恢复 | `agent_session_skill_states`、`SkillStateService`、`runtime/skill_state.go` | 已有持久化、状态 version、等待参数恢复和 Chat 注入；当前仍有 Runtime 侧的参数合并/确认文本判断。 |
 | 结果契约 | `runtime/engine.go` 的 response envelope 校验和 Evidence Ledger | 已能拒绝不合格最终答复；尚未按 Capability 合同验证“业务动作是否真正完成”。 |
 | 可观测性 | `agent_run.*`、Trace Node、Plan/Task Event | 已有运行过程；尚无 observation、verification、recovery decision 与 plan revision 的一等事件。 |
@@ -49,7 +51,7 @@ Run 只能以 `completed`、`partial`、`needs_input`、`blocked`、`failed`、`
 
 ## 4. 目标合同与数据模型
 
-以下合同先以 Go 类型和内部持久化模型落地，再由 Admin/Plugin API 公开所需只读字段；不得先让前端或模型猜测自由 JSON。
+以下合同先以 Go 类型和按数据职责划分的持久化模型落地，再由 Admin/Plugin API 公开所需只读字段；不得先让前端或模型猜测自由 JSON。活动 Run/Task/事件及租约以 Redis 为权威；下表已有的 PostgreSQL Snapshot/Observation/Verification 表是低频治理与证据记录，不作为任务排队、心跳或进度主存储。
 
 | 合同 | 核心字段 | 初始落点 |
 | --- | --- | --- |
@@ -75,6 +77,20 @@ Run 只能以 `completed`、`partial`、`needs_input`、`blocked`、`failed`、`
 5. 删除 Runtime 中与具体业务对象绑定的参数猜测和确认词表，迁入 Skill 的结构化 `state_patch`、`missing_fields`、`confirmation` 合同。缺少结构化值时明确 `needs_input`。
 
 验收：部分成功、缺参数、权限拒绝、契约拒绝、超时和取消在 Run State、Trace、History 与最终回复中的 Outcome 一致。
+
+### P0.5：建立 Redis 权威运行态与可恢复调度
+
+目标：同一消息内的独立任务可并行就绪，按真实资源容量领取；跨连接、跨进程、跨实例可追踪和恢复。完整状态机、存储分工及故障规则见 [持久化调度与模型容量设计](./agent_runtime_durable_scheduling.md)。
+
+1. 定义 `AgentRunStore`、`AgentWorkQueue`、`WorkerLease`、`ResourcePool` 与 `RunEventJournal` 的强类型合同。生产默认驱动为 Redis；启动校验 AOF、非驱逐策略与健康状态，部署门禁检查容量、复制/备份和恢复演练，不允许静默回退内存或 PostgreSQL。
+2. 将受理与执行分离：提交创建 `run_id` 和初始事件，任务由调度器和 Worker 执行；SSE/WS 只订阅状态，断线按 `event_seq` 续订。历史 API 读取 Redis 快照或已归档报告。
+3. 扩展 Event Fabric TaskQueue 的消费组、可续租、过期重领、fencing、死信、延迟重试和幂等去重能力；Agent 使用统一基础设施，不直接复用当前无租约驱动，也不维护私有队列。
+4. 将 stage/依赖计划编译成就绪任务；显式限制 Run/租户/服务实例的并发，模型池按共享 endpoint/model/deployment 实际槽位调度。队列等待时不占用单次模型请求时限。
+5. 分离 `queue_wait_timeout`、`request_timeout`、`run_deadline` 和租约 TTL；停止按任务波数直接推导整轮硬期限。重试、取消、部分结果和副作用幂等必须保留可恢复证据。
+6. Redis 中只写状态转换/检查点，模型 token 不写权威事件流；大 payload 和长期 Trace 归档对象存储，Session/SkillState/业务审计保留原权威服务。定义归档失败背压和完成态保留策略。
+7. 在 Web Admin/Framework 共用 Run State 协议中加入排队、领取、验证、重试及原因码；同一 Run 的任务留在一张消息执行卡片，Trace 显示排队/执行耗时与每次尝试。
+
+验收：单槽 Ollama 同一消息双任务、不同资源并行、两 Core 多 Worker、公平配额、重领/重复投递、浏览器断线、Redis 故障切换、对象存储归档、AOF 恢复和无幂等副作用保护全部通过；不能以单进程单元测试或 HTTP 200 代替。
 
 ### P1：建立 Resource Observation Plane
 
@@ -125,25 +141,27 @@ Run 只能以 `completed`、`partial`、`needs_input`、`blocked`、`failed`、`
 
 ```text
 P0 Outcome/Report
-  -> P1 Snapshot + Observation
-    -> P2 Controller + Revision + Budget
-      -> P3 Capability Verification Contract
-        -> P4 Offline Evaluation and Human-approved Evolution
+  -> P0.5 Redis Run Store + Queue/Worker + Resource Pool
+    -> P1 Snapshot + Observation
+      -> P2 Controller + Revision + Budget
+        -> P3 Capability Verification Contract
+          -> P4 Offline Evaluation and Human-approved Evolution
 ```
 
-P0 可以立即开始，且应先于营销 Skill 的继续扩展；P1/P2 是让 Agent 从“固定候选调用器”变成“受控业务 Agent”的最小架构拐点。P3 不等待所有资源接入，但任何新写能力必须在上线前具备验证合同。
+P0 可以立即开始，且应先于营销 Skill 的继续扩展；P0.5 解决长任务执行与容量瓶颈，不能被“把模型并发数改为 1”替代。P1/P2 是让 Agent 从“固定候选调用器”变成“受控业务 Agent”的最小架构拐点。P3 不等待所有资源接入，但任何新写能力必须在上线前具备验证合同。
 
 ## 7. 测试与上线门槛
 
 每个阶段都要新增单元、集成和端到端运行追踪测试：
 
 1. P0：DAG 部分失败、继续策略、超时、取消、等待参数、原始错误不泄漏。
-2. P1：tenant/ACL/字段分级隔离、discovery/read/invocation grant 分离、快照一致性、Artifact 脱敏。
-3. P2：预算耗尽、有限重试、替代能力、Plan Revision 可回放、循环终止性。
-4. P3：每类 Capability 的验证通过/失败、审批阻断、无真实副作用证据不得 completed。
-5. P4：离线评测阈值、审批、灰度、回滚和版本比较。
+2. P0.5：Redis 权威状态/队列、任务池和模型池、三类时限、事件续订、跨实例恢复、幂等副作用与真实单槽模型负载。
+3. P1：tenant/ACL/字段分级隔离、discovery/read/invocation grant 分离、快照一致性、Artifact 脱敏。
+4. P2：预算耗尽、有限重试、替代能力、Plan Revision 可回放、循环终止性。
+5. P3：每类 Capability 的验证通过/失败、审批阻断、无真实副作用证据不得 completed。
+6. P4：离线评测阈值、审批、灰度、回滚和版本比较。
 
-上线看板至少包含：`verified_completion_rate`、`partial_rate`、`needs_input_rate`、`recovery_success_rate`、`budget_exhausted_rate`、`raw_internal_error_exposure_rate`、越权发现/调用拒绝率和回归失败率。
+上线看板至少包含：`verified_completion_rate`、`partial_rate`、`needs_input_rate`、`recovery_success_rate`、`budget_exhausted_rate`、`raw_internal_error_exposure_rate`、越权发现/调用拒绝率、排队 P95/P99、租约回收率、资源池利用率、归档积压和回归失败率。
 
 ## 8. 首个实施切片
 

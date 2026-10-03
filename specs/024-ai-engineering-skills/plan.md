@@ -31,7 +31,7 @@
 **Plugin Registry Storage**: PowerX 底座保存插件 Registry 来源映射与同步审计（`provider_plugin_id/plugin_agent_id/plugin_skill_id -> powerx_agent_uuid/powerx_skill_id`）；PowerXPlugin 插件侧保存开发态插件记录，二者通过同步 API 对齐。
 **Agent Trace Storage**: Local File（`backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}`）+ Loki（生产日志源，可选）  
 **Agent Context Storage**: Runtime Memory 仅保存本轮过程态；PostgreSQL 是 session/message/message meta/registry/binding/model policy/context_ref 权威源；Redis 只作为短 TTL planner/response_plan/candidate/recent-meta 缓存；Local File/Loki 保存 Trace artifact。  
-**Agent Run State Storage**: SSE/WS 只负责实时 `agent_run.*` 事件；PostgreSQL 保存可恢复的 run state snapshot 与 message meta；Local File/Loki 保存完整 trace/report artifact；Redis 不作为历史权威。  
+**Agent Run State Storage**: 当前实现以 PostgreSQL 快照/message meta 和 Local File/Loki trace 恢复；目标实现见 [`031` 持久化调度规格](../031-agent-runtime-durable-scheduling/spec.md)：Redis 为活动 Run/事件权威，对象存储为归档权威，PostgreSQL 仅保留 Session/Message 和低频受理/归档引用；SSE/WS 仅作订阅。此目标尚未实现。
 **Testing**: Go `go test`（unit/integration/contract）、OpenAPI/Proto 合约校验、web-admin 端 Vitest/Playwright 冒烟  
 **Target Platform**: Linux server + modern browsers  
 **Project Type**: CoreX backend module + web-admin management feature  
@@ -258,6 +258,10 @@ Reference: [`docs/plan/ai_engineering/agent/agent_run_state_protocol.md`](../../
 7. **A2A 映射**：A2A `agent_handoff` 仍是多智能体调度能力，但必须映射为 `agent_run.task_status` 让用户看见子 Agent 节点状态。
 8. **Run/Task 边界**：`agent_run.final/ended` 只代表本轮回复流程结束，不代表业务任务完成；UI 只能依据 `agent_run.task_completed` 或 task snapshot `status=completed + result/links` 展示任务完成。
 9. **持久化一致性**：`agent_run.final`、assistant message meta、历史快照与 Trace Report 必须保存同一最终答复 envelope；刷新页面后不得丢失结构化区块或退回原始 Skill 文本。
+
+## Phase 24 – 持久化调度与共享资源容量（待实施）
+
+目标规格、数据模型、实施顺序和验收门槛统一见 [`specs/031-agent-runtime-durable-scheduling`](../031-agent-runtime-durable-scheduling/spec.md)。Phase 22 已交付的是 UI 状态协议和当前快照，不代表 Redis RunStore、带租约的 Worker、共享模型池、跨实例恢复或归档已经完成。现有 SSE 执行入口需迁移为提交 Run 后订阅；同一消息的串行/并行任务仍归属于一个 Run。
 
 ## Implementation Backwrite (2026-03-19)
 

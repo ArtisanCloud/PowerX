@@ -7,6 +7,7 @@
     "AGENT_SESSION_CONFLICT": "会话状态或重复请求发生冲突，请检查当前状态。",
     "AGENT_SESSION_IDEMPOTENCY_EXPIRED": "请求幂等键已过期，请确认执行结果后使用新键。",
     "AGENT_SESSION_CONTEXT_EXPIRED": "会话待处理状态已过期，请创建新会话后重新提交。",
+    "AGENT_SESSION_EVENT_CURSOR_EXPIRED": "会话事件恢复游标已过期，请重新查询调用状态。",
     "AGENT_SESSION_UPSTREAM_DEPENDENCY": "会话服务依赖暂时不可用。"
   },
   "en-US": {
@@ -17,6 +18,7 @@
     "AGENT_SESSION_CONFLICT": "The session state or repeated request conflicts with the current operation.",
     "AGENT_SESSION_IDEMPOTENCY_EXPIRED": "The idempotency key has expired. Check the execution outcome before using a new key.",
     "AGENT_SESSION_CONTEXT_EXPIRED": "The pending session state has expired. Create a new session before resubmitting.",
+    "AGENT_SESSION_EVENT_CURSOR_EXPIRED": "The session event recovery cursor has expired. Query the invocation status again.",
     "AGENT_SESSION_UPSTREAM_DEPENDENCY": "A session service dependency is unavailable."
   }
 }

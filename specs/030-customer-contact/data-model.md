@@ -24,13 +24,13 @@ Indexes: `tenant_uuid + customer_uuid + status`, `tenant_uuid + customer_uuid + 
 | --- | --- |
 | `uuid` | Stable identity UUID; auditable/addressable object. |
 | `tenant_uuid` / `customer_uuid` / `contact_uuid` | Required triple ownership fields. |
-| `channel` | Controlled machine identifier such as `email`, `wecom`, or `shopify`. |
-| `external_subject` | Required stable external ID, normalized by declared channel contract. |
+| `channel_dictionary_item_uuid` | UUID of an enabled DictionaryItem in tenant namespace `corex.customer.contact_identity_channel`; never a free-text channel code. |
+| `external_subject` | Required stable external ID supplied by the selected channel contract. |
 | `status` | `active` or `inactive`. |
 | `verified_at` | Optional channel verification timestamp. |
 | `metadata` | Channel metadata without secrets or credential material. |
 
-Unique active binding: `(tenant_uuid, channel, external_subject)`. The identity write transaction loads the Contact under `(tenant_uuid, customer_uuid, contact_uuid)` before persisting.
+Unique active binding: `(tenant_uuid, channel_dictionary_item_uuid, external_subject)`. The identity write transaction validates the dictionary item and loads the Contact under `(tenant_uuid, customer_uuid, contact_uuid)` before persisting. Historical rows missing the dictionary item UUID are migration errors and are not interpreted from legacy values.
 
 ## Deliberate separation
 

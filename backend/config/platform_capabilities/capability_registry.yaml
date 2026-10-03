@@ -68,3 +68,24 @@ capabilities:
   description_i18n:
     en: Read only the effective grants of the service credential making this request.
     zh-CN: 仅查询当前服务凭证自身的实际能力授权状态。
+- capability_id: com.corex.capabilities.version_upgrade.confirm
+  module: capability_registry
+  title: Confirm Capability Version Upgrade
+  description: Allow a human tenant administrator to approve the current published capability hash with durable audit before applying the runtime version lock.
+  permission_code: corex.capabilities.version_upgrade:confirm
+  agent_usable: false
+  risk_level: high
+  categories: [capability, governance]
+  intents: [capabilities.version_upgrade.confirm]
+  tool_scopes: [capabilities.version_upgrade.confirm]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/admin/capability-registry/capabilities/:capabilityId/tenants/:tenant_uuid/upgrade
+    method: POST
+    auth_type: jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  title_i18n: {en: Confirm Capability Version Upgrade, zh-CN: 确认能力版本升级}
+  description_i18n: {en: Approve the published capability version with administrator authorization and audit., zh-CN: 管理员确认已发布的能力版本并记录审计。}

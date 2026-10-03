@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
+	agentconfig "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
@@ -13,6 +14,7 @@ import (
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -50,6 +52,7 @@ func TestSchedulerCompletionVerifierReadsBackTenantJob(t *testing.T) {
 }
 
 func TestRunApprovedResumeExecutesSchedulerAndPersistsVerifiedCompletion(t *testing.T) {
+	agentconfig.SetGlobalAIConfig(&agentconfig.AIConfig{Defaults: agentconfig.AIDefaults{LLM: agentconfig.LLMDefaults{RequestTimeout: 5 * time.Minute}}, Runtime: agentconfig.AIRuntime{MaxPlanRevisions: 2, MaxObservations: 4, MaxSteps: 16, MaxCapabilityCalls: 8, MaxConcurrentTasks: 4}})
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)
@@ -119,4 +122,60 @@ func TestRunApprovedResumeExecutesSchedulerAndPersistsVerifiedCompletion(t *test
 	require.Equal(t, "[\"create_scheduler_job\"]", string(taskEvidence.TaskRefs))
 	require.Equal(t, persisted.ArtifactRef, taskEvidence.ArtifactRef)
 	require.Contains(t, sink.events, "final")
+}
+
+func TestRunResolvedPlanExecutesInitialRevisionWithoutObservations(t *testing.T) {
+	agentconfig.SetGlobalAIConfig(&agentconfig.AIConfig{Defaults: agentconfig.AIDefaults{LLM: agentconfig.LLMDefaults{RequestTimeout: 5 * time.Minute}}, Runtime: agentconfig.AIRuntime{MaxPlanRevisions: 2, MaxObservations: 4, MaxSteps: 16, MaxCapabilityCalls: 8, MaxConcurrentTasks: 4}})
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)
+	require.NoError(t, db.Exec(`CREATE TABLE public.agent_plan_revisions (
+ id integer primary key, uuid text, created_at datetime, updated_at datetime, deleted_at datetime,
+ env text, tenant_uuid text, run_uuid text, snapshot_uuid text, parent_revision_uuid text, reason_code text,
+ plan json, trigger_observation_uuids json, superseded_task_refs json, new_task_refs json,
+ plan_revisions_consumed integer, observations_consumed integer
+)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE public.agent_verification_evidences (
+ id integer primary key, uuid text, created_at datetime, updated_at datetime, deleted_at datetime,
+ env text, tenant_uuid text, run_uuid text, snapshot_uuid text, task_refs json, verdict_class text,
+ reason_code text, user_action text, required_input_fields json, required_permission_codes json, artifact_ref text
+)`).Error)
+
+	tenantUUID, runUUID := uuid.NewString(), uuid.New()
+	snapshot, err := NewResourceSnapshot(tenantUUID, uuid.New(), nil, time.Now())
+	require.NoError(t, err)
+	ctx := reqctx.WithTenantUUID(context.Background(), tenantUUID)
+	ctx = reqctx.WithEnv(ctx, "test")
+	ctx = ContextWithResourceSnapshot(ctx, snapshot)
+	ctx = ContextWithPlanRevisionService(ctx, NewPlanRevisionService(db))
+	ctx = ContextWithVerificationEvidenceService(ctx, NewVerificationEvidenceService(db))
+	ctx = context.WithValue(ctx, "runtime_run_uuid", runUUID.String())
+
+	mgr := agent.NewAgentManager()
+	mgr.SetSkillInvoker(func(callCtx context.Context, in agent.SkillInvokeInput) (*agent.SkillInvokeOutput, error) {
+		envelope, compileErr := evidence.Compile(callCtx, evidence.Draft{
+			Schema: evidence.DraftSchema, Kind: "analysis", Data: []evidence.DraftDatum{}, Calculations: []evidence.Calculation{}, Hypotheses: []string{}, Gaps: []string{"no_observation_needed"}, Actions: []string{},
+		}, map[string]any{}, nil, tenantUUID, runUUID.String(), "initial-plan-skill-trace")
+		if compileErr != nil {
+			return nil, compileErr
+		}
+		return &agent.SkillInvokeOutput{
+			TraceID: "initial-plan-skill-trace", Status: "completed", ProtocolUsed: "skill", SkillID: in.SkillID,
+			Result: map[string]any{"response_envelope": envelope},
+		}, nil
+	})
+	engine := &Engine{mgr: mgr}
+	plan := &flowschema.ExecutionPlan{PlanID: "initial_no_observation", Tasks: []flowschema.PlanTask{{
+		TaskID: "summarize", NodeKind: "skill", NodeRef: "marketing.review_summarize",
+	}}}
+	sink := &captureSink{}
+
+	out, err := engine.runResolvedPlan(ctx, plan, sink, nil)
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.Contains(t, sink.events, dto.EventFinal)
+	require.Contains(t, sink.events, dto.EventEnd)
+	var revisionCount int64
+	require.NoError(t, db.Table("public.agent_plan_revisions").Where("run_uuid = ?", runUUID.String()).Count(&revisionCount).Error)
+	require.Equal(t, int64(1), revisionCount)
 }

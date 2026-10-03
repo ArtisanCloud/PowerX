@@ -33,6 +33,7 @@
 6. **敏感数据可控**：prompt、上下文、tool payload、executor response 必须支持摘要、脱敏和 artifact 分级保存。
 7. **不替代业务审计**：Agent Trace 记录执行细节；Skill/Capability/Audit 仍保留治理审计职责，两者通过 `trace_id/run_id/node_id` 关联。
 8. **恢复可解释**：目标 Runtime 的资源观察、验证、恢复与 Plan Revision 必须记录为结构化节点；完整目标与实施状态见 [`agent_runtime_loop_design.md`](./agent_runtime_loop_design.md)，不得将目标节点误写成当前已经全量实现。
+9. **状态与追踪分离**：目标架构中活动 Run/Task 的状态、租约和事件序号以 Redis AgentRunStore 为权威；Trace 是结构化诊断副本，不能凭本地日志、Loki 或 HTTP 200 推断任务完成。终态报告归档对象存储，规则见 [持久化调度设计](./agent_runtime_durable_scheduling.md)。
 
 ## 3. 本地目录规范
 
@@ -124,6 +125,8 @@ Agent Runtime 至少需要覆盖以下节点：
 11. `llm_call`：调用模型并记录 token 与 cache 指标。
 12. `final_response`：生成最终回复。
 13. `history_persist`：会话消息与摘要持久化。
+
+持久化调度接入后，Trace 还须记录 `task_queued`、`worker_leased`、`resource_wait`、`invocation_started/ended`、`lease_reclaimed`、`retry_scheduled`、`archive_completed/failed`。每条事件至少能关联 `run_id/task_id/attempt/event_seq/pool_id`，并区分 `queue_wait_ms`、`execution_ms`、请求超时与整轮预算耗尽；租约回收和重复投递不能在报告中伪装成新的用户消息。
 
 ### 5.1 目标 Loop 节点扩展
 

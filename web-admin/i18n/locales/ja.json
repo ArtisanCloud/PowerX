@@ -26,7 +26,10 @@
     "reload": "再読み込み",
     "scrollToBottom": "一番下へ",
     "newMessages": "新着 {count} 件",
-    "unknown": "不明"
+    "unknown": "不明",
+    "contactChannelDictionaryUnavailable": "連絡先チャネル辞書を利用できません。先にメタデータ管理で有効化してください。",
+    "contactChannelAccount": "チャネルアカウントの所属",
+    "contactChannelRelationship": "チャネルアカウントは外部システム上のアカウントであり、別の連絡先ではありません。現在の紐付きを確認してから、連絡先 {name} のものと確認できた場合にのみ明示的に紐付けます。"
   },
   "user": {
     "admin": "管理者"
@@ -867,12 +870,18 @@
         "allSources": "すべての作成元",
         "allStatuses": "すべての状態"
       },
-      "quickCreate": {
-        "name": "新規エージェント-{suffix}",
-        "description": "エージェント管理で設定を完了してください",
-        "success": "作成しました",
-        "successDescription": "デフォルトエージェントを作成しました",
-        "failed": "作成に失敗しました"
+      "createForm": {
+        "keyInvalid": "システムキーは英数字、ピリオド、アンダースコア、ハイフンの1～64文字にしてください",
+        "promptSeedHelp": "下書きでは空欄にできます。有効化する前に主指示を入力してください。",
+        "title": "エージェントを作成",
+        "description": "内容を確認してから保存します。下書きは後で設定できます。",
+        "systemKey": "システムキー",
+        "systemKeyHelp": "作成後は変更できません。英数字、ピリオド、アンダースコア、ハイフンを使用してください。",
+        "systemKeyPlaceholder": "例: marketing.content_assistant",
+        "keyRequired": "システムキーは必須です",
+        "promptRequired": "有効化する前にシステムプロンプトを入力してください",
+        "created": "エージェントを作成しました",
+        "createFailed": "作成に失敗しました"
       },
       "edit": {
         "title": "エージェントを編集",
@@ -1352,6 +1361,11 @@
       "sections": {
         "general": "基本設定",
         "parameters": "パラメーター"
+      },
+      "modelConcurrency": {
+        "label": "モデルリクエスト同時実行上限",
+        "placeholder": "例: 2",
+        "hint": "テナント、Provider、モデルごとに分離されます。ローカル Ollama は推論能力に合わせてください。"
       },
       "actions": {
         "openCostGuard": "コスト防御",

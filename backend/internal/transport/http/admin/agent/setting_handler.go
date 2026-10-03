@@ -105,10 +105,11 @@ type baseConn struct {
 }
 type modLLM struct {
 	baseConn
-	Temperature float64 `json:"temperature"`
-	MaxTokens   int     `json:"maxTokens"`
-	TopP        float64 `json:"topP"`
-	Stream      bool    `json:"stream"`
+	Temperature           float64 `json:"temperature"`
+	MaxTokens             int     `json:"maxTokens"`
+	TopP                  float64 `json:"topP"`
+	Stream                bool    `json:"stream"`
+	MaxConcurrentRequests int     `json:"maxConcurrentRequests" validate:"omitempty,min=1,max=1024"`
 }
 
 type modImage struct {
@@ -1098,10 +1099,11 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 			Provider:   req.LLM.Provider,
 			Model:      req.LLM.Model,
 			Defaults: datatypes.JSONMap{
-				"temperature": req.LLM.Temperature,
-				"maxTokens":   req.LLM.MaxTokens,
-				"topP":        req.LLM.TopP,
-				"stream":      req.LLM.Stream,
+				"temperature":             req.LLM.Temperature,
+				"maxTokens":               req.LLM.MaxTokens,
+				"topP":                    req.LLM.TopP,
+				"stream":                  req.LLM.Stream,
+				"max_concurrent_requests": req.LLM.MaxConcurrentRequests,
 			},
 			Tags: []string{"llm"},
 		}

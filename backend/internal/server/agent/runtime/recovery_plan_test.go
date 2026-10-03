@@ -77,7 +77,7 @@ func TestSemanticReplacementPlanPersistsTypedObservation(t *testing.T) {
 	}, time.Now())
 	require.NoError(t, err)
 	plan := flowschema.ExecutionPlan{PlanID: "plan_0", Tasks: []flowschema.PlanTask{{TaskID: "invoke", NodeKind: "tooling", NodeRef: "cap.primary", Params: map[string]any{"capability_uuid": primaryUUID.String()}}}}
-	controller, err := NewPlanController(snapshot, RuntimeBudget{MaxObservations: 1, MaxPlanRevisions: 1}, plan)
+	controller, err := NewPlanController(snapshot, &RuntimeBudget{MaxObservations: 1, MaxPlanRevisions: 1}, plan)
 	require.NoError(t, err)
 	observationSvc := NewObservationService(db)
 	require.NoError(t, observationSvc.RegisterReader(ResourceKindCapability, CapabilityMetadataReader{}))

@@ -17,6 +17,11 @@ const (
 )
 
 const (
+	AccountTypePerson  = "person"
+	AccountTypeCompany = "company"
+)
+
+const (
 	ContactStatusActive    = "active"
 	ContactStatusInactive  = "inactive"
 	ContactStatusTemporary = "temporary"
@@ -31,6 +36,8 @@ const (
 type Account struct {
 	coremodel.PowerUUIDModel
 
+	// Existing rows remain unclassified until an explicit, reviewed repair.
+	Type         string         `gorm:"column:type;type:varchar(16);index" json:"type"`
 	Status       string         `gorm:"column:status;type:varchar(32);not null;default:'active';index" json:"status"`
 	PrimaryEmail string         `gorm:"column:primary_email;type:varchar(255);index" json:"primary_email,omitempty"`
 	PrimaryPhone string         `gorm:"column:primary_phone;type:varchar(32);index" json:"primary_phone,omitempty"`
@@ -69,14 +76,16 @@ func (AuthIdentity) TableName() string {
 type TenantMembership struct {
 	coremodel.PowerUUIDModel
 
-	TenantUUID   string         `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_customer_tenant_membership,priority:1;index:idx_customer_membership_tenant_status,priority:1" json:"tenant_uuid"`
-	CustomerUUID string         `gorm:"column:customer_uuid;type:uuid;not null;uniqueIndex:uk_customer_tenant_membership,priority:2;index" json:"customer_uuid"`
-	Status       string         `gorm:"column:status;type:varchar(32);not null;default:'active';index:idx_customer_membership_tenant_status,priority:2" json:"status"`
-	Roles        datatypes.JSON `gorm:"column:roles;type:jsonb;default:'[]'::jsonb" json:"roles,omitempty"`
-	Scopes       datatypes.JSON `gorm:"column:scopes;type:jsonb;default:'[]'::jsonb" json:"scopes,omitempty"`
-	Source       string         `gorm:"column:source;type:varchar(32);not null;default:'platform';index" json:"source"`
-	ExpiresAt    *time.Time     `gorm:"column:expires_at;index" json:"expires_at,omitempty"`
-	Metadata     datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'::jsonb" json:"metadata,omitempty"`
+	TenantUUID   string `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_customer_tenant_membership,priority:1;index:idx_customer_membership_tenant_status,priority:1" json:"tenant_uuid"`
+	CustomerUUID string `gorm:"column:customer_uuid;type:uuid;not null;uniqueIndex:uk_customer_tenant_membership,priority:2;index" json:"customer_uuid"`
+	// 创建事务先写成员关系，再创建 Contact；未绑定时省略该列，保存 SQL NULL。
+	PrimaryContactUUID string         `gorm:"column:primary_contact_uuid;type:uuid;default:null;index" json:"primary_contact_uuid,omitempty"`
+	Status             string         `gorm:"column:status;type:varchar(32);not null;default:'active';index:idx_customer_membership_tenant_status,priority:2" json:"status"`
+	Roles              datatypes.JSON `gorm:"column:roles;type:jsonb;default:'[]'::jsonb" json:"roles,omitempty"`
+	Scopes             datatypes.JSON `gorm:"column:scopes;type:jsonb;default:'[]'::jsonb" json:"scopes,omitempty"`
+	Source             string         `gorm:"column:source;type:varchar(32);not null;default:'platform';index" json:"source"`
+	ExpiresAt          *time.Time     `gorm:"column:expires_at;index" json:"expires_at,omitempty"`
+	Metadata           datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'::jsonb" json:"metadata,omitempty"`
 }
 
 func (TenantMembership) TableName() string {
@@ -158,6 +167,8 @@ type Contact struct {
 	DisplayName  string         `gorm:"column:display_name;type:varchar(128);not null;index" json:"display_name"`
 	GivenName    string         `gorm:"column:given_name;type:varchar(128)" json:"given_name,omitempty"`
 	FamilyName   string         `gorm:"column:family_name;type:varchar(128)" json:"family_name,omitempty"`
+	Email        string         `gorm:"column:email;type:varchar(255);index" json:"email,omitempty"`
+	Phone        string         `gorm:"column:phone;type:varchar(32);index" json:"phone,omitempty"`
 	Status       string         `gorm:"column:status;type:varchar(32);not null;default:'active';index:idx_customer_contact_tenant_customer_status,priority:3" json:"status"`
 	Roles        datatypes.JSON `gorm:"column:roles;type:jsonb;not null;default:'[]'::jsonb" json:"roles"`
 	Tags         datatypes.JSON `gorm:"column:tags;type:jsonb;not null;default:'[]'::jsonb" json:"tags"`
@@ -174,14 +185,18 @@ func (Contact) TableName() string {
 type ContactIdentity struct {
 	coremodel.PowerUUIDModel
 
-	TenantUUID      string         `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_customer_contact_identity_subject,priority:1;index:idx_customer_contact_identity_contact,priority:1" json:"tenant_uuid"`
-	CustomerUUID    string         `gorm:"column:customer_uuid;type:uuid;not null;index:idx_customer_contact_identity_contact,priority:2" json:"customer_uuid"`
-	ContactUUID     string         `gorm:"column:contact_uuid;type:uuid;not null;index:idx_customer_contact_identity_contact,priority:3" json:"contact_uuid"`
-	Channel         string         `gorm:"column:channel;type:varchar(64);not null;uniqueIndex:uk_customer_contact_identity_subject,priority:2" json:"channel"`
-	ExternalSubject string         `gorm:"column:external_subject;type:varchar(255);not null;uniqueIndex:uk_customer_contact_identity_subject,priority:3" json:"external_subject"`
-	Status          string         `gorm:"column:status;type:varchar(32);not null;default:'active';index" json:"status"`
-	VerifiedAt      *time.Time     `gorm:"column:verified_at" json:"verified_at,omitempty"`
-	Metadata        datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'::jsonb" json:"metadata,omitempty"`
+	TenantUUID   string `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_customer_contact_identity_subject_v2,priority:1;index:idx_customer_contact_identity_contact,priority:1" json:"tenant_uuid"`
+	CustomerUUID string `gorm:"column:customer_uuid;type:uuid;not null;index:idx_customer_contact_identity_contact,priority:2" json:"customer_uuid"`
+	ContactUUID  string `gorm:"column:contact_uuid;type:uuid;not null;index:idx_customer_contact_identity_contact,priority:3" json:"contact_uuid"`
+	// ChannelDictionaryItemUUID references the tenant's enabled
+	// corex.customer.contact_identity_channel dictionary item. The migration
+	// adds it before enforcing NOT NULL so legacy rows can be explicitly mapped;
+	// service code never reads or accepts an empty value.
+	ChannelDictionaryItemUUID string         `gorm:"column:channel_dictionary_item_uuid;type:uuid;uniqueIndex:uk_customer_contact_identity_subject_v2,priority:2;index" json:"channel_dictionary_item_uuid"`
+	ExternalSubject           string         `gorm:"column:external_subject;type:varchar(255);not null;uniqueIndex:uk_customer_contact_identity_subject_v2,priority:3" json:"external_subject"`
+	Status                    string         `gorm:"column:status;type:varchar(32);not null;default:'active';index" json:"status"`
+	VerifiedAt                *time.Time     `gorm:"column:verified_at" json:"verified_at,omitempty"`
+	Metadata                  datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'::jsonb" json:"metadata,omitempty"`
 }
 
 func (ContactIdentity) TableName() string {

@@ -95,6 +95,7 @@ type ResourceSnapshot struct {
 	TenantUUID   string               `json:"tenant_uuid"`
 	AgentUUID    uuid.UUID            `json:"agent_uuid"`
 	CreatedAt    time.Time            `json:"created_at"`
+	ExpiresAt    time.Time            `json:"expires_at,omitempty"`
 	Resources    []ResourceDescriptor `json:"resources"`
 	byUUID       map[uuid.UUID]ResourceDescriptor
 }

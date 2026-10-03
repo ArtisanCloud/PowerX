@@ -272,6 +272,11 @@ type AgentRunStateSnapshot struct {
 }
 
 type AgentTaskStateItem struct {
+	PlanRevision    uint64           `json:"plan_revision,omitempty"`
+	Attempt         uint64           `json:"attempt,omitempty"`
+	PoolID          string           `json:"pool_id,omitempty"`
+	ReasonCode      string           `json:"reason_code,omitempty"`
+	QueueWaitMS     int64            `json:"queue_wait_ms,omitempty"`
 	RunID           string           `json:"run_id,omitempty"`
 	SessionID       string           `json:"session_id,omitempty"`
 	MessageID       string           `json:"message_id,omitempty"`

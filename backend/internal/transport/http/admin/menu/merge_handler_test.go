@@ -316,6 +316,41 @@ func TestPluginSystemMenuChildrenUseDistinctPaths(t *testing.T) {
 	}
 }
 
+func TestPluginMarketplaceHasOwnMenuCategory(t *testing.T) {
+	var plugins admdto.AdminMenuItem
+	for _, item := range BuildSystemMenus() {
+		if item.Key == plugin_mgr.KeyPlugins {
+			plugins = item
+			break
+		}
+	}
+	if plugins.Key != plugin_mgr.KeyPlugins {
+		t.Fatal("plugin marketplace system menu is missing")
+	}
+	settings := admdto.AdminMenuItem{Key: plugin_mgr.KeySettings, Origin: plugin_mgr.OriginSystem, Visible: true}
+	categories := groupAsCategories([]admdto.AdminMenuItem{plugins, settings}, nil, []string{"zh-CN"})
+	var marketCount, settingsCount int
+	for _, category := range categories {
+		for _, child := range category.Children {
+			if child.Key != plugin_mgr.KeyPlugins {
+				continue
+			}
+			switch category.ID {
+			case "cat:plugin_marketplace":
+				marketCount++
+				if category.Title != "menu.pluginMarketplace" || len(child.Children) != len(plugins.Children) {
+					t.Fatalf("unexpected plugin marketplace category: %+v", category)
+				}
+			case plugin_mgr.KeySettings:
+				settingsCount++
+			}
+		}
+	}
+	if marketCount != 1 || settingsCount != 0 {
+		t.Fatalf("plugin marketplace category missing or duplicated: market=%d settings=%d", marketCount, settingsCount)
+	}
+}
+
 func TestAgentSystemMenuContainsWorkspaceChildren(t *testing.T) {
 	want := map[plugin_mgr.MenuKey]string{
 		"agent_chat":       "/agent/sessions",

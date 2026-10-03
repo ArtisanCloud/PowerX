@@ -42,8 +42,17 @@ func withRequestPolicy(ctx context.Context, mc *config.ModelConfig) (context.Con
 
 // Invoke is the only synchronous LLM invocation entry point. Provider drivers
 // only adapt protocols; request timeout ownership stays here.
-func Invoke(ctx context.Context, mc *config.ModelConfig, prompt string) (*config.InvokeResult, error) {
-	callCtx, callConfig, cancel, err := withRequestPolicy(ctx, mc)
+func Invoke(ctx context.Context, mc *config.ModelConfig, prompt string) (result *config.InvokeResult, err error) {
+	modelCtx, release, err := acquireModelCallLease(ctx, mc)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if leaseErr := release(); leaseErr != nil {
+			result, err = nil, leaseErr
+		}
+	}()
+	callCtx, callConfig, cancel, err := withRequestPolicy(modelCtx, mc)
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +68,17 @@ func Invoke(ctx context.Context, mc *config.ModelConfig, prompt string) (*config
 }
 
 // Stream is the only native-stream LLM invocation entry point.
-func Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (string, error) {
-	callCtx, callConfig, cancel, err := withRequestPolicy(ctx, mc)
+func Stream(ctx context.Context, mc *config.ModelConfig, prompt string, onDelta func(string)) (final string, err error) {
+	modelCtx, release, err := acquireModelCallLease(ctx, mc)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if leaseErr := release(); leaseErr != nil {
+			final, err = "", leaseErr
+		}
+	}()
+	callCtx, callConfig, cancel, err := withRequestPolicy(modelCtx, mc)
 	if err != nil {
 		return "", err
 	}
@@ -82,8 +100,17 @@ func StreamOrFallback(
 	mc *config.ModelConfig,
 	prompt string,
 	onDelta func(string),
-) (string, error) {
-	callCtx, callConfig, cancel, err := withRequestPolicy(ctx, mc)
+) (final string, err error) {
+	modelCtx, release, err := acquireModelCallLease(ctx, mc)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if leaseErr := release(); leaseErr != nil {
+			final, err = "", leaseErr
+		}
+	}()
+	callCtx, callConfig, cancel, err := withRequestPolicy(modelCtx, mc)
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +140,7 @@ func StreamOrFallback(
 	if err != nil {
 		return "", err
 	}
-	final := ""
+	final = ""
 	if result != nil {
 		final = result.Text
 	}

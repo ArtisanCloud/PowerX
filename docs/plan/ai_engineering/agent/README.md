@@ -6,6 +6,7 @@
 
 - [Agent Runtime 闭环设计](./agent_runtime_loop_design.md)：面向业务 Agent 的观察、规划、执行、验证与受控演进目标架构。
 - [Agent Runtime 实施计划](./agent_runtime_implementation_plan.md)：基于当前代码的差距、代码改造顺序、合同、验收与首个实施切片。
+- [持久化调度与模型容量](./agent_runtime_durable_scheduling.md)：Redis 默认运行态、跨实例队列、资源池、预算、恢复与验收门槛。
 - [Runtime 标准服务](./agent_runtime_standard_services.md)：运行时资源观察、计划控制、验证与恢复服务的边界。
 - [回复规划](./agent_response_planning.md)：在向用户回复前完成恢复、校验与可解释输出的规则。
 - [运行状态协议](./agent_run_state_protocol.md)：Run、阶段、计划修订与资源快照事件的协议。

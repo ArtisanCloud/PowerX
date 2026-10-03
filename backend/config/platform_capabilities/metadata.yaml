@@ -437,6 +437,31 @@ capabilities:
       resource_type: api
       resource_pattern: tag
   - channel: rest
+    endpoint: "/api/v1/tenant/metadata/tags/{tag_uuid}"
+    method: PATCH
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.tag.manage
+    api_key:
+      scope: _scope.metadata.tag.manage
+      action: manage
+      resource_type: api
+      resource_pattern: tag
+  - channel: core_internal
+    endpoint: "core://metadata/tags"
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: metadata.tag.manage
+    api_key:
+      scope: _scope.metadata.tag.manage
+      action: manage
+      resource_type: api
+      resource_pattern: tag
+  - channel: rest
     endpoint: "/api/v1/tenant/metadata/tag-bindings"
     method: POST
     auth_type: api_key_or_bearer

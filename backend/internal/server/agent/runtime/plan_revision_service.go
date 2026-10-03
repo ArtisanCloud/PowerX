@@ -39,8 +39,8 @@ func PlanRevisionServiceFromContext(ctx context.Context) (*PlanRevisionService, 
 	return service, ok && service != nil
 }
 
-func (s *PlanRevisionService) Persist(ctx context.Context, env, tenantUUID string, runUUID uuid.UUID, revision *PlanRevision, budget RuntimeBudget, triggerObservations []ResourceObservation) error {
-	if s == nil || s.repo == nil || revision == nil || strings.TrimSpace(env) == "" || strings.TrimSpace(tenantUUID) == "" || runUUID == uuid.Nil || revision.RevisionUUID == uuid.Nil || revision.SnapshotUUID == uuid.Nil {
+func (s *PlanRevisionService) Persist(ctx context.Context, env, tenantUUID string, runUUID uuid.UUID, revision *PlanRevision, budget *RuntimeBudget, triggerObservations []ResourceObservation) error {
+	if s == nil || s.repo == nil || revision == nil || budget == nil || strings.TrimSpace(env) == "" || strings.TrimSpace(tenantUUID) == "" || runUUID == uuid.Nil || revision.RevisionUUID == uuid.Nil || revision.SnapshotUUID == uuid.Nil {
 		return fmt.Errorf("plan revision persistence input is incomplete")
 	}
 	plan, err := json.Marshal(revision.Plan)
@@ -70,7 +70,10 @@ func (s *PlanRevisionService) Persist(ctx context.Context, env, tenantUUID strin
 	if err != nil {
 		return fmt.Errorf("marshal new task refs: %w", err)
 	}
-	return s.repo.Create(ctx, &dbmodel.AgentPlanRevision{UUID: revision.RevisionUUID, Env: strings.TrimSpace(env), TenantUUID: strings.TrimSpace(tenantUUID), RunUUID: runUUID, SnapshotUUID: revision.SnapshotUUID, ParentRevisionUUID: revision.ParentRevisionUUID, ReasonCode: revision.ReasonCode, Plan: datatypes.JSON(plan), TriggerObservationUUIDs: datatypes.JSON(triggers), SupersededTaskRefs: datatypes.JSON(superseded), NewTaskRefs: datatypes.JSON(newTasks), PlanRevisionsConsumed: budget.PlanRevisions, ObservationsConsumed: budget.Observations})
+	budget.mu.Lock()
+	revisionsConsumed, observationsConsumed := budget.PlanRevisions, budget.Observations
+	budget.mu.Unlock()
+	return s.repo.Create(ctx, &dbmodel.AgentPlanRevision{UUID: revision.RevisionUUID, Env: strings.TrimSpace(env), TenantUUID: strings.TrimSpace(tenantUUID), RunUUID: runUUID, SnapshotUUID: revision.SnapshotUUID, ParentRevisionUUID: revision.ParentRevisionUUID, ReasonCode: revision.ReasonCode, Plan: datatypes.JSON(plan), TriggerObservationUUIDs: datatypes.JSON(triggers), SupersededTaskRefs: datatypes.JSON(superseded), NewTaskRefs: datatypes.JSON(newTasks), PlanRevisionsConsumed: revisionsConsumed, ObservationsConsumed: observationsConsumed})
 }
 
 func (s *PlanRevisionService) Restore(ctx context.Context, env, tenantUUID string, runUUID, snapshotUUID, revisionUUID uuid.UUID) (*PlanRevision, error) {

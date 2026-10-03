@@ -19,6 +19,8 @@ PowerX Business Agent Runtime 是一个面向企业业务世界的受限控制�
 
 当前实现已经具备 Session/Message、Agent-Skill Binding、候选硬过滤、任务 Plan、Skill/Tool/Capability 执行、Run State、Trace、审计、结构化结果、ResponsePlanner，以及 `agent_session_skill_states` 驱动的等待参数状态持久化与恢复。这些是 Runtime 的基础，不应推翻。
 
+Run State 的可见协议不等于可恢复调度：当前计划执行与模型容量控制主要在进程内，部分计划/任务事件落库但不能充当权威队列。目标以 Redis 为 Agent 运行态默认驱动，配合对象存储归档；Session、SkillState、业务状态与审计仍归各自权威服务。队列、模型池、租约、断线续订和独立时限的完整合同见 [持久化调度与模型容量设计](./agent_runtime_durable_scheduling.md)。
+
 当前通用主链路仍以一次性计划为中心：
 
 ```text
@@ -136,7 +138,7 @@ Goal + Constraints + ResourceSnapshotRef + CapabilitySnapshotRef
 6. Decide: completed / partial / needs_input / blocked / retry / re-plan。
 ```
 
-Runtime 不是追求无法证明的“全局最优解”，而是在当前证据和策略下选择最合理下一步。每轮必须设定最大步骤数、总超时、Token/调用预算、同类重试数和并发上限；达到上限时输出可解释的 `partial` 或 `blocked`，不能静默循环。
+Runtime 不是追求无法证明的“全局最优解”，而是在当前证据和策略下选择最合理下一步。每轮必须设定最大步骤数、总超时、Token/调用预算、同类重试数和任务并发上限；资源池另设实际模型/能力容量。排队等待、单次请求与整轮预算分别计时；达到上限时输出可解释的 `partial` 或 `blocked`，不能静默循环。
 
 ### 5.3 计划修订
 
@@ -233,6 +235,15 @@ skill_revision_quality_regression_rate
 3. 支持机械去重、一次受限修复和 `partial/needs_input/blocked` 输出。
 
 验收：重复结构化事实、缺字段、未授权和临时依赖失败均不会只返回“执行失败”；Trace 保留完整诊断。
+
+### Phase 0.5：持久化调度与容量治理
+
+1. 接入 Redis 权威 Run/Task 状态、可靠队列与 Worker，拆分执行生命周期和 SSE/WS 连接。
+2. 按任务依赖和实际资源池容量调度，允许同一消息内可并行任务同时就绪，容量不足的请求有界排队。
+3. 持久化事件序号、租约、重领、重试、取消及归档引用；排队等待、单次调用和整轮预算独立计时。
+4. 生产启动必须校验 Redis 持久化与恢复前置条件；Redis 不可用时不降级为进程内任务池。
+
+验收：单槽 Ollama 的消息内双任务、浏览器断线、跨实例 Worker 崩溃/重领、Redis 故障切换及无幂等副作用保护均按 [调度规范](./agent_runtime_durable_scheduling.md) 验证。
 
 ### Phase 1：Resource Observation Plane
 

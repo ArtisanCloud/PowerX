@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
@@ -577,6 +578,19 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 
 	deps := shared.NewDeps(db, opts)
+	if len(cfg.AI.Runtime.PhysicalModelPools) == 0 {
+		_ = llm.ConfigurePhysicalModelPools(ctx, nil, nil, 0)
+	} else {
+		if deps.EventFabric == nil || deps.EventFabric.RedisClient == nil {
+			return nil, fmt.Errorf("%w: Agent physical model pool requires Event Fabric Redis", ErrBootstrapDependencyUnavailable)
+		}
+		if err := llm.ConfigurePhysicalModelPools(ctx, deps.EventFabric.RedisClient, cfg.AI.Runtime.PhysicalModelPools, cfg.AI.Runtime.QueueWaitTimeout); err != nil {
+			return nil, fmt.Errorf("%w: Agent physical model pool: %v", ErrBootstrapDependencyUnavailable, err)
+		}
+	}
+	if err := configureDurableSessions(ctx, cfg, deps, db); err != nil {
+		return nil, fmt.Errorf("%w: Agent durable sessions: %v", ErrBootstrapDependencyUnavailable, err)
+	}
 	backupops.RegisterPolicyScheduler(ctx, db, time.Duration(globalSchedulerInterval)*time.Second)
 	monitorlogs.StartRetentionScheduler(ctx, cfg, db)
 

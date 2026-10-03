@@ -81,6 +81,13 @@ func TestResolveLLMConfig_PriorityOrder(t *testing.T) {
 	}
 }
 
+func TestModelConfigFromChatConfigCarriesProfileConcurrency(t *testing.T) {
+	mc := modelConfigFromChatConfig(&dto.ChatConfig{Provider: "ollama", ModelName: "qwen3:8b", MaxConcurrentRequests: 2})
+	if mc.MaxConcurrentRequests != 2 {
+		t.Fatalf("max concurrent requests=%d want 2", mc.MaxConcurrentRequests)
+	}
+}
+
 func TestStream_ExecutorPanicIsRecovered(t *testing.T) {
 	t.Parallel()
 

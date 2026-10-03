@@ -85,6 +85,7 @@
 | `PATCH` | `/api/v1/tenant/metadata/taxonomy-nodes/{node_uuid}` | `com.corex.metadata.taxonomy.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
 | `GET` | `/api/v1/tenant/metadata/tags` | `com.corex.metadata.tag.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
 | `POST` | `/api/v1/tenant/metadata/tags` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `PATCH` | `/api/v1/tenant/metadata/tags/{tag_uuid}` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
 | `POST` | `/api/v1/tenant/metadata/tag-bindings` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
 | `DELETE` | `/api/v1/tenant/metadata/tag-bindings/{binding_uuid}` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
 | `GET` | `/api/v1/tenant/metadata/resource-types` | `com.corex.metadata.resource_type.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |

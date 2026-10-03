@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -46,7 +47,7 @@ func respondError(c *gin.Context, err error) {
 		status int
 	}{
 		{service.ErrInvalid, 400}, {service.ErrUnauthorized, 401}, {service.ErrForbidden, 403},
-		{service.ErrNotFound, 404}, {service.ErrConflict, 409}, {service.ErrExpired, 409}, {service.ErrContextExpired, 409},
+		{service.ErrNotFound, 404}, {service.ErrConflict, 409}, {service.ErrExpired, 409}, {service.ErrContextExpired, 409}, {service.ErrEventCursorExpired, 409},
 	} {
 		if errors.Is(err, candidate.err) {
 			status, code = candidate.status, candidate.err.Error()
@@ -289,7 +290,16 @@ func (h *Handler) events(c *gin.Context) {
 	if !emptyBody(c) {
 		return
 	}
+	if h.svc.HasRunEvents() {
+		h.runEvents(c)
+		return
+	}
 	sessionID, runID := id(c, "session_uuid"), id(c, "invocation_uuid")
+	cursor, err := eventCursor(c.GetHeader("Last-Event-ID"))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
 	run, err := h.svc.GetInvocation(c.Request.Context(), sessionID, runID)
 	if err != nil {
 		respondError(c, err)
@@ -300,22 +310,30 @@ func (h *Handler) events(c *gin.Context) {
 	c.Header("X-Accel-Buffering", "no")
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	previous := ""
 	for {
-		if run.Status != previous {
-			c.SSEvent("state", run)
-			previous = run.Status
-			c.Writer.Flush()
+		if cursor < 1 {
+			writeSessionEvent(c, 1, "state", run)
+			cursor = 1
 		}
 		switch run.Status {
 		case "succeeded":
-			c.SSEvent("final", run)
-			c.SSEvent("end", gin.H{"status": run.Status})
+			if cursor < 2 {
+				writeSessionEvent(c, 2, "final", run)
+				cursor = 2
+			}
+			if cursor < 3 {
+				writeSessionEvent(c, 3, "end", gin.H{"status": run.Status})
+			}
 			c.Writer.Flush()
 			return
 		case "failed", "cancelled":
-			c.SSEvent("error", gin.H{"error_code": run.ReasonCode, "reason_code": run.ReasonCode})
-			c.SSEvent("end", gin.H{"status": run.Status})
+			if cursor < 2 {
+				writeSessionEvent(c, 2, "error", gin.H{"error_code": run.ReasonCode, "reason_code": run.ReasonCode})
+				cursor = 2
+			}
+			if cursor < 3 {
+				writeSessionEvent(c, 3, "end", gin.H{"status": run.Status})
+			}
 			c.Writer.Flush()
 			return
 		}
@@ -332,10 +350,124 @@ func (h *Handler) events(c *gin.Context) {
 					code = known.Error()
 				}
 			}
-			c.SSEvent("error", gin.H{"error_code": code, "reason_code": code})
-			c.SSEvent("end", gin.H{"status": "failed"})
+			if cursor < 2 {
+				writeSessionEvent(c, 2, "error", gin.H{"error_code": code, "reason_code": code})
+			}
+			writeSessionEvent(c, 3, "end", gin.H{"status": "failed"})
 			c.Writer.Flush()
 			return
 		}
 	}
+}
+
+// runEvents only subscribes to an already admitted Run. The decimal cursor is
+// Redis event_seq, so reconnecting cannot create a second execution.
+func (h *Handler) runEvents(c *gin.Context) {
+	var cursor uint64
+	if raw := c.GetHeader("Last-Event-ID"); raw != "" {
+		value, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || strconv.FormatUint(value, 10) != raw {
+			respondError(c, service.ErrEventCursorExpired)
+			return
+		}
+		cursor = value
+	}
+	sessionID, runID := id(c, "session_uuid"), id(c, "invocation_uuid")
+	subscription, err := h.svc.OpenRunSubscription(c.Request.Context(), sessionID, runID)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	lastAuth := time.Now()
+	run, events, err := subscription.Read(c.Request.Context(), cursor, 100)
+	if errors.Is(err, service.ErrEventCursorExpired) && cursor > run.EventSeq {
+		respondError(c, err)
+		return
+	}
+	if err != nil && !errors.Is(err, service.ErrEventCursorExpired) {
+		respondError(c, err)
+		return
+	}
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("X-Accel-Buffering", "no")
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		if errors.Is(err, service.ErrEventCursorExpired) {
+			snapshot, snapshotErr := subscription.SnapshotState(c.Request.Context())
+			if snapshotErr != nil {
+				return
+			}
+			run = snapshot.Snapshot
+			writeRunEvent(c, run.EventSeq, "agent_run.snapshot", snapshot)
+			cursor = run.EventSeq
+		} else {
+			for _, event := range events {
+				writeRunEvent(c, event.Seq, event.Type, event)
+				cursor = event.Seq
+			}
+		}
+		c.Writer.Flush()
+		if durableTerminal(run.Status) && cursor >= run.EventSeq {
+			return
+		}
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-ticker.C:
+		}
+		if time.Since(lastAuth) >= 30*time.Second {
+			subscription, err = h.svc.OpenRunSubscription(c.Request.Context(), sessionID, runID)
+			if err != nil {
+				return
+			}
+			lastAuth = time.Now()
+		}
+		run, events, err = subscription.Read(c.Request.Context(), cursor, 100)
+		if err != nil && !errors.Is(err, service.ErrEventCursorExpired) {
+			// The stream cannot change its HTTP status after headers are sent.
+			// Closing it makes the client retry from the last acknowledged seq.
+			return
+		}
+	}
+}
+
+func durableTerminal(status string) bool {
+	switch status {
+	case "completed", "partial", "needs_input", "blocked", "failed", "cancelled":
+		return true
+	default:
+		return false
+	}
+}
+
+func writeRunEvent(c *gin.Context, seq uint64, event string, value any) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return
+	}
+	_, _ = fmt.Fprintf(c.Writer, "id: %d\nevent: %s\ndata: %s\n\n", seq, event, payload)
+}
+
+// Event frames form one immutable invocation timeline: state=1, terminal=2,
+// end=3. Last-Event-ID is therefore a durable acknowledgement cursor rather
+// than a second execution input; reconnect never invokes the agent again.
+func eventCursor(value string) (int, error) {
+	if value == "" {
+		return 0, nil
+	}
+	cursor, err := strconv.Atoi(value)
+	if err != nil || cursor < 0 || cursor > 3 || strconv.Itoa(cursor) != value {
+		return 0, service.ErrEventCursorExpired
+	}
+	return cursor, nil
+}
+
+func writeSessionEvent(c *gin.Context, id int, event string, value any) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return
+	}
+	_, _ = fmt.Fprintf(c.Writer, "id: %d\nevent: %s\ndata: %s\n\n", id, event, payload)
 }

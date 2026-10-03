@@ -94,7 +94,8 @@ func GetDefaults() *Config {
 			},
 		},
 		Auth: AuthConfig{
-			JWTSecret:        "K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0",
+			// Each deployment must supply its own persistent signing secret.
+			JWTSecret:        "",
 			Issuer:           "powerx-auth",
 			AudienceUser:     "user",
 			AudienceCustomer: "customer",

@@ -17,7 +17,7 @@
         <UButton variant="soft" icon="i-heroicons-chat-bubble-left-right" :to="localePath('/agent/sessions')">
           {{ t('agent.management.enterChat') }}
         </UButton>
-        <UButton color="primary" icon="i-heroicons-plus" @click="createAgentQuick">
+        <UButton color="primary" icon="i-heroicons-plus" @click="openCreateForm">
           {{ t('agent.management.create') }}
         </UButton>
       </div>
@@ -204,8 +204,8 @@
 
     <UModal
       v-model:open="editOpen"
-      :title="t('agent.management.edit.title')"
-      :description="t('agent.management.edit.description')"
+      :title="editUUID ? t('agent.management.edit.title') : t('agent.management.createForm.title')"
+      :description="editUUID ? t('agent.management.edit.description') : t('agent.management.createForm.description')"
       :ui="{ content: 'sm:max-w-5xl' }"
     >
       <template #body>
@@ -229,8 +229,8 @@
                 <UFormField class="lg:col-span-12" :label="t('agent.management.edit.publicDescription')" :description="t('agent.management.edit.publicDescriptionHelp')">
                   <UInput v-model="editForm.description" class="w-full" :placeholder="t('agent.management.edit.publicDescriptionPlaceholder')" />
                 </UFormField>
-                <UFormField class="lg:col-span-12" :label="t('agent.management.edit.systemKey')">
-                  <UInput class="w-full" :model-value="editForm.key" disabled />
+                <UFormField class="lg:col-span-12" :label="editUUID ? t('agent.management.edit.systemKey') : t('agent.management.createForm.systemKey')" :description="editUUID ? undefined : t('agent.management.createForm.systemKeyHelp')" :required="!editUUID">
+                  <UInput v-model="editForm.key" class="w-full" :disabled="Boolean(editUUID)" :placeholder="editUUID ? undefined : t('agent.management.createForm.systemKeyPlaceholder')" />
                 </UFormField>
               </div>
             </section>
@@ -238,7 +238,7 @@
             <section class="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-4">
               <div class="text-sm font-semibold text-[var(--text-primary)]">{{ t('agent.management.edit.generationPolicy') }}</div>
               <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                <UFormField class="lg:col-span-12" :label="t('agent.management.edit.promptSeed')" :description="t('agent.management.edit.promptSeedHelp')">
+                <UFormField class="lg:col-span-12" :label="t('agent.management.edit.promptSeed')" :description="editUUID ? t('agent.management.edit.promptSeedHelp') : t('agent.management.createForm.promptSeedHelp')">
                   <UTextarea v-model="editForm.promptSeed" class="w-full min-h-56" :rows="8" :placeholder="t('agent.management.edit.promptSeedPlaceholder')" />
                 </UFormField>
                 <UFormField class="lg:col-span-12" :label="t('agent.management.edit.persona')" :description="t('agent.management.edit.personaHelp')">
@@ -259,7 +259,7 @@
               </div>
             </section>
 
-            <section class="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-4">
+            <section v-if="editUUID" class="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-muted)]/20 p-4">
               <div class="flex items-center justify-between gap-3">
                 <div>
                   <div class="text-sm font-semibold text-[var(--text-primary)]">
@@ -373,7 +373,7 @@
       <template #footer>
         <div class="sticky bottom-0 z-10 -mx-6 -mb-6 flex justify-end gap-2 border-t border-[var(--border-color)] bg-[var(--bg-elevated)] px-6 py-4">
           <UButton variant="soft" @click="editOpen = false">{{ t('common.cancel') }}</UButton>
-          <UButton color="primary" :loading="submitting" @click="submitEdit">{{ t('common.save') }}</UButton>
+          <UButton color="primary" :loading="submitting" @click="submitEdit">{{ editUUID ? t('common.save') : t('agent.management.create') }}</UButton>
         </div>
       </template>
     </UModal>
@@ -1003,26 +1003,21 @@ const load = async () => {
   }
 }
 
-const createAgentQuick = async () => {
-  const key = `agent_${Date.now().toString().slice(-6)}`
-  const suffix = key.slice(-4)
-  try {
-    await createAgent({
-      key,
-      name: t('agent.management.quickCreate.name', { suffix }),
-      description: t('agent.management.quickCreate.description'),
-      status: 'active',
-      meta: {},
-    })
-    toast.add({
-      title: t('agent.management.quickCreate.success'),
-      description: t('agent.management.quickCreate.successDescription'),
-      color: 'success',
-    })
-    await load()
-  } catch (e: any) {
-    toast.add({ title: t('agent.management.quickCreate.failed'), description: e?.message || t('common.unknown'), color: 'error' })
-  }
+const openCreateForm = () => {
+  editUUID.value = ''
+  Object.assign(editForm, {
+    key: '',
+    name: '',
+    description: '',
+    status: 'draft',
+    typeId: '',
+    scene: '',
+    promptSeed: '',
+    persona: '',
+    skillIdsText: '',
+    knowledgeBaseIdsText: '',
+  })
+  editOpen.value = true
 }
 
 const openEditForm = async (agent: Agent) => {
@@ -1077,13 +1072,42 @@ const submitPermissions = async () => {
 }
 
 const submitEdit = async () => {
-  if (!editUUID.value) return
   if (!editForm.name.trim()) {
     toast.add({ title: t('agent.management.edit.nameRequired'), color: 'warning' })
     return
   }
+  if (!editUUID.value && !editForm.key.trim()) {
+    toast.add({ title: t('agent.management.createForm.keyRequired'), color: 'warning' })
+    return
+  }
+  if (!editUUID.value && !/^[a-z0-9._-]{1,64}$/i.test(editForm.key.trim())) {
+    toast.add({ title: t('agent.management.createForm.keyInvalid'), color: 'warning' })
+    return
+  }
+  if (!editUUID.value && editForm.status === 'active' && !editForm.promptSeed.trim()) {
+    toast.add({ title: t('agent.management.createForm.promptRequired'), color: 'warning' })
+    return
+  }
   try {
     submitting.value = true
+    if (!editUUID.value) {
+      await createAgent({
+        key: editForm.key.trim(),
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
+        status: editForm.status as 'draft' | 'active' | 'disabled',
+        typeId: editForm.typeId.trim(),
+        scene: editForm.scene.trim(),
+        promptSeed: editForm.promptSeed.trim(),
+        persona: editForm.persona.trim(),
+        skillIds: parseCommaValues(editForm.skillIdsText),
+        knowledgeBaseIds: parseCommaValues(editForm.knowledgeBaseIdsText),
+      })
+      toast.add({ title: t('agent.management.createForm.created'), color: 'success' })
+      editOpen.value = false
+      await load()
+      return
+    }
     await updateAgent(editUUID.value, {
       name: editForm.name.trim(),
       description: editForm.description.trim(),
@@ -1100,7 +1124,7 @@ const submitEdit = async () => {
     editOpen.value = false
     await load()
   } catch (e: any) {
-    toast.add({ title: t('agent.management.edit.updateFailed'), description: e?.message || t('common.unknown'), color: 'error' })
+    toast.add({ title: t(editUUID.value ? 'agent.management.edit.updateFailed' : 'agent.management.createForm.createFailed'), description: e?.message || t('common.unknown'), color: 'error' })
   } finally {
     submitting.value = false
   }

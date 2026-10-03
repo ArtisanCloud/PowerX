@@ -77,12 +77,8 @@ func (b *RuntimeBudget) ValidatePlanConcurrency(plan flowschema.ExecutionPlan) e
 	if b == nil || b.MaxConcurrentTasks <= 0 {
 		return ErrRuntimeBudgetExhausted
 	}
-	stages := make(map[int]int)
-	for _, task := range plan.Tasks {
-		stages[task.Stage]++
-		if stages[task.Stage] > b.MaxConcurrentTasks {
-			return fmt.Errorf("%w: concurrent tasks", ErrRuntimeBudgetExhausted)
-		}
+	if len(plan.Tasks) == 0 {
+		return fmt.Errorf("%w: empty execution plan", ErrRuntimeBudgetExhausted)
 	}
 	return nil
 }
@@ -103,7 +99,7 @@ type PlanRevision struct {
 // existed before planning; it cannot discover new resources or grants.
 type PlanController struct {
 	snapshot     *ResourceSnapshot
-	budget       RuntimeBudget
+	budget       *RuntimeBudget
 	current      *PlanRevision
 	observations []ResourceObservation
 }
@@ -115,7 +111,7 @@ func (c *PlanController) Observe(ctx context.Context, env string, resourceUUID u
 	if _, err := c.snapshot.RequireReadable(resourceUUID); err != nil {
 		return ResourceObservation{}, err
 	}
-	observation, err := ObserveSnapshotResource(ctx, &c.budget, env, resourceUUID, purpose)
+	observation, err := ObserveSnapshotResource(ctx, c.budget, env, resourceUUID, purpose)
 	if err != nil {
 		return ResourceObservation{}, err
 	}
@@ -132,9 +128,12 @@ func (c *PlanController) Observations() []ResourceObservation {
 	return out
 }
 
-func NewPlanController(snapshot *ResourceSnapshot, budget RuntimeBudget, initial flowschema.ExecutionPlan) (*PlanController, error) {
+func NewPlanController(snapshot *ResourceSnapshot, budget *RuntimeBudget, initial flowschema.ExecutionPlan) (*PlanController, error) {
 	if snapshot == nil || snapshot.SnapshotUUID == uuid.Nil {
 		return nil, fmt.Errorf("resource snapshot is required")
+	}
+	if budget == nil {
+		return nil, fmt.Errorf("runtime budget is required")
 	}
 	if initial.PlanID == "" {
 		return nil, fmt.Errorf("initial plan_id is required")

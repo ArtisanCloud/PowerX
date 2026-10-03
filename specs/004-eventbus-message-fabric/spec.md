@@ -99,6 +99,8 @@
 2. 可选驱动：`kafka` / `rabbitmq` / `nats`。
 3. 数据库通道：仅作为 fallback，不作为常态高频轮询主路径。
 
+Agent Run Worker 是此 TaskBus 的受约束消费者：`specs/031-agent-runtime-durable-scheduling/spec.md` 要求 Redis Streams 消费组、可续租/重领、fencing、去重和死信能力。上述通用队列合同须在 Event Fabric 实现后才能供 Agent 使用；当前 Redis TaskQueue 的能力声明尚不满足这些要求。以下 DB polling fallback 仅适用于通用 Event Fabric 任务，**Agent Run 不启用 DB fallback**，Redis 不可用时按 Agent 规格失败关闭。
+
 ### 运行时约束
 
 - 当 `queue.driver=redis`：允许 DB polling fallback 启用。

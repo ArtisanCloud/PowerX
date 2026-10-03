@@ -7,8 +7,11 @@ import (
 	"net"
 	nethttp "net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
@@ -35,7 +38,8 @@ import (
 // @description PowerX 核心与插件管理 API
 // @BasePath    /
 func main() {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	// 加载全局配置
 	cfg := config.GetGlobalConfig()
@@ -138,6 +142,25 @@ func main() {
 			return
 		}
 
+		if deps.AgentRunWorker != nil {
+			workerCtx, workerCancel := context.WithCancel(ctx)
+			workerDone := make(chan struct{})
+			go func() {
+				defer close(workerDone)
+				if err := deps.AgentRunWorker.Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
+					logger.ErrorF(ctx, "Agent durable worker stopped: %v", err)
+					stop()
+				}
+			}()
+			defer func() {
+				workerCancel()
+				select {
+				case <-workerDone:
+				case <-time.After(15 * time.Second):
+					logger.WarnF(ctx, "Agent worker shutdown timed out; leased work will be recovered")
+				}
+			}()
+		}
 		if deps.EventFabric != nil {
 			if deps.EventFabric.RetryWorker != nil {
 				go deps.EventFabric.RetryWorker.Run(ctx)
@@ -231,6 +254,20 @@ func main() {
 
 	// 运行 HTTP 服务
 	srv := &nethttp.Server{Handler: r}
+	serverStopped := make(chan struct{})
+	defer close(serverStopped)
+	go func() {
+		select {
+		case <-serverStopped:
+			return
+		case <-ctx.Done():
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			_ = srv.Close()
+		}
+	}()
 	if err := srv.Serve(ln); err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}

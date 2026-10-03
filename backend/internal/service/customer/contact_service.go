@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/mail"
 	"regexp"
 	"strings"
+	"time"
 
+	modelaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelcustomer "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/customer"
+	modelmetadata "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
 	contactrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/customer"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
@@ -17,20 +21,41 @@ import (
 )
 
 var (
-	ErrContactInvalidArgument            = errors.New("contact.invalid_argument")
-	ErrContactNotFound                   = errors.New("contact.not_found")
-	ErrContactCustomerMismatch           = errors.New("contact.customer_mismatch")
-	ErrContactCustomerMembershipInactive = errors.New("contact.customer_membership_inactive")
-	ErrContactIdentityNotFound           = errors.New("contact.identity_not_found")
-	ErrContactIdentityConflict           = errors.New("contact.identity_conflict")
+	ErrContactInvalidArgument                  = errors.New("contact.invalid_argument")
+	ErrContactNotFound                         = errors.New("contact.not_found")
+	ErrContactCustomerMismatch                 = errors.New("contact.customer_mismatch")
+	ErrContactCustomerMembershipInactive       = errors.New("contact.customer_membership_inactive")
+	ErrContactIdentityNotFound                 = errors.New("contact.identity_not_found")
+	ErrContactIdentityConflict                 = errors.New("contact.identity_conflict")
+	ErrContactChannelDictionaryInvalid         = errors.New("contact.channel_dictionary_invalid")
+	ErrContactIdentityChannelMigrationRequired = errors.New("contact.identity_channel_migration_required")
 )
 
 const (
 	ContactCreationIntentExplicitCreate    = "explicit_create"
 	ContactCreationIntentExplicitTemporary = "explicit_temporary"
+	ContactIdentityChannelNamespace        = "corex.customer.contact_identity_channel"
 )
 
 var contactTagPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+
+func validContactChannels(email, phone string) bool {
+	if len(email) > 255 || len(phone) > 32 {
+		return false
+	}
+	if email != "" {
+		parsed, err := mail.ParseAddress(email)
+		if err != nil || parsed.Address != email || parsed.Name != "" {
+			return false
+		}
+	}
+	for _, char := range phone {
+		if !(char >= '0' && char <= '9') && char != '+' && char != '-' && char != ' ' && char != '(' && char != ')' {
+			return false
+		}
+	}
+	return true
+}
 
 type ContactService struct {
 	db       *gorm.DB
@@ -47,6 +72,8 @@ type CreateContactInput struct {
 	DisplayName    string
 	GivenName      string
 	FamilyName     string
+	Email          string
+	Phone          string
 	Status         string
 	Roles          []string
 	Tags           []string
@@ -60,6 +87,8 @@ type UpdateContactInput struct {
 	DisplayName  *string
 	GivenName    *string
 	FamilyName   *string
+	Email        *string
+	Phone        *string
 	Status       *string
 	Roles        *[]string
 	Tags         *[]string
@@ -82,10 +111,10 @@ type ContactPage struct {
 }
 
 type ResolveContactIdentityInput struct {
-	TenantUUID      string
-	CustomerUUID    string
-	Channel         string
-	ExternalSubject string
+	TenantUUID                string
+	CustomerUUID              string
+	ChannelDictionaryItemUUID string
+	ExternalSubject           string
 }
 
 type ContactIdentityResolution struct {
@@ -94,11 +123,11 @@ type ContactIdentityResolution struct {
 }
 
 type BindContactIdentityInput struct {
-	TenantUUID      string
-	CustomerUUID    string
-	ContactUUID     string
-	Channel         string
-	ExternalSubject string
+	TenantUUID                string
+	CustomerUUID              string
+	ContactUUID               string
+	ChannelDictionaryItemUUID string
+	ExternalSubject           string
 }
 
 func (s *ContactService) Create(ctx context.Context, input CreateContactInput) (*modelcustomer.Contact, error) {
@@ -124,17 +153,24 @@ func (s *ContactService) Create(ctx context.Context, input CreateContactInput) (
 	contact := &modelcustomer.Contact{
 		TenantUUID: tenantUUID, CustomerUUID: customerUUID,
 		DisplayName: strings.TrimSpace(input.DisplayName), GivenName: strings.TrimSpace(input.GivenName), FamilyName: strings.TrimSpace(input.FamilyName),
+		Email: strings.TrimSpace(input.Email), Phone: strings.TrimSpace(input.Phone),
 		Status: status, Roles: marshalStringArray(roles), Tags: marshalStringArray(tags),
 		Metadata: datatypes.JSON([]byte(fmt.Sprintf(`{"creation_intent":%q}`, intent))),
 	}
-	if contact.DisplayName == "" || len(contact.DisplayName) > 128 || len(contact.GivenName) > 128 || len(contact.FamilyName) > 128 {
+	if contact.DisplayName == "" || len(contact.DisplayName) > 128 || len(contact.GivenName) > 128 || len(contact.FamilyName) > 128 || !validContactChannels(contact.Email, contact.Phone) {
 		return nil, ErrContactInvalidArgument
 	}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := ensureActiveCustomer(ctx, tx, tenantUUID, customerUUID); err != nil {
 			return err
 		}
-		return contactrepo.NewContactRepository(tx).Create(ctx, contact)
+		if err := contactrepo.NewContactRepository(tx).Create(ctx, contact); err != nil {
+			return err
+		}
+		return recordContactAudit(ctx, tx, tenantUUID, customerUUID, contact.UUID.String(), "customer.contact.created", map[string]any{
+			"status":          contact.Status,
+			"creation_intent": intent,
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -172,7 +208,19 @@ func (s *ContactService) ListIdentities(ctx context.Context, tenantUUID, custome
 	if _, err := getScopedContact(ctx, contactrepo.NewContactRepository(s.db), tenantUUID, customerUUID, contactUUID); err != nil {
 		return nil, err
 	}
-	return contactrepo.NewContactRepository(s.db).ListIdentities(ctx, tenantUUID, customerUUID, contactUUID)
+	items, err := contactrepo.NewContactRepository(s.db).ListIdentities(ctx, tenantUUID, customerUUID, contactUUID)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if strings.TrimSpace(item.ChannelDictionaryItemUUID) == "" {
+			return nil, ErrContactIdentityChannelMigrationRequired
+		}
+		if err := ensureContactChannelDictionaryItem(ctx, s.db, tenantUUID, item.ChannelDictionaryItemUUID); err != nil {
+			return nil, err
+		}
+	}
+	return items, nil
 }
 
 func (s *ContactService) ListByCustomer(ctx context.Context, input ListContactsInput) (ContactPage, error) {
@@ -247,11 +295,22 @@ func (s *ContactService) Update(ctx context.Context, input UpdateContactInput) (
 				return ErrContactInvalidArgument
 			}
 		}
+		if input.Email != nil {
+			contact.Email = strings.TrimSpace(*input.Email)
+		}
+		if input.Phone != nil {
+			contact.Phone = strings.TrimSpace(*input.Phone)
+		}
+		if !validContactChannels(contact.Email, contact.Phone) {
+			return ErrContactInvalidArgument
+		}
+		statusChanged := false
 		if input.Status != nil {
 			status := strings.TrimSpace(*input.Status)
 			if !validContactStatus(status) {
 				return ErrContactInvalidArgument
 			}
+			statusChanged = contact.Status != status
 			contact.Status = status
 		}
 		if input.Roles != nil {
@@ -271,6 +330,15 @@ func (s *ContactService) Update(ctx context.Context, input UpdateContactInput) (
 		if err := repo.Save(ctx, contact); err != nil {
 			return err
 		}
+		operation := "customer.contact.updated"
+		if statusChanged {
+			operation = "customer.contact.status_changed"
+		}
+		if err := recordContactAudit(ctx, tx, tenantUUID, customerUUID, contact.UUID.String(), operation, map[string]any{
+			"status": contact.Status,
+		}); err != nil {
+			return err
+		}
 		updated = contact
 		return nil
 	})
@@ -285,7 +353,7 @@ func (s *ContactService) ResolveIdentity(ctx context.Context, input ResolveConta
 	if err != nil {
 		return nil, err
 	}
-	channel, subject, err := canonicalIdentity(input.Channel, input.ExternalSubject)
+	channelDictionaryItemUUID, subject, err := canonicalIdentity(input.ChannelDictionaryItemUUID, input.ExternalSubject)
 	if err != nil {
 		return nil, err
 	}
@@ -293,12 +361,18 @@ func (s *ContactService) ResolveIdentity(ctx context.Context, input ResolveConta
 		return nil, err
 	}
 	repo := contactrepo.NewContactRepository(s.db)
-	identity, err := repo.FindIdentity(ctx, tenantUUID, channel, subject)
+	if err := ensureContactChannelDictionaryItem(ctx, s.db, tenantUUID, channelDictionaryItemUUID); err != nil {
+		return nil, err
+	}
+	identity, err := repo.FindIdentity(ctx, tenantUUID, channelDictionaryItemUUID, subject)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrContactIdentityNotFound
 	}
 	if err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(identity.ChannelDictionaryItemUUID) == "" {
+		return nil, ErrContactIdentityChannelMigrationRequired
 	}
 	if identity.CustomerUUID != customerUUID {
 		return nil, ErrContactCustomerMismatch
@@ -327,20 +401,23 @@ func (s *ContactService) BindIdentity(ctx context.Context, input BindContactIden
 	if _, err := canonicalUUID(input.ContactUUID); err != nil {
 		return nil, err
 	}
-	channel, subject, err := canonicalIdentity(input.Channel, input.ExternalSubject)
+	channelDictionaryItemUUID, subject, err := canonicalIdentity(input.ChannelDictionaryItemUUID, input.ExternalSubject)
 	if err != nil {
 		return nil, err
 	}
-	identity := &modelcustomer.ContactIdentity{TenantUUID: tenantUUID, CustomerUUID: customerUUID, ContactUUID: strings.TrimSpace(input.ContactUUID), Channel: channel, ExternalSubject: subject, Status: modelcustomer.ContactIdentityStatusActive, Metadata: datatypes.JSON([]byte("{}"))}
+	identity := &modelcustomer.ContactIdentity{TenantUUID: tenantUUID, CustomerUUID: customerUUID, ContactUUID: strings.TrimSpace(input.ContactUUID), ChannelDictionaryItemUUID: channelDictionaryItemUUID, ExternalSubject: subject, Status: modelcustomer.ContactIdentityStatusActive, Metadata: datatypes.JSON([]byte("{}"))}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := ensureActiveCustomer(ctx, tx, tenantUUID, customerUUID); err != nil {
+			return err
+		}
+		if err := ensureContactChannelDictionaryItem(ctx, tx, tenantUUID, channelDictionaryItemUUID); err != nil {
 			return err
 		}
 		repo := contactrepo.NewContactRepository(tx)
 		if _, err := getScopedContact(ctx, repo, tenantUUID, customerUUID, input.ContactUUID); err != nil {
 			return err
 		}
-		if existing, err := repo.FindIdentity(ctx, tenantUUID, channel, subject); err == nil {
+		if existing, err := repo.FindIdentity(ctx, tenantUUID, channelDictionaryItemUUID, subject); err == nil {
 			if existing.CustomerUUID != customerUUID || existing.ContactUUID != input.ContactUUID {
 				return ErrContactIdentityConflict
 			}
@@ -348,7 +425,14 @@ func (s *ContactService) BindIdentity(ctx context.Context, input BindContactIden
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		return repo.CreateIdentity(ctx, identity)
+		if err := repo.CreateIdentity(ctx, identity); err != nil {
+			return err
+		}
+		return recordContactAudit(ctx, tx, tenantUUID, customerUUID, identity.ContactUUID, "customer.contact.identity_bound", map[string]any{
+			"identity_uuid":                identity.UUID.String(),
+			"channel_dictionary_item_uuid": channelDictionaryItemUUID,
+			"external_subject":             subject,
+		})
 	})
 	if isUniqueViolation(err) {
 		return nil, ErrContactIdentityConflict
@@ -400,12 +484,34 @@ func canonicalUUID(raw string) (string, error) {
 	return parsed.String(), nil
 }
 
-func canonicalIdentity(channel, subject string) (string, string, error) {
-	channel, subject = strings.ToLower(strings.TrimSpace(channel)), strings.TrimSpace(subject)
-	if channel == "" || len(channel) > 64 || subject == "" || len(subject) > 255 {
+func canonicalIdentity(channelDictionaryItemUUID, subject string) (string, string, error) {
+	channelDictionaryItemUUID, err := canonicalUUID(channelDictionaryItemUUID)
+	if err != nil {
+		return "", "", err
+	}
+	subject = strings.TrimSpace(subject)
+	if subject == "" || len(subject) > 255 {
 		return "", "", ErrContactInvalidArgument
 	}
-	return channel, subject, nil
+	return channelDictionaryItemUUID, subject, nil
+}
+
+func ensureContactChannelDictionaryItem(ctx context.Context, db *gorm.DB, tenantUUID, itemUUID string) error {
+	var item modelmetadata.DictionaryItem
+	if err := db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND status = ?", tenantUUID, itemUUID, "enabled").First(&item).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrContactChannelDictionaryInvalid
+		}
+		return err
+	}
+	var namespace modelmetadata.DictionaryNamespace
+	if err := db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND namespace = ? AND status = ?", tenantUUID, item.NamespaceUUID, ContactIdentityChannelNamespace, "enabled").First(&namespace).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrContactChannelDictionaryInvalid
+		}
+		return err
+	}
+	return nil
 }
 
 func normalizeContactCreateState(status, intent string) (string, string, error) {
@@ -483,4 +589,38 @@ func isUniqueViolation(err error) bool {
 	}
 	value := strings.ToLower(err.Error())
 	return strings.Contains(value, "unique") || strings.Contains(value, "duplicate")
+}
+
+// recordContactAudit uses the caller transaction deliberately: a Contact write
+// without its audit event is not a completed business operation.
+func recordContactAudit(ctx context.Context, tx *gorm.DB, tenantUUID, customerUUID, contactUUID, operation string, meta map[string]any) error {
+	requestID, _ := ctx.Value("request_id").(string)
+	requestID = strings.TrimSpace(requestID)
+	if requestID != "" {
+		meta["request_id"] = requestID
+	}
+	payload, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	var actorUserID *int64
+	if userID := reqctx.GetUserID(ctx); userID > 0 {
+		value := int64(userID)
+		actorUserID = &value
+	}
+	traceID := reqctx.GetTraceID(ctx)
+	return tx.WithContext(ctx).Create(&modelaudit.AuditEvent{
+		OccurredAt:    time.Now().UTC(),
+		TenantUUID:    tenantUUID,
+		CorrelationID: traceID,
+		Source:        "customer.contact.service",
+		Operation:     operation,
+		ResourceType:  "customer.contact",
+		ResourceID:    contactUUID,
+		Outcome:       "SUCCESS",
+		Severity:      "INFO",
+		ActorUserID:   actorUserID,
+		Meta:          datatypes.JSON(payload),
+		ChangesAfter:  datatypes.JSON([]byte(fmt.Sprintf(`{"customer_uuid":%q,"contact_uuid":%q,"request_id":%q,"trace_id":%q}`, customerUUID, contactUUID, requestID, traceID))),
+	}).Error
 }

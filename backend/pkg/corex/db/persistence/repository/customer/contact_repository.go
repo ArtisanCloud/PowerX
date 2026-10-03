@@ -103,17 +103,17 @@ func (r *ContactRepository) Save(ctx context.Context, contact *modelcustomer.Con
 	}
 	return r.scopedContacts(ctx, contact.TenantUUID, contact.CustomerUUID).
 		Where("uuid = ?", contact.UUID.String()).
-		Select("display_name", "given_name", "family_name", "status", "roles", "tags", "updated_at").
+		Select("display_name", "given_name", "family_name", "email", "phone", "status", "roles", "tags", "updated_at").
 		Updates(contact).Error
 }
 
-func (r *ContactRepository) FindIdentity(ctx context.Context, tenantUUID, channel, externalSubject string) (*modelcustomer.ContactIdentity, error) {
+func (r *ContactRepository) FindIdentity(ctx context.Context, tenantUUID, channelDictionaryItemUUID, externalSubject string) (*modelcustomer.ContactIdentity, error) {
 	if r == nil || r.db == nil {
 		return nil, gorm.ErrInvalidDB
 	}
 	var identity modelcustomer.ContactIdentity
 	if err := r.db.WithContext(ctx).
-		Where("tenant_uuid = ? AND channel = ? AND external_subject = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(channel), strings.TrimSpace(externalSubject)).
+		Where("tenant_uuid = ? AND channel_dictionary_item_uuid = ? AND external_subject = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(channelDictionaryItemUUID), strings.TrimSpace(externalSubject)).
 		First(&identity).Error; err != nil {
 		return nil, err
 	}

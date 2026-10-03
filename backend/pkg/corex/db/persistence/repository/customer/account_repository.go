@@ -23,6 +23,8 @@ var (
 	ErrExternalIdentityServiceActorInvalid = errors.New("customer.external_identity_service_actor_invalid")
 	ErrExternalIdentityBindingUntrusted    = errors.New("customer.external_identity_binding_untrusted")
 	ErrExternalIdentityUnavailable         = errors.New("customer.external_identity_unavailable")
+	ErrExternalIdentityContactRequired     = errors.New("customer.external_identity_contact_required")
+	ErrExternalIdentityContactAmbiguous    = errors.New("customer.external_identity_contact_ambiguous")
 )
 
 // ExternalIdentityInput is the plugin-attested channel-to-customer binding
@@ -34,6 +36,13 @@ type ExternalIdentityInput struct {
 	ProviderPluginID string
 	ProviderSubject  string
 	DisplayName      string
+	GivenName        string
+	FamilyName       string
+	Email            string
+	Phone            string
+	// Set only after Core has verified the Shopify credential. It is never
+	// accepted from the plugin's typed invocation payload.
+	VerifiedByCore bool
 }
 
 // ExternalIdentityProviderKey scopes a plugin-attested subject to exactly one
@@ -66,30 +75,34 @@ type AccountListOptions struct {
 }
 
 type AccountRow struct {
-	UUID           string `json:"uuid"`
-	Status         string `json:"status"`
-	PrimaryEmail   string `json:"primary_email,omitempty"`
-	PrimaryPhone   string `json:"primary_phone,omitempty"`
-	DisplayName    string `json:"display_name,omitempty"`
-	Nickname       string `json:"nickname,omitempty"`
-	GivenName      string `json:"given_name,omitempty"`
-	FamilyName     string `json:"family_name,omitempty"`
-	AvatarURL      string `json:"avatar_url,omitempty"`
-	Locale         string `json:"locale,omitempty"`
-	Timezone       string `json:"timezone,omitempty"`
-	MemberStatus   string `json:"member_status"`
-	MemberSource   string `json:"member_source"`
-	MembershipUUID string `json:"membership_uuid"`
-	CreatedAt      string `json:"created_at"`
-	UpdatedAt      string `json:"updated_at"`
+	UUID               string `json:"uuid"`
+	Type               string `json:"type"`
+	PrimaryContactUUID string `json:"primary_contact_uuid,omitempty"`
+	Status             string `json:"status"`
+	PrimaryEmail       string `json:"primary_email,omitempty"`
+	PrimaryPhone       string `json:"primary_phone,omitempty"`
+	DisplayName        string `json:"display_name,omitempty"`
+	Nickname           string `json:"nickname,omitempty"`
+	GivenName          string `json:"given_name,omitempty"`
+	FamilyName         string `json:"family_name,omitempty"`
+	AvatarURL          string `json:"avatar_url,omitempty"`
+	Locale             string `json:"locale,omitempty"`
+	Timezone           string `json:"timezone,omitempty"`
+	MemberStatus       string `json:"member_status"`
+	MemberSource       string `json:"member_source"`
+	MembershipUUID     string `json:"membership_uuid"`
+	CreatedAt          string `json:"created_at"`
+	UpdatedAt          string `json:"updated_at"`
 }
 
 // ExternalIdentityResolution is the deliberately minimal result available to a
 // plugin identity resolver. It avoids loading or exposing customer PII.
 type ExternalIdentityResolution struct {
-	CustomerUUID   string `json:"customer_uuid"`
-	MembershipUUID string `json:"membership_uuid"`
-	DisplayName    string `json:"display_name"`
+	CustomerUUID       string `json:"customer_uuid"`
+	MembershipUUID     string `json:"membership_uuid"`
+	Type               string `json:"type"`
+	PrimaryContactUUID string `json:"primary_contact_uuid"`
+	DisplayName        string `json:"display_name"`
 }
 
 type OverviewRow struct {
@@ -118,14 +131,16 @@ type CustomerIdentityRow struct {
 // CurrentMembershipRow contains only the authorization data required by a
 // customer self/delegated membership check; it intentionally excludes PII.
 type CurrentMembershipRow struct {
-	TenantUUID     string
-	CustomerUUID   string
-	MembershipUUID string
-	Status         string
-	AccountStatus  string
-	Roles          datatypes.JSON
-	Scopes         datatypes.JSON
-	ExpiresAt      *time.Time
+	TenantUUID         string
+	CustomerUUID       string
+	MembershipUUID     string
+	Type               string
+	PrimaryContactUUID string
+	Status             string
+	AccountStatus      string
+	Roles              datatypes.JSON
+	Scopes             datatypes.JSON
+	ExpiresAt          *time.Time
 }
 
 func (r *AccountRepository) CurrentMembership(ctx context.Context, tenantUUID, customerUUID string) (CurrentMembershipRow, error) {
@@ -136,6 +151,7 @@ func (r *AccountRepository) CurrentMembership(ctx context.Context, tenantUUID, c
 	err := r.baseTenantQuery(ctx, tenantUUID).
 		Where("a.uuid = ?", customerUUID).
 		Select(`m.tenant_uuid AS tenant_uuid, m.customer_uuid AS customer_uuid, m.uuid AS membership_uuid,
+			a.type AS type, m.primary_contact_uuid AS primary_contact_uuid,
 			m.status AS status, a.status AS account_status, m.roles AS roles, m.scopes AS scopes, m.expires_at AS expires_at`).
 		Limit(1).Scan(&row).Error
 	if err != nil {
@@ -179,6 +195,7 @@ func (r *AccountRepository) List(ctx context.Context, opt AccountListOptions) ([
 	var rows []AccountRow
 	err := query.
 		Select(`a.uuid::text AS uuid,
+			a.type AS type, m.primary_contact_uuid::text AS primary_contact_uuid,
 			a.status AS status,
 			a.primary_email AS primary_email,
 			a.primary_phone AS primary_phone,
@@ -214,6 +231,7 @@ func (r *AccountRepository) Get(ctx context.Context, tenantUUID, customerUUID st
 	err := r.baseTenantQuery(ctx, tenantUUID).
 		Where("a.uuid = ?", strings.TrimSpace(customerUUID)).
 		Select(`a.uuid::text AS uuid,
+			a.type AS type, m.primary_contact_uuid::text AS primary_contact_uuid,
 			a.status AS status, a.primary_email AS primary_email, a.primary_phone AS primary_phone,
 			a.display_name AS display_name, a.nickname AS nickname, a.given_name AS given_name,
 			a.family_name AS family_name, a.avatar_url AS avatar_url, a.locale AS locale, a.timezone AS timezone,
@@ -372,6 +390,9 @@ func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context,
 	}
 	var customerUUID string
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := LockExternalIdentity(tx, in.ProviderKey, in.ProviderSubject); err != nil {
+			return err
+		}
 		var identity modelcustomer.AuthIdentity
 		err := tx.Where("provider = ? AND provider_subject = ?", in.ProviderKey, in.ProviderSubject).First(&identity).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -403,7 +424,7 @@ func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context,
 				}
 				account := &modelcustomer.Account{
 					PowerUUIDModel: coremodel.PowerUUIDModel{UUID: accountUUID},
-					Status:         modelcustomer.StatusActive, DisplayName: in.DisplayName,
+					Type:           modelcustomer.AccountTypePerson, Status: modelcustomer.StatusActive, DisplayName: in.DisplayName, GivenName: in.GivenName, FamilyName: in.FamilyName, PrimaryEmail: in.Email, PrimaryPhone: in.Phone,
 					Metadata: externalIdentityMetadata(in.ProviderPluginID, in.ProviderKey),
 				}
 				if err := tx.Create(account).Error; err != nil {
@@ -413,7 +434,7 @@ func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context,
 			}
 		}
 		customerUUID = identity.CustomerUUID
-		if identity.Status != modelcustomer.StatusActive || customerUUID == "" || !isPluginAttestedIdentity(identity, in.ProviderPluginID, in.ProviderKey) {
+		if identity.Status != modelcustomer.StatusActive || customerUUID == "" || !isPluginAttestedIdentity(identity, in.ProviderPluginID, in.ProviderKey, in.VerifiedByCore) {
 			return ErrExternalIdentityBindingUntrusted
 		}
 		var account modelcustomer.Account
@@ -424,12 +445,12 @@ func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context,
 			return ErrExternalIdentityUnavailable
 		}
 		var membership modelcustomer.TenantMembership
-		err = tx.Where("tenant_uuid = ? AND customer_uuid = ?", in.TenantUUID, customerUUID).First(&membership).Error
+		err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND customer_uuid = ?", in.TenantUUID, customerUUID).First(&membership).Error
 		if err == nil {
 			if membership.Status != modelcustomer.StatusActive {
 				return ErrExternalIdentityUnavailable
 			}
-			return nil
+			return ensureExternalIdentityPrimaryContact(tx, in, &account, &membership)
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -447,14 +468,15 @@ func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context,
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			if err := tx.Where("tenant_uuid = ? AND customer_uuid = ?", in.TenantUUID, customerUUID).First(&membership).Error; err != nil {
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND customer_uuid = ?", in.TenantUUID, customerUUID).First(&membership).Error; err != nil {
 				return err
 			}
 			if membership.Status != modelcustomer.StatusActive {
 				return ErrExternalIdentityUnavailable
 			}
+			return ensureExternalIdentityPrimaryContact(tx, in, &account, &membership)
 		}
-		return nil
+		return ensureExternalIdentityPrimaryContact(tx, in, &account, &created)
 	})
 	if err != nil {
 		return ExternalIdentityResolution{}, err
@@ -462,11 +484,85 @@ func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context,
 	return r.resolvedExternalIdentityRow(ctx, in.TenantUUID, customerUUID)
 }
 
+func requireExternalIdentityContact(tx *gorm.DB, tenantUUID, customerUUID, contactUUID string) error {
+	var count int64
+	if err := tx.Model(&modelcustomer.Contact{}).
+		Where("tenant_uuid = ? AND customer_uuid = ? AND uuid = ? AND status = ?", tenantUUID, customerUUID, contactUUID, modelcustomer.ContactStatusActive).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count != 1 {
+		return ErrExternalIdentityContactRequired
+	}
+	return nil
+}
+
+// Called only by customer writes or trusted identity resolution, with membership locked.
+// Normalize missing type transactionally and never replace a stale explicit pointer.
+func ensureExternalIdentityPrimaryContact(tx *gorm.DB, in ExternalIdentityInput, account *modelcustomer.Account, membership *modelcustomer.TenantMembership) error {
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ?", account.UUID).First(account).Error; err != nil {
+		return err
+	}
+	if strings.TrimSpace(account.Type) == "" {
+		if err := tx.Model(account).Update("type", modelcustomer.AccountTypePerson).Error; err != nil {
+			return err
+		}
+		account.Type = modelcustomer.AccountTypePerson
+	}
+	if account.Type != modelcustomer.AccountTypePerson && account.Type != modelcustomer.AccountTypeCompany {
+		return ErrExternalIdentityContactRequired
+	}
+	if membership.PrimaryContactUUID != "" {
+		return requireExternalIdentityContact(tx, in.TenantUUID, account.UUID.String(), membership.PrimaryContactUUID)
+	}
+	var contacts []modelcustomer.Contact
+	if err := tx.Where("tenant_uuid = ? AND customer_uuid = ? AND status = ?", in.TenantUUID, account.UUID.String(), modelcustomer.ContactStatusActive).Limit(2).Find(&contacts).Error; err != nil {
+		return err
+	}
+	if len(contacts) > 1 {
+		return ErrExternalIdentityContactAmbiguous
+	}
+	var contact modelcustomer.Contact
+	if len(contacts) == 1 {
+		contact = contacts[0]
+		var roles []string
+		if err := json.Unmarshal(contact.Roles, &roles); err != nil {
+			return ErrExternalIdentityContactRequired
+		}
+		primary := false
+		for _, role := range roles {
+			primary = primary || role == modelcustomer.ContactRolePrimary
+		}
+		if !primary {
+			roles = append(roles, modelcustomer.ContactRolePrimary)
+			raw, err := json.Marshal(roles)
+			if err != nil {
+				return err
+			}
+			if err := tx.Model(&contact).Update("roles", datatypes.JSON(raw)).Error; err != nil {
+				return err
+			}
+		}
+	} else {
+		if account.Type == modelcustomer.AccountTypeCompany {
+			return ErrExternalIdentityContactRequired
+		}
+		contact = modelcustomer.Contact{TenantUUID: in.TenantUUID, CustomerUUID: account.UUID.String(), DisplayName: account.DisplayName, GivenName: account.GivenName, FamilyName: account.FamilyName, Email: account.PrimaryEmail, Phone: account.PrimaryPhone, Status: modelcustomer.ContactStatusActive, Roles: datatypes.JSON([]byte(`["primary"]`)), Tags: datatypes.JSON([]byte(`[]`)), Metadata: datatypes.JSON([]byte(`{"creation_intent":"explicit_create","source":"external_identity"}`))}
+		if strings.TrimSpace(contact.DisplayName) == "" {
+			return ErrExternalIdentityContactRequired
+		}
+		if err := tx.Create(&contact).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Model(membership).Update("primary_contact_uuid", contact.UUID.String()).Error
+}
+
 func (r *AccountRepository) resolvedExternalIdentityRow(ctx context.Context, tenantUUID, customerUUID string) (ExternalIdentityResolution, error) {
 	var row ExternalIdentityResolution
 	err := r.baseTenantQuery(ctx, tenantUUID).
 		Where("a.uuid = ?", customerUUID).
-		Select(`a.uuid AS customer_uuid,
+		Select(`a.uuid AS customer_uuid, a.type AS type, m.primary_contact_uuid AS primary_contact_uuid,
 			a.display_name AS display_name,
 			m.uuid AS membership_uuid`).
 		Limit(1).
@@ -492,8 +588,8 @@ func externalIdentityMetadata(pluginID, providerKey string) datatypes.JSON {
 	return datatypes.JSON(raw)
 }
 
-func isPluginAttestedIdentity(identity modelcustomer.AuthIdentity, pluginID, providerKey string) bool {
-	if identity.VerifiedAt != nil {
+func isPluginAttestedIdentity(identity modelcustomer.AuthIdentity, pluginID, providerKey string, verifiedByCore bool) bool {
+	if identity.VerifiedAt != nil && !verifiedByCore {
 		return false
 	}
 	var metadata map[string]string

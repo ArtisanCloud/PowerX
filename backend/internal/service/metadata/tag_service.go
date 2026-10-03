@@ -130,7 +130,7 @@ func (s *Service) UpdateTag(ctx context.Context, in UpdateTagInput) (metadto.Tag
 		return metadto.TagResponse{}, err
 	}
 	tagUUID := strings.TrimSpace(in.TagUUID)
-	if tagUUID == "" {
+	if _, err := uuid.Parse(tagUUID); err != nil {
 		return metadto.TagResponse{}, ErrUUIDRequired
 	}
 	updates := map[string]any{}

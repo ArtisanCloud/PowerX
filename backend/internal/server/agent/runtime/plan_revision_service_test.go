@@ -27,12 +27,12 @@ func TestValidateSemanticReplayFromPersistedRevision(t *testing.T) {
 	require.NoError(t, err)
 	svc := NewPlanRevisionService(db)
 	parent := &PlanRevision{RevisionUUID: uuid.New(), SnapshotUUID: snapshot.SnapshotUUID, ReasonCode: "initial_plan", Plan: flowschema.ExecutionPlan{PlanID: "p0", Tasks: []flowschema.PlanTask{{TaskID: "observe"}}}}
-	require.NoError(t, svc.Persist(context.Background(), "test", tenant, run, parent, RuntimeBudget{}, nil))
+	require.NoError(t, svc.Persist(context.Background(), "test", tenant, run, parent, &RuntimeBudget{}, nil))
 	observation := ResourceObservation{ObservationUUID: uuid.New(), ResourceUUID: capability, ReplanDirective: &ReplanDirective{Action: "append_authorized_capability", CapabilityUUID: capability, TaskID: "follow", DependsOn: []string{"observe"}}}
 	_, next, err := (SemanticReplanner{}).Replan(context.Background(), PlanRevisionRequest{Snapshot: snapshot, CurrentPlan: parent.Plan, Observations: []ResourceObservation{observation}})
 	require.NoError(t, err)
 	child := &PlanRevision{RevisionUUID: uuid.New(), ParentRevisionUUID: &parent.RevisionUUID, SnapshotUUID: snapshot.SnapshotUUID, ReasonCode: "observation.semantic_continuation", Plan: next}
-	require.NoError(t, svc.Persist(context.Background(), "test", tenant, run, child, RuntimeBudget{}, []ResourceObservation{observation}))
+	require.NoError(t, svc.Persist(context.Background(), "test", tenant, run, child, &RuntimeBudget{}, []ResourceObservation{observation}))
 	restored, err := svc.Restore(context.Background(), "test", tenant, run, snapshot.SnapshotUUID, child.RevisionUUID)
 	require.NoError(t, err)
 	require.NoError(t, svc.ValidateSemanticReplay(context.Background(), "test", tenant, run, snapshot, restored, []ResourceObservation{observation}))

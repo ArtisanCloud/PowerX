@@ -5,9 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
-	"strconv"
 	"strings"
 
 	capabilityregistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
@@ -15,9 +12,11 @@ import (
 )
 
 const (
-	CustomerAccountsAdminManageCapabilityID       = "com.corex.customer.accounts.admin_manage"
+	CustomerAccountsServiceReadCapabilityID       = "com.corex.customer.accounts.service_read"
+	CustomerAccountsServiceManageCapabilityID     = "com.corex.customer.accounts.service_manage"
 	CustomerExternalIdentitiesResolveCapabilityID = "com.corex.customer.external_identities.resolve"
 
+	customerAccountsCoreEndpoint            = "core://customer/accounts"
 	customerExternalIdentityResolveEndpoint = "core://customer/external-identities/resolve"
 )
 
@@ -39,9 +38,11 @@ type ExternalIdentityResolveRequest struct {
 // ExternalIdentityResolveResult is deliberately minimal: a plugin receives the
 // UUIDs it must persist plus a human label, but never unrelated customer PII.
 type ExternalIdentityResolveResult struct {
-	CustomerUUID   string `json:"customer_uuid"`
-	MembershipUUID string `json:"membership_uuid"`
-	DisplayName    string `json:"display_name"`
+	CustomerUUID       string `json:"customer_uuid"`
+	MembershipUUID     string `json:"membership_uuid"`
+	Type               string `json:"type"`
+	PrimaryContactUUID string `json:"primary_contact_uuid"`
+	DisplayName        string `json:"display_name"`
 }
 
 func (r ExternalIdentityResolveRequest) toServiceInput(tenantUUID string) ResolveExternalIdentityInput {
@@ -64,6 +65,22 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabil
 	}
 	method := strings.ToUpper(strings.TrimSpace(in.Method))
 	endpoint := normalizeCustomerCapabilityEndpoint(in.Endpoint)
+	if in.CapabilityID == CustomerExternalIdentitiesReadCapabilityID || in.CapabilityID == CustomerExternalIdentitiesManageCapabilityID {
+		if method != "INVOKE" || endpoint != "core://customer/external-identities" {
+			return nil, capabilityregistry.ErrCoreCapabilityNotHandled
+		}
+		raw, err := json.Marshal(in.Body)
+		if err != nil {
+			return nil, ErrCustomerAccountInvalidArgument
+		}
+		var request ExternalIdentityRequest
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&request); err != nil {
+			return nil, ErrCustomerAccountInvalidArgument
+		}
+		return i.accounts.ManageExternalIdentity(ctx, in.CapabilityID, request)
+	}
 	if strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerExternalIdentitiesResolveCapabilityID) {
 		if method != "INVOKE" || endpoint != customerExternalIdentityResolveEndpoint {
 			return nil, capabilityregistry.ErrCoreCapabilityNotHandled
@@ -77,104 +94,172 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabil
 			return nil, err
 		}
 		return map[string]interface{}{"item": ExternalIdentityResolveResult{
-			CustomerUUID: item.CustomerUUID, MembershipUUID: item.MembershipUUID, DisplayName: item.DisplayName,
+			CustomerUUID: item.CustomerUUID, MembershipUUID: item.MembershipUUID, Type: item.Type, PrimaryContactUUID: item.PrimaryContactUUID, DisplayName: item.DisplayName,
 		}}, nil
 	}
 	if strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceReadCapabilityID) || strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceManageCapabilityID) {
 		return i.invokeContactCapability(ctx, in, method, endpoint)
 	}
-	if !strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerAccountsAdminManageCapabilityID) {
+	if !strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerAccountsServiceReadCapabilityID) && !strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerAccountsServiceManageCapabilityID) {
 		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
 	}
-	switch {
-	case method == http.MethodGet && endpoint == "/api/v1/admin/customers/overview":
-		overview, err := i.accounts.Overview(ctx, in.TenantUUID)
+	if method != "INVOKE" || endpoint != customerAccountsCoreEndpoint {
+		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
+	}
+	if in.CapabilityID == CustomerAccountsServiceManageCapabilityID {
+		if in.Body["operation"] == "update" {
+			request, err := decodeCustomerAccountUpdateRequest(in.Body)
+			if err != nil {
+				return nil, err
+			}
+			item, err := i.accounts.Update(ctx, UpdateAccountInput{TenantUUID: in.TenantUUID, CustomerUUID: request.CustomerUUID, AccountProfilePatch: request.AccountProfilePatch})
+			if err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{"item": item}, nil
+		}
+		request, err := decodeCustomerAccountCreateRequest(in.Body)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]interface{}{
-			"total":     overview.Total,
-			"active":    overview.Active,
-			"pending":   overview.Pending,
-			"suspended": overview.Suspended,
-			"disabled":  overview.Disabled,
-		}, nil
-	case method == http.MethodGet && endpoint == "/api/v1/admin/customers/accounts":
-		items, total, err := i.accounts.List(ctx, ListAccountsInput{
-			TenantUUID: in.TenantUUID,
-			Query:      strings.TrimSpace(in.Query["q"]),
-			Status:     strings.TrimSpace(in.Query["status"]),
-			Page:       positiveInt(in.Query["page"], 1),
-			PageSize:   positiveInt(in.Query["page_size"], 20),
-			SortBy:     strings.TrimSpace(in.Query["sort_by"]),
-			SortOrder:  strings.TrimSpace(in.Query["sort_order"]),
-		})
-		if err != nil {
-			return nil, err
+		var primary *PrimaryContactInput
+		if request.PrimaryContact != nil {
+			primary = &PrimaryContactInput{DisplayName: request.PrimaryContact.DisplayName, GivenName: request.PrimaryContact.GivenName, FamilyName: request.PrimaryContact.FamilyName, Email: request.PrimaryContact.Email, Phone: request.PrimaryContact.Phone}
 		}
-		page := positiveInt(in.Query["page"], 1)
-		pageSize := positiveInt(in.Query["page_size"], 20)
-		if pageSize > 100 {
-			pageSize = 100
-		}
-		return map[string]interface{}{
-			"items": items,
-			"pagination": map[string]interface{}{
-				"total":     total,
-				"page":      page,
-				"page_size": pageSize,
-			},
-		}, nil
-	case method == http.MethodPost && endpoint == "/api/v1/admin/customers/accounts":
-		item, err := i.accounts.Create(ctx, CreateAccountInput{
-			TenantUUID:   in.TenantUUID,
-			Status:       stringFromBody(in.Body, "status"),
-			PrimaryEmail: stringFromBody(in.Body, "primary_email"),
-			PrimaryPhone: stringFromBody(in.Body, "primary_phone"),
-			DisplayName:  stringFromBody(in.Body, "display_name"),
-			Nickname:     stringFromBody(in.Body, "nickname"),
-			GivenName:    stringFromBody(in.Body, "given_name"),
-			FamilyName:   stringFromBody(in.Body, "family_name"),
-			AvatarURL:    stringFromBody(in.Body, "avatar_url"),
-			Locale:       stringFromBody(in.Body, "locale"),
-			Timezone:     stringFromBody(in.Body, "timezone"),
-			MemberSource: stringFromBody(in.Body, "member_source"),
-		})
+		item, err := i.accounts.Create(ctx, CreateAccountInput{TenantUUID: in.TenantUUID, Type: request.Type, PrimaryContact: primary, Status: request.Status, PrimaryEmail: request.PrimaryEmail, PrimaryPhone: request.PrimaryPhone, DisplayName: request.DisplayName, Nickname: request.Nickname, GivenName: request.GivenName, FamilyName: request.FamilyName, AvatarURL: request.AvatarURL, Locale: request.Locale, Timezone: request.Timezone, MemberSource: "plugin"})
 		if err != nil {
 			return nil, err
 		}
 		return map[string]interface{}{"item": item}, nil
-	case method == http.MethodPatch && strings.HasPrefix(endpoint, "/api/v1/admin/customers/accounts/") && strings.HasSuffix(endpoint, "/status"):
-		customerUUID := customerUUIDFromStatusEndpoint(endpoint)
-		status := stringFromBody(in.Body, "status")
-		if err := i.accounts.UpdateStatus(ctx, in.TenantUUID, customerUUID, status); err != nil {
-			return nil, err
-		}
-		return map[string]interface{}{
-			"customer_uuid": customerUUID,
-			"status":        strings.TrimSpace(status),
-		}, nil
-	default:
-		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
 	}
+	request, err := decodeCustomerAccountListRequest(in.Body)
+	if err != nil {
+		return nil, err
+	}
+	items, total, err := i.accounts.List(ctx, ListAccountsInput{TenantUUID: in.TenantUUID, Query: request.Query, Status: request.Status, Page: request.Page, PageSize: request.PageSize})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"items": items, "total": total, "page": request.Page, "page_size": request.PageSize}, nil
+}
+
+type customerAccountListRequest struct {
+	Operation string `json:"operation"`
+	Query     string `json:"q,omitempty"`
+	Status    string `json:"status,omitempty"`
+	Page      int    `json:"page,omitempty"`
+	PageSize  int    `json:"page_size,omitempty"`
+}
+
+type customerAccountUpdateRequest struct {
+	Operation    string `json:"operation"`
+	CustomerUUID string `json:"customer_uuid"`
+	AccountProfilePatch
+}
+
+func decodeCustomerAccountUpdateRequest(body map[string]interface{}) (customerAccountUpdateRequest, error) {
+	var request customerAccountUpdateRequest
+	// null 不是“不传”，也不代表清空；只接受字符串值和精确字段名。
+	allowed := map[string]bool{"operation": true, "customer_uuid": true, "display_name": true, "nickname": true, "given_name": true, "family_name": true, "primary_email": true, "primary_phone": true, "avatar_url": true, "locale": true, "timezone": true, "status": true}
+	for name, value := range body {
+		if !allowed[name] {
+			return request, ErrCustomerAccountInvalidArgument
+		}
+		if _, ok := value.(string); !ok {
+			return request, ErrCustomerAccountInvalidArgument
+		}
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return request, ErrCustomerAccountInvalidArgument
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || request.Operation != "update" {
+		return request, ErrCustomerAccountInvalidArgument
+	}
+	return request, nil
+}
+
+type customerAccountCreateRequest struct {
+	Operation      string                 `json:"operation"`
+	Type           string                 `json:"type"`
+	PrimaryContact *primaryContactRequest `json:"primary_contact,omitempty"`
+	Status         string                 `json:"status,omitempty"`
+	PrimaryEmail   string                 `json:"primary_email,omitempty"`
+	PrimaryPhone   string                 `json:"primary_phone,omitempty"`
+	DisplayName    string                 `json:"display_name,omitempty"`
+	Nickname       string                 `json:"nickname,omitempty"`
+	GivenName      string                 `json:"given_name,omitempty"`
+	FamilyName     string                 `json:"family_name,omitempty"`
+	AvatarURL      string                 `json:"avatar_url,omitempty"`
+	Locale         string                 `json:"locale,omitempty"`
+	Timezone       string                 `json:"timezone,omitempty"`
+}
+
+type primaryContactRequest struct {
+	DisplayName string `json:"display_name"`
+	GivenName   string `json:"given_name,omitempty"`
+	FamilyName  string `json:"family_name,omitempty"`
+	Email       string `json:"email,omitempty"`
+	Phone       string `json:"phone,omitempty"`
+}
+
+func decodeCustomerAccountCreateRequest(body map[string]interface{}) (customerAccountCreateRequest, error) {
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return customerAccountCreateRequest{}, ErrContactInvalidArgument
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var request customerAccountCreateRequest
+	if err := decoder.Decode(&request); err != nil || request.Operation != "create" {
+		return customerAccountCreateRequest{}, ErrContactInvalidArgument
+	}
+	return request, nil
+}
+
+func decodeCustomerAccountListRequest(body map[string]interface{}) (customerAccountListRequest, error) {
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return customerAccountListRequest{}, ErrContactInvalidArgument
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var request customerAccountListRequest
+	if err := decoder.Decode(&request); err != nil || request.Operation != "list" {
+		return customerAccountListRequest{}, ErrContactInvalidArgument
+	}
+	if request.Page <= 0 {
+		request.Page = 1
+	}
+	if request.PageSize <= 0 {
+		request.PageSize = 20
+	}
+	if request.PageSize > 100 {
+		request.PageSize = 100
+	}
+	return request, nil
 }
 
 type contactCapabilityRequest struct {
-	Operation       string    `json:"operation"`
-	CustomerUUID    string    `json:"customer_uuid"`
-	ContactUUID     string    `json:"contact_uuid,omitempty"`
-	Query           string    `json:"q,omitempty"`
-	Status          *string   `json:"status,omitempty"`
-	Page            int       `json:"page,omitempty"`
-	PageSize        int       `json:"page_size,omitempty"`
-	Channel         string    `json:"channel,omitempty"`
-	ExternalSubject string    `json:"external_subject,omitempty"`
-	DisplayName     *string   `json:"display_name,omitempty"`
-	GivenName       *string   `json:"given_name,omitempty"`
-	FamilyName      *string   `json:"family_name,omitempty"`
-	Roles           *[]string `json:"roles,omitempty"`
-	Tags            *[]string `json:"tags,omitempty"`
-	CreationIntent  string    `json:"creation_intent,omitempty"`
+	Operation                 string    `json:"operation"`
+	CustomerUUID              string    `json:"customer_uuid"`
+	ContactUUID               string    `json:"contact_uuid,omitempty"`
+	Query                     string    `json:"q,omitempty"`
+	Status                    *string   `json:"status,omitempty"`
+	Page                      int       `json:"page,omitempty"`
+	PageSize                  int       `json:"page_size,omitempty"`
+	ChannelDictionaryItemUUID string    `json:"channel_dictionary_item_uuid,omitempty"`
+	ExternalSubject           string    `json:"external_subject,omitempty"`
+	DisplayName               *string   `json:"display_name,omitempty"`
+	GivenName                 *string   `json:"given_name,omitempty"`
+	FamilyName                *string   `json:"family_name,omitempty"`
+	Email                     *string   `json:"email,omitempty"`
+	Phone                     *string   `json:"phone,omitempty"`
+	Roles                     *[]string `json:"roles,omitempty"`
+	Tags                      *[]string `json:"tags,omitempty"`
+	CreationIntent            string    `json:"creation_intent,omitempty"`
 }
 
 func (i *CapabilityInvoker) invokeContactCapability(ctx context.Context, in capabilityregistry.CoreCapabilityInvokeInput, method, endpoint string) (map[string]interface{}, error) {
@@ -214,7 +299,7 @@ func (i *CapabilityInvoker) invokeContactCapability(ctx context.Context, in capa
 		}
 		return map[string]interface{}{"item": item}, nil
 	case "resolve_identity":
-		item, err := i.contacts.ResolveIdentity(ctx, in.TenantUUID, ContactCoreResolveIdentityInput{CustomerUUID: req.CustomerUUID, Channel: req.Channel, ExternalSubject: req.ExternalSubject})
+		item, err := i.contacts.ResolveIdentity(ctx, in.TenantUUID, ContactCoreResolveIdentityInput{CustomerUUID: req.CustomerUUID, ChannelDictionaryItemUUID: req.ChannelDictionaryItemUUID, ExternalSubject: req.ExternalSubject})
 		if err != nil {
 			return nil, err
 		}
@@ -227,19 +312,19 @@ func (i *CapabilityInvoker) invokeContactCapability(ctx context.Context, in capa
 		if req.Status != nil {
 			status = *req.Status
 		}
-		item, err := i.contacts.Create(ctx, in.TenantUUID, ContactCoreCreateInput{CustomerUUID: req.CustomerUUID, DisplayName: *req.DisplayName, GivenName: deref(req.GivenName), FamilyName: deref(req.FamilyName), Status: status, Roles: derefSlice(req.Roles), Tags: derefSlice(req.Tags), CreationIntent: req.CreationIntent})
+		item, err := i.contacts.Create(ctx, in.TenantUUID, ContactCoreCreateInput{CustomerUUID: req.CustomerUUID, DisplayName: *req.DisplayName, GivenName: deref(req.GivenName), FamilyName: deref(req.FamilyName), Email: deref(req.Email), Phone: deref(req.Phone), Status: status, Roles: derefSlice(req.Roles), Tags: derefSlice(req.Tags), CreationIntent: req.CreationIntent})
 		if err != nil {
 			return nil, err
 		}
 		return map[string]interface{}{"item": item}, nil
 	case "update":
-		item, err := i.contacts.Update(ctx, in.TenantUUID, ContactCoreUpdateInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID, DisplayName: req.DisplayName, GivenName: req.GivenName, FamilyName: req.FamilyName, Status: req.Status, Roles: req.Roles, Tags: req.Tags})
+		item, err := i.contacts.Update(ctx, in.TenantUUID, ContactCoreUpdateInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID, DisplayName: req.DisplayName, GivenName: req.GivenName, FamilyName: req.FamilyName, Email: req.Email, Phone: req.Phone, Status: req.Status, Roles: req.Roles, Tags: req.Tags})
 		if err != nil {
 			return nil, err
 		}
 		return map[string]interface{}{"item": item}, nil
 	case "bind_identity":
-		item, err := i.contacts.BindIdentity(ctx, in.TenantUUID, ContactCoreBindIdentityInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID, Channel: req.Channel, ExternalSubject: req.ExternalSubject})
+		item, err := i.contacts.BindIdentity(ctx, in.TenantUUID, ContactCoreBindIdentityInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID, ChannelDictionaryItemUUID: req.ChannelDictionaryItemUUID, ExternalSubject: req.ExternalSubject})
 		if err != nil {
 			return nil, err
 		}
@@ -296,39 +381,4 @@ func decodeExternalIdentityResolveRequest(body map[string]interface{}) (External
 		return ExternalIdentityResolveRequest{}, customerrepo.ErrExternalIdentityRequired
 	}
 	return request, nil
-}
-
-func positiveInt(raw string, fallback int) int {
-	value, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil || value <= 0 {
-		return fallback
-	}
-	return value
-}
-
-func stringFromBody(body map[string]interface{}, key string) string {
-	if len(body) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(toString(body[key]))
-}
-
-func toString(value interface{}) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	case nil:
-		return ""
-	default:
-		return strings.TrimSpace(fmt.Sprint(typed))
-	}
-}
-
-func customerUUIDFromStatusEndpoint(endpoint string) string {
-	prefix := "/api/v1/admin/customers/accounts/"
-	suffix := "/status"
-	if !strings.HasPrefix(endpoint, prefix) || !strings.HasSuffix(endpoint, suffix) {
-		return ""
-	}
-	return strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(endpoint, prefix), suffix))
 }

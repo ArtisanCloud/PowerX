@@ -46,6 +46,7 @@
 | `PATCH` | `/api/v1/tenant/metadata/taxonomy-nodes/{node_uuid}` | `com.corex.metadata.taxonomy.manage` | `_scope.metadata.taxonomy.manage` | `manage` | `api/taxonomy` |
 | `GET` | `/api/v1/tenant/metadata/tags` | `com.corex.metadata.tag.read` | `_scope.metadata.tag.read` | `read` | `api/tag` |
 | `POST` | `/api/v1/tenant/metadata/tags` | `com.corex.metadata.tag.manage` | `_scope.metadata.tag.manage` | `manage` | `api/tag` |
+| `PATCH` | `/api/v1/tenant/metadata/tags/{tag_uuid}` | `com.corex.metadata.tag.manage` | `_scope.metadata.tag.manage` | `manage` | `api/tag` |
 | `POST` | `/api/v1/tenant/metadata/tag-bindings` | `com.corex.metadata.tag.manage` | `_scope.metadata.tag.manage` | `manage` | `api/tag` |
 | `DELETE` | `/api/v1/tenant/metadata/tag-bindings/{binding_uuid}` | `com.corex.metadata.tag.manage` | `_scope.metadata.tag.manage` | `manage` | `api/tag` |
 | `GET` | `/api/v1/tenant/metadata/resource-types` | `com.corex.metadata.resource_type.read` | `_scope.metadata.resource_type.read` | `read` | `api/resource_type` |

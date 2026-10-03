@@ -31,15 +31,16 @@ type ServiceSession struct {
 
 type ServiceMessage struct {
 	coremodel.PowerUUIDModel
-	TenantUUID           uuid.UUID `gorm:"type:uuid;not null;index"`
-	SessionUUID          uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:uk_agent_service_message_key,priority:1;uniqueIndex:uk_agent_service_message_sequence,priority:1"`
-	AgentUUID            uuid.UUID `gorm:"type:uuid;not null"`
-	Role                 string    `gorm:"size:16;not null"`
-	Content              string    `gorm:"type:text;not null"`
-	Sequence             uint64    `gorm:"not null;uniqueIndex:uk_agent_service_message_sequence,priority:2"`
-	IdempotencyKey       string    `gorm:"size:128;not null;uniqueIndex:uk_agent_service_message_key,priority:2"`
-	RequestHash          string    `gorm:"size:64;not null"`
-	IdempotencyExpiresAt time.Time `gorm:"not null"`
+	TenantUUID           uuid.UUID      `gorm:"type:uuid;not null;index"`
+	SessionUUID          uuid.UUID      `gorm:"type:uuid;not null;uniqueIndex:uk_agent_service_message_key,priority:1;uniqueIndex:uk_agent_service_message_sequence,priority:1"`
+	AgentUUID            uuid.UUID      `gorm:"type:uuid;not null"`
+	Role                 string         `gorm:"size:16;not null"`
+	Content              string         `gorm:"type:text;not null"`
+	ResponseEnvelope     datatypes.JSON `gorm:"type:jsonb"`
+	Sequence             uint64         `gorm:"not null;uniqueIndex:uk_agent_service_message_sequence,priority:2"`
+	IdempotencyKey       string         `gorm:"size:128;not null;uniqueIndex:uk_agent_service_message_key,priority:2"`
+	RequestHash          string         `gorm:"size:64;not null"`
+	IdempotencyExpiresAt time.Time      `gorm:"not null"`
 }
 
 // An invocation is addressable independently from its SSE subscriptions.
@@ -53,15 +54,20 @@ type ServiceInvocation struct {
 	PluginID             string    `gorm:"size:128;not null"`
 	ServiceActor         string    `gorm:"size:256;not null"`
 	Status               string    `gorm:"size:16;not null"`
+	RunEnv               string    `gorm:"size:32"`
+	AdmissionState       string    `gorm:"size:24;index:idx_agent_service_recovery,priority:1"`
 	IdempotencyKey       string    `gorm:"size:128;not null;uniqueIndex:uk_agent_service_invocation_key,priority:2"`
 	RequestHash          string    `gorm:"size:64;not null"`
 	IdempotencyExpiresAt time.Time `gorm:"not null"`
 	CancelRequestedAt    *time.Time
-	FinishedAt           *time.Time
-	DeadlineAt           time.Time `gorm:"not null"`
-	Output               string    `gorm:"type:text"`
-	ReasonCode           string    `gorm:"size:128"`
-	TraceUUID            uuid.UUID `gorm:"type:uuid;not null"`
+	ArchiveKey           string         `gorm:"type:text"`
+	ArchivedAt           *time.Time     `gorm:"index"`
+	FinishedAt           *time.Time     `gorm:"index:idx_agent_service_recovery,priority:2"`
+	DeadlineAt           time.Time      `gorm:"not null"`
+	Output               string         `gorm:"type:text"`
+	ResponseEnvelope     datatypes.JSON `gorm:"type:jsonb"`
+	ReasonCode           string         `gorm:"size:128"`
+	TraceUUID            uuid.UUID      `gorm:"type:uuid;not null"`
 }
 
 func (*ServiceSession) TableName() string { return coremodel.PowerXSchema + "." + TableServiceSession }

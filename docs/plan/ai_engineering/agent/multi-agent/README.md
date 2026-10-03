@@ -20,6 +20,7 @@ Multi-Agent 是 PowerX Agent Runtime 的协作运行方式，不是一个独立�
 | --- | --- | --- |
 | [scenario-catalog.md](./scenario-catalog.md) | 产品、方案、研发 | 多 Agent 场景规划规则、当前场景和后续扩展模板。 |
 | [implementation-map.md](./implementation-map.md) | 研发、QA | 当前实现映射：模型、seed、接口、页面、Trace、测试。 |
+| [../agent_runtime_durable_scheduling.md](../agent_runtime_durable_scheduling.md) | 研发、运维、QA | 目标 Run/Task 持久化调度、模型容量、跨实例恢复；当前尚未接入。 |
 | [../multi_agent_a2a.md](../multi_agent_a2a.md) | 研发 | A2A 执行机制、上下文隔离、handoff plan 和测试策略。 |
 | [../../../../guides/agent/multi_agent/09_a2a_team_collab_progressive.md](../../../../guides/agent/multi_agent/09_a2a_team_collab_progressive.md) | 最终使用方、实施、QA | 营销活动复盘协作团队的使用与验收剧本。 |
 
@@ -32,6 +33,7 @@ Multi-Agent 是 PowerX Agent Runtime 的协作运行方式，不是一个独立�
 5. 子智能体不能默认继承完整会话，只能接收主智能体显式下发的上下文切片。
 6. 失败策略只允许 `fail-fast`、`continue`、`retry-once`。
 7. 没有可执行团队、模型、Skill、权限或上下文时必须显式失败，不做隐式降级。
+8. 目标调度中同一消息的多个 handoff 属于同一个 Run；可并行任务独立就绪，资源池容量不足时排队，不生成第二条主智能体回复或新 Run。
 
 ## 新增业务场景时必须补齐
 

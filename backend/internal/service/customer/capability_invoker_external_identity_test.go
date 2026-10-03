@@ -126,6 +126,31 @@ func TestCustomerAuthUsesCoreShopifyVerifierAndAuditsOnlyIdentifierHash(t *testi
 	var identity modelcustomer.AuthIdentity
 	require.NoError(t, db.Where("provider_subject = ?", "shop:store.myshopify.com:customer:gid://shopify/Customer/42").First(&identity).Error)
 	require.NotNil(t, identity.VerifiedAt, "只有 Core verifier 成功后才允许标记已验证")
+	repeated, sameMembership, err := service.RegisterShopify(ctx, tenantUUID, credential)
+	require.NoError(t, err)
+	require.NotEmpty(t, repeated.AccessToken)
+	require.Equal(t, membership.CustomerUUID, sameMembership.CustomerUUID)
+	require.Equal(t, membership.PrimaryContactUUID, sameMembership.PrimaryContactUUID)
+	_, loggedIn, err := service.LoginShopify(ctx, tenantUUID, credential)
+	require.NoError(t, err)
+	require.Equal(t, membership.PrimaryContactUUID, loggedIn.PrimaryContactUUID)
+	require.NoError(t, db.Model(&modelcustomer.TenantMembership{}).Where("tenant_uuid = ? AND customer_uuid = ?", tenantUUID, membership.CustomerUUID).Update("primary_contact_uuid", "").Error)
+	require.NoError(t, db.Model(&modelcustomer.Account{}).Where("uuid = ?", membership.CustomerUUID).Update("type", "").Error)
+	_, repaired, err := service.LoginShopify(ctx, tenantUUID, credential)
+	require.NoError(t, err)
+	require.Equal(t, membership.PrimaryContactUUID, repaired.PrimaryContactUUID)
+	require.Equal(t, "person", repaired.Type)
+	for i := 0; i < 2; i++ {
+		require.NoError(t, db.Model(&modelcustomer.Account{}).Where("uuid = ?", membership.CustomerUUID).Update("type", "company").Error)
+		_, company, err := service.LoginShopify(ctx, tenantUUID, credential)
+		require.NoError(t, err)
+		require.Equal(t, "company", company.Type)
+		require.Equal(t, membership.PrimaryContactUUID, company.PrimaryContactUUID)
+	}
+
+	var contactCount int64
+	require.NoError(t, db.Model(&modelcustomer.Contact{}).Where("tenant_uuid = ? AND customer_uuid = ?", tenantUUID, membership.CustomerUUID).Count(&contactCount).Error)
+	require.EqualValues(t, 1, contactCount)
 
 	for i := 0; i < 10; i++ {
 		service.RecordAttempt(ctx, tenantUUID, pluginID, ShopifyStorefrontChannel, credential, "127.0.0.2", "customer.auth.login", "CUSTOMER_CREDENTIAL_INVALID", false)
@@ -213,7 +238,7 @@ func newCustomerServiceTestDB(t *testing.T) *gorm.DB {
 	for _, statement := range []string{
 		`CREATE TABLE main.customer_accounts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
-			status TEXT NOT NULL, primary_email TEXT, primary_phone TEXT, display_name TEXT, nickname TEXT, given_name TEXT,
+			type TEXT, status TEXT NOT NULL, primary_email TEXT, primary_phone TEXT, display_name TEXT, nickname TEXT, given_name TEXT,
 			family_name TEXT, avatar_url TEXT, locale TEXT, timezone TEXT, metadata TEXT
 		)`,
 		`CREATE TABLE main.customer_auth_identities (
@@ -224,8 +249,13 @@ func newCustomerServiceTestDB(t *testing.T) *gorm.DB {
 		)`,
 		`CREATE TABLE main.customer_tenant_memberships (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
-			tenant_uuid TEXT NOT NULL, customer_uuid TEXT NOT NULL, status TEXT NOT NULL, roles TEXT, scopes TEXT,
+			tenant_uuid TEXT NOT NULL, customer_uuid TEXT NOT NULL, primary_contact_uuid TEXT, status TEXT NOT NULL, roles TEXT, scopes TEXT,
 			source TEXT NOT NULL, expires_at DATETIME, metadata TEXT, UNIQUE(tenant_uuid, customer_uuid)
+		)`,
+		`CREATE TABLE main.customer_contacts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
+			tenant_uuid TEXT NOT NULL, customer_uuid TEXT NOT NULL, display_name TEXT NOT NULL, given_name TEXT, family_name TEXT,
+			email TEXT, phone TEXT, status TEXT NOT NULL, roles TEXT NOT NULL, tags TEXT NOT NULL, metadata TEXT NOT NULL
 		)`,
 		`CREATE TABLE main.customer_sessions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,

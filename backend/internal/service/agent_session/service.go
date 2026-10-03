@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/agent"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -26,20 +27,28 @@ func (s *Service) CheckAccess(ctx context.Context) error {
 }
 
 var (
-	ErrInvalid        = errors.New("AGENT_SESSION_INVALID_ARGUMENT")
-	ErrUnauthorized   = errors.New("AGENT_SESSION_UNAUTHORIZED")
-	ErrForbidden      = errors.New("AGENT_SESSION_FORBIDDEN")
-	ErrNotFound       = errors.New("AGENT_SESSION_NOT_FOUND")
-	ErrConflict       = errors.New("AGENT_SESSION_CONFLICT")
-	ErrExpired        = errors.New("AGENT_SESSION_IDEMPOTENCY_EXPIRED")
-	ErrContextExpired = errors.New("AGENT_SESSION_CONTEXT_EXPIRED")
-	ErrDependency     = errors.New("AGENT_SESSION_UPSTREAM_DEPENDENCY")
+	ErrInvalid            = errors.New("AGENT_SESSION_INVALID_ARGUMENT")
+	ErrUnauthorized       = errors.New("AGENT_SESSION_UNAUTHORIZED")
+	ErrForbidden          = errors.New("AGENT_SESSION_FORBIDDEN")
+	ErrNotFound           = errors.New("AGENT_SESSION_NOT_FOUND")
+	ErrConflict           = errors.New("AGENT_SESSION_CONFLICT")
+	ErrExpired            = errors.New("AGENT_SESSION_IDEMPOTENCY_EXPIRED")
+	ErrContextExpired     = errors.New("AGENT_SESSION_CONTEXT_EXPIRED")
+	ErrEventCursorExpired = errors.New("AGENT_SESSION_EVENT_CURSOR_EXPIRED")
+	ErrDependency         = errors.New("AGENT_SESSION_UPSTREAM_DEPENDENCY")
 )
 
 type Service struct {
-	repo     *repo.ServiceSessionRepository
-	now      func() time.Time
-	executor Executor
+	repo            *repo.ServiceSessionRepository
+	now             func() time.Time
+	executor        Executor
+	runEvents       RunEventStore
+	runEnv          string
+	durableRuns     DurableRunStore
+	runDeadline     time.Duration
+	planningQueue   agent_run.TaskEnqueuer
+	archiveRecovery bool
+	finalOutput     DurableOutputReader
 }
 
 func NewService(db *gorm.DB) *Service {
@@ -59,19 +68,20 @@ type Session struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 type Message struct {
-	MessageUUID uuid.UUID `json:"message_uuid"`
-	SessionUUID uuid.UUID `json:"session_uuid"`
-	Role        string    `json:"role"`
-	Content     string    `json:"content"`
-	Sequence    uint64    `json:"sequence"`
-	CreatedAt   time.Time `json:"created_at"`
+	MessageUUID      uuid.UUID       `json:"message_uuid"`
+	SessionUUID      uuid.UUID       `json:"session_uuid"`
+	Role             string          `json:"role"`
+	Content          string          `json:"content"`
+	Sequence         uint64          `json:"sequence"`
+	CreatedAt        time.Time       `json:"created_at"`
+	ResponseEnvelope json.RawMessage `json:"response_envelope,omitempty"`
 }
 
 func sessionDTO(m *m.ServiceSession) Session {
 	return Session{m.UUID, m.AgentUUID, m.Title, m.Status, m.Revision, m.CreatedAt, m.UpdatedAt}
 }
 func messageDTO(m *m.ServiceMessage) Message {
-	return Message{m.UUID, m.SessionUUID, m.Role, m.Content, m.Sequence, m.CreatedAt}
+	return Message{m.UUID, m.SessionUUID, m.Role, m.Content, m.Sequence, m.CreatedAt, json.RawMessage(m.ResponseEnvelope)}
 }
 func translate(err error) error {
 	if err == nil {
@@ -80,7 +90,7 @@ func translate(err error) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrNotFound
 	}
-	for _, known := range []error{ErrInvalid, ErrUnauthorized, ErrForbidden, ErrNotFound, ErrConflict, ErrExpired, ErrContextExpired, ErrDependency} {
+	for _, known := range []error{ErrInvalid, ErrUnauthorized, ErrForbidden, ErrNotFound, ErrConflict, ErrExpired, ErrContextExpired, ErrEventCursorExpired, ErrDependency} {
 		if errors.Is(err, known) {
 			return known
 		}

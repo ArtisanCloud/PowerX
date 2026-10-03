@@ -84,7 +84,16 @@
     "newMessages": "{count} new messages",
     "unknown": "Unknown",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "contactChannelsTitle": "Channel accounts",
+    "contactChannelsDescription": "These channel accounts are explicitly bound to contact {name}.",
+    "boundContactChannels": "Bound channel accounts",
+    "resolveContactChannelDescription": "Check whether a channel account is already bound to a contact under this customer. This creates neither a contact nor a binding.",
+    "bindContactChannelDescription": "Explicitly bind this channel account to contact {name}. It will not be automatically rebound to another contact.",
+    "resolvedContactChannel": "Resolved contact: {name}",
+    "contactChannelDictionaryUnavailable": "The contact channel dictionary is unavailable. Enable it in metadata governance first.",
+    "contactChannelAccount": "Channel account ownership",
+    "contactChannelRelationship": "A channel account is an account in an external system, not a second contact. Resolve its current binding first; explicitly bind it only after confirming that it belongs to contact {name}."
   },
   "workflow": {
     "port": {
@@ -786,8 +795,16 @@
         },
         "emitRejected": {
           "name": "Emit rejection event"
-        }
-      }
+  },
+  "customerContactChannels": {
+    "title": "Channel accounts",
+    "description": "These channel accounts are explicitly bound to contact {name}.",
+    "bound": "Bound channel accounts",
+    "resolveDescription": "Check whether a channel account is already bound to a contact under this customer. This creates neither a contact nor a binding.",
+    "bindDescription": "Explicitly bind this channel account to contact {name}. It will not be automatically rebound to another contact.",
+    "resolveFound": "Resolved contact: {name}"
+  }
+}
     },
     "fields": {
       "method": "Method",
@@ -1252,6 +1269,11 @@
       "sections": {
         "general": "General",
         "parameters": "Parameters"
+      },
+      "modelConcurrency": {
+        "label": "Model request concurrency limit",
+        "placeholder": "For example, 2",
+        "hint": "Isolated by tenant, provider, and model; align local Ollama with its inference capacity."
       },
       "errors": {
         "ollamaModelNotFound": "Ollama model not found: {model}. Run ollama pull {model}, or choose an installed local model from the dropdown."
@@ -2410,12 +2432,18 @@
         "allSources": "All sources",
         "allStatuses": "All statuses"
       },
-      "quickCreate": {
-        "name": "New Agent-{suffix}",
-        "description": "Complete the configuration in Agent Management",
-        "success": "Created",
-        "successDescription": "Default agent created",
-        "failed": "Create failed"
+      "createForm": {
+        "keyInvalid": "System Key must contain 1–64 letters, numbers, dots, underscores, or hyphens",
+        "promptSeedHelp": "Drafts may leave this empty; an active agent needs a primary instruction.",
+        "title": "Create Agent",
+        "description": "Review the agent details before saving. Drafts can be completed later.",
+        "systemKey": "System Key",
+        "systemKeyHelp": "Cannot be changed after creation. Use letters, numbers, dots, underscores, or hyphens.",
+        "systemKeyPlaceholder": "e.g. marketing.content_assistant",
+        "keyRequired": "System Key is required",
+        "promptRequired": "Add a system prompt before enabling this agent",
+        "created": "Agent created",
+        "createFailed": "Create failed"
       },
       "edit": {
         "title": "Edit Agent",

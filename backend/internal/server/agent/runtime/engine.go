@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
+	agentconfig "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
@@ -25,6 +26,31 @@ import (
 
 type EventSink interface {
 	Emit(event string, payload any) error
+}
+
+// terminalTrackingSink lets the outer runtime boundary turn pre-execution
+// failures into a visible terminal SSE response without duplicating failures
+// that runResolvedPlan has already reported itself.
+type terminalTrackingSink struct {
+	EventSink
+	mu         sync.Mutex
+	endEmitted bool
+}
+
+func (s *terminalTrackingSink) Emit(event string, payload any) error {
+	err := s.EventSink.Emit(event, payload)
+	if err == nil && event == dto.EventEnd {
+		s.mu.Lock()
+		s.endEmitted = true
+		s.mu.Unlock()
+	}
+	return err
+}
+
+func (s *terminalTrackingSink) hasTerminalEvent() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.endEmitted
 }
 
 func approvedResumeFromContext(ctx context.Context) bool {
@@ -148,12 +174,17 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	// 不能再把 node_ref 当 flow_id 交给 ag.Stream。
 	if planHasNonWorkflow(plan) {
 		if shouldExecutePlanForResponse(responsePlan, plan) {
-			out, err := e.runResolvedPlan(ctx, plan, sink, tr)
-			if err == nil {
-				finalText = finalTraceContent(out)
+			executionSink := &terminalTrackingSink{EventSink: sink}
+			out, err := e.runResolvedPlan(ctx, plan, executionSink, tr)
+			if err != nil {
+				runErr = err
+				if !executionSink.hasTerminalEvent() {
+					emitAgentRunFailure(ctx, sink, plan.PlanID, "execution.runtime_error", "执行失败", err, "")
+				}
+				return err
 			}
-			runErr = err
-			return err
+			finalText = finalTraceContent(out)
+			return nil
 		}
 		ok = false
 		plan = nil
@@ -706,8 +737,20 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 	approvedResume := approvedResumeFromContext(ctx)
 	if resourceSnapshot, ok := ResourceSnapshotFromContext(ctx); ok {
 		snapshot = resourceSnapshot
+		limits, limitsErr := agentconfig.RuntimeBudgetLimits()
+		if limitsErr != nil {
+			return nil, fmt.Errorf("resolve runtime loop limits: %w", limitsErr)
+		}
+		requestTimeout, timeoutErr := agentconfig.LLMRequestTimeout()
+		if timeoutErr != nil {
+			return nil, fmt.Errorf("resolve LLM request timeout: %w", timeoutErr)
+		}
+		executionTimeout, durationErr := runDurationForPlan(*plan, limits.RunDeadline, requestTimeout)
+		if durationErr != nil {
+			return nil, durationErr
+		}
 		var err error
-		controller, err = NewPlanController(snapshot, RuntimeBudget{MaxPlanRevisions: 2, MaxObservations: 4, MaxSteps: 16, MaxCapabilityCalls: 8, MaxConcurrentTasks: 4, MaxExecutionDuration: 2 * time.Minute}, *plan)
+		controller, err = NewPlanController(snapshot, &RuntimeBudget{MaxPlanRevisions: limits.MaxPlanRevisions, MaxObservations: limits.MaxObservations, MaxSteps: limits.MaxSteps, MaxCapabilityCalls: limits.MaxCapabilityCalls, MaxConcurrentTasks: limits.MaxConcurrentTasks, MaxExecutionDuration: executionTimeout}, *plan)
 		if err != nil {
 			return nil, fmt.Errorf("initialize plan controller: %w", err)
 		}
@@ -782,7 +825,7 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			// The remaining plan is already a persisted revision. Observation would
 			// create an unapproved replacement decision, so it is forbidden above.
 			plan = &flowschema.ExecutionPlan{PlanID: plan.PlanID, Tasks: executable}
-		} else {
+		} else if len(controller.Observations()) > 0 {
 			ctx = ContextWithRuntimeObservations(ctx, controller.Observations())
 			planner, hasPlanner := PlanRevisionPlannerFromContext(ctx)
 			if !hasPlanner {
@@ -805,6 +848,11 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			ctx = context.WithValue(ctx, "runtime_plan_revision_uuid", revision.RevisionUUID.String())
 			tr.withRuntimeRevision(revision.RevisionUUID)
 			plan = &revision.Plan
+		} else {
+			// Revision 0 is the authoritative executable plan when no observation
+			// task ran. A replan requires observation evidence; fabricating an empty
+			// replan would both violate that contract and reject ordinary task plans.
+			plan = &flowschema.ExecutionPlan{PlanID: plan.PlanID, Tasks: executable}
 		}
 	}
 	if controller != nil {
@@ -835,7 +883,34 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 	})
 
 	emitMu := &sync.Mutex{}
+	taskTraceNodes := &sync.Map{}
+	type taskTraceNode struct {
+		nodeID string
+		kind   string
+		ref    string
+	}
+	finishTaskTrace := func(task flowschema.PlanTask, out *agentschema.ExecutionResult, taskErr error) {
+		raw, found := taskTraceNodes.LoadAndDelete(task.TaskID)
+		if !found {
+			return
+		}
+		node, ok := raw.(taskTraceNode)
+		if !ok {
+			return
+		}
+		if taskErr != nil {
+			tr.failNode(ctx, node.nodeID, node.kind, node.ref, taskErr)
+			return
+		}
+		tr.endNode(ctx, node.nodeID, node.kind, node.ref, map[string]any{"task_id": task.TaskID, "success": out != nil && out.Success})
+	}
 	hooks := &agent.PlanExecutionHooks{
+		MaxConcurrentTasks: func() int {
+			if controller == nil {
+				return 0
+			}
+			return controller.budget.MaxConcurrentTasks
+		}(),
 		OnTaskStart: func(task flowschema.PlanTask) error {
 			if controller != nil {
 				if err := controller.budget.ConsumeTask(normalizeNodeKind(task.NodeKind)); err != nil {
@@ -851,6 +926,14 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 					return err
 				}
 			}
+			taskTraceNodes.Store(task.TaskID, taskTraceNode{
+				nodeID: tr.startNode(ctx, normalizeNodeKind(task.NodeKind), normalizeNodeRef(task), map[string]any{
+					"task_id": task.TaskID,
+					"plan_id": plan.PlanID,
+				}),
+				kind: normalizeNodeKind(task.NodeKind),
+				ref:  normalizeNodeRef(task),
+			})
 			emitMu.Lock()
 			defer emitMu.Unlock()
 			_ = sink.Emit(dto.EventNodeStart, map[string]any{
@@ -874,17 +957,30 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			return nil
 		},
 		OnTaskEnd: func(task flowschema.PlanTask, out *agentschema.ExecutionResult, runErr error) error {
+			var traceErr error
+			defer func() {
+				if traceErr != nil {
+					finishTaskTrace(task, out, traceErr)
+					return
+				}
+				finishTaskTrace(task, out, runErr)
+			}()
 			emitMu.Lock()
 			defer emitMu.Unlock()
 			if runErr == nil && snapshot != nil {
 				if err := AttachCapabilityVerificationEvidence(ctx, snapshot, task, out); err != nil {
-					return fmt.Errorf("attach capability verification evidence: %w", err)
+					traceErr = fmt.Errorf("attach capability verification evidence: %w", err)
+					return traceErr
 				}
 				if err := verificationSvc.PersistVerifiedCapabilityTask(ctx, runtimeEnv, snapshot.TenantUUID, runUUID, snapshot, task, out); err != nil {
-					return fmt.Errorf("persist capability verification evidence: %w", err)
+					traceErr = fmt.Errorf("persist capability verification evidence: %w", err)
+					return traceErr
 				}
 			}
 			taskErr := taskExecutionError(out, runErr)
+			if taskErr != nil {
+				traceErr = taskErr
+			}
 			status := "completed"
 			if taskErr != nil {
 				status = "failed"
@@ -926,6 +1022,7 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 				}(),
 			}
 			if err := persistTaskSkillState(ctx, task, status, out, taskErr); err != nil {
+				traceErr = err
 				taskEndPayload["status"] = dto.AgentTaskStatusFailed
 				taskEndPayload["error"] = "task_state.persist_failed"
 				enrichTaskEndPayload(taskEndPayload, out)
@@ -2262,6 +2359,9 @@ func humanizeExecutionError(err error) string {
 }
 
 func taskFailureReason(err error) string {
+	if modelReason := modelFailureReason(err); modelReason != "" {
+		return modelReason
+	}
 	switch {
 	case errors.Is(err, context.Canceled):
 		return "run.canceled"
@@ -2276,15 +2376,26 @@ func agentRunFailurePayload(ctx context.Context, flowID, reason string, err erro
 	code := "agent_run.failed"
 	retryable := false
 	if err != nil {
-		switch {
-		case errors.Is(err, context.Canceled):
-			code = "agent_run.canceled"
-			retryable = true
-		case errors.Is(err, context.DeadlineExceeded):
-			code = "agent_run.timeout"
-			retryable = true
-		case strings.Contains(strings.ToLower(err.Error()), "without final response"):
-			code = "agent_run.missing_final"
+		switch modelFailureReason(err) {
+		case "queue.full":
+			code, retryable = "agent_run.queue_full", true
+		case "queue.timeout":
+			code, retryable = "agent_run.queue_timeout", true
+		case "provider.timeout":
+			code, retryable = "agent_run.provider_timeout", true
+		case "store.unavailable":
+			code, retryable = "agent_run.store_unavailable", true
+		default:
+			switch {
+			case errors.Is(err, context.Canceled):
+				code = "agent_run.canceled"
+				retryable = true
+			case errors.Is(err, context.DeadlineExceeded):
+				code = "agent_run.timeout"
+				retryable = true
+			case strings.Contains(strings.ToLower(err.Error()), "without final response"):
+				code = "agent_run.missing_final"
+			}
 		}
 	}
 	outcome := runtimeFailureOutcome(strings.TrimSpace(reason), err)

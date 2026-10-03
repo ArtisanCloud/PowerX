@@ -14,6 +14,7 @@ import { SSE_EVENT_TYPES } from "~/types/message";
 import { BaseFlowKey } from "../api/types/agent";
 import { useStreamingThinkParser } from "./useThinkParser";
 import { useEnvStore } from "~/stores/envStore";
+import { durableSseReader } from "~/utils/agent/durableSseReader";
 import { isRunStateEvent } from "~/utils/agent/streamEvent";
 
 export interface DualChannelConnection {
@@ -424,8 +425,19 @@ export function useDualChannelConnection(
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
 
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error("无法读取 SSE 流");
+      const initialReader = resp.body?.getReader();
+      if (!initialReader) throw new Error("无法读取 SSE 流");
+      const reader = durableSseReader(initialReader, async (runId, cursor) => {
+        const resumed = await fetch(buildHttpUrl("/agents/stream/sse", {
+          env: getEnv(), run_id: runId, after_seq: cursor,
+        }), {
+          method: "GET",
+          headers: { Accept: "text/event-stream", "Cache-Control": "no-cache", Authorization: `${getTokenType()} ${getAuthToken()}` },
+          signal: abortController.signal,
+        });
+        if (!resumed.ok || !resumed.body) throw new Error(`HTTP ${resumed.status} ${resumed.statusText}`);
+        return resumed.body.getReader();
+      }, abortController.signal);
       const decoder = new TextDecoder();
 
       const run = async () => {
