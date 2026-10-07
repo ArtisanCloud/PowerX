@@ -83,6 +83,53 @@ capabilities:
     prefer: rest
   docs: [specs/011-knowledge-space/contracts/http-openapi.yaml]
   protocols:
+  - channel: core_internal
+    endpoint: core://knowledge/documents
+    method: INVOKE
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/components/schemas/DocumentOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.document.manage
+    api_key: {scope: _scope.knowledge.document.manage, action: manage, resource_type: api, resource_pattern: document}
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/{spaceId}/documents
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/components/schemas/DocumentInput
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.document.manage
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/index-jobs/{jobId}
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/components/schemas/TenantKnowledgeIndexJob
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.document.manage
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/index-jobs/{jobId}/chunks
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/components/schemas/TenantKnowledgeDocumentChunk
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.document.manage
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/index-jobs/{job_uuid}/chunks
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml#/components/schemas/TenantKnowledgeDocumentChunk
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.document.manage
+    api_key: {scope: _scope.knowledge.document.manage, action: manage, resource_type: api, resource_pattern: document}
   - channel: rest
     endpoint: "/api/v1/tenant/knowledge/spaces/{space_uuid}/documents"
     method: POST

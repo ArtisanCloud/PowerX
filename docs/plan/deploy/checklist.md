@@ -4,7 +4,7 @@
 
 - [ ] `config.yaml` 已启用插件并落到持久目录
 - [ ] `config.yaml` 已显式配置 `deployment.env=prod`，且未从 `version`、`dev_mode`、目录名或安装元数据推导
-- [ ] `CORE_X_AUTH_JWT_SECRET` 已替换为生产密钥（长度>=32）
+- [ ] `POWERX_AUTH_JWT_SECRET` 已替换为生产密钥（长度>=32）
 - [ ] PostgreSQL / Redis / MinIO 连通性已验证
 - [ ] Nginx 同域反代配置已加载并生效
 - [ ] backend 与 web-admin 健康检查接口可访问

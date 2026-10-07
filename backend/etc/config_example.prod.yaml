@@ -177,8 +177,8 @@ audit:
     include_meta: true
 
 auth:
-  # Required before first startup: generate once with `openssl rand -hex 32`.
-  # Persist per deployment, or supply CORE_X_AUTH_JWT_SECRET. Never commit it.
+  # First-install Setup generates and persists a unique key automatically.
+  # Installed deployments require this saved key or POWERX_AUTH_JWT_SECRET.
   jwt_secret: ""
   issuer: powerx-auth
   audience_user: user

@@ -47,6 +47,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	vectorIndexHandler := NewVectorIndexHandler(deps)
 	builtinHandler := NewBuiltinHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
+	registerHostDocumentAdmin(protected, deps)
 	{
 		group.GET("", handler.list)
 		group.GET("/catalog", handler.catalog)

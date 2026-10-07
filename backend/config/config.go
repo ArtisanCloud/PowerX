@@ -35,7 +35,9 @@ func InitGlobalConfig(configPath string) error {
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
-	loadFromEnv(&config)
+	if err := loadFromEnv(&config); err != nil {
+		return fmt.Errorf("环境配置无效: %w", err)
+	}
 	if err := config.ValidateDeploymentIdentity(); err != nil {
 		return fmt.Errorf("部署身份配置无效: %w", err)
 	}
@@ -491,10 +493,10 @@ type IntegrationGatewayEventTopics struct {
 
 // CapabilityRegistryConfig 配置能力目录缓存与事件主题。
 type CapabilityRegistryConfig struct {
-	RedisPrefix                    string                               `yaml:"redis_prefix"`
-	EventTopicPrefix               string                               `yaml:"event_topic_prefix"`
-	DefaultRateLimit               CapabilityRegistryRateLimitConfig    `yaml:"default_rate_limit"`
-	DefaultHTTPTimeoutSeconds      int                                  `yaml:"default_http_timeout_seconds"`
+	RedisPrefix               string                            `yaml:"redis_prefix"`
+	EventTopicPrefix          string                            `yaml:"event_topic_prefix"`
+	DefaultRateLimit          CapabilityRegistryRateLimitConfig `yaml:"default_rate_limit"`
+	DefaultHTTPTimeoutSeconds int                               `yaml:"default_http_timeout_seconds"`
 	// AIMultimodalHTTPTimeoutSeconds is the Core capability-proxy response
 	// deadline. It is not the LLM provider request deadline and must leave a
 	// response window after a provider timeout.
@@ -715,7 +717,9 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// 3. 从环境变量覆盖
-	loadFromEnv(cfg)
+	if err := loadFromEnv(cfg); err != nil {
+		return nil, fmt.Errorf("环境配置无效: %w", err)
+	}
 
 	// 4. 验证配置
 	if err := cfg.Validate(); err != nil {
@@ -801,7 +805,7 @@ func loadDotEnvFile(path string) error {
 }
 
 // loadFromEnv 从环境变量加载配置
-func loadFromEnv(cfg *Config) {
+func loadFromEnv(cfg *Config) error {
 	// Server配置
 	if host := os.Getenv("POWERX_BACKEND_HOST"); host != "" {
 		cfg.Server.Host = strings.TrimSpace(host)
@@ -841,8 +845,10 @@ func loadFromEnv(cfg *Config) {
 	}
 
 	// Auth配置（新）
-	if v := os.Getenv("CORE_X_AUTH_JWT_SECRET"); v != "" {
-		cfg.Auth.JWTSecret = v
+	if secret, err := jwtSecretEnvironment(); err != nil {
+		return err
+	} else if secret != "" {
+		cfg.Auth.JWTSecret = secret
 	}
 	if v := os.Getenv("CORE_X_AUTH_ISSUER"); v != "" {
 		cfg.Auth.Issuer = v
@@ -1318,9 +1324,6 @@ func loadFromEnv(cfg *Config) {
 	}
 
 	// 兼容旧的环境变量
-	if secret := os.Getenv("CORE_X_JWT_SECRET"); secret != "" && cfg.Auth.JWTSecret == "" {
-		cfg.Auth.JWTSecret = secret
-	}
 	if port := os.Getenv("CORE_X_PORT"); port != "" && cfg.Server.Port == 8077 {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p
@@ -1332,4 +1335,5 @@ func loadFromEnv(cfg *Config) {
 	if busType := os.Getenv("EVENT_BUS_TYPE"); busType != "" && cfg.Event.Bus.Type == "local" {
 		cfg.Event.Bus.Type = busType
 	}
+	return nil
 }

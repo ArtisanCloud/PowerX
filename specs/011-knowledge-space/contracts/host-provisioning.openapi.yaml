@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Knowledge Host Provisioning
-  version: 1.0.0
+  version: 1.1.0
 servers:
 - url: /api/v1
 paths:
@@ -79,6 +79,12 @@ paths:
                         $ref: '#/components/schemas/Catalog'
       security:
       - AdminJWT: []
+  /tenant/knowledge/spaces/{space_uuid}/documents:
+    $ref: ./http-openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1documents
+  /tenant/knowledge/index-jobs/{job_uuid}:
+    $ref: ./http-openapi.yaml#/paths/~1tenant~1knowledge~1index-jobs~1{job_uuid}
+  /tenant/knowledge/index-jobs/{job_uuid}/chunks:
+    $ref: ./http-openapi.yaml#/paths/~1tenant~1knowledge~1index-jobs~1{job_uuid}~1chunks
 components:
   schemas:
     CatalogOperation:
@@ -246,6 +252,44 @@ components:
           $ref: '#/components/schemas/Quotas'
         quota_override_allowed:
           type: boolean
+        document_ingestion:
+          type: object
+          description: Published supported formats/settings/defaults and unsupported
+            processor/masking/page/strategy overrides.
+    DocumentInput:
+      $ref: ./http-openapi.yaml#/components/schemas/TenantKnowledgeDocumentWriteRequest
+    DocumentOperation:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - operation
+        - space_uuid
+        - document
+        properties:
+          operation:
+            type: string
+            enum:
+            - submit_document
+          space_uuid:
+            type: string
+            format: uuid
+          document:
+            $ref: '#/components/schemas/DocumentInput'
+      - type: object
+        additionalProperties: false
+        required:
+        - operation
+        - job_uuid
+        properties:
+          operation:
+            type: string
+            enum:
+            - get_job
+            - get_job_chunks
+          job_uuid:
+            type: string
+            format: uuid
   securitySchemes:
     ServiceCredential:
       type: http

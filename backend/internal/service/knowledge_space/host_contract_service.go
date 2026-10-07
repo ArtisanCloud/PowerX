@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -44,11 +46,12 @@ const (
 // HostContractService owns tenant-scoped documents and their asynchronous
 // indexing records. It never accepts a caller-provided tenant UUID.
 type HostContractService struct {
-	db *gorm.DB
+	db   *gorm.DB
+	wake chan struct{}
 }
 
 func NewHostContractService(db *gorm.DB) *HostContractService {
-	return &HostContractService{db: db}
+	return &HostContractService{db: db, wake: make(chan struct{}, 1)}
 }
 
 type HostSpace struct {
@@ -58,13 +61,14 @@ type HostSpace struct {
 }
 
 type HostDocumentInput struct {
-	Title       string
-	URI         string
-	Content     string
-	ContentType string
-	Checksum    string
-	Version     string
-	Tags        []string
+	Title       string                 `json:"title"`
+	URI         string                 `json:"uri"`
+	Content     string                 `json:"content"`
+	ContentType string                 `json:"content_type"`
+	Checksum    string                 `json:"checksum"`
+	Version     string                 `json:"version"`
+	Tags        []string               `json:"tags"`
+	Ingestion   *HostIngestionSettings `json:"ingestion,omitempty"`
 }
 
 type HostDocumentJob struct {
@@ -75,12 +79,20 @@ type HostDocumentJob struct {
 }
 
 type HostJob struct {
-	JobUUID      string `json:"job_uuid"`
-	SpaceUUID    string `json:"space_uuid"`
-	DocumentUUID string `json:"document_uuid,omitempty"`
-	Operation    string `json:"operation"`
-	Status       string `json:"status"`
-	ErrorCode    string `json:"error_code,omitempty"`
+	JobUUID          string                 `json:"job_uuid"`
+	SpaceUUID        string                 `json:"space_uuid"`
+	DocumentUUID     string                 `json:"document_uuid,omitempty"`
+	Operation        string                 `json:"operation"`
+	Status           string                 `json:"status"`
+	ErrorCode        string                 `json:"error_code,omitempty"`
+	Priority         string                 `json:"priority"`
+	TraceID          string                 `json:"trace_id"`
+	EffectiveConfig  *HostIngestionSnapshot `json:"effective_config,omitempty"`
+	RequestedConfig  *HostIngestionSettings `json:"requested_config,omitempty"`
+	SnapshotChecksum string                 `json:"snapshot_checksum,omitempty"`
+	ChunkCount       int                    `json:"chunk_count"`
+	StartedAt        *time.Time             `json:"started_at,omitempty"`
+	CompletedAt      *time.Time             `json:"completed_at,omitempty"`
 }
 
 type HostSearchCitation struct {
@@ -131,20 +143,33 @@ func (s *HostContractService) Search(ctx context.Context, tenantUUID, query stri
 			return nil, KnowledgeSpaceNotFoundError(errors.New("knowledge space not found"))
 		}
 	}
-	base := s.db.WithContext(ctx).Model(&models.TenantDocument{}).
-		Where("tenant_uuid = ? AND index_status = ?", tenantUUID, HostDocumentStatusIndexed).
-		Where("(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)", "%"+strings.ToLower(query)+"%", "%"+strings.ToLower(query)+"%")
-	if len(parsedSpaces) > 0 {
-		base = base.Where("space_uuid IN ?", parsedSpaces)
+	var matches []struct {
+		DocumentUUID string
+		Title        string
+		URI          string
+		SpaceUUID    string
+		Content      string
+		Tags         datatypes.JSON
 	}
-	var rows []models.TenantDocument
-	if err := base.Order("updated_at DESC").Limit(limit).Find(&rows).Error; err != nil {
+	chunkTable := models.HostDocumentChunk{}.TableName()
+	docTable := models.TenantDocument{}.TableName()
+	q := s.db.WithContext(ctx).Table(chunkTable+" AS c").Select("c.document_uuid,d.title,d.uri,c.space_uuid,c.content,d.tags").Joins("JOIN "+docTable+" AS d ON d.uuid = c.document_uuid AND d.tenant_uuid = c.tenant_uuid AND d.index_job_uuid = c.job_uuid").Joins("JOIN "+models.IndexJob{}.TableName()+" AS j ON j.uuid = c.job_uuid AND j.tenant_uuid = c.tenant_uuid AND j.status = ?", HostIndexStatusSucceeded).Where("c.tenant_uuid = ? AND d.index_status = ? AND d.deleted_at IS NULL AND c.deleted_at IS NULL AND LOWER(c.content) LIKE ?", tenantUUID, HostDocumentStatusIndexed, "%"+strings.ToLower(query)+"%")
+	if len(parsedSpaces) > 0 {
+		q = q.Where("c.space_uuid IN ?", parsedSpaces)
+	}
+	if err := q.Order("c.created_at DESC").Limit(limit).Scan(&matches).Error; err != nil {
 		return nil, KnowledgeUpstreamDependencyError(err)
 	}
-	out := make([]HostSearchCitation, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, HostSearchCitation{SpaceUUID: row.SpaceUUID, DocumentUUID: row.UUID.String(), Title: row.Title, URI: row.URI, Excerpt: searchExcerpt(row.Content, query), Tags: decodeTags(row.Tags)})
+	out := []HostSearchCitation{}
+	seen := map[string]bool{}
+	for _, row := range matches {
+		if seen[row.DocumentUUID] {
+			continue
+		}
+		seen[row.DocumentUUID] = true
+		out = append(out, HostSearchCitation{SpaceUUID: row.SpaceUUID, DocumentUUID: row.DocumentUUID, Title: row.Title, URI: row.URI, Excerpt: searchExcerpt(row.Content, query), Tags: decodeTags(row.Tags)})
 	}
+
 	return out, nil
 }
 
@@ -160,7 +185,16 @@ func (s *HostContractService) UpsertDocument(ctx context.Context, tenantUUID, sp
 	if err != nil {
 		return HostDocumentJob{}, err
 	}
-	_ = space
+	if space.Status == models.KnowledgeSpaceStatusRetired {
+		return HostDocumentJob{}, KnowledgeSpaceNotFoundError(errors.New("space retired"))
+	}
+	snapshot, err := s.freezeIngestion(ctx, space, in)
+	if err != nil {
+		return HostDocumentJob{}, err
+	}
+	snapshotBytes, _ := json.Marshal(snapshot)
+	requestedBytes, _ := json.Marshal(in.Ingestion)
+	sourceBytes, _ := json.Marshal(hostDocumentSource{Title: strings.TrimSpace(in.Title), URI: strings.TrimSpace(in.URI), Content: in.Content, ContentType: in.ContentType, Checksum: strings.ToLower(in.Checksum), Version: in.Version, Tags: normalizeTags(in.Tags)})
 	tags, _ := json.Marshal(normalizeTags(in.Tags))
 	var document models.TenantDocument
 	var job models.IndexJob
@@ -175,7 +209,16 @@ func (s *HostContractService) UpsertDocument(ctx context.Context, tenantUUID, sp
 			return err
 		} else {
 			if document.Checksum == strings.ToLower(strings.TrimSpace(in.Checksum)) && document.IndexStatus != HostDocumentStatusDeleted {
-				return KnowledgeIndexConflictError(errors.New("same document checksum is already accepted"))
+				var previous models.IndexJob
+				if document.IndexJobUUID == nil {
+					return KnowledgeIndexConflictError(errors.New("same legacy document checksum is already accepted"))
+				}
+				if err := tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, *document.IndexJobUUID).First(&previous).Error; err != nil {
+					return err
+				}
+				if previous.SnapshotChecksum == checksumJSON(snapshotBytes) && previous.Status != HostIndexStatusFailed {
+					return KnowledgeIndexConflictError(errors.New("same source and configuration are already accepted"))
+				}
 			}
 			document.Title, document.Content, document.ContentType = strings.TrimSpace(in.Title), in.Content, strings.TrimSpace(in.ContentType)
 			document.Checksum, document.Version, document.Tags, document.IndexStatus, document.IndexedAt = strings.ToLower(strings.TrimSpace(in.Checksum)), strings.TrimSpace(in.Version), tags, HostDocumentStatusQueued, nil
@@ -184,8 +227,12 @@ func (s *HostContractService) UpsertDocument(ctx context.Context, tenantUUID, sp
 			}
 		}
 		docUUID := document.UUID.String()
-		job = models.IndexJob{TenantUUID: tenantUUID, SpaceUUID: spaceUUID, DocumentUUID: &docUUID, Operation: HostIndexOperationUpsert, Status: HostIndexStatusQueued}
-		return tx.Create(&job).Error
+		job = models.IndexJob{TenantUUID: tenantUUID, SpaceUUID: spaceUUID, DocumentUUID: &docUUID, Operation: HostIndexOperationUpsert, Status: HostIndexStatusQueued, Priority: snapshot.Priority, ConfigSnapshot: snapshotBytes, RequestedConfig: requestedBytes, SourceSnapshot: sourceBytes, SnapshotChecksum: checksumJSON(snapshotBytes), TraceID: reqctx.GetTraceID(ctx)}
+		if err := tx.Create(&job).Error; err != nil {
+			return err
+		}
+		jobID := job.UUID.String()
+		return tx.Model(&document).Update("index_job_uuid", jobID).Error
 	})
 	if err != nil {
 		return HostDocumentJob{}, mapHostDBError(err)
@@ -234,7 +281,19 @@ func (s *HostContractService) RebuildIndex(ctx context.Context, tenantUUID, spac
 	if active > 0 {
 		return HostDocumentJob{}, KnowledgeIndexConflictError(errors.New("rebuild already queued"))
 	}
-	job := models.IndexJob{TenantUUID: tenantUUID, SpaceUUID: spaceUUID, Operation: HostIndexOperationRebuild, Status: HostIndexStatusQueued}
+	var documents []models.TenantDocument
+	if err := s.db.WithContext(ctx).Where("tenant_uuid = ? AND space_uuid = ? AND index_status = ?", tenantUUID, spaceUUID, HostDocumentStatusIndexed).Find(&documents).Error; err != nil {
+		return HostDocumentJob{}, KnowledgeUpstreamDependencyError(err)
+	}
+	references := []hostRebuildReference{}
+	for _, doc := range documents {
+		if doc.IndexJobUUID == nil {
+			return HostDocumentJob{}, unsupportedSetting("legacy documents require resubmission before rebuild")
+		}
+		references = append(references, hostRebuildReference{doc.UUID.String(), *doc.IndexJobUUID})
+	}
+	source, _ := json.Marshal(references)
+	job := models.IndexJob{TenantUUID: tenantUUID, SpaceUUID: spaceUUID, Operation: HostIndexOperationRebuild, Status: HostIndexStatusQueued, SourceSnapshot: source, TraceID: reqctx.GetTraceID(ctx), Priority: "normal"}
 	if err := s.db.WithContext(ctx).Create(&job).Error; err != nil {
 		return HostDocumentJob{}, KnowledgeUpstreamDependencyError(err)
 	}
@@ -254,7 +313,22 @@ func (s *HostContractService) GetIndexJob(ctx context.Context, tenantUUID, jobUU
 		}
 		return HostJob{}, KnowledgeUpstreamDependencyError(err)
 	}
-	out := HostJob{JobUUID: job.UUID.String(), SpaceUUID: job.SpaceUUID, Operation: job.Operation, Status: job.Status, ErrorCode: job.ErrorCode}
+	out := HostJob{JobUUID: job.UUID.String(), SpaceUUID: job.SpaceUUID, Operation: job.Operation, Status: job.Status, ErrorCode: job.ErrorCode, Priority: job.Priority, TraceID: job.TraceID, SnapshotChecksum: job.SnapshotChecksum, ChunkCount: job.ChunkCount, StartedAt: job.StartedAt, CompletedAt: job.CompletedAt}
+	if len(job.ConfigSnapshot) > 0 {
+		var config HostIngestionSnapshot
+		if json.Unmarshal(job.ConfigSnapshot, &config) != nil || checksumJSON(job.ConfigSnapshot) != job.SnapshotChecksum {
+			return HostJob{}, knowledgeError(http.StatusInternalServerError, KnowledgeReasonSnapshotInvalid, errors.New("job snapshot checksum invalid"))
+		}
+		public := publicHostSnapshot(config)
+		out.EffectiveConfig = &public
+	}
+	if len(job.RequestedConfig) > 0 && string(job.RequestedConfig) != "null" {
+		var config HostIngestionSettings
+		if json.Unmarshal(job.RequestedConfig, &config) != nil {
+			return HostJob{}, KnowledgeUpstreamDependencyError(errors.New("job requested config invalid"))
+		}
+		out.RequestedConfig = &config
+	}
 	if job.DocumentUUID != nil {
 		out.DocumentUUID = *job.DocumentUUID
 	}
@@ -276,43 +350,11 @@ func (s *HostContractService) requireSpace(ctx context.Context, tenantUUID, spac
 	return &space, nil
 }
 
-func (s *HostContractService) runDocumentJobAsync(jobUUID uuid.UUID) {
-	go func() {
-		ctx := context.Background()
-		var job models.IndexJob
-		if err := s.db.WithContext(ctx).First(&job, "uuid = ?", jobUUID).Error; err != nil {
-			return
-		}
-		now := time.Now()
-		if err := s.db.WithContext(ctx).Model(&job).Updates(map[string]any{"status": HostIndexStatusRunning, "started_at": now}).Error; err != nil {
-			return
-		}
-		var err error
-		switch job.Operation {
-		case HostIndexOperationUpsert:
-			if job.DocumentUUID == nil {
-				err = errors.New("document UUID missing")
-			} else {
-				err = s.db.WithContext(ctx).Model(&models.TenantDocument{}).Where("tenant_uuid = ? AND space_uuid = ? AND uuid = ?", job.TenantUUID, job.SpaceUUID, *job.DocumentUUID).Updates(map[string]any{"index_status": HostDocumentStatusIndexed, "indexed_at": time.Now()}).Error
-			}
-		case HostIndexOperationDelete:
-			if job.DocumentUUID == nil {
-				err = errors.New("document UUID missing")
-			} else {
-				err = s.db.WithContext(ctx).Where("tenant_uuid = ? AND space_uuid = ? AND uuid = ?", job.TenantUUID, job.SpaceUUID, *job.DocumentUUID).Delete(&models.TenantDocument{}).Error
-			}
-		case HostIndexOperationRebuild:
-			err = s.db.WithContext(ctx).Model(&models.TenantDocument{}).Where("tenant_uuid = ? AND space_uuid = ? AND index_status <> ?", job.TenantUUID, job.SpaceUUID, HostDocumentStatusDeleted).Updates(map[string]any{"index_status": HostDocumentStatusIndexed, "indexed_at": time.Now()}).Error
-		default:
-			err = errors.New("unsupported index operation")
-		}
-		completed := time.Now()
-		updates := map[string]any{"completed_at": completed, "status": HostIndexStatusSucceeded, "error_code": ""}
-		if err != nil {
-			updates["status"], updates["error_code"] = HostIndexStatusFailed, KnowledgeReasonUpstreamDependency
-		}
-		_ = s.db.WithContext(ctx).Model(&job).Updates(updates).Error
-	}()
+func (s *HostContractService) runDocumentJobAsync(_ uuid.UUID) {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
 }
 
 func validateDocumentInput(in HostDocumentInput) error {
@@ -321,6 +363,12 @@ func validateDocumentInput(in HostDocumentInput) error {
 	}
 	if contentType := strings.ToLower(strings.TrimSpace(in.ContentType)); contentType != "text/markdown" && contentType != "text/plain" {
 		return errors.New("content_type must be text/markdown or text/plain")
+	}
+	if len(in.Content) > 8<<20 {
+		return errors.New("content exceeds 8 MiB")
+	}
+	if checksumBytes([]byte(in.Content)) != strings.ToLower(strings.TrimSpace(in.Checksum)) {
+		return errors.New("checksum does not match UTF-8 content")
 	}
 	checksum := strings.TrimSpace(in.Checksum)
 	if len(checksum) != 64 {

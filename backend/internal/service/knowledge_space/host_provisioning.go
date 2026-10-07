@@ -37,6 +37,8 @@ type HostPolicyTemplate struct {
 	Version string `json:"version"`
 }
 type HostStrategyPackage struct {
+	UUID                   string              `json:"uuid"`
+	Version                int                 `json:"version"`
 	Key                    string              `json:"key"`
 	Label                  string              `json:"label"`
 	Summary                string              `json:"summary"`
@@ -56,6 +58,7 @@ type HostScene struct {
 	AllowedBundles []string `json:"allowed_bundles"`
 }
 type HostCatalog struct {
+	DocumentIngestion         map[string]any        `json:"document_ingestion"`
 	Version                   string                `json:"version"`
 	Source                    string                `json:"source"`
 	Scenes                    []HostScene           `json:"scenes"`
@@ -77,7 +80,7 @@ func (s *Service) GetHostCatalog(ctx context.Context, tenant string) (*HostCatal
 	if err != nil {
 		return nil, KnowledgeUpstreamDependencyError(err)
 	}
-	out := &HostCatalog{Version: strconv.Itoa(cat.Version), Source: "powerx_core", Scenes: []HostScene{}, StrategyPackages: []HostStrategyPackage{}, PolicyTemplates: []HostPolicyTemplate{}, QuotaDefaults: HostQuotas{4, 200, 2}, QuotaMinimums: HostQuotas{1, 50, 1}, QuotaOverrideAllowed: true}
+	out := &HostCatalog{DocumentIngestion: HostDocumentIngestionCapabilities(), Version: strconv.Itoa(cat.Version), Source: "powerx_core", Scenes: []HostScene{}, StrategyPackages: []HostStrategyPackage{}, PolicyTemplates: []HostPolicyTemplate{}, QuotaDefaults: HostQuotas{4, 200, 2}, QuotaMinimums: HostQuotas{1, 50, 1}, QuotaOverrideAllowed: true}
 	var policies []models.PolicyTemplateVersion
 	if err := s.db.WithContext(ctx).Order("template_name, version").Find(&policies).Error; err != nil {
 		return nil, KnowledgeUpstreamDependencyError(err)
@@ -105,7 +108,7 @@ func (s *Service) GetHostCatalog(ctx context.Context, tenant string) (*HostCatal
 		if err != nil {
 			return nil, err
 		}
-		item := HostStrategyPackage{Key: key, Label: p.Label, Summary: p.Summary, RecommendedProfileKey: p.RecommendedProfileKey, RecommendedScenes: p.RecommendedScenes, Dependencies: map[string][]string{"index": append([]string{}, p.Dependencies.Index...), "runtime": append([]string{}, p.Dependencies.Runtime...), "assets": append([]string{}, p.Dependencies.Assets...)}, Profiles: mapping, UnavailableReasons: []string{}, ActivationDependencies: append(append([]string{}, p.Dependencies.Index...), p.Dependencies.Assets...)}
+		item := HostStrategyPackage{UUID: hostStrategyUUID(key, cat.Version), Version: cat.Version, Key: key, Label: p.Label, Summary: p.Summary, RecommendedProfileKey: p.RecommendedProfileKey, RecommendedScenes: p.RecommendedScenes, Dependencies: map[string][]string{"index": append([]string{}, p.Dependencies.Index...), "runtime": append([]string{}, p.Dependencies.Runtime...), "assets": append([]string{}, p.Dependencies.Assets...)}, Profiles: mapping, UnavailableReasons: []string{}, ActivationDependencies: append(append([]string{}, p.Dependencies.Index...), p.Dependencies.Assets...)}
 		if mapping.Ingestion == nil {
 			item.UnavailableReasons = append(item.UnavailableReasons, "ingestion_profile_not_published")
 		}
@@ -263,7 +266,7 @@ func (s *Service) CreateHostSpace(ctx context.Context, tenant string, in HostCre
 	ingestionID, _ := uuid.Parse(profiles.Ingestion.UUID)
 	indexID, _ := uuid.Parse(profiles.Index.UUID)
 	ragID, _ := uuid.Parse(profiles.RAG.UUID)
-	created, err := s.CreateSpace(ctx, CreateSpaceInput{TenantUUID: tenant, SpaceName: in.Name, DepartmentCode: department.Key, DepartmentUUID: &departmentID, PolicyVersion: policy.ID, QuotaCPU: quotas.CPUCores, QuotaStorageGB: quotas.StorageGB, IngestionProfileKey: profiles.Ingestion.Key, IndexProfileKey: profiles.Index.Key, RAGProfileKey: profiles.RAG.Key, IngestionProfileUUID: &ingestionID, IndexProfileUUID: &indexID, RAGProfileUUID: &ragID, FeatureFlags: EncodeConcurrencyFlag([]string{"rag.strategy_package:" + in.StrategyKey, "rag.scene:" + scene, "rag.bundle:" + profiles.RAG.Key}, quotas.IngestionConcurrency), RequestedBy: reqctx.GetSubject(ctx)})
+	created, err := s.CreateSpace(ctx, CreateSpaceInput{TenantUUID: tenant, SpaceName: in.Name, DepartmentCode: department.Key, DepartmentUUID: &departmentID, PolicyVersion: policy.ID, QuotaCPU: quotas.CPUCores, QuotaStorageGB: quotas.StorageGB, IngestionProfileKey: profiles.Ingestion.Key, IndexProfileKey: profiles.Index.Key, RAGProfileKey: profiles.RAG.Key, IngestionProfileUUID: &ingestionID, IndexProfileUUID: &indexID, RAGProfileUUID: &ragID, FeatureFlags: EncodeConcurrencyFlag([]string{"rag.strategy_package:" + in.StrategyKey, "rag.strategy_version:" + cat.Version, "rag.scene:" + scene, "rag.bundle:" + profiles.RAG.Key}, quotas.IngestionConcurrency), RequestedBy: reqctx.GetSubject(ctx)})
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrSpaceConflict):
