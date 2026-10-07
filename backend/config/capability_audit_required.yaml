@@ -1,4 +1,10 @@
 required_capabilities:
+  - capability_id: com.corex.ai.catalog.models.read
+    source: corex.ai.catalog
+    reason: External plugins require an API Key grantable AI model catalog capability.
+  - capability_id: com.corex.ai.catalog.providers.read
+    source: corex.ai.catalog
+    reason: External plugins require an API Key grantable AI provider catalog capability.
   - capability_id: com.corex.customer.accounts.admin_manage
     source: corex.customer.accounts
     reason: Customer account admin management is a required base platform capability for plugin delegated calls.

@@ -16,9 +16,11 @@ import (
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -134,27 +136,28 @@ func (s *TenantPluginInstanceService) Enable(ctx context.Context, tenantUUID str
 	if err != nil {
 		return nil, "", "", err
 	}
-	cfg, err := s.requireRepo().Get(ctx, tenantUUID, pluginID, reposetting.KeyClientCredentials)
+	var cfg dbsetting.PluginInstanceConfig
+	err = s.requireRepo().DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("tenant_uuid = ? AND plugin_id = ? AND key = ?", tenantUUID, pluginID, reposetting.KeyClientCredentials).
+			First(&cfg).Error; err != nil {
+			return err
+		}
+		cfg.ValueJSON = datatypes.JSON(mergePluginInstanceConfig(cfg.ValueJSON, clientID, config))
+		if err := NewTenantPluginInstanceService(tx).syncRequiredCapabilities(ctx, tenantUUID, p, &cfg); err != nil {
+			return err
+		}
+		cfg.Enabled = true
+		cfg.Status = dbsetting.PluginInstanceStatusEnabled
+		cfg.DrainJobID = ""
+		cfg.DrainRequestedAt = nil
+		cfg.DrainedAt = nil
+		return reposetting.NewPluginInstanceConfigRepository(tx).Upsert(ctx, &cfg)
+	})
 	if err != nil {
 		return nil, "", "", err
 	}
-	if cfg == nil {
-		return nil, "", "", dto.NewErrorWithCode(http.StatusInternalServerError, ErrCodeTenantPluginNotFound, "租户插件实例创建失败", errors.New("tenant plugin instance missing after credentials ensure"))
-	}
-	cfg.ValueJSON = datatypes.JSON(mergePluginInstanceConfig(cfg.ValueJSON, clientID, config))
-	if err := s.syncRequiredCapabilities(ctx, tenantUUID, p, cfg); err != nil {
-		return nil, "", "", err
-	}
-	cfg.Enabled = true
-	cfg.Status = dbsetting.PluginInstanceStatusEnabled
-	cfg.DrainJobID = ""
-	cfg.DrainRequestedAt = nil
-	cfg.DrainedAt = nil
-
-	if err := s.requireRepo().Upsert(ctx, cfg); err != nil {
-		return nil, "", "", err
-	}
-	instance := toTenantPluginInstance(tenantUUID, p, cfg)
+	instance := toTenantPluginInstance(tenantUUID, p, &cfg)
 	return &instance, clientID, clientSecret, nil
 }
 
@@ -175,17 +178,18 @@ func (s *TenantPluginInstanceService) SyncManifestRequiredCapabilities(ctx conte
 		return err
 	}
 	for _, binding := range bindings {
-		cfg, err := s.requireRepo().Get(ctx, binding.TenantUUID, pluginID, reposetting.KeyClientCredentials)
-		if err != nil {
-			return err
-		}
-		if cfg == nil {
-			continue
-		}
-		if err := s.syncRequiredCapabilities(ctx, binding.TenantUUID, plugin, cfg); err != nil {
-			return err
-		}
-		if err := s.requireRepo().Upsert(ctx, cfg); err != nil {
+		if err := s.requireRepo().DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var cfg dbsetting.PluginInstanceConfig
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND plugin_id = ? AND key = ?", binding.TenantUUID, pluginID, reposetting.KeyClientCredentials).First(&cfg).Error; err != nil {
+				return err
+			}
+			if err := NewTenantPluginInstanceService(tx).syncRequiredCapabilities(ctx, binding.TenantUUID, plugin, &cfg); err != nil {
+				return err
+			}
+			return tx.Model(&dbsetting.PluginInstanceConfig{}).
+				Where("tenant_uuid = ? AND plugin_id = ? AND key = ?", binding.TenantUUID, pluginID, reposetting.KeyClientCredentials).
+				Update("value_json", cfg.ValueJSON).Error
+		}); err != nil {
 			return err
 		}
 	}
@@ -196,9 +200,6 @@ func (s *TenantPluginInstanceService) syncRequiredCapabilities(ctx context.Conte
 	required, err := normalizedRequiredCapabilities(plugin.RequiredCapabilities)
 	if err != nil {
 		return err
-	}
-	if len(required) == 0 {
-		return nil
 	}
 	if cfg == nil {
 		return errors.New("plugin credentials required")
@@ -223,19 +224,11 @@ func (s *TenantPluginInstanceService) syncRequiredCapabilities(ctx context.Conte
 			return err
 		}
 	}
-	var credential struct {
-		AllowedCapabilities []string `json:"allowed_capabilities,omitempty"`
-	}
-	if len(cfg.ValueJSON) > 0 {
-		if err := json.Unmarshal(cfg.ValueJSON, &credential); err != nil {
-			return fmt.Errorf("invalid plugin credentials: %w", err)
-		}
-	}
-	credential.AllowedCapabilities = append(credential.AllowedCapabilities, required...)
-	credential.AllowedCapabilities, err = normalizedRequiredCapabilities(credential.AllowedCapabilities)
-	if err != nil {
-		return fmt.Errorf("invalid plugin credential capability grant: %w", err)
-	}
+	return s.reconcileCredentialCapabilityGrants(ctx, tenantUUID, plugin.ID, cfg, required)
+}
+
+func (s *TenantPluginInstanceService) reconcileCredentialCapabilityGrants(ctx context.Context, tenantUUID, pluginID string, cfg *dbsetting.PluginInstanceConfig, required []string) error {
+	db := s.requireRepo().DB()
 	var doc map[string]any
 	if err := json.Unmarshal(cfg.ValueJSON, &doc); err != nil {
 		return fmt.Errorf("invalid plugin credentials: %w", err)
@@ -243,7 +236,20 @@ func (s *TenantPluginInstanceService) syncRequiredCapabilities(ctx context.Conte
 	if doc == nil {
 		doc = map[string]any{}
 	}
-	doc["allowed_capabilities"] = credential.AllowedCapabilities
+	var approvals []dbsetting.PluginCapabilityApproval
+	if err := db.WithContext(ctx).Where("tenant_uuid = ? AND plugin_id = ? AND status = ?", tenantUUID, pluginID, "active").Find(&approvals).Error; err != nil {
+		return err
+	}
+	independent := make(map[string]string, len(approvals))
+	for _, approval := range approvals {
+		if approval.ApprovedByUserUUID == uuid.Nil || approval.UUID == uuid.Nil {
+			return errors.New("plugin.capability_approval_invalid")
+		}
+		independent[approval.CapabilityID] = approval.UUID.String()
+	}
+	if err := reconcileManifestCapabilityGrants(doc, required, independent); err != nil {
+		return err
+	}
 	raw, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -292,7 +298,9 @@ func (s *TenantPluginInstanceService) Disable(ctx context.Context, tenantUUID, p
 	default:
 		cfg.Status = dbsetting.PluginInstanceStatusDisabled
 	}
-	if err := s.requireRepo().Upsert(ctx, cfg); err != nil {
+	if err := s.requireRepo().DB().WithContext(ctx).Model(&dbsetting.PluginInstanceConfig{}).
+		Where("tenant_uuid = ? AND plugin_id = ? AND key = ?", tenantUUID, pluginID, reposetting.KeyClientCredentials).
+		Updates(map[string]any{"enabled": cfg.Enabled, "status": cfg.Status, "drained_at": cfg.DrainedAt}).Error; err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(cfg.DrainJobID) != "" {
@@ -377,8 +385,12 @@ func (s *TenantPluginInstanceService) ensureCredentials(ctx context.Context, ten
 	if err != nil {
 		return "", "", err
 	}
-	if cfg != nil && len(cfg.ValueJSON) > 0 {
-		return extractClientID(cfg.ValueJSON), "", nil
+	if cfg != nil {
+		clientID := extractClientID(cfg.ValueJSON)
+		if clientID == "" {
+			return "", "", errors.New("plugin.credentials_invalid")
+		}
+		return clientID, "", nil
 	}
 	clientID := fmt.Sprintf("%s.%s", pluginID, tenantUUID)
 	clientSecret := utils.RandomString(48)
@@ -393,14 +405,27 @@ func (s *TenantPluginInstanceService) ensureCredentials(ctx context.Context, ten
 		"secret_version":     1,
 		"issued_at":          now,
 	})
-	if err := s.requireRepo().Upsert(ctx, &dbsetting.PluginInstanceConfig{
+	result := s.requireRepo().DB().WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&dbsetting.PluginInstanceConfig{
 		TenantUUID: tenantUUID,
 		PluginID:   pluginID,
 		Key:        reposetting.KeyClientCredentials,
 		ValueJSON:  datatypes.JSON(raw),
 		Enabled:    true,
-	}); err != nil {
-		return "", "", err
+	})
+	if result.Error != nil {
+		return "", "", result.Error
+	}
+	if result.RowsAffected == 0 {
+		// A concurrent creator owns the credential. Never overwrite its secret
+		// or grants and never return a secret that was not persisted.
+		current, err := s.requireRepo().Get(ctx, tenantUUID, pluginID, reposetting.KeyClientCredentials)
+		if err != nil {
+			return "", "", err
+		}
+		if current == nil || extractClientID(current.ValueJSON) == "" {
+			return "", "", errors.New("plugin.credentials_invalid")
+		}
+		return extractClientID(current.ValueJSON), "", nil
 	}
 	return clientID, clientSecret, nil
 }

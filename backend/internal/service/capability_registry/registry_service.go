@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const PlatformCatalogCapabilityID = "com.corex.capabilities.catalog.read"
+
 // RegistryServiceOptions configures RegistryService.
 type RegistryServiceOptions struct {
 	DB           *gorm.DB
@@ -29,12 +31,13 @@ type RegistryServiceOptions struct {
 
 // RegistryService provides read APIs for capability catalog consumers.
 type RegistryService struct {
-	records      *repo.CapabilityRecordRepository
-	templates    *repo.WorkflowTemplateRepository
-	jobs         *repo.CapabilitySyncJobRepository
-	now          func() time.Time
-	defaultLimit int
-	maxLimit     int
+	credentialAccess *GrantStatusService
+	records          *repo.CapabilityRecordRepository
+	templates        *repo.WorkflowTemplateRepository
+	jobs             *repo.CapabilitySyncJobRepository
+	now              func() time.Time
+	defaultLimit     int
+	maxLimit         int
 }
 
 // NewRegistryService builds a RegistryService with sane defaults.
@@ -73,12 +76,13 @@ func NewRegistryService(opts RegistryServiceOptions) *RegistryService {
 	}
 
 	return &RegistryService{
-		records:      opts.RecordRepo,
-		templates:    opts.TemplateRepo,
-		jobs:         opts.JobRepo,
-		now:          clock,
-		defaultLimit: defaultLimit,
-		maxLimit:     maxLimit,
+		credentialAccess: NewGrantStatusService(opts.DB),
+		records:          opts.RecordRepo,
+		templates:        opts.TemplateRepo,
+		jobs:             opts.JobRepo,
+		now:              clock,
+		defaultLimit:     defaultLimit,
+		maxLimit:         maxLimit,
 	}
 }
 
@@ -100,6 +104,17 @@ type CapabilityListOptions struct {
 	IncludeTotal             bool
 }
 
+// PlatformCatalogOptions controls the tenant-scoped CoreX configuration
+// catalog. This catalog has a separate authorization boundary from
+// ListCapabilities: callers need catalog-read authorization, not invocation
+// grants for every listed capability.
+type PlatformCatalogOptions struct {
+	TenantUUID   string
+	Limit        int
+	Offset       int
+	IncludeTotal bool
+}
+
 // CapabilityRecordView extends CapabilityRecord with optional workflow templates.
 type CapabilityRecordView struct {
 	Record            *models.CapabilityRecord
@@ -108,13 +123,39 @@ type CapabilityRecordView struct {
 
 // ListCapabilities returns filtered capability records and optional total.
 func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityListOptions) ([]CapabilityRecordView, int64, error) {
+	return s.listCapabilities(ctx, opts, ServiceCredential(ctx))
+}
+
+// ListPublishedPlatformCatalog returns published, tenant-registered CoreX
+// capabilities for a separately authorized configuration discovery use case.
+// It must not be used to determine whether an invocation is allowed.
+func (s *RegistryService) ListPublishedPlatformCatalog(ctx context.Context, opts PlatformCatalogOptions) ([]CapabilityRecordView, int64, error) {
+	return s.listCapabilities(ctx, CapabilityListOptions{
+		Source:       CapabilitySourceCoreX,
+		TenantUUID:   opts.TenantUUID,
+		Status:       []string{"published"},
+		Limit:        opts.Limit,
+		Offset:       opts.Offset,
+		IncludeTotal: opts.IncludeTotal,
+	}, false)
+}
+
+func (s *RegistryService) listCapabilities(ctx context.Context, opts CapabilityListOptions, filterServiceCredentialGrants bool) ([]CapabilityRecordView, int64, error) {
+	var access CredentialAccess
+	if filterServiceCredentialGrants {
+		var err error
+		access, err = s.credentialAccess.CurrentAccess(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
 	filter := repo.CapabilityRecordFilter{
 		PluginID: opts.PluginID,
 		Status:   opts.Status,
 		Limit:    s.normalizeLimit(opts.Limit),
 		Offset:   opts.Offset,
 	}
-	postFilter := requiresPostFilter(opts)
+	postFilter := requiresPostFilter(opts) || filterServiceCredentialGrants
 	if postFilter {
 		filter.Limit = 0
 		filter.Offset = 0
@@ -139,6 +180,9 @@ func (s *RegistryService) ListCapabilities(ctx context.Context, opts CapabilityL
 	offset := opts.Offset
 	for i := range records {
 		record := records[i]
+		if filterServiceCredentialGrants && !access.Granted[record.CapabilityID] {
+			continue
+		}
 		if !recordMatchesFilters(record, opts) {
 			continue
 		}

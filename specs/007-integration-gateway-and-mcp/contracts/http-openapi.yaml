@@ -10,7 +10,88 @@ info:
     Token 边界以 `docs/guides/auth/plugin_auth_token_model.md` 为准。
 servers:
   - url: https://api.powerx.local
+x-powerx-service-authorization:
+  credential_types: [sts_service_token, gateway_api_key]
+  tenant_source: credential
+  directory_visibility: published_registered_current_credential_granted
+  execution_authorization: live_resolved_target_grant
+  trace_scope: [tenant_uuid, caller_subject, trace_id]
+  historical_trace_without_caller: not_found
+  api_key_permission_source: target_capability_explicit_api_key_binding
+  route_admission: exact_method_runtime_contract
+  grant_status_entry_capability: com.corex.capabilities.grant_status.read
+  independent_directory_capability: false
 paths:
+  /tenant/customer/memberships:resolve:
+    post:
+      summary: Resolve the current delegated customer membership
+      description: Requires plugin STS Authorization and X-PowerX-Customer-Authorization customer JWT. No identity parameters are accepted.
+      parameters:
+        - $ref: '#/components/parameters/CustomerDelegationAuthorization'
+      responses:
+        '200': {description: Current tenant membership, content: {application/json: {schema: {$ref: '#/components/schemas/CustomerMembershipResponse'}}}}
+        '401': {description: CUSTOMER_UNAUTHORIZED}
+        '403': {description: CUSTOMER_FORBIDDEN or CUSTOMER_MEMBERSHIP_INACTIVE}
+        '404': {description: CUSTOMER_MEMBERSHIP_NOT_FOUND}
+        '502': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
+        '503': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
+  /tenant/customer/memberships:
+    get:
+      summary: Read the current delegated customer membership
+      description: Returns only the membership for the customer JWT tenant; it never enumerates other tenant memberships.
+      parameters:
+        - $ref: '#/components/parameters/CustomerDelegationAuthorization'
+      responses:
+        '200': {description: Current tenant membership, content: {application/json: {schema: {$ref: '#/components/schemas/CustomerMembershipResponse'}}}}
+        '401': {description: CUSTOMER_UNAUTHORIZED}
+        '403': {description: CUSTOMER_FORBIDDEN or CUSTOMER_MEMBERSHIP_INACTIVE}
+        '404': {description: CUSTOMER_MEMBERSHIP_NOT_FOUND}
+        '502': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
+        '503': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
+  /tenant/customer/auth/validate:
+    post:
+      summary: Validate the current delegated customer credential
+      description: Requires plugin STS Authorization and X-PowerX-Customer-Authorization. The request body and query must not contain tenant or customer identifiers.
+      parameters:
+        - $ref: '#/components/parameters/CustomerDelegationAuthorization'
+      responses:
+        '200': {description: Current customer context, content: {application/json: {schema: {$ref: '#/components/schemas/CustomerMembershipResponse'}}}}
+        '401': {description: CUSTOMER_UNAUTHORIZED}
+        '403': {description: CUSTOMER_FORBIDDEN or CUSTOMER_MEMBERSHIP_INACTIVE}
+        '404': {description: CUSTOMER_MEMBERSHIP_NOT_FOUND}
+        '502': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
+        '503': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
+  /tenant/customer/auth/register:
+    post:
+      summary: Verify Shopify customer credential and register a Core customer identity
+      description: Core verifies the Shopify token using the tenant plugin's Core-owned Storefront configuration. The issued JWT has aud=customer and tid, cid, iat, exp and jti claims; jti is checked against Core session state and refresh tokens rotate on use.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CustomerShopifyAuthRequest'}
+      responses:
+        '200': {description: Core customer token pair, content: {application/json: {schema: {$ref: '#/components/schemas/CustomerTokenResponse'}}}}
+        '400': {description: CUSTOMER_INVALID_ARGUMENT}
+        '401': {description: CUSTOMER_UNAUTHORIZED or CUSTOMER_CREDENTIAL_INVALID}
+        '403': {description: CUSTOMER_FORBIDDEN}
+        '503': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
+  /tenant/customer/auth/login:
+    post:
+      summary: Verify Shopify customer credential and issue a Core customer token for an existing identity
+      description: Core verifies the Shopify token using the tenant plugin's Core-owned Storefront configuration. A token is issued only for an active tenant membership.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CustomerShopifyAuthRequest'}
+      responses:
+        '200': {description: Core customer token pair, content: {application/json: {schema: {$ref: '#/components/schemas/CustomerTokenResponse'}}}}
+        '400': {description: CUSTOMER_INVALID_ARGUMENT}
+        '401': {description: CUSTOMER_UNAUTHORIZED or CUSTOMER_CREDENTIAL_INVALID}
+        '403': {description: CUSTOMER_FORBIDDEN or CUSTOMER_MEMBERSHIP_INACTIVE}
+        '404': {description: CUSTOMER_IDENTITY_NOT_FOUND}
+        '503': {description: CUSTOMER_UPSTREAM_DEPENDENCY}
   /admin/capabilities:
     get:
       summary: List capabilities from registry (Admin)
@@ -213,6 +294,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CapabilityListResponse'
+  /tenant/capabilities/catalog:
+    get:
+      summary: Discover published CoreX capability metadata for tenant configuration
+      tags: [CapabilityRegistryTenant]
+      description: Returns a safe, published CoreX configuration catalog without filtering each listed capability by invocation grant. The caller must have the catalog-read capability. This endpoint does not return protocol bindings and cannot be used as an invocation contract.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000000
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Published CoreX capability catalog visible to the credential tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCapabilityCatalogListResponse'
+        '403':
+          description: A Gateway API Key or service STS credential with catalog-read authorization is required
+  /tenant/capabilities:grant-status:
+    x-api-key-grant-source: authenticated_key_uuid_and_explicit_host_binding_permissions
+    x-api-key-profile-only-grant: forbidden
+    x-registration-version: latest
+    post:
+      summary: Read current service credential capability grant status
+      tags: [CapabilityRegistryTenant]
+      description: Tenant and service identity are derived only from the STS service token or Gateway API Key. Request tenant_uuid and plugin_id are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapabilityGrantStatusRequest'
+      responses:
+        '200':
+          description: Ordered effective grant statuses for the calling credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityGrantStatusResponse'
+        '400':
+          description: Invalid or duplicate capability identifier, or forbidden request field
+        '401':
+          description: Missing or invalid service credential
+        '403':
+          description: Credential is not an STS service actor or Gateway API Key
+        '502':
+          description: Authorization dependency failed
+        '503':
+          description: Authorization dependency unavailable
   /tenant/invocations:
     post:
       summary: Invoke capability via Integration Gateway (Tenant API)
@@ -304,6 +445,12 @@ paths:
 
 components:
   parameters:
+    CustomerDelegationAuthorization:
+      name: X-PowerX-Customer-Authorization
+      in: header
+      required: true
+      schema: {type: string}
+      description: Bearer Core customer JWT. Authorization remains the plugin STS token.
     CapabilityId:
       name: capabilityId
       in: path
@@ -311,6 +458,90 @@ components:
       schema:
         type: string
   schemas:
+    CustomerShopifyAuthRequest:
+      type: object
+      required: [channel, credential]
+      properties:
+        channel: {type: string, enum: [shopify_storefront]}
+        credential:
+          type: object
+          required: [type, value]
+          properties:
+            type: {type: string, enum: [shopify_customer_access_token]}
+            value: {type: string}
+    CustomerMembership:
+      type: object
+      required: [tenant_uuid, customer_uuid, membership_uuid, status, roles, scopes]
+      properties:
+        tenant_uuid: {type: string, format: uuid}
+        customer_uuid: {type: string, format: uuid}
+        membership_uuid: {type: string, format: uuid}
+        status: {type: string}
+        roles: {type: array, items: {type: string}}
+        scopes: {type: array, items: {type: string}}
+        expires_at: {type: string, format: date-time, nullable: true}
+    CustomerMembershipResponse:
+      type: object
+      required: [item]
+      properties:
+        item: {$ref: '#/components/schemas/CustomerMembership'}
+    CustomerTokenResponse:
+      type: object
+      required: [access_token, expires_in, context]
+      properties:
+        access_token: {type: string}
+        refresh_token: {type: string}
+        expires_in: {type: integer, format: int64}
+        context:
+          type: object
+          required: [tenant_uuid, customer_uuid, membership_uuid, status, roles, scopes, authenticated, source]
+          properties:
+            tenant_uuid: {type: string, format: uuid}
+            customer_uuid: {type: string, format: uuid}
+            membership_uuid: {type: string, format: uuid}
+            status: {type: string}
+            roles: {type: array, items: {type: string}}
+            scopes: {type: array, items: {type: string}}
+            expires_at: {type: string, format: date-time, nullable: true}
+            authenticated: {type: boolean}
+            source: {type: string, enum: [delegated]}
+    CapabilityGrantStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [capability_ids]
+      properties:
+        capability_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$'
+    CapabilityGrantStatusItem:
+      type: object
+      required: [capability_id, status, reason_code]
+      properties:
+        capability_id:
+          type: string
+        status:
+          type: string
+          enum: [granted, not_granted, unknown]
+        reason_code:
+          type: string
+          enum:
+            - CAPABILITY_GRANTED
+            - CAPABILITY_NOT_GRANTED
+            - CAPABILITY_UNKNOWN
+            - CAPABILITY_TENANT_NOT_REGISTERED
+    CapabilityGrantStatusResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CapabilityGrantStatusItem'
     CapabilityListResponse:
       type: object
       properties:
@@ -327,6 +558,50 @@ components:
               type: integer
             total:
               type: integer
+    PlatformCapabilityCatalogListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCapabilityCatalogEntryDTO'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            page_size:
+              type: integer
+            total:
+              type: integer
+    PlatformCapabilityCatalogEntryDTO:
+      type: object
+      required: [capability_id, title, source, status]
+      properties:
+        capability_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        source:
+          type: string
+          enum: [corex]
+        categories:
+          type: array
+          items:
+            type: string
+        intents:
+          type: array
+          items:
+            type: string
+        tool_scope:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [published]
     CapabilityDetailResponse:
       type: object
       properties:
@@ -429,17 +704,25 @@ components:
           type: string
     CapabilityInvokeRequest:
       type: object
-      required: [capability_id, tenant_uuid]
+      additionalProperties: false
+      anyOf:
+        - required: [capability_id]
+        - required: [intent]
       properties:
         capability_id:
           type: string
-        tenant_uuid:
+        intent:
           type: string
+        tool_scope:
+          type: string
+        tool_grant_ids:
+          type: array
+          items: {type: string}
         idempotency_key:
           type: string
         preferred_protocol:
           type: string
-          enum: [mcp, grpc, rest, workflow]
+          enum: [mcp, grpc, rest, workflow, core_internal]
         trace_id:
           type: string
         payload:

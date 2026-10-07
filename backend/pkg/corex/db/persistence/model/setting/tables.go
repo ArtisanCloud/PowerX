@@ -12,8 +12,9 @@ const (
 	TableAuthProviderConfig = "iam_auth_provider_configs"
 
 	// 插件域（plugin）
-	TablePluginInstanceConfig = "plugin_instance_configs"
-	TablePluginDrainJob       = "plugin_drain_jobs"
+	TablePluginInstanceConfig     = "plugin_instance_configs"
+	TablePluginDrainJob           = "plugin_drain_jobs"
+	TablePluginCapabilityApproval = "plugin_capability_approvals"
 
 	// 可选：枚举
 	HTTPSModeAuto    = "auto"   // ACME/Let's Encrypt

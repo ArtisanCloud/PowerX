@@ -59,3 +59,23 @@ func TestShouldSkipModelKeyVerification_DoesNotSkipForInvokeEndpoint(t *testing.
 	}, "")
 	require.False(t, ok)
 }
+
+func TestShouldSkipModelKeyVerification_ForCatalogReadCapabilities(t *testing.T) {
+	t.Parallel()
+
+	for _, capabilityID := range []string{
+		"com.corex.ai.catalog.providers.read",
+		"com.corex.ai.catalog.models.read",
+	} {
+		t.Run(capabilityID, func(t *testing.T) {
+			// A catalog request has query data but no model_key. Even if a caller
+			// supplies one, catalog authorization remains capability-based.
+			require.True(t, shouldSkipModelKeyVerification(capabilityID, map[string]interface{}{
+				"method":   "GET",
+				"endpoint": "/api/v1/admin/agents/models",
+				"query":    map[string]interface{}{"modality": "llm"},
+				"body":     map[string]interface{}{"model_key": "not-used"},
+			}, "not-used"))
+		})
+	}
+}

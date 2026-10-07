@@ -1,174 +1,263 @@
----
 version: 1
 capabilities:
 - capability_id: com.corex.media.assets.read
+  title_i18n: {en: Read Media Assets, zh-CN: 读取媒体资产}
+  description_i18n: {en: Read media assets and variants in the credential tenant., zh-CN: 读取凭证所属租户的媒体资产与变体。}
   module: media
-  title: Media Assets Catalog
-  description: 列出与查询媒资资产，支持多存储驱动筛选；页面预览必须读取 preview/thumbnail variant，origin 仅用于原图下载或后端原始文件处理。
+  title: Media Assets Read
+  description: Read tenant-scoped media assets and UUID-addressable variants.
   permission_code: corex.media.assets:read
-  agent_usable: true
+  agent_usable: false
   risk_level: low
-  categories:
-  - media
-  - storage
-  intents:
-  - media.assets.read
-  tool_scopes:
-  - media.assets
-  policy:
-    prefer: rest
-    fallback:
-    - grpc
-  docs:
-  - specs/001-media-storage/contracts/http-openapi.yaml
-  - backend/api/grpc/contracts/powerx/media/v1/media_asset.proto
+  categories: [media]
+  intents: [media.assets.read]
+  tool_scopes: [media.assets.read]
+  policy: {prefer: rest}
+  docs: [specs/001-media-storage/contracts/http-openapi.yaml]
   protocols:
   - channel: rest
-    endpoint: "/api/v1/media/assets"
+    endpoint: "/api/v1/tenant/media/assets"
     method: GET
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/get
-    auth_type: tenant_jwt
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
+    tool_scope: media.assets.read
+    api_key:
+      scope: _scope.media.assets.read
+      action: read
+      resource_type: api
+      resource_pattern: assets
   - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}"
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}"
     method: GET
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/get
-    auth_type: tenant_jwt
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
+    tool_scope: media.assets.read
+    api_key:
+      scope: _scope.media.assets.read
+      action: read
+      resource_type: api
+      resource_pattern: assets
   - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}"
-    method: PATCH
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/patch
-    auth_type: tenant_jwt
+    endpoint: "/api/v1/tenant/media/assets/variants/{variant_uuid}"
+    method: GET
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
-  - channel: grpc
-    endpoint: powerx.media.v1.MediaAssetAdminService
-    rpc: ListMediaAssets
-    schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
-    auth_type: tenant_jwt
-    tool_scope: media.assets
-  - channel: grpc
-    endpoint: powerx.media.v1.MediaAssetAdminService
-    rpc: GetMediaAsset
-    schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
-    auth_type: tenant_jwt
-    tool_scope: media.assets
-  title_i18n:
-    en: Media Assets Catalog
-  description_i18n:
-    en: 列出与查询媒资资产，支持多存储驱动筛选；页面预览必须读取 preview/thumbnail variant，origin 仅用于原图下载或后端原始文件处理。
+    tool_scope: media.assets.read
+    api_key:
+      scope: _scope.media.assets.read
+      action: read
+      resource_type: api
+      resource_pattern: assets
 - capability_id: com.corex.media.assets.manage
+  title_i18n: {en: Manage Media Assets, zh-CN: 管理媒体资产}
+  description_i18n: {en: Create and update or delete media assets in the credential tenant., zh-CN: 创建、更新或删除凭证所属租户的媒体资产。}
   module: media
-  title: Media Assets Management
-  description: 创建、删除媒资，生成上传/下载预签名链接，并管理 preview/thumbnail 等资源版本；外部插件不得为预览图另建 asset，也不得用 origin 作为页面预览 fallback。
+  title: Media Assets Manage
+  description: Create, update and delete tenant-scoped media assets.
   permission_code: corex.media.assets:manage
-  agent_usable: true
+  agent_usable: false
   risk_level: high
-  categories:
-  - media
-  - storage
-  intents:
-  - media.assets.write
-  tool_scopes:
-  - media.assets
-  policy:
-    prefer: grpc
-    fallback:
-    - rest
-  docs:
-  - specs/001-media-storage/contracts/http-openapi.yaml
-  - backend/api/grpc/contracts/powerx/media/v1/media_asset.proto
+  categories: [media]
+  intents: [media.assets.manage]
+  tool_scopes: [media.assets.manage]
+  policy: {prefer: rest}
+  docs: [specs/001-media-storage/contracts/http-openapi.yaml]
   protocols:
   - channel: rest
-    endpoint: "/api/v1/media/assets"
+    endpoint: "/api/v1/tenant/media/assets"
     method: POST
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/post
-    auth_type: tenant_jwt
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
+    tool_scope: media.assets.manage
+    api_key:
+      scope: _scope.media.assets.manage
+      action: manage
+      resource_type: api
+      resource_pattern: assets
   - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}"
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}"
+    method: PATCH
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.manage
+    api_key:
+      scope: _scope.media.assets.manage
+      action: manage
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}"
     method: DELETE
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/delete
-    auth_type: tenant_jwt
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
+    tool_scope: media.assets.manage
+    api_key:
+      scope: _scope.media.assets.manage
+      action: manage
+      resource_type: api
+      resource_pattern: assets
+- capability_id: com.corex.media.assets.transfer
+  title_i18n: {en: Transfer Media Assets, zh-CN: 传输媒体资产}
+  description_i18n: {en: Issue and consume short-lived media transfer tickets., zh-CN: 签发并使用短期媒体传输票据。}
+  module: media
+  title: Media Assets Transfer
+  description: Issue, complete and consume short-lived Core media transfer tickets.
+  permission_code: corex.media.assets:transfer
+  agent_usable: false
+  risk_level: high
+  categories: [media]
+  intents: [media.assets.transfer]
+  tool_scopes: [media.assets.transfer]
+  policy: {prefer: rest}
+  docs: [specs/001-media-storage/contracts/http-openapi.yaml]
+  protocols:
   - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}/presign"
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/presign-upload"
     method: POST
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post
-    auth_type: tenant_jwt
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
   - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}/variants/{variant}"
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/complete-upload"
     method: POST
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1variants~1{variant}/post
-    auth_type: tenant_jwt
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
   - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}/variants/{variant}"
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/presign-download"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/variants/{variant_uuid}/presign-upload"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/variants/{variant_uuid}/complete-upload"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/variants/{variant_uuid}/presign-download"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: media.assets.transfer
+    api_key:
+      scope: _scope.media.assets.transfer
+      action: transfer
+      resource_type: api
+      resource_pattern: assets
+  - channel: rest
+    endpoint: "/api/v1/media/transfers/{asset_uuid}/variants/{variant_uuid}/upload"
     method: PUT
-    auth_type: tenant_jwt
+    auth_type: signed_ticket
     actor_context: service_actor
-    resource_scope: tenant
-    sts_direct: true
-    tool_scope: media.assets
+    resource_scope: ticket_scoped_variant
+    sts_direct: false
+    tool_scope: media.assets.transfer
   - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}/variants/{variant}/presign"
-    method: POST
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1variants~1{variant}~1presign/post
-    auth_type: tenant_jwt
-    actor_context: service_actor
-    resource_scope: tenant
-    sts_direct: true
-    tool_scope: media.assets
-  - channel: rest
-    endpoint: "/api/v1/media/assets/{uuid}/variants/{variant}/resource"
+    endpoint: "/api/v1/media/transfers/{asset_uuid}/variants/{variant_uuid}/download"
     method: GET
-    schema_ref: specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1variants~1{variant}~1resource/get
-    auth_type: tenant_jwt
+    auth_type: signed_ticket
+    actor_context: service_actor
+    resource_scope: ticket_scoped_variant
+    sts_direct: false
+    tool_scope: media.assets.transfer
+  - channel: rest
+    endpoint: "/api/v1/media/transfers/{asset_uuid}/upload"
+    method: PUT
+    auth_type: signed_ticket
+    actor_context: service_actor
+    resource_scope: ticket_scoped_asset
+    sts_direct: false
+    tool_scope: media.assets.transfer
+  - channel: rest
+    endpoint: "/api/v1/media/transfers/{asset_uuid}/download"
+    method: GET
+    auth_type: signed_ticket
+    actor_context: service_actor
+    resource_scope: ticket_scoped_asset
+    sts_direct: false
+    tool_scope: media.assets.transfer
+- capability_id: com.corex.media.assets.variants.manage
+  title_i18n: {en: Manage Media Variants, zh-CN: 管理媒体变体}
+  description_i18n: {en: Create UUID-addressable variants in the credential tenant., zh-CN: 在凭证所属租户创建可通过 UUID 定位的媒体变体。}
+  module: media
+  title: Media Asset Variants Manage
+  description: Create tenant-scoped UUID-addressable media variants.
+  permission_code: corex.media.assets.variants:manage
+  agent_usable: false
+  risk_level: high
+  categories: [media]
+  intents: [media.assets.variants.manage]
+  tool_scopes: [media.assets.variants.manage]
+  policy: {prefer: rest}
+  docs: [specs/001-media-storage/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/media/assets/{asset_uuid}/variants"
+    method: POST
+    auth_type: api_key_or_bearer
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
-    tool_scope: media.assets
-  - channel: grpc
-    endpoint: powerx.media.v1.MediaAssetAdminService
-    rpc: CreateMediaAsset
-    schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
-    auth_type: tenant_jwt
-    tool_scope: media.assets
-  - channel: grpc
-    endpoint: powerx.media.v1.MediaAssetAdminService
-    rpc: DeleteMediaAsset
-    schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
-    auth_type: tenant_jwt
-    tool_scope: media.assets
-  - channel: grpc
-    endpoint: powerx.media.v1.MediaAssetAdminService
-    rpc: PresignMediaAsset
-    schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
-    auth_type: tenant_jwt
-    tool_scope: media.assets
-  title_i18n:
-    en: Media Assets Management
-  description_i18n:
-    en: 创建、删除媒资，生成上传/下载预签名链接，并管理 preview/thumbnail 等资源版本；外部插件不得为预览图另建 asset，也不得用 origin 作为页面预览 fallback。
+    tool_scope: media.assets.variants.manage
+    api_key:
+      scope: _scope.media.assets.variants.manage
+      action: manage
+      resource_type: api
+      resource_pattern: variants

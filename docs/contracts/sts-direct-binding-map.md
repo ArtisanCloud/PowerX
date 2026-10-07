@@ -1,0 +1,100 @@
+# STS direct 正式绑定与授权检查映射
+
+此表从当前正式 platform_capabilities YAML 提取，仅列出显式 sts_direct 的 REST binding。它是声明快照，不替代逐模块真实 HTTP 验收，也不包含静态 runtime 调度入口。
+
+所有下列 STS 请求在生产 JWT 回调进入 DirectGrantService.AuthorizeSTS：检查 active tenant、能力发布、最新 registration、启用凭证、subject/client_id 一致和实时 allowed_capabilities。接口内部仍须校验具体资源归属。API Key 另走独立授权，不由此表声称支持；auth_type 列保留原始声明，不将 tenant_jwt 解释为任意用户均可调用。
+
+证据：internal/http/sts_direct_grant_test.go 覆盖 AI Invoke、Session 的生产授权回调和旧 token 撤权；其他行的业务语义仍须对应模块测试与部署实测。
+
+| Method | Path | Capability | 声明鉴权 | 资源范围 | 声明文件 |
+| --- | --- | --- | --- | --- | --- |
+| `POST` | `/api/v1/tenant/agent/sessions/{session_uuid}/invocations` | `com.corex.agent.invoke` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `GET` | `/api/v1/tenant/agent/sessions` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `POST` | `/api/v1/tenant/agent/sessions` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `GET` | `/api/v1/tenant/agent/sessions/{session_uuid}` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `PATCH` | `/api/v1/tenant/agent/sessions/{session_uuid}` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `DELETE` | `/api/v1/tenant/agent/sessions/{session_uuid}` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `POST` | `/api/v1/tenant/agent/sessions/{session_uuid}/archive` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `GET` | `/api/v1/tenant/agent/sessions/{session_uuid}/messages` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `POST` | `/api/v1/tenant/agent/sessions/{session_uuid}/messages` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `GET` | `/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `POST` | `/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/cancel` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `GET` | `/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/events` | `com.corex.agent.session.manage` | `sts` | `tenant_plugin_service_actor` | `backend/config/platform_capabilities/agent.yaml` |
+| `GET` | `/api/v1/openapi/agents/{agent_id}/health/summary` | `com.corex.agent.lifecycle.manage` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/agent_lifecycle.yaml` |
+| `GET` | `/api/v1/openapi/agents/{agent_id}/health/history` | `com.corex.agent.lifecycle.manage` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/agent_lifecycle.yaml` |
+| `GET` | `/api/v1/openapi/agents/{agent_id}/bridge/state` | `com.corex.agent.lifecycle.manage` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/agent_lifecycle.yaml` |
+| `POST` | `/api/v1/openapi/agents/{agent_id}/bridge/freeze` | `com.corex.agent.lifecycle.manage` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/agent_lifecycle.yaml` |
+| `POST` | `/api/v1/openapi/agents/{agent_id}/bridge/recover` | `com.corex.agent.lifecycle.manage` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/agent_lifecycle.yaml` |
+| `POST` | `/api/v1/openapi/agents/{agent_id}/bridge/rebalance` | `com.corex.agent.lifecycle.manage` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/agent_lifecycle.yaml` |
+| `GET` | `/api/v1/ai/llm/models` | `com.corex.ai.llm.models/list` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai-llm-models.yaml` |
+| `POST` | `/api/v1/ai/llm/invoke` | `com.corex.ai.llm.invoke` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/llm/stream` | `com.corex.ai.llm.stream` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/llm/sessions` | `com.corex.ai.llm.session.create` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/llm/sessions/{session_id}/messages` | `com.corex.ai.llm.session.append` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/image/invoke` | `com.corex.ai.image.invoke` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/video/invoke` | `com.corex.ai.video.invoke` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/tts/invoke` | `com.corex.ai.tts.invoke` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/embedding/invoke` | `com.corex.ai.embedding.invoke` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/ai/vlm/invoke` | `com.corex.ai.vlm.invoke` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/ai.yaml` |
+| `POST` | `/api/v1/tenant/capabilities:grant-status` | `com.corex.capabilities.grant_status.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/capability_registry.yaml` |
+| `POST` | `/api/v1/tenant/customer/memberships:resolve` | `com.corex.customer.memberships.delegated_read` | `sts_and_customer_jwt` | `customer_self` | `backend/config/platform_capabilities/customer.yaml` |
+| `GET` | `/api/v1/tenant/customer/memberships` | `com.corex.customer.memberships.delegated_read` | `sts_and_customer_jwt` | `customer_self` | `backend/config/platform_capabilities/customer.yaml` |
+| `POST` | `/api/v1/tenant/customer/auth/validate` | `com.corex.customer.auth.validate` | `sts_and_customer_jwt` | `customer_self` | `backend/config/platform_capabilities/customer.yaml` |
+| `POST` | `/api/v1/tenant/customer/auth/register` | `com.corex.customer.auth.register` | `sts` | `tenant` | `backend/config/platform_capabilities/customer.yaml` |
+| `POST` | `/api/v1/tenant/customer/auth/login` | `com.corex.customer.auth.login` | `sts` | `tenant` | `backend/config/platform_capabilities/customer.yaml` |
+| `POST` | `/api/v1/event-fabric/topics` | `com.corex.eventfabric.topic_bootstrap` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/event_fabric.yaml` |
+| `GET` | `/api/v1/tenant/iam/roles/provisionable` | `com.corex.iam.roles.read` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `POST` | `/api/v1/tenant/iam/roles/provision` | `com.corex.iam.roles.provision` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `POST` | `/api/v1/tenant/iam/members/provision` | `com.corex.iam.members.provision` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `GET` | `/api/v1/tenant/iam/members/{member_uuid}` | `com.corex.iam.members.read` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `POST` | `/api/v1/tenant/iam/members:batch-get` | `com.corex.iam.members.read` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `GET` | `/api/v1/tenant/iam/tenant` | `com.corex.iam.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `GET` | `/api/v1/tenant/iam/members` | `com.corex.iam.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `POST` | `/api/v1/tenant/iam/members:batch-resolve` | `com.corex.iam.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `POST` | `/api/v1/tenant/iam/members:batch-find-by-display-names` | `com.corex.iam.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `GET` | `/api/v1/tenant/iam/departments` | `com.corex.iam.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `GET` | `/api/v1/tenant/iam/roles` | `com.corex.iam.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `GET` | `/api/v1/tenant/iam/permissions` | `com.corex.iam.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `POST` | `/api/v1/tenant/iam/authorization:check` | `com.corex.iam.authorization.check` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/iam.yaml` |
+| `GET` | `/api/v1/tenant/knowledge/spaces` | `com.corex.knowledge.directory.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/knowledge.yaml` |
+| `POST` | `/api/v1/tenant/knowledge/search` | `com.corex.knowledge.search.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/knowledge.yaml` |
+| `POST` | `/api/v1/tenant/knowledge/spaces/{space_uuid}/documents` | `com.corex.knowledge.document.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/knowledge.yaml` |
+| `DELETE` | `/api/v1/tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}` | `com.corex.knowledge.document.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/knowledge.yaml` |
+| `POST` | `/api/v1/tenant/knowledge/spaces/{space_uuid}/indexes:rebuild` | `com.corex.knowledge.document.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/knowledge.yaml` |
+| `GET` | `/api/v1/tenant/knowledge/index-jobs/{job_uuid}` | `com.corex.knowledge.document.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/knowledge.yaml` |
+| `GET` | `/api/v1/tenant/media/assets` | `com.corex.media.assets.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `GET` | `/api/v1/tenant/media/assets/{asset_uuid}` | `com.corex.media.assets.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `GET` | `/api/v1/tenant/media/assets/variants/{variant_uuid}` | `com.corex.media.assets.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `POST` | `/api/v1/tenant/media/assets` | `com.corex.media.assets.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `PATCH` | `/api/v1/tenant/media/assets/{asset_uuid}` | `com.corex.media.assets.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `DELETE` | `/api/v1/tenant/media/assets/{asset_uuid}` | `com.corex.media.assets.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `POST` | `/api/v1/tenant/media/assets/{asset_uuid}/presign-upload` | `com.corex.media.assets.transfer` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `POST` | `/api/v1/tenant/media/assets/{asset_uuid}/complete-upload` | `com.corex.media.assets.transfer` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `POST` | `/api/v1/tenant/media/assets/{asset_uuid}/presign-download` | `com.corex.media.assets.transfer` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `POST` | `/api/v1/tenant/media/assets/{asset_uuid}/variants` | `com.corex.media.assets.variants.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/media.yaml` |
+| `GET` | `/api/v1/tenant/metadata/dictionaries` | `com.corex.metadata.dictionary.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `GET` | `/api/v1/tenant/metadata/dictionaries/{namespace_uuid}/items` | `com.corex.metadata.dictionary.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/tenant/metadata/dictionaries` | `com.corex.metadata.dictionary.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `PATCH` | `/api/v1/tenant/metadata/dictionaries/{namespace_uuid}` | `com.corex.metadata.dictionary.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/tenant/metadata/dictionaries/{namespace_uuid}/items` | `com.corex.metadata.dictionary.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `PATCH` | `/api/v1/tenant/metadata/dictionary-items/{item_uuid}` | `com.corex.metadata.dictionary.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `GET` | `/api/v1/tenant/metadata/taxonomies` | `com.corex.metadata.taxonomy.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `GET` | `/api/v1/tenant/metadata/taxonomies/{taxonomy_uuid}/nodes` | `com.corex.metadata.taxonomy.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/tenant/metadata/taxonomies` | `com.corex.metadata.taxonomy.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/tenant/metadata/taxonomies/{taxonomy_uuid}/nodes` | `com.corex.metadata.taxonomy.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `PATCH` | `/api/v1/tenant/metadata/taxonomy-nodes/{node_uuid}` | `com.corex.metadata.taxonomy.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `GET` | `/api/v1/tenant/metadata/tags` | `com.corex.metadata.tag.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/tenant/metadata/tags` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `PATCH` | `/api/v1/tenant/metadata/tags/{tag_uuid}` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/tenant/metadata/tag-bindings` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `DELETE` | `/api/v1/tenant/metadata/tag-bindings/{binding_uuid}` | `com.corex.metadata.tag.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `GET` | `/api/v1/tenant/metadata/resource-types` | `com.corex.metadata.resource_type.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/tenant/metadata/resource-types` | `com.corex.metadata.resource_type.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `PATCH` | `/api/v1/tenant/metadata/resource-types/{resource_type_uuid}` | `com.corex.metadata.resource_type.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/metadata.yaml` |
+| `POST` | `/api/v1/notifications` | `com.corex.notifications.create` | `tenant_jwt` | `tenant` | `backend/config/platform_capabilities/notifications.yaml` |
+| `GET` | `/api/v1/tenant/plugin-release/install-sessions/{session_uuid}` | `com.corex.plugin_release.sessions.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/plugin_release.yaml` |
+| `POST` | `/api/v1/tenant/plugin-release/install-sessions` | `com.corex.plugin_release.sessions.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/plugin_release.yaml` |
+| `POST` | `/api/v1/tenant/plugin-release/install-sessions/{session_uuid}/stop` | `com.corex.plugin_release.sessions.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/plugin_release.yaml` |
+| `GET` | `/api/v1/tenant/plugin-release/import-jobs/{job_uuid}` | `com.corex.plugin_release.imports.read` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/plugin_release.yaml` |
+| `POST` | `/api/v1/tenant/plugin-release/import-jobs` | `com.corex.plugin_release.imports.manage` | `api_key_or_bearer` | `tenant` | `backend/config/platform_capabilities/plugin_release.yaml` |
+

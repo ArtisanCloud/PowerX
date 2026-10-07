@@ -26,7 +26,10 @@
     "reload": "새로고침",
     "scrollToBottom": "맨 아래로",
     "newMessages": "새 메시지 {count}개",
-    "unknown": "알 수 없음"
+    "unknown": "알 수 없음",
+    "contactChannelDictionaryUnavailable": "연락처 채널 사전을 사용할 수 없습니다. 먼저 메타데이터 거버넌스에서 활성화하세요.",
+    "contactChannelAccount": "채널 계정 소유",
+    "contactChannelRelationship": "채널 계정은 외부 시스템의 계정이며 별도의 연락처가 아닙니다. 현재 바인딩을 먼저 확인하고, 연락처 {name}의 계정임을 확인한 경우에만 명시적으로 바인딩하세요."
   },
   "user": {
     "admin": "관리자"
@@ -106,6 +109,9 @@
     "loadFailedDesc": "메뉴 데이터를 로드할 수 없습니다. 네트워크 연결을 확인하세요.",
     "itemCount": "메뉴 항목 수",
     "noItemsWarning": "경고: 표시할 메뉴 항목이 없습니다",
+    "section": {
+      "businessOperations": "비즈니스 운영"
+    },
     "badge": {
       "new": "신규"
     },
@@ -235,6 +241,7 @@
       },
       "uploadFile": "파일 업로드",
       "uploadHint": "파일은 객체 스토리지에 업로드된 후 파이프라인으로 전송됩니다.",
+      "selectedFiles": "파일 {count}개 선택됨",
       "selectedFile": "선택됨: {name}",
       "sourceUri": "소스 주소",
       "maskingProfile": "마스킹 정책",
@@ -252,6 +259,7 @@
       "errors": {
         "missingSpaceId": "공간 ID를 입력하세요",
         "missingSource": "파일을 업로드하거나 URL을 입력하세요",
+        "batchPartial": "입고 작업 {submitted}개를 제출했지만 파일 {failed}개를 제출하지 못했습니다. 문제를 해결한 뒤 실패한 파일을 다시 선택하세요.",
         "runFailed": "입고 실행에 실패했습니다"
       },
       "actions": {
@@ -563,6 +571,7 @@
   "termsOfService": "서비스 약관",
   "agent": {
     "response": {"conclusion": "결론", "answer": "직접 답변", "acceptance": "검수 항목", "evidence": "확인된 근거", "gaps": "누락 또는 차단 요인", "nextActions": "다음 단계"},
+    "runtime": {"outcomes":{"partial":"검증 가능한 일부 결과가 제공되었으며, 남은 범위는 완료되지 않았습니다.","needsInput":"계속하려면 정보, 파일, 권한 또는 승인이 더 필요합니다.","blocked":"권한, 기능 또는 외부 종속성이 부족하여 안전하게 계속할 수 없습니다.","failed":"실행이 완료되지 않았습니다. 실행 추적을 확인하거나 안내에 따라 다시 시도하세요.","cancelled":"이 실행은 취소되었습니다."},"actions":{"provideRequiredInput":"필요한 정보를 제공한 후 계속하세요.","resolveAuthorization":"필요한 권한이나 승인을 받은 후 다시 시도하세요.","reviewPartial":"제공된 부분을 검토하고 남은 범위를 계속할지 결정하세요."},"taskErrors":{"cancelled":"이 단계는 취소되었습니다.","timeout":"이 단계가 시간 초과되었습니다.","executionFailed":"이 단계가 완료되지 않았습니다.","statePersistFailed":"이 단계의 상태를 저장할 수 없습니다.","unknown":"이 단계가 완료되지 않았습니다."}},
     "sessions": {
       "title": "스마트 세션"
     },
@@ -593,12 +602,18 @@
         "allSources": "전체 출처",
         "allStatuses": "전체 상태"
       },
-      "quickCreate": {
-        "name": "새 에이전트-{suffix}",
-        "description": "에이전트 관리에서 설정을 완료하세요",
-        "success": "생성 완료",
-        "successDescription": "기본 에이전트를 생성했습니다",
-        "failed": "생성 실패"
+      "createForm": {
+        "keyInvalid": "시스템 키는 영문, 숫자, 점, 밑줄, 하이픈으로 1~64자여야 합니다",
+        "promptSeedHelp": "초안은 비워 둘 수 있습니다. 활성화하기 전에 주 지시문을 입력하세요.",
+        "title": "에이전트 만들기",
+        "description": "내용을 확인한 다음 저장하세요. 초안은 나중에 완성할 수 있습니다.",
+        "systemKey": "시스템 키",
+        "systemKeyHelp": "생성 후 변경할 수 없습니다. 영문, 숫자, 점, 밑줄, 하이픈을 사용하세요.",
+        "systemKeyPlaceholder": "예: marketing.content_assistant",
+        "keyRequired": "시스템 키를 입력하세요",
+        "promptRequired": "에이전트를 활성화하기 전에 시스템 프롬프트를 입력하세요",
+        "created": "에이전트를 만들었습니다",
+        "createFailed": "생성 실패"
       },
       "edit": {
         "title": "에이전트 편집",
@@ -1078,6 +1093,11 @@
       "sections": {
         "general": "일반",
         "parameters": "파라미터"
+      },
+      "modelConcurrency": {
+        "label": "모델 요청 동시성 한도",
+        "placeholder": "예: 2",
+        "hint": "테넌트, Provider, 모델별로 격리됩니다. 로컬 Ollama는 추론 용량에 맞추세요."
       },
       "actions": {
         "openCostGuard": "코스트 가드",
@@ -1764,5 +1784,6 @@
         "local": "로컬 업로드"
       }
     }
-  }
+  },
+  "agentCapabilityApprovals": {"title":"기능 승인","description":"대기 중인 고위험 Agent 기능 요청을 검토합니다.","back":"Agent 관리로 돌아가기","loading":"승인 불러오는 중…","loadFailed":"승인을 불러올 수 없습니다","emptyTitle":"대기 중인 승인이 없습니다","emptyDescription":"검토 대기 중인 고위험 Agent 요청이 없습니다.","requestTitle":"고위험 Agent 기능 요청","requestedAt":"요청 시간: {time}","approve":"승인","approved":"승인이 기록되었습니다","approveFailed":"승인을 기록할 수 없습니다"}
 }

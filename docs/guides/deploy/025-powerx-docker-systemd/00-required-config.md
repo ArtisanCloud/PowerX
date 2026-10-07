@@ -68,7 +68,10 @@ umask 077 && head -c 32 /dev/urandom | base64
 - `queue.redis.password`（有密码时必须配置）
 
 ### 1.6 `auth`
-- `auth.jwt_secret`：必须替换，禁止使用示例值
+- `auth.jwt_secret`：首次启动（包括安装页面）前必须配置。代码和配置模板不提供默认签名密钥；空值、历史公开默认值和已知示例占位值会使启动失败。
+- 每个部署执行一次 `openssl rand -hex 32`，将结果保存到受保护的配置文件，或作为 `CORE_X_AUTH_JWT_SECRET` 写入部署环境文件。密钥至少 32 个字符；同一部署的多个实例使用同一个值，重启时继续使用它，不要每次启动重新生成。
+- 环境变量 `CORE_X_AUTH_JWT_SECRET` 优先于 YAML 的 `auth.jwt_secret`。首次安装前也需完成此配置；不要将真实密钥提交到 Git。
+- 已使用历史公开默认值的部署应生成新密钥、更新所有实例并重启。旧密钥签发的用户／客户 JWT 和 STS 将失效，用户需重新登录，插件需重新交换 STS；不需要数据库迁移。
 
 ### 1.7 `media.s3`（启用对象存储时必须）
 - `media.s3.endpoint`

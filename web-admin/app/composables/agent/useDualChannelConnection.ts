@@ -13,13 +13,19 @@ import { useMessageStore } from "~/stores/message";
 import { SSE_EVENT_TYPES } from "~/types/message";
 import { BaseFlowKey } from "../api/types/agent";
 import { useStreamingThinkParser } from "./useThinkParser";
+import { useUserStore } from "~/stores/user";
 import { useEnvStore } from "~/stores/envStore";
+import { durableSseReader } from "~/utils/agent/durableSseReader";
+import { pendingDurableRuns, savePendingDurableRun, removePendingDurableRun, durableResumeParams, historyHasDurableResult, type PendingDurableRun } from "~/utils/agent/pendingDurableRun";
+import { isRunStateEvent } from "~/utils/agent/streamEvent";
 
 export interface DualChannelConnection {
   sseActive: Ref<boolean>;
   wsActive: Ref<boolean>;
   currentRequestId: Ref<string | null>;
   reconnectSSE: () => Promise<void>;
+  getPendingRun: (forAgent?: string, forSession?: string) => PendingDurableRun | null;
+  resumePendingRun: () => Promise<void>;
   reconnectWS: () => Promise<void>;
   cancel: () => void;
   sendMessage: (
@@ -51,6 +57,7 @@ export function useDualChannelConnection(
   const apiBase = config.public.apiBase;
   const wsAgentPrefix = String((config.public as any).wsAgentPrefix || "/ws").trim() || "/ws";
   const envStore = useEnvStore();
+  const userStore = useUserStore();
 
   const sseActive = ref(false);
   const wsActive = ref(false);
@@ -107,6 +114,19 @@ export function useDualChannelConnection(
     } catch {
       return localStorage.getItem("px_current_tenant_uuid") || "";
     }
+  };
+  const runStorageScope = () => {
+    if (typeof window === "undefined" || !getAuthToken()) return "";
+    try {
+      const context = JSON.parse(localStorage.getItem("user-store") || "{}")?.context;
+      const user = String(userStore.user?.id || context?.user?.uuid || context?.user?.id || "");
+      const tenant = userStore.currentTenantUuid || getCurrentTenantUuid();
+      return user && tenant ? `${user}:${tenant}:${getEnv()}` : "";
+    } catch { return ""; }
+  };
+  const getPendingRun = (forAgent?: string, forSession?: string): PendingDurableRun | null => {
+    if (typeof window === "undefined") return null;
+    return pendingDurableRuns(localStorage, runStorageScope()).find((run) => (!forAgent || run.agentId === forAgent) && (!forSession || run.sessionId === forSession)) || null;
   };
   const toBase64Url = (s: string) =>
     btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -374,7 +394,8 @@ export function useDualChannelConnection(
   const sendSSEMessage = async (
     message: string,
     flowId = BaseFlowKey,
-    meta?: Record<string, any>
+    meta?: Record<string, any>,
+    resumedRun?: PendingDurableRun,
   ) => {
     // 避免旧请求残留导致一直“生成中”
     try {
@@ -409,7 +430,11 @@ export function useDualChannelConnection(
 
     // 你现在用 mock 流
     // const url = buildHttpUrl("/agents/stream/mock", params);
-    const url = buildHttpUrl("/agents/stream/sse", params);
+    const scope = runStorageScope();
+    const requestAgent = String(agentId?.value || "");
+    const requestSession = String(sessionId?.value || "");
+    let acceptedRunId = resumedRun?.runId || "";
+    const url = buildHttpUrl("/agents/stream/sse", resumedRun ? durableResumeParams(resumedRun.runId, getEnv()) : params);
 
     try {
       const resp = await fetch(url, {
@@ -423,8 +448,19 @@ export function useDualChannelConnection(
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
 
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error("无法读取 SSE 流");
+      const initialReader = resp.body?.getReader();
+      if (!initialReader) throw new Error("无法读取 SSE 流");
+      const reader = durableSseReader(initialReader, async (runId, cursor) => {
+        const resumed = await fetch(buildHttpUrl("/agents/stream/sse", {
+          env: getEnv(), run_id: runId, after_seq: cursor,
+        }), {
+          method: "GET",
+          headers: { Accept: "text/event-stream", "Cache-Control": "no-cache", Authorization: `${getTokenType()} ${getAuthToken()}` },
+          signal: abortController.signal,
+        });
+        if (!resumed.ok || !resumed.body) throw new Error(`HTTP ${resumed.status} ${resumed.statusText}`);
+        return resumed.body.getReader();
+      }, abortController.signal);
       const decoder = new TextDecoder();
 
       const run = async () => {
@@ -578,6 +614,7 @@ export function useDualChannelConnection(
             runState.final = inner;
           } else if (eventType === SSE_EVENT_TYPES.AGENT_RUN_ENDED) {
             runState.ended = true;
+            runState.terminal = inner;
           }
           runState.updatedAt = Date.now();
           bumpMessagesRef();
@@ -660,17 +697,27 @@ export function useDualChannelConnection(
         };
 
         const mergeTraceMetaIntoPending = (payload: any) => {
-          const data =
-            payload?.data && typeof payload.data === "object"
-              ? payload.data
-              : {};
+          // Agent Run events are transported as an outer SSE envelope whose
+          // identity may live in `payload`, `payload.payload`, or either
+          // object's metadata/data.  Keep this normalization here so a
+          // terminal failure has the same trace affordance as a success.
+          const sources = [
+            payload,
+            payload?.data,
+            payload?.metadata,
+            payload?.payload,
+            payload?.payload?.data,
+            payload?.payload?.metadata,
+          ].filter((value) => value && typeof value === "object");
           const patch: Record<string, any> = {};
           const pick = (key: string, ...aliases: string[]) => {
             for (const name of [key, ...aliases]) {
-              const value = payload?.[name] ?? data?.[name];
-              if (value != null && String(value).trim() !== "") {
-                patch[key] = value;
-                return;
+              for (const source of sources) {
+                const value = source?.[name];
+                if (value != null && String(value).trim() !== "") {
+                  patch[key] = value;
+                  return;
+                }
               }
             }
           };
@@ -685,7 +732,7 @@ export function useDualChannelConnection(
           currentTraceMeta = { ...currentTraceMeta, ...patch };
           const messageID = String(currentTraceMeta.message_id || "").trim();
           const clientMsgID = String(
-            payload?.client_msg_id ?? data?.client_msg_id ?? ""
+            sources.map((source) => source?.client_msg_id).find((value) => value != null) ?? ""
           ).trim();
           if (messageID || clientMsgID) {
             const userIdx = messages.value.findIndex((m) => {
@@ -819,37 +866,32 @@ export function useDualChannelConnection(
           onMessageCallback?.(payload);
           let type = String(payload.type || eventName || "").toLowerCase();
 
-          if (type.startsWith("agent_run.")) {
+          if (isRunStateEvent(type)) {
             applyRunStateEvent(type, payload);
             if (type === SSE_EVENT_TYPES.AGENT_RUN_ENDED) {
               const inner = payload?.payload && typeof payload.payload === "object"
                 ? payload.payload
                 : payload;
               if (inner?.success === false) {
+                if (acceptedRunId && typeof window !== "undefined") removePendingDurableRun(localStorage, scope, acceptedRunId);
                 markRunFailure(payload);
                 finalize({ abort: true });
               }
               return;
             }
-            if (type !== SSE_EVENT_TYPES.AGENT_RUN_FINAL) return;
-
-            // Agent Run Protocol 的 final 包裹在 payload.data 中。将其标准化为
-            // 聊天渲染使用的 final 结构，保证执行卡片与最终回复写入同一条消息。
-            const finalPayload =
-              payload?.payload && typeof payload.payload === "object"
-                ? payload.payload
-                : payload;
-            payload = {
-              ...payload,
-              ...finalPayload,
-              data: finalPayload?.data ?? payload?.data,
-              metadata: finalPayload?.metadata ?? payload?.metadata,
-            };
-            type = SSE_EVENT_TYPES.FINAL;
+            // agent_run.* is strictly the execution-state channel. Its final
+            // may describe a child Skill, so it must never overwrite the
+            // pending assistant message. The paired plain `final` event is
+            // the sole visible response channel.
+            return;
           }
 
           // meta：用于把“前端临时消息 id”映射到“DB message id”（支持立即重新生成）
           if (type === SSE_EVENT_TYPES.META) {
+            if (payload?.durable_run === true && payload?.run_id && typeof window !== "undefined") {
+              acceptedRunId = String(payload.run_id);
+              savePendingDurableRun(localStorage, scope, { runId: acceptedRunId, agentId: requestAgent, sessionId: requestSession || String(payload.session_uuid || payload.session_id || ""), updatedAt: Date.now() });
+            }
             mergeTraceMetaIntoPending(payload);
             const clientMsgId =
               payload?.client_msg_id ?? payload?.data?.client_msg_id;
@@ -993,12 +1035,13 @@ export function useDualChannelConnection(
               },
             };
             const responseEnvelope = payload?.data?.response_envelope;
-            if (responseEnvelope?.schema === "powerx.agent.response/v3") {
+            if (responseEnvelope?.schema === "powerx.agent.response/v4") {
               answer.meta.responseEnvelope = responseEnvelope;
             }
 
             // 6) FINAL 收尾
             if (type === SSE_EVENT_TYPES.FINAL) {
+              if (acceptedRunId && typeof window !== "undefined") removePendingDurableRun(localStorage, scope, acceptedRunId);
               // 后端可能不会发送 [DONE]/END，FINAL 视为一次响应结束
               finalize({ abort: true });
               return;
@@ -1009,6 +1052,7 @@ export function useDualChannelConnection(
           }
 
           if (type === SSE_EVENT_TYPES.END) {
+            if (acceptedRunId && typeof window !== "undefined") removePendingDurableRun(localStorage, scope, acceptedRunId);
             finalize({ abort: true });
             return;
           }
@@ -1155,6 +1199,20 @@ export function useDualChannelConnection(
     }
   };
 
+  const resumePendingRun = async () => {
+    if (currentRequestId.value || !agentId?.value || !sessionId?.value) return;
+    const ticket = getPendingRun(String(agentId.value), String(sessionId.value));
+    if (!ticket || ticket.sessionId !== String(sessionId.value)) return;
+    if (historyHasDurableResult(messages.value, ticket.runId)) {
+      removePendingDurableRun(localStorage, runStorageScope(), ticket.runId);
+      return;
+    }
+    const existing = messages.value.find((message) => message.role === "assistant" && message.meta?.trace?.run_id === ticket.runId);
+    pendingAssistantId = existing?.id || null;
+    currentTraceMeta = { run_id: ticket.runId, session_id: ticket.sessionId, tenant_uuid: getCurrentTenantUuid() };
+    await sendSSEMessage("", BaseFlowKey, undefined, ticket);
+  };
+
   const sendWSMessage = (_message: string) => {
     return;
   };
@@ -1249,6 +1307,13 @@ export function useDualChannelConnection(
     }
 
     // 放一个新的 assistant 占位
+    // 用户主动重新生成属于新的受理请求；不能用原 user message UUID
+    // 作为幂等键，否则后端只会返回原来已经失败的 Run。
+    const retryRequestId = `retry_${crypto.randomUUID()}`;
+    currentTraceMeta = {
+      tenant_uuid: getCurrentTenantUuid(),
+      session_id: String(sessionId?.value || ""),
+    };
     pendingAssistantId = `thinking_${Date.now()}`;
     messages.value.push({
       id: pendingAssistantId,
@@ -1260,6 +1325,7 @@ export function useDualChannelConnection(
       done: false,
       isError: false,
       meta: {
+        trace: currentTraceMeta,
         think: {
           blocks: [],
           current: "",
@@ -1274,6 +1340,7 @@ export function useDualChannelConnection(
       ...(meta || {}),
       noUserEcho: true,
       regen_from_message_id: persistedMessageId,
+      client_msg_id: retryRequestId,
     });
   };
 
@@ -1304,6 +1371,8 @@ export function useDualChannelConnection(
     wsActive,
     currentRequestId,
     reconnectSSE,
+    getPendingRun,
+    resumePendingRun,
     reconnectWS,
     cancel,
     sendMessage,
@@ -1362,6 +1431,8 @@ export function useDualChannelConnection(
       window.removeEventListener("beforeunload", cancel);
       cancel();
     });
+
+    watch(() => [userStore.user?.id, userStore.currentTenantUuid, envStore.currentEnv], () => cancel());
 
     // 切换会话/智能体时：中断当前流，避免跨会话串流导致 UI 异常
     watch(

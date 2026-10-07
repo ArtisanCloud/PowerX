@@ -2,9 +2,11 @@ package capability_registry
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,9 +18,12 @@ import (
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	knowledgesvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	metadatasvc "github.com/ArtisanCloud/PowerX/internal/service/metadata"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	customerrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/customer"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -26,15 +31,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const capabilityResolvePageSize = 200
+const (
+	capabilityResolvePageSize = 200
+	platformCatalogMaxPage    = 1000000
+)
 
 type tenantHandler struct {
-	catalog      *capservice.RegistryService
-	invoker      *capservice.InvocationService
-	selector     *capservice.Selector
-	skillAdapter *skillservice.AdapterService
-	memberSvc    *iamsvc.MemberService
-	httpClient   *http.Client
+	catalog          *capservice.RegistryService
+	invoker          *capservice.InvocationService
+	selector         *capservice.Selector
+	skillAdapter     *skillservice.AdapterService
+	memberSvc        *iamsvc.MemberService
+	httpClient       *http.Client
+	grantStatus      grantStatusReader
+	credentialAccess *capservice.GrantStatusService
+}
+
+type grantStatusReader interface {
+	CheckCurrentCredential(ctx context.Context, capabilityIDs []string) ([]capservice.GrantStatusItem, error)
 }
 
 func newTenantHandler(deps *shared.Deps) *tenantHandler {
@@ -58,7 +72,15 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 			Auditor:     deps.Auditor,
 			VersionLock: deps.VersionLockStore,
 			CoreInvoker: capservice.NewCoreCapabilityMux(
-				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB)),
+				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB), customersvc.NewContactService(deps.DB)),
+				metadatasvc.NewTagCapabilityInvoker(deps.DB),
+				runtimeidentity.NewInvoker(deps.DB, deps.RuntimeIdentity),
+				knowledgesvc.NewProvisioningCapabilityInvoker(deps.DB, func() *knowledgesvc.Service {
+					if deps.KnowledgeSpace == nil {
+						return nil
+					}
+					return deps.KnowledgeSpace.Service
+				}),
 			),
 		})
 	}
@@ -83,12 +105,96 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 	}
 
 	return &tenantHandler{
-		catalog:      deps.CapabilityCatalogSvc,
-		invoker:      invocationSvc,
-		selector:     selector,
-		skillAdapter: skillAdapter,
-		memberSvc:    memberSvc,
-		httpClient:   &http.Client{},
+		catalog:          deps.CapabilityCatalogSvc,
+		invoker:          invocationSvc,
+		selector:         selector,
+		skillAdapter:     skillAdapter,
+		memberSvc:        memberSvc,
+		httpClient:       &http.Client{},
+		grantStatus:      capservice.NewGrantStatusService(deps.DB),
+		credentialAccess: capservice.NewGrantStatusService(deps.DB),
+	}
+}
+
+// GetCapabilityGrantStatus returns effective status only for the credential
+// making this request. Tenant, plugin identity, and API-key profile are always
+// derived from the authenticated request context.
+func (h *tenantHandler) GetCapabilityGrantStatus(c *gin.Context) {
+	if h == nil || h.grantStatus == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+	if !isGrantStatusServiceActor(c.Request.Context()) {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_FORBIDDEN"}), nil)
+		return
+	}
+	if hasGrantStatusIdentityOverride(c) {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_INVALID_ARGUMENT"}), nil)
+		return
+	}
+	var request capability_registrydto.GrantStatusRequest
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_INVALID_ARGUMENT"}), err)
+		return
+	}
+	items, err := h.grantStatus.CheckCurrentCredential(c.Request.Context(), request.CapabilityIDs)
+	if err != nil {
+		respondGrantStatusError(c, err)
+		return
+	}
+	response := capability_registrydto.GrantStatusResponse{Items: make([]capability_registrydto.GrantStatusItem, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, capability_registrydto.GrantStatusItem{CapabilityID: item.CapabilityID, Status: item.Status, ReasonCode: item.ReasonCode})
+	}
+	dto.ResponseSuccess(c, response)
+}
+
+func hasGrantStatusIdentityOverride(c *gin.Context) bool {
+	if c == nil {
+		return true
+	}
+	for _, key := range []string{"tenant_uuid", "plugin_id"} {
+		if _, exists := c.GetQuery(key); exists {
+			return true
+		}
+	}
+	return strings.TrimSpace(c.GetHeader("X-Tenant-UUID")) != "" || strings.TrimSpace(c.GetHeader("X-Plugin-ID")) != ""
+}
+
+func isGrantStatusServiceActor(ctx context.Context) bool {
+	claims := reqctx.GetClaims(ctx)
+	if claims == nil {
+		return false
+	}
+	if grantStatusContainsFold(claims.Platforms, "api_key") {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(claims.Issuer), "powerx-sts") &&
+		grantStatusContainsFold(claims.Audience, "powerx:api") &&
+		strings.TrimSpace(claims.PluginID) != ""
+}
+
+func grantStatusContainsFold(values []string, want string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), want) {
+			return true
+		}
+	}
+	return false
+}
+
+func respondGrantStatusError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, capservice.ErrGrantStatusUnauthorized):
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnauthorized.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_UNAUTHORIZED"}), err)
+	case errors.Is(err, capservice.ErrGrantStatusForbidden):
+		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_FORBIDDEN"}), err)
+	case errors.Is(err, capservice.ErrGrantStatusInvalid):
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_INVALID_ARGUMENT"}), err)
+	default:
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_GRANT_STATUS_UPSTREAM_DEPENDENCY"}), err)
 	}
 }
 
@@ -135,6 +241,9 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 
 	records, total, err := h.catalog.ListCapabilities(c.Request.Context(), opts)
 	if err != nil {
+		if respondCredentialError(c, err) {
+			return
+		}
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		return
 	}
@@ -149,6 +258,95 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 		Page:     page,
 		PageSize: pageSize,
 	})
+}
+
+// ListPlatformCatalog returns tenant-visible CoreX configuration metadata for
+// a separately authorized service credential. It intentionally does not filter
+// the directory by every listed capability's invocation grant. The regular
+// /tenant/capabilities endpoint remains the granted-and-callable list.
+func (h *tenantHandler) ListPlatformCatalog(c *gin.Context) {
+	if h == nil || h.catalog == nil || h.credentialAccess == nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
+		return
+	}
+	if !isGrantStatusServiceActor(c.Request.Context()) {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_PLATFORM_CATALOG_FORBIDDEN"}), nil)
+		return
+	}
+	access, err := h.credentialAccess.CurrentAccess(c.Request.Context())
+	if err == nil {
+		err = access.Require(capservice.PlatformCatalogCapabilityID)
+	}
+	if err != nil {
+		respondCredentialError(c, err)
+		return
+	}
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		respondTenantIdentityError(c, err)
+		return
+	}
+	page, pageSize, valid := parsePlatformCatalogPagination(c)
+	if !valid {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_PLATFORM_CATALOG_INVALID_QUERY"}), nil)
+		return
+	}
+
+	records, total, err := h.catalog.ListPublishedPlatformCatalog(c.Request.Context(), capservice.PlatformCatalogOptions{
+		TenantUUID:   tenantUUID,
+		Limit:        pageSize,
+		Offset:       (page - 1) * pageSize,
+		IncludeTotal: true,
+	})
+	if err != nil {
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
+		return
+	}
+
+	items := make([]capability_registrydto.PlatformCatalogEntryDTO, 0, len(records))
+	for _, view := range records {
+		items = append(items, capability_registrydto.CapabilityViewToPlatformCatalogEntry(view))
+	}
+	dto.ResponseList(c, items, &dto.PaginationResponse{
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	})
+}
+
+func parsePlatformCatalogPagination(c *gin.Context) (int, int, bool) {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return 0, 0, false
+	}
+	query := c.Request.URL.Query()
+	for key := range query {
+		if key != "page" && key != "page_size" {
+			return 0, 0, false
+		}
+	}
+	parse := func(key string, fallback, maximum int) (int, bool) {
+		raw, exists := query[key]
+		if !exists {
+			return fallback, true
+		}
+		if len(raw) != 1 {
+			return 0, false
+		}
+		value, parseErr := strconv.Atoi(strings.TrimSpace(raw[0]))
+		if parseErr != nil || value < 1 || value > maximum {
+			return 0, false
+		}
+		return value, true
+	}
+	page, ok := parse("page", 1, platformCatalogMaxPage)
+	if !ok {
+		return 0, 0, false
+	}
+	pageSize, ok := parse("page_size", 50, 500)
+	if !ok {
+		return 0, 0, false
+	}
+	return page, pageSize, true
 }
 
 type capabilityResolveMatch struct {
@@ -203,6 +401,9 @@ func (h *tenantHandler) ResolveCapability(c *gin.Context) {
 			IncludeTotal: includeTotal,
 		})
 		if listErr != nil {
+			if respondCredentialError(c, listErr) {
+				return
+			}
 			capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, listErr)
 			return
 		}
@@ -274,9 +475,12 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		return
 	}
 	var req capabilityInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := decodeInvocationRequest(c, &req); err != nil {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
+	}
+	if req.CapabilityID == runtimeidentity.CapabilityID {
+		c.Header("Cache-Control", "no-store")
 	}
 	tenantUUID, err := tenantUUIDFromRequest(c)
 	if err != nil {
@@ -286,6 +490,16 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	if strings.TrimSpace(req.CapabilityID) == "" && strings.TrimSpace(req.Intent) == "" {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
 		return
+	}
+	if capservice.ServiceCredential(c.Request.Context()) && req.CapabilityID != "" {
+		access, err := h.credentialAccess.CurrentAccess(c.Request.Context())
+		if err == nil {
+			err = access.Require(req.CapabilityID)
+		}
+		if err != nil {
+			respondCredentialError(c, err)
+			return
+		}
 	}
 	if strings.EqualFold(strings.TrimSpace(req.CapabilityID), "com.corex.rest.admin.gin.get_api_v1_admin_iam_members") {
 		h.invokeIAMMembersCapability(c, req, tenantUUID)
@@ -341,8 +555,18 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		Context:           contextMap,
 	})
 	if err != nil {
+		if strings.HasPrefix(dto.CodeOf(err), "RUNTIME_IDENTITY_") {
+			err = dto.Wrap(err, dto.RuntimeIdentityErrorMessage(c.GetHeader("Accept-Language"), dto.CodeOf(err)))
+		}
 		template := selectInvokeErrorTemplate(err)
-		capability_registrydto.RespondError(c, template, err)
+		details := capservice.InvocationFailureDetails(err)
+		if traceID := strings.TrimSpace(req.TraceID); traceID != "" {
+			if details == nil {
+				details = map[string]interface{}{}
+			}
+			details["trace_id"] = traceID
+		}
+		capability_registrydto.RespondError(c, template, err, details)
 		return
 	}
 
@@ -435,6 +659,9 @@ func (h *tenantHandler) GetInvocation(c *gin.Context) {
 	}
 	record, err := h.invoker.GetTrace(c.Request.Context(), traceID)
 	if err != nil {
+		if respondCredentialError(c, err) {
+			return
+		}
 		template := capability_registrydto.ErrInternal
 		if errors.Is(err, repo.ErrInvocationTraceNotFound) || errors.Is(err, repo.ErrCapabilityRecordNotFound) {
 			template = capability_registrydto.ErrNotFound
@@ -467,7 +694,7 @@ func (h *tenantHandler) InvokeCapabilityStream(c *gin.Context) {
 		return
 	}
 	var req capabilityInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := decodeInvocationRequest(c, &req); err != nil {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
@@ -661,7 +888,6 @@ type capabilityInvokeRequest struct {
 	CapabilityID      string                 `json:"capability_id"`
 	Intent            string                 `json:"intent"`
 	ToolScope         string                 `json:"tool_scope"`
-	TenantUUID        string                 `json:"tenant_uuid"`
 	IdempotencyKey    string                 `json:"idempotency_key"`
 	PreferredProtocol string                 `json:"preferred_protocol"`
 	TraceID           string                 `json:"trace_id"`
@@ -695,11 +921,31 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 	if c == nil {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
+	if _, ok := c.Request.URL.Query()["tenant_uuid"]; ok {
+		return "", errors.New("capability.tenant_override")
+	}
+	for key := range c.Request.Header {
+		if strings.Contains(strings.ToLower(key), "tenant") {
+			return "", errors.New("capability.tenant_override")
+		}
+	}
 	tenant := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
 	if tenant == "" {
 		return "", reqctx.ErrTenantUUIDMissing
 	}
 	return reqctx.CanonicalTenantUUID(tenant)
+}
+
+func decodeInvocationRequest(c *gin.Context, req *capabilityInvokeRequest) error {
+	decoder := json.NewDecoder(http.MaxBytesReader(c.Writer, c.Request.Body, 8<<20))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(req); err != nil {
+		return err
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		return errors.New("capability.invalid_body")
+	}
+	return nil
 }
 
 func respondTenantIdentityError(c *gin.Context, err error) {
@@ -729,17 +975,54 @@ func buildErrorObject(summary string) map[string]string {
 }
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
+	var metadataErr *dto.AppError
+	if errors.As(err, &metadataErr) && (strings.HasPrefix(metadataErr.Code, "METADATA_") || strings.HasPrefix(metadataErr.Code, "RUNTIME_IDENTITY_")) {
+		base := capability_registrydto.ErrInvalidRequest
+		base.HTTPStatus = metadataErr.HTTPCode
+		return base.WithDetails(map[string]interface{}{"reason_code": metadataErr.Code})
+	}
+	var accessErr *capservice.DirectGrantError
+	if errors.As(err, &accessErr) {
+		base := capability_registrydto.ErrUnavailable
+		if accessErr.Status == 401 {
+			base = capability_registrydto.ErrUnauthorized
+		}
+		if accessErr.Status == 403 {
+			base = capability_registrydto.ErrCapabilityForbidden
+		}
+		return base.WithDetails(map[string]interface{}{"reason_code": accessErr.Error()})
+	}
 	switch {
+	case errors.Is(err, customerrepo.ErrExternalIdentityContactRequired):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_PRIMARY_CONTACT_REQUIRED"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityContactAmbiguous):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_PRIMARY_CONTACT_AMBIGUOUS"})
+	case errors.Is(err, customersvc.ErrExternalIdentityConflict):
+		base := capability_registrydto.ErrInvalidRequest
+		base.HTTPStatus = 409
+		return base.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_CONFLICT"})
+	case errors.Is(err, customersvc.ErrCustomerAccountInvalidArgument):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_ACCOUNT_INVALID_ARGUMENT"})
+	case errors.Is(err, customersvc.ErrCustomerAccountNotFound):
+		return capability_registrydto.ErrNotFound.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_ACCOUNT_NOT_FOUND"})
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
 		return capability_registrydto.ErrVersionLocked
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):
 		return capability_registrydto.ErrNotFound.WithHint("capability not found or not published for tenant")
 	case errors.Is(err, capservice.ErrSelectorCapabilityForbidden):
-		return capability_registrydto.ErrCapabilityForbidden
+		return capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CAPABILITY_FORBIDDEN"})
 	case errors.Is(err, capservice.ErrSelectorTenantRequired):
 		return capability_registrydto.ErrTenantUUIDMissing
 	case errors.Is(err, capservice.ErrSelectorSafeModeActive):
 		return capability_registrydto.ErrSafeModeActive
+	case errors.Is(err, customerrepo.ErrExternalIdentityRequired), errors.Is(err, customerrepo.ErrExternalIdentityDisplayNameRequired):
+		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_INVALID"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityServiceActorInvalid):
+		return capability_registrydto.ErrUnauthorized.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_SERVICE_ACTOR_INVALID"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityBindingUntrusted):
+		return capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_BINDING_UNTRUSTED"})
+	case errors.Is(err, customerrepo.ErrExternalIdentityUnavailable):
+		return capability_registrydto.ErrCapabilityForbidden.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_EXTERNAL_IDENTITY_UNAVAILABLE"})
 	case errors.Is(err, capservice.ErrSelectorToolGrantRequired):
 		return capability_registrydto.ErrToolGrantMissing
 	case errors.Is(err, capservice.ErrSelectorFeatureFlagMissing):
@@ -749,6 +1032,15 @@ func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	default:
 		return capability_registrydto.ErrInvokeFailed
 	}
+}
+
+func respondCredentialError(c *gin.Context, err error) bool {
+	var accessErr *capservice.DirectGrantError
+	if !errors.As(err, &accessErr) {
+		return false
+	}
+	capability_registrydto.RespondError(c, selectInvokeErrorTemplate(err), nil)
+	return true
 }
 
 func normalizeToolGrantIDs(ids []string) []string {

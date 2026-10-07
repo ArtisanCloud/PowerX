@@ -1,0 +1,258 @@
+openapi: 3.0.3
+info:
+  title: Knowledge Host Provisioning
+  version: 1.0.0
+servers:
+- url: /api/v1
+paths:
+  /tenant/knowledge/catalog:
+    get:
+      operationId: getKnowledgeHostCatalog
+      responses:
+        '200':
+          description: Successful typed response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      catalog:
+                        $ref: '#/components/schemas/Catalog'
+        '403':
+          description: Missing grant
+        '503':
+          description: Catalog or migration unavailable
+      security:
+      - ServiceCredential: []
+  /tenant/knowledge/spaces:
+    post:
+      operationId: createKnowledgeHostSpace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSpace'
+      responses:
+        '200':
+          description: Successful typed response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/CreatedSpace'
+        '400':
+          description: Invalid request
+        '403':
+          description: Missing grant or cross tenant department
+        '409':
+          description: Duplicate name
+        '412':
+          description: Strategy unavailable
+        '503':
+          description: Dependency unavailable
+      security:
+      - ServiceCredential: []
+  /admin/knowledge-spaces/catalog:
+    get:
+      operationId: getKnowledgeAdminCatalog
+      responses:
+        '200':
+          description: Successful typed response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      catalog:
+                        $ref: '#/components/schemas/Catalog'
+      security:
+      - AdminJWT: []
+components:
+  schemas:
+    CatalogOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - operation
+      properties:
+        operation:
+          type: string
+          enum:
+          - catalog
+    CreateSpace:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - department_uuid
+      - strategy_key
+      properties:
+        name: &id003
+          type: string
+          minLength: 1
+          maxLength: 128
+        department_uuid: &id002
+          type: string
+          format: uuid
+        strategy_key: &id001
+          type: string
+        scene_key: *id001
+        policy_template_uuid: *id002
+        ingestion_profile_uuid: *id002
+        index_profile_uuid: *id002
+        rag_profile_uuid: *id002
+        quotas: &id004
+          $ref: '#/components/schemas/Quotas'
+    CreateOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - department_uuid
+      - strategy_key
+      - operation
+      properties:
+        name: *id003
+        department_uuid: *id002
+        strategy_key: *id001
+        scene_key: *id001
+        policy_template_uuid: *id002
+        ingestion_profile_uuid: *id002
+        index_profile_uuid: *id002
+        rag_profile_uuid: *id002
+        quotas: *id004
+        operation:
+          type: string
+          enum:
+          - create
+    Quotas:
+      type: object
+      additionalProperties: false
+      required:
+      - cpu_cores
+      - storage_gb
+      - ingestion_concurrency
+      properties:
+        cpu_cores:
+          type: integer
+          minimum: 1
+        storage_gb:
+          type: integer
+          minimum: 50
+        ingestion_concurrency:
+          type: integer
+          minimum: 1
+    ProfileRef:
+      type: object
+      required:
+      - uuid
+      - key
+      - version
+      properties:
+        uuid: *id002
+        key: *id001
+        version:
+          type: integer
+    ProfileMapping:
+      type: object
+      properties:
+        ingestion:
+          $ref: '#/components/schemas/ProfileRef'
+        index:
+          $ref: '#/components/schemas/ProfileRef'
+        rag:
+          $ref: '#/components/schemas/ProfileRef'
+    CreatedSpace:
+      type: object
+      properties:
+        space_uuid: *id002
+        name: *id001
+        status:
+          type: string
+          enum:
+          - pending_iam
+        department_uuid: *id002
+        strategy_key: *id001
+        scene_key: *id001
+        policy_template_uuid: *id002
+        profiles:
+          $ref: '#/components/schemas/ProfileMapping'
+        quotas:
+          $ref: '#/components/schemas/Quotas'
+    Catalog:
+      type: object
+      properties:
+        version: *id001
+        source:
+          type: string
+          enum:
+          - powerx_core
+        scenes:
+          type: array
+          items:
+            type: object
+            properties:
+              key: *id001
+              label: *id001
+              description: *id001
+              default_bundle: *id001
+              allowed_bundles: &id005
+                type: array
+                items: *id001
+        strategy_packages:
+          type: array
+          items:
+            type: object
+            properties:
+              key: *id001
+              label: *id001
+              summary: *id001
+              recommended_profile_key: *id001
+              recommended_scenes: *id005
+              dependencies:
+                type: object
+                additionalProperties: *id005
+              profiles:
+                $ref: '#/components/schemas/ProfileMapping'
+              available:
+                type: boolean
+                description: Eligible for creation; does not imply index activation
+              unavailable_reasons: *id005
+              activation_dependencies: *id005
+        policy_templates:
+          type: array
+          items:
+            type: object
+            properties:
+              uuid: *id002
+              name: *id001
+              version: *id001
+        default_policy_template_uuid: *id002
+        quota_defaults:
+          $ref: '#/components/schemas/Quotas'
+        quota_minimums:
+          $ref: '#/components/schemas/Quotas'
+        quota_override_allowed:
+          type: boolean
+  securitySchemes:
+    ServiceCredential:
+      type: http
+      scheme: bearer
+      description: 'PowerX STS bearer or API Key via Authorization: ApiKey <key> on
+        the service plane.'
+    AdminJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

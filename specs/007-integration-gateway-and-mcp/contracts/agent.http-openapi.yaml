@@ -206,6 +206,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /agents/sessions/{session_uuid}/capability-approvals/{approval_uuid}/resume:
+    post:
+      summary: Resume an approved frozen agent plan
+      description: >
+        Continues only the persisted uncompleted tasks after an administrator
+        approves a capability. The authenticated caller must be the original
+        requester; the server derives run, snapshot, revision and capability
+        scope from the approval record.
+      parameters:
+        - name: session_uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: approval_uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resumed plan result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval_uuid, session_uuid, plan_id]
+                properties:
+                  approval_uuid:
+                    type: string
+                    format: uuid
+                  session_uuid:
+                    type: string
+                    format: uuid
+                  plan_id:
+                    type: string
+                  reply:
+                    type: string
+        '403':
+          description: Original requester required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Approval or session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Approval is not resumable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /agents/stream/ws:
     get:
       summary: WebSocket control channel

@@ -495,6 +495,9 @@ type CapabilityRegistryConfig struct {
 	EventTopicPrefix               string                               `yaml:"event_topic_prefix"`
 	DefaultRateLimit               CapabilityRegistryRateLimitConfig    `yaml:"default_rate_limit"`
 	DefaultHTTPTimeoutSeconds      int                                  `yaml:"default_http_timeout_seconds"`
+	// AIMultimodalHTTPTimeoutSeconds is the Core capability-proxy response
+	// deadline. It is not the LLM provider request deadline and must leave a
+	// response window after a provider timeout.
 	AIMultimodalHTTPTimeoutSeconds int                                  `yaml:"ai_multimodal_http_timeout_seconds"`
 	Notifications                  CapabilityRegistryNotificationConfig `yaml:"notifications"`
 }

@@ -1,0 +1,3 @@
+{
+  "markdown": "Render the final answer in Markdown: use level-two headings (##) for conclusions or topics; put every recommendation, step, fact, or action on its own line using - or 1. list syntax; leave blank lines between paragraphs. Do not compress lists, numbering, and conclusions into one prose paragraph."
+}

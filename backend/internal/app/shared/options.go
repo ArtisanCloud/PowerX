@@ -3,6 +3,7 @@ package shared
 // internal/app/shared/options.go
 
 import (
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
@@ -15,6 +16,7 @@ import (
 )
 
 type DepsOptions struct {
+	RuntimeIdentity          runtimeidentity.CoreInfo
 	AuthUser                 auth.AuthOptions      // 给用户端的 Audience
 	AuthCustomer             auth.AuthOptions      // 给客户/插件端的 Audience
 	Audit                    auditsvc.AuditOptions // 批量大小、等待等

@@ -820,9 +820,19 @@ func (h *APIKeyAdminHandler) GetAPIKeyProfilePermissions(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewInternal("load permissions failed", err))
 		return
 	}
+	// A profile may contain legacy association rows whose permissions were
+	// subsequently removed or are no longer API-key grantable. They must not be
+	// returned as selected values: the UI sends this response back to PUT, and a
+	// stale ID would make an otherwise valid Profile update fail strict
+	// validation. PUT remains the authoritative reconciliation point and removes
+	// those stale associations when the user saves the Profile.
+	validIDs := profileAPIKeyGrantablePermissionIDs(permissionRows)
 	items := make([]apiKeyPermissionCatalogItem, 0, len(permissionRows))
 	for i := range permissionRows {
-		if permissionRows[i] == nil {
+		if permissionRows[i] == nil || permissionRows[i].Status != modelsiam.PermissionStatusActive || !permissionRows[i].AllowAPIKey {
+			continue
+		}
+		if _, ok := toAPIKeyPermissionFromPermission(*permissionRows[i]); !ok {
 			continue
 		}
 		items = append(items, apiKeyPermissionCatalogItem{
@@ -837,7 +847,7 @@ func (h *APIKeyAdminHandler) GetAPIKeyProfilePermissions(c *gin.Context) {
 	}
 	dto.ResponseSuccess(c, gin.H{
 		"profile_id":      profileID,
-		"permission_ids":  permissionIDs,
+		"permission_ids":  validIDs,
 		"permission_rows": items,
 	})
 }
@@ -1209,6 +1219,20 @@ func toAPIKeyPermissionFromPermission(permission modelsiam.Permission) (apiKeyPe
 		PluginID:        resolved.PluginID,
 		Effect:          resolved.Effect,
 	}, true
+}
+
+func profileAPIKeyGrantablePermissionIDs(rows []*modelsiam.Permission) []uint64 {
+	ids := make([]uint64, 0, len(rows))
+	for _, permission := range rows {
+		if permission == nil || permission.Status != modelsiam.PermissionStatusActive || !permission.AllowAPIKey {
+			continue
+		}
+		if _, ok := toAPIKeyPermissionFromPermission(*permission); !ok {
+			continue
+		}
+		ids = append(ids, permission.ID)
+	}
+	return ids
 }
 
 func diffUint64(oldIDs []uint64, newIDs []uint64) (toAdd []uint64, toRemove []uint64) {

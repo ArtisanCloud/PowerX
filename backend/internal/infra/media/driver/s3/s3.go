@@ -43,6 +43,7 @@ type Driver struct {
 const (
 	opPut     = "put"
 	opGet     = "get"
+	opStat    = "stat"
 	opDelete  = "delete"
 	opPresign = "presign"
 
@@ -189,6 +190,38 @@ func (d *Driver) Get(ctx context.Context, in driver.GetObjectInput) (*driver.Get
 		ContentType:  stat.ContentType,
 		LastModified: stat.LastModified.UTC(),
 		ETag:         stat.ETag,
+	}, nil
+}
+
+// Stat 仅读取 S3 对象元数据，避免上传完成校验依赖客户端声明。
+func (d *Driver) Stat(ctx context.Context, in driver.StatObjectInput) (*driver.StatObjectResult, error) {
+	key, err := sanitizeKey(in.ObjectKey)
+	if err != nil {
+		return nil, err
+	}
+	bucket := d.resolveBucket(in.Bucket)
+	obj, err := d.client.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		if isNotFoundErr(err) {
+			return nil, driver.ErrNotFound
+		}
+		return nil, driver.WrapError(d.name, opStat, err)
+	}
+	defer obj.Close()
+	info, err := obj.Stat()
+	if err != nil {
+		if isNotFoundErr(err) {
+			return nil, driver.ErrNotFound
+		}
+		return nil, driver.WrapError(d.name, opStat, err)
+	}
+	return &driver.StatObjectResult{
+		Bucket:       bucket,
+		ObjectKey:    key,
+		Size:         info.Size,
+		ContentType:  info.ContentType,
+		LastModified: info.LastModified.UTC(),
+		ETag:         info.ETag,
 	}, nil
 }
 

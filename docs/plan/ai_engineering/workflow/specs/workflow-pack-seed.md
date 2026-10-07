@@ -71,7 +71,7 @@ steps:
 逐个 seed 的详细解释、使用场景、节点步骤、启动示例和排障说明见：
 
 ```text
-docs/plan/ai_engineering/native-agent/examples/workflow/seeds/
+docs/plan/ai_engineering/agent/native-agent/examples/workflow/seeds/
 ```
 
 ### 4.1 `approval_guarded_capability`

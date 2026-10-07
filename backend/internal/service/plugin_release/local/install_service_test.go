@@ -50,11 +50,12 @@ func TestInstallServiceStartPersistsSession(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantUUID:          testTenantUUID,
-		DeveloperMemberUUID: "b4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
-		ArtifactURI:         "s3://bucket/hotload.zip",
-		FeatureFlags:        []string{"beta_ui"},
-		Actor:               "tester",
+		TenantUUID:   testTenantUUID,
+		PluginID:     "com.powerx.plugins.stop",
+		ServiceActor: "client:com.powerx.plugins.stop",
+		ArtifactURI:  "s3://bucket/hotload.zip",
+		FeatureFlags: []string{"beta_ui"},
+		Actor:        "tester",
 	})
 	require.NoError(t, err)
 	require.Equal(t, models.LocalInstallStatusInProgress, session.Status)
@@ -84,10 +85,11 @@ func TestInstallServiceRejectsLargeArtifact(t *testing.T) {
 	})
 
 	_, err = svc.Start(context.Background(), StartInput{
-		TenantUUID:          testTenantUUID,
-		DeveloperMemberUUID: "c4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
-		ArtifactURI:         "s3://bucket/huge.zip",
-		FeatureFlags:        []string{},
+		TenantUUID:   testTenantUUID,
+		PluginID:     "com.powerx.plugins.cross-tenant",
+		ServiceActor: "client:com.powerx.plugins.cross-tenant",
+		ArtifactURI:  "s3://bucket/huge.zip",
+		FeatureFlags: []string{},
 	})
 	require.ErrorIs(t, err, ErrArtifactTooLarge)
 }
@@ -114,9 +116,10 @@ func TestInstallServiceStopMarksSession(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantUUID:          testTenantUUID,
-		DeveloperMemberUUID: "d4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
-		ArtifactURI:         "file://bundle.zip",
+		TenantUUID:   testTenantUUID,
+		PluginID:     "com.powerx.plugins.test",
+		ServiceActor: "client:com.powerx.plugins.test",
+		ArtifactURI:  "file://bundle.zip",
 	})
 	require.NoError(t, err)
 
@@ -153,9 +156,10 @@ func TestInstallServiceStopRejectsCrossTenant(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantUUID:          testTenantUUID,
-		DeveloperMemberUUID: "e4f90ea5-80e7-4d8d-a18d-af6ef7f5f540",
-		ArtifactURI:         "file://bundle.zip",
+		TenantUUID:   testTenantUUID,
+		PluginID:     "com.powerx.plugins.test",
+		ServiceActor: "client:com.powerx.plugins.test",
+		ArtifactURI:  "file://bundle.zip",
 	})
 	require.NoError(t, err)
 

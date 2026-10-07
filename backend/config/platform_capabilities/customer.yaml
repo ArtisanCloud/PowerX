@@ -1,6 +1,105 @@
 ---
 version: 1
 capabilities:
+- capability_id: com.corex.customer.memberships.delegated_read
+  module: customer
+  title: Customer Membership Delegated Read
+  description: Read only the current customer membership proven by a Core customer JWT and an authorized plugin STS actor.
+  permission_code: corex.customer.memberships.delegated_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.memberships.delegated_read]
+  tool_scopes: [customer.memberships.delegated_read]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/memberships:resolve"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1customer~1memberships:resolve/post
+    auth_type: sts_and_customer_jwt
+    actor_context: service_actor
+    resource_scope: customer_self
+    sts_direct: true
+    tool_scope: customer.memberships.delegated_read
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/memberships"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1customer~1memberships/get
+    auth_type: sts_and_customer_jwt
+    actor_context: service_actor
+    resource_scope: customer_self
+    sts_direct: true
+    tool_scope: customer.memberships.delegated_read
+  title_i18n: {en: Customer Membership Delegated Read, zh-CN: 客户成员关系委托读取}
+  description_i18n: {en: Read the membership of only the customer proven by the delegated customer credential., zh-CN: 仅读取由委托客户凭证证明的当前客户成员关系。}
+- capability_id: com.corex.customer.auth.validate
+  module: customer
+  title: Customer Auth Validate
+  description: Validate the current Core customer JWT with an authorized plugin service actor and return only the current membership context.
+  permission_code: corex.customer.auth:validate
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.auth.validate]
+  tool_scopes: [customer.auth.validate]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/auth/validate"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1customer~1auth~1validate/post
+    auth_type: sts_and_customer_jwt
+    actor_context: service_actor
+    resource_scope: customer_self
+    sts_direct: true
+    tool_scope: customer.auth.validate
+  title_i18n: {en: Customer Auth Validate, zh-CN: 客户认证校验}
+  description_i18n: {en: Validate the current customer credential without accepting a customer identifier in the request., zh-CN: 校验当前客户凭证，不接受请求中指定客户标识。}
+- capability_id: com.corex.customer.auth.register
+  title_i18n: {en: Customer Registration, zh-CN: 客户注册}
+  description_i18n: {en: Verify the storefront credential in Core and register the tenant customer identity., zh-CN: 由底座验证店铺凭证并注册当前租户的客户身份。}
+  module: customer
+  title: Customer Auth Register
+  description: Verify a Shopify Storefront customer access token in Core and register its Core customer identity for the current tenant.
+  permission_code: corex.customer.auth:register
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.auth.register]
+  tool_scopes: [customer.auth.register]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/auth/register"
+    method: POST
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: customer.auth.register
+- capability_id: com.corex.customer.auth.login
+  title_i18n: {en: Customer Login, zh-CN: 客户登录}
+  description_i18n: {en: Verify the storefront credential and issue a token for an existing tenant customer., zh-CN: 验证店铺凭证并为当前租户的已有客户签发令牌。}
+  module: customer
+  title: Customer Auth Login
+  description: Verify a Shopify Storefront customer access token in Core and issue a Core customer JWT for an existing tenant identity.
+  permission_code: corex.customer.auth:login
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.auth.login]
+  tool_scopes: [customer.auth.login]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/auth/login"
+    method: POST
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: customer.auth.login
 - capability_id: com.corex.customer.accounts.admin_manage
   module: customer
   title: Customer Accounts Admin Management
@@ -18,14 +117,6 @@ capabilities:
   policy:
     prefer: rest
   protocols:
-  - channel: core_internal
-    endpoint: core://customer/accounts/admin_manage
-    method: INVOKE
-    auth_type: sts
-    actor_context: service_actor
-    resource_scope: tenant
-    sts_direct: false
-    tool_scope: customer.accounts.admin_manage
   - channel: rest
     endpoint: "/api/v1/admin/customers/overview"
     method: GET
@@ -51,6 +142,14 @@ capabilities:
     sts_direct: false
     tool_scope: customer.accounts.admin_manage
   - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
     endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}/status"
     method: PATCH
     auth_type: user_jwt
@@ -58,7 +157,282 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}/auth-identities"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}/tenant-memberships"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}/login-events"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/mini-app-entries"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
   title_i18n:
     en: Customer Accounts Admin Management
+    zh-CN: 客户账户后台管理
   description_i18n:
     en: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.
+    zh-CN: 在后台管理租户客户账户，包括概览、列表、创建和状态更新。
+- capability_id: com.corex.customer.accounts.service_read
+  module: customer
+  title: Customer Account Service Read
+  description: List tenant Customer accounts through the fixed typed Core-internal selector contract.
+  permission_code: corex.customer.accounts.service_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, directory]
+  intents: [customer.accounts.service_read]
+  tool_scopes: [customer.accounts.service_read]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/accounts
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.service_read
+    api_key: {scope: _scope.customer.accounts.service_read, action: read, resource_type: capability, resource_pattern: customer_accounts_service_read}
+  title_i18n: {en: Customer Account Service Read, zh-CN: 客户账户服务读取}
+  description_i18n: {en: List tenant Customer accounts using a fixed typed selector contract., zh-CN: 使用固定强类型选择器契约列出租户客户账户。}
+- capability_id: com.corex.customer.accounts.service_manage
+  module: customer
+  title: Customer Account Service Manage
+  description: Create a basic tenant customer and membership, or partially update customer profile fields, through a fixed typed Core-internal contract.
+  permission_code: corex.customer.accounts.service_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, directory]
+  intents: [customer.accounts.service_manage]
+  tool_scopes: [customer.accounts.service_manage]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/accounts
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.service_manage
+    api_key: {scope: _scope.customer.accounts.service_manage, action: manage, resource_type: capability, resource_pattern: customer_accounts_service_manage}
+  title_i18n: {en: Customer Account Service Manage, zh-CN: 客户账户服务管理}
+  description_i18n: {en: Create tenant customers or partially update customer profiles using a fixed typed contract., zh-CN: 使用固定强类型契约创建租户基础客户及成员关系，或按字段更新客户资料。}
+- capability_id: com.corex.customer.external_identities.resolve
+  module: customer
+  title: Customer External Identity Resolve
+  description: Resolve a plugin-attested external customer subject into the current tenant without exposing admin customer routes. The same plugin provider subject maps to one global Customer and tenant-scoped memberships.
+  permission_code: corex.customer.external_identities.resolve
+  agent_usable: false
+  risk_level: high
+  categories:
+  - customer
+  - identity
+  intents:
+  - customer.external_identities.resolve
+  tool_scopes:
+  - customer.external_identities.resolve
+  policy:
+    prefer: core_internal
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/external-identities/resolve
+    method: INVOKE
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.external_identities.resolve
+  title_i18n:
+    en: Customer External Identity Resolve
+    zh-CN: 客户外部身份解析
+  description_i18n:
+    en: Resolve a plugin-attested external customer subject into the current tenant without exposing admin customer routes. The same plugin provider subject maps to one global Customer and tenant-scoped memberships.
+    zh-CN: 将插件声明的外部客户主体解析到当前租户，不开放后台客户管理路由。同一插件主体会映射为同一个全局客户，并建立租户范围的成员关系。
+- capability_id: com.corex.customer.contacts.admin_manage
+  module: customer
+  title: Customer Contact Admin Management
+  description: Manage Contacts and Contact identities below a tenant Customer from the admin surface.
+  permission_code: corex.customer.contacts.admin_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, admin]
+  intents: [customer.contacts.admin_manage]
+  tool_scopes: [customer.contacts.admin_manage]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/{customer_uuid}/contacts"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/{customer_uuid}/contacts"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/{customer_uuid}/contacts/{contact_uuid}"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/{customer_uuid}/contacts/{contact_uuid}"
+    method: PATCH
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/{customer_uuid}/contacts:resolve-identity"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/{customer_uuid}/contacts/{contact_uuid}/identities"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/{customer_uuid}/contacts/{contact_uuid}/identities"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_manage
+  title_i18n: {en: Customer Contact Admin Management, zh-CN: 客户联系人后台管理}
+  description_i18n: {en: Manage tenant Customer Contacts and explicit channel identity bindings., zh-CN: 管理租户客户联系人及明确的渠道身份绑定。}
+- capability_id: com.corex.customer.contacts.service_read
+  module: customer
+  title: Customer Contact Service Read
+  description: Read and resolve Contacts through the typed Core internal Contact binding.
+  permission_code: corex.customer.contacts.service_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, identity]
+  intents: [customer.contacts.service_read]
+  tool_scopes: [customer.contacts.service_read]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/contacts
+    method: INVOKE
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.service_read
+    api_key: {scope: _scope.customer.contacts.service_read, action: read, resource_type: capability, resource_pattern: customer_contacts_service_read}
+  title_i18n: {en: Customer Contact Service Read, zh-CN: 客户联系人服务读取}
+  description_i18n: {en: Read Contacts using fixed typed operations, not arbitrary endpoints., zh-CN: 使用固定强类型操作读取联系人，不接受任意端点。}
+- capability_id: com.corex.customer.contacts.service_manage
+  module: customer
+  title: Customer Contact Service Management
+  description: Explicitly create, update, and bind Contact identities through the typed Core internal binding.
+  permission_code: corex.customer.contacts.service_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, identity]
+  intents: [customer.contacts.service_manage]
+  tool_scopes: [customer.contacts.service_manage]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/contacts
+    method: INVOKE
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.service_manage
+    api_key: {scope: _scope.customer.contacts.service_manage, action: manage, resource_type: capability, resource_pattern: customer_contacts_service_manage}
+  title_i18n: {en: Customer Contact Service Management, zh-CN: 客户联系人服务管理}
+  description_i18n: {en: Explicitly manage Contacts with fixed typed operations., zh-CN: 使用固定强类型操作显式管理联系人。}
+
+- capability_id: com.corex.customer.external_identities.service_read
+  module: customer
+  title: Customer External Identity Read
+  description: Read external identity ownership without writes and list identities within the authenticated plugin namespace.
+  permission_code: corex.customer.external_identities.service_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, identity]
+  intents: [customer.external_identities.service_read]
+  tool_scopes: [customer.external_identities.service_read]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/external-identities
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.external_identities.service_read
+    api_key: {scope: _scope.customer.external_identities.service_read, action: read, resource_type: capability, resource_pattern: customer_external_identities_service_read}
+  title_i18n: {en: Customer External Identity Read, zh-CN: 客户外部身份读取}
+  description_i18n: {en: Read plugin-scoped external identities without writes., zh-CN: 只读查询当前插件命名空间内的客户外部身份，不创建或补写资料。}
+
+- capability_id: com.corex.customer.external_identities.service_manage
+  module: customer
+  title: Customer External Identity Manage
+  description: Explicitly bind an existing customer or atomically create a customer and external identity; no implicit email merge.
+  permission_code: corex.customer.external_identities.service_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, identity]
+  intents: [customer.external_identities.service_manage]
+  tool_scopes: [customer.external_identities.service_manage]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/external-identities
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.external_identities.service_manage
+    api_key: {scope: _scope.customer.external_identities.service_manage, action: manage, resource_type: capability, resource_pattern: customer_external_identities_service_manage}
+  title_i18n: {en: Customer External Identity Manage, zh-CN: 客户外部身份管理}
+  description_i18n: {en: Explicitly bind a customer or atomically create and bind an external identity., zh-CN: 显式绑定已有客户，或原子创建客户及外部身份，不按邮箱自动合并。}

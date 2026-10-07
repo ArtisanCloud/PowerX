@@ -17,6 +17,7 @@ type ManifestLLMInvocation struct {
 	Version        string
 	Entrypoint     string
 	PromptTemplate string
+	ResponseSchema map[string]any
 	ModelPolicy    map[string]any
 	Payload        map[string]any
 	Context        map[string]any
@@ -49,9 +50,10 @@ type ManifestCapabilityInvoker func(context.Context, ManifestCapabilityInvocatio
 type ManifestWorkflowInvoker func(context.Context, ManifestWorkflowInvocation) (map[string]any, error)
 
 type ManifestExecutorOptions struct {
-	LLM        ManifestLLMInvoker
-	Capability ManifestCapabilityInvoker
-	Workflow   ManifestWorkflowInvoker
+	LLM                   ManifestLLMInvoker
+	Capability            ManifestCapabilityInvoker
+	Workflow              ManifestWorkflowInvoker
+	CheckToolDependencies ToolDependencyChecker
 }
 
 // ManifestExecutor is the generic Skill dispatcher. It selects exclusively by
@@ -61,6 +63,7 @@ type ManifestExecutor struct {
 	llm        ManifestLLMInvoker
 	capability ManifestCapabilityInvoker
 	workflow   ManifestWorkflowInvoker
+	checkTools ToolDependencyChecker
 }
 
 func NewManifestExecutor(options ManifestExecutorOptions) *ManifestExecutor {
@@ -68,6 +71,7 @@ func NewManifestExecutor(options ManifestExecutorOptions) *ManifestExecutor {
 		llm:        options.LLM,
 		capability: options.Capability,
 		workflow:   options.Workflow,
+		checkTools: options.CheckToolDependencies,
 	}
 }
 
@@ -77,6 +81,9 @@ func (e *ManifestExecutor) CanHandle(in ExecuteInput) bool {
 }
 
 func (e *ManifestExecutor) Execute(ctx context.Context, in ExecuteInput) (map[string]any, error) {
+	if err := CheckToolDependencies(ctx, in.TenantUUID, in.Manifest, e.checkTools); err != nil {
+		return nil, err
+	}
 	typ, ok := normalizedExecutorType(in.Manifest)
 	if !ok {
 		return nil, errors.New("skill.executor_definition_invalid")
@@ -91,7 +98,11 @@ func (e *ManifestExecutor) Execute(ctx context.Context, in ExecuteInput) (map[st
 		if err != nil {
 			return nil, err
 		}
-		text, err := e.llm(ctx, ManifestLLMInvocation{
+		outputMode := strings.ToLower(strings.TrimSpace(asStringInterface(executor["output_mode"])))
+		if outputMode == "response_envelope" {
+			return e.executeEvidenceReport(ctx, in, executor, prompt)
+		}
+		invocation := ManifestLLMInvocation{
 			TenantUUID:     in.TenantUUID,
 			TraceID:        in.TraceID,
 			SkillID:        in.SkillID,
@@ -101,19 +112,17 @@ func (e *ManifestExecutor) Execute(ctx context.Context, in ExecuteInput) (map[st
 			ModelPolicy:    nestedManifestMap(executor, "model_policy"),
 			Payload:        in.Payload,
 			Context:        in.Context,
-		})
+		}
+		text, err := e.llm(ctx, invocation)
 		if err != nil {
 			return nil, err
 		}
-		outputMode := strings.ToLower(strings.TrimSpace(asStringInterface(executor["output_mode"])))
-		if outputMode == "json" || outputMode == "response_envelope" {
+		if outputMode == "json" {
 			var output map[string]any
 			if err := json.Unmarshal([]byte(strings.TrimSpace(text)), &output); err != nil {
 				return nil, errors.New("skill.executor_llm_json_output_invalid")
 			}
-			if outputMode == "response_envelope" {
-				return map[string]any{"response_envelope": output}, nil
-			}
+
 			return output, nil
 		}
 		return map[string]any{"content": text, "format": "markdown"}, nil

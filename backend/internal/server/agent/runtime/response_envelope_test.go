@@ -1,61 +1,27 @@
 package runtime
 
-import "testing"
+import (
+	"context"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"testing"
 
-func validResponseEnvelope() map[string]any {
-	return map[string]any{
-		"schema": AgentResponseEnvelopeSchema, "kind": "multi_agent_summary", "outcome": "needs_action",
-		"presentation": map[string]any{
-			"facts":      []any{map[string]any{"statement": "已收到活动原始数据。", "source": map[string]any{"type": "input", "ref": "input:message"}}},
-			"metrics":    []any{map[string]any{"label": "点击率", "numerator": "36000", "denominator": "1200000", "formula": "36000/1200000", "display_value": "3%", "source": map[string]any{"type": "input", "ref": "input:message"}}},
-			"hypotheses": []any{"直播停留时长可能影响转化，需要补充分场次数据验证。"},
-			"gaps":       []any{"缺少直播停留时长的原始数据。"},
-			"actions":    []any{"补充各场直播的停留时长和成交数据后再验证。"},
-		},
-	}
-}
+	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+)
 
-func TestValidateAgentResponseEnvelope(t *testing.T) {
-	if _, err := ValidateAgentResponseEnvelope(validResponseEnvelope()); err != nil {
-		t.Fatalf("valid envelope rejected: %v", err)
-	}
-}
-
-func TestValidateAgentResponseEnvelopeRejectsLegacyAndFreeTextPresentation(t *testing.T) {
-	invalid := validResponseEnvelope()
-	invalid["summary_refs"] = []any{"fact:1"}
-	if _, err := ValidateAgentResponseEnvelope(invalid); err == nil {
-		t.Fatal("legacy summary_refs must be rejected")
-	}
-	invalid = validResponseEnvelope()
-	presentation := invalid["presentation"].(map[string]any)
-	presentation["acceptance"] = []any{"自定义验收阈值"}
-	if _, err := ValidateAgentResponseEnvelope(invalid); err == nil {
-		t.Fatal("skill-owned acceptance must be rejected")
-	}
-	invalid = validResponseEnvelope()
-	facts := invalid["presentation"].(map[string]any)["facts"].([]any)
-	facts[0].(map[string]any)["id"] = "fact:1"
-	if _, err := ValidateAgentResponseEnvelope(invalid); err == nil {
-		t.Fatal("legacy item ids must be rejected")
-	}
-}
-
-func TestValidateAgentResponseEnvelopeRejectsIncorrectPercentage(t *testing.T) {
-	invalid := validResponseEnvelope()
-	metrics := invalid["presentation"].(map[string]any)["metrics"].([]any)
-	metrics[0].(map[string]any)["display_value"] = "2.5%"
-	if _, err := ValidateAgentResponseEnvelope(invalid); err == nil {
-		t.Fatal("incorrect percentage must be rejected")
-	}
-}
-
-func TestValidateAgentResponseEnvelopeRejectsCompletedWithOpenWork(t *testing.T) {
-	invalid := validResponseEnvelope()
-	invalid["outcome"] = "completed"
-	if _, err := ValidateAgentResponseEnvelope(invalid); err == nil {
-		t.Fatal("completed result with hypotheses or gaps must be rejected")
-	}
+func TestRuntimeAcceptsPlatformEvidenceButRejectsRetiredContract(t *testing.T) {
+	ctx := evidence.WithLedger(context.Background())
+	d := evidence.Draft{Schema: evidence.DraftSchema, Kind: "analysis", Data: []evidence.DraftDatum{}, Calculations: []evidence.Calculation{}, Hypotheses: []string{}, Gaps: []string{"input_required"}, Actions: []string{}}
+	r, err := evidence.Compile(ctx, d, map[string]any{}, nil, uuid.NewString(), uuid.NewString(), uuid.NewString())
+	require.NoError(t, err)
+	got, err := responseEnvelopeFromExecutionResult(map[string]any{"response_envelope": r})
+	require.NoError(t, err)
+	require.Equal(t, "needs_action", got["outcome"])
+	require.NoError(t, evidence.Verify(ctx, got))
+	r["schema"] = "powerx.agent.response/v3"
+	_, err = ValidateAgentResponseEnvelope(r)
+	require.Error(t, err)
 }
 
 func TestResponseEnvelopeFromExecutionResultRequiresExplicitEnvelope(t *testing.T) {
@@ -65,5 +31,22 @@ func TestResponseEnvelopeFromExecutionResultRequiresExplicitEnvelope(t *testing.
 	}
 	if got != nil {
 		t.Fatalf("raw markdown must not be auto-wrapped: %#v", got)
+	}
+}
+
+func TestFinalResponseUpstreamTaskRefsUsesOnlyTerminalDependencies(t *testing.T) {
+	refs := finalResponseUpstreamTaskRefs(&flowschema.ExecutionPlan{Tasks: []flowschema.PlanTask{
+		{TaskID: "source_analysis", Stage: 1},
+		{TaskID: "campaign_analysis", Stage: 1},
+		{TaskID: "knowledge_curation", Stage: 2, DependsOn: []string{"source_analysis", "campaign_analysis"}},
+		{TaskID: "campaign_review_synthesis", Stage: 3, DependsOn: []string{"knowledge_curation"}},
+	}})
+	for _, expected := range []string{"source_analysis", "campaign_analysis", "knowledge_curation"} {
+		if _, ok := refs[expected]; !ok {
+			t.Fatalf("missing upstream task ref %q: %#v", expected, refs)
+		}
+	}
+	if _, ok := refs["campaign_review_synthesis"]; ok {
+		t.Fatalf("terminal task must not cite itself: %#v", refs)
 	}
 }

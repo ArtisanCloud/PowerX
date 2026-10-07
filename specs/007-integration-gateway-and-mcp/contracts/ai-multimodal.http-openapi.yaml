@@ -140,6 +140,18 @@ components:
             $ref: '#/components/schemas/ContentItem'
         params:
           type: object
+          description: >-
+            Runtime generation parameters. Explicit temperature 0 overrides the
+            model default. Seed is an integer supported only by Ollama; an
+            omitted seed leaves provider defaults unchanged.
+          properties:
+            temperature:
+              type: number
+              minimum: 0
+            seed:
+              type: integer
+              minimum: -9007199254740991
+              maximum: 9007199254740991
           additionalProperties: true
         usage_options:
           $ref: '#/components/schemas/UsageOptions'
@@ -163,6 +175,18 @@ components:
             $ref: '#/components/schemas/ContentItem'
         params:
           type: object
+          description: >-
+            Runtime generation parameters. Explicit temperature 0 overrides the
+            model default. Seed is an integer supported only by Ollama; an
+            omitted seed leaves provider defaults unchanged.
+          properties:
+            temperature:
+              type: number
+              minimum: 0
+            seed:
+              type: integer
+              minimum: -9007199254740991
+              maximum: 9007199254740991
           additionalProperties: true
         usage_options:
           $ref: '#/components/schemas/UsageOptions'

@@ -131,7 +131,14 @@
   - `email` 与 `phone` 至少一个可作为登录 identifier。
   - 手机号注册不得写入伪造默认邮箱。
   - 登录密码跟随全局 user credential，不跟随单个 tenant member。
-  - `last_tenant_uuid` 不得单独赋权，使用前必须校验 active membership。
+- `last_tenant_uuid` 不得单独赋权，使用前必须校验 active membership。
+
+## 5A. Active Member Display Name Uniqueness
+
+- 启用且未删除的 member 在同一 `tenant_uuid` 内必须具有唯一的规范化 `display_name`：`lower(trim(display_name))`。
+- PostgreSQL 部分唯一索引 `uk_iam_member_active_display_name` 是最终约束；停用或已删除成员不占用名称。
+- 创建、更新展示名及重新启用成员发生冲突时，必须返回 HTTP 409 与 `IAM_MEMBER_DISPLAY_NAME_CONFLICT`，不得自动选择任何同名 member。
+- 管理端成员列表返回 `display_name_conflict` 诊断字段；迁移完成后其值应始终为 `false`，若为 `true`，管理员必须先修改、停用或清理重复成员后再执行迁移。
 
 ## 6. SaaSSignupRequest
 

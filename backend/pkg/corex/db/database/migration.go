@@ -28,6 +28,7 @@ import (
 	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
 	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	modelPluginSandbox "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_sandbox"
+	modelRuntimeHost "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_host"
 	modelRuntimeScheduler "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelSkills "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
@@ -88,6 +89,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateMetadataModels(db); err != nil {
 		return err
 	}
+	if err = migrateRuntimeHostModels(db); err != nil {
+		return err
+	}
 
 	// 迁移动态表单
 	err = db.AutoMigrate(
@@ -138,6 +142,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err != nil {
 		return err
 	}
+	if err = migration.EnsureIAMMemberActiveDisplayNameUniqueMigration(db); err != nil {
+		return err
+	}
 	if err = backfillIAMRoleUUID(db); err != nil {
 		return err
 	}
@@ -164,6 +171,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelSetting.TLSCertRef{},
 		&modelSetting.AuthProviderConfig{},
 		&modelSetting.PluginInstanceConfig{},
+		&modelSetting.PluginCapabilityApproval{},
 		&modelSetting.PluginDrainJob{},
 	)
 	if err != nil {
@@ -206,11 +214,11 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateWorkflowModels(db); err != nil {
 		return err
 	}
-
-	if err = migratePluginReleaseModels(db); err != nil {
+	if err = migration.EnsurePluginReleaseServiceActorMigration(db); err != nil {
 		return err
 	}
-	if err = migratePluginReleaseDeveloperMemberUUID(db); err != nil {
+
+	if err = migratePluginReleaseModels(db); err != nil {
 		return err
 	}
 	if err = migration.EnsurePluginReleaseCandidateUniqueIndex(db); err != nil {
@@ -255,6 +263,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migrateAgentA2AModels(db); err != nil {
 		return err
 	}
+	if err = migrateAgentServiceSessionModels(db); err != nil {
+		return err
+	}
 
 	if err = migration.CreatePluginReleaseStatusView(db); err != nil {
 		return err
@@ -274,8 +285,23 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	return nil
 }
 
+func migrateRuntimeHostModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelRuntimeHost.Subject{}, &modelRuntimeHost.Task{}, &modelRuntimeHost.Operation{})
+}
+
 func migrateMetadataModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	// Tag bindings used to be a pure composite-key association. It is now an
+	// addressable tenant object, so backfill its stable public UUID before GORM
+	// applies the non-null model constraint.
+	if db.Dialector != nil && strings.EqualFold(db.Dialector.Name(), "postgres") {
+		if err := db.Exec(`ALTER TABLE IF EXISTS "public"."metadata_tag_bindings" ADD COLUMN IF NOT EXISTS binding_uuid uuid`).Error; err != nil {
+			return err
+		}
+		if err := db.Exec(`UPDATE "public"."metadata_tag_bindings" SET binding_uuid = gen_random_uuid() WHERE binding_uuid IS NULL`).Error; err != nil {
+			return err
+		}
+	}
+	if err := db.AutoMigrate(
 		&modelMetadata.DictionaryNamespace{},
 		&modelMetadata.DictionaryItem{},
 		&modelMetadata.Taxonomy{},
@@ -284,7 +310,13 @@ func migrateMetadataModels(db *gorm.DB) error {
 		&modelMetadata.TagBinding{},
 		&modelMetadata.ResourceType{},
 		&modelMetadata.Reference{},
-	)
+	); err != nil {
+		return err
+	}
+	if db.Dialector != nil && strings.EqualFold(db.Dialector.Name(), "postgres") {
+		return db.Exec(`ALTER TABLE "public"."metadata_tag_bindings" ALTER COLUMN binding_uuid SET NOT NULL`).Error
+	}
+	return nil
 }
 
 func backfillIAMRoleUUID(db *gorm.DB) error {
@@ -463,14 +495,60 @@ func migrateCapabilityModels(db *gorm.DB) error {
 }
 
 func migrateCustomerModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&modelCustomer.Account{},
 		&modelCustomer.AuthIdentity{},
 		&modelCustomer.TenantMembership{},
 		&modelCustomer.MiniAppEntry{},
 		&modelCustomer.Session{},
 		&modelCustomer.LoginEvent{},
-	)
+		&modelCustomer.Contact{},
+		&modelCustomer.ContactIdentity{},
+	); err != nil {
+		return err
+	}
+	return ensureCustomerContactIdentityDictionaryIndex(db)
+}
+
+func ensureCustomerContactIdentityDictionaryIndex(db *gorm.DB) error {
+	const indexName = "uk_customer_contact_identity_subject_v2"
+	if db.Dialector.Name() != "postgres" {
+		return nil
+	}
+	var row struct{ Definition string }
+	err := db.Raw(`SELECT indexdef AS definition FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'customer_contact_identities' AND indexname = ?`, indexName).Scan(&row).Error
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(row.Definition, "(tenant_uuid, channel_dictionary_item_uuid, external_subject)") {
+		if err := db.Exec("DROP INDEX IF EXISTS " + indexName).Error; err != nil {
+			return err
+		}
+		if err := db.Migrator().CreateIndex(&modelCustomer.ContactIdentity{}, indexName); err != nil {
+			return fmt.Errorf("create contact identity dictionary unique index: %w", err)
+		}
+	}
+	// The predecessor index enforces the retired free-text channel, and must
+	// not remain the source of truth after the dictionary UUID contract ships.
+	if err := db.Exec("DROP INDEX IF EXISTS uk_customer_contact_identity_subject").Error; err != nil {
+		return err
+	}
+	var pendingMappings int64
+	if err := db.Model(&modelCustomer.ContactIdentity{}).Where("channel_dictionary_item_uuid IS NULL").Count(&pendingMappings).Error; err != nil {
+		return err
+	}
+	if pendingMappings > 0 {
+		return fmt.Errorf("customer contact identity channel migration required: %d rows need explicit channel_dictionary_item_uuid mapping", pendingMappings)
+	}
+	if err := db.Exec("ALTER TABLE customer_contact_identities ALTER COLUMN channel_dictionary_item_uuid SET NOT NULL").Error; err != nil {
+		return fmt.Errorf("enforce contact identity channel dictionary item: %w", err)
+	}
+	if db.Migrator().HasColumn(&modelCustomer.ContactIdentity{}, "channel") {
+		if err := db.Migrator().DropColumn(&modelCustomer.ContactIdentity{}, "channel"); err != nil {
+			return fmt.Errorf("drop retired contact identity channel column: %w", err)
+		}
+	}
+	return nil
 }
 
 func migrateCapabilityRegistryModels(db *gorm.DB) error {
@@ -507,6 +585,10 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyPermission{},
 		&modelIntegrationGateway.IntegrationGatewayAPIKeyAuditLog{},
 	)
+}
+
+func migrateAgentServiceSessionModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelAgent.ServiceSession{}, &modelAgent.ServiceMessage{}, &modelAgent.ServiceInvocation{}, &modelAgent.AdminRunAdmission{})
 }
 
 func migrateAgentA2AModels(db *gorm.DB) error {
@@ -668,7 +750,7 @@ func ensureWorkflowPackInstallationBackfill(db *gorm.DB) error {
 }
 
 func migrateKnowledgeModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&modelKnowledge.KnowledgeSpace{},
 		&modelKnowledge.KnowledgeVectorIndex{},
 		&modelKnowledge.PolicyTemplateVersion{},
@@ -689,7 +771,26 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 		&modelKnowledge.DecayTask{},
 		&modelKnowledge.TenantReleasePolicy{},
 		&modelKnowledge.TenantReleaseBatch{},
-	)
+		&modelKnowledge.TenantDocument{},
+		&modelKnowledge.IndexJob{},
+	); err != nil {
+		return err
+	}
+	return backfillKnowledgePolicyUUIDs(db)
+}
+
+func backfillKnowledgePolicyUUIDs(db *gorm.DB) error {
+	// Stable public references are allocated once, including archived templates.
+	var rows []modelKnowledge.PolicyTemplateVersion
+	if err := db.Unscoped().Where("uuid IS NULL OR uuid = ?", uuid.Nil).Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := db.Unscoped().Model(&modelKnowledge.PolicyTemplateVersion{}).Where("id = ? AND (uuid IS NULL OR uuid = ?)", row.ID, uuid.Nil).Update("uuid", uuid.New()).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func migratePluginReleaseModels(db *gorm.DB) error {
@@ -698,6 +799,7 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.ReleasePlan{},
 		&modelPluginRelease.CanaryDeploymentRecord{},
 		&modelPluginRelease.OfflineDistributionPackage{},
+		&modelPluginRelease.SigningKey{},
 		&modelPluginRelease.MarketplaceListing{},
 		&modelPluginRelease.LocalInstallSession{},
 		&modelPluginRelease.PluginImportRun{},

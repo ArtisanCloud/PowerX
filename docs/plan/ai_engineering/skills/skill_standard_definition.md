@@ -1,5 +1,7 @@
 # Skill 标准定义与使用原理（含外部出处）
 
+PowerX 分层开发的权威约束见 [Agent、Skill、工具与 Runtime 分层开发规范](../../../guides/develop/agent-skill-tool-boundaries.md)。Skill 声明业务规则和版本化工具依赖；导入包或保存 Prompt 不代表工具已安装或脚本已获授权。缺少执行能力必须明确阻断，固有示例与客户自建 Skill 遵循同一机制。
+
 本文用于回答三个问题：
 
 1. Skill 标准到底是什么  
@@ -207,7 +209,7 @@ executor:
 
 Core 不把 `action_required_args` 当作业务执行引擎。它最多用于候选解释、提示构建和保护性校验；真正的执行请求必须来自 Skill prepare 输出的 `capability_request`。
 
-完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md) 与 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md)。
+完整协议见 [`agent_run_state_protocol.md`](../agent/agent_run_state_protocol.md) 与 [`agent_runtime_standard_services.md`](../agent/agent_runtime_standard_services.md)。
 
 ### 4.4 SkillState 协议字段
 
@@ -426,7 +428,7 @@ PowerX 统一策略是：LLM 意图识别后，在 `workflow|skill|tooling|llm` 
 
 ## 9. 与本目录其他文档关系
 
-- 插件桥接机制：`agent_skill_bridge.md`
+- 插件桥接机制：[`../agent/agent_skill_bridge.md`](../agent/agent_skill_bridge.md)
 - 规范映射细节：`standard_mapping.md`
 - 运行时实现：`runtime_architecture.md`
 - API 合同：`api_contracts.md`

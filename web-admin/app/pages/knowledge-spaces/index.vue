@@ -277,9 +277,9 @@ const ingestionForm = reactive({
 
 // 入库来源方式：本地上传 or 远程 URL（需要后端可直接抓取/预签名 URL；暂不在这里收集鉴权信息）
 const ingestionSourceMethod = ref<"upload" | "url">("upload");
-const selectedFile = ref<File | null>(null);
+const selectedFiles = ref<File[]>([]);
+const ingestionFileInput = ref<HTMLInputElement | null>(null);
 const ingestionRetainSource = ref(true);
-const lastUploadedMediaUUID = ref<string>("");
 const ingestionSubmitting = ref(false);
 const ingestionError = ref("");
 const ingestionRemediation = ref<IngestionRemediation | null>(null);
@@ -876,10 +876,10 @@ watch(
 	(method) => {
 		if (method === "upload") {
 			// 上传模式：保留由 handleFileChange 写入的 file:// 占位，其它情况清空
-			if (!selectedFile.value) ingestionForm.sourceUri = "";
+			if (!selectedFiles.value.length) ingestionForm.sourceUri = "";
 			return;
 		}
-		selectedFile.value = null;
+		clearSelectedFiles();
 		ingestionForm.sourceUri = "";
 	},
 );
@@ -1240,7 +1240,7 @@ const sourceMethodOptions = computed(() => [
 
 const canSubmit = computed(() => {
 	if (!ingestionForm.spaceId) return false;
-	if (ingestionSourceMethod.value === "upload") return !!selectedFile.value;
+	if (ingestionSourceMethod.value === "upload") return selectedFiles.value.length > 0;
 	return Boolean(ingestionForm.sourceUri);
 });
 
@@ -1502,22 +1502,32 @@ const applyAutoSuggestionNow = () => {
 
 const handleFileChange = (event: Event) => {
 	const input = event.target as HTMLInputElement;
-	const file = input.files?.[0] || null;
-	selectedFile.value = file;
-	if (file) {
+	const files = Array.from(input.files || []);
+	selectedFiles.value = files;
+	const firstFile = files[0];
+	if (firstFile) {
 		// 仅用于 UI 展示；真实入库前会上传到 Media 并生成可抓取的 presign URL。
-		ingestionForm.sourceUri = `file://${file.name}`;
-		const lower = file.name.toLowerCase();
-		if (lower.endsWith(".pdf")) ingestionForm.format = "pdf";
-		else if (lower.endsWith(".doc") || lower.endsWith(".docx")) ingestionForm.format = "docx";
-		else if (lower.endsWith(".xlsx")) ingestionForm.format = "xlsx";
-		else if (lower.endsWith(".csv")) ingestionForm.format = "csv";
-		else if (lower.endsWith(".md") || lower.endsWith(".markdown")) ingestionForm.format = "markdown";
-		else if (lower.endsWith(".html") || lower.endsWith(".htm")) ingestionForm.format = "html";
-		else if (lower.endsWith(".sql")) ingestionForm.format = "sql";
-		else if (lower.endsWith(".txt")) ingestionForm.format = "markdown";
-		applyAutoStrategySuggestion(guessStrategyFromSource(file.name, ingestionForm.format));
+		ingestionForm.sourceUri = `file://${firstFile.name}`;
+		ingestionForm.format = sourceFormatForFile(firstFile, ingestionForm.format);
+		applyAutoStrategySuggestion(guessStrategyFromSource(firstFile.name, ingestionForm.format));
 	}
+};
+
+const clearSelectedFiles = () => {
+	selectedFiles.value = [];
+	if (ingestionFileInput.value) ingestionFileInput.value.value = "";
+};
+
+const sourceFormatForFile = (file: File, fallback: string) => {
+	const lower = file.name.toLowerCase();
+	if (lower.endsWith(".pdf")) return "pdf";
+	if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "docx";
+	if (lower.endsWith(".xlsx")) return "xlsx";
+	if (lower.endsWith(".csv")) return "csv";
+	if (lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".txt")) return "markdown";
+	if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
+	if (lower.endsWith(".sql")) return "sql";
+	return fallback;
 };
 
 watch(
@@ -1573,6 +1583,7 @@ const openIngestionModal = async () => {
 	settingSegmentDefaults.value = false;
 	ingestionStrategyAutoHint.value = "";
 	ingestionStrategyAutoKey.value = "";
+	clearSelectedFiles();
 	separatorSelected.value = SEPARATOR_NONE_VALUE;
 	separatorCustomText.value = "";
 	// 默认走“推荐的 builtin/default + default”，高级设置可覆盖。
@@ -1793,7 +1804,6 @@ const startCorpusCheckBestEffort = async (spaceId: string) => {
 const submitIngestion = async () => {
 	ingestionError.value = "";
 	ingestionRemediation.value = null;
-	lastUploadedMediaUUID.value = "";
 	if (!ingestionForm.spaceId) {
 		ingestionError.value = t("knowledgeSpaces.ingestion.errors.missingSpaceId");
 		return;
@@ -1842,16 +1852,7 @@ const submitIngestion = async () => {
 			// ignore: best-effort, do not block ingestion
 		}
 
-		let resolvedSource = ingestionForm.sourceUri;
-		if (ingestionSourceMethod.value === "upload" && selectedFile.value) {
-			const uploaded = await uploadSelectedFileToMedia(ingestionForm.spaceId, selectedFile.value);
-			resolvedSource = uploaded.sourceUri;
-			lastUploadedMediaUUID.value = uploaded.mediaUuid;
-		}
-		const payload = {
-			format: ingestionForm.format,
-			sourceUri: resolvedSource,
-			docUuid: lastUploadedMediaUUID.value || undefined,
+		const sharedPayload = {
 			ingestionProfile: ingestionForm.ingestionProfile,
 			processorProfile: ingestionForm.processorProfile,
 			ocrRequired: ingestionForm.ocrRequired,
@@ -1874,44 +1875,57 @@ const submitIngestion = async () => {
 			anchorSpeaker: ingestionForm.anchorSpeaker,
 			anchorSentenceIndex: ingestionForm.anchorSentenceIndex,
 		};
-		const data = await api.triggerIngestion(ingestionForm.spaceId, payload);
-		ingestionResult.value = data;
-		knowledgeStore.lastIngestionJob = data as any;
-		upsertTask({
-			spaceId: ingestionForm.spaceId,
-			jobId: data.jobId,
-			status: data.status,
-			sourceLabel: summarizeSource(resolvedSource),
-			updatedAt: new Date().toISOString(),
-		});
-
-		const remediation = buildIngestionRemediation(data as any);
-		if (remediation) {
+		const sources = ingestionSourceMethod.value === "upload"
+			? await Promise.all(selectedFiles.value.map(async (file) => {
+				const uploaded = await uploadSelectedFileToMedia(ingestionForm.spaceId, file);
+				return { sourceUri: uploaded.sourceUri, docUuid: uploaded.mediaUuid, format: sourceFormatForFile(file, ingestionForm.format) };
+			}))
+			: [{ sourceUri: ingestionForm.sourceUri, docUuid: undefined, format: ingestionForm.format }];
+		const submitted: Array<{ jobId: string; status: string; sourceUri: string }> = [];
+		let failedSourceCount = 0;
+		for (const source of sources) {
+			let data: Awaited<ReturnType<typeof api.triggerIngestion>>;
+			try {
+				data = await api.triggerIngestion(ingestionForm.spaceId, { ...sharedPayload, format: source.format, sourceUri: source.sourceUri, docUuid: source.docUuid });
+			} catch {
+				failedSourceCount += 1;
+				continue;
+			}
+			ingestionResult.value = data;
+			knowledgeStore.lastIngestionJob = data as any;
+			submitted.push({ jobId: data.jobId, status: data.status, sourceUri: source.sourceUri });
+			upsertTask({ spaceId: ingestionForm.spaceId, jobId: data.jobId, status: data.status, sourceLabel: summarizeSource(source.sourceUri), updatedAt: new Date().toISOString() });
+			const remediation = buildIngestionRemediation(data as any);
+			if (remediation) {
 				ingestionRemediation.value = remediation;
-				if (remediation.level === "error") {
-					ingestionError.value = remediation.description;
-					ingestionStep.value = 4;
-					return;
-				}
-			toast.add({
-				color: "warning",
-				title: remediation.title,
-				description: remediation.description,
-			});
+				if (remediation.level === "warning") toast.add({ color: "warning", title: remediation.title, description: remediation.description });
+			}
+		}
+		if (failedSourceCount > 0) {
+			ingestionError.value = t("knowledgeSpaces.ingestion.errors.batchPartial", { submitted: submitted.length, failed: failedSourceCount });
+			ingestionStep.value = 4;
+			return;
 		}
 
-		if (ingestionResult.value) {
+		if (submitted.length) {
+			if (ingestionRemediation.value?.level === "error") {
+				ingestionError.value = ingestionRemediation.value.description;
+				ingestionStep.value = 4;
+				return;
+			}
 			// 导入首批样本文档后触发一次 Corpus Check（用于推荐场景/策略包），但不阻塞 UI。
 			void startCorpusCheckBestEffort(ingestionForm.spaceId);
 			ingestionForm.sourceUri = "";
 			ingestionForm.maskingProfile = "";
-			selectedFile.value = null;
+			clearSelectedFiles();
 			ingestionSourceMethod.value = "upload";
-			ingestionHistory.value.unshift({
-				jobId: data.jobId,
-				status: data.status,
-				completedAt: new Date().toISOString(),
-			});
+			for (const job of [...submitted].reverse()) {
+				ingestionHistory.value.unshift({
+					jobId: job.jobId,
+					status: job.status,
+					completedAt: new Date().toISOString(),
+				});
+			}
 			if (ingestionHistory.value.length > 5) {
 				ingestionHistory.value.pop();
 			}
@@ -1924,9 +1938,9 @@ const submitIngestion = async () => {
 				),
 			});
 			closeIngestionModal();
-			await navigateTo(
-				`/knowledge-spaces/${encodeURIComponent(ingestionForm.spaceId)}/ingestions/${encodeURIComponent(data.jobId)}`,
-			);
+			await navigateTo(submitted.length === 1
+				? `/knowledge-spaces/${encodeURIComponent(ingestionForm.spaceId)}/ingestions/${encodeURIComponent(submitted[0].jobId)}`
+				: `/knowledge-spaces/${encodeURIComponent(ingestionForm.spaceId)}/ingestions`);
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : t("knowledgeSpaces.ingestion.errors.runFailed");
@@ -2226,7 +2240,9 @@ const applyRemediationAction = (action: any) => {
 
             <UFormField v-if="ingestionSourceMethod === 'upload'" :label="t('knowledgeSpaces.ingestion.uploadFile')" required>
               <input
+				ref="ingestionFileInput"
                 type="file"
+                multiple
                 accept=".pdf,.md,.markdown,.txt,.xlsx,.doc,.docx,.csv,.html,.htm,.sql"
                 @change="handleFileChange"
                 class="block w-full text-sm"
@@ -2235,6 +2251,9 @@ const applyRemediationAction = (action: any) => {
                 <div class="space-y-2">
                   <div class="text-xs text-[var(--text-secondary)]">
                     {{ t("knowledgeSpaces.ingestion.uploadHint") }}
+                  </div>
+                  <div v-if="selectedFiles.length" class="text-xs text-[var(--text-secondary)]">
+                    {{ t("knowledgeSpaces.ingestion.selectedFiles", { count: selectedFiles.length }) }}
                   </div>
                   <div class="flex items-start gap-2">
                     <UCheckbox v-model="ingestionRetainSource" />
@@ -2737,7 +2756,7 @@ const applyRemediationAction = (action: any) => {
                 {{ t("knowledgeSpaces.ingestion.confirm.space") }}：{{ ingestionSpaceItems.find(i => i.value === ingestionForm.spaceId)?.label || ingestionForm.spaceId.slice(0, 8) }}
               </div>
               <div class="text-[var(--text-secondary)]">
-                {{ t("knowledgeSpaces.ingestion.confirm.source") }}：{{ ingestionForm.sourceUri || (selectedFile ? selectedFile.name : "-") }}
+                {{ t("knowledgeSpaces.ingestion.confirm.source") }}：{{ ingestionSourceMethod === "upload" ? t("knowledgeSpaces.ingestion.selectedFiles", { count: selectedFiles.length }) : (ingestionForm.sourceUri || "-") }}
               </div>
               <div class="text-[var(--text-secondary)]">
                 {{ t("knowledgeSpaces.ingestion.confirm.template") }}：{{ selectedIngestionPackage?.label }}（{{ profileLabel(derivedIngestionProfileKey) }}）

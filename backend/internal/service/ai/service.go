@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -31,6 +33,7 @@ var (
 	ErrModelNotConfigured  = errors.New("model not configured for tenant")
 	ErrPromptRequired      = errors.New("inputs must include text/content")
 	ErrProviderUnsupported = errors.New("provider driver not implemented")
+	ErrInvalidLLMParams    = errors.New("invalid llm params")
 )
 
 type Service struct {
@@ -90,13 +93,19 @@ func (s *Service) LLMInvoke(
 		return nil, ErrPromptRequired
 	}
 	temperature := floatFromAny(defaults["temperature"])
+	requestTemperature, temperatureSet, err := parseRequestTemperature(params)
+	if err != nil {
+		return nil, err
+	}
+	seed, seedSet, err := parseOllamaSeed(provider, params)
+	if err != nil {
+		return nil, err
+	}
 	// 不再在未传参时注入默认 max_tokens，交给模型提供方自身默认值处理。
 	maxTokens := 0
 	if params != nil {
-		if v, ok := params["temperature"]; ok {
-			if t := floatFromAny(v); t > 0 {
-				temperature = t
-			}
+		if temperatureSet {
+			temperature = requestTemperature
 		}
 		if v, ok := params["max_tokens"]; ok {
 			if mt := intFromAny(v); mt > 0 {
@@ -118,13 +127,24 @@ func (s *Service) LLMInvoke(
 	if strings.TrimSpace(systemPrompt) != "" {
 		mc.SystemPrompt = strings.TrimSpace(systemPrompt)
 	}
-	if temperature > 0 {
+	if temperatureSet || temperature > 0 {
 		mc.Temperature = temperature
+		mc.TemperatureSet = temperatureSet
 	}
 	if maxTokens > 0 {
 		mc.MaxTokens = maxTokens
 	}
 	applyLLMRuntimeExtras(provider, mc, defaults, params)
+	if seedSet {
+		if mc.Extra == nil {
+			mc.Extra = map[string]any{}
+		}
+		mc.Extra["seed"] = seed
+	}
+	applyResponseSchema(mc, params)
+	if len(mc.ResponseSchema) > 0 && !llmfactory.SupportsResponseSchema(provider) {
+		return nil, errors.New("ai.response_schema_provider_unsupported")
+	}
 	applyReasoningConfig(provider, mc, params)
 
 	invokeResult, err := llmfactory.Invoke(ctx, mc, prompt)
@@ -176,15 +196,21 @@ func (s *Service) LLMStream(
 	}
 
 	temperature := floatFromAny(defaults["temperature"])
+	requestTemperature, temperatureSet, err := parseRequestTemperature(params)
+	if err != nil {
+		return "", err
+	}
+	seed, seedSet, err := parseOllamaSeed(provider, params)
+	if err != nil {
+		return "", err
+	}
 	maxTokens := intFromAny(defaults["maxTokens"])
 	if maxTokens == 0 {
 		maxTokens = intFromAny(defaults["max_tokens"])
 	}
 	if params != nil {
-		if v, ok := params["temperature"]; ok {
-			if t := floatFromAny(v); t > 0 {
-				temperature = t
-			}
+		if temperatureSet {
+			temperature = requestTemperature
 		}
 		if v, ok := params["max_tokens"]; ok {
 			if mt := intFromAny(v); mt > 0 {
@@ -207,13 +233,20 @@ func (s *Service) LLMStream(
 	if strings.TrimSpace(systemPrompt) != "" {
 		mc.SystemPrompt = strings.TrimSpace(systemPrompt)
 	}
-	if temperature > 0 {
+	if temperatureSet || temperature > 0 {
 		mc.Temperature = temperature
+		mc.TemperatureSet = temperatureSet
 	}
 	if maxTokens > 0 {
 		mc.MaxTokens = maxTokens
 	}
 	applyLLMRuntimeExtras(provider, mc, defaults, params)
+	if seedSet {
+		if mc.Extra == nil {
+			mc.Extra = map[string]any{}
+		}
+		mc.Extra["seed"] = seed
+	}
 	applyReasoningConfig(provider, mc, params)
 
 	final, err := llmfactory.StreamOrFallback(ctx, mc, prompt, onDelta)
@@ -256,6 +289,101 @@ func applyLLMRuntimeExtras(provider string, mc *aiconfig.ModelConfig, defaults m
 	if len(mc.Extra) == 0 {
 		mc.Extra = nil
 	}
+}
+
+func parseRequestTemperature(params map[string]interface{}) (float64, bool, error) {
+	value, present := params["temperature"]
+	if !present {
+		return 0, false, nil
+	}
+	var temperature float64
+	switch v := value.(type) {
+	case float64:
+		temperature = v
+	case float32:
+		temperature = float64(v)
+	case int:
+		temperature = float64(v)
+	case int64:
+		temperature = float64(v)
+	case json.Number:
+		parsed, err := v.Float64()
+		if err != nil {
+			return 0, false, fmt.Errorf("%w: temperature must be a finite non-negative number", ErrInvalidLLMParams)
+		}
+		temperature = parsed
+	default:
+		return 0, false, fmt.Errorf("%w: temperature must be a finite non-negative number", ErrInvalidLLMParams)
+	}
+	if math.IsNaN(temperature) || math.IsInf(temperature, 0) || temperature < 0 {
+		return 0, false, fmt.Errorf("%w: temperature must be a finite non-negative number", ErrInvalidLLMParams)
+	}
+	return temperature, true, nil
+}
+
+func parseOllamaSeed(provider string, params map[string]interface{}) (int64, bool, error) {
+	value, present := params["seed"]
+	if !present {
+		return 0, false, nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(provider), "ollama") {
+		return 0, false, fmt.Errorf("%w: seed is supported only for Ollama", ErrInvalidLLMParams)
+	}
+	const maxExactJSONInteger = int64(1<<53 - 1)
+	var seed int64
+	switch v := value.(type) {
+	case int:
+		seed = int64(v)
+	case int64:
+		seed = v
+	case json.Number:
+		parsed, err := v.Int64()
+		if err != nil {
+			return 0, false, fmt.Errorf("%w: seed must be an integer", ErrInvalidLLMParams)
+		}
+		seed = parsed
+	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) || math.Trunc(v) != v || math.Abs(v) > float64(maxExactJSONInteger) {
+			return 0, false, fmt.Errorf("%w: seed must be an integer", ErrInvalidLLMParams)
+		}
+		seed = int64(v)
+	default:
+		return 0, false, fmt.Errorf("%w: seed must be an integer", ErrInvalidLLMParams)
+	}
+	if seed < -maxExactJSONInteger || seed > maxExactJSONInteger {
+		return 0, false, fmt.Errorf("%w: seed exceeds the exact JSON integer range", ErrInvalidLLMParams)
+	}
+	return seed, true, nil
+}
+
+// applyResponseSchema accepts a typed caller's JSON Schema. It is deliberately
+// separate from provider options: response format is a top-level provider
+// contract, never an Ollama generation option.
+func applyResponseSchema(mc *aiconfig.ModelConfig, params map[string]interface{}) {
+	if mc == nil || len(params) == 0 {
+		return
+	}
+	raw, ok := params["response_schema"]
+	if !ok || raw == nil {
+		return
+	}
+	schema, ok := raw.(map[string]any)
+	if !ok || len(schema) == 0 {
+		return
+	}
+	mc.ResponseSchema = cloneResponseSchema(schema)
+}
+
+func cloneResponseSchema(schema map[string]any) map[string]any {
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return nil
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil
+	}
+	return cloned
 }
 
 func firstPositiveInt(values map[string]interface{}, keys ...string) int {

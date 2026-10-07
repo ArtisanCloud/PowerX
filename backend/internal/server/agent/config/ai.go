@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"os"
 	"path/filepath"
@@ -20,6 +21,10 @@ type AIConfig struct {
 
 	// 路由/缓存/容错（可选）
 	Routing AIRouting `yaml:"routing" mapstructure:"routing"`
+
+	// Runtime controls bounded Agent-loop behavior. RunDeadline is independent
+	// of the per-request LLM deadline and includes queue/verification time.
+	Runtime AIRuntime `yaml:"runtime" mapstructure:"runtime"`
 }
 
 // ---------- Global AI Config (read-only snapshot) ----------
@@ -110,6 +115,59 @@ type AIRouting struct {
 	MaxRetries           int           `yaml:"max_retries"            mapstructure:"max_retries"`
 }
 
+type AIRuntime struct {
+	DurableSessions    DurableSessions     `yaml:"durable_sessions" mapstructure:"durable_sessions"`
+	MaxPlanRevisions   int                 `yaml:"max_plan_revisions" mapstructure:"max_plan_revisions"`
+	MaxObservations    int                 `yaml:"max_observations" mapstructure:"max_observations"`
+	MaxSteps           int                 `yaml:"max_steps" mapstructure:"max_steps"`
+	MaxCapabilityCalls int                 `yaml:"max_capability_calls" mapstructure:"max_capability_calls"`
+	MaxConcurrentTasks int                 `yaml:"max_concurrent_tasks" mapstructure:"max_concurrent_tasks"`
+	RunDeadline        time.Duration       `yaml:"run_deadline" mapstructure:"run_deadline"`
+	QueueWaitTimeout   time.Duration       `yaml:"queue_wait_timeout" mapstructure:"queue_wait_timeout"`
+	PhysicalModelPools []PhysicalModelPool `yaml:"physical_model_pools" mapstructure:"physical_model_pools"`
+}
+
+// PhysicalModelPool declares deployment capacity rather than a tenant Model
+// Profile limit. PoolID is shared by every Core instance using the deployment.
+type PhysicalModelPool struct {
+	PoolID     string        `yaml:"pool_id" mapstructure:"pool_id"`
+	Provider   string        `yaml:"provider" mapstructure:"provider"`
+	Endpoint   string        `yaml:"endpoint" mapstructure:"endpoint"`
+	Model      string        `yaml:"model" mapstructure:"model"`
+	Capacity   int           `yaml:"capacity" mapstructure:"capacity"`
+	MaxWaiting int           `yaml:"max_waiting" mapstructure:"max_waiting"`
+	LeaseTTL   time.Duration `yaml:"lease_ttl" mapstructure:"lease_ttl"`
+}
+
+func RuntimeBudgetLimits() (AIRuntime, error) {
+	cfg := GetGlobalAIConfig()
+	if cfg == nil {
+		return AIRuntime{}, fmt.Errorf("ai.runtime configuration is required")
+	}
+	limits := cfg.Runtime
+	if limits.RunDeadline <= 0 {
+		limits.RunDeadline = 30 * time.Minute
+	}
+	if limits.QueueWaitTimeout <= 0 {
+		limits.QueueWaitTimeout = 10 * time.Minute
+	}
+	if limits.MaxPlanRevisions <= 0 || limits.MaxObservations <= 0 || limits.MaxSteps <= 0 || limits.MaxCapabilityCalls <= 0 || limits.MaxConcurrentTasks <= 0 {
+		return AIRuntime{}, fmt.Errorf("ai.runtime loop limits must be greater than zero")
+	}
+	if limits.MaxCapabilityCalls > limits.MaxSteps || limits.MaxConcurrentTasks > limits.MaxSteps {
+		return AIRuntime{}, fmt.Errorf("ai.runtime loop limits exceed max_steps")
+	}
+	return limits, nil
+}
+
+func LLMRequestTimeout() (time.Duration, error) {
+	cfg := GetGlobalAIConfig()
+	if cfg == nil || cfg.Defaults.LLM.RequestTimeout <= 0 {
+		return 0, fmt.Errorf("ai.defaults.llm.request_timeout is required")
+	}
+	return cfg.Defaults.LLM.RequestTimeout, nil
+}
+
 // ---------- 默认值填充 ----------
 
 func (c *AIConfig) SetDefaults() {
@@ -135,6 +193,27 @@ func (c *AIConfig) SetDefaults() {
 	}
 	if c.Defaults.LLM.RequestTimeout <= 0 {
 		c.Defaults.LLM.RequestTimeout = 5 * time.Minute
+	}
+	if c.Runtime.MaxPlanRevisions <= 0 {
+		c.Runtime.MaxPlanRevisions = 2
+	}
+	if c.Runtime.MaxObservations <= 0 {
+		c.Runtime.MaxObservations = 4
+	}
+	if c.Runtime.MaxSteps <= 0 {
+		c.Runtime.MaxSteps = 16
+	}
+	if c.Runtime.MaxCapabilityCalls <= 0 {
+		c.Runtime.MaxCapabilityCalls = 8
+	}
+	if c.Runtime.MaxConcurrentTasks <= 0 {
+		c.Runtime.MaxConcurrentTasks = 4
+	}
+	if c.Runtime.RunDeadline <= 0 {
+		c.Runtime.RunDeadline = 30 * time.Minute
+	}
+	if c.Runtime.QueueWaitTimeout <= 0 {
+		c.Runtime.QueueWaitTimeout = 10 * time.Minute
 	}
 	// Embedding
 	if c.Defaults.Embedding.Batch == 0 {
@@ -173,4 +252,55 @@ func (c *AIConfig) SetDefaults() {
 	if c.Routing.MaxRetries == 0 {
 		c.Routing.MaxRetries = 1
 	}
+}
+
+// DurableSessions 配置共享 Worker；管理端聊天通过独立开关接入。
+type DurableSessions struct {
+	TenantConcurrency int           `yaml:"tenant_concurrency" mapstructure:"tenant_concurrency"`
+	HotRetention      time.Duration `yaml:"hot_retention" mapstructure:"hot_retention"`
+	ArchiveMaxPending int64         `yaml:"archive_max_pending" mapstructure:"archive_max_pending"`
+	ArchiveMaxAge     time.Duration `yaml:"archive_max_age" mapstructure:"archive_max_age"`
+	AdminChatEnabled  bool          `yaml:"admin_chat_enabled" mapstructure:"admin_chat_enabled"`
+	Enabled           bool          `yaml:"enabled" mapstructure:"enabled"`
+	ReportBucket      string        `yaml:"report_bucket" mapstructure:"report_bucket"`
+	WorkerConcurrency int           `yaml:"worker_concurrency" mapstructure:"worker_concurrency"`
+	ScanInterval      time.Duration `yaml:"scan_interval" mapstructure:"scan_interval"`
+	LeaseTTL          time.Duration `yaml:"lease_ttl" mapstructure:"lease_ttl"`
+}
+
+// WithLifecycleDefaults 返回共享调度存储策略，避免零值意外无限保留。
+func (c DurableSessions) WithLifecycleDefaults() DurableSessions {
+	if c.TenantConcurrency == 0 {
+		c.TenantConcurrency = 16
+	}
+	if c.HotRetention == 0 {
+		c.HotRetention = 7 * 24 * time.Hour
+	}
+	if c.ArchiveMaxPending == 0 {
+		c.ArchiveMaxPending = 1000
+	}
+	if c.ArchiveMaxAge == 0 {
+		c.ArchiveMaxAge = time.Hour
+	}
+	return c
+}
+
+func (c DurableSessions) Validate() error {
+	if c.AdminChatEnabled && !c.Enabled {
+		return fmt.Errorf("admin_chat_enabled requires durable_sessions.enabled")
+	}
+	if !c.Enabled {
+		return nil
+	}
+	c = c.WithLifecycleDefaults()
+	if c.TenantConcurrency < 1 || c.TenantConcurrency > 10000 {
+		return fmt.Errorf("durable_sessions.tenant_concurrency must be in 1..10000")
+	}
+	if c.HotRetention < time.Hour || c.HotRetention > 90*24*time.Hour || c.ArchiveMaxPending < 1 || c.ArchiveMaxAge < time.Minute || c.ArchiveMaxAge > 7*24*time.Hour {
+		return fmt.Errorf("invalid durable archive retention/backpressure policy")
+	}
+	if strings.TrimSpace(c.ReportBucket) == "" || c.WorkerConcurrency < 1 || c.WorkerConcurrency > 128 || c.ScanInterval < time.Second || c.ScanInterval > time.Minute || c.LeaseTTL < time.Second || c.LeaseTTL > time.Minute {
+		return fmt.Errorf("ai.runtime.durable_sessions requires report_bucket, worker_concurrency (1..128), scan_interval and lease_ttl (1s..1m)")
+	}
+	return nil
 }

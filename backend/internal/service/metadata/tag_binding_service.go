@@ -8,6 +8,7 @@ import (
 	metadto "github.com/ArtisanCloud/PowerX/internal/dto/metadata"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
 	metarepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/metadata"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +26,14 @@ type ReplaceTagBindingsInput struct {
 	TagUUIDs      []string
 	CreatedByUUID string
 	Locale        string
+}
+
+type CreateTagBindingInput struct {
+	TenantUUID    string
+	TagUUID       string
+	ResourceType  string
+	ResourceUUID  string
+	CreatedByUUID string
 }
 
 func (s *Service) tagBindingRepo() *metarepo.TagBindingRepository {
@@ -102,6 +111,64 @@ func (s *Service) ReplaceTagBindings(ctx context.Context, in ReplaceTagBindingsI
 	})
 }
 
+func (s *Service) CreateTagBinding(ctx context.Context, in CreateTagBindingInput) (metadto.TagBindingResponse, error) {
+	tenantUUID, err := canonicalTenant(in.TenantUUID)
+	if err != nil {
+		return metadto.TagBindingResponse{}, err
+	}
+	if err = validResourceUUID(strings.TrimSpace(in.TagUUID)); err != nil {
+		return metadto.TagBindingResponse{}, err
+	}
+	resourceType := strings.TrimSpace(in.ResourceType)
+	if err = ValidateMachineIdentifier(resourceType); err != nil {
+		return metadto.TagBindingResponse{}, err
+	}
+	resourceUUID := strings.TrimSpace(in.ResourceUUID)
+	if err = validResourceUUID(resourceUUID); err != nil {
+		return metadto.TagBindingResponse{}, err
+	}
+	if err = s.validateBindableResource(ctx, tenantUUID, resourceType, resourceUUID); err != nil {
+		return metadto.TagBindingResponse{}, err
+	}
+	tag, err := s.tagRepo().GetTag(ctx, tenantUUID, strings.TrimSpace(in.TagUUID))
+	if err != nil {
+		return metadto.TagBindingResponse{}, err
+	}
+	if tag.ResourceType != resourceType || tag.Status != model.StatusEnabled {
+		return metadto.TagBindingResponse{}, ErrTagResourceMismatch
+	}
+	binding := &model.TagBinding{BindingUUID: uuid.NewString(), TenantUUID: tenantUUID, TagUUID: tag.UUID.String(), ResourceType: resourceType, ResourceUUID: resourceUUID, CreatedByUUID: strings.TrimSpace(in.CreatedByUUID)}
+	if err = s.tagBindingRepo().Create(ctx, binding); err != nil {
+		return metadto.TagBindingResponse{}, err
+	}
+	s.publishAudit(ctx, AuditEvent{TenantUUID: tenantUUID, Operation: "create", ObjectType: "tag_binding", ObjectUUID: binding.BindingUUID})
+	mapped := mapTag(tag, "zh-CN")
+	return metadto.TagBindingResponse{BindingUUID: binding.BindingUUID, TagUUID: binding.TagUUID, ResourceType: binding.ResourceType, ResourceUUID: binding.ResourceUUID, Tag: &mapped}, nil
+}
+
+func (s *Service) DeleteTagBinding(ctx context.Context, tenantUUID, bindingUUID string) error {
+	tenantUUID, err := canonicalTenant(tenantUUID)
+	if err != nil {
+		return err
+	}
+	if err = validResourceUUID(strings.TrimSpace(bindingUUID)); err != nil {
+		return err
+	}
+	binding, err := s.tagBindingRepo().DeleteByBindingUUID(ctx, tenantUUID, strings.TrimSpace(bindingUUID))
+	if err != nil {
+		return err
+	}
+	var total int64
+	if err = s.deps.DB.WithContext(ctx).Model(&model.TagBinding{}).Where("tenant_uuid = ? AND tag_uuid = ?", tenantUUID, binding.TagUUID).Count(&total).Error; err != nil {
+		return err
+	}
+	if err = s.deps.DB.WithContext(ctx).Model(&model.Tag{}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, binding.TagUUID).Update("usage_count", total).Error; err != nil {
+		return err
+	}
+	s.publishAudit(ctx, AuditEvent{TenantUUID: tenantUUID, Operation: "delete", ObjectType: "tag_binding", ObjectUUID: bindingUUID})
+	return nil
+}
+
 func (s *Service) validateBindableResource(ctx context.Context, tenantUUID, resourceType, resourceUUID string) error {
 	row, err := s.resourceTypeRepo().GetByResourceType(ctx, tenantUUID, resourceType)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -134,6 +201,7 @@ func mapTagBindings(bindings []model.TagBinding, tags []model.Tag, locale string
 	for i := range bindings {
 		b := bindings[i]
 		out = append(out, metadto.TagBindingResponse{
+			BindingUUID:  b.BindingUUID,
 			TagUUID:      b.TagUUID,
 			ResourceType: b.ResourceType,
 			ResourceUUID: b.ResourceUUID,

@@ -2,12 +2,75 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	aschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/stretchr/testify/require"
 )
+
+func TestExecutePlanWithHooksQueuesSameStageAtConfiguredConcurrency(t *testing.T) {
+	m := NewAgentManager()
+	var active atomic.Int32
+	var peak atomic.Int32
+	m.SetSkillInvoker(func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+		current := active.Add(1)
+		defer active.Add(-1)
+		for {
+			seen := peak.Load()
+			if current <= seen || peak.CompareAndSwap(seen, current) {
+				break
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+		return &SkillInvokeOutput{Status: "completed", ProtocolUsed: "skill", SkillID: in.SkillID, Result: map[string]any{"content": in.SkillID}}, nil
+	})
+
+	_, err := m.ExecutePlanWithHooks(context.Background(), flowschema.ExecutionPlan{
+		PlanID: "plan-serial-stage",
+		Tasks: []flowschema.PlanTask{
+			{TaskID: "one", NodeKind: "skill", NodeRef: "skill.one", Stage: 1},
+			{TaskID: "two", NodeKind: "skill", NodeRef: "skill.two", Stage: 1},
+		},
+	}, aschema.ExecutionMeta{TenantUUID: "tenant-test"}, &PlanExecutionHooks{MaxConcurrentTasks: 1})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), peak.Load())
+}
+
+func TestExecutePlanWithHooksReportsContinuedFailure(t *testing.T) {
+	m := NewAgentManager()
+	m.SetSkillInvoker(func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+		if in.SkillID == "skill.fail" {
+			return nil, errors.New("upstream unavailable")
+		}
+		return &SkillInvokeOutput{
+			TraceID:      "trace-report",
+			Status:       "completed",
+			ProtocolUsed: "skill",
+			SkillID:      in.SkillID,
+			Result:       map[string]any{"content": "completed"},
+		}, nil
+	})
+
+	report, err := m.ExecutePlanWithHooks(context.Background(), flowschema.ExecutionPlan{
+		PlanID: "plan-report",
+		Tasks: []flowschema.PlanTask{
+			{TaskID: "failed", NodeKind: "skill", NodeRef: "skill.fail", FailurePolicy: "continue", Stage: 0},
+			{TaskID: "completed", NodeKind: "skill", NodeRef: "skill.ok", FailurePolicy: "fail-fast", Stage: 1},
+		},
+	}, aschema.ExecutionMeta{TenantUUID: "tenant-report", Metadata: map[string]any{"env": "test"}}, nil)
+	require.NoError(t, err)
+	require.NotNil(t, report)
+	require.True(t, report.HasFailures())
+	require.True(t, report.HasCompletedTasks())
+	require.NotNil(t, report.FinalResult)
+	require.Len(t, report.Tasks, 2)
+	require.Equal(t, PlanTaskExecutionFailed, report.Tasks[0].Status)
+	require.Equal(t, PlanTaskExecutionCompleted, report.Tasks[1].Status)
+}
 
 func TestExecuteNonWorkflowTask_SkillInvoker(t *testing.T) {
 	m := NewAgentManager()
@@ -164,6 +227,30 @@ func TestExecuteNonWorkflowTask_SkillInvoker_ContextFromTaskParams(t *testing.T)
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Equal(t, "影响华东区支付接口，最近刚发布 v2.3.7，错误码 502 激增", got.Context["context"])
+}
+
+func TestExecuteNonWorkflowTask_SkillInvokerPropagatesRuntimeLocale(t *testing.T) {
+	m := NewAgentManager()
+	var got SkillInvokeInput
+	m.SetSkillInvoker(func(ctx context.Context, in SkillInvokeInput) (*SkillInvokeOutput, error) {
+		got = in
+		return &SkillInvokeOutput{
+			TraceID:      "trace-skill-locale-1",
+			Status:       "completed",
+			ProtocolUsed: "skill",
+			SkillID:      in.SkillID,
+			Result:       map[string]any{"ok": true},
+		}, nil
+	})
+
+	ctx := context.WithValue(context.Background(), "locale", "zh-CN")
+	_, err := m.executeNonWorkflowTask(ctx, flowschema.PlanTask{
+		TaskID:   "task-skill-locale-1",
+		NodeKind: "skill",
+		NodeRef:  "marketing.metric_extract",
+	}, flowschema.Context{}, aschema.ExecutionMeta{TenantUUID: "tenant-skill", TraceID: "trace-skill-locale-1"})
+	require.NoError(t, err)
+	require.Equal(t, "zh-CN", got.Context["locale"])
 }
 
 func TestExecuteNonWorkflowTask_ToolingInvoker(t *testing.T) {

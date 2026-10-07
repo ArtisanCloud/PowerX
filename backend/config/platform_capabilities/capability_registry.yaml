@@ -1,0 +1,91 @@
+version: 1
+capabilities:
+- capability_id: com.corex.capabilities.catalog.read
+  module: capability_registry
+  title: Platform Capability Catalog Read
+  description: Read tenant-visible CoreX capability metadata for configuration discovery. This does not grant invocation of listed capabilities.
+  permission_code: corex.capabilities.catalog:read
+  agent_usable: false
+  risk_level: low
+  categories: [capability, discovery]
+  intents: [capabilities.catalog.read]
+  tool_scopes: [capabilities.catalog.read]
+  policy:
+    prefer: rest
+  docs: [specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/capabilities/catalog"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1capabilities~1catalog/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: capabilities.catalog.read
+    api_key:
+      scope: _scope.capabilities.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: catalog
+  title_i18n:
+    en: Platform Capability Catalog Read
+    zh-CN: 底座能力目录读取
+  description_i18n:
+    en: Read tenant-visible CoreX capability metadata for configuration discovery only; it does not grant invocation.
+    zh-CN: 仅读取租户可见的底座能力配置目录，不授予目录中能力的调用权限。
+- capability_id: com.corex.capabilities.grant_status.read
+  module: capability_registry
+  title: Capability Grant Status Read
+  description: Read the current service credential's effective status for requested capability identifiers.
+  permission_code: corex.capabilities.grant_status:read
+  agent_usable: false
+  risk_level: low
+  categories: [capability, authorization]
+  intents: [capabilities.grant_status.read]
+  tool_scopes: [capabilities.grant_status.read]
+  policy:
+    prefer: rest
+  docs: [specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml]
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/capabilities:grant-status"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1capabilities:grant-status/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: capabilities.grant_status.read
+    api_key:
+      scope: _scope.capabilities.grant_status.read
+      action: read
+      resource_type: api
+      resource_pattern: grant-status
+  title_i18n:
+    en: Capability Grant Status Read
+    zh-CN: 能力授权状态查询
+  description_i18n:
+    en: Read only the effective grants of the service credential making this request.
+    zh-CN: 仅查询当前服务凭证自身的实际能力授权状态。
+- capability_id: com.corex.capabilities.version_upgrade.confirm
+  module: capability_registry
+  title: Confirm Capability Version Upgrade
+  description: Allow a human tenant administrator to approve the current published capability hash with durable audit before applying the runtime version lock.
+  permission_code: corex.capabilities.version_upgrade:confirm
+  agent_usable: false
+  risk_level: high
+  categories: [capability, governance]
+  intents: [capabilities.version_upgrade.confirm]
+  tool_scopes: [capabilities.version_upgrade.confirm]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/admin/capability-registry/capabilities/:capabilityId/tenants/:tenant_uuid/upgrade
+    method: POST
+    auth_type: jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  title_i18n: {en: Confirm Capability Version Upgrade, zh-CN: 确认能力版本升级}
+  description_i18n: {en: Approve the published capability version with administrator authorization and audit., zh-CN: 管理员确认已发布的能力版本并记录审计。}

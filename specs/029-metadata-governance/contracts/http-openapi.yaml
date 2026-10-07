@@ -435,6 +435,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResourceTypeResponse'
+  /tenant/metadata/dictionaries:
+    get: { operationId: tenantListDictionaries, tags: [TenantMetadata], responses: { '200': { description: Dictionary namespaces }, '401': { $ref: '#/components/responses/MetadataUnauthorized' }, '403': { $ref: '#/components/responses/MetadataForbidden' } } }
+    post: { operationId: tenantCreateDictionary, tags: [TenantMetadata], responses: { '201': { description: Created }, '400': { $ref: '#/components/responses/MetadataInvalidArgument' }, '409': { $ref: '#/components/responses/MetadataConflict' } } }
+  /tenant/metadata/dictionaries/{namespace_uuid}:
+    patch: { operationId: tenantUpdateDictionary, tags: [TenantMetadata], parameters: [{ $ref: '#/components/parameters/NamespaceUUID' }], responses: { '200': { description: Updated }, '404': { $ref: '#/components/responses/MetadataNotFound' } } }
+  /tenant/metadata/dictionaries/{namespace_uuid}/items:
+    get: { operationId: tenantListDictionaryItems, tags: [TenantMetadata], parameters: [{ $ref: '#/components/parameters/NamespaceUUID' }], responses: { '200': { description: Dictionary items } } }
+    post: { operationId: tenantCreateDictionaryItem, tags: [TenantMetadata], parameters: [{ $ref: '#/components/parameters/NamespaceUUID' }], responses: { '201': { description: Created } } }
+  /tenant/metadata/dictionary-items/{item_uuid}:
+    patch: { operationId: tenantUpdateDictionaryItem, tags: [TenantMetadata], parameters: [{ $ref: '#/components/parameters/ItemUUID' }], responses: { '200': { description: Updated } } }
+  /tenant/metadata/taxonomies:
+    get: { operationId: tenantListTaxonomies, tags: [TenantMetadata], responses: { '200': { description: Taxonomies } } }
+    post: { operationId: tenantCreateTaxonomy, tags: [TenantMetadata], responses: { '201': { description: Created } } }
+  /tenant/metadata/taxonomies/{taxonomy_uuid}/nodes:
+    get: { operationId: tenantListTaxonomyNodes, tags: [TenantMetadata], parameters: [{ $ref: '#/components/parameters/TaxonomyUUID' }], responses: { '200': { description: Nodes } } }
+    post: { operationId: tenantCreateTaxonomyNode, tags: [TenantMetadata], parameters: [{ $ref: '#/components/parameters/TaxonomyUUID' }], responses: { '201': { description: Created } } }
+  /tenant/metadata/taxonomy-nodes/{node_uuid}:
+    patch: { operationId: tenantUpdateTaxonomyNode, tags: [TenantMetadata], parameters: [{ $ref: '#/components/parameters/NodeUUID' }], responses: { '200': { description: Updated } } }
+  /tenant/metadata/tags:
+    get: { operationId: tenantListTags, tags: [TenantMetadata], responses: { '200': { description: Tags } } }
+    post: { operationId: tenantCreateTag, tags: [TenantMetadata], responses: { '201': { description: Created } } }
+  /tenant/metadata/tags/{tag_uuid}:
+    patch:
+      operationId: tenantUpdateTag
+      tags: [TenantMetadata]
+      description: Update the authenticated tenant's tag with metadata.tag.manage. Omitted fields are unchanged; color may be cleared with an empty string.
+      parameters:
+        - $ref: '#/components/parameters/TagUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTagRequest'
+      responses:
+        '200':
+          description: Updated tag in data.payload.
+        '400':
+          description: Invalid fields or tenant override.
+        '401':
+          description: Missing or invalid service credential.
+        '403':
+          description: Missing published capability, tenant registration or credential grant.
+        '404':
+          $ref: '#/components/responses/MetadataNotFound'
+  /tenant/metadata/tag-bindings:
+    post: { operationId: tenantCreateTagBinding, tags: [TenantMetadata], responses: { '201': { description: Created } } }
+  /tenant/metadata/tag-bindings/{binding_uuid}:
+    delete: { operationId: tenantDeleteTagBinding, tags: [TenantMetadata], parameters: [{ in: path, name: binding_uuid, required: true, schema: { type: string, format: uuid } }], responses: { '204': { description: Deleted }, '404': { $ref: '#/components/responses/MetadataNotFound' } } }
+  /tenant/metadata/resource-types:
+    get: { operationId: tenantListResourceTypes, tags: [TenantMetadata], responses: { '200': { description: Resource types } } }
+    post: { operationId: tenantCreateResourceType, tags: [TenantMetadata], responses: { '201': { description: Created } } }
+  /tenant/metadata/resource-types/{resource_type_uuid}:
+    patch: { operationId: tenantUpdateResourceType, tags: [TenantMetadata], parameters: [{ in: path, name: resource_type_uuid, required: true, schema: { type: string, format: uuid } }], responses: { '200': { description: Updated } } }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -531,6 +586,16 @@ components:
         type: string
         format: uuid
   responses:
+    MetadataInvalidArgument:
+      description: METADATA_INVALID_ARGUMENT
+    MetadataUnauthorized:
+      description: METADATA_UNAUTHORIZED
+    MetadataForbidden:
+      description: METADATA_FORBIDDEN
+    MetadataNotFound:
+      description: METADATA_NOT_FOUND
+    MetadataConflict:
+      description: METADATA_CONFLICT
     Deleted:
       description: Deleted.
       content:
@@ -923,6 +988,9 @@ components:
     TagBinding:
       type: object
       properties:
+        binding_uuid:
+          type: string
+          format: uuid
         tag_uuid:
           type: string
           format: uuid
@@ -933,7 +1001,7 @@ components:
           format: uuid
         tag:
           $ref: '#/components/schemas/Tag'
-      required: [tag_uuid, resource_type, resource_uuid]
+      required: [binding_uuid, tag_uuid, resource_type, resource_uuid]
     RegisterResourceTypeRequest:
       type: object
       properties:

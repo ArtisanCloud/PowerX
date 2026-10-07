@@ -381,7 +381,16 @@ func preferredEndpoint(ep registry.AdapterEndpoint) string {
 }
 
 func normalizeTransport(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
+	// REST is the protocol name exposed by capability contracts; the registry
+	// persists the corresponding executable adapter as HTTP. They denote the
+	// same transport and must route to each other when a caller requests
+	// preferred_protocol=rest.
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "rest", "http":
+		return "http"
+	default:
+		return strings.ToLower(strings.TrimSpace(name))
+	}
 }
 
 func orderedAdapters(reg registry.Registration) []registry.AdapterEndpoint {

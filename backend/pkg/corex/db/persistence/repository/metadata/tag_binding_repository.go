@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -54,6 +55,7 @@ func (r *TagBindingRepository) ReplaceByResource(ctx context.Context, tenantUUID
 				continue
 			}
 			out = append(out, model.TagBinding{
+				BindingUUID:   uuid.NewString(),
 				TenantUUID:    tenantUUID,
 				TagUUID:       tagUUID,
 				ResourceType:  resourceType,
@@ -88,4 +90,19 @@ func (r *TagBindingRepository) ReplaceByResource(ctx context.Context, tenantUUID
 		return nil, err
 	}
 	return out, nil
+}
+
+func (r *TagBindingRepository) Create(ctx context.Context, binding *model.TagBinding) error {
+	return r.DB().WithContext(ctx).Create(binding).Error
+}
+
+func (r *TagBindingRepository) DeleteByBindingUUID(ctx context.Context, tenantUUID, bindingUUID string) (model.TagBinding, error) {
+	var binding model.TagBinding
+	if err := r.DB().WithContext(ctx).Where("tenant_uuid = ? AND binding_uuid = ?", tenantUUID, bindingUUID).First(&binding).Error; err != nil {
+		return model.TagBinding{}, err
+	}
+	if err := r.DB().WithContext(ctx).Delete(&binding).Error; err != nil {
+		return model.TagBinding{}, err
+	}
+	return binding, nil
 }

@@ -1,6 +1,80 @@
 ---
 version: 1
 capabilities:
+- capability_id: com.corex.agent.runtime_replay.read
+  module: agent
+  title: Agent Runtime Replay Audit
+  description: Validate a persisted Agent semantic plan revision against its frozen snapshot and observations.
+  permission_code: corex.agent.runtime_replay:read
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - agent
+  - governance
+  intents:
+  - agent.runtime_replay.read
+  tool_scopes:
+  - agent.governance
+  policy:
+    prefer: rest
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/runtime-replays/{run_uuid}/snapshots/{snapshot_uuid}/revisions/{revision_uuid}/validate"
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  title_i18n:
+    en: Agent Runtime Replay Audit
+  description_i18n:
+    en: Validate a persisted Agent semantic plan revision against its frozen snapshot and observations.
+- capability_id: com.corex.agent.capability_approval.manage
+  module: agent
+  title: Agent Capability Approval Management
+  description: Approve a pending high-risk Agent Capability invocation within its tenant and session scope.
+  permission_code: corex.agent.capability_approval:manage
+  agent_usable: false
+  risk_level: high
+  categories:
+  - agent
+  - governance
+  intents:
+  - agent.capability_approval.manage
+  tool_scopes:
+  - agent.governance
+  policy:
+    prefer: rest
+  docs:
+  - specs/007-integration-gateway-and-mcp/contracts/agent-capability-approval.http-openapi.yaml
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/capability-approvals"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-capability-approval.http-openapi.yaml#/paths/~1api~1v1~1admin~1agents~1capability-approvals/get
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/capability-approvals/{approval_uuid}/approve"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-capability-approval.http-openapi.yaml#/paths/~1api~1v1~1admin~1agents~1capability-approvals~1{approval_uuid}~1approve/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  - channel: rest
+    endpoint: "/api/v1/admin/agents/capability-approvals/{approval_uuid}/reject"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: agent.governance
+  title_i18n:
+    en: Agent Capability Approval Management
+  description_i18n:
+    en: Approve a pending high-risk Agent Capability invocation within its tenant and session scope.
 - capability_id: com.corex.agent.invoke
   module: agent
   title: Agent Invoke
@@ -19,18 +93,38 @@ capabilities:
     prefer: rest
     fallback:
     - grpc
+    runtime_contract:
+      verification_required: true
+      side_effect_evidence_schema: agent.invocation/v1
+      retry_max_attempts: 0
   docs:
   - specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml
   - backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto
   protocols:
   - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.runtime
+  - channel: rest
     endpoint: "/api/v1/agents/invoke"
     method: POST
     schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1invoke/post
-    auth_type: tenant_jwt
-    actor_context: service_actor
+    auth_type: user_jwt
+    actor_context: admin_user
     resource_scope: tenant
-    sts_direct: true
+    tool_scope: agent.runtime
+  - channel: rest
+    endpoint: "/api/v1/agents/sessions/{session_uuid}/capability-approvals/{approval_uuid}/resume"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1sessions~1{session_uuid}~1capability-approvals~1{approval_uuid}~1resume/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
     tool_scope: agent.runtime
   - channel: grpc
     endpoint: powerx.agent.v1.AgentInvokeService
@@ -66,10 +160,9 @@ capabilities:
     endpoint: "/api/v1/agents/stream/sse"
     method: GET
     schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1stream~1sse/get
-    auth_type: tenant_jwt
-    actor_context: service_actor
+    auth_type: user_jwt
+    actor_context: admin_user
     resource_scope: tenant
-    sts_direct: true
     tool_scope: agent.runtime
   - channel: grpc
     endpoint: powerx.agent.v1.AgentStreamService
@@ -104,13 +197,111 @@ capabilities:
   - backend/api/grpc/contracts/powerx/agent/v1/agent_api.proto
   protocols:
   - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}"
+    method: PATCH
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}/patch
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}"
+    method: DELETE
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}/delete
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/archive"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1archive/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/messages"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1messages/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/messages"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1messages/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations~1{invocation_uuid}/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/cancel"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations~1{invocation_uuid}~1cancel/post
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
+    endpoint: "/api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/events"
+    method: GET
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent-session.http-openapi.yaml#/paths/~1api~1v1~1tenant~1agent~1sessions~1{session_uuid}~1invocations~1{invocation_uuid}~1events/get
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant_plugin_service_actor
+    sts_direct: true
+    tool_scope: agent.session
+  - channel: rest
     endpoint: "/api/v1/agents/sessions"
     method: POST
     schema_ref: specs/007-integration-gateway-and-mcp/contracts/agent.http-openapi.yaml#/paths/~1agents~1sessions/post
-    auth_type: tenant_jwt
-    actor_context: service_actor
+    auth_type: user_jwt
+    actor_context: admin_user
     resource_scope: tenant
-    sts_direct: true
     tool_scope: agent.session
   - channel: grpc
     endpoint: powerx.agent.v1.AgentSessionService

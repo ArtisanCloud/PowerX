@@ -53,6 +53,7 @@ const canRegenerateFromThisUserMessage = computed(() => {
 const normalizedRawContent = computed(() => {
 	const envelope = (props.message as any)?.meta?.responseEnvelope ?? (props.message as any)?.metadata?.response_envelope;
 	if (isAgentResponseEnvelope(envelope)) return renderAgentResponseEnvelope(envelope, t);
+	if (envelope) return t('agent.response.contractUpgradeRequired');
 	const c = (props.message as any)?.content;
   if (typeof c === "string") return c;
   // ✅ 单对象（MessageContent）
@@ -400,6 +401,26 @@ const runStateTasks = computed<any[]>(() => {
 });
 const runStateSummary = computed(() => buildRunStateSummary(runStateMeta.value, runStateTasks.value));
 const runStateStatus = computed(() => resolveRunStateStatus(runStateSummary.value));
+const terminalOutcome = computed(() => String(runStateMeta.value?.terminal?.outcome || "").trim().toLowerCase());
+const terminalAction = computed(() => String(runStateMeta.value?.terminal?.user_action_required || "").trim().toLowerCase());
+const terminalOutcomeKey = computed(() => {
+  const keys: Record<string, string> = {
+    partial: "agent.runtime.outcomes.partial",
+    needs_input: "agent.runtime.outcomes.needsInput",
+    blocked: "agent.runtime.outcomes.blocked",
+    failed: "agent.runtime.outcomes.failed",
+    cancelled: "agent.runtime.outcomes.cancelled",
+  };
+  return keys[terminalOutcome.value] || "";
+});
+const terminalActionKey = computed(() => {
+  const keys: Record<string, string> = {
+    provide_required_input: "agent.runtime.actions.provideRequiredInput",
+    resolve_authorization_or_approval: "agent.runtime.actions.resolveAuthorization",
+    review_partial_result: "agent.runtime.actions.reviewPartial",
+  };
+  return keys[terminalAction.value] || "";
+});
 const runStateProgressPercent = computed(() => {
   const total = Math.max(0, Number(runStateSummary.value.total || 0));
   if (!total) return 0;
@@ -518,6 +539,16 @@ const errorText = (value: any): string => {
   if (typeof value === "string") return value.trim();
   if (!value || typeof value !== "object" || Array.isArray(value)) return "";
   return String(value.message || value.error || value.code || value.detail || "").trim();
+};
+const formatTaskError = (value: any): string => {
+  const code = typeof value === "string" ? value.trim() : String(value?.code || "").trim();
+  const keys: Record<string, string> = {
+    "run.canceled": "agent.runtime.taskErrors.cancelled",
+    "run.timeout": "agent.runtime.taskErrors.timeout",
+    "execution.task_failed": "agent.runtime.taskErrors.executionFailed",
+    "task_state.persist_failed": "agent.runtime.taskErrors.statePersistFailed",
+  };
+  return t(keys[code] || "agent.runtime.taskErrors.unknown");
 };
 const isFailureStatus = (status: any) => {
   const value = String(status || "")
@@ -945,7 +976,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
                         class="mt-1 flex items-start justify-between gap-2 text-[11px] text-red-600 dark:text-red-300"
                       >
                         <span class="line-clamp-2 min-w-0">
-                          {{ typeof n.error === "string" ? n.error : n.error?.message || n.error?.code || "执行失败" }}
+                          {{ formatTaskError(n.error) }}
                         </span>
                         <UButton
                           size="xs"
@@ -962,7 +993,14 @@ const downloadFile = (url: string, downloadUrl?: string) => {
                 </div>
               </div>
 
-              <div
+	              <div
+	                v-if="terminalOutcomeKey"
+	                class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"
+	              >
+	                <div class="font-medium">{{ t(terminalOutcomeKey) }}</div>
+	                <div v-if="terminalActionKey" class="mt-0.5">{{ t(terminalActionKey) }}</div>
+	              </div>
+	              <div
                 v-if="completedResultTasks.length > 0"
                 class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100"
               >

@@ -1,7 +1,6 @@
 package plugin_release
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -54,13 +53,18 @@ func (s *server) StartLocalInstall(ctx context.Context, req *pluginreleasepb.Sta
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	claims := reqctx.GetClaims(ctx)
+	if claims == nil || strings.TrimSpace(claims.PluginID) == "" || strings.TrimSpace(claims.Subject) == "" {
+		return nil, status.Error(codes.Unauthenticated, "plugin service actor missing")
+	}
 	session, err := localSvc.Start(ctx, local.StartInput{
-		TenantUUID:          tenantUUID,
-		DeveloperMemberUUID: reqctx.GetMemberUUID(ctx),
-		ArtifactURI:         req.GetArtifactUri(),
-		FeatureFlags:        req.GetFeatureFlags(),
-		ResetCache:          req.GetResetCache(),
-		Actor:               actorFromContext(ctx),
+		TenantUUID:   tenantUUID,
+		PluginID:     strings.TrimSpace(claims.PluginID),
+		ServiceActor: strings.TrimSpace(claims.Subject),
+		ArtifactURI:  req.GetArtifactUri(),
+		FeatureFlags: req.GetFeatureFlags(),
+		ResetCache:   req.GetResetCache(),
+		Actor:        actorFromContext(ctx),
 	})
 	if err != nil {
 		return nil, mapLocalError(err)
@@ -337,123 +341,20 @@ func (s *server) FinalizeDeployment(ctx context.Context, req *pluginreleasepb.Fi
 }
 
 func (s *server) UploadOfflinePackage(stream pluginreleasepb.PluginReleaseService_UploadOfflinePackageServer) error {
-	distSvc := s.distribution()
-	if distSvc == nil {
-		return status.Error(codes.Unavailable, "distribution service unavailable")
-	}
-	ctx := stream.Context()
-	var (
-		candidateUUID uuid.UUID
-		checksum      string
-		buffer        bytes.Buffer
-	)
-	for {
-		chunk, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return status.Errorf(codes.Internal, "receive offline package chunk failed: %v", err)
-		}
-		if candidateUUID == uuid.Nil {
-			value := strings.TrimSpace(chunk.GetCandidateId())
-			if value == "" {
-				return status.Error(codes.InvalidArgument, "candidate_id is required")
-			}
-			candidateUUID, err = uuid.Parse(value)
-			if err != nil {
-				return status.Error(codes.InvalidArgument, "invalid candidate_id")
-			}
-		}
-		if len(chunk.GetChunk()) > 0 {
-			if _, err := buffer.Write(chunk.GetChunk()); err != nil {
-				return status.Errorf(codes.Internal, "buffer chunk failed: %v", err)
-			}
-		}
-		if trimmed := strings.TrimSpace(chunk.GetChecksum()); trimmed != "" {
-			checksum = trimmed
-		}
-		if chunk.GetEof() {
-			break
-		}
-	}
-	if candidateUUID == uuid.Nil {
-		return status.Error(codes.InvalidArgument, "candidate_id is required in stream")
-	}
-	if strings.TrimSpace(checksum) == "" {
-		return status.Error(codes.InvalidArgument, "checksum is required in stream")
-	}
-
-	pkg, err := distSvc.StoreOfflinePackage(ctx, distribution.StoreOfflinePackageInput{
-		CandidateID: candidateUUID,
-		Content:     buffer.Bytes(),
-		Checksum:    checksum,
-		Actor:       actorFromContext(ctx),
-	})
-	if err != nil {
-		return mapDistributionError(err)
-	}
-	return stream.SendAndClose(&pluginreleasepb.UploadOfflinePackageResponse{
-		OfflinePackageId: strconv.FormatUint(pkg.ID, 10),
-		PackageUri:       pkg.PackageURI,
-	})
+	// The legacy stream cannot carry a Core-owned signing-key reference and
+	// signature, so accepting it would bypass the offline package trust chain.
+	return status.Error(codes.FailedPrecondition, "legacy offline package upload is disabled; use the signed admin package flow")
 }
 
 func (s *server) SubmitMarketplaceListing(ctx context.Context, req *pluginreleasepb.SubmitMarketplaceListingRequest) (*pluginreleasepb.MarketplaceListing, error) {
-	distSvc := s.distribution()
-	if distSvc == nil {
-		return nil, status.Error(codes.Unavailable, "distribution service unavailable")
-	}
-	packageID, err := strconv.ParseUint(strings.TrimSpace(req.GetOfflinePackageId()), 10, 64)
-	if err != nil || packageID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "invalid offline_package_id")
-	}
-	listing, err := distSvc.SubmitListing(ctx, distribution.SubmitListingInput{
-		OfflinePackageID: packageID,
-		Channel:          strings.TrimSpace(req.GetChannel()),
-		Pricing:          decodeJSONMapString(req.GetPricingJson()),
-		SupportPolicy:    decodeJSONMapString(req.GetSupportPolicyJson()),
-		SubmissionForm:   nil,
-		Actor:            actorFromContext(ctx),
-	})
-	if err != nil {
-		return nil, mapDistributionError(err)
-	}
-	return &pluginreleasepb.MarketplaceListing{
-		ListingId:    strconv.FormatUint(listing.ID, 10),
-		Channel:      listing.Channel,
-		ReviewStatus: listing.ReviewStatus,
-		ReviewCount:  uint32(listing.ReviewCount),
-	}, nil
+	// This legacy RPC exposes numeric package and listing identifiers and has no
+	// tenant-scoped Host Contract. It is intentionally disabled rather than
+	// translated into the UUID-only release API.
+	return nil, status.Error(codes.FailedPrecondition, "legacy marketplace listing RPC is disabled")
 }
 
 func (s *server) ImportOfflinePackage(ctx context.Context, req *pluginreleasepb.ImportOfflinePackageRequest) (*pluginreleasepb.ImportOfflinePackageResponse, error) {
-	distSvc := s.distribution()
-	if distSvc == nil {
-		return nil, status.Error(codes.Unavailable, "distribution service unavailable")
-	}
-	tenantUUID, err := s.resolveTenantUUID(ctx, "")
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if tenantUUID == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant uuid required")
-	}
-	job, err := distSvc.StartOfflineImport(ctx, distribution.OfflineImportInput{
-		TenantUUID:      tenantUUID,
-		PackageURI:      strings.TrimSpace(req.GetPackageUri()),
-		Checksum:        strings.TrimSpace(req.GetChecksum()),
-		DryRun:          req.GetDryRun(),
-		LicenseAccepted: true,
-		Actor:           actorFromContext(ctx),
-	})
-	if err != nil {
-		return nil, mapDistributionError(err)
-	}
-	return &pluginreleasepb.ImportOfflinePackageResponse{
-		JobId:  job.ID,
-		Status: job.Status,
-	}, nil
+	return nil, status.Error(codes.FailedPrecondition, "legacy ImportOfflinePackage RPC lacks the required UUID-only package verification contract; use POST /api/v1/tenant/plugin-release/import-jobs")
 }
 
 func (s *server) localInstall() *local.InstallService {
@@ -568,10 +469,11 @@ func toProtoSession(session *models.LocalInstallSession) *pluginreleasepb.LocalI
 		return nil
 	}
 	resp := &pluginreleasepb.LocalInstallSession{
-		SessionId:           session.UUID.String(),
-		TenantUuid:          strings.TrimSpace(session.TenantUUID),
-		DeveloperMemberUuid: session.DeveloperMemberUUID,
-		ArtifactUri:         session.ArtifactURI,
+		SessionId:    session.UUID.String(),
+		TenantUuid:   strings.TrimSpace(session.TenantUUID),
+		PluginId:     session.PluginID,
+		ServiceActor: session.ServiceActor,
+		ArtifactUri:  session.ArtifactURI,
 		FeatureFlags: func() []string {
 			flags := local.ExtractFeatureFlags(session.FeatureFlags)
 			if flags == nil {

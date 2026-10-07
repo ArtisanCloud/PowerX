@@ -1,0 +1,91 @@
+openapi: 3.0.3
+info:
+  title: Core Runtime Identity
+  version: 1.0.0
+servers:
+- url: /api/v1
+paths:
+  /admin/plugins/{id}/runtime-identity:
+    get:
+      operationId: getAdminPluginRuntimeIdentity
+      security:
+      - AdminJWT: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: &id001
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$
+      responses:
+        '200':
+          description: Registry identity and verified process state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      item:
+                        $ref: '#/components/schemas/RuntimeIdentity'
+        '400':
+          description: Invalid plugin ID
+        '401':
+          description: Invalid user JWT
+        '403':
+          description: Missing Admin role
+        '404':
+          description: Plugin not registered
+        '503':
+          description: Identity dependency unavailable
+components:
+  securitySchemes:
+    AdminJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    IdentityRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - operation
+      - plugin_id
+      properties:
+        operation:
+          type: string
+          enum:
+          - get
+        plugin_id: *id001
+    RuntimeIdentity:
+      type: object
+      required:
+      - runtime_mode
+      - core_version
+      - deployment_env
+      - plugin_id
+      - runtime_plugin_id
+      - plugin_version
+      - plugin_version_source
+      - plugin_state
+      properties:
+        runtime_mode:
+          type: string
+        core_version:
+          type: string
+        deployment_env:
+          type: string
+        plugin_id:
+          type: string
+        runtime_plugin_id:
+          type: string
+        plugin_version:
+          type: string
+        plugin_version_source:
+          type: string
+          enum:
+          - registry
+        plugin_state:
+          type: string

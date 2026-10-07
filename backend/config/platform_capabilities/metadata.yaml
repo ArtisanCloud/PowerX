@@ -34,6 +34,32 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: metadata.dictionary.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/dictionaries"
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.dictionary.read
+    api_key:
+      scope: _scope.metadata.dictionary.read
+      action: read
+      resource_type: api
+      resource_pattern: dictionary
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/dictionaries/{namespace_uuid}/items"
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.dictionary.read
+    api_key:
+      scope: _scope.metadata.dictionary.read
+      action: read
+      resource_type: api
+      resource_pattern: dictionary
   title_i18n:
     en: Metadata Dictionary Read
   description_i18n:
@@ -95,6 +121,58 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: metadata.dictionary.manage
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/dictionaries"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.dictionary.manage
+    api_key:
+      scope: _scope.metadata.dictionary.manage
+      action: manage
+      resource_type: api
+      resource_pattern: dictionary
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/dictionaries/{namespace_uuid}"
+    method: PATCH
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.dictionary.manage
+    api_key:
+      scope: _scope.metadata.dictionary.manage
+      action: manage
+      resource_type: api
+      resource_pattern: dictionary
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/dictionaries/{namespace_uuid}/items"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.dictionary.manage
+    api_key:
+      scope: _scope.metadata.dictionary.manage
+      action: manage
+      resource_type: api
+      resource_pattern: dictionary
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/dictionary-items/{item_uuid}"
+    method: PATCH
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.dictionary.manage
+    api_key:
+      scope: _scope.metadata.dictionary.manage
+      action: manage
+      resource_type: api
+      resource_pattern: dictionary
   title_i18n:
     en: Metadata Dictionary Management
   description_i18n:
@@ -132,6 +210,32 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: metadata.taxonomy.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/taxonomies"
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.taxonomy.read
+    api_key:
+      scope: _scope.metadata.taxonomy.read
+      action: read
+      resource_type: api
+      resource_pattern: taxonomy
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/taxonomies/{taxonomy_uuid}/nodes"
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.taxonomy.read
+    api_key:
+      scope: _scope.metadata.taxonomy.read
+      action: read
+      resource_type: api
+      resource_pattern: taxonomy
   title_i18n:
     en: Metadata Taxonomy Read
   description_i18n:
@@ -201,6 +305,45 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: metadata.taxonomy.manage
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/taxonomies"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.taxonomy.manage
+    api_key:
+      scope: _scope.metadata.taxonomy.manage
+      action: manage
+      resource_type: api
+      resource_pattern: taxonomy
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/taxonomies/{taxonomy_uuid}/nodes"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.taxonomy.manage
+    api_key:
+      scope: _scope.metadata.taxonomy.manage
+      action: manage
+      resource_type: api
+      resource_pattern: taxonomy
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/taxonomy-nodes/{node_uuid}"
+    method: PATCH
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.taxonomy.manage
+    api_key:
+      scope: _scope.metadata.taxonomy.manage
+      action: manage
+      resource_type: api
+      resource_pattern: taxonomy
   title_i18n:
     en: Metadata Taxonomy Management
   description_i18n:
@@ -230,6 +373,19 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: metadata.tag.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/tags"
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.tag.read
+    api_key:
+      scope: _scope.metadata.tag.read
+      action: read
+      resource_type: api
+      resource_pattern: tag
   - channel: rest
     endpoint: "/api/v1/admin/metadata/tag-bindings"
     method: GET
@@ -268,8 +424,88 @@ capabilities:
     sts_direct: false
     tool_scope: metadata.tag.manage
   - channel: rest
+    endpoint: "/api/v1/tenant/metadata/tags"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.tag.manage
+    api_key:
+      scope: _scope.metadata.tag.manage
+      action: manage
+      resource_type: api
+      resource_pattern: tag
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/tags/{tag_uuid}"
+    method: PATCH
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.tag.manage
+    api_key:
+      scope: _scope.metadata.tag.manage
+      action: manage
+      resource_type: api
+      resource_pattern: tag
+  - channel: core_internal
+    endpoint: "core://metadata/tags"
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: metadata.tag.manage
+    api_key:
+      scope: _scope.metadata.tag.manage
+      action: manage
+      resource_type: api
+      resource_pattern: tag
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/tag-bindings"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.tag.manage
+    api_key:
+      scope: _scope.metadata.tag.manage
+      action: manage
+      resource_type: api
+      resource_pattern: tag
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/tag-bindings/{binding_uuid}"
+    method: DELETE
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.tag.manage
+    api_key:
+      scope: _scope.metadata.tag.manage
+      action: manage
+      resource_type: api
+      resource_pattern: tag
+  - channel: rest
     endpoint: "/api/v1/admin/metadata/tag-bindings"
     method: PUT
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tag-bindings"
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: metadata.tag.manage
+  - channel: rest
+    endpoint: "/api/v1/admin/metadata/tag-bindings/{binding_uuid}"
+    method: DELETE
     auth_type: user_jwt
     actor_context: admin_user
     resource_scope: tenant
@@ -328,6 +564,19 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: metadata.resource_type.read
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/resource-types"
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.resource_type.read
+    api_key:
+      scope: _scope.metadata.resource_type.read
+      action: read
+      resource_type: api
+      resource_pattern: resource_type
   title_i18n:
     en: Metadata Resource Type Read
   description_i18n:
@@ -357,6 +606,32 @@ capabilities:
     resource_scope: tenant
     sts_direct: false
     tool_scope: metadata.resource_type.manage
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/resource-types"
+    method: POST
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.resource_type.manage
+    api_key:
+      scope: _scope.metadata.resource_type.manage
+      action: manage
+      resource_type: api
+      resource_pattern: resource_type
+  - channel: rest
+    endpoint: "/api/v1/tenant/metadata/resource-types/{resource_type_uuid}"
+    method: PATCH
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: metadata.resource_type.manage
+    api_key:
+      scope: _scope.metadata.resource_type.manage
+      action: manage
+      resource_type: api
+      resource_pattern: resource_type
   - channel: rest
     endpoint: "/api/v1/admin/metadata/resource-types/{resource_type_uuid}"
     method: PATCH

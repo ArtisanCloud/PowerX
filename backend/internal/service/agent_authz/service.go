@@ -75,6 +75,7 @@ type GrantableCapability struct {
 	TenantEnabled   bool              `json:"tenant_enabled"`
 	Status          string            `json:"status"`
 	Protocols       datatypes.JSON    `json:"-"`
+	Policy          datatypes.JSON    `json:"-"`
 }
 
 type AgentGrantInput struct {
@@ -112,18 +113,19 @@ type AgentAccessGrantView struct {
 }
 
 type EffectivePermissionItem struct {
-	CapabilityUUID   uuid.UUID `json:"capability_uuid"`
-	CapabilityID     string    `json:"capability_id"`
-	PluginID         string    `json:"plugin_id"`
-	DisplayName      string    `json:"display_name"`
-	PermissionCode   string    `json:"permission_code"`
-	RiskLevel        string    `json:"risk_level"`
-	UserAllowed      bool      `json:"user_allowed"`
-	AgentAllowed     bool      `json:"agent_allowed"`
-	TenantEnabled    bool      `json:"tenant_enabled"`
-	PolicyAllowed    bool      `json:"policy_allowed"`
-	EffectiveAllowed bool      `json:"effective_allowed"`
-	DenyReason       string    `json:"deny_reason,omitempty"`
+	CapabilityUUID   uuid.UUID      `json:"capability_uuid"`
+	CapabilityID     string         `json:"capability_id"`
+	PluginID         string         `json:"plugin_id"`
+	DisplayName      string         `json:"display_name"`
+	PermissionCode   string         `json:"permission_code"`
+	RiskLevel        string         `json:"risk_level"`
+	Policy           datatypes.JSON `json:"-"`
+	UserAllowed      bool           `json:"user_allowed"`
+	AgentAllowed     bool           `json:"agent_allowed"`
+	TenantEnabled    bool           `json:"tenant_enabled"`
+	PolicyAllowed    bool           `json:"policy_allowed"`
+	EffectiveAllowed bool           `json:"effective_allowed"`
+	DenyReason       string         `json:"deny_reason,omitempty"`
 }
 
 type EffectivePermissionsResult struct {
@@ -197,6 +199,7 @@ func (s *Service) ListGrantableCapabilities(ctx context.Context, tenantUUID stri
 				TenantEnabled:   tenantEnabled,
 				Status:          rec.Status,
 				Protocols:       rec.Protocols,
+				Policy:          rec.Policy,
 			})
 		}
 	}
@@ -470,6 +473,7 @@ func (s *Service) ResolveEffectivePermissions(ctx context.Context, env, tenantUU
 			DisplayName:      cap.DisplayName,
 			PermissionCode:   cap.PermissionCode,
 			RiskLevel:        cap.RiskLevel,
+			Policy:           cap.Policy,
 			UserAllowed:      userAllowed,
 			AgentAllowed:     agAllowed,
 			TenantEnabled:    cap.TenantEnabled,

@@ -5,7 +5,9 @@ import (
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type DictionaryNamespace struct {
@@ -58,6 +60,7 @@ func (Taxonomy) TableName() string {
 }
 
 type TaxonomyNode struct {
+	Metadata datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'" json:"metadata,omitempty"`
 	coremodel.PowerUUIDModel
 
 	TenantUUID      string         `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_metadata_taxonomy_node,priority:1;index:idx_metadata_taxonomy_node_parent_sort,priority:1" json:"tenant_uuid"`
@@ -79,6 +82,7 @@ func (TaxonomyNode) TableName() string {
 }
 
 type Tag struct {
+	Metadata datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'" json:"metadata,omitempty"`
 	coremodel.PowerUUIDModel
 
 	TenantUUID      string         `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_metadata_tag,priority:1;index:idx_metadata_tag_resource_status,priority:1" json:"tenant_uuid"`
@@ -98,16 +102,24 @@ func (Tag) TableName() string {
 }
 
 type TagBinding struct {
-	TenantUUID    string    `gorm:"column:tenant_uuid;type:uuid;not null;primaryKey;index:idx_metadata_tag_binding_resource,priority:1" json:"tenant_uuid"`
-	TagUUID       string    `gorm:"column:tag_uuid;type:uuid;not null;primaryKey;index" json:"tag_uuid"`
-	ResourceType  string    `gorm:"column:resource_type;type:varchar(160);not null;primaryKey;index:idx_metadata_tag_binding_resource,priority:2" json:"resource_type"`
-	ResourceUUID  string    `gorm:"column:resource_uuid;type:uuid;not null;primaryKey;index:idx_metadata_tag_binding_resource,priority:3" json:"resource_uuid"`
+	BindingUUID   string    `gorm:"column:binding_uuid;type:uuid;not null;uniqueIndex:uk_metadata_tag_binding_uuid" json:"binding_uuid"`
+	TenantUUID    string    `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_metadata_tag_binding_business,priority:1;index:idx_metadata_tag_binding_resource,priority:1" json:"tenant_uuid"`
+	TagUUID       string    `gorm:"column:tag_uuid;type:uuid;not null;uniqueIndex:uk_metadata_tag_binding_business,priority:2;index" json:"tag_uuid"`
+	ResourceType  string    `gorm:"column:resource_type;type:varchar(160);not null;uniqueIndex:uk_metadata_tag_binding_business,priority:3;index:idx_metadata_tag_binding_resource,priority:2" json:"resource_type"`
+	ResourceUUID  string    `gorm:"column:resource_uuid;type:uuid;not null;uniqueIndex:uk_metadata_tag_binding_business,priority:4;index:idx_metadata_tag_binding_resource,priority:3" json:"resource_uuid"`
 	CreatedByUUID string    `gorm:"column:created_by_uuid;type:uuid;index" json:"created_by_uuid"`
 	CreatedAt     time.Time `gorm:"column:created_at; ->;<-:create" json:"created_at"`
 }
 
 func (TagBinding) TableName() string {
 	return tableName(TableTagBindings)
+}
+
+func (b *TagBinding) BeforeCreate(_ *gorm.DB) error {
+	if strings.TrimSpace(b.BindingUUID) == "" {
+		b.BindingUUID = uuid.NewString()
+	}
+	return nil
 }
 
 type ResourceType struct {

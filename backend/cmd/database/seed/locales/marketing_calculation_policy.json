@@ -1,0 +1,488 @@
+{
+  "schema": "powerx.skill-calculation-policy/v2",
+  "activity_profiles": [
+    {
+      "key": "transaction_retention",
+      "label_i18n": {"zh-CN": "交易与留存活动", "en-US": "Transaction and retention campaign"},
+      "evidence_any_i18n": {
+        "zh-CN": ["GMV", "ROI", "复购", "续费", "升级", "存量客户"],
+        "en-US": ["GMV", "ROI", "repurchase", "renewal", "upgrade", "retention"]
+      }
+    },
+    {
+      "key": "lead_generation",
+      "label_i18n": {"zh-CN": "线索获客活动", "en-US": "Lead-generation campaign"},
+      "evidence_any_i18n": {
+        "zh-CN": ["有效线索", "线索目标", "表单提交", "落地页访问"],
+        "en-US": ["qualified lead", "lead target", "form submission", "landing page visit"]
+      }
+    }
+  ],
+  "input_fields": [
+    {
+      "key": "spend",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "活动投入",
+        "en-US": "Campaign spend"
+      },
+      "description_i18n": {
+        "zh-CN": "同一活动实际投入金额；不是GMV、ROI或客单价。",
+        "en-US": "Actual campaign spend, not GMV, ROI or unit price."
+      },
+      "unit_tokens": [
+        "万元",
+        "元",
+        "亿元"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["活动投入", "活动成本", "投入", "总预算", "预算"], "en-US": ["campaign spend", "campaign cost", "spend", "budget"]},
+      "applies_to": ["transaction_retention", "lead_generation"]
+    },
+    {
+      "key": "gmv",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "活动标记GMV",
+        "en-US": "Campaign GMV"
+      },
+      "description_i18n": {
+        "zh-CN": "同一活动标记GMV金额。",
+        "en-US": "Campaign-attributed GMV amount."
+      },
+      "unit_tokens": [
+        "万元",
+        "元",
+        "亿元"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["活动标记GMV", "GMV"], "en-US": ["campaign GMV", "GMV"]},
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "incremental_gmv",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "可归因增量GMV",
+        "en-US": "Incremental GMV"
+      },
+      "description_i18n": {
+        "zh-CN": "原文报告的可归因增量GMV金额，不代表归因已核实。",
+        "en-US": "Source-reported attributable incremental GMV, not independently verified attribution."
+      },
+      "unit_tokens": [
+        "万元",
+        "元",
+        "亿元"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["可归因增量GMV", "增量GMV"], "en-US": ["incremental GMV"]},
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "reported_roi",
+      "kind": "reported",
+      "label_i18n": {
+        "zh-CN": "原文财务ROI",
+        "en-US": "Reported financial ROI"
+      },
+      "description_i18n": {
+        "zh-CN": "原文直接声称的财务ROI倍数，未带百分号时单位为空。",
+        "en-US": "Source-asserted financial ROI multiple; empty unit if no percent sign."
+      },
+      "unit_tokens": [
+        "",
+        "%"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["财务ROI", "财务口径ROI"], "en-US": ["financial ROI"]},
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "reported_incremental_roi",
+      "kind": "reported",
+      "label_i18n": {
+        "zh-CN": "原文增量ROI",
+        "en-US": "Reported incremental ROI"
+      },
+      "description_i18n": {
+        "zh-CN": "原文直接声称的增量ROI倍数，未带百分号时单位为空。",
+        "en-US": "Source-asserted incremental ROI multiple; empty unit if no percent sign."
+      },
+      "unit_tokens": [
+        "",
+        "%"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["增量ROI", "真实ROI"], "en-US": ["incremental ROI", "true ROI"]},
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "repeat_customers",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "复购客户数",
+        "en-US": "Repurchasing customers"
+      },
+      "description_i18n": {
+        "zh-CN": "规定周期内原文明确给出的复购人数；百分比不是人数。",
+        "en-US": "Explicit raw repurchasing customer count in the stated period, never a percentage."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["复购客户", "二次购买客户"], "en-US": ["repurchasing customers", "repeat customers"]},
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "cohort_customers",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "复购客户池人数",
+        "en-US": "Repurchase cohort size"
+      },
+      "description_i18n": {
+        "zh-CN": "与复购人数对应周期和群体的原始总人数。",
+        "en-US": "Raw matching total cohort size for the same repurchase period."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["复购客户池", "复购人群", "客户池"], "en-US": ["repurchase cohort", "customer cohort"]},
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "reported_repeat_rate",
+      "kind": "reported",
+      "label_i18n": {
+        "zh-CN": "原文复购率",
+        "en-US": "Reported repurchase rate"
+      },
+      "description_i18n": {
+        "zh-CN": "原文直接声称的复购百分比，保留百分号单位；周期标注在scope中。",
+        "en-US": "Source-asserted repeat purchase percentage; preserve percent unit and period in scope."
+      },
+      "unit_tokens": [
+        "%"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["复购率", "二次购买率"], "en-US": ["repurchase rate", "repeat purchase rate"]},
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "clicks",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "点击数",
+        "en-US": "Clicks"
+      },
+      "description_i18n": {
+        "zh-CN": "活动原始点击数量，不是点击率。",
+        "en-US": "Raw campaign click count, not CTR."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["点击数", "点击"], "en-US": ["clicks", "click count"]},
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "impressions",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "曝光数",
+        "en-US": "Impressions"
+      },
+      "description_i18n": {
+        "zh-CN": "对应点击口径的原始曝光次数。",
+        "en-US": "Raw impressions matching the clicks scope."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["曝光数", "曝光"], "en-US": ["impressions", "impression count"]},
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "visits",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "落地页访问数",
+        "en-US": "Landing page visits"
+      },
+      "description_i18n": {
+        "zh-CN": "原始落地页访问数量。",
+        "en-US": "Raw landing page visits."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["落地页访问", "访问数"], "en-US": ["landing page visit", "visits"]},
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "forms",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "表单提交数",
+        "en-US": "Form submissions"
+      },
+      "description_i18n": {
+        "zh-CN": "原始表单提交数量。",
+        "en-US": "Raw form submission count."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["表单提交", "提交数"], "en-US": ["form submission", "submissions"]},
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "leads",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "有效线索数",
+        "en-US": "Qualified leads"
+      },
+      "description_i18n": {
+        "zh-CN": "原始有效线索数量。",
+        "en-US": "Raw qualified lead count."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["有效线索", "线索数"], "en-US": ["qualified lead", "leads"]},
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "deals",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "成交数",
+        "en-US": "Deals"
+      },
+      "description_i18n": {
+        "zh-CN": "原始成交订单数量，不是GMV。",
+        "en-US": "Raw deal count, not GMV."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["成交订单", "成交数", "成交单"], "en-US": ["deals", "orders"]},
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "target_leads",
+      "kind": "quantity",
+      "label_i18n": {
+        "zh-CN": "有效线索目标",
+        "en-US": "Lead target"
+      },
+      "description_i18n": {
+        "zh-CN": "原文明确给出的有效线索目标数量。",
+        "en-US": "Explicit target qualified lead count."
+      },
+      "unit_tokens": [
+        "",
+        "条",
+        "人",
+        "次",
+        "单",
+        "个"
+      ],
+      "evidence_terms_i18n": {"zh-CN": ["有效线索目标", "线索目标", "目标"], "en-US": ["lead target", "qualified lead target", "target"]},
+      "applies_to": ["lead_generation"]
+    }
+  ],
+  "formulas": [
+    {
+      "key": "gmv_multiple",
+      "label_i18n": {
+        "zh-CN": "活动产投比",
+        "en-US": "Campaign GMV/spend"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "gmv",
+        "d": "spend"
+      },
+      "precision": 2,
+      "percent": false,
+      "compare_to": "reported_roi",
+      "when_any_present": [
+        "gmv",
+        "reported_roi"
+      ],
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "incremental_multiple",
+      "label_i18n": {
+        "zh-CN": "增量产投比",
+        "en-US": "Incremental GMV/spend"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "incremental_gmv",
+        "d": "spend"
+      },
+      "precision": 2,
+      "percent": false,
+      "compare_to": "reported_incremental_roi",
+      "when_any_present": [
+        "incremental_gmv",
+        "reported_incremental_roi"
+      ],
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "repeat_rate",
+      "label_i18n": {
+        "zh-CN": "复购率",
+        "en-US": "Repeat purchase rate"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "repeat_customers",
+        "d": "cohort_customers"
+      },
+      "precision": 2,
+      "percent": true,
+      "compare_to": "reported_repeat_rate",
+      "when_any_present": [
+        "repeat_customers",
+        "reported_repeat_rate"
+      ],
+      "applies_to": ["transaction_retention"]
+    },
+    {
+      "key": "ctr",
+      "label_i18n": {
+        "zh-CN": "整体点击率",
+        "en-US": "Overall CTR"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "clicks",
+        "d": "impressions"
+      },
+      "precision": 2,
+      "percent": true,
+      "compare_to": "",
+      "when_any_present": [
+        "clicks"
+      ],
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "landing_rate",
+      "label_i18n": {
+        "zh-CN": "落地页表单转化率",
+        "en-US": "Landing page form conversion"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "forms",
+        "d": "visits"
+      },
+      "precision": 2,
+      "percent": true,
+      "compare_to": "",
+      "when_any_present": [
+        "forms"
+      ],
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "lead_rate",
+      "label_i18n": {
+        "zh-CN": "表单有效线索率",
+        "en-US": "Qualified lead conversion"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "leads",
+        "d": "forms"
+      },
+      "precision": 2,
+      "percent": true,
+      "compare_to": "",
+      "when_any_present": [
+        "forms"
+      ],
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "deal_rate",
+      "label_i18n": {
+        "zh-CN": "线索成交率",
+        "en-US": "Lead-to-deal conversion"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "deals",
+        "d": "leads"
+      },
+      "precision": 2,
+      "percent": true,
+      "compare_to": "",
+      "when_any_present": [
+        "deals"
+      ],
+      "applies_to": ["lead_generation"]
+    },
+    {
+      "key": "lead_attainment",
+      "label_i18n": {
+        "zh-CN": "有效线索目标达成率",
+        "en-US": "Lead target attainment"
+      },
+      "expression": "n / d",
+      "bindings": {
+        "n": "leads",
+        "d": "target_leads"
+      },
+      "precision": 2,
+      "percent": true,
+      "compare_to": "",
+      "when_any_present": [
+        "target_leads"
+      ],
+      "applies_to": ["lead_generation"]
+    }
+  ]
+}

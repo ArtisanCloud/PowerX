@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -155,9 +156,11 @@ func (h *aiHandler) llmInvoke(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
-	defer cancel()
-	out, err := h.svc.LLMInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
+	// LLMInvoke owns the provider deadline through llmfactory.withRequestPolicy.
+	// Do not add an identical HTTP-handler deadline here: two concurrent 5-minute
+	// deadlines race, and the handler can lose the structured provider diagnostic
+	// just before it writes the response.
+	out, err := h.svc.LLMInvoke(c.Request.Context(), env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
 	if err != nil {
 		respondAIError(c, err)
 		return
@@ -213,10 +216,8 @@ func (h *aiHandler) llmStream(c *gin.Context) {
 		ModelKey:     strings.TrimSpace(req.ModelKey),
 		IncludeUsage: req.StreamOptions.IncludeUsage,
 	}, func(onDelta func(string)) (string, error) {
-		ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
-		defer cancel()
 		return h.svc.LLMStream(
-			ctx,
+			c.Request.Context(),
 			env,
 			tenantUUID,
 			req.ModelKey,
@@ -672,6 +673,10 @@ func respondAIError(c *gin.Context, err error) {
 	if err == nil {
 		return
 	}
+	if errors.Is(err, aisvc.ErrInvalidLLMParams) {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
+		return
+	}
 	switch err {
 	case aisvc.ErrInvalidModelKey:
 		dto.ResponseError(c, http.StatusBadRequest, "invalid model_key", err)
@@ -685,6 +690,13 @@ func respondAIError(c *gin.Context, err error) {
 			"reason": "provider not supported yet",
 		})
 	default:
+		var providerErr *core.ProviderCallError
+		if errors.As(err, &providerErr) {
+			dto.ResponseErrorWithDetails(c, http.StatusBadGateway, "ai invoke failed", err, map[string]interface{}{
+				"provider_failure": providerErr.Details(),
+			})
+			return
+		}
 		dto.ResponseError(c, http.StatusBadGateway, "ai invoke failed", err)
 	}
 }

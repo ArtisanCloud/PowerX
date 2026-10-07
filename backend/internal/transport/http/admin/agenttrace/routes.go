@@ -2,16 +2,19 @@ package agenttrace
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	agentmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	runtime "github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -24,6 +27,9 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		db = deps.DB
 	}
 	h := &handler{logger: agenttrace.NewLoggerFromEnv(), db: db}
+	if deps != nil {
+		h.durable = deps.AgentAdminRun
+	}
 	group := protected.Group("/admin/agent-traces")
 	group.Use(rootOnly())
 	group.GET("/runs", h.runs)
@@ -35,8 +41,9 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 }
 
 type handler struct {
-	logger agenttrace.AgentTraceLogger
-	db     *gorm.DB
+	durable *runtime.AdminRunService
+	logger  agenttrace.AgentTraceLogger
+	db      *gorm.DB
 }
 
 func (h *handler) runs(c *gin.Context) {
@@ -192,6 +199,14 @@ func (h *handler) build(c *gin.Context, messageID string) (*agenttrace.AgentRunR
 		TraceID:    strings.TrimSpace(c.Query("trace_id")),
 		Source:     firstQuery(c, "source"),
 		Format:     firstQuery(c, "format"),
+	}
+	if h.durable != nil {
+		if _, err := uuid.Parse(query.RunID); err == nil {
+			report, err := h.durable.BuildReport(c.Request.Context(), query)
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return report, err
+			}
+		}
 	}
 	return h.logger.BuildReport(c.Request.Context(), query)
 }

@@ -60,6 +60,18 @@
             class="text-sm"
           />
         </div>
+        <UFormField :label="$t('settings.ai.modelConcurrency.label')">
+          <UInput
+            v-model.number="llm.maxConcurrentRequests"
+            type="number"
+            :min="1"
+            :max="1024"
+            :placeholder="$t('settings.ai.modelConcurrency.placeholder')"
+          />
+          <template #hint>
+            <span class="text-xs text-[var(--text-secondary)]">{{ $t('settings.ai.modelConcurrency.hint') }}</span>
+          </template>
+        </UFormField>
       </div>
     </div>
 

@@ -269,6 +269,11 @@ func applyLLMDefaultsFromProfile(out *dto.ChatConfig, prof *dbmodel.AIModelProfi
 			out.EnableStream = true
 		}
 	}
+	if v, ok := prof.Defaults["max_concurrent_requests"]; ok {
+		if limit, ok2 := asInt(v); ok2 && limit > 0 {
+			out.MaxConcurrentRequests = limit
+		}
+	}
 }
 
 func chatConfigFromAgentSetting(setting *dbmodel.AgentSetting) *dto.ChatConfig {

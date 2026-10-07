@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: Agent Capability Approval API
+  version: v1
+paths:
+  /api/v1/admin/agents/capability-approvals:
+    get:
+      operationId: listPendingAgentCapabilityApprovals
+      summary: List pending Agent Capability approval requests
+      responses:
+        '200':
+          description: Pending approvals
+        '403':
+          description: Actor is not a tenant approval administrator
+  /api/v1/admin/agents/capability-approvals/{approval_uuid}/approve:
+    post:
+      operationId: approveAgentCapabilityApproval
+      summary: Approve an Agent Capability approval request
+      parameters:
+      - name: approval_uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Approval accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [approval_uuid, status]
+                    properties:
+                      approval_uuid:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        enum: [approved]
+        '400':
+          description: Invalid request context or approval UUID
+        '403':
+          description: Actor is not a tenant approval administrator
+        '404':
+          description: Approval request does not exist in the tenant scope
+        '409':
+          description: Approval request is no longer pending or is self-approved

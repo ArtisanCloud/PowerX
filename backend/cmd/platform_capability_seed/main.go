@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -39,6 +40,11 @@ func main() {
 	}
 
 	ctx := context.Background()
+	// Publish exact permission metadata alongside the capability catalog. This
+	// does not attach permissions to API keys or change credential grants.
+	if err := apikeypermissions.EnsureTemplatePermissions(ctx, iamrepo.NewPermissionRepository(db)); err != nil {
+		fatalf("seed platform permission metadata failed: %v", err)
+	}
 	seeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
 		RecordRepo:   caprepo.NewCapabilityRecordRepository(db, nil),
 		RegistryRepo: caprepo.NewCapabilityRegistryRepository(db),

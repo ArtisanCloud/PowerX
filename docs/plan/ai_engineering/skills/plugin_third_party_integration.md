@@ -2,7 +2,7 @@
 
 本文描述插件开发者与第三方如何接入 Skill 能力。
 
-插件与 PowerX Agent Runtime 的统一桥接机制见 [`agent_skill_bridge.md`](./agent_skill_bridge.md)。本文件重点描述插件侧和第三方接入流程。
+插件与 PowerX Agent Runtime 的统一桥接机制见 [`agent_skill_bridge.md`](../agent/agent_skill_bridge.md)。本文件重点描述插件侧和第三方接入流程。
 
 ## 1. 目标
 

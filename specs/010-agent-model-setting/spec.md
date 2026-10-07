@@ -238,6 +238,7 @@ backend/internal/server/agent/registry/      # provider 注册、路由、capabi
 - **FR-007**: System MUST monitor routing telemetry for hit rate, latency, and fallback success, and automatically trigger safe-mode or downgrade actions when thresholds are breached.
 - **FR-008**: System MUST ingest real-time usage and cost metrics, compare them against configurable quotas, raise `agent.provider.cost.anomaly` events, and recommend enforcement actions within five minutes without auto-executing them.
 - **FR-009**: System MUST allow authorized operators to confirm recommended throttling, degrade, or disable actions per tenant/provider combination from the console and automatically record audit entries plus recovery criteria once executed.
+- **FR-009a**: Model Profile 中的最大并发请求数是路由/租户策略上限，不能当作共享物理模型实例的容量。Agent Run 的跨实例模型池、排队、公平性和独立请求计时遵循 `../031-agent-runtime-durable-scheduling/spec.md`；单槽部署不得因多个租户或 Core 实例各自计数而超额发起请求。
 - **FR-010**: System MUST manage external platform connectors (e.g., Coze, n8n) with OAuth handshake, context mapping, request invocation, signed callback verification, and failure retries while allowing per-instance isolation during degradations.
 - **FR-011**: System MUST expose consolidated observability—including onboarding status, routing health, connector availability, and cost guard state—so operators can correlate incidents quickly, and provide tenant-specific read-only dashboards covering their own routing outcomes, connector states, and cost/quota posture.
 

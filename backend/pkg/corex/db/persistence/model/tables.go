@@ -46,6 +46,8 @@ const TableCustomerTenantMemberships = "customer_tenant_memberships"
 const TableMiniAppEntries = "mini_app_entries"
 const TableCustomerSessions = "customer_sessions"
 const TableCustomerLoginEvents = "customer_login_events"
+const TableCustomerContacts = "customer_contacts"
+const TableCustomerContactIdentities = "customer_contact_identities"
 
 const TableAuditEvent = "audit_event"
 
@@ -153,6 +155,8 @@ const TableKnowledgeSourceCredentials = "knowledge_source_credentials"
 const TableKnowledgeSourceConnectorInstances = "knowledge_source_connector_instances"
 const TableKnowledgeSpaceSyncJobs = "knowledge_space_sync_jobs"
 const TableKnowledgeVectorIndexes = "knowledge_vector_indexes"
+const TableKnowledgeTenantDocuments = "knowledge_tenant_documents"
+const TableKnowledgeIndexJobs = "knowledge_index_jobs"
 
 const TableSkillsRegistryRecords = "skills_registry_records"
 const TableSkillsOfficialCatalog = "skills_official_catalog"

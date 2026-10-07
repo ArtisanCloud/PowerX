@@ -2,6 +2,7 @@ package capability_registry
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,6 +51,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	tenantScoped := capabilities.Group("/:capabilityId/tenants/:tenant_uuid")
 	{
 		tenantScoped.GET("", handler.GetCapability)
+		if upgrade := newVersionUpgradeHandler(deps); upgrade != nil {
+			tenantScoped.POST("/upgrade", middleware.AdminOnlyMiddleware(), upgrade.Confirm)
+		}
 		tenantScoped.PUT("", handler.UpdateCapability)
 		tenantScoped.DELETE("", handler.DisableCapability)
 	}

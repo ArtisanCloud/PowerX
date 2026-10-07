@@ -164,6 +164,7 @@ func (a *AuditService) insertInvocationTrace(ctx context.Context, input Invocati
 		return uuid.Nil, nil
 	}
 	payload := &models.InvocationTrace{
+		CallerSubject:     callerSubject(ctx),
 		TraceID:           input.TraceID,
 		TenantUUID:        input.TenantUUID,
 		PluginID:          input.PluginID,

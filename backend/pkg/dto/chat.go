@@ -23,6 +23,9 @@ type ChatConfig struct {
 	SystemPrompt string  `json:"system_prompt,omitempty" description:"系统提示词"`
 	EnableStream bool    `json:"enable_stream,omitempty" description:"是否启用流式响应"`
 	CacheMode    string  `json:"cache_mode,omitempty" description:"提示词缓存策略: auto|force_off|force_on"`
+	// MaxConcurrentRequests is populated from the resolved AI model profile.
+	// It is a server-side execution policy, not a client-selected setting.
+	MaxConcurrentRequests int `json:"-"`
 }
 
 // ======= 新增/优化：执行/路由选项 =======

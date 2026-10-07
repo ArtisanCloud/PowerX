@@ -3,22 +3,29 @@ package ai
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 type stubAIService struct {
+	llmInvokeFn func(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error)
 	llmStreamFn func(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error)
 }
 
 func (s *stubAIService) LLMInvoke(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error) {
+	if s.llmInvokeFn != nil {
+		return s.llmInvokeFn(ctx, env, tenantUUID, modelKey, inputs, params)
+	}
 	return &aisvc.LLMInvokeResult{}, nil
 }
 func (s *stubAIService) LLMStream(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error) {
@@ -26,6 +33,41 @@ func (s *stubAIService) LLMStream(ctx context.Context, env string, tenantUUID st
 		return "", nil
 	}
 	return s.llmStreamFn(ctx, env, tenantUUID, modelKey, inputs, params, onDelta)
+}
+
+func TestLLMInvokeReturnsStructuredProviderTimeout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tenantUUID := "11111111-1111-1111-1111-111111111111"
+	h := &aiHandler{svc: &stubAIService{llmInvokeFn: func(context.Context, string, string, string, []aisvc.ContentItem, map[string]interface{}) (*aisvc.LLMInvokeResult, error) {
+		return nil, &core.ProviderCallError{
+			Provider:       "ollama",
+			Model:          "qwen3:8b",
+			Phase:          "response_headers",
+			Elapsed:        5 * time.Minute,
+			RequestTimeout: 5 * time.Minute,
+			Cause:          context.DeadlineExceeded,
+		}
+	}}, sessions: newSessionStore()}
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+		ctx = reqctx.WithEnv(ctx, "dev")
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
+	r.POST("/api/v1/ai/llm/invoke", h.llmInvoke)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/llm/invoke", bytes.NewBufferString(`{"model_key":"ollama/qwen3:8b","inputs":[{"type":"text","content":"test"}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadGateway, w.Code)
+	var response map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	details := response["details"].(map[string]any)
+	providerFailure := details["provider_failure"].(map[string]any)
+	require.Equal(t, "AI_PROVIDER_TIMEOUT", providerFailure["reason_code"])
+	require.Equal(t, "response_headers", providerFailure["phase"])
 }
 func (s *stubAIService) ListLLMModels(ctx context.Context, env string, tenantUUID string, provider string) ([]aisvc.LLMModelItem, error) {
 	return nil, nil

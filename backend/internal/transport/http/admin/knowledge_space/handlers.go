@@ -49,6 +49,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.GET("", handler.list)
+		group.GET("/catalog", handler.catalog)
 		group.POST("", handler.create)
 		if builtinHandler != nil {
 			group.POST("/builtin/seed", builtinHandler.Seed)
@@ -497,4 +498,17 @@ func tenantUUIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return tenantUUID, true
+}
+
+func (h *Handler) catalog(c *gin.Context) {
+	tenant, ok := tenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	catalog, err := h.svc.GetHostCatalog(c.Request.Context(), tenant.String())
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"catalog": catalog})
 }

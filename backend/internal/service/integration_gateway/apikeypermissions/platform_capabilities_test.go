@@ -95,6 +95,110 @@ capabilities:
 	}
 }
 
+func TestBuildPlatformCapabilityPermissionsPreservesExplicitAPIKeyGrant(t *testing.T) {
+	dir := t.TempDir()
+	raw := []byte(`version: 1
+capabilities:
+  - capability_id: com.corex.knowledge.directory.read
+    module: knowledge_space
+    title: Knowledge Directory
+    description: Read tenant knowledge spaces.
+    permission_code: corex.knowledge.directory:read
+    title_i18n: {en: Knowledge Directory}
+    description_i18n: {en: Read tenant knowledge spaces.}
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/knowledge/spaces
+        method: GET
+        api_key:
+          scope: _scope.knowledge.directory.read
+          action: read
+          resource_type: api
+          resource_pattern: directory
+`)
+	if err := os.WriteFile(filepath.Join(dir, "knowledge.yaml"), raw, 0o644); err != nil {
+		t.Fatalf("write capability yaml: %v", err)
+	}
+	t.Setenv(platformCapabilitiesDirEnv, dir)
+	platformPermissionOnce = sync.Once{}
+	platformPermissionRows = nil
+	platformPermissionErr = nil
+
+	rows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		t.Fatalf("BuildPlatformCapabilityPermissions() error = %v", err)
+	}
+	var apiRow *modelsiam.Permission
+	for i := range rows {
+		var meta map[string]any
+		_ = json.Unmarshal(rows[i].Meta, &meta)
+		if meta["type"] == "api" {
+			apiRow = &rows[i]
+			break
+		}
+	}
+	if apiRow == nil {
+		t.Fatal("api permission row missing")
+	}
+	if !apiRow.AllowAPIKey {
+		t.Fatal("explicit api key grant must enable API key use")
+	}
+	resolved, ok := ResolvePermission(*apiRow)
+	if !ok {
+		t.Fatal("ResolvePermission() = false")
+	}
+	if resolved.Scope != "_scope.knowledge.directory.read" || resolved.Action != "read" || resolved.ResourcePattern != "directory" {
+		t.Fatalf("resolved = %#v", resolved)
+	}
+}
+
+func TestBuildPlatformCapabilityPermissionsMaterializesCoreInternalAPIKeyGrant(t *testing.T) {
+	dir := t.TempDir()
+	raw := []byte(`version: 1
+capabilities:
+  - capability_id: com.corex.customer.contacts.service_read
+    module: customer
+    title: Customer Contact Service Read
+    description: Read contacts through a typed Core contract.
+    permission_code: corex.customer.contacts.service_read
+    title_i18n: {en: Customer Contact Service Read}
+    description_i18n: {en: Read contacts through a typed Core contract.}
+    protocols:
+      - channel: core_internal
+        endpoint: core://customer/contacts
+        method: INVOKE
+        api_key:
+          scope: _scope.customer.contacts.service_read
+          action: read
+          resource_type: capability
+          resource_pattern: customer_contacts_service_read
+`)
+	if err := os.WriteFile(filepath.Join(dir, "customer.yaml"), raw, 0o644); err != nil {
+		t.Fatalf("write capability yaml: %v", err)
+	}
+	t.Setenv(platformCapabilitiesDirEnv, dir)
+	platformPermissionOnce = sync.Once{}
+	platformPermissionRows, platformPermissionErr = nil, nil
+	rows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		t.Fatalf("BuildPlatformCapabilityPermissions() error = %v", err)
+	}
+	var row *modelsiam.Permission
+	for i := range rows {
+		if rows[i].Resource == "contacts" && rows[i].Action == "service_read" {
+			row = &rows[i]
+			break
+		}
+	}
+	if row == nil || !row.AllowAPIKey {
+		t.Fatalf("core internal api-key permission = %#v", row)
+	}
+	resolved, ok := ResolvePermission(*row)
+	if !ok || resolved.Scope != "_scope.customer.contacts.service_read" {
+		t.Fatalf("resolved = %#v, ok=%v", resolved, ok)
+	}
+}
+
 func TestBuildPlatformCapabilityPermissionsRejectsFormalAPIWithoutI18n(t *testing.T) {
 	dir := t.TempDir()
 	raw := []byte(`version: 1

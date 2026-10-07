@@ -11,16 +11,16 @@ func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps) {
 		return
 	}
 
-	if handler := newLocalInstallHandler(deps.PluginReleaseService.LocalInstall()); handler != nil {
+	if handler := newLocalInstallHandler(deps.PluginReleaseService.LocalInstall(), deps.DB); handler != nil {
 		routes := group.Group("/tenant/plugin-release")
-		routes.POST("/local/sessions", handler.startSession)
-		routes.GET("/local/sessions/:sessionId", handler.getSession)
-		routes.DELETE("/local/sessions/:sessionId", handler.stopSession)
+		routes.POST("/install-sessions", handler.startSession)
+		routes.GET("/install-sessions/:session_uuid", handler.getSession)
+		routes.POST("/install-sessions/:session_uuid/stop", handler.stopSession)
 	}
 
-	if importHandler := newOfflineImportHandler(deps.PluginReleaseService.Distribution()); importHandler != nil {
-		importRoutes := group.Group("/tenant/offline-imports")
+	if importHandler := newOfflineImportHandler(deps.PluginReleaseService.Distribution(), deps.DB); importHandler != nil {
+		importRoutes := group.Group("/tenant/plugin-release/import-jobs")
 		importRoutes.POST("", importHandler.startImport)
-		importRoutes.GET("/:jobId", importHandler.getImport)
+		importRoutes.GET("/:job_uuid", importHandler.getImport)
 	}
 }

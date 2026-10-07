@@ -1829,6 +1829,9 @@ components:
         status:
           type: string
           enum: [found, not_found, ambiguous]
+          description: >-
+            ambiguous is a fail-closed response for legacy or corrupted data and
+            must never cause the caller to select a member automatically.
         member:
           $ref: '#/components/schemas/IAMDirectoryDisplayNameMatch'
         members:

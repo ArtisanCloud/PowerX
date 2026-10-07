@@ -5,6 +5,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,10 +21,13 @@ import (
 	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	agentruntime "github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
+	agentsession "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
@@ -75,6 +79,7 @@ import (
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
+	runtimehost "github.com/ArtisanCloud/PowerX/internal/service/runtime_host"
 	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
@@ -185,11 +190,16 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 }
 
 type Deps struct {
-	DB           *gorm.DB
-	ctx          *context.Context
-	AuthUser     *authsvc.AuthService
-	AuthCustomer *authsvc.AuthService
-	MeService    *authsvc.MeService
+	RuntimeIdentity runtimeidentity.CoreInfo
+	RuntimeHostSvc  *runtimehost.Service
+	AgentSessionSvc *agentsession.Service
+	AgentRunWorker  *agent_run.WorkerService
+	AgentAdminRun   *agentruntime.AdminRunService
+	DB              *gorm.DB
+	ctx             *context.Context
+	AuthUser        *authsvc.AuthService
+	AuthCustomer    *authsvc.AuthService
+	MeService       *authsvc.MeService
 
 	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
 
@@ -256,7 +266,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 	aiMultimodalHTTPTimeout := opts.CapabilityRegistry.AIMultimodalHTTPTimeout
 	if aiMultimodalHTTPTimeout <= 0 {
-		aiMultimodalHTTPTimeout = 5 * time.Minute
+		aiMultimodalHTTPTimeout = 5*time.Minute + 10*time.Second
 	}
 	authUser := authsvc.NewAuthService(db, opts.AuthUser)
 	authCustomer := authsvc.NewAuthService(db, opts.AuthCustomer)
@@ -442,6 +452,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Clock:    time.Now,
 	})
 
+	var knowledgeDeps *KnowledgeSpaceDeps
 	var capabilityCatalogSvc *capabilitycatalog.RegistryService
 	var capabilityInvocationSvc *capabilitycatalog.InvocationService
 	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
@@ -543,7 +554,15 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
-				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db)),
+				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
+				metadatasvc.NewTagCapabilityInvoker(db),
+				runtimeidentity.NewInvoker(db, opts.RuntimeIdentity),
+				knowledgeService.NewProvisioningCapabilityInvoker(db, func() *knowledgeService.Service {
+					if knowledgeDeps == nil {
+						return nil
+					}
+					return knowledgeDeps.Service
+				}),
 			),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
@@ -616,7 +635,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
-	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
+	knowledgeDeps = newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -816,6 +835,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
+		RuntimeIdentity:                   opts.RuntimeIdentity,
+		AgentSessionSvc:                   agentsession.NewServiceWithExecutor(db, agentruntime.NewServiceSessionExecutor(db)),
+		RuntimeHostSvc:                    runtimehost.NewService(db, versionLockRedis),
 		DB:                                db,
 		TenantSvc:                         tenantSvc,
 		AuthUser:                          authUser,

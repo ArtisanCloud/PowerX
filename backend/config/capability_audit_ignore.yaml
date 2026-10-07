@@ -11,3 +11,7 @@ routes:
     path: /api/v1/tenant/iam/members:operation
     category: transport_route_adapter
     reason: Gin requires the two declared colon-action member directory contracts to share a parameterized dispatcher route; the formal IAM directory capability declares the concrete batch-get and batch-resolve endpoints.
+  - method: POST
+    path: /api/v1/tenant/knowledge/spaces/:space_uuid/indexes:operation
+    category: transport_route_adapter
+    reason: Gin requires the declared indexes:rebuild action to use a constrained parameter dispatcher; the formal Knowledge Document Manage capability declares only the concrete rebuild endpoint.

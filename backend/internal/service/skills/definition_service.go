@@ -26,14 +26,19 @@ var skillDefinitionIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{2,159}$`)
 // definitions. It accepts already structured Agent output or a parsed import;
 // it never extracts an execution definition from free-form text at runtime.
 type DefinitionService struct {
-	repo *skillrepo.SkillDefinitionRepository
+	repo       *skillrepo.SkillDefinitionRepository
+	checkTools ToolDependencyChecker
 }
 
-func NewDefinitionService(repo *skillrepo.SkillDefinitionRepository) *DefinitionService {
+func NewDefinitionService(repo *skillrepo.SkillDefinitionRepository, checkers ...ToolDependencyChecker) *DefinitionService {
 	if repo == nil {
 		panic("skill definition service requires repository")
 	}
-	return &DefinitionService{repo: repo}
+	s := &DefinitionService{repo: repo}
+	if len(checkers) > 0 {
+		s.checkTools = checkers[0]
+	}
+	return s
 }
 
 type CreateDefinitionDraftInput struct {
@@ -236,6 +241,9 @@ func (s *DefinitionService) PublishCurrentRevision(ctx context.Context, in Publi
 		return nil, nil, fmt.Errorf("skill.definition_decode_failed: %w", err)
 	}
 	if err := validatePowerXDefinition(definition); err != nil {
+		return nil, nil, err
+	}
+	if err := CheckToolDependencies(ctx, in.TenantUUID, definition, s.checkTools); err != nil {
 		return nil, nil, err
 	}
 	return s.repo.PublishCurrentRevision(ctx, in.TenantUUID, in.DraftUUID, in.ArtifactURI, in.Checksum, in.UpdatedByMemberUUID)

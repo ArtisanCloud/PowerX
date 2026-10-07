@@ -86,6 +86,24 @@ type GetObjectResult struct {
 	ETag         string
 }
 
+// StatObjectInput 定义仅读取对象元数据时所需参数。
+// 它不返回对象内容，适用于上传完成前的服务端校验。
+type StatObjectInput struct {
+	Bucket    string
+	ObjectKey string
+}
+
+// StatObjectResult 返回存储端实际对象元数据。
+// ETag 仅用于审计和诊断，不得被当作内容校验和。
+type StatObjectResult struct {
+	Bucket       string
+	ObjectKey    string
+	Size         int64
+	ContentType  string
+	LastModified time.Time
+	ETag         string
+}
+
 // DeleteObjectInput 定义删除对象的参数。
 type DeleteObjectInput struct {
 	Bucket    string
@@ -120,6 +138,7 @@ type StorageDriver interface {
 
 	Put(ctx context.Context, in PutObjectInput) (*PutObjectResult, error)
 	Get(ctx context.Context, in GetObjectInput) (*GetObjectResult, error)
+	Stat(ctx context.Context, in StatObjectInput) (*StatObjectResult, error)
 	Delete(ctx context.Context, in DeleteObjectInput) error
 	GenerateURL(ctx context.Context, in GenerateURLInput) (*GenerateURLOutput, error)
 

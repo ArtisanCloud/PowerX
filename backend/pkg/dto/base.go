@@ -34,14 +34,14 @@ type SuccessResponse struct {
 
 // ErrorResponse 错误响应
 type ErrorResponse struct {
-	Code      int                    `json:"code" example:"400"`
-	Message   string                 `json:"message" example:"参数错误"`
-	Error     string                 `json:"error,omitempty" example:"validation failed"`
-	ErrorCode string                 `json:"error_code,omitempty" description:"业务错误码"`
+	Code       int                    `json:"code" example:"400"`
+	Message    string                 `json:"message" example:"参数错误"`
+	Error      string                 `json:"error,omitempty" example:"validation failed"`
+	ErrorCode  string                 `json:"error_code,omitempty" description:"业务错误码"`
 	ReasonCode string                 `json:"reason_code,omitempty" description:"稳定错误原因码"`
-	Details   map[string]interface{} `json:"details,omitempty" description:"错误详情"`
-	Timestamp int64                  `json:"timestamp"`
-	RequestID string                 `json:"request_id,omitempty"`
+	Details    map[string]interface{} `json:"details,omitempty" description:"错误详情"`
+	Timestamp  int64                  `json:"timestamp"`
+	RequestID  string                 `json:"request_id,omitempty"`
 }
 
 // PaginationRequest 分页请求基础结构
@@ -236,6 +236,12 @@ func ResponseErrorWithDetails(c *gin.Context, code int, message string, err erro
 
 // ResponseValidationError 返回验证错误响应
 func ResponseValidationError(c *gin.Context, err error) {
+	// Tenant Metadata is a service-actor Host Contract. Its callers need a
+	// stable machine envelope even when binding fails before the service layer.
+	if host, _ := c.Get("metadata_host_contract"); host == true {
+		ResponseError(c, http.StatusBadRequest, "METADATA_INVALID_ARGUMENT", NewErrorWithCode(http.StatusBadRequest, "METADATA_INVALID_ARGUMENT", "METADATA_INVALID_ARGUMENT", err))
+		return
+	}
 	details := make(map[string]interface{})
 
 	if validationErrors, ok := err.(validator.ValidationErrors); ok {

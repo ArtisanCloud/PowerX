@@ -11,6 +11,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/cmd/database/seed"
 	"github.com/ArtisanCloud/PowerX/config"
+	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
@@ -20,7 +21,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fatalf("Usage: %s [migrate|seed|refresh|status|iam-report|iam-fix-owner|iam-fix-role-binding-duplicates]", os.Args[0])
+		fatalf("Usage: %s [migrate|seed|refresh|status|iam-report|iam-fix-owner|iam-fix-role-binding-duplicates|repair-agent-run-state]", os.Args[0])
 	}
 	cmd := os.Args[1]
 	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
@@ -107,6 +108,13 @@ func main() {
 		result, err := iamsvc.NewIAMMigrationReportService(db).FixDuplicateRoleBindingsAsSystem(ctx, *confirm)
 		if err != nil {
 			fatalf("iam migration fix role binding duplicates failed: %v", err)
+		}
+		printJSON(result)
+
+	case "repair-agent-run-state":
+		result, err := repairLegacyAgentRunStates(ctx, db, agenttrace.ConfigFromEnv().LocalDir, *confirm)
+		if err != nil {
+			fatalf("agent run state repair failed: %v", err)
 		}
 		printJSON(result)
 

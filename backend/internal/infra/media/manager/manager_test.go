@@ -18,6 +18,7 @@ type fakeDriver struct {
 	name     string
 	putFn    func(ctx context.Context, in driver.PutObjectInput) (*driver.PutObjectResult, error)
 	getFn    func(ctx context.Context, in driver.GetObjectInput) (*driver.GetObjectResult, error)
+	statFn   func(ctx context.Context, in driver.StatObjectInput) (*driver.StatObjectResult, error)
 	deleteFn func(ctx context.Context, in driver.DeleteObjectInput) error
 	urlFn    func(ctx context.Context, in driver.GenerateURLInput) (*driver.GenerateURLOutput, error)
 	healthFn func(ctx context.Context) error
@@ -37,6 +38,13 @@ func (f *fakeDriver) Get(ctx context.Context, in driver.GetObjectInput) (*driver
 		return f.getFn(ctx, in)
 	}
 	return &driver.GetObjectResult{Bucket: in.Bucket, ObjectKey: in.ObjectKey, Size: 1}, nil
+}
+
+func (f *fakeDriver) Stat(ctx context.Context, in driver.StatObjectInput) (*driver.StatObjectResult, error) {
+	if f.statFn != nil {
+		return f.statFn(ctx, in)
+	}
+	return &driver.StatObjectResult{Bucket: in.Bucket, ObjectKey: in.ObjectKey, Size: 1}, nil
 }
 
 func (f *fakeDriver) Delete(ctx context.Context, in driver.DeleteObjectInput) error {
