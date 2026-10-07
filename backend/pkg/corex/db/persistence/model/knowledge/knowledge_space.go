@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"github.com/google/uuid"
 	"strings"
 	"time"
 
@@ -13,28 +14,32 @@ import (
 type KnowledgeSpace struct {
 	coremodel.PowerUUIDModel
 
-	TenantUUID              string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_knowledge_space_tenant_name,unique" json:"tenant_uuid"`
-	SpaceName               string         `gorm:"column:space_name;type:varchar(128);not null;index:idx_knowledge_space_tenant_name,unique" json:"space_name"`
-	DepartmentCode          string         `gorm:"column:department_code;type:varchar(64);not null" json:"department_code"`
-	Status                  string         `gorm:"column:status;type:varchar(32);not null;default:'draft';index" json:"status"`
-	QuotaCPU                int            `gorm:"column:quota_cpu;type:int;not null;default:2" json:"quota_cpu"`
-	QuotaStorageGB          int            `gorm:"column:quota_storage_gb;type:int;not null;default:50" json:"quota_storage_gb"`
-	PolicyTemplateVersionID uint64         `gorm:"column:policy_template_version_id;not null" json:"policy_template_version_id"`
-	IngestionProfileKey     string         `gorm:"column:ingestion_profile_key;type:varchar(128);not null;default:'default';index" json:"ingestion_profile_key"`
-	IndexProfileKey         string         `gorm:"column:index_profile_key;type:varchar(128);not null;default:'default';index" json:"index_profile_key"`
-	RAGProfileKey           string         `gorm:"column:rag_profile_key;type:varchar(128);not null;default:'default';index" json:"rag_profile_key"`
+	TenantUUID              string     `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_knowledge_space_tenant_name,unique" json:"tenant_uuid"`
+	SpaceName               string     `gorm:"column:space_name;type:varchar(128);not null;index:idx_knowledge_space_tenant_name,unique" json:"space_name"`
+	DepartmentCode          string     `gorm:"column:department_code;type:varchar(64);not null" json:"department_code"`
+	DepartmentUUID          *uuid.UUID `gorm:"column:department_uuid;type:uuid;index" json:"department_uuid,omitempty"`
+	IngestionProfileUUID    *uuid.UUID `gorm:"column:ingestion_profile_uuid;type:uuid" json:"ingestion_profile_uuid,omitempty"`
+	IndexProfileUUID        *uuid.UUID `gorm:"column:index_profile_uuid;type:uuid" json:"index_profile_uuid,omitempty"`
+	RAGProfileUUID          *uuid.UUID `gorm:"column:rag_profile_uuid;type:uuid" json:"rag_profile_uuid,omitempty"`
+	Status                  string     `gorm:"column:status;type:varchar(32);not null;default:'draft';index" json:"status"`
+	QuotaCPU                int        `gorm:"column:quota_cpu;type:int;not null;default:2" json:"quota_cpu"`
+	QuotaStorageGB          int        `gorm:"column:quota_storage_gb;type:int;not null;default:50" json:"quota_storage_gb"`
+	PolicyTemplateVersionID uint64     `gorm:"column:policy_template_version_id;not null" json:"policy_template_version_id"`
+	IngestionProfileKey     string     `gorm:"column:ingestion_profile_key;type:varchar(128);not null;default:'default';index" json:"ingestion_profile_key"`
+	IndexProfileKey         string     `gorm:"column:index_profile_key;type:varchar(128);not null;default:'default';index" json:"index_profile_key"`
+	RAGProfileKey           string     `gorm:"column:rag_profile_key;type:varchar(128);not null;default:'default';index" json:"rag_profile_key"`
 	// EmbeddingProfileKey locks the space to a specific embedding profile (provider+model).
 	// It is a logical reference and is validated/activated via admin APIs.
 	EmbeddingProfileKey string `gorm:"column:embedding_profile_key;type:varchar(128);not null;default:'';index" json:"embedding_profile_key"`
 	// ActiveVectorIndexKey points to the active dense index for this space.
-	ActiveVectorIndexKey string `gorm:"column:active_vector_index_key;type:varchar(128);not null;default:'';index" json:"active_vector_index_key"`
-	FeatureFlags            datatypes.JSON `gorm:"column:feature_flags;type:jsonb;default:'[]'" json:"feature_flags"`
-	RetireAt                *time.Time     `gorm:"column:retire_at" json:"retire_at,omitempty"`
-	RetentionExpiresAt      *time.Time     `gorm:"column:retention_expires_at" json:"retention_expires_at,omitempty"`
-	CreatedBy               string         `gorm:"column:created_by;type:varchar(128)" json:"created_by,omitempty"`
-	UpdatedBy               string         `gorm:"column:updated_by;type:varchar(128)" json:"updated_by,omitempty"`
-	LastAuditedAt           *time.Time     `gorm:"column:last_audited_at" json:"last_audited_at,omitempty"`
-	AuditToken              string         `gorm:"column:audit_token;type:varchar(128)" json:"audit_token,omitempty"`
+	ActiveVectorIndexKey string         `gorm:"column:active_vector_index_key;type:varchar(128);not null;default:'';index" json:"active_vector_index_key"`
+	FeatureFlags         datatypes.JSON `gorm:"column:feature_flags;type:jsonb;default:'[]'" json:"feature_flags"`
+	RetireAt             *time.Time     `gorm:"column:retire_at" json:"retire_at,omitempty"`
+	RetentionExpiresAt   *time.Time     `gorm:"column:retention_expires_at" json:"retention_expires_at,omitempty"`
+	CreatedBy            string         `gorm:"column:created_by;type:varchar(128)" json:"created_by,omitempty"`
+	UpdatedBy            string         `gorm:"column:updated_by;type:varchar(128)" json:"updated_by,omitempty"`
+	LastAuditedAt        *time.Time     `gorm:"column:last_audited_at" json:"last_audited_at,omitempty"`
+	AuditToken           string         `gorm:"column:audit_token;type:varchar(128)" json:"audit_token,omitempty"`
 }
 
 func (KnowledgeSpace) TableName() string {

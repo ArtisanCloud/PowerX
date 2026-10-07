@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	service "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -46,6 +47,7 @@ func respondError(c *gin.Context, err error) {
 		err    error
 		status int
 	}{
+		{agent_run.ErrArchiveBackpressure, 429}, {agent_run.ErrArchiveHealthStale, 503},
 		{service.ErrInvalid, 400}, {service.ErrUnauthorized, 401}, {service.ErrForbidden, 403},
 		{service.ErrNotFound, 404}, {service.ErrConflict, 409}, {service.ErrExpired, 409}, {service.ErrContextExpired, 409}, {service.ErrEventCursorExpired, 409},
 	} {
@@ -53,6 +55,9 @@ func respondError(c *gin.Context, err error) {
 			status, code = candidate.status, candidate.err.Error()
 			break
 		}
+	}
+	if errors.Is(err, agent_run.ErrArchiveBackpressure) || errors.Is(err, agent_run.ErrArchiveHealthStale) {
+		c.Header("Retry-After", "30")
 	}
 	message := dto.AgentSessionErrorMessage(c.GetHeader("Accept-Language"), code)
 	dto.ResponseError(c, status, message, dto.NewErrorWithCode(status, code, message, nil))

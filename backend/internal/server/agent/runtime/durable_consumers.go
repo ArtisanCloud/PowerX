@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	sessions "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
@@ -18,6 +19,9 @@ type durableConsumers struct {
 	admin          *AdminRunService
 	archiveStore   *agent_run.RedisStore
 	archiveObjects agent_run.ReportObjectStore
+	archivePolicy  *agent_run.ArchivePolicy
+	archiveEnv     string
+	archiveQueue   agent_run.ArchivedTaskQueue
 }
 
 func NewDurableConsumers(service *sessions.Service, loader InvokePlanningInputLoader, admin *AdminRunService) *durableConsumers {
@@ -57,7 +61,10 @@ func (c *durableConsumers) FinalizeRun(ctx context.Context, run agent_run.Snapsh
 			if err != nil || c.archiveStore == nil {
 				return err
 			}
-			return c.admin.repo.MarkRunArchived(ctx, tenant, run.Env, id, archived.ArchiveKey, archived.ArchivedAt)
+			if err := c.admin.repo.MarkRunArchived(ctx, tenant, run.Env, id, archived.ArchiveKey, archived.ArchivedAt); err != nil {
+				return err
+			}
+			return c.scheduleExpiry(ctx, archived, true)
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -70,7 +77,10 @@ func (c *durableConsumers) FinalizeRun(ctx context.Context, run agent_run.Snapsh
 	if err != nil || c.archiveStore == nil {
 		return err
 	}
-	return c.sessions.RecordArchivedRun(ctx, archived)
+	if err := c.sessions.RecordArchivedRun(ctx, archived); err != nil {
+		return err
+	}
+	return c.scheduleExpiry(ctx, archived, false)
 }
 func (c *durableConsumers) ListUnfinishedRuns(ctx context.Context, after uint64, limit int) ([]agent_run.LocatedRun, error) {
 	if limit < 1 || limit > 200 {
@@ -116,7 +126,7 @@ func (c *durableConsumers) ConfigureArchive(store *agent_run.RedisStore, objects
 		return agent_run.ErrInvalid
 	}
 	c.archiveStore, c.archiveObjects = store, objects
-	c.sessions.EnableArchiveRecovery()
+	c.sessions.EnableArchiveRecovery(objects)
 	if c.admin != nil {
 		c.admin.archiveRecovery = true
 	}
@@ -131,4 +141,112 @@ func (c *durableConsumers) archive(ctx context.Context, run agent_run.Snapshot) 
 		return agent_run.Snapshot{}, err
 	}
 	return c.archiveStore.Get(ctx, run.TenantUUID, run.Env, run.RunID)
+}
+
+func (c *durableConsumers) ConfigureArchiveLifecycle(env string, policy agent_run.ArchivePolicy) error {
+	if c.archiveStore == nil || policy.Validate() != nil {
+		return agent_run.ErrInvalid
+	}
+	c.archivePolicy, c.archiveEnv = &policy, env
+	gate := func(ctx context.Context) error { return c.archiveStore.CheckArchiveAdmission(ctx, env, policy) }
+	if err := c.sessions.ConfigureArchiveLifecycle(gate); err != nil {
+		return err
+	}
+	if c.admin != nil {
+		c.admin.retentionRecovery = true
+		c.admin.AdmissionGate = gate
+	}
+	return nil
+}
+
+// MaintainRuns 每轮恢复扫描刷新共享受理门禁，无 SQL 心跳或逐请求聚合。
+func (c *durableConsumers) MaintainRuns(ctx context.Context) error {
+	if c.archivePolicy == nil {
+		return nil
+	}
+	count, oldest, err := c.sessions.ArchiveBacklog(ctx)
+	if err != nil {
+		return err
+	}
+	if c.admin != nil {
+		n, at, err := c.admin.repo.ArchiveBacklog(ctx, c.archiveEnv)
+		if err != nil {
+			return err
+		}
+		count += n
+		if at != nil && (oldest == nil || at.Before(*oldest)) {
+			oldest = at
+		}
+	}
+	return c.archiveStore.PublishArchiveHealth(ctx, c.archiveEnv, agent_run.ArchiveHealth{Pending: count, OldestAt: oldest}, *c.archivePolicy)
+}
+func (c *durableConsumers) scheduleExpiry(ctx context.Context, run agent_run.Snapshot, admin bool) error {
+	if c.archivePolicy == nil {
+		return nil
+	}
+	at := run.ArchivedAt.Add(c.archivePolicy.HotRetention)
+	if c.archiveQueue != nil {
+		report, err := agent_run.ReadRunReport(ctx, run, c.archiveObjects)
+		if err != nil {
+			return err
+		}
+		ids := []string{}
+		for _, task := range report.Tasks {
+			if task.Attempt > 100 {
+				return agent_run.ErrInvalid
+			}
+			for attempt := uint64(1); attempt <= task.Attempt; attempt++ {
+				ids = append(ids, fmt.Sprintf("%s:%d:%s:%d", run.RunID, task.Revision, task.TaskID, attempt))
+			}
+		}
+		if err := c.archiveQueue.RetireRun(ctx, run.TenantUUID+":"+run.Env, agent_run.AgentTaskSubscriber, "agent-run-workers-v1", run.RunID, ids, at); err != nil {
+			return err
+		}
+	}
+
+	if err := c.archiveStore.ExpireArchivedRun(ctx, run, c.archiveObjects, at); err != nil {
+		return err
+	}
+	if admin {
+		return c.admin.repo.MarkHotExpiry(ctx, uuid.MustParse(run.TenantUUID), run.Env, uuid.MustParse(run.RunID), run.ArchiveKey, at)
+	}
+	return c.sessions.RecordHotExpiry(ctx, run, at)
+}
+
+// RecoverArchivedRun 仅修复到期确认索引，永不重建 Redis 或重新投递任务。
+func (c *durableConsumers) RecoverArchivedRun(ctx context.Context, identity agent_run.Snapshot) (bool, error) {
+	if c.archivePolicy == nil {
+		return false, nil
+	}
+	if c.admin != nil {
+		row, err := c.admin.repo.Get(ctx, uuid.MustParse(identity.TenantUUID), identity.Env, uuid.MustParse(identity.RunID))
+		if err == nil {
+			if row.FinishedAt == nil || row.ArchivedAt == nil || row.ArchiveKey == "" {
+				return false, nil
+			}
+			report, err := agent_run.ReadRunReport(ctx, adminIdentity(row), c.archiveObjects)
+			if err != nil {
+				return false, err
+			}
+			if report.Snapshot.Status != row.Status || identity.SessionID != report.Snapshot.SessionID || identity.MessageID != report.Snapshot.MessageID || identity.TraceID != report.Snapshot.TraceID || !identity.DeadlineAt.Equal(report.Snapshot.DeadlineAt) {
+				return false, agent_run.ErrConflict
+			}
+			run := report.Snapshot
+			run.ArchiveKey = row.ArchiveKey
+			run.ArchivedAt = *row.ArchivedAt
+			return true, c.scheduleExpiry(ctx, run, true)
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, err
+		}
+	}
+	run, err := c.sessions.ArchivedRecoverySnapshot(ctx, identity)
+	if err != nil {
+		return false, err
+	}
+	return true, c.scheduleExpiry(ctx, run, false)
+}
+
+func (c *durableConsumers) ConfigureArchiveQueue(queue agent_run.ArchivedTaskQueue) {
+	c.archiveQueue = queue
 }

@@ -256,6 +256,10 @@ func (c *AIConfig) SetDefaults() {
 
 // DurableSessions 配置共享 Worker；管理端聊天通过独立开关接入。
 type DurableSessions struct {
+	TenantConcurrency int           `yaml:"tenant_concurrency" mapstructure:"tenant_concurrency"`
+	HotRetention      time.Duration `yaml:"hot_retention" mapstructure:"hot_retention"`
+	ArchiveMaxPending int64         `yaml:"archive_max_pending" mapstructure:"archive_max_pending"`
+	ArchiveMaxAge     time.Duration `yaml:"archive_max_age" mapstructure:"archive_max_age"`
 	AdminChatEnabled  bool          `yaml:"admin_chat_enabled" mapstructure:"admin_chat_enabled"`
 	Enabled           bool          `yaml:"enabled" mapstructure:"enabled"`
 	ReportBucket      string        `yaml:"report_bucket" mapstructure:"report_bucket"`
@@ -264,12 +268,36 @@ type DurableSessions struct {
 	LeaseTTL          time.Duration `yaml:"lease_ttl" mapstructure:"lease_ttl"`
 }
 
+// WithLifecycleDefaults 返回共享调度存储策略，避免零值意外无限保留。
+func (c DurableSessions) WithLifecycleDefaults() DurableSessions {
+	if c.TenantConcurrency == 0 {
+		c.TenantConcurrency = 16
+	}
+	if c.HotRetention == 0 {
+		c.HotRetention = 7 * 24 * time.Hour
+	}
+	if c.ArchiveMaxPending == 0 {
+		c.ArchiveMaxPending = 1000
+	}
+	if c.ArchiveMaxAge == 0 {
+		c.ArchiveMaxAge = time.Hour
+	}
+	return c
+}
+
 func (c DurableSessions) Validate() error {
 	if c.AdminChatEnabled && !c.Enabled {
 		return fmt.Errorf("admin_chat_enabled requires durable_sessions.enabled")
 	}
 	if !c.Enabled {
 		return nil
+	}
+	c = c.WithLifecycleDefaults()
+	if c.TenantConcurrency < 1 || c.TenantConcurrency > 10000 {
+		return fmt.Errorf("durable_sessions.tenant_concurrency must be in 1..10000")
+	}
+	if c.HotRetention < time.Hour || c.HotRetention > 90*24*time.Hour || c.ArchiveMaxPending < 1 || c.ArchiveMaxAge < time.Minute || c.ArchiveMaxAge > 7*24*time.Hour {
+		return fmt.Errorf("invalid durable archive retention/backpressure policy")
 	}
 	if strings.TrimSpace(c.ReportBucket) == "" || c.WorkerConcurrency < 1 || c.WorkerConcurrency > 128 || c.ScanInterval < time.Second || c.ScanInterval > time.Minute || c.LeaseTTL < time.Second || c.LeaseTTL > time.Minute {
 		return fmt.Errorf("ai.runtime.durable_sessions requires report_bucket, worker_concurrency (1..128), scan_interval and lease_ttl (1s..1m)")

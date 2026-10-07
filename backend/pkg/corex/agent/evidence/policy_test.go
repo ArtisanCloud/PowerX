@@ -66,7 +66,7 @@ func TestInvalidPolicyRejectedBeforeExecution(t *testing.T) {
 }
 
 func TestSourceSchemaDoesNotAllowModelToChangeKindOrLabels(t *testing.T) {
-	s := SelectionJSONSchema(policyFixture(), []NumericToken{{Key: "token_0", Unit: "", Source: Source{Quote: "used 1"}}}, []string{"test_profile"}, "en-US")
+	s := SelectionJSONSchema(policyFixture(), []NumericToken{{Key: "token_0", Unit: "", Source: Source{Quote: "used 1", Literal: "1"}}}, []string{"test_profile"}, "en-US")
 	data := s["properties"].(map[string]any)["data"].(map[string]any)
 	require.False(t, data["additionalProperties"].(bool))
 	p := data["properties"].(map[string]any)["used"].(map[string]any)["properties"].(map[string]any)

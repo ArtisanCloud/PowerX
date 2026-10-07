@@ -1777,7 +1777,8 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	if h.durable != nil {
 		admitted, admitErr := h.durable.Admit(runCtx, q, cfg, "", clientMsgID)
 		if admitErr != nil {
-			_ = debugSink.Emit(dto.EventError, map[string]any{"code": "agent_run.admission_failed", "message": admitErr.Error()})
+			code, message, _ := archiveAdmissionError(admitErr)
+			_ = debugSink.Emit(dto.EventError, map[string]any{"code": code, "message": message, "retry_after_seconds": 30})
 			_ = debugSink.Emit(dto.EventEnd, map[string]any{"success": false})
 			return
 		}
@@ -2472,7 +2473,9 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	if h.durable != nil {
 		admitted, err := h.durable.Admit(runCtx, msg, cfg, "", strings.TrimSpace(c.GetHeader("Idempotency-Key")))
 		if err != nil {
-			dto.ResponseError(c, 503, "agent run admission failed", err)
+			code, message, status := archiveAdmissionError(err)
+			c.Header("Retry-After", "30")
+			dto.ResponseError(c, status, message, dto.NewErrorWithCode(status, code, message, nil))
 			return
 		}
 		reply, err := h.durable.WaitResult(c.Request.Context(), admitted.RunID)

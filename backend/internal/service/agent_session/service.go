@@ -39,16 +39,19 @@ var (
 )
 
 type Service struct {
-	repo            *repo.ServiceSessionRepository
-	now             func() time.Time
-	executor        Executor
-	runEvents       RunEventStore
-	runEnv          string
-	durableRuns     DurableRunStore
-	runDeadline     time.Duration
-	planningQueue   agent_run.TaskEnqueuer
-	archiveRecovery bool
-	finalOutput     DurableOutputReader
+	repo              *repo.ServiceSessionRepository
+	now               func() time.Time
+	executor          Executor
+	runEvents         RunEventStore
+	runEnv            string
+	durableRuns       DurableRunStore
+	runDeadline       time.Duration
+	planningQueue     agent_run.TaskEnqueuer
+	archiveRecovery   bool
+	retentionRecovery bool
+	admissionGate     func(context.Context) error
+	archiveObjects    agent_run.ReportObjectStore
+	finalOutput       DurableOutputReader
 }
 
 func NewService(db *gorm.DB) *Service {

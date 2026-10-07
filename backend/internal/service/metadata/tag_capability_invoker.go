@@ -15,6 +15,8 @@ const TagManageCapabilityID = "com.corex.metadata.tag.manage"
 
 // TagUpdateRequest is the fixed Core binding; it cannot choose a tenant or proxy target.
 type TagUpdateRequest struct {
+	Metadata        *map[string]any    `json:"metadata"`
+	ExpectedVersion *int64             `json:"expected_version"`
 	Operation       string             `json:"operation"`
 	TagUUID         string             `json:"tag_uuid"`
 	LabelI18n       *map[string]string `json:"label_i18n"`
@@ -60,7 +62,7 @@ func (i *TagCapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capa
 	if err != nil {
 		return nil, upstream(err)
 	}
-	item, err := service.UpdateTag(ctx, UpdateTagInput{TenantUUID: tenant, TagUUID: request.TagUUID, LabelI18n: request.LabelI18n, DescriptionI18n: request.DescriptionI18n, Color: request.Color, Status: request.Status})
+	item, err := service.UpdateTag(ctx, UpdateTagInput{TenantUUID: tenant, TagUUID: request.TagUUID, LabelI18n: request.LabelI18n, DescriptionI18n: request.DescriptionI18n, Color: request.Color, Status: request.Status, Metadata: request.Metadata, ExpectedVersion: request.ExpectedVersion})
 	if err != nil {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):

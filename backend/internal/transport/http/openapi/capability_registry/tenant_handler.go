@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"io"
 	"net/http"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	knowledgesvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	metadatasvc "github.com/ArtisanCloud/PowerX/internal/service/metadata"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
@@ -72,6 +74,13 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 			CoreInvoker: capservice.NewCoreCapabilityMux(
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(deps.DB), customersvc.NewContactService(deps.DB)),
 				metadatasvc.NewTagCapabilityInvoker(deps.DB),
+				runtimeidentity.NewInvoker(deps.DB, deps.RuntimeIdentity),
+				knowledgesvc.NewProvisioningCapabilityInvoker(deps.DB, func() *knowledgesvc.Service {
+					if deps.KnowledgeSpace == nil {
+						return nil
+					}
+					return deps.KnowledgeSpace.Service
+				}),
 			),
 		})
 	}
@@ -470,6 +479,9 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
+	if req.CapabilityID == runtimeidentity.CapabilityID {
+		c.Header("Cache-Control", "no-store")
+	}
 	tenantUUID, err := tenantUUIDFromRequest(c)
 	if err != nil {
 		respondTenantIdentityError(c, err)
@@ -543,6 +555,9 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		Context:           contextMap,
 	})
 	if err != nil {
+		if strings.HasPrefix(dto.CodeOf(err), "RUNTIME_IDENTITY_") {
+			err = dto.Wrap(err, dto.RuntimeIdentityErrorMessage(c.GetHeader("Accept-Language"), dto.CodeOf(err)))
+		}
 		template := selectInvokeErrorTemplate(err)
 		details := capservice.InvocationFailureDetails(err)
 		if traceID := strings.TrimSpace(req.TraceID); traceID != "" {
@@ -961,7 +976,7 @@ func buildErrorObject(summary string) map[string]string {
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	var metadataErr *dto.AppError
-	if errors.As(err, &metadataErr) && strings.HasPrefix(metadataErr.Code, "METADATA_") {
+	if errors.As(err, &metadataErr) && (strings.HasPrefix(metadataErr.Code, "METADATA_") || strings.HasPrefix(metadataErr.Code, "RUNTIME_IDENTITY_")) {
 		base := capability_registrydto.ErrInvalidRequest
 		base.HTTPStatus = metadataErr.HTTPCode
 		return base.WithDetails(map[string]interface{}{"reason_code": metadataErr.Code})

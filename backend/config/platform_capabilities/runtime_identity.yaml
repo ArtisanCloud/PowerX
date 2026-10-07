@@ -1,0 +1,36 @@
+version: 1
+capabilities:
+- capability_id: com.corex.runtime.identity.read
+  module: runtime_identity
+  title: Runtime Identity Read
+  description: Read Core version and deployment environment with explicitly authorized plugin registry version and verified process state.
+  permission_code: corex.runtime_identity.identity.read
+  agent_usable: false
+  risk_level: medium
+  categories: [runtime, plugin]
+  intents: [runtime.identity.read]
+  tool_scopes: [runtime.identity.read]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/runtime-identity.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://runtime/identity
+    method: INVOKE
+    schema_ref: docs/contracts/runtime-identity.openapi.yaml#/components/schemas/IdentityRequest
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: runtime.identity.read
+    api_key: {scope: _scope.runtime.identity.read, action: read, resource_type: capability, resource_pattern: runtime_identity_read}
+  - channel: rest
+    endpoint: /api/v1/admin/plugins/{id}/runtime-identity
+    method: GET
+    schema_ref: docs/contracts/runtime-identity.openapi.yaml#/paths/~1admin~1plugins~1{id}~1runtime-identity/get
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: runtime.identity.read
+  title_i18n: {en: Runtime Identity Read, zh-CN: 运行环境与插件版本读取}
+  description_i18n: {en: Read identity metadata for an authorized plugin., zh-CN: 查询获授权插件的注册版本、已确认进程状态及 Core 运行环境。}

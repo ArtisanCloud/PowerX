@@ -12,13 +12,14 @@ type DictionaryNamespaceResponse struct {
 }
 
 type DictionaryItemResponse struct {
-	UUID            string  `json:"uuid"`
-	NamespaceUUID   string  `json:"namespace_uuid"`
-	Code            string  `json:"code"`
-	LabelI18n       I18nMap `json:"label_i18n"`
-	DescriptionI18n I18nMap `json:"description_i18n,omitempty"`
-	Status          string  `json:"status"`
-	SortOrder       int     `json:"sort_order"`
-	ReferenceCount  int64   `json:"reference_count"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
+	UUID            string         `json:"uuid"`
+	NamespaceUUID   string         `json:"namespace_uuid"`
+	Code            string         `json:"code"`
+	LabelI18n       I18nMap        `json:"label_i18n"`
+	DescriptionI18n I18nMap        `json:"description_i18n,omitempty"`
+	Status          string         `json:"status"`
+	SortOrder       int            `json:"sort_order"`
+	ReferenceCount  int64          `json:"reference_count"`
 	Display
 }

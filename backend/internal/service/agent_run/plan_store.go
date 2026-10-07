@@ -19,12 +19,20 @@ var taskIDPattern = regexp.MustCompile("^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$")
 type Plan struct {
 	Revision uint64           `json:"revision"`
 	Tasks    []TaskDefinition `json:"tasks"`
+	Budget   *PlanBudget      `json:"budget,omitempty"`
+}
+
+// PlanBudget 固化整张 DAG 的步骤预留；恢复不能因进程重启重置预算。
+type PlanBudget struct {
+	MaxSteps           int `json:"max_steps"`
+	MaxCapabilityCalls int `json:"max_capability_calls"`
 }
 
 type TaskDefinition struct {
 	TaskID    string   `json:"task_id"`
 	DependsOn []string `json:"depends_on"`
 	PoolID    string   `json:"pool_id"`
+	NodeKind  string   `json:"node_kind,omitempty"`
 }
 
 type TaskSnapshot struct {
@@ -264,6 +272,21 @@ func (s *RedisStore) ListTasks(ctx context.Context, identity Snapshot, revision 
 func validPlan(plan Plan) bool {
 	if plan.Revision == 0 || len(plan.Tasks) == 0 || len(plan.Tasks) > 1000 {
 		return false
+	}
+	if plan.Budget != nil {
+		b := plan.Budget
+		if b.MaxSteps < 1 || b.MaxSteps > 1000 || b.MaxCapabilityCalls < 1 || b.MaxCapabilityCalls > b.MaxSteps || len(plan.Tasks) > b.MaxSteps {
+			return false
+		}
+		calls := 0
+		for _, task := range plan.Tasks {
+			if task.NodeKind == "tooling" {
+				calls++
+			}
+		}
+		if calls > b.MaxCapabilityCalls {
+			return false
+		}
 	}
 	tasks := make(map[string][]string, len(plan.Tasks))
 	for _, task := range plan.Tasks {

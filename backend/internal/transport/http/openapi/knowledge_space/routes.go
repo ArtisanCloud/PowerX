@@ -1,7 +1,9 @@
 package knowledge_space
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -36,6 +38,8 @@ func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	if protected != nil && hostHandler != nil {
 		group := protected.Group("/tenant/knowledge")
 		group.GET("/spaces", hostHandler.listSpaces)
+		group.GET("/catalog", hostHandler.catalog)
+		group.POST("/spaces", hostHandler.createSpace)
 		group.POST("/search", hostHandler.search)
 		group.POST("/spaces/:space_uuid/documents", hostHandler.upsertDocument)
 		group.DELETE("/spaces/:space_uuid/documents/:document_uuid", hostHandler.deleteDocument)
@@ -72,15 +76,20 @@ func (h *openapiHandler) status(c *gin.Context) {
 }
 
 type hostContractHandler struct {
-	service *knowledgesvc.HostContractService
-	access  *knowledgesvc.HostContractAccess
+	provisioning *knowledgesvc.Service
+	service      *knowledgesvc.HostContractService
+	access       *knowledgesvc.HostContractAccess
 }
 
 func newHostContractHandler(deps *shared.Deps) *hostContractHandler {
 	if deps == nil || deps.DB == nil {
 		return nil
 	}
-	return &hostContractHandler{service: knowledgesvc.NewHostContractService(deps.DB), access: knowledgesvc.NewHostContractAccess(deps.DB)}
+	var provisioning *knowledgesvc.Service
+	if deps.KnowledgeSpace != nil {
+		provisioning = deps.KnowledgeSpace.Service
+	}
+	return &hostContractHandler{provisioning: provisioning, service: knowledgesvc.NewHostContractService(deps.DB), access: knowledgesvc.NewHostContractAccess(deps.DB)}
 }
 
 type searchRequest struct {
@@ -289,4 +298,49 @@ func rejectTenantOverride(c *gin.Context) bool {
 		return false
 	}
 	return true
+}
+
+func (h *hostContractHandler) catalog(c *gin.Context) {
+	if !rejectTenantOverride(c) {
+		return
+	}
+	tenant, err := h.access.AuthorizeCatalogRead(c.Request.Context(), apiKeyHash(c))
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	catalog, err := h.provisioning.GetHostCatalog(c.Request.Context(), tenant)
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"catalog": catalog})
+}
+func (h *hostContractHandler) createSpace(c *gin.Context) {
+	if !rejectTenantOverride(c) {
+		return
+	}
+	tenant, err := h.access.AuthorizeSpaceCreate(c.Request.Context(), apiKeyHash(c))
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	var request knowledgesvc.HostCreateSpaceRequest
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(err))
+		return
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(errors.New("expected one JSON object")))
+		return
+	}
+	item, err := h.provisioning.CreateHostSpace(c.Request.Context(), tenant, request)
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"item": item})
 }

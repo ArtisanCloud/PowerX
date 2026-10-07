@@ -88,8 +88,18 @@ func TestServiceSessionTaskExecutorReplaysVerifiedPriorResults(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "done", read.Data["content"])
 
+	require.NoError(t, applyDurablePlanBudget(&reader.plan, full, agent_run.PlanBudget{MaxSteps: 2, MaxCapabilityCalls: 1}))
+	_, err = executor.Execute(context.Background(), ref, "agent:"+ref.RunID+":1:final")
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	reader.plan.Budget.MaxSteps = 1
+	_, err = executor.Execute(context.Background(), ref, "agent:"+ref.RunID+":1:final")
+	require.Error(t, err)
+	require.Equal(t, 2, calls)
+	reader.plan.Budget.MaxSteps = 2
+
 	objects.items[upstreamKey][len(objects.items[upstreamKey])-2] ^= 1
 	_, err = executor.Execute(context.Background(), ref, "agent:"+ref.RunID+":1:final")
 	require.Error(t, err)
-	require.Equal(t, 1, calls)
+	require.Equal(t, 2, calls)
 }

@@ -39,6 +39,9 @@ func (s *Service) ConfigureDurableAdmission(store DurableRunStore, queue agent_r
 // submitPlanning commits the one planning outbox entry, then best-effort
 // dispatches it. A retry or recovery scanner can dispatch it after a crash.
 func (s *Service) submitPlanning(ctx context.Context, owner repo.SessionOwner, run *m.ServiceInvocation) error {
+	if run.FinishedAt != nil {
+		return nil
+	}
 	identity := durableIdentity(owner, run)
 	_, err := s.durableRuns.StartPlanning(ctx, identity)
 	if errors.Is(err, agent_run.ErrConflict) {
@@ -79,7 +82,7 @@ func (s *Service) admitDurable(ctx context.Context, owner repo.SessionOwner, run
 	}
 	identity := durableIdentity(owner, run)
 	if run.AdmissionState == "admitted" {
-		current, err := s.durableRuns.Get(ctx, identity.TenantUUID, identity.Env, identity.RunID)
+		current, err := s.invocationSnapshot(ctx, run)
 		if err != nil {
 			return ErrDependency
 		}

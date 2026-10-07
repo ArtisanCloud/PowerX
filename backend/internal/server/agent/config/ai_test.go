@@ -21,3 +21,15 @@ func TestRuntimeBudgetLimitsRejectInvalidLimits(t *testing.T) {
 	_, err := RuntimeBudgetLimits()
 	require.EqualError(t, err, "ai.runtime loop limits exceed max_steps")
 }
+
+func TestDurableTenantQuotaDefaultsAndBounds(t *testing.T) {
+	cfg := DurableSessions{Enabled: true, ReportBucket: "runs", WorkerConcurrency: 4, ScanInterval: time.Second, LeaseTTL: time.Second}
+	require.Equal(t, 16, cfg.WithLifecycleDefaults().TenantConcurrency)
+	require.NoError(t, cfg.Validate())
+	for _, limit := range []int{-1, 10001} {
+		cfg.TenantConcurrency = limit
+		require.ErrorContains(t, cfg.Validate(), "tenant_concurrency")
+	}
+	cfg.TenantConcurrency = 1
+	require.NoError(t, cfg.Validate())
+}

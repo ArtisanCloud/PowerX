@@ -13,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type RunEventEmitter func(uint64, string, any) error
@@ -45,7 +46,7 @@ func (s *AdminRunService) ValidateSubscription(ctx context.Context, id string, c
 	if err != nil {
 		return err
 	}
-	run, err := s.Store.Get(ctx, row.TenantUUID.String(), row.Env, id)
+	run, _, err := s.readRunForSubscription(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -71,22 +72,46 @@ func (s *AdminRunService) Subscribe(ctx context.Context, id string, cursor uint6
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	lastAuth := time.Now()
+	var archived *agent_run.RunReport
 	for {
-		run, err := s.Store.Get(ctx, identity.TenantUUID, identity.Env, id)
+		var run agent_run.Snapshot
+		if archived != nil {
+			run = archived.Snapshot
+		} else {
+			run, archived, err = s.readRunForSubscription(ctx, row)
+		}
 		if err != nil {
 			return err
 		}
 		if cursor > run.EventSeq {
 			return agent_run.ErrInvalid
 		}
-		events, err := s.Store.Events(ctx, identity.TenantUUID, identity.Env, id, cursor, 100)
-		if err != nil && !errors.Is(err, agent_run.ErrEventCursorExpired) {
-			return err
-		}
-		// 每次重连均发送当前任务快照，避免游标裁剪或断线落在一组快照中间。
-		tasks, err := s.Store.ListTasks(ctx, run, run.PlanRevision)
-		if err != nil {
-			return err
+		var events []agent_run.Event
+		var tasks []agent_run.TaskSnapshot
+		if archived != nil {
+			for _, event := range archived.Events {
+				if event.Seq > cursor {
+					events = append(events, event)
+					if len(events) == 100 {
+						break
+					}
+				}
+			}
+			for _, task := range archived.Tasks {
+				if task.Revision == run.PlanRevision {
+					tasks = append(tasks, task)
+				}
+			}
+		} else {
+			events, err = s.Store.Events(ctx, identity.TenantUUID, identity.Env, id, cursor, 100)
+			if err != nil && !errors.Is(err, agent_run.ErrEventCursorExpired) {
+				return err
+			}
+			// 每次重连均发送当前任务快照，避免断线落在快照中间。
+			tasks, err = s.Store.ListTasks(ctx, run, run.PlanRevision)
+			if err != nil {
+				return err
+			}
 		}
 		if len(events) == 0 {
 			cursor = run.EventSeq
@@ -109,18 +134,34 @@ func (s *AdminRunService) Subscribe(ctx context.Context, id string, cursor uint6
 			}
 		}
 		if adminTerminal(run.Status) && cursor >= run.EventSeq {
-			if err := s.FinalizeRun(ctx, run); err != nil {
-				return err
+			// 重新生成可裁剪旧助手消息，但已失败 Run 的权威终态仍有效。
+			// 不把这种历史消息缺失当成可重连的存储故障。
+			emitMissingFailure := func() error {
+				if err := emit(0, dto.EventAgentRunEnded, dto.AgentRunEvent{RunID: id, Event: dto.EventAgentRunEnded, Payload: map[string]any{"status": run.Status, "success": false}}); err != nil {
+					return err
+				}
+				return emit(0, dto.EventEnd, map[string]any{"success": false})
+			}
+			if archived == nil {
+				if err := s.FinalizeRun(ctx, run); err != nil {
+					return err
+				}
 			}
 			current, err := s.repo.Get(ctx, row.TenantUUID, row.Env, row.UUID)
 			if err != nil {
 				return err
 			}
 			if current.AssistantMessageUUID == nil {
+				if run.Status == "failed" || run.Status == "cancelled" {
+					return emitMissingFailure()
+				}
 				return fmt.Errorf("admin result message unavailable")
 			}
 			message, err := s.repo.Message(ctx, row.TenantUUID, row.Env, *current.AssistantMessageUUID)
 			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) && (run.Status == "failed" || run.Status == "cancelled") {
+					return emitMissingFailure()
+				}
 				return err
 			}
 			// 完成消息已入库；流只投影同一条消息，不经过旧 HistorySink 再次保存。
@@ -170,4 +211,20 @@ func (s *AdminRunService) WaitResult(ctx context.Context, id string) (map[string
 		return nil
 	})
 	return result, err
+}
+
+// readRunForSubscription 只在热状态不存在且已完成归档时读取对象；Redis 故障不能伪装成过期。
+func (s *AdminRunService) readRunForSubscription(ctx context.Context, row *model.AdminRunAdmission) (agent_run.Snapshot, *agent_run.RunReport, error) {
+	run, err := s.Store.Get(ctx, row.TenantUUID.String(), row.Env, row.UUID.String())
+	if !errors.Is(err, agent_run.ErrNotFound) || row.ArchivedAt == nil || row.ArchiveKey == "" || row.FinishedAt == nil {
+		return run, nil, err
+	}
+	report, err := agent_run.ReadRunReport(ctx, adminIdentity(row), s.Objects)
+	if err != nil {
+		return agent_run.Snapshot{}, nil, err
+	}
+	if report.Snapshot.Status != row.Status {
+		return agent_run.Snapshot{}, nil, agent_run.ErrConflict
+	}
+	return report.Snapshot, &report, nil
 }

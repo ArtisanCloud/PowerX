@@ -25,14 +25,16 @@ type RunStateSnapshot struct {
 
 // RunSubscription is an authorized reader for one admitted Run.
 type RunSubscription struct {
-	store     RunEventStore
-	finalize  func(context.Context, agent_run.Snapshot) error
-	tenant    string
-	env       string
-	runID     string
-	sessionID string
-	messageID string
-	traceID   string
+	store       RunEventStore
+	finalize    func(context.Context, agent_run.Snapshot) error
+	tenant      string
+	env         string
+	runID       string
+	sessionID   string
+	messageID   string
+	traceID     string
+	archiveLoad func(context.Context) (agent_run.RunReport, error)
+	archive     *agent_run.RunReport
 }
 
 // ConfigureRunEvents is used when the matching durable admission and Worker
@@ -72,8 +74,12 @@ func (s *Service) OpenRunSubscription(ctx context.Context, sessionID, runID uuid
 	if s.finalOutput != nil {
 		finalize = s.FinalizeRun
 	}
-	return &RunSubscription{store: s.runEvents, finalize: finalize, tenant: owner.TenantUUID.String(), env: s.runEnv,
-		runID: runID.String(), sessionID: sessionID.String(), messageID: anchor.MessageUUID.String(), traceID: anchor.TraceUUID.String()}, nil
+	sub := &RunSubscription{store: s.runEvents, finalize: finalize, tenant: owner.TenantUUID.String(), env: s.runEnv,
+		runID: runID.String(), sessionID: sessionID.String(), messageID: anchor.MessageUUID.String(), traceID: anchor.TraceUUID.String()}
+	if s.archiveObjects != nil && anchor.FinishedAt != nil && anchor.ArchivedAt != nil {
+		sub.archiveLoad = func(ctx context.Context) (agent_run.RunReport, error) { return s.readArchivedInvocation(ctx, anchor) }
+	}
+	return sub, nil
 }
 
 // RunEvents opens and reads one authorized page. Use a subscription for SSE.
@@ -91,14 +97,14 @@ func (sub *RunSubscription) Read(ctx context.Context, afterSeq uint64, limit int
 	if sub == nil || limit < 1 || limit > 1000 {
 		return agent_run.Snapshot{}, nil, ErrInvalid
 	}
-	run, err := sub.store.Get(ctx, sub.tenant, sub.env, sub.runID)
+	run, err := sub.getRun(ctx)
 	if err != nil {
 		return agent_run.Snapshot{}, nil, ErrDependency
 	}
 	if run.SessionID != sub.sessionID || run.MessageID != sub.messageID || run.TraceID != sub.traceID {
 		return agent_run.Snapshot{}, nil, ErrDependency
 	}
-	if durableTerminalStatus(run.Status) && sub.finalize != nil {
+	if durableTerminalStatus(run.Status) && sub.finalize != nil && sub.archive == nil {
 		if err := sub.finalize(ctx, run); err != nil {
 			return agent_run.Snapshot{}, nil, ErrDependency
 		}
@@ -106,7 +112,19 @@ func (sub *RunSubscription) Read(ctx context.Context, afterSeq uint64, limit int
 	if afterSeq > run.EventSeq {
 		return run, nil, ErrEventCursorExpired
 	}
-	events, err := sub.store.Events(ctx, sub.tenant, sub.env, sub.runID, afterSeq, limit)
+	var events []agent_run.Event
+	if sub.archive != nil {
+		for _, event := range sub.archive.Events {
+			if event.Seq > afterSeq {
+				events = append(events, event)
+				if int64(len(events)) == limit {
+					break
+				}
+			}
+		}
+	} else {
+		events, err = sub.store.Events(ctx, sub.tenant, sub.env, sub.runID, afterSeq, limit)
+	}
 	if errors.Is(err, agent_run.ErrEventCursorExpired) {
 		return run, nil, ErrEventCursorExpired
 	}
@@ -126,16 +144,25 @@ func (sub *RunSubscription) SnapshotState(ctx context.Context) (RunStateSnapshot
 		if err != nil && !errors.Is(err, ErrEventCursorExpired) {
 			return RunStateSnapshot{}, err
 		}
-		tasks, err := sub.store.ListTasks(ctx, run, run.PlanRevision)
+		var tasks []agent_run.TaskSnapshot
+		if sub.archive != nil {
+			for _, task := range sub.archive.Tasks {
+				if task.Revision == run.PlanRevision {
+					tasks = append(tasks, task)
+				}
+			}
+		} else {
+			tasks, err = sub.store.ListTasks(ctx, run, run.PlanRevision)
+		}
 		if err != nil {
 			return RunStateSnapshot{}, ErrDependency
 		}
-		latest, err := sub.store.Get(ctx, sub.tenant, sub.env, sub.runID)
+		latest, err := sub.getRun(ctx)
 		if err != nil {
 			return RunStateSnapshot{}, ErrDependency
 		}
 		if latest.Version == run.Version {
-			if durableTerminalStatus(run.Status) && sub.finalize != nil {
+			if durableTerminalStatus(run.Status) && sub.finalize != nil && sub.archive == nil {
 				if err := sub.finalize(ctx, run); err != nil {
 					return RunStateSnapshot{}, ErrDependency
 				}
@@ -144,4 +171,20 @@ func (sub *RunSubscription) SnapshotState(ctx context.Context) (RunStateSnapshot
 		}
 	}
 	return RunStateSnapshot{}, ErrDependency
+}
+
+func (sub *RunSubscription) getRun(ctx context.Context) (agent_run.Snapshot, error) {
+	if sub.archive != nil {
+		return sub.archive.Snapshot, nil
+	}
+	run, err := sub.store.Get(ctx, sub.tenant, sub.env, sub.runID)
+	if errors.Is(err, agent_run.ErrNotFound) && sub.archiveLoad != nil {
+		report, readErr := sub.archiveLoad(ctx)
+		if readErr != nil {
+			return agent_run.Snapshot{}, readErr
+		}
+		sub.archive = &report
+		return report.Snapshot, nil
+	}
+	return run, err
 }

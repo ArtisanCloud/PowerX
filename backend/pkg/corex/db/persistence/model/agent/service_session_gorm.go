@@ -54,15 +54,16 @@ type ServiceInvocation struct {
 	PluginID             string    `gorm:"size:128;not null"`
 	ServiceActor         string    `gorm:"size:256;not null"`
 	Status               string    `gorm:"size:16;not null"`
-	RunEnv               string    `gorm:"size:32"`
-	AdmissionState       string    `gorm:"size:24;index:idx_agent_service_recovery,priority:1"`
+	RunEnv               string    `gorm:"size:32;index:idx_agent_service_archive_backlog,priority:1"`
+	AdmissionState       string    `gorm:"size:24;index:idx_agent_service_recovery,priority:1;index:idx_agent_service_archive_backlog,priority:2"`
 	IdempotencyKey       string    `gorm:"size:128;not null;uniqueIndex:uk_agent_service_invocation_key,priority:2"`
 	RequestHash          string    `gorm:"size:64;not null"`
 	IdempotencyExpiresAt time.Time `gorm:"not null"`
 	CancelRequestedAt    *time.Time
+	HotExpiresAt         *time.Time     `gorm:"index"`
 	ArchiveKey           string         `gorm:"type:text"`
-	ArchivedAt           *time.Time     `gorm:"index"`
-	FinishedAt           *time.Time     `gorm:"index:idx_agent_service_recovery,priority:2"`
+	ArchivedAt           *time.Time     `gorm:"index;index:idx_agent_service_archive_backlog,priority:3"`
+	FinishedAt           *time.Time     `gorm:"index:idx_agent_service_recovery,priority:2;index:idx_agent_service_archive_backlog,priority:4"`
 	DeadlineAt           time.Time      `gorm:"not null"`
 	Output               string         `gorm:"type:text"`
 	ResponseEnvelope     datatypes.JSON `gorm:"type:jsonb"`

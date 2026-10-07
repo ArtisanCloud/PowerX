@@ -5,6 +5,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -189,6 +190,7 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 }
 
 type Deps struct {
+	RuntimeIdentity runtimeidentity.CoreInfo
 	RuntimeHostSvc  *runtimehost.Service
 	AgentSessionSvc *agentsession.Service
 	AgentRunWorker  *agent_run.WorkerService
@@ -450,6 +452,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Clock:    time.Now,
 	})
 
+	var knowledgeDeps *KnowledgeSpaceDeps
 	var capabilityCatalogSvc *capabilitycatalog.RegistryService
 	var capabilityInvocationSvc *capabilitycatalog.InvocationService
 	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
@@ -553,6 +556,13 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
 				metadatasvc.NewTagCapabilityInvoker(db),
+				runtimeidentity.NewInvoker(db, opts.RuntimeIdentity),
+				knowledgeService.NewProvisioningCapabilityInvoker(db, func() *knowledgeService.Service {
+					if knowledgeDeps == nil {
+						return nil
+					}
+					return knowledgeDeps.Service
+				}),
 			),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
@@ -625,7 +635,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
-	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
+	knowledgeDeps = newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -825,6 +835,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
+		RuntimeIdentity:                   opts.RuntimeIdentity,
 		AgentSessionSvc:                   agentsession.NewServiceWithExecutor(db, agentruntime.NewServiceSessionExecutor(db)),
 		RuntimeHostSvc:                    runtimehost.NewService(db, versionLockRedis),
 		DB:                                db,

@@ -6,7 +6,7 @@
 
 Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径。`output_mode=response_envelope` 的平台执行链路分为通用原文事实抽取、声明字段映射、声明式计划、工具执行、说明生成与报告封装。模型不能临时创造公式、倒置分子分母或修改百分比尺度。Core 的 `pkg/corex/agent/evidence` 解释配置并执行通用计算，最终生成 `powerx.agent.response/v4`。这里没有营销 Skill/Agent/Team 标识分支。
 
-1. 平台从明确声明的 evidence_sources 生成通用原文数值片段。模型先提交 `powerx.agent.evidence-facts/v1`，每项只能选择 token_ref，并以原文 quote 中出现的短语命名；平台从 token 回填数值和单位。该层保留任意明确数值业务陈述为 `reported`，但不授予计算资格。
+1. 平台从明确声明的 evidence_sources 生成通用原文数值片段。模型先提交 `powerx.agent.evidence-facts/v2`，facts 为平台 token key 索引的对象，每个可命名 token 都列入 required；每项只有受原文枚举约束的 label 和 scope，禁止省略已提供的事实。平台从 token 回填数值和单位，漏项或未声明项明确失败。该层保留任意明确数值业务陈述为 `reported`，但不授予计算资格。
 2. 平台再按 policy.unit_tokens、字段证据词和活动画像生成受控候选片段。模型提交 `powerx.agent.evidence-source/v1`（schema、data），其中 data 是以 policy.input_fields 的字段 key 为键的对象；每个值只选择 token_ref 和 scope，不能填写或修改数字、单位。
 3. 平台按已发布的 calculation_policy 生成内部计划。公式、bindings、precision、percent、compare_to 来自 Skill Revision，不由模型生成。只有触发条件成立且操作数齐全时执行；缺操作数进入明确缺口，禁止反造人数。
 4. 平台组装内部 `response-draft/v1` 调用纯计算工具，产生数值、冲突和真实凭证。模型不提交 display_value。
@@ -50,7 +50,7 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 - `activity_profiles`：每项 `key/label_i18n/evidence_any_i18n`。平台只在声明来源中按这些词面确定适用业务类型；模型不能把交易/留存材料改判为线索活动。无 profile 命中时不套用最近似模板、不产生声明公式；已抽取的通用原文事实仍保留。
 - `input_fields`：每项 `key/kind/unit_tokens/label_i18n/description_i18n/evidence_terms_i18n/applies_to`。`evidence_terms_i18n` 是字段的原文上下文约束；候选 token 必须同时符合单位与字段词面，`applies_to` 必须指向已激活 profile。单位相同不代表业务语义相同，例如“6个月”不能成为“6个访问”。
 - `formulas`：每项 `key/label_i18n/expression/bindings/precision/percent/compare_to/when_any_present/applies_to` 全部必填。公式只在其 `applies_to` 与当前 profile 相交时才会进入计划。bindings 从表达式变量映射到 quantity 字段；compare_to 是 reported 字段或空字符串。
-- `when_any_present`：任何所列字段在**同一适用 profile 的合格证据**中存在，才考虑该公式；全部不存在表示该公式不适用于这次输入，不引入无关缺口。条件成立但缺少绑定操作数时不执行，交给说明阶段明确补数；说明完全忽略缺口会失败。
+- `when_any_present`：任何所列字段在**同一适用 profile 的合格证据**中存在，才考虑该公式；全部不存在表示该公式不适用于这次输入，不引入无关缺口。条件成立但缺少绑定操作数时不执行，交给说明阶段明确补数；说明完全忽略缺口会失败。说明阶段的 gaps 只能从平台按 missing_inputs 生成的 allowed_gaps 中选择，并覆盖全部缺口；没有缺失操作数时 gaps 必须为空，不能把已提供数据或定义核实事项改写为补数要求。
 - 发布、可运行绑定和执行前校验 profile、字段、公式、类型、公式白名单、精度和 locale。V1 或缺少以上字段的策略明确报 `skill.calculation_policy_invalid`；必须升级 Skill Revision 后重新发布，不能退回模型自由编公式。
 
 该策略是 **PowerX 执行扩展**，不是把业务写入 Core：`SKILL.md` 仍可作为 Claude Code、Codex 等生态共同可读的包核心；可执行的 PowerX 能力放在 `powerx/manifest.json` 的 executor 扩展中。Core 只解释这个公开、版本化的声明，不识别营销、团队或 Agent 标识。外部仅含 `SKILL.md` 的包可作为 `instruction_only` Draft 导入；未补全 PowerX executor、权限与策略前不得执行。
@@ -91,3 +91,17 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 - 定向后端测试、前端 5 项测试、前端构建已通过。Runtime 全包曾在 `TestEngineInitialTaskExtractsRequiredSlotsFromUserMessage` 失败，但该测试单独连续 5 次通过；全包不能标为全绿，需另行定位共享状态/顺序影响。
 
 下一验收门槛是更多真实输入的字段与口径判断、完整团队真实运行、刷新后内容与状态一致，以及外部插件工具生产接线。当前两组成功不证明这些剩余门槛完成。
+
+## 2026-10-06 事实覆盖率回归
+
+营销 SaaS 原材料已保存为 `backend/tests/fixtures/agent_runtime/marketing_review_saas.txt`。事实 v2 的 required 对象覆盖全部可命名数值；计算字段同样要求覆盖 Schema 中所有合格候选字段。字段匹配只看数值所在短句，按 Skill 声明的 evidence_terms 长词优先，区分 GMV 与增量 GMV，避免同邻近上下文里的金额串位。数值 token 保留词面位置，去重区分不同来源短句，不能合并两个渠道的同值陈述。范围上下界保留原单位，日期/编号不成为指标，通用 reported 仍不获得计算资格。
+
+原 Run `b8612aff-646c-4e55-acba-3da8e15d49f3` 的已发布 calculation_policy 与种子一致；本次不修改已发布 Skill Revision 或历史报告。新内部事实阶段明确使用 v2，不能静默接受 v1 子集输出。回归要求保留 GMV、ROI、增量 GMV、复购率、渠道 ROI、点击率、下单转化率及客单价上下界；按已声明规则复算两项比值，识别一处复算口径冲突，真实缺口为复购率复算所需原始客户数量。它不独立验证原文增量归因。
+
+可选真实 Ollama 检查（读取私有配置、共享当前 Redis 物理模型池，不写业务记录、不重放历史 Run）：
+
+```sh
+(cd backend && POWERX_TEST_EVIDENCE_RUNTIME_CONFIG="$PWD/etc/config.yaml" go test ./internal/service/skills -run '^TestRealOllamaEvidenceSaaSReview$' -count=1 -v)
+```
+
+该检查使用已发布模型参数一致的非思考模式和 4096 输出上限，温度显式设为零以检查契约。它证明真实模型能完成新协议，不代替重启正式后台后页面重试的端到端验收。

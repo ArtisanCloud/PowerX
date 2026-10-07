@@ -151,6 +151,8 @@ func resolveKnowledgeHostDevPermissions(ctx context.Context, db *gorm.DB) ([]mod
 	const module = "knowledge_space"
 	wantedScopes := map[string]struct{}{
 		"_scope.knowledge.directory.read":  {},
+		"_scope.knowledge.catalog.read":    {},
+		"_scope.knowledge.space.create":    {},
 		"_scope.knowledge.search.read":     {},
 		"_scope.knowledge.document.manage": {},
 	}

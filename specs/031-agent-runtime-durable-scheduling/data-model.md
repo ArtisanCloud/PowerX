@@ -1,6 +1,6 @@
 # Data Model: Agent Run 持久化调度
 
-**Status**: Proposed；字段为目标合同，尚非现有数据库/Redis schema。
+**Status**: Implementing；下表保留目标合同，已落地字段和恢复边界见实施补充。
 
 | 实体 | 关键字段 | 权威与保留 |
 | --- | --- | --- |
@@ -27,3 +27,17 @@ ExecutionReceipt 是 Worker 防止自动重复调用的运行记录，不等于�
 `ServiceInvocation` 保留低频 `run_env/admission_state` 受理锚点，新增 `response_envelope` JSONB；`ServiceMessage` 同样新增可空 `response_envelope`。任务状态、续租和事件仍只写 Redis。唯一 assistant 消息沿用 `invoke:<invocation_uuid>` 幂等键，并与 invocation `finished_at/status/output/response_envelope` 在父会话事务锁内提交。恢复扫描仅查询当前部署环境、`admission_state=admitted` 且 `finished_at IS NULL` 的锚点。
 
 终态结果对象中 `durable_response_verified=true` 仅由 ManagerTaskInvoker 在本次可信账本校验成功后设置，不能接受调用方自行声明。恢复器按计划/任务/尝试的对象引用和 SHA-256 校验读取报告，不重跑生成器。取消保留原执行标记与回执；没有执行完成回执的在途任务携带 `manual_review_required`，旧 Worker 无权覆盖取消终态。
+
+## 实施补充：低频归档索引与共享健康
+
+管理端 `agent_admin_run_admissions` 与服务会话 `agent_service_invocations` 均保存 `archive_key`、`archived_at`、`hot_expires_at`。前三个阶段分别是对象读回校验、业务数据库定位提交、Redis 绝对到期设置及确认。`finished_at` 已有值但归档/到期确认尚缺时仍进入恢复扫描；这些字段不承载心跳或 token 状态。环境/受理状态/归档时间/终态时间复合索引用于低频积压聚合。
+
+共享 Redis 健康记录包含待归档数量、最老终态时间、观测时间、阈值判断和配置指纹，TTL 为三倍扫描间隔。无有效共享健康记录时新受理失败关闭，已受理的读订阅不受容量门禁影响。TaskBus 在租户/订阅者分片保存 Run 退休标记，阻止归档后迟到投递复活。
+
+## 2026-10-04 共享执行配额与计划预算实际字段
+
+- 环境策略键：`agent:scheduling:{<env>}:policy`，固定 `tenant_limit:run_limit:lease_ms`，启动发布并校验，配置漂移失败关闭；不写 PostgreSQL。
+- 槽键：`agent:execution:{<tenant_uuid>:<env>}:tenant`、`:run:<run_id>` 为 token → Redis TIME 毫秒到期时间的 ZSET；同分片 Lua 原子检查两级额度并取得槽。局部 `:policy` 约束活动租约策略一致。槽键和局部策略在最后续租后 2×TTL 到期，避免完成 Run 留下永久空键；环境策略无自动 TTL。
+- ExecuteLease 为内部受限 Run 身份和随机 token。按 TTL/3 同时续租两级槽，过期不能复活。业务结果仍按既有 TaskBus/RunStore fence 写回；容量租约不是副作用幂等凭证。
+- 新 Plan 的 `budget` 固化 `max_steps/max_capability_calls`，TaskDefinition 增加 `node_kind`，预算随不可变修订和归档一起保留。先预留整张 DAG 的节点额度，执行重建并核对；旧 Plan 缺省字段保持兼容。模型 token/费用及嵌套调用不包含在这两个字段中。
+- Task 状态事件增加 `queue_reason`。容量等待只在原因变化时 CAS 写事件，不修改原排队时间或 attempt；TaskBus 的延后等待不递增投递失败次数。

@@ -95,3 +95,37 @@ func TestWorkerServiceRecoversAcceptedRunAndRetriesFinalization(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "completed", run.Status)
 }
+
+type archiveRecoveryLocator struct {
+	identity   Snapshot
+	recovered  bool
+	maintained bool
+}
+
+func (l *archiveRecoveryLocator) ListUnfinishedRuns(context.Context, uint64, int) ([]LocatedRun, error) {
+	return []LocatedRun{{Cursor: 1, Identity: l.identity}}, nil
+}
+func (l *archiveRecoveryLocator) FinalizeRun(context.Context, Snapshot) error {
+	return errors.New("unexpected reexecution finalization")
+}
+func (l *archiveRecoveryLocator) MaintainRuns(context.Context) error { l.maintained = true; return nil }
+func (l *archiveRecoveryLocator) RecoverArchivedRun(context.Context, Snapshot) (bool, error) {
+	l.recovered = true
+	return true, nil
+}
+func TestWorkerScannerConfirmsExpiredArchivedRunWithoutRecreatingState(t *testing.T) {
+	ctx := context.Background()
+	client := redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	store, _ := NewRedisStore(client)
+	queue, _ := event_bus.NewRedisStreamTaskDriver(client, time.Second)
+	locator := &archiveRecoveryLocator{identity: Snapshot{TenantUUID: uuid.NewString(), Env: "dev", RunID: uuid.NewString(), SessionID: uuid.NewString(), MessageID: uuid.NewString(), TraceID: uuid.NewString(), Status: "accepted", DeadlineAt: time.Now().Add(time.Hour)}}
+	worker := &WorkerService{Store: store, Queue: queue, Locator: locator, OnError: func(err error) { t.Error(err) }}
+	scopes, err := worker.scan(ctx)
+	require.NoError(t, err)
+	require.Empty(t, scopes)
+	require.True(t, locator.maintained)
+	require.True(t, locator.recovered)
+	_, err = store.Get(ctx, locator.identity.TenantUUID, locator.identity.Env, locator.identity.RunID)
+	require.ErrorIs(t, err, ErrNotFound)
+}

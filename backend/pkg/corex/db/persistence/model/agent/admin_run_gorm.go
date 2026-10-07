@@ -12,7 +12,7 @@ const TableAdminRunAdmission = "agent_admin_run_admissions"
 type AdminRunAdmission struct {
 	coremodel.PowerUUIDModel
 	TenantUUID           uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:uk_agent_admin_run_request,priority:1"`
-	Env                  string     `gorm:"size:32;not null;uniqueIndex:uk_agent_admin_run_request,priority:2;index:idx_agent_admin_run_recovery,priority:1"`
+	Env                  string     `gorm:"size:32;not null;uniqueIndex:uk_agent_admin_run_request,priority:2;index:idx_agent_admin_run_recovery,priority:1;index:idx_agent_admin_archive_backlog,priority:1"`
 	SessionUUID          uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:uk_agent_admin_run_request,priority:3"`
 	MessageUUID          uuid.UUID  `gorm:"type:uuid;not null"`
 	AgentUUID            uuid.UUID  `gorm:"type:uuid;not null"`
@@ -27,11 +27,12 @@ type AdminRunAdmission struct {
 	TraceUUID            uuid.UUID  `gorm:"type:uuid;not null"`
 	SnapshotUUID         uuid.UUID  `gorm:"type:uuid;not null"`
 	Status               string     `gorm:"size:24;not null"`
-	AdmissionState       string     `gorm:"size:24;not null;index:idx_agent_admin_run_recovery,priority:2"`
+	AdmissionState       string     `gorm:"size:24;not null;index:idx_agent_admin_run_recovery,priority:2;index:idx_agent_admin_archive_backlog,priority:2"`
 	DeadlineAt           time.Time  `gorm:"not null"`
+	HotExpiresAt         *time.Time `gorm:"index"`
 	ArchiveKey           string     `gorm:"type:text"`
-	ArchivedAt           *time.Time `gorm:"index"`
-	FinishedAt           *time.Time `gorm:"index:idx_agent_admin_run_recovery,priority:3"`
+	ArchivedAt           *time.Time `gorm:"index;index:idx_agent_admin_archive_backlog,priority:3"`
+	FinishedAt           *time.Time `gorm:"index:idx_agent_admin_run_recovery,priority:3;index:idx_agent_admin_archive_backlog,priority:4"`
 	AssistantMessageUUID *uuid.UUID `gorm:"type:uuid"`
 }
 

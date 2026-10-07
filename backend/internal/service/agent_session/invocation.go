@@ -95,6 +95,11 @@ func (s *Service) Invoke(ctx context.Context, id, messageID uuid.UUID, key strin
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
+		if s.admissionGate != nil {
+			if err := s.admissionGate(ctx); err != nil {
+				return err
+			}
+		}
 		if session.Status != "active" {
 			return ErrConflict
 		}
@@ -286,7 +291,7 @@ func (s *Service) GetInvocation(ctx context.Context, sessionID, id uuid.UUID) (I
 		if s.durableRuns == nil || run.AdmissionState != "admitted" || run.RunEnv != s.runEnv {
 			return Invocation{}, ErrDependency
 		}
-		current, err := s.durableRuns.Get(ctx, owner.TenantUUID.String(), run.RunEnv, run.UUID.String())
+		current, err := s.invocationSnapshot(ctx, run)
 		if err != nil || current.SessionID != sessionID.String() || current.MessageID != run.MessageUUID.String() ||
 			current.TraceID != run.TraceUUID.String() || !current.DeadlineAt.Equal(run.DeadlineAt) {
 			return Invocation{}, ErrDependency

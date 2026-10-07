@@ -2,6 +2,7 @@
 """本机 Agent Runtime 依赖启动与预检；凭据只从私有配置读取，不输出。"""
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -16,6 +17,47 @@ import uuid
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def runtime_redis(c):
+    """匹配 Bootstrap 的 Event Fabric -> Queue -> Cache 连接回退规则。"""
+    fabric = c.get('event', {}).get('fabric', {})
+    queue = c.get('queue', {}).get('redis', {})
+    cache = c.get('cache', {})
+    address = (fabric.get('redis_addr') or queue.get('addr') or
+               f"{cache.get('host', '127.0.0.1')}:{cache.get('port', 6379)}")
+    password = fabric.get('redis_password') or queue.get('password') or cache.get('password')
+    database = fabric.get('redis_db') or queue.get('db') or 0
+    host, port = address.rsplit(':', 1)
+    env = os.environ.copy()
+    if password:
+        env['REDISCLI_AUTH'] = password
+    def call(*args):
+        return subprocess.check_output(['redis-cli', '-h', host, '-p', port, '-n', str(database),
+                                        '--raw', *args], env=env, text=True, timeout=10).strip()
+    return call, database
+
+
+def worker_health(c):
+    """读取权威 Redis 状态，避免仅凭 HTTP 健康误判持久化分支已经启用。"""
+    from datetime import datetime, timezone
+    if not c.get('ai', {}).get('runtime', {}).get('durable_sessions', {}).get('enabled'):
+        raise RuntimeError('当前配置未启用 durable_sessions')
+    redis, database = runtime_redis(c)
+    raw = redis('GET', 'agent:archive:{' + c['deployment']['env'] + '}:health')
+    if not raw:
+        raise RuntimeError('Redis 中缺少归档健康状态；检查持久化 Worker 和实际 Redis DB')
+    health = json.loads(raw)
+    observed = datetime.fromisoformat(health['observed_at'].replace('Z', '+00:00'))
+    age = (datetime.now(timezone.utc) - observed).total_seconds()
+    health_ttl = int(health['policy'].split(':')[-1]) / 1_000_000_000
+    ttl = int(redis('PTTL', 'agent:archive:{' + c['deployment']['env'] + '}:health'))
+    if age < 0 or age >= health_ttl or ttl <= 0:
+        raise RuntimeError('归档健康状态已失效或时钟异常')
+    if health.get('blocked'):
+        raise RuntimeError('归档积压门禁阻止新受理：archive.backpressure')
+    print(f'持久化 Redis DB={database}，归档健康状态有效，pending={health["pending"]}，age={age:.1f}s')
+    return health
 
 
 def config(path):
@@ -82,16 +124,7 @@ def minio(c, data):
 
 
 def check(c, create):
-    fabric = c['event']['fabric']
-    address = fabric['redis_addr']
-    host, port = address.rsplit(':', 1)
-    env = os.environ.copy()
-    password = fabric.get('redis_password')
-    if password:
-        env['REDISCLI_AUTH'] = password
-    def redis(*args):
-        return subprocess.check_output(['redis-cli', '-h', host, '-p', port, '--raw', *args],
-                                       env=env, text=True, timeout=10).strip()
+    redis, _ = runtime_redis(c)
     for name, expected in [('appendonly', 'yes'), ('maxmemory-policy', 'noeviction')]:
         if redis('CONFIG', 'GET', name).splitlines()[-1] != expected:
             raise RuntimeError(f'Redis {name} 必须为 {expected}')
@@ -132,6 +165,8 @@ def check(c, create):
 def prepare(c, dest, port):
     if Path(dest).resolve() == (ROOT / 'etc/config.yaml').resolve():
         raise RuntimeError('请指定独立联调配置；正式配置启用需在重启节点处理')
+    if port < 1024 or port > 65533 or port <= 8077 <= port + 2:
+        raise RuntimeError('联调端口必须在 1024..65533 且不能占用正式 8077')
     r = c.setdefault('ai', {}).setdefault('runtime', {})
     r['durable_sessions'] = dict(enabled=True, admin_chat_enabled=True, report_bucket='powerx-agent-runs',
                                  worker_concurrency=4, scan_interval='5s', lease_ttl='30s')
@@ -163,7 +198,7 @@ def core(c, path, binary):
     grpc_port = c['server']['grpc']['port']
     if port == 8077:
         raise RuntimeError('联调命令要求独立 HTTP 端口；正式后台重启使用原启动方式')
-    for value in (port, grpc_port):
+    for value in (port, grpc_port, c['agent']['port']):
         with socket.socket() as sock:
             if sock.connect_ex(('127.0.0.1', value)) == 0:
                 raise RuntimeError(f'端口 {value} 已被占用')
@@ -200,6 +235,7 @@ def core(c, path, binary):
             time.sleep(1)
         if not ready:
             raise RuntimeError('Core 启动健康检查超时；查看私有启动日志')
+        worker_health(c)
         print('持久化 Core 启动和 HTTP 健康检查通过', flush=True)
         return child.wait()
     finally:
@@ -221,6 +257,7 @@ def main():
     server.add_argument('--binary', required=True)
     k = commands.add_parser('check')
     k.add_argument('--create-bucket', action='store_true')
+    commands.add_parser('worker-health')
     args = parser.parse_args()
     c = config(args.config)
     if args.command == 'minio':
@@ -229,6 +266,8 @@ def main():
         return core(c, args.config, args.binary)
     if args.command == 'prepare-config':
         prepare(c, args.output, args.port)
+    elif args.command == 'worker-health':
+        worker_health(c)
     else:
         check(c, args.create_bucket)
     return 0

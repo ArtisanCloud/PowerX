@@ -2,7 +2,9 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	"strconv"
 	"strings"
 	"time"
@@ -62,5 +64,16 @@ func (h *AgentChatHandler) subscribeDurableRun(c *gin.Context, id string) {
 		// 订阅失败只关闭连接，客户端用相同 Run 和游标续订。
 		c.SSEvent("agent_run.subscription_interrupted", gin.H{"run_id": id, "retryable": true})
 		c.Writer.Flush()
+	}
+}
+
+func archiveAdmissionError(err error) (string, string, int) {
+	switch {
+	case errors.Is(err, agent_run.ErrArchiveBackpressure):
+		return agent_run.ErrArchiveBackpressure.Error(), "运行归档积压已达到容量阈值，请稍后重试。", 429
+	case errors.Is(err, agent_run.ErrArchiveHealthStale):
+		return agent_run.ErrArchiveHealthStale.Error(), "运行存储健康状态暂不可用，请稍后重试。", 503
+	default:
+		return "agent_run.admission_failed", "运行受理失败，请查看运行追踪。", 503
 	}
 }

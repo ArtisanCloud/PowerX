@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"strings"
 	"time"
 
@@ -183,6 +184,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 
 	opts := &shared.DepsOptions{
+		RuntimeIdentity: runtimeidentity.CoreInfo{Version: cfg.EffectiveSystemVersion(), DeploymentEnv: cfg.Deployment.Env, Ready: config.ValidateDeploymentEnv(cfg.Deployment.Env) == nil, Manager: runtimeIdentityManager},
 		AuthUser: auth.AuthOptions{
 			JWTSecret:  []byte(cfg.Auth.JWTSecret),
 			Issuer:     cfg.Auth.Issuer,

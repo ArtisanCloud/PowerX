@@ -1,0 +1,22 @@
+{
+ "zh-CN": {
+  "HEALTH_PLUGIN_QUERY_UNSUPPORTED": "插件版本查询需要授权，请使用运行身份服务接口。",
+  "RUNTIME_IDENTITY_INVALID_ARGUMENT": "运行身份查询参数无效。",
+  "RUNTIME_IDENTITY_UNAUTHORIZED": "运行身份查询凭证无效。",
+  "RUNTIME_IDENTITY_FORBIDDEN": "当前凭证未获授权查询此插件。",
+  "RUNTIME_IDENTITY_UNAVAILABLE": "Core 运行身份服务暂时不可用。",
+  "RUNTIME_IDENTITY_PLUGIN_NOT_FOUND": "插件未注册。",
+  "RUNTIME_IDENTITY_VERSION_UNAVAILABLE": "插件注册版本不可用。",
+  "RUNTIME_IDENTITY_STATE_UNAVAILABLE": "无法确认插件进程状态。"
+ },
+ "en-US": {
+  "HEALTH_PLUGIN_QUERY_UNSUPPORTED": "Plugin version queries require the authorized runtime identity service.",
+  "RUNTIME_IDENTITY_INVALID_ARGUMENT": "Invalid runtime identity request.",
+  "RUNTIME_IDENTITY_UNAUTHORIZED": "Invalid runtime identity credential.",
+  "RUNTIME_IDENTITY_FORBIDDEN": "This credential cannot query this plugin.",
+  "RUNTIME_IDENTITY_UNAVAILABLE": "Core runtime identity is unavailable.",
+  "RUNTIME_IDENTITY_PLUGIN_NOT_FOUND": "The plugin is not registered.",
+  "RUNTIME_IDENTITY_VERSION_UNAVAILABLE": "The plugin registry version is unavailable.",
+  "RUNTIME_IDENTITY_STATE_UNAVAILABLE": "The plugin process state cannot be verified."
+ }
+}

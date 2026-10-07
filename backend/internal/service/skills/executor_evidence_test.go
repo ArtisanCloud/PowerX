@@ -3,6 +3,7 @@ package skills
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
@@ -32,9 +33,8 @@ func TestManifestEvidenceUsesToolAndIgnoresBusinessIdentity(t *testing.T) {
 				return string(b), err
 			}
 			if calls == 1 {
-				require.Equal(t, evidence.GenericFactsSchema, in.ResponseSchema["properties"].(map[string]any)["schema"].(map[string]any)["const"])
-				b, err := json.Marshal(evidence.GenericFactSelection{Schema: evidence.GenericFactsSchema, Facts: []evidence.GenericFactChoice{}})
-				return string(b), err
+				require.Equal(t, evidence.GenericFactInventorySchema, in.ResponseSchema["properties"].(map[string]any)["schema"].(map[string]any)["const"])
+				return fixtureFactsInventory(in.ResponseSchema), nil
 			}
 			require.Equal(t, evidence.ExtractionSchema, in.ResponseSchema["properties"].(map[string]any)["schema"].(map[string]any)["const"])
 			b, err := json.Marshal(evidence.SourceSelection{Schema: evidence.ExtractionSchema, Data: map[string]evidence.SelectedValue{"a": {Scope: "s", TokenRef: "token_0"}, "b": {Scope: "s", TokenRef: "token_1"}}})
@@ -56,8 +56,7 @@ func TestManifestEvidencePreservesUnlistedNumericFactWithoutCalculatingIt(t *tes
 		calls++
 		switch calls {
 		case 1:
-			b, err := json.Marshal(evidence.GenericFactSelection{Schema: evidence.GenericFactsSchema, Facts: []evidence.GenericFactChoice{{Label: "dwell time", Scope: "campaign", TokenRef: "token_2"}}})
-			return string(b), err
+			return fixtureFactsInventory(in.ResponseSchema), nil
 		case 2:
 			b, err := json.Marshal(evidence.SourceSelection{Schema: evidence.ExtractionSchema, Data: map[string]evidence.SelectedValue{"a": {Scope: "campaign", TokenRef: "token_0"}, "b": {Scope: "campaign", TokenRef: "token_1"}}})
 			return string(b), err
@@ -82,8 +81,7 @@ func TestManifestEvidencePreservesGenericFactWhenNoCalculationProfileMatches(t *
 		calls++
 		switch calls {
 		case 1:
-			b, err := json.Marshal(evidence.GenericFactSelection{Schema: evidence.GenericFactsSchema, Facts: []evidence.GenericFactChoice{{Label: "dwell time", Scope: "live room", TokenRef: "token_0"}}})
-			return string(b), err
+			return fixtureFactsInventory(in.ResponseSchema), nil
 		case 2:
 			properties := in.ResponseSchema["properties"].(map[string]any)["data"].(map[string]any)["properties"].(map[string]any)
 			require.Empty(t, properties)
@@ -101,10 +99,10 @@ func TestManifestEvidencePreservesGenericFactWhenNoCalculationProfileMatches(t *
 
 func TestManifestEvidenceSelectionFailureCarriesTraceDetails(t *testing.T) {
 	calls := 0
-	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, _ ManifestLLMInvocation) (string, error) {
+	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
 		calls++
 		if calls == 1 {
-			return `{"schema":"powerx.agent.evidence-facts/v1","facts":[]}`, nil
+			return fixtureFactsInventory(in.ResponseSchema), nil
 		}
 		return `{"schema":"powerx.agent.evidence-source/v1","data":{"unknown":{"scope":"s","token_ref":"token_0"}}}`, nil
 	}})
@@ -156,4 +154,112 @@ func TestExternalToolDependencyRequiresExplicitChecker(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, called)
+}
+
+func fixtureFactsInventory(schema map[string]any) string {
+	properties := schema["properties"].(map[string]any)["facts"].(map[string]any)["properties"].(map[string]any)
+	facts := map[string]any{}
+	for key, value := range properties {
+		labels := value.(map[string]any)["properties"].(map[string]any)["label"].(map[string]any)["enum"].([]string)
+		facts[key] = map[string]any{"label": labels[0], "scope": "campaign"}
+	}
+	b, _ := json.Marshal(map[string]any{"schema": evidence.GenericFactInventorySchema, "facts": facts})
+	return string(b)
+}
+
+func TestManifestEvidenceKeepsFullSaaSReviewAndCalculatesDeclaredRatios(t *testing.T) {
+	article, err := os.ReadFile("../../../tests/fixtures/agent_runtime/marketing_review_saas.txt")
+	require.NoError(t, err)
+	policyBytes, err := os.ReadFile("../../../cmd/database/seed/locales/marketing_calculation_policy.json")
+	require.NoError(t, err)
+	var policy map[string]any
+	require.NoError(t, json.Unmarshal(policyBytes, &policy))
+	manifest := evidenceDefinition()
+	manifest["executor"].(map[string]any)["prompt_template_i18n"] = map[string]any{"zh-CN": "test"}
+	manifest["executor"].(map[string]any)["calculation_policy"] = policy
+	calls := 0
+	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
+		calls++
+		if calls == 1 {
+			return fixtureFactsInventory(in.ResponseSchema), nil
+		}
+		if calls == 2 {
+			dataSchema := in.ResponseSchema["properties"].(map[string]any)["data"].(map[string]any)
+			props := dataSchema["properties"].(map[string]any)
+			require.ElementsMatch(t, []string{"spend", "gmv", "incremental_gmv", "reported_roi", "reported_incremental_roi", "reported_repeat_rate"}, dataSchema["required"])
+			data := map[string]any{}
+			for key, value := range props {
+				refs := value.(map[string]any)["properties"].(map[string]any)["token_ref"].(map[string]any)["enum"].([]string)
+				require.Len(t, refs, 1, key)
+				data[key] = map[string]any{"scope": "campaign", "token_ref": refs[0]}
+			}
+			b, _ := json.Marshal(map[string]any{"schema": evidence.ExtractionSchema, "data": data})
+			return string(b), nil
+		}
+		b, _ := json.Marshal(evidence.Notes{Schema: evidence.NotesSchema, Hypotheses: []string{}, Gaps: in.Payload["allowed_gaps"].([]string), Actions: []string{"核对增量归因口径"}})
+		return string(b), nil
+	}})
+	ctx := evidence.WithLedger(context.Background())
+	out, err := executor.Execute(ctx, ExecuteInput{SkillID: "marketing.review_summarize", TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: manifest, Context: map[string]any{"locale": "zh-CN"}, Payload: map[string]any{"message": string(article)}})
+	require.NoError(t, err)
+	require.NoError(t, evidence.Verify(ctx, out["response_envelope"]))
+	presentation := out["response_envelope"].(map[string]any)["presentation"].(map[string]any)
+	reported := presentation["reported"].([]any)
+	values := []string{}
+	for _, raw := range reported {
+		values = append(values, raw.(map[string]any)["value"].(string))
+	}
+	for _, value := range []string{"6000", "2.4", "34.2", "46.2", "1.35", "3.37", "29.0", "27.8", "0.65", "4.8", "1.2", "0.08"} {
+		require.Contains(t, values, value)
+	}
+	require.Len(t, presentation["computed"], 2)
+	require.Len(t, presentation["conflicts"], 1)
+}
+
+func TestManifestEvidenceRejectsOmissionAndInventedInputGaps(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		stage  int
+		reason string
+	}{
+		{"omitted_fact", 1, "generic_inventory_incomplete"},
+		{"omitted_calculation_operand", 2, "source_selection_incomplete"},
+		{"invented_gap", 3, "missing_inputs_unacknowledged"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
+				calls++
+				switch calls {
+				case 1:
+					if tc.stage == 1 {
+						return `{"schema":"powerx.agent.evidence-facts/v2","facts":{}}`, nil
+					}
+					return fixtureFactsInventory(in.ResponseSchema), nil
+				case 2:
+					if tc.stage == 2 {
+						return `{"schema":"powerx.agent.evidence-source/v1","data":{"a":{"scope":"campaign","token_ref":"token_0"}}}`, nil
+					}
+					return `{"schema":"powerx.agent.evidence-source/v1","data":{"a":{"scope":"campaign","token_ref":"token_0"},"b":{"scope":"campaign","token_ref":"token_1"}}}`, nil
+				default:
+					return `{"schema":"powerx.agent.evidence-notes/v1","hypotheses":[],"gaps":["a calculation definition not supplied"],"actions":[]}`, nil
+				}
+			}})
+			_, err := executor.Execute(evidence.WithLedger(context.Background()), ExecuteInput{SkillID: "customer.any", TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(), Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "test a:17; b:80"}})
+			require.ErrorContains(t, err, tc.reason)
+			require.Equal(t, tc.stage, calls)
+		})
+	}
+}
+
+func TestMergeGenericFactsKeepsSameValueInDifferentSourceContexts(t *testing.T) {
+	tokens, err := evidence.TokenizeGenericSources(map[string]any{"message": "短信渠道ROI 0.65，信息流渠道ROI 0.65"}, []string{"/message"})
+	require.NoError(t, err)
+	inventory := fixtureFactsInventory(evidence.GenericFactInventoryJSONSchema(tokens))
+	var selected evidence.GenericFactInventory
+	require.NoError(t, json.Unmarshal([]byte(inventory), &selected))
+	facts, err := evidence.ResolveGenericFactInventory(selected, tokens)
+	require.NoError(t, err)
+	require.Len(t, mergeGenericFacts(nil, facts), 2)
+	require.Len(t, mergeGenericFacts(facts[:1], facts), 2)
 }

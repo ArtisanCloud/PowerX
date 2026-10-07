@@ -15,6 +15,10 @@
 - [ ] T011 完成两 Core/多 Worker、浏览器断线、重启、重复投递、租约失效、Redis 故障切换、归档故障和 RPO/RTO 演练。
 - [ ] T012 完成压测与上线门禁：公平性、队列 P95/P99、模型槽利用率、Redis 内存/写入、DB 写入和归档积压；记录真实 HTTP/SSE 及跨实例证据。
 
+2026-10-04 T005/T007 开发进展：正式 Worker 增加 Redis 原子的 Run/租户共享执行额度、续租和过期回收；单 Core 的 Worker 槽不再复制成额外租户额度。容量等待延后 500ms，不增加业务失败次数、不重置 queued_at，同因等待不重复写事件；修复消费入口缺少延迟项推进的问题。两 Worker 验证同 Run 峰值 1、其他租户正常完成，真实 Redis 的独立进程验证 Run/租户配额隔离。新计划固化 DAG 步骤与 tooling 节点预留预算，规划超额报 budget.exhausted，执行重建并校验。跨 Run 优先级、生产公平性/容量压测、嵌套调用及 token/费用/修订累计预算仍待完成，T005/T007/T012 不勾选。
+
+2026-10-04 双完整 Core 运维验收：独立 18077/18177 实例同时启动通过；停止 A 后 B 持续维护共享归档健康，重启 A 并停止 B 后 A 继续维护。确认 Bootstrap 实际采用 Queue 回退后的 Redis DB 5，修正联调脚本默认 DB 0 的误检和连接回退，增加 Redis 权威状态启动检查。测试进程全部关闭，正式 8077 未重启。此项未执行活动业务 Run，故不能代替 T011 的跨实例接管、浏览器、HA/RPO 或 T012 的压测验收。
+
 2026-09-23 开发检查点：T002 已补目标版 Run/Task/Event schema 并在 `007` 标明当前三帧游标与未来序号游标的区别；Framework typed 客户端和真实 wire 尚未切换，故保持未完成。T003 已有独立 `backend/internal/service/agent_run` Redis AOF/`noeviction` 门禁、Run 状态/事件 CAS、不可变计划版本、初始 Task 状态与原子待投递 outbox；定向及 race 测试通过。启动接线、受理幂等键、Worker Attempt/租约、对账和执行链仍未完成，故 T003 保持未完成。当前本机 Redis `appendonly=no`，不符合生产门禁。
 
 T004 已新增通用 Event Fabric Redis 租约管理器与 Streams 消费组驱动，覆盖幂等入队、竞争领取、续租、过期重领、递增 fencing token、旧 Worker ACK 拒绝、延迟重试和死信；驱动尚未挂入正式 Worker 启动与运维装配，故 T004 保持未完成。
@@ -83,3 +87,24 @@ T010 已新增 S3/MinIO 报告归档适配、确定性对象键与 SHA-256 读�
 - 已运行 `go test ./...`，全仓仍有 Media/Event Fabric 测试替身接口缺失、Skill Bridge 旧构造器引用，以及 Capability/Workflow/IAM/Knowledge 等合同或夹具失败，不能报告全仓通过。本轮修改的相关包 race/vet 与 S3 子模块签名和实机测试通过。
 
 2026-10-03 本轮收尾：最新构建再次通过独立 Core 的启动/健康检查；新 SSE 未登录访问返回 401。所有本轮启动的独立 Core 和 MinIO 测试进程已停止，固定 MinIO 数据目录与私有联调配置保留，原 8077 后台仍运行。营销验收脚本与合成输入已准备，尚未运行已认证的真实营销请求。
+
+2026-10-03 终态归档接线：正式 durable Worker 的 FinalizeRun 先幂等完成消息，再将完整事件、规划任务及各版计划/任务写入对象存储并读回校验，最后保存 SQL `archive_key/archived_at`。管理端和服务会话扫描器均保留 finished-but-unarchived 锚点；对象失败或 SQL locator 失败不会重跑任务或重复写助手消息。订阅只负责消息完成，归档失败由 Worker 后续扫描恢复。启动门禁要求新增归档列存在。
+
+- 新增 `TestTerminalArchiveRecoversObjectAndLocatorFailuresWithoutNewMessages`：对象不可用、SQL locator 写入失败、已验证对象重用、唯一助手消息、完整事件和规划任务归档、跨身份拒绝；独占 miniredis 热状态清空后仍可按原权限读取对象报告，损坏归档拒绝读取。
+- 服务会话测试补充 finished-but-unarchived 扫描、归档 locator 幂等、消息绑定和不同 locator 拒绝。
+- 本机集中 `cmd/database migrate` 成功，随后查询 information_schema 确认两张锚点表的四个新增列。原配置含示例 JWT secret，迁移使用 0600 临时配置及仅供该进程的随机密钥；没有修改运行后台的密钥或配置。
+- T010 仍有保留期清理、归档积压背压和生产容量/故障演练待完成。当前不自动删除 Redis 历史；未归档数据不会因新增流程被清理。
+
+同日补充：管理端 SSE 的订阅前游标校验、事件分页和终态消息，以及服务会话 Query/SSE/快照均接入已授权归档读取。Redis 返回运行不存在时才允许使用已完成的归档锚点；Redis 连接故障不能被当作运行过期。测试模拟独占 miniredis 热数据到期后验证原 Run 事件与同一终态消息恢复、未来游标拒绝、损坏归档拒绝。当前仍没有开启 Redis TTL/删除。
+
+最终验证：相关 agent_run/agent_session/runtime/bootstrap/OpenAPI agent_session 包通过测试和竞态检查；go vet 与独立 Core 编译通过。全仓 `go test ./...` 重新执行仍失败，存在 Media/Event Fabric 的旧 mock 缺失接口、Skills 未定义旧符号，以及 IAM/Workflow/Knowledge/Capability 等合同或 fixture 失败。完整输出保存在私有 `/tmp/powerx-agent-runtime/go-full-test.log`，不把相关包通过作为全仓通过。
+
+2026-10-04 生命周期实施：T010 的保留期清理与积压背压已接入正式 Worker。默认已归档热状态保留 168h、积压 1000 个或最老 1h 触发新受理限制；绝对到期不被补写重试延长。增加 `hot_expires_at` 确认字段、归档积压复合索引，集中迁移后查询确认。扫描补齐对象/SQL/TTL 中断点，到期后确认只读归档，不重建运行。共享 TaskBus 按 Run 清理排队、延迟及死信残留，并以退休标记拒绝迟到入队，其他 Run 不受影响；投递游标写入也与终态互斥。
+
+T009 补充页面恢复：按用户/租户/环境保存无输入和凭据的 Run 定位；初始化或重新选择会话后强制读服务器历史，已完成的唯一助手消息直接展示，否则仅按原 Run 续订，从零重建任务状态。不增加用户消息，不重发 q。新增 Vue composable 集成测试覆盖实际续订 URL、历史用户消息不重复、唯一结果、已有结果不再订阅，另有定位隔离/过期和断线帧恢复测试。仍需真实浏览器页面验收，因此 T009 不整体勾选。
+
+运行证据：真实本机 Redis 的退休/NACK 丢弃/迟到投递防护测试通过；真实 Ollama 两独立测试进程共享同一物理池验证通过，provider calls=2、峰值=1，第二进程在第一个持槽时进入 Redis 等待队列。这里没有伪造管理员 token 或宣称完整两 Core/营销验收完成。浏览器连接仍返回 `nodeRepl.fetch request failed`，且有效管理员会话仍未提供；真实营销、完整 Core 故障切换与 RPO/RTO/压测证据待补。
+
+2026-10-04 最终验证补充：相关后端九个包的 race 测试、go vet 与 Core 编译通过；新增恢复扫描/背压 HTTP 原因码定向 race 测试通过。前端四个文件共 10 个测试、Nuxt build 与 check-refactor 通过。全仓 go test ./... 重跑仍失败，缺口仍集中于 Media/Event Fabric/Skills 旧 mock/符号及其他 Capability/Workflow/IAM/Knowledge 等合同或 fixture，私有日志 /tmp/powerx-agent-runtime/go-full-test.log；没有把定向验证当成全仓通过。
+
+T011 隔离 AOF 故障证据：TestIsolatedRedisAOFRestartRecoversRunAndPendingDelivery 启动独占 Unix socket、独占临时目录的 Redis 子进程，appendonly=yes/appendfsync=always/noeviction，强制终止后以原 AOF 重启。已确认 Run 和 event_seq 全量一致、原 PEL 消息由另一 Worker 重领、fence 递增且旧 ACK 拒绝、规划调用一次。本次启动恢复与重领约 1.189s，进程和临时目录已清理，未停止共享 Redis。此证据只覆盖该声明 fsync 策略的运行/队列组件，不是当前 everysec 配置的生产 RPO/RTO，也不是已认证营销或完整多 Core 故障验收。

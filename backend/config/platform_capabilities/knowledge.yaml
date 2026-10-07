@@ -195,3 +195,93 @@ capabilities:
     en: Knowledge Space Admin
   description_i18n:
     en: 管理知识空间配额、策略与增量任务，供插件直接复用。
+
+- capability_id: com.corex.knowledge.catalog.read
+  module: knowledge_space
+  title: Knowledge Strategy Catalog Read
+  description: Tenant-scoped typed catalog contract for Knowledge Lab.
+  permission_code: corex.knowledge_space.catalog.read
+  agent_usable: false
+  risk_level: medium
+  categories: [knowledge]
+  intents: [knowledge.catalog.read]
+  tool_scopes: [knowledge.catalog.read]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/knowledge-host-provisioning.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://knowledge/catalog
+    method: INVOKE
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/components/schemas/CatalogOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.catalog.read
+    api_key: {scope: _scope.knowledge.catalog.read, action: read, resource_type: api, resource_pattern: catalog}
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/catalog
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/paths/~1tenant~1knowledge~1catalog/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.catalog.read
+    api_key: {scope: _scope.knowledge.catalog.read, action: read, resource_type: api, resource_pattern: catalog}
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/catalog
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/paths/~1admin~1knowledge-spaces~1catalog/get
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.catalog.read
+  title_i18n: {en: Knowledge Strategy Catalog Read, zh-CN: 知识策略目录读取}
+  description_i18n: {en: Typed tenant catalog contract., zh-CN: 知识实验室租户服务合同。}
+
+- capability_id: com.corex.knowledge.space.create
+  module: knowledge_space
+  title: Knowledge Space Create
+  description: Tenant-scoped typed create contract for Knowledge Lab.
+  permission_code: corex.knowledge_space.space.create
+  agent_usable: false
+  risk_level: high
+  categories: [knowledge]
+  intents: [knowledge.space.create]
+  tool_scopes: [knowledge.space.create]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/knowledge-host-provisioning.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://knowledge/spaces
+    method: INVOKE
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/components/schemas/CreateOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.space.create
+    api_key: {scope: _scope.knowledge.space.create, action: create, resource_type: api, resource_pattern: space}
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/spaces
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/paths/~1tenant~1knowledge~1spaces/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.space.create
+    api_key: {scope: _scope.knowledge.space.create, action: create, resource_type: api, resource_pattern: space}
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/http-openapi.yaml
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.space.create
+  title_i18n: {en: Knowledge Space Create, zh-CN: 知识空间创建}
+  description_i18n: {en: Typed tenant create contract., zh-CN: 知识实验室租户服务合同。}

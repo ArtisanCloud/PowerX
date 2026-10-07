@@ -24,15 +24,17 @@ import (
 // AdminRunService 管理用户聊天 Run 的受理、恢复索引和唯一结果消息。
 // 与插件服务会话使用独立所有权记录，复用同一调度协议。
 type AdminRunService struct {
-	repo            *repo.AdminRunRepository
-	Store           *agent_run.RedisStore
-	Queue           agent_run.TaskEnqueuer
-	Objects         agent_run.ReportObjectStore
-	Loader          *adminInputLoader
-	Output          *DurableFinalOutputReader
-	Env             string
-	archiveRecovery bool
-	Deadline        time.Duration
+	repo              *repo.AdminRunRepository
+	Store             *agent_run.RedisStore
+	Queue             agent_run.TaskEnqueuer
+	Objects           agent_run.ReportObjectStore
+	Loader            *adminInputLoader
+	Output            *DurableFinalOutputReader
+	Env               string
+	archiveRecovery   bool
+	retentionRecovery bool
+	AdmissionGate     func(context.Context) error
+	Deadline          time.Duration
 }
 
 func NewAdminRunService(db *gorm.DB, store *agent_run.RedisStore, queue agent_run.TaskEnqueuer, objects agent_run.ReportObjectStore, env string, deadline time.Duration) *AdminRunService {
@@ -89,10 +91,25 @@ func (s *AdminRunService) Admit(ctx context.Context, message string, cfg *dto.Ch
 	if err != nil {
 		return agent_run.Snapshot{}, fmt.Errorf("admin run actor is unavailable")
 	}
-	ref := agent_run.TaskRef{TenantUUID: tenant.String(), Env: s.Env, RunID: runID.String()}
-	inputRef, checksum, err := saveAdminRunInput(ctx, s.Objects, ref, message, cfg, flow)
-	if err != nil {
-		return agent_run.Snapshot{}, err
+	// 已受理请求复用冻结输入；背压期间续订不再写入对象或改变原输入。
+	var inputRef, checksum string
+	previous, readErr := s.repo.ByKey(ctx, tenant, s.Env, sessionID, key)
+	if readErr == nil {
+		inputRef, checksum = previous.InputRef, previous.InputChecksum
+	} else {
+		if !errors.Is(readErr, gorm.ErrRecordNotFound) {
+			return agent_run.Snapshot{}, readErr
+		}
+		if s.AdmissionGate != nil {
+			if err := s.AdmissionGate(ctx); err != nil {
+				return agent_run.Snapshot{}, err
+			}
+		}
+		ref := agent_run.TaskRef{TenantUUID: tenant.String(), Env: s.Env, RunID: runID.String()}
+		inputRef, checksum, err = saveAdminRunInput(ctx, s.Objects, ref, message, cfg, flow)
+		if err != nil {
+			return agent_run.Snapshot{}, err
+		}
 	}
 	var anchor *model.AdminRunAdmission
 	err = s.repo.WithSession(ctx, tenant, s.Env, sessionID, func(tx *repo.AdminRunRepository, session *chatmodel.AgentChatSession) error {
@@ -109,6 +126,11 @@ func (s *AdminRunService) Admit(ctx context.Context, message string, cfg *dto.Ch
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
+		}
+		if s.AdmissionGate != nil {
+			if err := s.AdmissionGate(ctx); err != nil {
+				return err
+			}
 		}
 		if active, err := tx.Active(ctx, tenant, s.Env, sessionID); err != nil {
 			return err
@@ -152,6 +174,10 @@ func (s *AdminRunService) Admit(ctx context.Context, message string, cfg *dto.Ch
 		return agent_run.Snapshot{}, agent_run.ErrConflict
 	}
 	current, err := s.Store.Get(ctx, identity.TenantUUID, identity.Env, identity.RunID)
+	if errors.Is(err, agent_run.ErrNotFound) && anchor.ArchivedAt != nil {
+		restored, _, readErr := s.readRunForSubscription(ctx, anchor)
+		return restored, readErr
+	}
 	if err != nil {
 		return agent_run.Snapshot{}, err
 	}
@@ -161,7 +187,7 @@ func (s *AdminRunService) Admit(ctx context.Context, message string, cfg *dto.Ch
 	return s.Store.RecoverRun(ctx, identity, s.Queue)
 }
 func (s *AdminRunService) ListUnfinishedRuns(ctx context.Context, after uint64, limit int) ([]agent_run.LocatedRun, error) {
-	rows, err := s.repo.ListUnfinished(ctx, s.Env, after, limit, s.archiveRecovery)
+	rows, err := s.repo.ListUnfinished(ctx, s.Env, after, limit, s.archiveRecovery, s.retentionRecovery)
 	if err != nil {
 		return nil, err
 	}

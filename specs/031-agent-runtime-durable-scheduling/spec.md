@@ -46,3 +46,16 @@ Run：`accepted -> planning -> running -> completed|partial|needs_input|blocked|
 - 压测给出 Redis 内存/写入量、归档积压、模型槽利用率、队列超时、数据库写入量；业务数据库不承载逐任务进度/心跳。
 
 实施路线见 [plan.md](./plan.md)，实体与原子性见 [data-model.md](./data-model.md)，未完成任务见 [tasks.md](./tasks.md)。
+
+### 已实现的归档生命周期默认策略（2026-10-04）
+
+持久化分支默认在读回校验并保存业务数据库归档定位后保留热状态 168h。到期时间是固定的 `archived_at + hot_retention`，不因重试延长。归档失败不设置 TTL，清理确认缺失继续恢复扫描。默认积压阈值为 1000 个待归档终态或最老等待 1h；共享健康快照过期、不可用或配置不一致时拒绝新受理，保持已受理 Run 可续订。原因码为 `archive.backpressure` 和 `archive.health_stale`，均给出重试建议。页面刷新恢复定位只携带已受理 Run 身份，不能重新提交用户输入。
+
+### 已实现的执行配额和计划步骤预算（2026-10-04）
+
+- 正式 Worker 使用 Redis 共享执行槽：`ai.runtime.max_concurrent_tasks` 为每 Run 上限，`durable_sessions.tenant_concurrency` 默认为 16，范围 `1..10000`，必须不小于 Run 上限。规划也占用执行槽；`worker_concurrency` 只约束单 Core 的本地 Worker 数，物理模型池继续独立限制实际推理。
+- 租户与 Run 槽在同一租户 hash slot 内原子取得，不先占一层再等待另一层。槽租约使用 `durable_sessions.lease_ttl`，Redis TIME 计时，每 TTL/3 续租；失去租约取消执行上下文，过期槽可回收。完成释放仅删除自身 token，旧 Worker 不得释放新槽。
+- 容量不足保留 `queued`、原始 `queued_at` 和业务 attempt，等待原因为 `capacity.run` 或 `capacity.tenant`；TaskBus 延后 500ms，不占用本地执行 goroutine，不增加业务失败次数。到期任务由消费入口推进；既有 queue/run 期限仍生效。同一等待原因不重复生成事件。
+- 领取时再次按原始排队时间检查期限；已过期任务先收敛为 `queue.timeout` 并 ACK，不允许趁恢复扫描间隙开始执行。
+- 部署环境固定配额策略，跨 Core 配置漂移拒绝启动；租户队列按既有轮询消费。两 Worker 定向验证同 Run 峰值为 1 且其他租户完成；独立进程在真实 Redis 上验证 Run/租户共享上限。跨 Run 优先级、生产公平性压测仍属于 T005/T012。
+- 新计划保存 `budget.max_steps/max_capability_calls` 与任务 `node_kind`，按整张 DAG 预留步骤和 `tooling` 节点额度。超额以 `budget.exhausted` 停止规划；执行前从已验证的完整计划重建并校验，不能在重启后重新获得预算。无预算字段的既有计划保留读取兼容。这是 DAG 节点预算；Workflow/Skill 内部嵌套调用、token/成本及重规划累计预算尚未闭环，T007 保持未完成。

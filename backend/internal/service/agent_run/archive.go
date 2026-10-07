@@ -19,6 +19,10 @@ import (
 
 const maxRunReportBytes = 16 << 20
 
+type ArchivedTaskQueue interface {
+	RetireRun(context.Context, string, string, string, string, []string, time.Time) error
+}
+
 type ReportObjectStore interface {
 	Put(context.Context, string, []byte) error
 	Get(context.Context, string) ([]byte, error)
@@ -62,6 +66,7 @@ func (m MediaReportObjects) Get(ctx context.Context, key string) ([]byte, error)
 type RunReport struct {
 	SchemaVersion int            `json:"schema_version"`
 	Snapshot      Snapshot       `json:"snapshot"`
+	Plans         []Plan         `json:"plans,omitempty"`
 	Plan          Plan           `json:"plan"`
 	Tasks         []TaskSnapshot `json:"tasks"`
 	Events        []Event        `json:"events"`
@@ -94,17 +99,30 @@ func (s *RedisStore) ArchiveRun(ctx context.Context, identity Snapshot, objects 
 		return key, err
 	}
 	report := RunReport{SchemaVersion: 1, Snapshot: run}
-	if run.PlanRevision > 0 {
+	planning, err := s.ListTasks(ctx, identity, 0)
+	if err != nil {
+		return "", err
+	}
+	report.Tasks = append(report.Tasks, planning...)
+	for revision := uint64(1); revision <= run.PlanRevision; revision++ {
 		planKey, _, _ := schedulingKeys(identity)
-		raw, err := s.client.HGet(ctx, planKey, fmt.Sprintf("%d", run.PlanRevision)).Bytes()
+		raw, err := s.client.HGet(ctx, planKey, fmt.Sprintf("%d", revision)).Bytes()
 		if err != nil {
 			return "", err
 		}
-		if err := json.Unmarshal(raw, &report.Plan); err != nil {
+		var plan Plan
+		if err := json.Unmarshal(raw, &plan); err != nil {
 			return "", err
 		}
-		for _, definition := range report.Plan.Tasks {
-			task, err := s.GetTask(ctx, identity, run.PlanRevision, definition.TaskID)
+		if plan.Revision != revision || !validPlan(plan) {
+			return "", ErrInvalid
+		}
+		report.Plans = append(report.Plans, plan)
+		if revision == run.PlanRevision {
+			report.Plan = plan
+		}
+		for _, definition := range plan.Tasks {
+			task, err := s.GetTask(ctx, identity, revision, definition.TaskID)
 			if err != nil {
 				return "", err
 			}
@@ -120,8 +138,13 @@ func (s *RedisStore) ArchiveRun(ctx context.Context, identity Snapshot, objects 
 		if len(events) == 0 {
 			return "", ErrEventCursorExpired
 		}
+		for _, event := range events {
+			if event.Seq != after+1 || event.Seq > run.EventSeq {
+				return "", ErrEventCursorExpired
+			}
+			after = event.Seq
+		}
 		report.Events = append(report.Events, events...)
-		after = events[len(events)-1].Seq
 	}
 	payload, err := json.Marshal(report)
 	if err != nil {
@@ -191,6 +214,14 @@ func ReadRunReport(ctx context.Context, identity Snapshot, objects ReportObjectS
 		envelope.Report.Snapshot.Env != identity.Env || envelope.Report.Snapshot.RunID != identity.RunID ||
 		!sameReportIdentity(envelope.Report.Snapshot, identity) || !terminal(envelope.Report.Snapshot.Status) {
 		return RunReport{}, ErrInvalid
+	}
+	if uint64(len(envelope.Report.Events)) != envelope.Report.Snapshot.EventSeq {
+		return RunReport{}, ErrInvalid
+	}
+	for index, event := range envelope.Report.Events {
+		if event.Seq != uint64(index)+1 {
+			return RunReport{}, ErrInvalid
+		}
 	}
 	return envelope.Report, nil
 }

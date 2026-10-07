@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"github.com/stretchr/testify/require"
+	"strings"
 	"testing"
 )
 
@@ -118,4 +119,40 @@ func TestGenericFactsSchemaBindsEveryLabelToItsTokenSource(t *testing.T) {
 
 	_, err = ResolveGenericFacts(GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{{Label: "GMV", Scope: "活动", TokenRef: "token_1"}}}, tokens)
 	require.ErrorContains(t, err, "evidence.generic_fact_label_not_in_source")
+}
+
+func TestGenericInventoryRequiresAllFactsAndExcludesIdentifiers(t *testing.T) {
+	tokens, err := TokenizeGenericSources(map[string]any{"message": "客单价在6000元到2.4万元之间，短信ROI 0.65，信息流ROI 0.65，订单号123456"}, []string{"/message"})
+	require.NoError(t, err)
+	schema := GenericFactInventoryJSONSchema(tokens)
+	facts := schema["properties"].(map[string]any)["facts"].(map[string]any)
+	require.Len(t, facts["required"], 4)
+	props := facts["properties"].(map[string]any)
+	require.NotContains(t, props, "token_4")
+	inventory := GenericFactInventory{Schema: GenericFactInventorySchema, Facts: map[string]struct {
+		Label string `json:"label"`
+		Scope string `json:"scope"`
+	}{}}
+	_, err = ResolveGenericFactInventory(inventory, tokens)
+	require.ErrorContains(t, err, "inventory_incomplete")
+	for _, token := range tokens[:4] {
+		inventory.Facts[token.Key] = struct {
+			Label string `json:"label"`
+			Scope string `json:"scope"`
+		}{genericFactLabels(token)[0], "campaign"}
+	}
+	out, err := ResolveGenericFactInventory(inventory, tokens)
+	require.NoError(t, err)
+	require.Len(t, out, 4)
+	require.Equal(t, "客单价", out[0].Label)
+	require.Equal(t, "客单价", out[1].Label)
+	require.Equal(t, "元", out[0].Unit)
+	require.Equal(t, "万元", out[1].Unit)
+	require.NotEqual(t, out[2].Source.Quote, out[3].Source.Quote)
+}
+
+func TestGenericInventoryRejectsOversizeInsteadOfTruncating(t *testing.T) {
+	tokens, err := TokenizeGenericSources(map[string]any{"message": strings.Repeat("metric 1;", 65)}, []string{"/message"})
+	require.NoError(t, err)
+	require.ErrorContains(t, ValidateGenericFactInventoryTokens(tokens), "generic_fact_limit_exceeded")
 }

@@ -13,6 +13,22 @@ import (
 
 type taskMutation func(*TaskSnapshot, time.Time) error
 
+var ErrQueueWaitExpired = errors.New("queue.timeout")
+
+// MarkCapacityWaiting 仅在等待原因改变时追加事件；反复容量检查不产生心跳写入。
+func (s *RedisStore) MarkCapacityWaiting(ctx context.Context, id Snapshot, version, revision uint64, taskID, reason string) (TaskSnapshot, Snapshot, error) {
+	if reason != ErrTenantCapacity.Error() && reason != ErrRunCapacity.Error() {
+		return TaskSnapshot{}, Snapshot{}, ErrInvalid
+	}
+	return s.mutateTask(ctx, id, version, revision, taskID, "agent_run.task_status", func(task *TaskSnapshot, _ time.Time) error {
+		if task.Status != "queued" || task.QueueReason == reason {
+			return ErrConflict
+		}
+		task.QueueReason = reason
+		return nil
+	})
+}
+
 // mutateTask applies the task state, run version, and matching event on one
 // Redis Cluster slot. Every worker result must carry the current fence.
 func (s *RedisStore) mutateTask(ctx context.Context, identity Snapshot, expectedVersion, revision uint64, taskID, eventType string, mutate taskMutation) (TaskSnapshot, Snapshot, error) {
@@ -71,7 +87,8 @@ func (s *RedisStore) mutateTask(ctx context.Context, identity Snapshot, expected
 						"type": eventType, "status": task.Status, "task_id": taskID,
 						"attempt": task.Attempt, "fence": task.Fence, "pool_id": task.PoolID,
 						"queue_wait_ms": task.QueueWaitMS, "at": now.Format(time.RFC3339Nano),
-						"reason_code": task.ReasonCode,
+						"reason_code":  task.ReasonCode,
+						"queue_reason": task.QueueReason,
 					}})
 				return nil
 			})
@@ -94,6 +111,9 @@ func (s *RedisStore) LeaseTask(ctx context.Context, identity Snapshot, expectedV
 	return s.mutateTask(ctx, identity, expectedVersion, revision, taskID, "agent_run.task_status", func(task *TaskSnapshot, now time.Time) error {
 		switch task.Status {
 		case "queued":
+			if !task.QueuedAt.IsZero() && !now.Before(task.QueuedAt.Add(s.queueWaitTimeout)) {
+				return ErrQueueWaitExpired
+			}
 		case "leased", "running", "verifying":
 			if now.Before(task.LeaseUntil) {
 				return ErrConflict

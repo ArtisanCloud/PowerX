@@ -18,6 +18,8 @@ const (
 	KnowledgeDirectoryReadCapabilityID  = "com.corex.knowledge.directory.read"
 	KnowledgeSearchReadCapabilityID     = "com.corex.knowledge.search.read"
 	KnowledgeDocumentManageCapabilityID = "com.corex.knowledge.document.manage"
+	KnowledgeCatalogReadCapabilityID    = "com.corex.knowledge.catalog.read"
+	KnowledgeSpaceCreateCapabilityID    = "com.corex.knowledge.space.create"
 
 	knowledgeDirectoryAPIKeyScope = "_scope.knowledge.directory.read"
 	knowledgeSearchAPIKeyScope    = "_scope.knowledge.search.read"
@@ -33,6 +35,13 @@ func NewHostContractAccess(db *gorm.DB) *HostContractAccess { return &HostContra
 
 func (s *HostContractAccess) AuthorizeDirectoryRead(ctx context.Context, apiKeyHash string) (string, error) {
 	return s.authorize(ctx, apiKeyHash, KnowledgeDirectoryReadCapabilityID, knowledgeDirectoryAPIKeyScope, "directory", "read")
+}
+
+func (s *HostContractAccess) AuthorizeCatalogRead(ctx context.Context, apiKeyHash string) (string, error) {
+	return s.authorize(ctx, apiKeyHash, KnowledgeCatalogReadCapabilityID, "_scope.knowledge.catalog.read", "catalog", "read")
+}
+func (s *HostContractAccess) AuthorizeSpaceCreate(ctx context.Context, apiKeyHash string) (string, error) {
+	return s.authorize(ctx, apiKeyHash, KnowledgeSpaceCreateCapabilityID, "_scope.knowledge.space.create", "space", "create")
 }
 func (s *HostContractAccess) AuthorizeSearchRead(ctx context.Context, apiKeyHash string) (string, error) {
 	return s.authorize(ctx, apiKeyHash, KnowledgeSearchReadCapabilityID, knowledgeSearchAPIKeyScope, "search", "read")

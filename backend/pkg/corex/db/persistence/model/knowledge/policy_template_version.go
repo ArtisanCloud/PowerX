@@ -1,6 +1,8 @@
 package knowledge
 
 import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"time"
 
 	"gorm.io/datatypes"
@@ -11,6 +13,7 @@ import (
 // PolicyTemplateVersion 描述默认策略组合。
 type PolicyTemplateVersion struct {
 	coremodel.PowerModel
+	UUID *uuid.UUID `gorm:"column:uuid;type:uuid;uniqueIndex:uk_knowledge_policy_uuid" json:"uuid,omitempty"`
 
 	TemplateName    string         `gorm:"column:template_name;type:varchar(128);not null;index:idx_knowledge_template_name_version,unique" json:"template_name"`
 	Version         string         `gorm:"column:version;type:varchar(32);not null;index:idx_knowledge_template_name_version,unique" json:"version"`
@@ -22,6 +25,14 @@ type PolicyTemplateVersion struct {
 	ApprovedAt      *time.Time     `gorm:"column:approved_at" json:"approved_at,omitempty"`
 	RollbackToken   string         `gorm:"column:rollback_token;type:varchar(128)" json:"rollback_token,omitempty"`
 	ImmutableHash   string         `gorm:"column:immutable_hash;type:char(64);not null;uniqueIndex" json:"immutable_hash"`
+}
+
+func (p *PolicyTemplateVersion) BeforeCreate(tx *gorm.DB) error {
+	if p.UUID == nil || *p.UUID == uuid.Nil {
+		id := uuid.New()
+		p.UUID = &id
+	}
+	return nil
 }
 
 func (PolicyTemplateVersion) TableName() string {

@@ -17,7 +17,11 @@ func (r *ServiceSessionRepository) ListDurableLocators(ctx context.Context, env 
 	var rows []m.ServiceInvocation
 	q := r.db.WithContext(ctx).Where("run_env = ? AND id > ? AND admission_state IN ?", env, after, []string{"pending_create", "admitted"})
 	if len(includeArchives) > 0 && includeArchives[0] {
-		q = q.Where("finished_at IS NULL OR archived_at IS NULL")
+		if len(includeArchives) > 1 && includeArchives[1] {
+			q = q.Where("finished_at IS NULL OR archived_at IS NULL OR hot_expires_at IS NULL")
+		} else {
+			q = q.Where("finished_at IS NULL OR archived_at IS NULL")
+		}
 	} else {
 		q = q.Where("finished_at IS NULL")
 	}

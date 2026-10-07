@@ -8,10 +8,23 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 )
 
+var errAdminCapabilityContractChanged = errors.New("admin run capability contract changed")
+
+func planningFailureReason(err error, fallback string) string {
+	if reason := modelFailureReason(err); reason != "" {
+		return reason
+	}
+	return fallback
+}
+
 // modelFailureReason keeps queue waiting, physical pool failures and provider
 // request timeouts distinct from the enclosing Run deadline.
 func modelFailureReason(err error) string {
 	switch {
+	case errors.Is(err, errAdminCapabilityContractChanged):
+		return "authorization.contract_changed"
+	case errors.Is(err, ErrRuntimeBudgetExhausted):
+		return "budget.exhausted"
 	case errors.Is(err, llm.ErrModelQueueTimeout):
 		return "queue.timeout"
 	case errors.Is(err, agent_run.ErrModelQueueFull):

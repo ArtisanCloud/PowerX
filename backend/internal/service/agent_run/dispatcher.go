@@ -78,12 +78,12 @@ func (s *RedisStore) DispatchPending(ctx context.Context, identity Snapshot, que
 		message := event_bus.TaskMessage{
 			ID:        fmt.Sprintf("%s:%d:%s:%d", ref.RunID, ref.Revision, ref.TaskID, ref.Attempt),
 			TenantKey: taskQueueTenant(identity), SubscriberID: AgentTaskSubscriber,
-			Topic: "agent.run.task", Payload: raw,
+			Topic: "agent.run.task", Payload: raw, Metadata: map[string]string{"run_id": ref.RunID},
 		}
 		if err := queue.Enqueue(ctx, message); err != nil {
 			return dispatched, err
 		}
-		if err := s.client.Set(ctx, cursorKey, entry.ID, 0).Err(); err != nil {
+		if err := s.advanceDispatchCursor(ctx, identity, cursorKey, entry.ID); err != nil {
 			return dispatched, err
 		}
 		dispatched++
@@ -93,4 +93,34 @@ func (s *RedisStore) DispatchPending(ctx context.Context, identity Snapshot, que
 
 func taskQueueTenant(identity Snapshot) string {
 	return identity.TenantUUID + ":" + identity.Env
+}
+
+// 游标写入与终态清理互斥，避免迟到的投递补写一个无 TTL 的孤立游标。
+func (s *RedisStore) advanceDispatchCursor(ctx context.Context, identity Snapshot, key, value string) error {
+	state, _ := runKeys(identity)
+	for attempt := 0; attempt < 5; attempt++ {
+		err := s.client.Watch(ctx, func(tx *redis.Tx) error {
+			fields, err := tx.HGetAll(ctx, state).Result()
+			if err != nil {
+				return err
+			}
+			if len(fields) == 0 {
+				return ErrNotFound
+			}
+			run, err := decodeSnapshot(fields)
+			if err != nil {
+				return err
+			}
+			if terminal(run.Status) {
+				return ErrConflict
+			}
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error { pipe.Set(ctx, key, value, 0); return nil })
+			return err
+		}, state)
+		if errors.Is(err, redis.TxFailedErr) {
+			continue
+		}
+		return err
+	}
+	return ErrConflict
 }

@@ -29,6 +29,7 @@ type ServiceSessionPlanBuilder struct {
 	Engine  *Engine
 	Objects agent_run.ReportObjectStore
 	Pool    TaskPoolResolver
+	Budget  *agent_run.PlanBudget
 }
 
 var _ agent_run.PlanBuilder = (*ServiceSessionPlanBuilder)(nil)
@@ -41,21 +42,26 @@ func (b *ServiceSessionPlanBuilder) Build(ctx context.Context, ref agent_run.Tas
 	}
 	input, err := b.Loader.Load(ctx, ref)
 	if err != nil {
-		return agent_run.PlanningResult{ReasonCode: modelFailureReason(err)}, err
+		return agent_run.PlanningResult{ReasonCode: planningFailureReason(err, "planner.input_failed")}, err
 	}
 	if input.Context == nil || strings.TrimSpace(input.Message) == "" {
-		return agent_run.PlanningResult{}, agent_run.ErrInvalid
+		return agent_run.PlanningResult{ReasonCode: "planner.input_invalid"}, agent_run.ErrInvalid
 	}
 	planCtx, cancel := context.WithCancel(input.Context)
 	stop := context.AfterFunc(ctx, cancel)
 	defer func() { stop(); cancel() }()
 	plan, err := b.Engine.BuildInvokePlan(planCtx, input.Message, input.Config, input.ExplicitFlow)
 	if err != nil {
-		return agent_run.PlanningResult{ReasonCode: modelFailureReason(err)}, err
+		return agent_run.PlanningResult{ReasonCode: planningFailureReason(err, "planner.build_failed")}, err
 	}
 	schedule, err := TranslateInvokePlan(plan, b.Pool)
 	if err != nil {
-		return agent_run.PlanningResult{ReasonCode: modelFailureReason(err)}, err
+		return agent_run.PlanningResult{ReasonCode: planningFailureReason(err, "planner.plan_invalid")}, err
+	}
+	if b.Budget != nil {
+		if err := applyDurablePlanBudget(&schedule, plan, *b.Budget); err != nil {
+			return agent_run.PlanningResult{ReasonCode: "budget.exhausted"}, err
+		}
 	}
 	resultRef, evidenceRef, err := SaveExecutionPlanArtifact(ctx, b.Objects, ref, plan)
 	if err != nil {

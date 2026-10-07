@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -22,19 +23,35 @@ func (s *AdminRunService) BuildReport(ctx context.Context, query trace.AgentRepo
 	}
 	for attempt := 0; attempt < 5; attempt++ {
 		run, err := s.Store.Get(ctx, row.TenantUUID.String(), row.Env, row.UUID.String())
+		var archive *agent_run.RunReport
+		if errors.Is(err, agent_run.ErrNotFound) && row.ArchivedAt != nil && row.ArchiveKey != "" {
+			saved, readErr := agent_run.ReadRunReport(ctx, adminIdentity(row), s.Objects)
+			if readErr != nil {
+				return nil, readErr
+			}
+			if saved.Snapshot.Status != row.Status || row.FinishedAt == nil {
+				return nil, agent_run.ErrConflict
+			}
+			run, archive, err = saved.Snapshot, &saved, nil
+		}
 		if err != nil {
 			return nil, err
 		}
-		tasks, err := s.Store.ListTasks(ctx, run, run.PlanRevision)
-		if err != nil {
-			return nil, err
-		}
-		if run.PlanRevision > 0 {
-			planning, err := s.Store.GetTask(ctx, run, 0, agent_run.PlanningTaskID)
+		var tasks []agent_run.TaskSnapshot
+		if archive != nil {
+			tasks = archive.Tasks
+		} else {
+			tasks, err = s.Store.ListTasks(ctx, run, run.PlanRevision)
 			if err != nil {
 				return nil, err
 			}
-			tasks = append([]agent_run.TaskSnapshot{planning}, tasks...)
+			if run.PlanRevision > 0 {
+				planning, err := s.Store.GetTask(ctx, run, 0, agent_run.PlanningTaskID)
+				if err != nil {
+					return nil, err
+				}
+				tasks = append([]agent_run.TaskSnapshot{planning}, tasks...)
+			}
 		}
 		report := &trace.AgentRunReport{ReportScope: "message", Format: "json", TenantUUID: run.TenantUUID, SessionID: strconv.FormatUint(row.SessionID, 10), MessageID: strconv.FormatUint(row.MessageID, 10), RunID: run.RunID, TraceID: run.TraceID, GeneratedBy: "powerx-agent-run-store", GeneratedAt: time.Now().UTC(), RunState: &trace.AgentRunStateSnapshot{Ended: adminTerminal(run.Status), UpdatedAt: run.UpdatedAt}}
 		runMap := map[string]any{}
@@ -63,7 +80,19 @@ func (s *AdminRunService) BuildReport(ctx context.Context, query trace.AgentRepo
 		}
 		cursor := uint64(0)
 		for cursor < run.EventSeq {
-			events, err := s.Store.Events(ctx, run.TenantUUID, run.Env, run.RunID, cursor, 1000)
+			var events []agent_run.Event
+			if archive != nil {
+				for _, event := range archive.Events {
+					if event.Seq > cursor {
+						events = append(events, event)
+						if len(events) == 1000 {
+							break
+						}
+					}
+				}
+			} else {
+				events, err = s.Store.Events(ctx, run.TenantUUID, run.Env, run.RunID, cursor, 1000)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -78,14 +107,18 @@ func (s *AdminRunService) BuildReport(ctx context.Context, query trace.AgentRepo
 				cursor = event.Seq
 			}
 		}
-		latest, err := s.Store.Get(ctx, run.TenantUUID, run.Env, run.RunID)
-		if err != nil {
-			return nil, err
+		backend := "object_storage"
+		if archive == nil {
+			latest, err := s.Store.Get(ctx, run.TenantUUID, run.Env, run.RunID)
+			if err != nil {
+				return nil, err
+			}
+			if latest.Version != run.Version {
+				continue
+			}
+			backend = "redis"
 		}
-		if latest.Version != run.Version {
-			continue
-		}
-		report.Summary = map[string]any{"status": run.Status, "agent_id": row.AgentID, "node_count": len(tasks), "event_count": run.EventSeq, "error_count": len(report.Errors), "started_at": run.CreatedAt, "updated_at": run.UpdatedAt, "duration_ms": run.UpdatedAt.Sub(run.CreatedAt).Milliseconds(), "state_backend": "redis", "plan_revision": run.PlanRevision}
+		report.Summary = map[string]any{"status": run.Status, "agent_id": row.AgentID, "node_count": len(tasks), "event_count": run.EventSeq, "error_count": len(report.Errors), "started_at": run.CreatedAt, "updated_at": run.UpdatedAt, "duration_ms": run.UpdatedAt.Sub(run.CreatedAt).Milliseconds(), "state_backend": backend, "plan_revision": run.PlanRevision}
 		report.RunState.Summary = report.Summary
 		return report, nil
 	}

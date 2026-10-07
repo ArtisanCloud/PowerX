@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func adminRunFixture(t *testing.T) (*AdminRunService, *gorm.DB, context.Context, *dto.ChatConfig) {
+func adminRunFixture(t *testing.T, observeRedis ...func(*redis.Client)) (*AdminRunService, *gorm.DB, context.Context, *dto.ChatConfig) {
 	t.Helper()
 	previous := coremodel.PowerXSchema
 	coremodel.PowerXSchema = "main"
@@ -55,6 +55,9 @@ func adminRunFixture(t *testing.T) (*AdminRunService, *gorm.DB, context.Context,
 	}
 	ctx = ContextWithResourceSnapshot(ctx, snapshot)
 	client := redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()})
+	for _, observe := range observeRedis {
+		observe(client)
+	}
 	t.Cleanup(func() { _ = client.Close() })
 	store, err := agent_run.NewRedisStore(client)
 	require.NoError(t, err)
@@ -224,4 +227,62 @@ func TestAdminPendingAdmissionRecoveredWithoutRebuildingAdmittedRun(t *testing.T
 	require.Equal(t, run.Version, current.Version)
 	require.NoError(t, service.ValidateSubscription(ctx, run.RunID, current.EventSeq))
 	require.ErrorIs(t, service.ValidateSubscription(ctx, run.RunID, current.EventSeq+1), agent_run.ErrInvalid)
+}
+
+func TestAdminExplicitRetryCreatesNewRunForSameMessage(t *testing.T) {
+	service, db, ctx, cfg := adminRunFixture(t)
+	first, err := service.Admit(ctx, "review", cfg, "", "retry-first")
+	require.NoError(t, err)
+	cancelled, err := service.Store.Cancel(ctx, first)
+	require.NoError(t, err)
+	require.NoError(t, service.FinalizeRun(ctx, cancelled))
+	snapshot, ok := ResourceSnapshotFromContext(ctx)
+	require.True(t, ok)
+	nextSnapshot := *snapshot
+	nextSnapshot.SnapshotUUID = uuid.New()
+	nextCtx := ContextWithResourceSnapshot(context.WithValue(ctx, "runtime_run_uuid", uuid.NewString()), &nextSnapshot)
+	repeated, err := service.Admit(nextCtx, "review", cfg, "", "retry-first")
+	require.NoError(t, err)
+	require.Equal(t, first.RunID, repeated.RunID, "同一次受理的重复请求保持幂等")
+	next, err := service.Admit(nextCtx, "review", cfg, "", "retry-second")
+	require.NoError(t, err)
+	require.NotEqual(t, first.RunID, next.RunID, "主动重试必须得到新的 Run")
+	require.Equal(t, first.MessageID, next.MessageID)
+	repeated, err = service.Admit(nextCtx, "review", cfg, "", "retry-second")
+	require.NoError(t, err)
+	require.Equal(t, next.RunID, repeated.RunID)
+	var count int64
+	require.NoError(t, db.Model(&model.AdminRunAdmission{}).Count(&count).Error)
+	require.EqualValues(t, 2, count)
+	require.NoError(t, db.Model(&chatmodel.AgentChatMessage{}).Where("role = ?", "user").Count(&count).Error)
+	require.EqualValues(t, 1, count)
+}
+
+func TestAdminFailedHistoricalRunEndsWhenAssistantWasTruncated(t *testing.T) {
+	service, db, ctx, cfg := adminRunFixture(t)
+	run, err := service.Admit(ctx, "review", cfg, "", "historical")
+	require.NoError(t, err)
+	terminal, err := service.Store.Transition(ctx, run, run.Version, "failed", "agent_run.final")
+	require.NoError(t, err)
+	require.NoError(t, service.FinalizeRun(ctx, terminal))
+	var row model.AdminRunAdmission
+	require.NoError(t, db.First(&row).Error)
+	require.NoError(t, db.Where("uuid = ?", *row.AssistantMessageUUID).Delete(&chatmodel.AgentChatMessage{}).Error)
+	for _, cursor := range []uint64{0, terminal.EventSeq} {
+		var ended, end int
+		require.NoError(t, service.Subscribe(ctx, run.RunID, cursor, func(_ uint64, event string, payload any) error {
+			if event == dto.EventAgentRunEnded {
+				ended++
+				body, err := json.Marshal(payload)
+				require.NoError(t, err)
+				require.Contains(t, string(body), `"success":false`)
+			}
+			if event == dto.EventEnd {
+				end++
+			}
+			return nil
+		}))
+		require.Equal(t, 1, ended)
+		require.Equal(t, 1, end)
+	}
 }

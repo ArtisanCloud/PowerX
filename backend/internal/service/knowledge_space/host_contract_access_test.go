@@ -29,7 +29,7 @@ func TestHostContractAccessRequiresRegistrationAndCredentialGrant(t *testing.T) 
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&capmodels.CapabilityRecord{}, &capmodels.CapabilityRegistration{}, &settingmodels.PluginInstanceConfig{}, &gwmodels.IntegrationGatewayAPIKey{}, &gwmodels.IntegrationGatewayAPIKeyPermission{}))
 	tenantUUID, pluginID := uuid.NewString(), "com.powerx.plugin.knowledge-consumer"
-	for _, capabilityID := range []string{KnowledgeDirectoryReadCapabilityID, KnowledgeSearchReadCapabilityID, KnowledgeDocumentManageCapabilityID} {
+	for _, capabilityID := range []string{KnowledgeDirectoryReadCapabilityID, KnowledgeSearchReadCapabilityID, KnowledgeDocumentManageCapabilityID, KnowledgeCatalogReadCapabilityID, KnowledgeSpaceCreateCapabilityID} {
 		require.NoError(t, db.Create(&capmodels.CapabilityRecord{CapabilityID: capabilityID, PluginID: "com.powerx.core", PluginVersion: "v1", Title: "Knowledge", Status: "published"}).Error)
 		require.NoError(t, db.Create(&capmodels.CapabilityRegistration{CapabilityID: capabilityID, TenantUUID: tenantUUID, ContractRef: "v1", Status: "published", Version: 1, RoutingPolicyID: uuid.New()}).Error)
 	}
@@ -63,4 +63,45 @@ func hostSTSContext(tenantUUID, pluginID string) context.Context {
 func hostAPIKeyContext(tenantUUID string) context.Context {
 	claims := &reqctx.CoreXClaims{TenantUUID: tenantUUID, Platforms: []string{"api_key"}}
 	return reqctx.WithClaims(reqctx.WithTenantUUID(context.Background(), tenantUUID), claims)
+}
+
+func TestKnowledgeProvisioningAccessAPIKeyAndSTS(t *testing.T) {
+	previous := coremodel.PowerXSchema
+	coremodel.PowerXSchema = "main"
+	t.Cleanup(func() { coremodel.PowerXSchema = previous })
+	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&capmodels.CapabilityRecord{}, &capmodels.CapabilityRegistration{}, &settingmodels.PluginInstanceConfig{}, &gwmodels.IntegrationGatewayAPIKey{}, &gwmodels.IntegrationGatewayAPIKeyPermission{}))
+	tenant, plugin := uuid.NewString(), "com.powerx.plugins.base"
+	access := NewHostContractAccess(db)
+	for _, capID := range []string{KnowledgeCatalogReadCapabilityID, KnowledgeSpaceCreateCapabilityID} {
+		require.NoError(t, db.Create(&capmodels.CapabilityRecord{CapabilityID: capID, PluginID: "com.powerx.core", PluginVersion: "v1", Title: "Knowledge", Status: "published"}).Error)
+		require.NoError(t, db.Create(&capmodels.CapabilityRegistration{CapabilityID: capID, TenantUUID: tenant, ContractRef: "v1", Status: "published", Version: 1, RoutingPolicyID: uuid.New()}).Error)
+	}
+	_, err = access.AuthorizeCatalogRead(hostSTSContext(tenant, plugin), "")
+	require.Equal(t, http.StatusForbidden, dto.StatusCode(err))
+	payload, _ := json.Marshal(map[string]any{"allowed_capabilities": []string{KnowledgeCatalogReadCapabilityID, KnowledgeSpaceCreateCapabilityID}})
+	require.NoError(t, db.Create(&settingmodels.PluginInstanceConfig{TenantUUID: tenant, PluginID: plugin, Key: "auth.credentials", ValueJSON: datatypes.JSON(payload), Enabled: true}).Error)
+	_, err = access.AuthorizeCatalogRead(hostSTSContext(tenant, plugin), "")
+	require.NoError(t, err)
+	_, err = access.AuthorizeSpaceCreate(hostSTSContext(tenant, plugin), "")
+	require.NoError(t, err)
+	_, err = access.AuthorizeSpaceCreate(hostSTSContext(uuid.NewString(), plugin), "")
+	require.Equal(t, http.StatusForbidden, dto.StatusCode(err))
+	key := gwmodels.IntegrationGatewayAPIKey{TenantUUID: tenant, ProfileID: 1, Name: "host", KeyPrefix: "pxk", KeyHash: "host-test", Status: "active"}
+	require.NoError(t, db.Create(&key).Error)
+	_, err = access.AuthorizeSpaceCreate(hostAPIKeyContext(tenant), key.KeyHash)
+	require.Equal(t, http.StatusForbidden, dto.StatusCode(err))
+	for _, p := range []gwmodels.IntegrationGatewayAPIKeyPermission{
+		{APIKeyUUID: key.UUID, Scope: "_scope.knowledge.catalog.read", Action: "read", ResourceType: "api", ResourcePattern: "catalog", Effect: "allow"},
+		{APIKeyUUID: key.UUID, Scope: "_scope.knowledge.space.create", Action: "create", ResourceType: "api", ResourcePattern: "space", Effect: "allow"},
+	} {
+		require.NoError(t, db.Create(&p).Error)
+	}
+	_, err = access.AuthorizeCatalogRead(hostAPIKeyContext(tenant), key.KeyHash)
+	require.NoError(t, err)
+	_, err = access.AuthorizeSpaceCreate(hostAPIKeyContext(tenant), key.KeyHash)
+	require.NoError(t, err)
+	_, err = access.AuthorizeSpaceCreate(hostAPIKeyContext(uuid.NewString()), key.KeyHash)
+	require.Equal(t, http.StatusForbidden, dto.StatusCode(err))
 }

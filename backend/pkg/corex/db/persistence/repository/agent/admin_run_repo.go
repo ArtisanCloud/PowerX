@@ -83,7 +83,11 @@ func (r *AdminRunRepository) ListUnfinished(ctx context.Context, env string, aft
 	var rows []m.AdminRunAdmission
 	q := r.db.WithContext(ctx).Where("env = ? AND id > ? AND admission_state IN ?", env, after, []string{"pending_create", "admitted"})
 	if len(includeArchives) > 0 && includeArchives[0] {
-		q = q.Where("finished_at IS NULL OR archived_at IS NULL")
+		if len(includeArchives) > 1 && includeArchives[1] {
+			q = q.Where("finished_at IS NULL OR archived_at IS NULL OR hot_expires_at IS NULL")
+		} else {
+			q = q.Where("finished_at IS NULL OR archived_at IS NULL")
+		}
 	} else {
 		q = q.Where("finished_at IS NULL")
 	}

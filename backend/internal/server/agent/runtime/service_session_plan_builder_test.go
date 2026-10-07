@@ -51,6 +51,7 @@ func TestServiceSessionPlanBuilderWritesVerifiableArtifact(t *testing.T) {
 			return InvokePlanningInput{Context: ctx, Message: "review", ExplicitFlow: "flow.review"}, nil
 		}),
 		Engine: &Engine{}, Objects: objects,
+		Budget: &agent_run.PlanBudget{MaxSteps: 2, MaxCapabilityCalls: 1},
 		Pool: func(task flowschema.PlanTask) (string, error) {
 			require.Equal(t, "flow.review", task.FlowID)
 			return "workflow", nil
@@ -61,6 +62,9 @@ func TestServiceSessionPlanBuilderWritesVerifiableArtifact(t *testing.T) {
 	require.Equal(t, 1, loads)
 	require.Len(t, result.Plan.Tasks, 1)
 	require.Equal(t, "workflow", result.Plan.Tasks[0].PoolID)
+	require.Equal(t, 2, result.Plan.Budget.MaxSteps)
+	builder.Budget.MaxSteps = 1
+	require.Equal(t, 2, result.Plan.Budget.MaxSteps)
 	full, err := LoadExecutionPlanArtifact(context.Background(), objects, ref, result.ResultRef, result.EvidenceRef)
 	require.NoError(t, err)
 	require.Equal(t, "flow.review", full.Tasks[0].FlowID)
@@ -84,4 +88,27 @@ func TestServiceSessionPlanBuilderFailsClosedOnMissingArtifact(t *testing.T) {
 	require.Error(t, err)
 	_, err = builder.Build(context.Background(), ref, "wrong-key")
 	require.ErrorIs(t, err, agent_run.ErrInvalid)
+}
+
+func TestServiceSessionPlanBuilderReportsFailureStage(t *testing.T) {
+	ref := agent_run.TaskRef{TenantUUID: uuid.NewString(), Env: "dev", RunID: uuid.NewString(), TaskID: "plan", Attempt: 1}
+	for _, tc := range []struct {
+		name, reason string
+		loadErr      error
+		input        InvokePlanningInput
+	}{
+		{name: "contract_changed", loadErr: errAdminCapabilityContractChanged, reason: "authorization.contract_changed"},
+		{name: "input_store", loadErr: errors.New("object unavailable"), reason: "planner.input_failed"},
+		{name: "empty_input", reason: "planner.input_invalid"},
+		{name: "planner", input: InvokePlanningInput{Context: context.Background(), Message: "review"}, reason: "planner.build_failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			objects := &planMemoryObjects{items: map[string][]byte{}}
+			builder := &ServiceSessionPlanBuilder{Loader: planningInputLoaderFunc(func(context.Context, agent_run.TaskRef) (InvokePlanningInput, error) { return tc.input, tc.loadErr }), Engine: &Engine{}, Objects: objects, Pool: func(flowschema.PlanTask) (string, error) { return "workers", nil }}
+			result, err := builder.Build(context.Background(), ref, "agent:"+ref.RunID+":plan:1")
+			require.Error(t, err)
+			require.Equal(t, tc.reason, result.ReasonCode)
+			require.Empty(t, objects.items)
+		})
+	}
 }

@@ -144,17 +144,21 @@ func (s *Service) AttachIngestion(ingestion *IngestionService) {
 
 // CreateSpaceInput describes provisioning parameters.
 type CreateSpaceInput struct {
-	TenantUUID          string
-	SpaceName           string
-	DepartmentCode      string
-	QuotaCPU            int
-	QuotaStorageGB      int
-	PolicyVersion       uint64
-	IngestionProfileKey string
-	IndexProfileKey     string
-	RAGProfileKey       string
-	FeatureFlags        []string
-	RequestedBy         string
+	TenantUUID           string
+	SpaceName            string
+	DepartmentCode       string
+	DepartmentUUID       *uuid.UUID
+	IngestionProfileUUID *uuid.UUID
+	IndexProfileUUID     *uuid.UUID
+	RAGProfileUUID       *uuid.UUID
+	QuotaCPU             int
+	QuotaStorageGB       int
+	PolicyVersion        uint64
+	IngestionProfileKey  string
+	IndexProfileKey      string
+	RAGProfileKey        string
+	FeatureFlags         []string
+	RequestedBy          string
 }
 
 // UpdateSpaceInput captures mutable fields.

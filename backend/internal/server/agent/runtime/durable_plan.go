@@ -66,3 +66,18 @@ func TranslateInvokePlan(source *flowschema.ExecutionPlan, pool TaskPoolResolver
 	}
 	return plan, nil
 }
+
+func applyDurablePlanBudget(schedule *agent_run.Plan, source *flowschema.ExecutionPlan, budget agent_run.PlanBudget) error {
+	kinds := make(map[string]string, len(source.Tasks))
+	for _, task := range source.Tasks {
+		kinds[task.TaskID] = strings.ToLower(strings.TrimSpace(task.NodeKind))
+	}
+	for i := range schedule.Tasks {
+		schedule.Tasks[i].NodeKind = kinds[schedule.Tasks[i].TaskID]
+	}
+	schedule.Budget = &budget
+	if !agent_run.ValidPlan(*schedule) {
+		return fmt.Errorf("%w: durable plan steps or capability calls", ErrRuntimeBudgetExhausted)
+	}
+	return nil
+}

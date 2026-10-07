@@ -428,12 +428,15 @@ onMounted(async () => {
     if (workspaceMode.value === "team") {
       await loadTeamsForSelector();
     } else if (agents.value && agents.value.length > 0) {
-      const last = chatSessions.getLastSelectedAgentId?.() ?? null;
+      const pendingAgent = chat.getPendingRun()?.agentId;
+      const last = pendingAgent || chatSessions.getLastSelectedAgentId?.() || null;
       const fallbackId = agentsList.value[0]?.uuid || agents.value[0].uuid;
       const pickId =
         last && agents.value.some((a) => a.uuid === last) ? last : fallbackId;
-      await handleAgentSelect(preferLocalDebugAgentID(pickId, agents.value));
+      await handleAgentSelect(pendingAgent === pickId ? pickId : preferLocalDebugAgentID(pickId, agents.value));
     }
+    const pending = currentAgentId.value ? chat.getPendingRun(currentAgentId.value) : null;
+    if (pending) await handleSelectSession({ agentId: pending.agentId, sessionId: pending.sessionId });
   } catch (e: any) {
     if (!(e?.status === 404 || e?.statusCode === 404)) {
       notifyOnce(
@@ -476,6 +479,7 @@ const handleSelectSession = async (payload: {
   sessionId: string | number;
 }) => {
   const { agentId, sessionId } = payload;
+  chat.cancel();
   chatSessions.selectSession(agentId, sessionId);
 
   // 不立即清空当前消息，等待历史加载后覆盖内存消息
@@ -483,11 +487,11 @@ const handleSelectSession = async (payload: {
 
   // 加载会话历史消息（会自动缓存）
   try {
-    const historyMessages = await chatSessions.loadSessionMessages(sessionId);
+    const historyMessages = await chatSessions.loadSessionMessages(sessionId, true);
     chat.messages.value = Array.isArray(historyMessages)
       ? [...historyMessages]
       : [];
-    // console.info("加载会话消息成功，已通过缓存同步", historyMessages);
+    void chat.resumePendingRun();
   } catch (error) {
     console.error("加载会话消息失败:", error);
     notifyOnce("加载会话消息失败", error instanceof Error ? error.message : "");

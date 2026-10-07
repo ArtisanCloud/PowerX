@@ -750,7 +750,7 @@ func ensureWorkflowPackInstallationBackfill(db *gorm.DB) error {
 }
 
 func migrateKnowledgeModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&modelKnowledge.KnowledgeSpace{},
 		&modelKnowledge.KnowledgeVectorIndex{},
 		&modelKnowledge.PolicyTemplateVersion{},
@@ -773,7 +773,24 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 		&modelKnowledge.TenantReleaseBatch{},
 		&modelKnowledge.TenantDocument{},
 		&modelKnowledge.IndexJob{},
-	)
+	); err != nil {
+		return err
+	}
+	return backfillKnowledgePolicyUUIDs(db)
+}
+
+func backfillKnowledgePolicyUUIDs(db *gorm.DB) error {
+	// Stable public references are allocated once, including archived templates.
+	var rows []modelKnowledge.PolicyTemplateVersion
+	if err := db.Unscoped().Where("uuid IS NULL OR uuid = ?", uuid.Nil).Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := db.Unscoped().Model(&modelKnowledge.PolicyTemplateVersion{}).Where("id = ? AND (uuid IS NULL OR uuid = ?)", row.ID, uuid.Nil).Update("uuid", uuid.New()).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func migratePluginReleaseModels(db *gorm.DB) error {

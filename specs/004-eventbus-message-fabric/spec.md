@@ -101,6 +101,8 @@
 
 Agent Run Worker 是此 TaskBus 的受约束消费者：`specs/031-agent-runtime-durable-scheduling/spec.md` 要求 Redis Streams 消费组、可续租/重领、fencing、去重和死信能力。上述通用队列合同须在 Event Fabric 实现后才能供 Agent 使用；当前 Redis TaskQueue 的能力声明尚不满足这些要求。以下 DB polling fallback 仅适用于通用 Event Fabric 任务，**Agent Run 不启用 DB fallback**，Redis 不可用时按 Agent 规格失败关闭。
 
+2026-10-04 Streams 实现补充：持久化 Agent 使用独立的 `RedisStreamTaskDriver`（具备租约与消费组），不依赖旧 TaskQueue 的能力声明。新增 `Defer` 语义，用于任务尚未取得执行容量时原子 ACK/删除当前投递、释放当前租约并延后入队；这种等待不递增消息 attempt、不进入 DLQ，不改变业务任务原始排队时间。`Nack` 仍用于实际失败，递增 attempt 并按失败上限进入 DLQ。两者均核对当前 owner/token 并检查 Run 退休标记。`Dequeue` 每轮最多推进 100 个到期延迟项，再重领/读取消费组；不依赖单独的定时推进进程。Agent 的总等待期限由权威 RunStore 治理，禁止无限重置排队时间。
+
 ### 运行时约束
 
 - 当 `queue.driver=redis`：允许 DB polling fallback 启用。

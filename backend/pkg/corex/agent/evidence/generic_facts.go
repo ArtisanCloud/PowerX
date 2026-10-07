@@ -12,6 +12,75 @@ import (
 // eligibility.  Formula eligibility remains exclusively in CalculationPolicy.
 const GenericFactsSchema = "powerx.agent.evidence-facts/v1"
 
+// GenericFactInventorySchema 要求逐项处理所有可命名的原文数值，防止
+// 合法但不完整的模型子集被当作完整报告。
+const GenericFactInventorySchema = "powerx.agent.evidence-facts/v2"
+
+type GenericFactInventory struct {
+	Schema string `json:"schema"`
+	Facts  map[string]struct {
+		Label string `json:"label"`
+		Scope string `json:"scope"`
+	} `json:"facts"`
+}
+
+func GenericFactInventoryJSONSchema(tokens []NumericToken) map[string]any {
+	properties := map[string]any{}
+	required := []string{}
+	for _, token := range tokens {
+		labels := genericFactLabels(token)
+		if len(labels) == 0 {
+			continue
+		}
+		properties[token.Key] = map[string]any{"type": "object", "additionalProperties": false,
+			"properties": map[string]any{"label": map[string]any{"type": "string", "enum": labels}, "scope": map[string]any{"type": "string", "minLength": 1, "maxLength": 120}},
+			"required":   []string{"label", "scope"}}
+		required = append(required, token.Key)
+	}
+	return map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"schema": map[string]any{"const": GenericFactInventorySchema},
+		"facts":  map[string]any{"type": "object", "additionalProperties": false, "maxProperties": 64, "properties": properties, "required": required}}, "required": []string{"schema", "facts"}}
+}
+
+// ValidateGenericFactInventoryTokens 在调用模型前检查现有报告的事实上限，
+// 超限不得靠截断输入或漏选候选来伪造完整性。
+func ValidateGenericFactInventoryTokens(tokens []NumericToken) error {
+	count := 0
+	for _, token := range tokens {
+		if len(genericFactLabels(token)) > 0 {
+			count++
+		}
+	}
+	if count > 64 {
+		return fmt.Errorf("evidence.generic_fact_limit_exceeded")
+	}
+	return nil
+}
+
+func ResolveGenericFactInventory(inventory GenericFactInventory, tokens []NumericToken) ([]DraftDatum, error) {
+	if err := ValidateGenericFactInventoryTokens(tokens); err != nil {
+		return nil, err
+	}
+	if inventory.Schema != GenericFactInventorySchema || inventory.Facts == nil {
+		return nil, fmt.Errorf("evidence.generic_inventory_schema_invalid")
+	}
+	selection := GenericFactSelection{Schema: GenericFactsSchema, Facts: []GenericFactChoice{}}
+	for _, token := range tokens {
+		if len(genericFactLabels(token)) == 0 {
+			continue
+		}
+		fact, ok := inventory.Facts[token.Key]
+		if !ok {
+			return nil, fmt.Errorf("evidence.generic_inventory_incomplete: %s", token.Key)
+		}
+		selection.Facts = append(selection.Facts, GenericFactChoice{Label: fact.Label, Scope: fact.Scope, TokenRef: token.Key})
+	}
+	if len(selection.Facts) != len(inventory.Facts) {
+		return nil, fmt.Errorf("evidence.generic_inventory_unknown_token")
+	}
+	return ResolveGenericFacts(selection, tokens)
+}
+
 var genericIdentifierContextPattern = regexp.MustCompile(`(?i)\b(?:id|identifier|number)\b`)
 
 type GenericFactSelection struct {
@@ -65,6 +134,9 @@ func genericFactLabels(token NumericToken) []string {
 	quote := token.Source.Quote
 	needle := token.Source.Literal + token.Unit
 	index := strings.Index(quote, needle)
+	if token.LiteralOffset > 0 && token.LiteralOffset < len(quote) && strings.HasPrefix(quote[token.LiteralOffset:], token.Source.Literal) {
+		index = token.LiteralOffset
+	}
 	if index < 0 {
 		index = strings.Index(quote, token.Source.Literal)
 	}
@@ -97,6 +169,12 @@ func genericFactLabels(token NumericToken) []string {
 }
 
 func genericFactLabelSegment(text string, beforeNumber bool) string {
+	if !beforeNumber {
+		text = strings.TrimLeft(text, "的 \t")
+		if text == "" || strings.ContainsRune("，,。；;：:\n", []rune(text)[0]) {
+			return ""
+		}
+	}
 	parts := strings.FieldsFunc(text, func(r rune) bool {
 		return strings.ContainsRune("，,。；;：:\n", r)
 	})
@@ -119,7 +197,13 @@ func genericFactLabelSegment(text string, beforeNumber bool) string {
 		}
 		return segment
 	}
-	for _, suffix := range []string{"只有", "达到", "为", "是", "约", "近", "共"} {
+	// 范围上界沿用同一段原文名称，不把下界数字带进指标标签。
+	if (strings.HasSuffix(segment, "到") && !strings.HasSuffix(segment, "达到")) || strings.HasSuffix(segment, "至") || strings.HasSuffix(segment, " to") {
+		if span := sourceNumberPattern.FindStringIndex(segment); span != nil {
+			segment = strings.TrimSpace(segment[:span[0]])
+		}
+	}
+	for _, suffix := range []string{"只有", "达到", "为", "是", "约", "近", "共", "在"} {
 		segment = strings.TrimSuffix(segment, suffix)
 	}
 	return strings.TrimSpace(segment)
@@ -152,7 +236,7 @@ func ResolveGenericFacts(selection GenericFactSelection, tokens []NumericToken) 
 		if !containsString(genericFactLabels(token), strings.TrimSpace(fact.Label)) {
 			return nil, fmt.Errorf("evidence.generic_fact_label_not_in_source")
 		}
-		identity := token.Source.Pointer + "\x00" + token.Source.Literal + "\x00" + token.Unit + "\x00" + fact.Label
+		identity := token.Source.Pointer + "\x00" + token.Source.Quote + "\x00" + token.Source.Literal + "\x00" + token.Unit + "\x00" + fact.Label
 		if seen[identity] {
 			// A repeated selection names the exact same source-backed fact, not
 			// additional evidence. Keep the first declared scope deterministically

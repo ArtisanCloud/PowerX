@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 )
@@ -60,15 +62,18 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, fmt.Errorf("skill.evidence.facts: %w", err)
 	}
-	text, err := invoke("facts", instructions.Facts, evidence.GenericFactsJSONSchema(genericTokens), map[string]any{"input": in.Payload, "numeric_tokens": genericTokens})
+	if err := evidence.ValidateGenericFactInventoryTokens(genericTokens); err != nil {
+		return nil, fmt.Errorf("skill.evidence.facts: %w", err)
+	}
+	text, err := invoke("facts", instructions.Facts, evidence.GenericFactInventoryJSONSchema(genericTokens), map[string]any{"input": in.Payload, "numeric_tokens": genericTokens})
 	if err != nil {
 		return nil, err
 	}
-	var genericSelection evidence.GenericFactSelection
+	var genericSelection evidence.GenericFactInventory
 	if err := evidence.Decode([]byte(text), &genericSelection); err != nil {
 		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "facts_decode"}, Cause: fmt.Errorf("skill.evidence.facts: %w", err)}
 	}
-	genericFacts, err := evidence.ResolveGenericFacts(genericSelection, genericTokens)
+	genericFacts, err := evidence.ResolveGenericFactInventory(genericSelection, genericTokens)
 	if err != nil {
 		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "facts_selection", "selection": genericSelection}, Cause: fmt.Errorf("skill.evidence.facts: %w", err)}
 	}
@@ -97,6 +102,9 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "source_decode"}, Cause: fmt.Errorf("skill.evidence.source: %w", err)}
 	}
 	extracted, err := evidence.ResolveSelection(selection, tokens, policy, activeProfiles, locale)
+	if err == nil {
+		err = evidence.ValidateSelectionCoverage(selection, tokens, policy, activeProfiles, locale)
+	}
 	if err != nil {
 		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "source_selection", "profiles": activeProfiles, "selection": selection}, Cause: fmt.Errorf("skill.evidence.source: %w", err)}
 	}
@@ -114,7 +122,25 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, err
 	}
-	text, err = invoke("notes", instructions.Notes, evidence.NotesJSONSchema(), notesContext)
+	notesSchema := evidence.NotesJSONSchema()
+	allowedGaps := []string{}
+	for _, gap := range missing {
+		text := gap.Label + ": missing " + strings.Join(gap.InputLabels, ", ")
+		if locale == "zh-CN" {
+			text = gap.Label + "：缺少" + strings.Join(gap.InputLabels, "、")
+		}
+		allowedGaps = append(allowedGaps, text)
+	}
+	if len(allowedGaps) > 6 {
+		return nil, fmt.Errorf("skill.evidence.notes: evidence.statement_limit_exceeded")
+	}
+	gapSchema := notesSchema["properties"].(map[string]any)["gaps"].(map[string]any)
+	gapSchema["minItems"], gapSchema["maxItems"], gapSchema["uniqueItems"] = len(allowedGaps), len(allowedGaps), true
+	if len(allowedGaps) > 0 {
+		gapSchema["items"].(map[string]any)["enum"] = allowedGaps
+	}
+	notesContext["allowed_gaps"] = allowedGaps
+	text, err = invoke("notes", instructions.Notes, notesSchema, notesContext)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +148,13 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err := evidence.Decode([]byte(text), &notes); err != nil {
 		return nil, fmt.Errorf("skill.evidence.notes: %w", err)
 	}
-	if len(missing) > 0 && len(notes.Gaps) == 0 {
+	if len(notes.Gaps) != len(allowedGaps) {
 		return nil, fmt.Errorf("skill.evidence.notes: evidence.missing_inputs_unacknowledged")
+	}
+	for i, gap := range notes.Gaps {
+		if !slices.Contains(allowedGaps, gap) || slices.Contains(notes.Gaps[:i], gap) {
+			return nil, fmt.Errorf("skill.evidence.notes: evidence.unsupported_input_gaps")
+		}
 	}
 	report, err := evidence.AttachNotes(ctx, prepared, notes)
 	if err != nil {
@@ -135,10 +166,10 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 func mergeGenericFacts(declared []evidence.DraftDatum, generic []evidence.DraftDatum) []evidence.DraftDatum {
 	seen := map[string]bool{}
 	for _, datum := range declared {
-		seen[datum.Source.Pointer+"\x00"+datum.Source.Literal+"\x00"+datum.Unit] = true
+		seen[datum.Source.Pointer+"\x00"+datum.Source.Quote+"\x00"+datum.Source.Literal+"\x00"+datum.Unit] = true
 	}
 	for _, datum := range generic {
-		identity := datum.Source.Pointer + "\x00" + datum.Source.Literal + "\x00" + datum.Unit
+		identity := datum.Source.Pointer + "\x00" + datum.Source.Quote + "\x00" + datum.Source.Literal + "\x00" + datum.Unit
 		if seen[identity] {
 			continue
 		}

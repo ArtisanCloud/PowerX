@@ -256,6 +256,7 @@ type createDictionaryItemRequest struct {
 }
 
 type updateDictionaryItemRequest struct {
+	ExpectedVersion *int64             `json:"expected_version" validate:"omitempty,min=1"`
 	LabelI18n       *map[string]string `json:"label_i18n"`
 	DescriptionI18n *map[string]string `json:"description_i18n"`
 	SortOrder       *int               `json:"sort_order"`
@@ -301,6 +302,7 @@ type listTaxonomyNodesRequest struct {
 }
 
 type createTaxonomyNodeRequest struct {
+	Metadata        map[string]any    `json:"metadata"`
 	ParentUUID      *string           `json:"parent_uuid"`
 	Code            string            `json:"code" validate:"required"`
 	LabelI18n       map[string]string `json:"label_i18n" validate:"required"`
@@ -309,6 +311,9 @@ type createTaxonomyNodeRequest struct {
 }
 
 type updateTaxonomyNodeRequest struct {
+	Metadata        *map[string]any    `json:"metadata"`
+	MoveParent      bool               `json:"move_parent"`
+	ParentUUID      *string            `json:"parent_uuid"`
 	LabelI18n       *map[string]string `json:"label_i18n"`
 	DescriptionI18n *map[string]string `json:"description_i18n"`
 	SortOrder       *int               `json:"sort_order"`
@@ -332,6 +337,7 @@ type listTagsRequest struct {
 }
 
 type createTagRequest struct {
+	Metadata        map[string]any    `json:"metadata"`
 	Namespace       string            `json:"namespace" validate:"required"`
 	ResourceType    string            `json:"resource_type" validate:"required"`
 	Code            string            `json:"code" validate:"required"`
@@ -341,6 +347,8 @@ type createTagRequest struct {
 }
 
 type updateTagRequest struct {
+	Metadata        *map[string]any    `json:"metadata"`
+	ExpectedVersion *int64             `json:"expected_version" validate:"omitempty,min=1"`
 	LabelI18n       *map[string]string `json:"label_i18n"`
 	DescriptionI18n *map[string]string `json:"description_i18n"`
 	Color           *string            `json:"color"`
@@ -553,6 +561,7 @@ func (h *handler) updateDictionaryItem(c *gin.Context) {
 	}
 	item, err := h.service.UpdateDictionaryItem(c.Request.Context(), metasvc.UpdateDictionaryItemInput{
 		TenantUUID:      tenantUUID,
+		ExpectedVersion: req.ExpectedVersion,
 		ItemUUID:        c.Param("item_uuid"),
 		LabelI18n:       req.LabelI18n,
 		DescriptionI18n: req.DescriptionI18n,
@@ -726,6 +735,7 @@ func (h *handler) createTaxonomyNode(c *gin.Context) {
 		return
 	}
 	item, err := h.service.CreateTaxonomyNode(c.Request.Context(), metasvc.CreateTaxonomyNodeInput{
+		Metadata:        req.Metadata,
 		TenantUUID:      tenantUUID,
 		TaxonomyUUID:    c.Param("taxonomy_uuid"),
 		ParentUUID:      req.ParentUUID,
@@ -756,6 +766,7 @@ func (h *handler) updateTaxonomyNode(c *gin.Context) {
 		return
 	}
 	item, err := h.service.UpdateTaxonomyNode(c.Request.Context(), metasvc.UpdateTaxonomyNodeInput{
+		Metadata: req.Metadata, MoveParent: req.MoveParent, ParentUUID: req.ParentUUID,
 		TenantUUID:      tenantUUID,
 		NodeUUID:        c.Param("node_uuid"),
 		LabelI18n:       req.LabelI18n,
@@ -870,6 +881,7 @@ func (h *handler) createTag(c *gin.Context) {
 		return
 	}
 	item, err := h.service.CreateTag(c.Request.Context(), metasvc.CreateTagInput{
+		Metadata:        req.Metadata,
 		TenantUUID:      tenantUUID,
 		Namespace:       req.Namespace,
 		ResourceType:    req.ResourceType,
@@ -900,6 +912,7 @@ func (h *handler) updateTag(c *gin.Context) {
 		return
 	}
 	item, err := h.service.UpdateTag(c.Request.Context(), metasvc.UpdateTagInput{
+		Metadata: req.Metadata, ExpectedVersion: req.ExpectedVersion,
 		TenantUUID:      tenantUUID,
 		TagUUID:         c.Param("tag_uuid"),
 		LabelI18n:       req.LabelI18n,

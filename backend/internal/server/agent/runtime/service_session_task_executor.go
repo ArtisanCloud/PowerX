@@ -82,6 +82,9 @@ func (e *ServiceSessionTaskExecutor) Execute(ctx context.Context, ref agent_run.
 	rebuilt, err := TranslateInvokePlan(full, func(task flowschema.PlanTask) (string, error) {
 		return pools[task.TaskID], nil
 	})
+	if err == nil && schedule.Budget != nil {
+		err = applyDurablePlanBudget(&rebuilt, full, *schedule.Budget)
+	}
 	if err != nil || !reflect.DeepEqual(schedule, rebuilt) || schedule.Revision != ref.Revision {
 		return agent_run.WorkResult{}, agent_run.ErrInvalid
 	}

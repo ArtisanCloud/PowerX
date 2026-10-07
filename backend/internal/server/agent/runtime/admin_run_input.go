@@ -208,7 +208,7 @@ func (l *adminInputLoader) Load(ctx context.Context, ref agent_run.TaskRef) (Inv
 			liveContract, _ := json.Marshal(contract)
 			frozenContract, _ := json.Marshal(resource.RuntimeContract)
 			if string(liveContract) != string(frozenContract) {
-				return InvokePlanningInput{}, fmt.Errorf("admin run capability contract changed")
+				return InvokePlanningInput{}, errAdminCapabilityContractChanged
 			}
 		}
 		if resource.Kind == ResourceKindMediaAsset {

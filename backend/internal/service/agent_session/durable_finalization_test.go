@@ -77,6 +77,48 @@ func TestDurableFinalizationRetriesAtomicallyAndWritesOneMessage(t *testing.T) {
 	locators, err := svc.ListUnfinishedRuns(ctx, 0, 200)
 	require.NoError(t, err)
 	require.Empty(t, locators)
+	// 归档阶段启用后，已写结果但未保存归档定位的 Run 仍可扫描恢复。
+	objects := &sessionArchiveObjects{items: map[string][]byte{}}
+	svc.EnableArchiveRecovery(objects)
+	locators, err = svc.ListUnfinishedRuns(ctx, 0, 200)
+	require.NoError(t, err)
+	require.Len(t, locators, 1)
+	_, err = store.ArchiveRun(ctx, identity, objects)
+	require.NoError(t, err)
+	archived, err := store.Get(ctx, identity.TenantUUID, identity.Env, identity.RunID)
+	require.NoError(t, err)
+	wrongMessage := archived
+	wrongMessage.MessageID = uuid.NewString()
+	require.ErrorIs(t, svc.RecordArchivedRun(ctx, wrongMessage), ErrConflict)
+	for i := 0; i < 2; i++ {
+		require.NoError(t, svc.RecordArchivedRun(ctx, archived))
+	}
+	changedKey := archived
+	changedKey.ArchiveKey = "agent-runs/different-report.json"
+	require.Error(t, svc.RecordArchivedRun(ctx, changedKey))
+	locators, err = svc.ListUnfinishedRuns(ctx, 0, 200)
+	require.NoError(t, err)
+	require.Empty(t, locators)
+	require.NoError(t, db.First(&anchor, anchor.ID).Error)
+	require.Equal(t, archived.ArchiveKey, anchor.ArchiveKey)
+	require.NotNil(t, anchor.ArchivedAt)
+	// 独占 miniredis 清空后，正式 Query 和 SSE reader 从已验证归档恢复。
+	require.NoError(t, client.FlushDB(ctx).Err())
+	recovered, err := svc.GetInvocation(ctx, session.SessionUUID, anchor.UUID)
+	require.NoError(t, err)
+	require.Equal(t, "completed", recovered.Status)
+	subscription, err := svc.OpenRunSubscription(ctx, session.SessionUUID, anchor.UUID)
+	require.NoError(t, err)
+	snapshot, events, err := subscription.Read(ctx, 0, 1000)
+	require.NoError(t, err)
+	require.Equal(t, "completed", snapshot.Status)
+	require.Len(t, events, int(snapshot.EventSeq))
+	state, err := subscription.SnapshotState(ctx)
+	require.NoError(t, err)
+	require.Equal(t, snapshot.RunID, state.RunID)
+	_, _, err = subscription.Read(ctx, snapshot.EventSeq+1, 1000)
+	require.ErrorIs(t, err, ErrEventCursorExpired)
+
 	crossTenant := identity
 	crossTenant.TenantUUID = uuid.NewString()
 	require.ErrorIs(t, svc.FinalizeRun(ctx, crossTenant), ErrNotFound)
@@ -142,4 +184,18 @@ func TestDurableScannerRecoversPendingAdmissionsAndExpiresWithoutExecution(t *te
 			}
 		})
 	}
+}
+
+type sessionArchiveObjects struct{ items map[string][]byte }
+
+func (s *sessionArchiveObjects) Put(_ context.Context, key string, body []byte) error {
+	s.items[key] = append([]byte(nil), body...)
+	return nil
+}
+func (s *sessionArchiveObjects) Get(_ context.Context, key string) ([]byte, error) {
+	body, ok := s.items[key]
+	if !ok {
+		return nil, agent_run.ErrNotFound
+	}
+	return append([]byte(nil), body...), nil
 }

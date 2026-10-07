@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -20,6 +21,7 @@ var (
 )
 
 type CreateTagInput struct {
+	Metadata        map[string]any
 	TenantUUID      string
 	Namespace       string
 	ResourceType    string
@@ -30,6 +32,8 @@ type CreateTagInput struct {
 }
 
 type UpdateTagInput struct {
+	Metadata        *map[string]any
+	ExpectedVersion *int64
 	TenantUUID      string
 	TagUUID         string
 	LabelI18n       *map[string]string
@@ -107,6 +111,7 @@ func (s *Service) CreateTag(ctx context.Context, in CreateTagInput) (metadto.Tag
 		return metadto.TagResponse{}, err
 	}
 	row := &model.Tag{
+		Metadata:        mustJSONAny(in.Metadata),
 		TenantUUID:      tenantUUID,
 		Namespace:       namespace,
 		ResourceType:    resourceType,
@@ -134,6 +139,9 @@ func (s *Service) UpdateTag(ctx context.Context, in UpdateTagInput) (metadto.Tag
 		return metadto.TagResponse{}, ErrUUIDRequired
 	}
 	updates := map[string]any{}
+	if in.Metadata != nil {
+		updates["metadata"] = mustJSONAny(*in.Metadata)
+	}
 	if in.LabelI18n != nil {
 		if err := ValidateRequiredI18n(*in.LabelI18n, "zh-CN"); err != nil {
 			return metadto.TagResponse{}, err
@@ -153,7 +161,10 @@ func (s *Service) UpdateTag(ctx context.Context, in UpdateTagInput) (metadto.Tag
 		}
 		updates["status"] = status
 	}
-	row, err := s.tagRepo().UpdateTag(ctx, tenantUUID, tagUUID, updates)
+	row, err := s.tagRepo().UpdateTag(ctx, tenantUUID, tagUUID, updates, in.ExpectedVersion)
+	if errors.Is(err, metarepo.ErrOptimisticConflict) {
+		return metadto.TagResponse{}, ErrOptimisticConflict
+	}
 	if err != nil {
 		return metadto.TagResponse{}, err
 	}
@@ -250,7 +261,10 @@ func mapTag(row *model.Tag, locale string) metadto.TagResponse {
 	desc := mapStringJSON(row.DescriptionI18n)
 	displayName, missing := localized(label, locale)
 	displayDesc, _ := localized(desc, locale)
+	var attrs map[string]any
+	_ = json.Unmarshal(row.Metadata, &attrs)
 	return metadto.TagResponse{
+		Metadata:        attrs,
 		UUID:            row.UUID.String(),
 		Namespace:       row.Namespace,
 		ResourceType:    row.ResourceType,

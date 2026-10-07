@@ -3,6 +3,7 @@ package evidence
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -11,9 +12,10 @@ import (
 
 // NumericToken 是原始输入的词面证据，不推断业务含义，也不进行单位换算。
 type NumericToken struct {
-	Key    string `json:"key"`
-	Unit   string `json:"unit"`
-	Source Source `json:"source"`
+	Key           string `json:"key"`
+	Unit          string `json:"unit"`
+	Source        Source `json:"source"`
+	LiteralOffset int    `json:"literal_offset"`
 }
 
 type SelectedValue struct {
@@ -123,7 +125,15 @@ func tokenizeSourcesWithUnits(payload map[string]any, sources []string, units []
 			if len(right) > 24 {
 				right = right[:24]
 			}
-			out = append(out, NumericToken{Key: fmt.Sprintf("token_%d", len(out)), Unit: unit, Source: Source{Pointer: source, Quote: string(left) + quote + string(right), Literal: literal}})
+			prefix, suffix := string(left), string(right)
+			if at := strings.LastIndexAny(prefix, "，,。；;\n"); at >= 0 {
+				_, size := utf8.DecodeRuneInString(prefix[at:])
+				prefix = prefix[at+size:]
+			}
+			if at := strings.IndexAny(suffix, "，,。；;\n"); at >= 0 {
+				suffix = suffix[:at]
+			}
+			out = append(out, NumericToken{Key: fmt.Sprintf("token_%d", len(out)), Unit: unit, LiteralOffset: len(prefix), Source: Source{Pointer: source, Quote: prefix + quote + suffix, Literal: literal}})
 			if len(out) > 512 {
 				return nil, fmt.Errorf("evidence.source_token_limit_exceeded")
 			}
@@ -167,7 +177,7 @@ func SelectionJSONSchema(policy CalculationPolicy, tokens []NumericToken, active
 		}
 		refs := []string{}
 		for _, token := range tokens {
-			if !fieldMatchesTokenEvidence(f, token, locale) {
+			if !fieldMatchesPolicyTokenEvidence(f, token, policy, activeProfiles, locale) {
 				continue
 			}
 			for _, unit := range f.UnitTokens {
@@ -185,7 +195,13 @@ func SelectionJSONSchema(policy CalculationPolicy, tokens []NumericToken, active
 	// data is an object keyed by the declared calculation-policy fields. An
 	// array permits a provider to select the same field twice; this shape makes
 	// duplicate keys impossible before platform calculation begins.
-	data := map[string]any{"type": "object", "additionalProperties": false, "properties": properties}
+	required := []string{}
+	for _, field := range policy.InputFields {
+		if _, ok := properties[field.Key]; ok {
+			required = append(required, field.Key)
+		}
+	}
+	data := map[string]any{"type": "object", "additionalProperties": false, "properties": properties, "required": required}
 	return map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"schema": map[string]any{"const": ExtractionSchema}, "data": data}, "required": []string{"schema", "data"}}
 }
 
@@ -222,7 +238,7 @@ func ResolveSelection(selection SourceSelection, tokens []NumericToken, policy C
 		if !ok {
 			return out, fmt.Errorf("evidence.source_token_missing")
 		}
-		if !fieldMatchesTokenEvidence(field, token, locale) {
+		if !fieldMatchesPolicyTokenEvidence(field, token, policy, activeProfiles, locale) {
 			return out, fmt.Errorf("evidence.source_context_invalid: %s", field.Key)
 		}
 		out.Data = append(out.Data, InputValue{Key: field.Key, Scope: selected.Scope, Unit: token.Unit, Source: token.Source})
@@ -233,10 +249,52 @@ func ResolveSelection(selection SourceSelection, tokens []NumericToken, policy C
 // fieldMatchesTokenEvidence is a generic policy interpreter. The business words
 // come only from the published Skill field declaration, never from Core code.
 func fieldMatchesTokenEvidence(field InputField, token NumericToken, locale string) bool {
+	return fieldTokenSpecificity(field, token, locale) > 0
+}
+
+func fieldTokenSpecificity(field InputField, token NumericToken, locale string) int {
+	best := 0
 	for _, term := range field.EvidenceTermsI18n[locale] {
-		if normalized := normalizeEvidenceText(term); normalized != "" && strings.Contains(normalizeEvidenceText(token.Source.Quote), normalized) {
-			return true
+		for _, label := range genericFactLabels(token) {
+			if normalized := normalizeEvidenceText(term); normalized != "" && strings.Contains(normalizeEvidenceText(label), normalized) && len(normalized) > best {
+				best = len(normalized)
+			}
 		}
 	}
-	return false
+	return best
+}
+
+// 业务词由 Skill 声明；只匹配数值所在短句，长词优先，避免相邻字段
+// 或包含关系（如 GMV 与增量 GMV）把同一个操作数串到不同口径。
+func fieldMatchesPolicyTokenEvidence(field InputField, token NumericToken, policy CalculationPolicy, profiles []string, locale string) bool {
+	if !slices.Contains(field.UnitTokens, token.Unit) {
+		return false
+	}
+	match := fieldTokenSpecificity(field, token, locale)
+	if match == 0 {
+		return false
+	}
+	for _, other := range policy.InputFields {
+		if matchesProfile(other.AppliesTo, profiles) && slices.Contains(other.UnitTokens, token.Unit) && fieldTokenSpecificity(other, token, locale) > match {
+			return false
+		}
+	}
+	return true
+}
+
+func ValidateSelectionCoverage(selection SourceSelection, tokens []NumericToken, policy CalculationPolicy, profiles []string, locale string) error {
+	for _, field := range policy.InputFields {
+		if !matchesProfile(field.AppliesTo, profiles) {
+			continue
+		}
+		for _, token := range tokens {
+			if fieldMatchesPolicyTokenEvidence(field, token, policy, profiles, locale) {
+				if _, ok := selection.Data[field.Key]; !ok {
+					return fmt.Errorf("evidence.source_selection_incomplete: %s", field.Key)
+				}
+				break
+			}
+		}
+	}
+	return nil
 }

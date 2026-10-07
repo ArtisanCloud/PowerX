@@ -174,6 +174,7 @@ func (s *RedisStore) ProcessPlanningDelivery(ctx context.Context, queue LeasedTa
 func buildPlanningSafely(ctx context.Context, builder PlanBuilder, ref TaskRef, key string) (result PlanningResult, err error) {
 	defer func() {
 		if recover() != nil {
+			result = PlanningResult{ReasonCode: "planner.panicked"}
 			err = fmt.Errorf("planner panicked")
 		}
 	}()

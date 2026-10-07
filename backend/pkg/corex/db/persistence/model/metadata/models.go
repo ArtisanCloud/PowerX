@@ -60,6 +60,7 @@ func (Taxonomy) TableName() string {
 }
 
 type TaxonomyNode struct {
+	Metadata datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'" json:"metadata,omitempty"`
 	coremodel.PowerUUIDModel
 
 	TenantUUID      string         `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_metadata_taxonomy_node,priority:1;index:idx_metadata_taxonomy_node_parent_sort,priority:1" json:"tenant_uuid"`
@@ -81,6 +82,7 @@ func (TaxonomyNode) TableName() string {
 }
 
 type Tag struct {
+	Metadata datatypes.JSON `gorm:"column:metadata;type:jsonb;not null;default:'{}'" json:"metadata,omitempty"`
 	coremodel.PowerUUIDModel
 
 	TenantUUID      string         `gorm:"column:tenant_uuid;type:uuid;not null;uniqueIndex:uk_metadata_tag,priority:1;index:idx_metadata_tag_resource_status,priority:1" json:"tenant_uuid"`

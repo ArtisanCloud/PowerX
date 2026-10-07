@@ -67,7 +67,7 @@ components:
       properties:
         reason_code:
           type: string
-          enum: [queue.full, queue.timeout, provider.timeout, run.deadline, store.unavailable, archive.backpressure, manual_review_required]
+          enum: [queue.full, queue.timeout, provider.timeout, run.deadline, store.unavailable, archive.backpressure, manual_review_required, authorization.contract_changed, planner.input_failed, planner.input_invalid, planner.build_failed, planner.plan_invalid, planner.panicked, planner.failed]
         run_id: {type: string, format: uuid}
         task_id: {type: string, nullable: true}
 x-target-transport:

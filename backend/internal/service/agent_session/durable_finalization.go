@@ -34,7 +34,7 @@ func (s *Service) ListUnfinishedRuns(ctx context.Context, after uint64, limit in
 	if s == nil || s.repo == nil || s.durableRuns == nil {
 		return nil, ErrDependency
 	}
-	rows, err := s.repo.ListDurableLocators(ctx, s.runEnv, after, limit, s.archiveRecovery)
+	rows, err := s.repo.ListDurableLocators(ctx, s.runEnv, after, limit, s.archiveRecovery, s.retentionRecovery)
 	if err != nil {
 		return nil, translate(err)
 	}

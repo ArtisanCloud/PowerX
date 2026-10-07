@@ -340,8 +340,25 @@ func TestPlanningFailureIsPersistedWithoutRepeatedModelCalls(t *testing.T) {
 				t.Fatalf("planner failure not terminal: %+v calls=%d err=%v", run, calls, err)
 			}
 			task, err := store.GetTask(ctx, id, 0, PlanningTaskID)
-			if err != nil || task.ReasonCode != "planner.failed" {
+			reason := "planner.failed"
+			if panics {
+				reason = "planner.panicked"
+			}
+			if err != nil || task.ReasonCode != reason {
 				t.Fatalf("missing failure reason: %+v %v", task, err)
+			}
+			events, err := store.Events(ctx, id.TenantUUID, id.Env, id.RunID, 0, 20)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, event := range events {
+				if event.ReasonCode == reason {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("failure reason missing from durable events: %s", reason)
 			}
 		})
 	}

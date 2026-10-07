@@ -59,3 +59,17 @@ func TestTranslateInvokePlanRejectsInvalidOrUnresolvedTask(t *testing.T) {
 	_, err = TranslateInvokePlan(source, func(flowschema.PlanTask) (string, error) { return "workflow", nil })
 	require.ErrorIs(t, err, agent_run.ErrInvalid)
 }
+
+func TestDurablePlanBudgetReservesWholeDAG(t *testing.T) {
+	full := &flowschema.ExecutionPlan{Tasks: []flowschema.PlanTask{{TaskID: "one", Stage: 1, NodeKind: "Tooling"}, {TaskID: "two", Stage: 1, NodeKind: "tooling"}}}
+	schedule, err := TranslateInvokePlan(full, func(flowschema.PlanTask) (string, error) { return "workers", nil })
+	require.NoError(t, err)
+	err = applyDurablePlanBudget(&schedule, full, agent_run.PlanBudget{MaxSteps: 2, MaxCapabilityCalls: 1})
+	require.ErrorIs(t, err, ErrRuntimeBudgetExhausted)
+	require.Equal(t, "budget.exhausted", modelFailureReason(err))
+	full.Tasks[1].NodeKind = "llm"
+	require.NoError(t, applyDurablePlanBudget(&schedule, full, agent_run.PlanBudget{MaxSteps: 2, MaxCapabilityCalls: 1}))
+	require.Equal(t, "tooling", schedule.Tasks[0].NodeKind)
+	err = applyDurablePlanBudget(&schedule, full, agent_run.PlanBudget{MaxSteps: 1, MaxCapabilityCalls: 1})
+	require.ErrorIs(t, err, ErrRuntimeBudgetExhausted)
+}
