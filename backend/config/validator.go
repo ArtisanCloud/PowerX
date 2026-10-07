@@ -27,7 +27,7 @@ func (c *Config) Validate() error {
 	}
 
 	// --- Auth ---
-	if err := validateJWTSecret(c.Auth.JWTSecret); err != nil {
+	if err := validateJWTSecret(c.Auth.JWTSecret); err != nil && !c.setupOnlyWithoutJWT() {
 		errors = append(errors, err.Error())
 	}
 	if strings.TrimSpace(c.Auth.Issuer) == "" {

@@ -1,16 +1,17 @@
 openapi: 3.0.3
 info:
   title: Knowledge Space Provisioning API
-  version: "0.1.0"
+  version: 0.1.0
   description: HTTP contract for provisioning, ingestion, fusion, and feedback workflows.
 servers:
-  - url: https://api.powerx.local
+- url: https://api.powerx.local
 paths:
   /knowledge-spaces:
     post:
       summary: Create a knowledge space within a tenant
       operationId: createKnowledgeSpace
-      tags: [KnowledgeSpaces]
+      tags:
+      - KnowledgeSpaces
       requestBody:
         required: true
         content:
@@ -32,11 +33,12 @@ paths:
                 $ref: '#/components/schemas/Error'
   /knowledge-spaces/{spaceId}:
     parameters:
-      - $ref: '#/components/parameters/SpaceId'
+    - $ref: '#/components/parameters/SpaceId'
     patch:
       summary: Update quotas or policy templates
       operationId: patchKnowledgeSpace
-      tags: [KnowledgeSpaces]
+      tags:
+      - KnowledgeSpaces
       requestBody:
         required: true
         content:
@@ -60,9 +62,10 @@ paths:
     post:
       summary: Retire a space and trigger 13-month archive
       operationId: retireKnowledgeSpace
-      tags: [KnowledgeSpaces]
+      tags:
+      - KnowledgeSpaces
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/SpaceId'
       requestBody:
         required: false
         content:
@@ -82,16 +85,17 @@ paths:
     get:
       summary: List ingestion jobs for a space
       operationId: listIngestionJobs
-      tags: [Ingestion]
+      tags:
+      - Ingestion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 20
+      - $ref: '#/components/parameters/SpaceId'
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 20
       responses:
         '200':
           description: Job list
@@ -104,9 +108,10 @@ paths:
     post:
       summary: Trigger multimodal ingestion
       operationId: createIngestionJob
-      tags: [Ingestion]
+      tags:
+      - Ingestion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/SpaceId'
       requestBody:
         required: true
         content:
@@ -124,10 +129,11 @@ paths:
     get:
       summary: Get ingestion job by id
       operationId: getIngestionJob
-      tags: [Ingestion]
+      tags:
+      - Ingestion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/JobId'
       responses:
         '200':
           description: Job
@@ -144,10 +150,11 @@ paths:
     delete:
       summary: Delete an ingestion job and its derived artifacts
       operationId: deleteIngestionJob
-      tags: [Ingestion]
+      tags:
+      - Ingestion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/JobId'
       responses:
         '200':
           description: Deleted
@@ -165,23 +172,24 @@ paths:
     get:
       summary: List chunks for an ingestion job (preview)
       operationId: listIngestionJobChunks
-      tags: [Ingestion]
+      tags:
+      - Ingestion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - $ref: '#/components/parameters/JobId'
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
+      - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/JobId'
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
       responses:
         '200':
           description: Chunk page
@@ -193,11 +201,12 @@ paths:
     patch:
       summary: Update a chunk and rebuild its vector index
       operationId: updateIngestionJobChunk
-      tags: [Ingestion]
+      tags:
+      - Ingestion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - $ref: '#/components/parameters/JobId'
-        - $ref: '#/components/parameters/ChunkId'
+      - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/JobId'
+      - $ref: '#/components/parameters/ChunkId'
       requestBody:
         required: true
         content:
@@ -215,16 +224,17 @@ paths:
     get:
       summary: Fetch OCR page image for overlay preview
       operationId: getIngestionJobPageImage
-      tags: [Ingestion]
+      tags:
+      - Ingestion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - $ref: '#/components/parameters/JobId'
-        - name: pageNumber
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
+      - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/JobId'
+      - name: pageNumber
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
       responses:
         '200':
           description: Page image bytes
@@ -247,9 +257,10 @@ paths:
     post:
       summary: Publish a fusion strategy version
       operationId: publishFusionStrategy
-      tags: [Fusion]
+      tags:
+      - Fusion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/SpaceId'
       requestBody:
         required: true
         content:
@@ -272,9 +283,10 @@ paths:
     get:
       summary: List fusion strategy versions
       operationId: listFusionStrategies
-      tags: [Fusion]
+      tags:
+      - Fusion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/SpaceId'
       responses:
         '200':
           description: Strategy list
@@ -288,10 +300,11 @@ paths:
     post:
       summary: Rollback to a previous strategy version
       operationId: rollbackFusionStrategy
-      tags: [Fusion]
+      tags:
+      - Fusion
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
-        - $ref: '#/components/parameters/StrategyId'
+      - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/StrategyId'
       responses:
         '200':
           description: Strategy re-activated
@@ -303,9 +316,10 @@ paths:
     post:
       summary: Submit accuracy or freshness feedback
       operationId: createFeedbackCase
-      tags: [Feedback]
+      tags:
+      - Feedback
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/SpaceId'
       requestBody:
         required: true
         content:
@@ -324,9 +338,10 @@ paths:
     get:
       summary: List feedback cases
       operationId: listFeedbackCases
-      tags: [Feedback]
+      tags:
+      - Feedback
       parameters:
-        - $ref: '#/components/parameters/SpaceId'
+      - $ref: '#/components/parameters/SpaceId'
       responses:
         '200':
           description: Feedback list
@@ -340,91 +355,188 @@ paths:
     get:
       summary: List knowledge spaces for the authenticated service tenant
       operationId: listTenantKnowledgeSpaces
-      tags: [TenantKnowledge]
-      security: [{BearerAuth: []}, {ApiKeyAuth: []}]
+      tags:
+      - TenantKnowledge
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
       responses:
-        '200': {description: Tenant spaces, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeSpacesResponse'}}}}
-        '401': {$ref: '#/components/responses/KnowledgeUnauthorized'}
-        '403': {$ref: '#/components/responses/KnowledgeForbidden'}
-        '503': {$ref: '#/components/responses/KnowledgeUpstreamDependency'}
+        '200':
+          description: Tenant spaces
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantKnowledgeSpacesResponse'
+        '401':
+          $ref: '#/components/responses/KnowledgeUnauthorized'
+        '403':
+          $ref: '#/components/responses/KnowledgeForbidden'
+        '503':
+          $ref: '#/components/responses/KnowledgeUpstreamDependency'
   /tenant/knowledge/search:
     post:
       summary: Search indexed tenant knowledge with citations
       operationId: searchTenantKnowledge
-      tags: [TenantKnowledge]
-      security: [{BearerAuth: []}, {ApiKeyAuth: []}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeSearchRequest'}}}}
+      tags:
+      - TenantKnowledge
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantKnowledgeSearchRequest'
       responses:
-        '200': {description: Search results, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeSearchResponse'}}}}
-        '400': {$ref: '#/components/responses/KnowledgeInvalidArgument'}
-        '401': {$ref: '#/components/responses/KnowledgeUnauthorized'}
-        '403': {$ref: '#/components/responses/KnowledgeForbidden'}
-        '404': {$ref: '#/components/responses/KnowledgeSpaceNotFound'}
-        '503': {$ref: '#/components/responses/KnowledgeUpstreamDependency'}
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantKnowledgeSearchResponse'
+        '400':
+          $ref: '#/components/responses/KnowledgeInvalidArgument'
+        '401':
+          $ref: '#/components/responses/KnowledgeUnauthorized'
+        '403':
+          $ref: '#/components/responses/KnowledgeForbidden'
+        '404':
+          $ref: '#/components/responses/KnowledgeSpaceNotFound'
+        '503':
+          $ref: '#/components/responses/KnowledgeUpstreamDependency'
   /tenant/knowledge/spaces/{space_uuid}/documents:
-    parameters: [{$ref: '#/components/parameters/SpaceUUID'}]
+    parameters:
+    - $ref: '#/components/parameters/SpaceUUID'
     post:
       summary: Submit an auditable document indexing job
       operationId: upsertTenantKnowledgeDocument
-      tags: [TenantKnowledge]
-      security: [{BearerAuth: []}, {ApiKeyAuth: []}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeDocumentWriteRequest'}}}}
+      tags:
+      - TenantKnowledge
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantKnowledgeDocumentWriteRequest'
       responses:
-        '202': {description: Job accepted, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeIndexJobAccepted'}}}}
-        '400': {$ref: '#/components/responses/KnowledgeInvalidArgument'}
-        '401': {$ref: '#/components/responses/KnowledgeUnauthorized'}
-        '403': {$ref: '#/components/responses/KnowledgeForbidden'}
-        '404': {$ref: '#/components/responses/KnowledgeSpaceNotFound'}
-        '409': {$ref: '#/components/responses/KnowledgeIndexConflict'}
-        '503': {$ref: '#/components/responses/KnowledgeUpstreamDependency'}
+        '202':
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantKnowledgeIndexJobAccepted'
+        '400':
+          $ref: '#/components/responses/KnowledgeInvalidArgument'
+        '401':
+          $ref: '#/components/responses/KnowledgeUnauthorized'
+        '403':
+          $ref: '#/components/responses/KnowledgeForbidden'
+        '404':
+          $ref: '#/components/responses/KnowledgeSpaceNotFound'
+        '409':
+          $ref: '#/components/responses/KnowledgeIndexConflict'
+        '503':
+          $ref: '#/components/responses/KnowledgeUpstreamDependency'
+        '422':
+          description: KNOWLEDGE_PROFILE_UNAVAILABLE or KNOWLEDGE_UNSUPPORTED_INGESTION_SETTING;
+            no document/job created.
   /tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}:
-    parameters: [{$ref: '#/components/parameters/SpaceUUID'}, {$ref: '#/components/parameters/DocumentUUID'}]
+    parameters:
+    - $ref: '#/components/parameters/SpaceUUID'
+    - $ref: '#/components/parameters/DocumentUUID'
     delete:
       summary: Submit a document deletion indexing job
       operationId: deleteTenantKnowledgeDocument
-      tags: [TenantKnowledge]
-      security: [{BearerAuth: []}, {ApiKeyAuth: []}]
+      tags:
+      - TenantKnowledge
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
       responses:
-        '202': {description: Job accepted, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeIndexJobAccepted'}}}}
-        '400': {$ref: '#/components/responses/KnowledgeInvalidArgument'}
-        '401': {$ref: '#/components/responses/KnowledgeUnauthorized'}
-        '403': {$ref: '#/components/responses/KnowledgeForbidden'}
-        '404': {$ref: '#/components/responses/KnowledgeDocumentNotFound'}
-        '503': {$ref: '#/components/responses/KnowledgeUpstreamDependency'}
+        '202':
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantKnowledgeIndexJobAccepted'
+        '400':
+          $ref: '#/components/responses/KnowledgeInvalidArgument'
+        '401':
+          $ref: '#/components/responses/KnowledgeUnauthorized'
+        '403':
+          $ref: '#/components/responses/KnowledgeForbidden'
+        '404':
+          $ref: '#/components/responses/KnowledgeDocumentNotFound'
+        '503':
+          $ref: '#/components/responses/KnowledgeUpstreamDependency'
   /tenant/knowledge/spaces/{space_uuid}/indexes:rebuild:
-    parameters: [{$ref: '#/components/parameters/SpaceUUID'}]
+    parameters:
+    - $ref: '#/components/parameters/SpaceUUID'
     post:
       summary: Submit a full space index rebuild job
       operationId: rebuildTenantKnowledgeIndex
-      tags: [TenantKnowledge]
-      security: [{BearerAuth: []}, {ApiKeyAuth: []}]
+      tags:
+      - TenantKnowledge
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
       responses:
-        '202': {description: Job accepted, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeIndexJobAccepted'}}}}
-        '400': {$ref: '#/components/responses/KnowledgeInvalidArgument'}
-        '401': {$ref: '#/components/responses/KnowledgeUnauthorized'}
-        '403': {$ref: '#/components/responses/KnowledgeForbidden'}
-        '404': {$ref: '#/components/responses/KnowledgeSpaceNotFound'}
-        '409': {$ref: '#/components/responses/KnowledgeIndexConflict'}
-        '503': {$ref: '#/components/responses/KnowledgeUpstreamDependency'}
+        '202':
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantKnowledgeIndexJobAccepted'
+        '400':
+          $ref: '#/components/responses/KnowledgeInvalidArgument'
+        '401':
+          $ref: '#/components/responses/KnowledgeUnauthorized'
+        '403':
+          $ref: '#/components/responses/KnowledgeForbidden'
+        '404':
+          $ref: '#/components/responses/KnowledgeSpaceNotFound'
+        '409':
+          $ref: '#/components/responses/KnowledgeIndexConflict'
+        '503':
+          $ref: '#/components/responses/KnowledgeUpstreamDependency'
   /tenant/knowledge/index-jobs/{job_uuid}:
-    parameters: [{$ref: '#/components/parameters/IndexJobUUID'}]
+    parameters:
+    - $ref: '#/components/parameters/IndexJobUUID'
     get:
       summary: Get the tenant-scoped state of an asynchronous index job
       operationId: getTenantKnowledgeIndexJob
-      tags: [TenantKnowledge]
-      security: [{BearerAuth: []}, {ApiKeyAuth: []}]
+      tags:
+      - TenantKnowledge
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
       responses:
-        '200': {description: Index job, content: {application/json: {schema: {$ref: '#/components/schemas/TenantKnowledgeIndexJob'}}}}
-        '400': {$ref: '#/components/responses/KnowledgeInvalidArgument'}
-        '401': {$ref: '#/components/responses/KnowledgeUnauthorized'}
-        '403': {$ref: '#/components/responses/KnowledgeForbidden'}
-        '404': {$ref: '#/components/responses/KnowledgeIndexJobNotFound'}
-        '503': {$ref: '#/components/responses/KnowledgeUpstreamDependency'}
+        '200':
+          description: Index job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantKnowledgeIndexJob'
+        '400':
+          $ref: '#/components/responses/KnowledgeInvalidArgument'
+        '401':
+          $ref: '#/components/responses/KnowledgeUnauthorized'
+        '403':
+          $ref: '#/components/responses/KnowledgeForbidden'
+        '404':
+          $ref: '#/components/responses/KnowledgeIndexJobNotFound'
+        '503':
+          $ref: '#/components/responses/KnowledgeUpstreamDependency'
   /openapi/knowledge-spaces/status:
     get:
       summary: Knowledge space provisioning summary
       operationId: getKnowledgeSpaceStatus
-      tags: [KnowledgeSpaces]
+      tags:
+      - KnowledgeSpaces
       responses:
         '200':
           description: Current provisioning counts
@@ -442,7 +554,8 @@ paths:
     post:
       summary: Compute QA retrieval plan across knowledge spaces
       operationId: planQARetrieval
-      tags: [KnowledgeSpacesQA]
+      tags:
+      - KnowledgeSpacesQA
       requestBody:
         required: true
         content:
@@ -460,7 +573,8 @@ paths:
     post:
       summary: Upsert or fetch QA memory snapshot
       operationId: upsertQAMemorySnapshot
-      tags: [KnowledgeSpacesQA]
+      tags:
+      - KnowledgeSpacesQA
       requestBody:
         required: true
         content:
@@ -474,7 +588,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/QAMemorySnapshotResponse'
-
+  /tenant/knowledge/index-jobs/{job_uuid}/chunks:
+    parameters:
+    - $ref: '#/components/parameters/IndexJobUUID'
+    get:
+      operationId: getTenantKnowledgeJobChunks
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Immutable task chunks; data.items is ordered by ordinal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TenantKnowledgeDocumentChunk'
+        '401':
+          $ref: '#/components/responses/KnowledgeUnauthorized'
+        '403':
+          $ref: '#/components/responses/KnowledgeForbidden'
+        '404':
+          $ref: '#/components/responses/KnowledgeIndexJobNotFound'
 components:
   securitySchemes:
     BearerAuth:
@@ -518,51 +660,121 @@ components:
       name: space_uuid
       in: path
       required: true
-      schema: {type: string, format: uuid}
+      schema:
+        type: string
+        format: uuid
     DocumentUUID:
       name: document_uuid
       in: path
       required: true
-      schema: {type: string, format: uuid}
+      schema:
+        type: string
+        format: uuid
     IndexJobUUID:
       name: job_uuid
       in: path
       required: true
-      schema: {type: string, format: uuid}
+      schema:
+        type: string
+        format: uuid
   responses:
-    KnowledgeInvalidArgument: {description: Invalid UUID, pagination, duplicate filter, or caller tenant override, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
-    KnowledgeUnauthorized: {description: Missing or invalid service credential, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
-    KnowledgeForbidden: {description: Missing tenant capability registration or credential grant, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
-    KnowledgeSpaceNotFound: {description: Space absent from authenticated tenant, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
-    KnowledgeDocumentNotFound: {description: Document absent from authenticated tenant space, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
-    KnowledgeIndexJobNotFound: {description: Job absent from authenticated tenant, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
-    KnowledgeIndexConflict: {description: A conflicting index operation is pending, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
-    KnowledgeUpstreamDependency: {description: Persistence or asynchronous index dependency unavailable, content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeError'}}}}
+    KnowledgeInvalidArgument:
+      description: Invalid UUID
+      pagination: null
+      duplicate filter: null
+      or caller tenant override: null
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
+    KnowledgeUnauthorized:
+      description: Missing or invalid service credential
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
+    KnowledgeForbidden:
+      description: Missing tenant capability registration or credential grant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
+    KnowledgeSpaceNotFound:
+      description: Space absent from authenticated tenant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
+    KnowledgeDocumentNotFound:
+      description: Document absent from authenticated tenant space
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
+    KnowledgeIndexJobNotFound:
+      description: Job absent from authenticated tenant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
+    KnowledgeIndexConflict:
+      description: A conflicting index operation is pending
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
+    KnowledgeUpstreamDependency:
+      description: Persistence or asynchronous index dependency unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/KnowledgeError'
   schemas:
     TenantKnowledgeSpacesResponse:
       type: object
-      required: [items]
+      required:
+      - items
       properties:
         items:
           type: array
           items:
             type: object
-            required: [space_uuid, name, status]
+            required:
+            - space_uuid
+            - name
+            - status
             properties:
-              space_uuid: {type: string, format: uuid}
-              name: {type: string}
-              status: {type: string}
+              space_uuid:
+                type: string
+                format: uuid
+              name:
+                type: string
+              status:
+                type: string
     TenantKnowledgeSearchRequest:
       type: object
       additionalProperties: false
-      required: [query]
+      required:
+      - query
       properties:
-        query: {type: string, minLength: 1}
-        space_uuids: {type: array, items: {type: string, format: uuid}, uniqueItems: true}
-        limit: {type: integer, minimum: 1, maximum: 100, default: 20}
+        query:
+          type: string
+          minLength: 1
+        space_uuids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
     TenantKnowledgeSearchResponse:
       type: object
-      required: [items]
+      required:
+      - items
       properties:
         items:
           type: array
@@ -570,54 +782,168 @@ components:
             $ref: '#/components/schemas/TenantKnowledgeCitation'
     TenantKnowledgeCitation:
       type: object
-      required: [space_uuid, document_uuid, title, uri, excerpt, tags]
+      required:
+      - space_uuid
+      - document_uuid
+      - title
+      - uri
+      - excerpt
+      - tags
       properties:
-        space_uuid: {type: string, format: uuid}
-        document_uuid: {type: string, format: uuid}
-        title: {type: string}
-        uri: {type: string}
-        excerpt: {type: string}
-        tags: {type: array, items: {type: string}}
+        space_uuid:
+          type: string
+          format: uuid
+        document_uuid:
+          type: string
+          format: uuid
+        title:
+          type: string
+        uri:
+          type: string
+        excerpt:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
     TenantKnowledgeDocumentWriteRequest:
       type: object
       additionalProperties: false
-      required: [title, uri, content, content_type, checksum, version]
+      required:
+      - title
+      - uri
+      - content
+      - content_type
+      - checksum
+      - version
       properties:
-        title: {type: string, minLength: 1}
-        uri: {type: string, minLength: 1}
-        content: {type: string, minLength: 1}
-        content_type: {type: string, enum: [text/markdown, text/plain]}
-        checksum: {type: string, pattern: '^[0-9a-fA-F]{64}$'}
-        version: {type: string, minLength: 1}
-        tags: {type: array, items: {type: string}}
+        title:
+          type: string
+          minLength: 1
+        uri:
+          type: string
+          minLength: 1
+        content:
+          type: string
+          minLength: 1
+        content_type:
+          type: string
+          enum:
+          - text/markdown
+          - text/plain
+        checksum:
+          type: string
+          pattern: ^[0-9a-fA-F]{64}$
+        version:
+          type: string
+          minLength: 1
+        tags:
+          type: array
+          items:
+            type: string
+        ingestion:
+          allOf:
+          - $ref: '#/components/schemas/KnowledgeDocumentIngestionSettings'
+          nullable: true
+          description: Omitted/null uses space-bound Profile and defaults. Explicit
+            overrides > frozen published Profile.chunking > Core defaults.
     TenantKnowledgeIndexJobAccepted:
       type: object
-      required: [job_uuid, status, operation]
+      required:
+      - job_uuid
+      - status
+      - operation
       properties:
-        job_uuid: {type: string, format: uuid}
-        status: {type: string, enum: [queued]}
-        operation: {type: string, enum: [upsert, delete, rebuild]}
-        document_uuid: {type: string, format: uuid}
+        job_uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - queued
+        operation:
+          type: string
+          enum:
+          - upsert
+          - delete
+          - rebuild
+        document_uuid:
+          type: string
+          format: uuid
     TenantKnowledgeIndexJob:
       type: object
-      required: [job_uuid, space_uuid, status, operation]
+      required:
+      - job_uuid
+      - space_uuid
+      - status
+      - operation
       properties:
-        job_uuid: {type: string, format: uuid}
-        space_uuid: {type: string, format: uuid}
-        document_uuid: {type: string, format: uuid}
-        operation: {type: string, enum: [upsert, delete, rebuild]}
-        status: {type: string, enum: [queued, running, succeeded, failed]}
-        error_code: {type: string}
+        job_uuid:
+          type: string
+          format: uuid
+        space_uuid:
+          type: string
+          format: uuid
+        document_uuid:
+          type: string
+          format: uuid
+        operation:
+          type: string
+          enum:
+          - upsert
+          - delete
+          - rebuild
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - succeeded
+          - failed
+        error_code:
+          type: string
+        priority: &id001
+          type: string
+          enum:
+          - normal
+          - high
+          default: normal
+          description: Non-preemptive high-first among queued jobs.
+        trace_id:
+          type: string
+        effective_config:
+          $ref: '#/components/schemas/KnowledgeEffectiveIngestionConfig'
+        requested_config:
+          $ref: '#/components/schemas/KnowledgeDocumentIngestionSettings'
+        snapshot_checksum:
+          type: string
+        chunk_count:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
     KnowledgeError:
       type: object
-      required: [error_code, reason_code]
+      required:
+      - error_code
+      - reason_code
       properties:
-        error_code: {type: string}
-        reason_code: {type: string}
-        message: {type: string}
+        error_code:
+          type: string
+        reason_code:
+          type: string
+        message:
+          type: string
     KnowledgeSpaceCreate:
       type: object
-      required: [spaceName, departmentCode, quotas, policyTemplateVersionId]
+      required:
+      - spaceName
+      - departmentCode
+      - quotas
+      - policyTemplateVersionId
       properties:
         spaceName:
           type: string
@@ -650,7 +976,11 @@ components:
             type: string
         status:
           type: string
-          enum: [draft, active, pending_iam, retired]
+          enum:
+          - draft
+          - active
+          - pending_iam
+          - retired
     RetireSpaceRequest:
       type: object
       properties:
@@ -663,25 +993,28 @@ components:
           default: false
     KnowledgeSpace:
       allOf:
-        - $ref: '#/components/schemas/KnowledgeSpaceCreate'
-        - type: object
-          properties:
-            tenant_uuid:
-              type: string
-              format: uuid
-            spaceId:
-              type: string
-              format: uuid
-            status:
-              type: string
-            retentionExpiresAt:
-              type: string
-              format: date-time
-            auditToken:
-              type: string
+      - $ref: '#/components/schemas/KnowledgeSpaceCreate'
+      - type: object
+        properties:
+          tenant_uuid:
+            type: string
+            format: uuid
+          spaceId:
+            type: string
+            format: uuid
+          status:
+            type: string
+          retentionExpiresAt:
+            type: string
+            format: date-time
+          auditToken:
+            type: string
     Quota:
       type: object
-      required: [cpuCores, storageGb, ingestionConcurrency]
+      required:
+      - cpuCores
+      - storageGb
+      - ingestionConcurrency
       properties:
         cpuCores:
           type: integer
@@ -694,14 +1027,35 @@ components:
           minimum: 1
     IngestionJobRequest:
       type: object
-      required: [sourceUri]
+      required:
+      - sourceUri
       properties:
         format:
           type: string
-          enum: [pdf, docx, xlsx, csv, markdown, html, sql, image, table, api]
+          enum:
+          - pdf
+          - docx
+          - xlsx
+          - csv
+          - markdown
+          - html
+          - sql
+          - image
+          - table
+          - api
         sourceType:
           type: string
-          enum: [pdf, docx, xlsx, csv, markdown, html, sql, image, table, api]
+          enum:
+          - pdf
+          - docx
+          - xlsx
+          - csv
+          - markdown
+          - html
+          - sql
+          - image
+          - table
+          - api
         sourceUri:
           type: string
         ingestionProfile:
@@ -714,7 +1068,9 @@ components:
           type: string
         priority:
           type: string
-          enum: [normal, high]
+          enum:
+          - normal
+          - high
         ragSceneKey:
           type: string
         ragBundleKey:
@@ -723,7 +1079,14 @@ components:
           type: string
         segmentMode:
           type: string
-          enum: [unit, heading, clause, semantic, table_row, code_block, conversation]
+          enum:
+          - unit
+          - heading
+          - clause
+          - semantic
+          - table_row
+          - code_block
+          - conversation
         chunkSize:
           type: integer
           minimum: 0
@@ -734,12 +1097,18 @@ components:
           maximum: 5000
         segmentSizePolicy:
           type: string
-          enum: [cap, target]
+          enum:
+          - cap
+          - target
         segmentOrder:
           type: array
           items:
             type: string
-            enum: [page, size, segment, separator]
+            enum:
+            - page
+            - size
+            - segment
+            - separator
         separators:
           type: array
           items:
@@ -764,7 +1133,14 @@ components:
           type: string
         status:
           type: string
-          enum: [pending, running, retrying, paused, completed, failed, blocked]
+          enum:
+          - pending
+          - running
+          - retrying
+          - paused
+          - completed
+          - failed
+          - blocked
         retryCount:
           type: integer
         errorCode:
@@ -781,7 +1157,10 @@ components:
           type: number
     IngestionChunk:
       type: object
-      required: [chunkId, kind, content]
+      required:
+      - chunkId
+      - kind
+      - content
       properties:
         chunkId:
           type: string
@@ -799,7 +1178,13 @@ components:
           type: boolean
     IngestionChunkList:
       type: object
-      required: [spaceId, jobId, total, page, pageSize, items]
+      required:
+      - spaceId
+      - jobId
+      - total
+      - page
+      - pageSize
+      - items
       properties:
         spaceId:
           type: string
@@ -823,7 +1208,8 @@ components:
             $ref: '#/components/schemas/IngestionChunk'
     UpdateChunkRequest:
       type: object
-      required: [content]
+      required:
+      - content
       properties:
         content:
           type: string
@@ -847,7 +1233,11 @@ components:
           format: date-time
     DeleteIngestionJobResult:
       type: object
-      required: [deleted, deletedChunks, deletedVectors, deletedArtifacts]
+      required:
+      - deleted
+      - deletedChunks
+      - deletedVectors
+      - deletedArtifacts
       properties:
         deleted:
           type: boolean
@@ -859,7 +1249,12 @@ components:
           type: boolean
     FusionStrategyRequest:
       type: object
-      required: [label, bm25Weight, vectorWeight, graphConstraint, rerankerModel]
+      required:
+      - label
+      - bm25Weight
+      - vectorWeight
+      - graphConstraint
+      - rerankerModel
       properties:
         label:
           type: string
@@ -877,7 +1272,10 @@ components:
           type: string
         conflictPolicy:
           type: string
-          enum: [block, queue, allow_with_flag]
+          enum:
+          - block
+          - queue
+          - allow_with_flag
         requestedBy:
           type: string
     FusionStrategy:
@@ -900,10 +1298,16 @@ components:
           type: string
         conflictPolicy:
           type: string
-          enum: [block, queue, allow_with_flag]
+          enum:
+          - block
+          - queue
+          - allow_with_flag
         deploymentState:
           type: string
-          enum: [draft, active, rollback]
+          enum:
+          - draft
+          - active
+          - rollback
         degraded:
           type: boolean
         degradeReasons:
@@ -915,14 +1319,24 @@ components:
           format: date-time
     FeedbackCaseRequest:
       type: object
-      required: [severity, linkedChunks, issueType]
+      required:
+      - severity
+      - linkedChunks
+      - issueType
       properties:
         issueType:
           type: string
-          enum: [accuracy, freshness, compliance]
+          enum:
+          - accuracy
+          - freshness
+          - compliance
         severity:
           type: string
-          enum: [low, medium, high, critical]
+          enum:
+          - low
+          - medium
+          - high
+          - critical
         linkedChunks:
           type: array
           items:
@@ -937,27 +1351,32 @@ components:
           type: string
     FeedbackCase:
       allOf:
-        - $ref: '#/components/schemas/FeedbackCaseRequest'
-        - type: object
-          properties:
-            caseId:
-              type: string
-            status:
-              type: string
-              enum: [open, in_progress, reprocessed, escalated, closed]
-            slaDueAt:
-              type: string
-              format: date-time
-            qualityScore:
-              type: number
-            reprocessJobId:
-              type: string
-            createdAt:
-              type: string
-              format: date-time
-            updatedAt:
-              type: string
-              format: date-time
+      - $ref: '#/components/schemas/FeedbackCaseRequest'
+      - type: object
+        properties:
+          caseId:
+            type: string
+          status:
+            type: string
+            enum:
+            - open
+            - in_progress
+            - reprocessed
+            - escalated
+            - closed
+          slaDueAt:
+            type: string
+            format: date-time
+          qualityScore:
+            type: number
+          reprocessJobId:
+            type: string
+          createdAt:
+            type: string
+            format: date-time
+          updatedAt:
+            type: string
+            format: date-time
     Error:
       type: object
       properties:
@@ -974,10 +1393,14 @@ components:
           type: integer
         retired:
           type: integer
-      required: [pendingIam, active, retired]
+      required:
+      - pendingIam
+      - active
+      - retired
     QARetrievalPlanRequest:
       type: object
-      required: [intent]
+      required:
+      - intent
       properties:
         intent:
           type: string
@@ -991,7 +1414,11 @@ components:
           type: integer
     QARetrievalPlanResponse:
       type: object
-      required: [tenant_uuid, intent, candidateSpaces, telemetry]
+      required:
+      - tenant_uuid
+      - intent
+      - candidateSpaces
+      - telemetry
       properties:
         tenant_uuid:
           type: string
@@ -1023,7 +1450,11 @@ components:
           additionalProperties: true
     QACandidateSpace:
       type: object
-      required: [spaceId, spaceName, strategy, citationCoverage]
+      required:
+      - spaceId
+      - spaceName
+      - strategy
+      - citationCoverage
       properties:
         spaceId:
           type: string
@@ -1058,7 +1489,8 @@ components:
           format: date-time
     QAMemorySnapshotRequest:
       type: object
-      required: [sessionId]
+      required:
+      - sessionId
       properties:
         sessionId:
           type: string
@@ -1080,7 +1512,9 @@ components:
             $ref: '#/components/schemas/QACitationSummary'
     QACitationSummary:
       type: object
-      required: [chunkId, spaceId]
+      required:
+      - chunkId
+      - spaceId
       properties:
         chunkId:
           type: string
@@ -1098,3 +1532,239 @@ components:
           type: number
         deltaReason:
           type: string
+    KnowledgeTaskProfileRef:
+      type: object
+      additionalProperties: false
+      required:
+      - uuid
+      - version
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+    KnowledgeDocumentIngestionSettings:
+      type: object
+      additionalProperties: false
+      required:
+      - schema
+      properties:
+        schema: &id002
+          type: string
+          enum:
+          - powerx.knowledge.document-ingestion/v1
+        strategy: &id003
+          type: object
+          additionalProperties: false
+          required:
+          - version
+          anyOf:
+          - required:
+            - uuid
+          - required:
+            - key
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            key:
+              type: string
+            version:
+              type: integer
+              minimum: 1
+          description: Must match the space strategy; task override unsupported.
+        ingestion_profile:
+          $ref: '#/components/schemas/KnowledgeTaskProfileRef'
+        processor_profile:
+          allOf:
+          - $ref: '#/components/schemas/KnowledgeTaskProfileRef'
+          nullable: true
+          description: Only omission/null supported; non-null returns 422.
+        masking_profile:
+          allOf:
+          - $ref: '#/components/schemas/KnowledgeTaskProfileRef'
+          nullable: true
+          description: Only omission/null supported; non-null returns 422.
+        priority: *id001
+        segment_mode: &id004
+          type: string
+          enum:
+          - unit
+          - heading
+          - clause
+          - table_row
+          - code_block
+          - conversation
+          default: unit
+        segment_size_policy: &id005
+          type: string
+          enum:
+          - cap
+          - target
+          default: cap
+        chunk_size: &id006
+          type: integer
+          minimum: 0
+          maximum: 65536
+          default: 1024
+          description: Unicode rune count. Zero disables size windowing and requires
+            overlap=0 and policy=cap.
+        chunk_overlap: &id007
+          type: integer
+          minimum: 0
+          default: 0
+          description: Must be below positive chunk_size; otherwise zero.
+        segment_order: &id008
+          type: array
+          minItems: 4
+          maxItems: 4
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - page
+            - segment
+            - separator
+            - size
+          default:
+          - page
+          - segment
+          - separator
+          - size
+        separators: &id009
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 32
+          default: []
+          description: Literal delimiters; JSON newline/tab escapes are decoded, double-escaped
+            strings rejected.
+        page_priority: &id010
+          type: boolean
+          default: false
+          enum:
+          - false
+        anchor_heading_path: &id011
+          type: boolean
+          default: false
+          description: True requires segment_mode=heading
+        anchor_clause_id: &id012
+          type: boolean
+          default: false
+          description: True requires segment_mode=clause
+        anchor_row_number: &id013
+          type: boolean
+          default: false
+          description: True requires segment_mode=table_row
+        anchor_speaker: &id014
+          type: boolean
+          default: false
+          description: True requires segment_mode=conversation
+        anchor_sentence_index: &id015
+          type: boolean
+          default: false
+          description: True requires segment_mode=clause
+    KnowledgeEffectiveIngestionConfig:
+      type: object
+      properties:
+        schema: *id002
+        strategy: *id003
+        priority: *id001
+        segment_mode: *id004
+        segment_size_policy: *id005
+        chunk_size: *id006
+        chunk_overlap: *id007
+        segment_order: *id008
+        separators: *id009
+        page_priority: *id010
+        anchor_heading_path: *id011
+        anchor_clause_id: *id012
+        anchor_row_number: *id013
+        anchor_speaker: *id014
+        anchor_sentence_index: *id015
+        index_mode:
+          type: string
+          enum:
+          - lexical_chunks
+        length_unit:
+          type: string
+          enum:
+          - unicode_rune
+        source_checksum:
+          type: string
+        source_version:
+          type: string
+        ingestion_profile:
+          type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            version:
+              type: integer
+            key:
+              type: string
+            config_checksum:
+              type: string
+          description: Frozen reference and config digest; private Profile payload
+            is retained internally.
+        index_profile:
+          type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            version:
+              type: integer
+            key:
+              type: string
+            config_checksum:
+              type: string
+          description: Frozen reference and config digest; private Profile payload
+            is retained internally.
+        rag_profile:
+          type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            version:
+              type: integer
+            key:
+              type: string
+            config_checksum:
+              type: string
+          description: Frozen reference and config digest; private Profile payload
+            is retained internally.
+    TenantKnowledgeDocumentChunk:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        job_uuid:
+          type: string
+          format: uuid
+        document_uuid:
+          type: string
+          format: uuid
+        space_uuid:
+          type: string
+          format: uuid
+        ordinal:
+          type: integer
+        kind:
+          type: string
+          enum:
+          - chunk
+        content:
+          type: string
+        checksum:
+          type: string
+        metadata:
+          type: object

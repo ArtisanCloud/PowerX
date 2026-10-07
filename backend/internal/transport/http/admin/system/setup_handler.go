@@ -347,6 +347,12 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "未找到运行配置文件路径", nil)
 		return
 	}
+	// Generate/persist signing identity before the rollback snapshot so failed
+	// provisioning retries never rotate the generated deployment key.
+	if err := config.PrepareSetupJWTSecret(runtimePath); err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "安装签名密钥初始化失败", err)
+		return
+	}
 	original, err := os.ReadFile(runtimePath)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "读取运行配置失败", err)
@@ -488,6 +494,12 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 	runtimePath := resolveRuntimeConfigPath()
 	if runtimePath == "" {
 		dto.ResponseError(c, http.StatusInternalServerError, "未找到运行配置文件路径", nil)
+		return
+	}
+	// Generate/persist signing identity before the rollback snapshot so failed
+	// provisioning retries never rotate the generated deployment key.
+	if err := config.PrepareSetupJWTSecret(runtimePath); err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "安装签名密钥初始化失败", err)
 		return
 	}
 	original, err := os.ReadFile(runtimePath)

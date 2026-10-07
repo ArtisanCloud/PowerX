@@ -562,6 +562,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 						return nil
 					}
 					return knowledgeDeps.Service
+				}, func() *knowledgeService.HostContractService {
+					if knowledgeDeps == nil {
+						return nil
+					}
+					return knowledgeDeps.HostDocuments
 				}),
 			),
 		})
@@ -999,6 +1004,7 @@ type IntegrationGatewayDeps struct {
 
 // KnowledgeSpaceDeps 聚合知识空间域运行依赖。
 type KnowledgeSpaceDeps struct {
+	HostDocuments   *knowledgeService.HostContractService
 	Instrumentation *knowledgeinstr.Instrumentation
 	RedisClient     *redis.Client
 	EventBus        event_bus.EventBus
@@ -1939,6 +1945,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 
 	return &KnowledgeSpaceDeps{
+		HostDocuments:   knowledgeService.NewHostContractService(db),
 		Instrumentation: inst,
 		RedisClient:     redisClient,
 		EventBus:        bus,

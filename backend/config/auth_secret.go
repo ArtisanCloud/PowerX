@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -12,7 +13,7 @@ const legacyDefaultJWTSecret = "K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0"
 func validateJWTSecret(secret string) error {
 	trimmed := strings.TrimSpace(secret)
 	if trimmed == "" {
-		return fmt.Errorf("auth.jwt_secret 必须显式配置：请为每个部署生成并持久保存独立随机密钥，或设置 CORE_X_AUTH_JWT_SECRET")
+		return fmt.Errorf("auth.jwt_secret 必须显式配置：请为每个部署生成并持久保存独立随机密钥，或设置 POWERX_AUTH_JWT_SECRET")
 	}
 	switch trimmed {
 	case legacyDefaultJWTSecret,
@@ -24,4 +25,15 @@ func validateJWTSecret(secret string) error {
 		return fmt.Errorf("auth.jwt_secret 长度至少32个字符")
 	}
 	return nil
+}
+
+// jwtSecretEnvironment 仅接受统一的 POWERX_AUTH_JWT_SECRET。
+// 旧名称必须显式迁移，不做别名读取或静默回退；错误不包含密钥值。
+func jwtSecretEnvironment() (string, error) {
+	for _, name := range []string{"CORE_X_AUTH_JWT_SECRET", "CORE_X_JWT_SECRET"} {
+		if _, present := os.LookupEnv(name); present {
+			return "", fmt.Errorf("环境变量 %s 已不再支持：请改为 POWERX_AUTH_JWT_SECRET，保留原密钥值并删除旧变量", name)
+		}
+	}
+	return os.Getenv("POWERX_AUTH_JWT_SECRET"), nil
 }

@@ -47,6 +47,7 @@ func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		// behind a constrained dispatcher, as done for IAM batch actions.
 		group.POST("/spaces/:space_uuid/indexes:operation", hostHandler.indexOperation)
 		group.GET("/index-jobs/:job_uuid", hostHandler.getIndexJob)
+		group.GET("/index-jobs/:job_uuid/chunks", hostHandler.getJobChunks)
 	}
 }
 
@@ -89,7 +90,11 @@ func newHostContractHandler(deps *shared.Deps) *hostContractHandler {
 	if deps.KnowledgeSpace != nil {
 		provisioning = deps.KnowledgeSpace.Service
 	}
-	return &hostContractHandler{provisioning: provisioning, service: knowledgesvc.NewHostContractService(deps.DB), access: knowledgesvc.NewHostContractAccess(deps.DB)}
+	service := knowledgesvc.NewHostContractService(deps.DB)
+	if deps.KnowledgeSpace != nil && deps.KnowledgeSpace.HostDocuments != nil {
+		service = deps.KnowledgeSpace.HostDocuments
+	}
+	return &hostContractHandler{provisioning: provisioning, service: service, access: knowledgesvc.NewHostContractAccess(deps.DB)}
 }
 
 type searchRequest struct {
@@ -99,14 +104,15 @@ type searchRequest struct {
 	TenantUUID string   `json:"tenant_uuid"`
 }
 type documentRequest struct {
-	Title       string   `json:"title" binding:"required"`
-	URI         string   `json:"uri" binding:"required"`
-	Content     string   `json:"content" binding:"required"`
-	ContentType string   `json:"content_type" binding:"required"`
-	Checksum    string   `json:"checksum" binding:"required"`
-	Version     string   `json:"version" binding:"required"`
-	Tags        []string `json:"tags"`
-	TenantUUID  string   `json:"tenant_uuid"`
+	Title       string                              `json:"title" binding:"required"`
+	URI         string                              `json:"uri" binding:"required"`
+	Content     string                              `json:"content" binding:"required"`
+	ContentType string                              `json:"content_type" binding:"required"`
+	Checksum    string                              `json:"checksum" binding:"required"`
+	Version     string                              `json:"version" binding:"required"`
+	Ingestion   *knowledgesvc.HostIngestionSettings `json:"ingestion,omitempty"`
+	Tags        []string                            `json:"tags"`
+	TenantUUID  string                              `json:"tenant_uuid"`
 }
 type tenantOverrideQuery struct {
 	TenantUUID string `form:"tenant_uuid"`
@@ -159,8 +165,15 @@ func (h *hostContractHandler) search(c *gin.Context) {
 
 func (h *hostContractHandler) upsertDocument(c *gin.Context) {
 	var req documentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	decoder := json.NewDecoder(io.LimitReader(c.Request.Body, (8<<20)+65536))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(err))
+		return
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(errors.New("expected one JSON object")))
 		return
 	}
 	if strings.TrimSpace(req.TenantUUID) != "" || !rejectTenantOverride(c) {
@@ -179,7 +192,7 @@ func (h *hostContractHandler) upsertDocument(c *gin.Context) {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	job, err := h.service.UpsertDocument(c.Request.Context(), tenantUUID, spaceUUID, knowledgesvc.HostDocumentInput{Title: req.Title, URI: req.URI, Content: req.Content, ContentType: req.ContentType, Checksum: req.Checksum, Version: req.Version, Tags: req.Tags})
+	job, err := h.service.UpsertDocument(c.Request.Context(), tenantUUID, spaceUUID, knowledgesvc.HostDocumentInput{Title: req.Title, URI: req.URI, Content: req.Content, ContentType: req.ContentType, Checksum: req.Checksum, Version: req.Version, Tags: req.Tags, Ingestion: req.Ingestion})
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return
@@ -343,4 +356,26 @@ func (h *hostContractHandler) createSpace(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"item": item})
+}
+
+func (h *hostContractHandler) getJobChunks(c *gin.Context) {
+	if !rejectTenantOverride(c) {
+		return
+	}
+	id, err := requiredUUID(c.Param("job_uuid"))
+	if err != nil {
+		dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(err))
+		return
+	}
+	tenant, err := h.authorizeDocument(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	rows, err := h.service.GetJobChunks(c.Request.Context(), tenant, id)
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"items": rows})
 }

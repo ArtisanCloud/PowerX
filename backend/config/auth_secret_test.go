@@ -41,8 +41,15 @@ func TestJWTSecretRejectsMissingPublishedAndPlaceholderValues(t *testing.T) {
 
 func TestLoadRequiresExplicitJWTSecretAndPreservesOverrides(t *testing.T) {
 	t.Setenv("POWERX_ENV", "test") // Keep operator .env files out of this test.
-	t.Setenv("CORE_X_AUTH_JWT_SECRET", "")
+	t.Setenv("POWERX_AUTH_JWT_SECRET", "")
 	t.Setenv("CORE_X_JWT_SECRET", "")
+	if err := os.Unsetenv("CORE_X_JWT_SECRET"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CORE_X_AUTH_JWT_SECRET", "")
+	if err := os.Unsetenv("CORE_X_AUTH_JWT_SECRET"); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	writeConfig := func(secret string) {
 		t.Helper()
@@ -67,7 +74,7 @@ func TestLoadRequiresExplicitJWTSecretAndPreservesOverrides(t *testing.T) {
 		t.Fatal("YAML signing secret changed during loading")
 	}
 	writeConfig(legacyDefaultJWTSecret)
-	t.Setenv("CORE_X_AUTH_JWT_SECRET", secret)
+	t.Setenv("POWERX_AUTH_JWT_SECRET", secret)
 	cfg, err = Load(path)
 	if err != nil {
 		t.Fatal(err)
@@ -75,16 +82,16 @@ func TestLoadRequiresExplicitJWTSecretAndPreservesOverrides(t *testing.T) {
 	if cfg.Auth.JWTSecret != secret {
 		t.Fatal("environment override was not preserved")
 	}
-	t.Setenv("CORE_X_AUTH_JWT_SECRET", legacyDefaultJWTSecret)
+	t.Setenv("POWERX_AUTH_JWT_SECRET", legacyDefaultJWTSecret)
 	if _, err := Load(path); err == nil {
 		t.Fatal("published secret accepted through environment override")
 	}
 	writeConfig("\"\"")
-	t.Setenv("CORE_X_AUTH_JWT_SECRET", "")
+	t.Setenv("POWERX_AUTH_JWT_SECRET", "")
 	t.Setenv("CORE_X_JWT_SECRET", secret)
 	cfg, err = Load(path)
-	if err != nil || cfg.Auth.JWTSecret != secret {
-		t.Fatalf("legacy environment variable compatibility changed: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "已不再支持") {
+		t.Fatal("deprecated JWT variable was accepted")
 	}
 }
 

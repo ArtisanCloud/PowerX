@@ -1086,11 +1086,10 @@ func sanitizeSeparators(raw []string) []string {
 	seen := make(map[string]struct{}, len(raw))
 	out := make([]string, 0, len(raw))
 	for _, s := range raw {
-		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
 		}
-		if len([]rune(s)) > 16 {
+		if len([]rune(s)) > 32 {
 			continue
 		}
 		if _, ok := seen[s]; ok {

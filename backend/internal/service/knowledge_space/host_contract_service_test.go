@@ -17,19 +17,31 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
-func newHostContractTestService(t *testing.T) (*HostContractService, *gorm.DB, string, string) {
+func newHostContractTestService(t *testing.T, startWorker ...bool) (*HostContractService, *gorm.DB, string, string) {
 	t.Helper()
 	previousSchema := coremodel.PowerXSchema
 	coremodel.PowerXSchema = "main"
 	t.Cleanup(func() { coremodel.PowerXSchema = previousSchema })
 	db, err := gorm.Open(sqlite.Open("file:knowledge_host_contract_"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&models.KnowledgeSpace{}, &models.TenantDocument{}, &models.IndexJob{}))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.AutoMigrate(&models.KnowledgeSpace{}, &models.TenantDocument{}, &models.IndexJob{}, &models.HostDocumentChunk{}, &models.IngestionProfileVersion{}, &models.IndexProfileVersion{}, &models.RAGProfileVersion{}))
 	tenantUUID := uuid.NewString()
 	require.NoError(t, db.Create(&models.KnowledgeSpace{TenantUUID: tenantUUID, SpaceName: "contract", DepartmentCode: "knowledge", Status: models.KnowledgeSpaceStatusActive}).Error)
 	var space models.KnowledgeSpace
 	require.NoError(t, db.Where("tenant_uuid = ?", tenantUUID).First(&space).Error)
-	return NewHostContractService(db), db, tenantUUID, space.UUID.String()
+	svc := NewHostContractService(db)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	if len(startWorker) == 0 || startWorker[0] {
+		go func() { defer close(done); _ = svc.Run(ctx) }()
+	} else {
+		close(done)
+	}
+	t.Cleanup(func() { cancel(); <-done; sqlDB, _ := db.DB(); _ = sqlDB.Close() })
+	return svc, db, tenantUUID, space.UUID.String()
 }
 
 func hostChecksum(content string) string {

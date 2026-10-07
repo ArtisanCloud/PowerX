@@ -773,6 +773,7 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 		&modelKnowledge.TenantReleaseBatch{},
 		&modelKnowledge.TenantDocument{},
 		&modelKnowledge.IndexJob{},
+		&modelKnowledge.HostDocumentChunk{},
 	); err != nil {
 		return err
 	}

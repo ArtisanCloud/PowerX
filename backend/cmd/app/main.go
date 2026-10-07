@@ -142,6 +142,14 @@ func main() {
 			return
 		}
 
+		if deps.KnowledgeSpace != nil && deps.KnowledgeSpace.HostDocuments != nil {
+			go func() {
+				if err := deps.KnowledgeSpace.HostDocuments.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+					logger.ErrorF(ctx, "Knowledge Host worker stopped: %v", err)
+					stop()
+				}
+			}()
+		}
 		if deps.AgentRunWorker != nil {
 			workerCtx, workerCancel := context.WithCancel(ctx)
 			workerDone := make(chan struct{})
