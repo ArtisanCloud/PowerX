@@ -29,12 +29,9 @@ def initialize(directory=Path('/etc/powerx'), data=Path('/data'), template=Path(
         (data/name).mkdir(parents=True,exist_ok=True)
     password=secrets.token_urlsafe(32)
     redis_password=secrets.token_urlsafe(32)
-    administrator={'username':os.environ.get('ADMIN_USERNAME','admin'),
-                   'email':os.environ.get('ADMIN_EMAIL','admin@example.com'),
-                   'display_name':'Administrator','phone':'','password':secrets.token_urlsafe(24)}
     cfg=yaml.safe_load(template.read_text())
     cfg['deployment']={'env':environment}
-    cfg['install']={'status':'installed','lock_mode':'strict','allow_without_db':False}
+    cfg['install']={'status':'uninstalled','lock_mode':'strict','allow_without_db':True}
     cfg['server'].update(host='0.0.0.0',port=8080,api_prefix='/api/v1',mode='release',read_timeout_seconds=30,write_timeout_seconds=0,
                          secret_key=base64.b64encode(secrets.token_bytes(32)).decode())
     cfg['server']['grpc'].update(host='0.0.0.0',port=9010,reflection=False)
@@ -60,14 +57,12 @@ def initialize(directory=Path('/etc/powerx'), data=Path('/data'), template=Path(
     cfg['log']['file'].update(enable=True,info_file_path='/data/logs/info.log',error_file_path='/data/logs/error.log')
     cfg['log']['loki']['enable']=False
     cfg.setdefault('audit',{}).setdefault('file',{}).update(dir='/data/logs/audit')
-    for name,value in {'postgres-password':password,'redis-password':redis_password,
-                        'initial-admin.json':json.dumps(administrator),
-                        'setup.wizard.config.json':json.dumps({'admin':administrator})}.items():
+    for name,value in {'postgres-password':password,'redis-password':redis_password}.items():
         (directory/name).write_text(value+'\n')
         (directory/name).chmod(0o600)
     (directory/'config.yaml').write_text(yaml.safe_dump(cfg,allow_unicode=True,sort_keys=False))
     (directory/'config.yaml').chmod(0o600)
-    print('Private config generated. Run bootstrap before starting the application.')
+    print('Private infrastructure config generated. Start the application and complete /setup in your browser.')
 
 if __name__=='__main__':
     try:initialize()

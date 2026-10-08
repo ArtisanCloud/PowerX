@@ -62,7 +62,7 @@ ADMIN_USERNAME=admin
 ADMIN_EMAIL=you@example.com
 ```
 
-`PUBLIC_ORIGIN` 是**浏览器最终访问地址**，不是容器内部服务名。`PUBLIC_WS_ORIGIN` 使用同一主机与端口，HTTP 对应 ws，HTTPS 对应 wss。管理员邮箱由你填写，首次密码会随机生成，不使用 root/root 等共享默认密码。
+`PUBLIC_ORIGIN` 是**浏览器最终访问地址**，不是容器内部服务名。`PUBLIC_WS_ORIGIN` 使用同一主机与端口，HTTP 对应 ws，HTTPS 对应 wss。管理员账号和密码由你在首次 /setup 页面填写，启动脚本不会创建管理员，也不会使用共享默认密码。
 
 内置 Nginx 默认只绑定回环地址。服务器上测试时，通过 SSH 转发 18080；若需要直接开放 HTTP，明确改为 `HTTP_BIND=0.0.0.0` 并放通对应端口。生产入口建议 HTTPS，密码与令牌不要通过公网明文 HTTP 传输。
 
@@ -85,34 +85,47 @@ sh run.sh start
 sh run.sh status
 ```
 
-`start` 依次执行：
+`start` 只生成容器基础配置和独立数据库/Redis 密码，启动数据库、缓存、后端与前端。首次状态为 `uninstalled`，数据库没有应用表，没有自动 migrate、seed 或管理员。
 
-1. 用后端镜像生成 `config/` 下私有配置、数据库密码、Redis 密码、签名/加密密钥和初始管理员凭据。
-2. 启动 PostgreSQL（含 pgvector）和 Redis，等待健康。
-3. 对该全新实例执行数据库迁移和初始化种子，成功后保存初始化标记。
-4. 启动后端、Web Admin 和 Nginx，等待健康。
+再次执行会保留现有配置。完成 Setup 后重启也不会回到未安装状态，不会重新生成签名/加密密钥。容器部署仍不会创建公开的本地开发 API keys。
 
-再次执行不会重新生成密码，也不会重置数据库或再次 seed。部分初始化目录会被明确拒绝覆盖，需要先查明失败阶段或恢复备份。Docker 部署不会创建公开的本地开发 API keys；插件访问应在管理后台创建独立 API key 并明确授权。
+## 5. 在 Setup 完成首次安装
 
-预期：postgres、redis、backend、web-admin 运行，数据库/缓存/应用健康，gateway 运行。启动失败时先执行 `sh run.sh logs`，不要通过删除 config 或数据目录来“修复”。
+打开 **http://127.0.0.1:18080/setup**；访问首页时前端也会依据未安装状态进入 Setup。
 
-## 5. 登录与验收
-
-在自己的终端读取初始管理员凭据：
+在服务器自己的终端读取 Docker 基础连接参数，不要把输出发到聊天或公开仓库：
 
 ```bash
-sh run.sh credentials
+sh run.sh setup-values
 ```
 
-输出只供实际管理员使用，保存在私有 `config/initial-admin.json`，不要提交 Git 或分享截图。用输出中的邮箱和密码登录 **http://127.0.0.1:18080**，登录后修改为自己的密码。后续密码修改不会被普通启动覆盖。
+按页面顺序填写：
+
+| Setup 项 | Docker 部署填写 |
+| --- | --- |
+| 部署环境 | `.env` 的 DEPLOYMENT_ENV，例如 dev |
+| 域名 | 浏览器最终访问主机；API 与页面同源 |
+| HTTPS | 由外部代理/XDocker 管理时，不在 PowerX 重复签发 |
+| 本地存储 | `/data/uploads`，公开地址是 PUBLIC_ORIGIN 加 `/media` |
+| 数据库类型 | PostgreSQL |
+| 主机 / 端口 | `postgres` / `5432` |
+| 数据库 / 用户 | `powerx` / `powerx` |
+| 数据库密码 | setup-values 输出 database.password |
+| Redis 主机 / 端口 | `redis` / `6379` |
+| Redis 密码 | setup-values 输出 cache.password |
+| 管理员账号、邮箱、密码 | 由你在页面设置，启动脚本不会代填密码 |
+| 容器内部后端 / Web 端口 | `8080` / `3000`；宿主机入口端口仍由 Compose 管理 |
+| 模型、邮箱 | 按实际服务填写；可先保持未启用 |
+
+先测试数据库和 Redis 连接，再按向导保存配置、执行初始化，最后完成安装。只有这些用户操作才执行 migrate 和 seed。完成后后端通过 Docker 重启策略重新加载完整运行状态，页面进入登录。
 
 ```bash
-curl -fsS http://127.0.0.1:18080/api/v1/health
+curl -fsS http://127.0.0.1:18080/api/v1/admin/setup/status
 ```
 
-应返回已安装状态。进一步检查：登录后能获取用户与租户信息；刷新管理页面正常；API 无容器内部地址或 CORS 错误；WebSocket/SSE 能在自己的浏览器里连接。没有配置 AI 服务凭据时，不承诺模型调用和知识检索可用；在后台单独配置并测试。
+首次预期 uninstalled/configured=false；完成后 installed/configured=true/restart_required=false。如果首次已经 installed，检查是否复用了旧 config/数据库；不要直接删除用户数据。应先备份，并在明确选择的新目录创建全新实例。
 
-插件需要匹配容器的 Linux 架构。后端镜像含 Node 以运行对应 Web 制品，但不包含所有语言 SDK：例如 .NET 插件需要兼容的运行环境或独立运行服务，不能把 macOS 构建的插件二进制上传到 Linux 后当作已验收。
+AI 模型、知识检索及具体插件需单独配置并验收。上传的插件必须匹配 Linux 架构，不能使用 macOS 构建的二进制。
 
 ## 6. HTTPS 或 XDocker 接入
 
@@ -124,7 +137,7 @@ curl -fsS http://127.0.0.1:18080/api/v1/health
 
 ```text
 .env                 公开镜像版本、环境、浏览器地址
-config/              密码、加密/签名密钥、配置、初始管理员、初始化标记
+config/              数据库/Redis 密码、加密/签名密钥、运行配置和用户 Setup 草稿
 data/postgres/       数据库
 data/redis/          Redis AOF
 data/runtime/        上传文件、插件、日志、运行状态
@@ -147,4 +160,4 @@ sh run.sh stop      # 停容器，保留配置和数据
 sh run.sh start
 ```
 
-若配置已初始化，之后改变 `.env` 的管理员邮箱不会自动修改账号；域名、数据路径和身份相关调整应同时更新持久运行配置并重新验收。不要重新 init 或换一套签名密钥。
+管理员由 Setup 创建后，修改 `.env` 不会自动修改账号；域名、数据路径和身份相关调整应同时更新持久运行配置并重新验收。不要重新 init 或换一套签名密钥。

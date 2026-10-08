@@ -3,12 +3,11 @@ on:
   push:
     branches: [develop, main, master]
     paths:
+      - backend/**
+      - web-admin/**
       - deploy/powerx/container/**
       - deploy/powerx/docker/dockerfiles/**
-      - backend/cmd/database/seed/container_seed*
-      - backend/cmd/database/seed/seed.go
-      - backend/pkg/corex/db/database/migration.go
-      - web-admin/scripts/check-container-output.mjs
+      - .dockerignore
       - .github/workflows/publish-container.yml
   workflow_dispatch:
 permissions:
