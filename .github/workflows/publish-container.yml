@@ -7,6 +7,8 @@ on:
       - deploy/powerx/docker/dockerfiles/**
       - backend/cmd/database/seed/container_seed*
       - backend/cmd/database/seed/seed.go
+      - backend/pkg/corex/db/database/migration.go
+      - web-admin/scripts/check-container-output.mjs
       - .github/workflows/publish-container.yml
   workflow_dispatch:
 permissions:
