@@ -1,0 +1,128 @@
+name: ${COMPOSE_PROJECT_NAME:-powerx-dev}
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
+    pull_policy: ${PULL_POLICY:-missing}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: powerx
+      POSTGRES_USER: powerx
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+    secrets: [postgres-password]
+    volumes:
+      - ${POWERX_DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
+    networks: [private]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U powerx -d powerx]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    pull_policy: ${PULL_POLICY:-missing}
+    restart: unless-stopped
+    secrets: [redis-password]
+    command: [/bin/sh, -ec, 'exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis-password)"']
+    volumes:
+      - ${POWERX_DATA_DIR:-./data}/redis:/data
+    networks: [private]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$(cat /run/secrets/redis-password)" redis-cli ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  init:
+    image: ${POWERX_BACKEND_IMAGE:?Set POWERX_BACKEND_IMAGE}
+    pull_policy: ${PULL_POLICY:-missing}
+    profiles: [tools]
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://127.0.0.1:18080}
+      DEPLOYMENT_ENV: ${DEPLOYMENT_ENV:-dev}
+      POWERX_ENV: ${DEPLOYMENT_ENV:-dev}
+      POWERX_BACKEND_PORT: '8080'
+      POWERX_WEB_ADMIN_PORT: '3000'
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+    volumes:
+      - ./config:/etc/powerx
+      - ${POWERX_DATA_DIR:-./data}/runtime:/data
+    networks: [private, ingress]
+    command: [init]
+
+  backend:
+    image: ${POWERX_BACKEND_IMAGE:?Set POWERX_BACKEND_IMAGE}
+    pull_policy: ${PULL_POLICY:-missing}
+    restart: unless-stopped
+    environment:
+      POWERX_ENV: ${DEPLOYMENT_ENV:-dev}
+      POWERX_MODE: docker
+      POWERX_CONFIG: /etc/powerx/config.yaml
+      POWERX_BACKEND_HOST: 0.0.0.0
+      POWERX_BACKEND_PORT: '8080'
+      POWERX_WEB_ADMIN_PORT: '3000'
+      POWERX_OPS_SCRIPT_DIR: /app/backend/scripts/ops
+      POWERX_OPS_BACKUP_ARTIFACT_DIR: /data/backups
+    volumes:
+      - ./config:/etc/powerx
+      - ${POWERX_DATA_DIR:-./data}/runtime:/data
+    networks:
+      private:
+      ingress:
+        aliases: ["${COMPOSE_PROJECT_NAME:-powerx-dev}-backend"]
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:8080/api/v1/health]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  web-admin:
+    image: ${POWERX_WEB_IMAGE:?Set POWERX_WEB_IMAGE}
+    pull_policy: ${PULL_POLICY:-missing}
+    restart: unless-stopped
+    environment:
+      POWERX_BACKEND: http://backend:8080
+      NUXT_UPSTREAM: http://backend:8080
+      NUXT_PUBLIC_API_BASE: /api/v1
+      NUXT_PUBLIC_UPSTREAM_ORIGIN: ${PUBLIC_ORIGIN:-http://127.0.0.1:18080}
+      NUXT_PUBLIC_POWERX_CORE_BASE: ${PUBLIC_ORIGIN:-http://127.0.0.1:18080}
+      NUXT_PUBLIC_WS_ORIGIN: ${PUBLIC_WS_ORIGIN:-ws://127.0.0.1:18080}
+      NUXT_PUBLIC_WS_PATH: /api/ws
+    networks:
+      ingress:
+        aliases: ["${COMPOSE_PROJECT_NAME:-powerx-dev}-web"]
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  gateway:
+    image: ${GATEWAY_IMAGE:-nginx:alpine}
+    pull_policy: ${PULL_POLICY:-missing}
+    profiles: [standalone]
+    restart: unless-stopped
+    ports: ["${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-18080}:80"]
+    volumes: ["./gateway.conf:/etc/nginx/conf.d/default.conf:ro"]
+    networks: [ingress]
+    depends_on:
+      backend: {condition: service_healthy}
+      web-admin: {condition: service_healthy}
+
+networks:
+  private:
+    internal: true
+  ingress:
+    name: ${COMPOSE_PROJECT_NAME:-powerx-dev}_ingress
+secrets:
+  postgres-password:
+    file: ./config/postgres-password
+  redis-password:
+    file: ./config/redis-password

@@ -1,3 +1,17 @@
 plugins/installed
 plugins/market_cache
 plugins/registry.json
+.git
+**/.env
+**/.env.local
+**/node_modules
+**/.nuxt
+**/.output
+backend/etc/config.yaml
+backend/etc/config.prod.yaml
+backend/tmp
+backend/logs
+backend/reports
+backend/plugins/installed
+backend/plugins/market_cache
+backend/plugins/registry.json
