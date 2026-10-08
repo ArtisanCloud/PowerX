@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -21,8 +22,12 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fatalf("Usage: %s [migrate|seed|seed-native-marketing-skills|refresh|status|iam-report|iam-fix-owner|iam-fix-role-binding-duplicates|repair-agent-run-state|repair-plugin-runtime-credentials]", os.Args[0])
+	handled, err := handleDatabaseInformation(os.Args[1:], os.Stdout)
+	if err != nil {
+		fatalf("%v", err)
+	}
+	if handled {
+		return
 	}
 	cmd := os.Args[1]
 	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
@@ -35,6 +40,9 @@ func main() {
 	pluginID := fs.String("plugin-id", "", "要修复运行凭证的插件 ID")
 	rotate := fs.Bool("rotate", false, "无法恢复原凭证时，明确允许轮换 secret；须同时传 -confirm")
 	if err := fs.Parse(os.Args[2:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
 		fatalf("解析参数失败: %v", err)
 	}
 
@@ -127,10 +135,18 @@ func main() {
 		}
 		printJSON(result)
 
-	case "repair-plugin-runtime-credentials":
-		result, err := plugincredential.NewRuntimeCredentialRepairService(db, cfg).Repair(ctx, plugincredential.RuntimeCredentialRepairOptions{
+	case "repair-plugin-runtime-credentials", "prepare-plugin-runtime-credentials":
+		svc := plugincredential.NewRuntimeCredentialRepairService(db, cfg)
+		opts := plugincredential.RuntimeCredentialRepairOptions{
 			PluginID: *pluginID, Confirm: *confirm, Rotate: *rotate,
-		})
+		}
+		var result *plugincredential.RuntimeCredentialRepairResult
+		var err error
+		if cmd == "prepare-plugin-runtime-credentials" {
+			result, err = svc.PrepareInstall(ctx, opts)
+		} else {
+			result, err = svc.Repair(ctx, opts)
+		}
 		if result != nil {
 			printJSON(result)
 		}

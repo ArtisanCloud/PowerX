@@ -10,6 +10,7 @@ import (
 	"time"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -106,12 +107,13 @@ func (s *HostContractService) ProcessNextDocumentJob(ctx context.Context) (bool,
 	if err != nil {
 		return false, err
 	}
-	workCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	workCtx, cancel := context.WithTimeout(reqctx.WithTraceID(ctx, job.TraceID), 2*time.Minute)
 	defer cancel()
 	count, workErr := s.executeHostJob(workCtx, job)
 	status, code := HostIndexStatusSucceeded, ""
 	if workErr != nil {
 		status, code = HostIndexStatusFailed, "KNOWLEDGE_INDEX_EXECUTION_FAILED"
+		count = 0
 		if known := dto.CodeOf(workErr); known != "" {
 			code = known
 		}
@@ -188,6 +190,13 @@ func (s *HostContractService) executeHostJob(ctx context.Context, job models.Ind
 		return 0, errors.New("unsupported operation")
 	}
 	rows := []models.HostDocumentChunk{}
+	artifactCount, vectorCount := 0, 0
+	published := false
+	defer func() {
+		if !published && s.semantic != nil {
+			s.semantic.cleanupVectors(ctx, job.SpaceUUID, rows)
+		}
+	}()
 	seen := map[string]bool{}
 	for i, item := range documents {
 		id, err := uuid.Parse(item.DocumentUUID)
@@ -209,6 +218,10 @@ func (s *HostContractService) executeHostJob(ctx context.Context, job models.Ind
 		if err != nil {
 			return 0, err
 		}
+		if item.Config.Indexing != nil {
+			artifactCount += len(item.Source.Artifacts)
+			vectorCount += len(built)
+		}
 		rows = append(rows, built...)
 		if len(rows) > 65536 {
 			return 0, errors.New("space chunk budget exceeded")
@@ -218,7 +231,8 @@ func (s *HostContractService) executeHostJob(ctx context.Context, job models.Ind
 		}
 	}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := s.lockHostSpace(ctx, tx, job.TenantUUID, job.SpaceUUID); err != nil {
+		_, err := s.lockHostSpace(ctx, tx, job.TenantUUID, job.SpaceUUID)
+		if err != nil {
 			return err
 		}
 		var live models.IndexJob
@@ -236,14 +250,44 @@ func (s *HostContractService) executeHostJob(ctx context.Context, job models.Ind
 			if doc.Checksum != item.Source.Checksum || doc.Version != item.Source.Version {
 				return errors.New("document version changed before index activation")
 			}
+
+		}
+		var target *SemanticIndexSnapshot
+		for _, item := range documents {
 			if item.Config.Indexing != nil {
-				var binding models.SemanticSpaceBinding
-				if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND space_uuid = ? AND configuration_generation = ?", job.TenantUUID, job.SpaceUUID, item.Config.Indexing.ConfigurationGeneration).First(&binding).Error != nil {
+				if target != nil && target.ConfigurationGeneration != item.Config.Indexing.ConfigurationGeneration {
 					return semanticError(409, "KNOWLEDGE_INDEX_GENERATION_CONFLICT")
 				}
-				if err := tx.Model(&binding).Update("corpus_generation", uuid.NewString()).Error; err != nil {
-					return err
+				target = item.Config.Indexing
+			}
+		}
+		if target != nil {
+			var binding models.SemanticSpaceBinding
+			if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND space_uuid = ?", job.TenantUUID, job.SpaceUUID).First(&binding).Error != nil {
+				return semanticError(409, "KNOWLEDGE_INDEX_GENERATION_CONFLICT")
+			}
+			updates := map[string]any{"corpus_generation": uuid.NewString()}
+			if binding.ConfigurationGeneration != target.ConfigurationGeneration {
+				pending, ok := semanticPendingBinding(binding)
+				if !ok || pending.ConfigurationGeneration != target.ConfigurationGeneration {
+					return semanticError(409, "KNOWLEDGE_INDEX_GENERATION_CONFLICT")
 				}
+				ids := []string{}
+				for _, item := range documents {
+					ids = append(ids, item.DocumentUUID)
+				}
+				var remaining int64
+				query := "SELECT COUNT(DISTINCT d.uuid) FROM " + models.TenantDocument{}.TableName() + " d JOIN " + models.HostDocumentChunk{}.TableName() + " c ON c.document_uuid=d.uuid AND c.job_uuid=d.active_index_job_uuid WHERE d.tenant_uuid=? AND d.space_uuid=? AND d.deleted_at IS NULL AND d.index_status <> 'deleted' AND c.metadata->'semantic'->>'configuration_generation'=? AND d.uuid NOT IN ?"
+				if tx.Raw(query, job.TenantUUID, job.SpaceUUID, binding.ConfigurationGeneration, ids).Scan(&remaining).Error != nil || remaining > 0 {
+					return semanticError(409, "KNOWLEDGE_MODEL_SPACE_REBUILD_REQUIRED")
+				}
+				updates["configuration_generation"] = pending.ConfigurationGeneration
+				updates["embedding_profile_uuid"] = pending.EmbeddingProfileUUID
+				updates["vector_index_key"] = pending.VectorIndexKey
+				updates["pending_configuration"] = nil
+			}
+			if err := tx.Model(&binding).Updates(updates).Error; err != nil {
+				return err
 			}
 		}
 		if err := tx.CreateInBatches(rows, 100).Error; err != nil {
@@ -259,8 +303,9 @@ func (s *HostContractService) executeHostJob(ctx context.Context, job models.Ind
 			}
 		}
 		// 新产物、active 指针和任务成功处于同一事务，失败不切换旧索引。
-		return tx.Model(&live).Updates(map[string]any{"status": HostIndexStatusSucceeded, "completed_at": time.Now(), "error_code": "", "chunk_count": len(rows), "processed_documents": len(documents)}).Error
+		return tx.Model(&live).Updates(map[string]any{"status": HostIndexStatusSucceeded, "completed_at": time.Now(), "error_code": "", "chunk_count": len(rows), "artifact_count": artifactCount, "vector_count": vectorCount, "processed_documents": len(documents)}).Error
 	})
+	published = err == nil
 	return len(rows), err
 }
 func (s *HostContractService) GetJobChunks(ctx context.Context, tenant, jobID string) ([]HostChunk, error) {

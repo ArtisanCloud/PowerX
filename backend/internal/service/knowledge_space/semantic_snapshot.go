@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 )
 
@@ -50,6 +51,11 @@ func validateSemanticArtifacts(input HostDocumentInput) error {
 		if total > 8<<20 || len(a.CategoryCodes) > 32 || len(a.TagUUIDs) > 64 {
 			return semanticError(400, "KNOWLEDGE_ARTIFACT_LIMIT_EXCEEDED")
 		}
+		for _, code := range a.CategoryCodes {
+			if strings.TrimSpace(code) != code || code == "" || len(code) > 128 {
+				return semanticError(400, "KNOWLEDGE_FILTER_INVALID")
+			}
+		}
 		for _, id := range a.TagUUIDs {
 			if !validSemanticUUID(id) {
 				return semanticError(400, "KNOWLEDGE_FILTER_UUID_INVALID")
@@ -84,19 +90,27 @@ func (s *SemanticRuntime) freeze(ctx context.Context, tenant, space string, inpu
 	if s.db.WithContext(ctx).Where("tenant_uuid = ? AND space_uuid = ?", tenant, space).First(&binding).Error != nil {
 		return nil, semanticError(422, "KNOWLEDGE_SEMANTIC_INDEX_NOT_READY")
 	}
+	if pending, ok := semanticPendingBinding(binding); ok && canonicalSemanticUUID(input.EmbeddingProfile.UUID) == pending.EmbeddingProfileUUID {
+		binding = pending
+	}
 	var profile models.SemanticEmbeddingProfile
 	if s.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND status = ?", tenant, binding.EmbeddingProfileUUID, models.ProfileStatusPublished).First(&profile).Error != nil {
 		return nil, semanticError(422, "KNOWLEDGE_EMBEDDING_PROFILE_UNAVAILABLE")
 	}
-	if input.EmbeddingProfile.UUID != profile.UUID.String() || input.EmbeddingProfile.Version != profile.Version {
+	if canonicalSemanticUUID(input.EmbeddingProfile.UUID) != profile.UUID.String() || input.EmbeddingProfile.Version != profile.Version {
 		return nil, semanticError(409, "KNOWLEDGE_MODEL_BINDING_CONFLICT")
 	}
-	return &SemanticIndexSnapshot{SemanticIndexingSettings: input, ConfigurationGeneration: binding.ConfigurationGeneration, ModelKey: profile.ProfileKey, ModelRevision: profile.ModelRevision, ConfigChecksum: profile.ConfigChecksum, Dimensions: profile.Dimensions, VectorIndexKey: binding.VectorIndexKey}, nil
+	input.EmbeddingProfile.UUID = canonicalSemanticUUID(input.EmbeddingProfile.UUID)
+	return &SemanticIndexSnapshot{SemanticIndexingSettings: input, Env: profile.Env, ConfigurationGeneration: binding.ConfigurationGeneration, ModelKey: profile.ProfileKey, ModelRevision: profile.ModelRevision, ConfigChecksum: profile.ConfigChecksum, Dimensions: profile.Dimensions, VectorIndexKey: binding.VectorIndexKey}, nil
 }
 
 func (s *SemanticRuntime) validateFrozen(ctx context.Context, tenant, space string, snapshot *SemanticIndexSnapshot) (agentSvcEmbedVectorizer, error) {
 	if snapshot == nil {
 		return nil, semanticError(422, "KNOWLEDGE_SEMANTIC_INDEX_NOT_READY")
+	}
+	var active models.KnowledgeSpace
+	if s.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND status <> ?", tenant, space, models.KnowledgeSpaceStatusRetired).First(&active).Error != nil {
+		return nil, KnowledgeSpaceNotFoundError(errors.New("space unavailable"))
 	}
 	current, err := s.freeze(ctx, tenant, space, snapshot.SemanticIndexingSettings)
 	if err != nil {
@@ -107,7 +121,8 @@ func (s *SemanticRuntime) validateFrozen(ctx context.Context, tenant, space stri
 	if checksumJSON(currentBytes) != checksumJSON(frozenBytes) {
 		return nil, semanticError(409, "KNOWLEDGE_INDEX_GENERATION_CONFLICT")
 	}
-	resolved, embed, revision, hash, err := s.resolveModel(ctx, tenant, snapshot.ModelKey)
+	modelCtx := reqctx.WithEnv(ctx, snapshot.Env)
+	resolved, embed, revision, hash, err := s.resolveModel(modelCtx, tenant, snapshot.ModelKey)
 	if err != nil {
 		return nil, err
 	}
@@ -115,4 +130,52 @@ func (s *SemanticRuntime) validateFrozen(ctx context.Context, tenant, space stri
 		return nil, semanticError(409, "KNOWLEDGE_MODEL_REVISION_CONFLICT")
 	}
 	return embed, nil
+}
+
+func canonicalSemanticUUID(value string) string {
+	id, err := uuid.Parse(value)
+	if err != nil {
+		return value
+	}
+	return id.String()
+}
+func canonicalSemanticDocument(input HostDocumentInput) HostDocumentInput {
+	if input.Indexing != nil {
+		settings := *input.Indexing
+		settings.EmbeddingProfile.UUID = canonicalSemanticUUID(settings.EmbeddingProfile.UUID)
+		input.Indexing = &settings
+	}
+	if input.ExternalRef != nil {
+		ref := *input.ExternalRef
+		ref.DocumentUUID = canonicalSemanticUUID(ref.DocumentUUID)
+		input.ExternalRef = &ref
+	}
+	input.Artifacts = cloneSemanticValues(input.Artifacts)
+	for i := range input.Artifacts {
+		a := &input.Artifacts[i]
+		a.UUID = canonicalSemanticUUID(a.UUID)
+		a.SourceRef.SourceUUID = canonicalSemanticUUID(a.SourceRef.SourceUUID)
+		if a.KnowledgeProfileUUID != nil {
+			value := canonicalSemanticUUID(*a.KnowledgeProfileUUID)
+			a.KnowledgeProfileUUID = &value
+		}
+		if a.CaseUUID != nil {
+			value := canonicalSemanticUUID(*a.CaseUUID)
+			a.CaseUUID = &value
+		}
+		a.TagUUIDs = cloneSemanticValues(a.TagUUIDs)
+		for j := range a.TagUUIDs {
+			a.TagUUIDs[j] = canonicalSemanticUUID(a.TagUUIDs[j])
+		}
+	}
+	return input
+}
+
+func cloneSemanticValues[T any](values []T) []T {
+	if values == nil {
+		return nil
+	}
+	cloned := make([]T, len(values))
+	copy(cloned, values)
+	return cloned
 }

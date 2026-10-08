@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
 	"github.com/google/uuid"
 )
@@ -107,8 +108,28 @@ func (s *SemanticRuntime) build(ctx context.Context, job models.IndexJob, docume
 			records = append(records, vectorstore.VectorRecord{ChunkID: rows[begin+i].UUID, Embedding: v, Metadata: meta})
 		}
 	}
-	if s.vectorWriter == nil || s.vectorWriter.Upsert(ctx, uuid.MustParse(job.SpaceUUID), records) != nil {
+	writer := s.vectorWriter
+	if s.vectors != nil {
+		record, err := repo.NewKnowledgeVectorIndexRepository(s.db).FindBySpaceAndKey(ctx, uuid.MustParse(job.SpaceUUID), config.Indexing.VectorIndexKey)
+		if err != nil || record == nil {
+			return nil, semanticError(422, "KNOWLEDGE_SEMANTIC_INDEX_NOT_READY")
+		}
+		writer, err = s.vectors.storeForIndexRecord(record.VectorTable, record.Dimensions)
+		if err != nil {
+			return nil, semanticError(503, "KNOWLEDGE_VECTOR_STORE_UNAVAILABLE")
+		}
+	}
+	if writer == nil || writer.Upsert(ctx, uuid.MustParse(job.SpaceUUID), records) != nil {
+		s.cleanupVectors(ctx, job.SpaceUUID, rows)
 		return nil, semanticError(503, "KNOWLEDGE_VECTOR_WRITE_FAILED")
+	}
+	if err := s.verifyVectors(ctx, job, config.Indexing, rows); err != nil {
+		s.cleanupVectors(ctx, job.SpaceUUID, rows)
+		return nil, err
+	}
+	if _, err := s.validateFrozen(ctx, job.TenantUUID, job.SpaceUUID, config.Indexing); err != nil {
+		s.cleanupVectors(ctx, job.SpaceUUID, rows)
+		return nil, err
 	}
 	return rows, nil
 }

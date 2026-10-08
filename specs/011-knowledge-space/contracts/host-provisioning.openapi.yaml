@@ -400,6 +400,8 @@ components:
       type: object
       additionalProperties: false
       properties:
+        indexing:
+          $ref: ./semantic-host.openapi.yaml#/components/schemas/Indexing
         mode:
           type: string
           enum:

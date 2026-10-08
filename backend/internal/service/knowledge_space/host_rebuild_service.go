@@ -172,6 +172,9 @@ func (s *HostContractService) acceptRebuild(ctx context.Context, tenant, space, 
 			if doc.ActiveIndexJobUUID != nil {
 				base = *doc.ActiveIndexJobUUID
 			}
+			if input.Mode == HostRebuildApplyConfig && len(source.Artifacts) > 0 && input.Indexing == nil {
+				return semanticError(422, "KNOWLEDGE_EXPLICIT_INDEXING_REQUIRED")
+			}
 			if input.Mode == HostRebuildApplyConfig {
 				loader := &HostContractService{db: tx}
 				config, err = loader.freezeIngestion(ctx, locked, HostDocumentInput{Title: doc.Title, URI: doc.URI, Content: doc.Content, ContentType: doc.ContentType, Checksum: doc.Checksum, Version: doc.Version, Ingestion: input.Ingestion})
@@ -195,6 +198,7 @@ func (s *HostContractService) acceptRebuild(ctx context.Context, tenant, space, 
 				if s.semantic == nil {
 					return semanticError(501, "KNOWLEDGE_SEMANTIC_UNSUPPORTED")
 				}
+				config.IndexMode = input.Indexing.Mode
 				config.Indexing, err = s.semantic.freeze(ctx, tenant, space, *input.Indexing)
 				if err != nil {
 					return err

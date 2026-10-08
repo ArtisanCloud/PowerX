@@ -314,3 +314,45 @@ func TestRepairDoesNotReuseForeignTenantCredential(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "rotation_required", result.Action)
 }
+
+func TestRepairDirectoryErrorsIdentifyTheFailedPath(t *testing.T) {
+	t.Run("installed_root_missing", func(t *testing.T) {
+		f := newRepairFixture(t)
+		f.cfg.Plugin.InstalledDir = filepath.Join(t.TempDir(), "missing-installed")
+		_, err := f.svc.Repair(context.Background(), RuntimeCredentialRepairOptions{PluginID: testRepairPluginID})
+		require.ErrorContains(t, err, "PLUGIN_RUNTIME_INSTALLED_ROOT_UNAVAILABLE")
+		require.ErrorContains(t, err, f.cfg.Plugin.InstalledDir)
+		require.ErrorIs(t, err, os.ErrNotExist)
+	})
+	t.Run("plugin_directory_missing", func(t *testing.T) {
+		f := newRepairFixture(t)
+		pluginRoot := filepath.Join(f.cfg.Plugin.InstalledDir, testRepairPluginID)
+		require.NoError(t, os.RemoveAll(pluginRoot))
+		_, err := f.svc.Repair(context.Background(), RuntimeCredentialRepairOptions{PluginID: testRepairPluginID})
+		require.ErrorContains(t, err, "PLUGIN_RUNTIME_PLUGIN_DIR_UNAVAILABLE")
+		require.ErrorContains(t, err, pluginRoot)
+		require.ErrorIs(t, err, os.ErrNotExist)
+		var after settingmodel.PluginInstanceConfig
+		require.NoError(t, f.db.First(&after, f.record.ID).Error)
+		require.Equal(t, f.record.ValueJSON, after.ValueJSON)
+	})
+	t.Run("plugin_symlink_outside_root", func(t *testing.T) {
+		f := newRepairFixture(t)
+		pluginRoot := filepath.Join(f.cfg.Plugin.InstalledDir, testRepairPluginID)
+		require.NoError(t, os.RemoveAll(pluginRoot))
+		target := t.TempDir()
+		require.NoError(t, os.Symlink(target, pluginRoot))
+		_, err := f.svc.Repair(context.Background(), RuntimeCredentialRepairOptions{PluginID: testRepairPluginID})
+		require.ErrorContains(t, err, "PLUGIN_RUNTIME_PLUGIN_DIR_OUTSIDE_INSTALLED_ROOT")
+		resolved, err := filepath.EvalSymlinks(target)
+		require.NoError(t, err)
+		_, _, err = resolveRepairDirectories(f.cfg.Plugin.InstalledDir, testRepairPluginID)
+		require.ErrorContains(t, err, resolved)
+	})
+}
+
+func TestRepairDirectoryContainsHandlesFilesystemRootAndSiblingPrefix(t *testing.T) {
+	require.True(t, repairDirectoryContains(string(os.PathSeparator), filepath.Join(string(os.PathSeparator), "opt", "powerx")))
+	require.False(t, repairDirectoryContains("/opt/powerx/plugins/installed", "/opt/powerx/plugins/installed-other/plugin"))
+	require.False(t, repairDirectoryContains("/opt/powerx/plugins/installed", "/opt/powerx/plugins/installed"))
+}

@@ -4,6 +4,8 @@
 DIST_VERSION ?= $(shell git describe --tags --always 2>/dev/null || date +%Y%m%d%H%M%S)
 DIST_BASE_DIR ?= dist/systemd
 DIST_OUT_DIR ?= $(DIST_BASE_DIR)/$(DIST_VERSION)
+DIST_SOURCE_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+DIST_BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # 1 表示执行 npm ci；0 表示跳过安装，仅执行构建（适合已提前安装依赖）
 NPM_INSTALL ?= 1
@@ -22,7 +24,7 @@ dist-systemd:
 	echo "[dist] build backend binary"; \
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/powerx" ./cmd/app); \
 	echo "[dist] build database tool"; \
-	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/database" ./cmd/database); \
+	(cd backend && go build -ldflags "-X main.version=$(DIST_VERSION) -X main.commit=$(DIST_SOURCE_COMMIT) -X main.buildTime=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/database" ./cmd/database); \
 	echo "[dist] build platform capability seed tool"; \
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/platform_capability_seed" ./cmd/platform_capability_seed); \
 	echo "[dist] build media tool"; \

@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: PowerX Semantic Knowledge Host
   version: 1.0.0
-  description: Core-only contract; semantic failures never downgrade. Existing document
-    lifecycle is extended explicitly.
+  description: Core-only contract; semantic failures never downgrade. Existing document lifecycle is extended explicitly.
 servers:
 - url: /api/v1
 paths:
@@ -15,21 +14,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Result'
+                $ref: '#/components/schemas/ResultResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -39,35 +72,77 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-capability-id: com.corex.knowledge.retrieval.read
+      x-powerx-actor-context: service_actor
   /tenant/knowledge/spaces/{space_uuid}/semantic-index:
     parameters:
     - name: space_uuid
       in: path
       required: true
-      schema: &id001
+      schema:
         type: string
         format: uuid
     get:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-capability-id: com.corex.knowledge.retrieval.read
+      x-powerx-actor-context: service_actor
     post:
       responses:
         '200':
@@ -75,21 +150,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Generation'
+                $ref: '#/components/schemas/GenerationResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -99,34 +208,78 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-capability-id: com.corex.knowledge.document.manage
+      x-powerx-actor-context: service_actor
   /tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}/visibility:
     parameters:
     - name: space_uuid
       in: path
       required: true
-      schema: *id001
+      schema:
+        type: string
+        format: uuid
     - name: document_uuid
       in: path
       required: true
-      schema: *id001
+      schema:
+        type: string
+        format: uuid
     patch:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisibilityResultResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -136,32 +289,72 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-capability-id: com.corex.knowledge.document.manage
+      x-powerx-actor-context: service_actor
   /tenant/knowledge/spaces/{space_uuid}/documents:
     parameters:
     - name: space_uuid
       in: path
       required: true
-      schema: *id001
+      schema:
+        type: string
+        format: uuid
     post:
       responses:
-        '200':
-          description: Success
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '202':
           description: Frozen bundle accepted for asynchronous indexing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedJobResponse'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -171,6 +364,8 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-capability-id: com.corex.knowledge.document.manage
+      x-powerx-actor-context: service_actor
   /admin/knowledge-spaces/retrieval/query:
     post:
       responses:
@@ -179,21 +374,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Result'
+                $ref: '#/components/schemas/ResultResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -203,33 +432,77 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-rbac: corex/knowledge.retrieval/read
+      x-powerx-actor-context: admin_user
   /admin/knowledge-spaces/{spaceId}/semantic-index:
     parameters:
     - name: spaceId
       in: path
       required: true
-      schema: *id001
+      schema:
+        type: string
+        format: uuid
     get:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-rbac: corex/knowledge.retrieval/read
+      x-powerx-actor-context: admin_user
     post:
       responses:
         '200':
@@ -237,21 +510,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Generation'
+                $ref: '#/components/schemas/GenerationResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -261,34 +568,78 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-rbac: corex/knowledge.document/manage
+      x-powerx-actor-context: admin_user
   /admin/knowledge-spaces/{spaceId}/documents/{documentId}/visibility:
     parameters:
     - name: spaceId
       in: path
       required: true
-      schema: *id001
+      schema:
+        type: string
+        format: uuid
     - name: documentId
       in: path
       required: true
-      schema: *id001
+      schema:
+        type: string
+        format: uuid
     patch:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisibilityResultResponse'
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -298,32 +649,72 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-rbac: corex/knowledge.document/manage
+      x-powerx-actor-context: admin_user
   /admin/knowledge-spaces/{spaceId}/documents:
     parameters:
     - name: spaceId
       in: path
       required: true
-      schema: *id001
+      schema:
+        type: string
+        format: uuid
     post:
       responses:
-        '200':
-          description: Success
         '400':
           description: Invalid input or unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Capability or object access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Tenant object unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Configuration/generation/visibility/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Semantic/model configuration not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '501':
           description: Unsupported semantic driver/mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Required model/store/channel unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '202':
           description: Frozen bundle accepted for asynchronous indexing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedJobResponse'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -333,6 +724,8 @@ paths:
       security:
       - ApiKey: []
       - Bearer: []
+      x-powerx-rbac: corex/knowledge.document/manage
+      x-powerx-actor-context: admin_user
 components:
   securitySchemes:
     ApiKey:
@@ -346,7 +739,9 @@ components:
       type: object
       additionalProperties: false
       properties:
-        uuid: *id001
+        uuid:
+          type: string
+          format: uuid
         version:
           type: integer
           minimum: 1
@@ -385,10 +780,15 @@ components:
           - raw_document
           - cleaned_document
           - knowledge_profile
-        source_uuid: *id001
-        version: &id002
+        source_uuid:
           type: string
-        checksum: *id002
+          format: uuid
+        version:
+          type: string
+        checksum:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+          description: 'SHA256 of the complete immutable UTF-8 source text; no sha256: prefix'
         position_unit:
           type: string
           const: unicode_codepoint
@@ -406,29 +806,47 @@ components:
       - position_unit
       - char_start
       - char_end
+      description: Unicode codepoint half-open offsets [char_start,char_end). Artifact submission supplies the complete
+        immutable text and requires start=0, end=codepoint length; returned chunks have exact subranges.
     Artifact:
       type: object
       additionalProperties: false
       properties:
-        uuid: *id001
+        uuid:
+          type: string
+          format: uuid
         role:
           type: string
           enum:
           - source_chunk
           - knowledge_profile
-        text: *id002
-        checksum: *id002
-        version: *id002
+        text:
+          type: string
+        checksum:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+          description: 'SHA256 of the complete immutable UTF-8 source text; no sha256: prefix'
+        version:
+          type: string
         source_ref:
           $ref: '#/components/schemas/SourceRef'
-        knowledge_profile_uuid: *id001
-        case_uuid: *id001
+        knowledge_profile_uuid:
+          type: string
+          format: uuid
+        case_uuid:
+          type: string
+          format: uuid
         category_codes:
           type: array
-          items: *id002
+          items:
+            type: string
+          maxItems: 32
         tag_uuids:
           type: array
-          items: *id001
+          items:
+            type: string
+            format: uuid
+          maxItems: 64
       required:
       - uuid
       - role
@@ -444,13 +862,21 @@ components:
       properties:
         document_uuids:
           type: array
-          items: *id001
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
         category_codes:
           type: array
-          items: *id002
+          items:
+            type: string
+          maxItems: 100
         tag_uuids:
           type: array
-          items: *id001
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
         artifact_roles:
           type: array
           items:
@@ -458,6 +884,7 @@ components:
             enum:
             - knowledge_profile
             - source_chunk
+          maxItems: 100
       required: []
     Query:
       type: object
@@ -472,7 +899,9 @@ components:
           maxLength: 8192
         space_uuids:
           type: array
-          items: *id001
+          items:
+            type: string
+            format: uuid
           minItems: 1
           maxItems: 16
         mode:
@@ -488,7 +917,9 @@ components:
           $ref: '#/components/schemas/Filters'
         required_generations:
           type: object
-          additionalProperties: *id001
+          additionalProperties:
+            type: string
+            format: uuid
       required:
       - schema
       - query
@@ -500,8 +931,11 @@ components:
       type: object
       additionalProperties: false
       properties:
-        embedding_profile_key: *id002
-        expected_configuration_generation: *id001
+        embedding_profile_key:
+          type: string
+        expected_configuration_generation:
+          type: string
+          format: uuid
       required:
       - embedding_profile_key
     Visibility:
@@ -510,25 +944,39 @@ components:
       properties:
         queryable:
           type: boolean
-        expected_epoch: *id001
+        expected_epoch:
+          type: string
+          format: uuid
       required:
       - queryable
     Generation:
       type: object
       additionalProperties: false
       properties:
-        space_uuid: *id001
-        configuration_generation: *id001
-        corpus_generation: *id001
+        space_uuid:
+          type: string
+          format: uuid
+        configuration_generation:
+          type: string
+          format: uuid
+        corpus_generation:
+          type: string
+          format: uuid
         embedding_profile:
           $ref: '#/components/schemas/ProfileRef'
-        model_key: *id002
-        model_revision: *id002
+        model_key:
+          type: string
+        model_revision:
+          type: string
         dimensions:
           type: integer
         distance_metric:
           type: string
           const: cosine
+        env:
+          type: string
+          description: Frozen model configuration environment; queries and workers use this binding, not request-selected
+            models.
       required:
       - space_uuid
       - configuration_generation
@@ -538,14 +986,17 @@ components:
       - model_revision
       - dimensions
       - distance_metric
+      - env
     Score:
       type: object
       additionalProperties: false
       properties:
-        source: *id002
+        source:
+          type: string
         score:
           type: number
-        score_type: *id002
+        score_type:
+          type: string
         direction:
           type: string
           enum:
@@ -560,36 +1011,58 @@ components:
       type: object
       additionalProperties: false
       properties:
-        space_uuid: *id001
-        document_uuid: *id001
-        chunk_uuid: *id001
-        artifact_uuid: *id001
-        artifact_role: *id002
-        knowledge_profile_uuid: *id001
-        case_uuid: *id001
-        title: *id002
-        text: *id002
+        space_uuid:
+          type: string
+          format: uuid
+        document_uuid:
+          type: string
+          format: uuid
+        chunk_uuid:
+          type: string
+          format: uuid
+        artifact_uuid:
+          type: string
+          format: uuid
+        artifact_role:
+          type: string
+        knowledge_profile_uuid:
+          type: string
+          format: uuid
+        case_uuid:
+          type: string
+          format: uuid
+        title:
+          type: string
+        text:
+          type: string
         score:
           type: number
-        score_type: *id002
+        score_type:
+          type: string
         scores:
           type: array
           items:
             $ref: '#/components/schemas/Score'
         retrieval_sources:
           type: array
-          items: *id002
+          items:
+            type: string
         external_ref:
           type: object
           additionalProperties: false
           properties:
-            document_uuid: *id001
+            document_uuid:
+              type: string
+              format: uuid
           required:
           - document_uuid
         source_ref:
           $ref: '#/components/schemas/SourceRef'
-        document_version: *id002
-        bundle_generation: *id001
+        document_version:
+          type: string
+        bundle_generation:
+          type: string
+          format: uuid
       required:
       - space_uuid
       - document_uuid
@@ -611,9 +1084,13 @@ components:
         schema:
           type: string
           const: powerx.knowledge.retrieval-result/v1
-        query_uuid: *id001
-        requested_mode: *id002
-        effective_mode: *id002
+        query_uuid:
+          type: string
+          format: uuid
+        requested_mode:
+          type: string
+        effective_mode:
+          type: string
         generations:
           type: array
           items:
@@ -622,7 +1099,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Match'
-        trace_id: *id002
+        trace_id:
+          type: string
       required:
       - schema
       - query_uuid
@@ -635,21 +1113,27 @@ components:
       type: object
       additionalProperties: false
       properties:
-        title: *id002
-        uri: *id002
-        content: *id002
+        title:
+          type: string
+        uri:
+          type: string
+        content:
+          type: string
         content_type:
           type: string
           enum:
           - text/plain
           - text/markdown
-        checksum: *id002
-        version: *id002
+        checksum:
+          type: string
+        version:
+          type: string
         tags:
           type: array
-          items: *id002
+          items:
+            type: string
         ingestion:
-          $ref: ./host-provisioning.openapi.yaml#/components/schemas/HostIngestionSettings
+          $ref: ./http-openapi.yaml#/components/schemas/KnowledgeDocumentIngestionSettings
         indexing:
           $ref: '#/components/schemas/Indexing'
         artifacts:
@@ -659,12 +1143,7 @@ components:
           minItems: 1
           maxItems: 64
         external_ref:
-          type: object
-          additionalProperties: false
-          properties:
-            document_uuid: *id001
-          required:
-          - document_uuid
+          $ref: '#/components/schemas/ExternalRef'
         idempotency_key:
           type: string
           maxLength: 128
@@ -695,7 +1174,359 @@ components:
         properties:
           operation:
             const: capabilities
-          space_uuid: *id001
+          space_uuid:
+            type: string
+            format: uuid
         required:
         - operation
         - space_uuid
+    Capabilities:
+      type: object
+      additionalProperties: false
+      properties:
+        schema:
+          const: powerx.knowledge.semantic-capabilities/v1
+        configured:
+          type: boolean
+        ready:
+          type: boolean
+        indexed:
+          type: boolean
+        query_modes:
+          type: array
+          items:
+            type: string
+            enum:
+            - semantic
+            - hybrid
+        index_modes:
+          type: array
+          items:
+            type: string
+            enum:
+            - semantic
+            - hybrid
+        indexed_query_modes:
+          type: array
+          items:
+            type: string
+            enum:
+            - semantic
+            - hybrid
+        index_counts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              mode:
+                type: string
+                enum:
+                - semantic
+                - hybrid
+              documents:
+                type: integer
+                minimum: 0
+              chunks:
+                type: integer
+                minimum: 0
+            required:
+            - mode
+            - documents
+            - chunks
+        artifact_roles:
+          type: array
+          items:
+            type: string
+        supported_filters:
+          type: array
+          items:
+            type: string
+        tag_match:
+          const: any
+        position_unit:
+          const: unicode_codepoint
+        strict_sources:
+          type: boolean
+        generation:
+          $ref: '#/components/schemas/Generation'
+        reason_code:
+          type: string
+        limits:
+          type: object
+          additionalProperties:
+            type: integer
+        pending_generation:
+          oneOf:
+          - $ref: '#/components/schemas/Generation'
+          - type: 'null'
+      required:
+      - schema
+      - configured
+      - ready
+      - indexed
+      - query_modes
+      - reason_code
+    VisibilityResult:
+      type: object
+      additionalProperties: false
+      properties:
+        document_uuid:
+          type: string
+          format: uuid
+        queryable:
+          type: boolean
+        visibility_epoch:
+          type: string
+          format: uuid
+      required:
+      - document_uuid
+      - queryable
+      - visibility_epoch
+    AcceptedJob:
+      type: object
+      additionalProperties: false
+      properties:
+        job_uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+        operation:
+          type: string
+        document_uuid:
+          type: string
+          format: uuid
+        document_count:
+          type: integer
+          minimum: 0
+        rebuild_mode:
+          type: string
+      required:
+      - job_uuid
+      - status
+      - operation
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
+        error_code:
+          type: string
+        reason_code:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - timestamp
+    ResultResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Result'
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+      - timestamp
+    GenerationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Generation'
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+      - timestamp
+    CapabilitiesResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Capabilities'
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+      - timestamp
+    VisibilityResultResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/VisibilityResult'
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+      - timestamp
+    AcceptedJobResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/AcceptedJob'
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+      - timestamp
+    IndexSnapshot:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          enum:
+          - semantic
+          - hybrid
+        embedding_profile:
+          $ref: '#/components/schemas/ProfileRef'
+        artifact_roles:
+          type: array
+          items:
+            type: string
+        configuration_generation:
+          type: string
+          format: uuid
+        model_key:
+          type: string
+        model_revision:
+          type: string
+        config_checksum:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        dimensions:
+          type: integer
+          minimum: 1
+        vector_index_key:
+          type: string
+        env:
+          type: string
+          description: Frozen model configuration environment; queries and workers use this binding, not request-selected
+            models.
+      required:
+      - mode
+      - embedding_profile
+      - artifact_roles
+      - configuration_generation
+      - model_key
+      - model_revision
+      - config_checksum
+      - dimensions
+      - vector_index_key
+      - env
+    Rebuild:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          enum:
+          - reuse_snapshot
+          - apply_config
+        idempotency_key:
+          type: string
+        ingestion:
+          $ref: ./http-openapi.yaml#/components/schemas/KnowledgeDocumentIngestionSettings
+        indexing:
+          $ref: '#/components/schemas/Indexing'
+      required:
+      - mode
+    TypedDocumentSemanticOperation:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        properties:
+          operation:
+            const: configure_semantic_index
+          space_uuid:
+            type: string
+            format: uuid
+          configuration:
+            $ref: '#/components/schemas/Configure'
+        required:
+        - operation
+        - space_uuid
+        - configuration
+      - type: object
+        additionalProperties: false
+        properties:
+          operation:
+            const: set_document_visibility
+          space_uuid:
+            type: string
+            format: uuid
+          document_uuid:
+            type: string
+            format: uuid
+          visibility:
+            $ref: '#/components/schemas/Visibility'
+        required:
+        - operation
+        - space_uuid
+        - document_uuid
+        - visibility
+    ExternalRef:
+      type: object
+      additionalProperties: false
+      properties:
+        document_uuid:
+          type: string
+          format: uuid
+      required:
+      - document_uuid

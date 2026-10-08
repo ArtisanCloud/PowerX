@@ -296,3 +296,7 @@ Non-goal: Do **not** expose a full Cartesian product of “scenes × all strateg
 - **SC-009**: Event hotfixes sourced from `knowledge.event.received` complete refresh + Agent notifications within ≤5 minutes, idempotent skips are recorded for 100% of duplicate payloads, and `knowledge.event.retry_count` never exceeds three without escalation.
 - **SC-010**: Decay scans achieve 100% coverage of active knowledge spaces, detect low-quality/empty segments with ≥90% precision, auto-create restoration tasks with SLA ≤7 days, and resolve false positives or restores within 10 minutes.
 - **SC-011**: Tenant gray releases apply policies from `tenant_release_matrix.yaml`, keep version drift ≤1 release across tenants, roll back failing batches in ≤5 minutes, and expose `knowledge.release.gray_state` / `knowledge-release.json` snapshots that auditors can reconcile without manual reconstruction.
+
+## 2026-10-08 Core semantic Host extension
+
+See [formal semantic contract](../../docs/contracts/knowledge-semantic-host.md) and [implementation acceptance](semantic-host-implementation.md). Host documents now accept explicit semantic/hybrid artifacts alongside the legacy lexical path. Real model identity/dimension, pre-top_k filters, immutable source hydration, staged model configuration and atomic complete-space publication, visibility revocation, typed service authorization and Admin/RBAC are required. Business dimensions and customer fit scoring remain plugin responsibilities. Current driver scope is colocated pgvector; unsupported layouts fail explicitly.

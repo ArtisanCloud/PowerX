@@ -23,6 +23,38 @@
 database repair-plugin-runtime-credentials -plugin-id com.powerx.plugins.ai-craft -config /etc/powerx/config.yaml
 ```
 
+### 先验证实际执行的 database
+
+新版提供 `database --version` 和 `database --help`，在加载配置、校验 JWT 配置或连接数据库前直接返回。版本 JSON 包含 `version`、`git_commit`、`build_time`、`source_modified`、`go_version` 和 `commands`。发布构建 `make dist` 会为数据库工具注入发布标签、完整 commit 和 UTC 构建时间；普通 `go build` 仍可从 Go 自带构建信息取得 VCS commit，缺少的发布标签／时间明确显示 `unversioned`／`unknown`。
+
+更新后直接查询实际部署文件，无需 EnvironmentFile 或数据库参数：
+
+```bash
+/opt/powerx/backend/database --version
+```
+
+核对 `git_commit` 与本次部署源码的 `git rev-parse HEAD` 一致，`commands` 包含要执行的命令；`source_modified=false` 才能按 commit 对应干净源码。若为 true，说明编译包含未提交改动，不能只凭 commit 判断代码一致；为 null 表示没有可用的 Go VCS 修改状态。
+
+如果服务器旧二进制尚不支持 `--version`，在服务器仓库根目录做以下只读检查：
+
+```bash
+git rev-parse HEAD
+```
+
+```bash
+readlink -f /opt/powerx/backend/database
+```
+
+```bash
+go version -m /opt/powerx/backend/database | grep -E 'vcs.revision|vcs.modified'
+```
+
+```bash
+grep -n 'case .*prepare-plugin-runtime-credentials' backend/cmd/database/main.go
+```
+
+最后一条无输出时，当前服务器源码不包含安装前准备命令，需要先同步追加补丁再编译。源码有命令但实际二进制不包含时，需要检查制品部署路径及 release 切换。`--version` 的命令列表可以直接确认已部署二进制是否支持准备操作。
+
 默认只读预览。工具从这份配置及进程环境连接实际数据库，读取已有系统租户；不创建租户，不接受调用方覆盖租户 UUID。它只处理指定插件的系统租户运行凭证，以及该插件已登记版本的配置。
 
 | `action` | 含义 | 后续执行参数 |
@@ -84,12 +116,54 @@ curl -fsS http://127.0.0.1:8080/api/v1/health
 
 ## 失败、备份与恢复
 
+- 目录检查失败发生在凭证查询／写入前。`PLUGIN_RUNTIME_INSTALLED_ROOT_UNAVAILABLE`、`PLUGIN_RUNTIME_PLUGIN_DIR_UNAVAILABLE` 和 `PLUGIN_RUNTIME_CONFIG_DIR_UNAVAILABLE` 会给出具体路径及操作系统原因；`*_OUTSIDE_*` 会给出软链接解析后的越界路径。不要只根据这类错误执行迁移或轮换。
+- 排查正式配置路径：`sudo grep -nE '^[[:space:]]*(installed_dir|registry_file):' /etc/powerx/config.yaml`。检查目录、软链接和逐级权限：`sudo namei -l /opt/powerx/plugins/installed/com.powerx.plugins.ai-craft`。若配置使用另一条路径，检查该配置指向的目录；目录不存在时先确认插件产物是否还在原持久目录，不能用空目录代替缺失的安装产物。
 - `-confirm` 不带 `-rotate` 且无原凭证时，明确拒绝，不修改数据库和文件。
 - DB 事务或文件写入失败时，回滚数据库并恢复原文件；`applied` 保持 false。
 - 写入前创建 `0700` 备份目录，`backup.json` 为 `0600`，保存原文件、原数据库凭证记录及路径。备份含敏感运行配置，不要上传或粘贴其内容。
 - 如果进程被中断，保持对应 Core 停止，重新预览：文件采用原子替换，工具能通过当前数据库重新判断可恢复凭证；根据新的 `action` 再确认恢复或轮换。
 - 若返回 `recovery_needed: true`，说明 DB 提交结果不明确、DB 无法读取或文件补偿失败；保持服务停止，保留输出和备份目录，核对数据库与各文件状态后再处理。不能只恢复旧文件而保留新数据库 hash。
 - CLI 不修改客户资料、插件业务库、JWT 签名密钥或 API Key／能力 grant。
+
+## 安装目录也已丢失时
+
+如果配置指向 `/opt/powerx/plugins/installed`，而目录已经不存在，凭证修复无法代替安装产物恢复。先用下列只读命令确认旧产物和注册表是否还在：
+
+```bash
+sudo find /opt/powerx -type d -name com.powerx.plugins.ai-craft -print
+```
+
+```bash
+sudo ls -l /opt/powerx/plugins/registry.json
+```
+
+有原安装产物时先核对并恢复正式环境的持久目录。没有可恢复的产物、数据库仍保留旧凭证时，使用独立的安装前准备命令 `prepare-plugin-runtime-credentials`。普通 `repair-plugin-runtime-credentials` 继续要求已有安装配置；二者不隐式互相切换。
+
+部署包含这个子命令的新版 **database 工具**后，先只读预览：
+
+```bash
+sudo systemd-run --wait --pipe --collect --property=User="$(systemctl show powerx-backend -p User --value)" --property=Group="$(systemctl show powerx-backend -p Group --value)" --property=WorkingDirectory=/opt/powerx/backend --property=EnvironmentFile=/etc/powerx/powerx.env /opt/powerx/backend/database prepare-plugin-runtime-credentials -config /etc/powerx/config.yaml -plugin-id com.powerx.plugins.ai-craft
+```
+
+输出明确包含 `current_config_available: false` 和 `next_step: install_plugin_package`。如果 `action=install_required`，说明当前系统租户没有旧凭证记录，直接正常安装插件，由 Core 首次签发凭证即可。
+
+若 `action=restore`，停止正式后端后，用上面命令追加 `-confirm`。若为 `rotation_required`，停止后追加 `-confirm -rotate`，旧 secret 的后续交换会失效。完整的轮换执行命令：
+
+```bash
+sudo systemctl stop powerx-backend
+```
+
+```bash
+sudo systemd-run --wait --pipe --collect --property=User="$(systemctl show powerx-backend -p User --value)" --property=Group="$(systemctl show powerx-backend -p Group --value)" --property=WorkingDirectory=/opt/powerx/backend --property=EnvironmentFile=/etc/powerx/powerx.env /opt/powerx/backend/database prepare-plugin-runtime-credentials -config /etc/powerx/config.yaml -plugin-id com.powerx.plugins.ai-craft -confirm -rotate
+```
+
+准备命令只恢复／轮换现有系统租户运行凭证，写入 `0600` 持久凭证文件，并同步已存在的该插件注册表配置；缺少注册记录时不创建假的安装版本。它不会生成版本目录、`host-values.yaml`、插件二进制或启用状态。保留原有的预览、离线检查、授权边界、备份、审计和失败回滚。重复准备达到 `healthy` 后，凭证已就绪，但 `next_step` 仍为安装插件包。
+
+准备成功后启动 Core 和管理前端，再上传正式插件包重新安装；完成插件健康检查及真实 STS 业务调用才算恢复完成。
+
+```bash
+sudo systemctl start powerx-backend powerx-web-admin
+```
 
 ## 验证记录与实现位置
 
@@ -99,6 +173,7 @@ curl -fsS http://127.0.0.1:8080/api/v1/health
 - `backend/internal/infra/plugin/runtimecredential/files.go`：稳定文件位置与受限原子写入。
 - `backend/internal/infra/plugin/manager/install.go`、`host_config.go`、`lifecycle.go`：覆盖前检查、生成及启用错误处理。
 - `backend/internal/service/plugin_credential/repair.go`：预览、恢复、轮换、备份和事务补偿。
+- `backend/internal/service/plugin_credential/prepare_install.go`：安装产物丢失时的显式凭证准备。
 - `backend/cmd/database/main.go`：工具入口。
 
 正式站的修复执行、插件健康检查和真实 STS 调用仍需按上述步骤验收；本地测试不替代线上验收。

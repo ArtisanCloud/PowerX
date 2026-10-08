@@ -387,6 +387,8 @@ capabilities:
   description_i18n: {en: Typed tenant create contract., zh-CN: 知识实验室租户服务合同。}
 
 - capability_id: com.corex.knowledge.retrieval.read
+  title_i18n: {en: Strict Semantic Knowledge Retrieval, zh-CN: 严格语义知识检索}
+  description_i18n: {en: Retrieve real semantic and hybrid evidence with source and generation checks., zh-CN: 按租户和版本严格检索实际语义及混合索引并返回来源证据。}
   module: knowledge_space
   title: Strict Semantic Knowledge Retrieval
   description: Query real vector and hybrid indexes with typed filters, source evidence and version consistency.
