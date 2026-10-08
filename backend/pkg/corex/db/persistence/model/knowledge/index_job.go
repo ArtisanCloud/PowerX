@@ -31,6 +31,8 @@ type IndexJob struct {
 	TraceID            string         `gorm:"column:trace_id;type:varchar(64)" json:"trace_id"`
 	ClaimToken         string         `gorm:"column:claim_token;type:varchar(64)" json:"-"`
 	LeaseUntil         *time.Time     `gorm:"column:lease_until;index" json:"-"`
+	ArtifactCount      int            `gorm:"not null;default:0" json:"artifact_count"`
+	VectorCount        int            `gorm:"not null;default:0" json:"vector_count"`
 	ChunkCount         int            `gorm:"column:chunk_count;not null;default:0" json:"chunk_count"`
 	ErrorCode          string         `gorm:"column:error_code;type:varchar(64)" json:"error_code,omitempty"`
 	StartedAt          *time.Time     `gorm:"column:started_at" json:"started_at,omitempty"`

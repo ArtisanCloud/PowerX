@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	ollama "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/ollama"
 	agentsvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
@@ -44,7 +45,7 @@ func (s *SemanticRuntime) resolveModel(ctx context.Context, tenant, key string) 
 		return s.embedOverride(ctx, tenant, key)
 	}
 	provider, model, err := ParseEmbeddingProfileKey(key)
-	if err != nil || provider == "hash" {
+	if err != nil || (provider == "hash" || provider == "hash32" || provider == "local_hash") {
 		return nil, nil, "", "", semanticError(422, "KNOWLEDGE_EMBEDDING_NOT_CONFIGURED")
 	}
 	env := reqctx.GetEnv(ctx)
@@ -62,7 +63,10 @@ func (s *SemanticRuntime) resolveModel(ctx context.Context, tenant, key string) 
 	if err != nil || vec == nil || resolved == nil {
 		return nil, nil, "", "", semanticError(503, "KNOWLEDGE_EMBEDDING_UNAVAILABLE")
 	}
-	config := map[string]any{"profile_uuid": fmt.Sprint(profile.ID), "provider": provider, "model": model, "endpoint": resolved.Endpoint, "dimensions": resolved.Dimensions, "max_input_tokens": resolved.MaxInputTokens}
+	if driver, ok := vec.(*ollama.OllamaEmbedder); ok {
+		driver.StrictInput = true
+	}
+	config := map[string]any{"strict_input": true, "profile_uuid": fmt.Sprint(profile.ID), "provider": provider, "model": model, "endpoint": resolved.Endpoint, "dimensions": resolved.Dimensions, "max_input_tokens": resolved.MaxInputTokens}
 	configBytes, _ := json.Marshal(config)
 	revision := ""
 	if provider == "ollama" {
@@ -117,6 +121,9 @@ type SemanticConfigureInput struct {
 }
 
 func (s *SemanticRuntime) Configure(ctx context.Context, tenant, space string, input SemanticConfigureInput) (SemanticGeneration, error) {
+	if s.vectors == nil || s.vectors.Driver() != "pgvector" {
+		return SemanticGeneration{}, KnowledgeSemanticUnsupportedError()
+	}
 	var row models.KnowledgeSpace
 	if s.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND status <> ?", tenant, space, models.KnowledgeSpaceStatusRetired).First(&row).Error != nil {
 		return SemanticGeneration{}, KnowledgeSpaceNotFoundError(errors.New("space unavailable"))
@@ -133,6 +140,9 @@ func (s *SemanticRuntime) Configure(ctx context.Context, tenant, space string, i
 		return SemanticGeneration{}, semanticError(503, "KNOWLEDGE_EMBEDDING_FAILED")
 	}
 	dim := len(probe[0])
+	if !validSemanticVector(probe[0], dim) {
+		return SemanticGeneration{}, semanticError(503, "KNOWLEDGE_EMBEDDING_INVALID")
+	}
 	if resolved.Dimensions > 0 && resolved.Dimensions != dim {
 		return SemanticGeneration{}, semanticError(409, "KNOWLEDGE_MODEL_DIMENSION_CONFLICT")
 	}
@@ -144,12 +154,26 @@ func (s *SemanticRuntime) Configure(ctx context.Context, tenant, space string, i
 	if err != nil || store == nil || store.Health(ctx) != nil {
 		return SemanticGeneration{}, semanticError(503, "KNOWLEDGE_VECTOR_STORE_UNAVAILABLE")
 	}
+	if err := s.checkVectorDatabase(ctx); err != nil {
+		return SemanticGeneration{}, err
+	}
 	var binding models.SemanticSpaceBinding
+	var selected models.SemanticSpaceBinding
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := NewHostContractService(tx).lockHostSpace(ctx, tx, tenant, space); err != nil {
+		locked, err := NewHostContractService(tx).lockHostSpace(ctx, tx, tenant, space)
+		if err != nil {
 			return err
 		}
-		err := tx.Where("tenant_uuid = ? AND space_uuid = ?", tenant, space).First(&binding).Error
+		if locked.ActiveVectorIndexKey != row.ActiveVectorIndexKey || locked.EmbeddingProfileKey != row.EmbeddingProfileKey {
+			return semanticError(409, "KNOWLEDGE_MODEL_BINDING_CONFLICT")
+		}
+		// Serialize immutable profile versions across spaces using the same model.
+		if tx.Dialector.Name() == "postgres" {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", tenant+":"+input.EmbeddingProfileKey).Error; err != nil {
+				return err
+			}
+		}
+		err = tx.Where("tenant_uuid = ? AND space_uuid = ?", tenant, space).First(&binding).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
@@ -162,6 +186,17 @@ func (s *SemanticRuntime) Configure(ctx context.Context, tenant, space string, i
 				return semanticError(422, "KNOWLEDGE_SEMANTIC_INDEX_NOT_READY")
 			}
 			if profile.ConfigChecksum == configHash && profile.ModelRevision == revision && profile.Dimensions == dim && binding.VectorIndexKey == row.ActiveVectorIndexKey {
+				selected = binding
+				return nil
+			}
+		}
+		if pending, ok := semanticPendingBinding(binding); ok {
+			var p models.SemanticEmbeddingProfile
+			if tx.Where("tenant_uuid = ? AND uuid = ?", tenant, pending.EmbeddingProfileUUID).First(&p).Error != nil {
+				return semanticError(422, "KNOWLEDGE_EMBEDDING_PROFILE_UNAVAILABLE")
+			}
+			if p.ConfigChecksum == configHash && p.ModelRevision == revision && p.Dimensions == dim && pending.VectorIndexKey == row.ActiveVectorIndexKey {
+				selected = pending
 				return nil
 			}
 		}
@@ -170,19 +205,30 @@ func (s *SemanticRuntime) Configure(ctx context.Context, tenant, space string, i
 			return err
 		}
 		provider, model, _ := ParseEmbeddingProfileKey(input.EmbeddingProfileKey)
-		profile = models.SemanticEmbeddingProfile{TenantUUID: tenant, ProfileKey: input.EmbeddingProfileKey, Version: version + 1, Status: models.ProfileStatusPublished, Provider: provider, Model: model, ModelRevision: revision, Dimensions: dim, ConfigChecksum: configHash}
+		environment := reqctx.GetEnv(ctx)
+		if environment == "" {
+			environment = "dev"
+		}
+		profile = models.SemanticEmbeddingProfile{Env: environment, TenantUUID: tenant, ProfileKey: input.EmbeddingProfileKey, Version: version + 1, Status: models.ProfileStatusPublished, Provider: provider, Model: model, ModelRevision: revision, Dimensions: dim, ConfigChecksum: configHash}
 		if err := tx.Create(&profile).Error; err != nil {
 			return err
 		}
-		binding.TenantUUID, binding.SpaceUUID, binding.EmbeddingProfileUUID = tenant, space, fmt.Sprint(profile.ID)
-		binding.ConfigurationGeneration, binding.CorpusGeneration, binding.VectorIndexKey = uuid.NewString(), uuid.NewString(), row.ActiveVectorIndexKey
-		binding.Modes = datatypes.JSON(`["semantic","hybrid"]`)
-		return tx.Save(&binding).Error
+		selected = binding
+		selected.TenantUUID, selected.SpaceUUID, selected.EmbeddingProfileUUID = tenant, space, profile.UUID.String()
+		selected.ConfigurationGeneration, selected.VectorIndexKey = uuid.NewString(), row.ActiveVectorIndexKey
+		selected.Modes = datatypes.JSON(`["semantic","hybrid"]`)
+		if binding.UUID == uuid.Nil {
+			selected.CorpusGeneration = uuid.NewString()
+			binding = selected
+			return tx.Save(&binding).Error
+		}
+		pendingBytes, _ := json.Marshal(semanticPendingConfiguration{EmbeddingProfileUUID: selected.EmbeddingProfileUUID, ConfigurationGeneration: selected.ConfigurationGeneration, VectorIndexKey: selected.VectorIndexKey})
+		return tx.Model(&binding).Update("pending_configuration", pendingBytes).Error
 	})
 	if err != nil {
 		return SemanticGeneration{}, err
 	}
-	return s.generation(ctx, binding)
+	return s.generation(ctx, selected)
 }
 
 func (s *SemanticRuntime) generation(ctx context.Context, b models.SemanticSpaceBinding) (SemanticGeneration, error) {
@@ -190,5 +236,26 @@ func (s *SemanticRuntime) generation(ctx context.Context, b models.SemanticSpace
 	if err := s.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ?", b.TenantUUID, b.EmbeddingProfileUUID).First(&p).Error; err != nil {
 		return SemanticGeneration{}, err
 	}
-	return SemanticGeneration{SpaceUUID: b.SpaceUUID, ConfigurationGeneration: b.ConfigurationGeneration, CorpusGeneration: b.CorpusGeneration, EmbeddingProfile: HostTaskProfileRef{UUID: p.UUID.String(), Version: p.Version}, ModelKey: p.ProfileKey, ModelRevision: p.ModelRevision, Dimensions: p.Dimensions, DistanceMetric: "cosine"}, nil
+	return SemanticGeneration{Env: p.Env, SpaceUUID: b.SpaceUUID, ConfigurationGeneration: b.ConfigurationGeneration, CorpusGeneration: b.CorpusGeneration, EmbeddingProfile: HostTaskProfileRef{UUID: p.UUID.String(), Version: p.Version}, ModelKey: p.ProfileKey, ModelRevision: p.ModelRevision, Dimensions: p.Dimensions, DistanceMetric: "cosine"}, nil
+}
+
+func KnowledgeSemanticUnsupportedError() error {
+	return semanticError(501, "KNOWLEDGE_SEMANTIC_UNSUPPORTED")
+}
+
+type semanticPendingConfiguration struct {
+	EmbeddingProfileUUID    string `json:"embedding_profile_uuid"`
+	ConfigurationGeneration string `json:"configuration_generation"`
+	VectorIndexKey          string `json:"vector_index_key"`
+}
+
+func semanticPendingBinding(binding models.SemanticSpaceBinding) (models.SemanticSpaceBinding, bool) {
+	var pending semanticPendingConfiguration
+	if len(binding.PendingConfiguration) == 0 || json.Unmarshal(binding.PendingConfiguration, &pending) != nil || !validSemanticUUID(pending.EmbeddingProfileUUID) || !validSemanticUUID(pending.ConfigurationGeneration) || pending.VectorIndexKey == "" {
+		return binding, false
+	}
+	binding.EmbeddingProfileUUID = pending.EmbeddingProfileUUID
+	binding.ConfigurationGeneration = pending.ConfigurationGeneration
+	binding.VectorIndexKey = pending.VectorIndexKey
+	return binding, true
 }

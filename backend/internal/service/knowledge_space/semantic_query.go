@@ -51,6 +51,9 @@ func validateSemanticQuery(in SemanticQuery) error {
 			return KnowledgeInvalidArgumentError(err)
 		}
 	}
+	if len(in.Filters.ArtifactRoles) > 100 || len(in.Filters.CategoryCodes) > 100 {
+		return semanticError(400, "KNOWLEDGE_FILTER_LIMIT_EXCEEDED")
+	}
 	for _, role := range in.Filters.ArtifactRoles {
 		if role != "knowledge_profile" && role != "source_chunk" {
 			return semanticError(400, "KNOWLEDGE_ARTIFACT_ROLE_INVALID")
@@ -79,6 +82,25 @@ func containsString(values []string, value string) bool {
 }
 
 func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQuery) (SemanticResult, error) {
+	in.SpaceUUIDs = cloneSemanticValues(in.SpaceUUIDs)
+	for i := range in.SpaceUUIDs {
+		in.SpaceUUIDs[i] = canonicalSemanticUUID(in.SpaceUUIDs[i])
+	}
+	in.Filters.DocumentUUIDs = cloneSemanticValues(in.Filters.DocumentUUIDs)
+	for i := range in.Filters.DocumentUUIDs {
+		in.Filters.DocumentUUIDs[i] = canonicalSemanticUUID(in.Filters.DocumentUUIDs[i])
+	}
+	in.Filters.TagUUIDs = cloneSemanticValues(in.Filters.TagUUIDs)
+	for i := range in.Filters.TagUUIDs {
+		in.Filters.TagUUIDs[i] = canonicalSemanticUUID(in.Filters.TagUUIDs[i])
+	}
+	if in.RequiredGenerations != nil {
+		canonical := map[string]string{}
+		for space, gen := range in.RequiredGenerations {
+			canonical[canonicalSemanticUUID(space)] = canonicalSemanticUUID(gen)
+		}
+		in.RequiredGenerations = canonical
+	}
 	out := SemanticResult{Schema: SemanticResultSchema, QueryUUID: uuid.NewString(), RequestedMode: in.Mode, EffectiveMode: in.Mode, Generations: []SemanticGeneration{}, Items: []SemanticMatch{}, TraceID: reqctx.GetTraceID(ctx)}
 	if err := validateSemanticQuery(in); err != nil {
 		return out, err
@@ -86,15 +108,18 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 	if s.vectors == nil || s.vectors.Driver() != "pgvector" {
 		return out, semanticError(501, "KNOWLEDGE_SEMANTIC_UNSUPPORTED")
 	}
+	if err := s.checkVectorDatabase(ctx); err != nil {
+		return out, err
+	}
 	all := []SemanticMatch{}
 	for _, space := range in.SpaceUUIDs {
 		var binding models.SemanticSpaceBinding
-		if s.db.WithContext(ctx).Where("tenant_uuid = ? AND space_uuid = ?", tenant, space).First(&binding).Error != nil {
-			return out, semanticError(422, "KNOWLEDGE_SEMANTIC_INDEX_NOT_READY")
-		}
 		var spaceRow models.KnowledgeSpace
 		if s.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND status <> ?", tenant, space, models.KnowledgeSpaceStatusRetired).First(&spaceRow).Error != nil {
 			return out, KnowledgeSpaceNotFoundError(errors.New("space unavailable"))
+		}
+		if s.db.WithContext(ctx).Where("tenant_uuid = ? AND space_uuid = ?", tenant, space).First(&binding).Error != nil {
+			return out, semanticError(422, "KNOWLEDGE_SEMANTIC_INDEX_NOT_READY")
 		}
 		generation, err := s.generation(ctx, binding)
 		if err != nil {
@@ -115,6 +140,9 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 		if err != nil || len(vectors) != 1 || len(vectors[0]) != generation.Dimensions {
 			return out, semanticError(503, "KNOWLEDGE_QUERY_EMBEDDING_FAILED")
 		}
+		if _, err := s.validateFrozen(ctx, tenant, space, frozen); err != nil {
+			return out, err
+		}
 		norm := float64(0)
 		for _, v := range vectors[0] {
 			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
@@ -126,7 +154,7 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 			return out, semanticError(503, "KNOWLEDGE_EMBEDDING_INVALID")
 		}
 		index, err := repo.NewKnowledgeVectorIndexRepository(s.db).FindBySpaceAndKey(ctx, spaceRow.UUID, binding.VectorIndexKey)
-		if err != nil || index == nil || spaceRow.ActiveVectorIndexKey != binding.VectorIndexKey {
+		if err != nil || index == nil {
 			return out, semanticError(409, "KNOWLEDGE_MODEL_BINDING_CONFLICT")
 		}
 		schema, err := quoteSemanticIdentifier(s.vectors.pgBase.WithDefaults().Schema)
@@ -139,7 +167,9 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 		}
 		from := fmt.Sprintf(" FROM %s.%s v JOIN %s c ON c.uuid = v.chunk_uuid AND c.space_uuid = v.space_uuid JOIN %s d ON d.uuid = c.document_uuid AND d.tenant_uuid = c.tenant_uuid AND d.active_index_job_uuid = c.job_uuid JOIN %s j ON j.uuid = c.job_uuid AND j.tenant_uuid = c.tenant_uuid AND j.status = 'succeeded' WHERE c.tenant_uuid = ? AND c.space_uuid = ? AND d.deleted_at IS NULL AND c.deleted_at IS NULL AND d.queryable = TRUE AND d.index_status = 'indexed' AND c.metadata->'semantic'->>'configuration_generation' = ?", schema, table, models.HostDocumentChunk{}.TableName(), models.TenantDocument{}.TableName(), models.IndexJob{}.TableName())
 		args := []any{tenant, space, binding.ConfigurationGeneration}
-		if in.Mode==HybridMode {from+=" AND c.metadata->'semantic'->>'mode' = 'hybrid'"}
+		if in.Mode == HybridMode {
+			from += " AND c.metadata->'semantic'->>'mode' = 'hybrid'"
+		}
 		if len(in.Filters.DocumentUUIDs) > 0 {
 			from += " AND d.uuid IN ?"
 			args = append(args, in.Filters.DocumentUUIDs)
@@ -181,7 +211,11 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 			}
 		}
 		matches := map[string]*SemanticMatch{}
+		sources := map[string]hostDocumentSource{}
 		add := func(row semanticCandidate, rank int, source string) error {
+			if source == "vector" && (math.IsNaN(row.Distance) || math.IsInf(row.Distance, 0)) {
+				return semanticError(503, "KNOWLEDGE_VECTOR_RESULT_INVALID")
+			}
 			match := matches[row.ChunkUUID]
 			if match == nil {
 				var metadata struct {
@@ -196,6 +230,22 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 				var chunk models.HostDocumentChunk
 				if s.db.WithContext(ctx).Select("job_uuid").Where("tenant_uuid = ? AND uuid = ?", tenant, row.ChunkUUID).First(&chunk).Error != nil {
 					return semanticError(503, "KNOWLEDGE_RESULT_HYDRATION_FAILED")
+				}
+				source, ok := sources[chunk.JobUUID+":"+row.DocumentUUID]
+				if !ok {
+					var savedJob models.IndexJob
+					if s.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND status = ?", tenant, chunk.JobUUID, HostIndexStatusSucceeded).First(&savedJob).Error != nil {
+						return semanticError(503, "KNOWLEDGE_RESULT_HYDRATION_FAILED")
+					}
+					var err error
+					source, err = semanticJobSource(savedJob, row.DocumentUUID)
+					if err != nil {
+						return err
+					}
+					sources[chunk.JobUUID+":"+row.DocumentUUID] = source
+				}
+				if err := validateSemanticHydration(row, m, source); err != nil {
+					return err
 				}
 				match.BundleGeneration = chunk.JobUUID
 				matches[row.ChunkUUID] = match
@@ -243,6 +293,18 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 	})
 	if len(all) > in.TopK {
 		all = all[:in.TopK]
+	}
+	// Check all spaces again after the last embedding/hydration. Revocation of
+	// an earlier space must not race a later space and return stale evidence.
+	for _, g := range out.Generations {
+		var b models.SemanticSpaceBinding
+		var active models.KnowledgeSpace
+		if s.db.WithContext(ctx).Where("tenant_uuid = ? AND space_uuid = ?", tenant, g.SpaceUUID).First(&b).Error != nil || b.ConfigurationGeneration != g.ConfigurationGeneration || b.CorpusGeneration != g.CorpusGeneration {
+			return out, semanticError(409, "KNOWLEDGE_INDEX_GENERATION_CONFLICT")
+		}
+		if s.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ? AND status <> ?", tenant, g.SpaceUUID, models.KnowledgeSpaceStatusRetired).First(&active).Error != nil {
+			return out, KnowledgeSpaceNotFoundError(errors.New("space unavailable"))
+		}
 	}
 	out.Items = all
 	return out, nil

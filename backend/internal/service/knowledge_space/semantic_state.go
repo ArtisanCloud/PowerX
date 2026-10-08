@@ -5,6 +5,8 @@ import (
 	"errors"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -27,22 +29,62 @@ func (s *SemanticRuntime) Capabilities(ctx context.Context, tenant, space string
 		return nil, e
 	}
 	_, err = s.validateFrozen(ctx, tenant, space, frozen)
-	ready := err == nil && row.ActiveVectorIndexKey == binding.VectorIndexKey
+	ready := err == nil && s.vectors != nil
 	if ready {
-		store, _, e := s.vectors.resolveActiveStore(ctx, row.UUID)
-		ready = e == nil && store != nil && store.Health(ctx) == nil
+		err = s.checkVectorDatabase(ctx)
+		ready = err == nil
 	}
-	var count int64
-	if e := s.db.WithContext(ctx).Model(&models.TenantDocument{}).Where("tenant_uuid = ? AND space_uuid = ? AND active_index_job_uuid IS NOT NULL AND queryable = ? AND index_status = ?", tenant, space, true, HostDocumentStatusIndexed).Count(&count).Error; e != nil {
+	if ready {
+		index, e := repo.NewKnowledgeVectorIndexRepository(s.db).FindBySpaceAndKey(ctx, row.UUID, binding.VectorIndexKey)
+		if e != nil || index == nil {
+			ready = false
+		} else {
+			store, e := s.vectors.storeForIndexRecord(index.VectorTable, index.Dimensions)
+			ready = e == nil && store != nil && store.Health(ctx) == nil
+		}
+	}
+	var counts []struct {
+		Mode      string `json:"mode"`
+		Documents int64  `json:"documents"`
+		Chunks    int64  `json:"chunks"`
+	}
+	query := "SELECT c.metadata->'semantic'->>'mode' AS mode, COUNT(DISTINCT d.uuid) AS documents, COUNT(c.uuid) AS chunks FROM " + models.HostDocumentChunk{}.TableName() + " c JOIN " + models.TenantDocument{}.TableName() + " d ON d.uuid=c.document_uuid AND d.tenant_uuid=c.tenant_uuid AND d.active_index_job_uuid=c.job_uuid JOIN " + models.IndexJob{}.TableName() + " j ON j.uuid=c.job_uuid AND j.tenant_uuid=c.tenant_uuid AND j.status='succeeded' WHERE c.tenant_uuid=? AND c.space_uuid=? AND d.deleted_at IS NULL AND c.deleted_at IS NULL AND d.queryable=TRUE AND d.index_status='indexed' AND c.metadata->'semantic'->>'configuration_generation'=? GROUP BY c.metadata->'semantic'->>'mode'"
+	if e := s.db.WithContext(ctx).Raw(query, tenant, space, binding.ConfigurationGeneration).Scan(&counts).Error; e != nil {
 		return nil, e
+	}
+	count := int64(0)
+	hybridCount := int64(0)
+	for _, c := range counts {
+		count += c.Documents
+		if c.Mode == HybridMode {
+			hybridCount += c.Documents
+		}
+	}
+	indexedModes := []string{}
+	if ready && count > 0 {
+		indexedModes = append(indexedModes, SemanticMode)
+	}
+	if ready && hybridCount > 0 {
+		indexedModes = append(indexedModes, HybridMode)
 	}
 	code := ""
 	modes := []string{SemanticMode, HybridMode}
 	if !ready {
 		code = "KNOWLEDGE_SEMANTIC_INDEX_NOT_READY"
+		if known := dto.CodeOf(err); known != "" {
+			code = known
+		}
 		modes = []string{}
 	}
-	return map[string]any{"schema": "powerx.knowledge.semantic-capabilities/v1", "configured": true, "ready": ready, "indexed": ready && count > 0, "query_modes": modes, "index_modes": modes, "artifact_roles": []string{"knowledge_profile", "source_chunk"}, "supported_filters": []string{"document_uuids", "category_codes", "tag_uuids", "artifact_roles"}, "tag_match": "any", "position_unit": "unicode_codepoint", "strict_sources": true, "generation": generation, "reason_code": code, "limits": map[string]int{"max_query_codepoints": 8192, "max_top_k": 100, "max_spaces": 16, "max_artifacts": 64}}, nil
+	var pendingGeneration *SemanticGeneration
+	if pending, ok := semanticPendingBinding(binding); ok {
+		g, e := s.generation(ctx, pending)
+		if e != nil {
+			return nil, e
+		}
+		pendingGeneration = &g
+	}
+	return map[string]any{"pending_generation": pendingGeneration, "schema": "powerx.knowledge.semantic-capabilities/v1", "configured": true, "ready": ready, "indexed": ready && count > 0, "query_modes": modes, "indexed_query_modes": indexedModes, "index_counts": counts, "index_modes": modes, "artifact_roles": []string{"knowledge_profile", "source_chunk"}, "supported_filters": []string{"document_uuids", "category_codes", "tag_uuids", "artifact_roles"}, "tag_match": "any", "position_unit": "unicode_codepoint", "strict_sources": true, "generation": generation, "reason_code": code, "limits": map[string]int{"max_query_codepoints": 8192, "max_top_k": 100, "max_spaces": 16, "max_artifacts": 64}}, nil
 }
 
 type SemanticVisibilityInput struct {
@@ -62,6 +104,9 @@ func (s *HostContractService) SetDocumentVisibility(ctx context.Context, tenant,
 		var doc models.TenantDocument
 		if tx.Where("tenant_uuid = ? AND space_uuid = ? AND uuid = ?", tenant, space, document).First(&doc).Error != nil {
 			return KnowledgeDocumentNotFoundError(errors.New("document unavailable"))
+		}
+		if doc.IndexStatus == HostDocumentStatusDeleted {
+			return KnowledgeDocumentNotFoundError(errors.New("document deleted"))
 		}
 		if in.ExpectedEpoch != "" && doc.VisibilityEpoch != in.ExpectedEpoch {
 			return semanticError(409, "KNOWLEDGE_VISIBILITY_CONFLICT")

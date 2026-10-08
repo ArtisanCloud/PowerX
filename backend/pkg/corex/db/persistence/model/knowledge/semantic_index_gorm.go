@@ -8,6 +8,7 @@ import (
 // SemanticEmbeddingProfile 保存已探测的不可变模型配置与实际模型修订。
 type SemanticEmbeddingProfile struct {
 	coremodel.PowerUUIDModel
+	Env            string `gorm:"type:varchar(32);not null;default:dev"`
 	TenantUUID     string `gorm:"type:varchar(128);not null;uniqueIndex:uk_semantic_embedding_version,priority:1"`
 	ProfileKey     string `gorm:"type:varchar(256);not null;uniqueIndex:uk_semantic_embedding_version,priority:2"`
 	Version        int    `gorm:"not null;uniqueIndex:uk_semantic_embedding_version,priority:3"`
@@ -32,6 +33,7 @@ type SemanticSpaceBinding struct {
 	ConfigurationGeneration string         `gorm:"type:uuid;not null"`
 	CorpusGeneration        string         `gorm:"type:uuid;not null"`
 	VectorIndexKey          string         `gorm:"type:varchar(128);not null"`
+	PendingConfiguration    datatypes.JSON `gorm:"type:jsonb" json:"-"`
 	Modes                   datatypes.JSON `gorm:"type:jsonb;not null"`
 }
 

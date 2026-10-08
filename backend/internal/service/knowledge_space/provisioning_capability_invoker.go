@@ -135,15 +135,18 @@ func invokeHostDocument(ctx context.Context, service *HostContractService, tenan
 		return map[string]any{"item": item}, err
 	case "set_document_visibility":
 		var in struct {
-			Operation    string                  `json:"operation"`
-			SpaceUUID    string                  `json:"space_uuid"`
-			DocumentUUID string                  `json:"document_uuid"`
-			Visibility   SemanticVisibilityInput `json:"visibility"`
+			Operation    string `json:"operation"`
+			SpaceUUID    string `json:"space_uuid"`
+			DocumentUUID string `json:"document_uuid"`
+			Visibility   struct {
+				Queryable     *bool  `json:"queryable"`
+				ExpectedEpoch string `json:"expected_epoch,omitempty"`
+			} `json:"visibility"`
 		}
-		if strictJSON(raw, &in) != nil {
-			return nil, KnowledgeInvalidArgumentError(errors.New("expected visibility input"))
+		if strictJSON(raw, &in) != nil || in.Visibility.Queryable == nil {
+			return nil, KnowledgeInvalidArgumentError(errors.New("expected explicit queryable boolean"))
 		}
-		return service.SetDocumentVisibility(ctx, tenant, in.SpaceUUID, in.DocumentUUID, in.Visibility)
+		return service.SetDocumentVisibility(ctx, tenant, in.SpaceUUID, in.DocumentUUID, SemanticVisibilityInput{Queryable: *in.Visibility.Queryable, ExpectedEpoch: in.Visibility.ExpectedEpoch})
 	case "submit_document":
 		var in struct {
 			Operation string            `json:"operation"`

@@ -12,16 +12,18 @@ import (
 )
 
 type OllamaEmbedder struct {
-	BaseURL  string
-	Model    string
-	Timeout  time.Duration
-	HTTP     *http.Client
-	MaxBatch int
+	BaseURL     string
+	Model       string
+	Timeout     time.Duration
+	HTTP        *http.Client
+	StrictInput bool // Semantic contracts reject truncation and legacy protocol fallback.
+	MaxBatch    int
 }
 
 type ollamaEmbReq struct {
-	Model string      `json:"model"`
-	Input interface{} `json:"input"` // string or []string
+	Model    string      `json:"model"`
+	Input    interface{} `json:"input"`
+	Truncate *bool       `json:"truncate,omitempty"` // string or []string
 }
 
 type ollamaEmbResp struct {
@@ -82,6 +84,10 @@ func (e *OllamaEmbedder) embedOnce(ctx context.Context, batch []string) ([][]flo
 		in = batch
 	}
 	reqBody := ollamaEmbReq{Model: e.Model, Input: in}
+	if e.StrictInput {
+		truncate := false
+		reqBody.Truncate = &truncate
+	}
 	bs, _ := json.Marshal(reqBody)
 
 	// 先打 /api/embed；若 404 再试 /api/embeddings（兼容老/某些打包）
@@ -142,6 +148,10 @@ func (e *OllamaEmbedder) embedOnce(ctx context.Context, batch []string) ([][]flo
 		return out, nil
 	} else if code != http.StatusNotFound {
 		return nil, fmt.Errorf("ollama embed HTTP %d: %s (url=%s)", code, string(body), url1)
+	}
+
+	if e.StrictInput {
+		return nil, fmt.Errorf("ollama strict embeddings requires /api/embed; legacy endpoint cannot guarantee complete input")
 	}
 
 	// 2nd (fallback): /api/embeddings

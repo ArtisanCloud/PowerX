@@ -8,6 +8,7 @@ import (
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -52,13 +53,15 @@ func (s *semanticTestStore) Close(context.Context) error  { return nil }
 func TestSemanticBundlePublicationFreezesSourcesAndProtectsOldVersion(t *testing.T) {
 	host, db, tenant, space := newHostContractTestService(t, false)
 	require.NoError(t, db.AutoMigrate(&models.SemanticSpaceBinding{}, &models.SemanticEmbeddingProfile{}))
-	profile := models.SemanticEmbeddingProfile{TenantUUID: tenant, ProfileKey: "test/model", Version: 1, Status: "published", Dimensions: 2, ModelRevision: "immutable-model", ConfigChecksum: hostChecksum("config")}
+	require.NoError(t, db.Model(&models.KnowledgeSpace{}).Where("uuid = ?", space).Update("active_vector_index_key", "dense").Error)
+	profile := models.SemanticEmbeddingProfile{Env: "prod", TenantUUID: tenant, ProfileKey: "test/model", Version: 1, Status: "published", Dimensions: 2, ModelRevision: "immutable-model", ConfigChecksum: hostChecksum("config")}
 	require.NoError(t, db.Create(&profile).Error)
 	binding := models.SemanticSpaceBinding{TenantUUID: tenant, SpaceUUID: space, EmbeddingProfileUUID: profile.UUID.String(), ConfigurationGeneration: uuid.NewString(), CorpusGeneration: uuid.NewString(), VectorIndexKey: "dense", Modes: []byte(`["semantic","hybrid"]`)}
 	require.NoError(t, db.Create(&binding).Error)
 	vectorizer, store := &semanticTestVectorizer{}, &semanticTestStore{}
 	runtime := NewSemanticRuntime(db, nil, store)
-	runtime.embedOverride = func(context.Context, string, string) (*resolvedEmbeddingProfile, agentSvcEmbedVectorizer, string, string, error) {
+	runtime.embedOverride = func(ctx context.Context, _ string, _ string) (*resolvedEmbeddingProfile, agentSvcEmbedVectorizer, string, string, error) {
+		require.Equal(t, "prod", reqctx.GetEnv(ctx), "worker must use frozen model environment")
 		return &resolvedEmbeddingProfile{Dimensions: 2}, vectorizer, profile.ModelRevision, profile.ConfigChecksum, nil
 	}
 	host.WithSemantic(runtime)
@@ -77,6 +80,8 @@ func TestSemanticBundlePublicationFreezesSourcesAndProtectsOldVersion(t *testing
 	require.NoError(t, err)
 	require.Equal(t, "succeeded", job.Status)
 	require.NotEmpty(t, store.vectors)
+	require.Equal(t, 1, job.ArtifactCount)
+	require.Equal(t, 1, job.VectorCount)
 	chunks, err := host.GetJobChunks(context.Background(), tenant, accepted.JobUUID)
 	require.NoError(t, err)
 	require.Len(t, chunks, 1)
@@ -99,6 +104,22 @@ func TestSemanticBundlePublicationFreezesSourcesAndProtectsOldVersion(t *testing
 	require.Equal(t, "failed", failed.Status)
 	require.Equal(t, "KNOWLEDGE_EMBEDDING_FAILED", failed.ErrorCode)
 	var document models.TenantDocument
+	require.NoError(t, db.Where("uuid = ?", accepted.DocumentUUID).First(&document).Error)
+	require.Equal(t, accepted.JobUUID, *document.ActiveIndexJobUUID)
+	vectorizer.fail = false
+	store.fail = true
+	input.IdempotencyKey = "vector-failure"
+	input.Version = "v3"
+	input.Content += "再次更新"
+	input.Checksum = hostChecksum(input.Content)
+	vectorFailed, err := host.UpsertDocument(context.Background(), tenant, space, input)
+	require.NoError(t, err)
+	_, err = host.ProcessNextDocumentJob(context.Background())
+	require.NoError(t, err)
+	vectorJob, err := host.GetIndexJob(context.Background(), tenant, vectorFailed.JobUUID)
+	require.NoError(t, err)
+	require.Equal(t, "failed", vectorJob.Status)
+	require.Equal(t, "KNOWLEDGE_VECTOR_WRITE_FAILED", vectorJob.ErrorCode)
 	require.NoError(t, db.Where("uuid = ?", accepted.DocumentUUID).First(&document).Error)
 	require.Equal(t, accepted.JobUUID, *document.ActiveIndexJobUUID)
 	_, err = host.SetDocumentVisibility(context.Background(), tenant, space, accepted.DocumentUUID, SemanticVisibilityInput{Queryable: false})

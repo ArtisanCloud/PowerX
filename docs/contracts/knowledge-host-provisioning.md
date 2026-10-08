@@ -323,3 +323,7 @@ Core 回归覆盖单篇、全空间、UUID 稳定、另一篇不受影响、幂�
 HTTP 状态、request_id、Trace、原绑定/新绑定和真实响应见 evidence/knowledge-dev-profile-bindings-20261008.json，证据不含凭据。
 
 Core 数据修复和真实 API 验证已完成。消费端接下来使用插件的“重试失败文件”验证原文件队列、任务终态、快照/分块及检索；本节不将 Core API 验收当作插件浏览器验收。本次索引仍为 lexical_chunks，不宣称已完成向量 Embedding 入库。
+
+## 2026-10-08 通用语义合同补充
+
+新增 explicit semantic/hybrid 文档 bundle、真实 Embedding/向量验证、完整自然语言严格检索、来源/分数/版本回读、待发布模型及原子空间切换。上述早期验收的 lexical 描述仍指当时用例；新接口与支持范围以 [Core 语义合同](knowledge-semantic-host.md)、[OpenAPI](../../specs/011-knowledge-space/contracts/semantic-host.openapi.yaml)、[真实证据](knowledge-semantic-acceptance-20261008.json) 为准。消费端按 [Framework Go/.NET 对齐清单](knowledge-semantic-framework-alignment.md) 接入，Core 未修改 Framework/插件 UI。

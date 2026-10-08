@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Knowledge Space Provisioning API
   version: 0.1.0
@@ -442,8 +442,8 @@ paths:
         '503':
           $ref: '#/components/responses/KnowledgeUpstreamDependency'
         '422':
-          description: KNOWLEDGE_PROFILE_UNAVAILABLE or KNOWLEDGE_UNSUPPORTED_INGESTION_SETTING;
-            no document/job created.
+          description: KNOWLEDGE_PROFILE_UNAVAILABLE or KNOWLEDGE_UNSUPPORTED_INGESTION_SETTING; no document/job
+            created.
   /tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}:
     parameters:
     - $ref: '#/components/parameters/SpaceUUID'
@@ -849,11 +849,23 @@ components:
           items:
             type: string
         ingestion:
-          allOf:
-          - $ref: '#/components/schemas/KnowledgeDocumentIngestionSettings'
-          nullable: true
-          description: Omitted/null uses space-bound Profile and defaults. Explicit
-            overrides > frozen published Profile.chunking > Core defaults.
+          anyOf:
+          - allOf:
+            - $ref: '#/components/schemas/KnowledgeDocumentIngestionSettings'
+            description: Omitted/null uses space-bound Profile and defaults. Explicit overrides > frozen published
+              Profile.chunking > Core defaults.
+          - type: 'null'
+        indexing:
+          $ref: ./semantic-host.openapi.yaml#/components/schemas/Indexing
+        artifacts:
+          type: array
+          items:
+            $ref: ./semantic-host.openapi.yaml#/components/schemas/Artifact
+        external_ref:
+          $ref: ./semantic-host.openapi.yaml#/components/schemas/ExternalRef
+        idempotency_key:
+          type: string
+          maxLength: 128
     TenantKnowledgeIndexJobAccepted:
       type: object
       required:
@@ -868,6 +880,9 @@ components:
           type: string
           enum:
           - queued
+          - running
+          - succeeded
+          - failed
         operation:
           type: string
           enum:
@@ -926,6 +941,15 @@ components:
           type: string
         chunk_count:
           type: integer
+        artifact_count:
+          type: integer
+          description: Successfully published artifact count; zero on failure.
+        vector_count:
+          type: integer
+          description: Successfully published and verified vector count; zero on failure.
+        bundle_generation:
+          type: string
+          format: uuid
         started_at:
           type: string
           format: date-time
@@ -1604,15 +1628,17 @@ components:
         ingestion_profile:
           $ref: '#/components/schemas/KnowledgeTaskProfileRef'
         processor_profile:
-          allOf:
-          - $ref: '#/components/schemas/KnowledgeTaskProfileRef'
-          nullable: true
-          description: Only omission/null supported; non-null returns 422.
+          anyOf:
+          - allOf:
+            - $ref: '#/components/schemas/KnowledgeTaskProfileRef'
+            description: Only omission/null supported; non-null returns 422.
+          - type: 'null'
         masking_profile:
-          allOf:
-          - $ref: '#/components/schemas/KnowledgeTaskProfileRef'
-          nullable: true
-          description: Only omission/null supported; non-null returns 422.
+          anyOf:
+          - allOf:
+            - $ref: '#/components/schemas/KnowledgeTaskProfileRef'
+            description: Only omission/null supported; non-null returns 422.
+          - type: 'null'
         priority: *id001
         segment_mode: &id004
           type: string
@@ -1635,8 +1661,7 @@ components:
           minimum: 0
           maximum: 65536
           default: 1024
-          description: Unicode rune count. Zero disables size windowing and requires
-            overlap=0 and policy=cap.
+          description: Unicode rune count. Zero disables size windowing and requires overlap=0 and policy=cap.
         chunk_overlap: &id007
           type: integer
           minimum: 0
@@ -1668,8 +1693,7 @@ components:
             minLength: 1
             maxLength: 32
           default: []
-          description: Literal delimiters; JSON newline/tab escapes are decoded, double-escaped
-            strings rejected.
+          description: Literal delimiters; JSON newline/tab escapes are decoded, double-escaped strings rejected.
         page_priority: &id010
           type: boolean
           default: false
@@ -1717,6 +1741,10 @@ components:
           type: string
           enum:
           - lexical_chunks
+          - semantic
+          - hybrid
+        indexing:
+          $ref: ./semantic-host.openapi.yaml#/components/schemas/IndexSnapshot
         length_unit:
           type: string
           enum:
@@ -1737,8 +1765,7 @@ components:
               type: string
             config_checksum:
               type: string
-          description: Frozen reference and config digest; private Profile payload
-            is retained internally.
+          description: Frozen reference and config digest; private Profile payload is retained internally.
         index_profile:
           type: object
           properties:
@@ -1751,8 +1778,7 @@ components:
               type: string
             config_checksum:
               type: string
-          description: Frozen reference and config digest; private Profile payload
-            is retained internally.
+          description: Frozen reference and config digest; private Profile payload is retained internally.
         rag_profile:
           type: object
           properties:
@@ -1765,8 +1791,7 @@ components:
               type: string
             config_checksum:
               type: string
-          description: Frozen reference and config digest; private Profile payload
-            is retained internally.
+          description: Frozen reference and config digest; private Profile payload is retained internally.
     TenantKnowledgeDocumentChunk:
       type: object
       properties:

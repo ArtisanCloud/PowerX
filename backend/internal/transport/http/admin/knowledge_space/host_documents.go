@@ -57,7 +57,7 @@ func registerHostDocumentAdmin(protected *gin.RouterGroup, deps *shared.Deps) {
 			return
 		}
 		if service.Semantic() == nil {
-			c.Status(501)
+			dto.RespondErrorFrom(c, ksvc.KnowledgeSemanticUnsupportedError())
 			return
 		}
 		result, err := service.Semantic().Query(c.Request.Context(), tenant, input)
@@ -73,7 +73,7 @@ func registerHostDocumentAdmin(protected *gin.RouterGroup, deps *shared.Deps) {
 			return
 		}
 		if service.Semantic() == nil {
-			c.Status(501)
+			dto.RespondErrorFrom(c, ksvc.KnowledgeSemanticUnsupportedError())
 			return
 		}
 		result, err := service.Semantic().Capabilities(c.Request.Context(), tenant, c.Param("spaceId"))
@@ -93,7 +93,7 @@ func registerHostDocumentAdmin(protected *gin.RouterGroup, deps *shared.Deps) {
 			return
 		}
 		if service.Semantic() == nil {
-			c.Status(501)
+			dto.RespondErrorFrom(c, ksvc.KnowledgeSemanticUnsupportedError())
 			return
 		}
 		result, err := service.Semantic().Configure(c.Request.Context(), tenant, c.Param("spaceId"), input)

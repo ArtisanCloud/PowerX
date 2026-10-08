@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
@@ -58,6 +59,8 @@ func main() {
 }
 
 func fatalf(format string, args ...any) {
-	logger.ErrorF(context.Background(), format, args...)
+	message := fmt.Sprintf(format, args...)
+	_, _ = fmt.Fprintln(os.Stderr, message)
+	logger.Error(context.Background(), message)
 	os.Exit(1)
 }

@@ -273,3 +273,7 @@ Host Worker 领取 high-first 持久化队列，实际调用底座 ChunkDocument
 ### 单篇/空间重建增量
 
 新增单篇 indexes:rebuild 与 typed rebuild_document/rebuild_space。以 reuse_snapshot/apply_config 区分沿用成功配置和新 published 配置，冻结当前原文及按文档配置。执行链实际重新分块，success/active 指针/新产物同事务激活；失败保留原索引。新增 active_index_job_uuid、幂等键/请求摘要、rebuild_mode、文档总数和处理进度，挂载集中 `pkg/corex/db/database/migration.go` 并回填历史成功指针。本轮范围明确为 Core，Framework/Plugin 只接收合同。
+
+## 2026-10-08 Semantic Host delivery
+
+The prior TXT/Markdown lexical baseline remains available. Its restriction is superseded only for explicit `indexing` submissions under [semantic-host.openapi.yaml](contracts/semantic-host.openapi.yaml). The shared IndexJob worker writes and verifies real embeddings before atomic publication; model switches stage a pending binding until all current semantic documents are rebuilt. Strict query uses source-verified multi-chunk hydration and independently versioned configuration/corpus generations. Read capability is `com.corex.knowledge.retrieval.read`; writes retain typed document.manage. [Framework handoff](../../docs/contracts/knowledge-semantic-framework-alignment.md) is a separate consumer task.

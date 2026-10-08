@@ -22,9 +22,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/setting"
 	auditmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	settingmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
-	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
-	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
@@ -41,18 +38,20 @@ type RuntimeCredentialRepairOptions struct {
 
 // RuntimeCredentialRepairResult 只返回身份、状态和路径，不返回 secret 或 hash。
 type RuntimeCredentialRepairResult struct {
-	DeploymentEnv   string   `json:"deployment_env"`
-	Database        string   `json:"database"`
-	TenantUUID      string   `json:"tenant_uuid"`
-	PluginID        string   `json:"plugin_id"`
-	CurrentVersion  string   `json:"current_version"`
-	ClientID        string   `json:"client_id"`
-	SecretVersion   int      `json:"secret_version"`
-	Action          string   `json:"action"`
-	Applied         bool     `json:"applied"`
-	BackupDir       string   `json:"backup_dir,omitempty"`
-	RecoveryNeeded  bool     `json:"recovery_needed,omitempty"`
-	HostValuesFiles []string `json:"host_values_files"`
+	DeploymentEnv          string   `json:"deployment_env"`
+	Database               string   `json:"database"`
+	TenantUUID             string   `json:"tenant_uuid"`
+	PluginID               string   `json:"plugin_id"`
+	CurrentVersion         string   `json:"current_version"`
+	CurrentConfigAvailable bool     `json:"current_config_available"`
+	NextStep               string   `json:"next_step"`
+	ClientID               string   `json:"client_id"`
+	SecretVersion          int      `json:"secret_version"`
+	Action                 string   `json:"action"`
+	Applied                bool     `json:"applied"`
+	BackupDir              string   `json:"backup_dir,omitempty"`
+	RecoveryNeeded         bool     `json:"recovery_needed,omitempty"`
+	HostValuesFiles        []string `json:"host_values_files"`
 }
 
 type RuntimeCredentialRepairService struct {
@@ -98,38 +97,14 @@ func (s *RuntimeCredentialRepairService) Repair(ctx context.Context, opts Runtim
 	if err := config.ValidateDeploymentEnv(env); err != nil {
 		return nil, err
 	}
-	actualRoot, err := filepath.EvalSymlinks(root)
-	actualPluginRoot, pluginRootErr := filepath.EvalSymlinks(filepath.Join(root, opts.PluginID))
-	if err != nil || pluginRootErr != nil || !strings.HasPrefix(actualPluginRoot, actualRoot+string(os.PathSeparator)) {
-		return nil, fmt.Errorf("plugin directory unavailable or outside installed root")
+	if _, _, err := resolveRepairDirectories(root, opts.PluginID); err != nil {
+		return nil, err
 	}
 	// 凭证写入 SQL 不进入日志，避免错误路径泄漏 hash。
 	db := s.db.Session(&gorm.Session{Logger: gormlog.Default.LogMode(gormlog.Silent)}).WithContext(ctx)
-	var tenant tenantmodel.Tenant
-	if err := db.Where("key = ?", tenantmodel.SystemTenantKey).First(&tenant).Error; err != nil {
-		return nil, fmt.Errorf("read existing system tenant: %w", err)
-	}
-	if tenant.UUID == uuid.Nil || tenant.Status != tenantmodel.TenantStatusActive {
-		return nil, fmt.Errorf("active system tenant required")
-	}
-	tenantUUID := tenant.UUID.String()
-	repo := settingrepo.NewPluginInstanceConfigRepository(db)
-	record, err := repo.Get(ctx, tenantUUID, opts.PluginID, setting.KeyClientCredentials)
-	if err != nil || record == nil {
-		return nil, fmt.Errorf("existing runtime credential record required")
-	}
-	var cc setting.ClientCredential
-	if err := json.Unmarshal(record.ValueJSON, &cc); err != nil || cc.ClientID != opts.PluginID+"."+tenantUUID || cc.ClientSecretHash == "" {
-		return nil, fmt.Errorf("runtime credential record is malformed or bound to another identity")
-	}
-	if !record.Enabled || record.Status != settingmodel.PluginInstanceStatusEnabled {
-		return nil, fmt.Errorf("runtime credential is disabled or draining; repair does not change authorization")
-	}
-	if cc.ExpiresAt != nil && time.Now().Unix() > *cc.ExpiresAt {
-		return nil, fmt.Errorf("runtime credential is expired; repair does not change expiry")
-	}
-	if !credentialAllows(cc.AllowedAudiences, "powerx:api") || !credentialAllows(cc.AllowedScopes, "access") {
-		return nil, fmt.Errorf("runtime credential audience or scope is not allowed")
+	tenantUUID, record, cc, err := readRepairRuntimeRecord(ctx, db, opts.PluginID)
+	if err != nil {
+		return nil, err
 	}
 	registryPath, err := filepath.Abs(s.cfg.Plugin.RegistryFile)
 	if err != nil || strings.TrimSpace(s.cfg.Plugin.RegistryFile) == "" {
@@ -153,6 +128,7 @@ func (s *RuntimeCredentialRepairService) Repair(ctx context.Context, opts Runtim
 	result := &RuntimeCredentialRepairResult{
 		DeploymentEnv: env, Database: s.cfg.Database.Database, TenantUUID: tenantUUID,
 		PluginID: opts.PluginID, CurrentVersion: current, ClientID: cc.ClientID, SecretVersion: cc.SecretVersion,
+		CurrentConfigAvailable: true, NextStep: "enable_plugin",
 	}
 	if db.Dialector.Name() == "postgres" {
 		if err := db.Raw("SELECT current_database()").Scan(&result.Database).Error; err != nil {
@@ -189,9 +165,15 @@ func (s *RuntimeCredentialRepairService) Repair(ctx context.Context, opts Runtim
 		path := filepath.Join(root, opts.PluginID, version, "config", "host-values.yaml")
 		// 不接受注册表指定的任意路径，也不跟随逃出当前插件目录的软链接。
 		actualDir, err := filepath.EvalSymlinks(filepath.Dir(path))
-		pluginRoot, rootErr := filepath.EvalSymlinks(filepath.Join(root, opts.PluginID))
-		if err != nil || rootErr != nil || !strings.HasPrefix(actualDir, pluginRoot+string(os.PathSeparator)) {
-			return nil, fmt.Errorf("installed config directory unavailable or outside plugin root for version=%s", version)
+		if err != nil {
+			return nil, fmt.Errorf("PLUGIN_RUNTIME_CONFIG_DIR_UNAVAILABLE: version=%s path=%s: %w", version, filepath.Dir(path), err)
+		}
+		_, pluginRoot, err := resolveRepairDirectories(root, opts.PluginID)
+		if err != nil {
+			return nil, err
+		}
+		if !repairDirectoryContains(pluginRoot, actualDir) {
+			return nil, fmt.Errorf("PLUGIN_RUNTIME_CONFIG_DIR_OUTSIDE_PLUGIN: version=%s path=%s resolved=%s plugin_root=%s", version, filepath.Dir(path), actualDir, pluginRoot)
 		}
 		paths, _ := v["paths"].(map[string]any)
 		if declared, ok := paths["host_values_file"].(string); ok && declared != "" && filepath.Clean(declared) != path {
@@ -292,11 +274,32 @@ func (s *RuntimeCredentialRepairService) Repair(ctx context.Context, opts Runtim
 	if err := s.requireStoppedCore(ctx); err != nil {
 		return result, err
 	}
-	if err := s.apply(ctx, db, record, cc, files, result); err != nil {
+	if err := s.apply(ctx, db, record, cc, files, result, filepath.Dir(registryPath)); err != nil {
 		return result, err
 	}
 	result.Applied = true
 	return result, nil
+}
+
+func resolveRepairDirectories(root, pluginID string) (string, string, error) {
+	actualRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", "", fmt.Errorf("PLUGIN_RUNTIME_INSTALLED_ROOT_UNAVAILABLE: path=%s: %w", root, err)
+	}
+	pluginPath := filepath.Join(root, pluginID)
+	actualPluginRoot, err := filepath.EvalSymlinks(pluginPath)
+	if err != nil {
+		return "", "", fmt.Errorf("PLUGIN_RUNTIME_PLUGIN_DIR_UNAVAILABLE: plugin=%s path=%s: %w", pluginID, pluginPath, err)
+	}
+	if !repairDirectoryContains(actualRoot, actualPluginRoot) {
+		return "", "", fmt.Errorf("PLUGIN_RUNTIME_PLUGIN_DIR_OUTSIDE_INSTALLED_ROOT: plugin=%s path=%s resolved=%s installed_root=%s", pluginID, pluginPath, actualPluginRoot, actualRoot)
+	}
+	return actualRoot, actualPluginRoot, nil
+}
+
+func repairDirectoryContains(root, candidate string) bool {
+	relative, err := filepath.Rel(root, candidate)
+	return err == nil && relative != "." && relative != ".." && !strings.HasPrefix(relative, ".."+string(os.PathSeparator)) && !filepath.IsAbs(relative)
 }
 
 func (s *RuntimeCredentialRepairService) requireStoppedCore(ctx context.Context) error {
@@ -321,7 +324,7 @@ func (s *RuntimeCredentialRepairService) requireStoppedCore(ctx context.Context)
 	return nil
 }
 
-func (s *RuntimeCredentialRepairService) apply(ctx context.Context, db *gorm.DB, record *settingmodel.PluginInstanceConfig, cc setting.ClientCredential, files []*credentialRepairFile, result *RuntimeCredentialRepairResult) error {
+func (s *RuntimeCredentialRepairService) apply(ctx context.Context, db *gorm.DB, record *settingmodel.PluginInstanceConfig, cc setting.ClientCredential, files []*credentialRepairFile, result *RuntimeCredentialRepairResult, backupParent string) error {
 	nextJSON, _ := json.Marshal(cc)
 	written := false
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -338,7 +341,7 @@ func (s *RuntimeCredentialRepairService) apply(ctx context.Context, db *gorm.DB,
 				return fmt.Errorf("runtime file changed concurrently: %s", file.Path)
 			}
 		}
-		backupDir, err := os.MkdirTemp(filepath.Dir(files[0].Path), ".runtime-credential-repair-*")
+		backupDir, err := os.MkdirTemp(backupParent, ".runtime-credential-repair-*")
 		if err != nil {
 			return err
 		}

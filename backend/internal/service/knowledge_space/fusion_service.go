@@ -382,12 +382,14 @@ func (s *FusionService) Query(ctx context.Context, in FusionQueryInput) (FusionQ
 					meta["provenance"] = match.Provenance
 				}
 				item := FusionQueryMatch{
-					ChunkID:   match.ChunkID,
-					RawScore:  match.Score,
-					NormScore: norm,
-					Score:     norm * weights["bm25"],
-					Source:    "bm25",
-					Metadata:  meta,
+					ChunkID:      match.ChunkID,
+					RawScore:     match.Score,
+					NormScore:    norm,
+					Score:        norm * weights["bm25"],
+					Source:       "bm25",
+					ScoreType:    "weighted_normalized_rank",
+					RawScoreType: "bm25",
+					Metadata:     meta,
 				}
 				slot := acc[match.ChunkID]
 				if slot == nil {
@@ -410,10 +412,11 @@ func (s *FusionService) Query(ctx context.Context, in FusionQueryInput) (FusionQ
 	out := make([]FusionQueryMatch, 0, len(acc))
 	for chunkID, slot := range acc {
 		best := FusionQueryMatch{
-			ChunkID:  chunkID,
-			Score:    slot.score,
-			Source:   "fused",
-			Metadata: map[string]any{"sources": slot.perSource},
+			ChunkID:   chunkID,
+			Score:     slot.score,
+			Source:    "fused",
+			ScoreType: "weighted_fusion",
+			Metadata:  map[string]any{"sources": slot.perSource},
 		}
 		out = append(out, best)
 	}

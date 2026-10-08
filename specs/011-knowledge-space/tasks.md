@@ -382,3 +382,7 @@ wait
 - [x] REBUILD-05 Core service/HTTP 竞态测试、真实 API Key/STS 单篇/空间、新策略、跨租户、非法配置、故障与重试证据。
 - [x] REBUILD-06 合同/OpenAPI/脱敏记录同步，消费端 DocumentID 路由与配置映射交付说明。
 - [ ] REBUILD-07 用户重启正式 8077；Framework/Plugin 后续接入与浏览器验收由消费端负责。
+
+## 2026-10-08 Core semantic Host
+
+Implementation and evidence gates are tracked in [semantic-host-implementation.md](semantic-host-implementation.md), with [formal Core contract](../../docs/contracts/knowledge-semantic-host.md) and [Framework alignment](../../docs/contracts/knowledge-semantic-framework-alignment.md). Framework/plug-in acceptance must not be marked complete by Core's isolated HTTP/STS evidence.

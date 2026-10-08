@@ -16,12 +16,13 @@ type SemanticIndexingSettings struct {
 
 type SemanticIndexSnapshot struct {
 	SemanticIndexingSettings
+	Env                     string `json:"env"`
 	ConfigurationGeneration string `json:"configuration_generation"`
-	ModelKey string `json:"model_key"`
-	ModelRevision string `json:"model_revision"`
-	ConfigChecksum string `json:"config_checksum"`
-	Dimensions int `json:"dimensions"`
-	VectorIndexKey string `json:"vector_index_key"`
+	ModelKey                string `json:"model_key"`
+	ModelRevision           string `json:"model_revision"`
+	ConfigChecksum          string `json:"config_checksum"`
+	Dimensions              int    `json:"dimensions"`
+	VectorIndexKey          string `json:"vector_index_key"`
 }
 
 type SemanticExternalRef struct {
@@ -96,6 +97,7 @@ type SemanticMatch struct {
 }
 
 type SemanticGeneration struct {
+	Env                     string             `json:"env"`
 	SpaceUUID               string             `json:"space_uuid"`
 	ConfigurationGeneration string             `json:"configuration_generation"`
 	CorpusGeneration        string             `json:"corpus_generation"`
