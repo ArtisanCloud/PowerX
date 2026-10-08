@@ -38,6 +38,7 @@ import (
 // @description PowerX 核心与插件管理 API
 // @BasePath    /
 func main() {
+	startupStartedAt := time.Now()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -249,12 +250,6 @@ func main() {
 		bootstrap.StartPluginAutoRestore(ctx, pluginMgr, cfg)
 	}
 
-	if setupOnlyMode {
-		logger.WarnF(ctx, "🚧 安装模式启动成功（setup-only），监听地址: http://%s", addr)
-	} else {
-		logger.InfoF(ctx, "🚀 CoreX 服务启动成功！监听地址: http://%s", addr)
-	}
-
 	// 打印路由（受 log.http_debug 控制）
 	// if cfg.LogConfig.HttpDebug {
 	// 	http.PrintRouteInfo(r, cfg)
@@ -276,6 +271,30 @@ func main() {
 			_ = srv.Close()
 		}
 	}()
+	// HTTP 端口已绑定，依赖和路由已初始化；此处才报告就绪。
+	readyAt := time.Now()
+	startupDuration := readyAt.Sub(startupStartedAt)
+	startupLabel := "✅ PowerX 后台启动完成"
+	if setupOnlyMode {
+		startupLabel = "🚧 PowerX 安装模式启动完成（setup-only）"
+	}
+	startupMessage := fmt.Sprintf("%s | 就绪时间: %s | 启动耗时: %s | 监听地址: http://%s",
+		startupLabel, readyAt.Format("2006-01-02 15:04:05 -07:00"), startupDuration.Round(time.Millisecond), addr)
+	startupFields := map[string]interface{}{
+		"module": "startup", "ready_at": readyAt.Format(time.RFC3339Nano),
+		"startup_duration_ms": startupDuration.Milliseconds(), "listen_addr": addr, "setup_only": setupOnlyMode,
+	}
+	startupCtx := logger.WithLogFields(ctx, startupFields)
+	// CLI 就绪提示独立写入 stderr，控制台日志开关和级别不影响可见性。
+	// stdout 继续保留给既有结构化日志通道。
+	if _, err := fmt.Fprintln(os.Stderr, startupMessage); err != nil {
+		logger.ErrorF(startupCtx, "输出终端启动提示失败: %v", err)
+	}
+	if setupOnlyMode {
+		logger.Warn(startupCtx, startupMessage)
+	} else {
+		logger.Info(startupCtx, startupMessage)
+	}
 	if err := srv.Serve(ln); err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}

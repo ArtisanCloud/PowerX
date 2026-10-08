@@ -190,7 +190,11 @@ func SelectionJSONSchema(policy CalculationPolicy, tokens []NumericToken, active
 		if len(refs) == 0 {
 			continue
 		}
-		properties[f.Key] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"scope": map[string]any{"type": "string"}, "token_ref": map[string]any{"type": "string", "enum": refs}}, "required": []string{"scope", "token_ref"}}
+		scope := map[string]any{"type": "string", "minLength": 1, "maxLength": 120}
+		if declared := f.ScopeI18n[locale]; declared != "" {
+			scope["const"] = declared
+		}
+		properties[f.Key] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"scope": scope, "token_ref": map[string]any{"type": "string", "enum": refs}}, "required": []string{"scope", "token_ref"}}
 	}
 	// data is an object keyed by the declared calculation-policy fields. An
 	// array permits a provider to select the same field twice; this shape makes
@@ -241,6 +245,9 @@ func ResolveSelection(selection SourceSelection, tokens []NumericToken, policy C
 		if !fieldMatchesPolicyTokenEvidence(field, token, policy, activeProfiles, locale) {
 			return out, fmt.Errorf("evidence.source_context_invalid: %s", field.Key)
 		}
+		if scope := field.ScopeI18n[locale]; scope != "" && scope != selected.Scope {
+			return out, fmt.Errorf("evidence.source_scope_invalid: %s", field.Key)
+		}
 		out.Data = append(out.Data, InputValue{Key: field.Key, Scope: selected.Scope, Unit: token.Unit, Source: token.Source})
 	}
 	return out, nil
@@ -253,6 +260,9 @@ func fieldMatchesTokenEvidence(field InputField, token NumericToken, locale stri
 }
 
 func fieldTokenSpecificity(field InputField, token NumericToken, locale string) int {
+	if !matchesTokenRole(token, field.TokenRole, field.UnitTokens) {
+		return 0
+	}
 	best := 0
 	for _, term := range field.EvidenceTermsI18n[locale] {
 		for _, label := range genericFactLabels(token) {
@@ -262,6 +272,36 @@ func fieldTokenSpecificity(field InputField, token NumericToken, locale string) 
 		}
 	}
 	return best
+}
+
+// 范围角色只解释相邻数值之间的单位和连接符；不把“达到”当作范围。
+func matchesTokenRole(token NumericToken, role string, units []string) bool {
+	if role == "" {
+		return true
+	}
+	spans := sourceNumberPattern.FindAllStringIndex(token.Source.Quote, -1)
+	for i := 0; i+1 < len(spans); i++ {
+		between := strings.TrimSpace(token.Source.Quote[spans[i][1]:spans[i+1][0]])
+		connected := false
+		for _, unit := range units {
+			if !strings.HasPrefix(between, unit) {
+				continue
+			}
+			join := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(between, unit)))
+			connected = connected || slices.Contains([]string{"到", "至", "to", "and", "~", "～", "–", "—"}, join)
+		}
+		if !connected {
+			continue
+		}
+		start := spans[i][0]
+		if role == "range_end" {
+			start = spans[i+1][0]
+		}
+		if start == token.LiteralOffset {
+			return true
+		}
+	}
+	return false
 }
 
 // 业务词由 Skill 声明；只匹配数值所在短句，长词优先，避免相邻字段

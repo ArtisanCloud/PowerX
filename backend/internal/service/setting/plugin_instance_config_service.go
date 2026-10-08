@@ -105,9 +105,11 @@ func (s *PluginInstanceConfigService) EnsureCredentials(
 	}
 
 	// 已有：返回 client_id，但不再返回明文 secret
-	if cfg != nil && len(cfg.ValueJSON) > 0 {
+	if cfg != nil {
 		var cc ClientCredential
-		_ = json.Unmarshal(cfg.ValueJSON, &cc)
+		if err := json.Unmarshal(cfg.ValueJSON, &cc); err != nil || strings.TrimSpace(cc.ClientID) == "" || strings.TrimSpace(cc.ClientSecretHash) == "" {
+			return "", "", errors.New("existing plugin credentials are malformed; explicit repair required")
+		}
 		return cc.ClientID, "", nil
 	}
 

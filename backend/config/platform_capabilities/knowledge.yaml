@@ -94,6 +94,25 @@ capabilities:
     tool_scope: knowledge.document.manage
     api_key: {scope: _scope.knowledge.document.manage, action: manage, resource_type: api, resource_pattern: document}
   - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/{spaceId}/documents/{documentId}/indexes:rebuild
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/components/schemas/RebuildRequest
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: knowledge.document.manage
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}/indexes:rebuild
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/components/schemas/RebuildRequest
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: knowledge.document.manage
+    api_key: {scope: _scope.knowledge.document.manage, action: manage, resource_type: api, resource_pattern: document}
+  - channel: rest
     endpoint: /api/v1/admin/knowledge-spaces/{spaceId}/documents
     method: POST
     schema_ref: specs/011-knowledge-space/contracts/host-provisioning.openapi.yaml#/components/schemas/DocumentInput
@@ -186,6 +205,40 @@ capabilities:
       action: manage
       resource_type: api
       resource_pattern: document
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/spaces/{space_uuid}/semantic-index
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1semantic-index/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key: {scope: _scope.knowledge.document.manage, action: manage, resource_type: api, resource_pattern: document}
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}/visibility
+    method: PATCH
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1documents~1{document_uuid}~1visibility/patch
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key: {scope: _scope.knowledge.document.manage, action: manage, resource_type: api, resource_pattern: document}
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/{spaceId}/semantic-index
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1admin~1knowledge-spaces~1{spaceId}~1semantic-index/post
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/{spaceId}/documents/{documentId}/visibility
+    method: PATCH
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1admin~1knowledge-spaces~1{spaceId}~1documents~1{documentId}~1visibility/patch
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
   title_i18n:
     en: Knowledge Document Manage
     zh-CN: 知识文档管理
@@ -332,3 +385,60 @@ capabilities:
     tool_scope: knowledge.space.create
   title_i18n: {en: Knowledge Space Create, zh-CN: 知识空间创建}
   description_i18n: {en: Typed tenant create contract., zh-CN: 知识实验室租户服务合同。}
+
+- capability_id: com.corex.knowledge.retrieval.read
+  module: knowledge_space
+  title: Strict Semantic Knowledge Retrieval
+  description: Query real vector and hybrid indexes with typed filters, source evidence and version consistency.
+  permission_code: corex.knowledge.retrieval:read
+  agent_usable: false
+  risk_level: high
+  categories: [knowledge, retrieval]
+  intents: [knowledge.retrieval.query]
+  tool_scopes: [knowledge.retrieval.read]
+  policy: {prefer: core_internal}
+  docs: [specs/011-knowledge-space/contracts/semantic-host.openapi.yaml]
+  protocols:
+  - channel: core_internal
+    endpoint: core://knowledge/retrieval
+    method: INVOKE
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/components/schemas/TypedRetrievalOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: knowledge.retrieval.read
+    api_key: {scope: _scope.knowledge.retrieval.read, action: read, resource_type: api, resource_pattern: retrieval}
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/retrieval/query
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1tenant~1knowledge~1retrieval~1query/post
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key: {scope: _scope.knowledge.retrieval.read, action: read, resource_type: api, resource_pattern: retrieval}
+  - channel: rest
+    endpoint: /api/v1/tenant/knowledge/spaces/{space_uuid}/semantic-index
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1semantic-index/get
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key: {scope: _scope.knowledge.retrieval.read, action: read, resource_type: api, resource_pattern: retrieval}
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/retrieval/query
+    method: POST
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1admin~1knowledge-spaces~1retrieval~1query/post
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  - channel: rest
+    endpoint: /api/v1/admin/knowledge-spaces/{spaceId}/semantic-index
+    method: GET
+    schema_ref: specs/011-knowledge-space/contracts/semantic-host.openapi.yaml#/paths/~1admin~1knowledge-spaces~1{spaceId}~1semantic-index/get
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false

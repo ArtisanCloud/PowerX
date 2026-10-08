@@ -13,12 +13,12 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 5. 模型单独提交 `powerx.agent.evidence-notes/v1`（schema、hypotheses、gaps、actions）。说明阶段不接受操作数、数值或凭证字段，不重跑计算。每个数组最多六条、每条最多三百字符，数值统一引用表格中的指标名称，不在自由说明中再次计算。
 6. 平台验证说明并封装 V4；任一阶段错误直接失败，错误带 facts/source/plan/calculate/notes 阶段，不自动修补、不切换旧草稿或自由文本模式。
 
-三个模型阶段均复用统一 AI Service 的单次请求超时，未新增整轮超时。测试程序的总时限不等于生产 Runtime 超时。阶段提示词位于 `backend/internal/service/skills/locales/evidence.*.json`；业务公式来自已发布 Skill 的 calculation_policy，不从提示词自由文本解析或推断。通用事实的 label 是原文短语，不能由平台或模型额外创造业务名称。
+三个模型阶段均复用统一 AI Service 的单次请求超时，未新增整轮超时。测试程序的总时限不等于生产 Runtime 超时。阶段提示词位于 `backend/internal/service/skills/locales/evidence.*.json`；业务公式、声明字段名称及范围来自已发布 Skill 的 calculation_policy，不从提示词自由文本解析或推断。未声明的通用事实 label 仍只能选择原文词面。
 
 - 模型的 `data` 以业务 key 为唯一键，值只包含 `scope/token_ref`；key 必须来自 policy.input_fields，token_ref 必须指向单位符合该字段声明的原文片段。对象结构在协议层禁止同一字段重复选择；未知 key、未知 token_ref 或单位不匹配均明确失败，并在受保护的执行追踪中记录阶段与已选映射。`label/kind` 来自 Skill；`unit/source` 来自平台数值片段。source 包含声明输入的 JSON pointer、精确引用 quote 和纯数字词面值 literal。原文数字、分组逗号、数字与单位间空白均保留，不把“万元”自行换成“元”。这是主流程的原文取证，不是从模型自由文本解析结构化结果的兜底。
 - 单个声明来源最多 128 KiB，总数值片段最多 512 个；未知单位不猜成无单位数量。支持新的单位须更新 Skill 的 unit_tokens，不能静默换算或丢弃单位后计算。字段映射和 scope 仍包含模型判断，不等于已独立核实业务口径。
 - 团队编排把原始用户材料写入每个 Skill 的 `payload.message`；使用 `/message` 的 evidence_sources 因而在直接执行和团队汇总中含义相同。`payload.content` 是材料载体，不是来源路径的兼容别名。自建 Skill 若声明其他来源路径，编排方必须按其已发布契约提供该字段，否则以 `evidence.source_missing` 明确失败。
-- 说明模型仅收到指标名称、已执行计算名称、冲突名称和缺失字段，不接收原始数值、算式或原文段落。最终 V4 报告仍完整保存原文取证与计算凭证；该投影只限制说明生成阶段重复抄数、心算。
+- 说明模型收到指标名称、已执行计算的操作数名称及对照状态、冲突和缺失字段，以及已发布 Skill 的业务要求。声明来源的原文和显式 upstream_* 意见以 source_context 传入，数字统一屏蔽；原文标记 original_source，上游标记 upstream_opinion，均明确未经独立核实。上游只能辅助综合解释，不能成为计算来源、覆盖原文或修改缺口。缺失声明来源和超过 128 KiB 的说明上下文明确失败，不截断来伪造完整性。最终 V4 仍保存完整数字与凭证。
 - `kind=quantity` 表示声明的原始数量或金额字段，提取值仍未经独立核实；`reported` 表示原文已报告比率。原文只有百分比，不能制造分子和分母。
 - `calculations`：`key/label/expression/bindings/precision/percent/compare_to` 全部必填。变量绑定到 data.key；报告公式不能出现数字常量。比例尺度由 percent 显式指定。
 - 同一表达式要求操作数声明相同 `scope` 和 `unit`，不做隐式单位换算。scope 的业务正确性仍须核实，字符串相同不证明归因成立。
@@ -105,3 +105,49 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 ```
 
 该检查使用已发布模型参数一致的非思考模式和 4096 输出上限，温度显式设为零以检查契约。它证明真实模型能完成新协议，不代替重启正式后台后页面重试的端到端验收。
+
+
+## 2026-10-07 字段语义与综合解释修复
+
+`calculation_policy/v2.input_fields` 新增两个可选声明，旧策略无需补字段：
+
+| 字段 | 行为 |
+| --- | --- |
+| `scope_i18n` | 按字段语言声明固定业务范围，必须覆盖字段语言且非空。选择 Schema 使用 const，字段选择和计划再次校验。固定标签不等于客户池或归因已经核实。 |
+| `token_role` | range_start 或 range_end，只匹配相邻数字之间明确的单位及范围连接符，分别保留上下界原单位。不把“达到”视为范围，不自行换算；其他值明确失败。 |
+
+营销字段名称和范围作为内置 Skill 发布数据维护：客单价上下界、未续费/未升级回溯期、活动周期、复购观察期、短信及信息流指标有独立 key。它们为 reported，不因命名更准确而获得计算资格。复购人数、客户池及报告率采用相同声明范围，实际周期和群体仍须一致。
+
+说明阶段 calculation_checks 区分 matched、different_under_declared_formula、not_compared。已执行计算的操作数不能再被称作缺失；对照一致无需重复核对算术。公式下不一致仅触发口径核实，不自动判定原文错误。渠道比率差异本身不构成计算冲突。原文业务目标和归因解释须保留为原文陈述或待验证判断。
+
+本修改不变更 V4 响应字段、平台 Capability 或数据库结构。发布只创建新 Skill Revision，历史 Run 与旧 Revision 保持不变。定向发布在 backend 目录执行：
+
+```sh
+go run ./cmd/database seed-native-marketing-skills --config etc/config.yaml
+```
+
+命令只更新内置营销 Skill，不重置 Agent、团队或其他模块种子。加载新解释器需重启后台后创建新 Run；不要改写历史报告来伪造修复验收。
+
+回归矩阵：原案例所有数值保留、范围上下界不串位、时间不变人数、固定范围拒绝篡改、未命中 profile 仍保留通用事实、数字叙述及虚构缺口拒绝、上游错误不覆盖已有操作数、原文和上游说明数字屏蔽、计算凭证及 V4 历史展示一致。真实模型检查读取已发布 Revision，保存独立 Trace 与结果；完整团队 HTTP/SSE 仍需新 Run 证据。
+
+
+### 来源条件约束的业务说明
+
+`executor.review_policy` 是可选的公开 Skill 扩展，schema 为 `powerx.skill-review-policy/v1`。未声明时沿用通用说明生成；声明后，hypotheses/actions 只允许本次规则命中的文字，漏项、重复或新增说明明确失败，不依赖提示词保证。
+
+规则字段：key、target（hypotheses/actions）、text_i18n、evidence_all_i18n、when_any_fields、when_any_conflicts、when_any_missing；可选 when_any_computed。各非空条件组之间为 AND，组内字段/计算 key 为 ANY；原文词面必须在同一个声明来源内全部命中。字段指向 calculation_policy.input_fields，计算引用指向其 formulas；发布、绑定和调用均校验引用、语言和说明长度，文字不得含数值。空条件组不约束，但规则不能全部无条件。输入数字和上游意见不能触发“已经独立验证”的说明。
+
+when_any_fields 检查实际报告值，when_any_computed 检查真实已执行计算，when_any_conflicts 检查真实复算冲突，when_any_missing 检查计划给出的缺失操作数。原文条件只查看 evidence_sources，不查看上游意见，避免错误意见变成证据。命中规则按声明顺序提供给说明模型，Schema 固定完整枚举和去重数量，Core 再校验。超过每类六条的匹配结果明确报错。
+
+内置营销策略位于 backend/cmd/database/seed/locales/marketing_review_policy.json，包含原文老客激活目标、原文人群匹配主张、产投比与盈利的边界、复购质量的验证边界，以及增量口径、复购人数、人群对照、渠道原始明细四类行动。它不把点击率称为低，不声称复购已经提升，也不要求重复核对已匹配的算术。业务文字与来源条件都发布在 Skill Revision 中，Core 不识别营销字段或角色标识。
+
+
+### 本次真实模型验收
+
+从 PostgreSQL 读取已发布汇总 Skill，经统一 AI Service 和共享 Redis 物理模型池调用 Ollama/qwen3:8b。输入为 Run 3c61d433-69a5-477b-a310-2bf40a9f97ef 的原文及归档上游意见（包含修复前“已有金额缺失”的错误意见）。独立检查 Trace 6aeb43f0-fc5b-4065-a2a6-ef9fa556b4eb，耗时约 137.33 秒。
+
+结果保留十五项原文数值，准确标注上下界和渠道；工具结果仍为 1.35、0.85，保留一处同声明公式下的口径冲突。最终包含四条受来源/状态约束的业务说明和四项去重行动，复购率缺失人数仍作为复算缺口。没有复制屏蔽标记、凭空称点击率低、宣称复购已提升或重复要求核对已匹配的活动产投比。
+
+本次还修复了种子比较中 typed 工具依赖与 JSONB 字段顺序不一致造成的重复发布。验证 Revision 与当前默认 Revision 的完整 definition_json 相等；修复后重复定向发布不产生新 Revision，历史 Run 回复未改写。具体 UUID、相等检查及内容摘要见 evidence/marketing-review-semantics-20261007.json。
+
+此为已发布 Skill 的真实执行证明；8077 未由代理重启，正式团队新 Run 的 HTTP/SSE/历史页面验收尚需重启后完成。

@@ -360,3 +360,25 @@ wait
 - [X] **T203 [US3]** 后端：新增连接器/同步任务 API（含合同测试）：创建/更新/禁用（pause）连接器实例、绑定凭据、创建/暂停/手动触发同步任务、查询最近一次同步摘要（last_run_at/status/error）。
 - [X] **T204 [US3]** Notion 连接器：最小可用抓取（pages/database）+ 增量游标/更新时间过滤 + 速率限制 + 重试；产物转换为标准化文档单元供入库管线处理，并写入审计。
 - [X] **T205 [US3]** 飞书 连接器：最小可用抓取（知识库/目录/文档）+ 增量游标/更新时间过滤 + 速率限制 + 重试；同上产物转换与审计。
+
+## 2026-10-07 文档入库配置快照交付
+
+- [x] DOC-S001 严格嵌套 DTO、支持范围与默认值；保留 false/0/空数组/顺序；校验 checksum、Profile tenant/version/status 和配置预算。
+- [x] DOC-S002 集中迁移：IndexJob immutable snapshot/source、任务 claim/lease/priority，当前文档任务引用，immutable HostDocumentChunk。
+- [x] DOC-S003 真实分块、high-first 领取、claim fencing、成功后检索及独立历史产物；缺失旧产物不伪造重建成功。
+- [x] DOC-S004 job 生效配置/版本/状态/错误/Trace 回读及 chunks typed 详情。
+- [x] DOC-S005 Admin + typed core_internal + explicit API Key 共同声明；capability-check/seed、API-key metadata 测试及真实 grant-status。
+- [x] DOC-S006 真实开发 API Key、真实 gRPC Exchange 签发 STS 的 HTTP/typed binding；640/80 实际分块、Profile 变更快照不变、非法/跨租户/失效 Profile/缺授权及 Trace 证据。
+- [x] DOC-S007 Core 合同、OpenAPI、支持矩阵和可复现 live test；证据 `docs/contracts/evidence/knowledge-document-snapshot-20261007.json`。
+- [ ] DOC-S008 用户按原方式重启正式 8077，加载本次代码（开发数据库迁移已执行；当前验收实例为独立 18077/18078）。
+- [ ] Framework Go/.NET typed 映射和 Plugin Handler/浏览器多文件验收，由消费端负责，Core 本次未修改插件 UI。
+
+## 单篇与空间重新处理
+
+- [x] REBUILD-01 Tenant 单篇路由、Admin JWT/RBAC 平面、typed core_internal 操作及显式 API-key metadata。
+- [x] REBUILD-02 事务受理：两种模式、当前原文冻结、幂等重复/冲突、文档/空间活动任务互斥。
+- [x] REBUILD-03 复用真实分块执行，单篇不影响其他文章、空间原子切换、失败保留成功索引。
+- [x] REBUILD-04 集中迁移 active 指针、幂等与进度字段；任务按文档回读生效配置。
+- [x] REBUILD-05 Core service/HTTP 竞态测试、真实 API Key/STS 单篇/空间、新策略、跨租户、非法配置、故障与重试证据。
+- [x] REBUILD-06 合同/OpenAPI/脱敏记录同步，消费端 DocumentID 路由与配置映射交付说明。
+- [ ] REBUILD-07 用户重启正式 8077；Framework/Plugin 后续接入与浏览器验收由消费端负责。

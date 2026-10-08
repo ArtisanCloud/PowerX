@@ -41,11 +41,16 @@ func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		group.GET("/catalog", hostHandler.catalog)
 		group.POST("/spaces", hostHandler.createSpace)
 		group.POST("/search", hostHandler.search)
+		group.POST("/retrieval/query", hostHandler.semanticQuery)
+		group.GET("/spaces/:space_uuid/semantic-index", hostHandler.semanticCapabilities)
+		group.POST("/spaces/:space_uuid/semantic-index", hostHandler.configureSemantic)
+		group.PATCH("/spaces/:space_uuid/documents/:document_uuid/visibility", hostHandler.setSemanticVisibility)
 		group.POST("/spaces/:space_uuid/documents", hostHandler.upsertDocument)
 		group.DELETE("/spaces/:space_uuid/documents/:document_uuid", hostHandler.deleteDocument)
 		// Gin parses ':' as a parameter delimiter. Keep the published action URL
 		// behind a constrained dispatcher, as done for IAM batch actions.
 		group.POST("/spaces/:space_uuid/indexes:operation", hostHandler.indexOperation)
+		group.POST("/spaces/:space_uuid/documents/:document_uuid/indexes:operation", hostHandler.indexOperation)
 		group.GET("/index-jobs/:job_uuid", hostHandler.getIndexJob)
 		group.GET("/index-jobs/:job_uuid/chunks", hostHandler.getJobChunks)
 	}
@@ -104,15 +109,19 @@ type searchRequest struct {
 	TenantUUID string   `json:"tenant_uuid"`
 }
 type documentRequest struct {
-	Title       string                              `json:"title" binding:"required"`
-	URI         string                              `json:"uri" binding:"required"`
-	Content     string                              `json:"content" binding:"required"`
-	ContentType string                              `json:"content_type" binding:"required"`
-	Checksum    string                              `json:"checksum" binding:"required"`
-	Version     string                              `json:"version" binding:"required"`
-	Ingestion   *knowledgesvc.HostIngestionSettings `json:"ingestion,omitempty"`
-	Tags        []string                            `json:"tags"`
-	TenantUUID  string                              `json:"tenant_uuid"`
+	Indexing       *knowledgesvc.SemanticIndexingSettings `json:"indexing,omitempty"`
+	Artifacts      []knowledgesvc.SemanticArtifactInput   `json:"artifacts,omitempty"`
+	ExternalRef    *knowledgesvc.SemanticExternalRef      `json:"external_ref,omitempty"`
+	IdempotencyKey string                                 `json:"idempotency_key,omitempty"`
+	Title          string                                 `json:"title" binding:"required"`
+	URI            string                                 `json:"uri" binding:"required"`
+	Content        string                                 `json:"content" binding:"required"`
+	ContentType    string                                 `json:"content_type" binding:"required"`
+	Checksum       string                                 `json:"checksum" binding:"required"`
+	Version        string                                 `json:"version" binding:"required"`
+	Ingestion      *knowledgesvc.HostIngestionSettings    `json:"ingestion,omitempty"`
+	Tags           []string                               `json:"tags"`
+	TenantUUID     string                                 `json:"tenant_uuid"`
 }
 type tenantOverrideQuery struct {
 	TenantUUID string `form:"tenant_uuid"`
@@ -192,7 +201,7 @@ func (h *hostContractHandler) upsertDocument(c *gin.Context) {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	job, err := h.service.UpsertDocument(c.Request.Context(), tenantUUID, spaceUUID, knowledgesvc.HostDocumentInput{Title: req.Title, URI: req.URI, Content: req.Content, ContentType: req.ContentType, Checksum: req.Checksum, Version: req.Version, Tags: req.Tags, Ingestion: req.Ingestion})
+	job, err := h.service.UpsertDocument(c.Request.Context(), tenantUUID, spaceUUID, knowledgesvc.HostDocumentInput{Title: req.Title, URI: req.URI, Content: req.Content, ContentType: req.ContentType, Checksum: req.Checksum, Version: req.Version, Tags: req.Tags, Ingestion: req.Ingestion, Indexing: req.Indexing, Artifacts: req.Artifacts, ExternalRef: req.ExternalRef, IdempotencyKey: req.IdempotencyKey})
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return
@@ -245,7 +254,32 @@ func (h *hostContractHandler) indexOperation(c *gin.Context) {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	job, err := h.service.RebuildIndex(c.Request.Context(), tenantUUID, spaceUUID)
+	var req knowledgesvc.HostRebuildInput
+	decoder := json.NewDecoder(io.LimitReader(c.Request.Body, 64<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil && err != io.EOF {
+		dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(err))
+		return
+	}
+	var extra any
+	if decoder.Decode(&extra) != io.EOF {
+		dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(errors.New("expected one JSON object")))
+		return
+	}
+	headerKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if headerKey != "" {
+		if req.IdempotencyKey != "" && headerKey != req.IdempotencyKey {
+			dto.RespondErrorFrom(c, knowledgesvc.KnowledgeInvalidArgumentError(errors.New("conflicting idempotency keys")))
+			return
+		}
+		req.IdempotencyKey = headerKey
+	}
+	var job knowledgesvc.HostDocumentJob
+	if document := c.Param("document_uuid"); document != "" {
+		job, err = h.service.RebuildDocument(c.Request.Context(), tenantUUID, spaceUUID, document, req)
+	} else {
+		job, err = h.service.RebuildSpace(c.Request.Context(), tenantUUID, spaceUUID, req)
+	}
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return

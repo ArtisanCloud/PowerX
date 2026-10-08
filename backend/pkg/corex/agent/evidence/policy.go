@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 const PolicySchema = "powerx.skill-calculation-policy/v2"
@@ -28,6 +29,8 @@ type InputField struct {
 	DescriptionI18n   map[string]string   `json:"description_i18n"`
 	EvidenceTermsI18n map[string][]string `json:"evidence_terms_i18n"`
 	AppliesTo         []string            `json:"applies_to"`
+	ScopeI18n         map[string]string   `json:"scope_i18n,omitempty"`
+	TokenRole         string              `json:"token_role,omitempty"`
 }
 
 type Formula struct {
@@ -106,6 +109,12 @@ func ReadCalculationPolicy(raw any) (CalculationPolicy, error) {
 			if label == "" || f.DescriptionI18n[locale] == "" || len(f.EvidenceTermsI18n[locale]) == 0 {
 				return p, fmt.Errorf("skill.calculation_locale_required")
 			}
+			if f.ScopeI18n != nil && (strings.TrimSpace(f.ScopeI18n[locale]) == "" || utf8.RuneCountInString(f.ScopeI18n[locale]) > 120) {
+				return p, fmt.Errorf("skill.calculation_scope_locale_required")
+			}
+		}
+		if f.TokenRole != "" && f.TokenRole != "range_start" && f.TokenRole != "range_end" {
+			return p, fmt.Errorf("skill.calculation_token_role_invalid")
 		}
 		for _, profile := range f.AppliesTo {
 			if !profiles[profile] {
@@ -254,6 +263,9 @@ func (p CalculationPolicy) BuildPlan(extracted PolicyExtraction, activeProfiles 
 		}
 		if !allowedUnit {
 			return plan, missing, fmt.Errorf("evidence.input_unit_invalid: %s", v.Key)
+		}
+		if scope := f.ScopeI18n[locale]; scope != "" && scope != v.Scope {
+			return plan, missing, fmt.Errorf("evidence.input_scope_invalid: %s", v.Key)
 		}
 		values[v.Key] = true
 		plan.Data = append(plan.Data, DraftDatum{Key: v.Key, Label: f.LabelI18n[locale], Kind: f.Kind, Unit: v.Unit, Scope: v.Scope, Source: v.Source})

@@ -21,6 +21,7 @@
   "input_fields": [
     {
       "key": "spend",
+      "scope_i18n": {"zh-CN": "活动整体", "en-US": "whole campaign"},
       "kind": "quantity",
       "label_i18n": {
         "zh-CN": "活动投入",
@@ -40,6 +41,7 @@
     },
     {
       "key": "gmv",
+      "scope_i18n": {"zh-CN": "活动整体", "en-US": "whole campaign"},
       "kind": "quantity",
       "label_i18n": {
         "zh-CN": "活动标记GMV",
@@ -59,6 +61,7 @@
     },
     {
       "key": "incremental_gmv",
+      "scope_i18n": {"zh-CN": "活动整体", "en-US": "whole campaign"},
       "kind": "quantity",
       "label_i18n": {
         "zh-CN": "可归因增量GMV",
@@ -78,6 +81,7 @@
     },
     {
       "key": "reported_roi",
+      "scope_i18n": {"zh-CN": "活动整体", "en-US": "whole campaign"},
       "kind": "reported",
       "label_i18n": {
         "zh-CN": "原文财务ROI",
@@ -96,6 +100,7 @@
     },
     {
       "key": "reported_incremental_roi",
+      "scope_i18n": {"zh-CN": "活动整体", "en-US": "whole campaign"},
       "kind": "reported",
       "label_i18n": {
         "zh-CN": "原文增量ROI",
@@ -114,6 +119,7 @@
     },
     {
       "key": "repeat_customers",
+      "scope_i18n": {"zh-CN": "复购观察人群", "en-US": "repurchase cohort"},
       "kind": "quantity",
       "label_i18n": {
         "zh-CN": "复购客户数",
@@ -136,6 +142,7 @@
     },
     {
       "key": "cohort_customers",
+      "scope_i18n": {"zh-CN": "复购观察人群", "en-US": "repurchase cohort"},
       "kind": "quantity",
       "label_i18n": {
         "zh-CN": "复购客户池人数",
@@ -158,6 +165,7 @@
     },
     {
       "key": "reported_repeat_rate",
+      "scope_i18n": {"zh-CN": "复购观察人群", "en-US": "repurchase cohort"},
       "kind": "reported",
       "label_i18n": {
         "zh-CN": "原文复购率",
@@ -326,7 +334,16 @@
       ],
       "evidence_terms_i18n": {"zh-CN": ["有效线索目标", "线索目标", "目标"], "en-US": ["lead target", "qualified lead target", "target"]},
       "applies_to": ["lead_generation"]
-    }
+    },
+    {"key": "unit_price_lower", "kind": "reported", "unit_tokens": ["元", "万元"], "label_i18n": {"zh-CN": "客单价下限", "en-US": "Unit price lower bound"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的客单价下限；不授予计算资格。", "en-US": "Source-reported unit price lower bound only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["客单价"], "en-US": ["unit price", "price"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "产品定价", "en-US": "product pricing"}, "token_role": "range_start"},
+    {"key": "unit_price_upper", "kind": "reported", "unit_tokens": ["元", "万元"], "label_i18n": {"zh-CN": "客单价上限", "en-US": "Unit price upper bound"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的客单价上限；不授予计算资格。", "en-US": "Source-reported unit price upper bound only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["客单价"], "en-US": ["unit price", "price"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "产品定价", "en-US": "product pricing"}, "token_role": "range_end"},
+    {"key": "inactivity_window", "kind": "reported", "unit_tokens": ["个月", "months"], "label_i18n": {"zh-CN": "未续费或未升级回溯期", "en-US": "Inactive customer lookback"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的未续费或未升级回溯期；不授予计算资格。", "en-US": "Source-reported inactive customer lookback only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["未续费", "未升级", "存量客户"], "en-US": ["inactive", "unrenewed", "not renewed", "not upgraded"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "目标存量客户", "en-US": "target existing customers"}},
+    {"key": "campaign_duration", "kind": "reported", "unit_tokens": ["天", "days"], "label_i18n": {"zh-CN": "活动周期", "en-US": "Campaign duration"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的活动周期；不授予计算资格。", "en-US": "Source-reported campaign duration only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["周期"], "en-US": ["duration"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "活动整体", "en-US": "whole campaign"}},
+    {"key": "repeat_window", "kind": "reported", "unit_tokens": ["天", "days"], "label_i18n": {"zh-CN": "二次购买观察期", "en-US": "Repurchase observation window"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的二次购买观察期；不授予计算资格。", "en-US": "Source-reported repurchase observation window only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["二次购买率", "复购率"], "en-US": ["repurchase rate", "repeat purchase rate"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "复购观察人群", "en-US": "repurchase cohort"}},
+    {"key": "reported_sms_roi", "kind": "reported", "unit_tokens": [""], "label_i18n": {"zh-CN": "原文短信渠道ROI", "en-US": "Reported SMS channel ROI"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的原文短信渠道ROI；不授予计算资格。", "en-US": "Source-reported reported sms channel roi only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["短信渠道的ROI", "短信渠道ROI", "短信ROI"], "en-US": ["SMS ROI", "SMS channel ROI"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "短信渠道", "en-US": "SMS channel"}},
+    {"key": "reported_feed_roi", "kind": "reported", "unit_tokens": [""], "label_i18n": {"zh-CN": "原文信息流渠道ROI", "en-US": "Reported feed channel ROI"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的原文信息流渠道ROI；不授予计算资格。", "en-US": "Source-reported reported feed channel roi only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["信息流渠道的ROI", "信息流渠道ROI", "信息流ROI"], "en-US": ["feed ROI", "feed channel ROI"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "信息流渠道", "en-US": "feed channel"}},
+    {"key": "reported_feed_ctr", "kind": "reported", "unit_tokens": ["%", "％"], "label_i18n": {"zh-CN": "原文信息流点击率", "en-US": "Reported feed CTR"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的原文信息流点击率；不授予计算资格。", "en-US": "Source-reported reported feed ctr only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["信息流渠道点击率", "信息流点击率"], "en-US": ["feed CTR", "feed click rate"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "信息流渠道", "en-US": "feed channel"}},
+    {"key": "reported_feed_order_rate", "kind": "reported", "unit_tokens": ["%", "％"], "label_i18n": {"zh-CN": "原文信息流下单转化率", "en-US": "Reported feed order conversion rate"}, "description_i18n": {"zh-CN": "仅保留原文明确陈述的原文信息流下单转化率；不授予计算资格。", "en-US": "Source-reported reported feed order conversion rate only; not a calculation operand."}, "evidence_terms_i18n": {"zh-CN": ["下单转化"], "en-US": ["order conversion"]}, "applies_to": ["transaction_retention"], "scope_i18n": {"zh-CN": "信息流渠道", "en-US": "feed channel"}}
   ],
   "formulas": [
     {

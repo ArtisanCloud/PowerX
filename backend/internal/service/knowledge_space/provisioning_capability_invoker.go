@@ -25,7 +25,7 @@ func NewProvisioningCapabilityInvoker(db *gorm.DB, service func() *Service, host
 	return out
 }
 func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context, in cap.CoreCapabilityInvokeInput) (map[string]interface{}, error) {
-	if in.CapabilityID != KnowledgeCatalogReadCapabilityID && in.CapabilityID != KnowledgeSpaceCreateCapabilityID && in.CapabilityID != KnowledgeDocumentManageCapabilityID {
+	if in.CapabilityID != KnowledgeCatalogReadCapabilityID && in.CapabilityID != KnowledgeSpaceCreateCapabilityID && in.CapabilityID != KnowledgeDocumentManageCapabilityID && in.CapabilityID != KnowledgeRetrievalReadCapabilityID {
 		return nil, cap.ErrCoreCapabilityNotHandled
 	}
 	endpoint := "core://knowledge/catalog"
@@ -34,6 +34,9 @@ func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context
 	}
 	if in.CapabilityID == KnowledgeSpaceCreateCapabilityID {
 		endpoint = "core://knowledge/spaces"
+	}
+	if in.CapabilityID == KnowledgeRetrievalReadCapabilityID {
+		endpoint = "core://knowledge/retrieval"
 	}
 	if in.Method != "INVOKE" || in.Endpoint != endpoint || len(in.Query) != 0 {
 		return nil, KnowledgeInvalidArgumentError(errors.New("invalid typed knowledge binding"))
@@ -48,6 +51,8 @@ func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context
 	var err error
 	if in.CapabilityID == KnowledgeCatalogReadCapabilityID {
 		tenant, err = access.AuthorizeCatalogRead(ctx, reqctx.AuthenticatedAPIKeyHash(ctx))
+	} else if in.CapabilityID == KnowledgeRetrievalReadCapabilityID {
+		tenant, err = access.AuthorizeRetrievalRead(ctx, reqctx.AuthenticatedAPIKeyHash(ctx))
 	} else if in.CapabilityID == KnowledgeDocumentManageCapabilityID {
 		tenant, err = access.AuthorizeDocumentManage(ctx, reqctx.AuthenticatedAPIKeyHash(ctx))
 	} else {
@@ -58,6 +63,12 @@ func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context
 	}
 	if tenant != in.TenantUUID {
 		return nil, KnowledgeForbiddenError(errors.New("tenant context mismatch"))
+	}
+	if in.CapabilityID == KnowledgeRetrievalReadCapabilityID {
+		if i.host == nil || i.host() == nil || i.host().Semantic() == nil {
+			return nil, KnowledgeUpstreamDependencyError(errors.New("semantic runtime unavailable"))
+		}
+		return invokeSemanticRetrieval(ctx, i.host().Semantic(), tenant, in.Body)
 	}
 	if in.CapabilityID == KnowledgeDocumentManageCapabilityID {
 		if i.host == nil || i.host() == nil {
@@ -111,6 +122,28 @@ func invokeHostDocument(ctx context.Context, service *HostContractService, tenan
 		return nil, KnowledgeInvalidArgumentError(errors.New("invalid typed operation"))
 	}
 	switch op.Operation {
+	case "configure_semantic_index":
+		var in struct {
+			Operation     string                 `json:"operation"`
+			SpaceUUID     string                 `json:"space_uuid"`
+			Configuration SemanticConfigureInput `json:"configuration"`
+		}
+		if strictJSON(raw, &in) != nil || service.Semantic() == nil {
+			return nil, KnowledgeInvalidArgumentError(errors.New("expected semantic configuration"))
+		}
+		item, err := service.Semantic().Configure(ctx, tenant, in.SpaceUUID, in.Configuration)
+		return map[string]any{"item": item}, err
+	case "set_document_visibility":
+		var in struct {
+			Operation    string                  `json:"operation"`
+			SpaceUUID    string                  `json:"space_uuid"`
+			DocumentUUID string                  `json:"document_uuid"`
+			Visibility   SemanticVisibilityInput `json:"visibility"`
+		}
+		if strictJSON(raw, &in) != nil {
+			return nil, KnowledgeInvalidArgumentError(errors.New("expected visibility input"))
+		}
+		return service.SetDocumentVisibility(ctx, tenant, in.SpaceUUID, in.DocumentUUID, in.Visibility)
 	case "submit_document":
 		var in struct {
 			Operation string            `json:"operation"`
@@ -121,6 +154,25 @@ func invokeHostDocument(ctx context.Context, service *HostContractService, tenan
 			return nil, KnowledgeInvalidArgumentError(errors.New("expected typed document input"))
 		}
 		job, err := service.UpsertDocument(ctx, tenant, in.SpaceUUID, in.Document)
+		return map[string]interface{}{"job": job}, err
+	case "rebuild_document", "rebuild_space":
+		var in struct {
+			Operation    string           `json:"operation"`
+			SpaceUUID    string           `json:"space_uuid"`
+			DocumentUUID string           `json:"document_uuid,omitempty"`
+			Rebuild      HostRebuildInput `json:"rebuild"`
+		}
+		if strictJSON(raw, &in) != nil {
+			return nil, KnowledgeInvalidArgumentError(errors.New("expected typed rebuild input"))
+		}
+		if op.Operation == "rebuild_document" {
+			job, err := service.RebuildDocument(ctx, tenant, in.SpaceUUID, in.DocumentUUID, in.Rebuild)
+			return map[string]interface{}{"job": job}, err
+		}
+		if in.DocumentUUID != "" {
+			return nil, KnowledgeInvalidArgumentError(errors.New("space rebuild cannot contain document_uuid"))
+		}
+		job, err := service.RebuildSpace(ctx, tenant, in.SpaceUUID, in.Rebuild)
 		return map[string]interface{}{"job": job}, err
 	case "get_job", "get_job_chunks":
 		var in struct {

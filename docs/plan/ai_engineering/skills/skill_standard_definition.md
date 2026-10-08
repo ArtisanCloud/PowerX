@@ -458,3 +458,8 @@ https://docs.claude.com/en/docs/claude-code/skills
 https://github.com/anthropics/skills
 
 > 访问与核对日期：2026-03-06
+
+
+## V4 复盘说明的可选声明
+
+llm_prompt + response_envelope 可声明 executor.review_policy（powerx.skill-review-policy/v1）。规则的业务文字及来源条件在 Skill Revision 中维护；Core 仅依据声明来源及真实计算状态匹配条件，不能按 Skill 名称分支。匹配文字成为本次 hypotheses/actions 的完整枚举，新增、漏项或重复明确失败。规则格式、scope_i18n 和 token_role 见 docs/guides/develop/agent-response-evidence-v4.md 的“来源条件约束的业务说明”。旧 Skill 不声明该扩展仍可执行；新声明须使用支持该扩展的 Runtime 并重新发布，不能改写旧 Revision。

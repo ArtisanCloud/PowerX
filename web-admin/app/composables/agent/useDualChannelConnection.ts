@@ -18,6 +18,7 @@ import { useEnvStore } from "~/stores/envStore";
 import { durableSseReader } from "~/utils/agent/durableSseReader";
 import { pendingDurableRuns, savePendingDurableRun, removePendingDurableRun, durableResumeParams, historyHasDurableResult, type PendingDurableRun } from "~/utils/agent/pendingDurableRun";
 import { isRunStateEvent } from "~/utils/agent/streamEvent";
+import { normalizeHistoryMessageMeta } from "~/utils/agent/historyMessageMeta";
 
 export interface DualChannelConnection {
   sseActive: Ref<boolean>;
@@ -470,6 +471,7 @@ export function useDualChannelConnection(
         let hasReceivedData = false;
         let timeoutId: any = null;
         let abortedByClient = false;
+        let responseFinalized = false;
 
         // 只创建一次解析器
         const thinkParser = useStreamingThinkParser();
@@ -756,6 +758,8 @@ export function useDualChannelConnection(
           errorMessage?: string;
           abort?: boolean;
         }) => {
+          if (responseFinalized) return;
+          responseFinalized = true;
           const { idx, msg } = getPendingAssistant();
           if (idx >= 0 && msg) {
             msg.done = true;
@@ -821,6 +825,9 @@ export function useDualChannelConnection(
         timeoutId = setTimeout(connectionTimeout, 10000);
 
         const dispatchSSEBlock = (block: string) => {
+          // FINAL may share a network chunk with trailing ended/end frames.
+          // They must not create another assistant after its placeholder is cleared.
+          if (responseFinalized) return;
           // 解析单个 SSE block（以空行分隔）
           let eventName = "";
           const dataLines: string[] = [];
@@ -1041,6 +1048,19 @@ export function useDualChannelConnection(
 
             // 6) FINAL 收尾
             if (type === SSE_EVENT_TYPES.FINAL) {
+              // The final event projects the persisted message. Use its task
+              // snapshot so live and refreshed views have the same terminal state.
+              const finalMeta = normalizeHistoryMessageMeta(payload?.metadata || {});
+              const liveRunState = answer.meta.runState;
+              answer.meta = { ...answer.meta, ...finalMeta };
+              if (liveRunState || finalMeta.runState) {
+                answer.meta.runState = {
+                  ...liveRunState,
+                  ...finalMeta.runState,
+                  ended: true,
+                };
+              }
+              answer.isError = payload?.success === false;
               if (acceptedRunId && typeof window !== "undefined") removePendingDurableRun(localStorage, scope, acceptedRunId);
               // 后端可能不会发送 [DONE]/END，FINAL 视为一次响应结束
               finalize({ abort: true });
@@ -1092,7 +1112,7 @@ export function useDualChannelConnection(
         };
 
         try {
-          while (true) {
+          while (!responseFinalized) {
             const { done, value } = await reader.read();
             if (done) {
               // flush 残留：有些实现可能在断开前未补齐空行分隔
@@ -1111,7 +1131,7 @@ export function useDualChannelConnection(
 
             // SSE 事件块：以空行分隔（\n\n）
             // 这里必须缓冲处理，避免网络分片导致 data 行被拆开而解析失败。
-            while (true) {
+            while (!responseFinalized) {
               const sep = sseBuffer.indexOf("\n\n");
               if (sep < 0) break;
               const block = sseBuffer.slice(0, sep);
@@ -1121,6 +1141,7 @@ export function useDualChannelConnection(
             }
           }
         } catch (err) {
+          if (responseFinalized) return;
           // 主动 abort 结束流：不算错误
           if (abortedByClient && (err as any)?.name === "AbortError") {
             return;
