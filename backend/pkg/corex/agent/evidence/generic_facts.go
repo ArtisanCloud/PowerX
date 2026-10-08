@@ -192,8 +192,10 @@ func genericFactLabelSegment(text string, beforeNumber bool) string {
 			segment = segment[:delimiter]
 		}
 		segment = strings.TrimSpace(segment)
-		if sourceNumberPattern.MatchString(segment) {
-			return ""
+		if span := sourceNumberPattern.FindStringIndex(segment); span != nil {
+			// 周期后面的指标名可指向下一个数值；只保留数字前的原文词面，
+			// 不把另一个指标的数值带入标签，也不丢失周期的业务关联。
+			segment = strings.TrimSpace(segment[:span[0]])
 		}
 		return segment
 	}

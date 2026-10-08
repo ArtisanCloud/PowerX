@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/runtimecredential"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
 
@@ -19,6 +20,7 @@ type Registry interface {
 
 	Put(ctx context.Context, desc Descriptor, state plugin_mgr.PluginState) error
 	UpdateState(ctx context.Context, id, version string, state plugin_mgr.PluginState) error
+	UpdateHostConfig(ctx context.Context, id, version string, hostConfig *plugin_mgr.HostConfig) error
 	Remove(ctx context.Context, id, version string) error
 
 	Get(ctx context.Context, id string) (plugin_mgr.Plugin, bool)
@@ -104,13 +106,27 @@ func (r *JSONRegistry) Save(ctx context.Context) error {
 	if err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("registry_save"))
 	}
-	tmp := r.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("registry_save"), plugin_mgr.WithPath(tmp))
-	}
-	if err := os.Rename(tmp, r.path); err != nil {
+	if err := runtimecredential.AtomicWrite(r.path, data, 0o600); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("registry_save"), plugin_mgr.WithPath(r.path))
 	}
+	return nil
+}
+
+// UpdateHostConfig 同步运行配置，不改变版本指针、安装时间、迁移记录或启用状态。
+func (r *JSONRegistry) UpdateHostConfig(ctx context.Context, id, version string, hostConfig *plugin_mgr.HostConfig) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	rec, ok := r.mem.Plugins[id]
+	if !ok {
+		return plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("registry_update_host_config"), plugin_mgr.WithPlugin(id))
+	}
+	v, ok := rec.Versions[version]
+	if !ok {
+		return plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("registry_update_host_config"), plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(version))
+	}
+	v.HostConfig = cloneHostConfig(hostConfig)
+	rec.Versions[version] = v
+	r.mem.Plugins[id] = rec
 	return nil
 }
 

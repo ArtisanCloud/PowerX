@@ -13,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	plugincredential "github.com/ArtisanCloud/PowerX/internal/service/plugin_credential"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -21,7 +22,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fatalf("Usage: %s [migrate|seed|refresh|status|iam-report|iam-fix-owner|iam-fix-role-binding-duplicates|repair-agent-run-state]", os.Args[0])
+		fatalf("Usage: %s [migrate|seed|seed-native-marketing-skills|refresh|status|iam-report|iam-fix-owner|iam-fix-role-binding-duplicates|repair-agent-run-state|repair-plugin-runtime-credentials]", os.Args[0])
 	}
 	cmd := os.Args[1]
 	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
@@ -31,6 +32,8 @@ func main() {
 	fs := flag.NewFlagSet("database", flag.ContinueOnError)
 	configPath := fs.String("config", defaultConfigPath, "配置文件路径")
 	confirm := fs.Bool("confirm", false, "确认执行修复")
+	pluginID := fs.String("plugin-id", "", "要修复运行凭证的插件 ID")
+	rotate := fs.Bool("rotate", false, "无法恢复原凭证时，明确允许轮换 secret；须同时传 -confirm")
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		fatalf("解析参数失败: %v", err)
 	}
@@ -63,6 +66,12 @@ func main() {
 			fatalf("seed failed: %v", err)
 		}
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
+
+	case "seed-native-marketing-skills":
+		if err := seed.SeedNativeMarketingSkills(db, cfg); err != nil {
+			fatalf("native marketing skill seed failed: %v", err)
+		}
+		logger.InfoF(logger.WithLogFields(ctx, map[string]interface{}{"module": "skills"}), "native marketing skill revisions published")
 
 	case "refresh":
 		// 先 drop database（或 drop all tables）
@@ -117,6 +126,17 @@ func main() {
 			fatalf("agent run state repair failed: %v", err)
 		}
 		printJSON(result)
+
+	case "repair-plugin-runtime-credentials":
+		result, err := plugincredential.NewRuntimeCredentialRepairService(db, cfg).Repair(ctx, plugincredential.RuntimeCredentialRepairOptions{
+			PluginID: *pluginID, Confirm: *confirm, Rotate: *rotate,
+		})
+		if result != nil {
+			printJSON(result)
+		}
+		if err != nil {
+			fatalf("plugin runtime credential repair failed: %v", err)
+		}
 
 	default:
 		fatalf("Unknown command: %s", cmd)

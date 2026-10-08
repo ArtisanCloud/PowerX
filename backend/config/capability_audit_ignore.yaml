@@ -15,3 +15,11 @@ routes:
     path: /api/v1/tenant/knowledge/spaces/:space_uuid/indexes:operation
     category: transport_route_adapter
     reason: Gin requires the declared indexes:rebuild action to use a constrained parameter dispatcher; the formal Knowledge Document Manage capability declares only the concrete rebuild endpoint.
+  - method: POST
+    path: /api/v1/tenant/knowledge/spaces/:space_uuid/documents/:document_uuid/indexes:operation
+    category: transport_route_adapter
+    reason: Constrained Gin dispatcher accepts only indexes:rebuild; the formal Knowledge Document Manage service capability declares the concrete single-document rebuild endpoint.
+  - method: POST
+    path: /api/v1/admin/knowledge-spaces/:spaceId/documents/:documentId/indexes:operation
+    category: transport_route_adapter
+    reason: Constrained Gin dispatcher accepts only indexes:rebuild; the same formal document capability declares the concrete Admin JWT/RBAC document rebuild endpoint.

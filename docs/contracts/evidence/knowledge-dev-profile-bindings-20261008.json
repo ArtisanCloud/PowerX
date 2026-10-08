@@ -1,0 +1,789 @@
+{
+  "repair": "dev-profile-bindings",
+  "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "before": {
+    "id": 1,
+    "uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+    "status": "pending_iam",
+    "quota_cpu": 4,
+    "retire_at": null,
+    "created_at": "2026-04-01T20:46:52.213416+08:00",
+    "created_by": "tech@artisan-cloud.com",
+    "deleted_at": null,
+    "space_name": "dev",
+    "updated_at": "2026-04-01T20:46:52.275218+08:00",
+    "updated_by": "tech@artisan-cloud.com",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "feature_flags": [
+      "rag.strategy_package:h_fusion",
+      "rag.scene:product_specs",
+      "rag.bundle:p1_general",
+      "quota.ingestion:2"
+    ],
+    "department_code": "HR",
+    "department_uuid": null,
+    "last_audited_at": null,
+    "rag_profile_key": "p1_general",
+    "quota_storage_gb": 200,
+    "rag_profile_uuid": null,
+    "index_profile_key": "p1_general",
+    "index_profile_uuid": null,
+    "retention_expires_at": null,
+    "embedding_profile_key": "ollama/bge-m3",
+    "ingestion_profile_key": "p1_general",
+    "ingestion_profile_uuid": null,
+    "active_vector_index_key": "dense_v1_1024_d0f329b0",
+    "policy_template_version_id": 1
+  },
+  "after": {
+    "id": 1,
+    "uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+    "status": "pending_iam",
+    "quota_cpu": 4,
+    "retire_at": null,
+    "created_at": "2026-04-01T20:46:52.213416+08:00",
+    "created_by": "tech@artisan-cloud.com",
+    "deleted_at": null,
+    "space_name": "dev",
+    "updated_at": "2026-10-08T09:59:27.674608+08:00",
+    "updated_by": "tech@artisan-cloud.com",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "feature_flags": [
+      "rag.strategy_package:h_fusion",
+      "rag.scene:product_specs",
+      "rag.bundle:p1_general",
+      "quota.ingestion:2"
+    ],
+    "department_code": "HR",
+    "department_uuid": null,
+    "last_audited_at": null,
+    "rag_profile_key": "p1_general",
+    "quota_storage_gb": 200,
+    "rag_profile_uuid": "aa8c8f9c-6558-435d-a352-4727adb8163f",
+    "index_profile_key": "p1_general",
+    "index_profile_uuid": "81e39770-93dd-4903-918c-9847224d30a4",
+    "retention_expires_at": null,
+    "embedding_profile_key": "ollama/bge-m3",
+    "ingestion_profile_key": "p1_general",
+    "ingestion_profile_uuid": "4245b851-0710-4566-9f53-ecf3dd7e04cc",
+    "active_vector_index_key": "dense_v1_1024_d0f329b0",
+    "policy_template_version_id": 1
+  },
+  "changed_fields": [
+    "updated_at",
+    "rag_profile_uuid",
+    "index_profile_uuid",
+    "ingestion_profile_uuid"
+  ],
+  "repeat_execution_unchanged": true,
+  "sql_path": "docs/contracts/repairs/dev-profile-bindings-20261008.sql",
+  "api_validation": {
+    "http_endpoint": "http://127.0.0.1:8077",
+    "credential_kind": "existing_development_api_key",
+    "capability_grants": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "items": [
+          {
+            "capability_id": "com.corex.knowledge.document.manage",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          },
+          {
+            "capability_id": "com.corex.knowledge.search.read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          }
+        ]
+      },
+      "timestamp": 1791424805,
+      "request_id": "17d12725-643f-4b2d-9ff9-df5aa4e5cea6"
+    },
+    "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+    "accepted": [
+      {
+        "job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+        "status": "queued",
+        "operation": "upsert",
+        "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974"
+      },
+      {
+        "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+        "status": "queued",
+        "operation": "upsert",
+        "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864"
+      }
+    ],
+    "records": [
+      {
+        "name": "plugin_defaults_submit",
+        "method": "POST",
+        "path": "/api/v1/tenant/knowledge/spaces/30a6d654-c4c5-4a33-9806-6d66c6728187/documents",
+        "http_status": 202,
+        "trace_id": "5fc457f0-2965-4f7b-8d73-a8c4624cffa5",
+        "request_id": "68f17d02-071d-4494-bbc7-3e01c5538b33",
+        "response": {
+          "code": 202,
+          "message": "success",
+          "data": {
+            "job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+            "status": "queued",
+            "operation": "upsert",
+            "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974"
+          },
+          "timestamp": 1791424851,
+          "request_id": "68f17d02-071d-4494-bbc7-3e01c5538b33"
+        }
+      },
+      {
+        "name": "plugin_defaults_job",
+        "method": "GET",
+        "path": "/api/v1/tenant/knowledge/index-jobs/4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+        "http_status": 200,
+        "trace_id": "cb566d8f-9286-4842-b651-c91c5f359aca",
+        "request_id": "2b3361ff-3cef-4dc7-aad6-5e11fb02f43a",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "document_count": 1,
+            "processed_documents": 1,
+            "job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+            "operation": "upsert",
+            "status": "running",
+            "priority": "normal",
+            "trace_id": "5fc457f0-2965-4f7b-8d73-a8c4624cffa5",
+            "effective_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "index_mode": "lexical_chunks",
+              "length_unit": "unicode_rune",
+              "strategy": {
+                "uuid": "b3641cd5-6fa3-543c-a3ff-34c169ab39dd",
+                "key": "h_fusion",
+                "version": 1
+              },
+              "ingestion_profile": {
+                "uuid": "4245b851-0710-4566-9f53-ecf3dd7e04cc",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "index_profile": {
+                "uuid": "81e39770-93dd-4903-918c-9847224d30a4",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "rag_profile": {
+                "uuid": "aa8c8f9c-6558-435d-a352-4727adb8163f",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "priority": "normal",
+              "segment_mode": "unit",
+              "segment_size_policy": "cap",
+              "chunk_size": 1024,
+              "chunk_overlap": 0,
+              "segment_order": [
+                "page",
+                "segment",
+                "separator",
+                "size"
+              ],
+              "separators": [],
+              "page_priority": false,
+              "anchor_heading_path": false,
+              "anchor_clause_id": false,
+              "anchor_row_number": false,
+              "anchor_speaker": false,
+              "anchor_sentence_index": false,
+              "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b",
+              "source_version": "core-check-v1"
+            },
+            "requested_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "segment_mode": "unit",
+              "chunk_size": 1024,
+              "chunk_overlap": 0
+            },
+            "snapshot_checksum": "f24398300baf49c7e01cebebad7a83cbfc54887bfd870f669e9489a1dc9d701f",
+            "chunk_count": 0,
+            "started_at": "2026-10-08T10:00:51.550609+08:00"
+          },
+          "timestamp": 1791424851,
+          "request_id": "2b3361ff-3cef-4dc7-aad6-5e11fb02f43a"
+        }
+      },
+      {
+        "name": "plugin_defaults_job",
+        "method": "GET",
+        "path": "/api/v1/tenant/knowledge/index-jobs/4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+        "http_status": 200,
+        "trace_id": "a04b9f73-845e-4c36-9766-2b225327e30e",
+        "request_id": "35c934b0-8f52-4183-8580-ad78ca83a2d8",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "document_count": 1,
+            "processed_documents": 1,
+            "job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+            "operation": "upsert",
+            "status": "succeeded",
+            "priority": "normal",
+            "trace_id": "5fc457f0-2965-4f7b-8d73-a8c4624cffa5",
+            "effective_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "index_mode": "lexical_chunks",
+              "length_unit": "unicode_rune",
+              "strategy": {
+                "uuid": "b3641cd5-6fa3-543c-a3ff-34c169ab39dd",
+                "key": "h_fusion",
+                "version": 1
+              },
+              "ingestion_profile": {
+                "uuid": "4245b851-0710-4566-9f53-ecf3dd7e04cc",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "index_profile": {
+                "uuid": "81e39770-93dd-4903-918c-9847224d30a4",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "rag_profile": {
+                "uuid": "aa8c8f9c-6558-435d-a352-4727adb8163f",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "priority": "normal",
+              "segment_mode": "unit",
+              "segment_size_policy": "cap",
+              "chunk_size": 1024,
+              "chunk_overlap": 0,
+              "segment_order": [
+                "page",
+                "segment",
+                "separator",
+                "size"
+              ],
+              "separators": [],
+              "page_priority": false,
+              "anchor_heading_path": false,
+              "anchor_clause_id": false,
+              "anchor_row_number": false,
+              "anchor_speaker": false,
+              "anchor_sentence_index": false,
+              "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b",
+              "source_version": "core-check-v1"
+            },
+            "requested_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "segment_mode": "unit",
+              "chunk_size": 1024,
+              "chunk_overlap": 0
+            },
+            "snapshot_checksum": "f24398300baf49c7e01cebebad7a83cbfc54887bfd870f669e9489a1dc9d701f",
+            "chunk_count": 2,
+            "started_at": "2026-10-08T10:00:51.550609+08:00",
+            "completed_at": "2026-10-08T10:00:51.582151+08:00"
+          },
+          "timestamp": 1791424851,
+          "request_id": "35c934b0-8f52-4183-8580-ad78ca83a2d8"
+        }
+      },
+      {
+        "name": "plugin_defaults_chunks",
+        "method": "GET",
+        "path": "/api/v1/tenant/knowledge/index-jobs/4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4/chunks",
+        "http_status": 200,
+        "trace_id": "363379ee-7286-43de-9d3f-bd778eba7b1b",
+        "request_id": "88f3786c-c074-4126-9778-54a4584f4976",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "items": [
+              {
+                "uuid": "57a85f6c-e392-59c3-8f94-8501dbce2401",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+                "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+                "ordinal": 1,
+                "kind": "chunk",
+                "content": "dev绑定验收_0dbd84ec272f｜甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙",
+                "checksum": "60dff2f0a3c0de81e594414c5626bfbdcc2247dcc773b505233d0e52bcf524d6",
+                "metadata": {
+                  "format": "markdown",
+                  "section": 1,
+                  "doc_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+                  "chunk_idx": 1,
+                  "chunk_size": 1024,
+                  "provenance": {
+                    "source_version": "core-check-v1",
+                    "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b"
+                  },
+                  "source_uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/plugin_defaults",
+                  "source_tags": [
+                    "core-dev-profile-binding-check"
+                  ],
+                  "segment_mode": "unit",
+                  "segment_part": 1,
+                  "source_title": "Core dev Profile绑定验收 plugin_defaults",
+                  "host_job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+                  "source_version": "core-check-v1",
+                  "snapshot_checksum": "f24398300baf49c7e01cebebad7a83cbfc54887bfd870f669e9489a1dc9d701f"
+                }
+              },
+              {
+                "uuid": "a00a8514-2b18-5e22-8399-2b91d7b4b1cf",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+                "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+                "ordinal": 2,
+                "kind": "chunk",
+                "content": "丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬",
+                "checksum": "7333debf9459b056c65ca0c81770d45ec05744c201cb1a6cba828084e35cc0b9",
+                "metadata": {
+                  "format": "markdown",
+                  "section": 1,
+                  "doc_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+                  "chunk_idx": 2,
+                  "chunk_size": 1024,
+                  "provenance": {
+                    "source_version": "core-check-v1",
+                    "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b"
+                  },
+                  "source_uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/plugin_defaults",
+                  "source_tags": [
+                    "core-dev-profile-binding-check"
+                  ],
+                  "segment_mode": "unit",
+                  "segment_part": 1,
+                  "source_title": "Core dev Profile绑定验收 plugin_defaults",
+                  "host_job_uuid": "4dc1584f-4fae-4a7c-8e8d-56b6c17d69d4",
+                  "source_version": "core-check-v1",
+                  "snapshot_checksum": "f24398300baf49c7e01cebebad7a83cbfc54887bfd870f669e9489a1dc9d701f"
+                }
+              }
+            ]
+          },
+          "timestamp": 1791424851,
+          "request_id": "88f3786c-c074-4126-9778-54a4584f4976"
+        }
+      },
+      {
+        "name": "plugin_defaults_search",
+        "method": "POST",
+        "path": "/api/v1/tenant/knowledge/search",
+        "http_status": 200,
+        "trace_id": "d050d9c9-392a-4c08-86aa-23cc88694d31",
+        "request_id": "3dc41358-9e41-4aa7-80db-896593e890d6",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "items": [
+              {
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+                "title": "Core dev Profile绑定验收 plugin_defaults",
+                "uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/plugin_defaults",
+                "excerpt": "dev绑定验收_0dbd84ec272f｜甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊��",
+                "tags": [
+                  "core-dev-profile-binding-check"
+                ]
+              }
+            ]
+          },
+          "timestamp": 1791424851,
+          "request_id": "3dc41358-9e41-4aa7-80db-896593e890d6"
+        }
+      },
+      {
+        "name": "chunk_640_80_submit",
+        "method": "POST",
+        "path": "/api/v1/tenant/knowledge/spaces/30a6d654-c4c5-4a33-9806-6d66c6728187/documents",
+        "http_status": 202,
+        "trace_id": "8230336b-a62e-4c02-b015-0fb87738c2c7",
+        "request_id": "ab5b59a6-4712-4081-b187-2b00a49e5a97",
+        "response": {
+          "code": 202,
+          "message": "success",
+          "data": {
+            "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+            "status": "queued",
+            "operation": "upsert",
+            "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864"
+          },
+          "timestamp": 1791424851,
+          "request_id": "ab5b59a6-4712-4081-b187-2b00a49e5a97"
+        }
+      },
+      {
+        "name": "chunk_640_80_job",
+        "method": "GET",
+        "path": "/api/v1/tenant/knowledge/index-jobs/5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+        "http_status": 200,
+        "trace_id": "932232fa-ec78-487d-a010-647076c81176",
+        "request_id": "932bd794-f03b-482a-82e3-3e0030647e4b",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "document_count": 1,
+            "processed_documents": 1,
+            "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+            "operation": "upsert",
+            "status": "running",
+            "priority": "normal",
+            "trace_id": "8230336b-a62e-4c02-b015-0fb87738c2c7",
+            "effective_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "index_mode": "lexical_chunks",
+              "length_unit": "unicode_rune",
+              "strategy": {
+                "uuid": "b3641cd5-6fa3-543c-a3ff-34c169ab39dd",
+                "key": "h_fusion",
+                "version": 1
+              },
+              "ingestion_profile": {
+                "uuid": "4245b851-0710-4566-9f53-ecf3dd7e04cc",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "index_profile": {
+                "uuid": "81e39770-93dd-4903-918c-9847224d30a4",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "rag_profile": {
+                "uuid": "aa8c8f9c-6558-435d-a352-4727adb8163f",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "priority": "normal",
+              "segment_mode": "unit",
+              "segment_size_policy": "cap",
+              "chunk_size": 640,
+              "chunk_overlap": 80,
+              "segment_order": [
+                "page",
+                "segment",
+                "separator",
+                "size"
+              ],
+              "separators": [],
+              "page_priority": false,
+              "anchor_heading_path": false,
+              "anchor_clause_id": false,
+              "anchor_row_number": false,
+              "anchor_speaker": false,
+              "anchor_sentence_index": false,
+              "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b",
+              "source_version": "core-check-v1"
+            },
+            "requested_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "segment_mode": "unit",
+              "chunk_size": 640,
+              "chunk_overlap": 80
+            },
+            "snapshot_checksum": "ae5f906740155a13bc2d440782ecd7c41ce5c5d8ef2c803bde0a25fb44a84670",
+            "chunk_count": 0,
+            "started_at": "2026-10-08T10:00:51.823119+08:00"
+          },
+          "timestamp": 1791424851,
+          "request_id": "932bd794-f03b-482a-82e3-3e0030647e4b"
+        }
+      },
+      {
+        "name": "chunk_640_80_job",
+        "method": "GET",
+        "path": "/api/v1/tenant/knowledge/index-jobs/5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+        "http_status": 200,
+        "trace_id": "015b42f1-8661-40ef-a234-c36772cbfe4c",
+        "request_id": "6cab9e54-e4a7-442f-84da-82c1cd560a91",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "document_count": 1,
+            "processed_documents": 1,
+            "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+            "operation": "upsert",
+            "status": "succeeded",
+            "priority": "normal",
+            "trace_id": "8230336b-a62e-4c02-b015-0fb87738c2c7",
+            "effective_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "index_mode": "lexical_chunks",
+              "length_unit": "unicode_rune",
+              "strategy": {
+                "uuid": "b3641cd5-6fa3-543c-a3ff-34c169ab39dd",
+                "key": "h_fusion",
+                "version": 1
+              },
+              "ingestion_profile": {
+                "uuid": "4245b851-0710-4566-9f53-ecf3dd7e04cc",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "index_profile": {
+                "uuid": "81e39770-93dd-4903-918c-9847224d30a4",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "rag_profile": {
+                "uuid": "aa8c8f9c-6558-435d-a352-4727adb8163f",
+                "version": 1,
+                "key": "p1_general",
+                "config_checksum": "f3cc9140a2d895067d09322029e09b9140c020e3757afa58991f0d21f1f14c03"
+              },
+              "priority": "normal",
+              "segment_mode": "unit",
+              "segment_size_policy": "cap",
+              "chunk_size": 640,
+              "chunk_overlap": 80,
+              "segment_order": [
+                "page",
+                "segment",
+                "separator",
+                "size"
+              ],
+              "separators": [],
+              "page_priority": false,
+              "anchor_heading_path": false,
+              "anchor_clause_id": false,
+              "anchor_row_number": false,
+              "anchor_speaker": false,
+              "anchor_sentence_index": false,
+              "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b",
+              "source_version": "core-check-v1"
+            },
+            "requested_config": {
+              "schema": "powerx.knowledge.document-ingestion/v1",
+              "segment_mode": "unit",
+              "chunk_size": 640,
+              "chunk_overlap": 80
+            },
+            "snapshot_checksum": "ae5f906740155a13bc2d440782ecd7c41ce5c5d8ef2c803bde0a25fb44a84670",
+            "chunk_count": 4,
+            "started_at": "2026-10-08T10:00:51.823119+08:00",
+            "completed_at": "2026-10-08T10:00:51.831711+08:00"
+          },
+          "timestamp": 1791424852,
+          "request_id": "6cab9e54-e4a7-442f-84da-82c1cd560a91"
+        }
+      },
+      {
+        "name": "chunk_640_80_chunks",
+        "method": "GET",
+        "path": "/api/v1/tenant/knowledge/index-jobs/5c7e325f-7c9c-45a6-9322-88a8769b96fb/chunks",
+        "http_status": 200,
+        "trace_id": "e5a72089-2231-488d-8eae-3fc6b3bd063e",
+        "request_id": "7e1399cf-0f4c-4909-9ef4-b67fd74c4b82",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "items": [
+              {
+                "uuid": "7ce884c3-face-5b62-bc7e-f12dfb3719fa",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                "ordinal": 1,
+                "kind": "chunk",
+                "content": "dev绑定验收_0dbd84ec272f｜甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬",
+                "checksum": "f3b13f41940867528d1419b250e916f7deaee0db50128b13171f900855016acc",
+                "metadata": {
+                  "format": "markdown",
+                  "overlap": 80,
+                  "section": 1,
+                  "doc_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                  "chunk_idx": 1,
+                  "chunk_size": 640,
+                  "provenance": {
+                    "source_version": "core-check-v1",
+                    "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b"
+                  },
+                  "source_uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/chunk_640_80",
+                  "source_tags": [
+                    "core-dev-profile-binding-check"
+                  ],
+                  "segment_mode": "unit",
+                  "segment_part": 1,
+                  "source_title": "Core dev Profile绑定验收 chunk_640_80",
+                  "host_job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                  "source_version": "core-check-v1",
+                  "snapshot_checksum": "ae5f906740155a13bc2d440782ecd7c41ce5c5d8ef2c803bde0a25fb44a84670"
+                }
+              },
+              {
+                "uuid": "640fe3f1-2dfe-5f75-a573-9394504d5e8e",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                "ordinal": 2,
+                "kind": "chunk",
+                "content": "癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬",
+                "checksum": "fcdc5feae25de0d16ec6620016660b1de380b1bf111eca6da79f1da0440c238b",
+                "metadata": {
+                  "format": "markdown",
+                  "overlap": 80,
+                  "section": 1,
+                  "doc_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                  "chunk_idx": 2,
+                  "chunk_size": 640,
+                  "provenance": {
+                    "source_version": "core-check-v1",
+                    "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b"
+                  },
+                  "source_uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/chunk_640_80",
+                  "source_tags": [
+                    "core-dev-profile-binding-check"
+                  ],
+                  "segment_mode": "unit",
+                  "segment_part": 1,
+                  "source_title": "Core dev Profile绑定验收 chunk_640_80",
+                  "host_job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                  "source_version": "core-check-v1",
+                  "snapshot_checksum": "ae5f906740155a13bc2d440782ecd7c41ce5c5d8ef2c803bde0a25fb44a84670"
+                }
+              },
+              {
+                "uuid": "ff783e3c-3263-5ed7-ba2c-88a5facf11fa",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                "ordinal": 3,
+                "kind": "chunk",
+                "content": "癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬",
+                "checksum": "fcdc5feae25de0d16ec6620016660b1de380b1bf111eca6da79f1da0440c238b",
+                "metadata": {
+                  "format": "markdown",
+                  "overlap": 80,
+                  "section": 1,
+                  "doc_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                  "chunk_idx": 3,
+                  "chunk_size": 640,
+                  "provenance": {
+                    "source_version": "core-check-v1",
+                    "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b"
+                  },
+                  "source_uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/chunk_640_80",
+                  "source_tags": [
+                    "core-dev-profile-binding-check"
+                  ],
+                  "segment_mode": "unit",
+                  "segment_part": 1,
+                  "source_title": "Core dev Profile绑定验收 chunk_640_80",
+                  "host_job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                  "source_version": "core-check-v1",
+                  "snapshot_checksum": "ae5f906740155a13bc2d440782ecd7c41ce5c5d8ef2c803bde0a25fb44a84670"
+                }
+              },
+              {
+                "uuid": "75ecee5a-d292-5059-ae54-1b22e4bfcbb7",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                "ordinal": 4,
+                "kind": "chunk",
+                "content": "癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬",
+                "checksum": "ac76e4aaaba384425508791a019cee482fca7bb8ef24c8235b54ef91683c879c",
+                "metadata": {
+                  "format": "markdown",
+                  "overlap": 80,
+                  "section": 1,
+                  "doc_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                  "chunk_idx": 4,
+                  "chunk_size": 640,
+                  "provenance": {
+                    "source_version": "core-check-v1",
+                    "source_checksum": "f38b0d6dedd5f30ccb7c2405e87be98a84e8cd87fa31f9cebc674ad11d46b15b"
+                  },
+                  "source_uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/chunk_640_80",
+                  "source_tags": [
+                    "core-dev-profile-binding-check"
+                  ],
+                  "segment_mode": "unit",
+                  "segment_part": 1,
+                  "source_title": "Core dev Profile绑定验收 chunk_640_80",
+                  "host_job_uuid": "5c7e325f-7c9c-45a6-9322-88a8769b96fb",
+                  "source_version": "core-check-v1",
+                  "snapshot_checksum": "ae5f906740155a13bc2d440782ecd7c41ce5c5d8ef2c803bde0a25fb44a84670"
+                }
+              }
+            ]
+          },
+          "timestamp": 1791424852,
+          "request_id": "7e1399cf-0f4c-4909-9ef4-b67fd74c4b82"
+        }
+      },
+      {
+        "name": "chunk_640_80_search",
+        "method": "POST",
+        "path": "/api/v1/tenant/knowledge/search",
+        "http_status": 200,
+        "trace_id": "897c7451-b0d4-4913-8a06-28461eb69848",
+        "request_id": "9963e2ca-4252-4cc3-b6b1-f26035fe65c1",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "items": [
+              {
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "document_uuid": "f385e9f9-a008-4992-b13c-1220e2494864",
+                "title": "Core dev Profile绑定验收 chunk_640_80",
+                "uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/chunk_640_80",
+                "excerpt": "dev绑定验收_0dbd84ec272f｜甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊��",
+                "tags": [
+                  "core-dev-profile-binding-check"
+                ]
+              },
+              {
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "document_uuid": "07330b2b-b743-4d12-93d3-a13da0bb6974",
+                "title": "Core dev Profile绑定验收 plugin_defaults",
+                "uri": "powerx://core-acceptance/dev-profile-bindings-20261008/0dbd84ec272f/plugin_defaults",
+                "excerpt": "dev绑定验收_0dbd84ec272f｜甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊��",
+                "tags": [
+                  "core-dev-profile-binding-check"
+                ]
+              }
+            ]
+          },
+          "timestamp": 1791424852,
+          "request_id": "9963e2ca-4252-4cc3-b6b1-f26035fe65c1"
+        }
+      }
+    ],
+    "retained_core_validation_documents": true,
+    "fixture_marker": "dev绑定验收_0dbd84ec272f",
+    "verification_scope": "Core live API on the repaired dev space; plugin browser retry remains consumer-side acceptance",
+    "index_mode": "lexical_chunks",
+    "backend_restart_required": false
+  }
+}

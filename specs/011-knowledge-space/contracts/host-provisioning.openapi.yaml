@@ -85,6 +85,76 @@ paths:
     $ref: ./http-openapi.yaml#/paths/~1tenant~1knowledge~1index-jobs~1{job_uuid}
   /tenant/knowledge/index-jobs/{job_uuid}/chunks:
     $ref: ./http-openapi.yaml#/paths/~1tenant~1knowledge~1index-jobs~1{job_uuid}~1chunks
+  /tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}/indexes:rebuild:
+    post:
+      operationId: rebuildKnowledgeDocument
+      parameters:
+      - name: space_uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: document_uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - ServiceCredential: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RebuildRequest'
+      responses:
+        '202':
+          description: Queued task; stable document UUID; query existing index-jobs
+            details
+        '400':
+          description: Invalid mode/config/idempotency
+        '403':
+          description: Missing document.manage grant
+        '404':
+          description: Document/space not in authenticated tenant
+        '409':
+          description: Conflicting active task or same key with different intent
+        '422':
+          description: Unavailable published Profile or no successful snapshot for
+            reuse
+  /tenant/knowledge/spaces/{space_uuid}/indexes:rebuild:
+    post:
+      operationId: rebuildKnowledgeSpace
+      parameters:
+      - name: space_uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - ServiceCredential: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RebuildRequest'
+      responses:
+        '202':
+          description: Queued task; stable document UUID; query existing index-jobs
+            details
+        '400':
+          description: Invalid mode/config/idempotency
+        '403':
+          description: Missing document.manage grant
+        '404':
+          description: Document/space not in authenticated tenant
+        '409':
+          description: Conflicting active task or same key with different intent
+        '422':
+          description: Unavailable published Profile or no successful snapshot for
+            reuse
 components:
   schemas:
     CatalogOperation:
@@ -290,6 +360,60 @@ components:
           job_uuid:
             type: string
             format: uuid
+      - type: object
+        additionalProperties: false
+        required:
+        - operation
+        - space_uuid
+        - document_uuid
+        - rebuild
+        properties:
+          operation:
+            type: string
+            enum:
+            - rebuild_document
+          space_uuid:
+            type: string
+            format: uuid
+          document_uuid:
+            type: string
+            format: uuid
+          rebuild:
+            $ref: '#/components/schemas/RebuildRequest'
+      - type: object
+        additionalProperties: false
+        required:
+        - operation
+        - space_uuid
+        - rebuild
+        properties:
+          operation:
+            type: string
+            enum:
+            - rebuild_space
+          space_uuid:
+            type: string
+            format: uuid
+          rebuild:
+            $ref: '#/components/schemas/RebuildRequest'
+    RebuildRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          enum:
+          - reuse_snapshot
+          - apply_config
+          default: reuse_snapshot
+        idempotency_key:
+          type: string
+          maxLength: 128
+        ingestion:
+          $ref: ./http-openapi.yaml#/components/schemas/KnowledgeDocumentIngestionSettings
+      description: reuse_snapshot prohibits ingestion; apply_config requires ingestion.
+        Source is the current document version frozen at admission. Same key and same
+        intent reuse the original job.
   securitySchemes:
     ServiceCredential:
       type: http

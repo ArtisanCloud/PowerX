@@ -125,3 +125,25 @@ func TestHostQueuePriorityAndClaimFencing(t *testing.T) {
 func TestHostSnapshotChecksumSurvivesJSONBSerialization(t *testing.T) {
 	require.Equal(t, checksumJSON([]byte(`{"b":false,"a":640}`)), checksumJSON([]byte(`{ "a": 640, "b": false }`)))
 }
+
+func TestHostSnapshotLiteralNewlineSeparatorAndChunkBudget(t *testing.T) {
+	svc, db, tenant, space := newHostContractTestService(t)
+	profile := models.IngestionProfileVersion{TenantUUID: tenant, ProfileKey: "literal", Version: 1, Status: models.ProfileStatusPublished, Config: datatypes.JSON(`{}`)}
+	require.NoError(t, db.Create(&profile).Error)
+	require.NoError(t, db.Model(&models.KnowledgeSpace{}).Where("uuid = ?", space).Update("ingestion_profile_uuid", profile.UUID).Error)
+	source := "第一段完整文本\n\n第二段完整文本"
+	input := HostDocumentInput{Title: "literal", URI: "powerx://literal/separator", Content: source, ContentType: "text/plain", Checksum: hostChecksum(source), Version: "v1", Ingestion: &HostIngestionSettings{Schema: HostIngestionSnapshotSchema, ChunkSize: ptr(0), ChunkOverlap: ptr(0), Separators: &[]string{"\n\n"}}}
+	accepted, err := svc.UpsertDocument(context.Background(), tenant, space, input)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		job, _ := svc.GetIndexJob(context.Background(), tenant, accepted.JobUUID)
+		return job.Status == HostIndexStatusSucceeded
+	}, 2*time.Second, 10*time.Millisecond)
+	chunks, err := svc.GetJobChunks(context.Background(), tenant, accepted.JobUUID)
+	require.NoError(t, err)
+	require.Len(t, chunks, 2)
+	require.Equal(t, "第一段完整文本", chunks[0].Content)
+	require.Equal(t, "第二段完整文本", chunks[1].Content)
+	config := HostIngestionSnapshot{ChunkSize: 16, ChunkOverlap: 15}
+	require.Equal(t, KnowledgeReasonInvalidArgument, dto.CodeOf(validateHostChunkBudget(config, strings.Repeat("x", 4097))))
+}

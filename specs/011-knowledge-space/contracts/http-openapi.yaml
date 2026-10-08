@@ -503,6 +503,11 @@ paths:
           $ref: '#/components/responses/KnowledgeIndexConflict'
         '503':
           $ref: '#/components/responses/KnowledgeUpstreamDependency'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./host-provisioning.openapi.yaml#/components/schemas/RebuildRequest
   /tenant/knowledge/index-jobs/{job_uuid}:
     parameters:
     - $ref: '#/components/parameters/IndexJobUUID'
@@ -617,6 +622,8 @@ paths:
           $ref: '#/components/responses/KnowledgeForbidden'
         '404':
           $ref: '#/components/responses/KnowledgeIndexJobNotFound'
+  /tenant/knowledge/spaces/{space_uuid}/documents/{document_uuid}/indexes:rebuild:
+    $ref: ./host-provisioning.openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1documents~1{document_uuid}~1indexes:rebuild
 components:
   securitySchemes:
     BearerAuth:
@@ -925,6 +932,25 @@ components:
         completed_at:
           type: string
           format: date-time
+        rebuild_mode:
+          type: string
+          enum:
+          - reuse_snapshot
+          - apply_config
+        document_count:
+          type: integer
+        processed_documents:
+          type: integer
+        document_configs:
+          type: array
+          items:
+            type: object
+            properties:
+              document_uuid:
+                type: string
+                format: uuid
+              effective_config:
+                $ref: '#/components/schemas/KnowledgeEffectiveIngestionConfig'
     KnowledgeError:
       type: object
       required:

@@ -64,6 +64,7 @@ type HostFrozenProfile struct {
 	ConfigChecksum string         `json:"config_checksum"`
 }
 type HostIngestionSnapshot struct {
+	Indexing *SemanticIndexSnapshot `json:"indexing,omitempty"`
 	Schema              string             `json:"schema"`
 	IndexMode           string             `json:"index_mode"`
 	LengthUnit          string             `json:"length_unit"`
@@ -201,6 +202,9 @@ func (s *HostContractService) freezeIngestion(ctx context.Context, space *models
 	if err := validateHostSnapshot(out, in.ContentType); err != nil {
 		return out, err
 	}
+	if err := validateHostChunkBudget(out, in.Content); err != nil {
+		return out, err
+	}
 	return out, nil
 }
 func (s *HostContractService) freezeProfile(ctx context.Context, tenant, kind string, id uuid.UUID, ref *HostTaskProfileRef) (*HostFrozenProfile, error) {
@@ -321,7 +325,7 @@ func validateHostSnapshot(in HostIngestionSnapshot, contentType string) error {
 }
 
 func HostDocumentIngestionCapabilities() map[string]any {
-	return map[string]any{"schema": HostIngestionSnapshotSchema, "index_mode": "lexical_chunks", "content_types": []string{"text/plain", "text/markdown"}, "length_unit": "unicode_rune", "chunk_size_min": 0, "chunk_size_max": 65536, "priorities": []string{"normal", "high"}, "priority_semantics": "non_preemptive_high_first", "segment_modes": []string{"unit", "heading", "clause", "table_row", "code_block", "conversation"}, "segment_size_policies": []string{"cap", "target"}, "segment_order_items": []string{"page", "segment", "separator", "size"}, "processor_profile_supported": false, "masking_profile_supported": false, "page_priority_supported": false, "strategy_override_supported": false, "anchor_mode_requirements": map[string]string{"anchor_heading_path": "heading", "anchor_clause_id": "clause", "anchor_sentence_index": "clause", "anchor_row_number": "table_row", "anchor_speaker": "conversation"}, "defaults": map[string]any{"priority": "normal", "segment_mode": "unit", "segment_size_policy": "cap", "chunk_size": 1024, "chunk_overlap": 0, "segment_order": []string{"page", "segment", "separator", "size"}, "separators": []string{}, "page_priority": false, "anchors": false}, "profile_precedence": []string{"explicit_request", "frozen_published_ingestion_profile.chunking", "core_defaults"}}
+	return map[string]any{"schema": HostIngestionSnapshotSchema, "index_mode": "lexical_chunks", "content_types": []string{"text/plain", "text/markdown"}, "length_unit": "unicode_rune", "chunk_size_min": 0, "chunk_size_max": 65536, "priorities": []string{"normal", "high"}, "priority_semantics": "non_preemptive_high_first", "segment_modes": []string{"unit", "heading", "clause", "table_row", "code_block", "conversation"}, "segment_size_policies": []string{"cap", "target"}, "segment_order_items": []string{"page", "segment", "separator", "size"}, "processor_profile_supported": false, "masking_profile_supported": false, "page_priority_supported": false, "strategy_override_supported": false, "anchor_mode_requirements": map[string]string{"anchor_heading_path": "heading", "anchor_clause_id": "clause", "anchor_sentence_index": "clause", "anchor_row_number": "table_row", "anchor_speaker": "conversation"}, "defaults": map[string]any{"priority": "normal", "segment_mode": "unit", "segment_size_policy": "cap", "chunk_size": 1024, "chunk_overlap": 0, "segment_order": []string{"page", "segment", "separator", "size"}, "separators": []string{}, "page_priority": false, "anchors": false}, "max_content_chunks": 4096, "profile_precedence": []string{"explicit_request", "frozen_published_ingestion_profile.chunking", "core_defaults"}}
 }
 
 func hostStrategyUUID(key string, version int) string {
@@ -344,4 +348,25 @@ func publicHostSnapshot(in HostIngestionSnapshot) HostIngestionSnapshot {
 		}
 	}
 	return in
+}
+
+func validateHostChunkBudget(config HostIngestionSnapshot, content string) error {
+	const maxChunks = 4096
+	if config.ChunkSize > 0 {
+		step := config.ChunkSize - config.ChunkOverlap
+		if step <= 0 || utf8.RuneCountInString(content) > step*maxChunks {
+			return KnowledgeInvalidArgumentError(errors.New("configuration exceeds the 4096 content-chunk budget"))
+		}
+	}
+	boundaries := strings.Count(content, "\n")
+	if config.SegmentMode == "clause" {
+		boundaries += strings.Count(content, "。") + strings.Count(content, "；") + strings.Count(content, ";")
+	}
+	for _, separator := range config.Separators {
+		boundaries += strings.Count(content, separator)
+	}
+	if boundaries > maxChunks {
+		return KnowledgeInvalidArgumentError(errors.New("too many segment boundaries"))
+	}
+	return nil
 }

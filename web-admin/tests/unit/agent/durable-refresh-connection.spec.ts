@@ -50,6 +50,58 @@ it('rebuilds from an accepted checkpoint, resumes without q, and renders exactly
   expect(pendingDurableRuns(localStorage, '1:tenant:dev')).toEqual([])
 })
 
+it.each([
+  { status: 'completed', fragmented: false },
+  { status: 'failed', fragmented: false },
+  { status: 'completed', fragmented: true },
+  { status: 'failed', fragmented: true },
+])('keeps one assistant for the real final → ended → end sequence ($status, fragmented=$fragmented)', async ({ status, fragmented }) => {
+  if (!fragmented) savePendingDurableRun(localStorage, '1:tenant:dev', { runId, agentId: 'marketing', sessionId: '42', updatedAt: Date.now() })
+  const success = status === 'completed'
+  const envelope = {
+    schema: 'powerx.agent.response/v4', kind: 'analysis', outcome: 'needs_action',
+    presentation: { reported: [], computed: [], conflicts: [], hypotheses: [], gaps: ['复购客户数'], actions: ['补充客户数'] },
+  }
+  const task = { task_id: 'analysis', status }
+  const frame = (event: string, data: unknown) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  const body = [
+    frame('meta', { durable_run: true, run_id: runId, session_id: '42', message_id: '9' }),
+    frame('agent_run.task_status', { run_id: runId, payload: { ...task, status: 'running' } }),
+    frame('meta', { assistant_message_id: 10, run_id: runId }),
+    frame('final', {
+      success,
+      data: { content: success ? '' : '本轮执行未完成，请查看运行追踪。', ...(success ? { response_envelope: envelope } : {}) },
+      metadata: { run_id: runId, status, run_state: { tasks: [task], ended: true, status } },
+    }),
+    frame('agent_run.ended', { run_id: runId, payload: { status, success } }),
+    frame('end', { success }),
+  ].join('')
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (new URL(url).searchParams.has('probe')) return new Response(': connected\n\n')
+    const split = body.indexOf('event: final') + 10
+    const tail = body.indexOf('event: agent_run.ended')
+    const chunks = fragmented ? [body.slice(0, split), body.slice(split, tail), body.slice(tail)] : [body]
+    return new Response(new ReadableStream({ start(controller) {
+      for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk))
+      controller.close()
+    } }))
+  }))
+  mount()
+  if (fragmented) await chat.sendMessage('营销复盘问题')
+  else {
+    chat.messages.value = [{ id: 9, role: 'user', content: '历史输入', done: true }]
+    await chat.resumePendingRun()
+  }
+  await vi.waitFor(() => expect(chat.isGenerating.value).toBe(false))
+  const answers = chat.messages.value.filter(message => message.role === 'assistant')
+  expect(answers).toHaveLength(1)
+  expect(answers[0].meta?.runState).toMatchObject({ ended: true, status, tasks: [task] })
+  expect(answers[0]).toMatchObject({ done: true, isThinking: false, isStreaming: false, isError: !success })
+  if (success) expect(answers[0].meta?.responseEnvelope).toEqual(envelope)
+  else expect(answers[0].content).toBe('本轮执行未完成，请查看运行追踪。')
+  expect(pendingDurableRuns(localStorage, '1:tenant:dev')).toEqual([])
+})
+
 it('uses an already persisted final message without creating another subscription', async () => {
   savePendingDurableRun(localStorage, '1:tenant:dev', { runId, agentId: 'marketing', sessionId: '42', updatedAt: Date.now() })
   const fetchMock = vi.fn(async () => new Response(': connected\n\n'))

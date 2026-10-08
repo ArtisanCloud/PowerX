@@ -1945,7 +1945,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 
 	return &KnowledgeSpaceDeps{
-		HostDocuments:   knowledgeService.NewHostContractService(db),
+		HostDocuments:   knowledgeService.NewHostContractService(db).WithSemantic(knowledgeService.NewSemanticRuntime(db, agentSettingSvc, routedVectorStore)),
 		Instrumentation: inst,
 		RedisClient:     redisClient,
 		EventBus:        bus,

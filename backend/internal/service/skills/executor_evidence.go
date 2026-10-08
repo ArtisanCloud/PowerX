@@ -30,7 +30,7 @@ type EvidenceValidationError struct {
 func (e *EvidenceValidationError) Error() string { return e.Cause.Error() }
 func (e *EvidenceValidationError) Unwrap() error { return e.Cause }
 
-func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in ExecuteInput, executor map[string]any, _ string) (map[string]any, error) {
+func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in ExecuteInput, executor map[string]any, skillInstruction string) (map[string]any, error) {
 	sources := evidenceSourcePointers(executor)
 	locale := asStringInterface(in.Context["locale"])
 	if locale != "zh-CN" && locale != "en-US" {
@@ -55,6 +55,10 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 		return result, nil
 	}
 	policy, err := evidence.ReadCalculationPolicy(executor["calculation_policy"])
+	if err != nil {
+		return nil, err
+	}
+	reviewPolicy, err := evidence.ReadReviewPolicy(executor["review_policy"], policy)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +126,21 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	if err != nil {
 		return nil, err
 	}
+	if err := evidence.AddNotesSourceContext(notesContext, in.Payload, sources); err != nil {
+		return nil, fmt.Errorf("skill.evidence.notes: %w", err)
+	}
+	// 已发布 Skill 的业务要求用于综合解释；通用阶段指令仍约束输出契约。
+	notesContext["skill_instruction"] = skillInstruction
 	notesSchema := evidence.NotesJSONSchema()
+	var reviewChoices evidence.ReviewChoices
+	if reviewPolicy != nil {
+		reviewChoices, err = reviewPolicy.Choices(prepared, missing, in.Payload, sources, locale)
+		if err != nil {
+			return nil, fmt.Errorf("skill.evidence.notes: %w", err)
+		}
+		reviewChoices.ConstrainSchema(notesSchema)
+		notesContext["allowed_hypotheses"], notesContext["allowed_actions"] = reviewChoices.Hypotheses, reviewChoices.Actions
+	}
 	allowedGaps := []string{}
 	for _, gap := range missing {
 		text := gap.Label + ": missing " + strings.Join(gap.InputLabels, ", ")
@@ -147,6 +165,11 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	var notes evidence.Notes
 	if err := evidence.Decode([]byte(text), &notes); err != nil {
 		return nil, fmt.Errorf("skill.evidence.notes: %w", err)
+	}
+	if reviewPolicy != nil {
+		if err := reviewChoices.Validate(notes); err != nil {
+			return nil, fmt.Errorf("skill.evidence.notes: %w", err)
+		}
 	}
 	if len(notes.Gaps) != len(allowedGaps) {
 		return nil, fmt.Errorf("skill.evidence.notes: evidence.missing_inputs_unacknowledged")

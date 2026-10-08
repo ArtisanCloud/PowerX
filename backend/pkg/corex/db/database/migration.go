@@ -774,10 +774,16 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 		&modelKnowledge.TenantDocument{},
 		&modelKnowledge.IndexJob{},
 		&modelKnowledge.HostDocumentChunk{},
+		&modelKnowledge.SemanticEmbeddingProfile{},
+		&modelKnowledge.SemanticSpaceBinding{},
 	); err != nil {
 		return err
 	}
-	return backfillKnowledgePolicyUUIDs(db)
+	if err := backfillKnowledgePolicyUUIDs(db); err != nil {
+		return err
+	}
+	// 旧已成功索引迁移为 active 指针，后续待执行任务不能覆盖它。
+	return db.Model(&modelKnowledge.TenantDocument{}).Where("active_index_job_uuid IS NULL AND index_status = ? AND index_job_uuid IN (?)", "indexed", db.Model(&modelKnowledge.IndexJob{}).Select("uuid").Where("status = ?", "succeeded")).Update("active_index_job_uuid", gorm.Expr("index_job_uuid")).Error
 }
 
 func backfillKnowledgePolicyUUIDs(db *gorm.DB) error {

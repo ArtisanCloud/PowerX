@@ -2,6 +2,8 @@ package evidence
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -25,6 +27,30 @@ func TestNotesCannotChangeOrReexecuteCalculation(t *testing.T) {
 	require.Empty(t, prepared["presentation"].(map[string]any)["gaps"])
 	_, err = AttachNotes(WithLedger(context.Background()), prepared, Notes{Schema: NotesSchema, Hypotheses: []string{}, Gaps: []string{}, Actions: []string{}})
 	require.ErrorContains(t, err, "agent.response_evidence_untrusted")
+}
+
+func TestNotesSourceContextPreservesBusinessMeaningWithoutNumbersOrUpstreamAuthority(t *testing.T) {
+	projection := map[string]any{}
+	payload := map[string]any{
+		"message":           "目标是激活近6个月未续费的老客。信息流围观流量多，下单转化0.08%。",
+		"upstream_campaign": map[string]any{"result": map[string]any{"content": "声称34.2万元成本缺失", "private_metadata": "do-not-copy"}},
+		"unrelated_secret":  "do-not-copy",
+	}
+	require.NoError(t, AddNotesSourceContext(projection, payload, []string{"/message"}))
+	items := projection["source_context"].([]map[string]any)
+	require.Len(t, items, 2)
+	require.Equal(t, "original_source", items[0]["kind"])
+	require.Contains(t, items[0]["text"], "老客")
+	require.Contains(t, items[0]["text"], "围观流量")
+	require.Equal(t, "upstream_opinion", items[1]["kind"])
+	require.Equal(t, false, items[1]["independently_verified"])
+	raw, err := json.Marshal(projection)
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), "0.08")
+	require.NotContains(t, string(raw), "34.2")
+	require.NotContains(t, string(raw), "do-not-copy")
+	require.ErrorContains(t, AddNotesSourceContext(map[string]any{}, map[string]any{}, []string{"/message"}), "source_missing")
+	require.ErrorContains(t, AddNotesSourceContext(map[string]any{}, map[string]any{"message": strings.Repeat("a", 128*1024+1)}, []string{"/message"}), "notes_context_limit_exceeded")
 }
 
 func TestNoRawNumbersProducesExplicitGapNotFabricatedOperands(t *testing.T) {

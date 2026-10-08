@@ -16,6 +16,7 @@ import (
 	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/runtimecredential"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/autoseed"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
@@ -29,6 +30,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
+	"gorm.io/gorm"
 )
 
 // ---- 一个最小可跑的 Authorizer 占位实现 ----
@@ -193,7 +195,11 @@ func newPluginSkillDiscoveryService(deps *shared.Deps) *skillservice.PluginSkill
 	return skillservice.NewPluginSkillDiscoveryService(importSvc)
 }
 
+var runtimeCredentialMu sync.Mutex
+
 func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *config.Config, pluginID string) (*pmimpl.PluginRuntimeCredential, error) {
+	runtimeCredentialMu.Lock()
+	defer runtimeCredentialMu.Unlock()
 	pluginID = strings.TrimSpace(pluginID)
 	if pluginID == "" {
 		return nil, fmt.Errorf("plugin_id required")
@@ -204,6 +210,13 @@ func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *
 	if deps.TenantSvc == nil || deps.TenantSvc.Repo == nil {
 		return nil, fmt.Errorf("tenant service unavailable")
 	}
+	if cfg == nil || strings.TrimSpace(cfg.Plugin.InstalledDir) == "" {
+		return nil, fmt.Errorf("plugin runtime config missing")
+	}
+	credentialPath, err := runtimecredential.Path(abs(cfg.Plugin.InstalledDir), pluginID)
+	if err != nil {
+		return nil, err
+	}
 	systemTenant, err := deps.TenantSvc.Repo.EnsureSystemTenant(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ensure system tenant: %w", err)
@@ -213,19 +226,35 @@ func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *
 		return nil, fmt.Errorf("%s tenant uuid missing", tenantmodel.SystemTenantKey)
 	}
 
-	credSvc := settingservice.NewPluginInstanceConfigService(deps)
-	clientID, clientSecret, err := credSvc.EnsureCredentials(ctx, systemTenantUUID, pluginID, &settingservice.ClientCredential{
-		AllowedAudiences: []string{"powerx:api"},
-		AllowedScopes:    []string{"access"},
+	var clientID, clientSecret string
+	err = deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		credSvc := settingservice.NewPluginInstanceConfigService(&shared.Deps{DB: tx})
+		var err error
+		clientID, clientSecret, err = credSvc.EnsureCredentials(ctx, systemTenantUUID, pluginID, &settingservice.ClientCredential{
+			AllowedAudiences: []string{"powerx:api"}, AllowedScopes: []string{"access"},
+		})
+		if err != nil {
+			return fmt.Errorf("ensure plugin runtime credential: %w", err)
+		}
+		if strings.TrimSpace(clientSecret) == "" {
+			clientSecret, err = loadInstalledPluginClientSecret(ctx, credSvc, cfg, systemTenantUUID, pluginID, clientID)
+			if err != nil {
+				return fmt.Errorf("load installed plugin runtime credential: %w", err)
+			}
+		}
+		if err := credSvc.VerifyClient(ctx, systemTenantUUID, pluginID, clientID, clientSecret, "powerx:api", "access", ""); err != nil {
+			return fmt.Errorf("verify plugin runtime credential: %w", err)
+		}
+		// 明文写入失败时，事务回滚首次创建的 hash；不留下无法恢复的孤立凭证记录。
+		if err := runtimecredential.Write(credentialPath, runtimecredential.Credential{
+			TenantUUID: systemTenantUUID, ClientID: clientID, ClientSecret: clientSecret,
+		}); err != nil {
+			return fmt.Errorf("persist plugin runtime credential: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("ensure plugin runtime credential: %w", err)
-	}
-	if strings.TrimSpace(clientSecret) == "" {
-		clientSecret, err = loadInstalledPluginClientSecret(ctx, credSvc, cfg, systemTenantUUID, pluginID, clientID)
-		if err != nil {
-			return nil, fmt.Errorf("load installed plugin runtime credential: %w", err)
-		}
+		return nil, err
 	}
 
 	return &pmimpl.PluginRuntimeCredential{
@@ -250,27 +279,46 @@ func loadInstalledPluginClientSecret(ctx context.Context, credSvc *settingservic
 	if installedRoot == "" {
 		return "", fmt.Errorf("plugin installed directory missing")
 	}
+	credentialPath, err := runtimecredential.Path(abs(installedRoot), pluginID)
+	if err != nil {
+		return "", err
+	}
+	reasons := make([]string, 0)
+	if saved, err := runtimecredential.Read(credentialPath); err == nil {
+		if saved.TenantUUID != tenantUUID || saved.ClientID != clientID {
+			reasons = append(reasons, "durable credential identity mismatch")
+		} else if err := credSvc.VerifyClient(ctx, tenantUUID, pluginID, clientID, saved.ClientSecret, "powerx:api", "access", ""); err == nil {
+			return saved.ClientSecret, nil
+		} else {
+			reasons = append(reasons, "durable credential rejected: "+err.Error())
+		}
+	} else if !os.IsNotExist(err) {
+		reasons = append(reasons, "durable credential file unreadable or invalid")
+	}
 	pattern := filepath.Join(abs(installedRoot), pluginID, "*", "config", "host-values.yaml")
 	candidates, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", fmt.Errorf("scan installed host-values: %w", err)
 	}
 	if len(candidates) == 0 {
-		return "", fmt.Errorf("runtime credential exists but host-values.yaml is missing for plugin=%s; rotate credentials explicitly or reinstall plugin", pluginID)
+		reasons = append(reasons, "host-values.yaml missing")
 	}
 	sort.SliceStable(candidates, func(i, j int) bool {
 		return fileModTime(candidates[i]).After(fileModTime(candidates[j]))
 	})
 	for _, candidate := range candidates {
-		secret, ok := readSTSClientSecretFromHostValues(candidate, clientID)
-		if !ok {
+		secret, err := readSTSClientSecretFromHostValues(candidate, clientID)
+		if err != nil {
+			reasons = append(reasons, candidate+": "+err.Error())
 			continue
 		}
 		if err := credSvc.VerifyClient(ctx, tenantUUID, pluginID, clientID, secret, "powerx:api", "access", ""); err == nil {
 			return secret, nil
+		} else {
+			reasons = append(reasons, candidate+": "+err.Error())
 		}
 	}
-	return "", fmt.Errorf("installed host-values STS secret does not match registry credentials for plugin=%s tenant_uuid=%s; rotate credentials explicitly or reinstall plugin", pluginID, tenantUUID)
+	return "", fmt.Errorf("PLUGIN_RUNTIME_CREDENTIAL_UNAVAILABLE: plugin=%s tenant_uuid=%s: %s; use database repair-plugin-runtime-credentials to preview recovery", pluginID, tenantUUID, strings.Join(reasons, "; "))
 }
 
 func fileModTime(path string) time.Time {
@@ -281,35 +329,31 @@ func fileModTime(path string) time.Time {
 	return info.ModTime()
 }
 
-func readSTSClientSecretFromHostValues(path string, clientID string) (string, bool) {
+func readSTSClientSecretFromHostValues(path string, clientID string) (string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil || len(raw) == 0 {
-		return "", false
+		return "", fmt.Errorf("host-values unreadable or empty")
 	}
 	var doc map[string]any
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return "", false
+		return "", fmt.Errorf("host-values invalid YAML")
 	}
 	env, ok := doc["env"].(map[string]any)
 	if !ok {
-		return "", false
+		return "", fmt.Errorf("host-values env missing")
 	}
-	if strings.TrimSpace(asString(env["POWERX_STS_CLIENT_ID"])) != strings.TrimSpace(clientID) {
-		return "", false
+	id, ok := env["POWERX_STS_CLIENT_ID"].(string)
+	if !ok || strings.TrimSpace(id) == "" {
+		return "", fmt.Errorf("host-values POWERX_STS_CLIENT_ID missing")
 	}
-	secret := strings.TrimSpace(asString(env["POWERX_STS_CLIENT_SECRET"]))
-	return secret, secret != ""
-}
-
-func asString(v any) string {
-	switch value := v.(type) {
-	case string:
-		return value
-	case fmt.Stringer:
-		return value.String()
-	default:
-		return fmt.Sprint(value)
+	if strings.TrimSpace(id) != strings.TrimSpace(clientID) {
+		return "", fmt.Errorf("host-values client_id mismatch")
 	}
+	secret, ok := env["POWERX_STS_CLIENT_SECRET"].(string)
+	if !ok || strings.TrimSpace(secret) == "" {
+		return "", fmt.Errorf("host-values POWERX_STS_CLIENT_SECRET missing")
+	}
+	return strings.TrimSpace(secret), nil
 }
 
 func resolvePluginRuntimeGatewayBaseURL(cfg *config.Config) string {

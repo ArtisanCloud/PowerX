@@ -23,6 +23,7 @@ import (
 	"gorm.io/gorm"
 
 	coreconfig "github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/runtimecredential"
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -34,6 +35,10 @@ const hostValuesFileName = "host-values.yaml"
 var pluginDatabaseBindingNamespace = uuid.MustParse("28943ca2-58c5-5f53-8df5-a20a162f4452")
 
 func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot string, seed *plugin_mgr.HostConfig) (*plugin_mgr.HostConfig, error) {
+	return m.generateHostConfigWithCredential(man, destRoot, seed, nil)
+}
+
+func (m *managerImpl) generateHostConfigWithCredential(man plugin_mgr.Manifest, destRoot string, seed *plugin_mgr.HostConfig, runtimeCred *PluginRuntimeCredential) (*plugin_mgr.HostConfig, error) {
 	deploymentEnv, err := m.requireDeploymentEnv()
 	if err != nil {
 		return nil, err
@@ -162,7 +167,9 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		selected = mergeStringMapOverride(selected, seed.Values)
 		structured = mergeHostSpecMissing(structured, seed.Spec)
 	}
-	m.applyDelegatedHostContract(selected, structured, man.ID, nil)
+	if err := m.applyDelegatedHostContract(selected, structured, man.ID, runtimeCred); err != nil {
+		return nil, err
+	}
 	m.applyHostCORSContract(selected, structured)
 	normalizePluginLogEnv(selected)
 
@@ -207,7 +214,7 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(valuesPath, data, 0o640); err != nil {
+	if err := runtimecredential.AtomicWrite(valuesPath, data, 0o600); err != nil {
 		return nil, err
 	}
 
@@ -228,9 +235,9 @@ func (m *managerImpl) provisionDatabaseSection(pluginID string) (*databaseSectio
 
 // applyDelegatedHostContract enforces delegated_proxy runtime hints in host config.
 // Some plugin runtimes prefer reading host-values.yaml over process env.
-func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, structured map[string]any, pluginID string, runtimeCred *PluginRuntimeCredential) {
+func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, structured map[string]any, pluginID string, runtimeCred *PluginRuntimeCredential) error {
 	if selected == nil {
-		return
+		return fmt.Errorf("host runtime environment is missing")
 	}
 	// 安装产物在宿主内运行，默认按 delegated_proxy 契约写入 taskbus provider=host。
 	for _, key := range deprecatedProviderModeEnvKeys() {
@@ -266,16 +273,14 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 		applyWSContractEnv(selected, m.opts.CoreConfig)
 	}
 	deleteDeprecatedGatewayRuntimeEnv(selected)
-	if runtimeCred != nil {
-		applyRuntimeCredentialToEnv(selected, runtimeCred)
-	} else if m != nil && m.opts.RuntimeCredential != nil {
-		if resolved, err := m.opts.RuntimeCredential(context.Background(), strings.TrimSpace(pluginID)); err == nil && resolved != nil {
-			applyRuntimeCredentialToEnv(selected, resolved)
+	if runtimeCred != nil || (m != nil && m.opts.RuntimeCredential != nil) {
+		if err := m.injectRuntimeSTSContract(selected, pluginID, runtimeCred); err != nil {
+			return err
 		}
 	}
 
 	if structured == nil {
-		return
+		return nil
 	}
 	deleteDeprecatedProviderModeKeys(structured)
 	setNestedValue(structured, []string{"context", "provider_mode"}, "delegated")
@@ -283,6 +288,7 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	setNestedValue(structured, []string{"event_bridge", "taskbus_provider"}, "host")
 	setNestedValue(structured, []string{"event_bridge", "enabled"}, true)
 	setNestedValue(structured, []string{"event_bridge", "mode"}, "taskbus")
+	return nil
 }
 
 func (m *managerImpl) applyHostCORSContract(selected map[string]string, structured map[string]any) {
@@ -373,7 +379,9 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin,
 	if spec == nil {
 		spec = map[string]any{}
 	}
-	m.applyDelegatedHostContract(values, spec, p.ID, runtimeCred)
+	if err := m.applyDelegatedHostContract(values, spec, p.ID, runtimeCred); err != nil {
+		return err
+	}
 	m.applyHostCORSContract(values, spec)
 	hc.Values = values
 	hc.Spec = spec
@@ -412,7 +420,7 @@ func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin,
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(hvPath, data, 0o640); err != nil {
+	if err := runtimecredential.AtomicWrite(hvPath, data, 0o600); err != nil {
 		return err
 	}
 

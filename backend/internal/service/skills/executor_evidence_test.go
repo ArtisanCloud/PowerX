@@ -177,6 +177,11 @@ func TestManifestEvidenceKeepsFullSaaSReviewAndCalculatesDeclaredRatios(t *testi
 	manifest := evidenceDefinition()
 	manifest["executor"].(map[string]any)["prompt_template_i18n"] = map[string]any{"zh-CN": "test"}
 	manifest["executor"].(map[string]any)["calculation_policy"] = policy
+	reviewBytes, err := os.ReadFile("../../../cmd/database/seed/locales/marketing_review_policy.json")
+	require.NoError(t, err)
+	var review map[string]any
+	require.NoError(t, json.Unmarshal(reviewBytes, &review))
+	manifest["executor"].(map[string]any)["review_policy"] = review
 	calls := 0
 	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
 		calls++
@@ -186,17 +191,25 @@ func TestManifestEvidenceKeepsFullSaaSReviewAndCalculatesDeclaredRatios(t *testi
 		if calls == 2 {
 			dataSchema := in.ResponseSchema["properties"].(map[string]any)["data"].(map[string]any)
 			props := dataSchema["properties"].(map[string]any)
-			require.ElementsMatch(t, []string{"spend", "gmv", "incremental_gmv", "reported_roi", "reported_incremental_roi", "reported_repeat_rate"}, dataSchema["required"])
+			require.ElementsMatch(t, []string{"spend", "gmv", "incremental_gmv", "reported_roi", "reported_incremental_roi", "reported_repeat_rate", "unit_price_lower", "unit_price_upper", "inactivity_window", "campaign_duration", "repeat_window", "reported_sms_roi", "reported_feed_roi", "reported_feed_ctr", "reported_feed_order_rate"}, dataSchema["required"])
 			data := map[string]any{}
 			for key, value := range props {
 				refs := value.(map[string]any)["properties"].(map[string]any)["token_ref"].(map[string]any)["enum"].([]string)
 				require.Len(t, refs, 1, key)
-				data[key] = map[string]any{"scope": "campaign", "token_ref": refs[0]}
+				declaredScope := value.(map[string]any)["properties"].(map[string]any)["scope"].(map[string]any)["const"]
+				data[key] = map[string]any{"scope": declaredScope, "token_ref": refs[0]}
 			}
 			b, _ := json.Marshal(map[string]any{"schema": evidence.ExtractionSchema, "data": data})
 			return string(b), nil
 		}
-		b, _ := json.Marshal(evidence.Notes{Schema: evidence.NotesSchema, Hypotheses: []string{}, Gaps: in.Payload["allowed_gaps"].([]string), Actions: []string{"核对增量归因口径"}})
+		require.Equal(t, "test", in.Payload["skill_instruction"])
+		context, _ := json.Marshal(in.Payload["source_context"])
+		require.Contains(t, string(context), "存量客户")
+		require.Contains(t, string(context), "围观流量")
+		require.NotContains(t, string(context), "34.2")
+		require.Len(t, in.Payload["allowed_hypotheses"], 4)
+		require.Len(t, in.Payload["allowed_actions"], 4)
+		b, _ := json.Marshal(evidence.Notes{Schema: evidence.NotesSchema, Hypotheses: in.Payload["allowed_hypotheses"].([]string), Gaps: in.Payload["allowed_gaps"].([]string), Actions: in.Payload["allowed_actions"].([]string)})
 		return string(b), nil
 	}})
 	ctx := evidence.WithLedger(context.Background())
@@ -209,6 +222,19 @@ func TestManifestEvidenceKeepsFullSaaSReviewAndCalculatesDeclaredRatios(t *testi
 	for _, raw := range reported {
 		values = append(values, raw.(map[string]any)["value"].(string))
 	}
+	byKey := map[string]map[string]any{}
+	for _, raw := range reported {
+		item := raw.(map[string]any)
+		byKey[item["key"].(string)] = item
+	}
+	require.Len(t, reported, 15)
+	require.Equal(t, "客单价下限", byKey["unit_price_lower"]["label"])
+	require.Equal(t, "6000", byKey["unit_price_lower"]["value"])
+	require.Equal(t, "2.4", byKey["unit_price_upper"]["value"])
+	require.Equal(t, "未续费或未升级回溯期", byKey["inactivity_window"]["label"])
+	require.Equal(t, "二次购买观察期", byKey["repeat_window"]["label"])
+	require.Equal(t, "短信渠道", byKey["reported_sms_roi"]["scope"])
+	require.Equal(t, "信息流渠道", byKey["reported_feed_roi"]["scope"])
 	for _, value := range []string{"6000", "2.4", "34.2", "46.2", "1.35", "3.37", "29.0", "27.8", "0.65", "4.8", "1.2", "0.08"} {
 		require.Contains(t, values, value)
 	}
@@ -262,4 +288,29 @@ func TestMergeGenericFactsKeepsSameValueInDifferentSourceContexts(t *testing.T) 
 	require.NoError(t, err)
 	require.Len(t, mergeGenericFacts(nil, facts), 2)
 	require.Len(t, mergeGenericFacts(facts[:1], facts), 2)
+}
+
+func TestManifestReviewRejectsUnsupportedNarrativeEvenWithValidCalculations(t *testing.T) {
+	for _, hypotheses := range [][]string{{"Unproven improvement without a baseline"}, {}} {
+		manifest := evidenceDefinition()
+		manifest["executor"].(map[string]any)["review_policy"] = evidence.ReviewPolicy{Schema: evidence.ReviewPolicySchema, Rules: []evidence.ReviewRule{{
+			Key: "source_boundary", Target: "hypotheses", TextI18n: map[string]string{"en-US": "The source remains independently unverified"},
+			EvidenceAllI18n: map[string][]string{"en-US": {}}, WhenAnyFields: []string{"a"}, WhenAnyConflicts: []string{}, WhenAnyMissing: []string{},
+		}}}
+		calls := 0
+		executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
+			calls++
+			if calls == 1 {
+				return fixtureFactsInventory(in.ResponseSchema), nil
+			}
+			if calls == 2 {
+				return `{"schema":"powerx.agent.evidence-source/v1","data":{"a":{"scope":"s","token_ref":"token_0"},"b":{"scope":"s","token_ref":"token_1"}}}`, nil
+			}
+			body, err := json.Marshal(evidence.Notes{Schema: evidence.NotesSchema, Hypotheses: hypotheses, Gaps: []string{}, Actions: []string{}})
+			return string(body), err
+		}})
+		_, err := executor.Execute(evidence.WithLedger(context.Background()), ExecuteInput{TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: manifest, Context: map[string]any{"locale": "en-US"}, Payload: map[string]any{"message": "test a:17; b:80"}})
+		require.ErrorContains(t, err, "skill.evidence.notes: evidence.review_notes_")
+		require.Equal(t, 3, calls)
+	}
 }

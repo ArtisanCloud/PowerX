@@ -154,6 +154,7 @@ func resolveKnowledgeHostDevPermissions(ctx context.Context, db *gorm.DB) ([]mod
 		"_scope.knowledge.catalog.read":    {},
 		"_scope.knowledge.space.create":    {},
 		"_scope.knowledge.search.read":     {},
+		"_scope.knowledge.retrieval.read":  {},
 		"_scope.knowledge.document.manage": {},
 	}
 	var rows []modeliam.Permission

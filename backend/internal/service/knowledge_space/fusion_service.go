@@ -73,12 +73,14 @@ type FusionQueryInput struct {
 
 // FusionQueryMatch describes fused retrieval output.
 type FusionQueryMatch struct {
-	ChunkID   uuid.UUID
-	Score     float64
-	Source    string
-	RawScore  float64
-	NormScore float64
-	Metadata  map[string]any
+	ChunkID      uuid.UUID
+	Score        float64
+	Source       string
+	RawScore     float64
+	NormScore    float64
+	ScoreType    string
+	RawScoreType string
+	Metadata     map[string]any
 }
 
 // FusionQueryResult aggregates vector/lexical results.
@@ -334,12 +336,14 @@ func (s *FusionService) Query(ctx context.Context, in FusionQueryInput) (FusionQ
 			for _, match := range resp.Matches {
 				norm := clamp01(match.Score)
 				item := FusionQueryMatch{
-					ChunkID:   match.ChunkID,
-					RawScore:  match.Score,
-					NormScore: norm,
-					Score:     norm * weights["vector"],
-					Source:    "vector",
-					Metadata:  match.Metadata,
+					ChunkID:      match.ChunkID,
+					RawScore:     match.Score,
+					NormScore:    norm,
+					Score:        norm * weights["vector"],
+					Source:       "vector",
+					ScoreType:    "weighted_similarity",
+					RawScoreType: match.ScoreType,
+					Metadata:     match.Metadata,
 				}
 				slot := acc[match.ChunkID]
 				if slot == nil {

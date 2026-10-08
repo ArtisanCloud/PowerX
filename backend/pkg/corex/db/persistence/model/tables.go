@@ -157,6 +157,8 @@ const TableKnowledgeSpaceSyncJobs = "knowledge_space_sync_jobs"
 const TableKnowledgeVectorIndexes = "knowledge_vector_indexes"
 const TableKnowledgeTenantDocuments = "knowledge_tenant_documents"
 const TableKnowledgeIndexJobs = "knowledge_index_jobs"
+const TableKnowledgeSemanticEmbeddingProfiles = "knowledge_semantic_embedding_profiles"
+const TableKnowledgeSemanticSpaceBindings = "knowledge_semantic_space_bindings"
 
 const TableSkillsRegistryRecords = "skills_registry_records"
 const TableSkillsOfficialCatalog = "skills_official_catalog"

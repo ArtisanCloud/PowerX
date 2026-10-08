@@ -539,7 +539,10 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	if payload == nil {
 		payload = map[string]interface{}{}
 	}
-	injectDefaultHeaders(payload, c)
+	// 固定 typed Core binding 使用可信 request context，不拼接 HTTP 代理头。
+	if !strings.EqualFold(strings.TrimSpace(req.PreferredProtocol), "core_internal") {
+		injectDefaultHeaders(payload, c)
+	}
 	contextMap := cloneContext(req.Context)
 
 	result, err := h.selector.Invoke(c.Request.Context(), capservice.CapabilityInvokeRequest{
@@ -1080,6 +1083,9 @@ func cloneContext(src map[string]interface{}) map[string]interface{} {
 }
 func injectDefaultHeaders(payload map[string]interface{}, c *gin.Context) {
 	if payload == nil || c == nil {
+		return
+	}
+	if endpoint, _ := payload["endpoint"].(string); strings.HasPrefix(strings.TrimSpace(endpoint), "core://") {
 		return
 	}
 	headers, ok := payload["headers"].(map[string]interface{})

@@ -247,6 +247,11 @@ func nativeMarketingSkillDefinition(item nativeMarketingSkillSeed) (map[string]a
 			return nil, err
 		}
 		executor["calculation_policy"] = policy
+		review, err := nativeMarketingReviewPolicy()
+		if err != nil {
+			return nil, err
+		}
+		executor["review_policy"] = review
 		executor["response_contract"] = evidence.ReportSchema
 		executor["evidence_sources"] = []string{"/message"}
 		executor["model_policy"].(map[string]any)["parameters"] = map[string]any{"thinking": false, "max_tokens": 4096}
@@ -259,16 +264,16 @@ func nativeMarketingSkillDefinition(item nativeMarketingSkillSeed) (map[string]a
 // prevents a Markdown handoff from upgrading a stated rate into a computed
 // fact before the platform-owned response envelope has verified it.
 var nativeMarketingNumericEvidenceRulesI18n = map[string]string{
-	"zh-CN": "数值证据规则：只有同一来源明确给出原始数量或金额分子和分母时，才可进行比率计算。ROI、CTR、转化率、百分比、四舍五入结果和归因主张本身不是可继续相除的原始分子或分母；即使文本同时出现多个百分比，也不得互相相除、换算或反推新比率。无法按此规则复算的数值必须标为口径缺口或待验证主张，不能写成已确认事实、指标计算或方法论证据。",
-	"en-US": "Numeric evidence rule: calculate a rate only when the same source explicitly supplies raw count or currency numerator and denominator. An ROI, CTR, conversion rate, percentage, rounded result, or attribution assertion is not a raw numerator or denominator for another calculation; never divide, transform, or reverse-engineer one percentage from another even when several are present. Any value that cannot be recomputed under this rule is a definition gap or hypothesis to validate, never a confirmed fact, calculated metric, or methodology evidence.",
+	"zh-CN": "数值证据规则：只有同一来源明确给出原始数量或金额分子和分母时，才可请求比率计算。ROI、CTR、转化率、百分比和归因主张本身不是可继续相除的原始操作数，不得互相相除或反推人数。已有金额、原文报告值和业务目标必须保留，不能说成缺失；缺操作数限制独立复算，口径尚未核实则列为核实事项，不自动抹去原文报告值。子任务不心算，最终计算由工具执行。",
+	"en-US": "Numeric evidence rule: request a rate calculation only with source-supplied raw count or currency operands. ROI, CTR, percentages and attribution claims are not raw operands for further division or inferred counts. Preserve supplied amounts, reported rates and business goals; never call them missing. Missing operands limit independent recalculation; unverified definitions are checks, not grounds to erase reported values. Subtasks do not calculate; the final tool owns computation.",
 }
 
 // nativeMarketingFormulaGuideI18n is a versioned, business-level formula
 // dictionary for the marketing-review demo. It is prompt data packaged with
 // the Skills, not a runtime branch for a particular Team or tenant.
 var nativeMarketingFormulaGuideI18n = map[string]string{
-	"zh-CN": "营销复盘公式词典：1) 活动产投比（GMV/投入）= 活动标记GMV÷活动投入；只有业务明确把该口径命名为“财务 ROI”时，才可在标签中保留该原文名称，绝不可改为“投入÷GMV”。2) 严格 ROI（收益-成本）÷成本，只有原始输入明确给出收益定义、成本范围并要求该口径时才计算；不得把产投比冒充严格 ROI。3) 增量产投比=可归因增量GMV÷活动投入；若原文声称的“增量 ROI”与该式结果不同，必须把它写为口径冲突，要求提供归因模型、收益定义、分子和分母，不能任选其一作为已确认指标。4) 点击率=点击数÷曝光数；落地页转化率=表单提交数÷落地页访问数；点击到下单转化率=下单数÷点击数；线索转化率=有效线索数÷表单提交数；成交转化率=成交数÷有效线索数。5) 复购率=规定周期内复购客户数÷对应客户池总数；留存率=期末仍活跃客户数÷期初客户数。6) 增量转化提升=实验组转化率-对照组转化率，必须有同口径实验组、对照组和样本量。所有公式只能在对应的原始计数或金额齐全时计算；缺任一操作数、归因模型或口径定义，一律写入 gaps/hypotheses。",
-	"en-US": "Marketing review formula guide: 1) Campaign return multiple (GMV/cost) = attributed campaign GMV divided by campaign spend. Preserve a business source's label of financial ROI only when that source explicitly defines it this way; never invert it to cost/GMV. 2) Strict ROI = (return - cost) / cost, and may be calculated only when the source defines return and cost scope and requests that metric; never present a return multiple as strict ROI. 3) Incremental return multiple = attributable incremental GMV divided by campaign spend. If a claimed incremental ROI conflicts with this calculation, record a definition conflict and request the attribution model, return definition, numerator, and denominator; never choose either as a confirmed metric. 4) CTR = clicks/impressions; landing-page conversion = form submissions/landing-page visits; click-to-order conversion = orders/clicks; lead conversion = qualified leads/form submissions; deal conversion = deals/qualified leads. 5) Repeat-purchase rate = customers repurchasing in the stated period / total matching customer cohort; retention = active customers at period end / customers at period start. 6) Incremental conversion lift = treatment conversion rate - control conversion rate and requires comparable treatment/control cohorts and sample sizes. Calculate a formula only when all matching raw counts or currency operands are supplied; if any operand, attribution model, or definition is missing, put it in gaps or hypotheses.",
+	"zh-CN": "营销复盘公式词典：1) 活动产投比（GMV/投入）= 活动标记GMV÷活动投入；只有业务明确把该口径命名为“财务 ROI”时，才可在标签中保留该原文名称，绝不可改为“投入÷GMV”。2) 严格 ROI（收益-成本）÷成本，只有原始输入明确给出收益定义、成本范围并要求该口径时才计算；不得把产投比冒充严格 ROI。3) 增量产投比=可归因增量GMV÷活动投入；若原文声称的“增量 ROI”与该式结果不同，必须把它写为口径冲突，要求提供归因模型、收益定义、分子和分母，不能任选其一作为已确认指标。4) 点击率=点击数÷曝光数；落地页转化率=表单提交数÷落地页访问数；点击到下单转化率=下单数÷点击数；线索转化率=有效线索数÷表单提交数；成交转化率=成交数÷有效线索数。5) 复购率=规定周期内复购客户数÷对应客户池总数；留存率=期末仍活跃客户数÷期初客户数。6) 增量转化提升=实验组转化率-对照组转化率，必须有同口径实验组、对照组和样本量。对应原始计数或金额齐全即可执行声明公式并注明口径条件；缺原始操作数才是复算缺口，未核实的归因、收益或成本定义属于核实事项。不同渠道的比率差异本身不是矛盾。",
+	"en-US": "Marketing review formula guide: 1) Campaign return multiple (GMV/cost) = attributed campaign GMV divided by campaign spend. Preserve a business source's label of financial ROI only when that source explicitly defines it this way; never invert it to cost/GMV. 2) Strict ROI = (return - cost) / cost, and may be calculated only when the source defines return and cost scope and requests that metric; never present a return multiple as strict ROI. 3) Incremental return multiple = attributable incremental GMV divided by campaign spend. If a claimed incremental ROI conflicts with this calculation, record a definition conflict and request the attribution model, return definition, numerator, and denominator; never choose either as a confirmed metric. 4) CTR = clicks/impressions; landing-page conversion = form submissions/landing-page visits; click-to-order conversion = orders/clicks; lead conversion = qualified leads/form submissions; deal conversion = deals/qualified leads. 5) Repeat-purchase rate = customers repurchasing in the stated period / total matching customer cohort; retention = active customers at period end / customers at period start. 6) Incremental conversion lift = treatment conversion rate - control conversion rate and requires comparable treatment/control cohorts and sample sizes. Supplied matching raw operands permit declared calculations with explicit definition conditions. Only missing operands are recalculation gaps; unverified attribution, return or cost definitions are checks. Different channel ratios alone are not contradictions.",
 }
 
 func nativeMarketingDefinitionMatches(current datatypes.JSON, expected map[string]any) bool {
@@ -278,7 +283,17 @@ func nativeMarketingDefinitionMatches(current datatypes.JSON, expected map[strin
 	}
 	actualJSON, actualErr := json.Marshal(actual)
 	expectedJSON, expectedErr := json.Marshal(expected)
-	return actualErr == nil && expectedErr == nil && bytes.Equal(actualJSON, expectedJSON)
+	if actualErr != nil || expectedErr != nil {
+		return false
+	}
+	// 声明中可包含 typed 工具依赖；结构体字段顺序与 JSONB map 顺序不同。
+	// 两端均归一化为 JSON 对象后再比较，避免重复发布同一份语义声明。
+	var normalizedExpected map[string]any
+	if err := json.Unmarshal(expectedJSON, &normalizedExpected); err != nil {
+		return false
+	}
+	expectedJSON, expectedErr = json.Marshal(normalizedExpected)
+	return expectedErr == nil && bytes.Equal(actualJSON, expectedJSON)
 }
 
 type seedSkillPackageStore struct {
@@ -365,6 +380,24 @@ func seedRootActorMemberUUID(ctx context.Context, db *gorm.DB, tenantUUID string
 		return "", fmt.Errorf("seed_native_marketing_skills_root_member_uuid_missing")
 	}
 	return member.UUID.String(), nil
+}
+
+// SeedNativeMarketingSkills 只发布内置营销 Skill 的新 Revision，不重置 Agent、
+// 团队配置或其他模块的种子数据；历史 Revision 和运行结果保持不可变。
+func SeedNativeMarketingSkills(db *gorm.DB, cfg *appcfg.Config) error {
+	if db == nil || cfg == nil {
+		return fmt.Errorf("seed_native_marketing_skills_requires_db_and_config")
+	}
+	ctx := seedCtx()
+	sysTenant, err := tenantrepo.NewTenantRepository(db).EnsureByKey(ctx, tenantmodel.SystemTenantKey, "System", tenantmodel.TenantPlanFree, tenantmodel.TenantTypeSystem)
+	if err != nil {
+		return err
+	}
+	actor, err := seedRootActorMemberUUID(ctx, db, sysTenant.UUID.String())
+	if err != nil {
+		return err
+	}
+	return seedNativeMarketingSkillDefinitions(ctx, db, cfg, sysTenant.UUID.String(), actor)
 }
 
 func SeedNativeMarketingAgents(db *gorm.DB, cfg *appcfg.Config) error {

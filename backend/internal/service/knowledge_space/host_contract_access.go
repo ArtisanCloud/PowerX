@@ -20,6 +20,7 @@ const (
 	KnowledgeDocumentManageCapabilityID = "com.corex.knowledge.document.manage"
 	KnowledgeCatalogReadCapabilityID    = "com.corex.knowledge.catalog.read"
 	KnowledgeSpaceCreateCapabilityID    = "com.corex.knowledge.space.create"
+	KnowledgeRetrievalReadCapabilityID  = "com.corex.knowledge.retrieval.read"
 
 	knowledgeDirectoryAPIKeyScope = "_scope.knowledge.directory.read"
 	knowledgeSearchAPIKeyScope    = "_scope.knowledge.search.read"
@@ -45,6 +46,10 @@ func (s *HostContractAccess) AuthorizeSpaceCreate(ctx context.Context, apiKeyHas
 }
 func (s *HostContractAccess) AuthorizeSearchRead(ctx context.Context, apiKeyHash string) (string, error) {
 	return s.authorize(ctx, apiKeyHash, KnowledgeSearchReadCapabilityID, knowledgeSearchAPIKeyScope, "search", "read")
+}
+
+func (s *HostContractAccess) AuthorizeRetrievalRead(ctx context.Context, apiKeyHash string) (string, error) {
+	return s.authorize(ctx, apiKeyHash, KnowledgeRetrievalReadCapabilityID, "_scope.knowledge.retrieval.read", "retrieval", "read")
 }
 func (s *HostContractAccess) AuthorizeDocumentManage(ctx context.Context, apiKeyHash string) (string, error) {
 	return s.authorize(ctx, apiKeyHash, KnowledgeDocumentManageCapabilityID, knowledgeDocumentAPIKeyScope, "document", "manage")

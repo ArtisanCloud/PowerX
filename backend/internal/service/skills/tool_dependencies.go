@@ -82,7 +82,11 @@ func CheckToolDependencies(ctx context.Context, tenantUUID string, definition ma
 		if len(evidenceSourcePointers(executor)) == 0 {
 			return fmt.Errorf("skill.evidence_sources_required")
 		}
-		if _, err := evidence.ReadCalculationPolicy(executor["calculation_policy"]); err != nil {
+		calculation, err := evidence.ReadCalculationPolicy(executor["calculation_policy"])
+		if err != nil {
+			return err
+		}
+		if _, err := evidence.ReadReviewPolicy(executor["review_policy"], calculation); err != nil {
 			return err
 		}
 	}

@@ -179,6 +179,9 @@ func requireFields(value any, typ reflect.Type) error {
 				continue
 			}
 			v, ok := m[key]
+			if !ok && strings.Contains(f.Tag.Get("json"), ",omitempty") {
+				continue
+			}
 			if !ok || v == nil {
 				return fmt.Errorf("agent.response_contract_invalid: required_field %s", key)
 			}
