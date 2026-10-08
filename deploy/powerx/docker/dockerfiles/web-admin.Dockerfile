@@ -1,12 +1,13 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine3.22 AS builder
 
 WORKDIR /src/web-admin
 COPY web-admin/package.json web-admin/package-lock.json ./
 RUN npm ci
 COPY web-admin/ ./
+ENV POWERX_BUILD_TARGET=prod
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:22-alpine3.22
 
 WORKDIR /app/web-admin
 ENV NODE_ENV=production

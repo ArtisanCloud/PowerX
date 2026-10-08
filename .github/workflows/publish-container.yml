@@ -1,0 +1,119 @@
+name: Publish PowerX Container Distribution
+on:
+  push:
+    branches: [024-ai-engineering-skills, main, master]
+    paths:
+      - deploy/powerx/container/**
+      - deploy/powerx/docker/dockerfiles/**
+      - backend/cmd/database/seed/container_seed*
+      - backend/cmd/database/seed/seed.go
+      - .github/workflows/publish-container.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: powerx-container-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate deployment initializer
+        run: |
+          python3 -m pip install pyyaml
+          python3 deploy/powerx/container/test_init.py
+          sh -n deploy/powerx/container/entrypoint.sh deploy/powerx/container/run.sh
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Build backend
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/powerx/docker/dockerfiles/backend.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/artisancloud/powerx-backend:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/ArtisanCloud/PowerX
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=powerx-backend
+          cache-to: type=gha,mode=max,scope=powerx-backend
+      - name: Build web admin
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/powerx/docker/dockerfiles/web-admin.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/artisancloud/powerx-web-admin:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/ArtisanCloud/PowerX
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=powerx-web
+          cache-to: type=gha,mode=max,scope=powerx-web
+      - name: Fresh database, login, frontend and API smoke test
+        env:
+          POWERX_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          cd deploy/powerx/container
+          cp .env.example .env
+          sed -i "s/REPLACE_WITH_PUBLISHED_TAG/sha-$POWERX_SOURCE_SHA/g" .env
+          sh run.sh start
+          python3 smoke.py
+      - name: Export image-only deployment bundle
+        env:
+          POWERX_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          mkdir /tmp/powerx-docker
+          cp deploy/powerx/container/{compose.yml,gateway.conf,run.sh,README.md,.env.example} /tmp/powerx-docker/
+          sed -i "s/REPLACE_WITH_PUBLISHED_TAG/sha-$POWERX_SOURCE_SHA/g" /tmp/powerx-docker/.env.example
+          tar -czf powerx-docker.tar.gz -C /tmp powerx-docker
+          sha256sum powerx-docker.tar.gz > powerx-docker.tar.gz.sha256
+      - uses: actions/upload-artifact@v6
+        with:
+          name: powerx-docker-${{ github.sha }}
+          path: |
+            powerx-docker.tar.gz
+            powerx-docker.tar.gz.sha256
+      - name: Cleanup smoke environment
+        if: always()
+        run: |
+          cd deploy/powerx/container
+          if test -f .env; then docker compose --profile standalone down --volumes; fi
+  bundle-release:
+    needs: images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: powerx-docker-${{ github.sha }}
+      - name: Publish the verified deployment bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          tag="docker-dev-${SOURCE_SHA:0:12}"
+          printf 'Image-only Docker deployment bundle. Application images: sha-%s. This is a development prerelease; see the included README for first installation, credentials and upgrade instructions.\n' "$SOURCE_SHA" > /tmp/release-notes.txt
+          if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$tag" powerx-docker.tar.gz powerx-docker.tar.gz.sha256 --repo "$REPO" --clobber
+          else
+            gh release create "$tag" powerx-docker.tar.gz powerx-docker.tar.gz.sha256 --repo "$REPO" --target "$SOURCE_SHA" --prerelease --title "PowerX Docker ${SOURCE_SHA:0:12}" --notes-file /tmp/release-notes.txt
+          fi
