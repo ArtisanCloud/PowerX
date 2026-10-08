@@ -1,6 +1,6 @@
 # PowerX：只下载镜像的 Docker 部署
 
-本指南面向第一次部署 PowerX 的用户，不需要 Go、Node、源码编译或宿主机安装 PostgreSQL/Redis。宿主机只需 Docker Engine、Compose 插件、POSIX shell；HTTPS 可交给已有入口服务或 XDocker。
+本指南面向第一次部署 PowerX 的用户，不需要 Go、Node、源码编译或宿主机安装 PostgreSQL/Redis。宿主机只需 Docker Engine、Compose 插件、POSIX shell；HTTPS 可交给已有入口服务或 XDocker。开发镜像以远程 develop 分支已提交代码为源码，并固定完整提交 SHA，不包含其他工作区未提交内容。
 
 ## 两种部署方式
 
