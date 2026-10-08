@@ -293,7 +293,7 @@ func migrateMetadataModels(db *gorm.DB) error {
 	// Tag bindings used to be a pure composite-key association. It is now an
 	// addressable tenant object, so backfill its stable public UUID before GORM
 	// applies the non-null model constraint.
-	if db.Dialector != nil && strings.EqualFold(db.Dialector.Name(), "postgres") {
+	if db.Dialector != nil && strings.EqualFold(db.Dialector.Name(), "postgres") && db.Migrator().HasTable(&modelMetadata.TagBinding{}) {
 		if err := db.Exec(`ALTER TABLE IF EXISTS "public"."metadata_tag_bindings" ADD COLUMN IF NOT EXISTS binding_uuid uuid`).Error; err != nil {
 			return err
 		}
