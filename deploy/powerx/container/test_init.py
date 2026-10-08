@@ -21,6 +21,7 @@ class InitTests(unittest.TestCase):
             self.assertEqual(config['database']['host'],'postgres')
             self.assertEqual(config['queue']['redis']['addr'],'redis:6379')
             self.assertEqual(config['deployment']['env'],'dev')
+            self.assertEqual(config['server']['write_timeout_seconds'],0)
             self.assertEqual(config['http_security']['web_admin_origins'],['https://dev.example.com'])
             self.assertEqual(config['storage']['local']['public_base_url'],'https://dev.example.com/media')
             self.assertNotEqual(config['auth']['jwt_secret'],config['database']['password'])
