@@ -35,7 +35,7 @@ def initialize(directory=Path('/etc/powerx'), data=Path('/data'), template=Path(
     cfg=yaml.safe_load(template.read_text())
     cfg['deployment']={'env':environment}
     cfg['install']={'status':'installed','lock_mode':'strict','allow_without_db':False}
-    cfg['server'].update(host='0.0.0.0',port=8080,api_prefix='/api/v1',mode='release',
+    cfg['server'].update(host='0.0.0.0',port=8080,api_prefix='/api/v1',mode='release',read_timeout_seconds=30,write_timeout_seconds=0,
                          secret_key=base64.b64encode(secrets.token_bytes(32)).decode())
     cfg['server']['grpc'].update(host='0.0.0.0',port=9010,reflection=False)
     cfg['database'].update(host='postgres',port=5432,username='powerx',password=password,database='powerx',dsn='')

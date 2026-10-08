@@ -1,11 +1,11 @@
-FROM node:22-alpine3.22 AS builder
+FROM --platform=$BUILDPLATFORM node:22-alpine3.22 AS builder
 
 WORKDIR /src/web-admin
 COPY web-admin/package.json web-admin/package-lock.json ./
 RUN npm ci
 COPY web-admin/ ./
 ENV POWERX_BUILD_TARGET=prod
-RUN npm run build
+RUN npm run build && node scripts/check-container-output.mjs
 
 FROM node:22-alpine3.22
 

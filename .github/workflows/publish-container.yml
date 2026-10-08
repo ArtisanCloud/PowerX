@@ -13,7 +13,7 @@ permissions:
   contents: read
 concurrency:
   group: powerx-container-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   images:
     runs-on: ubuntu-latest
