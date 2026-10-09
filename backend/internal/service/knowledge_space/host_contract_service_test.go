@@ -92,3 +92,20 @@ func TestHostContractRejectsNumericAndDuplicateUUIDInput(t *testing.T) {
 	_, err = svc.Search(context.Background(), tenantUUID, "x", []string{spaceUUID, spaceUUID}, 20)
 	require.Equal(t, KnowledgeReasonInvalidArgument, dto.CodeOf(err))
 }
+
+func TestUpsertLegacyDocumentInitializesMissingVisibilityEpoch(t *testing.T) {
+	service, db, tenant, space := newHostContractTestService(t, false)
+	input := HostDocumentInput{Title: "legacy-visibility", URI: "powerx://test/legacy-visibility", Content: "原文保持不变", ContentType: "text/plain", Checksum: hostChecksum("原文保持不变"), Version: "v1"}
+	accepted, err := service.UpsertDocument(context.Background(), tenant, space, input)
+	require.NoError(t, err)
+	_, err = service.ProcessNextDocumentJob(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&models.TenantDocument{}).Where("uuid = ?", accepted.DocumentUUID).Update("visibility_epoch", nil).Error)
+	input.Version = "v2"
+	updated, err := service.UpsertDocument(context.Background(), tenant, space, input)
+	require.NoError(t, err)
+	require.Equal(t, accepted.DocumentUUID, updated.DocumentUUID)
+	var row models.TenantDocument
+	require.NoError(t, db.Where("uuid = ?", accepted.DocumentUUID).First(&row).Error)
+	require.True(t, validSemanticUUID(row.VisibilityEpoch))
+}

@@ -1,0 +1,677 @@
+openapi: 3.1.0
+info:
+  title: PowerX Scheduler Cleanup Contract
+  version: 1.0.0
+servers:
+- url: /api/v1
+paths:
+  /admin/scheduler/jobs/{job_id}:
+    parameters:
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    delete:
+      parameters:
+      - name: expected_revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      security:
+      - UserJWT: []
+      x-powerx-actor-context: admin_user
+      responses:
+        '400':
+          description: Invalid/missing revision, unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Missing permission, wrong owner, revoked grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Task not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Preview revision changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Authorization/store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+  /tenant/scheduler/jobs/{job_id}:
+    parameters:
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    delete:
+      parameters:
+      - name: expected_revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      security:
+      - ApiKey: []
+      - STS: []
+      x-powerx-actor-context: service_actor
+      responses:
+        '400':
+          description: Invalid/missing revision, unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Missing permission, wrong owner, revoked grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Task not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Preview revision changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Authorization/store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+    get:
+      parameters:
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+      security:
+      - ApiKey: []
+      - STS: []
+      x-powerx-actor-context: service_actor
+      responses:
+        '400':
+          description: Invalid/missing revision, unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Missing permission, wrong owner, revoked grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Task not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Preview revision changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Authorization/store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetResponse'
+  /tenant/scheduler/jobs:
+    get:
+      parameters:
+      - name: owner_type
+        in: query
+        required: false
+        schema:
+          const: plugin
+      - name: owner_id
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - active
+          - paused
+          - completed
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+      security:
+      - ApiKey: []
+      - STS: []
+      x-powerx-actor-context: service_actor
+      responses:
+        '400':
+          description: Invalid/missing revision, unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Missing permission, wrong owner, revoked grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Task not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Preview revision changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Authorization/store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+  /tenant/scheduler/jobs/{job_id}/runs:
+    parameters:
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+      security:
+      - ApiKey: []
+      - STS: []
+      x-powerx-actor-context: service_actor
+      responses:
+        '400':
+          description: Invalid/missing revision, unknown fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Missing permission, wrong owner, revoked grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Task not found in current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Preview revision changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Authorization/store unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunsResponse'
+components:
+  securitySchemes:
+    UserJWT:
+      type: http
+      scheme: bearer
+    STS:
+      type: http
+      scheme: bearer
+    ApiKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: ApiKey <key>
+  schemas:
+    DeleteInput:
+      type: object
+      additionalProperties: false
+      properties:
+        job_uuid:
+          type: string
+          format: uuid
+        expected_revision:
+          type: integer
+          minimum: 1
+      required:
+      - job_uuid
+      - expected_revision
+    DeleteResult:
+      type: object
+      additionalProperties: false
+      properties:
+        schema:
+          const: powerx.scheduler.job-deletion/v1
+        job_uuid:
+          type: string
+          format: uuid
+        status:
+          const: deleted
+        deleted:
+          const: true
+        already_deleted:
+          type: boolean
+        revision:
+          type: integer
+          minimum: 1
+        deleted_at:
+          type: string
+          format: date-time
+        history_retained:
+          const: true
+        trace_id:
+          type: string
+      required:
+      - schema
+      - job_uuid
+      - status
+      - deleted
+      - already_deleted
+      - revision
+      - deleted_at
+      - history_retained
+      - trace_id
+    Job:
+      type: object
+      additionalProperties: false
+      properties:
+        job_uuid:
+          type: string
+          format: uuid
+        tenant_uuid:
+          type: string
+          format: uuid
+        owner_type:
+          type: string
+          enum:
+          - core
+          - plugin
+        owner_id:
+          type: string
+        name:
+          type: string
+        schedule_type:
+          type: string
+          enum:
+          - once
+          - interval
+          - cron
+        schedule_expr:
+          type: string
+        timezone:
+          type: string
+        payload:
+          type: object
+        status:
+          type: string
+          enum:
+          - active
+          - paused
+          - completed
+          - deleted
+        revision:
+          type: integer
+          minimum: 1
+        next_run_at:
+          type: string
+          format: date-time
+        last_run_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+      required:
+      - job_uuid
+      - tenant_uuid
+      - owner_type
+      - owner_id
+      - name
+      - status
+      - revision
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        error_code:
+          type: string
+        reason_code:
+          type: string
+        error:
+          type: string
+        request_id:
+          type: string
+        timestamp:
+          type: integer
+        details:
+          type: object
+      required:
+      - code
+      - message
+    TypedOperation:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        properties:
+          operation:
+            const: delete_job
+          job_uuid:
+            type: string
+            format: uuid
+          expected_revision:
+            type: integer
+            minimum: 1
+        required:
+        - operation
+        - job_uuid
+        - expected_revision
+      - type: object
+        additionalProperties: false
+        properties:
+          operation:
+            const: list_jobs
+          owner_type:
+            const: plugin
+          owner_id:
+            type: string
+          status:
+            type: string
+            enum:
+            - active
+            - paused
+            - completed
+          page:
+            type: integer
+            minimum: 1
+          page_size:
+            type: integer
+            minimum: 1
+            maximum: 500
+        required:
+        - operation
+        - owner_id
+      - type: object
+        additionalProperties: false
+        properties:
+          operation:
+            const: get_job
+          job_uuid:
+            type: string
+            format: uuid
+          include_deleted:
+            type: boolean
+        required:
+        - operation
+        - job_uuid
+      - type: object
+        additionalProperties: false
+        properties:
+          operation:
+            const: list_runs
+          job_uuid:
+            type: string
+            format: uuid
+          page:
+            type: integer
+            minimum: 1
+          page_size:
+            type: integer
+            minimum: 1
+            maximum: 500
+        required:
+        - operation
+        - job_uuid
+    Pagination:
+      type: object
+      additionalProperties: false
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+      required:
+      - total
+      - page
+      - page_size
+    DeleteResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/DeleteResult'
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+    GetResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            item:
+              $ref: '#/components/schemas/Job'
+          required:
+          - item
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+    ListResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Job'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+          required:
+          - items
+          - pagination
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data
+    RunsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            items:
+              type: array
+              items:
+                $ref: ./http-openapi.yaml#/components/schemas/SchedulerRun
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+          required:
+          - items
+          - pagination
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - data

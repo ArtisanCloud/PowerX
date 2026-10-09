@@ -7,11 +7,11 @@ import (
 
 func TestArtifactCleanupService_CleanupByPolicy_IdempotentWhenPolicyZero(t *testing.T) {
 	svc := &ArtifactCleanupService{}
-	r1, err := svc.CleanupByPolicy(context.Background(), 0, 14)
+	r1, err := svc.CleanupByPolicy(context.Background(), 0)
 	if err != nil {
 		t.Fatalf("first cleanup should not error: %v", err)
 	}
-	r2, err := svc.CleanupByPolicy(context.Background(), 0, 14)
+	r2, err := svc.CleanupByPolicy(context.Background(), 0)
 	if err != nil {
 		t.Fatalf("second cleanup should not error: %v", err)
 	}

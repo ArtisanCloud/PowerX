@@ -35,7 +35,7 @@ func NewDeployHandler(deps *shared.Deps) *DeployHandler {
 	return &DeployHandler{
 		svc:        deployops.NewService(deps.DB),
 		pluginSvc:  deployops.NewPluginLifecycleService(deps.DB),
-		policySvc:  backupops.NewPolicyService(deps.DB),
+		policySvc:  backupops.NewPolicyService(deps.DB, deps.RuntimeIdentity.DeploymentEnv),
 		backupSvc:  backupops.NewJobService(deps.DB),
 		restoreSvc: backupops.NewRestoreDrillService(deps.DB),
 		migrateSvc: migrationops.NewService(deps.DB),

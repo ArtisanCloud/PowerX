@@ -22,4 +22,10 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 	g.POST("/jobs/:job_id/resume", h.ResumeJob)
 	g.POST("/jobs/:job_id/trigger", h.TriggerJob)
 	g.GET("/jobs/:job_id/runs", h.ListRuns)
+	g.DELETE("/jobs/:job_id", h.DeleteAdminJob)
+	tenant := protectedGroup.Group("/tenant/scheduler")
+	tenant.GET("/jobs", h.ListCleanupJobs)
+	tenant.GET("/jobs/:job_id", h.GetCleanupJob)
+	tenant.GET("/jobs/:job_id/runs", h.ListCleanupRuns)
+	tenant.DELETE("/jobs/:job_id", h.DeleteServiceJob)
 }

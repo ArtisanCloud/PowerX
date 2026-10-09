@@ -1,5 +1,12 @@
 # PowerX Agent Governance
 
+## 调试服务进程管理
+
+- Agent 可以为开发、联调和验收临时启动服务，启动时必须记录进程 PID、启动命令、工作目录及监听端口，明确进程归属。
+- 调试结束后、向用户交付前，必须关闭 Agent 自己启动的服务及其子进程，并确认进程已经退出、相关监听端口已经释放。只有用户明确要求保留运行时，才可以继续运行。
+- 日常服务由用户自行启动。需要重新编译或重启时，告知用户具体操作，不得在调试结束后遗留临时服务进程。
+- 不得擅自关闭或重启用户启动的进程；清理前必须核实 PID 和进程归属。
+
 ## Framework delegated Host capability rule
 
 When a Core capability is intentionally consumed by PowerX Framework through a

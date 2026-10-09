@@ -44,3 +44,7 @@
 - [ ] T028 接入结构化日志字段。
 - [ ] T029 提供 PowerXPlugin Framework host provider 联调用例。
 - [ ] T030 提供 AI Craft 业务迁移验证用例。
+
+## 2026-10-08 Core任务删除补充
+
+交付与验收状态见cleanup-implementation.md；Admin JWT/RBAC、API Key/STS owner grant、版本冲突、历史/同名重建、多连接触发竞态必须实际验收。

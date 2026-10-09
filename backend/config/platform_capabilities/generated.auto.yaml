@@ -6650,6 +6650,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_scheduler_jobs_job_id
+      module: admin
+      title: DELETE /api/v1/admin/scheduler/jobs/:job_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_admin_scheduler_jobs_job_id
+      agent_usable: false
+      risk_level: high
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.delete_api_v1_admin_scheduler_jobs_job_id
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/scheduler/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/scheduler/jobs/:job_id
+          method: DELETE
+          schema_ref: internal/transport/http/admin/scheduler/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.delete_api_v1_admin_system_settings_system_key
       module: admin
       title: DELETE /api/v1/admin/system/settings/system/:key
@@ -7098,6 +7126,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_capability_approvals
+      module: admin
+      title: GET /api/v1/admin/agents/capability-approvals
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_agents_capability_approvals
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_agents_capability_approvals
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/capability-approvals
+          method: GET
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_grantable_capabilities
       module: admin
       title: GET /api/v1/admin/agents/grantable-capabilities
@@ -7176,6 +7232,34 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/agents/providers
+          method: GET
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_runtime_replays_run_uuid_snapshots_snapshot_uuid_revisions_revision_uuid_validate
+      module: admin
+      title: GET /api/v1/admin/agents/runtime-replays/:run_uuid/snapshots/:snapshot_uuid/revisions/:revision_uuid/validate
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_agents_runtime_replays_run_uuid_snapshots_snapshot_uuid_revisions_revision_uuid_validate
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_agents_runtime_replays_run_uuid_snapshots_snapshot_uuid_revisions_revision_uuid_validate
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/runtime-replays/:run_uuid/snapshots/:snapshot_uuid/revisions/:revision_uuid/validate
           method: GET
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
@@ -7658,6 +7742,174 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_backup_alerts
+      module: admin
+      title: GET /api/v1/admin/backup/alerts
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_backup_alerts
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_backup_alerts
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/alerts
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_backup_jobs
+      module: admin
+      title: GET /api/v1/admin/backup/jobs
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_backup_jobs
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_backup_jobs
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/jobs
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_backup_jobs_job_id
+      module: admin
+      title: GET /api/v1/admin/backup/jobs/:job_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_backup_jobs_job_id
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_backup_jobs_job_id
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/jobs/:job_id
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_backup_policies
+      module: admin
+      title: GET /api/v1/admin/backup/policies
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_backup_policies
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_backup_policies
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/policies
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_backup_restore_drills
+      module: admin
+      title: GET /api/v1/admin/backup/restore-drills
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_backup_restore_drills
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_backup_restore_drills
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/restore-drills
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_backup_restore_drills_drill_id
+      module: admin
+      title: GET /api/v1/admin/backup/restore-drills/:drill_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_backup_restore_drills_drill_id
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_backup_restore_drills_drill_id
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/restore-drills/:drill_id
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_capabilities
       module: admin
       title: GET /api/v1/admin/capabilities
@@ -7820,6 +8072,230 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/customers/accounts
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_accounts_customer_uuid
+      module: admin
+      title: GET /api/v1/admin/customers/accounts/:customer_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_accounts_customer_uuid
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_accounts_customer_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/accounts/:customer_uuid
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_accounts_customer_uuid_auth_identities
+      module: admin
+      title: GET /api/v1/admin/customers/accounts/:customer_uuid/auth-identities
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_accounts_customer_uuid_auth_identities
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_accounts_customer_uuid_auth_identities
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/accounts/:customer_uuid/auth-identities
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_accounts_customer_uuid_login_events
+      module: admin
+      title: GET /api/v1/admin/customers/accounts/:customer_uuid/login-events
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_accounts_customer_uuid_login_events
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_accounts_customer_uuid_login_events
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/accounts/:customer_uuid/login-events
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_accounts_customer_uuid_tenant_memberships
+      module: admin
+      title: GET /api/v1/admin/customers/accounts/:customer_uuid/tenant-memberships
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_accounts_customer_uuid_tenant_memberships
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_accounts_customer_uuid_tenant_memberships
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/accounts/:customer_uuid/tenant-memberships
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_customer_uuid_contacts
+      module: admin
+      title: GET /api/v1/admin/customers/:customer_uuid/contacts
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_customer_uuid_contacts
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_customer_uuid_contacts
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/:customer_uuid/contacts
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_customer_uuid_contacts_contact_uuid
+      module: admin
+      title: GET /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_customer_uuid_contacts_contact_uuid
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_customer_uuid_contacts_contact_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_customer_uuid_contacts_contact_uuid_identities
+      module: admin
+      title: GET /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid/identities
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_customer_uuid_contacts_contact_uuid_identities
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_customer_uuid_contacts_contact_uuid_identities
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid/identities
+          method: GET
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_customers_mini_app_entries
+      module: admin
+      title: GET /api/v1/admin/customers/mini-app-entries
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_customers_mini_app_entries
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_customers_mini_app_entries
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/mini-app-entries
           method: GET
           schema_ref: internal/transport/http/admin/customer/api.go#source
           auth_type: tenant_jwt
@@ -9030,6 +9506,90 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_knowledge_spaces_catalog
+      module: admin
+      title: GET /api/v1/admin/knowledge-spaces/catalog
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_knowledge_spaces_catalog
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_knowledge_spaces_catalog
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/handlers.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/catalog
+          method: GET
+          schema_ref: internal/transport/http/admin/knowledge_space/handlers.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_knowledge_spaces_index_jobs_jobid
+      module: admin
+      title: GET /api/v1/admin/knowledge-spaces/index-jobs/:jobId
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_knowledge_spaces_index_jobs_jobid
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_knowledge_spaces_index_jobs_jobid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/index-jobs/:jobId
+          method: GET
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_knowledge_spaces_index_jobs_jobid_chunks
+      module: admin
+      title: GET /api/v1/admin/knowledge-spaces/index-jobs/:jobId/chunks
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_knowledge_spaces_index_jobs_jobid_chunks
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_knowledge_spaces_index_jobs_jobid_chunks
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/index-jobs/:jobId/chunks
+          method: GET
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_knowledge_spaces_spaceid
       module: admin
       title: GET /api/v1/admin/knowledge-spaces/:spaceId
@@ -9278,6 +9838,34 @@ capabilities:
           endpoint: /api/v1/admin/knowledge-spaces/:spaceId/ingestion-jobs/:jobId/pages/:pageNumber/image
           method: GET
           schema_ref: internal/transport/http/admin/knowledge_space/handlers.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_knowledge_spaces_spaceid_semantic_index
+      module: admin
+      title: GET /api/v1/admin/knowledge-spaces/:spaceId/semantic-index
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_knowledge_spaces_spaceid_semantic_index
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_knowledge_spaces_spaceid_semantic_index
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/:spaceId/semantic-index
+          method: GET
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -10038,6 +10626,174 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_ops_backup_alerts
+      module: admin
+      title: GET /api/v1/admin/ops/backup/alerts
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_ops_backup_alerts
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_ops_backup_alerts
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/alerts
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_ops_backup_jobs
+      module: admin
+      title: GET /api/v1/admin/ops/backup/jobs
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_ops_backup_jobs
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_ops_backup_jobs
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/jobs
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_ops_backup_jobs_job_id
+      module: admin
+      title: GET /api/v1/admin/ops/backup/jobs/:job_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_ops_backup_jobs_job_id
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_ops_backup_jobs_job_id
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/jobs/:job_id
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_ops_backup_policies
+      module: admin
+      title: GET /api/v1/admin/ops/backup/policies
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_ops_backup_policies
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_ops_backup_policies
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/policies
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_ops_backup_restore_drills
+      module: admin
+      title: GET /api/v1/admin/ops/backup/restore-drills
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_ops_backup_restore_drills
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_ops_backup_restore_drills
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/restore-drills
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_ops_backup_restore_drills_drill_id
+      module: admin
+      title: GET /api/v1/admin/ops/backup/restore-drills/:drill_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_ops_backup_restore_drills_drill_id
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_ops_backup_restore_drills_drill_id
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/restore-drills/:drill_id
+          method: GET
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_platform_capabilities
       module: admin
       title: GET /api/v1/admin/platform-capabilities
@@ -10312,6 +11068,34 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/plugins/:id/logs
+          method: GET
+          schema_ref: internal/transport/http/admin/plugin/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_plugins_id_runtime_identity
+      module: admin
+      title: GET /api/v1/admin/plugins/:id/runtime-identity
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_plugins_id_runtime_identity
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_plugins_id_runtime_identity
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/plugin/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/plugins/:id/runtime-identity
           method: GET
           schema_ref: internal/transport/http/admin/plugin/api.go#source
           auth_type: tenant_jwt
@@ -11830,6 +12614,62 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_backup_jobs_job_id_protection
+      module: admin
+      title: PATCH /api/v1/admin/backup/jobs/:job_id/protection
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_backup_jobs_job_id_protection
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_backup_jobs_job_id_protection
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/jobs/:job_id/protection
+          method: PATCH
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_backup_policies_policy_id
+      module: admin
+      title: PATCH /api/v1/admin/backup/policies/:policy_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_backup_policies_policy_id
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_backup_policies_policy_id
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/policies/:policy_id
+          method: PATCH
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_customers_accounts_customer_uuid_status
       module: admin
       title: PATCH /api/v1/admin/customers/accounts/:customer_uuid/status
@@ -11852,6 +12692,34 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/customers/accounts/:customer_uuid/status
+          method: PATCH
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_customers_customer_uuid_contacts_contact_uuid
+      module: admin
+      title: PATCH /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_customers_customer_uuid_contacts_contact_uuid
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_customers_customer_uuid_contacts_contact_uuid
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid
           method: PATCH
           schema_ref: internal/transport/http/admin/customer/api.go#source
           auth_type: tenant_jwt
@@ -12110,6 +12978,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_knowledge_spaces_spaceid_documents_documentid_visibility
+      module: admin
+      title: PATCH /api/v1/admin/knowledge-spaces/:spaceId/documents/:documentId/visibility
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_knowledge_spaces_spaceid_documents_documentid_visibility
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_knowledge_spaces_spaceid_documents_documentid_visibility
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/:spaceId/documents/:documentId/visibility
+          method: PATCH
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_knowledge_spaces_spaceid_ingestion_jobs_jobid_chunks_chunkid
       module: admin
       title: PATCH /api/v1/admin/knowledge-spaces/:spaceId/ingestion-jobs/:jobId/chunks/:chunkId
@@ -12358,6 +13254,62 @@ capabilities:
           endpoint: /api/v1/admin/notifications/:uuid/read
           method: PATCH
           schema_ref: internal/transport/http/admin/notifications/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_ops_backup_jobs_job_id_protection
+      module: admin
+      title: PATCH /api/v1/admin/ops/backup/jobs/:job_id/protection
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_ops_backup_jobs_job_id_protection
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_ops_backup_jobs_job_id_protection
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/jobs/:job_id/protection
+          method: PATCH
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.patch_api_v1_admin_ops_backup_policies_policy_id
+      module: admin
+      title: PATCH /api/v1/admin/ops/backup/policies/:policy_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_admin_ops_backup_policies_policy_id
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.patch_api_v1_admin_ops_backup_policies_policy_id
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/policies/:policy_id
+          method: PATCH
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -12720,6 +13672,62 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/agents
+          method: POST
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_agents_capability_approvals_approval_uuid_approve
+      module: admin
+      title: POST /api/v1/admin/agents/capability-approvals/:approval_uuid/approve
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_agents_capability_approvals_approval_uuid_approve
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_agents_capability_approvals_approval_uuid_approve
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/capability-approvals/:approval_uuid/approve
+          method: POST
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_agents_capability_approvals_approval_uuid_reject
+      module: admin
+      title: POST /api/v1/admin/agents/capability-approvals/:approval_uuid/reject
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_agents_capability_approvals_approval_uuid_reject
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_agents_capability_approvals_approval_uuid_reject
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/agents/capability-approvals/:approval_uuid/reject
           method: POST
           schema_ref: internal/transport/http/admin/agent/api.go#source
           auth_type: tenant_jwt
@@ -13174,6 +14182,286 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_alerts_alert_id_ack
+      module: admin
+      title: POST /api/v1/admin/backup/alerts/:alert_id/ack
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_alerts_alert_id_ack
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_alerts_alert_id_ack
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/alerts/:alert_id/ack
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_cleanup
+      module: admin
+      title: POST /api/v1/admin/backup/cleanup
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_cleanup
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_cleanup
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/cleanup
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_jobs_run
+      module: admin
+      title: POST /api/v1/admin/backup/jobs/run
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_jobs_run
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_jobs_run
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/jobs/run
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_policies
+      module: admin
+      title: POST /api/v1/admin/backup/policies
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_policies
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_policies
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/policies
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_policies_policy_id_current
+      module: admin
+      title: POST /api/v1/admin/backup/policies/:policy_id/current
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_policies_policy_id_current
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_policies_policy_id_current
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/policies/:policy_id/current
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_policies_policy_id_disable
+      module: admin
+      title: POST /api/v1/admin/backup/policies/:policy_id/disable
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_policies_policy_id_disable
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_policies_policy_id_disable
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/policies/:policy_id/disable
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_policies_policy_id_enable
+      module: admin
+      title: POST /api/v1/admin/backup/policies/:policy_id/enable
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_policies_policy_id_enable
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_policies_policy_id_enable
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/policies/:policy_id/enable
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_restore_drills
+      module: admin
+      title: POST /api/v1/admin/backup/restore-drills
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_restore_drills
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_restore_drills
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/restore-drills
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_restore_drills_run
+      module: admin
+      title: POST /api/v1/admin/backup/restore-drills/run
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_restore_drills_run
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_restore_drills_run
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/restore-drills/run
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_backup_targets_test
+      module: admin
+      title: POST /api/v1/admin/backup/targets/test
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_backup_targets_test
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_backup_targets_test
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/backup/targets/test
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_capability_registry_capabilities
       module: admin
       title: POST /api/v1/admin/capability-registry/capabilities
@@ -13202,6 +14490,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_capability_registry_capabilities_capabilityid_tenants_tenant_uuid_upgrade
+      module: admin
+      title: POST /api/v1/admin/capability-registry/capabilities/:capabilityId/tenants/:tenant_uuid/upgrade
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_capability_registry_capabilities_capabilityid_tenants_tenant_uuid_upgrade
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_capability_registry_capabilities_capabilityid_tenants_tenant_uuid_upgrade
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/capability_registry/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/capability-registry/capabilities/:capabilityId/tenants/:tenant_uuid/upgrade
+          method: POST
+          schema_ref: internal/transport/http/admin/capability_registry/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_customers_accounts
       module: admin
       title: POST /api/v1/admin/customers/accounts
@@ -13224,6 +14540,90 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/admin/customers/accounts
+          method: POST
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_customers_customer_uuid_contacts
+      module: admin
+      title: POST /api/v1/admin/customers/:customer_uuid/contacts
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_customers_customer_uuid_contacts
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_customers_customer_uuid_contacts
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/:customer_uuid/contacts
+          method: POST
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_customers_customer_uuid_contacts_contact_uuid_identities
+      module: admin
+      title: POST /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid/identities
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_customers_customer_uuid_contacts_contact_uuid_identities
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_customers_customer_uuid_contacts_contact_uuid_identities
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/:customer_uuid/contacts/:contact_uuid/identities
+          method: POST
+          schema_ref: internal/transport/http/admin/customer/api.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_customers_customer_uuid_contacts_resolve_identity
+      module: admin
+      title: POST /api/v1/admin/customers/:customer_uuid/contacts:resolve-identity
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_customers_customer_uuid_contacts_resolve_identity
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_customers_customer_uuid_contacts_resolve_identity
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/customer/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/customers/:customer_uuid/contacts:resolve-identity
           method: POST
           schema_ref: internal/transport/http/admin/customer/api.go#source
           auth_type: tenant_jwt
@@ -14294,6 +15694,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_knowledge_spaces_retrieval_query
+      module: admin
+      title: POST /api/v1/admin/knowledge-spaces/retrieval/query
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_knowledge_spaces_retrieval_query
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_knowledge_spaces_retrieval_query
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/retrieval/query
+          method: POST
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_knowledge_spaces_spaceid_corpus_check_jobs
       module: admin
       title: POST /api/v1/admin/knowledge-spaces/:spaceId/corpus-check/jobs
@@ -14318,6 +15746,62 @@ capabilities:
           endpoint: /api/v1/admin/knowledge-spaces/:spaceId/corpus-check/jobs
           method: POST
           schema_ref: internal/transport/http/admin/knowledge_space/handlers.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_knowledge_spaces_spaceid_documents
+      module: admin
+      title: POST /api/v1/admin/knowledge-spaces/:spaceId/documents
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_knowledge_spaces_spaceid_documents
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_knowledge_spaces_spaceid_documents
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/:spaceId/documents
+          method: POST
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_knowledge_spaces_spaceid_documents_documentid_indexes_operation
+      module: admin
+      title: POST /api/v1/admin/knowledge-spaces/:spaceId/documents/:documentId/indexes:operation
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_knowledge_spaces_spaceid_documents_documentid_indexes_operation
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_knowledge_spaces_spaceid_documents_documentid_indexes_operation
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/:spaceId/documents/:documentId/indexes:operation
+          method: POST
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -14598,6 +16082,34 @@ capabilities:
           endpoint: /api/v1/admin/knowledge-spaces/:spaceId/retire
           method: POST
           schema_ref: internal/transport/http/admin/knowledge_space/handlers.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_knowledge_spaces_spaceid_semantic_index
+      module: admin
+      title: POST /api/v1/admin/knowledge-spaces/:spaceId/semantic-index
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_knowledge_spaces_spaceid_semantic_index
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_knowledge_spaces_spaceid_semantic_index
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/host_documents.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/:spaceId/semantic-index
+          method: POST
+          schema_ref: internal/transport/http/admin/knowledge_space/host_documents.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -15270,6 +16782,286 @@ capabilities:
           endpoint: /api/v1/admin/notifications/test-queue
           method: POST
           schema_ref: internal/transport/http/admin/notifications/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_alerts_alert_id_ack
+      module: admin
+      title: POST /api/v1/admin/ops/backup/alerts/:alert_id/ack
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_alerts_alert_id_ack
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_alerts_alert_id_ack
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/alerts/:alert_id/ack
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_cleanup
+      module: admin
+      title: POST /api/v1/admin/ops/backup/cleanup
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_cleanup
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_cleanup
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/cleanup
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_jobs_run
+      module: admin
+      title: POST /api/v1/admin/ops/backup/jobs/run
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_jobs_run
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_jobs_run
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/jobs/run
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_policies
+      module: admin
+      title: POST /api/v1/admin/ops/backup/policies
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_policies
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_policies
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/policies
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_policies_policy_id_current
+      module: admin
+      title: POST /api/v1/admin/ops/backup/policies/:policy_id/current
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_policies_policy_id_current
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_policies_policy_id_current
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/policies/:policy_id/current
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_policies_policy_id_disable
+      module: admin
+      title: POST /api/v1/admin/ops/backup/policies/:policy_id/disable
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_policies_policy_id_disable
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_policies_policy_id_disable
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/policies/:policy_id/disable
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_policies_policy_id_enable
+      module: admin
+      title: POST /api/v1/admin/ops/backup/policies/:policy_id/enable
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_policies_policy_id_enable
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_policies_policy_id_enable
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/policies/:policy_id/enable
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_restore_drills
+      module: admin
+      title: POST /api/v1/admin/ops/backup/restore-drills
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_restore_drills
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_restore_drills
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/restore-drills
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_restore_drills_run
+      module: admin
+      title: POST /api/v1/admin/ops/backup/restore-drills/run
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_restore_drills_run
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_restore_drills_run
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/restore-drills/run
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_ops_backup_targets_test
+      module: admin
+      title: POST /api/v1/admin/ops/backup/targets/test
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_ops_backup_targets_test
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_ops_backup_targets_test
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/backup/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/ops/backup/targets/test
+          method: POST
+          schema_ref: internal/transport/http/admin/backup/routes.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -18522,6 +20314,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: agents.api
+    - capability_id: com.corex.rest.agents.gin.post_api_v1_agents_sessions_id_capability_approvals_approval_uuid_resume
+      module: agents
+      title: POST /api/v1/agents/sessions/:id/capability-approvals/:approval_uuid/resume
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_agents_sessions_id_capability_approvals_approval_uuid_resume
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - agents
+        - gin
+        - generated
+      intents:
+        - agents.post_api_v1_agents_sessions_id_capability_approvals_approval_uuid_resume
+      tool_scopes:
+        - agents.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/agent/api.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/agents/sessions/:id/capability-approvals/:approval_uuid/resume
+          method: POST
+          schema_ref: internal/transport/http/admin/agent/api.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: agents.api
     - capability_id: com.corex.rest.agents.gin.post_api_v1_agents_sessions_id_invoke
       module: agents
       title: POST /api/v1/agents/sessions/:id/invoke
@@ -18886,62 +20706,6 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: ai.api
-    - capability_id: com.corex.rest.alerts.gin.get_api_v1_alerts
-      module: alerts
-      title: GET /api/v1/alerts
-      description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_alerts
-      agent_usable: false
-      risk_level: low
-      categories:
-        - alerts
-        - gin
-        - generated
-      intents:
-        - alerts.get_api_v1_alerts
-      tool_scopes:
-        - alerts.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/alerts
-          method: GET
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: alerts.api
-    - capability_id: com.corex.rest.alerts.gin.post_api_v1_alerts_alert_id_ack
-      module: alerts
-      title: POST /api/v1/alerts/:alert_id/ack
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_alerts_alert_id_ack
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - alerts
-        - gin
-        - generated
-      intents:
-        - alerts.post_api_v1_alerts_alert_id_ack
-      tool_scopes:
-        - alerts.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/alerts/:alert_id/ack
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: alerts.api
     - capability_id: com.corex.rest.api.gin.post_api_v1
       module: api
       title: POST /api/v1/
@@ -19222,34 +20986,6 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: capabilitykey.api
-    - capability_id: com.corex.rest.cleanup.gin.post_api_v1_cleanup
-      module: cleanup
-      title: POST /api/v1/cleanup
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_cleanup
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - cleanup
-        - gin
-        - generated
-      intents:
-        - cleanup.post_api_v1_cleanup
-      tool_scopes:
-        - cleanup.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/cleanup
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: cleanup.api
     - capability_id: com.corex.rest.connector_platforms.post_connector_platforms_platform_instances
       module: connector_platforms
       title: Register or update an external platform instance
@@ -21854,90 +23590,6 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: internal.api
-    - capability_id: com.corex.rest.jobs.gin.get_api_v1_jobs
-      module: jobs
-      title: GET /api/v1/jobs
-      description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_jobs
-      agent_usable: false
-      risk_level: low
-      categories:
-        - jobs
-        - gin
-        - generated
-      intents:
-        - jobs.get_api_v1_jobs
-      tool_scopes:
-        - jobs.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/jobs
-          method: GET
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: jobs.api
-    - capability_id: com.corex.rest.jobs.gin.get_api_v1_jobs_job_id
-      module: jobs
-      title: GET /api/v1/jobs/:job_id
-      description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_jobs_job_id
-      agent_usable: false
-      risk_level: low
-      categories:
-        - jobs
-        - gin
-        - generated
-      intents:
-        - jobs.get_api_v1_jobs_job_id
-      tool_scopes:
-        - jobs.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/jobs/:job_id
-          method: GET
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: jobs.api
-    - capability_id: com.corex.rest.jobs.gin.post_api_v1_jobs_run
-      module: jobs
-      title: POST /api/v1/jobs/run
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_jobs_run
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - jobs
-        - gin
-        - generated
-      intents:
-        - jobs.post_api_v1_jobs_run
-      tool_scopes:
-        - jobs.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/jobs/run
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: jobs.api
     - capability_id: com.corex.rest.knowledge.gin.get_api_v1_knowledge_decay_status
       module: knowledge
       title: GET /api/v1/knowledge/decay/status
@@ -23114,174 +24766,6 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: plugin_release.api
-    - capability_id: com.corex.rest.policies.gin.get_api_v1_policies
-      module: policies
-      title: GET /api/v1/policies
-      description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_policies
-      agent_usable: false
-      risk_level: low
-      categories:
-        - policies
-        - gin
-        - generated
-      intents:
-        - policies.get_api_v1_policies
-      tool_scopes:
-        - policies.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/policies
-          method: GET
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: policies.api
-    - capability_id: com.corex.rest.policies.gin.patch_api_v1_policies_policy_id
-      module: policies
-      title: PATCH /api/v1/policies/:policy_id
-      description: Generated from Gin route source
-      permission_code: corex.rest:patch_api_v1_policies_policy_id
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - policies
-        - gin
-        - generated
-      intents:
-        - policies.patch_api_v1_policies_policy_id
-      tool_scopes:
-        - policies.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/policies/:policy_id
-          method: PATCH
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: policies.api
-    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies
-      module: policies
-      title: POST /api/v1/policies
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_policies
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - policies
-        - gin
-        - generated
-      intents:
-        - policies.post_api_v1_policies
-      tool_scopes:
-        - policies.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/policies
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: policies.api
-    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies_policy_id_current
-      module: policies
-      title: POST /api/v1/policies/:policy_id/current
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_policies_policy_id_current
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - policies
-        - gin
-        - generated
-      intents:
-        - policies.post_api_v1_policies_policy_id_current
-      tool_scopes:
-        - policies.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/policies/:policy_id/current
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: policies.api
-    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies_policy_id_disable
-      module: policies
-      title: POST /api/v1/policies/:policy_id/disable
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_policies_policy_id_disable
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - policies
-        - gin
-        - generated
-      intents:
-        - policies.post_api_v1_policies_policy_id_disable
-      tool_scopes:
-        - policies.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/policies/:policy_id/disable
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: policies.api
-    - capability_id: com.corex.rest.policies.gin.post_api_v1_policies_policy_id_enable
-      module: policies
-      title: POST /api/v1/policies/:policy_id/enable
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_policies_policy_id_enable
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - policies
-        - gin
-        - generated
-      intents:
-        - policies.post_api_v1_policies_policy_id_enable
-      tool_scopes:
-        - policies.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/policies/:policy_id/enable
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: policies.api
     - capability_id: com.corex.rest.provider_quotas.get_provider_quotas
       module: provider_quotas
       title: Retrieve quota configuration for a tenant
@@ -23646,118 +25130,6 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: rag.api
-    - capability_id: com.corex.rest.restore_drills.gin.get_api_v1_restore_drills
-      module: restore_drills
-      title: GET /api/v1/restore-drills
-      description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_restore_drills
-      agent_usable: false
-      risk_level: low
-      categories:
-        - restore_drills
-        - gin
-        - generated
-      intents:
-        - restore_drills.get_api_v1_restore_drills
-      tool_scopes:
-        - restore_drills.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/restore-drills
-          method: GET
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: restore_drills.api
-    - capability_id: com.corex.rest.restore_drills.gin.get_api_v1_restore_drills_drill_id
-      module: restore_drills
-      title: GET /api/v1/restore-drills/:drill_id
-      description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_restore_drills_drill_id
-      agent_usable: false
-      risk_level: low
-      categories:
-        - restore_drills
-        - gin
-        - generated
-      intents:
-        - restore_drills.get_api_v1_restore_drills_drill_id
-      tool_scopes:
-        - restore_drills.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/restore-drills/:drill_id
-          method: GET
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: restore_drills.api
-    - capability_id: com.corex.rest.restore_drills.gin.post_api_v1_restore_drills
-      module: restore_drills
-      title: POST /api/v1/restore-drills
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_restore_drills
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - restore_drills
-        - gin
-        - generated
-      intents:
-        - restore_drills.post_api_v1_restore_drills
-      tool_scopes:
-        - restore_drills.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/restore-drills
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: restore_drills.api
-    - capability_id: com.corex.rest.restore_drills.gin.post_api_v1_restore_drills_run
-      module: restore_drills
-      title: POST /api/v1/restore-drills/run
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_restore_drills_run
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - restore_drills
-        - gin
-        - generated
-      intents:
-        - restore_drills.post_api_v1_restore_drills_run
-      tool_scopes:
-        - restore_drills.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/restore-drills/run
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: restore_drills.api
     - capability_id: com.corex.rest.routes.gin.get_api_v1_routes
       module: routes
       title: GET /api/v1/routes
@@ -23842,34 +25214,6 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: routes.api
-    - capability_id: com.corex.rest.targets.gin.post_api_v1_targets_test
-      module: targets
-      title: POST /api/v1/targets/test
-      description: Generated from Gin route source
-      permission_code: corex.rest:post_api_v1_targets_test
-      agent_usable: false
-      risk_level: medium
-      categories:
-        - targets
-        - gin
-        - generated
-      intents:
-        - targets.post_api_v1_targets_test
-      tool_scopes:
-        - targets.api
-      policy:
-        prefer: rest
-      docs:
-        - internal/transport/http/admin/backup/routes.go
-      protocols:
-        - channel: rest
-          endpoint: /api/v1/targets/test
-          method: POST
-          schema_ref: internal/transport/http/admin/backup/routes.go#source
-          auth_type: tenant_jwt
-          actor_context: service_actor
-          resource_scope: tenant
-          tool_scope: targets.api
     - capability_id: com.corex.rest.tenant.gin.delete_api_v1_tenant_agent_sessions_session_uuid
       module: tenant
       title: DELETE /api/v1/tenant/agent/sessions/:session_uuid
@@ -23978,6 +25322,34 @@ capabilities:
           endpoint: /api/v1/tenant/runtime/cache/entries
           method: DELETE
           schema_ref: internal/transport/http/openapi/runtime_host/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.delete_api_v1_tenant_scheduler_jobs_job_id
+      module: tenant
+      title: DELETE /api/v1/tenant/scheduler/jobs/:job_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:delete_api_v1_tenant_scheduler_jobs_job_id
+      agent_usable: false
+      risk_level: high
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.delete_api_v1_tenant_scheduler_jobs_job_id
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/scheduler/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/scheduler/jobs/:job_id
+          method: DELETE
+          schema_ref: internal/transport/http/admin/scheduler/routes.go#source
           auth_type: tenant_jwt
           actor_context: service_actor
           resource_scope: tenant
@@ -24514,6 +25886,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_knowledge_catalog
+      module: tenant
+      title: GET /api/v1/tenant/knowledge/catalog
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_knowledge_catalog
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_knowledge_catalog
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/catalog
+          method: GET
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_knowledge_index_jobs_job_uuid
       module: tenant
       title: GET /api/v1/tenant/knowledge/index-jobs/:job_uuid
@@ -24542,6 +25942,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_knowledge_index_jobs_job_uuid_chunks
+      module: tenant
+      title: GET /api/v1/tenant/knowledge/index-jobs/:job_uuid/chunks
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_knowledge_index_jobs_job_uuid_chunks
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_knowledge_index_jobs_job_uuid_chunks
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/index-jobs/:job_uuid/chunks
+          method: GET
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_knowledge_spaces
       module: tenant
       title: GET /api/v1/tenant/knowledge/spaces
@@ -24564,6 +25992,34 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/tenant/knowledge/spaces
+          method: GET
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_knowledge_spaces_space_uuid_semantic_index
+      module: tenant
+      title: GET /api/v1/tenant/knowledge/spaces/:space_uuid/semantic-index
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_knowledge_spaces_space_uuid_semantic_index
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_knowledge_spaces_space_uuid_semantic_index
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/spaces/:space_uuid/semantic-index
           method: GET
           schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
           auth_type: tenant_jwt
@@ -24822,6 +26278,90 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_scheduler_jobs
+      module: tenant
+      title: GET /api/v1/tenant/scheduler/jobs
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_scheduler_jobs
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_scheduler_jobs
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/scheduler/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/scheduler/jobs
+          method: GET
+          schema_ref: internal/transport/http/admin/scheduler/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_scheduler_jobs_job_id
+      module: tenant
+      title: GET /api/v1/tenant/scheduler/jobs/:job_id
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_scheduler_jobs_job_id
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_scheduler_jobs_job_id
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/scheduler/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/scheduler/jobs/:job_id
+          method: GET
+          schema_ref: internal/transport/http/admin/scheduler/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_scheduler_jobs_job_id_runs
+      module: tenant
+      title: GET /api/v1/tenant/scheduler/jobs/:job_id/runs
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_scheduler_jobs_job_id_runs
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_scheduler_jobs_job_id_runs
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/scheduler/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/scheduler/jobs/:job_id/runs
+          method: GET
+          schema_ref: internal/transport/http/admin/scheduler/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.patch_api_v1_tenant_agent_sessions_session_uuid
       module: tenant
       title: PATCH /api/v1/tenant/agent/sessions/:session_uuid
@@ -24846,6 +26386,34 @@ capabilities:
           endpoint: /api/v1/tenant/agent/sessions/:session_uuid
           method: PATCH
           schema_ref: internal/transport/http/openapi/agent_session/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.patch_api_v1_tenant_knowledge_spaces_space_uuid_documents_document_uuid_visibility
+      module: tenant
+      title: PATCH /api/v1/tenant/knowledge/spaces/:space_uuid/documents/:document_uuid/visibility
+      description: Generated from Gin route source
+      permission_code: corex.rest:patch_api_v1_tenant_knowledge_spaces_space_uuid_documents_document_uuid_visibility
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.patch_api_v1_tenant_knowledge_spaces_space_uuid_documents_document_uuid_visibility
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/spaces/:space_uuid/documents/:document_uuid/visibility
+          method: PATCH
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
           auth_type: tenant_jwt
           actor_context: service_actor
           resource_scope: tenant
@@ -25382,6 +26950,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_knowledge_retrieval_query
+      module: tenant
+      title: POST /api/v1/tenant/knowledge/retrieval/query
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_knowledge_retrieval_query
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_knowledge_retrieval_query
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/retrieval/query
+          method: POST
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_knowledge_search
       module: tenant
       title: POST /api/v1/tenant/knowledge/search
@@ -25404,6 +27000,34 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/tenant/knowledge/search
+          method: POST
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_knowledge_spaces
+      module: tenant
+      title: POST /api/v1/tenant/knowledge/spaces
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_knowledge_spaces
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_knowledge_spaces
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/spaces
           method: POST
           schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
           auth_type: tenant_jwt
@@ -25438,6 +27062,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_knowledge_spaces_space_uuid_documents_document_uuid_indexes_operation
+      module: tenant
+      title: POST /api/v1/tenant/knowledge/spaces/:space_uuid/documents/:document_uuid/indexes:operation
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_knowledge_spaces_space_uuid_documents_document_uuid_indexes_operation
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_knowledge_spaces_space_uuid_documents_document_uuid_indexes_operation
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/spaces/:space_uuid/documents/:document_uuid/indexes:operation
+          method: POST
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_knowledge_spaces_space_uuid_indexes_operation
       module: tenant
       title: POST /api/v1/tenant/knowledge/spaces/:space_uuid/indexes:operation
@@ -25460,6 +27112,34 @@ capabilities:
       protocols:
         - channel: rest
           endpoint: /api/v1/tenant/knowledge/spaces/:space_uuid/indexes:operation
+          method: POST
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_knowledge_spaces_space_uuid_semantic_index
+      module: tenant
+      title: POST /api/v1/tenant/knowledge/spaces/:space_uuid/semantic-index
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_knowledge_spaces_space_uuid_semantic_index
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_knowledge_spaces_space_uuid_semantic_index
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/spaces/:space_uuid/semantic-index
           method: POST
           schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
           auth_type: tenant_jwt
@@ -25886,3 +27566,31 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.upgrade.gin.post_api_v1_upgrade
+      module: upgrade
+      title: POST /api/v1/upgrade
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_upgrade
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - upgrade
+        - gin
+        - generated
+      intents:
+        - upgrade.post_api_v1_upgrade
+      tool_scopes:
+        - upgrade.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/capability_registry/version_upgrade_handler_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/upgrade
+          method: POST
+          schema_ref: internal/transport/http/admin/capability_registry/version_upgrade_handler_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: upgrade.api

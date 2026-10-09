@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -17,16 +16,17 @@ import (
 )
 
 const (
-	defaultIntervalHours    = 6
-	defaultRetentionCount   = 14
+	defaultIntervalHours    = 1
+	defaultRetentionCount   = 168
 	defaultTimezone         = "Asia/Shanghai"
 	defaultDrillIntervalDay = 7
 )
 
 type PolicyService struct {
-	repo    *repoops.BackupPolicyRepository
-	auditor obsops.AuditWriter
-	metrics *inst.Recorder
+	repo          *repoops.BackupPolicyRepository
+	auditor       obsops.AuditWriter
+	metrics       *inst.Recorder
+	deploymentEnv string
 }
 
 type ListPolicyOptions struct {
@@ -45,6 +45,8 @@ type CreatePolicyRequest struct {
 	IntervalUnit     string
 	Schedule         string
 	RetentionCount   int
+	RetentionDays    int
+	RetentionMode    string
 	Timezone         string
 	DrillEnabled     *bool
 	DrillIntervalDay int
@@ -61,6 +63,8 @@ type UpdatePolicyRequest struct {
 	IntervalUnit     *string
 	Schedule         *string
 	RetentionCount   *int
+	RetentionDays    *int
+	RetentionMode    *string
 	Timezone         *string
 	DrillEnabled     *bool
 	DrillIntervalDay *int
@@ -82,7 +86,7 @@ type SetCurrentPolicyRequest struct {
 	TraceID  string
 }
 
-// UpsertPolicyRequest 保留给现有 gRPC 兼容路径。
+// UpsertPolicyRequest 是 gRPC 策略输入，retention_days 按天数解释。
 type UpsertPolicyRequest struct {
 	Name          string
 	BackupType    string
@@ -94,11 +98,16 @@ type UpsertPolicyRequest struct {
 	TraceID       string
 }
 
-func NewPolicyService(db *gorm.DB) *PolicyService {
+func NewPolicyService(db *gorm.DB, deploymentEnv ...string) *PolicyService {
+	env := ""
+	if len(deploymentEnv) > 0 {
+		env = deploymentEnv[0]
+	}
 	return &PolicyService{
-		repo:    repoops.NewBackupPolicyRepository(db),
-		auditor: obsops.NewUnifiedAuditWriter(db),
-		metrics: inst.NewRecorder("powerx.service.backup_policy_ops"),
+		deploymentEnv: env,
+		repo:          repoops.NewBackupPolicyRepository(db),
+		auditor:       obsops.NewUnifiedAuditWriter(db),
+		metrics:       inst.NewRecorder("powerx.service.backup_policy_ops"),
 	}
 }
 
@@ -135,7 +144,7 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyReques
 		return nil, retErr
 	}
 
-	schedule, intervalHours, err := resolveScheduleForCreate(req)
+	schedule, intervalHours, err := resolveScheduleForCreate(req, s.deploymentEnv)
 	if err != nil {
 		retErr = err
 		return nil, retErr
@@ -154,12 +163,18 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyReques
 		return nil, retErr
 	}
 
+	mode, days, err := normalizeRetention(req.RetentionMode, req.RetentionDays)
+	if err != nil {
+		retErr = err
+		return nil, err
+	}
 	operator := normalizeOperator(req.Operator)
 	row := &modelops.BackupPolicy{
 		Name:              name,
 		BackupType:        modelops.BackupTypeLogical,
 		Schedule:          schedule,
-		RetentionDays:     int32(retention),
+		RetentionDays:     int32(days),
+		RetentionMode:     mode,
 		IntervalHours:     int32(intervalHours),
 		RetentionCount:    int32(retention),
 		Timezone:          timezone,
@@ -177,7 +192,7 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyReques
 		retErr = err
 		return nil, retErr
 	}
-	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "create", Outcome: "success", Severity: "info", Detail: map[string]any{"name": saved.Name, "interval_hours": saved.IntervalHours, "retention_count": saved.RetentionCount, "timezone": saved.Timezone, "trace_id": strings.TrimSpace(req.TraceID)}})
+	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", saved.ID), Operation: "create", Outcome: "success", Severity: "info", Detail: map[string]any{"name": saved.Name, "interval_hours": saved.IntervalHours, "retention_count": saved.RetentionCount, "retention_days": saved.RetentionDays, "retention_mode": saved.RetentionMode, "timezone": saved.Timezone, "trace_id": strings.TrimSpace(req.TraceID)}})
 	logOp(ctx, "info", "backup.policy.create",
 		zap.Uint64("policy_id", saved.ID),
 		zap.String("name", saved.Name),
@@ -219,7 +234,7 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, req UpdatePolicyReques
 		row.Name = name
 	}
 	if req.Schedule != nil || req.IntervalHours != nil || req.IntervalValue != nil || req.IntervalUnit != nil {
-		schedule, intervalHours, resolveErr := resolveScheduleForUpdate(req, int(row.IntervalHours), row.Schedule)
+		schedule, intervalHours, resolveErr := resolveScheduleForUpdate(req, int(row.IntervalHours), row.Schedule, s.deploymentEnv)
 		if resolveErr != nil {
 			retErr = resolveErr
 			return nil, retErr
@@ -233,7 +248,20 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, req UpdatePolicyReques
 			return nil, retErr
 		}
 		row.RetentionCount = int32(*req.RetentionCount)
-		row.RetentionDays = int32(*req.RetentionCount)
+	}
+	if req.RetentionMode != nil || req.RetentionDays != nil {
+		mode, days := row.RetentionMode, int(row.RetentionDays)
+		if req.RetentionMode != nil {
+			mode = *req.RetentionMode
+		}
+		if req.RetentionDays != nil {
+			days = *req.RetentionDays
+		}
+		mode, days, err = normalizeRetention(mode, days)
+		if err != nil {
+			return nil, err
+		}
+		row.RetentionMode, row.RetentionDays = mode, int32(days)
 	}
 	if req.Timezone != nil {
 		tz := strings.TrimSpace(*req.Timezone)
@@ -273,7 +301,7 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, req UpdatePolicyReques
 		retErr = err
 		return nil, retErr
 	}
-	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "update", Outcome: "success", Severity: "info", Detail: map[string]any{"name": updated.Name, "interval_hours": updated.IntervalHours, "retention_count": updated.RetentionCount, "timezone": updated.Timezone, "trace_id": strings.TrimSpace(req.TraceID)}})
+	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_policy", ResourceID: fmt.Sprintf("%d", updated.ID), Operation: "update", Outcome: "success", Severity: "info", Detail: map[string]any{"name": updated.Name, "interval_hours": updated.IntervalHours, "retention_count": updated.RetentionCount, "retention_days": updated.RetentionDays, "retention_mode": updated.RetentionMode, "timezone": updated.Timezone, "trace_id": strings.TrimSpace(req.TraceID)}})
 	logOp(ctx, "info", "backup.policy.update",
 		zap.Uint64("policy_id", updated.ID),
 		zap.String("name", updated.Name),
@@ -368,8 +396,11 @@ func (s *PolicyService) SetCurrentPolicy(ctx context.Context, req SetCurrentPoli
 	return nil
 }
 
-// UpsertPolicy 保留给 gRPC 兼容层，内部转换到 Create/Update。
+// UpsertPolicy 将 gRPC 输入转换为 Create/Update。
 func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyRequest) (*modelops.BackupPolicy, error) {
+	if kind := strings.TrimSpace(req.BackupType); kind != "" && kind != "logical" {
+		return nil, ErrInvalidBackupPolicy
+	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, ErrInvalidBackupPolicy
@@ -381,10 +412,12 @@ func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyReques
 	if existing == nil {
 		created, err := s.CreatePolicy(ctx, CreatePolicyRequest{
 			Name:             req.Name,
-			IntervalHours:    parseScheduleHours(req.Schedule),
-			RetentionCount:   req.RetentionDays,
+			Schedule:         req.Schedule,
+			RetentionCount:   defaultRetentionCount,
+			RetentionDays:    req.RetentionDays,
+			RetentionMode:    "age_and_count",
 			Timezone:         defaultTimezone,
-			DrillEnabled:     boolPtr(true),
+			DrillEnabled:     boolPtr(false),
 			DrillIntervalDay: defaultDrillIntervalDay,
 			TargetRef:        req.StorageTarget,
 			Operator:         req.Operator,
@@ -402,7 +435,8 @@ func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyReques
 	updated, err := s.UpdatePolicy(ctx, UpdatePolicyRequest{
 		PolicyID:         existing.ID,
 		Schedule:         &schedule,
-		RetentionCount:   &retention,
+		RetentionDays:    &retention,
+		RetentionMode:    stringPtr("age_and_count"),
 		TargetRef:        &target,
 		Operator:         req.Operator,
 		TraceID:          req.TraceID,
@@ -434,7 +468,7 @@ func normalizePolicyValues(intervalHours, retentionCount int, timezone string, d
 	if _, err := time.LoadLocation(tz); err != nil {
 		return 0, 0, "", false, 0, "", ErrInvalidBackupPolicy
 	}
-	drill := true
+	drill := false
 	if drillEnabled != nil {
 		drill = *drillEnabled
 	}
@@ -444,7 +478,7 @@ func normalizePolicyValues(intervalHours, retentionCount int, timezone string, d
 	}
 	target := strings.TrimSpace(targetRef)
 	if target == "" {
-		target = "powerx_bak"
+		target = "local_dump"
 	}
 	return interval, retention, tz, drill, drillInterval, target, nil
 }
@@ -457,13 +491,13 @@ func parseScheduleHours(schedule string) int {
 	return durationToLegacyIntervalHours(d)
 }
 
-func resolveScheduleForCreate(req CreatePolicyRequest) (string, int, error) {
+func resolveScheduleForCreate(req CreatePolicyRequest, env string) (string, int, error) {
 	if strings.TrimSpace(req.Schedule) != "" {
 		d, normalized, err := parseScheduleDurationStrict(req.Schedule)
 		if err != nil {
 			return "", 0, err
 		}
-		if err := validateScheduleDurationByEnv(d); err != nil {
+		if err := validateScheduleDurationByEnv(d, env); err != nil {
 			return "", 0, err
 		}
 		return normalized, durationToLegacyIntervalHours(d), nil
@@ -473,7 +507,7 @@ func resolveScheduleForCreate(req CreatePolicyRequest) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
-		if err := validateScheduleDurationByEnv(d); err != nil {
+		if err := validateScheduleDurationByEnv(d, env); err != nil {
 			return "", 0, err
 		}
 		return normalized, durationToLegacyIntervalHours(d), nil
@@ -483,7 +517,7 @@ func resolveScheduleForCreate(req CreatePolicyRequest) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
-		if err := validateScheduleDurationByEnv(d); err != nil {
+		if err := validateScheduleDurationByEnv(d, env); err != nil {
 			return "", 0, err
 		}
 		return normalized, durationToLegacyIntervalHours(d), nil
@@ -492,19 +526,19 @@ func resolveScheduleForCreate(req CreatePolicyRequest) (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	if err := validateScheduleDurationByEnv(d); err != nil {
+	if err := validateScheduleDurationByEnv(d, env); err != nil {
 		return "", 0, err
 	}
 	return normalized, durationToLegacyIntervalHours(d), nil
 }
 
-func resolveScheduleForUpdate(req UpdatePolicyRequest, currentIntervalHours int, currentSchedule string) (string, int, error) {
+func resolveScheduleForUpdate(req UpdatePolicyRequest, currentIntervalHours int, currentSchedule string, env string) (string, int, error) {
 	if req.Schedule != nil && strings.TrimSpace(*req.Schedule) != "" {
 		d, normalized, err := parseScheduleDurationStrict(*req.Schedule)
 		if err != nil {
 			return "", 0, err
 		}
-		if err := validateScheduleDurationByEnv(d); err != nil {
+		if err := validateScheduleDurationByEnv(d, env); err != nil {
 			return "", 0, err
 		}
 		return normalized, durationToLegacyIntervalHours(d), nil
@@ -529,7 +563,7 @@ func resolveScheduleForUpdate(req UpdatePolicyRequest, currentIntervalHours int,
 		if err != nil {
 			return "", 0, err
 		}
-		if err := validateScheduleDurationByEnv(d); err != nil {
+		if err := validateScheduleDurationByEnv(d, env); err != nil {
 			return "", 0, err
 		}
 		return normalized, durationToLegacyIntervalHours(d), nil
@@ -539,7 +573,7 @@ func resolveScheduleForUpdate(req UpdatePolicyRequest, currentIntervalHours int,
 		if err != nil {
 			return "", 0, err
 		}
-		if err := validateScheduleDurationByEnv(d); err != nil {
+		if err := validateScheduleDurationByEnv(d, env); err != nil {
 			return "", 0, err
 		}
 		return normalized, durationToLegacyIntervalHours(d), nil
@@ -547,18 +581,12 @@ func resolveScheduleForUpdate(req UpdatePolicyRequest, currentIntervalHours int,
 	return currentSchedule, currentIntervalHours, nil
 }
 
-func validateScheduleDurationByEnv(d time.Duration) error {
+func validateScheduleDurationByEnv(d time.Duration, env string) error {
 	if d <= 0 {
 		return ErrInvalidBackupPolicy
 	}
-	env := strings.TrimSpace(strings.ToLower(os.Getenv("APP_ENV")))
-	if env == "" {
-		env = strings.TrimSpace(strings.ToLower(os.Getenv("POWERX_ENV")))
-	}
-	if env == "prod" || env == "production" {
-		if d < time.Hour {
-			return ErrInvalidBackupPolicy
-		}
+	if env == "prod" && d < time.Hour {
+		return ErrInvalidBackupPolicy
 	}
 	return nil
 }
@@ -577,3 +605,5 @@ func (s *PolicyService) audit(ctx context.Context, rec obsops.AuditRecord) {
 	}
 	_ = s.auditor.Write(ctx, rec)
 }
+
+func stringPtr(v string) *string { return &v }

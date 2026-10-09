@@ -328,6 +328,10 @@ func (s *HostContractService) UpsertDocument(ctx context.Context, tenantUUID, sp
 					return KnowledgeIndexConflictError(errors.New("same source and configuration are already accepted"))
 				}
 			}
+			// 旧文档迁移时visibility_epoch可能为NULL；string扫描为空值，不能向uuid列保存空字符串。
+			if document.VisibilityEpoch == "" {
+				document.VisibilityEpoch = uuid.NewString()
+			}
 			document.Title, document.Content, document.ContentType = strings.TrimSpace(in.Title), in.Content, strings.TrimSpace(in.ContentType)
 			document.Checksum, document.Version, document.Tags = strings.ToLower(strings.TrimSpace(in.Checksum)), strings.TrimSpace(in.Version), tags
 			if document.ActiveIndexJobUUID == nil {

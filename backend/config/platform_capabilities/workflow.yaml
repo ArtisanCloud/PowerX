@@ -553,3 +553,156 @@ capabilities:
     en: Workflow Packs
   description_i18n:
     en: 查询和 seed PowerX 内置 Workflow Pack。
+
+- capability_id: com.corex.scheduler.jobs.service_read
+  module: scheduler
+  title: Scheduler read
+  description: 租户与owner范围内调度任务预览及历史查询
+  permission_code: corex.scheduler.jobs:read
+  agent_usable: false
+  risk_level: medium
+  categories:
+  - runtime
+  - scheduler
+  intents:
+  - runtime.scheduler.jobs.service_read
+  tool_scopes:
+  - scheduler.job.read
+  policy:
+    prefer: core_internal
+  docs:
+  - docs/contracts/scheduler-job-cleanup.md
+  - specs/028-runtime-scheduler/contracts/cleanup-openapi.yaml
+  protocols:
+  - channel: core_internal
+    endpoint: core://scheduler/jobs
+    method: INVOKE
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    api_key:
+      scope: _scope.scheduler.jobs.service_read
+      action: read
+      resource_type: api
+      resource_pattern: scheduler_jobs
+    schema_ref: specs/028-runtime-scheduler/contracts/cleanup-openapi.yaml#/components/schemas/TypedOperation
+  - channel: rest
+    endpoint: /api/v1/admin/scheduler/jobs
+    method: GET
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  - channel: rest
+    endpoint: /api/v1/tenant/scheduler/jobs
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key:
+      scope: _scope.scheduler.jobs.service_read
+      action: read
+      resource_type: api
+      resource_pattern: scheduler_jobs
+  - channel: rest
+    endpoint: /api/v1/admin/scheduler/jobs/{job_id}
+    method: GET
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  - channel: rest
+    endpoint: /api/v1/tenant/scheduler/jobs/{job_id}
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key:
+      scope: _scope.scheduler.jobs.service_read
+      action: read
+      resource_type: api
+      resource_pattern: scheduler_jobs
+  - channel: rest
+    endpoint: /api/v1/admin/scheduler/jobs/{job_id}/runs
+    method: GET
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  - channel: rest
+    endpoint: /api/v1/tenant/scheduler/jobs/{job_id}/runs
+    method: GET
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key:
+      scope: _scope.scheduler.jobs.service_read
+      action: read
+      resource_type: api
+      resource_pattern: scheduler_jobs
+  title_i18n:
+    zh-CN: 调度任务读取
+    en: Scheduler job read
+  description_i18n:
+    zh-CN: 按租户、owner及实时授权执行调度任务预览和历史查询
+    en: Tenant and owner scoped scheduler job read
+- capability_id: com.corex.scheduler.jobs.service_delete
+  module: scheduler
+  title: Scheduler delete
+  description: 租户与owner范围内调度任务带版本条件的软删除
+  permission_code: corex.scheduler.jobs:delete
+  agent_usable: false
+  risk_level: high
+  categories:
+  - runtime
+  - scheduler
+  intents:
+  - runtime.scheduler.jobs.service_delete
+  tool_scopes:
+  - scheduler.job.delete
+  policy:
+    prefer: core_internal
+  docs:
+  - docs/contracts/scheduler-job-cleanup.md
+  - specs/028-runtime-scheduler/contracts/cleanup-openapi.yaml
+  protocols:
+  - channel: core_internal
+    endpoint: core://scheduler/jobs
+    method: INVOKE
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    api_key:
+      scope: _scope.scheduler.jobs.service_delete
+      action: delete
+      resource_type: api
+      resource_pattern: scheduler_jobs
+    schema_ref: specs/028-runtime-scheduler/contracts/cleanup-openapi.yaml#/components/schemas/TypedOperation
+  - channel: rest
+    endpoint: /api/v1/admin/scheduler/jobs/{job_id}
+    method: DELETE
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+  - channel: rest
+    endpoint: /api/v1/tenant/scheduler/jobs/{job_id}
+    method: DELETE
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    api_key:
+      scope: _scope.scheduler.jobs.service_delete
+      action: delete
+      resource_type: api
+      resource_pattern: scheduler_jobs
+  title_i18n:
+    zh-CN: 调度任务删除
+    en: Scheduler job delete
+  description_i18n:
+    zh-CN: 按租户、owner及实时授权执行调度任务版本条件删除
+    en: Tenant and owner scoped scheduler job delete

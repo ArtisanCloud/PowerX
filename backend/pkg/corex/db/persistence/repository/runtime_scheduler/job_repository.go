@@ -36,7 +36,18 @@ func (r *JobRepository) Create(ctx context.Context, job *models.SchedulerJob) (*
 }
 
 func (r *JobRepository) Update(ctx context.Context, job *models.SchedulerJob) (*models.SchedulerJob, error) {
-	return r.base.Update(ctx, job)
+	expected := job.Revision
+	res := r.db.WithContext(ctx).Model(&models.SchedulerJob{}).Where("uuid = ? AND tenant_uuid = ? AND revision = ? AND status <> ?", job.UUID, job.TenantUUID, expected, models.JobStatusDeleted).Updates(map[string]any{
+		"name": job.Name, "schedule_type": job.ScheduleType, "schedule_expr": job.ScheduleExpr, "timezone": job.Timezone, "topic": job.Topic, "payload_json": job.PayloadJSON, "status": job.Status, "next_run_at": job.NextRunAt, "last_run_at": job.LastRunAt, "misfire_policy": job.MisfirePolicy, "overlap_policy": job.OverlapPolicy, "idempotency_key": job.IdempotencyKey, "actor_type": job.ActorType, "actor_user_id": job.ActorUserID, "actor_user_uuid": job.ActorUserUUID, "actor_member_id": job.ActorMemberID, "actor_member_uuid": job.ActorMemberUUID, "updated_by": job.UpdatedBy, "last_error": job.LastError, "trace_id": job.TraceID, "revision": gorm.Expr("revision + 1"),
+	})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected != 1 {
+		return nil, ErrRevisionConflict
+	}
+	job.Revision = expected + 1
+	return r.FindByUUID(ctx, job.UUID)
 }
 
 func (r *JobRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.SchedulerJob, error) {
@@ -52,7 +63,7 @@ func (r *JobRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*models.S
 }
 
 func (r *JobRepository) List(ctx context.Context, filter JobFilter) ([]*models.SchedulerJob, int64, error) {
-	query := r.db.WithContext(ctx).Model(&models.SchedulerJob{})
+	query := r.db.WithContext(ctx).Model(&models.SchedulerJob{}).Where("status <> ?", models.JobStatusDeleted)
 	if v := strings.TrimSpace(filter.TenantUUID); v != "" {
 		query = query.Where("tenant_uuid = ?", v)
 	}
@@ -126,4 +137,31 @@ func (r *JobRepository) UpdateFields(ctx context.Context, id uuid.UUID, fields m
 		Model(&models.SchedulerJob{}).
 		Where("uuid = ?", id).
 		Updates(fields).Error
+}
+
+var ErrRevisionConflict = errors.New("scheduler job revision conflict")
+
+func (r *JobRepository) FindHistorical(ctx context.Context, tenant string, id uuid.UUID) (*models.SchedulerJob, error) {
+	var row models.SchedulerJob
+	err := r.db.WithContext(ctx).Unscoped().Where("tenant_uuid = ? AND uuid = ?", tenant, id).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &row, err
+}
+func (r *JobRepository) SoftDelete(ctx context.Context, row *models.SchedulerJob, operator, trace string, now time.Time) error {
+	res := r.db.WithContext(ctx).Model(&models.SchedulerJob{}).Where("uuid = ? AND tenant_uuid = ? AND revision = ? AND status <> ?", row.UUID, row.TenantUUID, row.Revision, models.JobStatusDeleted).Updates(map[string]any{"status": models.JobStatusDeleted, "actor_type": row.ActorType, "actor_user_id": row.ActorUserID, "actor_user_uuid": row.ActorUserUUID, "actor_member_id": row.ActorMemberID, "actor_member_uuid": row.ActorMemberUUID, "deleted_at": now, "next_run_at": nil, "updated_by": operator, "trace_id": trace, "revision": gorm.Expr("revision + 1")})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected != 1 {
+		return ErrRevisionConflict
+	}
+	row.Status = models.JobStatusDeleted
+	row.DeletedAt = gorm.DeletedAt{Time: now, Valid: true}
+	row.NextRunAt = nil
+	row.Revision++
+	row.UpdatedBy = operator
+	row.TraceID = trace
+	return nil
 }

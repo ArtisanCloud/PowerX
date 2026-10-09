@@ -14,7 +14,7 @@ var commit string
 var buildTime string
 
 var databaseCommands = []string{
-	"migrate", "seed", "seed-native-marketing-skills", "refresh", "status",
+	"backup-run", "backup-restore-verify", "migrate", "seed", "seed-native-marketing-skills", "refresh", "status",
 	"iam-report", "iam-fix-owner", "iam-fix-role-binding-duplicates", "repair-agent-run-state",
 	"repair-plugin-runtime-credentials", "prepare-plugin-runtime-credentials",
 }

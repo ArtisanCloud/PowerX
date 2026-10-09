@@ -36,10 +36,11 @@ const (
 type SchedulerJob struct {
 	coremodel.PowerUUIDModel
 
-	TenantUUID      string         `gorm:"column:tenant_uuid;type:char(36);not null;uniqueIndex:uk_scheduler_job_owner_name,priority:1;index:idx_scheduler_jobs_due,priority:1" json:"tenant_uuid"`
-	OwnerType       string         `gorm:"column:owner_type;type:varchar(32);not null;uniqueIndex:uk_scheduler_job_owner_name,priority:2;index:idx_scheduler_jobs_due,priority:2" json:"owner_type"`
-	OwnerID         string         `gorm:"column:owner_id;type:varchar(128);not null;uniqueIndex:uk_scheduler_job_owner_name,priority:3;index:idx_scheduler_jobs_due,priority:3" json:"owner_id"`
-	Name            string         `gorm:"column:name;type:varchar(160);not null;uniqueIndex:uk_scheduler_job_owner_name,priority:4" json:"name"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:char(36);not null;uniqueIndex:uk_scheduler_job_live_owner_name,where:deleted_at IS NULL AND status <> 'deleted',priority:1;index:idx_scheduler_jobs_due,priority:1" json:"tenant_uuid"`
+	OwnerType       string         `gorm:"column:owner_type;type:varchar(32);not null;uniqueIndex:uk_scheduler_job_live_owner_name,where:deleted_at IS NULL AND status <> 'deleted',priority:2;index:idx_scheduler_jobs_due,priority:2" json:"owner_type"`
+	OwnerID         string         `gorm:"column:owner_id;type:varchar(128);not null;uniqueIndex:uk_scheduler_job_live_owner_name,where:deleted_at IS NULL AND status <> 'deleted',priority:3;index:idx_scheduler_jobs_due,priority:3" json:"owner_id"`
+	Revision        uint64         `gorm:"not null;default:1" json:"revision"`
+	Name            string         `gorm:"column:name;type:varchar(160);not null;uniqueIndex:uk_scheduler_job_live_owner_name,where:deleted_at IS NULL AND status <> 'deleted',priority:4" json:"name"`
 	ScheduleType    string         `gorm:"column:schedule_type;type:varchar(32);not null" json:"schedule_type"`
 	ScheduleExpr    string         `gorm:"column:schedule_expr;type:varchar(255);not null" json:"schedule_expr"`
 	Timezone        string         `gorm:"column:timezone;type:varchar(64);not null;default:'UTC'" json:"timezone"`
@@ -68,6 +69,9 @@ func (SchedulerJob) TableName() string {
 }
 
 func (m *SchedulerJob) BeforeCreate(tx *gorm.DB) error {
+	if m.Revision == 0 {
+		m.Revision = 1
+	}
 	if m.UUID == uuid.Nil {
 		m.UUID = uuid.New()
 	}

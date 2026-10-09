@@ -1,0 +1,42 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.integration.api_key_owners.admin_manage
+    module: integration_gateway
+    title: API Key Plugin Owner Administration
+    description: 管理当前租户具体 API Key 的插件 owner 授权及回读；仅管理员用户可调用。
+    title_i18n:
+      zh-CN: API Key 插件 owner 管理
+      en: API Key Plugin Owner Administration
+    description_i18n:
+      zh-CN: 管理当前租户具体 API Key 的插件 owner 授权及回读；仅管理员用户可调用。
+      en: Administer exact plugin owner bindings for a tenant API Key using an administrator user identity.
+    permission_code: corex.integration.api_key_owners:admin_manage
+    agent_usable: false
+    risk_level: high
+    categories: [integration, iam, admin]
+    intents: [integration.api_key_owners.admin_manage]
+    tool_scopes: [integration.api_key_owners.admin_manage]
+    policy:
+      prefer: rest
+    docs:
+      - docs/contracts/api-key-plugin-owners.md
+      - specs/007-integration-gateway-and-mcp/contracts/api-key-owners.openapi.yaml
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/integration/api-keys/{key_id}/plugin-owners
+        method: GET
+        schema_ref: specs/007-integration-gateway-and-mcp/contracts/api-key-owners.openapi.yaml#/paths/~1admin~1integration~1api-keys~1{key_id}~1plugin-owners/get
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: integration.api_key_owners.admin_manage
+      - channel: rest
+        endpoint: /api/v1/admin/integration/api-keys/{key_id}/plugin-owners
+        method: PUT
+        schema_ref: specs/007-integration-gateway-and-mcp/contracts/api-key-owners.openapi.yaml#/paths/~1admin~1integration~1api-keys~1{key_id}~1plugin-owners/put
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: integration.api_key_owners.admin_manage

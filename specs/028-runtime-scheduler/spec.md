@@ -153,3 +153,7 @@ PowerX 当前已经有 Event Fabric Cron 运维接口，但该接口只服务底
 - Integration Gateway 已支持 STS delegated bearer 调用底座能力。
 - 插件通过 Framework 注册 handler，业务 handler 自行保证幂等。
 - 首期不承诺秒级精确调度，默认按扫描窗口触发。
+
+## 2026-10-08 Core任务删除补充
+
+删除采用required expected_revision、revision递增、owner范围授权、软删墓碑与历史查询。PostgreSQL session advisory fence贯穿事务和发布；删除返回前完成已进入发布的事件调用，之后不再触发。Framework使用正式typed服务读/删除能力。

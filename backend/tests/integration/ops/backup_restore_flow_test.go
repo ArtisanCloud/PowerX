@@ -12,34 +12,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestBackupRestoreFlow(t *testing.T) {
+// SQLite 不能模拟 PostgreSQL 归档恢复；真实文件和隔离库测试在 backup_ops/integration_test.go。
+func TestBackupRejectsNonPostgreSQL(t *testing.T) {
 	db := setupBackupDB(t)
-	ctx := context.Background()
-
-	policySvc := backupops.NewPolicyService(db)
 	jobSvc := backupops.NewJobService(db)
-	restoreSvc := backupops.NewRestoreDrillService(db)
-
-	policy, err := policySvc.UpsertPolicy(ctx, backupops.UpsertPolicyRequest{
-		Name:          "daily-main",
-		BackupType:    "logical",
-		Schedule:      "0 2 * * *",
-		RetentionDays: 30,
-		Enabled:       true,
-		StorageTarget: "s3://powerx-backup/main",
-		Operator:      "integration",
-	})
-	require.NoError(t, err)
-
-	job, err := jobSvc.TriggerJob(ctx, backupops.TriggerJobRequest{PolicyID: policy.ID, Operator: "integration"})
-	require.NoError(t, err)
-	require.Equal(t, modelops.BackupJobStatusSuccess, job.Status)
-
-	require.NoError(t, jobSvc.TriggerCleanup(ctx, "integration", "trace-cleanup"))
-
-	drill, err := restoreSvc.Trigger(ctx, backupops.TriggerRestoreDrillRequest{SourceJobID: job.ID, Operator: "integration"})
-	require.NoError(t, err)
-	require.Equal(t, modelops.RestoreDrillStatusSuccess, drill.Status)
+	_, err := jobSvc.TriggerJob(context.Background(), backupops.TriggerJobRequest{PolicyID: 1})
+	require.ErrorIs(t, err, backupops.ErrUnsupportedBackupDatabase)
 }
 
 func setupBackupDB(t *testing.T) *gorm.DB {

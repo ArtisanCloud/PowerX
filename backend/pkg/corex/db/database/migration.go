@@ -672,10 +672,16 @@ func migrateEventFabricModels(db *gorm.DB) error {
 }
 
 func migrateRuntimeSchedulerModels(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&modelRuntimeScheduler.SchedulerJob{},
-		&modelRuntimeScheduler.SchedulerJobRun{},
-	)
+	if err := db.AutoMigrate(&modelRuntimeScheduler.SchedulerJob{}, &modelRuntimeScheduler.SchedulerJobRun{}); err != nil {
+		return err
+	}
+	// 先建立活跃名称唯一索引，再解除旧全量索引；墓碑不会阻止同名重建。
+	if db.Migrator().HasIndex(&modelRuntimeScheduler.SchedulerJob{}, "uk_scheduler_job_owner_name") {
+		if err := db.Migrator().DropIndex(&modelRuntimeScheduler.SchedulerJob{}, "uk_scheduler_job_owner_name"); err != nil {
+			return err
+		}
+	}
+	return db.Model(&modelRuntimeScheduler.SchedulerJob{}).Where("revision IS NULL OR revision < 1").Update("revision", 1).Error
 }
 
 func migrateWorkflowModels(db *gorm.DB) error {

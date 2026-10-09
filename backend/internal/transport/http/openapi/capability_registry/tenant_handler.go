@@ -979,7 +979,7 @@ func buildErrorObject(summary string) map[string]string {
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	var metadataErr *dto.AppError
-	if errors.As(err, &metadataErr) && (strings.HasPrefix(metadataErr.Code, "METADATA_") || strings.HasPrefix(metadataErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(metadataErr.Code, "KNOWLEDGE_")) {
+	if errors.As(err, &metadataErr) && (strings.HasPrefix(metadataErr.Code, "METADATA_") || strings.HasPrefix(metadataErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(metadataErr.Code, "KNOWLEDGE_") || strings.HasPrefix(metadataErr.Code, "SCHEDULER_")) {
 		base := capability_registrydto.ErrInvalidRequest
 		base.HTTPStatus = metadataErr.HTTPCode
 		return base.WithDetails(map[string]interface{}{"reason_code": metadataErr.Code})
