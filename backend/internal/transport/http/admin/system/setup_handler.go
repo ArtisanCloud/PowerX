@@ -516,7 +516,8 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "写入端口配置失败", err)
 		return
 	}
-	if err := runSetupProvisionSteps(runtimePath); err != nil {
+	// 数据库步骤先于管理员确认，仅迁移表结构；完整种子在 Complete 中执行。
+	if err := runSetupMigrationStep(runtimePath); err != nil {
 		_ = os.WriteFile(runtimePath, original, 0o644)
 		dto.ResponseError(c, http.StatusInternalServerError, "数据库初始化失败，请检查配置后重试", err)
 		return
@@ -1317,17 +1318,25 @@ func applyStorageConfig(root map[string]any, in setupStorageConfig) error {
 	return nil
 }
 
+type setupProvisionCommand struct {
+	stage string
+	cmd   string
+}
+
+func runSetupMigrationStep(runtimePath string) error {
+	return runSetupCommands(runtimePath, []setupProvisionCommand{
+		{stage: "migrate", cmd: defaultSetupMigrateCmd()},
+	})
+}
+
 func runSetupProvisionSteps(runtimePath string) error {
-	migrateCmd := defaultSetupMigrateCmd()
-	seedCmd := defaultSetupSeedCmd()
-	type setupCmd struct {
-		stage string
-		cmd   string
-	}
-	cmds := []setupCmd{
-		{stage: "migrate", cmd: migrateCmd},
-		{stage: "seed", cmd: seedCmd},
-	}
+	return runSetupCommands(runtimePath, []setupProvisionCommand{
+		{stage: "migrate", cmd: defaultSetupMigrateCmd()},
+		{stage: "seed", cmd: defaultSetupSeedCmd()},
+	})
+}
+
+func runSetupCommands(runtimePath string, cmds []setupProvisionCommand) error {
 	for _, item := range cmds {
 		if item.cmd == "" {
 			continue

@@ -94,6 +94,10 @@ func TestSetupProvisionSigningKeyChild(t *testing.T) {
 }
 func TestSetupProvisionPersistsJWTForChildCommandsAndRestart(t *testing.T) {
 	handler, payload, path := setupJWTFixture(t)
+	// 真实页面在数据库步骤尚未收集管理员密码。
+	databaseDraft := payload
+	databaseDraft.Admin.Password = ""
+	require.NoError(t, handler.storeDraftConfig(databaseDraft))
 	root := filepath.Dir(path)
 	t.Setenv("POWERX_LINKS_ROOT", root)
 	toolsDir := filepath.Join(root, "backend")
@@ -118,12 +122,20 @@ func TestSetupProvisionPersistsJWTForChildCommandsAndRestart(t *testing.T) {
 	raw, err := os.ReadFile(marker)
 	require.NoError(t, err)
 	rows := strings.Fields(string(raw))
-	require.Len(t, rows, 6) // migrate/hash, seed/hash, platform CLI flag/hash
+	require.Len(t, rows, 2) // 数据库步骤只有 migrate/hash，不提前执行管理员种子。
 	require.Equal(t, "migrate", rows[0])
-	require.Equal(t, "seed", rows[2])
-	require.Equal(t, rows[1], rows[3])
-	require.Equal(t, "-config", rows[4])
-	require.Equal(t, rows[1], rows[5])
+	require.NoError(t, handler.storeDraftConfig(payload))
+	require.NoError(t, runSetupProvisionSteps(path))
+	raw, err = os.ReadFile(marker)
+	require.NoError(t, err)
+	rows = strings.Fields(string(raw))
+	require.Len(t, rows, 8) // 完成阶段迁移、seed 和平台种子沿用同一个签名密钥。
+	require.Equal(t, "migrate", rows[2])
+	require.Equal(t, "seed", rows[4])
+	require.Equal(t, "-config", rows[6])
+	for _, index := range []int{3, 5, 7} {
+		require.Equal(t, rows[1], rows[index])
+	}
 	require.NoError(t, writeRuntimeConfig(path, payload, "installed"))
 	restarted, err := config.Load(path)
 	require.NoError(t, err)

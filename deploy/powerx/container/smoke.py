@@ -40,8 +40,17 @@ sensitive_values.append(password)
 config['admin'].update(username='ci-admin',email='ci-admin@example.com',password=password,display_name='CI Admin')
 config['llm']={'enabled':False}
 config['ports']={'backend_port':8080,'web_admin_port':3000}
-assert api('/api/v1/admin/setup/config',config,'PUT')['code']==200
+# Reproduce the browser order: database provisioning precedes the admin step.
+database_stage=json.loads(json.dumps(config))
+database_stage['admin']['password']=''
+assert api('/api/v1/admin/setup/config',database_stage,'PUT')['code']==200
 assert api('/api/v1/admin/setup/provision',{})['code']==200
+assert api('/api/v1/admin/setup/provision',{})['code']==200
+users=subprocess.check_output(['docker','compose','exec','-T','postgres','psql','-U','powerx','-d','powerx','-Atc',
+    'SELECT count(*) FROM public.iam_user'],text=True).strip()
+assert users=='0', 'Database step must not create a default/root administrator'
+print('Database-first Setup step and retry passed with no administrator password.')
+assert api('/api/v1/admin/setup/config',config,'PUT')['code']==200
 assert api('/api/v1/admin/setup/complete',{})['code']==200
 for attempt in range(90):
     try:
