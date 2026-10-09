@@ -8,13 +8,13 @@ case ${1:-help} in
     start)
         compose run --rm --no-deps init init
         compose up -d --wait --wait-timeout 180 postgres redis
-        compose run --rm --no-deps init bootstrap
         compose --profile standalone up -d --wait --wait-timeout 300 backend web-admin gateway
         ;;
     credentials) compose run --rm --no-deps init credentials ;;
+    setup-values) compose run --rm --no-deps init setup-values ;;
     status) compose --profile standalone ps ;;
     logs) compose logs --tail 100 backend web-admin ;;
     migrate) compose run --rm --no-deps init migrate ;;
     stop) compose --profile standalone stop ;;
-    *) echo 'Usage: sh run.sh init|start|credentials|status|logs|migrate|stop' ;;
+    *) echo 'Usage: sh run.sh init|start|setup-values|status|logs|migrate|stop' ;;
 esac

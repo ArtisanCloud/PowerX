@@ -1477,6 +1477,15 @@ func isSetupProvisionWorkDir(dir string) bool {
 }
 
 func scheduleSetupOnlyAutoRestart(runtimePath string) {
+	if os.Getenv("POWERX_MODE") == "docker" {
+		// PID 1 belongs to Docker; let the restart policy reload the installed
+		// configuration instead of spawning an unmanaged detached server.
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			os.Exit(0)
+		}()
+		return
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup auto-restart skipped: resolve executable failed: %v", err)

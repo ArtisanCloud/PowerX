@@ -7,7 +7,8 @@ RUN apk add --no-cache git ca-certificates
 COPY backend/ ./
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/powerx-app ./cmd/app && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/database ./cmd/database
+    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/database ./cmd/database && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/platform_capability_seed ./cmd/platform_capability_seed
 
 FROM alpine:3.22
 
@@ -18,6 +19,7 @@ RUN apk add --no-cache bash ca-certificates curl tzdata python3 py3-yaml nodejs 
 
 COPY --from=builder /out/powerx-app /app/powerx-app
 COPY --from=builder /out/database /app/database
+COPY --from=builder /out/platform_capability_seed /app/platform_capability_seed
 COPY backend/config/ /app/backend/config/
 COPY backend/scripts/ops/ /app/backend/scripts/ops/
 COPY backend/api/openapi/ /app/backend/api/openapi/
