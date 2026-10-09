@@ -23,7 +23,7 @@ type SkillExecutionTrace struct {
 	ErrorSummary           string `gorm:"column:error_summary;type:text" json:"error_summary,omitempty"`
 	RequestPayloadDigest   string `gorm:"column:request_payload_digest;type:varchar(128)" json:"request_payload_digest,omitempty"`
 	ResponsePayloadDigest  string `gorm:"column:response_payload_digest;type:varchar(128)" json:"response_payload_digest,omitempty"`
-	CapabilityID           string `gorm:"column:capability_id;type:varchar(128);index:idx_skill_execution_capability" json:"capability_id,omitempty"`
+	CapabilityID           string `gorm:"column:capability_id;type:varchar(256);index:idx_skill_execution_capability" json:"capability_id,omitempty"`
 	ProviderPluginID       string `gorm:"column:provider_plugin_id;type:varchar(128);index:idx_skill_execution_provider_plugin" json:"provider_plugin_id,omitempty"`
 	AgentID                string `gorm:"column:agent_id;type:varchar(64);index:idx_skill_execution_agent" json:"agent_id,omitempty"`
 	SessionID              string `gorm:"column:session_id;type:varchar(128);index:idx_skill_execution_session" json:"session_id,omitempty"`

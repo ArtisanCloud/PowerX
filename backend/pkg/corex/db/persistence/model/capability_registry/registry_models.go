@@ -14,7 +14,7 @@ import (
 type CapabilityRegistration struct {
 	coremodel.PowerModel
 
-	CapabilityID        string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_registry_capability_tenant_version,priority:1" json:"capability_id"`
+	CapabilityID        string         `gorm:"column:capability_id;type:varchar(256);not null;index:idx_registry_capability_tenant_version,priority:1" json:"capability_id"`
 	TenantUUID          string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_registry_capability_tuuid_version,priority:1;index:idx_registry_capability_tuuid_status" json:"tenant_uuid"`
 	ContractRef         string         `gorm:"column:contract_ref;type:varchar(256);not null" json:"contract_ref"`
 	Status              string         `gorm:"column:status;type:varchar(32);not null;index:idx_registry_capability_tenant_status" json:"status"`
@@ -42,7 +42,7 @@ type AdapterEndpoint struct {
 	coremodel.PowerModel
 
 	RegistrationID uint64         `gorm:"column:registration_id;not null;index:idx_registry_adapter_registration" json:"registration_id"`
-	CapabilityID   string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_registry_adapter_capability" json:"capability_id"`
+	CapabilityID   string         `gorm:"column:capability_id;type:varchar(256);not null;index:idx_registry_adapter_capability" json:"capability_id"`
 	TenantUUID     string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_registry_adapter_tuuid" json:"tenant_uuid"`
 	AdapterID      string         `gorm:"column:adapter_id;type:varchar(128);not null;index:idx_registry_adapter_unique,priority:1" json:"adapter_id"`
 	TransportType  string         `gorm:"column:transport_type;type:varchar(32);not null" json:"transport_type"`
@@ -81,7 +81,7 @@ func (RoutingPolicy) TableName() string {
 type FallbackPlan struct {
 	coremodel.PowerUUIDModel
 
-	PrimaryCapabilityID string         `gorm:"column:primary_capability_id;type:varchar(128);not null" json:"primary_capability_id"`
+	PrimaryCapabilityID string         `gorm:"column:primary_capability_id;type:varchar(256);not null" json:"primary_capability_id"`
 	FallbackTargets     datatypes.JSON `gorm:"column:fallback_targets;type:jsonb;default:'[]'" json:"fallback_targets,omitempty"`
 	StaticResponse      datatypes.JSON `gorm:"column:static_response;type:jsonb;default:'{}'" json:"static_response,omitempty"`
 	TriggerConditions   datatypes.JSON `gorm:"column:trigger_conditions;type:jsonb;default:'{}'" json:"trigger_conditions,omitempty"`
@@ -116,7 +116,7 @@ func (HealthProbeResult) TableName() string {
 // DiscoveryCacheEntry 记录下发给客户端的快照缓存。
 type DiscoveryCacheEntry struct {
 	TenantUUID      string    `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_registry_discovery_tuuid_capability_client,priority:1"`
-	CapabilityID    string    `gorm:"column:capability_id;type:varchar(128);not null;primaryKey"`
+	CapabilityID    string    `gorm:"column:capability_id;type:varchar(256);not null;primaryKey"`
 	ClientID        string    `gorm:"column:client_id;type:varchar(128);not null;primaryKey"`
 	SnapshotVersion uint64    `gorm:"column:snapshot_version;not null"`
 	PayloadHash     string    `gorm:"column:payload_hash;type:varchar(128);not null"`

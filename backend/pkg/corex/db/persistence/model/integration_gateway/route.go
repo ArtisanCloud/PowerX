@@ -13,7 +13,7 @@ type IntegrationRoute struct {
 
 	TenantUUID      string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_integration_route_tenant_slug,priority:1" json:"tenant_uuid"`
 	RouteSlug       string         `gorm:"column:route_slug;type:varchar(128);not null;index:idx_integration_route_tenant_slug,priority:2" json:"route_slug"`
-	CapabilityID    string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_integration_route_capability" json:"capability_id"`
+	CapabilityID    string         `gorm:"column:capability_id;type:varchar(256);not null;index:idx_integration_route_capability" json:"capability_id"`
 	ToolGrantIDs    datatypes.JSON `gorm:"column:tool_grant_ids;type:jsonb;default:'[]'" json:"tool_grant_ids,omitempty"`
 	Channels        datatypes.JSON `gorm:"column:channels;type:jsonb;default:'[\"http\"]'" json:"channels,omitempty"`
 	RateLimit       datatypes.JSON `gorm:"column:rate_limit;type:jsonb;default:'{}'" json:"rate_limit,omitempty"`

@@ -18,7 +18,7 @@ type IntegrationInvocationLog struct {
 	DurationMS         int            `gorm:"column:duration_ms;not null" json:"duration_ms"`
 	RequestPayload     datatypes.JSON `gorm:"column:request_payload;type:jsonb;default:'{}'" json:"request_payload,omitempty"`
 	ResponsePayload    datatypes.JSON `gorm:"column:response_payload;type:jsonb;default:'{}'" json:"response_payload,omitempty"`
-	RoutedCapabilityID string         `gorm:"column:routed_capability_id;type:varchar(128)" json:"routed_capability_id,omitempty"`
+	RoutedCapabilityID string         `gorm:"column:routed_capability_id;type:varchar(256)" json:"routed_capability_id,omitempty"`
 	RoutedAdapter      string         `gorm:"column:routed_adapter;type:varchar(128)" json:"routed_adapter,omitempty"`
 	EventPublished     bool           `gorm:"column:event_published;not null;default:false" json:"event_published"`
 	ErrorCode          string         `gorm:"column:error_code;type:varchar(64)" json:"error_code,omitempty"`

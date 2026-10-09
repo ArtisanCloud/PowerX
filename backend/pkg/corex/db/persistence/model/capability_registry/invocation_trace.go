@@ -17,7 +17,7 @@ type InvocationTrace struct {
 	TenantUUID         string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_capability_invocation_tenant" json:"tenant_uuid"`
 	CallerSubject      string         `gorm:"column:caller_subject;type:varchar(512);not null;default:'';index:idx_capability_invocation_caller" json:"-"`
 	PluginID           string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_invocation_plugin" json:"plugin_id"`
-	CapabilityID       string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_capability_invocation_capability" json:"capability_id"`
+	CapabilityID       string         `gorm:"column:capability_id;type:varchar(256);not null;index:idx_capability_invocation_capability" json:"capability_id"`
 	RouteID            *uuid.UUID     `gorm:"column:route_id;type:uuid" json:"route_id,omitempty"`
 	PreferredProtocol  string         `gorm:"column:preferred_protocol;type:varchar(32)" json:"preferred_protocol,omitempty"`
 	ProtocolUsed       string         `gorm:"column:protocol_used;type:varchar(32);not null" json:"protocol_used"`

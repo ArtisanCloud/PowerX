@@ -52,6 +52,9 @@ assert users=='0', 'Database step must not create a default/root administrator'
 print('Database-first Setup step and retry passed with no administrator password.')
 assert api('/api/v1/admin/setup/config',config,'PUT')['code']==200
 assert api('/api/v1/admin/setup/complete',{})['code']==200
+longest=subprocess.check_output(['docker','compose','exec','-T','postgres','psql','-U','powerx','-d','powerx','-Atc',
+    'SELECT max(length(capability_id)) FROM public.capability_registry_records'],text=True).strip()
+assert int(longest)>=130, 'Current generated capability IDs must fit the migrated registry'
 for attempt in range(90):
     try:
         status=api('/api/v1/admin/setup/status')['data']

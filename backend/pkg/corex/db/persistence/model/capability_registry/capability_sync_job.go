@@ -12,7 +12,7 @@ import (
 type CapabilitySyncJob struct {
 	coremodel.PowerUUIDModel
 
-	CapabilityID  string         `gorm:"column:capability_id;type:varchar(128);index:idx_capability_sync_job_capability" json:"capability_id,omitempty"`
+	CapabilityID  string         `gorm:"column:capability_id;type:varchar(256);index:idx_capability_sync_job_capability" json:"capability_id,omitempty"`
 	PluginID      string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_sync_job_plugin" json:"plugin_id"`
 	PluginVersion string         `gorm:"column:plugin_version;type:varchar(64);not null" json:"plugin_version"`
 	Status        string         `gorm:"column:status;type:varchar(32);not null;index:idx_capability_sync_job_status" json:"status"`

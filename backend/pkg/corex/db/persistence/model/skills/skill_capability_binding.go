@@ -14,7 +14,7 @@ type SkillCapabilityBinding struct {
 
 	SkillID          string         `gorm:"column:skill_id;type:varchar(128);not null;uniqueIndex:uk_skill_binding_identity" json:"skill_id"`
 	Version          string         `gorm:"column:version;type:varchar(64);not null;uniqueIndex:uk_skill_binding_identity" json:"version"`
-	CapabilityID     string         `gorm:"column:capability_id;type:varchar(128);not null;uniqueIndex:uk_skill_binding_identity;index:idx_skill_binding_capability" json:"capability_id"`
+	CapabilityID     string         `gorm:"column:capability_id;type:varchar(256);not null;uniqueIndex:uk_skill_binding_identity;index:idx_skill_binding_capability" json:"capability_id"`
 	ToolGrants       datatypes.JSON `gorm:"column:tool_grants;type:jsonb;not null;default:'[]'" json:"tool_grants,omitempty"`
 	IntentHints      datatypes.JSON `gorm:"column:intent_hints;type:jsonb;not null;default:'[]'" json:"intent_hints,omitempty"`
 	Tags             datatypes.JSON `gorm:"column:tags;type:jsonb;not null;default:'[]'" json:"tags,omitempty"`
