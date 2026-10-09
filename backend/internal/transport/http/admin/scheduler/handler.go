@@ -107,7 +107,7 @@ func (h *Handler) UpdateJob(c *gin.Context) {
 }
 
 func (h *Handler) GetJob(c *gin.Context) {
-	job, err := h.svc.GetJob(c.Request.Context(), c.Param("job_id"))
+	job, err := h.svc.AdminGetJob(c.Request.Context(), c.Param("job_id"))
 	if err != nil {
 		dto.RespondErrorFrom(c, err)
 		return
@@ -118,7 +118,7 @@ func (h *Handler) GetJob(c *gin.Context) {
 func (h *Handler) ListJobs(c *gin.Context) {
 	page := parseInt(c.DefaultQuery("page", "1"), 1)
 	pageSize := parseInt(c.DefaultQuery("page_size", "50"), 50)
-	items, total, err := h.svc.ListJobs(c.Request.Context(), runtimescheduler.ListJobsInput{
+	items, total, err := h.svc.AdminListJobs(c.Request.Context(), runtimescheduler.ListJobsInput{
 		TenantUUID: strings.TrimSpace(c.Query("tenant_uuid")),
 		OwnerType:  strings.TrimSpace(c.Query("owner_type")),
 		OwnerID:    strings.TrimSpace(c.Query("owner_id")),
@@ -163,7 +163,7 @@ func (h *Handler) TriggerJob(c *gin.Context) {
 func (h *Handler) ListRuns(c *gin.Context) {
 	page := parseInt(c.DefaultQuery("page", "1"), 1)
 	pageSize := parseInt(c.DefaultQuery("page_size", "50"), 50)
-	items, total, err := h.svc.ListRuns(c.Request.Context(), runtimescheduler.ListRunsInput{
+	items, total, err := h.svc.AdminListRuns(c.Request.Context(), runtimescheduler.ListRunsInput{
 		JobID:    c.Param("job_id"),
 		Page:     page,
 		PageSize: pageSize,

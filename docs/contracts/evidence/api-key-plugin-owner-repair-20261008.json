@@ -1,0 +1,50 @@
+{
+  "key_id": "6db849ca-e003-4fcb-8163-c0572678ea99",
+  "name": "CRM Devleopment Key",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "profile_id": 1,
+  "binding_mode": "legacy_permissions",
+  "owner_bindings": [
+    {
+      "scope": "_scope.scheduler.jobs.service_read",
+      "action": "read",
+      "effect": "allow",
+      "plugin_id": "com.powerx.plugins.crm",
+      "resource_type": "api",
+      "resource_pattern": "scheduler_jobs"
+    },
+    {
+      "scope": "_scope.scheduler.jobs.service_read",
+      "action": "read",
+      "effect": "allow",
+      "plugin_id": "com.powerx.plugins.crm",
+      "resource_type": "api",
+      "resource_pattern": "scheduler_jobs"
+    },
+    {
+      "scope": "_scope.scheduler.jobs.service_read",
+      "action": "read",
+      "effect": "allow",
+      "plugin_id": "com.powerx.plugins.crm",
+      "resource_type": "api",
+      "resource_pattern": "scheduler_jobs"
+    },
+    {
+      "scope": "_scope.scheduler.jobs.service_delete",
+      "action": "delete",
+      "effect": "allow",
+      "plugin_id": "com.powerx.plugins.crm",
+      "resource_type": "api",
+      "resource_pattern": "scheduler_jobs"
+    }
+  ],
+  "other_grants_unchanged": true,
+  "maintenance_trace_id": "7e5766f2-2fa6-4c41-861c-ad86523eed6e",
+  "actual_core_service_preview": {
+    "crm_success": true,
+    "crm_job_count": 4,
+    "foreign_owner_status": 403,
+    "foreign_owner_code": "SCHEDULER_PLUGIN_OWNER_MISMATCH"
+  },
+  "verification_layer": "actual development PostgreSQL and Core services; synthetic HTTP lifecycle tests; .NET/browser pending Core restart"
+}

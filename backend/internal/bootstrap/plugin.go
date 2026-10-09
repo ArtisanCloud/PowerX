@@ -357,9 +357,11 @@ func readSTSClientSecretFromHostValues(path string, clientID string) (string, er
 }
 
 func resolvePluginRuntimeGatewayBaseURL(cfg *config.Config) string {
-	baseURL := strings.TrimSpace(os.Getenv("POWERX_GATEWAY_BASE_URL"))
-	if baseURL != "" {
-		return strings.TrimRight(baseURL, "/")
+	// 必须与 Host 配置的内部回连优先级一致；凭证注入不能用公网地址覆盖内部地址。
+	for _, key := range []string{"POWERX_INTERNAL_GATEWAY_BASE_URL", "POWERX_HTTP_PROXY_BASE", "POWERX_GATEWAY_BASE_URL"} {
+		if baseURL := strings.TrimSpace(os.Getenv(key)); baseURL != "" {
+			return strings.TrimRight(baseURL, "/")
+		}
 	}
 	if cfg == nil || cfg.Server.Port <= 0 {
 		return ""

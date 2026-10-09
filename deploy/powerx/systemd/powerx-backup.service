@@ -1,0 +1,14 @@
+[Unit]
+Description=PowerX persistent backup scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=powerx
+Group=powerx
+WorkingDirectory=/
+EnvironmentFile=/etc/powerx/powerx.env
+ExecStart=/bin/sh -c 'ROOT=${POWERX_LINKS_ROOT:-/opt/powerx}; exec "$ROOT/backend/database" backup-run -config /etc/powerx/config.yaml'
+TimeoutStartSec=2h
+UMask=0077

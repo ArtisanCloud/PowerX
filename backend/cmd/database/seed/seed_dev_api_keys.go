@@ -80,6 +80,10 @@ func SeedDefaultDevAPIKeys(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
+	schedulerCleanupPermissions, err := resolveSchedulerCleanupDevPermissions(ctx, db)
+	if err != nil {
+		return err
+	}
 	metadataHostPermissions, err := resolveMetadataHostDevPermissions(ctx, db)
 	if err != nil {
 		return err
@@ -90,6 +94,7 @@ func SeedDefaultDevAPIKeys(db *gorm.DB) error {
 		if item.EnvName == "POWERX_PLUGIN_API_KEY" {
 			keyPermissions = appendUniqueAPIKeyPermissions(permissions, knowledgeHostPermissions)
 			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, metadataHostPermissions)
+			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, schedulerCleanupPermissions)
 			customerHostPermissions, customerErr := resolveCustomerHostDevPermissions(ctx, db)
 			if customerErr != nil {
 				return customerErr
@@ -347,4 +352,21 @@ func keyPrefix(raw string) string {
 		return value[:12]
 	}
 	return value
+}
+
+// 默认 SCRM Host 示例仅绑定 SCRM namespace；CRM 等其他 Key 的 owner 由管理员明确配置。
+func resolveSchedulerCleanupDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	var rows []modeliam.Permission
+	if err := db.WithContext(ctx).Where("module = ? AND allow_api_key = ? AND status = ?", "scheduler", true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := []modeligw.IntegrationGatewayAPIKeyPermission{}
+	for _, row := range rows {
+		resolved, ok := apikeypermissions.ResolvePermission(row)
+		if !ok || (resolved.Scope != "_scope.scheduler.jobs.service_read" && resolved.Scope != "_scope.scheduler.jobs.service_delete") {
+			continue
+		}
+		out = append(out, modeligw.IntegrationGatewayAPIKeyPermission{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: "com.powerx.plugins.scrm", Effect: resolved.Effect})
+	}
+	return out, nil
 }

@@ -297,3 +297,16 @@
 ```
 
 > 按上述依赖执行，可确保多插件能力目录在 3 分钟内同步、Selector 自动路由、Workflow 模板受控升级，满足 spec 中的成功标准。
+
+
+### API Key 插件 owner 闭环（2026-10-08）
+
+- [x] Core 管理接口配置/回读具体 Key owner；DTO、租户隔离与管理员身份校验。
+- [x] 集中 AutoMigrate 增加独立 owner JSONB 策略；Profile 保存/追加/默认同步及轮换保留策略。
+- [x] 旧逐权限绑定不扩大；显式空数组撤销；事务审计与 Profile/Key 行锁协调。
+- [x] Web Admin 新建与编辑 owner，读取原有细分范围，支持中英文。
+- [x] SQLite HTTP 生命周期、PostgreSQL 并发与隔离、前端输入和 SFC 验证。
+- [x] 本机 CRM 专用 Key 数据修复、scope 快照与 Core 服务层预览成功/外部 owner 403 证据。
+- [ ] 用户重启 8077 后，以 CRM 当前凭据完成 .NET/浏览器及再次保存 Profile 的端到端验收。
+
+全量能力 seed 的长 ID 数据库限制另行处理，本次 owner 管理合同已单独登记。

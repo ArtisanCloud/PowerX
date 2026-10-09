@@ -8,9 +8,7 @@ import (
 	"strings"
 
 	modelsiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
-	modeligw "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
-	igwrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"gorm.io/gorm"
 )
 
@@ -164,49 +162,14 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 	return profile, currentIDs, nil
 }
 
-func syncActiveAPIKeyPermissions(ctx context.Context, db *gorm.DB, tenantUUID string, profileID uint64, permissionIDs []uint64) error {
-	if db == nil || profileID == 0 || len(permissionIDs) == 0 {
+func syncActiveAPIKeyPermissions(ctx context.Context, db *gorm.DB, tenantUUID string, profileID uint64, _ []uint64) error {
+	if db == nil || profileID == 0 {
 		return nil
 	}
-	permissionRows, err := iamrepo.NewPermissionRepository(db).FindByIDs(ctx, permissionIDs)
-	if err != nil {
-		return fmt.Errorf("load api key permissions failed: %w", err)
-	}
-	permissionRequests := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(permissionRows))
-	for _, permission := range permissionRows {
-		if permission == nil || permission.Status != modelsiam.PermissionStatusActive || !permission.AllowAPIKey {
-			continue
-		}
-		resolved, ok := ResolvePermission(*permission)
-		if !ok {
-			continue
-		}
-		permissionRequests = append(permissionRequests, modeligw.IntegrationGatewayAPIKeyPermission{
-			Scope:           resolved.Scope,
-			Action:          resolved.Action,
-			ResourceType:    resolved.ResourceType,
-			ResourcePattern: resolved.ResourcePattern,
-			PluginID:        resolved.PluginID,
-			Effect:          resolved.Effect,
-		})
-	}
-	keys, err := igwrepo.NewIntegrationGatewayAPIKeyRepository(db).ListActiveByProfile(ctx, tenantUUID, profileID)
-	if err != nil {
-		return fmt.Errorf("list active api keys failed: %w", err)
-	}
-	keyPermRepo := igwrepo.NewIntegrationGatewayAPIKeyPermissionRepository(db)
-	for i := range keys {
-		items := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(permissionRequests))
-		for j := range permissionRequests {
-			item := permissionRequests[j]
-			item.APIKeyUUID = keys[i].UUID
-			items = append(items, item)
-		}
-		if err := keyPermRepo.ReplaceAll(ctx, keys[i].UUID, items); err != nil {
-			return fmt.Errorf("sync api key permissions failed: %w", err)
-		}
-	}
-	return nil
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		_, _, err := NewAPIKeyOwnerService(tx).SyncProfileTx(ctx, tx, tenantUUID, profileID)
+		return err
+	})
 }
 
 func BuildTemplatePermissions() []modelsiam.Permission {

@@ -160,7 +160,7 @@ dist-systemd:
 	fi; \
 	cp -R web-admin/.output "$(DIST_OUT_DIR)/web-admin/"; \
 	echo "[dist] copy systemd units"; \
-	cp deploy/powerx/systemd/*.service "$(DIST_OUT_DIR)/systemd/"; \
+	cp deploy/powerx/systemd/*.service deploy/powerx/systemd/*.timer "$(DIST_OUT_DIR)/systemd/"; \
 	if [ -f deploy/powerx/systemd/powerx.env.example ]; then \
 		cp deploy/powerx/systemd/powerx.env.example "$(DIST_OUT_DIR)/systemd/"; \
 	fi; \

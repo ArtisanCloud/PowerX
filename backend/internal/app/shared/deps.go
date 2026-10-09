@@ -54,6 +54,7 @@ import (
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
 	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
@@ -228,6 +229,7 @@ type Deps struct {
 	RouterSandboxSvc                  *capabilitySandbox.Service
 	DiscoverySvc                      *discoveryService.Service
 	IntegrationGateway                *IntegrationGatewayDeps
+	APIKeyOwners                      *apikeypermissions.APIKeyOwnerService
 	AgentLifecycle                    *AgentLifecycleDeps
 	DevHotloadOptions                 DevHotloadOptions
 	PluginReleaseOptions              PluginReleaseOptions
@@ -554,6 +556,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
+				runtimescheduler.NewCleanupInvoker(runtimeSchedulerSvc),
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
 				metadatasvc.NewTagCapabilityInvoker(db),
 				runtimeidentity.NewInvoker(db, opts.RuntimeIdentity),
@@ -870,6 +873,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterSandboxSvc:                  sandboxSvc,
 		DiscoverySvc:                      discoverySvc,
 		IntegrationGateway:                integrationGatewayDeps,
+		APIKeyOwners:                      apikeypermissions.NewAPIKeyOwnerService(db),
 		AgentLifecycle:                    agentLifecycleDeps,
 		KnowledgeSpace:                    knowledgeDeps,
 		DevHotloadOptions:                 opts.DevHotload,

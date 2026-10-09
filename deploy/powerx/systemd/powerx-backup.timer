@@ -1,0 +1,10 @@
+[Unit]
+Description=Check PowerX backup policies every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=powerx-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "~/stores/user";
+import { parseApiKeyPluginOwners } from "~/utils/apiKeyPluginOwners";
 import {
   useIntegrationGatewayApiKeyService,
   type IntegrationGatewayApiKeyRecord,
@@ -31,6 +32,7 @@ const allowAccess = computed(() => Boolean(isRoot.value || isCurrentTenantAdmin.
 const canSwitchTenant = computed(() => Boolean(isRoot.value));
 
 const toast = useToast();
+const { t } = useI18n();
 const svc = useIntegrationGatewayApiKeyService();
 
 const loading = ref(false);
@@ -43,6 +45,13 @@ const revokingKeyID = ref("");
 const deletingKeyID = ref("");
 const savingPermissions = ref(false);
 const loadingPermissions = ref(false);
+const ownerOpen = ref(false);
+const ownerTarget = ref<IntegrationGatewayApiKeyRecord | null>(null);
+const ownerText = ref("");
+const savingOwners = ref(false);
+const loadingOwners = ref(false);
+const legacyOwnerBindings = ref<Array<{ scope: string; action: string; plugin_id: string }>>([]);
+let ownerLoadGeneration = 0;
 let refreshInFlight: Promise<void> | null = null;
 
 const tenantUUID = ref("");
@@ -80,6 +89,7 @@ const createKeyForm = reactive({
   name: "",
   description: "",
   expiresAt: "",
+  pluginOwners: "",
 });
 
 const rotateForm = reactive({
@@ -494,6 +504,7 @@ function openCreateKey() {
   createKeyForm.name = "";
   createKeyForm.description = "";
   createKeyForm.expiresAt = "";
+  createKeyForm.pluginOwners = "";
   createKeyOpen.value = true;
 }
 
@@ -513,6 +524,7 @@ async function submitCreateKey() {
       name,
       description: String(createKeyForm.description || "").trim() || undefined,
       expires_at: String(createKeyForm.expiresAt || "").trim() || undefined,
+      plugin_ids: parseApiKeyPluginOwners(createKeyForm.pluginOwners),
     });
     latestPlainKey.value = String(resp?.data?.plain_key || "");
     latestPlainKeyLabel.value = String(resp?.data?.api_key?.name || name);
@@ -522,12 +534,60 @@ async function submitCreateKey() {
   } catch (err: any) {
     toast.add({
       title: "创建失败",
-      description: err?.message || "请稍后重试",
+      description: ownerErrorDescription(err),
       color: "error",
     });
   } finally {
     creatingKey.value = false;
   }
+}
+
+function ownerErrorDescription(err: any): string {
+  if (err?.message === "API_KEY_PLUGIN_OWNER_INVALID") return t("integrationApiKeyOwners.invalid");
+  if (err?.message === "API_KEY_PLUGIN_OWNER_LIMIT") return t("integrationApiKeyOwners.limit");
+  return err?.message || t("integrationApiKeyOwners.retry");
+}
+
+async function openOwners(record: IntegrationGatewayApiKeyRecord) {
+  if (record.status !== "active") return;
+  ownerTarget.value = record;
+  ownerText.value = (record.plugin_ids || []).join("\n");
+  legacyOwnerBindings.value = [];
+  const generation = ++ownerLoadGeneration;
+  ownerOpen.value = true;
+  loadingOwners.value = true;
+  try {
+    const resp = await svc.getPluginOwners(record.key_id);
+    if (generation === ownerLoadGeneration && ownerTarget.value?.key_id === record.key_id) {
+      ownerText.value = (resp.data?.plugin_ids || []).join("\n");
+      legacyOwnerBindings.value = resp.data?.binding_mode === "legacy_permissions" ? (resp.data.permission_bindings || []) : [];
+    }
+  } catch (err: any) {
+    if (generation !== ownerLoadGeneration) return;
+    ownerOpen.value = false;
+    toast.add({ title: t("integrationApiKeyOwners.readFailed"), description: ownerErrorDescription(err), color: "error" });
+  } finally { if (generation === ownerLoadGeneration) loadingOwners.value = false; }
+}
+
+async function saveOwners() {
+  const target = ownerTarget.value;
+  if (!target || loadingOwners.value || savingOwners.value) return;
+  if (target.tenant_uuid !== effectiveTenantUUID.value) {
+    toast.add({ title: t("integrationApiKeyOwners.tenantChanged"), color: "warning" });
+    ownerOpen.value = false;
+    return;
+  }
+  savingOwners.value = true;
+  try {
+    const ids = parseApiKeyPluginOwners(ownerText.value);
+    const resp = await svc.setPluginOwners(target.key_id, ids);
+    target.plugin_ids = resp.data?.plugin_ids || [];
+    ownerOpen.value = false;
+    await refreshAll();
+    toast.add({ title: t("integrationApiKeyOwners.saved"), color: "success" });
+  } catch (err: any) {
+    toast.add({ title: t("integrationApiKeyOwners.saveFailed"), description: ownerErrorDescription(err), color: "error" });
+  } finally { savingOwners.value = false; }
 }
 
 function openRotate(record: IntegrationGatewayApiKeyRecord) {
@@ -960,6 +1020,7 @@ onMounted(async () => {
                     <tr>
                       <th class="px-3 py-2 text-left whitespace-nowrap">名称</th>
                       <th class="px-3 py-2 text-left whitespace-nowrap">Key 前缀</th>
+                      <th class="px-3 py-2 text-left whitespace-nowrap">{{ t("integrationApiKeyOwners.column") }}</th>
                       <th class="px-3 py-2 text-left whitespace-nowrap">状态</th>
                       <th class="px-3 py-2 text-left whitespace-nowrap">过期时间</th>
                       <th class="px-3 py-2 text-left whitespace-nowrap">更新时间</th>
@@ -971,6 +1032,10 @@ onMounted(async () => {
                       <td class="px-3 py-2">{{ item.name }}</td>
                       <td class="px-3 py-2 font-mono">{{ item.key_prefix }}</td>
                       <td class="px-3 py-2">
+                        <div v-for="pluginID in item.plugin_ids || []" :key="pluginID" class="font-mono text-xs break-all">{{ pluginID }}</div>
+                        <span v-if="!item.plugin_ids?.length" class="text-sm text-gray-500 dark:text-gray-300">{{ t("integrationApiKeyOwners.unbound") }}</span>
+                      </td>
+                      <td class="px-3 py-2">
                         <UBadge :color="item.status === 'active' ? 'success' : 'neutral'" variant="subtle">
                           {{ item.status }}
                         </UBadge>
@@ -979,6 +1044,7 @@ onMounted(async () => {
                       <td class="px-3 py-2 font-mono">{{ item.updated_at }}</td>
                       <td class="px-3 py-2">
                         <div class="flex flex-nowrap gap-2">
+                          <UButton size="xs" variant="soft" :disabled="item.status !== 'active'" @click="openOwners(item)">{{ t("integrationApiKeyOwners.configure") }}</UButton>
                           <UButton size="xs" variant="soft" :loading="rotatingKeyID === item.key_id" @click="openRotate(item)">
                             轮换
                           </UButton>
@@ -1005,7 +1071,7 @@ onMounted(async () => {
                       </td>
                     </tr>
                     <tr v-if="profileKeys.length === 0">
-                      <td colspan="6" class="px-3 py-4 text-center text-gray-500">当前 Profile 暂无 API Key</td>
+                      <td colspan="7" class="px-3 py-4 text-center text-gray-500">当前 Profile 暂无 API Key</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1056,6 +1122,30 @@ onMounted(async () => {
       </template>
     </UModal>
 
+    <UModal v-model:open="ownerOpen" :title="t('integrationApiKeyOwners.title')" :description="t('integrationApiKeyOwners.description')" :ui="{ content: 'max-w-lg' }">
+      <template #body>
+        <div class="space-y-4">
+          <div class="text-sm">{{ t("integrationApiKeyOwners.keyLabel") }}{{ ownerTarget?.name }}</div>
+          <template v-if="legacyOwnerBindings.length">
+            <UAlert color="warning" variant="subtle" :title="t('integrationApiKeyOwners.legacyTitle')" :description="t('integrationApiKeyOwners.legacyDescription')" />
+            <div class="space-y-1 text-xs font-mono break-all">
+              <div v-for="(binding, index) in legacyOwnerBindings" :key="index">{{ binding.scope }} · {{ binding.action }} → {{ binding.plugin_id }}</div>
+            </div>
+          </template>
+          <UFormField :label="t('integrationApiKeyOwners.pluginLabel')" :description="t('integrationApiKeyOwners.inputHelp')">
+            <UTextarea v-model="ownerText" :rows="4" class="w-full" :disabled="loadingOwners || savingOwners" placeholder="com.powerx.plugins.crm" />
+          </UFormField>
+          <p class="text-sm text-gray-600 dark:text-gray-300">{{ t("integrationApiKeyOwners.scopeHelp") }}</p>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="subtle" :disabled="savingOwners" @click="ownerOpen = false">{{ t("integrationApiKeyOwners.cancel") }}</UButton>
+          <UButton color="primary" :loading="savingOwners" :disabled="loadingOwners" @click="saveOwners">{{ t("integrationApiKeyOwners.save") }}</UButton>
+        </div>
+      </template>
+    </UModal>
+
     <UModal v-model:open="renameProfileOpen" title="重命名 Profile" :ui="{ content: 'max-w-lg' }">
       <template #body>
         <UFormField label="Profile 名称">
@@ -1082,6 +1172,9 @@ onMounted(async () => {
         <div class="space-y-3">
           <UFormField label="Key 名称">
             <UInput v-model="createKeyForm.name" placeholder="例如：plugin-runtime-key" />
+          </UFormField>
+          <UFormField :label="t('integrationApiKeyOwners.createLabel')" :description="t('integrationApiKeyOwners.createHelp')">
+            <UTextarea v-model="createKeyForm.pluginOwners" :rows="3" class="w-full" placeholder="com.powerx.plugins.crm" />
           </UFormField>
           <UFormField label="描述（可选）">
             <UInput v-model="createKeyForm.description" />

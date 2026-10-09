@@ -26,6 +26,7 @@ type BackupJob struct {
 	coremodel.PowerUUIDModel
 
 	PolicyID     uint64            `gorm:"column:policy_id;not null;index:idx_ops_backup_job_policy" json:"policy_id"`
+	Protected    bool              `gorm:"column:protected;not null;default:false" json:"protected"`
 	Status       BackupJobStatus   `gorm:"column:status;type:varchar(32);not null;index:idx_ops_backup_job_status" json:"status"`
 	TriggerType  BackupTriggerType `gorm:"column:trigger_type;type:varchar(32);not null" json:"trigger_type"`
 	StartedAt    *time.Time        `gorm:"column:started_at" json:"started_at,omitempty"`

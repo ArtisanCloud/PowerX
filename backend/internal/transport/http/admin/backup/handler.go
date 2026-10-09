@@ -31,7 +31,7 @@ func NewHandler(deps *shared.Deps) *handler {
 		return nil
 	}
 	return &handler{
-		policySvc:    backupops.NewPolicyService(deps.DB),
+		policySvc:    backupops.NewPolicyService(deps.DB, deps.RuntimeIdentity.DeploymentEnv),
 		jobSvc:       backupops.NewJobService(deps.DB),
 		restoreSvc:   backupops.NewRestoreDrillService(deps.DB),
 		alertSvc:     backupops.NewAlertService(deps.DB),
@@ -71,6 +71,8 @@ func (h *handler) CreatePolicy(c *gin.Context) {
 		IntervalUnit:     req.IntervalUnit,
 		Schedule:         req.Schedule,
 		RetentionCount:   req.RetentionCount,
+		RetentionDays:    req.RetentionDays,
+		RetentionMode:    req.RetentionMode,
 		Timezone:         req.Timezone,
 		DrillEnabled:     req.DrillEnabled,
 		DrillIntervalDay: req.DrillIntervalDays,
@@ -100,6 +102,8 @@ func (h *handler) UpdatePolicy(c *gin.Context) {
 		IntervalUnit:     req.IntervalUnit,
 		Schedule:         req.Schedule,
 		RetentionCount:   req.RetentionCount,
+		RetentionDays:    req.RetentionDays,
+		RetentionMode:    req.RetentionMode,
 		Timezone:         req.Timezone,
 		DrillEnabled:     req.DrillEnabled,
 		DrillIntervalDay: req.DrillIntervalDays,
@@ -206,7 +210,11 @@ func (h *handler) ListBackupJobs(c *gin.Context) {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
-	artifactMap := h.getLatestArtifactMap(c, items)
+	artifactMap, err := h.getLatestArtifactMap(c, items)
+	if err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
 	respItems := make([]gin.H, 0, len(items))
 	for i := range items {
 		respItems = append(respItems, buildJobDetailResponse(&items[i], artifactMap[items[i].ID]))
@@ -223,7 +231,11 @@ func (h *handler) GetBackupJob(c *gin.Context) {
 	}
 	var artifact *modelops.BackupArtifact
 	if h.artifactRepo != nil {
-		artifact, _ = h.artifactRepo.GetLatestByJobID(c.Request.Context(), row.ID)
+		artifact, err = h.artifactRepo.GetLatestByJobID(c.Request.Context(), row.ID)
+		if err != nil {
+			dto.RespondErrorFrom(c, backupops.ToAppError(err))
+			return
+		}
 	}
 	dto.ResponseSuccess(c, gin.H{"job": buildJobDetailResponse(row, artifact)})
 }
@@ -380,7 +392,7 @@ func (h *handler) GetBackupOverview(c *gin.Context) {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"overview": overview})
+	dto.ResponseSuccess(c, gin.H{"overview": overview, "runtime": h.jobSvc.RuntimeSettings()})
 }
 
 func resolveOperator(c *gin.Context) string {
@@ -422,9 +434,9 @@ func parseDateTime(raw string) (*time.Time, error) {
 	return &t, nil
 }
 
-func (h *handler) getLatestArtifactMap(c *gin.Context, jobs []modelops.BackupJob) map[uint64]*modelops.BackupArtifact {
+func (h *handler) getLatestArtifactMap(c *gin.Context, jobs []modelops.BackupJob) (map[uint64]*modelops.BackupArtifact, error) {
 	if h.artifactRepo == nil || len(jobs) == 0 {
-		return map[uint64]*modelops.BackupArtifact{}
+		return map[uint64]*modelops.BackupArtifact{}, nil
 	}
 	ids := make([]uint64, 0, len(jobs))
 	for i := range jobs {
@@ -434,14 +446,14 @@ func (h *handler) getLatestArtifactMap(c *gin.Context, jobs []modelops.BackupJob
 	}
 	rows, err := h.artifactRepo.GetLatestByJobIDs(c.Request.Context(), ids)
 	if err != nil {
-		return map[uint64]*modelops.BackupArtifact{}
+		return nil, err
 	}
 	out := make(map[uint64]*modelops.BackupArtifact, len(rows))
 	for id, row := range rows {
 		copyRow := row
 		out[id] = &copyRow
 	}
-	return out
+	return out, nil
 }
 
 func buildJobDetailResponse(row *modelops.BackupJob, artifact *modelops.BackupArtifact) gin.H {
@@ -464,6 +476,8 @@ func buildJobDetailResponse(row *modelops.BackupJob, artifact *modelops.BackupAr
 		"id":            row.ID,
 		"policy_id":     row.PolicyID,
 		"status":        row.Status,
+		"protected":     row.Protected,
+		"error_message": row.ErrorMessage,
 		"trigger_type":  row.TriggerType,
 		"started_at":    row.StartedAt,
 		"ended_at":      row.EndedAt,
@@ -527,4 +541,20 @@ func parseRestoreDrillReportMeta(report string) map[string]string {
 		out[key] = val
 	}
 	return out
+}
+
+func (h *handler) SetJobProtected(c *gin.Context) {
+	var req struct {
+		Protected *bool `json:"protected" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "protected 必须是布尔值", err)
+		return
+	}
+	id := parseUint(c.Param("job_id"))
+	if err := h.jobSvc.SetProtected(c.Request.Context(), id, *req.Protected, resolveOperator(c), reqctx.GetTraceID(c.Request.Context())); err != nil {
+		dto.RespondErrorFrom(c, backupops.ToAppError(err))
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"job_id": id, "protected": *req.Protected})
 }

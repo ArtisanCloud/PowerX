@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -47,6 +48,14 @@ func (r *OSScriptRunner) Run(ctx context.Context, spec ScriptSpec) (*ScriptResul
 	defer cancel()
 
 	cmd := exec.CommandContext(runCtx, spec.Command, spec.Args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+	}
+	cmd.WaitDelay = 10 * time.Second
 	if spec.WorkDir != "" {
 		cmd.Dir = spec.WorkDir
 	}

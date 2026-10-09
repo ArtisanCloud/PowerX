@@ -250,11 +250,11 @@ func (s *PluginDrainJobService) CancelRuntimeBlockers(ctx context.Context, input
 			Where("deleted_at IS NULL")
 		if len(schedulerIDs) > 0 {
 			scheduler = scheduler.Where("uuid IN ?", schedulerIDs)
-			scheduler = scheduler.Updates(map[string]any{
-				"status":     "completed",
-				"last_error": reason,
-				"updated_at": now,
-			})
+			updates := map[string]any{"status": "completed", "last_error": reason, "updated_at": now}
+			if tx.Migrator().HasColumn("scheduler_jobs", "revision") {
+				updates["revision"] = gorm.Expr("revision + 1")
+			}
+			scheduler = scheduler.Updates(updates)
 			if scheduler.Error != nil {
 				return scheduler.Error
 			}

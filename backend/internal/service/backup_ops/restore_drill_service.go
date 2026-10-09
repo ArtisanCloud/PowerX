@@ -2,7 +2,6 @@ package backup_ops
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -13,7 +12,6 @@ import (
 
 	inst "github.com/ArtisanCloud/PowerX/internal/service/backup_ops/instrumentation"
 	obsops "github.com/ArtisanCloud/PowerX/internal/service/observability_ops"
-	opsscripts "github.com/ArtisanCloud/PowerX/internal/service/ops_scripts"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
 	"go.uber.org/zap"
@@ -21,6 +19,7 @@ import (
 )
 
 type RestoreDrillService struct {
+	db           *gorm.DB
 	restoreRepo  *repoops.RestoreDrillRecordRepository
 	jobRepo      *repoops.BackupJobRepository
 	artifactRepo *repoops.BackupArtifactRepository
@@ -50,18 +49,23 @@ type ListRestoreDrillOptions struct {
 
 func NewRestoreDrillService(db *gorm.DB) *RestoreDrillService {
 	return &RestoreDrillService{
+		db:           db,
 		restoreRepo:  repoops.NewRestoreDrillRecordRepository(db),
 		jobRepo:      repoops.NewBackupJobRepository(db),
 		artifactRepo: repoops.NewBackupArtifactRepository(db),
 		runner:       NewOSScriptRunner(),
 		auditor:      obsops.NewUnifiedAuditWriter(db),
-		scriptDir:    opsscripts.ResolveDir("restore-drill.sh"),
+		scriptDir:    backupScriptDir("restore-drill.sh"),
 		metrics:      inst.NewRecorder("powerx.service.restore_drill_ops"),
 		sm:           NewJobStateMachine(),
 	}
 }
 
 func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDrillRequest) (*modelops.RestoreDrillRecord, error) {
+	return s.trigger(ctx, req, false)
+}
+
+func (s *RestoreDrillService) trigger(ctx context.Context, req TriggerRestoreDrillRequest, locked bool) (*modelops.RestoreDrillRecord, error) {
 	startedAt := time.Now()
 	var retErr error
 	defer func() { s.metrics.Observe(ctx, "backup_trigger_restore_drill", startedAt, retErr) }()
@@ -84,6 +88,16 @@ func (s *RestoreDrillService) Trigger(ctx context.Context, req TriggerRestoreDri
 	if job == nil {
 		retErr = ErrInvalidRestoreDrillRequest
 		return nil, retErr
+	}
+	if job.Status != modelops.BackupJobStatusSuccess {
+		return nil, ErrInvalidRestoreDrillRequest
+	}
+	if !locked {
+		unlock, e := lockBackupPolicy(ctx, s.db, job.PolicyID)
+		if e != nil {
+			return nil, e
+		}
+		defer unlock()
 	}
 	artifactPath, err := s.resolveRestoreArtifactPath(ctx, sourceJobID, req.ArtifactID)
 	if err != nil {
@@ -262,24 +276,34 @@ func (s *RestoreDrillService) resolveRestoreArtifactPath(ctx context.Context, so
 	if err != nil {
 		return "", fmt.Errorf("invalid restore artifact uri: %w", err)
 	}
-	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("restore artifact unavailable: %w", err)
+	root, e := resolveBackupArtifactBaseDir()
+	if e != nil {
+		return "", e
+	}
+	path, e = validatedArtifactPath(root, artifact)
+	if e != nil {
+		return "", e
+	}
+	if e = verifyArtifactFile(path, artifact); e != nil {
+		return "", e
 	}
 	return path, nil
 }
 
 func (s *RestoreDrillService) runRestoreScript(ctx context.Context, sourceJobID uint64, artifactPath string) (string, error) {
 	if s.runner == nil {
-		return "", nil
+		return "", fmt.Errorf("restore script runner unavailable")
 	}
 	path := filepath.Join(s.scriptDir, "restore-drill.sh")
 	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", nil
-		}
-		return "", err
+		return "", fmt.Errorf("restore script unavailable: %w", err)
+	}
+	env, e := postgresEnvironment(sourceDSN(s.db))
+	if e != nil {
+		return "", e
 	}
 	res, err := s.runner.Run(ctx, ScriptSpec{
+		Env:     env,
 		Command: path,
 		Args:    []string{strconv.FormatUint(sourceJobID, 10), artifactPath},
 		Timeout: 10 * time.Minute,
@@ -290,12 +314,12 @@ func (s *RestoreDrillService) runRestoreScript(ctx context.Context, sourceJobID 
 		}
 		return "", err
 	}
-	if res == nil {
-		return "", nil
+	if res == nil || strings.TrimSpace(res.Stdout) == "" {
+		return "", fmt.Errorf("restore script returned no verification result")
 	}
 	summary := strings.TrimSpace(res.Stdout)
-	if summary == "" {
-		summary = "restore drill completed"
+	if !strings.Contains(summary, "[restore-drill] done ") {
+		return "", fmt.Errorf("restore script returned no completion report")
 	}
 	return summary, nil
 }
@@ -313,11 +337,14 @@ func parseFileStorageURI(uri string) (string, error) {
 		return "", fmt.Errorf("empty storage uri")
 	}
 	if !strings.HasPrefix(strings.ToLower(trimmed), "file://") {
-		return trimmed, nil
+		return "", fmt.Errorf("only file:// backup artifacts are supported")
 	}
 	u, err := url.Parse(trimmed)
 	if err != nil {
 		return "", err
+	}
+	if u.Host != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("invalid file URI")
 	}
 	path := strings.TrimSpace(u.Path)
 	if path == "" {
