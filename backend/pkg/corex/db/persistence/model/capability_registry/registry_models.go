@@ -44,7 +44,7 @@ type AdapterEndpoint struct {
 	RegistrationID uint64         `gorm:"column:registration_id;not null;index:idx_registry_adapter_registration" json:"registration_id"`
 	CapabilityID   string         `gorm:"column:capability_id;type:varchar(256);not null;index:idx_registry_adapter_capability" json:"capability_id"`
 	TenantUUID     string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_registry_adapter_tuuid" json:"tenant_uuid"`
-	AdapterID      string         `gorm:"column:adapter_id;type:varchar(128);not null;index:idx_registry_adapter_unique,priority:1" json:"adapter_id"`
+	AdapterID      string         `gorm:"column:adapter_id;type:varchar(512);not null;index:idx_registry_adapter_unique,priority:1" json:"adapter_id"`
 	TransportType  string         `gorm:"column:transport_type;type:varchar(32);not null" json:"transport_type"`
 	Endpoint       string         `gorm:"column:endpoint;type:text" json:"endpoint,omitempty"`
 	ServiceRef     string         `gorm:"column:service_ref;type:text" json:"service_ref,omitempty"`
@@ -94,7 +94,7 @@ func (FallbackPlan) TableName() string {
 
 // HealthProbeResult 保存适配器的健康探测结果。
 type HealthProbeResult struct {
-	AdapterID        string    `gorm:"column:adapter_id;type:varchar(128);not null;primaryKey"`
+	AdapterID        string    `gorm:"column:adapter_id;type:varchar(512);not null;primaryKey"`
 	ProbeWindowStart time.Time `gorm:"column:probe_window_start;not null;primaryKey"`
 
 	Status       string  `gorm:"column:status;type:varchar(32);not null"`
