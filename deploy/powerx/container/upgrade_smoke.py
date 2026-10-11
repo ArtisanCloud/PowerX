@@ -264,7 +264,7 @@ def main():
         asset=acceptance.api('/api/v1/admin/media/assets',{'name':'upgrade.txt','driver':'local','uploadMethod':'presign_upload','contentSha256':checksum,'sizeBytes':len(contents),'mimeType':'text/plain'})
         asset_id=asset['uuid'];upload=acceptance.api('/api/v1/admin/media/assets/'+asset_id+'/presign',{'action':'upload','method':'PUT','filename':'upgrade.txt','content_type':'text/plain'})
         url=upload['url'];url=BASE+url if url.startswith('/') else url
-        with urllib.request.urlopen(urllib.request.Request(url,data=contents,headers=upload.get('headers',{}),method='PUT'),timeout=30) as response: assert 200<=response.status<300
+        with urllib.request.urlopen(urllib.request.Request(url,data=contents,headers=upload.get('headers') or {},method='PUT'),timeout=30) as response: assert 200<=response.status<300
         compose('stop','backend','web-admin','gateway')
         prepare_ci_mount_access()
         before=snapshot()
@@ -327,7 +327,7 @@ def main():
             assert snapshot()==before, 'Installed credentials, grants, configuration and uploads changed after startup'
             download=acceptance.api('/api/v1/admin/media/assets/'+asset_id+'/presign',{'action':'download'})
             url=download['url'];url=BASE+url if url.startswith('/') else url
-            with urllib.request.urlopen(urllib.request.Request(url,headers=download.get('headers',{})),timeout=30) as response:assert response.read()==contents
+            with urllib.request.urlopen(urllib.request.Request(url,headers=download.get('headers') or {}),timeout=30) as response:assert response.read()==contents
             compose('stop','backend','web-admin','gateway')
             report['stage']='restore_rollback'
             prepare_ci_mount_access()

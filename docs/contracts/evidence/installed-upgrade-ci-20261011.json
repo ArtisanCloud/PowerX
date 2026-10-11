@@ -189,7 +189,7 @@
     "python_tests_passed": 14,
     "fixture_permission_registration_go_test": "passed",
     "gateway_path_normalization_go_tests": "passed",
-    "real_CI_rerun": "pending after relative fixture API binding coordinate repair"
+    "real_CI_rerun": "pending after nullable media headers repair"
   },
   "boundaries": {
     "business_servers_modified": false,
@@ -678,6 +678,1308 @@
         }
       },
       "finding": "API binding registered, but gateway authorizes the relative /probe coordinate; fixture binding corrected without changing Core auth"
+    },
+    {
+      "run_id": 38141655820,
+      "run_url": "https://github.com/ArtisanCloud/PowerX/actions/runs/38141655820",
+      "source_sha": "8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+      "conclusion": "failure",
+      "images_job": "success",
+      "target_pair": {
+        "release_id": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+        "source_sha": "8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+        "images": {
+          "backend": {
+            "repository": "ghcr.io/artisancloud/powerx-backend",
+            "index_digest": "sha256:02310f699934e1e8883a47227a4a84726f9281c9e78c0b7345023ffcdaa8113b",
+            "platforms": {
+              "linux/amd64": {
+                "digest": "sha256:f4377ea72cab430806ea9eb5cbae891d8498be5d680c94a5a68c69cd1ab509a9",
+                "source_revision": "8c9ff3c98225c4e4584b7190f1d670c001f1c5f5"
+              },
+              "linux/arm64": {
+                "digest": "sha256:92178c83ac1625e2deb24762ae4c4d3f8e1267d7c435b6c785d977547060cd77",
+                "source_revision": "8c9ff3c98225c4e4584b7190f1d670c001f1c5f5"
+              }
+            }
+          },
+          "web_admin": {
+            "repository": "ghcr.io/artisancloud/powerx-web-admin",
+            "index_digest": "sha256:d4097e17ce42d81ba04d63746af8249e621f1b854585490b812e11b23723f6ae",
+            "platforms": {
+              "linux/amd64": {
+                "digest": "sha256:5c2bf6647add343eeaf35f539c52959d7e8444c4b0694bdd64ce83a049c3d61f",
+                "source_revision": "8c9ff3c98225c4e4584b7190f1d670c001f1c5f5"
+              },
+              "linux/arm64": {
+                "digest": "sha256:204cfcda111ad7e62569bf2c7d56119f4cc6cb054305ac733a48996aa38e4652",
+                "source_revision": "8c9ff3c98225c4e4584b7190f1d670c001f1c5f5"
+              }
+            }
+          }
+        }
+      },
+      "linux/amd64_report": {
+        "schema_version": "powerx.upgrade-acceptance/v1",
+        "status": "failed",
+        "platform": "linux/amd64",
+        "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+        "target_sha": "8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+        "source_images": {
+          "backend": "sha256:38c2954c8c7a56cd892ef53ecf0a4424691f54b952627c21cb77dcab8aae499c",
+          "web_admin": "sha256:e4918197a260d743c7b85827f5d3cd509a8f7a383f6d0a19044ce9c8e35019c3"
+        },
+        "target_images": {
+          "backend": "sha256:f4377ea72cab430806ea9eb5cbae891d8498be5d680c94a5a68c69cd1ab509a9",
+          "web_admin": "sha256:5c2bf6647add343eeaf35f539c52959d7e8444c4b0694bdd64ce83a049c3d61f"
+        },
+        "checks": {
+          "old_setup": true,
+          "configuration_preserved": true,
+          "login_preserved": true,
+          "business_data_preserved": true,
+          "files_preserved": true,
+          "plugin_runtime_preserved": true,
+          "new_schema": true,
+          "idempotent": true,
+          "unknown_source_rejected": true,
+          "invalid_config_rejected": true,
+          "legacy_blocker_rejected": true,
+          "plan_drift_rejected": true,
+          "partial_failure_retry": true,
+          "checksum_rejected": true,
+          "lock_conflict": true,
+          "interrupted_retry": true,
+          "binary_identity": true,
+          "paired_frontend": true,
+          "restore_rollback": false
+        },
+        "http": [
+          {
+            "path": "/api/v1/admin/setup/config",
+            "status": 200,
+            "request_id": "5aade42d-cdc1-47fc-8570-58f554afaee4"
+          },
+          {
+            "path": "/api/v1/admin/setup/config",
+            "status": 200,
+            "request_id": "90daed74-8bb4-4817-9389-b1fb9f0006ba"
+          },
+          {
+            "path": "/api/v1/admin/setup/provision",
+            "status": 200,
+            "request_id": "9e260770-3e18-4d61-b06b-6d8a36c81d62"
+          },
+          {
+            "path": "/api/v1/admin/setup/complete",
+            "status": 200,
+            "request_id": "c4ed6148-d6ab-4d1a-8e29-362848240938"
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 200,
+            "request_id": "03c6fee9-f14f-4e8b-a5a3-633224fe3c61"
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 502,
+            "request_id": null
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 502,
+            "request_id": null
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 200,
+            "request_id": "f20eb3dd-50dc-410a-824c-72f08a398217"
+          },
+          {
+            "path": "/api/v1/admin/user/auth/login",
+            "status": 200,
+            "request_id": "140a902b-4b21-41d5-9fa4-616a738da930"
+          },
+          {
+            "path": "/api/v1/admin/scheduler/jobs",
+            "status": 200,
+            "request_id": "09aebacd-284e-4667-96ee-85da7a5319bf"
+          },
+          {
+            "path": "/api/v1/admin/scheduler/jobs/8d2e51b9-47d0-4e3a-8bbe-4a2fcd43e8f4/pause",
+            "status": 200,
+            "request_id": "78aa86e3-7e8d-4831-9891-eee1f6f3be9c"
+          },
+          {
+            "path": "/api/v1/admin/plugins/install/local",
+            "status": 200,
+            "request_id": "d7766e2b-4d59-4c74-97ed-e16fe241fd4a"
+          },
+          {
+            "path": "/_p/com.powerx.upgrade.fixture/api/v1/probe",
+            "status": 200,
+            "request_id": null
+          },
+          {
+            "path": "/api/v1/admin/media/assets",
+            "status": 200,
+            "request_id": "917d2963-bf86-4be4-ac4f-b1a93acca890"
+          },
+          {
+            "path": "/api/v1/admin/media/assets/69eba968-8731-59fc-b788-1554d7a9875e/presign",
+            "status": 200,
+            "request_id": "f9726cf9-6f7b-45ff-aa7a-b33093350ac9"
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 200,
+            "request_id": "eaf6786e-6e94-4406-8f34-53a318e57c8c"
+          },
+          {
+            "path": "/api/v1/admin/user/auth/login",
+            "status": 200,
+            "request_id": "09c76ad7-32f6-42ba-b5eb-53699c729fe4"
+          },
+          {
+            "path": "/api/v1/admin/scheduler/jobs/8d2e51b9-47d0-4e3a-8bbe-4a2fcd43e8f4",
+            "status": 200,
+            "request_id": "8efc3b63-ce29-48ed-8709-8585dc20aaa0"
+          },
+          {
+            "path": "/_p/com.powerx.upgrade.fixture/api/v1/probe",
+            "status": 200,
+            "request_id": null
+          },
+          {
+            "path": "/api/v1/admin/media/assets/69eba968-8731-59fc-b788-1554d7a9875e/presign",
+            "status": 200,
+            "request_id": "18a0cf87-2aa9-4296-b255-18733484011c"
+          }
+        ],
+        "migration_results": [
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+            "status": "ready",
+            "applied": [],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "checksum": "ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "depends_on": [],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "checksum": "1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "depends_on": [
+                  "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "checksum": "655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "depends_on": [
+                  "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d"
+                ],
+                "transactional": false,
+                "recovery": "restore_pre_upgrade_database_config_and_external_vectors"
+              },
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "0000000000000000000000000000000000000000",
+            "source_release": "sha-0000000000000000000000000000000000000000",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "c70ab240a408c707fcc2c66127551809847ac35ebbfc3d3bb1ced96a5a76e98d",
+            "status": "blocked",
+            "applied": [],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "checksum": "ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "depends_on": [],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "checksum": "1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "depends_on": [
+                  "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "checksum": "655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "depends_on": [
+                  "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d"
+                ],
+                "transactional": false,
+                "recovery": "restore_pre_upgrade_database_config_and_external_vectors"
+              },
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [
+              {
+                "code": "UPGRADE_SOURCE_UNSUPPORTED",
+                "message": "Source release is outside the fixed verified baseline"
+              }
+            ],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "UPGRADE_SOURCE_UNSUPPORTED",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "Source release is outside the fixed verified baseline",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "",
+            "database": "",
+            "schema": "public",
+            "plan_hash": "",
+            "status": "blocked",
+            "applied": [],
+            "skipped": [],
+            "pending": [],
+            "failed": [],
+            "blockers": [
+              {
+                "code": "UPGRADE_CONFIG_INVALID",
+                "message": "Installed configuration or data mount failed preflight"
+              }
+            ],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "UPGRADE_CONFIG_INVALID",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "Installed configuration or data mount failed preflight",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "758b620a65ddc7b0decb99ea85afcc19cd7e83737cacb10825b9d4afdbc7b5c3",
+            "status": "blocked",
+            "applied": [],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "checksum": "ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "depends_on": [],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "checksum": "1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "depends_on": [
+                  "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "checksum": "655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "depends_on": [
+                  "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d"
+                ],
+                "transactional": false,
+                "recovery": "restore_pre_upgrade_database_config_and_external_vectors"
+              },
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [
+              {
+                "code": "UPGRADE_LEGACY_PLUGIN_ACTOR_UNRESOLVED",
+                "message": "Historical install sessions need audited owner resolution or retention archive; no rows were deleted"
+              }
+            ],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "UPGRADE_LEGACY_PLUGIN_ACTOR_UNRESOLVED",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "Historical install sessions need audited owner resolution or retention archive; no rows were deleted",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+            "status": "ready",
+            "applied": [],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "checksum": "ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "depends_on": [],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "checksum": "1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "depends_on": [
+                  "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "checksum": "655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "depends_on": [
+                  "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d"
+                ],
+                "transactional": false,
+                "recovery": "restore_pre_upgrade_database_config_and_external_vectors"
+              },
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "apply",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "b78c957313136f2906a1b8d637669e27a15585de8c9460522f71caa546056feb",
+            "status": "blocked",
+            "applied": [],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "checksum": "ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "depends_on": [],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "checksum": "1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "depends_on": [
+                  "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "checksum": "655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "depends_on": [
+                  "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d"
+                ],
+                "transactional": false,
+                "recovery": "restore_pre_upgrade_database_config_and_external_vectors"
+              },
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [
+              {
+                "code": "UPGRADE_PLAN_CHANGED",
+                "message": "Database or configuration changed after preview; run plan again"
+              }
+            ],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "UPGRADE_PLAN_CHANGED",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "Database or configuration changed after preview; run plan again",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+            "status": "ready",
+            "applied": [],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "checksum": "ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "depends_on": [],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "checksum": "1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "depends_on": [
+                  "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "checksum": "655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "depends_on": [
+                  "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d"
+                ],
+                "transactional": false,
+                "recovery": "restore_pre_upgrade_database_config_and_external_vectors"
+              },
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "apply",
+            "run_uuid": null,
+            "source_sha": "",
+            "source_release": "",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "",
+            "database": "",
+            "schema": "public",
+            "plan_hash": "",
+            "status": "blocked",
+            "applied": [],
+            "skipped": [],
+            "pending": [],
+            "failed": [],
+            "blockers": [
+              {
+                "code": "UPGRADE_LOCK_BUSY",
+                "message": "Another migration owns the database lock"
+              }
+            ],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": true,
+            "requires_restore": false,
+            "error_code": "UPGRADE_LOCK_BUSY",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "Another migration owns the database lock",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+            "status": "ready",
+            "applied": [],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "checksum": "ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+                "depends_on": [],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "checksum": "1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+                "depends_on": [
+                  "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              },
+              {
+                "id": "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "checksum": "655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+                "depends_on": [
+                  "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d"
+                ],
+                "transactional": false,
+                "recovery": "restore_pre_upgrade_database_config_and_external_vectors"
+              },
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "apply",
+            "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+            "status": "failed",
+            "applied": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+            ],
+            "skipped": [],
+            "pending": [
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [
+              "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029"
+            ],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [],
+            "partial": true,
+            "retryable": true,
+            "requires_restore": false,
+            "error_code": "UPGRADE_STEP_FAILED",
+            "database_error_code": "P0001",
+            "database_constraint": "",
+            "message": "Migration failed; inspect the step identifier and recovery policy",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "241bfc4bd0240b41a4ba9876b34b2b34cb947e5c200dc83ede79fe06cac6aa30",
+            "status": "ready",
+            "applied": [],
+            "skipped": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+            ],
+            "pending": [
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [
+              {
+                "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+                "status": "failed",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_STEP_FAILED",
+                "database_error_code": "P0001",
+                "database_constraint": "",
+                "partial": true,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:45.901894Z",
+                "finished_at": "2026-10-11T13:07:49.146175Z"
+              }
+            ],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "apply",
+            "run_uuid": "566dd7a5-bb01-45e5-b655-3ce74aeef09a",
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "241bfc4bd0240b41a4ba9876b34b2b34cb947e5c200dc83ede79fe06cac6aa30",
+            "status": "failed",
+            "applied": [],
+            "skipped": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+            ],
+            "pending": [
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [
+              "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029"
+            ],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [
+              {
+                "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+                "status": "failed",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_STEP_FAILED",
+                "database_error_code": "P0001",
+                "database_constraint": "",
+                "partial": true,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:45.901894Z",
+                "finished_at": "2026-10-11T13:07:49.146175Z"
+              }
+            ],
+            "partial": true,
+            "retryable": true,
+            "requires_restore": false,
+            "error_code": "UPGRADE_DATABASE_OPERATION_FAILED",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "Database operation failed; no secret-bearing SQL is returned",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "unrecorded",
+            "current_migration_version": "legacy-unversioned",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "a52f7e12627b8ee80ac7a9753ddef913d578e10a3cae1d57966bb7a742322ba7",
+            "status": "ready",
+            "applied": [],
+            "skipped": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+            ],
+            "pending": [
+              {
+                "id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "checksum": "e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "depends_on": [
+                  "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+                ],
+                "transactional": true,
+                "recovery": "retry_after_new_plan"
+              }
+            ],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [
+              {
+                "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+                "status": "failed",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_STEP_FAILED",
+                "database_error_code": "P0001",
+                "database_constraint": "",
+                "partial": true,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:45.901894Z",
+                "finished_at": "2026-10-11T13:07:49.146175Z"
+              },
+              {
+                "run_uuid": "566dd7a5-bb01-45e5-b655-3ce74aeef09a",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "241bfc4bd0240b41a4ba9876b34b2b34cb947e5c200dc83ede79fe06cac6aa30",
+                "status": "running",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "",
+                "database_error_code": "",
+                "database_constraint": "",
+                "partial": false,
+                "retryable": false,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:50.224655Z",
+                "finished_at": null
+              }
+            ],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "apply",
+            "run_uuid": "a7b7fb9d-b82d-4fe1-8646-d2c976c60911",
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "current_migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "a52f7e12627b8ee80ac7a9753ddef913d578e10a3cae1d57966bb7a742322ba7",
+            "status": "succeeded",
+            "applied": [
+              "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029"
+            ],
+            "skipped": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e"
+            ],
+            "pending": [],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [
+              {
+                "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+                "status": "failed",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_STEP_FAILED",
+                "database_error_code": "P0001",
+                "database_constraint": "",
+                "partial": true,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:45.901894Z",
+                "finished_at": "2026-10-11T13:07:49.146175Z"
+              },
+              {
+                "run_uuid": "566dd7a5-bb01-45e5-b655-3ce74aeef09a",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "241bfc4bd0240b41a4ba9876b34b2b34cb947e5c200dc83ede79fe06cac6aa30",
+                "status": "running",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "",
+                "database_error_code": "",
+                "database_constraint": "",
+                "partial": false,
+                "retryable": false,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:50.224655Z",
+                "finished_at": null
+              }
+            ],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "current_migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "355374c06c9a9c8a39bef9da5bdc65c7a4689d02afcfdc424ea6530938cb154f",
+            "status": "up_to_date",
+            "applied": [],
+            "skipped": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+              "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029"
+            ],
+            "pending": [],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [
+              {
+                "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+                "status": "failed",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_STEP_FAILED",
+                "database_error_code": "P0001",
+                "database_constraint": "",
+                "partial": true,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:45.901894Z",
+                "finished_at": "2026-10-11T13:07:49.146175Z"
+              },
+              {
+                "run_uuid": "566dd7a5-bb01-45e5-b655-3ce74aeef09a",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "241bfc4bd0240b41a4ba9876b34b2b34cb947e5c200dc83ede79fe06cac6aa30",
+                "status": "interrupted",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_INTERRUPTED",
+                "database_error_code": "",
+                "database_constraint": "",
+                "partial": false,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:50.224655Z",
+                "finished_at": "2026-10-11T13:07:52.517386Z"
+              }
+            ],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "apply",
+            "run_uuid": "65e8a2cf-8214-4022-b2b7-4325faba3324",
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "current_migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "355374c06c9a9c8a39bef9da5bdc65c7a4689d02afcfdc424ea6530938cb154f",
+            "status": "succeeded",
+            "applied": [],
+            "skipped": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+              "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029"
+            ],
+            "pending": [],
+            "failed": [],
+            "blockers": [],
+            "configuration_changes": [],
+            "incomplete_runs": [
+              {
+                "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+                "status": "failed",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_STEP_FAILED",
+                "database_error_code": "P0001",
+                "database_constraint": "",
+                "partial": true,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:45.901894Z",
+                "finished_at": "2026-10-11T13:07:49.146175Z"
+              },
+              {
+                "run_uuid": "566dd7a5-bb01-45e5-b655-3ce74aeef09a",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "241bfc4bd0240b41a4ba9876b34b2b34cb947e5c200dc83ede79fe06cac6aa30",
+                "status": "interrupted",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_INTERRUPTED",
+                "database_error_code": "",
+                "database_constraint": "",
+                "partial": false,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:50.224655Z",
+                "finished_at": "2026-10-11T13:07:52.517386Z"
+              }
+            ],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          },
+          {
+            "schema_version": "powerx.migration-result/v1",
+            "operation": "plan",
+            "run_uuid": null,
+            "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "source_release": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+            "current_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "current_migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+            "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+            "database": "powerx",
+            "schema": "public",
+            "plan_hash": "d4b5c25943c79fbb70e623e6ba44e6eb51a5997fd8835d721523b4129041849d",
+            "status": "blocked",
+            "applied": [],
+            "skipped": [
+              "20261011_core_ae7227c75463b3fcaca8fe506779e70d2b92d495e585ad371703fb504c0d1227",
+              "20261011_agent_1e370699c48071c1f4c2dd09f8ffe513a347ebaead335a0d47921bdb461fef2d",
+              "20261011_knowledge_655736d2b91d05f6a95ba212669622d73c779052f2f09786b0b09d5344869e1e",
+              "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029"
+            ],
+            "pending": [],
+            "failed": [],
+            "blockers": [
+              {
+                "code": "UPGRADE_MIGRATION_CHECKSUM_MISMATCH",
+                "message": "A content-addressed migration journal entry is inconsistent"
+              },
+              {
+                "code": "UPGRADE_MIGRATION_CHECKSUM_MISMATCH",
+                "message": "An applied migration differs from the target registry"
+              }
+            ],
+            "configuration_changes": [],
+            "incomplete_runs": [
+              {
+                "run_uuid": "355ac0da-39dd-4e0d-bbc0-6a323cfde672",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "50bb0a6b90a4b9c2b440256e13fd7bcea0ab10f94fe9852f3c3085f48d7749b8",
+                "status": "failed",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_STEP_FAILED",
+                "database_error_code": "P0001",
+                "database_constraint": "",
+                "partial": true,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:45.901894Z",
+                "finished_at": "2026-10-11T13:07:49.146175Z"
+              },
+              {
+                "run_uuid": "566dd7a5-bb01-45e5-b655-3ce74aeef09a",
+                "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+                "target_release": "sha-8c9ff3c98225c4e4584b7190f1d670c001f1c5f5",
+                "migration_version": "f62def2cbb6808eda804879c03d685f008f900f13040b5552fd5bada52859180",
+                "plan_hash": "241bfc4bd0240b41a4ba9876b34b2b34cb947e5c200dc83ede79fe06cac6aa30",
+                "status": "interrupted",
+                "migration_id": "20261011_catalog_e4be7b87eb2c868598c9ca632d950a9017e370f053479211faccccc0325c5029",
+                "error_code": "UPGRADE_INTERRUPTED",
+                "database_error_code": "",
+                "database_constraint": "",
+                "partial": false,
+                "retryable": true,
+                "requires_restore": false,
+                "started_at": "2026-10-11T13:07:50.224655Z",
+                "finished_at": "2026-10-11T13:07:52.517386Z"
+              }
+            ],
+            "partial": false,
+            "retryable": false,
+            "requires_restore": false,
+            "error_code": "UPGRADE_MIGRATION_CHECKSUM_MISMATCH",
+            "database_error_code": "",
+            "database_constraint": "",
+            "message": "An applied migration differs from the target registry",
+            "maintenance_required": true,
+            "rollback": "restore_required"
+          }
+        ],
+        "stage": "target_runtime_preservation",
+        "error_code": "UPGRADE_CI_ACCEPTANCE_FAILED",
+        "failure": {
+          "stage": "target_runtime_preservation",
+          "exception_type": "AttributeError",
+          "location": {
+            "file": "request.py",
+            "line": 298
+          },
+          "stack": [
+            {
+              "file": "upgrade_smoke.py",
+              "line": 330,
+              "function": "main"
+            },
+            {
+              "file": "request.py",
+              "line": 298,
+              "function": "__init__"
+            }
+          ]
+        }
+      },
+      "finding": "18 of 19 acceptance checks passed; optional presign headers null rejected by urllib request constructor before download and restore rollback"
     }
   ]
 }

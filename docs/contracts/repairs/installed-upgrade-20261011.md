@@ -46,6 +46,8 @@ integration_gateway 的两个旧 media 测试要求已不存在的 builtin `com.
 
 第四轮 [#38141125885](https://github.com/ArtisanCloud/PowerX/actions/runs/38141125885)，目标 SHA `257b0b8a42ed534dd2de310b9aaac02c9ffc980a`：API 权限登记检查通过，但探针被拒绝，响应明确为 `no registered permission binding for this route`。核对网关的 `normalizeGatePathForPolicy`：`/_p/{id}/api/v1/probe` 在授权时剥离 `/api/v1`，使用 `/probe` 相对坐标。fixture 的 protocol binding 已同步为 `GET /probe`；外部访问地址仍为原地址。已有网关路径归一化及上游路径构造测试通过，Core 网关未改动。Python 14 项测试通过；正式升级仍等待新一轮验收。
 
+第五轮 [#38141655820](https://github.com/ArtisanCloud/PowerX/actions/runs/38141655820)，目标 SHA `8c9ff3c98225c4e4584b7190f1d670c001f1c5f5`：amd64 实际报告已有 18/19 项通过，包含迁移成功、数据/凭据/文件/插件保留、幂等、故障重试、中断恢复、锁冲突、非法配置/来源/履历拒绝及成对镜像核对。媒体 presign 回包的可选 `headers=null` 导致 Python 请求构造器 `AttributeError`，尚未进入最终下载及备份恢复回滚。已把可选空头部规范为 `{}`；不改签名 URL、凭据或服务端合同。仍保留 `restore_rollback` 必须通过的发布门禁。
+
 只声明本地文件存储、同 Core 数据库/关闭的向量拓扑、测试进程插件范围。其他存储或业务插件需要额外验收；XDocker 必须按 `compatibility.validated_scope` 判断。
 
 可以审阅和提交本分支，等待 CI 门禁通过后交付发布包。工作区二进制与仅构建成功的镜像不得当作远程自动升级已验收制品。
