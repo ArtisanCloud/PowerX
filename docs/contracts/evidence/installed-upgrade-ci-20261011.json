@@ -1,0 +1,196 @@
+{
+  "date": "2026-10-11",
+  "verification_source": "GitHub Actions job logs and downloaded artifacts",
+  "run_id": 38131287774,
+  "run_url": "https://github.com/ArtisanCloud/PowerX/actions/runs/38131287774",
+  "source_sha": "6a03034c686b66ca4b39866423a23a84edeaaa3d",
+  "branch": "develop",
+  "conclusion": "failure",
+  "images_job": "success",
+  "upgrade_jobs": {
+    "linux/amd64": "failure",
+    "linux/arm64": "failure"
+  },
+  "target_pair": {
+    "release_id": "sha-6a03034c686b66ca4b39866423a23a84edeaaa3d",
+    "source_sha": "6a03034c686b66ca4b39866423a23a84edeaaa3d",
+    "images": {
+      "backend": {
+        "repository": "ghcr.io/artisancloud/powerx-backend",
+        "index_digest": "sha256:2b657496eb6d86a9798e9eb266adb3ea2b84974f042ceee93fbe68713132c5e8",
+        "platforms": {
+          "linux/amd64": {
+            "digest": "sha256:641b9f5f4e978324e8272803964a1484159780301a269735f4c3ff329a6156a7",
+            "source_revision": "6a03034c686b66ca4b39866423a23a84edeaaa3d"
+          },
+          "linux/arm64": {
+            "digest": "sha256:a6676f8c16a3dadedde0a8e9f716d41aec9e6400b47ba1bc4946f982e39955cc",
+            "source_revision": "6a03034c686b66ca4b39866423a23a84edeaaa3d"
+          }
+        }
+      },
+      "web_admin": {
+        "repository": "ghcr.io/artisancloud/powerx-web-admin",
+        "index_digest": "sha256:bf2e653945a9281eef1233accc1a52e52d2b8843b6bce0dd523462b3f714172d",
+        "platforms": {
+          "linux/amd64": {
+            "digest": "sha256:7b73e6bdff27d76a69fd4d2b68851c65fd6d646b18d9df3564d69ad42568096c",
+            "source_revision": "6a03034c686b66ca4b39866423a23a84edeaaa3d"
+          },
+          "linux/arm64": {
+            "digest": "sha256:34c33720a0fcf4e3629c579789db0345b5c931539c2cbaf210b2440487b0571a",
+            "source_revision": "6a03034c686b66ca4b39866423a23a84edeaaa3d"
+          }
+        }
+      }
+    }
+  },
+  "upgrade_reports": {
+    "amd64": {
+      "schema_version": "powerx.upgrade-acceptance/v1",
+      "status": "failed",
+      "platform": "linux/amd64",
+      "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+      "target_sha": "6a03034c686b66ca4b39866423a23a84edeaaa3d",
+      "source_images": {
+        "backend": "sha256:38c2954c8c7a56cd892ef53ecf0a4424691f54b952627c21cb77dcab8aae499c",
+        "web_admin": "sha256:e4918197a260d743c7b85827f5d3cd509a8f7a383f6d0a19044ce9c8e35019c3"
+      },
+      "target_images": {
+        "backend": "sha256:641b9f5f4e978324e8272803964a1484159780301a269735f4c3ff329a6156a7",
+        "web_admin": "sha256:7b73e6bdff27d76a69fd4d2b68851c65fd6d646b18d9df3564d69ad42568096c"
+      },
+      "checks": {
+        "old_setup": false,
+        "configuration_preserved": false,
+        "login_preserved": false,
+        "business_data_preserved": false,
+        "files_preserved": false,
+        "plugin_runtime_preserved": false,
+        "new_schema": false,
+        "idempotent": false,
+        "unknown_source_rejected": false,
+        "invalid_config_rejected": false,
+        "legacy_blocker_rejected": false,
+        "plan_drift_rejected": false,
+        "partial_failure_retry": false,
+        "checksum_rejected": false,
+        "lock_conflict": false,
+        "interrupted_retry": false,
+        "binary_identity": false,
+        "paired_frontend": false,
+        "restore_rollback": false
+      },
+      "http": [
+        {
+          "path": "/api/v1/admin/setup/config",
+          "status": 200,
+          "request_id": "625b3b11-43e4-4ef3-bf4c-cbe3c3a93965"
+        },
+        {
+          "path": "/api/v1/admin/setup/config",
+          "status": 200,
+          "request_id": "a0b9c343-ef9c-4dcc-b798-72958ad59fb2"
+        },
+        {
+          "path": "/api/v1/admin/setup/provision",
+          "status": 200,
+          "request_id": "da994336-87fb-4323-99a4-bd14dc0e889e"
+        },
+        {
+          "path": "/api/v1/admin/setup/complete",
+          "status": 200,
+          "request_id": "d4edf6f9-2fcd-4ab2-b613-431f0baba97c"
+        },
+        {
+          "path": "/api/v1/admin/setup/status",
+          "status": 200,
+          "request_id": "8f7bb4c1-bc49-40f5-87fe-f140bc9b3286"
+        }
+      ],
+      "migration_results": [],
+      "error_code": "UPGRADE_CI_ACCEPTANCE_FAILED"
+    },
+    "arm64": {
+      "schema_version": "powerx.upgrade-acceptance/v1",
+      "status": "failed",
+      "platform": "linux/arm64",
+      "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+      "target_sha": "6a03034c686b66ca4b39866423a23a84edeaaa3d",
+      "source_images": {
+        "backend": "sha256:16a051cb54c57d6a783ba31a61ae8bcd1a9eeb6d7eea058877d2b57a5f46df27",
+        "web_admin": "sha256:2467b1a10f85cde61dfa2456df12869bab1e16592762493217fb5632c270eb68"
+      },
+      "target_images": {
+        "backend": "sha256:a6676f8c16a3dadedde0a8e9f716d41aec9e6400b47ba1bc4946f982e39955cc",
+        "web_admin": "sha256:34c33720a0fcf4e3629c579789db0345b5c931539c2cbaf210b2440487b0571a"
+      },
+      "checks": {
+        "old_setup": false,
+        "configuration_preserved": false,
+        "login_preserved": false,
+        "business_data_preserved": false,
+        "files_preserved": false,
+        "plugin_runtime_preserved": false,
+        "new_schema": false,
+        "idempotent": false,
+        "unknown_source_rejected": false,
+        "invalid_config_rejected": false,
+        "legacy_blocker_rejected": false,
+        "plan_drift_rejected": false,
+        "partial_failure_retry": false,
+        "checksum_rejected": false,
+        "lock_conflict": false,
+        "interrupted_retry": false,
+        "binary_identity": false,
+        "paired_frontend": false,
+        "restore_rollback": false
+      },
+      "http": [
+        {
+          "path": "/api/v1/admin/setup/config",
+          "status": 200,
+          "request_id": "b85b41e6-c49e-427f-9b69-5a2e19d3c0dd"
+        },
+        {
+          "path": "/api/v1/admin/setup/config",
+          "status": 200,
+          "request_id": "f545a02f-f166-4619-bb5d-da47871c094b"
+        },
+        {
+          "path": "/api/v1/admin/setup/provision",
+          "status": 200,
+          "request_id": "21de8ef2-07a1-476a-ad5e-2b90c97fbe6c"
+        },
+        {
+          "path": "/api/v1/admin/setup/complete",
+          "status": 200,
+          "request_id": "23ba848b-d83e-4cc4-aaf0-b226d78204af"
+        },
+        {
+          "path": "/api/v1/admin/setup/status",
+          "status": 200,
+          "request_id": "b96818e7-b33a-4834-9ac2-dbbb95305cbb"
+        }
+      ],
+      "migration_results": [],
+      "error_code": "UPGRADE_CI_ACCEPTANCE_FAILED"
+    }
+  },
+  "artifact_ids": {
+    "target_pair": 11699232628,
+    "linux/amd64": 11699212853,
+    "linux/arm64": 11699582013
+  },
+  "executable_release_available": false,
+  "manifest_generated": false,
+  "release_bundle_generated": false,
+  "repair_verification": {
+    "python_tests_passed": 11,
+    "real_CI_rerun": "pending"
+  },
+  "boundaries": {
+    "business_servers_modified": false,
+    "local_Docker_started": false
+  }
+}

@@ -1,6 +1,6 @@
 # 已安装实例升级 Core 实施记录
 
-日期：2026-10-11。任务分支：`codex/026-installed-instance-upgrade`。
+日期：2026-10-11。首次实施分支：`codex/026-installed-instance-upgrade`；后续合入当前 `024-ai-engineering-skills` 分支。本次发布修复继续在当前分支进行。
 
 ## 已实现
 
@@ -31,7 +31,14 @@ integration_gateway 的两个旧 media 测试要求已不存在的 builtin `com.
 
 ## 待生成的发布证据
 
-本机 Docker daemon 未运行，GitHub CLI 未登录；本次没有推送、触发远程 workflow、修改 XDocker 或操作现有服务器。真实两架构镜像升级/失败/回滚 workflow **已实现但未执行**。正式 target digest、可执行 manifest、CI run 与发布包仍需分支提交后由 CI 生成。
+首次实施时未执行真实镜像 CI。2026-10-11 后续核实：代码已由 PR #410 合入 develop，提交 `6a03034c686b66ca4b39866423a23a84edeaaa3d` 的 [发布 CI #38131287774](https://github.com/ArtisanCloud/PowerX/actions/runs/38131287774) 已执行，结果为失败。
+
+- `images` 通过：迁移单测、双架构镜像构建、成对 OCI digest 核对及空库安装烟测成功；`powerx-target-pair` 产物已生成。
+- `installed-upgrade` 的 amd64、arm64 均失败：旧镜像 Setup 的配置、Provision、Complete 请求为 200；报告停留在重启后的安装状态等待，未通过 `old_setup`，迁移结果为空。
+- 后续 `upgrade-metadata`、`bundle-release` 被门禁跳过。当前候选 digest 是排查产物，不是通过升级验收的发布声明；可执行 manifest 和本次发布包尚未生成。
+- 两个平台的失败报告仅给出 `UPGRADE_CI_ACCEPTANCE_FAILED`，不足以证明具体异常。已补齐阶段、异常类型和代码位置，并修复就绪检查把 Nginx HTML 502 错误页直接当 JSON 解析的问题；仅对 502/503/504 和连接异常有限等待，403 和无效成功回包直接拒绝。相关 Python 测试 11 项通过，仍需新一轮真实 CI 确认。
+
+上述远端运行与产物记录见 [CI 核实证据](../evidence/installed-upgrade-ci-20261011.json)。本次核实通过 GitHub 连接器读取日志和报告，没有启动本机 Docker，也没有操作业务服务器。后续交付须记录通过验收的新 SHA、成对 digest、manifest 校验和、两平台报告和发布包。
 
 只声明本地文件存储、同 Core 数据库/关闭的向量拓扑、测试进程插件范围。其他存储或业务插件需要额外验收；XDocker 必须按 `compatibility.validated_scope` 判断。
 
