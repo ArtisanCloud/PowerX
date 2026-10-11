@@ -6,6 +6,8 @@ import {
 } from "~/composables/api/services/settingsService";
 import { AISettingService } from "~/composables/api/services/aiSettingService";
 import TestPanel from "~/components/settings/ai/TestPanel.vue";
+import SetupConnectionFeedback from "~/components/setup/ConnectionFeedback.vue";
+import { describeSetupConnectionError } from "~/utils/setup-connection-test";
 
 definePageMeta({
   layout: false,
@@ -612,11 +614,13 @@ const dbTestState = reactive({
     testing: false,
     ok: false,
     message: "",
+    diagnosticId: "",
   },
   cache: {
     testing: false,
     ok: false,
     message: "",
+    diagnosticId: "",
   },
   provisioning: false,
   provisioned: false,
@@ -711,8 +715,8 @@ const resolveSetupError = (error: any): string => {
 };
 
 const setupTestDatabaseConnection = async () => {
+  if (dbTestState.database.testing) return;
   dbTestState.database.testing = true;
-  dbTestState.database.message = "";
   try {
     const resp: any = await $fetch("/api/v1/admin/setup/test/database", {
       method: "POST",
@@ -722,21 +726,25 @@ const setupTestDatabaseConnection = async () => {
     });
     const data = resp?.data ?? resp;
     if (!data || data.ok !== true) {
-      throw new Error(isZh.value ? "数据库连接测试返回异常" : "Database test response is invalid");
+      throw new Error(t("setup.connection.invalidResponse"));
     }
     dbTestState.database.ok = true;
-    dbTestState.database.message = isZh.value ? "数据库连接成功" : "Database connection is healthy";
+    dbTestState.database.message = t("setup.connection.database.success");
+    dbTestState.database.diagnosticId = "";
   } catch (error: any) {
     dbTestState.database.ok = false;
-    dbTestState.database.message = String(error?.data?.error || error?.data?.message || error?.message || "unknown error");
+    const failure = describeSetupConnectionError(error, "database");
+    dbTestState.database.message = failure.detail || t("setup.connection.failedFallback");
+    dbTestState.database.diagnosticId = failure.diagnosticId;
+    toast.add({ title: t("setup.connection.database.failed"), description: dbTestState.database.message, color: "error" });
   } finally {
     dbTestState.database.testing = false;
   }
 };
 
 const setupTestCacheConnection = async () => {
+  if (dbTestState.cache.testing) return;
   dbTestState.cache.testing = true;
-  dbTestState.cache.message = "";
   try {
     const resp: any = await $fetch("/api/v1/admin/setup/test/cache", {
       method: "POST",
@@ -746,13 +754,17 @@ const setupTestCacheConnection = async () => {
     });
     const data = resp?.data ?? resp;
     if (!data || data.ok !== true) {
-      throw new Error(isZh.value ? "缓存连接测试返回异常" : "Cache test response is invalid");
+      throw new Error(t("setup.connection.invalidResponse"));
     }
     dbTestState.cache.ok = true;
-    dbTestState.cache.message = String(data?.message || (isZh.value ? "缓存连接成功" : "Cache connection is healthy"));
+    dbTestState.cache.message = t("setup.connection.cache.success");
+    dbTestState.cache.diagnosticId = "";
   } catch (error: any) {
     dbTestState.cache.ok = false;
-    dbTestState.cache.message = String(error?.data?.error || error?.data?.message || error?.message || "unknown error");
+    const failure = describeSetupConnectionError(error, "cache");
+    dbTestState.cache.message = failure.messageKey ? t(failure.messageKey) : failure.detail || t("setup.connection.failedFallback");
+    dbTestState.cache.diagnosticId = failure.diagnosticId;
+    toast.add({ title: t("setup.connection.cache.failed"), description: dbTestState.cache.message, color: "error" });
   } finally {
     dbTestState.cache.testing = false;
   }
@@ -775,7 +787,7 @@ const provisionSetupAtDatabaseStep = async (): Promise<boolean> => {
     dbTestState.provisioned = true;
     toast.add({
       title: isZh.value ? "数据库初始化完成" : "Database provision completed",
-      description: isZh.value ? "已执行 migrate/seed，可继续下一步。" : "migrate/seed finished. You can continue.",
+      description: t("setup.databasePrepared"),
       color: "success",
     });
     return true;
@@ -833,13 +845,10 @@ const validateCurrentStep = () => {
         Number(step3Data.backendPort) !== Number(step3Data.webAdminPort)
       );
     case 3:
-      if (Number(setupStatus.value?.checks?.users || 0) > 0) {
-        return true;
-      }
       return (
-        step4Data.adminUsername &&
-        step4Data.adminEmail &&
-        step4Data.adminPassword &&
+        step4Data.adminUsername.trim() &&
+        step4Data.adminEmail.trim() &&
+        step4Data.adminPassword.trim() &&
         step4Data.adminPassword === step4Data.adminPasswordConfirm
       );
     case 4:
@@ -1088,7 +1097,6 @@ const runSystemChecks = async () => {
     setupStatus.value = payload;
 
     const hasTenant = Number(payload?.checks?.tenants || 0) > 0;
-    const hasUser = Number(payload?.checks?.users || 0) > 0;
     const hasAI = Number(payload?.checks?.ai_profiles || 0) > 0;
 
     if (isSetupInstalled.value) {
@@ -1105,11 +1113,6 @@ const runSystemChecks = async () => {
     step1Data.checks.email.message = uiCopy.value.msgEmailPending;
     step1Data.checks.ai.status = hasAI ? "success" : "pending";
     step1Data.checks.ai.message = hasAI ? uiCopy.value.msgAIOk : uiCopy.value.msgAINone;
-
-    if (hasUser) {
-      step4Data.adminUsername = "";
-      step4Data.adminEmail = "";
-    }
   } catch {
     for (const check of checks) {
       step1Data.checks[check].status = "error";
@@ -1397,7 +1400,7 @@ onMounted(async () => {
                   </div>
 
                   <h5 class="font-medium mb-3">接入方式</h5>
-                  <div class="grid grid-cols-2 gap-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <UCard
                       :class="{
                         'ring-2 ring-blue-500':
@@ -1543,10 +1546,12 @@ onMounted(async () => {
                   <h4 class="text-md font-medium mb-4">域名设置</h4>
                   <div class="space-y-4">
                     <UFormField label="系统域名" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step2Data.domain"
                         placeholder="例如：powerx.example.com"
-                        icon="i-lucide-globe"
+                        :title="step2Data.domain"
+                        autocapitalize="none"
+                        :spellcheck="false"
                       />
                       <template #help>
                         <span class="text-sm text-gray-500">
@@ -1563,7 +1568,7 @@ onMounted(async () => {
                   <div class="space-y-4">
                     <URadioGroup
                       v-model="step2Data.httpsMode"
-                      :options="[
+                      :items="[
                         {
                           value: 'auto',
                           label: '自动获取证书 (Let\'s Encrypt)',
@@ -1579,11 +1584,14 @@ onMounted(async () => {
                       class="pl-6 space-y-4"
                     >
                       <UFormField label="邮箱地址" required>
-                        <UInput
+                        <UInput class="w-full"
                           v-model="step2Data.certEmail"
                           type="email"
                           placeholder="admin@example.com"
-                          icon="i-lucide-mail"
+                          :title="step2Data.certEmail"
+                          autocomplete="email"
+                          autocapitalize="none"
+                          :spellcheck="false"
                         />
                         <template #help>
                           <span class="text-sm text-gray-500">
@@ -1599,7 +1607,7 @@ onMounted(async () => {
                       class="pl-6 space-y-4"
                     >
                       <UFormField label="证书文件 (.crt)" required>
-                        <UTextarea
+                        <UTextarea class="w-full"
                           v-model="step2Data.certContent"
                           placeholder="-----BEGIN CERTIFICATE-----"
                           rows="6"
@@ -1607,7 +1615,7 @@ onMounted(async () => {
                       </UFormField>
 
                       <UFormField label="私钥文件 (.key)" required>
-                        <UTextarea
+                        <UTextarea class="w-full"
                           v-model="step2Data.keyContent"
                           placeholder="-----BEGIN PRIVATE KEY-----"
                           rows="6"
@@ -1630,9 +1638,9 @@ onMounted(async () => {
                 <!-- 服务端口 -->
                 <div class="mb-8">
                   <h4 class="text-md font-medium mb-4">服务端口</h4>
-                  <div class="grid grid-cols-2 gap-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <UFormField label="Backend 端口" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.backendPort"
                         type="number"
                         placeholder="8080"
@@ -1640,7 +1648,7 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="Web Admin 端口" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.webAdminPort"
                         type="number"
                         placeholder="3000"
@@ -1691,7 +1699,7 @@ onMounted(async () => {
 
                   <div v-if="step2Data.enableCdn" class="pl-6 space-y-4">
                     <UFormField label="CDN 域名">
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step2Data.cdnDomain"
                         placeholder="例如：cdn.example.com"
                         icon="i-lucide-zap"
@@ -1734,10 +1742,10 @@ onMounted(async () => {
                   <h4 class="text-md font-medium mb-4">数据库设置</h4>
                   <div class="grid grid-cols-2 gap-4 mb-4">
                     <UFormField label="数据库类型" required>
-                      <USelect
+                      <USelect class="w-full"
                         v-model="step3Data.dbType"
                         :portal="false"
-                        :options="[
+                        :items="[
                           { label: 'MySQL', value: 'mysql' },
                           { label: 'PostgreSQL', value: 'postgresql' },
                           { label: 'SQLite', value: 'sqlite' },
@@ -1746,7 +1754,7 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="数据库版本">
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.dbVersion"
                         placeholder="例如：8.0"
                         :disabled="step3Data.dbType === 'sqlite'"
@@ -1759,7 +1767,7 @@ onMounted(async () => {
                     class="grid grid-cols-2 gap-4 mb-4"
                   >
                     <UFormField label="主机地址" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.dbHost"
                         placeholder="localhost"
                         icon="i-lucide-server"
@@ -1767,7 +1775,7 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="端口" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.dbPort"
                         type="number"
                         :placeholder="
@@ -1782,7 +1790,7 @@ onMounted(async () => {
                     class="grid grid-cols-2 gap-4 mb-4"
                   >
                     <UFormField label="数据库名" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.dbName"
                         placeholder="powerx"
                         icon="i-lucide-database"
@@ -1790,10 +1798,10 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="字符集">
-                      <USelect
+                      <USelect class="w-full"
                         v-model="step3Data.dbCharset"
                         :portal="false"
-                        :options="[
+                        :items="[
                           { label: 'utf8mb4', value: 'utf8mb4' },
                           { label: 'utf8', value: 'utf8' },
                         ]"
@@ -1802,9 +1810,9 @@ onMounted(async () => {
                   </div>
 
                   <template v-if="step3Data.dbType !== 'sqlite'">
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <UFormField label="用户名" required>
-                        <UInput
+                        <UInput class="w-full"
                           v-model="step3Data.dbUsername"
                           placeholder="root"
                           icon="i-lucide-user"
@@ -1812,30 +1820,26 @@ onMounted(async () => {
                       </UFormField>
 
                       <UFormField label="密码" required>
-                        <UInput
+                        <SecretInput class="w-full"
                           v-model="step3Data.dbPassword"
-                          type="password"
                           placeholder="数据库密码"
                           icon="i-lucide-lock"
                         />
                       </UFormField>
                     </div>
 
-                    <div class="mt-4 grid grid-cols-2 gap-4 items-center">
-                      <p
-                        class="text-xs"
-                        :class="dbTestState.database.ok ? 'text-green-500' : 'text-gray-500'"
-                      >
-                        {{ dbTestState.database.message || '可先测试数据库连通性，再进入下一步。' }}
-                      </p>
+                    <div class="mt-4 space-y-3">
+                      <SetupConnectionFeedback kind="database" v-bind="dbTestState.database" />
                       <div class="flex justify-start">
                         <UButton
                           color="neutral"
                           variant="soft"
+                          type="button"
                           :loading="dbTestState.database.testing"
+                          :disabled="dbTestState.database.testing"
                           @click="setupTestDatabaseConnection"
                         >
-                          测试数据库连接
+                          {{ t('setup.connection.database.test') }}
                         </UButton>
                       </div>
                     </div>
@@ -1843,7 +1847,7 @@ onMounted(async () => {
 
                   <div v-else class="space-y-4">
                     <UFormField label="数据库文件路径">
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.sqlitePath"
                         placeholder="/data/powerx.db"
                         icon="i-lucide-file"
@@ -1857,10 +1861,10 @@ onMounted(async () => {
                   <h4 class="text-md font-medium mb-4">缓存配置</h4>
                   <div class="space-y-4">
                     <UFormField label="缓存类型">
-                      <USelect
+                      <USelect class="w-full"
                         v-model="step3Data.cacheType"
                         :portal="false"
-                        :options="[
+                        :items="[
                           { label: 'Redis', value: 'redis' },
                           { label: 'Memcached', value: 'memcached' },
                           { label: '文件缓存', value: 'file' },
@@ -1870,10 +1874,10 @@ onMounted(async () => {
 
                     <div
                       v-if="step3Data.cacheType === 'redis'"
-                      class="grid grid-cols-2 gap-4"
+                      class="grid grid-cols-1 sm:grid-cols-2 gap-4"
                     >
                       <UFormField label="Redis 主机">
-                        <UInput
+                        <UInput class="w-full"
                           v-model="step3Data.redisHost"
                           placeholder="localhost"
                           icon="i-lucide-server"
@@ -1881,7 +1885,7 @@ onMounted(async () => {
                       </UFormField>
 
                       <UFormField label="Redis 端口">
-                        <UInput
+                        <UInput class="w-full"
                           v-model="step3Data.redisPort"
                           type="number"
                           placeholder="6379"
@@ -1891,19 +1895,19 @@ onMounted(async () => {
 
                     <div
                       v-if="step3Data.cacheType === 'redis'"
-                      class="grid grid-cols-2 gap-4"
+                      class="grid grid-cols-1 sm:grid-cols-2 gap-4"
                     >
                       <UFormField label="Redis 密码">
-                        <UInput
+                        <SecretInput class="w-full"
                           v-model="step3Data.redisPassword"
-                          type="password"
                           placeholder="Redis 密码（可选）"
                           icon="i-lucide-lock"
                         />
+                        <template #help>{{ t('setup.connection.redisPasswordHelp') }}</template>
                       </UFormField>
 
                       <UFormField label="数据库索引">
-                        <UInput
+                        <UInput class="w-full"
                           v-model="step3Data.redisDb"
                           type="number"
                           placeholder="0"
@@ -1913,22 +1917,19 @@ onMounted(async () => {
 
                     <div
                       v-if="step3Data.cacheType === 'redis'"
-                      class="mt-2 grid grid-cols-2 gap-4 items-center"
+                      class="mt-2 space-y-3"
                     >
-                      <p
-                        class="text-xs"
-                        :class="dbTestState.cache.ok ? 'text-green-500' : 'text-gray-500'"
-                      >
-                        {{ dbTestState.cache.message || '建议测试 Redis 连通性，避免初始化阶段失败。' }}
-                      </p>
+                      <SetupConnectionFeedback kind="cache" v-bind="dbTestState.cache" />
                       <div class="flex justify-start">
                         <UButton
                           color="neutral"
                           variant="soft"
+                          type="button"
                           :loading="dbTestState.cache.testing"
+                          :disabled="dbTestState.cache.testing"
                           @click="setupTestCacheConnection"
                         >
-                          测试 Redis 连接
+                          {{ t('setup.connection.cache.test') }}
                         </UButton>
                       </div>
                     </div>
@@ -1939,10 +1940,10 @@ onMounted(async () => {
                 <div class="space-y-4">
                   <h4 class="text-md font-medium mb-4">文件存储配置</h4>
                   <UFormField label="存储类型">
-                    <USelect
+                    <USelect class="w-full"
                       v-model="step3Data.storageType"
                       :portal="false"
-                      :options="[
+                      :items="[
                         { label: '本地存储', value: 'local' },
                         { label: '阿里云 OSS', value: 'aliyun' },
                         { label: '腾讯云 COS', value: 'tencent' },
@@ -1956,7 +1957,7 @@ onMounted(async () => {
                     class="space-y-4"
                   >
                     <UFormField label="存储路径">
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.localStoragePath"
                         placeholder="/data/uploads"
                         icon="i-lucide-folder"
@@ -1966,10 +1967,10 @@ onMounted(async () => {
 
                   <div
                     v-if="step3Data.storageType !== 'local'"
-                    class="grid grid-cols-2 gap-4"
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-4"
                   >
                     <UFormField label="Access Key ID" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.storageAccessKey"
                         placeholder="访问密钥 ID"
                         icon="i-lucide-key"
@@ -1977,9 +1978,8 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="Secret Access Key" required>
-                      <UInput
+                      <SecretInput class="w-full"
                         v-model="step3Data.storageSecretKey"
-                        type="password"
                         placeholder="访问密钥"
                         icon="i-lucide-lock"
                       />
@@ -1988,10 +1988,10 @@ onMounted(async () => {
 
                   <div
                     v-if="step3Data.storageType !== 'local'"
-                    class="grid grid-cols-2 gap-4"
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-4"
                   >
                     <UFormField label="存储桶名称" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.storageBucket"
                         placeholder="bucket-name"
                         icon="i-lucide-archive"
@@ -1999,7 +1999,7 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="区域" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.storageRegion"
                         placeholder="例如：cn-hangzhou"
                         icon="i-lucide-map-pin"
@@ -2016,16 +2016,16 @@ onMounted(async () => {
                     <USwitch v-model="step3Data.emailEnabled" />
                   </UFormField>
 
-                  <div v-if="step3Data.emailEnabled" class="grid grid-cols-2 gap-4">
+                  <div v-if="step3Data.emailEnabled" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <UFormField label="SMTP 主机" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.emailSmtpHost"
                         placeholder="smtp.example.com"
                         icon="i-lucide-mail"
                       />
                     </UFormField>
                     <UFormField label="SMTP 端口" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.emailSmtpPort"
                         type="number"
                         placeholder="587"
@@ -2033,15 +2033,15 @@ onMounted(async () => {
                     </UFormField>
                   </div>
 
-                  <div v-if="step3Data.emailEnabled" class="grid grid-cols-2 gap-4">
+                  <div v-if="step3Data.emailEnabled" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <UFormField label="发件人名称">
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.emailFromName"
                         placeholder="PowerX"
                       />
                     </UFormField>
                     <UFormField label="发件人邮箱" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step3Data.emailFromAddress"
                         placeholder="noreply@example.com"
                       />
@@ -2097,7 +2097,7 @@ onMounted(async () => {
                   <h4 class="text-md font-medium mb-4">超级管理员账户</h4>
                   <div class="grid grid-cols-2 gap-4 mb-4">
                     <UFormField label="管理员用户名" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step4Data.adminUsername"
                         placeholder="admin"
                         icon="i-lucide-user"
@@ -2105,7 +2105,7 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="管理员邮箱" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step4Data.adminEmail"
                         type="email"
                         placeholder="admin@example.com"
@@ -2116,27 +2116,25 @@ onMounted(async () => {
 
                   <div class="grid grid-cols-2 gap-4 mb-4">
                     <UFormField label="管理员密码" required>
-                      <UInput
+                      <SecretInput class="w-full"
                         v-model="step4Data.adminPassword"
-                        type="password"
                         placeholder="请输入强密码"
                         icon="i-lucide-lock"
                       />
                     </UFormField>
 
                     <UFormField label="确认密码" required>
-                      <UInput
+                      <SecretInput class="w-full"
                         v-model="step4Data.adminPasswordConfirm"
-                        type="password"
                         placeholder="再次输入密码"
                         icon="i-lucide-lock"
                       />
                     </UFormField>
                   </div>
 
-                  <div class="grid grid-cols-2 gap-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <UFormField label="管理员姓名">
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step4Data.adminName"
                         placeholder="系统管理员"
                         icon="i-lucide-user-circle"
@@ -2144,7 +2142,7 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="手机号码">
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step4Data.adminPhone"
                         placeholder="13800138000"
                         icon="i-lucide-phone"
@@ -2161,7 +2159,7 @@ onMounted(async () => {
                   <h4 class="text-md font-medium mb-4">默认租户设置</h4>
                   <div class="grid grid-cols-2 gap-4 mb-4">
                     <UFormField label="租户名称" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step4Data.tenantName"
                         placeholder="默认租户"
                         icon="i-lucide-building"
@@ -2169,7 +2167,7 @@ onMounted(async () => {
                     </UFormField>
 
                     <UFormField label="租户标识" required>
-                      <UInput
+                      <UInput class="w-full"
                         v-model="step4Data.tenantCode"
                         placeholder="default"
                         icon="i-lucide-tag"
@@ -2184,7 +2182,7 @@ onMounted(async () => {
 
                   <div class="space-y-4">
                     <UFormField label="租户描述">
-                      <UTextarea
+                      <UTextarea class="w-full"
                         v-model="step4Data.tenantDescription"
                         placeholder="租户描述信息"
                         :rows="3"
@@ -2207,9 +2205,9 @@ onMounted(async () => {
                     v-if="step4Data.createDefaultDepartments"
                     class="pl-6 space-y-4"
                   >
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <UFormField label="公司名称">
-                        <UInput
+                        <UInput class="w-full"
                           v-model="step4Data.companyName"
                           placeholder="我的公司"
                           icon="i-lucide-building-2"
@@ -2398,9 +2396,8 @@ onMounted(async () => {
                           />
                         </UFormField>
                         <UFormField class="md:col-span-2 w-full" :label="isZh ? 'API Key' : 'API Key'" required>
-                          <UInput
+                          <SecretInput
                             v-model="step6Data.apiKey"
-                            type="password"
                             autocomplete="off"
                             :placeholder="isZh ? '请输入 API Key' : 'Enter API Key'"
                             class="w-full"
@@ -2427,7 +2424,7 @@ onMounted(async () => {
                           <label class="block text-sm font-medium text-[var(--text-primary)] mb-2">
                             {{ isZh ? "最大令牌数" : "Max Tokens" }}
                           </label>
-                          <UInput v-model="step6Data.maxTokens" type="number" :min="1" :max="32000" />
+                          <UInput class="w-full" v-model="step6Data.maxTokens" type="number" :min="1" :max="32000" />
                         </div>
                         <div>
                           <label class="block text-sm font-medium text-[var(--text-primary)] mb-2">

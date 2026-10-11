@@ -241,11 +241,23 @@ func platformCapabilityCoreInternalAPIKeyPermission(capItem platformCapabilityEn
 		module := sanitizeToken(capItem.Module)
 		code := strings.TrimPrefix(strings.TrimSpace(capItem.PermissionCode), "corex."+module+".")
 		parts := strings.Split(code, ".")
-		if module == "" || len(parts) < 2 {
+		if module == "" {
 			return modelsiam.Permission{}, false
 		}
-		action := sanitizeToken(parts[len(parts)-1])
-		resource := sanitizeToken(strings.Join(parts[:len(parts)-1], "_"))
+		var resource, action string
+		if strings.Contains(capItem.PermissionCode, ":") {
+			var valid bool
+			_, resource, action, valid = operationTripleFromPermissionCode(capItem.Module, capItem.PermissionCode)
+			if !valid {
+				return modelsiam.Permission{}, false
+			}
+		} else {
+			if len(parts) < 2 {
+				return modelsiam.Permission{}, false
+			}
+			action = sanitizeToken(parts[len(parts)-1])
+			resource = sanitizeToken(strings.Join(parts[:len(parts)-1], "_"))
+		}
 		if action == "" || resource == "" {
 			return modelsiam.Permission{}, false
 		}

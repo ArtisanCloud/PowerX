@@ -1,0 +1,64 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.iam.identity_context.service_read
+    module: iam
+    title: Plugin Request Identity
+    description: Resolve a Core gateway issued identity ticket and revalidate WS identity before messages with live service and user authorization.
+    title_i18n: {zh-CN: 插件请求身份解析, en: Plugin Request Identity}
+    description_i18n: {zh-CN: 使用服务凭据解析 Core 网关签发的短期身份票据，实时复核用户、成员、插件与权限。, en: Resolve Core issued request identity tickets with live credential and identity checks.}
+    permission_code: corex.iam.identity_context:read
+    agent_usable: false
+    risk_level: high
+    categories: [iam, identity, read]
+    intents: [iam.identity_context.resolve]
+    tool_scopes: [iam.identity_context.resolve]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/plugin-request-identity.md, docs/contracts/plugin-ws-revalidation.md, specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml]
+    protocols:
+      - channel: core_internal
+        endpoint: core://iam/identity-context
+        method: INVOKE
+        schema_ref: specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/components/schemas/TypedIdentityOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: iam.identity_context.resolve
+        api_key: {scope: _scope.iam.identity_context.service_read, action: read, resource_type: capability, resource_pattern: iam_identity_context_read}
+      - channel: rest
+        endpoint: /api/v1/admin/iam/identity-contexts:resolve
+        method: POST
+        schema_ref: specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1admin~1iam~1identity-contexts:resolve/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: iam.identity_context.resolve
+      - channel: rest
+        endpoint: /api/v1/tenant/iam/identity-contexts:resolve
+        method: POST
+        schema_ref: specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1tenant~1iam~1identity-contexts:resolve/post
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: iam.identity_context.resolve
+        api_key: {scope: _scope.iam.identity_context.service_read, action: read, resource_type: capability, resource_pattern: iam_identity_context_read}
+      - channel: rest
+        endpoint: /api/v1/admin/iam/identity-contexts:revalidate-ws
+        method: POST
+        schema_ref: specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1admin~1iam~1identity-contexts:revalidate-ws/post
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: iam.identity_context.resolve
+      - channel: rest
+        endpoint: /api/v1/tenant/iam/identity-contexts:revalidate-ws
+        method: POST
+        schema_ref: specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1tenant~1iam~1identity-contexts:revalidate-ws/post
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: iam.identity_context.resolve
+        api_key: {scope: _scope.iam.identity_context.service_read, action: read, resource_type: capability, resource_pattern: iam_identity_context_read}

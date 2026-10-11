@@ -33,24 +33,26 @@ const (
 
 // BaseCapabilitySeederOptions 配置平台能力 Seeder。
 type BaseCapabilitySeederOptions struct {
-	RecordRepo    *repo.CapabilityRecordRepository
-	RegistryRepo  *repo.CapabilityRegistryRepository
-	TenantRepo    *tenantRepo.TenantRepository
-	Logger        *pxlog.Logger
-	Clock         func() time.Time
-	PluginID      string
-	PluginVersion string
+	RecordRepo             *repo.CapabilityRecordRepository
+	RegistryRepo           *repo.CapabilityRegistryRepository
+	TenantRepo             *tenantRepo.TenantRepository
+	Logger                 *pxlog.Logger
+	Clock                  func() time.Time
+	PluginID               string
+	PluginVersion          string
+	PreserveInstalledState bool
 }
 
 // BaseCapabilitySeeder 负责在 Capability Registry 中写入 CoreX 内置能力。
 type BaseCapabilitySeeder struct {
-	repo          *repo.CapabilityRecordRepository
-	registry      *repo.CapabilityRegistryRepository
-	tenantRepo    *tenantRepo.TenantRepository
-	logger        *pxlog.Logger
-	clock         func() time.Time
-	pluginID      string
-	pluginVersion string
+	repo                   *repo.CapabilityRecordRepository
+	registry               *repo.CapabilityRegistryRepository
+	tenantRepo             *tenantRepo.TenantRepository
+	logger                 *pxlog.Logger
+	clock                  func() time.Time
+	pluginID               string
+	pluginVersion          string
+	preserveInstalledState bool
 }
 
 // NewBaseCapabilitySeeder 构造 Seeder。
@@ -71,13 +73,14 @@ func NewBaseCapabilitySeeder(opts BaseCapabilitySeederOptions) *BaseCapabilitySe
 		pluginVersion = PlatformPluginVersion
 	}
 	return &BaseCapabilitySeeder{
-		repo:          opts.RecordRepo,
-		registry:      opts.RegistryRepo,
-		tenantRepo:    opts.TenantRepo,
-		logger:        opts.Logger,
-		clock:         clock,
-		pluginID:      pluginID,
-		pluginVersion: pluginVersion,
+		repo:                   opts.RecordRepo,
+		registry:               opts.RegistryRepo,
+		tenantRepo:             opts.TenantRepo,
+		logger:                 opts.Logger,
+		clock:                  clock,
+		pluginID:               pluginID,
+		pluginVersion:          pluginVersion,
+		preserveInstalledState: opts.PreserveInstalledState,
 	}
 }
 
@@ -90,6 +93,20 @@ func (s *BaseCapabilitySeeder) Ensure(ctx context.Context) error {
 	defs := platformCapabilityDefinitions()
 	for _, def := range defs {
 		record := def.toRecord(s.pluginID, s.pluginVersion, now)
+		if s.preserveInstalledState {
+			old, err := s.repo.GetByCapabilityID(ctx, record.CapabilityID)
+			if err != nil && !errors.Is(err, repo.ErrCapabilityRecordNotFound) {
+				return err
+			}
+			if old != nil {
+				if old.PluginID != s.pluginID {
+					return fmt.Errorf("UPGRADE_CAPABILITY_SOURCE_CONFLICT")
+				}
+				record.PowerModel = old.PowerModel
+				record.UUID, record.Status, record.CreatedBy = old.UUID, old.Status, old.CreatedBy
+				record.WorkflowTemplateRefs, record.CompositeGraphs = old.WorkflowTemplateRefs, old.CompositeGraphs
+			}
+		}
 		if _, err := s.repo.Upsert(ctx, record); err != nil {
 			return fmt.Errorf("seed capability %s failed: %w", def.CapabilityID, err)
 		}
@@ -1001,6 +1018,10 @@ func makeAdapterID(capabilityID, channel string, idx int) string {
 	}
 	if idx > 0 {
 		prefix = fmt.Sprintf("%s-%d", prefix, idx)
+	}
+	if characters := []rune(prefix); len(characters) > 128 {
+		sum := sha256.Sum256([]byte(prefix))
+		prefix = string(characters[:111]) + "-" + fmt.Sprintf("%x", sum[:8])
 	}
 	return prefix
 }

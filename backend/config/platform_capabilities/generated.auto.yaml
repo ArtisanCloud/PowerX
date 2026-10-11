@@ -7238,11 +7238,11 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
-    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_runtime_replays_run_uuid_snapshots_snapshot_uuid_revisions_revision_uuid_validate
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_agents_runtime_replays_run_uuid_snapshots_snapshot_uuid_revisions_rev_b204edb04d2956d9
       module: admin
       title: GET /api/v1/admin/agents/runtime-replays/:run_uuid/snapshots/:snapshot_uuid/revisions/:revision_uuid/validate
       description: Generated from Gin route source
-      permission_code: corex.rest:get_api_v1_admin_agents_runtime_replays_run_uuid_snapshots_snapshot_uuid_revisions_revision_uuid_validate
+      permission_code: corex.rest:get_api_v1_admin_agents_runtime_replays_run_uuid_snapshots_snapshot_uuid_revisions_rev_b204edb04d2956d9
       agent_usable: false
       risk_level: low
       categories:
@@ -9254,6 +9254,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_integration_api_keys_key_id_plugin_owners
+      module: admin
+      title: GET /api/v1/admin/integration/api-keys/:key_id/plugin-owners
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_integration_api_keys_key_id_plugin_owners
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_integration_api_keys_key_id_plugin_owners
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/integration/api-keys/:key_id/plugin-owners
+          method: GET
+          schema_ref: internal/transport/http/admin/integration_gateway/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_integration_permissions
       module: admin
       title: GET /api/v1/admin/integration/permissions
@@ -9614,6 +9642,34 @@ capabilities:
           endpoint: /api/v1/admin/knowledge-spaces/:spaceId
           method: GET
           schema_ref: internal/transport/http/admin/knowledge_space/handlers.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.get_api_v1_admin_knowledge_spaces_spaceid_content_overview
+      module: admin
+      title: GET /api/v1/admin/knowledge-spaces/:spaceId/content-overview
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_admin_knowledge_spaces_spaceid_content_overview
+      agent_usable: false
+      risk_level: low
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.get_api_v1_admin_knowledge_spaces_spaceid_content_overview
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/knowledge_space/content_overview_handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/knowledge-spaces/:spaceId/content-overview
+          method: GET
+          schema_ref: internal/transport/http/admin/knowledge_space/content_overview_handler.go#source
           auth_type: tenant_jwt
           actor_context: admin_user
           resource_scope: tenant
@@ -14994,6 +15050,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_iam_identity_contexts_resolve
+      module: admin
+      title: POST /api/v1/admin/iam/identity-contexts:resolve
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_admin_iam_identity_contexts_resolve
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.post_api_v1_admin_iam_identity_contexts_resolve
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/plugin_identity/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/iam/identity-contexts:resolve
+          method: POST
+          schema_ref: internal/transport/http/admin/plugin_identity/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.post_api_v1_admin_iam_members
       module: admin
       title: POST /api/v1/admin/iam/members
@@ -19502,6 +19586,34 @@ capabilities:
           actor_context: admin_user
           resource_scope: tenant
           tool_scope: admin.api
+    - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_integration_api_keys_key_id_plugin_owners
+      module: admin
+      title: PUT /api/v1/admin/integration/api-keys/:key_id/plugin-owners
+      description: Generated from Gin route source
+      permission_code: corex.rest:put_api_v1_admin_integration_api_keys_key_id_plugin_owners
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - admin
+        - gin
+        - generated
+      intents:
+        - admin.put_api_v1_admin_integration_api_keys_key_id_plugin_owners
+      tool_scopes:
+        - admin.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/handler.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/admin/integration/api-keys/:key_id/plugin-owners
+          method: PUT
+          schema_ref: internal/transport/http/admin/integration_gateway/handler.go#source
+          auth_type: tenant_jwt
+          actor_context: admin_user
+          resource_scope: tenant
+          tool_scope: admin.api
     - capability_id: com.corex.rest.admin.gin.put_api_v1_admin_metadata_tag_bindings
       module: admin
       title: PUT /api/v1/admin/metadata/tag-bindings
@@ -23590,6 +23702,118 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: internal.api
+    - capability_id: com.corex.rest.keys.gin.get_api_v1_keys_key_id_plugin_owners
+      module: keys
+      title: GET /api/v1/keys/:key_id/plugin-owners
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_keys_key_id_plugin_owners
+      agent_usable: false
+      risk_level: low
+      categories:
+        - keys
+        - gin
+        - generated
+      intents:
+        - keys.get_api_v1_keys_key_id_plugin_owners
+      tool_scopes:
+        - keys.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/keys/:key_id/plugin-owners
+          method: GET
+          schema_ref: internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: keys.api
+    - capability_id: com.corex.rest.keys.gin.post_api_v1_keys
+      module: keys
+      title: POST /api/v1/keys
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_keys
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - keys
+        - gin
+        - generated
+      intents:
+        - keys.post_api_v1_keys
+      tool_scopes:
+        - keys.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/keys
+          method: POST
+          schema_ref: internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: keys.api
+    - capability_id: com.corex.rest.keys.gin.post_api_v1_keys_key_id_rotate
+      module: keys
+      title: POST /api/v1/keys/:key_id/rotate
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_keys_key_id_rotate
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - keys
+        - gin
+        - generated
+      intents:
+        - keys.post_api_v1_keys_key_id_rotate
+      tool_scopes:
+        - keys.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/keys/:key_id/rotate
+          method: POST
+          schema_ref: internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: keys.api
+    - capability_id: com.corex.rest.keys.gin.put_api_v1_keys_key_id_plugin_owners
+      module: keys
+      title: PUT /api/v1/keys/:key_id/plugin-owners
+      description: Generated from Gin route source
+      permission_code: corex.rest:put_api_v1_keys_key_id_plugin_owners
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - keys
+        - gin
+        - generated
+      intents:
+        - keys.put_api_v1_keys_key_id_plugin_owners
+      tool_scopes:
+        - keys.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/keys/:key_id/plugin-owners
+          method: PUT
+          schema_ref: internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: keys.api
     - capability_id: com.corex.rest.knowledge.gin.get_api_v1_knowledge_decay_status
       module: knowledge
       title: GET /api/v1/knowledge/decay/status
@@ -24766,6 +24990,62 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: plugin_release.api
+    - capability_id: com.corex.rest.profiles.gin.post_api_v1_profiles_profile_id_permissions_append
+      module: profiles
+      title: POST /api/v1/profiles/:profile_id/permissions/append
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_profiles_profile_id_permissions_append
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - profiles
+        - gin
+        - generated
+      intents:
+        - profiles.post_api_v1_profiles_profile_id_permissions_append
+      tool_scopes:
+        - profiles.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/profiles/:profile_id/permissions/append
+          method: POST
+          schema_ref: internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: profiles.api
+    - capability_id: com.corex.rest.profiles.gin.put_api_v1_profiles_profile_id_permissions
+      module: profiles
+      title: PUT /api/v1/profiles/:profile_id/permissions
+      description: Generated from Gin route source
+      permission_code: corex.rest:put_api_v1_profiles_profile_id_permissions
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - profiles
+        - gin
+        - generated
+      intents:
+        - profiles.put_api_v1_profiles_profile_id_permissions
+      tool_scopes:
+        - profiles.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/profiles/:profile_id/permissions
+          method: PUT
+          schema_ref: internal/transport/http/admin/integration_gateway/apikey_owner_handler_test.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: profiles.api
     - capability_id: com.corex.rest.provider_quotas.get_provider_quotas
       module: provider_quotas
       title: Retrieve quota configuration for a tenant
@@ -25998,6 +26278,34 @@ capabilities:
           actor_context: service_actor
           resource_scope: tenant
           tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_knowledge_spaces_space_uuid_content_overview
+      module: tenant
+      title: GET /api/v1/tenant/knowledge/spaces/:space_uuid/content-overview
+      description: Generated from Gin route source
+      permission_code: corex.rest:get_api_v1_tenant_knowledge_spaces_space_uuid_content_overview
+      agent_usable: false
+      risk_level: low
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.get_api_v1_tenant_knowledge_spaces_space_uuid_content_overview
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/knowledge_space/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/knowledge/spaces/:space_uuid/content-overview
+          method: GET
+          schema_ref: internal/transport/http/openapi/knowledge_space/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
     - capability_id: com.corex.rest.tenant.gin.get_api_v1_tenant_knowledge_spaces_space_uuid_semantic_index
       module: tenant
       title: GET /api/v1/tenant/knowledge/spaces/:space_uuid/semantic-index
@@ -26778,6 +27086,34 @@ capabilities:
           endpoint: /api/v1/tenant/iam/authorization:check
           method: POST
           schema_ref: internal/transport/http/openapi/iam/routes.go#source
+          auth_type: tenant_jwt
+          actor_context: service_actor
+          resource_scope: tenant
+          tool_scope: tenant.api
+    - capability_id: com.corex.rest.tenant.gin.post_api_v1_tenant_iam_identity_contexts_resolve
+      module: tenant
+      title: POST /api/v1/tenant/iam/identity-contexts:resolve
+      description: Generated from Gin route source
+      permission_code: corex.rest:post_api_v1_tenant_iam_identity_contexts_resolve
+      agent_usable: false
+      risk_level: medium
+      categories:
+        - tenant
+        - gin
+        - generated
+      intents:
+        - tenant.post_api_v1_tenant_iam_identity_contexts_resolve
+      tool_scopes:
+        - tenant.api
+      policy:
+        prefer: rest
+      docs:
+        - internal/transport/http/openapi/plugin_identity/routes.go
+      protocols:
+        - channel: rest
+          endpoint: /api/v1/tenant/iam/identity-contexts:resolve
+          method: POST
+          schema_ref: internal/transport/http/openapi/plugin_identity/routes.go#source
           auth_type: tenant_jwt
           actor_context: service_actor
           resource_scope: tenant

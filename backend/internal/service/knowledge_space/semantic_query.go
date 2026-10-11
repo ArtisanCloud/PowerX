@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math"
 	"regexp"
 	"sort"
@@ -165,7 +164,7 @@ func (s *SemanticRuntime) Query(ctx context.Context, tenant string, in SemanticQ
 		if err != nil {
 			return out, err
 		}
-		from := fmt.Sprintf(" FROM %s.%s v JOIN %s c ON c.uuid = v.chunk_uuid AND c.space_uuid = v.space_uuid JOIN %s d ON d.uuid = c.document_uuid AND d.tenant_uuid = c.tenant_uuid AND d.active_index_job_uuid = c.job_uuid JOIN %s j ON j.uuid = c.job_uuid AND j.tenant_uuid = c.tenant_uuid AND j.status = 'succeeded' WHERE c.tenant_uuid = ? AND c.space_uuid = ? AND d.deleted_at IS NULL AND c.deleted_at IS NULL AND d.queryable = TRUE AND d.index_status = 'indexed' AND c.metadata->'semantic'->>'configuration_generation' = ?", schema, table, models.HostDocumentChunk{}.TableName(), models.TenantDocument{}.TableName(), models.IndexJob{}.TableName())
+		from := repo.PublishedSemanticFrom(schema + "." + table)
 		args := []any{tenant, space, binding.ConfigurationGeneration}
 		if in.Mode == HybridMode {
 			from += " AND c.metadata->'semantic'->>'mode' = 'hybrid'"

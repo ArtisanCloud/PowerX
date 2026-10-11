@@ -142,6 +142,9 @@ func (s *Service) LLMInvoke(
 		mc.Extra["seed"] = seed
 	}
 	applyResponseSchema(mc, params)
+	if err := applyResponseFormat(mc, params); err != nil {
+		return nil, err
+	}
 	if len(mc.ResponseSchema) > 0 && !llmfactory.SupportsResponseSchema(provider) {
 		return nil, errors.New("ai.response_schema_provider_unsupported")
 	}
@@ -249,6 +252,13 @@ func (s *Service) LLMStream(
 	}
 	applyReasoningConfig(provider, mc, params)
 
+	applyResponseSchema(mc, params)
+	if err := applyResponseFormat(mc, params); err != nil {
+		return "", err
+	}
+	if len(mc.ResponseSchema) > 0 && !llmfactory.SupportsResponseSchema(provider) {
+		return "", errors.New("ai.response_schema_provider_unsupported")
+	}
 	final, err := llmfactory.StreamOrFallback(ctx, mc, prompt, onDelta)
 	if err != nil {
 		return "", err
@@ -372,6 +382,25 @@ func applyResponseSchema(mc *aiconfig.ModelConfig, params map[string]interface{}
 		return
 	}
 	mc.ResponseSchema = cloneResponseSchema(schema)
+}
+
+// JSON Object is an explicit provider output mode, not a downgrade from a
+// requested JSON Schema. The caller must still validate its business schema.
+func applyResponseFormat(mc *aiconfig.ModelConfig, params map[string]interface{}) error {
+	raw, present := params["response_format"]
+	if !present {
+		return nil
+	}
+	format, ok := raw.(map[string]any)
+	_, hasSchema := params["response_schema"]
+	if !ok || len(format) != 1 || format["type"] != "json_object" || mc == nil || len(mc.ResponseSchema) > 0 || hasSchema {
+		return fmt.Errorf("%w: AI_RESPONSE_FORMAT_INVALID", ErrInvalidLLMParams)
+	}
+	if !llmfactory.SupportsResponseSchema(mc.Provider) {
+		return fmt.Errorf("%w: AI_RESPONSE_FORMAT_UNSUPPORTED", ErrInvalidLLMParams)
+	}
+	mc.ResponseFormat = "json_object"
+	return nil
 }
 
 func cloneResponseSchema(schema map[string]any) map[string]any {

@@ -29,6 +29,21 @@ func TestMakeBodyPassesTypedResponseSchemaAsOllamaFormat(t *testing.T) {
 	require.Equal(t, []any{"schema"}, format["required"])
 }
 
+func TestJSONObjectModeIsSentAsTopLevelFormat(t *testing.T) {
+	body, err := NewLLMClient().makeBody(&config.ModelConfig{Model: "fixture", ResponseFormat: "json_object"}, "JSON", false)
+	require.NoError(t, err)
+	var request map[string]any
+	require.NoError(t, json.Unmarshal(body, &request))
+	require.Equal(t, "json", request["format"])
+	options, _ := request["options"].(map[string]any)
+	require.NotContains(t, options, "format")
+}
+
+func TestJSONObjectDoesNotDowngradeRequestedSchema(t *testing.T) {
+	_, err := NewLLMClient().makeBody(&config.ModelConfig{ResponseFormat: "json_object", ResponseSchema: map[string]any{"type": "object"}}, "JSON", false)
+	require.ErrorContains(t, err, "AI_RESPONSE_FORMAT_CONFLICT")
+}
+
 func TestMakeBodySendsExplicitZeroTemperatureAndSeed(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		body, err := NewLLMClient().makeBody(&config.ModelConfig{

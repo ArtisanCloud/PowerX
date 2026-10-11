@@ -100,25 +100,22 @@
             tabindex="-1"
           >
           <UFormField :label="t('profile.currentPassword')" required>
-            <UInput
+            <SecretInput
               v-model="passwordForm.current_password"
-              type="password"
               autocomplete="current-password"
               :placeholder="t('profile.currentPasswordPlaceholder')"
             />
           </UFormField>
           <UFormField :label="t('profile.newPassword')" required>
-            <UInput
+            <SecretInput
               v-model="passwordForm.new_password"
-              type="password"
               autocomplete="new-password"
               :placeholder="t('profile.newPasswordPlaceholder')"
             />
           </UFormField>
           <UFormField :label="t('profile.confirmPassword')" required>
-            <UInput
+            <SecretInput
               v-model="passwordForm.confirm_password"
-              type="password"
               autocomplete="new-password"
               :placeholder="t('profile.confirmPasswordPlaceholder')"
             />

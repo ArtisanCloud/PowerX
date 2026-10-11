@@ -1,0 +1,2895 @@
+{
+  "schema": "powerx.knowledge.content-overview-delivery/v1",
+  "date": "2026-10-10",
+  "credentials_redacted": true,
+  "implementation": "Core only; current feature branch; no commit or push",
+  "dev": {
+    "corpus_origin": "existing_dev_corpus",
+    "credentials_redacted": true,
+    "http_endpoint": "http://127.0.0.1:8099",
+    "records": [
+      {
+        "name": "development_grant_status",
+        "http_status": 200,
+        "trace_id": "01981bea-44fb-4e80-ae1e-c754ab3ad1f2",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "items": [
+              {
+                "capability_id": "com.corex.knowledge.content_overview.service_read",
+                "status": "granted",
+                "reason_code": "CAPABILITY_GRANTED"
+              }
+            ]
+          },
+          "timestamp": 1791610353,
+          "request_id": "7f96c7a4-50b3-491e-b5a3-5c9280e5da5f"
+        }
+      },
+      {
+        "name": "dev_api_key_first_page",
+        "http_status": 200,
+        "trace_id": "71826f37-bfcf-4ed4-820a-e432e91e9b43",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+              "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+              "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+              "embedding_profile": {
+                "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                "version": 1
+              },
+              "model_key": "ollama/bge-m3",
+              "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+              "dimensions": 1024,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                "title": "framework-release",
+                "uri": "plugin-knowledge://ea5ff603-779a-4c3d-8806-ba964aa50fa1",
+                "document_version": "v1",
+                "bundle_generation": "1b7f335f-aa76-4ce0-ae3d-372e8c054dee",
+                "chunk_uuid": "d5a14949-3878-5532-a92b-1be4238c17a6",
+                "artifact_uuid": "b17751a7-7180-574e-90c9-0cc5d5884b41",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                  "version": "v1",
+                  "checksum": "4cde20418cf3bb7cab7d4dc1463926a353b993a582e03ca43290dc9a4a7a3adc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# PowerX Framework 发布指南（Go + npm）\n\n本文用于发布以下两个交付面：\n\n- Go 模块：`github.com/ArtisanCloud/PowerXPlugin/framework/backend/go`\n- npm 包：`@artisan-cloud/plugin-framework-admin`、`@artisan-cloud/plugin-framework-client`\n\n> 命令默认在仓库根目录执行：`/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/PowerXPlugin`\n>\n> 本文只负责 framework 发布与版",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                "title": "framework-provider-mode",
+                "uri": "plugin-knowledge://75589a3a-56bb-4624-8542-1501e91217b4",
+                "document_version": "v1",
+                "bundle_generation": "592ec405-0501-4cb7-887a-8ae8935fc0cd",
+                "chunk_uuid": "ae157dd3-2168-51c8-a2cc-de530e4e4288",
+                "artifact_uuid": "0eff83c6-3498-5eeb-8ae7-3911b8461f12",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                  "version": "v1",
+                  "checksum": "4e19e6a39b726e96265f8540055c0dad94e49097d13f9585e44e2ed1c72da8b5",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1022
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework Provider 模式\n\n插件统一从 [业务模块接入指南](../features/009-consume-powerx-capability/guide.md)接入。本文只解释模式，不假定所有管理页面均支持 delegated。\n\n## 模式与可信配置\n\n- local：Factory 选择插件注入的 local adapter，由插件维护该模式的业务数据。\n- delegated：Factory 选择 Framework Core Host adapter，不访问插件 local 业务表，也不调用 Core Admin API 替代 Host 合同。\n\nprovider.ModeResolver 使用配置",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 2,
+              "total": 5,
+              "has_more": true,
+              "next_cursor": "[opaque cursor redacted]"
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "71826f37-bfcf-4ed4-820a-e432e91e9b43"
+          },
+          "timestamp": 1791610353,
+          "request_id": "4b0f4825-a34c-4df3-b968-ccc455e31c77"
+        }
+      },
+      {
+        "name": "dev_api_key_next_page",
+        "http_status": 200,
+        "trace_id": "cfc73ba7-81ef-4587-91e6-0814ef5d01a7",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+              "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+              "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+              "embedding_profile": {
+                "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                "version": 1
+              },
+              "model_key": "ollama/bge-m3",
+              "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+              "dimensions": 1024,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                "title": "framework-dual-mode-business-modules",
+                "uri": "plugin-knowledge://201e2cf0-ef19-4aec-8d48-f5c65d1295cd",
+                "document_version": "v1",
+                "bundle_generation": "927a248a-679a-4126-af0e-bc9973516f3b",
+                "chunk_uuid": "6c85f22f-c560-59b9-8406-986bb7945206",
+                "artifact_uuid": "fb91bc18-58b4-51c4-b42a-d0d54f3df864",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                  "version": "v1",
+                  "checksum": "a1139f26fd5d7b8dfaf7ca700758ac05e9f65641e374f616b8adc0b6bb8c6a70",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework 双模式业务模块规范\n\n本文只维护架构约束，不维护独立完成状态表或第二套教程。插件统一从 [Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)接入，包含 13 类 contract、构造入口、最小能力声明、可编译示例与逐项验收。\n\n## 1. 功能背景与目标\n\nPowerX 插件既可独立运行，也可安装到 PowerX Core。业务代码不能因运行位置不同而分别读取本地表、拼接 Core URL 或自行选择 Gateway 调用。本规范定义唯一的双模式边界：插件只调用 Framewor",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                "title": "framework-host-fullscreen",
+                "uri": "plugin-knowledge://60445bbb-065f-4a6f-8291-c5a9d83ff5fb",
+                "document_version": "v1",
+                "bundle_generation": "989df2ce-68f5-4139-825b-04a615017416",
+                "chunk_uuid": "da5b1476-fa7f-545f-b3b9-54067048338c",
+                "artifact_uuid": "6826fb1f-c77a-5ca2-bc96-564fdca80cd2",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                  "version": "v1",
+                  "checksum": "755262328304177b4520e6ae7701c7c73aca6e8645f2e9c69be7afdcee3cb468",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# 插件请求 PowerX 宿主全屏接入说明\n\n## 功能背景与目标\n\n结论：插件侧通过 `@artisan-cloud/plugin-framework-client` 向 PowerX 宿主发送全屏请求；插件不直接改宿主布局，也不在 iframe 内偷偷调用浏览器 Fullscreen API。真实是否进入全屏由 PowerX 宿主监听 `fullscreen:request` 后决定。\n\n这个能力用于插件页面需要更大工作区的场景，例如编辑器、设计器、大屏看板、地图、流程编排器等。插件只表达意图：\n\n- `enter`：请求进入全屏\n- `exit`：请求退出全屏\n- `toggle`：请求切换全屏状态\n\n## 角色与适用范围\n",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 2,
+              "total": 5,
+              "has_more": true,
+              "next_cursor": "[opaque cursor redacted]"
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "cfc73ba7-81ef-4587-91e6-0814ef5d01a7"
+          },
+          "timestamp": 1791610353,
+          "request_id": "285d4c37-2f63-4eb3-9de2-488633b0f4b8"
+        }
+      },
+      {
+        "name": "dev_api_key_next_page",
+        "http_status": 200,
+        "trace_id": "dc1ba94e-9d06-42e1-9a7a-238b74944905",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+              "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+              "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+              "embedding_profile": {
+                "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                "version": 1
+              },
+              "model_key": "ollama/bge-m3",
+              "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+              "dimensions": 1024,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                "title": "framework-business-modules",
+                "uri": "plugin-knowledge://9bf6a6cb-cf8e-4a2b-b799-63b7ad0cc5c3",
+                "document_version": "v1",
+                "bundle_generation": "ed5f803e-bd47-44e0-99aa-7e1ea10de8fb",
+                "chunk_uuid": "1e7986b9-25a7-5d41-9e37-772ee030861a",
+                "artifact_uuid": "8a7a0cd6-c624-569f-b117-b01e3cabad5e",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                  "version": "v1",
+                  "checksum": "d88d344e9ead086a4028ab48df46b6282de34836a4eee520d3c77b45a5e28250",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework 业务对象模块文档入口\n\n插件接入的唯一入口已统一为 **[Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)**。原有链接保留用于导航，不再维护第二份通用步骤、状态表或历史 Core 请求示例。\n\n## 按目的阅读\n\n| 目的 | 文档 |\n|---|---|\n| 选择模块、确认版本、实现 local、装配 delegated、验收 | [主指南](../features/009-consume-powerx-capability/guide.md) |\n| Framework /",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 2,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "dc1ba94e-9d06-42e1-9a7a-238b74944905"
+          },
+          "timestamp": 1791610354,
+          "request_id": "b89ba79a-ad9a-46f8-8a93-b403c4b35229"
+        }
+      },
+      {
+        "name": "explicit_zero_preview",
+        "http_status": 200,
+        "trace_id": "92361c3d-239c-438f-b400-66626e43228e",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "mode": "semantic",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+              "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+              "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+              "embedding_profile": {
+                "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                "version": 1
+              },
+              "model_key": "ollama/bge-m3",
+              "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+              "dimensions": 1024,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                "title": "framework-release",
+                "uri": "plugin-knowledge://ea5ff603-779a-4c3d-8806-ba964aa50fa1",
+                "document_version": "v1",
+                "bundle_generation": "1b7f335f-aa76-4ce0-ae3d-372e8c054dee",
+                "chunk_uuid": "d5a14949-3878-5532-a92b-1be4238c17a6",
+                "artifact_uuid": "b17751a7-7180-574e-90c9-0cc5d5884b41",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                  "version": "v1",
+                  "checksum": "4cde20418cf3bb7cab7d4dc1463926a353b993a582e03ca43290dc9a4a7a3adc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                "title": "framework-provider-mode",
+                "uri": "plugin-knowledge://75589a3a-56bb-4624-8542-1501e91217b4",
+                "document_version": "v1",
+                "bundle_generation": "592ec405-0501-4cb7-887a-8ae8935fc0cd",
+                "chunk_uuid": "ae157dd3-2168-51c8-a2cc-de530e4e4288",
+                "artifact_uuid": "0eff83c6-3498-5eeb-8ae7-3911b8461f12",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                  "version": "v1",
+                  "checksum": "4e19e6a39b726e96265f8540055c0dad94e49097d13f9585e44e2ed1c72da8b5",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1022
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                "title": "framework-dual-mode-business-modules",
+                "uri": "plugin-knowledge://201e2cf0-ef19-4aec-8d48-f5c65d1295cd",
+                "document_version": "v1",
+                "bundle_generation": "927a248a-679a-4126-af0e-bc9973516f3b",
+                "chunk_uuid": "6c85f22f-c560-59b9-8406-986bb7945206",
+                "artifact_uuid": "fb91bc18-58b4-51c4-b42a-d0d54f3df864",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                  "version": "v1",
+                  "checksum": "a1139f26fd5d7b8dfaf7ca700758ac05e9f65641e374f616b8adc0b6bb8c6a70",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                "title": "framework-host-fullscreen",
+                "uri": "plugin-knowledge://60445bbb-065f-4a6f-8291-c5a9d83ff5fb",
+                "document_version": "v1",
+                "bundle_generation": "989df2ce-68f5-4139-825b-04a615017416",
+                "chunk_uuid": "da5b1476-fa7f-545f-b3b9-54067048338c",
+                "artifact_uuid": "6826fb1f-c77a-5ca2-bc96-564fdca80cd2",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                  "version": "v1",
+                  "checksum": "755262328304177b4520e6ae7701c7c73aca6e8645f2e9c69be7afdcee3cb468",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                "title": "framework-business-modules",
+                "uri": "plugin-knowledge://9bf6a6cb-cf8e-4a2b-b799-63b7ad0cc5c3",
+                "document_version": "v1",
+                "bundle_generation": "ed5f803e-bd47-44e0-99aa-7e1ea10de8fb",
+                "chunk_uuid": "1e7986b9-25a7-5d41-9e37-772ee030861a",
+                "artifact_uuid": "8a7a0cd6-c624-569f-b117-b01e3cabad5e",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                  "version": "v1",
+                  "checksum": "d88d344e9ead086a4028ab48df46b6282de34836a4eee520d3c77b45a5e28250",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 20,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "92361c3d-239c-438f-b400-66626e43228e"
+          },
+          "timestamp": 1791610355,
+          "request_id": "8a300d1a-3ad6-4aa2-a14d-32c40b3efc23"
+        }
+      },
+      {
+        "name": "stale_generation_rejected",
+        "http_status": 409,
+        "trace_id": "8a68893a-7d71-4fb1-9f83-0956b5784a8f",
+        "response": {
+          "code": 409,
+          "message": "KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "error": "KNOWLEDGE_INDEX_GENERATION_CONFLICT: KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "error_code": "KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "reason_code": "KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "timestamp": 1791610355,
+          "request_id": "1351554f-74ed-42e7-a66a-4ce225f04f5b"
+        }
+      },
+      {
+        "name": "unknown_tenant_override_rejected",
+        "http_status": 400,
+        "trace_id": "9f4642e3-fae3-4abd-bf0b-a62d8f01235c",
+        "response": {
+          "code": 400,
+          "message": "KNOWLEDGE_INVALID_ARGUMENT",
+          "error": "KNOWLEDGE_INVALID_ARGUMENT: unknown query parameter",
+          "error_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "reason_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "timestamp": 1791610355,
+          "request_id": "289eb6e3-e49b-4ceb-84a3-d38464e17a03"
+        }
+      },
+      {
+        "name": "no_credential_rejected",
+        "http_status": 401,
+        "trace_id": "d1b2f8b6-dacc-4e32-85c7-94c30a8b19cf",
+        "response": {
+          "code": 401,
+          "message": "KNOWLEDGE_UNAUTHORIZED",
+          "error": "KNOWLEDGE_UNAUTHORIZED: KNOWLEDGE_UNAUTHORIZED",
+          "error_code": "KNOWLEDGE_UNAUTHORIZED",
+          "reason_code": "KNOWLEDGE_UNAUTHORIZED",
+          "timestamp": 1791610355,
+          "request_id": "fdb7516d-b48f-4e1c-801a-539c50c68437"
+        }
+      },
+      {
+        "name": "foreign_space_rejected",
+        "http_status": 404,
+        "trace_id": "d14970d7-04f9-4bf4-aaf6-05f5d5b39a07",
+        "response": {
+          "code": 404,
+          "message": "KNOWLEDGE_SPACE_NOT_FOUND",
+          "error": "KNOWLEDGE_SPACE_NOT_FOUND: record not found",
+          "error_code": "KNOWLEDGE_SPACE_NOT_FOUND",
+          "reason_code": "KNOWLEDGE_SPACE_NOT_FOUND",
+          "timestamp": 1791610355,
+          "request_id": "9f811597-7830-44af-94e9-e07fbe2aff36"
+        }
+      },
+      {
+        "name": "api_key_missing_content_grant",
+        "http_status": 403,
+        "trace_id": "636d7a84-f8f6-4752-9a6e-c33935fdb001",
+        "response": {
+          "code": 403,
+          "message": "KNOWLEDGE_FORBIDDEN",
+          "error": "KNOWLEDGE_FORBIDDEN: api key capability grant missing",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791610355,
+          "request_id": "27de2ff6-2df2-450b-a2cb-cde98e62a23c"
+        }
+      },
+      {
+        "name": "least_privilege_content_read",
+        "http_status": 200,
+        "trace_id": "643d5cea-a5f6-41bf-8add-58aea7a4108d",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+              "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+              "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+              "embedding_profile": {
+                "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                "version": 1
+              },
+              "model_key": "ollama/bge-m3",
+              "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+              "dimensions": 1024,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                "title": "framework-release",
+                "uri": "plugin-knowledge://ea5ff603-779a-4c3d-8806-ba964aa50fa1",
+                "document_version": "v1",
+                "bundle_generation": "1b7f335f-aa76-4ce0-ae3d-372e8c054dee",
+                "chunk_uuid": "d5a14949-3878-5532-a92b-1be4238c17a6",
+                "artifact_uuid": "b17751a7-7180-574e-90c9-0cc5d5884b41",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                  "version": "v1",
+                  "checksum": "4cde20418cf3bb7cab7d4dc1463926a353b993a582e03ca43290dc9a4a7a3adc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# PowerX Framework 发布指南（Go + npm）\n\n本文用于发布以下两个交付面：\n\n- Go 模块：`github.com/ArtisanCloud/PowerXPlugin/framework/backend/go`\n- npm 包：`@artisan-cloud/plugin-framework-admin`、`@artisan-cloud/plugin-framework-client`\n\n> 命令默认在仓库根目录执行：`/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/PowerXPlugin`\n>\n> 本文只负责 framework 发布与版",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                "title": "framework-provider-mode",
+                "uri": "plugin-knowledge://75589a3a-56bb-4624-8542-1501e91217b4",
+                "document_version": "v1",
+                "bundle_generation": "592ec405-0501-4cb7-887a-8ae8935fc0cd",
+                "chunk_uuid": "ae157dd3-2168-51c8-a2cc-de530e4e4288",
+                "artifact_uuid": "0eff83c6-3498-5eeb-8ae7-3911b8461f12",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                  "version": "v1",
+                  "checksum": "4e19e6a39b726e96265f8540055c0dad94e49097d13f9585e44e2ed1c72da8b5",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1022
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework Provider 模式\n\n插件统一从 [业务模块接入指南](../features/009-consume-powerx-capability/guide.md)接入。本文只解释模式，不假定所有管理页面均支持 delegated。\n\n## 模式与可信配置\n\n- local：Factory 选择插件注入的 local adapter，由插件维护该模式的业务数据。\n- delegated：Factory 选择 Framework Core Host adapter，不访问插件 local 业务表，也不调用 Core Admin API 替代 Host 合同。\n\nprovider.ModeResolver 使用配置",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                "title": "framework-dual-mode-business-modules",
+                "uri": "plugin-knowledge://201e2cf0-ef19-4aec-8d48-f5c65d1295cd",
+                "document_version": "v1",
+                "bundle_generation": "927a248a-679a-4126-af0e-bc9973516f3b",
+                "chunk_uuid": "6c85f22f-c560-59b9-8406-986bb7945206",
+                "artifact_uuid": "fb91bc18-58b4-51c4-b42a-d0d54f3df864",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                  "version": "v1",
+                  "checksum": "a1139f26fd5d7b8dfaf7ca700758ac05e9f65641e374f616b8adc0b6bb8c6a70",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework 双模式业务模块规范\n\n本文只维护架构约束，不维护独立完成状态表或第二套教程。插件统一从 [Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)接入，包含 13 类 contract、构造入口、最小能力声明、可编译示例与逐项验收。\n\n## 1. 功能背景与目标\n\nPowerX 插件既可独立运行，也可安装到 PowerX Core。业务代码不能因运行位置不同而分别读取本地表、拼接 Core URL 或自行选择 Gateway 调用。本规范定义唯一的双模式边界：插件只调用 Framewor",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                "title": "framework-host-fullscreen",
+                "uri": "plugin-knowledge://60445bbb-065f-4a6f-8291-c5a9d83ff5fb",
+                "document_version": "v1",
+                "bundle_generation": "989df2ce-68f5-4139-825b-04a615017416",
+                "chunk_uuid": "da5b1476-fa7f-545f-b3b9-54067048338c",
+                "artifact_uuid": "6826fb1f-c77a-5ca2-bc96-564fdca80cd2",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                  "version": "v1",
+                  "checksum": "755262328304177b4520e6ae7701c7c73aca6e8645f2e9c69be7afdcee3cb468",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# 插件请求 PowerX 宿主全屏接入说明\n\n## 功能背景与目标\n\n结论：插件侧通过 `@artisan-cloud/plugin-framework-client` 向 PowerX 宿主发送全屏请求；插件不直接改宿主布局，也不在 iframe 内偷偷调用浏览器 Fullscreen API。真实是否进入全屏由 PowerX 宿主监听 `fullscreen:request` 后决定。\n\n这个能力用于插件页面需要更大工作区的场景，例如编辑器、设计器、大屏看板、地图、流程编排器等。插件只表达意图：\n\n- `enter`：请求进入全屏\n- `exit`：请求退出全屏\n- `toggle`：请求切换全屏状态\n\n## 角色与适用范围\n",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                "title": "framework-business-modules",
+                "uri": "plugin-knowledge://9bf6a6cb-cf8e-4a2b-b799-63b7ad0cc5c3",
+                "document_version": "v1",
+                "bundle_generation": "ed5f803e-bd47-44e0-99aa-7e1ea10de8fb",
+                "chunk_uuid": "1e7986b9-25a7-5d41-9e37-772ee030861a",
+                "artifact_uuid": "8a7a0cd6-c624-569f-b117-b01e3cabad5e",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                  "version": "v1",
+                  "checksum": "d88d344e9ead086a4028ab48df46b6282de34836a4eee520d3c77b45a5e28250",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework 业务对象模块文档入口\n\n插件接入的唯一入口已统一为 **[Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)**。原有链接保留用于导航，不再维护第二份通用步骤、状态表或历史 Core 请求示例。\n\n## 按目的阅读\n\n| 目的 | 文档 |\n|---|---|\n| 选择模块、确认版本、实现 local、装配 delegated、验收 | [主指南](../features/009-consume-powerx-capability/guide.md) |\n| Framework /",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 20,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "643d5cea-a5f6-41bf-8add-58aea7a4108d"
+          },
+          "timestamp": 1791610355,
+          "request_id": "60d12586-6e17-4b48-9b7b-c39fab330078"
+        }
+      },
+      {
+        "name": "cursor_other_credential_rejected",
+        "http_status": 400,
+        "trace_id": "d19624f4-fd67-46d9-a91b-fa6c741bca96",
+        "response": {
+          "code": 400,
+          "message": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "error": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH: KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "error_code": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "reason_code": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "timestamp": 1791610355,
+          "request_id": "cdea1ade-f39f-4429-9720-b007b51bcc1d"
+        }
+      },
+      {
+        "name": "read_key_document_write_denied",
+        "http_status": 403,
+        "trace_id": "ad89691c-1b6f-4b62-97ea-b428ed024f09",
+        "response": {
+          "code": 403,
+          "message": "KNOWLEDGE_FORBIDDEN",
+          "error": "KNOWLEDGE_FORBIDDEN: api key capability grant missing",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791610355,
+          "request_id": "b6e34c99-f6af-46b6-8af8-1bf38b8cf697"
+        }
+      },
+      {
+        "name": "api_key_live_grant_revoked",
+        "http_status": 403,
+        "trace_id": "0494c5f2-4cf6-4785-af32-c6304004e062",
+        "response": {
+          "code": 403,
+          "message": "KNOWLEDGE_FORBIDDEN",
+          "error": "KNOWLEDGE_FORBIDDEN: api key capability grant missing",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791610355,
+          "request_id": "0b01d54a-0f41-42ef-aca1-865d9d9839ee"
+        }
+      },
+      {
+        "name": "real_sts_exchange",
+        "http_status": 200,
+        "trace_id": "32e81162-77c4-4aee-9303-9548a12c8bc4",
+        "response": {
+          "issuer": "powerx-sts",
+          "audience": "powerx:api",
+          "token_redacted": true
+        }
+      },
+      {
+        "name": "dev_real_sts_directory",
+        "http_status": 200,
+        "trace_id": "54623783-fce6-4c4e-9ef1-93bbd0fb3492",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+              "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+              "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+              "embedding_profile": {
+                "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                "version": 1
+              },
+              "model_key": "ollama/bge-m3",
+              "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+              "dimensions": 1024,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                "title": "framework-release",
+                "uri": "plugin-knowledge://ea5ff603-779a-4c3d-8806-ba964aa50fa1",
+                "document_version": "v1",
+                "bundle_generation": "1b7f335f-aa76-4ce0-ae3d-372e8c054dee",
+                "chunk_uuid": "d5a14949-3878-5532-a92b-1be4238c17a6",
+                "artifact_uuid": "b17751a7-7180-574e-90c9-0cc5d5884b41",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                  "version": "v1",
+                  "checksum": "4cde20418cf3bb7cab7d4dc1463926a353b993a582e03ca43290dc9a4a7a3adc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# PowerX Framework 发布指南（Go + npm）\n\n本文用于发布以下两个交付面：\n\n- Go 模块：`github.com/ArtisanCloud/PowerXPlugin/framework/backend/go`\n- npm 包：`@artisan-cloud/plugin-framework-admin`、`@artisan-cloud/plugin-framework-client`\n\n> 命令默认在仓库根目录执行：`/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/PowerXPlugin`\n>\n> 本文只负责 framework 发布与版",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                "title": "framework-provider-mode",
+                "uri": "plugin-knowledge://75589a3a-56bb-4624-8542-1501e91217b4",
+                "document_version": "v1",
+                "bundle_generation": "592ec405-0501-4cb7-887a-8ae8935fc0cd",
+                "chunk_uuid": "ae157dd3-2168-51c8-a2cc-de530e4e4288",
+                "artifact_uuid": "0eff83c6-3498-5eeb-8ae7-3911b8461f12",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                  "version": "v1",
+                  "checksum": "4e19e6a39b726e96265f8540055c0dad94e49097d13f9585e44e2ed1c72da8b5",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1022
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework Provider 模式\n\n插件统一从 [业务模块接入指南](../features/009-consume-powerx-capability/guide.md)接入。本文只解释模式，不假定所有管理页面均支持 delegated。\n\n## 模式与可信配置\n\n- local：Factory 选择插件注入的 local adapter，由插件维护该模式的业务数据。\n- delegated：Factory 选择 Framework Core Host adapter，不访问插件 local 业务表，也不调用 Core Admin API 替代 Host 合同。\n\nprovider.ModeResolver 使用配置",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                "title": "framework-dual-mode-business-modules",
+                "uri": "plugin-knowledge://201e2cf0-ef19-4aec-8d48-f5c65d1295cd",
+                "document_version": "v1",
+                "bundle_generation": "927a248a-679a-4126-af0e-bc9973516f3b",
+                "chunk_uuid": "6c85f22f-c560-59b9-8406-986bb7945206",
+                "artifact_uuid": "fb91bc18-58b4-51c4-b42a-d0d54f3df864",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                  "version": "v1",
+                  "checksum": "a1139f26fd5d7b8dfaf7ca700758ac05e9f65641e374f616b8adc0b6bb8c6a70",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework 双模式业务模块规范\n\n本文只维护架构约束，不维护独立完成状态表或第二套教程。插件统一从 [Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)接入，包含 13 类 contract、构造入口、最小能力声明、可编译示例与逐项验收。\n\n## 1. 功能背景与目标\n\nPowerX 插件既可独立运行，也可安装到 PowerX Core。业务代码不能因运行位置不同而分别读取本地表、拼接 Core URL 或自行选择 Gateway 调用。本规范定义唯一的双模式边界：插件只调用 Framewor",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                "title": "framework-host-fullscreen",
+                "uri": "plugin-knowledge://60445bbb-065f-4a6f-8291-c5a9d83ff5fb",
+                "document_version": "v1",
+                "bundle_generation": "989df2ce-68f5-4139-825b-04a615017416",
+                "chunk_uuid": "da5b1476-fa7f-545f-b3b9-54067048338c",
+                "artifact_uuid": "6826fb1f-c77a-5ca2-bc96-564fdca80cd2",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                  "version": "v1",
+                  "checksum": "755262328304177b4520e6ae7701c7c73aca6e8645f2e9c69be7afdcee3cb468",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# 插件请求 PowerX 宿主全屏接入说明\n\n## 功能背景与目标\n\n结论：插件侧通过 `@artisan-cloud/plugin-framework-client` 向 PowerX 宿主发送全屏请求；插件不直接改宿主布局，也不在 iframe 内偷偷调用浏览器 Fullscreen API。真实是否进入全屏由 PowerX 宿主监听 `fullscreen:request` 后决定。\n\n这个能力用于插件页面需要更大工作区的场景，例如编辑器、设计器、大屏看板、地图、流程编排器等。插件只表达意图：\n\n- `enter`：请求进入全屏\n- `exit`：请求退出全屏\n- `toggle`：请求切换全屏状态\n\n## 角色与适用范围\n",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                "title": "framework-business-modules",
+                "uri": "plugin-knowledge://9bf6a6cb-cf8e-4a2b-b799-63b7ad0cc5c3",
+                "document_version": "v1",
+                "bundle_generation": "ed5f803e-bd47-44e0-99aa-7e1ea10de8fb",
+                "chunk_uuid": "1e7986b9-25a7-5d41-9e37-772ee030861a",
+                "artifact_uuid": "8a7a0cd6-c624-569f-b117-b01e3cabad5e",
+                "source_ref": {
+                  "kind": "raw_document",
+                  "source_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                  "version": "v1",
+                  "checksum": "d88d344e9ead086a4028ab48df46b6282de34836a4eee520d3c77b45a5e28250",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 1024
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "# Framework 业务对象模块文档入口\n\n插件接入的唯一入口已统一为 **[Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)**。原有链接保留用于导航，不再维护第二份通用步骤、状态表或历史 Core 请求示例。\n\n## 按目的阅读\n\n| 目的 | 文档 |\n|---|---|\n| 选择模块、确认版本、实现 local、装配 delegated、验收 | [主指南](../features/009-consume-powerx-capability/guide.md) |\n| Framework /",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 320,
+                  "truncated": true
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 20,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "54623783-fce6-4c4e-9ef1-93bbd0fb3492"
+          },
+          "timestamp": 1791610356,
+          "request_id": "5b05d45a-48d3-47f5-9065-da31c459a1ae"
+        }
+      },
+      {
+        "name": "typed_core_internal",
+        "http_status": 200,
+        "trace_id": "3f731b35-a7fe-4f62-844a-9f5054e64127",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "payload": {
+              "result": {
+                "schema": "powerx.knowledge.content-overview/v1",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "mode": "hybrid",
+                "generation": {
+                  "env": "dev",
+                  "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                  "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+                  "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+                  "embedding_profile": {
+                    "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                    "version": 1
+                  },
+                  "model_key": "ollama/bge-m3",
+                  "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+                  "dimensions": 1024,
+                  "distance_metric": "cosine"
+                },
+                "items": [
+                  {
+                    "document_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                    "title": "framework-release",
+                    "uri": "plugin-knowledge://ea5ff603-779a-4c3d-8806-ba964aa50fa1",
+                    "document_version": "v1",
+                    "bundle_generation": "1b7f335f-aa76-4ce0-ae3d-372e8c054dee",
+                    "chunk_uuid": "d5a14949-3878-5532-a92b-1be4238c17a6",
+                    "artifact_uuid": "b17751a7-7180-574e-90c9-0cc5d5884b41",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                      "version": "v1",
+                      "checksum": "4cde20418cf3bb7cab7d4dc1463926a353b993a582e03ca43290dc9a4a7a3adc",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# PowerX Framework 发布指南（Go + npm）\n\n本文用于发布以下两个交付面：\n\n- Go 模块：`github.com/ArtisanCloud/PowerXPlugin/framework/backend/go`\n- npm 包：`@artisan-cloud/plugin-framework-admin`、`@artisan-cloud/plugin-framework-client`\n\n> 命令默认在仓库根目录执行：`/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/PowerXPlugin`\n>\n> 本文只负责 framework 发布与版",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                    "title": "framework-provider-mode",
+                    "uri": "plugin-knowledge://75589a3a-56bb-4624-8542-1501e91217b4",
+                    "document_version": "v1",
+                    "bundle_generation": "592ec405-0501-4cb7-887a-8ae8935fc0cd",
+                    "chunk_uuid": "ae157dd3-2168-51c8-a2cc-de530e4e4288",
+                    "artifact_uuid": "0eff83c6-3498-5eeb-8ae7-3911b8461f12",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                      "version": "v1",
+                      "checksum": "4e19e6a39b726e96265f8540055c0dad94e49097d13f9585e44e2ed1c72da8b5",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1022
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# Framework Provider 模式\n\n插件统一从 [业务模块接入指南](../features/009-consume-powerx-capability/guide.md)接入。本文只解释模式，不假定所有管理页面均支持 delegated。\n\n## 模式与可信配置\n\n- local：Factory 选择插件注入的 local adapter，由插件维护该模式的业务数据。\n- delegated：Factory 选择 Framework Core Host adapter，不访问插件 local 业务表，也不调用 Core Admin API 替代 Host 合同。\n\nprovider.ModeResolver 使用配置",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                    "title": "framework-dual-mode-business-modules",
+                    "uri": "plugin-knowledge://201e2cf0-ef19-4aec-8d48-f5c65d1295cd",
+                    "document_version": "v1",
+                    "bundle_generation": "927a248a-679a-4126-af0e-bc9973516f3b",
+                    "chunk_uuid": "6c85f22f-c560-59b9-8406-986bb7945206",
+                    "artifact_uuid": "fb91bc18-58b4-51c4-b42a-d0d54f3df864",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                      "version": "v1",
+                      "checksum": "a1139f26fd5d7b8dfaf7ca700758ac05e9f65641e374f616b8adc0b6bb8c6a70",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# Framework 双模式业务模块规范\n\n本文只维护架构约束，不维护独立完成状态表或第二套教程。插件统一从 [Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)接入，包含 13 类 contract、构造入口、最小能力声明、可编译示例与逐项验收。\n\n## 1. 功能背景与目标\n\nPowerX 插件既可独立运行，也可安装到 PowerX Core。业务代码不能因运行位置不同而分别读取本地表、拼接 Core URL 或自行选择 Gateway 调用。本规范定义唯一的双模式边界：插件只调用 Framewor",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                    "title": "framework-host-fullscreen",
+                    "uri": "plugin-knowledge://60445bbb-065f-4a6f-8291-c5a9d83ff5fb",
+                    "document_version": "v1",
+                    "bundle_generation": "989df2ce-68f5-4139-825b-04a615017416",
+                    "chunk_uuid": "da5b1476-fa7f-545f-b3b9-54067048338c",
+                    "artifact_uuid": "6826fb1f-c77a-5ca2-bc96-564fdca80cd2",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                      "version": "v1",
+                      "checksum": "755262328304177b4520e6ae7701c7c73aca6e8645f2e9c69be7afdcee3cb468",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# 插件请求 PowerX 宿主全屏接入说明\n\n## 功能背景与目标\n\n结论：插件侧通过 `@artisan-cloud/plugin-framework-client` 向 PowerX 宿主发送全屏请求；插件不直接改宿主布局，也不在 iframe 内偷偷调用浏览器 Fullscreen API。真实是否进入全屏由 PowerX 宿主监听 `fullscreen:request` 后决定。\n\n这个能力用于插件页面需要更大工作区的场景，例如编辑器、设计器、大屏看板、地图、流程编排器等。插件只表达意图：\n\n- `enter`：请求进入全屏\n- `exit`：请求退出全屏\n- `toggle`：请求切换全屏状态\n\n## 角色与适用范围\n",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                    "title": "framework-business-modules",
+                    "uri": "plugin-knowledge://9bf6a6cb-cf8e-4a2b-b799-63b7ad0cc5c3",
+                    "document_version": "v1",
+                    "bundle_generation": "ed5f803e-bd47-44e0-99aa-7e1ea10de8fb",
+                    "chunk_uuid": "1e7986b9-25a7-5d41-9e37-772ee030861a",
+                    "artifact_uuid": "8a7a0cd6-c624-569f-b117-b01e3cabad5e",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                      "version": "v1",
+                      "checksum": "d88d344e9ead086a4028ab48df46b6282de34836a4eee520d3c77b45a5e28250",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# Framework 业务对象模块文档入口\n\n插件接入的唯一入口已统一为 **[Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)**。原有链接保留用于导航，不再维护第二份通用步骤、状态表或历史 Core 请求示例。\n\n## 按目的阅读\n\n| 目的 | 文档 |\n|---|---|\n| 选择模块、确认版本、实现 local、装配 delegated、验收 | [主指南](../features/009-consume-powerx-capability/guide.md) |\n| Framework /",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  }
+                ],
+                "pagination": {
+                  "page_size": 20,
+                  "total": 5,
+                  "has_more": false,
+                  "next_cursor": null
+                },
+                "overview": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "themes": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "recommended_questions": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "authorization_scope": "current_credential_tenant_published_corpus",
+                "trace_id": "3f731b35-a7fe-4f62-844a-9f5054e64127"
+              }
+            },
+            "trace_id": "d7c3cc56-3794-42ed-a2cf-8a8d1c0ec656",
+            "status": "completed",
+            "protocol_used": "core_internal",
+            "result": {
+              "result": {
+                "schema": "powerx.knowledge.content-overview/v1",
+                "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                "mode": "hybrid",
+                "generation": {
+                  "env": "dev",
+                  "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187",
+                  "configuration_generation": "5dc82f2a-89ec-4e76-b4ea-aa2c47bc7087",
+                  "corpus_generation": "6aaa1cae-0670-4317-b6b6-0dc963fce17f",
+                  "embedding_profile": {
+                    "uuid": "2ff1b71c-5fbe-4753-9c17-8ca3a85cdce2",
+                    "version": 1
+                  },
+                  "model_key": "ollama/bge-m3",
+                  "model_revision": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+                  "dimensions": 1024,
+                  "distance_metric": "cosine"
+                },
+                "items": [
+                  {
+                    "document_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                    "title": "framework-release",
+                    "uri": "plugin-knowledge://ea5ff603-779a-4c3d-8806-ba964aa50fa1",
+                    "document_version": "v1",
+                    "bundle_generation": "1b7f335f-aa76-4ce0-ae3d-372e8c054dee",
+                    "chunk_uuid": "d5a14949-3878-5532-a92b-1be4238c17a6",
+                    "artifact_uuid": "b17751a7-7180-574e-90c9-0cc5d5884b41",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "594f4f6c-9529-49d0-b3d9-93f5ac3cbc83",
+                      "version": "v1",
+                      "checksum": "4cde20418cf3bb7cab7d4dc1463926a353b993a582e03ca43290dc9a4a7a3adc",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# PowerX Framework 发布指南（Go + npm）\n\n本文用于发布以下两个交付面：\n\n- Go 模块：`github.com/ArtisanCloud/PowerXPlugin/framework/backend/go`\n- npm 包：`@artisan-cloud/plugin-framework-admin`、`@artisan-cloud/plugin-framework-client`\n\n> 命令默认在仓库根目录执行：`/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/PowerXPlugin`\n>\n> 本文只负责 framework 发布与版",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                    "title": "framework-provider-mode",
+                    "uri": "plugin-knowledge://75589a3a-56bb-4624-8542-1501e91217b4",
+                    "document_version": "v1",
+                    "bundle_generation": "592ec405-0501-4cb7-887a-8ae8935fc0cd",
+                    "chunk_uuid": "ae157dd3-2168-51c8-a2cc-de530e4e4288",
+                    "artifact_uuid": "0eff83c6-3498-5eeb-8ae7-3911b8461f12",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "81767ec9-0199-4112-9044-51a634541344",
+                      "version": "v1",
+                      "checksum": "4e19e6a39b726e96265f8540055c0dad94e49097d13f9585e44e2ed1c72da8b5",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1022
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# Framework Provider 模式\n\n插件统一从 [业务模块接入指南](../features/009-consume-powerx-capability/guide.md)接入。本文只解释模式，不假定所有管理页面均支持 delegated。\n\n## 模式与可信配置\n\n- local：Factory 选择插件注入的 local adapter，由插件维护该模式的业务数据。\n- delegated：Factory 选择 Framework Core Host adapter，不访问插件 local 业务表，也不调用 Core Admin API 替代 Host 合同。\n\nprovider.ModeResolver 使用配置",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                    "title": "framework-dual-mode-business-modules",
+                    "uri": "plugin-knowledge://201e2cf0-ef19-4aec-8d48-f5c65d1295cd",
+                    "document_version": "v1",
+                    "bundle_generation": "927a248a-679a-4126-af0e-bc9973516f3b",
+                    "chunk_uuid": "6c85f22f-c560-59b9-8406-986bb7945206",
+                    "artifact_uuid": "fb91bc18-58b4-51c4-b42a-d0d54f3df864",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "aebd5f7a-384a-4c19-9b73-0165000c5a19",
+                      "version": "v1",
+                      "checksum": "a1139f26fd5d7b8dfaf7ca700758ac05e9f65641e374f616b8adc0b6bb8c6a70",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# Framework 双模式业务模块规范\n\n本文只维护架构约束，不维护独立完成状态表或第二套教程。插件统一从 [Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)接入，包含 13 类 contract、构造入口、最小能力声明、可编译示例与逐项验收。\n\n## 1. 功能背景与目标\n\nPowerX 插件既可独立运行，也可安装到 PowerX Core。业务代码不能因运行位置不同而分别读取本地表、拼接 Core URL 或自行选择 Gateway 调用。本规范定义唯一的双模式边界：插件只调用 Framewor",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                    "title": "framework-host-fullscreen",
+                    "uri": "plugin-knowledge://60445bbb-065f-4a6f-8291-c5a9d83ff5fb",
+                    "document_version": "v1",
+                    "bundle_generation": "989df2ce-68f5-4139-825b-04a615017416",
+                    "chunk_uuid": "da5b1476-fa7f-545f-b3b9-54067048338c",
+                    "artifact_uuid": "6826fb1f-c77a-5ca2-bc96-564fdca80cd2",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "dc579694-39a1-43ec-9526-22bb9d107f0e",
+                      "version": "v1",
+                      "checksum": "755262328304177b4520e6ae7701c7c73aca6e8645f2e9c69be7afdcee3cb468",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# 插件请求 PowerX 宿主全屏接入说明\n\n## 功能背景与目标\n\n结论：插件侧通过 `@artisan-cloud/plugin-framework-client` 向 PowerX 宿主发送全屏请求；插件不直接改宿主布局，也不在 iframe 内偷偷调用浏览器 Fullscreen API。真实是否进入全屏由 PowerX 宿主监听 `fullscreen:request` 后决定。\n\n这个能力用于插件页面需要更大工作区的场景，例如编辑器、设计器、大屏看板、地图、流程编排器等。插件只表达意图：\n\n- `enter`：请求进入全屏\n- `exit`：请求退出全屏\n- `toggle`：请求切换全屏状态\n\n## 角色与适用范围\n",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  },
+                  {
+                    "document_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                    "title": "framework-business-modules",
+                    "uri": "plugin-knowledge://9bf6a6cb-cf8e-4a2b-b799-63b7ad0cc5c3",
+                    "document_version": "v1",
+                    "bundle_generation": "ed5f803e-bd47-44e0-99aa-7e1ea10de8fb",
+                    "chunk_uuid": "1e7986b9-25a7-5d41-9e37-772ee030861a",
+                    "artifact_uuid": "8a7a0cd6-c624-569f-b117-b01e3cabad5e",
+                    "source_ref": {
+                      "kind": "raw_document",
+                      "source_uuid": "f2a361a2-597d-46fc-808b-49ce6be70a0b",
+                      "version": "v1",
+                      "checksum": "d88d344e9ead086a4028ab48df46b6282de34836a4eee520d3c77b45a5e28250",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 1024
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "# Framework 业务对象模块文档入口\n\n插件接入的唯一入口已统一为 **[Framework 业务模块接入指南（local / delegated）](../features/009-consume-powerx-capability/guide.md)**。原有链接保留用于导航，不再维护第二份通用步骤、状态表或历史 Core 请求示例。\n\n## 按目的阅读\n\n| 目的 | 文档 |\n|---|---|\n| 选择模块、确认版本、实现 local、装配 delegated、验收 | [主指南](../features/009-consume-powerx-capability/guide.md) |\n| Framework /",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 320,
+                      "truncated": true
+                    }
+                  }
+                ],
+                "pagination": {
+                  "page_size": 20,
+                  "total": 5,
+                  "has_more": false,
+                  "next_cursor": null
+                },
+                "overview": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "themes": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "recommended_questions": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "authorization_scope": "current_credential_tenant_published_corpus",
+                "trace_id": "3f731b35-a7fe-4f62-844a-9f5054e64127"
+              }
+            },
+            "fallback_used": false
+          },
+          "timestamp": 1791610357,
+          "request_id": "5d266df4-ba75-4236-a797-5ae5dc214d96"
+        }
+      },
+      {
+        "name": "free_form_proxy_rejected",
+        "http_status": 400,
+        "trace_id": "ac30d133-6c32-42b4-b53d-3c6118f5fc92",
+        "response": {
+          "code": 400,
+          "message": "registry.invalid_request",
+          "error": "KNOWLEDGE_INVALID_ARGUMENT: invalid typed knowledge binding",
+          "error_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "reason_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "details": {
+            "code": "registry.invalid_request",
+            "hint": "请求缺少必填字段或格式不合法",
+            "reason_code": "KNOWLEDGE_INVALID_ARGUMENT"
+          },
+          "timestamp": 1791610357,
+          "request_id": "efa60ad6-d906-476c-acb2-7ed12f727af4"
+        }
+      },
+      {
+        "name": "live_sts_grant_revoked",
+        "http_status": 403,
+        "trace_id": "5f8f5ea2-8247-4f01-91e6-aeaaaf817d0a",
+        "response": {
+          "code": 403,
+          "message": "当前插件未获授权调用此能力。",
+          "error": "当前插件未获授权调用此能力。",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791610357,
+          "request_id": "084797ca-8079-4dad-a8da-765b34f1f5c5"
+        }
+      }
+    ],
+    "schema": "powerx.knowledge.content-overview-acceptance/v1",
+    "space_uuid": "30a6d654-c4c5-4a33-9806-6d66c6728187"
+  },
+  "isolated_failure_fixture": {
+    "corpus_origin": "isolated_publication_fixture_fixed_vectors_not_embedding_acceptance",
+    "credentials_redacted": true,
+    "http_endpoint": "http://127.0.0.1:8099",
+    "records": [
+      {
+        "name": "development_grant_status",
+        "http_status": 200,
+        "trace_id": "7af8893a-bc26-40c1-95fd-0a16a9952b21",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "items": [
+              {
+                "capability_id": "com.corex.knowledge.content_overview.service_read",
+                "status": "granted",
+                "reason_code": "CAPABILITY_GRANTED"
+              }
+            ]
+          },
+          "timestamp": 1791607572,
+          "request_id": "7eb92413-229b-476c-b62a-3b78871d7222"
+        }
+      },
+      {
+        "name": "dev_api_key_first_page",
+        "http_status": 200,
+        "trace_id": "b4ac2f5c-59c9-452d-a3dc-f2ef0090e932",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+              "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+              "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+              "embedding_profile": {
+                "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                "version": 1
+              },
+              "model_key": "fixture/fixed-vectors",
+              "model_revision": "fixture-v1",
+              "dimensions": 2,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "title": "内容导览验收文章 2",
+                "uri": "powerx://acceptance/10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "document_version": "v1",
+                "bundle_generation": "19b339d4-f263-4a6a-92ef-abc4197c3b23",
+                "chunk_uuid": "907b663a-a3ae-4ee4-acde-9a4fd41e6829",
+                "artifact_uuid": "12b478d0-6c40-42b3-b0d7-63d57775c36f",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "56a007e8-aa0e-41a1-80f0-61e0364b609b",
+                  "version": "v1",
+                  "checksum": "c1a42a1813a5937a8b4e008d68117ead8b2532e9e5cfe956d7152126dab9b18c",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 2：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "140aff25-b402-41ab-8d15-612dae4c494b",
+                "title": "内容导览验收文章 1",
+                "uri": "powerx://acceptance/140aff25-b402-41ab-8d15-612dae4c494b",
+                "document_version": "v1",
+                "bundle_generation": "7ae9a83f-46e2-457b-ba80-79d8094775a0",
+                "chunk_uuid": "fa824997-6d27-4db8-8de5-46d50368d827",
+                "artifact_uuid": "bb4e9263-25d9-4458-88cb-425f2dafa3b6",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "d61241e6-f1be-4d0b-bc2a-75d4a1cdb1c5",
+                  "version": "v1",
+                  "checksum": "0dbb1aa5ee2cba547654c386a9d50f0bd4bb8cdcda3e1ec99e4f85c5ad55cd55",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 1：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 2,
+              "total": 5,
+              "has_more": true,
+              "next_cursor": "[opaque cursor redacted]"
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "b4ac2f5c-59c9-452d-a3dc-f2ef0090e932"
+          },
+          "timestamp": 1791607572,
+          "request_id": "852ce443-e985-44c3-abaa-8a4a917b6051"
+        }
+      },
+      {
+        "name": "dev_api_key_next_page",
+        "http_status": 200,
+        "trace_id": "2efb4342-c1bc-43ed-b38e-6159634a17b5",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+              "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+              "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+              "embedding_profile": {
+                "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                "version": 1
+              },
+              "model_key": "fixture/fixed-vectors",
+              "model_revision": "fixture-v1",
+              "dimensions": 2,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "title": "内容导览验收文章 4",
+                "uri": "powerx://acceptance/29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "document_version": "v1",
+                "bundle_generation": "efa7b01f-4547-4b1f-8f19-3903b033c92b",
+                "chunk_uuid": "c9e26172-75cb-4e8f-8d93-127658f7eacb",
+                "artifact_uuid": "a377a2d4-90f1-44c9-bd40-d2c512d30736",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "581ca390-66dd-491d-b072-85b2023c1216",
+                  "version": "v1",
+                  "checksum": "92ac416ab01e5561b369e1453bc4aad33fc9edb32cd8c01a897f58afb97a3e7a",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 4：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "title": "内容导览验收文章 3",
+                "uri": "powerx://acceptance/d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "document_version": "v1",
+                "bundle_generation": "c954bfdc-0082-4f24-b242-d477e9e52ada",
+                "chunk_uuid": "76a94b32-df16-4bab-84ca-f2b86d34708b",
+                "artifact_uuid": "45246048-04c3-4595-9236-492637350d1d",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "fddb0a87-c04c-4f36-8ecf-e6f1f71dee91",
+                  "version": "v1",
+                  "checksum": "4cc1d766821fcd2fbb6880fb3cd07322b73dd46c6d639d09a35508fb74c046cc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 3：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 2,
+              "total": 5,
+              "has_more": true,
+              "next_cursor": "[opaque cursor redacted]"
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "2efb4342-c1bc-43ed-b38e-6159634a17b5"
+          },
+          "timestamp": 1791607572,
+          "request_id": "91620008-acc0-45c6-85b6-199d38602733"
+        }
+      },
+      {
+        "name": "dev_api_key_next_page",
+        "http_status": 200,
+        "trace_id": "0e4d7eec-ad4a-4ae1-bcde-76548df876c8",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+              "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+              "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+              "embedding_profile": {
+                "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                "version": 1
+              },
+              "model_key": "fixture/fixed-vectors",
+              "model_revision": "fixture-v1",
+              "dimensions": 2,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "dbd25829-c930-4fa3-9390-49c060434502",
+                "title": "内容导览验收文章 5",
+                "uri": "powerx://acceptance/dbd25829-c930-4fa3-9390-49c060434502",
+                "document_version": "v1",
+                "bundle_generation": "58aec428-a914-4dc1-bd80-882ec3e39817",
+                "chunk_uuid": "e2b2464a-9e3d-42f3-be43-85465677b05a",
+                "artifact_uuid": "35838b31-ead1-4d88-968e-2cbb1994c981",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "9f67fd3b-7027-4188-b74d-75c2f57a10b7",
+                  "version": "v1",
+                  "checksum": "f982daa56c1cb83e7c4f9b015d153d4a50a69aae0aafa5e7f07101547817294e",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 5：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 2,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "0e4d7eec-ad4a-4ae1-bcde-76548df876c8"
+          },
+          "timestamp": 1791607572,
+          "request_id": "7d71e906-8fd1-4f4b-b4a1-c6fd01898df7"
+        }
+      },
+      {
+        "name": "explicit_zero_preview",
+        "http_status": 200,
+        "trace_id": "29426f1c-af71-408b-8614-8db8328bbf90",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+            "mode": "semantic",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+              "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+              "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+              "embedding_profile": {
+                "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                "version": 1
+              },
+              "model_key": "fixture/fixed-vectors",
+              "model_revision": "fixture-v1",
+              "dimensions": 2,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "title": "内容导览验收文章 2",
+                "uri": "powerx://acceptance/10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "document_version": "v1",
+                "bundle_generation": "19b339d4-f263-4a6a-92ef-abc4197c3b23",
+                "chunk_uuid": "907b663a-a3ae-4ee4-acde-9a4fd41e6829",
+                "artifact_uuid": "12b478d0-6c40-42b3-b0d7-63d57775c36f",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "56a007e8-aa0e-41a1-80f0-61e0364b609b",
+                  "version": "v1",
+                  "checksum": "c1a42a1813a5937a8b4e008d68117ead8b2532e9e5cfe956d7152126dab9b18c",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "140aff25-b402-41ab-8d15-612dae4c494b",
+                "title": "内容导览验收文章 1",
+                "uri": "powerx://acceptance/140aff25-b402-41ab-8d15-612dae4c494b",
+                "document_version": "v1",
+                "bundle_generation": "7ae9a83f-46e2-457b-ba80-79d8094775a0",
+                "chunk_uuid": "fa824997-6d27-4db8-8de5-46d50368d827",
+                "artifact_uuid": "bb4e9263-25d9-4458-88cb-425f2dafa3b6",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "d61241e6-f1be-4d0b-bc2a-75d4a1cdb1c5",
+                  "version": "v1",
+                  "checksum": "0dbb1aa5ee2cba547654c386a9d50f0bd4bb8cdcda3e1ec99e4f85c5ad55cd55",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "title": "内容导览验收文章 4",
+                "uri": "powerx://acceptance/29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "document_version": "v1",
+                "bundle_generation": "efa7b01f-4547-4b1f-8f19-3903b033c92b",
+                "chunk_uuid": "c9e26172-75cb-4e8f-8d93-127658f7eacb",
+                "artifact_uuid": "a377a2d4-90f1-44c9-bd40-d2c512d30736",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "581ca390-66dd-491d-b072-85b2023c1216",
+                  "version": "v1",
+                  "checksum": "92ac416ab01e5561b369e1453bc4aad33fc9edb32cd8c01a897f58afb97a3e7a",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "title": "内容导览验收文章 3",
+                "uri": "powerx://acceptance/d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "document_version": "v1",
+                "bundle_generation": "c954bfdc-0082-4f24-b242-d477e9e52ada",
+                "chunk_uuid": "76a94b32-df16-4bab-84ca-f2b86d34708b",
+                "artifact_uuid": "45246048-04c3-4595-9236-492637350d1d",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "fddb0a87-c04c-4f36-8ecf-e6f1f71dee91",
+                  "version": "v1",
+                  "checksum": "4cc1d766821fcd2fbb6880fb3cd07322b73dd46c6d639d09a35508fb74c046cc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              },
+              {
+                "document_uuid": "dbd25829-c930-4fa3-9390-49c060434502",
+                "title": "内容导览验收文章 5",
+                "uri": "powerx://acceptance/dbd25829-c930-4fa3-9390-49c060434502",
+                "document_version": "v1",
+                "bundle_generation": "58aec428-a914-4dc1-bd80-882ec3e39817",
+                "chunk_uuid": "e2b2464a-9e3d-42f3-be43-85465677b05a",
+                "artifact_uuid": "35838b31-ead1-4d88-968e-2cbb1994c981",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "9f67fd3b-7027-4188-b74d-75c2f57a10b7",
+                  "version": "v1",
+                  "checksum": "f982daa56c1cb83e7c4f9b015d153d4a50a69aae0aafa5e7f07101547817294e",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 0,
+                  "truncated": true
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 20,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "29426f1c-af71-408b-8614-8db8328bbf90"
+          },
+          "timestamp": 1791607572,
+          "request_id": "eaa0fa72-9f99-45a0-acea-c2316ccc4a5d"
+        }
+      },
+      {
+        "name": "stale_generation_rejected",
+        "http_status": 409,
+        "trace_id": "08ff096c-f4de-4afc-996a-bab9753d804a",
+        "response": {
+          "code": 409,
+          "message": "KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "error": "KNOWLEDGE_INDEX_GENERATION_CONFLICT: KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "error_code": "KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "reason_code": "KNOWLEDGE_INDEX_GENERATION_CONFLICT",
+          "timestamp": 1791607572,
+          "request_id": "861e05b5-23a3-4a42-801d-cd0b07b273da"
+        }
+      },
+      {
+        "name": "unknown_tenant_override_rejected",
+        "http_status": 400,
+        "trace_id": "4462a30c-2aba-41ab-ac67-9f4dca9536a5",
+        "response": {
+          "code": 400,
+          "message": "KNOWLEDGE_INVALID_ARGUMENT",
+          "error": "KNOWLEDGE_INVALID_ARGUMENT: unknown query parameter",
+          "error_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "reason_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "timestamp": 1791607572,
+          "request_id": "6536f7fc-bc19-4223-be86-bad1d5e7fcc0"
+        }
+      },
+      {
+        "name": "no_credential_rejected",
+        "http_status": 401,
+        "trace_id": "9817fc85-5fed-4ec4-bc64-5fe2c4a3fc01",
+        "response": {
+          "code": 401,
+          "message": "KNOWLEDGE_UNAUTHORIZED",
+          "error": "KNOWLEDGE_UNAUTHORIZED: KNOWLEDGE_UNAUTHORIZED",
+          "error_code": "KNOWLEDGE_UNAUTHORIZED",
+          "reason_code": "KNOWLEDGE_UNAUTHORIZED",
+          "timestamp": 1791607572,
+          "request_id": "e1783a0c-56cf-436a-b484-951e224eaf72"
+        }
+      },
+      {
+        "name": "foreign_space_rejected",
+        "http_status": 404,
+        "trace_id": "31f1f5f6-8fbe-4b18-9b46-b8cf16b4888f",
+        "response": {
+          "code": 404,
+          "message": "KNOWLEDGE_SPACE_NOT_FOUND",
+          "error": "KNOWLEDGE_SPACE_NOT_FOUND: record not found",
+          "error_code": "KNOWLEDGE_SPACE_NOT_FOUND",
+          "reason_code": "KNOWLEDGE_SPACE_NOT_FOUND",
+          "timestamp": 1791607572,
+          "request_id": "8e6c2af2-f625-4d86-8ae8-aed6998e0e61"
+        }
+      },
+      {
+        "name": "api_key_missing_content_grant",
+        "http_status": 403,
+        "trace_id": "fb87fd2f-82fd-4aa9-9c6c-73168200be73",
+        "response": {
+          "code": 403,
+          "message": "KNOWLEDGE_FORBIDDEN",
+          "error": "KNOWLEDGE_FORBIDDEN: api key capability grant missing",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791607572,
+          "request_id": "b6c06377-af41-4704-a4b3-cff45ff138ef"
+        }
+      },
+      {
+        "name": "least_privilege_content_read",
+        "http_status": 200,
+        "trace_id": "f0655800-9704-4bcf-979a-8883467608f2",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+              "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+              "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+              "embedding_profile": {
+                "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                "version": 1
+              },
+              "model_key": "fixture/fixed-vectors",
+              "model_revision": "fixture-v1",
+              "dimensions": 2,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "title": "内容导览验收文章 2",
+                "uri": "powerx://acceptance/10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "document_version": "v1",
+                "bundle_generation": "19b339d4-f263-4a6a-92ef-abc4197c3b23",
+                "chunk_uuid": "907b663a-a3ae-4ee4-acde-9a4fd41e6829",
+                "artifact_uuid": "12b478d0-6c40-42b3-b0d7-63d57775c36f",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "56a007e8-aa0e-41a1-80f0-61e0364b609b",
+                  "version": "v1",
+                  "checksum": "c1a42a1813a5937a8b4e008d68117ead8b2532e9e5cfe956d7152126dab9b18c",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 2：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "140aff25-b402-41ab-8d15-612dae4c494b",
+                "title": "内容导览验收文章 1",
+                "uri": "powerx://acceptance/140aff25-b402-41ab-8d15-612dae4c494b",
+                "document_version": "v1",
+                "bundle_generation": "7ae9a83f-46e2-457b-ba80-79d8094775a0",
+                "chunk_uuid": "fa824997-6d27-4db8-8de5-46d50368d827",
+                "artifact_uuid": "bb4e9263-25d9-4458-88cb-425f2dafa3b6",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "d61241e6-f1be-4d0b-bc2a-75d4a1cdb1c5",
+                  "version": "v1",
+                  "checksum": "0dbb1aa5ee2cba547654c386a9d50f0bd4bb8cdcda3e1ec99e4f85c5ad55cd55",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 1：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "title": "内容导览验收文章 4",
+                "uri": "powerx://acceptance/29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "document_version": "v1",
+                "bundle_generation": "efa7b01f-4547-4b1f-8f19-3903b033c92b",
+                "chunk_uuid": "c9e26172-75cb-4e8f-8d93-127658f7eacb",
+                "artifact_uuid": "a377a2d4-90f1-44c9-bd40-d2c512d30736",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "581ca390-66dd-491d-b072-85b2023c1216",
+                  "version": "v1",
+                  "checksum": "92ac416ab01e5561b369e1453bc4aad33fc9edb32cd8c01a897f58afb97a3e7a",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 4：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "title": "内容导览验收文章 3",
+                "uri": "powerx://acceptance/d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "document_version": "v1",
+                "bundle_generation": "c954bfdc-0082-4f24-b242-d477e9e52ada",
+                "chunk_uuid": "76a94b32-df16-4bab-84ca-f2b86d34708b",
+                "artifact_uuid": "45246048-04c3-4595-9236-492637350d1d",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "fddb0a87-c04c-4f36-8ecf-e6f1f71dee91",
+                  "version": "v1",
+                  "checksum": "4cc1d766821fcd2fbb6880fb3cd07322b73dd46c6d639d09a35508fb74c046cc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 3：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "dbd25829-c930-4fa3-9390-49c060434502",
+                "title": "内容导览验收文章 5",
+                "uri": "powerx://acceptance/dbd25829-c930-4fa3-9390-49c060434502",
+                "document_version": "v1",
+                "bundle_generation": "58aec428-a914-4dc1-bd80-882ec3e39817",
+                "chunk_uuid": "e2b2464a-9e3d-42f3-be43-85465677b05a",
+                "artifact_uuid": "35838b31-ead1-4d88-968e-2cbb1994c981",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "9f67fd3b-7027-4188-b74d-75c2f57a10b7",
+                  "version": "v1",
+                  "checksum": "f982daa56c1cb83e7c4f9b015d153d4a50a69aae0aafa5e7f07101547817294e",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 5：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 20,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "f0655800-9704-4bcf-979a-8883467608f2"
+          },
+          "timestamp": 1791607572,
+          "request_id": "68e59b5e-c629-4923-b779-aaa8cdc82bce"
+        }
+      },
+      {
+        "name": "cursor_other_credential_rejected",
+        "http_status": 400,
+        "trace_id": "3fd9eefa-7fdc-46f1-ac66-c3b271e906c6",
+        "response": {
+          "code": 400,
+          "message": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "error": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH: KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "error_code": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "reason_code": "KNOWLEDGE_CONTENT_CURSOR_SCOPE_MISMATCH",
+          "timestamp": 1791607572,
+          "request_id": "d37d0dfe-eb2e-4a28-8308-9ae47208d39f"
+        }
+      },
+      {
+        "name": "read_key_document_write_denied",
+        "http_status": 403,
+        "trace_id": "2f806057-0f41-435e-9c18-70d1689e3431",
+        "response": {
+          "code": 403,
+          "message": "KNOWLEDGE_FORBIDDEN",
+          "error": "KNOWLEDGE_FORBIDDEN: api key capability grant missing",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791607572,
+          "request_id": "2e0d2ae3-4196-4dbe-9908-40a3ac572bb9"
+        }
+      },
+      {
+        "name": "api_key_live_grant_revoked",
+        "http_status": 403,
+        "trace_id": "4c27ad0e-29c9-4f28-b62e-4f7b468eb0ae",
+        "response": {
+          "code": 403,
+          "message": "KNOWLEDGE_FORBIDDEN",
+          "error": "KNOWLEDGE_FORBIDDEN: api key capability grant missing",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791607572,
+          "request_id": "0204a8a6-f09a-4c1a-9ad8-93e32d33df5f"
+        }
+      },
+      {
+        "name": "real_sts_exchange",
+        "http_status": 200,
+        "trace_id": "11334cef-c001-405d-a665-80d40e0a7f56",
+        "response": {
+          "issuer": "powerx-sts",
+          "audience": "powerx:api",
+          "token_redacted": true
+        }
+      },
+      {
+        "name": "dev_real_sts_directory",
+        "http_status": 200,
+        "trace_id": "6eba7c6d-b252-4c61-a3d9-b1c5a7b9622a",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+              "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+              "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+              "embedding_profile": {
+                "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                "version": 1
+              },
+              "model_key": "fixture/fixed-vectors",
+              "model_revision": "fixture-v1",
+              "dimensions": 2,
+              "distance_metric": "cosine"
+            },
+            "items": [
+              {
+                "document_uuid": "10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "title": "内容导览验收文章 2",
+                "uri": "powerx://acceptance/10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                "document_version": "v1",
+                "bundle_generation": "19b339d4-f263-4a6a-92ef-abc4197c3b23",
+                "chunk_uuid": "907b663a-a3ae-4ee4-acde-9a4fd41e6829",
+                "artifact_uuid": "12b478d0-6c40-42b3-b0d7-63d57775c36f",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "56a007e8-aa0e-41a1-80f0-61e0364b609b",
+                  "version": "v1",
+                  "checksum": "c1a42a1813a5937a8b4e008d68117ead8b2532e9e5cfe956d7152126dab9b18c",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 2：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "140aff25-b402-41ab-8d15-612dae4c494b",
+                "title": "内容导览验收文章 1",
+                "uri": "powerx://acceptance/140aff25-b402-41ab-8d15-612dae4c494b",
+                "document_version": "v1",
+                "bundle_generation": "7ae9a83f-46e2-457b-ba80-79d8094775a0",
+                "chunk_uuid": "fa824997-6d27-4db8-8de5-46d50368d827",
+                "artifact_uuid": "bb4e9263-25d9-4458-88cb-425f2dafa3b6",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "d61241e6-f1be-4d0b-bc2a-75d4a1cdb1c5",
+                  "version": "v1",
+                  "checksum": "0dbb1aa5ee2cba547654c386a9d50f0bd4bb8cdcda3e1ec99e4f85c5ad55cd55",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 1：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "title": "内容导览验收文章 4",
+                "uri": "powerx://acceptance/29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                "document_version": "v1",
+                "bundle_generation": "efa7b01f-4547-4b1f-8f19-3903b033c92b",
+                "chunk_uuid": "c9e26172-75cb-4e8f-8d93-127658f7eacb",
+                "artifact_uuid": "a377a2d4-90f1-44c9-bd40-d2c512d30736",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "581ca390-66dd-491d-b072-85b2023c1216",
+                  "version": "v1",
+                  "checksum": "92ac416ab01e5561b369e1453bc4aad33fc9edb32cd8c01a897f58afb97a3e7a",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 4：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "title": "内容导览验收文章 3",
+                "uri": "powerx://acceptance/d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                "document_version": "v1",
+                "bundle_generation": "c954bfdc-0082-4f24-b242-d477e9e52ada",
+                "chunk_uuid": "76a94b32-df16-4bab-84ca-f2b86d34708b",
+                "artifact_uuid": "45246048-04c3-4595-9236-492637350d1d",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "fddb0a87-c04c-4f36-8ecf-e6f1f71dee91",
+                  "version": "v1",
+                  "checksum": "4cc1d766821fcd2fbb6880fb3cd07322b73dd46c6d639d09a35508fb74c046cc",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 3：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              },
+              {
+                "document_uuid": "dbd25829-c930-4fa3-9390-49c060434502",
+                "title": "内容导览验收文章 5",
+                "uri": "powerx://acceptance/dbd25829-c930-4fa3-9390-49c060434502",
+                "document_version": "v1",
+                "bundle_generation": "58aec428-a914-4dc1-bd80-882ec3e39817",
+                "chunk_uuid": "e2b2464a-9e3d-42f3-be43-85465677b05a",
+                "artifact_uuid": "35838b31-ead1-4d88-968e-2cbb1994c981",
+                "source_ref": {
+                  "kind": "cleaned_document",
+                  "source_uuid": "9f67fd3b-7027-4188-b74d-75c2f57a10b7",
+                  "version": "v1",
+                  "checksum": "f982daa56c1cb83e7c4f9b015d153d4a50a69aae0aafa5e7f07101547817294e",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26
+                },
+                "preview": {
+                  "kind": "published_source_chunk",
+                  "text": "读取验收文章 5：中文😀预览须来自已发布的原文片段。",
+                  "position_unit": "unicode_codepoint",
+                  "char_start": 0,
+                  "char_end": 26,
+                  "truncated": false
+                }
+              }
+            ],
+            "pagination": {
+              "page_size": 20,
+              "total": 5,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "6eba7c6d-b252-4c61-a3d9-b1c5a7b9622a"
+          },
+          "timestamp": 1791607572,
+          "request_id": "5c8c4775-fd19-442b-a4a8-f6265ea062c2"
+        }
+      },
+      {
+        "name": "typed_core_internal",
+        "http_status": 200,
+        "trace_id": "46ed2f5d-39dd-43b5-b23c-928e2551a5d5",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "payload": {
+              "result": {
+                "schema": "powerx.knowledge.content-overview/v1",
+                "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+                "mode": "hybrid",
+                "generation": {
+                  "env": "dev",
+                  "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+                  "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+                  "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+                  "embedding_profile": {
+                    "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                    "version": 1
+                  },
+                  "model_key": "fixture/fixed-vectors",
+                  "model_revision": "fixture-v1",
+                  "dimensions": 2,
+                  "distance_metric": "cosine"
+                },
+                "items": [
+                  {
+                    "document_uuid": "10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                    "title": "内容导览验收文章 2",
+                    "uri": "powerx://acceptance/10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                    "document_version": "v1",
+                    "bundle_generation": "19b339d4-f263-4a6a-92ef-abc4197c3b23",
+                    "chunk_uuid": "907b663a-a3ae-4ee4-acde-9a4fd41e6829",
+                    "artifact_uuid": "12b478d0-6c40-42b3-b0d7-63d57775c36f",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "56a007e8-aa0e-41a1-80f0-61e0364b609b",
+                      "version": "v1",
+                      "checksum": "c1a42a1813a5937a8b4e008d68117ead8b2532e9e5cfe956d7152126dab9b18c",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 2：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "140aff25-b402-41ab-8d15-612dae4c494b",
+                    "title": "内容导览验收文章 1",
+                    "uri": "powerx://acceptance/140aff25-b402-41ab-8d15-612dae4c494b",
+                    "document_version": "v1",
+                    "bundle_generation": "7ae9a83f-46e2-457b-ba80-79d8094775a0",
+                    "chunk_uuid": "fa824997-6d27-4db8-8de5-46d50368d827",
+                    "artifact_uuid": "bb4e9263-25d9-4458-88cb-425f2dafa3b6",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "d61241e6-f1be-4d0b-bc2a-75d4a1cdb1c5",
+                      "version": "v1",
+                      "checksum": "0dbb1aa5ee2cba547654c386a9d50f0bd4bb8cdcda3e1ec99e4f85c5ad55cd55",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 1：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                    "title": "内容导览验收文章 4",
+                    "uri": "powerx://acceptance/29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                    "document_version": "v1",
+                    "bundle_generation": "efa7b01f-4547-4b1f-8f19-3903b033c92b",
+                    "chunk_uuid": "c9e26172-75cb-4e8f-8d93-127658f7eacb",
+                    "artifact_uuid": "a377a2d4-90f1-44c9-bd40-d2c512d30736",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "581ca390-66dd-491d-b072-85b2023c1216",
+                      "version": "v1",
+                      "checksum": "92ac416ab01e5561b369e1453bc4aad33fc9edb32cd8c01a897f58afb97a3e7a",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 4：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                    "title": "内容导览验收文章 3",
+                    "uri": "powerx://acceptance/d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                    "document_version": "v1",
+                    "bundle_generation": "c954bfdc-0082-4f24-b242-d477e9e52ada",
+                    "chunk_uuid": "76a94b32-df16-4bab-84ca-f2b86d34708b",
+                    "artifact_uuid": "45246048-04c3-4595-9236-492637350d1d",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "fddb0a87-c04c-4f36-8ecf-e6f1f71dee91",
+                      "version": "v1",
+                      "checksum": "4cc1d766821fcd2fbb6880fb3cd07322b73dd46c6d639d09a35508fb74c046cc",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 3：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "dbd25829-c930-4fa3-9390-49c060434502",
+                    "title": "内容导览验收文章 5",
+                    "uri": "powerx://acceptance/dbd25829-c930-4fa3-9390-49c060434502",
+                    "document_version": "v1",
+                    "bundle_generation": "58aec428-a914-4dc1-bd80-882ec3e39817",
+                    "chunk_uuid": "e2b2464a-9e3d-42f3-be43-85465677b05a",
+                    "artifact_uuid": "35838b31-ead1-4d88-968e-2cbb1994c981",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "9f67fd3b-7027-4188-b74d-75c2f57a10b7",
+                      "version": "v1",
+                      "checksum": "f982daa56c1cb83e7c4f9b015d153d4a50a69aae0aafa5e7f07101547817294e",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 5：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  }
+                ],
+                "pagination": {
+                  "page_size": 20,
+                  "total": 5,
+                  "has_more": false,
+                  "next_cursor": null
+                },
+                "overview": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "themes": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "recommended_questions": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "authorization_scope": "current_credential_tenant_published_corpus",
+                "trace_id": "46ed2f5d-39dd-43b5-b23c-928e2551a5d5"
+              }
+            },
+            "trace_id": "64388e3a-c3f1-4b7a-bf38-cb79a5a305df",
+            "status": "completed",
+            "protocol_used": "core_internal",
+            "result": {
+              "result": {
+                "schema": "powerx.knowledge.content-overview/v1",
+                "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+                "mode": "hybrid",
+                "generation": {
+                  "env": "dev",
+                  "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+                  "configuration_generation": "06e46c3a-6960-4d6a-9b06-ce6fce92720b",
+                  "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+                  "embedding_profile": {
+                    "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                    "version": 1
+                  },
+                  "model_key": "fixture/fixed-vectors",
+                  "model_revision": "fixture-v1",
+                  "dimensions": 2,
+                  "distance_metric": "cosine"
+                },
+                "items": [
+                  {
+                    "document_uuid": "10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                    "title": "内容导览验收文章 2",
+                    "uri": "powerx://acceptance/10e32efd-dc7a-4482-b7ab-4e48c52d70a8",
+                    "document_version": "v1",
+                    "bundle_generation": "19b339d4-f263-4a6a-92ef-abc4197c3b23",
+                    "chunk_uuid": "907b663a-a3ae-4ee4-acde-9a4fd41e6829",
+                    "artifact_uuid": "12b478d0-6c40-42b3-b0d7-63d57775c36f",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "56a007e8-aa0e-41a1-80f0-61e0364b609b",
+                      "version": "v1",
+                      "checksum": "c1a42a1813a5937a8b4e008d68117ead8b2532e9e5cfe956d7152126dab9b18c",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 2：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "140aff25-b402-41ab-8d15-612dae4c494b",
+                    "title": "内容导览验收文章 1",
+                    "uri": "powerx://acceptance/140aff25-b402-41ab-8d15-612dae4c494b",
+                    "document_version": "v1",
+                    "bundle_generation": "7ae9a83f-46e2-457b-ba80-79d8094775a0",
+                    "chunk_uuid": "fa824997-6d27-4db8-8de5-46d50368d827",
+                    "artifact_uuid": "bb4e9263-25d9-4458-88cb-425f2dafa3b6",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "d61241e6-f1be-4d0b-bc2a-75d4a1cdb1c5",
+                      "version": "v1",
+                      "checksum": "0dbb1aa5ee2cba547654c386a9d50f0bd4bb8cdcda3e1ec99e4f85c5ad55cd55",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 1：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                    "title": "内容导览验收文章 4",
+                    "uri": "powerx://acceptance/29b4dfa0-27dd-402a-a7c6-a78dc96fbaac",
+                    "document_version": "v1",
+                    "bundle_generation": "efa7b01f-4547-4b1f-8f19-3903b033c92b",
+                    "chunk_uuid": "c9e26172-75cb-4e8f-8d93-127658f7eacb",
+                    "artifact_uuid": "a377a2d4-90f1-44c9-bd40-d2c512d30736",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "581ca390-66dd-491d-b072-85b2023c1216",
+                      "version": "v1",
+                      "checksum": "92ac416ab01e5561b369e1453bc4aad33fc9edb32cd8c01a897f58afb97a3e7a",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 4：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                    "title": "内容导览验收文章 3",
+                    "uri": "powerx://acceptance/d1b722e5-1acb-4569-b084-324e2a7bdc93",
+                    "document_version": "v1",
+                    "bundle_generation": "c954bfdc-0082-4f24-b242-d477e9e52ada",
+                    "chunk_uuid": "76a94b32-df16-4bab-84ca-f2b86d34708b",
+                    "artifact_uuid": "45246048-04c3-4595-9236-492637350d1d",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "fddb0a87-c04c-4f36-8ecf-e6f1f71dee91",
+                      "version": "v1",
+                      "checksum": "4cc1d766821fcd2fbb6880fb3cd07322b73dd46c6d639d09a35508fb74c046cc",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 3：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  },
+                  {
+                    "document_uuid": "dbd25829-c930-4fa3-9390-49c060434502",
+                    "title": "内容导览验收文章 5",
+                    "uri": "powerx://acceptance/dbd25829-c930-4fa3-9390-49c060434502",
+                    "document_version": "v1",
+                    "bundle_generation": "58aec428-a914-4dc1-bd80-882ec3e39817",
+                    "chunk_uuid": "e2b2464a-9e3d-42f3-be43-85465677b05a",
+                    "artifact_uuid": "35838b31-ead1-4d88-968e-2cbb1994c981",
+                    "source_ref": {
+                      "kind": "cleaned_document",
+                      "source_uuid": "9f67fd3b-7027-4188-b74d-75c2f57a10b7",
+                      "version": "v1",
+                      "checksum": "f982daa56c1cb83e7c4f9b015d153d4a50a69aae0aafa5e7f07101547817294e",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26
+                    },
+                    "preview": {
+                      "kind": "published_source_chunk",
+                      "text": "读取验收文章 5：中文😀预览须来自已发布的原文片段。",
+                      "position_unit": "unicode_codepoint",
+                      "char_start": 0,
+                      "char_end": 26,
+                      "truncated": false
+                    }
+                  }
+                ],
+                "pagination": {
+                  "page_size": 20,
+                  "total": 5,
+                  "has_more": false,
+                  "next_cursor": null
+                },
+                "overview": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "themes": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "recommended_questions": {
+                  "status": "not_available",
+                  "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+                },
+                "authorization_scope": "current_credential_tenant_published_corpus",
+                "trace_id": "46ed2f5d-39dd-43b5-b23c-928e2551a5d5"
+              }
+            },
+            "fallback_used": false
+          },
+          "timestamp": 1791607572,
+          "request_id": "542d7438-b2f1-40b1-ac68-c212708bd682"
+        }
+      },
+      {
+        "name": "free_form_proxy_rejected",
+        "http_status": 400,
+        "trace_id": "30db7e37-c3f6-455b-8e03-926774e27206",
+        "response": {
+          "code": 400,
+          "message": "registry.invalid_request",
+          "error": "KNOWLEDGE_INVALID_ARGUMENT: invalid typed knowledge binding",
+          "error_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "reason_code": "KNOWLEDGE_INVALID_ARGUMENT",
+          "details": {
+            "code": "registry.invalid_request",
+            "hint": "请求缺少必填字段或格式不合法",
+            "reason_code": "KNOWLEDGE_INVALID_ARGUMENT"
+          },
+          "timestamp": 1791607572,
+          "request_id": "f2aad188-4bdd-4486-9882-b1ac27015015"
+        }
+      },
+      {
+        "name": "live_sts_grant_revoked",
+        "http_status": 403,
+        "trace_id": "0889f2ef-217f-4b37-becb-d7f87d306016",
+        "response": {
+          "code": 403,
+          "message": "当前插件未获授权调用此能力。",
+          "error": "当前插件未获授权调用此能力。",
+          "error_code": "KNOWLEDGE_FORBIDDEN",
+          "reason_code": "KNOWLEDGE_FORBIDDEN",
+          "timestamp": 1791607572,
+          "request_id": "8f9ce255-3055-4b5c-a399-a43c11f16774"
+        }
+      },
+      {
+        "name": "legitimate_empty_directory",
+        "http_status": 200,
+        "trace_id": "c4c938e3-9b48-4301-8b4c-cf1df08dee88",
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "schema": "powerx.knowledge.content-overview/v1",
+            "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+            "mode": "hybrid",
+            "generation": {
+              "env": "dev",
+              "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296",
+              "configuration_generation": "43f889e1-1481-4721-bea6-8d03b157b099",
+              "corpus_generation": "735ab708-38b9-4475-9859-e8207c9bf5f2",
+              "embedding_profile": {
+                "uuid": "f12d021e-0a5d-4001-98c4-4d32a108d0b3",
+                "version": 1
+              },
+              "model_key": "fixture/fixed-vectors",
+              "model_revision": "fixture-v1",
+              "dimensions": 2,
+              "distance_metric": "cosine"
+            },
+            "items": [],
+            "pagination": {
+              "page_size": 20,
+              "total": 0,
+              "has_more": false,
+              "next_cursor": null
+            },
+            "overview": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "themes": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "recommended_questions": {
+              "status": "not_available",
+              "reason_code": "KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED"
+            },
+            "authorization_scope": "current_credential_tenant_published_corpus",
+            "trace_id": "c4c938e3-9b48-4301-8b4c-cf1df08dee88"
+          },
+          "timestamp": 1791607572,
+          "request_id": "8b6f8ec0-4609-4c1a-8d7c-0399a4856610"
+        }
+      },
+      {
+        "name": "cursor_visibility_changed",
+        "http_status": 409,
+        "trace_id": "1d4869b8-1c15-4a8c-a99d-0d0d2a735bfa",
+        "response": {
+          "code": 409,
+          "message": "KNOWLEDGE_CONTENT_SNAPSHOT_CONFLICT",
+          "error": "KNOWLEDGE_CONTENT_SNAPSHOT_CONFLICT: KNOWLEDGE_CONTENT_SNAPSHOT_CONFLICT",
+          "error_code": "KNOWLEDGE_CONTENT_SNAPSHOT_CONFLICT",
+          "reason_code": "KNOWLEDGE_CONTENT_SNAPSHOT_CONFLICT",
+          "timestamp": 1791607572,
+          "request_id": "883aa0b5-fd26-473d-a90e-c5ef684912d1"
+        }
+      },
+      {
+        "name": "source_integrity_failure",
+        "http_status": 503,
+        "trace_id": "ab82ab76-98bf-426a-ac9e-6d560755a318",
+        "response": {
+          "code": 503,
+          "message": "KNOWLEDGE_RESULT_HYDRATION_FAILED",
+          "error": "KNOWLEDGE_RESULT_HYDRATION_FAILED: KNOWLEDGE_RESULT_HYDRATION_FAILED",
+          "error_code": "KNOWLEDGE_RESULT_HYDRATION_FAILED",
+          "reason_code": "KNOWLEDGE_RESULT_HYDRATION_FAILED",
+          "timestamp": 1791607572,
+          "request_id": "4c3f51f3-20d1-4e08-b950-49acabbd9a2b"
+        }
+      }
+    ],
+    "schema": "powerx.knowledge.content-overview-acceptance/v1",
+    "space_uuid": "cc22aa8b-35e2-4cdd-8647-a1baf59ff296"
+  },
+  "verification": {
+    "capability_check": "passed; declared=1097 referenced=63 rest_routes=1019 candidates=1012 ignored_route_rules=6",
+    "capability_seed": "full catalog passed in original powerx and backup verification databases",
+    "unit_packages": "10 affected packages passed; PostgreSQL publication/pagination/source/admin permission tests passed",
+    "real_dev_articles": 5,
+    "embedding_acceptance": "Not rerun; real dev published vectors reused; isolated failure fixture uses fixed vectors",
+    "backend_build": "go build ./cmd/app passed",
+    "admin_plane": "PostgreSQL ordinary member exact platform permission/source and revocation tests passed"
+  },
+  "processes": {
+    "owner": "Codex",
+    "cwd": "backend",
+    "command": "POWERX_BACKEND_PORT=8099 POWERX_GRPC_PORT=9199 POWERX_CONFIG=<private acceptance config> <temporary built Core app>",
+    "http_port": 8099,
+    "grpc_port": 9199,
+    "pids": [
+      21291,
+      39180,
+      59667,
+      80419,
+      82452
+    ],
+    "user_process": {
+      "pid": 97824,
+      "port": 8077,
+      "action": "not stopped or restarted"
+    },
+    "agent_pids_exited": true,
+    "ports_released": [
+      8099,
+      9199
+    ],
+    "checked_at": "2026-10-10T05:39:24.766124+00:00"
+  },
+  "configuration_observation": {
+    "configured_dsn_targets_backup_verification_database": true,
+    "original_powerx_dev_exists": true,
+    "user_config_modified": false,
+    "note": "Explicit DSN takes precedence over database host/port/name; original dev acceptance uses a private config with DSN empty and original database fields. Initial 401 stopped after cache expiry; cross-database shared API-key cache context is suspected, not proven by a retained cache snapshot."
+  },
+  "fixture_cleanup": {
+    "original": {
+      "acceptance_spaces": 0,
+      "acceptance_vector_tables": 0,
+      "acceptance_schemas": 0
+    },
+    "backup_verification": {
+      "acceptance_spaces": 0,
+      "acceptance_vector_tables": 0,
+      "acceptance_schemas": 0
+    }
+  }
+}

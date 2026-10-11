@@ -25,7 +25,7 @@ func NewProvisioningCapabilityInvoker(db *gorm.DB, service func() *Service, host
 	return out
 }
 func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context, in cap.CoreCapabilityInvokeInput) (map[string]interface{}, error) {
-	if in.CapabilityID != KnowledgeCatalogReadCapabilityID && in.CapabilityID != KnowledgeSpaceCreateCapabilityID && in.CapabilityID != KnowledgeDocumentManageCapabilityID && in.CapabilityID != KnowledgeRetrievalReadCapabilityID {
+	if in.CapabilityID != KnowledgeCatalogReadCapabilityID && in.CapabilityID != KnowledgeSpaceCreateCapabilityID && in.CapabilityID != KnowledgeDocumentManageCapabilityID && in.CapabilityID != KnowledgeRetrievalReadCapabilityID && in.CapabilityID != KnowledgeContentOverviewCapabilityID {
 		return nil, cap.ErrCoreCapabilityNotHandled
 	}
 	endpoint := "core://knowledge/catalog"
@@ -37,6 +37,9 @@ func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context
 	}
 	if in.CapabilityID == KnowledgeRetrievalReadCapabilityID {
 		endpoint = "core://knowledge/retrieval"
+	}
+	if in.CapabilityID == KnowledgeContentOverviewCapabilityID {
+		endpoint = "core://knowledge/content-overview"
 	}
 	if in.Method != "INVOKE" || in.Endpoint != endpoint || len(in.Query) != 0 {
 		return nil, KnowledgeInvalidArgumentError(errors.New("invalid typed knowledge binding"))
@@ -51,6 +54,8 @@ func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context
 	var err error
 	if in.CapabilityID == KnowledgeCatalogReadCapabilityID {
 		tenant, err = access.AuthorizeCatalogRead(ctx, reqctx.AuthenticatedAPIKeyHash(ctx))
+	} else if in.CapabilityID == KnowledgeContentOverviewCapabilityID {
+		tenant, err = access.AuthorizeContentOverviewRead(ctx, reqctx.AuthenticatedAPIKeyHash(ctx))
 	} else if in.CapabilityID == KnowledgeRetrievalReadCapabilityID {
 		tenant, err = access.AuthorizeRetrievalRead(ctx, reqctx.AuthenticatedAPIKeyHash(ctx))
 	} else if in.CapabilityID == KnowledgeDocumentManageCapabilityID {
@@ -63,6 +68,27 @@ func (i *ProvisioningCapabilityInvoker) InvokeCoreCapability(ctx context.Context
 	}
 	if tenant != in.TenantUUID {
 		return nil, KnowledgeForbiddenError(errors.New("tenant context mismatch"))
+	}
+	if in.CapabilityID == KnowledgeContentOverviewCapabilityID {
+		if i.host == nil || i.host() == nil || i.host().ContentOverview() == nil {
+			return nil, KnowledgeUpstreamDependencyError(errors.New("content overview unavailable"))
+		}
+		raw, err := json.Marshal(in.Body)
+		if err != nil {
+			return nil, KnowledgeInvalidArgumentError(err)
+		}
+		var request struct {
+			Operation string               `json:"operation"`
+			Query     ContentOverviewQuery `json:"query"`
+		}
+		if strictJSON(raw, &request) != nil || request.Operation != "list_articles" {
+			return nil, KnowledgeInvalidArgumentError(errors.New("expected typed list_articles operation"))
+		}
+		result, err := i.host().ContentOverview().Read(ctx, tenant, request.Query)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"result": result}, nil
 	}
 	if in.CapabilityID == KnowledgeRetrievalReadCapabilityID {
 		if i.host == nil || i.host() == nil || i.host().Semantic() == nil {

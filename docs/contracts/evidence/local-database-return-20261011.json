@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-11",
+  "action": "return local development instance from backup debug database to original powerx database",
+  "core_database": "localhost:5432/powerx",
+  "core_health": "ok",
+  "core_pid": 90588,
+  "ai_craft_version": "0.1.76",
+  "ai_craft_database": "localhost:5432/powerx",
+  "ai_craft_pid": 90748,
+  "ai_craft_health_endpoint": "http://127.0.0.1:58154/healthz",
+  "plugin_sts_credentials_repaired": true,
+  "runtime_postgresql_clients": [
+    "powerx:michaelhu",
+    "powerx:pxu_dev_com_powerx_plugins_ai_craft_d552a544"
+  ],
+  "temporary_database_clients_after_restart": 0,
+  "original_business": {
+    "design_tasks": {
+      "count": 8,
+      "digest": "8d44e13761686c101654fa7809367fc4"
+    },
+    "orders": {
+      "count": 8,
+      "digest": "333a23409a8a7d1dd62ac6ecb49d47bc"
+    },
+    "sample_rounds": {
+      "count": 8,
+      "digest": "fd859396b9189828e55448da2206d7d9"
+    }
+  },
+  "temporary_business": {
+    "design_tasks": {
+      "count": 19,
+      "digest": "af5c7ef1ec00322644195dbb9c223dd1"
+    },
+    "orders": {
+      "count": 19,
+      "digest": "d6cac4e2f4304bd7ea1844c4d79a7bc6"
+    },
+    "sample_rounds": {
+      "count": 19,
+      "digest": "621c333c0c28d840a4fba57f2af95164"
+    }
+  },
+  "both_business_fingerprints_preserved": true,
+  "media_files_modified": false,
+  "media_backup_currently_implemented": false,
+  "local_media_records": 198,
+  "local_media_files": 400,
+  "local_media_size_mib": 216.4,
+  "user_services_restarted_by": "user",
+  "agent_temporary_services_started": false,
+  "migration_or_seed_invoked": false,
+  "docker_used": false,
+  "private_backup": "/Users/michaelhu/.powerx/config-backups/ai-craft-before-original-db-binding-20261011T162303"
+}

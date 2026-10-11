@@ -43,6 +43,7 @@ func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		group.POST("/search", hostHandler.search)
 		group.POST("/retrieval/query", hostHandler.semanticQuery)
 		group.GET("/spaces/:space_uuid/semantic-index", hostHandler.semanticCapabilities)
+		group.GET("/spaces/:space_uuid/content-overview", hostHandler.contentOverview)
 		group.POST("/spaces/:space_uuid/semantic-index", hostHandler.configureSemantic)
 		group.PATCH("/spaces/:space_uuid/documents/:document_uuid/visibility", hostHandler.setSemanticVisibility)
 		group.POST("/spaces/:space_uuid/documents", hostHandler.upsertDocument)

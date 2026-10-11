@@ -25,6 +25,36 @@ func NewPermissionRepository(db *gorm.DB) *PermissionRepository {
 	}
 }
 
+// UpsertUpgradeCatalog 仅更新平台拥有的合同字段，保留 UUID、effect/status、
+// 描述、引入版本和用户授权。不同来源占用相同 triple 时明确拒绝。
+func (r *PermissionRepository) UpsertUpgradeCatalog(ctx context.Context, rows []dbm.Permission) error {
+	for _, row := range rows {
+		var old dbm.Permission
+		err := r.DB.WithContext(ctx).Unscoped().Where("module = ? AND resource = ? AND action = ?", row.Module, row.Resource, row.Action).First(&old).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := r.DB.WithContext(ctx).Create(&row).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		// 允许 Core 候选合同晋升为正式合同；用户/插件来源不能占用平台 triple。
+		promoted := old.Source == "platform_capability_generated" && row.Source == "platform_capability"
+		// 固定来源版本的 metadata:tag:manage 由 SeedSystemPermissions(source=core)
+		// 管理；正式目录晋升保持原 UUID/effect/status/deleted_at 和授权关系。
+		promoted = promoted || (old.Source == "core" && row.Source == "platform_capability" && row.Module == "metadata" && row.Resource == "tag" && row.Action == "manage")
+		if old.Source != row.Source && !promoted {
+			return fmt.Errorf("UPGRADE_PERMISSION_SOURCE_CONFLICT")
+		}
+		if err := r.DB.WithContext(ctx).Unscoped().Model(&old).Updates(map[string]any{"meta": row.Meta, "allow_api_key": row.AllowAPIKey, "source": row.Source}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // FindByIDs 返回非指针切片，便于上层直接 range 使用。
 func (r *PermissionRepository) FindByIDs(ctx context.Context, ids []uint64) ([]*dbm.Permission, error) {
 	if len(ids) == 0 {

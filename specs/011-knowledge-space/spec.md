@@ -1,5 +1,13 @@
 # Feature Specification: Knowledge Space Provisioning & Lifecycle Governance
 
+## 2026-10-10 内容导览补充
+
+- 必须提供已发布 source article 的 typed 只读目录，支持 semantic/hybrid、过滤后的 total 和稳定分页，使用与 retrieval 相同的租户/发布/visibility 条件。
+- 标题与预览必须来自成功任务冻结的原文版本，返回文档 UUID、原文 checksum/version/codepoint 区间、当前配置及语料 generation。不得混入草稿或无真实向量的 lexical 文档。
+- API Key/STS service 与 Admin JWT/RBAC 分离；游标绑定凭据、参数、发布及可见性，语料或授权变化明确失败。
+- 没有真实产物时概要/主题/推荐问题明确缺失；合法空目录与无权、跨租户和依赖失败区分。
+- 正式合同：[content-overview.openapi.yaml](contracts/content-overview.openapi.yaml)；实施及真实 dev 验收边界：[content-overview-implementation.md](content-overview-implementation.md)。
+
 **Feature Branch**: `[011-docs-use-cases]`  
 **Created**: 2025-11-12  
 **Status**: Draft  

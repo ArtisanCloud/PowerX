@@ -9,6 +9,11 @@ from urllib.parse import urlsplit
 import yaml
 
 def initialize(directory=Path('/etc/powerx'), data=Path('/data'), template=Path('/app/container/config.example.yaml')):
+    if os.environ.get('POWERX_UPGRADE_MODE') == '1':
+        from upgrade_config import validate
+        validate(directory/'config.yaml', data)
+        print('Installed configuration validated; no configuration or secret was written.')
+        return
     origin=os.environ.get('PUBLIC_ORIGIN','http://127.0.0.1:18080').rstrip('/')
     parsed=urlsplit(origin)
     if parsed.scheme not in ('http','https') or not parsed.hostname or parsed.username or parsed.path not in ('','/') or parsed.query or parsed.fragment:

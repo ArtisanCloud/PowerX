@@ -4,17 +4,20 @@
 
 备份中心入口：**监控中心 → 备份中心**，页面 `/ops/backup`。管理员能够确认备份的源库、实际文件、保留规则，并验证归档能否还原。页面存在不会自动开启备份，必须创建并启用策略。
 
-当前实现为 PostgreSQL 完整数据库的逻辑备份，包含 Core 和插件 schema；不备份媒体文件、配置、密钥或 PostgreSQL 集群角色。异机副本和 WAL/PITR 尚需独立运维配置。当前空库的备份不能找回事故前已缺失的数据。
+页面分为四个页签：**备份操作**用于管理策略、执行备份、查看作业、验证和清理文件；**媒体与日志**用于媒体增量快照、SSH 目标和异地日志归档；**运行配置**用于核对源数据库、保存目录和文件格式；**使用说明**集中介绍配置步骤、保留规则、恢复流程和排障。长文件路径、SHA256 和 Trace ID 在作业行的“查看路径、校验与 Trace”中展开查看。
+
+数据库策略为 PostgreSQL 完整逻辑备份，包含 Core 和插件 schema；媒体与日志在独立“媒体与日志”页签配置。数据库 dump 本身不包含媒体文件、配置、密钥或 PostgreSQL 集群角色。异机副本和 WAL/PITR 尚需独立运维配置。当前空库的备份不能找回事故前已缺失的数据。
 
 ## 2. 角色与适用范围
 
 | 角色 | 可以做什么 | 前提 |
 |---|---|---|
 | 平台管理员 | 配置、执行、保留备份、恢复验证 | Root 或 `platform_ops:backup:read` / `platform_ops:backup:execute` |
+| Root 管理员 | 在界面恢复到独立保留库、读取副本连接、受保护的删除 | Root 用户 JWT |
 | 运维 | 部署、目录权限、独立 timer、正式库切换 | 服务器权限、PostgreSQL 管理权限 |
 | QA | 检查成功和失败链路 | 测试数据库；不覆盖生产数据 |
 
-这是管理员运维接口，不能用插件 API Key / STS 或普通租户成员绕过授权读取完整数据库。生产还原需要维护窗口。
+这是管理员运维接口，不能用插件 API Key / STS 或普通租户成员绕过授权读取完整数据库。恢复到独立保留库仅允许 Root 用户会话；正式连接切换需要维护窗口。
 
 ## 3. 整体架构与模块关系
 
@@ -112,6 +115,9 @@ flowchart LR
 | 场景 | 手册 | 成功信号 |
 |---|---|---|
 | 配置目录、策略和独立 timer | [US1 配置自动备份](usecase-us1-policy-automation.md) | 首份文件及 SHA256，验证成功，策略启用 |
+| 媒体文件和配套数据库快照 | [US6 媒体快照](usecase-us6-media-archives.md) | Root；去重、核验、独立目录恢复 |
+| PostgreSQL 日志及文件异地归档 | [US7 异地归档](usecase-us7-remote-log-archives.md) | Root；SSH、独立 timer、远端保留及下载 |
+| 界面恢复到新库并保留、TablePlus 核对 | [US5 保留恢复副本](usecase-us5-retained-copy.md) | Root；当前业务库继续服务，副本手动删除 |
 | 还原验证、正式切换及回滚 | [US3 恢复流程](usecase-us3-restore-drill.md) | 隔离验证 + 业务核对 + 明确的维护窗口切换 |
 | 告警巡检 | [US2 监控](usecase-us2-monitor-and-alert.md) | 作业、错误和告警可定位 |
 | Loki / Trace | [US4 日志](usecase-us4-logs-trace.md) | 关联 request/trace 和错误 |
@@ -171,3 +177,5 @@ curl -fsS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/admin/m
 ## 12. 变更记录
 
 - 2026-10-08：修复稳定目录、真实文件清理、保留天数、保护标记、隔离恢复、重启调度、独立 timer 和 refresh 保护；重写页面说明及恢复流程。
+
+- 2026-10-11：加入 Root 界面恢复到独立保留库，详见 US5；不自动切换当前 Core 或插件连接。

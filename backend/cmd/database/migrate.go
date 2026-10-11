@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/persistence"
@@ -17,6 +18,13 @@ import (
 )
 
 func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
+	if db.Dialector.Name() == "postgres" {
+		return database.WithDatabaseMigrationLock(ctx, db, 30*time.Second, func(locked *gorm.DB) error { return migrateDatabase(ctx, locked, cfg) })
+	}
+	return migrateDatabase(ctx, db, cfg)
+}
+
+func migrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 
 	if err := database.MigrateCoreModels(db); err != nil {
 		return fmt.Errorf("CoreX 迁移失败: %w", err)
@@ -25,6 +33,12 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error
 	if err := persistence.MigrateAgentModels(db); err != nil {
 		return fmt.Errorf("Agent 迁移失败: %w", err)
 	}
+	return MigrateKnowledgeDatabase(ctx, db, cfg)
+}
+
+// MigrateKnowledgeDatabase 复用现有 Knowledge 链路；pgvector 可能连接独立库，
+// 因此正式升级将此步骤声明为非事务步骤，并要求失败后恢复备份。
+func MigrateKnowledgeDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 
 	// Knowledge Space migrations (tables that are not covered by GORM models).
 	// - KG assist tables are cheap and enable `index.kg` readiness.

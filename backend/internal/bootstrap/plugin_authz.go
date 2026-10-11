@@ -11,6 +11,7 @@ import (
 	pmrouter "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/gorm"
 )
@@ -127,13 +128,7 @@ func effectivePluginRoleIDsForMemberSQL() string {
 }
 
 func effectivePermissionCodeFromIAMRow(row dbm.Permission) string {
-	var meta map[string]any
-	_ = json.Unmarshal(row.Meta, &meta)
-	permission, ok := effectivePermissionFromIAMRow(row, meta)
-	if !ok {
-		return ""
-	}
-	return permissionCodeFromRoutePermission(permission)
+	return pluginpermission.EffectivePluginPermissionCode(row)
 }
 
 func effectivePermissionFromIAMRow(row dbm.Permission, meta map[string]any) (pmrouter.Permission, bool) {

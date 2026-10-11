@@ -978,11 +978,12 @@ func buildErrorObject(summary string) map[string]string {
 }
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
-	var metadataErr *dto.AppError
-	if errors.As(err, &metadataErr) && (strings.HasPrefix(metadataErr.Code, "METADATA_") || strings.HasPrefix(metadataErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(metadataErr.Code, "KNOWLEDGE_") || strings.HasPrefix(metadataErr.Code, "SCHEDULER_")) {
+	var businessErr *dto.AppError
+	if errors.As(err, &businessErr) && (strings.HasPrefix(businessErr.Code, "METADATA_") || strings.HasPrefix(businessErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(businessErr.Code, "KNOWLEDGE_") || strings.HasPrefix(businessErr.Code, "SCHEDULER_") || strings.HasPrefix(businessErr.Code, "IAM_CONTEXT_")) {
+		// typed Core 业务错误保留原始 HTTP 状态，不能降为通用上游 502。
 		base := capability_registrydto.ErrInvalidRequest
-		base.HTTPStatus = metadataErr.HTTPCode
-		return base.WithDetails(map[string]interface{}{"reason_code": metadataErr.Code})
+		base.HTTPStatus = businessErr.HTTPCode
+		return base.WithDetails(map[string]interface{}{"reason_code": businessErr.Code})
 	}
 	var accessErr *capservice.DirectGrantError
 	if errors.As(err, &accessErr) {

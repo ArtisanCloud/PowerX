@@ -59,6 +59,11 @@ func TestSetupBootstrapFlow(t *testing.T) {
 		"email": map[string]any{
 			"enabled": false,
 		},
+		"admin": map[string]any{
+			"username": "setup-admin",
+			"email":    "admin@example.test",
+			"password": "SetupTestPassword123!",
+		},
 		"database": map[string]any{
 			"type":        "sqlite",
 			"sqlite_path": filepath.Join(t.TempDir(), "powerx.db"),
@@ -244,7 +249,18 @@ func setupInstallRuntime(t *testing.T, status string) {
 	require.NoError(t, os.WriteFile(runtimeConfigPath, []byte(content), 0o644))
 	t.Setenv("POWERX_SETUP_RUNTIME_CONFIG_PATH", runtimeConfigPath)
 	t.Setenv("POWERX_SETUP_DRAFT_PATH", draftPath)
+	t.Setenv("POWERX_RUNTIME_ROOT", tmp)
+	t.Setenv("POWERX_LINKS_ROOT", tmp)
 	t.Setenv("POWERX_SETUP_SIMULATE_PHASE2_FAIL", "false")
+	// 这些测试验证 HTTP 编排、配置状态和回滚。迁移/完整 seed 的真实
+	// 数据库执行由独立 PostgreSQL 安装验收覆盖，不能依赖宿主机工具或数据库。
+	toolsDir := filepath.Join(tmp, "backend")
+	require.NoError(t, os.MkdirAll(toolsDir, 0o700))
+	for _, name := range []string{"database", "platform_capability_seed"} {
+		require.NoError(t, os.WriteFile(filepath.Join(toolsDir, name), []byte("#!/bin/sh\nexit 0\n"), 0o700))
+	}
+	previousConfig := corecfg.GlobalConfig
+	t.Cleanup(func() { corecfg.GlobalConfig = previousConfig })
 	corecfg.GlobalConfig = &corecfg.Config{}
 	corecfg.GlobalConfig.Version = "v1.0.0"
 	corecfg.GlobalConfig.Deployment.Env = "dev"
@@ -267,7 +283,13 @@ func setupSetupDB(t *testing.T) *gorm.DB {
 		&modeliam.User{},
 		&modeltenant.Tenant{},
 		&modelsetting.SystemSetting{},
+		&modeliam.RegistrationPolicy{},
 	))
+	require.NoError(t, db.Create(&modeliam.RegistrationPolicy{
+		Version: 1,
+		Mode:    modeliam.RegistrationPolicyModeClosed,
+		Status:  modeliam.RegistrationPolicyStatusActive,
+	}).Error)
 	return db
 }
 

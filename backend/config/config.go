@@ -24,6 +24,17 @@ var globalConfigPath string
 
 // 初始化全局配置
 func InitGlobalConfig(configPath string) error {
+	if os.Getenv("POWERX_UPGRADE_MODE") == "1" {
+		cfg, _, err := LoadForUpgrade(configPath, upgradeDataDirectory())
+		if err != nil {
+			return err
+		}
+		cfg.AI.SetDefaults()
+		agentCfg.SetGlobalAIConfig(&cfg.AI)
+		GlobalConfig = cfg
+		globalConfigPath = configPath
+		return nil
+	}
 	loadDotEnvCandidates(configPath)
 
 	data, err := os.ReadFile(configPath)
@@ -54,6 +65,13 @@ func InitGlobalConfig(configPath string) error {
 // 获取全局配置
 func GetGlobalConfig() *Config {
 	if GlobalConfig == nil {
+		if os.Getenv("POWERX_UPGRADE_MODE") == "1" {
+			if err := InitGlobalConfig(os.Getenv("POWERX_CONFIG")); err != nil {
+				logger.Error(context.Background(), "UPGRADE_CONFIG_LOAD_BLOCKED")
+				os.Exit(2)
+			}
+			return GlobalConfig
+		}
 		// 初始化全局配置，优先级：
 		// 1) POWERX_CONFIG 显式指定
 		// 2) 可执行文件同级目录下的 etc/config.yaml（适配 dist 产物从任意 cwd 启动）
@@ -703,6 +721,10 @@ type FeatureGateConfig struct {
 
 // Load 加载配置文件并合并环境变量
 func Load(configPath string) (*Config, error) {
+	if os.Getenv("POWERX_UPGRADE_MODE") == "1" {
+		cfg, _, err := LoadForUpgrade(configPath, upgradeDataDirectory())
+		return cfg, err
+	}
 	// 1. 加载默认配置
 	cfg := GetDefaults()
 

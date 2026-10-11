@@ -68,13 +68,17 @@ func (s *GrantStatusService) CurrentAccess(ctx context.Context) (CredentialAcces
 			return result, &DirectGrantError{503}
 		}
 		var credential struct {
-			ClientID string   `json:"client_id"`
-			Allowed  []string `json:"allowed_capabilities"`
+			ClientID  string   `json:"client_id"`
+			Allowed   []string `json:"allowed_capabilities"`
+			ExpiresAt *int64   `json:"expires_at"`
 		}
 		if json.Unmarshal(row.ValueJSON, &credential) != nil {
 			return result, &DirectGrantError{503}
 		}
 		if credential.ClientID == "" || c.Subject != "client:"+credential.ClientID {
+			return result, &DirectGrantError{401}
+		}
+		if credential.ExpiresAt != nil && *credential.ExpiresAt <= time.Now().Unix() {
 			return result, &DirectGrantError{401}
 		}
 		result.Subject = "sts:" + c.PluginID + ":" + c.Subject

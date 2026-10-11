@@ -1,3 +1,4 @@
+import { commitAuthSession } from "~/utils/auth-session";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   TENANT_UUID_STORAGE_KEY,
@@ -19,19 +20,21 @@ describe("tenant context utils", () => {
     expect(localStorage.getItem(TENANT_UUID_STORAGE_KEY)).toBe(
       "6b5d0240-9920-46da-b707-88200e0f51ea"
     );
-    expect(getStoredTenantUUID()).toBe("6b5d0240-9920-46da-b707-88200e0f51ea");
+    expect(getStoredTenantUUID()).toBeNull();
   });
 
-  it("resolveTenantUUIDForRequest 在无 stored tenant 时回落到 access_token.tid", () => {
+  it("resolveTenantUUIDForRequest 使用宿主快照而不是旧插件镜像", () => {
     const payload = {
       tid: "6b5d0240-9920-46da-b707-88200e0f51ea",
-      sub: "u1",
+      sub: "u1", exp: Math.floor(Date.now()/1000) + 3600,
     };
     const encoded = btoa(JSON.stringify(payload))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
-    localStorage.setItem("access_token", `h.${encoded}.s`);
+    commitAuthSession({access_token:`h.${encoded}.s`, refresh_token:'refresh', expires_in:3600});
+    localStorage.setItem("access_token", 'old-plugin-token');
+    expect(getStoredTenantUUID()).toBe(payload.tid);
 
     expect(resolveTenantUUIDForRequest()).toBe(
       "6b5d0240-9920-46da-b707-88200e0f51ea"

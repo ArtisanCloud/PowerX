@@ -1,0 +1,24 @@
+{
+  "release_id": "sha-3d792fd7ea2426825970bceceb0d6e9db46211ef",
+  "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+  "verified_at": "2026-10-11",
+  "verification": "GHCR index, platform manifest digest and OCI config source revision; upgrade execution is a separate CI gate",
+  "images": {
+    "backend": {
+      "repository": "ghcr.io/artisancloud/powerx-backend",
+      "index_digest": "sha256:1dad4db52d2dd1347f6f4fc1391ea17b991b62627bdade26ad1c1d83f4357737",
+      "platforms": {
+        "linux/amd64": {"digest": "sha256:38c2954c8c7a56cd892ef53ecf0a4424691f54b952627c21cb77dcab8aae499c", "source_revision": "3d792fd7ea2426825970bceceb0d6e9db46211ef"},
+        "linux/arm64": {"digest": "sha256:16a051cb54c57d6a783ba31a61ae8bcd1a9eeb6d7eea058877d2b57a5f46df27", "source_revision": "3d792fd7ea2426825970bceceb0d6e9db46211ef"}
+      }
+    },
+    "web_admin": {
+      "repository": "ghcr.io/artisancloud/powerx-web-admin",
+      "index_digest": "sha256:364e4c4e6a997910d1a5f3d68675ad55a8954835a966bdbfe24271354f26fa44",
+      "platforms": {
+        "linux/amd64": {"digest": "sha256:e4918197a260d743c7b85827f5d3cd509a8f7a383f6d0a19044ce9c8e35019c3", "source_revision": "3d792fd7ea2426825970bceceb0d6e9db46211ef"},
+        "linux/arm64": {"digest": "sha256:2467b1a10f85cde61dfa2456df12869bab1e16592762493217fb5632c270eb68", "source_revision": "3d792fd7ea2426825970bceceb0d6e9db46211ef"}
+      }
+    }
+  }
+}

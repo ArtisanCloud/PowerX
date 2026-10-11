@@ -3,9 +3,16 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/google/uuid"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,6 +21,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
+	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
@@ -184,7 +192,9 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 
 	opts := &shared.DepsOptions{
-		RuntimeIdentity: runtimeidentity.CoreInfo{Version: cfg.EffectiveSystemVersion(), DeploymentEnv: cfg.Deployment.Env, Ready: config.ValidateDeploymentEnv(cfg.Deployment.Env) == nil, Manager: runtimeIdentityManager},
+		PreserveInstalledCatalog: cfg.Install.EffectiveStatus() == "installed",
+		PluginRequestIdentity:    requestidentity.Options{Namespace: identityTicketNamespace(cfg), UserIssuer: cfg.Auth.Issuer, UserAudience: cfg.Auth.AudienceUser},
+		RuntimeIdentity:          runtimeidentity.CoreInfo{Version: cfg.EffectiveSystemVersion(), DeploymentEnv: cfg.Deployment.Env, Ready: config.ValidateDeploymentEnv(cfg.Deployment.Env) == nil, Manager: runtimeIdentityManager},
 		AuthUser: auth.AuthOptions{
 			JWTSecret:  []byte(cfg.Auth.JWTSecret),
 			Issuer:     cfg.Auth.Issuer,
@@ -371,6 +381,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		KnowledgeSpace: shared.KnowledgeSpaceOptions{
+			ContentCursorSigningKey:  []byte(cfg.Server.SecretKey),
 			RedisAddr:                knowledgeRedisAddr,
 			RedisPassword:            knowledgeRedisPassword,
 			RedisDB:                  knowledgeRedisDB,
@@ -594,9 +605,54 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		return nil, fmt.Errorf("%w: Agent durable sessions: %v", ErrBootstrapDependencyUnavailable, err)
 	}
 	backupops.RegisterPolicyScheduler(ctx, db, time.Duration(globalSchedulerInterval)*time.Second)
+	deps.RestoreCopies = backupops.NewRestoreCopyService(ctx, db, backupops.RestoreCopyOptions{})
+	mediaRoot, _ := filepath.Abs(cfg.Storage.Local.BasePath)
+	archDirectory := archiveops.DefaultDirectory()
+	defaults := archiveops.Config{Directory: archDirectory, Instance: cfg.Deployment.Env, Sources: []archiveops.Source{
+		{ID: "media", Name: "媒体文件与数据库快照", Kind: "media", Directory: mediaRoot, DatabaseDSN: composePostgresDSNFromDB(cfg.Database.Driver, cfg.Database.Host, cfg.Database.Port, cfg.Database.UserName, cfg.Database.Password, cfg.Database.Database, cfg.Database.SSLMode, cfg.Database.Timezone)},
+		{ID: "database-files", Name: "数据库备份文件异地保存", Kind: "database_files", Directory: backupops.NewJobService(db).RuntimeSettings().ArtifactDirectory},
+	}}
+	if cfg.Database.DSN != "" {
+		defaults.Sources[0].DatabaseDSN = cfg.Database.DSN
+	}
+	if cfg.Storage.S3.Endpoint != "" {
+		c := cfg.Storage.S3
+		defaults.Sources[0].S3 = &archiveops.S3Config{Endpoint: c.Endpoint, Bucket: c.Bucket, Region: c.Region, AccessKey: c.AccessKey, SecretKey: c.SecretKey, UseSSL: c.UseSSL, ForcePathStyle: c.ForcePathStyle}
+	}
+	archCfg, archErr := archiveops.RuntimeConfig(defaults)
+	if archErr != nil {
+		logger.WarnF(ctx, "archive config unavailable: %v", archErr)
+	}
+	deps.Archives = archiveops.NewService(ctx, archCfg, archiveops.Options{ConfigError: archErr, RestoreDatabase: func(run context.Context, path string, older bool, operator, trace string) (string, string, error) {
+		run = reqctx.WithIsRoot(run, true)
+		f, err := os.Open(path)
+		if err != nil {
+			return "", "", err
+		}
+		defer f.Close()
+		uploaded, err := deps.RestoreCopies.Import(run, "database.dump", f)
+		if err != nil {
+			return "", "", err
+		}
+		row, err := deps.RestoreCopies.Create(run, backupops.CreateRestoreCopy{RestoreSource: backupops.RestoreSource{ImportID: uploaded.ID}, IdempotencyKey: uuid.NewString(), AllowOlderServer: older, Operator: operator, TraceID: trace})
+		return row.ID, row.Database, err
+	}})
+	if archErr == nil {
+		if err := deps.Archives.PublishRuntimeConfig(); err != nil {
+			logger.WarnF(ctx, "archive runtime config unavailable: %v", err)
+		}
+		deps.Archives.StartScheduler()
+	}
 	monitorlogs.StartRetentionScheduler(ctx, cfg, db)
 
 	return deps, nil
+}
+
+func identityTicketNamespace(cfg *config.Config) string {
+	// Deployment/database isolation without exposing connection credentials in keys.
+	raw := fmt.Sprintf("powerx.request-identity/v1|%s|%s|%s|%s|%d|%s", cfg.Server.SecretKey, cfg.Deployment.Env, cfg.Database.DSN, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
 }
 
 func buildEventBusConfig(cfg *config.Config, defaultAddr, defaultPassword string, defaultDB int) *event_bus.Config {

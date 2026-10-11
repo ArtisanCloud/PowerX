@@ -1,0 +1,149 @@
+{
+  "schema": "powerx.plugin-navigation.core-verification/v1",
+  "date": "2026-10-11",
+  "scope": "Core host bridge, injected consumer and navigation failure messages",
+  "regression_before_fix": {
+    "targeted_tests": 16,
+    "failed": 4,
+    "cases": [
+      "return to completed route while another navigation is pending",
+      "repeat the same pending target",
+      "reconfirm a previous route after navigation failure",
+      "distinguish installed Router failure from missing adapter"
+    ]
+  },
+  "verification": {
+    "command": "npx vitest run tests/unit/auth tests/unit/settings-users/tenant-context.spec.ts tests/unit/settings-users/user-store-context.spec.ts",
+    "cwd": "web-admin",
+    "files_passed": 10,
+    "tests_passed": 67,
+    "injected_script_syntax": "passed",
+    "locale_json_validation": [
+      "zh",
+      "en",
+      "ja",
+      "ko"
+    ],
+    "refactor_check": "passed",
+    "git_diff_check": "passed"
+  },
+  "served_script": {
+    "url": "http://127.0.0.1:3030/powerx-bridge-client.js?v=2",
+    "http_status": 200,
+    "response_matches_workspace_bytes": true,
+    "sha256": "c0385a9c7167f7bc46d59e18ad519b3d010af53db970ff3f500bb029ade0db9f"
+  },
+  "acceptance_boundary": "Core hydration and navigation fixes verified with unit regressions and isolated real Chromium/Vue Router/Framework fixture; actual installed AI Craft user page requires refreshed script acceptance",
+  "process_ownership": {
+    "agent_started_services": [],
+    "user_services_restarted": false,
+    "vitest_process_completed": true
+  },
+  "external_repositories_modified": false,
+  "credentials_included": false,
+  "hydration_root_cause": "Nuxt revive-payload client removes window.__NUXT__; Core consumer depended on its runtime config for the plugin mount prefix",
+  "hydration_regression_before_fix": {
+    "tests": 17,
+    "failed": 4,
+    "hydration_sequence": "tracks -> bulk-orders -> tracks"
+  },
+  "chromium_navigation_fixture": {
+    "scope": "isolated Chromium fixture with Core consumer, real Vue Router and current Framework navigation adapter",
+    "agent_pid": 87404,
+    "records": [
+      {
+        "request_id": "browser-0",
+        "ok": true,
+        "target": "/operations/ai-craft/tracks",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks"
+      },
+      {
+        "request_id": "browser-1",
+        "ok": true,
+        "target": "/operations/ai-craft/bulk-orders",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/bulk-orders"
+      },
+      {
+        "request_id": "browser-2",
+        "ok": true,
+        "target": "/operations/ai-craft/payment-orders",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/payment-orders"
+      },
+      {
+        "request_id": "browser-3",
+        "ok": true,
+        "target": "/operations/ai-craft/tracks",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks"
+      },
+      {
+        "request_id": "browser-4",
+        "ok": true,
+        "target": "/operations/ai-craft/tracks",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks"
+      },
+      {
+        "request_id": "browser-5",
+        "ok": true,
+        "target": "/operations/ai-craft/bulk-orders",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/bulk-orders"
+      },
+      {
+        "request_id": "browser-6",
+        "ok": true,
+        "target": "/operations/ai-craft/payment-orders",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/payment-orders"
+      },
+      {
+        "request_id": "browser-7",
+        "ok": true,
+        "target": "/operations/ai-craft/tracks",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks"
+      },
+      {
+        "request_id": "browser-8",
+        "ok": true,
+        "target": "/operations/ai-craft/tracks",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks"
+      },
+      {
+        "request_id": "browser-9",
+        "ok": true,
+        "target": "/operations/ai-craft/bulk-orders",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/bulk-orders"
+      },
+      {
+        "request_id": "browser-10",
+        "ok": true,
+        "target": "/operations/ai-craft/payment-orders",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/payment-orders"
+      },
+      {
+        "request_id": "browser-11",
+        "ok": true,
+        "target": "/operations/ai-craft/tracks",
+        "actual": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks"
+      },
+      {
+        "request_id": "foreign-plugin",
+        "ok": false,
+        "code": "PLUGIN_NAVIGATION_INVALID"
+      }
+    ],
+    "credentials_included": false,
+    "child_pids": [
+      87450,
+      87452,
+      87493,
+      87494,
+      87495,
+      87496,
+      87503
+    ],
+    "consumer_sha256": "c0385a9c7167f7bc46d59e18ad519b3d010af53db970ff3f500bb029ade0db9f",
+    "framework_navigation_sha256": "46f668cfbdb8cb015bcfbaaf3bc18b51ab5cbd3d2a7e89259186ebdee69e6d5e",
+    "passed": true,
+    "browser_closed": true,
+    "processes_exited": true,
+    "user_services_restarted": false
+  }
+}

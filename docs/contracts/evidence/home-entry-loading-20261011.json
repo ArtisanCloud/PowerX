@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-11",
+  "reported_behavior": "start using reaches the business page, with a fullscreen flash",
+  "core_http_evidence": {
+    "user_context_status": 200,
+    "menu_status": 200,
+    "setup_status": 200,
+    "default_business_route": "/agent/sessions"
+  },
+  "repair": {
+    "menu_request_fullscreen_loading": false,
+    "api_and_global_fetch_double_counting_removed": true,
+    "response_and_error_hooks_finish_once": true,
+    "silent_requests_do_not_decrement_other_requests": true,
+    "automatic_overlay_delay_ms": 200,
+    "explicit_manual_or_locked_overlay_immediate": true
+  },
+  "checks": {
+    "related_tests_passed": 59,
+    "new_loading_tests": 10,
+    "nuxt_build": "passed",
+    "refactor_check": "passed"
+  },
+  "browser_check": {
+    "kind": "guest browser using real frontend API client and real Core setup endpoint",
+    "silent_request_status": 200,
+    "regular_request_status": 200,
+    "pending_after_requests": 0,
+    "fullscreen_modal_after_requests": false,
+    "console_errors": 0,
+    "authenticated_start_using_click_verified": false
+  },
+  "runtime": {
+    "user_core_pid": 58924,
+    "user_frontend_pid": 25486,
+    "user_services_not_restarted_by_agent": true,
+    "temporary_browser_page_returned_to_blank": true
+  }
+}

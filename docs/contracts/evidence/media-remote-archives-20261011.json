@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-11",
+  "scope": "Core media snapshots and SSH remote archives",
+  "implementation": {
+    "media": "content-addressed incremental objects; whole local directory plus registered S3 assets/variants; optional same-MVCC database dump",
+    "log_source": "sealed PostgreSQL .log/.csv/.json/.gz excluding current_logfiles",
+    "remote": "real SSH and rsync; verified objects then committed manifest; separate remote retention",
+    "restore": "new owned directory and optional independent database restore job; never switch live storage",
+    "scheduler": "Core every-minute tick plus database-independent archive-worker systemd timers"
+  },
+  "tests": {
+    "service_and_HTTP": "passed",
+    "race_detector": "passed",
+    "frontend_backup_tests": 22,
+    "native_PostgreSQL": "paired exported snapshot pg_dump restored into owned scratch database; source sentinel preserved; fixtures dropped",
+    "SSH_loopback": [
+      "pinned host key",
+      "real Python receiver and rsync",
+      "active SQL log excluded",
+      "local pruning preserves remote manifest",
+      "remote pruning preserves protected snapshot",
+      "retrieve locally pruned objects",
+      "failed transfer retries original snapshot after source changed",
+      "unknown host rejected",
+      "unrelated remote files preserved"
+    ],
+    "browser": {
+      "passed": true,
+      "auth_boundary": "isolated signed Root test JWT; production login callback not exercised",
+      "api_mode": "real archive HTTP; surrounding auth/menu/legacy backup metadata mocked",
+      "errors": [],
+      "calls": [
+        {
+          "path": "/api/v1/admin/ops/backup/archives",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/backup/archives/policies",
+          "method": "POST",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/backup/archives",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/backup/archives/policies/d1bbf214-5040-4e6e-9c0f-c075817f0a2c/run",
+          "method": "POST",
+          "status": 202
+        },
+        {
+          "path": "/api/v1/admin/ops/backup/archives",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/backup/archives/jobs/9720924e-a022-4d03-b8f0-fa470929ad59/download",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/backup/archives/jobs/9720924e-a022-4d03-b8f0-fa470929ad59/restore",
+          "method": "POST",
+          "status": 202
+        },
+        {
+          "path": "/api/v1/admin/ops/backup/archives",
+          "method": "GET",
+          "status": 200
+        }
+      ],
+      "download_entries": [
+        "media/thumbnail.jpg",
+        "media/photo.jpg",
+        "archive-manifest.json",
+        ""
+      ],
+      "screenshots": [
+        "media-snapshot-dark.png",
+        "media-restored-directory-dark.png",
+        "media-archives-mobile.png"
+      ],
+      "checks": [
+        "save policy disabled",
+        "explicit capture confirmation",
+        "real incremental media files",
+        "downloaded tar content",
+        "new-directory restoration",
+        "exact restore ID deletion gate",
+        "no SSH secret input in browser"
+      ]
+    }
+  },
+  "checks": {
+    "go_vet": "passed",
+    "Core_and_worker_build": "passed",
+    "Nuxt_build": "passed",
+    "capability_check": "passed",
+    "installer_shell_syntax": "passed",
+    "OpenAPI_and_config_YAML": "passed",
+    "diff_check": "passed",
+    "worker_version": "DIST_VERSION injected as main.version; --version works without config or database"
+  },
+  "boundaries": {
+    "real_remote_server_configured": false,
+    "remote_deployment_performed": false,
+    "systemd_units_installed": false,
+    "daily_services_restarted_by_agent": false,
+    "Docker_used": false,
+    "PITR_or_WAL_implemented": false,
+    "whole_S3_bucket_inventory_implemented": false,
+    "full_application_copy_preview_implemented": false,
+    "production_login_callback_browser_tested": false
+  },
+  "cleanup": {
+    "browser_closed": true,
+    "owned_HTTP_fixture_stopped": true,
+    "loopback_SSH_servers_stopped": true,
+    "production_UI_preview_port_5066_released": true,
+    "owned_native_test_databases_removed": true
+  },
+  "browser_fixture_process": {
+    "pid": 93396,
+    "url": "http://127.0.0.1:63843",
+    "proxy_port": 64137
+  },
+  "preview_directory": "/Users/michaelhu/Downloads/powerx-resource-archives-20261011",
+  "documentation": [
+    "docs/guides/deploy/027-monitor-center/usecase-us6-media-archives.md",
+    "docs/guides/deploy/027-monitor-center/usecase-us7-remote-log-archives.md",
+    "docs/contracts/resource-archives.openapi.yaml"
+  ]
+}

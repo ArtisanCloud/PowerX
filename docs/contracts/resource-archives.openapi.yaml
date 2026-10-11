@@ -1,0 +1,168 @@
+openapi: 3.0.3
+info:
+  title: PowerX media and remote archives
+  version: '1.0.0'
+  description: Root user sessions only. Policy state lives outside the business database. No arbitrary source paths, shell commands or SSH keys in API requests.
+servers:
+  - url: /api/v1/admin/ops/backup/archives
+security:
+  - rootJWT: []
+paths:
+  /:
+    get:
+      responses:
+        '200': { description: 'data.overview: instance, directory, sources, credential references, policies, targets, jobs, restores and pending_transfers. Credentials and DSNs are never returned.' }
+  /policies:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Policy' }
+      responses:
+        '200': { description: data.policy saved }
+        '400': { description: Invalid settings or unsupported source }
+        '409': { description: Policy is running }
+        '422': { description: Enabled source unavailable }
+  /targets:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Target' }
+      responses:
+        '200': { description: data.target saved }
+        '400': { description: Invalid target or unknown deployed credential reference }
+  /targets/{target_id}/test:
+    parameters:
+      - { in: path, name: target_id, required: true, schema: { type: string, format: uuid } }
+    post:
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '200': { description: SSH host trust, Python receiver and writable namespace verified }
+  /policies/{policy_id}/run:
+    parameters:
+      - { in: path, name: policy_id, required: true, schema: { type: string, format: uuid } }
+    post:
+      parameters:
+        - { in: header, name: Idempotency-Key, required: true, schema: { type: string, format: uuid } }
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { description: data.job is a durable asynchronous job; a replay returns the original job }
+        '409': { description: Another operation owns the policy lock }
+  /jobs/{job_id}:
+    parameters:
+      - { in: path, name: job_id, required: true, schema: { type: string, format: uuid } }
+    get:
+      responses:
+        '200': { description: data.job with inventory and checksums; local and remote status are separate }
+  /jobs/{job_id}/retry:
+    parameters:
+      - { in: path, name: job_id, required: true, schema: { type: string, format: uuid } }
+    post:
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { description: Retransfer the same immutable snapshot, not current source contents }
+  /jobs/{job_id}/protection:
+    parameters:
+      - { in: path, name: job_id, required: true, schema: { type: string, format: uuid } }
+    patch:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [protected]
+              properties:
+                protected: { type: boolean }
+      responses:
+        '200': { description: Protected state saved; remote state must be acknowledged when already uploaded }
+  /jobs/{job_id}/download:
+    parameters:
+      - { in: path, name: job_id, required: true, schema: { type: string, format: uuid } }
+    get:
+      responses:
+        '200':
+          description: Verified portable tar.gz; remote retrieval is supported when local objects were pruned
+          headers:
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
+          content:
+            application/gzip:
+              schema: { type: string, format: binary }
+        '409': { description: Policy busy or snapshot not complete }
+  /jobs/{job_id}/restore:
+    parameters:
+      - { in: path, name: job_id, required: true, schema: { type: string, format: uuid } }
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation]
+              properties:
+                confirmation: { type: string, format: uuid, description: Exact source job ID }
+                allow_older_server: { type: boolean, default: false }
+      responses:
+        '202': { description: data.restore is an independent directory task; a paired database uses a separate RestoreCopy job }
+  /cleanup:
+    post:
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '200': { description: data.pruned; latest, protected and untransferred snapshots retained }
+  /restores/{restore_id}:
+    parameters:
+      - { in: path, name: restore_id, required: true, schema: { type: string, format: uuid } }
+    get:
+      responses:
+        '200': { description: data.restore }
+    delete:
+      parameters:
+        - { in: header, name: X-Restore-Confirmation, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Only generated directory deleted; associated database is managed separately }
+        '409': { description: Restore running or directory inode identity changed }
+components:
+  securitySchemes:
+    rootJWT: { type: http, scheme: bearer, bearerFormat: JWT }
+  requestBodies:
+    Empty:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: false }
+  schemas:
+    Policy:
+      type: object
+      additionalProperties: false
+      required: [name, source_id, interval_minutes, retention_days, retention_count, remote_retention_days, remote_retention_count]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 128 }
+        source_id: { type: string }
+        interval_minutes: { type: integer, minimum: 1, maximum: 525600 }
+        retention_days: { type: integer, minimum: 1, maximum: 3650 }
+        retention_count: { type: integer, minimum: 1, maximum: 10000 }
+        remote_retention_days: { type: integer, minimum: 1, maximum: 3650 }
+        remote_retention_count: { type: integer, minimum: 1, maximum: 10000 }
+        target_id: { type: string }
+        include_database: { type: boolean, default: false }
+        enabled: { type: boolean, default: false }
+        created_at: { type: string, format: date-time }
+    Target:
+      type: object
+      additionalProperties: false
+      required: [name, host, port, user, directory, credential_ref]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        host: { type: string }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        user: { type: string }
+        directory: { type: string, description: Absolute path; shell characters and parent traversal rejected }
+        credential_ref: { type: string, description: Deployed key and known_hosts reference; no private key accepted }

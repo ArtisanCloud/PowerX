@@ -27,12 +27,32 @@ paths:
       responses:
         '200':
           description: Accepted
+  /admin/setup/provision:
+    post:
+      summary: Prepare database schema before administrator confirmation
+      description: Uses the saved draft to run idempotent migrations only. Does not run seed, create an administrator or mark the installation installed.
+      responses:
+        '200':
+          description: Database schema prepared
+        '400':
+          description: Draft missing or invalid
+        '409':
+          description: System already installed
+        '500':
+          description: Database preparation failed; retry after fixing the dependency
   /admin/setup/complete:
     post:
-      summary: Mark first-install setup completed
+      summary: Initialize administrator and dependencies, then complete installation
+      description: Validates the saved domain and administrator username, email and password before writes. Runs idempotent migrations and full seed. Marks installed only after all steps succeed. Existing password credentials are not reset by ordinary retries.
       responses:
         '200':
           description: Accepted
+        '400':
+          description: Draft missing or invalid, including unconfirmed administrator
+        '409':
+          description: System already installed
+        '500':
+          description: Initialization failed; installation is not marked installed
   /admin/deploy/releases:
     get:
       summary: List deploy release records
@@ -269,6 +289,19 @@ components:
           type: object
         email:
           type: object
+        admin:
+          type: object
+          description: May be incomplete in the saved draft and during provision; username, email and password are required at complete.
+          properties:
+            username:
+              type: string
+            email:
+              type: string
+              format: email
+            password:
+              type: string
+              writeOnly: true
+              description: Nonblank password, at most 72 UTF-8 bytes after the existing seed normalization.
         ports:
           type: object
           properties:

@@ -25,6 +25,23 @@ func EnsureTemplatePermissions(ctx context.Context, repo *iamrepo.PermissionRepo
 	return repo.UpsertBatch(ctx, mergePermissionTriples(rows))
 }
 
+// EnsureUpgradePermissions 不改变任何角色、Profile、Key grants 或 owner。
+func EnsureUpgradePermissions(ctx context.Context, db *gorm.DB) error {
+	rows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		return err
+	}
+	formal := make([]modelsiam.Permission, 0, len(rows))
+	for _, row := range rows {
+		if row.Source == platformPermissionSource {
+			formal = append(formal, row)
+		}
+	}
+	// generated REST 候选不是正式升级系统数据，不复活已删除候选或覆盖
+	// 首次安装时由 Core 模块明确管理的权限。
+	return iamrepo.NewPermissionRepository(db).UpsertUpgradeCatalog(ctx, mergePermissionTriples(formal))
+}
+
 // mergePermissionTriples establishes one authoritative row for the unique
 // database key `(module, resource, action)` before PostgreSQL receives the
 // batch. Platform capability rows are appended after built-in templates and

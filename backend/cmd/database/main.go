@@ -24,6 +24,9 @@ import (
 )
 
 func main() {
+	if handled, code := handleUpgradeCommand(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	handled, err := handleDatabaseInformation(os.Args[1:], os.Stdout)
 	if err != nil {
 		fatalf("%v", err)

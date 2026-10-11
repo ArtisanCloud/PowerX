@@ -7,8 +7,22 @@ export default defineNuxtPlugin(async () => {
     { props: { message: "加载中…" } }
   );
 
-  // 绑定到你已有的全局状态
-  const { visible } = useGlobalLoading();
+  // 自动加载短于 200ms 时不展示全屏遮罩；显式展示和锁屏立即生效。
+  const autoVisible = useGL_AutoVisible();
+  const manualVisible = useGL_ManualVisible();
+  const lockCount = useGL_LockCount();
+  const delayedAutoVisible = ref(false);
+  watch(autoVisible, (pending, _previous, onCleanup) => {
+    delayedAutoVisible.value = false;
+    if (!pending) return;
+    const timer = setTimeout(() => {
+      delayedAutoVisible.value = true;
+    }, 200);
+    onCleanup(() => clearTimeout(timer));
+  }, { immediate: true });
+  const visible = computed(() =>
+    manualVisible.value || lockCount.value > 0 || delayedAutoVisible.value
+  );
   const message = useGL_Message();
   const progress = useGL_Progress();
 
@@ -19,23 +33,20 @@ export default defineNuxtPlugin(async () => {
     if (opened.value) modal.patch({ message: m, progress: p });
   });
 
-  // 根据 visible 打开/关闭
-  watch(
-    visible,
-    async (v) => {
-      if (v && !opened.value) {
-        const instance = modal.open({
-          message: message.value,
-          progress: progress.value,
-        });
-        opened.value = true;
-        // 等待关闭（无论手动 gl.hide() 还是代码 modal.close()）
-        await instance.result;
-        opened.value = false;
-      } else if (!v && opened.value) {
-        modal.close();
-      }
-    },
-    { immediate: true }
-  );
+  const openModal = async () => {
+    if (opened.value || !visible.value) return;
+    const instance = modal.open({
+      message: message.value,
+      progress: progress.value,
+    });
+    opened.value = true;
+    await instance.result;
+    opened.value = false;
+    // 关闭完成前开始了另一项加载时，恢复仍然需要显示的遮罩。
+    if (visible.value) void openModal();
+  };
+  watch(visible, (v) => {
+    if (v) void openModal();
+    else if (opened.value) modal.close();
+  }, { immediate: true });
 });

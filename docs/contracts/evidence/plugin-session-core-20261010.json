@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-10",
+  "scope": "PowerX Core web-admin session and iframe lifecycle",
+  "unit_component_and_proxy_contract": {
+    "passed": 54,
+    "failed": 0,
+    "files": 10,
+    "command": "npx vitest run tests/unit/auth tests/unit/settings-users/tenant-context.spec.ts tests/unit/settings-users/user-store-context.spec.ts"
+  },
+  "nuxt_build": {
+    "result": "passed",
+    "command": "npm run build"
+  },
+  "refactor_check": {
+    "result": "passed",
+    "command": "bash scripts/check-refactor.sh"
+  },
+  "live_read_only": {
+    "core_health_http": 200,
+    "core_health_status": "ok",
+    "anonymous_plugin_host_routes_http": 200,
+    "bridge_script_http": 200,
+    "bridge_script_sha256": "502d943cb15a91bb5abbc4289aebde72429cced4fecb9321df4ef6d46ef452a3"
+  },
+  "acceptance_limits": [
+    "No authenticated browser login or first-refresh acceptance",
+    "Browser control unavailable: nodeRepl.fetch request failed",
+    "Framework and plugin v2 adapters pending",
+    "Same-origin third-party isolation is not implemented"
+  ],
+  "processes": {
+    "agent_started_services": [],
+    "user_core_pid": 97824,
+    "user_nuxt_listener_pid": 53068,
+    "user_nuxt_parent_pid": 52218,
+    "user_services_restarted": false
+  },
+  "database_business_changes": false
+}

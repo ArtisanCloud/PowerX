@@ -19,7 +19,8 @@ func TestSetupHTTPContract(t *testing.T) {
 	assertOperation(t, doc, "/admin/setup/status", http.MethodGet, []string{"200"})
 	assertOperation(t, doc, "/admin/setup/config", http.MethodGet, []string{"200"})
 	assertOperation(t, doc, "/admin/setup/config", http.MethodPut, []string{"200"})
-	assertOperation(t, doc, "/admin/setup/complete", http.MethodPost, []string{"200"})
+	assertOperation(t, doc, "/admin/setup/provision", http.MethodPost, []string{"200", "400", "409", "500"})
+	assertOperation(t, doc, "/admin/setup/complete", http.MethodPost, []string{"200", "400", "409", "500"})
 
 	schema := doc.Components.Schemas["SetupConfig"]
 	require.NotNil(t, schema, "SetupConfig schema missing")

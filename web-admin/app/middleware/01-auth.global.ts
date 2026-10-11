@@ -1,6 +1,8 @@
+import { readAuthSession, captureAuthSession, isAuthSessionCurrent, AuthSessionChangedError } from "~/utils/auth-session";
+
 // middleware/app.global.ts
 export default defineNuxtRouteMiddleware(async (to) => {
-  const { isAccessTokenExpired, syncExpiresAtFromJWT } = await import("~/utils/auth-token");
+
   const skipAuth = process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true";
   const setupStatus = useSetupStatus();
 
@@ -59,43 +61,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // 2) 只在客户端做 localStorage 鉴权
   if (process.server) return;
 
-  const accessTokenCookie = useCookie<string | null>("access_token", {
-    sameSite: "lax",
-    path: "/",
-  });
-  const refreshTokenCookie = useCookie<string | null>("refresh_token", {
-    sameSite: "lax",
-    path: "/",
-  });
-
+  const auth = useAuth();
   const publicHit = PUBLIC_RULES.some((re) => re.test(to.path));
   console.info("🚦 publicHit:", publicHit);
 
-  if (skipAuth) {
-    const localToken = String(localStorage.getItem("access_token") || "").trim();
-    accessTokenCookie.value = localToken || null;
-    if (publicHit) return;
-    return;
-  }
-
-  // 3) 其余路由需要登录
-  const isTokenExpired = (): boolean => {
-    return isAccessTokenExpired(localStorage.getItem("access_token"));
-  };
-
-  const clearAuthStorage = () => {
-    [
-      "access_token",
-      "refresh_token",
-      "token_type",
-      "expires_in",
-      "expires_at",
-      "scope",
-      "px_current_tenant_uuid",
-    ].forEach((k) => localStorage.removeItem(k));
-    accessTokenCookie.value = null;
-    refreshTokenCookie.value = null;
-  };
+  if (skipAuth) return;
+  const clearAuthStorage = () => auth.clearAuth();
 
   const redirectToLogin = () => {
     const currentPath = to.fullPath;
@@ -106,57 +77,20 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   };
 
-  const token = localStorage.getItem("access_token");
-  const refreshToken = localStorage.getItem("refresh_token");
-  const needRefresh = !token || isTokenExpired();
-  if (token && !needRefresh) {
-    syncExpiresAtFromJWT(token);
-  }
-  accessTokenCookie.value = needRefresh ? null : String(token || "").trim() || null;
-  refreshTokenCookie.value = String(refreshToken || "").trim() || null;
-
+  const session = readAuthSession();
+  let token = auth.getToken();
+  let needRefresh = !token;
   if (publicHit) return;
-
-  if (needRefresh && refreshToken) {
-    return $fetch("/api/v1/admin/user/auth/refresh", {
-      method: "POST",
-      body: { refresh_token: refreshToken },
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      timeout: 30000,
-    })
-      .then((resp: any) => {
-        const payload = resp?.data ?? resp;
-        if (!payload?.access_token) {
-          clearAuthStorage();
-          return redirectToLogin();
-        }
-
-        const tokenType = String(payload.token_type || "Bearer");
-        const expiresInSec = Math.max(0, Number(payload.expires_in || 0));
-        const expiresAt = Date.now() + expiresInSec * 1000;
-
-        localStorage.setItem("access_token", String(payload.access_token));
-        accessTokenCookie.value = String(payload.access_token);
-        localStorage.setItem("token_type", tokenType);
-        localStorage.setItem("expires_in", String(expiresInSec));
-        localStorage.setItem("expires_at", String(expiresAt));
-        if (typeof payload.scope === "string") {
-          localStorage.setItem("scope", payload.scope);
-        }
-        if (typeof payload.refresh_token === "string" && payload.refresh_token) {
-          localStorage.setItem("refresh_token", payload.refresh_token);
-          refreshTokenCookie.value = payload.refresh_token;
-        }
-
-        return;
-      })
-      .catch(() => {
-        clearAuthStorage();
-        return redirectToLogin();
-      });
+  if (needRefresh && session?.status === "active") {
+    const stamp = captureAuthSession();
+    try {
+      token = await auth.refreshAuth();
+      needRefresh = !token;
+    } catch (error) {
+      if (error instanceof AuthSessionChangedError || (error as any)?.authSessionStamp && !isAuthSessionCurrent((error as any).authSessionStamp)) return;
+      clearAuthStorage();
+      return redirectToLogin();
+    }
   }
 
   if (needRefresh) {
@@ -170,15 +104,19 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const shouldCheckMenuRoute = !publicHit && !authenticatedNonMenuHit;
   if (shouldCheckMenuRoute) {
     const { isMenuRouteAllowed, resolveDefaultRoute } = useDefaultMenuRoute();
+    const stamp = captureAuthSession();
     try {
       const allowed = await isMenuRouteAllowed(to.path);
+      if (!isAuthSessionCurrent(stamp)) return;
       if (!allowed) {
         const target = await resolveDefaultRoute();
+        if (!isAuthSessionCurrent(stamp)) return;
         if (target !== to.path) {
           return navigateTo(target, { replace: true });
         }
       }
     } catch {
+      if (!isAuthSessionCurrent(stamp)) return;
       return navigateTo("/home", { replace: true });
     }
   }

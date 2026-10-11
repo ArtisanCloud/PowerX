@@ -40,6 +40,12 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// MigrateUpgradeJournal 只在显式 apply 取得全局锁后创建升级履历。
+// 旧 IAM 成功记录原样保留，不推断或补记未执行的历史迁移。
+func MigrateUpgradeJournal(db *gorm.DB) error {
+	return db.AutoMigrate(&databaseMigrationRecord{}, &UpgradeRun{})
+}
+
 // Migrate 执行数据库迁移
 func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = ensurePostgresSchemas(db); err != nil {

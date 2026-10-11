@@ -24,6 +24,7 @@ type ModelConfig struct {
 	// ResponseSchema is a provider-neutral JSON Schema requested by a typed
 	// caller. Individual provider adapters translate it to their wire format.
 	ResponseSchema map[string]any `yaml:"response_schema" json:"response_schema"`
+	ResponseFormat string         `yaml:"response_format" json:"response_format"`
 	Timeout        time.Duration  `yaml:"timeout" json:"timeout"`
 	// MaxConcurrentRequests is the profile-governed maximum number of in-flight
 	// requests for the resolved tenant/provider/model target.
@@ -136,6 +137,9 @@ func MergeConfig(base *ModelConfig, override *ModelConfig) *ModelConfig {
 		for key, value := range override.ResponseSchema {
 			out.ResponseSchema[key] = value
 		}
+	}
+	if override.ResponseFormat != "" {
+		out.ResponseFormat = override.ResponseFormat
 	}
 	return out
 }

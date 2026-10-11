@@ -23,3 +23,83 @@ routes:
     path: /api/v1/admin/knowledge-spaces/:spaceId/documents/:documentId/indexes:operation
     category: transport_route_adapter
     reason: Constrained Gin dispatcher accepts only indexes:rebuild; the same formal document capability declares the concrete Admin JWT/RBAC document rebuild endpoint.
+  - method: POST
+    path: /api/v1/admin/ops/backup/restore-copies/imports
+    category: root_runtime_control
+    reason: Root user session only; full database restore copies and credentials are cluster operations and must not become tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/restore-copies/plan
+    category: root_runtime_control
+    reason: Root user session only; full database restore copies and credentials are cluster operations and must not become tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/restore-copies
+    category: root_runtime_control
+    reason: Root user session only; full database restore copies and credentials are cluster operations and must not become tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/restore-copies
+    category: root_runtime_control
+    reason: Root user session only; full database restore copies and credentials are cluster operations and must not become tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/restore-copies/:copy_id
+    category: root_runtime_control
+    reason: Root user session only; full database restore copies and credentials are cluster operations and must not become tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/restore-copies/:copy_id/connection
+    category: root_runtime_control
+    reason: Root user session only; full database restore copies and credentials are cluster operations and must not become tenant or plugin capabilities.
+  - method: DELETE
+    path: /api/v1/admin/ops/backup/restore-copies/:copy_id
+    category: root_runtime_control
+    reason: Root user session only; full database restore copies and credentials are cluster operations and must not become tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/policies
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/targets
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/targets/:target_id/test
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/policies/:policy_id/run
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/retry
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: PATCH
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/protection
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/download
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/restore
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/cleanup
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/restores/:restore_id
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: DELETE
+    path: /api/v1/admin/ops/backup/archives/restores/:restore_id
+    category: root_runtime_control
+    reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.

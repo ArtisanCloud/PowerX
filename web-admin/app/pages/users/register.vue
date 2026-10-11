@@ -741,11 +741,10 @@ const handleTenantKeyInput = (value: string) => {
               >
                 {{ $t("auth.password") }} <span class="text-red-500">*</span>
               </label>
-              <UInput
+              <SecretInput
                 id="password"
                 name="password"
                 v-model="form.password"
-                type="password"
                 :placeholder="$t('auth.password')"
                 size="lg"
                 :disabled="loading"
@@ -790,11 +789,10 @@ const handleTenantKeyInput = (value: string) => {
                 {{ $t("auth.register.confirmPassword") }}
                 <span class="text-red-500">*</span>
               </label>
-              <UInput
+              <SecretInput
                 id="confirmPassword"
                 name="confirmPassword"
                 v-model="form.confirmPassword"
-                type="password"
                 :placeholder="$t('auth.register.confirmPassword')"
                 size="lg"
                 :disabled="loading"

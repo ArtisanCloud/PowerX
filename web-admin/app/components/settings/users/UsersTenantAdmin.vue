@@ -1166,9 +1166,8 @@ onMounted(async () => {
               v-if="!isEditing"
               :label="$t('organization.user.form.password')"
               :required="!isEditing"
-              ><UInput
+              ><SecretInput
                 v-model="userForm.password"
-                type="password"
                 name="px-user-initial-password"
                 autocomplete="new-password"
             /></UFormField>
@@ -1176,9 +1175,8 @@ onMounted(async () => {
               v-if="!isEditing"
               :label="$t('organization.user.form.confirmPassword')"
               :required="!isEditing"
-              ><UInput
+              ><SecretInput
                 v-model="userForm.confirmPassword"
-                type="password"
                 name="px-user-confirm-password"
                 autocomplete="new-password"
             /></UFormField>
@@ -1211,12 +1209,11 @@ onMounted(async () => {
         <div class="py-6 px-6">
           <form @submit.prevent="submitResetPassword" class="space-y-4">
             <UFormField :label="t('organization.user.resetPassword.newPassword')" required>
-              <UInput v-model="resetPasswordForm.password" type="password" />
+              <SecretInput v-model="resetPasswordForm.password" />
             </UFormField>
             <UFormField :label="t('organization.user.resetPassword.confirmPassword')" required>
-              <UInput
+              <SecretInput
                 v-model="resetPasswordForm.confirmPassword"
-                type="password"
               />
             </UFormField>
             <div class="flex justify-end gap-3 pt-2">

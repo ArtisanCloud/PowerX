@@ -46,9 +46,10 @@ const (
 // HostContractService owns tenant-scoped documents and their asynchronous
 // indexing records. It never accepts a caller-provided tenant UUID.
 type HostContractService struct {
-	db       *gorm.DB
-	wake     chan struct{}
-	semantic *SemanticRuntime
+	db              *gorm.DB
+	wake            chan struct{}
+	semantic        *SemanticRuntime
+	contentOverview *ContentOverviewService
 }
 
 func (s *HostContractService) WithSemantic(runtime *SemanticRuntime) *HostContractService {
@@ -57,6 +58,12 @@ func (s *HostContractService) WithSemantic(runtime *SemanticRuntime) *HostContra
 }
 
 func (s *HostContractService) Semantic() *SemanticRuntime { return s.semantic }
+
+func (s *HostContractService) WithContentOverview(service *ContentOverviewService) *HostContractService {
+	s.contentOverview = service
+	return s
+}
+func (s *HostContractService) ContentOverview() *ContentOverviewService { return s.contentOverview }
 
 func NewHostContractService(db *gorm.DB) *HostContractService {
 	return &HostContractService{db: db, wake: make(chan struct{}, 1)}
