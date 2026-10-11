@@ -15,6 +15,7 @@ import (
 	knowledgeSpaceOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	mediaOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/media"
 	notificationsOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/notifications"
+	requestIdentityOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/plugin_identity"
 	pluginReleaseOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/plugin_release"
 	pluginRuntimeOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/plugin_runtime"
 	runtimeHostOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/runtime_host"
@@ -49,6 +50,7 @@ func RegisterAPIRoutes(
 	capabilityRegistryOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	customerOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	iamOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
+	requestIdentityOpenAPI.Register(protectedGroup, deps)
 	skillsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	integrationGatewayOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	notificationsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)

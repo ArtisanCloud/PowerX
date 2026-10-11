@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://powerx.artisan-cloud.com/contracts/powerx-upgrade-result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "powerx.migration-result/v1"
+    },
+    "operation": {
+      "enum": [
+        "status",
+        "plan",
+        "apply",
+        "invalid"
+      ]
+    },
+    "run_uuid": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "source_sha": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{40})?$"
+    },
+    "source_release": {
+      "type": "string"
+    },
+    "current_release": {
+      "type": "string"
+    },
+    "current_migration_version": {
+      "type": "string"
+    },
+    "target_release": {
+      "type": "string"
+    },
+    "migration_version": {
+      "type": "string"
+    },
+    "database": {
+      "type": "string"
+    },
+    "schema": {
+      "type": "string"
+    },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{64})?$"
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "up_to_date",
+        "blocked",
+        "succeeded",
+        "failed"
+      ]
+    },
+    "applied": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pending": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "checksum": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "transactional": {
+            "type": "boolean"
+          },
+          "recovery": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "checksum",
+          "depends_on",
+          "transactional",
+          "recovery"
+        ]
+      }
+    },
+    "failed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      }
+    },
+    "configuration_changes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "incomplete_runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "run_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_sha": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "target_release": {
+            "type": "string"
+          },
+          "migration_version": {
+            "type": "string"
+          },
+          "plan_hash": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "failed",
+              "interrupted"
+            ]
+          },
+          "migration_id": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "partial": {
+            "type": "boolean"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "requires_restore": {
+            "type": "boolean"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "database_error_code": {
+            "type": "string"
+          },
+          "database_constraint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_uuid",
+          "source_sha",
+          "target_release",
+          "migration_version",
+          "plan_hash",
+          "status",
+          "migration_id",
+          "error_code",
+          "partial",
+          "retryable",
+          "requires_restore",
+          "started_at",
+          "finished_at",
+          "database_error_code",
+          "database_constraint"
+        ]
+      }
+    },
+    "partial": {
+      "type": "boolean"
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "requires_restore": {
+      "type": "boolean"
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "maintenance_required": {
+      "const": true
+    },
+    "rollback": {
+      "const": "restore_required"
+    },
+    "database_error_code": {
+      "type": "string"
+    },
+    "database_constraint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "operation",
+    "run_uuid",
+    "source_sha",
+    "source_release",
+    "current_release",
+    "current_migration_version",
+    "target_release",
+    "migration_version",
+    "database",
+    "schema",
+    "plan_hash",
+    "status",
+    "applied",
+    "skipped",
+    "pending",
+    "failed",
+    "blockers",
+    "configuration_changes",
+    "incomplete_runs",
+    "partial",
+    "retryable",
+    "requires_restore",
+    "error_code",
+    "message",
+    "maintenance_required",
+    "rollback",
+    "database_error_code",
+    "database_constraint"
+  ]
+}

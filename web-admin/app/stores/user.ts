@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { AUTH_SESSION_KEY, AUTH_SESSION_EVENT, AuthSessionChangedError, captureAuthSession, isAuthSessionCurrent, type AuthSessionStamp } from "~/utils/auth-session";
 import type {
   UserContextData,
   ContextUser,
@@ -23,6 +24,8 @@ export const useUserStore = defineStore("user", {
     storageSyncInited: false,
     contextRefreshInFlight: null as Promise<void> | null,
     lastForcedContextRefreshAt: 0,
+    contextSessionStamp: null as AuthSessionStamp | null,
+    contextRefreshStamp: null as AuthSessionStamp | null,
   }),
 
   getters: {
@@ -114,7 +117,7 @@ export const useUserStore = defineStore("user", {
   actions: {
     shouldUseCachedContext(force: boolean) {
       if (force) return false;
-      if (!this.lastFetchedAt) return false;
+      if (!this.lastFetchedAt || !isAuthSessionCurrent(this.contextSessionStamp)) return false;
       return Date.now() - this.lastFetchedAt < 5 * 60 * 1000;
     },
 
@@ -124,11 +127,12 @@ export const useUserStore = defineStore("user", {
 
     // 加载用户上下文
     async fetchUserContext({ force = false }: { force?: boolean } = {}) {
-      if (this.contextRefreshInFlight) {
+      const stamp = captureAuthSession();
+      if (this.contextRefreshInFlight && isAuthSessionCurrent(this.contextRefreshStamp)) {
         return this.contextRefreshInFlight;
       }
 
-      if (force && Date.now() - this.lastForcedContextRefreshAt < 1000) {
+      if (force && isAuthSessionCurrent(this.contextSessionStamp) && Date.now() - this.lastForcedContextRefreshAt < 1000) {
         return;
       }
 
@@ -142,7 +146,8 @@ export const useUserStore = defineStore("user", {
         this.error = null;
         const { getUserContext } = useMe();
         const response = await getUserContext();
-
+        if (!isAuthSessionCurrent(stamp)) throw new AuthSessionChangedError();
+        this.contextSessionStamp = stamp;
         this.context = response;
         this.lastFetchedAt = Date.now();
         if (force) {
@@ -155,16 +160,19 @@ export const useUserStore = defineStore("user", {
 
       const inflight = run();
       this.contextRefreshInFlight = inflight;
+      this.contextRefreshStamp = stamp;
       try {
         await inflight;
       } catch (error: any) {
+        if (!isAuthSessionCurrent(stamp)) throw new AuthSessionChangedError();
         this.error = error?.message || "网络请求失败";
         console.error("获取用户上下文失败:", error);
         throw error;
       } finally {
-        this.isLoading = false;
         if (this.contextRefreshInFlight === inflight) {
+          this.isLoading = false;
           this.contextRefreshInFlight = null;
+          this.contextRefreshStamp = null;
         }
       }
     },
@@ -179,9 +187,11 @@ export const useUserStore = defineStore("user", {
         throw new Error("您没有权限访问该租户");
       }
 
+      const stamp = captureAuthSession();
       try {
         const { switchTenant } = useMe();
         const response = await switchTenant(tenantUuid);
+        if (!isAuthSessionCurrent(stamp)) throw new AuthSessionChangedError();
         const { setAuth } = useAuth();
         setAuth({
           token_type: response.token_type || "Bearer",
@@ -191,12 +201,14 @@ export const useUserStore = defineStore("user", {
           scope: response.scope || "access",
         });
 
+        this.contextSessionStamp = captureAuthSession();
         this.context = response.context;
         this.lastFetchedAt = Date.now();
         const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
         menuRefreshToken.value += 1;
         this.persistCurrentTenantUUID();
       } catch (error: any) {
+        if (error instanceof AuthSessionChangedError) throw error;
         console.error("切换租户失败:", error);
         throw new Error(error?.message || "切换租户失败");
       }
@@ -212,6 +224,7 @@ export const useUserStore = defineStore("user", {
     // 清除用户状态（退出登录时调用）
     clearUserState() {
       this.context = null;
+      this.contextSessionStamp = null;
       this.error = null;
       this.lastFetchedAt = null;
       this.isLoading = false;
@@ -237,36 +250,23 @@ export const useUserStore = defineStore("user", {
         );
       };
 
-      window.addEventListener("storage", async (event: StorageEvent) => {
-        const key = event.key || "";
-        if (!key) return;
-        if (
-          key !== "px_current_tenant_uuid" &&
-          key !== "access_token" &&
-          key !== "refresh_token" &&
-          key !== "expires_at"
-        ) {
-          return;
-        }
-        if (event.oldValue === event.newValue) {
-          return;
-        }
-
+      const synchronize = async () => {
+        const stamp = captureAuthSession();
         if (!shouldSync()) {
           this.clearUserState();
           return;
         }
-
         this.invalidateContextCache();
-        try {
-          await this.fetchUserContext({ force: true });
-        } catch (error: any) {
-          const statusCode = extractStatusCode(error);
-          if (statusCode === 401) {
-            options?.onUnauthorized?.();
-          }
+        try { await this.fetchUserContext({ force: true }); }
+        catch (error: any) {
+          if (error instanceof AuthSessionChangedError || !isAuthSessionCurrent(stamp)) return;
+          if (extractStatusCode(error) === 401) options?.onUnauthorized?.();
         }
+      };
+      window.addEventListener("storage", event => {
+        if (event.key === AUTH_SESSION_KEY && event.oldValue !== event.newValue) void synchronize();
       });
+      window.addEventListener(AUTH_SESSION_EVENT, () => void synchronize());
     },
 
     // 刷新用户上下文

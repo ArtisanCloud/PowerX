@@ -17,9 +17,11 @@ import (
 	"time"
 	"unicode"
 
+	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/security"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -43,10 +45,11 @@ type DynamicRouter struct {
 	adminUps   map[string]adminUpstream
 	apis       map[string]apiUpstream
 
-	gate          *authzGate
-	apiMiddleware []gin.HandlerFunc
-	tenantGuard   TenantPluginGuard
-	usageGuard    PluginUsageGuard
+	gate           *authzGate
+	apiMiddleware  []gin.HandlerFunc
+	tenantGuard    TenantPluginGuard
+	usageGuard     PluginUsageGuard
+	identityIssuer RequestIdentityIssuer
 }
 
 type TenantPluginGuard func(ctx context.Context, tenantUUID, pluginID string) error
@@ -694,7 +697,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	if claims.MemberID == 0 {
 		claims.MemberID = reqctx.GetMemberID(c.Request.Context())
 	}
-	if claims.MemberUUID == "" {
+	if claims.MemberUUID == "" && !claims.IsRoot && !reqctx.IsRoot(c.Request.Context()) {
 		claims.MemberUUID = strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
 	}
 	if rc := reqctx.GetClaims(c.Request.Context()); rc != nil {
@@ -750,6 +753,28 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	if publicRoute == true {
 		logger.InfoF(c.Request.Context(), "[GATE-PUBLIC] plugin=%s method=%s clientPath=%s normalized=%s request_id=%s trace_id=%s",
 			pluginID, c.Request.Method, clientPath, gatePath, requestID, traceID)
+	}
+	var identityTicket string
+	if publicRoute != true {
+		var issued bool
+		verifiedIdentity := claims
+		if original := reqctx.GetClaims(c.Request.Context()); original != nil {
+			verifiedIdentity = *original
+		}
+		requiredCode := ""
+		if r.gate != nil {
+			var err error
+			requiredCode, err = r.gate.requiredCode(c.Request.Context(), pluginID, c.Request.Method, gatePath)
+			if err != nil {
+				dto.RespondErrorFrom(c, dto.NewErrorWithCode(503, "IAM_CONTEXT_UNAVAILABLE", "IAM_CONTEXT_UNAVAILABLE", nil))
+				c.Abort()
+				return
+			}
+		}
+		identityTicket, issued = r.issueRequestIdentity(c, requestidentity.IssueInput{PluginID: pluginID, Claims: verifiedIdentity, Method: c.Request.Method, Path: gatePath, Transport: identityTransport(c, gatePath), RequestID: requestID, TraceID: traceID, RequiredPermission: requiredCode})
+		if !issued {
+			return
+		}
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(up.target)
@@ -813,6 +838,13 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			pluginID, up.basePath, clientPath, logTenantUUID, requestID, traceID, reqPath)
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
+		req.Header.Del(requestidentity.Header)
+		for _, header := range []string{"X-PowerX-CTX", "X-PowerX-CTX-SIG", "X-PowerX-User-UUID", "X-PowerX-Member-UUID", "X-PowerX-Is-Root", "X-PowerX-Roles", "X-PowerX-Permission-Codes"} {
+			req.Header.Del(header)
+		}
+		if identityTicket != "" {
+			req.Header.Set(requestidentity.Header, identityTicket)
+		}
 		if publicRoute == true {
 			req.Header.Set("X-PowerX-Plugin-Public-Route", "1")
 			req.Header.Set("X-PowerX-Public-Auth", "exposure")

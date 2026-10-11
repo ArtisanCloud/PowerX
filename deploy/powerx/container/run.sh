@@ -14,7 +14,8 @@ case ${1:-help} in
     setup-values) compose run --rm --no-deps init setup-values ;;
     status) compose --profile standalone ps ;;
     logs) compose logs --tail 100 backend web-admin ;;
-    migrate) compose run --rm --no-deps init migrate ;;
+    upgrade-check) shift; compose run --rm --no-deps init upgrade-check "$@" ;;
+    migrate) shift; compose run --rm --no-deps init migrate "$@" ;;
     stop) compose --profile standalone stop ;;
     *) echo 'Usage: sh run.sh init|start|setup-values|status|logs|migrate|stop' ;;
 esac

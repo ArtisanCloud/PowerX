@@ -1,5 +1,11 @@
 # Implementation Plan: Knowledge Space Provisioning & Lifecycle Governance
 
+## 2026-10-10 内容导览实施补充
+
+复用成功 IndexJob 的 source snapshot、HostDocumentChunk、active document 指针和 pgvector。Repository 将 published corpus FROM 条件与 retrieval 共用；Service 做实时授权、模式/版本校验、来源完整性及签名分页；薄 Tenant/Admin Handler 和 typed core_internal binding 统一调用 Service。无需新增数据表、重建索引或逐请求调用模型。
+
+交付正式 OpenAPI、双授权平面 capability、API Key/STS 调用证据与 Framework 对齐文档。PostgreSQL 和 HTTP fixture 验证 Core 读取；真实 dev 文档/插件页面单独验收，详见 [实施清单](content-overview-implementation.md)。
+
 **Branch**: `011-docs-use-cases` | **Date**: 2025-11-12 | **Spec**: [`spec.md`](./spec.md)
 **Input**: Feature specification from `/specs/011-docs-use-cases/spec.md`
 

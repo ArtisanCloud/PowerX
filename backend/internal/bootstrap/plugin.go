@@ -75,6 +75,9 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{RequireUUID: cfg.Tenants.RequireUUID}),
 	)
 	dr := router.NewDynamicRouter(cfg.Plugin.BasePrefix, r, pluginAuth)
+	if deps.PluginRequestIdentity != nil {
+		dr.BindRequestIdentityIssuer(deps.PluginRequestIdentity)
+	}
 	tenantPluginSvc := pluginservice.NewTenantPluginInstanceService(deps.DB)
 	dr.BindTenantPluginGuard(tenantPluginSvc.RequireEnabled)
 	dr.BindPluginUsageGuard(tenantPluginSvc.EnsurePluginAcceptsNewUsage)

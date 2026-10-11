@@ -45,7 +45,9 @@ func databaseVersionInformation(info *debug.BuildInfo) databaseVersion {
 		for _, setting := range info.Settings {
 			switch setting.Key {
 			case "vcs.revision":
-				out.GitCommit = setting.Value
+				if commit == "" {
+					out.GitCommit = setting.Value
+				}
 			case "vcs.modified":
 				if setting.Value == "true" || setting.Value == "false" {
 					modified := setting.Value == "true"

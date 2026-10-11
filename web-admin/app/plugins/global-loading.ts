@@ -7,6 +7,18 @@ export default defineNuxtPlugin((nuxtApp) => {
     autoVisible.value = navPending.value || reqPending.value > 0;
   };
 
+  type LoadingOptions = {
+    useGlobalLoading?: boolean;
+    __powerxLoadingTracked?: boolean;
+  };
+  const finishFetch = ({ options }: { options: unknown }) => {
+    const loading = options as LoadingOptions;
+    if (!loading.__powerxLoadingTracked) return;
+    loading.__powerxLoadingTracked = false;
+    reqPending.value = Math.max(0, reqPending.value - 1);
+    recalc();
+  };
+
   const clearNavPending = () => {
     navPending.value = false;
     recalc();
@@ -41,22 +53,17 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // 包装 $fetch（覆盖默认实例，捕捉手写 $fetch 请求）
   const wrapped = $fetch.create({
-    onRequest() {
+    onRequest({ options }) {
+      const loading = options as LoadingOptions;
+      if (loading.useGlobalLoading === false || loading.__powerxLoadingTracked) return;
+      loading.__powerxLoadingTracked = true;
       reqPending.value++;
       recalc();
     },
-    onResponse() {
-      reqPending.value = Math.max(0, reqPending.value - 1);
-      recalc();
-    },
-    onRequestError() {
-      reqPending.value = Math.max(0, reqPending.value - 1);
-      recalc();
-    },
-    onResponseError() {
-      reqPending.value = Math.max(0, reqPending.value - 1);
-      recalc();
-    },
+    // ofetch 的 HTTP 错误会同时调用 onResponse 和 onResponseError，只结束一次。
+    onResponse: finishFetch,
+    onRequestError: finishFetch,
+    onResponseError: finishFetch,
   });
 
   // 暴露给 Nuxt 与全局

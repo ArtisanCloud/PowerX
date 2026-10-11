@@ -1,11 +1,42 @@
 {
 	"setup": {
+		"connection": {
+		  "database": {
+		    "test": "データベース接続をテスト",
+		    "hint": "次へ進む前にデータベース接続を確認してください。",
+		    "testing": "データベース接続を確認中…",
+		    "success": "データベース接続に成功しました",
+		    "failed": "データベース接続テストに失敗しました"
+		  },
+		  "cache": {
+		    "test": "Redis 接続をテスト",
+		    "hint": "初期化の前に Redis 接続を確認してください。",
+		    "testing": "Redis 接続を確認中…",
+		    "success": "Redis 接続に成功しました",
+		    "failed": "Redis 接続テストに失敗しました"
+		  },
+		  "redisPasswordHelp": "Redis 認証が有効な場合は必須です。Redis サービスに設定したパスワードを入力してください。",
+		  "redisAuthRequired": "Redis のパスワード認証が必要です。パスワードを入力して再試行してください。",
+		  "redisAuthInvalid": "Redis のユーザー名またはパスワードが正しくありません。デプロイ設定を確認してください。",
+		  "redisPermissionDenied": "Redis 接続確認の権限がありません。ACL 権限を確認してください。",
+		  "invalidResponse": "接続テストの応答が不正です。再試行してサービスの応答を確認してください。",
+		  "failedFallback": "接続テストに失敗しました。設定とサービスへの接続を確認してください。",
+		  "testingDetail": "接続を確認しています。お待ちください。",
+		  "previousResult": "前回の結果：{message}",
+		  "diagnosticId": "リクエスト参照：{id}"
+		},
+		"databasePrepared": "DB スキーマの準備が完了しました。管理者情報を確認してインストールを完了すると、管理者と依存データが初期化されます。",
 		"deployment": {
 			"title": "デプロイ環境",
 			"description": "この PowerX インスタンスの固定環境識別子を選択してください。プラグインの DB ロールとスキーマの分離に使用されるため、インストール後に直接変更しないでください。",
 			"options": { "dev": "開発 dev", "test": "テスト test", "staging": "ステージング", "prod": "本番 prod" }
 		},
 		"errors": {
+			"adminUsernameRequired": "管理者ユーザー名を入力してください",
+			"adminEmailInvalid": "有効な管理者メールアドレスを入力してください",
+			"adminPasswordRequired": "管理者パスワードを入力してください",
+			"adminPasswordTooLong": "管理者パスワードは UTF-8 で 72 バイト以内にしてください",
+
 			"deploymentEnvRequired": "デプロイ環境を選択してください",
 			"deploymentEnvInvalid": "デプロイ環境は dev、test、staging、prod のいずれかである必要があります",
 			"unknown": "セットアップ設定を保存できませんでした"
@@ -15,6 +46,8 @@
   "login": "ログイン",
   "register": "登録",
   "common": {
+    "showSecret": "内容を表示",
+    "hideSecret": "内容を隠す",
     "language": "言語",
     "collapse": "折りたたむ",
     "back": "戻る",
@@ -1822,5 +1855,23 @@
       }
     }
   },
-  "agentCapabilityApprovals": {"title":"能力承認","description":"保留中の高リスク Agent 能力リクエストを確認します。","back":"Agent 管理へ戻る","loading":"承認を読み込み中…","loadFailed":"承認を読み込めません","emptyTitle":"保留中の承認はありません","emptyDescription":"レビュー待ちの高リスク Agent リクエストはありません。","requestTitle":"高リスク Agent 能力リクエスト","requestedAt":"リクエスト: {time}","approve":"承認","approved":"承認を記録しました","approveFailed":"承認を記録できませんでした"}
+  "agentCapabilityApprovals": {"title":"能力承認","description":"保留中の高リスク Agent 能力リクエストを確認します。","back":"Agent 管理へ戻る","loading":"承認を読み込み中…","loadFailed":"承認を読み込めません","emptyTitle":"保留中の承認はありません","emptyDescription":"レビュー待ちの高リスク Agent リクエストはありません。","requestTitle":"高リスク Agent 能力リクエスト","requestedAt":"リクエスト: {time}","approve":"承認","approved":"承認を記録しました","approveFailed":"承認を記録できませんでした"},
+  "pluginFrame": {
+  "title": "プラグインページ",
+  "errors": {
+    "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "プラグイン管理ページが準備できていません。自動再試行は終了しました。",
+    "PLUGIN_FRAME_LOAD_FAILED": "プラグインページの読み込みに失敗しました。",
+    "PLUGIN_BRIDGE_TIMEOUT": "セッションブリッジが準備できていません。プロトコル v2 の対応を確認してください。",
+    "PLUGIN_NAVIGATION_TIMEOUT": "ページ移動が完了しませんでした。再試行してください。",
+    "PLUGIN_NAVIGATION_UNSUPPORTED": "新しいナビゲーションアダプターが必要です。プラグインを更新してください。",
+    "PLUGIN_NAVIGATION_FAILED": "プラグインのページ切り替えに失敗しました。再試行し、コンソールを確認してください。",
+    "PLUGIN_NAVIGATION_INVALID": "ナビゲーション先がこのプラグインの許可された範囲外です。",
+    "PLUGIN_NAVIGATION_ROUTE_MISMATCH": "指定されたページに到達できませんでした。再試行し、ルート設定を確認してください。",
+    "PLUGIN_BRIDGE_ORIGIN_UNSUPPORTED": "プラグインのオリジンがブリッジ要件を満たしていません。",
+    "PLUGIN_HOST_AUTH_UNAVAILABLE": "宿主のセッション更新を一時的に利用できません。後で再試行してください。",
+    "PLUGIN_AUTH_ADAPTER_TIMEOUT": "プラグインが現在のセッションを確認していません。アダプターを更新して再試行してください。",
+    "PLUGIN_AUTH_REQUIRED": "宿主のセッションが終了しました。PowerX にログインしてください。",
+    "PLUGIN_AUTH_CONTEXT_FAILED": "現在のユーザーを確認できません。セッションを再同期してください。"
+  }
+}
 }

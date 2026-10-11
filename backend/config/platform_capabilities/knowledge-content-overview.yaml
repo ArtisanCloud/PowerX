@@ -1,0 +1,45 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.knowledge.content_overview.service_read
+    module: knowledge_space
+    title: Published Knowledge Content Overview
+    description: Read authorized published source article titles and previews with generation-bound pagination.
+    title_i18n: {zh-CN: 已发布知识内容导览, en: Published Knowledge Content Overview}
+    description_i18n: {zh-CN: 按凭据租户授权读取已发布文章标题和内容预览，分页绑定语料版本与可见性。, en: Read authorized published source article titles and previews with generation-bound pagination.}
+    permission_code: corex.knowledge.content_overview:read
+    agent_usable: false
+    risk_level: high
+    categories: [knowledge, content, read]
+    intents: [knowledge.content_overview.read]
+    tool_scopes: [knowledge.content_overview.read]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/knowledge-content-overview-host.md, specs/011-knowledge-space/contracts/content-overview.openapi.yaml]
+    protocols:
+      - channel: core_internal
+        endpoint: core://knowledge/content-overview
+        method: INVOKE
+        schema_ref: specs/011-knowledge-space/contracts/content-overview.openapi.yaml#/components/schemas/TypedContentOverviewOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: knowledge.content_overview.read
+        api_key: {scope: _scope.knowledge.content_overview.service_read, action: read, resource_type: api, resource_pattern: content_overview}
+      - channel: rest
+        endpoint: /api/v1/tenant/knowledge/spaces/{space_uuid}/content-overview
+        method: GET
+        schema_ref: specs/011-knowledge-space/contracts/content-overview.openapi.yaml#/paths/~1tenant~1knowledge~1spaces~1{space_uuid}~1content-overview/get
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: knowledge.content_overview.read
+        api_key: {scope: _scope.knowledge.content_overview.service_read, action: read, resource_type: api, resource_pattern: content_overview}
+      - channel: rest
+        endpoint: /api/v1/admin/knowledge-spaces/{spaceId}/content-overview
+        method: GET
+        schema_ref: specs/011-knowledge-space/contracts/content-overview.openapi.yaml#/paths/~1admin~1knowledge-spaces~1{spaceId}~1content-overview/get
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: knowledge.content_overview.read

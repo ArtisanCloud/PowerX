@@ -1,6 +1,7 @@
 import { computed, ref, watch } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import { useUserStore } from "~/stores/user";
+import { captureAuthSession, readAuthSession, AuthSessionChangedError } from "~/utils/auth-session";
 import { WS_BUS_CMD, WS_BUS_TYPE, type WSBusCommand, type WSBusEnvelope } from "~/composables/wsBus";
 
 type TopicHandler = (payload: any, envelope: WSBusEnvelope) => void;
@@ -17,7 +18,6 @@ let reconnectAttempts = 0;
 let allowReconnect = true;
 let watchersInitialized = false;
 let networkListenersBound = false;
-let refreshingConnectionToken: Promise<string | null> | null = null;
 
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 6;
@@ -30,39 +30,10 @@ const isValidTenantUUID = (tenantUUID?: string | null) =>
   UUID_RE.test(String(tenantUUID || "").trim());
 const shouldBlockReconnectForCloseCode = (code: number) => code === 1008 || code === 1003;
 
-const refreshConnectionToken = async (
-  auth: ReturnType<typeof useAuth>,
-  cachedRefreshToken?: string | null
-): Promise<string | null> => {
+const refreshConnectionToken = async (auth: ReturnType<typeof useAuth>): Promise<string | null> => {
   if (!process.client) return null;
-  if (refreshingConnectionToken) return refreshingConnectionToken;
-
-  const refreshToken = String(cachedRefreshToken || localStorage.getItem("refresh_token") || "").trim();
-  if (!refreshToken) return null;
-
-  refreshingConnectionToken = (async () => {
-    try {
-      const response: any = await $fetch("/api/v1/admin/user/auth/refresh", {
-        method: "POST",
-        body: { refresh_token: refreshToken },
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        timeout: 30000,
-      });
-      const payload = response?.data ?? response;
-      if (!payload?.access_token) return null;
-      auth.setAuth(payload);
-      return String(payload.access_token);
-    } catch {
-      return null;
-    } finally {
-      refreshingConnectionToken = null;
-    }
-  })();
-
-  return refreshingConnectionToken;
+  try { return await auth.refreshAuth(); }
+  catch (error) { if (error instanceof AuthSessionChangedError) throw error; return null; }
 };
 
 const isLoopbackHost = (host?: string | null) => {
@@ -241,10 +212,13 @@ const ensureConnection = (
 
     if (!opened && refreshTokenOnHandshakeFailure) {
       void refreshTokenOnHandshakeFailure().then((refreshedToken) => {
-        if (refreshedToken) return;
+        if (refreshedToken) {
+          ensureConnection(refreshedToken, readAuthSession()?.tenantUuid || null, refreshTokenOnHandshakeFailure);
+          return;
+        }
         wsError.value = "authentication_refresh_failed";
         scheduleReconnect(token);
-      });
+      }).catch(error => { if (!(error instanceof AuthSessionChangedError)) wsError.value = "authentication_refresh_failed"; });
       return;
     }
 
@@ -287,22 +261,12 @@ export const useWSBus = () => {
   const { t } = useI18n();
   const auth = useAuth();
   const userStore = useUserStore();
-  const accessTokenCookie = useCookie<string | null>("access_token", {
-    sameSite: "lax",
-    path: "/",
-  });
   const token = computed(() => {
-    const fresh = auth.getToken();
-    const cookieToken = String(accessTokenCookie.value || "").trim();
-    if (fresh && fresh !== auth.token.value) {
-      auth.token.value = fresh;
-    }
-    if (!fresh && cookieToken && cookieToken !== auth.token.value) {
-      auth.token.value = cookieToken;
-    }
-    return fresh || auth.token.value || cookieToken || null;
+    // auth.token is the reactive invalidation signal; the snapshot is authoritative.
+    void auth.token.value;
+    return auth.getToken();
   });
-  const getTenantForConnection = () => userStore.currentTenantUuid;
+  const getTenantForConnection = () => { void auth.token.value; return readAuthSession()?.tenantUuid || null; };
   const reconnectWithFreshToken = () => refreshConnectionToken(auth);
 
   if (process.client && !watchersInitialized) {
@@ -360,18 +324,18 @@ export const useWSBus = () => {
     allowReconnect = true;
     const tenantNow = String(tenantOverride || "").trim() || getTenantForConnection();
     activeTenant = tenantNow || null;
-    const persistedRefreshToken = process.client
-      ? String(localStorage.getItem("refresh_token") || "").trim()
-      : "";
+    const persistedRefreshToken = readAuthSession()?.refreshToken || "";
+    const connectionSession = captureAuthSession();
     const currentToken = token.value || null;
     if (!currentToken && persistedRefreshToken) {
-      void refreshConnectionToken(auth, persistedRefreshToken).then((refreshedToken) => {
+      void refreshConnectionToken(auth).then((refreshedToken) => {
+        if (captureAuthSession()?.sessionId !== connectionSession?.sessionId) return;
         if (!refreshedToken) {
           wsError.value = "authentication_refresh_failed";
           return;
         }
         ensureConnection(refreshedToken, tenantNow, reconnectWithFreshToken);
-      });
+      }).catch(error => { if (!(error instanceof AuthSessionChangedError)) wsError.value = "authentication_refresh_failed"; });
       return;
     }
     ensureConnection(currentToken, tenantNow, reconnectWithFreshToken);

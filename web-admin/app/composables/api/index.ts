@@ -9,10 +9,10 @@ import type {
 import {
   useGlobalLoading,
   useGL_AutoVisible,
+  useGL_NavPending,
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
-import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
-import { isAccessTokenExpired, syncExpiresAtFromJWT } from "~/utils/auth-token";
+import { AuthSessionChangedError, captureAuthSession, isAuthSessionCurrent, readAuthSession, refreshAuthSession, type AuthSessionStamp } from "~/utils/auth-session";
 
 /** =========================
  * API 客户端配置
@@ -25,7 +25,6 @@ interface ApiClientConfig {
   responseInterceptors?: ResponseInterceptor[];
 }
 
-let refreshingAccessTokenPromise: Promise<string | null> | null = null;
 
 const isAuthRefreshEndpoint = (url?: string): boolean => {
   const u = String(url || "");
@@ -63,93 +62,20 @@ const getErrorStatusCode = (error: any): number => {
   );
 };
 
-const clearClientAuthStorage = () => {
-  if (!process.client) return;
-  [
-    "access_token",
-    "refresh_token",
-    "token_type",
-    "expires_in",
-    "expires_at",
-    "scope",
-    "px_current_tenant_uuid",
-  ].forEach((k) => localStorage.removeItem(k));
-  clearAuthCookies();
-};
-
-const updateClientAuthStorage = (payload: any) => {
-  if (!process.client || !payload?.access_token) return;
-
-  const tokenType = String(payload.token_type || "Bearer");
-  const expiresInSec = Math.max(0, Number(payload.expires_in || 0));
-  const expiresAt = Date.now() + expiresInSec * 1000;
-
-  localStorage.setItem("access_token", String(payload.access_token));
-  localStorage.setItem("token_type", tokenType);
-  localStorage.setItem("expires_in", String(expiresInSec));
-  localStorage.setItem("expires_at", String(expiresAt));
-  if (typeof payload.scope === "string") {
-    localStorage.setItem("scope", payload.scope);
-  }
-  if (typeof payload.refresh_token === "string" && payload.refresh_token) {
-    localStorage.setItem("refresh_token", payload.refresh_token);
-  }
-  syncAuthCookies(String(payload.access_token), typeof payload.refresh_token === "string" ? payload.refresh_token : undefined);
-};
-
-const isTokenExpiredByLocalClock = (): boolean => {
-  if (!process.client) return true;
-  return isAccessTokenExpired(localStorage.getItem("access_token"));
-};
-
-const tryRefreshAccessToken = async (): Promise<string | null> => {
-  if (!process.client) return null;
-  if (refreshingAccessTokenPromise) return refreshingAccessTokenPromise;
-
-  const refreshToken = localStorage.getItem("refresh_token");
-  if (!refreshToken) return null;
-
-  refreshingAccessTokenPromise = (async () => {
-    try {
-      const refreshURL = `${String(globalConfig.baseURL || "").replace(
-        /\/+$/,
-        ""
-      )}/admin/user/auth/refresh`;
-      const response: any = await $fetch(refreshURL, {
-        method: "POST",
-        body: { refresh_token: refreshToken },
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        timeout: globalConfig.timeout,
-      });
-
-      const payload = response?.data ?? response;
-      if (!payload?.access_token) {
-        throw new Error("refresh response missing access_token");
-      }
-
-      updateClientAuthStorage(payload);
-      return String(payload.access_token);
-    } catch (error: any) {
-      const statusCode = getErrorStatusCode(error);
-      if (statusCode === 401) {
-        clearClientAuthStorage();
-        return null;
-      }
-      throw error;
-    } finally {
-      refreshingAccessTokenPromise = null;
-    }
-  })();
-
-  return refreshingAccessTokenPromise;
-};
+const tryRefreshAccessToken = () => refreshAuthSession(async refreshToken => {
+  const refreshURL = `${String(globalConfig.baseURL || "").replace(/\/+$/, "")}/admin/user/auth/refresh`;
+  const response: any = await $fetch(refreshURL, {
+    method: "POST", body: { refresh_token: refreshToken },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    timeout: globalConfig.timeout,
+  });
+  return response?.data ?? response;
+});
 
 const resolveAccessTokenForRequest = async (url?: string): Promise<string | null> => {
-  let token = localStorage.getItem("access_token");
-  if ((!token || isTokenExpiredByLocalClock()) && !isAuthRefreshEndpoint(url)) {
+  const session = readAuthSession();
+  let token = session?.status === "active" && session.expiresAt > Date.now() ? session.accessToken : null;
+  if (!token && !isAuthRefreshEndpoint(url)) {
     token = await tryRefreshAccessToken();
   }
   return token;
@@ -178,9 +104,8 @@ let globalConfig: ApiClientConfig = {
         // 自动添加认证头（仅客户端）
         if (process.client && !config.skipAuth) {
           const token = await resolveAccessTokenForRequest((config as any).url);
-          const tokenType = localStorage.getItem("token_type") || "Bearer";
+          const tokenType = readAuthSession()?.tokenType || "Bearer";
           if (token) {
-            syncExpiresAtFromJWT(token);
             config.headers = {
               ...config.headers,
               Authorization: `${tokenType} ${token}`,
@@ -215,66 +140,8 @@ let globalConfig: ApiClientConfig = {
         return config;
       },
     },
-    // --- 全局 Loading：请求开始 +1，显示 autoVisible ---
-    {
-      onRequest: async (config) => {
-        if (!process.client) return config;
-
-        // 默认开启；显式传 false 关闭
-        const enable =
-          typeof (config as any).useGlobalLoading === "undefined"
-            ? true
-            : (config as any).useGlobalLoading !== false;
-
-        if (enable) {
-          const reqPending = useGL_ReqPending();
-          const auto = useGL_AutoVisible();
-          const gl = useGlobalLoading();
-
-          reqPending.value += 1;
-          auto.value = true; // 只要有请求在飞就显示
-          if ((config as any).loadingMessage) {
-            gl.setMessage(String((config as any).loadingMessage));
-          }
-        }
-        return config;
-      },
-    },
   ],
-  responseInterceptors: [
-    // --- 全局 Loading：请求结束 -1，计数为 0 时关闭 autoVisible ---
-    {
-      onResponse: async (response) => {
-        if (process.client) {
-          const reqPending = useGL_ReqPending();
-          const auto = useGL_AutoVisible();
-          const gl = useGlobalLoading();
-
-          reqPending.value = Math.max(0, reqPending.value - 1);
-          if (reqPending.value === 0) {
-            auto.value = false;
-            gl.setProgress(undefined);
-          }
-        }
-        return response;
-      },
-      onResponseError: async (error) => {
-        if (process.client) {
-          const reqPending = useGL_ReqPending();
-          const auto = useGL_AutoVisible();
-          const gl = useGlobalLoading();
-
-          reqPending.value = Math.max(0, reqPending.value - 1);
-          if (reqPending.value === 0) {
-            auto.value = false;
-            gl.setProgress(undefined);
-          }
-        }
-        // 不吞错，抛给上层（normalizeApiError）
-        throw error;
-      },
-    },
-  ],
+  responseInterceptors: [],
 };
 
 /**
@@ -503,6 +370,16 @@ const handleRequestConfig = async (
   return { url: fullUrl, fetchOptions, finalConfig: mergedConfig };
 };
 
+const finishRequestLoading = () => {
+  if (!process.client) return;
+  const pending = useGL_ReqPending();
+  pending.value = Math.max(0, pending.value - 1);
+  if (!pending.value) {
+    useGL_AutoVisible().value = useGL_NavPending().value;
+    useGlobalLoading().setProgress(undefined);
+  }
+};
+
 /** =========================
  * API 客户端（$fetch 版）
  * ======================== */
@@ -517,25 +394,50 @@ export const useApiClient = () => {
     data?: any,
     config: ApiRequestConfig = {}
   ) => {
+    const entryStamp = process.client ? captureAuthSession() : null;
+    let requestStamp: AuthSessionStamp | null = null;
+    let requestUrl = url;
+    let loadingStarted = false;
     try {
-      const { url: fullUrl, fetchOptions } = await handleRequestConfig(
+      const { url: fullUrl, fetchOptions, finalConfig } = await handleRequestConfig(
         method,
         url,
         data,
         config
       );
 
+      requestUrl = fullUrl;
+      loadingStarted = process.client && (finalConfig as any).useGlobalLoading !== false;
+      if (loadingStarted) {
+        useGL_ReqPending().value += 1;
+        useGL_AutoVisible().value = true;
+        if (finalConfig.loadingMessage) {
+          useGlobalLoading().setMessage(String(finalConfig.loadingMessage));
+        }
+      }
+      if (process.client && !config.skipAuth) {
+        requestStamp = captureAuthSession();
+        if (requestStamp?.sessionId !== entryStamp?.sessionId) throw new AuthSessionChangedError();
+      }
+
       // 直接用 Nuxt 的全局 $fetch
       // - 成功：返回已解析的数据（JSON 自动解析）
       // - 失败：抛出 FetchError，内含 response/status 等
-      const responseData = await $fetch(fullUrl, {
+      const requestOptions = {
         ...fetchOptions,
-      });
+        // 本方法负责计数；全局 $fetch 不得为同一请求再次计数。
+        useGlobalLoading: false,
+      };
+      const responseData = await $fetch(fullUrl, requestOptions);
 
+      if (process.client && !config.skipAuth && !isAuthSessionCurrent(requestStamp)) throw new AuthSessionChangedError();
       // 应用响应拦截器
       const result = await applyResponseInterceptors(responseData);
       return result as T;
     } catch (err: any) {
+      if (err instanceof AuthSessionChangedError || process.client && !config.skipAuth && requestStamp && !isAuthSessionCurrent(requestStamp)) {
+        throw new AuthSessionChangedError();
+      }
       const retried = Boolean((config as any).__authRetried);
       const statusCode = getErrorStatusCode(err);
       const shouldTryRefresh =
@@ -543,21 +445,27 @@ export const useApiClient = () => {
         !config.skipAuth &&
         !retried &&
         statusCode === 401 &&
-        !isAuthRefreshEndpoint(url) &&
-        shouldRefreshForRequest(url);
+        !isAuthRefreshEndpoint(requestUrl) &&
+        shouldRefreshForRequest(requestUrl);
 
       if (shouldTryRefresh) {
-        const refreshedToken = await tryRefreshAccessToken();
-        if (refreshedToken) {
-          return request<T>(method, url, data, {
-            ...(config as any),
-            __authRetried: true,
-          });
+        try {
+          const refreshedToken = await tryRefreshAccessToken();
+          if (refreshedToken) {
+            return request<T>(method, url, data, { ...(config as any), __authRetried: true });
+          }
+        } catch (refreshError) {
+          if (refreshError instanceof AuthSessionChangedError) {
+            throw refreshError;
+          }
+          return applyErrorInterceptors(refreshError);
         }
       }
 
       // 统一交给错误拦截器处理/转换/抛出
       return applyErrorInterceptors(err);
+    } finally {
+      if (loadingStarted) finishRequestLoading();
     }
   };
 

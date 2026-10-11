@@ -1,4 +1,5 @@
 import { useCookie } from "#app";
+import { readAuthSession } from "~/utils/auth-session";
 import { decodeJwtPayload } from "~/utils/auth-token";
 
 export const TENANT_UUID_STORAGE_KEY = "px_current_tenant_uuid";
@@ -8,8 +9,8 @@ const normalize = (value?: string | null) =>
 
 export const getStoredTenantUUID = (): string | null => {
   if (process.client) {
-    const fromStorage = localStorage.getItem(TENANT_UUID_STORAGE_KEY);
-    return fromStorage ? normalize(fromStorage) : null;
+    const session = readAuthSession();
+    return session?.status === 'active' && session.tenantUuid ? normalize(session.tenantUuid) : null;
   }
 
   const cookie = useCookie<string | null>(TENANT_UUID_STORAGE_KEY);
@@ -42,7 +43,7 @@ export const resolveTenantUUIDForRequest = () =>
     const stored = getStoredTenantUUID();
     if (!process.client) return stored || undefined;
 
-    const claims = decodeJwtPayload(localStorage.getItem("access_token"));
+    const claims = decodeJwtPayload(readAuthSession()?.accessToken);
     const tokenTenantUUID =
       (typeof claims?.tid === "string" && claims.tid) ||
       (typeof claims?.tenant_uuid === "string" && claims.tenant_uuid) ||

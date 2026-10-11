@@ -6,231 +6,142 @@
   var subscribers = new Set();
   var lastSyncAt = 0;
 
-  function getCookie(name) {
-    var escaped = name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-    var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + escaped + "=([^;]*)"));
-    return m ? decodeURIComponent(m[1]) : "";
-  }
+  var protocolVersion = 2;
+  var instanceId = '';
+  var sequence = 0;
+  var navigatorAdapter = null;
+  var navigationAbort = null;
+  var lastAuthPayload = null;
+  var pluginMatch = window.location.pathname.match(/\/_p\/([^/]+)\/admin(?:\/|$)/);
+  var pluginId = pluginMatch ? pluginMatch[1] : '';
+  var hostOrigin = '';
+  try { hostOrigin = new URL(document.referrer).origin; } catch (_ignore) {}
 
-  function setCookie(name, value) {
-    var encoded =
-      value === null || value === undefined || value === ""
-        ? ""
-        : encodeURIComponent(value);
-    var expires =
-      value === null || value === undefined || value === ""
-        ? "Thu, 01 Jan 1970 00:00:00 GMT"
-        : "";
-    document.cookie =
-      name +
-      "=" +
-      encoded +
-      "; path=/; SameSite=Lax" +
-      (expires ? "; expires=" + expires : "");
+  function send(payload) {
+    if (!hostOrigin || window.parent === window) return;
+    window.parent.postMessage(Object.assign({}, payload, {
+      source: 'plugin', protocolVersion: protocolVersion, pluginId: pluginId, instanceId: instanceId
+    }), hostOrigin);
   }
 
   function applyAuthPayload(payload) {
-    try {
-      var ls = window.localStorage;
-      if (payload.accessToken) {
-        ls.setItem("access_token", payload.accessToken);
-        setCookie("access_token", payload.accessToken);
-      }
-      if (payload.refreshToken) {
-        ls.setItem("refresh_token", payload.refreshToken);
-      }
-      if (payload.tokenType) {
-        ls.setItem("token_type", payload.tokenType);
-      }
-      if (payload.scope) {
-        ls.setItem("scope", payload.scope);
-      }
-      if (payload.expiresAt) {
-        ls.setItem("expires_at", String(payload.expiresAt));
-      } else if (payload.expiresIn) {
-        var exp = Date.now() + payload.expiresIn * 1000;
-        ls.setItem("expires_at", String(exp));
-      }
-      var tenantUUID = payload.tenant_uuid || payload.tenantUuid || payload.tenantUUID;
-      if (tenantUUID) {
-        ls.setItem("px_current_tenant_uuid", tenantUUID);
-        setCookie("px_current_tenant_uuid", tenantUUID);
-      }
-
-      subscribers.forEach(function (cb) {
-        try {
-          cb(payload);
-        } catch (err) {
-          console.warn("[PowerXBridgeClient] subscriber error", err);
-        }
-      });
-    } catch (error) {
-      console.warn("[PowerXBridgeClient] applyAuthPayload failed", error);
-    }
+    if (!Number.isSafeInteger(payload.sequence) || payload.sequence <= sequence) return;
+    sequence = payload.sequence;
+    lastAuthPayload = payload;
+    if (payload.type === 'auth-cleared' && navigationAbort) navigationAbort.abort();
+    // This consumer never writes the host's authoritative session.
+    consumeAuth(payload);
   }
 
-  function bootstrapAuthFromCookies() {
-    try {
-      var ls = window.localStorage;
-      var token = getCookie("access_token");
-      var refreshToken = getCookie("refresh_token");
-      var tenantUUID = getCookie("px_current_tenant_uuid");
-
-      if (token) {
-        ls.setItem("access_token", token);
-        ls.setItem("token_type", "Bearer");
-        if (!ls.getItem("expires_at")) {
-          try {
-            var parts = token.split(".");
-            if (parts.length >= 2) {
-              var payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-              var expSec = Number(payload && payload.exp);
-              if (expSec > 0) {
-                ls.setItem("expires_at", String(expSec * 1000));
-              }
-            }
-          } catch (_ignore) {}
+  function consumeAuth(payload) {
+    if (!subscribers.size) return;
+    var bindingId = instanceId;
+    Promise.all(Array.from(subscribers).map(function (cb) { return Promise.resolve().then(function () { return cb(payload); }); }))
+      .then(function () {
+        if (payload.type === 'auth-token' && lastAuthPayload === payload && bindingId === instanceId) {
+          send({ type: 'auth:applied', sequence: payload.sequence, sessionId: payload.sessionId, revision: payload.revision });
         }
-      }
-      if (refreshToken) {
-        ls.setItem("refresh_token", refreshToken);
-      }
-      if (tenantUUID) {
-        ls.setItem("px_current_tenant_uuid", tenantUUID);
-      }
-    } catch (error) {
-      console.warn("[PowerXBridgeClient] bootstrapAuthFromCookies failed", error);
-    }
+      }).catch(function () {
+        if (lastAuthPayload === payload && bindingId === instanceId) send({ type: 'auth:rejected', sequence: payload.sequence });
+      });
   }
 
   function normalizeNavigatePath(path) {
-    if (!path || typeof path !== "string") return "/";
+    if (typeof path !== "string") throw new Error('PLUGIN_NAVIGATION_INVALID');
     var p = path.trim();
-    if (!p) return "/";
+    if (!p || /^[a-z][a-z0-9+.-]*:/i.test(p) || p.startsWith('//') || p.includes('\\')) {
+      throw new Error('PLUGIN_NAVIGATION_INVALID');
+    }
     if (!p.startsWith("/")) p = "/" + p;
 
-    var adminBase =
-      (window.__NUXT__ &&
-        window.__NUXT__.config &&
-        window.__NUXT__.config.public &&
-        window.__NUXT__.config.public.pluginAdminBase) ||
-      (window.__NUXT__ &&
-        window.__NUXT__.config &&
-        window.__NUXT__.config.app &&
-        window.__NUXT__.config.app.baseURL) ||
-      "";
-    adminBase = String(adminBase || "").replace(/\/?$/, "/");
-
-    var match = p.match(/^\/_p\/[^/]+\/admin(\/.*)?$/);
-    if (match) {
-      return p;
-    }
-    if (adminBase && adminBase.startsWith("/_p/") && !p.startsWith(adminBase)) {
-      p = adminBase.replace(/\/$/, "") + p;
-    }
-    return p;
+    // Nuxt 水合后会删除 __NUXT__；挂载范围由 iframe 入口确认的插件 ID 决定。
+    // 已带命名空间的地址交给下面的严格范围校验，不能重新包装跨插件地址。
+    if (p.startsWith('/_p/')) return p;
+    return '/_p/' + pluginId + '/admin' + p;
   }
 
-  function applyNavigate(path) {
-    try {
-      var target = normalizeNavigatePath(path);
-      var current = window.location.pathname + window.location.search + window.location.hash;
-      if (target === current) return;
+  function comparablePath(path) {
+    var url = new URL(path, window.location.origin);
+    url.searchParams.delete('__px_iframe');
+    url.searchParams.delete('__px_retry');
+    return url.pathname.replace(/\/$/, '') + url.search + url.hash;
+  }
 
-      window.history.pushState(window.history.state, "", target);
-      try {
-        window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-      } catch (_ignore) {
-        var evt = document.createEvent("Event");
-        evt.initEvent("popstate", true, true);
-        window.dispatchEvent(evt);
+  function applyNavigate(payload) {
+    if (navigationAbort) navigationAbort.abort();
+    navigationAbort = new AbortController();
+    var signal = navigationAbort.signal;
+    var bindingId = instanceId;
+    var acknowledge = function (ok, code) {
+      if (!signal.aborted && bindingId === instanceId) {
+        var result = { type: 'navigation:result', requestId: payload.requestId, ok: ok };
+        if (!ok) result.code = code;
+        send(result);
       }
-    } catch (error) {
-      console.warn("[PowerXBridgeClient] applyNavigate failed", error);
-    }
-  }
-
-  function shouldInterceptAnchorClick(event, anchor) {
-    if (!anchor) return false;
-    if (event.defaultPrevented) return false;
-    if (event.button !== 0) return false; // 仅拦截左键
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
-    if (anchor.target && anchor.target !== "_self") return false;
-    if (anchor.hasAttribute("download")) return false;
-    if (!anchor.href) return false;
-    return true;
-  }
-
-  function installAnchorInterceptor() {
-    document.addEventListener(
-      "click",
-      function (event) {
-        try {
-          var target = event.target;
-          if (!target || !target.closest) return;
-          var anchor = target.closest("a");
-          if (!shouldInterceptAnchorClick(event, anchor)) return;
-
-          var url = new URL(anchor.href, window.location.href);
-          if (url.origin !== window.location.origin) return;
-          if (!url.pathname.startsWith("/_p/")) return;
-          if (!url.pathname.includes("/admin/")) return;
-
-          var next = url.pathname + url.search + url.hash;
-          var current = window.location.pathname + window.location.search + window.location.hash;
-          if (next === current) return;
-
-          event.preventDefault();
-          applyNavigate(next);
-        } catch (_ignore) {}
-      },
-      true
-    );
+    };
+    var target;
+    try {
+      if (typeof payload.path !== 'string' || typeof payload.requestId !== 'string' || !payload.requestId) throw new Error('PLUGIN_NAVIGATION_INVALID');
+      target = normalizeNavigatePath(payload.path);
+      var url = new URL(target, window.location.origin);
+      var mount = '/_p/' + pluginId + '/admin';
+      if (url.origin !== window.location.origin || !(url.pathname === mount || url.pathname.startsWith(mount + '/'))) throw new Error('PLUGIN_NAVIGATION_INVALID');
+    } catch (_ignore) { acknowledge(false, 'PLUGIN_NAVIGATION_INVALID'); return; }
+    if (comparablePath(target) === comparablePath(window.location.href)) { acknowledge(true); return; }
+    if (!navigatorAdapter) { acknowledge(false, 'PLUGIN_NAVIGATION_UNSUPPORTED'); return; }
+    Promise.resolve().then(function () { if (signal.aborted) return; return navigatorAdapter(target, { signal: signal, requestId: payload.requestId, instanceId: bindingId }); }).then(function () {
+      var matches = comparablePath(target) === comparablePath(window.location.href);
+      acknowledge(matches, 'PLUGIN_NAVIGATION_ROUTE_MISMATCH');
+    }).catch(function () { acknowledge(false, 'PLUGIN_NAVIGATION_FAILED'); });
   }
 
   function handleMessage(event) {
-    if (!event || !event.data || event.data.source !== "powerx") {
-      return;
+    if (!event || !event.data || event.data.source !== 'powerx') return;
+    var payload = event.data;
+    if (event.source !== window.parent || !hostOrigin || event.origin !== hostOrigin ||
+      payload.protocolVersion !== protocolVersion || payload.pluginId !== pluginId || !payload.instanceId) {
+      event.stopImmediatePropagation(); return;
     }
-
-    if (event.data.type === "auth-token") {
-      applyAuthPayload(event.data);
-    } else if (event.data.type === "sync") {
-      lastSyncAt = Date.now();
-    } else if (event.data.type === "navigate") {
-      applyNavigate(event.data.path);
-    }
-  }
-
-  window.addEventListener("message", handleMessage);
-
-  function requestSync() {
-    window.parent &&
-      window.parent.postMessage({ source: "plugin", type: "request-sync" }, "*");
-  }
-
-  function notifyReady() {
-    window.parent &&
-      window.parent.postMessage({ source: "plugin", type: "ready" }, "*");
-  }
-
-  bootstrapAuthFromCookies();
-  installAnchorInterceptor();
-  notifyReady();
-  requestSync();
-
-  window.PowerXBridgeClient = {
-    onAuthToken: function (cb) {
-      if (typeof cb === "function") {
-        subscribers.add(cb);
+    if (payload.type === 'sync') {
+      if (instanceId !== payload.instanceId) {
+        sequence = 0; lastAuthPayload = null;
+        if (navigationAbort) navigationAbort.abort();
       }
-      return function () {
-        subscribers.delete(cb);
-      };
+      instanceId = payload.instanceId;
+      lastSyncAt = Date.now();
+      send({ type: 'bridge:ready', navigationReady: Boolean(navigatorAdapter) });
+    } else if (payload.instanceId !== instanceId) {
+      event.stopImmediatePropagation();
+    } else if (payload.type === 'auth-token' || payload.type === 'auth-cleared') {
+      if (!Number.isSafeInteger(payload.sequence) || payload.sequence <= sequence) {
+        event.stopImmediatePropagation(); return;
+      }
+      applyAuthPayload(payload);
+    } else if (payload.type === 'navigate') {
+      applyNavigate(payload);
+    }
+  }
+
+  window.addEventListener('message', handleMessage, true);
+  send({ type: 'bridge:hello' });
+  window.PowerXBridgeClient = {
+    protocolVersion: protocolVersion,
+    onAuthToken: function (cb) {
+      if (typeof cb === 'function') {
+        subscribers.add(cb);
+        if (lastAuthPayload && (lastAuthPayload.type === 'auth-cleared' || lastAuthPayload.expiresAt > Date.now())) consumeAuth(lastAuthPayload);
+        else send({ type: 'auth-token:request' });
+      }
+      return function () { subscribers.delete(cb); };
     },
-    requestSync: requestSync,
-    getLastSyncAt: function () {
-      return lastSyncAt;
+    setNavigator: function (adapter) {
+      if (typeof adapter !== 'function') throw new Error('PLUGIN_NAVIGATOR_REQUIRED');
+      navigatorAdapter = adapter;
+      send({ type: 'bridge:hello' });
+      return function () { navigatorAdapter = null; };
     },
+    requestSync: function () { send({ type: 'request-sync' }); },
+    requestAuth: function () { send({ type: 'auth-token:request' }); },
+    getLastSyncAt: function () { return lastSyncAt; },
   };
 })();

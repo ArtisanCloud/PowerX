@@ -25,3 +25,18 @@ func TestMakeBodyPassesTypedResponseSchemaAsOpenAIJSONSchema(t *testing.T) {
 	require.Equal(t, "object", encodedSchema["type"])
 	require.Equal(t, []any{"schema"}, encodedSchema["required"])
 }
+
+func TestJSONObjectModeIsSentAsProviderRequestField(t *testing.T) {
+	body, err := NewLLMClient("qwen-cn").makeBody(&config.ModelConfig{Model: "fixture", ResponseFormat: "json_object"}, "JSON", false)
+	require.NoError(t, err)
+	var request map[string]any
+	require.NoError(t, json.Unmarshal(body, &request))
+	require.Equal(t, map[string]any{"type": "json_object"}, request["response_format"])
+}
+
+func TestStructuredOutputCannotBeOverwrittenByProfileExtra(t *testing.T) {
+	_, err := NewLLMClient("openai").makeBody(&config.ModelConfig{ResponseFormat: "json_object", Extra: map[string]any{"response_format": map[string]any{"type": "text"}}}, "JSON", false)
+	require.ErrorContains(t, err, "AI_RESPONSE_FORMAT_CONFLICT")
+	_, err = NewLLMClient("openai").makeBody(&config.ModelConfig{ResponseFormat: "json_object", ResponseSchema: map[string]any{"type": "object"}}, "JSON", false)
+	require.ErrorContains(t, err, "AI_RESPONSE_FORMAT_CONFLICT")
+}

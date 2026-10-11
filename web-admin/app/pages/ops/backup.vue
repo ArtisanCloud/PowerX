@@ -1,43 +1,93 @@
 <template>
-  <section class="mx-auto max-w-7xl space-y-6 p-6 text-gray-900 dark:text-gray-100">
-    <header class="flex flex-wrap items-start justify-between gap-3">
-      <div><h1 class="text-2xl font-semibold">{{ t('backupCenter.title') }}</h1><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ t('backupCenter.subtitle') }}</p></div>
-      <UButton color="neutral" variant="outline" :loading="busy" @click="perform(load)">{{ t('backupCenter.reload') }}</UButton>
+  <section class="mx-auto max-w-7xl space-y-6 p-4 text-gray-900 sm:p-6 dark:text-gray-100">
+    <header class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold">{{ t('backupCenter.title') }}</h1>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ t('backupCenter.workspace.subtitle') }}</p>
+      </div>
+      <UButton icon="i-heroicons-arrow-path" color="neutral" variant="outline" :loading="busy" @click="perform(load)">{{ t('backupCenter.reload') }}</UButton>
     </header>
     <UAlert v-if="permissionHint" color="warning" :title="permissionHint" />
     <UAlert v-if="error" color="error" :title="error" />
     <UAlert v-if="notice" color="success" :title="notice" />
-    <BackupRuntimePanel :runtime="overview?.runtime" :enabled-count="overview?.policies_enabled || 0" />
 
-    <UCard>
-      <template #header><div class="flex items-center justify-between"><h2 class="font-semibold">{{ t('backupCenter.policies') }}</h2><UButton :disabled="!canExecute || busy" @click="openPolicy()">{{ t('backupCenter.newPolicy') }}</UButton></div></template>
-      <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">{{ t('backupCenter.policySteps') }}</p>
-      <p v-if="!policies.length" class="py-4 text-gray-500">{{ t('backupCenter.noPolicies') }}</p>
-      <div v-for="policy in policies" :key="String(policy.id)" class="mb-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-        <div class="flex flex-wrap justify-between gap-2"><strong>{{ policy.name }}</strong><UBadge :color="policy.enabled ? 'success' : 'neutral'">{{ t(policy.enabled ? 'backupCenter.enabled' : 'backupCenter.disabled') }}</UBadge></div>
-        <p class="mt-2 text-sm">{{ policy.schedule }} · {{ retentionText(policy) }}</p>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('backupCenter.autoVerify') }}: {{ policy.drill_enabled ? t('backupCenter.everyDays', { days: policy.drill_interval_days }) : t('backupCenter.disabled') }}</p>
-        <div class="mt-3 flex flex-wrap gap-2">
-          <UButton size="sm" color="neutral" variant="outline" :disabled="!canExecute || busy" @click="openPolicy(policy)">{{ t('backupCenter.edit') }}</UButton>
-          <UButton size="sm" color="neutral" variant="outline" :disabled="!canExecute || busy" @click="perform(() => togglePolicy(policy))">{{ t(policy.enabled ? 'backupCenter.disable' : 'backupCenter.enable') }}</UButton>
-          <UButton size="sm" :disabled="!canExecute || busy" @click="perform(() => runBackup(policy))">{{ t('backupCenter.backupNow') }}</UButton>
+    <UTabs v-model="activeView" :items="viewItems" variant="link" :ui="{ list: 'border-b border-gray-200 dark:border-gray-700', content: 'pt-6' }">
+      <template #operations>
+        <div class="space-y-6" data-testid="backup-operations">
+          <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('backupCenter.workspace.automaticBackups') }}</p>
+              <p class="mt-2 text-lg font-semibold" :class="enabledPolicyCount ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'">{{ overview ? (enabledPolicyCount ? t('backupCenter.workspace.enabledPolicies', { count: enabledPolicyCount }) : t('backupCenter.workspace.summaryScheduleOff')) : '—' }}</p>
+            </div>
+            <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('backupCenter.workspace.lastSuccessfulBackup') }}</p>
+              <p class="mt-2 text-base font-semibold">{{ timeLabel(overview?.last_success_at) }}</p>
+            </div>
+            <div class="col-span-2 rounded-xl border border-gray-200 p-4 sm:col-span-1 dark:border-gray-700">
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('backupCenter.source') }}</p>
+              <p class="mt-2 break-all font-mono text-base font-semibold">{{ overview?.runtime?.source_database || '—' }}</p>
+            </div>
+          </div>
+          <UAlert v-if="overview?.runtime && !overview.runtime.ready" color="warning" :title="t('backupCenter.notReady')" :description="overview.runtime.problems.join(' · ')" />
+
+          <UCard>
+            <template #header>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-lg font-semibold">{{ t('backupCenter.policies') }}</h2>
+                <UButton icon="i-heroicons-plus" :disabled="!canExecute || busy" @click="openPolicy()">{{ t('backupCenter.newPolicy') }}</UButton>
+              </div>
+            </template>
+            <p v-if="!policies.length" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{{ t('backupCenter.noPolicies') }}</p>
+            <div class="space-y-4">
+              <article v-for="policy in policies" :key="String(policy.id)" class="rounded-xl border border-gray-200 p-4 sm:p-5 dark:border-gray-700" data-testid="backup-policy">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <h3 class="font-semibold">{{ policy.name }}</h3>
+                  <UBadge variant="subtle" :color="policy.enabled ? 'success' : 'warning'">{{ t(policy.enabled ? 'backupCenter.workspace.scheduleOn' : 'backupCenter.workspace.scheduleOff') }}</UBadge>
+                </div>
+                <dl class="mt-5 grid gap-4 text-sm sm:grid-cols-3">
+                  <div><dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('backupCenter.workspace.frequency') }}</dt><dd class="mt-1 font-medium">{{ intervalLabel(policy) }}</dd></div>
+                  <div><dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('backupCenter.workspace.retention') }}</dt><dd class="mt-1 font-medium">{{ retentionText(policy) }}</dd></div>
+                  <div><dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('backupCenter.autoVerify') }}</dt><dd class="mt-1 font-medium">{{ policy.drill_enabled ? t('backupCenter.everyDays', { days: policy.drill_interval_days }) : t('backupCenter.workspace.verificationOff') }}</dd></div>
+                </dl>
+                <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+                  <UButton size="sm" color="neutral" variant="ghost" icon="i-heroicons-pencil-square" :disabled="!canExecute || busy" @click="openPolicy(policy)">{{ t('backupCenter.edit') }}</UButton>
+                  <div class="flex flex-wrap gap-2">
+                    <UButton size="sm" :color="policy.enabled ? 'warning' : 'primary'" :variant="policy.enabled ? 'outline' : 'solid'" :disabled="!canExecute || busy" @click="perform(() => togglePolicy(policy))">{{ t(policy.enabled ? 'backupCenter.workspace.disableSchedule' : 'backupCenter.workspace.enableSchedule') }}</UButton>
+                    <UButton size="sm" icon="i-heroicons-arrow-down-tray" :color="policy.enabled ? 'primary' : 'neutral'" :variant="policy.enabled ? 'solid' : 'outline'" :disabled="!canExecute || busy" @click="perform(() => runBackup(policy))">{{ t('backupCenter.backupNow') }}</UButton>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </UCard>
+
+          <UCard>
+            <template #header><div class="flex items-center justify-between gap-3"><h2 class="text-lg font-semibold">{{ t('backupCenter.jobs') }}</h2><UBadge color="neutral" variant="subtle">{{ jobsTotal }}</UBadge></div></template>
+            <BackupJobTable :items="jobs" :can-execute="canExecute && !busy" :can-recover="isRoot" @restore-copy="job => restoreCopies?.open(job)" @restore-verify="job => confirmation = { kind: 'restore', job }" @protection="job => perform(() => protect(job))" />
+            <template #footer>
+              <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <span>{{ t('backupCenter.page', { page: jobsPage, total: jobsTotal }) }}</span>
+                <div class="flex gap-2"><UButton color="neutral" variant="outline" :disabled="jobsPage <= 1 || busy" @click="perform(() => changePage(-1))">{{ t('backupCenter.previous') }}</UButton><UButton color="neutral" variant="outline" :disabled="jobsPage * 20 >= jobsTotal || busy" @click="perform(() => changePage(1))">{{ t('backupCenter.next') }}</UButton></div>
+              </div>
+            </template>
+          </UCard>
+          <RestoreCopiesPanel v-if="isRoot" ref="restoreCopies" :jobs="jobs" />
+          <RestoreDrillPanel :history="drills" :alerts="alerts" :can-execute="canExecute && !busy" @ack="id => perform(() => ackAlert(id))" />
+          <UCard>
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div><h2 class="font-semibold">{{ t('backupCenter.workspace.fileMaintenance') }}</h2><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('backupCenter.workspace.cleanupBrief') }}</p></div>
+              <UButton color="warning" variant="outline" :disabled="!canExecute || busy" @click="confirmation = { kind: 'cleanup' }">{{ t('backupCenter.cleanup') }}</UButton>
+            </div>
+          </UCard>
         </div>
-      </div>
-      <template #footer><div class="flex flex-wrap items-center justify-between gap-3"><p class="text-sm text-gray-500 dark:text-gray-400">{{ t('backupCenter.cleanupScope') }}</p><UButton color="warning" variant="outline" :disabled="!canExecute || busy" @click="confirmation = { kind: 'cleanup' }">{{ t('backupCenter.cleanup') }}</UButton></div></template>
-    </UCard>
-
-    <UCard>
-      <template #header><h2 class="font-semibold">{{ t('backupCenter.jobs') }}</h2></template>
-      <BackupJobTable :items="jobs" :can-execute="canExecute && !busy" @restore-verify="job => confirmation = { kind: 'restore', job }" @protection="job => perform(() => protect(job))" />
-      <div class="mt-4 flex items-center justify-between text-sm"><span>{{ t('backupCenter.page', { page: jobsPage, total: jobsTotal }) }}</span><div class="flex gap-2"><UButton color="neutral" variant="outline" :disabled="jobsPage <= 1 || busy" @click="perform(() => changePage(-1))">{{ t('backupCenter.previous') }}</UButton><UButton color="neutral" variant="outline" :disabled="jobsPage * 20 >= jobsTotal || busy" @click="perform(() => changePage(1))">{{ t('backupCenter.next') }}</UButton></div></div>
-    </UCard>
-    <RestoreDrillPanel :history="drills" :alerts="alerts" :can-execute="canExecute && !busy" @ack="id => perform(() => ackAlert(id))" />
-    <UCard>
-      <template #header><h2 class="font-semibold">{{ t('backupCenter.recoveryTitle') }}</h2></template>
-      <ol class="list-decimal space-y-2 pl-5 text-sm"><li v-for="i in 5" :key="i">{{ t(`backupCenter.recoveryStep${i}`) }}</li></ol>
-      <p class="mt-3 text-sm text-amber-700 dark:text-amber-400">{{ t('backupCenter.recoveryBoundary') }}</p>
-    </UCard>
-    <LogObservabilityPanel />
+      </template>
+      <template #archives><ResourceArchivesPanel v-if="isRoot" /><UAlert v-else color="warning" :title="t('backupCenter.archives.rootOnly')" /></template>
+      <template #configuration>
+        <div class="space-y-6" data-testid="backup-configuration"><BackupRuntimePanel :runtime="overview?.runtime" /></div>
+      </template>
+      <template #guide>
+        <div class="space-y-6"><BackupGuidePanel /><LogObservabilityPanel /></div>
+      </template>
+    </UTabs>
 
     <UModal v-model:open="modalOpen" :title="t(editingId ? 'backupCenter.editPolicy' : 'backupCenter.newPolicy')" :description="t('backupCenter.formHint')" :ui="{ content: 'max-w-2xl' }">
       <template #body>
@@ -73,13 +123,33 @@ import { useOpsAccess } from '~/composables/useOpsAccess';
 import BackupJobTable from '~/components/ops/backup/BackupJobTable.vue';
 import BackupRuntimePanel from '~/components/ops/backup/BackupRuntimePanel.vue';
 import RestoreDrillPanel from '~/components/ops/backup/RestoreDrillPanel.vue';
+import BackupGuidePanel from '~/components/ops/backup/BackupGuidePanel.vue';
+import { formatBackupTime } from '~/utils/backup-display';
 import LogObservabilityPanel from '~/components/ops/backup/LogObservabilityPanel.vue';
-const { t } = useI18n();
+import RestoreCopiesPanel from '~/components/ops/backup/RestoreCopiesPanel.vue';
+import ResourceArchivesPanel from '~/components/ops/backup/ResourceArchivesPanel.vue';
+const { t, locale } = useI18n();
+const activeView = ref('operations');
+const viewItems = computed(() => [
+  { value: 'operations', slot: 'operations', label: t('backupCenter.workspace.operations'), icon: 'i-heroicons-command-line' },
+  { value: 'archives', slot: 'archives', label: t('backupCenter.archives.tab'), icon: 'i-heroicons-cloud-arrow-up' },
+  { value: 'configuration', slot: 'configuration', label: t('backupCenter.workspace.configuration'), icon: 'i-heroicons-adjustments-horizontal' },
+  { value: 'guide', slot: 'guide', label: t('backupCenter.workspace.guide'), icon: 'i-heroicons-book-open' },
+]);
 const backup = useBackupOpsService();
-const { canExecute, permissionHint, loadUserContext } = useOpsAccess();
+const { canExecute, isRoot, permissionHint, loadUserContext } = useOpsAccess();
+const restoreCopies = ref<InstanceType<typeof RestoreCopiesPanel>>();
 const overview = ref<BackupOverview>();
 const policies = ref<BackupPolicy[]>([]);
 const jobs = ref<BackupJob[]>([]);
+const enabledPolicyCount = computed(() => policies.value.filter(policy => policy.enabled).length);
+const timeLabel = (value?: string) => formatBackupTime(value, String(locale.value || 'zh-CN'));
+const intervalLabel = (policy: BackupPolicy) => {
+  const match = policy.schedule?.match(/^(\d+)([mhd])$/);
+  const count = match ? Number(match[1]) : policy.interval_hours;
+  const unit = match?.[2] || 'h';
+  return t(`backupCenter.workspace.every${unit === 'm' ? 'Minutes' : unit === 'd' ? 'Days' : 'Hours'}`, { count });
+};
 const drills = ref<RestoreDrillRecord[]>([]);
 const alerts = ref<BackupAlert[]>([]);
 const jobsPage = ref(1);

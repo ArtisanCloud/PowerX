@@ -547,9 +547,8 @@ const testConnection = async (type: string) => {
                 </UFormField>
 
                 <UFormField label="密码" name="emailPassword">
-                  <UInput
+                  <SecretInput
                     v-model="notificationForm.emailPassword"
-                    type="password"
                     placeholder="请输入密码"
                   />
                 </UFormField>
@@ -615,9 +614,8 @@ const testConnection = async (type: string) => {
                 </UFormField>
 
                 <UFormField label="Secret Key" name="smsSecretKey">
-                  <UInput
+                  <SecretInput
                     v-model="notificationForm.smsSecretKey"
-                    type="password"
                     placeholder="请输入Secret Key"
                   />
                 </UFormField>
@@ -718,9 +716,8 @@ const testConnection = async (type: string) => {
                 </UFormField>
 
                 <UFormField label="Secret Key" name="storageSecretKey">
-                  <UInput
+                  <SecretInput
                     v-model="storageForm.storageSecretKey"
-                    type="password"
                     placeholder="请输入Secret Key"
                   />
                 </UFormField>
@@ -770,9 +767,8 @@ const testConnection = async (type: string) => {
                   label="Redis密码"
                   name="cachePassword"
                 >
-                  <UInput
+                  <SecretInput
                     v-model="storageForm.cachePassword"
-                    type="password"
                     placeholder="请输入密码（可选）"
                   />
                 </UFormField>
@@ -815,9 +811,8 @@ const testConnection = async (type: string) => {
                 </UFormField>
 
                 <UFormField label="App Secret" name="wechatAppSecret">
-                  <UInput
+                  <SecretInput
                     v-model="integrationForm.wechatAppSecret"
-                    type="password"
                     placeholder="请输入微信App Secret"
                   />
                 </UFormField>
@@ -847,7 +842,8 @@ const testConnection = async (type: string) => {
                 <div></div>
 
                 <UFormField label="应用私钥" name="alipayPrivateKey">
-                  <UTextarea
+                  <SecretInput
+                    multiline
                     v-model="integrationForm.alipayPrivateKey"
                     placeholder="请输入应用私钥"
                   />
@@ -900,7 +896,7 @@ const testConnection = async (type: string) => {
                   </UFormField>
 
                   <UFormField label="API密钥" name="mapApiKey">
-                    <UInput
+                    <SecretInput
                       v-model="integrationForm.mapApiKey"
                       placeholder="请输入地图API密钥"
                     />

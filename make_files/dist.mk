@@ -25,6 +25,8 @@ dist-systemd:
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/powerx" ./cmd/app); \
 	echo "[dist] build database tool"; \
 	(cd backend && go build -ldflags "-X main.version=$(DIST_VERSION) -X main.commit=$(DIST_SOURCE_COMMIT) -X main.buildTime=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/database" ./cmd/database); \
+	echo "[dist] build archive worker"; \
+	(cd backend && go build -ldflags "-X main.version=$(DIST_VERSION) -X main.commit=$(DIST_SOURCE_COMMIT) -X main.buildTime=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/archive-worker" ./cmd/archive_worker); \
 	echo "[dist] build platform capability seed tool"; \
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/platform_capability_seed" ./cmd/platform_capability_seed); \
 	echo "[dist] build media tool"; \
@@ -160,6 +162,7 @@ dist-systemd:
 	fi; \
 	cp -R web-admin/.output "$(DIST_OUT_DIR)/web-admin/"; \
 	echo "[dist] copy systemd units"; \
+	cp deploy/powerx/systemd/archives.example.yaml "$(DIST_OUT_DIR)/config/archives.example.yaml"; \
 	cp deploy/powerx/systemd/*.service deploy/powerx/systemd/*.timer "$(DIST_OUT_DIR)/systemd/"; \
 	if [ -f deploy/powerx/systemd/powerx.env.example ]; then \
 		cp deploy/powerx/systemd/powerx.env.example "$(DIST_OUT_DIR)/systemd/"; \

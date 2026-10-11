@@ -68,7 +68,9 @@ networks:
 
 ## 3. 发布流程（应用）
 
-1. 准备镜像：`backend` 与 `web-admin` 同版本 tag。
+已完成 Setup 的实例按[系统升级计划](./powerx-system-upgrade.md)核对来源、配置、数据迁移及回滚条件。该完整执行合同当前待实施；以下重建示例仅适用于已验收且不需要数据库/配置迁移的发布。
+
+1. 准备同一次发布并已验收的 `backend` 与 `web-admin` 镜像对，执行时固定 digest；参考 compose 中的 tag 仅为部署骨架示例。
 2. 更新版本变量：`POWERX_VERSION=<new_version>`。
 3. 执行灰度重建：
    ```bash
@@ -81,6 +83,8 @@ networks:
 5. 保留上一版本镜像与 compose 变量，用于快速回滚。
 
 ## 4. 回滚流程（应用）
+
+以下回退镜像步骤只适用于发布明确声明并实际验证的 `image_only`。`restore_required` 必须先恢复匹配的数据库、配置及必要文件，按[系统升级计划](./powerx-system-upgrade.md)执行。
 
 1. 将 `POWERX_VERSION` 切回旧版本。
 2. 执行：

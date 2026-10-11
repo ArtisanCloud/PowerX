@@ -112,6 +112,12 @@ func (c *openaiClient) buildEndpointAndHeaders(mc *config.ModelConfig, streaming
 }
 
 func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, streaming bool) ([]byte, error) {
+	if mc.ResponseFormat != "" && mc.ResponseFormat != "json_object" {
+		return nil, errors.New("AI_RESPONSE_FORMAT_UNSUPPORTED")
+	}
+	if mc.ResponseFormat != "" && len(mc.ResponseSchema) > 0 {
+		return nil, errors.New("AI_RESPONSE_FORMAT_CONFLICT")
+	}
 	req := openAIChatReq{
 		Model: mc.Model,
 		Messages: []map[string]string{
@@ -122,7 +128,9 @@ func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 		MaxTokens:   mc.MaxTokens,
 		Stream:      streaming,
 	}
-	if len(mc.ResponseSchema) > 0 {
+	if mc.ResponseFormat == "json_object" {
+		req.ResponseFmt = map[string]any{"type": "json_object"}
+	} else if len(mc.ResponseSchema) > 0 {
 		req.ResponseFmt = map[string]any{
 			"type": "json_schema",
 			"json_schema": map[string]any{
@@ -144,6 +152,9 @@ func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 	b, _ := json.Marshal(alias(req))
 	_ = json.Unmarshal(b, &m)
 	for k, v := range req.Extra {
+		if k == "response_format" && (mc.ResponseFormat != "" || len(mc.ResponseSchema) > 0) {
+			return nil, errors.New("AI_RESPONSE_FORMAT_CONFLICT")
+		}
 		m[k] = v
 	}
 	return json.Marshal(m)

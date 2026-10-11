@@ -1,3 +1,4 @@
+import { AuthSessionChangedError, isAuthSessionCurrent, readAuthSession } from "~/utils/auth-session";
 // app/plugins/api.ts
 import { defineNuxtPlugin } from "#app";
 import { setApiConfig } from "~/composables/api";
@@ -93,9 +94,15 @@ export default defineNuxtPlugin(() => {
       {
         onResponse: (res) => res,
         onResponseError: async (error) => {
+          if (error instanceof AuthSessionChangedError || error?.code === 'AUTH_SESSION_CHANGED') return Promise.reject(error);
           const statusCode = resolveStatusCode(error);
+          const sentHeaders = error?.options?.headers;
+          const sentToken = sentHeaders instanceof Headers ? sentHeaders.get('Authorization') : sentHeaders?.Authorization;
+          const appliesToCurrent = error?.authSessionStamp
+            ? isAuthSessionCurrent(error.authSessionStamp)
+            : sentToken === `Bearer ${readAuthSession()?.accessToken}`;
 
-          if (statusCode === 401 && isHostAuthFailure(error)) {
+          if (statusCode === 401 && appliesToCurrent && isHostAuthFailure(error)) {
             if (process.client) {
               const router = useRouter();
               const setup = await setupStatus.load({ ttlMs: 5000 });

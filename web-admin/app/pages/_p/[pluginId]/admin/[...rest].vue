@@ -17,13 +17,12 @@ const navigatePath = computed(() => {
     : full
   return target && target !== "/" ? target : "/"
 })
+// Capture the deep link once. Subsequent child routes use the checked bridge.
+const initialPath = navigatePath.value;
 const src = computed(() => {
-  const target = navigatePath.value || "/"
-  const [pathPart, queryPart = ""] = target.split("?")
-  const search = new URLSearchParams(queryPart)
-  search.set("__px_iframe", "1")
-  const normalizedPath = pathPart.startsWith("/") ? pathPart : `/${pathPart}`
-  return `/_p/${pluginId.value}/admin${normalizedPath}?${search.toString()}`
+  const url = new URL(`/_p/${pluginId.value}/admin${initialPath}`, 'http://localhost');
+  url.searchParams.set('__px_iframe', '1');
+  return url.pathname + url.search + url.hash;
 })
 
 </script>
@@ -33,7 +32,6 @@ const src = computed(() => {
     :plugin-id="pluginId"
     :src="src"
     :navigate-path="navigatePath"
-    :instance-id="route.fullPath"
     constrain-to-viewport
   />
 </template>

@@ -1,0 +1,164 @@
+{
+  "date": "2026-10-11",
+  "scope": "Core backup center restore into a retained separate database",
+  "implemented": [
+    "registered backup or local custom dump upload",
+    "preflight database/version/extension checks",
+    "new generated database and private non-superuser owner",
+    "asynchronous persistent manifest",
+    "copy-only read grants and expiring credentials",
+    "OID-bound deletion without force disconnect",
+    "separate copy retention and upload staging cleanup"
+  ],
+  "native_postgresql": {
+    "server": "14.15 Homebrew",
+    "archive": "16.13 custom dump",
+    "archive_sha256": "368a5686fba4be275376c4196675205a98e1c51215542cc4c19b910cde33cc64",
+    "restored_tables": 428,
+    "restored_business_counts": {
+      "design_tasks": 19,
+      "orders": 19,
+      "sample_rounds": 19,
+      "tenants": 1,
+      "users": 13
+    },
+    "source_database": "powerx_backup_debug_20261011",
+    "source_before_and_after_counts": "19,19,19",
+    "checks": [
+      "source sentinel preserved",
+      "same idempotency key returns same copy",
+      "conflicting request rejected",
+      "OID mismatch rejects deletion",
+      "reader OID mismatch rejects credentials",
+      "readonly SELECT allowed",
+      "INSERT/DELETE/CREATE/SECURITY DEFINER writes rejected",
+      "NOLOGIN expiry covers trust auth",
+      "active-connection deletion rejected",
+      "decoder failure and psql navigation abort restore",
+      "owned copies and roles removed"
+    ]
+  },
+  "browser": {
+    "passed": true,
+    "auth_boundary": "isolated signed Root test JWT; production login callback not exercised",
+    "backup_ui_metadata": "mocked overview/jobs/menu; restore-copy APIs and native PostgreSQL real",
+    "source_database": "powerx_backup_debug_20261011",
+    "source_counts_before": "19,19,19",
+    "table_count": 428,
+    "business_counts": {
+      "design_tasks": 19,
+      "orders": 19,
+      "sample_rounds": 19,
+      "tenants": 1,
+      "users": 13
+    },
+    "errors": [],
+    "calls": [
+      {
+        "method": "GET",
+        "path": "/api/v1/admin/ops/backup/restore-copies",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/admin/ops/backup/restore-copies/plan",
+        "status": 400
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/admin/ops/backup/restore-copies/imports",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/admin/ops/backup/restore-copies/plan",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/admin/ops/backup/restore-copies",
+        "status": 202
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/admin/ops/backup/restore-copies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/admin/ops/backup/restore-copies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/admin/ops/backup/restore-copies",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/admin/ops/backup/restore-copies/9a8173f9-0951-4084-90c4-b02dd1311a56/connection",
+        "status": 200
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/v1/admin/ops/backup/restore-copies/9a8173f9-0951-4084-90c4-b02dd1311a56",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/admin/ops/backup/restore-copies",
+        "status": 200
+      }
+    ],
+    "copy_deleted": true,
+    "checks": [
+      "registered remote archive fails safely",
+      "real local upload",
+      "older-version explicit consent",
+      "new database",
+      "async polling",
+      "actual archive report",
+      "readonly credentials",
+      "exact-name deletion"
+    ],
+    "screenshots": [
+      "target-confirmation-dark.png",
+      "restored-report-dark.png",
+      "readonly-connection-dark.png",
+      "restored-report-mobile.png"
+    ],
+    "browser_closed": true,
+    "fixture_stopped": true,
+    "proxy_stopped": true,
+    "owned_listener_ports": [
+      54971,
+      55270
+    ]
+  },
+  "unit_tests": {
+    "frontend_backup_tests": 16,
+    "backend_packages": [
+      "internal/service/backup_ops",
+      "internal/transport/http/admin/backup"
+    ],
+    "status": "passed"
+  },
+  "checks": {
+    "go_vet": "passed",
+    "core_and_database_build": "passed",
+    "nuxt_build": "passed",
+    "capability_check": "passed",
+    "diff_check": "passed"
+  },
+  "boundaries": {
+    "daily_core_restarted": false,
+    "daily_frontend_restarted": false,
+    "remote_deployment_performed": false,
+    "docker_used": false,
+    "primary_dsn_switch_implemented": false,
+    "full_app_copy_preview_implemented": false,
+    "production_login_callback_browser_tested": false
+  },
+  "preview_directory": "/Users/michaelhu/Downloads/powerx-restore-copy-20261011",
+  "user_next_action": "Restart the daily Core service to load the new routes; open /ops/backup with a Root user session."
+}

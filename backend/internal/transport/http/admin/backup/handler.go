@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	backupdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup/dto"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
@@ -22,6 +23,8 @@ type handler struct {
 	policySvc    *backupops.PolicyService
 	jobSvc       *backupops.JobService
 	restoreSvc   *backupops.RestoreDrillService
+	copySvc      *backupops.RestoreCopyService
+	archives     *archiveops.Service
 	alertSvc     *backupops.AlertService
 	artifactRepo *repoops.BackupArtifactRepository
 }
@@ -34,6 +37,8 @@ func NewHandler(deps *shared.Deps) *handler {
 		policySvc:    backupops.NewPolicyService(deps.DB, deps.RuntimeIdentity.DeploymentEnv),
 		jobSvc:       backupops.NewJobService(deps.DB),
 		restoreSvc:   backupops.NewRestoreDrillService(deps.DB),
+		copySvc:      deps.RestoreCopies,
+		archives:     deps.Archives,
 		alertSvc:     backupops.NewAlertService(deps.DB),
 		artifactRepo: repoops.NewBackupArtifactRepository(deps.DB),
 	}

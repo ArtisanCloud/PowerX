@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"flag"
 	"fmt"
@@ -682,7 +683,15 @@ func joinID(parts ...string) string {
 	if len(clean) == 0 {
 		return "generated.capability"
 	}
-	return strings.Join(clean, ".")
+	id := strings.Join(clean, ".")
+	// Persisted capability identifiers have a 128-character limit. Preserve
+	// existing valid IDs; longer routes get a deterministic collision-resistant suffix.
+	characters := []rune(id)
+	if len(characters) > 128 {
+		sum := sha256.Sum256([]byte(id))
+		id = string(characters[:111]) + "_" + fmt.Sprintf("%x", sum[:8])
+	}
+	return id
 }
 
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)

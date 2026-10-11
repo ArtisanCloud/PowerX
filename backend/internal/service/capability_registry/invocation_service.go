@@ -302,8 +302,8 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 				FallbackUsed:      routerResult.FallbackUsed,
 				Status:            result.Status,
 				IdempotencyKey:    strings.TrimSpace(in.IdempotencyKey),
-				RequestPayload:    in.Payload,
-				ResponsePayload:   responseMap,
+				RequestPayload:    redactIdentityTicketPayload(in.CapabilityID, in.Payload),
+				ResponsePayload:   redactIdentityTicketPayload(in.CapabilityID, responseMap),
 				ErrorSummary:      invokeErr.Error(),
 				Latency:           latency,
 			})
@@ -330,8 +330,8 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 					FallbackUsed:      routerResult.FallbackUsed,
 					Status:            result.Status,
 					IdempotencyKey:    strings.TrimSpace(in.IdempotencyKey),
-					RequestPayload:    in.Payload,
-					ResponsePayload:   responseMap,
+					RequestPayload:    redactIdentityTicketPayload(in.CapabilityID, in.Payload),
+					ResponsePayload:   redactIdentityTicketPayload(in.CapabilityID, responseMap),
 					ErrorSummary:      err.Error(),
 					Latency:           latency,
 				})
@@ -354,8 +354,8 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 					FallbackUsed:      routerResult.FallbackUsed,
 					Status:            result.Status,
 					IdempotencyKey:    strings.TrimSpace(in.IdempotencyKey),
-					RequestPayload:    in.Payload,
-					ResponsePayload:   responseMap,
+					RequestPayload:    redactIdentityTicketPayload(in.CapabilityID, in.Payload),
+					ResponsePayload:   redactIdentityTicketPayload(in.CapabilityID, responseMap),
 					ErrorSummary:      err.Error(),
 					Latency:           latency,
 				})
@@ -377,8 +377,8 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 			FallbackUsed:      routerResult.FallbackUsed,
 			Status:            result.Status,
 			IdempotencyKey:    strings.TrimSpace(in.IdempotencyKey),
-			RequestPayload:    in.Payload,
-			ResponsePayload:   responseMap,
+			RequestPayload:    redactIdentityTicketPayload(in.CapabilityID, in.Payload),
+			ResponsePayload:   redactIdentityTicketPayload(in.CapabilityID, responseMap),
 			Latency:           latency,
 		})
 	}

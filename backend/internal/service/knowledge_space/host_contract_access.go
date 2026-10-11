@@ -51,6 +51,10 @@ func (s *HostContractAccess) AuthorizeSearchRead(ctx context.Context, apiKeyHash
 func (s *HostContractAccess) AuthorizeRetrievalRead(ctx context.Context, apiKeyHash string) (string, error) {
 	return s.authorize(ctx, apiKeyHash, KnowledgeRetrievalReadCapabilityID, "_scope.knowledge.retrieval.read", "retrieval", "read")
 }
+
+func (s *HostContractAccess) AuthorizeContentOverviewRead(ctx context.Context, apiKeyHash string) (string, error) {
+	return s.authorize(ctx, apiKeyHash, KnowledgeContentOverviewCapabilityID, "_scope.knowledge.content_overview.service_read", "content_overview", "read")
+}
 func (s *HostContractAccess) AuthorizeDocumentManage(ctx context.Context, apiKeyHash string) (string, error) {
 	return s.authorize(ctx, apiKeyHash, KnowledgeDocumentManageCapabilityID, knowledgeDocumentAPIKeyScope, "document", "manage")
 }

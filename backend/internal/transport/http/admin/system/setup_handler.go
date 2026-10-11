@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os"
 	"os/exec"
@@ -1130,6 +1131,9 @@ func (h *SetupHandler) loadDraftConfig() (setupConfigPayload, bool) {
 	if err != nil {
 		return cfg, false
 	}
+	// 初次打开页面可以建议 admin，但已保存草稿中省略/清空的用户名
+	// 必须保持未确认，不能被 omitempty 与默认值组合重新补回。
+	cfg.Admin.Username = ""
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return defaultSetupConfig(), false
 	}
@@ -1936,7 +1940,28 @@ func validateSetupDraftConfig(in setupConfigPayload) error {
 }
 
 func validateSetupConfig(in setupConfigPayload) error {
-	return validateSetupConfigInternal(in, true)
+	if err := validateSetupConfigInternal(in, true); err != nil {
+		return err
+	}
+	// 草稿和数据库准备允许管理员尚未填写；完成安装必须先确认管理员，
+	// 避免迁移或部分 seed 写入后才发现缺少管理员依赖。
+	if strings.TrimSpace(in.Admin.Username) == "" {
+		return errors.New("setup.errors.adminUsernameRequired")
+	}
+	email := strings.TrimSpace(in.Admin.Email)
+	address, err := mail.ParseAddress(email)
+	if err != nil || address.Address != email {
+		return errors.New("setup.errors.adminEmailInvalid")
+	}
+	password := strings.TrimSpace(in.Admin.Password)
+	if password == "" {
+		return errors.New("setup.errors.adminPasswordRequired")
+	}
+	// seed 使用 bcrypt；提前拒绝其无法处理的密码，按字节而非字符计数。
+	if len([]byte(password)) > 72 {
+		return errors.New("setup.errors.adminPasswordTooLong")
+	}
+	return nil
 }
 
 func validateSetupConfigInternal(in setupConfigPayload, requireDomain bool) error {

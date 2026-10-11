@@ -1,3 +1,4 @@
+import { readAuthSession } from "~/utils/auth-session";
 // app/composables/agent/useDualChannelConnection.ts
 import {
   ref,
@@ -99,23 +100,12 @@ export function useDualChannelConnection(
   const getAuthToken = () =>
     typeof window === "undefined"
       ? ""
-      : localStorage.getItem("access_token") || "";
+      : readAuthSession()?.accessToken || "";
   const getTokenType = () =>
     typeof window === "undefined"
       ? "Bearer"
-      : localStorage.getItem("token_type") || "Bearer";
-  const getCurrentTenantUuid = () => {
-    if (typeof window === "undefined") return "";
-    try {
-      return (
-        localStorage.getItem("px_current_tenant_uuid") ||
-        JSON.parse(localStorage.getItem("user-store") || "{}")?.context?.current_tenant_uuid ||
-        ""
-      );
-    } catch {
-      return localStorage.getItem("px_current_tenant_uuid") || "";
-    }
-  };
+      : readAuthSession()?.tokenType || "Bearer";
+  const getCurrentTenantUuid = () => readAuthSession()?.tenantUuid || "";
   const runStorageScope = () => {
     if (typeof window === "undefined" || !getAuthToken()) return "";
     try {

@@ -16,6 +16,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -98,6 +99,9 @@ func JwtMiddleware(
 				issuer,
 				audiences,
 			)
+			if errors.Is(err, jwt.ErrTokenExpired) && abortRequestIdentityExpired(c) {
+				return
+			}
 			if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			}
@@ -314,6 +318,26 @@ func respondServiceCredentialError(c *gin.Context, status int) {
 // deliberately owns credential parsing, so the route contract must select the
 // stable envelope here rather than relying on an unreachable handler.
 func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode string) bool {
+	if strings.HasPrefix(c.Request.URL.Path, "/_p/") && strings.Contains(c.Request.URL.Path, "/api/") {
+		code := "IAM_CONTEXT_USER_SESSION_INVALID"
+		if status == http.StatusForbidden {
+			code = "IAM_CONTEXT_USER_FORBIDDEN"
+		}
+		message := dto.ServiceCredentialErrorMessage(c.GetHeader("Accept-Language"), status)
+		dto.ResponseError(c, status, message, dto.NewErrorWithCode(status, code, message, nil))
+		c.Abort()
+		return true
+	}
+	if strings.HasSuffix(c.Request.URL.Path, "/tenant/iam/identity-contexts:resolve") {
+		code := "IAM_CONTEXT_SERVICE_CREDENTIAL_INVALID"
+		if status == http.StatusForbidden {
+			code = "IAM_CONTEXT_SERVICE_FORBIDDEN"
+		}
+		message := dto.ServiceCredentialErrorMessage(c.GetHeader("Accept-Language"), status)
+		dto.ResponseError(c, status, message, dto.NewErrorWithCode(status, code, message, nil))
+		c.Abort()
+		return true
+	}
 	if module := runtimeHostModule(c.Request.URL.Path); module != "" {
 		suffix := "UNAUTHORIZED"
 		if status == http.StatusForbidden {
@@ -383,6 +407,23 @@ func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode str
 		return false
 	}
 	dto.ResponseError(c, status, reasonCode, dto.NewErrorWithCode(status, reasonCode, reasonCode, errors.New(reasonCode)))
+	c.Abort()
+	return true
+}
+
+func abortRequestIdentityExpired(c *gin.Context) bool {
+	code := ""
+	if strings.HasSuffix(c.Request.URL.Path, "/tenant/iam/identity-contexts:resolve") {
+		code = "IAM_CONTEXT_SERVICE_CREDENTIAL_EXPIRED"
+	}
+	if strings.HasPrefix(c.Request.URL.Path, "/_p/") && strings.Contains(c.Request.URL.Path, "/api/") {
+		code = "IAM_CONTEXT_USER_SESSION_EXPIRED"
+	}
+	if code == "" {
+		return false
+	}
+	message := dto.ServiceCredentialErrorMessage(c.GetHeader("Accept-Language"), http.StatusUnauthorized)
+	dto.ResponseError(c, http.StatusUnauthorized, message, dto.NewErrorWithCode(401, code, message, nil))
 	c.Abort()
 	return true
 }

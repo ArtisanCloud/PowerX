@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	corecfg "github.com/ArtisanCloud/PowerX/config"
 	adminsystem "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -18,21 +17,12 @@ import (
 
 func TestSetupCompleteAtomicity(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	tmp := t.TempDir()
-	runtimeConfigPath := filepath.Join(tmp, "config.yaml")
-	draftPath := filepath.Join(tmp, "setup.wizard.config.json")
-	require.NoError(t, osWriteFile(runtimeConfigPath, []byte("version: v1.0.0\ndeployment:\n  env: dev\nserver:\n  port: 8077\ninstall:\n  status: uninstalled\n  lock_mode: strict\n  allow_without_db: true\n"), 0o644))
-
-	t.Setenv("POWERX_SETUP_RUNTIME_CONFIG_PATH", runtimeConfigPath)
-	t.Setenv("POWERX_SETUP_DRAFT_PATH", draftPath)
-
-	corecfg.GlobalConfig = &corecfg.Config{}
-	corecfg.GlobalConfig.Deployment.Env = "dev"
-	corecfg.GlobalConfig.Install.Status = "uninstalled"
-	corecfg.GlobalConfig.Install.LockMode = "strict"
+	setupInstallRuntime(t, "uninstalled")
+	runtimeConfigPath := os.Getenv("POWERX_SETUP_RUNTIME_CONFIG_PATH")
+	tmp := filepath.Dir(runtimeConfigPath)
 
 	r := gin.New()
-	h := adminsystem.NewSetupHandler(nil)
+	h := adminsystem.NewSetupHandler(setupSetupDB(t))
 	r.PUT("/admin/setup/config", h.SaveConfig)
 	r.POST("/admin/setup/complete", h.Complete)
 
@@ -43,6 +33,7 @@ func TestSetupCompleteAtomicity(t *testing.T) {
 		"storage":    map[string]any{"type": "local", "local_path": "/data/uploads"},
 		"cache":      map[string]any{"type": "redis", "redis_host": "127.0.0.1", "redis_port": 6379, "redis_db": 0},
 		"email":      map[string]any{"enabled": false},
+		"admin":      map[string]any{"username": "setup-admin", "email": "admin@example.test", "password": "SetupTestPassword123!"},
 		"database": map[string]any{
 			"type":        "sqlite",
 			"sqlite_path": filepath.Join(tmp, "powerx.db"),

@@ -16,6 +16,10 @@ import (
 
 func GenerateAccessJWT(c reqctx.CoreXClaims, issuer string, audiences []string, ttl time.Duration, secret []byte) (string, error) {
 	now := time.Now()
+	sessionID := c.ID
+	if sessionID == "" {
+		sessionID = uuid.NewString()
+	}
 	c.Scope = "access"
 	c.RegisteredClaims = jwt.RegisteredClaims{
 		Issuer:    issuer,
@@ -24,6 +28,7 @@ func GenerateAccessJWT(c reqctx.CoreXClaims, issuer string, audiences []string, 
 		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		IssuedAt:  jwt.NewNumericDate(now),
 		NotBefore: jwt.NewNumericDate(now),
+		ID:        sessionID,
 	}
 	//fmt2.Dump("GenerateAccessJWT", c)
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, c)

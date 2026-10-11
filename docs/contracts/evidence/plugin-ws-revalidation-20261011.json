@@ -1,0 +1,673 @@
+{
+  "credentials_redacted": true,
+  "fixture_kind": "isolated_postgresql_and_real_redis_core_proxy_http_sts_exchange",
+  "process_pid": 29718,
+  "records": [
+    {
+      "credentials_redacted": true,
+      "http_status": 200,
+      "name": "real_sts_exchange",
+      "trace_id": "e1277aae-3748-4433-b7b5-3f08224b3e8b"
+    },
+    {
+      "http_status": 200,
+      "name": "gateway_sts_identity",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": false,
+          "member_uuid": "c4889f32-2b77-447d-a46e-025eaa67db37",
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "517077a3589ac178813c8b7eeca63f0ba25debdb913ed779a438e1ef7d044b97",
+          "proof_expires_at": "2026-10-10T16:26:33.884058Z",
+          "roles": [
+            "role_user"
+          ],
+          "schema": "powerx.iam.plugin-request-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "f3db0bb5-a515-4b5e-bd01-fbe639a4b157",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "f3db0bb5-a515-4b5e-bd01-fbe639a4b157",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "b6d74bc6-a35a-48a0-9175-864583835018",
+          "transport": "http",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "dc0cc676-e648-455b-8d6f-8b14a2b8ac9c"
+        },
+        "message": "success",
+        "request_id": "b6d74bc6-a35a-48a0-9175-864583835018",
+        "timestamp": 1791649533
+      },
+      "trace_id": "b6d74bc6-a35a-48a0-9175-864583835018"
+    },
+    {
+      "http_status": 200,
+      "name": "gateway_sts_identity",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": false,
+          "member_uuid": "c4889f32-2b77-447d-a46e-025eaa67db37",
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "517077a3589ac178813c8b7eeca63f0ba25debdb913ed779a438e1ef7d044b97",
+          "proof_expires_at": "2026-10-10T16:26:33.903333Z",
+          "roles": [
+            "role_user"
+          ],
+          "schema": "powerx.iam.plugin-request-identity/v1",
+          "source_method": "POST",
+          "source_path": "/admin/runtime/ws-bus/grant",
+          "source_request_id": "edcc2819-1ee6-48a6-bd90-fc41bb8eef25",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "edcc2819-1ee6-48a6-bd90-fc41bb8eef25",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "0671d971-7b4a-448d-b87c-e02a38aef7e4",
+          "transport": "ws_grant",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "dc0cc676-e648-455b-8d6f-8b14a2b8ac9c",
+          "ws_revalidation_expires_at": "2026-10-10T16:40:33Z",
+          "ws_revalidation_handle": "[REDACTED]"
+        },
+        "message": "success",
+        "request_id": "0671d971-7b4a-448d-b87c-e02a38aef7e4",
+        "timestamp": 1791649533
+      },
+      "trace_id": "0671d971-7b4a-448d-b87c-e02a38aef7e4"
+    },
+    {
+      "http_status": 200,
+      "name": "gateway_sts_identity",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": false,
+          "member_uuid": "c4889f32-2b77-447d-a46e-025eaa67db37",
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "517077a3589ac178813c8b7eeca63f0ba25debdb913ed779a438e1ef7d044b97",
+          "proof_expires_at": "2026-10-10T16:26:33.923482Z",
+          "roles": [
+            "role_user"
+          ],
+          "schema": "powerx.iam.plugin-request-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "1884adeb-c8d3-4eaf-b732-a2b120176c2f",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "1884adeb-c8d3-4eaf-b732-a2b120176c2f",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "b35c5244-5f00-4075-bc78-107c459eb84e",
+          "transport": "ws_upgrade",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "dc0cc676-e648-455b-8d6f-8b14a2b8ac9c",
+          "ws_revalidation_expires_at": "2026-10-10T16:40:33Z",
+          "ws_revalidation_handle": "[REDACTED]"
+        },
+        "message": "success",
+        "request_id": "b35c5244-5f00-4075-bc78-107c459eb84e",
+        "timestamp": 1791649533
+      },
+      "trace_id": "b35c5244-5f00-4075-bc78-107c459eb84e"
+    },
+    {
+      "http_status": 200,
+      "name": "ws_revalidation_real_sts",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": false,
+          "member_uuid": "c4889f32-2b77-447d-a46e-025eaa67db37",
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "517077a3589ac178813c8b7eeca63f0ba25debdb913ed779a438e1ef7d044b97",
+          "proof_expires_at": "2026-10-10T16:40:33Z",
+          "roles": [
+            "role_user"
+          ],
+          "schema": "powerx.iam.plugin-ws-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "1884adeb-c8d3-4eaf-b732-a2b120176c2f",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "1884adeb-c8d3-4eaf-b732-a2b120176c2f",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "5e72d423-7fa1-4c15-98e1-3abbdd135586",
+          "transport": "ws_upgrade",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "dc0cc676-e648-455b-8d6f-8b14a2b8ac9c",
+          "ws_revalidation_expires_at": "2026-10-10T16:40:33Z",
+          "ws_revalidation_handle": "[REDACTED]"
+        },
+        "message": "success",
+        "request_id": "5e72d423-7fa1-4c15-98e1-3abbdd135586",
+        "timestamp": 1791649533
+      },
+      "trace_id": "5e72d423-7fa1-4c15-98e1-3abbdd135586"
+    },
+    {
+      "http_status": 200,
+      "name": "ws_revalidation_real_api_key",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": false,
+          "member_uuid": "c4889f32-2b77-447d-a46e-025eaa67db37",
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "517077a3589ac178813c8b7eeca63f0ba25debdb913ed779a438e1ef7d044b97",
+          "proof_expires_at": "2026-10-10T16:40:33Z",
+          "roles": [
+            "role_user"
+          ],
+          "schema": "powerx.iam.plugin-ws-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "1884adeb-c8d3-4eaf-b732-a2b120176c2f",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "1884adeb-c8d3-4eaf-b732-a2b120176c2f",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "27b53577-7363-48c3-a407-6538671fe481",
+          "transport": "ws_upgrade",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "dc0cc676-e648-455b-8d6f-8b14a2b8ac9c",
+          "ws_revalidation_expires_at": "2026-10-10T16:40:33Z",
+          "ws_revalidation_handle": "[REDACTED]"
+        },
+        "message": "success",
+        "request_id": "27b53577-7363-48c3-a407-6538671fe481",
+        "timestamp": 1791649533
+      },
+      "trace_id": "27b53577-7363-48c3-a407-6538671fe481"
+    },
+    {
+      "http_status": 401,
+      "name": "ws_revalidation_forged_handle",
+      "response": {
+        "code": 401,
+        "error": "IAM_CONTEXT_WS_HANDLE_INVALID",
+        "error_code": "IAM_CONTEXT_WS_HANDLE_INVALID",
+        "message": "IAM_CONTEXT_WS_HANDLE_INVALID",
+        "reason_code": "IAM_CONTEXT_WS_HANDLE_INVALID",
+        "request_id": "ae048b4e-67d1-4279-bff5-f28a1f1b7470",
+        "timestamp": 1791649533
+      },
+      "trace_id": "ae048b4e-67d1-4279-bff5-f28a1f1b7470"
+    },
+    {
+      "http_status": 400,
+      "name": "ws_revalidation_identity_override",
+      "response": {
+        "code": 400,
+        "error": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "error_code": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "message": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "reason_code": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "request_id": "f673edd0-c82c-4ad6-8d1a-b25dbadf3b65",
+        "timestamp": 1791649533
+      },
+      "trace_id": "f673edd0-c82c-4ad6-8d1a-b25dbadf3b65"
+    },
+    {
+      "http_status": 403,
+      "name": "ws_revalidation_member_disabled",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_USER_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_USER_FORBIDDEN",
+        "message": "IAM_CONTEXT_USER_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_USER_FORBIDDEN",
+        "request_id": "9bfa582a-4bbf-4954-b9cd-a449d77f0ffe",
+        "timestamp": 1791649533
+      },
+      "trace_id": "9bfa582a-4bbf-4954-b9cd-a449d77f0ffe"
+    },
+    {
+      "http_status": 200,
+      "name": "gateway_sts_identity",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": true,
+          "member_uuid": null,
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "da270b33b9dde7fbfbec521c16ef74fcf228cd06bac7f871c5fea0a22c7cd552",
+          "proof_expires_at": "2026-10-10T16:26:33.975139Z",
+          "roles": [
+            "role_system_admin"
+          ],
+          "schema": "powerx.iam.plugin-request-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "d12479b2-9eed-4046-a201-4f58ca470c36",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "d12479b2-9eed-4046-a201-4f58ca470c36",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "c7a89d42-f3bd-4665-88d9-071e3a5d8075",
+          "transport": "http",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "b66cecd1-da48-421a-9e6c-b1a4c99aff08"
+        },
+        "message": "success",
+        "request_id": "c7a89d42-f3bd-4665-88d9-071e3a5d8075",
+        "timestamp": 1791649533
+      },
+      "trace_id": "c7a89d42-f3bd-4665-88d9-071e3a5d8075"
+    },
+    {
+      "http_status": 200,
+      "name": "root_admin_own_context",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": true,
+          "member_uuid": null,
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "da270b33b9dde7fbfbec521c16ef74fcf228cd06bac7f871c5fea0a22c7cd552",
+          "proof_expires_at": "2026-10-10T16:26:33.975139Z",
+          "roles": [
+            "role_system_admin"
+          ],
+          "schema": "powerx.iam.plugin-request-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "d12479b2-9eed-4046-a201-4f58ca470c36",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "d12479b2-9eed-4046-a201-4f58ca470c36",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "3db61eaf-8555-4164-9b01-b877aab8490d",
+          "transport": "http",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "b66cecd1-da48-421a-9e6c-b1a4c99aff08"
+        },
+        "message": "success",
+        "request_id": "3db61eaf-8555-4164-9b01-b877aab8490d",
+        "timestamp": 1791649533
+      },
+      "trace_id": "3db61eaf-8555-4164-9b01-b877aab8490d"
+    },
+    {
+      "http_status": 401,
+      "name": "service_credential_rejected_at_admin_plane",
+      "response": {
+        "code": 401,
+        "error": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "error_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "message": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "reason_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "request_id": "c64eceb9-f9fd-4083-92f1-4690720409e8",
+        "timestamp": 1791649533
+      },
+      "trace_id": "c64eceb9-f9fd-4083-92f1-4690720409e8"
+    },
+    {
+      "http_status": 200,
+      "name": "gateway_sts_identity",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": false,
+          "member_uuid": "c4889f32-2b77-447d-a46e-025eaa67db37",
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "517077a3589ac178813c8b7eeca63f0ba25debdb913ed779a438e1ef7d044b97",
+          "proof_expires_at": "2026-10-10T16:26:33.988392Z",
+          "roles": [
+            "role_user"
+          ],
+          "schema": "powerx.iam.plugin-request-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "56031954-0a41-48e3-80b8-49715f9d8ec6",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "56031954-0a41-48e3-80b8-49715f9d8ec6",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "cfed1dc7-6b95-41cf-9e1f-0979013da5d6",
+          "transport": "http",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "dc0cc676-e648-455b-8d6f-8b14a2b8ac9c"
+        },
+        "message": "success",
+        "request_id": "cfed1dc7-6b95-41cf-9e1f-0979013da5d6",
+        "timestamp": 1791649533
+      },
+      "trace_id": "cfed1dc7-6b95-41cf-9e1f-0979013da5d6"
+    },
+    {
+      "http_status": 200,
+      "name": "real_api_key_identity",
+      "response": {
+        "code": 200,
+        "data": {
+          "is_root": false,
+          "member_uuid": "c4889f32-2b77-447d-a46e-025eaa67db37",
+          "mode": "delegated",
+          "permissions": [
+            "operations.order:read"
+          ],
+          "perms_hash": "529f0e05445742c4aee461838eed2525fb5d5f3a914295a83d8c7f09bfe83ed9",
+          "plugin_id": "com.powerx.acceptance.identity",
+          "policy_version": "517077a3589ac178813c8b7eeca63f0ba25debdb913ed779a438e1ef7d044b97",
+          "proof_expires_at": "2026-10-10T16:26:33.988392Z",
+          "roles": [
+            "role_user"
+          ],
+          "schema": "powerx.iam.plugin-request-identity/v1",
+          "source_method": "GET",
+          "source_path": "/admin/operations/orders",
+          "source_request_id": "56031954-0a41-48e3-80b8-49715f9d8ec6",
+          "source_required_permission": "operations.order:read",
+          "source_trace_id": "56031954-0a41-48e3-80b8-49715f9d8ec6",
+          "tenant_uuid": "c7acd7ea-7bb2-4228-b026-0236132dacf8",
+          "trace_id": "3b2b473d-253b-4f17-bb4a-44652d77624a",
+          "transport": "http",
+          "user_session_expires_at": "2026-10-10T16:40:33Z",
+          "user_uuid": "dc0cc676-e648-455b-8d6f-8b14a2b8ac9c"
+        },
+        "message": "success",
+        "request_id": "3b2b473d-253b-4f17-bb4a-44652d77624a",
+        "timestamp": 1791649534
+      },
+      "trace_id": "3b2b473d-253b-4f17-bb4a-44652d77624a"
+    },
+    {
+      "http_status": 401,
+      "name": "user_credential_rejected_at_service_plane",
+      "response": {
+        "code": 401,
+        "error": "IAM_CONTEXT_SERVICE_CREDENTIAL_INVALID",
+        "error_code": "IAM_CONTEXT_SERVICE_CREDENTIAL_INVALID",
+        "message": "IAM_CONTEXT_SERVICE_CREDENTIAL_INVALID",
+        "reason_code": "IAM_CONTEXT_SERVICE_CREDENTIAL_INVALID",
+        "request_id": "160dfa30-94ba-4858-9d1d-f6d8d382493c",
+        "timestamp": 1791649534
+      },
+      "trace_id": "160dfa30-94ba-4858-9d1d-f6d8d382493c"
+    },
+    {
+      "http_status": 400,
+      "name": "unknown_identity_override",
+      "response": {
+        "code": 400,
+        "error": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "error_code": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "message": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "reason_code": "IAM_CONTEXT_INVALID_ARGUMENT",
+        "request_id": "01df4f74-7ffb-42b6-9bba-6bcc17a04e0e",
+        "timestamp": 1791649534
+      },
+      "trace_id": "01df4f74-7ffb-42b6-9bba-6bcc17a04e0e"
+    },
+    {
+      "http_status": 401,
+      "name": "missing_context_proof",
+      "response": {
+        "code": 401,
+        "error": "IAM_CONTEXT_PROOF_REQUIRED",
+        "error_code": "IAM_CONTEXT_PROOF_REQUIRED",
+        "message": "IAM_CONTEXT_PROOF_REQUIRED",
+        "reason_code": "IAM_CONTEXT_PROOF_REQUIRED",
+        "request_id": "c0226bc1-1d4d-44a6-9cc4-39e45ce88b2d",
+        "timestamp": 1791649534
+      },
+      "trace_id": "c0226bc1-1d4d-44a6-9cc4-39e45ce88b2d"
+    },
+    {
+      "http_status": 403,
+      "name": "api_key_owner_rejected",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "message": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "request_id": "39340add-63d1-473a-8838-c284bb5717a5",
+        "timestamp": 1791649534
+      },
+      "trace_id": "39340add-63d1-473a-8838-c284bb5717a5"
+    },
+    {
+      "http_status": 403,
+      "name": "ws_revalidation_api_key_owner_rejected",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "message": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_PLUGIN_FORBIDDEN",
+        "request_id": "a988be87-5381-4e4a-873d-1e14f16ba916",
+        "timestamp": 1791649534
+      },
+      "trace_id": "a988be87-5381-4e4a-873d-1e14f16ba916"
+    },
+    {
+      "http_status": 401,
+      "name": "expired_service_credential",
+      "response": {
+        "code": 401,
+        "error": "插件服务凭证无效或已过期。",
+        "error_code": "IAM_CONTEXT_SERVICE_CREDENTIAL_EXPIRED",
+        "message": "插件服务凭证无效或已过期。",
+        "reason_code": "IAM_CONTEXT_SERVICE_CREDENTIAL_EXPIRED",
+        "request_id": "81896a2a-2f94-422c-a1a9-cdd72a909e3e",
+        "timestamp": 1791649534
+      },
+      "trace_id": "81896a2a-2f94-422c-a1a9-cdd72a909e3e"
+    },
+    {
+      "http_status": 403,
+      "name": "permission_revoked",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "message": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "request_id": "3b538220-d0c1-4207-bd31-4c3f9c3ff831",
+        "timestamp": 1791649534
+      },
+      "trace_id": "3b538220-d0c1-4207-bd31-4c3f9c3ff831"
+    },
+    {
+      "http_status": 403,
+      "name": "ws_revalidation_permission_revoked",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "message": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "request_id": "abcf7350-1c4a-4575-9ad2-1707322cf3e3",
+        "timestamp": 1791649534
+      },
+      "trace_id": "abcf7350-1c4a-4575-9ad2-1707322cf3e3"
+    },
+    {
+      "http_status": 403,
+      "name": "ws_revalidation_api_key_permission_revoked",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "message": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_REQUEST_FORBIDDEN",
+        "request_id": "391018c0-797e-4ba3-ba98-230ed54f7c66",
+        "timestamp": 1791649534
+      },
+      "trace_id": "391018c0-797e-4ba3-ba98-230ed54f7c66"
+    },
+    {
+      "http_status": 200,
+      "name": "real_user_logout",
+      "response": {
+        "code": 200,
+        "data": {
+          "ok": true
+        },
+        "message": "success",
+        "request_id": "f5906962-293b-43a0-a623-99963628b65a",
+        "timestamp": 1791649534
+      },
+      "trace_id": "f5906962-293b-43a0-a623-99963628b65a"
+    },
+    {
+      "http_status": 401,
+      "name": "human_session_revoked",
+      "response": {
+        "code": 401,
+        "error": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "error_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "message": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "reason_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "request_id": "864b9e17-25dc-4c6c-8448-9b786248c37f",
+        "timestamp": 1791649534
+      },
+      "trace_id": "864b9e17-25dc-4c6c-8448-9b786248c37f"
+    },
+    {
+      "http_status": 401,
+      "name": "ws_revalidation_after_real_logout",
+      "response": {
+        "code": 401,
+        "error": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "error_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "message": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "reason_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "request_id": "b956e403-c9bf-4d80-bb82-8e3fe3f35ab3",
+        "timestamp": 1791649534
+      },
+      "trace_id": "b956e403-c9bf-4d80-bb82-8e3fe3f35ab3"
+    },
+    {
+      "http_status": 401,
+      "name": "ws_revalidation_api_key_after_real_logout",
+      "response": {
+        "code": 401,
+        "error": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "error_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "message": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "reason_code": "IAM_CONTEXT_USER_SESSION_INVALID",
+        "request_id": "8d784949-8a00-4835-852a-ad2bc1f5157b",
+        "timestamp": 1791649534
+      },
+      "trace_id": "8d784949-8a00-4835-852a-ad2bc1f5157b"
+    },
+    {
+      "http_status": 403,
+      "name": "service_grant_revoked",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "message": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "request_id": "e9611ef0-eae4-4832-80b7-8f37362fe768",
+        "timestamp": 1791649534
+      },
+      "trace_id": "e9611ef0-eae4-4832-80b7-8f37362fe768"
+    },
+    {
+      "http_status": 403,
+      "name": "ws_revalidation_service_grant_revoked",
+      "response": {
+        "code": 403,
+        "error": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "error_code": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "message": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "reason_code": "IAM_CONTEXT_SERVICE_FORBIDDEN",
+        "request_id": "d6927a08-120c-4b0f-849a-325b7a1cd3b6",
+        "timestamp": 1791649534
+      },
+      "trace_id": "d6927a08-120c-4b0f-849a-325b7a1cd3b6"
+    }
+  ],
+  "schema": "powerx.iam.request-identity-acceptance/v1",
+  "date": "2026-10-11",
+  "scope": "Core WS message-triggered identity revalidation contract",
+  "operation": "revalidate_ws_identity",
+  "endpoint": "core://iam/identity-context",
+  "tenant_rest": "POST /api/v1/tenant/iam/identity-contexts:revalidate-ws",
+  "admin_rest": "POST /api/v1/admin/iam/identity-contexts:revalidate-ws",
+  "development_host_grant_status": {
+    "http_status": 200,
+    "trace_id": "c0883e89-7f4b-4f52-8cd3-49c7c453e18e",
+    "response": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "items": [
+          {
+            "capability_id": "com.corex.iam.identity_context.service_read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          }
+        ]
+      },
+      "timestamp": 1791649379,
+      "request_id": "944d84cc-58bb-474c-b7ac-e858cbf954e0"
+    },
+    "scope": "running development Core; new WS operation awaits code reload"
+  },
+  "gates": {
+    "capability_check": "passed; declared=1100 referenced=64 rest_routes=1025 candidates=1014 ignored_route_rules=6",
+    "capability_seed": {
+      "passed": true,
+      "scope": "isolated powerx_ws_verify database",
+      "log": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-ws-acceptance-_85vo_g7/capability-seed.log"
+    },
+    "affected_packages_tests": "passed",
+    "go_vet": "passed",
+    "backend_build": "passed"
+  },
+  "acceptance_boundary": {
+    "framework_socket_lifecycle_or_browser_acceptance_completed": false,
+    "runtime_core_restarted": false,
+    "configured_user_database_seeded_or_modified": false,
+    "polling_added": false,
+    "instant_idle_socket_notification_promised": false
+  },
+  "services": {
+    "temporary_containers_removed": true,
+    "temporary_ports_released": [
+      55436,
+      56386
+    ],
+    "user_services_untouched": true
+  }
+}

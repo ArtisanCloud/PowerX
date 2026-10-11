@@ -62,6 +62,12 @@ func (c *ollamaClient) httpClient(mc *config.ModelConfig) *http.Client {
 }
 
 func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, streaming bool) ([]byte, error) {
+	if mc.ResponseFormat != "" && mc.ResponseFormat != "json_object" {
+		return nil, errors.New("AI_RESPONSE_FORMAT_UNSUPPORTED")
+	}
+	if mc.ResponseFormat != "" && len(mc.ResponseSchema) > 0 {
+		return nil, errors.New("AI_RESPONSE_FORMAT_CONFLICT")
+	}
 	model := mc.Model
 	if strings.TrimSpace(model) == "" {
 		model = "llama3.1"
@@ -104,7 +110,9 @@ func (c *ollamaClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 		Stream:   streaming,
 		Think:    thinkPtr,
 	}
-	if len(mc.ResponseSchema) > 0 {
+	if mc.ResponseFormat == "json_object" {
+		req.Format = "json"
+	} else if len(mc.ResponseSchema) > 0 {
 		req.Format = mc.ResponseSchema
 	}
 	if len(opts) > 0 {

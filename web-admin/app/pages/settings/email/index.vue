@@ -149,9 +149,8 @@ const testSMTPConnection = async () => {
             </UFormField>
 
             <UFormField label="密码" required>
-              <UInput
+              <SecretInput
                 v-model="emailConfig.smtp.password"
-                type="password"
                 placeholder="应用专用密码"
               />
             </UFormField>

@@ -100,6 +100,11 @@ func SeedDefaultDevAPIKeys(db *gorm.DB) error {
 				return customerErr
 			}
 			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, customerHostPermissions)
+			identityPermissions, identityErr := resolveRequestIdentityDevPermissions(ctx, db)
+			if identityErr != nil {
+				return identityErr
+			}
+			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, identityPermissions)
 		}
 		if err := upsertDevAPIKey(ctx, db, tenantUUID, profile.ID, item, keyPermissions); err != nil {
 			return err
@@ -107,6 +112,24 @@ func SeedDefaultDevAPIKeys(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// The development Host simulation selects only the AI Craft identity contract.
+// Production keys and additional plugin owners require explicit grants.
+func resolveRequestIdentityDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	var rows []modeliam.Permission
+	if err := db.WithContext(ctx).Where("module=? AND allow_api_key=? AND status=?", "iam", true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := []modeligw.IntegrationGatewayAPIKeyPermission{}
+	for _, row := range rows {
+		resolved, ok := apikeypermissions.ResolvePermission(row)
+		if !ok || resolved.Scope != "_scope.iam.identity_context.service_read" {
+			continue
+		}
+		out = appendUniqueAPIKeyPermissions(out, []modeligw.IntegrationGatewayAPIKeyPermission{{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: "com.powerx.plugins.ai-craft", Effect: resolved.Effect}})
+	}
+	return out, nil
 }
 
 // resolveCustomerHostDevPermissions grants only the typed Customer/Contact
@@ -155,12 +178,13 @@ func resolveMetadataHostDevPermissions(ctx context.Context, db *gorm.DB) ([]mode
 func resolveKnowledgeHostDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
 	const module = "knowledge_space"
 	wantedScopes := map[string]struct{}{
-		"_scope.knowledge.directory.read":  {},
-		"_scope.knowledge.catalog.read":    {},
-		"_scope.knowledge.space.create":    {},
-		"_scope.knowledge.search.read":     {},
-		"_scope.knowledge.retrieval.read":  {},
-		"_scope.knowledge.document.manage": {},
+		"_scope.knowledge.content_overview.service_read": {},
+		"_scope.knowledge.directory.read":                {},
+		"_scope.knowledge.catalog.read":                  {},
+		"_scope.knowledge.space.create":                  {},
+		"_scope.knowledge.search.read":                   {},
+		"_scope.knowledge.retrieval.read":                {},
+		"_scope.knowledge.document.manage":               {},
 	}
 	var rows []modeliam.Permission
 	if err := db.WithContext(ctx).Where("module = ? AND allow_api_key = ? AND status = ?", module, true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {

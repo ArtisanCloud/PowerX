@@ -1,3 +1,4 @@
+import { AuthSessionChangedError, captureAuthSession, isAuthSessionCurrent } from "~/utils/auth-session";
 export default defineNuxtPlugin((nuxtApp) => {
   const { initAuth, getToken, clearAuth } = useAuth();
   const userStore = useUserStore();
@@ -31,20 +32,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       return;
     }
 
-    // 关键：每次刷新都强制走一次 me/context；只有认证失效才清理登录态。
-    const token = getToken();
-    if (!token) return;
-    try {
-      await userStore.fetchUserContext({ force: true });
-    } catch (error: any) {
-      const statusCode = extractStatusCode(error);
-      if (statusCode === 401) {
-        clearAuth();
-        userStore.clearUserState();
-        await navigateTo("/users/login");
-      }
-    }
-
     userStore.initStorageSync({
       shouldSync: () => !!getToken(),
       onUnauthorized: () => {
@@ -52,5 +39,22 @@ export default defineNuxtPlugin((nuxtApp) => {
         userStore.clearUserState();
       },
     });
+
+    // 关键：每次刷新都强制走一次 me/context；只有认证失效才清理登录态。
+    const token = getToken();
+    if (!token) return;
+    const stamp = captureAuthSession();
+    try {
+      await userStore.fetchUserContext({ force: true });
+    } catch (error: any) {
+      const statusCode = extractStatusCode(error);
+      if (!(error instanceof AuthSessionChangedError) && isAuthSessionCurrent(stamp) && statusCode === 401) {
+        clearAuth();
+        userStore.clearUserState();
+        await navigateTo("/users/login");
+      }
+    }
+
+
   });
 });

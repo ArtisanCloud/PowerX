@@ -1,0 +1,159 @@
+openapi: 3.0.3
+info:
+  title: Published Knowledge Content Overview
+  version: 1.0.0
+servers: [{url: /api/v1}]
+paths:
+  /tenant/knowledge/spaces/{space_uuid}/content-overview:
+    get:
+      operationId: ListPublishedKnowledgeArticles
+      description: Reads source articles in the current credential's tenant grant, with the same published/visibility/configuration filters as retrieval. It is not an on-behalf-of browser-user access contract.
+      security: [{GatewayAPIKey: []}, {ServiceSTS: []}]
+      parameters:
+        - {name: space_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: mode, in: query, required: true, schema: {type: string, enum: [semantic, hybrid]}}
+        - {name: required_corpus_generation, in: query, schema: {type: string, format: uuid}}
+        - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: preview_codepoints, in: query, schema: {type: integer, minimum: 0, maximum: 2000, default: 320}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 4096}}
+      responses:
+        '200': {$ref: '#/components/responses/Overview'}
+        '400': {description: 'Invalid/duplicate/unknown parameter, invalid signature or cursor scope mismatch'}
+        '401': {description: KNOWLEDGE_UNAUTHORIZED}
+        '403': {description: KNOWLEDGE_FORBIDDEN; grant missing or revoked}
+        '404': {description: KNOWLEDGE_SPACE_NOT_FOUND; includes foreign tenant and retired space}
+        '409': {description: 'KNOWLEDGE_INDEX_GENERATION_CONFLICT, KNOWLEDGE_CONTENT_SNAPSHOT_CONFLICT, KNOWLEDGE_CONTENT_CURSOR_EXPIRED or model binding conflict'}
+        '422': {description: 'KNOWLEDGE_SEMANTIC_INDEX_NOT_READY, KNOWLEDGE_SEMANTIC_MODE_NOT_READY or KNOWLEDGE_VECTOR_LAYOUT_INVALID'}
+        '501': {description: KNOWLEDGE_SEMANTIC_UNSUPPORTED; this v1 does not use the legacy lexical store}
+        '503': {description: Explicit dependency or source hydration failure; never an empty success}
+  /admin/knowledge-spaces/{spaceId}/content-overview:
+    get:
+      operationId: AdminListPublishedKnowledgeArticles
+      description: Same published corpus response, using a tenant user JWT and the platform_capability IAM triple knowledge_space / knowledge_content_overview / read (permission_code corex.knowledge.content_overview:read). Service actors are rejected.
+      security: [{UserBearer: []}]
+      parameters:
+        - {name: spaceId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: mode, in: query, required: true, schema: {type: string, enum: [semantic, hybrid]}}
+        - {name: required_corpus_generation, in: query, schema: {type: string, format: uuid}}
+        - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: preview_codepoints, in: query, schema: {type: integer, minimum: 0, maximum: 2000, default: 320}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 4096}}
+      responses:
+        '200': {$ref: '#/components/responses/Overview'}
+        '401': {description: User authentication required}
+        '403': {description: RBAC denied}
+        '404': {description: Space not found}
+        '409': {description: 'Generation, cursor expiry or visibility snapshot conflict'}
+        '503': {description: Explicit dependency failure}
+components:
+  securitySchemes:
+    GatewayAPIKey: {type: apiKey, in: header, name: Authorization, description: 'ApiKey <gateway-key>'}
+    ServiceSTS: {type: http, scheme: bearer, bearerFormat: STS}
+    UserBearer: {type: http, scheme: bearer, bearerFormat: JWT}
+  responses:
+    Overview:
+      description: The authorized published article directory, including a legitimate empty directory.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, data]
+            properties:
+              code: {type: integer, example: 200}
+              message: {type: string}
+              timestamp: {type: integer}
+              request_id: {type: string}
+              data: {$ref: '#/components/schemas/ContentOverview'}
+  schemas:
+    TypedContentOverviewOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, query]
+      properties:
+        operation: {type: string, enum: [list_articles]}
+        query: {$ref: '#/components/schemas/ContentOverviewQuery'}
+    ContentOverviewQuery:
+      type: object
+      additionalProperties: false
+      required: [schema, space_uuid, mode]
+      properties:
+        schema: {type: string, enum: ['powerx.knowledge.content-overview-query/v1']}
+        space_uuid: {type: string, format: uuid}
+        mode: {type: string, enum: [semantic, hybrid]}
+        required_corpus_generation: {type: string, format: uuid}
+        page_size: {type: integer, minimum: 1, maximum: 100, default: 20}
+        preview_codepoints: {type: integer, minimum: 0, maximum: 2000, default: 320}
+        cursor: {type: string, maxLength: 4096}
+    ContentOverview:
+      type: object
+      required: [schema, space_uuid, mode, generation, items, pagination, overview, themes, recommended_questions, authorization_scope, trace_id]
+      properties:
+        schema: {type: string, enum: ['powerx.knowledge.content-overview/v1']}
+        space_uuid: {type: string, format: uuid}
+        mode: {type: string, enum: [semantic, hybrid]}
+        authorization_scope: {type: string, enum: [current_credential_tenant_published_corpus]}
+        trace_id: {type: string}
+        generation:
+          type: object
+          required: [space_uuid, configuration_generation, corpus_generation, embedding_profile, model_key, model_revision, dimensions]
+          properties:
+            env: {type: string}
+            space_uuid: {type: string, format: uuid}
+            configuration_generation: {type: string, format: uuid}
+            corpus_generation: {type: string, format: uuid}
+            embedding_profile: {type: object, properties: {uuid: {type: string, format: uuid}, version: {type: integer}}}
+            model_key: {type: string}
+            model_revision: {type: string}
+            dimensions: {type: integer}
+            distance_metric: {type: string}
+        items:
+          type: array
+          items:
+            type: object
+            required: [document_uuid, title, uri, document_version, bundle_generation, chunk_uuid, artifact_uuid, source_ref, preview]
+            properties:
+              document_uuid: {type: string, format: uuid}
+              title: {type: string}
+              uri: {type: string}
+              document_version: {type: string}
+              bundle_generation: {type: string, format: uuid}
+              chunk_uuid: {type: string, format: uuid}
+              artifact_uuid: {type: string, format: uuid}
+              source_ref:
+                type: object
+                required: [kind, source_uuid, version, checksum, position_unit, char_start, char_end]
+                properties:
+                  kind: {type: string}
+                  source_uuid: {type: string, format: uuid}
+                  version: {type: string}
+                  checksum: {type: string}
+                  position_unit: {type: string, enum: [unicode_codepoint]}
+                  char_start: {type: integer}
+                  char_end: {type: integer}
+              preview:
+                type: object
+                required: [kind, text, position_unit, char_start, char_end, truncated]
+                properties:
+                  kind: {type: string, enum: [published_source_chunk]}
+                  text: {type: string}
+                  position_unit: {type: string, enum: [unicode_codepoint]}
+                  char_start: {type: integer, minimum: 0}
+                  char_end: {type: integer, minimum: 0}
+                  truncated: {type: boolean}
+        pagination:
+          type: object
+          required: [page_size, total, has_more, next_cursor]
+          properties:
+            page_size: {type: integer}
+            total: {type: integer}
+            has_more: {type: boolean}
+            next_cursor: {type: string, nullable: true}
+        overview: {$ref: '#/components/schemas/DerivedStatus'}
+        themes: {$ref: '#/components/schemas/DerivedStatus'}
+        recommended_questions: {$ref: '#/components/schemas/DerivedStatus'}
+    DerivedStatus:
+      type: object
+      required: [status, reason_code]
+      properties:
+        status: {type: string, enum: [not_available]}
+        reason_code: {type: string, enum: [KNOWLEDGE_CONTENT_DERIVED_NOT_PRODUCED]}

@@ -38,6 +38,26 @@ type RoutePermissionResolver interface {
 	RoutePermission(ctx context.Context, pluginID, method, reqPath string) (*Permission, error)
 }
 
+func (g *authzGate) requiredCode(ctx context.Context, pluginID, method, reqPath string) (string, error) {
+	var required *Permission
+	if resolver, ok := g.az.(RoutePermissionResolver); ok {
+		var err error
+		required, err = resolver.RoutePermission(ctx, pluginID, method, reqPath)
+		if err != nil {
+			return "", err
+		}
+	}
+	if required == nil {
+		if policy := g.policies[pluginID]; policy != nil {
+			required = policy.Required(method, reqPath)
+		}
+	}
+	if required == nil {
+		return "", nil
+	}
+	return strings.TrimPrefix(formatPermission(required), "<nil>"), nil
+}
+
 // --------- 2) 路由 -> 所需权限 ---------
 
 type Permission struct {

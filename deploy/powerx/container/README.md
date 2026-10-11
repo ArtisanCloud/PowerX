@@ -119,6 +119,12 @@ sh run.sh setup-values
 
 先测试数据库和 Redis 连接，再按向导保存配置。数据库步骤仅迁移表结构，尚不创建管理员或执行依赖管理员的营销 Skill/Agent 种子；管理员信息确认后，在“完成安装”阶段执行完整种子初始化。完成后后端通过 Docker 重启策略重新加载完整运行状态，页面进入登录。
 
+完成安装前必须填写管理员用户名、有效邮箱和非空密码（bcrypt 限制为最多 72 个 UTF-8 字节）。用户名可以自定义，不要求叫 `root`；`is_root=true` 表示平台管理员身份。草稿保存和数据库准备阶段允许这些信息尚未填完，但已有普通用户不能替代管理员确认。
+
+数据库准备可以重复执行，会保留已有数据，不调用 `refresh`。完成安装失败时不标记 `installed`；部分已成功的种子数据可能保留，修复失败原因后重试即可，普通重试不会重置已有管理员密码。已完成安装的实例不能再次执行初始化。
+
+容器发布 CI 的 `smoke.py` 用独立空库验证：首次启动没有应用表或默认管理员；缺少管理员时 Complete 返回 400 且不执行迁移；Provision 重试成功、用户数仍为 0，预存测试记录保留；填写自定义管理员后完整初始化成功、重启并登录。
+
 ```bash
 curl -fsS http://127.0.0.1:18080/api/v1/admin/setup/status
 ```
@@ -134,6 +140,8 @@ AI 模型、知识检索及具体插件需单独配置并验收。上传的插�
 使用 XDocker 时关闭独立 gateway，把后端/Web 接入该实例专用 ingress 网络，由共享 Nginx 接入并用 Certbot 签发证书。PostgreSQL、Redis 仍只在私有网络，不发布宿主机端口。**选择一种部署方式，避免启动两份指向同一数据目录的实例。**
 
 ## 7. 数据、备份、升级与回滚
+
+完整旧实例升级机制的实施计划见[PowerX 系统升级计划](../../../docs/plan/deploy/powerx-system-upgrade.md)。正式发布元数据、目标迁移计划/履历/并发锁、逐项 JSON 和固定旧镜像升级 CI 尚待交付；以下现有基础命令不代表已具备完整自动升级能力。升级执行应固定已验收的成对 digest，按发布声明处理维护窗口与回滚。
 
 ```text
 .env                 公开镜像版本、环境、浏览器地址
@@ -161,3 +169,12 @@ sh run.sh start
 ```
 
 管理员由 Setup 创建后，修改 `.env` 不会自动修改账号；域名、数据路径和身份相关调整应同时更新持久运行配置并重新验收。不要重新 init 或换一套签名密钥。
+
+
+## 已安装实例升级 v1
+
+固定合同：[powerx-installed-upgrade.md](../../../docs/contracts/powerx-installed-upgrade.md)。只接纳通过 CI 的 `powerx-upgrade-manifest.json`，核对成对 digest、来源、选定测试平台及 `compatibility.validated_scope`。工作区实现记录不等于可执行发布制品。
+
+目标镜像的只读 `migrate --action=status|plan` 和显式 `--action=apply` 已实现；`sh run.sh migrate` 透传参数。apply 需要精确 target release、source SHA、expected plan 和 `--confirm-offline`。先备份并停止所有写入进程，停写后重新 plan；成功后设置 `POWERX_UPGRADE_MODE=1` 启动成对镜像。
+
+v1 不写原配置、不重新 Setup、不执行完整 seed，回滚要求恢复匹配数据库/配置/运行文件。真实镜像 CI 尚待本分支提交，未生成正式 manifest 前不得自动升级。

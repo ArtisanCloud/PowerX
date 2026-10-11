@@ -386,3 +386,7 @@ wait
 ## 2026-10-08 Core semantic Host
 
 Implementation and evidence gates are tracked in [semantic-host-implementation.md](semantic-host-implementation.md), with [formal Core contract](../../docs/contracts/knowledge-semantic-host.md) and [Framework alignment](../../docs/contracts/knowledge-semantic-framework-alignment.md). Framework/plug-in acceptance must not be marked complete by Core's isolated HTTP/STS evidence.
+
+## 2026-10-10 已发布内容导览
+
+Core 实施、合同及验收边界见 [content-overview-implementation.md](content-overview-implementation.md)。Framework/Plugin 接入和真实 dev 页面验收单独跟踪，不以隔离 publication fixture 代替业务语料验收。

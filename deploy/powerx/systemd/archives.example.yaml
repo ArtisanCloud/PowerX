@@ -1,0 +1,25 @@
+# 保存为 /etc/powerx/archives.yaml，权限 0600，并设置 POWERX_OPS_ARCHIVE_CONFIG。
+# 开发站使用 /opt/powerx-dev 与独立的 instance、配置文件和凭据。
+directory: /opt/powerx/storage/archives
+instance: prod-server-01
+sources:
+  - id: media
+    name: 媒体文件与数据库快照
+    kind: media
+    directory: /opt/powerx/storage/media
+    # 使用当前 Core 的实际数据库连接，填写真实密码；不提交此部署文件。
+    database_dsn: "postgres://powerx:REPLACE_ON_SERVER@127.0.0.1:5432/powerx_pro?sslmode=disable"
+  - id: postgresql-logs
+    name: PostgreSQL 操作日志
+    kind: postgresql_logs
+    directory: /var/log/postgresql
+    # 根据实际集群配置；任务用户需可读取该文件和日志目录。
+    current_logfiles: /var/lib/postgresql/16/main/current_logfiles
+  - id: database-files
+    name: 数据库备份文件异地保存
+    kind: database_files
+    directory: /opt/powerx/storage/backups
+credentials:
+  archive-server:
+    key_file: /etc/powerx/archive-credentials/id_ed25519
+    known_hosts_file: /etc/powerx/archive-credentials/known_hosts

@@ -48,6 +48,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	builtinHandler := NewBuiltinHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	registerHostDocumentAdmin(protected, deps)
+	registerContentOverviewAdmin(protected, deps)
 	{
 		group.GET("", handler.list)
 		group.GET("/catalog", handler.catalog)

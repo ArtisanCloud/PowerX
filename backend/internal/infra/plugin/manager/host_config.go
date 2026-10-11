@@ -781,6 +781,23 @@ func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, e
 	}
 	defer cleanup()
 
+	if driver == "postgres" {
+		// 显式 DSN 优先于零散配置。授权目标与允许的 Core owner 必须
+		// 来自这条实际连接，不能沿用 database/username 的旧配置值。
+		var identity struct {
+			DatabaseName string
+			UserName     string
+		}
+		if err := db.Raw("SELECT current_database() AS database_name, current_user AS user_name").Scan(&identity).Error; err != nil {
+			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: read connected database identity: %w", pluginID, err)
+		}
+		if identity.DatabaseName == "" || identity.UserName == "" {
+			return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: connected database identity is empty", pluginID)
+		}
+		dbCfg.Database = identity.DatabaseName
+		dbCfg.UserName = identity.UserName
+	}
+
 	if err := ensureSchemaExists(db, driver, schemaName); err != nil {
 		return nil, fmt.Errorf("plugin %s db isolation bootstrap failed: ensure schema %s: %w", pluginID, schemaName, err)
 	}

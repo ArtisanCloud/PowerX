@@ -136,6 +136,16 @@ web-admin/
 
 安装请求使用 `metadata.release_channel` 表示发布渠道；旧 `metadata.environment` 返回字段弃用错误，不得作为实例部署身份的别名或覆盖来源。
 
+## Installed Instance Upgrade（2026-10-11 增量计划）
+
+权威实施计划：[PowerX 已安装实例升级](../../docs/plan/deploy/powerx-system-upgrade.md)。状态：待实施；CLI 参数、JSON 和发布制品格式须经 Core/XDocker 评审后固定。
+
+Core 复用容器初始化器、database migrate/status、集中结构/数据迁移及已有 IAM 迁移记录，扩展严格配置升级、统一履历/校验和/并发锁、目标计划与逐项结果、增量系统数据、成对不可变镜像元数据和跨版本 CI。XDocker 负责备份、维护状态、迁移调用、镜像切换及升级页面；本增量通过 CLI 和发布制品交付，不增加 Core 升级管理网页。
+
+保持 installed、有效配置/密钥、账号密码、数据文件及插件绑定；新增系统数据走版本化迁移，升级不依赖完整 Setup 或完整初始化 seed。发布通道与 deployment.env 分开，插件兼容和可能需要重新登录在合同明确。
+
+实施顺序：合同与清单 → 配置护栏 → 统一迁移机制 → 增量补齐 → 固定旧镜像升级/失败/回滚 CI → 已验收镜像与执行合同交付。首轮源码基线为完整 SHA `3d792fd7ea2426825970bceceb0d6e9db46211ef`，实际旧镜像 digest 尚待核验；任务见 Phase 14（T140–T157）。
+
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |

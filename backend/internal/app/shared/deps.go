@@ -5,6 +5,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"net/http"
 	"os"
@@ -28,7 +29,9 @@ import (
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	agentsession "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
+	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
@@ -191,16 +194,19 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 }
 
 type Deps struct {
-	RuntimeIdentity runtimeidentity.CoreInfo
-	RuntimeHostSvc  *runtimehost.Service
-	AgentSessionSvc *agentsession.Service
-	AgentRunWorker  *agent_run.WorkerService
-	AgentAdminRun   *agentruntime.AdminRunService
-	DB              *gorm.DB
-	ctx             *context.Context
-	AuthUser        *authsvc.AuthService
-	AuthCustomer    *authsvc.AuthService
-	MeService       *authsvc.MeService
+	RuntimeIdentity       runtimeidentity.CoreInfo
+	RuntimeHostSvc        *runtimehost.Service
+	AgentSessionSvc       *agentsession.Service
+	AgentRunWorker        *agent_run.WorkerService
+	AgentAdminRun         *agentruntime.AdminRunService
+	DB                    *gorm.DB
+	RestoreCopies         *backupops.RestoreCopyService
+	Archives              *archiveops.Service
+	ctx                   *context.Context
+	AuthUser              *authsvc.AuthService
+	AuthCustomer          *authsvc.AuthService
+	MeService             *authsvc.MeService
+	PluginRequestIdentity *requestidentity.Service
 
 	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
 
@@ -310,6 +316,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	// --- AuthService ---
 	meSvc := authsvc.NewMeService(db)
+	requestIdentitySvc := requestidentity.NewService(db, cache.GetCache(), opts.PluginRequestIdentity)
 
 	// --- TenantService ---
 	tenantSvc := tenantsvc.NewTenantService(db, authUser)
@@ -479,11 +486,12 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		})
 
 		baseCapabilitySeeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
-			RecordRepo:   recordRepo,
-			RegistryRepo: registryRepo,
-			TenantRepo:   tenantSvc.Repo,
-			Logger:       pxlog.GetGlobalLogger(),
-			Clock:        time.Now,
+			PreserveInstalledState: opts.PreserveInstalledCatalog,
+			RecordRepo:             recordRepo,
+			RegistryRepo:           registryRepo,
+			TenantRepo:             tenantSvc.Repo,
+			Logger:                 pxlog.GetGlobalLogger(),
+			Clock:                  time.Now,
 		})
 		if err := baseCapabilitySeeder.Ensure(ctx); err != nil {
 			pxlog.WarnF(ctx, "[integration_gateway] seed platform capabilities failed: %v", err)
@@ -560,6 +568,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
 				metadatasvc.NewTagCapabilityInvoker(db),
 				runtimeidentity.NewInvoker(db, opts.RuntimeIdentity),
+				&requestidentity.Invoker{Service: requestIdentitySvc},
 				knowledgeService.NewProvisioningCapabilityInvoker(db, func() *knowledgeService.Service {
 					if knowledgeDeps == nil {
 						return nil
@@ -644,6 +653,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
 	knowledgeDeps = newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
+	if knowledgeDeps != nil && knowledgeDeps.HostDocuments != nil {
+		knowledgeDeps.ContentOverview = knowledgeService.NewContentOverviewService(db, knowledgeDeps.HostDocuments.Semantic(), opts.KnowledgeSpace.ContentCursorSigningKey)
+		knowledgeDeps.HostDocuments.WithContentOverview(knowledgeDeps.ContentOverview)
+	}
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -851,6 +864,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		AuthUser:                          authUser,
 		AuthCustomer:                      authCustomer,
 		MeService:                         meSvc,
+		PluginRequestIdentity:             requestIdentitySvc,
 		AuditSvc:                          svc,
 		Auditor:                           aud,
 		MediaMgr:                          mediaManager,
@@ -1008,6 +1022,7 @@ type IntegrationGatewayDeps struct {
 
 // KnowledgeSpaceDeps 聚合知识空间域运行依赖。
 type KnowledgeSpaceDeps struct {
+	ContentOverview *knowledgeService.ContentOverviewService
 	HostDocuments   *knowledgeService.HostContractService
 	Instrumentation *knowledgeinstr.Instrumentation
 	RedisClient     *redis.Client

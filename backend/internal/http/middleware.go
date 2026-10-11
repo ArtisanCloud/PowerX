@@ -69,6 +69,7 @@ func sanitizeQuery(v url.Values) string {
 		"password":       {},
 		"secret":         {},
 		"client_secret":  {},
+		"context_ticket": {},
 		"private_key":    {},
 		"signature":      {},
 		"sig":            {},
