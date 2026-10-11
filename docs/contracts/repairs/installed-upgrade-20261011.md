@@ -2,6 +2,29 @@
 
 日期：2026-10-11。首次实施分支：`codex/026-installed-instance-upgrade`；后续合入当前 `024-ai-engineering-skills` 分支。本次发布修复继续在当前分支进行。
 
+## 当前交付：真实 CI 和发布已完成
+
+2026-10-11 22:12:57 +08:00，[CI #38145418432](https://github.com/ArtisanCloud/PowerX/actions/runs/38145418432) 全部通过并发布 [docker-dev-03a2a58c60f4](https://github.com/ArtisanCloud/PowerX/releases/tag/docker-dev-03a2a58c60f4)。这是 **development / prerelease** 制品，不是已部署业务服务器的声明。
+
+| 项目 | 固定值 |
+|---|---|
+| 目标源码 SHA | `03a2a58c60f4665d632e53ace48f169be8536421` |
+| 已验收来源 SHA | `3d792fd7ea2426825970bceceb0d6e9db46211ef` |
+| backend OCI index digest | `sha256:c69cae6b0c3fa4203be636f9ad339b04109c848d8fca921c38243f1f7e8f1642` |
+| web-admin OCI index digest | `sha256:f2eb6b8b4e0328c66e1a74d531d3554389de562eda16156681aa796fca87fc8c` |
+| manifest SHA256 | `d7f1e296b59dc147ab6772d8450bc3a3cc1801c78a4b76e9746f7cffa1074a84` |
+| 发布包 SHA256 | `cbcf9e307b37b8ca74fc863d1774871ffa6852348b974e8772c494e82dbaedbb` |
+
+- [manifest 原件](../evidence/release-03a2a58c60f4/powerx-upgrade-manifest.json)与 [manifest SHA256](../evidence/release-03a2a58c60f4/powerx-upgrade-manifest.json.sha256)。
+- [amd64 平台报告](../evidence/release-03a2a58c60f4/upgrade-report-linux-amd64.json)、[arm64 平台报告](../evidence/release-03a2a58c60f4/upgrade-report-linux-arm64.json)：每个平台 19/19 项通过，包含真实升级、凭据/业务/插件/文件保留、故障/中断重试、幂等和恢复备份后启动固定旧镜像的回滚。
+- [交付核验 JSON](../evidence/installed-upgrade-release-20261011.json)含成对 index/platform digest、平台报告 SHA256、下载链接和验收边界。
+- [部署包](https://github.com/ArtisanCloud/PowerX/releases/download/docker-dev-03a2a58c60f4/powerx-docker.tar.gz)及 [包 SHA256](https://github.com/ArtisanCloud/PowerX/releases/download/docker-dev-03a2a58c60f4/powerx-docker.tar.gz.sha256)。包内包含 manifest、Schema、两平台报告、Compose 和部署说明；`.env.example` 已固定为该成对 index digest。
+- 本机下载和核验目录：`/Users/michaelhu/Downloads/powerx-upgrade-release-03a2a58c60f4-20261011/`。已验证发布包与 manifest SHA256、manifest Schema、包内 manifest 一致性、报告文件 SHA256、源码 SHA 与平台 digest 匹配。
+
+支持范围为 PostgreSQL 16、本地存储、同 Core 数据库或关闭的向量拓扑、指定测试进程插件。实际业务插件和其他绑定仍需其自身验收。旧 Admin presign 返回的 `/media/{uuid}/resource` 与当前路由不一致，未作为兼容功能验收；当前文件验收固定使用 Admin JWT 受保护资源读取，缺少 JWT 返回 401。此限制已写入 manifest 的 `compatibility.post_upgrade_actions`；服务调用方使用当前 Host transfer 合同，不恢复已移除的匿名 UUID 路由。
+
+本次没有创建/切换分支、启动本机 Docker、操作业务服务器或重启用户日常服务；工作区其他未提交功能没有进入本发布 SHA。下面保留实施与失败运行历史，历史“待生成”表述以本节已交付结果为准。
+
 ## 已实现
 
 - [升级合同](../powerx-installed-upgrade.md)、manifest/result JSON Schema、固定命令与退出码。
