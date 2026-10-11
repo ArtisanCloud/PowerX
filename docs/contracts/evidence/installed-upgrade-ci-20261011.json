@@ -186,10 +186,10 @@
   "manifest_generated": false,
   "release_bundle_generated": false,
   "repair_verification": {
-    "python_tests_passed": 14,
+    "python_tests_passed": 16,
     "fixture_permission_registration_go_test": "passed",
     "gateway_path_normalization_go_tests": "passed",
-    "real_CI_rerun": "pending after nullable media headers repair"
+    "real_CI_rerun": "pending after bounded frontend initial readiness repair"
   },
   "boundaries": {
     "business_servers_modified": false,
@@ -1980,6 +1980,16 @@
         }
       },
       "finding": "18 of 19 acceptance checks passed; optional presign headers null rejected by urllib request constructor before download and restore rollback"
+    },
+    {
+      "run_id": 38142509247,
+      "run_url": "https://github.com/ArtisanCloud/PowerX/actions/runs/38142509247",
+      "source_sha": "5876f641d5132c58b89048a3ed4746dd5c0f47f2",
+      "conclusion": "failure",
+      "images_built": true,
+      "fresh_setup_probe": "ConnectionResetError on first GET /setup",
+      "upgrade_matrix": "skipped",
+      "finding": "add bounded frontend startup read probe; never retry 403 or weaken database checks"
     }
   ]
 }

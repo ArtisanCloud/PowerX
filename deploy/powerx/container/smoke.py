@@ -5,6 +5,7 @@ import subprocess
 import time
 import urllib.request
 import urllib.error
+from upgrade_smoke import wait_for_setup_page
 
 base='http://127.0.0.1:18080'
 def api(path,body=None,method=None,expected_status=200):
@@ -32,7 +33,7 @@ def assert_preserved():
     assert sql('SELECT value FROM public.setup_smoke_preservation WHERE id=1')=='preserve-me', \
         'Setup retries must preserve pre-existing data'
 
-with urllib.request.urlopen(base+'/setup',timeout=30) as response:assert response.status==200
+wait_for_setup_page()
 status=api('/api/v1/admin/setup/status')['data']
 assert status['install_status']=='uninstalled' and not status['configured'] and not status['requires_login'],status
 rows=subprocess.check_output(['docker','compose','exec','-T','postgres','psql','-U','powerx','-d','powerx','-Atc',"SELECT count(*) FROM information_schema.tables WHERE table_schema='public'"],text=True).strip()

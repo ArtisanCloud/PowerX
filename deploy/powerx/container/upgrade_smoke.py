@@ -28,6 +28,21 @@ class APIResponseError(RuntimeError):
         super().__init__('UPGRADE_CI_HTTP_STATUS_FAILED: ' + path.split('?')[0])
 
 
+def wait_for_setup_page():
+    for _ in range(30):
+        try:
+            with urllib.request.urlopen(BASE+'/setup',timeout=5) as response:
+                if response.status != 200: raise APIResponseError(response.status,'/setup')
+                return
+        except urllib.error.HTTPError as error:
+            if error.code not in (502,503,504): raise
+        except APIResponseError as error:
+            if error.status not in (502,503,504): raise
+        except OSError: pass
+        time.sleep(1)
+    raise RuntimeError('UPGRADE_CI_FRONTEND_READY_TIMEOUT')
+
+
 def compose(*args, input=None, check=True):
     result = subprocess.run(['docker', 'compose', *args], input=input, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if check and result.returncode:

@@ -48,6 +48,8 @@ integration_gateway 的两个旧 media 测试要求已不存在的 builtin `com.
 
 第五轮 [#38141655820](https://github.com/ArtisanCloud/PowerX/actions/runs/38141655820)，目标 SHA `8c9ff3c98225c4e4584b7190f1d670c001f1c5f5`：amd64 实际报告已有 18/19 项通过，包含迁移成功、数据/凭据/文件/插件保留、幂等、故障重试、中断恢复、锁冲突、非法配置/来源/履历拒绝及成对镜像核对。媒体 presign 回包的可选 `headers=null` 导致 Python 请求构造器 `AttributeError`，尚未进入最终下载及备份恢复回滚。已把可选空头部规范为 `{}`；不改签名 URL、凭据或服务端合同。仍保留 `restore_rollback` 必须通过的发布门禁。
 
+第六轮 [#38142509247](https://github.com/ArtisanCloud/PowerX/actions/runs/38142509247)，目标 SHA `5876f641d5132c58b89048a3ed4746dd5c0f47f2`：构建完成，空库首次请求 `/setup` 时发生 `ConnectionResetError`，升级矩阵未执行。已增加只对连接异常和 502/503/504 的有界前端启动等待；403 不重试，后续空库、登录和升级检查全部保留。Python 16 项测试通过，待重新完成真实发布门禁。
+
 只声明本地文件存储、同 Core 数据库/关闭的向量拓扑、测试进程插件范围。其他存储或业务插件需要额外验收；XDocker 必须按 `compatibility.validated_scope` 判断。
 
 可以审阅和提交本分支，等待 CI 门禁通过后交付发布包。工作区二进制与仅构建成功的镜像不得当作远程自动升级已验收制品。

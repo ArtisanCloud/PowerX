@@ -6,7 +6,7 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 
-from upgrade_smoke import Acceptance, APIResponseError, prepare_ci_mount_access
+from upgrade_smoke import Acceptance, APIResponseError, prepare_ci_mount_access, wait_for_setup_page
 
 
 class Response(io.BytesIO):
@@ -118,6 +118,21 @@ class MountAccessTests(unittest.TestCase):
             self.assertEqual(secret.stat().st_mode & 0o777, 0o600)
             self.assertFalse(any(path.startswith(str(outside)) for path,_ in calls))
             self.assertTrue(all(kwargs['follow_symlinks'] is False for _,kwargs in calls))
+
+
+class FrontendStartupTests(unittest.TestCase):
+    def test_connection_reset_is_retried_before_accepting_setup_page(self):
+        with patch('upgrade_smoke.urllib.request.urlopen',side_effect=[ConnectionResetError(),Response({})]), \
+                patch('upgrade_smoke.time.sleep') as sleep:
+            wait_for_setup_page()
+        self.assertEqual(sleep.call_count,1)
+
+    def test_forbidden_response_is_not_hidden_by_startup_retry(self):
+        denied=urllib.error.HTTPError('http://127.0.0.1:18080/setup',403,'Forbidden',{},io.BytesIO())
+        with patch('upgrade_smoke.urllib.request.urlopen',side_effect=denied), \
+                patch('upgrade_smoke.time.sleep') as sleep:
+            with self.assertRaises(urllib.error.HTTPError):wait_for_setup_page()
+        sleep.assert_not_called()
 
 
 if __name__ == '__main__':
