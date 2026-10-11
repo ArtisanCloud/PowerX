@@ -34,6 +34,17 @@ class UpgradeReadinessTests(unittest.TestCase):
         self.assertEqual(acceptance.report['http'][0]['status'], 502)
         self.assertNotIn('Bad Gateway', json.dumps(acceptance.report))
 
+    def test_gateway_denial_records_only_whitelisted_diagnostics(self):
+        acceptance=self.acceptance()
+        response=Response({'request_id':'denied-request','reason':'no registered permission binding for this route',
+                           'error_code':'IAM_CONTEXT_USER_FORBIDDEN','password':'do-not-log'},status=403)
+        with patch('upgrade_smoke.urllib.request.urlopen',return_value=response):
+            with self.assertRaises(APIResponseError):acceptance.api('/_p/example/api/v1/probe')
+        record=acceptance.report['http'][0]
+        self.assertEqual(record['gateway_reason'],'no registered permission binding for this route')
+        self.assertEqual(record['error_code'],'IAM_CONTEXT_USER_FORBIDDEN')
+        self.assertNotIn('do-not-log',json.dumps(acceptance.report))
+
     def test_waits_through_core_restart_and_setup_only_status(self):
         acceptance = self.acceptance()
         replies = [self.gateway_error(),

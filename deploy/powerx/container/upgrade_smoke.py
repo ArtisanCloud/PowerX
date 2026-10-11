@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import re
 import shutil
 import subprocess
 import sys
@@ -91,7 +92,20 @@ class Acceptance:
             self.report['http'].append(record)
             # Nginx returns HTML while Core restarts. Preserve its HTTP status
             # before decoding JSON so the bounded readiness wait can retry it.
-            if response.status!=expected: raise APIResponseError(response.status,path)
+            if response.status!=expected:
+                try:
+                    error_payload=json.loads(response.read())
+                except (ValueError,UnicodeError):
+                    error_payload={}
+                if isinstance(error_payload,dict):
+                    record['request_id']=record['request_id'] or error_payload.get('request_id') or error_payload.get('trace_id')
+                    code=error_payload.get('error_code')
+                    if isinstance(code,str) and re.fullmatch(r'[A-Z][A-Z0-9_]{1,100}',code): record['error_code']=code
+                    reason=error_payload.get('reason')
+                    if reason in ('no registered permission binding for this route','no permission rule for this route',
+                                  'authz route permission unavailable','authz backend unavailable','mint token failed'):
+                        record['gateway_reason']=reason
+                raise APIResponseError(response.status,path)
             try:
                 payload=json.loads(response.read())
             except (ValueError, UnicodeError):
@@ -173,7 +187,11 @@ def fixture_plugin():
         'endpoints':{'http_base_path':'/api/v1'},'routes':{'basePath':'/api/v1'},
         'frontend':{'admin':{'kind':'static','static_dir':'frontend/admin','menus':[]}},
         'rbac':{'resources':[{'resource':'probe','actions':['read']}]},
-        'permissions':[{'resource':'probe','path':'/probe','actions':['read'],'description':'Upgrade fixture probe'}]}
+        'permissions':[{'type':'api','permission_code':'upgrade.probe:read','module':'upgrade',
+                        'resource':'probe','action':'read','independent':True,'allow_api_key':False,
+                        'description':'Upgrade fixture probe','protocol_bindings':[
+                            {'channel':'rest','method':'GET','path':'/api/v1/probe',
+                             'actor_context':'admin_user','resource_scope':'tenant'}]}]}
     (root/'plugin.yaml').write_text(yaml.safe_dump(manifest))
     script=r'''#!/usr/bin/env python3
 import json,os,re,subprocess
@@ -237,6 +255,9 @@ def main():
         job_id=job['uuid']
         acceptance.api('/api/v1/admin/scheduler/jobs/'+job_id+'/pause',{})
         fixture_plugin();acceptance.api('/api/v1/admin/plugins/install/local',{'src_dir':'/data/upgrade-fixture','enable':True})
+        assert sql("SELECT count(*) FROM public.iam_permission WHERE source='plugin:"+PLUGIN+"' "
+                   "AND meta->>'type'='api' AND meta->>'independent'='true' AND meta->'protocol_bindings' "
+                   "@> '[{\"channel\":\"rest\",\"method\":\"GET\",\"path\":\"/api/v1/probe\"}]'::jsonb")=='1', 'Fixture API permission binding missing'
         probe_path='/_p/'+PLUGIN+'/api/v1/probe';old_probe=acceptance.api(probe_path)
         assert old_probe['value']=='preserved-plugin-data' and old_probe['core_user_table_denied']
         contents=b'PowerX preserved upload fixture\n';checksum=hashlib.sha256(contents).hexdigest()

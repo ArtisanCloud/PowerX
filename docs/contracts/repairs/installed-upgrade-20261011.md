@@ -42,6 +42,8 @@ integration_gateway 的两个旧 media 测试要求已不存在的 builtin `com.
 
 后续修复运行 [#38138761396](https://github.com/ArtisanCloud/PowerX/actions/runs/38138761396)，目标 SHA `39d1c26403dd5e578c9b0f81b7d6f91047d93020`：镜像与空库验收通过；报告明确记录了重启期间的 502，随后旧安装、登录和 Scheduler 测试通过，确认就绪等待修复有效。升级测试在宿主创建测试插件目录时发生 `PermissionError`：容器生成的私有目录属于 root，GitHub runner 无权写入。已增加只对 `powerx-upgrade-*` 隔离 CI 的两处挂载进行所有权交接，保留文件 mode、不跟随符号链接；生产初始化和升级路径未放宽权限。Python 验收测试现为 13 项通过。迁移尚未执行，发布门禁继续阻止生成 manifest 和发布包，等待下次真实运行。
 
+第三轮 [#38139994601](https://github.com/ArtisanCloud/PowerX/actions/runs/38139994601)，目标 SHA `5b0af7a4a9053b5ca327c687a338295ae0839a1e`：镜像、空库和旧安装验收通过；目录修复生效，测试插件安装返回 200。随后 `/probe` 返回 403，迁移仍未执行。核对固定旧源码发现 fixture 使用了旧式 resource/actions 权限声明，登记为 action，缺少网关要求的 API 协议绑定；Root 也必须先命中正式路由登记。已把测试插件改为显式 `type=api`、独立 `upgrade.probe:read`、`GET /api/v1/probe` 的 Admin JWT 绑定，并在调用前验证真实权限登记。没有开放 public 路由或放宽 Core 授权。失败回包仅登记白名单错误码和原因，保留 request_id，避免记录凭据。
+
 只声明本地文件存储、同 Core 数据库/关闭的向量拓扑、测试进程插件范围。其他存储或业务插件需要额外验收；XDocker 必须按 `compatibility.validated_scope` 判断。
 
 可以审阅和提交本分支，等待 CI 门禁通过后交付发布包。工作区二进制与仅构建成功的镜像不得当作远程自动升级已验收制品。
