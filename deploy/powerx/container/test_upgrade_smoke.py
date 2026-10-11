@@ -1,10 +1,12 @@
 import io
 import json
+import os
+import tempfile
 import unittest
 import urllib.error
 from unittest.mock import patch
 
-from upgrade_smoke import Acceptance, APIResponseError
+from upgrade_smoke import Acceptance, APIResponseError, prepare_ci_mount_access
 
 
 class Response(io.BytesIO):
@@ -72,6 +74,39 @@ class UpgradeReadinessTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'UPGRADE_CI_INSTALLED_STATE_FAILED'):
                 self.acceptance().wait_installed()
         self.assertEqual(sleep.call_count, 150)
+
+
+class MountAccessTests(unittest.TestCase):
+    def test_rejects_non_ci_namespace_before_any_container_operation(self):
+        for env in [{}, {'POWERX_UPGRADE_CI': '1', 'COMPOSE_PROJECT_NAME': 'powerx-prod'}]:
+            with self.subTest(env=env), patch.dict(os.environ, env, clear=True), \
+                    patch('upgrade_smoke.compose') as compose:
+                with self.assertRaisesRegex(RuntimeError, 'UPGRADE_CI_ISOLATION_REQUIRED'):
+                    prepare_ci_mount_access()
+                compose.assert_not_called()
+
+    def test_changes_only_ownership_and_never_follows_symlinks(self):
+        captured = []
+        with patch.dict(os.environ, {'POWERX_UPGRADE_CI': '1', 'COMPOSE_PROJECT_NAME': 'powerx-upgrade-test'}), \
+                patch('upgrade_smoke.compose', side_effect=lambda *args: captured.append(args)):
+            prepare_ci_mount_access()
+        script = captured[0][6]
+        with tempfile.TemporaryDirectory() as folder:
+            from pathlib import Path
+            root = Path(folder)
+            config = root/'config';data = root/'data'
+            config.mkdir(mode=0o700);data.mkdir(mode=0o700)
+            secret = config/'secret';secret.write_text('private');secret.chmod(0o600)
+            outside = root/'outside';outside.mkdir();(outside/'untouched').write_text('outside')
+            link = data/'link';link.symlink_to(outside, target_is_directory=True)
+            calls = []
+            local = script.replace("('/etc/powerx','/data')", repr((str(config),str(data))))
+            with patch('sys.argv', ['script','1001','1001']), \
+                    patch('os.chown', side_effect=lambda path,*args,**kwargs: calls.append((str(path),kwargs))):
+                exec(compile(local, 'ci_mount_access', 'exec'), {})
+            self.assertEqual(secret.stat().st_mode & 0o777, 0o600)
+            self.assertFalse(any(path.startswith(str(outside)) for path,_ in calls))
+            self.assertTrue(all(kwargs['follow_symlinks'] is False for _,kwargs in calls))
 
 
 if __name__ == '__main__':

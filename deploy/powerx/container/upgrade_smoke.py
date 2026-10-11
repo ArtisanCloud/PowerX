@@ -38,6 +38,25 @@ def sql(query):
     return compose('exec', '-T', 'postgres', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'powerx', '-d', 'powerx', '-At', input=query.encode()).stdout.decode().strip()
 
 
+def prepare_ci_mount_access():
+    # The initializer and Core run as container root. The GitHub runner must
+    # create/copy the fixture inside these two CI-owned mounts, without making
+    # private configuration world-readable or following plugin symlinks.
+    if os.environ.get('POWERX_UPGRADE_CI') != '1' or not os.environ.get('COMPOSE_PROJECT_NAME', '').startswith('powerx-upgrade-'):
+        raise RuntimeError('UPGRADE_CI_ISOLATION_REQUIRED')
+    script = '''import os,sys
+uid,gid=map(int,sys.argv[1:])
+for base in ('/etc/powerx','/data'):
+    if os.path.islink(base) or not os.path.isdir(base):
+        raise RuntimeError('UPGRADE_CI_MOUNT_INVALID')
+    os.chown(base,uid,gid,follow_symlinks=False)
+    for root,dirs,files in os.walk(base,followlinks=False):
+        for name in dirs+files:
+            os.chown(os.path.join(root,name),uid,gid,follow_symlinks=False)
+'''
+    compose('run','--rm','--no-deps','init','python3','-c',script,str(os.getuid()),str(os.getgid()))
+
+
 def select_images(pair, platform):
     path = Path('.env')
     values = {}
@@ -213,6 +232,7 @@ def main():
         report['stage']='old_login'
         acceptance.login(password);acceptance.mark('old_setup')
         report['stage']='business_plugin_media_fixture'
+        prepare_ci_mount_access()
         job=acceptance.api('/api/v1/admin/scheduler/jobs',{'owner_type':'core','owner_id':'upgrade-fixture','name':'preserved-job','schedule_type':'cron','schedule_expr':'0 0 1 1 *','timezone':'UTC','payload':{'marker':'preserved-business'}})['job']
         job_id=job['uuid']
         acceptance.api('/api/v1/admin/scheduler/jobs/'+job_id+'/pause',{})
@@ -225,6 +245,7 @@ def main():
         url=upload['url'];url=BASE+url if url.startswith('/') else url
         with urllib.request.urlopen(urllib.request.Request(url,data=contents,headers=upload.get('headers',{}),method='PUT'),timeout=30) as response: assert 200<=response.status<300
         compose('stop','backend','web-admin','gateway')
+        prepare_ci_mount_access()
         before=snapshot()
         report['stage']='offline_upgrade'
         with tempfile.TemporaryDirectory(prefix='powerx-upgrade-backup-') as temp:
@@ -288,6 +309,7 @@ def main():
             with urllib.request.urlopen(urllib.request.Request(url,headers=download.get('headers',{})),timeout=30) as response:assert response.read()==contents
             compose('stop','backend','web-admin','gateway')
             report['stage']='restore_rollback'
+            prepare_ci_mount_access()
             # rollback=restore_required：确实恢复数据库、配置、文件，再启动固定旧镜像。
             compose('exec','-T','postgres','dropdb','-U','powerx','--force','powerx');compose('exec','-T','postgres','createdb','-U','powerx','powerx')
             compose('exec','-T','postgres','pg_restore','-U','powerx','-d','powerx','--exit-on-error',input=dump)
@@ -301,7 +323,8 @@ def main():
         report['status']='failed';report['error_code']=str(error) if isinstance(error,RuntimeError) else 'UPGRADE_CI_ACCEPTANCE_FAILED'
         frames=traceback.extract_tb(error.__traceback__)
         report['failure']={'stage':report['stage'],'exception_type':type(error).__name__,
-                          'location':{'file':Path(frames[-1].filename).name,'line':frames[-1].lineno} if frames else None}
+                          'location':{'file':Path(frames[-1].filename).name,'line':frames[-1].lineno} if frames else None,
+                          'stack':[{'file':Path(f.filename).name,'line':f.lineno,'function':f.name} for f in frames]}
         # No exception repr, HTTP bodies, SQL or subprocess output: those may
         # contain deployment credentials. The location and status are enough
         # to identify the failed acceptance contract.

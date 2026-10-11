@@ -40,6 +40,8 @@ integration_gateway 的两个旧 media 测试要求已不存在的 builtin `com.
 
 上述远端运行与产物记录见 [CI 核实证据](../evidence/installed-upgrade-ci-20261011.json)。本次核实通过 GitHub 连接器读取日志和报告，没有启动本机 Docker，也没有操作业务服务器。后续交付须记录通过验收的新 SHA、成对 digest、manifest 校验和、两平台报告和发布包。
 
+后续修复运行 [#38138761396](https://github.com/ArtisanCloud/PowerX/actions/runs/38138761396)，目标 SHA `39d1c26403dd5e578c9b0f81b7d6f91047d93020`：镜像与空库验收通过；报告明确记录了重启期间的 502，随后旧安装、登录和 Scheduler 测试通过，确认就绪等待修复有效。升级测试在宿主创建测试插件目录时发生 `PermissionError`：容器生成的私有目录属于 root，GitHub runner 无权写入。已增加只对 `powerx-upgrade-*` 隔离 CI 的两处挂载进行所有权交接，保留文件 mode、不跟随符号链接；生产初始化和升级路径未放宽权限。Python 验收测试现为 13 项通过。迁移尚未执行，发布门禁继续阻止生成 manifest 和发布包，等待下次真实运行。
+
 只声明本地文件存储、同 Core 数据库/关闭的向量拓扑、测试进程插件范围。其他存储或业务插件需要额外验收；XDocker 必须按 `compatibility.validated_scope` 判断。
 
 可以审阅和提交本分支，等待 CI 门禁通过后交付发布包。工作区二进制与仅构建成功的镜像不得当作远程自动升级已验收制品。
