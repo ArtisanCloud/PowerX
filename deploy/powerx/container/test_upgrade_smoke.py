@@ -6,7 +6,7 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 
-from upgrade_smoke import Acceptance, APIResponseError, prepare_ci_mount_access, wait_for_setup_page
+from upgrade_smoke import Acceptance, APIResponseError, prepare_ci_mount_access, wait_for_setup_page, restore_ci_directory
 
 
 class Response(io.BytesIO):
@@ -138,6 +138,32 @@ class AdminResourceTests(unittest.TestCase):
         with patch('upgrade_smoke.urllib.request.urlopen',side_effect=denied) as open_url:
             with self.assertRaises(APIResponseError):acceptance.resource('x')
         self.assertEqual(open_url.call_count,1)
+
+
+class MountRestoreTests(unittest.TestCase):
+    def test_restore_preserves_mount_inode_with_unwritable_parent(self):
+        from pathlib import Path
+        previous=Path.cwd()
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);parent=root/'data';mounted=parent/'runtime'
+            mounted.mkdir(parents=True);(mounted/'stale').write_text('new-data')
+            old=root/'snapshot';old.mkdir();(old/'preserved').write_text('old-data')
+            inode=mounted.stat().st_ino;parent.chmod(0o555)
+            try:
+                os.chdir(root)
+                with patch.dict(os.environ,{'POWERX_UPGRADE_CI':'1','COMPOSE_PROJECT_NAME':'powerx-upgrade-test'}):
+                    restore_ci_directory('data/runtime',old)
+                self.assertEqual(mounted.stat().st_ino,inode)
+                self.assertEqual((mounted/'preserved').read_text(),'old-data')
+                self.assertFalse((mounted/'stale').exists())
+                self.assertEqual(parent.stat().st_mode & 0o777,0o555)
+            finally:
+                os.chdir(previous);parent.chmod(0o755)
+
+    def test_non_ci_restore_rejected_before_filesystem_access(self):
+        with patch.dict(os.environ,{},clear=True):
+            with self.assertRaisesRegex(RuntimeError,'UPGRADE_CI_ISOLATION_REQUIRED'):
+                restore_ci_directory('data/runtime','unused')
 
 
 class FrontendStartupTests(unittest.TestCase):

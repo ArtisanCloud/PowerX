@@ -73,6 +73,24 @@ for base in ('/etc/powerx','/data'):
     compose('run','--rm','--no-deps','init','python3','-c',script,str(os.getuid()),str(os.getgid()))
 
 
+def restore_ci_directory(destination, backup):
+    if os.environ.get('POWERX_UPGRADE_CI') != '1' or not os.environ.get('COMPOSE_PROJECT_NAME', '').startswith('powerx-upgrade-'):
+        raise RuntimeError('UPGRADE_CI_ISOLATION_REQUIRED')
+    if destination not in ('config','data/runtime'):
+        raise RuntimeError('UPGRADE_CI_RESTORE_PATH_INVALID')
+    root=Path(destination)
+    if root.is_symlink() or not root.is_dir():
+        raise RuntimeError('UPGRADE_CI_MOUNT_INVALID')
+    # The runner owns the contents after prepare_ci_mount_access, but the
+    # host parent of a bind mount may belong to Docker root. Preserve the
+    # mounted directory itself and restore only its contents.
+    for child in root.iterdir():
+        if child.is_symlink() or child.is_file():child.unlink()
+        elif child.is_dir():shutil.rmtree(child)
+        else:raise RuntimeError('UPGRADE_CI_RESTORE_ENTRY_INVALID')
+    shutil.copytree(backup,root,dirs_exist_ok=True)
+
+
 def select_images(pair, platform):
     path = Path('.env')
     values = {}
@@ -372,7 +390,7 @@ def main():
             # rollback=restore_required：确实恢复数据库、配置、文件，再启动固定旧镜像。
             compose('exec','-T','postgres','dropdb','-U','powerx','--force','powerx');compose('exec','-T','postgres','createdb','-U','powerx','powerx')
             compose('exec','-T','postgres','pg_restore','-U','powerx','-d','powerx','--exit-on-error',input=dump)
-            shutil.rmtree('config');shutil.copytree(backup/'config','config');shutil.rmtree('data/runtime');shutil.copytree(backup/'runtime','data/runtime')
+            restore_ci_directory('config',backup/'config');restore_ci_directory('data/runtime',backup/'runtime')
             assert snapshot()==before
             select_images(baseline,args.platform);compose('--profile','standalone','up','-d','--wait','--wait-timeout','300','backend','web-admin','gateway')
             acceptance.wait_installed();acceptance.login(password);assert acceptance.api(probe_path)==old_probe

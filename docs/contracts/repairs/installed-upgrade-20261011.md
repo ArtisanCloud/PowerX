@@ -54,6 +54,8 @@ integration_gateway 的两个旧 media 测试要求已不存在的 builtin `com.
 
 兼容范围明确：本升级包验证受保护 Admin 文件读取、数据文件保留及声明的 fixture 插件；不声明 legacy `/media` presign 链接可用。旧 Admin presign 返回路径与当前路由的不一致仍需单独对齐，不恢复已移除的匿名路径，也不使用该链接作为本次数据保留验收。该限制写入 manifest 的 `compatibility.post_upgrade_actions`，服务调用方应使用当前 Host transfer 合同。Python 18 项测试通过，待完成真实恢复回滚和发布。
 
+第八轮 [#38144276524](https://github.com/ArtisanCloud/PowerX/actions/runs/38144276524)，目标 SHA `0311d7f20c24f77b0f5965a64cb57ce95e83b91d`：受保护文件读取实际返回 200、内容一致；匿名读取 401。18/19 通过，已进入恢复回滚并恢复数据库，宿主 `shutil.rmtree('data/runtime')` 删除 bind mount 根目录时因父目录属于 Docker root 发生 `PermissionError`。恢复已改为保留现有挂载根目录，只清理并复制内部内容，不改父目录权限；非 CI namespace、缺失挂载和非法目标仍拒绝。新增真实不可写父目录/挂载 inode 保留测试，Python 20 项通过，继续完整回滚验收。
+
 只声明本地文件存储、同 Core 数据库/关闭的向量拓扑、测试进程插件范围。其他存储或业务插件需要额外验收；XDocker 必须按 `compatibility.validated_scope` 判断。
 
 可以审阅和提交本分支，等待 CI 门禁通过后交付发布包。工作区二进制与仅构建成功的镜像不得当作远程自动升级已验收制品。
