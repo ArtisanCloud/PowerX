@@ -190,7 +190,7 @@ def fixture_plugin():
         'permissions':[{'type':'api','permission_code':'upgrade.probe:read','module':'upgrade',
                         'resource':'probe','action':'read','independent':True,'allow_api_key':False,
                         'description':'Upgrade fixture probe','protocol_bindings':[
-                            {'channel':'rest','method':'GET','path':'/api/v1/probe',
+                            {'channel':'rest','method':'GET','path':'/probe',
                              'actor_context':'admin_user','resource_scope':'tenant'}]}]}
     (root/'plugin.yaml').write_text(yaml.safe_dump(manifest))
     script=r'''#!/usr/bin/env python3
@@ -257,7 +257,7 @@ def main():
         fixture_plugin();acceptance.api('/api/v1/admin/plugins/install/local',{'src_dir':'/data/upgrade-fixture','enable':True})
         assert sql("SELECT count(*) FROM public.iam_permission WHERE source='plugin:"+PLUGIN+"' "
                    "AND meta->>'type'='api' AND meta->>'independent'='true' AND meta->'protocol_bindings' "
-                   "@> '[{\"channel\":\"rest\",\"method\":\"GET\",\"path\":\"/api/v1/probe\"}]'::jsonb")=='1', 'Fixture API permission binding missing'
+                   "@> '[{\"channel\":\"rest\",\"method\":\"GET\",\"path\":\"/probe\"}]'::jsonb")=='1', 'Fixture API permission binding missing'
         probe_path='/_p/'+PLUGIN+'/api/v1/probe';old_probe=acceptance.api(probe_path)
         assert old_probe['value']=='preserved-plugin-data' and old_probe['core_user_table_denied']
         contents=b'PowerX preserved upload fixture\n';checksum=hashlib.sha256(contents).hexdigest()

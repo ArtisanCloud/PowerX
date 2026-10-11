@@ -187,7 +187,9 @@
   "release_bundle_generated": false,
   "repair_verification": {
     "python_tests_passed": 14,
-    "real_CI_rerun": "pending after formal fixture API permission binding repair"
+    "fixture_permission_registration_go_test": "passed",
+    "gateway_path_normalization_go_tests": "passed",
+    "real_CI_rerun": "pending after relative fixture API binding coordinate repair"
   },
   "boundaries": {
     "business_servers_modified": false,
@@ -507,6 +509,175 @@
         }
       },
       "finding": "CI mount access fixed; plugin installed; fixture legacy action permission lacked formal API route binding; migration not yet executed"
+    },
+    {
+      "run_id": 38141125885,
+      "run_url": "https://github.com/ArtisanCloud/PowerX/actions/runs/38141125885",
+      "source_sha": "257b0b8a42ed534dd2de310b9aaac02c9ffc980a",
+      "conclusion": "failure",
+      "images_job": "success",
+      "target_pair": {
+        "release_id": "sha-257b0b8a42ed534dd2de310b9aaac02c9ffc980a",
+        "source_sha": "257b0b8a42ed534dd2de310b9aaac02c9ffc980a",
+        "images": {
+          "backend": {
+            "repository": "ghcr.io/artisancloud/powerx-backend",
+            "index_digest": "sha256:d07dae2dc54e820648afb8228d92663ad676a919f5a7284ad1b41cf61435610d",
+            "platforms": {
+              "linux/amd64": {
+                "digest": "sha256:f1960d21e93afdd40bdcb2068ffe8102b6081840efdd7740960514d756b487f4",
+                "source_revision": "257b0b8a42ed534dd2de310b9aaac02c9ffc980a"
+              },
+              "linux/arm64": {
+                "digest": "sha256:f97e1778ef3016dac06f4a28b2bb73d4a581ac2f68f9cab58c84c502ab006f5d",
+                "source_revision": "257b0b8a42ed534dd2de310b9aaac02c9ffc980a"
+              }
+            }
+          },
+          "web_admin": {
+            "repository": "ghcr.io/artisancloud/powerx-web-admin",
+            "index_digest": "sha256:a1413e8660a632be688df801bd9273aa7c08930c209bf7914f06000e8ae70396",
+            "platforms": {
+              "linux/amd64": {
+                "digest": "sha256:d3361e366adc1f15830bb441c6c575ca4793396614c2f38ed996c200ba42f583",
+                "source_revision": "257b0b8a42ed534dd2de310b9aaac02c9ffc980a"
+              },
+              "linux/arm64": {
+                "digest": "sha256:77170c7675975a5c5fc9133ae25ed8a03d61af383051e9d9c736afb10f8423a5",
+                "source_revision": "257b0b8a42ed534dd2de310b9aaac02c9ffc980a"
+              }
+            }
+          }
+        }
+      },
+      "linux/amd64_report": {
+        "schema_version": "powerx.upgrade-acceptance/v1",
+        "status": "failed",
+        "platform": "linux/amd64",
+        "source_sha": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+        "target_sha": "257b0b8a42ed534dd2de310b9aaac02c9ffc980a",
+        "source_images": {
+          "backend": "sha256:38c2954c8c7a56cd892ef53ecf0a4424691f54b952627c21cb77dcab8aae499c",
+          "web_admin": "sha256:e4918197a260d743c7b85827f5d3cd509a8f7a383f6d0a19044ce9c8e35019c3"
+        },
+        "target_images": {
+          "backend": "sha256:f1960d21e93afdd40bdcb2068ffe8102b6081840efdd7740960514d756b487f4",
+          "web_admin": "sha256:d3361e366adc1f15830bb441c6c575ca4793396614c2f38ed996c200ba42f583"
+        },
+        "checks": {
+          "old_setup": true,
+          "configuration_preserved": false,
+          "login_preserved": false,
+          "business_data_preserved": false,
+          "files_preserved": false,
+          "plugin_runtime_preserved": false,
+          "new_schema": false,
+          "idempotent": false,
+          "unknown_source_rejected": false,
+          "invalid_config_rejected": false,
+          "legacy_blocker_rejected": false,
+          "plan_drift_rejected": false,
+          "partial_failure_retry": false,
+          "checksum_rejected": false,
+          "lock_conflict": false,
+          "interrupted_retry": false,
+          "binary_identity": false,
+          "paired_frontend": false,
+          "restore_rollback": false
+        },
+        "http": [
+          {
+            "path": "/api/v1/admin/setup/config",
+            "status": 200,
+            "request_id": "9a6c09bd-be8e-4bb5-9a6e-bec3d8b6619b"
+          },
+          {
+            "path": "/api/v1/admin/setup/config",
+            "status": 200,
+            "request_id": "5170f415-c470-44c3-86ef-16e4f5953f3d"
+          },
+          {
+            "path": "/api/v1/admin/setup/provision",
+            "status": 200,
+            "request_id": "4044ba43-554a-418c-9259-e6fdbf816b8d"
+          },
+          {
+            "path": "/api/v1/admin/setup/complete",
+            "status": 200,
+            "request_id": "cdc2c79c-52d7-4e21-be84-01562e31d46f"
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 200,
+            "request_id": "521c823b-27b4-419b-a6e5-9ff770491493"
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 502,
+            "request_id": null
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 502,
+            "request_id": null
+          },
+          {
+            "path": "/api/v1/admin/setup/status",
+            "status": 200,
+            "request_id": "a748b4cf-7b34-4794-b0b7-11f467d37083"
+          },
+          {
+            "path": "/api/v1/admin/user/auth/login",
+            "status": 200,
+            "request_id": "6dfa2066-c434-4a08-bde3-31a6dfe4936d"
+          },
+          {
+            "path": "/api/v1/admin/scheduler/jobs",
+            "status": 200,
+            "request_id": "a7ad4a06-cd4e-4367-875c-81e0964686cb"
+          },
+          {
+            "path": "/api/v1/admin/scheduler/jobs/a5ebde52-d0de-424e-b8ff-3b5e08b069af/pause",
+            "status": 200,
+            "request_id": "6958f8b4-e69f-4fcf-af46-453593db18a0"
+          },
+          {
+            "path": "/api/v1/admin/plugins/install/local",
+            "status": 200,
+            "request_id": "a4352d90-ab6b-4888-9f0b-e8300c7b0d97"
+          },
+          {
+            "path": "/_p/com.powerx.upgrade.fixture/api/v1/probe",
+            "status": 403,
+            "request_id": "d8b74ada-0593-4596-b790-37af79ef69e1",
+            "gateway_reason": "no registered permission binding for this route"
+          }
+        ],
+        "migration_results": [],
+        "stage": "business_plugin_media_fixture",
+        "error_code": "UPGRADE_CI_HTTP_STATUS_FAILED: /_p/com.powerx.upgrade.fixture/api/v1/probe",
+        "failure": {
+          "stage": "business_plugin_media_fixture",
+          "exception_type": "APIResponseError",
+          "location": {
+            "file": "upgrade_smoke.py",
+            "line": 108
+          },
+          "stack": [
+            {
+              "file": "upgrade_smoke.py",
+              "line": 261,
+              "function": "main"
+            },
+            {
+              "file": "upgrade_smoke.py",
+              "line": 108,
+              "function": "api"
+            }
+          ]
+        }
+      },
+      "finding": "API binding registered, but gateway authorizes the relative /probe coordinate; fixture binding corrected without changing Core auth"
     }
   ]
 }
