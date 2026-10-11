@@ -120,6 +120,26 @@ class MountAccessTests(unittest.TestCase):
             self.assertTrue(all(kwargs['follow_symlinks'] is False for _,kwargs in calls))
 
 
+class AdminResourceTests(unittest.TestCase):
+    def test_file_read_uses_only_current_admin_session_and_tenant(self):
+        acceptance=Acceptance({'http':[],'checks':{}})
+        acceptance.token='fixture-admin-token';acceptance.tenant='fixture-tenant'
+        response=Response({});response.seek(0);response.write(b'file-bytes');response.truncate();response.seek(0)
+        with patch('upgrade_smoke.urllib.request.urlopen',return_value=response) as open_url:
+            self.assertEqual(acceptance.resource('fixture-asset'),b'file-bytes')
+        request=open_url.call_args.args[0]
+        self.assertEqual(request.full_url,'http://127.0.0.1:18080/api/v1/admin/media/assets/fixture-asset/resource')
+        self.assertEqual(request.get_header('Authorization'),'Bearer fixture-admin-token')
+        self.assertNotIn('fixture-admin-token',json.dumps(acceptance.report))
+
+    def test_authentication_failure_never_retries_as_service_or_anonymous_read(self):
+        acceptance=Acceptance({'http':[],'checks':{}})
+        denied=urllib.error.HTTPError('http://127.0.0.1:18080/api/v1/admin/media/assets/x/resource',401,'Unauthorized',{},io.BytesIO())
+        with patch('upgrade_smoke.urllib.request.urlopen',side_effect=denied) as open_url:
+            with self.assertRaises(APIResponseError):acceptance.resource('x')
+        self.assertEqual(open_url.call_count,1)
+
+
 class FrontendStartupTests(unittest.TestCase):
     def test_connection_reset_is_retried_before_accepting_setup_page(self):
         with patch('upgrade_smoke.urllib.request.urlopen',side_effect=[ConnectionResetError(),Response({})]), \

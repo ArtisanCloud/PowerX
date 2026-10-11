@@ -50,6 +50,10 @@ integration_gateway 的两个旧 media 测试要求已不存在的 builtin `com.
 
 第六轮 [#38142509247](https://github.com/ArtisanCloud/PowerX/actions/runs/38142509247)，目标 SHA `5876f641d5132c58b89048a3ed4746dd5c0f47f2`：构建完成，空库首次请求 `/setup` 时发生 `ConnectionResetError`，升级矩阵未执行。已增加只对连接异常和 502/503/504 的有界前端启动等待；403 不重试，后续空库、登录和升级检查全部保留。Python 16 项测试通过，待重新完成真实发布门禁。
 
+第七轮 [#38142990684](https://github.com/ArtisanCloud/PowerX/actions/runs/38142990684)，目标 SHA `a2be4a3a0dc32180bf0058d2dc4b4116647f787e`：amd64 报告仍为 18/19 通过，实际升级/保留/故障恢复检查均通过；媒体下载沿用了 Admin legacy presign 返回的 `/media/{uuid}/resource`，而当前 Host 合同已移除该匿名 UUID 路由，因此 HTTP 下载失败。文件保留验收已改为固定的 Admin JWT + tenant 受保护资源读取，分别验证升级前、升级后及恢复回滚后的实际字节；缺少用户 JWT 必须 401，不转用 service actor 或匿名路径。文件保留的成功标记移到真实读取与匿名拒绝验证之后。
+
+兼容范围明确：本升级包验证受保护 Admin 文件读取、数据文件保留及声明的 fixture 插件；不声明 legacy `/media` presign 链接可用。旧 Admin presign 返回路径与当前路由的不一致仍需单独对齐，不恢复已移除的匿名路径，也不使用该链接作为本次数据保留验收。该限制写入 manifest 的 `compatibility.post_upgrade_actions`，服务调用方应使用当前 Host transfer 合同。Python 18 项测试通过，待完成真实恢复回滚和发布。
+
 只声明本地文件存储、同 Core 数据库/关闭的向量拓扑、测试进程插件范围。其他存储或业务插件需要额外验收；XDocker 必须按 `compatibility.validated_scope` 判断。
 
 可以审阅和提交本分支，等待 CI 门禁通过后交付发布包。工作区二进制与仅构建成功的镜像不得当作远程自动升级已验收制品。

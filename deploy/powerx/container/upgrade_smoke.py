@@ -146,6 +146,23 @@ class Acceptance:
         self.token=value['access_token']
         self.tenant=sql('SELECT uuid FROM public.iam_tenant WHERE deleted_at IS NULL ORDER BY id LIMIT 1')
 
+    def resource(self,asset_uuid,expected=200):
+        # The upgrade operator stays in the Admin user JWT plane. The removed
+        # anonymous UUID route and service-actor grants are not fallback paths.
+        path='/api/v1/admin/media/assets/'+asset_uuid+'/resource'
+        headers={'tenant_uuid':self.tenant,'X-Tenant-UUID':self.tenant}
+        if self.token: headers['Authorization']='Bearer '+self.token
+        request=urllib.request.Request(BASE+path,headers=headers)
+        try:
+            response=urllib.request.urlopen(request,timeout=30)
+        except urllib.error.HTTPError as error:
+            response=error
+        with response:
+            self.report['http'].append({'path':path,'status':response.status,
+                                       'request_id':response.headers.get('X-Request-ID')})
+            if response.status!=expected: raise APIResponseError(response.status,path)
+            return response.read()
+
     def mark(self,name): self.report['checks'][name]=True
 
     def migration(self,action,target,source,expected=None,code=0):
@@ -280,6 +297,7 @@ def main():
         asset_id=asset['uuid'];upload=acceptance.api('/api/v1/admin/media/assets/'+asset_id+'/presign',{'action':'upload','method':'PUT','filename':'upgrade.txt','content_type':'text/plain'})
         url=upload['url'];url=BASE+url if url.startswith('/') else url
         with urllib.request.urlopen(urllib.request.Request(url,data=contents,headers=upload.get('headers') or {},method='PUT'),timeout=30) as response: assert 200<=response.status<300
+        assert acceptance.resource(asset_id)==contents
         compose('stop','backend','web-admin','gateway')
         prepare_ci_mount_access()
         before=snapshot()
@@ -320,7 +338,7 @@ def main():
             plan=acceptance.migration('plan',pair['release_id'],baseline['source_sha'])
             applied=acceptance.migration('apply',pair['release_id'],baseline['source_sha'],plan['plan_hash']);assert applied['status']=='succeeded' and applied['applied'] and applied['skipped']
             acceptance.mark('partial_failure_retry');acceptance.mark('interrupted_retry')
-            assert snapshot()==before;acceptance.mark('configuration_preserved');acceptance.mark('files_preserved')
+            assert snapshot()==before;acceptance.mark('configuration_preserved')
             repeat_plan=acceptance.migration('plan',pair['release_id'],baseline['source_sha']);assert repeat_plan['status']=='up_to_date'
             repeat=acceptance.migration('apply',pair['release_id'],baseline['source_sha'],repeat_plan['plan_hash']);assert not repeat['applied'];assert snapshot()==before;acceptance.mark('idempotent')
             record=sql("SELECT migration_id || ':' || checksum FROM public.database_migration_records WHERE migration_id LIKE '20261011_core_%' LIMIT 1");migration_id,checksum=record.split(':')
@@ -340,9 +358,14 @@ def main():
             preserved=acceptance.api('/api/v1/admin/scheduler/jobs/'+job_id)['job'];assert preserved['name']=='preserved-job' and preserved['status']=='paused';acceptance.mark('business_data_preserved')
             new_probe=acceptance.api(probe_path);assert new_probe==old_probe;acceptance.mark('plugin_runtime_preserved')
             assert snapshot()==before, 'Installed credentials, grants, configuration and uploads changed after startup'
-            download=acceptance.api('/api/v1/admin/media/assets/'+asset_id+'/presign',{'action':'download'})
-            url=download['url'];url=BASE+url if url.startswith('/') else url
-            with urllib.request.urlopen(urllib.request.Request(url,headers=download.get('headers') or {}),timeout=30) as response:assert response.read()==contents
+            assert acceptance.resource(asset_id)==contents
+            current_token=acceptance.token
+            try:
+                acceptance.token=''
+                acceptance.resource(asset_id,expected=401)
+            finally:
+                acceptance.token=current_token
+            acceptance.mark('files_preserved')
             compose('stop','backend','web-admin','gateway')
             report['stage']='restore_rollback'
             prepare_ci_mount_access()
@@ -353,6 +376,7 @@ def main():
             assert snapshot()==before
             select_images(baseline,args.platform);compose('--profile','standalone','up','-d','--wait','--wait-timeout','300','backend','web-admin','gateway')
             acceptance.wait_installed();acceptance.login(password);assert acceptance.api(probe_path)==old_probe
+            assert acceptance.resource(asset_id)==contents
             assert acceptance.api('/api/v1/admin/scheduler/jobs/'+job_id)['job']['name']=='preserved-job';acceptance.mark('restore_rollback')
         report['status']='passed';report['stage']='complete'
     except Exception as error:
