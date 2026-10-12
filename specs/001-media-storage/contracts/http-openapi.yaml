@@ -7,8 +7,13 @@ paths:
     get: {operationId: listTenantMediaAssets, responses: {'200': {$ref: '#/components/responses/AssetList'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
     post:
       operationId: createTenantMediaAsset
+      description: >-
+        Content-checksum deduplication is tenant scoped. A matching failed or expired upload
+        starts a new pending_upload attempt under a row lock only when size, MIME and checksum
+        match the original constraints. Failure history and ownership remain intact, and old
+        transfer tickets are revoked. Ready assets are reused without reopening upload.
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AssetCreate'}}}}
-      responses: {'201': {$ref: '#/components/responses/Asset'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}
+      responses: {'201': {$ref: '#/components/responses/Asset'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/StateInvalid'}}
   /tenant/media/assets/{asset_uuid}:
     parameters: [{$ref: '#/components/parameters/AssetUUID'}]
     get: {operationId: getTenantMediaAsset, responses: {'200': {$ref: '#/components/responses/Asset'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
@@ -22,6 +27,12 @@ paths:
   /tenant/media/assets/{asset_uuid}/complete-upload:
     post:
       operationId: completeTenantMediaAssetUpload
+      description: >-
+        Verifies stored bytes, size and SHA256. MIME parameters are normalized; Markdown and CSV
+        must contain plain text. XLSX, DOCX and PPTX require bounded ZIP directory, content-type
+        and main XML validation. Office limits are 64 MiB compressed, 4096 entries, 512 MiB total
+        declared expanded size, 256 KiB content-type XML and 4 MiB main XML. Failure returns 422
+        and preserves diagnostics; a new create request with the same constraints can retry.
       parameters: [{$ref: '#/components/parameters/AssetUUID'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CompleteUpload'}}}}
       responses: {'200': {$ref: '#/components/responses/Asset'}, '422': {$ref: '#/components/responses/UploadValidationFailed'}, '409': {$ref: '#/components/responses/StateInvalid'}}
@@ -30,9 +41,10 @@ paths:
   /tenant/media/assets/{asset_uuid}/variants:
     post:
       operationId: createTenantMediaAssetVariant
+      description: Matching failed or expired variants can start a new pending_upload attempt with unchanged checksum, MIME and size; old tickets are revoked and failure history is retained.
       parameters: [{$ref: '#/components/parameters/AssetUUID'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VariantCreate'}}}}
-      responses: {'201': {$ref: '#/components/responses/Variant'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
+      responses: {'201': {$ref: '#/components/responses/Variant'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/StateInvalid'}}
   /tenant/media/assets/variants/{variant_uuid}:
     get: {operationId: getTenantMediaAssetVariant, parameters: [{$ref: '#/components/parameters/VariantUUID'}], responses: {'200': {$ref: '#/components/responses/Variant'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
   /media/transfers/{asset_uuid}/upload:

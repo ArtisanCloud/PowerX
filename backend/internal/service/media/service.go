@@ -66,6 +66,7 @@ const (
 
 // MediaService 聚合媒体资产业务逻辑（状态流转、审计、预签名等）。
 type assetRepository interface {
+	WithAssetUpload(context.Context, string, string, func(*mediamodel.MediaAsset) error) error
 	WithVariantTransfer(context.Context, string, string, string, func(*mediamodel.MediaAsset, *mediamodel.MediaAssetVariant) error) error
 	List(ctx context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error)
 	FindByUUID(ctx context.Context, tenantUUID string, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
@@ -338,11 +339,34 @@ func (s *MediaService) AuthorizeHostTransfer(ctx context.Context, assetUUID, act
 }
 
 func (s *MediaService) PutHostTransfer(ctx context.Context, asset *Asset, body io.Reader, size int64, contentType string) error {
-	if s == nil || s.manager == nil || asset == nil || body == nil || size != asset.SizeBytes || strings.TrimSpace(contentType) != strings.TrimSpace(asset.MimeType) {
+	if s == nil || s.manager == nil || asset == nil || body == nil || size < 0 || size == int64(^uint64(0)>>1) || size != asset.SizeBytes || normalizeUploadMIME(contentType) != normalizeUploadMIME(asset.MimeType) {
 		return ErrUploadValidationFailed
 	}
-	_, err := s.manager.Put(ctx, asset.Driver, driver.PutObjectInput{Bucket: asset.Bucket, ObjectKey: asset.StorageKey, Body: body, Size: size, ContentType: contentType, Overwrite: true})
-	return err
+	var transferErr error
+	err := s.repo.WithAssetUpload(ctx, asset.TenantUUID, asset.UUID, func(row *mediamodel.MediaAsset) error {
+		// 在持锁后再次检查授权时的版本，防止旧请求覆盖新一轮上传。
+		if row.UploadState != mediamodel.UploadStatePending || row.UploadTicketVersion == ^uint64(0) || row.UploadTicketVersion != asset.transferVersion || row.UploadExpiresAt == nil || !time.Now().Before(*row.UploadExpiresAt) {
+			return ErrUploadTicketExpired
+		}
+		hash := sha256.New()
+		limited := &io.LimitedReader{R: body, N: row.SizeBytes + 1}
+		_, transferErr = s.manager.Put(ctx, row.Driver, driver.PutObjectInput{Bucket: row.Bucket, ObjectKey: row.StorageKey, Body: io.TeeReader(limited, hash), Size: size, ContentType: contentType, Overwrite: true})
+		if transferErr == nil && (row.SizeBytes+1-limited.N != row.SizeBytes || hex.EncodeToString(hash.Sum(nil)) != row.ExpectedChecksum) {
+			transferErr = ErrUploadValidationFailed
+		}
+		row.UploadTicketVersion++
+		if transferErr != nil {
+			row.UploadState, row.UploadExpiresAt = mediamodel.UploadStateFailed, nil
+			row.Meta = uploadFailureMetadata(row.Meta, uploadValidation{Reason: "transfer_failed"}, row.UploadTicketVersion)
+		} else {
+			row.UploadState = mediamodel.UploadStateUploaded
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return transferErr
 }
 
 // CreateAssetVariantInput 定义创建媒体资产资源版本所需参数。
@@ -382,6 +406,7 @@ type ListAssetsInput struct {
 
 // Asset 为对外视图。
 type Asset struct {
+	transferVersion  uint64 // 仅供内部上传授权快照使用，不进入 HTTP 合同。
 	UUID             string
 	TenantUUID       string
 	Name             string
@@ -520,6 +545,9 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 	}
 
 	if existing, findErr := s.repo.FindByStorageKey(ctx, tenantUUID, driverName, storageKey); findErr == nil {
+		if contentSHA256 != "" && (method == UploadMethodPresign || method == UploadMethodDirect) {
+			return s.retryAssetUpload(ctx, existing, in, contentSHA256)
+		}
 		return toAsset(existing), nil
 	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
 		return nil, findErr
@@ -790,7 +818,7 @@ func (s *MediaService) DeleteAsset(ctx context.Context, in DeleteAssetInput) err
 }
 
 // CompleteAssetUpload 在服务端读取真实对象并校验后推进上传状态。
-// 仅由 Core 创建且尚未过期的 pending_upload 资产允许完成。
+// 仅由 Core 创建且尚未过期的 pending_upload / uploaded 资产允许完成。
 func (s *MediaService) CompleteAssetUpload(ctx context.Context, in CompleteAssetUploadInput) (*Asset, error) {
 	tenantUUID := strings.TrimSpace(in.TenantUUID)
 	assetUUID := strings.TrimSpace(in.UUID)
@@ -801,65 +829,60 @@ func (s *MediaService) CompleteAssetUpload(ctx context.Context, in CompleteAsset
 	if err != nil || checksum == "" {
 		return nil, ErrUploadValidationFailed
 	}
-	entity, err := s.repo.FindByUUID(ctx, tenantUUID, assetUUID, false)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrAssetNotFound
+	var result *Asset
+	var validation uploadValidation
+	err = s.repo.WithAssetUpload(ctx, tenantUUID, assetUUID, func(entity *mediamodel.MediaAsset) error {
+		if (entity.UploadState != mediamodel.UploadStatePending && entity.UploadState != mediamodel.UploadStateUploaded) || entity.UploadTicketVersion == ^uint64(0) {
+			return ErrInvalidStatusTransition
 		}
-		return nil, err
-	}
-	if entity.UploadState != mediamodel.UploadStatePending {
-		return nil, ErrInvalidStatusTransition
-	}
-	if entity.UploadExpiresAt == nil || !time.Now().Before(*entity.UploadExpiresAt) {
-		return nil, ErrUploadTicketExpired
-	}
-
-	stat, err := s.manager.Stat(ctx, entity.Driver, driver.StatObjectInput{Bucket: entity.Bucket, ObjectKey: entity.StorageKey})
-	if err != nil {
-		return nil, err
-	}
-	object, err := s.manager.Get(ctx, entity.Driver, driver.GetObjectInput{Bucket: entity.Bucket, ObjectKey: entity.StorageKey})
-	if err != nil {
-		return nil, err
-	}
-	defer object.Body.Close()
-	hash := sha256.New()
-	if _, err = io.Copy(hash, object.Body); err != nil {
-		return nil, err
-	}
-	actualChecksum := hex.EncodeToString(hash.Sum(nil))
-	valid := stat.Size == entity.SizeBytes &&
-		strings.EqualFold(strings.TrimSpace(stat.ContentType), strings.TrimSpace(entity.MimeType)) &&
-		strings.EqualFold(actualChecksum, checksum) &&
-		strings.EqualFold(actualChecksum, entity.ExpectedChecksum)
-	if !valid {
-		entity.UploadState = mediamodel.UploadStateFailed
+		if entity.UploadExpiresAt == nil || !time.Now().Before(*entity.UploadExpiresAt) {
+			return ErrUploadTicketExpired
+		}
+		stat, err := s.manager.Stat(ctx, entity.Driver, driver.StatObjectInput{Bucket: entity.Bucket, ObjectKey: entity.StorageKey})
+		if err != nil {
+			return err
+		}
+		if stat == nil {
+			return fmt.Errorf("media.object_missing")
+		}
+		object, err := s.manager.Get(ctx, entity.Driver, driver.GetObjectInput{Bucket: entity.Bucket, ObjectKey: entity.StorageKey})
+		if err != nil {
+			return err
+		}
+		if object == nil || object.Body == nil {
+			return fmt.Errorf("media.object_missing")
+		}
+		defer object.Body.Close()
+		validation, err = validateUploadedObject(object.Body, stat.Size, entity.SizeBytes, entity.MimeType, entity.ExpectedChecksum, checksum)
+		if err != nil {
+			return err
+		}
 		entity.UploadTicketVersion++
 		entity.UploadExpiresAt = nil
 		if in.OperatorID != nil {
 			entity.UpdatedBy = in.OperatorID
 		}
-		_, _ = s.repo.UpdateAsset(ctx, entity)
-		return nil, ErrUploadValidationFailed
+		if validation.Reason != "" {
+			entity.UploadState = mediamodel.UploadStateFailed
+			entity.Meta = uploadFailureMetadata(entity.Meta, validation, entity.UploadTicketVersion)
+		} else {
+			entity.UploadState = mediamodel.UploadStateReady
+		}
+		result = toAsset(entity)
+		return nil
+	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrAssetNotFound
 	}
-
-	entity.UploadState = mediamodel.UploadStateUploaded
-	if in.OperatorID != nil {
-		entity.UpdatedBy = in.OperatorID
-	}
-	if _, err = s.repo.UpdateAsset(ctx, entity); err != nil {
-		return nil, err
-	}
-	entity.UploadState = mediamodel.UploadStateReady
-	entity.UploadExpiresAt = nil
-	entity.UploadTicketVersion++
-	updated, err := s.repo.UpdateAsset(ctx, entity)
 	if err != nil {
 		return nil, err
 	}
-	s.emitAudit(ctx, tenantUUID, "media.asset.complete_upload", assetUUID, in.OperatorID, map[string]any{"size_bytes": stat.Size})
-	return toAsset(updated), nil
+	if validation.Reason != "" {
+		logUploadValidation(ctx, tenantUUID, assetUUID, "", validation)
+		return nil, ErrUploadValidationFailed
+	}
+	s.emitAudit(ctx, tenantUUID, "media.asset.complete_upload", assetUUID, in.OperatorID, map[string]any{"size_bytes": validation.ActualSize})
+	return result, nil
 }
 
 // PurgeAsset 永久删除媒体资产及其所有资源版本，并释放底层存储对象。
@@ -958,10 +981,7 @@ func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVar
 		return nil, err
 	}
 	if existing, findErr := s.repo.FindVariant(ctx, tenantUUID, assetUUID, variantName); findErr == nil {
-		if in.Checksum != "" && (existing.ExpectedChecksum != in.Checksum || existing.SizeBytes != in.SizeBytes || existing.MimeType != in.MimeType) {
-			return nil, ErrInvalidStatusTransition
-		}
-		return toAssetVariant(existing), nil
+		return s.retryVariantUpload(ctx, existing, in)
 	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
 		return nil, findErr
 	}
@@ -1403,6 +1423,7 @@ func toAsset(entity *mediamodel.MediaAsset) *Asset {
 		ownerSubjectUUID = entity.OwnerSubjectUUID.String()
 	}
 	return &Asset{
+		transferVersion:  entity.UploadTicketVersion,
 		UUID:             entity.UUID.String(),
 		TenantUUID:       entity.TenantUUID,
 		Name:             entity.Name,

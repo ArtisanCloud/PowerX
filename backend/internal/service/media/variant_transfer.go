@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -123,15 +122,15 @@ func (s *MediaService) ConsumeVariantTransfer(ctx context.Context, asset, varian
 			}
 			return err
 		}
-		if v.UploadState != m.UploadStatePending || v.UploadExpiresAt == nil || !time.Now().Before(*v.UploadExpiresAt) {
+		if v.UploadState != m.UploadStatePending || v.TicketVersion == ^uint64(0) || v.UploadExpiresAt == nil || !time.Now().Before(*v.UploadExpiresAt) {
 			return ErrUploadTicketExpired
 		}
-		if body == nil || size != v.SizeBytes || mime != v.MimeType {
+		if body == nil || size < 0 || size == int64(^uint64(0)>>1) || size != v.SizeBytes || normalizeUploadMIME(mime) != normalizeUploadMIME(v.MimeType) {
 			return ErrUploadValidationFailed
 		}
 		hash := sha256.New()
 		limited := &io.LimitedReader{R: body, N: v.SizeBytes + 1}
-		_, err := s.manager.Put(ctx, v.Driver, driver.PutObjectInput{Bucket: v.Bucket, ObjectKey: v.StorageKey, Body: io.TeeReader(limited, hash), Size: size, ContentType: mime, Overwrite: false})
+		_, err := s.manager.Put(ctx, v.Driver, driver.PutObjectInput{Bucket: v.Bucket, ObjectKey: v.StorageKey, Body: io.TeeReader(limited, hash), Size: size, ContentType: mime, Overwrite: v.TicketVersion > 1})
 		if err != nil {
 			// A failed Put may have created a partial object. Never leave its
 			// single-use ticket valid or silently retry/overwrite that object.
@@ -139,6 +138,7 @@ func (s *MediaService) ConsumeVariantTransfer(ctx context.Context, asset, varian
 			v.UploadState = m.UploadStateFailed
 			v.UploadExpiresAt = nil
 			v.TicketVersion++
+			v.Meta = uploadFailureMetadata(v.Meta, uploadValidation{Reason: "transfer_failed"}, v.TicketVersion)
 			return nil
 		}
 		if v.SizeBytes+1-limited.N != v.SizeBytes || hex.EncodeToString(hash.Sum(nil)) != v.ExpectedChecksum {
@@ -149,6 +149,9 @@ func (s *MediaService) ConsumeVariantTransfer(ctx context.Context, asset, varian
 			v.UploadState = m.UploadStateUploaded
 		}
 		v.TicketVersion++
+		if invalid {
+			v.Meta = uploadFailureMetadata(v.Meta, uploadValidation{Reason: "checksum_or_size_mismatch"}, v.TicketVersion)
+		}
 		return nil
 	})
 	if e == nil && storageErr != nil {
@@ -178,6 +181,7 @@ func (s *MediaService) CompleteVariantUpload(ctx context.Context, tenant, asset,
 	}
 	var result *AssetVariant
 	var invalid bool
+	var validation uploadValidation
 	e = s.repo.WithVariantTransfer(ctx, tenant, asset, variant, func(p *m.MediaAsset, v *m.MediaAssetVariant) error {
 		if p.UploadState == m.UploadStateDeleted {
 			return ErrAssetNotFound
@@ -189,7 +193,7 @@ func (s *MediaService) CompleteVariantUpload(ctx context.Context, tenant, asset,
 			result = toAssetVariant(v)
 			return nil
 		}
-		if v.UploadState != m.UploadStateUploaded || v.UploadExpiresAt == nil || !time.Now().Before(*v.UploadExpiresAt) {
+		if v.UploadState != m.UploadStateUploaded || v.TicketVersion == ^uint64(0) || v.UploadExpiresAt == nil || !time.Now().Before(*v.UploadExpiresAt) {
 			return ErrInvalidStatusTransition
 		}
 		object, err := s.manager.Get(ctx, v.Driver, driver.GetObjectInput{Bucket: v.Bucket, ObjectKey: v.StorageKey})
@@ -200,16 +204,16 @@ func (s *MediaService) CompleteVariantUpload(ctx context.Context, tenant, asset,
 			return fmt.Errorf("media.object_missing")
 		}
 		defer object.Body.Close()
-		hash := sha256.New()
-		count, err := io.Copy(hash, io.LimitReader(object.Body, v.SizeBytes+1))
+		validation, err = validateUploadedObject(object.Body, object.Size, v.SizeBytes, v.MimeType, v.ExpectedChecksum, normalized)
 		if err != nil {
 			return err
 		}
-		invalid = count != v.SizeBytes || object.Size != v.SizeBytes || !strings.EqualFold(object.ContentType, v.MimeType) || hex.EncodeToString(hash.Sum(nil)) != v.ExpectedChecksum
+		invalid = validation.Reason != ""
 		v.TicketVersion++
 		v.UploadExpiresAt = nil
 		if invalid {
 			v.UploadState = m.UploadStateFailed
+			v.Meta = uploadFailureMetadata(v.Meta, validation, v.TicketVersion)
 		} else {
 			now := time.Now().UTC()
 			v.UploadState = m.UploadStateReady
@@ -219,6 +223,7 @@ func (s *MediaService) CompleteVariantUpload(ctx context.Context, tenant, asset,
 		return nil
 	})
 	if e == nil && invalid {
+		logUploadValidation(ctx, tenant, asset, variant, validation)
 		e = ErrUploadValidationFailed
 	}
 	if e == nil {

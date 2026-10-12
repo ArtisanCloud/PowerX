@@ -32,23 +32,40 @@ import (
 
 const mediaTenantUUID = "8a21845e-d1b6-4df1-b2ce-1d3bde3b8a03"
 
-func (s *stubAssetRepo) WithVariantTransfer(ctx context.Context, tenant, asset, variant string, apply func(*mediamodel.MediaAsset, *mediamodel.MediaAssetVariant) error) error {
-	p, err := s.FindByUUID(ctx, tenant, asset, false)
-	if err != nil {
-		return err
-	}
-	v, err := s.FindVariantByUUID(ctx, tenant, variant)
-	if err != nil {
-		return err
-	}
-	if v.AssetUUID != asset {
+func (s *stubAssetRepo) WithAssetUpload(_ context.Context, tenant, asset string, apply func(*mediamodel.MediaAsset) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row := s.assets[asset]
+	if row == nil || row.TenantUUID != tenant || row.DeletedAt.Valid {
 		return gorm.ErrRecordNotFound
 	}
-	if err := apply(p, v); err != nil {
+	clone := cloneAsset(row)
+	if err := apply(clone); err != nil {
 		return err
 	}
-	_, err = s.UpdateVariant(ctx, v)
-	return err
+	s.assets[asset] = clone
+	return nil
+}
+
+func (s *stubAssetRepo) WithVariantTransfer(ctx context.Context, tenant, asset, variant string, apply func(*mediamodel.MediaAsset, *mediamodel.MediaAssetVariant) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p := s.assets[asset]
+	if p == nil || p.TenantUUID != tenant || p.DeletedAt.Valid {
+		return gorm.ErrRecordNotFound
+	}
+	for key, v := range s.variants {
+		if v.UUID.String() != variant || v.TenantUUID != tenant || v.AssetUUID != asset || v.DeletedAt.Valid {
+			continue
+		}
+		child := cloneVariant(v)
+		if err := apply(cloneAsset(p), child); err != nil {
+			return err
+		}
+		s.variants[key] = child
+		return nil
+	}
+	return gorm.ErrRecordNotFound
 }
 
 type stubAssetRepo struct {
@@ -180,6 +197,9 @@ func (s *stubAssetRepo) CreateAsset(_ context.Context, asset *mediamodel.MediaAs
 	clone := cloneAsset(asset)
 	if clone.UUID == uuid.Nil {
 		clone.UUID = uuid.New()
+	}
+	if s.assets[clone.UUID.String()] != nil {
+		return nil, gorm.ErrDuplicatedKey
 	}
 	s.assets[clone.UUID.String()] = clone
 	return cloneAsset(clone), nil
