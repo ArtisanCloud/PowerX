@@ -1,0 +1,847 @@
+{
+  "http_endpoint": "http://127.0.0.1:18077",
+  "records": [
+    {
+      "name": "development_host_grant_status",
+      "http_status": 200,
+      "trace_id": "4fe05262-6407-4478-8633-e2ad2823eb19",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "capability_id": "com.corex.scheduler.jobs.service_read",
+              "status": "granted",
+              "reason_code": "CAPABILITY_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.scheduler.jobs.service_delete",
+              "status": "granted",
+              "reason_code": "CAPABILITY_GRANTED"
+            }
+          ]
+        },
+        "timestamp": 1791443437,
+        "request_id": "23299997-a234-4653-b0f0-f420236b1a20"
+      }
+    },
+    {
+      "name": "real_sts_exchange",
+      "http_status": 200,
+      "trace_id": "4d3fc18d-b6aa-42b2-859e-0ed038eca484",
+      "response": {
+        "token_redacted": true,
+        "audience": "powerx:api"
+      }
+    },
+    {
+      "name": "create_api_key_fixture",
+      "http_status": 200,
+      "trace_id": "8a252ad5-1d01-45c9-9f4e-ff984b81f78e",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job": {
+            "id": 41,
+            "uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+            "createdAt": "2026-10-08T15:10:38.080917+08:00",
+            "updatedAt": "2026-10-08T15:10:38.080917+08:00",
+            "DeletedAt": null,
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "revision": 1,
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "topic": "powerx.runtime.scheduler.triggered.v1",
+            "payload_json": {
+              "acceptance": true
+            },
+            "status": "active",
+            "next_run_at": "2026-10-09T07:10:38.080461Z",
+            "misfire_policy": "skip",
+            "overlap_policy": "skip",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "created_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "updated_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "trace_id": "8a252ad5-1d01-45c9-9f4e-ff984b81f78e"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "84bd439a-5741-475f-a37b-168a42e9b732"
+      }
+    },
+    {
+      "name": "create_sts_fixture",
+      "http_status": 200,
+      "trace_id": "b359ccd2-da05-411d-9800-c500ebf4f6e2",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job": {
+            "id": 42,
+            "uuid": "492121fd-8c9e-4c84-bb25-69dad33229b4",
+            "createdAt": "2026-10-08T15:10:38.085462+08:00",
+            "updatedAt": "2026-10-08T15:10:38.085462+08:00",
+            "DeletedAt": null,
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.acceptance.scheduler.7e0cfe78601345a8bd0d028cc19d840e",
+            "revision": 1,
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_sts_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "topic": "powerx.runtime.scheduler.triggered.v1",
+            "payload_json": {
+              "acceptance": true
+            },
+            "status": "active",
+            "next_run_at": "2026-10-09T07:10:38.085285Z",
+            "misfire_policy": "skip",
+            "overlap_policy": "skip",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "created_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "updated_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "trace_id": "b359ccd2-da05-411d-9800-c500ebf4f6e2"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "0e8fc8a0-6691-42b9-a07e-3840db43ddd8"
+      }
+    },
+    {
+      "name": "owner_scoped_preview",
+      "http_status": 200,
+      "trace_id": "333df5e8-8ba2-4bde-b9ca-719283c275f8",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "job_uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+              "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+              "owner_type": "plugin",
+              "owner_id": "com.powerx.plugins.scrm",
+              "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+              "schedule_type": "interval",
+              "schedule_expr": "24h",
+              "timezone": "UTC",
+              "payload": {
+                "acceptance": true
+              },
+              "status": "active",
+              "revision": 1,
+              "next_run_at": "2026-10-09T15:10:38.080461+08:00",
+              "created_at": "2026-10-08T15:10:38.080917+08:00",
+              "updated_at": "2026-10-08T15:10:38.080917+08:00"
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 50,
+            "total": 1
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "6ea22362-719f-4a36-b35b-d50c8db74c70"
+      }
+    },
+    {
+      "name": "missing_revision",
+      "http_status": 400,
+      "trace_id": "b1f83525-4a95-47cf-9619-8c93c46d387a",
+      "response": {
+        "code": 400,
+        "message": "删除需要有效UUID及expected_revision，且只接受正式字段",
+        "error": "删除需要有效UUID及expected_revision，且只接受正式字段",
+        "error_code": "SCHEDULER_INVALID_ARGUMENT",
+        "reason_code": "SCHEDULER_INVALID_ARGUMENT",
+        "timestamp": 1791443438,
+        "request_id": "33b2bc8d-4e71-4266-b86d-83c8fc400d6e"
+      }
+    },
+    {
+      "name": "unknown_delete_query",
+      "http_status": 400,
+      "trace_id": "29de306e-101b-4ea8-aa6f-bfdc966174f5",
+      "response": {
+        "code": 400,
+        "message": "删除需要有效UUID及expected_revision，且只接受正式字段",
+        "error": "删除需要有效UUID及expected_revision，且只接受正式字段",
+        "error_code": "SCHEDULER_INVALID_ARGUMENT",
+        "reason_code": "SCHEDULER_INVALID_ARGUMENT",
+        "timestamp": 1791443438,
+        "request_id": "0d9e49e3-f8c8-4d6f-9329-6f5e36e44976"
+      }
+    },
+    {
+      "name": "api_key_wrong_owner",
+      "http_status": 403,
+      "trace_id": "4a007df1-37d0-4c30-a915-bc84b98fb27b",
+      "response": {
+        "code": 403,
+        "message": "API Key未授予目标插件owner权限",
+        "error": "API Key未授予目标插件owner权限",
+        "error_code": "SCHEDULER_PLUGIN_OWNER_MISMATCH",
+        "reason_code": "SCHEDULER_PLUGIN_OWNER_MISMATCH",
+        "timestamp": 1791443438,
+        "request_id": "8b9b5e26-04b7-4659-83de-a8ac25c36308"
+      }
+    },
+    {
+      "name": "sts_wrong_owner",
+      "http_status": 403,
+      "trace_id": "6c9242b2-8926-4972-9434-ab1d1e7a49df",
+      "response": {
+        "code": 403,
+        "message": "插件任务owner不匹配",
+        "error": "插件任务owner不匹配",
+        "error_code": "SCHEDULER_PLUGIN_OWNER_MISMATCH",
+        "reason_code": "SCHEDULER_PLUGIN_OWNER_MISMATCH",
+        "timestamp": 1791443438,
+        "request_id": "00d099d6-ba6d-4de4-9fbf-5408e4f9c608"
+      }
+    },
+    {
+      "name": "sts_admin_plane_denied",
+      "http_status": 403,
+      "trace_id": "d70c83ca-927b-4ef0-9fa1-a64e4028ed41",
+      "response": {
+        "error": "sts token not allowed for this route"
+      }
+    },
+    {
+      "name": "pause_changes_revision",
+      "http_status": 200,
+      "trace_id": "d2776020-a7c0-46cf-af85-6b61ded08704",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job": {
+            "id": 41,
+            "uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+            "createdAt": "2026-10-08T15:10:38.080917+08:00",
+            "updatedAt": "2026-10-08T15:10:38.187389+08:00",
+            "DeletedAt": null,
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "revision": 2,
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "topic": "powerx.runtime.scheduler.triggered.v1",
+            "payload_json": {
+              "acceptance": true
+            },
+            "status": "paused",
+            "next_run_at": "2026-10-09T15:10:38.080461+08:00",
+            "misfire_policy": "skip",
+            "overlap_policy": "skip",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "created_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "updated_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "trace_id": "d2776020-a7c0-46cf-af85-6b61ded08704"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "29a61616-8f2e-4eee-b9b2-c2a23938b95d"
+      }
+    },
+    {
+      "name": "stale_preview_conflict",
+      "http_status": 409,
+      "trace_id": "48998c6a-c4df-4bb1-8a21-12d0ee66dafe",
+      "response": {
+        "code": 409,
+        "message": "任务已变化，请重新预览",
+        "error": "任务已变化，请重新预览",
+        "error_code": "SCHEDULER_JOB_VERSION_CONFLICT",
+        "reason_code": "SCHEDULER_JOB_VERSION_CONFLICT",
+        "timestamp": 1791443438,
+        "request_id": "0eeee16a-90f3-43fc-bc37-ee384142eb87"
+      }
+    },
+    {
+      "name": "resume_changes_revision",
+      "http_status": 200,
+      "trace_id": "9f6891d1-3a3d-4c32-9807-3c5d1ca788bc",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job": {
+            "id": 41,
+            "uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+            "createdAt": "2026-10-08T15:10:38.080917+08:00",
+            "updatedAt": "2026-10-08T15:10:38.212948+08:00",
+            "DeletedAt": null,
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "revision": 3,
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "topic": "powerx.runtime.scheduler.triggered.v1",
+            "payload_json": {
+              "acceptance": true
+            },
+            "status": "active",
+            "next_run_at": "2026-10-09T15:10:38.212781+08:00",
+            "misfire_policy": "skip",
+            "overlap_policy": "skip",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "created_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "updated_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "trace_id": "9f6891d1-3a3d-4c32-9807-3c5d1ca788bc"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "1b7d8fcd-cdaf-4607-8a46-5181981d2fac"
+      }
+    },
+    {
+      "name": "manual_trigger_before_delete",
+      "http_status": 200,
+      "trace_id": "009dfe1c-d2c3-4063-9949-7e0c208ee8a5",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job": {
+            "id": 41,
+            "uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+            "createdAt": "2026-10-08T15:10:38.080917+08:00",
+            "updatedAt": "2026-10-08T15:10:38.217837+08:00",
+            "DeletedAt": null,
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "revision": 4,
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "topic": "powerx.runtime.scheduler.triggered.v1",
+            "payload_json": {
+              "acceptance": true
+            },
+            "status": "active",
+            "next_run_at": "2026-10-09T15:10:38.215439+08:00",
+            "last_run_at": "2026-10-08T15:10:38.215439+08:00",
+            "misfire_policy": "skip",
+            "overlap_policy": "skip",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "created_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "updated_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "trace_id": "009dfe1c-d2c3-4063-9949-7e0c208ee8a5"
+          },
+          "run": {
+            "id": 42,
+            "uuid": "1e16016d-686c-49d8-a32e-a0c9a315e0db",
+            "createdAt": "2026-10-08T15:10:38.216444+08:00",
+            "updatedAt": "2026-10-08T15:10:38.216444+08:00",
+            "DeletedAt": null,
+            "job_uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "trigger_source": "manual",
+            "scheduled_at": "2026-10-09T15:10:38.212781+08:00",
+            "fired_at": "2026-10-08T07:10:38.215439Z",
+            "status": "triggered",
+            "event_id": "scheduler.18fe45b1-9f3e-4a4a-a4eb-d25977569a89.1791443438215",
+            "trace_id": "009dfe1c-d2c3-4063-9949-7e0c208ee8a5",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "92d0948e-70b1-459b-9b65-390e813f26da"
+      }
+    },
+    {
+      "name": "api_key_delete",
+      "http_status": 200,
+      "trace_id": "0830fb65-74c5-4b0d-9e63-5b2e75e8c792",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "schema": "powerx.scheduler.job-deletion/v1",
+          "job_uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+          "status": "deleted",
+          "deleted": true,
+          "already_deleted": false,
+          "revision": 5,
+          "deleted_at": "2026-10-08T07:10:38.24354Z",
+          "history_retained": true,
+          "trace_id": "0830fb65-74c5-4b0d-9e63-5b2e75e8c792"
+        },
+        "timestamp": 1791443438,
+        "request_id": "067f227c-5593-4b3e-8564-93b9d5a595b5"
+      }
+    },
+    {
+      "name": "idempotent_repeated_delete",
+      "http_status": 200,
+      "trace_id": "1dfd635b-9154-4ae3-9a05-25cfaaf2cacf",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "schema": "powerx.scheduler.job-deletion/v1",
+          "job_uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+          "status": "deleted",
+          "deleted": true,
+          "already_deleted": true,
+          "revision": 5,
+          "deleted_at": "2026-10-08T15:10:38.24354+08:00",
+          "history_retained": true,
+          "trace_id": "1dfd635b-9154-4ae3-9a05-25cfaaf2cacf"
+        },
+        "timestamp": 1791443438,
+        "request_id": "c9c8a871-fa22-4eb3-822e-68a26d0c40ad"
+      }
+    },
+    {
+      "name": "default_get_excludes_deleted",
+      "http_status": 404,
+      "trace_id": "27e2acf9-df73-40ae-99b5-8366e3fd02ff",
+      "response": {
+        "code": 404,
+        "message": "任务已删除",
+        "error": "任务已删除",
+        "error_code": "SCHEDULER_JOB_NOT_FOUND",
+        "reason_code": "SCHEDULER_JOB_NOT_FOUND",
+        "timestamp": 1791443438,
+        "request_id": "38dc061f-9cb6-4765-a674-2bc57a6d2ea4"
+      }
+    },
+    {
+      "name": "tombstone_authorized_read",
+      "http_status": 200,
+      "trace_id": "4b83efd2-939a-429b-8a34-e77b4dea11b9",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "item": {
+            "job_uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "payload": {
+              "acceptance": true
+            },
+            "status": "deleted",
+            "revision": 5,
+            "last_run_at": "2026-10-08T15:10:38.215439+08:00",
+            "created_at": "2026-10-08T15:10:38.080917+08:00",
+            "updated_at": "2026-10-08T15:10:38.243701+08:00",
+            "deleted_at": "2026-10-08T15:10:38.24354+08:00"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "aff30514-5d9b-4ee2-a190-7b2573dea4d4"
+      }
+    },
+    {
+      "name": "retained_execution_history",
+      "http_status": 200,
+      "trace_id": "afd6bb5a-fe62-4887-a85e-40ba57746bc9",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "id": 42,
+              "uuid": "1e16016d-686c-49d8-a32e-a0c9a315e0db",
+              "createdAt": "2026-10-08T15:10:38.216444+08:00",
+              "updatedAt": "2026-10-08T15:10:38.216444+08:00",
+              "DeletedAt": null,
+              "job_uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+              "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+              "owner_type": "plugin",
+              "owner_id": "com.powerx.plugins.scrm",
+              "trigger_source": "manual",
+              "scheduled_at": "2026-10-09T15:10:38.212781+08:00",
+              "fired_at": "2026-10-08T15:10:38.215439+08:00",
+              "status": "triggered",
+              "event_id": "scheduler.18fe45b1-9f3e-4a4a-a4eb-d25977569a89.1791443438215",
+              "trace_id": "009dfe1c-d2c3-4063-9949-7e0c208ee8a5",
+              "actor_type": "user",
+              "actor_user_id": 1,
+              "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338"
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 50,
+            "total": 1
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "828c9f2d-1b9f-4cb4-b763-fb7bac152f1e"
+      }
+    },
+    {
+      "name": "deleted_trigger_rejected",
+      "http_status": 404,
+      "trace_id": "c5d19b13-198e-4402-8896-116b8f798b92",
+      "response": {
+        "code": 404,
+        "message": "调度任务不存在",
+        "error": "调度任务不存在",
+        "error_code": "SCHEDULER_JOB_NOT_FOUND",
+        "reason_code": "SCHEDULER_JOB_NOT_FOUND",
+        "timestamp": 1791443438,
+        "request_id": "0754edd5-074c-4c6a-9ff4-a83124296e15"
+      }
+    },
+    {
+      "name": "deleted_resume_rejected",
+      "http_status": 404,
+      "trace_id": "b68ea7ee-ef0f-4914-810c-b34f444e8f2a",
+      "response": {
+        "code": 404,
+        "message": "调度任务不存在",
+        "error": "调度任务不存在",
+        "error_code": "SCHEDULER_JOB_NOT_FOUND",
+        "reason_code": "SCHEDULER_JOB_NOT_FOUND",
+        "timestamp": 1791443438,
+        "request_id": "b9e566f0-9e73-478e-8b42-378bd11ed0a5"
+      }
+    },
+    {
+      "name": "typed_sts_delete",
+      "http_status": 200,
+      "trace_id": "353410ea-581f-4ae2-91d4-f9f1dfc06f52",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "payload": {
+            "result": {
+              "schema": "powerx.scheduler.job-deletion/v1",
+              "job_uuid": "492121fd-8c9e-4c84-bb25-69dad33229b4",
+              "status": "deleted",
+              "deleted": true,
+              "already_deleted": false,
+              "revision": 2,
+              "deleted_at": "2026-10-08T07:10:38.345239Z",
+              "history_retained": true,
+              "trace_id": "353410ea-581f-4ae2-91d4-f9f1dfc06f52"
+            }
+          },
+          "trace_id": "448099ef-582a-4957-be07-f6d7abc4e491",
+          "status": "completed",
+          "protocol_used": "core_internal",
+          "result": {
+            "result": {
+              "schema": "powerx.scheduler.job-deletion/v1",
+              "job_uuid": "492121fd-8c9e-4c84-bb25-69dad33229b4",
+              "status": "deleted",
+              "deleted": true,
+              "already_deleted": false,
+              "revision": 2,
+              "deleted_at": "2026-10-08T07:10:38.345239Z",
+              "history_retained": true,
+              "trace_id": "353410ea-581f-4ae2-91d4-f9f1dfc06f52"
+            }
+          },
+          "fallback_used": false
+        },
+        "timestamp": 1791443438,
+        "request_id": "514efc84-7921-4bc1-8ace-07facb0be345"
+      }
+    },
+    {
+      "name": "free_proxy_rejected",
+      "http_status": 400,
+      "trace_id": "1a426fd4-84a7-4398-9fa6-31af9a50ac50",
+      "response": {
+        "code": 400,
+        "message": "registry.invalid_request",
+        "error": "只接受固定typed调度操作",
+        "error_code": "SCHEDULER_INVALID_ARGUMENT",
+        "reason_code": "SCHEDULER_INVALID_ARGUMENT",
+        "details": {
+          "code": "registry.invalid_request",
+          "hint": "请求缺少必填字段或格式不合法",
+          "reason_code": "SCHEDULER_INVALID_ARGUMENT"
+        },
+        "timestamp": 1791443438,
+        "request_id": "0c32a08a-4e74-4e6c-ab6c-9adffedfead2"
+      }
+    },
+    {
+      "name": "read_only_key_history",
+      "http_status": 200,
+      "trace_id": "2d9948f7-d5c9-4ed1-922b-de0c26123254",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "id": 42,
+              "uuid": "1e16016d-686c-49d8-a32e-a0c9a315e0db",
+              "createdAt": "2026-10-08T15:10:38.216444+08:00",
+              "updatedAt": "2026-10-08T15:10:38.216444+08:00",
+              "DeletedAt": null,
+              "job_uuid": "18fe45b1-9f3e-4a4a-a4eb-d25977569a89",
+              "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+              "owner_type": "plugin",
+              "owner_id": "com.powerx.plugins.scrm",
+              "trigger_source": "manual",
+              "scheduled_at": "2026-10-09T15:10:38.212781+08:00",
+              "fired_at": "2026-10-08T15:10:38.215439+08:00",
+              "status": "triggered",
+              "event_id": "scheduler.18fe45b1-9f3e-4a4a-a4eb-d25977569a89.1791443438215",
+              "trace_id": "009dfe1c-d2c3-4063-9949-7e0c208ee8a5",
+              "actor_type": "user",
+              "actor_user_id": 1,
+              "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338"
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 50,
+            "total": 1
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "be8e2808-2d22-4773-a2ae-e96516cad7ca"
+      }
+    },
+    {
+      "name": "read_only_key_delete_denied",
+      "http_status": 403,
+      "trace_id": "f326516f-6594-4afa-bc0c-aea44c6189db",
+      "response": {
+        "code": 403,
+        "message": "调度能力未授权或已撤销",
+        "error": "调度能力未授权或已撤销: CAPABILITY_FORBIDDEN",
+        "error_code": "SCHEDULER_CAPABILITY_FORBIDDEN",
+        "reason_code": "SCHEDULER_CAPABILITY_FORBIDDEN",
+        "timestamp": 1791443438,
+        "request_id": "07bf9e6c-5126-4bab-b3b9-6b498334e1ab"
+      }
+    },
+    {
+      "name": "live_read_grant_revocation",
+      "http_status": 403,
+      "trace_id": "abd7ccde-cdcd-45c3-8eb9-63b3ce0a29db",
+      "response": {
+        "code": 403,
+        "message": "调度能力未授权或已撤销",
+        "error": "调度能力未授权或已撤销: CAPABILITY_FORBIDDEN",
+        "error_code": "SCHEDULER_CAPABILITY_FORBIDDEN",
+        "reason_code": "SCHEDULER_CAPABILITY_FORBIDDEN",
+        "timestamp": 1791443438,
+        "request_id": "d753f38c-6f26-4ffb-a052-0d9c900dc995"
+      }
+    },
+    {
+      "name": "cross_tenant_delete",
+      "http_status": 404,
+      "trace_id": "5513a2bc-a840-45a8-b96b-f22d9b8d997a",
+      "response": {
+        "code": 404,
+        "message": "任务不存在",
+        "error": "任务不存在",
+        "error_code": "SCHEDULER_JOB_NOT_FOUND",
+        "reason_code": "SCHEDULER_JOB_NOT_FOUND",
+        "timestamp": 1791443438,
+        "request_id": "a446d129-5884-49dd-9b26-285ca60b8335"
+      }
+    },
+    {
+      "name": "create_api_key_fixture",
+      "http_status": 200,
+      "trace_id": "e8894acc-8e2d-462b-8122-5cc075fe9c47",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job": {
+            "id": 44,
+            "uuid": "efb18778-e140-4a62-a33b-9bb1d9be15bf",
+            "createdAt": "2026-10-08T15:10:38.442827+08:00",
+            "updatedAt": "2026-10-08T15:10:38.442827+08:00",
+            "DeletedAt": null,
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "revision": 1,
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "topic": "powerx.runtime.scheduler.triggered.v1",
+            "payload_json": {
+              "acceptance": true
+            },
+            "status": "active",
+            "next_run_at": "2026-10-09T07:10:38.442599Z",
+            "misfire_policy": "skip",
+            "overlap_policy": "skip",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "created_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "updated_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "trace_id": "e8894acc-8e2d-462b-8122-5cc075fe9c47"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "98967641-71bd-43b8-bf3c-2682255fc10b"
+      }
+    },
+    {
+      "name": "create_admin_fixture",
+      "http_status": 200,
+      "trace_id": "bb2c76f6-a9ba-425f-ae1c-0f1deb0a244e",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job": {
+            "id": 45,
+            "uuid": "7127ae8e-2cb2-407c-b39b-49ca0334f4f3",
+            "createdAt": "2026-10-08T15:10:38.445258+08:00",
+            "updatedAt": "2026-10-08T15:10:38.445258+08:00",
+            "DeletedAt": null,
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "owner_type": "plugin",
+            "owner_id": "com.powerx.plugins.scrm",
+            "revision": 1,
+            "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_admin_fixture",
+            "schedule_type": "interval",
+            "schedule_expr": "24h",
+            "timezone": "UTC",
+            "topic": "powerx.runtime.scheduler.triggered.v1",
+            "payload_json": {
+              "acceptance": true
+            },
+            "status": "active",
+            "next_run_at": "2026-10-09T07:10:38.445115Z",
+            "misfire_policy": "skip",
+            "overlap_policy": "skip",
+            "actor_type": "user",
+            "actor_user_id": 1,
+            "actor_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "created_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "updated_by": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+            "trace_id": "bb2c76f6-a9ba-425f-ae1c-0f1deb0a244e"
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "9b504536-f6dd-4bfb-86c7-b8dddfb7ee11"
+      }
+    },
+    {
+      "name": "admin_jwt_delete",
+      "http_status": 200,
+      "trace_id": "30843739-5deb-4225-9c20-2bba1a43121f",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "schema": "powerx.scheduler.job-deletion/v1",
+          "job_uuid": "7127ae8e-2cb2-407c-b39b-49ca0334f4f3",
+          "status": "deleted",
+          "deleted": true,
+          "already_deleted": false,
+          "revision": 2,
+          "deleted_at": "2026-10-08T07:10:38.449714Z",
+          "history_retained": true,
+          "trace_id": "30843739-5deb-4225-9c20-2bba1a43121f"
+        },
+        "timestamp": 1791443438,
+        "request_id": "570a5f71-197c-4472-b9f3-749a58d552de"
+      }
+    },
+    {
+      "name": "admin_missing_delete_rbac",
+      "http_status": 403,
+      "trace_id": "c04bf575-88ca-4197-a55b-e88b6dfff34d",
+      "response": {
+        "code": 403,
+        "message": "缺少调度任务操作权限",
+        "error": "缺少调度任务操作权限",
+        "error_code": "SCHEDULER_PERMISSION_DENIED",
+        "reason_code": "SCHEDULER_PERMISSION_DENIED",
+        "timestamp": 1791443438,
+        "request_id": "ecd494d3-04a4-44db-a6fd-450ed518e03d"
+      }
+    },
+    {
+      "name": "new_default_list",
+      "http_status": 200,
+      "trace_id": "e636052a-830e-4bb0-b0c6-4e1ac40ce46e",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "job_uuid": "efb18778-e140-4a62-a33b-9bb1d9be15bf",
+              "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+              "owner_type": "plugin",
+              "owner_id": "com.powerx.plugins.scrm",
+              "name": "core-cleanup-7a29ad97-776c-4419-9770-d4954307a083-create_api_key_fixture",
+              "schedule_type": "interval",
+              "schedule_expr": "24h",
+              "timezone": "UTC",
+              "payload": {
+                "acceptance": true
+              },
+              "status": "active",
+              "revision": 1,
+              "next_run_at": "2026-10-09T15:10:38.442599+08:00",
+              "created_at": "2026-10-08T15:10:38.442827+08:00",
+              "updated_at": "2026-10-08T15:10:38.442827+08:00"
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 50,
+            "total": 1
+          }
+        },
+        "timestamp": 1791443438,
+        "request_id": "68b95a90-02ef-4d97-9f83-4d3f083019dc"
+      }
+    }
+  ],
+  "schema": "powerx.scheduler.cleanup-acceptance/v1"
+}

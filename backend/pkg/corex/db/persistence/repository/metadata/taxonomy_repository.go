@@ -3,6 +3,7 @@ package metadata
 import (
 	"context"
 	"errors"
+	"gorm.io/gorm/clause"
 	"strings"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
@@ -205,7 +206,7 @@ func (r *TaxonomyRepository) ListNodesPage(ctx context.Context, opt TaxonomyNode
 func (r *TaxonomyRepository) UpdateNode(ctx context.Context, tenantUUID, nodeUUID string, version int64, updates map[string]any) (*model.TaxonomyNode, error) {
 	var row model.TaxonomyNode
 	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error; err != nil {
 			return err
 		}
 		if version > 0 && row.Version != version {
@@ -216,7 +217,7 @@ func (r *TaxonomyRepository) UpdateNode(ctx context.Context, tenantUUID, nodeUUI
 			if err := tx.Model(&row).Updates(updates).Error; err != nil {
 				return err
 			}
-			return tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error
+			return tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error
 		}
 		return nil
 	})
@@ -229,7 +230,7 @@ func (r *TaxonomyRepository) UpdateNode(ctx context.Context, tenantUUID, nodeUUI
 func (r *TaxonomyRepository) MoveNode(ctx context.Context, tenantUUID, nodeUUID string, version int64, parentUUID *string, sortOrder int, newPath string, newDepth int, descendants []model.TaxonomyNode) (*model.TaxonomyNode, error) {
 	var row model.TaxonomyNode
 	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error; err != nil {
 			return err
 		}
 		if version > 0 && row.Version != version {
@@ -253,7 +254,7 @@ func (r *TaxonomyRepository) MoveNode(ctx context.Context, tenantUUID, nodeUUID 
 				return err
 			}
 		}
-		return tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error
+		return tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, nodeUUID).First(&row).Error
 	})
 	if err != nil {
 		return nil, err
@@ -279,4 +280,67 @@ func (r *TaxonomyRepository) CountNodeReferences(ctx context.Context, tenantUUID
 		}
 	}
 	return total, refs, nil
+}
+
+// UpdateNodeWithParent atomically changes labels, attributes and the hierarchy.
+func (r *TaxonomyRepository) UpdateNodeWithParent(ctx context.Context, tenant, nodeID string, version int64, parent *string, updates map[string]any) (*model.TaxonomyNode, error) {
+	var row model.TaxonomyNode
+	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if tx.Dialector.Name() == "postgres" {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", tenant+".metadata_write").Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid=? AND uuid=?", tenant, nodeID).First(&row).Error; err != nil {
+			return err
+		}
+		if version < 1 || row.Version != version {
+			return ErrOptimisticConflict
+		}
+		var tree model.Taxonomy
+		if err := tx.Where("tenant_uuid=? AND uuid=?", tenant, row.TaxonomyUUID).First(&tree).Error; err != nil {
+			return err
+		}
+		path := "/" + row.TaxonomyUUID + "/" + nodeID
+		depth := 1
+		if parent != nil && *parent != "" {
+			var target model.TaxonomyNode
+			if err := tx.Where("tenant_uuid=? AND uuid=? AND taxonomy_uuid=?", tenant, *parent, row.TaxonomyUUID).First(&target).Error; err != nil {
+				return err
+			}
+			if target.UUID == row.UUID || strings.HasPrefix(target.Path, row.Path+"/") {
+				return errors.New("METADATA_CIRCULAR_MOVE")
+			}
+			path = target.Path + "/" + nodeID
+			depth = target.Depth + 1
+		} else {
+			parent = nil
+		}
+		var descendants []model.TaxonomyNode
+		if err := tx.Where("tenant_uuid=? AND taxonomy_uuid=? AND path LIKE ?", tenant, row.TaxonomyUUID, row.Path+"/%").Find(&descendants).Error; err != nil {
+			return err
+		}
+		if depth > tree.MaxDepth {
+			return errors.New("METADATA_INVALID_DEPTH")
+		}
+		for _, desc := range descendants {
+			if desc.Depth+depth-row.Depth > tree.MaxDepth {
+				return errors.New("METADATA_INVALID_DEPTH")
+			}
+		}
+		for _, desc := range descendants {
+			if err := tx.Model(&desc).Updates(map[string]any{"path": path + strings.TrimPrefix(desc.Path, row.Path), "depth": desc.Depth + depth - row.Depth}).Error; err != nil {
+				return err
+			}
+		}
+		updates["parent_uuid"] = parent
+		updates["path"] = path
+		updates["depth"] = depth
+		updates["version"] = version + 1
+		if err := tx.Model(&row).Updates(updates).Error; err != nil {
+			return err
+		}
+		return tx.Where("tenant_uuid=? AND uuid=?", tenant, nodeID).First(&row).Error
+	})
+	return &row, err
 }

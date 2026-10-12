@@ -48,6 +48,21 @@ func TestInvocationServiceInvokeREST(t *testing.T) {
 	require.Equal(t, "ok", result["status"])
 }
 
+func TestInvocationFailureDetailsPreservesRemoteProviderFailure(t *testing.T) {
+	err := newRESTUpstreamError(http.StatusBadGateway, http.MethodPost, "/api/v1/ai/llm/invoke", []byte(`{
+		"message":"ai invoke failed",
+		"error":"context deadline exceeded",
+		"details":{"provider_failure":{"reason_code":"AI_PROVIDER_TIMEOUT","provider":"ollama","model":"qwen3:8b","phase":"response_headers"}}
+	}`))
+
+	details := InvocationFailureDetails(err)
+	require.NotNil(t, details)
+	providerFailure, ok := details["provider_failure"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "AI_PROVIDER_TIMEOUT", providerFailure["reason_code"])
+	require.Equal(t, "response_headers", providerFailure["phase"])
+}
+
 func TestInvocationServiceInvokeRESTAppliesPathParamsAndTenantHeader(t *testing.T) {
 	t.Parallel()
 	testutil.SkipIfNoLocalListener(t)

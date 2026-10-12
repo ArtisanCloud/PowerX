@@ -1,5 +1,11 @@
 # Implementation Plan: Knowledge Space Provisioning & Lifecycle Governance
 
+## 2026-10-10 内容导览实施补充
+
+复用成功 IndexJob 的 source snapshot、HostDocumentChunk、active document 指针和 pgvector。Repository 将 published corpus FROM 条件与 retrieval 共用；Service 做实时授权、模式/版本校验、来源完整性及签名分页；薄 Tenant/Admin Handler 和 typed core_internal binding 统一调用 Service。无需新增数据表、重建索引或逐请求调用模型。
+
+交付正式 OpenAPI、双授权平面 capability、API Key/STS 调用证据与 Framework 对齐文档。PostgreSQL 和 HTTP fixture 验证 Core 读取；真实 dev 文档/插件页面单独验收，详见 [实施清单](content-overview-implementation.md)。
+
 **Branch**: `011-docs-use-cases` | **Date**: 2025-11-12 | **Spec**: [`spec.md`](./spec.md)
 **Input**: Feature specification from `/specs/011-docs-use-cases/spec.md`
 
@@ -261,3 +267,19 @@ Scope note:
 ## Constitution Re-check
 
 No new violations introduced after design artifacts. Proto + HTTP contracts follow declared directories, migrations stay within CoreX flow, and documentation references only CoreX modules; therefore gates remain PASS.
+
+## 2026-10-07 文档配置快照合同实施
+
+Tenant 文档 DTO 新增嵌套 ingestion v1，严格拒绝未知或不支持设置。受理事务冻结请求/生效配置、精确 published Profile 引用及配置副本、策略版本、文档原文/版本/SHA-256；任务回读公开生效字段与 Profile 摘要。IndexJob 增加快照、优先级、trace、租约和分块数量，TenantDocument 记录当前任务，新增 immutable HostDocumentChunk。模型全部在 `pkg/corex/db/database/migration.go` 集中迁移。
+
+Host Worker 领取 high-first 持久化队列，实际调用底座 ChunkDocument 并原子保存正文分块，成功检索仅投影当前文档版本的成功任务。公开支持范围为 TXT/Markdown lexical chunk index；独立 processor/masking、semantic/PDF 分页和任务级策略覆盖显式拒绝。原向量入库入口继续保留。
+
+正式 document.manage 同时提供 Admin JWT/RBAC、tenant REST service_actor、固定 `core://knowledge/documents` typed binding 与显式 API-key grant；服务态调用不注入代理 headers。交付合同、两份 OpenAPI 和脱敏真实 API Key/STS 验收记录同步更新。
+
+### 单篇/空间重建增量
+
+新增单篇 indexes:rebuild 与 typed rebuild_document/rebuild_space。以 reuse_snapshot/apply_config 区分沿用成功配置和新 published 配置，冻结当前原文及按文档配置。执行链实际重新分块，success/active 指针/新产物同事务激活；失败保留原索引。新增 active_index_job_uuid、幂等键/请求摘要、rebuild_mode、文档总数和处理进度，挂载集中 `pkg/corex/db/database/migration.go` 并回填历史成功指针。本轮范围明确为 Core，Framework/Plugin 只接收合同。
+
+## 2026-10-08 Semantic Host delivery
+
+The prior TXT/Markdown lexical baseline remains available. Its restriction is superseded only for explicit `indexing` submissions under [semantic-host.openapi.yaml](contracts/semantic-host.openapi.yaml). The shared IndexJob worker writes and verifies real embeddings before atomic publication; model switches stage a pending binding until all current semantic documents are rebuilt. Strict query uses source-verified multi-chunk hydration and independently versioned configuration/corpus generations. Read capability is `com.corex.knowledge.retrieval.read`; writes retain typed document.manage. [Framework handoff](../../docs/contracts/knowledge-semantic-framework-alignment.md) is a separate consumer task.

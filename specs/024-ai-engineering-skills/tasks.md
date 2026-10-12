@@ -250,7 +250,7 @@
 
 ## Phase 16: PowerX Agent Skill Bridge 与插件 Framework 对齐
 
-- [X] T119 [Shared] 文档对齐：新增 Agent Skill Bridge 机制总说明并挂接 runtime/plugin/API/spec：`docs/plan/ai_engineering/skills/agent_skill_bridge.md`, `docs/plan/ai_engineering/skills/*.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T119 [Shared] 文档对齐：新增 Agent Skill Bridge 机制总说明并挂接 runtime/plugin/API/spec：`docs/plan/ai_engineering/agent/agent_skill_bridge.md`, `docs/plan/ai_engineering/skills/*.md`, `specs/024-ai-engineering-skills/*.md`
 - [X] T120 [P] [US6] 定义插件 Skill Runtime 标准类型：`powerx-plugin/framework/skills`（`PluginSkillManifest/PluginSkillInvocation/PluginSkillInvocationContext/PluginSkillResult/PluginSkillError`）
 - [X] T121 [P] [US6] 定义插件 Framework Client 标准接口：`powerx-plugin/framework/client`（STS、Agent Invoke、Agent SSE、Agent WS、Capability Invoke）
 - [X] T122 [US6] 实现插件 Skill 发现路由封装：`GET /api/v1/plugin/skills`, `GET /api/v1/plugin/skills/:skill_id/schema`，并提供 manifest 校验器：`powerx-plugin/framework/skills`
@@ -272,7 +272,7 @@
 
 ## Phase 17: Agent Run Trace & Report（Root 调试与智能对话报告）
 
-- [X] T136 [Shared] 文档对齐：新增 Agent Run Trace & Report 机制说明，并挂接 runtime/spec/contracts/tasks：`docs/plan/ai_engineering/skills/agent_run_trace_report.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T136 [Shared] 文档对齐：新增 Agent Run Trace & Report 机制说明，并挂接 runtime/spec/contracts/tasks：`docs/plan/ai_engineering/agent/agent_run_trace_report.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `specs/024-ai-engineering-skills/*.md`
 - [X] T137 [P] [US7] 定义 Agent Trace DTO 与 Logger 接口：`backend/internal/service/agent_trace/types.go`, `backend/internal/service/agent_trace/logger.go`
 - [X] T138 [P] [US7] 实现 Local Agent Trace Sink：按 `backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}` 写入 `run.json/timeline.jsonl/nodes/*.json`：`backend/internal/service/agent_trace/local_sink.go`
 - [X] T139 [P] [US7] 实现 Loki Agent Trace Sink 与 label 规范：`backend/internal/service/agent_trace/loki_sink.go`, `backend/internal/service/agent_trace/config.go`
@@ -321,13 +321,13 @@
 - [X] T167 [Shared] 明确 Team Role 为平台固定协作枚举，集中维护 `planner/retriever/executor/reviewer`，不建立数据库字典表：`backend/pkg/corex/db/persistence/model/agent/a2a_gorm.go`
 - [X] T168 [US5] Team Service 写入成员时基于集中枚举校验子 Agent role，拒绝 `planner` 或未知 role：`backend/internal/service/agent/team_service.go`
 - [X] T169 [US5] Team 管理页面使用固定子 Agent role 选项 `retriever/executor/reviewer`，不调用角色目录接口：`web-admin/app/composables/api/services/agentTeamService.ts`, `web-admin/app/pages/settings/ai/agent-teams.vue`
-- [X] T170 [P] [US5] A2A release readiness 文档和测试移除 role catalog 依赖，保留 TeamMember 固定 role 验收：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`, `docs/plan/ai_engineering/skills/multi_agent_a2a.md`, `specs/024-ai-engineering-skills/quickstart.md`
+- [X] T170 [P] [US5] A2A release readiness 文档和测试移除 role catalog 依赖，保留 TeamMember 固定 role 验收：`backend/tests/integration/skills/skill_agent_a2a_release_readiness_mvp_test.go`, `docs/plan/ai_engineering/agent/multi_agent_a2a.md`, `specs/024-ai-engineering-skills/quickstart.md`
 
 ---
 
 ## Phase 21: Agent Response Planning
 
-- [X] T171 [Shared] 文档对齐：补齐 Agent ResponsePlanner / Context Builder / Final Response 分层设计、上下文存储驱动、SSE event、message meta 和回归步骤：`docs/plan/ai_engineering/skills/agent_response_planning.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `docs/plan/ai_engineering/skills/api_contracts.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T171 [Shared] 文档对齐：补齐 Agent ResponsePlanner / Context Builder / Final Response 分层设计、上下文存储驱动、SSE event、message meta 和回归步骤：`docs/plan/ai_engineering/agent/agent_response_planning.md`, `docs/plan/ai_engineering/skills/runtime_architecture.md`, `docs/plan/ai_engineering/skills/api_contracts.md`, `specs/024-ai-engineering-skills/*.md`
 - [X] T172 [Shared] 定义 ResponseMode / ResponsePlan / AssistantMessageMeta 类型与 schema 校验：`backend/internal/server/agent/runtime/response_plan.go`
 - [X] T173 [Shared] 实现 ResponsePlanner 骨架：支持结构化 JSON 输出、schema 校验、非法输出稳定错误 `agent.response_plan_invalid`，首版模型选择继承 Agent 默认模型：`backend/internal/server/agent/runtime/response_planner.go`
 - [X] T174 [Shared] 将节点级模型策略扩展到 `response_planner/context_builder/error_explain`，Trace/SSE metadata 输出节点模型选择结果：`backend/internal/server/agent/runtime/model_policy.go`
@@ -345,7 +345,7 @@
 
 ## Phase 22: Agent Run State Protocol（多任务/多智能体执行状态 UI 协议）
 
-- [X] T184 [Shared] 文档对齐：新增 Agent Run State Protocol 设计并挂接 Runtime、Response Planning、Skill 标准、024 spec/plan/tasks：`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`, `docs/plan/ai_engineering/skills/*.md`, `specs/024-ai-engineering-skills/*.md`
+- [X] T184 [Shared] 文档对齐：新增 Agent Run State Protocol 设计并挂接 Runtime、Response Planning、Skill 标准、024 spec/plan/tasks：`docs/plan/ai_engineering/agent/agent_run_state_protocol.md`, `docs/plan/ai_engineering/skills/*.md`, `specs/024-ai-engineering-skills/*.md`
 - [X] T185 [Shared] 定义 `AgentRunState/AgentTaskState/AgentRunEvent` DTO 与 schema 校验，覆盖 `agent_run.*` 事件和 `pending|awaiting_params|running|completed|failed|skipped` 状态：`backend/internal/server/agent/runtime/*`, `backend/pkg/dto/*`
 - [X] T186 [Shared] Runtime SSE/WS 输出 `agent_run.started/response_plan/intent_detected/plan_created/task_status/task_started/awaiting_params/task_completed/task_failed/final/ended` 标准事件：`backend/internal/server/agent/runtime/engine.go`, `backend/internal/transport/http/admin/agent/chat_handler.go`
 - [X] T187 [US3] 实现 Pending Task 状态存储与跨轮 slot merge，按 Skill manifest `action_required_args/slot_mapping/pending_task_policy` 校验缺参：`backend/internal/server/agent/runtime/*`, `backend/internal/service/agent/*`
@@ -354,12 +354,36 @@
 - [X] T190 [US6] 与 PowerXPlugin Framework 对齐 AgentRunState typed events/reducer，确保插件调试 Chat 与 PowerX Web Chat 消费同一状态协议：`PowerXPlugin/framework/backend/go/runtime/powerx/agent/*`, `PowerXPlugin/skeleton/web-admin/*`
 - [X] T191 [P] [US3] 单元测试：缺参任务进入 `awaiting_params`、补参后进入 `running/completed`、无真实 result 时禁止 success 文案：`backend/internal/server/agent/runtime/*_test.go`
 - [X] T192 [P] [US5] 集成测试：Core-only A2A 多 Agent 任务映射为 run state task 列表，失败子任务可跳转 trace：`backend/tests/integration/skills/*agent_run_state*_test.go`
-- [X] T193 [Shared] 将 Agent Run State Protocol 收敛为唯一对外运行状态合同，禁止 UI 消费旧 `intent/plan/node_start/node_end/final/end` 作为状态来源：`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`, `backend/internal/server/agent/runtime/run_state_events.go`
+- [X] T193 [Shared] 将 Agent Run State Protocol 收敛为唯一对外运行状态合同，禁止 UI 消费旧 `intent/plan/node_start/node_end/final/end` 作为状态来源：`docs/plan/ai_engineering/agent/agent_run_state_protocol.md`, `backend/internal/server/agent/runtime/run_state_events.go`
 - [X] T194 [Shared] 扩展 Run Summary / Task Graph 字段：`total_tasks/current_stage/depends_on/stage/parallel_group/parent_task_id/failure_policy`，覆盖串行、并行、多 Agent handoff：`backend/pkg/dto/stream_events.go`, `backend/internal/service/agent_trace/types.go`
 - [X] T195 [US7] Trace snapshot 保存 `summary` 与计划阶段任务，页面刷新后仍能恢复总任务状态和任务拓扑：`backend/internal/service/agent_trace/local_sink.go`
 - [X] T196 [US6] PowerXPlugin 调试页展示 Run 总览、阶段分组、并行/依赖信息，使用 `agent_run.plan_created` 预置 pending 任务并由后续 task 事件更新：`PowerXPlugin/skeleton/web-admin/nuxt/app/pages/_p/com.powerx.plugins.base/admin/agent-skill-bridge/index.vue`
 
 ---
+
+## Phase 23: Skill / Tool / Runtime 分层与计算证据（FR-079～FR-086）
+
+架构约束已确认；仅文档项完成，不将现有 V3 算术校验视为以下实现的完成证据。按下列顺序交付，完整定义见 [分层开发规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)。
+
+- [X] T197 [Shared] 补充分层职责、工具扩展、依赖缺失、结果证据及实现状态规范，挂接开发指南、Skill 标准、Runtime、spec/plan/tasks。
+- [ ] T198 [Shared] 核查现有工具/Capability/executor 的真实能力与接入边界，列出可复用和待实现项；清查按 Agent/Team/Skill 标识分派业务代码的违规点。
+- [ ] T199 [Shared] 定义版本化工具依赖及结果证据契约与失败用例；包含 UUID 引用、固定版本、权限、来源定位、报告值/计算值/冲突，确定正式 Schema 版本和旧数据迁移说明。
+- [ ] T200 [Shared] 实现发布、可运行绑定和执行前依赖检查；验证缺工具、版本不符、未授权、不支持 executor 均显式阻断，Draft 可保存且不可运行。
+- [X] T201 [Shared] 复用或实现受限通用计算工具，支持明确精度/单位/舍入、资源限制与真实执行记录；禁止任意 eval 和模型填值冒充计算结果。
+- [ ] T202 [Shared] 实现操作数来源、租户权限、输入可信状态及工具执行结果核验；拒绝伪造引用，不把百分比改写为虚构客户人数。
+- [ ] T203 [Shared] 对齐 Runtime、响应 Schema/DTO、平台 locale 渲染、历史和 Trace；将业务缺参、冲突与系统执行失败区分，最终校验错误必须有失败节点。
+- [ ] T204 [US3] 更新固有示例的 Skill Revision/依赖与公式口径；用客户自建非营销 Skill 接入插件工具，验证无需新增 Core 业务分支。
+- [ ] T205 [Shared] 运行变化数值、同口径/跨口径、百分比无计数、除零、缺依赖、伪造来源、工具超时和刷新回读测试，并记录真实工具调用、版本和报告证据。
+
+2026-09-08 实施检查点：V4 类型/导出 Schema、受限计算、内置依赖预检、来源词面校验、同次执行 ledger、原文/计算/冲突的 locale 渲染与定向测试已落地；`make seed` 成功。T199/T200/T202/T203/T204/T205 仍有外部工具生产接线或真实业务验收缺项，不因代码入口存在而勾选完成。详细状态见 `docs/guides/develop/agent-response-evidence-v4.md`。
+
+同日补充：已落地 Skill calculation_policy 与 unit_tokens、平台原文 token 取证、模型字段映射、声明式公式执行和无数值说明投影。已发布营销汇总 Skill 经真实 Ollama 的原始数据与替换数据两组测试通过，验证结果分别为 1.35/0.85 和 2/0.5，原文冲突保持独立；不代表完整团队、历史 UI 或外部插件接线已验收。
+
+---
+
+## Phase 24: 持久化调度与共享容量（未实施）
+
+`T186-T196` 仅覆盖当前 UI 状态协议和快照，不代表跨实例持久化调度已完成。目标需求、实施任务和验收证据见 [`031/tasks.md`](../031-agent-runtime-durable-scheduling/tasks.md)；目前仅完成调用链清点 `T001`，`T002-T012` 仍未完成。
 
 ## Dependencies & Execution Order
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	sessions "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"gorm.io/datatypes"
@@ -34,6 +35,8 @@ type SkillStateUpsert struct {
 }
 
 type skillStateStoreContextKey struct{}
+
+const skillStatePersistTimeout = 5 * time.Second
 
 func ContextWithSkillStateStore(ctx context.Context, store SkillStateStore) context.Context {
 	if ctx == nil || store == nil {
@@ -95,6 +98,23 @@ func mergeSkillStatePayload(base map[string]any, patch map[string]any) map[strin
 }
 
 func persistRuntimeSkillState(ctx context.Context, payload map[string]any, status string, runErr error) error {
+	// Service sessions have a UUID-only, invocation-owned state recorder. They
+	// never pass their identifiers through the historical numeric state store.
+	if memory := sessions.ExecutionMemoryFromContext(ctx); memory != nil {
+		if status == dto.AgentTaskStatusAwaitingParams {
+			copy := map[string]any{}
+			for key, value := range payload {
+				copy[key] = value
+			}
+			copy["status"] = status
+			return memory.SetPending(copy)
+		}
+		if status == dto.AgentTaskStatusCompleted || status == dto.AgentTaskStatusFailed {
+			memory.CompleteTask(anyToString(payload["task_id"]))
+			return nil
+		}
+		return nil
+	}
 	store := skillStateStoreFromContext(ctx)
 	if store == nil || len(payload) == 0 {
 		return nil
@@ -156,7 +176,12 @@ func persistRuntimeSkillState(ctx context.Context, payload map[string]any, statu
 	if err := validateRuntimeSkillStateScope(in); err != nil {
 		return err
 	}
-	if err := store.UpsertSkillState(ctx, in); err != nil {
+	// Skill 状态是已经完成的执行结果的终态记录，不能复用可能已经被
+	// 模型调用或计划取消的上下文。所有持久化需要的作用域已经被写入 in，
+	// 因此这里使用独立且有界的数据库上下文。
+	persistCtx, cancel := context.WithTimeout(context.Background(), skillStatePersistTimeout)
+	defer cancel()
+	if err := store.UpsertSkillState(persistCtx, in); err != nil {
 		return fmt.Errorf("persist skill state: %w", err)
 	}
 	return nil

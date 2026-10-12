@@ -1,3 +1,4 @@
+import { readAuthSession } from "~/utils/auth-session";
 import { useApiClient } from "../index";
 import type { ApiResponse } from "../types/types";
 
@@ -68,12 +69,12 @@ type UserMenusInflightEntry = {
 
 const normalizeTenantKey = () => {
   if (!process.client) return "server";
-  return String(localStorage.getItem("px_current_tenant_uuid") || "no-tenant");
+  return String(readAuthSession()?.tenantUuid || "no-tenant");
 };
 
 const normalizeTokenKey = () => {
   if (!process.client) return "server";
-  const token = String(localStorage.getItem("access_token") || "");
+  const token = String(readAuthSession()?.accessToken || "");
   if (!token) return "anonymous";
   return `${token.length}:${token.slice(0, 12)}:${token.slice(-8)}`;
 };
@@ -379,6 +380,8 @@ export const useMenuService = () => {
       const run = async () => {
         const res = await apiClient.get<ApiResponse<MenusResponse>>(baseUrl, {
           params: { locale: resolvedLocale },
+          // 菜单解析由入口按钮和侧栏管理等待状态，不遮盖整个页面。
+          useGlobalLoading: false,
         });
         const serverResp = (res?.data ?? res) as ApiResponse<MenusResponse>;
         const { flatMenus, categories, i18nPayloads } =

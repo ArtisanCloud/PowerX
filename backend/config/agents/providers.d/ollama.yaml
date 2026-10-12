@@ -85,12 +85,16 @@ modalities:
     note: "Ollama 支持多模态VLM的图像理解，不负责图像生成。"
     models:
       - id: llava
+        capabilities: [text_generation, image_understanding]
         label: "LLaVA 13B (VQA/描述/OCR)"
       - id: moondream
+        capabilities: [text_generation, image_understanding]
         label: "Moondream (轻量VLM)"
       - id: phi3:vision
+        capabilities: [text_generation, image_understanding]
         label: "Phi-3 Vision"
       - id: qwen2-vl
+        capabilities: [text_generation, image_understanding]
         label: "Qwen2-VL 7B"
       # - id: llama3.2-vision   # 如你的库里有，可解注释
       #   label: "Llama 3.x Vision"

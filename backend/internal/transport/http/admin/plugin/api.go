@@ -41,8 +41,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		grp.POST("/:id/enable", rootOnly, PluginEnableHandler(deps))   // POST /api/v1/admin/plugins/:id/enable
 		grp.POST("/:id/disable", rootOnly, PluginDisableHandler(deps)) // POST /api/v1/admin/plugins/:id/disable
 		grp.POST("/:id/restart", rootOnly, PluginRestartHandler)       // POST /api/v1/admin/plugins/:id/restart
-		grp.GET("/:id/status", tenantAdmin, PluginStatusHandler)       // GET /api/v1/admin/plugins/:id/status
-		grp.GET("/:id/logs", rootOnly, PluginLogsHandler)              // GET /api/v1/admin/plugins/:id/logs
+		grp.GET("/:id/runtime-identity", tenantAdmin, PluginRuntimeIdentityHandler)
+		grp.GET("/:id/status", tenantAdmin, PluginStatusHandler) // GET /api/v1/admin/plugins/:id/status
+		grp.GET("/:id/logs", rootOnly, PluginLogsHandler)        // GET /api/v1/admin/plugins/:id/logs
 		grp.POST("/:id/event_fabric/resync", rootOnly, PluginEventFabricResyncHandler(deps))
 		grp.POST("/:id/switch_version", rootOnly, PluginSwitchVersionHandler(deps)) // POST /api/v1/admin/plugins/:id/switch_version
 		grp.POST("/:id/uninstall", rootOnly, PluginUninstallHandler(deps))          // POST /api/v1/admin/plugins/:id/uninstall

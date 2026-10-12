@@ -28,6 +28,8 @@ dev-agent:
 # 启动演示服务器
 dev-demo:
 	@echo "🚀 启动演示开发服务器..."
+	@echo "启动开始时间: $$(date '+%Y-%m-%d %H:%M:%S %z')"
+	@echo "正在编译并初始化后台，完成后会显示就绪时间和初始化耗时。"
 	@echo "服务地址: http://$(DEV_HOST):$(DEV_PORT)"
 	@echo "API 文档: http://$(DEV_HOST):$(DEV_PORT)/api/v1/docs"
 	@echo "按 Ctrl+C 停止服务器"

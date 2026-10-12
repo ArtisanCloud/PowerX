@@ -44,14 +44,14 @@ type SignatureVerifier interface {
 	Verify(ctx context.Context, tenantUUID string, artifactURI string) error
 }
 
-// PermissionChecker validates tenant/developer combinations.
+// PermissionChecker validates the STS-derived service actor.
 type PermissionChecker interface {
-	EnsureDeveloperAllowed(ctx context.Context, tenantUUID, developerMemberUUID string) error
+	EnsureServiceActorAllowed(ctx context.Context, tenantUUID, pluginID, serviceActor string) error
 }
 
 // CacheController coordinates cache invalidation for hotload assets.
 type CacheController interface {
-	ResetDeveloperCache(ctx context.Context, tenantUUID, developerMemberUUID string) error
+	ResetPluginCache(ctx context.Context, tenantUUID, pluginID string) error
 	OnSessionStarted(ctx context.Context, session *models.LocalInstallSession) error
 	OnSessionStopped(ctx context.Context, sessionID uuid.UUID, status string) error
 }
@@ -103,12 +103,13 @@ type InstallService struct {
 
 // StartInput contains data necessary to start a local hotload session.
 type StartInput struct {
-	TenantUUID          string
-	DeveloperMemberUUID string
-	ArtifactURI         string
-	FeatureFlags        []string
-	ResetCache          bool
-	Actor               string
+	TenantUUID   string
+	PluginID     string
+	ServiceActor string
+	ArtifactURI  string
+	FeatureFlags []string
+	ResetCache   bool
+	Actor        string
 }
 
 // StopInput captures information for stopping a session.
@@ -165,7 +166,7 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	tenantUUID := strings.TrimSpace(input.TenantUUID)
 
 	if s.perm != nil {
-		if err := s.perm.EnsureDeveloperAllowed(ctx, tenantUUID, input.DeveloperMemberUUID); err != nil {
+		if err := s.perm.EnsureServiceActorAllowed(ctx, tenantUUID, input.PluginID, input.ServiceActor); err != nil {
 			if errors.Is(err, ErrPermissionDenied) {
 				return nil, ErrPermissionDenied
 			}
@@ -200,13 +201,13 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	}
 
 	if input.ResetCache && s.cache != nil {
-		if err := s.cache.ResetDeveloperCache(ctx, tenantUUID, input.DeveloperMemberUUID); err != nil {
+		if err := s.cache.ResetPluginCache(ctx, tenantUUID, input.PluginID); err != nil {
 			return nil, err
 		}
 	}
 
-	// prevent duplicate in-progress sessions for same developer within tenant
-	existing, err := s.repo.GetActiveSession(ctx, tenantUUID, input.DeveloperMemberUUID)
+	// One plugin has at most one active install session in a tenant.
+	existing, err := s.repo.GetActiveSession(ctx, tenantUUID, input.PluginID)
 	if err != nil {
 		return nil, err
 	}
@@ -226,13 +227,14 @@ func (s *InstallService) Start(ctx context.Context, input StartInput) (*models.L
 	}
 
 	session := &models.LocalInstallSession{
-		TenantUUID:          tenantUUID,
-		DeveloperMemberUUID: strings.TrimSpace(input.DeveloperMemberUUID),
-		ArtifactURI:         strings.TrimSpace(input.ArtifactURI),
-		Status:              models.LocalInstallStatusInProgress,
-		FeatureFlags:        featureFlags,
-		LogPointers:         logPointers,
-		ExpiredAt:           &expiredAt,
+		TenantUUID:   tenantUUID,
+		PluginID:     strings.TrimSpace(input.PluginID),
+		ServiceActor: strings.TrimSpace(input.ServiceActor),
+		ArtifactURI:  strings.TrimSpace(input.ArtifactURI),
+		Status:       models.LocalInstallStatusInProgress,
+		FeatureFlags: featureFlags,
+		LogPointers:  logPointers,
+		ExpiredAt:    &expiredAt,
 	}
 
 	created, err := s.repo.CreateSession(ctx, session)
@@ -313,8 +315,8 @@ func (s *InstallService) validateStartInput(input StartInput) error {
 	if strings.TrimSpace(input.TenantUUID) == "" {
 		return errors.New("tenant_uuid must be provided")
 	}
-	if _, err := uuid.Parse(strings.TrimSpace(input.DeveloperMemberUUID)); err != nil {
-		return errors.New("developer_member_uuid must be a UUID")
+	if strings.TrimSpace(input.PluginID) == "" || strings.TrimSpace(input.ServiceActor) == "" {
+		return errors.New("plugin_id and service_actor must be provided")
 	}
 	if strings.TrimSpace(input.ArtifactURI) == "" {
 		return errors.New("artifact_uri is required")

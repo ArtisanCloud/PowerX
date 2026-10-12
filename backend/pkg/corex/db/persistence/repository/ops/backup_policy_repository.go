@@ -51,7 +51,10 @@ func (r *BackupPolicyRepository) ListWithFilters(ctx context.Context, status, ke
 	}
 
 	var rows []modelops.BackupPolicy
-	if err := q.Order("is_current DESC, id DESC").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	if err := q.Order("is_current DESC, id DESC").Offset(offset).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
 	return rows, total, nil

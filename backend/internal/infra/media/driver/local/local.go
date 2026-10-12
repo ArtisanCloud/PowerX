@@ -237,6 +237,38 @@ func (d *Driver) Get(ctx context.Context, in driver.GetObjectInput) (*driver.Get
 	}, nil
 }
 
+// Stat 仅读取本地对象元数据，不打开内容流给调用方。
+func (d *Driver) Stat(ctx context.Context, in driver.StatObjectInput) (*driver.StatObjectResult, error) {
+	path, err := d.resolvePath(in.Bucket, in.ObjectKey)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, driver.ErrNotFound
+		}
+		return nil, driver.WrapError(d.name, "stat", err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, driver.WrapError(d.name, "stat", err)
+	}
+	var contentType string
+	header := make([]byte, 512)
+	if n, _ := file.Read(header); n > 0 {
+		contentType = http.DetectContentType(header[:n])
+	}
+	return &driver.StatObjectResult{
+		Bucket:       in.Bucket,
+		ObjectKey:    in.ObjectKey,
+		Size:         info.Size(),
+		ContentType:  contentType,
+		LastModified: info.ModTime().UTC(),
+	}, nil
+}
+
 // Delete 删除指定文件。
 func (d *Driver) Delete(ctx context.Context, in driver.DeleteObjectInput) error {
 	path, err := d.resolvePath(in.Bucket, in.ObjectKey)

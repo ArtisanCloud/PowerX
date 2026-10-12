@@ -11,7 +11,47 @@ PowerX 的「AI 设置」页面提供了统一的 Provider/模型管理；理解
 - AI 设置中的模型连接测试；
 - 系统 Setup 中的模型测试。
 
-Provider Driver 只负责协议转换，不得自行设置 30 秒、60 秒或其他超时。团队整轮运行的上限是另一层治理，不能替代单次 LLM 请求超时。
+Provider Driver 只负责协议转换，不得自行设置 30 秒、60 秒或其他超时。团队运行时不会再隐式施加整轮固定超时；多智能体任务由每一次 LLM/Skill 调用各自的明确超时约束。若未来需要团队级 SLA，必须作为团队声明中的显式策略配置，不能在 Runtime 写死。
+
+## Provider 超时的链路诊断与插件契约
+
+一次 LLM 调用存在两个不同的时间边界，不能混为一谈：
+
+| 边界 | 配置 | 责任 | 默认值 |
+| --- | --- | --- | --- |
+| Provider 请求 | `ai.defaults.llm.request_timeout` | PowerX 调用 Ollama/OpenAI 等 Provider | `5m` |
+| Capability HTTP 回传 | `capability_registry.ai_multimodal_http_timeout_seconds` | Core 将 Provider 的结构化结果回传给插件 | `310s` |
+
+第二项不是给模型更多推理时间。它必须比 Provider 请求多出明确的回传窗口（默认 10 秒），否则 Provider 在 5 分钟时刚返回超时，插件或 Core 的 HTTP Client 已同时取消请求，调用方只能看到模糊的 `context deadline exceeded`。
+
+插件调用 `/api/v1/tenant/invocations` 时，其自身 HTTP 超时也必须大于 `ai.defaults.llm.request_timeout`；建议至少采用相同的 `310s`。若配置为 `300s`，该配置不符合诊断契约，无法保证收到 Provider 的结构化失败结果。
+
+Provider 失败会保留在能力调用错误的 `details.provider_failure` 中。插件必须按机器字段处理，不能解析错误文本：
+
+```json
+{
+  "details": {
+    "trace_id": "...",
+    "provider_failure": {
+      "reason_code": "AI_PROVIDER_TIMEOUT",
+      "provider": "ollama",
+      "model": "qwen3:8b",
+      "phase": "response_headers",
+      "elapsed_ms": 300000,
+      "request_timeout_ms": 300000
+    }
+  }
+}
+```
+
+`phase` 的语义如下：
+
+- `response_headers`：Core 已向 Provider 发起请求，但在请求期限内没有收到 HTTP 响应头。它能定位到 Provider 调用阶段；是否是模型排队、模型加载、推理过慢或 Provider 卡死，仍需结合 Provider（例如 Ollama）自身日志判断。
+- `response_body`：已收到响应头，但响应体读取、解析或非成功响应失败。
+- `stream_body`：流式响应开始后，读取流内容失败。
+- `provider_response`：Provider 返回了协议内错误。
+
+Core 会记录同一字段的结构化日志：`[ai.llm.provider]`，包括 `provider`、`model`、`phase`、`elapsed_ms`、`request_timeout_ms` 和 `timeout`。运营人员应以调用的 `trace_id` 关联能力调用日志与 Provider 日志；日志不会记录 API Key 或 URL 查询参数。
 
 ## 默认配置
 

@@ -2,6 +2,7 @@ package plugin_release
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -18,6 +19,8 @@ type DistributionRepository struct {
 	listings *baseRepo.BaseRepository[models.MarketplaceListing]
 	db       *gorm.DB
 }
+
+func (r *DistributionRepository) DB() *gorm.DB { return r.db }
 
 // NewDistributionRepository returns a new repository instance.
 func NewDistributionRepository(db *gorm.DB) *DistributionRepository {
@@ -70,6 +73,20 @@ func (r *DistributionRepository) GetPackageByID(ctx context.Context, id uint64) 
 		Take(&pkg).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &pkg, nil
+}
+
+func (r *DistributionRepository) GetPackageByUUID(ctx context.Context, packageUUID uuid.UUID) (*models.OfflineDistributionPackage, error) {
+	if packageUUID == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var pkg models.OfflineDistributionPackage
+	if err := r.db.WithContext(ctx).Where("package_uuid = ?", packageUUID).Take(&pkg).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

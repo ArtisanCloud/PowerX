@@ -4,6 +4,7 @@ package iam
 import (
 	"context"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"strings"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -20,6 +21,14 @@ func NewAPIKeyProfileRepository(db *gorm.DB) *APIKeyProfileRepository {
 		BaseRepository: repository.NewBaseRepository[dbm.APIKeyProfile](db),
 		db:             db,
 	}
+}
+
+// LockTenantProfile serializes permission updates, owner changes and rotation.
+func (r *APIKeyProfileRepository) LockTenantProfile(ctx context.Context, tenantUUID string, profileID uint64) (*dbm.APIKeyProfile, error) {
+	var item dbm.APIKeyProfile
+	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, profileID).First(&item).Error
+	return &item, err
 }
 
 func (r *APIKeyProfileRepository) FindByKey(ctx context.Context, tenantUUID string, key string) (*dbm.APIKeyProfile, error) {

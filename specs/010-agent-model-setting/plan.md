@@ -19,6 +19,8 @@ Deliver a governed Agent Model Hub that standardizes provider onboarding, adapti
 **Constraints**: Dual-transport (HTTP+gRPC) delivery, zero plaintext secrets, tenant isolation, audit log availability <1 min, component memory <256 MB  
 **Scale/Scope**: Hundreds of tenants, dozens of providers/platforms, ≥10k routing decisions/min, FinOps coverage for all tenants
 
+**Agent 运行时容量边界**：Provider/Profile 路由与并发策略不表示物理模型实例容量；跨 Core 实例共享的 endpoint/model 资源池、容量排队与请求起始计时由 [`031` Agent Runtime 规格](../031-agent-runtime-durable-scheduling/spec.md) 负责，尚待实施。
+
 ## Constitution Check
 
 | Gate | Status | Notes |

@@ -142,6 +142,31 @@ func TestRunStateSinkFailsTaskWhenResultExplicitlyFailed(t *testing.T) {
 	}
 }
 
+func TestRunStateSinkMirrorsFinalWithoutReplacingVisibleFinal(t *testing.T) {
+	base := &captureSink{}
+	ctx := context.WithValue(context.Background(), "run_id", "run_1")
+	sink := NewRunStateSink(ctx, base)
+	payload := map[string]any{"data": map[string]any{"content": "final answer"}}
+
+	if err := sink.Emit(dto.EventFinal, payload); err != nil {
+		t.Fatalf("emit final: %v", err)
+	}
+	if len(base.events) != 2 {
+		t.Fatalf("events=%v", base.events)
+	}
+	if base.events[0] != dto.EventAgentRunFinal || base.events[1] != dto.EventFinal {
+		t.Fatalf("events=%v", base.events)
+	}
+	state, ok := base.data[0].(dto.AgentRunEvent)
+	if !ok || state.RunID != "run_1" || state.Payload == nil {
+		t.Fatalf("state=%#v", base.data[0])
+	}
+	visible, ok := base.data[1].(map[string]any)
+	if !ok || visible["data"] == nil {
+		t.Fatalf("visible=%#v", base.data[1])
+	}
+}
+
 func TestExtractAssistantTextFromAgentRunFinal(t *testing.T) {
 	payload := dto.AgentRunEvent{
 		Event: dto.EventFinal,
@@ -237,11 +262,27 @@ func TestEmitAgentRunFailureEmitsErrorAndEnd(t *testing.T) {
 	if errPayload["success"] != false || errPayload["code"] != "agent_run.failed" || errPayload["reason"] != "intent.detect_error" {
 		t.Fatalf("bad error payload: %#v", errPayload)
 	}
+	if errPayload["outcome"] != RuntimeOutcomeFailed || errPayload["reason_code"] != "intent.detect_error" {
+		t.Fatalf("missing stable outcome: %#v", errPayload)
+	}
+	if _, ok := errPayload["detail"]; ok {
+		t.Fatalf("raw detail must not be emitted: %#v", errPayload)
+	}
+	errMap, ok := errPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("error payload=%#v", errPayload["error"])
+	}
+	if _, ok := errMap["detail"]; ok {
+		t.Fatalf("raw nested detail must not be emitted: %#v", errMap)
+	}
 	endPayload, ok := sink.data[1].(map[string]any)
 	if !ok {
 		t.Fatalf("end payload type=%T", sink.data[1])
 	}
 	if endPayload["success"] != false || endPayload["code"] != "agent_run.failed" || endPayload["reason"] != "intent.detect_error" {
 		t.Fatalf("bad end payload: %#v", endPayload)
+	}
+	if endPayload["outcome"] != RuntimeOutcomeFailed || endPayload["reason_code"] != "intent.detect_error" {
+		t.Fatalf("missing terminal outcome: %#v", endPayload)
 	}
 }

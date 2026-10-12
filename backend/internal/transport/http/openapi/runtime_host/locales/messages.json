@@ -1,0 +1,4 @@
+{
+ "zh-CN":{"success":"操作成功","invalid_argument":"请求字段或参数无效","unauthorized":"需要有效的插件服务凭证","forbidden":"当前服务主体未获授权","not_found":"任务不存在或不可访问","conflict":"任务版本、幂等参数或状态发生冲突","upstream_dependency":"依赖服务不可用，请检查服务状态后重试"},
+ "en-US":{"success":"Operation completed","invalid_argument":"Invalid request fields or arguments","unauthorized":"Valid plugin service credentials are required","forbidden":"The service actor is not authorized","not_found":"Task not found or inaccessible","conflict":"Task revision, idempotency parameters or state conflict","upstream_dependency":"A dependency is unavailable; check service status before retrying"}
+}

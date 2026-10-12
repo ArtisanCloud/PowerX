@@ -451,6 +451,7 @@ const llm = reactive<
     maxTokens: number;
     topP: number;
     stream: boolean;
+    maxConcurrentRequests: number;
   }
 >({
   provider: null,
@@ -467,6 +468,7 @@ const llm = reactive<
   maxTokens: 4096,
   topP: 1,
   stream: true,
+  maxConcurrentRequests: 2,
 });
 
 const image = reactive<
@@ -788,7 +790,7 @@ function getDraftableFields(modalityVal?: string | null): string[] {
   ];
   switch (m) {
     case "llm":
-      return [...base, "temperature", "maxTokens", "topP", "stream"];
+      return [...base, "temperature", "maxTokens", "topP", "stream", "maxConcurrentRequests"];
     case "image":
       return [...base, "size", "quality", "format", "promptHint"];
     case "embedding":
@@ -817,6 +819,7 @@ function applyModalityDefaults(state: Record<string, any>, modalityVal?: string 
       state.maxTokens = 4096;
       state.topP = 1;
       state.stream = true;
+      state.maxConcurrentRequests = 2;
       if ("authMode" in state) state.authMode = "";
       break;
     case "image":
@@ -1096,6 +1099,7 @@ function buildPayloadForCurrentModality(promptOverride?: string) {
           currentState.value.stream !== undefined
             ? currentState.value.stream
             : true,
+        maxConcurrentRequests: currentState.value.maxConcurrentRequests,
       };
       break;
     case "image":
@@ -1613,6 +1617,7 @@ function loadExistingConfiguration() {
   currentState.value.temperature =
     d.temperature ?? currentState.value.temperature ?? 0.7;
   currentState.value.topP = d.topP ?? currentState.value.topP ?? 1;
+  currentState.value.maxConcurrentRequests = d.max_concurrent_requests ?? currentState.value.maxConcurrentRequests ?? 2;
 
   // credential.data 也兜底
   const cd = credential.data ?? {};
@@ -1654,6 +1659,7 @@ async function loadActiveConfiguration() {
         config.stream = profile.defaults.stream ?? config.stream;
         config.temperature = profile.defaults.temperature ?? config.temperature;
         config.topP = profile.defaults.topP ?? config.topP;
+        config.maxConcurrentRequests = profile.defaults.max_concurrent_requests ?? config.maxConcurrentRequests;
       }
 
       // console.info("激活配置加载成功", profile);

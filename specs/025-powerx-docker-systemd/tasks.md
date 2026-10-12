@@ -320,11 +320,47 @@
 
 ---
 
+## Phase 14: Installed Instance Incremental Upgrade (Priority: P1)
+
+**Goal**: 已安装旧实例保持配置、密钥、账号、数据、文件与插件，通过目标发布的增量迁移升级镜像；不重新 Setup。
+
+**Plan**: [系统升级计划](../../docs/plan/deploy/powerx-system-upgrade.md)。状态：待实施。命令和 JSON 草案需 Core/XDocker 确认后成为正式合同；本阶段不新增 Core 管理网页、不修改 XDocker、不操作当前服务器。
+
+**Independent Test**: 固定旧镜像完成 Setup 后升级成对目标 digest；旧账号登录、数据/文件/密钥/插件保留、新功能、第二次迁移、故障/中断及回滚都通过隔离 CI。
+
+- [x] T140 [US9] 核对完整旧基线 SHA `3d792fd7ea2426825970bceceb0d6e9db46211ef`、实际成对镜像 digest 与真实 schema/数据状态；整理既有迁移和数据阻塞清单
+- [ ] T141 [US9] 确认正式升级合同与 release metadata/CLI JSON Schema，固定来源范围、平台、配置输入、维护条件和回滚枚举；保存 Core/XDocker 对齐记录
+- [x] T142 [US9] 补配置升级失败/保留测试：installed、密码密钥、配置优先级、损坏/不可读配置、空目录和缺数据挂载
+- [x] T143 [US9] 复用 init/entrypoint/config loader，实施严格 upgrade 模式、兼容字段规则和配置原子写入/恢复；禁止生成新实例或轮换密钥
+- [x] T144 [US9] 补迁移 runner 测试：旧基线履历、校验和漂移、依赖、事务回滚、重复执行、并发、失败/终止及非事务恢复
+- [x] T145 [US9] 复用集中挂载和 database_migration_records，建立统一注册/履历、UUID 执行尝试、校验和和目标库/schema 执行锁
+- [x] T146 [US9] 扩展 database CLI：只读 status/plan、确定目标/计划的显式 apply、逐项 JSON、稳定退出码与日志脱敏
+- [x] T147 [US9] 为目标发布声明结构、数据回填与增量系统数据步骤；验证平台字段归属、保留用户修改/密码/grants/能力版本锁
+- [ ] T148 [US9] 处理旧数据与插件兼容阻塞：预检查、保留历史记录的转换/归档规则、明确人工动作及可安全重试/恢复方案
+- [ ] T149 [US9] 核对 backend/web-admin OCI revision 与成对 index/平台 digest；CI 生成机器元数据并校验支持来源及测试平台
+- [ ] T150 [US9] 旧镜像 CI fixture 完成 Setup，建立自定义管理员、业务数据、文件/对象存储和启用插件，保存脱敏校验信息
+- [ ] T151 [US9] 新镜像迁移并启动 CI：禁止调用 Setup 写入口，验证 installed、旧密码登录、密钥/配置/数据/文件/插件和新功能
+- [ ] T152 [US9] 增加二次迁移、并发锁、预览漂移和非事务 checkpoint 验收
+- [ ] T153 [US9] 注入迁移中途失败/进程终止，核对失败履历/JSON/退出码及恢复后的重试行为
+- [ ] T154 [US9] 按发布回滚声明真实测试旧镜像读写，或恢复匹配数据库/配置/文件后测试；记录数据窗口和恢复前提
+- [ ] T155 [US9] 发布门禁：未知来源、缺配置/数据、缺扩展、历史阻塞或未验收镜像对不得进入执行目录；保留空库安装 CI
+- [ ] T156 [US9] 交付正式合同、固定命令/参数/JSON、已验收镜像对、CI 证据与具体回滚说明，供 XDocker 适配
+- [ ] T157 [US9] 独立任务分支代码评审，保留已有工作区变更；核对最新提交与发布 digest，不直接推送共享 develop
+
+**实施进度（2026-10-11）**：T140、T142–T147 的 Core 实现及本地原生旧源码验证通过；当前无配置补丁，因此 T143 的交付是完整只读保留和失败阻断。正式合同/Schema 已固定，T141 的消费方确认待 XDocker 回执。T149–T155 已有 CI 脚本/发布门禁，真实镜像运行、制品与回滚证据仍未生成；对象存储、独立向量库和业务插件兼容验收不冒充已完成。T148 的自动归档转换未交付，只提供只读阻塞和保留历史的人工规则。T156、T157 等待发布验收和用户提交审阅，不直接推送 develop。
+
+实现入口与证据：[升级合同](../../docs/contracts/powerx-installed-upgrade.md)、[本地实施记录](../../docs/contracts/repairs/installed-upgrade-20261011.md)。
+
+**Checkpoint**: T140–T157 完成前，不宣称完整自动升级已交付。
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
 
 - Phase 1 -> Phase 2 -> Phase 3/4/5/6 -> Phase 7 -> Phase 8 -> Phase 9 -> Phase 10 -> Phase 11 -> Phase 12 -> Phase 13
+- Phase 14 在既有 installed 护栏和部署身份规则经核对后，按合同 → 配置 → 迁移 → 增量补齐 → 跨版本 CI → 发布交接推进。
 - User Stories 必须在 Phase 2 完成后开始
 - US1/US2/US3/US4/US5/US6 可并行推进（团队资源允许时）
 

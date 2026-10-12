@@ -289,6 +289,7 @@
 - **FR-048**: 插件/App 菜单权限必须从插件 manifest 的 `frontend.admin.menus` 自动同步生成，禁止管理员手工创建插件菜单资源。
 - **FR-049**: 插件/App 菜单权限必须统一使用 `module=menu, resource=<menu_path>, action=view`；插件菜单聚合返回的每个插件菜单项必须自动附加对应权限策略。
 - **FR-050**: 插件菜单权限只控制菜单可见性；插件能力/API、`/_p/<plugin>/admin` 和 `/_p/<plugin>/api` 仍必须按插件实例、页面和接口各自的授权规则独立校验。
+- **FR-051**: 同一租户中启用且未删除的 member 的规范化展示名（`lower(trim(display_name))`）必须唯一。创建、更新展示名或重新启用导致冲突时，系统必须拒绝操作并返回 HTTP 409、`IAM_MEMBER_DISPLAY_NAME_CONFLICT`；不得自动选取同名成员。
 
 ### Key Entities *(include if feature involves data)*
 

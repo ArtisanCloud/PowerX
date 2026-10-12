@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
+
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 )
@@ -44,6 +46,7 @@ func (s *DefinitionInvokeService) Execute(
 		return nil, errors.New("skill.definition_runtime_unavailable")
 	}
 	startAt := time.Now()
+	ctx = evidence.EnsureLedger(ctx)
 	req.TenantUUID = strings.TrimSpace(strings.ToLower(req.TenantUUID))
 	req.SkillID = strings.TrimSpace(strings.ToLower(req.SkillID))
 	req.Entrypoint = strings.TrimSpace(req.Entrypoint)
@@ -103,7 +106,14 @@ func (s *DefinitionInvokeService) Execute(
 	}
 	result, err := s.executor.Execute(ctx, in)
 	if err != nil {
-		s.record(ctx, startAt, req, in, nil, err)
+		var validation *EvidenceValidationError
+		if errors.As(err, &validation) {
+			result = map[string]any{"response_draft": validation.Draft, "failure_stage": "evidence_validation"}
+			if len(validation.Details) > 0 {
+				result["evidence_validation"] = validation.Details
+			}
+		}
+		s.record(ctx, startAt, req, in, result, err)
 		return nil, err
 	}
 	if result == nil {

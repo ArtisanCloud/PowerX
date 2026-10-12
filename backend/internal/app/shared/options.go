@@ -3,6 +3,8 @@ package shared
 // internal/app/shared/options.go
 
 import (
+	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
@@ -15,6 +17,9 @@ import (
 )
 
 type DepsOptions struct {
+	PreserveInstalledCatalog bool
+	RuntimeIdentity          runtimeidentity.CoreInfo
+	PluginRequestIdentity    requestidentity.Options
 	AuthUser                 auth.AuthOptions      // 给用户端的 Audience
 	AuthCustomer             auth.AuthOptions      // 给客户/插件端的 Audience
 	Audit                    auditsvc.AuditOptions // 批量大小、等待等
@@ -195,6 +200,7 @@ type AgentLifecycleNotificationOptions struct {
 
 // KnowledgeSpaceOptions 描述知识空间域依赖。
 type KnowledgeSpaceOptions struct {
+	ContentCursorSigningKey  []byte
 	RedisAddr                string
 	RedisPassword            string
 	RedisDB                  int

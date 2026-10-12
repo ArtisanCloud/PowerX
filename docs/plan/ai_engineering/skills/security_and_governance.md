@@ -53,3 +53,12 @@
 
 不同等级应匹配不同审批与授权要求。
 
+## 7. Agent Runtime 自主性边界
+
+完整目标机制见 [`agent_runtime_loop_design.md`](../agent/agent_runtime_loop_design.md)。Agent 可以在已授权资源与能力中自主观察、组合、验证和修订 Plan；不得将这种自主性解释为全系统裸访问权或自动发布权。
+
+1. Resource discovery、内容读取、Capability invocation 和高风险写操作必须分别授权，不能因可发现而隐式升级。
+2. 业务数据、文件和 Artifact 必须通过 tenant、对象 ACL、字段分级、脱敏和来源策略；禁止 Runtime 直读任意数据库表、插件私有 URL、密钥或跨租户资源。
+3. R1 只读可自动执行；R2 可逆低风险按策略执行；R3 有副作用需预览/策略确认；R4 发布、删除、付款、权限等必须人工审批并验证。
+4. 生产 Run 可修订 Plan 或生成 Skill 草稿，但不得自行修改/发布 Skill Revision、公式、权限、数据分级或 Workflow。
+5. 普通用户答复不得暴露 executor path、原始 error code、stack、prompt 或 Trace 原文；这些仅在授权诊断视图中可见。

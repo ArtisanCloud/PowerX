@@ -10,6 +10,7 @@
 - `skill_standard_definition.md`：Skill 标准定义、使用原理、外部出处
 - `standard_mapping.md`：`SKILL.md` 与 PowerX SkillManifest 映射
 - `runtime_architecture.md`：运行时架构与调用链
+- 面向业务资源观察、受限 ReAct Loop、失败恢复与能力演进的 Runtime 目标规范迁至 [`../agent/agent_runtime_loop_design.md`](../agent/agent_runtime_loop_design.md)
 - `api_contracts.md`：Admin/Tenant/Plugin 接口契约
 - `data_model_and_registry.md`：数据模型、状态机与注册治理
 - `security_and_governance.md`：安全与合规约束
@@ -23,16 +24,17 @@
 1. `skill_standard_definition.md`
 2. `standard_mapping.md`
 3. `runtime_architecture.md`
-4. `api_contracts.md`
-5. `security_and_governance.md`
-6. `testing_and_rollout.md`
+4. [`../agent/agent_runtime_loop_design.md`](../agent/agent_runtime_loop_design.md)
+5. `api_contracts.md`
+6. `security_and_governance.md`
+7. `testing_and_rollout.md`
 
 ## 2. 目标与边界
 
 ### 2.1 目标
 
 1. 让 Skill 成为 Agent 一等能力（与 tool calling / MCP 并列）。
-2. 采用 Agent 主入口的统一编排策略：由 LLM 统一做意图识别并在 `workflow|skill|tooling|llm` 候选中规划执行。
+2. 采用 Agent 主入口的统一编排策略：优先复用当前 Agent 已授权的 `workflow|skill|tooling|capability`，并在受限资源观察与验证 Loop 内修订计划；已发布 Workflow 是成熟剧本，不是唯一执行方式。
 3. 统一 tenant 执行入口为 `/tenant/invocations` / Capability Invocation，语义与 Agent 主入口对齐。
 4. 对插件与第三方开放 Skill 注册、发布、调用与治理能力。
 
@@ -65,6 +67,7 @@
 3. 安全默认收敛：默认最小权限，显式授权放开。
 4. 可观测先行：每次 Skill 调用必须带 trace 与审计字段。
 5. 候选分层清晰：能力清单必须按 `workflow|skill|tooling` 分区，并区分 `system builtin` 与 `agent custom` 两层来源后再进入 LLM 决策。
+6. 失败不等于最终答复：内部校验、依赖和契约错误必须先进入恢复/替代/澄清决策，普通用户只能看到业务化的完成、部分完成、待补充或阻塞说明。
 
 ## 6. 分阶段落地
 

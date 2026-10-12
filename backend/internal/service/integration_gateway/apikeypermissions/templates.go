@@ -8,9 +8,7 @@ import (
 	"strings"
 
 	modelsiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
-	modeligw "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
-	igwrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"gorm.io/gorm"
 )
 
@@ -19,10 +17,29 @@ func EnsureTemplatePermissions(ctx context.Context, repo *iamrepo.PermissionRepo
 		return nil
 	}
 	rows := BuildTemplatePermissions()
-	if platformRows, err := BuildPlatformCapabilityPermissions(); err == nil {
-		rows = append(rows, platformRows...)
+	platformRows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		return fmt.Errorf("platform permission catalog: %w", err)
 	}
+	rows = append(rows, platformRows...)
 	return repo.UpsertBatch(ctx, mergePermissionTriples(rows))
+}
+
+// EnsureUpgradePermissions 不改变任何角色、Profile、Key grants 或 owner。
+func EnsureUpgradePermissions(ctx context.Context, db *gorm.DB) error {
+	rows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		return err
+	}
+	formal := make([]modelsiam.Permission, 0, len(rows))
+	for _, row := range rows {
+		if row.Source == platformPermissionSource {
+			formal = append(formal, row)
+		}
+	}
+	// generated REST 候选不是正式升级系统数据，不复活已删除候选或覆盖
+	// 首次安装时由 Core 模块明确管理的权限。
+	return iamrepo.NewPermissionRepository(db).UpsertUpgradeCatalog(ctx, mergePermissionTriples(formal))
 }
 
 // mergePermissionTriples establishes one authoritative row for the unique
@@ -162,49 +179,14 @@ func EnsureTenantDefaultProfile(ctx context.Context, db *gorm.DB, tenantUUID str
 	return profile, currentIDs, nil
 }
 
-func syncActiveAPIKeyPermissions(ctx context.Context, db *gorm.DB, tenantUUID string, profileID uint64, permissionIDs []uint64) error {
-	if db == nil || profileID == 0 || len(permissionIDs) == 0 {
+func syncActiveAPIKeyPermissions(ctx context.Context, db *gorm.DB, tenantUUID string, profileID uint64, _ []uint64) error {
+	if db == nil || profileID == 0 {
 		return nil
 	}
-	permissionRows, err := iamrepo.NewPermissionRepository(db).FindByIDs(ctx, permissionIDs)
-	if err != nil {
-		return fmt.Errorf("load api key permissions failed: %w", err)
-	}
-	permissionRequests := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(permissionRows))
-	for _, permission := range permissionRows {
-		if permission == nil || permission.Status != modelsiam.PermissionStatusActive || !permission.AllowAPIKey {
-			continue
-		}
-		resolved, ok := ResolvePermission(*permission)
-		if !ok {
-			continue
-		}
-		permissionRequests = append(permissionRequests, modeligw.IntegrationGatewayAPIKeyPermission{
-			Scope:           resolved.Scope,
-			Action:          resolved.Action,
-			ResourceType:    resolved.ResourceType,
-			ResourcePattern: resolved.ResourcePattern,
-			PluginID:        resolved.PluginID,
-			Effect:          resolved.Effect,
-		})
-	}
-	keys, err := igwrepo.NewIntegrationGatewayAPIKeyRepository(db).ListActiveByProfile(ctx, tenantUUID, profileID)
-	if err != nil {
-		return fmt.Errorf("list active api keys failed: %w", err)
-	}
-	keyPermRepo := igwrepo.NewIntegrationGatewayAPIKeyPermissionRepository(db)
-	for i := range keys {
-		items := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(permissionRequests))
-		for j := range permissionRequests {
-			item := permissionRequests[j]
-			item.APIKeyUUID = keys[i].UUID
-			items = append(items, item)
-		}
-		if err := keyPermRepo.ReplaceAll(ctx, keys[i].UUID, items); err != nil {
-			return fmt.Errorf("sync api key permissions failed: %w", err)
-		}
-	}
-	return nil
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		_, _, err := NewAPIKeyOwnerService(tx).SyncProfileTx(ctx, tx, tenantUUID, profileID)
+		return err
+	})
 }
 
 func BuildTemplatePermissions() []modelsiam.Permission {

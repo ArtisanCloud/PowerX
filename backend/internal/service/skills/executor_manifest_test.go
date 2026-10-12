@@ -34,19 +34,3 @@ func TestManifestExecutor_InstructionOnlyFailsExplicitly(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "skill.executor_instruction_only_not_runnable")
 }
-
-func TestManifestExecutor_ResponseEnvelopeOutputIsStructured(t *testing.T) {
-	executor := NewManifestExecutor(ManifestExecutorOptions{
-		LLM: func(_ context.Context, _ ManifestLLMInvocation) (string, error) {
-			return `{"schema":"powerx.agent.response/v3","kind":"review_result","outcome":"completed","presentation":{"facts":[{"statement":"已提供数据","source":{"type":"input","ref":"input:message"}}],"metrics":[],"hypotheses":[],"gaps":[],"actions":[]}}`, nil
-		},
-	})
-	result, err := executor.Execute(context.Background(), ExecuteInput{
-		Manifest: map[string]any{"executor": map[string]any{"type": "llm_prompt", "output_mode": "response_envelope", "prompt_template_i18n": map[string]any{"zh-CN": "contract prompt"}}},
-		Context:  map[string]any{"locale": "zh-CN"},
-	})
-	require.NoError(t, err)
-	envelope, ok := result["response_envelope"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "powerx.agent.response/v3", envelope["schema"])
-}

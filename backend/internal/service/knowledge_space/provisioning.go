@@ -13,6 +13,7 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	iammodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 )
 
@@ -36,6 +37,36 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 	var created *models.KnowledgeSpace
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		spaces, policies, iamRepo, _ := s.repositories(tx)
+		if in.DepartmentUUID != nil {
+			var department iammodels.Department
+			if err := tx.Where("tenant_uuid = ? AND department_uuid = ? AND status = ?", tenantUUID, *in.DepartmentUUID, 1).First(&department).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return KnowledgeForbiddenError(errors.New("department is not available in the authenticated tenant"))
+				}
+				return err
+			}
+			in.DepartmentCode = department.Key
+		}
+		for _, profile := range []struct {
+			model any
+			id    *uuid.UUID
+			key   string
+		}{
+			{&models.IngestionProfileVersion{}, in.IngestionProfileUUID, in.IngestionProfileKey},
+			{&models.IndexProfileVersion{}, in.IndexProfileUUID, in.IndexProfileKey},
+			{&models.RAGProfileVersion{}, in.RAGProfileUUID, in.RAGProfileKey},
+		} {
+			if profile.id == nil {
+				continue
+			}
+			var count int64
+			if err := tx.Model(profile.model).Where("uuid = ? AND tenant_uuid = ? AND profile_key = ? AND status = ?", *profile.id, tenantUUID, profile.key, models.ProfileStatusPublished).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 1 {
+				return KnowledgeInvalidArgumentError(errors.New("profile is no longer published in current tenant"))
+			}
+		}
 
 		existing, err := spaces.FindByTenantAndName(ctx, tenantUUID, strings.TrimSpace(in.SpaceName))
 		if err != nil {
@@ -66,6 +97,10 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 			TenantUUID:              tenantUUID,
 			SpaceName:               strings.TrimSpace(in.SpaceName),
 			DepartmentCode:          strings.ToUpper(strings.TrimSpace(in.DepartmentCode)),
+			DepartmentUUID:          in.DepartmentUUID,
+			IngestionProfileUUID:    in.IngestionProfileUUID,
+			IndexProfileUUID:        in.IndexProfileUUID,
+			RAGProfileUUID:          in.RAGProfileUUID,
 			Status:                  models.KnowledgeSpaceStatusPending,
 			QuotaCPU:                in.QuotaCPU,
 			QuotaStorageGB:          in.QuotaStorageGB,

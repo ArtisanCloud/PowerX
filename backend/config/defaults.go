@@ -94,7 +94,8 @@ func GetDefaults() *Config {
 			},
 		},
 		Auth: AuthConfig{
-			JWTSecret:        "K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0",
+			// Setup provisions a unique persistent signing secret per deployment.
+			JWTSecret:        "",
 			Issuer:           "powerx-auth",
 			AudienceUser:     "user",
 			AudienceCustomer: "customer",
@@ -221,8 +222,12 @@ func GetDefaults() *Config {
 				Burst:         120,
 				WindowSeconds: 60,
 			},
-			DefaultHTTPTimeoutSeconds:      20,
-			AIMultimodalHTTPTimeoutSeconds: 300,
+			DefaultHTTPTimeoutSeconds: 20,
+			// This is the Core capability-proxy response deadline, not the LLM
+			// provider deadline. Keep a small explicit response window beyond the
+			// configured provider request timeout so structured provider failures
+			// can be returned to the caller.
+			AIMultimodalHTTPTimeoutSeconds: 310,
 			Notifications: CapabilityRegistryNotificationConfig{
 				IMWebhook:        "",
 				RetryIntervalSec: 30,

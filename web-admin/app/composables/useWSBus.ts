@@ -1,6 +1,7 @@
 import { computed, ref, watch } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import { useUserStore } from "~/stores/user";
+import { captureAuthSession, readAuthSession, AuthSessionChangedError } from "~/utils/auth-session";
 import { WS_BUS_CMD, WS_BUS_TYPE, type WSBusCommand, type WSBusEnvelope } from "~/composables/wsBus";
 
 type TopicHandler = (payload: any, envelope: WSBusEnvelope) => void;
@@ -28,6 +29,12 @@ const hasActiveSubscriptions = () => subscriptions.size > 0;
 const isValidTenantUUID = (tenantUUID?: string | null) =>
   UUID_RE.test(String(tenantUUID || "").trim());
 const shouldBlockReconnectForCloseCode = (code: number) => code === 1008 || code === 1003;
+
+const refreshConnectionToken = async (auth: ReturnType<typeof useAuth>): Promise<string | null> => {
+  if (!process.client) return null;
+  try { return await auth.refreshAuth(); }
+  catch (error) { if (error instanceof AuthSessionChangedError) throw error; return null; }
+};
 
 const isLoopbackHost = (host?: string | null) => {
   const h = String(host || "").trim().toLowerCase();
@@ -152,7 +159,11 @@ const scheduleReconnect = (token: string | null) => {
   }, delay);
 };
 
-const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
+const ensureConnection = (
+  token: string | null,
+  tenantUUID?: string | null,
+  refreshTokenOnHandshakeFailure?: () => Promise<string | null>
+) => {
   if (!process.client) return;
   if (!token) {
     wsConnecting.value = false;
@@ -176,8 +187,10 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
   const url = buildWSUrl(token, normalizedTenant);
   const ws = new WebSocket(url);
   wsInstance = ws;
+  let opened = false;
 
   ws.onopen = () => {
+    opened = true;
     wsConnected.value = true;
     wsConnecting.value = false;
     wsError.value = null;
@@ -196,6 +209,19 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
       wsError.value = "tenant_invalid";
       return;
     }
+
+    if (!opened && refreshTokenOnHandshakeFailure) {
+      void refreshTokenOnHandshakeFailure().then((refreshedToken) => {
+        if (refreshedToken) {
+          ensureConnection(refreshedToken, readAuthSession()?.tenantUuid || null, refreshTokenOnHandshakeFailure);
+          return;
+        }
+        wsError.value = "authentication_refresh_failed";
+        scheduleReconnect(token);
+      }).catch(error => { if (!(error instanceof AuthSessionChangedError)) wsError.value = "authentication_refresh_failed"; });
+      return;
+    }
+
     wsError.value = "connection_closed";
     scheduleReconnect(token);
   };
@@ -204,8 +230,6 @@ const ensureConnection = (token: string | null, tenantUUID?: string | null) => {
     wsConnected.value = false;
     wsConnecting.value = false;
     wsError.value = "connection_failed";
-    wsInstance = null;
-    scheduleReconnect(token);
   };
   ws.onmessage = (evt) => {
     try {
@@ -237,22 +261,13 @@ export const useWSBus = () => {
   const { t } = useI18n();
   const auth = useAuth();
   const userStore = useUserStore();
-  const accessTokenCookie = useCookie<string | null>("access_token", {
-    sameSite: "lax",
-    path: "/",
-  });
   const token = computed(() => {
-    const fresh = auth.getToken();
-    const cookieToken = String(accessTokenCookie.value || "").trim();
-    if (fresh && fresh !== auth.token.value) {
-      auth.token.value = fresh;
-    }
-    if (!fresh && cookieToken && cookieToken !== auth.token.value) {
-      auth.token.value = cookieToken;
-    }
-    return fresh || auth.token.value || cookieToken || null;
+    // auth.token is the reactive invalidation signal; the snapshot is authoritative.
+    void auth.token.value;
+    return auth.getToken();
   });
-  const getTenantForConnection = () => userStore.currentTenantUuid;
+  const getTenantForConnection = () => { void auth.token.value; return readAuthSession()?.tenantUuid || null; };
+  const reconnectWithFreshToken = () => refreshConnectionToken(auth);
 
   if (process.client && !watchersInitialized) {
     watchersInitialized = true;
@@ -268,11 +283,11 @@ export const useWSBus = () => {
         if (prevTenant && nextTenant !== prevTenant) {
           activeTenant = nextTenant;
           resetConnection("tenant_changed");
-          ensureConnection(token.value || null, nextTenant);
+          ensureConnection(token.value || null, nextTenant, reconnectWithFreshToken);
         } else {
           activeTenant = nextTenant;
           if (!prevTenant && hasActiveSubscriptions()) {
-            ensureConnection(token.value || null, nextTenant);
+            ensureConnection(token.value || null, nextTenant, reconnectWithFreshToken);
           }
         }
       },
@@ -288,14 +303,14 @@ export const useWSBus = () => {
         }
         allowReconnect = true;
         resetConnection("token_changed");
-        ensureConnection(nextToken, activeTenant);
+        ensureConnection(nextToken, activeTenant, reconnectWithFreshToken);
       }
     );
     if (process.client && !networkListenersBound) {
       networkListenersBound = true;
       window.addEventListener("online", () => {
         allowReconnect = true;
-        ensureConnection(token.value || null, getTenantForConnection());
+        ensureConnection(token.value || null, getTenantForConnection(), reconnectWithFreshToken);
       });
       window.addEventListener("offline", () => {
         wsError.value = "network_offline";
@@ -309,7 +324,21 @@ export const useWSBus = () => {
     allowReconnect = true;
     const tenantNow = String(tenantOverride || "").trim() || getTenantForConnection();
     activeTenant = tenantNow || null;
-    ensureConnection(token.value || null, tenantNow);
+    const persistedRefreshToken = readAuthSession()?.refreshToken || "";
+    const connectionSession = captureAuthSession();
+    const currentToken = token.value || null;
+    if (!currentToken && persistedRefreshToken) {
+      void refreshConnectionToken(auth).then((refreshedToken) => {
+        if (captureAuthSession()?.sessionId !== connectionSession?.sessionId) return;
+        if (!refreshedToken) {
+          wsError.value = "authentication_refresh_failed";
+          return;
+        }
+        ensureConnection(refreshedToken, tenantNow, reconnectWithFreshToken);
+      }).catch(error => { if (!(error instanceof AuthSessionChangedError)) wsError.value = "authentication_refresh_failed"; });
+      return;
+    }
+    ensureConnection(currentToken, tenantNow, reconnectWithFreshToken);
   };
 
   if (!notifyReconnectFailed) {

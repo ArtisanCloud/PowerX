@@ -76,14 +76,146 @@ func SeedDefaultDevAPIKeys(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
+	knowledgeHostPermissions, err := resolveKnowledgeHostDevPermissions(ctx, db)
+	if err != nil {
+		return err
+	}
+	schedulerCleanupPermissions, err := resolveSchedulerCleanupDevPermissions(ctx, db)
+	if err != nil {
+		return err
+	}
+	metadataHostPermissions, err := resolveMetadataHostDevPermissions(ctx, db)
+	if err != nil {
+		return err
+	}
 
 	for _, item := range defaultDevAPIKeys {
-		if err := upsertDevAPIKey(ctx, db, tenantUUID, profile.ID, item, permissions); err != nil {
+		keyPermissions := permissions
+		if item.EnvName == "POWERX_PLUGIN_API_KEY" {
+			keyPermissions = appendUniqueAPIKeyPermissions(permissions, knowledgeHostPermissions)
+			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, metadataHostPermissions)
+			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, schedulerCleanupPermissions)
+			customerHostPermissions, customerErr := resolveCustomerHostDevPermissions(ctx, db)
+			if customerErr != nil {
+				return customerErr
+			}
+			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, customerHostPermissions)
+			identityPermissions, identityErr := resolveRequestIdentityDevPermissions(ctx, db)
+			if identityErr != nil {
+				return identityErr
+			}
+			keyPermissions = appendUniqueAPIKeyPermissions(keyPermissions, identityPermissions)
+		}
+		if err := upsertDevAPIKey(ctx, db, tenantUUID, profile.ID, item, keyPermissions); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// The development Host simulation selects only the AI Craft identity contract.
+// Production keys and additional plugin owners require explicit grants.
+func resolveRequestIdentityDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	var rows []modeliam.Permission
+	if err := db.WithContext(ctx).Where("module=? AND allow_api_key=? AND status=?", "iam", true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := []modeligw.IntegrationGatewayAPIKeyPermission{}
+	for _, row := range rows {
+		resolved, ok := apikeypermissions.ResolvePermission(row)
+		if !ok || resolved.Scope != "_scope.iam.identity_context.service_read" {
+			continue
+		}
+		out = appendUniqueAPIKeyPermissions(out, []modeligw.IntegrationGatewayAPIKeyPermission{{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: "com.powerx.plugins.ai-craft", Effect: resolved.Effect}})
+	}
+	return out, nil
+}
+
+// resolveCustomerHostDevPermissions grants only the typed Customer/Contact
+// Host contracts to the local plugin key. Production API keys remain explicit.
+func resolveCustomerHostDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	wanted := map[string]struct{}{
+		"_scope.customer.accounts.service_read":   {},
+		"_scope.customer.accounts.service_manage": {},
+		"_scope.customer.contacts.service_read":   {},
+		"_scope.customer.contacts.service_manage": {},
+	}
+	var rows []modeliam.Permission
+	if err := db.WithContext(ctx).Where("module = ? AND allow_api_key = ? AND status = ?", "customer", true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load customer host api key permissions: %w", err)
+	}
+	out := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(wanted))
+	for _, row := range rows {
+		resolved, ok := apikeypermissions.ResolvePermission(row)
+		if !ok {
+			continue
+		}
+		if _, ok := wanted[resolved.Scope]; !ok {
+			continue
+		}
+		out = append(out, modeligw.IntegrationGatewayAPIKeyPermission{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: resolved.PluginID, Effect: resolved.Effect})
+	}
+	return out, nil
+}
+
+func resolveMetadataHostDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	_ = ctx
+	_ = db
+	resources := []string{"dictionary", "taxonomy", "tag", "resource_type"}
+	out := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(resources)*2)
+	for _, resource := range resources {
+		for _, action := range []string{"read", "manage"} {
+			out = append(out, modeligw.IntegrationGatewayAPIKeyPermission{Scope: "_scope.metadata." + resource + "." + action, Action: action, ResourceType: "api", ResourcePattern: resource, Effect: "allow"})
+		}
+	}
+	return out, nil
+}
+
+// resolveKnowledgeHostDevPermissions resolves the explicit Knowledge Host
+// scopes for the dedicated PowerX plugin development key. Production keys
+// remain profile-driven and must be explicitly granted by an administrator.
+func resolveKnowledgeHostDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	const module = "knowledge_space"
+	wantedScopes := map[string]struct{}{
+		"_scope.knowledge.content_overview.service_read": {},
+		"_scope.knowledge.directory.read":                {},
+		"_scope.knowledge.catalog.read":                  {},
+		"_scope.knowledge.space.create":                  {},
+		"_scope.knowledge.search.read":                   {},
+		"_scope.knowledge.retrieval.read":                {},
+		"_scope.knowledge.document.manage":               {},
+	}
+	var rows []modeliam.Permission
+	if err := db.WithContext(ctx).Where("module = ? AND allow_api_key = ? AND status = ?", module, true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load knowledge host api key permissions: %w", err)
+	}
+	out := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(rows))
+	for _, row := range rows {
+		resolved, ok := apikeypermissions.ResolvePermission(row)
+		if !ok {
+			continue
+		}
+		if _, ok := wantedScopes[resolved.Scope]; !ok {
+			continue
+		}
+		out = append(out, modeligw.IntegrationGatewayAPIKeyPermission{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: resolved.PluginID, Effect: resolved.Effect})
+	}
+	return out, nil
+}
+
+func appendUniqueAPIKeyPermissions(base, additions []modeligw.IntegrationGatewayAPIKeyPermission) []modeligw.IntegrationGatewayAPIKeyPermission {
+	seen := make(map[string]struct{}, len(base)+len(additions))
+	out := make([]modeligw.IntegrationGatewayAPIKeyPermission, 0, len(base)+len(additions))
+	for _, item := range append(base, additions...) {
+		key := strings.Join([]string{item.Scope, item.Action, item.ResourceType, item.ResourcePattern, item.PluginID, item.Effect}, "\x00")
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func resolveProfilePermissions(ctx context.Context, db *gorm.DB, permissionIDs []uint64) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
@@ -244,4 +376,21 @@ func keyPrefix(raw string) string {
 		return value[:12]
 	}
 	return value
+}
+
+// 默认 SCRM Host 示例仅绑定 SCRM namespace；CRM 等其他 Key 的 owner 由管理员明确配置。
+func resolveSchedulerCleanupDevPermissions(ctx context.Context, db *gorm.DB) ([]modeligw.IntegrationGatewayAPIKeyPermission, error) {
+	var rows []modeliam.Permission
+	if err := db.WithContext(ctx).Where("module = ? AND allow_api_key = ? AND status = ?", "scheduler", true, modeliam.PermissionStatusActive).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := []modeligw.IntegrationGatewayAPIKeyPermission{}
+	for _, row := range rows {
+		resolved, ok := apikeypermissions.ResolvePermission(row)
+		if !ok || (resolved.Scope != "_scope.scheduler.jobs.service_read" && resolved.Scope != "_scope.scheduler.jobs.service_delete") {
+			continue
+		}
+		out = append(out, modeligw.IntegrationGatewayAPIKeyPermission{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: "com.powerx.plugins.scrm", Effect: resolved.Effect})
+	}
+	return out, nil
 }

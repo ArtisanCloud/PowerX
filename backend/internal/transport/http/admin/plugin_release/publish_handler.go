@@ -74,9 +74,9 @@ type releaseListItemResponse struct {
 }
 
 type artifactUploadResponse struct {
-	OfflinePackageID uint64 `json:"offlinePackageId"`
-	PackageURI       string `json:"packageUri"`
-	Status           string `json:"status"`
+	PackageUUID string `json:"package_uuid"`
+	PackageURI  string `json:"package_uri"`
+	Status      string `json:"status"`
 }
 
 func (h *publishHandler) createRelease(c *gin.Context) {
@@ -291,6 +291,7 @@ func (h *publishHandler) uploadArtifact(c *gin.Context) {
 	packageURI := c.PostForm("packageUri")
 	checksum := c.PostForm("checksum")
 	signature := c.PostForm("signature")
+	signingKeyID := c.PostForm("signing_key_id")
 	dependencies, err := parseStringSliceJSON(c.PostForm("dependencies"))
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid dependencies", err)
@@ -311,6 +312,7 @@ func (h *publishHandler) uploadArtifact(c *gin.Context) {
 		Content:              artifactContent,
 		Checksum:             checksum,
 		SignatureFingerprint: signature,
+		SigningKeyID:         signingKeyID,
 		Dependencies:         dependencies,
 		LicenseReport:        licenseReport,
 		Actor:                h.actor(c),
@@ -320,9 +322,9 @@ func (h *publishHandler) uploadArtifact(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccessWithStatus(c, http.StatusCreated, artifactUploadResponse{
-		OfflinePackageID: pkg.ID,
-		PackageURI:       pkg.PackageURI,
-		Status:           pkg.Status,
+		PackageUUID: pkg.PackageUUID.String(),
+		PackageURI:  pkg.PackageURI,
+		Status:      pkg.Status,
 	})
 }
 

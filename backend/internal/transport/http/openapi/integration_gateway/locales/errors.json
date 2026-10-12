@@ -1,0 +1,20 @@
+{
+  "zh-CN": {
+    "400": "请求参数无效，不能覆盖凭证所属租户。",
+    "401": "服务凭证无效或已过期。",
+    "403": "当前服务未获授权调用此能力。",
+    "404": "路由不存在或不可访问。",
+    "429": "请求过于频繁，请稍后重试。",
+    "502": "上游服务调用失败。",
+    "503": "服务依赖暂时不可用。"
+  },
+  "en-US": {
+    "400": "Invalid request parameters; the credential tenant cannot be overridden.",
+    "401": "The service credential is invalid or expired.",
+    "403": "The service is not authorized to invoke this capability.",
+    "404": "The route does not exist or is inaccessible.",
+    "429": "Too many requests. Please try again later.",
+    "502": "The upstream invocation failed.",
+    "503": "A service dependency is unavailable."
+  }
+}

@@ -4,7 +4,6 @@ import {
   getHeader,
   getRequestURL,
   proxyRequest,
-  setCookie,
   setResponseHeader,
   setResponseStatus,
 } from "h3";
@@ -114,61 +113,10 @@ export default defineEventHandler(async (event) => {
     };
   }
 
-  const targetAuthLogin = /^\/api\/v1\/admin\/user\/auth\/(login|refresh)$/.test(targetPath);
-  const targetAuthLogout = /^\/api\/v1\/admin\/user\/auth\/logout$/.test(targetPath);
-  if (targetAuthLogin || targetAuthLogout) {
-    const reqHeaders = buildProxyHeaders(event.node.req.headers as Record<string, unknown>);
-    const target = `${upstream}${targetPath}${qs}`;
-    const resp = await fetch(target, {
-      method: String(event.method || "GET").toUpperCase(),
-      headers: reqHeaders,
-      body: ["GET", "HEAD"].includes(String(event.method || "").toUpperCase())
-        ? undefined
-        : (event.node.req as any),
-      duplex: "half" as any,
-      redirect: "manual",
-    });
-
-    setResponseStatus(event, resp.status);
-    resp.headers.forEach((value, key) => {
-      const lower = key.toLowerCase();
-      if (lower === "content-length" || lower === "content-encoding" || lower === "transfer-encoding") return;
-      setResponseHeader(event, key, value);
-    });
-    setResponseHeader(event, "x-px-proxy-target", target);
-    setResponseHeader(event, "x-nitro-no-render", "1");
-
-    let payload: any = null;
-    try {
-      payload = await resp.json();
-    } catch {
-      payload = null;
-    }
-
-    const authData = payload?.data || payload;
-    const accessToken = String(authData?.access_token || authData?.accessToken || "").trim();
-    const refreshToken = String(authData?.refresh_token || authData?.refreshToken || "").trim();
-
-    if (targetAuthLogin && accessToken) {
-      setCookie(event, "access_token", accessToken, { path: "/", sameSite: "lax", httpOnly: false });
-      if (refreshToken) {
-        setCookie(event, "refresh_token", refreshToken, { path: "/", sameSite: "lax", httpOnly: false });
-      }
-      setResponseHeader(event, "x-px-auth-cookie-sync", "1");
-    }
-    if (targetAuthLogout) {
-      setCookie(event, "access_token", "", { path: "/", sameSite: "lax", maxAge: 0, httpOnly: false });
-      setCookie(event, "refresh_token", "", { path: "/", sameSite: "lax", maxAge: 0, httpOnly: false });
-      setResponseHeader(event, "x-px-auth-cookie-sync", "0");
-    }
-
-    if (payload && typeof payload === "object" && !("success" in payload)) {
-      const code = Number((payload as any).code || 0);
-      const status = Number((payload as any).status || 0);
-      (payload as any).success = code === 200 || status === 200;
-    }
-    if (payload !== null) return payload;
-    return await resp.text();
+  // Embedded clients consume the host session; they cannot rotate or clear it independently.
+  if (/^\/api\/v1\/admin\/user\/auth\/(login|refresh|logout)$/.test(targetPath)) {
+    setResponseStatus(event, 409);
+    return { code: 409, error_code: 'AUTH_SESSION_HOST_MANAGED', message: 'AUTH_SESSION_HOST_MANAGED' };
   }
 
   const target = `${upstream}${targetPath}${qs}`;
@@ -205,7 +153,7 @@ export default defineEventHandler(async (event) => {
     let html = await resp.text();
     if (!html.includes("/powerx-bridge-client.js")) {
       const marker = "</head>";
-      const script = '<script src="/powerx-bridge-client.js"></script>';
+      const script = '<script src="/powerx-bridge-client.js?v=2"></script>';
       if (html.includes(marker)) {
         html = html.replace(marker, `${script}${marker}`);
       } else {

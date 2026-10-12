@@ -2,6 +2,8 @@ package agent_authz
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,6 +140,7 @@ func TestEffectivePermissionsCacheInvalidatesByAgentVersion(t *testing.T) {
 		Items: []EffectivePermissionItem{{
 			CapabilityID:     "capability.one",
 			PermissionCode:   "corex.agent:read",
+			Policy:           datatypes.JSON(`{"runtime_contract":{"verification_required":true,"side_effect_evidence_schema":"agent.invocation/v1"}}`),
 			EffectiveAllowed: true,
 		}},
 	}
@@ -147,9 +150,50 @@ func TestEffectivePermissionsCacheInvalidatesByAgentVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, result.Items[0].CapabilityID, cached.Items[0].CapabilityID)
+	require.JSONEq(t, string(result.Items[0].Policy), string(cached.Items[0].Policy))
+	publicJSON, err := json.Marshal(cached)
+	require.NoError(t, err)
+	require.NotContains(t, string(publicJSON), "runtime_contract")
+	require.NotContains(t, string(publicJSON), "agent.invocation/v1")
+	key, err := svc.effectivePermissionsCacheKey(ctx, "dev", result.TenantUUID, result.UserUUID, result.MemberUUID, 100, false, agentUUID)
+	require.NoError(t, err)
+	oldKey := strings.Replace(key, ":v3:", ":v2:", 1)
+	require.NoError(t, svc.cache.Delete(ctx, key))
+	require.NoError(t, svc.cache.Set(ctx, oldKey, publicJSON, time.Minute))
+	_, ok, err = svc.getCachedEffectivePermissions(ctx, "dev", result.TenantUUID, result.UserUUID, result.MemberUUID, 100, false, agentUUID)
+	require.NoError(t, err)
+	require.False(t, ok, "旧版本缓存不能继续丢失执行契约")
+	require.NoError(t, svc.setCachedEffectivePermissions(ctx, "dev", result.TenantUUID, result.UserUUID, result.MemberUUID, 100, false, agentUUID, result))
 
 	require.NoError(t, svc.invalidateAgentEffectivePermissionsCache(ctx, "dev", result.TenantUUID, agentUUID))
 	_, ok, err = svc.getCachedEffectivePermissions(ctx, "dev", result.TenantUUID, result.UserUUID, result.MemberUUID, 100, false, agentUUID)
 	require.NoError(t, err)
 	require.False(t, ok)
+}
+
+func TestEffectivePermissionsCacheRejectsIncompletePolicies(t *testing.T) {
+	ctx := context.Background()
+	svc := &Service{cache: cache.NewMemoryCache(), cacheTTL: time.Minute}
+	agentID := uuid.New()
+	key, err := svc.effectivePermissionsCacheKey(ctx, "dev", "tenant", "user", "", 0, true, agentID)
+	require.NoError(t, err)
+	for _, raw := range []string{
+		`{"result":{"items":[{"capability_id":"cap.one"}]}}`,
+		`{"result":{"items":[{"capability_id":"cap.one"}]},"policies":[]}`,
+	} {
+		require.NoError(t, svc.cache.Set(ctx, key, []byte(raw), time.Minute))
+		_, hit, err := svc.getCachedEffectivePermissions(ctx, "dev", "tenant", "user", "", 0, true, agentID)
+		require.ErrorContains(t, err, "policies incomplete")
+		require.False(t, hit)
+	}
+	result := EffectivePermissionsResult{Items: []EffectivePermissionItem{
+		{CapabilityID: "cap.empty"},
+		{CapabilityID: "cap.review", Policy: datatypes.JSON(`{"runtime_contract":{"human_approval_required":true,"verification_required":true,"side_effect_evidence_schema":"scheduler.job/v1"}}`)},
+	}}
+	require.NoError(t, svc.setCachedEffectivePermissions(ctx, "dev", "tenant", "user", "", 0, true, agentID, result))
+	cached, hit, err := svc.getCachedEffectivePermissions(ctx, "dev", "tenant", "user", "", 0, true, agentID)
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Len(t, cached.Items, 2)
+	require.JSONEq(t, string(result.Items[1].Policy), string(cached.Items[1].Policy))
 }

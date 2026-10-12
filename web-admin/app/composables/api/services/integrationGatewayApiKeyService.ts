@@ -24,6 +24,8 @@ export interface IntegrationGatewayApiKeyRecord {
   key_id: string;
   tenant_uuid: string;
   profile_id: number;
+  plugin_ids: string[];
+  binding_mode: "key" | "legacy_permissions";
   name: string;
   description?: string;
   key_prefix: string;
@@ -72,6 +74,16 @@ export interface CreateIntegrationGatewayApiKeyPayload {
   name: string;
   description?: string;
   expires_at?: string;
+  plugin_ids?: string[];
+}
+
+export interface IntegrationGatewayPluginOwners {
+  key_id: string;
+  tenant_uuid: string;
+  plugin_ids: string[];
+  binding_mode: "key" | "legacy_permissions";
+  permission_bindings?: Array<{ scope: string; action: string; resource_type: string; resource_pattern: string; plugin_id: string; effect: string }>;
+  updated_at: string;
 }
 
 export interface RotateIntegrationGatewayApiKeyPayload {
@@ -165,6 +177,17 @@ export const useIntegrationGatewayApiKeyService = () => {
     getApiKey: (keyID: string) => {
       return apiClient.get<ApiResponse<IntegrationGatewayApiKeyRecord>>(
         `${baseUrl}/api-keys/${encodeURIComponent(keyID)}`
+      );
+    },
+    getPluginOwners: (keyID: string) => {
+      return apiClient.get<ApiResponse<IntegrationGatewayPluginOwners>>(
+        `${baseUrl}/api-keys/${encodeURIComponent(keyID)}/plugin-owners`
+      );
+    },
+    setPluginOwners: (keyID: string, pluginIDs: string[]) => {
+      return apiClient.put<ApiResponse<IntegrationGatewayPluginOwners>>(
+        `${baseUrl}/api-keys/${encodeURIComponent(keyID)}/plugin-owners`,
+        { plugin_ids: pluginIDs }
       );
     },
     revokeApiKey: (keyID: string, payload: RevokeIntegrationGatewayApiKeyPayload) => {

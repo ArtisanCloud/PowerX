@@ -68,7 +68,11 @@ umask 077 && head -c 32 /dev/urandom | base64
 - `queue.redis.password`（有密码时必须配置）
 
 ### 1.6 `auth`
-- `auth.jwt_secret`：必须替换，禁止使用示例值
+- 首次安装（install.status=uninstalled/configuring 且 allow_without_db=true）无需用户手动配置 JWT 密钥，可直接进入 `/setup`。此阶段只运行安装/健康接口，不开放登录或 STS 签发服务。
+- Setup 在数据库初始化前自动生成 32 字节加密随机密钥，保存到实际运行配置的 `auth.jwt_secret`；重试、后续完整服务启动与 migrate/seed 使用同一值。页面不显示或要求用户输入密钥。
+- 已有有效配置保持不变。显式 `POWERX_AUTH_JWT_SECRET`继续优先使用，必须有效；多副本部署应预先提供同一个受保护密钥。不要每次启动重新生成，也不要提交真实密钥到 Git。
+- JWT 环境变量只接受 `POWERX_AUTH_JWT_SECRET`。出现旧名 `CORE_X_AUTH_JWT_SECRET` 或 `CORE_X_JWT_SECRET`（包括空值或与新名相同的值）会明确报错，不做兼容或回退。部署新版本前同步把环境文件中的变量名改为新名称，保留原密钥值并删除旧变量。
+- 已安装环境仍严格拒绝空值、公开默认值和占位值；不会通过重新启动自动换钥。历史部署的密钥更换属于受控升级操作，会使旧用户/客户 JWT 和 STS 失效，需要重新登录/交换凭证。
 
 ### 1.7 `media.s3`（启用对象存储时必须）
 - `media.s3.endpoint`
@@ -131,7 +135,7 @@ Docker 模式建议新增：
 ## 4) 部署前最小核对（建议逐条打勾）
 
 - [ ] `/etc/powerx/config.yaml` 中 `server.secret_key` 已替换
-- [ ] `/etc/powerx/config.yaml` 中 `auth.jwt_secret` 已替换
+- [ ] 首次 Setup 已保存独立 JWT 密钥，或已配置有效的外部签名密钥
 - [ ] `/etc/powerx/config.yaml` 中 `deployment.env=prod` 已明确配置并通过校验
 - [ ] PostgreSQL 可连通（`database.dsn` 正确）
 - [ ] Redis 可连通（`cache` 与 `queue.redis` 正确）

@@ -1,101 +1,39 @@
 <template>
-  <div class="rounded-lg border border-gray-200 bg-white p-4">
-    <h3 class="mb-3 text-sm font-medium text-gray-700">备份任务</h3>
-    <div class="overflow-x-auto">
-      <table class="min-w-full table-fixed text-sm">
-        <colgroup>
-          <col class="w-14" />
-          <col class="w-14" />
-          <col class="w-24" />
-          <col class="w-24" />
-          <col class="w-72" />
-          <col class="w-[36rem]" />
-          <col class="w-24" />
-          <col class="w-56" />
-          <col class="w-32" />
-        </colgroup>
-        <thead>
-          <tr class="border-b border-gray-200 text-left text-gray-500">
-            <th class="px-2 py-2">任务ID</th>
-            <th class="px-2 py-2">策略ID</th>
-            <th class="px-2 py-2">状态</th>
-            <th class="px-2 py-2">触发类型</th>
-            <th class="px-2 py-2">Trace</th>
-            <th class="px-2 py-2">产物路径</th>
-            <th class="px-2 py-2">大小</th>
-            <th class="px-2 py-2">错误</th>
-            <th class="px-2 py-2">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="job in items" :key="String(job.id)" class="border-b border-gray-100">
-            <td class="px-2 py-2 align-top">{{ job.id }}</td>
-            <td class="px-2 py-2 align-top">{{ job.policy_id }}</td>
-            <td class="px-2 py-2 align-top">
-              <span
-                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="job.status === 'success' ? 'bg-emerald-500/15 text-emerald-600' : job.status === 'failed' ? 'bg-red-500/15 text-red-600' : 'bg-gray-500/15 text-gray-300'"
-              >
-                {{ job.status }}
-              </span>
-            </td>
-            <td class="px-2 py-2 align-top">
-              <span class="inline-flex rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-300">
-                {{ job.trigger_type }}
-              </span>
-            </td>
-            <td class="px-2 py-2 align-top break-all whitespace-normal text-xs leading-5 text-gray-500">{{ job.trace_id || "-" }}</td>
-            <td class="px-2 py-2 align-top break-all whitespace-normal text-xs leading-5 text-gray-400">{{ job.storage_uri || "-" }}</td>
-            <td class="px-2 py-2 align-top text-xs text-gray-300">{{ formatSize(job.size_bytes) }}</td>
-            <td class="px-2 py-2 align-top break-all whitespace-normal text-xs leading-5 text-red-500">{{ job.error_message || "-" }}</td>
-            <td class="px-2 py-2 align-middle">
-              <div class="flex w-full items-center justify-center">
-                <UButton
-                  v-if="canRestore(job)"
-                  size="xs"
-                  color="secondary"
-                  variant="outline"
-                  class="w-full max-w-[112px] justify-center whitespace-nowrap"
-                  @click="emit('restore-verify', job)"
-                >
-                  恢复验证
-                </UButton>
-                <span v-else class="text-xs text-gray-500">-</span>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="items.length === 0">
-            <td colspan="9" class="py-4 text-center text-gray-400">暂无任务</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[760px] text-sm">
+      <thead><tr class="border-b border-gray-200 text-left text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"><th class="py-3 pr-4">{{ t('backupCenter.job') }}</th><th class="py-3 pr-4">{{ t('backupCenter.status') }}</th><th class="py-3 pr-4">{{ t('backupCenter.workspace.backupFile') }}</th><th class="py-3 pr-4">{{ t('backupCenter.size') }}</th><th class="py-3 text-right">{{ t('backupCenter.actions') }}</th></tr></thead>
+      <tbody>
+        <tr v-for="job in items" :key="String(job.id)" class="border-b border-gray-100 align-top last:border-0 dark:border-gray-800">
+          <td class="py-4 pr-4"><p class="font-medium">#{{ job.id }} <span class="ml-2 font-normal text-gray-500 dark:text-gray-400">{{ t('backupCenter.policy') }} #{{ job.policy_id }}</span></p><p class="mt-1 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">{{ timeLabel(job.ended_at || job.started_at) }}</p><p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ triggerLabel(job.trigger_type) }}</p></td>
+          <td class="py-4 pr-4"><UBadge variant="subtle" :color="job.status === 'success' ? 'success' : job.status === 'failed' ? 'error' : 'neutral'">{{ statusLabel(job.status) }}</UBadge><p v-if="job.protected" class="mt-2 max-w-32 text-xs text-emerald-700 dark:text-emerald-400">{{ t('backupCenter.protected') }}</p><p v-if="job.error_message || job.error_summary" class="mt-2 max-w-56 break-words text-xs text-red-600 dark:text-red-400">{{ job.error_message || job.error_summary }}</p></td>
+          <td class="max-w-sm py-4 pr-4">
+            <p class="break-all font-mono text-xs">{{ job.storage_uri ? backupFileName(job.storage_uri) : t(job.status === 'success' ? 'backupCenter.pruned' : 'backupCenter.noArtifact') }}</p>
+            <details class="mt-2 text-xs" data-testid="backup-file-details">
+              <summary class="cursor-pointer text-primary-600 dark:text-primary-400">{{ t('backupCenter.workspace.fileDetails') }}</summary>
+              <dl class="mt-3 space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
+                <div v-if="job.storage_uri"><dt class="text-gray-500 dark:text-gray-400">{{ t('backupCenter.workspace.fullPath') }}</dt><dd class="mt-1 break-all font-mono">{{ job.storage_uri }}</dd></div>
+                <div v-if="job.checksum"><dt class="text-gray-500 dark:text-gray-400">SHA256</dt><dd class="mt-1 break-all font-mono">{{ job.checksum }}</dd></div>
+                <div><dt class="text-gray-500 dark:text-gray-400">Trace ID</dt><dd class="mt-1 break-all font-mono">{{ job.trace_id || '—' }}</dd></div>
+              </dl>
+            </details>
+          </td>
+          <td class="whitespace-nowrap py-4 pr-4">{{ formatSize(job.size_bytes) }}</td>
+          <td class="py-4"><div v-if="canRestore(job)" class="flex min-w-40 flex-col items-end gap-2"><UButton v-if="canRecover" size="xs" color="primary" variant="outline" @click="emit('restore-copy', job)">{{ t('backupCenter.copies.new') }}</UButton><UButton size="xs" color="neutral" variant="outline" :disabled="!canExecute" @click="emit('restore-verify', job)">{{ t('backupCenter.verify') }}</UButton><UButton size="xs" color="neutral" variant="ghost" :disabled="!canExecute" @click="emit('protection', job)">{{ t(job.protected ? 'backupCenter.unprotect' : 'backupCenter.protect') }}</UButton></div></td>
+        </tr>
+        <tr v-if="!items.length"><td colspan="5" class="p-6 text-center text-gray-500">{{ t('backupCenter.noJobs') }}</td></tr>
+      </tbody>
+    </table>
   </div>
 </template>
-
 <script setup lang="ts">
-import type { BackupJob } from "~/composables/api/services/backupOpsService";
-
-defineProps<{
-  items: BackupJob[];
-}>();
-
-const emit = defineEmits<{
-  "restore-verify": [job: BackupJob];
-}>();
-
-const formatSize = (bytes?: number) => {
-  if (!bytes || bytes <= 0) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  const mb = kb / 1024;
-  if (mb < 1024) return `${mb.toFixed(1)} MB`;
-  const gb = mb / 1024;
-  return `${gb.toFixed(2)} GB`;
-};
-
-const canRestore = (job: BackupJob) => {
-  return job.status === "success" && Boolean(job.storage_uri);
-};
+import type { BackupJob } from '~/composables/api/services/backupOpsService';
+import { backupFileName, backupStatusKey, formatBackupTime } from '~/utils/backup-display';
+defineProps<{ items: BackupJob[]; canExecute: boolean; canRecover?: boolean }>();
+const emit = defineEmits<{ 'restore-verify': [job: BackupJob]; 'restore-copy': [job: BackupJob]; protection: [job: BackupJob] }>();
+const { t, locale } = useI18n();
+const statusLabel = (status: string) => backupStatusKey(status) ? t(backupStatusKey(status)!) : status;
+const triggerLabel = (type: string) => type === 'scheduled' ? t('backupCenter.workspace.scheduledTrigger') : type === 'manual' ? t('backupCenter.workspace.manualTrigger') : type || '—';
+const timeLabel = (value?: string) => formatBackupTime(value, String(locale?.value || 'zh-CN'));
+const canRestore = (job: BackupJob) => job.status === 'success' && !!job.storage_uri;
+const formatSize = (bytes?: number) => !bytes ? '-' : bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1048576).toFixed(1)} MiB`;
 </script>

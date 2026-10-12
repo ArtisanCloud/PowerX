@@ -1,7 +1,10 @@
 package metadata
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -59,6 +62,123 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	g.GET("/resource-types", resourceTypeRead, h.listResourceTypes)
 	g.POST("/resource-types", resourceTypeManage, h.registerResourceType)
 	g.PATCH("/resource-types/:resource_type_uuid", resourceTypeManage, h.updateResourceType)
+}
+
+// RegisterTenantHostRoutes exposes the same metadata service through the
+// service-actor contract. It deliberately does not reuse admin RBAC: every
+// route below checks publication, tenant registration and the actual STS/API
+// key grant before service execution.
+func RegisterTenantHostRoutes(protected *gin.RouterGroup, deps *shared.Deps) {
+	if protected == nil || deps == nil || deps.DB == nil {
+		return
+	}
+	svc, err := metasvc.NewService(metasvc.Deps{DB: deps.DB, ValidatorRegistry: deps.MetadataResourceValidatorRegistry})
+	if err != nil {
+		return
+	}
+	h := &handler{service: svc}
+	access := metasvc.NewHostContractAccess(deps.DB)
+	g := protected.Group("/tenant/metadata", rejectTenantHostOverride())
+	read := func(resource string) gin.HandlerFunc { return tenantHostAuthorize(access, resource, "read") }
+	manage := func(resource string) gin.HandlerFunc { return tenantHostAuthorize(access, resource, "manage") }
+	g.GET("/dictionaries", read("dictionary"), h.listDictionaryNamespaces)
+	g.POST("/dictionaries", manage("dictionary"), h.createDictionaryNamespace)
+	g.PATCH("/dictionaries/:namespace_uuid", manage("dictionary"), h.updateDictionaryNamespace)
+	g.GET("/dictionaries/:namespace_uuid/items", read("dictionary"), h.listDictionaryItems)
+	g.POST("/dictionaries/:namespace_uuid/items", manage("dictionary"), h.createDictionaryItem)
+	g.PATCH("/dictionary-items/:item_uuid", manage("dictionary"), h.updateDictionaryItem)
+	g.GET("/taxonomies", read("taxonomy"), h.listTaxonomies)
+	g.POST("/taxonomies", manage("taxonomy"), h.createTaxonomy)
+	g.GET("/taxonomies/:taxonomy_uuid/nodes", read("taxonomy"), h.listTaxonomyNodes)
+	g.POST("/taxonomies/:taxonomy_uuid/nodes", manage("taxonomy"), h.createTaxonomyNode)
+	g.PATCH("/taxonomy-nodes/:node_uuid", manage("taxonomy"), h.updateTaxonomyNode)
+	g.GET("/tags", read("tag"), h.listTags)
+	g.POST("/tags", manage("tag"), h.createTag)
+	g.PATCH("/tags/:tag_uuid", manage("tag"), h.updateTag)
+	g.POST("/tag-bindings", manage("tag"), h.createTenantTagBinding)
+	g.DELETE("/tag-bindings/:binding_uuid", manage("tag"), h.deleteTenantTagBinding)
+	g.GET("/resource-types", read("resource_type"), h.listResourceTypes)
+	g.POST("/resource-types", manage("resource_type"), h.registerResourceType)
+	g.PATCH("/resource-types/:resource_type_uuid", manage("resource_type"), h.updateResourceType)
+}
+
+func tenantHostAuthorize(access *metasvc.HostContractAccess, resource, action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		raw, _ := c.Get("auth_api_key_hash")
+		apiKeyHash, _ := raw.(string)
+		if _, err := access.Authorize(c.Request.Context(), strings.TrimSpace(apiKeyHash), resource, action); err != nil {
+			dto.RespondErrorFrom(c, err)
+			c.Abort()
+			return
+		}
+		c.Set("metadata_host_contract", true)
+		c.Next()
+	}
+}
+
+func rejectTenantHostOverride() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if strings.TrimSpace(c.Query("tenant_uuid")) != "" || strings.TrimSpace(c.GetHeader("X-Tenant-UUID")) != "" {
+			dto.RespondErrorFrom(c, metasvc.HostInvalidArgument(errors.New("tenant override must not be supplied")))
+			c.Abort()
+			return
+		}
+		if c.Request.Body != nil && c.Request.ContentLength != 0 {
+			body, err := io.ReadAll(c.Request.Body)
+			if err != nil {
+				dto.RespondErrorFrom(c, metasvc.HostInvalidArgument(err))
+				c.Abort()
+				return
+			}
+			c.Request.Body = io.NopCloser(bytes.NewReader(body))
+			if json.Valid(body) {
+				var raw map[string]json.RawMessage
+				if json.Unmarshal(body, &raw) == nil {
+					if _, ok := raw["tenant_uuid"]; ok {
+						dto.RespondErrorFrom(c, metasvc.HostInvalidArgument(errors.New("tenant_uuid must not be supplied")))
+						c.Abort()
+						return
+					}
+				}
+			}
+		}
+		c.Next()
+	}
+}
+
+type createTenantTagBindingRequest struct {
+	TagUUID      string `json:"tag_uuid" validate:"required"`
+	ResourceType string `json:"resource_type" validate:"required"`
+	ResourceUUID string `json:"resource_uuid" validate:"required"`
+}
+
+func (h *handler) createTenantTagBinding(c *gin.Context) {
+	tenantUUID, ok := requireTenant(c)
+	if !ok {
+		return
+	}
+	var req createTenantTagBindingRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, metasvc.HostInvalidArgument(err))
+		return
+	}
+	item, err := h.service.CreateTagBinding(c.Request.Context(), metasvc.CreateTagBindingInput{TenantUUID: tenantUUID, TagUUID: req.TagUUID, ResourceType: req.ResourceType, ResourceUUID: req.ResourceUUID})
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	dto.ResponseSuccessWithStatus(c, http.StatusCreated, gin.H{"payload": item})
+}
+func (h *handler) deleteTenantTagBinding(c *gin.Context) {
+	tenantUUID, ok := requireTenant(c)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteTagBinding(c.Request.Context(), tenantUUID, c.Param("binding_uuid")); err != nil {
+		respondError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 type handler struct {
@@ -136,6 +256,7 @@ type createDictionaryItemRequest struct {
 }
 
 type updateDictionaryItemRequest struct {
+	ExpectedVersion *int64             `json:"expected_version" validate:"omitempty,min=1"`
 	LabelI18n       *map[string]string `json:"label_i18n"`
 	DescriptionI18n *map[string]string `json:"description_i18n"`
 	SortOrder       *int               `json:"sort_order"`
@@ -181,6 +302,7 @@ type listTaxonomyNodesRequest struct {
 }
 
 type createTaxonomyNodeRequest struct {
+	Metadata        map[string]any    `json:"metadata"`
 	ParentUUID      *string           `json:"parent_uuid"`
 	Code            string            `json:"code" validate:"required"`
 	LabelI18n       map[string]string `json:"label_i18n" validate:"required"`
@@ -189,6 +311,9 @@ type createTaxonomyNodeRequest struct {
 }
 
 type updateTaxonomyNodeRequest struct {
+	Metadata        *map[string]any    `json:"metadata"`
+	MoveParent      bool               `json:"move_parent"`
+	ParentUUID      *string            `json:"parent_uuid"`
 	LabelI18n       *map[string]string `json:"label_i18n"`
 	DescriptionI18n *map[string]string `json:"description_i18n"`
 	SortOrder       *int               `json:"sort_order"`
@@ -212,6 +337,7 @@ type listTagsRequest struct {
 }
 
 type createTagRequest struct {
+	Metadata        map[string]any    `json:"metadata"`
 	Namespace       string            `json:"namespace" validate:"required"`
 	ResourceType    string            `json:"resource_type" validate:"required"`
 	Code            string            `json:"code" validate:"required"`
@@ -221,6 +347,8 @@ type createTagRequest struct {
 }
 
 type updateTagRequest struct {
+	Metadata        *map[string]any    `json:"metadata"`
+	ExpectedVersion *int64             `json:"expected_version" validate:"omitempty,min=1"`
 	LabelI18n       *map[string]string `json:"label_i18n"`
 	DescriptionI18n *map[string]string `json:"description_i18n"`
 	Color           *string            `json:"color"`
@@ -433,6 +561,7 @@ func (h *handler) updateDictionaryItem(c *gin.Context) {
 	}
 	item, err := h.service.UpdateDictionaryItem(c.Request.Context(), metasvc.UpdateDictionaryItemInput{
 		TenantUUID:      tenantUUID,
+		ExpectedVersion: req.ExpectedVersion,
 		ItemUUID:        c.Param("item_uuid"),
 		LabelI18n:       req.LabelI18n,
 		DescriptionI18n: req.DescriptionI18n,
@@ -606,6 +735,7 @@ func (h *handler) createTaxonomyNode(c *gin.Context) {
 		return
 	}
 	item, err := h.service.CreateTaxonomyNode(c.Request.Context(), metasvc.CreateTaxonomyNodeInput{
+		Metadata:        req.Metadata,
 		TenantUUID:      tenantUUID,
 		TaxonomyUUID:    c.Param("taxonomy_uuid"),
 		ParentUUID:      req.ParentUUID,
@@ -636,6 +766,7 @@ func (h *handler) updateTaxonomyNode(c *gin.Context) {
 		return
 	}
 	item, err := h.service.UpdateTaxonomyNode(c.Request.Context(), metasvc.UpdateTaxonomyNodeInput{
+		Metadata: req.Metadata, MoveParent: req.MoveParent, ParentUUID: req.ParentUUID,
 		TenantUUID:      tenantUUID,
 		NodeUUID:        c.Param("node_uuid"),
 		LabelI18n:       req.LabelI18n,
@@ -750,6 +881,7 @@ func (h *handler) createTag(c *gin.Context) {
 		return
 	}
 	item, err := h.service.CreateTag(c.Request.Context(), metasvc.CreateTagInput{
+		Metadata:        req.Metadata,
 		TenantUUID:      tenantUUID,
 		Namespace:       req.Namespace,
 		ResourceType:    req.ResourceType,
@@ -780,6 +912,7 @@ func (h *handler) updateTag(c *gin.Context) {
 		return
 	}
 	item, err := h.service.UpdateTag(c.Request.Context(), metasvc.UpdateTagInput{
+		Metadata: req.Metadata, ExpectedVersion: req.ExpectedVersion,
 		TenantUUID:      tenantUUID,
 		TagUUID:         c.Param("tag_uuid"),
 		LabelI18n:       req.LabelI18n,

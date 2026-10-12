@@ -53,6 +53,19 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
+	// 在删除旧产物前恢复并验证凭证，避免 Force 删除唯一保存明文 secret 的配置。
+	var runtimeCred *PluginRuntimeCredential
+	if m.opts.RuntimeCredential != nil {
+		runtimeCred, err = m.resolvePluginRuntimeCredential(ctx, man.ID)
+		if err == nil {
+			err = m.injectRuntimeSTSContract(map[string]string{}, man.ID, runtimeCred)
+		}
+		if err != nil {
+			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err,
+				plugin_mgr.WithOp("install_file.runtime_credential_preflight"),
+				plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version))
+		}
+	}
 	if opts.Force {
 		// Force 覆盖语义：替换运行产物，不应默认清理业务数据库资源。
 		if m.opts.Registry != nil && m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
@@ -180,7 +193,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		paths.MigrationsEntry = ResolvePath(destRoot, man.Migrations.Entry)
 		paths.MigrationsWorkDir = ResolvePath(destRoot, man.Migrations.WorkDir)
 	}
-	hostCfg, err := m.generateHostConfig(man, destRoot, opts.HostConfigSeed)
+	hostCfg, err := m.generateHostConfigWithCredential(man, destRoot, opts.HostConfigSeed, runtimeCred)
 	if err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.host_config"),

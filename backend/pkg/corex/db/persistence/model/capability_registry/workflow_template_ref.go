@@ -12,7 +12,7 @@ import (
 type WorkflowTemplateRef struct {
 	coremodel.PowerModel
 
-	CapabilityID string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_workflow_template_capability" json:"capability_id"`
+	CapabilityID string         `gorm:"column:capability_id;type:varchar(256);not null;index:idx_workflow_template_capability" json:"capability_id"`
 	TemplateID   string         `gorm:"column:template_id;type:varchar(128);not null;uniqueIndex:uk_capability_template" json:"template_id"`
 	Name         string         `gorm:"column:name;type:varchar(128);not null" json:"name"`
 	Description  string         `gorm:"column:description;type:text" json:"description,omitempty"`

@@ -484,9 +484,8 @@ const getBackupTypeColor = (type) => {
                 label="加密密码"
                 required
               >
-                <UInput
+                <SecretInput
                   v-model="backupConfig.encryptionPassword"
-                  type="password"
                   placeholder="输入加密密码"
                 />
               </UFormField>

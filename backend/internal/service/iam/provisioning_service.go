@@ -493,6 +493,9 @@ func ensureProvisionMember(ctx context.Context, tx *gorm.DB, tenantUUID string, 
 		Meta:        meta,
 	}
 	if err := tx.WithContext(ctx).Create(&member).Error; err != nil {
+		if isMemberDisplayNameConflict(err) {
+			return nil, memberDisplayNameConflictError(ErrMemberDisplayNameConflict)
+		}
 		return nil, err
 	}
 	if member.UUID == uuid.Nil {

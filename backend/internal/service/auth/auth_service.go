@@ -289,6 +289,7 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 	}
 
 	jti := uuid.NewString()
+	claims.ID = jti
 	access, err = pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
 	if err != nil {
 		return "", "", err
@@ -306,13 +307,15 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 		return "", "", err
 	}
 
-	_ = s.RTRepo.Issue(ctx, &model.RefreshToken{
+	if err = s.RTRepo.Issue(ctx, &model.RefreshToken{
 		JTI:        jti,
 		TenantUUID: ten.UUID.String(),
 		MemberUUID: m.UUID.String(),
 		UserUUID:   u.UUID.String(),
 		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
-	})
+	}); err != nil {
+		return "", "", err
+	}
 
 	if s.Cache != nil {
 		ttl := 10 * time.Minute // 建议 5~15 分钟
@@ -422,6 +425,7 @@ func (s *AuthService) issueRootTenantTokens(ctx context.Context, ten *tenantmdl.
 		IsRoot:     true,
 	}
 	jti := uuid.NewString()
+	claims.ID = jti
 	access, err = pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
 	if err != nil {
 		return "", "", err
@@ -430,13 +434,15 @@ func (s *AuthService) issueRootTenantTokens(ctx context.Context, ten *tenantmdl.
 	if err != nil {
 		return "", "", err
 	}
-	_ = s.RTRepo.Issue(ctx, &model.RefreshToken{
+	if err = s.RTRepo.Issue(ctx, &model.RefreshToken{
 		JTI:        jti,
 		TenantUUID: ten.UUID.String(),
 		MemberUUID: "",
 		UserUUID:   u.UUID.String(),
 		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
-	})
+	}); err != nil {
+		return "", "", err
+	}
 	if s.Cache != nil {
 		ttl := 10 * time.Minute
 		_ = s.Cache.Set(ctx, middleware.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)
@@ -523,6 +529,16 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	u, err := s.UserRepo.FindByID(ctx, claims.UserID)
 	if err != nil || u == nil {
 		return "", errors.New("user not found")
+	}
+	if u.IsRoot && rt.MemberUUID == "" {
+		if u.Status != 1 || ten.Status != 1 || u.UUID.String() != claims.UserUUID {
+			return "", errors.New("refresh token mismatch")
+		}
+		claims.IsRoot = true
+		claims.MemberID = 0
+		claims.MemberUUID = ""
+		claims.Roles = nil
+		return pkgauth.GenerateAccessJWT(*claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
 	}
 	m, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
 		"id = ?":          claims.MemberID,

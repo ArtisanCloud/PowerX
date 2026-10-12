@@ -78,6 +78,8 @@ make seed
 
 `depends_on` 的上游业务结果会以 `upstream_<task_id>` 传给下游任务，对应引用为 `{{task.<task_id>.output.result}}`。它不会把其他智能体的完整会话或未授权候选技能传过去。
 
+最终回复的来源引用与传参键不同：`upstream_<task_id>` 只是在执行入参中承载上游结果，不能写进 `powerx.agent.response/v3` 的 `source.ref`。最终 envelope 中 `source.type=input` 必须精确使用 `input:message`；`source.type=task` 必须精确使用本图中最终任务可达的上游 `task_id`。Runtime 会校验它属于已声明依赖，拒绝 `upstream_campaign_analysis:message`、当前汇总任务自身或任何模型自造标签。执行 `response_envelope` 时，PowerX 从这个 `depends_on` 图自动产生 Provider JSON Schema 的允许引用枚举；团队/Skill 不需要、也不能在 Core 代码中登记自己的名称。
+
 ## 营销活动复盘 Demo
 
 Seed 的“营销活动复盘协作团队”使用上面的四步：内容营销解析原始材料，活动复盘分析员计算目标和漏斗指标，知识策展员基于这两项结果提炼事实、假设与行动，最后由负责人汇总。最终汇总严格要求三个 `upstream_*` 产物；缺一个即失败，绝不降级成原文摘要。输入应给出真实或模拟的活动材料，例如：
@@ -94,6 +96,7 @@ Seed 的“营销活动复盘协作团队”使用上面的四步：内容营销
 1. Trace 显示四个配置任务及依赖关系，不出现 `base_flow` 单模型直答。
 2. 每个 handoff 的 `child_skill_id` 与该成员的绑定一致。
 3. 汇总任务收到三个 `upstream_*` 输出，并在回复中明确区分事实、假设和待验证项；至少输出一个由输入数据计算出的指标或明确的数据缺口。
+   任何已经能由上游分子和分母计算出的指标不得被再列为“待补数据”或“待计算”；缺失的是行业基准、归因证据或渠道拆分时，必须准确说明缺什么。
 4. 删除成员、解绑 Skill、改错依赖或停用团队后，运行明确失败；不得静默改由团队负责人直接回答。
 
 ## 排障

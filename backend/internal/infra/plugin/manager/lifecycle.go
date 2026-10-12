@@ -58,7 +58,14 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		)
 	}
 	if err := m.ensureDelegatedHostContractForEnable(&p, runtimeCred); err != nil {
-		logger.WarnF(ctx, "[plugin-enable] id=%s host contract auto-repair failed: %v", p.ID, err)
+		return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err,
+			plugin_mgr.WithOp("enable.host_config"), plugin_mgr.WithPlugin(p.ID), plugin_mgr.WithVersion(p.Version))
+	}
+	if err := m.opts.Registry.UpdateHostConfig(ctx, p.ID, p.Version, p.HostConfig); err != nil {
+		return err
+	}
+	if err := m.opts.Registry.Save(ctx); err != nil {
+		return err
 	}
 	logger.InfoF(ctx, "[plugin-enable] id=%s ver=%s state=%s admin_menus=%d",
 		p.ID, p.Version, p.State, len(p.Frontend.Admin.Menus))

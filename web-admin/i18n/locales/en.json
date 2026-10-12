@@ -1,16 +1,51 @@
 {
-	"setup": {
-		"deployment": {
-			"title": "Deployment environment",
-			"description": "Choose the stable environment identity for this PowerX instance. Plugin database roles and schemas use it for isolation; do not change it directly after installing plugins.",
-			"options": { "dev": "Development dev", "test": "Test", "staging": "Staging", "prod": "Production prod" }
-		},
-		"errors": {
-			"deploymentEnvRequired": "Select a deployment environment",
-			"deploymentEnvInvalid": "Deployment environment must be dev, test, staging, or prod",
-			"unknown": "Failed to save setup configuration"
-		}
-	},
+  "setup": {
+    "connection": {
+      "database": {
+        "test": "Test database connection",
+        "hint": "Test database connectivity before continuing.",
+        "testing": "Testing database connection…",
+        "success": "Database connection succeeded",
+        "failed": "Database connection test failed"
+      },
+      "cache": {
+        "test": "Test Redis connection",
+        "hint": "Test Redis connectivity before initializing the system.",
+        "testing": "Testing Redis connection…",
+        "success": "Redis connection succeeded",
+        "failed": "Redis connection test failed"
+      },
+      "redisPasswordHelp": "Required when Redis authentication is enabled. Use the password configured for the Redis service.",
+      "redisAuthRequired": "Redis requires password authentication. Enter the Redis password and test again.",
+      "redisAuthInvalid": "The Redis username or password is incorrect. Check the deployment configuration and test again.",
+      "redisPermissionDenied": "The Redis account cannot perform the connection check. Check its ACL permissions.",
+      "invalidResponse": "The connection test returned an invalid response. Retry and check the service response.",
+      "failedFallback": "Connection test failed. Check the configuration and service availability.",
+      "testingDetail": "Checking the connection. Please wait.",
+      "previousResult": "Previous result: {message}",
+      "diagnosticId": "Request reference: {id}"
+    },
+    "databasePrepared": "Database schema is ready. The administrator and dependent data will be initialized when you confirm the administrator and complete installation.",
+    "deployment": {
+      "title": "Deployment environment",
+      "description": "Choose the stable environment identity for this PowerX instance. Plugin database roles and schemas use it for isolation; do not change it directly after installing plugins.",
+      "options": {
+        "dev": "Development dev",
+        "test": "Test",
+        "staging": "Staging",
+        "prod": "Production prod"
+      }
+    },
+    "errors": {
+      "adminUsernameRequired": "Enter an administrator username",
+      "adminEmailInvalid": "Enter a valid administrator email",
+      "adminPasswordRequired": "Enter an administrator password",
+      "adminPasswordTooLong": "Administrator password must not exceed 72 UTF-8 bytes",
+      "deploymentEnvRequired": "Select a deployment environment",
+      "deploymentEnvInvalid": "Deployment environment must be dev, test, staging, or prod",
+      "unknown": "Failed to save setup configuration"
+    }
+  },
   "menu": {
     "openMarket": "Open Market",
     "plugins": "Plugins",
@@ -58,15 +93,19 @@
     "itemCount": "{count} items",
     "untitled": "Untitled",
     "section": {
-      "untitled": "Untitled Section"
+      "untitled": "Untitled Section",
+      "businessOperations": "Business operations"
     },
     "aiSettingsAgentAccess": "Agent Authorization"
   },
   "common": {
+    "showSecret": "Show contents",
+    "hideSecret": "Hide contents",
     "collapse": "Collapse",
     "back": "Back",
     "backToList": "Back to list",
     "loading": "Loading...",
+    "status": "Status",
     "error": "Error",
     "retry": "Retry",
     "toggleDensity": "Toggle density",
@@ -82,7 +121,16 @@
     "newMessages": "{count} new messages",
     "unknown": "Unknown",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "contactChannelsTitle": "Channel accounts",
+    "contactChannelsDescription": "These channel accounts are explicitly bound to contact {name}.",
+    "boundContactChannels": "Bound channel accounts",
+    "resolveContactChannelDescription": "Check whether a channel account is already bound to a contact under this customer. This creates neither a contact nor a binding.",
+    "bindContactChannelDescription": "Explicitly bind this channel account to contact {name}. It will not be automatically rebound to another contact.",
+    "resolvedContactChannel": "Resolved contact: {name}",
+    "contactChannelDictionaryUnavailable": "The contact channel dictionary is unavailable. Enable it in metadata governance first.",
+    "contactChannelAccount": "Channel account ownership",
+    "contactChannelRelationship": "A channel account is an account in an external system, not a second contact. Resolve its current binding first; explicitly bind it only after confirming that it belongs to contact {name}."
   },
   "workflow": {
     "port": {
@@ -567,35 +615,122 @@
       "outputFieldConfigTitle": "Node output fields",
       "nodeFieldDefaultDescription": "Node field",
       "nodeField": {
-        "content": { "label": "Content", "description": "Marketing material or parsed body text" },
-        "context": { "label": "Business context", "description": "Business background of the material" },
-        "language": { "label": "Language", "description": "Material language" },
-        "type": { "label": "Material type", "description": "Text, document, audio, or link" },
-        "source": { "label": "Source material", "description": "Complete material object captured by the start node" },
-        "source_type": { "label": "Source type", "description": "Parsed material type" },
-        "summary": { "label": "Summary", "description": "Business summary extracted from the material" },
-        "methodology": { "label": "Methodology", "description": "Extracted observations, methods, and usage context" },
-        "draft_items": { "label": "Draft items", "description": "Structured items prepared for knowledge staging" },
-        "metadata": { "label": "Metadata", "description": "Classification, tags, resource type, and governance data" },
-        "draft_refs": { "label": "Knowledge drafts", "description": "Candidate knowledge references created after staging" },
-        "decision": { "label": "Decision", "description": "Next branch selected by the decision node" },
-        "review_result": { "label": "Review result", "description": "Human approval, rejection, or requested-change result" },
-        "review_task_uuid": { "label": "Review task", "description": "Human review task reference" },
-        "review_status": { "label": "Review status", "description": "Current human review state" },
-        "published_refs": { "label": "Published records", "description": "Knowledge references after publishing" },
-        "publish_policy": { "label": "Publish policy", "description": "Policy used by the publish node" },
-        "payload": { "label": "Event payload", "description": "Data sent by the event node" },
-        "event_id": { "label": "Event record", "description": "Record reference after event emission" },
-        "topic": { "label": "Event topic", "description": "Event publish topic" },
-        "skill_id": { "label": "Skill", "description": "Skill that was executed" },
-        "trace_id": { "label": "Trace", "description": "Execution trace identifier" },
-        "parsed_at": { "label": "Parsed at", "description": "Material parsing completion time" },
-        "knowledge_space_uuid": { "label": "Target knowledge base", "description": "Knowledge base written by this run" },
-        "note": { "label": "Note", "description": "Note entered in the run test form" },
-        "input": { "label": "Skill input", "description": "Input object passed to the skill" },
-        "output": { "label": "Skill output", "description": "Output object returned by the skill" },
-        "request": { "label": "Capability request", "description": "Request fields sent to the platform capability" },
-        "capability_result": { "label": "Capability result", "description": "Result returned by the platform capability" }
+        "content": {
+          "label": "Content",
+          "description": "Marketing material or parsed body text"
+        },
+        "context": {
+          "label": "Business context",
+          "description": "Business background of the material"
+        },
+        "language": {
+          "label": "Language",
+          "description": "Material language"
+        },
+        "type": {
+          "label": "Material type",
+          "description": "Text, document, audio, or link"
+        },
+        "source": {
+          "label": "Source material",
+          "description": "Complete material object captured by the start node"
+        },
+        "source_type": {
+          "label": "Source type",
+          "description": "Parsed material type"
+        },
+        "summary": {
+          "label": "Summary",
+          "description": "Business summary extracted from the material"
+        },
+        "methodology": {
+          "label": "Methodology",
+          "description": "Extracted observations, methods, and usage context"
+        },
+        "draft_items": {
+          "label": "Draft items",
+          "description": "Structured items prepared for knowledge staging"
+        },
+        "metadata": {
+          "label": "Metadata",
+          "description": "Classification, tags, resource type, and governance data"
+        },
+        "draft_refs": {
+          "label": "Knowledge drafts",
+          "description": "Candidate knowledge references created after staging"
+        },
+        "decision": {
+          "label": "Decision",
+          "description": "Next branch selected by the decision node"
+        },
+        "review_result": {
+          "label": "Review result",
+          "description": "Human approval, rejection, or requested-change result"
+        },
+        "review_task_uuid": {
+          "label": "Review task",
+          "description": "Human review task reference"
+        },
+        "review_status": {
+          "label": "Review status",
+          "description": "Current human review state"
+        },
+        "published_refs": {
+          "label": "Published records",
+          "description": "Knowledge references after publishing"
+        },
+        "publish_policy": {
+          "label": "Publish policy",
+          "description": "Policy used by the publish node"
+        },
+        "payload": {
+          "label": "Event payload",
+          "description": "Data sent by the event node"
+        },
+        "event_id": {
+          "label": "Event record",
+          "description": "Record reference after event emission"
+        },
+        "topic": {
+          "label": "Event topic",
+          "description": "Event publish topic"
+        },
+        "skill_id": {
+          "label": "Skill",
+          "description": "Skill that was executed"
+        },
+        "trace_id": {
+          "label": "Trace",
+          "description": "Execution trace identifier"
+        },
+        "parsed_at": {
+          "label": "Parsed at",
+          "description": "Material parsing completion time"
+        },
+        "knowledge_space_uuid": {
+          "label": "Target knowledge base",
+          "description": "Knowledge base written by this run"
+        },
+        "note": {
+          "label": "Note",
+          "description": "Note entered in the run test form"
+        },
+        "input": {
+          "label": "Skill input",
+          "description": "Input object passed to the skill"
+        },
+        "output": {
+          "label": "Skill output",
+          "description": "Output object returned by the skill"
+        },
+        "request": {
+          "label": "Capability request",
+          "description": "Request fields sent to the platform capability"
+        },
+        "capability_result": {
+          "label": "Capability result",
+          "description": "Result returned by the platform capability"
+        }
       }
     },
     "protocol": {
@@ -784,6 +919,14 @@
         },
         "emitRejected": {
           "name": "Emit rejection event"
+        },
+        "customerContactChannels": {
+          "title": "Channel accounts",
+          "description": "These channel accounts are explicitly bound to contact {name}.",
+          "bound": "Bound channel accounts",
+          "resolveDescription": "Check whether a channel account is already bound to a contact under this customer. This creates neither a contact nor a binding.",
+          "bindDescription": "Explicitly bind this channel account to contact {name}. It will not be automatically rebound to another contact.",
+          "resolveFound": "Resolved contact: {name}"
         }
       }
     },
@@ -1104,6 +1247,9 @@
         "passwordMismatch": "Passwords do not match",
         "usernameRequired": "Username is required",
         "usernameFormat": "Username must start with a lowercase letter, be 3-64 characters long, and contain only lowercase letters, numbers, dots, underscores, and hyphens",
+        "displayNameConflict": "An active member with this name already exists in this tenant. Change the name and try again.",
+        "phoneConflict": "This phone number is already in use. Use a different number and try again.",
+        "emailConflict": "This email address is already in use. Use a different address and try again.",
         "roleRequired": "Select at least one role",
         "missingUserId": "This record is missing the user identifier. Refresh and try again.",
         "rootEditSelfOnly": "Only root can edit the root account.",
@@ -1247,6 +1393,11 @@
       "sections": {
         "general": "General",
         "parameters": "Parameters"
+      },
+      "modelConcurrency": {
+        "label": "Model request concurrency limit",
+        "placeholder": "For example, 2",
+        "hint": "Isolated by tenant, provider, and model; align local Ollama with its inference capacity."
       },
       "errors": {
         "ollamaModelNotFound": "Ollama model not found: {model}. Run ollama pull {model}, or choose an installed local model from the dropdown."
@@ -2137,6 +2288,7 @@
       },
       "uploadFile": "Upload file",
       "uploadHint": "Support PDF/Markdown/Table",
+      "selectedFiles": "{count} files selected",
       "retainSource": "Keep in Media (recommended)",
       "retainSourceHint": "Even if disabled, we still upload temporarily for ingestion fetch; later we will support policy-based cleanup.",
       "chunkSize": "Chunk size (chars / approx tokens)",
@@ -2164,6 +2316,7 @@
       "errors": {
         "missingSpaceId": "Please select a space",
         "missingSource": "Please upload a file or provide a URL",
+        "batchPartial": "Submitted {submitted} ingestion jobs; {failed} files could not be submitted. Fix them and select the failed files again.",
         "runFailed": "Failed to run ingestion"
       },
       "result": {
@@ -2332,7 +2485,57 @@
     }
   },
   "agent": {
-	"response": {"conclusion": "Conclusion", "answer": "Answer", "acceptance": "Acceptance", "evidence": "Evidence", "gaps": "Gaps or blockers", "nextActions": "Next actions", "metrics": "Metrics and calculations", "metric": "Metric", "value": "Value", "formula": "Formula", "facts": "Confirmed facts", "hypotheses": "Hypotheses to validate", "outcomes": {"completed": "This run is complete. The result is below.", "needs_action": "The analysis is complete. The following actions remain.", "blocked": "This run is blocked. Resolve the following gaps first.", "failed": "This run failed. See the run trace."}},
+    "response": {
+      "conclusion": "Conclusion",
+      "answer": "Answer",
+      "acceptance": "Acceptance",
+      "evidence": "Evidence",
+      "gaps": "Gaps or blockers",
+      "nextActions": "Next actions",
+      "metrics": "Metrics and calculations",
+      "metric": "Metric",
+      "value": "Value",
+      "formula": "Formula",
+      "facts": "Confirmed facts",
+      "hypotheses": "Hypotheses to validate",
+      "outcomes": {
+        "completed": "This run is complete. The result is below.",
+        "needs_action": "The analysis is complete. The following actions remain.",
+        "blocked": "This run is blocked. Resolve the following gaps first.",
+        "failed": "This run failed. See the run trace."
+      },
+      "reported": "Source-reported values (not independently verified)",
+      "computed": "Tool-calculated values",
+      "conflicts": "Source and calculation conflicts",
+      "sourceQuote": "Source quotation",
+      "operands": "Input values",
+      "reportedValue": "Reported value",
+      "calculatedValue": "Calculated value",
+      "calculationBoundary": "The calculation verifies arithmetic for the supplied inputs only. Inputs and business attribution have not been independently verified.",
+      "conflictAction": "Provide the source formula, data scope, and attribution definition before confirming the conclusion.",
+      "contractUpgradeRequired": "This historical response uses a retired contract. Inspect its original trace and explicitly retry after publishing the upgraded skill."
+    },
+    "runtime": {
+      "outcomes": {
+        "partial": "A verifiable portion was delivered; the remaining scope is incomplete.",
+        "needsInput": "More information, files, authorization, or approval is required to continue.",
+        "blocked": "The run cannot continue safely because permission, capability, or an external dependency is unavailable.",
+        "failed": "The run did not complete. Review the run trace or retry as directed.",
+        "cancelled": "This run was cancelled."
+      },
+      "actions": {
+        "provideRequiredInput": "Provide the required information to continue.",
+        "resolveAuthorization": "Obtain the required authorization or approval, then retry.",
+        "reviewPartial": "Review the delivered portion and decide whether to continue with the remaining scope."
+      },
+      "taskErrors": {
+        "cancelled": "This step was cancelled.",
+        "timeout": "This step timed out.",
+        "executionFailed": "This step did not complete.",
+        "statePersistFailed": "The state of this step could not be saved.",
+        "unknown": "This step did not complete."
+      }
+    },
     "sessions": {
       "title": "Smart sessions"
     },
@@ -2376,38 +2579,44 @@
         "active": "Active",
         "disabled": "Disabled"
       },
-    "sources": {
-      "core": "Core-created",
-      "plugin": "Plugin-managed",
-      "builtin": "Built-in agent",
-      "protected": "Locked"
-    },
-    "teamRoles": {
-      "coordinator": "Team coordinator ×{count}",
-      "member": "Team member ×{count}"
-    },
-    "categories": {
-      "all": "All categories",
-      "allDescription": "Shows all agents matching the current filters. Pagination applies only to the current view.",
-      "count": "{count} agents",
-      "empty": "No agents in this category match the current filters.",
-      "loading": "Loading agent category dictionary",
-      "loadFailed": "Failed to load agent category dictionary",
-      "loadFailedDescription": "Check that the corex.agent.category dictionary has been seeded and enabled.",
-      "unconfigured": "Category not configured: {code}",
-      "unconfiguredDescription": "This category is not registered in the corex.agent.category dictionary."
-    },
+      "sources": {
+        "core": "Core-created",
+        "plugin": "Plugin-managed",
+        "builtin": "Built-in agent",
+        "protected": "Locked"
+      },
+      "teamRoles": {
+        "coordinator": "Team coordinator ×{count}",
+        "member": "Team member ×{count}"
+      },
+      "categories": {
+        "all": "All categories",
+        "allDescription": "Shows all agents matching the current filters. Pagination applies only to the current view.",
+        "count": "{count} agents",
+        "empty": "No agents in this category match the current filters.",
+        "loading": "Loading agent category dictionary",
+        "loadFailed": "Failed to load agent category dictionary",
+        "loadFailedDescription": "Check that the corex.agent.category dictionary has been seeded and enabled.",
+        "unconfigured": "Category not configured: {code}",
+        "unconfiguredDescription": "This category is not registered in the corex.agent.category dictionary."
+      },
       "filters": {
         "searchPlaceholder": "Search agent name, key, or plugin",
         "allSources": "All sources",
         "allStatuses": "All statuses"
       },
-      "quickCreate": {
-        "name": "New Agent-{suffix}",
-        "description": "Complete the configuration in Agent Management",
-        "success": "Created",
-        "successDescription": "Default agent created",
-        "failed": "Create failed"
+      "createForm": {
+        "keyInvalid": "System Key must contain 1–64 letters, numbers, dots, underscores, or hyphens",
+        "promptSeedHelp": "Drafts may leave this empty; an active agent needs a primary instruction.",
+        "title": "Create Agent",
+        "description": "Review the agent details before saving. Drafts can be completed later.",
+        "systemKey": "System Key",
+        "systemKeyHelp": "Cannot be changed after creation. Use letters, numbers, dots, underscores, or hyphens.",
+        "systemKeyPlaceholder": "e.g. marketing.content_assistant",
+        "keyRequired": "System Key is required",
+        "promptRequired": "Add a system prompt before enabling this agent",
+        "created": "Agent created",
+        "createFailed": "Create failed"
       },
       "edit": {
         "title": "Edit Agent",
@@ -2488,13 +2697,13 @@
         "saved": "Permission settings saved",
         "saveFailed": "Failed to save permission settings"
       },
-    "actions": {
-      "chat": "Smart chat",
-      "team": "Create team",
-      "permissions": "Configure permissions",
-      "edit": "Edit",
-      "locked": "Built-in agents cannot be edited"
-    },
+      "actions": {
+        "chat": "Smart chat",
+        "team": "Create team",
+        "permissions": "Configure permissions",
+        "edit": "Edit",
+        "locked": "Built-in agents cannot be edited"
+      },
       "pagination": {
         "total": "{total} agents"
       },
@@ -2515,53 +2724,53 @@
           "title": "AI Video Refactoring Master",
           "description": "Plans and restructures product launch video scripts and production workflows."
         },
-      "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
-        "title": "Marketing Master",
-        "description": "Creates short-form marketing scripts and campaign messaging."
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "Marketing Master",
+          "description": "Creates short-form marketing scripts and campaign messaging."
+        },
+        "marketing_director_advisor": {
+          "title": "Marketing Director Advisor",
+          "description": "For marketing leaders. Curates strategy, channel reviews, customer signals, and cross-team collaboration methodology."
+        },
+        "marketing_content_strategist": {
+          "title": "Content Marketing Strategist",
+          "description": "For content teams. Organizes topics, scripts, asset reuse, and content campaign reviews into reusable content methodology."
+        },
+        "knowledge_expert_curator": {
+          "title": "Expert Knowledge Curator",
+          "description": "Turns expert interviews, meeting notes, documents, and experience input into structured knowledge drafts for review and publishing."
+        },
+        "marketing_campaign_reviewer": {
+          "title": "Campaign Review Analyst",
+          "description": "For campaign reviews. Extracts metrics, issues, conclusions, and optimization actions into campaign methodology knowledge."
+        },
+        "release_coordinator": {
+          "title": "Release Readiness Coordinator",
+          "description": "Coordinates release readiness collaboration, delegates child-agent work, and synthesizes the final release readiness report."
+        },
+        "release_knowledge_analyst": {
+          "title": "Release Knowledge Analyst",
+          "description": "Analyzes release knowledge, historical incidents, and risk evidence to produce the release risk summary."
+        },
+        "release_workflow_planner": {
+          "title": "Release Process Planner",
+          "description": "Creates release execution steps, validation checklist, and rollback plan from risk analysis."
+        },
+        "release_notification_scheduler": {
+          "title": "Release Notification Planner",
+          "description": "Creates release recipients, reminder timing, and escalation path."
+        }
       },
-      "marketing_director_advisor": {
-        "title": "Marketing Director Advisor",
-        "description": "For marketing leaders. Curates strategy, channel reviews, customer signals, and cross-team collaboration methodology."
-      },
-      "marketing_content_strategist": {
-        "title": "Content Marketing Strategist",
-        "description": "For content teams. Organizes topics, scripts, asset reuse, and content campaign reviews into reusable content methodology."
-      },
-      "knowledge_expert_curator": {
-        "title": "Expert Knowledge Curator",
-        "description": "Turns expert interviews, meeting notes, documents, and experience input into structured knowledge drafts for review and publishing."
-      },
-      "marketing_campaign_reviewer": {
-        "title": "Campaign Review Analyst",
-        "description": "For campaign reviews. Extracts metrics, issues, conclusions, and optimization actions into campaign methodology knowledge."
-      },
-      "release_coordinator": {
-        "title": "Release Readiness Coordinator",
-        "description": "Coordinates release readiness collaboration, delegates child-agent work, and synthesizes the final release readiness report."
-      },
-      "release_knowledge_analyst": {
-        "title": "Release Knowledge Analyst",
-        "description": "Analyzes release knowledge, historical incidents, and risk evidence to produce the release risk summary."
-      },
-      "release_workflow_planner": {
-        "title": "Release Process Planner",
-        "description": "Creates release execution steps, validation checklist, and rollback plan from risk analysis."
-      },
-      "release_notification_scheduler": {
-        "title": "Release Notification Planner",
-        "description": "Creates release recipients, reminder timing, and escalation path."
-      }
+      "accessGrants": "Use authorization"
     },
-	      "accessGrants": "Use authorization"
-	    },
-	    "teamTasks": {
+    "teamTasks": {
       "badge": "Team task",
       "newTask": "New task",
       "workspaceTitle": "Team Task Workspace",
-	      "workspaceSubtitle": "Multi-agent collaboration mode is active.",
-	      "memberCount": "{count} members",
-	      "membersTitle": "Team Members",
-	      "membersSubtitle": "Current collaboration team",
+      "workspaceSubtitle": "Multi-agent collaboration mode is active.",
+      "memberCount": "{count} members",
+      "membersTitle": "Team Members",
+      "membersSubtitle": "Current collaboration team",
       "manage": "Manage",
       "noKey": "No key",
       "notices": {
@@ -2573,15 +2782,15 @@
       "selector": {
         "label": "Select team",
         "teamLabel": "Team: {name}"
-	      }
-	    },
-	    "teams": {
-	      "catalog": {
-	        "release_readiness_team": {
-	          "title": "Release Readiness Team"
-	        }
-	      }
-	    },
+      }
+    },
+    "teams": {
+      "catalog": {
+        "release_readiness_team": {
+          "title": "Release Readiness Team"
+        }
+      }
+    },
     "effectivePermissions": {
       "title": "Effective permissions",
       "description": "The current session can use only the intersection of user IAM permissions, agent grants, tenant capability enablement, and policy result.",
@@ -2653,11 +2862,11 @@
       "selectProvider": "Select provider",
       "selectModel": "Select model"
     },
-	    "chat": {
-	      "badge": "Smart chat",
-	      "workspaceTitle": "Smart Chat Workspace",
-	      "workspaceSubtitle": "Single-agent chat mode is active.",
-	      "defaultAgent": "Default agent",
+    "chat": {
+      "badge": "Smart chat",
+      "workspaceTitle": "Smart Chat Workspace",
+      "workspaceSubtitle": "Single-agent chat mode is active.",
+      "defaultAgent": "Default agent",
       "connected": "Connected",
       "disconnected": "Connection lost",
       "welcomeTitle": "Welcome",
@@ -2674,6 +2883,8 @@
       "untitledSession": "Untitled session",
       "responding": "Responding",
       "generating": "Generating",
+      "stopGeneration": "Stop generation",
+      "send": "Send",
       "traceThisRun": "Trace this run",
       "traceDetails": "Trace details",
       "traceReport": {
@@ -2962,7 +3173,7 @@
         "label": "Namespace (optional)",
         "placeholder": "Example: company.crm"
       },
-		"releaseChannel": "Release channel",
+      "releaseChannel": "Release channel",
       "autoUpdate": "Auto update",
       "forceInstall": "Force overwrite same version",
       "permissions": {
@@ -2984,5 +3195,500 @@
         "local": "Local upload"
       }
     }
+  },
+  "agentCapabilityApprovals": {
+    "title": "Capability approvals",
+    "description": "Review pending high-risk Agent capability requests.",
+    "back": "Back to Agent management",
+    "loading": "Loading approvals…",
+    "loadFailed": "Unable to load approvals",
+    "emptyTitle": "No pending approvals",
+    "emptyDescription": "There are no high-risk Agent requests awaiting review.",
+    "requestTitle": "High-risk Agent capability request",
+    "requestedAt": "Requested {time}",
+    "approve": "Approve",
+    "approved": "Approval recorded",
+    "approveFailed": "Approval could not be recorded",
+    "reject": "Reject",
+    "rejected": "Request rejected",
+    "rejectFailed": "Request could not be rejected"
+  },
+  "customerAdmin": {
+    "editProfile": "Edit customer profile",
+    "editHint": "Update the customer master profile. Login accounts and contacts are maintained separately.",
+    "nickname": "Nickname",
+    "editFailed": "Could not save the customer profile",
+    "editReloadRequired": "Reload the customer profile before editing.",
+    "reloadProfile": "Reload and replace this form",
+    "create": "Create customer",
+    "createHint": "Create a customer, tenant membership and primary contact. No login account or password is created.",
+    "createFailed": "Could not create customer",
+    "createRetryHint": "After a network interruption, refresh the list and check before creating again.",
+    "type": "Customer type",
+    "person": "Person",
+    "company": "Company",
+    "primaryContact": "Primary contact (person)",
+    "companyContactRequired": "A company requires a named primary contact.",
+    "import": "Import customers",
+    "importHint": "UTF-8 CSV: upload, preview, confirm valid rows, then read results. Duplicate records are never merged or overwritten.",
+    "template": "Download CSV template",
+    "csvFile": "Customer CSV file",
+    "fileHelp": "Up to 1 MiB and 200 rows. Name plus email or phone is required. Companies require a named primary contact. Other formats are rejected explicitly.",
+    "fileInvalid": "Select a .csv file no larger than 1 MiB.",
+    "encodingInvalid": "The file is not valid UTF-8. Export the CSV again.",
+    "preview": "Preview import",
+    "previewReady": "Preview saved; no customers have been created",
+    "lookupPlaceholder": "Paste an import UUID to read its preview or results",
+    "readResult": "Read import record",
+    "importFailed": "Could not read or validate the import",
+    "importRetryHint": "If the outcome is uncertain, read the same import UUID first. Reconfirming the same preview does not create duplicates. Correct failed rows from completed imports and generate a new preview.",
+    "completed": "Import completed; inspect each row",
+    "summary": "{total} rows; {ready} ready; {created} created; {skipped} skipped; {failed} failed.",
+    "importID": "Import UUID",
+    "expires": "Preview confirmation deadline",
+    "row": "CSV row",
+    "rowResult": "Result / customer UUID",
+    "downloadResult": "Download row results CSV",
+    "confirmRows": "Create only valid rows and skip the rest. Do not overwrite or merge existing customers.",
+    "commit": "Confirm and create valid customers",
+    "permissionHint": "Menu and operation permissions are separate. Creation requires customer-create permission; imports require preview, commit and result-read permissions.",
+    "pagination": "{total} customers · Page {page}/{pages}",
+    "previous": "Previous",
+    "next": "Next",
+    "rowStatus": {
+      "ready": "Ready",
+      "invalid": "Invalid",
+      "duplicate": "Duplicate, skipped",
+      "created": "Created",
+      "failed": "Creation failed"
+    },
+    "errors": {
+      "CUSTOMER_IMPORT_DUPLICATE_IN_FILE": "Duplicate email or phone in this file",
+      "CUSTOMER_IMPORT_DUPLICATE_EXISTING": "Email or phone already exists in this tenant",
+      "CUSTOMER_IMPORT_ROW_COLUMNS_INVALID": "Column count does not match the header",
+      "CUSTOMER_IMPORT_ROW_INVALID": "Invalid name, email, phone or type",
+      "CUSTOMER_IMPORT_PRIMARY_CONTACT_REQUIRED": "Company is missing a named primary contact",
+      "CUSTOMER_IMPORT_ROW_CREATE_FAILED": "Row transaction failed; no complete customer was created"
+    }
+  },
+  "customerMaster": {
+    "title": "Customer master data",
+    "description": "Manage customer identity, authentication sources, tenant memberships, and contacts. CRM owns customer profile and sales relationships.",
+    "search": "Search name, email, phone, or UUID",
+    "customer": "Customer",
+    "customerUuid": "Customer UUID",
+    "email": "Primary email",
+    "phone": "Primary phone",
+    "updatedAt": "Updated",
+    "open": "View details",
+    "notFound": "The customer was not found in this tenant.",
+    "loadFailed": "Customer master data could not be loaded.",
+    "empty": "There are no customers in this tenant.",
+    "basic": "Basic data",
+    "authIdentities": "Authentication identities",
+    "memberships": "Tenant memberships",
+    "loginEvents": "Login events",
+    "miniAppEntries": "Tenant MiniApp entries",
+    "contacts": "Contacts",
+    "provider": "Provider",
+    "subject": "External subject",
+    "source": "Source",
+    "expiresAt": "Expires at",
+    "event": "Event",
+    "result": "Result",
+    "channel": "Channel",
+    "entryCode": "Entry code",
+    "entryType": "Entry type",
+    "campaign": "Campaign",
+    "identity": "Channel identities",
+    "actions": "Actions",
+    "edit": "Edit",
+    "disable": "Deactivate",
+    "createContact": "Create contact",
+    "saveTemporary": "Save as temporary",
+    "displayName": "Name",
+    "givenName": "Given name",
+    "familyName": "Family name",
+    "roles": "Stable roles",
+    "tags": "Tags",
+    "tagsHint": "Comma-separated, up to 20.",
+    "contactEmpty": "No contacts.",
+    "identityEmpty": "No channel identities.",
+    "resolveIdentity": "Resolve channel identity",
+    "bindIdentity": "Bind channel identity explicitly",
+    "externalSubject": "Channel external identifier",
+    "resolveNotFound": "No bound contact was found. Explicitly create a contact or save one as temporary.",
+    "temporaryNotice": "Temporary contacts can only be created by an explicit human action.",
+    "identityConflict": "This channel identity is already bound to another contact.",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "statusTemporary": "Temporary",
+    "rolePrimary": "Primary contact",
+    "roleLegalRepresentative": "Legal representative",
+    "tenantEntryDescription": "This is current-tenant configuration; it does not claim a binding to this customer.",
+    "loginSuccess": "Success",
+    "loginFailure": "Failure",
+    "saveFailed": "Save failed.",
+    "back": "Back to customers"
+  },
+  "backupCenter": {
+    "archives": {
+      "guideTitle": "Media and log archive guide",
+      "guideFormat": "The Media and logs tab stores complete manifests and SHA256 objects, reusing identical content. Downloads are .tar.gz files with media, a manifest and an optional database dump. Database-only dumps do not contain media files.",
+      "guideSchedule": "Enable each policy separately. Defaults: local 7 days / 168 snapshots, remote 90 days / 2160 snapshots. Keep protected, latest and untransferred snapshots. The independent archive timer can run while Core is stopped; SSH keys and host trust are deployed by operators.",
+      "guideRestore": "Restore into a separate directory; follow the paired database in Restored copies. Current database, media paths and S3 Bucket remain in use. Ordinary PostgreSQL SQL logs support investigation, not WAL/PITR recovery.",
+      "title": "Media and remote archives",
+      "tab": "Media and logs",
+      "policies": "Archive policies",
+      "targets": "Remote targets",
+      "newTarget": "Add SSH target",
+      "jobs": "Archive jobs and transfers",
+      "sources": "Server sources and storage",
+      "source": "Source",
+      "localRetention": "Local retention",
+      "remoteTarget": "Remote target",
+      "runNow": "Archive now",
+      "credential": "SSH credential reference",
+      "credentialsMissing": "Deploy a dedicated private key and known_hosts file in the archive configuration before adding a target. Keys are not entered in the browser.",
+      "testTarget": "Test connection",
+      "jobID": "Archive ID",
+      "manifest": "Local snapshot manifest",
+      "remotePath": "Remote snapshot manifest",
+      "fileCount": "Files",
+      "totalSize": "Logical snapshot size",
+      "newSize": "New storage this run",
+      "details": "View paths and transfer details",
+      "attempts": "Transfer attempts / next retry",
+      "download": "Download .tar.gz",
+      "retry": "Retry transfer",
+      "restore": "Restore to new directory/database",
+      "restores": "Separate restore results",
+      "databaseProgress": "Database progress: Backup operations → Restored copies",
+      "deleteRestore": "Delete restored directory",
+      "storageRoot": "Archive storage root",
+      "ready": "Available",
+      "policyHint": "Policies start disabled. Run and verify a backup before enabling the schedule. Each resource has separate retention settings.",
+      "intervalMinutes": "Interval (minutes)",
+      "localDays": "Local retention days",
+      "localCount": "Maximum local snapshots",
+      "remoteDays": "Remote retention days",
+      "remoteCount": "Maximum remote snapshots",
+      "includeDatabase": "Include a transaction-consistent database dump with the media snapshot",
+      "localOnly": "Local only",
+      "targetHint": "Use a deployed SSH credential. The receiver needs Python3 and rsync; the directory must be absolute.",
+      "targetName": "Target name",
+      "targetDirectory": "Remote storage root",
+      "targetVerified": "SSH, host trust and receiver directory verified",
+      "restoreHint": "Create a separate directory and, when included, a separate database. PowerX keeps its current database and media directory. S3 objects are restored as files in the new directory.",
+      "cleanupHint": "Prune registered snapshots and unreferenced objects according to policy. Keep the latest, protected and untransferred snapshots. Remote retention is independent.",
+      "runHint": "Capture an incremental snapshot and transfer it when a remote target is configured. A paired database dump uses additional storage.",
+      "olderConsent": "Allow an attempt to restore a newer PostgreSQL dump on an older server and verify the result",
+      "deleteHint": "Delete only this generated directory. Delete any associated new database separately in Restored copies.",
+      "typeRestoreID": "Type the complete restore ID",
+      "rootOnly": "Whole-site media and PostgreSQL log archives require a Root user session",
+      "pending": "{count} snapshots await verified remote transfer. Review failures and retry.",
+      "processing": "Capturing snapshot",
+      "state": {
+        "running": "Running",
+        "success": "Local complete",
+        "failed": "Failed",
+        "pruned": "Local pruned",
+        "deleted": "Deleted"
+      },
+      "remoteState": {
+        "pending": "Awaiting remote confirmation",
+        "success": "Remote verified",
+        "failed": "Remote failed",
+        "not_requested": "Local only"
+      }
+    },
+    "copies": {
+      "title": "Restored copies",
+      "subtitle": "Create a separate database from a backup and retain it until manually deleted.",
+      "new": "Restore to a new database",
+      "empty": "No restored copies yet",
+      "wizardHint": "Check the archive and server, then confirm creation of a separate database.",
+      "source": "Backup source",
+      "sourceMode": {
+        "job": "Registered backup",
+        "upload": "Upload a local .dump"
+      },
+      "backupJob": "Select a backup job",
+      "upload": "Select archive",
+      "uploadHint": "PostgreSQL custom .dump, up to 512 MiB. Uploaded to the current Core server. Uploads without a restore task expire after 24 hours; referenced uploads stay with the copy and are removed when the last copy is deleted.",
+      "invalidFile": "Select a .dump file no larger than 512 MiB",
+      "server": "Target PostgreSQL (the server currently used by Core)",
+      "original": "Current database",
+      "originalContinues": "PowerX continues to use this database",
+      "target": "New restored database",
+      "generated": "The server generates a unique name and never reuses an existing database",
+      "result": "Restore result",
+      "tables": "{count} tables",
+      "processing": "Restore in progress",
+      "report": "View verification report",
+      "acceptanceHint": "Structure and data have been imported. Check key records; full application acceptance is a separate step.",
+      "schemas": "Tables per schema",
+      "extensions": "Required extensions",
+      "executionTitle": "This restore writes to a separate new database",
+      "executionHint": "Import structure and data, then retain the copy. PowerX and plugins keep their current connections. No migrations, seeds or background jobs run on the copy.",
+      "olderConsent": "The target PostgreSQL is older. Confirm an attempt at compatible restore and verify the result. Incompatible objects may cause failure.",
+      "confirmNew": "Create and retain a separate database using additional disk space.",
+      "check": "Check archive and target",
+      "start": "Create database and restore",
+      "back": "Back to selection",
+      "connection": "Read-only connection",
+      "connectionHint": "After validating the client endpoint, generate a password dedicated to this copy. Each successful generation replaces the previous password.",
+      "connectionLoading": "Checking the client endpoint and generating read-only credentials…",
+      "accessConfigTitle": "Configure a client access endpoint",
+      "accessConfigHint": "Ask operations to configure the client host, port and access mode. Container deployments can enable loopback port publishing with compose.restore-access.yml and establish an SSH tunnel. Restart Core after configuration, then request the connection again.",
+      "directConnection": "Database connection endpoint",
+      "sshTunnel": "Establish an SSH tunnel first",
+      "sshTunnelHint": "From your computer, forward local {host}:{port} to {targetHost}:{targetPort} as reachable from the SSH server. Then connect TablePlus with the address or DSN below. Copying a DSN does not establish a tunnel. Operations supplies the SSH user and server address.",
+      "invalidConnection": "The client connection response is incomplete. Update Core and check the access configuration.",
+      "password": "Read-only password",
+      "username": "Username",
+      "host": "Client host",
+      "port": "Client port",
+      "expires": "Credentials expire at {time}. While Core is running, new logins are disabled within one minute of expiry; close existing read-only connections yourself.",
+      "copyPassword": "Copy password",
+      "copyDSN": "Copy full DSN (includes password)",
+      "copied": "Copied",
+      "clipboardFailed": "Cannot write to the clipboard. Check browser clipboard permission.",
+      "remoteHint": "Confirm this address is reachable from your computer. When using the server database address, remote localhost/127.0.0.1 still requires an SSH tunnel. Copying a DSN does not establish a tunnel.",
+      "delete": "Delete copy",
+      "deleteHint": "Delete this new database and its dedicated roles. Close TablePlus and other connections first; connections are never forcibly terminated.",
+      "typeName": "Type the complete copy database name above",
+      "status": {
+        "queued": "Queued",
+        "running": "Restoring",
+        "success": "Restored",
+        "failed": "Failed",
+        "deleted": "Deleted"
+      },
+      "phase": {
+        "queued": "Waiting",
+        "validating": "Checking archive",
+        "creating": "Creating database",
+        "restoring": "Importing structure and data",
+        "checking": "Verifying result"
+      },
+      "business": {
+        "tenants": "Tenants",
+        "users": "Users",
+        "design_tasks": "Design tasks",
+        "orders": "Orders",
+        "sample_rounds": "Sample rounds"
+      }
+    },
+    "title": "Backup and recovery",
+    "subtitle": "Back up this instance database and inspect artifacts, retention and restore verification.",
+    "reload": "Refresh",
+    "runtimeTitle": "Source database and backup files",
+    "source": "Actual source database",
+    "directory": "Server backup directory",
+    "pathTemplate": "Directory and filename (UTC)",
+    "format": "File format",
+    "scope": "Backup scope",
+    "scopeHint": "All database schemas, including Core and plugins. Media files, configuration and secrets are separate.",
+    "notReady": "Backup dependencies are unavailable",
+    "runtimeMissing": "Runtime configuration is unavailable. Inspect the API error and refresh.",
+    "directoryHint": "Storage is independent of releases. Set an absolute POWERX_OPS_BACKUP_ARTIFACT_DIR and restart; otherwise POWERX_LINKS_ROOT/storage/backups is used. Files: 0600; directories: 0750.",
+    "noAutomaticPolicy": "{count} policies enabled. A backup page alone does not enable scheduled backups.",
+    "howTo": "How to configure backups",
+    "setupStep1": "Open Runtime settings to check the source database and storage directory. Use separate directories for development and production.",
+    "setupStep2": "Create a policy: recommended interval 1 hour, retention 7 days and 168 copies. New policies are disabled.",
+    "setupStep3": "Back up now. Verify success, path, size and SHA256; run restore verification in a fresh database.",
+    "setupStep4": "Click Enable schedule. An independent systemd timer can run while Core HTTP is stopped. Offsite copies and WAL/PITR require separate operations configuration.",
+    "policies": "Backup policies",
+    "newPolicy": "New policy",
+    "policySteps": "Save → Back up now → Verify restore → Enable. Every enabled policy runs on its interval; manual backups also work for disabled policies.",
+    "noPolicies": "No policies. Create one to begin.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "autoVerify": "Automatic restore verification",
+    "everyDays": "Every {days} days",
+    "edit": "Edit",
+    "enable": "Enable",
+    "disable": "Disable",
+    "backupNow": "Back up now",
+    "cleanup": "Clean expired files",
+    "cleanupScope": "Checks every policy. Deletes only registered expired dump files; keeps job audit records.",
+    "jobs": "Backup jobs and files",
+    "page": "Page {page}, {total} records",
+    "previous": "Previous",
+    "next": "Next",
+    "editPolicy": "Edit policy",
+    "formHint": "The source is the current Core connection. Backups are local dump files; no target database connection is required.",
+    "policyName": "Policy name",
+    "interval": "Interval",
+    "retentionCount": "Maximum copies",
+    "retentionMode": "Retention mode",
+    "retentionDays": "Retention days (1–3650)",
+    "timezone": "Time zone",
+    "retentionExplanation": "Age and count: files expire when either limit is exceeded. The latest copy and protected copies are always kept. Successful jobs count; cleanup runs after a successful backup or manually. Saving policy changes does not delete files immediately.",
+    "verifyInterval": "Automatic verification interval (days)",
+    "verifyHint": "Disabled by default. Verification creates a fresh database and removes it afterward by default; it never overwrites production.",
+    "cancel": "Cancel",
+    "save": "Save policy",
+    "confirm": "Confirm",
+    "verify": "Verify restore",
+    "cleanupConfirm": "Expired files are permanently removed according to each policy. Latest and protected copies remain. Protect important copies first.",
+    "verifyConfirm": "Verify SHA256 and restore to a fresh isolated database. Existing databases are untouched. The new test database is removed afterward by default.",
+    "minute": "Minutes",
+    "hour": "Hours",
+    "day": "Days",
+    "age_and_count": "Age and count",
+    "count": "Count only",
+    "keepDaysCount": "{days} days / maximum {count} copies",
+    "keepCount": "Maximum {count} copies (no age limit)",
+    "invalidTimezone": "Enter a valid IANA time zone, e.g. Asia/Shanghai",
+    "failed": "Backup operation failed",
+    "saved": "Policy saved. Verify a first backup before enabling the schedule.",
+    "backupSucceeded": "Backup succeeded. Check the file and SHA256, then verify restore.",
+    "cleanupSucceeded": "Expired files cleaned.",
+    "verifySucceeded": "Isolated restore verification succeeded. Production was not switched.",
+    "job": "Job and time",
+    "policy": "Policy",
+    "status": "Status",
+    "artifact": "Artifact and checksum",
+    "size": "Size",
+    "actions": "Actions",
+    "protected": "Protected from cleanup",
+    "pruned": "No available artifact record (possibly expired); job audit retained",
+    "noArtifact": "No registered artifact yet",
+    "unprotect": "Remove protection",
+    "protect": "Protect backup",
+    "noJobs": "No backup jobs.",
+    "recoveryTitle": "Production recovery procedure",
+    "recoveryStep1": "Protect a successful backup taken before the incident and check its path, size and SHA256. A current empty-database dump cannot recover older records.",
+    "recoveryStep2": "Verify restore into a fresh database. A table count proves technical restoration only; inspect business records and relationships.",
+    "recoveryStep3": "Operations restores the same dump to a new recovery database, then verifies orders, tenants, plugins and media references. Keep the current database and snapshot.",
+    "recoveryStep4": "During a maintenance window stop Core, plugins and backup timers. Keep the original database and switch to the verified recovery database; preserve the original database name so plugin DSNs stay aligned.",
+    "recoveryStep5": "Verify login, orders and files. If checks fail, stop writes and switch back to the original database configuration. Retain originals until acceptance.",
+    "recoveryBoundary": "Restore verification checks an archive in a fresh isolated database. Operations switches production during a maintenance window. Disaster recovery also requires offsite backups and WAL point-in-time recovery.",
+    "restoreHistory": "Restore verification history",
+    "restoreHistoryHint": "Verification uses a fresh isolated database and never switches production. Expand a record for its target, table count and report.",
+    "noRestoreHistory": "No restore verification records.",
+    "restoreTarget": "Isolated database",
+    "tableCount": "Restored table count",
+    "probeKept": "The isolated database was kept for inspection; operations must remove it after verification.",
+    "probeRemoved": "The isolated database was removed; the backup file remains.",
+    "alerts": "Backup alerts",
+    "ackAlert": "Acknowledge",
+    "workspace": {
+      "subtitle": "Manage backup policies, execution results and restore verification.",
+      "operations": "Backup operations",
+      "configuration": "Runtime settings",
+      "guide": "Usage guide",
+      "automaticBackups": "Scheduled backups",
+      "enabledPolicies": "{count} policies enabled",
+      "scheduleOff": "Schedule disabled",
+      "scheduleOn": "Schedule enabled",
+      "lastSuccessfulBackup": "Last successful backup",
+      "frequency": "Backup frequency",
+      "retention": "File retention",
+      "verificationOff": "Off",
+      "enableSchedule": "Enable schedule",
+      "disableSchedule": "Disable schedule",
+      "everyMinutes": "Every {count} min",
+      "everyHours": "Every {count} h",
+      "everyDays": "Every {count} d",
+      "fileMaintenance": "File cleanup",
+      "cleanupBrief": "Remove expired backups according to policy retention rules.",
+      "backupFile": "Backup file",
+      "fileDetails": "View path, checksum and trace",
+      "fullPath": "Full file path",
+      "sourceJob": "Backup job",
+      "scheduledTrigger": "Scheduled run",
+      "manualTrigger": "Manual run",
+      "guideStart": "Set up automatic backups",
+      "steps": {
+        "source": "Check runtime settings",
+        "create": "Create a policy",
+        "verify": "Back up and verify",
+        "enable": "Enable the schedule"
+      },
+      "filesAndRetention": "Backup files and retention",
+      "formatHelp": "Data is stored in PostgreSQL custom .dump archives restored with pg_restore. The same directory contains a .dump.sha256 checksum and a .dump.json manifest.",
+      "verificationHelpTitle": "Backups and restore verification",
+      "scheduleHelp": "Enabled policies run at their configured intervals. Back up now runs once and does not change whether a policy is enabled.",
+      "verificationHelp": "Automatic restore verification is a separate setting. It checks recoverability at its own interval; disabling it does not stop scheduled backups.",
+      "troubleshooting": "Troubleshooting",
+      "troubleshootJob": "Expand a failed job to inspect the error and Trace ID and identify the failing step.",
+      "troubleshootRuntime": "Check the source database, backup directory and dependencies under Runtime settings.",
+      "troubleshootTrace": "Find the job Trace ID in Logs / Trace or server logs, fix the cause, then retry the operation.",
+      "statuses": {
+        "pending": "Pending",
+        "running": "Running",
+        "success": "Success",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "verificationScope": "Restore verification checks an archive and restores it in a fresh isolated database. Inspect its target database, table count and result report.",
+      "summaryScheduleOff": "Not enabled"
+    }
+  },
+  "integrationApiKeyOwners": {
+    "column": "Plugin owner grants",
+    "unbound": "No plugin owner binding",
+    "configure": "Configure plugin owners",
+    "title": "Configure plugin owner grants",
+    "description": "This binding applies to this API Key and survives Profile saves and key rotation.",
+    "keyLabel": "API Key:",
+    "pluginLabel": "Plugin IDs",
+    "inputHelp": "One complete plugin ID per line. Leave empty to revoke plugin owner access.",
+    "scopeHelp": "Both owner access and Profile capability grants are required. Use IDs from the plugin manifest. Wildcards are not supported.",
+    "legacyTitle": "This key has existing owner grants per permission",
+    "legacyDescription": "Saving this form applies the listed owners to every grant in the current Profile. Review the existing scope below.",
+    "cancel": "Cancel",
+    "save": "Save owner grants",
+    "createLabel": "Plugin owner grants (optional)",
+    "createHelp": "One complete plugin ID per line. Reading and deleting plugin tasks also requires matching owner access.",
+    "readFailed": "Failed to read plugin owners",
+    "saveFailed": "Failed to save plugin owners",
+    "saved": "Plugin owner grants saved",
+    "tenantChanged": "Tenant changed. Open the API Key again.",
+    "retry": "Please try again.",
+    "invalid": "Use complete plugin IDs. Wildcards, paths and uppercase characters are not supported.",
+    "limit": "At most 32 plugin owners may be granted"
+  },
+  "pluginFrame": {
+    "title": "Plugin page",
+    "errors": {
+      "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "The plugin admin page is not ready. Automatic retries have stopped.",
+      "PLUGIN_FRAME_LOAD_FAILED": "Failed to load the plugin page.",
+      "PLUGIN_BRIDGE_TIMEOUT": "The plugin session bridge is not ready. Check bridge protocol v2 support.",
+      "PLUGIN_NAVIGATION_TIMEOUT": "Plugin navigation did not finish. Retry the operation.",
+      "PLUGIN_NAVIGATION_UNSUPPORTED": "The plugin needs the new navigation adapter. Upgrade the plugin.",
+      "PLUGIN_NAVIGATION_FAILED": "The plugin page could not be opened. Retry and check the plugin console.",
+      "PLUGIN_NAVIGATION_INVALID": "The navigation address is outside this plugin's allowed routes.",
+      "PLUGIN_NAVIGATION_ROUTE_MISMATCH": "The plugin did not reach the requested page. Retry and check its routes.",
+      "PLUGIN_BRIDGE_ORIGIN_UNSUPPORTED": "The plugin origin does not meet the bridge requirements.",
+      "PLUGIN_HOST_AUTH_UNAVAILABLE": "Host session refresh is temporarily unavailable. Retry later.",
+      "PLUGIN_AUTH_ADAPTER_TIMEOUT": "The plugin has not confirmed the current session. Upgrade its session adapter and retry.",
+      "PLUGIN_AUTH_REQUIRED": "The host session has ended. Sign in to PowerX.",
+      "PLUGIN_AUTH_CONTEXT_FAILED": "The plugin could not confirm the current user. Synchronize the session again."
+    }
+  },
+  "customerMaintenance": {
+    "setPrimary": "Set primary contact",
+    "primaryConfirm": "Set {name} as this customer’s primary contact in the current tenant? The previous reference will be replaced.",
+    "replaceBeforeDisable": "Replace the primary contact before deactivating it",
+    "nameInvalid": "Names must contain 1–128 Unicode characters without control characters",
+    "repair": "Repair primary contact",
+    "repairNotice": "Repairs this customer’s type and contact reference only. Creates no new customer or login identity. Preview and confirm explicitly; changed source data requires a new preview.",
+    "createNaturalPerson": "Create a natural-person contact",
+    "targetContact": "Reuse an existing contact or create a natural person",
+    "repairScopeMismatch": "Repair belongs to a different customer",
+    "repairID": "Repair UUID",
+    "proposal": "Effective proposal",
+    "checksum": "Preview checksum",
+    "completed": "Repair completed",
+    "confirmRepair": "I have verified the type, contact details and proposal and confirm this preview",
+    "newPreview": "Preview again",
+    "not_needed": "Reference valid; verify role marker",
+    "type_only": "Confirm type and verify primary contact",
+    "reuse_contact": "Reuse contact and set primary",
+    "create_contact": "Create natural-person contact and set primary"
   }
 }

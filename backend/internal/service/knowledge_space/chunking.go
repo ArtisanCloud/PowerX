@@ -538,11 +538,10 @@ func splitByRuneWindowPreferSeparators(s string, window int, overlap int, separa
 	// sanitize separators (limit size to keep perf predictable)
 	seps := make([]string, 0, len(separators))
 	for _, sep := range separators {
-		sep = strings.TrimSpace(sep)
 		if sep == "" {
 			continue
 		}
-		if len([]rune(sep)) > 16 {
+		if len([]rune(sep)) > 32 {
 			continue
 		}
 		seps = append(seps, sep)
@@ -693,7 +692,6 @@ func splitByCustomSeparators(s string, separators []string) []string {
 	}
 	seps := make([]string, 0, len(separators))
 	for _, sep := range separators {
-		sep = strings.TrimSpace(sep)
 		if sep == "" {
 			continue
 		}

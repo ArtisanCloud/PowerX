@@ -215,6 +215,7 @@ func applyAPIKeyContext(c *gin.Context, db *gorm.DB, apiKey string, cfg jwtMiddl
 	c.Set("auth_source", "api_key")
 	c.Set("auth_api_key_id", keyRecord.id)
 	c.Set("auth_api_key_hash", normalizedHash)
+	c.Request = c.Request.WithContext(reqctx.WithAuthenticatedAPIKeyHash(c.Request.Context(), normalizedHash))
 	c.Set("auth_api_key_tenant_uuid", keyRecord.tenantUUID)
 	incTenantUUIDOnlyRequest()
 	return true, nil
@@ -260,6 +261,7 @@ func applyCachedAPIKeyContext(c *gin.Context, cfg jwtMiddlewareConfig, snapshot 
 	c.Set("auth_source", "api_key")
 	c.Set("auth_api_key_id", snapshot.KeyID)
 	c.Set("auth_api_key_hash", keyHash)
+	c.Request = c.Request.WithContext(reqctx.WithAuthenticatedAPIKeyHash(c.Request.Context(), keyHash))
 	c.Set("auth_api_key_tenant_uuid", snapshot.TenantUUID)
 	incTenantUUIDOnlyRequest()
 	return true

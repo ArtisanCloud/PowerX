@@ -14,11 +14,14 @@ import (
 )
 
 type Handler struct {
-	svc *customersvc.AccountService
+	svc      *customersvc.AccountService
+	contacts *customersvc.ContactService
+	imports  *customersvc.AccountImportService
+	repairs  *customersvc.ContactRepairService
 }
 
 func NewHandler(deps *shared.Deps) *Handler {
-	return &Handler{svc: customersvc.NewAccountService(deps.DB)}
+	return &Handler{svc: customersvc.NewAccountService(deps.DB), contacts: customersvc.NewContactService(deps.DB), imports: deps.CustomerImports, repairs: deps.CustomerContactRepairs}
 }
 
 type listAccountsRequest struct {
@@ -28,17 +31,27 @@ type listAccountsRequest struct {
 }
 
 type createAccountRequest struct {
-	Status       string `json:"status"`
-	PrimaryEmail string `json:"primary_email"`
-	PrimaryPhone string `json:"primary_phone"`
-	DisplayName  string `json:"display_name"`
-	Nickname     string `json:"nickname"`
-	GivenName    string `json:"given_name"`
-	FamilyName   string `json:"family_name"`
-	AvatarURL    string `json:"avatar_url"`
-	Locale       string `json:"locale"`
-	Timezone     string `json:"timezone"`
-	MemberSource string `json:"member_source"`
+	Type           string                 `json:"type" validate:"omitempty,oneof=person company"`
+	PrimaryContact *primaryContactRequest `json:"primary_contact"`
+	Status         string                 `json:"status"`
+	PrimaryEmail   string                 `json:"primary_email"`
+	PrimaryPhone   string                 `json:"primary_phone"`
+	DisplayName    string                 `json:"display_name"`
+	Nickname       string                 `json:"nickname"`
+	GivenName      string                 `json:"given_name"`
+	FamilyName     string                 `json:"family_name"`
+	AvatarURL      string                 `json:"avatar_url"`
+	Locale         string                 `json:"locale"`
+	Timezone       string                 `json:"timezone"`
+	MemberSource   string                 `json:"member_source"`
+}
+
+type primaryContactRequest struct {
+	DisplayName string `json:"display_name"`
+	GivenName   string `json:"given_name"`
+	FamilyName  string `json:"family_name"`
+	Email       string `json:"email"`
+	Phone       string `json:"phone"`
 }
 
 type updateStatusRequest struct {
@@ -100,29 +113,41 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		return
 	}
 	var req createAccountRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
+	if c.Request.URL.RawQuery != "" {
+		dto.RespondErrorFrom(c, dto.NewErrorWithCode(400, "CUSTOMER_ADMIN_REQUEST_INVALID", "客户创建不接受查询参数或租户覆盖", nil))
 		return
 	}
-	item, err := h.svc.Create(c.Request.Context(), customersvc.CreateAccountInput{
-		TenantUUID:   tenantUUID,
-		Status:       req.Status,
-		PrimaryEmail: req.PrimaryEmail,
-		PrimaryPhone: req.PrimaryPhone,
-		DisplayName:  req.DisplayName,
-		Nickname:     req.Nickname,
-		GivenName:    req.GivenName,
-		FamilyName:   req.FamilyName,
-		AvatarURL:    req.AvatarURL,
-		Locale:       req.Locale,
-		Timezone:     req.Timezone,
-		MemberSource: req.MemberSource,
+	if !bindCustomerAdminJSON(c, &req, 65536, "CUSTOMER_ADMIN_REQUEST_INVALID") {
+		return
+	}
+	item, err := h.svc.CreateFromAdmin(c.Request.Context(), customersvc.CreateAccountInput{
+		TenantUUID:     tenantUUID,
+		Type:           req.Type,
+		PrimaryContact: accountPrimaryContact(req.PrimaryContact),
+		Status:         req.Status,
+		PrimaryEmail:   req.PrimaryEmail,
+		PrimaryPhone:   req.PrimaryPhone,
+		DisplayName:    req.DisplayName,
+		Nickname:       req.Nickname,
+		GivenName:      req.GivenName,
+		FamilyName:     req.FamilyName,
+		AvatarURL:      req.AvatarURL,
+		Locale:         req.Locale,
+		Timezone:       req.Timezone,
+		MemberSource:   req.MemberSource,
 	})
 	if err != nil {
 		respondCustomerError(c, err)
 		return
 	}
 	dto.ResponseSuccessWithStatus(c, http.StatusCreated, gin.H{"payload": item})
+}
+
+func accountPrimaryContact(in *primaryContactRequest) *customersvc.PrimaryContactInput {
+	if in == nil {
+		return nil
+	}
+	return &customersvc.PrimaryContactInput{DisplayName: in.DisplayName, GivenName: in.GivenName, FamilyName: in.FamilyName, Email: in.Email, Phone: in.Phone}
 }
 
 func (h *Handler) UpdateStatus(c *gin.Context) {
@@ -155,6 +180,10 @@ func respondCustomerError(c *gin.Context, err error) {
 	if err == nil {
 		return
 	}
+	if dto.CodeOf(err) != "" {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		dto.ResponseError(c, http.StatusNotFound, "customer.not_found", err)
@@ -162,6 +191,12 @@ func respondCustomerError(c *gin.Context, err error) {
 		dto.ResponseError(c, http.StatusBadRequest, "customer.invalid_status", err)
 	case strings.Contains(err.Error(), "identity_required"):
 		dto.ResponseError(c, http.StatusBadRequest, "customer.identity_required", err)
+	case strings.Contains(err.Error(), "type_required"):
+		dto.ResponseError(c, http.StatusBadRequest, "customer.type_required", err)
+	case strings.Contains(err.Error(), "primary_contact_required"):
+		dto.ResponseError(c, http.StatusBadRequest, "customer.primary_contact_required", err)
+	case errors.Is(err, customersvc.ErrContactInvalidArgument):
+		dto.ResponseError(c, http.StatusBadRequest, "contact.invalid_argument", err)
 	default:
 		dto.ResponseError(c, http.StatusInternalServerError, "customer.operation_failed", err)
 	}

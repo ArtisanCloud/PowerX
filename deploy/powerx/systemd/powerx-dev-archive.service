@@ -1,0 +1,16 @@
+[Unit]
+Description=PowerX development media and remote log archive scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=powerx
+Group=powerx
+WorkingDirectory=/
+EnvironmentFile=/etc/powerx-dev/powerx.env
+ExecStart=/bin/sh -c 'ROOT=${POWERX_LINKS_ROOT:-/opt/powerx-dev}; exec "$ROOT/backend/archive-worker"'
+TimeoutStartSec=2h
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true

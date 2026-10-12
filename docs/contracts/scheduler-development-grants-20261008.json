@@ -1,0 +1,25 @@
+{
+  "name": "actual_development_host_grant_status",
+  "http_status": 200,
+  "trace_id": "9a42a722-e15a-432c-a7d8-de642868b883",
+  "response": {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "items": [
+        {
+          "capability_id": "com.corex.scheduler.jobs.service_read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.scheduler.jobs.service_delete",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        }
+      ]
+    },
+    "timestamp": 1791442870,
+    "request_id": "9b414fcd-663f-4f65-bb42-2b0300b0bf7b"
+  }
+}

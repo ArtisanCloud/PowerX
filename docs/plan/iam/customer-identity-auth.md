@@ -183,6 +183,16 @@ PowerX Core 至少应提供以下 customer 权威表。
 1. 禁止记录 raw token、明文密码、微信 secret、短信验证码。
 2. 失败路径也应记录脱敏审计，方便风控和排障。
 
+### 3.7 Customer Contact（030，已批准设计，待实现）
+
+Customer Contact 扩展 Customer 的客户侧自然人通讯关系，但不改变本章 Customer Identity/Auth 的权威边界：
+
+1. `customer_contacts` 是租户范围内、属于一个 `customer_uuid` 的自然人 Contact；Contact 及其所有查询和写入同时受 `tenant_uuid + customer_uuid + contact_uuid` 约束。
+2. `customer_contact_identities` 表达 Contact 在 email、WeCom、Shopify 等渠道的稳定外部标识。它与 `customer_auth_identities` 严格分离：后者证明 Customer 的登录身份，前者用于联系人识别和通信。
+3. Contact 只保存跨插件稳定关系角色（首版 `primary`、`legal_representative`）。`designer`、`purchaser`、`finance` 等行业或插件职责必须由业务插件以 `contact_uuid` 关联表保存。
+4. 渠道身份未命中时，只能返回 `CONTACT_IDENTITY_NOT_FOUND`。创建普通或 temporary Contact 必须是用户可见的明确动作；不得从显示名、邮箱、候选通讯录或旧订单字段猜测归属。
+5. 正式范围、错误码、强类型 Core internal binding 和 AI Craft 迁移顺序见 [`specs/030-customer-contact`](../../../specs/030-customer-contact/spec.md)。
+
 ## 4. 与 PowerXPlugin Framework 的映射
 
 PowerXPlugin framework 的 `customerfw` 不拥有生产表，只映射 Core 权威表到运行时合同。
@@ -203,6 +213,8 @@ PowerXPlugin framework 的 `customerfw` 不拥有生产表，只映射 Core 权�
 | `CustomerMembership` | `customer_tenant_memberships` |
 | `BootstrapContext` | `mini_app_entries` |
 | `CustomerAuthResult` | `customer_accounts` + `customer_auth_identities` + `customer_sessions` |
+
+Contact 不加入 `CustomerContext`。Framework 以独立的 `runtime/contactfw` 合同暴露 Contact；业务订单、会话和通知保存 `customer_uuid + contact_uuid` 并在写入时显式验证归属。
 
 ## 5. 插件 local 模式规则
 
@@ -235,3 +247,4 @@ SaaS 标准版采用 shared app：
 4. 更新 PowerXPlugin skeleton/scaffold 的 local mirror schema。
 5. 更新业务插件 local 模式表结构并补充 migration 校验。
 6. 最后再接入具体插件的 C 端业务模型，例如球员、家长关系、训练档案等。
+7. Contact 作为独立的后续切片按 `specs/030-customer-contact/plan.md` 的 Core → Framework → 插件顺序实施；不得先由插件私有建模再回迁。

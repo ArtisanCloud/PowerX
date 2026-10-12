@@ -344,7 +344,7 @@ func newPluginDrainTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&dbsetting.PluginInstanceConfig{}, &dbsetting.PluginDrainJob{}); err != nil {
+	if err := db.AutoMigrate(&dbsetting.PluginInstanceConfig{}, &dbsetting.PluginDrainJob{}, &dbsetting.PluginCapabilityApproval{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	if err := db.Exec(`CREATE TABLE IF NOT EXISTS scheduler_jobs (

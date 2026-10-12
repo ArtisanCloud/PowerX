@@ -288,6 +288,17 @@ func (m *memoryAssetRepo) FindVariant(_ context.Context, tenantUUID, assetUUID, 
 	return cloneVariant(item), nil
 }
 
+func (m *memoryAssetRepo) FindVariantByUUID(_ context.Context, tenantUUID, variantUUID string) (*mediamodel.MediaAssetVariant, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, item := range m.variants {
+		if item.UUID.String() == variantUUID && (tenantUUID == "" || item.TenantUUID == tenantUUID) {
+			return cloneVariant(item), nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
 func (m *memoryAssetRepo) FindVariantByStorageKey(_ context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

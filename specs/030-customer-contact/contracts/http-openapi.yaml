@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: PowerX Customer Contact Admin API
+  version: 1.0.0
+  description: Tenant-scoped Contact master-data API. Tenant scope is derived from authenticated request context and is never accepted as a request parameter.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /admin/customers/{customer_uuid}/contacts:
+    get:
+      operationId: listCustomerContacts
+      tags: [CustomerContacts]
+      parameters: [{$ref: '#/components/parameters/CustomerUUID'}, {$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PageSize'}, {$ref: '#/components/parameters/Query'}, {$ref: '#/components/parameters/ContactStatus'}]
+      responses: {'200': {$ref: '#/components/responses/ContactPage'}, '403': {$ref: '#/components/responses/Forbidden'}}
+    post:
+      operationId: createCustomerContact
+      tags: [CustomerContacts]
+      parameters: [{$ref: '#/components/parameters/CustomerUUID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateContactRequest'}}}}
+      responses: {'201': {$ref: '#/components/responses/Contact'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '403': {$ref: '#/components/responses/Forbidden'}}
+  /admin/customers/{customer_uuid}/contacts/{contact_uuid}:
+    get:
+      operationId: getCustomerContact
+      tags: [CustomerContacts]
+      parameters: [{$ref: '#/components/parameters/CustomerUUID'}, {$ref: '#/components/parameters/ContactUUID'}]
+      responses: {'200': {$ref: '#/components/responses/Contact'}, '404': {$ref: '#/components/responses/NotFound'}}
+    patch:
+      operationId: updateCustomerContact
+      tags: [CustomerContacts]
+      parameters: [{$ref: '#/components/parameters/CustomerUUID'}, {$ref: '#/components/parameters/ContactUUID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateContactRequest'}}}}
+      responses: {'200': {$ref: '#/components/responses/Contact'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {description: CONTACT_PRIMARY_CHANGE_REQUIRED or CONTACT_PRIMARY_OPERATION_REQUIRED}}
+  /admin/customers/{customer_uuid}/contacts:resolve-identity:
+    post:
+      operationId: resolveCustomerContactIdentity
+      tags: [CustomerContacts]
+      parameters: [{$ref: '#/components/parameters/CustomerUUID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/IdentityRequest'}}}}
+      responses: {'200': {$ref: '#/components/responses/IdentityResolution'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /admin/customers/{customer_uuid}/contacts/{contact_uuid}/identities:
+    get:
+      operationId: listCustomerContactIdentities
+      tags: [CustomerContacts]
+      parameters: [{$ref: '#/components/parameters/CustomerUUID'}, {$ref: '#/components/parameters/ContactUUID'}]
+      responses: {'200': {$ref: '#/components/responses/IdentityList'}, '404': {$ref: '#/components/responses/NotFound'}}
+    post:
+      operationId: bindCustomerContactIdentity
+      tags: [CustomerContacts]
+      parameters: [{$ref: '#/components/parameters/CustomerUUID'}, {$ref: '#/components/parameters/ContactUUID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/IdentityRequest'}}}}
+      responses: {'201': {$ref: '#/components/responses/ContactIdentity'}, '400': {$ref: '#/components/responses/InvalidArgument'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /admin/customers/{customer_uuid}/contacts/{contact_uuid}/primary:
+    parameters:
+    - name: customer_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: contact_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      operationId: setCustomerPrimaryContact
+      x-powerx-permission: customer.admin_customers_customer_uuid_contacts_contact_uuid_primary:create
+      description: 目标必须 active 且属于当前 tenant/customer。锁 membership，比较原引用，在同一事务更新引用、唯一
+        primary 角色及审计。相同引用仍核对角色；引用与角色均相同则无额外写入。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_primary_contact_uuid
+              properties:
+                expected_primary_contact_uuid:
+                  type: string
+                  description: 必须传入；当前无引用时传空字符串，有引用时传页面回读的 UUID。不能省略或传 null。
+            example:
+              expected_primary_contact_uuid: 11111111-1111-4111-8111-111111111111
+      responses:
+        '200':
+          description: data.payload 包含 customer_uuid、primary_contact_uuid、previous_primary_contact_uuid
+        '400':
+          description: CONTACT_PRIMARY_EXPECTED_REQUIRED、CONTACT_REQUEST_INVALID 或旧
+            Contact 合同 contact.invalid_argument
+        '403':
+          description: CUSTOMER_ADMIN_USER_REQUIRED、CUSTOMER_ADMIN_FORBIDDEN 或 contact.customer_membership_inactive；不接受
+            API Key/STS
+        '404':
+          description: contact.not_found
+        '409':
+          description: CONTACT_PRIMARY_CHANGED、CONTACT_PRIMARY_NOT_ACTIVE 或 contact.customer_mismatch
+        '500':
+          description: CONTACT_PRIMARY_OPERATION_FAILED；事务未提交，不返回原始数据库错误
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  parameters:
+    CustomerUUID: {name: customer_uuid, in: path, required: true, schema: {$ref: '#/components/schemas/UUID'}}
+    ContactUUID: {name: contact_uuid, in: path, required: true, schema: {$ref: '#/components/schemas/UUID'}}
+    Page: {name: page, in: query, schema: {type: integer, minimum: 1}}
+    PageSize: {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+    Query: {name: q, in: query, schema: {type: string, maxLength: 128}}
+    ContactStatus: {name: status, in: query, schema: {$ref: '#/components/schemas/ContactStatus'}}
+  schemas:
+    UUID: {type: string, format: uuid}
+    ContactStatus: {type: string, enum: [active, inactive, temporary]}
+    ContactRole: {type: string, enum: [primary, legal_representative]}
+    Contact:
+      type: object
+      required: [uuid, customer_uuid, tenant_uuid, display_name, status, roles, tags]
+      properties:
+        uuid: {$ref: '#/components/schemas/UUID'}
+        customer_uuid: {$ref: '#/components/schemas/UUID'}
+        tenant_uuid: {$ref: '#/components/schemas/UUID'}
+        display_name: {type: string, maxLength: 128}
+        given_name: {type: string, maxLength: 128}
+        family_name: {type: string, maxLength: 128}
+        email: {type: string, format: email, maxLength: 255}
+        phone: {type: string, maxLength: 32}
+        status: {$ref: '#/components/schemas/ContactStatus'}
+        roles: {type: array, items: {$ref: '#/components/schemas/ContactRole'}}
+        tags: {type: array, maxItems: 20, items: {type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$'}}
+    ContactIdentity:
+      type: object
+      required: [uuid, customer_uuid, contact_uuid, channel_dictionary_item_uuid, external_subject, status]
+      properties:
+        uuid: {$ref: '#/components/schemas/UUID'}
+        customer_uuid: {$ref: '#/components/schemas/UUID'}
+        contact_uuid: {$ref: '#/components/schemas/UUID'}
+        channel_dictionary_item_uuid: {$ref: '#/components/schemas/UUID'}
+        external_subject: {type: string, maxLength: 255}
+        status: {type: string, enum: [active, inactive]}
+    CreateContactRequest:
+      description: 姓名按 Unicode 字符计数并拒绝控制字符；普通创建不得包含 primary，须使用正式设主操作。
+      type: object
+      required: [display_name, creation_intent]
+      properties:
+        display_name: {type: string, maxLength: 128}
+        given_name: {type: string, maxLength: 128}
+        family_name: {type: string, maxLength: 128}
+        email: {type: string, format: email, maxLength: 255}
+        phone: {type: string, maxLength: 32}
+        status: {$ref: '#/components/schemas/ContactStatus'}
+        roles: {type: array, items: {$ref: '#/components/schemas/ContactRole'}}
+        tags: {type: array, maxItems: 20, items: {type: string}}
+        creation_intent: {type: string, enum: [explicit_create, explicit_temporary]}
+    UpdateContactRequest:
+      description: 普通 roles 更新不得新增或移除当前主联系人的 primary 标记；停用当前主联系人须先更换。
+      type: object
+      minProperties: 1
+      properties:
+        display_name: {type: string, maxLength: 128}
+        given_name: {type: string, maxLength: 128}
+        family_name: {type: string, maxLength: 128}
+        email: {type: string, format: email, maxLength: 255}
+        phone: {type: string, maxLength: 32}
+        status: {$ref: '#/components/schemas/ContactStatus'}
+        roles: {type: array, items: {$ref: '#/components/schemas/ContactRole'}}
+        tags: {type: array, maxItems: 20, items: {type: string}}
+    IdentityRequest:
+      type: object
+      required: [channel_dictionary_item_uuid, external_subject]
+      properties:
+        channel_dictionary_item_uuid: {$ref: '#/components/schemas/UUID'}
+        external_subject: {type: string, maxLength: 255}
+  responses:
+    Contact: {description: Contact, content: {application/json: {schema: {$ref: '#/components/schemas/Contact'}}}}
+    ContactPage: {description: Contact page}
+    ContactIdentity: {description: Bound channel account, content: {application/json: {schema: {$ref: '#/components/schemas/ContactIdentity'}}}}
+    IdentityList: {description: Bound channel accounts}
+    IdentityResolution: {description: Resolved active contact and channel account}
+    InvalidArgument: {description: Invalid request}
+    Forbidden: {description: Tenant scope or permission denied}
+    NotFound: {description: Contact or channel account not found}
+    Conflict: {description: Customer ownership or identity conflict}

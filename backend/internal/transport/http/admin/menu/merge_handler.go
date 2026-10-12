@@ -847,14 +847,18 @@ func i18nOrDefault(key, def string, i18n []admdto.MenuI18nPackage, locales []str
 // 分组（含组头中文的猜测逻辑）
 func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage, locales []string) []admdto.AdminMenuCategory {
 	const (
-		catPinnedKey     plugin_mgr.MenuKey = "cat:pinned"
-		catAppsKey       plugin_mgr.MenuKey = "cat:market"
-		catAppsPrefixKey string             = "cat:market:"
+		catPinnedKey       plugin_mgr.MenuKey = "cat:pinned"
+		catBusinessKey     plugin_mgr.MenuKey = "cat:business_operations"
+		catAppsKey         plugin_mgr.MenuKey = "cat:market"
+		catPluginMarketKey plugin_mgr.MenuKey = "cat:plugin_marketplace"
+		catAppsPrefixKey   string             = "cat:market:"
 	)
 
 	byID := map[plugin_mgr.MenuKey]*admdto.AdminMenuCategory{
 		catPinnedKey:           {ID: catPinnedKey, Title: i18nOrDefault("menu.section.pinned", "Pinned", i18n, locales), Order: -200, Origin: plugin_mgr.OriginSystem},
+		catBusinessKey:         {ID: catBusinessKey, Title: "menu.section.businessOperations", Order: -100, Origin: plugin_mgr.OriginSystem},
 		catAppsKey:             {ID: catAppsKey, Title: i18nOrDefault("menu.section.apps", "Apps", i18n, locales), Order: -50, Origin: plugin_mgr.OriginPlugin},
+		catPluginMarketKey:     {ID: catPluginMarketKey, Title: "menu.pluginMarketplace", Order: -25, Origin: plugin_mgr.OriginSystem},
 		plugin_mgr.KeySettings: {ID: plugin_mgr.KeySettings, Title: i18nOrDefault("menu.section.settings", "Settings", i18n, locales), Order: 0, Origin: plugin_mgr.OriginSystem},
 	}
 
@@ -866,8 +870,10 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 			switch item.Key {
 			case plugin_mgr.KeyAgent, "skill_management", plugin_mgr.KeyKnowledgeSpace, plugin_mgr.KeyWorkflow, plugin_mgr.KeyMedia, plugin_mgr.KeyDashboard:
 				byID[catPinnedKey].Children = append(byID[catPinnedKey].Children, item)
+			case "customer_master_data":
+				byID[catBusinessKey].Children = append(byID[catBusinessKey].Children, item)
 			case plugin_mgr.KeyPlugins:
-				byID[plugin_mgr.KeySettings].Children = append(byID[plugin_mgr.KeySettings].Children, item)
+				byID[catPluginMarketKey].Children = append(byID[catPluginMarketKey].Children, item)
 			default:
 				byID[plugin_mgr.KeySettings].Children = append(byID[plugin_mgr.KeySettings].Children, item)
 			}

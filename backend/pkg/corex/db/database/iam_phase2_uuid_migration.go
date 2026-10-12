@@ -20,8 +20,11 @@ const (
 // It is deliberately separate from business tables: a migration is committed
 // only after its schema changes, backfill, and validation all succeed.
 type databaseMigrationRecord struct {
-	MigrationID string    `gorm:"column:migration_id;type:varchar(128);primaryKey"`
-	AppliedAt   time.Time `gorm:"column:applied_at;not null"`
+	MigrationID string     `gorm:"column:migration_id;type:varchar(128);primaryKey"`
+	AppliedAt   time.Time  `gorm:"column:applied_at;not null"`
+	Checksum    string     `gorm:"column:checksum;type:varchar(64);not null;default:''"`
+	ReleaseID   string     `gorm:"column:release_id;type:varchar(128);not null;default:''"`
+	RunUUID     *uuid.UUID `gorm:"column:run_uuid;type:uuid"`
 }
 
 func (databaseMigrationRecord) TableName() string {

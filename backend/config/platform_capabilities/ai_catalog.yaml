@@ -1,0 +1,74 @@
+---
+version: 1
+capabilities:
+  - capability_id: com.corex.ai.catalog.providers.read
+    module: ai
+    title: AI Provider Catalog Read
+    description: List the AI providers available to the authenticated tenant for a requested modality.
+    permission_code: corex.ai.catalog.providers:read
+    agent_usable: false
+    risk_level: low
+    categories: [ai, catalog, provider]
+    intents: [ai.catalog.providers.read]
+    tool_scopes: [ai.catalog.read]
+    policy:
+      prefer: rest
+    docs:
+      - backend/internal/transport/http/admin/agent/api.go
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/agents/providers
+        method: GET
+        schema_ref: backend/internal/transport/http/admin/agent/api.go#RegisterAPIRoutes
+        auth_type: api_key_or_bearer
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: ai.catalog.read
+        api_key:
+          scope: _scope.ai.catalog.providers.read
+          action: read
+          resource_type: api
+          resource_pattern: ai-catalog-providers
+    title_i18n:
+      en: AI Provider Catalog Read
+      zh-CN: AI 提供商目录查询
+    description_i18n:
+      en: List AI providers available to the authenticated tenant for a requested modality.
+      zh-CN: 查询当前凭证所属租户在指定模态下可用的 AI 提供商目录。
+
+  - capability_id: com.corex.ai.catalog.models.read
+    module: ai
+    title: AI Model Catalog Read
+    description: List the AI models available to the authenticated tenant for a requested provider and modality.
+    permission_code: corex.ai.catalog.models:read
+    agent_usable: false
+    risk_level: low
+    categories: [ai, catalog, model]
+    intents: [ai.catalog.models.read]
+    tool_scopes: [ai.catalog.read]
+    policy:
+      prefer: rest
+    docs:
+      - backend/internal/transport/http/admin/agent/api.go
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/admin/agents/models
+        method: GET
+        schema_ref: backend/internal/transport/http/admin/agent/api.go#RegisterAPIRoutes
+        auth_type: api_key_or_bearer
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: ai.catalog.read
+        api_key:
+          scope: _scope.ai.catalog.models.read
+          action: read
+          resource_type: api
+          resource_pattern: ai-catalog-models
+    title_i18n:
+      en: AI Model Catalog Read
+      zh-CN: AI 模型目录查询
+    description_i18n:
+      en: List AI models available to the authenticated tenant for a requested provider and modality.
+      zh-CN: 查询当前凭证所属租户在指定提供商和模态下可用的 AI 模型目录。

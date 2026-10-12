@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  title: Agent Run State target contract
+  version: 2.0.0-draft
+  description: Target schemas for existing Agent Session invocation and event routes. This is not the currently deployed wire contract.
+paths: {}
+components:
+  schemas:
+    RunSnapshot:
+      type: object
+      additionalProperties: false
+      required: [run_id, session_id, message_id, trace_id, status, plan_revision, event_seq, tasks, accepted_at, deadline_at]
+      properties:
+        run_id: {type: string, format: uuid}
+        session_id: {type: string}
+        message_id: {type: string}
+        trace_id: {type: string}
+        status:
+          type: string
+          enum: [accepted, planning, running, completed, partial, needs_input, blocked, failed, cancelled]
+        plan_revision: {type: integer, format: int64, minimum: 0}
+        event_seq: {type: integer, format: int64, minimum: 1}
+        tasks:
+          type: array
+          items: {$ref: '#/components/schemas/TaskSnapshot'}
+        accepted_at: {type: string, format: date-time}
+        deadline_at: {type: string, format: date-time}
+        archived_at: {type: string, format: date-time, nullable: true}
+        outcome_ref: {type: string, nullable: true}
+    TaskSnapshot:
+      type: object
+      additionalProperties: false
+      required: [task_id, plan_revision, status, depends_on, attempt]
+      properties:
+        task_id: {type: string}
+        plan_revision: {type: integer, format: int64, minimum: 1}
+        status:
+          type: string
+          enum: [pending_dependency, queued, leased, running, verifying, retry_wait, awaiting_params, completed, failed, skipped, cancelled]
+        depends_on:
+          type: array
+          items: {type: string}
+        pool_id: {type: string, nullable: true}
+        queue_reason: {type: string, nullable: true}
+        queued_at: {type: string, format: date-time, nullable: true}
+        leased_at: {type: string, format: date-time, nullable: true}
+        started_at: {type: string, format: date-time, nullable: true}
+        attempt: {type: integer, minimum: 0}
+        reason_code: {type: string, nullable: true}
+        result_ref: {type: string, nullable: true}
+    RunEvent:
+      type: object
+      additionalProperties: false
+      required: [run_id, event_seq, event, occurred_at, payload]
+      properties:
+        run_id: {type: string, format: uuid}
+        event_seq: {type: integer, format: int64, minimum: 1}
+        event: {type: string, pattern: '^agent_run\.'}
+        occurred_at: {type: string, format: date-time}
+        payload: {type: object}
+        task_id: {type: string, nullable: true}
+        attempt: {type: integer, nullable: true}
+    RunError:
+      type: object
+      additionalProperties: false
+      required: [reason_code, run_id]
+      properties:
+        reason_code:
+          type: string
+          enum: [queue.full, queue.timeout, provider.timeout, run.deadline, store.unavailable, archive.backpressure, manual_review_required, authorization.contract_changed, planner.input_failed, planner.input_invalid, planner.build_failed, planner.plan_invalid, planner.panicked, planner.failed]
+        run_id: {type: string, format: uuid}
+        task_id: {type: string, nullable: true}
+x-target-transport:
+  submit: POST /api/v1/tenant/agent/sessions/{session_uuid}/invocations
+  snapshot: GET /api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}
+  cancel: POST /api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/cancel
+  events: GET /api/v1/tenant/agent/sessions/{session_uuid}/invocations/{invocation_uuid}/events
+  event_cursor: Last-Event-ID as decimal event_seq
+  identity: invocation_uuid equals run_id for this service-actor contract
+  reconnect: replay events after cursor or return snapshot when cursor has expired
+  authentication: existing STS service_actor owner scope; tenant and session ownership rechecked on each read

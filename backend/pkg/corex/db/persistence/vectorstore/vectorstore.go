@@ -42,9 +42,13 @@ type QueryRequest struct {
 
 // QueryMatch 表示一次相似度查询的命中结果。
 type QueryMatch struct {
-	ChunkID  uuid.UUID
-	Score    float64
-	Metadata map[string]any
+	ChunkID uuid.UUID
+	Score   float64
+	// Score 是越大越好的相似度；RawScore 保留驱动原始度量及类型。
+	ScoreType    string
+	RawScore     float64
+	RawScoreType string
+	Metadata     map[string]any
 }
 
 // QueryResponse 聚合返回的命中列表。

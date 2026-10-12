@@ -24,6 +24,7 @@ type operationType string
 const (
 	operationPut     operationType = "put"
 	operationGet     operationType = "get"
+	operationStat    operationType = "stat"
 	operationDelete  operationType = "delete"
 	operationPresign operationType = "presign"
 )
@@ -232,6 +233,20 @@ func (m *MediaManager) Get(ctx context.Context, driverName string, in driver.Get
 	start := time.Now()
 	result, opErr := drv.Get(ctx, in)
 	m.metrics.record(resolved, operationGet, time.Since(start), opErr)
+	m.recordError(resolved, opErr)
+	return result, opErr
+}
+
+// Stat 读取对象真实元数据，不返回内容流。
+func (m *MediaManager) Stat(ctx context.Context, driverName string, in driver.StatObjectInput) (*driver.StatObjectResult, error) {
+	resolved, drv, err := m.resolveDriver(driverName)
+	if err != nil {
+		m.recordError(resolved, err)
+		return nil, err
+	}
+	start := time.Now()
+	result, opErr := drv.Stat(ctx, in)
+	m.metrics.record(resolved, operationStat, time.Since(start), opErr)
 	m.recordError(resolved, opErr)
 	return result, opErr
 }

@@ -84,7 +84,15 @@
           {{ field.label }}
           <span v-if="field.required" class="text-red-500">*</span>
         </label>
+        <SecretInput
+          v-if="field.type === 'password'"
+          :key="`${state.provider}:${state.authMode}:${field.key}`"
+          v-model="state[getStateKey(field.key)]"
+          :placeholder="field.placeholder"
+          :required="field.required"
+        />
         <UInput
+          v-else
           v-model="state[getStateKey(field.key)]"
           :type="field.type"
           :placeholder="field.placeholder"

@@ -74,3 +74,7 @@ func (r *BackupArtifactRepository) GetLatestByJobIDs(ctx context.Context, jobIDs
 	}
 	return out, nil
 }
+
+func (r *BackupArtifactRepository) DeleteByID(ctx context.Context, id uint64) error {
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&modelops.BackupArtifact{}).Error
+}

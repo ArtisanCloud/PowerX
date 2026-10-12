@@ -141,3 +141,18 @@ func (r *BackupJobRepository) CountConsecutiveFailures(ctx context.Context, poli
 	}
 	return consecutive, nil
 }
+
+func (r *BackupJobRepository) GetLatestByPolicy(ctx context.Context, policyID uint64) (*modelops.BackupJob, error) {
+	var row modelops.BackupJob
+	err := r.db.WithContext(ctx).Where("policy_id = ?", policyID).Order("id DESC").Take(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &row, err
+}
+func (r *BackupJobRepository) FailInterrupted(ctx context.Context, policyID uint64, before time.Time) error {
+	return r.db.WithContext(ctx).Model(&modelops.BackupJob{}).Where("policy_id = ? AND status = ? AND started_at < ?", policyID, modelops.BackupJobStatusRunning, before).Updates(map[string]any{"status": modelops.BackupJobStatusFailed, "ended_at": time.Now().UTC(), "error_message": "backup process interrupted; timeout elapsed without completion"}).Error
+}
+func (r *BackupJobRepository) SetProtected(ctx context.Context, id uint64, value bool) error {
+	return r.db.WithContext(ctx).Model(&modelops.BackupJob{}).Where("id = ?", id).Update("protected", value).Error
+}

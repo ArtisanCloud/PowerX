@@ -180,7 +180,7 @@ func TestResponsePlannerClarifyParams(t *testing.T) {
 }
 
 func TestEngineMissingRequiredArgsForActionPlan(t *testing.T) {
-	mgr := agent.GetAgentManager()
+	mgr := agent.NewAgentManager()
 	skillID := "test.skill.action.required.runtime"
 	mgr.UpsertUnifiedCandidate(agent.ToolCallCandidate{
 		Name:        skillID,
@@ -192,7 +192,7 @@ func TestEngineMissingRequiredArgsForActionPlan(t *testing.T) {
 			"create": []string{"template.title", "template.description", "template.content"},
 		},
 	})
-	engine := NewEngine()
+	engine := &Engine{mgr: mgr}
 	ctx := context.WithValue(context.Background(), "agent_bound_skill_ids", []string{skillID})
 	missing := engine.missingRequiredArgsForPlan(ctx, &flowschema.ExecutionPlan{
 		PlanID: "plan_test",
@@ -217,7 +217,7 @@ func TestEngineMissingRequiredArgsForActionPlan(t *testing.T) {
 }
 
 func TestEngineMissingRequiredArgsMergesPendingTaskParams(t *testing.T) {
-	mgr := agent.GetAgentManager()
+	mgr := agent.NewAgentManager()
 	skillID := "test.skill.pending.merge.runtime"
 	mgr.UpsertUnifiedCandidate(agent.ToolCallCandidate{
 		Name:        skillID,
@@ -229,7 +229,7 @@ func TestEngineMissingRequiredArgsMergesPendingTaskParams(t *testing.T) {
 			"create": []string{"template.title", "template.description", "template.content"},
 		},
 	})
-	engine := NewEngine()
+	engine := &Engine{mgr: mgr}
 	ctx := context.WithValue(context.Background(), "agent_bound_skill_ids", []string{skillID})
 	ctx = context.WithValue(ctx, "agent_pending_task", map[string]any{
 		"node_ref": skillID,
@@ -263,7 +263,7 @@ func TestEngineMissingRequiredArgsMergesPendingTaskParams(t *testing.T) {
 }
 
 func TestEnginePendingTaskExtractsMissingSlotFromUserMessage(t *testing.T) {
-	mgr := agent.GetAgentManager()
+	mgr := agent.NewAgentManager()
 	skillID := "test.skill.pending.slot.runtime"
 	mgr.UpsertUnifiedCandidate(agent.ToolCallCandidate{
 		Name:        skillID,
@@ -286,7 +286,7 @@ func TestEnginePendingTaskExtractsMissingSlotFromUserMessage(t *testing.T) {
 			},
 		},
 	})
-	engine := NewEngine()
+	engine := &Engine{mgr: mgr}
 	ctx := context.WithValue(context.Background(), "agent_bound_skill_ids", []string{skillID})
 	ctx = context.WithValue(ctx, "agent_pending_task", map[string]any{
 		"node_ref": skillID,
@@ -374,7 +374,9 @@ func TestEnginePendingTaskConfirmationMergesCollectedParams(t *testing.T) {
 }
 
 func TestEngineInitialTaskExtractsRequiredSlotsFromUserMessage(t *testing.T) {
-	mgr := agent.GetAgentManager()
+	// This fixture owns its candidate registry; prior package tests must not
+	// change the candidate chosen by alias deduplication.
+	mgr := agent.NewAgentManager()
 	skillID := "test.skill.initial.slot.runtime"
 	mgr.UpsertUnifiedCandidate(agent.ToolCallCandidate{
 		Name:        skillID,
@@ -397,7 +399,7 @@ func TestEngineInitialTaskExtractsRequiredSlotsFromUserMessage(t *testing.T) {
 			},
 		},
 	})
-	engine := NewEngine()
+	engine := &Engine{mgr: mgr}
 	ctx := context.WithValue(context.Background(), "agent_bound_skill_ids", []string{skillID})
 	plan := &flowschema.ExecutionPlan{
 		PlanID: "plan_initial_slot",

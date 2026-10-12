@@ -27,6 +27,19 @@ func NewClient(provider string) (LLMClient, error) {
 	}
 }
 
+// SupportsResponseSchema reports whether the concrete wire adapter can enforce
+// a typed JSON Schema. Callers must fail explicitly when the capability is not
+// available; silently dropping a response contract would make Skill output
+// nondeterministic.
+func SupportsResponseSchema(provider string) bool {
+	switch normalize(provider) {
+	case "openai", "ollama":
+		return true
+	default:
+		return false
+	}
+}
+
 func normalize(s string) string {
 	p := strings.ToLower(strings.TrimSpace(s))
 	if p == "" {

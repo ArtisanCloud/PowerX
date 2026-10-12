@@ -2,88 +2,107 @@ package backup_ops
 
 import (
 	"context"
-
+	"errors"
+	"fmt"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
 	"gorm.io/gorm"
+	"os"
+	"time"
 )
 
 type ArtifactCleanupService struct {
+	db           *gorm.DB
 	policyRepo   *repoops.BackupPolicyRepository
 	jobRepo      *repoops.BackupJobRepository
 	artifactRepo *repoops.BackupArtifactRepository
 }
-
 type CleanupResult struct {
 	DeletedArtifacts int `json:"deleted_artifacts"`
 	DeletedJobs      int `json:"deleted_jobs"`
 }
 
 func NewArtifactCleanupService(db *gorm.DB) *ArtifactCleanupService {
-	return &ArtifactCleanupService{
-		policyRepo:   repoops.NewBackupPolicyRepository(db),
-		jobRepo:      repoops.NewBackupJobRepository(db),
-		artifactRepo: repoops.NewBackupArtifactRepository(db),
-	}
+	return &ArtifactCleanupService{db: db, policyRepo: repoops.NewBackupPolicyRepository(db), jobRepo: repoops.NewBackupJobRepository(db), artifactRepo: repoops.NewBackupArtifactRepository(db)}
 }
 
-// CleanupByPolicy 保留最近 N 份成功备份，仅清理备份产物，不删除任务记录。
-func (s *ArtifactCleanupService) CleanupByPolicy(ctx context.Context, policyID uint64, retentionCount int) (*CleanupResult, error) {
+// CleanupByPolicy 读取持久化保留合同；任务记录保留，过期文件删除后再软删产物记录。
+func (s *ArtifactCleanupService) CleanupByPolicy(ctx context.Context, policyID uint64) (*CleanupResult, error) {
 	if policyID == 0 {
 		return &CleanupResult{}, nil
 	}
-	if retentionCount <= 0 {
-		retentionCount = 14
-	}
-	successJobs, err := s.jobRepo.ListByPolicyAndStatus(ctx, policyID, modelops.BackupJobStatusSuccess, 2000)
+	unlock, err := lockBackupPolicy(ctx, s.db, policyID)
 	if err != nil {
 		return nil, err
 	}
-	if len(successJobs) <= retentionCount {
-		return &CleanupResult{}, nil
+	defer unlock()
+	policy, err := s.policyRepo.GetById(ctx, policyID, nil)
+	if err != nil {
+		return nil, err
 	}
-
-	keep := retentionCount
-	if keep < 1 {
-		keep = 1
+	if policy == nil {
+		return nil, ErrBackupPolicyNotFound
 	}
-
+	return s.cleanupPolicy(ctx, policy)
+}
+func (s *ArtifactCleanupService) cleanupPolicy(ctx context.Context, policy *modelops.BackupPolicy) (*CleanupResult, error) {
+	root, err := resolveBackupArtifactBaseDir()
+	if err != nil {
+		return nil, err
+	}
+	jobs, err := s.jobRepo.ListByPolicyAndStatus(ctx, policy.ID, modelops.BackupJobStatusSuccess, 0)
+	if err != nil {
+		return nil, err
+	}
 	result := &CleanupResult{}
-	for idx := keep; idx < len(successJobs); idx++ {
-		job := successJobs[idx]
-		artifacts, listErr := s.artifactRepo.ListByJobID(ctx, job.ID)
-		if listErr != nil {
-			return nil, listErr
+	index := 0
+	for _, job := range jobs {
+		artifacts, e := s.artifactRepo.ListByJobID(ctx, job.ID)
+		if e != nil {
+			return result, e
 		}
-		if delErr := s.artifactRepo.DeleteByJobID(ctx, job.ID); delErr != nil {
-			return nil, delErr
+		if len(artifacts) == 0 {
+			continue
 		}
-		result.DeletedArtifacts += len(artifacts)
+		expired := backupExpired(job, index, *policy, time.Now().UTC())
+		index++
+		if !expired {
+			continue
+		}
+		for i := range artifacts {
+			artifact := artifacts[i]
+			path, e := validatedArtifactPath(root, &artifact)
+			if e != nil && !errors.Is(e, os.ErrNotExist) {
+				return result, fmt.Errorf("artifact %d: %w", artifact.ID, e)
+			}
+			if e == nil {
+				if e = verifyArtifactFile(path, &artifact); e != nil {
+					return result, e
+				}
+			}
+			if e = removeArtifactFiles(path, &artifact); e != nil {
+				return result, e
+			}
+			if e = s.artifactRepo.DeleteByID(ctx, artifact.ID); e != nil {
+				return result, e
+			}
+			result.DeletedArtifacts++
+		}
 	}
 	return result, nil
 }
-
 func (s *ArtifactCleanupService) CleanupAllPolicies(ctx context.Context) (*CleanupResult, error) {
-	items, _, err := s.policyRepo.ListWithFilters(ctx, "", "", "", nil, 2000, 0)
+	items, _, err := s.policyRepo.ListWithFilters(ctx, "", "", "", nil, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	merged := &CleanupResult{}
-	for i := range items {
-		policy := items[i]
-		retention := int(policy.RetentionCount)
-		if retention <= 0 {
-			retention = int(policy.RetentionDays)
-		}
-		if retention <= 0 {
-			retention = 14
-		}
-		part, cleanupErr := s.CleanupByPolicy(ctx, policy.ID, retention)
-		if cleanupErr != nil {
-			return nil, cleanupErr
+	for _, p := range items {
+		part, e := s.CleanupByPolicy(ctx, p.ID)
+		if e != nil {
+			return merged, e
 		}
 		merged.DeletedArtifacts += part.DeletedArtifacts
-		merged.DeletedJobs += part.DeletedJobs
 	}
 	return merged, nil
 }

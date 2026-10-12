@@ -5,7 +5,18 @@ import (
 	"testing"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
+
+func TestApplyLLMDefaultsFromProfileUsesConcurrencyLimit(t *testing.T) {
+	out := &dto.ChatConfig{}
+	applyLLMDefaultsFromProfile(out, &dbmodel.AIModelProfile{Defaults: map[string]any{
+		"max_concurrent_requests": 16,
+	}})
+	if out.MaxConcurrentRequests != 16 {
+		t.Fatalf("max concurrent requests=%d want 16", out.MaxConcurrentRequests)
+	}
+}
 
 func TestRenderAgentProfilePromptPrioritizesAgentIdentity(t *testing.T) {
 	prompt := renderAgentProfilePrompt(&dbmodel.Agent{

@@ -2,7 +2,10 @@ package distribution
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
@@ -30,6 +33,7 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 		&models.ReleasePlan{},
 		&models.CanaryDeploymentRecord{},
 		&models.OfflineDistributionPackage{},
+		&models.SigningKey{},
 		&models.MarketplaceListing{},
 		&models.PluginImportRun{},
 	))
@@ -67,12 +71,22 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 
 	content := []byte("hello distribution")
 	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	signature := ed25519.Sign(privateKey, content)
+	require.NoError(t, db.Create(&models.SigningKey{
+		KeyID:     "test-key",
+		PublicKey: base64.RawStdEncoding.EncodeToString(publicKey),
+		Enabled:   true,
+	}).Error)
 
 	pkg, err := svc.StoreOfflinePackage(context.Background(), StoreOfflinePackageInput{
-		CandidateID: candidate.UUID,
-		Content:     content,
-		Checksum:    checksum,
-		Actor:       "dist-test",
+		CandidateID:          candidate.UUID,
+		Content:              content,
+		Checksum:             checksum,
+		SignatureFingerprint: base64.RawStdEncoding.EncodeToString(signature),
+		SigningKeyID:         "test-key",
+		Actor:                "dist-test",
 		LicenseReport: map[string]any{
 			"apache": 2,
 		},
@@ -110,11 +124,11 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, models.MarketplaceListingStatusApproved, listing.ReviewStatus)
+	require.NoError(t, db.Model(&models.OfflineDistributionPackage{}).Where("id = ?", pkg.ID).Update("status", models.OfflinePackageStatusApproved).Error)
 
 	job, err := svc.StartOfflineImport(context.Background(), OfflineImportInput{
 		TenantUUID:      "878f6af7-2f76-4853-8a39-29e22983b05e",
-		PackageURI:      pkg.PackageURI,
-		Checksum:        checksum,
+		PackageUUID:     pkg.PackageUUID.String(),
 		DryRun:          true,
 		LicenseAccepted: true,
 		Actor:           "tenant-admin",
@@ -127,4 +141,51 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, job.ID, fetched.ID)
 	require.Equal(t, job.PackageURI, fetched.PackageURI)
+}
+
+func TestStoreOfflinePackageRequiresEnabledCoreOwnedSigningKey(t *testing.T) {
+	prevSchema := coremodel.PowerXSchema
+	coremodel.PowerXSchema = ""
+	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
+
+	db, err := gorm.Open(sqlite.Open("file:signing-key-test?mode=memory&cache=shared&_loc=UTC"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.PluginReleaseCandidate{}, &models.OfflineDistributionPackage{}, &models.SigningKey{}))
+	candidateRepo := repo.NewReleaseCandidateRepository(db)
+	distRepo := repo.NewDistributionRepository(db)
+	candidate, err := candidateRepo.CreateCandidate(context.Background(), &models.PluginReleaseCandidate{
+		TenantUUID:       distributionTenantUUID,
+		PluginID:         "px.signing-test",
+		Version:          "v1.0.0",
+		BuildArtifactURI: "s3://bucket/signing-test.zip",
+		CommitHash:       "commit-signing-test",
+		GateStatus:       models.PluginReleaseGateStatusPassed,
+		ApprovalStatus:   models.PluginReleaseApprovalApproved,
+	})
+	require.NoError(t, err)
+	svc := NewService(Dependencies{Candidates: candidateRepo, Repository: distRepo}, Options{FeatureEnabled: true})
+	content := []byte("signed package")
+	checksum := fmt.Sprintf("%x", sha256.Sum256(content))
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	signature := base64.RawStdEncoding.EncodeToString(ed25519.Sign(privateKey, content))
+
+	_, err = svc.StoreOfflinePackage(context.Background(), StoreOfflinePackageInput{
+		CandidateID: candidate.UUID, Content: content, Checksum: checksum,
+		SignatureFingerprint: signature, SigningKeyID: "unregistered",
+		LicenseReport: map[string]any{"license": "Apache-2.0"},
+	})
+	require.ErrorIs(t, err, ErrInvalidInput)
+
+	key, err := svc.RegisterSigningKey(context.Background(), RegisterSigningKeyInput{
+		KeyID: "disabled-key", PublicKey: base64.RawStdEncoding.EncodeToString(publicKey),
+	})
+	require.NoError(t, err)
+	require.NoError(t, svc.DisableSigningKey(context.Background(), key.UUID))
+	_, err = svc.StoreOfflinePackage(context.Background(), StoreOfflinePackageInput{
+		CandidateID: candidate.UUID, Content: content, Checksum: checksum,
+		SignatureFingerprint: signature, SigningKeyID: key.KeyID,
+		LicenseReport: map[string]any{"license": "Apache-2.0"},
+	})
+	require.ErrorIs(t, err, ErrInvalidInput)
 }

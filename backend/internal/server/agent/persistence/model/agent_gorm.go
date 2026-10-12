@@ -21,11 +21,17 @@ const (
 	TableAgentCapabilityGrant  = "agent_capability_grants"
 	TableAgentAccessGrant      = "agent_access_grants"
 
-	TableAgentChatSession       = "agent_chat_sessions"
-	TableAgentChatMessage       = "agent_chat_messages"
-	TableAgentContextSummary    = "agent_chat_context_summaries"
-	TableAgentSessionSkillState = "agent_session_skill_states"
-	TableAgentRuntimeConfig     = "agent_runtime_configs"
+	TableAgentChatSession          = "agent_chat_sessions"
+	TableAgentChatMessage          = "agent_chat_messages"
+	TableAgentContextSummary       = "agent_chat_context_summaries"
+	TableAgentSessionSkillState    = "agent_session_skill_states"
+	TableAgentRuntimeConfig        = "agent_runtime_configs"
+	TableAgentRunSnapshot          = "agent_run_snapshots"
+	TableAgentRunObservation       = "agent_run_observations"
+	TableAgentPlanRevision         = "agent_plan_revisions"
+	TableAgentVerificationEvidence = "agent_verification_evidences"
+	TableAgentCapabilityApproval   = "agent_capability_approvals"
+	TableAgentRunTaskState         = "agent_run_task_states"
 )
 
 // ---------- 枚举/常量（可按需扩展） ----------

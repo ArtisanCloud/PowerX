@@ -13,16 +13,49 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
+	agentconfig "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	modelagent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/google/uuid"
 )
 
 type EventSink interface {
 	Emit(event string, payload any) error
+}
+
+// terminalTrackingSink lets the outer runtime boundary turn pre-execution
+// failures into a visible terminal SSE response without duplicating failures
+// that runResolvedPlan has already reported itself.
+type terminalTrackingSink struct {
+	EventSink
+	mu         sync.Mutex
+	endEmitted bool
+}
+
+func (s *terminalTrackingSink) Emit(event string, payload any) error {
+	err := s.EventSink.Emit(event, payload)
+	if err == nil && event == dto.EventEnd {
+		s.mu.Lock()
+		s.endEmitted = true
+		s.mu.Unlock()
+	}
+	return err
+}
+
+func (s *terminalTrackingSink) hasTerminalEvent() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.endEmitted
+}
+
+func approvedResumeFromContext(ctx context.Context) bool {
+	approved, _ := ctx.Value("runtime_approved_resume").(bool)
+	return approved
 }
 
 type Engine struct {
@@ -35,15 +68,13 @@ func (e *Engine) detectTasks(ctx context.Context, msg string, reqCfg *dto.ChatCo
 	if task, ok := pendingDetectedTaskFromContext(ctx, msg); ok {
 		return []flowschema.DetectedTask{task}, nil
 	}
+	if tasks, ok := e.deterministicMarketingReviewTasks(ctx, msg); ok {
+		return tasks, nil
+	}
 	return e.mgr.DetectTasksWithToolCalling(ctx, msg, reqCfg)
 }
 
 func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) error {
-	// 统一超时：避免 LLM/下游卡死导致“前端永远生成中”
-	// - 目标体验是“不断开连接、持续可见”，但也要有上限兜底（默认 10 分钟）。
-	execTimeout := 10 * time.Minute
-	ctx, cancel := context.WithTimeout(ctx, execTimeout)
-	defer cancel()
 	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.stream")
@@ -68,6 +99,10 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	}()
 	receiveNode := tr.startNode(ctx, "receive_message", "agent.stream", map[string]any{"message_digest": digestString(msg)})
 	tr.endNode(ctx, receiveNode, "receive_message", "agent.stream", map[string]any{"accepted": true})
+	if snapshot, ok := ResourceSnapshotFromContext(ctx); ok {
+		resourceNode := tr.startNode(ctx, "resource_snapshot", "runtime.prepare", map[string]any{"snapshot_uuid": snapshot.SnapshotUUID.String(), "resource_count": len(snapshot.Resources)})
+		tr.endNode(ctx, resourceNode, "resource_snapshot", "runtime.prepare", map[string]any{"snapshot_uuid": snapshot.SnapshotUUID.String(), "resource_count": len(snapshot.Resources)})
+	}
 	responsePlan := responsePlanFromContext(ctx)
 	if responsePlan != nil {
 		responsePlan.TraceID = tr.meta.TraceID
@@ -139,9 +174,17 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	// 不能再把 node_ref 当 flow_id 交给 ag.Stream。
 	if planHasNonWorkflow(plan) {
 		if shouldExecutePlanForResponse(responsePlan, plan) {
-			_, err := e.runResolvedPlan(ctx, plan, sink, tr)
-			runErr = err
-			return err
+			executionSink := &terminalTrackingSink{EventSink: sink}
+			out, err := e.runResolvedPlan(ctx, plan, executionSink, tr)
+			if err != nil {
+				runErr = err
+				if !executionSink.hasTerminalEvent() {
+					emitAgentRunFailure(ctx, sink, plan.PlanID, "execution.runtime_error", "执行失败", err, "")
+				}
+				return err
+			}
+			finalText = finalTraceContent(out)
+			return nil
 		}
 		ok = false
 		plan = nil
@@ -182,7 +225,6 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 		RequestID:  execID,
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
-		Timeout:    execTimeout,
 		TraceID:    strings.TrimSpace(reqctx.GetTraceID(ctx)),
 		Metadata: map[string]any{
 			"transport": "engine",
@@ -368,10 +410,36 @@ func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, ex
 	}
 }
 
+// RunApprovedResume executes only the caller-provided remaining subplan under
+// a server-restored frozen runtime context. The handler must set
+// runtime_approved_resume after resolving a persisted approved decision; this
+// entrypoint deliberately has no planner or user-message input.
+func (e *Engine) RunApprovedResume(ctx context.Context, plan flowschema.ExecutionPlan, sink EventSink) error {
+	if !approvedResumeFromContext(ctx) {
+		return fmt.Errorf("approved runtime resume context is required")
+	}
+	tr, err := e.newTraceRuntime(ctx, "", nil, "", "engine.approved_resume")
+	if err != nil {
+		return err
+	}
+	var runErr error
+	var finalText string
+	defer func() {
+		status := agenttrace.RunStatusCompleted
+		if runErr != nil {
+			status = agenttrace.RunStatusFailed
+		}
+		tr.complete(ctx, status, finalText, runErr)
+	}()
+	out, err := e.runResolvedPlan(ctx, &plan, sink, tr)
+	if err == nil {
+		finalText = finalTraceContent(out)
+	}
+	runErr = err
+	return err
+}
+
 func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) (*agentschema.ExecutionResult, *flowschema.ExecutionPlan, error) {
-	execTimeout := 10 * time.Minute
-	ctx, cancel := context.WithTimeout(ctx, execTimeout)
-	defer cancel()
 	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.invoke")
@@ -485,7 +553,6 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
 		TraceID:    strings.TrimSpace(reqctx.GetTraceID(ctx)),
-		Timeout:    execTimeout,
 		Metadata: map[string]any{
 			"transport": "engine.invoke",
 			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
@@ -558,8 +625,74 @@ func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.Chat
 		runErr = execErr
 		return nil, plan, execErr
 	}
-	finalText = BuildFinalResponseContent(responsePlan, buildFinalContent(out), nil)
+	finalText = finalTraceContent(out)
 	return out, plan, nil
+}
+
+// finalResponseUpstreamTaskRefs returns only tasks transitively upstream of a
+// terminal task. Final results cannot cite their own task or model-invented
+// labels as provenance.
+func finalResponseUpstreamTaskRefs(plan *flowschema.ExecutionPlan) map[string]struct{} {
+	if plan == nil || len(plan.Tasks) == 0 {
+		return map[string]struct{}{}
+	}
+	tasks := make(map[string]flowschema.PlanTask, len(plan.Tasks))
+	dependedOn := make(map[string]struct{}, len(plan.Tasks))
+	for _, task := range plan.Tasks {
+		taskID := strings.TrimSpace(task.TaskID)
+		if taskID == "" {
+			continue
+		}
+		tasks[taskID] = task
+		for _, dependency := range task.DependsOn {
+			if dependency = strings.TrimSpace(dependency); dependency != "" {
+				dependedOn[dependency] = struct{}{}
+			}
+		}
+	}
+	refs := make(map[string]struct{}, len(tasks))
+	var collect func(string)
+	collect = func(taskID string) {
+		task, ok := tasks[taskID]
+		if !ok {
+			return
+		}
+		for _, dependency := range task.DependsOn {
+			dependency = strings.TrimSpace(dependency)
+			if dependency == "" {
+				continue
+			}
+			if _, exists := refs[dependency]; exists {
+				continue
+			}
+			refs[dependency] = struct{}{}
+			collect(dependency)
+		}
+	}
+	for taskID := range tasks {
+		if _, isUpstream := dependedOn[taskID]; !isUpstream {
+			collect(taskID)
+		}
+	}
+	return refs
+}
+
+// finalTraceContent is canonical trace-only data. It is never emitted as a
+// second model-authored response, but gives response-envelope runs a durable
+// final digest in their trace report.
+func finalTraceContent(out *agentschema.ExecutionResult) string {
+	if out == nil || out.Data == nil {
+		return ""
+	}
+	envelope, err := responseEnvelopeFromExecutionResult(out.Data)
+	if err != nil || envelope == nil {
+		return buildFinalContent(out)
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 func sanitizeExecutionData(in flowschema.Result) flowschema.Result {
@@ -589,8 +722,149 @@ func sanitizeExecutionData(in flowschema.Result) flowschema.Result {
 }
 
 func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.ExecutionPlan, sink EventSink, tr *traceRuntime) (*agentschema.ExecutionResult, error) {
+	ctx = evidence.WithLedger(ctx)
 	if plan == nil || len(plan.Tasks) == 0 {
 		return nil, fmt.Errorf("empty plan")
+	}
+	var (
+		controller      *PlanController
+		snapshot        *ResourceSnapshot
+		revisionService *PlanRevisionService
+		verificationSvc *VerificationEvidenceService
+		runUUID         uuid.UUID
+		runtimeEnv      string
+	)
+	approvedResume := approvedResumeFromContext(ctx)
+	if resourceSnapshot, ok := ResourceSnapshotFromContext(ctx); ok {
+		snapshot = resourceSnapshot
+		limits, limitsErr := agentconfig.RuntimeBudgetLimits()
+		if limitsErr != nil {
+			return nil, fmt.Errorf("resolve runtime loop limits: %w", limitsErr)
+		}
+		requestTimeout, timeoutErr := agentconfig.LLMRequestTimeout()
+		if timeoutErr != nil {
+			return nil, fmt.Errorf("resolve LLM request timeout: %w", timeoutErr)
+		}
+		executionTimeout, durationErr := runDurationForPlan(*plan, limits.RunDeadline, requestTimeout)
+		if durationErr != nil {
+			return nil, durationErr
+		}
+		var err error
+		controller, err = NewPlanController(snapshot, &RuntimeBudget{MaxPlanRevisions: limits.MaxPlanRevisions, MaxObservations: limits.MaxObservations, MaxSteps: limits.MaxSteps, MaxCapabilityCalls: limits.MaxCapabilityCalls, MaxConcurrentTasks: limits.MaxConcurrentTasks, MaxExecutionDuration: executionTimeout}, *plan)
+		if err != nil {
+			return nil, fmt.Errorf("initialize plan controller: %w", err)
+		}
+		revision := controller.Current()
+		var hasRevisionService bool
+		revisionService, hasRevisionService = PlanRevisionServiceFromContext(ctx)
+		if !hasRevisionService {
+			return nil, fmt.Errorf("plan revision service is not configured")
+		}
+		var hasVerificationService bool
+		verificationSvc, hasVerificationService = VerificationEvidenceServiceFromContext(ctx)
+		if !hasVerificationService {
+			return nil, fmt.Errorf("verification evidence service is not configured")
+		}
+		var runUUIDErr error
+		runUUID, runUUIDErr = uuid.Parse(contextString(ctx, "runtime_run_uuid"))
+		if runUUIDErr != nil {
+			return nil, fmt.Errorf("runtime_run_uuid is required for plan revision")
+		}
+		runtimeEnv = firstNonEmpty(strings.TrimSpace(reqctx.GetEnv(ctx)), contextString(ctx, "env"))
+		if approvedResume {
+			persistedRevisionUUID, parseErr := uuid.Parse(contextString(ctx, "runtime_plan_revision_uuid"))
+			if parseErr != nil || persistedRevisionUUID == uuid.Nil {
+				return nil, fmt.Errorf("approved runtime resume revision is required")
+			}
+			for _, task := range plan.Tasks {
+				if normalizeNodeKind(task.NodeKind) == dto.NodeKindObservation {
+					return nil, fmt.Errorf("approved runtime resume cannot execute observation tasks")
+				}
+			}
+		} else {
+			if err := revisionService.Persist(ctx, runtimeEnv, snapshot.TenantUUID, runUUID, revision, controller.budget, nil); err != nil {
+				return nil, fmt.Errorf("persist initial plan revision: %w", err)
+			}
+			ctx = context.WithValue(ctx, "runtime_plan_revision_uuid", revision.RevisionUUID.String())
+			tr.withRuntimeRevision(revision.RevisionUUID)
+			controlNode := tr.startNode(ctx, "plan_revision", "runtime.initial_plan", map[string]any{
+				"revision_uuid": revision.RevisionUUID.String(),
+				"snapshot_uuid": snapshot.SnapshotUUID.String(),
+				"reason_code":   revision.ReasonCode,
+				"plan_id":       plan.PlanID,
+			})
+			tr.endNode(ctx, controlNode, "plan_revision", "runtime.initial_plan", map[string]any{
+				"revision_uuid": revision.RevisionUUID.String(),
+				"snapshot_uuid": snapshot.SnapshotUUID.String(),
+				"reason_code":   revision.ReasonCode,
+			})
+		}
+		executable := make([]flowschema.PlanTask, 0, len(plan.Tasks))
+		for _, task := range plan.Tasks {
+			if normalizeNodeKind(task.NodeKind) != dto.NodeKindObservation {
+				executable = append(executable, task)
+				continue
+			}
+			resourceUUID, parseErr := uuid.Parse(strings.TrimSpace(normalizeNodeRef(task)))
+			purpose := strings.TrimSpace(anyToString(task.Params["purpose"]))
+			if parseErr != nil || purpose == "" {
+				return nil, fmt.Errorf("observation task %s requires node_ref resource_uuid and params.purpose", task.TaskID)
+			}
+			node := tr.startNode(ctx, "observation", resourceUUID.String(), map[string]any{"task_id": task.TaskID, "purpose": purpose})
+			observation, observeErr := controller.Observe(ctx, firstNonEmpty(strings.TrimSpace(reqctx.GetEnv(ctx)), contextString(ctx, "env")), resourceUUID, purpose)
+			if observeErr != nil {
+				tr.failNode(ctx, node, "observation", resourceUUID.String(), observeErr)
+				return nil, observeErr
+			}
+			tr.endNode(ctx, node, "observation", resourceUUID.String(), map[string]any{"observation_uuid": observation.ObservationUUID.String(), "resource_uuid": resourceUUID.String()})
+		}
+		if len(executable) == 0 {
+			return nil, fmt.Errorf("observation plan requires a subsequent executable task")
+		}
+		if approvedResume {
+			// The remaining plan is already a persisted revision. Observation would
+			// create an unapproved replacement decision, so it is forbidden above.
+			plan = &flowschema.ExecutionPlan{PlanID: plan.PlanID, Tasks: executable}
+		} else if len(controller.Observations()) > 0 {
+			ctx = ContextWithRuntimeObservations(ctx, controller.Observations())
+			planner, hasPlanner := PlanRevisionPlannerFromContext(ctx)
+			if !hasPlanner {
+				return nil, fmt.Errorf("plan revision planner is not configured")
+			}
+			reasonCode, nextPlan, replanErr := planner.Replan(ctx, PlanRevisionRequest{Snapshot: snapshot, Observations: controller.Observations(), CurrentPlan: flowschema.ExecutionPlan{PlanID: plan.PlanID, Tasks: executable}})
+			if replanErr != nil {
+				return nil, fmt.Errorf("replan after observations: %w", replanErr)
+			}
+			revision, revisionErr := controller.Revise(reasonCode, nextPlan)
+			if revisionErr != nil {
+				return nil, fmt.Errorf("create plan revision: %w", revisionErr)
+			}
+			revisionNode := tr.startNode(ctx, "plan_revision", "runtime.replan", map[string]any{"revision_uuid": revision.RevisionUUID.String(), "parent_revision_uuid": revision.ParentRevisionUUID.String(), "reason_code": revision.ReasonCode, "plan_id": revision.Plan.PlanID})
+			if persistErr := revisionService.Persist(ctx, runtimeEnv, snapshot.TenantUUID, runUUID, revision, controller.budget, controller.Observations()); persistErr != nil {
+				tr.failNode(ctx, revisionNode, "plan_revision", "runtime.replan", persistErr)
+				return nil, fmt.Errorf("persist plan revision: %w", persistErr)
+			}
+			tr.endNode(ctx, revisionNode, "plan_revision", "runtime.replan", map[string]any{"revision_uuid": revision.RevisionUUID.String(), "reason_code": revision.ReasonCode, "superseded_task_refs": revision.SupersededTaskRefs, "new_task_refs": revision.NewTaskRefs})
+			ctx = context.WithValue(ctx, "runtime_plan_revision_uuid", revision.RevisionUUID.String())
+			tr.withRuntimeRevision(revision.RevisionUUID)
+			plan = &revision.Plan
+		} else {
+			// Revision 0 is the authoritative executable plan when no observation
+			// task ran. A replan requires observation evidence; fabricating an empty
+			// replan would both violate that contract and reject ordinary task plans.
+			plan = &flowschema.ExecutionPlan{PlanID: plan.PlanID, Tasks: executable}
+		}
+	}
+	if controller != nil {
+		if err := controller.budget.ValidatePlanConcurrency(*plan); err != nil {
+			return nil, fmt.Errorf("validate runtime concurrency budget: %w", err)
+		}
+		if controller.budget.MaxExecutionDuration <= 0 {
+			return nil, fmt.Errorf("runtime execution duration budget is required")
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeoutCause(ctx, controller.budget.MaxExecutionDuration, ErrRuntimeBudgetExhausted)
+		defer cancel()
 	}
 	tr.withPlan(plan.PlanID)
 	traceID := fmt.Sprintf("trace_%d", time.Now().UnixNano())
@@ -602,7 +876,6 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		UserID:     reqctx.GetUserID(ctx),
 		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
 		TraceID:    traceID,
-		Timeout:    10 * time.Minute,
 		Metadata: map[string]any{
 			"transport": "engine.invoke",
 			"env":       strings.TrimSpace(reqctx.GetEnv(ctx)),
@@ -610,8 +883,57 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 	})
 
 	emitMu := &sync.Mutex{}
+	taskTraceNodes := &sync.Map{}
+	type taskTraceNode struct {
+		nodeID string
+		kind   string
+		ref    string
+	}
+	finishTaskTrace := func(task flowschema.PlanTask, out *agentschema.ExecutionResult, taskErr error) {
+		raw, found := taskTraceNodes.LoadAndDelete(task.TaskID)
+		if !found {
+			return
+		}
+		node, ok := raw.(taskTraceNode)
+		if !ok {
+			return
+		}
+		if taskErr != nil {
+			tr.failNode(ctx, node.nodeID, node.kind, node.ref, taskErr)
+			return
+		}
+		tr.endNode(ctx, node.nodeID, node.kind, node.ref, map[string]any{"task_id": task.TaskID, "success": out != nil && out.Success})
+	}
 	hooks := &agent.PlanExecutionHooks{
+		MaxConcurrentTasks: func() int {
+			if controller == nil {
+				return 0
+			}
+			return controller.budget.MaxConcurrentTasks
+		}(),
 		OnTaskStart: func(task flowschema.PlanTask) error {
+			if controller != nil {
+				if err := controller.budget.ConsumeTask(normalizeNodeKind(task.NodeKind)); err != nil {
+					return err
+				}
+			}
+			if normalizeNodeKind(task.NodeKind) == "tooling" && snapshot != nil {
+				capabilityUUID, err := taskCapabilityUUID(task)
+				if err != nil {
+					return err
+				}
+				if err := requireTaskApproval(ctx, snapshot, capabilityUUID); err != nil {
+					return err
+				}
+			}
+			taskTraceNodes.Store(task.TaskID, taskTraceNode{
+				nodeID: tr.startNode(ctx, normalizeNodeKind(task.NodeKind), normalizeNodeRef(task), map[string]any{
+					"task_id": task.TaskID,
+					"plan_id": plan.PlanID,
+				}),
+				kind: normalizeNodeKind(task.NodeKind),
+				ref:  normalizeNodeRef(task),
+			})
 			emitMu.Lock()
 			defer emitMu.Unlock()
 			_ = sink.Emit(dto.EventNodeStart, map[string]any{
@@ -635,18 +957,35 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			return nil
 		},
 		OnTaskEnd: func(task flowschema.PlanTask, out *agentschema.ExecutionResult, runErr error) error {
+			var traceErr error
+			defer func() {
+				if traceErr != nil {
+					finishTaskTrace(task, out, traceErr)
+					return
+				}
+				finishTaskTrace(task, out, runErr)
+			}()
 			emitMu.Lock()
 			defer emitMu.Unlock()
+			if runErr == nil && snapshot != nil {
+				if err := AttachCapabilityVerificationEvidence(ctx, snapshot, task, out); err != nil {
+					traceErr = fmt.Errorf("attach capability verification evidence: %w", err)
+					return traceErr
+				}
+				if err := verificationSvc.PersistVerifiedCapabilityTask(ctx, runtimeEnv, snapshot.TenantUUID, runUUID, snapshot, task, out); err != nil {
+					traceErr = fmt.Errorf("persist capability verification evidence: %w", err)
+					return traceErr
+				}
+			}
 			taskErr := taskExecutionError(out, runErr)
+			if taskErr != nil {
+				traceErr = taskErr
+			}
 			status := "completed"
 			if taskErr != nil {
 				status = "failed"
 			} else if out != nil && isAwaitingParamsResult(out) {
 				status = dto.AgentTaskStatusAwaitingParams
-			}
-			if err := persistTaskSkillState(ctx, task, status, out, taskErr); err != nil {
-				_ = sink.Emit(dto.EventError, map[string]any{"message": "保存 Skill 状态失败", "detail": err.Error()})
-				return err
 			}
 			taskEndPayload := map[string]any{
 				"planner_mode":    dto.PlannerModeUnified,
@@ -670,7 +1009,7 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 					if taskErr == nil {
 						return ""
 					}
-					return taskErr.Error()
+					return taskFailureReason(taskErr)
 				}(),
 				"result_summary": func() map[string]any {
 					if out == nil {
@@ -682,6 +1021,32 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 					}
 				}(),
 			}
+			if err := persistTaskSkillState(ctx, task, status, out, taskErr); err != nil {
+				traceErr = err
+				taskEndPayload["status"] = dto.AgentTaskStatusFailed
+				taskEndPayload["error"] = "task_state.persist_failed"
+				enrichTaskEndPayload(taskEndPayload, out)
+				_ = sink.Emit(dto.EventNodeEnd, taskEndPayload)
+				_ = sink.Emit(dto.EventError, map[string]any{
+					"message":        "保存 Skill 状态失败",
+					"reason_code":    "task_state.persist_failed",
+					"plan_id":        plan.PlanID,
+					"task_id":        task.TaskID,
+					"flow_id":        task.FlowID,
+					"node_id":        task.TaskID,
+					"node_kind":      normalizeNodeKind(task.NodeKind),
+					"node_ref":       normalizeNodeRef(task),
+					"stage":          task.Stage,
+					"depends_on":     task.DependsOn,
+					"failure_policy": strings.TrimSpace(task.FailurePolicy),
+				})
+				return err
+			}
+			if stateService, ok := runTaskStateServiceFromContext(ctx); ok {
+				if err := stateService.Persist(ctx, task, status); err != nil {
+					return err
+				}
+			}
 			enrichTaskEndPayload(taskEndPayload, out)
 			_ = sink.Emit(dto.EventNodeEnd, taskEndPayload)
 			if status == dto.AgentTaskStatusAwaitingParams {
@@ -691,7 +1056,182 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		},
 	}
 
-	out, execErr := e.mgr.ExecutePlanWithHooks(ctx, *plan, meta, hooks)
+	report, execErr := e.mgr.ExecutePlanWithHooks(ctx, *plan, meta, hooks)
+	var out *agentschema.ExecutionResult
+	if report != nil {
+		out = report.FinalResult
+	}
+	verificationNode := tr.startNode(ctx, "verification", "runtime.execution", map[string]any{"plan_id": plan.PlanID})
+	verdict, verifyErr := (DeterministicExecutionVerifier{}).Verify(ctx, report, out, execErr)
+	if verifyErr != nil {
+		tr.failNode(ctx, verificationNode, "verification", "runtime.execution", verifyErr)
+		if execErr == nil {
+			execErr = fmt.Errorf("verify execution result: %w", verifyErr)
+		}
+		verdict = VerificationVerdict{Class: VerificationFatal, ReasonCode: "verification.contract_invalid", TaskRefs: failedTaskRefs(report)}
+	} else {
+		tr.endNode(ctx, verificationNode, "verification", "runtime.execution", map[string]any{"class": verdict.Class, "reason_code": verdict.ReasonCode, "task_refs": verdict.TaskRefs})
+	}
+	if verdict.Class == VerificationPass && snapshot != nil {
+		contractNode := tr.startNode(ctx, "capability_contract_verification", "runtime.execution", map[string]any{"plan_id": plan.PlanID})
+		if contractErr := VerifyCapabilityContracts(snapshot, *plan, report); contractErr != nil {
+			tr.failNode(ctx, contractNode, "capability_contract_verification", "runtime.execution", contractErr)
+			verdict = VerificationVerdict{Class: VerificationFatal, ReasonCode: "capability.verification_evidence_invalid", TaskRefs: incompleteTaskRefs(report)}
+			if execErr == nil {
+				execErr = fmt.Errorf("verify capability contract evidence: %w", contractErr)
+			}
+		} else {
+			tr.endNode(ctx, contractNode, "capability_contract_verification", "runtime.execution", map[string]any{"plan_id": plan.PlanID})
+		}
+	}
+	_ = sink.Emit("verification", map[string]any{"plan_id": plan.PlanID, "class": verdict.Class, "reason_code": verdict.ReasonCode, "task_refs": verdict.TaskRefs})
+	if snapshot != nil {
+		if persistErr := verificationSvc.Persist(ctx, runtimeEnv, snapshot.TenantUUID, runUUID, snapshot.SnapshotUUID, verdict, verificationArtifactRef(report, out)); persistErr != nil {
+			return nil, fmt.Errorf("persist verification evidence: %w", persistErr)
+		}
+	}
+	if verdict.Class == VerificationRetryable || verdict.Class == VerificationReplaceable {
+		if approvedResume {
+			return nil, fmt.Errorf("approved runtime resume requires a new plan revision for recovery")
+		}
+		recoveryMode := verdict.Class
+		recoveryNode := tr.startNode(ctx, "recovery_decision", "runtime."+recoveryMode, map[string]any{"plan_id": plan.PlanID, "reason_code": verdict.ReasonCode, "task_refs": verdict.TaskRefs})
+		if controller == nil || snapshot == nil || revisionService == nil || runUUID == uuid.Nil || runtimeEnv == "" {
+			err := fmt.Errorf("runtime recovery requires an initialized runtime snapshot")
+			tr.failNode(ctx, recoveryNode, "recovery_decision", "runtime."+recoveryMode, err)
+			return nil, err
+		}
+		var (
+			recoveryPlan       flowschema.ExecutionPlan
+			recoveryPlanErr    error
+			revisionReason     string
+			triggerObservation *ResourceObservation
+		)
+		switch recoveryMode {
+		case VerificationRetryable:
+			recoveryPlan, recoveryPlanErr = retryPlanFromVerdict(snapshot, *plan, verdict)
+			revisionReason = "verification.retryable"
+		case VerificationReplaceable:
+			planner, hasPlanner := PlanRevisionPlannerFromContext(ctx)
+			if !hasPlanner {
+				recoveryPlanErr = fmt.Errorf("plan revision planner is not configured")
+				break
+			}
+			var observation ResourceObservation
+			revisionReason, recoveryPlan, observation, recoveryPlanErr = semanticReplacementPlanFromVerdict(ctx, controller, planner, snapshot, *plan, verdict, runtimeEnv)
+			if recoveryPlanErr == nil {
+				triggerObservation = &observation
+			}
+		}
+		if recoveryPlanErr != nil {
+			tr.failNode(ctx, recoveryNode, "recovery_decision", "runtime."+recoveryMode, recoveryPlanErr)
+			return nil, fmt.Errorf("build recovery plan: %w", recoveryPlanErr)
+		}
+		retryRevision, reviseErr := controller.Revise(revisionReason, recoveryPlan)
+		if reviseErr != nil {
+			tr.failNode(ctx, recoveryNode, "recovery_decision", "runtime."+recoveryMode, reviseErr)
+			return nil, fmt.Errorf("create recovery plan revision: %w", reviseErr)
+		}
+		if triggerObservation != nil {
+			retryRevision.TriggerObservationUUIDs = []uuid.UUID{triggerObservation.ObservationUUID}
+		}
+		if persistErr := revisionService.Persist(ctx, runtimeEnv, snapshot.TenantUUID, runUUID, retryRevision, controller.budget, controller.Observations()); persistErr != nil {
+			tr.failNode(ctx, recoveryNode, "recovery_decision", "runtime."+recoveryMode, persistErr)
+			return nil, fmt.Errorf("persist recovery plan revision: %w", persistErr)
+		}
+		tr.endNode(ctx, recoveryNode, "recovery_decision", "runtime."+recoveryMode, map[string]any{"revision_uuid": retryRevision.RevisionUUID.String(), "reason_code": retryRevision.ReasonCode, "plan_id": retryRevision.Plan.PlanID})
+		ctx = context.WithValue(ctx, "runtime_plan_revision_uuid", retryRevision.RevisionUUID.String())
+		tr.withRuntimeRevision(retryRevision.RevisionUUID)
+		plan = &retryRevision.Plan
+		tr.withPlan(plan.PlanID)
+		if err := controller.budget.ValidatePlanConcurrency(*plan); err != nil {
+			return nil, fmt.Errorf("validate recovery concurrency budget: %w", err)
+		}
+		report, execErr = e.mgr.ExecutePlanWithHooks(ctx, *plan, meta, hooks)
+		out = nil
+		if report != nil {
+			out = report.FinalResult
+		}
+		retryVerificationNode := tr.startNode(ctx, "verification", "runtime."+recoveryMode, map[string]any{"plan_id": plan.PlanID})
+		verdict, verifyErr = (DeterministicExecutionVerifier{}).Verify(ctx, report, out, execErr)
+		if verifyErr != nil {
+			tr.failNode(ctx, retryVerificationNode, "verification", "runtime."+recoveryMode, verifyErr)
+			if execErr == nil {
+				execErr = fmt.Errorf("verify retry execution result: %w", verifyErr)
+			}
+			verdict = VerificationVerdict{Class: VerificationFatal, ReasonCode: "verification.contract_invalid", TaskRefs: failedTaskRefs(report)}
+		} else {
+			tr.endNode(ctx, retryVerificationNode, "verification", "runtime."+recoveryMode, map[string]any{"class": verdict.Class, "reason_code": verdict.ReasonCode, "task_refs": verdict.TaskRefs})
+		}
+		if verdict.Class == VerificationPass && snapshot != nil {
+			contractNode := tr.startNode(ctx, "capability_contract_verification", "runtime."+recoveryMode, map[string]any{"plan_id": plan.PlanID})
+			if contractErr := VerifyCapabilityContracts(snapshot, *plan, report); contractErr != nil {
+				tr.failNode(ctx, contractNode, "capability_contract_verification", "runtime."+recoveryMode, contractErr)
+				verdict = VerificationVerdict{Class: VerificationFatal, ReasonCode: "capability.verification_evidence_invalid", TaskRefs: incompleteTaskRefs(report)}
+				if execErr == nil {
+					execErr = fmt.Errorf("verify recovery capability contract evidence: %w", contractErr)
+				}
+			} else {
+				tr.endNode(ctx, contractNode, "capability_contract_verification", "runtime."+recoveryMode, map[string]any{"plan_id": plan.PlanID})
+			}
+		}
+		if verdict.Class == VerificationRetryable || verdict.Class == VerificationReplaceable {
+			verdict = VerificationVerdict{Class: VerificationFatal, ReasonCode: "recovery." + recoveryMode + "_exhausted", TaskRefs: verdict.TaskRefs}
+			if execErr == nil {
+				execErr = fmt.Errorf("runtime recovery exhausted")
+			}
+		}
+		_ = sink.Emit("verification", map[string]any{"plan_id": plan.PlanID, "class": verdict.Class, "reason_code": verdict.ReasonCode, "task_refs": verdict.TaskRefs})
+		if persistErr := verificationSvc.Persist(ctx, runtimeEnv, snapshot.TenantUUID, runUUID, snapshot.SnapshotUUID, verdict, verificationArtifactRef(report, out)); persistErr != nil {
+			return nil, fmt.Errorf("persist recovery verification evidence: %w", persistErr)
+		}
+	}
+	if verdict.Class == VerificationBlocked && execErr == nil {
+		execErr = fmt.Errorf("runtime execution blocked")
+	}
+	outcome := runtimeOutcomeFromVerdict(verdict)
+	recovery := recoveryDecisionFromVerdict(verdict)
+	if verdict.Class == VerificationNeedsInput || isAwaitingParamsResult(out) {
+		if verdict.ReasonCode == "approval.required" {
+			_ = sink.Emit(dto.EventAgentRunAwaitingParams, map[string]any{
+				"plan_id":                            plan.PlanID,
+				"reason_code":                        verdict.ReasonCode,
+				"required_approval_capability_uuids": verdict.RequiredApprovalCapabilityUUIDs,
+				"approval_request_uuid":              verdict.ApprovalRequestUUID,
+			})
+		}
+		responsePlan := responsePlanFromContext(ctx)
+		missingFields := verdict.RequiredInputFields
+		if len(missingFields) == 0 {
+			missingFields = stringSliceFromAny(resultValue(out, "missing_fields"))
+		}
+		responsePlan = ensureResponsePlanForClarify(ctx, responsePlan, missingFields)
+		userMsg := firstNonEmpty(
+			anyToString(resultValue(out, "message")),
+			BuildFinalResponseContent(responsePlan, "", nil),
+		)
+		contextLayers := responseContextLayersFromContext(ctx)
+		finalNode := tr.startNode(ctx, "final_response", "plan.awaiting_params", map[string]any{
+			"plan_id":               plan.PlanID,
+			"response_mode":         responseModeString(responsePlan),
+			"target_capability_ids": responseTargetIDs(responsePlan),
+			"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse),
+		})
+		_ = sink.Emit(dto.EventFinal, map[string]any{
+			"success": true,
+			"data":    map[string]any{"content": userMsg},
+			"metadata": withRuntimeOutcome(mergeResponseMetadata(mergeTraceMetadata(map[string]any{
+				"trace_id": traceID, "plan_id": plan.PlanID,
+			}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)), outcome),
+		})
+		tr.endNode(ctx, finalNode, "final_response", "plan.awaiting_params", map[string]any{"content_digest": digestString(userMsg), "response_mode": responseModeString(responsePlan), "target_capability_ids": responseTargetIDs(responsePlan), "used_context_layers": contextLayers})
+		userAction := verdict.UserAction
+		if userAction == "" {
+			userAction = userActionForOutcome(outcome)
+		}
+		_ = sink.Emit(dto.EventEnd, map[string]any{"success": true, "outcome": outcome.Status, "reason_code": outcome.ReasonCode, "user_action_required": userAction})
+		return out, nil
+	}
 	if execErr != nil {
 		responsePlan := responsePlanFromContext(ctx)
 		if responsePlan != nil {
@@ -710,10 +1250,10 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			"data": map[string]any{
 				"content": userMsg,
 			},
-			"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
+			"metadata": withRuntimeOutcome(mergeResponseMetadata(mergeTraceMetadata(map[string]any{
 				"trace_id": traceID,
 				"plan_id":  plan.PlanID,
-			}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeErrorExplain)),
+			}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeErrorExplain)), outcome),
 		})
 		tr.endNode(ctx, finalNode, "final_response", "plan.error", map[string]any{
 			"success":               false,
@@ -722,51 +1262,40 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 			"target_capability_ids": responseTargetIDs(responsePlan),
 			"used_context_layers":   contextLayers,
 		})
-		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "detail": execErr.Error(), "plan_id": plan.PlanID, "user_message": userMsg})
-		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false})
+		_ = sink.Emit(dto.EventError, map[string]any{"message": "执行失败", "plan_id": plan.PlanID, "user_message": userMsg, "outcome": outcome.Status, "reason_code": outcome.ReasonCode, "recovery_class": recovery.Class})
+		_ = sink.Emit(dto.EventEnd, map[string]any{"success": false, "outcome": outcome.Status, "reason_code": outcome.ReasonCode, "recovery_class": recovery.Class, "user_action_required": userActionForOutcome(outcome)})
 		return nil, execErr
 	}
-	if isAwaitingParamsResult(out) {
-		responsePlan := responsePlanFromContext(ctx)
-		responsePlan = ensureResponsePlanForClarify(ctx, responsePlan, stringSliceFromAny(resultValue(out, "missing_fields")))
-		userMsg := firstNonEmpty(
-			anyToString(resultValue(out, "message")),
-			BuildFinalResponseContent(responsePlan, "", nil),
-		)
-		contextLayers := responseContextLayersFromContext(ctx)
-		finalNode := tr.startNode(ctx, "final_response", "plan.awaiting_params", map[string]any{
-			"plan_id":               plan.PlanID,
-			"response_mode":         responseModeString(responsePlan),
-			"target_capability_ids": responseTargetIDs(responsePlan),
-			"model_selection":       modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse),
-		})
-		_ = sink.Emit(dto.EventFinal, map[string]any{
-			"success": true,
-			"data": map[string]any{
-				"content": userMsg,
-			},
-			"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
-				"trace_id": traceID,
-				"plan_id":  plan.PlanID,
-			}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
-		})
-		tr.endNode(ctx, finalNode, "final_response", "plan.awaiting_params", map[string]any{
-			"content_digest":        digestString(userMsg),
-			"response_mode":         responseModeString(responsePlan),
-			"target_capability_ids": responseTargetIDs(responsePlan),
-			"used_context_layers":   contextLayers,
-		})
-		_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
-		return out, nil
+	if out == nil {
+		err := errors.New("agent execution completed without a terminal result")
+		emitAgentRunFailure(ctx, sink, plan.PlanID, "execution.no_result", "执行未返回可验证结果", err, "")
+		return nil, err
 	}
 	responsePlan := responsePlanFromContext(ctx)
-	envelope, envelopeErr := responseEnvelopeFromExecutionResult(out.Data)
+	envelope, envelopeErr := responseEnvelopeFromExecutionResultWithTaskRefs(out.Data, finalResponseUpstreamTaskRefs(plan))
+	if envelopeErr == nil && envelope != nil {
+		envelopeErr = evidence.Verify(ctx, envelope)
+	}
 	if envelopeErr != nil {
+		// The final Skill invocation may succeed while its result is rejected by
+		// the platform contract. Persist that validation as a real failed trace
+		// node; otherwise Trace only shows the successful Skill call and a red
+		// run badge with no actionable failure detail.
+		validationNode := tr.startNode(ctx, "final_response", "response_envelope_validation", map[string]any{
+			"plan_id":      plan.PlanID,
+			"failure_kind": "response_contract_invalid",
+		})
+		tr.failNode(ctx, validationNode, "final_response", "response_envelope_validation", envelopeErr)
 		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", envelopeErr, "")
 		return nil, envelopeErr
 	}
 	if envelope == nil {
 		err := fmt.Errorf("agent.response_contract_invalid: response_envelope is required for an execution plan")
+		validationNode := tr.startNode(ctx, "final_response", "response_envelope_validation", map[string]any{
+			"plan_id":      plan.PlanID,
+			"failure_kind": "response_contract_invalid",
+		})
+		tr.failNode(ctx, validationNode, "final_response", "response_envelope_validation", err)
 		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", err, "")
 		return nil, err
 	}
@@ -791,18 +1320,19 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		"data": mergeFinalContent(flowschema.Result{
 			"response_envelope": envelope,
 		}, content),
-		"metadata": mergeResponseMetadata(mergeTraceMetadata(map[string]any{
+		"metadata": withRuntimeOutcome(mergeResponseMetadata(mergeTraceMetadata(map[string]any{
 			"trace_id": traceID,
 			"plan_id":  plan.PlanID,
-		}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)),
+		}, tr), responsePlan, contextLayers, modelSelectionFromContext(ctx, ModelPolicyNodeFinalResponse)), outcome),
 	})
 	tr.endNode(ctx, finalNode, "final_response", "plan.final", map[string]any{
-		"content_digest":        digestString(content),
+		"content_digest":        digestAny(envelope),
+		"calculation_evidence":  evidence.TraceSummary(envelope),
 		"response_mode":         responseModeString(responsePlan),
 		"target_capability_ids": responseTargetIDs(responsePlan),
 		"used_context_layers":   contextLayers,
 	})
-	_ = sink.Emit(dto.EventEnd, map[string]any{"success": true})
+	_ = sink.Emit(dto.EventEnd, map[string]any{"success": outcome.Status == RuntimeOutcomeCompleted, "outcome": outcome.Status, "reason_code": outcome.ReasonCode, "user_action_required": userActionForOutcome(outcome)})
 	return out, nil
 }
 
@@ -1007,7 +1537,9 @@ func builtInTeamPlanFromContext(ctx context.Context) (*flowschema.ExecutionPlan,
 			if !containsNormalizedString(parentSkillIDs, configuredTask.SkillID) {
 				return nil, true, fmt.Errorf("team task skill is not bound to parent agent: task=%s skill=%s", taskID, configuredTask.SkillID)
 			}
-			plan.Tasks = append(plan.Tasks, flowschema.PlanTask{TaskID: taskID, FlowID: configuredTask.SkillID, NodeKind: dto.NodeKindSkill, NodeRef: configuredTask.SkillID, SourceScope: "agent", AgentID: fmt.Sprintf("%d", parentAgentID), FailurePolicy: failurePolicy, Stage: configuredTask.Stage, DependsOn: dependsOn, ParamRefs: paramRefs, Params: map[string]any{"context": map[string]any{"locale": locale}, "payload": map[string]any{"content": material, "context": "team_orchestration"}}})
+			// 团队 Skill 的原始用户材料使用 payload.message 作为稳定契约。content
+			// 只保留为同一 payload 中的业务材料字段，不能替代 evidence_sources 声明的来源。
+			plan.Tasks = append(plan.Tasks, flowschema.PlanTask{TaskID: taskID, FlowID: configuredTask.SkillID, NodeKind: dto.NodeKindSkill, NodeRef: configuredTask.SkillID, SourceScope: "agent", AgentID: fmt.Sprintf("%d", parentAgentID), FailurePolicy: failurePolicy, Stage: configuredTask.Stage, DependsOn: dependsOn, ParamRefs: paramRefs, Params: map[string]any{"context": map[string]any{"locale": locale}, "payload": map[string]any{"message": material, "content": material, "context": "team_orchestration"}}})
 		}
 	}
 	return plan, true, nil
@@ -1673,6 +2205,9 @@ func PickFirstFlowID(plan *flowschema.ExecutionPlan) string {
 }
 
 func normalizeNodeKind(kind string) string {
+	if strings.EqualFold(strings.TrimSpace(kind), dto.NodeKindObservation) {
+		return dto.NodeKindObservation
+	}
 	k := strings.ToLower(strings.TrimSpace(kind))
 	if k == "" {
 		return dto.NodeKindWorkflow
@@ -1817,18 +2352,23 @@ func humanizeExecutionError(err error) string {
 	if err == nil {
 		return "执行失败，请稍后重试。"
 	}
-	raw := strings.TrimSpace(err.Error())
-	lower := strings.ToLower(raw)
-	switch {
-	case strings.Contains(lower, "skill record not found"):
-		return "执行失败：命中的技能记录不存在（可能是旧 skill ID）。请刷新技能列表后重试。"
-	case strings.Contains(lower, "context canceled"):
+	if errors.Is(err, context.Canceled) {
 		return "执行失败：任务在并行阶段被取消，请重试一次。"
+	}
+	return "执行失败，请稍后重试。"
+}
+
+func taskFailureReason(err error) string {
+	if modelReason := modelFailureReason(err); modelReason != "" {
+		return modelReason
+	}
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "run.canceled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "run.timeout"
 	default:
-		if raw == "" {
-			return "执行失败，请稍后重试。"
-		}
-		return "执行失败：" + raw
+		return "execution.task_failed"
 	}
 }
 
@@ -1836,37 +2376,41 @@ func agentRunFailurePayload(ctx context.Context, flowID, reason string, err erro
 	code := "agent_run.failed"
 	retryable := false
 	if err != nil {
-		switch {
-		case errors.Is(err, context.Canceled):
-			code = "agent_run.canceled"
-			retryable = true
-		case errors.Is(err, context.DeadlineExceeded):
-			code = "agent_run.timeout"
-			retryable = true
-		case strings.Contains(strings.ToLower(err.Error()), "without final response"):
-			code = "agent_run.missing_final"
+		switch modelFailureReason(err) {
+		case "queue.full":
+			code, retryable = "agent_run.queue_full", true
+		case "queue.timeout":
+			code, retryable = "agent_run.queue_timeout", true
+		case "provider.timeout":
+			code, retryable = "agent_run.provider_timeout", true
+		case "store.unavailable":
+			code, retryable = "agent_run.store_unavailable", true
+		default:
+			switch {
+			case errors.Is(err, context.Canceled):
+				code = "agent_run.canceled"
+				retryable = true
+			case errors.Is(err, context.DeadlineExceeded):
+				code = "agent_run.timeout"
+				retryable = true
+			case strings.Contains(strings.ToLower(err.Error()), "without final response"):
+				code = "agent_run.missing_final"
+			}
 		}
 	}
-	detail := ""
-	if err != nil {
-		detail = err.Error()
-	}
-	message := detail
-	if strings.TrimSpace(message) == "" {
-		message = code
-	}
+	outcome := runtimeFailureOutcome(strings.TrimSpace(reason), err)
 	payload := map[string]any{
-		"success":    false,
-		"code":       code,
-		"reason":     strings.TrimSpace(reason),
-		"message":    message,
-		"detail":     detail,
-		"retryable":  retryable,
-		"flow_id":    strings.TrimSpace(flowID),
-		"trace_id":   strings.TrimSpace(reqctx.GetTraceID(ctx)),
-		"error":      map[string]any{"code": code, "reason": strings.TrimSpace(reason), "detail": detail, "retryable": retryable},
-		"metadata":   map[string]any{"terminal": true, "failure_code": code, "failure_reason": strings.TrimSpace(reason)},
-		"created_at": time.Now().UTC().Format(time.RFC3339Nano),
+		"success":     false,
+		"code":        code,
+		"reason":      strings.TrimSpace(reason),
+		"retryable":   retryable,
+		"flow_id":     strings.TrimSpace(flowID),
+		"trace_id":    strings.TrimSpace(reqctx.GetTraceID(ctx)),
+		"outcome":     outcome.Status,
+		"reason_code": outcome.ReasonCode,
+		"error":       map[string]any{"code": code, "reason": strings.TrimSpace(reason), "retryable": retryable},
+		"metadata":    map[string]any{"terminal": true, "failure_code": code, "failure_reason": strings.TrimSpace(reason), "outcome": outcome.Status, "reason_code": outcome.ReasonCode},
+		"created_at":  time.Now().UTC().Format(time.RFC3339Nano),
 	}
 	if content := strings.TrimSpace(SanitizeAssistantVisibleText(partial)); content != "" {
 		payload["partial_content"] = content
@@ -1891,7 +2435,7 @@ func emitAgentRunFailure(ctx context.Context, sink EventSink, flowID, reason, me
 
 func agentRunEndFailurePayload(errorPayload map[string]any) map[string]any {
 	out := map[string]any{"success": false}
-	for _, key := range []string{"code", "reason", "message", "detail", "retryable", "flow_id", "trace_id", "partial_content", "error", "metadata"} {
+	for _, key := range []string{"code", "reason", "message", "retryable", "flow_id", "trace_id", "outcome", "reason_code", "partial_content", "error", "metadata"} {
 		if v, ok := errorPayload[key]; ok {
 			out[key] = v
 		}

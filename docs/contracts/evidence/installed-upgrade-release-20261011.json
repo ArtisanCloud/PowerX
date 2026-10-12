@@ -1,0 +1,74 @@
+{
+  "source_sha": "03a2a58c60f4665d632e53ace48f169be8536421",
+  "run_id": 38145418432,
+  "manifest_sha256": "d7f1e296b59dc147ab6772d8450bc3a3cc1801c78a4b76e9746f7cffa1074a84",
+  "bundle_sha256": "cbcf9e307b37b8ca74fc863d1774871ffa6852348b974e8772c494e82dbaedbb",
+  "images": {
+    "backend": {
+      "repository": "ghcr.io/artisancloud/powerx-backend",
+      "index_digest": "sha256:c69cae6b0c3fa4203be636f9ad339b04109c848d8fca921c38243f1f7e8f1642",
+      "platforms": {
+        "linux/amd64": {
+          "digest": "sha256:685c5c5a05c53d7183da086c80fd5fdd754d19bfde0bf04d9407e22c9476a2a0",
+          "source_revision": "03a2a58c60f4665d632e53ace48f169be8536421"
+        },
+        "linux/arm64": {
+          "digest": "sha256:9c55c1c7e75d6f074b95e873e413bbff5fad6dfe2c20b709db02e92c81b8bb63",
+          "source_revision": "03a2a58c60f4665d632e53ace48f169be8536421"
+        }
+      }
+    },
+    "web_admin": {
+      "repository": "ghcr.io/artisancloud/powerx-web-admin",
+      "index_digest": "sha256:f2eb6b8b4e0328c66e1a74d531d3554389de562eda16156681aa796fca87fc8c",
+      "platforms": {
+        "linux/amd64": {
+          "digest": "sha256:37b143cf17a9b28ca32f8cdc651a93284cb894832145ac5f1d6cfb7477eb1a4a",
+          "source_revision": "03a2a58c60f4665d632e53ace48f169be8536421"
+        },
+        "linux/arm64": {
+          "digest": "sha256:149ab290729e43d4bbea961ce4c8067819676488fd57aeb930ac75d93d06167f",
+          "source_revision": "03a2a58c60f4665d632e53ace48f169be8536421"
+        }
+      }
+    }
+  },
+  "reports": [
+    {
+      "platform": "linux/amd64",
+      "checks_passed": 19,
+      "sha256": "fde95c8cd2c58abfbb442f3363db4f8c5652e222bed7c904d9654262b0528d1e"
+    },
+    {
+      "platform": "linux/arm64",
+      "checks_passed": 19,
+      "sha256": "1cfdfe06582cd55eb77388ac006792b920ba773f1f0c4031153ea544673bf156"
+    }
+  ],
+  "verified": true,
+  "date": "2026-10-11",
+  "release_tag": "docker-dev-03a2a58c60f4",
+  "release_url": "https://github.com/ArtisanCloud/PowerX/releases/tag/docker-dev-03a2a58c60f4",
+  "ci_run_url": "https://github.com/ArtisanCloud/PowerX/actions/runs/38145418432",
+  "channel": "development",
+  "public_assets": {
+    "powerx-docker.tar.gz": "https://github.com/ArtisanCloud/PowerX/releases/download/docker-dev-03a2a58c60f4/powerx-docker.tar.gz",
+    "powerx-docker.tar.gz.sha256": "https://github.com/ArtisanCloud/PowerX/releases/download/docker-dev-03a2a58c60f4/powerx-docker.tar.gz.sha256",
+    "powerx-upgrade-manifest.json": "https://github.com/ArtisanCloud/PowerX/releases/download/docker-dev-03a2a58c60f4/powerx-upgrade-manifest.json",
+    "powerx-upgrade-manifest.json.sha256": "https://github.com/ArtisanCloud/PowerX/releases/download/docker-dev-03a2a58c60f4/powerx-upgrade-manifest.json.sha256"
+  },
+  "local_directory": "/Users/michaelhu/Downloads/powerx-upgrade-release-03a2a58c60f4-20261011",
+  "evidence_directory": "docs/contracts/evidence/release-03a2a58c60f4",
+  "boundaries": {
+    "production_servers_updated": false,
+    "local_Docker_started": false,
+    "daily_services_restarted": false,
+    "other_dirty_feature_changes_published": false
+  },
+  "supported_from": "3d792fd7ea2426825970bceceb0d6e9db46211ef",
+  "compatibility_limits": [
+    "PostgreSQL 16; local storage; same Core vector database or disabled; com.powerx.upgrade.fixture@1.0.0 process fixture",
+    "Legacy Admin /media UUID presign links are not a validated compatibility surface; use authenticated Admin resource or authorized Host transfer contract.",
+    "Validate actual business plugins against their identity and Host contracts before deployment."
+  ]
+}

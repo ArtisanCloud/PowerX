@@ -1,0 +1,88 @@
+openapi: 3.0.3
+info:
+  title: API Key Plugin Owner Binding
+  version: 1.0.0
+servers:
+  - url: /api/v1
+security:
+  - UserBearer: []
+paths:
+  /admin/integration/api-keys/{key_id}/plugin-owners:
+    parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: GetAPIKeyPluginOwners
+      description: Root or current tenant administrator user JWT only. Tenant comes from authenticated context. API Key and STS callers receive 403.
+      responses:
+        '200':
+          description: Effective owner policy, including legacy per-permission bindings.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OwnerEnvelope'}
+        '401': {description: Missing user authentication or tenant context}
+        '403': {description: API_KEY_OWNER_ADMIN_REQUIRED or API_KEY_OWNER_TENANT_MISMATCH}
+        '404': {description: API_KEY_NOT_FOUND; foreign tenant keys are not disclosed}
+    put:
+      operationId: SetAPIKeyPluginOwners
+      description: Replaces the exact owner list of this key and reconciles its current Profile permissions in one transaction. Empty array explicitly revokes owner access. Does not change another key or its Profile permission IDs. Requires a current administrator user JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [plugin_ids]
+              properties:
+                plugin_ids:
+                  type: array
+                  maxItems: 32
+                  items: {type: string, maxLength: 128, pattern: '^[a-z0-9][a-z0-9._-]{0,127}$'}
+            example: {plugin_ids: [com.powerx.plugins.crm, com.powerx.plugins.scrm]}
+      responses:
+        '200':
+          description: Persisted owner policy after permission reconciliation and audit.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OwnerEnvelope'}
+        '400': {description: API_KEY_PLUGIN_OWNER_INVALID, API_KEY_PLUGIN_OWNER_CONFLICT, omitted/null plugin_ids, unknown fields or invalid UUID}
+        '401': {description: Missing user authentication or tenant context}
+        '403': {description: API_KEY_OWNER_ADMIN_REQUIRED or API_KEY_OWNER_TENANT_MISMATCH}
+        '404': {description: API_KEY_NOT_FOUND; foreign tenant keys are not disclosed}
+        '409': {description: API_KEY_INACTIVE or API_KEY_PROFILE_DISABLED}
+components:
+  securitySchemes:
+    UserBearer: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    OwnerEnvelope:
+      type: object
+      required: [code, data]
+      properties:
+        code: {type: integer, example: 200}
+        message: {type: string}
+        request_id: {type: string}
+        data: {$ref: '#/components/schemas/OwnerBinding'}
+    OwnerBinding:
+      type: object
+      required: [key_id, tenant_uuid, plugin_ids, binding_mode, updated_at]
+      properties:
+        key_id: {type: string, format: uuid}
+        tenant_uuid: {type: string, format: uuid}
+        plugin_ids: {type: array, items: {type: string}}
+        binding_mode: {type: string, enum: [key, legacy_permissions]}
+        updated_at: {type: string, format: date-time}
+        permission_bindings:
+          type: array
+          items:
+            type: object
+            required: [scope, action, resource_type, resource_pattern, plugin_id, effect]
+            properties:
+              scope: {type: string}
+              action: {type: string}
+              resource_type: {type: string}
+              resource_pattern: {type: string}
+              plugin_id: {type: string}
+              effect: {type: string, enum: [allow]}

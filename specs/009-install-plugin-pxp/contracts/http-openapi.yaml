@@ -24,6 +24,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
   schemas:
     ReleaseCandidate:
       type: object
@@ -199,23 +203,26 @@ components:
     LocalInstallSession:
       type: object
       required:
-      - sessionId
+      - session_uuid
       - tenant_uuid
-      - developer_member_uuid
-      - artifactUri
+      - plugin_id
+      - service_actor
+      - artifact_uri
       - status
       properties:
-        sessionId:
+        session_uuid:
           type: string
+          format: uuid
         tenant_uuid:
           type: string
           format: uuid
-        developer_member_uuid:
+        plugin_id:
           type: string
-          format: uuid
-        artifactUri:
+        service_actor:
           type: string
-        featureFlags:
+        artifact_uri:
+          type: string
+        feature_flags:
           type: array
           items:
             type: string
@@ -225,7 +232,7 @@ components:
           - in_progress
           - success
           - failed
-        logUrl:
+        log_url:
           type: string
           format: uri
         createdAt:
@@ -255,38 +262,6 @@ components:
           type: boolean
           default: false
 paths:
-  /tenant/plugin-release/local/sessions:
-    post:
-      tags: [TenantPluginRelease]
-      security: [{ BearerAuth: [] }]
-      summary: Start a local install session for the current member
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: '#/components/schemas/StartLocalInstallRequest' } } }
-      responses:
-        '201': { description: Session created, content: { application/json: { schema: { $ref: '#/components/schemas/LocalInstallSession' } } } }
-        '401': { description: PLUGIN_RELEASE_UNAUTHORIZED }
-        '403': { description: PLUGIN_RELEASE_FORBIDDEN }
-        '503': { description: PLUGIN_RELEASE_UPSTREAM_DEPENDENCY }
-  /tenant/plugin-release/local/sessions/{sessionId}:
-    get:
-      tags: [TenantPluginRelease]
-      security: [{ BearerAuth: [] }]
-      summary: Get a current-tenant local install session
-      parameters: [{ name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        '200': { description: Session, content: { application/json: { schema: { $ref: '#/components/schemas/LocalInstallSession' } } } }
-        '404': { description: PLUGIN_RELEASE_SESSION_NOT_FOUND }
-    delete:
-      tags: [TenantPluginRelease]
-      security: [{ BearerAuth: [] }]
-      summary: Stop a current-tenant local install session
-      parameters: [{ name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody:
-        content: { application/json: { schema: { $ref: '#/components/schemas/StopLocalInstallRequest' } } }
-      responses:
-        '202': { description: Stop accepted }
-        '404': { description: PLUGIN_RELEASE_SESSION_NOT_FOUND }
   /candidates:
     post:
       tags:
@@ -591,63 +566,6 @@ paths:
       responses:
         '200':
           description: 审核完成
-  /tenant/offline-imports:
-    post:
-      tags:
-      - TenantImport
-      security:
-      - BearerAuth: []
-      summary: 企业租户导入离线包
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - packageUri
-              - checksum
-              - licenseAccepted
-              properties:
-                packageUri:
-                  type: string
-                  format: uri
-                checksum:
-                  type: string
-                licenseAccepted:
-                  type: boolean
-                dryRun:
-                  type: boolean
-                  default: false
-      responses:
-        '202':
-          description: 导入任务已启动
-  /tenant/offline-imports/{jobId}:
-    get:
-      tags:
-      - TenantImport
-      security:
-      - BearerAuth: []
-      summary: 查询导入状态
-      parameters:
-      - name: jobId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: 状态
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum:
-                    - pending
-                    - running
                     - success
                     - failed
                     - rolled_back
@@ -714,41 +632,86 @@ paths:
       responses:
         '202':
           description: 会话停止中
-  /tenant/plugin-release/local/sessions:
+  /tenant/plugin-release/install-sessions:
     post:
-      tags:
-      - TenantImport
-      security:
-      - BearerAuth: []
-      summary: 租户启动热更新
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }]
+      summary: Create an install session for the calling service actor
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StartLocalInstallRequest'
+              type: object
+              required: [artifact_uri]
+              properties:
+                artifact_uri: { type: string, format: uri }
+                feature_flags: { type: array, items: { type: string } }
+                reset_cache: { type: boolean }
       responses:
-        '201':
-          description: 会话已启动
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LocalInstallSession'
-  /tenant/plugin-release/local/sessions/{sessionId}:
-    delete:
-      tags:
-      - TenantImport
-      security:
-      - BearerAuth: []
-      summary: 租户停止热更新
-      parameters:
-      - name: sessionId
-        in: path
+        '201': { description: Session created }
+        '400': { description: PLUGIN_RELEASE_INVALID_ARGUMENT }
+        '401': { description: PLUGIN_RELEASE_UNAUTHORIZED }
+        '403': { description: PLUGIN_RELEASE_FORBIDDEN }
+        '409': { description: PLUGIN_RELEASE_ACTIVE_SESSION_CONFLICT }
+        '503': { description: PLUGIN_RELEASE_UPSTREAM_DEPENDENCY }
+  /tenant/plugin-release/install-sessions/{session_uuid}:
+    get:
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }]
+      parameters: [{ name: session_uuid, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Session }
+        '400': { description: PLUGIN_RELEASE_INVALID_ARGUMENT }
+        '401': { description: PLUGIN_RELEASE_UNAUTHORIZED }
+        '403': { description: PLUGIN_RELEASE_FORBIDDEN }
+        '404': { description: PLUGIN_RELEASE_SESSION_NOT_FOUND }
+        '503': { description: PLUGIN_RELEASE_UPSTREAM_DEPENDENCY }
+  /tenant/plugin-release/install-sessions/{session_uuid}/stop:
+    post:
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }]
+      parameters: [{ name: session_uuid, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '202': { description: Stop accepted }
+        '400': { description: PLUGIN_RELEASE_INVALID_ARGUMENT }
+        '401': { description: PLUGIN_RELEASE_UNAUTHORIZED }
+        '403': { description: PLUGIN_RELEASE_FORBIDDEN }
+        '404': { description: PLUGIN_RELEASE_SESSION_NOT_FOUND }
+        '503': { description: PLUGIN_RELEASE_UPSTREAM_DEPENDENCY }
+  /tenant/plugin-release/import-jobs:
+    post:
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }]
+      requestBody:
         required: true
-        schema:
-          type: string
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [package_uuid, license_accepted]
+              properties:
+                package_uuid: { type: string, format: uuid }
+                license_accepted: { type: boolean }
+                dry_run: { type: boolean }
       responses:
-        '202':
-          description: 会话停止中
+        '202': { description: Import job created }
+        '400': { description: PLUGIN_RELEASE_INVALID_ARGUMENT }
+        '401': { description: PLUGIN_RELEASE_UNAUTHORIZED }
+        '403': { description: PLUGIN_RELEASE_FORBIDDEN }
+        '422': { description: PLUGIN_RELEASE_PACKAGE_VERIFICATION_FAILED }
+        '503': { description: PLUGIN_RELEASE_UPSTREAM_DEPENDENCY }
+  /tenant/plugin-release/import-jobs/{job_uuid}:
+    get:
+      tags: [TenantPluginRelease]
+      security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }]
+      parameters: [{ name: job_uuid, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Import job }
+        '400': { description: PLUGIN_RELEASE_INVALID_ARGUMENT }
+        '401': { description: PLUGIN_RELEASE_UNAUTHORIZED }
+        '403': { description: PLUGIN_RELEASE_FORBIDDEN }
+        '404': { description: PLUGIN_RELEASE_IMPORT_JOB_NOT_FOUND }
+        '503': { description: PLUGIN_RELEASE_UPSTREAM_DEPENDENCY }
 security:
 - BearerAuth: []

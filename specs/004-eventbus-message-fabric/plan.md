@@ -88,6 +88,8 @@ internal/tests/event_fabric/
 
 将任务消费主路径收敛到 Redis，避免数据库高频轮询；并预留 Kafka / RabbitMQ / NATS 驱动扩展能力，数据库仅作为 fallback。
 
+Agent Run 持久化调度是更严格的消费者合同，见 [`031/spec.md`](../031-agent-runtime-durable-scheduling/spec.md)：须先补齐 Redis Streams 消费组、租约、fencing、重领和去重能力；Agent 不使用此处通用 DB polling fallback。现有 Redis TaskQueue 完成状态不代表 Agent Worker 适配已完成。
+
 ### Scope & Order
 
 1. **T065-T066（第一优先）**：抽象统一任务驱动接口并落地 Redis 阻塞消费默认路径。

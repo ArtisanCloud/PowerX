@@ -361,6 +361,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.members.read
+    api_key:
+      scope: _scope.iam.members.directory.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-members
   - channel: rest
     endpoint: "/api/v1/tenant/iam/members:batch-get"
     method: POST
@@ -370,6 +375,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.members.read
+    api_key:
+      scope: _scope.iam.members.directory.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-members
   title_i18n:
     en: IAM Tenant Member Directory Read
     zh-CN: IAM 租户成员目录查询
@@ -399,6 +409,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.directory.read
+    api_key:
+      scope: _scope.iam.directory.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-catalog
   - channel: rest
     endpoint: "/api/v1/tenant/iam/members"
     method: GET
@@ -408,6 +423,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.directory.read
+    api_key:
+      scope: _scope.iam.directory.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-catalog
   - channel: rest
     endpoint: "/api/v1/tenant/iam/members:batch-resolve"
     method: POST
@@ -417,6 +437,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.directory.read
+    api_key:
+      scope: _scope.iam.directory.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-catalog
   - channel: rest
     endpoint: "/api/v1/tenant/iam/members:batch-find-by-display-names"
     method: POST
@@ -426,6 +451,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.directory.read
+    api_key:
+      scope: _scope.iam.directory.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-catalog
   - channel: rest
     endpoint: "/api/v1/tenant/iam/departments"
     method: GET
@@ -435,6 +465,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.directory.read
+    api_key:
+      scope: _scope.iam.directory.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-catalog
   - channel: rest
     endpoint: "/api/v1/tenant/iam/roles"
     method: GET
@@ -444,6 +479,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.directory.read
+    api_key:
+      scope: _scope.iam.directory.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-catalog
   - channel: rest
     endpoint: "/api/v1/tenant/iam/permissions"
     method: GET
@@ -453,6 +493,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.directory.read
+    api_key:
+      scope: _scope.iam.directory.catalog.read
+      action: read
+      resource_type: api
+      resource_pattern: directory-catalog
   title_i18n:
     en: IAM Tenant Directory Read
     zh-CN: IAM 租户目录查询
@@ -482,6 +527,11 @@ capabilities:
     resource_scope: tenant
     sts_direct: true
     tool_scope: iam.authorization.check
+    api_key:
+      scope: _scope.iam.authorization.check
+      action: read
+      resource_type: api
+      resource_pattern: authorization-check
   title_i18n:
     en: IAM Tenant Authorization Check
     zh-CN: IAM 租户授权判定

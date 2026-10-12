@@ -1,0 +1,172 @@
+openapi: 3.0.3
+info:
+  title: PowerX 客户管理创建与 CSV 导入
+  version: 1.0.0
+  description: 用户 JWT 管理入口。租户来自可信上下文，不接受身份覆盖；新建客户同时创建成员关系与主要联系人，不创建登录身份。导入最多 200 行、1 MiB UTF-8 CSV。
+servers:
+  - url: /api/v1
+security:
+  - userJWT: []
+paths:
+  /admin/customers/accounts:
+    post:
+      operationId: createCustomerAccountFromAdmin
+      x-powerx-permission: customer.admin_customers_accounts:create
+      description: 独立于 menu.customer:view；要求有效用户会话及实时平台 API 授权，Root 用户仍需有效租户。事务内创建 Customer、membership 和主要 Contact。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                type: { type: string, enum: [person, company, ''], default: person }
+                display_name: { type: string, maxLength: 128 }
+                primary_email: { type: string, maxLength: 255 }
+                primary_phone: { type: string, maxLength: 32 }
+                primary_contact: { $ref: '#/components/schemas/PrimaryContact' }
+                status: { type: string, enum: [active, pending, suspended, disabled, expired, deleted], default: active }
+                nickname: { type: string }
+                given_name: { type: string }
+                family_name: { type: string }
+                avatar_url: { type: string }
+                locale: { type: string }
+                timezone: { type: string }
+                member_source: { type: string, default: platform }
+      responses:
+        '201': { description: data.payload 包含 uuid、type、membership_uuid、primary_contact_uuid 和客户资料 }
+        '400': { description: 无效资料、缺企业自然人联系人、请求含未知字段或租户覆盖 }
+        '403': { description: CUSTOMER_ADMIN_USER_REQUIRED 或 CUSTOMER_ADMIN_FORBIDDEN }
+  /admin/customers/imports/preview:
+    post:
+      operationId: previewCustomerAccountImport
+      x-powerx-permission: customer.admin_customers_imports_preview:create
+      description: 保存版本 1 的不可变输入快照；不创建 Customer。仅创建者可回读和确认。同文件内或当前租户的重复邮箱/电话明确跳过，不合并、不覆盖。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file_name, csv]
+              properties:
+                file_name: { type: string, maxLength: 160, description: 裸 CSV 文件名，不接受服务器路径 }
+                csv: { type: string, description: UTF-8 CSV 原文；可有 BOM，表头采用模板字段，姓名及邮箱或电话必需，企业必须明确自然人联系人 }
+      responses:
+        '201': { $ref: '#/components/responses/ImportResult' }
+        '400': { description: CUSTOMER_IMPORT_FILE_INVALID、CUSTOMER_IMPORT_ENCODING_INVALID、CUSTOMER_IMPORT_COLUMNS_INVALID、CUSTOMER_IMPORT_CSV_INVALID 或 CUSTOMER_IMPORT_EMPTY }
+        '403': { description: 用户会话或预览权限不足；API Key/STS 被拒绝 }
+        '413': { description: CUSTOMER_IMPORT_TOO_LARGE；CSV 超过 1 MiB/200 行，或 JSON 请求超过 2 MiB }
+        '503': { description: CUSTOMER_IMPORT_UNAVAILABLE；不返回原始数据库错误 }
+  /admin/customers/imports/{import_uuid}:
+    parameters:
+      - $ref: '#/components/parameters/ImportUUID'
+    get:
+      operationId: getCustomerAccountImport
+      x-powerx-permission: customer.admin_customers_imports_import_uuid:read
+      description: 仅查询当前租户、当前创建者的快照及结果。完成后历史可回读；未提交预览的确认期限为 24 小时。
+      responses:
+        '200': { $ref: '#/components/responses/ImportResult' }
+        '400': { description: CUSTOMER_IMPORT_ID_INVALID 或请求带查询参数 }
+        '403': { description: 用户会话或读取权限不足 }
+        '404': { description: CUSTOMER_IMPORT_NOT_FOUND；包括跨租户/跨创建者 }
+  /admin/customers/imports/{import_uuid}/commit:
+    parameters:
+      - $ref: '#/components/parameters/ImportUUID'
+    post:
+      operationId: commitCustomerAccountImport
+      x-powerx-permission: customer.admin_customers_imports_import_uuid_commit:create
+      description: 用保存的 UUID/checksum 确认准确集合；不接收修改后的行或字段。有效行各自创建完整 Customer/membership/Contact；失败行不会留下半份客户。重复请求及并发请求返回同一持久化结果。整批账本与成功创建同一事务提交；进程中断可用原预览重试。已完成批次的失败行需修正后新建预览。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [checksum, confirm]
+              properties:
+                checksum: { type: string, minLength: 64, maxLength: 64 }
+                confirm: { type: boolean, enum: [true] }
+      responses:
+        '200': { $ref: '#/components/responses/ImportResult' }
+        '400': { description: CUSTOMER_IMPORT_CONFIRM_REQUIRED 或 CUSTOMER_IMPORT_REQUEST_INVALID }
+        '403': { description: 用户会话或确认权限不足 }
+        '404': { description: CUSTOMER_IMPORT_NOT_FOUND }
+        '409': { description: CUSTOMER_IMPORT_PREVIEW_CHANGED、CUSTOMER_IMPORT_EXPIRED 或 CUSTOMER_IMPORT_NO_READY_ROWS }
+        '503': { description: CUSTOMER_IMPORT_COMMIT_FAILED；事务未完成，使用相同预览重试 }
+components:
+  securitySchemes:
+    userJWT: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    ImportUUID:
+      in: path
+      name: import_uuid
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    ImportResult:
+      description: 有效配置、逐行状态与 UUID；错误保留标准 error_code/request_id/trace_id。客户资料响应禁止缓存。
+      headers:
+        Cache-Control:
+          schema: { type: string, enum: [no-store] }
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  payload: { $ref: '#/components/schemas/Import' }
+  schemas:
+    PrimaryContact:
+      type: object
+      additionalProperties: false
+      description: company 必须提供自然人联系人姓名；person 省略时按本人资料建立主要联系人。
+      properties:
+        display_name: { type: string, maxLength: 128 }
+        given_name: { type: string }
+        family_name: { type: string }
+        email: { type: string, maxLength: 255 }
+        phone: { type: string, maxLength: 32 }
+    Import:
+      type: object
+      required: [uuid, file_name, checksum, version, status, expires_at, rows, total, ready, created, skipped, failed]
+      properties:
+        uuid: { type: string, format: uuid }
+        file_name: { type: string }
+        checksum: { type: string }
+        version: { type: integer, enum: [1] }
+        status: { type: string, enum: [preview, completed] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        trace_id: { type: string }
+        total: { type: integer }
+        ready: { type: integer }
+        created: { type: integer }
+        skipped: { type: integer }
+        failed: { type: integer }
+        rows:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            properties:
+              row: { type: integer, description: 原始 CSV 起始行号 }
+              status: { type: string, enum: [ready, invalid, duplicate, created, failed] }
+              error_code: { type: string }
+              customer_uuid: { type: string, format: uuid }
+              primary_contact_uuid: { type: string, format: uuid }
+              input:
+                type: object
+                properties:
+                  type: { type: string }
+                  display_name: { type: string }
+                  primary_email: { type: string }
+                  primary_phone: { type: string }
+                  primary_contact_name: { type: string }
+                  primary_contact_email: { type: string }
+                  primary_contact_phone: { type: string }

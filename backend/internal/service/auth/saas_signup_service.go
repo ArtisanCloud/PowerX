@@ -553,6 +553,7 @@ func (s *AuthService) issueTokensFor(ctx context.Context, ten *modeltenant.Tenan
 		Roles:      roleCodes,
 	}
 	jti := uuid.NewString()
+	claims.ID = jti
 	access, err := pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
 	if err != nil {
 		return "", "", err
@@ -561,13 +562,15 @@ func (s *AuthService) issueTokensFor(ctx context.Context, ten *modeltenant.Tenan
 	if err != nil {
 		return "", "", err
 	}
-	_ = s.RTRepo.Issue(ctx, &modeliam.RefreshToken{
+	if err = s.RTRepo.Issue(ctx, &modeliam.RefreshToken{
 		JTI:        jti,
 		TenantUUID: ten.UUID.String(),
 		MemberUUID: m.UUID.String(),
 		UserUUID:   u.UUID.String(),
 		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
-	})
+	}); err != nil {
+		return "", "", err
+	}
 	if s.Cache != nil {
 		ttl := 10 * time.Minute
 		_ = s.Cache.Set(ctx, middleware.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)

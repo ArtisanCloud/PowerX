@@ -1,23 +1,59 @@
 package runtime
 
 import (
+	"embed"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
 
-func BuildModeSpecificSystemPrompt(base string, plan *ResponsePlan) string {
+//go:embed locales/final_response_format.*.json
+var finalResponseFormatLocales embed.FS
+
+type finalResponseFormatLocale struct {
+	Markdown string `json:"markdown"`
+}
+
+func BuildModeSpecificSystemPrompt(base string, plan *ResponsePlan, locale string) (string, error) {
 	base = strings.TrimSpace(base)
-	if plan == nil {
-		return base
+	if plan != nil {
+		modePrompt := finalResponseModePrompt(plan.ResponseMode)
+		if modePrompt != "" {
+			if base == "" {
+				base = modePrompt
+			} else {
+				base = strings.TrimSpace(base + "\n\n[FINAL_RESPONSE_MODE]\n" + modePrompt)
+			}
+		}
 	}
-	modePrompt := finalResponseModePrompt(plan.ResponseMode)
-	if modePrompt == "" {
-		return base
+	formatPrompt, err := localizedFinalResponseFormatPrompt(locale)
+	if err != nil {
+		return "", err
 	}
 	if base == "" {
-		return modePrompt
+		return formatPrompt, nil
 	}
-	return strings.TrimSpace(base + "\n\n[FINAL_RESPONSE_MODE]\n" + modePrompt)
+	return strings.TrimSpace(base + "\n\n[RESPONSE_FORMAT]\n" + formatPrompt), nil
+}
+
+func localizedFinalResponseFormatPrompt(locale string) (string, error) {
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		return "", errors.New("agent.final_response_locale_required")
+	}
+	raw, err := finalResponseFormatLocales.ReadFile("locales/final_response_format." + locale + ".json")
+	if err != nil {
+		return "", errors.New("agent.final_response_locale_not_supported")
+	}
+	var instructions finalResponseFormatLocale
+	if err := json.Unmarshal(raw, &instructions); err != nil {
+		return "", fmt.Errorf("agent.final_response_locale_invalid: %w", err)
+	}
+	if strings.TrimSpace(instructions.Markdown) == "" {
+		return "", errors.New("agent.final_response_markdown_instruction_required")
+	}
+	return strings.TrimSpace(instructions.Markdown), nil
 }
 
 func BuildModeSpecificUserPrompt(userMessage string, plan *ResponsePlan) string {

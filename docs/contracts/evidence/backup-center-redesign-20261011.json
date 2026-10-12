@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-11",
+  "scope": "Core web-admin backup center layout and presentation",
+  "sections": [
+    "backup operations",
+    "runtime settings",
+    "usage guide"
+  ],
+  "unit_tests": {
+    "passed": 9,
+    "checks": [
+      "operations/settings/guide separation",
+      "selected policy enable action",
+      "read-only execution restrictions",
+      "restore/protection events",
+      "retained file path/checksum/trace"
+    ]
+  },
+  "browser": {
+    "api_mode": "mocked API; no real backup, cleanup or restore operation performed",
+    "passed": true,
+    "console_errors": [],
+    "themes": [
+      "dark",
+      "light"
+    ],
+    "mobile_viewport": "430x932",
+    "browser_closed": true
+  },
+  "nuxt_build": "passed",
+  "remote_deployment_performed": false,
+  "preview_directory": "/Users/michaelhu/Downloads/powerx-backup-ui-20261011"
+}

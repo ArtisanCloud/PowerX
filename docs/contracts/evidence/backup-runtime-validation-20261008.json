@@ -1,0 +1,54 @@
+{
+  "verified_at": "2026-10-08T14:37:05Z",
+  "scope": "local backup implementation; isolated PostgreSQL16 databases on the existing server; production Core not deployed or restarted",
+  "go_tests": "passed: backup_ops, admin/backup, cmd/database and affected ops integration cases",
+  "go_vet": "passed",
+  "frontend": {
+    "build": "passed",
+    "vitest": "4 passed",
+    "live_production_browser": "not verified"
+  },
+  "postgres": {
+    "fixture_database": "powerx_backup_test_1791471081417200609",
+    "dump_and_manifest": "passed",
+    "restored_plugin_orders": 2,
+    "protected_file_survives": "passed",
+    "expired_dump_and_sidecars_removed": "passed",
+    "job_audit_retained": "passed",
+    "cross_process_policy_lock": "passed",
+    "overdue_schedule_survives_restart": "passed",
+    "duplicate_due_scan_does_not_create_job": "passed",
+    "isolated_restore_database_cleanup": "passed",
+    "transactional_name_switch_and_rollback": "passed on newly created test databases only",
+    "remaining_test_databases": "none",
+    "latest_binary_retested": true,
+    "remote_validation_directory": "removed",
+    "verified_at": "2026-10-08T14:51:21Z"
+  },
+  "http_guard": {
+    "admin_route_unauthenticated": 401,
+    "legacy_route_unauthenticated": 401,
+    "root_invalid_protected_boolean": 400
+  },
+  "capability_check": {
+    "status": "passed",
+    "declared": 1086,
+    "referenced": 62,
+    "rest_routes": 1007,
+    "candidates": 1010,
+    "ignored_route_rules": 6
+  },
+  "capability_seed": {
+    "status": "blocked before database connection",
+    "reason": "existing local auth.jwt_secret is a public placeholder; checked with the local backend .env as well; secrets unchanged"
+  },
+  "deployment_required": [
+    "commit and rebuild complete dist",
+    "switch release links",
+    "migrate using production config and env",
+    "user restarts Core",
+    "verify runtime panel and first backup",
+    "install independent timer and enable policy"
+  ],
+  "data_recovery": "No production database restore or cutover performed. This validation cannot recover previously missing records without an older backup."
+}

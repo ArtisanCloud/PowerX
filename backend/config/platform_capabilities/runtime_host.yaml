@@ -1,0 +1,151 @@
+version: 1
+locales:
+  zh-CN:
+    cache.read.description: &cache_read_description 读取当前租户及插件服务主体的缓存值与过期时间。
+    cache.manage.description: &cache_manage_description 写入带有效期的缓存或删除当前租户及插件服务主体的缓存。
+    taskcenter.read.description: &taskcenter_read_description 读取当前租户及插件服务主体的持久化任务状态。
+    taskcenter.manage.description: &taskcenter_manage_description 为当前租户及插件服务主体幂等创建任务，并按预期版本更新任务状态。
+    cache.read: &cache_read 读取插件缓存
+    cache.manage: &cache_manage 管理插件缓存
+    taskcenter.read: &taskcenter_read 读取插件任务
+    taskcenter.manage: &taskcenter_manage 管理插件任务
+  en-US:
+    cache.read.description: &cache_read_description_en Read cached values and expiry times owned by the current tenant and plugin service actor.
+    cache.manage.description: &cache_manage_description_en Write expiring cache entries or delete cache entries owned by the current tenant and plugin service actor.
+    taskcenter.read.description: &taskcenter_read_description_en Read persisted task state owned by the current tenant and plugin service actor.
+    taskcenter.manage.description: &taskcenter_manage_description_en Create tasks idempotently and update task state using the expected revision for the current tenant and plugin service actor.
+    cache.read: &cache_read_en Read plugin cache
+    cache.manage: &cache_manage_en Manage plugin cache
+    taskcenter.read: &taskcenter_read_en Read plugin tasks
+    taskcenter.manage: &taskcenter_manage_en Manage plugin tasks
+capabilities:
+  - capability_id: com.corex.runtime.cache.read
+    module: runtime_cache
+    title: *cache_read
+    description: *cache_read_description
+    description_i18n:
+      zh-CN: *cache_read_description
+      en: *cache_read_description_en
+    title_i18n:
+      zh-CN: *cache_read
+      en: *cache_read_en
+    permission_code: corex.runtime.cache:read
+    agent_usable: false
+    risk_level: low
+    categories: [runtime, cache]
+    intents: [runtime.cache.read]
+    tool_scopes: [runtime.cache.read]
+    policy: {prefer: rest}
+    docs: [docs/contracts/cache-taskcenter-host-api.md]
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/runtime/cache/entries
+        method: GET
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: owner
+        sts_direct: true
+        tool_scope: runtime.cache.read
+        schema_ref: specs/contracts/runtime-host.openapi.yaml
+  - capability_id: com.corex.runtime.cache.manage
+    module: runtime_cache
+    title: *cache_manage
+    description: *cache_manage_description
+    description_i18n:
+      zh-CN: *cache_manage_description
+      en: *cache_manage_description_en
+    title_i18n:
+      zh-CN: *cache_manage
+      en: *cache_manage_en
+    permission_code: corex.runtime.cache:manage
+    agent_usable: false
+    risk_level: medium
+    categories: [runtime, cache]
+    intents: [runtime.cache.manage]
+    tool_scopes: [runtime.cache.manage]
+    policy: {prefer: rest}
+    docs: [docs/contracts/cache-taskcenter-host-api.md]
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/runtime/cache/entries
+        method: PUT
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: owner
+        sts_direct: true
+        tool_scope: runtime.cache.manage
+        schema_ref: specs/contracts/runtime-host.openapi.yaml
+      - channel: rest
+        endpoint: /api/v1/tenant/runtime/cache/entries
+        method: DELETE
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: owner
+        sts_direct: true
+        tool_scope: runtime.cache.manage
+        schema_ref: specs/contracts/runtime-host.openapi.yaml
+  - capability_id: com.corex.runtime.taskcenter.read
+    module: runtime_taskcenter
+    title: *taskcenter_read
+    description: *taskcenter_read_description
+    description_i18n:
+      zh-CN: *taskcenter_read_description
+      en: *taskcenter_read_description_en
+    title_i18n:
+      zh-CN: *taskcenter_read
+      en: *taskcenter_read_en
+    permission_code: corex.runtime.taskcenter:read
+    agent_usable: false
+    risk_level: low
+    categories: [runtime, taskcenter]
+    intents: [runtime.taskcenter.read]
+    tool_scopes: [runtime.taskcenter.read]
+    policy: {prefer: rest}
+    docs: [docs/contracts/cache-taskcenter-host-api.md]
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/runtime/tasks/{task_uuid}
+        method: GET
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: owner
+        sts_direct: true
+        tool_scope: runtime.taskcenter.read
+        schema_ref: specs/contracts/runtime-host.openapi.yaml
+  - capability_id: com.corex.runtime.taskcenter.manage
+    module: runtime_taskcenter
+    title: *taskcenter_manage
+    description: *taskcenter_manage_description
+    description_i18n:
+      zh-CN: *taskcenter_manage_description
+      en: *taskcenter_manage_description_en
+    title_i18n:
+      zh-CN: *taskcenter_manage
+      en: *taskcenter_manage_en
+    permission_code: corex.runtime.taskcenter:manage
+    agent_usable: false
+    risk_level: medium
+    categories: [runtime, taskcenter]
+    intents: [runtime.taskcenter.manage]
+    tool_scopes: [runtime.taskcenter.manage]
+    policy: {prefer: rest}
+    docs: [docs/contracts/cache-taskcenter-host-api.md]
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/tenant/runtime/tasks
+        method: POST
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: owner
+        sts_direct: true
+        tool_scope: runtime.taskcenter.manage
+        schema_ref: specs/contracts/runtime-host.openapi.yaml
+      - channel: rest
+        endpoint: /api/v1/tenant/runtime/tasks/{task_uuid}
+        method: PATCH
+        auth_type: sts
+        actor_context: service_actor
+        resource_scope: owner
+        sts_direct: true
+        tool_scope: runtime.taskcenter.manage
+        schema_ref: specs/contracts/runtime-host.openapi.yaml

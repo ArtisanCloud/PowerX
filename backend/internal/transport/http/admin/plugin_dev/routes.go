@@ -269,15 +269,25 @@ func (h *handler) startLocalInstall(c *gin.Context) {
 		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
 		return
 	}
+	pluginID := strings.TrimSpace(req.PluginID)
+	if pluginID == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "pluginId is required", nil)
+		return
+	}
+	actor := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	if actor == "" {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效操作人上下文", nil)
+		return
+	}
 	start := time.Now()
-	developerMemberUUID := reqctx.GetMemberUUID(c.Request.Context())
 	session, err := h.local.Start(c.Request.Context(), local.StartInput{
-		TenantUUID:          tenantUUID,
-		DeveloperMemberUUID: developerMemberUUID,
-		ArtifactURI:         req.ArtifactURI,
-		FeatureFlags:        req.FeatureFlags,
-		ResetCache:          req.ResetCache,
-		Actor:               c.GetHeader("Authorization"),
+		TenantUUID:   tenantUUID,
+		PluginID:     pluginID,
+		ServiceActor: "admin:" + actor,
+		ArtifactURI:  req.ArtifactURI,
+		FeatureFlags: req.FeatureFlags,
+		ResetCache:   req.ResetCache,
+		Actor:        c.GetHeader("Authorization"),
 	})
 	if err != nil {
 		h.writeLocalError(c, err)
@@ -404,6 +414,7 @@ type debugHostRequest struct {
 }
 
 type localInstallRequest struct {
+	PluginID     string   `json:"pluginId"`
 	ArtifactURI  string   `json:"artifactUri"`
 	FeatureFlags []string `json:"featureFlags"`
 	ResetCache   bool     `json:"resetCache"`

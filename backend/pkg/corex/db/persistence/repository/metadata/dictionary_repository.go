@@ -2,7 +2,9 @@ package metadata
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"gorm.io/gorm/clause"
 	"strings"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
@@ -169,10 +171,28 @@ func (r *DictionaryRepository) UpsertItemByCode(ctx context.Context, row *model.
 }
 
 func (r *DictionaryRepository) UpdateItem(ctx context.Context, tenantUUID, itemUUID string, updates map[string]any) (*model.DictionaryItem, error) {
+	return r.UpdateItemVersioned(ctx, tenantUUID, itemUUID, updates, nil)
+}
+
+// UpdateItemVersioned checks the caller's extension revision under a row lock.
+func (r *DictionaryRepository) UpdateItemVersioned(ctx context.Context, tenantUUID, itemUUID string, updates map[string]any, expected *int64) (*model.DictionaryItem, error) {
 	var row model.DictionaryItem
 	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, itemUUID).First(&row).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, itemUUID).First(&row).Error; err != nil {
 			return err
+		}
+		var attrs map[string]any
+		if len(row.Metadata) > 0 {
+			if err := json.Unmarshal(row.Metadata, &attrs); err != nil {
+				return err
+			}
+		}
+		version, versioned := attrs["version"].(float64)
+		if expected == nil && versioned {
+			return ErrOptimisticConflict
+		}
+		if expected != nil && (!versioned || version != float64(*expected)) {
+			return ErrOptimisticConflict
 		}
 		if len(updates) > 0 {
 			if err := tx.Model(&row).Updates(updates).Error; err != nil {

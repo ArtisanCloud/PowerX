@@ -1,0 +1,239 @@
+openapi: 3.0.3
+info:
+  title: PowerX 保留恢复副本
+  version: '1.1.0'
+  description: 仅 Root 用户 JWT。将备份导入服务端生成的独立新库；不切换当前 Core 或插件 DSN。
+servers:
+  - url: /api/v1/admin/ops/backup
+security:
+  - userJWT: []
+paths:
+  /restore-copies/imports:
+    post:
+      operationId: importRestoreCopy
+      x-powerx-root-only: true
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PostgreSQL custom .dump，最大 512 MiB；无任务暂存 24 小时。
+      responses:
+        '200':
+          description: 上传登记成功，data.import 包含 id、name、size_bytes、sha256、created_at。
+        '403': { description: 仅允许 Root 用户会话 }
+        '413': { description: 超过上传上限或空归档 }
+        '422': { description: 归档格式或客户端版本不支持 }
+  /restore-copies/plan:
+    post:
+      operationId: planRestoreCopy
+      x-powerx-root-only: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RestoreSource' }
+      responses:
+        '200':
+          description: 依赖检查完成；ready=false 时不能创建。data.plan 为 RestorePlan。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      plan: { $ref: '#/components/schemas/RestorePlan' }
+        '400': { description: 必须仅指定一个来源；不接受自由 DSN、库名、SQL、路径或 query }
+        '422': { description: 备份文件不在当前实例允许目录或归档不可读 }
+        '503': { description: 当前数据库或恢复协调器不可用 }
+  /restore-copies:
+    post:
+      operationId: createRestoreCopy
+      x-powerx-root-only: true
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RestoreSource' }
+      responses:
+        '202':
+          description: data.copy 为已登记异步任务。相同幂等标识返回同一任务。
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CopyResponse' }
+        '409': { description: 来源/参数与幂等标识冲突、已有任务或缺少旧版本确认 }
+        '503': { description: 依赖或密钥不可用 }
+    get:
+      operationId: listRestoreCopies
+      x-powerx-root-only: true
+      responses:
+        '200':
+          description: data.items 包含本实例当前源库的持久副本清单，不含任何密码。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/RestoreCopy' }
+  /restore-copies/{copy_id}:
+    parameters:
+      - in: path
+        name: copy_id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getRestoreCopy
+      x-powerx-root-only: true
+      responses:
+        '200':
+          description: 副本状态和核验报告。
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CopyResponse' }
+    delete:
+      operationId: deleteRestoreCopy
+      x-powerx-root-only: true
+      description: 无 body/query，仅删除实际登记且 OID/所有者匹配的新库和专用角色。不强制断开连接。
+      parameters:
+        - in: header
+          name: X-Restore-Confirmation
+          required: true
+          schema: { type: string }
+          description: 必须与此副本完整数据库名相同。
+      responses:
+        '200': { description: data.deleted=true，数据库与角色已删除，任务追溯清单保留。 }
+        '400': { description: 删除确认不匹配或请求格式错误 }
+        '409': { description: 任务正在运行、有活动连接、数据库/角色身份改变或角色还有依赖 }
+  /restore-copies/{copy_id}/connection:
+    parameters:
+      - in: path
+        name: copy_id
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: restoreCopyConnection
+      x-powerx-root-only: true
+      description: 客户端入口来自受控运维配置；请求不得指定地址。容器未配置入口时失败，且不轮换旧凭据。ssh_tunnel 返回桌面本地端点及 SSH 服务器转发目标，DSN 本身不建立隧道。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        '200':
+          description: data.connection 为专用只读凭据；生成时替换前次密码。不返回源库密码。
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      connection: { $ref: '#/components/schemas/ReadonlyConnection' }
+        '409': { description: 副本未成功、库已改变、专用角色身份不匹配或 RESTORE_CONNECTION_NOT_CONFIGURED（客户端入口未配置；不轮换凭据） }
+        '503': { description: RESTORE_CONNECTION_CONFIG_INVALID（非法运维配置；不轮换凭据）、恢复服务不可用或凭据生成失败 }
+components:
+  securitySchemes:
+    userJWT: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    RestoreSource:
+      type: object
+      additionalProperties: false
+      oneOf:
+        - required: [source_job_id]
+        - required: [import_id]
+      properties:
+        source_job_id: { type: string, pattern: '^[1-9][0-9]*$' }
+        import_id: { type: string, format: uuid }
+        allow_older_server: { type: boolean, default: false }
+    RestorePlan:
+      type: object
+      properties:
+        host: { type: string }
+        port: { type: integer }
+        current_database: { type: string }
+        target_pattern: { type: string }
+        archive_name: { type: string }
+        archive_sha256: { type: string }
+        archive_size: { type: integer, format: int64 }
+        archive_version: { type: string }
+        server_version: { type: string }
+        extensions: { type: array, items: { type: string } }
+        requires_compatibility_consent: { type: boolean }
+        ready: { type: boolean }
+        problems: { type: array, items: { type: string } }
+    RestoreCopy:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        database: { type: string, pattern: '^powerx_restore_copy_[a-f0-9]{32}$' }
+        current_database: { type: string }
+        host: { type: string }
+        port: { type: integer }
+        source_job_id: { type: integer, format: int64 }
+        import_id: { type: string, format: uuid }
+        source_name: { type: string }
+        source_sha256: { type: string }
+        status: { type: string, enum: [queued, running, success, failed, deleted] }
+        phase: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        operator: { type: string }
+        trace_id: { type: string }
+        table_count: { type: integer }
+        size_bytes: { type: integer, format: int64 }
+        schema_counts: { type: object, additionalProperties: { type: integer } }
+        business_counts: { type: object, additionalProperties: { type: integer } }
+        warnings: { type: array, items: { type: string } }
+        error_code: { type: string }
+        error_message: { type: string }
+    CopyResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            copy: { $ref: '#/components/schemas/RestoreCopy' }
+    ReadonlyConnection:
+      type: object
+      required: [access_mode, host, port, database, username, password, ssl_mode, read_only, expires_at]
+      properties:
+        access_mode: { type: string, enum: [direct, ssh_tunnel] }
+        tunnel:
+          type: object
+          description: 仅 ssh_tunnel 返回；这是 SSH 服务器视角的转发目标。SSH 登录地址和凭据由管理员提供。
+          required: [host, port]
+          properties:
+            host: { type: string }
+            port: { type: integer, minimum: 1, maximum: 65535 }
+        host: { type: string, description: direct 模式为数据库客户端地址；ssh_tunnel 模式为管理员电脑的回环地址 }
+        port: { type: integer, minimum: 1, maximum: 65535, description: ssh_tunnel 模式为电脑本地转发端口 }
+        database: { type: string }
+        username: { type: string }
+        password: { type: string, format: password }
+        ssl_mode: { type: string, enum: [disable, allow, prefer, require, verify-ca, verify-full] }
+        read_only: { type: boolean, enum: [true] }
+        expires_at: { type: string, format: date-time }

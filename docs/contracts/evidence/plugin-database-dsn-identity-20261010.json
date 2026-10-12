@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-10",
+  "error_trace": "c51e6479-dbbf-471d-973b-2393db46fd99",
+  "root_cause": "Core Connect prioritizes database.dsn; plugin database grants and ownership checks used stale scalar database/username fields",
+  "fix": "PostgreSQL plugin isolation reads current_database and current_user from the connected admin session",
+  "local_config_database": "powerx_backup_verify",
+  "local_config_database_fields_aligned_with_dsn": true,
+  "plugin_runtime_reenabled": true,
+  "core_restart_performed": false,
+  "checks": {
+    "manager_package_tests": true,
+    "manager_go_vet": true,
+    "isolated_postgresql_regression": true,
+    "git_diff_check": true
+  },
+  "isolated_acceptance": {
+    "log": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-plugin-dsn-acceptance-l_8tqol0/test.log",
+    "database": "powerx_plugin_isolation_verify",
+    "result": "plugin role connects to DSN database; stale scalar database/admin role ignored; preserved row remains; plugin role can migrate its own existing table",
+    "temporary_container_removed": true,
+    "temporary_port": 55434
+  },
+  "real_plugin_reinstallation": "pending_user_restart_and_retry"
+}

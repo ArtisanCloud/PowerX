@@ -34,7 +34,16 @@ func (s *RunStateSink) Emit(event string, payload any) error {
 	}
 	if translatedEvent, translatedPayload, ok := s.translate(event, payload); ok {
 		s.record(translatedEvent, translatedPayload)
-		return s.next.Emit(translatedEvent, translatedPayload)
+		if err := s.next.Emit(translatedEvent, translatedPayload); err != nil {
+			return err
+		}
+		// A run-state final is progress metadata, while the original final is
+		// the only visible assistant response. Forward both explicitly instead
+		// of forcing clients to infer which final belongs in the chat bubble.
+		if event == dto.EventFinal {
+			return s.next.Emit(event, payload)
+		}
+		return nil
 	}
 	return s.next.Emit(event, payload)
 }
@@ -222,9 +231,9 @@ func (s *RunStateSink) taskState(payload any, status string) dto.AgentTaskState 
 func taskErrorFromPayload(payload any, status string) any {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case dto.AgentTaskStatusFailed, "canceled", "cancelled":
-		return firstPresent(mapValue(payload, "error"), mapValue(payload, "detail"), mapValue(payload, "message"))
+		return firstPresent(mapValue(payload, "error"), mapValue(payload, "reason_code"), mapValue(payload, "message"))
 	default:
-		return firstPresent(mapValue(payload, "error"), mapValue(payload, "detail"))
+		return firstPresent(mapValue(payload, "error"), mapValue(payload, "reason_code"))
 	}
 }
 

@@ -310,3 +310,9 @@ select to_regclass('public.knowledge_kg_edges') as knowledge_kg_edges;
 ```
 
 - 再执行一次 `make db-migrate` 不应报错（幂等）。
+
+## 2026-10-04：Host 创建 UUID 合同
+
+集中 `migrateKnowledgeModels` 新增策略模板 nullable UUID（唯一索引），补齐历史及归档模板，重复执行不改已分配 UUID，不改变 numeric ID。
+知识空间新增 nullable department_uuid、ingestion_profile_uuid、index_profile_uuid、rag_profile_uuid；历史空间不猜测补写。新 Host 创建在已有事务保存这些引用快照，仍保留 code/key 和既有运行时解析。
+部署与验收见 [Host 合同](../../docs/contracts/knowledge-host-provisioning.md)。

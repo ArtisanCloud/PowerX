@@ -1,0 +1,164 @@
+{
+  "schema": "powerx.skill-review-policy/v1",
+  "rules": [
+    {
+      "key": "existing_customer_goal",
+      "target": "hypotheses",
+      "text_i18n": {
+        "zh-CN": "原文陈述：活动目标是激活未续费或未升级的存量客户，应按老客激活目标解读效果。",
+        "en-US": "Source-reported goal: activate existing customers who have not renewed or upgraded; interpret results against that activation goal."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [
+          "活动目标不是拉新",
+          "存量客户"
+        ],
+        "en-US": [
+          "existing customers",
+          "activation"
+        ]
+      },
+      "when_any_fields": [],
+      "when_any_conflicts": [],
+      "when_any_missing": []
+    },
+    {
+      "key": "feed_audience_claim",
+      "target": "hypotheses",
+      "text_i18n": {
+        "zh-CN": "原文将信息流低转化归因为围观流量与目标人群不匹配；这是待验证判断，不能据此认定素材或落地页无效。",
+        "en-US": "The source attributes low feed conversion to spectator traffic outside the target audience; this remains unverified and does not establish that creative or landing pages are ineffective."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [
+          "围观流量",
+          "低转化"
+        ],
+        "en-US": [
+          "spectator traffic",
+          "conversion"
+        ]
+      },
+      "when_any_fields": [],
+      "when_any_conflicts": [],
+      "when_any_missing": []
+    },
+    {
+      "key": "roi_profit_boundary",
+      "target": "hypotheses",
+      "text_i18n": {
+        "zh-CN": "已执行的工具计算限于声明的GMV产投比；原文盈利或亏损判断仍需收益和完整成本口径核实。",
+        "en-US": "Executed tool calculations cover declared GMV return multiples; source profitability claims still require return and full cost definitions."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [],
+        "en-US": []
+      },
+      "when_any_fields": [
+        "reported_roi",
+        "reported_incremental_roi"
+      ],
+      "when_any_conflicts": [],
+      "when_any_missing": [],
+      "when_any_computed": [
+        "gmv_multiple",
+        "incremental_multiple"
+      ]
+    },
+    {
+      "key": "repurchase_quality",
+      "target": "hypotheses",
+      "text_i18n": {
+        "zh-CN": "原文二次购买率已保留；高复购或复购提升仍需客户池和对照证据核实。",
+        "en-US": "The source repurchase rate is retained; high or improved repurchase still requires cohort and comparison evidence."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [
+          "高复购"
+        ],
+        "en-US": [
+          "high repurchase"
+        ]
+      },
+      "when_any_fields": [
+        "reported_repeat_rate"
+      ],
+      "when_any_conflicts": [],
+      "when_any_missing": []
+    },
+    {
+      "key": "incremental_definition",
+      "target": "actions",
+      "text_i18n": {
+        "zh-CN": "核对原文增量ROI采用的成本分母、收益定义、归因方法和观察周期，再与声明的增量产投比口径对齐。",
+        "en-US": "Check the source incremental ROI cost denominator, return definition, attribution and observation window against the declared incremental return multiple."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [],
+        "en-US": []
+      },
+      "when_any_fields": [],
+      "when_any_conflicts": [
+        "incremental_multiple"
+      ],
+      "when_any_missing": []
+    },
+    {
+      "key": "repurchase_counts",
+      "target": "actions",
+      "text_i18n": {
+        "zh-CN": "补充同一观察期和客户池的复购人数及总人数，用于独立复算；保留原文已报告复购率。",
+        "en-US": "Obtain repurchase and total customer counts for the same observation window and cohort for independent recalculation; retain the source-reported rate."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [],
+        "en-US": []
+      },
+      "when_any_fields": [],
+      "when_any_conflicts": [],
+      "when_any_missing": [
+        "repeat_rate"
+      ]
+    },
+    {
+      "key": "feed_audience_validation",
+      "target": "actions",
+      "text_i18n": {
+        "zh-CN": "按触达来源和目标客户群对照信息流曝光、点击及下单数据，检验原文的人群不匹配解释。",
+        "en-US": "Compare feed impressions, clicks and orders by traffic source and target cohort to test the source audience-mismatch explanation."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [
+          "围观流量"
+        ],
+        "en-US": [
+          "spectator traffic"
+        ]
+      },
+      "when_any_fields": [
+        "reported_feed_ctr",
+        "reported_feed_order_rate"
+      ],
+      "when_any_conflicts": [],
+      "when_any_missing": []
+    },
+    {
+      "key": "channel_definitions",
+      "target": "actions",
+      "text_i18n": {
+        "zh-CN": "按各渠道原始投入、GMV及归因口径独立核对，缺少的原始明细再补充；渠道数值差异本身不判为矛盾。",
+        "en-US": "Independently check channel raw spend, GMV and attribution, requesting only missing records; differing channel values alone are not contradictions."
+      },
+      "evidence_all_i18n": {
+        "zh-CN": [],
+        "en-US": []
+      },
+      "when_any_fields": [
+        "reported_sms_roi",
+        "reported_feed_roi"
+      ],
+      "when_any_conflicts": [],
+      "when_any_missing": []
+    }
+  ]
+}

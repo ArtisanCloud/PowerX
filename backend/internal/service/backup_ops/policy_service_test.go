@@ -1,6 +1,10 @@
 package backup_ops
 
-import "testing"
+import (
+	"context"
+	"testing"
+	"time"
+)
 
 func TestNormalizePolicyValues_Defaults(t *testing.T) {
 	interval, retention, timezone, drillEnabled, drillInterval, targetRef, err := normalizePolicyValues(0, 0, "", nil, 0, "")
@@ -16,14 +20,14 @@ func TestNormalizePolicyValues_Defaults(t *testing.T) {
 	if timezone != defaultTimezone {
 		t.Fatalf("expected default timezone %s, got %s", defaultTimezone, timezone)
 	}
-	if !drillEnabled {
-		t.Fatalf("expected default drill enabled")
+	if drillEnabled {
+		t.Fatalf("expected default drill disabled")
 	}
 	if drillInterval != defaultDrillIntervalDay {
 		t.Fatalf("expected default drill interval %d, got %d", defaultDrillIntervalDay, drillInterval)
 	}
-	if targetRef != "powerx_bak" {
-		t.Fatalf("expected default target_ref powerx_bak, got %s", targetRef)
+	if targetRef != "local_dump" {
+		t.Fatalf("expected default target_ref local_dump, got %s", targetRef)
 	}
 }
 
@@ -51,5 +55,17 @@ func TestParseScheduleHours(t *testing.T) {
 		if got != c.want {
 			t.Fatalf("parseScheduleHours(%q): want %d, got %d", c.in, c.want, got)
 		}
+	}
+}
+
+func TestProductionScheduleAndUnsupportedBackupType(t *testing.T) {
+	if validateScheduleDurationByEnv(30*time.Minute, "prod") == nil {
+		t.Fatal("production minute policy accepted")
+	}
+	if err := validateScheduleDurationByEnv(time.Hour, "prod"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&PolicyService{}).UpsertPolicy(context.Background(), UpsertPolicyRequest{Name: "unsupported", BackupType: "wal"}); err == nil {
+		t.Fatal("unsupported WAL backup silently accepted")
 	}
 }

@@ -27,6 +27,7 @@ import (
 	opsHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/ops"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
 	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
+	requestidentity "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_identity"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	pluginSandboxHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_sandbox"
 	rootHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/root"
@@ -59,6 +60,7 @@ func RegisterAPIRoutes(
 	// 受保护的API组
 	protectedGroup := r.Group(prefix)
 	protectedGroup.Use(authMiddleware)
+	requestidentity.Register(protectedGroup, deps)
 
 	// Admin 体系在 /api/{prefix}/admin/... 下提供上传端点
 	adminUploadGroup := protectedGroup.Group("/admin")

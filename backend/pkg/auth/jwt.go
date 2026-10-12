@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // 统一的业
@@ -15,6 +16,10 @@ import (
 
 func GenerateAccessJWT(c reqctx.CoreXClaims, issuer string, audiences []string, ttl time.Duration, secret []byte) (string, error) {
 	now := time.Now()
+	sessionID := c.ID
+	if sessionID == "" {
+		sessionID = uuid.NewString()
+	}
 	c.Scope = "access"
 	c.RegisteredClaims = jwt.RegisteredClaims{
 		Issuer:    issuer,
@@ -23,10 +28,32 @@ func GenerateAccessJWT(c reqctx.CoreXClaims, issuer string, audiences []string, 
 		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		IssuedAt:  jwt.NewNumericDate(now),
 		NotBefore: jwt.NewNumericDate(now),
+		ID:        sessionID,
 	}
 	//fmt2.Dump("GenerateAccessJWT", c)
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
 	return tok.SignedString(secret)
+}
+
+// GenerateCustomerAccessJWT issues a Core-verifiable customer credential.
+// CustomerUUID and TenantUUID are explicit claims; customer identities must
+// never be encoded as IAM member identifiers.
+func GenerateCustomerAccessJWT(tenantUUID, customerUUID, issuer string, ttl time.Duration, secret []byte) (string, error) {
+	return GenerateCustomerAccessJWTWithJTI(tenantUUID, customerUUID, issuer, ttl, secret, uuid.NewString())
+}
+
+func GenerateCustomerAccessJWTWithJTI(tenantUUID, customerUUID, issuer string, ttl time.Duration, secret []byte, jti string) (string, error) {
+	if jti == "" {
+		jti = uuid.NewString()
+	}
+	claims := reqctx.CoreXClaims{TenantUUID: tenantUUID, CustomerUUID: customerUUID, Scope: "customer_access"}
+	now := time.Now()
+	claims.RegisteredClaims = jwt.RegisteredClaims{
+		Issuer: issuer, Subject: customerUUID, Audience: jwt.ClaimStrings{"customer"},
+		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)), IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ID: jti,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(secret)
 }
 
 func GenerateRefreshJWT(c reqctx.CoreXClaims, issuer string, audiences []string, jti string, ttl time.Duration, secret []byte) (string, error) {

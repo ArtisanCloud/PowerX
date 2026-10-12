@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os"
 	"os/exec"
@@ -347,6 +348,12 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "未找到运行配置文件路径", nil)
 		return
 	}
+	// Generate/persist signing identity before the rollback snapshot so failed
+	// provisioning retries never rotate the generated deployment key.
+	if err := config.PrepareSetupJWTSecret(runtimePath); err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "安装签名密钥初始化失败", err)
+		return
+	}
 	original, err := os.ReadFile(runtimePath)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "读取运行配置失败", err)
@@ -490,6 +497,12 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "未找到运行配置文件路径", nil)
 		return
 	}
+	// Generate/persist signing identity before the rollback snapshot so failed
+	// provisioning retries never rotate the generated deployment key.
+	if err := config.PrepareSetupJWTSecret(runtimePath); err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "安装签名密钥初始化失败", err)
+		return
+	}
 	original, err := os.ReadFile(runtimePath)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "读取运行配置失败", err)
@@ -504,7 +517,8 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "写入端口配置失败", err)
 		return
 	}
-	if err := runSetupProvisionSteps(runtimePath); err != nil {
+	// 数据库步骤先于管理员确认，仅迁移表结构；完整种子在 Complete 中执行。
+	if err := runSetupMigrationStep(runtimePath); err != nil {
 		_ = os.WriteFile(runtimePath, original, 0o644)
 		dto.ResponseError(c, http.StatusInternalServerError, "数据库初始化失败，请检查配置后重试", err)
 		return
@@ -1117,6 +1131,9 @@ func (h *SetupHandler) loadDraftConfig() (setupConfigPayload, bool) {
 	if err != nil {
 		return cfg, false
 	}
+	// 初次打开页面可以建议 admin，但已保存草稿中省略/清空的用户名
+	// 必须保持未确认，不能被 omitempty 与默认值组合重新补回。
+	cfg.Admin.Username = ""
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return defaultSetupConfig(), false
 	}
@@ -1305,17 +1322,25 @@ func applyStorageConfig(root map[string]any, in setupStorageConfig) error {
 	return nil
 }
 
+type setupProvisionCommand struct {
+	stage string
+	cmd   string
+}
+
+func runSetupMigrationStep(runtimePath string) error {
+	return runSetupCommands(runtimePath, []setupProvisionCommand{
+		{stage: "migrate", cmd: defaultSetupMigrateCmd()},
+	})
+}
+
 func runSetupProvisionSteps(runtimePath string) error {
-	migrateCmd := defaultSetupMigrateCmd()
-	seedCmd := defaultSetupSeedCmd()
-	type setupCmd struct {
-		stage string
-		cmd   string
-	}
-	cmds := []setupCmd{
-		{stage: "migrate", cmd: migrateCmd},
-		{stage: "seed", cmd: seedCmd},
-	}
+	return runSetupCommands(runtimePath, []setupProvisionCommand{
+		{stage: "migrate", cmd: defaultSetupMigrateCmd()},
+		{stage: "seed", cmd: defaultSetupSeedCmd()},
+	})
+}
+
+func runSetupCommands(runtimePath string, cmds []setupProvisionCommand) error {
 	for _, item := range cmds {
 		if item.cmd == "" {
 			continue
@@ -1465,6 +1490,15 @@ func isSetupProvisionWorkDir(dir string) bool {
 }
 
 func scheduleSetupOnlyAutoRestart(runtimePath string) {
+	if os.Getenv("POWERX_MODE") == "docker" {
+		// PID 1 belongs to Docker; let the restart policy reload the installed
+		// configuration instead of spawning an unmanaged detached server.
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			os.Exit(0)
+		}()
+		return
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "admin.setup"}), "setup auto-restart skipped: resolve executable failed: %v", err)
@@ -1906,7 +1940,28 @@ func validateSetupDraftConfig(in setupConfigPayload) error {
 }
 
 func validateSetupConfig(in setupConfigPayload) error {
-	return validateSetupConfigInternal(in, true)
+	if err := validateSetupConfigInternal(in, true); err != nil {
+		return err
+	}
+	// 草稿和数据库准备允许管理员尚未填写；完成安装必须先确认管理员，
+	// 避免迁移或部分 seed 写入后才发现缺少管理员依赖。
+	if strings.TrimSpace(in.Admin.Username) == "" {
+		return errors.New("setup.errors.adminUsernameRequired")
+	}
+	email := strings.TrimSpace(in.Admin.Email)
+	address, err := mail.ParseAddress(email)
+	if err != nil || address.Address != email {
+		return errors.New("setup.errors.adminEmailInvalid")
+	}
+	password := strings.TrimSpace(in.Admin.Password)
+	if password == "" {
+		return errors.New("setup.errors.adminPasswordRequired")
+	}
+	// seed 使用 bcrypt；提前拒绝其无法处理的密码，按字节而非字符计数。
+	if len([]byte(password)) > 72 {
+		return errors.New("setup.errors.adminPasswordTooLong")
+	}
+	return nil
 }
 
 func validateSetupConfigInternal(in setupConfigPayload, requireDomain bool) error {

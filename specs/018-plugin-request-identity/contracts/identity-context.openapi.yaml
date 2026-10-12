@@ -1,0 +1,165 @@
+openapi: 3.0.3
+info: {title: Plugin Request Identity Context, version: 1.0.0}
+servers: [{url: /api/v1}]
+paths:
+  /tenant/iam/identity-contexts:resolve:
+    post:
+      operationId: ResolvePluginRequestIdentity
+      description: Resolve a gateway-issued opaque ticket using a live service credential with the identity-context capability and exact target-plugin authorization.
+      security: [{ServiceSTS: []}, {GatewayAPIKey: []}]
+      requestBody: {$ref: '#/components/requestBodies/Query'}
+      responses:
+        '200': {$ref: '#/components/responses/Identity'}
+        '400': {description: IAM_CONTEXT_INVALID_ARGUMENT}
+        '401': {description: 'IAM_CONTEXT_SERVICE_CREDENTIAL_INVALID, IAM_CONTEXT_SERVICE_CREDENTIAL_EXPIRED, IAM_CONTEXT_PROOF_REQUIRED, IAM_CONTEXT_PROOF_INVALID, IAM_CONTEXT_PROOF_EXPIRED, IAM_CONTEXT_USER_SESSION_INVALID or IAM_CONTEXT_USER_SESSION_EXPIRED'}
+        '403': {description: 'IAM_CONTEXT_SERVICE_FORBIDDEN, IAM_CONTEXT_PLUGIN_FORBIDDEN, IAM_CONTEXT_TENANT_FORBIDDEN, IAM_CONTEXT_USER_FORBIDDEN, IAM_CONTEXT_MEMBER_REQUIRED or IAM_CONTEXT_REQUEST_FORBIDDEN'}
+        '409': {description: IAM_CONTEXT_POLICY_CHANGED; live identity permissions changed during resolution}
+        '503': {description: IAM_CONTEXT_UNAVAILABLE}
+  /admin/iam/identity-contexts:resolve:
+    post:
+      operationId: InspectOwnPluginRequestIdentity
+      description: User JWT and platform IAM permission iam / identity_context / read. The ticket must belong to this same user session and tenant. Service credentials are rejected.
+      security: [{UserBearer: []}]
+      requestBody: {$ref: '#/components/requestBodies/Query'}
+      responses:
+        '200': {$ref: '#/components/responses/Identity'}
+        '400': {description: IAM_CONTEXT_INVALID_ARGUMENT}
+        '401': {description: User session or proof invalid or expired}
+        '403': {description: User RBAC or ticket scope denied}
+        '409': {description: IAM_CONTEXT_POLICY_CHANGED}
+        '503': {description: IAM_CONTEXT_UNAVAILABLE}
+  /tenant/iam/identity-contexts:revalidate-ws:
+    post:
+      operationId: RevalidatePluginWSIdentity
+      description: Message-triggered live revocation check with a server-only WS handle. Checks current service grant, plugin owner, human session, member and permissions; never extends the original access expiry.
+      security: [{ServiceSTS: []}, {GatewayAPIKey: []}]
+      requestBody: {$ref: '#/components/requestBodies/WSQuery'}
+      responses:
+        '200': {$ref: '#/components/responses/WSIdentity'}
+        '400': {description: IAM_CONTEXT_INVALID_ARGUMENT}
+        '401': {description: 'IAM_CONTEXT_WS_HANDLE_REQUIRED, IAM_CONTEXT_WS_HANDLE_INVALID, IAM_CONTEXT_WS_HANDLE_EXPIRED, service credential or human session invalid/expired'}
+        '403': {description: 'Current service grant, owner, user/member/tenant/plugin state or required permission denied'}
+        '409': {description: IAM_CONTEXT_POLICY_CHANGED}
+        '503': {description: IAM_CONTEXT_UNAVAILABLE; do not authorize a message using stale cached identity}
+  /admin/iam/identity-contexts:revalidate-ws:
+    post:
+      operationId: InspectOwnPluginWSIdentity
+      description: Same user JWT session and tenant with IAM identity_context read permission. Does not mint a WS handle; service credentials are rejected.
+      security: [{UserBearer: []}]
+      requestBody: {$ref: '#/components/requestBodies/WSQuery'}
+      responses:
+        '200': {$ref: '#/components/responses/WSIdentity'}
+        '400': {description: IAM_CONTEXT_INVALID_ARGUMENT}
+        '401': {description: WS handle or human session invalid/expired}
+        '403': {description: 'User RBAC, own-session scope or live subject denied'}
+        '409': {description: IAM_CONTEXT_POLICY_CHANGED}
+        '503': {description: IAM_CONTEXT_UNAVAILABLE}
+components:
+  securitySchemes:
+    ServiceSTS: {type: http, scheme: bearer, bearerFormat: STS}
+    GatewayAPIKey: {type: apiKey, in: header, name: Authorization, description: 'ApiKey <key>'}
+    UserBearer: {type: http, scheme: bearer, bearerFormat: JWT}
+  requestBodies:
+    WSQuery:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/WSIdentityQuery'}
+    Query:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/IdentityQuery'}
+  responses:
+    WSIdentity:
+      description: Current connection identity. Framework must check the current topic permission before authorizing a message; a successful response does not authorize all topics.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, data]
+            properties:
+              code: {type: integer, example: 200}
+              message: {type: string}
+              request_id: {type: string}
+              timestamp: {type: integer}
+              data: {$ref: '#/components/schemas/WSIdentityResult'}
+    Identity:
+      description: Current target-plugin identity and permissions. This response does not itself authorize a business operation or extend the original login session.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, data]
+            properties:
+              code: {type: integer, example: 200}
+              message: {type: string}
+              request_id: {type: string}
+              timestamp: {type: integer}
+              data: {$ref: '#/components/schemas/IdentityResult'}
+  schemas:
+    TypedIdentityOperation:
+      oneOf:
+        - {$ref: '#/components/schemas/ResolveIdentityOperation'}
+        - {$ref: '#/components/schemas/WSIdentityOperation'}
+    ResolveIdentityOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, request]
+      properties:
+        operation: {type: string, enum: [resolve_request_identity]}
+        request: {$ref: '#/components/schemas/IdentityQuery'}
+    WSIdentityOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, request]
+      properties:
+        operation: {type: string, enum: [revalidate_ws_identity]}
+        request: {$ref: '#/components/schemas/WSIdentityQuery'}
+    WSIdentityQuery:
+      type: object
+      additionalProperties: false
+      required: [schema, ws_revalidation_handle]
+      properties:
+        schema: {type: string, enum: ['powerx.iam.plugin-ws-identity-query/v1']}
+        ws_revalidation_handle: {type: string, pattern: '^pxwsi_v1_[A-Za-z0-9_-]{43}$', maxLength: 52, writeOnly: true, description: Server-only opaque handle; never a browser credential or URL value.}
+    IdentityQuery:
+      type: object
+      additionalProperties: false
+      required: [schema, context_ticket]
+      properties:
+        schema: {type: string, enum: ['powerx.iam.plugin-request-identity-query/v1']}
+        context_ticket: {type: string, pattern: '^pxctx_v1_[A-Za-z0-9_-]{43}$', maxLength: 52, writeOnly: true}
+    IdentityResult:
+      type: object
+      required: [schema, mode, plugin_id, tenant_uuid, user_uuid, member_uuid, is_root, roles, permissions, policy_version, perms_hash, source_method, source_path, source_required_permission, transport, source_request_id, source_trace_id, trace_id, proof_expires_at, user_session_expires_at]
+      properties:
+        schema: {type: string, enum: ['powerx.iam.plugin-request-identity/v1', 'powerx.iam.plugin-ws-identity/v1']}
+        mode: {type: string, enum: [delegated]}
+        plugin_id: {type: string}
+        tenant_uuid: {type: string, format: uuid}
+        user_uuid: {type: string, format: uuid}
+        member_uuid: {type: string, format: uuid, nullable: true, description: 'Required for ordinary users; Core Root may have null membership in an active selected tenant.'}
+        is_root: {type: boolean}
+        roles: {type: array, items: {type: string}}
+        permissions: {type: array, items: {type: string}}
+        policy_version: {type: string}
+        perms_hash: {type: string}
+        source_method: {type: string}
+        source_path: {type: string}
+        source_required_permission: {type: string}
+        transport: {type: string, enum: [http, ws_grant, ws_upgrade]}
+        source_request_id: {type: string}
+        source_trace_id: {type: string}
+        trace_id: {type: string}
+        proof_expires_at: {type: string, format: date-time, description: 'Source proof expiry; resolve returns the 60-second ticket deadline, revalidate_ws_identity returns the WS handle deadline. Neither is extended by repeated calls.'}
+        user_session_expires_at: {type: string, format: date-time, description: Original user access expiry; maximum limit for any subsequently issued WS credential.}
+        ws_revalidation_handle: {type: string, pattern: '^pxwsi_v1_[A-Za-z0-9_-]{43}$', description: Returned to plugin services for ws_grant/ws_upgrade only. Keep server-side and exclude from browser responses and logs.}
+        ws_revalidation_expires_at: {type: string, format: date-time, description: Fixed original user access deadline; not a rolling TTL.}
+    WSIdentityResult:
+      allOf:
+        - {$ref: '#/components/schemas/IdentityResult'}
+        - type: object
+          required: [ws_revalidation_handle, ws_revalidation_expires_at]
+          properties:
+            schema: {type: string, enum: ['powerx.iam.plugin-ws-identity/v1']}

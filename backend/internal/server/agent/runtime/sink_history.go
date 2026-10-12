@@ -62,7 +62,9 @@ func (h *HistorySink) Emit(event string, payload any) error {
 		}
 	case dto.EventAgentRunTaskStatus, dto.EventAgentRunTaskStarted, dto.EventAgentRunAwaitingParams, dto.EventAgentRunTaskCompleted, dto.EventAgentRunTaskFailed:
 		h.captureRunStateTask(event, payload)
-	case dto.EventAgentRunFinal:
+	case dto.EventAgentRunEnded:
+		h.markRunStateEnded()
+	case dto.EventFinal:
 		// final 时落库 assistant 文本
 		text := extractAssistantText(payload)
 		if strings.TrimSpace(text) == "" {
@@ -98,12 +100,84 @@ func (h *HistorySink) captureRunStateTask(event string, payload any) {
 	}
 	tasks, _ := h.runState["tasks"].([]any)
 	task["event"] = event
-	tasks = append(tasks, task)
+	tasks = upsertHistoryRunStateTask(tasks, task)
 	h.runState["tasks"] = tasks
 	if event == dto.EventAgentRunAwaitingParams || strings.EqualFold(readTraceMetaString(task["status"]), dto.AgentTaskStatusAwaitingParams) {
 		task["status"] = dto.AgentTaskStatusAwaitingParams
 		h.pending = task
+	} else if pendingTaskID := strings.TrimSpace(readTraceMetaString(h.pending["task_id"])); pendingTaskID != "" && pendingTaskID == strings.TrimSpace(readTraceMetaString(task["task_id"])) {
+		// A later terminal update for the same task supersedes its previous
+		// awaiting-parameters state. Persisting the stale pending state would make
+		// the next request resume a task that has already finished.
+		h.pending = nil
 	}
+}
+
+func (h *HistorySink) markRunStateEnded() {
+	if h == nil {
+		return
+	}
+	if h.runState == nil {
+		h.runState = map[string]any{}
+	}
+	h.runState["ended"] = true
+}
+
+// upsertHistoryRunStateTask keeps the chat-history snapshot as a state view,
+// not an event log. A task emits at least a started update and a terminal
+// update; storing both as independent entries makes an already completed run
+// look running again after a page refresh.
+func upsertHistoryRunStateTask(tasks []any, next map[string]any) []any {
+	taskID := strings.TrimSpace(readTraceMetaString(next["task_id"]))
+	if taskID == "" {
+		return append(tasks, next)
+	}
+	for index, raw := range tasks {
+		previous := mapFromAny(raw)
+		if strings.TrimSpace(readTraceMetaString(previous["task_id"])) != taskID {
+			continue
+		}
+		tasks[index] = mergeHistoryRunStateTask(previous, next)
+		return tasks
+	}
+	return append(tasks, next)
+}
+
+func mergeHistoryRunStateTask(previous, next map[string]any) map[string]any {
+	merged := make(map[string]any, len(previous)+len(next))
+	for key, value := range previous {
+		merged[key] = value
+	}
+	for key, value := range next {
+		if !historyRunStateValuePresent(key, value) {
+			continue
+		}
+		merged[key] = value
+	}
+	return merged
+}
+
+func historyRunStateValuePresent(key string, value any) bool {
+	if value == nil {
+		return false
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case []string:
+		return len(typed) > 0
+	case []any:
+		return len(typed) > 0
+	case []map[string]any:
+		return len(typed) > 0
+	case map[string]any:
+		return len(typed) > 0
+	case int:
+		// Node-end events may omit stage and therefore carry its Go zero value.
+		// Keep the stage supplied by the corresponding start event.
+		return key != "stage" || typed != 0
+	}
+	return true
 }
 
 func (h *HistorySink) mergeRunStateMeta(meta datatypes.JSONMap) {
@@ -212,6 +286,9 @@ func mapFromAny(payload any) map[string]any {
 			"trace_id":         v.TraceID,
 			"task_id":          v.TaskID,
 			"parent_task_id":   v.ParentTaskID,
+			"depends_on":       v.DependsOn,
+			"stage":            v.Stage,
+			"parallel_group":   v.ParallelGroup,
 			"team_id":          v.TeamID,
 			"agent_id":         v.AgentID,
 			"agent_key":        v.AgentKey,
@@ -221,7 +298,10 @@ func mapFromAny(payload any) map[string]any {
 			"skill_id":         v.SkillID,
 			"capability_id":    v.CapabilityID,
 			"action":           v.Action,
+			"failure_policy":   v.FailurePolicy,
 			"status":           v.Status,
+			"message":          v.Message,
+			"summary":          v.Summary,
 			"collected_params": v.CollectedParams,
 			"missing_fields":   v.MissingFields,
 			"result":           v.Result,
@@ -338,7 +418,10 @@ func extractAssistantTraceMeta(payload any) datatypes.JSONMap {
 	} else {
 		copyResponseMeta(out, md, md)
 	}
-	if data, ok := m["data"].(map[string]any); ok {
+	// Execution results use flowschema.Result, a named map type. A direct
+	// map[string]any assertion silently drops the V4 envelope here, leaving a
+	// successful run without a persisted assistant message after refresh.
+	if data := mapFromAny(m["data"]); len(data) > 0 {
 		if envelope, ok := data["response_envelope"].(map[string]any); ok {
 			out["response_envelope"] = envelope
 		}

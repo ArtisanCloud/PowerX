@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -11,16 +12,27 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/cmd/database/seed"
 	"github.com/ArtisanCloud/PowerX/config"
+	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	plugincredential "github.com/ArtisanCloud/PowerX/internal/service/plugin_credential"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fatalf("Usage: %s [migrate|seed|refresh|status|iam-report|iam-fix-owner|iam-fix-role-binding-duplicates]", os.Args[0])
+	if handled, code := handleUpgradeCommand(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
+	handled, err := handleDatabaseInformation(os.Args[1:], os.Stdout)
+	if err != nil {
+		fatalf("%v", err)
+	}
+	if handled {
+		return
 	}
 	cmd := os.Args[1]
 	defaultConfigPath := strings.TrimSpace(os.Getenv("POWERX_CONFIG"))
@@ -30,7 +42,17 @@ func main() {
 	fs := flag.NewFlagSet("database", flag.ContinueOnError)
 	configPath := fs.String("config", defaultConfigPath, "配置文件路径")
 	confirm := fs.Bool("confirm", false, "确认执行修复")
+	pluginID := fs.String("plugin-id", "", "要修复运行凭证的插件 ID")
+	confirmDatabase := fs.String("confirm-database", "", "refresh 必须填写实际数据库名")
+	confirmSchema := fs.String("confirm-schema", "", "refresh 必须填写实际 schema 名")
+	policyID := fs.Uint64("policy-id", 0, "backup-run 指定策略；不填则只运行到期策略")
+	keepRestoreDB := fs.Bool("keep-restore-database", false, "验证完成后保留本次隔离库用于业务核对")
+	jobID := fs.Uint64("job-id", 0, "backup-restore-verify 的来源备份任务")
+	rotate := fs.Bool("rotate", false, "无法恢复原凭证时，明确允许轮换 secret；须同时传 -confirm")
 	if err := fs.Parse(os.Args[2:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
 		fatalf("解析参数失败: %v", err)
 	}
 
@@ -43,6 +65,12 @@ func main() {
 		fatalf("读取 server.secret_key 失败: %v", err)
 	}
 
+	logger.InitGlobalLogger(&cfg.LogConfig)
+	if cmd == "refresh" {
+		if err := validateRefreshEnvironment(cfg.Deployment.Env); err != nil {
+			fatalf("%v", err)
+		}
+	}
 	ctx := context.Background()
 	// 连接数据库
 	db, err := database.Connect(cfg.Database)
@@ -63,8 +91,22 @@ func main() {
 		}
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
 
+	case "seed-native-marketing-skills":
+		if err := seed.SeedNativeMarketingSkills(db, cfg); err != nil {
+			fatalf("native marketing skill seed failed: %v", err)
+		}
+		logger.InfoF(logger.WithLogFields(ctx, map[string]interface{}{"module": "skills"}), "native marketing skill revisions published")
+
 	case "refresh":
-		// 先 drop database（或 drop all tables）
+		var actualDB string
+		if err := db.Raw("SELECT current_database()").Scan(&actualDB).Error; err != nil {
+			fatalf("%v", err)
+		}
+		if err := validateRefreshConfirmation(actualDB, coremodel.PowerXSchema, *confirm, *confirmDatabase, *confirmSchema); err != nil {
+			fatalf("%v", err)
+		}
+		logger.WarnF(logger.WithLogFields(ctx, map[string]interface{}{"database": actualDB, "schema": coremodel.PowerXSchema, "operation": "database.refresh"}), "explicit destructive refresh started")
+		// 已确认，仅开发或测试库可以执行清空。
 		if err := ResetDatabase(ctx, db); err != nil {
 			fatalf("reset failed: %v", err)
 		}
@@ -82,6 +124,39 @@ func main() {
 		}
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
 
+	case "backup-run":
+		svc := backupops.NewJobService(db)
+		if *policyID == 0 {
+			if err := svc.RunDue(ctx); err != nil {
+				fatalf("scheduled backup failed: %v", err)
+			}
+			printJSON(map[string]any{"status": "ok", "mode": "due_policies"})
+		} else {
+			job, err := svc.TriggerJob(ctx, backupops.TriggerJobRequest{PolicyID: *policyID, Operator: "operator.cli"})
+			if err != nil {
+				fatalf("backup failed: %v", err)
+			}
+			printJSON(job)
+			if job.Status != "success" {
+				fatalf("backup job failed: %s", job.ErrorMessage)
+			}
+		}
+	case "backup-restore-verify":
+		keep := "0"
+		if *keepRestoreDB {
+			keep = "1"
+		}
+		if err := os.Setenv("POWERX_OPS_RESTORE_KEEP_DB", keep); err != nil {
+			fatalf("%v", err)
+		}
+		record, err := backupops.NewRestoreDrillService(db).Trigger(ctx, backupops.TriggerRestoreDrillRequest{SourceJobID: *jobID, Operator: "operator.cli", Reason: "manual_restore_verify"})
+		if err != nil {
+			fatalf("restore verification failed: %v", err)
+		}
+		printJSON(record)
+		if record.Status != "success" {
+			fatalf("restore verification failed: %s", record.ReportURI)
+		}
 	case "status":
 		status, err := databaseStatus(ctx, db)
 		if err != nil {
@@ -109,6 +184,32 @@ func main() {
 			fatalf("iam migration fix role binding duplicates failed: %v", err)
 		}
 		printJSON(result)
+
+	case "repair-agent-run-state":
+		result, err := repairLegacyAgentRunStates(ctx, db, agenttrace.ConfigFromEnv().LocalDir, *confirm)
+		if err != nil {
+			fatalf("agent run state repair failed: %v", err)
+		}
+		printJSON(result)
+
+	case "repair-plugin-runtime-credentials", "prepare-plugin-runtime-credentials":
+		svc := plugincredential.NewRuntimeCredentialRepairService(db, cfg)
+		opts := plugincredential.RuntimeCredentialRepairOptions{
+			PluginID: *pluginID, Confirm: *confirm, Rotate: *rotate,
+		}
+		var result *plugincredential.RuntimeCredentialRepairResult
+		var err error
+		if cmd == "prepare-plugin-runtime-credentials" {
+			result, err = svc.PrepareInstall(ctx, opts)
+		} else {
+			result, err = svc.Repair(ctx, opts)
+		}
+		if result != nil {
+			printJSON(result)
+		}
+		if err != nil {
+			fatalf("plugin runtime credential repair failed: %v", err)
+		}
 
 	default:
 		fatalf("Unknown command: %s", cmd)

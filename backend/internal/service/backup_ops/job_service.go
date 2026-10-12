@@ -23,7 +23,6 @@ import (
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 )
 
@@ -39,16 +38,11 @@ type JobService struct {
 	restoreSvc          *RestoreDrillService
 	scriptDir           string
 	artifactBaseDir     string
+	artifactBaseDirErr  error
 	backupScriptTimeout time.Duration
 	metrics             *inst.Recorder
 	lockMu              sync.Mutex
 	policyLock          map[uint64]struct{}
-	nextRuns            map[uint64]nextRunCache
-}
-
-type nextRunCache struct {
-	At       time.Time
-	Schedule string
 }
 
 type TriggerJobRequest struct {
@@ -69,23 +63,13 @@ type ListJobOptions struct {
 }
 
 func NewJobService(db *gorm.DB) *JobService {
-	scriptDir := opsscripts.ResolveDir("backup-db.sh")
-	artifactBaseDir := strings.TrimSpace(os.Getenv("POWERX_OPS_BACKUP_ARTIFACT_DIR"))
-	if artifactBaseDir == "" {
-		appEnv := strings.TrimSpace(strings.ToLower(os.Getenv("APP_ENV")))
-		if appEnv == "" {
-			appEnv = strings.TrimSpace(strings.ToLower(os.Getenv("POWERX_ENV")))
-		}
-		if appEnv == "prod" || appEnv == "production" {
-			artifactBaseDir = "/var/lib/powerx/ops-backup/artifacts"
-		} else {
-			artifactBaseDir = resolveDevArtifactBaseDir()
-		}
-	}
+	scriptDir := backupScriptDir("backup-db.sh")
+	artifactBaseDir, artifactBaseDirErr := resolveBackupArtifactBaseDir()
 	logOp(context.Background(), "info", "backup.job_service.config",
 		zap.String("script_dir", scriptDir),
 		zap.String("backup_script", filepath.Join(scriptDir, "backup-db.sh")),
 		zap.String("artifact_base_dir", artifactBaseDir),
+		zap.Error(artifactBaseDirErr),
 		zap.String("env_POWERX_OPS_SCRIPT_DIR", strings.TrimSpace(os.Getenv("POWERX_OPS_SCRIPT_DIR"))),
 	)
 	return &JobService{
@@ -100,34 +84,33 @@ func NewJobService(db *gorm.DB) *JobService {
 		restoreSvc:          NewRestoreDrillService(db),
 		scriptDir:           scriptDir,
 		artifactBaseDir:     artifactBaseDir,
+		artifactBaseDirErr:  artifactBaseDirErr,
 		backupScriptTimeout: resolveBackupScriptTimeout(),
 		metrics:             inst.NewRecorder("powerx.service.backup_job_ops"),
 		policyLock:          make(map[uint64]struct{}),
-		nextRuns:            make(map[uint64]nextRunCache),
 	}
 }
 
-func resolveOpsScriptDir() string {
-	return opsscripts.ResolveDir("backup-db.sh")
-}
-
-func resolveDevArtifactBaseDir() string {
-	if root := opsscripts.DetectProjectRoot(); root != "" {
-		return filepath.Join(root, "backend", "tmp", "ops-backup", "artifacts")
+// resolveBackupArtifactBaseDir 将备份产物放在稳定的数据目录，独立于发布版本和工作目录。
+func resolveBackupArtifactBaseDir() (string, error) {
+	if dir := strings.TrimSpace(os.Getenv("POWERX_OPS_BACKUP_ARTIFACT_DIR")); dir != "" {
+		if !filepath.IsAbs(dir) {
+			return "", fmt.Errorf("POWERX_OPS_BACKUP_ARTIFACT_DIR must be an absolute path")
+		}
+		return filepath.Clean(dir), nil
 	}
-	if pathExists("tmp") {
-		return filepath.Join("tmp", "ops-backup", "artifacts")
+	if root := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT")); root != "" {
+		if !filepath.IsAbs(root) {
+			return "", fmt.Errorf("POWERX_LINKS_ROOT must be an absolute path")
+		}
+		return filepath.Join(root, "storage", "backups"), nil
 	}
-	return filepath.Join("backend", "tmp", "ops-backup", "artifacts")
-}
-
-func detectProjectRoot() string {
-	return opsscripts.DetectProjectRoot()
-}
-
-func pathExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	// 本地运行也不把数据库备份放入仓库或临时构建目录。
+	homeDir, err := os.UserHomeDir()
+	if err != nil || !filepath.IsAbs(homeDir) {
+		return "", fmt.Errorf("backup data directory unavailable: configure POWERX_OPS_BACKUP_ARTIFACT_DIR")
+	}
+	return filepath.Join(homeDir, ".powerx", "storage", "backups"), nil
 }
 
 func (s *JobService) ListJobs(ctx context.Context, opt ListJobOptions) ([]modelops.BackupJob, int64, error) {
@@ -169,6 +152,11 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		retErr = ErrInvalidBackupRequest
 		return nil, retErr
 	}
+	unlockDB, lockErr := lockBackupPolicy(ctx, s.db, req.PolicyID)
+	if lockErr != nil {
+		return nil, lockErr
+	}
+	defer unlockDB()
 	if !s.tryLockPolicy(req.PolicyID) {
 		retErr = ErrBackupJobAlreadyRunning
 		return nil, retErr
@@ -183,6 +171,18 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 	if policy == nil {
 		retErr = ErrBackupPolicyNotFound
 		return nil, retErr
+	}
+	if req.TriggerType == modelops.BackupTriggerTypeScheduled {
+		due, e := s.policyDue(ctx, policy, time.Now().UTC())
+		if e != nil {
+			return nil, e
+		}
+		if !due {
+			return nil, nil
+		}
+	}
+	if err := s.jobRepo.FailInterrupted(ctx, req.PolicyID, time.Now().UTC().Add(-s.backupScriptTimeout-10*time.Minute)); err != nil {
+		return nil, err
 	}
 	running, err := s.jobRepo.ExistsRunningByPolicy(ctx, req.PolicyID)
 	if err != nil {
@@ -241,7 +241,7 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		_ = s.alertSvc.HandleJobCompletionAlert(ctx, updated)
 	}
 	if updated.Status == modelops.BackupJobStatusSuccess && s.cleanupSvc != nil {
-		if cleanupRet, cleanupErr := s.cleanupSvc.CleanupByPolicy(ctx, policy.ID, int(policy.RetentionCount)); cleanupErr != nil {
+		if cleanupRet, cleanupErr := s.cleanupSvc.cleanupPolicy(ctx, policy); cleanupErr != nil {
 			if s.alertSvc != nil {
 				_ = s.alertSvc.CreateCleanupFailureAlert(ctx, policy.ID, updated.TraceID, cleanupErr)
 			}
@@ -268,12 +268,12 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		}
 		shouldTrigger, shouldErr := s.restoreSvc.ShouldTriggerByPolicy(ctx, policy.ID, interval, time.Now().UTC())
 		if shouldErr == nil && shouldTrigger {
-			_, _ = s.restoreSvc.Trigger(ctx, TriggerRestoreDrillRequest{
+			_, _ = s.restoreSvc.trigger(ctx, TriggerRestoreDrillRequest{
 				SourceJobID: updated.ID,
 				Reason:      "scheduled_by_policy",
 				Operator:    "system.scheduler",
 				TraceID:     updated.TraceID,
-			})
+			}, true)
 		}
 	}
 
@@ -299,7 +299,7 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 
 func (s *JobService) TriggerCleanup(ctx context.Context, operator, traceID string) error {
 	startedAt := time.Now()
-	err := s.runOptionalScript(ctx, "cleanup-backups.sh", nil)
+	var err error
 	if err == nil && s.cleanupSvc != nil {
 		_, err = s.cleanupSvc.CleanupAllPolicies(ctx)
 	}
@@ -340,7 +340,7 @@ func (s *JobService) RegisterPolicyScheduler(ctx context.Context, tick time.Dura
 
 func (s *JobService) runBackupScript(ctx context.Context, policyID uint64, outputPath string) error {
 	if s.runner == nil {
-		return nil
+		return fmt.Errorf("backup script runner unavailable")
 	}
 	path := filepath.Join(s.scriptDir, "backup-db.sh")
 	if _, err := os.Stat(path); err != nil {
@@ -352,16 +352,27 @@ func (s *JobService) runBackupScript(ctx context.Context, policyID uint64, outpu
 		Args:    args,
 		Timeout: s.backupScriptTimeout,
 	}
-	if dsn := strings.TrimSpace(resolveBackupSourceDSN()); dsn != "" {
-		spec.Env = append(spec.Env, "POWERX_OPS_BACKUP_SOURCE_DSN="+dsn)
+	env, err := postgresEnvironment(sourceDSN(s.db))
+	if err != nil {
+		return err
 	}
-	_, err := s.runner.Run(ctx, spec)
+	spec.Env = env
+	res, err := s.runner.Run(ctx, spec)
+	if err != nil && res != nil {
+		return fmt.Errorf("backup failed: %w; %s", err, strings.TrimSpace(res.Stderr))
+	}
 	return err
 }
 
 func (s *JobService) prepareArtifactPath(ctx context.Context, job *modelops.BackupJob, policy *modelops.BackupPolicy) (string, error) {
 	if job == nil || policy == nil || job.ID == 0 || policy.ID == 0 {
 		return "", ErrInvalidBackupRequest
+	}
+	if s.artifactBaseDirErr != nil {
+		return "", fmt.Errorf("backup artifact directory unavailable: %w", s.artifactBaseDirErr)
+	}
+	if !filepath.IsAbs(s.artifactBaseDir) {
+		return "", fmt.Errorf("backup artifact directory must be an absolute path")
 	}
 	now := time.Now().UTC()
 	tenantUUID := sanitizePathSegment(reqctx.GetTenantUUID(ctx))
@@ -376,7 +387,7 @@ func (s *JobService) prepareArtifactPath(ctx context.Context, job *modelops.Back
 		now.Format("01"),
 		now.Format("02"),
 	)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return "", err
 	}
 	filename := fmt.Sprintf("job_%d_%s.dump", job.ID, now.Format("20060102T150405Z"))
@@ -413,7 +424,7 @@ func (s *JobService) persistBackupArtifact(ctx context.Context, job *modelops.Ba
 	if err != nil {
 		absPath = artifactPath
 	}
-	uri := "file://" + filepath.ToSlash(absPath)
+	uri := (&url.URL{Scheme: "file", Path: filepath.ToSlash(absPath)}).String()
 	row := &modelops.BackupArtifact{
 		JobID:       job.ID,
 		StorageURI:  uri,
@@ -421,31 +432,62 @@ func (s *JobService) persistBackupArtifact(ctx context.Context, job *modelops.Ba
 		Checksum:    checksum,
 		ContentType: "application/postgresql-custom",
 	}
+	if err := writeArtifactSidecars(absPath, sourceDSN(s.db), job, row); err != nil {
+		return fmt.Errorf("write backup manifest: %w", err)
+	}
 	row.Normalize()
 	_, err = s.artifactRepo.Create(ctx, row)
 	return err
 }
 
-func (s *JobService) scanAndTrigger(ctx context.Context) {
+// RunDue 从任务持久化时间推导下一次执行；重启不会重新开始整个等待周期。
+func (s *JobService) RunDue(ctx context.Context) error {
 	enabled := true
-	policies, _, err := s.policyRepo.List(ctx, &enabled, 500, 0)
+	policies, _, err := s.policyRepo.List(ctx, &enabled, 0, 0)
 	if err != nil {
-		return
+		return err
 	}
-	now := time.Now().UTC()
 	schedulerCtx := s.ensureTenantContext(ctx)
+	var failures []error
 	for i := range policies {
-		p := policies[i]
-		nextAt := s.nextRunAt(p.ID, now, p.Schedule)
-		if now.Before(nextAt) {
+		policy := policies[i]
+		due, e := s.policyDue(ctx, &policy, time.Now().UTC())
+		if e != nil {
+			failures = append(failures, e)
 			continue
 		}
-		_, _ = s.TriggerJob(schedulerCtx, TriggerJobRequest{
-			PolicyID:    p.ID,
-			Operator:    "system.scheduler",
-			TriggerType: modelops.BackupTriggerTypeScheduled,
-		})
-		s.setNextRunAt(p.ID, now.Add(parseScheduleDuration(p.Schedule)), p.Schedule)
+		if !due {
+			continue
+		}
+		job, e := s.TriggerJob(schedulerCtx, TriggerJobRequest{PolicyID: policy.ID, Operator: "system.scheduler", TriggerType: modelops.BackupTriggerTypeScheduled})
+		if errors.Is(e, ErrBackupJobAlreadyRunning) {
+			continue
+		}
+		if e != nil {
+			failures = append(failures, e)
+		} else if job != nil && job.Status == modelops.BackupJobStatusFailed {
+			failures = append(failures, fmt.Errorf("backup job %d failed: %s", job.ID, job.ErrorMessage))
+		}
+	}
+	return errors.Join(failures...)
+}
+func (s *JobService) policyDue(ctx context.Context, policy *modelops.BackupPolicy, now time.Time) (bool, error) {
+	latest, err := s.jobRepo.GetLatestByPolicy(ctx, policy.ID)
+	if err != nil {
+		return false, err
+	}
+	anchor := policy.CreatedAt
+	if latest != nil {
+		anchor = latest.CreatedAt
+		if latest.StartedAt != nil {
+			anchor = *latest.StartedAt
+		}
+	}
+	return !now.Before(anchor.Add(parseScheduleDuration(policy.Schedule))), nil
+}
+func (s *JobService) scanAndTrigger(ctx context.Context) {
+	if err := s.RunDue(ctx); err != nil {
+		logOp(ctx, "error", "backup.scheduler.failed", zap.Error(err))
 	}
 }
 
@@ -475,40 +517,12 @@ func (s *JobService) ensureTenantContext(ctx context.Context) context.Context {
 	return reqctx.WithTenantUUID(ctx, strings.TrimSpace(row.UUID))
 }
 
-func (s *JobService) nextRunAt(policyID uint64, now time.Time, schedule string) time.Time {
-	s.lockMu.Lock()
-	defer s.lockMu.Unlock()
-	normalizedSchedule := normalizeScheduleKey(schedule)
-	if v, ok := s.nextRuns[policyID]; ok && !v.At.IsZero() && v.Schedule == normalizedSchedule {
-		return v.At
-	}
-	nextAt := now.Add(parseScheduleDuration(schedule))
-	s.nextRuns[policyID] = nextRunCache{
-		At:       nextAt,
-		Schedule: normalizedSchedule,
-	}
-	return nextAt
-}
-
-func (s *JobService) setNextRunAt(policyID uint64, next time.Time, schedule string) {
-	s.lockMu.Lock()
-	defer s.lockMu.Unlock()
-	s.nextRuns[policyID] = nextRunCache{
-		At:       next,
-		Schedule: normalizeScheduleKey(schedule),
-	}
-}
-
 func parseScheduleDuration(schedule string) time.Duration {
 	d, _, err := parseScheduleDurationStrict(schedule)
 	if err == nil && d > 0 {
 		return d
 	}
-	return 6 * time.Hour
-}
-
-func normalizeScheduleKey(schedule string) string {
-	return strings.TrimSpace(strings.ToLower(schedule))
+	return time.Duration(defaultIntervalHours) * time.Hour
 }
 
 func (s *JobService) tryLockPolicy(policyID uint64) bool {
@@ -525,21 +539,6 @@ func (s *JobService) unlockPolicy(policyID uint64) {
 	s.lockMu.Lock()
 	defer s.lockMu.Unlock()
 	delete(s.policyLock, policyID)
-}
-
-func (s *JobService) runOptionalScript(ctx context.Context, scriptName string, args []string) error {
-	if s.runner == nil {
-		return nil
-	}
-	path := filepath.Join(s.scriptDir, scriptName)
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return err
-	}
-	_, err := s.runner.Run(ctx, ScriptSpec{Command: path, Args: args, Timeout: 2 * time.Minute})
-	return err
 }
 
 func (s *JobService) audit(ctx context.Context, rec obsops.AuditRecord) {
@@ -559,54 +558,6 @@ func resolveBackupScriptTimeout() time.Duration {
 		return 30 * time.Minute
 	}
 	return dur
-}
-
-func resolveBackupSourceDSN() string {
-	if dsn := strings.TrimSpace(os.Getenv("POWERX_OPS_BACKUP_SOURCE_DSN")); dsn != "" {
-		return dsn
-	}
-	if dsn := strings.TrimSpace(os.Getenv("POWERX_DB_DSN")); dsn != "" {
-		return dsn
-	}
-	cfg, ok := loadBackupDBConfig()
-	if !ok {
-		return ""
-	}
-	if dsn := strings.TrimSpace(cfg.DSN); dsn != "" {
-		return dsn
-	}
-	driver := strings.TrimSpace(strings.ToLower(cfg.Driver))
-	if driver != "" && driver != "postgres" && driver != "postgresql" {
-		return ""
-	}
-	host := strings.TrimSpace(cfg.Host)
-	dbName := strings.TrimSpace(cfg.Database)
-	user := strings.TrimSpace(cfg.UserName)
-	if host == "" || dbName == "" || user == "" {
-		return ""
-	}
-	port := cfg.Port
-	if port <= 0 {
-		port = 5432
-	}
-	q := url.Values{}
-	sslMode := strings.TrimSpace(cfg.SSLMode)
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-	q.Set("sslmode", sslMode)
-	if tz := strings.TrimSpace(cfg.Timezone); tz != "" {
-		q.Set("timezone", tz)
-	}
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?%s",
-		url.PathEscape(user),
-		url.PathEscape(cfg.Password),
-		host,
-		port,
-		url.PathEscape(dbName),
-		q.Encode(),
-	)
 }
 
 func sanitizePathSegment(raw string) string {
@@ -633,50 +584,12 @@ func sanitizePathSegment(raw string) string {
 	return strings.Trim(b.String(), "._")
 }
 
-type backupDBConfig struct {
-	Driver   string `yaml:"driver"`
-	DSN      string `yaml:"dsn"`
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	UserName string `yaml:"username"`
-	Password string `yaml:"password"`
-	Database string `yaml:"database"`
-	SSLMode  string `yaml:"ssl_mode"`
-	Timezone string `yaml:"timezone"`
-}
-
-type backupConfigFile struct {
-	Database backupDBConfig `yaml:"database"`
-}
-
-func loadBackupDBConfig() (backupDBConfig, bool) {
-	candidates := make([]string, 0, 4)
-	if p := strings.TrimSpace(os.Getenv("POWERX_CONFIG")); p != "" {
-		candidates = append(candidates, p)
+func backupScriptDir(required string) string {
+	if dir := strings.TrimSpace(os.Getenv("POWERX_OPS_SCRIPT_DIR")); dir != "" {
+		return opsscripts.ResolveDir(required)
 	}
-	candidates = append(candidates, filepath.Join("backend", "etc", "config.yaml"))
-	candidates = append(candidates, filepath.Join("etc", "config.yaml"))
-	for _, path := range candidates {
-		cfg, ok := loadBackupDBConfigFrom(path)
-		if ok {
-			return cfg, true
-		}
+	if root := strings.TrimSpace(os.Getenv("POWERX_LINKS_ROOT")); filepath.IsAbs(root) {
+		return filepath.Join(root, "backend", "scripts", "ops")
 	}
-	return backupDBConfig{}, false
-}
-
-func loadBackupDBConfigFrom(path string) (backupDBConfig, bool) {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return backupDBConfig{}, false
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return backupDBConfig{}, false
-	}
-	var parsed backupConfigFile
-	if err := yaml.Unmarshal(data, &parsed); err != nil {
-		return backupDBConfig{}, false
-	}
-	return parsed.Database, true
+	return opsscripts.ResolveDir(required)
 }

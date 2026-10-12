@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -50,6 +51,7 @@ type ListTaxonomiesInput struct {
 }
 
 type CreateTaxonomyNodeInput struct {
+	Metadata        map[string]any
 	TenantUUID      string
 	TaxonomyUUID    string
 	ParentUUID      *string
@@ -60,6 +62,9 @@ type CreateTaxonomyNodeInput struct {
 }
 
 type UpdateTaxonomyNodeInput struct {
+	Metadata        *map[string]any
+	MoveParent      bool
+	ParentUUID      *string
 	TenantUUID      string
 	NodeUUID        string
 	LabelI18n       *map[string]string
@@ -253,6 +258,7 @@ func (s *Service) CreateTaxonomyNode(ctx context.Context, in CreateTaxonomyNodeI
 	nodeUUID := uuid.New()
 	path := taxonomyNodePath(taxonomy.UUID.String(), nodeUUID.String(), parent)
 	row := &model.TaxonomyNode{
+		Metadata:        mustJSONAny(in.Metadata),
 		PowerUUIDModel:  coremodel.PowerUUIDModel{UUID: nodeUUID},
 		TenantUUID:      tenantUUID,
 		TaxonomyUUID:    taxonomy.UUID.String(),
@@ -321,6 +327,9 @@ func (s *Service) UpdateTaxonomyNode(ctx context.Context, in UpdateTaxonomyNodeI
 		return metadto.TaxonomyNodeResponse{}, ErrUUIDRequired
 	}
 	updates := map[string]any{}
+	if in.Metadata != nil {
+		updates["metadata"] = mustJSONAny(*in.Metadata)
+	}
 	if in.LabelI18n != nil {
 		if err := ValidateRequiredI18n(*in.LabelI18n, "zh-CN"); err != nil {
 			return metadto.TaxonomyNodeResponse{}, err
@@ -340,7 +349,20 @@ func (s *Service) UpdateTaxonomyNode(ctx context.Context, in UpdateTaxonomyNodeI
 		}
 		updates["status"] = status
 	}
-	row, err := s.taxonomyRepo().UpdateNode(ctx, tenantUUID, strings.TrimSpace(in.NodeUUID), in.Version, updates)
+	var row *model.TaxonomyNode
+	if in.MoveParent {
+		row, err = s.taxonomyRepo().UpdateNodeWithParent(ctx, tenantUUID, strings.TrimSpace(in.NodeUUID), in.Version, in.ParentUUID, updates)
+	} else {
+		row, err = s.taxonomyRepo().UpdateNode(ctx, tenantUUID, strings.TrimSpace(in.NodeUUID), in.Version, updates)
+	}
+	if err != nil {
+		switch err.Error() {
+		case "METADATA_CIRCULAR_MOVE":
+			return metadto.TaxonomyNodeResponse{}, ErrCircularMove
+		case "METADATA_INVALID_DEPTH":
+			return metadto.TaxonomyNodeResponse{}, ErrInvalidDepth
+		}
+	}
 	if errors.Is(err, metarepo.ErrOptimisticConflict) {
 		return metadto.TaxonomyNodeResponse{}, ErrOptimisticConflict
 	}
@@ -510,7 +532,10 @@ func mapTaxonomyNode(row *model.TaxonomyNode, locale string) metadto.TaxonomyNod
 	desc := mapStringJSON(row.DescriptionI18n)
 	displayName, missing := localized(label, locale)
 	displayDesc, _ := localized(desc, locale)
+	var attrs map[string]any
+	_ = json.Unmarshal(row.Metadata, &attrs)
 	return metadto.TaxonomyNodeResponse{
+		Metadata:        attrs,
 		UUID:            row.UUID.String(),
 		TaxonomyUUID:    row.TaxonomyUUID,
 		ParentUUID:      row.ParentUUID,

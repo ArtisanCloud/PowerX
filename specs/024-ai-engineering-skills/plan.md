@@ -13,6 +13,16 @@
 新增响应规划目标：建立 Agent ResponsePlanner / Context Builder / Final Response 分层机制；自然语言回答必须先生成 `response_plan`，按 `response_mode` 选择上下文，再由 final response 模型生成用户话术，并将 assistant message meta 落库用于去重、追问和 Trace 回放。
 新增运行状态协议目标：建立 Agent Run State Protocol，统一 PowerX Agent Chat、Team Task、Agent Trace 与 PowerXPlugin 调试页对多任务、多 Agent、缺参等待、执行状态、结果链接和 trace 入口的展示语义。该协议以 `agent_run.*` 事件和 `AgentRunState` 历史快照为核心，不等同于 Google A2A，但 A2A handoff 必须映射到同一 task 状态模型。
 
+## 2026-09-08 分层规范交付增量
+
+遵守 [Agent/Skill/Tool/Runtime 分层规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)，对应 FR-079～FR-086、Phase 23。架构约束已确认，以下实现尚未验收：
+
+1. 审计现有 executor、工具与 Capability 复用点，形成能力清单；业务公式保留在 Skill/领域工具。
+2. 先定义版本化依赖与结果证据契约：工具版本、权限、数据来源、原文报告值/计算值/冲突。新 wire 版本须在正式 Schema 中确定，不修改 V3 含义或静默兼容旧字段。
+3. 实现发布/绑定/运行依赖检查，以及受限计算工具或已有工具接线；复用支持的插件协议扩展算法。脚本 executor 只在明确支持的隔离环境可用，不能因导入而启用。
+4. 接入真实执行结果核验、统一渲染、历史与 Trace；业务缺参和系统失败分开处理。
+5. 更新示例 Skill 和回归测试，以变化输入及自建非营销 Skill 验证通用性；数据库迁移、seed 与实际调用分别验证。
+
 ## Technical Context
 
 **Language/Version**: Go 1.26.7（backend services），Node 20 + Nuxt 4（web-admin）
@@ -21,7 +31,7 @@
 **Plugin Registry Storage**: PowerX 底座保存插件 Registry 来源映射与同步审计（`provider_plugin_id/plugin_agent_id/plugin_skill_id -> powerx_agent_uuid/powerx_skill_id`）；PowerXPlugin 插件侧保存开发态插件记录，二者通过同步 API 对齐。
 **Agent Trace Storage**: Local File（`backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}`）+ Loki（生产日志源，可选）  
 **Agent Context Storage**: Runtime Memory 仅保存本轮过程态；PostgreSQL 是 session/message/message meta/registry/binding/model policy/context_ref 权威源；Redis 只作为短 TTL planner/response_plan/candidate/recent-meta 缓存；Local File/Loki 保存 Trace artifact。  
-**Agent Run State Storage**: SSE/WS 只负责实时 `agent_run.*` 事件；PostgreSQL 保存可恢复的 run state snapshot 与 message meta；Local File/Loki 保存完整 trace/report artifact；Redis 不作为历史权威。  
+**Agent Run State Storage**: 当前实现以 PostgreSQL 快照/message meta 和 Local File/Loki trace 恢复；目标实现见 [`031` 持久化调度规格](../031-agent-runtime-durable-scheduling/spec.md)：Redis 为活动 Run/事件权威，对象存储为归档权威，PostgreSQL 仅保留 Session/Message 和低频受理/归档引用；SSE/WS 仅作订阅。此目标尚未实现。
 **Testing**: Go `go test`（unit/integration/contract）、OpenAPI/Proto 合约校验、web-admin 端 Vitest/Playwright 冒烟  
 **Target Platform**: Linux server + modern browsers  
 **Project Type**: CoreX backend module + web-admin management feature  
@@ -176,11 +186,11 @@ Reference: [`context-optimization.md`](./context-optimization.md)
 6. **最小用例验证**：以“营销活动复盘协作（1 主 3 子 + 1 汇总）”作为 PowerX Core-only 验收基线，验证分发、回收、部分失败与越权阻断。
 7. **Seed 初始化**：通过 PowerX Core seed 初始化营销负责人、内容营销、活动复盘分析、专家知识策展 Agent，及其四个 `marketing.*` 声明式 Skill Revision 和营销活动复盘团队。来源包与发布包都存对象存储；团队 UUID 是稳定身份，显示名不得被 Runtime 用作路由条件；这些记录是底座运行态数据，不依赖 PowerXPlugin 或插件同步。
 8. **MVP 执行方式**：首版测试可显式构造 ExecutionPlan 并注入 deterministic handoff invoker，用于验证运行时语义；Team-aware Planner 自然语言自动拆分作为后续产品化任务。
-9. **设计文档**：详细业务故事、seed 对象、计划结构、trace 字段和测试矩阵见 `docs/plan/ai_engineering/skills/multi_agent_a2a.md`。
+9. **设计文档**：详细业务故事、seed 对象、计划结构、trace 字段和测试矩阵见 `docs/plan/ai_engineering/agent/multi_agent_a2a.md`。
 
 ## Phase 16 – PowerX Agent Skill Bridge 与插件 Framework 对齐
 
-Reference: [`docs/plan/ai_engineering/skills/agent_skill_bridge.md`](../../docs/plan/ai_engineering/skills/agent_skill_bridge.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_skill_bridge.md`](../../docs/plan/ai_engineering/agent/agent_skill_bridge.md)
 
 1. **Skill Package 源格式**：PowerX 与插件统一采用 `SKILL.md` 目录包作为 Skill 源格式；manifest/DTO/DB 仅作为解析后对象与治理态索引。
 2. **桥接契约**：定义 `PluginSkillPackage/PluginSkillManifest/Invocation/Context/Result/Error`，明确插件源定义态 Skill 与 PowerX 治理态 Skill 的转换关系。
@@ -209,7 +219,7 @@ Reference: [`docs/plan/ai_engineering/skills/plugin_third_party_integration.md`]
 
 ## Phase 17 – Agent Run Trace & Report
 
-Reference: [`docs/plan/ai_engineering/skills/agent_run_trace_report.md`](../../docs/plan/ai_engineering/skills/agent_run_trace_report.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_run_trace_report.md`](../../docs/plan/ai_engineering/agent/agent_run_trace_report.md)
 
 1. **Trace DTO 与 Logger**：新增 `AgentRunMeta/AgentTraceEvent/AgentTraceNode/AgentRunReport` 与 `AgentTraceLogger`，作为 Agent Runtime 唯一结构化追踪入口。
 2. **Local Sink**：实现 `PluginAgentTraceSink`，按 `backend/logs/agents/{tenant_uuid}/{session_id}/{message_id}` 写入 `run.json/timeline.jsonl/nodes/*.json/artifacts/*`。
@@ -223,7 +233,7 @@ Reference: [`docs/plan/ai_engineering/skills/agent_run_trace_report.md`](../../d
 
 ## Phase 21 – Agent Response Planning
 
-Reference: [`docs/plan/ai_engineering/skills/agent_response_planning.md`](../../docs/plan/ai_engineering/skills/agent_response_planning.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_response_planning.md`](../../docs/plan/ai_engineering/agent/agent_response_planning.md)
 
 1. **分层链路**：Agent 主入口 final 阶段拆为 `ResponsePlanner -> Context Builder -> Final Response LLM -> Persist Message Meta`，禁止把全局候选池直接塞进通用 prompt。
 2. **ResponseMode**：定义 `capability_intro/capability_howto/skill_execution/clarify_params/normal_chat/error_explain`，由结构化 `ResponsePlan` 决定本轮回答模式。
@@ -237,7 +247,7 @@ Reference: [`docs/plan/ai_engineering/skills/agent_response_planning.md`](../../
 
 ## Phase 22 – Agent Run State Protocol
 
-Reference: [`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`](../../docs/plan/ai_engineering/skills/agent_run_state_protocol.md)
+Reference: [`docs/plan/ai_engineering/agent/agent_run_state_protocol.md`](../../docs/plan/ai_engineering/agent/agent_run_state_protocol.md)
 
 1. **标准事件**：定义 `agent_run.started/response_plan/intent_detected/plan_created/task_status/task_started/awaiting_params/task_completed/task_failed/final/ended`，作为 UI 首选事件语义。
 2. **任务状态模型**：统一 `pending|awaiting_params|running|completed|failed|skipped` 状态，并要求 task payload 携带 run/session/message/trace/task/agent/skill/capability/action/result/error。
@@ -248,6 +258,10 @@ Reference: [`docs/plan/ai_engineering/skills/agent_run_state_protocol.md`](../..
 7. **A2A 映射**：A2A `agent_handoff` 仍是多智能体调度能力，但必须映射为 `agent_run.task_status` 让用户看见子 Agent 节点状态。
 8. **Run/Task 边界**：`agent_run.final/ended` 只代表本轮回复流程结束，不代表业务任务完成；UI 只能依据 `agent_run.task_completed` 或 task snapshot `status=completed + result/links` 展示任务完成。
 9. **持久化一致性**：`agent_run.final`、assistant message meta、历史快照与 Trace Report 必须保存同一最终答复 envelope；刷新页面后不得丢失结构化区块或退回原始 Skill 文本。
+
+## Phase 24 – 持久化调度与共享资源容量（待实施）
+
+目标规格、数据模型、实施顺序和验收门槛统一见 [`specs/031-agent-runtime-durable-scheduling`](../031-agent-runtime-durable-scheduling/spec.md)。Phase 22 已交付的是 UI 状态协议和当前快照，不代表 Redis RunStore、带租约的 Worker、共享模型池、跨实例恢复或归档已经完成。现有 SSE 执行入口需迁移为提交 Run 后订阅；同一消息的串行/并行任务仍归属于一个 Run。
 
 ## Implementation Backwrite (2026-03-19)
 

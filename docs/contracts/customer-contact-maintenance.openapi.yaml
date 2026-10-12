@@ -1,0 +1,145 @@
+openapi: 3.0.3
+info:
+  title: PowerX 主联系人维护与存量补录
+  version: 1.0.0
+  description: 管理端用户 JWT 与实时 RBAC。租户与创建者来自可信上下文。类型是全局 Customer 属性，主联系人引用属于当前租户 membership。补录不创建 Customer 或登录身份。
+servers: [{url: /api/v1}]
+security: [{userJWT: []}]
+paths:
+  /admin/customers/{customer_uuid}/contacts/{contact_uuid}/primary:
+    parameters:
+      - {name: customer_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: contact_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: setCustomerPrimaryContact
+      x-powerx-permission: customer.admin_customers_customer_uuid_contacts_contact_uuid_primary:create
+      description: 目标必须 active 且属于当前 tenant/customer。锁 membership，比较原引用，在同一事务更新引用、唯一 primary 角色及审计。相同引用仍核对角色；引用与角色均相同则无额外写入。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_primary_contact_uuid]
+              properties:
+                expected_primary_contact_uuid: {type: string, description: 必须传入；当前无引用时传空字符串，有引用时传页面回读的 UUID。不能省略或传 null。}
+            example: {expected_primary_contact_uuid: '11111111-1111-4111-8111-111111111111'}
+      responses:
+        '200': {description: data.payload 包含 customer_uuid、primary_contact_uuid、previous_primary_contact_uuid}
+        '400': {description: CONTACT_PRIMARY_EXPECTED_REQUIRED、CONTACT_REQUEST_INVALID 或旧 Contact 合同 contact.invalid_argument}
+        '403': {description: CUSTOMER_ADMIN_USER_REQUIRED、CUSTOMER_ADMIN_FORBIDDEN 或 contact.customer_membership_inactive；不接受 API Key/STS}
+        '404': {description: contact.not_found}
+        '409': {description: CONTACT_PRIMARY_CHANGED、CONTACT_PRIMARY_NOT_ACTIVE 或 contact.customer_mismatch}
+        '500': {description: CONTACT_PRIMARY_OPERATION_FAILED；事务未提交，不返回原始数据库错误}
+  /admin/customers/contact-repairs/preview:
+    post:
+      operationId: previewCustomerContactRepair
+      x-powerx-permission: customer.admin_customers_contact_repairs_preview:create
+      description: 保存输入、方案和客户/成员/联系人状态指纹，24 小时有效；业务主数据不写入。已有有效引用只能核对角色或补类型；更换引用使用正式设主操作。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RepairInput'}
+            example: {customer_uuid: '22222222-2222-4222-8222-222222222222', type: company, primary_contact: {display_name: Jane, email: jane@example.test}}
+      responses:
+        '201': {$ref: '#/components/responses/RepairResult'}
+        '400': {description: CONTACT_REPAIR_TYPE_REQUIRED、CONTACT_REPAIR_PERSON_REQUIRED、CONTACT_REPAIR_PERSON_INVALID、CONTACT_REPAIR_INPUT_INVALID 或 CONTACT_REPAIR_REQUEST_INVALID}
+        '403': {description: 用户会话或预览权限不足；API Key/STS 拒绝}
+        '404': {description: CONTACT_REPAIR_CUSTOMER_NOT_FOUND；包括跨租户}
+        '409': {description: CONTACT_REPAIR_CUSTOMER_INACTIVE、CONTACT_REPAIR_TYPE_CHANGED、CONTACT_REPAIR_AMBIGUOUS、CONTACT_REPAIR_CONTACT_INVALID 或 CONTACT_REPAIR_NOT_REQUIRED}
+        '503': {description: CONTACT_REPAIR_UNAVAILABLE；不输出数据库原始错误}
+  /admin/customers/contact-repairs/{repair_uuid}:
+    parameters: [{$ref: '#/components/parameters/RepairUUID'}]
+    get:
+      operationId: getCustomerContactRepair
+      x-powerx-permission: customer.admin_customers_contact_repairs_repair_uuid:read
+      description: 仅当前租户、当前创建者能读取。完成记录仍可回读。拒绝查询参数。
+      responses:
+        '200': {$ref: '#/components/responses/RepairResult'}
+        '400': {description: CONTACT_REPAIR_ID_INVALID 或 CONTACT_REPAIR_REQUEST_INVALID}
+        '403': {description: 用户会话或读取权限不足}
+        '404': {description: CONTACT_REPAIR_NOT_FOUND；包括跨租户、跨创建者和 CSV 任务 UUID}
+        '503': {description: CONTACT_REPAIR_UNAVAILABLE}
+  /admin/customers/contact-repairs/{repair_uuid}/commit:
+    parameters: [{$ref: '#/components/parameters/RepairUUID'}]
+    post:
+      operationId: commitCustomerContactRepair
+      x-powerx-permission: customer.admin_customers_contact_repairs_repair_uuid_commit:create
+      description: 锁账本、membership 和 account，并重新核对指纹；资料变化时拒绝，不能覆盖。类型确认、联系人创建/复用、主引用和审计一起提交。已完成重复调用回读同一结果；事务失败仍为 preview，可用原 UUID/checksum 重试。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [checksum, confirm]
+              properties:
+                checksum: {type: string, minLength: 64, maxLength: 64}
+                confirm: {type: boolean, enum: [true]}
+      responses:
+        '200': {$ref: '#/components/responses/RepairResult'}
+        '400': {description: CONTACT_REPAIR_CONFIRM_REQUIRED 或 CONTACT_REPAIR_REQUEST_INVALID}
+        '403': {description: 用户会话或执行权限不足}
+        '404': {description: CONTACT_REPAIR_NOT_FOUND}
+        '409': {description: CONTACT_REPAIR_PREVIEW_CHANGED、CONTACT_REPAIR_EXPIRED、CONTACT_REPAIR_SOURCE_CHANGED 或当前资料/联系人冲突}
+        '503': {description: CONTACT_REPAIR_COMMIT_FAILED；事务未提交，可回读并重试；不输出数据库原始错误}
+components:
+  securitySchemes:
+    userJWT: {type: http, scheme: bearer, bearerFormat: user JWT}
+  parameters:
+    RepairUUID: {name: repair_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    RepairInput:
+      type: object
+      additionalProperties: false
+      required: [customer_uuid, type]
+      properties:
+        customer_uuid: {type: string, format: uuid}
+        type: {type: string, enum: [person, company], description: 显式确认类型；非空旧类型不能被更改。}
+        contact_uuid: {type: string, format: uuid, description: 明确复用的 active 联系人；必须属于当前租户与客户，不能与 primary_contact 同时提交。}
+        primary_contact:
+          type: object
+          additionalProperties: false
+          required: [display_name]
+          properties:
+            display_name: {type: string, minLength: 1, maxLength: 128}
+            given_name: {type: string, maxLength: 128}
+            family_name: {type: string, maxLength: 128}
+            email: {type: string, maxLength: 255}
+            phone: {type: string, maxLength: 32}
+      description: 不接受 tenant、actor、外部身份或自由 HTTP 字段。缺明确选择时，唯一 active 联系人可预览复用，多位必须选择；无联系人时 person 可预览使用客户本人资料，company 必须明确自然人。所有文字限制按 Unicode 字符计数并拒绝控制字符。
+    RepairResult:
+      type: object
+      required: [uuid, checksum, status, expires_at, proposal]
+      properties:
+        uuid: {type: string, format: uuid}
+        checksum: {type: string}
+        status: {type: string, enum: [preview, completed]}
+        expires_at: {type: string, format: date-time}
+        trace_id: {type: string}
+        primary_contact_uuid: {type: string, format: uuid}
+        proposal:
+          type: object
+          required: [customer_uuid, type, action, expected_primary_contact_uuid]
+          properties:
+            customer_uuid: {type: string, format: uuid}
+            type: {type: string, enum: [person, company]}
+            action: {type: string, enum: [not_needed, type_only, reuse_contact, create_contact]}
+            expected_primary_contact_uuid: {type: string}
+            contact_uuid: {type: string, format: uuid}
+            primary_contact: {type: object, description: 冻结的自然人资料，字段同请求 primary_contact}
+  responses:
+    RepairResult:
+      description: data.payload 包含保存的补录快照与实际结果
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  payload: {$ref: '#/components/schemas/RepairResult'}

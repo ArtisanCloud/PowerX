@@ -40,8 +40,11 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 	if err = SeedRoot(db); err != nil {
 		return err
 	}
-	if err = SeedDefaultDevAPIKeys(db); err != nil {
-		return err
+	// Container distributions never provision the public local-development keys.
+	if shouldSeedDevelopmentAPIKeys() {
+		if err = SeedDefaultDevAPIKeys(db); err != nil {
+			return err
+		}
 	}
 	// Keep capability catalog aligned with the generated platform capabilities file.
 	// Without this, newly generated capability IDs can exist in permission catalog

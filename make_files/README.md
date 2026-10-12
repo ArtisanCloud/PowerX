@@ -73,7 +73,7 @@ make_files/
 
 * `make db-migrate` - 数据库迁移
 * `make db-seed` - 执行 CoreX / Metadata 数据库基础种子数据
-* `make capability-seed` - 只同步 `backend/config/platform_capabilities/*.yaml` 到 Capability Registry
+* `make capability-seed` - 同步正式 capability、租户 registration 与精确 API Key 权限定义；不迁移表、不授予现有 Key 新权限
 * `make seed` - 执行 `db-seed`（含 Metadata Governance 与企业基础元数据）后再执行 `capability-seed`
 * `make db-reset` - 重置数据库
 

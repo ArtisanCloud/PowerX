@@ -1,0 +1,134 @@
+{
+  "server": "47.116.10.200",
+  "remote": {
+    "observed_at_utc": "2026-10-08T11:27:18.547251+00:00",
+    "certbot_version": {
+      "exit_code": 0,
+      "stdout": "certbot 5.8.0",
+      "stderr": ""
+    },
+    "renewal_config": [
+      "version = 5.8.0",
+      "authenticator = webroot",
+      "webroot_path = /var/www/letsencrypt,",
+      "server = https://acme-v02.api.letsencrypt.org/directory",
+      "renew_hook = /usr/sbin/nginx -t && /bin/systemctl reload nginx",
+      "agent-dev.starrtoylumi.com = /var/www/letsencrypt",
+      "agent.starrtoylumi.com = /var/www/letsencrypt"
+    ],
+    "certificate": {
+      "exit_code": 0,
+      "stdout": "serial=062E2564BD9D08A61061E975A7C1A64E0B9A\nnotBefore=Aug 17 06:19:41 2026 GMT\nnotAfter=Nov 15 06:19:40 2026 GMT\nsha256 Fingerprint=3B:AA:BF:C3:66:64:F2:C1:D9:0A:81:B1:A3:BA:F9:84:AE:84:8D:EC:FA:83:71:00:AE:97:0C:AB:D9:76:3D:02\nX509v3 Subject Alternative Name: \n    DNS:agent-dev.starrtoylumi.com, DNS:agent.starrtoylumi.com",
+      "stderr": ""
+    },
+    "timer": {
+      "exit_code": 0,
+      "stdout": "NextElapseUSecRealtime=Fri 2026-10-09 05:04:00 CST\nId=snap.certbot.renew.timer\nActiveState=active\nUnitFileState=enabled\n\nNextElapseUSecRealtime=\nId=certbot.timer\nActiveState=inactive\nUnitFileState=disabled",
+      "stderr": ""
+    },
+    "nginx": {
+      "exit_code": 0,
+      "stdout": "MainPID=3446430\nExecReload={ path=/usr/sbin/nginx ; argv[]=/usr/sbin/nginx -g daemon on; master_process on; -s reload ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }\nActiveState=active",
+      "stderr": ""
+    },
+    "timer_schedule": {
+      "exit_code": 0,
+      "stdout": "# /etc/systemd/system/snap.certbot.renew.timer\n[Unit]\n# Auto-generated, DO NOT EDIT\nDescription=Timer renew for snap application certbot.renew\nRequires=snap-certbot-5893.mount\nAfter=snap-certbot-5893.mount\nX-Snappy=yes\n\n[Timer]\nUnit=snap.certbot.renew.service\nOnCalendar=*-*-* 05:04\nOnCalendar=*-*-* 15:29\n\n[Install]\nWantedBy=timers.target",
+      "stderr": ""
+    },
+    "certificate_unchanged": {
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "nginx_reload_journal": {
+      "exit_code": 0,
+      "stdout": "Oct 08 19:25:52 iZuf6haqgnhoku1jagxrc3Z systemd[1]: Reloading A high performance web server and a reverse proxy server...\nOct 08 19:25:52 iZuf6haqgnhoku1jagxrc3Z nginx[795064]: nginx: [warn] duplicate value \"TLSv1.2\" in /etc/nginx/sites-enabled/agent.xpersonatoy.com:8\nOct 08 19:25:52 iZuf6haqgnhoku1jagxrc3Z systemd[1]: Reloaded A high performance web server and a reverse proxy server.",
+      "stderr": ""
+    },
+    "backup_directory": "/root/powerx-tls-backups/20261008-starrtoylumi"
+  },
+  "public_tls": [
+    {
+      "domain": "agent.starrtoylumi.com",
+      "resolved_addresses": [
+        "47.116.10.200"
+      ],
+      "verified": true,
+      "not_before": "Aug 17 06:19:41 2026 GMT",
+      "not_after": "Nov 15 06:19:40 2026 GMT",
+      "san": [
+        [
+          "DNS",
+          "agent-dev.starrtoylumi.com"
+        ],
+        [
+          "DNS",
+          "agent.starrtoylumi.com"
+        ]
+      ],
+      "serial": "062E2564BD9D08A61061E975A7C1A64E0B9A",
+      "sha256": "3baabfc36664f2c1d90a81b1a3baf984ae848decfa837100ae970cabd9763d02",
+      "/": 200,
+      "/api/v1/health": 200
+    },
+    {
+      "domain": "agent-dev.starrtoylumi.com",
+      "resolved_addresses": [
+        "47.116.10.200"
+      ],
+      "verified": true,
+      "not_before": "Aug 17 06:19:41 2026 GMT",
+      "not_after": "Nov 15 06:19:40 2026 GMT",
+      "san": [
+        [
+          "DNS",
+          "agent-dev.starrtoylumi.com"
+        ],
+        [
+          "DNS",
+          "agent.starrtoylumi.com"
+        ]
+      ],
+      "serial": "062E2564BD9D08A61061E975A7C1A64E0B9A",
+      "sha256": "3baabfc36664f2c1d90a81b1a3baf984ae848decfa837100ae970cabd9763d02",
+      "/": 200,
+      "/api/v1/health": 200
+    }
+  ],
+  "acceptance": {
+    "scope": [
+      "agent.starrtoylumi.com",
+      "agent-dev.starrtoylumi.com"
+    ],
+    "automatic_schedule_configured": true,
+    "persistent_reload_hook_saved": true,
+    "staging_attempts": [
+      {
+        "finished_at": "2026-10-08T19:22:51+08:00",
+        "operation": "renew --cert-name starrtoylumi-agent --dry-run --no-random-sleep-on-renew --non-interactive",
+        "exit_code": 0,
+        "result": "all simulated renewals succeeded"
+      },
+      {
+        "operation": "reconfigure --cert-name starrtoylumi-agent --deploy-hook /usr/sbin/nginx -t && /bin/systemctl reload nginx --run-deploy-hooks --non-interactive",
+        "exit_code": 1,
+        "result": "secondary validation timeout connecting to agent-dev.starrtoylumi.com on port 80; configuration not saved"
+      },
+      {
+        "finished_at": "2026-10-08T19:25:52+08:00",
+        "operation": "reconfigure, same arguments",
+        "exit_code": 0,
+        "result": "Successfully updated configuration; Nginx reload exited 0"
+      }
+    ],
+    "production_renew_check": {
+      "exit_code": 0,
+      "result": "all three existing lineages not due; no renewals attempted"
+    },
+    "production_issuance_performed": false,
+    "cloud_security_group_verified": false,
+    "remaining_issue": "Intermittent Let's Encrypt secondary validation TCP/80 connection timeout; cloud security group and overseas network restrictions not yet inspected",
+    "ali_cloud_access_key_used": false
+  }
+}

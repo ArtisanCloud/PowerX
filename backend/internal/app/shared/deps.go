@@ -5,6 +5,8 @@ package shared
 import (
 	"context"
 	"fmt"
+	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
+	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,11 +22,16 @@ import (
 	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	agentruntime "github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
+	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
+	agentsession "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
+	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
@@ -50,6 +57,7 @@ import (
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
 	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
+	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
@@ -75,6 +83,7 @@ import (
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
+	runtimehost "github.com/ArtisanCloud/PowerX/internal/service/runtime_host"
 	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
@@ -185,11 +194,21 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 }
 
 type Deps struct {
-	DB           *gorm.DB
-	ctx          *context.Context
-	AuthUser     *authsvc.AuthService
-	AuthCustomer *authsvc.AuthService
-	MeService    *authsvc.MeService
+	RuntimeIdentity        runtimeidentity.CoreInfo
+	RuntimeHostSvc         *runtimehost.Service
+	AgentSessionSvc        *agentsession.Service
+	AgentRunWorker         *agent_run.WorkerService
+	AgentAdminRun          *agentruntime.AdminRunService
+	DB                     *gorm.DB
+	RestoreCopies          *backupops.RestoreCopyService
+	Archives               *archiveops.Service
+	ctx                    *context.Context
+	AuthUser               *authsvc.AuthService
+	AuthCustomer           *authsvc.AuthService
+	CustomerImports        *customersvc.AccountImportService
+	CustomerContactRepairs *customersvc.ContactRepairService
+	MeService              *authsvc.MeService
+	PluginRequestIdentity  *requestidentity.Service
 
 	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
 
@@ -218,6 +237,7 @@ type Deps struct {
 	RouterSandboxSvc                  *capabilitySandbox.Service
 	DiscoverySvc                      *discoveryService.Service
 	IntegrationGateway                *IntegrationGatewayDeps
+	APIKeyOwners                      *apikeypermissions.APIKeyOwnerService
 	AgentLifecycle                    *AgentLifecycleDeps
 	DevHotloadOptions                 DevHotloadOptions
 	PluginReleaseOptions              PluginReleaseOptions
@@ -256,7 +276,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 	aiMultimodalHTTPTimeout := opts.CapabilityRegistry.AIMultimodalHTTPTimeout
 	if aiMultimodalHTTPTimeout <= 0 {
-		aiMultimodalHTTPTimeout = 5 * time.Minute
+		aiMultimodalHTTPTimeout = 5*time.Minute + 10*time.Second
 	}
 	authUser := authsvc.NewAuthService(db, opts.AuthUser)
 	authCustomer := authsvc.NewAuthService(db, opts.AuthCustomer)
@@ -298,6 +318,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	// --- AuthService ---
 	meSvc := authsvc.NewMeService(db)
+	requestIdentitySvc := requestidentity.NewService(db, cache.GetCache(), opts.PluginRequestIdentity)
 
 	// --- TenantService ---
 	tenantSvc := tenantsvc.NewTenantService(db, authUser)
@@ -442,6 +463,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Clock:    time.Now,
 	})
 
+	var knowledgeDeps *KnowledgeSpaceDeps
 	var capabilityCatalogSvc *capabilitycatalog.RegistryService
 	var capabilityInvocationSvc *capabilitycatalog.InvocationService
 	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
@@ -466,11 +488,12 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		})
 
 		baseCapabilitySeeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
-			RecordRepo:   recordRepo,
-			RegistryRepo: registryRepo,
-			TenantRepo:   tenantSvc.Repo,
-			Logger:       pxlog.GetGlobalLogger(),
-			Clock:        time.Now,
+			PreserveInstalledState: opts.PreserveInstalledCatalog,
+			RecordRepo:             recordRepo,
+			RegistryRepo:           registryRepo,
+			TenantRepo:             tenantSvc.Repo,
+			Logger:                 pxlog.GetGlobalLogger(),
+			Clock:                  time.Now,
 		})
 		if err := baseCapabilitySeeder.Ensure(ctx); err != nil {
 			pxlog.WarnF(ctx, "[integration_gateway] seed platform capabilities failed: %v", err)
@@ -543,7 +566,22 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
-				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db)),
+				runtimescheduler.NewCleanupInvoker(runtimeSchedulerSvc),
+				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
+				metadatasvc.NewTagCapabilityInvoker(db),
+				runtimeidentity.NewInvoker(db, opts.RuntimeIdentity),
+				&requestidentity.Invoker{Service: requestIdentitySvc},
+				knowledgeService.NewProvisioningCapabilityInvoker(db, func() *knowledgeService.Service {
+					if knowledgeDeps == nil {
+						return nil
+					}
+					return knowledgeDeps.Service
+				}, func() *knowledgeService.HostContractService {
+					if knowledgeDeps == nil {
+						return nil
+					}
+					return knowledgeDeps.HostDocuments
+				}),
 			),
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
@@ -616,7 +654,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
-	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
+	knowledgeDeps = newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
+	if knowledgeDeps != nil && knowledgeDeps.HostDocuments != nil {
+		knowledgeDeps.ContentOverview = knowledgeService.NewContentOverviewService(db, knowledgeDeps.HostDocuments.Semantic(), opts.KnowledgeSpace.ContentCursorSigningKey)
+		knowledgeDeps.HostDocuments.WithContentOverview(knowledgeDeps.ContentOverview)
+	}
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -816,11 +858,17 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
+		RuntimeIdentity:                   opts.RuntimeIdentity,
+		AgentSessionSvc:                   agentsession.NewServiceWithExecutor(db, agentruntime.NewServiceSessionExecutor(db)),
+		RuntimeHostSvc:                    runtimehost.NewService(db, versionLockRedis),
 		DB:                                db,
 		TenantSvc:                         tenantSvc,
 		AuthUser:                          authUser,
 		AuthCustomer:                      authCustomer,
+		CustomerImports:                   customersvc.NewAccountImportService(db),
+		CustomerContactRepairs:            customersvc.NewContactRepairService(db),
 		MeService:                         meSvc,
+		PluginRequestIdentity:             requestIdentitySvc,
 		AuditSvc:                          svc,
 		Auditor:                           aud,
 		MediaMgr:                          mediaManager,
@@ -843,6 +891,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterSandboxSvc:                  sandboxSvc,
 		DiscoverySvc:                      discoverySvc,
 		IntegrationGateway:                integrationGatewayDeps,
+		APIKeyOwners:                      apikeypermissions.NewAPIKeyOwnerService(db),
 		AgentLifecycle:                    agentLifecycleDeps,
 		KnowledgeSpace:                    knowledgeDeps,
 		DevHotloadOptions:                 opts.DevHotload,
@@ -977,6 +1026,8 @@ type IntegrationGatewayDeps struct {
 
 // KnowledgeSpaceDeps 聚合知识空间域运行依赖。
 type KnowledgeSpaceDeps struct {
+	ContentOverview *knowledgeService.ContentOverviewService
+	HostDocuments   *knowledgeService.HostContractService
 	Instrumentation *knowledgeinstr.Instrumentation
 	RedisClient     *redis.Client
 	EventBus        event_bus.EventBus
@@ -1917,6 +1968,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 
 	return &KnowledgeSpaceDeps{
+		HostDocuments:   knowledgeService.NewHostContractService(db).WithSemantic(knowledgeService.NewSemanticRuntime(db, agentSettingSvc, routedVectorStore)),
 		Instrumentation: inst,
 		RedisClient:     redisClient,
 		EventBus:        bus,

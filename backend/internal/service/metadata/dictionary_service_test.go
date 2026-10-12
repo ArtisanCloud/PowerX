@@ -137,3 +137,48 @@ func newServiceDictionaryTestDB(t *testing.T) *gorm.DB {
 	}
 	return db
 }
+
+func TestDictionaryExtensionRoundTripAndVersionedUpdate(t *testing.T) {
+	db := newServiceDictionaryTestDB(t)
+	svc, err := NewService(Deps{DB: db})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	tenant := uuid.NewString()
+	ns, err := svc.CreateDictionaryNamespace(ctx, CreateDictionaryNamespaceInput{TenantUUID: tenant, Namespace: "court_mate.exercise.sport", Module: "court_mate.exercise", NameI18n: map[string]string{"zh-CN": "fixture"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := svc.CreateDictionaryItem(ctx, CreateDictionaryItemInput{TenantUUID: tenant, NamespaceUUID: ns.UUID, Code: "basketball", LabelI18n: map[string]string{"zh-CN": "fixture"}, Metadata: map[string]any{"version": 1, "kind": "term", "dimension": "sport", "parent_uuid": uuid.NewString()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Metadata["kind"] != "term" || item.Metadata["parent_uuid"] == nil {
+		t.Fatal("METADATA_EXTENSION_LOST")
+	}
+	page, err := svc.ListDictionaryItems(ctx, ListDictionaryItemsInput{TenantUUID: tenant, NamespaceUUID: ns.UUID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 1 || page.Items[0].Metadata["dimension"] != "sport" {
+		t.Fatal("METADATA_EXTENSION_READ_LOST")
+	}
+	expected := int64(1)
+	attrs := map[string]any{"version": 2, "kind": "term", "dimension": "sport"}
+	updated, err := svc.UpdateDictionaryItem(ctx, UpdateDictionaryItemInput{TenantUUID: tenant, ItemUUID: item.UUID, Metadata: &attrs, ExpectedVersion: &expected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.UpdateDictionaryItem(ctx, UpdateDictionaryItemInput{TenantUUID: tenant, ItemUUID: item.UUID, Metadata: &attrs})
+	if !errors.Is(err, ErrOptimisticConflict) {
+		t.Fatal("METADATA_UNCONDITIONAL_WRITE_ACCEPTED")
+	}
+	if updated.Metadata["version"] != float64(2) {
+		t.Fatal("METADATA_VERSION_NOT_ADVANCED")
+	}
+	_, err = svc.UpdateDictionaryItem(ctx, UpdateDictionaryItemInput{TenantUUID: tenant, ItemUUID: item.UUID, Metadata: &attrs, ExpectedVersion: &expected})
+	if !errors.Is(err, ErrOptimisticConflict) {
+		t.Fatalf("METADATA_STALE_WRITE_ACCEPTED: %v", err)
+	}
+}

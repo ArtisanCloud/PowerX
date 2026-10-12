@@ -199,7 +199,7 @@ func (s *Service) ensureOwnerAcceptsNewUsage(ctx context.Context, ownerType, own
 	return nil
 }
 
-func (s *Service) UpdateJob(ctx context.Context, input UpdateJobInput) (*models.SchedulerJob, error) {
+func (s *Service) updateJob(ctx context.Context, input UpdateJobInput) (*models.SchedulerJob, error) {
 	job, err := s.getMutableJob(ctx, input.JobID)
 	if err != nil {
 		return nil, err
@@ -302,7 +302,7 @@ func (s *Service) PauseJob(ctx context.Context, jobID, operator, traceID string)
 	return s.setStatus(ctx, jobID, models.JobStatusPaused, operator, traceID)
 }
 
-func (s *Service) ResumeJob(ctx context.Context, jobID, operator, traceID string) (*models.SchedulerJob, error) {
+func (s *Service) resumeJob(ctx context.Context, jobID, operator, traceID string) (*models.SchedulerJob, error) {
 	job, err := s.getMutableJob(ctx, jobID)
 	if err != nil {
 		return nil, err
@@ -327,7 +327,7 @@ func (s *Service) ResumeJob(ctx context.Context, jobID, operator, traceID string
 	return s.jobs.Update(ctx, job)
 }
 
-func (s *Service) TriggerJob(ctx context.Context, jobID, operator, traceID string) (*TriggerResult, error) {
+func (s *Service) triggerJob(ctx context.Context, jobID, operator, traceID string) (*TriggerResult, error) {
 	job, err := s.getMutableJob(ctx, jobID)
 	if err != nil {
 		return nil, err
@@ -361,20 +361,13 @@ func (s *Service) TriggerJob(ctx context.Context, jobID, operator, traceID strin
 		ActorMemberID:   actor.MemberID,
 		ActorMemberUUID: actor.MemberUUID,
 	}
-	createdRun, err := s.runs.Create(ctx, run)
-	if err != nil {
-		return nil, mapDBErr(err)
-	}
-	payload := s.buildTriggerPayload(job, createdRun, models.TriggerSourceManual, now)
-	if s.eventBu != nil {
-		s.eventBu.Publish(models.TopicSchedulerTriggeredV1, payload, ctx)
-	}
-	next, nextErr := computeNextRun(job.ScheduleType, job.ScheduleExpr, job.Timezone, now)
+	next, nextErr := nextAfterDispatch(job, now)
 	if nextErr != nil {
-		job.LastError = nextErr.Error()
-	} else {
-		job.LastError = ""
-		job.NextRunAt = next
+		return nil, nextErr
+	}
+	job.NextRunAt = next
+	if next == nil && job.ScheduleType == models.ScheduleTypeOnce {
+		job.Status = models.JobStatusCompleted
 	}
 	job.LastRunAt = &now
 	job.UpdatedBy = strings.TrimSpace(operator)
@@ -384,8 +377,26 @@ func (s *Service) TriggerJob(ctx context.Context, jobID, operator, traceID strin
 	job.ActorMemberID = actor.MemberID
 	job.ActorMemberUUID = actor.MemberUUID
 	job.TraceID = strings.TrimSpace(traceID)
-	if updated, updateErr := s.jobs.Update(ctx, job); updateErr == nil {
-		job = updated
+	var createdRun *models.SchedulerJobRun
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var locked models.SchedulerJob
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ? AND tenant_uuid = ? AND revision = ? AND status = ?", job.UUID, job.TenantUUID, job.Revision, models.JobStatusActive).First(&locked).Error; err != nil {
+			return err
+		}
+		var err error
+		createdRun, err = repo.NewRunRepository(tx).Create(ctx, run)
+		if err != nil {
+			return err
+		}
+		job, err = repo.NewJobRepository(tx).Update(ctx, job)
+		return err
+	})
+	if err != nil {
+		return nil, mapDBErr(err)
+	}
+	payload := s.buildTriggerPayload(job, createdRun, models.TriggerSourceManual, now)
+	if s.eventBu != nil {
+		s.eventBu.Publish(models.TopicSchedulerTriggeredV1, payload, ctx)
 	}
 	return &TriggerResult{Job: job, Run: createdRun}, nil
 }
@@ -427,15 +438,18 @@ func (s *Service) DispatchDue(ctx context.Context, input DispatchDueInput) (*Dis
 }
 
 func (s *Service) ListRuns(ctx context.Context, input ListRunsInput) ([]*models.SchedulerJobRun, int64, error) {
-	job, err := s.GetJob(ctx, input.JobID)
+	job, err := s.findHistoricalJob(ctx, input.JobID)
 	if err != nil {
+		return nil, 0, err
+	}
+	if err := s.authorizeJob(ctx, job); err != nil {
 		return nil, 0, err
 	}
 	page, pageSize := normalizePage(input.Page, input.PageSize)
 	return s.runs.List(ctx, repo.RunFilter{JobUUID: job.UUID, Page: page, PageSize: pageSize})
 }
 
-func (s *Service) dispatchDueJob(ctx context.Context, jobID uuid.UUID, now time.Time) (bool, error) {
+func (s *Service) dispatchDueJobLocked(ctx context.Context, jobID uuid.UUID, now time.Time) (bool, error) {
 	var job models.SchedulerJob
 	var createdRun *models.SchedulerJobRun
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -480,6 +494,7 @@ func (s *Service) dispatchDueJob(ctx context.Context, jobID uuid.UUID, now time.
 			"last_run_at": now,
 			"updated_by":  "runtime_scheduler",
 			"trace_id":    traceID,
+			"revision":    gorm.Expr("revision + 1"),
 		}
 		if nextErr != nil {
 			updates["last_error"] = nextErr.Error()
@@ -514,7 +529,7 @@ func (s *Service) dispatchDueJob(ctx context.Context, jobID uuid.UUID, now time.
 	return true, nil
 }
 
-func (s *Service) setStatus(ctx context.Context, jobID, status, operator, traceID string) (*models.SchedulerJob, error) {
+func (s *Service) setStatusLocked(ctx context.Context, jobID, status, operator, traceID string) (*models.SchedulerJob, error) {
 	job, err := s.getMutableJob(ctx, jobID)
 	if err != nil {
 		return nil, err
@@ -903,6 +918,9 @@ func appErr(httpCode int, code, message string, err error) error {
 func mapDBErr(err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, repo.ErrRevisionConflict) || errors.Is(err, gorm.ErrRecordNotFound) {
+		return appErr(409, "SCHEDULER_JOB_VERSION_CONFLICT", "任务已变化，请重新预览", err)
 	}
 	msg := strings.ToLower(err.Error())
 	if strings.Contains(msg, "duplicate") || strings.Contains(msg, "unique") {

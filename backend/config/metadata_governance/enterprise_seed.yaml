@@ -1,6 +1,142 @@
 version: 1
 module: corex.enterprise
 dictionaries:
+  - namespace: corex.customer.contact_identity_channel
+    module: corex.customer
+    name_i18n:
+      zh-CN: 联系人渠道
+      en-US: Contact Identity Channels
+    description_i18n:
+      zh-CN: 联系人外部身份可使用的受治理渠道。
+      en-US: Governed channels available for contact external identities.
+    items:
+      - code: email
+        label_i18n:
+          zh-CN: 邮箱
+          en-US: Email
+        sort_order: 10
+      - code: phone
+        label_i18n:
+          zh-CN: 手机号
+          en-US: Phone
+        sort_order: 20
+      - code: wecom
+        label_i18n:
+          zh-CN: 企业微信
+          en-US: WeCom
+        sort_order: 30
+      - code: wechat
+        label_i18n:
+          zh-CN: 微信
+          en-US: WeChat
+        sort_order: 40
+      - code: ding_talk
+        label_i18n:
+          zh-CN: 钉钉
+          en-US: DingTalk
+        sort_order: 50
+      - code: feishu
+        label_i18n:
+          zh-CN: 飞书
+          en-US: Feishu
+        sort_order: 60
+      - code: whatsapp
+        label_i18n:
+          zh-CN: WhatsApp
+          en-US: WhatsApp
+        sort_order: 70
+      - code: line
+        label_i18n:
+          zh-CN: LINE
+          en-US: LINE
+        sort_order: 80
+      - code: telegram
+        label_i18n:
+          zh-CN: Telegram
+          en-US: Telegram
+        sort_order: 90
+      - code: slack
+        label_i18n:
+          zh-CN: Slack
+          en-US: Slack
+        sort_order: 100
+      - code: facebook_messenger
+        label_i18n:
+          zh-CN: Facebook Messenger
+          en-US: Facebook Messenger
+        sort_order: 110
+      - code: instagram_dm
+        label_i18n:
+          zh-CN: Instagram 私信
+          en-US: Instagram Direct
+        sort_order: 120
+      - code: shopify
+        label_i18n:
+          zh-CN: Shopify
+          en-US: Shopify
+        sort_order: 130
+      - code: mini_program
+        label_i18n:
+          zh-CN: 小程序
+          en-US: Mini Program
+        sort_order: 140
+  - namespace: corex.marketing.acquisition_channel
+    module: corex.marketing
+    name_i18n:
+      zh-CN: 营销获客渠道
+      en-US: Marketing Acquisition Channels
+    description_i18n:
+      zh-CN: 客户首次触达和归因使用的营销来源，不用于联系人身份绑定。
+      en-US: Marketing first-touch and attribution sources; never used for contact identity binding.
+    items:
+      - {code: direct, label_i18n: {zh-CN: 直接访问, en-US: Direct}, sort_order: 10}
+      - {code: organic_search, label_i18n: {zh-CN: 自然搜索, en-US: Organic Search}, sort_order: 20}
+      - {code: paid_search, label_i18n: {zh-CN: 搜索广告, en-US: Paid Search}, sort_order: 30}
+      - {code: display_ads, label_i18n: {zh-CN: 展示广告, en-US: Display Ads}, sort_order: 40}
+      - {code: social_organic, label_i18n: {zh-CN: 社交自然流量, en-US: Organic Social}, sort_order: 50}
+      - {code: social_paid, label_i18n: {zh-CN: 社交广告, en-US: Paid Social}, sort_order: 60}
+      - {code: content_organic, label_i18n: {zh-CN: 内容自然流量, en-US: Organic Content}, sort_order: 70}
+      - {code: influencer, label_i18n: {zh-CN: 达人合作, en-US: Influencer}, sort_order: 80}
+      - {code: email, label_i18n: {zh-CN: 邮件营销, en-US: Email Marketing}, sort_order: 90}
+      - {code: sms, label_i18n: {zh-CN: 短信营销, en-US: SMS Marketing}, sort_order: 100}
+      - {code: wechat_official_account, label_i18n: {zh-CN: 微信公众号, en-US: WeChat Official Account}, sort_order: 110}
+      - {code: wechat_mini_program, label_i18n: {zh-CN: 微信小程序, en-US: WeChat Mini Program}, sort_order: 120}
+      - {code: wecom, label_i18n: {zh-CN: 企业微信, en-US: WeCom}, sort_order: 130}
+      - {code: marketplace, label_i18n: {zh-CN: 电商平台, en-US: Marketplace}, sort_order: 140}
+      - {code: partner, label_i18n: {zh-CN: 合作伙伴, en-US: Partner}, sort_order: 150}
+      - {code: referral, label_i18n: {zh-CN: 客户推荐, en-US: Referral}, sort_order: 160}
+      - {code: event, label_i18n: {zh-CN: 线上活动, en-US: Online Event}, sort_order: 170}
+      - {code: exhibition, label_i18n: {zh-CN: 展会活动, en-US: Exhibition}, sort_order: 180}
+      - {code: offline_store, label_i18n: {zh-CN: 线下门店, en-US: Offline Store}, sort_order: 190}
+      - {code: sales_outreach, label_i18n: {zh-CN: 销售拓客, en-US: Sales Outreach}, sort_order: 200}
+      - {code: call_center, label_i18n: {zh-CN: 呼叫中心, en-US: Call Center}, sort_order: 210}
+      - {code: qr_code, label_i18n: {zh-CN: 二维码, en-US: QR Code}, sort_order: 220}
+      - {code: api_import, label_i18n: {zh-CN: API 导入, en-US: API Import}, sort_order: 230}
+  - namespace: corex.marketing.content_distribution_channel
+    module: corex.marketing
+    name_i18n:
+      zh-CN: 内容分发渠道
+      en-US: Content Distribution Channels
+    description_i18n:
+      zh-CN: 内容生产与分发的媒体平台目录，供 MediaX Studio 等营销插件选择和归因。
+      en-US: Media platform catalog for content production and distribution, used by marketing plugins such as MediaX Studio.
+    items:
+      - {code: website, label_i18n: {zh-CN: 官网, en-US: Website}, sort_order: 10}
+      - {code: youtube, label_i18n: {zh-CN: YouTube, en-US: YouTube}, sort_order: 20}
+      - {code: bilibili, label_i18n: {zh-CN: 哔哩哔哩, en-US: Bilibili}, sort_order: 30}
+      - {code: douyin, label_i18n: {zh-CN: 抖音, en-US: Douyin}, sort_order: 40}
+      - {code: kuaishou, label_i18n: {zh-CN: 快手, en-US: Kuaishou}, sort_order: 50}
+      - {code: xiaohongshu, label_i18n: {zh-CN: 小红书, en-US: Xiaohongshu}, sort_order: 60}
+      - {code: zhihu, label_i18n: {zh-CN: 知乎, en-US: Zhihu}, sort_order: 70}
+      - {code: wechat_official_account, label_i18n: {zh-CN: 微信公众号, en-US: WeChat Official Account}, sort_order: 80}
+      - {code: wechat_channels, label_i18n: {zh-CN: 视频号, en-US: WeChat Channels}, sort_order: 90}
+      - {code: weibo, label_i18n: {zh-CN: 微博, en-US: Weibo}, sort_order: 100}
+      - {code: tiktok, label_i18n: {zh-CN: TikTok, en-US: TikTok}, sort_order: 110}
+      - {code: instagram, label_i18n: {zh-CN: Instagram, en-US: Instagram}, sort_order: 120}
+      - {code: facebook, label_i18n: {zh-CN: Facebook, en-US: Facebook}, sort_order: 130}
+      - {code: linkedin, label_i18n: {zh-CN: LinkedIn, en-US: LinkedIn}, sort_order: 140}
+      - {code: x, label_i18n: {zh-CN: X, en-US: X}, sort_order: 150}
+      - {code: pinterest, label_i18n: {zh-CN: Pinterest, en-US: Pinterest}, sort_order: 160}
   - namespace: corex.customer.level
     module: corex.customer
     name_i18n:

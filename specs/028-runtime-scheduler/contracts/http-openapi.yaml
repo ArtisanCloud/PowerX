@@ -65,6 +65,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/JobResponse"
   /scheduler/jobs/{job_id}:
+    delete:
+      $ref: ./cleanup-openapi.yaml#/paths/~1admin~1scheduler~1jobs~1{job_id}/delete
     get:
       summary: Get scheduler job
       parameters:
@@ -226,8 +228,11 @@ components:
       allOf:
         - $ref: "#/components/schemas/SchedulerJobCreate"
         - type: object
-          required: [job_id, status, topic, created_at, updated_at]
+          required: [job_id, status, topic, created_at, updated_at, revision]
           properties:
+            revision:
+              type: integer
+              minimum: 1
             job_id:
               type: string
               format: uuid

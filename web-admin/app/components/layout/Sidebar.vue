@@ -177,22 +177,27 @@ const {
   pending: menuLoading,
   error: menuError,
   refresh: refreshMenus,
-} = await useAsyncData(menuIdentityKey, () => menuService.getUserMenus(), {
-  default: () => ({ data: [] as MenuItem[], categories: [] as MenuCategory[] }),
+} = await useAsyncData(menuIdentityKey, async () => {
+  const identityKey = menuIdentityKey.value;
+  const response = await menuService.getUserMenus();
+  return { ...response, identityKey };
+}, {
+  default: () => ({ data: [] as MenuItem[], categories: [] as MenuCategory[], identityKey: "" }),
   transform: (response: any) => {
+    const identityKey = String(response?.identityKey || "");
     if (response && Array.isArray(response.categories)) {
       // Case 1: response is { categories: [...] }
-      return { data: [], categories: response.categories };
+      return { data: [], categories: response.categories, identityKey };
     }
     if (response && Array.isArray(response.data)) {
       // Case 2: response is { data: [...] }
       const categories = Array.isArray(response.categories)
         ? response.categories
         : [];
-      return { data: response.data, categories: categories };
+      return { data: response.data, categories: categories, identityKey };
     }
     // Fallback
-    return { data: [], categories: [] };
+    return { data: [], categories: [], identityKey };
   },
   watch: [locale],
 });
@@ -255,6 +260,7 @@ type MenuGroup = { id: string; title: string; items: MenuItem[] };
 
 const viewGroups = computed<MenuGroup[]>(() => {
   const payload = menuResponse.value;
+  if (payload?.identityKey !== menuIdentityKey.value) return [];
   const categories = payload?.categories || [];
   if (categories.length > 0) {
     const sorted = [...categories].sort((a, b) => a.order - b.order);
@@ -559,7 +565,7 @@ function onTreeKeydown(e: KeyboardEvent) {
     <!-- 菜单 -->
     <nav class="flex-1 overflow-y-auto py-4" @keydown="onTreeKeydown">
       <!-- 加载 -->
-      <div v-if="menuLoading" class="px-3">
+      <div v-if="menuLoading && viewGroups.length === 0" class="px-3">
         <div class="space-y-2">
           <div v-for="i in 5" :key="i" class="animate-pulse">
             <div class="flex items-center space-x-3 px-3 py-2">

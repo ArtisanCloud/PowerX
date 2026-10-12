@@ -11,7 +11,9 @@ import (
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	skillsvc "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	capmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
+	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -199,7 +201,19 @@ func (s *AgentService) ReplaceSkillBindings(ctx context.Context, env string, ten
 	if s == nil || s.skillBindRepo == nil {
 		return nil
 	}
-	return s.skillBindRepo.Replace(ctx, env, tenantUUID, agentID, normalizeStringSlice(skillIDs))
+	keys := normalizeStringSlice(skillIDs)
+	if len(keys) > 0 {
+		if tenantUUID == nil {
+			return fmt.Errorf("skill.definition_runtime_context_invalid")
+		}
+		definitions := skillsvc.NewDefinitionService(skillrepo.NewSkillDefinitionRepository(s.db))
+		for _, key := range keys {
+			if err := definitions.CheckRunnable(ctx, *tenantUUID, key); err != nil {
+				return err
+			}
+		}
+	}
+	return s.skillBindRepo.Replace(ctx, env, tenantUUID, agentID, keys)
 }
 
 func (s *AgentService) ReplacePluginRegistryGrantsFromSkills(ctx context.Context, env string, tenantUUID *string, agentUUID uuid.UUID, ownerPluginID string, skillIDs []string, actorUserUUID string) error {

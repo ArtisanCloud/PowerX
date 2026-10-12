@@ -1,7 +1,6 @@
 import type { LoginResponse } from "./api/services/authService";
 import { useAuthService } from "./api/services/authService";
-import { clearAuthCookies, syncAuthCookies } from "~/utils/auth-cookie";
-import { isAccessTokenExpired, syncExpiresAtFromJWT } from "~/utils/auth-token";
+import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, captureAuthSession, clearAuthSession, commitAuthSession, isAuthSessionCurrent, readAuthSession, refreshAuthSession } from "~/utils/auth-session";
 /**
  * 认证状态管理
  */
@@ -16,32 +15,13 @@ export const useAuth = () => {
    */
   const setAuth = (authData: LoginResponse) => {
     const accessToken = String(authData?.access_token || "").trim();
-    const refreshToken = String(authData?.refresh_token || "").trim();
-    const tokenType = String(authData?.token_type || "Bearer").trim();
-    const scope = String(authData?.scope || "access").trim();
     const expiresIn = Number(authData?.expires_in || 0);
 
     if (!accessToken || !Number.isFinite(expiresIn) || expiresIn <= 0) {
       throw new Error("invalid auth payload");
     }
 
-    if (process.client) {
-      // 保存到localStorage
-      localStorage.setItem("access_token", accessToken);
-      if (refreshToken) {
-        localStorage.setItem("refresh_token", refreshToken);
-      }
-      localStorage.setItem("token_type", tokenType);
-      localStorage.setItem("expires_in", expiresIn.toString());
-      localStorage.setItem("scope", scope);
-
-      // 计算过期时间
-      const expiresAt = Date.now() + expiresIn * 1000;
-      localStorage.setItem("expires_at", expiresAt.toString());
-
-      // 同步 cookie 供 iframe/插件代理层注入 Authorization。
-      syncAuthCookies(accessToken, refreshToken || undefined);
-    }
+    if (process.client) commitAuthSession(authData);
 
     // 更新状态
     token.value = accessToken;
@@ -53,14 +33,7 @@ export const useAuth = () => {
    */
   const clearAuth = () => {
     if (process.client) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("token_type");
-      localStorage.removeItem("expires_in");
-      localStorage.removeItem("expires_at");
-      localStorage.removeItem("px_current_tenant_uuid");
-
-      clearAuthCookies();
+      clearAuthSession();
     }
 
     token.value = null;
@@ -73,7 +46,8 @@ export const useAuth = () => {
    */
   const isTokenExpired = (): boolean => {
     if (!process.client) return true;
-    return isAccessTokenExpired(localStorage.getItem("access_token"));
+    const session = readAuthSession();
+    return !session || session.status !== 'active' || session.expiresAt <= Date.now();
   };
 
   /**
@@ -82,14 +56,9 @@ export const useAuth = () => {
   const getToken = (): string | null => {
     if (!process.client) return null;
 
-    if (isTokenExpired()) {
-      clearAuth();
-      return null;
-    }
-
-    const current = localStorage.getItem("access_token");
-    syncExpiresAtFromJWT(current);
-    return current;
+    if (!readAuthSession()) { clearAuth(); return null; }
+    if (isTokenExpired()) return null;
+    return readAuthSession()?.accessToken || null;
   };
 
   /**
@@ -98,36 +67,63 @@ export const useAuth = () => {
   const initAuth = () => {
     if (!process.client) return;
 
-    const accessToken = localStorage.getItem("access_token");
-    if (accessToken && !isTokenExpired()) {
-      syncExpiresAtFromJWT(accessToken);
-      token.value = accessToken;
+    const session = readAuthSession();
+    if (!session) { clearAuth(); return; }
+    if (session.status === 'active') {
+      token.value = session.accessToken;
       isAuthenticated.value = true;
     } else {
-      clearAuth();
+      token.value = null;
+      user.value = null;
+      isAuthenticated.value = false;
     }
   };
+
+  const refreshAuth = () => {
+    const cfg = useRuntimeConfig();
+    const baseURL = String(cfg.public.apiBase || '/api/v1').replace(/\/+$/, '');
+    return refreshAuthSession(async refreshToken => {
+      const response: any = await $fetch(`${baseURL}/admin/user/auth/refresh`, {
+        method: 'POST', body: { refresh_token: refreshToken }, timeout: 30000,
+      });
+      return response?.data ?? response;
+    });
+  };
+
+  if (process.client && !(window as any).__powerxAuthSessionListener) {
+    const synchronize = () => initAuth();
+    window.addEventListener(AUTH_SESSION_EVENT, synchronize);
+    window.addEventListener('storage', event => {
+      if (event.key === AUTH_SESSION_KEY) synchronize();
+    });
+    (window as any).__powerxAuthSessionListener = true;
+  }
 
   /**
    * 登出
    */
   const logout = async () => {
+    const logoutSession = readAuthSession();
+    const refreshToken = logoutSession?.refreshToken;
+    // Invalidate immediately so an in-flight refresh cannot resurrect this login.
+    clearAuth();
+    const signedOut = captureAuthSession();
     try {
       // 可以调用后端登出API
       const { logout: apiLogout } = useAuthService();
-      const refreshToken = process.client ? localStorage.getItem("refresh_token") : null;
       if (refreshToken) {
-        await apiLogout({ refresh_token: refreshToken });
+        await apiLogout({ refresh_token: refreshToken }, logoutSession!.accessToken);
       }
     } catch (error) {
       console.error("登出API调用失败:", error);
     } finally {
       // 清理认证信息
-      clearAuth();
+      if (!isAuthSessionCurrent(signedOut)) return;
 
       // 清理用户store状态
       const { useUserStore } = await import("~/stores/user");
       const userStore = useUserStore();
+      if (!isAuthSessionCurrent(signedOut)) return;
       if (userStore.clearUserState) {
         userStore.clearUserState();
       }
@@ -139,7 +135,6 @@ export const useAuth = () => {
         "px_token",
         "auth_token",
         "auth-token",
-        "i18n_redirected",
         "px_current_tenant_uuid",
       ];
       authCookies.forEach((cookieName) => {
@@ -148,17 +143,10 @@ export const useAuth = () => {
       });
 
         // 清理sessionStorage
-        sessionStorage.clear();
+        ['powerx-auth-error', 'powerx-must-change-password'].forEach(key => sessionStorage.removeItem(key));
 
         // 清理可能的其他localStorage项
-        const keysToRemove = Object.keys(localStorage).filter(
-          (key) =>
-            key.includes("auth") ||
-            key.includes("token") ||
-            key.includes("user") ||
-            key.includes("px_")
-        );
-        keysToRemove.forEach((key) => localStorage.removeItem(key));
+        ['__px_access_token', 'token', 'powerx-local-logged-out'].forEach(key => localStorage.removeItem(key));
       }
 
       await navigateTo("/users/login");
@@ -175,5 +163,6 @@ export const useAuth = () => {
     isTokenExpired,
     logout,
     initAuth,
+    refreshAuth,
   };
 };

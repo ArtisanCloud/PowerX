@@ -7,6 +7,8 @@ type BackupPolicyUpsertRequest struct {
 	IntervalUnit      string `json:"interval_unit" binding:"omitempty,oneof=minute hour day m h d"`
 	Schedule          string `json:"schedule" binding:"omitempty,min=2,max=64"`
 	RetentionCount    int    `json:"retention_count" binding:"omitempty,min=1,max=10000"`
+	RetentionDays     int    `json:"retention_days" binding:"omitempty,min=1,max=3650"`
+	RetentionMode     string `json:"retention_mode" binding:"omitempty,oneof=count age_and_count"`
 	Timezone          string `json:"timezone" binding:"omitempty,min=1,max=64"`
 	DrillEnabled      *bool  `json:"drill_enabled"`
 	DrillIntervalDays int    `json:"drill_interval_days" binding:"omitempty,min=1,max=3650"`
@@ -20,6 +22,8 @@ type BackupPolicyUpdateRequest struct {
 	IntervalUnit      *string `json:"interval_unit" binding:"omitempty,oneof=minute hour day m h d"`
 	Schedule          *string `json:"schedule" binding:"omitempty,min=2,max=64"`
 	RetentionCount    *int    `json:"retention_count" binding:"omitempty,min=1,max=10000"`
+	RetentionDays     *int    `json:"retention_days" binding:"omitempty,min=1,max=3650"`
+	RetentionMode     *string `json:"retention_mode" binding:"omitempty,oneof=count age_and_count"`
 	Timezone          *string `json:"timezone" binding:"omitempty,min=1,max=64"`
 	DrillEnabled      *bool   `json:"drill_enabled"`
 	DrillIntervalDays *int    `json:"drill_interval_days" binding:"omitempty,min=1,max=3650"`

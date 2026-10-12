@@ -171,6 +171,11 @@
 
 **Checkpoint**: 默认运行不再依赖数据库高频轮询；Redis 为主通道，多驱动扩展与 fallback 策略可验证。
 
+**Agent Run 消费者扩展（待实施）**：通用队列既有 `T065-T069` 的完成状态不覆盖 [`031` 持久化调度](../031-agent-runtime-durable-scheduling/tasks.md) 所需租约/消费组能力。
+
+- [ ] **T069A [Queue]** 为 Redis TaskQueue 实现消费组、可续租和可重领、fencing token、去重、延迟重试及死信合同，并验证驱动 capability 声明。
+- [ ] **T069B [Queue]** 增加 Agent 消费模式的失败关闭与无 DB polling fallback 验证，覆盖多 Worker 崩溃、过期租约拒写和重复投递。
+
 ---
 
 ## Dependencies & Execution Order

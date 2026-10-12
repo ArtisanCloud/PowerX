@@ -5,12 +5,18 @@ import (
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
 // OfflineDistributionPackage stores signed artifact metadata for offline import.
 type OfflineDistributionPackage struct {
 	coremodel.PowerModel
+	PackageUUID  uuid.UUID `gorm:"column:package_uuid;type:uuid;not null;uniqueIndex" json:"package_uuid"`
+	PluginID     string    `gorm:"column:plugin_id;type:varchar(255);not null;index" json:"plugin_id"`
+	Version      string    `gorm:"column:version;type:varchar(64);not null" json:"version"`
+	Signature    string    `gorm:"column:signature;type:text;not null;default:''" json:"-"`
+	SigningKeyID string    `gorm:"column:signing_key_id;type:varchar(128);not null;default:''" json:"signing_key_id"`
 
 	ReleaseCandidateID   uint64         `gorm:"column:release_candidate_id;not null;index" json:"release_candidate_id"`
 	PackageURI           string         `gorm:"column:package_uri;type:text;not null" json:"package_uri"`

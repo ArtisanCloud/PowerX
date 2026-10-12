@@ -1,5 +1,7 @@
 # Skill 标准定义与使用原理（含外部出处）
 
+PowerX 分层开发的权威约束见 [Agent、Skill、工具与 Runtime 分层开发规范](../../../guides/develop/agent-skill-tool-boundaries.md)。Skill 声明业务规则和版本化工具依赖；导入包或保存 Prompt 不代表工具已安装或脚本已获授权。缺少执行能力必须明确阻断，固有示例与客户自建 Skill 遵循同一机制。
+
 本文用于回答三个问题：
 
 1. Skill 标准到底是什么  
@@ -207,7 +209,7 @@ executor:
 
 Core 不把 `action_required_args` 当作业务执行引擎。它最多用于候选解释、提示构建和保护性校验；真正的执行请求必须来自 Skill prepare 输出的 `capability_request`。
 
-完整协议见 [`agent_run_state_protocol.md`](./agent_run_state_protocol.md) 与 [`agent_runtime_standard_services.md`](./agent_runtime_standard_services.md)。
+完整协议见 [`agent_run_state_protocol.md`](../agent/agent_run_state_protocol.md) 与 [`agent_runtime_standard_services.md`](../agent/agent_runtime_standard_services.md)。
 
 ### 4.4 SkillState 协议字段
 
@@ -426,7 +428,7 @@ PowerX 统一策略是：LLM 意图识别后，在 `workflow|skill|tooling|llm` 
 
 ## 9. 与本目录其他文档关系
 
-- 插件桥接机制：`agent_skill_bridge.md`
+- 插件桥接机制：[`../agent/agent_skill_bridge.md`](../agent/agent_skill_bridge.md)
 - 规范映射细节：`standard_mapping.md`
 - 运行时实现：`runtime_architecture.md`
 - API 合同：`api_contracts.md`
@@ -456,3 +458,8 @@ https://docs.claude.com/en/docs/claude-code/skills
 https://github.com/anthropics/skills
 
 > 访问与核对日期：2026-03-06
+
+
+## V4 复盘说明的可选声明
+
+llm_prompt + response_envelope 可声明 executor.review_policy（powerx.skill-review-policy/v1）。规则的业务文字及来源条件在 Skill Revision 中维护；Core 仅依据声明来源及真实计算状态匹配条件，不能按 Skill 名称分支。匹配文字成为本次 hypotheses/actions 的完整枚举，新增、漏项或重复明确失败。规则格式、scope_i18n 和 token_role 见 docs/guides/develop/agent-response-evidence-v4.md 的“来源条件约束的业务说明”。旧 Skill 不声明该扩展仍可执行；新声明须使用支持该扩展的 Runtime 并重新发布，不能改写旧 Revision。

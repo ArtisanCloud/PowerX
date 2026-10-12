@@ -29,9 +29,11 @@ export interface PaginatedResponse<T> {
 
 // 请求配置扩展
 export interface ApiRequestConfig extends RequestInit {
+  timeout?: number; // ofetch 单次请求超时（毫秒）
   params?: Record<string, any>;
   useGlobalError?: boolean; // 是否使用全局错误处理
   useGlobalLoading?: boolean; // 是否使用全局加载状态
+  loadingMessage?: string; // 全局加载文案
   skipAuth?: boolean; // 是否跳过认证
 }
 

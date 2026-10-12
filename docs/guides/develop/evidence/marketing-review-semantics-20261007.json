@@ -1,0 +1,394 @@
+{
+  "incident": {
+    "run_id": "3c61d433-69a5-477b-a310-2bf40a9f97ef",
+    "trace_id": "9890189e-3242-49d5-8641-b8a91484db1b"
+  },
+  "validation": {
+    "scope": "published_skill_pipeline_original_input_and_archived_upstream_opinions",
+    "provider": "ollama",
+    "model": "qwen3:8b",
+    "duration_seconds": 137.33,
+    "trace_id": "6aeb43f0-fc5b-4065-a2a6-ef9fa556b4eb",
+    "validated_revision_uuid": "547c47ef-b482-47c3-a6d2-caf7d8123c32",
+    "active_revision_uuid": "cb825ac8-9711-4281-af34-7ff8d036033f",
+    "active_definition_equals_validated": true,
+    "definition_sha256": "9ba23ffef320073f4c08c930fbae5bd36d53d4105a26f9939ecb3bdf14c61771",
+    "result": "passed",
+    "formal_backend_8077_restarted": false,
+    "new_team_http_sse_run_verified": false
+  },
+  "publication": {
+    "skills": [
+      {
+        "skill_id": "marketing.audio_or_document_parse",
+        "revision_uuid": "9c703aaf-e5d3-4a6b-8674-29c92efcd66b",
+        "status": "published"
+      },
+      {
+        "skill_id": "marketing.extract_methodology",
+        "revision_uuid": "33e54d3b-61f4-4468-b5f5-721479e7a667",
+        "status": "published"
+      },
+      {
+        "skill_id": "marketing.metric_extract",
+        "revision_uuid": "0de5c1b1-8e7c-40d5-a1ed-6857e0f88a17",
+        "status": "published"
+      },
+      {
+        "skill_id": "marketing.review_summarize",
+        "revision_uuid": "cb825ac8-9711-4281-af34-7ff8d036033f",
+        "status": "published"
+      }
+    ],
+    "idempotent_after_canonical_comparison_fix": true,
+    "historical_response_unchanged": true
+  },
+  "checks": {
+    "reported_count": 15,
+    "computed": {
+      "gmv_multiple": "1.35",
+      "incremental_multiple": "0.85"
+    },
+    "conflict_count": 1,
+    "business_statement_count": 4,
+    "action_count": 4,
+    "no_invented_low_ctr_or_repurchase_improvement": true
+  },
+  "response_envelope": {
+    "kind": "analysis",
+    "outcome": "needs_action",
+    "presentation": {
+      "actions": [
+        "核对原文增量ROI采用的成本分母、收益定义、归因方法和观察周期，再与声明的增量产投比口径对齐。",
+        "按各渠道原始投入、GMV及归因口径独立核对，缺少的原始明细再补充；渠道数值差异本身不判为矛盾。",
+        "按触达来源和目标客户群对照信息流曝光、点击及下单数据，检验原文的人群不匹配解释。",
+        "补充同一观察期和客户池的复购人数及总人数，用于独立复算；保留原文已报告复购率。"
+      ],
+      "computed": [
+        {
+          "display_value": "1.35",
+          "ended_at": "2026-10-07T11:44:04.845279Z",
+          "operands": {
+            "d": {
+              "key": "spend",
+              "kind": "quantity",
+              "label": "活动投入",
+              "scope": "活动整体",
+              "source": {
+                "literal": "34.2",
+                "pointer": "/message",
+                "quote": "核心结论先行：活动投入34.2万元"
+              },
+              "unit": "万元",
+              "value": "34.2"
+            },
+            "n": {
+              "key": "gmv",
+              "kind": "quantity",
+              "label": "活动标记GMV",
+              "scope": "活动整体",
+              "source": {
+                "literal": "46.2",
+                "pointer": "/message",
+                "quote": "活动标记GMV 46.2万元"
+              },
+              "unit": "万元",
+              "value": "46.2"
+            }
+          },
+          "request": {
+            "bindings": {
+              "d": "spend",
+              "n": "gmv"
+            },
+            "compare_to": "reported_roi",
+            "expression": "n / d",
+            "key": "gmv_multiple",
+            "label": "活动产投比",
+            "percent": false,
+            "precision": 2
+          },
+          "revision_uuid": "547c47ef-b482-47c3-a6d2-caf7d8123c32",
+          "source_digest": "sha256:426bd577c9da092c6ce394741b4d694cf4884d80737fd12511133a9d1771a58c",
+          "started_at": "2026-10-07T11:44:04.845241Z",
+          "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+          "tool_key": "powerx.calculation.evaluate",
+          "tool_version": "1.0.0",
+          "trace_id": "6aeb43f0-fc5b-4065-a2a6-ef9fa556b4eb",
+          "uuid": "7f999452-b0e3-4e9b-9d78-77250839b4fc"
+        },
+        {
+          "display_value": "0.85",
+          "ended_at": "2026-10-07T11:44:04.845292Z",
+          "operands": {
+            "d": {
+              "key": "spend",
+              "kind": "quantity",
+              "label": "活动投入",
+              "scope": "活动整体",
+              "source": {
+                "literal": "34.2",
+                "pointer": "/message",
+                "quote": "核心结论先行：活动投入34.2万元"
+              },
+              "unit": "万元",
+              "value": "34.2"
+            },
+            "n": {
+              "key": "incremental_gmv",
+              "kind": "quantity",
+              "label": "可归因增量GMV",
+              "scope": "活动整体",
+              "source": {
+                "literal": "29.0",
+                "pointer": "/message",
+                "quote": "带来了29.0万元的可归因增量GMV"
+              },
+              "unit": "万元",
+              "value": "29.0"
+            }
+          },
+          "request": {
+            "bindings": {
+              "d": "spend",
+              "n": "incremental_gmv"
+            },
+            "compare_to": "reported_incremental_roi",
+            "expression": "n / d",
+            "key": "incremental_multiple",
+            "label": "增量产投比",
+            "percent": false,
+            "precision": 2
+          },
+          "revision_uuid": "547c47ef-b482-47c3-a6d2-caf7d8123c32",
+          "source_digest": "sha256:426bd577c9da092c6ce394741b4d694cf4884d80737fd12511133a9d1771a58c",
+          "started_at": "2026-10-07T11:44:04.845288Z",
+          "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+          "tool_key": "powerx.calculation.evaluate",
+          "tool_version": "1.0.0",
+          "trace_id": "6aeb43f0-fc5b-4065-a2a6-ef9fa556b4eb",
+          "uuid": "9e214e61-3ecf-4bc8-9565-746df25c30b2"
+        }
+      ],
+      "conflicts": [
+        {
+          "calculated_value": "0.85",
+          "calculation_key": "incremental_multiple",
+          "reported_key": "reported_incremental_roi",
+          "reported_value": "3.37"
+        }
+      ],
+      "gaps": [
+        "复购率：缺少复购客户数、复购客户池人数"
+      ],
+      "hypotheses": [
+        "原文陈述：活动目标是激活未续费或未升级的存量客户，应按老客激活目标解读效果。",
+        "原文将信息流低转化归因为围观流量与目标人群不匹配；这是待验证判断，不能据此认定素材或落地页无效。",
+        "已执行的工具计算限于声明的GMV产投比；原文盈利或亏损判断仍需收益和完整成本口径核实。",
+        "原文二次购买率已保留；高复购或复购提升仍需客户池和对照证据核实。"
+      ],
+      "reported": [
+        {
+          "key": "spend",
+          "kind": "quantity",
+          "label": "活动投入",
+          "scope": "活动整体",
+          "source": {
+            "literal": "34.2",
+            "pointer": "/message",
+            "quote": "核心结论先行：活动投入34.2万元"
+          },
+          "unit": "万元",
+          "value": "34.2"
+        },
+        {
+          "key": "gmv",
+          "kind": "quantity",
+          "label": "活动标记GMV",
+          "scope": "活动整体",
+          "source": {
+            "literal": "46.2",
+            "pointer": "/message",
+            "quote": "活动标记GMV 46.2万元"
+          },
+          "unit": "万元",
+          "value": "46.2"
+        },
+        {
+          "key": "incremental_gmv",
+          "kind": "quantity",
+          "label": "可归因增量GMV",
+          "scope": "活动整体",
+          "source": {
+            "literal": "29.0",
+            "pointer": "/message",
+            "quote": "带来了29.0万元的可归因增量GMV"
+          },
+          "unit": "万元",
+          "value": "29.0"
+        },
+        {
+          "key": "reported_roi",
+          "kind": "reported",
+          "label": "原文财务ROI",
+          "scope": "活动整体",
+          "source": {
+            "literal": "1.35",
+            "pointer": "/message",
+            "quote": "财务口径ROI只有1.35"
+          },
+          "unit": "",
+          "value": "1.35"
+        },
+        {
+          "key": "reported_incremental_roi",
+          "kind": "reported",
+          "label": "原文增量ROI",
+          "scope": "活动整体",
+          "source": {
+            "literal": "3.37",
+            "pointer": "/message",
+            "quote": "真实ROI是3.37"
+          },
+          "unit": "",
+          "value": "3.37"
+        },
+        {
+          "key": "reported_repeat_rate",
+          "kind": "reported",
+          "label": "原文复购率",
+          "scope": "复购观察人群",
+          "source": {
+            "literal": "27.8",
+            "pointer": "/message",
+            "quote": "其中90天内二次购买率达到27.8%"
+          },
+          "unit": "%",
+          "value": "27.8"
+        },
+        {
+          "key": "unit_price_lower",
+          "kind": "reported",
+          "label": "客单价下限",
+          "scope": "产品定价",
+          "source": {
+            "literal": "6000",
+            "pointer": "/message",
+            "quote": "客单价在6000元到2.4万元之间"
+          },
+          "unit": "元",
+          "value": "6000"
+        },
+        {
+          "key": "unit_price_upper",
+          "kind": "reported",
+          "label": "客单价上限",
+          "scope": "产品定价",
+          "source": {
+            "literal": "2.4",
+            "pointer": "/message",
+            "quote": "客单价在6000元到2.4万元之间"
+          },
+          "unit": "万元",
+          "value": "2.4"
+        },
+        {
+          "key": "inactivity_window",
+          "kind": "reported",
+          "label": "未续费或未升级回溯期",
+          "scope": "目标存量客户",
+          "source": {
+            "literal": "6",
+            "pointer": "/message",
+            "quote": "而是激活近6个月内未续费或未升级的存量客户"
+          },
+          "unit": "个月",
+          "value": "6"
+        },
+        {
+          "key": "campaign_duration",
+          "kind": "reported",
+          "label": "活动周期",
+          "scope": "活动整体",
+          "source": {
+            "literal": "28",
+            "pointer": "/message",
+            "quote": "周期是28天"
+          },
+          "unit": "天",
+          "value": "28"
+        },
+        {
+          "key": "repeat_window",
+          "kind": "reported",
+          "label": "二次购买观察期",
+          "scope": "复购观察人群",
+          "source": {
+            "literal": "90",
+            "pointer": "/message",
+            "quote": "其中90天内二次购买率达到27.8%"
+          },
+          "unit": "天",
+          "value": "90"
+        },
+        {
+          "key": "reported_sms_roi",
+          "kind": "reported",
+          "label": "原文短信渠道ROI",
+          "scope": "短信渠道",
+          "source": {
+            "literal": "0.65",
+            "pointer": "/message",
+            "quote": "数据就开始出现异常：结果显示短信渠道的ROI只有0.65"
+          },
+          "unit": "",
+          "value": "0.65"
+        },
+        {
+          "key": "reported_feed_roi",
+          "kind": "reported",
+          "label": "原文信息流渠道ROI",
+          "scope": "信息流渠道",
+          "source": {
+            "literal": "4.8",
+            "pointer": "/message",
+            "quote": "信息流渠道的ROI却有4.8"
+          },
+          "unit": "",
+          "value": "4.8"
+        },
+        {
+          "key": "reported_feed_ctr",
+          "kind": "reported",
+          "label": "原文信息流点击率",
+          "scope": "信息流渠道",
+          "source": {
+            "literal": "1.2",
+            "pointer": "/message",
+            "quote": "信息流渠道点击率1.2%"
+          },
+          "unit": "%",
+          "value": "1.2"
+        },
+        {
+          "key": "reported_feed_order_rate",
+          "kind": "reported",
+          "label": "原文信息流下单转化率",
+          "scope": "信息流渠道",
+          "source": {
+            "literal": "0.08",
+            "pointer": "/message",
+            "quote": "下单转化只有0.08%"
+          },
+          "unit": "%",
+          "value": "0.08"
+        }
+      ]
+    },
+    "revision_uuid": "547c47ef-b482-47c3-a6d2-caf7d8123c32",
+    "schema": "powerx.agent.response/v4",
+    "source_digest": "sha256:426bd577c9da092c6ce394741b4d694cf4884d80737fd12511133a9d1771a58c",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "trace_id": "6aeb43f0-fc5b-4065-a2a6-ef9fa556b4eb"
+  }
+}

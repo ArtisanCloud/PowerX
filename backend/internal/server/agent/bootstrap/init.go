@@ -433,10 +433,17 @@ func newDefinitionManifestExecutor(
 			if err != nil {
 				return "", fmt.Errorf("skill.executor_payload_encode_failed: %w", err)
 			}
+			params, err := skillsvc.ManifestLLMParameters(in.ModelPolicy)
+			if err != nil {
+				return "", err
+			}
+			if len(in.ResponseSchema) > 0 {
+				params["response_schema"] = in.ResponseSchema
+			}
 			out, err := aiRuntime.LLMInvoke(ctx, env, tenantUUID, modelKey, []aisvc.ContentItem{
 				{Role: "system", Type: "text", Content: strings.TrimSpace(in.PromptTemplate)},
 				{Role: "user", Type: "text", Content: string(payloadJSON)},
-			}, nil)
+			}, params)
 			if err != nil {
 				return "", err
 			}

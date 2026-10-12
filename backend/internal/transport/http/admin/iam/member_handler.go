@@ -2,6 +2,7 @@ package iam
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -118,6 +119,10 @@ func (h *MemberHandler) Create(c *gin.Context) {
 		InitialPassword: req.InitialPassword,
 	})
 	if err != nil {
+		if errors.Is(err, svc.ErrMemberDisplayNameConflict) {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		dto.ResponseError(c, http.StatusBadRequest, "创建失败", err)
 		return
 	}
@@ -141,6 +146,10 @@ func (h *MemberHandler) Update(c *gin.Context) {
 		User:    req.User,
 		DeptIDs: req.DeptIDs,
 	}); err != nil {
+		if errors.Is(err, svc.ErrMemberDisplayNameConflict) {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		dto.ResponseError(c, http.StatusBadRequest, "更新失败", err)
 		return
 	}
@@ -160,6 +169,10 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 		return
 	}
 	if err := h.S.SetMemberStatusByTenantUUID(c.Request.Context(), tenantUUID, id, *req.Status, req.Reason); err != nil {
+		if errors.Is(err, svc.ErrMemberDisplayNameConflict) {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		dto.ResponseError(c, http.StatusBadRequest, "设置状态失败", err)
 		return
 	}

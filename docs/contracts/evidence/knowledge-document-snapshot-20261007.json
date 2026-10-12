@@ -1,0 +1,994 @@
+{
+  "http_endpoint": "http://127.0.0.1:18077",
+  "records": [
+    {
+      "name": "api_key_grant_status",
+      "http_status": 200,
+      "trace_id": "3a539a44-1030-4eeb-8aa2-5e5ef9e2c404",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "capability_id": "com.corex.knowledge.document.manage",
+              "status": "granted",
+              "reason_code": "CAPABILITY_GRANTED"
+            }
+          ]
+        },
+        "timestamp": 1791357283,
+        "request_id": "3ddc0876-8c48-47a2-a295-951ac2d88924"
+      }
+    },
+    {
+      "name": "real_sts_exchange",
+      "http_status": 200,
+      "trace_id": "9230e4d6-3981-48f8-8766-77d028c833e0",
+      "response": {
+        "issuer": "powerx-sts",
+        "audience": "powerx:api",
+        "token_redacted": true
+      }
+    },
+    {
+      "name": "api_key_submit",
+      "http_status": 202,
+      "trace_id": "975ef743-c672-451d-b258-d30066675148",
+      "response": {
+        "code": 202,
+        "message": "success",
+        "data": {
+          "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+          "status": "queued",
+          "operation": "upsert",
+          "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53"
+        },
+        "timestamp": 1791357283,
+        "request_id": "2168dfbf-e692-4bc4-a36e-6dc25701c559"
+      }
+    },
+    {
+      "name": "api_key_job",
+      "http_status": 200,
+      "trace_id": "ec0eb7be-b4b8-4295-b59e-ddcdff63b6d4",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+          "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+          "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+          "operation": "upsert",
+          "status": "succeeded",
+          "priority": "normal",
+          "trace_id": "975ef743-c672-451d-b258-d30066675148",
+          "effective_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "index_mode": "lexical_chunks",
+            "length_unit": "unicode_rune",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7,
+              "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+              "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+            },
+            "priority": "normal",
+            "segment_mode": "unit",
+            "segment_size_policy": "cap",
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "segment_order": [
+              "page",
+              "segment",
+              "separator",
+              "size"
+            ],
+            "separators": [],
+            "page_priority": false,
+            "anchor_heading_path": false,
+            "anchor_clause_id": false,
+            "anchor_row_number": false,
+            "anchor_speaker": false,
+            "anchor_sentence_index": false,
+            "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+            "source_version": "v1"
+          },
+          "requested_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7
+            },
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "separators": [],
+            "page_priority": false
+          },
+          "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+          "chunk_count": 4,
+          "started_at": "2026-10-07T15:14:43.64109+08:00",
+          "completed_at": "2026-10-07T15:14:43.64666+08:00"
+        },
+        "timestamp": 1791357283,
+        "request_id": "fbba2e76-16ab-46b1-85eb-fb3776e76304"
+      }
+    },
+    {
+      "name": "api_key_chunks",
+      "http_status": 200,
+      "trace_id": "22f4e9da-eeab-4174-9d24-ed345a91c5a0",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "uuid": "8d9a6824-86ad-5b34-afdd-ab14105101b6",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "ordinal": 1,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "3fbe490ea2e47d74ab3accf037cb061044dd95b3934d3fe1de79752586110671",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+                "chunk_idx": 1,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/api_key",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            },
+            {
+              "uuid": "095e99ef-ba45-566d-9a13-52c8af421697",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "ordinal": 2,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "3fbe490ea2e47d74ab3accf037cb061044dd95b3934d3fe1de79752586110671",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+                "chunk_idx": 2,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/api_key",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            },
+            {
+              "uuid": "4e510a5b-3e7a-5ddd-8caf-1f9843829789",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "ordinal": 3,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "3fbe490ea2e47d74ab3accf037cb061044dd95b3934d3fe1de79752586110671",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+                "chunk_idx": 3,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/api_key",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            },
+            {
+              "uuid": "27edf155-7ae8-594c-b7fd-b7e80af7c286",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "ordinal": 4,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "6806c851adb0049eb90d631ee70a09a27057734d8aa7ae42ac2042047fd62798",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+                "chunk_idx": 4,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/api_key",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            }
+          ]
+        },
+        "timestamp": 1791357283,
+        "request_id": "55dd2822-5770-4c62-a5e2-c208aa3ced5a"
+      }
+    },
+    {
+      "name": "sts_submit",
+      "http_status": 202,
+      "trace_id": "347d4203-5652-4cc9-aae8-a56b13a064c7",
+      "response": {
+        "code": 202,
+        "message": "success",
+        "data": {
+          "job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+          "status": "queued",
+          "operation": "upsert",
+          "document_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941"
+        },
+        "timestamp": 1791357283,
+        "request_id": "68884aff-2992-4b59-88b7-2ddb5c1f9053"
+      }
+    },
+    {
+      "name": "sts_job",
+      "http_status": 200,
+      "trace_id": "bde7dbc7-6de5-439e-99ba-f17a2f9bb5b2",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+          "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+          "document_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+          "operation": "upsert",
+          "status": "succeeded",
+          "priority": "normal",
+          "trace_id": "347d4203-5652-4cc9-aae8-a56b13a064c7",
+          "effective_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "index_mode": "lexical_chunks",
+            "length_unit": "unicode_rune",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7,
+              "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+              "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+            },
+            "priority": "normal",
+            "segment_mode": "unit",
+            "segment_size_policy": "cap",
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "segment_order": [
+              "page",
+              "segment",
+              "separator",
+              "size"
+            ],
+            "separators": [],
+            "page_priority": false,
+            "anchor_heading_path": false,
+            "anchor_clause_id": false,
+            "anchor_row_number": false,
+            "anchor_speaker": false,
+            "anchor_sentence_index": false,
+            "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+            "source_version": "v1"
+          },
+          "requested_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7
+            },
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "separators": [],
+            "page_priority": false
+          },
+          "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+          "chunk_count": 4,
+          "started_at": "2026-10-07T15:14:43.760387+08:00",
+          "completed_at": "2026-10-07T15:14:43.765371+08:00"
+        },
+        "timestamp": 1791357283,
+        "request_id": "64e4678f-4835-4cca-9cec-a47e55d391d8"
+      }
+    },
+    {
+      "name": "sts_chunks",
+      "http_status": 200,
+      "trace_id": "06f049d0-1880-4aa1-81f5-3ef45c749341",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "uuid": "cd92761b-b432-5cae-b3fc-f849e7f19649",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+              "document_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+              "ordinal": 1,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "3fbe490ea2e47d74ab3accf037cb061044dd95b3934d3fe1de79752586110671",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+                "chunk_idx": 1,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/sts",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            },
+            {
+              "uuid": "01fca087-b63f-5898-a0b1-58f7dea45398",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+              "document_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+              "ordinal": 2,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "3fbe490ea2e47d74ab3accf037cb061044dd95b3934d3fe1de79752586110671",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+                "chunk_idx": 2,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/sts",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            },
+            {
+              "uuid": "07088efd-b37d-518f-b96d-9a889afcfa8e",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+              "document_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+              "ordinal": 3,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "3fbe490ea2e47d74ab3accf037cb061044dd95b3934d3fe1de79752586110671",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+                "chunk_idx": 3,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/sts",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            },
+            {
+              "uuid": "760082e2-1b4b-51dc-ae66-82237ce11b3b",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+              "document_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+              "ordinal": 4,
+              "kind": "chunk",
+              "content": "甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+              "checksum": "6806c851adb0049eb90d631ee70a09a27057734d8aa7ae42ac2042047fd62798",
+              "metadata": {
+                "format": "txt",
+                "overlap": 80,
+                "section": 1,
+                "doc_uuid": "4d2c1cc9-1327-452c-ac0a-a3a8f2850941",
+                "chunk_idx": 4,
+                "chunk_size": 640,
+                "provenance": {
+                  "source_version": "v1",
+                  "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23"
+                },
+                "source_uri": "powerx://acceptance/com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780/sts",
+                "segment_mode": "unit",
+                "segment_part": 1,
+                "host_job_uuid": "2b08bc0f-77d6-4529-b18a-70f34e35f306",
+                "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc"
+              }
+            }
+          ]
+        },
+        "timestamp": 1791357283,
+        "request_id": "84157e8b-722d-457a-97aa-1e625770f418"
+      }
+    },
+    {
+      "name": "api_key_typed_job",
+      "http_status": 200,
+      "trace_id": "5d2c0927-dee7-414c-a4e7-9308c1db0e25",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "payload": {
+            "job": {
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "operation": "upsert",
+              "status": "succeeded",
+              "priority": "normal",
+              "trace_id": "975ef743-c672-451d-b258-d30066675148",
+              "effective_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "index_mode": "lexical_chunks",
+                "length_unit": "unicode_rune",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7,
+                  "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+                  "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+                },
+                "priority": "normal",
+                "segment_mode": "unit",
+                "segment_size_policy": "cap",
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "segment_order": [
+                  "page",
+                  "segment",
+                  "separator",
+                  "size"
+                ],
+                "separators": [],
+                "page_priority": false,
+                "anchor_heading_path": false,
+                "anchor_clause_id": false,
+                "anchor_row_number": false,
+                "anchor_speaker": false,
+                "anchor_sentence_index": false,
+                "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+                "source_version": "v1"
+              },
+              "requested_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7
+                },
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "separators": [],
+                "page_priority": false
+              },
+              "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+              "chunk_count": 4,
+              "started_at": "2026-10-07T15:14:43.64109+08:00",
+              "completed_at": "2026-10-07T15:14:43.64666+08:00"
+            }
+          },
+          "trace_id": "0a431fdc-b559-4fc1-b9a9-889228d26721",
+          "status": "completed",
+          "protocol_used": "",
+          "result": {
+            "job": {
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "operation": "upsert",
+              "status": "succeeded",
+              "priority": "normal",
+              "trace_id": "975ef743-c672-451d-b258-d30066675148",
+              "effective_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "index_mode": "lexical_chunks",
+                "length_unit": "unicode_rune",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7,
+                  "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+                  "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+                },
+                "priority": "normal",
+                "segment_mode": "unit",
+                "segment_size_policy": "cap",
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "segment_order": [
+                  "page",
+                  "segment",
+                  "separator",
+                  "size"
+                ],
+                "separators": [],
+                "page_priority": false,
+                "anchor_heading_path": false,
+                "anchor_clause_id": false,
+                "anchor_row_number": false,
+                "anchor_speaker": false,
+                "anchor_sentence_index": false,
+                "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+                "source_version": "v1"
+              },
+              "requested_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7
+                },
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "separators": [],
+                "page_priority": false
+              },
+              "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+              "chunk_count": 4,
+              "started_at": "2026-10-07T15:14:43.64109+08:00",
+              "completed_at": "2026-10-07T15:14:43.64666+08:00"
+            }
+          },
+          "fallback_used": false
+        },
+        "timestamp": 1791357283,
+        "request_id": "089aaa29-c7d7-471d-947b-aebe239fcaa0"
+      }
+    },
+    {
+      "name": "sts_typed_job",
+      "http_status": 200,
+      "trace_id": "647667d7-088f-42ab-80d2-f48694180c4e",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "payload": {
+            "job": {
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "operation": "upsert",
+              "status": "succeeded",
+              "priority": "normal",
+              "trace_id": "975ef743-c672-451d-b258-d30066675148",
+              "effective_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "index_mode": "lexical_chunks",
+                "length_unit": "unicode_rune",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7,
+                  "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+                  "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+                },
+                "priority": "normal",
+                "segment_mode": "unit",
+                "segment_size_policy": "cap",
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "segment_order": [
+                  "page",
+                  "segment",
+                  "separator",
+                  "size"
+                ],
+                "separators": [],
+                "page_priority": false,
+                "anchor_heading_path": false,
+                "anchor_clause_id": false,
+                "anchor_row_number": false,
+                "anchor_speaker": false,
+                "anchor_sentence_index": false,
+                "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+                "source_version": "v1"
+              },
+              "requested_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7
+                },
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "separators": [],
+                "page_priority": false
+              },
+              "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+              "chunk_count": 4,
+              "started_at": "2026-10-07T15:14:43.64109+08:00",
+              "completed_at": "2026-10-07T15:14:43.64666+08:00"
+            }
+          },
+          "trace_id": "8af2c95b-1d60-4217-a061-63e8a557fa19",
+          "status": "completed",
+          "protocol_used": "",
+          "result": {
+            "job": {
+              "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+              "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+              "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+              "operation": "upsert",
+              "status": "succeeded",
+              "priority": "normal",
+              "trace_id": "975ef743-c672-451d-b258-d30066675148",
+              "effective_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "index_mode": "lexical_chunks",
+                "length_unit": "unicode_rune",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7,
+                  "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+                  "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+                },
+                "priority": "normal",
+                "segment_mode": "unit",
+                "segment_size_policy": "cap",
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "segment_order": [
+                  "page",
+                  "segment",
+                  "separator",
+                  "size"
+                ],
+                "separators": [],
+                "page_priority": false,
+                "anchor_heading_path": false,
+                "anchor_clause_id": false,
+                "anchor_row_number": false,
+                "anchor_speaker": false,
+                "anchor_sentence_index": false,
+                "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+                "source_version": "v1"
+              },
+              "requested_config": {
+                "schema": "powerx.knowledge.document-ingestion/v1",
+                "ingestion_profile": {
+                  "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+                  "version": 7
+                },
+                "chunk_size": 640,
+                "chunk_overlap": 80,
+                "separators": [],
+                "page_priority": false
+              },
+              "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+              "chunk_count": 4,
+              "started_at": "2026-10-07T15:14:43.64109+08:00",
+              "completed_at": "2026-10-07T15:14:43.64666+08:00"
+            }
+          },
+          "fallback_used": false
+        },
+        "timestamp": 1791357283,
+        "request_id": "cebac651-736b-456d-9e4c-83a4db4e9448"
+      }
+    },
+    {
+      "name": "sts_missing_document_grant",
+      "http_status": 403,
+      "trace_id": "12361ef6-caab-46ab-be4a-ea7268a78b47",
+      "response": {
+        "code": 403,
+        "message": "当前插件未获授权调用此能力。",
+        "error": "当前插件未获授权调用此能力。",
+        "error_code": "KNOWLEDGE_FORBIDDEN",
+        "reason_code": "KNOWLEDGE_FORBIDDEN",
+        "timestamp": 1791357284,
+        "request_id": "24558743-5721-4372-85aa-d1100f31468f"
+      }
+    },
+    {
+      "name": "unknown_top_level_setting",
+      "http_status": 400,
+      "trace_id": "6841f98a-2438-4e88-a649-7e46073718ed",
+      "response": {
+        "code": 400,
+        "message": "KNOWLEDGE_INVALID_ARGUMENT",
+        "error": "KNOWLEDGE_INVALID_ARGUMENT: json: unknown field \"chunk_size\"",
+        "error_code": "KNOWLEDGE_INVALID_ARGUMENT",
+        "reason_code": "KNOWLEDGE_INVALID_ARGUMENT",
+        "timestamp": 1791357284,
+        "request_id": "9bb122dc-f0ea-42be-bb62-55f575412e1c"
+      }
+    },
+    {
+      "name": "bad_overlap",
+      "http_status": 400,
+      "trace_id": "62b9d3be-a432-4273-b12b-5850ed9d2397",
+      "response": {
+        "code": 400,
+        "message": "KNOWLEDGE_INVALID_ARGUMENT",
+        "error": "KNOWLEDGE_INVALID_ARGUMENT: chunk_size must be 0..65536; chunk_overlap must be 0..chunk_size-1, or zero for chunk_size=0",
+        "error_code": "KNOWLEDGE_INVALID_ARGUMENT",
+        "reason_code": "KNOWLEDGE_INVALID_ARGUMENT",
+        "timestamp": 1791357284,
+        "request_id": "57fa9cf0-79a7-40c1-bceb-d2061b1a74aa"
+      }
+    },
+    {
+      "name": "bad_order",
+      "http_status": 400,
+      "trace_id": "16599ddc-5bef-4507-8d02-3db617a2b9a8",
+      "response": {
+        "code": 400,
+        "message": "KNOWLEDGE_INVALID_ARGUMENT",
+        "error": "KNOWLEDGE_INVALID_ARGUMENT: invalid or duplicate segment_order",
+        "error_code": "KNOWLEDGE_INVALID_ARGUMENT",
+        "reason_code": "KNOWLEDGE_INVALID_ARGUMENT",
+        "timestamp": 1791357284,
+        "request_id": "7be36d5f-7884-44a9-bdfe-2d6bb0d396c0"
+      }
+    },
+    {
+      "name": "unsupported_mode",
+      "http_status": 422,
+      "trace_id": "705dc8c2-7292-43f8-95c6-f106047e8419",
+      "response": {
+        "code": 422,
+        "message": "KNOWLEDGE_UNSUPPORTED_INGESTION_SETTING",
+        "error": "KNOWLEDGE_UNSUPPORTED_INGESTION_SETTING: unsupported segment_mode",
+        "error_code": "KNOWLEDGE_UNSUPPORTED_INGESTION_SETTING",
+        "reason_code": "KNOWLEDGE_UNSUPPORTED_INGESTION_SETTING",
+        "timestamp": 1791357284,
+        "request_id": "f14290c4-1750-4280-aca6-708d6e9cdd96"
+      }
+    },
+    {
+      "name": "expired_version",
+      "http_status": 422,
+      "trace_id": "268afbbb-1c52-4890-8da6-e9e5680144f2",
+      "response": {
+        "code": 422,
+        "message": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "error": "KNOWLEDGE_PROFILE_UNAVAILABLE: profile UUID/version is unavailable in current tenant",
+        "error_code": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "reason_code": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "timestamp": 1791357284,
+        "request_id": "8af62f02-d6f3-4bb5-943e-983086e38dcb"
+      }
+    },
+    {
+      "name": "cross_tenant_space",
+      "http_status": 404,
+      "trace_id": "454ddbed-0f0b-4b20-a292-c85a216653d9",
+      "response": {
+        "code": 404,
+        "message": "KNOWLEDGE_SPACE_NOT_FOUND",
+        "error": "KNOWLEDGE_SPACE_NOT_FOUND: record not found",
+        "error_code": "KNOWLEDGE_SPACE_NOT_FOUND",
+        "reason_code": "KNOWLEDGE_SPACE_NOT_FOUND",
+        "timestamp": 1791357284,
+        "request_id": "ad8c67e2-115e-4363-81c6-9efb6a0e1b98"
+      }
+    },
+    {
+      "name": "cross_tenant_profile",
+      "http_status": 422,
+      "trace_id": "ca73e801-1c0a-4fed-a4ef-19ecdf306bcb",
+      "response": {
+        "code": 422,
+        "message": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "error": "KNOWLEDGE_PROFILE_UNAVAILABLE: profile UUID/version is unavailable in current tenant",
+        "error_code": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "reason_code": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "timestamp": 1791357284,
+        "request_id": "49075ff1-cf3e-4fa9-9f01-973c7304793b"
+      }
+    },
+    {
+      "name": "no_auth",
+      "http_status": 401,
+      "trace_id": "3cb3cbd3-4441-457b-8a80-5e9ab50aabcd",
+      "response": {
+        "code": 401,
+        "message": "KNOWLEDGE_UNAUTHORIZED",
+        "error": "KNOWLEDGE_UNAUTHORIZED: KNOWLEDGE_UNAUTHORIZED",
+        "error_code": "KNOWLEDGE_UNAUTHORIZED",
+        "reason_code": "KNOWLEDGE_UNAUTHORIZED",
+        "timestamp": 1791357284,
+        "request_id": "894d26d6-5b52-4a67-bcc8-9bcc634feee4"
+      }
+    },
+    {
+      "name": "snapshot_before_change",
+      "http_status": 200,
+      "trace_id": "f0fbe564-0acc-4856-ac08-56b5742f48cb",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+          "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+          "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+          "operation": "upsert",
+          "status": "succeeded",
+          "priority": "normal",
+          "trace_id": "975ef743-c672-451d-b258-d30066675148",
+          "effective_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "index_mode": "lexical_chunks",
+            "length_unit": "unicode_rune",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7,
+              "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+              "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+            },
+            "priority": "normal",
+            "segment_mode": "unit",
+            "segment_size_policy": "cap",
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "segment_order": [
+              "page",
+              "segment",
+              "separator",
+              "size"
+            ],
+            "separators": [],
+            "page_priority": false,
+            "anchor_heading_path": false,
+            "anchor_clause_id": false,
+            "anchor_row_number": false,
+            "anchor_speaker": false,
+            "anchor_sentence_index": false,
+            "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+            "source_version": "v1"
+          },
+          "requested_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7
+            },
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "separators": [],
+            "page_priority": false
+          },
+          "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+          "chunk_count": 4,
+          "started_at": "2026-10-07T15:14:43.64109+08:00",
+          "completed_at": "2026-10-07T15:14:43.64666+08:00"
+        },
+        "timestamp": 1791357284,
+        "request_id": "7d1335a4-c183-4e4e-b4c9-d2a610d0c8b1"
+      }
+    },
+    {
+      "name": "snapshot_after_change",
+      "http_status": 200,
+      "trace_id": "94548ca3-fa27-4bec-8096-fa34eb333ea8",
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "job_uuid": "23368db5-a246-4dd7-bd7d-917d7f1a8856",
+          "space_uuid": "d808679c-a272-423a-9b47-dd6be1913e67",
+          "document_uuid": "36d86066-cb3e-4125-8357-b33f2f3a1b53",
+          "operation": "upsert",
+          "status": "succeeded",
+          "priority": "normal",
+          "trace_id": "975ef743-c672-451d-b258-d30066675148",
+          "effective_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "index_mode": "lexical_chunks",
+            "length_unit": "unicode_rune",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7,
+              "key": "com.powerx.acceptance.snapshot.17dac2e8c6f24467bae81cf0bd39d780",
+              "config_checksum": "a99873c02b7df5f83a5208acd8f63e5e36daf2170db62bc7ae54692cb571233d"
+            },
+            "priority": "normal",
+            "segment_mode": "unit",
+            "segment_size_policy": "cap",
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "segment_order": [
+              "page",
+              "segment",
+              "separator",
+              "size"
+            ],
+            "separators": [],
+            "page_priority": false,
+            "anchor_heading_path": false,
+            "anchor_clause_id": false,
+            "anchor_row_number": false,
+            "anchor_speaker": false,
+            "anchor_sentence_index": false,
+            "source_checksum": "153ba9b065b324e335849c3f408add5c8a808aa8e750b70c5222e2ec22a72e23",
+            "source_version": "v1"
+          },
+          "requested_config": {
+            "schema": "powerx.knowledge.document-ingestion/v1",
+            "ingestion_profile": {
+              "uuid": "8d120163-fb09-4dff-906c-1499bc2a9f27",
+              "version": 7
+            },
+            "chunk_size": 640,
+            "chunk_overlap": 80,
+            "separators": [],
+            "page_priority": false
+          },
+          "snapshot_checksum": "1c2e79aa6e63cc2840b86dff984bf94ab7a902dd5df7aa983cd246219e7e49cc",
+          "chunk_count": 4,
+          "started_at": "2026-10-07T15:14:43.64109+08:00",
+          "completed_at": "2026-10-07T15:14:43.64666+08:00"
+        },
+        "timestamp": 1791357284,
+        "request_id": "6992ab67-b003-470f-ad51-18c3a3bd7710"
+      }
+    },
+    {
+      "name": "archived_profile",
+      "http_status": 422,
+      "trace_id": "77c37eb0-7ea4-47d2-8c6a-89e08ec29d65",
+      "response": {
+        "code": 422,
+        "message": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "error": "KNOWLEDGE_PROFILE_UNAVAILABLE: profile UUID/version is unavailable in current tenant",
+        "error_code": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "reason_code": "KNOWLEDGE_PROFILE_UNAVAILABLE",
+        "timestamp": 1791357284,
+        "request_id": "d7d7c282-60a9-4d46-ae30-0653c723a1d1"
+      }
+    }
+  ],
+  "schema": "powerx.knowledge.snapshot-acceptance/v1",
+  "fixture_policy": "Temporary prefixed documents, spaces, profiles and limited STS credentials were cleaned up; credential/token values are excluded.",
+  "verification": {
+    "chunk_size": 640,
+    "chunk_overlap": 80,
+    "actual_chunks_per_document": 4,
+    "source_runes": 2000,
+    "api_key": "existing development key with CAPABILITY_GRANTED",
+    "sts": "real gRPC Exchange issued token",
+    "profile_mutation_old_snapshot": "unchanged",
+    "invalid_requests_documents_and_jobs": "none",
+    "formal_8077_restarted": false
+  }
+}

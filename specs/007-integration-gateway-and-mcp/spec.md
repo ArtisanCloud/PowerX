@@ -164,6 +164,7 @@
 - **FR-020**: 平台需将多模态模型调用纳入 `source=corex` 能力目录，区分无状态调用与有状态会话（Sessioned）；所有请求必须校验 `model_key` **仅在当前租户范围内可用**（租户已配置 Profile 或已测试通过且凭据已保存），跨租户访问一律拒绝并审计。
 - **FR-021**: Integration Gateway 全部入口必须采用统一鉴权分流：`Authorization: ApiKey <key>` 仅走 API Key 鉴权链路，`Authorization: Bearer <token>` 仅走 JWT 鉴权链路；禁止失败回退与混合授权决策。
 - **FR-022**: 平台必须提供租户级 API Key 生命周期管理（创建、查询、轮换、吊销、审计），并通过 `api_key_profile` 管理用途主体与权限模板；明文 key 只允许创建时返回一次，持久层仅保存 hash/prefix。
+- **FR-022a**: API Key 支持明确的插件 owner 配置与回读。绑定独立持久化于 `integration_gateway_api_keys.plugin_owner_policy`，保存/追加 Profile、默认 Profile 同步、权限清空后恢复和 Key 轮换均保留绑定；旧的逐权限 owner 范围不得扩大。管理接口仅接受 root/当前租户管理员用户 JWT，拒绝 API Key/STS 自授权及跨租户修改。精确插件 ID 列表不允许通配符，空数组明确解除绑定。合同见 `contracts/api-key-owners.openapi.yaml` 与 `docs/contracts/api-key-plugin-owners.md`。
 - **FR-023**: API Key 与 JWT 必须统一收敛到 `AuthContext`（`tenant_uuid/principal_id/scopes/actions/plugin_id`），所有 Gateway Handler（含 `/internal/ws-bus/grant|publish`）复用同一授权器，禁止按入口散落鉴权逻辑。
 - **FR-024**: 租户管理员可为本租户 API Key 配置 scope/action/resource 级权限；root/admin 租户可配置更高权限 scope，但必须显式授权并记录审计。
 - **FR-025**: JWT 鉴权在签名/过期校验通过后，必须执行主体状态校验：`tenant/user/member` 均需存在且可用；若任一主体失效，返回 401/403，并清晰标识失败原因（如 `tenant_disabled`, `member_not_found`）。

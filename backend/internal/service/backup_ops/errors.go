@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	ErrUnsupportedBackupDatabase  = errors.New("database backup requires PostgreSQL")
 	ErrInvalidBackupPolicy        = errors.New("invalid backup policy")
 	ErrInvalidBackupRequest       = errors.New("invalid backup request")
 	ErrInvalidBackupTarget        = errors.New("invalid backup target")
@@ -41,6 +42,8 @@ func ToAppError(err error) error {
 	switch {
 	case err == nil:
 		return nil
+	case errors.Is(err, ErrUnsupportedBackupDatabase):
+		return dto.WithCode(dto.NewBadRequest("数据库备份需要 PostgreSQL", err), "backup.unsupported_database")
 	case errors.Is(err, ErrInvalidBackupPolicy):
 		return dto.WithCode(dto.NewBadRequest("备份策略参数不合法", err), ErrorCodeInvalidPolicy)
 	case errors.Is(err, ErrInvalidBackupRequest):

@@ -143,7 +143,7 @@ Native Agent、知识库策展和插件复合能力需要通过 Workflow Runtime
 - Capability Registry and Tenant Invocation for `capability.invoke`.
 - Metadata Governance for `metadata.classify`.
 - Knowledge Space services for `knowledge.stage` and `knowledge.publish`.
-- Native Agent planning docs: `docs/plan/ai_engineering/native-agent/`.
+- Native Agent planning docs: `docs/plan/ai_engineering/agent/native-agent/`.
 - Workflow Runtime planning docs: `docs/plan/ai_engineering/workflow/`.
 
 ## Clarifications

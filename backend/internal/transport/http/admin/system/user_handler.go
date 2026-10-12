@@ -282,6 +282,10 @@ func (h *UserHandler) Create(c *gin.Context) {
 		req.RoleUUIDs,
 	)
 	if err != nil {
+		if dto.CodeOf(err) == svciam.CodeMemberDisplayNameConflict {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		dto.ResponseError(c, http.StatusBadRequest, "创建失败", err)
 		return
 	}
@@ -355,6 +359,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	// Service：UpdateUserInTenant(ctx, id, tenant_uuid, updates, username) error
 	if err := h.S.UpdateUserInTenant(ctx, id, tenantCtx.UUID(), updates, req.UserName); err != nil {
+		if dto.CodeOf(err) == svciam.CodeMemberDisplayNameConflict {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		dto.ResponseError(c, http.StatusBadRequest, "更新用户失败", err)
 		return
 	}

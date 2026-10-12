@@ -2,7 +2,7 @@
 
 本文定义 Skill 管理与调用接口契约，供后端、前端、插件侧统一实现。
 
-插件与 PowerX Agent Runtime 的桥接契约遵循 [`agent_skill_bridge.md`](./agent_skill_bridge.md)。本文件补充 HTTP/SSE/WS 层面的请求与响应样例。
+插件与 PowerX Agent Runtime 的桥接契约遵循 [`agent_skill_bridge.md`](../agent/agent_skill_bridge.md)。本文件补充 HTTP/SSE/WS 层面的请求与响应样例。
 
 ## 0. LLM 基础接口（system + user 双消息位）
 

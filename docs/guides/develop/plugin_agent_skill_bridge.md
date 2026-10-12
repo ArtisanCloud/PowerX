@@ -2,6 +2,8 @@
 
 本文是插件侧注册 Agent、Skill，并接入 PowerX Agent Runtime 的开发总入口。
 
+开发前必须遵守 [Agent、Skill、工具与 Runtime 分层开发规范](./agent-skill-tool-boundaries.md)：业务规则归属 Skill/领域工具，工具经正式能力治理接入；缺少工具时显式阻断，不为某个客户 Agent 或 Skill 修改 Core 业务分支。受控脚本执行、工具依赖预检和计算证据链的目标要求与当前实现状态以该规范为准。
+
 如果你要实现类似 `template` 对象的 Agent 操作能力，例如“创建模板”“查询模板”“删除模板并二次确认”，优先阅读本文，再按链接进入底座规范或插件 SDK 细节。
 
 ## 1. 定位
@@ -33,10 +35,10 @@ PowerX Capability Invocation
 底座契约：
 
 - [PowerX Skills 管理与治理 Spec](../../../specs/024-ai-engineering-skills/spec.md)
-- [Agent Skill Bridge 机制设计](../../plan/ai_engineering/skills/agent_skill_bridge.md)
+- [Agent Skill Bridge 机制设计](../../plan/ai_engineering/agent/agent_skill_bridge.md)
 - [Skill 标准定义](../../plan/ai_engineering/skills/skill_standard_definition.md)
 - [插件第三方集成](../../plan/ai_engineering/skills/plugin_third_party_integration.md)
-- [Agent Run State Protocol](../../plan/ai_engineering/skills/agent_run_state_protocol.md)
+- [Agent Run State Protocol](../../plan/ai_engineering/agent/agent_run_state_protocol.md)
 
 能力调用：
 

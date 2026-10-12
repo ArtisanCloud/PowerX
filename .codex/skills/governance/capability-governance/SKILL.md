@@ -175,6 +175,24 @@ Capability 是业务授权单元，不是 URL。REST/OpenAPI/Admin/gRPC endpoint
 
 ## STS direct 访问规则
 
+### Framework Host / delegated Core binding 准入
+
+Framework local Host 与 delegated runtime 使用的 Core capability 也必须按
+正式 capability 授权，不能因为本地调试而绕过 grant。对每个此类能力：
+
+- Admin surface 与 service actor 必须分别声明 binding；用户 JWT/RBAC 不能
+  代替 API Key 或 STS service grant。
+- service binding 必须为固定 `core_internal` `core://` endpoint + `INVOKE`，
+  使用 typed operation DTO；禁止 `method`、`endpoint`、headers 或 raw body
+  作为调用方可自由选择的代理字段。
+- 若 local Host 支持 `PX_GATEWAY_API_KEY`，该 `core_internal` binding MUST
+  声明完整 `api_key.scope/action/resource_type/resource_pattern`。权限同步器
+  MUST 生成 `allow_api_key=true` 与 `api_key_explicit=true` 的 IAM permission。
+- 低权限 selector 必须独立为 `service_read`；不得把 `admin_manage` 直接
+  暴露给 Framework API Key。
+- 测试必须覆盖 API Key grant-status 为 granted、未授权 403、撤销后即时
+  403、跨 tenant 403，以及自由 endpoint payload 被拒绝。
+
 插件 STS token 直接访问 PowerX Core HTTP 的允许集合按下面公式计算：
 
 ```text

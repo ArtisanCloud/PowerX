@@ -2,7 +2,9 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { usePluginBridge } from '~/composables/usePluginBridge'
 
-const { register, unregister } = usePluginBridge()
+const { register, unregister, navigateFrame } = usePluginBridge()
+const { t } = useI18n()
+const frameInstanceId = ref('')
 
 type TrustLevel = "trusted" | "untrusted";
 
@@ -204,7 +206,10 @@ function iframeShowsAdminNotReady() {
 
 function scheduleAdminReadyRetry() {
   if (retryAttempts.value >= 12) {
-    error.value = "插件管理页面启动超时，请稍后刷新";
+    loading.value = false;
+    clearRetryTimer();
+    error.value = 'PLUGIN_ADMIN_UPSTREAM_NOT_READY';
+    unregister(iframeRef.value);
     return;
   }
   retryAttempts.value += 1;
@@ -222,9 +227,6 @@ async function onLoad() {
     applyViewportFill();
     return;
   }
-  loading.value = false;
-  error.value = null;
-  retryAttempts.value = 0;
   clearRetryTimer();
   await nextTick();
   silenceIframeBridgeLogsIfNeeded();
@@ -234,7 +236,7 @@ async function onLoad() {
 
 function onError() {
   loading.value = false;
-  error.value = "插件页面加载失败";
+  error.value = 'PLUGIN_FRAME_LOAD_FAILED';
   // 出错也给个可用高度，避免空白
   applyViewportFill();
 }
@@ -320,7 +322,7 @@ onMounted(() => {
   }
   window.addEventListener("resize", measureOnce);
   if (iframeRef.value) {
-    register(iframeRef.value, { pluginId: props.pluginId, instanceId: props.instanceId }); // CHG: 只注册一次
+    registerFrame();
   }
 })
 
@@ -331,20 +333,40 @@ onBeforeUnmount(() => {
   unregister(iframeRef.value);
 })
 
-/** 当 src 变化：清理观察器 + 重新注册，以刷新 targetOrigin（非常关键） */
-watch(cleanSrc, async () => {
-  loading.value = true;
-  error.value = null;
-  retryAttempts.value = 0;
-  clearRetryTimer();
-  clearObservers();
+function registerFrame() {
+  if (!iframeRef.value) return;
+  frameInstanceId.value = crypto.randomUUID();
+  register(iframeRef.value, {
+    pluginId: props.pluginId, instanceId: frameInstanceId.value,
+    onStatus: status => {
+      if (retryTimer) return;
+      loading.value = status.state === 'loading';
+      error.value = status.code || null;
+    },
+  });
+  navigateFrame(iframeRef.value, props.navigatePath || '/');
+}
 
-  await nextTick(); // 等 DOM 应用新 src
-  if (iframeRef.value) {
-    unregister(iframeRef.value); // CHG: 先反注册，避免旧 origin 残留
-    register(iframeRef.value, { pluginId: props.pluginId, instanceId: props.instanceId });
-  }
-})
+watch(() => props.navigatePath, path => {
+  if (iframeRef.value) navigateFrame(iframeRef.value, path || '/');
+});
+
+// Only an explicit document entry change may reset the startup budget.
+watch(cleanSrc, async () => {
+  loading.value = true; error.value = null;
+  retryAttempts.value = 0; retryNonce.value = 0;
+  clearRetryTimer(); clearObservers();
+  await nextTick();
+  registerFrame();
+});
+
+function retryManually() {
+  clearRetryTimer();
+  retryAttempts.value = 0;
+  loading.value = true; error.value = null;
+  retryNonce.value += 1;
+  registerFrame();
+}
 
 const frameSrc = computed(() => {
   if (!retryNonce.value) return cleanSrc.value;
@@ -367,18 +389,20 @@ const frameSrc = computed(() => {
       class="pointer-events-none absolute inset-x-0 top-0 z-10 h-40 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-700"
     />
     <div v-if="error" class="text-red-600 dark:text-red-400 text-sm my-2 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-      {{ error }}
+      {{ t(`pluginFrame.errors.${error}`) }}
+      <button type="button" class="ml-3 underline" @click="retryManually">{{ t('common.retry') }}</button>
     </div>
 
     <iframe
       ref="iframeRef"
       :src="frameSrc"
-      :title="title || 'Plugin WebView'"
+      :title="title || t('pluginFrame.title')"
       :sandbox="sandbox"
       allow="clipboard-read *; clipboard-write *; fullscreen *"
       referrerpolicy="strict-origin-when-cross-origin"
       scrolling="auto"
       class="block w-full border-0 bg-transparent rounded-lg"
+      :class="{ 'invisible pointer-events-none': Boolean(error) || loading }"
       :style="{ height: height + 'px' }"
       @load="onLoad"
       @error="onError"

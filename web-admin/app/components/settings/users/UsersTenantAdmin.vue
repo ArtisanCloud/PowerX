@@ -258,7 +258,17 @@ function normalizeRoleUUIDs(input: unknown): string[] {
 }
 
 function parseApiMessage(error: any, fallback: string): string {
-  const msg =
+	const errorCode = String(
+	  error?.response?._data?.error_code ||
+	    error?.response?._data?.reason_code ||
+	    error?.data?.error_code ||
+	    error?.data?.reason_code ||
+	    ""
+	);
+	if (errorCode === "IAM_MEMBER_DISPLAY_NAME_CONFLICT") {
+	  return String(t("organization.user.validation.displayNameConflict"));
+	}
+	const msg =
     error?.response?._data?.error ||
     error?.response?._data?.message ||
     error?.data?.error ||
@@ -266,8 +276,8 @@ function parseApiMessage(error: any, fallback: string): string {
     error?.message ||
     fallback;
   const text = String(msg || fallback);
-  if (text.includes("uk_user_phone")) return "手机号已被占用，请更换后重试";
-  if (text.includes("uk_user_email")) return "邮箱已被占用，请更换后重试";
+  if (text.includes("uk_user_phone")) return String(t("organization.user.validation.phoneConflict"));
+  if (text.includes("uk_user_email")) return String(t("organization.user.validation.emailConflict"));
   return text;
 }
 
@@ -1156,9 +1166,8 @@ onMounted(async () => {
               v-if="!isEditing"
               :label="$t('organization.user.form.password')"
               :required="!isEditing"
-              ><UInput
+              ><SecretInput
                 v-model="userForm.password"
-                type="password"
                 name="px-user-initial-password"
                 autocomplete="new-password"
             /></UFormField>
@@ -1166,9 +1175,8 @@ onMounted(async () => {
               v-if="!isEditing"
               :label="$t('organization.user.form.confirmPassword')"
               :required="!isEditing"
-              ><UInput
+              ><SecretInput
                 v-model="userForm.confirmPassword"
-                type="password"
                 name="px-user-confirm-password"
                 autocomplete="new-password"
             /></UFormField>
@@ -1201,12 +1209,11 @@ onMounted(async () => {
         <div class="py-6 px-6">
           <form @submit.prevent="submitResetPassword" class="space-y-4">
             <UFormField :label="t('organization.user.resetPassword.newPassword')" required>
-              <UInput v-model="resetPasswordForm.password" type="password" />
+              <SecretInput v-model="resetPasswordForm.password" />
             </UFormField>
             <UFormField :label="t('organization.user.resetPassword.confirmPassword')" required>
-              <UInput
+              <SecretInput
                 v-model="resetPasswordForm.confirmPassword"
-                type="password"
               />
             </UFormField>
             <div class="flex justify-end gap-3 pt-2">

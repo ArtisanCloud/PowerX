@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	metadto "github.com/ArtisanCloud/PowerX/internal/dto/metadata"
@@ -56,6 +57,7 @@ type CreateDictionaryItemInput struct {
 }
 
 type UpdateDictionaryItemInput struct {
+	ExpectedVersion *int64
 	TenantUUID      string
 	ItemUUID        string
 	LabelI18n       *map[string]string
@@ -263,7 +265,19 @@ func (s *Service) UpdateDictionaryItem(ctx context.Context, in UpdateDictionaryI
 	if in.Metadata != nil {
 		updates["metadata"] = mustJSONAny(*in.Metadata)
 	}
-	row, err := s.dictionaryRepo().UpdateItem(ctx, tenantUUID, itemUUID, updates)
+	if in.ExpectedVersion != nil {
+		if *in.ExpectedVersion < 1 || in.Metadata == nil {
+			return metadto.DictionaryItemResponse{}, ErrOptimisticConflict
+		}
+		encoded, _ := json.Marshal((*in.Metadata)["version"])
+		if string(encoded) != fmt.Sprint(*in.ExpectedVersion+1) {
+			return metadto.DictionaryItemResponse{}, ErrOptimisticConflict
+		}
+	}
+	row, err := s.dictionaryRepo().UpdateItemVersioned(ctx, tenantUUID, itemUUID, updates, in.ExpectedVersion)
+	if errors.Is(err, metarepo.ErrOptimisticConflict) {
+		return metadto.DictionaryItemResponse{}, ErrOptimisticConflict
+	}
 	if err != nil {
 		return metadto.DictionaryItemResponse{}, err
 	}
@@ -383,7 +397,10 @@ func mapItem(row *model.DictionaryItem, locale string) metadto.DictionaryItemRes
 	desc := mapStringJSON(row.DescriptionI18n)
 	displayName, missing := localized(label, locale)
 	displayDesc, _ := localized(desc, locale)
+	var attributes map[string]any
+	_ = json.Unmarshal(row.Metadata, &attributes)
 	return metadto.DictionaryItemResponse{
+		Metadata:        attributes,
 		UUID:            row.UUID.String(),
 		NamespaceUUID:   row.NamespaceUUID,
 		Code:            row.Code,

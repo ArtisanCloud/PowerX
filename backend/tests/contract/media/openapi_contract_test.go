@@ -1,8 +1,7 @@
-//go:build ignore
-
 package mediacontract
 
 import (
+	"context"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -19,16 +18,18 @@ func TestMediaOpenAPIContract(t *testing.T) {
 	loader := &openapi3.Loader{IsExternalRefsAllowed: true}
 	doc, err := loader.LoadFromFile(specPath)
 	require.NoError(t, err, "load media openapi spec")
+	require.NoError(t, doc.Validate(context.Background()))
 
 	require.NotNil(t, doc.Paths)
-	assertOperation(t, doc, "/media/assets", http.MethodPost, []string{"201", "400"})
-	assertOperation(t, doc, "/media/assets", http.MethodGet, []string{"200"})
-	assertOperation(t, doc, "/media/assets/{uuid}", http.MethodGet, []string{"200", "404"})
-	assertOperation(t, doc, "/media/assets/{uuid}", http.MethodDelete, []string{"200", "404"})
-	assertOperation(t, doc, "/media/assets/{uuid}/presign", http.MethodPost, []string{"200", "404"})
-
-	schema := doc.Components.Schemas["CapabilityRecordDTO"]
-	require.NotNil(t, schema, "CapabilityRecordDTO schema missing")
+	assertOperation(t, doc, "/tenant/media/assets", http.MethodPost, []string{"201", "400"})
+	assertOperation(t, doc, "/tenant/media/assets", http.MethodGet, []string{"200"})
+	assertOperation(t, doc, "/tenant/media/assets/{asset_uuid}", http.MethodGet, []string{"200", "404"})
+	assertOperation(t, doc, "/tenant/media/assets/{asset_uuid}", http.MethodDelete, []string{"204", "404"})
+	for _, action := range []string{"presign-upload", "complete-upload", "presign-download"} {
+		assertOperation(t, doc, "/tenant/media/assets/{asset_uuid}/variants/{variant_uuid}/"+action, http.MethodPost, []string{"200", "400", "401", "403", "404", "409", "422", "503"})
+	}
+	require.Contains(t, doc.Components.Schemas["VariantCreate"].Value.Required, "checksum")
+	require.Contains(t, doc.Components.Schemas["Variant"].Value.Required, "status")
 }
 
 func assertOperation(t testing.TB, doc *openapi3.T, path, method string, statuses []string) {

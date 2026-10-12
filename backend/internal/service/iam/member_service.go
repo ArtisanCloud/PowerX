@@ -56,9 +56,10 @@ type ListMembersOption struct {
 	Recursive      bool
 }
 type MemberWithProfile struct {
-	Member  *modelIAM.Member
-	User    *modelIAM.User
-	DeptIDs []uint64
+	Member              *modelIAM.Member
+	User                *modelIAM.User
+	DeptIDs             []uint64
+	DisplayNameConflict bool `json:"display_name_conflict"`
 }
 type CreateMemberInput struct {
 	Member          modelIAM.Member
@@ -186,11 +187,52 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 		}
 	}
 
+	conflictingNames := make(map[string]struct{})
+	if len(page.List) > 0 {
+		nameKeys := make([]string, 0, len(page.List))
+		seenNames := make(map[string]struct{}, len(page.List))
+		for _, mem := range page.List {
+			if mem.Status != 1 {
+				continue
+			}
+			key := normalizedMemberDisplayName(mem.DisplayName)
+			if key == "" {
+				continue
+			}
+			if _, exists := seenNames[key]; !exists {
+				seenNames[key] = struct{}{}
+				nameKeys = append(nameKeys, key)
+			}
+		}
+		if len(nameKeys) > 0 {
+			type duplicateRow struct {
+				NameKey string `gorm:"column:name_key"`
+			}
+			var duplicates []duplicateRow
+			if err := s.DB.WithContext(ctx).Table(model.TableIAMMember).
+				Select("lower(trim(display_name)) AS name_key").
+				Where("tenant_uuid = ? AND status = 1 AND deleted_at IS NULL", tenantUUID).
+				Where("lower(trim(display_name)) IN ?", nameKeys).
+				Group("lower(trim(display_name))").
+				Having("COUNT(*) > 1").
+				Scan(&duplicates).Error; err != nil {
+				return nil, 0, err
+			}
+			for _, duplicate := range duplicates {
+				conflictingNames[duplicate.NameKey] = struct{}{}
+			}
+		}
+	}
+
 	for _, mem := range page.List {
 		items = append(items, MemberWithProfile{
 			Member:  mem,
 			User:    userByID[mem.UserID],
 			DeptIDs: deptIDsMap[mem.ID],
+			DisplayNameConflict: mem.Status == 1 && func() bool {
+				_, exists := conflictingNames[normalizedMemberDisplayName(mem.DisplayName)]
+				return exists
+			}(),
 		})
 	}
 	return items, page.Total, nil
@@ -360,6 +402,12 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in 
 		if mem.Username == "" {
 			return errors.New("member.username required")
 		}
+		mem.DisplayName = strings.TrimSpace(mem.DisplayName)
+		if mem.Status == 1 {
+			if err := s.ensureActiveDisplayNameAvailable(ctx, tx, tenantUUID, mem.DisplayName, 0); err != nil {
+				return err
+			}
+		}
 
 		// 可选：显式检查 username 租户内唯一，错误更友好
 		if dup, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
@@ -372,6 +420,9 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in 
 		}
 
 		if _, err = s.MemberRepo.Create(ctx, &mem); err != nil {
+			if isMemberDisplayNameConflict(err) {
+				return memberDisplayNameConflictError(ErrMemberDisplayNameConflict)
+			}
 			if repository.IsUniqueViolation(err) {
 				return errors.New("member already exists")
 			}
@@ -427,6 +478,19 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 		}
 
 		if in.Member != nil {
+			targetDisplayName := mem.DisplayName
+			targetStatus := mem.Status
+			if v := strings.TrimSpace(in.Member.DisplayName); v != "" {
+				targetDisplayName = v
+			}
+			if in.Member.Status != 0 {
+				targetStatus = in.Member.Status
+			}
+			if targetStatus == 1 {
+				if err := s.ensureActiveDisplayNameAvailable(ctx, tx, tenantUUID, targetDisplayName, memberID); err != nil {
+					return err
+				}
+			}
 			fields := map[string]interface{}{}
 			if v := strings.TrimSpace(in.Member.Username); v != "" {
 				fields["username"] = strings.ToLower(v)
@@ -451,6 +515,9 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 					},
 					fields,
 				); err != nil {
+					if isMemberDisplayNameConflict(err) {
+						return memberDisplayNameConflictError(ErrMemberDisplayNameConflict)
+					}
 					return err
 				}
 			}
@@ -526,14 +593,30 @@ func (s *MemberService) SetMemberStatus(ctx context.Context, tenantUUID string, 
 	if err != nil {
 		return err
 	}
-	_, err = s.MemberRepo.Patch(ctx,
-		map[string]interface{}{
-			model.TableIAMMember + ".tenant_uuid": tenantUUID,
-			model.TableIAMMember + ".id":          memberID,
-		},
-		map[string]interface{}{"status": status},
-	)
-	return err
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if status == 1 {
+			var member modelIAM.Member
+			if err := tx.Where("tenant_uuid = ? AND id = ?", tenantUUID, memberID).First(&member).Error; err != nil {
+				return err
+			}
+			if err := s.ensureActiveDisplayNameAvailable(ctx, tx, tenantUUID, member.DisplayName, memberID); err != nil {
+				return err
+			}
+		}
+		if _, err := s.MemberRepo.WithDB(tx).Patch(ctx,
+			map[string]interface{}{
+				model.TableIAMMember + ".tenant_uuid": tenantUUID,
+				model.TableIAMMember + ".id":          memberID,
+			},
+			map[string]interface{}{"status": status},
+		); err != nil {
+			if isMemberDisplayNameConflict(err) {
+				return memberDisplayNameConflictError(ErrMemberDisplayNameConflict)
+			}
+			return err
+		}
+		return nil
+	})
 }
 
 func (s *MemberService) SetMemberStatusByTenantUUID(ctx context.Context, tenantUUID string, memberID uint64, status int16, reason string) error {

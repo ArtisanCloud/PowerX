@@ -121,4 +121,6 @@ install:
 
 - 代码升级（无 DB 变更）：`make dist + switch-release`，不走 `/setup`。
 - 结构升级（有 DB 变更）：发布后显式执行 `database migrate`。
-- 数据初始化/补数：仅在需要时显式执行 `database seed`，不与常规发布绑定。
+- 升级需要的新增系统数据：由专用版本迁移补齐，保留用户设置、管理员密码和既有授权；完整 `database seed` 保留首次安装用途。
+
+完整的发布元数据、严格配置升级、统一迁移状态/计划/执行、旧镜像升级 CI 与回滚声明按[系统升级计划](../../docs/plan/deploy/powerx-system-upgrade.md)实施。此增量当前为待实施计划，不能把现有基础 migrate 当成已交付的完整升级 runner。

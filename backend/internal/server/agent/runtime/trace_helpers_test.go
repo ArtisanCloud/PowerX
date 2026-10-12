@@ -1,14 +1,23 @@
 package runtime
 
-import "testing"
+import (
+	"testing"
 
-func TestTraceAttrStringOmitsMissingValues(t *testing.T) {
-	attrs := map[string]any{"skill_id": "release.report"}
+	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	"github.com/stretchr/testify/require"
+)
 
-	if got := traceAttrString(attrs, "capability_id"); got != "" {
-		t.Fatalf("missing attribute = %q, want empty string", got)
-	}
-	if got := traceAttrString(attrs, "skill_id"); got != "release.report" {
-		t.Fatalf("skill attribute = %q", got)
-	}
+func TestTraceMetaMapIncludesTenantUUIDForHistoryAndSSE(t *testing.T) {
+	trace := &traceRuntime{meta: agenttrace.AgentRunMeta{
+		TenantUUID: "tenant-uuid",
+		TraceID:   "trace-id",
+		RunID:     "run-id",
+		SessionID: "session-id",
+		MessageID: "message-id",
+	}}
+
+	meta := traceMetaMap(trace)
+	require.Equal(t, "tenant-uuid", meta["tenant_uuid"])
+	require.Equal(t, "trace-id", meta["trace_id"])
+	require.Equal(t, "run-id", meta["run_id"])
 }

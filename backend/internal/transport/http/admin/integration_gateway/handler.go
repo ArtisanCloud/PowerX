@@ -37,6 +37,7 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.GET("/routes/:route_id/versions", handler.ListVersions)
 
 	apiKeyHandler := NewAPIKeyAdminHandler(deps.DB)
+	ownerHandler := NewAPIKeyOwnerHandler(deps.APIKeyOwners)
 	group.POST("/api-key-profiles", apiKeyHandler.CreateAPIKeyProfile)
 	group.GET("/api-key-profiles", apiKeyHandler.ListAPIKeyProfiles)
 	group.PATCH("/api-key-profiles/:profile_id", apiKeyHandler.UpdateAPIKeyProfile)
@@ -48,6 +49,8 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.POST("/api-keys", apiKeyHandler.CreateAPIKey)
 	group.GET("/api-keys", apiKeyHandler.ListAPIKeys)
 	group.GET("/api-keys/:key_id", apiKeyHandler.GetAPIKey)
+	group.GET("/api-keys/:key_id/plugin-owners", ownerHandler.GetPluginOwners)
+	group.PUT("/api-keys/:key_id/plugin-owners", ownerHandler.SetPluginOwners)
 	group.POST("/api-keys/:key_id/revoke", apiKeyHandler.RevokeAPIKey)
 	group.POST("/api-keys/:key_id/rotate", apiKeyHandler.RotateAPIKey)
 	group.DELETE("/api-keys/:key_id", apiKeyHandler.DeleteAPIKey)

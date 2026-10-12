@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -21,6 +23,7 @@ func main() {
 		defaultConfigPath = "etc/config.yaml"
 	}
 	configPath := flag.String("config", defaultConfigPath, "PowerX config path")
+	preserve := flag.Bool("preserve-installed-state", true, "增量更新正式合同，保留现有授权开关和目录状态")
 	flag.Parse()
 
 	cfg, err := config.Load(*configPath)
@@ -39,11 +42,23 @@ func main() {
 	}
 
 	ctx := context.Background()
+	// Publish exact permission metadata alongside the capability catalog. This
+	// does not attach permissions to API keys or change credential grants.
+	var permissionErr error
+	if *preserve {
+		permissionErr = apikeypermissions.EnsureUpgradePermissions(ctx, db)
+	} else {
+		permissionErr = apikeypermissions.EnsureTemplatePermissions(ctx, iamrepo.NewPermissionRepository(db))
+	}
+	if err := permissionErr; err != nil {
+		fatalf("seed platform permission metadata failed: %v", err)
+	}
 	seeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
-		RecordRepo:   caprepo.NewCapabilityRecordRepository(db, nil),
-		RegistryRepo: caprepo.NewCapabilityRegistryRepository(db),
-		TenantRepo:   tenantrepo.NewTenantRepository(db),
-		Logger:       logger.GetGlobalLogger(),
+		PreserveInstalledState: *preserve,
+		RecordRepo:             caprepo.NewCapabilityRecordRepository(db, nil),
+		RegistryRepo:           caprepo.NewCapabilityRegistryRepository(db),
+		TenantRepo:             tenantrepo.NewTenantRepository(db),
+		Logger:                 logger.GetGlobalLogger(),
 	})
 	if err := seeder.Ensure(ctx); err != nil {
 		fatalf("seed platform capabilities failed: %v", err)
@@ -52,6 +67,8 @@ func main() {
 }
 
 func fatalf(format string, args ...any) {
-	logger.ErrorF(context.Background(), format, args...)
+	message := fmt.Sprintf(format, args...)
+	_, _ = fmt.Fprintln(os.Stderr, message)
+	logger.Error(context.Background(), message)
 	os.Exit(1)
 }

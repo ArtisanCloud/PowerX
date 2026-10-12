@@ -3,6 +3,7 @@ package media
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -29,12 +30,17 @@ type MediaAsset struct {
 	SizeBytes int64  `gorm:"column:size_bytes;not null;default:0" json:"size_bytes"`
 	MimeType  string `gorm:"column:mime_type;type:varchar(128);not null;default:''" json:"mime_type"`
 
-	OwnerType string `gorm:"column:owner_type;type:varchar(32);not null;default:'';index:idx_media_asset_owner,priority:2" json:"owner_type"`
-	OwnerID   string `gorm:"column:owner_id;type:varchar(64);not null;default:'';index:idx_media_asset_owner,priority:3" json:"owner_id"`
+	OwnerType        string     `gorm:"column:owner_type;type:varchar(32);not null;default:'';index:idx_media_asset_owner,priority:2" json:"owner_type"`
+	OwnerID          string     `gorm:"column:owner_id;type:varchar(64);not null;default:'';index:idx_media_asset_owner,priority:3" json:"owner_id"`
+	OwnerSubjectUUID *uuid.UUID `gorm:"column:owner_subject_uuid;type:uuid;index:idx_media_asset_owner_subject" json:"owner_subject_uuid,omitempty"`
 
-	BusinessStatus string         `gorm:"column:business_status;type:varchar(32);not null;default:'draft';index:idx_media_asset_tenant_status,priority:2" json:"business_status"`
-	Tags           datatypes.JSON `gorm:"column:tags;type:jsonb;not null;default:'[]'::jsonb;index:idx_media_asset_tags_gin,type:gin" json:"tags,omitempty"`
-	Meta           datatypes.JSON `gorm:"column:meta;type:jsonb;not null;default:'{}'::jsonb" json:"meta,omitempty"`
+	BusinessStatus      string         `gorm:"column:business_status;type:varchar(32);not null;default:'draft';index:idx_media_asset_tenant_status,priority:2" json:"business_status"`
+	UploadState         string         `gorm:"column:upload_state;type:varchar(32);not null;default:'ready';index:idx_media_asset_tenant_upload_state" json:"upload_state"`
+	ExpectedChecksum    string         `gorm:"column:expected_checksum;type:varchar(128);not null;default:''" json:"-"`
+	UploadTicketVersion uint64         `gorm:"column:upload_ticket_version;not null;default:1" json:"-"`
+	UploadExpiresAt     *time.Time     `gorm:"column:upload_expires_at;index" json:"-"`
+	Tags                datatypes.JSON `gorm:"column:tags;type:jsonb;not null;default:'[]'::jsonb;index:idx_media_asset_tags_gin,type:gin" json:"tags,omitempty"`
+	Meta                datatypes.JSON `gorm:"column:meta;type:jsonb;not null;default:'{}'::jsonb" json:"meta,omitempty"`
 
 	LastPresignedAt         *time.Time `gorm:"column:last_presigned_at" json:"last_presigned_at,omitempty"`
 	LastPresignedTTLSeconds int32      `gorm:"column:last_presigned_ttl_seconds;not null;default:43200" json:"last_presigned_ttl_seconds"`

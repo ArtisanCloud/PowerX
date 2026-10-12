@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -31,11 +33,13 @@ var (
 	ErrModelNotConfigured  = errors.New("model not configured for tenant")
 	ErrPromptRequired      = errors.New("inputs must include text/content")
 	ErrProviderUnsupported = errors.New("provider driver not implemented")
+	ErrInvalidLLMParams    = errors.New("invalid llm params")
 )
 
 type Service struct {
 	settings *agentsettings.AgentSettingService
 	profiles *repoai.AIModelProfileRepository
+	catalog  *catalog.Registry
 }
 
 type LLMInvokeResult struct {
@@ -90,13 +94,19 @@ func (s *Service) LLMInvoke(
 		return nil, ErrPromptRequired
 	}
 	temperature := floatFromAny(defaults["temperature"])
+	requestTemperature, temperatureSet, err := parseRequestTemperature(params)
+	if err != nil {
+		return nil, err
+	}
+	seed, seedSet, err := parseOllamaSeed(provider, params)
+	if err != nil {
+		return nil, err
+	}
 	// 不再在未传参时注入默认 max_tokens，交给模型提供方自身默认值处理。
 	maxTokens := 0
 	if params != nil {
-		if v, ok := params["temperature"]; ok {
-			if t := floatFromAny(v); t > 0 {
-				temperature = t
-			}
+		if temperatureSet {
+			temperature = requestTemperature
 		}
 		if v, ok := params["max_tokens"]; ok {
 			if mt := intFromAny(v); mt > 0 {
@@ -118,13 +128,27 @@ func (s *Service) LLMInvoke(
 	if strings.TrimSpace(systemPrompt) != "" {
 		mc.SystemPrompt = strings.TrimSpace(systemPrompt)
 	}
-	if temperature > 0 {
+	if temperatureSet || temperature > 0 {
 		mc.Temperature = temperature
+		mc.TemperatureSet = temperatureSet
 	}
 	if maxTokens > 0 {
 		mc.MaxTokens = maxTokens
 	}
 	applyLLMRuntimeExtras(provider, mc, defaults, params)
+	if seedSet {
+		if mc.Extra == nil {
+			mc.Extra = map[string]any{}
+		}
+		mc.Extra["seed"] = seed
+	}
+	applyResponseSchema(mc, params)
+	if err := applyResponseFormat(mc, params); err != nil {
+		return nil, err
+	}
+	if len(mc.ResponseSchema) > 0 && !llmfactory.SupportsResponseSchema(provider) {
+		return nil, errors.New("ai.response_schema_provider_unsupported")
+	}
 	applyReasoningConfig(provider, mc, params)
 
 	invokeResult, err := llmfactory.Invoke(ctx, mc, prompt)
@@ -176,15 +200,21 @@ func (s *Service) LLMStream(
 	}
 
 	temperature := floatFromAny(defaults["temperature"])
+	requestTemperature, temperatureSet, err := parseRequestTemperature(params)
+	if err != nil {
+		return "", err
+	}
+	seed, seedSet, err := parseOllamaSeed(provider, params)
+	if err != nil {
+		return "", err
+	}
 	maxTokens := intFromAny(defaults["maxTokens"])
 	if maxTokens == 0 {
 		maxTokens = intFromAny(defaults["max_tokens"])
 	}
 	if params != nil {
-		if v, ok := params["temperature"]; ok {
-			if t := floatFromAny(v); t > 0 {
-				temperature = t
-			}
+		if temperatureSet {
+			temperature = requestTemperature
 		}
 		if v, ok := params["max_tokens"]; ok {
 			if mt := intFromAny(v); mt > 0 {
@@ -207,15 +237,29 @@ func (s *Service) LLMStream(
 	if strings.TrimSpace(systemPrompt) != "" {
 		mc.SystemPrompt = strings.TrimSpace(systemPrompt)
 	}
-	if temperature > 0 {
+	if temperatureSet || temperature > 0 {
 		mc.Temperature = temperature
+		mc.TemperatureSet = temperatureSet
 	}
 	if maxTokens > 0 {
 		mc.MaxTokens = maxTokens
 	}
 	applyLLMRuntimeExtras(provider, mc, defaults, params)
+	if seedSet {
+		if mc.Extra == nil {
+			mc.Extra = map[string]any{}
+		}
+		mc.Extra["seed"] = seed
+	}
 	applyReasoningConfig(provider, mc, params)
 
+	applyResponseSchema(mc, params)
+	if err := applyResponseFormat(mc, params); err != nil {
+		return "", err
+	}
+	if len(mc.ResponseSchema) > 0 && !llmfactory.SupportsResponseSchema(provider) {
+		return "", errors.New("ai.response_schema_provider_unsupported")
+	}
 	final, err := llmfactory.StreamOrFallback(ctx, mc, prompt, onDelta)
 	if err != nil {
 		return "", err
@@ -256,6 +300,120 @@ func applyLLMRuntimeExtras(provider string, mc *aiconfig.ModelConfig, defaults m
 	if len(mc.Extra) == 0 {
 		mc.Extra = nil
 	}
+}
+
+func parseRequestTemperature(params map[string]interface{}) (float64, bool, error) {
+	value, present := params["temperature"]
+	if !present {
+		return 0, false, nil
+	}
+	var temperature float64
+	switch v := value.(type) {
+	case float64:
+		temperature = v
+	case float32:
+		temperature = float64(v)
+	case int:
+		temperature = float64(v)
+	case int64:
+		temperature = float64(v)
+	case json.Number:
+		parsed, err := v.Float64()
+		if err != nil {
+			return 0, false, fmt.Errorf("%w: temperature must be a finite non-negative number", ErrInvalidLLMParams)
+		}
+		temperature = parsed
+	default:
+		return 0, false, fmt.Errorf("%w: temperature must be a finite non-negative number", ErrInvalidLLMParams)
+	}
+	if math.IsNaN(temperature) || math.IsInf(temperature, 0) || temperature < 0 {
+		return 0, false, fmt.Errorf("%w: temperature must be a finite non-negative number", ErrInvalidLLMParams)
+	}
+	return temperature, true, nil
+}
+
+func parseOllamaSeed(provider string, params map[string]interface{}) (int64, bool, error) {
+	value, present := params["seed"]
+	if !present {
+		return 0, false, nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(provider), "ollama") {
+		return 0, false, fmt.Errorf("%w: seed is supported only for Ollama", ErrInvalidLLMParams)
+	}
+	const maxExactJSONInteger = int64(1<<53 - 1)
+	var seed int64
+	switch v := value.(type) {
+	case int:
+		seed = int64(v)
+	case int64:
+		seed = v
+	case json.Number:
+		parsed, err := v.Int64()
+		if err != nil {
+			return 0, false, fmt.Errorf("%w: seed must be an integer", ErrInvalidLLMParams)
+		}
+		seed = parsed
+	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) || math.Trunc(v) != v || math.Abs(v) > float64(maxExactJSONInteger) {
+			return 0, false, fmt.Errorf("%w: seed must be an integer", ErrInvalidLLMParams)
+		}
+		seed = int64(v)
+	default:
+		return 0, false, fmt.Errorf("%w: seed must be an integer", ErrInvalidLLMParams)
+	}
+	if seed < -maxExactJSONInteger || seed > maxExactJSONInteger {
+		return 0, false, fmt.Errorf("%w: seed exceeds the exact JSON integer range", ErrInvalidLLMParams)
+	}
+	return seed, true, nil
+}
+
+// applyResponseSchema accepts a typed caller's JSON Schema. It is deliberately
+// separate from provider options: response format is a top-level provider
+// contract, never an Ollama generation option.
+func applyResponseSchema(mc *aiconfig.ModelConfig, params map[string]interface{}) {
+	if mc == nil || len(params) == 0 {
+		return
+	}
+	raw, ok := params["response_schema"]
+	if !ok || raw == nil {
+		return
+	}
+	schema, ok := raw.(map[string]any)
+	if !ok || len(schema) == 0 {
+		return
+	}
+	mc.ResponseSchema = cloneResponseSchema(schema)
+}
+
+// JSON Object is an explicit provider output mode, not a downgrade from a
+// requested JSON Schema. The caller must still validate its business schema.
+func applyResponseFormat(mc *aiconfig.ModelConfig, params map[string]interface{}) error {
+	raw, present := params["response_format"]
+	if !present {
+		return nil
+	}
+	format, ok := raw.(map[string]any)
+	_, hasSchema := params["response_schema"]
+	if !ok || len(format) != 1 || format["type"] != "json_object" || mc == nil || len(mc.ResponseSchema) > 0 || hasSchema {
+		return fmt.Errorf("%w: AI_RESPONSE_FORMAT_INVALID", ErrInvalidLLMParams)
+	}
+	if !llmfactory.SupportsResponseSchema(mc.Provider) {
+		return fmt.Errorf("%w: AI_RESPONSE_FORMAT_UNSUPPORTED", ErrInvalidLLMParams)
+	}
+	mc.ResponseFormat = "json_object"
+	return nil
+}
+
+func cloneResponseSchema(schema map[string]any) map[string]any {
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return nil
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil
+	}
+	return cloned
 }
 
 func firstPositiveInt(values map[string]interface{}, keys ...string) int {
@@ -876,6 +1034,8 @@ type ContentItem struct {
 
 type LLMModelItem struct {
 	ModelKey          string         `json:"model_key"`
+	Modality          string         `json:"modality"`
+	Capabilities      []string       `json:"capabilities"`
 	Provider          string         `json:"provider"`
 	Model             string         `json:"model"`
 	Label             string         `json:"label,omitempty"`
@@ -894,9 +1054,12 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	if tenantUUID == "" {
 		return nil, errors.New("tenant uuid required")
 	}
-	providerFilter = strings.ToLower(strings.TrimSpace(providerFilter))
 	tenantPtr := &tenantUUID
-	reg := catalog.GetGlobalAIRegister()
+	reg := s.catalog
+	if reg == nil {
+		reg = catalog.GetGlobalAIRegister()
+	}
+	providerFilter = normalizeProviderKey(reg, providerFilter)
 
 	creds, credErr := s.settings.ListCredentials(ctx, env, tenantPtr)
 	credentialProviders := map[string]struct{}{}
@@ -929,25 +1092,31 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	merged := make(map[string]mergedProfile)
 	for i := range globalProfiles {
 		p := toProfileView(globalProfiles[i])
-		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+		if providerFilter != "" && normalizeProviderKey(reg, p.Provider) != providerFilter {
 			continue
 		}
-		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "global_profile"}
+		merged[normalizeProviderKey(reg, p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "global_profile"}
 	}
 	for i := range tenantProfiles {
 		p := toProfileView(tenantProfiles[i])
-		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+		if providerFilter != "" && normalizeProviderKey(reg, p.Provider) != providerFilter {
 			continue
 		}
-		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "tenant_profile"}
+		merged[normalizeProviderKey(reg, p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "tenant_profile"}
 	}
 
 	items := make([]LLMModelItem, 0, len(merged))
 	for _, v := range merged {
+		capabilities, text := textModelProfileCapabilities(reg, v.profile)
+		if !text {
+			continue
+		}
 		providerKey := normalizeProviderKey(reg, v.profile.Provider)
 		_, credentialConfigured := credentialProviders[providerKey]
 		items = append(items, LLMModelItem{
 			ModelKey:          v.profile.Provider + "/" + v.profile.Model,
+			Modality:          string(contract.ModLLM),
+			Capabilities:      capabilities,
 			Provider:          v.profile.Provider,
 			Model:             v.profile.Model,
 			Label:             v.profile.Label,
@@ -962,7 +1131,7 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	if credErr == nil {
 		seen := make(map[string]struct{}, len(items))
 		for i := range items {
-			seen[strings.ToLower(items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
+			seen[normalizeProviderKey(reg, items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
 		}
 		for i := range creds {
 			providerKey := normalizeProviderKey(reg, creds[i].Provider)
@@ -976,22 +1145,21 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 			if providerDisplay == "" {
 				providerDisplay = providerKey
 			}
-			models, listErr := reg.Models("llm", providerKey)
-			if listErr != nil {
-				continue
-			}
+			models := textCatalogModels(reg, providerKey)
 			for _, m := range models {
 				model := strings.TrimSpace(m.ID)
 				if model == "" {
 					continue
 				}
-				key := strings.ToLower(providerDisplay) + "/" + strings.ToLower(model)
+				key := providerKey + "/" + strings.ToLower(model)
 				if _, exists := seen[key]; exists {
 					continue
 				}
 				seen[key] = struct{}{}
 				items = append(items, LLMModelItem{
 					ModelKey:          providerDisplay + "/" + model,
+					Modality:          string(contract.ModLLM),
+					Capabilities:      append([]string(nil), m.Capabilities...),
 					Provider:          providerDisplay,
 					Model:             model,
 					Label:             strings.TrimSpace(m.Label),
@@ -1033,6 +1201,7 @@ func normalizeProviderKey(reg *catalog.Registry, provider string) string {
 }
 
 type dbModelProfileView struct {
+	Modality string
 	Provider string
 	Model    string
 	Label    string
@@ -1042,6 +1211,7 @@ type dbModelProfileView struct {
 
 func toProfileView(in dbmodel.AIModelProfile) dbModelProfileView {
 	return dbModelProfileView{
+		Modality: in.Modality,
 		Provider: strings.TrimSpace(in.Provider),
 		Model:    strings.TrimSpace(in.Model),
 		Label:    strings.TrimSpace(in.Label),

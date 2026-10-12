@@ -1,0 +1,309 @@
+{
+  "$id": "powerx.agent.response/v4",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "outcome": {
+      "enum": [
+        "completed",
+        "needs_action",
+        "blocked",
+        "failed"
+      ]
+    },
+    "presentation": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "computed": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "display_value": {
+                "type": "string"
+              },
+              "ended_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "operands": {
+                "additionalProperties": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "literal": {
+                          "type": "string"
+                        },
+                        "pointer": {
+                          "type": "string"
+                        },
+                        "quote": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "pointer",
+                        "quote",
+                        "literal"
+                      ],
+                      "type": "object"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label",
+                    "value",
+                    "unit",
+                    "scope",
+                    "kind",
+                    "source"
+                  ],
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              "request": {
+                "additionalProperties": false,
+                "properties": {
+                  "bindings": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "compare_to": {
+                    "type": "string"
+                  },
+                  "expression": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "percent": {
+                    "type": "boolean"
+                  },
+                  "precision": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "label",
+                  "expression",
+                  "bindings",
+                  "precision",
+                  "percent",
+                  "compare_to"
+                ],
+                "type": "object"
+              },
+              "revision_uuid": {
+                "type": "string"
+              },
+              "source_digest": {
+                "type": "string"
+              },
+              "started_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "tenant_uuid": {
+                "type": "string"
+              },
+              "tool_key": {
+                "type": "string"
+              },
+              "tool_version": {
+                "type": "string"
+              },
+              "trace_id": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "tool_key",
+              "tool_version",
+              "tenant_uuid",
+              "revision_uuid",
+              "trace_id",
+              "source_digest",
+              "request",
+              "operands",
+              "display_value",
+              "started_at",
+              "ended_at"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "conflicts": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "calculated_value": {
+                "type": "string"
+              },
+              "calculation_key": {
+                "type": "string"
+              },
+              "reported_key": {
+                "type": "string"
+              },
+              "reported_value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "calculation_key",
+              "reported_key",
+              "reported_value",
+              "calculated_value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hypotheses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reported": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              },
+              "source": {
+                "additionalProperties": false,
+                "properties": {
+                  "literal": {
+                    "type": "string"
+                  },
+                  "pointer": {
+                    "type": "string"
+                  },
+                  "quote": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pointer",
+                  "quote",
+                  "literal"
+                ],
+                "type": "object"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "value",
+              "unit",
+              "scope",
+              "kind",
+              "source"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "reported",
+        "computed",
+        "conflicts",
+        "hypotheses",
+        "gaps",
+        "actions"
+      ],
+      "type": "object"
+    },
+    "revision_uuid": {
+      "type": "string"
+    },
+    "schema": {
+      "const": "powerx.agent.response/v4"
+    },
+    "source_digest": {
+      "type": "string"
+    },
+    "tenant_uuid": {
+      "type": "string"
+    },
+    "trace_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "kind",
+    "outcome",
+    "presentation",
+    "source_digest",
+    "tenant_uuid",
+    "revision_uuid",
+    "trace_id"
+  ],
+  "type": "object"
+}

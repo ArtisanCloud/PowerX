@@ -143,8 +143,7 @@ message ImportOfflinePackageResponse {
 }
 
 message StartLocalInstallRequest {
-  reserved 1;
-  string developer_member_uuid = 2;
+  reserved 1, 2;
   string artifact_uri = 3;
   repeated string feature_flags = 4;
   bool reset_cache = 5;
@@ -158,13 +157,15 @@ message GetLocalInstallSessionRequest {
 message LocalInstallSession {
   string session_id = 1;
   string tenant_uuid = 2;
-  string developer_member_uuid = 3;
+  reserved 3;
   string artifact_uri = 4;
   repeated string feature_flags = 5;
   string status = 6;
   string log_url = 7;
   string created_at = 8;
   string expires_at = 9;
+  string plugin_id = 10;
+  string service_actor = 11;
 }
 
 message HotReloadChunk {

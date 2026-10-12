@@ -156,7 +156,7 @@ func (s *store) Query(ctx context.Context, req vectorstore.QueryRequest) (vector
 	}
 	if req.MinScore > 0 {
 		sb.WriteString(fmt.Sprintf(" AND embedding <=> $2 <= $%d", argIndex))
-		args = append(args, req.MinScore)
+		args = append(args, 1-req.MinScore)
 		argIndex++
 	}
 	sb.WriteString(fmt.Sprintf(" ORDER BY embedding <=> $2 ASC LIMIT $%d", argIndex))
@@ -176,7 +176,7 @@ func (s *store) Query(ctx context.Context, req vectorstore.QueryRequest) (vector
 		if err := rows.Scan(&chunk, &metaRaw, &score); err != nil {
 			return vectorstore.QueryResponse{}, err
 		}
-		match := vectorstore.QueryMatch{ChunkID: chunk, Score: score}
+		match := vectorstore.QueryMatch{ChunkID: chunk, Score: 1 - score, ScoreType: "cosine_similarity", RawScore: score, RawScoreType: "cosine_distance"}
 		if len(metaRaw) > 0 {
 			_ = json.Unmarshal(metaRaw, &match.Metadata)
 		}

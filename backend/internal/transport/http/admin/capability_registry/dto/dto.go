@@ -33,6 +33,20 @@ type CapabilityRecordDTO struct {
 	PublishedAt       *string               `json:"published_at,omitempty"`
 }
 
+// PlatformCatalogEntryDTO is deliberately limited to configuration discovery
+// metadata. In particular, it does not disclose protocol bindings and cannot
+// be used as an invocation contract.
+type PlatformCatalogEntryDTO struct {
+	CapabilityID string   `json:"capability_id"`
+	Title        string   `json:"title"`
+	Description  string   `json:"description,omitempty"`
+	Source       string   `json:"source"`
+	Categories   []string `json:"categories,omitempty"`
+	Intents      []string `json:"intents,omitempty"`
+	ToolScope    []string `json:"tool_scope,omitempty"`
+	Status       string   `json:"status"`
+}
+
 // CapabilityPolicyDTO describes policy preferences per capability.
 type CapabilityPolicyDTO struct {
 	Prefer             string   `json:"prefer,omitempty"`
@@ -129,6 +143,22 @@ func CapabilityViewToDTO(view capabilitycatalog.CapabilityRecordView, includeWor
 		}
 	}
 	return dto
+}
+
+// CapabilityViewToPlatformCatalogEntry converts a registry record to the
+// safe discovery projection used by the tenant platform catalog.
+func CapabilityViewToPlatformCatalogEntry(view capabilitycatalog.CapabilityRecordView) PlatformCatalogEntryDTO {
+	record := view.Record
+	return PlatformCatalogEntryDTO{
+		CapabilityID: record.CapabilityID,
+		Title:        record.Title,
+		Description:  record.Description,
+		Source:       capabilitycatalog.CapabilitySource(record),
+		Categories:   decodeStringArray(record.Categories),
+		Intents:      decodeStringArray(record.Intents),
+		ToolScope:    decodeStringArray(record.ToolScope),
+		Status:       record.Status,
+	}
 }
 
 // WorkflowTemplateApprovalDTO 描述模板审批记录。

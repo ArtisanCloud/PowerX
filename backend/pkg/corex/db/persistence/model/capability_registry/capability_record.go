@@ -16,7 +16,7 @@ type CapabilityRecord struct {
 
 	UUID uuid.UUID `gorm:"type:uuid;column:uuid;uniqueIndex;index" json:"uuid"`
 
-	CapabilityID  string         `gorm:"column:capability_id;type:varchar(128);not null;uniqueIndex:uk_capability_record_capability" json:"capability_id"`
+	CapabilityID  string         `gorm:"column:capability_id;type:varchar(256);not null;uniqueIndex:uk_capability_record_capability" json:"capability_id"`
 	PluginID      string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_record_plugin" json:"plugin_id"`
 	PluginVersion string         `gorm:"column:plugin_version;type:varchar(64);not null" json:"plugin_version"`
 	Title         string         `gorm:"column:title;type:varchar(128);not null" json:"title"`
@@ -52,20 +52,20 @@ func (r *CapabilityRecord) BeforeCreate(tx *gorm.DB) error {
 
 // ProtocolBinding 描述能力在各协议下的接入详情。
 type ProtocolBinding struct {
-	Channel      string `json:"channel"`
-	Endpoint     string `json:"endpoint,omitempty"`
-	SchemaRef    string `json:"schema_ref,omitempty"`
-	Method       string `json:"method,omitempty"`
-	RPC          string `json:"rpc,omitempty"`
-	ToolRef      string `json:"tool_ref,omitempty"`
-	ToolScope    string `json:"tool_scope,omitempty"`
-	AuthType     string `json:"auth_type,omitempty"`
-	ActorContext string `json:"actor_context,omitempty"`
+	Channel       string `json:"channel"`
+	Endpoint      string `json:"endpoint,omitempty"`
+	SchemaRef     string `json:"schema_ref,omitempty"`
+	Method        string `json:"method,omitempty"`
+	RPC           string `json:"rpc,omitempty"`
+	ToolRef       string `json:"tool_ref,omitempty"`
+	ToolScope     string `json:"tool_scope,omitempty"`
+	AuthType      string `json:"auth_type,omitempty"`
+	ActorContext  string `json:"actor_context,omitempty"`
 	ResourceScope string `json:"resource_scope,omitempty"`
-	STSDirect    bool   `json:"sts_direct,omitempty"`
-	HealthState  string `json:"health_state,omitempty"`
-	HealthReason string `json:"health_reason,omitempty"`
-	LatencyP95MS int    `json:"latency_p95_ms,omitempty"`
-	ErrorRate    int    `json:"error_rate,omitempty"`
-	LastChecked  string `json:"last_checked_at,omitempty"`
+	STSDirect     bool   `json:"sts_direct,omitempty"`
+	HealthState   string `json:"health_state,omitempty"`
+	HealthReason  string `json:"health_reason,omitempty"`
+	LatencyP95MS  int    `json:"latency_p95_ms,omitempty"`
+	ErrorRate     int    `json:"error_rate,omitempty"`
+	LastChecked   string `json:"last_checked_at,omitempty"`
 }

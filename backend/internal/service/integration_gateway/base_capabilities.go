@@ -33,24 +33,26 @@ const (
 
 // BaseCapabilitySeederOptions 配置平台能力 Seeder。
 type BaseCapabilitySeederOptions struct {
-	RecordRepo    *repo.CapabilityRecordRepository
-	RegistryRepo  *repo.CapabilityRegistryRepository
-	TenantRepo    *tenantRepo.TenantRepository
-	Logger        *pxlog.Logger
-	Clock         func() time.Time
-	PluginID      string
-	PluginVersion string
+	RecordRepo             *repo.CapabilityRecordRepository
+	RegistryRepo           *repo.CapabilityRegistryRepository
+	TenantRepo             *tenantRepo.TenantRepository
+	Logger                 *pxlog.Logger
+	Clock                  func() time.Time
+	PluginID               string
+	PluginVersion          string
+	PreserveInstalledState bool
 }
 
 // BaseCapabilitySeeder 负责在 Capability Registry 中写入 CoreX 内置能力。
 type BaseCapabilitySeeder struct {
-	repo          *repo.CapabilityRecordRepository
-	registry      *repo.CapabilityRegistryRepository
-	tenantRepo    *tenantRepo.TenantRepository
-	logger        *pxlog.Logger
-	clock         func() time.Time
-	pluginID      string
-	pluginVersion string
+	repo                   *repo.CapabilityRecordRepository
+	registry               *repo.CapabilityRegistryRepository
+	tenantRepo             *tenantRepo.TenantRepository
+	logger                 *pxlog.Logger
+	clock                  func() time.Time
+	pluginID               string
+	pluginVersion          string
+	preserveInstalledState bool
 }
 
 // NewBaseCapabilitySeeder 构造 Seeder。
@@ -71,13 +73,14 @@ func NewBaseCapabilitySeeder(opts BaseCapabilitySeederOptions) *BaseCapabilitySe
 		pluginVersion = PlatformPluginVersion
 	}
 	return &BaseCapabilitySeeder{
-		repo:          opts.RecordRepo,
-		registry:      opts.RegistryRepo,
-		tenantRepo:    opts.TenantRepo,
-		logger:        opts.Logger,
-		clock:         clock,
-		pluginID:      pluginID,
-		pluginVersion: pluginVersion,
+		repo:                   opts.RecordRepo,
+		registry:               opts.RegistryRepo,
+		tenantRepo:             opts.TenantRepo,
+		logger:                 opts.Logger,
+		clock:                  clock,
+		pluginID:               pluginID,
+		pluginVersion:          pluginVersion,
+		preserveInstalledState: opts.PreserveInstalledState,
 	}
 }
 
@@ -90,6 +93,20 @@ func (s *BaseCapabilitySeeder) Ensure(ctx context.Context) error {
 	defs := platformCapabilityDefinitions()
 	for _, def := range defs {
 		record := def.toRecord(s.pluginID, s.pluginVersion, now)
+		if s.preserveInstalledState {
+			old, err := s.repo.GetByCapabilityID(ctx, record.CapabilityID)
+			if err != nil && !errors.Is(err, repo.ErrCapabilityRecordNotFound) {
+				return err
+			}
+			if old != nil {
+				if old.PluginID != s.pluginID {
+					return fmt.Errorf("UPGRADE_CAPABILITY_SOURCE_CONFLICT")
+				}
+				record.PowerModel = old.PowerModel
+				record.UUID, record.Status, record.CreatedBy = old.UUID, old.Status, old.CreatedBy
+				record.WorkflowTemplateRefs, record.CompositeGraphs = old.WorkflowTemplateRefs, old.CompositeGraphs
+			}
+		}
 		if _, err := s.repo.Upsert(ctx, record); err != nil {
 			return fmt.Errorf("seed capability %s failed: %w", def.CapabilityID, err)
 		}
@@ -122,8 +139,21 @@ type platformCapabilityDefinition struct {
 }
 
 type capabilityPolicy struct {
-	Prefer   string   `json:"prefer,omitempty"`
-	Fallback []string `json:"fallback,omitempty"`
+	Prefer          string                    `json:"prefer,omitempty" yaml:"prefer,omitempty"`
+	Fallback        []string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
+	RuntimeContract capabilityRuntimeContract `json:"runtime_contract,omitempty" yaml:"runtime_contract,omitempty"`
+}
+
+// capabilityRuntimeContract is published with a capability record and governs
+// Agent recovery. Alternatives are stable capability IDs; UUID resolution is
+// deferred to the frozen per-run snapshot.
+type capabilityRuntimeContract struct {
+	VerificationRequired       bool     `json:"verification_required,omitempty" yaml:"verification_required,omitempty"`
+	SideEffectEvidenceSchema   string   `json:"side_effect_evidence_schema,omitempty" yaml:"side_effect_evidence_schema,omitempty"`
+	BusinessCompletionRequired bool     `json:"business_completion_required,omitempty" yaml:"business_completion_required,omitempty"`
+	RetryMaxAttempts           int      `json:"retry_max_attempts,omitempty" yaml:"retry_max_attempts,omitempty"`
+	AlternativeCapabilityIDs   []string `json:"alternative_capability_ids,omitempty" yaml:"alternative_capability_ids,omitempty"`
+	HumanApprovalRequired      bool     `json:"human_approval_required,omitempty" yaml:"human_approval_required,omitempty"`
 }
 
 type capabilityAnnotations struct {
@@ -247,159 +277,6 @@ func platformCapabilityDefinitions() []platformCapabilityDefinition {
 
 func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 	return []platformCapabilityDefinition{
-		{
-			CapabilityID: "com.corex.media.assets.read",
-			Title:        "Media Assets Catalog",
-			Description:  "列出与查询媒资资产，支持多存储驱动筛选。",
-			Module:       "media",
-			Categories:   []string{"media", "storage"},
-			Intents:      []string{"media.assets.read"},
-			ToolScopes:   []string{"media.assets"},
-			Policy: capabilityPolicy{
-				Prefer:   "rest",
-				Fallback: []string{"grpc"},
-			},
-			Docs: []string{
-				"specs/001-media-storage/contracts/http-openapi.yaml",
-				"backend/api/grpc/contracts/powerx/media/v1/media_asset.proto",
-			},
-			Protocols: []models.ProtocolBinding{
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets",
-					Method:    "GET",
-					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/get",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}",
-					Method:    "GET",
-					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/get",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "grpc",
-					Endpoint:  "powerx.media.v1.MediaAssetAdminService",
-					RPC:       "ListMediaAssets",
-					SchemaRef: "backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "grpc",
-					Endpoint:  "powerx.media.v1.MediaAssetAdminService",
-					RPC:       "GetMediaAsset",
-					SchemaRef: "backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-			},
-		},
-		{
-			CapabilityID: "com.corex.media.assets.manage",
-			Title:        "Media Assets Management",
-			Description:  "创建、删除媒资，以及生成上传/下载预签名链接。",
-			Module:       "media",
-			Categories:   []string{"media", "storage"},
-			Intents:      []string{"media.assets.write"},
-			ToolScopes:   []string{"media.assets"},
-			Policy: capabilityPolicy{
-				Prefer:   "grpc",
-				Fallback: []string{"rest"},
-			},
-			Docs: []string{
-				"specs/001-media-storage/contracts/http-openapi.yaml",
-				"backend/api/grpc/contracts/powerx/media/v1/media_asset.proto",
-			},
-			Protocols: []models.ProtocolBinding{
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets",
-					Method:    "POST",
-					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/post",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}",
-					Method:    "DELETE",
-					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/delete",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}",
-					Method:    "PUT",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}/presign",
-					Method:    "POST",
-					SchemaRef: "specs/001-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}",
-					Method:    "POST",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}",
-					Method:    "PUT",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}/presign",
-					Method:    "POST",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "rest",
-					Endpoint:  "/api/v1/media/assets/{uuid}/variants/{variant}/resource",
-					Method:    "GET",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "grpc",
-					Endpoint:  "powerx.media.v1.MediaAssetAdminService",
-					RPC:       "CreateMediaAsset",
-					SchemaRef: "backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "grpc",
-					Endpoint:  "powerx.media.v1.MediaAssetAdminService",
-					RPC:       "DeleteMediaAsset",
-					SchemaRef: "backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-				{
-					Channel:   "grpc",
-					Endpoint:  "powerx.media.v1.MediaAssetAdminService",
-					RPC:       "PresignMediaAsset",
-					SchemaRef: "backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService",
-					AuthType:  "tenant_jwt",
-					ToolScope: "media.assets",
-				},
-			},
-		},
 		{
 			CapabilityID: "com.corex.eventfabric.publish",
 			Title:        "Event Fabric Publish & Subscribe",
@@ -1141,6 +1018,10 @@ func makeAdapterID(capabilityID, channel string, idx int) string {
 	}
 	if idx > 0 {
 		prefix = fmt.Sprintf("%s-%d", prefix, idx)
+	}
+	if characters := []rune(prefix); len(characters) > 128 {
+		sum := sha256.Sum256([]byte(prefix))
+		prefix = string(characters[:111]) + "-" + fmt.Sprintf("%x", sum[:8])
 	}
 	return prefix
 }

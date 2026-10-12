@@ -316,6 +316,41 @@ func TestPluginSystemMenuChildrenUseDistinctPaths(t *testing.T) {
 	}
 }
 
+func TestPluginMarketplaceHasOwnMenuCategory(t *testing.T) {
+	var plugins admdto.AdminMenuItem
+	for _, item := range BuildSystemMenus() {
+		if item.Key == plugin_mgr.KeyPlugins {
+			plugins = item
+			break
+		}
+	}
+	if plugins.Key != plugin_mgr.KeyPlugins {
+		t.Fatal("plugin marketplace system menu is missing")
+	}
+	settings := admdto.AdminMenuItem{Key: plugin_mgr.KeySettings, Origin: plugin_mgr.OriginSystem, Visible: true}
+	categories := groupAsCategories([]admdto.AdminMenuItem{plugins, settings}, nil, []string{"zh-CN"})
+	var marketCount, settingsCount int
+	for _, category := range categories {
+		for _, child := range category.Children {
+			if child.Key != plugin_mgr.KeyPlugins {
+				continue
+			}
+			switch category.ID {
+			case "cat:plugin_marketplace":
+				marketCount++
+				if category.Title != "menu.pluginMarketplace" || len(child.Children) != len(plugins.Children) {
+					t.Fatalf("unexpected plugin marketplace category: %+v", category)
+				}
+			case plugin_mgr.KeySettings:
+				settingsCount++
+			}
+		}
+	}
+	if marketCount != 1 || settingsCount != 0 {
+		t.Fatalf("plugin marketplace category missing or duplicated: market=%d settings=%d", marketCount, settingsCount)
+	}
+}
+
 func TestAgentSystemMenuContainsWorkspaceChildren(t *testing.T) {
 	want := map[plugin_mgr.MenuKey]string{
 		"agent_chat":       "/agent/sessions",
@@ -340,6 +375,37 @@ func TestAgentSystemMenuContainsWorkspaceChildren(t *testing.T) {
 			t.Fatalf("agent child %s path mismatch: got %q want %q", key, got[key], path)
 		}
 	}
+}
+
+func TestSystemMenuContainsCustomerMasterData(t *testing.T) {
+	for _, item := range BuildSystemMenus() {
+		if item.Key != plugin_mgr.MenuKey("customer_master_data") {
+			continue
+		}
+		if item.URL != "/customers" {
+			t.Fatalf("unexpected customer master-data path: %q", item.URL)
+		}
+		if item.Title != "menu.customers" {
+			t.Fatalf("unexpected customer master-data title: %q", item.Title)
+		}
+		return
+	}
+	t.Fatal("customer master-data menu is missing")
+}
+
+func TestCustomerMasterDataIsGroupedAsBusinessOperations(t *testing.T) {
+	menus := []admdto.AdminMenuItem{{Key: "customer_master_data", Origin: plugin_mgr.OriginSystem, URL: "/customers"}}
+	categories := groupAsCategories(menus, nil, []string{"zh-CN"})
+	for _, category := range categories {
+		if category.ID != plugin_mgr.MenuKey("cat:business_operations") {
+			continue
+		}
+		if category.Title != "menu.section.businessOperations" || len(category.Children) != 1 || category.Children[0].Key != "customer_master_data" {
+			t.Fatalf("unexpected business-operations category: %+v", category)
+		}
+		return
+	}
+	t.Fatal("business-operations category is missing")
 }
 
 func TestSettingsSystemMenuContainsGovernanceEntries(t *testing.T) {

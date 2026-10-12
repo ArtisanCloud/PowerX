@@ -266,6 +266,16 @@ func (r *AssetRepository) FindVariant(ctx context.Context, tenantUUID, assetUUID
 	return &item, nil
 }
 
+// FindVariantByUUID reads an addressable variant without relying on its mutable name.
+func (r *AssetRepository) FindVariantByUUID(ctx context.Context, tenantUUID, variantUUID string) (*mediamodel.MediaAssetVariant, error) {
+	var item mediamodel.MediaAssetVariant
+	err := r.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(tenantUUID), strings.TrimSpace(variantUUID)).First(&item).Error
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 // FindVariantByStorageKey 按驱动与存储键读取媒体资源版本。
 func (r *AssetRepository) FindVariantByStorageKey(ctx context.Context, driver, storageKey string) (*mediamodel.MediaAssetVariant, error) {
 	if driver == "" || storageKey == "" {

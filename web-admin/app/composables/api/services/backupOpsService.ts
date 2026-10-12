@@ -6,6 +6,8 @@ export interface BackupPolicy {
   schedule?: string;
   interval_hours: number;
   retention_count: number;
+ retention_days: number;
+ retention_mode: "count" | "age_and_count";
   timezone: string;
   drill_enabled: boolean;
   drill_interval_days: number;
@@ -29,6 +31,7 @@ export interface BackupJob {
   storage_uri?: string;
   size_bytes?: number;
   checksum?: string;
+ protected?: boolean;
 }
 
 export interface RestoreDrillRecord {
@@ -86,6 +89,20 @@ export interface BackupOverview {
   jobs_failed_24h: number;
   alerts_high_unacked: number;
   last_success_at?: string;
+ runtime?: BackupRuntimeSettings;
+}
+
+export interface BackupRuntimeSettings {
+ source_host: string;
+ source_port: number;
+ source_database: string;
+ artifact_directory: string;
+ path_template: string;
+ format: string;
+ scope: string;
+ restore_mode: string;
+ ready: boolean;
+ problems: string[];
 }
 
 export interface BackupTargetTestResponse {
@@ -136,6 +153,8 @@ export const useBackupOpsService = () => {
       schedule?: string;
       interval_hours?: number;
       retention_count?: number;
+ retention_days?: number;
+ retention_mode?: "count" | "age_and_count";
       timezone?: string;
       drill_enabled?: boolean;
       drill_interval_days?: number;
@@ -153,6 +172,8 @@ export const useBackupOpsService = () => {
       schedule?: string;
       interval_hours?: number;
       retention_count?: number;
+ retention_days?: number;
+ retention_mode?: "count" | "age_and_count";
       timezone?: string;
       drill_enabled?: boolean;
       drill_interval_days?: number;
@@ -208,7 +229,10 @@ export const useBackupOpsService = () => {
       return data.job;
     },
 
-    async triggerCleanup(): Promise<void> {
+    async setJobProtected(jobId: string | number, value: boolean): Promise<void> {
+ await api.patch(`${adminBase}/jobs/${jobId}/protection`, { protected: value });
+ },
+ async triggerCleanup(): Promise<void> {
       await api.post(`${adminBase}/cleanup`, {});
     },
 
@@ -301,8 +325,8 @@ export const useBackupOpsService = () => {
 
     async getOverview(): Promise<BackupOverview> {
       const resp = await api.get(`/admin/monitor/backup/overview`);
-      const data = unwrap<{ overview: BackupOverview }>(resp);
-      return data.overview;
+      const data = unwrap<{ overview: BackupOverview; runtime: BackupRuntimeSettings }>(resp);
+      return { ...data.overview, runtime: data.runtime };
     },
   };
 };

@@ -33,6 +33,7 @@
 - [systemd 生产部署方案](./systemd.md)
 - [Nginx 同域反代方案](./nginx.md)
 - [插件安装与平滑升级 SOP](./plugin-upgrade-sop.md)
+- [PowerX 已安装实例升级计划（增量迁移与发布合同，待实施）](./powerx-system-upgrade.md)
 - [插件数据库部署环境隔离计划](./plugin-database-isolation.md)
 - [上线验收与演练清单](./checklist.md)
 - [Docker 镜像存储策略（独立讨论）](./image-registry-strategy.md)
@@ -90,7 +91,7 @@
 ### 5.2 环境变量（建议放 EnvironmentFile）
 
 - 服务：`CORE_X_SERVER_PORT`、`CORE_X_SERVER_MODE`
-- 鉴权：`CORE_X_AUTH_JWT_SECRET`（生产必须强随机）
+- 鉴权：`POWERX_AUTH_JWT_SECRET`（生产必须强随机）
 - 数据库：`CORE_X_DB_HOST/PORT/USERNAME/PASSWORD/DATABASE/SSL_MODE`
 - Redis：`CORE_X_EVENT_BUS_REDIS_ADDR`、`CORE_X_EVENT_FABRIC_REDIS_ADDR`
 - 存储：`CORE_X_STORAGE_DEFAULT_DRIVER`、`CORE_X_STORAGE_S3_*`
@@ -98,7 +99,8 @@
 
 ## 6. 统一发布策略
 
-- 应用发布：新版本部署 -> 健康检查 -> 切流 -> 保留旧版本用于回滚
+- 已安装应用升级：成对镜像/来源与迁移预检查 -> 备份与维护状态 -> 显式增量迁移 -> 配置/账号/文件/插件/新功能验收 -> 切流。执行合同及交付状态见[系统升级计划](./powerx-system-upgrade.md)。
+- 回滚按发布声明区分直接回退镜像和恢复数据库/配置/文件；没有实际验证的兼容性不宣称可直接回滚。
 - 插件发布：安装不启用 -> 健康验证 -> 切换版本 -> 观察窗口 -> 清理旧版本（可选）
 
 ## 7. 预发布与门禁

@@ -2,7 +2,9 @@ package metadata
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"gorm.io/gorm/clause"
 	"strings"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
@@ -105,11 +107,40 @@ func (r *TagRepository) ListTags(ctx context.Context, opt TagListOptions) ([]mod
 	return rows, total, err
 }
 
-func (r *TagRepository) UpdateTag(ctx context.Context, tenantUUID, tagUUID string, updates map[string]any) (*model.Tag, error) {
+func (r *TagRepository) UpdateTag(ctx context.Context, tenantUUID, tagUUID string, updates map[string]any, expected *int64) (*model.Tag, error) {
 	var row model.Tag
 	err := r.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, tagUUID).First(&row).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, tagUUID).First(&row).Error; err != nil {
 			return err
+		}
+		var attrs map[string]any
+		_ = json.Unmarshal(row.Metadata, &attrs)
+		if attrs["version"] != nil && expected == nil {
+			return ErrOptimisticConflict
+		}
+		if expected != nil {
+			current := int64(1)
+			if v, ok := attrs["version"].(float64); ok {
+				current = int64(v)
+			}
+			if current != *expected {
+				return ErrOptimisticConflict
+			}
+			raw, ok := updates["metadata"]
+			if !ok {
+				return ErrOptimisticConflict
+			}
+			bytes, err := json.Marshal(raw)
+			if err != nil {
+				return err
+			}
+			var next map[string]any
+			if err = json.Unmarshal(bytes, &next); err != nil {
+				return err
+			}
+			if v, ok := next["version"].(float64); !ok || int64(v) != *expected+1 {
+				return ErrOptimisticConflict
+			}
 		}
 		if len(updates) > 0 {
 			if err := tx.Model(&row).Updates(updates).Error; err != nil {

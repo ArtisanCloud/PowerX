@@ -39,37 +39,62 @@ type capabilityConfigEntry struct {
 }
 
 type capabilityProtocolEntry struct {
-	Channel      string `yaml:"channel"`
-	Endpoint     string `yaml:"endpoint"`
-	Method       string `yaml:"method"`
-	RPC          string `yaml:"rpc"`
-	SchemaRef    string `yaml:"schema_ref"`
-	ToolRef      string `yaml:"tool_ref"`
-	ToolScope    string `yaml:"tool_scope"`
-	AuthType     string `yaml:"auth_type"`
-	ActorContext string `yaml:"actor_context"`
+	Channel       string `yaml:"channel"`
+	Endpoint      string `yaml:"endpoint"`
+	Method        string `yaml:"method"`
+	RPC           string `yaml:"rpc"`
+	SchemaRef     string `yaml:"schema_ref"`
+	ToolRef       string `yaml:"tool_ref"`
+	ToolScope     string `yaml:"tool_scope"`
+	AuthType      string `yaml:"auth_type"`
+	ActorContext  string `yaml:"actor_context"`
 	ResourceScope string `yaml:"resource_scope"`
-	STSDirect    bool   `yaml:"sts_direct"`
-	HealthState  string `yaml:"health_state"`
-	HealthReason string `yaml:"health_reason"`
+	STSDirect     bool   `yaml:"sts_direct"`
+	HealthState   string `yaml:"health_state"`
+	HealthReason  string `yaml:"health_reason"`
+}
+
+func (policy capabilityPolicy) validate() error {
+	contract := policy.RuntimeContract
+	if contract.RetryMaxAttempts < 0 || contract.RetryMaxAttempts > 1 {
+		return fmt.Errorf("runtime_contract.retry_max_attempts must be between 0 and 1")
+	}
+	if (contract.HumanApprovalRequired || contract.VerificationRequired) && strings.TrimSpace(contract.SideEffectEvidenceSchema) == "" {
+		return fmt.Errorf("runtime_contract.side_effect_evidence_schema is required when human approval or verification is required")
+	}
+	if contract.BusinessCompletionRequired && !contract.VerificationRequired {
+		return fmt.Errorf("runtime_contract.business_completion_required requires verification_required")
+	}
+	seen := map[string]struct{}{}
+	for _, capabilityID := range contract.AlternativeCapabilityIDs {
+		capabilityID = strings.TrimSpace(capabilityID)
+		if capabilityID == "" || !strings.HasPrefix(capabilityID, "com.") {
+			return fmt.Errorf("runtime_contract.alternative_capability_ids must contain stable capability IDs")
+		}
+		if _, exists := seen[capabilityID]; exists {
+			return fmt.Errorf("runtime_contract.alternative_capability_ids must not contain duplicates")
+		}
+		seen[capabilityID] = struct{}{}
+	}
+	return nil
 }
 
 func (entry capabilityConfigEntry) toDefinition() platformCapabilityDefinition {
 	bindings := make([]models.ProtocolBinding, 0, len(entry.Protocols))
 	for _, protocol := range entry.Protocols {
 		bindings = append(bindings, models.ProtocolBinding{
-			Channel:     protocol.Channel,
-			Endpoint:    protocol.Endpoint,
-			Method:      protocol.Method,
-			RPC:         protocol.RPC,
-			SchemaRef:   protocol.SchemaRef,
-			ToolRef:     protocol.ToolRef,
-			ToolScope:   protocol.ToolScope,
-			AuthType:    protocol.AuthType,
-			ActorContext: protocol.ActorContext,
+			Channel:       protocol.Channel,
+			Endpoint:      protocol.Endpoint,
+			Method:        protocol.Method,
+			RPC:           protocol.RPC,
+			SchemaRef:     protocol.SchemaRef,
+			ToolRef:       protocol.ToolRef,
+			ToolScope:     protocol.ToolScope,
+			AuthType:      protocol.AuthType,
+			ActorContext:  protocol.ActorContext,
 			ResourceScope: protocol.ResourceScope,
-			STSDirect:   protocol.STSDirect,
-			HealthState: protocol.HealthState,
+			STSDirect:     protocol.STSDirect,
+			HealthState:   protocol.HealthState,
 		})
 	}
 	return platformCapabilityDefinition{
@@ -148,6 +173,9 @@ func parsePlatformCapabilityFile(path string) ([]platformCapabilityDefinition, e
 	}
 	defs := make([]platformCapabilityDefinition, 0, len(cfg.Capabilities))
 	for _, entry := range cfg.Capabilities {
+		if err := entry.Policy.validate(); err != nil {
+			return nil, fmt.Errorf("capability %s: %w", strings.TrimSpace(entry.CapabilityID), err)
+		}
 		defs = append(defs, entry.toDefinition())
 	}
 	return defs, nil

@@ -8,12 +8,20 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 )
 
 const (
-	effectivePermissionsCacheVersion = "v2"
+	effectivePermissionsCacheVersion = "v3"
 	effectivePermissionsDefaultVer   = int64(1)
 )
+
+// Policy 不对 HTTP 响应公开，但内部缓存必须保留它，否则 Worker 会把
+// 冻结的运行契约误判为已变更。独立缓存载荷避免改变公开 DTO。
+type effectivePermissionsCachePayload struct {
+	Result   EffectivePermissionsResult `json:"result"`
+	Policies []datatypes.JSON           `json:"policies"`
+}
 
 func (s *Service) getCachedEffectivePermissions(ctx context.Context, env, tenantUUID, userUUID, memberUUID string, memberID uint64, isRoot bool, agentUUID uuid.UUID) (EffectivePermissionsResult, bool, error) {
 	if s == nil || s.cache == nil {
@@ -30,11 +38,17 @@ func (s *Service) getCachedEffectivePermissions(ctx context.Context, env, tenant
 	if len(raw) == 0 {
 		return EffectivePermissionsResult{}, false, nil
 	}
-	var out EffectivePermissionsResult
-	if err := json.Unmarshal(raw, &out); err != nil {
+	var payload effectivePermissionsCachePayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
 		return EffectivePermissionsResult{}, false, fmt.Errorf("decode agent effective permissions cache: %w", err)
 	}
-	return out, true, nil
+	if len(payload.Policies) != len(payload.Result.Items) {
+		return EffectivePermissionsResult{}, false, fmt.Errorf("agent effective permissions cache policies incomplete")
+	}
+	for i := range payload.Result.Items {
+		payload.Result.Items[i].Policy = payload.Policies[i]
+	}
+	return payload.Result, true, nil
 }
 
 func (s *Service) setCachedEffectivePermissions(ctx context.Context, env, tenantUUID, userUUID, memberUUID string, memberID uint64, isRoot bool, agentUUID uuid.UUID, result EffectivePermissionsResult) error {
@@ -45,7 +59,11 @@ func (s *Service) setCachedEffectivePermissions(ctx context.Context, env, tenant
 	if err != nil {
 		return err
 	}
-	raw, err := json.Marshal(result)
+	policies := make([]datatypes.JSON, len(result.Items))
+	for i, item := range result.Items {
+		policies[i] = item.Policy
+	}
+	raw, err := json.Marshal(effectivePermissionsCachePayload{Result: result, Policies: policies})
 	if err != nil {
 		return err
 	}

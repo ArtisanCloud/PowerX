@@ -63,3 +63,7 @@
 2. 保留 job/run 表用于审计。
 3. Framework host provider 返回明确错误，插件不得自动本地补偿。
 4. 不影响 Event Fabric Cron 既有内部 worker。
+
+## 2026-10-08 Core任务删除补充
+
+集中迁移挂载pkg/corex/db/database/migration.go：revision默认1、活跃名称部分唯一索引，替换旧全量唯一索引。删除/更新/恢复/触发/扫描共享按任务发布锁；框架消费端独立扩展，不在Core修改。

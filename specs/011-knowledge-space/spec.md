@@ -1,5 +1,13 @@
 # Feature Specification: Knowledge Space Provisioning & Lifecycle Governance
 
+## 2026-10-10 内容导览补充
+
+- 必须提供已发布 source article 的 typed 只读目录，支持 semantic/hybrid、过滤后的 total 和稳定分页，使用与 retrieval 相同的租户/发布/visibility 条件。
+- 标题与预览必须来自成功任务冻结的原文版本，返回文档 UUID、原文 checksum/version/codepoint 区间、当前配置及语料 generation。不得混入草稿或无真实向量的 lexical 文档。
+- API Key/STS service 与 Admin JWT/RBAC 分离；游标绑定凭据、参数、发布及可见性，语料或授权变化明确失败。
+- 没有真实产物时概要/主题/推荐问题明确缺失；合法空目录与无权、跨租户和依赖失败区分。
+- 正式合同：[content-overview.openapi.yaml](contracts/content-overview.openapi.yaml)；实施及真实 dev 验收边界：[content-overview-implementation.md](content-overview-implementation.md)。
+
 **Feature Branch**: `[011-docs-use-cases]`  
 **Created**: 2025-11-12  
 **Status**: Draft  
@@ -296,3 +304,7 @@ Non-goal: Do **not** expose a full Cartesian product of “scenes × all strateg
 - **SC-009**: Event hotfixes sourced from `knowledge.event.received` complete refresh + Agent notifications within ≤5 minutes, idempotent skips are recorded for 100% of duplicate payloads, and `knowledge.event.retry_count` never exceeds three without escalation.
 - **SC-010**: Decay scans achieve 100% coverage of active knowledge spaces, detect low-quality/empty segments with ≥90% precision, auto-create restoration tasks with SLA ≤7 days, and resolve false positives or restores within 10 minutes.
 - **SC-011**: Tenant gray releases apply policies from `tenant_release_matrix.yaml`, keep version drift ≤1 release across tenants, roll back failing batches in ≤5 minutes, and expose `knowledge.release.gray_state` / `knowledge-release.json` snapshots that auditors can reconcile without manual reconstruction.
+
+## 2026-10-08 Core semantic Host extension
+
+See [formal semantic contract](../../docs/contracts/knowledge-semantic-host.md) and [implementation acceptance](semantic-host-implementation.md). Host documents now accept explicit semantic/hybrid artifacts alongside the legacy lexical path. Real model identity/dimension, pre-top_k filters, immutable source hydration, staged model configuration and atomic complete-space publication, visibility revocation, typed service authorization and Admin/RBAC are required. Business dimensions and customer fit scoring remain plugin responsibilities. Current driver scope is colocated pgvector; unsupported layouts fail explicitly.

@@ -611,6 +611,10 @@ func (h *handler) provisionMember(c *gin.Context) {
 		ActorSubject:     actorSubject(c),
 	})
 	if err != nil {
+		if dto.CodeOf(err) == iamsvc.CodeMemberDisplayNameConflict {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		dto.ResponseError(c, http.StatusBadRequest, "iam.provision.member_failed", err)
 		return
 	}

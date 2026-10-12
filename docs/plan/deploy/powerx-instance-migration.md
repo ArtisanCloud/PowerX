@@ -80,7 +80,7 @@ psql -h <DST_DB_HOST> -p <DST_DB_PORT> -U <DST_DB_USER> -d <DST_DB_NAME> -c "\dt
 ### 5.1 配置与密钥
 
 - 同步 `config.yaml` 的核心段：`deployment`、`plugin`、`storage`、`auth`、`database`、`cache`
-- 同步环境变量（尤其 `CORE_X_AUTH_JWT_SECRET`、`CORE_X_STORAGE_*`）
+- 同步环境变量（尤其 `POWERX_AUTH_JWT_SECRET`、`CORE_X_STORAGE_*`）
 
 `deployment.env` 处理规则：
 

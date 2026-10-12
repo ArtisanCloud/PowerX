@@ -618,7 +618,8 @@ sync_runtime_plugin_paths() {
   fi
   chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_installed_abs}" "$(dirname "${plugin_registry_abs}")"
   chown "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_registry_abs}"
-  chmod 0644 "${plugin_registry_abs}"
+  # 注册表的 host_config.values 包含运行凭证，保持仅服务属主可读。
+  chmod 0600 "${plugin_registry_abs}"
 
   if grep -Eq '^[[:space:]]*installed_dir[[:space:]]*:' "${RUNTIME_CONFIG_PATH}"; then
     tmp_file="$(mktemp "${RUNTIME_ROOT}/config.yaml.plugin-installed.XXXXXX")"
@@ -678,7 +679,7 @@ normalize_plugin_runtime_artifacts() {
   chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_installed_abs}"
   if [[ -f "${plugin_registry_abs}" ]]; then
     chown "${SERVICE_USER}:${SERVICE_GROUP}" "${plugin_registry_abs}"
-    chmod 0644 "${plugin_registry_abs}"
+    chmod 0600 "${plugin_registry_abs}"
   fi
 
   # 给插件后端可执行产物补执行位（migrate/plugin 等）。
