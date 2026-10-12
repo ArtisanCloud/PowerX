@@ -39,6 +39,7 @@ var (
 type Service struct {
 	settings *agentsettings.AgentSettingService
 	profiles *repoai.AIModelProfileRepository
+	catalog  *catalog.Registry
 }
 
 type LLMInvokeResult struct {
@@ -1053,9 +1054,12 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	if tenantUUID == "" {
 		return nil, errors.New("tenant uuid required")
 	}
-	providerFilter = strings.ToLower(strings.TrimSpace(providerFilter))
 	tenantPtr := &tenantUUID
-	reg := catalog.GetGlobalAIRegister()
+	reg := s.catalog
+	if reg == nil {
+		reg = catalog.GetGlobalAIRegister()
+	}
+	providerFilter = normalizeProviderKey(reg, providerFilter)
 
 	creds, credErr := s.settings.ListCredentials(ctx, env, tenantPtr)
 	credentialProviders := map[string]struct{}{}
@@ -1088,22 +1092,23 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	merged := make(map[string]mergedProfile)
 	for i := range globalProfiles {
 		p := toProfileView(globalProfiles[i])
-		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+		if providerFilter != "" && normalizeProviderKey(reg, p.Provider) != providerFilter {
 			continue
 		}
-		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "global_profile"}
+		merged[normalizeProviderKey(reg, p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "global_profile"}
 	}
 	for i := range tenantProfiles {
 		p := toProfileView(tenantProfiles[i])
-		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+		if providerFilter != "" && normalizeProviderKey(reg, p.Provider) != providerFilter {
 			continue
 		}
-		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "tenant_profile"}
+		merged[normalizeProviderKey(reg, p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "tenant_profile"}
 	}
 
 	items := make([]LLMModelItem, 0, len(merged))
 	for _, v := range merged {
-		if !textModelProfile(reg, v.profile) {
+		capabilities, text := textModelProfileCapabilities(reg, v.profile)
+		if !text {
 			continue
 		}
 		providerKey := normalizeProviderKey(reg, v.profile.Provider)
@@ -1111,7 +1116,7 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 		items = append(items, LLMModelItem{
 			ModelKey:          v.profile.Provider + "/" + v.profile.Model,
 			Modality:          string(contract.ModLLM),
-			Capabilities:      []string{"text_generation"},
+			Capabilities:      capabilities,
 			Provider:          v.profile.Provider,
 			Model:             v.profile.Model,
 			Label:             v.profile.Label,
@@ -1126,7 +1131,7 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	if credErr == nil {
 		seen := make(map[string]struct{}, len(items))
 		for i := range items {
-			seen[strings.ToLower(items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
+			seen[normalizeProviderKey(reg, items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
 		}
 		for i := range creds {
 			providerKey := normalizeProviderKey(reg, creds[i].Provider)
@@ -1140,16 +1145,13 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 			if providerDisplay == "" {
 				providerDisplay = providerKey
 			}
-			models, listErr := reg.Models("llm", providerKey)
-			if listErr != nil {
-				continue
-			}
+			models := textCatalogModels(reg, providerKey)
 			for _, m := range models {
 				model := strings.TrimSpace(m.ID)
 				if model == "" {
 					continue
 				}
-				key := strings.ToLower(providerDisplay) + "/" + strings.ToLower(model)
+				key := providerKey + "/" + strings.ToLower(model)
 				if _, exists := seen[key]; exists {
 					continue
 				}
@@ -1157,7 +1159,7 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 				items = append(items, LLMModelItem{
 					ModelKey:          providerDisplay + "/" + model,
 					Modality:          string(contract.ModLLM),
-					Capabilities:      []string{"text_generation"},
+					Capabilities:      append([]string(nil), m.Capabilities...),
 					Provider:          providerDisplay,
 					Model:             model,
 					Label:             strings.TrimSpace(m.Label),
@@ -1216,34 +1218,6 @@ func toProfileView(in dbmodel.AIModelProfile) dbModelProfileView {
 		Defaults: copyDefaults(map[string]any(in.Defaults)),
 		Tags:     append([]string(nil), in.Tags...),
 	}
-}
-
-// 已登记模型以目录的模态为准，拒绝把纯媒体模型误存为 LLM 的 profile。
-// 自定义模型使用 profile 明确声明的模态，不解析型号、标签或描述猜测能力。
-func textModelProfile(reg *catalog.Registry, profile dbModelProfileView) bool {
-	if profile.Modality != string(contract.ModLLM) {
-		return false
-	}
-	manifest, ok := reg.Manifest(profile.Provider)
-	if !ok {
-		return true
-	}
-	registered, text := false, false
-	inspect := func(modalities map[string]catalog.ModalityManifest) {
-		for modality, entry := range modalities {
-			for _, model := range entry.Models {
-				if strings.EqualFold(model.ID, profile.Model) {
-					registered = true
-					text = text || modality == string(contract.ModLLM)
-				}
-			}
-		}
-	}
-	inspect(manifest.Modalities)
-	for _, app := range manifest.Apps {
-		inspect(app.Modalities)
-	}
-	return !registered || text
 }
 
 func copyDefaults(in map[string]any) map[string]any {

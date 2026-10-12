@@ -129,18 +129,25 @@ modalities:
   image:
     models:
       - id: qwen-vl-max-latest
+        capabilities: [text_generation, image_understanding]
         label: "Qwen VL Max Latest"
       - id: qwen-vl-plus-latest
+        capabilities: [text_generation, image_understanding]
         label: "Qwen VL Plus Latest"
       - id: qwen-vl-max
+        capabilities: [text_generation, image_understanding]
         label: "Qwen VL Max"
       - id: qwen-vl-plus
+        capabilities: [text_generation, image_understanding]
         label: "Qwen VL Plus"
       - id: qwen3-vl-plus
+        capabilities: [text_generation, image_understanding]
         label: "Qwen3 VL Plus"
       - id: qwen3-vl-flash
+        capabilities: [text_generation, image_understanding]
         label: "Qwen3 VL Flash"
       - id: qwen2.5-vl-72b-instruct
+        capabilities: [text_generation, image_understanding]
         label: "Qwen 2.5 VL 72B Instruct"
       - id: "*"
         label: "Qwen VLM (Any)"

@@ -18,6 +18,7 @@ import (
 )
 
 type stubAIService struct {
+	llmModelsFn func(context.Context, string, string, string) ([]aisvc.LLMModelItem, error)
 	llmInvokeFn func(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}) (*aisvc.LLMInvokeResult, error)
 	llmStreamFn func(ctx context.Context, env string, tenantUUID string, modelKey string, inputs []aisvc.ContentItem, params map[string]interface{}, onDelta func(string)) (string, error)
 }
@@ -70,6 +71,9 @@ func TestLLMInvokeReturnsStructuredProviderTimeout(t *testing.T) {
 	require.Equal(t, "response_headers", providerFailure["phase"])
 }
 func (s *stubAIService) ListLLMModels(ctx context.Context, env string, tenantUUID string, provider string) ([]aisvc.LLMModelItem, error) {
+	if s.llmModelsFn != nil {
+		return s.llmModelsFn(ctx, env, tenantUUID, provider)
+	}
 	return nil, nil
 }
 func (s *stubAIService) ResolveTenantEnv(ctx context.Context, tenantUUID string) (string, bool, error) {

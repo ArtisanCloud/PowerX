@@ -61,11 +61,13 @@ type AppManifest struct {
 }
 
 type ModelManifest struct {
-	ID       string         `yaml:"id"                 json:"id"`
-	Label    string         `yaml:"label"              json:"label"`
-	Tags     []string       `yaml:"tags,omitempty"     json:"tags,omitempty"`
-	Defaults map[string]any `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	Limits   map[string]int `yaml:"limits,omitempty"   json:"limits,omitempty"`
+	ID    string `yaml:"id"                 json:"id"`
+	Label string `yaml:"label"              json:"label"`
+	// Capabilities 是目录维护者的声明，不是供应商探测或当前账号授权结果。
+	Capabilities []string       `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	Tags         []string       `yaml:"tags,omitempty"     json:"tags,omitempty"`
+	Defaults     map[string]any `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+	Limits       map[string]int `yaml:"limits,omitempty"   json:"limits,omitempty"`
 }
 
 // ---------- Registry ----------
