@@ -36,7 +36,12 @@ func PrepareSetupJWTSecret(path string) error {
 	secret, _ := auth["jwt_secret"].(string)
 	// Explicit external configuration keeps its existing precedence and must be
 	// valid; setup must not quietly replace a key supplied by the operator.
-	override, err := jwtSecretEnvironment()
+	values, _, err := readInstanceEnvironment(path)
+	if err != nil {
+		return err
+	}
+	lookup := processEnvironmentOver(values)
+	override, err := jwtSecretEnvironmentFrom(lookup)
 	if err != nil {
 		return err
 	}

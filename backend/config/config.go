@@ -35,7 +35,10 @@ func InitGlobalConfig(configPath string) error {
 		globalConfigPath = configPath
 		return nil
 	}
-	loadDotEnvCandidates(configPath)
+	lookup, err := configurationEnvironment(configPath)
+	if err != nil {
+		return err
+	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -46,7 +49,7 @@ func InitGlobalConfig(configPath string) error {
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
-	if err := loadFromEnv(&config); err != nil {
+	if err := loadFromEnvironment(&config, lookup); err != nil {
 		return fmt.Errorf("环境配置无效: %w", err)
 	}
 	if err := config.ValidateDeploymentIdentity(); err != nil {
@@ -728,8 +731,11 @@ func Load(configPath string) (*Config, error) {
 	// 1. 加载默认配置
 	cfg := GetDefaults()
 
-	// 1.1 预加载 .env（仅在当前进程变量未设置时写入）
-	loadDotEnvCandidates(configPath)
+	// 实例环境与 YAML 使用同一目录；已有进程环境优先。
+	lookup, err := configurationEnvironment(configPath)
+	if err != nil {
+		return nil, err
+	}
 
 	// 2. 从YAML文件加载（如果存在）
 	if configPath != "" {
@@ -739,7 +745,7 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// 3. 从环境变量覆盖
-	if err := loadFromEnv(cfg); err != nil {
+	if err := loadFromEnvironment(cfg, lookup); err != nil {
 		return nil, fmt.Errorf("环境配置无效: %w", err)
 	}
 
@@ -828,281 +834,286 @@ func loadDotEnvFile(path string) error {
 
 // loadFromEnv 从环境变量加载配置
 func loadFromEnv(cfg *Config) error {
+	return loadFromEnvironment(cfg, os.LookupEnv)
+}
+
+func loadFromEnvironment(cfg *Config, lookup environmentLookup) error {
+	getenv := func(name string) string { value, _ := lookup(name); return value }
 	// Server配置
-	if host := os.Getenv("POWERX_BACKEND_HOST"); host != "" {
+	if host := getenv("POWERX_BACKEND_HOST"); host != "" {
 		cfg.Server.Host = strings.TrimSpace(host)
-	} else if host := os.Getenv("CORE_X_SERVER_HOST"); host != "" {
+	} else if host := getenv("CORE_X_SERVER_HOST"); host != "" {
 		cfg.Server.Host = strings.TrimSpace(host)
 	}
-	if port := os.Getenv("POWERX_BACKEND_PORT"); port != "" {
+	if port := getenv("POWERX_BACKEND_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p
 		}
-	} else if port := os.Getenv("CORE_X_SERVER_PORT"); port != "" {
+	} else if port := getenv("CORE_X_SERVER_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p
 		}
 	}
-	if mode := os.Getenv("CORE_X_SERVER_MODE"); mode != "" {
+	if mode := getenv("CORE_X_SERVER_MODE"); mode != "" {
 		cfg.Server.Mode = mode
 	}
-	if port := os.Getenv("POWERX_GRPC_PORT"); port != "" {
+	if port := getenv("POWERX_GRPC_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.GRPC.Port = p
 		}
-	} else if port := os.Getenv("CORE_X_SERVER_GRPC_PORT"); port != "" {
+	} else if port := getenv("CORE_X_SERVER_GRPC_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.GRPC.Port = p
 		}
 	}
-	if timeout := os.Getenv("CORE_X_SERVER_READ_TIMEOUT"); timeout != "" {
+	if timeout := getenv("CORE_X_SERVER_READ_TIMEOUT"); timeout != "" {
 		if t, err := strconv.Atoi(timeout); err == nil {
 			cfg.Server.ReadTimeoutSeconds = t
 		}
 	}
-	if timeout := os.Getenv("CORE_X_SERVER_WRITE_TIMEOUT"); timeout != "" {
+	if timeout := getenv("CORE_X_SERVER_WRITE_TIMEOUT"); timeout != "" {
 		if t, err := strconv.Atoi(timeout); err == nil {
 			cfg.Server.WriteTimeoutSeconds = t
 		}
 	}
 
 	// Auth配置（新）
-	if secret, err := jwtSecretEnvironment(); err != nil {
+	if secret, err := jwtSecretEnvironmentFrom(lookup); err != nil {
 		return err
 	} else if secret != "" {
 		cfg.Auth.JWTSecret = secret
 	}
-	if v := os.Getenv("CORE_X_AUTH_ISSUER"); v != "" {
+	if v := getenv("CORE_X_AUTH_ISSUER"); v != "" {
 		cfg.Auth.Issuer = v
 	}
-	if v := os.Getenv("CORE_X_AUTH_AUDIENCE_USER"); v != "" {
+	if v := getenv("CORE_X_AUTH_AUDIENCE_USER"); v != "" {
 		cfg.Auth.AudienceUser = v
 	}
-	if v := os.Getenv("CORE_X_AUTH_AUDIENCE_CUSTOMER"); v != "" {
+	if v := getenv("CORE_X_AUTH_AUDIENCE_CUSTOMER"); v != "" {
 		cfg.Auth.AudienceCustomer = v
 	}
-	if v := os.Getenv("CORE_X_AUTH_PLATFORMS"); v != "" {
+	if v := getenv("CORE_X_AUTH_PLATFORMS"); v != "" {
 		cfg.Auth.Platforms = []string{"admin"}
 	}
-	if v := os.Getenv("CORE_X_AUTH_ACCESS_TTL"); v != "" {
+	if v := getenv("CORE_X_AUTH_ACCESS_TTL"); v != "" {
 		cfg.Auth.AccessTTLStr = v // 解析在 bootstrap 里做
 	}
-	if v := os.Getenv("CORE_X_AUTH_REFRESH_TTL"); v != "" {
+	if v := getenv("CORE_X_AUTH_REFRESH_TTL"); v != "" {
 		cfg.Auth.RefreshTTLStr = v
 	}
 
 	// EventBus配置
-	if busType := os.Getenv("CORE_X_EVENT_BUS_TYPE"); busType != "" {
+	if busType := getenv("CORE_X_EVENT_BUS_TYPE"); busType != "" {
 		cfg.Event.Bus.Type = busType
 	}
-	if redisAddr := os.Getenv("CORE_X_EVENT_BUS_REDIS_ADDR"); redisAddr != "" {
+	if redisAddr := getenv("CORE_X_EVENT_BUS_REDIS_ADDR"); redisAddr != "" {
 		cfg.Event.Bus.RedisAddr = redisAddr
 	}
-	if redisPassword := os.Getenv("CORE_X_EVENT_BUS_REDIS_PASSWORD"); redisPassword != "" {
+	if redisPassword := getenv("CORE_X_EVENT_BUS_REDIS_PASSWORD"); redisPassword != "" {
 		cfg.Event.Bus.RedisPassword = redisPassword
 	}
-	if redisDB := os.Getenv("CORE_X_EVENT_BUS_REDIS_DB"); redisDB != "" {
+	if redisDB := getenv("CORE_X_EVENT_BUS_REDIS_DB"); redisDB != "" {
 		if v, err := strconv.Atoi(redisDB); err == nil {
 			cfg.Event.Bus.RedisDB = v
 		}
 	}
-	if ttl := os.Getenv("CORE_X_EVENT_BUS_DEDUPE_TTL_SEC"); ttl != "" {
+	if ttl := getenv("CORE_X_EVENT_BUS_DEDUPE_TTL_SEC"); ttl != "" {
 		if t, err := strconv.Atoi(ttl); err == nil {
 			cfg.Event.Bus.DedupeTTLSec = t
 		}
 	}
 
 	// Capability Registry 配置
-	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_REDIS_PREFIX"); v != "" {
+	if v := getenv("CORE_X_CAPABILITY_REGISTRY_REDIS_PREFIX"); v != "" {
 		cfg.CapabilityRegistry.RedisPrefix = v
 	}
-	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_EVENT_TOPIC_PREFIX"); v != "" {
+	if v := getenv("CORE_X_CAPABILITY_REGISTRY_EVENT_TOPIC_PREFIX"); v != "" {
 		cfg.CapabilityRegistry.EventTopicPrefix = v
 	}
-	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_LIMIT"); v != "" {
+	if v := getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_LIMIT"); v != "" {
 		if limit, err := strconv.ParseUint(v, 10, 64); err == nil && limit > 0 {
 			cfg.CapabilityRegistry.DefaultRateLimit.Limit = limit
 		}
 	}
-	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_BURST"); v != "" {
+	if v := getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_BURST"); v != "" {
 		if burst, err := strconv.ParseUint(v, 10, 64); err == nil && burst > 0 {
 			cfg.CapabilityRegistry.DefaultRateLimit.Burst = burst
 		}
 	}
-	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_WINDOW"); v != "" {
+	if v := getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_WINDOW"); v != "" {
 		if window, err := strconv.Atoi(v); err == nil && window > 0 {
 			cfg.CapabilityRegistry.DefaultRateLimit.WindowSeconds = window
 		}
 	}
-	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_DEFAULT_HTTP_TIMEOUT_SECONDS"); v != "" {
+	if v := getenv("CORE_X_CAPABILITY_REGISTRY_DEFAULT_HTTP_TIMEOUT_SECONDS"); v != "" {
 		if timeout, err := strconv.Atoi(v); err == nil && timeout > 0 {
 			cfg.CapabilityRegistry.DefaultHTTPTimeoutSeconds = timeout
 		}
 	}
-	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_AI_MULTIMODAL_HTTP_TIMEOUT_SECONDS"); v != "" {
+	if v := getenv("CORE_X_CAPABILITY_REGISTRY_AI_MULTIMODAL_HTTP_TIMEOUT_SECONDS"); v != "" {
 		if timeout, err := strconv.Atoi(v); err == nil && timeout > 0 {
 			cfg.CapabilityRegistry.AIMultimodalHTTPTimeoutSeconds = timeout
 		}
 	}
 
 	// EventFabric 配置
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_ACK_TIMEOUT_SEC"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_ACK_TIMEOUT_SEC"); v != "" {
 		if t, err := strconv.Atoi(v); err == nil {
 			cfg.Event.Fabric.AckTimeoutSeconds = t
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_DEFAULT_MAX_RETRY"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_DEFAULT_MAX_RETRY"); v != "" {
 		if t, err := strconv.Atoi(v); err == nil {
 			cfg.Event.Fabric.DefaultMaxRetry = t
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_ADDR"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_REDIS_ADDR"); v != "" {
 		cfg.Event.Fabric.RedisAddr = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_PASSWORD"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_REDIS_PASSWORD"); v != "" {
 		cfg.Event.Fabric.RedisPassword = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_DB"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_REDIS_DB"); v != "" {
 		if dbIdx, err := strconv.Atoi(v); err == nil {
 			cfg.Event.Fabric.RedisDB = dbIdx
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_RETRY_KEY_PREFIX"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_RETRY_KEY_PREFIX"); v != "" {
 		cfg.Event.Fabric.RetryKeyPrefix = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_REPLAY_KEY_PREFIX"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_REPLAY_KEY_PREFIX"); v != "" {
 		cfg.Event.Fabric.ReplayKeyPrefix = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_SCHEDULER_INTERVAL"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_SCHEDULER_INTERVAL"); v != "" {
 		if t, err := strconv.Atoi(v); err == nil {
 			cfg.Event.Fabric.SchedulerInterval = t
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_REQUIRE_TLS"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_REQUIRE_TLS"); v != "" {
 		cfg.Event.Fabric.Security.RequireTLS = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_SECRET"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_SIGNATURE_SECRET"); v != "" {
 		cfg.Event.Fabric.Security.SignatureSecret = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_HEADER"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_SIGNATURE_HEADER"); v != "" {
 		cfg.Event.Fabric.Security.SignatureHeader = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_TIMESTAMP_HEADER"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_TIMESTAMP_HEADER"); v != "" {
 		cfg.Event.Fabric.Security.TimestampHeader = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_KEY_ID"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_SIGNATURE_KEY_ID"); v != "" {
 		cfg.Event.Fabric.Security.SignatureKeyID = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_ALLOWED_SKEW_SEC"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_ALLOWED_SKEW_SEC"); v != "" {
 		if skew, err := strconv.Atoi(v); err == nil {
 			cfg.Event.Fabric.Security.AllowedClockSkewSeconds = skew
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_TTL"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_TTL"); v != "" {
 		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
 			cfg.Event.Fabric.Authorization.CacheTTLSeconds = ttl
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_LOCAL_CACHE_TTL"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_LOCAL_CACHE_TTL"); v != "" {
 		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
 			cfg.Event.Fabric.Authorization.LocalCacheTTLSeconds = ttl
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_ADDR"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_ADDR"); v != "" {
 		cfg.Event.Fabric.Authorization.RedisAddr = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_PASSWORD"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_PASSWORD"); v != "" {
 		cfg.Event.Fabric.Authorization.RedisPassword = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_DB"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_DB"); v != "" {
 		if dbIdx, err := strconv.Atoi(v); err == nil && dbIdx >= 0 {
 			cfg.Event.Fabric.Authorization.RedisDB = dbIdx
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_INVALIDATE_CHANNEL"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_INVALIDATE_CHANNEL"); v != "" {
 		cfg.Event.Fabric.Authorization.CacheInvalidateChannel = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_SLA"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_SLA"); v != "" {
 		if sla, err := strconv.Atoi(v); err == nil && sla > 0 {
 			cfg.Event.Fabric.Authorization.ChallengeSLASeconds = sla
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_TOPIC"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_TOPIC"); v != "" {
 		cfg.Event.Fabric.Authorization.ChallengeTopic = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_CONSUMER_GROUP"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_CONSUMER_GROUP"); v != "" {
 		cfg.Event.Fabric.Authorization.ChallengeConsumerGroup = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_RETENTION_DAYS"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_RETENTION_DAYS"); v != "" {
 		if days, err := strconv.Atoi(v); err == nil && days > 0 {
 			cfg.Event.Fabric.Authorization.AuditRetentionDays = days
 		}
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_BUCKET"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_BUCKET"); v != "" {
 		cfg.Event.Fabric.Authorization.AuditArchiveBucket = v
 	}
-	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_PREFIX"); v != "" {
+	if v := getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_PREFIX"); v != "" {
 		cfg.Event.Fabric.Authorization.AuditArchivePrefix = v
 	}
 
 	// LowCode配置
-	if maxFlows := os.Getenv("CORE_X_LOW_CODE_MAX_CONCURRENT_FLOWS"); maxFlows != "" {
+	if maxFlows := getenv("CORE_X_LOW_CODE_MAX_CONCURRENT_FLOWS"); maxFlows != "" {
 		if m, err := strconv.Atoi(maxFlows); err == nil {
 			cfg.LowCode.MaxConcurrentFlows = m
 		}
 	}
-	if timeout := os.Getenv("CORE_X_LOW_CODE_DEFAULT_TIMEOUT_SEC"); timeout != "" {
+	if timeout := getenv("CORE_X_LOW_CODE_DEFAULT_TIMEOUT_SEC"); timeout != "" {
 		if t, err := strconv.Atoi(timeout); err == nil {
 			cfg.LowCode.DefaultTimeoutSec = t
 		}
 	}
 
 	// AgentTools配置
-	if audit := os.Getenv("CORE_X_AGENT_TOOLS_ENABLE_AUDIT"); audit != "" {
+	if audit := getenv("CORE_X_AGENT_TOOLS_ENABLE_AUDIT"); audit != "" {
 		// cfg.AgentTools.EnableAudit = strings.ToLower(audit) == "true"
 	}
 
 	// LogConfig配置 - 使用外部logger配置
-	if v := os.Getenv("CORE_X_LOG_FILE_ENABLE"); v != "" {
+	if v := getenv("CORE_X_LOG_FILE_ENABLE"); v != "" {
 		cfg.LogConfig.File.Enable = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_LOG_FILE_INFO_PATH"); v != "" {
+	if v := getenv("CORE_X_LOG_FILE_INFO_PATH"); v != "" {
 		cfg.LogConfig.File.InfoFilePath = strings.TrimSpace(v)
 	}
-	if v := os.Getenv("CORE_X_LOG_FILE_ERROR_PATH"); v != "" {
+	if v := getenv("CORE_X_LOG_FILE_ERROR_PATH"); v != "" {
 		cfg.LogConfig.File.ErrorFilePath = strings.TrimSpace(v)
 	}
-	if v := os.Getenv("CORE_X_LOG_AGENT_DEBUG_DIR"); v != "" {
+	if v := getenv("CORE_X_LOG_AGENT_DEBUG_DIR"); v != "" {
 		cfg.LogConfig.AgentDebug.Dir = strings.TrimSpace(v)
 	}
-	if v := os.Getenv("CORE_X_LOG_CONSOLE"); v != "" {
+	if v := getenv("CORE_X_LOG_CONSOLE"); v != "" {
 		cfg.LogConfig.Console = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_LOG_RETENTION_ENABLED"); v != "" {
+	if v := getenv("CORE_X_LOG_RETENTION_ENABLED"); v != "" {
 		cfg.LogConfig.Retention.Enabled = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_CRON")); v != "" {
+	if v := strings.TrimSpace(getenv("CORE_X_LOG_RETENTION_CRON")); v != "" {
 		cfg.LogConfig.Retention.Cron = v
 	}
-	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_TIMEZONE")); v != "" {
+	if v := strings.TrimSpace(getenv("CORE_X_LOG_RETENTION_TIMEZONE")); v != "" {
 		cfg.LogConfig.Retention.Timezone = v
 	}
-	if v := os.Getenv("CORE_X_LOG_RETENTION_DEFAULT_DAYS"); v != "" {
+	if v := getenv("CORE_X_LOG_RETENTION_DEFAULT_DAYS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.LogConfig.Retention.DefaultRetentionDays = n
 		}
 	}
-	if v := os.Getenv("CORE_X_LOG_RETENTION_BATCH_SIZE"); v != "" {
+	if v := getenv("CORE_X_LOG_RETENTION_BATCH_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.LogConfig.Retention.BatchSize = n
 		}
 	}
-	if v := os.Getenv("CORE_X_LOG_RETENTION_MAX_DELETE_ROWS"); v != "" {
+	if v := getenv("CORE_X_LOG_RETENTION_MAX_DELETE_ROWS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.LogConfig.Retention.MaxDeleteRowsPerRun = n
 		}
 	}
-	if v := strings.TrimSpace(os.Getenv("CORE_X_LOG_RETENTION_FILE_PATHS")); v != "" {
+	if v := strings.TrimSpace(getenv("CORE_X_LOG_RETENTION_FILE_PATHS")); v != "" {
 		raw := strings.Split(v, ",")
 		paths := make([]string, 0, len(raw))
 		for i := range raw {
@@ -1115,246 +1126,246 @@ func loadFromEnv(cfg *Config) error {
 		}
 	}
 
-	if v := os.Getenv("CORE_X_AUDIT_PERSIST_TO_DB"); v != "" {
+	if v := getenv("CORE_X_AUDIT_PERSIST_TO_DB"); v != "" {
 		cfg.Audit.PersistToDB = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_AUDIT_ENABLE_GORM_CALLBACKS"); v != "" {
+	if v := getenv("CORE_X_AUDIT_ENABLE_GORM_CALLBACKS"); v != "" {
 		cfg.Audit.EnableGORMCallbacks = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_ENABLE"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_ENABLE"); v != "" {
 		cfg.Audit.File.Enable = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_DIR"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_DIR"); v != "" {
 		cfg.Audit.File.Dir = v
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_PREFIX"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_PREFIX"); v != "" {
 		cfg.Audit.File.FilePrefix = v
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_MAX_SIZE"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_MAX_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.Audit.File.MaxSize = n
 		}
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_MAX_BACKUPS"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_MAX_BACKUPS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.Audit.File.MaxBackups = n
 		}
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_MAX_AGE"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_MAX_AGE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.Audit.File.MaxAge = n
 		}
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_COMPRESS"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_COMPRESS"); v != "" {
 		cfg.Audit.File.Compress = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_USE_UTC"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_USE_UTC"); v != "" {
 		cfg.Audit.File.UseUTC = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_AUDIT_FILE_INCLUDE_META"); v != "" {
+	if v := getenv("CORE_X_AUDIT_FILE_INCLUDE_META"); v != "" {
 		cfg.Audit.File.IncludeMeta = strings.EqualFold(v, "true") || v == "1"
 	}
 
 	// FeatureGate配置
-	if license := os.Getenv("CORE_X_FEATURE_GATE_LICENSE_KEY"); license != "" {
+	if license := getenv("CORE_X_FEATURE_GATE_LICENSE_KEY"); license != "" {
 		cfg.FeatureGate.LicenseKey = license
 	}
-	if v := os.Getenv("CORE_X_FEATURE_GATE_ENABLE_SAAS_SIGNUP"); v != "" {
+	if v := getenv("CORE_X_FEATURE_GATE_ENABLE_SAAS_SIGNUP"); v != "" {
 		cfg.FeatureGate.EnableSaaSSignup = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_FEATURE_GATE_ENABLE_SAAS_SIGNUP_VERIFICATION_CODE"); v != "" {
+	if v := getenv("CORE_X_FEATURE_GATE_ENABLE_SAAS_SIGNUP_VERIFICATION_CODE"); v != "" {
 		cfg.FeatureGate.EnableSaaSSignupVerificationCode = strings.EqualFold(v, "true") || v == "1"
 	}
 
 	// Plugin Release 配置
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_LOCAL_INSTALL"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_ENABLE_LOCAL_INSTALL"); v != "" {
 		cfg.Plugin.Release.FeatureFlags.EnableLocalInstall = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_PIPELINE_DEPLOYMENT"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_ENABLE_PIPELINE_DEPLOYMENT"); v != "" {
 		cfg.Plugin.Release.FeatureFlags.EnablePipelineDeployment = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_OFFLINE_DISTRIBUTION"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_ENABLE_OFFLINE_DISTRIBUTION"); v != "" {
 		cfg.Plugin.Release.FeatureFlags.EnableOfflineDistribution = strings.EqualFold(v, "true") || v == "1"
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_SESSION_TTL_MINUTES"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_SESSION_TTL_MINUTES"); v != "" {
 		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
 			cfg.Plugin.Release.LocalInstall.SessionTTLMinutes = ttl
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_MAX_ARTIFACT_SIZE_MB"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_MAX_ARTIFACT_SIZE_MB"); v != "" {
 		if size, err := strconv.Atoi(v); err == nil && size > 0 {
 			cfg.Plugin.Release.LocalInstall.MaxArtifactSizeMB = size
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_APPROVAL_SLA_HOURS"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_APPROVAL_SLA_HOURS"); v != "" {
 		if sla, err := strconv.Atoi(v); err == nil && sla > 0 {
 			cfg.Plugin.Release.Pipeline.ApprovalSLAHours = sla
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_MAX_PARALLEL_RELEASES"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_MAX_PARALLEL_RELEASES"); v != "" {
 		if maxR, err := strconv.Atoi(v); err == nil && maxR > 0 {
 			cfg.Plugin.Release.Pipeline.MaxParallelReleases = maxR
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_DEFAULT_ROLLBACK_NOTICE_MINUTES"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_DEFAULT_ROLLBACK_NOTICE_MINUTES"); v != "" {
 		if minutes, err := strconv.Atoi(v); err == nil && minutes > 0 {
 			cfg.Plugin.Release.Pipeline.DefaultRollbackNotice = minutes
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_ROLLBACK_TIMEOUT_SECONDS"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_CANARY_ROLLBACK_TIMEOUT_SECONDS"); v != "" {
 		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
 			cfg.Plugin.Release.Canary.RollbackTimeoutSeconds = seconds
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_DEFAULT_BATCH_SIZE"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_CANARY_DEFAULT_BATCH_SIZE"); v != "" {
 		if size, err := strconv.Atoi(v); err == nil && size > 0 {
 			cfg.Plugin.Release.Canary.DefaultBatchSize = size
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_MAX_BATCHES"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_CANARY_MAX_BATCHES"); v != "" {
 		if count, err := strconv.Atoi(v); err == nil && count > 0 {
 			cfg.Plugin.Release.Canary.MaxBatches = count
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_BUCKET"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_BUCKET"); v != "" {
 		cfg.Plugin.Release.Distribution.OfflineBucket = v
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_PREFIX"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_PREFIX"); v != "" {
 		cfg.Plugin.Release.Distribution.OfflinePrefix = v
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ESCALATION_THRESHOLD"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_ESCALATION_THRESHOLD"); v != "" {
 		if threshold, err := strconv.Atoi(v); err == nil && threshold > 0 {
 			cfg.Plugin.Release.Distribution.EscalationThreshold = threshold
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ARTIFACT_RETENTION_DAYS"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_ARTIFACT_RETENTION_DAYS"); v != "" {
 		if days, err := strconv.Atoi(v); err == nil && days > 0 {
 			cfg.Plugin.Release.Distribution.ArtifactRetentionDays = days
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_DASHBOARD_UID"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_DASHBOARD_UID"); v != "" {
 		cfg.Plugin.Release.Observability.DashboardUID = v
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ALERT_RULE_PREFIX"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_ALERT_RULE_PREFIX"); v != "" {
 		cfg.Plugin.Release.Observability.AlertRulePrefix = v
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_KPI_ROLLBACK_SECONDS"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_KPI_ROLLBACK_SECONDS"); v != "" {
 		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
 			cfg.Plugin.Release.Observability.KPITargets.CanRollbackWithinSeconds = seconds
 		}
 	}
-	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_KPI_HOTLOAD_P95_MS"); v != "" {
+	if v := getenv("CORE_X_PLUGIN_RELEASE_KPI_HOTLOAD_P95_MS"); v != "" {
 		if ms, err := strconv.Atoi(v); err == nil && ms > 0 {
 			cfg.Plugin.Release.Observability.KPITargets.HotloadLatencyP95Ms = ms
 		}
 	}
 
 	// 数据库配置
-	if host := os.Getenv("CORE_X_DB_HOST"); host != "" {
+	if host := getenv("CORE_X_DB_HOST"); host != "" {
 		cfg.Database.Host = host
 	}
-	if port := os.Getenv("CORE_X_DB_PORT"); port != "" {
+	if port := getenv("CORE_X_DB_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Database.Port = p
 		}
 	}
-	if username := os.Getenv("CORE_X_DB_USERNAME"); username != "" {
+	if username := getenv("CORE_X_DB_USERNAME"); username != "" {
 		cfg.Database.UserName = username
 	}
-	if password := os.Getenv("CORE_X_DB_PASSWORD"); password != "" {
+	if password := getenv("CORE_X_DB_PASSWORD"); password != "" {
 		cfg.Database.Password = password
 	}
-	if database := os.Getenv("CORE_X_DB_DATABASE"); database != "" {
+	if database := getenv("CORE_X_DB_DATABASE"); database != "" {
 		cfg.Database.Database = database
 	}
-	if sslMode := os.Getenv("CORE_X_DB_SSL_MODE"); sslMode != "" {
+	if sslMode := getenv("CORE_X_DB_SSL_MODE"); sslMode != "" {
 		cfg.Database.SSLMode = sslMode
 	}
-	if timezone := os.Getenv("CORE_X_DB_TIMEZONE"); timezone != "" {
+	if timezone := getenv("CORE_X_DB_TIMEZONE"); timezone != "" {
 		cfg.Database.Timezone = timezone
 	}
-	if tablePrefix := os.Getenv("CORE_X_DB_TABLE_PREFIX"); tablePrefix != "" {
+	if tablePrefix := getenv("CORE_X_DB_TABLE_PREFIX"); tablePrefix != "" {
 		cfg.Database.TablePrefix = tablePrefix
 	}
-	if maxIdleConns := os.Getenv("CORE_X_DB_MAX_IDLE_CONNS"); maxIdleConns != "" {
+	if maxIdleConns := getenv("CORE_X_DB_MAX_IDLE_CONNS"); maxIdleConns != "" {
 		if m, err := strconv.Atoi(maxIdleConns); err == nil {
 			cfg.Database.MaxIdleConns = m
 		}
 	}
-	if maxOpenConns := os.Getenv("CORE_X_DB_MAX_OPEN_CONNS"); maxOpenConns != "" {
+	if maxOpenConns := getenv("CORE_X_DB_MAX_OPEN_CONNS"); maxOpenConns != "" {
 		if m, err := strconv.Atoi(maxOpenConns); err == nil {
 			cfg.Database.MaxOpenConns = m
 		}
 	}
-	if connMaxLifetime := os.Getenv("CORE_X_DB_CONN_MAX_LIFETIME"); connMaxLifetime != "" {
+	if connMaxLifetime := getenv("CORE_X_DB_CONN_MAX_LIFETIME"); connMaxLifetime != "" {
 		if m, err := strconv.Atoi(connMaxLifetime); err == nil {
 			cfg.Database.ConnMaxLifetimeMinutes = m
 		}
 	}
-	if logLevel := os.Getenv("CORE_X_DB_LOG_LEVEL"); logLevel != "" {
+	if logLevel := getenv("CORE_X_DB_LOG_LEVEL"); logLevel != "" {
 		cfg.Database.LogLevel = logLevel
 	}
 
 	// Storage配置
-	if driver := os.Getenv("CORE_X_STORAGE_DEFAULT_DRIVER"); driver != "" {
+	if driver := getenv("CORE_X_STORAGE_DEFAULT_DRIVER"); driver != "" {
 		cfg.Storage.DefaultDriver = strings.ToLower(driver)
 	}
-	if ttl := os.Getenv("CORE_X_STORAGE_TTL_SECONDS"); ttl != "" {
+	if ttl := getenv("CORE_X_STORAGE_TTL_SECONDS"); ttl != "" {
 		if v, err := strconv.Atoi(ttl); err == nil && v > 0 {
 			cfg.Storage.TTLSeconds = int32(v)
 		}
 	}
-	if basePath := os.Getenv("CORE_X_STORAGE_LOCAL_BASE_PATH"); basePath != "" {
+	if basePath := getenv("CORE_X_STORAGE_LOCAL_BASE_PATH"); basePath != "" {
 		cfg.Storage.Local.BasePath = basePath
 	}
-	if publicURL := os.Getenv("CORE_X_STORAGE_LOCAL_PUBLIC_BASE_URL"); publicURL != "" {
+	if publicURL := getenv("CORE_X_STORAGE_LOCAL_PUBLIC_BASE_URL"); publicURL != "" {
 		cfg.Storage.Local.PublicBaseURL = publicURL
 	}
-	if endpoint := os.Getenv("CORE_X_STORAGE_S3_ENDPOINT"); endpoint != "" {
+	if endpoint := getenv("CORE_X_STORAGE_S3_ENDPOINT"); endpoint != "" {
 		cfg.Storage.S3.Endpoint = endpoint
 	}
-	if region := os.Getenv("CORE_X_STORAGE_S3_REGION"); region != "" {
+	if region := getenv("CORE_X_STORAGE_S3_REGION"); region != "" {
 		cfg.Storage.S3.Region = region
 	}
-	if ak := os.Getenv("CORE_X_STORAGE_S3_ACCESS_KEY"); ak != "" {
+	if ak := getenv("CORE_X_STORAGE_S3_ACCESS_KEY"); ak != "" {
 		cfg.Storage.S3.AccessKey = ak
 	}
-	if sk := os.Getenv("CORE_X_STORAGE_S3_SECRET_KEY"); sk != "" {
+	if sk := getenv("CORE_X_STORAGE_S3_SECRET_KEY"); sk != "" {
 		cfg.Storage.S3.SecretKey = sk
 	}
-	if st := os.Getenv("CORE_X_STORAGE_S3_SESSION_TOKEN"); st != "" {
+	if st := getenv("CORE_X_STORAGE_S3_SESSION_TOKEN"); st != "" {
 		cfg.Storage.S3.SessionToken = st
 	}
-	if bucket := os.Getenv("CORE_X_STORAGE_S3_BUCKET"); bucket != "" {
+	if bucket := getenv("CORE_X_STORAGE_S3_BUCKET"); bucket != "" {
 		cfg.Storage.S3.Bucket = bucket
 	}
-	if useSSL := os.Getenv("CORE_X_STORAGE_S3_USE_SSL"); useSSL != "" {
+	if useSSL := getenv("CORE_X_STORAGE_S3_USE_SSL"); useSSL != "" {
 		if v, err := strconv.ParseBool(useSSL); err == nil {
 			cfg.Storage.S3.UseSSL = v
 		}
 	}
-	if fps := os.Getenv("CORE_X_STORAGE_S3_FORCE_PATH_STYLE"); fps != "" {
+	if fps := getenv("CORE_X_STORAGE_S3_FORCE_PATH_STYLE"); fps != "" {
 		if v, err := strconv.ParseBool(fps); err == nil {
 			cfg.Storage.S3.ForcePathStyle = v
 		}
 	}
-	if domain := os.Getenv("CORE_X_STORAGE_S3_EXTERNAL_DOMAIN"); domain != "" {
+	if domain := getenv("CORE_X_STORAGE_S3_EXTERNAL_DOMAIN"); domain != "" {
 		cfg.Storage.S3.ExternalDomain = domain
 	}
-	if presign := os.Getenv("CORE_X_STORAGE_S3_PRESIGN_ENDPOINT"); presign != "" {
+	if presign := getenv("CORE_X_STORAGE_S3_PRESIGN_ENDPOINT"); presign != "" {
 		cfg.Storage.S3.PresignEndpoint = presign
 	}
 
 	// 兼容旧的环境变量
-	if port := os.Getenv("CORE_X_PORT"); port != "" && cfg.Server.Port == 8077 {
+	if port := getenv("CORE_X_PORT"); port != "" && cfg.Server.Port == 8077 {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p
 		}
 	}
-	if mode := os.Getenv("GIN_MODE"); mode != "" && cfg.Server.Mode == "debug" {
+	if mode := getenv("GIN_MODE"); mode != "" && cfg.Server.Mode == "debug" {
 		cfg.Server.Mode = mode
 	}
-	if busType := os.Getenv("EVENT_BUS_TYPE"); busType != "" && cfg.Event.Bus.Type == "local" {
+	if busType := getenv("EVENT_BUS_TYPE"); busType != "" && cfg.Event.Bus.Type == "local" {
 		cfg.Event.Bus.Type = busType
 	}
 	return nil

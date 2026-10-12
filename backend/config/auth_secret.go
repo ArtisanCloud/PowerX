@@ -30,10 +30,15 @@ func validateJWTSecret(secret string) error {
 // jwtSecretEnvironment 仅接受统一的 POWERX_AUTH_JWT_SECRET。
 // 旧名称必须显式迁移，不做别名读取或静默回退；错误不包含密钥值。
 func jwtSecretEnvironment() (string, error) {
+	return jwtSecretEnvironmentFrom(os.LookupEnv)
+}
+
+func jwtSecretEnvironmentFrom(lookup environmentLookup) (string, error) {
 	for _, name := range []string{"CORE_X_AUTH_JWT_SECRET", "CORE_X_JWT_SECRET"} {
-		if _, present := os.LookupEnv(name); present {
+		if _, present := lookup(name); present {
 			return "", fmt.Errorf("环境变量 %s 已不再支持：请改为 POWERX_AUTH_JWT_SECRET，保留原密钥值并删除旧变量", name)
 		}
 	}
-	return os.Getenv("POWERX_AUTH_JWT_SECRET"), nil
+	secret, _ := lookup("POWERX_AUTH_JWT_SECRET")
+	return secret, nil
 }

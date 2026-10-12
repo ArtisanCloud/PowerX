@@ -151,7 +151,7 @@ sudo systemd-run --wait --pipe --collect --property=User="$(systemctl show power
 
 ## 10. 常见问题与排障
 
-- `auth.jwt_secret` 校验失败：迁移需同服务 env；不删除安全校验，也不重新使用公开占位密钥。
+- `auth.jwt_secret` 校验失败：新配置加载器按显式配置目录读取同实例 `powerx.env`。旧 CLI 沿用上面的 `systemd-run` 加载环境，或受控同步原签名密钥到 YAML 后使用普通 `database migrate -config`；不删除校验，不使用公开占位密钥，不轮换正在运行的密钥。
 - `retention_mode/protected` 列缺失：新二进制已运行但未 migrate。
 - 目录是旧 release：旧代码或 env 没加载；核对 `/proc/PID/exe`、`database --version` 和页面运行配置。
 - timer 不产生文件：检查是否已启用策略以及是否到期；重启 timer 不会重置上次持久化执行时间。

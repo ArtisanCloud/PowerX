@@ -124,8 +124,12 @@ grep -n "dsn\\|schema" /etc/powerx-dev/config.yaml
 
 ```bash
 cd /opt/powerx-dev/backend
-sudo -u powerx POWERX_CONFIG=/etc/powerx-dev/config.yaml ./database migrate
+sudo ./database migrate -config /etc/powerx-dev/config.yaml
 ```
+
+命令使用显式配置目录的 `/etc/powerx-dev/powerx.env`，不读取正式实例的环境文件。也可在 `/opt/powerx/backend` 用同一二进制传上述 dev 配置；数据库和签名密钥均以目标实例配置及环境覆盖为准。已有进程变量优先，若人为传入正式环境变量，应先退出该环境。
+
+旧二进制报 `auth.jwt_secret` 公开默认值时，沿用运行中 dev 服务的原 `POWERX_AUTH_JWT_SECRET` 对齐 dev YAML，保留备份；不复制正式密钥，不自动换钥。普通迁移沿用该实例配置；新加载机制不写回 YAML 或重新生成密钥。
 
 补 seed：
 ```bash

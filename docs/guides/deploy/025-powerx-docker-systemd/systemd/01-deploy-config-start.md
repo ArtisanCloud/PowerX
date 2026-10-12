@@ -282,12 +282,15 @@ curl --noproxy '*' -sS http://127.0.0.1:8080/api/v1/admin/setup/status
 若本次版本含 DB 变更，显式执行：
 ```bash
 cd /opt/powerx/backend
-POWERX_CONFIG=/etc/powerx/config.yaml ./database migrate
+sudo ./database migrate -config /etc/powerx/config.yaml
 # 仅在需要初始化/补数时执行
 # POWERX_CONFIG=/etc/powerx/config.yaml ./database seed
 # POWERX_CONFIG=/etc/powerx/config.yaml ./platform_capability_seed
 ```
 说明：
+- 普通配置加载会读取显式 `config.yaml` 同目录的 `powerx.env`：进程环境优先，其次实例环境文件，再次 YAML。实例文件存在时不搜索当前工作目录的开发 `.env`，正式、开发文件不会串用；读取不修改进程环境或 YAML。
+- `powerx.env` 使用逐行 `KEY=VALUE`（可用单/双引号）格式；不执行 shell、不展开 `$VAR`。文件存在但不可读、引号无效或格式损坏会明确报错，错误不输出值。只使用正式 `POWERX_AUTH_JWT_SECRET`，旧 JWT 变量名仍明确拒绝。
+- `auth.jwt_secret` 报公开默认值时，先检查实例环境文件是否有实际运行中的有效密钥；受控修复应将同一原密钥同步到 YAML，保留其他配置和备份，不重新生成。换钥会影响签名凭证，普通迁移不自动换钥。旧 CLI 不会自动加载 `powerx.env`，应对齐 YAML 或使用已明确加载环境文件的 `systemd-run`。
 - 发布产物目录请使用 `./database migrate|seed` 与 `./platform_capability_seed`，不要使用 `./powerx database migrate`（`powerx` 是服务进程入口，不是迁移 CLI）。
 - 源码 checkout 目录可以使用 `POWERX_CONFIG=/etc/powerx/config.yaml make seed`；发布产物目录通常没有 Makefile，因此使用上面的二进制命令。
 
