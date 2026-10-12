@@ -590,7 +590,9 @@ export const usePermissionStore = defineStore("permission", () => {
   // ✅ 读取角色权限ID（用于勾选）
   // ✅ 读取角色权限ID（用于勾选）
   const fetchRolePermissionIDs = async (roleId: number) => {
-    const res = await get(`${baseUrl}/roles/${roleId}/permissions`);
+    const res = await get(`${baseUrl}/roles/${roleId}/permissions`, {
+      useGlobalLoading: false,
+    });
     const items = Array.isArray(res?.data?.items)
       ? res.data.items
       : (res?.data ?? []);
@@ -607,6 +609,7 @@ export const usePermissionStore = defineStore("permission", () => {
     const res = await put(
       `${baseUrl}/roles/${roleId}/permissions/set-ids`,
       payload,
+      { useGlobalLoading: false },
     );
     // 后端返回 { added, removed, now, skipped_deprecated }
     const now: number[] = res?.data?.now ?? ids;

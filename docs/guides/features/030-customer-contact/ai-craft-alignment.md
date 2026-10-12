@@ -1,6 +1,6 @@
 # AI Craft 对齐交接：Customer / Contact
 
-> 交接日期：2026-09-24。PowerXPlugin Framework Lab 的 local/API Key 客户列表与联系人列表已由使用者提供截图并确认联调成功。插件安装后的 delegated/STS、Contact 写入和 AI Craft 业务链路尚未据此验收。以下契约以当前工作树为准，相关改动尚未提交。
+> 更新：2026-10-11。PowerXPlugin Framework Lab 的 local/API Key 客户列表与联系人列表已由使用者提供截图并确认联调成功。插件安装后的 delegated/STS、Contact 写入和 AI Craft 业务链路尚未据此验收。以下契约以当前工作树为准，相关改动尚未提交。
 
 ## 1. 对齐目标与边界
 
@@ -123,7 +123,10 @@ Framework 应将下表作为 local 与 delegated 共用的身份解析合同用�
 | AI Craft 订单 | 选客户、解析/显式创建联系人、创建订单并重读 | 订单 UUID 对应 Core Contact，职责只在 AI Craft；不同 Customer 的 Contact 被拒绝 | 检查 `CONTACT_CUSTOMER_MISMATCH` 与订单事务，禁止名称猜测 |
 | 故障与撤销 | 撤销一项服务 grant 后重试，或使 Core binding 不可用 | 撤销后 403；delegated 不可用返回 `CONTACT_DELEGATE_UNAVAILABLE`，本地表不被查询 | 查目标 capability 与当前凭证，恢复授权后再试 |
 
-当前 AI Craft 已有 `BindFrameworkContact`、local store 和订单两个 UUID 字段；候选解析/显式绑定、订单归属验证、业务职责、存量订单治理及安装后端到端证据仍需要实现或补齐。Core 对已验证且类型为 `person` 的同一插件身份提供有限的幂等补齐：成员关系缺主联系人引用时复用唯一的现有 Contact，或在没有 Contact 时创建一位；多位候选和失效引用报错。其他旧 Customer 的缺失类型或主要联系人仍保留原状；可预览、需主动执行的补录工具仍待实现。详见 [任务清单](../../../../specs/030-customer-contact/tasks.md) 和 [总指南](./guide.md)。
+当前 AI Craft 源码已实现 `ContactCandidateService.Resolve/CreateFromCandidate/BindCandidate`、bulk-order `ValidateCustomerContacts`（UUID、customer 归属及 active）以及 `AiCraftBulkCustomerContactSelect.vue`。已存在 ContactAssignment 模型与 repository，但业务职责替换、历史订单治理和安装后浏览器闭环仍须核验，不能仅凭模型存在完成对应任务。
+
+Core 的显式存量补录已交付：预览、准确确认、来源变化冲突、幂等回读和事务审计见 [主联系人维护与补录](./usecase-primary-maintenance.md)。原有可信身份解析的有限补齐保持独立；读接口与普通迁移不执行补录。
+
 
 ## 6. 回滚与代码定位
 
@@ -152,3 +155,11 @@ Core 已新增 `accounts.service_manage/update`，字段 presence、清空规则
 Core 新增 `service_read` 的 Lookup/ListByCustomer 与 `service_manage` 的 Bind/CreateAndBind。具体 DTO、实例范围、API Key plugin_id 映射、姓名标签规则及部署验收见 [客户外部身份管理合同](../../../contracts/customer-external-identity-management.md)。管理页面检查关联必须使用 Lookup，不能调用有创建/补写副作用的登录 Resolve。Framework 提供 `ExternalIdentityStore` 和 delegated `ExternalIdentityClient`；消费者 UI/Local adapter 对齐仍需逐插件验收。
 
 2026-09-27 运行验收补充：用户重启 Core 后，客户更新及四项客户外部身份操作的真实 API Key／STS Exchange 网关验收通过，含幂等、跨租户、冲突及 grant 撤销。见 [完整 trace 记录](../../../contracts/customer-live-acceptance-2026-09-27.md)。这不代表插件 UI/安装生命周期或所有 Local adapter 已验收。
+
+## 独立主联系人管理扩展（2026-10-11）
+
+Core 新增 `com.corex.customer.contacts.primary_manage`，固定 `core://customer/contacts` / `INVOKE` / `set_primary`，API Key scope `_scope.customer.contacts.primary_manage`。正式输入/输出与 Framework 工作项见 [Core internal 合同](../../../../specs/030-customer-contact/contracts/contact-core-internal.md)。
+
+Framework 增加独立 `PrimaryContactManager` typed 接口及 Local/Delegated 适配，不扩展现有 Store 强制所有 mock 重写。参数为 CustomerUUID、ContactUUID、ExpectedPrimaryContactUUID；JSON 必须包含 expected 字段，缺引用时空字符串。原 `service_manage` 不授予设主能力。普通 Contact Create 的 roles 不得包含 primary；当前 primary 的通用编辑须保留该标记，设主操作是唯一更换路径。所有客户端保留稳定错误、HTTP 状态、Trace，不因冲突切换 Local。
+
+AI Craft 的订单联系人选择不需要改变 Customer 的主引用。若产品新增“更换客户主联系人”，再消费此独立能力并明确确认原引用。Core 的新 CSV/补录 UI 不需要在插件复制，也不会自动绑定 Shopify 身份。

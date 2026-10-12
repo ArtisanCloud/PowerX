@@ -16,10 +16,12 @@ import (
 type Handler struct {
 	svc      *customersvc.AccountService
 	contacts *customersvc.ContactService
+	imports  *customersvc.AccountImportService
+	repairs  *customersvc.ContactRepairService
 }
 
 func NewHandler(deps *shared.Deps) *Handler {
-	return &Handler{svc: customersvc.NewAccountService(deps.DB), contacts: customersvc.NewContactService(deps.DB)}
+	return &Handler{svc: customersvc.NewAccountService(deps.DB), contacts: customersvc.NewContactService(deps.DB), imports: deps.CustomerImports, repairs: deps.CustomerContactRepairs}
 }
 
 type listAccountsRequest struct {
@@ -111,11 +113,14 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		return
 	}
 	var req createAccountRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
+	if c.Request.URL.RawQuery != "" {
+		dto.RespondErrorFrom(c, dto.NewErrorWithCode(400, "CUSTOMER_ADMIN_REQUEST_INVALID", "客户创建不接受查询参数或租户覆盖", nil))
 		return
 	}
-	item, err := h.svc.Create(c.Request.Context(), customersvc.CreateAccountInput{
+	if !bindCustomerAdminJSON(c, &req, 65536, "CUSTOMER_ADMIN_REQUEST_INVALID") {
+		return
+	}
+	item, err := h.svc.CreateFromAdmin(c.Request.Context(), customersvc.CreateAccountInput{
 		TenantUUID:     tenantUUID,
 		Type:           req.Type,
 		PrimaryContact: accountPrimaryContact(req.PrimaryContact),
@@ -173,6 +178,10 @@ func requireTenant(c *gin.Context) (string, bool) {
 
 func respondCustomerError(c *gin.Context, err error) {
 	if err == nil {
+		return
+	}
+	if dto.CodeOf(err) != "" {
+		dto.RespondErrorFrom(c, err)
 		return
 	}
 	switch {

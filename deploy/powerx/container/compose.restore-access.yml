@@ -1,0 +1,13 @@
+# 显式启用恢复副本的 SSH 接入：只发布到服务器回环地址。
+# .env 中设置 COMPOSE_FILE=compose.yml:compose.restore-access.yml 后，run.sh 自动合并。
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POWERX_RESTORE_POSTGRES_PORT:-15432}:5432"
+  backend:
+    environment:
+      POWERX_OPS_RESTORE_ACCESS_MODE: ssh_tunnel
+      POWERX_OPS_RESTORE_CLIENT_HOST: 127.0.0.1
+      POWERX_OPS_RESTORE_CLIENT_PORT: ${POWERX_RESTORE_LOCAL_PORT:-15432}
+      POWERX_OPS_RESTORE_TUNNEL_HOST: 127.0.0.1
+      POWERX_OPS_RESTORE_TUNNEL_PORT: ${POWERX_RESTORE_POSTGRES_PORT:-15432}

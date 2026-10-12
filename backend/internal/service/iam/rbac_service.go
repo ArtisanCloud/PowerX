@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 
@@ -191,6 +192,10 @@ func (s *RBACService) Enforce(ctx context.Context, actor ActorContext, tenantUUI
 	// 复用 EXISTS 版绑定鉴权（直绑 + Assignment 聚合）。
 	// module 为空时保持历史兼容，仅按 resource/action 鉴权。
 	module = strings.TrimSpace(module)
+	// 客户资料编辑的按钮检查与实际写入使用同一实时授权，不能接受旧来源或到期绑定。
+	if module == "customer" && resource == "admin_customers_accounts_customer_uuid" && action == "update" {
+		return s.pr.MemberHasLivePlatformPermission(ctx, tenantUUID, reqctx.GetMemberUUID(ctx), memberID, module, resource, action)
+	}
 	if module == "" {
 		return s.pr.MemberHasPermissionViaBinding(ctx, tenantUUID, memberID, resource, action)
 	}

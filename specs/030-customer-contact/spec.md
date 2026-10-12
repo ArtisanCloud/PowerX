@@ -148,3 +148,22 @@ MediaX Studio must consume the marketing namespaces through the metadata capabil
 - Automatic CRM, Shopify, email, or WeCom synchronization that creates Contact master records.
 - Free-form universal role definitions or plugin-specific role registry in Core.
 - Automated historical order backfill.
+
+## Core admin customer ingress (2026-10-11)
+
+- The `menu.customer:view` permission MUST be registered on fresh installation and incrementally on installed databases without replacing permission UUIDs, effects, status, tombstones, descriptions or role grants. The permission editor MUST place it under business operations.
+- The Core Customer list MUST expose person/company creation, explicit primary natural-person Contact for companies, and real pagination. Menu visibility MUST NOT grant customer creation or CSV import.
+- Admin CSV import MUST use user JWT, live platform API grants, and trusted tenant context. It MUST reject STS/API Key, identity override fields, unsupported headers/formats, more than 200 rows or 1 MiB, and invalid UTF-8.
+- Import previews MUST persist versioned input snapshots and expire for confirmation after 24 hours. Preview cannot create customer master data. Confirmation accepts only saved UUID/checksum/explicit confirm and MUST be idempotent across concurrent calls.
+- Each successful row MUST create Customer, membership and primary Contact atomically. Duplicate tenant email/phone collisions are explicit skips without merges or overwrites. Rows and result ledger commit together; incomplete transactions are retryable with the same snapshot. Completed failed rows require a corrected new preview.
+- Import details MUST be tenant- and creator-scoped, include actual row state, stable errors and result UUIDs, and support HTTP readback and browser recovery by import UUID.
+- This Core Admin addition does not add a Framework service binding or change typed Customer/Contact service operations. Production authenticated browser verification remains a deployment acceptance step.
+
+## 主联系人维护与历史补录合同（2026-10-11）
+
+1. 主联系人以当前租户 membership.primary_contact_uuid 为权威。显式设主必须校验同租户/客户且 active，比较调用方回读的原引用，事务内维护唯一 primary 标签及审计。当前主联系人不能直接 inactive/temporary，通用 roles 写入不能替代设主。
+2. 详情页按租户及客户隔离数据、请求和弹窗；每个联系人操作分别检查 API 权限。迟到响应不得填入新租户页面。
+3. Customer/Contact 姓名按最多 128 个 Unicode 字符校验，拒绝无效 UTF-8/控制字符；预览与提交使用相同规则。
+4. 管理员显式预览并确认存量补录。类型须确认；已有类型不可被改变；company 缺联系人时提供明确自然人，多个现有联系人需选择。补录只创建/复用 Contact、维护当前 membership、必要时确认空类型，不新增 Customer 或登录身份。
+5. 补录快照保存创建者/租户、输入、方案、来源指纹、校验摘要与结果。24 小时有效；变化返回冲突，失败回滚，完成回读幂等。CSV 创建与 contact_repair 模式互不接受任务 UUID。
+6. 正式路径、错误和授权见 docs/contracts/customer-contact-maintenance.openapi.yaml。Framework 需要独立 typed primary 管理扩展；不用 Admin permission 作为 service grant。

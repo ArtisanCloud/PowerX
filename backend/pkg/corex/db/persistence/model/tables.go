@@ -41,6 +41,7 @@ const TableIAMRegistrationRequest = "iam_registration_requests"
 const TableIAMRegistrationPolicyAudit = "iam_registration_policy_audits"
 
 const TableCustomerAccounts = "customer_accounts"
+const TableCustomerAccountImports = "customer_account_imports"
 const TableCustomerAuthIdentities = "customer_auth_identities"
 const TableCustomerTenantMemberships = "customer_tenant_memberships"
 const TableMiniAppEntries = "mini_app_entries"

@@ -25,7 +25,7 @@ func TestContactServiceCreatesAndScopesContact(t *testing.T) {
 
 	contact, err := service.Create(context.Background(), CreateContactInput{
 		TenantUUID: tenantUUID, CustomerUUID: customerUUID, DisplayName: "Chen Li",
-		Roles: []string{modelcustomer.ContactRolePrimary}, Tags: []string{"vip"},
+		Roles: []string{modelcustomer.ContactRoleLegalRepresentative}, Tags: []string{"vip"},
 		CreationIntent: ContactCreationIntentExplicitCreate,
 	})
 	require.NoError(t, err)

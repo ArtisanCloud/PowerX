@@ -199,7 +199,7 @@ jobs:
       - name: Export verified paired deployment bundle
         run: |
           mkdir /tmp/powerx-docker
-          cp deploy/powerx/container/{compose.yml,gateway.conf,run.sh,README.md,.env.example} /tmp/powerx-docker/
+          cp deploy/powerx/container/{compose.yml,compose.restore-access.yml,gateway.conf,run.sh,README.md,.env.example} /tmp/powerx-docker/
           cp powerx-upgrade-manifest.json docs/contracts/powerx-upgrade*.schema.json /tmp/powerx-docker/
           cp reports/upgrade-report-*.json /tmp/powerx-docker/
           python3 -c 'import json,pathlib; p=json.load(open("target-pair.json")); f=pathlib.Path("/tmp/powerx-docker/.env.example"); s=f.read_text(); s=s.replace("ghcr.io/artisancloud/powerx-backend:REPLACE_WITH_PUBLISHED_TAG",p["images"]["backend"]["repository"]+"@"+p["images"]["backend"]["index_digest"]); s=s.replace("ghcr.io/artisancloud/powerx-web-admin:REPLACE_WITH_PUBLISHED_TAG",p["images"]["web_admin"]["repository"]+"@"+p["images"]["web_admin"]["index_digest"]); f.write_text(s)'

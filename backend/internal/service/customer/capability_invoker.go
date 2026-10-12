@@ -97,7 +97,7 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabil
 			CustomerUUID: item.CustomerUUID, MembershipUUID: item.MembershipUUID, Type: item.Type, PrimaryContactUUID: item.PrimaryContactUUID, DisplayName: item.DisplayName,
 		}}, nil
 	}
-	if strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceReadCapabilityID) || strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceManageCapabilityID) {
+	if strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceReadCapabilityID) || strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsServiceManageCapabilityID) || strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerContactsPrimaryManageCapabilityID) {
 		return i.invokeContactCapability(ctx, in, method, endpoint)
 	}
 	if !strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerAccountsServiceReadCapabilityID) && !strings.EqualFold(strings.TrimSpace(in.CapabilityID), CustomerAccountsServiceManageCapabilityID) {
@@ -243,23 +243,24 @@ func decodeCustomerAccountListRequest(body map[string]interface{}) (customerAcco
 }
 
 type contactCapabilityRequest struct {
-	Operation                 string    `json:"operation"`
-	CustomerUUID              string    `json:"customer_uuid"`
-	ContactUUID               string    `json:"contact_uuid,omitempty"`
-	Query                     string    `json:"q,omitempty"`
-	Status                    *string   `json:"status,omitempty"`
-	Page                      int       `json:"page,omitempty"`
-	PageSize                  int       `json:"page_size,omitempty"`
-	ChannelDictionaryItemUUID string    `json:"channel_dictionary_item_uuid,omitempty"`
-	ExternalSubject           string    `json:"external_subject,omitempty"`
-	DisplayName               *string   `json:"display_name,omitempty"`
-	GivenName                 *string   `json:"given_name,omitempty"`
-	FamilyName                *string   `json:"family_name,omitempty"`
-	Email                     *string   `json:"email,omitempty"`
-	Phone                     *string   `json:"phone,omitempty"`
-	Roles                     *[]string `json:"roles,omitempty"`
-	Tags                      *[]string `json:"tags,omitempty"`
-	CreationIntent            string    `json:"creation_intent,omitempty"`
+	Operation                  string    `json:"operation"`
+	CustomerUUID               string    `json:"customer_uuid"`
+	ContactUUID                string    `json:"contact_uuid,omitempty"`
+	Query                      string    `json:"q,omitempty"`
+	Status                     *string   `json:"status,omitempty"`
+	Page                       int       `json:"page,omitempty"`
+	PageSize                   int       `json:"page_size,omitempty"`
+	ChannelDictionaryItemUUID  string    `json:"channel_dictionary_item_uuid,omitempty"`
+	ExternalSubject            string    `json:"external_subject,omitempty"`
+	DisplayName                *string   `json:"display_name,omitempty"`
+	GivenName                  *string   `json:"given_name,omitempty"`
+	FamilyName                 *string   `json:"family_name,omitempty"`
+	Email                      *string   `json:"email,omitempty"`
+	Phone                      *string   `json:"phone,omitempty"`
+	Roles                      *[]string `json:"roles,omitempty"`
+	Tags                       *[]string `json:"tags,omitempty"`
+	CreationIntent             string    `json:"creation_intent,omitempty"`
+	ExpectedPrimaryContactUUID *string   `json:"expected_primary_contact_uuid,omitempty"`
 }
 
 func (i *CapabilityInvoker) invokeContactCapability(ctx context.Context, in capabilityregistry.CoreCapabilityInvokeInput, method, endpoint string) (map[string]interface{}, error) {
@@ -278,10 +279,25 @@ func (i *CapabilityInvoker) invokeContactCapability(ctx context.Context, in capa
 	}
 	read := map[string]bool{"list_by_customer": true, "get": true, "resolve_identity": true}[req.Operation]
 	manage := map[string]bool{"create": true, "update": true, "bind_identity": true}[req.Operation]
-	if (!read && !manage) || (read && in.CapabilityID != CustomerContactsServiceReadCapabilityID) || (manage && in.CapabilityID != CustomerContactsServiceManageCapabilityID) {
+	primary := req.Operation == "set_primary" && in.CapabilityID == CustomerContactsPrimaryManageCapabilityID
+	if (!read && !manage && !primary) || (read && in.CapabilityID != CustomerContactsServiceReadCapabilityID) || (manage && in.CapabilityID != CustomerContactsServiceManageCapabilityID) {
 		return nil, capabilityregistry.ErrCoreCapabilityNotHandled
 	}
 	switch req.Operation {
+	case "set_primary":
+		if req.ExpectedPrimaryContactUUID == nil {
+			return nil, ErrContactInvalidArgument
+		}
+		for key := range in.Body {
+			if key != "operation" && key != "customer_uuid" && key != "contact_uuid" && key != "expected_primary_contact_uuid" {
+				return nil, ErrContactInvalidArgument
+			}
+		}
+		result, err := i.contacts.SetPrimary(ctx, in.TenantUUID, ContactCorePrimaryInput{CustomerUUID: req.CustomerUUID, ContactUUID: req.ContactUUID, ExpectedPrimaryContactUUID: *req.ExpectedPrimaryContactUUID})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"payload": result}, nil
 	case "list_by_customer":
 		status := ""
 		if req.Status != nil {

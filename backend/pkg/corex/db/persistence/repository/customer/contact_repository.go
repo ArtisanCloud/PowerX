@@ -6,6 +6,7 @@ import (
 
 	modelcustomer "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/customer"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ContactRepository contains only tenant- and Customer-scoped persistence
@@ -17,6 +18,22 @@ type ContactRepository struct {
 
 func NewContactRepository(db *gorm.DB) *ContactRepository {
 	return &ContactRepository{db: db}
+}
+
+func (r *ContactRepository) LockMembership(ctx context.Context, tenant, customer string) (*modelcustomer.TenantMembership, error) {
+	var membership modelcustomer.TenantMembership
+	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND customer_uuid = ?", tenant, customer).First(&membership).Error
+	return &membership, err
+}
+
+func (r *ContactRepository) SetPrimaryReference(ctx context.Context, membership *modelcustomer.TenantMembership, contact string) error {
+	return r.db.WithContext(ctx).Model(membership).Where("tenant_uuid = ? AND customer_uuid = ?", membership.TenantUUID, membership.CustomerUUID).Update("primary_contact_uuid", contact).Error
+}
+
+func (r *ContactRepository) AllForCustomer(ctx context.Context, tenant, customer string) ([]modelcustomer.Contact, error) {
+	var rows []modelcustomer.Contact
+	err := r.scopedContacts(ctx, tenant, customer).Order("id").Find(&rows).Error
+	return rows, err
 }
 
 type ContactListOptions struct {

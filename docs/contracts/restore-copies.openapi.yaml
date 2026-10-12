@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: PowerX 保留恢复副本
-  version: '1.0.0'
+  version: '1.1.0'
   description: 仅 Root 用户 JWT。将备份导入服务端生成的独立新库；不切换当前 Core 或插件 DSN。
 servers:
   - url: /api/v1/admin/ops/backup
@@ -132,6 +132,7 @@ paths:
     post:
       operationId: restoreCopyConnection
       x-powerx-root-only: true
+      description: 客户端入口来自受控运维配置；请求不得指定地址。容器未配置入口时失败，且不轮换旧凭据。ssh_tunnel 返回桌面本地端点及 SSH 服务器转发目标，DSN 本身不建立隧道。
       requestBody:
         required: true
         content:
@@ -152,7 +153,8 @@ paths:
                     type: object
                     properties:
                       connection: { $ref: '#/components/schemas/ReadonlyConnection' }
-        '409': { description: 副本未成功、库已改变或专用角色身份不匹配 }
+        '409': { description: 副本未成功、库已改变、专用角色身份不匹配或 RESTORE_CONNECTION_NOT_CONFIGURED（客户端入口未配置；不轮换凭据） }
+        '503': { description: RESTORE_CONNECTION_CONFIG_INVALID（非法运维配置；不轮换凭据）、恢复服务不可用或凭据生成失败 }
 components:
   securitySchemes:
     userJWT: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -217,12 +219,21 @@ components:
             copy: { $ref: '#/components/schemas/RestoreCopy' }
     ReadonlyConnection:
       type: object
+      required: [access_mode, host, port, database, username, password, ssl_mode, read_only, expires_at]
       properties:
-        host: { type: string }
-        port: { type: integer }
+        access_mode: { type: string, enum: [direct, ssh_tunnel] }
+        tunnel:
+          type: object
+          description: 仅 ssh_tunnel 返回；这是 SSH 服务器视角的转发目标。SSH 登录地址和凭据由管理员提供。
+          required: [host, port]
+          properties:
+            host: { type: string }
+            port: { type: integer, minimum: 1, maximum: 65535 }
+        host: { type: string, description: direct 模式为数据库客户端地址；ssh_tunnel 模式为管理员电脑的回环地址 }
+        port: { type: integer, minimum: 1, maximum: 65535, description: ssh_tunnel 模式为电脑本地转发端口 }
         database: { type: string }
         username: { type: string }
         password: { type: string, format: password }
-        ssl_mode: { type: string }
+        ssl_mode: { type: string, enum: [disable, allow, prefer, require, verify-ca, verify-full] }
         read_only: { type: boolean, enum: [true] }
         expires_at: { type: string, format: date-time }

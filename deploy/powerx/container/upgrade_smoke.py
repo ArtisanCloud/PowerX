@@ -5,10 +5,13 @@ import json
 import os
 from pathlib import Path
 import secrets
+import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
+import traceback
 import urllib.error
 import urllib.request
 import yaml
@@ -17,6 +20,27 @@ from upgrade_release import REQUIRED_CHECKS
 
 BASE = 'http://127.0.0.1:18080'
 PLUGIN = 'com.powerx.upgrade.fixture'
+
+
+class APIResponseError(RuntimeError):
+    def __init__(self, status, path):
+        self.status = status
+        super().__init__('UPGRADE_CI_HTTP_STATUS_FAILED: ' + path.split('?')[0])
+
+
+def wait_for_setup_page():
+    for _ in range(30):
+        try:
+            with urllib.request.urlopen(BASE+'/setup',timeout=5) as response:
+                if response.status != 200: raise APIResponseError(response.status,'/setup')
+                return
+        except urllib.error.HTTPError as error:
+            if error.code not in (502,503,504): raise
+        except APIResponseError as error:
+            if error.status not in (502,503,504): raise
+        except OSError: pass
+        time.sleep(1)
+    raise RuntimeError('UPGRADE_CI_FRONTEND_READY_TIMEOUT')
 
 
 def compose(*args, input=None, check=True):
@@ -28,6 +52,43 @@ def compose(*args, input=None, check=True):
 
 def sql(query):
     return compose('exec', '-T', 'postgres', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'powerx', '-d', 'powerx', '-At', input=query.encode()).stdout.decode().strip()
+
+
+def prepare_ci_mount_access():
+    # The initializer and Core run as container root. The GitHub runner must
+    # create/copy the fixture inside these two CI-owned mounts, without making
+    # private configuration world-readable or following plugin symlinks.
+    if os.environ.get('POWERX_UPGRADE_CI') != '1' or not os.environ.get('COMPOSE_PROJECT_NAME', '').startswith('powerx-upgrade-'):
+        raise RuntimeError('UPGRADE_CI_ISOLATION_REQUIRED')
+    script = '''import os,sys
+uid,gid=map(int,sys.argv[1:])
+for base in ('/etc/powerx','/data'):
+    if os.path.islink(base) or not os.path.isdir(base):
+        raise RuntimeError('UPGRADE_CI_MOUNT_INVALID')
+    os.chown(base,uid,gid,follow_symlinks=False)
+    for root,dirs,files in os.walk(base,followlinks=False):
+        for name in dirs+files:
+            os.chown(os.path.join(root,name),uid,gid,follow_symlinks=False)
+'''
+    compose('run','--rm','--no-deps','init','python3','-c',script,str(os.getuid()),str(os.getgid()))
+
+
+def restore_ci_directory(destination, backup):
+    if os.environ.get('POWERX_UPGRADE_CI') != '1' or not os.environ.get('COMPOSE_PROJECT_NAME', '').startswith('powerx-upgrade-'):
+        raise RuntimeError('UPGRADE_CI_ISOLATION_REQUIRED')
+    if destination not in ('config','data/runtime'):
+        raise RuntimeError('UPGRADE_CI_RESTORE_PATH_INVALID')
+    root=Path(destination)
+    if root.is_symlink() or not root.is_dir():
+        raise RuntimeError('UPGRADE_CI_MOUNT_INVALID')
+    # The runner owns the contents after prepare_ci_mount_access, but the
+    # host parent of a bind mount may belong to Docker root. Preserve the
+    # mounted directory itself and restore only its contents.
+    for child in root.iterdir():
+        if child.is_symlink() or child.is_file():child.unlink()
+        elif child.is_dir():shutil.rmtree(child)
+        else:raise RuntimeError('UPGRADE_CI_RESTORE_ENTRY_INVALID')
+    shutil.copytree(backup,root,dirs_exist_ok=True)
 
 
 def select_images(pair, platform):
@@ -59,10 +120,32 @@ class Acceptance:
         except urllib.error.HTTPError as error:
             response=error
         with response:
-            payload=json.loads(response.read())
-            self.report['http'].append({'path':path.split('?')[0], 'status':response.status,
-                'request_id':response.headers.get('X-Request-ID') or payload.get('request_id') or payload.get('trace_id')})
-            if response.status!=expected: raise RuntimeError('UPGRADE_CI_HTTP_STATUS_FAILED: '+path.split('?')[0])
+            record={'path':path.split('?')[0], 'status':response.status,
+                    'request_id':response.headers.get('X-Request-ID')}
+            self.report['http'].append(record)
+            # Nginx returns HTML while Core restarts. Preserve its HTTP status
+            # before decoding JSON so the bounded readiness wait can retry it.
+            if response.status!=expected:
+                try:
+                    error_payload=json.loads(response.read())
+                except (ValueError,UnicodeError):
+                    error_payload={}
+                if isinstance(error_payload,dict):
+                    record['request_id']=record['request_id'] or error_payload.get('request_id') or error_payload.get('trace_id')
+                    code=error_payload.get('error_code')
+                    if isinstance(code,str) and re.fullmatch(r'[A-Z][A-Z0-9_]{1,100}',code): record['error_code']=code
+                    reason=error_payload.get('reason')
+                    if reason in ('no registered permission binding for this route','no permission rule for this route',
+                                  'authz route permission unavailable','authz backend unavailable','mint token failed'):
+                        record['gateway_reason']=reason
+                raise APIResponseError(response.status,path)
+            try:
+                payload=json.loads(response.read())
+            except (ValueError, UnicodeError):
+                raise RuntimeError('UPGRADE_CI_HTTP_JSON_INVALID: '+path.split('?')[0]) from None
+            if not isinstance(payload,dict):
+                raise RuntimeError('UPGRADE_CI_HTTP_ENVELOPE_INVALID: '+path.split('?')[0])
+            record['request_id']=record['request_id'] or payload.get('request_id') or payload.get('trace_id')
             return payload.get('data',payload)
 
     def wait_installed(self):
@@ -70,7 +153,9 @@ class Acceptance:
             try:
                 status=self.api('/api/v1/admin/setup/status')
                 if status['configured'] and status['requires_login'] and not status.get('restart_required'): return
-            except (OSError,RuntimeError): pass
+            except APIResponseError as error:
+                if error.status not in (502,503,504): raise
+            except OSError: pass
             time.sleep(1)
         raise RuntimeError('UPGRADE_CI_INSTALLED_STATE_FAILED')
 
@@ -78,6 +163,23 @@ class Acceptance:
         value=self.api('/api/v1/admin/user/auth/login',{'identifier':'upgrade-admin@example.com','password':password})
         self.token=value['access_token']
         self.tenant=sql('SELECT uuid FROM public.iam_tenant WHERE deleted_at IS NULL ORDER BY id LIMIT 1')
+
+    def resource(self,asset_uuid,expected=200):
+        # The upgrade operator stays in the Admin user JWT plane. The removed
+        # anonymous UUID route and service-actor grants are not fallback paths.
+        path='/api/v1/admin/media/assets/'+asset_uuid+'/resource'
+        headers={'tenant_uuid':self.tenant,'X-Tenant-UUID':self.tenant}
+        if self.token: headers['Authorization']='Bearer '+self.token
+        request=urllib.request.Request(BASE+path,headers=headers)
+        try:
+            response=urllib.request.urlopen(request,timeout=30)
+        except urllib.error.HTTPError as error:
+            response=error
+        with response:
+            self.report['http'].append({'path':path,'status':response.status,
+                                       'request_id':response.headers.get('X-Request-ID')})
+            if response.status!=expected: raise APIResponseError(response.status,path)
+            return response.read()
 
     def mark(self,name): self.report['checks'][name]=True
 
@@ -135,7 +237,11 @@ def fixture_plugin():
         'endpoints':{'http_base_path':'/api/v1'},'routes':{'basePath':'/api/v1'},
         'frontend':{'admin':{'kind':'static','static_dir':'frontend/admin','menus':[]}},
         'rbac':{'resources':[{'resource':'probe','actions':['read']}]},
-        'permissions':[{'resource':'probe','path':'/probe','actions':['read'],'description':'Upgrade fixture probe'}]}
+        'permissions':[{'type':'api','permission_code':'upgrade.probe:read','module':'upgrade',
+                        'resource':'probe','action':'read','independent':True,'allow_api_key':False,
+                        'description':'Upgrade fixture probe','protocol_bindings':[
+                            {'channel':'rest','method':'GET','path':'/probe',
+                             'actor_context':'admin_user','resource_scope':'tenant'}]}]}
     (root/'plugin.yaml').write_text(yaml.safe_dump(manifest))
     script=r'''#!/usr/bin/env python3
 import json,os,re,subprocess
@@ -174,12 +280,13 @@ def main():
     report={'schema_version':'powerx.upgrade-acceptance/v1','status':'running','platform':args.platform,'source_sha':baseline['source_sha'],'target_sha':pair['source_sha'],
         'source_images':{k:v['platforms'][args.platform]['digest'] for k,v in baseline['images'].items()},
         'target_images':{k:v['platforms'][args.platform]['digest'] for k,v in pair['images'].items()},
-        'checks':{k:False for k in REQUIRED_CHECKS},'http':[],'migration_results':[]}
+        'checks':{k:False for k in REQUIRED_CHECKS},'http':[],'migration_results':[], 'stage':'baseline_start'}
     acceptance=Acceptance(report)
     output=Path(args.report);output.parent.mkdir(parents=True,exist_ok=True)
     try:
         select_images(baseline,args.platform)
         subprocess.run(['sh','run.sh','start'],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        report['stage']='old_setup'
         values=json.loads(compose('run','--rm','--no-deps','init','setup-values').stdout)
         cfg=acceptance.api('/api/v1/admin/setup/config')['config'];password=secrets.token_urlsafe(32)
         cfg.update(deployment={'env':'dev'},domain={'domain':'127.0.0.1','enable_cdn':False},https={'mode':'disable'},llm={'enabled':False},ports={'backend_port':8080,'web_admin_port':3000})
@@ -188,20 +295,31 @@ def main():
         cfg['cache']={'type':'redis','redis_host':'redis','redis_port':6379,'redis_db':0,'redis_password':values['cache']['password']}
         cfg['admin'].update(username='upgrade-admin',email='upgrade-admin@example.com',password=password,display_name='Upgrade Admin')
         acceptance.api('/api/v1/admin/setup/config',cfg,'PUT');acceptance.api('/api/v1/admin/setup/provision',{});acceptance.api('/api/v1/admin/setup/complete',{})
-        acceptance.wait_installed();acceptance.login(password);acceptance.mark('old_setup')
+        report['stage']='old_setup_restart'
+        acceptance.wait_installed()
+        report['stage']='old_login'
+        acceptance.login(password);acceptance.mark('old_setup')
+        report['stage']='business_plugin_media_fixture'
+        prepare_ci_mount_access()
         job=acceptance.api('/api/v1/admin/scheduler/jobs',{'owner_type':'core','owner_id':'upgrade-fixture','name':'preserved-job','schedule_type':'cron','schedule_expr':'0 0 1 1 *','timezone':'UTC','payload':{'marker':'preserved-business'}})['job']
         job_id=job['uuid']
         acceptance.api('/api/v1/admin/scheduler/jobs/'+job_id+'/pause',{})
         fixture_plugin();acceptance.api('/api/v1/admin/plugins/install/local',{'src_dir':'/data/upgrade-fixture','enable':True})
+        assert sql("SELECT count(*) FROM public.iam_permission WHERE source='plugin:"+PLUGIN+"' "
+                   "AND meta->>'type'='api' AND meta->>'independent'='true' AND meta->'protocol_bindings' "
+                   "@> '[{\"channel\":\"rest\",\"method\":\"GET\",\"path\":\"/probe\"}]'::jsonb")=='1', 'Fixture API permission binding missing'
         probe_path='/_p/'+PLUGIN+'/api/v1/probe';old_probe=acceptance.api(probe_path)
         assert old_probe['value']=='preserved-plugin-data' and old_probe['core_user_table_denied']
         contents=b'PowerX preserved upload fixture\n';checksum=hashlib.sha256(contents).hexdigest()
         asset=acceptance.api('/api/v1/admin/media/assets',{'name':'upgrade.txt','driver':'local','uploadMethod':'presign_upload','contentSha256':checksum,'sizeBytes':len(contents),'mimeType':'text/plain'})
         asset_id=asset['uuid'];upload=acceptance.api('/api/v1/admin/media/assets/'+asset_id+'/presign',{'action':'upload','method':'PUT','filename':'upgrade.txt','content_type':'text/plain'})
         url=upload['url'];url=BASE+url if url.startswith('/') else url
-        with urllib.request.urlopen(urllib.request.Request(url,data=contents,headers=upload.get('headers',{}),method='PUT'),timeout=30) as response: assert 200<=response.status<300
+        with urllib.request.urlopen(urllib.request.Request(url,data=contents,headers=upload.get('headers') or {},method='PUT'),timeout=30) as response: assert 200<=response.status<300
+        assert acceptance.resource(asset_id)==contents
         compose('stop','backend','web-admin','gateway')
+        prepare_ci_mount_access()
         before=snapshot()
+        report['stage']='offline_upgrade'
         with tempfile.TemporaryDirectory(prefix='powerx-upgrade-backup-') as temp:
             backup=Path(temp);shutil.copytree('config',backup/'config');shutil.copytree('data/runtime',backup/'runtime')
             dump=compose('exec','-T','postgres','pg_dump','-U','powerx','-d','powerx','-Fc').stdout
@@ -238,7 +356,7 @@ def main():
             plan=acceptance.migration('plan',pair['release_id'],baseline['source_sha'])
             applied=acceptance.migration('apply',pair['release_id'],baseline['source_sha'],plan['plan_hash']);assert applied['status']=='succeeded' and applied['applied'] and applied['skipped']
             acceptance.mark('partial_failure_retry');acceptance.mark('interrupted_retry')
-            assert snapshot()==before;acceptance.mark('configuration_preserved');acceptance.mark('files_preserved')
+            assert snapshot()==before;acceptance.mark('configuration_preserved')
             repeat_plan=acceptance.migration('plan',pair['release_id'],baseline['source_sha']);assert repeat_plan['status']=='up_to_date'
             repeat=acceptance.migration('apply',pair['release_id'],baseline['source_sha'],repeat_plan['plan_hash']);assert not repeat['applied'];assert snapshot()==before;acceptance.mark('idempotent')
             record=sql("SELECT migration_id || ':' || checksum FROM public.database_migration_records WHERE migration_id LIKE '20261011_core_%' LIMIT 1");migration_id,checksum=record.split(':')
@@ -247,6 +365,7 @@ def main():
             sql("UPDATE public.database_migration_records SET checksum='"+checksum+"' WHERE migration_id='"+migration_id+"'");acceptance.mark('checksum_rejected')
             assert sql("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='database_migration_records' AND column_name='checksum'")=='1';acceptance.mark('new_schema')
             compose('--profile','standalone','up','-d','--wait','--wait-timeout','300','backend','web-admin','gateway')
+            report['stage']='target_runtime_preservation'
             acceptance.wait_installed();acceptance.login(password);acceptance.mark('login_preserved')
             with urllib.request.urlopen(BASE+'/users/login',timeout=30) as response:assert response.status==200
             for service,role in [('backend','backend'),('web-admin','web_admin')]:
@@ -257,21 +376,37 @@ def main():
             preserved=acceptance.api('/api/v1/admin/scheduler/jobs/'+job_id)['job'];assert preserved['name']=='preserved-job' and preserved['status']=='paused';acceptance.mark('business_data_preserved')
             new_probe=acceptance.api(probe_path);assert new_probe==old_probe;acceptance.mark('plugin_runtime_preserved')
             assert snapshot()==before, 'Installed credentials, grants, configuration and uploads changed after startup'
-            download=acceptance.api('/api/v1/admin/media/assets/'+asset_id+'/presign',{'action':'download'})
-            url=download['url'];url=BASE+url if url.startswith('/') else url
-            with urllib.request.urlopen(urllib.request.Request(url,headers=download.get('headers',{})),timeout=30) as response:assert response.read()==contents
+            assert acceptance.resource(asset_id)==contents
+            current_token=acceptance.token
+            try:
+                acceptance.token=''
+                acceptance.resource(asset_id,expected=401)
+            finally:
+                acceptance.token=current_token
+            acceptance.mark('files_preserved')
             compose('stop','backend','web-admin','gateway')
+            report['stage']='restore_rollback'
+            prepare_ci_mount_access()
             # rollback=restore_required：确实恢复数据库、配置、文件，再启动固定旧镜像。
             compose('exec','-T','postgres','dropdb','-U','powerx','--force','powerx');compose('exec','-T','postgres','createdb','-U','powerx','powerx')
             compose('exec','-T','postgres','pg_restore','-U','powerx','-d','powerx','--exit-on-error',input=dump)
-            shutil.rmtree('config');shutil.copytree(backup/'config','config');shutil.rmtree('data/runtime');shutil.copytree(backup/'runtime','data/runtime')
+            restore_ci_directory('config',backup/'config');restore_ci_directory('data/runtime',backup/'runtime')
             assert snapshot()==before
             select_images(baseline,args.platform);compose('--profile','standalone','up','-d','--wait','--wait-timeout','300','backend','web-admin','gateway')
             acceptance.wait_installed();acceptance.login(password);assert acceptance.api(probe_path)==old_probe
+            assert acceptance.resource(asset_id)==contents
             assert acceptance.api('/api/v1/admin/scheduler/jobs/'+job_id)['job']['name']=='preserved-job';acceptance.mark('restore_rollback')
-        report['status']='passed'
+        report['status']='passed';report['stage']='complete'
     except Exception as error:
         report['status']='failed';report['error_code']=str(error) if isinstance(error,RuntimeError) else 'UPGRADE_CI_ACCEPTANCE_FAILED'
+        frames=traceback.extract_tb(error.__traceback__)
+        report['failure']={'stage':report['stage'],'exception_type':type(error).__name__,
+                          'location':{'file':Path(frames[-1].filename).name,'line':frames[-1].lineno} if frames else None,
+                          'stack':[{'file':Path(f.filename).name,'line':f.lineno,'function':f.name} for f in frames]}
+        # No exception repr, HTTP bodies, SQL or subprocess output: those may
+        # contain deployment credentials. The location and status are enough
+        # to identify the failed acceptance contract.
+        print(json.dumps({'error_code':report['error_code'],'failure':report['failure']},sort_keys=True),file=sys.stderr)
         raise RuntimeError(report['error_code']) from None
     finally:
         output.write_text(json.dumps(report,indent=2)+'\n')

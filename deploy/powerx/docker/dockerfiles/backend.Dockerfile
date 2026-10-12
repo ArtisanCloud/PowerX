@@ -1,8 +1,5 @@
 FROM --platform=$BUILDPLATFORM golang:1.26.7-alpine AS builder
 ARG TARGETARCH
-ARG POWERX_SOURCE_SHA=unknown
-ARG POWERX_VERSION=unversioned
-ARG POWERX_BUILD_TIME=unknown
 
 WORKDIR /src/backend
 RUN apk add --no-cache git ca-certificates
@@ -10,8 +7,14 @@ RUN apk add --no-cache git ca-certificates
 COPY backend/ ./
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/powerx-app ./cmd/app && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.commit=$POWERX_SOURCE_SHA -X main.version=$POWERX_VERSION -X main.buildTime=$POWERX_BUILD_TIME" -o /out/database ./cmd/database && \
     CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/platform_capability_seed ./cmd/platform_capability_seed
+
+# Keep the compiled Go cache when only the release identity changes between
+# acceptance attempts. The database binary still embeds the exact target SHA.
+ARG POWERX_SOURCE_SHA=unknown
+ARG POWERX_VERSION=unversioned
+ARG POWERX_BUILD_TIME=unknown
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.commit=$POWERX_SOURCE_SHA -X main.version=$POWERX_VERSION -X main.buildTime=$POWERX_BUILD_TIME" -o /out/database ./cmd/database
 
 FROM alpine:3.22
 

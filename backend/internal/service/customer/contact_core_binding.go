@@ -11,6 +11,7 @@ const (
 	CustomerContactsServiceReadCapabilityID   = "com.corex.customer.contacts.service_read"
 	CustomerContactsServiceManageCapabilityID = "com.corex.customer.contacts.service_manage"
 	CustomerContactsCoreEndpoint              = "core://customer/contacts"
+	CustomerContactsPrimaryManageCapabilityID = "com.corex.customer.contacts.primary_manage"
 )
 
 // ContactCoreBinding is the service-actor Contact boundary. Its callers use
@@ -37,6 +38,14 @@ type ContactCoreUpdateInput struct {
 	Roles, Tags                                              *[]string
 }
 type ContactCoreBindIdentityInput struct{ CustomerUUID, ContactUUID, ChannelDictionaryItemUUID, ExternalSubject string }
+type ContactCorePrimaryInput struct{ CustomerUUID, ContactUUID, ExpectedPrimaryContactUUID string }
+
+func (b *ContactCoreBinding) SetPrimary(ctx context.Context, tenantUUID string, in ContactCorePrimaryInput) (PrimaryContactResult, error) {
+	if b == nil || b.service == nil {
+		return PrimaryContactResult{}, errors.New("contact core binding unavailable")
+	}
+	return b.service.SetPrimaryContact(ctx, SetPrimaryContactInput{TenantUUID: tenantUUID, CustomerUUID: in.CustomerUUID, ContactUUID: in.ContactUUID, ExpectedPrimaryContactUUID: in.ExpectedPrimaryContactUUID})
+}
 
 func (b *ContactCoreBinding) ListByCustomer(ctx context.Context, tenantUUID string, in ContactCoreListInput) (ContactPage, error) {
 	if b == nil || b.service == nil {

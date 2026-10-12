@@ -1,47 +1,51 @@
 {
-	"setup": {
-		"connection": {
-		  "database": {
-		    "test": "测试数据库连接",
-		    "hint": "可先测试数据库连通性，再进入下一步。",
-		    "testing": "正在测试数据库连接…",
-		    "success": "数据库连接成功",
-		    "failed": "数据库连接测试失败"
-		  },
-		  "cache": {
-		    "test": "测试 Redis 连接",
-		    "hint": "建议测试 Redis 连通性，避免初始化阶段失败。",
-		    "testing": "正在测试 Redis 连接…",
-		    "success": "Redis 连接成功",
-		    "failed": "Redis 连接测试失败"
-		  },
-		  "redisPasswordHelp": "Redis 已启用认证时必须填写；请使用 Redis 服务的部署密码。",
-		  "redisAuthRequired": "Redis 需要密码认证，请填写 Redis 密码后重新测试。",
-		  "redisAuthInvalid": "Redis 用户名或密码不正确，请核对部署配置后重新测试。",
-		  "redisPermissionDenied": "Redis 账号无权执行连接检测，请检查 Redis ACL 权限。",
-		  "invalidResponse": "连接测试返回异常，请重试并检查服务响应。",
-		  "failedFallback": "连接测试失败，请检查配置和服务是否可达。",
-		  "testingDetail": "正在验证连接，请稍候。",
-		  "previousResult": "上次结果：{message}",
-		  "diagnosticId": "请求追踪：{id}"
-		},
-		"databasePrepared": "数据库表结构已准备好；填写管理员并完成安装后，将初始化管理员及其依赖数据。",
-		"deployment": {
-			"title": "部署环境",
-			"description": "请选择这套 PowerX 实例的稳定环境标识。插件数据库角色和 schema 将使用该标识进行隔离；安装插件后请勿直接修改。",
-			"options": { "dev": "开发 dev", "test": "测试 test", "staging": "预发布 staging", "prod": "生产 prod" }
-		},
-		"errors": {
-			"adminUsernameRequired": "请填写管理员用户名",
-			"adminEmailInvalid": "请填写有效的管理员邮箱",
-			"adminPasswordRequired": "请填写管理员密码",
-			"adminPasswordTooLong": "管理员密码不能超过 72 个 UTF-8 字节",
-
-			"deploymentEnvRequired": "请选择部署环境",
-			"deploymentEnvInvalid": "部署环境必须是 dev、test、staging 或 prod",
-			"unknown": "安装配置保存失败"
-		}
-	},
+  "setup": {
+    "connection": {
+      "database": {
+        "test": "测试数据库连接",
+        "hint": "可先测试数据库连通性，再进入下一步。",
+        "testing": "正在测试数据库连接…",
+        "success": "数据库连接成功",
+        "failed": "数据库连接测试失败"
+      },
+      "cache": {
+        "test": "测试 Redis 连接",
+        "hint": "建议测试 Redis 连通性，避免初始化阶段失败。",
+        "testing": "正在测试 Redis 连接…",
+        "success": "Redis 连接成功",
+        "failed": "Redis 连接测试失败"
+      },
+      "redisPasswordHelp": "Redis 已启用认证时必须填写；请使用 Redis 服务的部署密码。",
+      "redisAuthRequired": "Redis 需要密码认证，请填写 Redis 密码后重新测试。",
+      "redisAuthInvalid": "Redis 用户名或密码不正确，请核对部署配置后重新测试。",
+      "redisPermissionDenied": "Redis 账号无权执行连接检测，请检查 Redis ACL 权限。",
+      "invalidResponse": "连接测试返回异常，请重试并检查服务响应。",
+      "failedFallback": "连接测试失败，请检查配置和服务是否可达。",
+      "testingDetail": "正在验证连接，请稍候。",
+      "previousResult": "上次结果：{message}",
+      "diagnosticId": "请求追踪：{id}"
+    },
+    "databasePrepared": "数据库表结构已准备好；填写管理员并完成安装后，将初始化管理员及其依赖数据。",
+    "deployment": {
+      "title": "部署环境",
+      "description": "请选择这套 PowerX 实例的稳定环境标识。插件数据库角色和 schema 将使用该标识进行隔离；安装插件后请勿直接修改。",
+      "options": {
+        "dev": "开发 dev",
+        "test": "测试 test",
+        "staging": "预发布 staging",
+        "prod": "生产 prod"
+      }
+    },
+    "errors": {
+      "adminUsernameRequired": "请填写管理员用户名",
+      "adminEmailInvalid": "请填写有效的管理员邮箱",
+      "adminPasswordRequired": "请填写管理员密码",
+      "adminPasswordTooLong": "管理员密码不能超过 72 个 UTF-8 字节",
+      "deploymentEnvRequired": "请选择部署环境",
+      "deploymentEnvInvalid": "部署环境必须是 dev、test、staging 或 prod",
+      "unknown": "安装配置保存失败"
+    }
+  },
   "menu": {
     "openMarket": "开放市场",
     "plugins": "插件",
@@ -655,35 +659,122 @@
       "outputFieldConfigTitle": "节点输出字段",
       "nodeFieldDefaultDescription": "节点字段",
       "nodeField": {
-        "content": { "label": "内容", "description": "营销材料或解析后的正文" },
-        "context": { "label": "业务场景", "description": "材料发生的业务背景" },
-        "language": { "label": "语言", "description": "材料语言" },
-        "type": { "label": "材料类型", "description": "文本、文档、音频或链接" },
-        "source": { "label": "原始材料", "description": "开始节点采集到的完整材料对象" },
-        "source_type": { "label": "来源类型", "description": "解析后的材料类型" },
-        "summary": { "label": "摘要", "description": "从材料中提炼出的业务摘要" },
-        "methodology": { "label": "方法论", "description": "沉淀出的观察、方法和适用场景" },
-        "draft_items": { "label": "草稿条目", "description": "准备进入知识暂存的结构化条目" },
-        "metadata": { "label": "元数据", "description": "分类、标签、资源类型等治理信息" },
-        "draft_refs": { "label": "知识草稿", "description": "暂存后生成的候选知识引用" },
-        "decision": { "label": "决策结果", "description": "决策节点选择的后续分支" },
-        "review_result": { "label": "审核结果", "description": "人工审核通过、拒绝或要求修改的结果" },
-        "review_task_uuid": { "label": "审核任务", "description": "人工审核任务引用" },
-        "review_status": { "label": "审核状态", "description": "当前人工审核状态" },
-        "published_refs": { "label": "发布记录", "description": "发布到知识库后的知识引用" },
-        "publish_policy": { "label": "发布策略", "description": "发布节点使用的策略" },
-        "payload": { "label": "事件载荷", "description": "事件节点发送给订阅方的数据" },
-        "event_id": { "label": "事件记录", "description": "事件发送后的记录引用" },
-        "topic": { "label": "事件主题", "description": "事件发布主题" },
-        "skill_id": { "label": "执行技能", "description": "实际执行的技能" },
-        "trace_id": { "label": "链路追踪", "description": "本次节点执行链路标识" },
-        "parsed_at": { "label": "解析时间", "description": "材料解析完成时间" },
-        "knowledge_space_uuid": { "label": "目标知识库", "description": "本次写入的知识库" },
-        "note": { "label": "备注", "description": "运行测试时填写的备注" },
-        "input": { "label": "技能输入", "description": "传给技能的输入对象" },
-        "output": { "label": "技能输出", "description": "技能返回的输出对象" },
-        "request": { "label": "能力请求", "description": "传给平台能力的请求字段" },
-        "capability_result": { "label": "能力结果", "description": "平台能力返回的结果" }
+        "content": {
+          "label": "内容",
+          "description": "营销材料或解析后的正文"
+        },
+        "context": {
+          "label": "业务场景",
+          "description": "材料发生的业务背景"
+        },
+        "language": {
+          "label": "语言",
+          "description": "材料语言"
+        },
+        "type": {
+          "label": "材料类型",
+          "description": "文本、文档、音频或链接"
+        },
+        "source": {
+          "label": "原始材料",
+          "description": "开始节点采集到的完整材料对象"
+        },
+        "source_type": {
+          "label": "来源类型",
+          "description": "解析后的材料类型"
+        },
+        "summary": {
+          "label": "摘要",
+          "description": "从材料中提炼出的业务摘要"
+        },
+        "methodology": {
+          "label": "方法论",
+          "description": "沉淀出的观察、方法和适用场景"
+        },
+        "draft_items": {
+          "label": "草稿条目",
+          "description": "准备进入知识暂存的结构化条目"
+        },
+        "metadata": {
+          "label": "元数据",
+          "description": "分类、标签、资源类型等治理信息"
+        },
+        "draft_refs": {
+          "label": "知识草稿",
+          "description": "暂存后生成的候选知识引用"
+        },
+        "decision": {
+          "label": "决策结果",
+          "description": "决策节点选择的后续分支"
+        },
+        "review_result": {
+          "label": "审核结果",
+          "description": "人工审核通过、拒绝或要求修改的结果"
+        },
+        "review_task_uuid": {
+          "label": "审核任务",
+          "description": "人工审核任务引用"
+        },
+        "review_status": {
+          "label": "审核状态",
+          "description": "当前人工审核状态"
+        },
+        "published_refs": {
+          "label": "发布记录",
+          "description": "发布到知识库后的知识引用"
+        },
+        "publish_policy": {
+          "label": "发布策略",
+          "description": "发布节点使用的策略"
+        },
+        "payload": {
+          "label": "事件载荷",
+          "description": "事件节点发送给订阅方的数据"
+        },
+        "event_id": {
+          "label": "事件记录",
+          "description": "事件发送后的记录引用"
+        },
+        "topic": {
+          "label": "事件主题",
+          "description": "事件发布主题"
+        },
+        "skill_id": {
+          "label": "执行技能",
+          "description": "实际执行的技能"
+        },
+        "trace_id": {
+          "label": "链路追踪",
+          "description": "本次节点执行链路标识"
+        },
+        "parsed_at": {
+          "label": "解析时间",
+          "description": "材料解析完成时间"
+        },
+        "knowledge_space_uuid": {
+          "label": "目标知识库",
+          "description": "本次写入的知识库"
+        },
+        "note": {
+          "label": "备注",
+          "description": "运行测试时填写的备注"
+        },
+        "input": {
+          "label": "技能输入",
+          "description": "传给技能的输入对象"
+        },
+        "output": {
+          "label": "技能输出",
+          "description": "技能返回的输出对象"
+        },
+        "request": {
+          "label": "能力请求",
+          "description": "传给平台能力的请求字段"
+        },
+        "capability_result": {
+          "label": "能力结果",
+          "description": "平台能力返回的结果"
+        }
       }
     },
     "protocol": {
@@ -872,16 +963,16 @@
         },
         "emitRejected": {
           "name": "发送拒绝事件"
-  },
-  "customerContactChannels": {
-    "title": "渠道账号",
-    "description": "以下是已明确绑定到联系人 {name} 的渠道账号。",
-    "bound": "已绑定的渠道账号",
-    "resolveDescription": "检查某个渠道账号是否已经绑定到当前客户下的联系人；此操作不会创建联系人或绑定。",
-    "bindDescription": "将此渠道账号明确绑定到联系人 {name}。提交后不会自动改绑到其他联系人。",
-    "resolveFound": "已解析到联系人：{name}"
-  }
-}
+        },
+        "customerContactChannels": {
+          "title": "渠道账号",
+          "description": "以下是已明确绑定到联系人 {name} 的渠道账号。",
+          "bound": "已绑定的渠道账号",
+          "resolveDescription": "检查某个渠道账号是否已经绑定到当前客户下的联系人；此操作不会创建联系人或绑定。",
+          "bindDescription": "将此渠道账号明确绑定到联系人 {name}。提交后不会自动改绑到其他联系人。",
+          "resolveFound": "已解析到联系人：{name}"
+        }
+      }
     },
     "fields": {
       "method": "方法",
@@ -2610,8 +2701,57 @@
     }
   },
   "agent": {
-	"response": {"conclusion":"本轮结论","answer":"直接回答","acceptance":"验收项","evidence":"已有证据","gaps":"缺口或阻塞","nextActions":"下一步","metrics":"指标与计算","metric":"指标","value":"结果","formula":"计算公式","facts":"已确认事实","hypotheses":"待验证假设","outcomes":{"completed":"本轮已完成，结果如下。","needs_action":"已完成分析，仍需执行以下行动。","blocked":"本轮受阻，需要先解决以下缺口。","failed":"本轮失败，请查看运行追踪。"},"reported":"原文报告值（未经独立核实）","computed":"工具计算值","conflicts":"原文与计算口径冲突","sourceQuote":"原文引用","operands":"使用的数据","reportedValue":"原文报告值","calculatedValue":"本次计算值","calculationBoundary":"计算仅验证给定输入下的算术结果；输入及业务归因尚未经独立核实。","conflictAction":"请补充原文公式、数据范围及归因口径后再确认结论。","contractUpgradeRequired":"该历史回复使用已停用的契约。请查看原始运行追踪，并在技能升级发布后显式重试。"},
-	"runtime":{"outcomes":{"partial":"已交付可验证部分；其余范围尚未完成。","needsInput":"需要补充信息、文件、授权或审批后才能继续。","blocked":"当前没有足够权限、能力或外部依赖，无法安全继续。","failed":"执行未能完成。可查看运行跟踪，或按提示重试。","cancelled":"本轮任务已取消。"},"actions":{"provideRequiredInput":"请补充所需信息后继续。","resolveAuthorization":"请获取所需授权或完成审批后重试。","reviewPartial":"请确认已交付部分，并决定是否继续处理剩余范围。"},"taskErrors":{"cancelled":"该步骤已取消。","timeout":"该步骤超时。","executionFailed":"该步骤未能完成。","statePersistFailed":"无法保存该步骤状态。","unknown":"该步骤未能完成。"}},
+    "response": {
+      "conclusion": "本轮结论",
+      "answer": "直接回答",
+      "acceptance": "验收项",
+      "evidence": "已有证据",
+      "gaps": "缺口或阻塞",
+      "nextActions": "下一步",
+      "metrics": "指标与计算",
+      "metric": "指标",
+      "value": "结果",
+      "formula": "计算公式",
+      "facts": "已确认事实",
+      "hypotheses": "待验证假设",
+      "outcomes": {
+        "completed": "本轮已完成，结果如下。",
+        "needs_action": "已完成分析，仍需执行以下行动。",
+        "blocked": "本轮受阻，需要先解决以下缺口。",
+        "failed": "本轮失败，请查看运行追踪。"
+      },
+      "reported": "原文报告值（未经独立核实）",
+      "computed": "工具计算值",
+      "conflicts": "原文与计算口径冲突",
+      "sourceQuote": "原文引用",
+      "operands": "使用的数据",
+      "reportedValue": "原文报告值",
+      "calculatedValue": "本次计算值",
+      "calculationBoundary": "计算仅验证给定输入下的算术结果；输入及业务归因尚未经独立核实。",
+      "conflictAction": "请补充原文公式、数据范围及归因口径后再确认结论。",
+      "contractUpgradeRequired": "该历史回复使用已停用的契约。请查看原始运行追踪，并在技能升级发布后显式重试。"
+    },
+    "runtime": {
+      "outcomes": {
+        "partial": "已交付可验证部分；其余范围尚未完成。",
+        "needsInput": "需要补充信息、文件、授权或审批后才能继续。",
+        "blocked": "当前没有足够权限、能力或外部依赖，无法安全继续。",
+        "failed": "执行未能完成。可查看运行跟踪，或按提示重试。",
+        "cancelled": "本轮任务已取消。"
+      },
+      "actions": {
+        "provideRequiredInput": "请补充所需信息后继续。",
+        "resolveAuthorization": "请获取所需授权或完成审批后重试。",
+        "reviewPartial": "请确认已交付部分，并决定是否继续处理剩余范围。"
+      },
+      "taskErrors": {
+        "cancelled": "该步骤已取消。",
+        "timeout": "该步骤超时。",
+        "executionFailed": "该步骤未能完成。",
+        "statePersistFailed": "无法保存该步骤状态。",
+        "unknown": "该步骤未能完成。"
+      }
+    },
     "sessions": {
       "title": "智能会话"
     },
@@ -2656,27 +2796,27 @@
         "active": "启用",
         "disabled": "停用"
       },
-    "sources": {
-      "core": "底座创建",
-      "plugin": "插件托管",
-      "builtin": "固有智能体",
-      "protected": "不可编辑"
-    },
-    "teamRoles": {
-      "coordinator": "团队负责人 ×{count}",
-      "member": "团队成员 ×{count}"
-    },
-    "categories": {
-      "all": "全部分类",
-      "allDescription": "按当前筛选条件显示全部智能体；分页只作用于当前视图。",
-      "count": "{count} 个",
-      "empty": "当前分类下没有符合筛选条件的智能体",
-      "loading": "正在加载智能体分类字典",
-      "loadFailed": "智能体分类字典加载失败",
-      "loadFailedDescription": "请检查数据字典 corex.agent.category 是否已 seed 并启用。",
-      "unconfigured": "分类未配置：{code}",
-      "unconfiguredDescription": "该分类没有在数据字典 corex.agent.category 中登记。"
-    },
+      "sources": {
+        "core": "底座创建",
+        "plugin": "插件托管",
+        "builtin": "固有智能体",
+        "protected": "不可编辑"
+      },
+      "teamRoles": {
+        "coordinator": "团队负责人 ×{count}",
+        "member": "团队成员 ×{count}"
+      },
+      "categories": {
+        "all": "全部分类",
+        "allDescription": "按当前筛选条件显示全部智能体；分页只作用于当前视图。",
+        "count": "{count} 个",
+        "empty": "当前分类下没有符合筛选条件的智能体",
+        "loading": "正在加载智能体分类字典",
+        "loadFailed": "智能体分类字典加载失败",
+        "loadFailedDescription": "请检查数据字典 corex.agent.category 是否已 seed 并启用。",
+        "unconfigured": "分类未配置：{code}",
+        "unconfiguredDescription": "该分类没有在数据字典 corex.agent.category 中登记。"
+      },
       "filters": {
         "searchPlaceholder": "搜索智能体名称、Key 或插件",
         "allSources": "全部来源",
@@ -2774,13 +2914,13 @@
         "saved": "权限配置已保存",
         "saveFailed": "保存权限配置失败"
       },
-    "actions": {
-      "chat": "智能会话",
-      "team": "创建团队",
-      "permissions": "配置权限",
-      "edit": "编辑",
-      "locked": "固有智能体不可编辑"
-    },
+      "actions": {
+        "chat": "智能会话",
+        "team": "创建团队",
+        "permissions": "配置权限",
+        "edit": "编辑",
+        "locked": "固有智能体不可编辑"
+      },
       "pagination": {
         "total": "共 {total} 个智能体"
       },
@@ -2801,53 +2941,53 @@
           "title": "智能视频重构大师",
           "description": "规划并重构产品发布视频脚本和制作流程。"
         },
-      "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
-        "title": "营销大师",
-        "description": "生成短视频营销脚本和投放传播文案。"
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "营销大师",
+          "description": "生成短视频营销脚本和投放传播文案。"
+        },
+        "marketing_director_advisor": {
+          "title": "营销负责人智能体",
+          "description": "面向市场负责人，沉淀营销策略、渠道复盘、客户信号和跨团队协作方法论。"
+        },
+        "marketing_content_strategist": {
+          "title": "内容营销智能体",
+          "description": "面向内容团队，整理选题、脚本、素材复用和内容活动复盘，沉淀可复用内容方法。"
+        },
+        "knowledge_expert_curator": {
+          "title": "专家知识策展智能体",
+          "description": "把专家访谈、会议纪要、文档和经验输入转成结构化知识草稿，并进入审核发布流程。"
+        },
+        "marketing_campaign_reviewer": {
+          "title": "活动复盘分析智能体",
+          "description": "面向营销活动复盘，抽取指标、问题、结论和优化动作，并沉淀为活动方法论知识。"
+        },
+        "release_coordinator": {
+          "title": "发布准备协调员",
+          "description": "统筹发布准备协作任务，拆分子智能体工作并汇总最终发布准备报告。"
+        },
+        "release_knowledge_analyst": {
+          "title": "发布知识分析员",
+          "description": "分析发布知识、历史事故和风险证据，输出发布风险摘要。"
+        },
+        "release_workflow_planner": {
+          "title": "发布流程规划员",
+          "description": "根据风险分析生成发布执行步骤、验证清单和回滚计划。"
+        },
+        "release_notification_scheduler": {
+          "title": "发布通知计划员",
+          "description": "生成发布通知对象、提醒节奏和值班升级路径。"
+        }
       },
-      "marketing_director_advisor": {
-        "title": "营销负责人智能体",
-        "description": "面向市场负责人，沉淀营销策略、渠道复盘、客户信号和跨团队协作方法论。"
-      },
-      "marketing_content_strategist": {
-        "title": "内容营销智能体",
-        "description": "面向内容团队，整理选题、脚本、素材复用和内容活动复盘，沉淀可复用内容方法。"
-      },
-      "knowledge_expert_curator": {
-        "title": "专家知识策展智能体",
-        "description": "把专家访谈、会议纪要、文档和经验输入转成结构化知识草稿，并进入审核发布流程。"
-      },
-      "marketing_campaign_reviewer": {
-        "title": "活动复盘分析智能体",
-        "description": "面向营销活动复盘，抽取指标、问题、结论和优化动作，并沉淀为活动方法论知识。"
-      },
-      "release_coordinator": {
-        "title": "发布准备协调员",
-        "description": "统筹发布准备协作任务，拆分子智能体工作并汇总最终发布准备报告。"
-      },
-      "release_knowledge_analyst": {
-        "title": "发布知识分析员",
-        "description": "分析发布知识、历史事故和风险证据，输出发布风险摘要。"
-      },
-      "release_workflow_planner": {
-        "title": "发布流程规划员",
-        "description": "根据风险分析生成发布执行步骤、验证清单和回滚计划。"
-      },
-      "release_notification_scheduler": {
-        "title": "发布通知计划员",
-        "description": "生成发布通知对象、提醒节奏和值班升级路径。"
-      }
+      "accessGrants": "使用授权"
     },
-	      "accessGrants": "使用授权"
-	    },
-	    "teamTasks": {
+    "teamTasks": {
       "badge": "团队任务",
       "newTask": "新建任务",
       "workspaceTitle": "团队任务工作台",
-	      "workspaceSubtitle": "当前为多智能体协作任务模式（主智能体 + 子智能体）。",
-	      "memberCount": "{count} 人",
-	      "membersTitle": "团队成员",
-	      "membersSubtitle": "当前协作团队",
+      "workspaceSubtitle": "当前为多智能体协作任务模式（主智能体 + 子智能体）。",
+      "memberCount": "{count} 人",
+      "membersTitle": "团队成员",
+      "membersSubtitle": "当前协作团队",
       "manage": "管理",
       "noKey": "无 Key",
       "notices": {
@@ -2859,15 +2999,15 @@
       "selector": {
         "label": "选择团队",
         "teamLabel": "团队：{name}"
-	      }
-	    },
-	    "teams": {
-	      "catalog": {
-	        "release_readiness_team": {
-	          "title": "发布准备协作团队"
-	        }
-	      }
-	    },
+      }
+    },
+    "teams": {
+      "catalog": {
+        "release_readiness_team": {
+          "title": "发布准备协作团队"
+        }
+      }
+    },
     "effectivePermissions": {
       "title": "生效权限",
       "description": "当前会话实际可用权限由用户 IAM 权限、Agent 授权、租户能力启用状态和策略结果取交集得出。",
@@ -2987,11 +3127,11 @@
       "save": "保存",
       "update": "更新"
     },
-	    "chat": {
-	      "badge": "智能会话",
-	      "workspaceTitle": "智能会话工作台",
-	      "workspaceSubtitle": "当前为单智能体会话模式。",
-	      "defaultAgent": "默认智能体",
+    "chat": {
+      "badge": "智能会话",
+      "workspaceTitle": "智能会话工作台",
+      "workspaceSubtitle": "当前为单智能体会话模式。",
+      "defaultAgent": "默认智能体",
       "connected": "已连接",
       "disconnected": "连接已断开",
       "welcomeTitle": "欢迎",
@@ -3298,7 +3438,7 @@
         "label": "命名空间（可选）",
         "placeholder": "如: company.crm"
       },
-		"releaseChannel": "发布渠道",
+      "releaseChannel": "发布渠道",
       "autoUpdate": "自动更新",
       "forceInstall": "强制覆盖同版本（Force）",
       "permissions": {
@@ -3321,8 +3461,141 @@
       }
     }
   },
-  "agentCapabilityApprovals": {"title":"能力审批","description":"审核待处理的高风险智能体能力请求。","back":"返回智能体管理","loading":"正在加载审批…","loadFailed":"无法加载审批列表","emptyTitle":"暂无待审批项","emptyDescription":"当前没有等待审核的高风险智能体请求。","requestTitle":"高风险智能体能力请求","requestedAt":"请求时间：{time}","approve":"批准","approved":"审批已记录","approveFailed":"无法记录审批","reject":"拒绝","rejected":"请求已拒绝","rejectFailed":"无法拒绝请求"},
-  "customerMaster": {"title":"客户主数据管理","description":"管理客户身份、认证来源、租户关系与联系人；客户画像和销售关系由 CRM 负责。","search":"搜索姓名、邮箱、手机或 UUID","customer":"客户","customerUuid":"客户 UUID","email":"主邮箱","phone":"主手机号","updatedAt":"更新时间","open":"查看详情","notFound":"未找到该租户下的客户。","loadFailed":"加载客户主数据失败。","empty":"当前租户暂无客户。","basic":"基础资料","authIdentities":"认证身份","memberships":"租户关系","loginEvents":"登录事件","miniAppEntries":"租户 MiniApp 入口","contacts":"联系人","provider":"认证来源","subject":"外部主体","source":"来源","expiresAt":"到期时间","event":"事件","result":"结果","channel":"渠道","entryCode":"入口码","entryType":"入口类型","campaign":"活动","identity":"渠道身份","actions":"操作","edit":"编辑","disable":"停用","createContact":"新建联系人","saveTemporary":"保存为临时联系人","displayName":"姓名","givenName":"名","familyName":"姓","roles":"通用角色","tags":"标签","tagsHint":"以逗号分隔，最多 20 个。","contactEmpty":"暂无联系人。","identityEmpty":"暂无渠道身份。","resolveIdentity":"解析渠道身份","bindIdentity":"显式绑定渠道身份","externalSubject":"渠道外部标识","resolveNotFound":"未找到已绑定联系人。请明确新建联系人或保存为临时联系人。","temporaryNotice":"临时联系人只能由明确的人工操作创建。","identityConflict":"该渠道身份已绑定给其他联系人。","statusActive":"启用","statusInactive":"停用","statusTemporary":"临时","rolePrimary":"主要联系人","roleLegalRepresentative":"法定代表人","tenantEntryDescription":"此数据属于当前租户配置，并不表示该入口与当前客户存在绑定关系。","loginSuccess":"成功","loginFailure":"失败","saveFailed":"保存失败。","back":"返回客户列表"},
+  "agentCapabilityApprovals": {
+    "title": "能力审批",
+    "description": "审核待处理的高风险智能体能力请求。",
+    "back": "返回智能体管理",
+    "loading": "正在加载审批…",
+    "loadFailed": "无法加载审批列表",
+    "emptyTitle": "暂无待审批项",
+    "emptyDescription": "当前没有等待审核的高风险智能体请求。",
+    "requestTitle": "高风险智能体能力请求",
+    "requestedAt": "请求时间：{time}",
+    "approve": "批准",
+    "approved": "审批已记录",
+    "approveFailed": "无法记录审批",
+    "reject": "拒绝",
+    "rejected": "请求已拒绝",
+    "rejectFailed": "无法拒绝请求"
+  },
+  "customerAdmin": {
+    "editProfile": "编辑客户资料",
+    "editHint": "修改客户主资料。登录账号和联系人资料在各自入口维护。",
+    "nickname": "昵称",
+    "editFailed": "客户资料保存失败",
+    "editReloadRequired": "请重新读取客户资料后再编辑。",
+    "reloadProfile": "重新读取（替换当前填写内容）",
+    "create": "新建客户",
+    "createHint": "创建客户及当前租户成员关系，并建立主要联系人；不会创建登录账号或密码。",
+    "createFailed": "客户创建失败",
+    "createRetryHint": "网络中断时请先刷新列表核对，避免重复创建。",
+    "type": "客户类型",
+    "person": "个人",
+    "company": "企业",
+    "primaryContact": "主要联系人（自然人）",
+    "companyContactRequired": "企业客户必须填写主要联系人的姓名。",
+    "import": "批量导入客户",
+    "importHint": "UTF-8 CSV：上传 → 预览校验 → 确认有效行 → 回读结果。重复记录不会合并或覆盖。",
+    "template": "下载 CSV 模板",
+    "csvFile": "客户 CSV 文件",
+    "fileHelp": "最多 1 MiB、200 行。客户姓名及邮箱或电话必填；企业客户须提供自然人主要联系人。其他格式会明确拒绝。",
+    "fileInvalid": "请选择不超过 1 MiB 的 .csv 文件。",
+    "encodingInvalid": "文件不是有效 UTF-8 编码，请重新导出 CSV。",
+    "preview": "生成导入预览",
+    "previewReady": "导入预览已保存，尚未创建客户",
+    "lookupPlaceholder": "粘贴导入 UUID，回读预览或结果",
+    "readResult": "回读导入记录",
+    "importFailed": "无法读取或校验导入文件",
+    "importRetryHint": "结果不确定时，先回读同一导入 UUID；使用相同预览重新确认不会重复创建。已完成任务的失败行请修正后生成新预览。",
+    "completed": "导入已完成，请核对逐行结果",
+    "summary": "共 {total} 行；可创建 {ready}；已创建 {created}；跳过 {skipped}；失败 {failed}。",
+    "importID": "导入 UUID",
+    "expires": "预览确认截止时间",
+    "row": "CSV 行号",
+    "rowResult": "结果 / 客户 UUID",
+    "downloadResult": "下载逐行结果 CSV",
+    "confirmRows": "确认只创建校验通过的有效行，其余行跳过；不覆盖或合并已有客户。",
+    "commit": "确认并创建有效客户",
+    "permissionHint": "菜单入口与操作权限分别控制；创建需要客户创建权限，导入需要预览、确认和结果读取权限。",
+    "pagination": "共 {total} 位客户 · 第 {page}/{pages} 页",
+    "previous": "上一页",
+    "next": "下一页",
+    "rowStatus": {
+      "ready": "待确认",
+      "invalid": "校验失败",
+      "duplicate": "重复，跳过",
+      "created": "已创建",
+      "failed": "创建失败"
+    },
+    "errors": {
+      "CUSTOMER_IMPORT_DUPLICATE_IN_FILE": "文件中有重复邮箱或电话",
+      "CUSTOMER_IMPORT_DUPLICATE_EXISTING": "当前租户已有此邮箱或电话",
+      "CUSTOMER_IMPORT_ROW_COLUMNS_INVALID": "列数量与表头不一致",
+      "CUSTOMER_IMPORT_ROW_INVALID": "姓名、邮箱、电话或类型无效",
+      "CUSTOMER_IMPORT_PRIMARY_CONTACT_REQUIRED": "企业客户缺少自然人主要联系人",
+      "CUSTOMER_IMPORT_ROW_CREATE_FAILED": "此行事务失败，未创建完整客户"
+    }
+  },
+  "customerMaster": {
+    "title": "客户主数据管理",
+    "description": "管理客户身份、认证来源、租户关系与联系人；客户画像和销售关系由 CRM 负责。",
+    "search": "搜索姓名、邮箱、手机或 UUID",
+    "customer": "客户",
+    "customerUuid": "客户 UUID",
+    "email": "主邮箱",
+    "phone": "主手机号",
+    "updatedAt": "更新时间",
+    "open": "查看详情",
+    "notFound": "未找到该租户下的客户。",
+    "loadFailed": "加载客户主数据失败。",
+    "empty": "当前租户暂无客户。",
+    "basic": "基础资料",
+    "authIdentities": "认证身份",
+    "memberships": "租户关系",
+    "loginEvents": "登录事件",
+    "miniAppEntries": "租户 MiniApp 入口",
+    "contacts": "联系人",
+    "provider": "认证来源",
+    "subject": "外部主体",
+    "source": "来源",
+    "expiresAt": "到期时间",
+    "event": "事件",
+    "result": "结果",
+    "channel": "渠道",
+    "entryCode": "入口码",
+    "entryType": "入口类型",
+    "campaign": "活动",
+    "identity": "渠道身份",
+    "actions": "操作",
+    "edit": "编辑",
+    "disable": "停用",
+    "createContact": "新建联系人",
+    "saveTemporary": "保存为临时联系人",
+    "displayName": "姓名",
+    "givenName": "名",
+    "familyName": "姓",
+    "roles": "通用角色",
+    "tags": "标签",
+    "tagsHint": "以逗号分隔，最多 20 个。",
+    "contactEmpty": "暂无联系人。",
+    "identityEmpty": "暂无渠道身份。",
+    "resolveIdentity": "解析渠道身份",
+    "bindIdentity": "显式绑定渠道身份",
+    "externalSubject": "渠道外部标识",
+    "resolveNotFound": "未找到已绑定联系人。请明确新建联系人或保存为临时联系人。",
+    "temporaryNotice": "临时联系人只能由明确的人工操作创建。",
+    "identityConflict": "该渠道身份已绑定给其他联系人。",
+    "statusActive": "启用",
+    "statusInactive": "停用",
+    "statusTemporary": "临时",
+    "rolePrimary": "主要联系人",
+    "roleLegalRepresentative": "法定代表人",
+    "tenantEntryDescription": "此数据属于当前租户配置，并不表示该入口与当前客户存在绑定关系。",
+    "loginSuccess": "成功",
+    "loginFailure": "失败",
+    "saveFailed": "保存失败。",
+    "back": "返回客户列表"
+  },
   "backupCenter": {
     "archives": {
       "guideTitle": "媒体与日志归档说明",
@@ -3429,17 +3702,24 @@
       "start": "创建新库并恢复",
       "back": "返回选择",
       "connection": "只读连接信息",
-      "connectionHint": "为此副本生成专用只读密码，每次生成都会替换上次密码。",
+      "connectionHint": "访问入口配置有效后，为此副本生成专用只读密码；每次成功生成都会替换上次密码。",
+      "connectionLoading": "正在检查访问入口并生成只读连接…",
+      "accessConfigTitle": "需要配置客户端访问入口",
+      "accessConfigHint": "请运维配置客户端主机、端口和访问方式。容器部署可启用 compose.restore-access.yml 的回环端口映射，再建立 SSH 隧道；配置完成并重启 Core 后重新获取连接。",
+      "directConnection": "数据库连接地址",
+      "sshTunnel": "先建立 SSH 隧道",
+      "sshTunnelHint": "先从你的电脑建立 SSH 本地转发：本地 {host}:{port} → SSH 服务器可访问的 {targetHost}:{targetPort}。再用下方地址或 DSN 连接 TablePlus；DSN 不会自动建立隧道。SSH 用户和服务器地址由运维提供。",
+      "invalidConnection": "返回的客户端连接信息不完整，请更新 Core 并核对访问配置。",
       "password": "只读密码",
       "username": "用户名",
-      "host": "主机",
-      "port": "端口",
+      "host": "客户端主机",
+      "port": "客户端端口",
       "expires": "凭据到期：{time}。Core 运行时会在到期后一分钟内撤销新登录；已有只读连接需自行关闭。",
       "copyPassword": "复制密码",
       "copyDSN": "复制完整 DSN（含密码）",
       "copied": "已复制",
       "clipboardFailed": "无法写入剪贴板，请检查浏览器剪贴板权限。",
-      "remoteHint": "主机地址以 Core 所在服务器为准。远程的 localhost/127.0.0.1 需通过 SSH 隧道访问；此连接用于 TablePlus 核对。",
+      "remoteHint": "请确认此地址能从你的电脑访问。沿用服务器数据库地址时，远程 localhost/127.0.0.1 仍需 SSH 隧道；复制 DSN 不会自动建立隧道。",
       "delete": "删除副本",
       "deleteHint": "删除此新库及其专用账号。请先关闭 TablePlus 等连接；系统不会强制断开连接。",
       "typeName": "输入上方完整副本库名确认",
@@ -3638,21 +3918,42 @@
     "limit": "最多授权 32 个插件 owner"
   },
   "pluginFrame": {
-  "title": "插件页面",
-  "errors": {
-    "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "插件管理页面尚未就绪，自动重试已结束。",
-    "PLUGIN_FRAME_LOAD_FAILED": "插件页面加载失败。",
-    "PLUGIN_BRIDGE_TIMEOUT": "插件会话桥接未就绪，请确认插件支持桥接协议 v2。",
-    "PLUGIN_NAVIGATION_TIMEOUT": "插件页面导航未完成，请重试。",
-    "PLUGIN_NAVIGATION_UNSUPPORTED": "插件缺少新版页面导航适配，请升级插件。",
-    "PLUGIN_NAVIGATION_FAILED": "插件页面切换失败，请重试并检查插件控制台。",
-    "PLUGIN_NAVIGATION_INVALID": "插件页面导航地址不符合当前插件范围。",
-    "PLUGIN_NAVIGATION_ROUTE_MISMATCH": "插件未到达目标页面，请重试并检查路由配置。",
-    "PLUGIN_BRIDGE_ORIGIN_UNSUPPORTED": "插件页面来源不符合当前桥接要求。",
-    "PLUGIN_HOST_AUTH_UNAVAILABLE": "宿主会话续期暂时不可用，请稍后重试。",
-    "PLUGIN_AUTH_ADAPTER_TIMEOUT": "插件尚未确认当前会话，请升级会话适配器后重试。",
-    "PLUGIN_AUTH_REQUIRED": "宿主会话已结束，请回到 PowerX 登录。",
-    "PLUGIN_AUTH_CONTEXT_FAILED": "插件无法确认当前用户身份，请重新同步会话。"
+    "title": "插件页面",
+    "errors": {
+      "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "插件管理页面尚未就绪，自动重试已结束。",
+      "PLUGIN_FRAME_LOAD_FAILED": "插件页面加载失败。",
+      "PLUGIN_BRIDGE_TIMEOUT": "插件会话桥接未就绪，请确认插件支持桥接协议 v2。",
+      "PLUGIN_NAVIGATION_TIMEOUT": "插件页面导航未完成，请重试。",
+      "PLUGIN_NAVIGATION_UNSUPPORTED": "插件缺少新版页面导航适配，请升级插件。",
+      "PLUGIN_NAVIGATION_FAILED": "插件页面切换失败，请重试并检查插件控制台。",
+      "PLUGIN_NAVIGATION_INVALID": "插件页面导航地址不符合当前插件范围。",
+      "PLUGIN_NAVIGATION_ROUTE_MISMATCH": "插件未到达目标页面，请重试并检查路由配置。",
+      "PLUGIN_BRIDGE_ORIGIN_UNSUPPORTED": "插件页面来源不符合当前桥接要求。",
+      "PLUGIN_HOST_AUTH_UNAVAILABLE": "宿主会话续期暂时不可用，请稍后重试。",
+      "PLUGIN_AUTH_ADAPTER_TIMEOUT": "插件尚未确认当前会话，请升级会话适配器后重试。",
+      "PLUGIN_AUTH_REQUIRED": "宿主会话已结束，请回到 PowerX 登录。",
+      "PLUGIN_AUTH_CONTEXT_FAILED": "插件无法确认当前用户身份，请重新同步会话。"
+    }
+  },
+  "customerMaintenance": {
+    "setPrimary": "设为主联系人",
+    "primaryConfirm": "将 {name} 设为此客户在当前租户的主联系人？原主联系人引用将被替换。",
+    "replaceBeforeDisable": "请先更换主联系人，再停用此联系人",
+    "nameInvalid": "姓名须为 1–128 个 Unicode 字符，不能包含控制字符",
+    "repair": "补录客户主联系人",
+    "repairNotice": "只修复当前客户的类型与联系人引用，不创建新客户或登录身份。先预览，核对后明确确认。资料变化时需重新预览。",
+    "createNaturalPerson": "新建自然人联系人",
+    "targetContact": "选择已有联系人或新建自然人",
+    "repairScopeMismatch": "补录记录不属于当前客户",
+    "repairID": "补录任务 UUID",
+    "proposal": "生效方案",
+    "checksum": "预览校验摘要",
+    "completed": "补录已完成",
+    "confirmRepair": "我已核对客户类型、自然人资料和方案，确认执行此预览",
+    "newPreview": "重新预览",
+    "not_needed": "引用已有效，核对角色标记",
+    "type_only": "确认客户类型并核对主联系人",
+    "reuse_contact": "复用已有联系人并设主",
+    "create_contact": "创建自然人联系人并设主"
   }
-}
 }

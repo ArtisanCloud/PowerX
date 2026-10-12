@@ -57,7 +57,8 @@ export const useMeService = () => {
      */
     getMyContext: () => {
       return apiClient.get<ApiResponse<UserContextData>>(
-        `${baseUrl}/me/context`
+        `${baseUrl}/me/context`,
+        { useGlobalLoading: false },
       );
     },
 

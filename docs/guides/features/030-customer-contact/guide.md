@@ -1,6 +1,13 @@
 # Customer Contact 实施与验收指南（版本：v1 设计基线）
 
-> 状态（2026-09-24）：Core Customer/Contact 的 Admin 路由、强类型 service binding 与 Framework `customerfw`/`contactfw` 接口已有实现。使用者提供的 PowerXPlugin Framework Lab 截图显示 local 路径已加载客户、选中客户并列出联系人；使用者确认该路径以 API Key 联调成功。截图没有覆盖插件安装后的 delegated/STS 路径，也没有单独证明创建、身份绑定及 AI Craft 订单闭环。AI Craft 已有 ContactRuntime 装配及订单 UUID 字段，候选解析、归属校验、业务职责、存量治理和端到端验收仍需对齐。本文是实施与验收指南，不把局部联调写成全链路完成。
+> 状态（2026-10-11）：Core 管理创建、CSV 导入、主联系人引用维护和显式存量补录已有实现与本机验证。当前 AI Craft 源码已有候选 Resolve/CreateFromCandidate/BindCandidate、订单联系人 active/归属校验及客户/联系人选择组件。业务职责和历史订单治理、生产浏览器及安装后 delegated/STS 闭环仍需单独验收。
+
+## Core 管理入口索引
+
+| 文档 | 角色 | 验收口径 |
+|---|---|---|
+| [主联系人维护与存量补录](./usecase-primary-maintenance.md) | Core 管理员、Framework 研发、QA | 显式设主、停用保护、持久化补录、权限及租户隔离 |
+| [客户菜单、手动创建与 CSV 导入](./usecase-core-admin-ingress.md) | Core 管理员、QA、运维 | 菜单授权、创建事务、持久化预览、幂等确认、结果回读与分页 |
 
 ## 1. 功能背景与目标
 
@@ -125,7 +132,7 @@ AI Craft 的具体对齐顺序、能力矩阵和验收证据见 [AI Craft 对齐
 curl -sS -X POST http://127.0.0.1:8080/api/v1/admin/customers/<customer_uuid>/contacts \
   -H 'Authorization: Bearer <admin-user-jwt>' \
   -H 'Content-Type: application/json' \
-  -d '{"display_name":"Chen Li","status":"active","roles":["primary"],"tags":["vip"],"creation_intent":"explicit_create"}'
+  -d '{"display_name":"Chen Li","status":"active","roles":["legal_representative"],"tags":["vip"],"creation_intent":"explicit_create"}'
 ```
 
 预期响应中 `contact_uuid` 是业务引用；请求没有 `tenant_uuid`。如果将返回的 Contact UUID 放到另一个 Customer 路径下，预期得到 `CONTACT_CUSTOMER_MISMATCH`，且不会产生重绑。

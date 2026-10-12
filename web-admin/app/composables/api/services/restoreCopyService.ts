@@ -15,6 +15,8 @@ export interface RestoreCopy {
   warnings: string[]; error_code?: string; error_message?: string; trace_id?: string;
 }
 export interface RestoreCopyConnection {
+  access_mode: 'direct' | 'ssh_tunnel';
+  tunnel?: { host: string; port: number };
   host: string; port: number; database: string; username: string; password: string;
   ssl_mode: string; read_only: boolean; expires_at: string;
 }

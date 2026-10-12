@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	customerrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/customer"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -84,7 +82,7 @@ func validateAccountPatch(p AccountProfilePatch) (map[string]any, error) {
 			continue
 		}
 		value := strings.TrimSpace(*field.value)
-		invalid := !utf8.ValidString(value) || utf8.RuneCountInString(value) > field.limit || strings.IndexFunc(value, unicode.IsControl) >= 0
+		invalid := !validCustomerText(value, field.limit, false)
 		switch field.name {
 		case "display_name":
 			invalid = invalid || value == ""

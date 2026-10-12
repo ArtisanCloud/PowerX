@@ -39,6 +39,7 @@ var (
 type Service struct {
 	settings *agentsettings.AgentSettingService
 	profiles *repoai.AIModelProfileRepository
+	catalog  *catalog.Registry
 }
 
 type LLMInvokeResult struct {
@@ -1033,6 +1034,8 @@ type ContentItem struct {
 
 type LLMModelItem struct {
 	ModelKey          string         `json:"model_key"`
+	Modality          string         `json:"modality"`
+	Capabilities      []string       `json:"capabilities"`
 	Provider          string         `json:"provider"`
 	Model             string         `json:"model"`
 	Label             string         `json:"label,omitempty"`
@@ -1051,9 +1054,12 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	if tenantUUID == "" {
 		return nil, errors.New("tenant uuid required")
 	}
-	providerFilter = strings.ToLower(strings.TrimSpace(providerFilter))
 	tenantPtr := &tenantUUID
-	reg := catalog.GetGlobalAIRegister()
+	reg := s.catalog
+	if reg == nil {
+		reg = catalog.GetGlobalAIRegister()
+	}
+	providerFilter = normalizeProviderKey(reg, providerFilter)
 
 	creds, credErr := s.settings.ListCredentials(ctx, env, tenantPtr)
 	credentialProviders := map[string]struct{}{}
@@ -1086,25 +1092,31 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	merged := make(map[string]mergedProfile)
 	for i := range globalProfiles {
 		p := toProfileView(globalProfiles[i])
-		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+		if providerFilter != "" && normalizeProviderKey(reg, p.Provider) != providerFilter {
 			continue
 		}
-		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "global_profile"}
+		merged[normalizeProviderKey(reg, p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "global_profile"}
 	}
 	for i := range tenantProfiles {
 		p := toProfileView(tenantProfiles[i])
-		if providerFilter != "" && strings.ToLower(p.Provider) != providerFilter {
+		if providerFilter != "" && normalizeProviderKey(reg, p.Provider) != providerFilter {
 			continue
 		}
-		merged[strings.ToLower(p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "tenant_profile"}
+		merged[normalizeProviderKey(reg, p.Provider)+"/"+strings.ToLower(p.Model)] = mergedProfile{profile: p, source: "tenant_profile"}
 	}
 
 	items := make([]LLMModelItem, 0, len(merged))
 	for _, v := range merged {
+		capabilities, text := textModelProfileCapabilities(reg, v.profile)
+		if !text {
+			continue
+		}
 		providerKey := normalizeProviderKey(reg, v.profile.Provider)
 		_, credentialConfigured := credentialProviders[providerKey]
 		items = append(items, LLMModelItem{
 			ModelKey:          v.profile.Provider + "/" + v.profile.Model,
+			Modality:          string(contract.ModLLM),
+			Capabilities:      capabilities,
 			Provider:          v.profile.Provider,
 			Model:             v.profile.Model,
 			Label:             v.profile.Label,
@@ -1119,7 +1131,7 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 	if credErr == nil {
 		seen := make(map[string]struct{}, len(items))
 		for i := range items {
-			seen[strings.ToLower(items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
+			seen[normalizeProviderKey(reg, items[i].Provider)+"/"+strings.ToLower(items[i].Model)] = struct{}{}
 		}
 		for i := range creds {
 			providerKey := normalizeProviderKey(reg, creds[i].Provider)
@@ -1133,22 +1145,21 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 			if providerDisplay == "" {
 				providerDisplay = providerKey
 			}
-			models, listErr := reg.Models("llm", providerKey)
-			if listErr != nil {
-				continue
-			}
+			models := textCatalogModels(reg, providerKey)
 			for _, m := range models {
 				model := strings.TrimSpace(m.ID)
 				if model == "" {
 					continue
 				}
-				key := strings.ToLower(providerDisplay) + "/" + strings.ToLower(model)
+				key := providerKey + "/" + strings.ToLower(model)
 				if _, exists := seen[key]; exists {
 					continue
 				}
 				seen[key] = struct{}{}
 				items = append(items, LLMModelItem{
 					ModelKey:          providerDisplay + "/" + model,
+					Modality:          string(contract.ModLLM),
+					Capabilities:      append([]string(nil), m.Capabilities...),
 					Provider:          providerDisplay,
 					Model:             model,
 					Label:             strings.TrimSpace(m.Label),
@@ -1190,6 +1201,7 @@ func normalizeProviderKey(reg *catalog.Registry, provider string) string {
 }
 
 type dbModelProfileView struct {
+	Modality string
 	Provider string
 	Model    string
 	Label    string
@@ -1199,6 +1211,7 @@ type dbModelProfileView struct {
 
 func toProfileView(in dbmodel.AIModelProfile) dbModelProfileView {
 	return dbModelProfileView{
+		Modality: in.Modality,
 		Provider: strings.TrimSpace(in.Provider),
 		Model:    strings.TrimSpace(in.Model),
 		Label:    strings.TrimSpace(in.Label),

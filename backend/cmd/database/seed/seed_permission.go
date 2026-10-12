@@ -98,6 +98,7 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		menuPerm("workflow"),
 		menuPerm("media"),
 		menuPerm("dashboard"),
+		menuPerm("customer"),
 		menuPerm("monitor"),
 		menuPerm("plugins"),
 		menuPerm("plugins.market"),
