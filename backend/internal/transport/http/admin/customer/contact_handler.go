@@ -48,6 +48,10 @@ func (h *Handler) ListContacts(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contacts", "read"); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	var req listContactsRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -65,6 +69,10 @@ func (h *Handler) ListContacts(c *gin.Context) {
 func (h *Handler) CreateContact(c *gin.Context) {
 	tenantUUID, ok := requireTenant(c)
 	if !ok {
+		return
+	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contacts", "create"); err != nil {
+		dto.RespondErrorFrom(c, err)
 		return
 	}
 	var req createContactRequest
@@ -85,6 +93,10 @@ func (h *Handler) GetContact(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contacts_contact_uuid", "read"); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	contact, err := h.contacts.Get(c.Request.Context(), tenantUUID, c.Param("customer_uuid"), c.Param("contact_uuid"))
 	if err != nil {
 		respondContactError(c, err)
@@ -96,6 +108,10 @@ func (h *Handler) GetContact(c *gin.Context) {
 func (h *Handler) UpdateContact(c *gin.Context) {
 	tenantUUID, ok := requireTenant(c)
 	if !ok {
+		return
+	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contacts_contact_uuid", "update"); err != nil {
+		dto.RespondErrorFrom(c, err)
 		return
 	}
 	var req updateContactRequest
@@ -116,6 +132,10 @@ func (h *Handler) ResolveContactIdentity(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contactsresolve_identity", "create"); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	var req resolveContactIdentityRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -132,6 +152,10 @@ func (h *Handler) ResolveContactIdentity(c *gin.Context) {
 func (h *Handler) BindContactIdentity(c *gin.Context) {
 	tenantUUID, ok := requireTenant(c)
 	if !ok {
+		return
+	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contacts_contact_uuid_identities", "create"); err != nil {
+		dto.RespondErrorFrom(c, err)
 		return
 	}
 	var req resolveContactIdentityRequest
@@ -152,6 +176,10 @@ func (h *Handler) ListContactIdentities(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contacts_contact_uuid_identities", "read"); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	items, err := h.contacts.ListIdentities(c.Request.Context(), tenantUUID, c.Param("customer_uuid"), c.Param("contact_uuid"))
 	if err != nil {
 		respondContactError(c, err)
@@ -161,6 +189,10 @@ func (h *Handler) ListContactIdentities(c *gin.Context) {
 }
 
 func respondContactError(c *gin.Context, err error) {
+	if dto.CodeOf(err) != "" {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	switch {
 	case errors.Is(err, customersvc.ErrContactInvalidArgument):
 		dto.ResponseError(c, http.StatusBadRequest, "contact.invalid_argument", err)
@@ -179,4 +211,31 @@ func respondContactError(c *gin.Context, err error) {
 	default:
 		dto.ResponseError(c, http.StatusInternalServerError, "contact.operation_failed", err)
 	}
+}
+
+func (h *Handler) SetPrimaryContact(c *gin.Context) {
+	tenant, ok := requireTenant(c)
+	if !ok {
+		return
+	}
+	if _, _, err := h.contacts.AuthorizeAdmin(c.Request.Context(), "admin_customers_customer_uuid_contacts_contact_uuid_primary", "create"); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	var request struct {
+		Expected *string `json:"expected_primary_contact_uuid"`
+	}
+	if !bindCustomerAdminJSON(c, &request, 4096, "CONTACT_REQUEST_INVALID") {
+		return
+	}
+	if request.Expected == nil {
+		dto.RespondErrorFrom(c, dto.NewErrorWithCode(400, "CONTACT_PRIMARY_EXPECTED_REQUIRED", "必须提交已确认的原主要联系人 UUID，未设定时使用空字符串", nil))
+		return
+	}
+	result, err := h.contacts.SetPrimaryContact(c.Request.Context(), customersvc.SetPrimaryContactInput{TenantUUID: tenant, CustomerUUID: c.Param("customer_uuid"), ContactUUID: c.Param("contact_uuid"), ExpectedPrimaryContactUUID: *request.Expected})
+	if err != nil {
+		respondContactError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"payload": result})
 }

@@ -87,3 +87,22 @@ Implement the Core source of truth before any plugin consumer.
 | Generic gateway becomes arbitrary proxy | no generic Contact gateway contract; typed Core binding only |
 | Delegated outage reads stale local data | `CONTACT_DELEGATE_UNAVAILABLE`, no fallback |
 | Historic data guessed incorrectly | remediation inventory and manual binding only |
+
+## Core admin ingress supplement (2026-10-11)
+
+1. Add menu permission to fresh seeds and the centralized `pkg/corex/db/database/migration.go` entry. Use preserve-state permission upsert; no role regrant or Setup rerun.
+2. Mount `AccountImport` in the same centralized customer model migration. Store bounded immutable CSV inputs plus durable row results in `customer_account_imports`; no startup AutoMigrate.
+3. Use user-JWT Admin REST preview/read/commit routes. Bind imports in `shared.Deps`, authorize live UUID roles and formal API permissions in service code, and record transactional audits.
+4. Keep existing account creation transactions and Framework typed bindings. Admin creation adds user-plane checks; importing creates no authentication identities.
+5. Add create/import modals, server-side snapshot confirmation, recovery links, CSV export, role operation checks, and 20-item list pagination.
+6. Verify SQLite service boundaries, real PostgreSQL concurrent HTTP confirmation, preserve-state migration, capability coverage, and frontend interactions. Recompute content-addressed upgrade payloads for the new model/menu/catalog.
+
+Operational guide: `docs/guides/features/030-customer-contact/usecase-core-admin-ingress.md`. Formal API: `docs/contracts/customer-admin-import.openapi.yaml`.
+
+## Primary integrity and legacy repair supplement (2026-10-11)
+
+- Add a separate primary_manage capability with fixed typed set_primary operation; require expected_primary_contact_uuid, transactionally update membership reference and Contact role, audit, and coordinate with deactivation using the same row lock.
+- Enforce independent live Admin permissions for contact reads/create/update/identity operations. Reset the detail page on tenant/customer changes and reject late reads, writes and dictionary responses.
+- Reuse one Unicode validator for customer/contact fields and CSV preview/commit; require named natural-person company contacts.
+- Use the centralized AccountImport model with mode=create/contact_repair. Repair preserves the Customer UUID and old history, stores an explicit type/contact proposal and source fingerprint, then requires saved UUID/checksum/confirm. Source changes cause conflict, transaction failures remain retryable previews, completed requests are idempotent.
+- Publish fixed OpenAPI and Framework extension guidance. Local migration, catalog and HTTP/PostgreSQL proof precede user-managed deployment; production browser and installed-plugin order acceptance remain T040/T034.

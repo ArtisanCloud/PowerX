@@ -1033,6 +1033,8 @@ type ContentItem struct {
 
 type LLMModelItem struct {
 	ModelKey          string         `json:"model_key"`
+	Modality          string         `json:"modality"`
+	Capabilities      []string       `json:"capabilities"`
 	Provider          string         `json:"provider"`
 	Model             string         `json:"model"`
 	Label             string         `json:"label,omitempty"`
@@ -1101,10 +1103,15 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 
 	items := make([]LLMModelItem, 0, len(merged))
 	for _, v := range merged {
+		if !textModelProfile(reg, v.profile) {
+			continue
+		}
 		providerKey := normalizeProviderKey(reg, v.profile.Provider)
 		_, credentialConfigured := credentialProviders[providerKey]
 		items = append(items, LLMModelItem{
 			ModelKey:          v.profile.Provider + "/" + v.profile.Model,
+			Modality:          string(contract.ModLLM),
+			Capabilities:      []string{"text_generation"},
 			Provider:          v.profile.Provider,
 			Model:             v.profile.Model,
 			Label:             v.profile.Label,
@@ -1149,6 +1156,8 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 				seen[key] = struct{}{}
 				items = append(items, LLMModelItem{
 					ModelKey:          providerDisplay + "/" + model,
+					Modality:          string(contract.ModLLM),
+					Capabilities:      []string{"text_generation"},
 					Provider:          providerDisplay,
 					Model:             model,
 					Label:             strings.TrimSpace(m.Label),
@@ -1190,6 +1199,7 @@ func normalizeProviderKey(reg *catalog.Registry, provider string) string {
 }
 
 type dbModelProfileView struct {
+	Modality string
 	Provider string
 	Model    string
 	Label    string
@@ -1199,12 +1209,41 @@ type dbModelProfileView struct {
 
 func toProfileView(in dbmodel.AIModelProfile) dbModelProfileView {
 	return dbModelProfileView{
+		Modality: in.Modality,
 		Provider: strings.TrimSpace(in.Provider),
 		Model:    strings.TrimSpace(in.Model),
 		Label:    strings.TrimSpace(in.Label),
 		Defaults: copyDefaults(map[string]any(in.Defaults)),
 		Tags:     append([]string(nil), in.Tags...),
 	}
+}
+
+// 已登记模型以目录的模态为准，拒绝把纯媒体模型误存为 LLM 的 profile。
+// 自定义模型使用 profile 明确声明的模态，不解析型号、标签或描述猜测能力。
+func textModelProfile(reg *catalog.Registry, profile dbModelProfileView) bool {
+	if profile.Modality != string(contract.ModLLM) {
+		return false
+	}
+	manifest, ok := reg.Manifest(profile.Provider)
+	if !ok {
+		return true
+	}
+	registered, text := false, false
+	inspect := func(modalities map[string]catalog.ModalityManifest) {
+		for modality, entry := range modalities {
+			for _, model := range entry.Models {
+				if strings.EqualFold(model.ID, profile.Model) {
+					registered = true
+					text = text || modality == string(contract.ModLLM)
+				}
+			}
+		}
+	}
+	inspect(manifest.Modalities)
+	for _, app := range manifest.Apps {
+		inspect(app.Modalities)
+	}
+	return !registered || text
 }
 
 func copyDefaults(in map[string]any) map[string]any {

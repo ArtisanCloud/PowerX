@@ -68,7 +68,7 @@ describe('restore to a retained separate database', () => {
   });
 
   it('clears connection credentials when the connection dialog closes', async () => {
-    service.list.mockResolvedValue([copy]); service.connection.mockResolvedValue({ host: 'localhost', port: 5432, database: copy.database, username: 'copy-reader', password: 'private-test-password', ssl_mode: 'disable', read_only: true, expires_at: '2026-10-12T00:00:00Z' });
+    service.list.mockResolvedValue([copy]); service.connection.mockResolvedValue({ access_mode: 'direct', host: 'localhost', port: 5432, database: copy.database, username: 'copy-reader', password: 'private-test-password', ssl_mode: 'disable', read_only: true, expires_at: '2026-10-12T00:00:00Z' });
     const wrapper = panel(); await flushPromises(); await button(wrapper, 'connection').trigger('click'); await flushPromises();
     expect(wrapper.get('input[type="password"]').element.value).toBe('private-test-password');
 	const writeText = vi.fn().mockResolvedValue(undefined);
@@ -79,6 +79,56 @@ describe('restore to a retained separate database', () => {
     modal.vm.$emit('update:open', false); await flushPromises();
     expect(wrapper.find('input[type="password"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('private-test-password');
+  });
+
+  it('shows endpoint configuration errors and Trace in the dialog without offering credentials', async () => {
+    service.list.mockResolvedValue([copy]);
+    service.connection.mockRejectedValue({ data: { message: 'Client endpoint is not configured', error_code: 'RESTORE_CONNECTION_NOT_CONFIGURED', request_id: 'trace-endpoint' } });
+    const wrapper = panel(); await flushPromises();
+    await button(wrapper, 'connection').trigger('click'); await flushPromises();
+    const dialog = wrapper.get('[data-testid="restore-copy-connection"]');
+    expect(dialog.text()).toContain('Client endpoint is not configured');
+    expect(dialog.text()).toContain('RESTORE_CONNECTION_NOT_CONFIGURED');
+    expect(dialog.text()).toContain('trace-endpoint');
+    expect(dialog.text()).toContain('backupCenter.copies.accessConfigHint');
+    expect(dialog.find('input').exists()).toBe(false);
+    expect(button(wrapper, 'copyDSN')).toBeUndefined();
+  });
+
+  it('copies the laptop tunnel endpoint while displaying the different server target', async () => {
+    service.list.mockResolvedValue([copy]);
+    service.connection.mockResolvedValue({ access_mode: 'ssh_tunnel', host: '127.0.0.1', port: 15433, tunnel: { host: '127.0.0.1', port: 25432 }, database: copy.database, username: 'copy-reader', password: 'p@ss/word', ssl_mode: 'disable', read_only: true, expires_at: '2026-10-12T00:00:00Z' });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const wrapper = panel(); await flushPromises();
+    await button(wrapper, 'connection').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="restore-copy-tunnel"]').text()).toContain('backupCenter.copies.sshTunnelHint');
+    await button(wrapper, 'copyDSN').trigger('click'); await flushPromises();
+    expect(writeText).toHaveBeenCalledWith(`postgresql://copy-reader:p%40ss%2Fword@127.0.0.1:15433/${copy.database}?sslmode=disable`);
+    expect(writeText.mock.calls[0]![0]).not.toContain(':25432/');
+  });
+
+  it('does not copy an incomplete endpoint response', async () => {
+    service.list.mockResolvedValue([copy]);
+    service.connection.mockResolvedValue({ access_mode: 'ssh_tunnel', host: '127.0.0.1', port: 15432, database: copy.database, username: 'copy-reader', password: 'private-test-password', read_only: true });
+    const wrapper = panel(); await flushPromises();
+    await button(wrapper, 'connection').trigger('click'); await flushPromises();
+    expect(button(wrapper, 'copyDSN').attributes('disabled')).toBeDefined();
+    expect(wrapper.text()).toContain('backupCenter.copies.invalidConnection');
+  });
+
+  it('does not reopen a closed dialog or retain credentials when the response arrives late', async () => {
+    service.list.mockResolvedValue([copy]);
+    let resolve!: (value: unknown) => void;
+    service.connection.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const wrapper = panel(); await flushPromises();
+    await button(wrapper, 'connection').trigger('click'); await flushPromises();
+    const modal = wrapper.findAllComponents(stubs.UModal).find(m => m.props('open'))!;
+    modal.vm.$emit('update:open', false); await flushPromises();
+    resolve({ access_mode: 'direct', host: 'localhost', port: 5432, database: copy.database, username: 'copy-reader', password: 'private-late-password', read_only: true });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="restore-copy-connection"]').exists()).toBe(false);
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false);
   });
 
   it('requires the exact new database name and never submits the original database for deletion', async () => {

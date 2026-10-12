@@ -178,3 +178,36 @@ sh run.sh start
 目标镜像的只读 `migrate --action=status|plan` 和显式 `--action=apply` 已实现；`sh run.sh migrate` 透传参数。apply 需要精确 target release、source SHA、expected plan 和 `--confirm-offline`。先备份并停止所有写入进程，停写后重新 plan；成功后设置 `POWERX_UPGRADE_MODE=1` 启动成对镜像。
 
 v1 不写原配置、不重新 Setup、不执行完整 seed，回滚要求恢复匹配数据库/配置/运行文件。真实镜像 CI 尚待本分支提交，未生成正式 manifest 前不得自动升级。
+
+## 恢复副本客户端连接
+
+基础 Compose 的 PostgreSQL 只在私有容器网络提供服务。备份恢复完成后，Core 的内部地址 `postgres:5432` 不能直接用于桌面 TablePlus。默认获取只读连接返回 `RESTORE_CONNECTION_NOT_CONFIGURED`，恢复副本本身和报告仍可使用。
+
+需要从管理员电脑核对副本时，在实例 `.env` 中显式加入：
+
+```dotenv
+COMPOSE_FILE=compose.yml:compose.restore-access.yml
+POWERX_RESTORE_POSTGRES_PORT=15432
+POWERX_RESTORE_LOCAL_PORT=15432
+```
+
+覆盖文件只将 PostgreSQL 发布到**服务器 `127.0.0.1:15432`**。不同实例选择不同 POSTGRES_PORT；LOCAL_PORT 是你电脑的转发端口，可以与服务器端口不同。此文件随部署发布包提供；`run.sh` 使用 Compose 原生的 `COMPOSE_FILE` 设置。
+
+检查合并结果，再由服务使用者更新容器：
+
+```sh
+docker compose config --quiet
+docker compose up -d --wait postgres backend
+```
+
+在自己的电脑建立隧道（将 `ops@server.example.com` 换成运维提供的 SSH 用户与服务器）：
+
+```sh
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:15432:127.0.0.1:15432 ops@server.example.com
+```
+
+上述默认值分别是电脑端口、SSH 服务器视角的回环主机和映射端口。自定义时按 `.env` 的 LOCAL_PORT/POSTGRES_PORT 调整。保持 SSH 进程运行，打开备份中心获取只读连接，在 TablePlus 使用页面 DSN。页面会区分本地端点和服务器转发目标；复制 DSN 不会自动创建隧道。TablePlus 内置 SSH 模式则使用页面的转发目标作为数据库 Host/Port，并单独填写 SSH 登录信息。
+
+已有客户端入口时，可以不启用覆盖文件，直接在 `.env` 配置 `POWERX_OPS_RESTORE_ACCESS_MODE=direct` 及成对的 `POWERX_OPS_RESTORE_CLIENT_HOST/PORT`；入口必须连接同一 PostgreSQL 服务器。CLIENT_SSL_MODE 空值沿用源连接，不自动降低 TLS 要求；verify-ca/verify-full 所需证书及主机验证需在客户端配置。完整规则见 [恢复副本合同](../../../docs/contracts/restore-copies.md)。错误配置只阻止签发连接，不会改变业务库 DSN或轮换旧副本密码。
+
+systemctl/原生部署没有显式客户端配置时继续沿用原 TCP 数据库地址；本覆盖文件只用于容器实例。撤销回环映射时删除 `.env` 的 COMPOSE_FILE 设置，再执行同一 `up` 命令更新 postgres/backend；不会删除副本或配置文件。

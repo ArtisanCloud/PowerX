@@ -103,7 +103,7 @@ capabilities:
 - capability_id: com.corex.customer.accounts.admin_manage
   module: customer
   title: Customer Accounts Admin Management
-  description: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.
+  description: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, profile editing, and status updates.
   permission_code: corex.customer.accounts.admin_manage
   agent_usable: false
   risk_level: high
@@ -144,6 +144,14 @@ capabilities:
   - channel: rest
     endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}"
     method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.accounts.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/accounts/{customer_uuid}"
+    method: PATCH
     auth_type: user_jwt
     actor_context: admin_user
     resource_scope: tenant_customer
@@ -193,8 +201,46 @@ capabilities:
     en: Customer Accounts Admin Management
     zh-CN: 客户账户后台管理
   description_i18n:
-    en: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, and status updates.
-    zh-CN: 在后台管理租户客户账户，包括概览、列表、创建和状态更新。
+    en: Manage tenant customer accounts from the admin surface, including overview metrics, account listing, creation, profile editing, and status updates.
+    zh-CN: 在后台管理租户客户账户，包括概览、列表、创建、主资料编辑和状态更新。
+- capability_id: com.corex.customer.accounts.admin_import
+  module: customer
+  title: Customer CSV Import
+  description: Preview, explicitly commit, and read tenant-scoped customer CSV imports with immutable inputs and idempotent results.
+  permission_code: corex.customer.accounts.admin_import
+  agent_usable: false
+  risk_level: high
+  categories: [customer, admin]
+  intents: [customer.accounts.admin_import]
+  tool_scopes: [customer.accounts.admin_import]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/admin/customers/imports/preview
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_import
+  - channel: rest
+    endpoint: /api/v1/admin/customers/imports/{import_uuid}
+    method: GET
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_import
+  - channel: rest
+    endpoint: /api/v1/admin/customers/imports/{import_uuid}/commit
+    method: POST
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.accounts.admin_import
+  title_i18n: {en: Customer CSV Import, zh-CN: 客户 CSV 批量导入}
+  description_i18n: {en: Preview and explicitly confirm customer imports with tenant isolation and idempotent results., zh-CN: 预览并明确确认客户导入，保留租户隔离、输入快照和幂等结果。}
 - capability_id: com.corex.customer.accounts.service_read
   module: customer
   title: Customer Account Service Read
@@ -342,6 +388,79 @@ capabilities:
     tool_scope: customer.contacts.admin_manage
   title_i18n: {en: Customer Contact Admin Management, zh-CN: 客户联系人后台管理}
   description_i18n: {en: Manage tenant Customer Contacts and explicit channel identity bindings., zh-CN: 管理租户客户联系人及明确的渠道身份绑定。}
+- capability_id: com.corex.customer.contacts.admin_repair
+  module: customer
+  title: Customer Contact Remediation
+  description: Preview and explicitly repair existing customer type and missing primary Contact with frozen inputs, concurrency checks and transactional audit.
+  permission_code: corex.customer.contacts.admin_repair
+  agent_usable: false
+  risk_level: high
+  categories: [customer, admin]
+  intents: [customer.contacts.admin_repair]
+  tool_scopes: [customer.contacts.admin_repair]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/admin/customers/contact-repairs/preview
+    method: POST
+    schema_ref: docs/contracts/customer-contact-maintenance.openapi.yaml#/paths/~1admin~1customers~1contact-repairs~1preview/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_repair
+  - channel: rest
+    endpoint: /api/v1/admin/customers/contact-repairs/{repair_uuid}
+    method: GET
+    schema_ref: docs/contracts/customer-contact-maintenance.openapi.yaml#/paths/~1admin~1customers~1contact-repairs~1{repair_uuid}/get
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_repair
+  - channel: rest
+    endpoint: /api/v1/admin/customers/contact-repairs/{repair_uuid}/commit
+    method: POST
+    schema_ref: docs/contracts/customer-contact-maintenance.openapi.yaml#/paths/~1admin~1customers~1contact-repairs~1{repair_uuid}~1commit/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.admin_repair
+  title_i18n: {en: Customer Contact Remediation, zh-CN: 存量客户联系人补录}
+  description_i18n: {en: Explicitly preview and confirm audited remediation of existing customers without login-side or read-side repairs., zh-CN: 预览并明确确认存量客户补录，冻结输入并记录审计，不在读取或迁移中自动补写。}
+- capability_id: com.corex.customer.contacts.primary_manage
+  module: customer
+  title: Customer Primary Contact Management
+  description: Explicitly switch the tenant membership primary Contact with ownership checks, expected-reference concurrency control and transactional audit.
+  permission_code: corex.customer.contacts.primary_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, identity]
+  intents: [customer.contacts.primary_manage]
+  tool_scopes: [customer.contacts.primary_manage]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/admin/customers/{customer_uuid}/contacts/{contact_uuid}/primary
+    method: POST
+    schema_ref: docs/contracts/customer-contact-maintenance.openapi.yaml#/paths/~1admin~1customers~1{customer_uuid}~1contacts~1{contact_uuid}~1primary/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.primary_manage
+  - channel: core_internal
+    endpoint: core://customer/contacts
+    method: INVOKE
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant_customer
+    sts_direct: false
+    tool_scope: customer.contacts.primary_manage
+    api_key: {scope: _scope.customer.contacts.primary_manage, action: manage, resource_type: capability, resource_pattern: customer_contacts_primary_manage}
+  title_i18n: {en: Customer Primary Contact Management, zh-CN: 客户主要联系人设定}
+  description_i18n: {en: Explicitly switch the active primary Contact with expected-reference validation and audit., zh-CN: 明确更换有效主要联系人，校验原引用、客户归属并记录审计。}
 - capability_id: com.corex.customer.contacts.service_read
   module: customer
   title: Customer Contact Service Read

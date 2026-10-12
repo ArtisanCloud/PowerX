@@ -69,15 +69,23 @@ func TestCredentialAccessRevocationAndTraceOwnership(t *testing.T) {
 }
 
 func TestCustomerContactCoreCapabilityRequiresLivePublishedTenantGrant(t *testing.T) {
+	testCustomerContactCoreCapabilityRequiresLivePublishedTenantGrant(t, "com.corex.customer.contacts.service_manage")
+}
+
+func TestCustomerPrimaryCoreCapabilityRequiresIndependentLiveGrant(t *testing.T) {
+	testCustomerContactCoreCapabilityRequiresLivePublishedTenantGrant(t, "com.corex.customer.contacts.primary_manage")
+}
+
+func testCustomerContactCoreCapabilityRequiresLivePublishedTenantGrant(t *testing.T, capabilityID string) {
+	t.Helper()
 	db := newGrantStatusTestDB(t)
-	const capabilityID = "com.corex.customer.contacts.service_manage"
 	seedGrantStatusCapability(t, db, capabilityID, true)
 	credential := &setting.PluginInstanceConfig{
 		TenantUUID: grantStatusTestTenant,
 		PluginID:   "com.powerx.plugins.framework-test",
 		Key:        "auth.credentials",
 		Enabled:    true,
-		ValueJSON:  datatypes.JSON(`{"client_id":"framework-test","allowed_capabilities":["com.corex.customer.contacts.service_manage"]}`),
+		ValueJSON:  datatypes.JSON(`{"client_id":"framework-test","allowed_capabilities":["` + capabilityID + `"]}`),
 	}
 	require.NoError(t, db.Create(credential).Error)
 	ctx := reqctx.WithClaims(reqctx.WithTenantUUID(context.Background(), grantStatusTestTenant), &reqctx.CoreXClaims{

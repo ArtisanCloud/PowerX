@@ -93,6 +93,7 @@ type AccountRow struct {
 	MembershipUUID     string `json:"membership_uuid"`
 	CreatedAt          string `json:"created_at"`
 	UpdatedAt          string `json:"updated_at"`
+	ProfileVersion     string `json:"profile_version"`
 }
 
 // ExternalIdentityResolution is the deliberately minimal result available to a
@@ -218,6 +219,9 @@ func (r *AccountRepository) List(ctx context.Context, opt AccountListOptions) ([
 	if err != nil {
 		return nil, 0, err
 	}
+	for i := range rows {
+		rows[i].ProfileVersion = AccountProfileVersion(rows[i].UUID, rows[i].DisplayName, rows[i].Nickname, rows[i].PrimaryEmail, rows[i].PrimaryPhone)
+	}
 	return rows, total, nil
 }
 
@@ -244,6 +248,7 @@ func (r *AccountRepository) Get(ctx context.Context, tenantUUID, customerUUID st
 	if row.UUID == "" {
 		return AccountRow{}, gorm.ErrRecordNotFound
 	}
+	row.ProfileVersion = AccountProfileVersion(row.UUID, row.DisplayName, row.Nickname, row.PrimaryEmail, row.PrimaryPhone)
 	return row, nil
 }
 
@@ -385,7 +390,7 @@ func (r *AccountRepository) ResolveOrCreateExternalIdentity(ctx context.Context,
 	if in.DisplayName == "" {
 		return ExternalIdentityResolution{}, ErrExternalIdentityDisplayNameRequired
 	}
-	if len(in.ProviderKey) > 32 || len(in.ProviderSubject) > 255 || len(in.DisplayName) > 128 {
+	if len(in.ProviderKey) > 32 || len(in.ProviderSubject) > 255 || !modelcustomer.ValidText(in.DisplayName, 128, false) {
 		return ExternalIdentityResolution{}, ErrExternalIdentityRequired
 	}
 	var customerUUID string

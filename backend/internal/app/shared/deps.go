@@ -194,19 +194,21 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 }
 
 type Deps struct {
-	RuntimeIdentity       runtimeidentity.CoreInfo
-	RuntimeHostSvc        *runtimehost.Service
-	AgentSessionSvc       *agentsession.Service
-	AgentRunWorker        *agent_run.WorkerService
-	AgentAdminRun         *agentruntime.AdminRunService
-	DB                    *gorm.DB
-	RestoreCopies         *backupops.RestoreCopyService
-	Archives              *archiveops.Service
-	ctx                   *context.Context
-	AuthUser              *authsvc.AuthService
-	AuthCustomer          *authsvc.AuthService
-	MeService             *authsvc.MeService
-	PluginRequestIdentity *requestidentity.Service
+	RuntimeIdentity        runtimeidentity.CoreInfo
+	RuntimeHostSvc         *runtimehost.Service
+	AgentSessionSvc        *agentsession.Service
+	AgentRunWorker         *agent_run.WorkerService
+	AgentAdminRun          *agentruntime.AdminRunService
+	DB                     *gorm.DB
+	RestoreCopies          *backupops.RestoreCopyService
+	Archives               *archiveops.Service
+	ctx                    *context.Context
+	AuthUser               *authsvc.AuthService
+	AuthCustomer           *authsvc.AuthService
+	CustomerImports        *customersvc.AccountImportService
+	CustomerContactRepairs *customersvc.ContactRepairService
+	MeService              *authsvc.MeService
+	PluginRequestIdentity  *requestidentity.Service
 
 	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
 
@@ -863,6 +865,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		TenantSvc:                         tenantSvc,
 		AuthUser:                          authUser,
 		AuthCustomer:                      authCustomer,
+		CustomerImports:                   customersvc.NewAccountImportService(db),
+		CustomerContactRepairs:            customersvc.NewContactRepairService(db),
 		MeService:                         meSvc,
 		PluginRequestIdentity:             requestIdentitySvc,
 		AuditSvc:                          svc,

@@ -1,47 +1,51 @@
 {
-	"setup": {
-		"connection": {
-		  "database": {
-		    "test": "Test database connection",
-		    "hint": "Test database connectivity before continuing.",
-		    "testing": "Testing database connection…",
-		    "success": "Database connection succeeded",
-		    "failed": "Database connection test failed"
-		  },
-		  "cache": {
-		    "test": "Test Redis connection",
-		    "hint": "Test Redis connectivity before initializing the system.",
-		    "testing": "Testing Redis connection…",
-		    "success": "Redis connection succeeded",
-		    "failed": "Redis connection test failed"
-		  },
-		  "redisPasswordHelp": "Required when Redis authentication is enabled. Use the password configured for the Redis service.",
-		  "redisAuthRequired": "Redis requires password authentication. Enter the Redis password and test again.",
-		  "redisAuthInvalid": "The Redis username or password is incorrect. Check the deployment configuration and test again.",
-		  "redisPermissionDenied": "The Redis account cannot perform the connection check. Check its ACL permissions.",
-		  "invalidResponse": "The connection test returned an invalid response. Retry and check the service response.",
-		  "failedFallback": "Connection test failed. Check the configuration and service availability.",
-		  "testingDetail": "Checking the connection. Please wait.",
-		  "previousResult": "Previous result: {message}",
-		  "diagnosticId": "Request reference: {id}"
-		},
-		"databasePrepared": "Database schema is ready. The administrator and dependent data will be initialized when you confirm the administrator and complete installation.",
-		"deployment": {
-			"title": "Deployment environment",
-			"description": "Choose the stable environment identity for this PowerX instance. Plugin database roles and schemas use it for isolation; do not change it directly after installing plugins.",
-			"options": { "dev": "Development dev", "test": "Test", "staging": "Staging", "prod": "Production prod" }
-		},
-		"errors": {
-			"adminUsernameRequired": "Enter an administrator username",
-			"adminEmailInvalid": "Enter a valid administrator email",
-			"adminPasswordRequired": "Enter an administrator password",
-			"adminPasswordTooLong": "Administrator password must not exceed 72 UTF-8 bytes",
-
-			"deploymentEnvRequired": "Select a deployment environment",
-			"deploymentEnvInvalid": "Deployment environment must be dev, test, staging, or prod",
-			"unknown": "Failed to save setup configuration"
-		}
-	},
+  "setup": {
+    "connection": {
+      "database": {
+        "test": "Test database connection",
+        "hint": "Test database connectivity before continuing.",
+        "testing": "Testing database connection…",
+        "success": "Database connection succeeded",
+        "failed": "Database connection test failed"
+      },
+      "cache": {
+        "test": "Test Redis connection",
+        "hint": "Test Redis connectivity before initializing the system.",
+        "testing": "Testing Redis connection…",
+        "success": "Redis connection succeeded",
+        "failed": "Redis connection test failed"
+      },
+      "redisPasswordHelp": "Required when Redis authentication is enabled. Use the password configured for the Redis service.",
+      "redisAuthRequired": "Redis requires password authentication. Enter the Redis password and test again.",
+      "redisAuthInvalid": "The Redis username or password is incorrect. Check the deployment configuration and test again.",
+      "redisPermissionDenied": "The Redis account cannot perform the connection check. Check its ACL permissions.",
+      "invalidResponse": "The connection test returned an invalid response. Retry and check the service response.",
+      "failedFallback": "Connection test failed. Check the configuration and service availability.",
+      "testingDetail": "Checking the connection. Please wait.",
+      "previousResult": "Previous result: {message}",
+      "diagnosticId": "Request reference: {id}"
+    },
+    "databasePrepared": "Database schema is ready. The administrator and dependent data will be initialized when you confirm the administrator and complete installation.",
+    "deployment": {
+      "title": "Deployment environment",
+      "description": "Choose the stable environment identity for this PowerX instance. Plugin database roles and schemas use it for isolation; do not change it directly after installing plugins.",
+      "options": {
+        "dev": "Development dev",
+        "test": "Test",
+        "staging": "Staging",
+        "prod": "Production prod"
+      }
+    },
+    "errors": {
+      "adminUsernameRequired": "Enter an administrator username",
+      "adminEmailInvalid": "Enter a valid administrator email",
+      "adminPasswordRequired": "Enter an administrator password",
+      "adminPasswordTooLong": "Administrator password must not exceed 72 UTF-8 bytes",
+      "deploymentEnvRequired": "Select a deployment environment",
+      "deploymentEnvInvalid": "Deployment environment must be dev, test, staging, or prod",
+      "unknown": "Failed to save setup configuration"
+    }
+  },
   "menu": {
     "openMarket": "Open Market",
     "plugins": "Plugins",
@@ -611,35 +615,122 @@
       "outputFieldConfigTitle": "Node output fields",
       "nodeFieldDefaultDescription": "Node field",
       "nodeField": {
-        "content": { "label": "Content", "description": "Marketing material or parsed body text" },
-        "context": { "label": "Business context", "description": "Business background of the material" },
-        "language": { "label": "Language", "description": "Material language" },
-        "type": { "label": "Material type", "description": "Text, document, audio, or link" },
-        "source": { "label": "Source material", "description": "Complete material object captured by the start node" },
-        "source_type": { "label": "Source type", "description": "Parsed material type" },
-        "summary": { "label": "Summary", "description": "Business summary extracted from the material" },
-        "methodology": { "label": "Methodology", "description": "Extracted observations, methods, and usage context" },
-        "draft_items": { "label": "Draft items", "description": "Structured items prepared for knowledge staging" },
-        "metadata": { "label": "Metadata", "description": "Classification, tags, resource type, and governance data" },
-        "draft_refs": { "label": "Knowledge drafts", "description": "Candidate knowledge references created after staging" },
-        "decision": { "label": "Decision", "description": "Next branch selected by the decision node" },
-        "review_result": { "label": "Review result", "description": "Human approval, rejection, or requested-change result" },
-        "review_task_uuid": { "label": "Review task", "description": "Human review task reference" },
-        "review_status": { "label": "Review status", "description": "Current human review state" },
-        "published_refs": { "label": "Published records", "description": "Knowledge references after publishing" },
-        "publish_policy": { "label": "Publish policy", "description": "Policy used by the publish node" },
-        "payload": { "label": "Event payload", "description": "Data sent by the event node" },
-        "event_id": { "label": "Event record", "description": "Record reference after event emission" },
-        "topic": { "label": "Event topic", "description": "Event publish topic" },
-        "skill_id": { "label": "Skill", "description": "Skill that was executed" },
-        "trace_id": { "label": "Trace", "description": "Execution trace identifier" },
-        "parsed_at": { "label": "Parsed at", "description": "Material parsing completion time" },
-        "knowledge_space_uuid": { "label": "Target knowledge base", "description": "Knowledge base written by this run" },
-        "note": { "label": "Note", "description": "Note entered in the run test form" },
-        "input": { "label": "Skill input", "description": "Input object passed to the skill" },
-        "output": { "label": "Skill output", "description": "Output object returned by the skill" },
-        "request": { "label": "Capability request", "description": "Request fields sent to the platform capability" },
-        "capability_result": { "label": "Capability result", "description": "Result returned by the platform capability" }
+        "content": {
+          "label": "Content",
+          "description": "Marketing material or parsed body text"
+        },
+        "context": {
+          "label": "Business context",
+          "description": "Business background of the material"
+        },
+        "language": {
+          "label": "Language",
+          "description": "Material language"
+        },
+        "type": {
+          "label": "Material type",
+          "description": "Text, document, audio, or link"
+        },
+        "source": {
+          "label": "Source material",
+          "description": "Complete material object captured by the start node"
+        },
+        "source_type": {
+          "label": "Source type",
+          "description": "Parsed material type"
+        },
+        "summary": {
+          "label": "Summary",
+          "description": "Business summary extracted from the material"
+        },
+        "methodology": {
+          "label": "Methodology",
+          "description": "Extracted observations, methods, and usage context"
+        },
+        "draft_items": {
+          "label": "Draft items",
+          "description": "Structured items prepared for knowledge staging"
+        },
+        "metadata": {
+          "label": "Metadata",
+          "description": "Classification, tags, resource type, and governance data"
+        },
+        "draft_refs": {
+          "label": "Knowledge drafts",
+          "description": "Candidate knowledge references created after staging"
+        },
+        "decision": {
+          "label": "Decision",
+          "description": "Next branch selected by the decision node"
+        },
+        "review_result": {
+          "label": "Review result",
+          "description": "Human approval, rejection, or requested-change result"
+        },
+        "review_task_uuid": {
+          "label": "Review task",
+          "description": "Human review task reference"
+        },
+        "review_status": {
+          "label": "Review status",
+          "description": "Current human review state"
+        },
+        "published_refs": {
+          "label": "Published records",
+          "description": "Knowledge references after publishing"
+        },
+        "publish_policy": {
+          "label": "Publish policy",
+          "description": "Policy used by the publish node"
+        },
+        "payload": {
+          "label": "Event payload",
+          "description": "Data sent by the event node"
+        },
+        "event_id": {
+          "label": "Event record",
+          "description": "Record reference after event emission"
+        },
+        "topic": {
+          "label": "Event topic",
+          "description": "Event publish topic"
+        },
+        "skill_id": {
+          "label": "Skill",
+          "description": "Skill that was executed"
+        },
+        "trace_id": {
+          "label": "Trace",
+          "description": "Execution trace identifier"
+        },
+        "parsed_at": {
+          "label": "Parsed at",
+          "description": "Material parsing completion time"
+        },
+        "knowledge_space_uuid": {
+          "label": "Target knowledge base",
+          "description": "Knowledge base written by this run"
+        },
+        "note": {
+          "label": "Note",
+          "description": "Note entered in the run test form"
+        },
+        "input": {
+          "label": "Skill input",
+          "description": "Input object passed to the skill"
+        },
+        "output": {
+          "label": "Skill output",
+          "description": "Output object returned by the skill"
+        },
+        "request": {
+          "label": "Capability request",
+          "description": "Request fields sent to the platform capability"
+        },
+        "capability_result": {
+          "label": "Capability result",
+          "description": "Result returned by the platform capability"
+        }
       }
     },
     "protocol": {
@@ -828,16 +919,16 @@
         },
         "emitRejected": {
           "name": "Emit rejection event"
-  },
-  "customerContactChannels": {
-    "title": "Channel accounts",
-    "description": "These channel accounts are explicitly bound to contact {name}.",
-    "bound": "Bound channel accounts",
-    "resolveDescription": "Check whether a channel account is already bound to a contact under this customer. This creates neither a contact nor a binding.",
-    "bindDescription": "Explicitly bind this channel account to contact {name}. It will not be automatically rebound to another contact.",
-    "resolveFound": "Resolved contact: {name}"
-  }
-}
+        },
+        "customerContactChannels": {
+          "title": "Channel accounts",
+          "description": "These channel accounts are explicitly bound to contact {name}.",
+          "bound": "Bound channel accounts",
+          "resolveDescription": "Check whether a channel account is already bound to a contact under this customer. This creates neither a contact nor a binding.",
+          "bindDescription": "Explicitly bind this channel account to contact {name}. It will not be automatically rebound to another contact.",
+          "resolveFound": "Resolved contact: {name}"
+        }
+      }
     },
     "fields": {
       "method": "Method",
@@ -2394,8 +2485,57 @@
     }
   },
   "agent": {
-	"response": {"conclusion":"Conclusion","answer":"Answer","acceptance":"Acceptance","evidence":"Evidence","gaps":"Gaps or blockers","nextActions":"Next actions","metrics":"Metrics and calculations","metric":"Metric","value":"Value","formula":"Formula","facts":"Confirmed facts","hypotheses":"Hypotheses to validate","outcomes":{"completed":"This run is complete. The result is below.","needs_action":"The analysis is complete. The following actions remain.","blocked":"This run is blocked. Resolve the following gaps first.","failed":"This run failed. See the run trace."},"reported":"Source-reported values (not independently verified)","computed":"Tool-calculated values","conflicts":"Source and calculation conflicts","sourceQuote":"Source quotation","operands":"Input values","reportedValue":"Reported value","calculatedValue":"Calculated value","calculationBoundary":"The calculation verifies arithmetic for the supplied inputs only. Inputs and business attribution have not been independently verified.","conflictAction":"Provide the source formula, data scope, and attribution definition before confirming the conclusion.","contractUpgradeRequired":"This historical response uses a retired contract. Inspect its original trace and explicitly retry after publishing the upgraded skill."},
-	"runtime":{"outcomes":{"partial":"A verifiable portion was delivered; the remaining scope is incomplete.","needsInput":"More information, files, authorization, or approval is required to continue.","blocked":"The run cannot continue safely because permission, capability, or an external dependency is unavailable.","failed":"The run did not complete. Review the run trace or retry as directed.","cancelled":"This run was cancelled."},"actions":{"provideRequiredInput":"Provide the required information to continue.","resolveAuthorization":"Obtain the required authorization or approval, then retry.","reviewPartial":"Review the delivered portion and decide whether to continue with the remaining scope."},"taskErrors":{"cancelled":"This step was cancelled.","timeout":"This step timed out.","executionFailed":"This step did not complete.","statePersistFailed":"The state of this step could not be saved.","unknown":"This step did not complete."}},
+    "response": {
+      "conclusion": "Conclusion",
+      "answer": "Answer",
+      "acceptance": "Acceptance",
+      "evidence": "Evidence",
+      "gaps": "Gaps or blockers",
+      "nextActions": "Next actions",
+      "metrics": "Metrics and calculations",
+      "metric": "Metric",
+      "value": "Value",
+      "formula": "Formula",
+      "facts": "Confirmed facts",
+      "hypotheses": "Hypotheses to validate",
+      "outcomes": {
+        "completed": "This run is complete. The result is below.",
+        "needs_action": "The analysis is complete. The following actions remain.",
+        "blocked": "This run is blocked. Resolve the following gaps first.",
+        "failed": "This run failed. See the run trace."
+      },
+      "reported": "Source-reported values (not independently verified)",
+      "computed": "Tool-calculated values",
+      "conflicts": "Source and calculation conflicts",
+      "sourceQuote": "Source quotation",
+      "operands": "Input values",
+      "reportedValue": "Reported value",
+      "calculatedValue": "Calculated value",
+      "calculationBoundary": "The calculation verifies arithmetic for the supplied inputs only. Inputs and business attribution have not been independently verified.",
+      "conflictAction": "Provide the source formula, data scope, and attribution definition before confirming the conclusion.",
+      "contractUpgradeRequired": "This historical response uses a retired contract. Inspect its original trace and explicitly retry after publishing the upgraded skill."
+    },
+    "runtime": {
+      "outcomes": {
+        "partial": "A verifiable portion was delivered; the remaining scope is incomplete.",
+        "needsInput": "More information, files, authorization, or approval is required to continue.",
+        "blocked": "The run cannot continue safely because permission, capability, or an external dependency is unavailable.",
+        "failed": "The run did not complete. Review the run trace or retry as directed.",
+        "cancelled": "This run was cancelled."
+      },
+      "actions": {
+        "provideRequiredInput": "Provide the required information to continue.",
+        "resolveAuthorization": "Obtain the required authorization or approval, then retry.",
+        "reviewPartial": "Review the delivered portion and decide whether to continue with the remaining scope."
+      },
+      "taskErrors": {
+        "cancelled": "This step was cancelled.",
+        "timeout": "This step timed out.",
+        "executionFailed": "This step did not complete.",
+        "statePersistFailed": "The state of this step could not be saved.",
+        "unknown": "This step did not complete."
+      }
+    },
     "sessions": {
       "title": "Smart sessions"
     },
@@ -2439,27 +2579,27 @@
         "active": "Active",
         "disabled": "Disabled"
       },
-    "sources": {
-      "core": "Core-created",
-      "plugin": "Plugin-managed",
-      "builtin": "Built-in agent",
-      "protected": "Locked"
-    },
-    "teamRoles": {
-      "coordinator": "Team coordinator ×{count}",
-      "member": "Team member ×{count}"
-    },
-    "categories": {
-      "all": "All categories",
-      "allDescription": "Shows all agents matching the current filters. Pagination applies only to the current view.",
-      "count": "{count} agents",
-      "empty": "No agents in this category match the current filters.",
-      "loading": "Loading agent category dictionary",
-      "loadFailed": "Failed to load agent category dictionary",
-      "loadFailedDescription": "Check that the corex.agent.category dictionary has been seeded and enabled.",
-      "unconfigured": "Category not configured: {code}",
-      "unconfiguredDescription": "This category is not registered in the corex.agent.category dictionary."
-    },
+      "sources": {
+        "core": "Core-created",
+        "plugin": "Plugin-managed",
+        "builtin": "Built-in agent",
+        "protected": "Locked"
+      },
+      "teamRoles": {
+        "coordinator": "Team coordinator ×{count}",
+        "member": "Team member ×{count}"
+      },
+      "categories": {
+        "all": "All categories",
+        "allDescription": "Shows all agents matching the current filters. Pagination applies only to the current view.",
+        "count": "{count} agents",
+        "empty": "No agents in this category match the current filters.",
+        "loading": "Loading agent category dictionary",
+        "loadFailed": "Failed to load agent category dictionary",
+        "loadFailedDescription": "Check that the corex.agent.category dictionary has been seeded and enabled.",
+        "unconfigured": "Category not configured: {code}",
+        "unconfiguredDescription": "This category is not registered in the corex.agent.category dictionary."
+      },
       "filters": {
         "searchPlaceholder": "Search agent name, key, or plugin",
         "allSources": "All sources",
@@ -2557,13 +2697,13 @@
         "saved": "Permission settings saved",
         "saveFailed": "Failed to save permission settings"
       },
-    "actions": {
-      "chat": "Smart chat",
-      "team": "Create team",
-      "permissions": "Configure permissions",
-      "edit": "Edit",
-      "locked": "Built-in agents cannot be edited"
-    },
+      "actions": {
+        "chat": "Smart chat",
+        "team": "Create team",
+        "permissions": "Configure permissions",
+        "edit": "Edit",
+        "locked": "Built-in agents cannot be edited"
+      },
       "pagination": {
         "total": "{total} agents"
       },
@@ -2584,53 +2724,53 @@
           "title": "AI Video Refactoring Master",
           "description": "Plans and restructures product launch video scripts and production workflows."
         },
-      "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
-        "title": "Marketing Master",
-        "description": "Creates short-form marketing scripts and campaign messaging."
+        "video_script_short_v1_00000000_0000_0000_0000_0_596866c39c76c4b9": {
+          "title": "Marketing Master",
+          "description": "Creates short-form marketing scripts and campaign messaging."
+        },
+        "marketing_director_advisor": {
+          "title": "Marketing Director Advisor",
+          "description": "For marketing leaders. Curates strategy, channel reviews, customer signals, and cross-team collaboration methodology."
+        },
+        "marketing_content_strategist": {
+          "title": "Content Marketing Strategist",
+          "description": "For content teams. Organizes topics, scripts, asset reuse, and content campaign reviews into reusable content methodology."
+        },
+        "knowledge_expert_curator": {
+          "title": "Expert Knowledge Curator",
+          "description": "Turns expert interviews, meeting notes, documents, and experience input into structured knowledge drafts for review and publishing."
+        },
+        "marketing_campaign_reviewer": {
+          "title": "Campaign Review Analyst",
+          "description": "For campaign reviews. Extracts metrics, issues, conclusions, and optimization actions into campaign methodology knowledge."
+        },
+        "release_coordinator": {
+          "title": "Release Readiness Coordinator",
+          "description": "Coordinates release readiness collaboration, delegates child-agent work, and synthesizes the final release readiness report."
+        },
+        "release_knowledge_analyst": {
+          "title": "Release Knowledge Analyst",
+          "description": "Analyzes release knowledge, historical incidents, and risk evidence to produce the release risk summary."
+        },
+        "release_workflow_planner": {
+          "title": "Release Process Planner",
+          "description": "Creates release execution steps, validation checklist, and rollback plan from risk analysis."
+        },
+        "release_notification_scheduler": {
+          "title": "Release Notification Planner",
+          "description": "Creates release recipients, reminder timing, and escalation path."
+        }
       },
-      "marketing_director_advisor": {
-        "title": "Marketing Director Advisor",
-        "description": "For marketing leaders. Curates strategy, channel reviews, customer signals, and cross-team collaboration methodology."
-      },
-      "marketing_content_strategist": {
-        "title": "Content Marketing Strategist",
-        "description": "For content teams. Organizes topics, scripts, asset reuse, and content campaign reviews into reusable content methodology."
-      },
-      "knowledge_expert_curator": {
-        "title": "Expert Knowledge Curator",
-        "description": "Turns expert interviews, meeting notes, documents, and experience input into structured knowledge drafts for review and publishing."
-      },
-      "marketing_campaign_reviewer": {
-        "title": "Campaign Review Analyst",
-        "description": "For campaign reviews. Extracts metrics, issues, conclusions, and optimization actions into campaign methodology knowledge."
-      },
-      "release_coordinator": {
-        "title": "Release Readiness Coordinator",
-        "description": "Coordinates release readiness collaboration, delegates child-agent work, and synthesizes the final release readiness report."
-      },
-      "release_knowledge_analyst": {
-        "title": "Release Knowledge Analyst",
-        "description": "Analyzes release knowledge, historical incidents, and risk evidence to produce the release risk summary."
-      },
-      "release_workflow_planner": {
-        "title": "Release Process Planner",
-        "description": "Creates release execution steps, validation checklist, and rollback plan from risk analysis."
-      },
-      "release_notification_scheduler": {
-        "title": "Release Notification Planner",
-        "description": "Creates release recipients, reminder timing, and escalation path."
-      }
+      "accessGrants": "Use authorization"
     },
-	      "accessGrants": "Use authorization"
-	    },
-	    "teamTasks": {
+    "teamTasks": {
       "badge": "Team task",
       "newTask": "New task",
       "workspaceTitle": "Team Task Workspace",
-	      "workspaceSubtitle": "Multi-agent collaboration mode is active.",
-	      "memberCount": "{count} members",
-	      "membersTitle": "Team Members",
-	      "membersSubtitle": "Current collaboration team",
+      "workspaceSubtitle": "Multi-agent collaboration mode is active.",
+      "memberCount": "{count} members",
+      "membersTitle": "Team Members",
+      "membersSubtitle": "Current collaboration team",
       "manage": "Manage",
       "noKey": "No key",
       "notices": {
@@ -2642,15 +2782,15 @@
       "selector": {
         "label": "Select team",
         "teamLabel": "Team: {name}"
-	      }
-	    },
-	    "teams": {
-	      "catalog": {
-	        "release_readiness_team": {
-	          "title": "Release Readiness Team"
-	        }
-	      }
-	    },
+      }
+    },
+    "teams": {
+      "catalog": {
+        "release_readiness_team": {
+          "title": "Release Readiness Team"
+        }
+      }
+    },
     "effectivePermissions": {
       "title": "Effective permissions",
       "description": "The current session can use only the intersection of user IAM permissions, agent grants, tenant capability enablement, and policy result.",
@@ -2722,11 +2862,11 @@
       "selectProvider": "Select provider",
       "selectModel": "Select model"
     },
-	    "chat": {
-	      "badge": "Smart chat",
-	      "workspaceTitle": "Smart Chat Workspace",
-	      "workspaceSubtitle": "Single-agent chat mode is active.",
-	      "defaultAgent": "Default agent",
+    "chat": {
+      "badge": "Smart chat",
+      "workspaceTitle": "Smart Chat Workspace",
+      "workspaceSubtitle": "Single-agent chat mode is active.",
+      "defaultAgent": "Default agent",
       "connected": "Connected",
       "disconnected": "Connection lost",
       "welcomeTitle": "Welcome",
@@ -3033,7 +3173,7 @@
         "label": "Namespace (optional)",
         "placeholder": "Example: company.crm"
       },
-		"releaseChannel": "Release channel",
+      "releaseChannel": "Release channel",
       "autoUpdate": "Auto update",
       "forceInstall": "Force overwrite same version",
       "permissions": {
@@ -3056,8 +3196,141 @@
       }
     }
   },
-  "agentCapabilityApprovals": {"title":"Capability approvals","description":"Review pending high-risk Agent capability requests.","back":"Back to Agent management","loading":"Loading approvals…","loadFailed":"Unable to load approvals","emptyTitle":"No pending approvals","emptyDescription":"There are no high-risk Agent requests awaiting review.","requestTitle":"High-risk Agent capability request","requestedAt":"Requested {time}","approve":"Approve","approved":"Approval recorded","approveFailed":"Approval could not be recorded","reject":"Reject","rejected":"Request rejected","rejectFailed":"Request could not be rejected"},
-  "customerMaster": {"title":"Customer master data","description":"Manage customer identity, authentication sources, tenant memberships, and contacts. CRM owns customer profile and sales relationships.","search":"Search name, email, phone, or UUID","customer":"Customer","customerUuid":"Customer UUID","email":"Primary email","phone":"Primary phone","updatedAt":"Updated","open":"View details","notFound":"The customer was not found in this tenant.","loadFailed":"Customer master data could not be loaded.","empty":"There are no customers in this tenant.","basic":"Basic data","authIdentities":"Authentication identities","memberships":"Tenant memberships","loginEvents":"Login events","miniAppEntries":"Tenant MiniApp entries","contacts":"Contacts","provider":"Provider","subject":"External subject","source":"Source","expiresAt":"Expires at","event":"Event","result":"Result","channel":"Channel","entryCode":"Entry code","entryType":"Entry type","campaign":"Campaign","identity":"Channel identities","actions":"Actions","edit":"Edit","disable":"Deactivate","createContact":"Create contact","saveTemporary":"Save as temporary","displayName":"Name","givenName":"Given name","familyName":"Family name","roles":"Stable roles","tags":"Tags","tagsHint":"Comma-separated, up to 20.","contactEmpty":"No contacts.","identityEmpty":"No channel identities.","resolveIdentity":"Resolve channel identity","bindIdentity":"Bind channel identity explicitly","externalSubject":"Channel external identifier","resolveNotFound":"No bound contact was found. Explicitly create a contact or save one as temporary.","temporaryNotice":"Temporary contacts can only be created by an explicit human action.","identityConflict":"This channel identity is already bound to another contact.","statusActive":"Active","statusInactive":"Inactive","statusTemporary":"Temporary","rolePrimary":"Primary contact","roleLegalRepresentative":"Legal representative","tenantEntryDescription":"This is current-tenant configuration; it does not claim a binding to this customer.","loginSuccess":"Success","loginFailure":"Failure","saveFailed":"Save failed.","back":"Back to customers"},
+  "agentCapabilityApprovals": {
+    "title": "Capability approvals",
+    "description": "Review pending high-risk Agent capability requests.",
+    "back": "Back to Agent management",
+    "loading": "Loading approvals…",
+    "loadFailed": "Unable to load approvals",
+    "emptyTitle": "No pending approvals",
+    "emptyDescription": "There are no high-risk Agent requests awaiting review.",
+    "requestTitle": "High-risk Agent capability request",
+    "requestedAt": "Requested {time}",
+    "approve": "Approve",
+    "approved": "Approval recorded",
+    "approveFailed": "Approval could not be recorded",
+    "reject": "Reject",
+    "rejected": "Request rejected",
+    "rejectFailed": "Request could not be rejected"
+  },
+  "customerAdmin": {
+    "editProfile": "Edit customer profile",
+    "editHint": "Update the customer master profile. Login accounts and contacts are maintained separately.",
+    "nickname": "Nickname",
+    "editFailed": "Could not save the customer profile",
+    "editReloadRequired": "Reload the customer profile before editing.",
+    "reloadProfile": "Reload and replace this form",
+    "create": "Create customer",
+    "createHint": "Create a customer, tenant membership and primary contact. No login account or password is created.",
+    "createFailed": "Could not create customer",
+    "createRetryHint": "After a network interruption, refresh the list and check before creating again.",
+    "type": "Customer type",
+    "person": "Person",
+    "company": "Company",
+    "primaryContact": "Primary contact (person)",
+    "companyContactRequired": "A company requires a named primary contact.",
+    "import": "Import customers",
+    "importHint": "UTF-8 CSV: upload, preview, confirm valid rows, then read results. Duplicate records are never merged or overwritten.",
+    "template": "Download CSV template",
+    "csvFile": "Customer CSV file",
+    "fileHelp": "Up to 1 MiB and 200 rows. Name plus email or phone is required. Companies require a named primary contact. Other formats are rejected explicitly.",
+    "fileInvalid": "Select a .csv file no larger than 1 MiB.",
+    "encodingInvalid": "The file is not valid UTF-8. Export the CSV again.",
+    "preview": "Preview import",
+    "previewReady": "Preview saved; no customers have been created",
+    "lookupPlaceholder": "Paste an import UUID to read its preview or results",
+    "readResult": "Read import record",
+    "importFailed": "Could not read or validate the import",
+    "importRetryHint": "If the outcome is uncertain, read the same import UUID first. Reconfirming the same preview does not create duplicates. Correct failed rows from completed imports and generate a new preview.",
+    "completed": "Import completed; inspect each row",
+    "summary": "{total} rows; {ready} ready; {created} created; {skipped} skipped; {failed} failed.",
+    "importID": "Import UUID",
+    "expires": "Preview confirmation deadline",
+    "row": "CSV row",
+    "rowResult": "Result / customer UUID",
+    "downloadResult": "Download row results CSV",
+    "confirmRows": "Create only valid rows and skip the rest. Do not overwrite or merge existing customers.",
+    "commit": "Confirm and create valid customers",
+    "permissionHint": "Menu and operation permissions are separate. Creation requires customer-create permission; imports require preview, commit and result-read permissions.",
+    "pagination": "{total} customers · Page {page}/{pages}",
+    "previous": "Previous",
+    "next": "Next",
+    "rowStatus": {
+      "ready": "Ready",
+      "invalid": "Invalid",
+      "duplicate": "Duplicate, skipped",
+      "created": "Created",
+      "failed": "Creation failed"
+    },
+    "errors": {
+      "CUSTOMER_IMPORT_DUPLICATE_IN_FILE": "Duplicate email or phone in this file",
+      "CUSTOMER_IMPORT_DUPLICATE_EXISTING": "Email or phone already exists in this tenant",
+      "CUSTOMER_IMPORT_ROW_COLUMNS_INVALID": "Column count does not match the header",
+      "CUSTOMER_IMPORT_ROW_INVALID": "Invalid name, email, phone or type",
+      "CUSTOMER_IMPORT_PRIMARY_CONTACT_REQUIRED": "Company is missing a named primary contact",
+      "CUSTOMER_IMPORT_ROW_CREATE_FAILED": "Row transaction failed; no complete customer was created"
+    }
+  },
+  "customerMaster": {
+    "title": "Customer master data",
+    "description": "Manage customer identity, authentication sources, tenant memberships, and contacts. CRM owns customer profile and sales relationships.",
+    "search": "Search name, email, phone, or UUID",
+    "customer": "Customer",
+    "customerUuid": "Customer UUID",
+    "email": "Primary email",
+    "phone": "Primary phone",
+    "updatedAt": "Updated",
+    "open": "View details",
+    "notFound": "The customer was not found in this tenant.",
+    "loadFailed": "Customer master data could not be loaded.",
+    "empty": "There are no customers in this tenant.",
+    "basic": "Basic data",
+    "authIdentities": "Authentication identities",
+    "memberships": "Tenant memberships",
+    "loginEvents": "Login events",
+    "miniAppEntries": "Tenant MiniApp entries",
+    "contacts": "Contacts",
+    "provider": "Provider",
+    "subject": "External subject",
+    "source": "Source",
+    "expiresAt": "Expires at",
+    "event": "Event",
+    "result": "Result",
+    "channel": "Channel",
+    "entryCode": "Entry code",
+    "entryType": "Entry type",
+    "campaign": "Campaign",
+    "identity": "Channel identities",
+    "actions": "Actions",
+    "edit": "Edit",
+    "disable": "Deactivate",
+    "createContact": "Create contact",
+    "saveTemporary": "Save as temporary",
+    "displayName": "Name",
+    "givenName": "Given name",
+    "familyName": "Family name",
+    "roles": "Stable roles",
+    "tags": "Tags",
+    "tagsHint": "Comma-separated, up to 20.",
+    "contactEmpty": "No contacts.",
+    "identityEmpty": "No channel identities.",
+    "resolveIdentity": "Resolve channel identity",
+    "bindIdentity": "Bind channel identity explicitly",
+    "externalSubject": "Channel external identifier",
+    "resolveNotFound": "No bound contact was found. Explicitly create a contact or save one as temporary.",
+    "temporaryNotice": "Temporary contacts can only be created by an explicit human action.",
+    "identityConflict": "This channel identity is already bound to another contact.",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "statusTemporary": "Temporary",
+    "rolePrimary": "Primary contact",
+    "roleLegalRepresentative": "Legal representative",
+    "tenantEntryDescription": "This is current-tenant configuration; it does not claim a binding to this customer.",
+    "loginSuccess": "Success",
+    "loginFailure": "Failure",
+    "saveFailed": "Save failed.",
+    "back": "Back to customers"
+  },
   "backupCenter": {
     "archives": {
       "guideTitle": "Media and log archive guide",
@@ -3164,17 +3437,24 @@
       "start": "Create database and restore",
       "back": "Back to selection",
       "connection": "Read-only connection",
-      "connectionHint": "Generate a password dedicated to this copy. Generating again replaces the previous password.",
+      "connectionHint": "After validating the client endpoint, generate a password dedicated to this copy. Each successful generation replaces the previous password.",
+      "connectionLoading": "Checking the client endpoint and generating read-only credentials…",
+      "accessConfigTitle": "Configure a client access endpoint",
+      "accessConfigHint": "Ask operations to configure the client host, port and access mode. Container deployments can enable loopback port publishing with compose.restore-access.yml and establish an SSH tunnel. Restart Core after configuration, then request the connection again.",
+      "directConnection": "Database connection endpoint",
+      "sshTunnel": "Establish an SSH tunnel first",
+      "sshTunnelHint": "From your computer, forward local {host}:{port} to {targetHost}:{targetPort} as reachable from the SSH server. Then connect TablePlus with the address or DSN below. Copying a DSN does not establish a tunnel. Operations supplies the SSH user and server address.",
+      "invalidConnection": "The client connection response is incomplete. Update Core and check the access configuration.",
       "password": "Read-only password",
       "username": "Username",
-      "host": "Host",
-      "port": "Port",
+      "host": "Client host",
+      "port": "Client port",
       "expires": "Credentials expire at {time}. While Core is running, new logins are disabled within one minute of expiry; close existing read-only connections yourself.",
       "copyPassword": "Copy password",
       "copyDSN": "Copy full DSN (includes password)",
       "copied": "Copied",
       "clipboardFailed": "Cannot write to the clipboard. Check browser clipboard permission.",
-      "remoteHint": "Host is relative to the Core server. Remote localhost/127.0.0.1 requires an SSH tunnel. Use this connection in TablePlus for inspection.",
+      "remoteHint": "Confirm this address is reachable from your computer. When using the server database address, remote localhost/127.0.0.1 still requires an SSH tunnel. Copying a DSN does not establish a tunnel.",
       "delete": "Delete copy",
       "deleteHint": "Delete this new database and its dedicated roles. Close TablePlus and other connections first; connections are never forcibly terminated.",
       "typeName": "Type the complete copy database name above",
@@ -3373,21 +3653,42 @@
     "limit": "At most 32 plugin owners may be granted"
   },
   "pluginFrame": {
-  "title": "Plugin page",
-  "errors": {
-    "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "The plugin admin page is not ready. Automatic retries have stopped.",
-    "PLUGIN_FRAME_LOAD_FAILED": "Failed to load the plugin page.",
-    "PLUGIN_BRIDGE_TIMEOUT": "The plugin session bridge is not ready. Check bridge protocol v2 support.",
-    "PLUGIN_NAVIGATION_TIMEOUT": "Plugin navigation did not finish. Retry the operation.",
-    "PLUGIN_NAVIGATION_UNSUPPORTED": "The plugin needs the new navigation adapter. Upgrade the plugin.",
-    "PLUGIN_NAVIGATION_FAILED": "The plugin page could not be opened. Retry and check the plugin console.",
-    "PLUGIN_NAVIGATION_INVALID": "The navigation address is outside this plugin's allowed routes.",
-    "PLUGIN_NAVIGATION_ROUTE_MISMATCH": "The plugin did not reach the requested page. Retry and check its routes.",
-    "PLUGIN_BRIDGE_ORIGIN_UNSUPPORTED": "The plugin origin does not meet the bridge requirements.",
-    "PLUGIN_HOST_AUTH_UNAVAILABLE": "Host session refresh is temporarily unavailable. Retry later.",
-    "PLUGIN_AUTH_ADAPTER_TIMEOUT": "The plugin has not confirmed the current session. Upgrade its session adapter and retry.",
-    "PLUGIN_AUTH_REQUIRED": "The host session has ended. Sign in to PowerX.",
-    "PLUGIN_AUTH_CONTEXT_FAILED": "The plugin could not confirm the current user. Synchronize the session again."
+    "title": "Plugin page",
+    "errors": {
+      "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "The plugin admin page is not ready. Automatic retries have stopped.",
+      "PLUGIN_FRAME_LOAD_FAILED": "Failed to load the plugin page.",
+      "PLUGIN_BRIDGE_TIMEOUT": "The plugin session bridge is not ready. Check bridge protocol v2 support.",
+      "PLUGIN_NAVIGATION_TIMEOUT": "Plugin navigation did not finish. Retry the operation.",
+      "PLUGIN_NAVIGATION_UNSUPPORTED": "The plugin needs the new navigation adapter. Upgrade the plugin.",
+      "PLUGIN_NAVIGATION_FAILED": "The plugin page could not be opened. Retry and check the plugin console.",
+      "PLUGIN_NAVIGATION_INVALID": "The navigation address is outside this plugin's allowed routes.",
+      "PLUGIN_NAVIGATION_ROUTE_MISMATCH": "The plugin did not reach the requested page. Retry and check its routes.",
+      "PLUGIN_BRIDGE_ORIGIN_UNSUPPORTED": "The plugin origin does not meet the bridge requirements.",
+      "PLUGIN_HOST_AUTH_UNAVAILABLE": "Host session refresh is temporarily unavailable. Retry later.",
+      "PLUGIN_AUTH_ADAPTER_TIMEOUT": "The plugin has not confirmed the current session. Upgrade its session adapter and retry.",
+      "PLUGIN_AUTH_REQUIRED": "The host session has ended. Sign in to PowerX.",
+      "PLUGIN_AUTH_CONTEXT_FAILED": "The plugin could not confirm the current user. Synchronize the session again."
+    }
+  },
+  "customerMaintenance": {
+    "setPrimary": "Set primary contact",
+    "primaryConfirm": "Set {name} as this customer’s primary contact in the current tenant? The previous reference will be replaced.",
+    "replaceBeforeDisable": "Replace the primary contact before deactivating it",
+    "nameInvalid": "Names must contain 1–128 Unicode characters without control characters",
+    "repair": "Repair primary contact",
+    "repairNotice": "Repairs this customer’s type and contact reference only. Creates no new customer or login identity. Preview and confirm explicitly; changed source data requires a new preview.",
+    "createNaturalPerson": "Create a natural-person contact",
+    "targetContact": "Reuse an existing contact or create a natural person",
+    "repairScopeMismatch": "Repair belongs to a different customer",
+    "repairID": "Repair UUID",
+    "proposal": "Effective proposal",
+    "checksum": "Preview checksum",
+    "completed": "Repair completed",
+    "confirmRepair": "I have verified the type, contact details and proposal and confirm this preview",
+    "newPreview": "Preview again",
+    "not_needed": "Reference valid; verify role marker",
+    "type_only": "Confirm type and verify primary contact",
+    "reuse_contact": "Reuse contact and set primary",
+    "create_contact": "Create natural-person contact and set primary"
   }
-}
 }

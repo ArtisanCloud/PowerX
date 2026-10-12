@@ -10,7 +10,8 @@ OUTPUT = ROOT / 'backend/cmd/database/upgrade_payloads.json'
 COMMON = ['backend/cmd/database/upgrade_steps.go', 'backend/cmd/database/migrate.go', 'backend/go.mod', 'backend/go.sum']
 GROUPS = {
     'core': ['backend/pkg/corex/db/database/**/*.go', 'backend/pkg/corex/db/migration/**/*.go',
-             'backend/pkg/corex/db/persistence/model/**/*.go', 'backend/pkg/dynamic_form/persistence/model/*.go'],
+             'backend/pkg/corex/db/persistence/model/**/*.go', 'backend/pkg/dynamic_form/persistence/model/*.go',
+             'backend/pkg/corex/db/persistence/repository/iam/permission*.go'],
     'agent': ['backend/internal/server/agent/persistence/**/*.go'],
     'knowledge': ['backend/pkg/corex/db/migration/*knowledge*.go', 'backend/pkg/corex/db/persistence/vectorstore/**/*.go'],
     'catalog': ['backend/config/platform_capabilities/*.yaml',

@@ -15,6 +15,7 @@ import (
 	modelmetadata "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/metadata"
 	contactrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/customer"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -40,7 +41,7 @@ const (
 var contactTagPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 
 func validContactChannels(email, phone string) bool {
-	if len(email) > 255 || len(phone) > 32 {
+	if !validCustomerText(email, 255, false) || !validCustomerText(phone, 32, false) {
 		return false
 	}
 	if email != "" {
@@ -53,6 +54,9 @@ func validContactChannels(email, phone string) bool {
 		if !(char >= '0' && char <= '9') && char != '+' && char != '-' && char != ' ' && char != '(' && char != ')' {
 			return false
 		}
+	}
+	if phone != "" && strings.IndexFunc(phone, func(r rune) bool { return r >= '0' && r <= '9' }) < 0 {
+		return false
 	}
 	return true
 }
@@ -142,6 +146,9 @@ func (s *ContactService) Create(ctx context.Context, input CreateContactInput) (
 	if err != nil {
 		return nil, err
 	}
+	if hasPrimaryRole(roles) && ctx.Value(primaryInitializationKey{}) != true {
+		return nil, dto.NewErrorWithCode(409, "CONTACT_PRIMARY_OPERATION_REQUIRED", "请使用明确的设为主要联系人操作", nil)
+	}
 	tags, err := normalizeContactTags(input.Tags)
 	if err != nil {
 		return nil, err
@@ -157,10 +164,13 @@ func (s *ContactService) Create(ctx context.Context, input CreateContactInput) (
 		Status: status, Roles: marshalStringArray(roles), Tags: marshalStringArray(tags),
 		Metadata: datatypes.JSON([]byte(fmt.Sprintf(`{"creation_intent":%q}`, intent))),
 	}
-	if contact.DisplayName == "" || len(contact.DisplayName) > 128 || len(contact.GivenName) > 128 || len(contact.FamilyName) > 128 || !validContactChannels(contact.Email, contact.Phone) {
+	if !validContactNames(contact.DisplayName, contact.GivenName, contact.FamilyName) || !validContactChannels(contact.Email, contact.Phone) {
 		return nil, ErrContactInvalidArgument
 	}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := contactrepo.NewContactRepository(tx).LockMembership(ctx, tenantUUID, customerUUID); err != nil {
+			return err
+		}
 		if err := ensureActiveCustomer(ctx, tx, tenantUUID, customerUUID); err != nil {
 			return err
 		}
@@ -273,25 +283,32 @@ func (s *ContactService) Update(ctx context.Context, input UpdateContactInput) (
 			return err
 		}
 		repo := contactrepo.NewContactRepository(tx)
+		membership, err := repo.LockMembership(ctx, tenantUUID, customerUUID)
+		if err != nil {
+			return err
+		}
+		if err := ensureActiveCustomer(ctx, tx, tenantUUID, customerUUID); err != nil {
+			return err
+		}
 		contact, err := getScopedContact(ctx, repo, tenantUUID, customerUUID, input.ContactUUID)
 		if err != nil {
 			return err
 		}
 		if input.DisplayName != nil {
 			contact.DisplayName = strings.TrimSpace(*input.DisplayName)
-			if contact.DisplayName == "" || len(contact.DisplayName) > 128 {
+			if !validCustomerText(contact.DisplayName, 128, true) {
 				return ErrContactInvalidArgument
 			}
 		}
 		if input.GivenName != nil {
 			contact.GivenName = strings.TrimSpace(*input.GivenName)
-			if len(contact.GivenName) > 128 {
+			if !validCustomerText(contact.GivenName, 128, false) {
 				return ErrContactInvalidArgument
 			}
 		}
 		if input.FamilyName != nil {
 			contact.FamilyName = strings.TrimSpace(*input.FamilyName)
-			if len(contact.FamilyName) > 128 {
+			if !validCustomerText(contact.FamilyName, 128, false) {
 				return ErrContactInvalidArgument
 			}
 		}
@@ -310,6 +327,9 @@ func (s *ContactService) Update(ctx context.Context, input UpdateContactInput) (
 			if !validContactStatus(status) {
 				return ErrContactInvalidArgument
 			}
+			if membership.PrimaryContactUUID == contact.UUID.String() && status != modelcustomer.ContactStatusActive {
+				return dto.NewErrorWithCode(409, "CONTACT_PRIMARY_CHANGE_REQUIRED", "停用当前主要联系人前，请先更换主要联系人", nil)
+			}
 			statusChanged = contact.Status != status
 			contact.Status = status
 		}
@@ -317,6 +337,9 @@ func (s *ContactService) Update(ctx context.Context, input UpdateContactInput) (
 			roles, err := normalizeContactRoles(*input.Roles)
 			if err != nil {
 				return err
+			}
+			if (hasPrimaryRole(roles) && membership.PrimaryContactUUID != contact.UUID.String()) || (membership.PrimaryContactUUID == contact.UUID.String() && !hasPrimaryRole(roles)) {
+				return dto.NewErrorWithCode(409, "CONTACT_PRIMARY_OPERATION_REQUIRED", "主要联系人标记由专用设定操作维护", nil)
 			}
 			contact.Roles = marshalStringArray(roles)
 		}
@@ -458,7 +481,7 @@ func getScopedContact(ctx context.Context, repo *contactrepo.ContactRepository, 
 
 func ensureActiveCustomer(ctx context.Context, db *gorm.DB, tenantUUID, customerUUID string) error {
 	membership, err := contactrepo.NewAccountRepository(db).CurrentMembership(ctx, tenantUUID, customerUUID)
-	if err != nil || membership.Status != modelcustomer.StatusActive || membership.AccountStatus != modelcustomer.StatusActive {
+	if err != nil || membership.Status != modelcustomer.StatusActive || membership.AccountStatus != modelcustomer.StatusActive || (membership.ExpiresAt != nil && !membership.ExpiresAt.After(time.Now())) {
 		return ErrContactCustomerMembershipInactive
 	}
 	return nil

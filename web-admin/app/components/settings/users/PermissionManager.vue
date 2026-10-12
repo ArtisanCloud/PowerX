@@ -212,9 +212,11 @@ const nonMenuPermissions = computed(() =>
 
 /** ====== 当前选中角色 ====== */
 const PERMISSION_MANAGER_VIEW_STATE_KEY = "powerx.permission.manager.view.v1";
+const viewStateReady = ref(false);
 const restoredRoleId = ref<number | null>(null);
-const selectedRole = ref<Role | null>((roles.value as any[])[0] ?? null);
+const selectedRole = ref<Role | null>(null);
 watchEffect(() => {
+  if (!viewStateReady.value) return;
   if (!selectedRole.value && roles.value.length > 0) {
     const restored = restoredRoleId.value
       ? roles.value.find((role: any) => Number(role.id) === restoredRoleId.value)
@@ -270,6 +272,7 @@ const readPermissionManagerViewState = () => {
     if (state?.permissionTab === "menus" || state?.permissionTab === "capabilities") {
       permissionTab.value = state.permissionTab;
     }
+    searchQuery.value = String(state?.searchQuery || "");
     permissionSearchQuery.value = String(state?.permissionSearchQuery || "");
     pluginPermissionPluginFilter.value =
       String(state?.pluginPermissionPluginFilter || PERMISSION_FILTER_ALL) ||
@@ -298,6 +301,7 @@ watch(
   [
     () => selectedRole.value?.id,
     permissionTab,
+    searchQuery,
     permissionSearchQuery,
     pluginPermissionPluginFilter,
     pluginPermissionModuleFilter,
@@ -307,21 +311,26 @@ watch(
     selectedCapabilityModuleKey,
   ],
   () => {
-    if (!process.client) return;
-    localStorage.setItem(
-      PERMISSION_MANAGER_VIEW_STATE_KEY,
-      JSON.stringify({
-        roleId: selectedRole.value?.id || null,
-        permissionTab: permissionTab.value,
-        permissionSearchQuery: permissionSearchQuery.value,
-        pluginPermissionPluginFilter: pluginPermissionPluginFilter.value,
-        pluginPermissionModuleFilter: pluginPermissionModuleFilter.value,
-        pluginPermissionTypeFilter: pluginPermissionTypeFilter.value,
-        pluginPermissionRegistrationFilter: pluginPermissionRegistrationFilter.value,
-        selectedCapabilitySourceKey: selectedCapabilitySourceKey.value,
-        selectedCapabilityModuleKey: selectedCapabilityModuleKey.value,
-      }),
-    );
+    if (!process.client || !viewStateReady.value || !selectedRole.value) return;
+    try {
+      localStorage.setItem(
+        PERMISSION_MANAGER_VIEW_STATE_KEY,
+        JSON.stringify({
+          roleId: selectedRole.value?.id || null,
+          permissionTab: permissionTab.value,
+          searchQuery: searchQuery.value,
+          permissionSearchQuery: permissionSearchQuery.value,
+          pluginPermissionPluginFilter: pluginPermissionPluginFilter.value,
+          pluginPermissionModuleFilter: pluginPermissionModuleFilter.value,
+          pluginPermissionTypeFilter: pluginPermissionTypeFilter.value,
+          pluginPermissionRegistrationFilter: pluginPermissionRegistrationFilter.value,
+          selectedCapabilitySourceKey: selectedCapabilitySourceKey.value,
+          selectedCapabilityModuleKey: selectedCapabilityModuleKey.value,
+        }),
+      );
+    } catch (error) {
+      console.warn("[permission-manager] failed to persist view state", error);
+    }
   },
 );
 
@@ -456,13 +465,11 @@ const roleForm = reactive({
 /** ====== 首屏加载权限 & 当前角色权限 ====== */
 onMounted(async () => {
   readPermissionManagerViewState();
+  viewStateReady.value = true;
   await Promise.all([
     permissionStore.fetchAllActive(),
     permissionStore.fetchPluginCatalog(),
   ]);
-  if (selectedRole.value?.id) {
-    await permissionStore.fetchRolePermissionIDs(selectedRole.value.id);
-  }
 });
 
 const capabilityTypeGroupLabel = (group: CapabilityFilterGroup) =>
@@ -578,6 +585,7 @@ const menuLabels: Record<
     icon: "i-heroicons-arrow-path-rounded-square",
   },
   media: { label: "媒体", group: "PINNED", icon: "i-heroicons-photo" },
+  customer: { label: t("menu.customers"), group: t("menu.section.businessOperations"), icon: "i-heroicons-user-group" },
   monitor: { label: "监控中心", group: "SETTINGS", icon: "i-heroicons-eye" },
   plugins: {
     label: "插件市场",
@@ -673,6 +681,7 @@ const menuLabels: Record<
 
 const menuSectionOrder: Record<string, number> = {
   PINNED: -200,
+  [t("menu.section.businessOperations")]: -100,
   APPS: -50,
   SETTINGS: 0,
 };
@@ -690,6 +699,7 @@ const menuOrder = [
   "workflow",
   "media",
   "dashboard",
+  "customer",
   "monitor",
   "plugins",
   "plugins.market",
@@ -2216,6 +2226,7 @@ const isFormModulePartiallySelected = (module: string) => {
             <div
               v-for="role in filteredRoles"
               :key="role.id"
+              :data-role-id="role.id"
               @click="selectRole(role)"
               :class="[
                 'relative p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40',

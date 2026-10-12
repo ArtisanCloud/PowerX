@@ -49,7 +49,7 @@ func TestRestoreCopyNativePostgres(t *testing.T) {
 	oldKey := pxcrypto.GetGlobalKeyB64()
 	require.NoError(t, pxcrypto.SetGlobalKeyB64(base64.StdEncoding.EncodeToString(make([]byte, 32))))
 	defer pxcrypto.SetGlobalKeyB64(oldKey)
-	s := NewRestoreCopyService(ctx, db, RestoreCopyOptions{Directory: t.TempDir()})
+	s := NewRestoreCopyService(ctx, db, RestoreCopyOptions{Directory: t.TempDir(), ClientConnection: &RestoreCopyClientOptions{}})
 	defer s.Close()
 	root := reqctx.WithIsRoot(ctx, true)
 	file := t.TempDir() + "/source.dump"
@@ -108,8 +108,13 @@ func TestRestoreCopyNativePostgres(t *testing.T) {
 	connection, err := s.Connection(root, copy.ID)
 	require.NoError(t, err)
 	require.True(t, connection.ReadOnly)
+	require.Equal(t, "direct", connection.AccessMode)
+	require.Nil(t, connection.Tunnel)
 	require.NotEqual(t, s.cfg.User, connection.Username)
-	reader, err := s.connect(ctx, connection.Database, connection.Username, connection.Password)
+	readerCfg := s.cfg.Copy()
+	readerCfg.Host, readerCfg.Port = connection.Host, connection.Port
+	readerCfg.Database, readerCfg.User, readerCfg.Password = connection.Database, connection.Username, connection.Password
+	reader, err := pgx.ConnectConfig(ctx, readerCfg)
 	require.NoError(t, err)
 	var count int
 	require.NoError(t, reader.QueryRow(ctx, "SELECT count(*) FROM sentinel").Scan(&count))

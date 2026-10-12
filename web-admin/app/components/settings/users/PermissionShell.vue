@@ -10,8 +10,9 @@ import { useUserStore } from "~/stores/user";
 
 // 使用用户状态 Store
 const userStore = useUserStore();
-const { isRoot, isCurrentTenantAdmin, currentTenantUuid, isLoading, error } =
+const { context, isRoot, currentTenantUuid, isLoading, error } =
   storeToRefs(userStore);
+const hasContext = computed(() => Boolean(context.value?.user));
 
 // 计算当前视图类型
 const view = computed(() => {
@@ -51,7 +52,7 @@ onMounted(async () => {
 <template>
   <div>
     <!-- 加载状态 -->
-    <div v-if="isLoading" class="flex items-center justify-center py-12">
+    <div v-if="isLoading && !hasContext" class="flex items-center justify-center py-12">
       <UIcon
         name="i-heroicons-arrow-path"
         class="animate-spin h-8 w-8 text-blue-600"
@@ -61,7 +62,7 @@ onMounted(async () => {
 
     <!-- 错误状态 -->
     <div
-      v-else-if="error"
+      v-else-if="error && !hasContext"
       class="p-6 bg-red-50 border border-red-200 rounded-lg"
     >
       <div class="flex items-center">
@@ -86,7 +87,14 @@ onMounted(async () => {
     </div>
 
     <!-- 根据用户角色显示对应权限管理视图 -->
-    <div v-else>
+    <div v-else-if="hasContext">
+      <!-- 后台刷新不卸载编辑器；失败时保留当前角色及未保存的选择。 -->
+      <div v-if="error" role="alert" class="mb-4 flex items-center gap-3 text-red-600">
+        <span>{{ error }}</span>
+        <UButton size="sm" variant="outline" :loading="isLoading" @click="userStore.fetchUserContext({ force: true })">
+          {{ $t("common.retry") }}
+        </UButton>
+      </div>
       <!-- Root 用户：权限管理 + 角色配置 两个选项卡 -->
       <div v-if="view === 'root'">
         <div class="bg-white rounded-lg shadow">

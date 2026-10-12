@@ -22,21 +22,26 @@ import (
 	"gorm.io/gorm"
 )
 
-type RestoreCopyOptions struct{ Directory string }
+type RestoreCopyOptions struct {
+	Directory        string
+	ClientConnection *RestoreCopyClientOptions
+}
 
 // RestoreCopyService 管理独立恢复库，不提供主实例连接切换。
 type RestoreCopyService struct {
-	db        *gorm.DB
-	cfg       *pgx.ConnConfig
-	sourceKey string
-	store     *restoreCopyStore
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	workers   sync.WaitGroup
-	closeOnce sync.Once
-	lockFile  *os.File
-	initErr   error
+	db               *gorm.DB
+	cfg              *pgx.ConnConfig
+	sourceKey        string
+	store            *restoreCopyStore
+	ctx              context.Context
+	cancel           context.CancelFunc
+	mu               sync.Mutex
+	workers          sync.WaitGroup
+	closeOnce        sync.Once
+	lockFile         *os.File
+	initErr          error
+	clientConnection RestoreCopyClientOptions
+	clientConfigErr  error
 }
 
 func NewRestoreCopyService(ctx context.Context, db *gorm.DB, opts RestoreCopyOptions) *RestoreCopyService {
@@ -45,6 +50,11 @@ func NewRestoreCopyService(ctx context.Context, db *gorm.DB, opts RestoreCopyOpt
 	}
 	run, cancel := context.WithCancel(ctx)
 	s := &RestoreCopyService{db: db, ctx: run, cancel: cancel}
+	if opts.ClientConnection != nil {
+		s.clientConnection = *opts.ClientConnection
+	} else {
+		s.clientConnection, s.clientConfigErr = restoreCopyClientOptionsFromEnv()
+	}
 	if db == nil || sourceDSN(db) == "" {
 		s.initErr = errors.New("restore source unavailable")
 		return s
@@ -412,14 +422,16 @@ func (s *RestoreCopyService) Delete(ctx context.Context, id, confirmation string
 }
 
 type RestoreCopyConnection struct {
-	Host      string    `json:"host"`
-	Port      uint16    `json:"port"`
-	Database  string    `json:"database"`
-	Username  string    `json:"username"`
-	Password  string    `json:"password"`
-	ExpiresAt time.Time `json:"expires_at"`
-	ReadOnly  bool      `json:"read_only"`
-	SSLMode   string    `json:"ssl_mode"`
+	AccessMode string                `json:"access_mode"`
+	Tunnel     *RestoreCopySSHTarget `json:"tunnel,omitempty"`
+	Host       string                `json:"host"`
+	Port       uint16                `json:"port"`
+	Database   string                `json:"database"`
+	Username   string                `json:"username"`
+	Password   string                `json:"password"`
+	ExpiresAt  time.Time             `json:"expires_at"`
+	ReadOnly   bool                  `json:"read_only"`
+	SSLMode    string                `json:"ssl_mode"`
 }
 
 func (s *RestoreCopyService) Connection(ctx context.Context, id string) (RestoreCopyConnection, error) {
@@ -434,6 +446,11 @@ func (s *RestoreCopyService) Connection(ctx context.Context, id string) (Restore
 	}
 	if row.Status != "success" {
 		return RestoreCopyConnection{}, restoreFailure(409, "RESTORE_COPY_NOT_READY", "只有完整恢复成功的副本可生成只读连接")
+	}
+	// 客户端入口校验在凭据轮换前完成；配置缺失不能撤销仍可使用的旧密码。
+	endpoint, err := s.connectionEndpoint()
+	if err != nil {
+		return RestoreCopyConnection{}, err
 	}
 	admin, err := s.connect(ctx, s.cfg.Database, s.cfg.User, s.cfg.Password)
 	if err != nil {
@@ -464,15 +481,7 @@ func (s *RestoreCopyService) Connection(ctx context.Context, id string) (Restore
 		_, _ = admin.Exec(ctx, "ALTER ROLE "+pgx.Identifier{row.ReaderRole}.Sanitize()+" NOLOGIN PASSWORD NULL")
 		return RestoreCopyConnection{}, restoreFailure(503, "RESTORE_ACCESS_FAILED", "无法登记凭据有效期，已撤销本次连接")
 	}
-	sslMode := "prefer"
-	if env, err := postgresEnvironment(sourceDSN(s.db)); err == nil {
-		for _, value := range env {
-			if strings.HasPrefix(value, "PGSSLMODE=") {
-				sslMode = strings.TrimPrefix(value, "PGSSLMODE=")
-			}
-		}
-	}
-	return RestoreCopyConnection{Host: s.cfg.Host, Port: s.cfg.Port, Database: row.Database, Username: row.ReaderRole, Password: password, ExpiresAt: expires, ReadOnly: true, SSLMode: sslMode}, nil
+	return RestoreCopyConnection{AccessMode: endpoint.AccessMode, Tunnel: endpoint.Tunnel, Host: endpoint.Host, Port: endpoint.Port, Database: row.Database, Username: row.ReaderRole, Password: password, ExpiresAt: expires, ReadOnly: true, SSLMode: endpoint.SSLMode}, nil
 }
 
 func restoreRoleIdentity(ctx context.Context, conn *pgx.Conn, name string, expected uint32) error {

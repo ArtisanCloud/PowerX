@@ -98,3 +98,24 @@ Customer writes and verified identity resolution persist an empty historical typ
 ## Customer external authentication identities (2026-09-27)
 
 These are distinct from ContactIdentity. The new fixed `core://customer/external-identities` `INVOKE` binding exposes `lookup`/`list_by_customer` under `com.corex.customer.external_identities.service_read` and `bind`/`create_and_bind` under `service_manage`. See `docs/contracts/customer-external-identity-management.md` for typed inputs, explicit API Key plugin ownership, STS instance grants, transaction/concurrency guarantees, and display-label semantics. Existing login Resolve retains its side effects and is not used for management inspection.
+
+## Primary contact extension (2026-10-11)
+
+Formal capability: `com.corex.customer.contacts.primary_manage` with BOTH Admin user-JWT/RBAC POST `/api/v1/admin/customers/{customer_uuid}/contacts/{contact_uuid}/primary` and fixed service `core://customer/contacts` / `INVOKE`. Service actor accepts explicit API-key or STS grant; API-key scope `_scope.customer.contacts.primary_manage`, action `manage`, resource type `capability`, pattern `customer_contacts_primary_manage`. Publication and tenant registration precede a live grant. Existing service_manage/read grants do not authorize set_primary.
+
+Typed service body (no endpoint/method/headers/tenant override):
+
+```json
+{"operation":"set_primary","customer_uuid":"22222222-2222-4222-8222-222222222222","contact_uuid":"33333333-3333-4333-8333-333333333333","expected_primary_contact_uuid":"11111111-1111-4111-8111-111111111111"}
+```
+
+`expected_primary_contact_uuid` must be present; empty string means no current reference. Result contains `payload.customer_uuid`, `payload.primary_contact_uuid`, `payload.previous_primary_contact_uuid`. Changes compare the expected reference, require an active owned Contact, normalize primary roles and audit in the same membership-locked transaction. Conflicts: CONTACT_PRIMARY_CHANGED / CONTACT_PRIMARY_NOT_ACTIVE. Ordinary create/update attempting a role-only primary change fails CONTACT_PRIMARY_OPERATION_REQUIRED; inactive/temporary current primary fails CONTACT_PRIMARY_CHANGE_REQUIRED.
+
+Framework implementation order:
+1. Add typed input/result and stable maintenance errors; preserve HTTP status/Trace.
+2. Add a separate PrimaryContactManager interface and provider extension without changing the existing six-operation Store. Local implementation must maintain the same ownership, expected-reference and active-contact invariant transactionally; Delegated uses the one capability/body above.
+3. Reject missing expected field, tenant/proxy fields and incompatible legacy primary-role writes explicitly. Admin permissions are not service grants.
+4. Test independent grants, stale reference, cross tenant/customer, inactive target, audit failure, set/deactivate concurrency and no Local fallback. Existing account creation still atomically establishes a primary Contact and does not need an extra primary_manage call.
+5. Plugin order contact selection continues existing read/manage operations; only a product action changing the customer’s primary reference needs this extension.
+
+Explicit legacy repairs are Core Admin-only; preview/read/commit use docs/contracts/customer-contact-maintenance.openapi.yaml. No Framework repair/CSV copy is required.

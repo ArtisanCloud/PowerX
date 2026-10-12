@@ -34,6 +34,7 @@ import (
 	modelSkills "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
+	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -288,7 +289,13 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err != nil {
 		return err
 	}
-	return nil
+	return EnsureCustomerMenuPermission(db)
+}
+
+// EnsureCustomerMenuPermission 增量登记客户菜单，不重置角色授权、管理员或安装状态。
+func EnsureCustomerMenuPermission(db *gorm.DB) error {
+	meta, _ := json.Marshal(map[string]any{"type": "menu", "module": "menu", "label": "客户管理", "title_i18n": map[string]string{"zh-CN": "客户管理", "en": "Customer management"}})
+	return iamrepo.NewPermissionRepository(db).UpsertUpgradeCatalog(db.Statement.Context, []modelIAM.Permission{{Module: "menu", Resource: "customer", Action: "view", Source: "core", Effect: "allow", Status: modelIAM.PermissionStatusActive, AllowAPIKey: false, Description: "Allow viewing admin menu customer", Meta: meta}})
 }
 
 func migrateRuntimeHostModels(db *gorm.DB) error {
@@ -510,6 +517,7 @@ func migrateCustomerModels(db *gorm.DB) error {
 		&modelCustomer.LoginEvent{},
 		&modelCustomer.Contact{},
 		&modelCustomer.ContactIdentity{},
+		&modelCustomer.AccountImport{},
 	); err != nil {
 		return err
 	}

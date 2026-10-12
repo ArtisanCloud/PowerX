@@ -28,6 +28,13 @@ func IsCoreSensitivePermission(permission modelsiam.Permission) bool {
 	if module == "iam" && resource == "credential" {
 		return true
 	}
+	// CSV 导入属于用户确认的 Admin 操作，不能被默认派生为服务 API Key grant。
+	if (module == "customer" && strings.HasPrefix(resource, "admin_customers_imports")) || (module == "menu" && resource == "customer") {
+		return true
+	}
+	if module == "customer" && strings.HasPrefix(resource, "admin_customers_") {
+		return true
+	}
 	if module == "iam" && resource == "permission" && action != "read" && action != "list" {
 		return true
 	}

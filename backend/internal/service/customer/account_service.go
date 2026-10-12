@@ -181,6 +181,9 @@ func (s *AccountService) Create(ctx context.Context, in CreateAccountInput) (cus
 	if strings.TrimSpace(primary.DisplayName) == "" {
 		return customerrepo.AccountRow{}, errors.New("customer.primary_contact_required")
 	}
+	if !validContactNames(strings.TrimSpace(in.DisplayName), strings.TrimSpace(in.GivenName), strings.TrimSpace(in.FamilyName)) || !validContactChannels(strings.TrimSpace(in.PrimaryEmail), strings.TrimSpace(in.PrimaryPhone)) || !validContactNames(strings.TrimSpace(primary.DisplayName), strings.TrimSpace(primary.GivenName), strings.TrimSpace(primary.FamilyName)) || !validContactChannels(strings.TrimSpace(primary.Email), strings.TrimSpace(primary.Phone)) {
+		return customerrepo.AccountRow{}, ErrContactInvalidArgument
+	}
 	account := &modelcustomer.Account{
 		Type:         in.Type,
 		Status:       status,
@@ -217,7 +220,7 @@ func (s *AccountService) Create(ctx context.Context, in CreateAccountInput) (cus
 		if err := customerrepo.NewAccountRepository(tx).CreateWithMembership(ctx, tenantUUID, account, membership); err != nil {
 			return err
 		}
-		contact, err := NewContactService(tx).Create(ctx, CreateContactInput{TenantUUID: tenantUUID, CustomerUUID: account.UUID.String(), DisplayName: primary.DisplayName, GivenName: primary.GivenName, FamilyName: primary.FamilyName, Email: primary.Email, Phone: primary.Phone, Status: modelcustomer.ContactStatusActive, Roles: []string{modelcustomer.ContactRolePrimary}, CreationIntent: ContactCreationIntentExplicitCreate})
+		contact, err := NewContactService(tx).Create(context.WithValue(ctx, primaryInitializationKey{}, true), CreateContactInput{TenantUUID: tenantUUID, CustomerUUID: account.UUID.String(), DisplayName: primary.DisplayName, GivenName: primary.GivenName, FamilyName: primary.FamilyName, Email: primary.Email, Phone: primary.Phone, Status: modelcustomer.ContactStatusActive, Roles: []string{modelcustomer.ContactRolePrimary}, CreationIntent: ContactCreationIntentExplicitCreate})
 		if err != nil {
 			return err
 		}

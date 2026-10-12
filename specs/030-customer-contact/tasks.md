@@ -27,12 +27,12 @@
 
 - [x] T015 Add AI Craft local Contact/ContactIdentity persistence and `FrameworkContactLocalStore`.
 - [x] T016 Add `BindFrameworkContact` and inject ContactRuntime into application dependencies.
-- [ ] T017 Add candidate resolution and explicit create/bind services; preserve `AICraftChannelContact` as candidate-only.
+- [x] T017 Add candidate resolution and explicit create/bind services; preserve `AICraftChannelContact` as candidate-only.
 - [ ] T018 Add local/delegated integration tests, including `CONTACT_IDENTITY_NOT_FOUND` and `CONTACT_DELEGATE_UNAVAILABLE`.
 
 ## Phase 5 — AI Craft business migration
 
-- [ ] T019 Add `primary_contact_uuid` validation to bulk-order create/update and persistence.
+- [x] T019 Add `primary_contact_uuid` validation to bulk-order create/update and persistence.
 - [ ] T020 Add AI Craft ContactAssignment for business roles and replace raw designer responsibility fields.
 - [ ] T021 Replace designer input UI with localized Contact selection, explicit regular create, and explicit temporary create.
 - [ ] T022 Generate historic-order remediation inventory and block responsibility-dependent transitions for unresolved records.
@@ -45,5 +45,24 @@
 - [x] T026 Make Core Shopify identity resolution create the person Customer, membership, and primary Contact atomically, and return the original UUIDs on repeated resolution.
 - [x] T027 Add typed Contact `email` and `phone` to Core/Framework contracts.
 - [x] T027A Add narrow idempotent repair for a verified plugin-attested person identity with a missing primary-contact pointer; reuse one active Contact or create one, and reject ambiguity/stale references.
-- [ ] T028 Provide a preview and explicit execution workflow for legacy Customer type/contact remediation. Never run remediation during login, reads, or a standard migration.
+- [x] T028 Provide a preview and explicit execution workflow for legacy Customer type/contact remediation. Never run remediation during login, reads, or a standard migration.
 - [ ] T029 Run installed-plugin delegated/STS and actual Shopify register/login acceptance, including repeat login and failed Contact creation.
+
+## Phase 7 — Core admin customer ingress
+
+- [x] T030 Register and group the Customer menu; incrementally preserve existing permissions/grants in centralized migration.
+- [x] T031 Add person/company creation modal and live Admin API authorization, retaining atomic Customer/membership/primary Contact creation.
+- [x] T032 Add bounded CSV previews, immutable input version/checksum, creator/tenant isolation, concurrent idempotent commit, durable row results and audit.
+- [x] T033 Add import recovery/export and customer list pagination; verify focused frontend, service, permission and PostgreSQL HTTP tests.
+- [ ] T034 Verify the deployed production browser after migration, publication and explicit role grants; preserve actual request/Trace evidence.
+
+## Phase 8 — Core primary-contact integrity and explicit legacy repair (2026-10-11)
+
+- [x] T035 Add explicit primary-reference compare/switch, membership locking, role normalization, transactional audit and protection against deactivating the current primary Contact.
+- [x] T036 Recheck live per-operation Contact Admin permissions; add tenant/customer reset, stale-response guards and modal invalidation to detail UI.
+- [x] T037 Share Unicode field validation across Customer/Contact create/update and CSV preview/commit; verify 43/128/129 Chinese-character boundaries.
+- [x] T038 Persist creator/tenant-scoped repair preview/checksum/source fingerprint, explicit type/contact selection and atomic idempotent commit; prevent use by CSV endpoints.
+- [x] T039 Publish primary_manage with user-JWT Admin and typed core_internal API-key/STS planes; keep repair Admin-only. Update OpenAPI, Framework handoff and current AI Craft code status.
+- [ ] T040 Deploy updated Core/frontend, run migration/catalog publication against the intended instance and verify required role grants. Repeat actual production browser and AI Craft order acceptance. Local tests do not complete this deployment gate.
+
+T017/T019 reflect reviewed current AI Craft code: ContactCandidateService Resolve/CreateFromCandidate/BindCandidate and bulk-order ValidateCustomerContacts. T018/T020/T021/T022/T023 remain separate integration/business/browser gates; their full evidence is not inferred from model or UI existence.

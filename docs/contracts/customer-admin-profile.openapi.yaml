@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: PowerX 客户主资料编辑
+  version: 1.0.0
+  description: 用户 JWT + 实时平台 API 权限；只编辑客户主资料，不更新认证身份、联系人、状态或租户成员关系。
+servers:
+  - url: /api/v1
+security:
+  - userJWT: []
+paths:
+  /admin/customers/accounts/{customer_uuid}:
+    parameters:
+      - name: customer_uuid
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    patch:
+      operationId: updateCustomerProfileFromAdmin
+      x-powerx-permission: customer.admin_customers_accounts_customer_uuid:update
+      description: 租户与 actor 来自可信用户上下文。要求 expected_profile_version 和至少一个可编辑字段。加锁比较当前主资料版本后更新，并在同一事务中写审计；审计失败时回滚。字段省略保持原值，可选字段空字符串清空。客户主记录由关联租户共享，不是当前租户的联系人资料。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 2
+              required: [expected_profile_version]
+              properties:
+                expected_profile_version: {type: string, pattern: '^[0-9a-fA-F]{64}$', description: GET 或列表返回的 profile_version；绑定 UUID 和四个可编辑字段的 SHA256}
+                display_name: {type: string, minLength: 1, maxLength: 128}
+                nickname: {type: string, maxLength: 128}
+                primary_email:
+                  anyOf:
+                    - {type: string, maxLength: 0}
+                    - {type: string, format: email, maxLength: 255}
+                primary_phone: {type: string, maxLength: 32, description: 可为空；否则仅数字、加号、括号、空格和连字符，至少包含一个数字}
+      responses:
+        '200': {description: data.payload 返回保存后的 CustomerAccount，包括新的 profile_version；没有重定向}
+        '400': {description: CUSTOMER_PROFILE_REQUEST_INVALID、CUSTOMER_ACCOUNT_ID_INVALID、CUSTOMER_PROFILE_VERSION_REQUIRED 或 CUSTOMER_ACCOUNT_INVALID}
+        '403': {description: CUSTOMER_ADMIN_FORBIDDEN 或 CUSTOMER_ADMIN_USER_REQUIRED；菜单、创建权限和 API Key/STS 不授予编辑权限}
+        '404': {description: CUSTOMER_ACCOUNT_NOT_FOUND；当前租户没有此客户或客户已删除}
+        '409': {description: CUSTOMER_PROFILE_CHANGED；不写数据，需要用户重新读取并确认新资料}
+        '413': {description: 请求体超过 4 KiB}
+        '503': {description: CUSTOMER_PROFILE_UPDATE_FAILED 或 CUSTOMER_ADMIN_UNAVAILABLE；不会返回原始数据库错误}
+components:
+  securitySchemes:
+    userJWT: {type: http, scheme: bearer, bearerFormat: JWT}

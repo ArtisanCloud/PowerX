@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: PowerX AI Modal API
-  version: 0.2.0
+  version: 0.3.0
   description: >
     Tenant-scoped AI modal APIs split by modality. Each modality uses a unified
     URI rule: /ai/{modality}/invoke for stateless calls, and optional session
@@ -20,6 +20,46 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    LLMModel:
+      type: object
+      required: [model_key, modality, capabilities, provider, model, source, configured, profile_configured]
+      properties:
+        model_key:
+          type: string
+          minLength: 1
+        modality:
+          type: string
+          const: llm
+        capabilities:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+          contains:
+            const: text_generation
+        provider:
+          type: string
+        model:
+          type: string
+        label:
+          type: string
+        source:
+          type: string
+          enum: [tenant_profile, global_profile, provider_catalog]
+        configured:
+          type: boolean
+          description: Provider credentials exist; this does not establish model access or subscription.
+        profile_configured:
+          type: boolean
+        defaults:
+          type: object
+          additionalProperties: true
+        tags:
+          type: array
+          items:
+            type: string
     ErrorResponse:
       type: object
       required: [code, message]
@@ -318,6 +358,45 @@ components:
         usage:
           $ref: '#/components/schemas/Usage'
 paths:
+  /ai/llm/models:
+    get:
+      operationId: listLLMModels
+      summary: List tenant-scoped text generation models with explicit capabilities
+      description: >
+        Combines declared LLM profiles and the LLM provider catalog. Known models
+        registered only under media modalities are excluded even if a profile
+        incorrectly labels them as LLM. Custom models use their explicit profile
+        modality. Model names, labels and free-text tags are not capability evidence.
+        Consumers must require modality and capabilities; missing metadata must
+        produce an explicit version-alignment error, without name-based fallback.
+      parameters:
+        - in: query
+          name: provider
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Model catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [env, items]
+                    properties:
+                      env:
+                        type: string
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LLMModel'
+        '400':
+          description: Invalid tenant or environment context
+        '502':
+          description: Model catalog dependency failure
   /ai/llm/stream:
     post:
       summary: LLM stateless stream invoke (SSE)

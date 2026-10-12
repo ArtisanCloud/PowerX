@@ -65,7 +65,25 @@
   </UModal>
 
   <UModal v-model:open="connectionOpen" :title="t('backupCenter.copies.connection')" :description="t('backupCenter.copies.connectionHint')">
-    <template #body><div v-if="connection" class="space-y-4" data-testid="restore-copy-connection"><dl class="grid grid-cols-2 gap-4 text-sm"><div v-for="field in connectionFields" :key="field.key"><dt class="text-gray-500">{{ field.label }}</dt><dd class="mt-1 break-all font-mono">{{ field.value }}</dd></div></dl><UFormField :label="t('backupCenter.copies.password')"><SecretInput :model-value="connection.password" readonly class="w-full" /></UFormField><p class="text-xs text-gray-500">{{ t('backupCenter.copies.expires', { time: timeLabel(connection.expires_at) }) }}</p><UAlert v-if="connectionError" color="error" :title="connectionError" /><div class="flex flex-wrap gap-2"><UButton color="neutral" variant="outline" @click="copyPassword">{{ t(passwordCopied ? 'backupCenter.copies.copied' : 'backupCenter.copies.copyPassword') }}</UButton><UButton color="neutral" variant="outline" @click="copyConnection">{{ t(copied ? 'backupCenter.copies.copied' : 'backupCenter.copies.copyDSN') }}</UButton></div><p class="text-xs text-gray-500">{{ t('backupCenter.copies.remoteHint') }}</p></div></template>
+    <template #body>
+      <div class="space-y-4" data-testid="restore-copy-connection">
+        <p v-if="connectionBusy" role="status">{{ t('backupCenter.copies.connectionLoading') }}</p>
+        <UAlert v-if="connectionError" color="error" :title="connectionError" />
+        <UAlert v-if="connectionConfigNeeded" color="warning" :title="t('backupCenter.copies.accessConfigTitle')" :description="t('backupCenter.copies.accessConfigHint')" />
+        <template v-if="connection">
+          <UAlert v-if="connection.access_mode === 'ssh_tunnel' && connection.tunnel" color="info" data-testid="restore-copy-tunnel" :title="t('backupCenter.copies.sshTunnel')" :description="t('backupCenter.copies.sshTunnelHint', { host: connection.host, port: connection.port, targetHost: connection.tunnel.host, targetPort: connection.tunnel.port })" />
+          <UAlert v-else-if="connection.access_mode === 'direct'" color="info" :title="t('backupCenter.copies.directConnection')" :description="t('backupCenter.copies.remoteHint')" />
+          <UAlert v-if="!connectionCanCopy" color="error" :title="t('backupCenter.copies.invalidConnection')" />
+          <dl class="grid grid-cols-2 gap-4 text-sm"><div v-for="field in connectionFields" :key="field.key"><dt class="text-gray-500">{{ field.label }}</dt><dd class="mt-1 break-all font-mono">{{ field.value }}</dd></div></dl>
+          <UFormField :label="t('backupCenter.copies.password')"><SecretInput :model-value="connection.password" readonly class="w-full" /></UFormField>
+          <p class="text-xs text-gray-500">{{ t('backupCenter.copies.expires', { time: timeLabel(connection.expires_at) }) }}</p>
+          <div class="flex flex-wrap gap-2">
+            <UButton color="neutral" variant="outline" :disabled="!connectionCanCopy" @click="copyPassword">{{ t(passwordCopied ? 'backupCenter.copies.copied' : 'backupCenter.copies.copyPassword') }}</UButton>
+            <UButton color="neutral" variant="outline" :disabled="!connectionCanCopy" @click="copyConnection">{{ t(copied ? 'backupCenter.copies.copied' : 'backupCenter.copies.copyDSN') }}</UButton>
+          </div>
+        </template>
+      </div>
+    </template>
   </UModal>
 
   <UModal v-model:open="deleteOpen" :dismissible="!deleting" :title="t('backupCenter.copies.delete')" :description="t('backupCenter.copies.deleteHint')">
@@ -88,6 +106,8 @@ const sourceMode = ref('job'); const jobId = ref(''); const file = ref<File>();
 const source = ref<RestoreCopySource>(); const plan = ref<RestoreCopyPlan>(); const requestKey = ref('');
 const allowOlder = ref(false); const confirmed = ref(false);
 const connectionOpen = ref(false); const connection = ref<RestoreCopyConnection>(); const connectionBusy = ref(''); const connectionError = ref(''); const copied = ref(false); const passwordCopied = ref(false);
+const connectionConfigNeeded = ref(false);
+let connectionRevision = 0;
 const deleteOpen = ref(false); const deletingItem = ref<RestoreCopy>(); const deleteConfirmation = ref(''); const deleteError = ref(''); const deleting = ref(false);
 const timeLabel = (value: string) => formatBackupTime(value, String(locale?.value || 'zh-CN'));
 const sizeLabel = (bytes: number) => bytes ? `${(bytes / 1048576).toFixed(1)} MiB` : '—';
@@ -98,7 +118,7 @@ const canCreate = computed(() => plan.value?.ready && confirmed.value && (!plan.
 const isRunning = (item: RestoreCopy) => item.status === 'queued' || item.status === 'running';
 const phaseLabel = (phase: string) => ['queued', 'validating', 'creating', 'restoring', 'checking'].includes(phase) ? t(`backupCenter.copies.phase.${phase}`) : phase;
 const businessLabel = (key: string) => ['tenants', 'users', 'design_tasks', 'orders', 'sample_rounds'].includes(key) ? t(`backupCenter.copies.business.${key}`) : key;
-const failure = (e: any) => { const data = e?.response?._data || e?.data; return [data?.message || e?.message || t('backupCenter.failed'), data?.error, data?.trace_id || data?.request_id].filter(Boolean).join(' · '); };
+const failure = (e: any) => { const data = e?.response?._data || e?.data; return [...new Set([data?.message || e?.message || t('backupCenter.failed'), data?.error_code || data?.error, data?.trace_id || data?.request_id].filter(Boolean))].join(' · '); };
 let timer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 let listRevision = 0;
@@ -137,20 +157,34 @@ const connectionFields = computed(() => connection.value ? [
   { key: 'username', label: t('backupCenter.copies.username'), value: connection.value.username },
   { key: 'ssl', label: 'SSL', value: connection.value.ssl_mode },
 ] : []);
+const connectionCanCopy = computed(() => {
+  const c = connection.value;
+  return !!c?.host && Number.isInteger(c.port) && c.port > 0 && c.port <= 65535 && !!c.database && !!c.username && !!c.password && c.read_only === true
+    && ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'].includes(c.ssl_mode)
+    && (c.access_mode === 'direct' || (c.access_mode === 'ssh_tunnel' && !!c.tunnel?.host && Number.isInteger(c.tunnel.port) && c.tunnel.port > 0 && c.tunnel.port <= 65535));
+});
 async function showConnection(item: RestoreCopy) {
   if (connectionBusy.value) return;
-  connectionBusy.value = item.id; connection.value = undefined; connectionError.value = ''; copied.value = false; passwordCopied.value = false;
-  try { const result = await service.connection(item.id); if (!disposed) { connection.value = result; connectionOpen.value = true; } }
-  catch (e) { error.value = failure(e); } finally { connectionBusy.value = ''; }
+  const revision = ++connectionRevision;
+  connectionBusy.value = item.id; connection.value = undefined; connectionError.value = ''; connectionConfigNeeded.value = false; copied.value = false; passwordCopied.value = false;
+  connectionOpen.value = true;
+  try { const result = await service.connection(item.id); if (!disposed && connectionOpen.value && revision === connectionRevision) connection.value = result; }
+  catch (e: any) {
+    if (!disposed && connectionOpen.value && revision === connectionRevision) {
+      connectionError.value = failure(e);
+      const data = e?.response?._data || e?.data;
+      connectionConfigNeeded.value = ['RESTORE_CONNECTION_NOT_CONFIGURED', 'RESTORE_CONNECTION_CONFIG_INVALID'].includes(data?.error_code || data?.error || data?.message);
+    }
+  } finally { connectionBusy.value = ''; }
 }
 async function copyConnection() {
-  if (!connection.value) return;
+  if (!connection.value || !connectionCanCopy.value) return;
   const c = connection.value; const host = c.host.includes(':') ? `[${c.host}]` : c.host;
   try { await navigator.clipboard.writeText(`postgresql://${encodeURIComponent(c.username)}:${encodeURIComponent(c.password)}@${host}:${c.port}/${encodeURIComponent(c.database)}?sslmode=${encodeURIComponent(c.ssl_mode)}`); copied.value = true; }
   catch { connectionError.value = t('backupCenter.copies.clipboardFailed'); }
 }
 async function copyPassword() {
-  if (!connection.value) return;
+  if (!connection.value || !connectionCanCopy.value) return;
   try { await navigator.clipboard.writeText(connection.value.password); passwordCopied.value = true; }
   catch { connectionError.value = t('backupCenter.copies.clipboardFailed'); }
 }
@@ -161,7 +195,7 @@ async function remove() {
   try { const id = deletingItem.value.id; await service.remove(id, deleteConfirmation.value); listRevision++; items.value = items.value.map<RestoreCopy>(item => item.id === id ? { ...item, status: 'deleted', phase: 'deleted' } : item); deleteOpen.value = false; await refresh(); }
   catch (e) { deleteError.value = failure(e); } finally { deleting.value = false; }
 }
-watch(connectionOpen, open => { if (!open) { connection.value = undefined; copied.value = false; passwordCopied.value = false; } });
+watch(connectionOpen, open => { if (!open) { connectionRevision++; connection.value = undefined; copied.value = false; passwordCopied.value = false; } });
 onMounted(refresh);
 onBeforeUnmount(() => { disposed = true; clearTimeout(timer); connection.value = undefined; });
 defineExpose({ open });
