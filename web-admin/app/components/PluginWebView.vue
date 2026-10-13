@@ -2,7 +2,9 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { usePluginBridge } from '~/composables/usePluginBridge'
 
-const { register, unregister, navigateFrame } = usePluginBridge()
+const { prepareFrame, register, unregister, navigateFrame } = usePluginBridge()
+// Document requests need the host cookie before Vue mounts or reloads the iframe.
+prepareFrame()
 const { t } = useI18n()
 const frameInstanceId = ref('')
 
@@ -222,6 +224,20 @@ function scheduleAdminReadyRetry() {
 }
 
 async function onLoad() {
+  try {
+    const body = iframeRef.value?.contentWindow?.document?.body;
+    if (body?.getAttribute?.('data-powerx-plugin-frame-error') === 'PLUGIN_FRAME_AUTH_REQUIRED') {
+      clearRetryTimer();
+      clearObservers();
+      unregister(iframeRef.value);
+      loading.value = false;
+      error.value = 'PLUGIN_FRAME_AUTH_REQUIRED';
+      applyViewportFill();
+      return;
+    }
+  } catch {
+    // A cross-origin document cannot expose a checked load error to the host.
+  }
   if (iframeShowsAdminNotReady()) {
     scheduleAdminReadyRetry();
     applyViewportFill();
@@ -353,6 +369,7 @@ watch(() => props.navigatePath, path => {
 
 // Only an explicit document entry change may reset the startup budget.
 watch(cleanSrc, async () => {
+  prepareFrame();
   loading.value = true; error.value = null;
   retryAttempts.value = 0; retryNonce.value = 0;
   clearRetryTimer(); clearObservers();
@@ -361,6 +378,7 @@ watch(cleanSrc, async () => {
 });
 
 function retryManually() {
+  prepareFrame();
   clearRetryTimer();
   retryAttempts.value = 0;
   loading.value = true; error.value = null;

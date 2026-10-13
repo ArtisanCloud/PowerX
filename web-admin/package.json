@@ -11,6 +11,7 @@
     "test": "vitest",
     "test:e2e": "node ./scripts/prepare-playwright.mjs && NUXT_PUBLIC_E2E_SKIP_AUTH=true NO_PROXY=127.0.0.1,localhost,::1 no_proxy=127.0.0.1,localhost,::1 playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:session-browsers": "npm run build && playwright test --config playwright.session.config.ts",
     "test:unit": "vitest",
     "check:api-response-shape": "node ./scripts/check-api-response-shape.mjs"
   },

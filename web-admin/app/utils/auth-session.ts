@@ -1,5 +1,5 @@
 import { decodeJwtPayload } from './auth-token';
-import { clearAuthCookies, syncAuthCookies } from './auth-cookie';
+import { syncAuthCookies } from './auth-cookie';
 
 export const AUTH_SESSION_KEY = 'powerx.session';
 export const AUTH_SESSION_EVENT = 'powerx:auth-session-changed';
@@ -56,6 +56,19 @@ export function isAuthSessionCurrent(stamp: AuthSessionStamp | null): boolean {
   return current?.sessionId === stamp?.sessionId && current?.revision === stamp?.revision;
 }
 
+function syncSessionCookies(session: AuthSession | null) {
+  const active = session?.status === 'active' && session.expiresAt > Date.now() ? session : null;
+  syncAuthCookies(active?.accessToken || null, active?.refreshToken || null);
+  document.cookie = active?.tenantUuid
+    ? `px_current_tenant_uuid=${encodeURIComponent(active.tenantUuid)}; path=/; SameSite=Lax`
+    : 'px_current_tenant_uuid=; Max-Age=0; path=/; SameSite=Lax';
+}
+
+/** Restore request cookies from the host snapshot without changing its generation. */
+export function syncAuthSessionCookies() {
+  if (process.client) syncSessionCookies(readAuthSession());
+}
+
 function publish(session: AuthSession) {
   // One authoritative write. The scalar keys are consumer mirrors, never a restore source.
   localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
@@ -68,14 +81,10 @@ function publish(session: AuthSession) {
     localStorage.setItem('scope', session.scope);
     if (session.tenantUuid) localStorage.setItem('px_current_tenant_uuid', session.tenantUuid);
     else localStorage.removeItem('px_current_tenant_uuid');
-    syncAuthCookies(session.accessToken, session.refreshToken);
   } else {
     mirrorKeys.forEach(key => localStorage.removeItem(key));
-    clearAuthCookies();
   }
-  document.cookie = session.tenantUuid
-    ? `px_current_tenant_uuid=${encodeURIComponent(session.tenantUuid)}; path=/; SameSite=Lax`
-    : 'px_current_tenant_uuid=; Max-Age=0; path=/; SameSite=Lax';
+  syncSessionCookies(session);
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_EVENT, { detail: captureAuthSession() }));
 }
 

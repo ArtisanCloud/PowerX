@@ -222,6 +222,10 @@ func normalizePolicyResource(resource string) string {
 }
 
 func publicRoutesFromPlugin(p plugin_mgr.Plugin, policyBase string) []pmrouter.PublicRoute {
+	// 策略声明和实际挂载必须使用同一 base；矛盾的合同不能用于绕过宿主身份校验。
+	if strings.TrimRight(policyBase, "/") != strings.TrimRight(toPolicyHTTPBase(p.Endpoints.HTTPBasePath), "/") {
+		return nil
+	}
 	routes := make([]pmrouter.PublicRoute, 0)
 	for _, ch := range p.Exposure.Channels {
 		if strings.ToLower(strings.TrimSpace(ch.Type)) != "rest" {
@@ -231,7 +235,9 @@ func publicRoutesFromPlugin(p plugin_mgr.Plugin, policyBase string) []pmrouter.P
 			continue
 		}
 		method := strings.ToUpper(strings.TrimSpace(ch.Method))
-		entrypoint := normalizeExposureEntrypoint(ch.Entrypoint, policyBase)
+		// 公开路径的 base 占位符不携带末尾斜杠；根 base 展开为空，避免产生双斜杠。
+		entrypoint := normalizeExposureEntrypointWithHTTPBase(ch.Entrypoint, policyBase, strings.TrimRight(policyBase, "/"))
+		entrypoint = pmrouter.NormalizePublicRoutePath(entrypoint, policyBase)
 		if method == "" || entrypoint == "" {
 			continue
 		}
@@ -241,6 +247,10 @@ func publicRoutesFromPlugin(p plugin_mgr.Plugin, policyBase string) []pmrouter.P
 }
 
 func normalizeExposureEntrypoint(entrypoint, policyBase string) string {
+	return normalizeExposureEntrypointWithHTTPBase(entrypoint, policyBase, policyBase)
+}
+
+func normalizeExposureEntrypointWithHTTPBase(entrypoint, policyBase, placeholderBase string) string {
 	value := strings.TrimSpace(entrypoint)
 	if value == "" {
 		return ""
@@ -261,7 +271,7 @@ func normalizeExposureEntrypoint(entrypoint, policyBase string) string {
 			replacement = strings.TrimSpace(expr[i+2:])
 		}
 		if strings.Contains(expr, "POWERX_PLUGIN_HTTP_BASE") && strings.TrimSpace(policyBase) != "" {
-			replacement = strings.TrimSpace(policyBase)
+			replacement = strings.TrimSpace(placeholderBase)
 		}
 		value = value[:start] + replacement + value[end+1:]
 	}

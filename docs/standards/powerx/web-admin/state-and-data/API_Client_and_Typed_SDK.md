@@ -18,7 +18,7 @@
 
 ### 2.1 全局配置
 
-- 初始 `baseURL="/api"`，会拼接到所有相对路径（结合 `nuxt.config.ts:21` 的 `public.apiBase="/api/v1"` 形成代理链）。  
+- API Client 初始 `baseURL="/api"` 是回退值；`app/plugins/api.ts` 用 `runtimeConfig.public.apiBase` 注入 Core 请求基址。业务服务只传相对资源路径，避免重复拼接 `/api` 或版本。
 - 默认 `timeout=30000`，可通过 `setApiConfig({ timeout })` 动态覆盖。  
 - 全局 headers 包含 `Content-Type: application/json` 与 `Accept: application/json`，上传场景会自动移除 `Content-Type`。
 
@@ -32,6 +32,16 @@
 - 成功：执行 `responseInterceptors` 链，可变换响应结构（当前仅处理 Loading）。  
 - 失败：`applyErrorInterceptors()` 遍历 `responseInterceptors.onResponseError`，允许提前处理或转换错误。  
 - 最终将错误抛给调用者，由组件或 `normalizeApiError()` 解析。
+
+### 2.4 前缀来源与版本迁移
+
+- `runtimeConfig.public.apiBase` 由 `NUXT_PUBLIC_API_BASE` 优先指定，否则从 `POWERX_BACKEND` 的路径推断，最后回退到 `/api/v1`。部署应显式与 Core `server.api_prefix` 对齐。
+- Core SDK 的服务路径使用 `/admin/...`、`/tenant/...` 等相对路径。业务服务、认证失败识别和代理目标构建不得各自补写 `/api/v1`；固定的历史兼容入口应集中声明。
+- `/_p/<pluginID>/api` 挂载入口与插件自己的 HTTP base 独立管理，不能因为 Core 切换版本就改写所有插件地址。
+- 改 API base 不会生成 v2 请求/响应合同。版本迁移还需要 SDK 类型、兼容行为、认证与授权 binding 以及调用方验收。
+- 路由相关改动应验证 v1、v2 和自定义前缀，串联前端构建 URL、代理、Core 匹配与最终上游；当前仍有固定 v1 分支，不能只凭 `apiBase` 可配置声明整条链路已适配。
+
+完整规则和当前待办见 [API 前缀统一管理与版本升级规范](../../../_shared/api-prefix-and-versioning.md)，环境配置见 [环境变量对照表](../environment/Env_Variables_Schema.md)。
 
 ---
 
@@ -124,4 +134,5 @@ app/composables/api/
 - [ ] 上传/下载场景确认 `isNativeBody()` 判断逻辑是否覆盖新的数据类型。  
 - [ ] 多请求并发时，合理关闭全局 Loading 或在 UI 层自定义。  
 - [ ] 新增拦截器要考虑 `async` 链路（返回值必须是配置对象或 `Promise`）。  
+- [ ] 路由相关变更核对有效 `apiBase`、Core API prefix、插件 HTTP base 和兼容入口，并验证非默认前缀完整链路。
 - [ ] 提交 PR 前同步更新本文档及相关 README，确保团队成员了解新的 API 约定。

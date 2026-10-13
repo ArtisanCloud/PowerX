@@ -3922,7 +3922,8 @@
     "errors": {
       "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "插件管理页面尚未就绪，自动重试已结束。",
       "PLUGIN_FRAME_LOAD_FAILED": "插件页面加载失败。",
-      "PLUGIN_BRIDGE_TIMEOUT": "插件会话桥接未就绪，请确认插件支持桥接协议 v2。",
+      "PLUGIN_FRAME_AUTH_REQUIRED": "插件页面未获得有效登录凭证，请重新登录 PowerX 后重试。",
+      "PLUGIN_BRIDGE_TIMEOUT": "插件页面会话连接超时，请重试；若持续失败，请联系管理员。",
       "PLUGIN_NAVIGATION_TIMEOUT": "插件页面导航未完成，请重试。",
       "PLUGIN_NAVIGATION_UNSUPPORTED": "插件缺少新版页面导航适配，请升级插件。",
       "PLUGIN_NAVIGATION_FAILED": "插件页面切换失败，请重试并检查插件控制台。",

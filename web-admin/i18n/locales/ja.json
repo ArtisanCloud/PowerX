@@ -1861,7 +1861,8 @@
   "errors": {
     "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "プラグイン管理ページが準備できていません。自動再試行は終了しました。",
     "PLUGIN_FRAME_LOAD_FAILED": "プラグインページの読み込みに失敗しました。",
-    "PLUGIN_BRIDGE_TIMEOUT": "セッションブリッジが準備できていません。プロトコル v2 の対応を確認してください。",
+    "PLUGIN_FRAME_AUTH_REQUIRED": "プラグインページに有効なログイン情報がありません。PowerX に再度ログインしてから再試行してください。",
+    "PLUGIN_BRIDGE_TIMEOUT": "プラグインのセッション接続がタイムアウトしました。再試行し、問題が続く場合は管理者に連絡してください。",
     "PLUGIN_NAVIGATION_TIMEOUT": "ページ移動が完了しませんでした。再試行してください。",
     "PLUGIN_NAVIGATION_UNSUPPORTED": "新しいナビゲーションアダプターが必要です。プラグインを更新してください。",
     "PLUGIN_NAVIGATION_FAILED": "プラグインのページ切り替えに失敗しました。再試行し、コンソールを確認してください。",

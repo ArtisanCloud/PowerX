@@ -96,7 +96,7 @@ func TestPolicyFromPlugin_AddPublicExposureRoutes(t *testing.T) {
 		t.Fatalf("PublicRoutes len=%d, want 1", len(pol.PublicRoutes))
 	}
 	got := pol.PublicRoutes[0]
-	if got.Method != "POST" || got.Path != "/api/v1/integration/example/webhooks/callback" {
+	if got.Method != "POST" || got.Path != "/integration/example/webhooks/callback" {
 		t.Fatalf("unexpected public route: %+v", got)
 	}
 }

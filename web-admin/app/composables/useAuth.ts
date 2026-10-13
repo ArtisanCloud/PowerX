@@ -1,6 +1,6 @@
 import type { LoginResponse } from "./api/services/authService";
 import { useAuthService } from "./api/services/authService";
-import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, captureAuthSession, clearAuthSession, commitAuthSession, isAuthSessionCurrent, readAuthSession, refreshAuthSession } from "~/utils/auth-session";
+import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, captureAuthSession, clearAuthSession, commitAuthSession, isAuthSessionCurrent, readAuthSession, refreshAuthSession, syncAuthSessionCookies } from "~/utils/auth-session";
 /**
  * 认证状态管理
  */
@@ -69,6 +69,7 @@ export const useAuth = () => {
 
     const session = readAuthSession();
     if (!session) { clearAuth(); return; }
+    syncAuthSessionCookies();
     if (session.status === 'active') {
       token.value = session.accessToken;
       isAuthenticated.value = true;

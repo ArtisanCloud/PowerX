@@ -79,6 +79,7 @@ type Policy struct {
 	// DefaultOnly: 如果为 true，则忽略 Routes，仅使用自动推导（默认 false）
 	DefaultOnly bool
 
+	// PublicRoutes 使用相对于插件 HTTP base 的路径，只消费已安装插件的公开 exposure。
 	PublicRoutes []PublicRoute
 }
 
@@ -262,13 +263,12 @@ func (g *authzGate) IsPublicRoute(pluginID, method, reqPath string) bool {
 		return false
 	}
 	method = strings.ToUpper(strings.TrimSpace(method))
-	reqPath = normalizePath(reqPath)
 	for _, route := range pol.PublicRoutes {
 		routeMethod := strings.ToUpper(strings.TrimSpace(route.Method))
 		if routeMethod != "*" && routeMethod != method {
 			continue
 		}
-		if normalizePath(route.Path) == reqPath {
+		if matchPublicRoutePath(route.Path, reqPath) {
 			return true
 		}
 	}

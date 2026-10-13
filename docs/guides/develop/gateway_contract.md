@@ -1,6 +1,6 @@
 # Gateway 路由与认证契约（v1）
 
-本文用于插件/外部系统对接 PowerX Gateway 时的最小契约对齐，覆盖路由拼接、认证优先级、Header 规范与常见管理接口。
+本文用于插件/外部系统对接 PowerX Gateway 时的最小契约对齐，覆盖路由拼接、认证优先级、Header 规范与常见管理接口。前缀治理与版本迁移统一见 [API 前缀统一管理与版本升级规范](../../standards/_shared/api-prefix-and-versioning.md)。本文中的 v1 示例不表示把配置改为 v2 即可完成合同升级。
 
 ## 1. Base URL 与 Prefix
 
@@ -10,13 +10,13 @@
 - HTTP OpenAPI 前缀由 `server.api_prefix` 控制。
 - 当前代码默认值为 `/api`（`backend/config/defaults.go`），常见部署会显式配置为 `/api/v1`。
 - 典型调用路径：
-  - LLM Invoke：`{PX_GATEWAY_BASE_URL}/api/v1/ai/llm/invoke`
-  - Capabilities：`{PX_GATEWAY_BASE_URL}/api/v1/admin/capabilities`
-  - Platform Capabilities：`{PX_GATEWAY_BASE_URL}/api/v1/admin/platform-capabilities`
+  - LLM Invoke：`{PX_GATEWAY_BASE_URL}{PX_GATEWAY_API_PREFIX}/ai/llm/invoke`
+  - Capabilities：`{PX_GATEWAY_BASE_URL}{PX_GATEWAY_API_PREFIX}/admin/capabilities`
+  - Platform Capabilities：`{PX_GATEWAY_BASE_URL}{PX_GATEWAY_API_PREFIX}/admin/platform-capabilities`
 
 可通过以下接口读取运行时元信息：
 
-- `GET /api/v1/admin/gateway/meta`
+- `GET <CoreAPIPrefix>/admin/gateway/meta`，需要已有管理端身份及相应权限；调用方应先通过部署或 Host 配置获得前缀，不能依赖尚未认证的自动发现。
 
 建议先读取 `gateway/meta`，再拼接调用路径：
 
@@ -32,6 +32,14 @@
   - `PX_GATEWAY_BASE_URL=http://127.0.0.1:8077`
   - `PX_GATEWAY_API_PREFIX=/api/v1`
   - 结果：`http://127.0.0.1:8077/api/v1/tenant/invocations`
+
+### 1.2 Core 前缀与插件 HTTP base
+
+Core 的 `server.api_prefix`、插件挂载入口 `/_p/<pluginID>/api` 和插件 manifest 的 HTTP base 属于不同路径坐标。插件后端调用 Core 使用 Core 的有效 Gateway prefix；Core 转发给插件使用该插件的有效 HTTP base。Core v2 与插件 v1 可以并存。
+
+公开策略和请求必须按同一规则转换到插件 base 相对路径。不能让 exposure 登记 `/api/v1/integration/...`，而请求检查 `/integration/...`；也不能只复用函数却分别传入不一致的 base。修改公开匹配时，应验证最终上游路径保持原行为。
+
+变更前缀或升级版本时，按共享规范审计路由、权限/能力 binding、认证重定向、SDK、前端代理与固定入口，分别验收配置适配和业务合同兼容。
 
 ## 2. Source 枚举
 
@@ -63,7 +71,7 @@
 
 ## 3. 认证规则（单请求单凭证）
 
-PowerX Gateway 按 `Authorization` scheme 分流：
+对于需要 PowerX 凭据的 Core 调用及受保护插件路由，PowerX Gateway 按 `Authorization` scheme 分流：
 
 - `Authorization: ApiKey <key>`：仅走 API Key 链路
 - `Authorization: Bearer <token>`：仅走 JWT 链路
@@ -74,12 +82,20 @@ PowerX Gateway 按 `Authorization` scheme 分流：
 - 不支持失败回退（ApiKey 失败不会回退 Bearer）
 - 非法 scheme 返回 `400`
 
+### 3.1 已安装插件的公开 exposure
+
+已安装插件的 `type: rest`、`auth: public` exposure 使用明确方法和路径匹配，命中后转发给插件做渠道认证。`{参数}` / `:参数` 只能匹配一个非空段；错误方法、未声明路径和额外层级继续受保护。公开声明必须包含 `security.verifier`，不能通过请求头自行放行。
+
+`X-PowerX-Plugin-Public-Route` 是 Core 路由标记，不是验签成功凭证。Core 应完整保留 `X-AI-Craft-Shopify-App-Proxy-Query` 与 `X-Shopify-Session-Token`，由对应插件入口验证 Shopify 签名、店铺、租户和会话归属。缺失或错误渠道凭据应到达插件后被拒绝。
+
+回归必须走 `exposure → PolicyFromPlugin() → InstallPolicy() → MountAPIProxy() → 实际 /_p 请求 → 模拟上游`。具体用例和真实 Shopify 安装验收见共享规范第 5 节；手工填写 router 策略或仅断言公开标记不能证明整条链路成功。
+
 ## 4. Header 规范
 
 - API Key：`Authorization: ApiKey <plain_key>`
 - JWT：`Authorization: Bearer <access_token>`
 
-建议不要额外混传自定义认证头，避免宿主/插件在不同模式下出现歧义。
+受保护调用不要混传其他 PowerX 凭据语义。公开渠道入口按自己的 verifier 合同携带并验证渠道凭据头，不能用 PowerX 路由标记替代。
 
 ## 5. 错误码约定（最小）
 
