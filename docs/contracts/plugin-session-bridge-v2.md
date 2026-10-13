@@ -102,3 +102,47 @@ bash scripts/check-refactor.sh
 ```
 
 2026-10-10：定向测试 54 项通过；构建与自检已通过。[脱敏验证记录](evidence/plugin-session-core-20261010.json)包含命令、运行脚本 SHA256 与验收限制。用户日常 Core 与 Nuxt 未由 Agent 重启，没有新增运行服务，没有修改数据库业务数据。真实浏览器连接仍返回 `nodeRepl.fetch request failed`，账号密码未提供；本次不能声称实际登录与首次刷新已完成验收。匿名健康／页面入口 200 仅证明入口可访问。
+
+## 5. 宿主 Cookie 恢复与 iframe 文档认证失败（2026-10-13）
+
+宿主 API 使用 `powerx.session` 中的访问 Token，iframe 初始 Document 由 Nuxt 代理从 `access_token` Cookie 补 Bearer。会话 Cookie 丢失而完整宿主会话仍有效时，旧 `initAuth()` 只恢复前端登录态，造成宿主 API 成功、iframe Document 返回 401。401 JSON 不含注入客户端，最终被宿主提示为桥接超时。
+
+本次 Core 前端修复：
+
+1. `initAuth()` 从当前完整宿主快照同步访问、刷新及租户 Cookie；首次 iframe 创建、显式文档入口变化和手动重试也先同步。Cookie、零散 localStorage 字段和插件内存不作为恢复来源。
+2. Cookie 同步不创建 sessionId、不增加 revision、不发送认证变更事件。已过期或 signed-out 快照不恢复凭证；过期快照保留供宿主现有续期流程处理。
+3. iframe Document 的 401 保留 HTTP 状态，以固定 HTML 标记 `PLUGIN_FRAME_AUTH_REQUIRED` 告知宿主。宿主停止该实例的桥接等待，显示登录凭证错误；不自动刷新、重载或清除完整宿主会话。API 401 与明确未就绪 503 的原流程保留。
+4. 通用连接超时提示不再把所有失败归因于插件缺少协议 v2。插件和 Framework 的 v2 消息合同保持不变。
+
+本地验收应覆盖：登录后仅移除认证／租户 Cookie、保留完整宿主会话，再刷新宿主或重新打开插件；确认 Cookie 在 Document 发出前补回，sessionId／revision 不变，页面完成认证与导航。另验 Cookie 陈旧、访问过期、退出、多标签页会话切换、手动重试，以及 Document 401 无自动重载和 503 保持有限重试。
+
+自动化入口为 `tests/unit/auth/auth-restore.spec.ts`、`plugin-frame-lifecycle.spec.ts` 与 `proxy-auth-contract.spec.ts`。本地测试和构建不代表正式站已部署；正式站需发布更新后的 Core `web-admin` 并另行完成真实浏览器验收。
+
+本地验证：认证／桥接及用户上下文定向测试 76 项通过；增加跨标签页迟到事件和旧格式保护后，`auth-restore.spec.ts` 的 6 项测试全部通过。`npm run build`、`bash scripts/check-refactor.sh`、四语言词条校验与 `git diff --check` 通过。未启动调试服务、未修改业务数据库或正式站运行状态；真实浏览器和正式站验收仍待部署后复验。
+
+发布前复核：完整定向套件 11 个文件／78 项通过；以 `POWERX_ENV=prod` 重新构建后，macOS Chrome／Chromium 收藏夹浏览器套件 12 项通过。自检、四语言词条及 diff 校验通过；测试自己的 Core／夹具进程已退出，3473／3474 端口已释放。此阶段不要求用户在 macOS 自然复现；受影响客户的 Windows／Edge 与正式站已安装插件验收在发布后另行完成。本次发布范围为完整 Core `web-admin` 产物（Nitro 服务端和浏览器静态资源），无数据库迁移，无插件或 Framework 协议升级。
+
+### 收藏夹入口与桌面浏览器验证（2026-10-13 补充）
+
+收藏夹保存正常宿主入口 `/_p/{pluginId}/admin/...`。直接打开收藏地址时，顶层 Document 可以没有 Referer；认证恢复不依赖该请求的 Referer，而在客户端插件初始化和 iframe 创建前完成。深链路的 query/hash 保留；访问 Token 过期时，宿主路由守卫先完成续期，再加载 iframe。
+
+浏览器回归使用实际 Core 生产构建、Nuxt 代理和注入消费器；Core 后端认证响应与插件页面由仅监听 loopback 的测试夹具提供。它验证浏览器 Cookie、首次 Document 顺序、会话恢复及桥接，不代表已安装 AI Craft 的业务或正式站认证验收。测试初态为完整本地会话加空 Cookie，等效覆盖会话 Cookie 丢失后直接打开收藏地址；不假设所有浏览器关闭后都会清除会话 Cookie。
+
+| 原生环境 | 本次证据 |
+| --- | --- |
+| macOS Chrome 155.0.8059.40 | 6 项浏览器用例通过 |
+| macOS Chromium 143.0.7499.4 | 同一组 6 项通过，作为补充引擎验证 |
+| macOS Edge | 本机未安装，尚未执行 |
+| Windows Chrome／Edge | 当前机器不是 Windows，尚未执行原生验证 |
+
+六项用例：用户收藏的 `/operations/ai-craft/tracks` 原路径首次进入；同一路径带 query/hash；Cookie 清除后刷新；过期会话先续期；无会话跳登录且不请求插件 Document；插件 Document 401 显示认证提示。检查首个 iframe 请求已经携带 Bearer，并记录实际平台和浏览器版本；不通过更换 User-Agent 冒充 Windows／Edge 验收。
+
+对用户提供的正式站原收藏地址进行无凭证顶层 Document 检查，返回 200 宿主 Nuxt 壳，没有 `__px_iframe` 参数和插件代理目标头。这仅证明入口路由正确；正式用户的 iframe、Cookie 与授权仍须在已部署修复后复验。
+
+在 Windows 或 macOS 安装本机 Chrome／Edge 后，从 `web-admin` 执行：
+
+```bash
+npm run test:session-browsers -- --project=chrome --project=edge
+```
+
+仅执行本机 Chrome／Playwright Chromium 时使用 `--project=chrome --project=chromium`。此独立配置不跳过宿主路由鉴权，也不使用旧全局 E2E 登录夹具；无需正式站账号或修改数据库。测试进程、命令、工作目录及 loopback 端口写入根目录被忽略的 `test-results/session-browser-processes.json`，正常信号退出时追加退出时间，浏览器结果写入 `session-browsers.json`。Windows 的 Playwright 使用进程树终止而非 Unix graceful signal；各平台结束后均须确认临时进程退出、两个监听端口释放。正式站仍需发布修复并用实际收藏链接复验。

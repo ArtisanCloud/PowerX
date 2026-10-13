@@ -100,3 +100,6 @@ backend/reports/
 reports/
 
 /backend/app
+
+# Local browser acceptance reports and runtime process records
+/test-results/

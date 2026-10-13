@@ -18,6 +18,7 @@ export function usePluginBridge() {
     scope.run(() => watch([locale, () => colorMode.preference], () => host?.broadcastMetadata()));
   }
   return {
+    prepareFrame: () => auth.initAuth(),
     register: (frame: HTMLIFrameElement, meta: { pluginId: string; instanceId: string; onStatus: (status: FrameStatus) => void }) =>
       host?.register(frame, meta.pluginId, meta.instanceId, meta.onStatus),
     unregister: (frame?: HTMLIFrameElement | null) => { if (frame) host?.unregister(frame); },

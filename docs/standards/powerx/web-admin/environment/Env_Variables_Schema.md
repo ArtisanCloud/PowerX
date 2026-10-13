@@ -1,7 +1,7 @@
 <!--------------------------------------------------------------
 PowerX Web Admin Environment Variable Schema
 Maintainer: Frontend Platform Team
-Last update: 2025-02-14
+Last update: 2026-10-13
 -------------------------------------------------------------->
 # PowerX Web Admin 环境变量对照表
 
@@ -33,11 +33,11 @@ Last update: 2025-02-14
 
 | 变量 | 描述 | 默认值 | 类型/格式 | 生效范围 | 备注 |
 | --- | --- | --- | --- | --- | --- |
-| `POWERX_BACKEND` | 前端向后端 API 转发的基础地址 | `http://127.0.0.1:8077` | URL | `runtimeConfig.upstream`、Nitro `devProxy` | 仅服务器可见；`api` 请求最终会拼接 `/api/v1`。 |
+| `POWERX_BACKEND` | Core 后端地址；Nuxt 配置可从其中的路径推断 API base | `http://127.0.0.1:8077`（dev）/ `http://127.0.0.1:8080`（prod） | URL | `runtimeConfig.upstream`、API 与插件代理 | 推荐配置为 origin，再显式设置 `NUXT_PUBLIC_API_BASE`；推断前缀不代表所有代理分支已适配。 |
+| `NUXT_PUBLIC_API_BASE` | Core API 请求前缀 | `/api/v1`，未显式配置时先尝试从 `POWERX_BACKEND` 路径推断 | Path | `runtimeConfig.public.apiBase`、API Client 与代理 | 必须与部署支持的 Core `server.api_prefix` 一致；不是插件自身 HTTP base。 |
 | `NUXT_PUBLIC_WS_ORIGIN` | WebSocket 主机地址 | `ws://127.0.0.1:8077` | URL | `runtimeConfig.public.wsOrigin` | 客户端统一以此作为 WS origin。 |
 | `NUXT_PUBLIC_WS_PATH` | WebSocket 路径 | `/api/ws` | Path | `runtimeConfig.public.wsPath` | 建议固定 `/api/ws`。 |
 | `NUXT_PUBLIC_POWERX_CORE_BASE` | 宿主 Core 地址 | `http://127.0.0.1:8077` | URL | `runtimeConfig.public.powerxCoreBase` | 当 `wsOrigin` 缺失时用于构造回退地址。 |
-| `POWERX_BACKEND` | 反向代理 `/_p/**` 路径时指向的后端 | `http://127.0.0.1:8077` | URL | `app/server/middleware/00-proxy-plugins.ts` | 仅 Nuxt 服务端使用，用于插件 iframe 等直通代理。 |
 
 > 若 `POWERX_BACKEND`、`POWERX_BACKEND` 填写 HTTPS，务必确保目标证书受信；否则需在本地加 `NODE_TLS_REJECT_UNAUTHORIZED=0`（不推荐，仅调试）。
 
@@ -49,6 +49,7 @@ Nuxt 将以下值编译至客户端，请勿放置敏感信息。
 
 | 变量 | 默认值 | 解析逻辑 | 影响区域 |
 | --- | --- | --- | --- |
+| `NUXT_PUBLIC_API_BASE` | `/api/v1` 回退值 | 显式变量 → `POWERX_BACKEND` 路径推断 → 默认值 | Core API Client 与代理；需和 Core 配置共同验收 |
 | `NUXT_DEFAULT_LANGUAGE` | `zh` | 若未设定调用 fallback 值 | 控制 i18n 默认语言与浏览器回退语言 |
 | `NUXT_AVAILABLE_LANGUAGES` | `zh,en,ja,ko` | 逗号分隔字符串，在运行时拆为数组 | 决定语言切换器枚举 |
 | `NUXT_FORCE_LANGUAGE` | _未定义_ | 若设值，语言切换被禁用 | `colorMode` 与页面守卫读取 |
@@ -62,10 +63,12 @@ Nuxt 将以下值编译至客户端，请勿放置敏感信息。
 | `NUXT_DEBUG_MODE` | `"false"` | `"true"` → `debugMode = true` | 可用于显示调试 banner、额外日志 |
 | `NUXT_ENABLE_USER_PREFERENCES` | `"true"` | `"false"` → 禁用用户偏好写入 | `useUserPreference` 相关功能 |
 
-固定常量（非环境变量）：
+路由配置说明：
 
-- `runtimeConfig.public.apiBase = "/api/v1"`：前端请求 `/api/**` 会指向后端 `/api/v1/**`。
-- `runtimeConfig.public.wsPath = "/api/ws"`：同域部署时客户端统一连接该路径。
+- `runtimeConfig.public.apiBase` 可配置，不能描述为固定 `/api/v1`，也不能假定代理会自动把所有 `/api/**` 重写到该前缀。
+- `runtimeConfig.public.wsPath` 来自 `NUXT_PUBLIC_WS_PATH`，默认 `/api/ws`；HTTP API prefix 变化不自动改变 WS 路径。
+- Core 的 Go 默认 API prefix 为 `/api`，Nuxt 回退为 `/api/v1`。部署应显式对齐；默认值统一与固定 v1 分支治理仍需代码改造。
+- 前缀来源、插件路径边界和 v1/v2 迁移要求见 [共享规范](../../../_shared/api-prefix-and-versioning.md)。改配置不等于完成业务版本升级。
 
 ---
 
@@ -105,6 +108,7 @@ Nuxt 将以下值编译至客户端，请勿放置敏感信息。
 ```ini
 # .env.development
 POWERX_BACKEND=http://127.0.0.1:8077
+NUXT_PUBLIC_API_BASE=/api/v1
 NUXT_PUBLIC_WS_ORIGIN=ws://127.0.0.1:8077
 NUXT_PUBLIC_WS_PATH=/api/ws
 NUXT_PUBLIC_POWERX_CORE_BASE=http://127.0.0.1:8077
@@ -145,6 +149,7 @@ NUXT_DEBUG_MODE=false
 ```ini
 # .env.production
 POWERX_BACKEND=https://api.powerx.example.com
+NUXT_PUBLIC_API_BASE=/api/v1
 NUXT_PUBLIC_WS_ORIGIN=wss://ws.powerx.example.com
 NUXT_PUBLIC_WS_PATH=/api/ws
 NUXT_PUBLIC_POWERX_CORE_BASE=https://api.powerx.example.com
@@ -169,6 +174,7 @@ NUXT_DEBUG_MODE=false
 
 ## 常见排错提示
 
+- **切换 API 前缀后出现 404/401/403**：核对 Core `server.api_prefix`、Nuxt 有效 `apiBase`、代理重写、认证重定向及权限 binding。当前存在固定 v1 分支，需按共享规范逐项验证，不能只改环境变量后宣布迁移完成。
 - **前端请求仍指向 localhost**：检查部署环境是否覆盖 `POWERX_BACKEND`。Nuxt 会在构建时读取，构建后修改 `.env` 需重新构建。
 - **语言切换缺失选项**：确认 `NUXT_AVAILABLE_LANGUAGES` 中的代码与 `i18n/locales/*.json` 文件一致。
 - **WebSocket 连接 404/403**：若通过反向代理部署，需要同步配置 Nginx/Ingress 将 `NUXT_PUBLIC_WS_PATH`（默认 `/api/ws`）转发到后端。

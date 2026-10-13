@@ -145,6 +145,15 @@ export default defineEventHandler(async (event) => {
     setResponseHeader(event, "x-px-proxy-target", target);
     setResponseHeader(event, "x-nitro-no-render", "1");
 
+    // A rejected document never runs the bridge. Give the iframe load handler a
+    // fixed, same-origin marker instead of reporting an unrelated protocol timeout.
+    if (resp.status === 401) {
+      await resp.body?.cancel();
+      setResponseHeader(event, "content-type", "text/html; charset=utf-8");
+      setResponseHeader(event, "cache-control", "no-store");
+      return '<!doctype html><html><head><meta charset="utf-8"></head><body data-powerx-plugin-frame-error="PLUGIN_FRAME_AUTH_REQUIRED">PLUGIN_FRAME_AUTH_REQUIRED</body></html>';
+    }
+
     const contentType = String(resp.headers.get("content-type") || "").toLowerCase();
     if (!contentType.includes("text/html")) {
       return await resp.text();

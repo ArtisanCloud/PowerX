@@ -32,11 +32,11 @@ PowerX 在插件安装或同步时校验这些声明，登记到 Capability Regi
 - 能力/API 权限视图中，`page/action/data/admin_action` 统一归入“操作权限”，是管理员主要勾选对象；`api` 归入“API 权限”，默认作为 Gateway 与插件后端 enforcement mapping 展示。API 绑定挂在 `business_permission_code` 指向的业务能力下面；只有 `independent: true` 的 API 才表达独立授权边界。
 - `api_key` 不是“API 权限”的同义词。它表示 API Key 机器凭证的授权范围，归属 API Key Profile 配置，不得作为角色权限页能力/API 视图的顶层类型与 `api` 混排。
 - `type=page` 只声明插件后台 SPA 页面访问，不会自动放开该页面里调用的接口。
-- 每一个真实业务接口都必须声明 `type=api` + `protocol_bindings`。同一个页面下的 `GET/POST/PUT/DELETE` 接口要逐个声明 method 和 path。
+- 每一个受 PowerX 身份与 RBAC 保护的业务接口都必须声明 `type=api` + `protocol_bindings`。同一个页面下的 `GET/POST/PUT/DELETE` 接口要逐个声明 method 和 path。公开渠道入口必须单独声明 `auth: public` REST exposure 及 `security.verifier`，由插件验证渠道凭据，不能套用后台用户登录要求。
 - API 的授权键统一使用 `effective_permission_code`：`business_permission_code` 非空时取 `business_permission_code`；否则仅当 `independent: true` 时取 API 自身 `permission_code`；两者都没有时声明无效。Gateway 预检、插件后端二次校验和前端按钮判断必须使用同一个 effective 权限。
 - PowerX 角色授权保存时只依据显式声明做联动。插件如需“勾选菜单时自动补齐页面读取权限”，必须在菜单声明中提供明确的页面关联字段，指向已声明的 `type=page` 权限；底座不得仅按 `permission_code`、菜单标题或插件 ID 猜测关联。该补齐只覆盖页面 read，不会自动授予 `type=action` 或写接口权限。
 - 老的 `rbac.resources`、`routes.permissions`、`required_policies` 只属于插件本地运行时或历史兼容元数据，不能替代 PowerX Gateway 的正式权限登记。
-- PowerX Gateway 只按安装后登记成功的 `permissions[].protocol_bindings` 做预检；没有登记的接口会直接 403，不会转发给插件后端。
+- 对受保护插件接口，PowerX Gateway 按安装后登记成功的 `permissions[].protocol_bindings` 做预检；没有登记的接口会直接 403，不会转发给插件后端。公开入口只能来自已安装插件的公开 exposure，匹配及验签边界见 [共享前缀与版本规范](../../standards/_shared/api-prefix-and-versioning.md)。
 - delegated/host 模式下，PowerX 下发给插件后端的授权字段固定为 `permission_codes`、`policy_version`、`perms_hash`。插件后端不得只读取旧 `permissions` 字段，也不得在 claims 缺失时回退到旧粗权限。
 - `policy_version/perms_hash` 的新鲜度和 hash mismatch 判断必须来自 PowerX 可验证来源：PowerX signed context、短期 signed claims，或 authz/introspection 响应。插件后端至少要校验字段存在和签名/来源有效；如果插件无法验证快照是否最新，必须调用 PowerX introspection 或明确拒绝，不得自行猜测。
 - 插件服务态 STS token 的 `aud` 固定表达目标受众，例如 `powerx:api`；插件身份固定来自 `plugin_id` claim。不得把 `plugin:<plugin_id>` 塞进 audience，也不得从 audience 反推插件身份。
@@ -1086,6 +1086,18 @@ topics:
 3. 重新打包、安装或同步插件。
 4. 用 `plugin-catalog` API 确认 page binding 已登记。
 
+### 已声明 public 的渠道入口仍要求 Core 用户登录
+
+现象：已安装插件直达可处理渠道请求，经 `/_p/<pluginID>/api/...` 却返回 `401 / IAM_CONTEXT_USER_SESSION_INVALID`；Core 日志出现 `missing_bearer`，插件验签处理器没有收到请求。
+
+先核对已安装包的 exposure 是否包含当前 method/path、`auth: public` 和 `security.verifier`。如果声明存在，应检查 Core 的公开策略生成与请求归一化，不能直接补 PowerX 用户 JWT、扩大管理权限或重新打包未改变的插件。
+
+2026-10-13 的 AI Craft 案例确认了两项 Core 问题：策略保留 `/api/v1`，请求已去掉 base；`IsPublicRoute()` 使用字符串全等，真实 `sessions/{sessionID}/events` 也无法匹配。源码已统一公开路径归一化并实现单段参数匹配，回归和本机安装插件转发验收通过。具体源码位置与证据见 [共享规范第 6 节](../../standards/_shared/api-prefix-and-versioning.md#6-2026-10-13-已确认现状与待办)；用户实际 Core 重启与公网验收仍需单独执行。
+
+安装验收应运行修复后的 Core 并重新加载已有策略。运行身份查询的 POST 请求体为空，原始 Shopify 签名查询放在 `X-AI-Craft-Shopify-App-Proxy-Query` 中；有效签名通过公网 Core 返回 200，缺失或错误签名由插件拒绝，未声明管理接口仍要求 Core 用户身份。`X-Shopify-Session-Token` 也应原样保留，具体入口按自己的渠道 verifier 验证。
+
+这类路径匹配修复无需数据库迁移或重新打包已有 AI Craft。商家后台聊天消息接口的 exposure 是独立接入工作。
+
 ### 页面能打开但保存 / 删除接口返回 403
 
 现象：
@@ -1235,4 +1247,5 @@ node scripts/migrations/plugin-permission-granularity-report.mjs <plugin-repo> -
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-10-13 | v1.1 | 明确公开渠道 exposure 与受保护 API binding 的职责，记录前缀/动态参数匹配问题和安装验收要求。 |
 | 2026-08-11 | v1.0 | 新增插件发布权限声明指南，明确 page binding、api/action 映射、PowerX 统一授权与排障流程。 |

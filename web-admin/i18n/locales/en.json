@@ -3657,7 +3657,8 @@
     "errors": {
       "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "The plugin admin page is not ready. Automatic retries have stopped.",
       "PLUGIN_FRAME_LOAD_FAILED": "Failed to load the plugin page.",
-      "PLUGIN_BRIDGE_TIMEOUT": "The plugin session bridge is not ready. Check bridge protocol v2 support.",
+      "PLUGIN_FRAME_AUTH_REQUIRED": "The plugin page did not receive valid login credentials. Sign in to PowerX again and retry.",
+      "PLUGIN_BRIDGE_TIMEOUT": "The plugin session connection timed out. Retry, or contact an administrator if the problem continues.",
       "PLUGIN_NAVIGATION_TIMEOUT": "Plugin navigation did not finish. Retry the operation.",
       "PLUGIN_NAVIGATION_UNSUPPORTED": "The plugin needs the new navigation adapter. Upgrade the plugin.",
       "PLUGIN_NAVIGATION_FAILED": "The plugin page could not be opened. Retry and check the plugin console.",
