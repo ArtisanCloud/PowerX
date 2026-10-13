@@ -1824,7 +1824,7 @@
   "errors": {
     "PLUGIN_ADMIN_UPSTREAM_NOT_READY": "플러그인 관리 페이지가 준비되지 않았습니다. 자동 재시도가 종료되었습니다.",
     "PLUGIN_FRAME_LOAD_FAILED": "플러그인 페이지를 불러오지 못했습니다.",
-    "PLUGIN_FRAME_AUTH_REQUIRED": "플러그인 페이지에 유효한 로그인 정보가 없습니다. PowerX에 다시 로그인한 후 재시도하세요.",
+    "PLUGIN_FRAME_AUTH_REQUIRED": "플러그인 페이지 연결을 복원하지 못했습니다. 재시도하거나 관리자에게 문의하세요.",
     "PLUGIN_BRIDGE_TIMEOUT": "플러그인 세션 연결 시간이 초과되었습니다. 재시도하고 문제가 계속되면 관리자에게 문의하세요.",
     "PLUGIN_NAVIGATION_TIMEOUT": "페이지 이동이 완료되지 않았습니다. 다시 시도하세요.",
     "PLUGIN_NAVIGATION_UNSUPPORTED": "새 탐색 어댑터가 필요합니다. 플러그인을 업그레이드하세요.",

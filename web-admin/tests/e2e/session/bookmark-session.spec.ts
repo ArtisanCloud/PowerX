@@ -95,8 +95,62 @@ test('a rejected plugin document reports authentication instead of a bridge time
   try {
     const page = await context.newPage();
     await page.goto(bookmark);
-    await expect(page.getByText('插件页面未获得有效登录凭证')).toBeVisible();
+    await expect(page.getByText('插件页面连接未能恢复')).toBeVisible();
     await expect(page.getByText('插件页面会话连接超时')).toHaveCount(0);
-    expect(await documents(page)).toHaveLength(1);
+    expect(await documents(page)).toHaveLength(2);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('powerx.session')!).status)).toBe('active');
+  } finally { await context.close(); }
+});
+
+test('a temporary document rejection reconnects once without rotating a valid login', async ({ browser, baseURL, request }) => {
+  await request.put('/api/v1/__session_test/state', { data: { rejectNextDocuments: 1 } });
+  const snapshot = session(),context = await openContext(browser, baseURL!, snapshot);
+  try {
+    const page = await context.newPage();
+    await page.goto(bookmark); await ready(page);
+    expect(await documents(page)).toHaveLength(2);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('powerx.session')!))).toEqual(snapshot);
+    const state = await (await page.request.get('/api/v1/__session_test/state')).json();
+    expect(state.requests.filter((item: { path: string }) => item.path.endsWith('/user/auth/refresh'))).toHaveLength(0);
+  } finally { await context.close(); }
+});
+
+test('an already-open iframe reconnects automatically when its cookies disappear', async ({ browser, baseURL }) => {
+  const snapshot = session(),context = await openContext(browser, baseURL!, snapshot);
+  try {
+    const page = await context.newPage();
+    await page.goto(bookmark); await ready(page);
+    const iframe = await page.locator('iframe').elementHandle();
+    const frame = await iframe!.contentFrame();
+    await context.clearCookies();
+    await frame!.evaluate(() => { location.reload(); });
+    await expect.poll(async () => (await documents(page)).length).toBe(3);
+    await ready(page);
+    expect((await documents(page)).map((item: { hasBearer: boolean }) => item.hasBearer)).toEqual([true, false, true]);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('powerx.session')!))).toEqual(snapshot);
+  } finally { await context.close(); }
+});
+
+test('an already-open expired host session renews once during document recovery', async ({ browser, baseURL }) => {
+  const snapshot = session(),context = await openContext(browser, baseURL!, snapshot);
+  try {
+    const page = await context.newPage();
+    await page.goto(bookmark); await ready(page);
+    const iframe = await page.locator('iframe').elementHandle();
+    const frame = await iframe!.contentFrame();
+    await page.evaluate(() => {
+      const snapshot = JSON.parse(localStorage.getItem('powerx.session')!);
+      snapshot.expiresAt = Date.now() - 1;
+      localStorage.setItem('powerx.session', JSON.stringify(snapshot));
+    });
+    await context.clearCookies();
+    await frame!.evaluate(() => { location.reload(); });
+    await expect.poll(async () => (await documents(page)).length).toBe(3);
+    await ready(page);
+    const restored = await page.evaluate(() => JSON.parse(localStorage.getItem('powerx.session')!));
+    expect(restored.sessionId).toBe(snapshot.sessionId);
+    expect(restored.revision).toBe(snapshot.revision + 1);
+    const state = await (await page.request.get('/api/v1/__session_test/state')).json();
+    expect(state.requests.filter((item: { path: string }) => item.path.endsWith('/user/auth/refresh'))).toHaveLength(1);
   } finally { await context.close(); }
 });

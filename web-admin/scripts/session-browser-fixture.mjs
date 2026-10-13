@@ -16,6 +16,7 @@ const tenantUuid = 'session-browser-fixture';
 const token = () => `header.${Buffer.from(JSON.stringify({ tid: tenantUuid, exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.fixture`;
 const requests = [];
 let rejectDocuments = false;
+let rejectNextDocuments = 0;
 const context = {
   is_root: true, current_tenant_uuid: tenantUuid, current_member_id: 1,
   user: { id: 1, email: 'fixture@example.invalid', phone: '', display_name: 'Session fixture', avatar_url: '', status: 1, is_root: true },
@@ -50,11 +51,13 @@ function json(response, status, data) {
 const backend = createServer(async (request, response) => {
   const url = new URL(request.url || '/', `http://127.0.0.1:${backendPort}`);
   if (url.pathname === '/api/v1/__session_test/state') {
-    if (request.method === 'DELETE') { requests.length = 0; rejectDocuments = false; }
+    if (request.method === 'DELETE') { requests.length = 0; rejectDocuments = false; rejectNextDocuments = 0; }
     if (request.method === 'PUT') {
       let body = '';
       for await (const chunk of request) body += chunk;
-      rejectDocuments = JSON.parse(body).rejectDocuments === true;
+      const options = JSON.parse(body);
+      rejectDocuments = options.rejectDocuments === true;
+      rejectNextDocuments = Math.max(0, Number(options.rejectNextDocuments || 0));
     }
     json(response, 200, { requests });
     return;
@@ -63,7 +66,10 @@ const backend = createServer(async (request, response) => {
   const hasBearer = authorization.startsWith('Bearer ');
   requests.push({ method: request.method, path: url.pathname, query: url.search, hasBearer, userAgent: request.headers['user-agent'] || '' });
   if (url.pathname.startsWith(`/_p/${pluginId}/admin`)) {
-    if (rejectDocuments || !hasBearer) { json(response, 401, { error: 'missing or invalid Authorization header' }); return; }
+    if (rejectDocuments || rejectNextDocuments > 0 || !hasBearer) {
+      if (rejectNextDocuments > 0) rejectNextDocuments -= 1;
+      json(response, 401, { error: 'missing or invalid Authorization header' }); return;
+    }
     response.writeHead(200, { 'content-type': 'text/html', 'cache-control': 'no-store' });
     response.end(pluginHtml);
   } else if (url.pathname.endsWith('/setup/status')) {
