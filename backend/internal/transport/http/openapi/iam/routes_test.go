@@ -28,6 +28,45 @@ const (
 	directoryTestPlugin = "com.powerx.plugin.directory-contract"
 )
 
+func TestTenantDirectoryIncludesRootTenantMembership(t *testing.T) {
+	db := directoryRouteTestDB(t)
+	root := directoryRouteTestMember(t, db, directoryTestTenant, "Root Member")
+	require.NoError(t, db.Model(root).Update("username", "root").Error)
+	require.NoError(t, db.Model(&modeliam.User{}).Where("id=?", root.UserID).Update("is_root", true).Error)
+	ordinary := directoryRouteTestMember(t, db, directoryTestTenant, "Ordinary Member")
+	foreignRoot := directoryRouteTestMember(t, db, uuid.NewString(), "Foreign Root")
+	require.NoError(t, db.Model(foreignRoot).Update("username", "root").Error)
+	deleted := directoryRouteTestMember(t, db, directoryTestTenant, "Deleted Root")
+	require.NoError(t, db.Model(deleted).Update("username", "root").Error)
+	require.NoError(t, db.Delete(deleted).Error)
+	// 全局 Root 没有租户成员记录时，目录不能替它制造一个收件身份。
+	globalRoot := &modeliam.User{Email: uuid.NewString() + "@example.test", IsRoot: true, Status: 1}
+	require.NoError(t, db.Create(globalRoot).Error)
+	directoryRouteGrant(t, db, directoryTestTenant, directoryTestPlugin, []string{"com.corex.iam.directory.read"})
+	directoryRouteGrant(t, db, directoryTestTenant, "com.powerx.plugin.ungranted", nil)
+	router := directoryRouteTestRouter(db)
+	seen := map[string]bool{}
+	for _, path := range []string{"/tenant/iam/members?page=1&page_size=1", "/tenant/iam/members?page=2&page_size=1"} {
+		response := directoryRouteRequest(router, http.MethodGet, path, nil, directoryTestPlugin)
+		require.Equal(t, http.StatusOK, response.Code)
+		data := directoryRouteBody(t, response)["data"].(map[string]any)
+		require.EqualValues(t, 2, data["pagination"].(map[string]any)["total"])
+		items := data["items"].([]any)
+		require.Len(t, items, 1)
+		member := items[0].(map[string]any)
+		require.Equal(t, directoryTestTenant, member["tenant_uuid"])
+		id := member["member_uuid"].(string)
+		require.False(t, seen[id])
+		seen[id] = true
+	}
+	require.Equal(t, map[string]bool{root.UUID.String(): true, ordinary.UUID.String(): true}, seen)
+	denied := directoryRouteRequest(router, http.MethodGet, "/tenant/iam/members", nil, "com.powerx.plugin.ungranted")
+	require.Equal(t, http.StatusForbidden, denied.Code)
+	var manufactured int64
+	require.NoError(t, db.Model(&modeliam.Member{}).Where("tenant_uuid=? AND user_id=?", directoryTestTenant, globalRoot.ID).Count(&manufactured).Error)
+	require.Zero(t, manufactured)
+}
+
 func TestTenantMemberDirectoryRoutes(t *testing.T) {
 	db := directoryRouteTestDB(t)
 	member := directoryRouteTestMember(t, db, directoryTestTenant, "Ada Lovelace")

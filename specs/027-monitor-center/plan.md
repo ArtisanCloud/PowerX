@@ -1,7 +1,7 @@
 # Implementation Plan: 监控中心闭环（Backup + Logs）
 
-**Branch**: `027-monitor-center` | **Date**: 2026-04-24 | **Spec**: [/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/027-monitor-center/spec.md](/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/027-monitor-center/spec.md)
-**Plan Status**: In Progress（Backup 已实现，Logs 已实施；新增 Plugin Logger Host 对齐）
+**Branch**: `027-monitor-center`（功能标识，不要求切换当前分支） | **Date**: 2026-10-15 | **Spec**: [spec.md](spec.md)
+**Plan Status**: In Progress（快照包及隔离数据副本已实现；完整恢复与正式切换待完成）
 **Input**: Feature specification from `/specs/027-monitor-center/spec.md`
 
 ## Summary
@@ -10,6 +10,7 @@
 - 已落地：自动备份策略、作业历史、告警升级、恢复任务、监控入口联动。
 - 本轮补齐：日志与链路追踪能力（`loki/file/stdio` 三驱动能力感知 UI、统一查询接口、Grafana 深链）。
 - 本轮新增：插件 framework logger 与宿主采集链路对齐（stdout+json 默认链路、policy/probe 编排、低基数标签约束）。
+- 2026-10-15 新增计划：系统快照统一数据库、媒体、必要配置和程序版本，支持完整包跨环境恢复及受控正式切换；本地已实现统一包、Root 页面／API／离线工具、原生新集群与应用验证、独立正式切换及中断补偿；Linux／生产插件和真实定时第二轮尚待验收。
 
 ## Technical Context
 
@@ -20,7 +21,7 @@
 **Target Platform**: Linux server (systemd, nginx)  
 **Project Type**: Web application（backend + web-admin）  
 **Performance Goals**: 监控页面查询 p95 < 1s；日志查询首屏 < 10s；告警可见性 ≤ 1 分钟  
-**Constraints**: 仅 Root 可操作；默认时区 Asia/Shanghai；不可影响生产在线业务；日志能力必须按驱动降级  
+**Constraints**: 整站快照与恢复仅 Root 用户会话；默认时区 Asia/Shanghai；隔离演练不改正式业务，采集／正式切换按受控停写窗口协调；日志能力按驱动降级
 **Scale/Scope**: 单租户优先验证，支持扩展到多租户；监控页默认最近 15 分钟窗口
 
 ## Constitution Check
@@ -161,3 +162,31 @@ web-admin/
 |-----------|------------|-------------------------------------|
 | 本阶段不新增 gRPC 合同 | 需求聚焦管理端可观测闭环 | 同步新增 gRPC 会放大范围并延后交付 |
 | 日志多驱动适配层 | 生产环境存在 loki/file/stdio 混部 | 仅支持 loki 会导致非 loki 环境不可用 |
+
+## System Snapshot & Restore（2026-10-15，本地实现完成，待部署验收）
+
+完整设计：[系统快照与统一恢复计划](../../docs/plan/deploy/system-snapshot-and-restore.md)；验收：[US8 两轮验收](../../docs/guides/deploy/027-monitor-center/usecase-us8-system-snapshot-acceptance.md)。
+
+### 复用边界
+
+- `backup_ops` 继续提供 dump、独立副本和验证；`archive_ops` 继续提供 CAS、同 MVCC 媒体引用与 dump、SSH 归档。二者保持组件边界；新增 `system_recovery` 负责整站恢复协调。
+- 新增父快照／恢复任务、封存 manifest、配置／版本采集、独立完整包、目标映射和正式切换账本；持久化位于被恢复业务库之外。
+- 首版一致性以托管实例停写及采集前后配置／程序生命周期指纹为基线，不把 MVCC 误认为文件原子快照；独立写入者不在支持范围。
+- 先完成跨快照对象引用保护，再复用旧 CAS；旧清理器不能删除新系统快照仍引用的对象。
+- 恢复测试隔离必须在 bootstrap 启动插件、scheduler 和 worker 前生效。正式切换由独立协调器执行，不能依赖将被停止的 Core 请求。
+- Root typed API、错误码、权限及异步合同已冻结于 [system-snapshots.openapi.yaml](../../docs/contracts/system-snapshots.openapi.yaml)；支持路径和部署接入见[托管恢复手册](../../docs/guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md)。
+
+### 交付顺序
+
+1. 定义快照组件、密钥与版本依赖、状态机及隔离账本。
+2. 统一策略调度与一致性采集，整套保留、告警及旧产物兼容。
+3. 完整包导出／导入，离开源实例仍可校验、解密并取得匹配平台程序。
+4. 隔离恢复、目标环境／插件绑定映射、联合业务验证。
+5. 维护确认、当前回退点、统一切换、补偿与中断恢复。
+6. 系统快照主入口和分层详情；组件级操作保留于高级维护。
+
+### 发布门槛
+
+先通过本地状态 A → 快照 → 状态 B → 空目标恢复 A，以及自建测试实例的切换失败回退；再由运维部署，观察至少一个真实调度周期，将 scheduled 完整包带到独立本地／开发实例验收。可按一天覆盖真实定时链路，不要求手动恢复必须等一天。
+
+不得以测试通过、HTTP 202、dump 可解析、文件复制成功或媒体子任务 success 替代整站业务验收。现有策略和线上周期不因本计划自动改变。

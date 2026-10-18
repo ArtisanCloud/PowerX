@@ -18,10 +18,20 @@ func TestNativeMarketingSkillsDeclareExecutableEvidenceContract(t *testing.T) {
 		require.NotEmpty(t, item.PromptI18n["en-US"])
 		definition, err := nativeMarketingSkillDefinition(item)
 		require.NoError(t, err)
-		require.NoError(t, skills.CheckToolDependencies(context.Background(), uuid.NewString(), definition, nil))
+		if item.SkillID != MarketingReviewSummarizeSkillID {
+			require.NoError(t, skills.CheckToolDependencies(context.Background(), uuid.NewString(), definition, nil))
+		} else {
+			requirements := definition["tool_dependencies"].(skills.ToolRequirementsV2)
+			require.Equal(t, skills.ToolDependencySchemaV2, requirements.Schema)
+			require.Len(t, requirements.Tools, 1)
+			require.True(t, evidence.ValidToolDependency(requirements.Tools[0]))
+			policy, err := evidence.ReadCalculationPolicy(definition["executor"].(map[string]any)["calculation_policy"])
+			require.NoError(t, err)
+			require.Equal(t, evidence.PolicySchemaV3, policy.Schema)
+		}
 		executor := definition["executor"].(map[string]any)
 		if item.SkillID == MarketingReviewSummarizeSkillID {
-			require.Equal(t, evidence.ReportSchema, executor["response_contract"])
+			require.Equal(t, evidence.ReportSchemaV5, executor["response_contract"])
 			require.Equal(t, []string{"/message"}, executor["evidence_sources"])
 			require.Equal(t, "response_envelope", executor["output_mode"])
 		} else {

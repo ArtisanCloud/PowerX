@@ -832,6 +832,16 @@ func permissionCodesFromRecord(rec capmodels.CapabilityRecord) []string {
 	return out
 }
 
+// CapabilityPermissionCodes 供共享工具预检复用正式权限解析，保持与实际 Agent 授权一致。
+func CapabilityPermissionCodes(rec capmodels.CapabilityRecord) []string {
+	return permissionCodesFromRecord(rec)
+}
+
+// CapabilityAgentUsable 复用正式能力的 Agent 可用性策略。
+func CapabilityAgentUsable(rec capmodels.CapabilityRecord) bool {
+	return agentUsableFromRecord(rec)
+}
+
 func corePermissionCodeFromScope(scope string) string {
 	scope = strings.Trim(strings.ToLower(strings.TrimSpace(scope)), ".")
 	if scope == "" {

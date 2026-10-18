@@ -223,6 +223,7 @@ func (s *Service) Cleanup(ctx context.Context) (int, error) {
 		return 0, e
 	}
 	total := 0
+	ids = append(ids, "") // 按需文件也使用统一的默认保留规则。
 	for _, id := range ids {
 		n, e := s.cleanup(ctx, id)
 		if e != nil {
@@ -238,9 +239,12 @@ func (s *Service) cleanup(ctx context.Context, policyID string) (int, error) {
 		return 0, nil
 	}
 	defer unlock()
-	p, e := s.policy(ctx, policyID)
-	if e != nil {
-		return 0, e
+	p := oneTimeMediaPolicy()
+	if policyID != "" {
+		p, e = s.policy(ctx, policyID)
+		if e != nil {
+			return 0, e
+		}
 	}
 	ids, e := s.records("jobs")
 	if e != nil {
@@ -279,6 +283,7 @@ func (s *Service) cleanup(ctx context.Context, policyID string) (int, error) {
 	}
 	defer gcUnlock()
 	policyIDs, _ := s.records("policies")
+	policyIDs = append(policyIDs, "")
 	locks := []func(){}
 	defer func() {
 		for _, u := range locks {

@@ -199,6 +199,45 @@ capabilities:
 	}
 }
 
+func TestAuthorizationBaselinePublishesOnlyExactServiceReadGrant(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "config", "platform_capabilities", "iam-authorization-baseline.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err = os.WriteFile(filepath.Join(dir, "baseline.yaml"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(platformCapabilitiesDirEnv, dir)
+	platformPermissionOnce = sync.Once{}
+	platformPermissionRows, platformPermissionErr = nil, nil
+	rows, err := BuildPlatformCapabilityPermissions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, row := range rows {
+		var meta map[string]any
+		if err = json.Unmarshal(row.Meta, &meta); err != nil {
+			t.Fatal(err)
+		}
+		if meta["type"] != "capability_service" {
+			continue
+		}
+		found++
+		if !row.AllowAPIKey || meta["api_key_explicit"] != true {
+			t.Fatal("explicit API-key metadata missing")
+		}
+		grant, ok := ResolvePermission(row)
+		if !ok || grant.Scope != "_scope.iam.authorization_baseline.service_read" || grant.Action != "read" || grant.ResourceType != "capability" || grant.ResourcePattern != "iam_authorization_baseline_read" {
+			t.Fatalf("unexpected exact grant: %#v", grant)
+		}
+	}
+	if found != 1 {
+		t.Fatalf("service grants = %d, want 1", found)
+	}
+}
+
 func TestBuildPlatformCapabilityPermissionsRejectsFormalAPIWithoutI18n(t *testing.T) {
 	dir := t.TempDir()
 	raw := []byte(`version: 1

@@ -115,15 +115,32 @@ func seedNativeMarketingSkillDefinitions(ctx context.Context, db *gorm.DB, cfg *
 	if manager == nil || !seedMediaHasDriver(manager, driverName) {
 		return fmt.Errorf("seed_native_marketing_skills_storage_driver_unavailable")
 	}
-	definitionRepo := skillrepo.NewSkillDefinitionRepository(db)
-	definitions := skillsvc.NewDefinitionService(definitionRepo)
 	publisher := skillsvc.NewPackagePublisher(seedSkillPackageStore{manager: manager, driverName: driverName, bucket: cfg.Storage.S3.Bucket})
+	return seedNativeMarketingRevisions(ctx, db, publisher, tenantUUID, actorMemberUUID)
+}
+
+// 发布全部成功后再提交 Revision 指针；存储/预检失败不能把旧的已发布示例留在草稿状态。
+func seedNativeMarketingRevisions(ctx context.Context, db *gorm.DB, publisher *skillsvc.PackagePublisher, tenantUUID, actorMemberUUID string) error {
+	checks := skillsvc.NewRuntimeDependencyService(db)
 	for _, item := range nativeMarketingSkillSeeds() {
-		if err := seedNativeMarketingSkillDefinition(ctx, definitionRepo, definitions, publisher, tenantUUID, actorMemberUUID, item); err != nil {
+		definition, err := nativeMarketingSkillDefinition(item)
+		if err != nil {
+			return err
+		}
+		if err := checks.Check(ctx, skillsvc.DependencyCheckInput{TenantUUID: tenantUUID, Stage: skillsvc.DependencyPublish, Definition: definition}); err != nil {
 			return err
 		}
 	}
-	return nil
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		repo := skillrepo.NewSkillDefinitionRepository(tx)
+		definitions := skillsvc.NewDefinitionService(repo, skillsvc.NewRuntimeDependencyService(tx))
+		for _, item := range nativeMarketingSkillSeeds() {
+			if err := seedNativeMarketingSkillDefinition(ctx, repo, definitions, publisher, tenantUUID, actorMemberUUID, item); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func seedNativeMarketingSkillDefinition(ctx context.Context, repo *skillrepo.SkillDefinitionRepository, definitions *skillsvc.DefinitionService, publisher *skillsvc.PackagePublisher, tenantUUID, actorMemberUUID string, item nativeMarketingSkillSeed) error {
@@ -146,7 +163,7 @@ func seedNativeMarketingSkillDefinition(ctx context.Context, repo *skillrepo.Ski
 		if nativeMarketingDefinitionMatches(current.DefinitionJSON, definition) {
 			return nil
 		}
-		_, revision, appendErr := definitions.AppendRevision(ctx, tenantUUID, existing.UUID.String(), actorMemberUUID, definition, "seed_native_marketing_skill_contract_v2", "")
+		_, revision, appendErr := definitions.AppendRevision(ctx, tenantUUID, existing.UUID.String(), actorMemberUUID, definition, "seed_native_marketing_skill_evidence_v5", "")
 		if appendErr != nil {
 			return fmt.Errorf("append native marketing skill definition %s: %w", item.SkillID, appendErr)
 		}
@@ -252,10 +269,14 @@ func nativeMarketingSkillDefinition(item nativeMarketingSkillSeed) (map[string]a
 			return nil, err
 		}
 		executor["review_policy"] = review
-		executor["response_contract"] = evidence.ReportSchema
+		executor["response_contract"] = evidence.ReportSchemaV5
 		executor["evidence_sources"] = []string{"/message"}
 		executor["model_policy"].(map[string]any)["parameters"] = map[string]any{"thinking": false, "max_tokens": 4096}
-		definition["tool_dependencies"] = skillsvc.ToolRequirements{Schema: skillsvc.ToolDependencySchema, Tools: []skillsvc.ToolDependency{skillsvc.CalculatorDependency()}}
+		tool, err := skillsvc.NewRuntimeToolService().CalculatorDependency("calculator")
+		if err != nil {
+			return nil, err
+		}
+		definition["tool_dependencies"] = skillsvc.ToolRequirementsV2{Schema: skillsvc.ToolDependencySchemaV2, Tools: []skillsvc.ToolDependencyV2{tool}}
 	}
 	return definition, nil
 }

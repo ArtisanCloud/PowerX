@@ -1,12 +1,14 @@
 # PowerX 实例迁移指南（A -> B，含表结构）
 
+> 2026-10-15：本文是人工组件迁移参考，不是已有系统快照导入器。统一完整包及跨环境恢复目标见[系统快照计划](system-snapshot-and-restore.md)。演练必须使用新库／新媒体根目录，不对已有开发或生产目标执行覆盖；先完成目标身份／插件绑定映射，并在启动前隔离业务定时任务、生产连接与外部业务发送。
+
 ## 1. 结论先行
 
 - 使用 `pg_dump` 可以导出 **表结构 + 数据**，并可全量恢复到另一套 PowerX 的 PostgreSQL。
 - 但完整迁移 PowerX 实例，不仅是数据库，还必须同时迁移：
   - 配置（`config.yaml`、环境变量、密钥）
   - 插件目录（`plugins/installed`、`plugins/registry.json`）
-  - 对象存储数据（MinIO/S3）
+  - 媒体实际内容（本地目录或 MinIO/S3，以源实例生效配置和媒体记录为准）
 
 ## 2. 适用前提
 
@@ -22,7 +24,7 @@
 1. 数据库（结构 + 数据）
 2. PowerX 配置
 3. 插件安装产物
-4. 对象存储桶内业务文件
+4. 本地媒体文件或对象存储中的业务文件及内容校验清单
 
 ## 4. 数据库迁移步骤（推荐 `-Fc`）
 
@@ -46,10 +48,11 @@ pg_dump \
 
 ### 4.2 目标端准备
 
+使用本次迁移新生成、确认不存在的候选库名。创建失败立即停止，不删除或复用已有目标；以下只在该独立候选库执行。
+
 ```bash
 export PGPASSWORD='<DST_DB_PASSWORD>'
-psql -h <DST_DB_HOST> -p <DST_DB_PORT> -U <DST_DB_USER> -d postgres -c "DROP DATABASE IF EXISTS <DST_DB_NAME>;"
-psql -h <DST_DB_HOST> -p <DST_DB_PORT> -U <DST_DB_USER> -d postgres -c "CREATE DATABASE <DST_DB_NAME>;"
+psql -X -v ON_ERROR_STOP=1 -h <DST_DB_HOST> -p <DST_DB_PORT> -U <DST_DB_USER> -d postgres -c "CREATE DATABASE <DST_DB_NAME>;"
 ```
 
 ### 4.3 目标端恢复
@@ -61,8 +64,7 @@ pg_restore \
   -p <DST_DB_PORT> \
   -U <DST_DB_USER> \
   -d <DST_DB_NAME> \
-  --clean \
-  --if-exists \
+  --exit-on-error \
   --no-owner \
   --no-privileges \
   /tmp/powerx_full_xxx.dump

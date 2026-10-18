@@ -51,7 +51,8 @@ func TestSelectorInvokeResolvesFromIntentMapping(t *testing.T) {
 	require.Equal(t, "grpc", invoker.lastInput.PreferredProtocol)
 	require.Equal(t, "tenant-001", invoker.lastInput.TenantUUID)
 	require.Equal(t, "bar", invoker.lastInput.Payload["foo"])
-	require.Equal(t, "global", invoker.lastInput.Context["tool_scope"])
+	require.Equal(t, "global", invoker.lastInput.ResolvedToolScope)
+	require.Empty(t, invoker.lastInput.Context)
 }
 
 func TestSelectorInvokeWithCapabilityIDWithoutStore(t *testing.T) {
@@ -68,7 +69,22 @@ func TestSelectorInvokeWithCapabilityIDWithoutStore(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "cap.direct", resp.CapabilityID)
 	require.Equal(t, "rest", invoker.lastInput.PreferredProtocol)
+	require.Equal(t, "fallback", invoker.lastInput.ResolvedToolScope)
 	require.Equal(t, "fallback", invoker.lastInput.Context["tool_scope"])
+}
+
+func TestSelectorKeepsCallerContextSeparateFromResolvedScope(t *testing.T) {
+	invoker := &fakeInvoker{}
+	selector := NewSelector(SelectorOptions{Invoker: invoker})
+	caller := map[string]interface{}{"tool_scope": "caller-scope", "sticky_key": "same-session"}
+	_, err := selector.Invoke(context.Background(), CapabilityInvokeRequest{
+		CapabilityID: "cap.direct", TenantUUID: "tenant-002", ToolScope: "selected-scope", Context: caller,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "selected-scope", invoker.lastInput.ResolvedToolScope)
+	require.Equal(t, caller, invoker.lastInput.Context)
+	invoker.lastInput.Context["tool_scope"] = "downstream-change"
+	require.Equal(t, "caller-scope", caller["tool_scope"], "内部调用不能修改原始请求")
 }
 
 func TestSelectorRejectsCapabilityOutsideSnapshot(t *testing.T) {

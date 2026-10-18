@@ -1,6 +1,8 @@
 package cache
 
 type CacheConfig struct {
+	// Namespace 由当前安装及缓存代次生成，不属于可恢复的业务配置。
+	Namespace    string `yaml:"-" json:"-"`
 	Driver       string `yaml:"driver" json:"driver"`
 	Host         string `yaml:"host" json:"host"`
 	Port         int    `yaml:"port" json:"port"`

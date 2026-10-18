@@ -1,0 +1,1288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:powerx:contracts:tool-evidence:v1",
+  "title": "Phase 23 工具依赖、受信任执行回执与 V5 证据报告",
+  "$comment": "T199 设计合同；结构有效不代表来源、版本、权限或 ledger 可信。生产接线见 T200/T202/T203。",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/tool_requirements"
+    },
+    {
+      "$ref": "#/$defs/receipt"
+    },
+    {
+      "$ref": "#/$defs/report"
+    },
+    {
+      "$ref": "#/$defs/calculation_request"
+    },
+    {
+      "$ref": "#/$defs/calculation_result"
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "opaque_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+      "maxLength": 1280
+    },
+    "pointer": {
+      "type": "string",
+      "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+      "maxLength": 1024
+    },
+    "schema_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^.+/v[1-9][0-9]*$",
+          "maxLength": 256
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "id",
+        "sha256"
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "artifact_uuid",
+        "sha256"
+      ]
+    },
+    "permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "enum": [
+            "runtime_internal",
+            "admin_user",
+            "service_actor"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/opaque_id"
+        }
+      },
+      "required": [
+        "actor",
+        "code"
+      ]
+    },
+    "builtin_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "builtin"
+        },
+        "implementation_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "kind",
+        "implementation_sha256"
+      ]
+    },
+    "capability_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "capability"
+        },
+        "capability_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "contract_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "provider_version": {
+          "$ref": "#/$defs/version"
+        },
+        "implementation_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "protocol": {
+          "enum": [
+            "core_internal",
+            "http",
+            "rest",
+            "grpc",
+            "mcp"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "capability_uuid",
+        "contract_uuid",
+        "provider_version",
+        "implementation_sha256",
+        "protocol"
+      ]
+    },
+    "binding": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/builtin_binding"
+        },
+        {
+          "$ref": "#/$defs/capability_binding"
+        }
+      ]
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dependency_key": {
+          "$ref": "#/$defs/key"
+        },
+        "tool_key": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "input_schema": {
+          "$ref": "#/$defs/schema_ref"
+        },
+        "output_schema": {
+          "$ref": "#/$defs/schema_ref"
+        },
+        "permission": {
+          "$ref": "#/$defs/permission"
+        },
+        "binding": {
+          "$ref": "#/$defs/binding"
+        }
+      },
+      "required": [
+        "dependency_key",
+        "tool_key",
+        "version",
+        "input_schema",
+        "output_schema",
+        "permission",
+        "binding"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "binding": {
+                "properties": {
+                  "kind": {
+                    "const": "builtin"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "permission": {
+                "properties": {
+                  "actor": {
+                    "const": "runtime_internal"
+                  },
+                  "code": {
+                    "const": "pure_calculation"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "permission": {
+                "properties": {
+                  "actor": {
+                    "enum": [
+                      "admin_user",
+                      "service_actor"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "tool_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "powerx.skill-tools/v2"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "schema",
+        "tools"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "kind": {
+          "enum": [
+            "run_input",
+            "authorized_object",
+            "tool_output"
+          ]
+        },
+        "object_type": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "object_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "snapshot_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "snapshot_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "pointer": {
+          "$ref": "#/$defs/pointer"
+        },
+        "quote": {
+          "$ref": "#/$defs/text"
+        },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start_byte": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "end_byte": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "start_byte",
+            "end_byte"
+          ]
+        },
+        "execution_uuid": {
+          "$ref": "#/$defs/uuid"
+        }
+      },
+      "required": [
+        "source_uuid",
+        "kind",
+        "object_type",
+        "object_uuid",
+        "snapshot_uuid",
+        "snapshot_sha256",
+        "pointer",
+        "quote",
+        "range"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "tool_output"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "execution_uuid"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "execution_uuid"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "datum": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "datum_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "field_key": {
+          "$ref": "#/$defs/key"
+        },
+        "label_key": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "datum_kind": {
+          "enum": [
+            "quantity",
+            "reported"
+          ]
+        },
+        "literal": {
+          "$ref": "#/$defs/text"
+        },
+        "value": {
+          "$ref": "#/$defs/input_decimal"
+        },
+        "unit": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "scope": {
+          "$ref": "#/$defs/text"
+        },
+        "input_state": {
+          "enum": [
+            "user_supplied_unverified",
+            "extracted_unverified",
+            "authorized_record",
+            "tool_result"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      },
+      "required": [
+        "datum_uuid",
+        "field_key",
+        "label_key",
+        "datum_kind",
+        "literal",
+        "value",
+        "unit",
+        "scope",
+        "input_state",
+        "source"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "kind": {
+                    "const": "run_input"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "input_state": {
+                "enum": [
+                  "user_supplied_unverified",
+                  "extracted_unverified"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "kind": {
+                    "const": "authorized_object"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "input_state": {
+                "enum": [
+                  "authorized_record",
+                  "extracted_unverified"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "kind": {
+                    "const": "tool_output"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "input_state": {
+                "const": "tool_result"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "invocation_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "builtin"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "capability"
+            },
+            "registration_version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "adapter_id": {
+              "$ref": "#/$defs/opaque_id"
+            },
+            "catalog_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "kind",
+            "registration_version",
+            "adapter_id",
+            "catalog_sha256"
+          ]
+        }
+      ]
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "decision_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "subject_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "actor": {
+          "enum": [
+            "runtime_internal",
+            "admin_user",
+            "service_actor"
+          ]
+        }
+      },
+      "required": [
+        "decision_uuid",
+        "subject_uuid",
+        "actor"
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "stage": {
+          "enum": [
+            "dependency_check",
+            "permission_check",
+            "source_resolution",
+            "input_validation",
+            "tool_invoke",
+            "result_validation",
+            "evidence_validation",
+            "final_validation"
+          ]
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "stage",
+        "retryable"
+      ]
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "powerx.tool-receipt/v1"
+        },
+        "execution_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "tenant_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "run_id": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "node_id": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tool": {
+          "$ref": "#/$defs/dependency"
+        },
+        "invocation_binding": {
+          "$ref": "#/$defs/invocation_binding"
+        },
+        "authorization": {
+          "$ref": "#/$defs/authorization"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/datum"
+          },
+          "minItems": 0,
+          "maxItems": 512
+        },
+        "request": {
+          "$ref": "#/$defs/artifact"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "timed_out",
+            "cancelled"
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/artifact"
+        },
+        "error": {
+          "$ref": "#/$defs/error"
+        }
+      },
+      "required": [
+        "schema",
+        "execution_uuid",
+        "tenant_uuid",
+        "revision_uuid",
+        "run_id",
+        "trace_id",
+        "node_id",
+        "attempt",
+        "tool",
+        "invocation_binding",
+        "authorization",
+        "inputs",
+        "request",
+        "started_at",
+        "ended_at",
+        "status"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "succeeded"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "result"
+            ],
+            "not": {
+              "required": [
+                "error"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "error"
+            ],
+            "not": {
+              "required": [
+                "result"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "tool": {
+                "properties": {
+                  "binding": {
+                    "properties": {
+                      "kind": {
+                        "const": "builtin"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "invocation_binding": {
+                "properties": {
+                  "kind": {
+                    "const": "builtin"
+                  }
+                }
+              },
+              "authorization": {
+                "properties": {
+                  "actor": {
+                    "const": "runtime_internal"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "invocation_binding": {
+                "properties": {
+                  "kind": {
+                    "const": "capability"
+                  }
+                }
+              },
+              "authorization": {
+                "properties": {
+                  "actor": {
+                    "enum": [
+                      "admin_user",
+                      "service_actor"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "expression_derivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "expression"
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "operand_bindings": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 32,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "precision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "percent": {
+          "type": "boolean"
+        },
+        "rounding": {
+          "const": "half_away_from_zero"
+        }
+      },
+      "required": [
+        "kind",
+        "expression",
+        "operand_bindings",
+        "precision",
+        "percent",
+        "rounding"
+      ]
+    },
+    "algorithm_derivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "domain_algorithm"
+        },
+        "algorithm_id": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "parameters_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "kind",
+        "algorithm_id",
+        "parameters_sha256"
+      ]
+    },
+    "computed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "datum_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "field_key": {
+          "$ref": "#/$defs/key"
+        },
+        "label_key": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "receipt_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "output_pointer": {
+          "$ref": "#/$defs/pointer"
+        },
+        "value": {
+          "$ref": "#/$defs/decimal"
+        },
+        "unit": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "scope": {
+          "$ref": "#/$defs/text"
+        },
+        "derivation": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/expression_derivation"
+            },
+            {
+              "$ref": "#/$defs/algorithm_derivation"
+            }
+          ]
+        }
+      },
+      "required": [
+        "datum_uuid",
+        "field_key",
+        "label_key",
+        "receipt_uuid",
+        "output_pointer",
+        "value",
+        "unit",
+        "scope",
+        "derivation"
+      ]
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "conflict_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "reported_datum_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "computed_datum_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "reason": {
+          "enum": [
+            "value_mismatch",
+            "unit_mismatch",
+            "scope_mismatch"
+          ]
+        }
+      },
+      "required": [
+        "conflict_uuid",
+        "reported_datum_uuid",
+        "computed_datum_uuid",
+        "reason"
+      ]
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/key"
+        },
+        "label_key": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "missing_fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/key"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "key",
+        "label_key",
+        "missing_fields"
+      ]
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reported": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/datum"
+          },
+          "minItems": 0,
+          "maxItems": 512
+        },
+        "computed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/computed"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/conflict"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gap"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 6
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 6
+        }
+      },
+      "required": [
+        "reported",
+        "computed",
+        "conflicts",
+        "gaps",
+        "hypotheses",
+        "actions"
+      ]
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "powerx.agent.response/v5"
+        },
+        "kind": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "needs_action"
+          ]
+        },
+        "tenant_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "run_id": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "trace_id": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "source_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/receipt"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "presentation": {
+          "$ref": "#/$defs/presentation"
+        }
+      },
+      "required": [
+        "schema",
+        "kind",
+        "outcome",
+        "tenant_uuid",
+        "revision_uuid",
+        "run_id",
+        "trace_id",
+        "source_digest",
+        "receipts",
+        "presentation"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "presentation": {
+                "properties": {
+                  "conflicts": {
+                    "maxItems": 0
+                  },
+                  "gaps": {
+                    "maxItems": 0
+                  },
+                  "hypotheses": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "presentation": {
+              "anyOf": [
+                {
+                  "properties": {
+                    "reported": {
+                      "minItems": 1
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "computed": {
+                      "minItems": 1
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "gaps": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "arithmetic_operand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "datum_uuid": {
+          "$ref": "#/$defs/uuid"
+        },
+        "value": {
+          "$ref": "#/$defs/input_decimal"
+        },
+        "unit": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "scope": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": [
+        "datum_uuid",
+        "value",
+        "unit",
+        "scope"
+      ]
+    },
+    "calculation_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "powerx.calculation.request/v1"
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "operands": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 32,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/arithmetic_operand"
+          }
+        },
+        "precision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "percent": {
+          "type": "boolean"
+        },
+        "rounding": {
+          "const": "half_away_from_zero"
+        },
+        "result_unit": {
+          "$ref": "#/$defs/opaque_id"
+        }
+      },
+      "required": [
+        "schema",
+        "expression",
+        "operands",
+        "precision",
+        "percent",
+        "rounding",
+        "result_unit"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "percent": {
+                "const": true
+              }
+            },
+            "required": [
+              "percent"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result_unit": {
+                "const": "%"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "result_unit": {
+                "not": {
+                  "const": "%"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "calculation_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "powerx.calculation.result/v1"
+        },
+        "value": {
+          "$ref": "#/$defs/decimal"
+        },
+        "unit": {
+          "$ref": "#/$defs/opaque_id"
+        },
+        "precision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "percent": {
+          "type": "boolean"
+        },
+        "rounding": {
+          "const": "half_away_from_zero"
+        }
+      },
+      "required": [
+        "schema",
+        "value",
+        "unit",
+        "precision",
+        "percent",
+        "rounding"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "percent": {
+                "const": true
+              }
+            },
+            "required": [
+              "percent"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "%"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "unit": {
+                "not": {
+                  "const": "%"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "input_decimal": {
+      "type": "string",
+      "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+      "maxLength": 80
+    }
+  }
+}

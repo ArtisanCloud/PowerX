@@ -9,6 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
+	snapshotops "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
 	backupdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup/dto"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -25,6 +26,8 @@ type handler struct {
 	restoreSvc   *backupops.RestoreDrillService
 	copySvc      *backupops.RestoreCopyService
 	archives     *archiveops.Service
+	snapshots    *snapshotops.Service
+	coordinator  *snapshotops.CoordinatorStore
 	alertSvc     *backupops.AlertService
 	artifactRepo *repoops.BackupArtifactRepository
 }
@@ -39,6 +42,8 @@ func NewHandler(deps *shared.Deps) *handler {
 		restoreSvc:   backupops.NewRestoreDrillService(deps.DB),
 		copySvc:      deps.RestoreCopies,
 		archives:     deps.Archives,
+		snapshots:    deps.SystemSnapshots,
+		coordinator:  deps.SystemRecovery,
 		alertSvc:     backupops.NewAlertService(deps.DB),
 		artifactRepo: repoops.NewBackupArtifactRepository(deps.DB),
 	}
@@ -174,7 +179,11 @@ func (h *handler) TriggerBackupJob(c *gin.Context) {
 		return
 	}
 	policyID := parseUint(req.PolicyID)
-	row, err := h.jobSvc.TriggerJob(c.Request.Context(), backupops.TriggerJobRequest{PolicyID: policyID, Operator: resolveOperator(c), TraceID: strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))})
+	if (req.OneTime && strings.TrimSpace(req.PolicyID) != "") || (!req.OneTime && policyID == 0) {
+		dto.RespondErrorFrom(c, backupops.ToAppError(backupops.ErrInvalidBackupRequest))
+		return
+	}
+	row, err := h.jobSvc.TriggerJob(c.Request.Context(), backupops.TriggerJobRequest{PolicyID: policyID, OneTime: req.OneTime, Operator: resolveOperator(c), TraceID: strings.TrimSpace(reqctx.GetTraceID(c.Request.Context()))})
 	if err != nil {
 		dto.RespondErrorFrom(c, backupops.ToAppError(err))
 		return
@@ -206,6 +215,7 @@ func (h *handler) ListBackupJobs(c *gin.Context) {
 	items, total, err := h.jobSvc.ListJobs(c.Request.Context(), backupops.ListJobOptions{
 		PolicyID: policyID,
 		Status:   status,
+		View:     strings.TrimSpace(c.Query("view")),
 		From:     from,
 		To:       to,
 		Page:     page,

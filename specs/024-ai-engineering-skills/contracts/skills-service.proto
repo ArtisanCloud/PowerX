@@ -1,5 +1,9 @@
 syntax = "proto3";
 
+// Phase 23 目标依赖/证据版本及旧调用迁移见同目录 tool-evidence-contract.md。
+// 本次不变更 RPC 或字段；Registry SemVer 不得静默解释为 Definition Revision UUID。
+// 正式 Proto 权威源仍在 backend/api/grpc/contracts/powerx/skills/v1。
+
 package powerx.skills.v1;
 
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/skills/v1;skillsv1";

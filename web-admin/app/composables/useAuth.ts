@@ -1,4 +1,5 @@
 import type { LoginResponse } from "./api/services/authService";
+import { clearIndependentRecoverySession } from '~/utils/recovery-session';
 import { useAuthService } from "./api/services/authService";
 import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, captureAuthSession, clearAuthSession, commitAuthSession, isAuthSessionCurrent, readAuthSession, refreshAuthSession, syncAuthSessionCookies } from "~/utils/auth-session";
 /**
@@ -104,6 +105,7 @@ export const useAuth = () => {
    * 登出
    */
   const logout = async () => {
+    const recoveryLogout = clearIndependentRecoverySession();
     const logoutSession = readAuthSession();
     const refreshToken = logoutSession?.refreshToken;
     // Invalidate immediately so an in-flight refresh cannot resurrect this login.
@@ -118,6 +120,7 @@ export const useAuth = () => {
     } catch (error) {
       console.error("登出API调用失败:", error);
     } finally {
+      await recoveryLogout;
       // 清理认证信息
       if (!isAuthSessionCurrent(signedOut)) return;
 

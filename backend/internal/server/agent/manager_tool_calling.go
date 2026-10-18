@@ -234,7 +234,8 @@ func (m *Manager) UpsertUnifiedCandidate(c ToolCallCandidate) {
 	m.unifiedCandidates[name] = c
 }
 
-// DetectTasksWithToolCalling 在 planner 决策层优先尝试 LLM tool-calling；若失败则回退到既有 DetectTasks。
+// DetectTasksWithToolCalling 优先使用 LLM tool-calling；合法空选择或无候选时
+// 保留既有检测流程，模型决策协议错误则显式失败。
 func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, reqCfg *dto.ChatConfig) ([]flowschema.DetectedTask, error) {
 	plannerCfg := m.GetPlannerOptimizerConfig()
 	plannerCfg = plannerOptimizerFromContext(ctx, plannerCfg)
@@ -319,13 +320,14 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 	prompt := buildToolCallingPrompt(text, cands, plannerCfg)
 	dlogRun.Prompt = prompt
 	invokeResult, err := llm.Invoke(ctx, &config.ModelConfig{
-		Provider:     provider,
-		Endpoint:     strings.TrimSpace(reqCfg.Endpoint),
-		APIKey:       strings.TrimSpace(reqCfg.APIKey),
-		Model:        model,
-		SystemPrompt: strings.TrimSpace(reqCfg.SystemPrompt),
-		Temperature:  0,
-		MaxTokens:    minInt(maxInt(reqCfg.MaxTokens, 512), 1600),
+		Provider:       provider,
+		Endpoint:       strings.TrimSpace(reqCfg.Endpoint),
+		APIKey:         strings.TrimSpace(reqCfg.APIKey),
+		Model:          model,
+		SystemPrompt:   strings.TrimSpace(reqCfg.SystemPrompt),
+		Temperature:    0,
+		TemperatureSet: true,
+		MaxTokens:      minInt(maxInt(reqCfg.MaxTokens, 512), 1600),
 	}, prompt)
 	content := ""
 	if invokeResult != nil {
@@ -348,7 +350,9 @@ func (m *Manager) DetectTasksWithToolCalling(ctx context.Context, text string, r
 	if err != nil {
 		dlogRun.ParseRetryCount++
 		dlogRun.Error = err.Error()
-		return fallback("parse tool decision failed: " + err.Error())
+		// Malformed output is not a valid decision to run ordinary chat. Keep
+		// this execution failed rather than publishing a completed fallback task.
+		return nil, fmt.Errorf("agent.planner_decision_invalid: %w", err)
 	}
 	dlogRun.Decision = decision
 	if plannerCfg.DecisionCacheEnabled {
@@ -800,20 +804,28 @@ func parseToolCallingDecision(raw string) (*toolCallingDecision, error) {
 	}
 
 	for _, candidate := range toolDecisionJSONCandidates(raw) {
-		var out toolCallingDecision
-		if err := json.Unmarshal([]byte(candidate), &out); err == nil {
-			return &out, nil
+		if out, err := decodeToolCallingDecision(candidate); err == nil {
+			return out, nil
 		}
 	}
 
 	// 最后尝试对截断 JSON 做最小修复（补齐缺失的右花括号）。
 	if repaired, ok := repairPossiblyTruncatedJSON(raw); ok {
-		var out toolCallingDecision
-		if err := json.Unmarshal([]byte(repaired), &out); err == nil {
-			return &out, nil
+		if out, err := decodeToolCallingDecision(repaired); err == nil {
+			return out, nil
 		}
 	}
 	return nil, fmt.Errorf("invalid tool decision json")
+}
+
+func decodeToolCallingDecision(raw string) (*toolCallingDecision, error) {
+	var envelope struct {
+		ToolCalls *[]toolCallingDecisionItem `json:"tool_calls"`
+	}
+	if err := json.Unmarshal([]byte(raw), &envelope); err != nil || envelope.ToolCalls == nil {
+		return nil, fmt.Errorf("tool_calls array is required")
+	}
+	return &toolCallingDecision{ToolCalls: *envelope.ToolCalls}, nil
 }
 
 func toolDecisionJSONCandidates(raw string) []string {
@@ -993,6 +1005,8 @@ func buildToolCallingPrompt(text string, cands []ToolCallCandidate, opt PlannerO
 	b.WriteString("必须只输出 JSON，不要输出解释文本。\\n")
 	b.WriteString(`输出格式: {"tool_calls":[{"name":"<candidate_name>","args":{...},"confidence":0.0-1.0,"reason":"..."}]}` + "\n")
 	b.WriteString("约束: 只能使用下方清单中的 name；args 只允许写该工具声明的参数。\\n\\n")
+	b.WriteString("args 只包含 required/optional/actions 中声明的字段；没有声明参数时严格输出 {}。不要新增字段复制整篇用户原文，原文由运行时独立传递。\n")
+	b.WriteString("reason 仅用一句简短说明，不要复述用户原文。\n")
 	b.WriteString("判断规则:\\n")
 	b.WriteString("- 如果用户只是询问 Agent 自身、能力边界、可用能力或能力说明，且没有要求执行某个候选能力，输出 tool_calls=[]。\\n")
 	b.WriteString("- 这类元问题应该交给最终回答阶段基于能力上下文生成自然语言，不要选择 CRUD/执行型工具。\\n")

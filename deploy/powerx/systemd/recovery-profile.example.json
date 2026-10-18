@@ -1,0 +1,50 @@
+{
+  "protocol": 1,
+  "instance_id": "11111111-1111-4111-8111-111111111111",
+  "status_listen": "127.0.0.1:12994",
+  "directory": "/var/lib/powerx-recovery/state",
+  "snapshot_directory": "/var/lib/powerx-recovery/snapshots",
+  "candidate_directory": "/var/lib/powerx-recovery/instances",
+  "tools": {
+    "postgres_bin": "/usr/lib/postgresql/16/bin",
+    "redis_server": "/usr/bin/redis-server",
+    "node": "/usr/bin/node",
+    "coordinator": "/opt/powerx/backend/snapshot-tool",
+    "sandbox": "/usr/bin/bwrap"
+  },
+  "targets": [
+    {
+      "id": "current",
+      "label": "当前 PowerX 实例",
+      "environment": "prod",
+      "mode": "formal",
+      "allow_overwrite": true
+    }
+  ],
+  "initial": {
+    "id": "22222222-2222-4222-8222-222222222222",
+    "root": "/var/lib/powerx-recovery/instances/22222222-2222-4222-8222-222222222222",
+    "config_file": "/var/lib/powerx-recovery/instances/22222222-2222-4222-8222-222222222222/etc/config.yaml",
+    "core_binary": "/var/lib/powerx-recovery/instances/22222222-2222-4222-8222-222222222222/programs/core/powerx",
+    "web_output": "/var/lib/powerx-recovery/instances/22222222-2222-4222-8222-222222222222/programs/core/web-admin",
+    "postgres_data": "/var/lib/powerx-recovery/instances/22222222-2222-4222-8222-222222222222/postgres",
+    "socket_directory": "/var/lib/powerx-recovery/instances/22222222-2222-4222-8222-222222222222/s",
+    "postgres_port": 15432,
+    "redis_port": 16379,
+    "core_port": 18077,
+    "grpc_port": 19001,
+    "web_port": 13030,
+    "plugin_port_min": 30000,
+    "plugin_port_max": 30255,
+    "public_base_url": "https://your-powerx.example"
+  },
+  "writer_units": [],
+  "exclusive_writers": true,
+  "dedicated_redis": true,
+  "source_redis_rdb": "/var/lib/powerx-recovery/instances/22222222-2222-4222-8222-222222222222/redis/dump.rdb",
+  "artifact_overrides": [],
+  "business_probes": [],
+  "restore_in_place": true,
+  "gateway_web_listen": "127.0.0.1:3030",
+  "gateway_backend_listen": "127.0.0.1:8077"
+}

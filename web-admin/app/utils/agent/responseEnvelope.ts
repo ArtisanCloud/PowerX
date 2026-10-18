@@ -1,6 +1,6 @@
 export type AgentResponseDatum = { key: string; label: string; value: string; unit: string; scope: string; kind: 'quantity' | 'reported'; source: { pointer: string; quote: string; literal: string } }
 export type AgentResponseCalculation = { uuid: string; tool_key: string; tool_version: string; display_value: string; request: { key: string; label: string; expression: string }; operands: Record<string, AgentResponseDatum> }
-export type AgentResponseEnvelope = {
+export type AgentResponseEnvelopeV4 = {
   schema: 'powerx.agent.response/v4'
   kind: string
   outcome: 'completed' | 'needs_action' | 'blocked' | 'failed'
@@ -13,8 +13,10 @@ export type AgentResponseEnvelope = {
     actions: string[]
   }
 }
+export type AgentResponseEnvelope = AgentResponseEnvelopeV4 | AgentResponseEnvelopeV5
 
 export function isAgentResponseEnvelope(value: any): value is AgentResponseEnvelope {
+  if (value?.schema === 'powerx.agent.response/v5') return isEvidenceReportV5(value)
   return value?.schema === 'powerx.agent.response/v4'
     && value?.presentation && ['reported', 'computed', 'conflicts', 'hypotheses', 'gaps', 'actions']
       .every(key => Array.isArray(value.presentation[key]))
@@ -29,7 +31,8 @@ const table = (title: string, columns: string[], rows: string[][]) => rows.lengt
       ...rows.map(row => `| ${row.map(cell).join(' | ')} |`)].join('\n') : ''
 
 // PowerX, not an LLM, owns all visible structure. The Skill submits only data.
-export function renderAgentResponseEnvelope(envelope: AgentResponseEnvelope, t: (key: string) => string): string {
+export function renderAgentResponseEnvelope(envelope: AgentResponseEnvelope, t: (key: string) => string, options?: { labels?: ResponseLabels; locale?: string }): string {
+  if (envelope.schema === 'powerx.agent.response/v5') return renderEvidenceReportV5(envelope, t, options)
   const p = envelope.presentation
   const reported = table(t('agent.response.reported'),
     [t('agent.response.metric'), t('agent.response.value'), t('agent.response.sourceQuote')],
@@ -51,3 +54,5 @@ export function renderAgentResponseEnvelope(envelope: AgentResponseEnvelope, t: 
     textList(t('agent.response.nextActions'), p.actions),
   ].filter(Boolean).join('\n\n')
 }
+import type { AgentResponseEnvelopeV5, ResponseLabels } from '~/types/agentEvidence'
+import { isEvidenceReportV5, renderEvidenceReportV5 } from './responseEnvelopeV5'

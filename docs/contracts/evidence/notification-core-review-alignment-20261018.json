@@ -1,0 +1,159 @@
+{
+  "recorded_at": "2026-10-18T14:57:00.352926+00:00",
+  "scope": "Core notification review corrections and notification SDK configuration alignment",
+  "decisions": {
+    "read_receipt_capability": "retain independent service grant; create grant is insufficient",
+    "service_owner": "retain trusted persisted owner; tenant plus plugin ID for STS or key UUID for API Key",
+    "legacy_notifications": "no ownership inference or backfill; ordinary personal Core mark-read remains available",
+    "business_reading": "Core receipt never advances plugin business read cursor"
+  },
+  "changes": [
+    "Observe same-document and cross-tab auth session changes; preserve same-session refresh; dispose listeners",
+    "Clear selected detail for same-account new sessions at desktop and narrow widths",
+    "Coalesce filtered inbox reconciliation on actual read changes, reject older requests, correct known stale totals",
+    "Use one Header reconnect refresh and one initial identity load",
+    "Inject Core-resolved API prefix into host-values env, structured gateway configuration and actual runtime process env",
+    "Share configured API base for create/read in Go and .NET; local arguments 400, invalid receipt response 502, unconfigured client 503",
+    "Preserve explicit root API prefix through Skeleton config loading and align scaffold/CLI templates"
+  ],
+  "verification": [
+    {
+      "cwd": "Core/PowerX/web-admin",
+      "command": "./node_modules/.bin/vitest run tests/unit/notifications",
+      "status": "passed",
+      "tests": 21,
+      "boundary": "controlled Vue/Pinia and component tests, including widths 1440/390; not installed browser acceptance"
+    },
+    {
+      "cwd": "Core/PowerX/backend",
+      "command": "go test -race ./internal/service/notifications ./internal/transport/http/openapi/notifications ./internal/transport/http/admin/notifications ./internal/transport/websocket/bus",
+      "status": "passed"
+    },
+    {
+      "cwd": "Core/PowerX/backend",
+      "command": "go test -race ./internal/transport/http/openapi/notifications -count=1",
+      "status": "passed",
+      "matrix": [
+        "Core default /api",
+        "/api/v1",
+        "/api/v2",
+        "/core/custom",
+        "/"
+      ],
+      "boundary": "real signed fixture JWT -> HTTP -> live fixture grant/DB -> member WebSocket; not live credentials"
+    },
+    {
+      "cwd": "Core/PowerX/backend",
+      "command": "go test ./internal/infra/plugin/manager ./internal/infra/plugin/manager/router",
+      "status": "passed"
+    },
+    {
+      "cwd": "Core/PowerX/backend",
+      "command": "go test -race ./internal/infra/plugin/manager ./internal/infra/plugin/manager/router -count=1",
+      "status": "passed_on_repeat",
+      "initial_failure": "An earlier full race run reported TestRestoreEnabledPluginsMountsEnabledPlugin healthcheck timeout; no cause was established.",
+      "follow_up": "Affected restore case passed in isolation under race; normal full suite and repeated full race suite passed."
+    },
+    {
+      "cwd": "Core/PowerX/backend",
+      "command": "go vet ./internal/service/notifications ./internal/transport/http/openapi/notifications ./internal/transport/http/admin/notifications ./internal/infra/plugin/manager ./internal/infra/plugin/manager/router",
+      "status": "passed"
+    },
+    {
+      "cwd": "Core/Plugins/PowerXPlugin/framework/backend/go",
+      "command": "go test -race ./runtime/powerx/notifications ./runtime/notifications ./runtime/common/hosthttp ./bootstrap",
+      "status": "passed"
+    },
+    {
+      "cwd": "Core/Plugins/PowerXPlugin/framework/backend/go",
+      "command": "go vet ./runtime/powerx/notifications ./runtime/notifications ./runtime/common/hosthttp ./bootstrap",
+      "status": "passed"
+    },
+    {
+      "cwd": "Core/Plugins/PowerXPlugin",
+      "command": "dotnet test framework/backend/dotnet/tests/PowerXPlugin.Framework.Tests/PowerXPlugin.Framework.Tests.csproj --filter FullyQualifiedName~NotificationRuntimeTests --no-restore --verbosity quiet",
+      "status": "passed",
+      "tests": 16
+    },
+    {
+      "cwd": "Core/Plugins/PowerXPlugin/skeleton/backend/go-gin",
+      "command": "go test ./internal/config ./cmd/plugin",
+      "status": "passed",
+      "boundary": "includes config environment load to notification transport, explicit root prefix retained"
+    },
+    {
+      "cwd": "Core/Plugins/PowerXPlugin/framework/backend/go",
+      "command": "go test -race <absolute bootstrap.go> <absolute bootstrap_test.go>",
+      "status": "passed",
+      "note": "The docs example is outside go.work modules; use explicit file arguments, not the root package path."
+    },
+    {
+      "cwd": "Core/Plugins/PowerXPlugin",
+      "command": "npm run sync:templates -- --check",
+      "status": "passed"
+    }
+  ],
+  "plugin_handoff": [
+    {
+      "file": "backend/internal/bootstrap/framework_notifications.go",
+      "required": "Pass deps.Config.Gateway.APIPrefix into notifications.Config.APIPrefix"
+    },
+    {
+      "file": "backend/internal/config/config.go:normalizeGatewayAPIPrefix",
+      "required": "Preserve explicit / instead of converting it to /api/v1"
+    }
+  ],
+  "source_sha256": {
+    "core": {
+      "web-admin/app/composables/useNotifications.ts": "b4127512cb8d4b8577899bae20a41524c3bea7f393ae8cad3b51245fa89d85fa",
+      "web-admin/app/components/layout/Header.vue": "ff11c7e9924971fbd53b82586927a1a18ceb6dcc47e4066753d3361e221c3d03",
+      "web-admin/app/pages/notifications/index.vue": "363aee27d0e880342ba324d9357937397899af7e675e0db997f3442df83bfe4f",
+      "web-admin/tests/unit/notifications/member-isolation.spec.ts": "7811ec9a0ea6a8e5337a90dc3bfc2fbadb177f34657633f84607ec2f4b2904ca",
+      "web-admin/tests/unit/notifications/header-reconnect.spec.ts": "603b4ea518a5f7730fa2ef4cd368945342f6153769f37685777f8ea3b4cf5fbc",
+      "backend/internal/infra/plugin/manager/host_config.go": "1f0d734bda138766d191758cda24ad6d770266d79ddb774877ac436b4821a7ae",
+      "backend/internal/infra/plugin/manager/lifecycle.go": "c4ead993da7359535ae6320d32dcdc44a251011fdb38451f90ba72dc0960baa7",
+      "backend/internal/infra/plugin/manager/lifecycle_gateway_contract_test.go": "50c540e93f0c792b325a7c3ed69e912b7d8715e12383a7d7a955e73d88c3dcda",
+      "backend/internal/transport/http/openapi/notifications/handler_test.go": "6c1a8baad3eb678dbf5906d5f255ac695af111191e8f4683a8636fc17b26a783",
+      "docs/contracts/notification-member-delivery.md": "e99a8b8ebaf078dfea30e17c40719ee4ea2f65e999f3c82e6e3ed6d24586c6a4"
+    },
+    "framework": {
+      "framework/backend/go/runtime/common/hosthttp/endpoint.go": "7d25d6688b09fa9d32a4440b185255e32927f9bb78af7e65dcc12a395cff980e",
+      "framework/backend/go/runtime/powerx/notifications/client.go": "89c819de0489d6f5544d075f5b27e19bf04289ce63dc33d8698329ab30563e63",
+      "framework/backend/go/runtime/powerx/notifications/read_receipt.go": "fa9db22bf5e63f31a14fc66c681b73a9fce4c7320fde8b56ec45aa11d5751bd8",
+      "framework/backend/dotnet/src/PowerXPlugin.Framework/Runtime/Common/CoreApiEndpoint.cs": "b41ef19c918b95999e3352846ca734b65de5e4f283f33cbd5551ad3f1bc0fd70",
+      "framework/backend/dotnet/src/PowerXPlugin.Framework/Runtime/Notifications/NotificationRuntime.cs": "ed86057359212904ddfceaa462dd7814da99fa8e09de24b9319602ad8596b06c",
+      "skeleton/backend/go-gin/internal/config/config.go": "280b62f7afbddb157dc6c1d108a4be609c1624cc974e37a271b37d445859ed35",
+      "skeleton/backend/go-gin/internal/config/notification_gateway_test.go": "a3bb81421ad905485c3d51f071f2f33921dbb99dc5674323e0662bc279494201",
+      "skeleton/backend/go-gin/cmd/plugin/main.go": "d0f36b687924f7c069edfaa3faf2c6d6070ff7ce570e0424a836822af05b8b8e",
+      "docs/contracts/notification-business-navigation.md": "dfcc92011ccd5dab93c5877ecc3e9f54cff2982769756a1a85b97ad9bae01278"
+    }
+  },
+  "cleanup": {
+    "fixture_pids": [
+      78786,
+      84960,
+      87855
+    ],
+    "fixture_ports": [
+      60057,
+      61660,
+      62149
+    ],
+    "live_processes": "",
+    "remaining_listeners": []
+  },
+  "runtime_actions": {
+    "user_services_restarted": false,
+    "live_database_migration_or_seed": false,
+    "live_grant_changes": false,
+    "plugin_packaging_or_installation": false,
+    "sdk_publication": false
+  },
+  "acceptance_pending": [
+    "AI Craft-owned bootstrap/config alignment and rebuilt installation",
+    "Normal deployment migration and capability catalog/tenant registration/live grant verification",
+    "Fresh notification navigation and one-way read receipts with real tenant members",
+    "Other service/member/tenant rejection under actual installed credentials"
+  ],
+  "grant_status_boundary": "Prior handoff reports CAPABILITY_UNKNOWN. This round did not repeat live grant-status and does not claim that installation readiness is resolved."
+}

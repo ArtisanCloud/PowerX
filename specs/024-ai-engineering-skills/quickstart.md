@@ -1,5 +1,7 @@
 # Quickstart — PowerX Skills 管理与治理
 
+当前 024 / V5 的单 Agent 页面验收请先使用[单 Agent 页面验收指南](../../docs/guides/features/024-ai-engineering-skills/guide.md)。该指南覆盖创建 Agent、可复制原始/替换材料、缺口、历史与 Trace；下文保留各阶段开发和接入回归，不能把旧示例或旧事件清单当成本轮全部验收标准。
+
 ## 1. 前置条件
 
 - Go 1.26.7、Node 20、Nuxt 4 开发环境可用

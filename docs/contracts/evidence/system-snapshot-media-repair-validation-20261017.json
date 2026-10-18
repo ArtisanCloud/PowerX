@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-17",
+  "scope": "authorized_local_media_metadata_repair_and_capture_admission_fairness",
+  "local_media_repair": {
+    "user_authorized": true,
+    "committed": true,
+    "checksum_backfilled": 171,
+    "missing_original_records_marked_failed": [53, 69, 70],
+    "records_deleted": 0,
+    "original_files_recreated": false,
+    "other_fields_preserved": true,
+    "post_repair_ready_assets": 195,
+    "post_repair_ready_variants": 1,
+    "post_repair_invalid_registered_checksums": 0,
+    "private_original_values": "test-results/snapshot-preflight-20261017/applied-20261017T021352Z/before.json",
+    "private_applied_result": "test-results/snapshot-preflight-20261017/applied-20261017T021352Z/result.json",
+    "guarded_rollback_proposal": "test-results/snapshot-preflight-20261017/applied-20261017T021352Z/rollback-review.sql"
+  },
+  "installed_local_validation_before_lock_fix": {
+    "root_login_and_logout": true,
+    "source_preflight_ready": true,
+    "snapshot_id": "d6be80e6-c909-4bf3-8727-090ab814707b",
+    "status": "failed",
+    "error": "仍有业务写入请求，请稍后重试",
+    "overlapping_task_queue_dequeue_observed": true,
+    "private_report": "test-results/snapshot-preflight-20261017/snapshot-creation-validation.json"
+  },
+  "capture_admission_fix": {
+    "mechanism": "Hold an exclusive admission lock before draining the existing shared mutation lock. New mutations pause while capture waits or runs.",
+    "wait_deadline_seconds": 5,
+    "cancel_or_failure_releases_admission": true,
+    "unit_regression": "passed",
+    "focused_race_tests": "passed",
+    "snapshot_bootstrap_backup_api_recovery_tests": "passed",
+    "native_postgres_A_B_restore_with_overlapping_requests": "passed",
+    "native_test_resources": "Owned random fixture databases only; cleaned by the test",
+    "vet": "passed"
+  },
+  "acceptance_boundary": {
+    "agent_restarted_user_services": false,
+    "installed_capture_with_new_lock_fix": "pending_user_core_restart",
+    "local_managed_recovery_configured": false,
+    "whole_application_restore_accepted": false,
+    "production_changed": false,
+    "agent_services_left_running": false
+  }
+}

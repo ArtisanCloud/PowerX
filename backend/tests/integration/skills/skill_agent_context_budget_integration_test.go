@@ -19,8 +19,11 @@ import (
 
 func setupAgentChatDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&parseTime=true&_loc=UTC"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared&parseTime=true&_loc=UTC"), &gorm.Config{})
 	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
 
 	prevSchema := coremodel.PowerXSchema
 	coremodel.PowerXSchema = "main"
@@ -35,6 +38,8 @@ func setupAgentChatDB(t *testing.T) *gorm.DB {
 		env TEXT,
 		tenant_uuid TEXT,
 		agent_id INTEGER NOT NULL,
+			session_type TEXT NOT NULL DEFAULT 'legacy',
+			team_id INTEGER NOT NULL DEFAULT 0,
 		user_id INTEGER,
 		title TEXT,
 		singleton BOOLEAN DEFAULT 0,
@@ -50,6 +55,7 @@ func setupAgentChatDB(t *testing.T) *gorm.DB {
 	);`).Error)
 	require.NoError(t, db.Exec(`CREATE TABLE IF NOT EXISTS main.agent_chat_messages (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+ uuid TEXT,
 		created_at DATETIME,
 		updated_at DATETIME,
 		deleted_at DATETIME,
@@ -239,8 +245,9 @@ func TestSkillAgentContextBudget_RepeatedCapabilityIntroUsesBriefContext(t *test
 	require.Contains(t, res.SystemPrompt, "- 模板能力")
 	require.Contains(t, res.SystemPrompt, "管理 PowerXPlugin 模板")
 	require.Contains(t, res.SystemPrompt, "可用动作: create, get, update, delete, list")
-	require.NotContains(t, res.SystemPrompt, "帮我创建一个视频模板")
-	require.NotContains(t, res.SystemPrompt, "必要参数")
+	// IncludeExamples=true 时保留绑定声明的例子和参数，精简说明不能删除当前事实。
+	require.Contains(t, res.SystemPrompt, "帮我创建一个视频模板")
+	require.Contains(t, res.SystemPrompt, "必要参数")
 	require.NotContains(t, res.SystemPrompt, "ref:")
 	require.NotContains(t, res.SystemPrompt, "可创建模板、查询模板、更新模板")
 }

@@ -154,3 +154,11 @@ func MigrateCoreModels(db *gorm.DB) error {
 * `gorm.io/datatypes`
 * `pkg/corex/db/persistence/model`
 * `pkg/corex/db/migration.go`（CoreX 统一迁移入口）
+
+## 标准预览关联（2026-10-18 修正）
+
+本次不增加 Media 专用任务表或数据库列。已有 `media_assets.meta.image_derivatives` 只关联当前统一任务 ID、recipe、源 SHA 和缺失变体名称；生成产物继续保存在 `media_asset_variants`，其 meta 保存生成来源、recipe、源 SHA、尺寸与输出 SHA。
+
+任务状态、attempt、错误、提交／开始／完成时间复用已存在的 `event_task_histories`；阻塞消费、租约、重试与恢复归正式 TaskBus。共享任务完成和变体接纳同事务提交。Media 不保存私有 RunToken、LeaseUntil 或重试计数。上一版 Media 专用任务模型与集中迁移登记已经撤销，已有队列底座无需新增 Media 建表迁移。
+
+既有资产不批量改写，下次 complete/复用/ensure 时按需补齐。详见 [正式合同](../../docs/contracts/media-image-derivatives.md)。

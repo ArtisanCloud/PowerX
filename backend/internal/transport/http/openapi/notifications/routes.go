@@ -13,4 +13,5 @@ func RegisterTenantRoutes(protectedGroup *gin.RouterGroup, deps *shared.Deps) {
 	h := newHandler(deps)
 	group := protectedGroup.Group("/notifications")
 	group.POST("", h.create)
+	group.POST("/read-receipts", h.acknowledge)
 }

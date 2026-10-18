@@ -30,7 +30,7 @@ func TestSkillNonFuncBaseline_ImportInvokeAudit(t *testing.T) {
 	var auditBefore int64
 	require.NoError(t, db.Model(&skillmodel.SkillLifecycleAudit{}).Count(&auditBefore).Error)
 	var traceBefore int64
-	require.NoError(t, db.Model(&skillmodel.SkillExecutionTrace{}).Where("status = ?", "completed").Count(&traceBefore).Error)
+	require.NoError(t, db.Model(&skillmodel.SkillExecutionTrace{}).Where("status = ?", "failed").Count(&traceBefore).Error)
 
 	importStart := time.Now()
 	for i := 0; i < totalImports; i++ {
@@ -59,7 +59,7 @@ func TestSkillNonFuncBaseline_ImportInvokeAudit(t *testing.T) {
 	require.Less(t, publishElapsed, 8*time.Second, "publish baseline exceeded")
 
 	invokeStart := time.Now()
-	success := 0
+	rejected := 0
 	for i := 0; i < totalPublishes; i++ {
 		skillID := fmt.Sprintf("skill.nonfunc.%03d.incident-triage", i)
 		out, err := invokeSvc.Execute(ctx, skillservice.InvokeRequest{
@@ -67,19 +67,19 @@ func TestSkillNonFuncBaseline_ImportInvokeAudit(t *testing.T) {
 			SkillID:    skillID,
 			InvokePath: "tenant.skills.invoke",
 		}, map[string]interface{}{"incident_id": fmt.Sprintf("INC-%04d", i), "context": "baseline warning"}, nil)
-		require.NoError(t, err)
-		require.Equal(t, "completed", out.Status)
-		success++
+		require.ErrorIs(t, err, skillservice.ErrDefinitionContractUpgradeRequired)
+		require.Nil(t, out)
+		rejected++
 	}
 	invokeElapsed := time.Since(invokeStart)
 	require.Less(t, invokeElapsed, 8*time.Second, "invoke baseline exceeded")
-	require.Equal(t, totalPublishes, success)
+	require.Equal(t, totalPublishes, rejected)
 
 	var auditCount int64
 	require.NoError(t, db.Model(&skillmodel.SkillLifecycleAudit{}).Count(&auditCount).Error)
 	require.Equal(t, int64(totalImports+totalPublishes), auditCount-auditBefore, "lifecycle audit write count mismatch")
 
 	var traceCount int64
-	require.NoError(t, db.Model(&skillmodel.SkillExecutionTrace{}).Where("status = ?", "completed").Count(&traceCount).Error)
-	require.Equal(t, int64(totalPublishes), traceCount-traceBefore, "resolved trace count mismatch")
+	require.NoError(t, db.Model(&skillmodel.SkillExecutionTrace{}).Where("status = ?", "failed").Count(&traceCount).Error)
+	require.Equal(t, int64(totalPublishes), traceCount-traceBefore, "legacy rejection trace count mismatch")
 }

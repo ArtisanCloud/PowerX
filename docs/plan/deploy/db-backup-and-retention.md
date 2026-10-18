@@ -1,121 +1,68 @@
-# 生产数据库备份与清理策略（Docker + 非 Docker）
+# 生产备份体系：系统快照与数据库组件
 
-## 1. 目标与原则
+> 更新：2026-10-15。统一快照包、隔离应用验证与正式切换已在本地实现，Linux／生产插件和真实定时第二轮待验收；本文区分现有组件、目标设计和独立运维增强，不表示已开启任何线上策略、异地存储或 WAL。
 
-- 兼容 Docker 与 systemd 两种部署模式
-- 支持定时自动备份、状态可追踪、失败可告警
-- 支持数据保留清理与恢复演练
+## 1. 统一备份与恢复单位
 
-建议目标：
+面向管理员以一个“系统快照／恢复点”统一数据库、媒体实际内容、必要配置／密钥材料和 Core／插件版本。底层组件可以分别保存和增量去重，必须由同一采集边界、父任务和清单关联，不能让用户按日期拼接独立数据库与媒体。
 
-- RPO（可接受数据丢失）：<= 15 分钟（需 WAL 归档）
-- RTO（恢复时间）：<= 60 分钟（按数据规模调整）
+实际操作：[托管恢复手册](../../guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md)；详细设计：[系统快照与统一恢复计划](system-snapshot-and-restore.md)。
 
-## 2. PostgreSQL 推荐策略（分层）
+## 2. 当前能力与目标边界
 
-### 2.1 日常逻辑备份（保底）
+| 层次 | 当前能力 | 本次调整方向 |
+|---|---|---|
+| 数据库组件 | 完整 pg_dump、SHA256／清单、保留、验证、新库副本 | 保留为统一快照的数据库组件及高级单项操作 |
+| 媒体组件 | 本地文件／登记 S3 对象、CAS、可选同 MVCC dump、独立目录恢复 | 加入同一系统恢复点；不能与其他日期 dump 自动组合 |
+| 系统快照 | 包与隔离数据副本已实现，业务与正式切换未完成 | 增加配置／版本、一致性采集、完整包、目标映射、联合验证与受控切换 |
+| 云盘／整机灾备 | 由云侧独立核实配置 | 保护 OS 和整盘环境，不能代替应用业务验收 |
+| WAL／物理备份 | 本文仅保留规划方向 | 若实施 PITR，仍需解决对应媒体／配置版本；SQL 日志不等于 WAL |
 
-- 每天执行：`pg_dump -Fc`
-- 备份内容：主业务库 + 关键元数据
-- 保留 14~30 天
+## 3. 数据库组件执行基线
 
-### 2.2 周期物理备份（高效恢复）
+- 当前新建数据库策略默认 1 小时、7 天、最多 168 份，策略和自动验证默认停用；既有线上策略保持其实际配置。
+- 使用 PostgreSQL custom-format 逻辑备份，包含当前业务库的 Core 和插件 schema，不包含媒体字节、运行配置或集群全局角色。
+- `POWERX_OPS_BACKUP_ARTIFACT_DIR` 必须是绝对路径；无显式值时使用 `POWERX_LINKS_ROOT/storage/backups`，本地无 links root 时使用服务用户 `~/.powerx/storage/backups`。
+- 通过 `database backup-run`、现有 Admin API 或 Core／独立 timer 调度。实际脚本位于 `backend/scripts/ops/`，不是历史模板中的 `/opt/powerx/scripts/`。
+- 源数据库取实际运行配置；`target_ref=local_dump` 不表示另一个数据库。详细现有流程见 [US1](../../guides/deploy/027-monitor-center/usecase-us1-policy-automation.md)。
 
-- 每周执行：`pg_basebackup`
-- 配合 WAL 归档，支持时间点恢复（PITR）
-- 保留 4~8 周
+## 4. 系统快照调度与保留（完整目标）
 
-### 2.3 WAL 归档（强推荐）
+- 一条系统策略调度所有必需组件，页面显示真实间隔、下次执行时间、采集窗口、最近完整恢复点与演练结果；自由名称不决定实际周期。
+- 系统策略默认值在实现合同中明确，按业务 RPO、规模与空间评估；文档不自动修改旧策略。
+- 保留按整份恢复点执行，保护最新完整快照、显式保留项及恢复／导出任务引用；CAS 对象没有任何有效引用后才能清理。
+- 复用现有 CAS 前，必须使旧清理器理解新引用和锁。独立数据库、媒体组件的清理不能破坏完整系统快照。
+- 本地完整、异地保存成功、完整包导出和业务验收分别记录，不将单个任务 success 当作整站完成。
 
-- 连续归档到对象存储（MinIO/S3）
-- 与全量备份组合实现 PITR
+## 5. 保存与异地保护
 
-## 3. 存储与保留建议
+本地备份位于独立于 release 的稳定目录，但同机目录不能覆盖磁盘／整机丢失。应根据实际运维目标配置独立服务器或对象存储副本，并验证传输及取回。媒体当前使用 local 还是 S3／OSS，必须查看生效配置和持久化媒体 driver，不能从示例 bucket 推断。
 
-- 备份统一上传对象存储：`s3://<bucket>/powerx-backups/...`
-- 建议目录结构：
+系统快照完整导出应包含全部必需内容和版本产物，不依赖源服务器、原 CAS、生产 URL 或未随包提供的增量链。必要敏感配置加密，解密材料以独立受控方式保留，不能只有故障服务器上的唯一密钥。
 
-```text
-powerx-backups/
-  logical/YYYY/MM/DD/
-  physical/YYYY/MM/DD/
-  wal/YYYY/MM/DD/
-```
+现有 SSH 归档能力见 [US7](../../guides/deploy/027-monitor-center/usecase-us7-remote-log-archives.md)。它不代表系统快照导入、自动云盘快照或正式切换已完成。
 
-- 生命周期建议：
-  - logical：30 天
-  - physical：56 天
-  - wal：14 天
+## 6. 恢复与切换
 
-## 4. 任务调度方案
+目标操作为：选择快照 → 在独立资源恢复并验证 → 显式确认维护切换。系统自动处理数据库、媒体、配置和匹配版本，管理员不手动配对。
 
-### 4.1 Docker 模式
+恢复测试必须映射目标数据库、媒体根目录、域名、环境身份和插件绑定，并在启动前隔离生产连接、业务定时任务、事件／队列消费和外部业务写入。正式切换由独立协调器在停写期间统一执行，保存当前回退点及补偿账本。
 
-- 使用专用 `backup` 容器 + `cron/supercronic`
-- 备份脚本挂载只读配置与凭证
-- 结果写入：日志 + 状态文件 + 告警通道
+当前仅数据库恢复副本、新媒体目录恢复和人工正式切换可用，详见 [US3](../../guides/deploy/027-monitor-center/usecase-us3-restore-drill.md)、[US5](../../guides/deploy/027-monitor-center/usecase-us5-retained-copy.md)、[US6](../../guides/deploy/027-monitor-center/usecase-us6-media-archives.md)。
 
-### 4.2 非 Docker 模式
+## 7. 两轮验收与告警
 
-- 使用 `systemd service + timer`
-- 优先替代 crontab，便于状态查询与失败重试
+1. 本地创建状态 A、采集完整快照、修改为 B，再在空目标恢复 A；源 B 保留，媒体与配置／版本通过，另验证切换失败回退。
+2. 本地通过后由运维升级，观察至少一个真实计划周期，可按一天验收；将 scheduled 完整包带离服务器，在本地／独立开发实例恢复并检查业务。
 
-## 5. 脚本规范（建议）
+完整步骤：[US8 系统快照验收](../../guides/deploy/027-monitor-center/usecase-us8-system-snapshot-acceptance.md)。手动恢复可立即测试，等待一天是验证调度。构建、dump 可解析、媒体复制或 HTTP 202 都不能代替两轮业务验收。
 
-推荐脚本：
+告警需关联快照／组件／恢复任务与 Trace，明确失败阶段、最近完整恢复点、过期未执行与异地失败；保留记录，不以旧成功任务掩盖当前缺口。
 
-- `scripts/ops/backup-db.sh`：备份并上传
-- `scripts/ops/cleanup-backups.sh`：按 retention 清理
-- `scripts/ops/restore-drill.sh`：恢复演练（临时库）
+## 8. 数据库增强规划与迁移参考
 
-每次任务输出结构化字段：
+物理基础备份与连续 WAL 可另行设计更细的数据库 RPO／PITR；备份频率、RPO 和 RTO 按实际演练确定，不预设当前已达到某个分钟级目标。数据库恢复到任意时间并不自动具备对应媒体和配置。
 
-- `job_id`
-- `backup_type`（logical/physical/wal）
-- `started_at/ended_at`
-- `size_bytes`
-- `checksum`
-- `storage_uri`
-- `status`（success/failed）
-- `error_message`
-
-## 6. 告警与审计
-
-- 备份失败立即告警（飞书/钉钉/邮件）
-- 连续 N 次失败升级告警等级
-- 将备份任务日志接入 Loki，Grafana 展示成功率、耗时、失败分布
-
-## 7. 恢复演练（必须）
-
-- 每月至少 1 次恢复演练
-- 演练步骤：下载备份 -> 恢复到临时实例 -> 健康校验 -> 记录报告
-- 无演练的备份视为“不可信备份”
-
-## 8. UI 管理化（二阶段规划）
-
-### 8.1 数据模型建议
-
-- `backup_policies`：策略配置（周期、保留、存储目标）
-- `backup_jobs`：任务实例与结果
-- `backup_artifacts`：产物信息（uri/checksum/size）
-- `restore_drills`：演练记录
-
-### 8.2 API 建议
-
-- 策略 CRUD
-- 手动触发备份
-- 历史查询与失败详情
-- 触发清理任务
-- 触发恢复演练并记录结果
-
-### 8.3 Web Admin 页面建议
-
-- 备份看板：成功率、最近失败、耗时趋势
-- 任务列表：可筛选/重试/查看日志
-- 策略配置：周期、保留、存储目标
-- 演练记录：最近演练时间与结果
-
-## 9. 迁移参考
-
-- 如需把数据库全量导入另一套 PowerX（含表结构），请参考：
-  - [PowerX 实例迁移指南（A -> B，含表结构）](./powerx-instance-migration.md)
+- [实际数据库任务调用与组件边界](db-backup-job-templates.md)
+- [PowerX 实例迁移人工参考](powerx-instance-migration.md)
+- [规格与新增待办](../../../specs/027-monitor-center/tasks.md)

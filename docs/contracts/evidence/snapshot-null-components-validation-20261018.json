@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-18",
+  "problem": "备份页持续显示正在读取快照，策略和快照计数停在 0",
+  "confirmed_cause": {
+    "url": "http://127.0.0.1:3030/ops/backup",
+    "actual_core_port": 8077,
+    "api_mocks": false,
+    "overview_http_status": 200,
+    "snapshot_id": "06d5c037-5777-44e8-acfb-79570eb71c07",
+    "snapshot_status": "failed",
+    "components": null,
+    "browser_error": "Cannot read properties of null (reading 'length')",
+    "location": "SystemSnapshotsPanel.vue:118",
+    "effect": "成功响应写入状态后渲染异常，DOM 保留首次加载画面；不是列表请求一直未完成",
+    "before_log": "test-results/snapshot-live-diagnosis.log",
+    "before_screenshot": "test-results/snapshot-live-loading-before.png"
+  },
+  "changes": [
+    "前端兼容旧失败任务缺失或为 null 的组件列表，大小显示为横线，保留错误和详情",
+    "初次读取失败结束加载并显示错误，允许手动重试；尚未读取到数据时不显示虚假的 0 计数",
+    "Core 读取旧快照账本时将 nil 组件规范为空数组，不改写历史文件或任务状态"
+  ],
+  "validation": {
+    "before_fix": {
+      "unit_tests": "新增的 null、undefined 和初次读取失败场景共 3 项失败，复现 length 渲染异常及失败后仍显示加载的问题",
+      "log": "test-results/snapshot-null-before.log"
+    },
+    "after_fix": {
+      "frontend": "67 tests / 10 files PASS",
+      "frontend_log": "test-results/snapshot-null-unit.log",
+      "go": "go test and go vet ./internal/service/snapshot_ops ./internal/transport/http/admin/backup PASS",
+      "go_log": "test-results/snapshot-null-go.log",
+      "legacy_ledger": "queued/failed/interrupted 记录 components:null 可读取且 JSON 返回 []，源文件字节保持不变",
+      "live_browser": "实际 Nuxt 3030 代理到用户 Core 8077，无 API mock；Core 仍返回 components:null，验证前端兼容生效",
+      "live_viewports": ["1440x1000", "390x844"],
+      "live_assertions": [
+        "2 条现有策略、1 条现有失败快照均正常显示",
+        "实际保存目录可见，失败详情可打开",
+        "分区切换保留记录，手动刷新通过",
+        "无页面 JavaScript 异常",
+        "静默观察 5.5 秒无周期性状态请求",
+        "页面未发起备份、恢复等写请求"
+      ],
+      "live_log": "test-results/snapshot-live-null-regression.log",
+      "live_result": "test-results/snapshot-live-null-result.json",
+      "screenshots": [
+        "test-results/snapshot-live-null-desktop.png",
+        "test-results/snapshot-live-null-mobile.png"
+      ]
+    }
+  },
+  "preservation_and_cleanup": {
+    "snapshot_restore_request_and_policy_files": "SHA256 比对完全一致，未删除或改写旧记录",
+    "user_services": "Nuxt PID 15472 和 Core PID 69962 未停止或重启",
+    "agent_browser": "Playwright Chromium contexts and browser closed; no owned test servers started",
+    "no_new_snapshot_or_restore": true
+  },
+  "limits": [
+    "验证针对列表加载与渲染，没有重新创建快照，也未宣称备份或整站恢复验收完成",
+    "Core 端空数组规范化需要用户下次重新编译启动后生效；当前本地页面已通过前端兼容修复恢复显示"
+  ]
+}

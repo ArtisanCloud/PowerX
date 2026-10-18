@@ -5,6 +5,9 @@ import (
 	"strings"
 	"time"
 
+	cap "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
@@ -36,11 +39,22 @@ type CreateInput struct {
 	IsImportant bool
 	RelatedID   string
 	RelatedType string
+	Navigation  *Navigation
 	Actions     datatypes.JSON
 	Metadata    datatypes.JSON
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Notification, error) {
+	if input.Navigation != nil {
+		if len(input.Actions) > 0 {
+			return nil, dto.NewErrorWithCode(400, "NOTIFICATION_NAVIGATION_INVALID", "notification.navigation_invalid", nil)
+		}
+		actions, err := NavigationActions(input.Navigation)
+		if err != nil {
+			return nil, err
+		}
+		input.Actions = actions
+	}
 	tenantUUID := strings.ToLower(strings.TrimSpace(input.TenantUUID))
 	if tenantUUID == "" {
 		return nil, gorm.ErrInvalidData
@@ -71,6 +85,19 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Notifi
 		RelatedType: strings.TrimSpace(input.RelatedType),
 		Actions:     input.Actions,
 		Metadata:    input.Metadata,
+	}
+	if item.MemberUUID != "" {
+		if err := NewRecipientAccess(s.db).Require(ctx, tenantUUID, item.MemberUUID); err != nil {
+			return nil, err
+		}
+		item.MemberUUID = uuid.MustParse(item.MemberUUID).String()
+	}
+	if cap.ServiceCredential(ctx) {
+		owner, err := s.authorizedOwner(ctx, CreateCapabilityID)
+		if err != nil {
+			return nil, err
+		}
+		item.ServiceOwner = owner
 	}
 	return s.repo.Create(ctx, item)
 }

@@ -93,12 +93,11 @@ func TestSkillInvokeUnifiedPath(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, http.StatusConflict, resp.Code)
 
 	var payload map[string]interface{}
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &payload))
-	require.Equal(t, "skill", payload["protocol_used"])
-	require.Equal(t, "completed", payload["status"])
+	require.Equal(t, skillservice.ErrDefinitionContractUpgradeRequired.Error(), payload["code"])
 }
 
 func TestSkillInvokeUnifiedPath_WithTenantSourcePolicy(t *testing.T) {
@@ -213,9 +212,9 @@ func TestSkillInvokeUnifiedPath_WithTenantSourcePolicy(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, http.StatusConflict, resp.Code)
 
 	var payload map[string]interface{}
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &payload))
-	require.Equal(t, "skill.policy.builtin.incident-triage", payload["skill_id"])
+	require.Equal(t, skillservice.ErrDefinitionContractUpgradeRequired.Error(), payload["code"])
 }

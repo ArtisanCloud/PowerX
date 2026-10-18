@@ -110,6 +110,9 @@ func (s *Service) policy(ctx context.Context, id string) (Policy, error) {
 	return p, e
 }
 func (s *Service) lock(ctx context.Context, name string) (func(), error) {
+	if name == "" {
+		name = "one-time"
+	}
 	if !labelPattern.MatchString(name) && !validID(name) {
 		return nil, ErrBusy
 	}

@@ -1,6 +1,10 @@
 # V4 计算证据报告：实现与迁移
 
+当前检查点（T203）：[V5 Runtime 与受控历史](../../../specs/024-ai-engineering-skills/runtime-v5-implementation.md) 已接线显式新 Revision 的内置链，部署须先迁移新增证据表；外部工具、固有示例升级和实际浏览器验收尚待后续。本页 V4 协议不变，下文 T199/T200/T202 状态段为各次交付时的记录。
+
 状态：2026-09-08，代码与定向测试已实现，已开展已发布 Skill 的真实 Ollama 验证；完整团队、插件工具和历史 UI 联调仍需独立验收。不能仅因本页存在就宣称 Phase 23 已全部交付。
+
+2026-10-14：T199 的 [工具依赖与结果证据合同](../../../specs/024-ai-engineering-skills/contracts/tool-evidence-contract.md) 已定义 tools/v2、回执 v1、typed 计算端口与目标响应 V5。新版本尚未生产接线，本页 V4 结构和现有运行行为保持原义；不得提前把新 Schema 当作已启用版本或补写旧报告来冒充新执行证据。
 
 ## 执行边界
 
@@ -66,6 +70,10 @@ Skill 通过 `executor.calculation_policy` 声明输入字段、公式和口径�
 发布、Agent 可运行绑定、执行前已调用公共检查函数。内置计算工具要求精确版本与契约；缺依赖阻断。外部依赖要求受信任 checker，未接入时明确报 `skill.tool_dependency_unavailable`。
 
 **仍未交付**：外部 checker 与生产 Capability Registry/租户授权/固定协议执行的完整接线、客户自建插件工具的真实调用验证。现有 Capability executor 仍有固定 `core_internal` 选择，workflow executor 仍返回 unavailable，不能声称任意插件或脚本现在都能执行。不得通过放宽检查绕过这些缺项。
+
+2026-10-14 T200 更新：[三阶段预检实现](../../../specs/024-ai-engineering-skills/dependency-preflight-implementation.md) 已统一接入 Definition 发布、Agent 绑定和 Manifest 执行，读取真实目录、同租户合同、最新 registration 并重新授权；Workflow/脚本等在发布前阻断。上段“完整接线未交付”仍适用于实际版本/实现固定与调用：当前生产未装配 V2 pinning 端口，typed 计算和 V5 未启用。tools/v1 + V4 内置计算保持现有行为，旧外部声明须显式升级，不能把预检通过的测试部署当作真实插件验收。
+
+2026-10-14 T202 更新：[来源与工具证据实现](../../../specs/024-ai-engineering-skills/source-tool-evidence-implementation.md) 已补齐新链来源/输入状态、typed 内置计算、实际字节回执和同次 ledger 校验，内置预检固定实际 Core 发布文件与完整 Schema 摘要。V4 已使用输入冻结/回调隔离及严格 JSON 解码，wire 格式保持 V4。新 V5 Runtime、受控历史、正式外部 adapter 和业务对象 resolver 尚未开放；快照目前仅在同次运行内存，不将此检查点称为真实插件或历史验收。
 
 ## 迁移与测试
 

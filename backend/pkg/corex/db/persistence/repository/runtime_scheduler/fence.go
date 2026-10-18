@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 	"sync"
 	"time"
 
@@ -29,12 +30,14 @@ var fences = struct {
 func (r *JobRepository) WithJobFence(ctx context.Context, id uuid.UUID, fn func(*gorm.DB) error) error {
 	if r.db.Dialector.Name() == "postgres" {
 		return r.db.WithContext(ctx).Connection(func(conn *gorm.DB) error {
+			originalPool := conn.Statement.ConnPool
+			authorizationbaseline.BindConnection(conn)
 			key := "powerx.runtime.scheduler:" + id.String()
 			defer func() {
 				cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 				defer cancel()
 				if conn.WithContext(cleanup).Exec("SELECT pg_advisory_unlock(hashtextextended(?,0))", key).Error != nil {
-					if raw, ok := conn.Statement.ConnPool.(*sql.Conn); ok {
+					if raw, ok := originalPool.(*sql.Conn); ok {
 						_ = raw.Raw(func(any) error { return driver.ErrBadConn })
 					}
 				}

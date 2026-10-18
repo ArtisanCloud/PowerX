@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-18",
+  "scope": "merge_snapshot_results_and_policy_management_into_one_task_section",
+  "interaction": {
+    "section": "快照备份",
+    "removed_separate_sections": ["恢复点", "快照策略"],
+    "main_content": ["current default policy summary", "capture and import actions", "snapshot records"],
+    "policy_management": "Manage policies opens the existing multi-policy table on demand",
+    "editor": "Table and policy editor share one modal; save or back returns to the table; close returns to the original backup workspace",
+    "policy_table_context": "Retained with v-show while editing",
+    "errors": "Policy action and refresh errors are visible inside the open manager",
+    "one_enabled_default_rule": "unchanged",
+    "backend_contract": "unchanged",
+    "progress_transport": "Existing SSE; no state polling added"
+  },
+  "validation": {
+    "frontend_unit_suite": {"passed": 56, "files": 10},
+    "isolated_nuxt_production_build": "passed",
+    "chromium_full_suite": {"passed": 9, "duration_seconds": 45.1},
+    "final_workspace_flow": {"passed": 1, "duration_seconds": 11.7, "viewports": ["1440x1000", "390x844"]},
+    "verified_flows": [
+      "No separate policy tab or hidden duplicate policy section",
+      "Create, edit and activate policies within the same modal",
+      "Keep exactly one enabled default policy",
+      "Closing management reveals updated policy summary and the original snapshot record",
+      "Section changes and reload preserve saved configuration",
+      "Policy maintenance never posts a snapshot creation request",
+      "Policy action failures remain visible in the manager",
+      "Existing event-driven capture, recovery, import and export flows still pass"
+    ],
+    "visual_review": "Desktop and narrow-screen main workspace and manager screenshots inspected; current policy, records and primary actions stay in one task section",
+    "screenshots": "test-results/backup-workspace-final-browser/snapshots-multiple-snapsho-79995-fault-on-desktop-and-mobile-chromium/",
+    "build_log": "test-results/backup-workspace-build.log",
+    "process_record": "test-results/snapshot-browser-processes.json"
+  },
+  "acceptance_boundary": {
+    "browser_backend": "Controlled fixture with the real built Nuxt UI and API client",
+    "user_services_restarted": false,
+    "actual_user_policies_or_backups_changed_by_agent": false,
+    "agent_fixture_services_left_running": false,
+    "production_changed": false,
+    "whole_application_restore_accepted": false
+  }
+}

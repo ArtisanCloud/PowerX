@@ -1,0 +1,50 @@
+{
+  "validated_at": "2026-10-15T12:56:13.248Z",
+  "scope": "Local test database cleanup and database-backup list views",
+  "local_cleanup": {
+    "environment": "dev",
+    "before_jobs": 32,
+    "deleted_unreferenced_jobs_without_files": 23,
+    "deleted_unavailable_artifact_metadata": 23,
+    "after_jobs": 9,
+    "retained_registered_backups": 8,
+    "retained_referenced_history": 1,
+    "backup_files_deleted": 0,
+    "remote_changed": false,
+    "private_metadata_backup": "test-results/backup-history-cleanup/deleted-records.json"
+  },
+  "implementation": {
+    "default_view": "available",
+    "history_view": "all executions retained; switching views does not delete records",
+    "available_condition": "Successful job with non-empty URI on its latest non-deleted artifact; filtered before count/pagination",
+    "file_integrity": "File registration is shown separately; actual existence/checksum verification occurs on restore",
+    "compatibility": "Omitting view preserves old list behavior",
+    "local_backend_restart_required": true
+  },
+  "validation": {
+    "go_affected_packages_passed": true,
+    "go_vet_passed": true,
+    "repository_regression": "Pagination and totals, policy/status filters, soft-deleted and empty registrations, duplicate artifacts, latest-record semantics",
+    "actual_postgres_read_only_counts": {
+      "available": 8,
+      "history": 9
+    },
+    "frontend_unit_tests_passed": 40,
+    "chromium_mock_api_flows_passed": 5,
+    "new_flow_viewports": [
+      "1440x1000",
+      "390x844"
+    ],
+    "nuxt_build_passed": true,
+    "fixture_processes_released": true,
+    "fixture_ports": [
+      3477,
+      3478
+    ]
+  },
+  "limits": [
+    "Production was not changed",
+    "Existing user Core/Web processes were not restarted; updated server filter requires local backend restart",
+    "Browser API was a controlled fixture; actual PostgreSQL repository filtering was checked separately"
+  ]
+}

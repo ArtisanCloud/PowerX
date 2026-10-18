@@ -104,7 +104,7 @@ func TestSkillAgentNoIntentFallbackToNormalReply(t *testing.T) {
 
 	sink := &captureSink{}
 	ctx := reqctx.WithTraceID(reqctx.WithTenantUUID(context.Background(), "tenant-no-intent"), "trace-no-intent")
-	out, plan, err := runtime.NewEngine().RunPlanInvoke(ctx, "%%% no intent sentence %%%", nil, "", sink)
+	out, plan, err := runtime.NewEngine().RunPlanInvoke(withMessageTrace(ctx), "%%% no intent sentence %%%", nil, "", sink)
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Nil(t, plan)

@@ -74,6 +74,7 @@ type Entry struct {
 }
 type Job struct {
 	ID                   string    `json:"id"`
+	OneTime              bool      `json:"one_time,omitempty"`
 	PolicyID             string    `json:"policy_id"`
 	SourceID             string    `json:"source_id"`
 	Kind                 string    `json:"kind"`

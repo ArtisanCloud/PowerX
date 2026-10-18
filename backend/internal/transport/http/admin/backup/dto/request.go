@@ -31,7 +31,8 @@ type BackupPolicyUpdateRequest struct {
 }
 
 type BackupJobRunRequest struct {
-	PolicyID string `json:"policy_id" binding:"required"`
+	PolicyID string `json:"policy_id"`
+	OneTime  bool   `json:"one_time"`
 }
 
 type RestoreDrillRunRequest struct {

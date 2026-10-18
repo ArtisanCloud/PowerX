@@ -27,6 +27,8 @@ dist-systemd:
 	(cd backend && go build -ldflags "-X main.version=$(DIST_VERSION) -X main.commit=$(DIST_SOURCE_COMMIT) -X main.buildTime=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/database" ./cmd/database); \
 	echo "[dist] build archive worker"; \
 	(cd backend && go build -ldflags "-X main.version=$(DIST_VERSION) -X main.commit=$(DIST_SOURCE_COMMIT) -X main.buildTime=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/archive-worker" ./cmd/archive_worker); \
+	echo "[dist] build snapshot package tool"; \
+	(cd backend && go build -ldflags "-X main.version=$(DIST_VERSION) -X main.commit=$(DIST_SOURCE_COMMIT) -X main.buildTime=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/snapshot-tool" ./cmd/snapshot_tool); \
 	echo "[dist] build platform capability seed tool"; \
 	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/platform_capability_seed" ./cmd/platform_capability_seed); \
 	echo "[dist] build media tool"; \

@@ -13,10 +13,24 @@ CAPABILITY_GEN_OPENAPI ?= api/openapi/swagger.json
 CAPABILITY_GEN_PROTO ?= api/grpc/contracts
 CAPABILITY_GEN_GIN ?= internal/transport/http
 CAPABILITY_GEN_FLAGS ?=
+RECOVERY_PROFILE ?=
 
 # 启动开发服务器
 .PHONY: dev dev-agent dev-demo dev-watch capability-sync capability-gen capability-gen-dry
+ifneq ($(strip $(RECOVERY_PROFILE)),)
+dev: dev-managed
+else
 dev: dev-demo
+endif
+
+# An existing managed installation retains its independent recovery entry on
+# every normal restart, including when the business service cannot start.
+.PHONY: dev-managed
+dev-managed:
+	@test -n "$(RECOVERY_PROFILE)" || (echo "请指定私有 RECOVERY_PROFILE" && exit 1)
+	@mkdir -p backend/bin
+	@cd backend && $(GO) build -o bin/snapshot-tool ./cmd/snapshot_tool
+	@backend/bin/snapshot-tool -action coordinator -profile "$(RECOVERY_PROFILE)"
 
 # 启动 Agent 服务
 dev-agent:
@@ -291,3 +305,15 @@ dev-status:
 	@command -v swag > /dev/null && echo "✅ Swag (API文档)" || echo "❌ Swag (未安装)"
 	@command -v dlv > /dev/null && echo "✅ Delve (调试器)" || echo "❌ Delve (未安装)"
 	@command -v mockgen > /dev/null && echo "✅ MockGen (Mock生成)" || echo "❌ MockGen (未安装)"
+
+# Owns a private installation and its recovery entry; ordinary services stay
+# user-managed. The preflight checks ports before changing any build directory.
+RECOVERY_LOCAL_FLAGS ?=
+.PHONY: dev-recovery
+dev-recovery:
+	@mkdir -p backend/bin
+	@cd backend && $(GO) build -o bin/snapshot-tool ./cmd/snapshot_tool
+	@cd backend && ./bin/snapshot-tool -action local-preflight $(RECOVERY_LOCAL_FLAGS)
+	@cd backend && $(GO) build -o bin/powerx ./cmd/app
+	@cd web-admin && POWERX_NUXT_BUILD_DIR="$(CURDIR)/web-admin/.nuxt-recovery" POWERX_NITRO_OUTPUT_DIR="$(CURDIR)/web-admin/.output-recovery" npm run build
+	@cd backend && POWERX_WEB_OUTPUT="$(CURDIR)/web-admin/.output-recovery" ./bin/snapshot-tool -action local -config etc/config.yaml -core-binary bin/powerx $(RECOVERY_LOCAL_FLAGS)

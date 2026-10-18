@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
@@ -316,10 +317,28 @@ func (r *AssetRepository) CreateVariant(ctx context.Context, variant *mediamodel
 	if variant == nil {
 		return nil, errors.New("variant 不能为空")
 	}
-	if err := r.db.WithContext(ctx).Create(variant).Error; err != nil {
-		return nil, err
-	}
-	return variant, nil
+	var result *mediamodel.MediaAssetVariant
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var parent mediamodel.MediaAsset
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", variant.TenantUUID, variant.AssetUUID).First(&parent).Error; err != nil {
+			return err
+		}
+		var existing mediamodel.MediaAssetVariant
+		err := tx.Where("tenant_uuid = ? AND asset_uuid = ? AND variant = ?", variant.TenantUUID, variant.AssetUUID, variant.Variant).First(&existing).Error
+		if err == nil {
+			result = &existing
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := tx.Create(variant).Error; err != nil {
+			return err
+		}
+		result = variant
+		return nil
+	})
+	return result, err
 }
 
 // UpdateVariant 更新媒体资源版本。

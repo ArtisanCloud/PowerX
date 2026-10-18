@@ -39,6 +39,10 @@
 - [Docker 镜像存储策略（独立讨论）](./image-registry-strategy.md)
 - [生产日志方案：Loki + Grafana](./logging-loki-grafana.md)
 - [生产数据库备份与清理策略](./db-backup-and-retention.md)
+- [系统快照、隔离验证与整套切换](../../guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md)
+- [统一快照包与隔离数据副本操作](../../guides/deploy/027-monitor-center/usecase-us8-snapshot-packages.md)
+- [系统快照与统一恢复计划（本地实现完成）](./system-snapshot-and-restore.md)
+- [系统快照本地／生产两轮验收（生产待执行）](../../guides/deploy/027-monitor-center/usecase-us8-system-snapshot-acceptance.md)
 - [数据库备份任务模板（脚本 + 定时任务）](./db-backup-job-templates.md)
 - [PowerX 实例迁移指南（A -> B，含表结构）](./powerx-instance-migration.md)
 - [运维管理控制台路线图（页面/API/权限/分期）](./management-console-roadmap.md)
@@ -104,6 +108,8 @@
 - 插件发布：安装不启用 -> 健康验证 -> 切换版本 -> 观察窗口 -> 清理旧版本（可选）
 
 ## 7. 预发布与门禁
+
+备份恢复的目标验收单位是完整系统快照；数据库、媒体、配置和版本必须属于同一恢复点。现有组件级备份继续使用，不因计划文档自动迁移策略。统一恢复先在本地验证，再取得部署后真实 scheduled 完整包，在独立本地／开发环境验收；不能把构建通过或数据库副本创建成功视为整站恢复成功。
 
 - 发布前阻断：`bash backend/scripts/ops/pre-release-gate.sh`
 - 覆盖率门禁（默认 >=80%）：`bash backend/scripts/ci/coverage-gate.sh`

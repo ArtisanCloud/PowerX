@@ -1,3 +1,4 @@
+import { sessionScopeParams, type ChatSessionScope } from "~/utils/agent/sessionScope";
 import { readAuthSession } from "~/utils/auth-session";
 // app/composables/agent/useDualChannelConnection.ts
 import {
@@ -52,7 +53,8 @@ export interface DualChannelConnection {
 
 export function useDualChannelConnection(
   agentId?: Ref<string | null>,
-  sessionId?: Ref<string | null>
+  sessionId?: Ref<string | null>,
+  workspace?: { scope: Ref<ChatSessionScope>; key: Ref<string> }
 ): DualChannelConnection {
   const config = useRuntimeConfig();
   const { t } = useI18n();
@@ -74,14 +76,12 @@ export function useDualChannelConnection(
   let lastSseProbeAt = 0;
   let currentTraceMeta: Record<string, any> = {};
 
-  watch(sessionId, (newSessionId, oldSessionId) => {
+  const cacheKey = (id: string, scope = workspace?.key.value) => scope ? JSON.stringify([scope, id]) : id;
+  watch([() => workspace?.key.value || '', () => sessionId?.value], ([scope, newSessionId], [oldScope, oldSessionId]) => {
     if (oldSessionId && messages.value.length > 0) {
-      messageStore.setMessages(String(oldSessionId), messages.value);
+      messageStore.setMessages(cacheKey(String(oldSessionId), oldScope), messages.value);
     }
-    if (newSessionId) {
-      const cached = messageStore.getMessagesBySession(String(newSessionId));
-      if (cached.length > 0) messages.value = cached;
-    }
+    messages.value = newSessionId ? [...messageStore.getMessagesBySession(cacheKey(String(newSessionId), scope))] : [];
   });
 
   let wsConnection: WebSocket | null = null;
@@ -112,7 +112,7 @@ export function useDualChannelConnection(
       const context = JSON.parse(localStorage.getItem("user-store") || "{}")?.context;
       const user = String(userStore.user?.id || context?.user?.uuid || context?.user?.id || "");
       const tenant = userStore.currentTenantUuid || getCurrentTenantUuid();
-      return user && tenant ? `${user}:${tenant}:${getEnv()}` : "";
+      return user && tenant ? `${user}:${tenant}:${getEnv()}${workspace ? `:${workspace.key.value}` : ""}` : "";
     } catch { return ""; }
   };
   const getPendingRun = (forAgent?: string, forSession?: string): PendingDurableRun | null => {
@@ -401,6 +401,7 @@ export function useDualChannelConnection(
       .slice(2, 9)}`;
     currentRequestId.value = requestId;
 
+    const workspaceParams = workspace ? sessionScopeParams(workspace.scope.value) : {};
     const params: Record<string, any> = {
       q: message,
       env: getEnv(),
@@ -419,13 +420,15 @@ export function useDualChannelConnection(
       Object.assign(params, meta);
     }
 
+    Object.assign(params, workspaceParams);
+
     // 你现在用 mock 流
     // const url = buildHttpUrl("/agents/stream/mock", params);
     const scope = runStorageScope();
     const requestAgent = String(agentId?.value || "");
     const requestSession = String(sessionId?.value || "");
     let acceptedRunId = resumedRun?.runId || "";
-    const url = buildHttpUrl("/agents/stream/sse", resumedRun ? durableResumeParams(resumedRun.runId, getEnv()) : params);
+    const url = buildHttpUrl("/agents/stream/sse", resumedRun ? { ...durableResumeParams(resumedRun.runId, getEnv()), ...workspaceParams } : params);
 
     try {
       const resp = await fetch(url, {
@@ -443,7 +446,7 @@ export function useDualChannelConnection(
       if (!initialReader) throw new Error("无法读取 SSE 流");
       const reader = durableSseReader(initialReader, async (runId, cursor) => {
         const resumed = await fetch(buildHttpUrl("/agents/stream/sse", {
-          env: getEnv(), run_id: runId, after_seq: cursor,
+          env: getEnv(), run_id: runId, after_seq: cursor, ...workspaceParams,
         }), {
           method: "GET",
           headers: { Accept: "text/event-stream", "Cache-Control": "no-cache", Authorization: `${getTokenType()} ${getAuthToken()}` },
@@ -1032,8 +1035,9 @@ export function useDualChannelConnection(
               },
             };
             const responseEnvelope = payload?.data?.response_envelope;
-            if (responseEnvelope?.schema === "powerx.agent.response/v4") {
+            if (["powerx.agent.response/v4", "powerx.agent.response/v5"].includes(responseEnvelope?.schema)) {
               answer.meta.responseEnvelope = responseEnvelope;
+              answer.meta.responseLabels = payload?.data?.response_labels;
             }
 
             // 6) FINAL 收尾

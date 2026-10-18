@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	aschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
@@ -595,17 +596,22 @@ func (m *Manager) failPlanTraceNode(ctx context.Context, meta agenttrace.AgentRu
 	if runErr != nil {
 		summary = runErr.Error()
 	}
+	code, stage := "AGENT_PLAN_TASK_FAILED", ""
+	if failure, ok := evidence.FailureDetails(runErr); ok {
+		code, stage = failure.Code, failure.Stage
+	}
 	_ = logger.FailNode(ctx, agenttrace.AgentTraceNodeFailure{
 		AgentTraceNodeResult: agenttrace.AgentTraceNodeResult{
-			AgentRunMeta: meta,
-			NodeID:       task.TaskID,
-			NodeSeq:      seq,
-			NodeKind:     kind,
-			NodeRef:      nodeRef,
-			StartedAt:    startedAt.UTC(),
-			EndedAt:      time.Now().UTC(),
+			AgentRunMeta:  meta,
+			NodeID:        task.TaskID,
+			NodeSeq:       seq,
+			NodeKind:      kind,
+			NodeRef:       nodeRef,
+			StartedAt:     startedAt.UTC(),
+			EndedAt:       time.Now().UTC(),
+			OutputSummary: map[string]any{"failure_stage": stage},
 		},
-		ErrorCode:    "AGENT_PLAN_TASK_FAILED",
+		ErrorCode:    code,
 		ErrorSummary: summary,
 	})
 }
@@ -797,6 +803,7 @@ func (m *Manager) executeAgentHandoffTask(ctx context.Context, t flowschema.Plan
 }
 
 func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, params flowschema.Context, mt aschema.ExecutionMeta, ref string) (*aschema.ExecutionResult, error) {
+	ctx = evidence.WithInvocationScope(ctx, asString(mt.Metadata["run_id"]), t.TaskID)
 	m.mu.RLock()
 	inv := m.skillInvoker
 	m.mu.RUnlock()
@@ -823,6 +830,13 @@ func (m *Manager) executeSkillTask(ctx context.Context, t flowschema.PlanTask, p
 		Payload:          payloadFromTaskParams(t, params),
 		Context:          contextFromTaskParams(t, params),
 		ToolGrantIDs:     toStringSlice(params["tool_grant_ids"]),
+	}
+	// A planner may summarize or replace task parameters, including nested
+	// payloads and materialized references. Evidence must retain the exact user
+	// source restored at ingress. Explicit structured tools use their own typed
+	// input proof and may legitimately declare a numeric field named message.
+	if message, ok := originalUserMessage(ctx); ok && evidence.StructuredToolInputDeclaration(ctx) == nil {
+		in.Payload["message"] = message
 	}
 	// The request locale is declared and validated at the runtime boundary. A
 	// planner-generated task does not repeat it in Params, so carry that

@@ -6,13 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 )
 
@@ -139,23 +141,14 @@ func Decode(raw []byte, target any) error {
 	if len(raw) > 1024*1024 {
 		return fmt.Errorf("agent.response_contract_limit_exceeded")
 	}
+	if err := utils.DecodeStrictJSON(raw, target); err != nil {
+		return fmt.Errorf("agent.response_contract_invalid: %w", err)
+	}
 	var shape any
 	if err := json.Unmarshal(raw, &shape); err != nil {
 		return err
 	}
-	if err := requireFields(shape, reflect.TypeOf(target)); err != nil {
-		return err
-	}
-	d := json.NewDecoder(bytes.NewReader(raw))
-	d.DisallowUnknownFields()
-	if err := d.Decode(target); err != nil {
-		return fmt.Errorf("agent.response_contract_invalid: %w", err)
-	}
-	var tail any
-	if d.Decode(&tail) != io.EOF {
-		return fmt.Errorf("agent.response_contract_invalid: trailing_json")
-	}
-	return nil
+	return requireFields(shape, reflect.TypeOf(target))
 }
 
 // Required fields cannot silently turn into Go zero values (notably precision and percent).
@@ -292,7 +285,7 @@ func compileDraft(ctx context.Context, draft Draft, payload map[string]any, allo
 		validQuote := d.Source.Quote != "" && containsQuotedNumericToken(text, d.Source.Quote, lexeme)
 		if !validQuote && d.Unit != "" {
 			// Whitespace between an explicitly supplied numeric token and unit is lexical formatting.
-			pattern := regexp.MustCompile(regexp.QuoteMeta(d.Source.Literal) + `[ \t]+` + regexp.QuoteMeta(d.Unit))
+			pattern := regexp.MustCompile(regexp.QuoteMeta(d.Source.Literal) + `[[:space:]\p{Z}]+` + regexp.QuoteMeta(d.Unit))
 			for _, literalWithUnit := range pattern.FindAllString(d.Source.Quote, -1) {
 				if containsQuotedNumericToken(text, d.Source.Quote, literalWithUnit) {
 					validQuote = true
@@ -409,9 +402,9 @@ func sealReport(ctx context.Context, report Report, preparing bool) (map[string]
 	return out, nil
 }
 
-// Validate boundaries in the actual input, not just a model-selected substring.
+// Validate boundaries in the actual input, including Unicode spaces and format characters.
 func containsQuotedNumericToken(text, quote, lexeme string) bool {
-	if !containsNumericToken(quote, lexeme) {
+	if quote == "" || lexeme == "" {
 		return false
 	}
 	for offset := 0; offset < len(text); {
@@ -420,18 +413,16 @@ func containsQuotedNumericToken(text, quote, lexeme string) bool {
 			return false
 		}
 		i += offset
-		start, end := i, i+len(quote)
-		if start > 0 {
-			start--
-		}
-		if end < len(text) {
-			end++
-		}
-		if strings.HasPrefix(text[i+len(quote):], "％") {
-			end = i + len(quote) + len("％")
-		}
-		if containsNumericToken(text[start:end], lexeme) {
-			return true
+		for local := 0; local < len(quote); {
+			j := strings.Index(quote[local:], lexeme)
+			if j < 0 {
+				break
+			}
+			j += local
+			if numericTokenBoundary(text, i+j, i+j+len(lexeme)) {
+				return true
+			}
+			local = j + len(lexeme)
 		}
 		offset = i + len(quote)
 	}
@@ -439,19 +430,29 @@ func containsQuotedNumericToken(text, quote, lexeme string) bool {
 }
 
 func containsNumericToken(quote, lexeme string) bool {
-	for offset := 0; offset < len(quote); {
-		idx := strings.Index(quote[offset:], lexeme)
-		if idx < 0 {
+	return containsQuotedNumericToken(quote, quote, lexeme)
+}
+
+func trimNumericSpace(s string) string { return strings.TrimLeftFunc(s, unicode.IsSpace) }
+
+// Invisible format/control characters cannot separate a number from its unit.
+func numericTokenBoundary(text string, start, end int) bool {
+	if start > 0 {
+		r, _ := utf8.DecodeLastRuneInString(text[:start])
+		if strings.ContainsRune("0123456789.,+-", r) || unicode.Is(unicode.Cf, r) || (unicode.IsControl(r) && !unicode.IsSpace(r)) {
 			return false
 		}
-		idx += offset
-		end := idx + len(lexeme)
-		badBefore := idx > 0 && strings.ContainsRune("0123456789.,+-", rune(quote[idx-1]))
-		badAfter := end < len(quote) && strings.ContainsRune("0123456789.,%", rune(quote[end]))
-		if !badBefore && !badAfter && !strings.HasPrefix(quote[end:], "％") {
-			return true
-		}
-		offset = end
 	}
-	return false
+	if end < len(text) {
+		r, _ := utf8.DecodeRuneInString(text[end:])
+		if strings.ContainsRune("0123456789.,%％", r) || unicode.Is(unicode.Cf, r) || (unicode.IsControl(r) && !unicode.IsSpace(r)) {
+			return false
+		}
+		// Even a quote ending before whitespace must not discard a following percent sign.
+		r, _ = utf8.DecodeRuneInString(trimNumericSpace(text[end:]))
+		if r == '%' || r == '％' || unicode.Is(unicode.Cf, r) || (unicode.IsControl(r) && !unicode.IsSpace(r)) {
+			return false
+		}
+	}
+	return true
 }

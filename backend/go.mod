@@ -4,6 +4,7 @@ go 1.26.7
 
 require (
 	github.com/cloudwego/eino v0.4.4
+	github.com/fsnotify/fsnotify v1.4.7
 	github.com/getkin/kin-openapi v0.118.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-playground/validator/v10 v10.20.0

@@ -1,0 +1,45 @@
+{
+  "validated_at": "2026-10-15T13:27:15.300Z",
+  "scope": "Backup center layout and global product-design governance",
+  "global_rule": "/Users/michaelhu/.codex/AGENTS.md",
+  "project_rule": "AGENTS.md",
+  "layout": {
+    "top_categories": "preserved",
+    "desktop": "left vertical task tabs and right current panel",
+    "narrow": "task selector for the same sections",
+    "categories": [
+      "system snapshots",
+      "database backups",
+      "media and logs",
+      "runtime configuration",
+      "usage guide"
+    ],
+    "database_default": "backup files",
+    "context_preservation": "Inactive panels remain mounted; drafts, references and active-job polling survive section changes",
+    "progress": "Restore actions open the appropriate section; active or failed managed recovery remains discoverable from other sections"
+  },
+  "validation": {
+    "frontend_unit_tests_passed": 44,
+    "chromium_controlled_api_flows_passed": 6,
+    "viewports": [
+      "1440x1000",
+      "390x844"
+    ],
+    "keyboard_and_native_selector_tested": true,
+    "draft_retention_tested": true,
+    "polling_after_navigation_tested": true,
+    "managed_recovery_auto_navigation_tested": true,
+    "nuxt_production_build_passed": true,
+    "screenshots_visually_checked": true,
+    "fixture_processes_stopped": true,
+    "fixture_ports_released": [
+      3477,
+      3478
+    ]
+  },
+  "limits": [
+    "Browser API uses a controlled fixture",
+    "Existing user browser was not connected to computer-use tools",
+    "Existing user Core/Web services and production were not restarted or changed"
+  ]
+}

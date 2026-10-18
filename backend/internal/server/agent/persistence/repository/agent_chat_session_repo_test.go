@@ -85,6 +85,8 @@ func setupAgentChatSessionDB(t *testing.T) *gorm.DB {
 			env TEXT,
 			tenant_uuid TEXT,
 			agent_id INTEGER NOT NULL,
+			session_type TEXT NOT NULL DEFAULT 'legacy',
+			team_id INTEGER NOT NULL DEFAULT 0,
 			user_id INTEGER,
 			title TEXT,
 			singleton BOOLEAN,
@@ -100,4 +102,37 @@ func setupAgentChatSessionDB(t *testing.T) *gorm.DB {
 		)
 	`).Error)
 	return db
+}
+
+func TestSessionListsAndSingletonsAreScopedByWorkspace(t *testing.T) {
+	db := setupAgentChatSessionDB(t)
+	repo := NewAgentChatSessionRepository(db)
+	tenant := "tenant-a"
+	ctx := context.Background()
+	scopes := []dbmodel.ChatSessionScope{{SessionType: "agent"}, {SessionType: "team", TeamID: 3}, {SessionType: "team", TeamID: 4}}
+	ids := map[uint64]bool{}
+	for _, scope := range scopes {
+		defaults := dbmodel.AgentChatSession{SessionType: scope.SessionType, TeamID: scope.TeamID}
+		created, err := repo.GetOrCreate(ctx, "dev", &tenant, 8, 1, true, defaults)
+		require.NoError(t, err)
+		require.False(t, ids[created.ID])
+		ids[created.ID] = true
+		again, err := repo.GetOrCreate(ctx, "dev", &tenant, 8, 1, true, defaults)
+		require.NoError(t, err)
+		require.Equal(t, created.ID, again.ID)
+		listed, err := repo.ListByAgent(ctx, "dev", &tenant, 8, nil, 50, 0, scope)
+		require.NoError(t, err)
+		require.Len(t, listed, 1)
+		require.Equal(t, created.ID, listed[0].ID)
+	}
+	legacy := dbmodel.AgentChatSession{Env: "dev", TenantUUID: &tenant, AgentID: 8, SessionType: "legacy", Status: "active"}
+	require.NoError(t, db.Create(&legacy).Error)
+	listed, err := repo.ListByAgent(ctx, "dev", &tenant, 8, nil, 50, 0)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.Equal(t, "agent", listed[0].SessionType)
+	other := "tenant-b"
+	listed, err = repo.ListByAgent(ctx, "dev", &other, 8, nil, 50, 0)
+	require.NoError(t, err)
+	require.Empty(t, listed)
 }

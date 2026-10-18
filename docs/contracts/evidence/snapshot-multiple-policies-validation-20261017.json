@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-17",
+  "scope": "multiple_named_snapshot_policies_with_one_enabled_default",
+  "behavior": {
+    "multiple_snapshot_packages": true,
+    "policy_management": "Table with create, edit, enable as default and disable actions",
+    "max_saved_policies": 100,
+    "max_enabled_policies": 1,
+    "all_policies_may_be_disabled": true,
+    "activation": "One atomic ledger commit switches default identity, enables the selected policy and disables other policies",
+    "activation_starts_capture_immediately": false,
+    "manual_capture": "Uses the selected default configuration even when automatic capture is disabled",
+    "defaults": {"enabled": false, "interval_minutes": 1440, "retention_days": 7, "retention_count": 7},
+    "snapshot_association": "policy_id and creation-time policy_name",
+    "retention": "Per policy, preserving each group's latest package and protected packages; a default switch does not apply the new policy's limits to another policy's packages",
+    "progress_transport": "Existing shared SSE; no page polling added"
+  },
+  "compatibility": {
+    "legacy_single_policy": "Read without modifying its values or schedule anchor, using a stable identity",
+    "first_policy_write": "Commits the complete collection and default choice to private policies.json; original policy.json retained",
+    "legacy_put_policy": "Still supported, updates only the current default configuration",
+    "business_database_migration_required": false,
+    "contract_version": "OpenAPI 0.3.0"
+  },
+  "validation": {
+    "go_full_affected_packages": "snapshot_ops, admin/backup and system_recovery passed",
+    "go_race": "Policy migration, exclusive selection, concurrent activation, selected-policy scheduling, retention isolation and authenticated HTTP policy APIs passed",
+    "go_vet": "passed",
+    "linux_amd64_app_and_snapshot_tool_build": "passed",
+    "frontend_unit_suite": {"passed": 55, "files": 10},
+    "final_panel_unit_regression": {"passed": 8},
+    "isolated_nuxt_production_build": "passed",
+    "full_chromium_suite": {"passed": 9, "duration": "1.7m"},
+    "final_policy_browser_case": {"passed": 1, "duration_seconds": 11.7, "viewports": ["1440x1000", "390x844"]},
+    "browser_policy_flow": [
+      "Edit the existing daily policy without adding a duplicate",
+      "Create another named policy and display two table rows",
+      "Enable the first policy, then switch the default to the second",
+      "Verify exactly one enabled row and one default marker",
+      "Keep configuration and selection after section changes and reload",
+      "Disable automatic capture while retaining both configurations",
+      "Verify no snapshot POST occurs during policy maintenance"
+    ],
+    "narrow_screen_review": "Fixed name column and vertically arranged action buttons retain row identity while horizontally scrolling; name/action bounding boxes do not overlap",
+    "initial_visual_finding": "A normal scrolling table lost row names when actions were scrolled into view; corrected before final acceptance",
+    "initial_visual_evidence": "test-results/backup-policies-mobile-before.png",
+    "test_fixture_correction": "The first scheduler test seed lacked its required idempotency ledger; added a valid fixture request ledger and reran successfully",
+    "final_screenshots": "test-results/backup-policies-final-browser/snapshots-multiple-snapsho-79995-fault-on-desktop-and-mobile-chromium/",
+    "build_log": "test-results/backup-policies-build.log",
+    "process_record": "test-results/snapshot-browser-processes.json"
+  },
+  "acceptance_boundary": {
+    "browser_backend": "Controlled fixture using the real built Nuxt UI, API client and proxy",
+    "go_http_tests": "Real JWT middleware and private temporary filesystem ledgers with fixture capture sources",
+    "actual_user_policy_modified_by_agent": false,
+    "user_services_restarted_by_agent": false,
+    "installed_acceptance": "Pending user Core restart and page refresh",
+    "agent_fixture_services_left_running": false,
+    "production_changed": false,
+    "whole_application_restore_accepted": false
+  }
+}

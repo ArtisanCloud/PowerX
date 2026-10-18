@@ -96,7 +96,8 @@ func TestTenantInvokesPlatformMediaCapability(t *testing.T) {
 	require.Equal(t, "com.corex.media.assets.manage", invoker.lastInput.CapabilityID)
 	require.Equal(t, tenantUUID, invoker.lastInput.TenantUUID)
 	require.Equal(t, "rest", invoker.lastInput.PreferredProtocol)
-	require.Equal(t, "media.assets", invoker.lastInput.Context["tool_scope"])
+	require.Equal(t, "media.assets", invoker.lastInput.ResolvedToolScope)
+	require.Empty(t, invoker.lastInput.Context)
 }
 
 func initCapabilityDB(t *testing.T) *gorm.DB {

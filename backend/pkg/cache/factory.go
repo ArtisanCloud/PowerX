@@ -16,7 +16,9 @@ func NewCache(cfg *CacheConfig) (ICache, error) {
 			Password: cfg.Password,
 			DB:       cfg.DB,
 		})
-		return NewRedisCache(c), nil
+		store := NewRedisCache(c)
+		store.namespace = cfg.Namespace
+		return store, nil
 
 	default:
 		return nil, errors.New("invalid cache driver")

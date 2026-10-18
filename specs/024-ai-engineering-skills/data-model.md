@@ -100,6 +100,22 @@
 - **迁移目标**: Runtime 将只解析已发布的 `SkillDefinitionRevision`，Registry 保留为目录/安装索引，直至其完全收敛为发布 revision 的投影。
 - **规则**: 新建或更新用户 Skill 必须走 `SkillPackageSource → SkillDefinitionDraft → SkillDefinitionRevision`，不得直接把本地或远程包写成可运行 Registry 记录。
 
+## Phase 23 工具与证据模型（T199～T204）
+
+权威设计见 [工具依赖与证据合同](contracts/tool-evidence-contract.md) 和 [JSON Schema bundle](contracts/tool-evidence.v1.schema.json)。T200/T202/T203 的实现与受控历史接线见 [T203 实现记录](runtime-v5-implementation.md)；[T204 插件记录](plugin-tool-example-implementation.md) 增加固定原生 HTTP 工具及可选 archive agent_uuid，实际部署验收仍归 T205。
+
+- **ToolRequirementsV2**：存于 Revision 的 `definition_json.tool_dependencies`，版本 `powerx.skill-tools/v2`。固定依赖 key、精确工具版本、Schema 摘要、权限与 builtin/capability binding；Capability 同时固定能力/合同 UUID、provider 版本、实现摘要及协议。发布、绑定、执行共用检查服务。
+- **ResolvedDatum**：datum/source/object/snapshot 使用 UUID；记录不可变快照摘要、Pointer、quote、UTF-8 范围、原数值/单位/口径和输入状态。授权来源不等于事实已核实，重复引用不能提高可信状态。
+- **ToolExecutionReceiptV1**：版本 `powerx.tool-receipt/v1`，由受信任 adapter 和 ledger 记录实际执行身份、授权决定、run/trace/node/attempt、typed 输入输出产物、时间及状态。Schema 合法或摘要相同不能替代 ledger 验真。
+- **TypedCalculationV1**：`powerx.calculation.request/v1` 与 `powerx.calculation.result/v1` 对应目标工具 evaluate@2.0.0，复用已有受限算术；保留现有 evaluate@1.0.0 的旧合同，不能静默改名。
+- **EvidenceReportV5**：版本 `powerx.agent.response/v5`，含 reported/computed/conflicts/gaps/hypotheses/actions 及所引用回执。computed 只引用真实 succeeded 输出，旧 V4 保持原义和只读历史，不伪造迁移凭证。
+
+T203 新增 `agent_evidence_snapshots` 模型并挂入集中 migration，当前只交付迁移代码，没有执行实际数据库迁移。`tenant_uuid + subject_uuid` 限定用户所有权，另含 Revision/run/trace、归档 SHA256、`payload BYTEA`、status 和公共 UUID/软删除字段。归档保存实际快照/请求/输出/回执，字节使用 base64，不能用 JSONB 重排破坏摘要；历史读取不重算、不获取当前对象、不导入运行 ledger。status=0、清理、无权、篡改或缺失时投影为证据不可用。
+
+`response_labels=powerx.response-labels/v1` 保存原 Revision locale 标签；`response_evidence=powerx.run-evidence/v1` 只携带归档 UUID/摘要，两者位于消息 metadata，不改 V5 字段。新计算策略 `powerx.skill-calculation-policy/v3` 明确每个输入 scope 和公式结果单位；旧策略 v2 及 V4 不自动迁移。持久化任务/事件/Trace 的可选 `failure_stage` 与 `reason_code` 保留相同系统失败原因，不增加状态枚举。
+
+T204 归档 metadata 可选 `agent_uuid` 固定实际受权 Agent；读取 capability 历史时重新检查 Agent grant、租户 registration 和用户权限。字段位于现有 BYTEA 原件，不新增数据库列或 V5 字段。新增独立 plugin-tool-contract/v1 与 structured-tool-input/v1 JSON 合同，持久化输入仅保存原始声明，不序列化私有来源权威。其来源、安全与 Schema 限制见 T204 记录。
+
 ## OfficialSkillCatalogEntry
 - **标识**: `catalog_skill_id`
 - **核心字段**:
@@ -441,6 +457,13 @@
   - Trace/Report 存储不替代业务会话主数据。
   - PostgreSQL 默认保存 session/message/message meta、结构化摘要、context_ref、checksum、artifact URI 与配置；完整 prompt、完整上下文正文、tool payload、executor result 不默认入库。
   - Root 调试页面的上下文状态面板读取 message meta 与 Agent Trace 节点摘要；完整上下文正文必须通过受控 Trace artifact、Loki body 或对象存储引用下载。
+
+## AgentChatSession 工作区归属（2026-10-15 修复）
+
+- `agent_chat_sessions.session_type`：`agent|team|legacy`。迁移旧行默认 `legacy`；新会话由服务显式指定类型。
+- `team_id`：团队会话的固定归属 ID；单聊和待确认历史为 `0`。既有 `agent_id` 继续记录独立 Agent 或创建时负责人。
+- 类型与团队在创建后不可随页面切换改变。列表、Singleton、历史、发送、重试和 Run 续订统一遵守归属；前端按用户、租户、环境、类型、团队分区缓存。
+- 旧记录仅依据完整一致的服务端执行回合回填；无法确认或混合模式记录保留待确认且禁止继续执行。详见 [会话契约](../../docs/contracts/agent-chat-sessions.md)。
 
 ## AgentChatSession Summary Schema（扩展）
 - **目标**: 从纯文本摘要升级为结构化摘要。

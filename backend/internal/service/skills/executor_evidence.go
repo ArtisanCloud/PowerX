@@ -29,8 +29,19 @@ type EvidenceValidationError struct {
 
 func (e *EvidenceValidationError) Error() string { return e.Cause.Error() }
 func (e *EvidenceValidationError) Unwrap() error { return e.Cause }
+func (e *EvidenceValidationError) EvidenceFailure() evidence.ToolFailure {
+	if failure, ok := evidence.FailureDetails(e.Cause); ok {
+		return failure
+	}
+	return evidence.ToolFailure{Code: "agent.response_contract_invalid", Stage: "evidence_validation"}
+}
 
-func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in ExecuteInput, executor map[string]any, skillInstruction string) (map[string]any, error) {
+func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in ExecuteInput, executor map[string]any, skillInstruction string) (_ map[string]any, executeErr error) {
+	frozen, err := evidence.FreezeEvidenceInput(in.Payload)
+	if err != nil {
+		return nil, err
+	}
+	in.Payload = frozen
 	sources := evidenceSourcePointers(executor)
 	locale := asStringInterface(in.Context["locale"])
 	if locale != "zh-CN" && locale != "en-US" {
@@ -48,7 +59,12 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
-		result, err := e.llm(ctx, ManifestLLMInvocation{TenantUUID: in.TenantUUID, TraceID: in.TraceID, SkillID: in.SkillID, Version: in.Version, Entrypoint: in.Entrypoint, PromptTemplate: instruction, ResponseSchema: schema, ModelPolicy: nestedManifestMap(executor, "model_policy"), Payload: payload, Context: in.Context})
+		// 回调拿独立副本，不能改写后续阶段读取的来源快照。
+		isolated, err := evidence.FreezeEvidenceInput(payload)
+		if err != nil {
+			return "", err
+		}
+		result, err := e.llm(ctx, ManifestLLMInvocation{TenantUUID: in.TenantUUID, TraceID: in.TraceID, SkillID: in.SkillID, Version: in.Version, Entrypoint: in.Entrypoint, PromptTemplate: instruction, ResponseSchema: schema, ModelPolicy: nestedManifestMap(executor, "model_policy"), Payload: isolated, Context: in.Context})
 		if err != nil {
 			return "", fmt.Errorf("skill.evidence.%s: %w", stage, err)
 		}
@@ -117,12 +133,31 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 		return nil, &EvidenceValidationError{Details: map[string]any{"stage": "plan", "profiles": activeProfiles, "selection": selection}, Cause: fmt.Errorf("skill.evidence.plan: %w", err)}
 	}
 	plan.Data = mergeGenericFacts(plan.Data, genericFacts)
-	prepared, err := evidence.ExecutePlan(ctx, plan, in.Payload, sources, in.TenantUUID, in.Version, in.TraceID)
+	var prepared map[string]any
+	var v5 *v5Execution
+	if asStringInterface(executor["response_contract"]) == evidence.ReportSchemaV5 {
+		v5, err = e.prepareV5(ctx, in, policy, plan, missing, locale)
+		if v5 != nil {
+			missing = v5.missing
+			defer func() {
+				if executeErr != nil {
+					e.saveV5Failure(ctx, v5, executeErr)
+				}
+			}()
+		}
+	} else {
+		prepared, err = evidence.ExecutePlan(ctx, plan, in.Payload, sources, in.TenantUUID, in.Version, in.TraceID)
+	}
 	if err != nil {
 		return nil, &EvidenceValidationError{Draft: evidence.Draft{Schema: evidence.DraftSchema, Kind: plan.Kind, Data: plan.Data, Calculations: plan.Calculations}, Cause: fmt.Errorf("skill.evidence.calculate: %w", err)}
 	}
 	// 第二阶段只解释已经执行的结果，不再承担算式、数值、原文提取或格式排版。
-	notesContext, err := evidence.NotesContext(prepared, missing)
+	var notesContext map[string]any
+	if v5 != nil {
+		notesContext = evidence.NotesContextV5(v5.report, v5.labels.Locales[locale], missing)
+	} else {
+		notesContext, err = evidence.NotesContext(prepared, missing)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +169,11 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 	notesSchema := evidence.NotesJSONSchema()
 	var reviewChoices evidence.ReviewChoices
 	if reviewPolicy != nil {
-		reviewChoices, err = reviewPolicy.Choices(prepared, missing, in.Payload, sources, locale)
+		if v5 != nil {
+			reviewChoices, err = reviewPolicy.ChoicesForPresentation(evidence.V5NotesPresentation(v5.report, v5.labels.Locales[locale]), missing, in.Payload, sources, locale)
+		} else {
+			reviewChoices, err = reviewPolicy.Choices(prepared, missing, in.Payload, sources, locale)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("skill.evidence.notes: %w", err)
 		}
@@ -178,6 +217,9 @@ func (e *ManifestExecutor) executeEvidenceReport(ctx context.Context, in Execute
 		if !slices.Contains(allowedGaps, gap) || slices.Contains(notes.Gaps[:i], gap) {
 			return nil, fmt.Errorf("skill.evidence.notes: evidence.unsupported_input_gaps")
 		}
+	}
+	if v5 != nil {
+		return e.finishV5(ctx, v5, notes)
 	}
 	report, err := evidence.AttachNotes(ctx, prepared, notes)
 	if err != nil {

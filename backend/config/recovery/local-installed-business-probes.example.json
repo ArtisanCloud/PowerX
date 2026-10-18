@@ -1,0 +1,16 @@
+[
+  {
+    "name": "customer-list",
+    "path": "/admin/customers/accounts"
+  },
+  {
+    "name": "base-template-list",
+    "plugin_id": "com.powerx.plugins.base",
+    "path": "/api/v1/templates"
+  },
+  {
+    "name": "ai-craft-sample-tracks",
+    "plugin_id": "com.powerx.plugins.ai-craft",
+    "path": "/api/v1/admin/operations/sample-tracks"
+  }
+]

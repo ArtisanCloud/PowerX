@@ -39,6 +39,7 @@ const props = withDefaults(
     currentSessionId?: string | number | null;
     tenantUuid?: string;
 
+    readOnly?: boolean;
     canSendMessage?: boolean;
     connectionIndicators?: boolean;
   }>(),
@@ -524,6 +525,7 @@ function onSendClick() {
       <div v-else class="max-w-4xl mx-auto px-4 py-6">
         <div class="space-y-6">
           <MessageItem
+            :read-only="readOnly"
             v-for="message in messages"
             :key="message.id"
             :message="message"

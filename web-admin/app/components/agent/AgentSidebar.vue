@@ -25,6 +25,7 @@ interface Props {
   busy?: boolean;
 
   // 会话数据（外部单一事实来源）
+  readOnly?: boolean;
   sessionsByAgent?: Record<string, ChatSession[]>;
   sessionsLoadingByAgent?: Record<string, boolean>;
   hasMoreByAgent?: Record<string, boolean>;
@@ -71,7 +72,9 @@ const props = withDefaults(defineProps<Props>(), {
 const { t, te, locale } = useI18n();
 const isBusy = computed(() => !!props.busy);
 const primaryActionLabel = computed(() =>
-  props.selectorMode === "team" ? t("agent.teamTasks.newTask") : t("agent.selector.newSession")
+  props.selectorMode === "team"
+    ? t("agent.teamTasks.newTask")
+    : t("agent.selector.newSession"),
 );
 
 /* ---------- 顶部：Agent 选择 + 新建 ---------- */
@@ -93,15 +96,18 @@ const agentOptionsWithIcon = computed(() =>
     label: agentDisplayName(a),
     value: a.uuid,
     icon: getAgentIcon(a),
-  }))
+  })),
 );
 
-const currentAgent = computed(() =>
-  (props.agents || []).find((agent) => agent.uuid === selectedAgentId.value) || null
+const currentAgent = computed(
+  () =>
+    (props.agents || []).find(
+      (agent) => agent.uuid === selectedAgentId.value,
+    ) || null,
 );
 
-const currentAgentCanEdit = computed(() =>
-  !!currentAgent.value && !isProtectedAgent(currentAgent.value)
+const currentAgentCanEdit = computed(
+  () => !!currentAgent.value && !isProtectedAgent(currentAgent.value),
 );
 
 function getAgentIcon(agent: Agent) {
@@ -130,7 +136,7 @@ const selectedAgentId = computed<string>({
 const currentIcon = computed(() => {
   const val = selectedAgentId.value;
   const fromSelector = effectiveSelectorOptions.value.find(
-    (o: any) => String(o.value) === String(val || "")
+    (o: any) => String(o.value) === String(val || ""),
   ) as any;
   if (fromSelector?.icon) return String(fromSelector.icon);
   const hit = agentOptionsWithIcon.value.find((o) => o.value === val);
@@ -140,7 +146,7 @@ const currentIcon = computed(() => {
 function createSession() {
   if (isBusy.value) return;
   if (!props.currentAgentId) return;
-  emit("new-session");
+  if (!props.readOnly) emit("new-session");
 }
 
 function clearSessions() {
@@ -163,10 +169,11 @@ function editAgent() {
 
 function isProtectedAgent(agent: Agent) {
   const meta = agent.meta || {};
-  return agent.source === "core" && (
-    Boolean((meta as any).protected) ||
-    Boolean((meta as any).protect_from_delete) ||
-    Boolean((meta as any).builtin)
+  return (
+    agent.source === "core" &&
+    (Boolean((meta as any).protected) ||
+      Boolean((meta as any).protect_from_delete) ||
+      Boolean((meta as any).builtin))
   );
 }
 
@@ -174,7 +181,15 @@ const localizedText = (values?: Record<string, string>) => {
   if (!values) return "";
   const current = String(locale.value || "").trim();
   const short = current.split("-")[0];
-  for (const key of [current, current.replace("_", "-"), short, "zh-CN", "zh", "en", "en-US"]) {
+  for (const key of [
+    current,
+    current.replace("_", "-"),
+    short,
+    "zh-CN",
+    "zh",
+    "en",
+    "en-US",
+  ]) {
     const value = String(values[key] || "").trim();
     if (value) return value;
   }
@@ -183,16 +198,30 @@ const localizedText = (values?: Record<string, string>) => {
 
 const isLocaleTextMap = (value: unknown): value is Record<string, string> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  return Object.values(value as Record<string, unknown>).every((item) => typeof item === "string");
+  return Object.values(value as Record<string, unknown>).every(
+    (item) => typeof item === "string",
+  );
 };
 
-const localizedAgentText = (agent: Agent, key: "title_i18n" | "description_i18n") => {
+const localizedAgentText = (
+  agent: Agent,
+  key: "title_i18n" | "description_i18n",
+) => {
   const direct = (agent as any)[key];
   const fromMeta = (agent.meta as any)?.[key];
-  return localizedText(isLocaleTextMap(direct) ? direct : isLocaleTextMap(fromMeta) ? fromMeta : undefined);
+  return localizedText(
+    isLocaleTextMap(direct)
+      ? direct
+      : isLocaleTextMap(fromMeta)
+        ? fromMeta
+        : undefined,
+  );
 };
 
-const localizedAgentCatalogText = (agent: Agent, field: "title" | "description") => {
+const localizedAgentCatalogText = (
+  agent: Agent,
+  field: "title" | "description",
+) => {
   const key = String(agent.key || "").trim();
   if (!key) return "";
   const normalized = key.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -242,7 +271,7 @@ const filteredSessions = computed(() => {
     return t.includes(q) || m.includes(q);
   };
   const sorted = [...list].sort(
-    (a, b) => norm(b.updatedAt) - norm(a.updatedAt)
+    (a, b) => norm(b.updatedAt) - norm(a.updatedAt),
   );
   const pinned = sorted.filter((s) => !!s.pinned && hit(s));
   const recent = sorted.filter((s) => !s.pinned && hit(s));
@@ -252,7 +281,7 @@ const filteredSessions = computed(() => {
 /* ---------- 首次/切换时加载 ---------- */
 async function ensureSessionsLoaded(
   agentId: string,
-  opts: { force?: boolean } = {}
+  opts: { force?: boolean } = {},
 ) {
   if (!opts.force && getSessions(agentId)?.length) return;
   if (props.fetchSessions) {
@@ -269,7 +298,7 @@ watch(
   (id) => {
     if (id) ensureSessionsLoaded(id, { force: true });
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 /* ---------- 交互动作 ---------- */
@@ -350,7 +379,11 @@ function fmtTime(ts?: string | number | Date) {
           variant="ghost"
           :disabled="isBusy || !currentAgentId || !currentAgentCanEdit"
           @click="editAgent"
-          :title="currentAgentCanEdit ? t('agent.selector.editAgent') : t('agent.selector.lockedAgent')"
+          :title="
+            currentAgentCanEdit
+              ? t('agent.selector.editAgent')
+              : t('agent.selector.lockedAgent')
+          "
         />
 
         <!-- 新建 Agent 按钮 -->
@@ -365,13 +398,14 @@ function fmtTime(ts?: string | number | Date) {
         />
       </div>
 
+      <slot name="session-sections" />
       <!-- 新建会话 + 搜索（同行对齐） -->
       <div class="flex items-center gap-2">
         <UButton
           icon="i-heroicons-plus"
           size="sm"
           variant="solid"
-          :disabled="isBusy || !currentAgentId"
+          :disabled="isBusy || !currentAgentId || readOnly"
           @click="createSession"
           class="shrink-0 px-3"
         >

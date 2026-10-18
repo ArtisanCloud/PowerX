@@ -39,6 +39,10 @@ const (
 )
 
 func ToAppError(err error) error {
+	var application *dto.AppError
+	if errors.As(err, &application) {
+		return application
+	}
 	switch {
 	case err == nil:
 		return nil

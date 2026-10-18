@@ -6,6 +6,8 @@
 **Tests**: 本特性未要求 TDD 先行；本清单以实现任务为主，保留阶段性验收与回归验证任务。  
 **Organization**: 按用户故事分组，确保每个故事可独立实现与验收。
 
+**2026-10-15 范围更新**：US8 本地开发与 macOS 原生整站恢复／切换回归已完成。Linux 运行验收、生产插件业务验收及部署后真实 scheduled 包的独立还原仍待执行；原有日志任务不属于本次快照实现范围。
+
 ## Format: `[ID] [P?] [Story] Description`
 - **[P]**: 可并行（不同文件、无直接依赖）
 - **[Story]**: 所属故事（US1/US2/US3）或阶段（Setup/Foundation/Polish）
@@ -44,7 +46,7 @@
 
 ## Phase 3: User Story 1 - 配置并启用自动备份策略 (Priority: P1) 🎯 MVP
 
-**Goal**: Root 管理员可创建/编辑/启停自动备份策略（默认 6 小时、14 份、Asia/Shanghai）。
+**Goal**: 管理员可创建/编辑/启停数据库备份策略；当前新建默认 1 小时、7 天、168 份、Asia/Shanghai，策略和自动验证默认停用。历史线上策略保持原值。
 
 **Independent Test**: 在管理端或 API 完成策略创建并启用后，可查询到正确策略状态与默认值。
 
@@ -55,7 +57,7 @@
 - [X] T015 [US1] 实现策略启用/停用接口：`backend/internal/transport/http/admin/backup/policy_handler.go`
 - [X] T016 [US1] 实现策略列表查询接口（按状态与关键字过滤）：`backend/internal/transport/http/admin/backup/policy_handler.go`
 - [X] T017 [US1] 在服务层实现策略校验规则（interval/retention/timezone/drill）：`backend/internal/service/backup_ops/policy_service.go`
-- [X] T018 [US1] 在服务层实现默认调度参数落库（6h,14份,Asia/Shanghai,周演练）：`backend/internal/service/backup_ops/policy_service.go`
+- [X] T018 [US1] 在服务层实现默认调度参数落库（当前 1h／7天／168份、Asia/Shanghai，自动验证默认关闭；取代早期 6h／14份基线）：`backend/internal/service/backup_ops/policy_service.go`
 - [X] T019 [P] [US1] 在备份中心页面增加“策略管理”表单与列表：`web-admin/app/pages/ops/backup.vue`
 - [X] T020 [P] [US1] 新增备份策略 API 客户端方法：`web-admin/app/composables/api/services/deployOpsService.ts`（或新增 `backupService.ts`）
 - [X] T021 [US1] 前端表单校验与错误提示（非法频率/保留/时区）：`web-admin/app/components/ops/backup/*.vue`
@@ -261,3 +263,62 @@ Task T029: MonitorCenterWorkspace 接入备份日志摘要
 - [ ] T076 [US6] 新增日志上下文字段回归用例：同一 `request_id` 串联 `http_request`、`audit_event`、`API-IN/GATE/PROXY-*`、`wsbus.*`，且 `plugin_id` 非空：`backend/tests/integration/ops/*`
 
 **Checkpoint**: US6 可独立验收（插件日志接入稳定、策略可编排、结果可审计）。
+
+---
+
+## Phase 10: User Story 8 - 系统快照与统一恢复 (Priority: P1，本地实现完成，部署验收待执行)
+
+**Goal**: 管理员选择一个完整恢复点，系统统一处理数据库、媒体、配置和版本；完整包可带离服务器恢复，正式切换有维护边界和整套回退。
+
+**Design**: [系统快照计划](../../docs/plan/deploy/system-snapshot-and-restore.md)；[US8 验收](../../docs/guides/deploy/027-monitor-center/usecase-us8-system-snapshot-acceptance.md)。
+
+当前操作见[托管整站恢复手册](../../docs/guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md)、[实际合同](../../docs/contracts/system-snapshots.openapi.yaml)及[本地验证报告](../../docs/contracts/evidence/system-snapshot-managed-validation-20261015.json)。历史包／数据副本仍保留。本地代码完成不代表正式站已升级。
+
+- [x] M8.1 统一父任务、业务库之外账本、文件锁、Root typed API 与持久化审计；重启将活动任务识别为中断。
+- [x] M8.2 PostgreSQL／本地媒体同 MVCC 采集与 SHA256 引用清单；配置密文、程序文件及独立完整包；不复用旧 CAS 引用。
+- [x] M8.3 口令加密、目标主密钥重封装、导入路径／内容／空间检查、离线列出／导出／导入工具。
+- [x] M8.4 多套命名策略表格维护、唯一默认启用及原子切换；真实周期、固定调度锚点及失败提示，默认关闭，旧策略按原值兼容。历史任务记录策略身份，保留清理按所属策略分组。
+- [x] M8.5 Root 页面与确认弹层；统一等待数据库／文件副本准备，`prepared` 与业务／正式状态分开。
+- [x] M8.6 原生 PostgreSQL A/B 与源依赖移除回归；服务竞态、JWT HTTP、32 项前端单测、3 条模拟 API 浏览器流程与发布构建。证据：[第一阶段报告](../../docs/contracts/evidence/system-snapshot-package-validation-20261015.json)。
+- [x] M8.7 托管写入者维护、目标映射、启动前隔离、真实 Core／Web／鉴权／媒体验证、独立切换及 SIGKILL 后整套回退；前端 37 项单测和 4 条模拟 API 浏览器流程通过。
+- [ ] M8.8 Linux bubblewrap 实机、已启用生产插件业务探针，以及部署后真实定时完整包的跨环境第二轮验收。
+
+- [x] T077 [US8] 冻结快照／组件／导入导出／恢复 typed 合同、权限、异步与幂等、错误和状态机；不将新路径提前宣称已发布。
+- [x] T078 [US8] 实现业务库之外的快照清单、恢复账本、源／目标身份及重启中断识别；敏感字段不得公开。
+- [x] T079 [US8] 实现父任务统一调度、真实周期／下一次执行及调度失败页面告警；旧独立策略保持原配置和类型。
+- [x] T080 [US8] 普通采集改为在线同 MVCC 数据库／ready 媒体引用、逐级安全打开、摘要验证及同任务最多 4 次退避；不暂停 HTTP、不停止服务。配置／插件生命周期指纹继续校验；正式切换回退点保留受控停写，在线包无同点 Redis 合同明确不可直接整站切换。
+- [x] T081 [US8] 复用同 MVCC dump 与媒体引用，校验不可变文件版本、大小和摘要；并发删除／覆盖必须阻断完成。
+- [x] T082 [US8] 实现生效配置允许清单、插件 registry／绑定、Core／插件版本和迁移／扩展依赖采集。
+- [x] T083 [US8] 实现配置／必要密钥材料加密、独立解密路径和目标环境映射，避免只保存源库中的唯一密钥。
+- [x] T084 [US8] 封存父 manifest 并聚合必需组件结果，分别记录本地完整性、异地、导出和业务验收状态。
+- [x] T085 [US8] 实现跨系统快照、恢复和导出任务的对象引用保护及整套保留；适配旧 CAS 清理器后再复用对象。
+- [x] T086 [US8] 实现独立完整包导出与安装产物解析，空目标且源实例不可访问时仍具备全部必需内容。
+- [x] T087 [US8] 实现导入的格式、路径安全、解密、摘要、空间、版本／平台／驱动及扩展预检查；不支持项明确阻断。
+- [x] T088 [US8] 实现新库、新媒体根目录、独立配置和目标部署身份／插件数据库绑定迁移计划。
+- [x] T089 [US8] 在 Core／插件／worker 启动前落实恢复测试隔离：禁止生产连接与外部发送，停用 Core 后台任务、只读插件角色；正式开放写入前重置验证产生的 Redis 状态。
+- [x] T090 [US8] 聚合数据库、媒体、配置和应用业务验证，区分准备完成、验证通过、待确认切换和正式生效。
+- [x] T091 [US8] 实现独立持久化切换协调器、维护确认、全部停写、当前环境回退点及跨组件切换检查点。
+- [x] T092 [US8] 实现切换失败／中断／重复提交的整套补偿和幂等；写入恢复后的回退不自动丢弃新数据。
+- [x] T093 [US8] 实现仅 Root 用户 JWT 的导出／导入／恢复／切换权限和审计，拒绝 STS／API Key 及任意 shell／SQL／DSN／路径输入。
+- [x] T094 [US8] 页面增加“系统快照”主入口，优先展示完整恢复点与主要操作，组件／摘要／Trace 在详情分层呈现。
+- [x] T095 [US8] 页面实现统一恢复向导与父子进度；旧任务标注仅数据库／媒体，不占用整站成功指标。
+  - 2026-10-17：移除快照、归档、恢复副本及协调器进度的定时状态查询；使用文件变更通知驱动的共享 SSE 和独立单任务 SSE，覆盖断线重连、离开页面、身份切换与 Node 代理取消。
+- [x] T096 [US8] 原生数据库及媒体集成验证：状态 A 采集后形成 B，空目标独立恢复 A，源 B 不变化。
+- [x] T097 [US8] 覆盖缺文件、坏摘要、缺配置／密钥、不兼容、空间不足、并发变更、旧 GC 和导入路径逃逸失败用例。
+- [x] T098 [US8] 在自建完整测试实例覆盖启动前隔离、正式切换、进程中断、阶段失败及整套回退；清理自建进程与资源。
+- [ ] T099 [US8] 本地通过后，由运维部署并取得至少一份真实 scheduled 完整包，带到独立本地／开发实例完成第二轮业务验收。
+- [x] T100 [US8] 按真实实现冻结 API／CLI 与页面文案，更新操作手册和脱敏本地验收报告，明确 Linux／真实插件／生产定时包的待验收范围。
+
+**Checkpoint**: 本地实现与回归完成；T099 和 M8.8 尚未完成。正式交付需两轮证据及目标 Linux／实际插件验收，不能以本地测试代替线上恢复能力。
+
+
+## 2026-10-16：按需工具与高级组件策略
+
+- [x] 日常整站备份继续以系统快照为入口；数据库和媒体默认进入“按需备份与导出”，额外周期移入各自“高级设置”，已启用策略保持可发现。
+- [x] Root 无需创建策略即可生成一次数据库备份并下载；登记文件在保留锁内验证路径、大小和 SHA256，拒绝 STS／API Key／非 Root 导出。
+- [x] 已登记本地媒体来源可直接生成仅媒体导出包，不保存策略、不附带数据库，保留请求幂等和失败反馈。
+- [x] 按需任务纳入默认 7 天／168 份保留，最新和受保护文件保留；不自动变更原有定时策略。
+- [x] 修复恢复验证长报告写入失败；报告列通过现有集中模型迁移升级为 text。
+- [x] 本地单元、原生 PostgreSQL、桌面／窄屏受控 API 浏览器流程和构建验证；完整证据见 [按需备份验收](../../docs/contracts/evidence/backup-on-demand-validation-20261016.json)。
+
+本轮不替代 T099／M8.8 的 Linux、正式插件和生产定时完整包验收。

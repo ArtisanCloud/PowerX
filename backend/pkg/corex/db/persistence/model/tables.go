@@ -182,3 +182,10 @@ const TableOpsBackupAlerts = "ops_backup_alerts"
 const TableOpsRestoreDrillRecords = "ops_restore_drill_records"
 const TableOpsApprovalPolicyProfiles = "ops_approval_policy_profiles"
 const TableOpsMigrationRunbookRecords = "ops_migration_runbook_records"
+
+// 连续授权基线存储，仅通过显式 schema 迁移创建。
+const (
+	TableIAMAuthorizationTracking = "iam_authorization_tracking"
+	TableIAMAuthorizationStream   = "iam_authorization_streams"
+	TableIAMAuthorizationSegment  = "iam_authorization_segments"
+)

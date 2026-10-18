@@ -1,0 +1,458 @@
+openapi: 3.0.3
+info:
+  title: PowerX 系统快照与托管恢复
+  version: '0.7.0'
+  description: >-
+    Root 用户 JWT 专用的整实例恢复包。统一采集数据库、本地媒体、加密配置及程序产物，
+    独立口令导出完整包并支持另一实例导入。ready 只表示包内容完整；
+    prepared 只表示独立数据副本已准备，不代表应用业务验收或正式切换。
+    手动和定时采集均在线执行，不暂停业务 HTTP、不停止服务、不持有阻塞 DML 的表锁。
+    数据库 dump 与 ready 媒体引用共享 MVCC，captured_at 取实际导出事务快照的时间。
+    在线包仅包含数据库、登记为 ready 的本地媒体、配置和程序；没有同一恢复点的 Redis 队列，
+    recovery_supported=false，仅支持隔离数据副本。不能把在线包称作已具备整站业务恢复能力。
+    具备受控停写及依赖合同的完整包支持覆盖目标实例；恢复前保存保护快照并进入维护。旧环境切换 API 已返回 410。
+    对象存储、未适配外部持久依赖和云盘恢复不在当前支持范围。
+    停机时的独立 HTML、管理员认证和恢复控制见 recovery-console.openapi.yaml；单任务进度仍使用本合同的只读票据。
+servers:
+  - url: /{apiPrefix}/admin/ops/backup
+    variables:
+      apiPrefix: { default: api/v1, description: 运行配置定义的 API 前缀，不含首尾斜线 }
+security:
+  - rootJWT: []
+paths:
+  /__powerx_recovery/jobs/{recovery_id}/events:
+    servers: [{ url: / }]
+    get:
+      operationId: subscribeIndependentRecoveryProgress
+      security: [{ progressTicket: [] }]
+      description: >-
+        独立协调器的只读单任务 SSE，不依赖 Core 在线。票据仅在 Authorization 头携带，不接受 query。
+        先发送当前任务，再根据账本实际变更发送 progress 事件；不返回密钥、配置或请求幂等摘要正文。
+      parameters:
+        - name: recovery_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: progress 事件的 data.recovery 为该任务的当前状态。
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { description: 票据无效、过期、跨任务或包含 query 参数 }
+        '404': { description: 任务不存在 }
+        '503': { description: 无法监听进度变更 }
+  /events:
+    get:
+      operationId: subscribeBackupChanges
+      description: >-
+        Root 用户 JWT 专用 SSE。先发 invalidate 事件同步当前视图，随后仅在运维账本实际变更时推送资源名。
+        resources 可含 snapshots、recovery、archives、restore_copies；不传私有路径或账本正文。
+        订阅先于初次同步建立，断线重连后重新同步。15 秒心跳只保活，一分钟内重新鉴权连接；不轮询状态。
+        不接受 query 参数。页面离开或登录身份切换应取消连接。
+      responses:
+        '200':
+          description: SSE 资源失效通知，收到后按需调用已鉴权详情接口。
+          content:
+            text/event-stream:
+              schema: { type: string }
+              example: "event: invalidate\ndata: {\"resources\":[\"snapshots\"]}\n\n"
+        '400': { description: 不接受 query 参数 }
+        '403': { description: 仅平台 Root 用户会话 }
+        '503': { description: 文件变更通知不可用，页面显示异常并保留手动刷新 }
+  /system-snapshots:
+    get:
+      operationId: getSystemSnapshotOverview
+      responses:
+        '200':
+          description: data.overview 包含实际规范目录 directory、配置来源 directory_source、ready、problems、instance、policy、policies、default_policy_id、next_run_at、scheduler_error、snapshots、restores 和 cutover_available=false。目录信息仅对 Root 可见；页面不能提交任意服务器路径。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      overview: { $ref: '#/components/schemas/SnapshotOverview' }
+        '403': { description: 需要 Root 用户 JWT；拒绝普通租户、STS 与 API Key }
+    post:
+      operationId: createSystemSnapshot
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      description: 手动采集必须指定系统默认策略，定时关闭也允许执行；拒绝空请求和已切换的旧策略。同一幂等键仅可重放同一策略的原任务。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [policy_id]
+              properties:
+                policy_id: { type: string, format: uuid, description: 用户确认的系统默认策略，与定时启停无关 }
+      responses:
+        '202': { description: data.snapshot 为异步采集父任务，包含创建时 policy_id 与 policy_name，不能视为已完成 }
+        '400': { description: SNAPSHOT_POLICY_REQUIRED，缺少有效 policy_id；旧客户端的空对象请求不再接受 }
+        '409': { description: 默认选择变化、幂等键关联其他策略，或其他快照／恢复任务占用执行锁 }
+        '422': { description: 采集来源、版本或构建产物缺失 }
+  /system-snapshots/policy:
+    put:
+      deprecated: true
+      operationId: saveSystemSnapshotPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Policy' }
+      responses:
+        '200': { description: 兼容旧客户端，仅更新当前默认策略；data.policy 为该策略的配置字段。新页面使用 policies 集合接口。 }
+        '400': { description: 非法周期、份数或保留窗口短于执行周期 }
+  /system-snapshots/policies:
+    get:
+      operationId: listSystemSnapshotPolicies
+      description: 返回当前实例至多 100 套配置；旧单策略保持原周期、启停和锚点，以固定身份兼容读取。
+      responses:
+        '200': { description: data.policies 为 NamedPolicy 数组，data.default_policy_id 为默认选择；可以全部停用。 }
+    post:
+      operationId: createSystemSnapshotPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NamedPolicyInput' }
+      responses:
+        '201': { description: data.policy 为新增 NamedPolicy；第一套自动成为默认，但默认停用。enabled=true 会原子停用上一套并切换默认，不立即采集。 }
+        '400': { description: 名称、周期、保留量无效，或已达 100 套配置上限 }
+        '409': { description: 名称重复或另一个策略写入占用锁 }
+  /system-snapshots/policies/{policy_id}:
+    parameters:
+      - $ref: '#/components/parameters/PolicyID'
+    put:
+      operationId: updateSystemSnapshotPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NamedPolicyInput' }
+      responses:
+        '200': { description: data.policy 为保存后的 NamedPolicy。启用会原子切换默认并停用其他策略；停用保留配置和默认选择。 }
+        '404': { description: 策略不存在 }
+        '409': { description: 名称重复或策略写入占用锁 }
+  /system-snapshots/policies/{policy_id}/status:
+    parameters:
+      - $ref: '#/components/parameters/PolicyID'
+    patch:
+      operationId: setSystemSnapshotPolicyStatus
+      description: 不覆盖周期和保留配置。enabled 控制定时启停；make_default=true 与 enabled=false 独立选择系统默认，并关闭旧定时，不开启新定时。手动创建不依赖 enabled。兼容旧客户端的 enabled=true 会设为默认并停用其他策略；已在执行的任务按原策略继续。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled: { type: boolean, description: 只控制自动定时；手动创建无需开启 }
+                make_default: { type: boolean, default: false, description: true 时独立选择系统默认，enabled 必须为 false }
+      responses:
+        '200': { description: data.policy 为切换后的 NamedPolicy；不会立即创建快照。 }
+        '400': { description: 缺少 enabled 或传入只读字段 }
+        '404': { description: 策略不存在 }
+        '409': { description: 另一策略操作正在提交，客户端保留当前值并允许重试 }
+        '422': { description: 启用时采集来源尚未就绪 }
+  /system-snapshots/imports:
+    post:
+      operationId: importSystemSnapshotPackage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file, password]
+              properties:
+                file: { type: string, format: binary, description: 独立完整 .pxsnapshot 加密包，最多 8 GiB }
+                password: { type: string, minLength: 12, maxLength: 1024, writeOnly: true }
+      responses:
+        '200': { description: data.snapshot 为已验证导入记录；不启动应用、不连接源实例 }
+        '409': { description: 快照已经存在或执行锁占用 }
+        '413': { description: 包或清单超过大小上限 }
+        '507': { description: 可用空间不足，保留运行空间后不能解包 }
+        '422': { description: 格式、解密、路径安全或内容校验失败 }
+  /system-snapshots/{snapshot_id}:
+    parameters:
+      - $ref: '#/components/parameters/SnapshotID'
+    get:
+      operationId: getSystemSnapshot
+      responses:
+        '200':
+          description: data.snapshot；不返回密钥、配置正文或内部请求幂等摘要
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      snapshot: { $ref: '#/components/schemas/Snapshot' }
+  /system-snapshots/{snapshot_id}/export:
+    parameters:
+      - $ref: '#/components/parameters/SnapshotID'
+    post:
+      operationId: exportSystemSnapshotPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [password]
+              properties:
+                password: { type: string, minLength: 12, maxLength: 1024, writeOnly: true, description: 长度按 UTF-8 字节校验；不放入 URL 或日志 }
+      responses:
+        '200':
+          description: 完整验证后发送独立口令加密文件；Cache-Control no-store
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '409': { description: 快照未完成／已清理或执行锁占用 }
+        '422': { description: 对象或密钥缺失／校验失败 }
+        '507': { description: 可用空间不足以生成完整加密包 }
+  /system-snapshots/{snapshot_id}/protection:
+    parameters:
+      - $ref: '#/components/parameters/SnapshotID'
+    patch:
+      operationId: protectSystemSnapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [protected]
+              properties:
+                protected: { type: boolean }
+      responses:
+        '200': { description: data.snapshot，显式保护状态更新 }
+  /system-snapshots/{snapshot_id}/restores:
+    parameters:
+      - $ref: '#/components/parameters/SnapshotID'
+    post:
+      operationId: prepareSystemSnapshotDataCopy
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation]
+              properties:
+                confirmation: { type: string, format: uuid, description: 必须等于所选 snapshot_id }
+      responses:
+        '202': { description: data.restore 为统一数据准备任务；当前业务库和目录继续使用 }
+        '409': { description: 快照不可用或执行锁占用 }
+        '422': { description: Core 版本不匹配或内容无法验证 }
+        '507': { description: 快照目录空间不足以准备数据副本 }
+  /system-snapshots/restores/{restore_id}:
+    parameters:
+      - { in: path, name: restore_id, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getSystemSnapshotDataCopy
+      responses:
+        '200': { description: 'data.restore: id、snapshot_id、status、phase、directory、database_copy_id、database、components、warnings、error；business_verified=false、cutover_available=false。数据库失败时整体失败。' }
+  /system-snapshots/recovery:
+    get:
+      operationId: getSystemRecoveryOverview
+      responses:
+        '200': { description: 'data 包含 configured、online、targets（仅一个固定实例目标；allow_online_data 仍仅限本地 dev）、jobs、generation、maintenance、active_environment_id、last_switch_id、progress_tokens；不暴露 DSN、命令或文件内容。' }
+        '403': { description: 仅 Root 用户 JWT }
+  /system-snapshots/{snapshot_id}/recovery:
+    parameters:
+      - $ref: '#/components/parameters/SnapshotID'
+    post:
+      operationId: prepareSystemRecovery
+      description: >-
+        一次确认恢复当前固定实例。内部预检查不会创建长期环境；保存恢复前保护快照后，
+        维护停写并覆盖数据库、媒体、正式配置及配套程序。正常重启使用相同配置路径。
+        旧 target_id/restore_mode 输入返回 400。异机验证在目标干净服务器执行同一恢复。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation, generation]
+              properties:
+                confirmation: { type: string, format: uuid, description: 必须等于路径 snapshot_id }
+                generation: { type: integer, minimum: 1, description: 最近读取的当前实例代次，防止过期页面覆盖 }
+      responses:
+        '202': { description: 'data.recovery.kind=restore、restore_mode=replace_instance；data.progress_token 为独立只读 SSE 票据。' }
+        '400': { description: 无效 UUID、确认或旧环境选择输入 }
+        '403': { description: 仅 Root 用户 JWT }
+        '409': { description: 实例未接入、快照不支持、任务冲突、代次过期或幂等冲突 }
+        '503': { description: 独立协调器未在线 }
+  /system-snapshots/recovery/{recovery_id}/cutover:
+    parameters:
+      - { in: path, name: recovery_id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: cutoverSystemRecovery
+      deprecated: true
+      responses:
+        '410': { description: 环境管理已停用；请选择快照恢复当前实例，需要回退时恢复保护快照。 }
+        '403': { description: 仅 Root 用户 JWT }
+  /system-snapshots/recovery/{recovery_id}/rollback:
+    parameters:
+      - { in: path, name: recovery_id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: rollbackSystemRecovery
+      deprecated: true
+      responses:
+        '410': { description: 环境管理已停用；请选择快照恢复当前实例，需要回退时恢复保护快照。 }
+        '403': { description: 仅 Root 用户 JWT }
+  /system-snapshots/recovery/{recovery_id}/cleanup:
+    parameters:
+      - { in: path, name: recovery_id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: cleanupSystemRecovery
+      deprecated: true
+      responses:
+        '410': { description: 环境管理已停用；请选择快照恢复当前实例，需要回退时恢复保护快照。 }
+        '403': { description: 仅 Root 用户 JWT }
+components:
+  securitySchemes:
+    progressTicket:
+      type: http
+      scheme: bearer
+      description: Root 会话取得的只读、单任务、12 小时限时进度票据；不授予控制权限。
+    rootJWT: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    PolicyID: { in: path, name: policy_id, required: true, schema: { type: string, format: uuid } }
+    SnapshotID: { in: path, name: snapshot_id, required: true, schema: { type: string, format: uuid } }
+    IdempotencyKey: { in: header, name: Idempotency-Key, required: true, schema: { type: string, format: uuid } }
+  requestBodies:
+    EnvironmentAction:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [confirmation, generation]
+            properties:
+              confirmation: { type: string, format: uuid }
+              generation: { type: integer, format: int64, minimum: 1 }
+    Empty:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: false }
+  schemas:
+    NamedPolicyInput:
+      type: object
+      additionalProperties: false
+      required: [name, enabled, interval_minutes, retention_days, retention_count]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        enabled: { $ref: '#/components/schemas/Policy/properties/enabled' }
+        interval_minutes: { $ref: '#/components/schemas/Policy/properties/interval_minutes' }
+        retention_days: { $ref: '#/components/schemas/Policy/properties/retention_days' }
+        retention_count: { $ref: '#/components/schemas/Policy/properties/retention_count' }
+    NamedPolicy:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        is_default: { type: boolean, description: 默认选择至多一套；仅该套可以 enabled=true，也允许全部停用。 }
+        enabled: { type: boolean }
+        interval_minutes: { type: integer }
+        retention_days: { type: integer }
+        retention_count: { type: integer }
+        next_run_at: { type: string, format: date-time, description: 启用策略在概览和列表读取时返回。 }
+    Policy:
+      type: object
+      additionalProperties: false
+      required: [enabled, interval_minutes, retention_days, retention_count]
+      properties:
+        enabled: { type: boolean, default: false }
+        interval_minutes: { type: integer, minimum: 1, maximum: 525600, default: 1440 }
+        retention_days: { type: integer, minimum: 1, maximum: 3650, default: 7 }
+        retention_count: { type: integer, minimum: 1, maximum: 10000, default: 7 }
+    Component:
+      type: object
+      properties:
+        kind: { type: string, enum: [database, media, configuration, programs] }
+        status: { type: string }
+        file_count: { type: integer }
+        size_bytes: { type: integer, format: int64 }
+    SnapshotOverview:
+      type: object
+      required: [directory, directory_source]
+      properties:
+        directory: { type: string, description: 实际读写的规范绝对根目录，包含快照内容、账本、策略和主密钥 }
+        directory_source:
+          type: string
+          enum: [recovery_profile, environment, configuration, install_root, default, explicit]
+          description: 配置来源；协调器优先，其次独立环境变量、YAML、安装根目录默认值、用户目录默认值。explicit 供本机显式启动配置使用。
+    Snapshot:
+      type: object
+      properties:
+        policy_id: { type: string, format: uuid, description: 创建时所属策略；历史无关联记录和外部导入可为空。 }
+        policy_name: { type: string, description: 创建时策略名称，后续改名不改写历史任务。 }
+        recovery_supported: { type: boolean, description: 包具备受控采集与独立恢复合同；不是业务验证完成证明 }
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, capturing, verifying, ready, failed, interrupted, pruned] }
+        attempt: { type: integer, minimum: 1, description: 在线采集尝试次数；首次为 1，最多 4 次 }
+        retry_at: { type: string, format: date-time, description: 来源并发变化时的下一次重试时间；通过 SSE 推送更新 }
+        phase: { type: string, description: retry_wait 表示同一任务等待有界重试，非业务暂停 }
+        created_at: { type: string, format: date-time }
+        captured_at: { type: string, format: date-time, description: PostgreSQL 导出 MVCC 事务快照的实际时间；重试成功后取最后一次恢复点 }
+        updated_at: { type: string, format: date-time }
+        instance: { type: string }
+        version: { type: string }
+        trigger: { type: string, enum: [manual, scheduled, import] }
+        components:
+          type: array
+          description: 无组件时返回空数组，包括等待、失败或中断的历史任务；不返回 null
+          items: { $ref: '#/components/schemas/Component' }
+        protected: { type: boolean }
+        imported: { type: boolean }
+        business_verified: { type: boolean, description: 当前为 false；完整性校验不能代替业务验收 }
+        error: { type: string }
+        error_code: { type: string }
+        trace_id: { type: string }
+    ManagedRecoveryJob:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [capture, restore, initialize, prepare, cutover, resume, overwrite, rollback, cleanup] }
+        snapshot_id: { type: string, format: uuid }
+        target_id: { type: string }
+        candidate_id: { type: string, format: uuid }
+        restore_mode: { type: string, enum: [replace_instance, new_environment, overwrite_current] }
+        validation_url: { type: string, description: 只读验证站点，不含票据；独立新 origin 正常登录 }
+        status: { type: string, enum: [queued, running, verified, complete, failed, rolled_back, interrupted, attention_required, resolved, deleted] }
+        phase: { type: string }
+        business_verified: { type: boolean }
+        writes_may_have_resumed: { type: boolean }
+        rollback_snapshot_id: { type: string, format: uuid }
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              passed: { type: boolean }
+              detail: { type: string }
+        error: { type: string }

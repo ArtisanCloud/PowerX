@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	baseline "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
+
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
@@ -262,6 +264,20 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor Actor
 }
 
 func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64, wantIDs []uint64) (SetIDsResult, error) {
+	// 集合覆盖的读取、差集和写入也受共同源锁保护，避免使用事务外的过期差集。
+	if baseline.Managed(s.db) && !baseline.InTransaction(s.db) {
+		var out SetIDsResult
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+			var err error
+			out, err = NewRBACService(tx).SetPermissionIDs(ctx, actor, roleID, wantIDs)
+			return err
+		})
+		return out, err
+	}
+
 	// 角色查询：你的 GetFirst 可能返回 (*T,nil)，要判空
 	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
 	if err != nil {

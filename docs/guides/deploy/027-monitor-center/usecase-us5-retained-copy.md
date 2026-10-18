@@ -1,5 +1,7 @@
 # US5：在界面恢复到独立新库并保留
 
+> 2026-10-15：这是数据库副本能力，不恢复媒体／配置／程序，也不切换正式站。托管整站恢复、应用验证及正式切换见[操作手册](usecase-us8-managed-recovery.md)，生产第二轮待验收，见[系统快照计划](../../../plan/deploy/system-snapshot-and-restore.md)和 [US8 两轮验收](usecase-us8-system-snapshot-acceptance.md)。
+
 ## 1. 功能背景与目标
 
 从已登记备份或本地 `.dump` 创建一个能用 TablePlus 核对的数据库副本。页面展示恢复进度、业务数量和只读连接，不再要求手写创建数据库和导入命令。

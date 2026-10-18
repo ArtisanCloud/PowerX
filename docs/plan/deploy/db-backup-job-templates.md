@@ -1,138 +1,63 @@
-# 数据库备份任务模板（脚本 + 定时任务）
+# 数据库备份组件：实际调用与调度入口
 
-> 目标：给出一套可直接改造落地的最小模板，覆盖 Docker 与非 Docker。
+> 更新：2026-10-15。替代早期概念脚本模板，使用仓库已有的 CLI／API 与调度合同。以下只涉及数据库组件，不是系统快照命令；统一包、应用验证与正式切换已本地实现，生产第二轮待验收，见[系统快照计划](system-snapshot-and-restore.md)。
 
-## 1. 环境变量约定
+## 1. 配置与前提
 
-```bash
-export PGHOST=127.0.0.1
-export PGPORT=5432
-export PGUSER=powerx
-export PGPASSWORD=change_me
-export PGDATABASE=powerx
+- 使用与目标 Core 一致的配置、EnvironmentFile、用户及工作目录；先只读核对实际源库和保存目录。不要把示例凭据写入正式环境。
+- PostgreSQL 客户端、备份目录权限和恢复所需扩展齐全；真实隔离恢复需要创建测试库的权限。
+- 当前策略来源是备份中心，不从环境变量中的任意数据库名切换源库。
+- 原始脚本由服务构造参数：`backend/scripts/ops/backup-db.sh`、`cleanup-backups.sh`、`restore-drill.sh`。不要复制旧模板中的固定测试库 DROP、文件扫描删除或注释上传代码作为生产执行器。
 
-export BACKUP_ROOT=/opt/powerx/backups
-export BACKUP_RETENTION_DAYS=30
+## 2. 现有 CLI
 
-# 对象存储（示例，按你的工具替换）
-export BACKUP_S3_URI=s3://powerx-backups
-```
-
-## 2. 备份脚本模板（backup-db.sh）
+在已加载该实例真实环境的终端中，使用实际部署的 `database` 程序和配置。以下占位变量需先由运维设置为已核对的路径／ID，不能直接套用其他实例。
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-TS=$(date +%Y%m%d_%H%M%S)
-JOB_ID="backup_${TS}"
-OUT_DIR="${BACKUP_ROOT}/logical/$(date +%Y/%m/%d)"
-OUT_FILE="${OUT_DIR}/${PGDATABASE}_${TS}.dump"
-META_FILE="${OUT_FILE}.meta.json"
-
-mkdir -p "${OUT_DIR}"
-
-STARTED_AT=$(date -Iseconds)
-
-pg_dump -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -Fc -f "${OUT_FILE}"
-
-SIZE_BYTES=$(wc -c < "${OUT_FILE}" | tr -d ' ')
-CHECKSUM=$(sha256sum "${OUT_FILE}" | awk '{print $1}')
-ENDED_AT=$(date -Iseconds)
-
-cat > "${META_FILE}" <<JSON
-{
-  "job_id": "${JOB_ID}",
-  "backup_type": "logical",
-  "started_at": "${STARTED_AT}",
-  "ended_at": "${ENDED_AT}",
-  "size_bytes": ${SIZE_BYTES},
-  "checksum": "${CHECKSUM}",
-  "status": "success",
-  "storage_uri": "${BACKUP_S3_URI}/logical/$(date +%Y/%m/%d)/$(basename "${OUT_FILE}")"
-}
-JSON
-
-# 上传对象存储（按实际 CLI 替换）
-# aws s3 cp "${OUT_FILE}" "${BACKUP_S3_URI}/logical/$(date +%Y/%m/%d)/"
-# aws s3 cp "${META_FILE}" "${BACKUP_S3_URI}/logical/$(date +%Y/%m/%d)/"
-
-echo "[backup] success job_id=${JOB_ID} file=${OUT_FILE} size=${SIZE_BYTES}"
+"$POWERX_DATABASE_BIN" backup-run -config "$POWERX_CONFIG_FILE" -policy-id "$BACKUP_POLICY_ID"
 ```
 
-## 3. 清理脚本模板（cleanup-backups.sh）
+预期退出 0，作业 status 为 success，并有非空 dump、大小、SHA256 和独立清单。失败检查返回错误和 Trace；没有文件不能只看旧成功记录。
+
+不传 `-policy-id` 时只扫描到期的启用策略：
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-find "${BACKUP_ROOT}/logical" -type f -name "*.dump" -mtime +"${BACKUP_RETENTION_DAYS}" -print -delete
-find "${BACKUP_ROOT}/logical" -type f -name "*.meta.json" -mtime +"${BACKUP_RETENTION_DAYS}" -print -delete
-
-echo "[cleanup] done retention_days=${BACKUP_RETENTION_DAYS}"
+"$POWERX_DATABASE_BIN" backup-run -config "$POWERX_CONFIG_FILE"
 ```
 
-## 4. 恢复演练脚本模板（restore-drill.sh）
+数据库组件恢复验证：
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-DUMP_FILE="$1"
-TMP_DB="powerx_restore_drill"
-
-psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d postgres -c "DROP DATABASE IF EXISTS ${TMP_DB};"
-psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d postgres -c "CREATE DATABASE ${TMP_DB};"
-pg_restore -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${TMP_DB}" "${DUMP_FILE}"
-
-psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${TMP_DB}" -c "SELECT now();"
-
-echo "[restore-drill] success db=${TMP_DB} dump=${DUMP_FILE}"
+"$POWERX_DATABASE_BIN" backup-restore-verify -config "$POWERX_CONFIG_FILE" -job-id "$BACKUP_JOB_ID"
 ```
 
-## 5. systemd 定时任务模板
+默认只创建并清理本次独立验证库；需保留用于业务核对时显式加 `-keep-restore-database`。只能清理报告中确认由本次创建的对象，不使用固定库名、不覆盖原库。组件验证不恢复媒体、配置或正式连接。
 
-`/etc/systemd/system/powerx-db-backup.service`:
+## 3. 现有 Admin API
 
-```ini
-[Unit]
-Description=PowerX DB Backup Job
-
-[Service]
-Type=oneshot
-User=powerx
-Group=powerx
-EnvironmentFile=/opt/powerx/shared/config/backup.env
-ExecStart=/opt/powerx/scripts/backup-db.sh
-```
-
-`/etc/systemd/system/powerx-db-backup.timer`:
-
-```ini
-[Unit]
-Description=Run PowerX DB Backup Daily
-
-[Timer]
-OnCalendar=*-*-* 02:30:00
-Persistent=true
-Unit=powerx-db-backup.service
-
-[Install]
-WantedBy=timers.target
-```
-
-启用：
+示例为自建本地 Core，地址改为实际端口；使用自己的管理员用户 JWT。对已经确认的数据库策略触发备份：
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now powerx-db-backup.timer
-systemctl list-timers | grep powerx-db-backup
+curl -fsS -X POST http://127.0.0.1:8077/api/v1/admin/ops/backup/jobs/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"policy_id\":\"${BACKUP_POLICY_ID}\"}"
 ```
 
-## 6. Docker 定时任务建议
+查询作业确认状态、真实产物和校验信息；不是只检查 HTTP 是否成功。保留与清理由现有服务按登记产物和策略锁执行，不按目录 `find -delete` 绕过保护。
 
-- 方式 A：单独 `backup` 容器内跑 `supercronic`
-- 方式 B：宿主 cron 调 `docker exec powerx-backend /opt/powerx/scripts/backup-db.sh`
+需要保留恢复库时使用当前页面“备份中心 → 备份操作 → 恢复到新库”，见 [US5](../../guides/deploy/027-monitor-center/usecase-us5-retained-copy.md)。不把系统快照完整包提交到仅接受 PostgreSQL `.dump` 的接口。
 
-建议优先 A，职责更清晰。
+## 4. 实际 systemd 与 Docker 调度
 
+仓库已有 `deploy/powerx/systemd/powerx-backup.service`／`.timer` 及 dev 对应单元，安装入口为 `backend/scripts/ops/install-backup-timer.sh`。正式／开发必须选择各自 links root、配置和环境文件；实际服务用户以部署为准。
+
+独立 timer 与 Core 调度检查同一批策略，通过数据库锁防重复执行。timer 存在不代表策略已启用；Core 调度启用也不证明独立 timer 已安装。先核对真实服务和下一次执行，再按 [US1](../../guides/deploy/027-monitor-center/usecase-us1-policy-automation.md)操作。
+
+Docker 的脚本、配置和数据卷使用当前 [容器部署说明](../../../deploy/powerx/container/README.md)，不额外安装一份无法与现有锁／策略协同的 cron 模板。
+
+## 5. 统一快照与验收边界
+
+未来系统快照由一个父策略协调数据库、媒体、配置和版本，而不是继续新增互不关联的定时任务。旧策略继续有效，不能仅修改名称或把两个任务调到同一分钟就宣称统一。
+
+系统快照 API／协调器 CLI 见[托管恢复手册](../../guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md)；本文保留数据库组件命令。研发任务见 [T077–T100](../../../specs/027-monitor-center/tasks.md)，两轮验收见 [US8](../../guides/deploy/027-monitor-center/usecase-us8-system-snapshot-acceptance.md)。

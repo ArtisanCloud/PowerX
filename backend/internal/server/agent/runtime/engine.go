@@ -68,14 +68,12 @@ func (e *Engine) detectTasks(ctx context.Context, msg string, reqCfg *dto.ChatCo
 	if task, ok := pendingDetectedTaskFromContext(ctx, msg); ok {
 		return []flowschema.DetectedTask{task}, nil
 	}
-	if tasks, ok := e.deterministicMarketingReviewTasks(ctx, msg); ok {
-		return tasks, nil
-	}
 	return e.mgr.DetectTasksWithToolCalling(ctx, msg, reqCfg)
 }
 
 func (e *Engine) Run(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) error {
 	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
+	ctx = agent.WithOriginalUserMessage(ctx, msg)
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.stream")
 	if traceErr != nil {
@@ -441,6 +439,7 @@ func (e *Engine) RunApprovedResume(ctx context.Context, plan flowschema.Executio
 
 func (e *Engine) RunPlanInvoke(ctx context.Context, msg string, reqCfg *dto.ChatConfig, explicitFlow string, sink EventSink) (*agentschema.ExecutionResult, *flowschema.ExecutionPlan, error) {
 	ctx = context.WithValue(ctx, "team_user_message", strings.TrimSpace(msg))
+	ctx = agent.WithOriginalUserMessage(ctx, msg)
 
 	tr, traceErr := e.newTraceRuntime(ctx, msg, reqCfg, explicitFlow, "engine.invoke")
 	if traceErr != nil {
@@ -1005,9 +1004,12 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 				"stage":           task.Stage,
 				"depends_on":      task.DependsOn,
 				"status":          status,
-				"error": func() string {
+				"error": func() any {
 					if taskErr == nil {
 						return ""
+					}
+					if failure, ok := evidence.FailureDetails(taskErr); ok {
+						return map[string]any{"code": failure.Code, "stage": failure.Stage, "retryable": failure.Retryable}
 					}
 					return taskFailureReason(taskErr)
 				}(),
@@ -1233,6 +1235,11 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		return out, nil
 	}
 	if execErr != nil {
+		if failure, ok := evidence.FailureDetails(execErr); ok {
+			emitFinalEvidenceFailure(ctx, sink, plan.PlanID, execErr)
+			emitAgentRunFailure(ctx, sink, plan.PlanID, failure.Code, "", execErr, "")
+			return nil, execErr
+		}
 		responsePlan := responsePlanFromContext(ctx)
 		if responsePlan != nil {
 			responsePlan.ResponseMode = ResponseModeErrorExplain
@@ -1277,25 +1284,30 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		envelopeErr = evidence.Verify(ctx, envelope)
 	}
 	if envelopeErr != nil {
+		envelopeErr = &evidence.ToolEvidenceError{ToolFailure: evidence.ToolFailure{Code: "agent.response_contract_invalid", Stage: "final_validation"}, Cause: envelopeErr}
 		// The final Skill invocation may succeed while its result is rejected by
 		// the platform contract. Persist that validation as a real failed trace
 		// node; otherwise Trace only shows the successful Skill call and a red
 		// run badge with no actionable failure detail.
 		validationNode := tr.startNode(ctx, "final_response", "response_envelope_validation", map[string]any{
+			"node_id":      "final_response_validation",
 			"plan_id":      plan.PlanID,
 			"failure_kind": "response_contract_invalid",
 		})
 		tr.failNode(ctx, validationNode, "final_response", "response_envelope_validation", envelopeErr)
+		emitFinalEvidenceFailure(ctx, sink, plan.PlanID, envelopeErr)
 		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", envelopeErr, "")
 		return nil, envelopeErr
 	}
 	if envelope == nil {
-		err := fmt.Errorf("agent.response_contract_invalid: response_envelope is required for an execution plan")
+		err := &evidence.ToolEvidenceError{ToolFailure: evidence.ToolFailure{Code: "agent.response_contract_invalid", Stage: "final_validation"}}
 		validationNode := tr.startNode(ctx, "final_response", "response_envelope_validation", map[string]any{
+			"node_id":      "final_response_validation",
 			"plan_id":      plan.PlanID,
 			"failure_kind": "response_contract_invalid",
 		})
 		tr.failNode(ctx, validationNode, "final_response", "response_envelope_validation", err)
+		emitFinalEvidenceFailure(ctx, sink, plan.PlanID, err)
 		emitAgentRunFailure(ctx, sink, plan.PlanID, "final.response_contract_invalid", "最终答复结果不符合平台契约", err, "")
 		return nil, err
 	}
@@ -1319,6 +1331,8 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 		"success": true,
 		"data": mergeFinalContent(flowschema.Result{
 			"response_envelope": envelope,
+			"response_labels":   finalResponseCompanion(out.Data, "response_labels"),
+			"response_evidence": finalResponseCompanion(out.Data, "response_evidence"),
 		}, content),
 		"metadata": withRuntimeOutcome(mergeResponseMetadata(mergeTraceMetadata(map[string]any{
 			"trace_id": traceID,
@@ -1328,6 +1342,7 @@ func (e *Engine) runResolvedPlan(ctx context.Context, plan *flowschema.Execution
 	tr.endNode(ctx, finalNode, "final_response", "plan.final", map[string]any{
 		"content_digest":        digestAny(envelope),
 		"calculation_evidence":  evidence.TraceSummary(envelope),
+		"response_evidence":     finalResponseCompanion(out.Data, "response_evidence"),
 		"response_mode":         responseModeString(responsePlan),
 		"target_capability_ids": responseTargetIDs(responsePlan),
 		"used_context_layers":   contextLayers,
@@ -2359,6 +2374,9 @@ func humanizeExecutionError(err error) string {
 }
 
 func taskFailureReason(err error) string {
+	if failure, ok := evidence.FailureDetails(err); ok {
+		return failure.Code
+	}
 	if modelReason := modelFailureReason(err); modelReason != "" {
 		return modelReason
 	}
@@ -2370,6 +2388,14 @@ func taskFailureReason(err error) string {
 	default:
 		return "execution.task_failed"
 	}
+}
+
+func emitFinalEvidenceFailure(ctx context.Context, sink EventSink, planID string, err error) {
+	failure, _ := evidence.FailureDetails(err)
+	if failure.Stage == "final_validation" {
+		_ = sink.Emit(dto.EventNodeEnd, map[string]any{"task_id": "final_response_validation", "node_id": "final_response_validation", "node_kind": "final_response", "node_ref": "response_envelope_validation", "status": dto.AgentTaskStatusFailed, "error": map[string]any{"code": failure.Code, "stage": failure.Stage}})
+	}
+	_ = sink.Emit(dto.EventFinal, map[string]any{"success": false, "data": map[string]any{"content": ""}, "metadata": map[string]any{"trace_id": reqctx.GetTraceID(ctx), "plan_id": planID, "failure_stage": failure.Stage, "reason_code": failure.Code, "outcome": RuntimeOutcomeFailed}})
 }
 
 func agentRunFailurePayload(ctx context.Context, flowID, reason string, err error, partial string) map[string]any {
@@ -2399,6 +2425,10 @@ func agentRunFailurePayload(ctx context.Context, flowID, reason string, err erro
 		}
 	}
 	outcome := runtimeFailureOutcome(strings.TrimSpace(reason), err)
+	stage := ""
+	if failure, ok := evidence.FailureDetails(err); ok {
+		code, retryable, stage = failure.Code, failure.Retryable, failure.Stage
+	}
 	payload := map[string]any{
 		"success":     false,
 		"code":        code,
@@ -2411,6 +2441,17 @@ func agentRunFailurePayload(ctx context.Context, flowID, reason string, err erro
 		"error":       map[string]any{"code": code, "reason": strings.TrimSpace(reason), "retryable": retryable},
 		"metadata":    map[string]any{"terminal": true, "failure_code": code, "failure_reason": strings.TrimSpace(reason), "outcome": outcome.Status, "reason_code": outcome.ReasonCode},
 		"created_at":  time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if stage != "" {
+		payload["failure_stage"] = stage
+		payload["error"].(map[string]any)["stage"] = stage
+		payload["metadata"].(map[string]any)["failure_stage"] = stage
+		if stage == "final_validation" {
+			payload["task_id"] = "final_response_validation"
+			payload["node_id"] = "final_response_validation"
+			payload["node_kind"] = "final_response"
+			payload["node_ref"] = "response_envelope_validation"
+		}
 	}
 	if content := strings.TrimSpace(SanitizeAssistantVisibleText(partial)); content != "" {
 		payload["partial_content"] = content
@@ -2435,7 +2476,7 @@ func emitAgentRunFailure(ctx context.Context, sink EventSink, flowID, reason, me
 
 func agentRunEndFailurePayload(errorPayload map[string]any) map[string]any {
 	out := map[string]any{"success": false}
-	for _, key := range []string{"code", "reason", "message", "retryable", "flow_id", "trace_id", "outcome", "reason_code", "partial_content", "error", "metadata"} {
+	for _, key := range []string{"code", "reason", "message", "retryable", "flow_id", "trace_id", "outcome", "reason_code", "failure_stage", "partial_content", "error", "metadata"} {
 		if v, ok := errorPayload[key]; ok {
 			out[key] = v
 		}

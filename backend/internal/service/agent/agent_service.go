@@ -29,12 +29,17 @@ type AgentService struct {
 	knowledgeBindRepo *repo.AgentKnowledgeBindingRepository
 	pluginRepo        *repo.AgentPluginLinkRepository
 	grantRepo         *repo.AgentCapabilityGrantRepository
+	skillDefinitions  *skillsvc.DefinitionService
 }
 
 var ErrAgentOwnerForbidden = errors.New("agent.owner_forbidden")
 var ErrAgentProtectedReadonly = errors.New("agent.protected_readonly")
 
-func NewAgentService(db *gorm.DB) *AgentService {
+func NewAgentService(db *gorm.DB, dependencies ...*skillsvc.DependencyService) *AgentService {
+	checks := skillsvc.NewRuntimeDependencyService(db)
+	if len(dependencies) > 0 && dependencies[0] != nil {
+		checks = dependencies[0]
+	}
 	return &AgentService{
 		db:                db,
 		agRepo:            repo.NewAgentRepository(db),
@@ -44,6 +49,7 @@ func NewAgentService(db *gorm.DB) *AgentService {
 		knowledgeBindRepo: repo.NewAgentKnowledgeBindingRepository(db),
 		pluginRepo:        repo.NewAgentPluginLinkRepository(db),
 		grantRepo:         repo.NewAgentCapabilityGrantRepository(db),
+		skillDefinitions:  skillsvc.NewDefinitionService(skillrepo.NewSkillDefinitionRepository(db), checks),
 	}
 }
 
@@ -206,9 +212,8 @@ func (s *AgentService) ReplaceSkillBindings(ctx context.Context, env string, ten
 		if tenantUUID == nil {
 			return fmt.Errorf("skill.definition_runtime_context_invalid")
 		}
-		definitions := skillsvc.NewDefinitionService(skillrepo.NewSkillDefinitionRepository(s.db))
 		for _, key := range keys {
-			if err := definitions.CheckRunnable(ctx, *tenantUUID, key); err != nil {
+			if err := s.skillDefinitions.CheckRunnableForAgent(ctx, *tenantUUID, key, env, agentID); err != nil {
 				return err
 			}
 		}

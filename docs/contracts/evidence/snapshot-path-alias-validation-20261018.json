@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-18",
+  "observed_snapshot": {
+    "id": "06d5c037-5777-44e8-acfb-79570eb71c07",
+    "created_local": "2026-10-18 14:38:44 +08:00",
+    "terminal_local": "2026-10-18 14:38:45 +08:00",
+    "status": "failed",
+    "error": "程序产物软链接越界",
+    "record_modified_by_agent": false
+  },
+  "confirmed_cause": {
+    "core_pid": 89890,
+    "logical_pwd": "/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "physical_directory": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "defect": "EvalSymlinks on a relative plugin path returns a relative path; later Abs uses logical PWD, but copy recursion resolves absolute paths to physical PWD and falsely reports an escape. No actual external symlink was needed."
+  },
+  "changes": [
+    "Resolve source to absolute path before EvalSymlinks for artifact copy and source/self-backup boundary check",
+    "Keep actual outside-root and cyclic links rejected; include logical artifact component and relative offending path in copy errors",
+    "Preserve pushed task progress/terminal status if a late queued POST receipt arrives",
+    "Keep open snapshot details synchronized with refreshed ledger and show status/error"
+  ],
+  "validation": [
+    {
+      "command": "go test ./internal/service/snapshot_ops ./internal/transport/http/admin/backup ./internal/infra/opswatch; go vet <same packages>",
+      "result": "PASS"
+    },
+    {
+      "command": "go test -race ./internal/service/snapshot_ops -run TestRelativeArtifactUnderLogicalWorkingDirectory|TestProgramInternalLinks -count=1",
+      "result": "PASS",
+      "log": "test-results/snapshot-path-alias-race.log"
+    },
+    {
+      "test": "TestRelativeArtifactUnderLogicalWorkingDirectory",
+      "assertions": [
+        "Relative plugin path under a symlink-alias logical PWD copies successfully",
+        "Destination nested in the actual source remains rejected despite path aliases",
+        "Actual outside-root symlink remains rejected"
+      ]
+    },
+    {
+      "command": "vitest run tests/unit/backup",
+      "result": "63 tests / 10 files PASS; includes pushed failure before queued receipt and later state sync",
+      "log": "test-results/snapshot-path-alias-unit-final.log"
+    },
+    {
+      "command": "Nuxt production build using isolated output and build directories",
+      "result": "PASS; user .nuxt/.output untouched",
+      "log": "test-results/snapshot-path-alias-build.log"
+    },
+    {
+      "command": "POWERX_SNAPSHOT_WEB_ENTRY=<isolated output> playwright test --config playwright.snapshots.config.ts",
+      "result": "11 Chromium fixture tests PASS, desktop and narrow screen; queued->failed push updates open details without state polling",
+      "log": "test-results/snapshot-path-alias-browser.log",
+      "visual_review": "test-results/snapshot-path-alias-browser/snapshots-queued-capture-f-8d3a6--the-open-details-from-push-chromium/snapshot-pushed-failure-mobile.png"
+    }
+  ],
+  "limits": [
+    "Screenshot timing alone does not prove persistent live SSE failure; the live ledger proved capture failed. No claim that the live SSE disconnect cause was identified.",
+    "No authenticated user browser was available to the UI tool. Browser regression used controlled API fixtures, not the running user instance.",
+    "User Core and Nuxt were not restarted; no new user snapshot was created or historical record altered. After the user restarts Core, create a new snapshot; existing failed records stay failed.",
+    "This source-path fix does not change the existing online package versus managed whole-system recovery scope."
+  ],
+  "cleanup": {
+    "test_processes": {
+      "owner": "snapshot-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-10-18T06:46:35.460Z",
+      "fixturePid": 18171,
+      "fixturePort": 3478,
+      "corePid": 18172,
+      "corePort": 3477,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/test-results/snapshot-path-alias-output/server/index.mjs"
+      ],
+      "stoppedAt": "2026-10-18T06:47:26.003Z",
+      "coreExitedAt": "2026-10-18T06:47:26.010Z"
+    },
+    "verified_exited": [
+      18171,
+      18172
+    ],
+    "verified_free_ports": [
+      3477,
+      3478
+    ],
+    "user_services": "untouched"
+  },
+  "recorded_at": "2026-10-18T06:48:26.788385+00:00"
+}

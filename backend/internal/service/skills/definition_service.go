@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 
@@ -26,17 +28,17 @@ var skillDefinitionIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{2,159}$`)
 // definitions. It accepts already structured Agent output or a parsed import;
 // it never extracts an execution definition from free-form text at runtime.
 type DefinitionService struct {
-	repo       *skillrepo.SkillDefinitionRepository
-	checkTools ToolDependencyChecker
+	repo         *skillrepo.SkillDefinitionRepository
+	dependencies *DependencyService
 }
 
-func NewDefinitionService(repo *skillrepo.SkillDefinitionRepository, checkers ...ToolDependencyChecker) *DefinitionService {
+func NewDefinitionService(repo *skillrepo.SkillDefinitionRepository, dependencies ...*DependencyService) *DefinitionService {
 	if repo == nil {
 		panic("skill definition service requires repository")
 	}
-	s := &DefinitionService{repo: repo}
-	if len(checkers) > 0 {
-		s.checkTools = checkers[0]
+	s := &DefinitionService{repo: repo, dependencies: NewRuntimeDependencyService(nil)}
+	if len(dependencies) > 0 && dependencies[0] != nil {
+		s.dependencies = dependencies[0]
 	}
 	return s
 }
@@ -196,7 +198,7 @@ func (s *DefinitionService) AppendRevision(ctx context.Context, tenantUUID, draf
 	if err := optionalUUID(sourceMessageUUID, "source_message_uuid"); err != nil {
 		return nil, nil, err
 	}
-	if err := validatePowerXDefinition(definition); err != nil {
+	if err := validateDraftDefinition(definition); err != nil {
 		return nil, nil, err
 	}
 	raw, err := json.Marshal(definition)
@@ -237,16 +239,16 @@ func (s *DefinitionService) PublishCurrentRevision(ctx context.Context, in Publi
 		return nil, nil, err
 	}
 	var definition map[string]any
-	if err := json.Unmarshal(revision.DefinitionJSON, &definition); err != nil {
+	if err := utils.DecodeStrictJSON(revision.DefinitionJSON, &definition); err != nil {
 		return nil, nil, fmt.Errorf("skill.definition_decode_failed: %w", err)
+	}
+	if err := s.dependencies.Check(ctx, DependencyCheckInput{TenantUUID: in.TenantUUID, Stage: DependencyPublish, Definition: definition}); err != nil {
+		return nil, nil, err
 	}
 	if err := validatePowerXDefinition(definition); err != nil {
 		return nil, nil, err
 	}
-	if err := CheckToolDependencies(ctx, in.TenantUUID, definition, s.checkTools); err != nil {
-		return nil, nil, err
-	}
-	return s.repo.PublishCurrentRevision(ctx, in.TenantUUID, in.DraftUUID, in.ArtifactURI, in.Checksum, in.UpdatedByMemberUUID)
+	return s.repo.PublishCurrentRevision(ctx, in.TenantUUID, in.DraftUUID, in.ArtifactURI, in.Checksum, in.UpdatedByMemberUUID, revision.UUID.String())
 }
 
 func validateCreateDraftInput(in CreateDefinitionDraftInput) error {
@@ -289,7 +291,20 @@ func validateCreateDraftInput(in CreateDefinitionDraftInput) error {
 	if sourceKind == skillmodel.SkillPackageSourceAgentAuthoring && status == skillmodel.SkillDefinitionDraftStatusInstructionOnly {
 		return errors.New("skill.definition_agent_authoring_initial_status_invalid")
 	}
-	return validatePowerXDefinition(in.Definition)
+	return validateDraftDefinition(in.Definition)
+}
+
+// 未支持的 executor 允许原样保存为不可运行 Draft，不能因此跳过发布/绑定/执行预检。
+func validateDraftDefinition(definition map[string]any) error {
+	if definition != nil && toString(definition["schema"]) == SkillDefinitionSchemaV2 {
+		executor := nestedManifestMap(definition, "executor")
+		rawType, isString := executor["type"].(string)
+		typ := strings.TrimSpace(rawType)
+		if isString && toolLocalKeyPattern.MatchString(typ) && !slices.Contains([]string{"llm_prompt", "capability", "workflow", "instruction_only"}, typ) {
+			return nil
+		}
+	}
+	return validatePowerXDefinition(definition)
 }
 
 func validatePowerXDefinition(definition map[string]any) error {

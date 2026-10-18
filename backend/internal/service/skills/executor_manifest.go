@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 )
 
 // ManifestLLMInvocation and its siblings are intentionally narrow platform
@@ -50,28 +54,41 @@ type ManifestCapabilityInvoker func(context.Context, ManifestCapabilityInvocatio
 type ManifestWorkflowInvoker func(context.Context, ManifestWorkflowInvocation) (map[string]any, error)
 
 type ManifestExecutorOptions struct {
-	LLM                   ManifestLLMInvoker
-	Capability            ManifestCapabilityInvoker
-	Workflow              ManifestWorkflowInvoker
-	CheckToolDependencies ToolDependencyChecker
+	LLM           ManifestLLMInvoker
+	Capability    ManifestCapabilityInvoker
+	Workflow      ManifestWorkflowInvoker
+	Dependencies  *DependencyService
+	Tools         *evidence.ToolService
+	EvidenceStore evidence.EvidenceArchiveStore
 }
 
 // ManifestExecutor is the generic Skill dispatcher. It selects exclusively by
 // `definition.executor.type`; skill IDs, agent names and team keys are never
 // part of its routing decision.
 type ManifestExecutor struct {
-	llm        ManifestLLMInvoker
-	capability ManifestCapabilityInvoker
-	workflow   ManifestWorkflowInvoker
-	checkTools ToolDependencyChecker
+	llm           ManifestLLMInvoker
+	capability    ManifestCapabilityInvoker
+	workflow      ManifestWorkflowInvoker
+	dependencies  *DependencyService
+	tools         *evidence.ToolService
+	evidenceStore evidence.EvidenceArchiveStore
 }
 
 func NewManifestExecutor(options ManifestExecutorOptions) *ManifestExecutor {
+	if options.Tools == nil {
+		options.Tools = NewRuntimeToolService()
+	}
+	if options.Dependencies == nil {
+		options.Dependencies = NewDependencyService(DependencyServiceOptions{
+			Executors: map[string]bool{"llm_prompt": options.LLM != nil, "capability": options.Capability != nil, "workflow": options.Workflow != nil},
+		})
+	}
 	return &ManifestExecutor{
-		llm:        options.LLM,
-		capability: options.Capability,
-		workflow:   options.Workflow,
-		checkTools: options.CheckToolDependencies,
+		llm:          options.LLM,
+		capability:   options.Capability,
+		workflow:     options.Workflow,
+		dependencies: options.Dependencies,
+		tools:        options.Tools, evidenceStore: options.EvidenceStore,
 	}
 }
 
@@ -81,14 +98,30 @@ func (e *ManifestExecutor) CanHandle(in ExecuteInput) bool {
 }
 
 func (e *ManifestExecutor) Execute(ctx context.Context, in ExecuteInput) (map[string]any, error) {
-	if err := CheckToolDependencies(ctx, in.TenantUUID, in.Manifest, e.checkTools); err != nil {
+	if e == nil {
+		return nil, errors.New("skill.executor_unavailable")
+	}
+	var scope struct {
+		AgentID uint64 `json:"agent_id"`
+	}
+	_ = utils.MapToStruct(map[string]any{"agent_id": in.Context["agent_id"]}, &scope)
+	if err := e.dependencies.Check(ctx, DependencyCheckInput{TenantUUID: in.TenantUUID, Stage: DependencyExecute, Env: reqctx.GetEnv(ctx), AgentID: scope.AgentID, Definition: in.Manifest}); err != nil {
 		return nil, err
 	}
+	ctx = evidence.WithToolAgentID(ctx, scope.AgentID)
 	typ, ok := normalizedExecutorType(in.Manifest)
 	if !ok {
 		return nil, errors.New("skill.executor_definition_invalid")
 	}
 	executor := nestedManifestMap(in.Manifest, "executor")
+	if asStringInterface(executor["response_contract"]) == evidence.ReportSchemaV5 {
+		if e.evidenceStore == nil {
+			return nil, &evidence.ToolEvidenceError{ToolFailure: evidence.ToolFailure{Code: "evidence.storage_unavailable", Stage: "dependency_check"}}
+		}
+		if err := e.evidenceStore.Ready(ctx); err != nil {
+			return nil, &evidence.ToolEvidenceError{ToolFailure: evidence.ToolFailure{Code: "evidence.storage_unavailable", Stage: "dependency_check"}, Cause: err}
+		}
+	}
 	switch typ {
 	case "llm_prompt":
 		if e == nil || e.llm == nil {
@@ -127,17 +160,8 @@ func (e *ManifestExecutor) Execute(ctx context.Context, in ExecuteInput) (map[st
 		}
 		return map[string]any{"content": text, "format": "markdown"}, nil
 	case "capability":
-		if e == nil || e.capability == nil {
-			return nil, errors.New("skill.executor_capability_unavailable")
-		}
-		capabilityID := strings.TrimSpace(asStringInterface(executor["capability_id"]))
-		if capabilityID == "" {
-			return nil, errors.New("skill.executor_capability_id_required")
-		}
-		return e.capability(ctx, ManifestCapabilityInvocation{
-			TenantUUID: in.TenantUUID, TraceID: in.TraceID, SkillID: in.SkillID, Version: in.Version,
-			Entrypoint: in.Entrypoint, CapabilityID: capabilityID, Payload: in.Payload, Context: in.Context,
-		})
+		return e.executeCapabilityV5(ctx, in)
+
 	case "workflow":
 		if e == nil || e.workflow == nil {
 			return nil, errors.New("skill.executor_workflow_unavailable")

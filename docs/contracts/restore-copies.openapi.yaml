@@ -2,7 +2,11 @@ openapi: 3.0.3
 info:
   title: PowerX 保留恢复副本
   version: '1.1.0'
-  description: 仅 Root 用户 JWT。将备份导入服务端生成的独立新库；不切换当前 Core 或插件 DSN。
+  description: >-
+    仅 Root 用户 JWT。将 PostgreSQL dump 导入服务端生成的独立新库；
+    不恢复媒体、运行配置或程序版本，不切换当前 Core 或插件 DSN。
+    这不是整站系统快照导入／恢复接口；统一包／隔离数据合同已另见 system-snapshots.openapi.yaml，托管应用验证与正式切换已本地实现、生产第二轮待验收，
+    见 docs/plan/deploy/system-snapshot-and-restore.md。
 servers:
   - url: /api/v1/admin/ops/backup
 security:

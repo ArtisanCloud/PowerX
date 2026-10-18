@@ -2,7 +2,10 @@ openapi: 3.0.3
 info:
   title: Backup Center Admin API
   version: 0.3.0
-  description: 自动备份闭环管理接口（Root 管理员）
+  description: >-
+    已实现的数据库组件备份、作业与验证管理接口；不代表整站系统快照。
+    媒体归档与数据库副本有各自现有合同。统一数据库、媒体、配置、版本及
+    跨环境导入、应用验证和正式切换另见 docs/contracts/system-snapshots.openapi.yaml；本组件合同不重复这些路径。
 servers:
   - url: /api/v1
 paths:
@@ -161,16 +164,27 @@ paths:
   /admin/ops/backup/jobs/run:
     post:
       summary: 手动触发备份任务
+      description: 提供 policy_id 执行指定组件策略，或由 Root 用户提供 one_time=true 发起一次性完整数据库备份；两种输入互斥。按需任务不创建策略，policy_id 为 0，默认保留 7 天／168 份，最新和受保护文件保留。
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [policy_id]
+              oneOf:
+                - required: [policy_id]
+                  properties:
+                    policy_id: { type: string, pattern: '^[1-9][0-9]*$' }
+                    one_time: { type: boolean, enum: [false] }
+                - required: [one_time]
+                  not: { required: [policy_id] }
+                  properties:
+                    one_time: { type: boolean, enum: [true] }
               properties:
                 policy_id:
                   type: string
+                one_time:
+                  type: boolean
       responses:
         '200':
           description: created
@@ -192,8 +206,14 @@ paths:
 
   /admin/ops/backup/jobs:
     get:
-      summary: 查询备份作业历史
+      summary: 查询数据库备份或执行历史
       parameters:
+        - in: query
+          name: view
+          description: available 仅返回成功且仍有有效文件登记的任务；history 或省略返回完整执行历史。筛选在分页前完成，不校验磁盘文件完整性。
+          schema:
+            type: string
+            enum: [available, history]
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - in: query
@@ -237,6 +257,25 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /admin/ops/backup/jobs/{job_id}/download:
+    get:
+      summary: Root 下载已核验的完整数据库文件
+      description: 仅管理员用户会话。核对登记路径、文件大小及 SHA256，持有保留锁直到下载结束。不接受自定义文件路径。
+      parameters:
+        - $ref: '#/components/parameters/JobID'
+      responses:
+        '200':
+          description: attachment, Cache-Control no-store
+          content:
+            application/postgresql-custom:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: File is being used or cleaned }
+        '410': { description: Backup file has been removed or is unavailable }
+        '422': { description: Registered path, size or SHA256 validation failed }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /admin/ops/backup/jobs/{job_id}:

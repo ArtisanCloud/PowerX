@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -79,7 +80,7 @@ func (s *collectSink) Emit(event string, payload any) error {
 	return nil
 }
 
-func TestSkillAgentCompositePlanExecuteWithEventSourceScope(t *testing.T) {
+func TestSkillAgentCompositePlanRequiresVerifiedFinalAndPreservesEventSourceScope(t *testing.T) {
 	m := agentpkg.GetAgentManager()
 	agentID := fmt.Sprintf("agent.composite.%d", time.Now().UnixNano())
 	stub := &multiPlanStubAgent{}
@@ -127,14 +128,19 @@ func TestSkillAgentCompositePlanExecuteWithEventSourceScope(t *testing.T) {
 	sink := &collectSink{}
 	ctx := reqctx.WithTraceID(reqctx.WithTenantUUID(context.Background(), "tenant-composite"), "trace-composite")
 	out, plan, err := runtime.NewEngine().RunPlanInvoke(
-		ctx,
+		withMessageTrace(ctx),
 		"先执行 skill 步骤，然后执行 tooling 步骤，最后 workflow 汇总",
 		&dto.ChatConfig{},
 		"",
 		sink,
 	)
-	require.NoError(t, err)
-	require.NotNil(t, out)
+	// 该 fixture 的 workflow 只返回裸 Data；当前 Runtime 必须拒绝其作为最终答复。
+	require.Error(t, err)
+	require.Nil(t, out)
+	failure, ok := evidence.FailureDetails(err)
+	require.True(t, ok)
+	require.Equal(t, "agent.response_contract_invalid", failure.Code)
+	require.Equal(t, "final_validation", failure.Stage)
 	require.NotNil(t, plan)
 	require.NotEmpty(t, plan.Tasks)
 
@@ -157,6 +163,9 @@ func TestSkillAgentCompositePlanExecuteWithEventSourceScope(t *testing.T) {
 		kind := strings.TrimSpace(fmt.Sprintf("%v", payload["node_kind"]))
 		ref := strings.TrimSpace(fmt.Sprintf("%v", payload["node_ref"]))
 		scope := strings.TrimSpace(fmt.Sprintf("%v", payload["source_scope"]))
+		if kind != "skill" && kind != "tooling" && kind != "workflow" {
+			continue
+		}
 		require.NotEmpty(t, kind)
 		require.NotEmpty(t, ref)
 		require.NotEmpty(t, scope)

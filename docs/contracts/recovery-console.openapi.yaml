@@ -1,0 +1,134 @@
+openapi: 3.0.3
+info:
+  title: PowerX maintenance recovery console
+  version: '1.0.0'
+  description: >-
+    Served by the same Core executable in normal or maintenance mode at the original backend address. Maintenance mode is independent of business database, plugins and workers; it does not add a permanent coordinator or port.
+    No API key or STS binding grants access. Authentication uses a live Root user session
+    or the private random per-installation recovery key. The host-only HttpOnly cookie
+    lasts two hours, is SameSite=Strict and sets Secure behind HTTPS. The key and session
+    ledger live outside the replaced instance. No credential, CSRF or progress ticket
+    may appear in URLs or browser storage. Progress tickets remain read-only and single-job.
+servers: [{ url: /__powerx_recovery }]
+security: [{ recoveryAdministrator: [] }]
+paths:
+  /:
+    get:
+      security: []
+      description: Embedded HTML, also served on ordinary browser navigation during maintenance or business startup failure. Assets are embedded in Core and available before business bootstrap.
+      responses:
+        '200': { description: No-store HTML with self-only CSP and frame-ancestors none; private data requires authentication. }
+  /health:
+    get:
+      security: []
+      responses:
+        '200': { description: Public availability only; no tasks, snapshots or private configuration. }
+  /session:
+    post:
+      security: [{ rootJWT: [] }, {}]
+      description: >-
+        Empty key requires a live Root bearer verified by Core. Nonempty key authenticates
+        the maintenance administrator without business Core routes. Same-origin, bounded JSON and rate limit.
+        Sets an HttpOnly cookie; response includes only operator, expiry and transient CSRF.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: { key: { type: string, maxLength: 128, writeOnly: true } }
+      responses:
+        '200': { description: Independent session created or reused; neither recovery key nor cookie secret is in JSON. }
+        '401': { description: Missing or invalid authentication. }
+        '403': { description: Cross-origin request or non-Root user. }
+        '429': { description: Authentication rate limit reached. }
+        '503': { description: Recovery authentication unavailable or Core offline for a Root exchange; key authentication does not depend on Core. }
+    get:
+      responses:
+        '200': { description: Session operator, expiry and transient CSRF. }
+        '401': { description: Invalid, expired or revoked session. }
+    delete:
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      responses:
+        '200': { description: Session revoked on disk and cookie expired; explicit normal-site logout also revokes the independent session. }
+        '403': { description: Origin or CSRF check failed. }
+  /catalog:
+    get:
+      responses:
+        '200': { description: Snapshot metadata and allowed scope, jobs, current generation, maintenance, startup error, business/executor health and read-only per-job progress tickets. No DSN or arbitrary execution paths. }
+        '401': { description: Independent administrator authentication required. }
+        '503': { description: Snapshot or task ledger unavailable. }
+  /events:
+    get:
+      description: Authenticated filesystem resource invalidations and keepalive. Carries changed=true, not task progress. Read catalog initially, on actual changes, manual refresh and bounded reconnection; no periodic status queries.
+      responses:
+        '200':
+          description: invalidate SSE events.
+          content: { text/event-stream: { schema: { type: string } } }
+        '401': { description: Independent session required. }
+  /restore:
+    post:
+      description: >-
+        One confirmation replaces the unique registered installation. Requires a ready
+        supported package, online executor, current generation, no conflicting task and
+        UUID idempotency key. Current state is protected before overwrite; protection
+        failure stops replacement. HTTP cannot supply an environment, DSN, path or command.
+      parameters:
+        - { $ref: '#/components/parameters/csrf' }
+        - { $ref: '#/components/parameters/idempotency' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [snapshot_id, confirmation, generation]
+              properties:
+                snapshot_id: { type: string, format: uuid }
+                confirmation: { type: string, format: uuid, description: Must equal snapshot_id. }
+                generation: { type: integer, minimum: 1 }
+      responses:
+        '202': { description: recovery plus a read-only single-job progress_token. }
+        '400': { description: Malformed, oversized, unknown-field or unconfirmed request. }
+        '401': { description: Independent authentication required; a progress ticket cannot authorize writes. }
+        '403': { description: Origin or CSRF check failed. }
+        '409': { description: Unsupported package, stale generation, idempotency conflict or pending task. }
+        '503': { description: Executor not online. }
+  /resume:
+    post:
+      description: Revalidate and start existing data in the current held instance. Does not replace data. Requires an attention_required task, current generation and no concurrent execution.
+      parameters:
+        - { $ref: '#/components/parameters/csrf' }
+        - { $ref: '#/components/parameters/idempotency' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [job_id, confirmation, generation]
+              properties:
+                job_id: { type: string, format: uuid }
+                confirmation: { type: string, format: uuid, description: Must equal job_id. }
+                generation: { type: integer, minimum: 1 }
+      responses:
+        '202': { description: Independent task and progress receipt. }
+        '409': { description: Held instance, generation or task state changed. }
+  /recovery-key:
+    post:
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      description: Explicit authenticated, CSRF-protected and audited download. No-store attachment; key is never shown in HTML, logs or URLs and never included in a business snapshot.
+      responses:
+        '200': { description: powerx-recovery-administrator.key attachment. }
+        '401': { description: Independent administrator authentication required. }
+        '403': { description: Origin or CSRF check failed. }
+components:
+  securitySchemes:
+    recoveryAdministrator: { type: apiKey, in: cookie, name: powerx_recovery_admin }
+    rootJWT: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    csrf: { name: X-PowerX-Recovery-CSRF, in: header, required: true, schema: { type: string } }
+    idempotency: { name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } }

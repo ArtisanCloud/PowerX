@@ -39,7 +39,7 @@ type AgentSessionHandler struct {
 func NewAgentSessionHandler(dep *shared.Deps) *AgentSessionHandler {
 	return &AgentSessionHandler{
 		his:      agentSvc.NewChatHistoryService(dep.DB),
-		ag:       agentSvc.NewAgentService(dep.DB),
+		ag:       agentSvc.NewAgentService(dep.DB, dep.SkillDependencies),
 		settings: agentSvc.NewAgentSettingService(dep.DB),
 	}
 }
@@ -47,16 +47,18 @@ func NewAgentSessionHandler(dep *shared.Deps) *AgentSessionHandler {
 // ====== Requests/Responses ======
 
 type createSessionReq struct {
-	Env       string            `json:"env"`
-	AgentID   uint64            `json:"agentId"`
-	AgentUUID string            `json:"agentUuid"`
-	Title     string            `json:"title"`
-	UserID    uint64            `json:"userId"`              // 可选；没有就由后端取鉴权上下文（此处留空也行）
-	Singleton *bool             `json:"singleton,omitempty"` // 不传就按 Agent 策略；这里只作直传
-	TTLDays   int               `json:"ttlDays,omitempty"`
-	MaxKB     int               `json:"maxKB,omitempty"`
-	MaxTokens int               `json:"maxTokens,omitempty"`
-	Meta      datatypes.JSONMap `json:"meta,omitempty"`
+	Env         string            `json:"env"`
+	AgentID     uint64            `json:"agentId"`
+	AgentUUID   string            `json:"agentUuid"`
+	SessionType string            `json:"sessionType"`
+	TeamID      uint64            `json:"teamId"`
+	Title       string            `json:"title"`
+	UserID      uint64            `json:"userId"`              // 可选；没有就由后端取鉴权上下文（此处留空也行）
+	Singleton   *bool             `json:"singleton,omitempty"` // 不传就按 Agent 策略；这里只作直传
+	TTLDays     int               `json:"ttlDays,omitempty"`
+	MaxKB       int               `json:"maxKB,omitempty"`
+	MaxTokens   int               `json:"maxTokens,omitempty"`
+	Meta        datatypes.JSONMap `json:"meta,omitempty"`
 }
 
 type updateSessionReq struct {
@@ -67,16 +69,18 @@ type updateSessionReq struct {
 }
 
 type appendMsgReq struct {
-	Env       string            `json:"env"`
-	SessionID uint64            `json:"sessionId" validate:"required"`
-	AgentID   uint64            `json:"agentId" validate:"required"`
-	Role      string            `json:"role" validate:"required"` // user|assistant|system|tool|summary
-	Content   string            `json:"content" validate:"required"`
-	Format    string            `json:"format"` // 默认 text
-	Tokens    int               `json:"tokens,omitempty"`
-	SizeBytes int               `json:"sizeBytes,omitempty"`
-	Pinned    bool              `json:"pinned,omitempty"`
-	Meta      datatypes.JSONMap `json:"meta,omitempty"`
+	Env         string            `json:"env"`
+	SessionID   uint64            `json:"sessionId" validate:"required"`
+	SessionType string            `json:"sessionType"`
+	TeamID      uint64            `json:"teamId"`
+	AgentID     uint64            `json:"agentId" validate:"required"`
+	Role        string            `json:"role" validate:"required"` // user|assistant|system|tool|summary
+	Content     string            `json:"content" validate:"required"`
+	Format      string            `json:"format"` // 默认 text
+	Tokens      int               `json:"tokens,omitempty"`
+	SizeBytes   int               `json:"sizeBytes,omitempty"`
+	Pinned      bool              `json:"pinned,omitempty"`
+	Meta        datatypes.JSONMap `json:"meta,omitempty"`
 }
 
 // ====== Handlers ======
@@ -145,12 +149,19 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 		singleton = *req.Singleton
 	}
 
+	scope, err := parseSessionScope(req.SessionType, req.TeamID)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
 	def := dbmodel.AgentChatSession{
-		Title:     strings.TrimSpace(req.Title),
-		TTLDays:   req.TTLDays,
-		MaxKB:     req.MaxKB,
-		MaxTokens: req.MaxTokens,
-		Meta:      req.Meta,
+		SessionType: scope.SessionType,
+		TeamID:      scope.TeamID,
+		Title:       strings.TrimSpace(req.Title),
+		TTLDays:     req.TTLDays,
+		MaxKB:       req.MaxKB,
+		MaxTokens:   req.MaxTokens,
+		Meta:        req.Meta,
 	}
 
 	out, err := h.his.GetOrCreateSession(c.Request.Context(), req.Env, tenantRef, agentID, userID, singleton, &def)
@@ -251,7 +262,12 @@ func (h *AgentSessionHandler) ListSessions(c *gin.Context) {
 	limit := utils.ParseIntDefault(c.DefaultQuery("limit", "50"), 50)
 	offset := utils.ParseIntDefault(c.DefaultQuery("offset", "0"), 0)
 
-	list, err := h.his.ListSessions(c.Request.Context(), env, tenantRef, agentID, statuses, limit, offset)
+	scope, err := querySessionScope(c)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	list, err := h.his.ListSessions(c.Request.Context(), env, tenantRef, agentID, statuses, limit, offset, scope)
 	if err != nil {
 		dto.ResponseError(c, 500, "查询失败", err)
 		return
@@ -272,23 +288,11 @@ func (h *AgentSessionHandler) GetSession(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	idParam := strings.TrimSpace(c.Param("id"))
-	var out *dbmodel.AgentChatSession
-	if isDecimalID(idParam) {
-		id, parseErr := utils.ParseUintID(idParam)
-		if parseErr != nil || id == 0 {
-			dto.ResponseError(c, 400, "id 非法", parseErr)
-			return
-		}
-		out, err = h.his.FindSessionByID(c.Request.Context(), env, tenantRef, id)
-	} else {
-		out, err = h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam)
-	}
-	if err != nil {
-		dto.ResponseError(c, 404, "未找到", err)
+	session, scopeOK := h.sessionForRequest(c, env, tenantRef, false)
+	if !scopeOK {
 		return
 	}
-	dto.ResponseSuccess(c, out)
+	dto.ResponseSuccess(c, session)
 }
 
 // PATCH /agents/sessions/:id
@@ -309,21 +313,11 @@ func (h *AgentSessionHandler) UpdateSession(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	idParam := strings.TrimSpace(c.Param("id"))
-	var sid uint64
-	if isDecimalID(idParam) {
-		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-			sid = id
-		}
-	} else {
-		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
-			sid = sess.ID
-		}
-	}
-	if sid == 0 {
-		dto.ResponseError(c, 400, "id 非法", nil)
+	session, scopeOK := h.sessionForRequest(c, env, tenantRef, false)
+	if !scopeOK {
 		return
 	}
+	sid := session.ID
 
 	if err := h.his.UpdateSessionPolicy(c.Request.Context(), env, tenantRef, sid, req.Title, req.TTLDays, req.MaxKB, req.MaxTokens); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
@@ -345,21 +339,11 @@ func (h *AgentSessionHandler) ArchiveSession(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	idParam := strings.TrimSpace(c.Param("id"))
-	var sid uint64
-	if isDecimalID(idParam) {
-		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-			sid = id
-		}
-	} else {
-		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
-			sid = sess.ID
-		}
-	}
-	if sid == 0 {
-		dto.ResponseError(c, 400, "id 非法", nil)
+	session, scopeOK := h.sessionForRequest(c, env, tenantRef, false)
+	if !scopeOK {
 		return
 	}
+	sid := session.ID
 
 	if err := h.his.ArchiveSession(c.Request.Context(), env, tenantRef, sid); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
@@ -381,22 +365,13 @@ func (h *AgentSessionHandler) DeleteSession(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	// 软删
-	idParam := strings.TrimSpace(c.Param("id"))
-	var sid uint64
-	if isDecimalID(idParam) {
-		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-			sid = id
-		}
-	} else {
-		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
-			sid = sess.ID
-		}
-	}
-	if sid == 0 {
-		dto.ResponseError(c, 400, "id 非法", nil)
+	session, scopeOK := h.sessionForRequest(c, env, tenantRef, false)
+	if !scopeOK {
 		return
 	}
+	// 软删
+	sid := session.ID
+
 	if err := h.his.DeleteSession(c.Request.Context(), env, tenantRef, sid); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -417,21 +392,11 @@ func (h *AgentSessionHandler) ListMessages(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	idParam := strings.TrimSpace(c.Param("id"))
-	var sid uint64
-	if isDecimalID(idParam) {
-		if id, parseErr := utils.ParseUintID(idParam); parseErr == nil && id > 0 {
-			sid = id
-		}
-	} else {
-		if sess, findErr := h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam); findErr == nil && sess != nil {
-			sid = sess.ID
-		}
-	}
-	if sid == 0 {
-		dto.ResponseError(c, 400, "id 非法", nil)
+	session, scopeOK := h.sessionForRequest(c, env, tenantRef, false)
+	if !scopeOK {
 		return
 	}
+	sid := session.ID
 
 	afterID, _ := utils.ParseUint64(c.DefaultQuery("after_id", "0"))
 	limit := utils.ParseIntDefault(c.DefaultQuery("limit", "200"), 200)
@@ -466,6 +431,19 @@ func (h *AgentSessionHandler) AppendMessage(c *gin.Context) {
 	}
 	tenantRef := tenantCtx.UUIDPtr()
 
+	sess, ok := h.sessionForRequest(c, env, tenantRef, false)
+	if !ok {
+		return
+	}
+	scope, scopeErr := parseSessionScope(req.SessionType, req.TeamID)
+	if scopeErr == nil {
+		scopeErr = agentSvc.ValidateSessionScope(sess, req.AgentID, scope, true)
+	}
+	if scopeErr != nil || sess.ID != req.SessionID {
+		dto.ResponseError(c, 409, "agent.session_scope_mismatch", nil)
+		return
+	}
+
 	msg, err := h.his.AppendMessage(c.Request.Context(), req.Env, tenantRef,
 		req.SessionID, req.AgentID,
 		strings.TrimSpace(req.Role),
@@ -495,24 +473,11 @@ func (h *AgentSessionHandler) SummarizeIfNeeded(c *gin.Context) {
 		return
 	}
 	tenantRef := tenantCtx.UUIDPtr()
-	idParam := strings.TrimSpace(c.Param("id"))
-	var sess *dbmodel.AgentChatSession
-	if isDecimalID(idParam) {
-		id, parseErr := utils.ParseUintID(idParam)
-		if parseErr != nil || id == 0 {
-			dto.ResponseError(c, 400, "id 非法", parseErr)
-			return
-		}
-		sess, err = h.his.FindSessionByID(c.Request.Context(), env, tenantRef, id)
-	} else {
-		sess, err = h.his.FindSessionByUUID(c.Request.Context(), env, tenantRef, idParam)
-	}
-	if err != nil {
-		dto.ResponseError(c, 404, "未找到", err)
+	session, scopeOK := h.sessionForRequest(c, env, tenantRef, true)
+	if !scopeOK {
 		return
 	}
-
-	ok, err := h.his.SummarizeIfNeeded(c.Request.Context(), env, tenantRef, sess)
+	ok, err := h.his.SummarizeIfNeeded(c.Request.Context(), env, tenantRef, session)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return

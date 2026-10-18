@@ -3,7 +3,13 @@ package skills
 import (
 	"context"
 	"encoding/json"
+	evidencesvc "github.com/ArtisanCloud/PowerX/internal/service/agent_evidence"
+	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
+	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
+	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
+	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,7 +49,14 @@ func TestRealOllamaEvidenceSaaSReview(t *testing.T) {
 	defer client.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
 	defer cancel()
-	ctx = evidence.WithLedger(reqctx.WithEnv(reqctx.WithTenantUUID(ctx, uuid.NewString()), "dev"))
+	ctx = reqctx.WithUserUUID(reqctx.WithEnv(reqctx.WithTenantUUID(ctx, uuid.NewString()), "dev"), uuid.NewString())
+	db := setupDefinitionServiceTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.EvidenceSnapshot{}))
+	checks := NewRuntimeDependencyService(db)
+	store := evidencesvc.NewService(db)
+	repository := skillrepo.NewSkillDefinitionRepository(db)
+	definitions := NewDefinitionService(repository, checks)
+	t.Logf("real model provider=%s model=%s", cfg.AI.Runtime.PhysicalModelPools[0].Provider, cfg.AI.Runtime.PhysicalModelPools[0].Model)
 	require.NoError(t, llm.ConfigurePhysicalModelPools(ctx, client, cfg.AI.Runtime.PhysicalModelPools, time.Minute))
 	rule := cfg.AI.Runtime.PhysicalModelPools[0]
 	require.Equal(t, "ollama", rule.Provider)
@@ -53,12 +66,12 @@ func TestRealOllamaEvidenceSaaSReview(t *testing.T) {
 	require.NoError(t, err)
 	var policy map[string]any
 	require.NoError(t, json.Unmarshal(raw, &policy))
-	manifest := evidenceDefinition()
+	manifest := v5Definition(t)
 	executorConfig := manifest["executor"].(map[string]any)
 	executorConfig["calculation_policy"] = policy
 	executorConfig["prompt_template_i18n"] = map[string]any{"zh-CN": "test"}
 	calls := 0
-	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(ctx context.Context, in ManifestLLMInvocation) (string, error) {
+	executor := NewManifestExecutor(ManifestExecutorOptions{Dependencies: checks, EvidenceStore: store, LLM: func(ctx context.Context, in ManifestLLMInvocation) (string, error) {
 		calls++
 		t.Logf("real evidence stage %d started", calls)
 		payload, err := json.Marshal(in.Payload)
@@ -72,18 +85,59 @@ func TestRealOllamaEvidenceSaaSReview(t *testing.T) {
 		t.Logf("real evidence stage %d completed", calls)
 		return result.Text, nil
 	}})
-	out, err := executor.Execute(ctx, ExecuteInput{SkillID: "marketing.review_summarize", TenantUUID: reqctx.GetTenantUUID(ctx), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: manifest, Context: map[string]any{"locale": "zh-CN"}, Payload: map[string]any{"message": string(article)}})
+
+	publisher := NewPackagePublisher(&memorySkillPackageStore{})
+	source := createAgentAuthoringSource(t, definitions, reqctx.GetTenantUUID(ctx), reqctx.GetUserUUID(ctx))
+	draft, revision, err := definitions.CreateDraft(ctx, CreateDefinitionDraftInput{TenantUUID: reqctx.GetTenantUUID(ctx), SkillID: "customer.actual_review", DisplayNameI18n: map[string]string{"zh-CN": "fixture"}, DescriptionI18n: map[string]string{"zh-CN": "fixture"}, SourceKind: skillmodel.SkillPackageSourceAgentAuthoring, PackageSourceUUID: source.UUID.String(), Definition: manifest, AuthorMemberUUID: reqctx.GetUserUUID(ctx)})
 	require.NoError(t, err)
-	require.NoError(t, evidence.Verify(ctx, out["response_envelope"]))
-	presentation := out["response_envelope"].(map[string]any)["presentation"].(map[string]any)
-	values := []string{}
-	for _, r := range presentation["reported"].([]any) {
-		values = append(values, r.(map[string]any)["value"].(string))
+	published, err := publisher.PublishCanonical(ctx, CanonicalSkillPackageInput{TenantUUID: reqctx.GetTenantUUID(ctx), SkillID: draft.SkillID, RevisionUUID: revision.UUID.String(), DisplayName: "fixture", Description: "fixture", Definition: manifest})
+	require.NoError(t, err)
+	_, _, err = definitions.PublishCurrentRevision(ctx, PublishDefinitionInput{TenantUUID: reqctx.GetTenantUUID(ctx), DraftUUID: draft.UUID.String(), ArtifactURI: published.ArtifactURI, Checksum: published.Checksum, UpdatedByMemberUUID: reqctx.GetUserUUID(ctx)})
+	require.NoError(t, err)
+	invoker := NewDefinitionInvokeService(repository, executor, nil)
+	for _, sample := range []struct {
+		name, text string
+		want       []string
+	}{
+		{"original", string(article), []string{"1.35", "0.85"}},
+		{"changed", strings.NewReplacer("34.2", "20.0", "46.2", "60.0", "29.0", "10.0").Replace(string(article)), []string{"3.00", "0.50"}},
+	} {
+		t.Run(sample.name, func(t *testing.T) {
+			runCtx := evidence.WithInvocationScope(evidence.WithLedger(ctx), uuid.NewString(), "review")
+			before := calls
+			out, err := invoker.Execute(runCtx, InvokeRequest{TenantUUID: reqctx.GetTenantUUID(ctx), SkillID: draft.SkillID, Version: revision.UUID.String(), TraceID: uuid.NewString()}, map[string]any{"message": sample.text}, map[string]any{"locale": "zh-CN"})
+			require.NoError(t, err)
+			require.Equal(t, 3, calls-before)
+			require.NoError(t, evidence.Verify(runCtx, out.Result["response_envelope"]))
+			raw, err := json.Marshal(out.Result["response_envelope"])
+			require.NoError(t, err)
+			var report evidence.ReportV5
+			require.NoError(t, evidence.DecodeToolJSON(raw, &report))
+			values := []string{}
+			for _, datum := range report.Presentation.Computed {
+				values = append(values, datum.Value)
+			}
+			// 每个结果来自实际 typed calculator；不根据模型自由文本检查或补算。
+			for _, want := range sample.want {
+				found := false
+				for _, value := range values {
+					found = found || numericTestEqual(value, want)
+				}
+				require.True(t, found, "missing expected result %s in %v", want, values)
+			}
+			require.Len(t, report.Receipts, 2)
+			require.NotEmpty(t, report.Presentation.Conflicts)
+			ref := out.Result["response_evidence"].(evidence.EvidenceReference)
+			archived, err := evidencesvc.NewService(db).Read(ctx, ref)
+			require.NoError(t, err)
+			require.Equal(t, report, *archived.Report)
+			require.Equal(t, 3, calls-before)
+			t.Logf("tool_contract_fixture %s", mustV5JSON(t, map[string]any{"definition": "report", "value": report}))
+		})
 	}
-	for _, v := range []string{"6000", "2.4", "34.2", "46.2", "1.35", "3.37", "29.0", "27.8", "0.65", "4.8", "1.2", "0.08"} {
-		require.Contains(t, values, v)
-	}
-	require.Len(t, presentation["computed"], 2)
-	require.Len(t, presentation["conflicts"], 1)
-	t.Logf("real evidence passed: reported=%d computed=%d conflicts=%d gaps=%v", len(values), len(presentation["computed"].([]any)), len(presentation["conflicts"].([]any)), presentation["gaps"])
+}
+func numericTestEqual(a, b string) bool {
+	x, xok := new(big.Rat).SetString(a)
+	y, yok := new(big.Rat).SetString(b)
+	return xok && yok && x.Cmp(y) == 0
 }

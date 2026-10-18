@@ -55,6 +55,10 @@ Runtime：解析引用、核对权限和实际值，调用受控计算工具
 
 ## 5. 依赖检查与失败语义
 
+T199 已冻结 [版本化工具依赖与证据合同](../../../specs/024-ai-engineering-skills/contracts/tool-evidence-contract.md)，包含 tools/v2、真实回执 v1、typed 计算端口和目标响应 V5 的 Schema、失败用例及旧入口迁移。当前源码的内置链和原生插件增量分别见 T203/T204 实施记录；实际部署仍须迁移和更新 Revision，不能仅凭 Schema 宣称当前安装环境已可运行。
+
+T200 的 [三阶段预检](../../../specs/024-ai-engineering-skills/dependency-preflight-implementation.md) 已落地到 Definition 发布、Agent 可运行绑定和 Manifest 执行，复用同一服务与生产 factory，重新检查最新状态及授权。实际版本锁定、可信工具回执和 V5 仍未开放，外部工具与 typed 计算不能仅凭目录元数据被标为可运行。
+
 依赖声明必须包含可解析的工具/Capability 身份、版本约束、输入输出契约及所需权限；执行时固定实际版本并记录，避免执行中漂移。
 
 导入或创作可以保存含未满足依赖的非可执行 Draft。发布、绑定为可运行 Skill 以及执行前都必须核对各阶段可确定的依赖条件；依赖缺失的版本不得被标记为可运行。执行前重新检查租户授权、工具可用性和版本，不能依赖发布时的检查代替运行时授权。
@@ -87,7 +91,7 @@ flowchart TD
 
 ## 6. 结果证据与统一渲染
 
-以下分类采用显式 V4 契约，字段与迁移见 [V4 实现说明](agent-response-evidence-v4.md)；不得向旧 V3 注入字段或转换旧数据冒充新执行证据。
+当前内置计算的以下分类采用显式 V4 契约，字段与迁移见 [V4 实现说明](agent-response-evidence-v4.md)；外部工具与结构化来源的目标版本是 T199 中的 V5，须待 T202/T203 接线后启用。不得向旧 V3/V4 注入字段或转换历史数据冒充新执行证据。
 
 | 分类 | 必备语义 | 核实边界 |
 | --- | --- | --- |
@@ -100,6 +104,8 @@ flowchart TD
 Trace 必须关联本轮、节点、Skill Revision、工具身份与版本、脱敏输入引用、表达式、实际结果、开始/结束时间、超时或校验阶段。结构校验通过、运行完成和业务结论成立是独立状态。最终校验失败必须可在 Trace 看见，不允许出现整轮失败却只有绿色节点且无失败原因的报告。
 
 ## 7. 当前实现与交付边界
+
+2026-10-13 T198 的实际源码与本地验证结果见 [工具与 Runtime 审计](../../../specs/024-ai-engineering-skills/tool-runtime-audit.md)。该审计确认了可复用的内置计算和 Manifest dispatcher，同时列出生产外部 checker 缺失、旧 transport 接线缺口与 Runtime 业务 ID 分派；以下架构要求不能被理解为所有入口已遵守。
 
 2026-09-08 实施更新：已实现受限计算与 V4 证据报告、内置依赖预检、同次运行结果核验及 locale 渲染。业务字段、单位和公式由 Skill calculation_policy 声明；平台生成原文数值 token，模型仅映射字段，不允许自行换算或填计算值。旧 V3 不再是可执行响应契约。下表记录整改起点，不是最新验收结论；当前字段、真实模型测试和未完成的插件工具生产接线见 [V4 实现说明](agent-response-evidence-v4.md)。
 
@@ -124,3 +130,8 @@ Trace 必须关联本轮、节点、Skill Revision、工具身份与版本、脱
 - 成功、失败、冲突和待补报告在实时消息、历史刷新、Trace 中一致；所有用户可见文案按 locale 渲染。
 
 发布验收必须包含真实调用及历史回读证据，不能只以静态 Prompt 检查、Schema 合法或 `completed` 作为业务正确的证明。
+
+
+## T204 原生插件计算增量（2026-10-15）
+
+[接入合同、步骤与验证记录](../../../specs/024-ai-engineering-skills/plugin-tool-example-implementation.md) 已覆盖固定原生 HTTP/admin_user 工具。客户 Skill 只声明依赖，插件实现领域算法，Core 处理当前授权、可信来源、真实回执和 V5；原始结构化用户值在 Planner 前冻结。其他外部类型未开放。现有运行环境未升级，部署和浏览器业务验收仍归 T205。

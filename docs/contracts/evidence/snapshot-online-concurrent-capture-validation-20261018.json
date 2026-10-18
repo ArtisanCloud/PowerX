@@ -1,0 +1,118 @@
+{
+  "date": "2026-10-18",
+  "scope": "Online manual and scheduled PostgreSQL + registered ready local media + configuration/program package; no business write freeze",
+  "implementation": {
+    "business_writes": "Removed global SnapshotMutationGuard, admission flock and table SHARE locks; normal coordinator capture never calls Stop/Start or enters maintenance",
+    "database_boundary": "Repeatable Read read-only pg_export_snapshot; pg_dump --snapshot and media references share transaction; captured_at comes from database statement timestamp",
+    "media": "Ready undeleted media_assets and media_asset_variants only; strict SHA256 and size; directory-FD traversal denies symlinks; opened inode survives rename/unlink; incomplete/unregistered uploads excluded",
+    "retry": "Same persistent snapshot id, bounded 4 attempts with 5/15/45 second backoff; each attempt clears incomplete content and exports a fresh MVCC point; retry_wait, attempt, retry_at delivered via existing SSE",
+    "maintenance": "Explicit formal cutover and its rollback capture retain maintenance; ordinary online packages never claim a frozen Redis recovery contract"
+  },
+  "verification": [
+    {
+      "kind": "native PostgreSQL 14.15",
+      "command": "POWERX_SNAPSHOT_TEST_DSN=<owned-isolated-PostgreSQL> go test -v ./internal/service/snapshot_ops -run TestNativePostgresPortableRestoreAWithSourceAtB -count=1",
+      "result": "PASS manual and scheduled Tick subtests",
+      "assertions": [
+        "Hold pg_dump before it completes; INSERT public order and plugin_aicraft.tracks succeeds within 2-second writer deadline",
+        "Media file overwritten and ready metadata updated while capture in progress",
+        "Full export/import to separate snapshot service with original snapshot key and media directory unavailable",
+        "Restored database public order and plugin schema at A, restored media/hash A; live database contains new plugin track and B media metadata/content",
+        "Unregistered in-progress upload omitted from restored media"
+      ],
+      "log": "test-results/snapshot-online-scheduled-native.log"
+    },
+    {
+      "kind": "backend",
+      "command": "go test ./internal/service/snapshot_ops ./internal/service/archive_ops ./internal/service/system_recovery ./internal/transport/http/admin/backup ./internal/http",
+      "result": "PASS all 5 packages; opt-in whole-application managed recovery not rerun",
+      "log": "test-results/snapshot-online-final-go.log"
+    },
+    {
+      "kind": "race and vet",
+      "command": "go vet <affected packages>; go test -race <snapshot_ops/archive_ops/system_recovery> -run TestOnline|TestPinned|TestScheduled|TestActiveOnline|TestInterruptedOnline",
+      "result": "PASS; bounded retry, cancellation, source mismatch, pinned inode, unsupported online driver, coordinator interruption without restarting business",
+      "log": "test-results/snapshot-online-race-final.log"
+    },
+    {
+      "kind": "frontend unit",
+      "command": "vitest run tests/unit/backup",
+      "result": "62 tests / 10 files passed",
+      "log": "test-results/snapshot-online-unit-final.log"
+    },
+    {
+      "kind": "frontend build",
+      "command": "Nuxt production build with isolated buildDir and Nitro output",
+      "result": "PASS; user .nuxt/.output untouched",
+      "log": "test-results/snapshot-online-build-final.log"
+    },
+    {
+      "kind": "browser fixture",
+      "command": "POWERX_SNAPSHOT_WEB_ENTRY=../test-results/snapshot-online-output/server/index.mjs playwright test --config playwright.snapshots.config.ts",
+      "result": "10 Chromium tests passed desktop 1440x1000 and narrow 390x844; capture has no write-pause checkbox; existing restore/cutover confirmations preserved; push/no periodic state reads and context retention verified",
+      "log": "test-results/snapshot-online-browser.log",
+      "visual_review": [
+        "test-results/snapshot-online-browser/snapshots-root-creates-a-u-f887e-ly-unverified-isolated-copy-chromium/snapshot-capture-policy-desktop.png",
+        "test-results/snapshot-online-browser/snapshots-manual-capture-w-60fd8--the-selected-system-policy-chromium/snapshot-capture-policy-mobile.png"
+      ]
+    }
+  ],
+  "limitations": [
+    "Online package recovery_supported=false: no coordinated PostgreSQL/Redis durable queue point; only isolated data restore. Do not claim complete online whole-system business recovery.",
+    "Existing frozen maintenance packages and explicit cutover remain separate. Redis cross-component online consistency requires further implementation.",
+    "Concurrent native test uses an owned plugin-shaped schema, not a deployed AI Craft UI. Browser coverage uses controlled API fixtures.",
+    "User services not restarted; no production deployment or Linux runtime acceptance. Restart local Core and upgrade configured coordinator before user acceptance.",
+    "No new capability bindings or routes; full capability gate has known pre-existing backup-route failures and was not claimed as passing."
+  ],
+  "cleanup": {
+    "postgres": {
+      "owner": "Codex online snapshot regression",
+      "pid": 52320,
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "command": [
+        "/opt/homebrew/bin/pg_ctl",
+        "-D",
+        "/tmp/pxsnap-online-di1xvp_p/pg",
+        "-l",
+        "/tmp/pxsnap-online-di1xvp_p/postgres.log",
+        "-o",
+        "-p 35432 -h 127.0.0.1 -k /tmp/pxsnap-online-di1xvp_p/sock -F",
+        "-w",
+        "start"
+      ],
+      "port": 35432,
+      "directory": "/tmp/pxsnap-online-di1xvp_p",
+      "running": false,
+      "pidExited": true,
+      "stoppedAt": "2026-10-18T06:32:02.722455+00:00",
+      "temporaryDirectoryRemoved": true
+    },
+    "browser": {
+      "owner": "snapshot-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-10-18T06:31:13.422Z",
+      "fixturePid": 70886,
+      "fixturePort": 3478,
+      "corePid": 70887,
+      "corePort": 3477,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/test-results/snapshot-online-output/server/index.mjs"
+      ],
+      "stoppedAt": "2026-10-18T06:32:01.766Z",
+      "coreExitedAt": "2026-10-18T06:32:01.773Z"
+    },
+    "verified_exited": [
+      52320,
+      70886,
+      70887
+    ],
+    "verified_free_ports": [
+      35432,
+      3477,
+      3478
+    ],
+    "user_services": "untouched"
+  },
+  "recorded_at": "2026-10-18T06:33:00.859897+00:00"
+}

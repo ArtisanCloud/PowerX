@@ -1,0 +1,130 @@
+{
+  "recorded_at": "2026-10-18T17:25:21.121010+00:00",
+  "scope": "Ordinary Core current-instance recovery on macOS; original web address, original backend port and same Core PID across exec.",
+  "architecture": {
+    "extra_permanent_coordinator": false,
+    "extra_recovery_port": false,
+    "environment_switch": false,
+    "normal_launch_unchanged": true,
+    "business_bootstrap_stopped_during_restore": true,
+    "maintenance_served_by_same_executable": true,
+    "progress": "Scoped read-only SSE; bounded reconnection and synchronization after reconnect, no periodic page status queries"
+  },
+  "native_current_instance": {
+    "passed": true,
+    "A_then_protected_B": true,
+    "same_core_pid_across_restore": true,
+    "same_config_dsn_and_ports": true,
+    "no_coordinator_or_gateway_process_started": true,
+    "full_restart_retains_A": true,
+    "redis_protection_restored": true,
+    "external_connection_blocks_before_overwrite": true
+  },
+  "browser": {
+    "backend": "Real ordinary Core with owned PostgreSQL and Redis, through production Nuxt proxy",
+    "passed": 2,
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 1000
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "checks": [
+      "Restore from page without changing the website origin",
+      "Progress resumes across normal-to-maintenance and maintenance-to-normal exec",
+      "Completion appears without manual refresh",
+      "Authenticated refresh can reopen the completed job",
+      "No recovery credentials in URL, localStorage or sessionStorage",
+      "No horizontal page overflow",
+      "No periodic catalog requests while idle"
+    ],
+    "automatic_reconnection": true,
+    "actual_business_plugins_enabled": false,
+    "log": "test-results/current-recovery-browser-final-pass.log"
+  },
+  "source_validation": {
+    "go_packages_passed": 5,
+    "go_vet": "passed",
+    "frontend_unit_files": 22,
+    "frontend_unit_tests": 171,
+    "nuxt_build": "passed",
+    "core_embedded_assets_match_source": true,
+    "capability_check": "passed earlier in this implementation; no capability contract changed",
+    "logs": [
+      "test-results/current-recovery-go-delivery.log",
+      "test-results/current-recovery-web-unit-delivery.log",
+      "test-results/current-recovery-vet-delivery.log",
+      "test-results/current-recovery-native-delivery.log",
+      "test-results/current-recovery-web-build-stream.log"
+    ]
+  },
+  "resolved_failures": [
+    "Public browser Origin did not match rewritten upstream Host; validate public same-origin first, then translate both to the backend origin",
+    "After upstream exec interrupted an already-started SSE stream, h3 left the downstream response open; explicitly close it so the browser reconnects",
+    "Temporary file preparation failure now removes this attempt's prepared neighbors before any target overwrite"
+  ],
+  "cleanup": {
+    "owned_processes_released": true,
+    "owned_ports_released": [
+      {
+        "port": 3477,
+        "released": true
+      },
+      {
+        "port": 3478,
+        "released": true
+      },
+      {
+        "port": 3489,
+        "released": true
+      },
+      {
+        "port": 55052,
+        "released": true
+      },
+      {
+        "port": 63153,
+        "released": true
+      },
+      {
+        "port": 63285,
+        "released": true
+      },
+      {
+        "port": 63286,
+        "released": true
+      }
+    ],
+    "retained_failed_fixtures": "30 old process records checked; no owned fixture service alive. Four owned temporary data directories removed after preserving diagnostics.",
+    "user_services": {
+      "web_port": 3030,
+      "web_pid": 15472,
+      "backend_port": 8077,
+      "backend_pid": 62817,
+      "http_health": 200,
+      "restarted_by_agent": false
+    }
+  },
+  "supported_auto_integration": {
+    "environment": "dev",
+    "database": "PostgreSQL",
+    "media": "local",
+    "redis": "Explicit registered logical databases must have no other clients; protection snapshot captures them"
+  },
+  "limitations": [
+    "Production auto-integrated overwrite remains blocked; this is not acceptance for remote production upgrade",
+    "Linux, Docker/systemd real deployment and live production plugins have not been accepted",
+    "Online packages lacking a same-point Redis image are dev data rehearsal only; registered exclusive logical databases are reset, not historical Redis queue replay",
+    "Retained native UI fixture validates transport and status; native A/B test separately asserts database, media and config differences",
+    "Current runtime can retain the new Core maintenance adapter for older dev snapshots that do not implement the current recovery protocol; that is not byte-for-byte old Core program replay",
+    "If the entire Core process is manually stopped, the original launch must first start it; maintenance does not claim to serve HTTP without a process"
+  ],
+  "artifacts": {
+    "core_sha256": "2fb73783c35ffad93d53e614a247b458040de9401bbee7ead99ab1a9015b5ece"
+  },
+  "production_deployed": false
+}

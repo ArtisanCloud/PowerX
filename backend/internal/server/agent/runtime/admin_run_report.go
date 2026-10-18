@@ -59,7 +59,7 @@ func (s *AdminRunService) BuildReport(ctx context.Context, query trace.AgentRepo
 		_ = json.Unmarshal(raw, &runMap)
 		report.RunState.Run = runMap
 		for index, task := range tasks {
-			item := trace.AgentTaskStateItem{RunID: run.RunID, TraceID: run.TraceID, SessionID: report.SessionID, MessageID: report.MessageID, TaskID: task.TaskID, Status: task.Status, DependsOn: task.DependsOn, Attempt: task.Attempt, PoolID: task.PoolID, ReasonCode: task.ReasonCode, QueueWaitMS: task.QueueWaitMS, PlanRevision: task.Revision}
+			item := trace.AgentTaskStateItem{RunID: run.RunID, TraceID: run.TraceID, SessionID: report.SessionID, MessageID: report.MessageID, TaskID: task.TaskID, Status: task.Status, DependsOn: task.DependsOn, Attempt: task.Attempt, PoolID: task.PoolID, ReasonCode: task.ReasonCode, FailureStage: task.FailureStage, QueueWaitMS: task.QueueWaitMS, PlanRevision: task.Revision}
 			if task.ReasonCode != "" {
 				item.Error = map[string]any{"code": task.ReasonCode}
 				report.Errors = append(report.Errors, map[string]any{"task_id": task.TaskID, "error_code": task.ReasonCode})

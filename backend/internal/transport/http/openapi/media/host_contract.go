@@ -51,15 +51,16 @@ type hostPresignRequest struct {
 	TenantUUID       string `json:"tenant_uuid"`
 }
 type hostAssetResponse struct {
-	AssetUUID        string     `json:"asset_uuid"`
-	Name             string     `json:"name"`
-	SizeBytes        int64      `json:"size_bytes"`
-	MimeType         string     `json:"mime_type"`
-	OwnerSubjectUUID string     `json:"owner_subject_uuid,omitempty"`
-	Status           string     `json:"status"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
-	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
+	Derivatives      *mediasvc.ImageDerivatives `json:"derivatives,omitempty"`
+	AssetUUID        string                     `json:"asset_uuid"`
+	Name             string                     `json:"name"`
+	SizeBytes        int64                      `json:"size_bytes"`
+	MimeType         string                     `json:"mime_type"`
+	OwnerSubjectUUID string                     `json:"owner_subject_uuid,omitempty"`
+	Status           string                     `json:"status"`
+	CreatedAt        time.Time                  `json:"created_at"`
+	UpdatedAt        time.Time                  `json:"updated_at"`
+	DeletedAt        *time.Time                 `json:"deleted_at,omitempty"`
 }
 
 func registerHostContract(protected *gin.RouterGroup, deps *shared.Deps) {
@@ -70,6 +71,13 @@ func registerHostContract(protected *gin.RouterGroup, deps *shared.Deps) {
 	group := protected.Group("/tenant/media/assets")
 	group.GET("", h.list)
 	group.GET("/:asset_uuid", h.get)
+	group.GET("/:asset_uuid/derivatives/events", func(c *gin.Context) {
+		if deps.EventFabric == nil {
+			h.derivativeEvents(c, nil)
+			return
+		}
+		h.derivativeEvents(c, deps.EventFabric.RedisClient)
+	})
 	group.POST("", h.create)
 	group.PATCH("/:asset_uuid", h.update)
 	group.DELETE("/:asset_uuid", h.delete)
@@ -360,7 +368,7 @@ func (h *hostContractHandler) complete(c *gin.Context, assetUUID string) {
 }
 
 func hostAssetView(asset *mediasvc.Asset) hostAssetResponse {
-	return hostAssetResponse{AssetUUID: asset.UUID, Name: asset.Name, SizeBytes: asset.SizeBytes, MimeType: asset.MimeType, OwnerSubjectUUID: asset.OwnerSubjectUUID, Status: asset.UploadState, CreatedAt: asset.CreatedAt, UpdatedAt: asset.UpdatedAt}
+	return hostAssetResponse{Derivatives: asset.Derivatives, AssetUUID: asset.UUID, Name: asset.Name, SizeBytes: asset.SizeBytes, MimeType: asset.MimeType, OwnerSubjectUUID: asset.OwnerSubjectUUID, Status: asset.UploadState, CreatedAt: asset.CreatedAt, UpdatedAt: asset.UpdatedAt}
 }
 func hostUUID(raw string) (string, error) {
 	value, err := uuid.Parse(raw)

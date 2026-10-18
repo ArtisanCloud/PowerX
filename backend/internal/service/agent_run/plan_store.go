@@ -54,6 +54,7 @@ type TaskSnapshot struct {
 	ResultRef            string    `json:"result_ref,omitempty"`
 	EvidenceRef          string    `json:"evidence_ref,omitempty"`
 	ReasonCode           string    `json:"reason_code,omitempty"`
+	FailureStage         string    `json:"failure_stage,omitempty"`
 	ExecutionToken       string    `json:"execution_token,omitempty"`
 	ExecutionResultRef   string    `json:"execution_result_ref,omitempty"`
 	ExecutionEvidenceRef string    `json:"execution_evidence_ref,omitempty"`

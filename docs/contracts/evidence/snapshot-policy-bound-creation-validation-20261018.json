@@ -1,0 +1,78 @@
+{
+  "checked_at": "2026-10-18T04:03:30.593477+00:00",
+  "contract_version": "0.4.0",
+  "behavior": [
+    "Several saved policies with exactly one enabled system default; saving configuration does not start a backup",
+    "Manual capture is launched from the enabled system policy row; no unbound global capture button",
+    "Confirmation shows the selected policy name, interval and retention rules",
+    "Admin POST requires policy_id; old empty-object requests fail explicitly",
+    "Service holds the policy lock while checking selection and registering the capture",
+    "Missing or inactive policies and changed defaults are rejected without creating snapshot records",
+    "Retries return the original task for the same policy; cross-policy idempotency-key reuse fails",
+    "Snapshot records preserve the policy identity and capture-time name",
+    "Internal coordinator rollback-point capture remains an independent maintenance path",
+    "UI status remains push-driven"
+  ],
+  "checks": {
+    "go_packages": [
+      "internal/service/snapshot_ops",
+      "internal/transport/http/admin/backup",
+      "internal/service/system_recovery"
+    ],
+    "go_log": "test-results/snapshot-policy-bound-go-final.log",
+    "race_log": "test-results/snapshot-policy-bound-race.log",
+    "vet_log": "test-results/snapshot-policy-bound-vet.log",
+    "frontend_unit": {
+      "passed": 60,
+      "files": 10,
+      "log": "test-results/snapshot-policy-bound-unit.log"
+    },
+    "frontend_build": {
+      "passed": true,
+      "log": "test-results/snapshot-policy-bound-build.log"
+    },
+    "browser": {
+      "passed": 10,
+      "engine": "Chromium",
+      "viewports": [
+        [
+          1440,
+          1000
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "source": "isolated API fixtures",
+      "log": "test-results/snapshot-policy-bound-browser.log"
+    },
+    "visual_final": {
+      "passed": 2,
+      "log": "test-results/snapshot-policy-bound-visual-final.log",
+      "directory": "test-results/snapshot-policy-bound-visual-final",
+      "reviewed": [
+        "snapshot-capture-policy-desktop.png",
+        "snapshot-capture-policy-mobile.png"
+      ]
+    },
+    "earlier_failure": {
+      "log": "test-results/snapshot-policy-bound-go.log",
+      "cause": "Two new test fixtures provided the root context flag without root claims; fixtures corrected to use the existing privileged context contract"
+    },
+    "process_cleanup": {
+      "fixturePid_exited": true,
+      "corePid_exited": true,
+      "port_3477_free": true,
+      "port_3478_free": true
+    }
+  },
+  "boundaries": {
+    "live_policy_or_snapshot_data_changed": false,
+    "production_changed": false,
+    "user_services_restarted": false,
+    "real_snapshot_created": false,
+    "whole_system_restore_acceptance": false,
+    "local_core_restart_required": true
+  }
+}

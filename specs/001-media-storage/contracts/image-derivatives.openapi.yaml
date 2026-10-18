@@ -1,0 +1,97 @@
+openapi: 3.0.3
+info:
+  title: PowerX Media Image Derivatives
+  version: 1.0.0
+security: [{bearerAuth: []}]
+servers:
+  - url: /api/v1
+    description: 合同示例前缀；实际挂载使用 server.api_prefix。
+paths:
+  /admin/media/assets/{uuid}/derivatives:
+    parameters: [{$ref: '#/components/parameters/AssetUUID'}]
+    get:
+      operationId: imageDerivativeStatus
+      responses:
+        '200': {description: 独立上传与预览处理状态, content: {application/json: {schema: {$ref: '#/components/schemas/StatusEnvelope'}}}}
+  /admin/media/assets/{uuid}/derivatives/ensure:
+    parameters: [{$ref: '#/components/parameters/AssetUUID'}]
+    post:
+      operationId: ensureImageDerivatives
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                retry_failed: {type: boolean, default: false}
+      responses:
+        '200': {description: 原图复用及任务提交结果；queued 不表示生成完成, content: {application/json: {schema: {$ref: '#/components/schemas/StatusEnvelope'}}}}
+  /admin/media/assets/{uuid}/derivatives/events:
+    parameters: [{$ref: '#/components/parameters/AssetUUID'}]
+    get:
+      operationId: imageDerivativeEvents
+      responses:
+        '200': {description: SSE status 及 reconnect 事件，心跳不查询状态, content: {text/event-stream: {schema: {type: string}}}}
+  /tenant/media/assets/{asset_uuid}/derivatives/events:
+    parameters:
+      - {name: asset_uuid, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: imageDerivativeServiceEvents
+      security: [{bearerAuth: []}, {apiKeyAuth: []}]
+      description: 可选服务态订阅；需要已发布、租户登记及实时 read grant。原上传／复用不依赖此入口或 ensure grant。无查询参数，凭证只放 Authorization。初次及每次变更发送 status；撤权发送 invalidate 并关闭；最长一分钟或凭证过期发送 reconnect 后关闭。
+      responses:
+        '200': {description: SSE；先订阅再读取快照，心跳不查状态, content: {text/event-stream: {schema: {type: string}}}}
+        '400': {description: Invalid asset UUID or query parameters}
+        '401': {description: Authenticated STS or API Key service actor required}
+        '403': {description: 'Capability not published, registered or granted'}
+        '404': {description: Asset not found in authenticated tenant}
+        '503': {description: Event or persistence dependency unavailable}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+    apiKeyAuth: {type: apiKey, in: header, name: Authorization, description: 'ApiKey <key>'}
+  parameters:
+    AssetUUID: {name: uuid, in: path, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    StatusOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, asset_uuid]
+      properties:
+        operation: {type: string, enum: [status]}
+        asset_uuid: {type: string, format: uuid}
+    EnsureOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, asset_uuid]
+      properties:
+        operation: {type: string, enum: [ensure]}
+        asset_uuid: {type: string, format: uuid}
+        retry_failed: {type: boolean, default: false}
+    StatusEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/ImageDerivatives'}
+    ImageDerivatives:
+      type: object
+      required: [asset_uuid, upload_state, status, recipe, attempts, retryable, items]
+      properties:
+        asset_uuid: {type: string, format: uuid}
+        upload_state: {type: string, description: 原图上传状态，独立于派生任务}
+        status: {type: string, enum: [not_requested, waiting_upload, waiting_source, queued, processing, ready, failed, scheduling_failed, unsupported, unavailable]}
+        recipe: {type: string, enum: [standard-image-v1]}
+        job_uuid: {type: string, format: uuid}
+        attempts: {type: integer}
+        error_code: {type: string}
+        retryable: {type: boolean}
+        items:
+          type: array
+          items:
+            type: object
+            required: [variant, status]
+            properties:
+              variant: {type: string, enum: [preview, thumbnail]}
+              variant_uuid: {type: string, format: uuid}
+              status: {type: string}

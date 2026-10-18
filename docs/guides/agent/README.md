@@ -6,6 +6,7 @@
 
 | 目录 | 内容 | 适用对象 |
 | --- | --- | --- |
+| [单 Agent V5 页面验收](../features/024-ai-engineering-skills/guide.md) | 创建独立验收 Agent，原始/替换材料、真实计算、缺口、历史及 Trace；024 升级后先从这里验证。 | 使用者、QA、实施顾问 |
 | [native_agents](./native_agents/README.md) | 固有智能体业务场景使用指南，当前主示例为营销活动复盘协作。 | 企业用户、实施顾问、QA |
 | [multi_agent](./multi_agent/README.md) | 多智能体 A2A 协作验收剧本。 | QA、研发、实施顾问 |
 | [skills](./skills/README.md) | Skills 管理、导入、调用一致性、审计与隔离。 | 管理员、研发、QA |

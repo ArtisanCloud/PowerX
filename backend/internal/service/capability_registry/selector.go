@@ -159,14 +159,9 @@ func (s *Selector) Invoke(ctx context.Context, req CapabilityInvokeRequest) (Cap
 	}
 	reportReq.PreferredProtocol = preferred
 
-	ctxPayload := cloneContextMap(req.Context)
-	if ctxPayload == nil {
-		ctxPayload = make(map[string]interface{})
-	}
 	if resolvedScope == "" {
 		resolvedScope = defaultScopeKey
 	}
-	ctxPayload["tool_scope"] = resolvedScope
 	reportReq.ToolScope = resolvedScope
 
 	if s.authorizer != nil {
@@ -182,7 +177,8 @@ func (s *Selector) Invoke(ctx context.Context, req CapabilityInvokeRequest) (Cap
 		IdempotencyKey:    strings.TrimSpace(req.IdempotencyKey),
 		TraceID:           strings.TrimSpace(req.TraceID),
 		Payload:           req.Payload,
-		Context:           ctxPayload,
+		Context:           cloneContextMap(req.Context),
+		ResolvedToolScope: resolvedScope,
 	})
 	if err != nil {
 		return resp, err

@@ -75,5 +75,6 @@ func TestAgentRunTraceReportQueryByRunID(t *testing.T) {
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	require.True(t, strings.Contains(rec.Body.String(), "Agent Run Report"))
+	require.True(t, strings.Contains(rec.Body.String(), "`"+meta.RunID+"`"))
+	require.Contains(t, rec.Body.String(), "001_receive_message")
 }
