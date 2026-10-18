@@ -1,0 +1,68 @@
+{
+  "checked_at": "2026-10-18T04:19:12.734131+00:00",
+  "contract_version": "0.5.0",
+  "supersedes": "The prior enabled-policy requirement for manual capture is removed; only system-default identity remains required",
+  "behavior": [
+    "Manual capture works when every automatic schedule is disabled",
+    "Manual capture keeps the automatic schedule disabled and records the selected system policy",
+    "System-default selection is independent: PATCH status with enabled=false and make_default=true",
+    "Selecting a new system default disables old scheduling and does not enable new scheduling",
+    "The policy status column explicitly describes scheduling; default selection, timer toggle and manual capture are separate actions",
+    "Concurrent default switches still invalidate stale manual selection; disabling scheduling alone does not invalidate it",
+    "Automatic Tick dispatch still requires enabled=true",
+    "Push-driven task updates and original idempotency bindings are retained"
+  ],
+  "validation": {
+    "go_packages": [
+      "internal/service/snapshot_ops",
+      "internal/transport/http/admin/backup",
+      "internal/service/system_recovery"
+    ],
+    "go_log": "test-results/snapshot-manual-schedule-go.log",
+    "race_log": "test-results/snapshot-manual-schedule-race.log",
+    "vet_log": "test-results/snapshot-manual-schedule-vet.log",
+    "frontend_unit": {
+      "passed": 61,
+      "files": 10,
+      "log": "test-results/snapshot-manual-schedule-unit.log"
+    },
+    "frontend_build": {
+      "passed": true,
+      "log": "test-results/snapshot-manual-schedule-build.log"
+    },
+    "browser": {
+      "passed": 10,
+      "engine": "Chromium",
+      "viewports": [
+        [
+          1440,
+          1000
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "source": "isolated API fixtures",
+      "log": "test-results/snapshot-manual-schedule-browser.log"
+    },
+    "visual_review": [
+      "snapshot-empty-desktop.png shows all schedules off and the system-default manual button",
+      "snapshot-capture-policy-mobile.png shows selected policy and no-schedule-change hint"
+    ],
+    "process_cleanup": {
+      "fixturePid_exited": true,
+      "corePid_exited": true,
+      "port_3477_free": true,
+      "port_3478_free": true
+    }
+  },
+  "boundaries": {
+    "live_policy_or_snapshot_data_changed": false,
+    "production_changed": false,
+    "user_services_restarted": false,
+    "real_snapshot_created": false,
+    "local_core_restart_required": true,
+    "whole_system_restore_acceptance": false
+  }
+}

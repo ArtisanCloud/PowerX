@@ -1,0 +1,70 @@
+{
+  "checked_at": "2026-10-18T03:17:52.523251+00:00",
+  "scope": "UI policy table and snapshot entity table in one backup workspace",
+  "source": "web-admin/app/components/ops/backup/SystemSnapshotsPanel.vue",
+  "behavior": [
+    "Saved policies are visible directly, including when snapshot records are empty",
+    "Policy creation and editing use a form modal; successful save closes the modal and updates the table",
+    "At most one automatic default policy is enabled; policy maintenance does not create a snapshot",
+    "Snapshot entity rows retain captured policy names after default policy switches",
+    "Snapshot rows expose time, identifier, policy/source, status, size and details/export/restore actions",
+    "Narrow screens show complete snapshot fields and actions without a sticky column blocking clicks",
+    "Task updates continue to use push events without periodic state requests"
+  ],
+  "validation": {
+    "unit": {
+      "passed": 58,
+      "files": 10,
+      "log": "test-results/backup-two-tables-final-unit.log"
+    },
+    "build": {
+      "passed": true,
+      "log": "test-results/backup-two-tables-build.log"
+    },
+    "browser": {
+      "passed": 9,
+      "engine": "Chromium",
+      "viewports": [
+        [
+          1440,
+          1000
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "log": "test-results/backup-two-tables-final-browser.log",
+      "data_source": "isolated API fixtures"
+    },
+    "visual": {
+      "reviewed": [
+        "snapshot-workspace-desktop.png",
+        "snapshot-workspace-mobile.png",
+        "snapshot-empty-mobile.png"
+      ],
+      "directory": "test-results/backup-two-tables-final-browser/snapshots-multiple-snapsho-79995-fault-on-desktop-and-mobile-chromium"
+    },
+    "earlier_failure": {
+      "log": "test-results/backup-two-tables-browser.log",
+      "passed": 8,
+      "failed": 1,
+      "reason": "Sticky first snapshot table cell intercepted the recovery button on a narrow screen",
+      "resolved_by": "Responsive snapshot rows; final managed recovery test passed"
+    },
+    "process_cleanup": {
+      "fixturePid_exited": true,
+      "corePid_exited": true,
+      "port_3477_free": true,
+      "port_3478_free": true
+    }
+  },
+  "boundaries": {
+    "backend_changed": false,
+    "live_snapshot_or_policy_data_changed": false,
+    "production_changed": false,
+    "real_snapshot_created": false,
+    "whole_system_restore_acceptance": false,
+    "user_services_restarted": false
+  }
+}

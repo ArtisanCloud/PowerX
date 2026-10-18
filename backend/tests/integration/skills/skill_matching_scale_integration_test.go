@@ -9,6 +9,7 @@ import (
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 )
@@ -64,17 +65,23 @@ func TestSkillUnifiedInvokeHardFilterByToolGrants(t *testing.T) {
 	auditRepo := skillrepo.NewSkillLifecycleAuditRepository(db)
 	invokeSvc := skillservice.NewInvokeService(registryRepo, skillservice.NewAuditTraceService(traceRepo, auditRepo))
 	adapter := skillservice.NewAdapterService(invokeSvc, bindingRepo)
+	traceID := uuid.NewString()
 	result, err := adapter.InvokeUnified(context.Background(), skillservice.UnifiedInvokeRequest{
 		TenantUUID:        "tenant-match",
 		CapabilityID:      "cap.skill.filter",
 		PreferredProtocol: "skill",
+		TraceID:           traceID,
 		ToolGrantIDs:      []string{"orders.read"},
 		Payload: map[string]interface{}{
 			"query": "allowed incident triage please",
 		},
 	})
+	require.ErrorIs(t, err, skillservice.ErrDefinitionContractUpgradeRequired)
+	require.Nil(t, result)
+	trace, err := traceRepo.GetByTraceID(context.Background(), traceID)
 	require.NoError(t, err)
-	require.Equal(t, "skill.filter.allowed.incident-triage", result.SkillID)
+	require.Equal(t, "skill.filter.allowed.incident-triage", trace.SkillID)
+	require.Equal(t, skillservice.ErrDefinitionContractUpgradeRequired.Error(), trace.ErrorCode)
 }
 
 func TestSkillMatchingScaleAvoidLinearMainPath(t *testing.T) {
@@ -118,10 +125,12 @@ func TestSkillMatchingScaleAvoidLinearMainPath(t *testing.T) {
 	invokeSvc := skillservice.NewInvokeService(registryRepo, skillservice.NewAuditTraceService(traceRepo, auditRepo))
 	adapter := skillservice.NewAdapterService(invokeSvc, bindingRepo)
 	start := time.Now()
+	traceID := uuid.NewString()
 	result, err := adapter.InvokeUnified(context.Background(), skillservice.UnifiedInvokeRequest{
 		TenantUUID:        "tenant-scale",
 		CapabilityID:      "cap.skill.scale",
 		PreferredProtocol: "skill",
+		TraceID:           traceID,
 		ToolGrantIDs:      []string{"scale.read"},
 		Payload: map[string]interface{}{
 			"query": "skill scale incident triage",
@@ -129,8 +138,12 @@ func TestSkillMatchingScaleAvoidLinearMainPath(t *testing.T) {
 	})
 	cost := time.Since(start)
 
+	require.ErrorIs(t, err, skillservice.ErrDefinitionContractUpgradeRequired)
+	require.Nil(t, result)
+	trace, err := traceRepo.GetByTraceID(context.Background(), traceID)
 	require.NoError(t, err)
-	require.NotEmpty(t, result.SkillID)
+	require.NotEmpty(t, trace.SkillID)
+	require.Equal(t, skillservice.ErrDefinitionContractUpgradeRequired.Error(), trace.ErrorCode)
 	// The matching path must be bounded (DB limit + top-k rerank), not linear scan over all 10k rows.
 	require.Less(t, cost, 2*time.Second)
 }

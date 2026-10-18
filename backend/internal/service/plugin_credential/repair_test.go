@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -355,4 +356,38 @@ func TestRepairDirectoryContainsHandlesFilesystemRootAndSiblingPrefix(t *testing
 	require.True(t, repairDirectoryContains(string(os.PathSeparator), filepath.Join(string(os.PathSeparator), "opt", "powerx")))
 	require.False(t, repairDirectoryContains("/opt/powerx/plugins/installed", "/opt/powerx/plugins/installed-other/plugin"))
 	require.False(t, repairDirectoryContains("/opt/powerx/plugins/installed", "/opt/powerx/plugins/installed"))
+}
+
+func TestRepairPreviewAcceptsOnlyAliasOfExpectedInstalledHostFile(t *testing.T) {
+	for _, same := range []bool{true, false} {
+		t.Run(fmt.Sprint(same), func(t *testing.T) {
+			f := newRepairFixture(t)
+			alias := filepath.Join(t.TempDir(), "installed-alias")
+			require.NoError(t, os.Symlink(f.cfg.Plugin.InstalledDir, alias))
+			raw, err := os.ReadFile(f.cfg.Plugin.RegistryFile)
+			require.NoError(t, err)
+			var registry map[string]any
+			require.NoError(t, json.Unmarshal(raw, &registry))
+			version := registry["plugins"].(map[string]any)[testRepairPluginID].(map[string]any)["versions"].(map[string]any)["0.1.75"].(map[string]any)
+			declared := filepath.Join(alias, testRepairPluginID, "0.1.75/config/host-values.yaml")
+			if !same {
+				declared = filepath.Join(t.TempDir(), "other.yaml")
+				require.NoError(t, os.WriteFile(declared, []byte("env: {}"), 0600))
+			}
+			version["paths"].(map[string]any)["host_values_file"] = declared
+			raw, err = json.Marshal(registry)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(f.cfg.Plugin.RegistryFile, raw, 0600))
+			result, err := f.svc.Repair(context.Background(), RuntimeCredentialRepairOptions{PluginID: testRepairPluginID})
+			if same {
+				require.NoError(t, err)
+				require.False(t, result.Applied)
+			} else {
+				require.Error(t, err)
+			}
+			after, readErr := os.ReadFile(f.cfg.Plugin.RegistryFile)
+			require.NoError(t, readErr)
+			require.Equal(t, raw, after)
+		})
+	}
 }

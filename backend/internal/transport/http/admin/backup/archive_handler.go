@@ -78,6 +78,23 @@ func (h *handler) RunArchive(c *gin.Context) {
 	}
 	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, gin.H{"job": out})
 }
+func (h *handler) CreateOneTimeArchive(c *gin.Context) {
+	if !h.archiveAvailable(c) {
+		return
+	}
+	var input struct {
+		SourceID string `json:"source_id"`
+	}
+	if !bindRestoreJSON(c, &input) {
+		return
+	}
+	out, e := h.archives.StartOneTime(c.Request.Context(), input.SourceID, c.GetHeader("Idempotency-Key"), resolveOperator(c), reqctx.GetTraceID(c.Request.Context()))
+	if e != nil {
+		dto.RespondErrorFrom(c, e)
+		return
+	}
+	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, gin.H{"job": out})
+}
 func (h *handler) GetArchive(c *gin.Context) {
 	if !h.archiveAvailable(c) {
 		return

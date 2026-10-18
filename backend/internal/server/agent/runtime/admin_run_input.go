@@ -6,9 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	mediaservice "github.com/ArtisanCloud/PowerX/internal/service/media"
 	"net/url"
-
 	"slices"
 	"sort"
 	"strconv"
@@ -19,6 +17,8 @@ import (
 	agentservice "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	agentauthz "github.com/ArtisanCloud/PowerX/internal/service/agent_authz"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
+	mediaservice "github.com/ArtisanCloud/PowerX/internal/service/media"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/agent"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -29,6 +29,7 @@ import (
 
 // 仅持久化运行协议明确声明的上下文；绝不序列化 context、JWT、API Key 或任意请求头。
 var adminInputContextKeys = []string{
+	"agent_structured_tool_input",
 	"locale", "agent_workspace_mode", "team_id", "team_key", "team_display_name_i18n", "parent_agent_id", "team_members", "team_orchestration",
 	"agent_bound_skill_ids", "agent_pending_task", "agent_response_plan", "agent_response_context_layers",
 	"planner_optimizer_enabled", "planner_optimizer_candidate_top_k", "planner_optimizer_prompt_slim_mode",
@@ -59,9 +60,15 @@ func saveAdminRunInput(ctx context.Context, objects agent_run.ReportObjectStore,
 	frozen.APIKey = ""
 	input := adminRunInput{Schema: "powerx.agent.admin-input/v1", TenantUUID: ref.TenantUUID, Env: ref.Env, RunID: ref.RunID, Message: message, Config: frozen, ExplicitFlow: flow, Context: map[string]any{}}
 	for _, key := range adminInputContextKeys {
+		if key == "agent_structured_tool_input" {
+			continue
+		} // 只能导出入口创建的私有来源快照
 		if value := ctx.Value(key); value != nil {
 			input.Context[key] = value
 		}
+	}
+	if declared := evidence.StructuredToolInputDeclaration(ctx); declared != nil {
+		input.Context["agent_structured_tool_input"] = declared
 	}
 	raw, err := json.Marshal(input)
 	if err != nil || len(raw) > maxExecutionPlanArtifactBytes {
@@ -263,6 +270,12 @@ func (l *adminInputLoader) Load(ctx context.Context, ref agent_run.TaskRef) (Inv
 	}
 	for key, value := range map[string]any{"run_id": row.UUID.String(), "runId": row.UUID.String(), "runtime_run_uuid": row.UUID.String(), "runtime_snapshot_uuid": row.SnapshotUUID.String(), "session_id": strconv.FormatUint(row.SessionID, 10), "session_uuid": row.SessionUUID.String(), "message_id": strconv.FormatUint(row.MessageID, 10), "message_uuid": row.MessageUUID.String(), "agent_id": strconv.FormatUint(row.AgentID, 10), "agent_numeric_id": row.AgentID, "agent_uuid": row.AgentUUID.String(), "env": row.Env, "agent_env": row.Env, "tenant_uuid": tenant} {
 		ctx = context.WithValue(ctx, key, value)
+	}
+	if declared := input.Context["agent_structured_tool_input"]; declared != nil {
+		ctx, err = evidence.WithStructuredToolInput(ctx, declared)
+		if err != nil {
+			return InvokePlanningInput{}, err
+		}
 	}
 	ctx = context.WithValue(ctx, "agent_node_model_policy", BuildDefaultNodeModelPolicy(&input.Config))
 	ctx = ContextWithResourceSnapshot(ctx, snapshot)

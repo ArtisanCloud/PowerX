@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, ref, type App } from 'vue'
 import { useDualChannelConnection, type DualChannelConnection } from '~/composables/agent/useDualChannelConnection'
 import { pendingDurableRuns, savePendingDurableRun } from '~/utils/agent/pendingDurableRun'
+import { AUTH_SESSION_KEY } from '~/utils/auth-session'
 
 vi.mock('~/stores/envStore', () => ({ useEnvStore: () => ({ currentEnv: 'dev' }) }))
 vi.mock('~/stores/user', () => ({ useUserStore: () => ({ user: { id: 1 }, currentTenantUuid: 'tenant' }) }))
@@ -12,7 +13,9 @@ let app: App | undefined
 let chat: DualChannelConnection
 const host = document.createElement('div')
 beforeEach(() => {
+	vi.stubGlobal('process', { ...process, client: true })
   localStorage.clear()
+	localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({version:1,status:'active',sessionId:'fixture-session',revision:1,accessToken:'test-only-token',refreshToken:'test-only-refresh',tokenType:'Bearer',expiresAt:Date.now()+60000,scope:'access',tenantUuid:'tenant'}))
   localStorage.setItem('access_token', 'test-only-token')
   localStorage.setItem('px_current_tenant_uuid', 'tenant')
   vi.stubGlobal('useRuntimeConfig', () => ({ public: { apiBase: 'http://core/api/v1' } }))

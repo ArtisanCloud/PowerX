@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-15",
+  "scope": "agent-chat-session-workspace-isolation",
+  "migration_applied_to_user_database": false,
+  "user_services_restarted_by_agent": false,
+  "backend": {
+    "packages_passed": [
+      "internal/server/agent/runtime",
+      "internal/service/agent_session",
+      "internal/transport/http/admin/agent",
+      "internal/server/agent/persistence",
+      "internal/server/agent/persistence/repository",
+      "internal/service/agent"
+    ],
+    "go_vet": "passed",
+    "build": [
+      "cmd/app",
+      "cmd/database"
+    ],
+    "context_budget_regression": "4 passed",
+    "migration": "additive SQLite upgrade and idempotent backfill passed; original message bodies preserved"
+  },
+  "frontend": {
+    "vitest_passed": 39,
+    "vitest_skipped": 1,
+    "skip": "existing actual-evidence-refresh requires a retained live fixture",
+    "refactor_layout_check": "passed"
+  },
+  "browser": {
+    "mode": "actual Nuxt UI with browser API fixtures, no real model or business writes",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 1000
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "checks": [
+      "individual/team lists separated",
+      "two teams with same leader separated",
+      "creation includes scope and succeeds",
+      "history scope on request",
+      "unclassified history read only",
+      "selection restored after section switch",
+      "narrow panel collapse/expand retains messages",
+      "no page errors or console errors"
+    ],
+    "command": "cd web-admin && npx playwright test --config playwright.agent-sessions.config.ts",
+    "passed": 2,
+    "status": "passed"
+  },
+  "additional_legacy_suite": {
+    "command": "go test -tags integration ./tests/integration/integration_gateway -run ^TestAgentStreamSSEAuditAndTenantIsolation$ -count=1",
+    "status": "blocked by pre-existing fixture drift",
+    "reason": "legacy agents fixture lacks type_id before Session creation; not counted as passed"
+  },
+  "deployment": "Stop user-managed old Core/Workers, back up, execute the new database migrate using the target configuration, then start the new Core and accept against real sessions. No reset, refresh, or full seed."
+}

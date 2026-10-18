@@ -3,6 +3,7 @@ import { useDebounceFn } from "@vueuse/core";
 import { useUserStore } from "~/stores/user";
 import { useAuth } from "~/composables/useAuth";
 import { useWSBus } from "~/composables/useWSBus";
+import { readAuthSession } from "~/utils/auth-session";
 import type { MenuCategory, MenuItem, UserMenusResult } from "~/composables/api/services/menuService";
 
 const { t, te } = useI18n();
@@ -18,13 +19,30 @@ const canAccessSettings = computed(
 );
 
 // 使用通知系统
-const { getStats, notifications, fetchNotifications, addNotification, clearAllNotifications } =
-  useNotifications();
+const { notifications, totalCount: unreadCount, fetchNotifications, addNotification, openNotification, applyReadReceipt, identityScope } =
+  useNotifications({ isRead: false });
 const wsBus = useWSBus();
+const notificationIdentityReady = computed(() => {
+  void identityScope.value;
+  const session = readAuthSession();
+  return session?.status === "active"
+    && session.sessionId === userStore.contextSessionStamp?.sessionId
+    && session.tenantUuid === userStore.currentTenantUuid
+    && Boolean(userStore.currentMemberUuid);
+});
+let lastConnectedNotificationIdentity = '';
+// 初次载入由身份监听负责；同一登录上下文重连后只补读一次。
+watch([wsBus.connected, notificationIdentityReady, identityScope], ([connected, ready, identity], previous) => {
+  if (!connected || !ready) return;
+  if (previous?.[0] === false && identity === lastConnectedNotificationIdentity) void fetchNotifications();
+  lastConnectedNotificationIdentity = identity;
+}, { immediate: true });
+const notificationToast = useToast();
+const handleOpenNotification = async (id: string) => {
+  try { await openNotification(id); }
+  catch { notificationToast.add({ title: t("header.notifications.navigationError"), color: "error" }); }
+};
 
-// 获取通知统计信息
-const notificationStats = computed(() => getStats());
-const unreadCount = computed(() => notificationStats.value.unread);
 const currentMenuDataKey = useState<string>(
   "px-current-menu-data-key",
   () => "user-menus"
@@ -169,11 +187,17 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const ensureWSNotificationSubscription = (tenantUUID: string) => {
-  if (!UUID_RE.test(tenantUUID)) return;
-  wsBus.connect(tenantUUID);
-  if (unsubscribeNotifications) return;
+  if (unsubscribeNotifications) {
+    unsubscribeNotifications();
+    unsubscribeNotifications = null;
+  }
+  if (!notificationIdentityReady.value || !UUID_RE.test(tenantUUID)) return;
+  const memberUUID = String(userStore.currentMemberUuid || "");
+  const subscriptionIdentity = identityScope.value;
   unsubscribeNotifications = wsBus.subscribe("_topic.system.notification", (payload) => {
+    if (!notificationIdentityReady.value || subscriptionIdentity !== identityScope.value || tenantUUID !== userStore.currentTenantUuid || memberUUID !== String(userStore.currentMemberUuid || "")) return;
     if (!payload) return;
+    if (payload.eventType === 'notification_read') { applyReadReceipt(payload); return; }
     addNotification(payload);
   });
 };
@@ -185,21 +209,14 @@ onMounted(async () => {
   } catch (error) {
     console.error("初始化用户数据失败:", error);
   }
-
-  try {
-    fetchNotifications();
-  } catch (error) {
-    console.error("fetchNotifications error:", error);
-  }
-
-  // WS 只要求有效 tenant_uuid；token 由 useWSBus 内部从 localStorage/cookie 解析。
-  ensureWSNotificationSubscription(String(userStore.currentTenantUuid || "").trim());
 });
 
 watch(
-  () => String(userStore.currentTenantUuid || "").trim(),
-  (tenantUUID) => {
+  [identityScope, notificationIdentityReady],
+  () => {
+    const tenantUUID = String(userStore.currentTenantUuid || "").trim();
     ensureWSNotificationSubscription(tenantUUID);
+    if (notificationIdentityReady.value && tenantUUID) void fetchNotifications();
   },
   { immediate: true }
 );
@@ -241,7 +258,7 @@ const userMenuItems = computed(() => {
 
 // 通知菜单项
 const notificationItems = computed(() => {
-  const recentNotifications = notifications.value.slice(0, 5); // 只显示最近5条
+  const recentNotifications = notifications.value.filter(notification => !notification.isRead).slice(0, 5);
 
   const notificationMenuItems = recentNotifications.map((notification) => ({
     label: notification.title,
@@ -251,52 +268,23 @@ const notificationItems = computed(() => {
         : notification.content,
     icon: getNotificationIcon(notification.type),
     badge: !notification.isRead ? "new" : undefined,
-    to: `/notifications?id=${notification.id}`,
+    onSelect: () => handleOpenNotification(notification.id),
   }));
 
-  // 添加分隔符和查看全部按钮
-  const menuItems = [notificationMenuItems];
-
-  menuItems.push([
-    {
-      label: t("header.notifications.clear"),
-      icon: "i-heroicons-trash",
-      onSelect: handleClearNotifications,
-      description: "",
-    },
-  ]);
-
-  if (recentNotifications.length > 0) {
-    menuItems.push([
-      {
-        label: t("header.notifications.viewAll"),
-        icon: "i-heroicons-eye",
-        onSelect: () => navigateToAppPath("/notifications"),
-        description: "",
-        badge: unreadCount.value.toString(),
-      },
-    ]);
-  } else {
-    menuItems.push([
-      {
-        label: t("header.notifications.empty"),
-        icon: "i-heroicons-bell-slash",
-        description: "",
-        badge: unreadCount.value > 0 ? unreadCount.value.toString() : undefined,
-      },
-    ]);
-  }
-
-  return menuItems;
+  return [
+    notificationMenuItems.length > 0 ? notificationMenuItems : [{
+      label: t("header.notifications.empty"),
+      icon: "i-heroicons-bell-slash",
+      disabled: true,
+    }],
+    [{
+      label: t("header.notifications.viewAll"),
+      icon: "i-heroicons-eye",
+      onSelect: () => navigateToAppPath("/notifications"),
+      badge: unreadCount.value > 0 ? unreadCount.value.toString() : undefined,
+    }],
+  ];
 });
-
-const handleClearNotifications = async () => {
-  try {
-    await clearAllNotifications();
-  } catch (error) {
-    console.error("clearAllNotifications error:", error);
-  }
-};
 
 // 获取通知图标
 const getNotificationIcon = (type: string) => {

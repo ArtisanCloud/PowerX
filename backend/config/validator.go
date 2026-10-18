@@ -12,6 +12,9 @@ import (
 // Validate 验证配置的合法性（已对齐新版 AuthConfig）
 func (c *Config) Validate() error {
 	var errors []string
+	if err := c.SystemSnapshots.Validate(); err != nil {
+		errors = append(errors, err.Error())
+	}
 
 	// --- Deployment Identity ---
 	if err := c.ValidateDeploymentIdentity(); err != nil {

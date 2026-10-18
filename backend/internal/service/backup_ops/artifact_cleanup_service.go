@@ -97,6 +97,11 @@ func (s *ArtifactCleanupService) CleanupAllPolicies(ctx context.Context) (*Clean
 		return nil, err
 	}
 	merged := &CleanupResult{}
+	manual, err := s.cleanupOneTime(ctx)
+	if err != nil {
+		return nil, err
+	}
+	merged.DeletedArtifacts += manual.DeletedArtifacts
 	for _, p := range items {
 		part, e := s.CleanupByPolicy(ctx, p.ID)
 		if e != nil {
@@ -105,4 +110,13 @@ func (s *ArtifactCleanupService) CleanupAllPolicies(ctx context.Context) (*Clean
 		merged.DeletedArtifacts += part.DeletedArtifacts
 	}
 	return merged, nil
+}
+
+func (s *ArtifactCleanupService) cleanupOneTime(ctx context.Context) (*CleanupResult, error) {
+	unlock, err := lockBackupPolicy(ctx, s.db, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	return s.cleanupPolicy(ctx, oneTimeDatabasePolicy())
 }

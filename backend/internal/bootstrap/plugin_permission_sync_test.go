@@ -261,3 +261,12 @@ func validMenuPermissionSpec(code string, menuPath []string) plugin_mgr.Permissi
 		DataScope: "tenant",
 	}
 }
+
+func TestPluginPermissionRowsPreserveExplicitAuthorizationBaselineRegistration(t *testing.T) {
+	manifest := plugin_mgr.Manifest{ID: "com.example.baseline", Version: "1.0.0", Permissions: []plugin_mgr.PermissionSpec{{PermissionCode: "work.item:read", Type: "action", DataScope: "TENANT", AuthorizationBaseline: true}}}
+	rows := buildPluginPermissionRows(manifest)
+	require.Len(t, rows, 1)
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
+	require.Equal(t, true, meta["authorization_baseline"])
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
@@ -149,6 +150,9 @@ func VerifyCapabilityContracts(snapshot *ResourceSnapshot, plan flowschema.Execu
 }
 
 func (DeterministicExecutionVerifier) Verify(ctx context.Context, report *agent.PlanExecutionReport, out *agentschema.ExecutionResult, runErr error) (VerificationVerdict, error) {
+	if failure, ok := evidence.FailureDetails(runErr); ok {
+		return VerificationVerdict{Class: VerificationFatal, ReasonCode: failure.Code, TaskRefs: failedTaskRefs(report)}, nil
+	}
 	var approvalErr *ApprovalRequiredError
 	if errors.As(runErr, &approvalErr) && approvalErr.CapabilityUUID != uuid.Nil {
 		return VerificationVerdict{

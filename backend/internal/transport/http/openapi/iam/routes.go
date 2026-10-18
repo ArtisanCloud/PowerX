@@ -169,7 +169,9 @@ func (h *handler) listMembers(c *gin.Context) {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	base := h.members.DB.WithContext(c.Request.Context()).Model(&modeliam.Member{}).Where("tenant_uuid = ? AND username <> ?", tenantUUID, iamsvc.ROOT_USERNAME)
+	// 目录枚举真实租户成员，不按用户名排除 Root。业务收件资格仍由
+	// 成员的正式授权基线判定，全局 Root 旁路不构成业务授权。
+	base := h.members.DB.WithContext(c.Request.Context()).Model(&modeliam.Member{}).Where("tenant_uuid = ?", tenantUUID)
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
 		dto.RespondErrorFrom(c, iamsvc.DirectoryUpstreamDependencyError(err))

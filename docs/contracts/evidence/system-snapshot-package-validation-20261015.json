@@ -1,0 +1,143 @@
+{
+  "checked_at": "2026-10-15T05:06:22.555561+00:00",
+  "scope": "phase_1_snapshot_package_and_isolated_data_copy",
+  "production_deployed": false,
+  "production_policies_changed": false,
+  "business_restore_verified": false,
+  "cutover_available": false,
+  "checks": [
+    {
+      "name": "native_postgresql_A_B",
+      "status": "passed",
+      "test": "backend/internal/service/snapshot_ops/postgres_test.go",
+      "target": "New owned database on the local PostgreSQL server, new snapshot store and different master key",
+      "assertions": [
+        "A contains one order and media A with registered SHA256.",
+        "B contains two orders and media B with its updated registered SHA256.",
+        "Target has no source DSN, media path, effective configuration or program source.",
+        "Source snapshot store and key removed; media directory moved offline before restore.",
+        "Target restored A records, media bytes and checksum.",
+        "Source B records, offline media bytes and checksum preserved."
+      ],
+      "boundary": "Data fixture only; no Core/plugin boot, production maintenance or business acceptance."
+    },
+    {
+      "name": "go_tests_and_race",
+      "status": "passed",
+      "packages": [
+        "internal/service/snapshot_ops",
+        "internal/service/archive_ops",
+        "internal/transport/http/admin/backup"
+      ],
+      "coverage": [
+        "portable encryption and target key wrapping",
+        "wrong password, tamper, truncation and appended content",
+        "path traversal, duplicate paths and symlinks",
+        "configuration change, missing object and mismatched configuration key",
+        "inventory cross validation",
+        "stable schedule anchor, idempotency and write gate",
+        "interruption and lost master key",
+        "self inclusion and space prechecks",
+        "signed JWT HTTP authorization and oversized upload"
+      ],
+      "http_boundary": "Real signed JWT middleware and handlers with a fixture capture backend, including a custom prefix; not deployed Core authorization acceptance."
+    },
+    {
+      "name": "go_vet_and_affected_compile",
+      "status": "passed",
+      "packages": [
+        "snapshot_ops",
+        "archive_ops",
+        "admin/backup",
+        "bootstrap",
+        "internal/http",
+        "cmd/app",
+        "cmd/snapshot_tool"
+      ]
+    },
+    {
+      "name": "capability_governance",
+      "status": "passed",
+      "command": "make capability-check",
+      "boundary": "Nine Root runtime routes excluded from tenant/plugin catalog. No grant or seed change."
+    },
+    {
+      "name": "frontend_unit",
+      "status": "passed",
+      "files": 5,
+      "tests": 32,
+      "command": "npx vitest run tests/unit/backup"
+    },
+    {
+      "name": "frontend_build",
+      "status": "passed",
+      "command": "npm run build",
+      "boundary": "Existing bundle size, Browserslist age and user-store import warnings remain."
+    },
+    {
+      "name": "browser_ui",
+      "status": "passed",
+      "tests": 3,
+      "command": "npx playwright test --config playwright.snapshots.config.ts",
+      "runtime": "Playwright Chromium on macOS",
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "api_mocked": true,
+      "coverage": [
+        "Root default tab and top-level refresh",
+        "capture and isolated-copy confirmation",
+        "prepared remains business unverified",
+        "details and export without passphrase persistence",
+        "multipart import and short-passphrase rejection",
+        "readable mobile tabs and no document horizontal overflow"
+      ],
+      "boundary": "UI fixtures; not native Windows Chrome/Edge, a native mobile browser or a live backend business restore."
+    },
+    {
+      "name": "offline_tool_smoke",
+      "status": "passed",
+      "actions_executed": [
+        "version",
+        "list"
+      ],
+      "assertions": [
+        "Build succeeds on darwin/arm64.",
+        "Empty private store listed without Core/database.",
+        "Master key mode 0600.",
+        "Owned temporary directory and binary removed."
+      ],
+      "boundary": "Import/export logic covered by service tests; CLI smoke executed version and list only."
+    },
+    {
+      "name": "documentation",
+      "status": "passed",
+      "relative_links_checked": 153,
+      "new_guide_sections": 12,
+      "new_guide_bash_syntax": "passed",
+      "openapi_operations": 9,
+      "locale_json": "valid",
+      "diff_check": "passed"
+    }
+  ],
+  "cleanup": {
+    "owned_postgres_databases_remaining": 0,
+    "last_browser_fixture_pid": 64779,
+    "last_browser_frontend_pid": 64780,
+    "both_processes_exited": true,
+    "ports_released": [
+      3477,
+      3478
+    ],
+    "user_services_restarted_or_stopped": false
+  },
+  "remaining": [
+    "Full maintenance barrier across gRPC, background writers and deployment/plugin lifecycle.",
+    "External durable dependencies, referenced key files and compatibility inventory.",
+    "Target environment, credential and plugin database binding mapping.",
+    "Application startup isolation and business acceptance.",
+    "Independent persistent cutover coordinator and whole-environment rollback.",
+    "Deployed scheduled package and independent application restore acceptance."
+  ]
+}

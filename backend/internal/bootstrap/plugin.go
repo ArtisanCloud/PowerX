@@ -82,6 +82,9 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	dr.BindTenantPluginGuard(tenantPluginSvc.RequireEnabled)
 	dr.BindPluginUsageGuard(tenantPluginSvc.EnsurePluginAcceptsNewUsage)
 	sup := supervisor.New()
+	if cfg.Recovery.ReadOnly() {
+		sup.SetPortRange(cfg.Recovery.PluginPortMin, cfg.Recovery.PluginPortMax)
+	}
 	skillDiscoverySvc := newPluginSkillDiscoveryService(deps)
 
 	installedRoot := abs(cfg.Plugin.InstalledDir)

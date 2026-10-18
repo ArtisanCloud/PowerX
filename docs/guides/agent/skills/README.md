@@ -17,6 +17,8 @@
 
 ## 文档导航
 
+024 升级后的单 Agent V5 页面测试，先使用[单 Agent 页面验收指南](../../features/024-ai-engineering-skills/guide.md)：包含可复制材料、1.35/0.85 与 3/0.5 预期值、历史及 Trace 检查。以下文档继续用于对应管理和接入场景。
+
 1. [01-admin-lifecycle.md](./01-admin-lifecycle.md)  
    管理员如何完成 Skills 生命周期管理（登记、发布、回滚、绑定）。
 

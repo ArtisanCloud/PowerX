@@ -18,6 +18,11 @@ func NotesContext(prepared map[string]any, missing []MissingOperands) (map[strin
 	if err := Decode(raw, &report); err != nil {
 		return nil, err
 	}
+	return notesPresentationContext(report.Presentation, missing), nil
+}
+
+func notesPresentationContext(p Presentation, missing []MissingOperands) map[string]any {
+	report := Report{Presentation: p}
 	inputs, calculations, conflicts := []map[string]string{}, []map[string]string{}, []map[string]string{}
 	labels := map[string]string{}
 	for _, d := range report.Presentation.Reported {
@@ -49,7 +54,30 @@ func NotesContext(prepared map[string]any, missing []MissingOperands) (map[strin
 		}
 		checks = append(checks, map[string]any{"label": c.Request.Label, "available_operands": operands, "comparison_status": status, "reported_label": labels[c.Request.CompareTo]})
 	}
-	return map[string]any{"source_claims_independently_verified": false, "available_inputs": inputs, "executed_calculations": calculations, "calculation_checks": checks, "conflicts": conflicts, "missing_inputs": missing}, nil
+	return map[string]any{"source_claims_independently_verified": false, "available_inputs": inputs, "executed_calculations": calculations, "calculation_checks": checks, "conflicts": conflicts, "missing_inputs": missing}
+}
+
+// V5NotesPresentation 是说明阶段的内部视图，不是 V4 报告或历史迁移。
+func V5NotesPresentation(report ReportV5, labels map[string]string) Presentation {
+	p := Presentation{Reported: []Datum{}, Computed: []Execution{}, Conflicts: []Conflict{}}
+	for _, d := range report.Presentation.Reported {
+		p.Reported = append(p.Reported, Datum{Key: d.FieldKey, Label: labels[d.LabelKey], Kind: d.DatumKind})
+	}
+	keys := map[string]string{}
+	for _, c := range report.Presentation.Computed {
+		keys[c.DatumUUID] = c.FieldKey
+		p.Computed = append(p.Computed, Execution{Request: Calculation{Key: c.FieldKey, Label: labels[c.LabelKey]}})
+	}
+	for _, d := range report.Presentation.Reported {
+		keys[d.DatumUUID] = d.FieldKey
+	}
+	for _, c := range report.Presentation.Conflicts {
+		p.Conflicts = append(p.Conflicts, Conflict{CalculationKey: keys[c.ComputedDatumUUID], ReportedKey: keys[c.ReportedDatumUUID]})
+	}
+	return p
+}
+func NotesContextV5(report ReportV5, labels map[string]string, missing []MissingOperands) map[string]any {
+	return notesPresentationContext(V5NotesPresentation(report, labels), missing)
 }
 
 // AddNotesSourceContext 保留原文业务背景和显式传入的上游意见，同时屏蔽

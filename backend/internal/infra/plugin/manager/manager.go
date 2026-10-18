@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 
@@ -164,8 +165,17 @@ func (m *managerImpl) restoreEnabledPlugins(ctx context.Context) error {
 }
 
 func (m *managerImpl) Shutdown(ctx context.Context) error {
-	// 预留：停止子进程、卸载路由、保存状态等
-	return nil
+	// 只停止本管理器拥有的进程；保留 enabled 状态供下次恢复。
+	if m.sup == nil {
+		return nil
+	}
+	var failures []error
+	for _, proc := range m.sup.List() {
+		if err := m.sup.Stop(proc.ID); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
 }
 
 // ------- 安装与升级（占位，后续里程碑实现） -------

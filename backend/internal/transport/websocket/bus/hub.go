@@ -6,6 +6,9 @@ import (
 	"strings"
 	"sync"
 
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
+	"github.com/ArtisanCloud/PowerX/internal/service/notifications"
+
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -143,6 +146,14 @@ func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, 
 	if err != nil {
 		return
 	}
+	target := ""
+	if topic == eventbus.TopicSystemNotification {
+		target, err = notifications.Target(env.Payload)
+		if err != nil {
+			logger.WarnF(ctx, "notification delivery rejected: invalid recipient")
+			return
+		}
+	}
 	h.mu.RLock()
 	subs := h.subscribers[topic]
 	subscriberCount := len(subs)
@@ -176,6 +187,9 @@ func (h *Hub) PublishWithContext(ctx context.Context, tenantUUID, topic string, 
 				zap.String("request_id", requestID),
 				zap.String("trace_id", traceID),
 			)
+			continue
+		}
+		if target != "" && client.MemberUUID != target {
 			continue
 		}
 		client.sendEnvelope(env)

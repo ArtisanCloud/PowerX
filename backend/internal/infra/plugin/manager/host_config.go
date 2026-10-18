@@ -19,6 +19,7 @@ import (
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 
@@ -160,7 +161,7 @@ func (m *managerImpl) generateHostConfigWithCredential(man plugin_mgr.Manifest, 
 	}
 
 	// runtime.run_migrate 默认开启，确保首次启用自动迁移
-	setNestedValue(structured, []string{"runtime", "run_migrate"}, true)
+	setNestedValue(structured, []string{"runtime", "run_migrate"}, m.opts.CoreConfig == nil || !coreconfig.BackgroundWorkersDisabled(m.opts.CoreConfig))
 	m.applyHostCORSContract(selected, structured)
 
 	if seed != nil {
@@ -270,6 +271,7 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 		selected["NUXT_PUBLIC_WS_PATH"] = "/api/ws"
 	}
 	if m != nil && m.opts.CoreConfig != nil {
+		applyCoreAPIPrefixEnv(selected, m.opts.CoreConfig)
 		applyWSContractEnv(selected, m.opts.CoreConfig)
 	}
 	deleteDeprecatedGatewayRuntimeEnv(selected)
@@ -283,6 +285,9 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 		return nil
 	}
 	deleteDeprecatedProviderModeKeys(structured)
+	if prefix := selected["PX_GATEWAY_API_PREFIX"]; prefix != "" {
+		setNestedValue(structured, []string{"gateway", "api_prefix"}, prefix)
+	}
 	setNestedValue(structured, []string{"context", "provider_mode"}, "delegated")
 	setNestedValue(structured, []string{"taskbus_provider"}, "host")
 	setNestedValue(structured, []string{"event_bridge", "taskbus_provider"}, "host")
@@ -485,6 +490,9 @@ func (m *managerImpl) hostEnvForPlugin(p plugin_mgr.Plugin) map[string]string {
 		}
 	}
 	out := mergeEnvWithRuntime(envAll, requested)
+	if coreconfig.BackgroundWorkersDisabled(m.opts.CoreConfig) {
+		out["POWERX_DISABLE_BACKGROUND_WORKERS"] = "true"
+	}
 	normalizePluginLogEnv(out)
 	return out
 }
@@ -1289,6 +1297,34 @@ func ensureMySQLUser(db *gorm.DB, section *databaseSection) error {
 func buildPostgresPluginDSN(cfg corexdb.DatabaseConfig, section *databaseSection) string {
 	if section == nil {
 		return ""
+	}
+	// Unix socket 不能放进 URI authority（%2F 会被 URL parser 拒绝）。
+	socketHost, socketPort, socketDatabase := cfg.Host, cfg.Port, cfg.Database
+	if cfg.DSN != "" {
+		if parsed, e := pgx.ParseConfig(cfg.DSN); e == nil && filepath.IsAbs(parsed.Host) {
+			socketHost = parsed.Host
+			socketPort = int(parsed.Port)
+			socketDatabase = parsed.Database
+		}
+	}
+	if filepath.IsAbs(socketHost) {
+		quote := func(value string) string {
+			return "'" + strings.NewReplacer("\\", "\\\\", "'", "\\'").Replace(value) + "'"
+		}
+		ssl := cfg.SSLMode
+		if ssl == "" {
+			ssl = "disable"
+		}
+		timezone := cfg.Timezone
+		if timezone == "" {
+			timezone = "UTC"
+		}
+		timezone = strings.Trim(strings.TrimSpace(timezone), "'\"")
+		tzValue := timezone
+		if strings.ContainsAny(tzValue, " \t\r\n'\\") {
+			tzValue = quote(timezone)
+		}
+		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s search_path=%s TimeZone=%s", quote(socketHost), socketPort, quote(section.User), quote(section.Password), quote(socketDatabase), quote(ssl), quote(section.Schema), tzValue)
 	}
 	if cfg.DSN != "" {
 		if u, err := url.Parse(cfg.DSN); err == nil && u.Scheme != "" {

@@ -169,3 +169,22 @@ func (r *NotificationRepository) DeleteAll(ctx context.Context, tenantUUID, memb
 	tx := q.Delete(&models.Notification{})
 	return tx.RowsAffected, tx.Error
 }
+
+// AcknowledgeOwned atomically verifies every immutable creator/member binding.
+// Soft-deleted owned notices are terminal successes; replay preserves read_at.
+func (r *NotificationRepository) AcknowledgeOwned(ctx context.Context, tenant, owner, member string, ids []string, now time.Time) error {
+	if tenant == "" || owner == "" || member == "" || len(ids) == 0 {
+		return gorm.ErrInvalidData
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var rows []models.Notification
+		q := tx.Unscoped().Where("tenant_uuid = ? AND service_owner = ? AND member_uuid = ? AND uuid IN ?", tenant, owner, member, ids)
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) != len(ids) {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.Model(&models.Notification{}).Where("tenant_uuid = ? AND service_owner = ? AND member_uuid = ? AND uuid IN ? AND is_read = ?", tenant, owner, member, ids, false).Updates(map[string]any{"is_read": true, "read_at": now, "updated_at": now}).Error
+	})
+}

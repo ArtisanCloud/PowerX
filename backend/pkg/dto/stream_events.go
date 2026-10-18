@@ -94,6 +94,7 @@ type AgentTaskState struct {
 	LeasedAt        string           `json:"leased_at,omitempty"`
 	StartedAt       string           `json:"started_at,omitempty"`
 	ReasonCode      string           `json:"reason_code,omitempty"`
+	FailureStage    string           `json:"failure_stage,omitempty"`
 	ParentTaskID    string           `json:"parent_task_id,omitempty"`
 	DependsOn       []string         `json:"depends_on,omitempty"`
 	Stage           int              `json:"stage,omitempty"`

@@ -9,6 +9,7 @@ import (
 )
 
 const PolicySchema = "powerx.skill-calculation-policy/v2"
+const PolicySchemaV3 = "powerx.skill-calculation-policy/v3"
 
 var ErrActivityProfileUnmatched = errors.New("evidence.activity_profile_unmatched")
 
@@ -43,6 +44,7 @@ type Formula struct {
 	CompareTo      string            `json:"compare_to"`
 	WhenAnyPresent []string          `json:"when_any_present"`
 	AppliesTo      []string          `json:"applies_to"`
+	ResultUnit     string            `json:"result_unit,omitempty"`
 }
 
 type CalculationPolicy struct {
@@ -82,7 +84,7 @@ func ReadCalculationPolicy(raw any) (CalculationPolicy, error) {
 	if err := Decode(b, &p); err != nil {
 		return p, err
 	}
-	if p.Schema != PolicySchema || p.ActivityProfiles == nil || p.InputFields == nil || p.Formulas == nil || len(p.ActivityProfiles) == 0 || len(p.ActivityProfiles) > 16 || len(p.InputFields) > 64 || len(p.Formulas) > 32 {
+	if (p.Schema != PolicySchema && p.Schema != PolicySchemaV3) || p.ActivityProfiles == nil || p.InputFields == nil || p.Formulas == nil || len(p.ActivityProfiles) == 0 || len(p.ActivityProfiles) > 16 || len(p.InputFields) > 64 || len(p.Formulas) > 32 {
 		return p, fmt.Errorf("skill.calculation_policy_invalid")
 	}
 	profiles := map[string]bool{}
@@ -106,6 +108,9 @@ func ReadCalculationPolicy(raw any) (CalculationPolicy, error) {
 			return p, fmt.Errorf("skill.calculation_input_duplicate")
 		}
 		for locale, label := range f.LabelI18n {
+			if p.Schema == PolicySchemaV3 && strings.TrimSpace(f.ScopeI18n[locale]) == "" {
+				return p, fmt.Errorf("skill.calculation_scope_locale_required")
+			}
 			if label == "" || f.DescriptionI18n[locale] == "" || len(f.EvidenceTermsI18n[locale]) == 0 {
 				return p, fmt.Errorf("skill.calculation_locale_required")
 			}
@@ -125,6 +130,13 @@ func ReadCalculationPolicy(raw any) (CalculationPolicy, error) {
 	}
 	keys := map[string]bool{}
 	for _, f := range p.Formulas {
+		if p.Schema == PolicySchemaV3 {
+			if !boundedText(f.ResultUnit, 512) || f.Percent != (f.ResultUnit == "%") {
+				return p, fmt.Errorf("skill.calculation_result_unit_required")
+			}
+		} else if f.ResultUnit != "" {
+			return p, fmt.Errorf("skill.calculation_policy_upgrade_required")
+		}
 		if !keyPattern.MatchString(f.Key) || keys[f.Key] || len(f.LabelI18n) == 0 || f.Precision < 0 || f.Precision > 12 || len(f.WhenAnyPresent) == 0 || len(f.AppliesTo) == 0 {
 			return p, fmt.Errorf("skill.calculation_formula_invalid")
 		}

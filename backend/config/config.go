@@ -35,11 +35,6 @@ func InitGlobalConfig(configPath string) error {
 		globalConfigPath = configPath
 		return nil
 	}
-	lookup, err := configurationEnvironment(configPath)
-	if err != nil {
-		return err
-	}
-
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("读取配置文件失败: %w", err)
@@ -49,8 +44,18 @@ func InitGlobalConfig(configPath string) error {
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
-	if err := loadFromEnvironment(&config, lookup); err != nil {
-		return fmt.Errorf("环境配置无效: %w", err)
+	if config.Recovery.Mode != "" {
+		if err := config.ValidateRecoveryStartup(); err != nil {
+			return err
+		}
+	} else {
+		lookup, err := configurationEnvironment(configPath)
+		if err != nil {
+			return err
+		}
+		if err := loadFromEnvironment(&config, lookup); err != nil {
+			return fmt.Errorf("环境配置无效: %w", err)
+		}
 	}
 	if err := config.ValidateDeploymentIdentity(); err != nil {
 		return fmt.Errorf("部署身份配置无效: %w", err)
@@ -68,6 +73,26 @@ func InitGlobalConfig(configPath string) error {
 // 获取全局配置
 func GetGlobalConfig() *Config {
 	if GlobalConfig == nil {
+		if os.Getenv("POWERX_RECOVERY_TOKEN") != "" {
+			path := os.Getenv("POWERX_CONFIG")
+			var startupErr error
+			if !filepath.IsAbs(path) {
+				startupErr = fmt.Errorf("invalid recovery configuration path")
+			} else {
+				startupErr = InitGlobalConfig(path)
+			}
+			if startupErr != nil {
+				message := "RECOVERY_STARTUP_BLOCKED"
+				// Recovery validators emit fixed messages without configuration values.
+				// Other loader errors may contain YAML values and stay private.
+				if strings.HasPrefix(startupErr.Error(), "RECOVERY_") {
+					message += ": " + startupErr.Error()
+				}
+				fmt.Fprintln(os.Stderr, message)
+				os.Exit(2)
+			}
+			return GlobalConfig
+		}
 		if os.Getenv("POWERX_UPGRADE_MODE") == "1" {
 			if err := InitGlobalConfig(os.Getenv("POWERX_CONFIG")); err != nil {
 				logger.Error(context.Background(), "UPGRADE_CONFIG_LOAD_BLOCKED")
@@ -82,21 +107,7 @@ func GetGlobalConfig() *Config {
 		// 4) 当前工作目录的 etc/config.yaml（兼容历史）
 		// 5) 向上查找祖先目录中的 backend/etc/config.yaml
 		// 6) 向上查找祖先目录中的 etc/config.yaml
-		candidates := make([]string, 0, 6)
-		if p := strings.TrimSpace(os.Getenv("POWERX_CONFIG")); p != "" {
-			candidates = append(candidates, p)
-		}
-		if p := configPathNearExecutable("etc/config.yaml"); p != "" {
-			candidates = append(candidates, p)
-		}
-		candidates = append(candidates, "backend/etc/config.yaml")
-		candidates = append(candidates, "etc/config.yaml")
-		if p := findConfigPath("backend/etc/config.yaml"); p != "" {
-			candidates = append(candidates, p)
-		}
-		if p := findConfigPath("etc/config.yaml"); p != "" {
-			candidates = append(candidates, p)
-		}
+		candidates := StartupConfigPaths()
 
 		var lastErr error
 		for _, p := range candidates {
@@ -113,6 +124,26 @@ func GetGlobalConfig() *Config {
 		os.Exit(1)
 	}
 	return GlobalConfig
+}
+
+// StartupConfigPaths 仅定位启动路径，不读取配置或连接业务依赖。
+// 维护启动在配置原子替换的中断窗口也可先检查同路径旁的恢复指针。
+func StartupConfigPaths() []string {
+	paths := []string{}
+	if p := strings.TrimSpace(os.Getenv("POWERX_CONFIG")); p != "" {
+		paths = append(paths, p)
+	}
+	if p := configPathNearExecutable("etc/config.yaml"); p != "" {
+		paths = append(paths, p)
+	}
+	paths = append(paths, "backend/etc/config.yaml", "etc/config.yaml")
+	if p := findConfigPath("backend/etc/config.yaml"); p != "" {
+		paths = append(paths, p)
+	}
+	if p := findConfigPath("etc/config.yaml"); p != "" {
+		paths = append(paths, p)
+	}
+	return paths
 }
 
 func GetGlobalConfigPath() string {
@@ -192,6 +223,9 @@ func findConfigPath(relPath string) string {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
+		if _, err := os.Lstat(candidate + ".recovery.json"); err == nil {
+			return candidate
+		}
 		next := filepath.Dir(dir)
 		if next == dir || next == "." || next == string(filepath.Separator) {
 			break
@@ -209,6 +243,9 @@ func configPathNearExecutable(relPath string) string {
 	exeDir := filepath.Dir(exe)
 	candidate := filepath.Join(exeDir, relPath)
 	if _, statErr := os.Stat(candidate); statErr == nil {
+		return candidate
+	}
+	if _, err := os.Lstat(candidate + ".recovery.json"); err == nil {
 		return candidate
 	}
 	return ""
@@ -254,6 +291,8 @@ func (c InstallConfig) EffectiveLockMode() string {
 
 // CoreX 全局配置
 type Config struct {
+	SystemSnapshots    SnapshotConfig           `yaml:"system_snapshots,omitempty"`
+	Recovery           RecoveryConfig           `yaml:"recovery,omitempty"`
 	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
 	Deployment         DeploymentConfig         `yaml:"deployment"`          // 当前 PowerX 实例的稳定部署身份
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
@@ -728,6 +767,11 @@ func Load(configPath string) (*Config, error) {
 		cfg, _, err := LoadForUpgrade(configPath, upgradeDataDirectory())
 		return cfg, err
 	}
+	return loadConfiguration(configPath, false)
+}
+
+// loadConfiguration 共享配置来源；仅专用迁移入口采用迁移校验范围。
+func loadConfiguration(configPath string, migrationOnly bool) (*Config, error) {
 	// 1. 加载默认配置
 	cfg := GetDefaults()
 
@@ -735,6 +779,17 @@ func Load(configPath string) (*Config, error) {
 	lookup, err := configurationEnvironment(configPath)
 	if err != nil {
 		return nil, err
+	}
+	if migrationOnly {
+		original := lookup
+		lookup = func(name string) (string, bool) {
+			switch name {
+			case "POWERX_AUTH_JWT_SECRET", "CORE_X_AUTH_JWT_SECRET", "CORE_X_JWT_SECRET":
+				return "", false
+			default:
+				return original(name)
+			}
+		}
 	}
 
 	// 2. 从YAML文件加载（如果存在）
@@ -750,7 +805,11 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// 4. 验证配置
-	if err := cfg.Validate(); err != nil {
+	validate := cfg.Validate
+	if migrationOnly {
+		validate = cfg.ValidateMigration
+	}
+	if err := validate(); err != nil {
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
 
@@ -839,6 +898,10 @@ func loadFromEnv(cfg *Config) error {
 
 func loadFromEnvironment(cfg *Config, lookup environmentLookup) error {
 	getenv := func(name string) string { value, _ := lookup(name); return value }
+	if directory := getenv("POWERX_SNAPSHOT_DIRECTORY"); directory != "" {
+		cfg.SystemSnapshots.Directory = directory
+		cfg.SystemSnapshots.directorySource = "environment"
+	}
 	// Server配置
 	if host := getenv("POWERX_BACKEND_HOST"); host != "" {
 		cfg.Server.Host = strings.TrimSpace(host)

@@ -2,6 +2,8 @@ package notifications
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -23,27 +25,29 @@ type handler struct {
 }
 
 type createNotificationRequest struct {
-	Title       string         `json:"title"`
-	Content     string         `json:"content"`
-	Type        string         `json:"type"`
-	Category    string         `json:"category"`
-	IsImportant bool           `json:"is_important"`
-	MemberUUID  string         `json:"member_uuid"`
-	Metadata    map[string]any `json:"metadata"`
+	Navigation  *notificationssvc.Navigation `json:"navigation,omitempty"`
+	Title       string                       `json:"title"`
+	Content     string                       `json:"content"`
+	Type        string                       `json:"type"`
+	Category    string                       `json:"category"`
+	IsImportant bool                         `json:"is_important"`
+	MemberUUID  string                       `json:"member_uuid"`
+	Metadata    map[string]any               `json:"metadata"`
 }
 
 type notificationView struct {
-	ID          string         `json:"id"`
-	Title       string         `json:"title"`
-	Content     string         `json:"content"`
-	Type        string         `json:"type"`
-	Category    string         `json:"category"`
-	IsRead      bool           `json:"isRead"`
-	IsImportant bool           `json:"isImportant"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	UserID      string         `json:"userId,omitempty"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
+	Actions     []notificationssvc.Action `json:"actions,omitempty"`
+	ID          string                    `json:"id"`
+	Title       string                    `json:"title"`
+	Content     string                    `json:"content"`
+	Type        string                    `json:"type"`
+	Category    string                    `json:"category"`
+	IsRead      bool                      `json:"isRead"`
+	IsImportant bool                      `json:"isImportant"`
+	CreatedAt   time.Time                 `json:"createdAt"`
+	UpdatedAt   time.Time                 `json:"updatedAt"`
+	UserID      string                    `json:"userId,omitempty"`
+	Metadata    map[string]any            `json:"metadata,omitempty"`
 }
 
 func newHandler(deps *shared.Deps) *handler {
@@ -62,6 +66,10 @@ func newHandler(deps *shared.Deps) *handler {
 func (h *handler) create(c *gin.Context) {
 	if h == nil || h.svc == nil {
 		c.Status(http.StatusNotImplemented)
+		return
+	}
+	if err := h.svc.AuthorizeCreate(c.Request.Context()); err != nil {
+		dto.RespondErrorFrom(c, err)
 		return
 	}
 	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
@@ -114,8 +122,18 @@ func (h *handler) create(c *gin.Context) {
 		Category:    strings.TrimSpace(req.Category),
 		IsImportant: req.IsImportant,
 		Metadata:    metadata,
+		Navigation:  req.Navigation,
 	})
 	if err != nil {
+		if errors.Is(err, notificationssvc.ErrRecipientInvalid) {
+			dto.RespondErrorFrom(c, notificationssvc.ErrRecipientInvalid)
+			return
+		}
+		var coded *dto.AppError
+		if errors.As(err, &coded) {
+			dto.RespondErrorFrom(c, err)
+			return
+		}
 		dto.ResponseError(c, http.StatusInternalServerError, "create notification failed", err)
 		return
 	}
@@ -138,6 +156,9 @@ func toNotificationView(item *notificationmodel.Notification) notificationView {
 		UpdatedAt:   item.UpdatedAt,
 		UserID:      strings.TrimSpace(item.MemberUUID),
 	}
+	if len(item.Actions) > 0 {
+		_ = json.Unmarshal(item.Actions, &view.Actions)
+	}
 	if len(item.Metadata) > 0 {
 		var metadata map[string]any
 		if err := json.Unmarshal(item.Metadata, &metadata); err == nil {
@@ -145,4 +166,26 @@ func toNotificationView(item *notificationmodel.Notification) notificationView {
 		}
 	}
 	return view
+}
+
+func (h *handler) acknowledge(c *gin.Context) {
+	if h == nil || h.svc == nil {
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+	var input notificationssvc.ReadReceiptInput
+	decoder := json.NewDecoder(io.LimitReader(c.Request.Body, 32768))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&input) != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		dto.ResponseError(c, 400, "NOTIFICATION_READ_RECEIPT_INVALID", nil)
+		return
+	}
+	receipt, err := h.svc.Acknowledge(c.Request.Context(), input)
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	tenant := reqctx.GetTenantUUID(c.Request.Context())
+	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenant, eventbus.TopicSystemNotification, notificationssvc.ReadEvent(tenant, receipt.MemberUUID, receipt.NotificationUUIDs), reqctx.GetTraceID(c.Request.Context()))
+	dto.ResponseSuccess(c, receipt)
 }

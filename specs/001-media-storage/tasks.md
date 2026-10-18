@@ -93,3 +93,17 @@ task run T031
 ```
 
 > `[P]` 表示可在依赖满足后并行执行（作用文件互不冲突）。请严格遵循“先测试失败 → 再实现 → 测试通过”的节奏。
+
+## Phase 6: Core 标准图片预览（2026-10-17）
+
+- [X] **T047** 统一 ensure：原图上传确认、就绪原图复用与本地 direct upload 回填都检查缺失预览，原图状态与预览状态分离。
+- [X] **T048** 2026-10-18 修正：移除 Media 专用任务表及迁移，复用统一 `event_task_histories` 和 TaskBus Stream 的状态、重试、启动补投、崩溃重新认领与结果 fencing；Media 仅保留资产到任务的关联。
+- [X] **T049** 集中定义 `standard-image-v1` 的 preview/thumbnail，验证真实原图 SHA、字节／像素上限，保留透明度和 JPEG Orientation，不覆盖原图及可用插件变体。
+- [X] **T050** 新增 Admin ensure/status/SSE 与类型化 `core_internal` read/ensure 能力，校验发布、租户登记与 live service grant，拒绝 free-form 请求。
+- [X] **T051** 回归上传至真实存储与队列、重复复用补图、并发去重、瞬时与永久失败、崩溃恢复、旧结果拒绝、跨租户、grant 撤销、自定义前缀及 SSE 无状态轮询；执行原生 PostgreSQL 隔离 schema 验证。
+- [X] **T052** 核对本次无新增表／列，完成统一 TaskBus 历史与 Media 回归；更新内容寻址升级载荷及 [合同](../../docs/contracts/media-image-derivatives.md)。
+- [ ] **T053** 安装新 Core 与实际开发 Host grant-status、真实凭证 HTTP 和 AI Craft 商家上传验收。现有业务库／日常 Core 服务本轮未替换。
+- [ ] **T054** 外部仓库按需接入：Framework HostAsset 的可选 derivatives DTO；AI Craft local 保留本地生成，delegated 消费 Core 变体、提前去重走现有 CreateAsset 复用、保存实际 Variant MIME／大小；需要页面实时更新时接入经鉴权推送。无需强制新增 ensure 调用或 Service 方法；本轮范围为 Core。
+- [X] **T055** Core 收尾：复用同一 Redis 通知／SSE 实现服务态事件入口，发送状态前验证 live grant，补充既有 Host HTTP 上传自动触发与重复补图回归；Host OpenAPI 声明可选 derivatives 字段。
+
+全仓 `make capability-check` 本轮仍被已有 4 条备份路由缺声明阻断，新增 Media 路由已覆盖。验证范围和未完成安装验收见 [证据](../../docs/contracts/evidence/media-image-derivatives-validation-20261018.json)。

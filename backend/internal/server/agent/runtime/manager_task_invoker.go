@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	aschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
+	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -66,6 +68,7 @@ func (m *ManagerTaskInvoker) InvokeTask(ctx context.Context, plan flowschema.Exe
 		"run_id": parts[1], "plan_id": plan.PlanID, "env": reqctx.GetEnv(ctx), "agent_id": ctx.Value("agent_numeric_id"),
 		"session_id": ctx.Value("session_id"), "message_id": ctx.Value("message_id"), "idempotency_key": key,
 	}}
+	ctx = agent.WithOriginalUserMessage(ctx, input.Message)
 	ctx = evidence.EnsureLedger(ctx)
 	out, err := m.Manager.ExecutePlanTask(ctx, plan, taskID, prior, meta)
 	if err != nil {
@@ -94,19 +97,27 @@ func (m *ManagerTaskInvoker) InvokeTask(ctx context.Context, plan flowschema.Exe
 	delete(out.Metadata, "durable_response_verified")
 	envelope, err := responseEnvelopeFromExecutionResultWithTaskRefs(out.Data, finalResponseUpstreamTaskRefs(&plan))
 	if err != nil {
-		return nil, err
+		return nil, m.failFinalEvidence(ctx, parts[1], taskID, err)
 	}
 	final := finalDurableTask(plan)
 	if envelope == nil && plan.PlanID != "invoke_default" && final.TaskID == taskID {
-		return nil, fmt.Errorf("agent_run.final_response_required")
+		return nil, m.failFinalEvidence(ctx, parts[1], taskID, fmt.Errorf("agent_run.final_response_required"))
 	}
 	if envelope != nil {
 		if err := evidence.Verify(ctx, envelope); err != nil {
-			return nil, err
+			return nil, m.failFinalEvidence(ctx, parts[1], taskID, err)
 		}
 		out.Metadata["durable_response_verified"] = true
 	}
 	return out, nil
+}
+
+func (m *ManagerTaskInvoker) failFinalEvidence(ctx context.Context, runID, taskID string, cause error) error {
+	err := &evidence.ToolEvidenceError{ToolFailure: evidence.ToolFailure{Code: "agent.response_contract_invalid", Stage: "final_validation"}, Cause: cause}
+	tr := &traceRuntime{logger: m.Manager.AgentTraceLogger(), meta: agenttrace.AgentRunMeta{RunID: runID, TraceID: reqctx.GetTraceID(ctx), TenantUUID: reqctx.GetTenantUUID(ctx), UserUUID: reqctx.GetUserUUID(ctx), AgentID: firstTraceString(contextString(ctx, "agent_numeric_id"), contextString(ctx, "agent_id")), SessionID: contextString(ctx, "session_id"), MessageID: contextString(ctx, "message_id")}, startedAt: time.Now().UTC(), starts: map[string]time.Time{}, nodeSeq: map[string]int{}}
+	node := tr.startNode(ctx, "final_response", taskID+"/response_envelope_validation", map[string]any{"node_id": taskID + "_final_validation"})
+	tr.failNode(context.WithoutCancel(ctx), node, "final_response", "response_envelope_validation", err)
+	return err
 }
 
 // 与 Manager 的终态选择保持一致：最高阶段中最后一个任务负责最终回复。

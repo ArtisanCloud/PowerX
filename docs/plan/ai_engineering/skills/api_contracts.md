@@ -2,6 +2,8 @@
 
 本文定义 Skill 管理与调用接口契约，供后端、前端、插件侧统一实现。
 
+Phase 23 的 [T199 工具与证据合同](../../../../specs/024-ai-engineering-skills/contracts/tool-evidence-contract.md) 定义 tools/v2、回执 v1、typed 计算及响应 V5；[T203](../../../../specs/024-ai-engineering-skills/runtime-v5-implementation.md) 已接线显式新 Revision 的内置计算链与受控历史，部署须迁移；[T204](../../../../specs/024-ai-engineering-skills/plugin-tool-example-implementation.md) 新增显式固定的原生 HTTP/admin_user 纯计算插件合同与原始结构化输入，其他外部类型仍拒绝。旧 Registry SemVer 与 Definition Revision UUID 不能互换；HTTP/gRPC/Workflow 必须统一运行权威，未迁移入口显式拒绝，具体迁移规则见该合同。本增量不修改 API 挂载前缀或现有 RPC 字段。
+
 插件与 PowerX Agent Runtime 的桥接契约遵循 [`agent_skill_bridge.md`](../agent/agent_skill_bridge.md)。本文件补充 HTTP/SSE/WS 层面的请求与响应样例。
 
 ## 0. LLM 基础接口（system + user 双消息位）
@@ -647,3 +649,9 @@ GET /api/v1/admin/agent-traces/sessions/{session_id}/report?format=json|markdown
   "message": "Agent trace inspection requires root permission"
 }
 ```
+
+## T203 响应及失败字段增量
+
+V5 严格使用冻结 Schema，原 V4 不改名。`response_labels`（原 Revision 的 `powerx.response-labels/v1`）和 `response_evidence`（归档引用 `powerx.run-evidence/v1`）作为消息 metadata/实时 data 的 companion，历史先经租户和原用户授权读取。证据缺失、清理或篡改时删除报告及标签，并返回 `response_evidence_state=unavailable`，不重算。
+
+新链要求显式 `powerx.skill-calculation-policy/v3`：输入 `scope_i18n`、公式 `result_unit` 必填，percent 使用 `%`。系统失败保留相同 `reason_code/failure_stage` 到 task、`agent_run.task_failed`、实时 final/error/end、历史消息和 Trace；`failure_stage` 是已有任务协议可选字段。`needs_action` 仅代表业务待补/冲突，失败不输出成功 V5 报告。完整部署与验证边界见 T203 记录。

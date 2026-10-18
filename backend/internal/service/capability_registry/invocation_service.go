@@ -87,7 +87,8 @@ type CoreCapabilityInvokeInput struct {
 	Query        map[string]string
 	Body         map[string]interface{}
 	Payload      map[string]interface{}
-	Context      map[string]interface{}
+	// Context 仅包含调用方传入的参数，不混入 Selector 生成的路由元数据。
+	Context map[string]interface{}
 }
 
 // RESTUpstreamError preserves the machine-readable error details returned by a
@@ -132,6 +133,8 @@ type InvocationInput struct {
 	TraceID           string
 	Payload           map[string]interface{}
 	Context           map[string]interface{}
+	// ResolvedToolScope 是 Selector 解析后的内部路由元数据，不属于调用方 context。
+	ResolvedToolScope string `json:"-"`
 }
 
 // InvocationResult 描述调用结果。
@@ -516,6 +519,11 @@ func wrapPluginCapabilityInvokePayload(in InvocationInput, endpoint string, labe
 	)
 	metadata := map[string]interface{}{
 		"capability_id": strings.TrimSpace(in.CapabilityID),
+	}
+	// 插件的通用调用 envelope 保留原有 tool_scope；typed Core binding
+	// 则只接收原始 Context，继续严格校验调用方不能附加代理参数。
+	if scope := strings.TrimSpace(in.ResolvedToolScope); scope != "" {
+		metadata["tool_scope"] = scope
 	}
 	for k, v := range in.Context {
 		key := strings.TrimSpace(k)

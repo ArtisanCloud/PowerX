@@ -10,7 +10,10 @@ const emit = defineEmits<{
   back: [];
 }>();
 
-const { executeAction, markAsRead } = useNotifications();
+const { executeAction, markAsRead, isNotificationRead } = useNotifications();
+const { t } = useI18n();
+const actionToast = useToast();
+const displayNotification = computed(() => props.notification ? { ...props.notification, isRead: isNotificationRead(props.notification) } : null);
 
 // 获取通知图标
 const getNotificationIcon = (notification: Notification) => {
@@ -72,12 +75,13 @@ const formatFullTime = (date: Date) => {
 // 处理操作点击
 const handleActionClick = async (actionId: string) => {
   if (!props.notification) return;
-  await executeAction(props.notification.id, actionId);
+  try { await executeAction(props.notification.id, actionId, props.notification); }
+  catch { actionToast.add({ title: t("header.notifications.navigationError"), color: "error" }); }
 };
 
 // 标记为已读
 const handleMarkAsRead = async () => {
-  if (!props.notification || props.notification.isRead) return;
+  if (!props.notification || isNotificationRead(props.notification)) return;
   await markAsRead(props.notification.id);
 };
 
@@ -85,7 +89,7 @@ const handleMarkAsRead = async () => {
 watch(
   () => props.notification,
   (newNotification) => {
-    if (newNotification && !newNotification.isRead) {
+    if (newNotification && !isNotificationRead(newNotification)) {
       handleMarkAsRead();
     }
   },
@@ -94,7 +98,7 @@ watch(
 </script>
 
 <template>
-  <div v-if="notification" class="flex flex-col h-full">
+  <div v-if="displayNotification" class="flex flex-col h-full">
     <!-- 头部 -->
     <div class="flex items-center justify-between p-4 border-b border-gray-200">
       <div class="flex items-center space-x-3">
@@ -126,26 +130,26 @@ watch(
           <div
             class="w-12 h-12 rounded-full flex items-center justify-center"
             :class="{
-              'bg-green-100': notification.type === 'success',
-              'bg-yellow-100': notification.type === 'warning',
-              'bg-red-100': notification.type === 'error',
-              'bg-blue-100': notification.type === 'info',
-              'bg-gray-100': notification.type === 'system',
+              'bg-green-100': displayNotification.type === 'success',
+              'bg-yellow-100': displayNotification.type === 'warning',
+              'bg-red-100': displayNotification.type === 'error',
+              'bg-blue-100': displayNotification.type === 'info',
+              'bg-gray-100': displayNotification.type === 'system',
             }"
           >
             <UIcon
-              :name="getNotificationIcon(notification)"
-              :class="['w-6 h-6', getNotificationColor(notification)]"
+              :name="getNotificationIcon(displayNotification)"
+              :class="['w-6 h-6', getNotificationColor(displayNotification)]"
             />
           </div>
         </div>
         <div class="flex-1">
           <div class="flex items-center space-x-2 mb-2">
             <h1 class="text-xl font-semibold text-gray-900">
-              {{ notification.title }}
+              {{ displayNotification.title }}
             </h1>
             <UBadge
-              v-if="notification.isImportant"
+              v-if="displayNotification.isImportant"
               color="error"
               variant="soft"
               size="sm"
@@ -153,7 +157,7 @@ watch(
               重要
             </UBadge>
             <UBadge
-              v-if="!notification.isRead"
+              v-if="!displayNotification.isRead"
               color="info"
               variant="soft"
               size="sm"
@@ -162,8 +166,8 @@ watch(
             </UBadge>
           </div>
           <div class="flex items-center space-x-4 text-sm text-gray-500">
-            <span>{{ getCategoryLabel(notification.category) }}</span>
-            <span>{{ formatFullTime(notification.createdAt) }}</span>
+            <span>{{ getCategoryLabel(displayNotification.category) }}</span>
+            <span>{{ formatFullTime(displayNotification.createdAt) }}</span>
           </div>
         </div>
       </div>
@@ -172,37 +176,37 @@ watch(
       <div class="mb-6">
         <div class="prose prose-sm max-w-none">
           <p class="text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {{ notification.content }}
+            {{ displayNotification.content }}
           </p>
         </div>
       </div>
 
       <!-- 关联信息 -->
       <div
-        v-if="notification.relatedId || notification.metadata"
+        v-if="displayNotification.relatedId || displayNotification.metadata"
         class="mb-6 p-4 bg-gray-50 rounded-lg"
       >
         <h3 class="text-sm font-medium text-gray-900 mb-3">相关信息</h3>
         <div class="space-y-2 text-sm">
-          <div v-if="notification.relatedId" class="flex justify-between">
+          <div v-if="displayNotification.relatedId" class="flex justify-between">
             <span class="text-gray-500">关联资源ID:</span>
             <span class="text-gray-900 font-mono">{{
-              notification.relatedId
+              displayNotification.relatedId
             }}</span>
           </div>
-          <div v-if="notification.relatedType" class="flex justify-between">
+          <div v-if="displayNotification.relatedType" class="flex justify-between">
             <span class="text-gray-500">资源类型:</span>
-            <span class="text-gray-900">{{ notification.relatedType }}</span>
+            <span class="text-gray-900">{{ displayNotification.relatedType }}</span>
           </div>
-          <div v-if="notification.userId" class="flex justify-between">
+          <div v-if="displayNotification.userId" class="flex justify-between">
             <span class="text-gray-500">用户ID:</span>
             <span class="text-gray-900 font-mono">{{
-              notification.userId
+              displayNotification.userId
             }}</span>
           </div>
           <div
-            v-if="notification.metadata"
-            v-for="(value, key) in notification.metadata"
+            v-if="displayNotification.metadata"
+            v-for="(value, key) in displayNotification.metadata"
             :key="key"
             class="flex justify-between"
           >
@@ -213,11 +217,11 @@ watch(
       </div>
 
       <!-- 操作按钮 -->
-      <div v-if="notification.actions?.length" class="mb-6">
+      <div v-if="displayNotification.actions?.length" class="mb-6">
         <h3 class="text-sm font-medium text-gray-900 mb-3">可用操作</h3>
         <div class="flex flex-wrap gap-3">
           <UButton
-            v-for="action in notification.actions"
+            v-for="action in displayNotification.actions"
             :key="action.id"
             :variant="action.type === 'primary' ? 'solid' : 'outline'"
             :color="action.type === 'danger' ? 'error' : 'primary'"
@@ -236,13 +240,13 @@ watch(
           <div>
             <span class="font-medium">创建时间:</span>
             <span class="ml-2">{{
-              formatFullTime(notification.createdAt)
+              formatFullTime(displayNotification.createdAt)
             }}</span>
           </div>
           <div>
             <span class="font-medium">更新时间:</span>
             <span class="ml-2">{{
-              formatFullTime(notification.updatedAt)
+              formatFullTime(displayNotification.updatedAt)
             }}</span>
           </div>
         </div>

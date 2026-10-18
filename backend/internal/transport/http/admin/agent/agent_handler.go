@@ -38,7 +38,7 @@ type AgentHandler struct {
 
 func NewAgentHandler(dep *shared.Deps) *AgentHandler {
 	return &AgentHandler{
-		srv: agentSvc.NewAgentService(dep.DB),
+		srv: agentSvc.NewAgentService(dep.DB, dep.SkillDependencies),
 	}
 }
 

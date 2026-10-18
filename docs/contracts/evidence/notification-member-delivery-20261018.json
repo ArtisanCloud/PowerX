@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-18",
+  "scope": "Core notification recipient isolation and current AI Craft readiness",
+  "implemented": [
+    "active tenant/member/user validation before personal notification creation",
+    "authenticated member UUID binding at WebSocket handshake",
+    "central system-notification target filtering shared by OpenAPI/Admin/TaskBus",
+    "live IAM and topic authorization immediately before frame write",
+    "no personal inbox wildcard for root without tenant membership",
+    "service create authorization checks publication, tenant registration and live STS/API-key grants",
+    "same public HTTP route and member_uuid; fixed typed core_internal binding",
+    "UI identity-change cache clearing and late list/mutation response guards",
+    "stale socket/session frame rejection and last-subscription cleanup",
+    "one inbox refresh on reconnect"
+  ],
+  "tests": [
+    {
+      "command": "go test ./internal/service/notifications ./internal/transport/websocket/bus ./internal/transport/http/openapi/notifications ./internal/transport/http/admin/notifications ./internal/app/shared ./internal/app/shared/workers ./internal/http ./internal/service/integration_gateway/apikeypermissions ./internal/service/authorization_baseline ./cmd/authorization_baseline",
+      "result": "passed",
+      "log": "/tmp/powerx-notification-final-tests.log"
+    },
+    {
+      "command": "go test -race ./internal/service/notifications ./internal/transport/websocket/bus ./internal/transport/http/openapi/notifications ./internal/transport/http/admin/notifications ./internal/app/shared/workers",
+      "result": "passed",
+      "log": "/tmp/powerx-notification-final-race.log"
+    },
+    {
+      "command": "npx vitest run tests/unit/notifications",
+      "result": "passed",
+      "tests": 5,
+      "log": "/tmp/powerx-notification-ui-tests.log"
+    },
+    {
+      "command": "go vet affected notification/transports/shared packages",
+      "result": "passed",
+      "log": "/tmp/powerx-notification-vet.log"
+    },
+    {
+      "command": "make db-migrate and make capability-seed with owned temporary config",
+      "result": "passed",
+      "verification": {
+        "capability_record_seeded": true,
+        "typed_and_existing_rest_bindings": true,
+        "explicit_service_permission_count": 1,
+        "owned_database_and_config_removed": true
+      }
+    },
+    {
+      "command": "make capability-check",
+      "result": "blocked_by_4_existing_backup_routes",
+      "missing_capability_declarations": 0,
+      "log": "/tmp/powerx-notification-capability-check.log"
+    },
+    {
+      "command": "go test ./internal/transport/http/admin/notifications ./internal/transport/http/openapi/notifications ./internal/transport/websocket/... ./internal/service/notifications ./internal/app/shared",
+      "result": "passed",
+      "log": "/tmp/powerx-notification-last-check.log",
+      "coverage": "root without tenant member cannot become a personal inbox wildcard; numeric authenticated IAM identity resolves member UUID"
+    },
+    {
+      "command": "Header.vue SFC parse and compileScript; upgrade_registry.py --check; git diff --check",
+      "result": "passed"
+    }
+  ],
+  "source_test_boundary": "HTTP test verifies real signed fixture JWTs with actual middleware, live fixture IAM/grants, database and WebSocket. Topic ACL fixtures are controlled; not installed three-account acceptance.",
+  "installed_environment_preflight": {
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "plugin_id": "com.powerx.plugins.ai-craft",
+    "config": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/etc/config.yaml",
+    "cli_exit_code": 1,
+    "cli_error": "IAM_BASELINE_INITIALIZATION_SUBJECT_INACTIVE",
+    "tenant_active": true,
+    "auth_credentials_rows_for_target": 0,
+    "authorization_tracking_rows_for_target": 0,
+    "declared_baseline_permissions": [
+      {
+        "module": "production",
+        "resource": "sample_track",
+        "action": "read",
+        "scope": null,
+        "baseline": true
+      },
+      {
+        "module": "production",
+        "resource": "bulk_order",
+        "action": "read",
+        "scope": null,
+        "baseline": true
+      },
+      {
+        "module": "operations.business_dashboard",
+        "resource": "cost",
+        "action": "read",
+        "scope": null,
+        "baseline": true
+      }
+    ],
+    "guard_uuid": null,
+    "initialization_applied": false,
+    "actual_service_grants_verified": false,
+    "raw_stdout": "/tmp/powerx-aicraft-baseline-preflight.raw.json",
+    "raw_stderr": "/tmp/powerx-aicraft-baseline-preflight.err",
+    "user_clarification": "User intentionally uninstalled AI Craft during this turn; absent installation/registration is expected. Recheck after reinstall."
+  },
+  "remaining": [
+    "reinstall aligned AI Craft after Core deployment; absent installation during this turn is intentional",
+    "after reinstall, verify formal tenant service registration and actual service grants",
+    "obtain real plugin notifications-prepare guard and verify quiesced/no pending events",
+    "initialize only unready permissions; preserve existing ready receipt/start",
+    "user-managed service deployment and real three-account acceptance before enabling host_notifications_enabled"
+  ],
+  "business_data_changed": false,
+  "user_services_restarted": false,
+  "framework_or_plugin_source_changed": false
+}

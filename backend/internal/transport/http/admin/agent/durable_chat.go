@@ -22,9 +22,22 @@ func (h *AgentChatHandler) runtimeSnapshotLifetime() time.Duration {
 }
 
 func (h *AgentChatHandler) subscribeDurableRun(c *gin.Context, id string) {
-	if _, err := h.durable.AuthorizedRun(c.Request.Context(), id); err != nil {
+	row, err := h.durable.AuthorizedRun(c.Request.Context(), id)
+	if err != nil {
 		dto.ResponseError(c, 403, "agent run unavailable", nil)
 		return
+	}
+	// 按 Run 续订仍保留原会话归属，不能通过切换页面订阅另一工作区的结果。
+	if c.Query("session_type") != "" || c.Query("team_id") != "" {
+		tenant := row.TenantUUID.String()
+		session, err := h.his.FindSessionByID(c.Request.Context(), row.Env, &tenant, row.SessionID)
+		if err != nil || session == nil {
+			dto.ResponseError(c, 404, "agent.session_not_found", nil)
+			return
+		}
+		if !validateSessionQuery(c, session, false) {
+			return
+		}
 	}
 	raw := strings.TrimSpace(c.GetHeader("Last-Event-ID"))
 	if raw == "" {
@@ -44,7 +57,7 @@ func (h *AgentChatHandler) subscribeDurableRun(c *gin.Context, id string) {
 		return
 	}
 	runtime.SetSSEHeaders(c)
-	err := h.durable.Subscribe(c.Request.Context(), id, cursor, func(seq uint64, event string, payload any) error {
+	err = h.durable.Subscribe(c.Request.Context(), id, cursor, func(seq uint64, event string, payload any) error {
 		raw, err := json.Marshal(payload)
 		if err != nil {
 			return err

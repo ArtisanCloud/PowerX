@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info: {title: Core notification member delivery, version: 1.1.0}
+paths:
+  /notifications:
+    post:
+      description: Existing service notification creation route. Requires a published, tenant-registered capability and live STS or explicit API-key grant. Nonempty member_uuid must identify an active member and user in the authenticated tenant. Empty target retains tenant broadcast semantics.
+      responses:
+        '200': {description: Created notification with original response shape}
+        '400': {description: Invalid or unavailable recipient; never falls back to broadcast}
+        '401': {description: Service credential required}
+        '403': {description: Service grant required}
+  /notifications/read-receipts:
+    post:
+      description: Requires the live notifications.read_receipts service grant. Atomically acknowledges only this credential owner's notifications for the authenticated tenant and explicit active member. Repeated receipts preserve read_at. It never confirms business content reading.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReadReceiptInput'}
+      responses:
+        '200':
+          description: Acknowledged exact notification ID set, returned in the standard data envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ReadReceipt'}
+        '400': {description: Invalid payload or inactive recipient}
+        '401': {description: Service credential required}
+        '403': {description: Grant or notification ownership check failed; no partial writes}
+        '503': {description: Dependency unavailable}
+components:
+  schemas:
+    CreateOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, title, content]
+      properties:
+        operation: {type: string, enum: [create]}
+        title: {type: string, minLength: 1}
+        content: {type: string, minLength: 1}
+        type: {type: string}
+        category: {type: string}
+        is_important: {type: boolean}
+        member_uuid: {type: string, description: 'Empty means tenant broadcast; nonempty must be an active member UUID.'}
+        metadata: {type: object, additionalProperties: true}
+        navigation:
+          $ref: '#/components/schemas/NotificationNavigation'
+    NotificationNavigation:
+      type: object
+      additionalProperties: false
+      required: [label, path]
+      properties:
+        label: {type: string, minLength: 1, maxLength: 80, description: Localized action label supplied by the publisher.}
+        path: {type: string, minLength: 1, maxLength: 2048, description: 'Same-origin absolute path. No scheme, authority, fragment, backslash, control characters or dot traversal. Destination must reauthorize the current member.'}
+
+    ReadReceiptInput:
+      type: object
+      additionalProperties: false
+      required: [member_uuid, notification_uuids]
+      properties:
+        member_uuid: {type: string, format: uuid}
+        notification_uuids: {type: array, minItems: 1, maxItems: 100, uniqueItems: true, items: {type: string, format: uuid}}
+    ReadReceiptOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, member_uuid, notification_uuids]
+      properties:
+        operation: {type: string, enum: [acknowledge_read]}
+        member_uuid: {type: string, format: uuid}
+        notification_uuids: {type: array, minItems: 1, maxItems: 100, uniqueItems: true, items: {type: string, format: uuid}}
+    ReadReceipt:
+      type: object
+      additionalProperties: false
+      required: [contract, member_uuid, notification_uuids]
+      properties:
+        contract: {type: string, enum: [notification_read_receipt.v1]}
+        member_uuid: {type: string, format: uuid}
+        notification_uuids: {type: array, minItems: 1, maxItems: 100, uniqueItems: true, items: {type: string, format: uuid}}

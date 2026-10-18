@@ -5,6 +5,12 @@ version: v1.0.0
 deployment:
   env: dev
 
+system_snapshots:
+  # 默认：$POWERX_LINKS_ROOT/storage/system-snapshots；未设置时 ~/.powerx/storage/system-snapshots。
+  # 留空保留现有默认目录；也可填写绝对路径，例如 /var/lib/powerx/system-snapshots。
+  # 环境变量 POWERX_SNAPSHOT_DIRECTORY 可覆盖；托管部署以协调器 snapshot_directory 为准。
+  directory: ""
+
 server:
   host: 127.0.0.1
   port: 8077
@@ -13,7 +19,8 @@ server:
   mode: debug
   api_prefix: /api/v1
   ws_prefix: /ws
-  # secret_key 是 32 字节的 Base64 编码，可用以下命令生成：
+  # 手动首装可用 make init-secrets 自动生成并保存（重复执行保留原值）。
+  # secret_key 是 32 字节的 Base64 编码，也可由外部流程生成：
   #   umask 077 && head -c 32 /dev/urandom | base64 -w0
   secret_key: ""
   grpc:
@@ -181,6 +188,7 @@ audit:
 
 auth:
   # First-install Setup generates and persists a unique key automatically.
+  # Manual first install: database init-secrets -config /path/to/config.yaml
   # Installed deployments require this saved key or POWERX_AUTH_JWT_SECRET.
   jwt_secret: ""
   issuer: powerx-auth

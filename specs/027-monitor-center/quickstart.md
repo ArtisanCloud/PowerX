@@ -1,11 +1,13 @@
 # Quickstart: 自动备份闭环（027-monitor-center）
 
+> 2026-10-15：第 1–10 节保留组件级流程；统一包、独立应用验证和正式切换已在本地实现，接入按[托管恢复手册](../../docs/guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md)。第 11 节本地原生回归已通过，Linux／生产插件及真实定时第二轮待验收。以下 `8080` 是示例 Core 地址，需替换为实际端口。
+
 ## 1. 前置条件
 
-- 当前分支：`027-monitor-center`
+- 在用户当前分支验证；`027-monitor-center` 是功能文档标识，不要求切换分支。
 - 已完成数据库迁移（包含 `policy/job/artifact/drill/alert` 相关表）
 - Root 管理员可登录管理端并拿到 `TOKEN`
-- 目标环境具备备份存储目标（示例：`powerx_bak`）
+- 目标环境具备稳定本地备份目录；现有策略 `target_ref=local_dump` 不代表另一个目标数据库。
 
 ## 2. 启动服务
 
@@ -21,13 +23,12 @@ npm run dev
 
 ## 2.1 关键脚本说明（运维侧）
 
-- `backend/scripts/ops/backup-db.sh <policy_id>`: 执行备份脚本入口（由调度/手动触发调用）。
-- `backend/scripts/ops/cleanup-backups.sh`: 执行过期产物清理入口（保留策略在服务层执行，脚本负责外部清理动作）。
-- `backend/scripts/ops/restore-drill.sh <source_job_id>`: 执行恢复演练入口。
-- `backend/scripts/ops/rollback-release.sh`: 发布回滚入口（与备份中心联动时可作为紧急回退动作）。
+- `backend/scripts/ops/backup-db.sh`、`cleanup-backups.sh`、`restore-drill.sh` 是服务内部脚本，参数由服务构造；不要按历史单参数模板直接调用。
+- 运维优先使用同环境的 `database backup-run -config <实际配置> -policy-id <实际策略ID>` 和 `database backup-restore-verify -config <实际配置> -job-id <实际作业ID>`。
+- 独立调度、路径与权限按 [US1](../../docs/guides/deploy/027-monitor-center/usecase-us1-policy-automation.md)；正式数据库切换按 [US3](../../docs/guides/deploy/027-monitor-center/usecase-us3-restore-drill.md)，不是脚本成功后自动发生。
 
 回滚建议：
-- 当备份/演练持续失败且影响生产变更窗口时，先停用策略，再执行发布回滚脚本，最后通过告警确认恢复状态。
+- 备份／演练失败先保留现有业务状态并定位组件错误，不自动回滚程序。确需正式切换或发布回退时，先核对版本、维护窗口和数据库／媒体／配置回退范围。
 
 ## 3. 创建并启用自动备份策略
 
@@ -38,25 +39,28 @@ POLICY_JSON=$(curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/po
   -H "Content-Type: application/json" \
   -d '{
     "name": "prod-default-policy",
-    "interval_hours": 6,
-    "retention_count": 14,
+    "interval_hours": 1,
+    "retention_count": 168,
+    "retention_days": 7,
+    "retention_mode": "age_and_count",
     "timezone": "Asia/Shanghai",
-    "drill_enabled": true,
+    "drill_enabled": false,
     "drill_interval_days": 7,
-    "target_ref": "powerx_bak"
+    "target_ref": "local_dump"
   }')
 
 echo "$POLICY_JSON" | jq
-POLICY_ID=$(echo "$POLICY_JSON" | jq -r '.data.id // empty')
+POLICY_ID=$(echo "$POLICY_JSON" | jq -r '.data.policy.id // empty')
 
-# 3.2 启用策略
+# 3.2 首份手动备份与恢复验证通过后再启用（见 US1）
 curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/policies/${POLICY_ID}/enable" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 验收点：
 - `POLICY_ID` 非空。
-- 列表查询可看到 `interval_hours=6`、`retention_count=14`、`timezone=Asia/Shanghai`。
+- 新建返回 `enabled=false`；先按 US1 验证首份文件与恢复，再执行启用请求。
+- 列表可看到 `interval_hours=1`、`retention_days=7`、`retention_count=168`、`timezone=Asia/Shanghai`；这只定义该测试数据库策略，不改变线上策略。
 
 ## 4. 验证策略列表分页与过滤
 
@@ -67,7 +71,7 @@ curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/policies?page=1&page_siz
 
 验收点：
 - 返回 `data.items` 为数组。
-- 返回 `data.page.page=1`、`data.page.page_size=20`。
+- 返回 `data.pagination.page=1`、`data.pagination.page_size=20`。
 
 ## 5. 验证作业与告警链路
 
@@ -88,16 +92,16 @@ curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/alerts?level=high&acked=
 ## 6. 发起恢复演练并查询状态
 
 ```bash
-# 假设已有可用备份产物
-ARTIFACT_ID=<artifact_id>
+# 从实际成功作业行取得 ID；仅针对自建测试环境
+SOURCE_JOB_ID='<实际成功备份作业ID>'
 
 DRILL_JSON=$(curl -sS -X POST "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"artifact_id\":\"${ARTIFACT_ID}\",\"reason\":\"weekly-drill\"}")
+  -d "{\"source_job_id\":\"${SOURCE_JOB_ID}\",\"reason\":\"manual-component-drill\"}")
 
 echo "$DRILL_JSON" | jq
-DRILL_ID=$(echo "$DRILL_JSON" | jq -r '.data.id // empty')
+DRILL_ID=$(echo "$DRILL_JSON" | jq -r '.data.drill.id // empty')
 
 curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills/${DRILL_ID}" \
   -H "Authorization: Bearer $TOKEN" | jq
@@ -111,11 +115,11 @@ curl -sS "http://127.0.0.1:8080/api/v1/admin/ops/backup/restore-drills/${DRILL_I
 
 - 进入 `监控中心 -> Task / Cron`：可见备份任务状态与下次执行时间。
 - 进入 `监控中心 -> Logs / Trace`：可见备份链路摘要。
-- 进入 `运维中心 / 备份中心`：可见策略列表、作业历史、告警列表、演练历史。
+- 进入 `监控中心 → 备份中心`（`/ops/backup`）：可见策略列表、作业历史、告警列表、演练历史。
 
 ## 8. 通过标准
 
-- 策略创建/启用成功，默认值符合：`6h / 14 份 / Asia/Shanghai / 每周演练`。
+- 测试数据库策略符合显式设置的 `1h / 7 天 / 168 份 / Asia/Shanghai`；自动验证默认关闭，手动验证通过后再启用策略。
 - 作业、告警、演练接口均支持分页与关键过滤参数。
 - 监控页面可形成“策略 -> 作业 -> 告警 -> 演练”可观察闭环。
 
@@ -336,3 +340,15 @@ curl -sS http://127.0.0.1:2112/metrics | grep -E "powerx_ops_backup_total|powerx
   - `cd web-admin && npm run build`
 - E2E Smoke（可选，CI 或本地浏览器环境）:
   - `cd web-admin && npm run test:e2e -- tests/e2e/ops/backup-center.spec.ts`
+
+## 11. 系统快照两轮验收（2026-10-15，本地通过，部署验收待执行）
+
+设计与任务：[系统快照计划](../../docs/plan/deploy/system-snapshot-and-restore.md)、[Phase 10 / T077–T100](tasks.md)。实际验收步骤以 [US8 手册](../../docs/guides/deploy/027-monitor-center/usecase-us8-system-snapshot-acceptance.md)为准。
+
+1. 本地创建可辨识状态 A，包含业务记录、原图／附件／变体和测试配置，生成并完整导出快照 S。
+2. 在源测试实例新增、修改、删除，形成 B；在空的独立目标导入 S，完成配置／身份／绑定映射和启动前外部写入隔离。
+3. 源实例不可访问时恢复 A：业务数据、全部有效媒体及内容摘要、配置与版本匹配；源 B 不变化。另在自建测试实例验证正式切换与失败整套回退。
+4. 第一轮通过后由运维升级服务器，至少观察一个真实计划周期，可按一天验收。取得标记 scheduled 的完整系统快照包，不能以手动任务冒充。
+5. 将包带到本地／独立开发实例重复独立恢复与业务验收，记录组件状态、业务断言、隔离证明、耗时和结论。
+
+缺内容、缺密钥／配置、版本／平台不兼容、空间不足、并发变更、生产目标误配、进程中断及切换失败均需明确阻断／失败。单纯构建、组件测试、HTTP 202 或数据库恢复成功不作为本节通过依据。本地已执行真实 PostgreSQL／Redis／Core／Web 的 A/B、切换及协调器强制终止回退；证据见[报告](../../docs/contracts/evidence/system-snapshot-managed-validation-20261015.json)。生产升级和真实定时包第二轮未执行。

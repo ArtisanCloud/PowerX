@@ -47,6 +47,7 @@ type JobService struct {
 
 type TriggerJobRequest struct {
 	PolicyID    uint64
+	OneTime     bool
 	Operator    string
 	TraceID     string
 	ForceSync   bool
@@ -56,6 +57,7 @@ type TriggerJobRequest struct {
 type ListJobOptions struct {
 	PolicyID uint64
 	Status   string
+	View     string
 	From     *time.Time
 	To       *time.Time
 	Page     int
@@ -114,6 +116,9 @@ func resolveBackupArtifactBaseDir() (string, error) {
 }
 
 func (s *JobService) ListJobs(ctx context.Context, opt ListJobOptions) ([]modelops.BackupJob, int64, error) {
+	if opt.View != "" && opt.View != "available" && opt.View != "history" {
+		return nil, 0, ErrInvalidBackupRequest
+	}
 	page := opt.Page
 	if page <= 0 {
 		page = 1
@@ -126,7 +131,7 @@ func (s *JobService) ListJobs(ctx context.Context, opt ListJobOptions) ([]modelo
 		size = 200
 	}
 	offset := (page - 1) * size
-	return s.jobRepo.ListWithFilters(ctx, opt.PolicyID, opt.Status, opt.From, opt.To, size, offset)
+	return s.jobRepo.ListWithView(ctx, opt.PolicyID, opt.Status, opt.From, opt.To, opt.View, size, offset)
 }
 
 func (s *JobService) GetJob(ctx context.Context, jobID uint64) (*modelops.BackupJob, error) {
@@ -148,9 +153,14 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 	var retErr error
 	defer func() { s.metrics.Observe(ctx, "backup_trigger_job", startedAt, retErr) }()
 
-	if req.PolicyID == 0 {
+	if (req.PolicyID == 0 && !req.OneTime) || (req.OneTime && (req.PolicyID != 0 || req.TriggerType == modelops.BackupTriggerTypeScheduled)) {
 		retErr = ErrInvalidBackupRequest
 		return nil, retErr
+	}
+	if req.OneTime {
+		if err := requireBackupExportRoot(ctx); err != nil {
+			return nil, err
+		}
 	}
 	unlockDB, lockErr := lockBackupPolicy(ctx, s.db, req.PolicyID)
 	if lockErr != nil {
@@ -163,10 +173,14 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 	}
 	defer s.unlockPolicy(req.PolicyID)
 
-	policy, err := s.policyRepo.GetById(ctx, req.PolicyID, nil)
-	if err != nil {
-		retErr = err
-		return nil, retErr
+	policy := oneTimeDatabasePolicy()
+	if !req.OneTime {
+		var err error
+		policy, err = s.policyRepo.GetById(ctx, req.PolicyID, nil)
+		if err != nil {
+			retErr = err
+			return nil, retErr
+		}
 	}
 	if policy == nil {
 		retErr = ErrBackupPolicyNotFound
@@ -365,7 +379,7 @@ func (s *JobService) runBackupScript(ctx context.Context, policyID uint64, outpu
 }
 
 func (s *JobService) prepareArtifactPath(ctx context.Context, job *modelops.BackupJob, policy *modelops.BackupPolicy) (string, error) {
-	if job == nil || policy == nil || job.ID == 0 || policy.ID == 0 {
+	if job == nil || policy == nil || job.ID == 0 {
 		return "", ErrInvalidBackupRequest
 	}
 	if s.artifactBaseDirErr != nil {
@@ -379,10 +393,14 @@ func (s *JobService) prepareArtifactPath(ctx context.Context, job *modelops.Back
 	if tenantUUID == "" {
 		tenantUUID = "tenant_unknown"
 	}
+	group := fmt.Sprintf("policy_%d", policy.ID)
+	if policy.ID == 0 {
+		group = "on-demand"
+	}
 	dir := filepath.Join(
 		s.artifactBaseDir,
 		tenantUUID,
-		fmt.Sprintf("policy_%d", policy.ID),
+		group,
 		now.Format("2006"),
 		now.Format("01"),
 		now.Format("02"),

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	appcfg "github.com/ArtisanCloud/PowerX/config"
+	pluginmanager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
@@ -17,6 +18,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agentsvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	agentauthz "github.com/ArtisanCloud/PowerX/internal/service/agent_authz"
+	evidencesvc "github.com/ArtisanCloud/PowerX/internal/service/agent_evidence"
 	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	caprouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
@@ -93,26 +95,28 @@ func InitAgentTools(ctx context.Context, appConfig *appcfg.Config, db *gorm.DB) 
 			logger.InfoF(ctx, "[agent] warm unified candidates ok: skills=%d toolings=%d", loadedSkills, loadedToolings)
 		}
 		// 周期刷新，避免“仅重启时更新”导致候选陈旧。
-		go func() {
-			ticker := time.NewTicker(2 * time.Minute)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					s, t, err := warmUnifiedCandidatesFromDB(ctx, db, gAgentManager, false)
-					if err != nil {
-						logger.InfoF(ctx, "[agent] refresh unified candidates failed: %v", err)
-						continue
-					}
-					if s != lastSkills || t != lastToolings {
-						logger.InfoF(ctx, "[agent] refresh unified candidates changed: skills=%d toolings=%d (prev skills=%d toolings=%d)", s, t, lastSkills, lastToolings)
-						lastSkills, lastToolings = s, t
+		if !appcfg.BackgroundWorkersDisabled(appConfig) {
+			go func() {
+				ticker := time.NewTicker(2 * time.Minute)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						s, t, err := warmUnifiedCandidatesFromDB(ctx, db, gAgentManager, false)
+						if err != nil {
+							logger.InfoF(ctx, "[agent] refresh unified candidates failed: %v", err)
+							continue
+						}
+						if s != lastSkills || t != lastToolings {
+							logger.InfoF(ctx, "[agent] refresh unified candidates changed: skills=%d toolings=%d (prev skills=%d toolings=%d)", s, t, lastSkills, lastToolings)
+							lastSkills, lastToolings = s, t
+						}
 					}
 				}
-			}
-		}()
+			}()
+		}
 	}
 
 	// 统一节点执行器（skill/tooling）接线到真实服务链路
@@ -404,7 +408,11 @@ func newDefinitionManifestExecutor(
 ) *skillsvc.ManifestExecutor {
 	aiRuntime := aisvc.NewService(db)
 	chatConfigResolver := agentsvc.NewChatConfigResolver(db)
+	dependencies, tools := skillsvc.NewRuntimeSkillTools(db, pluginmanager.CurrentPluginManager)
 	return skillsvc.NewManifestExecutor(skillsvc.ManifestExecutorOptions{
+		EvidenceStore: evidencesvc.NewService(db),
+		Dependencies:  dependencies,
+		Tools:         tools,
 		LLM: func(ctx context.Context, in skillsvc.ManifestLLMInvocation) (string, error) {
 			if aiRuntime == nil || chatConfigResolver == nil {
 				return "", fmt.Errorf("skill.executor_llm_unavailable")
@@ -478,9 +486,6 @@ func newDefinitionManifestExecutor(
 				return nil, fmt.Errorf("skill.executor_capability_failed")
 			}
 			return out.Result, nil
-		},
-		Workflow: func(context.Context, skillsvc.ManifestWorkflowInvocation) (map[string]any, error) {
-			return nil, fmt.Errorf("skill.executor_workflow_unavailable")
 		},
 	})
 }

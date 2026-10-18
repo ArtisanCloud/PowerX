@@ -30,6 +30,20 @@ func TestMediaOpenAPIContract(t *testing.T) {
 	}
 	require.Contains(t, doc.Components.Schemas["VariantCreate"].Value.Required, "checksum")
 	require.Contains(t, doc.Components.Schemas["Variant"].Value.Required, "status")
+	require.Contains(t, doc.Components.Schemas["Asset"].Value.Properties, "derivatives")
+	require.NotContains(t, doc.Components.Schemas["Asset"].Value.Required, "derivatives", "legacy clients may ignore optional preview state")
+}
+
+func TestImageDerivativeOpenAPIContract(t *testing.T) {
+	loader := &openapi3.Loader{IsExternalRefsAllowed: true}
+	doc, err := loader.LoadFromFile(filepath.Join(repoRootFromHere(t), "specs", "001-media-storage", "contracts", "image-derivatives.openapi.yaml"))
+	require.NoError(t, err)
+	require.NoError(t, doc.Validate(context.Background()))
+	assertOperation(t, doc, "/admin/media/assets/{uuid}/derivatives", http.MethodGet, []string{"200"})
+	assertOperation(t, doc, "/admin/media/assets/{uuid}/derivatives/ensure", http.MethodPost, []string{"200"})
+	assertOperation(t, doc, "/admin/media/assets/{uuid}/derivatives/events", http.MethodGet, []string{"200"})
+	assertOperation(t, doc, "/tenant/media/assets/{asset_uuid}/derivatives/events", http.MethodGet, []string{"200", "400", "401", "403", "404", "503"})
+	require.NotEmpty(t, doc.Security)
 }
 
 func assertOperation(t testing.TB, doc *openapi3.T, path, method string, statuses []string) {

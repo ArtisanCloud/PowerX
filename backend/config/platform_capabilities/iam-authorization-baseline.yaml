@@ -1,0 +1,30 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.iam.authorization_baseline.service_read
+    module: iam
+    title: Member Authorization Baselines
+    description: Read registered plugin business permission baselines for tenant members in a consistent snapshot.
+    title_i18n: {zh-CN: 成员连续授权基线, en: Member Authorization Baselines}
+    description_i18n: {zh-CN: 批量读取当前插件成员业务权限的连续授权区间和可靠提示下界。, en: Read continuous member authorization intervals and reliable visibility boundaries for the calling plugin.}
+    permission_code: corex.iam.authorization_baseline:read
+    agent_usable: false
+    risk_level: high
+    categories: [iam, authorization, read]
+    intents: [iam.authorization_baseline.read]
+    tool_scopes: [iam.authorization_baseline.read]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/iam-authorization-baseline.md, specs/026-iam/contracts/authorization-baseline.openapi.yaml]
+    protocols:
+      - channel: core_internal
+        endpoint: core://iam/authorization-baseline
+        method: INVOKE
+        schema_ref: specs/026-iam/contracts/authorization-baseline.openapi.yaml#/components/schemas/TypedBaselineOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: iam.authorization_baseline.read
+        api_key:
+          scope: _scope.iam.authorization_baseline.service_read
+          action: read
+          resource_type: capability
+          resource_pattern: iam_authorization_baseline_read

@@ -5,6 +5,8 @@
 
 ## Summary
 
+2026-10-15 会话隔离修复：Session 固定 `agent` / `team` / `legacy` 归属，创建、列表、历史、执行、重试和前端缓存统一按类型与团队处理。增量字段与保守历史回填挂载到既有 `internal/server/agent/persistence/migrate.go::MigrateAgentModels`，由集中 database 入口执行；不新增裸 SQL 或独立迁移入口。契约与上线顺序见 [agent-chat-sessions.md](../../docs/contracts/agent-chat-sessions.md)。本次源码修复的验收与原 T205 记录分开，不将旧 Core 进程或未迁移的数据库计为新功能上线。
+
 交付 PowerX Skills 的平台级治理与 Agent 统一编排闭环：官方固有 Skills 目录管理、第三方 Bundle 受控导入、人工审批发布、版本回滚、Capability 绑定、Tenant/Agent 双路径调用一致性，以及“LLM 统一意图识别 + workflow/skill/tooling/llm 计划编排（串并行） + LLM Tool-Calling”统一执行。当前基线采用“上传 Bundle + 来源元数据登记、默认最新发布版本调用、checksum 强制校验、signature 策略可配置”，并通过多租户隔离与审计链路保障可追溯和可回放。
 新增对齐目标：建立 Provider 无关的 Context 优化机制（分层上下文、预算裁剪、结构化摘要、Prompt/Context Cache 与 token 观测），在不改变 LLM 主路由原则下显著降低 token 成本与时延。
 新增插件桥接目标：建立 PowerX Agent Skill Bridge，统一 PowerX Agent Runtime 与 PowerXPlugin Capability Handler 的边界；渠道和插件自有 Chat 必须进入 PowerX Agent Session，插件只声明源定义态 Skill 并提供 executor，PowerX 负责治理态 Skill、会话、权限、租户上下文、Planner 和审计。
@@ -15,13 +17,23 @@
 
 ## 2026-09-08 分层规范交付增量
 
-遵守 [Agent/Skill/Tool/Runtime 分层规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)，对应 FR-079～FR-086、Phase 23。架构约束已确认，以下实现尚未验收：
+遵守 [Agent/Skill/Tool/Runtime 分层规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)，对应 FR-079～FR-086、Phase 23。以下记录实施顺序；2026-10-15 的 T205 本机验收已完成，最新范围和部署边界见 [验收记录](evidence-acceptance.md)。
 
 1. 审计现有 executor、工具与 Capability 复用点，形成能力清单；业务公式保留在 Skill/领域工具。
 2. 先定义版本化依赖与结果证据契约：工具版本、权限、数据来源、原文报告值/计算值/冲突。新 wire 版本须在正式 Schema 中确定，不修改 V3 含义或静默兼容旧字段。
 3. 实现发布/绑定/运行依赖检查，以及受限计算工具或已有工具接线；复用支持的插件协议扩展算法。脚本 executor 只在明确支持的隔离环境可用，不能因导入而启用。
 4. 接入真实执行结果核验、统一渲染、历史与 Trace；业务缺参和系统失败分开处理。
 5. 更新示例 Skill 和回归测试，以变化输入及自建非营销 Skill 验证通用性；数据库迁移、seed 与实际调用分别验证。
+
+2026-10-13 T198 清点已完成，当前生产装配和违规点见 [工具与 Runtime 审计](./tool-runtime-audit.md)。已确认外部依赖 checker 尚未接线、旧调用入口未统一到 Definition Revision、Runtime 存在业务 Skill ID 分派，下一步按 T199 冻结合同后推进整改；不把已有内置计算和单元测试通过作为插件工具生产交付。
+
+2026-10-14 T199 合同已冻结，见 [版本化工具依赖与证据合同](contracts/tool-evidence-contract.md)：tools/v2、回执 v1、typed 计算 request/result v1 与 evaluate@2.0.0、目标响应 V5，以及 UUID 来源/快照、固定版本/实现/权限、三阶段检查、失败用例和旧入口/历史迁移。外层 Definition 仍为 v2，嵌套版本必须严格识别；V4 与旧工具保持原义。Schema 和离线用例是设计证据，T200/T202/T203 的生产接线及实际验收未完成。
+
+2026-10-14 T200 三阶段预检已落地，详见 [实现与证据](dependency-preflight-implementation.md)。Definition 发布、实际 Agent 绑定和 Manifest 执行使用同一依赖服务；目录/合同/最新 registration/授权重新检查，发布提交比对被检查的 Revision。当前生产不装配 V2 pinning 端口，Workflow、脚本、typed 计算和 V5 保持不可运行；旧 V4 内置计算兼容。T201 既有算术可复用，下一任务为 T202 的来源与真实执行回执接线；旧 transport 和业务 ID 路由仍按后续任务整改。
+
+2026-10-14 T203 已接线固定 Revision → typed 内置执行 → 同次 V5 ledger → 受控归档 → 实时/历史 locale/Trace；系统错误保留 code/stage，最终校验有实际失败节点，营销 Skill ID 特例已移除。新增 `agent_evidence_snapshots` 集中迁移代码，尚未执行实际迁移，现有固有 Revision 不自动升级。当前实现和测试以 [T203 记录](runtime-v5-implementation.md) 为准；T204 继续固有示例、非营销插件工具与旧入口整改，T205 负责实际业务/浏览器验收。
+
+2026-10-15 T204 已实现新示例 Revision/依赖/公式声明及事务发布保护，以本机 base.local 源码新增包裹体积工具，在隔离安装进程/SQLite 中通过两种自建 Skill 和三种 HTTP base 的真实调用、输入/权限拒绝与历史回读。旧 transport 明确拒绝升级，未操作当前数据库/服务/Revision/grant；完整接入限制、旧集成夹具失败及测试证据见 [T204 记录](plugin-tool-example-implementation.md)。T205 仍负责实际安装环境和业务/浏览器验收。
 
 ## Technical Context
 
@@ -49,6 +61,8 @@
 4. **Tenant Security & Audit (PASS)**：调用前租户与授权检查、调用后审计与 trace 强制记录。  
 5. **No Gate Violation (PASS)**：无需要豁免条款。
 
+上述 PASS 是原设计门禁记录，不是当前源码的合规验收。2026-10-13 的 T198 审计已确认 Runtime 业务 Skill ID 分派违反 FR-079，外部工具接线与旧 transport 也有未完成项；当前整改与证据以 [审计清单](./tool-runtime-audit.md) 为准。
+
 ## Ruleset Alignment (Constitution Gates)
 
 - **HTTP_PRESENT**: 提供 `contracts/http-openapi.yaml`，覆盖 admin/tenant skills 生命周期与调用入口。**PASS**
@@ -69,7 +83,11 @@ specs/024-ai-engineering-skills/
 ├── quickstart.md
 ├── contracts/
 │   ├── http-openapi.yaml
-│   └── skills-service.proto
+│   ├── skills-service.proto
+│   ├── tool-evidence-contract.md
+│   ├── tool-evidence.v1.schema.json
+│   ├── tool-evidence-cases.json
+│   └── validate_tool_evidence.py
 └── tasks.md
 ```
 
@@ -271,3 +289,6 @@ Reference: [`docs/plan/ai_engineering/agent/agent_run_state_protocol.md`](../../
 - 已完成 `T071-T075`：Agent `skill/tooling` 节点已从占位执行升级为真实调用（skill invoke/adaptor + capability invocation），并补齐 `tenant_uuid/user_id/env/trace_id` 透传；文档已同步 tooling 落库权威说明。
 - 已完成 `T076-T081`：候选池支持 `system builtin + agent custom` 双层聚合与同名去重（agent 优先），统一硬过滤在候选构建阶段前置执行；组合规划可串联 `workflow->skill/tooling`，并在 `plan/tasks` 与 SSE 节点事件中透传 `node_kind/node_ref/source_scope`。
 - 测试矩阵已补齐：新增 `skill_agent_candidate_layering_test.go`（双层候选去重 + 未授权不可见）与 `skill_agent_composite_plan_test.go`（组合规划执行 + 事件字段校验），并纳入运行时回归清单。
+
+
+2026-10-15 T205 完成：真实 Ollama 两组材料六次请求、真实 native 插件十八次成功计算与一次 HTTP 超时、依赖/漂移/来源防伪/撤权拒绝及原件前端回归通过。本机 PostgreSQL 已集中迁移并幂等发布 V5；临时同源 Core 的真实页面得到 1.35/0.85，替换材料得到 3/0.5，完成实时展示、刷新后历史回读及 Trace 200。验收修复中文单位边界、通用原文传递、任务结果原始字节摘要和 Planner 异常协议处理；测试数据与临时进程已清理。日常 JWT 公开默认值仍须单独修复，远程部署和其他插件各自安装升级未执行；详见 [验收记录](evidence-acceptance.md)。

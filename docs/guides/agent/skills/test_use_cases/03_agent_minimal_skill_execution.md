@@ -1,5 +1,7 @@
 # L3 - Agent 最小 Skill 执行链路（统一版）
 
+> 本页保留 `hello-echo/prompt-template` 示例链路。验证本次 024 升级后的 V5 单 Agent 报告，请先使用[单 Agent 页面验收指南](../../../features/024-ai-engineering-skills/guide.md)，不要把下述旧示例视为本轮必需安装项。
+
 ## 目标
 
 统一验证 3 类能力：
@@ -78,7 +80,7 @@ echo "L3 PASS"
 
 ## 失败排查（统一口径）
 
-1. 查不到技能：执行 `make db-seed` 后刷新页面重试。
+1. 查不到技能：检查当前租户实际导入和发布状态、版本及 executor 就绪情况；不要仅为缺少一个示例执行全量 `make db-seed`。本轮 V5 使用上方独立指南。
 2. 有 `intent/plan` 但无 `node_start/node_end`：检查 skill 绑定、授权与发布状态。
 3. 命中不稳定：先自然语言，再用带 skill 名的调试回退句定位路由问题。
 4. 返回内容不变：优先看 `planner` 日志里 `tasks[].params` 是否带上你本轮新变量。

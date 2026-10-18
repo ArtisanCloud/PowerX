@@ -7,6 +7,10 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
+
+	authfacts "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/authorization"
+	baseline "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 
 	pmrouter "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -37,17 +41,14 @@ func (a pluginIAMAuthorizer) PermissionsForClaims(ctx context.Context, claims re
 	if source == "plugin:" {
 		return nil, "", fmt.Errorf("plugin authz plugin_id required")
 	}
-	var rows []dbm.Permission
-	err := a.db.WithContext(ctx).
-		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
-		Select("p.*").
-		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
-		Joins("JOIN ("+effectivePluginRoleIDsForMemberSQL()+") erb ON erb.role_id = rp.role_id", tenantUUID, dbm.SubMember, memberID, tenantUUID, memberID).
-		Where("p.status = ? AND p.source = ?", dbm.PermissionStatusActive, source).
-		Find(&rows).Error
+	facts, err := authfacts.NewRepository(a.db).LoadPermissionFacts(ctx, tenantUUID, pluginID)
 	if err != nil {
 		return nil, "", err
 	}
+	if strings.TrimSpace(claims.MemberUUID) == "" {
+		return nil, "", fmt.Errorf("plugin authz member_uuid required")
+	}
+	_, rows := baseline.SnapshotPermissions(facts, claims.MemberUUID, memberID, time.Now())
 	perms := make([]string, 0, len(rows))
 	for _, row := range rows {
 		code := effectivePermissionCodeFromIAMRow(row)
@@ -103,28 +104,6 @@ func (a pluginIAMAuthorizer) RoutePermission(ctx context.Context, pluginID, meth
 		}
 	}
 	return nil, nil
-}
-
-func effectivePluginRoleIDsForMemberSQL() string {
-	tRB := (&dbm.RoleBinding{}).GetTableName(true)
-	tMA := (&dbm.MemberAssignment{}).GetTableName(true)
-	return `
-		SELECT DISTINCT rb.role_id
-		FROM ` + tRB + ` rb
-		WHERE rb.tenant_uuid = ? AND rb.subject_type = ? AND rb.subject_id = ?
-		UNION
-		SELECT DISTINCT rb.role_id
-		FROM ` + tRB + ` rb
-		JOIN ` + tMA + ` ma
-		  ON ma.tenant_uuid = rb.tenant_uuid
-		 AND rb.subject_id = ma.dim_id
-		 AND rb.subject_type = CASE ma.dim_type
-		   WHEN 'ORG' THEN 'ORG_UNIT'
-		   WHEN 'TEAM' THEN 'TEAM'
-		   WHEN 'POSITION' THEN 'POSITION'
-		   WHEN 'GROUP' THEN 'GROUP'
-		 END
-		WHERE rb.tenant_uuid = ? AND ma.member_id = ?`
 }
 
 func effectivePermissionCodeFromIAMRow(row dbm.Permission) string {

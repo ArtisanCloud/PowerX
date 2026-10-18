@@ -1,0 +1,47 @@
+{
+  "verified_at": "2026-10-18T16:37:01.104040+00:00",
+  "scope": "web-admin bell unread-only dropdown; notification center retains history",
+  "behavior": [
+    "bell list request uses existing is_read=false filter",
+    "menu shows latest five unread and server unread total across pages",
+    "read receipt removes menu entry and shares state with center/detail",
+    "empty state retains notification center navigation",
+    "bell no longer offers clear-all deletion; no stored notifications are modified by this UI change",
+    "default notification center query still includes read and unread history",
+    "no polling; existing event and reconnect refresh only"
+  ],
+  "validation": {
+    "command": "npx vitest run tests/unit/notifications",
+    "cwd": "web-admin",
+    "status": "passed",
+    "test_files": 5,
+    "tests": 32,
+    "covered": [
+      "read history retained in center while bell is empty",
+      "twenty loaded unread with total twenty-five gives five menu items and badge twenty-five",
+      "WS receipt takes bell from two to one and preserves the other unread notification",
+      "one refresh on reconnect and no idle periodic requests",
+      "identity/tenant/session isolation"
+    ]
+  },
+  "boundaries": {
+    "backend_changes": false,
+    "framework_changes": false,
+    "plugin_changes": false,
+    "database_writes": false,
+    "restarted_user_services": false,
+    "browser_acceptance": "not performed; current computer tool inventory has no enabled browsers",
+    "deployment": "load updated web-admin then refresh the account pages"
+  },
+  "sha256": {
+    "web-admin/app/components/layout/Header.vue": "a4778762640c886451758dcb32fe0ff6825164fbe87ad3db98a86b5b5ce08188",
+    "web-admin/app/composables/useNotifications.ts": "b25823d972a6aee430113167fd7bc60811ed925f3d4b688bf4866c24e6380eb8",
+    "web-admin/tests/unit/notifications/header-ws-flow.spec.ts": "d32740a1fed28fa80d099560675de653925d5486c9b77c29bb74664fda514ca8",
+    "web-admin/tests/unit/notifications/header-reconnect.spec.ts": "2e3fa8d8470f84548f85186c1f3bccf9c5fe4df35681145b2c939fbd954cced4",
+    "docs/contracts/notification-member-delivery.md": "d7ab2304b2331ab389a9c7856149482a3593a7987a1be6ada2fb6c1857815631",
+    "web-admin/i18n/locales/zh.json": "9d95e2cb706ee12a96a536f8ca3a92497522cd1cd81cb95f9d4ab3e526b46bde",
+    "web-admin/i18n/locales/en.json": "5e1755791ca372a67fc0887fc05e0eda4960c352ab705dc08188040e008c19d3",
+    "web-admin/i18n/locales/ja.json": "d0a569fcca5b129db50cd0483258bb4737c602e22789b3704ab77a8003a9e35d",
+    "web-admin/i18n/locales/ko.json": "7a98dbd2469f107ef54057d46303332a7ef2c7f880a6692b8c08b3dda2ee901c"
+  }
+}

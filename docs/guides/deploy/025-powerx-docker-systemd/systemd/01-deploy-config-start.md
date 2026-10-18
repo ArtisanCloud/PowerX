@@ -111,6 +111,9 @@ sudo tar -xzf powerx-systemd-${POWERX_VERSION}.tar.gz -C /opt/powerx/releases/${
 ```
 
 ## 9. 安装并启动 systemd
+
+首次原生部署且完全跳过 `/setup` 时，先由实际配置所有者执行 `database init-secrets -config /etc/powerx/config.yaml`，自动生成并保存 JWT 和服务加密密钥，再执行迁移及既有账号初始化；详见[手动初始化手册](../manual-secret-initialization.md)。普通升级保留原配置和密钥，不重新初始化。
+
 推荐直接使用切换脚本（自动创建 `powerx` 用户/组并赋权）：
 ```bash
 sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with-runner

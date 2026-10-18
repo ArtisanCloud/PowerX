@@ -5,6 +5,8 @@ import {
   NOTIFICATION_TYPES,
 } from "~/types/notification";
 
+const actionToast = useToast();
+
 const props = defineProps<{
   compact?: boolean;
 }>();
@@ -148,7 +150,8 @@ const handleActionClick = async (
   event: Event
 ) => {
   event.stopPropagation();
-  await executeAction(notification.id, actionId);
+  try { await executeAction(notification.id, actionId, notification); }
+  catch { actionToast.add({ title: t("header.notifications.navigationError"), color: "error" }); }
 };
 
 // 处理删除

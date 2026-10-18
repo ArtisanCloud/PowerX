@@ -49,6 +49,31 @@ func TestManifestEvidenceUsesToolAndIgnoresBusinessIdentity(t *testing.T) {
 	}
 }
 
+func TestManifestEvidenceFreezesInputBeforeModelCallbacks(t *testing.T) {
+	ctx := evidence.WithLedger(context.Background())
+	payload := map[string]any{"message": "test a:17; b:80"}
+	calls := 0
+	executor := NewManifestExecutor(ManifestExecutorOptions{LLM: func(_ context.Context, in ManifestLLMInvocation) (string, error) {
+		calls++
+		if calls == 1 {
+			// 两种外部持有的 map 都不能改写本次执行的来源快照。
+			payload["message"] = "test a:170; b:80"
+			in.Payload["input"].(map[string]any)["message"] = "test a:1700; b:80"
+			return fixtureFactsInventory(in.ResponseSchema), nil
+		}
+		if calls == 2 {
+			require.Equal(t, "test a:17; b:80", in.Payload["input"].(map[string]any)["message"])
+			return `{"schema":"powerx.agent.evidence-source/v1","data":{"a":{"scope":"s","token_ref":"token_0"},"b":{"scope":"s","token_ref":"token_1"}}}`, nil
+		}
+		return `{"schema":"powerx.agent.evidence-notes/v1","hypotheses":[],"gaps":[],"actions":[]}`, nil
+	}})
+	result, err := executor.Execute(ctx, ExecuteInput{TenantUUID: uuid.NewString(), Version: uuid.NewString(), TraceID: uuid.NewString(), Manifest: evidenceDefinition(), Payload: payload, Context: map[string]any{"locale": "en-US"}})
+	require.NoError(t, err)
+	report := result["response_envelope"].(map[string]any)
+	require.Equal(t, "21.25%", report["presentation"].(map[string]any)["computed"].([]any)[0].(map[string]any)["display_value"])
+	require.NoError(t, evidence.Verify(ctx, report))
+}
+
 func TestManifestEvidencePreservesUnlistedNumericFactWithoutCalculatingIt(t *testing.T) {
 	ctx := evidence.WithLedger(context.Background())
 	calls := 0
@@ -209,7 +234,7 @@ func TestManifestEvidenceKeepsFullSaaSReviewAndCalculatesDeclaredRatios(t *testi
 		require.NotContains(t, string(context), "34.2")
 		require.Len(t, in.Payload["allowed_hypotheses"], 4)
 		require.Len(t, in.Payload["allowed_actions"], 4)
-		b, _ := json.Marshal(evidence.Notes{Schema: evidence.NotesSchema, Hypotheses: in.Payload["allowed_hypotheses"].([]string), Gaps: in.Payload["allowed_gaps"].([]string), Actions: in.Payload["allowed_actions"].([]string)})
+		b, _ := json.Marshal(map[string]any{"schema": evidence.NotesSchema, "hypotheses": in.Payload["allowed_hypotheses"], "gaps": in.Payload["allowed_gaps"], "actions": in.Payload["allowed_actions"]})
 		return string(b), nil
 	}})
 	ctx := evidence.WithLedger(context.Background())

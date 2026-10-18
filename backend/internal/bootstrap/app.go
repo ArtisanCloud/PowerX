@@ -192,6 +192,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 
 	opts := &shared.DepsOptions{
+		DisableBackgroundWorkers: config.BackgroundWorkersDisabled(cfg),
 		PreserveInstalledCatalog: cfg.Install.EffectiveStatus() == "installed",
 		PluginRequestIdentity:    requestidentity.Options{Namespace: identityTicketNamespace(cfg), UserIssuer: cfg.Auth.Issuer, UserAudience: cfg.Auth.AudienceUser},
 		RuntimeIdentity:          runtimeidentity.CoreInfo{Version: cfg.EffectiveSystemVersion(), DeploymentEnv: cfg.Deployment.Env, Ready: config.ValidateDeploymentEnv(cfg.Deployment.Env) == nil, Manager: runtimeIdentityManager},
@@ -591,6 +592,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 
 	deps := shared.NewDeps(db, opts)
+	deps.RecoveryReadOnly = cfg.Recovery.ReadOnly() || os.Getenv("POWERX_COORDINATOR_MAINTENANCE") == "1"
 	if len(cfg.AI.Runtime.PhysicalModelPools) == 0 {
 		_ = llm.ConfigurePhysicalModelPools(ctx, nil, nil, 0)
 	} else {
@@ -637,13 +639,20 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		row, err := deps.RestoreCopies.Create(run, backupops.CreateRestoreCopy{RestoreSource: backupops.RestoreSource{ImportID: uploaded.ID}, IdempotencyKey: uuid.NewString(), AllowOlderServer: older, Operator: operator, TraceID: trace})
 		return row.ID, row.Database, err
 	}})
-	if archErr == nil {
+	if archErr == nil && !config.BackgroundWorkersDisabled(cfg) {
 		if err := deps.Archives.PublishRuntimeConfig(); err != nil {
 			logger.WarnF(ctx, "archive runtime config unavailable: %v", err)
 		}
 		deps.Archives.StartScheduler()
 	}
-	monitorlogs.StartRetentionScheduler(ctx, cfg, db)
+	// Local rehearsal disables business workers, but its active Core still needs
+	// snapshot inventory and the recovery control surface for later test actions.
+	if !cfg.Recovery.ReadOnly() && os.Getenv("POWERX_COORDINATOR_MAINTENANCE") != "1" {
+		configureSystemSnapshots(ctx, cfg, deps)
+	}
+	if !config.BackgroundWorkersDisabled(cfg) {
+		monitorlogs.StartRetentionScheduler(ctx, cfg, db)
+	}
 
 	return deps, nil
 }

@@ -19,6 +19,11 @@ const selectedNotification = ref<Notification | null>(null);
 
 // 是否显示详情面板（移动端）
 const showDetail = ref(false);
+const { identityScope } = useNotifications();
+watch(identityScope, () => {
+  selectedNotification.value = null;
+  showDetail.value = false;
+}, { flush: 'sync' });
 
 // 处理通知选择
 const handleNotificationSelect = (notification: Notification) => {

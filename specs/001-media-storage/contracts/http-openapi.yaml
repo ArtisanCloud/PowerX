@@ -109,7 +109,16 @@ components:
     Asset:
       type: object
       required: [asset_uuid, name, size_bytes, mime_type, status]
-      properties: {asset_uuid: {type: string, format: uuid}, name: {type: string}, size_bytes: {type: integer, format: int64}, mime_type: {type: string}, owner_subject_uuid: {type: string, format: uuid}, status: {type: string, enum: [pending_upload, uploaded, ready, failed, deleted]}, created_at: {type: string, format: date-time}, updated_at: {type: string, format: date-time}}
+      properties:
+        asset_uuid: {type: string, format: uuid}
+        name: {type: string}
+        size_bytes: {type: integer, format: int64}
+        mime_type: {type: string}
+        owner_subject_uuid: {type: string, format: uuid}
+        status: {type: string, enum: [pending_upload, uploaded, ready, failed, deleted], description: 原图上传状态；预览失败不改变此字段}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        derivatives: {$ref: './image-derivatives.openapi.yaml#/components/schemas/ImageDerivatives'}
     Variant:
       type: object
       required: [variant_uuid, asset_uuid, mime_type, size_bytes, status]

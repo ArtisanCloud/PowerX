@@ -1,4 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils';
+import { emitBackupEvent } from '../../support/backup-events-stub';
+vi.mock('~/composables/useBackupEvents', () => import('../../support/backup-events-stub'));
 import { ref } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const service = vi.hoisted(() => ({ list: vi.fn(), importFile: vi.fn(), plan: vi.fn(), create: vi.fn(), connection: vi.fn(), remove: vi.fn() }));
@@ -139,11 +141,12 @@ describe('restore to a retained separate database', () => {
     expect(service.remove).toHaveBeenCalledWith(copy.id, copy.database);
   });
 
-  it('polls active jobs and releases polling on unmount', async () => {
+  it('updates active jobs from pushed changes and unsubscribes on unmount', async () => {
     vi.useFakeTimers(); service.list.mockResolvedValue([{ ...copy, status: 'running', phase: 'restoring' }]);
     const wrapper = panel(); await flushPromises(); expect(service.list).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(2000); expect(service.list).toHaveBeenCalledTimes(2);
-    wrapper.unmount(); await vi.advanceTimersByTimeAsync(10000); expect(service.list).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(30000); expect(service.list).toHaveBeenCalledTimes(1);
+    emitBackupEvent('restore_copies'); await flushPromises(); expect(service.list).toHaveBeenCalledTimes(2);
+    wrapper.unmount(); emitBackupEvent('restore_copies'); await vi.advanceTimersByTimeAsync(10000); expect(service.list).toHaveBeenCalledTimes(2);
   });
 
   it('keeps a newly created task when an older list response arrives late', async () => {

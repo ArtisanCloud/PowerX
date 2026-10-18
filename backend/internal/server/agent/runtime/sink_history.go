@@ -74,10 +74,11 @@ func (h *HistorySink) Emit(event string, payload any) error {
 		// Structured final responses are rendered by the channel from meta. They
 		// intentionally have no duplicate plain-text summary in storage.
 		_, hasEnvelope := meta["response_envelope"].(map[string]any)
-		if strings.TrimSpace(text) != "" || hasEnvelope {
+		failure := meta["failure_stage"] != nil
+		if strings.TrimSpace(text) != "" || hasEnvelope || failure {
 			h.mergeRunStateMeta(meta)
 			msg, _ := h.his.AppendMessage(h.ginCtx.Request.Context(),
-				h.env, h.tenantUUID, h.session.ID, h.agentID, "assistant", text, "text", 0, 0, false, meta)
+				h.env, h.tenantUUID, h.session.ID, h.agentID, "assistant", text, "text", 0, 0, failure, meta)
 			if err := h.persistPendingSkillState(msg, meta); err != nil {
 				return err
 			}
@@ -396,6 +397,11 @@ func extractAssistantTraceMeta(payload any) datatypes.JSONMap {
 	if raw, ok := m["metadata"].(map[string]any); ok {
 		md = raw
 	}
+	for _, key := range []string{"failure_stage", "reason_code", "outcome"} {
+		if value, ok := md[key]; ok {
+			out[key] = value
+		}
+	}
 	trace := datatypes.JSONMap{}
 	for _, key := range []string{"tenant_uuid", "trace_id", "run_id", "session_id", "session_uuid", "message_id", "plan_id", "agent_id"} {
 		if v, ok := md[key]; ok && strings.TrimSpace(readTraceMetaString(v)) != "" {
@@ -424,6 +430,11 @@ func extractAssistantTraceMeta(payload any) datatypes.JSONMap {
 	if data := mapFromAny(m["data"]); len(data) > 0 {
 		if envelope, ok := data["response_envelope"].(map[string]any); ok {
 			out["response_envelope"] = envelope
+			for _, key := range []string{"response_labels", "response_evidence"} {
+				if v, ok := data[key]; ok {
+					out[key] = v
+				}
+			}
 		}
 	}
 	return out

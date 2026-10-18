@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 	"gorm.io/gorm"
 )
 
@@ -17,6 +18,8 @@ var ErrMigrationLocked = errors.New("UPGRADE_LOCK_BUSY")
 func WithDatabaseMigrationLock(ctx context.Context, db *gorm.DB, timeout time.Duration, apply func(*gorm.DB) error) error {
 	return db.WithContext(ctx).Connection(func(conn *gorm.DB) error {
 		conn = conn.Session(&gorm.Session{NewDB: true})
+		originalPool := conn.Statement.ConnPool
+		authorizationbaseline.BindConnection(conn)
 		lockName := "powerx:upgrade:" + coremodel.PowerXSchema
 		deadline := time.Now().Add(timeout)
 		for {
@@ -40,7 +43,7 @@ func WithDatabaseMigrationLock(ctx context.Context, db *gorm.DB, timeout time.Du
 			cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := conn.WithContext(cleanup).Exec("SELECT pg_advisory_unlock(hashtextextended(current_database() || ?,0))", lockName).Error; err != nil {
-				if c, ok := conn.Statement.ConnPool.(*sql.Conn); ok {
+				if c, ok := originalPool.(*sql.Conn); ok {
 					_ = c.Raw(func(any) error { return driver.ErrBadConn })
 				}
 			}

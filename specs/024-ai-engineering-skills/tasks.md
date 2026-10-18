@@ -363,21 +363,31 @@
 
 ## Phase 23: Skill / Tool / Runtime 分层与计算证据（FR-079～FR-086）
 
-架构约束已确认；仅文档项完成，不将现有 V3 算术校验视为以下实现的完成证据。按下列顺序交付，完整定义见 [分层开发规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)。
+架构约束已确认；V4 及显式新 Revision 的 V5 内置链、受控历史和失败节点已落地，外部工具接线和真实验收仍有缺口，不将现有 V3 算术校验或单个模块通过视为以下实现的完成证据。按下列顺序交付，完整定义见 [分层开发规范](../../docs/guides/develop/agent-skill-tool-boundaries.md)。
 
 - [X] T197 [Shared] 补充分层职责、工具扩展、依赖缺失、结果证据及实现状态规范，挂接开发指南、Skill 标准、Runtime、spec/plan/tasks。
-- [ ] T198 [Shared] 核查现有工具/Capability/executor 的真实能力与接入边界，列出可复用和待实现项；清查按 Agent/Team/Skill 标识分派业务代码的违规点。
-- [ ] T199 [Shared] 定义版本化工具依赖及结果证据契约与失败用例；包含 UUID 引用、固定版本、权限、来源定位、报告值/计算值/冲突，确定正式 Schema 版本和旧数据迁移说明。
-- [ ] T200 [Shared] 实现发布、可运行绑定和执行前依赖检查；验证缺工具、版本不符、未授权、不支持 executor 均显式阻断，Draft 可保存且不可运行。
+- [X] T198 [Shared] 核查现有工具/Capability/executor 的真实能力与接入边界，列出可复用和待实现项；清查按 Agent/Team/Skill 标识分派业务代码的违规点。2026-10-13 源码及本地验证清单见 [tool-runtime-audit.md](./tool-runtime-audit.md)，整改与真实工具验收仍按 T199～T205 推进。
+- [X] T199 [Shared] 定义版本化工具依赖及结果证据契约与失败用例；包含 UUID 引用、固定版本、权限、来源定位、报告值/计算值/冲突，确定正式 Schema 版本和旧数据迁移说明。2026-10-14 合同、Schema、结构/语义用例与验证入口见 [tool-evidence-contract.md](contracts/tool-evidence-contract.md)；生产实现仍按 T200/T202/T203 交付。
+- [X] T200 [Shared] 实现发布、可运行绑定和执行前依赖检查；验证缺工具、版本不符、未授权、不支持 executor 均显式阻断，Draft 可保存且不可运行。2026-10-14 治理态 Definition 的生产接线、真实仓储/授权回归与未开放端口见 [dependency-preflight-implementation.md](dependency-preflight-implementation.md)；V2 pinning/回执/V5 及旧 transport 迁移仍属后续任务。
 - [X] T201 [Shared] 复用或实现受限通用计算工具，支持明确精度/单位/舍入、资源限制与真实执行记录；禁止任意 eval 和模型填值冒充计算结果。
-- [ ] T202 [Shared] 实现操作数来源、租户权限、输入可信状态及工具执行结果核验；拒绝伪造引用，不把百分比改写为虚构客户人数。
-- [ ] T203 [Shared] 对齐 Runtime、响应 Schema/DTO、平台 locale 渲染、历史和 Trace；将业务缺参、冲突与系统执行失败区分，最终校验错误必须有失败节点。
-- [ ] T204 [US3] 更新固有示例的 Skill Revision/依赖与公式口径；用客户自建非营销 Skill 接入插件工具，验证无需新增 Core 业务分支。
-- [ ] T205 [Shared] 运行变化数值、同口径/跨口径、百分比无计数、除零、缺依赖、伪造来源、工具超时和刷新回读测试，并记录真实工具调用、版本和报告证据。
+- [X] T202 [Shared] 实现操作数来源、租户权限、输入可信状态及工具执行结果核验；拒绝伪造引用，不把百分比改写为虚构客户人数。2026-10-14 可信基础层、typed 计算/ledger、本地回归及生产未开放端口见 [source-tool-evidence-implementation.md](source-tool-evidence-implementation.md)；V5 Runtime/受控历史落点仍归 T203，正式插件和端到端验收归 T204/T205。
+- [X] T203 [Shared] 对齐 Runtime、响应 Schema/DTO、平台 locale 渲染、历史和 Trace；将业务缺参、冲突与系统执行失败区分，最终校验错误必须有失败节点。2026-10-14 V5 内置链、受控归档、失败码/阶段及本地验证见 [runtime-v5-implementation.md](runtime-v5-implementation.md)；迁移代码已交付但未执行，真实插件和浏览器验收仍归 T204/T205。
+- [X] T204 [US3] 更新固有示例的 Skill Revision/依赖与公式口径；用客户自建非营销 Skill 接入插件工具，验证无需新增 Core 业务分支。2026-10-15 新 Revision/事务发布保护、本机 base.local 源码的真实隔离进程验证、旧入口升级拒绝及部署边界见 [plugin-tool-example-implementation.md](plugin-tool-example-implementation.md)；当前安装环境未操作，T205 继续业务/浏览器验收。
+- [X] T205 [Shared] 运行变化数值、同口径/跨口径、百分比无计数、除零、缺依赖、伪造来源、工具超时和刷新回读测试，并记录真实工具调用、版本和报告证据。2026-10-15 本地真实模型/插件矩阵、原件及前端回归通过；本机 PostgreSQL 集中迁移、旧数据/Revision 保留和 V5 幂等发布完成。修复通用原文传递、任务结果原始字节摘要及 Planner 协议校验/参数约束；真实聊天得到 1.35/0.85，替换材料得到 3/0.5，实时展示、刷新后选择历史会话、Trace 200 及原件核验通过。测试 Agent/会话已删除，临时 Core/Chromium 及子进程退出、端口释放。日常 JWT 配置未改，仍须另行修复公开默认值；远程未执行，迁移与专用示例发布步骤见 [evidence-acceptance.md](evidence-acceptance.md)。
 
 2026-09-08 实施检查点：V4 类型/导出 Schema、受限计算、内置依赖预检、来源词面校验、同次执行 ledger、原文/计算/冲突的 locale 渲染与定向测试已落地；`make seed` 成功。T199/T200/T202/T203/T204/T205 仍有外部工具生产接线或真实业务验收缺项，不因代码入口存在而勾选完成。详细状态见 `docs/guides/develop/agent-response-evidence-v4.md`。
 
 同日补充：已落地 Skill calculation_policy 与 unit_tokens、平台原文 token 取证、模型字段映射、声明式公式执行和无数值说明投影。已发布营销汇总 Skill 经真实 Ollama 的原始数据与替换数据两组测试通过，验证结果分别为 1.35/0.85 和 2/0.5，原文冲突保持独立；不代表完整团队、历史 UI 或外部插件接线已验收。
+
+2026-10-13 T198 审计：确认通用 Manifest dispatcher、内置计算与同次执行 ledger 可复用；发现 Runtime 的 `marketing.review_summarize` 业务分派、外部工具 checker 未生产装配、Workflow unavailable、旧 transport 未注入 executor，以及旧插件桥接集成夹具无法编译。相关 services/evidence/bootstrap 本地测试和 vet 通过，Skills 集成包仍构建失败。具体缺口、源码与后续归属见上述审计清单；不因此勾选 T199/T200/T202～T205。
+
+2026-10-14 T199 完成：冻结 tools/v2、回执 v1、typed 计算 request/result v1（目标 evaluate@2.0.0）与响应 V5，明确现有 V4/旧工具合同不变、UUID 快照来源、精确版本/Schema/实现/权限、失败节点、旧 Registry/transport 及历史迁移。离线 Schema 自检和 62 个结构正反用例通过；41 个语义用例仅检查输入结构与声明完整性，仍待生产链执行。Markdown 链接、Schema 本地引用及 Python 语法校验通过。本轮无后端运行代码、数据库或服务变更，未修复 T198 的集成包编译问题。T201 的已有算术实现可复用，新 typed adapter 仍归 T202；下一任务为 T200 三阶段依赖检查的生产接线。
+
+2026-10-14 T200 完成：DependencyService 已进入 Definition 发布、实际 Agent 绑定和 Manifest 执行，生产 factory 读取目录/同租户合同/最新 registration 并重新授权；发布提交核对被检查 Revision，阻断并发变更。缺依赖、版本/Schema 漂移、未授权、禁用协议/adapter、不可用 executor 均失败关闭；Draft 可保留，V4 内置计算保持兼容。相关 skills/agent/agent_authz/bootstrap/utils/evidence/seed 测试与静态检查通过，Core 构建通过。串联用例使用真实本地仓储和授权，pinning 与工具明确为替身；生产未装配 V2 pinning、typed 计算或 V5，不能声称真实插件调用完成。旧 Skills 集成包复核仍因两个已删除符号构建失败；无数据库迁移、seed、实际 grant 或用户服务变更。详情见实现记录；T201 已完成，下一任务为 T202。
+
+2026-10-14 T202 完成可信基础层：新 V2 DTO/校验与发布预检共用，run input UUID/冻结快照、typed 对象授权端口、输入状态、来源词面及完整性核验、typed 计算和实际字节回执已实现；跨 run/主体/租户、伪造来源和回执、百分比造人数、错误公式/单位/口径及调用中漂移/撤权均有本地回归。生产仅开放真实内置实现摘要的预检，V4 使用输入隔离；V5、正式外部 adapter、service_actor 和业务对象 resolver 仍未启用，不把本地 HTTP/reader 替身当安装验收。快照目前为运行私有内存，受控历史存储、最终 DTO/locale/Trace 消费由 T203 接入。下一任务为 T203。
+
+2026-10-14 T203 完成：新链直接从固定 Revision 编译策略 v3 的 scope/结果单位，经 typed 实际计算、来源/结果核验及同次 ledger 封存 V5。平台 locale、冻结 Revision 标签、实时和授权历史回读一致；归档按原用户/租户控制，清理/篡改/无权时明确不可用，不重算或导入历史。新增证据模型已进入集中 migration/升级清单，payload 使用 BYTEA 保存精确原件，未执行实际迁移。修正内置实现摘要为实际嵌入工具源包和 Go 版本，跨入口二进制回归通过；移除营销 Skill ID 任务特例。业务缺参与冲突为 needs_action，工具/最终校验/存储错误为 failed；实际 Trace 失败节点、持久化 Worker task_failed、实时和消息保留同一 code/stage。相关 Go/race/vet、Core 与 Nuxt 构建、前端 21 项测试通过；62 个结构用例与 22 个实际 Go DTO 符合冻结 Schema。没有 seed、实际授权或用户服务操作，现有固有 Revision 未升级，正式外部 adapter 和 service_actor 继续拒绝。下一任务为 T204。
 
 ---
 
@@ -466,3 +476,16 @@ Task: "默认版本解析集成测试（T034）"
 
 - 每完成一个 Phase 或一个 US，建议单独提交并记录验证证据。
 - 若合同变更，优先更新 `contracts/` 并同步契约测试再改实现。
+
+2026-10-15 T204 完成：固有示例代码声明 V5/tools-v2/策略-v3，预检与事务保证升级失败不破坏旧发布。新增正式 plugin-tool-contract/v1、入口结构化来源快照与固定原生 HTTP/admin_user 工具装配，Core 不按客户 Skill/业务工具分派；base.local 领域计算由插件负责。两种自建 Skill、三种 HTTP base 共六次实际进程调用和 V5 归档回读通过；伪造输入/撤权零调用，停进程后授权历史仍可读。旧 Registry HTTP/gRPC 明确要求升级，真实 SyncWorker/manifest 导入通过。相关单测/race/vet、完整 Core/插件构建、能力/升级清单和冻结 Schema 检查通过。Skills 集成包全量仍有旧匹配/发现/Agent fixture 失败，已记录；本次没有操作用户数据库、现有 Revision/grant 或服务。下一任务为 T205。
+
+2026-10-15 T205 本地验收：真实 Ollama 两组材料六次请求与四次实际 typed calculator 调用通过；原始结果 1.35/0.85，替换后 3/0.5，均经新 Service 原件回读。真实 native 插件三种 base/两种 Skill/三组数值共十八次成功调用，另验证一次真实 HTTP 超时、缺依赖/adapter 停用/版本漂移/来源伪造/撤权拒绝；原件交给前端 25 项刷新数据链测试，相关前端合计 46 项通过。修复 tokenizer 与 typed 来源核验对中文单位后缀的边界不一致，百分号/复合时长/ASCII 前缀反例继续拒绝。更新过时集成夹具，Skills 全量、相关单测/race/vet/Core 构建通过。core/catalog 升级载荷清单仍与并行改动不同步；当前配置库无 V5 证据表和已发布 V5，浏览器工具不可用，未迁移或重启用户服务，T205 不勾选。原件与剩余步骤见验收记录。
+
+## Phase 25：单智能体与团队 Session 隔离修复（2026-10-15）
+
+- [x] T206 Session 固定 `agent|team|legacy` 类型与 `team_id`；Singleton 和查询按工作区隔离；增量迁移接入既有 MigrateAgentModels，保守回填且不删除历史。
+- [x] T207 创建校验团队租户和负责人；历史、发送、编辑／重试、非流式 invoke、审批恢复和 Run 续订验证 Session 归属；补真实 Handler → Service → Repository 回归。
+- [x] T208 前端按用户／租户／环境／类型／团队拆分列表、选中会话、消息及 Run 续订缓存，防止异步串写；提供只读“待确认历史”；完成桌面和 390px 浏览器流程检查。
+- [x] T209 更新数据模型、会话契约、页面测试指导与迁移载荷清单，记录源码测试和运行环境升级边界。
+
+本轮“完成”指源码与隔离回归。当前用户 Core / Worker 未停启，实际数据库尚未执行这次 Session 增量迁移；安装环境验收待用户停止旧进程后继续。它不覆盖原 T205 的已完成验收，也不将 API fixture 浏览器结果记作真实模型执行证明。详见 [会话隔离验收](../../docs/contracts/agent-chat-sessions.md)。

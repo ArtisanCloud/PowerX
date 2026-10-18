@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/cmd/database/seed"
-	"github.com/ArtisanCloud/PowerX/config"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
@@ -24,6 +23,9 @@ import (
 )
 
 func main() {
+	if handled, code := handleInitSecrets(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	if handled, code := handleUpgradeCommand(os.Args[1:], os.Stdout, os.Stderr); handled {
 		os.Exit(code)
 	}
@@ -57,12 +59,9 @@ func main() {
 	}
 
 	// 加载配置
-	cfg, err := config.Load(*configPath)
+	cfg, err := loadDatabaseCommandConfig(cmd, *configPath)
 	if err != nil {
 		fatalf("加载配置失败: %v", err)
-	}
-	if _, err := cfg.Server.ParseKey(); err != nil {
-		fatalf("读取 server.secret_key 失败: %v", err)
 	}
 
 	logger.InitGlobalLogger(&cfg.LogConfig)

@@ -113,9 +113,11 @@ func TestWrapPluginCapabilityInvokePayloadAddsEnvelope(t *testing.T) {
 	wrapped := wrapPluginCapabilityInvokePayload(InvocationInput{
 		CapabilityID:      "com.powerx.plugins.base.local.template.prepare",
 		PreferredProtocol: "rest",
+		ResolvedToolScope: "selected-scope",
 		Payload:           raw,
 		Context: map[string]interface{}{
-			"trace_id": "trace-prepare",
+			"trace_id":   "trace-prepare",
+			"tool_scope": "caller-scope",
 		},
 	}, "/_p/com.powerx.plugins.base.local/api/v1/integration/capabilities/invoke", map[string]string{"method": "POST"})
 
@@ -138,6 +140,7 @@ func TestWrapPluginCapabilityInvokePayloadAddsEnvelope(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "com.powerx.plugins.base.local.template.prepare", metadata["capability_id"])
 	require.Equal(t, "trace-prepare", metadata["trace_id"])
+	require.Equal(t, "selected-scope", metadata["tool_scope"])
 }
 
 func TestInvocationServiceInvokeRESTForwardsAuthorizationFromContext(t *testing.T) {

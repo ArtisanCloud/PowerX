@@ -15,6 +15,8 @@ import (
 type DurableOutput struct {
 	Content          string
 	ResponseEnvelope json.RawMessage
+	ResponseLabels   json.RawMessage
+	ResponseEvidence json.RawMessage
 }
 
 // DurableOutputReader 由 Runtime 验证归档计划、任务结果及报告合同。

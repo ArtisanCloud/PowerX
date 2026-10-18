@@ -2,12 +2,12 @@ package skills
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	skillrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/skills"
@@ -84,7 +84,7 @@ func (s *DefinitionInvokeService) Execute(
 		return nil, errors.New("skill.definition_published_artifact_missing")
 	}
 	var definition map[string]any
-	if err := json.Unmarshal(revision.DefinitionJSON, &definition); err != nil {
+	if err := utils.DecodeStrictJSON(revision.DefinitionJSON, &definition); err != nil {
 		return nil, errors.New("skill.definition_runtime_definition_invalid")
 	}
 	if err := validatePowerXDefinition(definition); err != nil {
@@ -147,4 +147,13 @@ func (s *DefinitionInvokeService) record(ctx context.Context, startedAt time.Tim
 		AgentID: firstTraceString(in.Context["agent_uuid"]), SessionID: firstTraceString(in.Context["session_uuid"]),
 		MessageID: firstTraceString(in.Context["message_uuid"]), ExecutorPath: manifestExecutorPath(in.Manifest),
 	})
+}
+
+// ExecuteStructuredInput 只用于明确的结构化用户输入；Agent/Planner 必须调用 Execute 并继承入口快照。
+func (s *DefinitionInvokeService) ExecuteStructuredInput(ctx context.Context, req InvokeRequest, payload map[string]any, contextMap map[string]any) (*InvokeExecutionResult, error) {
+	ctx, err := evidence.WithDirectToolInput(ctx, payload)
+	if err != nil {
+		return nil, err
+	}
+	return s.Execute(ctx, req, payload, contextMap)
 }

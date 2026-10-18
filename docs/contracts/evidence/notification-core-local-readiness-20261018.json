@@ -1,0 +1,146 @@
+{
+  "recorded_at": "2026-10-18T15:12:08.178531+00:00",
+  "scope": "actual local Core build, database migration and formal capability synchronization",
+  "authorization": "User explicitly authorized stopping PID 73285 and completing migration; daily service restart remains with the user.",
+  "core_process": {
+    "authorized_pid": 73285,
+    "signal": "SIGTERM",
+    "pid_exited": true,
+    "port_8077_released": true,
+    "previous_direct_children": [
+      "73474",
+      "73476",
+      "73573",
+      "73983"
+    ]
+  },
+  "builds": {
+    "powerx": {
+      "path": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-delivery-kn8fcry1/powerx",
+      "sha256": "f8706b212e003cb1012cd08afa273df42da5d77b8e491067a172e80d91103581"
+    },
+    "database": {
+      "path": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-delivery-kn8fcry1/database",
+      "sha256": "f31f5fe054f8595f4a4f2ed41871ae1b4325b8852398b1b4c0bbc6255abc158b"
+    }
+  },
+  "backup": {
+    "backup_path": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-delivery-kn8fcry1/powerx-before-notification-migration.dump",
+    "bytes": 30859883,
+    "sha256": "c45735ece15f154a45137a7bfe8e7373f48edba9095d1b90c4d6d0eb522428e3",
+    "archive_list_verified": true
+  },
+  "migration": {
+    "command": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-delivery-kn8fcry1/database migrate -config etc/config.yaml",
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "exit_code": 0,
+    "mode": "official incremental migration; no reset or refresh",
+    "verification": {
+      "before": {
+        "rows": 101,
+        "unread": 92,
+        "content_hash": "844ebbc3fc0b2e038bf93dd94f93c405"
+      },
+      "after": {
+        "rows": 101,
+        "unread": 92,
+        "content_hash": "844ebbc3fc0b2e038bf93dd94f93c405",
+        "legacy_empty_owner": 101
+      },
+      "column": {
+        "column": "service_owner",
+        "type": "character varying",
+        "nullable": "NO",
+        "length": 512,
+        "default": "''::character varying"
+      },
+      "existing_notification_data_unchanged": true
+    }
+  },
+  "capability_check": {
+    "command": "make capability-check",
+    "exit_code": 0,
+    "declared": 1107,
+    "candidates": 1108
+  },
+  "capability_seed": {
+    "command": "make capability-seed",
+    "exit_code": 0,
+    "preserve_installed_state": true,
+    "automatically_expanded_plugin_grants": false
+  },
+  "registry_facts": [
+    {
+      "kind": "capability",
+      "capability": "com.corex.notifications.read_receipts",
+      "status": "published"
+    },
+    {
+      "kind": "capability",
+      "capability": "com.corex.notifications.create",
+      "status": "published"
+    },
+    {
+      "kind": "registration",
+      "capability": "com.corex.notifications.create",
+      "tenant": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "status": "published"
+    },
+    {
+      "kind": "registration",
+      "capability": "com.corex.notifications.read_receipts",
+      "tenant": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "status": "published"
+    },
+    {
+      "kind": "permission",
+      "code": "corex.notifications:read_receipts",
+      "module": "notifications",
+      "resource": "notifications",
+      "action": "read_receipts",
+      "allow_api_key": true,
+      "api_key_explicit": true,
+      "core_endpoint": "core://notifications"
+    },
+    {
+      "kind": "permission",
+      "code": "corex.notifications:read_receipts",
+      "module": "notifications",
+      "resource": "notifications_read_receipts",
+      "action": "create",
+      "allow_api_key": true,
+      "api_key_explicit": true,
+      "core_endpoint": null
+    },
+    {
+      "kind": "plugin_credential",
+      "plugin": "com.powerx.plugins.ai-craft",
+      "tenant": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "enabled": true,
+      "create_allowed": true,
+      "read_receipts_allowed": false
+    }
+  ],
+  "installed_plugin": {
+    "id": "com.powerx.plugins.ai-craft",
+    "version": "0.1.77",
+    "declares_read_receipts": false,
+    "action": "Install a plugin manifest declaring the capability; normal Core enable/install must derive its grant. Do not patch the credential whitelist."
+  },
+  "additional_build_fix": {
+    "file": "backend/internal/service/system_recovery/portal.go",
+    "change": "Use existing Component.Size, serialized as size_bytes; Component.SizeBytes does not exist.",
+    "validation": "Full cmd/app build passed after correction. No recovery feature acceptance claimed."
+  },
+  "runtime_boundary": {
+    "core_currently_stopped": true,
+    "no_agent_started_daily_services": true,
+    "live_http_grant_status_after_restart": "not run; Core left stopped as authorized",
+    "installed_notification_navigation_and_receipt_test": "pending new plugin install and user service start"
+  },
+  "logs": {
+    "migration.log": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-delivery-kn8fcry1/migration.log",
+    "capability-check.log": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-delivery-kn8fcry1/capability-check.log",
+    "capability-seed.log": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-delivery-kn8fcry1/capability-seed.log"
+  }
+}

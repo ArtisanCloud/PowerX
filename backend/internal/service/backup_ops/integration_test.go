@@ -1,14 +1,18 @@
 package backup_ops
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/jackc/pgx/v5"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -59,6 +63,17 @@ func TestBackupIntegration(t *testing.T) {
 	if err = db.AutoMigrate(&modelops.BackupPolicy{}, &modelops.BackupJob{}, &modelops.BackupArtifact{}, &modelops.RestoreDrillRecord{}); err != nil {
 		t.Fatal(err)
 	}
+	// 验证旧部署的 512 字符报告列可通过现有模型迁移升级。
+	if err = db.Exec("ALTER TABLE public.ops_restore_drill_records ALTER COLUMN report_uri TYPE varchar(512)").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err = db.AutoMigrate(&modelops.RestoreDrillRecord{}); err != nil {
+		t.Fatal(err)
+	}
+	var reportType string
+	if err = db.Raw("SELECT data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='ops_restore_drill_records' AND column_name='report_uri'").Scan(&reportType).Error; err != nil || reportType != "text" {
+		t.Fatalf("report migration: %q %v", reportType, err)
+	}
 	if err = db.Exec("CREATE SCHEMA sample_plugin; CREATE TABLE sample_plugin.orders (id integer, name text); INSERT INTO sample_plugin.orders VALUES (1,'first order'),(2,'second order')").Error; err != nil {
 		t.Fatal(err)
 	}
@@ -73,6 +88,46 @@ func TestBackupIntegration(t *testing.T) {
 	}
 	t.Setenv("POWERX_OPS_SCRIPT_DIR", scriptDir)
 	t.Setenv("POWERX_OPS_RESTORE_KEEP_DB", "1")
+	// 真正从零策略开始，按需备份和完整下载均不创建策略。
+	onceSvc := NewJobService(db)
+	onceSvc.auditor, onceSvc.alertSvc, onceSvc.restoreSvc = nil, nil, nil
+	once, err := onceSvc.TriggerJob(reqctx.WithIsRoot(ctx, true), TriggerJobRequest{OneTime: true, Operator: "integration"})
+	if err != nil || once == nil || once.Status != "success" || once.PolicyID != 0 {
+		t.Fatalf("policy-free backup failed: %v %+v", err, once)
+	}
+	var policies int64
+	if err = db.Model(&modelops.BackupPolicy{}).Count(&policies).Error; err != nil || policies != 0 {
+		t.Fatalf("one-time backup created a policy: %d %v", policies, err)
+	}
+	rootCtx := reqctx.WithIsRoot(ctx, true)
+	file, release, err := onceSvc.OpenDownload(rootCtx, once.ID, "integration")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := io.ReadAll(file)
+	release()
+	if err != nil || !bytes.HasPrefix(content, []byte("PGDMP")) {
+		t.Fatalf("invalid PostgreSQL download: %v", err)
+	}
+	manualArtifact, err := onceSvc.artifactRepo.GetLatestByJobID(ctx, once.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manualPath := strings.TrimPrefix(manualArtifact.StorageURI, "file://")
+	content[len(content)-1] ^= 1
+	if err = os.WriteFile(manualPath, content, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, done, e := onceSvc.OpenDownload(rootCtx, once.ID, "integration"); dto.StatusCode(e) != 422 {
+		if done != nil {
+			done()
+		}
+		t.Fatalf("tampered backup was not rejected by integrity validation: %v", e)
+	}
+	content[len(content)-1] ^= 1
+	if err = os.WriteFile(manualPath, content, 0600); err != nil {
+		t.Fatal(err)
+	}
 	ps := NewPolicyService(db)
 	ps.auditor = nil
 	policy, err := ps.CreatePolicy(ctx, CreatePolicyRequest{Name: "integration", IntervalHours: 1, RetentionCount: 1, RetentionDays: 7, RetentionMode: "age_and_count"})

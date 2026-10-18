@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -33,8 +34,10 @@ var (
 )
 
 type Supervisor struct {
-	mu   sync.RWMutex
-	proc map[string]*process
+	mu               sync.RWMutex
+	proc             map[string]*process
+	portMin, portMax int
+	auxiliaryPorts   map[string]int
 }
 
 type process struct {
@@ -48,7 +51,10 @@ type process struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	logs *ringBuffer // 收集 stdout/stderr
+	imageDir, imageSHA256 string
+	installedEntry        string
+	exited                atomic.Bool
+	logs                  *ringBuffer // 收集 stdout/stderr
 
 }
 
@@ -65,12 +71,29 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	}
 
 	// 1) 选可用端口
-	port, err := pickFreePort()
+	port, err := s.pickPort()
 	if err != nil {
 		return 0, err
 	}
 
-	// 2) 组装命令
+	// 2) 可选地固定原生执行镜像；默认旧运行不改变路径。
+	installedEntry := entry
+	imageDir, imageSHA256 := "", ""
+	if opts.PinExecutable {
+		if opts.AutoRestart {
+			return 0, ErrUnpinnedProcess
+		}
+		entry, imageDir, imageSHA256, err = freezeExecutable(entry)
+		if err != nil {
+			return 0, err
+		}
+	}
+	started := false
+	defer func() {
+		if !started && imageDir != "" {
+			_ = os.RemoveAll(imageDir)
+		}
+	}()
 	cmd := exec.CommandContext(ctx, entry, args...)
 	envMap := envToMap(os.Environ())
 	envMap["PORT"] = strconv.Itoa(port)
@@ -92,7 +115,8 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	// 3) 准备 process
 	pctx, cancel := context.WithCancel(ctx)
 	pr := &process{
-		id:     id,
+		id:       id,
+		imageDir: imageDir, imageSHA256: imageSHA256, installedEntry: installedEntry,
 		cmd:    cmd,
 		port:   port,
 		opts:   defaultOpts(opts),
@@ -116,8 +140,11 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	// 5) 启动
 	if err := cmd.Start(); err != nil {
 		delete(s.proc, id)
+		delete(s.auxiliaryPorts, id)
+		cancel()
 		return 0, err
 	}
+	started = true
 	pr.info.PID = cmd.Process.Pid
 	pr.info.State = ProcStarting
 
@@ -131,30 +158,39 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 
 func (s *Supervisor) Stop(id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	pr, ok := s.proc[id]
 	if !ok {
+		s.mu.Unlock()
 		return nil
-	}
-	// 停健康循环
-	if pr.cancel != nil {
-		pr.cancel()
-	}
-	// 发 SIGTERM，等一会再 SIGKILL
-	if pr.cmd != nil && pr.cmd.Process != nil {
-		_ = pr.cmd.Process.Signal(syscall.SIGTERM)
-		doneCh := make(chan struct{})
-		go func() { pr.wg.Wait(); close(doneCh) }()
-		select {
-		case <-doneCh:
-		case <-time.After(5 * time.Second):
-			_ = pr.cmd.Process.Kill()
-		}
 	}
 	pr.info.State = ProcStopped
 	pr.info.StoppedAt = time.Now().UTC()
 	delete(s.proc, id)
+	if pr.cancel != nil {
+		pr.cancel()
+	}
+	cmd := pr.cmd
+	s.mu.Unlock()
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+	}
+	done := make(chan struct{})
+	go func() { pr.wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			return fmt.Errorf("plugin process did not exit")
+		}
+	}
+	if pr.imageDir != "" {
+		_ = os.RemoveAll(pr.imageDir)
+	}
 	return nil
 }
 
@@ -165,7 +201,7 @@ func (s *Supervisor) Restart(ctx context.Context, id string) error {
 	if !ok {
 		return fmt.Errorf("proc %s not running", id)
 	}
-	entry := pr.cmd.Path
+	entry := pr.installedEntry
 	args := pr.cmd.Args[1:]
 	env := envToMap(pr.cmd.Env)
 	opts := pr.opts
@@ -188,6 +224,7 @@ func (s *Supervisor) Status(id string) (ProcInfo, bool) {
 func (p *process) waitExit(mu *sync.RWMutex) {
 	defer p.wg.Done()
 	err := p.cmd.Wait()
+	p.exited.Store(true)
 
 	// 进程真正退出
 	mu.Lock()
@@ -229,6 +266,7 @@ func (p *process) waitExit(mu *sync.RWMutex) {
 				p.cmd = cmd
 				p.info.PID = cmd.Process.Pid
 				p.info.State = ProcStarting
+				p.exited.Store(false)
 				p.info.Restarts++
 				// 健康循环会继续存在（用 context 控制），无需再加一次
 				return
@@ -547,4 +585,70 @@ func (s *Supervisor) Logs(id string, tailBytes int) (string, bool) {
 		return "", true
 	}
 	return string(b), true
+}
+
+// List 返回本 supervisor 实际拥有的进程，不扫描或管理其他服务。
+func (s *Supervisor) List() []ProcInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]ProcInfo, 0, len(s.proc))
+	for _, p := range s.proc {
+		out = append(out, p.info)
+	}
+	return out
+}
+
+// SetPortRange 将恢复候选的动态监听限制在隔离策略允许的范围。
+func (s *Supervisor) SetPortRange(min, max int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.portMin = min
+	s.portMax = max
+}
+func (s *Supervisor) pickPort() (int, error) {
+	if s.portMin == 0 {
+		return pickFreePort()
+	}
+	for port := s.portMin; port <= s.portMax; port++ {
+		used := false
+		for _, reserved := range s.auxiliaryPorts {
+			if reserved == port {
+				used = true
+				break
+			}
+		}
+		for _, p := range s.proc {
+			if p.port == port {
+				used = true
+				break
+			}
+		}
+		if used {
+			continue
+		}
+		ln, e := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if e == nil {
+			ln.Close()
+			return port, nil
+		}
+	}
+	return 0, fmt.Errorf("recovery plugin port range exhausted")
+}
+
+// ReserveAuxiliaryPort 为同一插件的 gRPC 绑定分配候选允许范围内的独立端口。
+func (s *Supervisor) ReserveAuxiliaryPort(owner string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.auxiliaryPorts == nil {
+		s.auxiliaryPorts = map[string]int{}
+	}
+	if port := s.auxiliaryPorts[owner]; port != 0 {
+		return port, nil
+	}
+	port, e := s.pickPort()
+	if e != nil {
+		return 0, e
+	}
+	s.auxiliaryPorts[owner] = port
+	return port, nil
 }

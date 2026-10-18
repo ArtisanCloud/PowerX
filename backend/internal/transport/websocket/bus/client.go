@@ -6,6 +6,9 @@ import (
 	"sync"
 	"time"
 
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
+	"github.com/ArtisanCloud/PowerX/internal/service/notifications"
+
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -23,6 +26,7 @@ type Client struct {
 	ID         string
 	TenantUUID string
 	MemberID   uint64
+	MemberUUID string
 	UserID     uint64
 	IsRoot     bool
 
@@ -30,6 +34,7 @@ type Client struct {
 	conn       *websocket.Conn
 	hub        *Hub
 	authorizer Authorizer
+	recipients *notifications.RecipientAccess
 	send       chan dto.WSBusEnvelope
 
 	mu     sync.RWMutex
@@ -102,9 +107,19 @@ func (c *Client) readLoop() {
 }
 
 func (c *Client) writeLoop() {
-	for env := range c.send {
+	c.mu.RLock()
+	ch := c.send
+	c.mu.RUnlock()
+	if ch == nil {
+		return
+	}
+	defer c.Close()
+	for env := range ch {
 		if c.conn == nil {
 			return
+		}
+		if !c.canDeliver(env) {
+			continue
 		}
 		subscribedTopics := c.snapshotTopics()
 		logger.Info(logger.WithLogFields(c.ctx, map[string]interface{}{"module": "transport.wsbus"}), "wsbus_delivery",
@@ -240,8 +255,8 @@ func (c *Client) sendError(reqID, code, message, detail string) {
 
 func (c *Client) sendEnvelope(env dto.WSBusEnvelope) {
 	c.mu.RLock()
+	defer c.mu.RUnlock()
 	ch := c.send
-	c.mu.RUnlock()
 	if ch == nil {
 		return
 	}
@@ -255,6 +270,26 @@ func (c *Client) sendEnvelope(env dto.WSBusEnvelope) {
 			zap.String("topic", env.Topic),
 		)
 	}
+}
+
+func (c *Client) canDeliver(env dto.WSBusEnvelope) bool {
+	if env.Type != dto.WSBusTypeEvent || env.Topic != eventbus.TopicSystemNotification {
+		return true
+	}
+	target, err := notifications.Target(env.Payload)
+	if err != nil || (target != "" && target != c.MemberUUID) || c.recipients == nil {
+		return false
+	}
+	if c.authorizer == nil {
+		return false
+	}
+	authorized := c.authorizer.Authorize(c.ctx, c, env.Topic) == nil
+	member, err := c.recipients.ConnectionMember(c.ctx, c.TenantUUID, c.MemberID, c.UserID, c.IsRoot)
+	if err != nil || member != c.MemberUUID {
+		c.Close()
+		return false
+	}
+	return authorized
 }
 
 func (c *Client) addTopic(topic string) {

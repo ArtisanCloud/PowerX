@@ -18,7 +18,7 @@ func uploadMayRetry(state string, expires *time.Time) bool {
 // 不覆盖已就绪内容、不改变归属或上传约束、不复活已删除资产。
 func (s *MediaService) retryAssetUpload(ctx context.Context, existing *m.MediaAsset, in CreateAssetInput, checksum string) (*Asset, error) {
 	if !uploadMayRetry(existing.UploadState, existing.UploadExpiresAt) {
-		return toAsset(existing), nil
+		return s.withImageDerivatives(ctx, toAsset(existing), true), nil
 	}
 	var result *Asset
 	var previous string

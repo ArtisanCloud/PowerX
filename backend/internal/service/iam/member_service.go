@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	baseline "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
+
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -310,6 +312,14 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in 
 	}
 	var newID uint64
 	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if baseline.Managed(tx) {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+		}
+		// 所有仓储读取和写入使用当前事务，不能另开连接逃逸共同源锁。
+		s := NewMemberService(tx)
+
 		// 1) ensure/create user
 		var u *modelIAM.User
 		var err error
@@ -466,6 +476,14 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 		return err
 	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if baseline.Managed(tx) {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+		}
+		// 所有仓储读取和写入使用当前事务，不能另开连接逃逸共同源锁。
+		s := NewMemberService(tx)
+
 		mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
 			model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
 			model.TableIAMMember + ".id = ?":          memberID,
@@ -594,6 +612,14 @@ func (s *MemberService) SetMemberStatus(ctx context.Context, tenantUUID string, 
 		return err
 	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if baseline.Managed(tx) {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+		}
+		// 所有仓储读取和写入使用当前事务，不能另开连接逃逸共同源锁。
+		s := NewMemberService(tx)
+
 		if status == 1 {
 			var member modelIAM.Member
 			if err := tx.Where("tenant_uuid = ? AND id = ?", tenantUUID, memberID).First(&member).Error; err != nil {
@@ -664,6 +690,14 @@ func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantUUID str
 		return err
 	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if baseline.Managed(tx) {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+		}
+		// 所有仓储读取和写入使用当前事务，不能另开连接逃逸共同源锁。
+		s := NewMemberService(tx)
+
 		// 1) 校验 member 是否存在于本租户
 		mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
 			model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
@@ -882,6 +916,14 @@ func (s *MemberService) AddExistingUserAsMember(
 
 	var newID uint64
 	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if baseline.Managed(tx) {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+		}
+		// 所有仓储读取和写入使用当前事务，不能另开连接逃逸共同源锁。
+		s := NewMemberService(tx)
+
 		// user 是否存在
 		u, err := s.UserRepo.FindByID(ctx, userID)
 		if err != nil {

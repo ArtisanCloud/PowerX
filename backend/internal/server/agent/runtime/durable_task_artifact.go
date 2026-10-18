@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -14,15 +15,15 @@ import (
 )
 
 type taskResultArtifact struct {
-	SchemaVersion int                     `json:"schema_version"`
-	TenantUUID    string                  `json:"tenant_uuid"`
-	Env           string                  `json:"env"`
-	RunID         string                  `json:"run_id"`
-	Revision      uint64                  `json:"revision"`
-	TaskID        string                  `json:"task_id"`
-	Attempt       uint64                  `json:"attempt"`
-	Checksum      string                  `json:"checksum"`
-	Result        aschema.ExecutionResult `json:"result"`
+	SchemaVersion int             `json:"schema_version"`
+	TenantUUID    string          `json:"tenant_uuid"`
+	Env           string          `json:"env"`
+	RunID         string          `json:"run_id"`
+	Revision      uint64          `json:"revision"`
+	TaskID        string          `json:"task_id"`
+	Attempt       uint64          `json:"attempt"`
+	Checksum      string          `json:"checksum"`
+	Result        json.RawMessage `json:"result"`
 }
 
 var resultTaskIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$`)
@@ -51,7 +52,7 @@ func SaveTaskResultArtifact(ctx context.Context, objects agent_run.ReportObjectS
 	checksum := hex.EncodeToString(sum[:])
 	artifact := taskResultArtifact{SchemaVersion: 1, TenantUUID: ref.TenantUUID, Env: ref.Env,
 		RunID: ref.RunID, Revision: ref.Revision, TaskID: ref.TaskID, Attempt: ref.Attempt,
-		Checksum: checksum, Result: *result}
+		Checksum: checksum, Result: resultBody}
 	body, err := json.Marshal(artifact)
 	if err != nil || len(body) > maxExecutionPlanArtifactBytes {
 		return "", "", agent_run.ErrInvalid
@@ -89,16 +90,24 @@ func LoadTaskResultArtifact(ctx context.Context, objects agent_run.ReportObjectS
 	if err := json.Unmarshal(body, &artifact); err != nil {
 		return nil, err
 	}
-	resultBody, err := json.Marshal(artifact.Result)
-	if err != nil {
-		return nil, err
-	}
-	sum := sha256.Sum256(resultBody)
+	// Verify the bytes that were written, before decoding interface fields.
+	// Re-marshaling would reorder nested structs as maps and can round numbers;
+	// neither is evidence that the stored object was modified.
+	sum := sha256.Sum256(artifact.Result)
 	if artifact.SchemaVersion != 1 || artifact.TenantUUID != ref.TenantUUID || artifact.Env != ref.Env ||
 		artifact.RunID != ref.RunID || artifact.Revision != ref.Revision || artifact.TaskID != ref.TaskID ||
 		artifact.Attempt != ref.Attempt || artifact.Checksum != hex.EncodeToString(sum[:]) ||
-		evidence != "sha256:"+artifact.Checksum || !artifact.Result.Success {
+		evidence != "sha256:"+artifact.Checksum {
 		return nil, agent_run.ErrInvalid
 	}
-	return &artifact.Result, nil
+	var result aschema.ExecutionResult
+	decoder := json.NewDecoder(bytes.NewReader(artifact.Result))
+	decoder.UseNumber()
+	if err := decoder.Decode(&result); err != nil {
+		return nil, err
+	}
+	if !result.Success {
+		return nil, agent_run.ErrInvalid
+	}
+	return &result, nil
 }

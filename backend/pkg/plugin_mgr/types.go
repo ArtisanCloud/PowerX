@@ -171,6 +171,7 @@ type HealthCheckSpec struct {
 }
 
 type RuntimeSpec struct {
+	PinExecutable bool              `yaml:"pin_executable,omitempty" json:"pin_executable,omitempty"`
 	Kind          RuntimeKind       `yaml:"kind"            json:"kind"`
 	Entry         string            `yaml:"entry"           json:"entry"` // process 必填
 	Args          []string          `yaml:"args"            json:"args"`
@@ -275,6 +276,7 @@ type PermissionSpec struct {
 	MenuPath               []string                    `yaml:"menu_path,omitempty" json:"menu_path,omitempty"`
 	PagePermissionCodes    []string                    `yaml:"page_permission_codes,omitempty" json:"page_permission_codes,omitempty"`
 	BusinessPermissionCode string                      `yaml:"business_permission_code,omitempty" json:"business_permission_code,omitempty"`
+	AuthorizationBaseline  bool                        `yaml:"authorization_baseline,omitempty" json:"authorization_baseline,omitempty"`
 	TitleI18n              map[string]string           `yaml:"title_i18n,omitempty" json:"title_i18n,omitempty"`
 	DescriptionI18n        map[string]string           `yaml:"description_i18n,omitempty" json:"description_i18n,omitempty"`
 	RiskLevel              string                      `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`

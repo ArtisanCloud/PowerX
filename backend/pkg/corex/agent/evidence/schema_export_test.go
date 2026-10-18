@@ -19,6 +19,14 @@ func TestPublishedReportSchemaMatchesRuntime(t *testing.T) {
 	require.JSONEq(t, string(expected), string(raw))
 }
 
+func TestPublishedV5ReportSchemaMatchesFrozenBundle(t *testing.T) {
+	raw, err := os.ReadFile("../../../../config/agent/response_envelope.v5.schema.json")
+	require.NoError(t, err)
+	expected, err := json.Marshal(ReportJSONSchemaV5())
+	require.NoError(t, err)
+	require.JSONEq(t, string(expected), string(raw))
+}
+
 func TestDraftRequiresExplicitPrecisionAndPercent(t *testing.T) {
 	b, _ := json.Marshal(testDraft())
 	var raw map[string]any

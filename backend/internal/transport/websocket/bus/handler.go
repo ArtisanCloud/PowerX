@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/service/notifications"
+
 	eventshared "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -19,6 +21,7 @@ import (
 type Handler struct {
 	hub        *Hub
 	authorizer Authorizer
+	recipients *notifications.RecipientAccess
 }
 
 type HandlerOptions struct {
@@ -42,7 +45,8 @@ func NewHandlerWithOptions(opts HandlerOptions) *Handler {
 	}
 	if opts.DB != nil && topicLookup != nil && aclStore != nil {
 		return &Handler{
-			hub: DefaultHub,
+			hub:        DefaultHub,
+			recipients: notifications.NewRecipientAccess(opts.DB),
 			authorizer: NewDefaultAuthorizerWithOptions(DefaultAuthorizerOptions{
 				DB:         opts.DB,
 				TopicStore: topicLookup,
@@ -55,7 +59,7 @@ func NewHandlerWithOptions(opts HandlerOptions) *Handler {
 	if opts.DB != nil {
 		authorizer = NewDefaultAuthorizer(opts.DB)
 	}
-	return &Handler{hub: DefaultHub, authorizer: authorizer}
+	return &Handler{hub: DefaultHub, authorizer: authorizer, recipients: notifications.NewRecipientAccess(opts.DB)}
 }
 
 var busUpgrader = websocket.Upgrader{
@@ -86,6 +90,11 @@ func (h *Handler) ServeWS(c *gin.Context) {
 		return
 	}
 
+	memberUUID, err := h.recipients.ConnectionMember(c.Request.Context(), tenantUUID, memberID, reqctx.GetUserID(c.Request.Context()), isRoot)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 	conn, err := busUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		logger.Info(logger.WithLogFields(c.Request.Context(), map[string]interface{}{"module": "transport.wsbus"}), "wsbus_session",
@@ -103,6 +112,8 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	client := NewClient(c.Request.Context(), conn, h.hub, h.authorizer)
 	client.TenantUUID = strings.TrimSpace(tenantUUID)
 	client.MemberID = memberID
+	client.MemberUUID = memberUUID
+	client.recipients = h.recipients
 	client.UserID = reqctx.GetUserID(c.Request.Context())
 	client.IsRoot = isRoot
 

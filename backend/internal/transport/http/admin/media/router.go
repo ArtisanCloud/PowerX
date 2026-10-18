@@ -22,5 +22,14 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		group.DELETE("/:uuid", handler.DeleteAsset)
 		group.DELETE("/:uuid/purge", handler.PurgeAsset)
 		group.POST("/:uuid/presign", handler.PresignAsset)
+		group.GET("/:uuid/derivatives", handler.ImageDerivatives)
+		group.GET("/:uuid/derivatives/events", func(c *gin.Context) {
+			if deps.EventFabric == nil {
+				handler.derivativeEvents(c, nil)
+				return
+			}
+			handler.derivativeEvents(c, deps.EventFabric.RedisClient)
+		})
+		group.POST("/:uuid/derivatives/ensure", handler.EnsureImageDerivatives)
 	}
 }

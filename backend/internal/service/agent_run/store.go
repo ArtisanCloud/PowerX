@@ -42,15 +42,16 @@ type Snapshot struct {
 }
 
 type Event struct {
-	Seq         uint64    `json:"event_seq"`
-	Type        string    `json:"event"`
-	Status      string    `json:"status"`
-	TaskID      string    `json:"task_id,omitempty"`
-	Attempt     uint64    `json:"attempt,omitempty"`
-	PoolID      string    `json:"pool_id,omitempty"`
-	ReasonCode  string    `json:"reason_code,omitempty"`
-	QueueWaitMS int64     `json:"queue_wait_ms,omitempty"`
-	CreatedAt   time.Time `json:"occurred_at"`
+	Seq          uint64    `json:"event_seq"`
+	Type         string    `json:"event"`
+	Status       string    `json:"status"`
+	TaskID       string    `json:"task_id,omitempty"`
+	Attempt      uint64    `json:"attempt,omitempty"`
+	PoolID       string    `json:"pool_id,omitempty"`
+	ReasonCode   string    `json:"reason_code,omitempty"`
+	FailureStage string    `json:"failure_stage,omitempty"`
+	QueueWaitMS  int64     `json:"queue_wait_ms,omitempty"`
+	CreatedAt    time.Time `json:"occurred_at"`
 }
 
 type RedisStore struct {
@@ -255,6 +256,10 @@ func (s *RedisStore) Events(ctx context.Context, tenantUUID, env, runID string, 
 		if raw, ok := entry.Values["reason_code"]; ok {
 			reasonCode = fmt.Sprint(raw)
 		}
+		failureStage := ""
+		if raw, ok := entry.Values["failure_stage"]; ok {
+			failureStage = fmt.Sprint(raw)
+		}
 		queueWaitMS := int64(0)
 		if raw, ok := entry.Values["queue_wait_ms"]; ok {
 			queueWaitMS, err = strconv.ParseInt(fmt.Sprint(raw), 10, 64)
@@ -262,7 +267,7 @@ func (s *RedisStore) Events(ctx context.Context, tenantUUID, env, runID string, 
 				return nil, err
 			}
 		}
-		result = append(result, Event{Seq: seq, Type: fmt.Sprint(entry.Values["type"]), Status: fmt.Sprint(entry.Values["status"]), TaskID: taskID, Attempt: attempt, PoolID: poolID, ReasonCode: reasonCode, QueueWaitMS: queueWaitMS, CreatedAt: at})
+		result = append(result, Event{Seq: seq, Type: fmt.Sprint(entry.Values["type"]), Status: fmt.Sprint(entry.Values["status"]), TaskID: taskID, Attempt: attempt, PoolID: poolID, ReasonCode: reasonCode, FailureStage: failureStage, QueueWaitMS: queueWaitMS, CreatedAt: at})
 	}
 	return result, nil
 }

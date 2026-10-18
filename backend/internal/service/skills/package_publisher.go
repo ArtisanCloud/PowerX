@@ -132,7 +132,7 @@ func (p *PackagePublisher) PublishAuthoringSource(ctx context.Context, in Source
 	if strings.TrimSpace(in.DisplayName) == "" || strings.TrimSpace(in.Description) == "" {
 		return nil, errors.New("skill.package_standard_manifest_invalid")
 	}
-	if err := validatePowerXDefinition(in.Definition); err != nil {
+	if err := validateDraftDefinition(in.Definition); err != nil {
 		return nil, err
 	}
 	body, err := buildSkillPackage(skillPackageBuildInput{

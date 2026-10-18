@@ -4,6 +4,21 @@ import "encoding/json"
 
 // TraceSummary excludes source prose. The full report belongs to tenant-scoped message storage.
 func TraceSummary(report map[string]any) map[string]any {
+	if report["schema"] == ReportSchemaV5 {
+		raw, err := json.Marshal(report)
+		if err != nil {
+			return nil
+		}
+		var r ReportV5
+		if DecodeToolJSON(raw, &r) != nil {
+			return nil
+		}
+		receipts := []map[string]any{}
+		for _, receipt := range r.Receipts {
+			receipts = append(receipts, map[string]any{"execution_uuid": receipt.ExecutionUUID, "node_id": receipt.NodeID, "attempt": receipt.Attempt, "tool_key": receipt.Tool.ToolKey, "tool_version": receipt.Tool.Version, "status": receipt.Status, "request": receipt.Request, "result": receipt.Result, "error": receipt.Error})
+		}
+		return map[string]any{"tenant_uuid": r.TenantUUID, "revision_uuid": r.RevisionUUID, "run_id": r.RunID, "trace_id": r.TraceID, "source_digest": r.SourceDigest, "outcome": r.Outcome, "receipts": receipts, "computed": r.Presentation.Computed, "conflicts": r.Presentation.Conflicts, "gaps": r.Presentation.Gaps}
+	}
 	raw, err := json.Marshal(report)
 	if err != nil {
 		return nil

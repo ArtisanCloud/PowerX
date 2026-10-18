@@ -14,6 +14,12 @@ __debug_bin*
 
 # Go工作空间文件
 go.work
+go.work.sum
+
+# Python 脚本生成的缓存
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # 编辑器和IDE文件
 .vscode/
@@ -44,6 +50,9 @@ backend/logs/**
 # 临时文件
 tmp/
 temp/
+*.pid
+*.pid.lock
+*.sock
 
 # 环境配置文件
 .env
@@ -56,8 +65,16 @@ config/powerx.env.local
 dist/
 build/
 
+# 本地 Node 依赖和测试缓存（适用于所有层级）
+node_modules/
+.vitest-cache/
+
 backend/etc/config.yaml
 backend/etc/setup.wizard.config.json
+/backend/etc/*.recovery.json
+
+# Local Go build artifacts
+/backend/bin/
 
 # PowerX plugin runtime（整目录忽略）
 backend/plugins/
@@ -103,3 +120,9 @@ reports/
 
 # Local browser acceptance reports and runtime process records
 /test-results/
+/coverage/
+/coverage.html
+
+# Isolated Nuxt build/output directories used by browser acceptance
+/web-admin/.nuxt-*/
+/web-admin/.output-*/

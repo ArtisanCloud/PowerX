@@ -68,10 +68,11 @@ func TestPluginSkillDiscoveryImportsPublishedAndRejectsInvalidManifest(t *testin
 					"version":     "1.0.0",
 					"description": "broken",
 					"executor": map[string]interface{}{
-						"type":       "plugin_http",
-						"method":     "POST",
-						"path":       "/api/v1/plugin/broken",
-						"capability": "broken.invoke",
+						"type":               "capability",
+						"prepare_capability": "broken.prepare",
+						"method":             "POST",
+						"path":               "/api/v1/plugin/broken",
+						"capability":         "broken.invoke",
 					},
 				},
 			},
@@ -99,11 +100,11 @@ func pluginManifestFixture(skillID, provider string) map[string]interface{} {
 			"type":       "object",
 			"properties": map[string]interface{}{"urls": map[string]interface{}{"type": "array"}},
 		},
+		"action_capabilities": map[string]string{"ingest": "creation.video_automation.ingest"},
 		"executor": map[string]interface{}{
-			"type":       "plugin_http",
-			"method":     "POST",
-			"path":       "/api/v1/creation/video-automation/ingest",
-			"capability": "creation.video_automation.ingest",
+			"type":               "capability",
+			"capability":         "creation.video_automation.ingest",
+			"prepare_capability": "creation.video_automation.ingest",
 		},
 	}
 }

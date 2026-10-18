@@ -177,7 +177,14 @@ func (s *RuntimeCredentialRepairService) Repair(ctx context.Context, opts Runtim
 		}
 		paths, _ := v["paths"].(map[string]any)
 		if declared, ok := paths["host_values_file"].(string); ok && declared != "" && filepath.Clean(declared) != path {
-			return nil, fmt.Errorf("registry host-values path mismatch for version=%s", version)
+			// macOS /var and /private/var can name the same installed file.
+			// Resolve both identities, but keep all reads/writes on the verified
+			// expected path under the plugin root; no arbitrary path is accepted.
+			actualDeclared, declaredErr := filepath.EvalSymlinks(declared)
+			actualExpected, expectedErr := filepath.EvalSymlinks(path)
+			if declaredErr != nil || expectedErr != nil || actualDeclared != actualExpected {
+				return nil, fmt.Errorf("registry host-values path mismatch for version=%s", version)
+			}
 		}
 		file, err := readCredentialRepairFile(path, false)
 		if err != nil {

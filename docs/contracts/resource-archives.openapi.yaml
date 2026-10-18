@@ -2,7 +2,14 @@ openapi: 3.0.3
 info:
   title: PowerX media and remote archives
   version: '1.0.0'
-  description: Root user sessions only. Policy state lives outside the business database. No arbitrary source paths, shell commands or SSH keys in API requests.
+  description: >-
+    Root user sessions only. Policy state lives outside the business database.
+    No arbitrary source paths, shell commands or SSH keys in API requests.
+    These are component archives. A media archive may include its own paired
+    database dump; restore uses that dump and creates an independent directory
+    and asynchronous database copy. Runtime configuration, application versions,
+    system-package import and live cutover are not provided by this API.
+    Whole-system capture and recovery use the separate system-snapshots API.
 servers:
   - url: /api/v1/admin/ops/backup/archives
 security:
@@ -51,6 +58,28 @@ paths:
       responses:
         '202': { description: data.job is a durable asynchronous job; a replay returns the original job }
         '409': { description: Another operation owns the policy lock }
+  /jobs:
+    post:
+      summary: Create a one-time local-media export without a policy
+      description: Media files only, without database, Redis or runtime configuration. No policy is persisted or enabled. Jobs have one_time=true and empty policy_id. Default retention is 7 days and 168 copies, preserving the latest and protected files.
+      parameters:
+        - { in: header, name: Idempotency-Key, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [source_id]
+              properties:
+                source_id: { type: string, description: A registered local-media source ID; never a filesystem path }
+      responses:
+        '202': { description: data.job; download from the existing job download endpoint when success }
+        '400': { description: Invalid source, non-local media or unknown fields }
+        '403': { description: Root user session required }
+        '409': { description: Export group busy or idempotency key reused for different input }
+        '422': { description: Source unavailable }
   /jobs/{job_id}:
     parameters:
       - { in: path, name: job_id, required: true, schema: { type: string, format: uuid } }

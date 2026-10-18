@@ -22,11 +22,13 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/infra/media/driver"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	"github.com/ArtisanCloud/PowerX/internal/service"
+	taskqueue "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/task_queue"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	mediarepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/media"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 var (
@@ -86,6 +88,9 @@ type assetRepository interface {
 }
 
 type MediaService struct {
+	derivatives       derivativeRepository
+	derivativeQueue   *taskqueue.StreamDriver
+	derivativeChanged func(context.Context, string, string)
 	*service.BaseService
 	repo       assetRepository
 	manager    *mediamgr.MediaManager
@@ -103,13 +108,17 @@ func NewMediaService(db *gorm.DB, repo assetRepository, manager *mediamgr.MediaM
 	if defaultTTL <= 0 {
 		defaultTTL = 12 * time.Hour
 	}
-	return &MediaService{
+	svc := &MediaService{
 		BaseService: &service.BaseService{DB: db},
 		repo:        repo,
 		manager:     manager,
 		audit:       audit,
 		defaultTTL:  defaultTTL,
 	}
+	if db != nil {
+		svc.derivatives = mediarepo.NewDerivativeRepository(db)
+	}
+	return svc
 }
 
 // SetPublicResourceTokenSecret 设置公开资源入口的 token 签名密钥。
@@ -406,6 +415,7 @@ type ListAssetsInput struct {
 
 // Asset 为对外视图。
 type Asset struct {
+	Derivatives      *ImageDerivatives
 	transferVersion  uint64 // 仅供内部上传授权快照使用，不进入 HTTP 合同。
 	UUID             string
 	TenantUUID       string
@@ -548,7 +558,7 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		if contentSHA256 != "" && (method == UploadMethodPresign || method == UploadMethodDirect) {
 			return s.retryAssetUpload(ctx, existing, in, contentSHA256)
 		}
-		return toAsset(existing), nil
+		return s.withImageDerivatives(ctx, toAsset(existing), true), nil
 	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
 		return nil, findErr
 	}
@@ -624,7 +634,7 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 		return nil, err
 	}
 	s.emitAudit(ctx, tenantUUID, "media.asset.create", created.UUID.String(), in.OperatorID, map[string]any{"name": created.Name})
-	return toAsset(created), nil
+	return s.withImageDerivatives(ctx, toAsset(created), true), nil
 }
 
 // ListAssets 按条件分页检索媒体资产。
@@ -664,7 +674,7 @@ func (s *MediaService) GetAsset(ctx context.Context, tenantUUID string, uuid str
 		}
 		return nil, err
 	}
-	return toAsset(entity), nil
+	return s.withImageDerivatives(ctx, toAsset(entity), false), nil
 }
 
 // OpenAssetResource 返回资产及其二进制内容（若存在本地/对象存储文件）。
@@ -882,7 +892,7 @@ func (s *MediaService) CompleteAssetUpload(ctx context.Context, in CompleteAsset
 		return nil, ErrUploadValidationFailed
 	}
 	s.emitAudit(ctx, tenantUUID, "media.asset.complete_upload", assetUUID, in.OperatorID, map[string]any{"size_bytes": validation.ActualSize})
-	return result, nil
+	return s.withImageDerivatives(ctx, result, true), nil
 }
 
 // PurgeAsset 永久删除媒体资产及其所有资源版本，并释放底层存储对象。
@@ -981,7 +991,7 @@ func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVar
 		return nil, err
 	}
 	if existing, findErr := s.repo.FindVariant(ctx, tenantUUID, assetUUID, variantName); findErr == nil {
-		return s.retryVariantUpload(ctx, existing, in)
+		return s.reuseOrRetryVariant(ctx, parent, existing, in)
 	} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
 		return nil, findErr
 	}
@@ -1056,6 +1066,9 @@ func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVar
 	created, err := s.repo.CreateVariant(ctx, entity)
 	if err != nil {
 		return nil, err
+	}
+	if created.UUID != entity.UUID {
+		return s.reuseOrRetryVariant(ctx, parent, created, in)
 	}
 	s.emitAudit(ctx, tenantUUID, "media.asset.variant.create", assetUUID, in.OperatorID, map[string]any{"variant": variantName})
 	return toAssetVariant(created), nil
@@ -1764,11 +1777,15 @@ func (s *MediaService) SyncUploadedFileMetadata(ctx context.Context, driver, sto
 				changed = true
 			}
 		}
-		if !changed {
-			continue
+		if changed {
+			if _, err := s.repo.UpdateAsset(ctx, &entity); err != nil {
+				return err
+			}
 		}
-		if _, err := s.repo.UpdateAsset(ctx, &entity); err != nil {
-			return err
+		if imageMIME(entity.MimeType) && entity.UploadState == mediamodel.UploadStateReady {
+			if _, err := s.EnsureImageDerivatives(ctx, entity.TenantUUID, entity.UUID.String(), false); err != nil {
+				logger.WarnF(ctx, "media derivative ensure after direct upload: %v", err)
+			}
 		}
 	}
 	return nil

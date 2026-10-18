@@ -2,6 +2,8 @@
 
 PowerX 分层开发的权威约束见 [Agent、Skill、工具与 Runtime 分层开发规范](../../../guides/develop/agent-skill-tool-boundaries.md)。Skill 声明业务规则和版本化工具依赖；导入包或保存 Prompt 不代表工具已安装或脚本已获授权。缺少执行能力必须明确阻断，固有示例与客户自建 Skill 遵循同一机制。
 
+Phase 23 的 [T199 工具与证据合同](../../../../specs/024-ai-engineering-skills/contracts/tool-evidence-contract.md) 已冻结工具精确依赖、UUID 来源、真实回执、目标 V5 及迁移规则，生产接线尚待后续任务。标准 `SKILL.md` 仍保持通用包核心；这些 PowerX 执行声明写入扩展，不能因导入成功而自动获得权限。
+
 本文用于回答三个问题：
 
 1. Skill 标准到底是什么  
@@ -463,3 +465,7 @@ https://github.com/anthropics/skills
 ## V4 复盘说明的可选声明
 
 llm_prompt + response_envelope 可声明 executor.review_policy（powerx.skill-review-policy/v1）。规则的业务文字及来源条件在 Skill Revision 中维护；Core 仅依据声明来源及真实计算状态匹配条件，不能按 Skill 名称分支。匹配文字成为本次 hypotheses/actions 的完整枚举，新增、漏项或重复明确失败。规则格式、scope_i18n 和 token_role 见 docs/guides/develop/agent-response-evidence-v4.md 的“来源条件约束的业务说明”。旧 Skill 不声明该扩展仍可执行；新声明须使用支持该扩展的 Runtime 并重新发布，不能改写旧 Revision。
+
+## T203：显式 V5 内置计算 Revision
+
+采用 `tools/v2 + response/v5` 的新 Revision 必须使用 `powerx.skill-calculation-policy/v3`，显式声明每个字段 `scope_i18n` 和每条公式 `result_unit`，不能从业务字段或表达式猜单位。每种发布 locale 均需完整标签与口径。新链依赖当前实际内嵌工具包/Go Runtime 及正式 Schema 摘要，更新后需显式重新发布。V4 和策略 v2 保留原义，现有固有示例不会自动升级。存储迁移、失败及历史规则见 [T203](../../../../specs/024-ai-engineering-skills/runtime-v5-implementation.md)。

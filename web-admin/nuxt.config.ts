@@ -51,7 +51,7 @@ const POWERX_CORE_BASE =
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  buildDir: ".nuxt",
+  buildDir: process.env.POWERX_NUXT_BUILD_DIR || ".nuxt",
   ssr: false,
   router: {
     options: {
@@ -106,6 +106,9 @@ export default defineNuxtConfig({
 
   // 添加开发服务器代理配置
   nitro: {
+    ...(process.env.POWERX_NITRO_OUTPUT_DIR
+      ? { output: { dir: process.env.POWERX_NITRO_OUTPUT_DIR } }
+      : {}),
     experimental: {
       websocket: true, // ✅ 开启 Nitro 原生 WS
     },

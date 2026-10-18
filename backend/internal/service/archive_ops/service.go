@@ -247,6 +247,35 @@ func (s *Service) Start(ctx context.Context, policyID, key, operator, trace stri
 	return s.start(ctx, policyID, key, operator, trace, false)
 }
 func (s *Service) start(ctx context.Context, policyID, key, operator, trace string, synchronous bool) (Job, error) {
+	p, e := s.policy(ctx, policyID)
+	if e != nil {
+		return Job{}, e
+	}
+	return s.startPolicy(ctx, p, key, operator, trace, synchronous)
+}
+
+// StartOneTime 只读取预先登记的本地媒体来源，不创建策略或配套数据库任务。
+func (s *Service) StartOneTime(ctx context.Context, sourceID, key, operator, trace string) (Job, error) {
+	if e := s.check(ctx); e != nil {
+		return Job{}, e
+	}
+	source, e := s.source(sourceID)
+	if e != nil {
+		return Job{}, e
+	}
+	if source.Kind != "media" || source.S3 != nil {
+		return Job{}, failure(400, "ARCHIVE_ONE_TIME_UNSUPPORTED", "按需媒体导出仅支持已配置的本地媒体来源")
+	}
+	p := oneTimeMediaPolicy()
+	p.SourceID = sourceID
+	return s.startPolicy(ctx, p, key, operator, trace, false)
+}
+
+func oneTimeMediaPolicy() Policy {
+	return Policy{Name: "按需媒体导出", RetentionDays: 7, RetentionCount: 168}
+}
+
+func (s *Service) startPolicy(ctx context.Context, p Policy, key, operator, trace string, synchronous bool) (Job, error) {
 	if !validID(key) {
 		return Job{}, failure(400, "ARCHIVE_IDEMPOTENCY_REQUIRED", "归档请求需要 UUID Idempotency-Key")
 	}
@@ -254,10 +283,6 @@ func (s *Service) start(ctx context.Context, policyID, key, operator, trace stri
 	defer s.mu.Unlock()
 	if s.ctx.Err() != nil {
 		return Job{}, failure(503, "ARCHIVE_STOPPED", "归档服务已停止")
-	}
-	p, e := s.policy(ctx, policyID)
-	if e != nil {
-		return Job{}, e
 	}
 	sum := sha256.Sum256([]byte(key))
 	hash := hex.EncodeToString(sum[:])
@@ -271,7 +296,7 @@ func (s *Service) start(ctx context.Context, policyID, key, operator, trace stri
 			return Job{}, e
 		}
 		if j.RequestKey == hash {
-			if j.PolicyID != p.ID {
+			if j.PolicyID != p.ID || (p.ID == "" && (!j.OneTime || j.SourceID != p.SourceID)) {
 				return Job{}, failure(409, "ARCHIVE_IDEMPOTENCY_CONFLICT", "同一标识不能用于另一策略")
 			}
 			return j.Job, nil
@@ -302,6 +327,7 @@ func (s *Service) start(ctx context.Context, policyID, key, operator, trace stri
 	}
 	now := time.Now().UTC()
 	j := jobRecord{Job: Job{ID: uuid.NewString(), PolicyID: p.ID, SourceID: p.SourceID, Kind: source.Kind, Status: "running", Phase: "capturing", CreatedAt: now, Warnings: []string{}, RemoteState: "not_requested", Operator: operator, TraceID: trace, RemoteRetentionDays: p.RemoteRetentionDays, RemoteRetentionCount: p.RemoteRetentionCount}, RequestKey: hash}
+	j.OneTime = p.ID == ""
 	if p.TargetID != "" {
 		target, e := s.target(p.TargetID)
 		if e != nil {

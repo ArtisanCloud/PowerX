@@ -1,0 +1,127 @@
+{
+  "date": "2026-10-18",
+  "feature": "Independent configurable snapshot store and effective directory display",
+  "configuration": {
+    "yaml": "system_snapshots.directory",
+    "environment": "POWERX_SNAPSHOT_DIRECTORY",
+    "priority": [
+      "recovery profile snapshot_directory",
+      "POWERX_SNAPSHOT_DIRECTORY",
+      "system_snapshots.directory",
+      "absolute POWERX_LINKS_ROOT + storage/system-snapshots",
+      "user home + .powerx/storage/system-snapshots"
+    ],
+    "default_changed": false,
+    "path_policy": "absolute paths only; canonical effective directory returned to Root; spaces supported; no shell or tilde expansion",
+    "offline_tool": "-directory takes priority over independent environment; CLI does not implicitly load Core YAML"
+  },
+  "ui": {
+    "location": "备份恢复中心 → 系统快照 → 快照备份, above policies",
+    "fields": [
+      "实际快照保存目录",
+      "配置来源"
+    ],
+    "details": "配置说明 modal; YAML/environment/profile precedence and whole-directory migration guidance",
+    "layout": "existing vertical task navigation retained; one compact storage block; desktop and narrow viewport checked"
+  },
+  "contract": {
+    "version": "0.7.0",
+    "overview_fields": [
+      "directory",
+      "directory_source"
+    ],
+    "directory_source_enum": [
+      "recovery_profile",
+      "environment",
+      "configuration",
+      "install_root",
+      "default",
+      "explicit"
+    ],
+    "authorization": "Root-only overview; no API accepting an arbitrary server directory"
+  },
+  "safety": {
+    "live_user_configuration_modified": false,
+    "existing_store_moved_or_deleted": false,
+    "user_processes_restarted": false,
+    "recursive_collection": "SystemSnapshots excluded from auxiliary runtime-path capture so master.key and existing backups are not recaptured",
+    "recovery_isolation": "prepared candidate receives its own snapshot directory; recovery startup rejects source directory and ignores source environment overrides",
+    "actual_vs_source": "overview reports immutable active Service root, even if the dynamic source resolver returns a different configured location"
+  },
+  "validation": [
+    {
+      "kind": "Go and vet",
+      "packages": [
+        "config",
+        "snapshot_ops",
+        "bootstrap",
+        "system_recovery",
+        "admin/backup",
+        "cmd/snapshot_tool"
+      ],
+      "result": "PASS tests and vet; CLI compiled",
+      "log": "test-results/snapshot-storage-checks.log"
+    },
+    {
+      "kind": "race",
+      "result": "PASS configuration/environment precedence, default fallback, canonical store reporting, actual capture in effective store, Root denial, recursive collection exclusion, recovery source-path rejection and isolation",
+      "log": "test-results/snapshot-storage-race.log"
+    },
+    {
+      "kind": "frontend unit",
+      "result": "64 tests / 10 files PASS",
+      "log": "test-results/snapshot-storage-unit.log"
+    },
+    {
+      "kind": "frontend build",
+      "result": "PASS isolated build/output directories; user .nuxt/.output preserved",
+      "log": "test-results/snapshot-storage-build.log"
+    },
+    {
+      "kind": "Chromium browser fixtures",
+      "result": "12 tests PASS, desktop 1440x1000 and narrow 390x844; path/source display, no width overflow, configuration dialog, existing task/push flows",
+      "log": "test-results/snapshot-storage-browser.log"
+    },
+    {
+      "kind": "visual follow-up",
+      "result": "PASS focused directory/help case after waiting for startup overlay to close; desktop and mobile images reviewed",
+      "log": "test-results/snapshot-storage-visual.log",
+      "screenshots": [
+        "test-results/snapshot-storage-visual/snapshots-snapshot-storage-310fd-sible-on-desktop-and-mobile-chromium/snapshot-storage-desktop.png",
+        "test-results/snapshot-storage-visual/snapshots-snapshot-storage-310fd-sible-on-desktop-and-mobile-chromium/snapshot-storage-mobile.png",
+        "test-results/snapshot-storage-visual/snapshots-snapshot-storage-310fd-sible-on-desktop-and-mobile-chromium/snapshot-storage-help-mobile.png"
+      ]
+    }
+  ],
+  "acceptance_boundary": [
+    "Backend tests used owned temporary stores, never moved the user store or changed real configuration.",
+    "Browser tests used controlled fixtures; user Core must be restarted to expose the new directory metadata. No production deployment or full online whole-system recovery is claimed.",
+    "No new routes or capability bindings. Full capability gate has known pre-existing backup-route issues; no claim that it passed."
+  ],
+  "cleanup": {
+    "process_record": {
+      "owner": "snapshot-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-10-18T07:01:15.645Z",
+      "fixturePid": 58278,
+      "fixturePort": 3478,
+      "corePid": 58279,
+      "corePort": 3477,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/test-results/snapshot-storage-output/server/index.mjs"
+      ],
+      "stoppedAt": "2026-10-18T07:01:21.345Z",
+      "coreExitedAt": "2026-10-18T07:01:21.349Z"
+    },
+    "verified_free_ports": [
+      3477,
+      3478
+    ],
+    "owned_pids_exited": [
+      58278,
+      58279
+    ]
+  },
+  "recorded_at": "2026-10-18T07:02:39.441370+00:00"
+}
