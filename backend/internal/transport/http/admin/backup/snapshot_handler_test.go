@@ -48,11 +48,16 @@ func (snapshotHTTPBackend) Capture(ctx context.Context, dir string) (string, err
 func (snapshotHTTPBackend) RestoreDatabase(context.Context, string) (string, string, error) {
 	return "copy", "owned_copy", nil
 }
-func snapshotHTTPFixture(t *testing.T) (*snapshotops.Service, *gin.Engine, string, string) {
+func snapshotHTTPFixture(t *testing.T, options ...snapshotops.Options) (*snapshotops.Service, *gin.Engine, string, string) {
 	t.Helper()
 	artifact := filepath.Join(t.TempDir(), "powerx")
 	require.NoError(t, os.WriteFile(artifact, []byte("fixture executable"), 0700))
-	svc := snapshotops.NewService(context.Background(), snapshotops.Config{Directory: t.TempDir(), Instance: "http-fixture", Version: "v1", EffectiveConfig: []byte("fixture: private-value"), Artifacts: map[string]string{"core/powerx": artifact}}, snapshotops.Options{Backend: snapshotHTTPBackend{}})
+	opts := snapshotops.Options{}
+	if len(options) != 0 {
+		opts = options[0]
+	}
+	opts.Backend = snapshotHTTPBackend{}
+	svc := snapshotops.NewService(context.Background(), snapshotops.Config{Directory: t.TempDir(), Instance: "http-fixture", Version: "v1", EffectiveConfig: []byte("fixture: private-value"), Artifacts: map[string]string{"core/powerx": artifact}}, opts)
 	t.Cleanup(svc.Close)
 	secret := []byte(uuid.NewString() + uuid.NewString())
 	root, e := auth.GenerateAccessJWT(reqctx.CoreXClaims{IsRoot: true, UserID: 1, TenantUUID: uuid.NewString(), MemberUUID: uuid.NewString()}, "snapshot-test", []string{"admin"}, time.Hour, secret)

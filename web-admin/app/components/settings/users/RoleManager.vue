@@ -2,6 +2,7 @@
 import { ref, reactive, computed, h, resolveComponent, onMounted } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import { useI18n } from "#imports";
+import { isCoreManagedRootRole } from "~/utils/managedRole";
 import { useRoleStore } from "~/stores/role";
 import { useUserStore } from "~/stores/user";
 import { useOneShotAlert } from "~/composables/useOneShotAlert";
@@ -100,6 +101,7 @@ const openAddForm = () => {
 };
 
 const openEditForm = (role: Role) => {
+  if (isCoreManagedRootRole(role)) return;
   roleForm.name = role.name;
   roleForm.code = role.code;
   roleForm.description = role.description || "";
@@ -159,6 +161,7 @@ const saveRole = async () => {
 };
 
 const deleteRole = async (id: number) => {
+  if (isCoreManagedRootRole(roles.value.find((role) => role.id === id))) return;
   if (!confirm("确定要删除此角色吗？")) return;
   try {
     await roleStore.deleteRole(id);
@@ -303,6 +306,9 @@ const columns = computed(() => {
       header: "操作",
       cell: ({ row }: any) => {
         const role = row.original as Role;
+        if (isCoreManagedRootRole(role)) {
+          return h("span", { class: "text-sm text-muted" }, t("common.coreManaged"));
+        }
         return h(
           "div",
           { class: "flex gap-1" },

@@ -1,12 +1,16 @@
-import { flushPromises, mount } from '@vue/test-utils';
-import { ref } from 'vue';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
+import { reactive, ref } from 'vue';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+enableAutoUnmount(afterEach);
 
 const service = vi.hoisted(() => ({
   getOverview: vi.fn(), listPolicies: vi.fn(), listJobs: vi.fn(),
   listRestoreDrills: vi.fn(), listAlerts: vi.fn(), enablePolicy: vi.fn(),
   createOneTime: vi.fn(), downloadJob: vi.fn(), disablePolicy: vi.fn(), triggerJob: vi.fn(), triggerCleanup: vi.fn(),
+  getJob: vi.fn(), getRestoreDrill: vi.fn(),
 }));
+const route = reactive({ path: '/ops/backup', query: {} as Record<string, string> });
 vi.mock('~/composables/api/services/backupOpsService', () => ({ useBackupOpsService: () => service }));
 const access = { canExecute: ref(true), isRoot: ref(false), permissionHint: ref(''), loadUserContext: vi.fn() };
 vi.mock('~/composables/useOpsAccess', () => ({ useOpsAccess: () => access }));
@@ -16,7 +20,7 @@ const stubs = { UIcon: true, SystemSnapshotsPanel: true, RestoreCopiesPanel: tru
   UCard: { template: '<div><slot name="header"/><slot/><slot name="footer"/></div>' },
   UButton: { props: ['disabled'], template: '<button :disabled="disabled"><slot/></button>' },
   UBadge: { template: '<span><slot/></span>' },
-  UAlert: { props: ['title'], template: '<p>{{ title }}</p>' },
+  UAlert: { props: ['title'], template: '<div>{{ title }}<slot name="actions"/></div>' },
   UInput: true, UFormField: true, USelect: true, UCheckbox: true, UForm: true,
   UTabs: {
     props: ['items', 'modelValue'], emits: ['update:modelValue'],
@@ -29,6 +33,9 @@ const page = () => mount(BackupPage, { global: { stubs } });
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('useI18n', () => ({ t: (key: string) => key, locale: ref('zh') }));
+  route.query = {};
+  vi.stubGlobal('useRoute', () => route);
+  vi.stubGlobal('navigateTo', vi.fn(async (to) => { route.query = to.query; }));
   access.canExecute.value = true; access.isRoot.value = false;
   const policy = { id: 7, name: '开发库备份', enabled: false, interval_hours: 1, schedule: '1h', retention_count: 168, retention_days: 7, retention_mode: 'age_and_count', drill_enabled: false };
   service.getOverview.mockResolvedValue({ policies_enabled: 0, runtime: { source_database: 'powerx_dev', artifact_directory: '/opt/powerx-dev/storage/backups', ready: true, problems: [] } });
@@ -40,6 +47,44 @@ beforeEach(() => {
 });
 
 describe('backup workspace navigation', () => {
+  it('opens a linked historical task directly even when it is absent from the first list page', async () => {
+    access.isRoot.value = true;
+    route.query = { job_id: '798' };
+    service.getJob.mockResolvedValue({ id: 798, status: 'failed', error_message: 'historical backup failed' });
+    const wrapper = page(); await flushPromises();
+    expect(service.getJob).toHaveBeenCalledWith('798');
+    expect(wrapper.get('[data-section="files"]').attributes('style') || '').not.toContain('display: none');
+    expect(wrapper.text()).toContain('historical backup failed');
+    expect(wrapper.text()).not.toContain('backupCenter.workspace.availableHint');
+    expect(wrapper.find('[data-testid="backup-job-views"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="backup-linked-task"] button').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="backup-linked-task"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  it('opens the linked restore report and replaces it when the route changes', async () => {
+    route.query = { drill_id: '99' };
+    service.getRestoreDrill.mockResolvedValue({ id: 99, source_job_id: 798, status: 'failed', report_uri: 'restore failed report' });
+    const wrapper = page(); await flushPromises();
+    expect(service.getRestoreDrill).toHaveBeenCalledWith('99');
+    expect(wrapper.get('[data-section="verification"]').attributes('style') || '').not.toContain('display: none');
+    const report = wrapper.get('[data-section="verification"] details');
+    expect(report.attributes('open')).toBeDefined();
+    expect(report.text()).toContain('restore failed report');
+    service.getJob.mockRejectedValue({statusCode:404});
+    route.query = { job_id: '800' }; await flushPromises();
+    expect(wrapper.get('[data-testid="backup-linked-task"]').text()).toContain('backupCenter.taskLink.unavailable');
+    expect(wrapper.text()).not.toContain('restore failed report');
+    wrapper.unmount();
+  });
+  it('rejects ambiguous links without requesting a task', async () => {
+    route.query = { job_id: '798', drill_id: '99' };
+    const wrapper = page(); await flushPromises();
+    expect(wrapper.get('[data-testid="backup-linked-task"]').text()).toContain('backupCenter.taskLink.unavailable');
+    expect(service.getJob).not.toHaveBeenCalled();
+    expect(service.getRestoreDrill).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
   it('disables policy-free full-database export for non-root operators', async () => {
     const wrapper=page();await flushPromises();
     const create=wrapper.findAll('button').find(b=>b.text()==='backupCenter.onDemand.createDatabase')!;

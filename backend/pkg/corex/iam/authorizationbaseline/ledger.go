@@ -20,6 +20,10 @@ func Reconcile(db *gorm.DB, at time.Time) error {
 }
 
 func reconcileTracks(db *gorm.DB, at time.Time, tracks []im.AuthorizationTracking) error {
+	return reconcileTracksWhere(db, at, tracks, nil)
+}
+
+func reconcileTracksWhere(db *gorm.DB, at time.Time, tracks []im.AuthorizationTracking, accept func([]Source, bool, im.AuthorizationStream, bool) bool) error {
 	cache := map[string]ar.Facts{}
 	for _, track := range tracks {
 		key := track.TenantUUID + "/" + track.PluginID
@@ -61,6 +65,9 @@ func reconcileTracks(db *gorm.DB, at time.Time, tracks []im.AuthorizationTrackin
 			hash := Digest([]any{sources, root})
 			stream, exists := byMember[id]
 			if exists && stream.FactsHash == hash {
+				continue
+			}
+			if accept != nil && !accept(sources, root, stream, exists) {
 				continue
 			}
 			var previous *im.AuthorizationSegment

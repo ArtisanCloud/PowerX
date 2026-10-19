@@ -10,6 +10,7 @@ const (
 type RoleCode string
 
 const (
+	CodeSystemRoot    RoleCode = "root"
 	CodeSystemAdmin   RoleCode = "system_admin"
 	CodeSystemMonitor RoleCode = "system_monitor"
 	CodeRoleOwner     RoleCode = "role_owner"

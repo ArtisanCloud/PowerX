@@ -99,6 +99,7 @@
     "aiSettingsAgentAccess": "Agent Authorization"
   },
   "common": {
+    "coreManaged": "Managed by Core",
     "showSecret": "Show contents",
     "hideSecret": "Hide contents",
     "collapse": "Collapse",
@@ -2068,7 +2069,13 @@
       "clear": "Clear notifications",
       "viewAll": "View all notifications",
       "empty": "No unread notifications",
-      "navigationError": "Unable to open this notification. Retry or contact an administrator."
+      "navigationError": "Unable to open this notification. Retry or contact an administrator.",
+      "loadingDetail": "Loading notification…",
+      "unavailable": "This notification is unavailable, deleted, or belongs to another account.",
+      "loadError": "Unable to load this notification. Please retry.",
+      "backToList": "Back to list",
+      "retry": "Retry",
+      "readError": "Unable to mark this notification as read. Please try again."
     }
   },
   "profile": {
@@ -3358,6 +3365,13 @@
     "back": "Back to customers"
   },
   "backupCenter": {
+    "taskLink": {
+      "loading": "Loading the linked record…",
+      "focused": "Showing the record linked from this notification",
+      "showAll": "Show all records",
+      "unavailable": "This record does not exist or you do not have access.",
+      "failed": "Unable to load the record. Refresh to retry."
+    },
     "realtimeDisconnected": "Status updates disconnected. Reconnecting; you can also refresh manually.",
     "onDemand": {
       "restoreMedia": "Restore to a new directory",

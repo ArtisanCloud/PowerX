@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -247,17 +248,36 @@ func (s *Service) Import(ctx context.Context, source io.Reader, password string)
 		return out, e
 	}
 	out = Snapshot{RecoverySupported: supportsManagedRecovery(configuration), ID: m.ID, Status: "ready", Phase: "imported", CreatedAt: m.CapturedAt, CapturedAt: &m.CapturedAt, UpdatedAt: s.opts.Now(), Trigger: "import", Instance: m.Instance, Version: m.Version, Components: components(m.Files), Imported: true, Protected: true, Operator: operator(ctx)}
-	if e = s.audit(ctx, "import", m.ID, "success"); e != nil {
+	if e = s.audit(ctx, "import", m.ID, "started"); e != nil {
 		return Snapshot{}, e
 	}
-	if e = os.Rename(temp, s.data(m.ID)); e != nil {
+	if e = s.publishImportedSnapshot(temp, out, atomicJSONPublished); e != nil {
+		s.finishAudit(ctx, "import", m.ID, "failed")
 		return Snapshot{}, e
 	}
-	if e = atomicJSON(s.record("snapshots", m.ID), out); e != nil {
-		return Snapshot{}, e
-	}
+	s.finishAudit(ctx, "import", m.ID, "success")
 	return out, nil
 }
+
+// publishImportedSnapshot 在执行锁内发布内容与记录；未发布记录时退回暂存目录，
+// 交给 Import 的清理收尾。记录已经可见而同步失败时保留两者，不破坏可读取的包。
+func (s *Service) publishImportedSnapshot(temp string, out Snapshot, publish func(string, any) (bool, error)) error {
+	if err := os.Rename(temp, s.data(out.ID)); err != nil {
+		return err
+	}
+	published, err := publish(s.record("snapshots", out.ID), out)
+	if err == nil || published {
+		return err
+	}
+	if rollbackErr := os.Rename(s.data(out.ID), temp); rollbackErr != nil {
+		// 磁盘耗尽等情况下 rename 也可能失败；新内容尚未对外发布，可直接清理。
+		if cleanupErr := os.RemoveAll(s.data(out.ID)); cleanupErr != nil {
+			return errors.Join(err, fmt.Errorf("导入记录发布失败，内容目录回滚未完成：%w", rollbackErr), fmt.Errorf("导入内容清理失败：%w", cleanupErr))
+		}
+	}
+	return err
+}
+
 func extractPackage(ctx context.Context, source io.Reader, dir string) error {
 	tr := tar.NewReader(source)
 	seen := map[string]bool{}

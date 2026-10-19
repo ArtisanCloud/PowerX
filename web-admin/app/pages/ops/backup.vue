@@ -11,6 +11,9 @@
     <UAlert v-if="error" color="error" :title="error" />
     <UAlert v-if="notice" color="success" :title="notice" />
     <UAlert v-if="isRoot && backupEventStatus === 'disconnected'" color="warning" :title="t('backupCenter.realtimeDisconnected')" />
+    <UAlert v-if="linkedTask" :color="linkedError ? 'warning' : 'info'" :title="t(linkedLoading ? 'backupCenter.taskLink.loading' : linkedError || 'backupCenter.taskLink.focused')" data-testid="backup-linked-task">
+      <template #actions><UButton color="neutral" variant="outline" @click="clearTaskLink">{{ t('backupCenter.taskLink.showAll') }}</UButton></template>
+    </UAlert>
 
     <UTabs v-model="activeView" :items="viewItems" variant="link" :ui="{ list: 'overflow-x-auto justify-start border-b border-gray-200 dark:border-gray-700', trigger: 'shrink-0 flex-none', content: 'pt-6' }">
       <template #snapshots><SystemSnapshotsPanel v-if="isRoot" ref="systemSnapshots" /><UAlert v-else color="warning" :title="t('backupCenter.archives.rootOnly')" /></template>
@@ -33,16 +36,16 @@
             <template #header>
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <h2 class="text-lg font-semibold">{{ t('backupCenter.jobs') }}</h2>
-                <UBadge color="neutral" variant="subtle">{{ jobsTotal }}</UBadge>
+                <UBadge color="neutral" variant="subtle">{{ linkedTask?.kind === 'job' ? displayedJobs.length : jobsTotal }}</UBadge>
               </div>
-              <div class="mt-4 flex flex-wrap gap-2" role="group" :aria-label="t('backupCenter.workspace.jobViews')" data-testid="backup-job-views">
+              <div v-if="linkedTask?.kind !== 'job'" class="mt-4 flex flex-wrap gap-2" role="group" :aria-label="t('backupCenter.workspace.jobViews')" data-testid="backup-job-views">
                 <UButton v-for="view in jobViewItems" :key="view.value" size="sm" :variant="jobsView === view.value ? 'solid' : 'outline'" :color="jobsView === view.value ? 'primary' : 'neutral'" :aria-pressed="jobsView === view.value" :disabled="busy" @click="perform(() => changeJobView(view.value))">{{ view.label }}</UButton>
               </div>
-              <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">{{ t(jobsView === 'available' ? 'backupCenter.workspace.availableHint' : 'backupCenter.workspace.historyHint') }}</p>
+              <p v-if="linkedTask?.kind !== 'job'" class="mt-3 text-sm text-gray-500 dark:text-gray-400">{{ t(jobsView === 'available' ? 'backupCenter.workspace.availableHint' : 'backupCenter.workspace.historyHint') }}</p>
             </template>
-            <BackupJobTable :items="jobs" :can-execute="canExecute && !busy" :can-recover="isRoot" @restore-copy="openRestoreCopy" @restore-verify="job => confirmation = { kind: 'restore', job }" @protection="job => perform(() => protect(job))" @download="job => perform(() => backup.downloadJob(job.id))" />
+            <BackupJobTable v-if="!linkedLoading && !(linkedTask?.kind === 'job' && linkedError)" :items="displayedJobs" :can-execute="canExecute && !busy" :can-recover="isRoot" @restore-copy="openRestoreCopy" @restore-verify="job => confirmation = { kind: 'restore', job }" @protection="job => perform(() => protect(job))" @download="job => perform(() => backup.downloadJob(job.id))" />
             <template #footer>
-              <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
+              <div v-if="linkedTask?.kind !== 'job'" class="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
                 <span>{{ t('backupCenter.page', { page: jobsPage, total: jobsTotal }) }}</span>
                 <div class="flex gap-2"><UButton color="neutral" variant="outline" :disabled="jobsPage <= 1 || busy" @click="perform(() => changePage(-1))">{{ t('backupCenter.previous') }}</UButton><UButton color="neutral" variant="outline" :disabled="jobsPage * 20 >= jobsTotal || busy" @click="perform(() => changePage(1))">{{ t('backupCenter.next') }}</UButton></div>
               </div>
@@ -85,7 +88,7 @@
 <RestoreCopiesPanel v-if="isRoot" ref="restoreCopies" :jobs="jobs" />
 </template>
 <template #verification>
-<RestoreDrillPanel :history="drills" :alerts="alerts" :can-execute="canExecute && !busy" @ack="id => perform(() => ackAlert(id))" />
+<RestoreDrillPanel v-if="!linkedLoading && !(linkedTask?.kind === 'drill' && linkedError)" :history="displayedDrills" :focused-id="linkedDrill?.id" :alerts="linkedTask?.kind === 'drill' ? [] : alerts" :can-execute="canExecute && !busy" @ack="id => perform(() => ackAlert(id))" />
 </template>
 <template #overview>
 <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -150,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import * as v from 'valibot';
 import { useBackupOpsService, type BackupPolicy, type BackupJob, type BackupOverview, type RestoreDrillRecord, type BackupAlert } from '~/composables/api/services/backupOpsService';
 import { useOpsAccess } from '~/composables/useOpsAccess';
@@ -191,6 +194,49 @@ const systemSnapshots = ref<InstanceType<typeof SystemSnapshotsPanel>>();
 const overview = ref<BackupOverview>();
 const policies = ref<BackupPolicy[]>([]);
 const jobs = ref<BackupJob[]>([]);
+const route = useRoute();
+const linkedTask = computed(() => {
+  const query = route.query || {};
+  if (query.job_id) return { kind: 'job' as const, id: query.job_id };
+  if (query.drill_id) return { kind: 'drill' as const, id: query.drill_id };
+  return null;
+});
+const contextLoaded = ref(false);
+const linkedJob = ref<BackupJob>();
+const linkedDrill = ref<RestoreDrillRecord>();
+const linkedLoading = ref(false);
+const linkedError = ref('');
+const linkRetry = ref(0);
+const displayedJobs = computed(() => linkedTask.value?.kind === 'job' ? (linkedJob.value ? [linkedJob.value] : []) : jobs.value);
+const displayedDrills = computed(() => linkedTask.value?.kind === 'drill' ? (linkedDrill.value ? [linkedDrill.value] : []) : drills.value);
+watch([linkedTask, contextLoaded, linkRetry], async ([task, ready], _previous, onCleanup) => {
+  let current = true;
+  onCleanup(() => { current = false; });
+  linkedJob.value = undefined; linkedDrill.value = undefined; linkedError.value = '';
+  linkedLoading.value = Boolean(task);
+  if (!task) return;
+  activeView.value = 'operations';
+  databaseSection.value = task.kind === 'job' ? 'files' : 'verification';
+  if (!ready) return;
+  if (typeof task.id !== 'string' || !/^[1-9]\d*$/.test(task.id) || (route.query?.job_id && route.query?.drill_id)) {
+    linkedError.value = 'backupCenter.taskLink.unavailable'; linkedLoading.value = false; return;
+  }
+  try {
+    const item = task.kind === 'job' ? await backup.getJob(task.id) : await backup.getRestoreDrill(task.id);
+    if (!current) return;
+    if (!item || String(item.id) !== task.id) { linkedError.value = 'backupCenter.taskLink.unavailable'; return; }
+    if (task.kind === 'job') linkedJob.value = item as BackupJob;
+    else linkedDrill.value = item as RestoreDrillRecord;
+  } catch (e: any) {
+    if (!current) return;
+    const status = e?.statusCode || e?.status || e?.response?.status;
+    linkedError.value = status === 404 || status === 403 ? 'backupCenter.taskLink.unavailable' : 'backupCenter.taskLink.failed';
+  } finally { if (current) linkedLoading.value = false; }
+}, { immediate: true });
+function clearTaskLink() {
+  const { job_id: _job, drill_id: _drill, ...query } = route.query || {};
+  return navigateTo({ path: route.path, query }, { replace: true });
+}
 const enabledPolicyCount = computed(() => policies.value.filter(policy => policy.enabled).length);
 const timeLabel = (value?: string) => formatBackupTime(value, String(locale.value || 'zh-CN'));
 const intervalLabel = (policy: BackupPolicy) => {
@@ -241,6 +287,7 @@ async function perform(action: () => Promise<unknown>) {
 async function refreshCurrentView() {
   if (activeView.value === 'snapshots') { await systemSnapshots.value?.refresh(); return; }
   await load();
+  if (linkedTask.value) linkRetry.value++;
 }
 async function openRestoreCopy(job: BackupJob) { databaseSection.value = 'copies'; await nextTick(); restoreCopies.value?.open(job); }
 async function loadJobs() { const result = await backup.listJobs({ view: jobsView.value, page: jobsPage.value, pageSize: 20 }); jobs.value = result.items; jobsTotal.value = result.total; }
@@ -281,5 +328,5 @@ async function confirmAction() {
   else if (action.kind === 'cleanup') { await backup.triggerCleanup(); await load(); notice.value = t('backupCenter.cleanupSucceeded'); }
   else { const drill = await backup.triggerRestoreDrill(action.job.id); databaseSection.value = 'verification'; await load(); if (drill.status !== 'success') throw new Error(drill.report_uri || t('backupCenter.failed')); notice.value = t('backupCenter.verifySucceeded'); }
 }
-onMounted(() => perform(async () => { await loadUserContext(); if (isRoot?.value) activeView.value = 'snapshots'; await load(); }));
+onMounted(() => perform(async () => { await loadUserContext(); contextLoaded.value = true; if (isRoot?.value && !linkedTask.value) activeView.value = 'snapshots'; await load(); }));
 </script>

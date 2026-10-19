@@ -135,35 +135,49 @@ func TestReadInitializedAndMissingMemberAreDistinctFromDenial(t *testing.T) {
 	require.Equal(t, read.AuthorizationRevision, same.Items[0].AuthorizationRevision)
 }
 
-func TestRootMemberRequiresFormalTenantCostGrant(t *testing.T) {
+func TestRootMemberUsesManagedRootWithoutBusinessRoleOrAdminExpansion(t *testing.T) {
 	f := newFixture(t, false)
+	f.initialize(t, "operations.order:read")
+	var originalBindings []im.RoleBinding
+	require.NoError(t, f.db.Find(&originalBindings).Error)
+	var tenantGrants []im.RolePermission
+	require.NoError(t, f.db.Joins("JOIN "+(&im.Role{}).TableName()+" r ON r.uuid = role_uuid").Where("r.scope = ?", "tenant").Find(&tenantGrants).Error)
 	require.NoError(t, f.db.Model(&im.User{}).Where("id=?", f.user.UserID).Update("is_root", true).Error)
 	cost := im.Permission{Module: "operations", Resource: "cost", Action: "read", Effect: "allow", Status: im.PermissionStatusActive, Source: "plugin:" + f.plugin, Meta: datatypes.JSON(`{"authorization_baseline":true}`)}
+	registeredAt := baseline.Micro(time.Now())
 	require.NoError(t, f.db.Create(&cost).Error)
-	f.initialize(t, "operations.order:read", "operations.cost:read")
-	before, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read", "operations.cost:read"))
+	allowed, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read", "operations.cost:read"))
 	require.NoError(t, err)
-	require.True(t, *before.Items[0].Allowed, "Root 的正式成员授权可用于业务基线")
-	require.Equal(t, baseline.RootBypass, before.Items[1].ErrorCode)
-	require.Nil(t, before.Items[1].Allowed)
-	role := im.Role{Scope: "tenant", TenantUUID: f.tenant, Code: "cost_reader", Name: "Cost Reader"}
-	require.NoError(t, f.db.Create(&role).Error)
-	require.NoError(t, f.db.Create(&im.RolePermission{RoleID: role.ID, RoleUUID: role.UUID, PermissionID: cost.ID, PermissionUUID: cost.PermissionUUID}).Error)
-	binding := im.RoleBinding{TenantUUID: f.tenant, RoleID: role.ID, RoleUUID: role.UUID.String(), SubjectType: im.SubMember, SubjectID: f.member.ID, SubjectUUID: f.member.UUID.String(), DataScope: im.ScopeTenant}
-	require.NoError(t, f.db.Create(&binding).Error)
-	allowed, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.cost:read"))
-	require.NoError(t, err)
-	require.Equal(t, "decided", allowed.Items[0].Status)
 	require.True(t, *allowed.Items[0].Allowed)
-	require.Equal(t, "TENANT", allowed.Items[0].DataScope)
-	require.Equal(t, "native", allowed.Items[0].BaselineKind)
-	require.NotNil(t, allowed.Items[0].GrantedAt)
-	// 撤销正式来源后，Root 全局旁路仍不能维持个人业务授权或旧阅读窗口。
-	require.NoError(t, f.db.Delete(&binding).Error)
-	revoked, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.cost:read"))
+	require.True(t, *allowed.Items[1].Allowed)
+	require.Equal(t, "TENANT", allowed.Items[1].DataScope)
+	// New registration establishes its own real start; no backdated grant is invented.
+	visibleAt, err := time.Parse(time.RFC3339Nano, *allowed.Items[1].VisibleSince)
 	require.NoError(t, err)
-	require.Equal(t, baseline.RootBypass, revoked.Items[0].ErrorCode)
-	require.Nil(t, revoked.Items[0].Allowed)
+	require.False(t, visibleAt.Before(registeredAt))
+	var bindingsAfter []im.RoleBinding
+	require.NoError(t, f.db.Find(&bindingsAfter).Error)
+	require.Equal(t, originalBindings, bindingsAfter, "root must not receive a fabricated business role binding")
+	var tenantGrantsAfter []im.RolePermission
+	require.NoError(t, f.db.Joins("JOIN "+(&im.Role{}).TableName()+" r ON r.uuid = role_uuid").Where("r.scope = ?", "tenant").Find(&tenantGrantsAfter).Error)
+	require.Equal(t, tenantGrants, tenantGrantsAfter)
+	// Removing the live root identity removes only its managed source. Ordinary grants survive.
+	require.NoError(t, f.db.Model(&im.User{}).Where("id=?", f.user.UserID).Update("is_root", false).Error)
+	revoked, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read", "operations.cost:read"))
+	require.NoError(t, err)
+	require.True(t, *revoked.Items[0].Allowed)
+	require.False(t, *revoked.Items[1].Allowed)
+	regrantedAt := baseline.Micro(time.Now())
+	require.NoError(t, f.db.Model(&im.User{}).Where("id=?", f.user.UserID).Update("is_root", true).Error)
+	regranted, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.cost:read"))
+	require.NoError(t, err)
+	require.True(t, *regranted.Items[0].Allowed)
+	require.Equal(t, "native", regranted.Items[0].BaselineKind)
+	require.NotNil(t, regranted.Items[0].GrantedAt)
+	grantedAt, err := time.Parse(time.RFC3339Nano, *regranted.Items[0].GrantedAt)
+	require.NoError(t, err)
+	require.False(t, grantedAt.Before(regrantedAt))
+	require.NotEqual(t, allowed.Items[1].AuthorizationRevision, regranted.Items[0].AuthorizationRevision)
 }
 
 func TestReadUnavailableScopePolicyRootAndRevocation(t *testing.T) {
@@ -191,9 +205,13 @@ func TestReadUnavailableScopePolicyRootAndRevocation(t *testing.T) {
 	require.NotNil(t, after.Items[0].GrantedAt)
 	require.NoError(t, f.db.Model(&im.User{}).Where("uuid=?", f.user.UserUUID).Update("is_root", true).Error)
 	require.NoError(t, f.db.Where("tenant_uuid=?", f.tenant).Delete(&im.RoleBinding{}).Error)
-	bypass, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read"))
+	managed, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read"))
 	require.NoError(t, err)
-	require.Equal(t, baseline.RootBypass, bypass.Items[0].ErrorCode)
+	require.True(t, *managed.Items[0].Allowed)
+	require.NoError(t, f.db.Model(&im.User{}).Where("uuid=?", f.user.UserUUID).Update("is_root", false).Error)
+	revoked, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read"))
+	require.NoError(t, err)
+	require.False(t, *revoked.Items[0].Allowed)
 }
 
 func TestServiceGrantPublicationOwnerAndExpiryAreLive(t *testing.T) {

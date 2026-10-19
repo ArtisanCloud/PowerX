@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 
@@ -54,6 +55,9 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
 	}
+	if rootrole.IsManaged(*cur) {
+		return rootrole.ErrManaged
+	}
 	// 非 root：仅允许给本租户的 tenant 角色授权
 	if !actor.IsRoot {
 		ctxTenant := strings.TrimSpace(actor.TenantUUID)
@@ -74,6 +78,16 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContext, roleID uint64, triples []PermTriple) error {
 	if len(triples) == 0 {
 		return nil
+	}
+	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
+	if err != nil {
+		return err
+	}
+	if role == nil {
+		return gorm.ErrRecordNotFound
+	}
+	if rootrole.IsManaged(*role) {
+		return rootrole.ErrManaged
 	}
 	// 1) 先 upsert 权限行（幂等）
 	toUpsert := make([]dbm.Permission, 0, len(triples))
@@ -243,6 +257,9 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor Actor
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
 	}
+	if rootrole.IsManaged(*cur) {
+		return rootrole.ErrManaged
+	}
 	if !actor.IsRoot {
 		ctxTenant := strings.TrimSpace(actor.TenantUUID)
 		if ctxTenant == "" {
@@ -285,6 +302,9 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, 
 	}
 	if role == nil { // ✅ 防 NPE
 		return SetIDsResult{}, service.ErrRoleNotFound
+	}
+	if rootrole.IsManaged(*role) {
+		return SetIDsResult{}, rootrole.ErrManaged
 	}
 
 	// 鉴权：非 root 只能改本租户
