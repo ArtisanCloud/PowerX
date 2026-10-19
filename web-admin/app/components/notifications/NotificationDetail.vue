@@ -3,11 +3,14 @@ import type { Notification } from "~/types/notification";
 
 const props = defineProps<{
   notification: Notification | null;
+  loading?: boolean;
+  errorKey?: string;
 }>();
 
 const emit = defineEmits<{
   close: [];
   back: [];
+  retry: [];
 }>();
 
 const { executeAction, markAsRead, isNotificationRead } = useNotifications();
@@ -82,7 +85,8 @@ const handleActionClick = async (actionId: string) => {
 // 标记为已读
 const handleMarkAsRead = async () => {
   if (!props.notification || isNotificationRead(props.notification)) return;
-  await markAsRead(props.notification.id);
+  try { await markAsRead(props.notification.id); }
+  catch { actionToast.add({ title: t('header.notifications.readError'), color: 'error' }); }
 };
 
 // 监听通知变化，自动标记为已读
@@ -93,12 +97,20 @@ watch(
       handleMarkAsRead();
     }
   },
-  { immediate: true }
+  { immediate: true, flush: 'post' }
 );
 </script>
 
 <template>
-  <div v-if="displayNotification" class="flex flex-col h-full">
+  <div v-if="loading || errorKey" class="flex h-full min-h-64 flex-col items-center justify-center gap-4 p-6 text-center" :aria-busy="loading" role="status" data-testid="notification-detail-state">
+    <UIcon :name="loading ? 'i-heroicons-arrow-path' : 'i-heroicons-bell-slash'" class="h-10 w-10 text-muted" :class="{ 'animate-spin': loading }" />
+    <p class="text-default">{{ t(`header.notifications.${loading ? 'loadingDetail' : errorKey}`) }}</p>
+    <div v-if="!loading" class="flex gap-3">
+      <UButton color="neutral" variant="outline" @click="emit('back')">{{ t('header.notifications.backToList') }}</UButton>
+      <UButton @click="emit('retry')">{{ t('header.notifications.retry') }}</UButton>
+    </div>
+  </div>
+  <div v-else-if="displayNotification" class="flex flex-col h-full">
     <!-- 头部 -->
     <div class="flex items-center justify-between p-4 border-b border-gray-200">
       <div class="flex items-center space-x-3">

@@ -386,7 +386,11 @@ func (c *Coordinator) liveRecoveryRoot(r *http.Request, active Active) (*reqctx.
 	client := httpClient(socket)
 	defer client.CloseIdleConnections()
 	client.Timeout = 5 * time.Second
-	req, _ := http.NewRequestWithContext(r.Context(), "GET", host+"/"+strings.Trim(cfg.Server.APIPrefix, "/")+"/admin/user/auth/me/context", nil)
+	prefix := strings.Trim(config.ResolveAPIPrefix(cfg), "/")
+	if prefix != "" {
+		prefix = "/" + prefix
+	}
+	req, _ := http.NewRequestWithContext(r.Context(), "GET", host+prefix+"/admin/user/auth/me/context", nil)
 	req.Header.Set("Authorization", r.Header.Get("Authorization"))
 	response, err := client.Do(req)
 	if err != nil {

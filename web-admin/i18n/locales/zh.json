@@ -2213,7 +2213,13 @@
       "clear": "清空消息",
       "viewAll": "查看所有通知",
       "empty": "暂无未读通知",
-      "navigationError": "无法打开通知入口，请重试或联系管理员。"
+      "navigationError": "无法打开通知入口，请重试或联系管理员。",
+      "loadingDetail": "正在加载通知…",
+      "unavailable": "通知不存在、已删除，或不属于当前账号。",
+      "loadError": "通知加载失败，请重试。",
+      "backToList": "返回列表",
+      "retry": "重试",
+      "readError": "更新已读状态失败，请稍后重试。"
     }
   },
   "profile": {
@@ -3623,6 +3629,13 @@
     "back": "返回客户列表"
   },
   "backupCenter": {
+    "taskLink": {
+      "loading": "正在加载通知对应的记录…",
+      "focused": "当前显示通知对应的记录",
+      "showAll": "查看全部记录",
+      "unavailable": "记录不存在，或当前账号无权查看。",
+      "failed": "记录加载失败，请点击刷新重试。"
+    },
     "realtimeDisconnected": "状态连接已中断，正在重新连接；你也可以手动刷新。",
     "onDemand": {
       "restoreMedia": "恢复到新目录",

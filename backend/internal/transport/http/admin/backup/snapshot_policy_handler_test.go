@@ -15,7 +15,8 @@ import (
 )
 
 func TestManualSnapshotHTTPBindsSelectedSystemPolicy(t *testing.T) {
-	svc, engine, root, member := snapshotHTTPFixture(t)
+	// 本用例验证入队时的策略绑定与幂等，不启动会竞争策略锁的后台采集／清理。
+	svc, engine, root, member := snapshotHTTPFixture(t, snapshotops.Options{DispatchCapture: func(context.Context, string) error { return nil }})
 	ctx := reqctx.WithIsRoot(reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{IsRoot: true}), true)
 	p := snapshotops.Policy{IntervalMinutes: 1440, RetentionDays: 7, RetentionCount: 7}
 	a, e := svc.PutPolicy(ctx, "", "Daily", p)
@@ -54,7 +55,7 @@ func TestManualSnapshotHTTPBindsSelectedSystemPolicy(t *testing.T) {
 	require.Equal(t, 409, stale.Code)
 	require.Contains(t, stale.Body.String(), "SNAPSHOT_POLICY_CHANGED")
 	replayed := call(root, key, body)
-	require.Equal(t, 202, replayed.Code)
+	require.Equal(t, 202, replayed.Code, replayed.Body.String())
 	require.NoError(t, json.Unmarshal(replayed.Body.Bytes(), &result))
 	require.Equal(t, first.ID, result.Data.Snapshot.ID)
 	conflict := call(root, key, fmt.Sprintf(`{"policy_id":%q}`, b.ID))

@@ -31,16 +31,27 @@ func cleanPath(p string) bool {
 }
 func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 func atomicJSON(file string, v any) error {
+	_, e := atomicJSONPublished(file, v)
+	return e
+}
+
+// atomicJSONPublished 区分发布前失败和 rename 已完成后的目录同步失败。
+func atomicJSONPublished(file string, v any) (bool, error) {
 	b, e := json.MarshalIndent(v, "", "  ")
 	if e != nil {
-		return e
+		return false, e
 	}
-	return atomicFile(file, b)
+	return atomicFilePublished(file, b)
 }
 func atomicFile(file string, b []byte) error {
+	_, e := atomicFilePublished(file, b)
+	return e
+}
+
+func atomicFilePublished(file string, b []byte) (bool, error) {
 	f, e := os.CreateTemp(filepath.Dir(file), ".snapshot-")
 	if e != nil {
-		return e
+		return false, e
 	}
 	defer os.Remove(f.Name())
 	if e = f.Chmod(0600); e == nil {
@@ -51,20 +62,20 @@ func atomicFile(file string, b []byte) error {
 	}
 	ce := f.Close()
 	if e != nil {
-		return e
+		return false, e
 	}
 	if ce != nil {
-		return ce
+		return false, ce
 	}
 	if e = os.Rename(f.Name(), file); e != nil {
-		return e
+		return false, e
 	}
 	d, e := os.Open(filepath.Dir(file))
 	if e != nil {
-		return e
+		return true, e
 	}
 	defer d.Close()
-	return d.Sync()
+	return true, d.Sync()
 }
 func readJSON(file string, v any) error {
 	info, e := os.Lstat(file)

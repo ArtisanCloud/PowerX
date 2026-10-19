@@ -1,0 +1,130 @@
+{
+  "recorded_at": "2026-10-19T05:24:05.778906+00:00",
+  "problem": "Backup/restore status was broadcast without persistence; the browser manufactured an ID and the notification center ignored the URL id.",
+  "changes": [
+    "Persist terminal results using the existing member notification service before WS publication.",
+    "Manual recipients are bound to the initiating IAM member; scheduled jobs target active Root members in the execution tenant.",
+    "Reuse existing navigation actions to open the exact job/drill, including records outside the first history page.",
+    "Load notification URL details only after member context is ready; discard late route/identity responses and show unavailable/retry states.",
+    "Ignore WS task events without a server ID; retain mobile filters/page state; keep all read states in the default list."
+  ],
+  "database_migration_required": false,
+  "framework_change_required": false,
+  "plugin_repackage_required": false,
+  "validation": [
+    {
+      "cwd": "backend",
+      "command": "go test -race ./internal/service/backup_ops ./internal/service/notifications ./internal/transport/websocket/bus",
+      "result": "passed",
+      "scope": "SQLite notification/IAM persistence plus production member-scoped WS; tests cover real IDs/navigation, failure-to-persist, recipient isolation and numeric JWT identities. Native PostgreSQL dump integration is env-gated and was not rerun."
+    },
+    {
+      "cwd": "backend",
+      "command": "go test ./internal/transport/http/admin/notifications ./internal/transport/http/openapi/notifications",
+      "result": "passed"
+    },
+    {
+      "cwd": "backend",
+      "command": "go vet ./internal/service/backup_ops ./internal/service/notifications",
+      "result": "passed"
+    },
+    {
+      "cwd": "web-admin",
+      "command": "npx vitest run tests/unit/notifications tests/unit/backup",
+      "result": "134 passed, 18 files"
+    },
+    {
+      "cwd": "web-admin",
+      "command": "POWERX_NUXT_BUILD_DIR=.nuxt-notification-validation POWERX_NITRO_OUTPUT_DIR=.output-notification-validation NUXT_PUBLIC_E2E_SKIP_AUTH=true npm run build",
+      "result": "passed",
+      "scope": "Isolated E2E build only; do not deploy this test artifact."
+    },
+    {
+      "cwd": "web-admin",
+      "command": "npx playwright test --config playwright.notifications.config.ts",
+      "result": "2 passed",
+      "scope": "Real Nuxt UI with mock backend/WS, 1440x1000 light and 390x844 dark. Direct/missing notifications, read persistence, absent-ID event excluded from the opened bell menu, idle request observation, return to list, exact historical task and restore navigation, and no JS errors/overflow."
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "browser_fixture_failures_resolved": [
+    "Initial duplicate heading locator was narrowed to the detail h1.",
+    "Production WS uses the same-origin relative path by default; the fixture now explicitly supplies its isolated absolute WS path.",
+    "Fixture keeps the real backup SSE connection open and closes owned streams during teardown."
+  ],
+  "first_browser_attempt_artifacts": "/tmp/powerx-notification-browser-first-attempt",
+  "screenshots": [
+    {
+      "path": "test-results/notifications-browser/notification-center-notifi-3778c-links-on-narrow-dark-screen-chromium/backup-link-narrow.png",
+      "sha256": "2a51342dbf579966a2912bfb5141fd0e645d7c07c0475703e6048b2c33ab35a9"
+    },
+    {
+      "path": "test-results/notifications-browser/notification-center-notifi-3778c-links-on-narrow-dark-screen-chromium/notification-detail-narrow.png",
+      "sha256": "6db2b9f2064b587a15ba075a9646de6747e577a0e5153a1b2f32a81ff48d40dc"
+    },
+    {
+      "path": "test-results/notifications-browser/notification-center-notifi-3778c-links-on-narrow-dark-screen-chromium/notification-missing-narrow.png",
+      "sha256": "0a46625359b35abb796de48cd1987122fae50516f38e6594191a26876922d0bc"
+    },
+    {
+      "path": "test-results/notifications-browser/notification-center-notifi-9b74b-nks-on-desktop-light-screen-chromium/backup-link-desktop.png",
+      "sha256": "fbaa56363d507b5efb11611ab5a47dd80b3d09b1bc337624f6d319260b6bfe0b"
+    },
+    {
+      "path": "test-results/notifications-browser/notification-center-notifi-9b74b-nks-on-desktop-light-screen-chromium/notification-detail-desktop.png",
+      "sha256": "0305d1652749e35986917db5ed910f54c2eca6c2d2571dd59a754cdd59f59500"
+    },
+    {
+      "path": "test-results/notifications-browser/notification-center-notifi-9b74b-nks-on-desktop-light-screen-chromium/notification-missing-desktop.png",
+      "sha256": "9030a2c54529061499862ee34f6850fee62245e2356e9aa5961783b54ee4d4b0"
+    }
+  ],
+  "process_cleanup": {
+    "owner": "notification-browser-tests",
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+    "fixturePid": 85400,
+    "fixturePort": 3492,
+    "webPid": 85401,
+    "webPort": 3491,
+    "command": [
+      "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+      "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-notification-validation/server/index.mjs"
+    ],
+    "all_recorded_pids_exited": true,
+    "ports_released": [
+      3491,
+      3492
+    ]
+  },
+  "deployment": {
+    "remote_modified": false,
+    "user_services_restarted": false,
+    "remote_acceptance": "pending normal Core and web-admin deployment; refresh the browser and create a new task result. Old invented IDs cannot be backfilled."
+  },
+  "source_sha256": {
+    "backend/internal/service/backup_ops/job_service.go": "6ffc13f11b0d890404b7ced3b843fe79ec2c6e2a102e5bebe92fbaec9ccfd769",
+    "backend/internal/service/backup_ops/restore_drill_service.go": "0dd1cdaf70577816978b2167e03b9ac2e8750b910b5c89417749e4ef6c43e384",
+    "backend/internal/service/backup_ops/ws_notify.go": "9d48db8125dc827c328d6f0f6ae66e31b7255abc840004b6c97b996a611cde94",
+    "backend/internal/service/backup_ops/ws_notify_test.go": "f99e5a2d8dc16077c2d83d61ef6edd183831f7498ac711fc9ddb755ccccab486",
+    "backend/internal/service/notifications/event.go": "692fc532642831ca5c73d5c7c1daa359047743de7d82c2ee15cf76e4f66cee21",
+    "docs/contracts/notification-member-delivery.md": "2246af3a01414a6b7cb4fd83a50e4947714f935b9e0874f2af3f2af5cf5a983e",
+    "web-admin/app/components/layout/Header.vue": "2dc2bd635fb49a2ff2e55837dcd678fe953ede0f93a860e7c77c42553e50efe3",
+    "web-admin/app/components/notifications/NotificationDetail.vue": "b017a2ddb92526beb6b1481bd166c1e39f231de3561d1b51a58f8a8fdc87a54f",
+    "web-admin/app/components/notifications/NotificationList.vue": "8a60051c4136ebda2f8fce0c43bb2a29a811e6c25b2fa49bf8df94841487098c",
+    "web-admin/app/components/ops/backup/RestoreDrillPanel.vue": "8df5af8b5238b9fc47dac15a2327b6aab3a54195dc8a327ba0ecf0aa88458151",
+    "web-admin/app/composables/useNotifications.ts": "600bee78008cb3942b57a1c2350edba79dd4378dcc9ebfff56f907063e5b053c",
+    "web-admin/app/pages/notifications/index.vue": "b1dfc0c5a9dd9a0d30b0a61e1416b373f9d0cf1a7a60e73bdb6284b3c7a89e00",
+    "web-admin/app/pages/ops/backup.vue": "7bffcaa83bfc69dac9beb730417b2d0feb7115099e75815acf6a432fa11eece3",
+    "web-admin/i18n/locales/en.json": "93e1f440d38be627de52174aa1667615e74fa3739c73e5b9c268a7ddc13ed33f",
+    "web-admin/i18n/locales/zh.json": "9cc8aa41a3a7fa7cf7df7dcfe7ffb887052a0f8aac152da2a73c58ac1cbab919",
+    "web-admin/playwright.notifications.config.ts": "6105d1f5456f67dc2e683baf5638fe8a39d63b1c029e1bd44c38d14b2333a62f",
+    "web-admin/scripts/notification-browser-fixture.mjs": "0270c587e7e89993829c945ce2f6301e2a4cfc5aed67741143252dfb64c84f2a",
+    "web-admin/tests/e2e/notifications/notification-center.spec.ts": "57dd53bfb1b58c5ea46d2c3a97bbaef9058535da2008a8060562ea245882ab4e",
+    "web-admin/tests/unit/backup/backup-workspace.spec.ts": "04169d3c92dec72c1807f862c53be4411e26ccec44147b92a64ee11311627770",
+    "web-admin/tests/unit/notifications/header-reconnect.spec.ts": "97ed7580fc905bfb15b3937dc5386ac45359e0688551108d3b77a6ed58a79c10",
+    "web-admin/tests/unit/notifications/notification-center.spec.ts": "c679798fdb823cab2c9398277155be7046b1b9bd7fe76bfce9c64e32f16c4f02"
+  }
+}

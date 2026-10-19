@@ -2,7 +2,7 @@
   <UCard>
     <template #header><h2 class="text-lg font-semibold">{{ t('backupCenter.restoreHistory') }}</h2></template>
     <p v-if="!history.length" class="py-4 text-center text-sm text-gray-500 dark:text-gray-400">{{ t('backupCenter.noRestoreHistory') }}</p>
-    <details v-for="item in history" :key="String(item.id)" class="mb-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+    <details v-for="item in history" :key="String(item.id)" :open="String(item.id) === String(focusedId)" class="mb-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
       <summary class="flex cursor-pointer flex-wrap items-center gap-3"><span>#{{ item.id }} · {{ t('backupCenter.workspace.sourceJob') }} #{{ item.source_job_id }}</span><UBadge variant="subtle" :color="item.status === 'success' ? 'success' : item.status === 'failed' ? 'error' : 'neutral'">{{ statusLabel(item.status) }}</UBadge><span class="text-gray-500 dark:text-gray-400">{{ item.rto_seconds }} s</span><span class="ml-auto text-xs text-gray-500 dark:text-gray-400">{{ timeLabel(item.ended_at || item.started_at) }}</span></summary>
       <dl class="mt-3 grid gap-2 sm:grid-cols-2">
         <div><dt class="text-gray-500">{{ t('backupCenter.restoreTarget') }}</dt><dd class="break-all font-mono">{{ item.restore_target_db || '-' }}</dd></div>
@@ -21,7 +21,7 @@
 <script setup lang="ts">
 import type { BackupAlert, RestoreDrillRecord } from '~/composables/api/services/backupOpsService';
 import { backupStatusKey, formatBackupTime } from '~/utils/backup-display';
-defineProps<{ history: RestoreDrillRecord[]; alerts?: BackupAlert[]; canExecute: boolean }>();
+defineProps<{ history: RestoreDrillRecord[]; alerts?: BackupAlert[]; canExecute: boolean; focusedId?: string | number }>();
 const emit = defineEmits<{ ack: [id: string | number] }>();
 const { t, locale } = useI18n();
 const statusLabel = (status: string) => backupStatusKey(status) ? t(backupStatusKey(status)!) : status;

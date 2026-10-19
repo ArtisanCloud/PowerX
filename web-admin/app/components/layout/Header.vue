@@ -512,7 +512,7 @@ const getSearchResultTypeIcon = (type: string) => {
     <div class="flex items-center space-x-4">
       <!-- 通知 -->
       <UDropdownMenu :items="notificationItems">
-        <UButton variant="ghost" size="sm" class="relative">
+        <UButton variant="ghost" size="sm" class="relative" :aria-label="t('header.notifications.viewAll')">
           <span class="w-5 h-5 inline-block">
             <UIcon class="w-5 h-5 inline-block" name="i-heroicons-bell" />
           </span>

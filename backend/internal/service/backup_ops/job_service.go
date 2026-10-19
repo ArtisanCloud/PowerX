@@ -300,14 +300,7 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		zap.String("trace_id", strings.TrimSpace(updated.TraceID)),
 		zap.Bool("script_failed", execErr != nil),
 	)
-	publishBackupJobStatus(ctx, map[string]any{
-		"job_id":       toStringUint(updated.ID),
-		"policy_id":    toStringUint(updated.PolicyID),
-		"status":       string(updated.Status),
-		"trigger_type": string(updated.TriggerType),
-		"trace_id":     strings.TrimSpace(updated.TraceID),
-		"operator":     strings.TrimSpace(updated.Operator),
-	})
+	publishBackupJobStatus(ctx, s.db, updated)
 	return updated, nil
 }
 

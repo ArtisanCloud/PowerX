@@ -24,13 +24,14 @@ beforeEach(() => {
   for (const [name, value] of Object.entries({
     computed, ref, watch, onMounted, onBeforeUnmount,
     useRoute: () => ({ meta: {}, path: '/notifications' }),
+    navigateTo: vi.fn().mockResolvedValue(undefined),
     useLocalePath: () => (path: string) => path,
     useI18n: () => ({ t: (key: string) => key, te: () => false }),
     useToast: () => ({ add: vi.fn() }),
     useState: (_key: string, initial: () => unknown) => ref(initial()),
     useNuxtData: () => ({ data: ref(null) }),
     useSearch: () => ({ quickSearch: vi.fn() }),
-    useNotifications: () => ({ identityScope, notifications: ref([]), totalCount: ref(0), getStats: () => ({ unread: 0 }), fetchNotifications, addNotification: vi.fn(), clearAllNotifications: vi.fn(), openNotification: vi.fn(), applyReadReceipt: vi.fn() }),
+    useNotifications: () => ({ identityScope, identityReady: ref(true), getNotification: vi.fn(), notifications: ref([]), totalCount: ref(0), getStats: () => ({ unread: 0 }), fetchNotifications, addNotification: vi.fn(), clearAllNotifications: vi.fn(), openNotification: vi.fn(), applyReadReceipt: vi.fn() }),
   })) vi.stubGlobal(name, value);
 });
 

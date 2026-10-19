@@ -11,7 +11,7 @@ import {
 } from "~/composables/api/services/notificationService";
 import { computed, onScopeDispose, ref, readonly, watch } from "vue";
 import { useUserStore } from "~/stores/user";
-import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, captureAuthSession } from "~/utils/auth-session";
+import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, captureAuthSession, readAuthSession } from "~/utils/auth-session";
 
 export const useNotifications = (initialFilter: NotificationFilter = {}) => {
   const notifications = ref<Notification[]>([]);
@@ -27,6 +27,14 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
   const identity = computed(() => [userStore.user?.id || "", userStore.currentTenantUuid || "", userStore.currentMemberUuid || ""].join(":"));
   const sessionId = ref(captureAuthSession()?.sessionId || "");
   const identityScope = computed(() => `${identity.value}:${sessionId.value}`);
+  const identityReady = computed(() => {
+    void identityScope.value;
+    const session = readAuthSession();
+    return session?.status === 'active'
+      && session.sessionId === userStore.contextSessionStamp?.sessionId
+      && session.tenantUuid === userStore.currentTenantUuid
+      && Boolean(userStore.currentMemberUuid);
+  });
   const synchronizeSession = () => { sessionId.value = captureAuthSession()?.sessionId || ""; };
   const synchronizeStorage = (event: StorageEvent) => {
     if (event.key === AUTH_SESSION_KEY || event.key === null) synchronizeSession();
@@ -85,13 +93,6 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
     if (value instanceof Date) return value;
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-  };
-
-  const nextId = () => {
-    if (process.client && typeof crypto?.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-    return `notif-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   };
 
   const normalizeRecord = (record: NotificationRecord): Notification => {
@@ -158,11 +159,13 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
   };
 
   const addNotification = async (input: Partial<Notification>) => {
-    if (!userStore.currentTenantUuid || !accepts(input)) return;
-    if (input.id && notifications.value.some(n => n.id === input.id)) return;
+    // Only persisted notifications belong in the bell. Task/progress events
+    // without a server identity must never become unresolvable local records.
+    if (typeof input.id !== 'string' || !input.id.trim() || !userStore.currentTenantUuid || !accepts(input)) return;
+    if (notifications.value.some(n => n.id === input.id)) return;
     const createdAt = normalizeDate(input.createdAt || input.updatedAt || null);
     const payload: Notification = {
-      id: input.id || nextId(),
+      id: input.id,
       title: input.title || "新通知",
       content: input.content || "",
       type: (input.type || "info") as Notification["type"],
@@ -315,6 +318,7 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
 
   return {
     identityScope,
+    identityReady,
     notifications: readonly(notifications),
     loading: readonly(loading),
     error: readonly(error),
