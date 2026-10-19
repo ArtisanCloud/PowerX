@@ -99,6 +99,7 @@
     "aiSettingsAgentAccess": "Agent Authorization"
   },
   "common": {
+    "coreManaged": "Managed by Core",
     "showSecret": "Show contents",
     "hideSecret": "Hide contents",
     "collapse": "Collapse",

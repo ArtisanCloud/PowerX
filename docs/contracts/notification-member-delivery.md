@@ -17,11 +17,15 @@
 
 `GET <APIPrefix>/tenant/iam/members` 枚举凭据租户内实际存在、未删除的成员，不能按 `username=root` 排除成员。分页总数与列表使用同一范围；没有当前租户成员身份的全局 Root 不会因此获得或被自动创建个人收件身份。管理端成员列表及导入显示名解析不在本次调整范围。
 
-进入目录只是通知候选资格。插件仍按每个成员的正式业务授权、有效状态、读取／成本起点筛选；Root 全局旁路继续返回 `IAM_BASELINE_ROOT_BYPASS_UNSUPPORTED`，不能当作普通允许，也不能冒充拒绝。需要 Root 参与订单提醒时，应通过正式 IAM 角色授权为其租户成员建立所需 TENANT 来源，不给公共管理员角色批量扩权。
+进入目录只是通知候选资格。插件仍按每个成员的正式业务授权、有效状态、读取／成本起点筛选。Core 复用系统内置角色编码 `root`，由实时 `User.IsRoot`、有效账号及当前租户有效成员派生正式来源；权限来自该系统角色的已登记目录，并与普通业务角色使用相同的权限映射、决策、连续区间和 `authorization_revision`。不会把 Root 标志直接当作允许，不自动加入业务租户，不继承其他成员的个人通知。
 
-2026-10-18 已为目标租户的 Root 成员 `fda3589b-d30b-41b0-a859-c061c179fb58` 配置独立角色 `role_ai_craft_cost_reader`（角色 ID `1669`，绑定 ID `61`），只包含 `operations.business_dashboard.cost:read`，范围 `TENANT`。通过正式 RoleService／RBACService 在事务中完成，公共 `role_admin` 的 523 项权限未变，未重做基线初始化。实际插件 STS → Core 查询证实三项基线均允许；成本新授权的 `granted_at`／`visible_since` 为 `2026-10-18T12:20:37.508828Z`，不追溯补造过去的授权。
+`root` 由 Core 维护，不能通过角色管理或 RBAC 接口创建、编辑、删除、授予、撤销或人工绑定。角色列表标明“由 Core 维护”，业务权限编辑器排除该系统角色。`role_admin` 继续是租户管理员角色，权限和绑定不因本修复扩大；Framework 和插件不需要创建 Root 专用业务角色。
 
-目录修复仍需服务所有者重新编译／重启 Core。安装实例的 `host_notifications_enabled` 保持 `false`，由插件侧按上线步骤启用；Framework 无需新增合同。验收使用 A 修改、B 接收，操作人本次不通知自己。源码、真实服务凭据、配置变更和未完成的安装验收分别记录在 [Root 修复收据](evidence/notification-root-membership-20261018.json)。
+2026-10-18 的 `role_ai_craft_cost_reader` 是一次临时业务授权补丁，不是部署规范。其 [历史操作收据](evidence/notification-root-membership-20261018.json) 保留审计用途，不能按其内容在服务器复制角色或绑定。本修复复用已有 `root` 的 UUID/ID，不批量重命名或删除未知自建角色，也不重置已有业务授权。
+
+正常 `database migrate -config <实例配置>` 和 Core 正常启动都会维护系统 root 目录、补齐所有适用租户的基线。权限登记及 root 目录同步在同一源事务完成，错误使事务回滚，不再异步丢弃错误。既有 Root 流只有在旧事实指纹精确匹配时，才从本次升级实际时间追加正式来源；原 `known_since` 和历史决策保留，已连续允许的窗口继续保留。其他未知漂移继续返回不可用，不能通过启动猜测历史。Root 身份撤销、账号／成员／租户禁用、插件停用和权限状态变更均经统一源事务影响基线。
+
+部署新 Core 后，无需 `make seed`、手工建角色或逐租户初始化；正常启动本身可以完成这次无新增表的修复。更新 web-admin 才能看到角色管理保护。随后重新启用插件，使用实际服务凭据复核三项基线及通知开关，再由另一个成员修改内容验证 Root 收件。源码、隔离迁移和受控页面测试不替代远程安装验收，见 [本次修复证据](evidence/iam-managed-root-validation-20261019.json)。
 
 ## 插件侧对齐顺序
 

@@ -11,6 +11,7 @@ import (
 	im "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	sm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	tm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -272,6 +273,10 @@ func (t *trackedTransaction) GetDBConn() (*sql.DB, error) { return t.pool.GetDBC
 func (t *trackedTransaction) Commit() error {
 	if t.dirty && t.ready {
 		t.internal = true
+		if _, err := rootrole.Ensure(t.database()); err != nil {
+			_ = t.commit.Rollback()
+			return fmt.Errorf("IAM_ROOT_ROLE_SYNC_FAILED: %w", err)
+		}
 		at, err := transactionTime(t.database())
 		if err != nil {
 			_ = t.commit.Rollback()

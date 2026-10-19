@@ -142,6 +142,7 @@
     "signingIn": "正在登录…"
   },
   "common": {
+    "coreManaged": "由 Core 维护",
     "showSecret": "显示内容",
     "hideSecret": "隐藏内容",
     "collapse": "收起",

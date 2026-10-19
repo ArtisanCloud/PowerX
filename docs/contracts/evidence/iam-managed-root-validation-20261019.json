@@ -1,0 +1,233 @@
+{
+  "schema": "powerx.iam.managed-root.validation.v1",
+  "recorded_at": "2026-10-19T06:46:00.347829+00:00",
+  "branch": "024-ai-engineering-skills",
+  "head": "ba6ef494dd784ebad5d273fadc8d28ae017fecf9",
+  "result": "root_fix_validated_repository_suite_not_green_remote_acceptance_pending",
+  "behavior": {
+    "role_code": "root",
+    "role_scope": "system",
+    "identity_source": "live User.IsRoot + active user + existing active tenant member",
+    "permission_source": "Core maintained role catalog, evaluated through shared Grants/SnapshotPermissions/MemberSources",
+    "manual_root_role_mutation": "rejected by RoleService and RBACService; read-only in UI",
+    "role_admin_expanded": false,
+    "plugin_specific_role_created": false,
+    "memberships_created": false,
+    "source_and_catalog_transactional": true,
+    "api_contract_changed": false,
+    "new_schema_or_tables": false,
+    "upgrade": "normal migrate or normal startup; exact legacy root hash only; preserve known_since, historical segments and continuous epochs; new source begins at actual upgrade transaction time",
+    "unknown_external_drift": "remains unavailable; not healed by root catalog repair"
+  },
+  "passed": [
+    "Go baseline source, typed service, IAM and bootstrap focused suites",
+    "Go race: authorizationbaseline, authorization_baseline, iam, notifications, websocket/bus",
+    "PostgreSQL 14: empty disposable database migrate, multi-tenant initialization, legacy root upgrade, repeat migrate, revocation; no business role binding",
+    "PostgreSQL transaction/snapshot concurrency tests",
+    "Vitest role permission editor: 7 tests",
+    "Playwright Chromium: desktop and 390px narrow roles page and business role editor, 2 tests",
+    "Nuxt build; Core binary and database binary build",
+    "go vet on affected packages; git diff --check"
+  ],
+  "repository_suite": {
+    "command": "go test -p 2 ./...",
+    "exit_code": 1,
+    "failed_packages": [
+      "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway",
+      "github.com/ArtisanCloud/PowerX/tests/contract/capability_registry",
+      "github.com/ArtisanCloud/PowerX/tests/contract/event_fabric",
+      "github.com/ArtisanCloud/PowerX/tests/contract/knowledge_space",
+      "github.com/ArtisanCloud/PowerX/tests/contract/workflow",
+      "github.com/ArtisanCloud/PowerX/tests/integration/capability_registry",
+      "github.com/ArtisanCloud/PowerX/tests/integration/iam",
+      "github.com/ArtisanCloud/PowerX/tests/integration/plugin",
+      "github.com/ArtisanCloud/PowerX/tests/integration/system",
+      "github.com/ArtisanCloud/PowerX/tests/integration/workflow",
+      "github.com/ArtisanCloud/PowerX/tests/unit"
+    ],
+    "failed_tests": [
+      "TestBuiltinPlatformCapabilitiesDeclareMediaUploadREST",
+      "TestBuiltinPlatformCapabilitiesDeclareMediaVariantREST",
+      "TestTenantInvokeProxyReturnsPayloadForREST",
+      "TestTenantInvokeProxyMarksFallbackMetadata",
+      "TestDecayHTTPFlow",
+      "TestWorkflowRuntimeGRPCContracts",
+      "TestWorkflowRuntimeHTTPContracts",
+      "TestIntegrationGatewayInvocationEventsDeliveredWithinOneMinute",
+      "TestWorkflowTemplateUpgradeFlow",
+      "TestInvocationTracesReachNinetyFivePercentWithinOneMinute",
+      "TestWorkflowCatalogEndToEnd",
+      "TestWorkflowTelemetryCatalogAndExecution",
+      "TestSaaSSignupBootstrapCreatesTenantOwnerAndTokens",
+      "TestSaaSSignupWithVerifierRequiresCode",
+      "TestSaaSSignupInviteOnlyConsumesValidInviteCode",
+      "TestSaaSSignupPhoneOnlyDoesNotReuseBlankEmail",
+      "TestSaaSSignupExistingUserWithValidPasswordCreatesSecondTenant",
+      "TestLoginWithMultipleTenantsUsesLastTenant",
+      "TestSaaSSignupDuplicateTenantNameAllocatesUniqueKeyAndDomain",
+      "TestSaaSSignupRejectsExistingUserWrongPasswordWithoutTenantResidue",
+      "TestSaaSSignupDuplicateTenantKeyDoesNotCreateExtraMember",
+      "TestTenantAdminBootstrapIntegration",
+      "TestTenantAdminIsolationIntegration",
+      "TestTenantPluginInstancesShareSingleGlobalRuntimeProcess",
+      "TestSetupStatusDesiredEffectivePortsAndRestartRequired",
+      "TestSetupPreflightSkipsDatabaseBootstrap",
+      "TestExpertKnowledgeCapturePackSeedsPublishedDefinitionWithReviewGate",
+      "TestMarketingKnowledgeCapturePackSeedsPublishedDefinitionWithReviewGate",
+      "TestValidateStepDefinitions",
+      "TestValidateStepDefinitionsSuccess"
+    ],
+    "failure_summary": [
+      "Media fallback catalog tests expect com.corex.media.assets.manage in builtin fallback definitions",
+      "Capability tenant invocation fixtures return 400 rather than expected 200",
+      "Event Fabric stubs lack UpdateLifecycle and DeleteACLByTopic methods (compile failure)",
+      "Knowledge decay contract expectations disagree with current tenant and metrics behavior",
+      "Workflow contract fixtures lack a required workflow.end node; integration fixtures lack workflow_pack_installations",
+      "Capability/IAM/plugin integration fixtures lack required tables or platform capability directory"
+    ],
+    "root_related_packages": "IAM services, baseline services, bootstrap, plugin manager/router, notification service and notification HTTP handlers passed",
+    "scope": "These unrelated contracts/fixtures were not modified in this fix; full repository green is not claimed."
+  },
+  "resolved_regression_findings": [
+    "Skip managed root directory access until UUID relation columns exist during staged migration",
+    "Normalize PostgreSQL char(36) padding when identifying the system root role",
+    "Compare persisted PostgreSQL tracking rows and time instants rather than unnormalized in-memory defaults/time zones",
+    "Browser fixture supplies route menus and follows actual Chinese tab names; close mobile navigation after route changes",
+    "Initial broad race run timed out in plugin health startup under load; final non-race manager suite passed"
+  ],
+  "runtime_boundaries": {
+    "postgres": {
+      "owner": "codex-root-role-validation",
+      "pid": 57550,
+      "command": [
+        "/opt/homebrew/opt/postgresql@14/bin/pg_ctl",
+        "-D",
+        "/tmp/powerx-root-role.6l9ntx4l/data",
+        "-l",
+        "/tmp/powerx-root-role.6l9ntx4l/postgres.log",
+        "-o",
+        "-F -k /tmp/powerx-root-role.6l9ntx4l/socket -p 54929 -h ''",
+        "start"
+      ],
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "tcp_listen": false,
+      "unix_socket_port": 54929,
+      "stopped_at": "2026-10-19T06:42:14.243295+00:00",
+      "process_and_socket_released": true
+    },
+    "browser": {
+      "owner": "root-role-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "fixturePid": 1488,
+      "fixturePort": 3496,
+      "webPid": 1493,
+      "webPort": 3495,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-root-role-validation/server/index.mjs"
+      ],
+      "processes_released": true
+    },
+    "user_services_restarted": false,
+    "business_database_migrated": false,
+    "remote_modified": false,
+    "framework_or_plugin_changed": false,
+    "installed_acceptance_completed": false,
+    "frontend_test_build": "E2E_SKIP_AUTH build in ignored .output-root-role-validation; not a deployable production artifact"
+  },
+  "next_acceptance": [
+    "Deploy normal production builds of updated Core and web-admin; normal Core startup applies this semantic repair (migrate also covers it)",
+    "Do not run seed or create plugin-specific/root business role bindings for this fix",
+    "Re-enable installed plugin; use actual service credentials to check sample, bulk and cost baselines for active root member",
+    "A different member changes content; root receives only its own tenant/member notification; revoke/disable root and verify no further eligible delivery"
+  ],
+  "logs": {
+    "baseline_unit": {
+      "path": "test-results/iam-managed-root/baseline_unit.log",
+      "sha256": "da2ef7201dda5feae5316279cd16e68403397b787eb09adca5983f68ffbf337e"
+    },
+    "race": {
+      "path": "test-results/iam-managed-root/race.log",
+      "sha256": "2f95af89cc57955623f87cdcdba71b157b9c65ba60ff7721265999ba2ac0ebb4"
+    },
+    "postgres_existing": {
+      "path": "test-results/iam-managed-root/postgres_existing.log",
+      "sha256": "3bcdb83b1a6ca3f85abb2b04aa32ace13249c8f54879edf08c608537cac16dda"
+    },
+    "postgres_fresh": {
+      "path": "test-results/iam-managed-root/postgres_fresh.log",
+      "sha256": "c1306aad9c829f7dc5ea92c8a623cdb0adfd462edb9ff53a9ebdd75b2bd8f281"
+    },
+    "frontend_unit": {
+      "path": "test-results/iam-managed-root/frontend_unit.log",
+      "sha256": "e77787bd5e93cf2aa0d226804bb9aa082efd1abfad489b719a090017c251dc1e"
+    },
+    "frontend_build": {
+      "path": "test-results/iam-managed-root/frontend_build.log",
+      "sha256": "56108b00dbb39bd95c85f9366dbe4b513d10577a4ab5797e2437b53f0a520d80"
+    },
+    "browser": {
+      "path": "test-results/iam-managed-root/browser.log",
+      "sha256": "d41516ecb35edf30a4051e94db44b9083afe731dd2f05cf3bafa85662154c55b"
+    },
+    "vet": {
+      "path": "test-results/iam-managed-root/vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "repository_suite": {
+      "path": "test-results/iam-managed-root/repository_suite.log",
+      "sha256": "097954acc7ea0af9051fa40e23e007db809719f3bb62321c89835aa5e5b786e8"
+    },
+    "initial_postgres_failure": {
+      "path": "test-results/iam-managed-root/initial_postgres_failure.log",
+      "sha256": "04499dd1f4d9f1d1816985e0acb9d8f5aa22904b6292e9177a2ca644dee25462"
+    },
+    "postgres_char_failure": {
+      "path": "test-results/iam-managed-root/postgres_char_failure.log",
+      "sha256": "7286668a37dab404d7bffdb52c1937ca1a70dc2a66b6333a4b0a203c62b375cc"
+    },
+    "postgres_normalization_assertion_failure": {
+      "path": "test-results/iam-managed-root/postgres_normalization_assertion_failure.log",
+      "sha256": "26d100fb1c2c8abc5211d982320a8f0f50301115478bafc7ea91fcb84a4acf9d"
+    },
+    "initial_browser_fixture_failure": {
+      "path": "test-results/iam-managed-root/initial_browser_fixture_failure.log",
+      "sha256": "e5e6bf1c7463990470f17cb025481070902f12df7d2c22c4a77f63041a612b89"
+    },
+    "browser_mobile_navigation_failure": {
+      "path": "test-results/iam-managed-root/browser_mobile_navigation_failure.log",
+      "sha256": "8845087f4de246be5284c84f5bb687f023c7060c6545786b33c99c0d29f22929"
+    },
+    "initial_race_health_timeout": {
+      "path": "test-results/iam-managed-root/initial_race_health_timeout.log",
+      "sha256": "7c9a55300a8d8339e09ad93d8047729d8f312e8abc7aab8993eb9d61e1b3cd1b"
+    }
+  },
+  "source_sha256": {
+    "backend/internal/service/authorization_baseline/service_test.go": "3d5ed72a6e74004038c4be4b3948c4bc3c32d1e39a40c664029fb92eb144db59",
+    "backend/internal/service/iam/permission_service.go": "af0a0202080fdb41d7f1b5126c97702f32e3abbc1f9eb62667364d349de842fa",
+    "backend/internal/service/iam/rbac_service.go": "35820c2b41c4c2851abc26913b0da21ebf67e82331f71d1dac389f9db98ae069",
+    "backend/internal/service/iam/role_service.go": "2d0e118ec63e86ae4651ec3aca214614ac51f195e08a928ad084577da0fa1991",
+    "backend/internal/service/iam/root_role_test.go": "1d8b17c9bf9d3e0d0419864a5843ce0c31cebfaf4978e4c59ec8f93a135d4a75",
+    "backend/pkg/corex/db/database/authorization_baseline_postgres_test.go": "3ea85f7c0bf07e4f91bfe1f64d1675c23cd67f8fc7482dc0559ba21277b78dc2",
+    "backend/pkg/corex/db/persistence/repository/authorization/facts_repo.go": "1722dd6b8b517d08c6cc14be61b9505e59d9cd901e9fcc779c464cab8d2907ed",
+    "backend/pkg/corex/iam/authorizationbaseline/bootstrap.go": "c34abb7f17d0a0ac3bd9db322955a15daa1e68b89a6517baba3c035526847465",
+    "backend/pkg/corex/iam/authorizationbaseline/ledger.go": "496812ba569d1ce3850a30dc47e8218643f880716aa2d84762423b1e28ceb054",
+    "backend/pkg/corex/iam/authorizationbaseline/root_role_test.go": "a6788cfb338a09e112e5f64e35ec3e66c2218674e93244deb43ebda02b314812",
+    "backend/pkg/corex/iam/authorizationbaseline/sources.go": "f4950a1e4435f94a13a820acd1745d59d593e84385b3bb65baa02e1879c87609",
+    "backend/pkg/corex/iam/authorizationbaseline/transaction.go": "c6a353aebad4f1368321e08eeb9a953ed65f87bc35109d80bbdb05784185f096",
+    "backend/pkg/corex/iam/const.go": "3252622924e12ce2d907f8331ce646dc565916a764d98d2f33b050f667062e0c",
+    "backend/pkg/corex/iam/rootrole/root_role.go": "371d29521af4d82c40c9b686f07ecedcdefc69769d0732ad0e691f4e1fa4615c",
+    "docs/contracts/notification-member-delivery.md": "791f5e820a5b106757aed6356d423713e12042fecdab4b060a941ae74dd629bc",
+    "docs/guides/features/iam-authorization-baseline/guide.md": "73c4d74e5266860d9942f79208bd06ce1a20e96f555108a67f157b92c1746993",
+    "web-admin/app/components/settings/users/PermissionManager.vue": "07f63a9eb8d37337ad4d2eaa1db9ecf350c5e7da0a3f424367ff84c7ea70b874",
+    "web-admin/app/components/settings/users/RoleManager.vue": "4159bbaf623ac35899aed98ea66a79957bd8802bfb5fefef9d900fd866a673e8",
+    "web-admin/app/utils/managedRole.ts": "fd82c112a07f8650c16a97932be585d232841a71fd10d1bf82cb61af3780e0ec",
+    "web-admin/i18n/locales/en.json": "98ed524fe692cf736217c1165c669c7ee9b6116f49caa5a07f0187da29ca51cb",
+    "web-admin/i18n/locales/zh.json": "638c8ee265f84e738caea97df320c9e461a63b85f0ec8bc18f4277180570df96",
+    "web-admin/playwright.root-role.config.ts": "8af79703e47e03410f02a566e4d179d03b070477be6b7d9bf72ec1c1bdeea131",
+    "web-admin/scripts/root-role-browser-fixture.mjs": "ab1ccd0a64f612bcc61c95ecb492420e72502d11a6dc4a4c7e4667759f784c62",
+    "web-admin/tests/e2e/root-role/managed-root.spec.ts": "cb343015a4c84a687789c84e21477e8f367799363491a3e64a17a6b1c68f9c15",
+    "web-admin/tests/unit/settings-users/permission-editor.spec.ts": "f6a2ead1a963f40a7f1120cfbeec8da3325e7819e7e4a4442f9c4c9784b867bc"
+  }
+}

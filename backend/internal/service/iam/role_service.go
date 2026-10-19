@@ -7,6 +7,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/domain/model"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 
 	"gorm.io/gorm"
 
@@ -48,6 +49,9 @@ type ListOpt struct {
 // Create 直接用 GORM 实体；对必要字段做最小校验与修整
 // Create：root 可创建 system/tenant；非 root 仅能在自己租户创建 tenant
 func (s *RoleService) Create(ctx context.Context, scope RoleContext, in *dbm.Role) (*dbm.Role, error) {
+	if strings.EqualFold(strings.TrimSpace(string(in.Code)), string(iam.CodeSystemRoot)) {
+		return nil, rootrole.ErrManaged
+	}
 	in.Name = strings.TrimSpace(in.Name)
 	in.Scope = strings.ToLower(strings.TrimSpace(in.Scope))
 
@@ -132,6 +136,9 @@ func (s *RoleService) Update(ctx context.Context, scope RoleContext, id uint64, 
 	if cur == nil {
 		return gorm.ErrRecordNotFound
 	}
+	if rootrole.IsManaged(*cur) {
+		return rootrole.ErrManaged
+	}
 
 	ctxTenant := strings.TrimSpace(scope.TenantUUID)
 
@@ -167,6 +174,9 @@ func (s *RoleService) Delete(ctx context.Context, scope RoleContext, id uint64) 
 	}
 	if cur == nil {
 		return gorm.ErrRecordNotFound
+	}
+	if rootrole.IsManaged(*cur) {
+		return rootrole.ErrManaged
 	}
 	if cur.Builtin {
 		return errors.New("builtin role cannot be deleted")

@@ -57,6 +57,19 @@ func (r *Repository) LoadPermissionFacts(ctx context.Context, tenant, plugin str
 	if err := db.Where("tenant_uuid = ?", tenant).Find(&f.Assignments).Error; err != nil {
 		return f, err
 	}
+	// 网关快照和基线共享 root 的实时成员/账号事实，不能从 JWT role 字符串推断。
+	if err := db.Where("tenant_uuid = ?", tenant).Find(&f.Members).Error; err != nil {
+		return f, err
+	}
+	userUUIDs := make([]string, 0, len(f.Members))
+	for _, member := range f.Members {
+		userUUIDs = append(userUUIDs, member.UserUUID)
+	}
+	if len(userUUIDs) > 0 {
+		if err := db.Where("uuid IN ?", userUUIDs).Find(&f.Users).Error; err != nil {
+			return f, err
+		}
+	}
 	f.ActiveDimensions = map[im.AssignmentDim]map[uint64]bool{}
 	for _, dim := range []im.AssignmentDim{im.DimOrg, im.DimTeam, im.DimPosition, im.DimGroup} {
 		ids := []uint64{}
@@ -97,18 +110,6 @@ func (r *Repository) Load(ctx context.Context, tenant, plugin string) (Facts, er
 		return f, err
 	}
 	db := r.db.WithContext(ctx)
-	if err = db.Where("tenant_uuid = ?", tenant).Find(&f.Members).Error; err != nil {
-		return f, err
-	}
-	users := []string{}
-	for _, m := range f.Members {
-		users = append(users, m.UserUUID)
-	}
-	if len(users) > 0 {
-		if err = db.Where("uuid IN ?", users).Find(&f.Users).Error; err != nil {
-			return f, err
-		}
-	}
 	var tenantRow tm.Tenant
 	err = db.Where("uuid = ?", tenant).Take(&tenantRow).Error
 	if err != nil && err != gorm.ErrRecordNotFound {

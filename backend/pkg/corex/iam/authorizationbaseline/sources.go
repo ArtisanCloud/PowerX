@@ -10,6 +10,7 @@ import (
 	im "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	ar "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/authorization"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 )
 
 type Grant struct {
@@ -71,11 +72,43 @@ func Grants(f ar.Facts, memberUUID string, memberID uint64) []Grant {
 		}
 	}
 	out := []Grant{}
+	// root 是 Core 身份派生的内置角色，不在业务角色绑定中人工分配。
+	// 必须同时具备有效账号、当前租户的有效成员、正式内置角色及目录授权。
+	// 来源仍进入统一决策/时间账本，不能把 is_root 直接替换为 allowed=true。
+	for _, member := range f.Members {
+		if member.UUID.String() != memberUUID || member.ID != memberID || member.Status != 1 || member.DeletedAt.Valid {
+			continue
+		}
+		for _, user := range f.Users {
+			if user.UUID.String() != member.UserUUID || user.ID != member.UserID || !user.IsRoot || user.Status != im.UserStatusActive || user.DeletedAt.Valid {
+				continue
+			}
+			for _, role := range f.Roles {
+				if !rootrole.IsManaged(role) || !role.Builtin || role.DeletedAt.Valid {
+					continue
+				}
+				for _, permission := range byRole[role.UUID.String()] {
+					source := Source{ID: rootSourcePrefix + Digest([]any{user.UUID, member.UUID, role.UUID, permission.PermissionUUID}), Scope: im.ScopeTenant, Effect: permission.Effect}
+					var meta map[string]any
+					if len(permission.Meta) > 0 && json.Unmarshal(permission.Meta, &meta) != nil {
+						source.Conditional = true
+					}
+					if scope, ok := meta["data_scope"].(string); ok && scope != "" {
+						source.Scope = im.DataScope(strings.ToUpper(scope))
+					}
+					out = append(out, Grant{Source: source, Permission: permission, RoleCode: string(role.Code)})
+				}
+			}
+		}
+	}
 	for _, b := range f.Bindings {
 		role, ok := roles[b.RoleUUID]
 		if !ok {
 			continue
 		}
+		if rootrole.IsManaged(role) {
+			continue
+		} // 任意人工绑定不能授予 root 身份。
 		start, end := bound(b.StartAt, b.EndAt)
 		scope := b.DataScope
 		if scope == "" {
@@ -147,6 +180,8 @@ func Grants(f ar.Facts, memberUUID string, memberID uint64) []Grant {
 	return unique
 }
 
+const rootSourcePrefix = "root-role:"
+
 func MemberSources(f ar.Facts, member im.Member, code string) ([]Source, bool) {
 	var user *im.User
 	for i := range f.Users {
@@ -155,7 +190,7 @@ func MemberSources(f ar.Facts, member im.Member, code string) ([]Source, bool) {
 			break
 		}
 	}
-	if !f.TenantActive || !f.PluginActive || member.Status != 1 || user == nil || user.Status != im.UserStatusActive {
+	if !f.TenantActive || !f.PluginActive || member.Status != 1 || user == nil || user.Status != im.UserStatusActive || user.DeletedAt.Valid {
 		return []Source{}, false
 	}
 	out := []Source{}

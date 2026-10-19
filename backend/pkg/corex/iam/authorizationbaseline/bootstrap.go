@@ -11,6 +11,7 @@ import (
 	sm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	tm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -19,7 +20,7 @@ import (
 const AutomaticInitializer = "core.authorization-baseline"
 
 // EnsureInitialized 在迁移完成或正常启动时补齐所有适用租户的授权追踪。
-// 仅处理声明了 authorization_baseline 的权限，不改变角色授权、插件业务数据或既有起点。
+// 维护系统 root 目录并处理声明了 authorization_baseline 的权限；不修改业务角色、插件数据或既有起点。
 // 首次安装尚未建表时无操作；已建部分表的损坏现场明确失败。
 func EnsureInitialized(db *gorm.DB) error {
 	if db == nil {
@@ -45,6 +46,10 @@ func EnsureInitialized(db *gorm.DB) error {
 				return err
 			}
 		}
+		_, err := rootrole.Ensure(tx)
+		if err != nil {
+			return err
+		}
 		at, err := transactionTime(tx)
 		if err != nil {
 			return err
@@ -57,11 +62,39 @@ func EnsureInitialized(db *gorm.DB) error {
 		if err := reconcileTracks(tx, at, tracks); err != nil {
 			return err
 		}
+		if err := upgradeRootSources(tx, at); err != nil {
+			return err
+		}
 		if coordinated != nil && !wasDirty {
-			// 本次只有账本写入；若外层已有源变更，仍保留其正式 Commit 维护。
+			// 本次仅有受控 root 目录及账本维护，已按精确旧指纹迁移。
+			// 不让启动时的目录补齐顺带修复其他未知漂移；外层原有源变更仍正常 Commit。
 			coordinated.dirty = false
 		}
 		return nil
+	})
+}
+
+// upgradeRootSources 只迁移能与旧算法精确对应的 root 流，从本次升级时间
+// 追加正式来源。其他漂移不被猜测修复；既有 known_since/历史段保持不变。
+func upgradeRootSources(db *gorm.DB, at time.Time) error {
+	var tracks []im.AuthorizationTracking
+	if err := db.Where("status = ?", "ready").Find(&tracks).Error; err != nil {
+		return err
+	}
+	return reconcileTracksWhere(db, at, tracks, func(sources []Source, root bool, stream im.AuthorizationStream, exists bool) bool {
+		if !exists || !root {
+			return false
+		}
+		legacy := make([]Source, 0, len(sources))
+		hasRoot := false
+		for _, source := range sources {
+			if strings.HasPrefix(source.ID, rootSourcePrefix) {
+				hasRoot = true
+			} else {
+				legacy = append(legacy, source)
+			}
+		}
+		return hasRoot && stream.FactsHash == Digest([]any{legacy, root})
 	})
 }
 
