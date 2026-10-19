@@ -148,6 +148,15 @@ type Options struct {
 	// DispatchCapture 将采集交给独立协调器；Core 停止后任务继续执行。
 	DispatchCapture func(context.Context, string) error
 	Coordinator     bool
+	// RecoveryStore 由宿主延迟解析当前恢复账本；删除与恢复入队共用锁。
+	RecoveryStore func() *CoordinatorStore
+}
+
+// SnapshotDeletion 仅在记录和包文件均移除后返回成功。
+type SnapshotDeletion struct {
+	ID            string `json:"id"`
+	RecordDeleted bool   `json:"record_deleted"`
+	FilesDeleted  bool   `json:"files_deleted"`
 }
 
 type contextReader struct {

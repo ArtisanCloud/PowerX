@@ -18,6 +18,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/infra/opswatch"
 	snapshots "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
@@ -26,7 +28,7 @@ import (
 )
 
 // 使用原生 fixture 已拥有的 PG/Redis。这里只启动普通 Core，不启动协调器、网关或第二实例。
-func exerciseCurrentApplication(t *testing.T, ctx context.Context, root string, cfg *config.Config, source snapshots.Config, binary, webOutput string) {
+func exerciseCurrentApplication(t *testing.T, ctx context.Context, root string, cfg *config.Config, source snapshots.Config, binary, webOutput string, actor reqctx.CoreXClaims) {
 	t.Helper()
 	app := filepath.Join(root, "source")
 	core := filepath.Join(app, "powerx")
@@ -295,4 +297,69 @@ func exerciseCurrentApplication(t *testing.T, ctx context.Context, root string, 
 		require.True(t, browser.Passed, "真实浏览器验收失败，保留夹具与日志")
 		assertState(0, "current-state-A", "media-at-A")
 	}
+	// 普通 Core 的真实 Root JWT 路由执行删除；仅使用本测试创建的包、业务库和私有展开目录。
+	var current config.Config
+	raw, err := os.ReadFile(file)
+	require.NoError(t, err)
+	require.NoError(t, yaml.Unmarshal(raw, &current))
+	access, err := auth.GenerateAccessJWT(actor, current.Auth.Issuer, []string{current.Auth.AudienceUser}, time.Hour, []byte(current.Auth.JWTSecret))
+	require.NoError(t, err)
+	api := func(method, id string, deleteProtected bool) *http.Response {
+		t.Helper()
+		req, e := http.NewRequestWithContext(ctx, method, base+strings.TrimRight(config.ResolveAPIPrefix(&current), "/")+"/admin/ops/backup/system-snapshots/"+id, nil)
+		require.NoError(t, e)
+		req.Header.Set("Authorization", "Bearer "+access)
+		req.Header.Set("X-Snapshot-Confirmation", id)
+		req.Header.Set("X-Snapshot-Delete-Protected", fmt.Sprint(deleteProtected))
+		response, e := client.Do(req)
+		require.NoError(t, e)
+		return response
+	}
+	remove := func(id string, protected bool) {
+		t.Helper()
+		response := api("DELETE", id, protected)
+		defer response.Body.Close()
+		var result struct {
+			Data struct {
+				Deletion snapshots.SnapshotDeletion `json:"deletion"`
+			} `json:"data"`
+		}
+		require.Equal(t, 200, response.StatusCode)
+		require.NoError(t, json.NewDecoder(response.Body).Decode(&result))
+		require.Equal(t, snapshots.SnapshotDeletion{ID: id, RecordDeleted: true, FilesDeleted: true}, result.Data.Deletion)
+		require.NoDirExists(t, filepath.Join(source.Directory, "contents", id))
+		require.NoFileExists(t, filepath.Join(source.Directory, "snapshots", id+".json"))
+		require.NoFileExists(t, filepath.Join(source.Directory, "requests", id+".json"))
+	}
+	remove(point.ID, false)
+	response = api("GET", point.ID, false)
+	require.Equal(t, 404, response.StatusCode)
+	response.Body.Close()
+	jobs, err := r.Coordinator.Store.List()
+	require.NoError(t, err)
+	for _, job := range jobs {
+		if job.SnapshotID == point.ID || job.RollbackSnapshotID == point.ID {
+			require.NoDirExists(t, r.work(job.ID), "删除已结束恢复的展开副本")
+			_, err = r.Coordinator.Store.Get(job.ID)
+			require.NoError(t, err, "恢复审计历史保留")
+		}
+	}
+	response = api("DELETE", a.RollbackSnapshotID, false)
+	require.Equal(t, 409, response.StatusCode, "保护快照需要单独明确确认")
+	response.Body.Close()
+	require.DirExists(t, filepath.Join(source.Directory, "contents", a.RollbackSnapshotID))
+	remove(a.RollbackSnapshotID, true)
+	if os.Getenv("POWERX_CURRENT_BROWSER_READY_FILE") != "" {
+		assertState(0, "current-state-A", "media-at-A")
+	} else {
+		assertState(1, "current-state-B", "current-media-B")
+	}
+	identity, err := processIdentity(owned.PID)
+	require.NoError(t, err)
+	require.Equal(t, owned.Started, identity, "删除不重启业务进程")
+	report["authenticated_snapshot_delete"] = true
+	report["protected_delete_confirmation"] = true
+	report["failed_restore_staging_cleaned"] = true
+	report["business_state_unchanged_by_deletion"] = true
+	require.NoError(t, snapshots.WriteCoordinatorJSON(filepath.Join(workspace, "test-results/current-recovery-native-evidence.json"), report))
 }

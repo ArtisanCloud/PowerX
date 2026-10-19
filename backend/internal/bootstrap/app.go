@@ -83,6 +83,10 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		logger.ErrorF(ctx, "初始化数据库失败: %v", err)
 		return nil, fmt.Errorf("%w: 连接数据库失败: %v", ErrBootstrapDependencyUnavailable, err)
 	}
+	// Core 授权记录独立于插件通知启用；正常启动补齐所有适用租户，维护只读启动不写库。
+	if err = initializeAuthorizationBaselines(ctx, cfg, db); err != nil {
+		return nil, err
+	}
 
 	// 初始化缓存
 	_, err = cache.InitCache(&cfg.Cache)

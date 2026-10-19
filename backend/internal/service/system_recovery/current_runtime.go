@@ -139,8 +139,10 @@ func NewCurrentRuntime(ctx context.Context, cfg *config.Config, configFile strin
 		return nil, err
 	}
 	r := &CurrentRuntime{spec: spec}
+	store.SnapshotStore = service
 	d := Deployment{ID: spec.ID, Root: root, ConfigFile: file, CoreBinary: executable, CorePort: cfg.Server.Port, SourceManaged: true}
 	r.Coordinator = &Coordinator{Store: store, Initial: d, SnapshotStore: service}
+	r.configureSnapshotCleanup()
 	if _, err = r.Coordinator.Active(); err != nil {
 		return nil, err
 	}

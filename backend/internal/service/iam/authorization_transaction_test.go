@@ -23,7 +23,7 @@ func TestMemberWritesKeepOneTransactionAndDoNotRetainClosedRepositories(t *testi
 	sqlDB, _ := db.DB()
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&im.User{}, &im.Member{}, &im.Credential{}, &im.MemberDepartment{}, &im.AuthorizationTracking{}, &im.AuthorizationStream{}, &im.AuthorizationSegment{}))
+	require.NoError(t, db.AutoMigrate(&im.User{}, &im.Member{}, &im.Credential{}, &im.MemberDepartment{}, &im.Permission{}, &im.AuthorizationTracking{}, &im.AuthorizationStream{}, &im.AuthorizationSegment{}))
 	require.NoError(t, baseline.Install(db))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

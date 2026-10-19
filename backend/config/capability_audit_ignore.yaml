@@ -135,6 +135,10 @@ routes:
     path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id/export
     category: root_runtime_control
     reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: DELETE
+    path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id
+    category: root_runtime_control
+    reason: Permanently removes whole-instance snapshot packages and their records; Root user session only, never publish as tenant, plugin, API-key or agent capability.
   - method: POST
     path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id/restores
     category: root_runtime_control

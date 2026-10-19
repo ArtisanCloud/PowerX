@@ -29,36 +29,25 @@
 2. 对齐并重新安装插件。继续使用既有 Framework `NotificationsRuntime.Publisher().Create` 和明确的目标 `MemberUUID`，沿用 `com.corex.notifications.create`。发布 SDK 或本地 replace 的选择以已有 IAM 基线合同交付为准，创建路径未新增 Framework 方法；下文的服务已读回执另用独立接口。
 3. 保留插件的真实 diff、个人订单阅读游标、接收人业务权限过滤、成本隔离、操作人排除，以及未准备完成时的写入门禁。宿主铃铛已读不能推进订单阅读游标。
 4. 重装并启用租户插件后，核验实际凭据的 authorization_baseline.service_read、iam.directory.read、iam.identity_context.service_read、capabilities.grant_status.read 和 notifications.create 授权。不能以 Root 旁路或隔离测试凭据替代。
-5. Core 先只读预检三项业务权限；ready 的保留旧 guard 与原 known_since。存在缺失项时，使用插件安装准备流程或 `notifications-prepare` 生成的真实持久 guard，核对写入门禁与无待保留事件后，仅对缺失项显式 apply。本次插件 guard 不覆盖已有 Core 收据。
-6. 三项各自 ready 后，交回原始预检／apply JSON、所用 guard 和各 known_since。新版插件在 `initialize_on_install: true` 时，会在安装启动／重新启用时核验 Core 并自动保存自己的启用点，无需手填时间或手动 enable；维护命令仍可用于受控恢复。启用前的历史操作不补发。
+5. Core 正常迁移／正常启动及后续授权源事务，会为所有适用租户自动建立已声明业务权限的缺失追踪。已有 guard 与 known_since 保留。Core 起点不依赖插件 `notifications-prepare`，普通部署无需逐租户 apply 或 `make seed`。完整规则见 [权威指导第 7.2 节](../guides/features/iam-authorization-baseline/guide.md#72-初始化与启用场景)。
+6. 三项各自 ready 后，插件读取各 known_since，并在自己的受控边界内检查事件／个人游标／投递历史，自动保存业务启用点。`initialize_on_install: true` 的插件仍按其安装启动／重新启用流程执行；Core 不替它清理历史或开放写入门禁。无需用户手填时间、转交 guard 或重新打包来初始化 Core。
 7. 用三个普通账号做实际投递与阅读验收，通过后才启用 `host_notifications_enabled`。源代码测试不替代这一项。
 
-## 基线命令与部分已初始化的处理
+## 基线只读核验与历史处理
 
 在 Core backend 目录、使用目标实例的实际配置执行：
 
 ```sh
 go run ./cmd/authorization_baseline \
   -config '<实际Core配置绝对路径>' \
-  -tenant '6b5d0240-9920-46da-b707-88200e0f51ea' \
+  -tenant '<当前实例的实际租户UUID>' \
   -plugin 'com.powerx.plugins.ai-craft' \
   -permissions 'production.sample_track:read,production.bulk_order:read,operations.business_dashboard.cost:read'
 ```
 
-没有 `-apply` 时仅预检。若部分已 ready，下列 `-permissions` 只填写未初始化项，不能直接重复传入全部三项，否则新 guard 遇到旧 ready 收据会返回 `IAM_BASELINE_ALREADY_INITIALIZED`。初始化必须等待插件真实 prepare 结果：
+该命令没有 `-apply`，仅核验，不会触发初始化。正常部署应由 Core 生命周期自动补齐所有适用租户；若仍缺失，检查新 Core 是否实际运行、schema、插件启用状态及权限标记，不转交插件 guard 补单个租户。known_since 表示 Core 开始可靠记录授权事实的时间，不伪装成历史首次授权时间；初始化不新增角色授予、不清理插件事件。旧 apply 仅保留受控维护兼容，规则见权威指导。
 
-```sh
-go run ./cmd/authorization_baseline \
-  -config '<同一实际Core配置绝对路径>' \
-  -tenant '6b5d0240-9920-46da-b707-88200e0f51ea' \
-  -plugin 'com.powerx.plugins.ai-craft' \
-  -permissions '<只填写预检确认未初始化的权限码>' \
-  -apply -activation-guard '<插件prepare真实guard_uuid>' \
-  -operator '<实际操作者>' \
-  -confirm-plugin-quiesced -confirm-no-pending-events
-```
-
-随后重新预检全部三项。known_since 表示 Core 从该时间开始可靠记录授权事实，不伪装成历史首次授权时间；初始化不新增角色授予，不清理插件事件。
+以下为 2026-10-18 旧版手工处理的历史证据，已由 2026-10-19 全租户生命周期取代，不是新的部署前置步骤：
 
 早先只读预检观察到本机 8077 对应目标插件没有 auth.credentials／tracking 记录，CLI 返回 `IAM_BASELINE_INITIALIZATION_SUBJECT_INACTIVE`。用户确认当时刚删除插件，因此按卸载状态处理，当时未补造凭据或初始化起点。
 

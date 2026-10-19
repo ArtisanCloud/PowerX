@@ -21,6 +21,7 @@ import (
 	iam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	media "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	tenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
@@ -107,9 +108,15 @@ func TestRecoveryNativeApplicationFromPortablePackage(t *testing.T) {
 		}
 		report := map[string]any{"platform": runtime.GOOS + "/" + runtime.GOARCH, "passed": !t.Failed(), "actual_core_web_auth_context_media": !t.Failed(), "native_switch_and_compensation": !t.Failed() && os.Getenv("POWERX_RECOVERY_LOCAL_ONLY") != "1" && os.Getenv("POWERX_RECOVERY_INSTANCE_ONLY") != "1", "instance_restore_restart_protection_and_clean_target": !t.Failed() && os.Getenv("POWERX_RECOVERY_INSTANCE_ONLY") == "1", "instance_sigkill_compensation": !t.Failed() && os.Getenv("POWERX_RECOVERY_INSTANCE_CRASH") == "1", "source_B_retained": !t.Failed(), "plugin_binding_role_mapping": !t.Failed(), "password_login_verified": false, "active_production_plugins_tested": false, "fixture_foreign_key_auto_migration_disabled": true, "linux_namespace_executed": false, "production_deployed": false, "owned_processes": processes, "owned_processes_released": released, "finished_at": time.Now().UTC()}
 		report["offline_recovery_portal"] = !t.Failed() && os.Getenv("POWERX_RECOVERY_PORTAL_TEST") == "1"
-		if os.Getenv("POWERX_CURRENT_RECOVERY_NATIVE_TEST")=="1"{report["native_switch_and_compensation"]=false;report["source_B_retained"]=false;report["current_instance_same_pid"]=!t.Failed()}
+		if os.Getenv("POWERX_CURRENT_RECOVERY_NATIVE_TEST") == "1" {
+			report["native_switch_and_compensation"] = false
+			report["source_B_retained"] = false
+			report["current_instance_same_pid"] = !t.Failed()
+		}
 		assert.NoError(t, snapshots.WriteCoordinatorJSON(filepath.Join(workspace, func() string {
-			if os.Getenv("POWERX_CURRENT_RECOVERY_NATIVE_TEST")=="1"{return "test-results/current-recovery-fixture-evidence.json"}
+			if os.Getenv("POWERX_CURRENT_RECOVERY_NATIVE_TEST") == "1" {
+				return "test-results/current-recovery-fixture-evidence.json"
+			}
 			if os.Getenv("POWERX_RECOVERY_INSTANCE_ONLY") == "1" {
 				return "test-results/recovery-instance-evidence.json"
 			}
@@ -207,7 +214,7 @@ func TestRecoveryNativeApplicationFromPortablePackage(t *testing.T) {
 	if os.Getenv("POWERX_CURRENT_RECOVERY_NATIVE_TEST") == "1" {
 		require.NoError(t, sqlDB.Close())
 		require.NoError(t, redisClient.Close())
-		exerciseCurrentApplication(t, ctx, root, cfg, snapshotConfig, binary, webOutput)
+		exerciseCurrentApplication(t, ctx, root, cfg, snapshotConfig, binary, webOutput, reqctx.CoreXClaims{TenantUUID: ten.UUID.String(), TenantID: ten.ID, UserUUID: user.UUID.String(), UserID: user.ID, MemberUUID: member.UUID.String(), MemberID: member.ID, IsRoot: true, Platforms: []string{"admin"}})
 		return
 	}
 	snapshot, e := service.Start(privileged(ctx), uuid.NewString())

@@ -90,7 +90,7 @@ func configureSystemSnapshots(ctx context.Context, cfg *config.Config, deps *sha
 		}
 	}}
 	audit := obsops.NewUnifiedAuditWriter(deps.DB)
-	options := snapshotops.Options{Backend: native, Sources: source, Audit: func(run context.Context, event snapshotops.AuditEvent) error {
+	options := snapshotops.Options{Backend: native, Sources: source, RecoveryStore: func() *snapshotops.CoordinatorStore { return deps.SystemRecovery }, Audit: func(run context.Context, event snapshotops.AuditEvent) error {
 		return audit.Write(run, obsops.AuditRecord{ResourceType: "system_snapshot", ResourceID: event.ID, Operation: event.Action, Outcome: event.Outcome, Severity: "info", Detail: map[string]any{"operator": event.Operator, "trace_id": event.TraceID}})
 	}}
 	if deps.SystemRecovery != nil {
@@ -125,6 +125,7 @@ func configureSystemSnapshots(ctx context.Context, cfg *config.Config, deps *sha
 		}
 	}
 	if deps.SystemRecovery != nil {
+		deps.SystemRecovery.SnapshotStore = deps.SystemSnapshots
 		_ = deps.SystemSnapshots.SaveCoordinatorSource(initial)
 	}
 	if cfg.Recovery.ProfileFile == "" && !config.BackgroundWorkersDisabled(cfg) {

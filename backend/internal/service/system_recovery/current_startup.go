@@ -41,7 +41,9 @@ func openCurrent(directory string) (*CurrentRuntime, error) {
 		return nil, err
 	}
 	r := &CurrentRuntime{spec: spec}
+	store.SnapshotStore = service
 	r.Coordinator = &Coordinator{Store: store, SnapshotStore: service, Initial: Deployment{ID: spec.ID, Root: spec.Root, ConfigFile: spec.ConfigFile, CorePort: port, SourceManaged: true, CoreBinary: spec.Executable}}
+	r.configureSnapshotCleanup()
 	return r, nil
 }
 

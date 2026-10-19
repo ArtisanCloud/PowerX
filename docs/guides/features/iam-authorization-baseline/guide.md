@@ -1,8 +1,8 @@
 # IAM 连续授权基线跨仓实施指导
 
-版本：1.2。日期：2026-10-15。状态：`core_source_implemented`；Framework 与 AI Craft v2、WS 最终发送和 delegated worker 完整接入待适配，安装态联调待完成。
+版本：1.3。日期：2026-10-19。状态：`core_source_implemented`；本版修正全租户自动追踪生命周期，远程安装态验收待完成。Framework／插件历史实施状态以各仓证据为准。
 
-本文是 Core、Framework 与插件共同使用的权威实施合同。Core 已交付区间账本、同事务维护、typed 批量能力、正式 schema 和显式初始化工具；本地能力目录已发布登记。上轮交付未对业务库执行新表迁移或业务基线初始化，检查时开发 Host key 尚缺本能力 grant，用户服务未由本次任务重启；源码测试不代表安装态可用。详见第 12 节。本版补充实时实施清单与验收，不代表新增任务已完成。
+本文是 Core、Framework 与插件共同使用的权威实施合同。Core 提供区间账本、同事务维护、typed 批量能力、正式 schema，以及所有适用租户的自动追踪。Core 授权追踪与插件业务启用分开管理；普通部署不再要求逐租户显式 apply 或插件 guard。第 12 节保留带日期的历史交付证据；源码测试不代表安装态可用。
 
 权威正文保存在 Core 的 `docs/guides/features/iam-authorization-baseline/guide.md`。Framework 和插件侧只维护指向本文的入口及各自实施证据。跨仓相对链接适用于当前工作区目录；独立检出时按仓库名和仓库内路径查阅，不复制正文形成第二套合同。
 
@@ -186,7 +186,7 @@ flowchart LR
   P3 --> F1
 ```
 
-Core 的服务调用许可与被查询成员的业务权限分别判断。有查询能力不代表成员有订单权限；用户 JWT/RBAC 也不能代替服务 grant。初始化与启用由三方按第 7 节协作，不能独立打开插件功能后等待起点自动补齐。
+Core 的服务调用许可与被查询成员的业务权限分别判断。有查询能力不代表成员有订单权限；用户 JWT/RBAC 也不能代替服务 grant。Core 自动建立授权追踪；插件须读取可靠结果后，在自己的受控事务内启用通知，不能以自动追踪替代业务历史检查。
 
 ## 6 前置条件与依赖
 
@@ -311,7 +311,7 @@ STS 插件身份取已验证 token；API key 必须由本能力的 owner 与精�
 
 复用可信启动期 ProviderMode 及已有 Gateway/STS 凭据配置，不能由浏览器切换 provider。首期授权基线不做跨请求缓存，仅允许同一请求内共享同一次批量结果；用户会话与服务授权失败分别处理，不因服务 403 让用户反复登录。
 
-Core 的跟踪登记缺行代表 uninitialized；显式初始化在单一事务内写 ready，因此 initializing 状态不会对外可见，失败整体回滚。blocked 与插件启用切点由插件的受控启用流程持久化；Core CLI 不替插件保存这些业务控制状态。命令见第 7.2 节。本次能力不新增管理员页面或 Admin REST 面，因此合同仅声明 service_actor 面；以后增加管理员接口时须在同一正式能力合同中补充 admin_user + JWT + RBAC。
+Core 的跟踪登记缺行代表 uninitialized；正常迁移、启动及授权源提交在单一事务内补齐 ready 与初始快照，失败整体回滚。已有异常或 blocked 记录不被自动重置。插件自己的 blocked 与业务启用切点由插件持久化，Core 不修改插件数据。流程见第 7.2 节。本次能力不新增管理员页面或 Admin REST 面，因此合同仅声明 service_actor 面；以后增加管理员接口时须在同一正式能力合同中补充 admin_user + JWT + RBAC。
 
 ### 6.5 完整实时接入的依赖与启用门禁
 
@@ -330,7 +330,7 @@ local v2 provider 由插件注入，Framework 不保存授权历史、不推测�
 
 ## 7 操作步骤
 
-以下为跨仓实施及目标环境验收步骤。Core 源码已实现 C01–C05；C06 的组合依赖核查，以及 Framework／插件实时接入新增任务仍待完成。目标库迁移、插件权限标记与同步、初始化、服务授权和重启仍须按实际环境逐项执行。
+以下为跨仓实施及目标环境验收步骤。Core 源码已实现 C01–C05；C06 及 Framework／插件的消费验收须按各仓当前证据核实。目标库迁移、插件权限标记与同步、实际服务授权和运行版本须按环境核验；Core 授权追踪由生命周期自动完成，不再增加逐租户初始化步骤。
 
 ### 7.1 分仓实施任务
 
@@ -339,7 +339,7 @@ local v2 provider 由插件注入，Framework 不保存授权历史、不推测�
 | C01 统一评估器 | Core IAM、网关及插件身份真实判定路径 | 共享正式业务映射，保留完整范围与限制；新能力仅输出支持范围 | 差异形成回归用例，禁止复制另一套查询 |
 | C02 数据模型 | Core 集中 migration 与 IAM repository | 唯一流、epoch、分段、未来边界和可靠来源；无自动业务初始化副作用 | 迁移回滚或停止发布，不删旧事实 |
 | C03 写入协议 | 全部正式授权源及状态写入口 | 共同锁先于枚举，事实和投影原子更新，幂等有界重试 | 整体事务回滚；补齐旁路写入口 |
-| C04 初始化流程 | 显式、可审计、可恢复的初始化控制流程 | 同一并发边界内建立 T0、追平变更、切换 ready | 标 blocked；不以 GET、启动或普通迁移修复 |
+| C04 初始化流程 | 迁移、正常启动和正式源事务统一补齐所有适用租户 | 同一并发边界内建立 T0 与快照、切换 ready；已有记录不重置 | 事务失败回滚；GET 与恢复只读启动不写入；异常旧账本独立修复 |
 | C05 服务能力 | typed invoker、formal capability、schema、grant 校验 | 按第 6 节批量返回；固定 binding，拒绝自由代理 | 暴露明确失败；不靠 YAML 冒充实现 |
 | C06 组合依赖与授权核查 | Core 正式 IAM directory、identity-context 合同与第 6.5 节真实服务凭据 | 分页目录、基线、WS 身份各自 binding／注册／grant 可用；核定目录最小授权与 typed 治理边界 | 合同缺口单独补齐；不误用 members.read 或 Admin 管理权限，不标完整实时接入已完成 |
 | F01 通用批量合同 | Framework Go IAM，适用的 .NET IAM 同步 | `ReadMemberBaselines` 或语言等价接口；nullable 真实起点、分支结果与精度一致 | 缺失能力明确不可用，不映射到旧 AuthorizationDecision |
@@ -354,15 +354,15 @@ local v2 provider 由插件注入，Framework 不保存授权历史、不推测�
 
 ### 7.2 初始化与启用场景
 
-动作：使用已交付的 `backend/cmd/authorization_baseline` 执行显式预检和初始化。预检也是只读状态查询，按权限返回 `tracking[permission_code].status/known_since`，不会生成跟踪行。所有时间切点以 apply 同一事务取得共同源锁后的数据库时间为准，预检不是切点承诺。
+Core 授权追踪是平台生命周期职责，覆盖所有适用租户，不按某个租户或 AI Craft 特判。适用条件为：租户有效、插件 `auth.credentials` 已启用、正式 Permission 为 active 且显式标记 `authorization_baseline: true`，并能通过共享业务权限映射获得权限码。
 
-1. 插件在内容事件写入共同参与的控制边界内进入待启用状态，阻止初始化切点与新事件竞争；Core 同时进入统一授权写入协议的初始化边界。
-2. 在受控边界内核对是否存在需保留的历史事件、个人游标或投递任务。检测到则置 blocked，不自动移动下界或清理数据；单独设计迁移。
-3. 建立 T0 和初始化区间。初始化期间的授权变更必须被同步纳入或可靠追平；快照与增量交接不存在遗漏窗口。单一布尔开关不满足此要求。
-4. Core 持久化 ready 和初始化证据后，插件在自己的受控事务内记录不早于 T0 的功能切点 Tc，并开放新的内容事件与提示。记录两端状态，失败后从持久状态恢复，不宣称两库原子提交。
-5. 复核 `initialized / granted_at=null / known_since=T0 / visible_since=T0`；模拟一次真实撤权与重授，验证新 native epoch 和新修订。
+1. 正式迁移完成建表后、正常 Core 启动时，统一补齐已有租户的缺失追踪。后续新租户、插件启用或权限登记的正式源事务在提交前自动发现缺失组合。权限与插件哪个先登记都适用，不需要再次 migrate 或 seed。
+2. 初始化与角色、成员等授权变更使用同一 PostgreSQL 事务级共同锁；取得锁后用数据库时间建立 T0、ready 和初始快照，维护失败连同源变更回滚，无快照与增量之间的缺口。
+3. 仅补缺行。已有 known_since、初始化收据、epoch 和无实际变化的修订保持原样；异常旧记录不猜测修复。正常启动不会将外部 SQL 等绕过正式入口的来源漂移补记成刚发生的授权，既有流仍由读取报不可用。首次看到既有 allow 为 `initialized / granted_at=null / known_since=T0 / visible_since=T0`，首次看到 deny 仍为 deny。之后的正式新授权为 native，不追溯历史。
+4. Core 不连接、清理或迁移插件事件库，不新增角色授权、不放宽 Root 和数据范围、不替插件启用通知。Core 自动收据由 Core 生成，`initialized_by=core.authorization-baseline`，不需要插件 prepare guard。
+5. 插件独立读取 ready 结果，在内容事件共同控制边界内检查历史事件、个人游标和投递任务，持久化不早于所需基线的功能切点 Tc 后开放通知。发现待保留历史或失败时保持自己的 blocked／待启用状态，不移动已有切点、不隐藏旧数据。Core ready 不等于业务通知已启用，两库不宣称原子提交。
 
-成功：初始化前待保留事件未被隐藏，切点之后事件不漏记。失败：保留 blocked/待启用状态及已保存事实，明确显示不可用。普通 migrate 只处理 schema 和确定性合同回填，不承担事件清理或历史业务修复。
+GET、typed 读取和 CLI 默认预检均只读；恢复 verify／hold 和 coordinator maintenance 启动跳过自动初始化。缺表时仍需正常 schema 迁移；部分账本表缺失时明确失败，不能静默恢复。Core 普通 migrate 现在负责通用授权初始快照，仍不承担插件事件清理或历史业务修复。
 
 先由插件在正式 manifest 中对三项业务权限设置 `authorization_baseline: true`，经正常权限同步写入 IAM Permission.meta；不能仅在文档列出权限码。示例片段（保留插件现有协议绑定与其他元数据）：
 
@@ -376,7 +376,7 @@ permissions:
     authorization_baseline: true
 ```
 
-`production.bulk_order:read` 和 `operations.business_dashboard.cost:read` 在各自已有权限声明上作相同标记。仅明确标记该插件已登记业务权限可查询；未标记返回整体 400。此标记不授予任何成员业务权限，也不自动初始化。查询已经标记、但尚未初始化的权限，逐项返回 `IAM_BASELINE_UNAVAILABLE`。
+`production.bulk_order:read` 和 `operations.business_dashboard.cost:read` 在各自已有权限声明上作相同标记。仅明确标记该插件已登记业务权限可查询；未标记返回整体 400。此标记不授予任何成员业务权限；正式权限同步事务会为适用租户自动建立缺失追踪。尚不满足条件或状态异常时，查询仍逐项返回 `IAM_BASELINE_UNAVAILABLE`。
 
 在 Core 仓库根目录执行 schema 迁移（目标配置、权限和维护窗口须已经确定）：
 
@@ -393,17 +393,9 @@ go run ./cmd/authorization_baseline -config /absolute/path/to/target-config.yaml
   -permissions 'production.sample_track:read,production.bulk_order:read,operations.business_dashboard.cost:read'
 ```
 
-插件完成受控门禁和无待保留数据核对后，将持久化门禁收据 UUID 与操作者审计标识传给显式 apply；以下为命令模板，不应在门禁未建立时执行：
+正常部署到这里应读到各权限 ready 及各自 known_since，无需 `-apply`。未 ready 时检查运行 Core 版本、schema、租户／插件状态、正式权限标记及启动错误，不能要求用户逐租户向插件索取 guard 作为标准补救。
 
-```bash
-go run ./cmd/authorization_baseline -config /absolute/path/to/target-config.yaml \
-  -tenant '<tenant_uuid>' -plugin com.powerx.plugins.ai-craft \
-  -permissions 'production.sample_track:read,production.bulk_order:read,operations.business_dashboard.cost:read' \
-  -apply -activation-guard '<persisted_guard_uuid>' -operator '<operator_audit_id>' \
-  -confirm-plugin-quiesced -confirm-no-pending-events
-```
-
-成功输出 `applied=true`，各权限 ready 及各自 known_since。同一收据重放保留原 T0 和修订；已 ready 权限使用其他收据重置会返回 `IAM_BASELINE_ALREADY_INITIALIZED`。缺收据、操作者或任一确认参数时拒绝 apply。Core 不能连接插件事件库验证门禁是否仍有效，两个确认参数是可信操作者的前置声明；插件必须维持门禁至自身切点保存完成，不能先放开事件写入。apply 在事务中持久化收据、操作者和 T0；失败回滚，插件保持 blocked。
+旧 CLI 的 `-apply` 保留为受控维护兼容入口，仍要求收据、操作者及两个显式确认参数，不能代替新生命周期。Core 自动记录被旧维护调用碰到时只复用原记录，不替换收据或 T0；旧人工记录仍按原 guard 幂等规则拒绝其他收据覆盖。异常历史修复须单独审查和验收。
 
 首期生产实现支持 PostgreSQL；SQLite 仅用于单元测试。MySQL 等未实现并发协议的数据库明确拒绝初始化和基线读取，不可套用本次通过的 PostgreSQL 结论。`reconstructed` 是合同保留值，本次 CLI 只建立 initialized 基线，不提供历史重建或存量事件迁移工具。
 
@@ -546,6 +538,9 @@ make build-px-plugin
 | B22 | Skeleton、scaffold、CLI 内嵌模板与全新生成插件 | 同步检查无漂移；新 CLI 生成物编译及启用／拒绝用例通过，并在生成物验证 B19／B20；不以模板文本相同替代运行证据 |
 | B23 | delegated worker 跨至少两页目录、每页拆批、权限／成本混合及中途失败 | 宿主分页目录＋最多 100 成员批量基线；无本地 IAM 查询、无逐订单调用；页／成员错误不标完成，重试幂等并可恢复，读取／成本下界独立 |
 | B24 | 最终发送重验证超时／503、等待中到期或取消、撤销后迟到成功 | 拒绝写帧且资源释放；迟到结果不恢复连接；保持未读，失败投递有可观测状态，不误称送达或已读 |
+| B25 | 多租户旧环境升级、正常启动及重复执行 | 所有适用租户缺失追踪自动 ready；既有起点、收据、epoch 和无实际变更的修订不重置；不新增角色授权 |
+| B26 | 新租户／插件启用／权限登记，两种登记顺序及与授权变更并发 | 同一源事务提交后可读；初始 allow 不伪造 GrantedAt；后续真实授予为 native；失败与源事务一起回滚 |
+| B27 | 禁用租户／插件、未标记或废弃权限、只读恢复与普通查询 | 不生成不适用组合；只读路径无写入；异常旧记录不被自动洗成 ready；插件业务事件与游标保持原样 |
 
 交付证据分层记录为源码/单元、隔离 PostgreSQL 并发与时间测试、Framework 合同、插件 UI、真实安装态 API Key、真实 STS、目标环境。每层保留命令、配置身份、时间、脱敏请求响应、Trace 和清理结果；未通过的层级不标完成。
 
@@ -560,7 +555,8 @@ make build-px-plugin
 | Core 网关 | `backend/internal/bootstrap/plugin_authz.go` | 对齐有效期、状态、范围及限制 |
 | Core 身份 | `backend/pkg/corex/db/persistence/repository/iam/plugin_identity_repository.go`、`backend/internal/service/plugin_identity/service.go` | 复用评估器；现有 PolicyVersion 不替代新修订 |
 | Core 正式写入 | `backend/internal/service/iam/rbac_service.go`、`member_service.go`、`permission_service.go`、`provisioning_service.go`，以及状态/插件同步入口 | 共同锁、完整影响集及同事务维护 |
-| Core migration | `backend/pkg/corex/db/database/migration.go` | 注册 schema；显式初始化与业务修复分离 |
+| Core migration／正常启动 | `backend/pkg/corex/db/database/migration.go`、`backend/internal/bootstrap/authorization_baseline.go` | 建表后和正常启动自动补齐全部适用租户；只读恢复跳过；插件业务修复独立 |
+| Core 自动追踪 | `backend/pkg/corex/iam/authorizationbaseline/bootstrap.go` | 通用发现缺失组合、Core 自有收据、原起点和授予不变；源事务提交也走相同路径 |
 | Core 新账本 | `backend/pkg/corex/db/persistence/model/iam/authorization_baseline_gorm.go`、`repository/authorization/facts_repo.go` | 三张表和同快照来源读取 |
 | Core 统一来源与区间 | `backend/pkg/corex/iam/authorizationbaseline/sources.go`、`timeline.go`、`ledger.go` | 共享业务映射、未来分段、连续 epoch 与事实修订 |
 | Core 共同事务边界 | `backend/pkg/corex/iam/authorizationbaseline/transaction.go`、`backend/pkg/corex/db/database/connection.go` | 数据库工厂安装；GORM/Raw 源 DML 提交前维护；维护失败回滚；禁止绕过事务 |
@@ -596,7 +592,8 @@ make build-px-plugin
 | 一个成员加入角色后没有基线 | 重放角色权限/成员关系并发时序、共同锁和影响集 | 修复正式写入口，账本缺口走显式恢复流程 |
 | 页面无红点但请求失败 | 原始逐项状态、Framework 解码、UI 错误分支及 SQL 下界 | 显示不可用并保留进度；不以 false 默认值吞错 |
 | 确认旧摘要失败 | 比较读取、成本修订及插件投影合同版本 | 重新读取当前摘要，不复用旧授权 |
-| 初始化阻断 | 查询控制状态、待保留事件及两端切点 | 先制定独立迁移；不清事件或伪造起点 |
+| Core 跟踪缺失 | Core 版本、schema、租户与插件状态、active 权限标记、启动／源事务错误 | 修复通用生命周期；正常部署不要求逐租户 apply，也不跑全量 seed |
+| 插件启用阻断 | 插件控制状态、待保留事件及业务切点 | 独立处理业务历史；Core ready 不代表可以清事件或重置切点 |
 | 边界事件与提交先后直觉不一致 | 检查记录时间、微秒精度和时间源 | 按首期时间合同解释；严格提交顺序需求另设计因果协议 |
 | 投递前有权限，排队后撤权仍收到信号 | 检查实际 `send → WriteJSON`、发送锁等待及末端重验证 Trace | 在最终发送处补齐校验、关闭与队列清理；仅调整 worker 不足以修复 |
 | 重连后未读自动消失 | 检查连接／订阅 ack／消息回调是否调用阅读确认，比较前后游标 | 改为只重新读取未读状态；重连与已读确认分开验收 |
@@ -618,7 +615,7 @@ make build-px-plugin
 
 ## 12 Core 实现状态与交接证据
 
-2026-10-15，Core 已交付 C01–C05 源码。共同源锁放在数据库连接工厂的最外层源写事务中，覆盖 User、Member、Role、Permission、RolePermission、RoleBinding、MemberAssignment、Department、Team、Position、Group、Tenant 和 PluginInstanceConfig。绑定和成员关系来源采用业务语义身份，物理行删除重建不会凭空增加修订；外层提交按最终事实重算。同事务 savepoint 回滚不留下临时撤权。
+以下表格保存 2026-10-15 的历史交付状态，不代表当前运行环境。共同源锁放在数据库连接工厂的最外层源写事务中，覆盖 User、Member、Role、Permission、RolePermission、RoleBinding、MemberAssignment、Department、Team、Position、Group、Tenant 和 PluginInstanceConfig。绑定和成员关系来源采用业务语义身份，物理行删除重建不会凭空增加修订；外层提交按最终事实重算。同事务 savepoint 回滚不留下临时撤权。
 
 GORM 的 Create/Update/Delete 与正式 Raw Exec DML 走同一提交边界；源表 SELECT FOR UPDATE 先取共同门闩。显式借用连接的迁移与 scheduler fence 保留协调包装；源 DML 的 SkipDefaultTransaction 或自由裸连接绕出事务会被拒绝。直接从底层 sql.DB、外部 SQL 客户端或其他服务修改 IAM 不属于已接入正式写入口，禁止用于日常授权维护；只读会检测来源摘要漂移并返回基线不可用，不修补历史。
 
@@ -642,10 +639,17 @@ POWERX_BASELINE_POSTGRES_DSN='<isolated_postgres_dsn>' go test -count=1 ./intern
 
 Core 不提供跨请求基线缓存，不更改旧身份 PolicyVersion 含义。后续 Framework/plugin 对阅读令牌必须绑定新 authorization_revision，并在确认时重新读取。没有个人成员的 Root 不可被自动制造成员或共享阅读状态。首期记录时间语义保持第 4.3 节的边界。
 
+### 12.1 全租户生命周期修正（2026-10-19）
+
+本版通过基线、正式服务、集中 migration、bootstrap 和 IAM 五个包的 race 回归；tenant 包无测试。独立 PostgreSQL 14 实例验证了生产连接工厂上的全新库迁移、已有多租户缺失记录、重复迁移及后续新租户启用。初始化与成员授权两种并发提交顺序、失败整体回滚、原收据／起点／修订保留、只读恢复和外部来源漂移不被启动修复均有回归。
+
+`go vet`、Core 与正式迁移工具构建、`make capability-check`、升级载荷检查及 diff 格式检查通过。测试发现的全新迁移 PostgreSQL 缓存计划错误已通过固定查询列解决，最小 IAM fixture 已补齐空权限目录。临时 PostgreSQL PID `65491` 已停止，`59317` 端口释放；未修改本机业务库、远程库、Framework／插件源码或用户服务，未执行 capability seed。完整命令、源码摘要和验证边界见 [生命周期回归证据](../../../contracts/evidence/iam-baseline-all-tenants-lifecycle-20261019.json)。远程安装验收仍须在部署新 Core 后完成，不以本轮隔离库结果替代。
+
 ## 13 变更记录
 
 | 版本 | 日期 | 维护责任 | 内容 |
 |---|---|---|---|
+| 1.3 | 2026-10-19 | Core | 修正迁移、正常启动及源事务的全租户自动追踪；Core 起点与插件业务启用分离，不再要求逐租户 guard/apply；保持 typed 合同、既有授权及起点，补 B25–B27 |
 | 1.0 | 2026-10-15 | Core 维护权威正文；Framework 与插件维护消费入口及实施证据 | 整合连续区间与决策分段、并发源锁、一致性批量、初始化字段拆分、时间语义、范围与 Root 六项反馈；冻结首期实施对齐基准，运行实现待交付 |
 | 1.1 | 2026-10-15 | Core | 交付账本、共享来源、共同事务、typed 读取、正式服务合同和显式初始化 CLI；补齐未知历史不伪造起点的保护；记录发布、真实 Host 缺 grant 及既有全仓编译失败证据，Framework/插件和安装态验收保留待办 |
 | 1.2 | 2026-10-15 | Core 维护对齐文档；Framework／插件各自交付运行实现 | 采纳 Framework 实时接入反馈：补齐 WS 最终发送、排队撤权与重连不已读、Registry／Bundle 与启用门禁、模板及生成物、delegated worker 宿主分页＋批量筛选；新增 B19–B24，校准旧 design_only 状态。本版仅修改文档，未执行初始化、部署、模板同步或生成物验收 |

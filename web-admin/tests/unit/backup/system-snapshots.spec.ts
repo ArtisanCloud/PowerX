@@ -13,6 +13,7 @@ const service = vi.hoisted(() => ({
   importFile: vi.fn(),
   restore: vi.fn(),
   protect: vi.fn(),
+  remove: vi.fn(),
 }));
 const recoveryService = vi.hoisted(() => ({ overview: vi.fn(), restore: vi.fn(), watchProgress: vi.fn() }));
 vi.mock('~/composables/api/services/systemRecoveryService', () => ({ useSystemRecoveryService: () => recoveryService }));
@@ -117,6 +118,47 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("system snapshots", () => {
+  it('requires permanent-delete consent, removes the row only after files and record are confirmed', async () => {
+    service.remove.mockImplementation(async () => {
+      service.overview.mockResolvedValue({ ...overview(), snapshots: [] });
+      return { id: snapshot.id, record_deleted: true, files_deleted: true };
+    });
+    const w = panel(); await flushPromises();
+    await w.get('[data-testid="snapshot-delete"]').trigger('click'); await flushPromises();
+    expect(service.remove).not.toHaveBeenCalled();
+    expect(w.text()).toContain('backupCenter.snapshots.deleteHistoryHint');
+    const confirm = w.findAll('button').find(b => b.text() === 'backupCenter.snapshots.deleteConfirm')!;
+    expect(confirm.attributes('disabled')).toBeDefined();
+    await w.get('#system-snapshot-form input[type="checkbox"]').setValue(true);
+    await w.get('#system-snapshot-form').trigger('submit'); await flushPromises();
+    expect(service.remove).toHaveBeenCalledWith(snapshot.id, false);
+    expect(w.find('[data-testid="system-snapshot"]').exists()).toBe(false);
+    expect(w.get('[data-testid="snapshot-operation-success"]').text()).toContain('backupCenter.snapshots.deleteSuccess');
+  });
+
+  it('makes deletion of protected snapshots explicit and keeps failures visible for retry', async () => {
+    service.overview.mockResolvedValue({ ...overview(), snapshots: [{ ...snapshot, protected: true }] });
+    service.remove.mockRejectedValue(new Error('Snapshot is used by a recovery task'));
+    const w = panel(); await flushPromises();
+    await w.get('[data-testid="snapshot-delete"]').trigger('click'); await flushPromises();
+    expect(w.text()).toContain('backupCenter.snapshots.deleteProtectedHint');
+    expect(w.text()).toContain('backupCenter.snapshots.deleteProtectedConsent');
+    await w.get('#system-snapshot-form input[type="checkbox"]').setValue(true);
+    await w.get('#system-snapshot-form').trigger('submit'); await flushPromises();
+    expect(service.remove).toHaveBeenCalledWith(snapshot.id, true);
+    expect(w.find('[data-testid="system-snapshot"]').exists()).toBe(true);
+    expect(w.text()).toContain('Snapshot is used by a recovery task');
+    expect(w.find('#system-snapshot-form').exists()).toBe(true);
+  });
+
+  it('keeps active capture deletion disabled and allows deleting failed records', async () => {
+    service.overview.mockResolvedValue({ ...overview(), snapshots: [{ ...snapshot, status: 'capturing' }, { ...snapshot, id: 'failed', status: 'failed' }] });
+    const w = panel(); await flushPromises();
+    const buttons = w.findAll('[data-testid="snapshot-delete"]');
+    expect(buttons[0].attributes('disabled')).toBeDefined();
+    expect(buttons[1].attributes('disabled')).toBeUndefined();
+    expect(service.remove).not.toHaveBeenCalled();
+  });
   const integratedPanel = () => {
     const wrapper = mount(Panel, { global: { stubs: { ...stubs, SystemRecoveryPanel: false } } });
     wrappers.push(wrapper);

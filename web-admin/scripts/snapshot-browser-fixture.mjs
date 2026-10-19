@@ -66,7 +66,7 @@ const snapshot = {
   ),
 };
 let overview;
-let databaseExports = [], mediaExports = [], emptyPolicies = false;
+let databaseExports = [], mediaExports = [], emptyPolicies = false, deleteFailure = false;
  let recovery;
  const subscribers = new Set();
  const jobSubscribers = new Map();
@@ -82,7 +82,7 @@ function reset() {
   for (const response of subscribers) response.end(); subscribers.clear();
   for (const list of jobSubscribers.values()) for (const response of list) response.end(); jobSubscribers.clear();
   coreStopped = false;
-  databaseExports=[];mediaExports=[];emptyPolicies=false;
+  databaseExports=[];mediaExports=[];emptyPolicies=false;deleteFailure=false;
   overview = {
     directory: "/var/lib/powerx/snapshot fixture/store",
     directory_source: "configuration",
@@ -123,6 +123,14 @@ const backend = createServer(async (request, response) => {
   if(url.pathname==='/api/v1/__snapshot_browser/empty-snapshots'){overview.snapshots=[];notify('snapshots');json(response,200,{ok:true});return;}
   if(url.pathname==='/api/v1/__snapshot_browser/empty-policies'){emptyPolicies=true;json(response,200,{ok:true});return;}
   if(url.pathname === "/api/v1/__snapshot_browser/push") { let raw='';for await(const chunk of request)raw+=chunk;const changes=JSON.parse(raw);Object.assign(overview.snapshots[0],changes);notify('snapshots');json(response,200,{ok:true});return; }
+  if(url.pathname==='/api/v1/__snapshot_browser/delete-failure') { let raw='';for await(const chunk of request)raw+=chunk;deleteFailure=JSON.parse(raw).enabled;json(response,200,{ok:true});return; }
+  if(url.pathname==='/api/v1/__snapshot_browser/recovery-history') {
+    let raw='';for await(const chunk of request)raw+=chunk;const input=JSON.parse(raw);
+    recovery.jobs=input.statuses.map((status,index)=>({id:randomUUID(),kind:'restore',snapshot_id:snapshot.id,status,phase:status,created_at:`2026-10-15T00:00:0${index}Z`,error:status==='failed'?'历史预检查失败':undefined,checks:[]}));
+    recovery.progress_tokens={};
+    if(input.extraSnapshots)overview.snapshots=[{...structuredClone(snapshot),protected:true},{...structuredClone(snapshot),id:'45818353-20cd-4398-b739-f3548a5ba003'},{...structuredClone(snapshot),id:'332724fc-203f-4992-9546-02de2b9ad38f',status:'failed',phase:'failed',error:'历史快照采集失败',components:[]}];
+    notify('snapshots','recovery');json(response,200,{ok:true});return;
+  }
   const hasBearer = String(request.headers.authorization || "").startsWith(
     "Bearer ",
   );
@@ -189,6 +197,20 @@ const backend = createServer(async (request, response) => {
   if (url.pathname === base && request.method === "GET") {
     json(response, 200, { data: { overview } });
     return;
+  }
+  const deletion = url.pathname.match(new RegExp('^'+base+'/([0-9a-f-]{36})$'));
+  if (deletion && request.method === 'DELETE') {
+    const id = deletion[1], point = overview.snapshots.find(row => row.id === id);
+    requests.at(-1).confirmation = request.headers['x-snapshot-confirmation'];
+    requests.at(-1).deleteProtected = request.headers['x-snapshot-delete-protected'];
+    if (!point) { json(response,404,{message:'Snapshot not found'});return; }
+    if (request.headers['x-snapshot-confirmation'] !== id) { json(response,400,{message:'Snapshot confirmation required'});return; }
+    if (['queued','capturing','verifying'].includes(point.status)) { json(response,409,{message:'Snapshot is active'});return; }
+    if (recovery.jobs.some(job=>['queued','running','attention_required'].includes(job.status))) { json(response,409,{message:'Recovery is active or needs attention'});return; }
+    if (point.protected && request.headers['x-snapshot-delete-protected'] !== 'true') { json(response,409,{message:'Protected snapshot confirmation required'});return; }
+    if (deleteFailure) { point.status='delete_failed';point.error='快照文件清理未完成，请重试删除';notify('snapshots');json(response,500,{message:point.error});return; }
+    overview.snapshots=overview.snapshots.filter(row=>row.id!==id);notify('snapshots');
+    json(response,200,{data:{deletion:{id,record_deleted:true,files_deleted:true}}});return;
   }
   if (url.pathname === base && request.method === "POST") {
     let raw='';for await(const part of request)raw+=part;const input=JSON.parse(raw);requests.at(-1).body=input;

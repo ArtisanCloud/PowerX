@@ -6,6 +6,7 @@
       :description="t('backupCenter.snapshots.scopeDescription')"
     />
     <UAlert v-if="error" color="error" :title="error" />
+    <UAlert v-if="operationNotice" color="success" :title="operationNotice" data-testid="snapshot-operation-success" />
     <UAlert
       v-if="overview?.scheduler_error"
       color="warning"
@@ -114,16 +115,18 @@
               <td class="block min-w-0 py-2 sm:table-cell sm:px-3 sm:py-3">
                 <span class="mb-1 block text-xs text-muted sm:hidden">{{ t('backupCenter.snapshots.policyStatus') }}</span>
                 <UBadge :color="snapshot.status === 'ready' ? 'success' : snapshot.status === 'failed' || snapshot.status === 'interrupted' ? 'error' : 'neutral'" variant="subtle">{{ snapshot.phase === 'retry_wait' ? t('backupCenter.snapshots.retryWaiting') : state(snapshot.status) }}</UBadge>
+                <UBadge v-if="snapshot.protected" class="ml-2" color="warning" variant="subtle" :title="t('backupCenter.snapshots.deleteProtectedHint')">{{ t('backupCenter.snapshots.protectedLabel') }}</UBadge>
                 <p v-if="snapshot.error" class="mt-2 max-w-64 break-words text-sm" :class="snapshot.phase === 'retry_wait' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'">{{ snapshot.error }}</p>
                 <p v-if="snapshot.retry_at" class="mt-1 text-xs text-muted">{{ t('backupCenter.snapshots.retryAt', { time: time(snapshot.retry_at), attempt: snapshot.attempt || 1 }) }}</p>
                 <p v-if="snapshot.status === 'ready' && !snapshot.recovery_supported" class="mt-1 text-xs text-muted">{{ t('backupCenter.snapshots.onlinePackageScope') }}</p>
               </td>
               <td class="col-span-2 block whitespace-nowrap py-2 sm:table-cell sm:px-3 sm:py-3"><span class="mr-2 text-xs text-muted sm:hidden">{{ t('backupCenter.size') }}</span>{{ snapshot.components?.length ? bytes(snapshot.components.reduce((total, component) => total + component.size_bytes, 0)) : '—' }}</td>
               <td class="col-span-2 block py-2 sm:table-cell sm:px-3 sm:py-3">
-                <div class="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap">
+                <div class="flex flex-wrap items-center justify-end gap-2">
                   <UButton size="sm" class="shrink-0 whitespace-nowrap" color="neutral" variant="ghost" @click="details = snapshot">{{ t('backupCenter.snapshots.details') }}</UButton>
                   <UButton v-if="snapshot.status === 'ready'" size="sm" class="shrink-0 whitespace-nowrap" color="neutral" variant="outline" :disabled="busy" @click="open('export', snapshot)">{{ t('backupCenter.snapshots.export') }}</UButton>
                   <UButton v-if="snapshot.status === 'ready'" size="sm" class="shrink-0 whitespace-nowrap" :disabled="busy || !canRestoreSnapshot(snapshot)" :title="snapshotRestoreReason(snapshot) || undefined" @click="restoreSnapshot(snapshot)">{{ t('backupCenter.recovery.prepare') }}</UButton>
+                  <UButton size="sm" class="shrink-0 whitespace-nowrap" color="error" variant="ghost" icon="i-heroicons-trash" :disabled="busy || !!snapshotDeleteReason(snapshot)" :title="snapshotDeleteReason(snapshot) || undefined" data-testid="snapshot-delete" @click="open('delete', snapshot)">{{ t('backupCenter.snapshots.delete') }}</UButton>
                 </div>
                 <p v-if="snapshot.status === 'ready' && recoveryAvailability.status === 'ready' && !canRestoreSnapshot(snapshot)" class="mt-2 max-w-72 text-sm text-muted sm:ml-auto sm:text-right">{{ snapshotRestoreReason(snapshot) }}</p>
               </td>
@@ -332,6 +335,12 @@
             }}
             · {{ dialog.snapshot.version }}
           </p>
+          <template v-if="dialog?.kind === 'delete' && dialog.snapshot">
+            <p class="break-all font-mono text-xs text-muted">{{ dialog.snapshot.id }}</p>
+            <UAlert v-if="dialog.snapshot.protected" color="warning" :title="t('backupCenter.snapshots.deleteProtectedHint')" />
+            <p class="text-sm text-muted">{{ t('backupCenter.snapshots.deleteHistoryHint') }}</p>
+            <UCheckbox v-model="confirmed" :label="t(dialog.snapshot.protected ? 'backupCenter.snapshots.deleteProtectedConsent' : 'backupCenter.snapshots.deleteConsent')" />
+          </template>
           <UCheckbox
             v-if="dialog?.kind === 'restore'"
             v-model="confirmed"
@@ -352,9 +361,10 @@
           ><UButton
               type="submit"
             form="system-snapshot-form"
+            :color="dialog?.kind === 'delete' ? 'error' : 'primary'"
             :loading="busy"
             :disabled="!canSubmit"
-            >{{ t(dialog?.kind === 'policy' ? 'backupCenter.save' : 'backupCenter.confirm') }}</UButton
+            >{{ t(dialog?.kind === 'policy' ? 'backupCenter.save' : dialog?.kind === 'delete' ? 'backupCenter.snapshots.deleteConfirm' : 'backupCenter.confirm') }}</UButton
           >
         </div></template
       ></UModal
@@ -472,6 +482,7 @@ function snapshotRestoreReason(snapshot: SystemSnapshot) {
 }
  const recoveryPanel=ref<InstanceType<typeof SystemRecoveryPanel>|null>(null);
 const error = ref("");
+const operationNotice = ref("");
 const storageHelp = ref(false);
 const modalError = ref("");
 const policySaved = ref(false);
@@ -512,7 +523,7 @@ const policySchema = v.object({
     v.maxValue(10000),
   ),
 });
-type DialogKind = "capture" | "restore" | "export" | "import" | "policy";
+type DialogKind = "capture" | "restore" | "export" | "import" | "policy" | "delete";
 const dialog = ref<{
   kind: DialogKind;
   policy?: NamedSnapshotPolicy;
@@ -547,7 +558,9 @@ const dialogTitle = computed(() =>
 );
 const dialogDescription = computed(() =>
   t(
-    dialog.value?.kind === "restore"
+    dialog.value?.kind === 'delete'
+      ? 'backupCenter.snapshots.deleteHint'
+      : dialog.value?.kind === "restore"
       ? "backupCenter.snapshots.restoreHint"
       : dialog.value?.kind === "capture"
         ? "backupCenter.snapshots.captureHint"
@@ -561,6 +574,7 @@ const canSubmit = computed(() => {
   const kind = dialog.value.kind;
   if (kind === "capture") return capturePolicyIsCurrent.value && !!overview.value?.ready;
   if (kind === "restore") return confirmed.value;
+  if (kind === 'delete') return confirmed.value && !!dialog.value.snapshot && !snapshotDeleteReason(dialog.value.snapshot);
   if (kind === "export" || kind === "import")
     return (
       new TextEncoder().encode(password.value).length >= 12 &&
@@ -596,6 +610,8 @@ async function refreshOverview() {
 function openDataOnly(snapshot: SystemSnapshot) { details.value=null;open('restore',snapshot); }
 function open(kind: DialogKind, snapshot?: SystemSnapshot) {
   if (busy.value) return;
+  if (kind === 'delete' && (!snapshot || snapshotDeleteReason(snapshot))) return;
+  operationNotice.value = '';
   if (kind === 'policy') { policySaved.value = false; policyError.value = ''; }
   revision++;
   password.value = "";
@@ -670,6 +686,13 @@ async function load() {
     if (!disposed && requested === revision) {
       overview.value = data;
       if (details.value) details.value = data.snapshots.find(row => row.id === details.value?.id) || details.value;
+      if (dialog.value?.kind === 'delete' && dialog.value.snapshot) {
+        const latest = data.snapshots.find(row => row.id === dialog.value!.snapshot!.id);
+        if (latest) {
+          if (latest.protected !== dialog.value.snapshot.protected) confirmed.value = false;
+          dialog.value.snapshot = latest;
+        }
+      }
       error.value = "";
     }
   } catch (e) {
@@ -715,6 +738,14 @@ async function submit() {
       }
     } else if (action.kind === "import" && selectedFile.value) {
       await service.importFile(selectedFile.value, password.value);
+    } else if (action.kind === 'delete' && action.snapshot) {
+      const result = await service.remove(action.snapshot.id, !!action.snapshot.protected && confirmed.value);
+      if (!result.record_deleted || !result.files_deleted) throw new Error(t('backupCenter.snapshots.deleteIncomplete'));
+      if (!disposed && requested === revision) {
+        if (overview.value) overview.value.snapshots = overview.value.snapshots.filter(row => row.id !== action.snapshot!.id);
+        if (details.value?.id === action.snapshot.id) details.value = null;
+        operationNotice.value = t('backupCenter.snapshots.deleteSuccess');
+      }
     } else if (action.kind === "policy") {
       await service.savePolicy({ ...policy, name: policy.name.trim() }, editingPolicyID.value);
       if (!disposed && requested === revision) {
@@ -733,6 +764,11 @@ async function submit() {
     busy.value = false;
     if (!disposed) await load();
   }
+}
+function snapshotDeleteReason(snapshot: SystemSnapshot) {
+  if (!['ready', 'failed', 'interrupted', 'pruned', 'deleting', 'delete_failed'].includes(snapshot.status)) return t('backupCenter.snapshots.deleteActiveHint');
+  if (recoveryAvailability.value.activeCount || recoveryAvailability.value.attentionCount) return t('backupCenter.snapshots.deleteRecoveryHint');
+  return '';
 }
 async function toggleProtection(snapshot: SystemSnapshot) {
   if (busy.value) return;
