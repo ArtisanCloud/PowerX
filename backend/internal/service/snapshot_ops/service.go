@@ -249,6 +249,9 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 	}
 	for _, id := range ids {
 		v, e := s.snapshot(id)
+		if missingSnapshotRecord(e) {
+			continue // 与单份删除并发时，已消失的记录不使整个列表失败。
+		}
 		if e != nil {
 			return out, e
 		}
@@ -487,6 +490,9 @@ func (s *Service) Tick(ctx context.Context) error {
 	latest := record.Anchor
 	for _, id := range ids {
 		j, e := s.snapshot(id)
+		if missingSnapshotRecord(e) {
+			continue
+		}
 		if e != nil {
 			return e
 		}

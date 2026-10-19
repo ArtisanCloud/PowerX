@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: PowerX 系统快照与托管恢复
-  version: '0.7.0'
+  version: '0.8.0'
   description: >-
     Root 用户 JWT 专用的整实例恢复包。统一采集数据库、本地媒体、加密配置及程序产物，
     独立口令导出完整包并支持另一实例导入。ready 只表示包内容完整；
@@ -199,6 +199,49 @@ paths:
                     type: object
                     properties:
                       snapshot: { $ref: '#/components/schemas/Snapshot' }
+    delete:
+      operationId: deleteSystemSnapshot
+      summary: 永久清理单份快照的记录与文件
+      description: >-
+        仅 Root 用户 JWT。删除 UUID 对应的 contents 内容、requests 索引、已结束恢复任务的私有展开目录，
+        最后移除 snapshots 展示记录；操作审计和恢复历史保留。当前运行的数据库、媒体、配置不受影响。
+        不接受 query、请求体或服务器路径。与采集、导出、恢复入队共用执行锁；进行中的任务或待处理恢复阻止删除。
+        先写入 deleting，物理清理失败保留 delete_failed 记录，允许管理员重试；这两种状态不允许恢复和导出。
+        外部下载的包不在服务器清理范围。删除保护快照必须同时明确确认放弃该恢复点。
+      parameters:
+        - in: header
+          name: X-Snapshot-Confirmation
+          required: true
+          description: 必须等于路径中的完整 snapshot_id
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Snapshot-Delete-Protected
+          description: 仅明确确认删除保护快照时传 true；省略或 false 不允许删除保护快照
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: 物理文件及展示记录均已删除；不会恢复、切换或重启当前实例
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      deletion:
+                        type: object
+                        required: [id, record_deleted, files_deleted]
+                        properties:
+                          id: { type: string, format: uuid }
+                          record_deleted: { type: boolean, enum: [true] }
+                          files_deleted: { type: boolean, enum: [true] }
+        '400': { description: 无效 UUID、确认、保护标志，或包含 query／请求体 }
+        '401': { description: 未登录或用户 JWT 无效 }
+        '403': { description: 非 Root 用户 JWT，包括 API key 和 STS 身份 }
+        '404': { description: 快照不存在或已经删除 }
+        '409': { description: 采集／恢复／执行锁占用、保护未明确确认或存储路径不安全 }
+        '500': { description: 清理或存储同步失败，不能声明删除成功；清理未完成时保留 delete_failed 记录供重试 }
   /system-snapshots/{snapshot_id}/export:
     parameters:
       - $ref: '#/components/parameters/SnapshotID'
@@ -412,7 +455,7 @@ components:
         policy_name: { type: string, description: 创建时策略名称，后续改名不改写历史任务。 }
         recovery_supported: { type: boolean, description: 包具备受控采集与独立恢复合同；不是业务验证完成证明 }
         id: { type: string, format: uuid }
-        status: { type: string, enum: [queued, capturing, verifying, ready, failed, interrupted, pruned] }
+        status: { type: string, enum: [queued, capturing, verifying, ready, failed, interrupted, pruned, deleting, delete_failed] }
         attempt: { type: integer, minimum: 1, description: 在线采集尝试次数；首次为 1，最多 4 次 }
         retry_at: { type: string, format: date-time, description: 来源并发变化时的下一次重试时间；通过 SSE 推送更新 }
         phase: { type: string, description: retry_wait 表示同一任务等待有界重试，非业务暂停 }

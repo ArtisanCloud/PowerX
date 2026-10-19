@@ -31,6 +31,7 @@ func registerProtectedRoutes(protected *gin.RouterGroup, deps *shared.Deps) {
 	g.PATCH("/system-snapshots/policies/:policy_id/status", RequireRestoreRoot(), h.SetSnapshotPolicyStatus)
 	g.POST("/system-snapshots/imports", RequireRestoreRoot(), h.ImportSnapshot)
 	g.GET("/system-snapshots/:snapshot_id", RequireRestoreRoot(), h.GetSnapshot)
+	g.DELETE("/system-snapshots/:snapshot_id", RequireRestoreRoot(), h.DeleteSnapshot)
 	g.POST("/system-snapshots/:snapshot_id/export", RequireRestoreRoot(), h.ExportSnapshot)
 	g.POST("/system-snapshots/:snapshot_id/restores", RequireRestoreRoot(), h.RestoreSnapshot)
 	g.PATCH("/system-snapshots/:snapshot_id/protection", RequireRestoreRoot(), h.ProtectSnapshot)

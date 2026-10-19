@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 )
 
-// AuthorizationTracking 是显式登记的插件业务权限；迁移不自动初始化业务历史。
+// AuthorizationTracking 是已声明插件业务权限的 Core 授权追踪；首次快照不冒充历史授权。
 type AuthorizationTracking struct {
 	model.PowerUUIDModel
 	TenantUUID              string `gorm:"type:char(36);not null;uniqueIndex:uk_auth_tracking,priority:1"`
@@ -14,7 +14,7 @@ type AuthorizationTracking struct {
 	PermissionCode          string `gorm:"type:varchar(255);not null;uniqueIndex:uk_auth_tracking,priority:3"`
 	Status                  string `gorm:"type:varchar(24);not null"`
 	KnownSince              *time.Time
-	InitializationGuardUUID string `gorm:"type:char(36);not null;default:''"`
+	InitializationGuardUUID string `gorm:"type:char(36);not null;default:''"` // Core 自动初始化收据或旧运维门禁收据。
 	InitializedBy           string `gorm:"type:varchar(128);not null;default:''"`
 }
 

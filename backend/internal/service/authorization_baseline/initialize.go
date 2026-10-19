@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// InitializationInput 仅供显式运维流程，不通过只读 capability 暴露。
-// GuardUUID 是插件完成写入门禁和存量核对后交付的持久化收据标识，不能由浏览器提交。
+// InitializationInput 保留旧版显式维护流程，不通过只读 capability 暴露。
+// 普通生命周期由 Core 自动追踪；旧 Apply 的 GuardUUID 仍须为受控维护收据，不能由浏览器提交。
 type InitializationInput struct {
 	TenantUUID      string
 	PluginID        string
@@ -117,7 +117,8 @@ func (s *Service) Initialize(ctx context.Context, in InitializationInput) (Initi
 				continue
 			}
 			if err == nil && row.Status == "ready" {
-				if row.InitializationGuardUUID != canonical(in.GuardUUID) {
+				// Core 已自动建立的起点由 Core 保持；旧运维调用只复用结果，不能换成插件收据。
+				if row.InitializedBy != baseline.AutomaticInitializer && row.InitializationGuardUUID != canonical(in.GuardUUID) {
 					return failure(409, "IAM_BASELINE_ALREADY_INITIALIZED")
 				}
 				if row.KnownSince == nil {

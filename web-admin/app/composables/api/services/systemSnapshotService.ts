@@ -138,5 +138,17 @@ export const useSystemSnapshotService = () => {
         ),
       ).snapshot;
     },
+    async remove(id: string, deleteProtected: boolean) {
+      return api.unwrap<{ deletion: { id: string; record_deleted: boolean; files_deleted: boolean } }>(
+        await api.delete(`${base}/${encodeURIComponent(id)}`, {
+          ...config,
+          timeout: 600000,
+          headers: {
+            'X-Snapshot-Confirmation': id,
+            'X-Snapshot-Delete-Protected': String(deleteProtected),
+          },
+        }),
+      ).deletion;
+    },
   };
 };

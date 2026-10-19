@@ -68,3 +68,115 @@ for (const narrow of [false, true]) {
     } finally { await context.close(); }
   });
 }
+
+test('catalog completion returns to the site when the final task push is lost', async ({ browser, request, baseURL }) => {
+  await request.post('/__fixture/reset');
+  const record = JSON.parse(readFileSync(resolve('../test-results/recovery-portal-browser-process.json'), 'utf8'));
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  // Only the resource stream survives; its event-triggered catalog read must
+  // produce the same completed state and navigation as a single-job push.
+  await page.route('**/__powerx_recovery/jobs/*/events', route => route.abort('failed'));
+  try {
+    await page.goto('/__powerx_recovery/');
+    await page.getByLabel('恢复密钥', { exact: true }).fill(readFileSync(record.key_file, 'utf8').trim());
+    await page.getByRole('button', { name: '验证并进入', exact: true }).click();
+    await page.getByRole('button', { name: '恢复当前实例', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('checkbox').check();
+    await dialog.getByRole('button', { name: '确认执行', exact: true }).click();
+    await expect(page.getByText('进入维护', { exact: true })).toBeVisible();
+    await request.post('/__fixture/continue');
+    await expect(page.locator('#business-ready')).toHaveText('业务恢复完成', { timeout: 12_000 });
+    await expect(page).toHaveURL(/\/ops\/backup$/);
+  } finally { await context.close(); }
+});
+
+test('a long restart reconnects and completes without refresh or state polling', async ({ browser, request, baseURL }) => {
+  test.setTimeout(90_000);
+  await request.post('/__fixture/reset');
+  const record = JSON.parse(readFileSync(resolve('../test-results/recovery-portal-browser-process.json'), 'utf8'));
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  let outage = true, attempts = 0, catalogReads = 0;
+  page.on('request', req => { if (new URL(req.url()).pathname.endsWith('/catalog')) catalogReads++; });
+  await page.route('**/__powerx_recovery/**/events', route => { attempts++;return outage ? route.abort('failed') : route.continue(); });
+  // The resource path has no intermediate slash after the recovery prefix.
+  await page.route('**/__powerx_recovery/events', route => { attempts++;return outage ? route.abort('failed') : route.continue(); });
+  try {
+    await page.goto('/__powerx_recovery/');
+    await page.getByLabel('恢复密钥', { exact: true }).fill(readFileSync(record.key_file, 'utf8').trim());
+    await page.getByRole('button', { name: '验证并进入', exact: true }).click();
+    await page.getByRole('button', { name: '恢复当前实例', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('checkbox').check();
+    await dialog.getByRole('button', { name: '确认执行', exact: true }).click();
+    const before = catalogReads;
+    // Exceeds the former 8-attempt (~24 seconds) limit using real browser time.
+    await page.waitForTimeout(36_000);
+    expect(attempts).toBeGreaterThan(16);
+    expect(catalogReads).toBe(before);
+    outage = false;
+    await request.post('/__fixture/continue');
+    await expect(page.locator('#business-ready')).toHaveText('业务恢复完成', { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/ops\/backup$/);
+  } finally {
+    outage = false;
+    await request.post('/__fixture/continue');
+    await context.close();
+  }
+});
+
+test('a silent SSE connection is replaced and completed state is synchronized', async ({ browser, request, baseURL }) => {
+  await request.post('/__fixture/reset');
+  const record = JSON.parse(readFileSync(resolve('../test-results/recovery-portal-browser-process.json'), 'utf8'));
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  const attempts = new Map<string, number>();
+  await page.clock.install();
+  await page.route('**/__powerx_recovery/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (!path.endsWith('/events')) return route.continue();
+    const count = (attempts.get(path) || 0) + 1;attempts.set(path, count);
+    await route.continue({ headers: { ...route.request().headers(), ...(count === 1 ? { 'X-Fixture-Silent-Stream': '1' } : {}) } });
+  });
+  try {
+    await page.goto('/__powerx_recovery/');
+    await page.getByLabel('恢复密钥', { exact: true }).fill(readFileSync(record.key_file, 'utf8').trim());
+    await page.getByRole('button', { name: '验证并进入', exact: true }).click();
+    await page.getByRole('button', { name: '恢复当前实例', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('checkbox').check();
+    await dialog.getByRole('button', { name: '确认执行', exact: true }).click();
+    await expect(page.locator('#jobs article').first()).toBeVisible();
+    await request.post('/__fixture/continue');
+    await page.clock.runFor(46_000);
+    await page.clock.resume();
+    await expect(page.locator('#business-ready')).toHaveText('业务恢复完成', { timeout: 15_000 });
+    expect([...attempts.values()].some(count => count >= 2)).toBe(true);
+  } finally { await context.close(); }
+});
+
+test('continuous outage has a finite retry window and does not query task state', async ({ browser, request, baseURL }) => {
+  await request.post('/__fixture/reset');
+  const record = JSON.parse(readFileSync(resolve('../test-results/recovery-portal-browser-process.json'), 'utf8'));
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  let attempts = 0, reads = 0;
+  await page.clock.install();
+  await page.route('**/__powerx_recovery/events', route => { attempts++;return route.abort('failed'); });
+  page.on('request', req => { if (new URL(req.url()).pathname.endsWith('/catalog')) reads++; });
+  try {
+    await page.goto('/__powerx_recovery/');
+    await page.getByLabel('恢复密钥', { exact: true }).fill(readFileSync(record.key_file, 'utf8').trim());
+    await page.getByRole('button', { name: '验证并进入', exact: true }).click();
+    await expect(page.locator('#message')).toContainText('正在自动重连');
+    const before = reads;
+    await page.clock.fastForward(301_000);
+    await expect(page.locator('#message')).toContainText('连续五分钟未恢复');
+    const stopped = attempts;
+    await page.clock.runFor(60_000);
+    expect(attempts).toBe(stopped);
+    expect(reads).toBe(before);
+  } finally { await context.close(); }
+});

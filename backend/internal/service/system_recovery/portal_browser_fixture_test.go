@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -69,6 +70,14 @@ func TestRecoveryPortalBrowserFixture(t *testing.T) {
 		return nil
 	}
 	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 仅此受控夹具模拟代理仍保持 HTTP 连接、却不再传递 SSE 心跳的情况。
+		if r.Header.Get("X-Fixture-Silent-Stream") == "1" && strings.HasSuffix(r.URL.Path, "/events") {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = w.Write([]byte(": attached\n\n"))
+			_ = http.NewResponseController(w).Flush()
+			<-r.Context().Done()
+			return
+		}
 		switch r.URL.Path {
 		case "/__fixture/reset":
 			if r.Method != "POST" {

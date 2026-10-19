@@ -3806,8 +3806,22 @@
         "interrupted": "Interrupted",
         "pruned": "Content pruned",
         "running": "Restoring",
-        "prepared": "Data copy prepared"
-      }
+        "prepared": "Data copy prepared",
+        "deleting": "Deleting",
+        "delete_failed": "Cleanup failed; retry available"
+      },
+      "delete": "Delete snapshot",
+      "deleteConfirm": "Delete permanently",
+      "deleteHint": "Permanently remove this snapshot record and its package files, including database, media, encrypted configuration and program copies. Running system data stays unchanged.",
+      "deleteConsent": "I confirm permanent deletion of this snapshot record and its files. It will no longer be available for recovery.",
+      "deleteProtectedConsent": "I confirm permanent deletion of this protected snapshot and its files, giving up this rollback point.",
+      "deleteProtectedHint": "This protected snapshot is excluded from automatic cleanup. You can still delete it manually with explicit confirmation, which removes this rollback recovery point.",
+      "deleteHistoryHint": "Staging files for related finished recovery jobs are also removed. Operation audits and recovery history are retained.",
+      "deleteActiveHint": "The snapshot is being captured or verified and cannot be deleted.",
+      "deleteRecoveryHint": "Finish or resolve the current recovery task before deleting snapshots.",
+      "deleteSuccess": "The snapshot record and its files were permanently deleted.",
+      "deleteIncomplete": "Cleanup was not confirmed complete. Refresh the record and retry.",
+      "protectedLabel": "Protected"
     },
     "recovery": {
       "title": "System restore",

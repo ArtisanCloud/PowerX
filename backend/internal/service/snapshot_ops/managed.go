@@ -63,6 +63,10 @@ type RecoveryCheck struct {
 type CoordinatorStore struct {
 	Directory string
 	Targets   []RecoveryTarget
+	// SnapshotStore 由宿主装配；在入队锁内重新核对，阻止已删除快照的陈旧恢复请求。
+	SnapshotStore *Service
+	// CleanupSnapshotWork 仅清理当前维护协议下已结束任务的私有暂存，不触及运行文件。
+	CleanupSnapshotWork func(context.Context, string) error
 	// 同进程维护模式使用正常 Core 的地址；这些回调不进入持久化文件。
 	RecoveryEntry  string
 	RestoreProblem string
@@ -324,6 +328,15 @@ func (c *CoordinatorStore) enqueue(ctx context.Context, kind, snapshot, target, 
 				return j, failure(409, "RECOVERY_IDEMPOTENCY_CONFLICT", "幂等键请求内容不一致")
 			}
 			return j, nil
+		}
+	}
+	if c.SnapshotStore != nil && (kind == "restore" || kind == "prepare") {
+		point, err := c.SnapshotStore.snapshot(snapshot)
+		if err != nil {
+			return ManagedJob{}, err
+		}
+		if point.Status != "ready" {
+			return ManagedJob{}, failure(409, "RECOVERY_PACKAGE_UNAVAILABLE", "所选快照未就绪或已进入清理，请刷新后重新选择")
 		}
 	}
 	if kind == "restore" {

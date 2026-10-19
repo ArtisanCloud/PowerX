@@ -1,0 +1,111 @@
+{
+  "schema": "powerx.iam.authorization-baseline-lifecycle-evidence/v1",
+  "recorded_at": "2026-10-19T02:27:27.223759+00:00",
+  "head": "278a67f037834ef793b88b8cbdd8019061743a8a",
+  "scope": "Generic Core lifecycle for all active tenants with enabled plugin auth.credentials and active, explicitly opted-in business permissions; no tenant or AI Craft special case.",
+  "changes": [
+    "Normal startup and central MigrateCoreModels initialize missing tracking and initial member snapshots under the existing source transaction lock.",
+    "Subsequent official tenant, plugin configuration and permission source transactions discover missing registrations before commit.",
+    "Existing starts, receipts and unchanged decisions/revisions are preserved; no role grants are created.",
+    "Startup initializes newly discovered tracks only; offline source drift is not rewritten as new grant/revoke history.",
+    "Queries, CLI precheck and recovery verify/hold/coordinator-maintenance startup remain read-only.",
+    "Legacy controlled apply can reuse a Core-owned receipt without changing it; manual legacy receipt conflict rules remain.",
+    "Typed capability, Framework response schema and plugin business activation are unchanged.",
+    "Migration payload hashing now includes the authorization dependencies called by core migrations."
+  ],
+  "validation": [
+    {
+      "command": "go test -race ./pkg/corex/iam/authorizationbaseline ./internal/service/authorization_baseline ./pkg/corex/db/database ./internal/bootstrap ./internal/service/iam ./internal/service/tenant",
+      "environment": "POWERX_BASELINE_POSTGRES_DSN and POWERX_BASELINE_MIGRATION_TEST_DSN pointed only to an agent-owned PostgreSQL 14 instance at 127.0.0.1:59317",
+      "result": "passed; five tested packages; tenant has no test files"
+    },
+    {
+      "command": "go test -race ./pkg/corex/db/database -run TestPostgresMigrationAutomaticallyInitializesAllTenants -count=1",
+      "environment": "separate initially empty powerx_baseline_migration_test_20261019_final database on the same temporary instance",
+      "result": "passed; production connection factory, fresh full migration, old multi-tenant data, repeated full migration, later tenant/plugin enable"
+    },
+    {
+      "command": "go vet ./pkg/corex/iam/authorizationbaseline ./internal/service/authorization_baseline ./pkg/corex/db/database ./internal/bootstrap ./internal/service/iam",
+      "result": "passed"
+    },
+    {
+      "command": "go build -o <temporary>/powerx ./cmd/app",
+      "result": "passed; compiled only, did not start the app"
+    },
+    {
+      "command": "go build -o <temporary>/database ./cmd/database",
+      "result": "passed; compiled only"
+    },
+    {
+      "command": "make capability-check",
+      "result": "passed",
+      "declared": 1107,
+      "referenced": 70,
+      "rest_routes": 1038,
+      "candidates": 1109,
+      "ignored_route_rules": 47
+    },
+    {
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "regressions": [
+    "Multiple tenants and multiple unrelated plugins; opt-in, inactive and technical permission filters.",
+    "Existing manual start, receipt, epoch, decisions and fact revisions preserved across repeated initialization.",
+    "Initial allow is initialized with null granted_at; initial deny stays denied; later actual grant is native.",
+    "New tenant/plugin/permission registration in both orders; previously inactive tenant/plugin activation.",
+    "Initialization and role membership concurrency in both PostgreSQL commit orders.",
+    "Rollback of source mutation and newly created ledger rows on initialization/decision persistence failure.",
+    "Read-only precheck and typed service reads; startup skips recovery read-only and maintenance modes.",
+    "Partial schema rejection, existing blocked status preservation, external source drift remains unavailable.",
+    "Initialization inside an existing source transaction preserves its commit reconciliation."
+  ],
+  "development_failures": [
+    {
+      "failure": "Fresh production-factory migration hit PostgreSQL cached plan must not change result type after schema expansion.",
+      "resolution": "Discovery now selects only required permission columns rather than SELECT *; final fresh migration race test passed."
+    },
+    {
+      "failure": "An existing minimal member-service test fixture omitted the permission catalog now required by discovery.",
+      "resolution": "Added the empty Permission table to that isolated fixture; production fail-closed behavior was retained; IAM suite passed."
+    },
+    {
+      "failure": "An initial broad compilation encountered an unrelated concurrent recovery SnapshotStore field mismatch.",
+      "resolution": "Did not edit the other task; final bootstrap suite and full app/database builds passed in the current worktree."
+    }
+  ],
+  "temporary_service": {
+    "owner": "this agent",
+    "pid": 65491,
+    "port": 59317,
+    "working_directory": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+    "start_command": "/opt/homebrew/opt/postgresql@14/bin/pg_ctl -D /tmp/powerx-baseline-all-tenants.BHUHAH/data -l /tmp/powerx-baseline-all-tenants.BHUHAH/postgres.log -o '-h 127.0.0.1 -p 59317 -k /tmp/powerx-baseline-all-tenants.BHUHAH' -w start",
+    "stop_command": "/opt/homebrew/opt/postgresql@14/bin/pg_ctl -D /tmp/powerx-baseline-all-tenants.BHUHAH/data -m fast -w stop",
+    "cleanup": "stopped; PID absent and port has no listener"
+  },
+  "boundaries": {
+    "local_business_database_modified": false,
+    "remote_database_modified": false,
+    "user_services_restarted": false,
+    "capability_seed_run": false,
+    "framework_or_plugin_source_modified": false,
+    "remote_acceptance": "not performed; deploy the new Core and normal schema migration if needed, then verify plugin activation and actual service grants independently"
+  },
+  "sha256": {
+    "backend/internal/bootstrap/app.go": "8b8f4684b66ac43dca84380c21847bc32214ee493973cccc47105d7de2c62584",
+    "backend/internal/bootstrap/authorization_baseline.go": "544f76fd4bc73a3c318018480823206306400b0236c76b890593b6c9a7ab6e31",
+    "backend/internal/service/authorization_baseline/initialize.go": "7db9280823877dcd24fdadd0967412affca98c7f130075423e0d76962aa51cf9",
+    "backend/pkg/corex/db/database/migration.go": "84784b4adff870efb2ca5f0c96ab57f63f1c0f07c47505c2b153af1857ab4668",
+    "backend/pkg/corex/db/persistence/model/iam/authorization_baseline_gorm.go": "e6f8d449893c32159e7735a49a56e501a1bbdcc7c6b11615d50cece722b2aed6",
+    "backend/pkg/corex/iam/authorizationbaseline/bootstrap.go": "60ddce10a40c73b333ad1ed74064245e9e9d72eb8c4e6abf04432334f0459ac3",
+    "backend/pkg/corex/iam/authorizationbaseline/ledger.go": "83514e19225237d2b53a8d2e3e623a970427c2ce26c4ab6746afe5a9c1e08b69",
+    "backend/pkg/corex/iam/authorizationbaseline/transaction.go": "c6ad70f12768552c486d17c48f31443d92209a82d555937674b503ade91771f4",
+    "deploy/powerx/container/upgrade_registry.py": "1ddb5c00e37388e041e793393dba87850c69cf3802eba9c08a09c6f605360d7e",
+    "backend/cmd/database/upgrade_payloads.json": "7e72251ca8bd6fb42fba1b606f94d1010c5aee102ec97d802d15fdba4319a3b3"
+  }
+}

@@ -71,8 +71,54 @@ func snapshotHTTPFixture(t *testing.T) (*snapshotops.Service, *gin.Engine, strin
 	g.PUT("/policies/:policy_id", h.PutSnapshotPolicy)
 	g.PATCH("/policies/:policy_id/status", h.SetSnapshotPolicyStatus)
 	g.POST("/:snapshot_id/export", h.ExportSnapshot)
+	g.GET("/:snapshot_id", h.GetSnapshot)
+	g.DELETE("/:snapshot_id", h.DeleteSnapshot)
 	g.POST("/:snapshot_id/restores", h.RestoreSnapshot)
 	return svc, r, root, member
+}
+
+func TestSnapshotDeleteHTTPRemovesOwnedFilesAndEnforcesRootConfirmation(t *testing.T) {
+	svc, router, root, member := snapshotHTTPFixture(t)
+	ctx := reqctx.WithIsRoot(reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{IsRoot: true}), true)
+	point, err := svc.Start(ctx, uuid.NewString())
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		point, err = svc.Get(ctx, point.ID)
+		return err == nil && point.Status == "ready"
+	}, 10*time.Second, 10*time.Millisecond)
+	view, err := svc.Overview(ctx)
+	require.NoError(t, err)
+	path := "/custom/v2/admin/ops/backup/system-snapshots/" + point.ID
+	call := func(token, confirmation, protected, query string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest("DELETE", path+query, nil)
+		if token != "" {
+			request.Header.Set("Authorization", "Bearer "+token)
+		}
+		request.Header.Set("X-Snapshot-Confirmation", confirmation)
+		request.Header.Set("X-Snapshot-Delete-Protected", protected)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		return response
+	}
+	require.Equal(t, 401, call("", point.ID, "true", "").Code)
+	require.Equal(t, 403, call(member, point.ID, "true", "").Code)
+	require.Equal(t, 400, call(root, "wrong", "true", "").Code)
+	require.Equal(t, 400, call(root, point.ID, "force", "").Code)
+	require.Equal(t, 400, call(root, point.ID, "true", "?path=/outside").Code)
+	require.Eventually(t, func() bool {
+		_, err = svc.Protect(ctx, point.ID, true)
+		return err == nil
+	}, 5*time.Second, 10*time.Millisecond, "采集完成后的归档收尾必须释放操作锁")
+	require.Equal(t, 409, call(root, point.ID, "false", "").Code)
+	require.DirExists(t, filepath.Join(view.Directory, "contents", point.ID))
+	response := call(root, point.ID, "true", "")
+	require.Equal(t, 200, response.Code, response.Body.String())
+	require.Contains(t, response.Body.String(), `"record_deleted":true`)
+	require.Contains(t, response.Body.String(), `"files_deleted":true`)
+	require.NoDirExists(t, filepath.Join(view.Directory, "contents", point.ID))
+	require.NoFileExists(t, filepath.Join(view.Directory, "snapshots", point.ID+".json"))
+	require.NoFileExists(t, filepath.Join(view.Directory, "requests", point.ID+".json"))
+	require.Equal(t, 404, call(root, point.ID, "true", "").Code)
 }
 func TestSystemSnapshotHTTPRootBoundaryAndStrictBody(t *testing.T) {
 	svc, r, root, member := snapshotHTTPFixture(t)

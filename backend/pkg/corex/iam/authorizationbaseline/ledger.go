@@ -10,12 +10,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// Reconcile 只在正式源事务提交前或显式初始化调用，不能从 GET 调用。
+// Reconcile 只在共同事务边界的生命周期初始化或源事务提交前调用，不能从 GET 调用。
 func Reconcile(db *gorm.DB, at time.Time) error {
 	var tracks []im.AuthorizationTracking
 	if err := db.Where("status = ?", "ready").Order("tenant_uuid, plugin_id, permission_code").Find(&tracks).Error; err != nil {
 		return err
 	}
+	return reconcileTracks(db, at, tracks)
+}
+
+func reconcileTracks(db *gorm.DB, at time.Time, tracks []im.AuthorizationTracking) error {
 	cache := map[string]ar.Facts{}
 	for _, track := range tracks {
 		key := track.TenantUUID + "/" + track.PluginID

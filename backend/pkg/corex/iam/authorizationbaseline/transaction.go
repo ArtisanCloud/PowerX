@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	im "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	sm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
@@ -41,7 +40,7 @@ type trackedTransaction struct {
 	ready     bool
 }
 
-// Install 在连接工厂安装一次，不执行迁移或业务初始化。
+// Install 在连接工厂安装一次；源事务提交时自动登记缺失追踪并维护账本，查询不写库。
 func Install(db *gorm.DB) error {
 	if db == nil {
 		return errors.New("nil database")
@@ -273,13 +272,16 @@ func (t *trackedTransaction) GetDBConn() (*sql.DB, error) { return t.pool.GetDBC
 func (t *trackedTransaction) Commit() error {
 	if t.dirty && t.ready {
 		t.internal = true
-		at := Micro(time.Now())
-		if t.pool.db.Dialector.Name() == "postgres" {
-			if err := t.database().Raw("SELECT clock_timestamp()").Scan(&at).Error; err != nil {
+		at, err := transactionTime(t.database())
+		if err != nil {
+			_ = t.commit.Rollback()
+			return err
+		}
+		if SupportedDatabase(t.database()) {
+			if _, err = initializeMissing(t.database(), at); err != nil {
 				_ = t.commit.Rollback()
-				return err
+				return fmt.Errorf("IAM_BASELINE_INITIALIZATION_FAILED: %w", err)
 			}
-			at = Micro(at)
 		}
 		if err := Reconcile(t.database(), at); err != nil {
 			_ = t.commit.Rollback()

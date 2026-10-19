@@ -1,0 +1,78 @@
+{
+  "recorded_at": "2026-10-19T02:49:04.545621+00:00",
+  "problem": "All snapshot delete buttons were disabled when only terminal failed recovery history remained",
+  "local_read_only_diagnosis": {
+    "queued": 0,
+    "running": 0,
+    "attention_required": 0,
+    "failed": 4,
+    "complete": 1,
+    "business_data_changed": false,
+    "existing_snapshots_deleted": false
+  },
+  "cause": "SystemRecoveryPanel emitted attentionCount including failed jobs. SystemSnapshotsPanel interpreted that count as an unresolved recovery blocker, even though the recovery status was ready and the backend allowed deletion.",
+  "fix": "attentionCount now includes only attention_required; queued/running remain active blockers. Failed history stays visible in the recovery table and no longer blocks deletion.",
+  "protected_semantics": "Excluded from automatic retention cleanup; may still be permanently deleted manually after explicit consent. Badge hover and deletion dialog explain the meaning.",
+  "red_test": {
+    "log": "test-results/snapshot-delete-history-red.log",
+    "failure": "Expected attentionCount=0 but received 4 for four historical failed jobs and one completed job"
+  },
+  "validation": {
+    "unit_tests_passed": 40,
+    "unit_log": "test-results/snapshot-delete-history-unit.log",
+    "controlled_browser_tests_passed": 18,
+    "browser_log": "test-results/snapshot-delete-history-browser.log",
+    "new_browser_cases": [
+      "Desktop and narrow screens with four failed and one completed recovery history entry",
+      "All protected, ready and failed snapshots deletable after confirmation",
+      "Queued/running/attention_required events disable deletion; terminal failed history re-enables through SSE",
+      "Protected deletion sends explicit true; ordinary and failed deletion send false"
+    ],
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "visual_inspection": "desktop and narrow protected deletion dialogs inspected",
+    "web_build": "passed",
+    "web_build_log": "test-results/snapshot-delete-history-build.log",
+    "localization_json": "zh/en parsed",
+    "git_diff_check": "passed"
+  },
+  "scope": "Frontend status classification and explanation only. No backend deletion authorization or physical-cleanup logic changed; the prior native deletion report remains separate.",
+  "rollout": "Refresh the current development backup page; published deployments require the updated Web Admin bundle. No Core restart is required for this follow-up.",
+  "cleanup": {
+    "owned_processes": {
+      "owner": "snapshot-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-10-19T02:47:06.759Z",
+      "fixturePid": 52780,
+      "fixturePort": 3478,
+      "corePid": 52781,
+      "corePort": 3477,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/test-results/web-snapshot-history/server/index.mjs"
+      ],
+      "stoppedAt": "2026-10-19T02:48:21.746Z",
+      "coreExitedAt": "2026-10-19T02:48:21.758Z"
+    },
+    "owned_processes_exited": true,
+    "owned_ports_released": [
+      3478,
+      3477
+    ],
+    "isolated_build_cache_removed": true,
+    "user_services_restarted": false,
+    "user_snapshots_deleted": false,
+    "remote_server_operated": false
+  },
+  "limits": [
+    "Browser deletion endpoints were controlled fixtures; this follow-up did not delete live user snapshots or repeat native backend acceptance."
+  ]
+}

@@ -101,7 +101,8 @@ function emitAvailability() {
 	 reason: overview.value?.reason,
     online: !!overview.value?.online,
     activeCount: overview.value?.jobs.filter(active).length || 0,
-    attentionCount: overview.value?.jobs.filter(job => job.status === 'attention_required' || job.status === 'failed').length || 0,
+    // failed 已结束，只保留历史报告；只有待处理的维护现场才阻止后续操作。
+    attentionCount: overview.value?.jobs.filter(job => job.status === 'attention_required').length || 0,
     status: availabilityStatus.value,
     readySnapshotIDs: readySnapshots.value.map(item => item.id),
   };

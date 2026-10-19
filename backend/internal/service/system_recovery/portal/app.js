@@ -19,6 +19,21 @@
     for(const item of ["snapshots","jobs"]) { $(`${item}-panel`).hidden=item!==name;$(`${item}-tab`).setAttribute("aria-selected",String(item===name)); }
   }
   function stopStreams() { for(const stream of streams.values())stream.controller.abort();streams.clear(); }
+  function reconcileCompletion() {
+    const job=catalog?.jobs.find(value=>value.id===returnJobID);
+    if(!job||job.status!=="complete"||!["restore","resume"].includes(job.kind))return false;
+    // 完成可能来自单任务推送，也可能由重连后的概览同步读到。
+    // 两条路径必须得到相同的页面状态和返回行为。
+    catalog.maintenance=false;
+    if($("auto-return").checked&&!returnTimer) {
+      const id=job.id;
+      returnTimer=setTimeout(()=>{
+        returnTimer=null;
+        if(authenticated&&returnJobID===id&&$("auto-return").checked)location.replace("/ops/backup");
+      },3000);
+    }
+    return true;
+  }
   function lock() { authEpoch++;authenticated=false;csrf="";catalog=null;selection=null;returnJobID="";submitting=false;loading=false;refreshPending=false;for(const controller of requests)controller.abort();requests.clear();stopStreams();if(returnTimer)clearTimeout(returnTimer);returnTimer=null;if($("confirmation").open)$("confirmation").close();$("confirm-restore").disabled=false;$("cancel-restore").disabled=false;$("jobs").replaceChildren();$("snapshots").replaceChildren();$("workspace").hidden=true;$("admin-actions").hidden=true;$("login").hidden=false; }
   async function request(path, options={}) {
     const owner=authEpoch;
@@ -54,6 +69,7 @@
       if(value.executor_error)notice("恢复执行器需要运维处理，当前不能提交覆盖操作。恢复入口与认证仍可使用。详情："+value.executor_error);
       else if(value.restore_problem)notice(value.restore_problem);
       else if(value.startup_error)notice("业务启动失败，维护恢复仍在线。可从有效快照发起恢复预检查。详情："+value.startup_error);
+      else if(reconcileCompletion())notice("恢复完成，业务已启动。可以返回站点核对数据。");
       else if(value.maintenance)notice("系统正在维护。此页面可刷新或重新打开，业务完成恢复后将自动启动。");
       else notice("");
     } catch(error){if(owner===authEpoch)notice(error.message);} finally {if(owner===authEpoch){loading=false;$("refresh").disabled=false;if(refreshPending){refreshPending=false;void loadCatalog();}}}
@@ -86,37 +102,54 @@
     catalog.jobs=[job,...catalog.jobs.filter(value=>value.id!==job.id)];
     if(job.status==="complete"&&["restore","resume"].includes(job.kind)) {
       catalog.maintenance=false;notice("恢复完成，业务已启动。可以返回站点核对数据。");
-      if(job.id===returnJobID&&$("auto-return").checked&&!returnTimer) returnTimer=setTimeout(()=>location.replace("/ops/backup"),3000);
+      reconcileCompletion();
       void loadCatalog();
     }
     else if(!active(job))void loadCatalog();
     render();syncProgress();
   }
   function pause(ms,signal) { return new Promise(resolve=>{if(signal.aborted){resolve();return;}const timer=setTimeout(done,ms);function done(){clearTimeout(timer);signal.removeEventListener("abort",done);resolve();}signal.addEventListener("abort",done,{once:true});}); }
-  async function consume(body,callback,signal) {
+  async function consume(body,callback,signal,onActivity) {
     const reader=body.getReader(),decoder=new TextDecoder();let pending="";
-    try { while(!signal.aborted){const {done,value}=await reader.read();if(done)break;pending+=decoder.decode(value,{stream:true});pending=pending.replace(/\r\n/g,"\n");let end;while((end=pending.indexOf("\n\n"))!==-1){const block=pending.slice(0,end);pending=pending.slice(end+2);let event="message";const data=[];for(const line of block.split("\n")){if(line.startsWith("event:"))event=line.slice(6).trim();if(line.startsWith("data:"))data.push(line.slice(5).trimStart());}if(data.length){let payload;try{payload=JSON.parse(data.join("\n"));}catch{continue;}callback(event,payload);}}} } finally {try{await reader.cancel();}catch{}}
+    try { while(!signal.aborted){const {done,value}=await reader.read();if(done)break;onActivity();pending+=decoder.decode(value,{stream:true});pending=pending.replace(/\r\n/g,"\n");let end;while((end=pending.indexOf("\n\n"))!==-1){const block=pending.slice(0,end);pending=pending.slice(end+2);let event="message";const data=[];for(const line of block.split("\n")){if(line.startsWith("event:"))event=line.slice(6).trim();if(line.startsWith("data:"))data.push(line.slice(5).trimStart());}if(data.length){let payload;try{payload=JSON.parse(data.join("\n"));}catch{continue;}callback(event,payload);}}} } finally {try{await reader.cancel();}catch{}}
   }
   function connect(name,path,ticket,callback) {
     if(streams.has(name)||!authenticated)return;
     const owner=authEpoch,controller=new AbortController(),stream={controller,ticket};streams.set(name,stream);
     void(async()=>{
-      let failures=0,reconnected=false;
-      while(failures<8&&!controller.signal.aborted) {
-        const started=Date.now();let authorizedRotation=false;
+      let failures=0,reconnected=false,disconnectedAt=null;
+      // 只重连 SSE，不在退避期间读取列表／详情。允许五分钟的连续断线窗口，
+      // 单次建连最多十秒；已建连但四十五秒没有任何数据（包括心跳）则重连。
+      const budget=300000;
+      while(!controller.signal.aborted) {
+        let authorizedRotation=false;
+        const attempt=new AbortController(),abort=()=>attempt.abort();
+        controller.signal.addEventListener("abort",abort,{once:true});
+        let watchdog=setTimeout(abort,10000);
+        const activity=()=>{clearTimeout(watchdog);watchdog=setTimeout(abort,45000);failures=0;disconnectedAt=null;};
         try {
           const headers={Accept:"text/event-stream"};if(ticket)headers.Authorization="Bearer "+ticket;
-          const response=await fetch(path,{headers,credentials:ticket?"omit":"same-origin",cache:"no-store",signal:controller.signal});
+          const response=await fetch(path,{headers,credentials:ticket?"omit":"same-origin",cache:"no-store",signal:attempt.signal});
           if(response.status===401){if(ticket){controller.abort();streams.delete(name);void loadCatalog();}else{lock();notice("恢复管理会话已失效，请重新验证身份。");}return;}
           if(!response.ok||!response.body||!response.headers.get("content-type")?.includes("text/event-stream"))throw new Error("进度连接暂不可用");
           if(reconnected)void loadCatalog();
-          await consume(response.body,(event,data)=>{if(event==="reconnect"){authorizedRotation=true;return;}if(owner===authEpoch&&authenticated&&!controller.signal.aborted)callback(event,data);},controller.signal);
+          await consume(response.body,(event,data)=>{if(event==="reconnect"){authorizedRotation=true;return;}if(owner===authEpoch&&authenticated&&!controller.signal.aborted)callback(event,data);},attempt.signal,activity);
           if(authorizedRotation){failures=0;reconnected=true;continue;}
           if(!controller.signal.aborted)throw new Error("连接已断开");
-        } catch(error) {if(controller.signal.aborted)break;if(Date.now()-started>10000)failures=0;notice("进度连接中断，正在尝试重新连接。任务与表单已保留，请勿重复提交。");reconnected=true;await pause(Math.min(500*2**failures,4000),controller.signal);failures++;}
+        } catch(error) {
+          if(controller.signal.aborted)break;
+          disconnectedAt??=Date.now();
+          const remaining=budget-(Date.now()-disconnectedAt);
+          if(remaining<=0)break;
+          notice("进度连接中断，正在自动重连（最长五分钟）。任务与表单已保留，请勿重复提交。");
+          reconnected=true;
+          await pause(Math.min(500*2**Math.min(failures,3),4000,remaining),controller.signal);failures++;
+        } finally {
+          clearTimeout(watchdog);attempt.abort();controller.signal.removeEventListener("abort",abort);
+        }
       }
       if(streams.get(name)===stream)streams.delete(name);
-      if(!controller.signal.aborted&&authenticated)notice("进度连接尚未恢复。请点击刷新重新连接；正在执行的任务不会因此取消。");
+      if(!controller.signal.aborted&&authenticated)notice("进度连接连续五分钟未恢复。请点击刷新重新连接；正在执行的任务不会因此取消。");
     })();
   }
   function startEvents() { connect("resources",base+"events","",event=>{if(event==="invalidate")void loadCatalog();}); }
@@ -140,7 +173,7 @@
       const body=chosen.job?{job_id:chosen.job.id,confirmation:chosen.job.id,generation:chosen.generation}:{snapshot_id:chosen.snapshot.id,confirmation:chosen.snapshot.id,generation:chosen.generation};
       const receipt=await(await request(chosen.job?"resume":"restore",{method:"POST",body,headers:{"Idempotency-Key":chosen.key}})).json();
       if(!authenticated||selection!==chosen||!catalog)return;
-      catalog.progress_tokens[receipt.recovery.id]=receipt.progress_token;returnJobID=receipt.recovery.id;applyProgress(receipt.recovery);$("confirmation").close();selection=null;section("jobs");notice("任务已提交，正在进入维护恢复。您可以刷新此页接续进度。");
+      catalog.progress_tokens[receipt.recovery.id]=receipt.progress_token;if(returnTimer)clearTimeout(returnTimer);returnTimer=null;returnJobID=receipt.recovery.id;applyProgress(receipt.recovery);$("confirmation").close();selection=null;section("jobs");notice("任务已提交，正在进入维护恢复。您可以刷新此页接续进度。");
     } catch(error){if(selection===chosen)$("confirmation-error").textContent=error.message;} finally {if(selection===chosen||!selection){submitting=false;$("confirm-restore").disabled=false;$("cancel-restore").disabled=false;}}
   });
   $("cancel-restore").addEventListener("click",()=>{if(!submitting){$("confirmation").close();selection=null;}});
@@ -152,7 +185,7 @@
   $("refresh").addEventListener("click",()=>{void loadCatalog();startEvents();syncProgress();});
   $("logout").addEventListener("click",async()=>{try{await request("session",{method:"DELETE"});lock();authChannel?.postMessage({event:"logout"});notice("已退出独立恢复会话。");}catch(error){notice(error.message);}});
   $("download-key").addEventListener("click",async()=>{try{const response=await request("recovery-key",{method:"POST"}),blob=await response.blob(),url=URL.createObjectURL(blob),link=node("a");link.href=url;link.download="powerx-recovery-administrator.key";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notice("恢复密钥已下载。请妥善保存；业务停止、Core 处于维护模式时可用它重新认证。");}catch(error){notice(error.message);}});
-  $("auto-return").addEventListener("change",()=>{if(!$("auto-return").checked&&returnTimer){clearTimeout(returnTimer);returnTimer=null;}});
+  $("auto-return").addEventListener("change",()=>{if(!$("auto-return").checked&&returnTimer){clearTimeout(returnTimer);returnTimer=null;}else reconcileCompletion();});
   for(const name of ["snapshots","jobs"])$(`${name}-tab`).addEventListener("click",()=>section(name));
   if(authChannel)authChannel.onmessage=event=>{if(event.data?.event==="logout"){lock();notice("管理员已退出，请重新验证恢复身份。");}};
   window.addEventListener("pagehide",()=>{stopStreams();authChannel?.close();if(returnTimer)clearTimeout(returnTimer);});

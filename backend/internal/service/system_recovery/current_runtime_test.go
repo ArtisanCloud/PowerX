@@ -52,7 +52,7 @@ func TestCurrentRuntimeNormalStartupOwnsNoNewProcessAndUsesOriginalPort(t *testi
 	stopped := make(chan struct{}, 1)
 	require.NoError(t, r.StartNormal(ctx, func() { stopped <- struct{}{} }))
 	require.True(t, r.Coordinator.Store.Online())
-	_, err := r.Coordinator.Store.EnqueueInstanceRestore(privileged(ctx), uuid.NewString(), uuid.NewString(), 1)
+	_, err := r.Coordinator.Store.EnqueueInstanceRestore(privileged(ctx), currentReadySnapshot(t, r), uuid.NewString(), 1)
 	require.NoError(t, err)
 	select {
 	case <-stopped:
@@ -69,7 +69,7 @@ func TestCurrentRuntimeNormalStartupOwnsNoNewProcessAndUsesOriginalPort(t *testi
 
 func TestCurrentStartupOnlyCompletesMatchingNormalBoot(t *testing.T) {
 	r, _, _ := currentFixture(t)
-	job, err := r.Coordinator.Store.EnqueueInstanceRestore(privileged(context.Background()), uuid.NewString(), uuid.NewString(), 1)
+	job, err := r.Coordinator.Store.EnqueueInstanceRestore(privileged(context.Background()), currentReadySnapshot(t, r), uuid.NewString(), 1)
 	require.NoError(t, err)
 	job.Status, job.Phase = "running", "verifying_startup"
 	require.NoError(t, r.Coordinator.Store.Save(job))
@@ -106,7 +106,7 @@ func cfgFromCurrentFixture(t *testing.T, file string) *config.Config {
 
 func TestCurrentBeforeConfigFindsInterruptedConfigurationReplacement(t *testing.T) {
 	r, _, _ := currentFixture(t)
-	_, err := r.Coordinator.Store.EnqueueInstanceRestore(privileged(context.Background()), uuid.NewString(), uuid.NewString(), 1)
+	_, err := r.Coordinator.Store.EnqueueInstanceRestore(privileged(context.Background()), currentReadySnapshot(t, r), uuid.NewString(), 1)
 	require.NoError(t, err)
 	t.Setenv("POWERX_CONFIG", r.spec.ConfigFile)
 	require.NoError(t, os.Rename(r.spec.ConfigFile, r.spec.ConfigFile+".before"))
@@ -115,6 +115,14 @@ func TestCurrentBeforeConfigFindsInterruptedConfigurationReplacement(t *testing.
 	require.NotNil(t, startup)
 	defer startup.Coordinator.SnapshotStore.Close()
 	require.False(t, startup.AwaitingStartup())
+}
+
+// 启动生命周期单元仅需包已就绪的账本；真实包与覆盖由 opt-in 原生验收覆盖。
+func currentReadySnapshot(t *testing.T, r *CurrentRuntime) string {
+	t.Helper()
+	id := uuid.NewString()
+	require.NoError(t, snapshots.WriteCoordinatorJSON(filepath.Join(r.spec.SnapshotDirectory, "snapshots", id+".json"), snapshots.Snapshot{ID: id, Status: "ready"}))
+	return id
 }
 
 func TestCurrentBeforeConfigDoesNotBlockNormalBootForMissingBackupSource(t *testing.T) {

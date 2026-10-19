@@ -48,6 +48,15 @@ describe('restore current instance',()=>{
  vi.useFakeTimers();const stop=vi.fn();service.watchProgress.mockReturnValue(stop);const running={...verified,id:'restore',kind:'restore',status:'running',phase:'maintenance'};service.overview.mockResolvedValue({...overview(),maintenance:true,jobs:[running],progress_tokens:{restore:'ticket'}});const w=panel();await flushPromises();expect(service.watchProgress).toHaveBeenCalledWith('restore','ticket',expect.any(Function),expect.any(Function));await vi.advanceTimersByTimeAsync(30000);expect(service.overview).toHaveBeenCalledTimes(1);expect(service.progress).not.toHaveBeenCalled();service.watchProgress.mock.calls[0][2]({...running,phase:'instance_replaced'});await flushPromises();expect(w.text()).toContain('instance_replaced');w.unmount();expect(stop).toHaveBeenCalledTimes(1);
  });
  it('blocks another restore during a pending task or unresolved maintenance',async()=>{for(const status of ['queued','running','attention_required']){service.overview.mockResolvedValue({...overview(),jobs:[{...verified,kind:'restore',status}]});const w=panel();await flushPromises();expect(button(w,'backupCenter.recovery.prepare').attributes('disabled')).toBeDefined()}});
+ it('does not classify ended failed recovery history as a pending recovery blocker',async()=>{
+  const jobs=[...Array.from({length:4},(_,index)=>({...verified,id:`failed-${index}`,kind:'restore',status:'failed',phase:'failed',error:'Historical preflight failure'})),{...verified,id:'completed',kind:'restore',status:'complete',phase:'complete'}];
+  service.overview.mockResolvedValue({...overview(),jobs});
+  const w=panel();await flushPromises();
+  expect(w.emitted('availability')?.at(-1)?.[0]).toMatchObject({status:'ready',activeCount:0,attentionCount:0,readySnapshotIDs:['snapshot']});
+  expect(button(w,'backupCenter.recovery.prepare').attributes('disabled')).toBeUndefined();
+  expect(w.text()).toContain('Historical preflight failure');
+  expect(w.findAll('tbody tr')).toHaveLength(5);
+ });
  it('restores a protection snapshot through the same operation',async()=>{service.overview.mockResolvedValue({...overview(),jobs:[{...verified,kind:'restore',status:'complete',rollback_snapshot_id:'snapshot'}]});const w=panel();await flushPromises();await button(w,'backupCenter.recovery.restoreProtection').trigger('click');await w.find('input[type="checkbox"]').setValue(true);await button(w,'backupCenter.confirm').trigger('click');await flushPromises();expect(service.restore).toHaveBeenCalledWith('snapshot',3,expect.any(String))});
  it('requires a registered installation before enabling destructive restore',async()=>{service.overview.mockResolvedValue({...overview(),targets:[]});const w=panel();await flushPromises();expect(button(w,'backupCenter.recovery.prepare').attributes('disabled')).toBeDefined();expect(w.text()).toContain('backupCenter.recovery.installationRequired')});
  it('releases old progress tickets when the signed-in identity changes',async()=>{

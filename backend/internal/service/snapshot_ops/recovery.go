@@ -17,6 +17,9 @@ func (s *Service) recoverInterrupted() error {
 	}
 	for _, id := range ids {
 		j, e := s.snapshot(id)
+		if missingSnapshotRecord(e) {
+			continue
+		}
 		if e != nil {
 			return e
 		}
@@ -60,17 +63,21 @@ func (s *Service) findCaptureRequest(key string) (Snapshot, bool, error) {
 	hash := digest([]byte("capture:" + key))
 	for _, id := range ids {
 		j, e := s.snapshot(id)
+		if missingSnapshotRecord(e) {
+			continue
+		}
 		if e != nil {
 			return Snapshot{}, false, e
 		}
-		if j.Imported {
+		if j.Imported || j.Status == "deleting" || j.Status == "delete_failed" {
 			continue
 		}
 		var token struct {
 			Hash string `json:"hash"`
 		}
 		if e = readJSON(s.record("requests", id), &token); e != nil {
-			if j.Status == "pruned" {
+			latest, currentErr := s.snapshot(id)
+			if j.Status == "pruned" || missingSnapshotRecord(currentErr) || (currentErr == nil && (latest.Status == "deleting" || latest.Status == "delete_failed")) {
 				continue
 			}
 			return Snapshot{}, false, e

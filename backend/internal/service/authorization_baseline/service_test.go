@@ -48,6 +48,57 @@ func (f fixture) query(codes ...string) Query {
 	return Query{Schema: QuerySchema, MemberUUIDs: []string{f.member.UUID.String()}, PermissionCodes: codes}
 }
 
+func TestAutomaticBaselineIsReadableWithoutPluginGuardAndReadsStayReadOnly(t *testing.T) {
+	f := newFixture(t, false)
+	require.NoError(t, baseline.EnsureInitialized(f.db))
+	var before im.AuthorizationTracking
+	require.NoError(t, f.db.Where("tenant_uuid=?", f.tenant).Take(&before).Error)
+	require.Equal(t, baseline.AutomaticInitializer, before.InitializedBy)
+	var segmentsBefore []im.AuthorizationSegment
+	require.NoError(t, f.db.Order("id").Find(&segmentsBefore).Error)
+	for range 2 {
+		result, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read"))
+		require.NoError(t, err)
+		require.True(t, *result.Items[0].Allowed)
+		require.Equal(t, "initialized", result.Items[0].BaselineKind)
+		require.Nil(t, result.Items[0].GrantedAt)
+		precheck, err := f.s.Initialize(context.Background(), InitializationInput{TenantUUID: f.tenant, PluginID: f.plugin, PermissionCodes: []string{"operations.order:read"}})
+		require.NoError(t, err)
+		require.False(t, precheck.Applied)
+		require.Equal(t, "ready", precheck.Tracking["operations.order:read"].Status)
+	}
+	// An old operator call can reuse a Core receipt but cannot replace its start or guard.
+	f.initialize(t, "operations.order:read")
+	var after im.AuthorizationTracking
+	require.NoError(t, f.db.Where("tenant_uuid=?", f.tenant).Take(&after).Error)
+	require.Equal(t, before, after)
+	var segmentsAfter []im.AuthorizationSegment
+	require.NoError(t, f.db.Order("id").Find(&segmentsAfter).Error)
+	require.Equal(t, segmentsBefore, segmentsAfter)
+}
+
+func TestStartupDoesNotInventHistoryForExternallyChangedAuthorization(t *testing.T) {
+	f := newFixture(t, false)
+	require.NoError(t, baseline.EnsureInitialized(f.db))
+	before, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read"))
+	require.NoError(t, err)
+	require.True(t, *before.Items[0].Allowed)
+	var streamsBefore []im.AuthorizationStream
+	require.NoError(t, f.db.Find(&streamsBefore).Error)
+	sqlDB, err := f.db.DB()
+	require.NoError(t, err)
+	// Simulates unsupported offline SQL; normal IAM APIs must use the coordinator.
+	_, err = sqlDB.Exec("DELETE FROM "+(&im.RoleBinding{}).TableName()+" WHERE tenant_uuid=?", f.tenant)
+	require.NoError(t, err)
+	require.NoError(t, baseline.EnsureInitialized(f.db))
+	after, err := f.s.ReadMemberBaselines(f.svc, f.query("operations.order:read"))
+	require.NoError(t, err)
+	require.Equal(t, baseline.Unavailable, after.Items[0].ErrorCode)
+	var streamsAfter []im.AuthorizationStream
+	require.NoError(t, f.db.Find(&streamsAfter).Error)
+	require.Equal(t, streamsBefore, streamsAfter, "startup must not reconcile unknown history")
+}
+
 func TestReadInitializedAndMissingMemberAreDistinctFromDenial(t *testing.T) {
 	f := newFixture(t, false)
 	cost := im.Permission{Module: "operations", Resource: "cost", Action: "read", Effect: "allow", Status: im.PermissionStatusActive, Source: "plugin:" + f.plugin, Meta: datatypes.JSON(`{"authorization_baseline":true}`)}

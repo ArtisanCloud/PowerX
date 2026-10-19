@@ -55,6 +55,100 @@ test.beforeEach(async ({ request }) => {
   await request.delete("/api/v1/__snapshot_browser/state");
 });
 
+for (const mobile of [false, true]) {
+  test(`permanently delete one snapshot with confirmation on ${mobile ? 'narrow' : 'desktop'} screen`, async ({ browser, baseURL, request }, info) => {
+    const { context, page } = await open(browser, baseURL!, mobile);
+    const panel = page.getByTestId('system-snapshots-panel');
+    try {
+      const row = panel.getByTestId('system-snapshot').first();
+      await row.getByTestId('snapshot-delete').click();
+      let dialog = page.getByRole('dialog');
+      await expect(dialog.getByRole('button', { name: '确认永久删除', exact: true })).toBeDisabled();
+      await dialog.getByRole('button', { name: '取消', exact: true }).click();
+      let state = await (await request.get('/api/v1/__snapshot_browser/state')).json();
+      expect(state.requests.filter((r:any) => r.method === 'DELETE' && r.path.includes('/system-snapshots/'))).toHaveLength(0);
+      await row.getByTestId('snapshot-delete').click();dialog=page.getByRole('dialog');
+      await expect(dialog).toContainText('数据库、媒体、加密配置和程序副本');
+      await expect(dialog).toContainText('操作审计和恢复历史保留');
+      await dialog.getByRole('checkbox').check();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await page.screenshot({ path: info.outputPath(`snapshot-delete-${mobile ? 'narrow' : 'desktop'}.png`), fullPage: true, animations: 'disabled' });
+      await dialog.getByRole('button', { name: '确认永久删除', exact: true }).click();
+      await expect(panel.getByTestId('system-snapshot')).toHaveCount(0);
+      await expect(panel.getByTestId('snapshot-operation-success')).toContainText('对应文件已永久删除');
+      await expect(panel.getByTestId('snapshot-policy-table')).toBeVisible();
+      state = await (await request.get('/api/v1/__snapshot_browser/state')).json();
+      const deletion = state.requests.find((r:any) => r.method === 'DELETE' && r.path.includes('/system-snapshots/'));
+      expect(deletion.confirmation).toBe('9282f978-33e4-4d7e-a36f-8e8f39536251');
+      expect(deletion.deleteProtected).toBe('false');
+      await page.reload();
+      await expect(page.getByTestId('system-snapshot')).toHaveCount(0);
+    } finally { await context.close(); }
+  });
+}
+
+test('protected snapshot deletion explains the rollback loss and supports a failed cleanup retry', async ({ browser, baseURL, request }) => {
+  await request.post('/api/v1/__snapshot_browser/push',{data:{protected:true}});
+  await request.post('/api/v1/__snapshot_browser/delete-failure',{data:{enabled:true}});
+  const { context, page } = await open(browser, baseURL!);
+  try {
+    const panel = page.getByTestId('system-snapshots-panel');
+    await panel.getByTestId('snapshot-delete').click();
+    const dialog=page.getByRole('dialog');
+    await expect(dialog).toContainText('这是一份受保护快照');
+    await dialog.getByRole('checkbox').check();
+    await dialog.getByRole('button',{name:'确认永久删除',exact:true}).click();
+    await expect(dialog).toContainText('快照文件清理未完成');
+    await expect(panel.getByTestId('system-snapshot')).toHaveCount(1);
+    await request.post('/api/v1/__snapshot_browser/delete-failure',{data:{enabled:false}});
+    await dialog.getByRole('button',{name:'确认永久删除',exact:true}).click();
+    await expect(panel.getByTestId('system-snapshot')).toHaveCount(0);
+    const state = await (await request.get('/api/v1/__snapshot_browser/state')).json();
+    expect(state.requests.filter((r:any)=>r.method==='DELETE'&&r.path.includes('/system-snapshots/')).every((r:any)=>r.deleteProtected==='true')).toBe(true);
+  } finally { await context.close(); }
+});
+
+for (const mobile of [false,true]) {
+  test(`ended failed recovery history does not prevent deleting protected, ready or failed snapshots on ${mobile?'narrow':'desktop'} screen`,async({browser,baseURL,request},info)=>{
+    await request.post('/api/v1/__snapshot_browser/managed');
+    const statuses=['failed','failed','failed','failed','complete'];
+    await request.post('/api/v1/__snapshot_browser/recovery-history',{data:{statuses,extraSnapshots:true}});
+    const {context,page}=await open(browser,baseURL!,mobile);
+    try {
+      const panel=page.getByTestId('system-snapshots-panel');
+      const buttons=panel.getByTestId('snapshot-delete');
+      await expect(buttons).toHaveCount(3);
+      for(const button of await buttons.all())await expect(button).toBeEnabled();
+      for(const status of ['queued','running','attention_required']) {
+        await request.post('/api/v1/__snapshot_browser/recovery-history',{data:{statuses:[...statuses,status]}});
+        for(const button of await buttons.all())await expect(button).toBeDisabled();
+        await request.post('/api/v1/__snapshot_browser/recovery-history',{data:{statuses}});
+        for(const button of await buttons.all())await expect(button).toBeEnabled();
+      }
+      await panel.getByTestId('system-snapshot').filter({hasText:'历史快照采集失败'}).getByTestId('snapshot-delete').click();
+      let dialog=page.getByRole('dialog');await dialog.getByRole('checkbox').check();
+      await dialog.getByRole('button',{name:'确认永久删除',exact:true}).click();
+      await expect(panel.getByTestId('system-snapshot')).toHaveCount(2);
+      await panel.getByTestId('system-snapshot').filter({hasText:'受保护'}).getByTestId('snapshot-delete').click();
+      dialog=page.getByRole('dialog');
+      await expect(dialog).toContainText('不参与自动清理，仍可手动确认删除');
+      await expect(dialog.getByRole('button',{name:'确认永久删除',exact:true})).toBeDisabled();
+      await dialog.getByRole('checkbox').check();
+      await page.screenshot({path:info.outputPath(`protected-delete-after-history-${mobile?'narrow':'desktop'}.png`),fullPage:true,animations:'disabled'});
+      await dialog.getByRole('button',{name:'确认永久删除',exact:true}).click();
+      await expect(panel.getByTestId('system-snapshot')).toHaveCount(1);
+      await panel.getByTestId('snapshot-delete').click();dialog=page.getByRole('dialog');
+      await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'确认永久删除',exact:true}).click();
+      await expect(panel.getByTestId('system-snapshot')).toHaveCount(0);
+      const state=await(await request.get('/api/v1/__snapshot_browser/state')).json();
+      const deletions=state.requests.filter((r:any)=>r.method==='DELETE'&&r.path.includes('/system-snapshots/'));
+      expect(deletions).toHaveLength(3);
+      expect(deletions.map((r:any)=>r.deleteProtected)).toEqual(['false','true','false']);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+    }finally{await context.close();}
+  });
+}
+
 test("active snapshot progress uses push without periodic status requests and closes on departure", async ({browser,baseURL,request}) => {
   await request.post('/api/v1/__snapshot_browser/push',{data:{status:'capturing',phase:'database_and_media'}});
   const {context,page}=await open(browser,baseURL!);

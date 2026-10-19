@@ -4071,8 +4071,22 @@
         "interrupted": "已中断",
         "pruned": "内容已清理",
         "running": "正在恢复",
-        "prepared": "数据副本已准备"
-      }
+        "prepared": "数据副本已准备",
+        "deleting": "正在清理",
+        "delete_failed": "清理失败，可重试"
+      },
+      "delete": "删除快照",
+      "deleteConfirm": "确认永久删除",
+      "deleteHint": "永久删除这条快照记录及对应快照包文件（数据库、媒体、加密配置和程序副本）。当前运行的系统数据不会改变。",
+      "deleteConsent": "我确认永久删除这条快照记录及文件，删除后无法再用它恢复。",
+      "deleteProtectedConsent": "我确认永久删除这份受保护快照及文件，放弃它提供的回退恢复点。",
+      "deleteProtectedHint": "这是一份受保护快照，不参与自动清理，仍可手动确认删除。删除后将失去这份回退恢复点。",
+      "deleteHistoryHint": "关联的已结束恢复任务暂存文件会一起清理；操作审计和恢复历史保留。",
+      "deleteActiveHint": "快照正在采集或校验，暂不能删除。",
+      "deleteRecoveryHint": "恢复任务正在执行或需要处理，请完成后再删除。",
+      "deleteSuccess": "快照记录及对应文件已永久删除。",
+      "deleteIncomplete": "清理结果尚未确认完成，请刷新查看记录后重试。",
+      "protectedLabel": "受保护"
     },
     "recovery": {
       "title": "整站恢复",

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	snapshotops "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
+	backupdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -89,6 +90,24 @@ func (h *handler) GetSnapshot(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"snapshot": out})
+}
+
+func (h *handler) DeleteSnapshot(c *gin.Context) {
+	if !h.snapshotAvailable(c) {
+		return
+	}
+	var input backupdto.SnapshotDeleteRequest
+	if err := c.ShouldBindHeader(&input); err != nil || len(c.Request.URL.Query()) != 0 || c.Request.ContentLength != 0 || (input.DeleteProtected != "" && input.DeleteProtected != "false" && input.DeleteProtected != "true") {
+		dto.RespondErrorFrom(c, dto.NewErrorWithCode(400, "SNAPSHOT_DELETE_INVALID", "删除只接受快照确认及明确的保护确认，不接受路径或其他参数", nil))
+		return
+	}
+	out, err := h.snapshots.Delete(c.Request.Context(), c.Param("snapshot_id"), input.Confirmation, input.DeleteProtected == "true")
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	dto.ResponseSuccess(c, gin.H{"deletion": out})
 }
 func (h *handler) ExportSnapshot(c *gin.Context) {
 	if !h.snapshotAvailable(c) {

@@ -1,0 +1,120 @@
+{
+  "recorded_at": "2026-10-19T02:40:08.629864+00:00",
+  "request": "Root can permanently delete one snapshot record together with its physical package from the backup UI",
+  "implemented": [
+    "Per-row delete for ready, failed, interrupted and pruned snapshots, explicit permanent-delete consent and protected rollback confirmation",
+    "Delete contents/<UUID>, requests/<UUID>.json and terminal current-runtime recovery staging, then remove snapshots/<UUID>.json; preserve operation audit and recovery history",
+    "Shared capture/export operation lock and restore enqueue lock prevent active-use deletion and stale-page restore enqueue",
+    "Deletion failure leaves delete_failed record and modal for retry; partial package cannot be exported or restored",
+    "Fixed host-derived UUID paths, reject unsafe store paths and root symlinks, do not follow interior links",
+    "Current running database, media and configuration are not changed by deletion"
+  ],
+  "source_validation": {
+    "go_packages": {
+      "passed": 4,
+      "log": "test-results/snapshot-delete-go-all.log"
+    },
+    "vue_unit_tests": {
+      "passed": 28,
+      "log": "test-results/snapshot-delete-vue-unit.log"
+    },
+    "controlled_browser": {
+      "passed": 16,
+      "viewports": [
+        [
+          1440,
+          1000
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "log": "test-results/snapshot-delete-browser.log"
+    },
+    "dialog_visual_recheck": {
+      "passed": 2,
+      "log": "test-results/snapshot-delete-visual.log",
+      "screenshots": "test-results/snapshots-browser"
+    },
+    "core_build": "passed",
+    "web_production_build": "passed",
+    "vet": "passed",
+    "capability_check": "passed",
+    "root_route_contract": "classified root_runtime_control exclusion; no tenant service capability or API-key grant was added",
+    "openapi": "docs/contracts/system-snapshots.openapi.yaml version 0.8.0 parsed"
+  },
+  "native_validation": {
+    "A_then_protected_B": true,
+    "authenticated_snapshot_delete": true,
+    "auxiliary_restore_targets_owned_by_fixture": true,
+    "backend_port": 60880,
+    "business_state_unchanged_by_deletion": true,
+    "cache_namespace_rotates_on_recovery": true,
+    "config_file": "/private/tmp/pxr-1733725008/source/config.yaml",
+    "core_pid": 27732,
+    "darwin_aliased_pwd_and_mixed_paths": true,
+    "external_connection_blocks_before_overwrite": true,
+    "external_task_connection_blocks_before_overwrite": true,
+    "failed_restore_staging_cleaned": true,
+    "full_restart_retains_A": true,
+    "legacy_snapshot_missing_catalog": false,
+    "no_coordinator_or_gateway_process_started": true,
+    "passed": true,
+    "protected_delete_confirmation": true,
+    "redis_protection_restored": true,
+    "same_config_dsn_and_ports": true,
+    "same_core_pid_across_restore": true,
+    "shared_cache_connection_does_not_block": true,
+    "shared_cache_data_retained": true
+  },
+  "native_log": "test-results/snapshot-delete-native-confirmation.log",
+  "native_browser": {
+    "passed": 3,
+    "log": "test-results/snapshot-delete-native-browser.log",
+    "note": "Original website maintenance UI and real A/B restores passed before the deletion phase"
+  },
+  "initial_failures": [
+    {
+      "case": "Current startup unit fixtures enqueued non-existent random snapshot IDs",
+      "resolution": "Added ready snapshot records to lifecycle fixtures; preserved the new queue-lock recheck",
+      "result": "Four affected packages passed"
+    },
+    {
+      "case": "Native acceptance hardcoded /api/v1 but owned fixture config used /api; DELETE returned 404 without reaching deletion",
+      "log": "test-results/snapshot-delete-native.log",
+      "http_log": "test-results/snapshot-delete-native-initial-http.log",
+      "resolution": "Use config.ResolveAPIPrefix from the restored running configuration; rerun passed",
+      "fixture_cleanup": "Stopped all owned processes and removed failed fixture; process evidence retained"
+    }
+  ],
+  "cleanup": {
+    "owned_processes_exited": true,
+    "owned_ports_released": [
+      3477,
+      3478,
+      3489,
+      58008,
+      58082,
+      58083,
+      60808,
+      60880,
+      60881
+    ],
+    "native_fixture_removed": true,
+    "isolated_nuxt_build_cache_removed": true,
+    "daily_http_status": {
+      "3030": 200,
+      "8077": 200
+    },
+    "daily_services_restarted_by_agent": false,
+    "existing_user_snapshots_deleted": false,
+    "remote_server_operated": false
+  },
+  "rollout": "User restarts normal Core to load DELETE route and refreshes /ops/backup; production builds must include the changed Web Admin bundle",
+  "limits": [
+    "Physical deletion verified in owned macOS development Core with real PostgreSQL and Redis; no Linux or production-server acceptance in this task",
+    "Already downloaded packages and legacy independent database copies are outside single-snapshot package cleanup"
+  ],
+  "core_sha256": "59e068e6b0c4640d64b73f1f908f5fef5c500fb247d85b8bb4b2196172f29cc1"
+}
