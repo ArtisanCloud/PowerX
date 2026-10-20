@@ -61,6 +61,10 @@ Compose 包的 `sh run.sh migrate ...` 透传上述参数。目标身份编译�
 
 复用集中 `MigrateCoreModels`、Agent 与 Knowledge 迁移链路。镜像内 `upgrade_payloads.json` 由源码清单与依赖锁计算，构建必须执行 `upgrade_registry.py --check`；载荷改变产生新的内容寻址 migration ID，旧完成记录、校验和和时间不会覆盖。Knowledge 配置绑定参与实际步骤 ID/校验和；它包含独立连接操作，保守声明为非事务步骤。
 
+修改迁移实现或它调用的依赖时，先确认增量逻辑已挂到集中入口，再运行 `python3 deploy/powerx/container/upgrade_registry.py` 和 `python3 deploy/powerx/container/upgrade_registry.py --check`，审查并提交清单差异。`--check` 只检查，不重写清单；不得删除门禁或手改历史履历来通过发布。已有分组回调能够完成的迁移由新载荷生成新 ID，不再增加重复步骤。
+
+授权基线初始化和旧 Root 来源迁移由 Core 回调执行；`authorizationbaseline`、`rootrole`、授权事实仓库和 IAM 常量都纳入 Core 载荷校验。旧 `known_since`、初始化收据及历史区间保留，新 Root 来源从实际升级事务时间开始，不反填旧授权时间，也不增加业务角色绑定。发布 CI 使用独立数据库验证旧 Core ID 已完成时新 ID 仍待执行，以及再次 apply 不重复变更。
+
 Core、Agent、catalog 步骤使用事务，变更、后检查与成功记录同提交。失败保留独立 UpgradeRun，不记成功；此前已完成步骤保留，新计划跳过已完成项。Knowledge 步骤失败或不明中断要求恢复对应备份，不声明跨数据库原子性。
 
 平台 catalog 专用步骤只更新平台合同字段，并补缺失项：保留 permission UUID、用户 effect/status/description、现有 Key/Profile grants/owner、Capability UUID/state/用户工作流引用和已有租户注册版本锁。来源冲突明确失败。它不调用 `SeedCoreX`、`SeedRoot`、默认 API Key Profile、示例数据或默认角色授权；新增能力由管理员显式授权。

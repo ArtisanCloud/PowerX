@@ -57,6 +57,17 @@ jobs:
         run: |
           go test ./cmd/database ./config ./pkg/corex/db/database ./internal/service/integration_gateway/apikeypermissions ./pkg/corex/db/persistence/repository/iam
           go test ./internal/service/integration_gateway -run '^TestUpgrade'
+      - name: Authorization baseline migration and published step regression
+        working-directory: backend
+        env:
+          PGPASSWORD: ci-upgrade-test-only
+          POWERX_UPGRADE_BASELINE_TEST_DSN: host=127.0.0.1 port=5432 user=powerx password=ci-upgrade-test-only dbname=powerx_upgrade_test_iam_baseline_ci sslmode=disable
+          POWERX_BASELINE_MIGRATION_TEST_DSN: host=127.0.0.1 port=5432 user=powerx password=ci-upgrade-test-only dbname=powerx_baseline_migration_test_ci sslmode=disable
+        run: |
+          createdb -h 127.0.0.1 -p 5432 -U powerx powerx_upgrade_test_iam_baseline_ci
+          createdb -h 127.0.0.1 -p 5432 -U powerx powerx_baseline_migration_test_ci
+          go test ./cmd/database -run '^TestInstalledCoreUpgradeMigratesLegacyRootBaselineWithNewIdentity$' -count=1
+          go test ./pkg/corex/db/database -run '^TestPostgresMigration' -count=1
       - name: Release identity
         id: identity
         env:

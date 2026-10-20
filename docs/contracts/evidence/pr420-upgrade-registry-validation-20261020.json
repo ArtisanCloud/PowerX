@@ -1,0 +1,158 @@
+{
+  "schema": "powerx.upgrade-payload-registry.validation.v1",
+  "recorded_at": "2026-10-20T05:54:41.110399+00:00",
+  "base_sha": "dc8583939bfb524dbd349fe645652e746deffc74",
+  "related_pr": 420,
+  "failed_workflow": "https://github.com/ArtisanCloud/PowerX/actions/runs/39212440252",
+  "result": "source_fix_validated_for_pr",
+  "cause": "Authorization baseline execution inputs changed without regenerating the Core payload manifest. Root-role implementation and IAM constants were also missing from the hashed input list.",
+  "migration_review": {
+    "entry": "installedUpgradeSteps.core -> MigrateCoreModels -> authorizationbaseline.EnsureInitialized -> rootrole.Ensure + upgradeRootSources",
+    "old_core_id": "20261011_core_140b925afeb7b8c9e80b9fb28933218b885dcdd146c2d6a612503b503edd7342",
+    "new_core_id": "20261011_core_ebd0e98226681ef7f43b7dca6c1da6d8ecf1af9480c422e40438f2ec208751ac",
+    "unchanged_groups": [
+      "agent",
+      "knowledge",
+      "catalog"
+    ],
+    "additional_migration_step": false,
+    "existing_history_rewritten": false,
+    "old_authorization_origin_preserved": true,
+    "new_root_source_starts_at_upgrade_time": true,
+    "repeat_apply_skips_new_completed_step": true,
+    "business_role_bindings_added": false
+  },
+  "python_checks": [
+    {
+      "command": [
+        "python3",
+        "deploy/powerx/container/test_init.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "deploy/powerx/container",
+        "-p",
+        "test_upgrade*.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "deploy/powerx/container/upgrade_registry.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "deploy/powerx/container/upgrade_registry.py",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "sh",
+        "-n",
+        "deploy/powerx/container/entrypoint.sh",
+        "deploy/powerx/container/run.sh"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "go_checks": [
+    {
+      "name": "upgrade_migration_packages",
+      "command": [
+        "go",
+        "test",
+        "./cmd/database",
+        "./config",
+        "./pkg/corex/db/database",
+        "./internal/service/integration_gateway/apikeypermissions",
+        "./pkg/corex/db/persistence/repository/iam",
+        "./pkg/corex/iam/authorizationbaseline",
+        "./pkg/corex/iam/rootrole",
+        "-count=1",
+        "-timeout",
+        "240s"
+      ],
+      "exit_code": 0,
+      "seconds": 260.66
+    },
+    {
+      "name": "upgrade_catalog",
+      "command": [
+        "go",
+        "test",
+        "./internal/service/integration_gateway",
+        "-run",
+        "^TestUpgrade",
+        "-count=1",
+        "-timeout",
+        "120s"
+      ],
+      "exit_code": 0,
+      "seconds": 1.88
+    },
+    {
+      "name": "iam_race",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./pkg/corex/iam/authorizationbaseline",
+        "./internal/service/authorization_baseline",
+        "./internal/service/iam",
+        "-count=1",
+        "-timeout",
+        "180s"
+      ],
+      "exit_code": 0,
+      "seconds": 19.65
+    },
+    {
+      "name": "upgrade_vet",
+      "command": [
+        "go",
+        "vet",
+        "./cmd/database",
+        "./pkg/corex/db/database",
+        "./pkg/corex/iam/authorizationbaseline",
+        "./pkg/corex/iam/rootrole"
+      ],
+      "exit_code": 0,
+      "seconds": 6.61
+    }
+  ],
+  "temporary_databases": [
+    {
+      "database": "powerx_upgrade_test_pr420_049f083b56",
+      "removed": true
+    },
+    {
+      "database": "powerx_upgrade_test_iam_baseline_3a91c8fd91",
+      "removed": true
+    },
+    {
+      "database": "powerx_baseline_migration_test_0564287c31",
+      "removed": true
+    },
+    {
+      "database": "powerx_upgrade_test_sources_69e456422b",
+      "removed": true
+    }
+  ],
+  "existing_services_restarted": false,
+  "production_data_modified": false,
+  "unrelated_worktree_content_preserved": true,
+  "release_validation": "Full OCI build and installed-image acceptance run after merge through the existing publish workflow."
+}
