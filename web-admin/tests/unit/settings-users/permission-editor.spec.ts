@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, defineStore, setActivePinia } from "pinia";
-import { computed, ref } from "vue";
+import { computed, h, ref } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls = vi.hoisted(() => ({ save: vi.fn(), refresh: vi.fn(), invalidate: vi.fn() }));
@@ -14,14 +14,15 @@ vi.mock("#imports", () => ({ useI18n: () => ({ t: (key: string) => key, te: () =
 
 import PermissionShell from "~/components/settings/users/PermissionShell.vue";
 import PermissionManager from "~/components/settings/users/PermissionManager.vue";
+import RoleManager from "~/components/settings/users/RoleManager.vue";
 
 const roles = [
-  { id: 1, name: "Super Admin", code: "root", builtin: true },
-  { id: 4, name: "Tenant User", code: "role_user", builtin: true },
+  { id: 1, name: "Super Admin", code: "role_admin", scope: "tenant", builtin: true },
+  { id: 4, name: "Tenant User", code: "role_user", scope: "tenant", builtin: true },
 ];
 const roleStore = defineStore("editor-test-roles", {
-  state: () => ({ roles: [...roles] }),
-  actions: { async ensureInitialized() {} },
+  state: () => ({ roles: [...roles], loading: false, error: null, pagination: { total: 2, pages: 1 } }),
+  actions: { async ensureInitialized() {}, async fetchRoles() {} },
 });
 const permissionStore = defineStore("editor-test-permissions", {
   state: () => ({
@@ -53,7 +54,7 @@ const userStore = defineStore("editor-test-user", {
   },
 });
 const stubs = {
-  PermissionRoot: true, PermissionTenant: true, SelectTree: true,
+  PermissionRoot: true, PermissionTenant: true, SelectTree: true, UCard: true,
   UIcon: true, USelect: true, UCheckbox: true, UFormField: true, UTextarea: true, UBadge: { template: "<span><slot/></span>" },
   UButton: { props: ["disabled", "loading"], template: '<button :disabled="disabled || loading"><slot/></button>' },
   UInput: { props: ["modelValue", "placeholder"], emits: ["update:modelValue"], template: '<input :placeholder="placeholder" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)"/>' },
@@ -89,6 +90,31 @@ afterEach(() => {
 });
 
 describe("role permission editor", () => {
+  it("renders system root as Core managed while keeping the tenant admin edit action", async () => {
+    roleStore().roles = [{ id: 9, name: "System Root", code: "root", scope: "system", builtin: false }, ...roles];
+    const wrapper = mount(RoleManager, {global: {stubs: {...stubs, UTable: {
+      props: ["data", "columns"],
+      setup: (props: any) => () => h("div", props.data.map((role: any) => h("section", {"data-role": role.code}, [role.name, props.columns.find((column: any) => column.id === "actions").cell({row: {original: role}})]))),
+    }}, mocks: {$t: (key: string) => key}}});
+    wrappers.push(wrapper);
+    await flushPromises();
+    const root = wrapper.get('[data-role="root"]');
+    expect(root.text()).toContain("common.coreManaged");
+    expect(root.findAll("button")).toHaveLength(0);
+    expect(wrapper.get('[data-role="role_admin"]').text()).toContain("编辑");
+  });
+
+  it("excludes managed root even when restored from local storage, keeping tenant admin editable", async () => {
+    roleStore().roles = [{ id: 9, name: "System Root", code: "root", scope: "system", builtin: true }, ...roles];
+    localStorage.setItem(stateKey, JSON.stringify({ roleId: 9 }));
+    const wrapper = render(PermissionManager);
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("System Root");
+    expect(selectedName(wrapper)).toBe("Super Admin");
+    expect(JSON.parse(localStorage.getItem(stateKey)!).roleId).toBe(1);
+    expect(calls.save).not.toHaveBeenCalled();
+  });
+
   it("keeps the editor, selected role and filters mounted during consecutive saves", async () => {
     const wrapper = render();
     await flushPromises();

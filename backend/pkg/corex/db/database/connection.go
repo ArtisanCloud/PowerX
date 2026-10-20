@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	"gorm.io/driver/mysql"
@@ -125,6 +126,10 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
 	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(1 * time.Hour)
+	if err := authorizationbaseline.Install(gdb); err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("install IAM authorization transaction coordinator: %w", err)
+	}
 
 	return gdb, nil
 }

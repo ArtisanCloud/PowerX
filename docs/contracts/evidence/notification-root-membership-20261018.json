@@ -1,0 +1,192 @@
+{
+  "date": "2026-10-18",
+  "scope": "Core tenant directory Root membership and explicit Root cost read grant",
+  "source_fix": {
+    "route": "GET <APIPrefix>/tenant/iam/members",
+    "change": "Remove username-based Root exclusion; enumerate actual nondeleted members in credential tenant. Recipient eligibility still requires formal business authorization.",
+    "admin_member_list_changed": false,
+    "root_without_tenant_membership_created": false,
+    "framework_contract_changed": false,
+    "schema_changed": false
+  },
+  "regression_reproduced_before_fix": "TestTenantDirectoryIncludesRootTenantMembership expected 2 members; original query returned 1",
+  "tests": [
+    {
+      "command": "go test ./internal/transport/http/openapi/iam ./internal/service/authorization_baseline ./pkg/corex/iam/authorizationbaseline",
+      "result": "passed",
+      "log": "/tmp/powerx-root-directory-tests.log"
+    },
+    {
+      "command": "go test ./internal/service/iam ./internal/transport/http/admin/iam ./internal/transport/http/openapi/capability_registry ./internal/service/notifications ./internal/transport/websocket/bus",
+      "result": "passed",
+      "log": "/tmp/powerx-root-directory-regression.log"
+    },
+    {
+      "command": "go test -race ./internal/transport/http/openapi/iam ./internal/service/authorization_baseline",
+      "result": "passed",
+      "log": "/tmp/powerx-root-directory-race.log"
+    },
+    {
+      "command": "go vet ./internal/transport/http/openapi/iam ./internal/service/authorization_baseline",
+      "result": "passed",
+      "log": "/tmp/powerx-root-directory-vet.log"
+    },
+    {
+      "command": "make capability-check",
+      "result": "passed",
+      "log": "/tmp/powerx-root-directory-capability.log"
+    }
+  ],
+  "runtime_grant": {
+    "admin_role_unchanged": true,
+    "applied": true,
+    "binding_id": 61,
+    "data_scope": "TENANT",
+    "existing_admin_permission_count": 523,
+    "member_uuid": "fda3589b-d30b-41b0-a859-c061c179fb58",
+    "operator": "codex-root-notification-fix-20261018",
+    "permission_code": "operations.business_dashboard.cost:read",
+    "permission_id": 206282,
+    "role_code": "role_ai_craft_cost_reader",
+    "role_id": 1669,
+    "role_uuid": "3bd56ec8-a719-4ce6-b537-8c225ac52dde",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea"
+  },
+  "grant_write_path": "One owned temporary CLI called RoleService.Create, RBACService.GrantPermsByIDs and BindRoleToMember in a transaction using database.Connect with the authorization ledger coordinator. The CLI was removed after completion.",
+  "baseline_reinitialized": false,
+  "actual_service_credential_verification": {
+    "sts_exchange": "passed",
+    "grant_status_http": 200,
+    "grant_status_result": {
+      "items": [
+        {
+          "capability_id": "com.corex.notifications.create",
+          "reason_code": "CAPABILITY_GRANTED",
+          "status": "granted"
+        },
+        {
+          "capability_id": "com.corex.iam.directory.read",
+          "reason_code": "CAPABILITY_GRANTED",
+          "status": "granted"
+        },
+        {
+          "capability_id": "com.corex.iam.authorization_baseline.service_read",
+          "reason_code": "CAPABILITY_GRANTED",
+          "status": "granted"
+        }
+      ]
+    },
+    "root_baseline_http": 200,
+    "before_grant": {
+      "evaluated_at": "2026-10-18T12:14:56.049711Z",
+      "items": [
+        {
+          "allowed": true,
+          "authorization_revision": "c1a79e28c5a24bfb9be477c7d4195ca1157bd02eeeac52228c1d8ee924d263ae",
+          "baseline_kind": "native",
+          "data_scope": "TENANT",
+          "granted_at": "2026-10-18T11:59:27.300470Z",
+          "known_since": "2026-10-18T11:07:30.719208Z",
+          "member_uuid": "fda3589b-d30b-41b0-a859-c061c179fb58",
+          "permission_code": "production.sample_track:read",
+          "recheck_at": null,
+          "scope_fingerprint": "sha256:84f2fd229a2f51c03311a6db756139ca51cef34a14ab281cef657b8c23bfef33",
+          "status": "decided",
+          "valid_until": null,
+          "visible_since": "2026-10-18T11:59:27.300470Z"
+        },
+        {
+          "allowed": true,
+          "authorization_revision": "cef6318b9595bcf96212fec331d8f2ad88c3c8da9a3e742b1f94f7c769ab6756",
+          "baseline_kind": "native",
+          "data_scope": "TENANT",
+          "granted_at": "2026-10-18T11:59:27.300470Z",
+          "known_since": "2026-10-18T11:07:30.719208Z",
+          "member_uuid": "fda3589b-d30b-41b0-a859-c061c179fb58",
+          "permission_code": "production.bulk_order:read",
+          "recheck_at": null,
+          "scope_fingerprint": "sha256:84f2fd229a2f51c03311a6db756139ca51cef34a14ab281cef657b8c23bfef33",
+          "status": "decided",
+          "valid_until": null,
+          "visible_since": "2026-10-18T11:59:27.300470Z"
+        },
+        {
+          "error_code": "IAM_BASELINE_ROOT_BYPASS_UNSUPPORTED",
+          "member_uuid": "fda3589b-d30b-41b0-a859-c061c179fb58",
+          "permission_code": "operations.business_dashboard.cost:read",
+          "status": "error"
+        }
+      ],
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "schema": "powerx.iam.authorization-baseline-result/v1",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea"
+    },
+    "after_grant": {
+      "evaluated_at": "2026-10-18T12:20:49.398613Z",
+      "items": [
+        {
+          "allowed": true,
+          "authorization_revision": "c1a79e28c5a24bfb9be477c7d4195ca1157bd02eeeac52228c1d8ee924d263ae",
+          "baseline_kind": "native",
+          "data_scope": "TENANT",
+          "granted_at": "2026-10-18T11:59:27.300470Z",
+          "known_since": "2026-10-18T11:07:30.719208Z",
+          "member_uuid": "fda3589b-d30b-41b0-a859-c061c179fb58",
+          "permission_code": "production.sample_track:read",
+          "recheck_at": null,
+          "scope_fingerprint": "sha256:84f2fd229a2f51c03311a6db756139ca51cef34a14ab281cef657b8c23bfef33",
+          "status": "decided",
+          "valid_until": null,
+          "visible_since": "2026-10-18T11:59:27.300470Z"
+        },
+        {
+          "allowed": true,
+          "authorization_revision": "cef6318b9595bcf96212fec331d8f2ad88c3c8da9a3e742b1f94f7c769ab6756",
+          "baseline_kind": "native",
+          "data_scope": "TENANT",
+          "granted_at": "2026-10-18T11:59:27.300470Z",
+          "known_since": "2026-10-18T11:07:30.719208Z",
+          "member_uuid": "fda3589b-d30b-41b0-a859-c061c179fb58",
+          "permission_code": "production.bulk_order:read",
+          "recheck_at": null,
+          "scope_fingerprint": "sha256:84f2fd229a2f51c03311a6db756139ca51cef34a14ab281cef657b8c23bfef33",
+          "status": "decided",
+          "valid_until": null,
+          "visible_since": "2026-10-18T11:59:27.300470Z"
+        },
+        {
+          "allowed": true,
+          "authorization_revision": "0a2cb5996bc85c3f25e4e750d20796eae20cb7ddd728e095a1b931d46a926356",
+          "baseline_kind": "native",
+          "data_scope": "TENANT",
+          "granted_at": "2026-10-18T12:20:37.508828Z",
+          "known_since": "2026-10-18T11:07:30.719208Z",
+          "member_uuid": "fda3589b-d30b-41b0-a859-c061c179fb58",
+          "permission_code": "operations.business_dashboard.cost:read",
+          "recheck_at": null,
+          "scope_fingerprint": "sha256:84f2fd229a2f51c03311a6db756139ca51cef34a14ab281cef657b8c23bfef33",
+          "status": "decided",
+          "valid_until": null,
+          "visible_since": "2026-10-18T12:20:37.508828Z"
+        }
+      ],
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "schema": "powerx.iam.authorization-baseline-result/v1",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea"
+    }
+  },
+  "running_instance_boundary": {
+    "directory_http_status": 200,
+    "root_in_current_running_directory": false,
+    "note": "Running user-owned Core has not been restarted to load the directory source fix. Do not treat fixture route regression as installed worker acceptance."
+  },
+  "notification_created": false,
+  "plugin_host_notifications_enabled": false,
+  "plugin_config_or_source_changed": false,
+  "user_services_restarted": false,
+  "remaining": [
+    "Service owner rebuilds/restarts Core and verifies Root appears in the actual member directory.",
+    "Plugin owner enables host_notifications_enabled and performs A changes / B receives acceptance; actor does not notify self."
+  ],
+  "rollback": "Through formal IAM role-binding management, unbind only the recorded dedicated role from this Root member; delete the dedicated role only when unused. Preserve baseline history and existing role_admin grants."
+}

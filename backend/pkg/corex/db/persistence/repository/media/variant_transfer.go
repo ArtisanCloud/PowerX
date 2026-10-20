@@ -40,5 +40,5 @@ func variantTransferFields(v *m.MediaAssetVariant) map[string]any {
 	if v.CompletedAt != nil {
 		completed = *v.CompletedAt
 	}
-	return map[string]any{"upload_state": v.UploadState, "expected_checksum": v.ExpectedChecksum, "upload_expires_at": expires, "completed_at": completed, "ticket_version": v.TicketVersion}
+	return map[string]any{"upload_state": v.UploadState, "expected_checksum": v.ExpectedChecksum, "upload_expires_at": expires, "completed_at": completed, "ticket_version": v.TicketVersion, "meta": v.Meta}
 }

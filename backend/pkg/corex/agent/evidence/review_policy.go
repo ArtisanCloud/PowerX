@@ -98,6 +98,13 @@ func (p *ReviewPolicy) Choices(prepared map[string]any, missing []MissingOperand
 	if err := Decode(body, &report); err != nil {
 		return choices, err
 	}
+	return p.ChoicesForPresentation(report.Presentation, missing, payload, sources, locale)
+}
+
+// ChoicesForPresentation 只消费字段/冲突状态，V4 与 V5 共享规则解释，不重标记协议。
+func (p *ReviewPolicy) ChoicesForPresentation(presentation Presentation, missing []MissingOperands, payload map[string]any, sources []string, locale string) (ReviewChoices, error) {
+	choices := ReviewChoices{Hypotheses: []string{}, Actions: []string{}}
+	report := Report{Presentation: presentation}
 	fields, conflicts, gaps, computed := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, item := range report.Presentation.Computed {
 		computed[item.Request.Key] = true

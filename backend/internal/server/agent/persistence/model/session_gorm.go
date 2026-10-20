@@ -21,6 +21,9 @@ type AgentChatSession struct {
 	// 归属
 	AgentID uint64 `gorm:"index;not null" json:"agentId"`
 	UserID  uint64 `gorm:"size:64;index" json:"userId"` // 发起/归属的用户ID（按需调整类型）
+	// 历史行默认待确认；新建会话由服务显式写入 agent 或 team，不能随请求切换。
+	SessionType string `gorm:"size:16;not null;default:legacy;index:agent_sess_workspace,priority:1" json:"sessionType"`
+	TeamID      uint64 `gorm:"not null;default:0;index:agent_sess_workspace,priority:2" json:"teamId"`
 
 	// 展示/策略
 	Title     string `gorm:"size:255" json:"title"`

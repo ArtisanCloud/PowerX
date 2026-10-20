@@ -1,10 +1,14 @@
 # US6：媒体快照、配套数据库与独立恢复
 
+> 2026-10-15：本文“媒体快照”是现有组件归档，不能与新增的系统快照包混称。统一恢复点、配置／版本、完整包导入及正式切换见[系统快照计划](../../../plan/deploy/system-snapshot-and-restore.md)；验收见 [US8](usecase-us8-system-snapshot-acceptance.md)。
+
 ## 1. 功能背景与目标
 
 数据库 dump 保存媒体记录，但不保存图片、视频、附件和缩略图的实际内容。媒体策略将本地整个媒体目录和已登记 S3 对象备份为完整文件清单；相同内容的文件只保存一个 SHA256 对象。
 
 选择“同时保存数据库事务快照”时，数据库 dump 和媒体引用查询共享 PostgreSQL MVCC 快照。归档会检查所引用文件存在、大小及已登记 SHA256；读取中变化或校验不符时失败。数据库事务快照不等于文件系统／S3 的原子快照：对象应使用不可变 key，原 key 并发覆盖且未登记校验值时仍需要运维协调停写或存储版本控制。
+
+恢复此类归档应使用同份归档中的配套 dump，不另选时间相近的数据库作业。配套 dump 的时间就是此份归档的数据库恢复点，不会自动升级为另一日的状态。当前包没有运行配置、密钥材料和匹配程序的完整恢复合同，也没有系统包上传／整站切换接口。
 
 ## 2. 角色与适用范围
 
@@ -84,9 +88,11 @@ flowchart LR
 
 ### 页面
 
+只需单次本地媒体导出时，进入“按需备份与导出 → 生成媒体导出包”，选择就绪来源并确认；完成后到“归档作业与传输”下载。此操作不创建策略、不附带数据库，默认保留 7 天／168 份，最新和保护文件保留。以下步骤属于可选的高级定时／配套归档。
+
 1. Root 登录，打开 **监控中心 → 备份中心 → 媒体与日志**。
-2. 查看下方“服务器来源与保存位置”，确认媒体源目录和保存根目录正确。来源不可用时修复部署配置及权限。
-3. “归档策略 → 新建策略”，选媒体来源，设置间隔、本地天数和份数。可选择异地目标；远端保留规则单独填写。默认停用。
+2. 切换左侧“来源与保存位置”，确认媒体源目录和保存根目录正确。来源不可用时修复部署配置及权限。
+3. “高级设置 → 新建策略”，选媒体来源，设置间隔、本地天数和份数。可选择异地目标；远端保留规则单独填写。默认停用。
 4. 勾选“同时保存数据库事务快照”可得到配套 dump；保存后点“立即归档”，确认策略。
 5. 作业显示本地完成后，核对文件数、快照逻辑大小、本次新增存储。重复归档相同媒体文件时，新对象存储应减少；配套 dump 仍会增加。
 6. 点“下载 .tar.gz”，解压后查看媒体、SHA256 清单及配套 dump。
@@ -97,7 +103,7 @@ S3 对象恢复为新目录中的文件，不自动写回原 Bucket。完整 Pow
 
 ### 接口
 
-根地址 `/api/v1/admin/ops/backup/archives`：`GET /` 查询来源和状态；`POST /policies` 保存策略；`POST /policies/:policy_id/run` 创建异步归档，需要 UUID `Idempotency-Key`；`GET /jobs/:job_id/download` 下载；`POST /jobs/:job_id/restore` 恢复。
+根地址 `/api/v1/admin/ops/backup/archives`：`GET /` 查询来源和状态；`POST /jobs` 以 `source_id` 和 UUID `Idempotency-Key` 发起无策略单次本地媒体导出；`POST /policies` 保存可选策略；`POST /policies/:policy_id/run` 创建异步归档，需要 UUID `Idempotency-Key`；`GET /jobs/:job_id/download` 下载；`POST /jobs/:job_id/restore` 恢复。
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -H "Idempotency-Key: $ARCHIVE_REQUEST_ID" -d '{}' "http://127.0.0.1:8077/api/v1/admin/ops/backup/archives/policies/$ARCHIVE_POLICY_ID/run"
@@ -136,3 +142,4 @@ curl -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -H "I
 ## 12. 变更记录
 
 - 2026-10-11：加入媒体增量快照、配套逻辑 dump、独立恢复、Root 页面及原生数据库验收。
+- 2026-10-15：明确与系统快照的边界、同份配套 dump 的选择规则，以及 US8 待实现验收入口。

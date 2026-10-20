@@ -388,27 +388,28 @@ func operatorIDFromRequest(c *gin.Context) *uint64 {
 }
 
 type assetResponse struct {
-	UUID              string            `json:"uuid"`
-	TenantUUID        string            `json:"tenant_uuid"`
-	Name              string            `json:"name"`
-	Description       string            `json:"description,omitempty"`
-	Driver            string            `json:"driver"`
-	Folder            string            `json:"folder,omitempty"`
-	ObjectKey         string            `json:"objectKey"`
-	ExternalURL       string            `json:"externalUrl,omitempty"`
-	SizeBytes         *int64            `json:"sizeBytes,omitempty"`
-	MimeType          string            `json:"mimeType,omitempty"`
-	OwnerSubjectType  string            `json:"ownerSubjectType,omitempty"`
-	OwnerSubjectID    string            `json:"ownerSubjectId,omitempty"`
-	Tags              []string          `json:"tags,omitempty"`
-	BusinessStatus    string            `json:"businessStatus"`
-	DownloadURL       string            `json:"downloadUrl,omitempty"`
-	DownloadExpiredAt *time.Time        `json:"downloadExpiredAt,omitempty"`
-	CreatedAt         time.Time         `json:"createdAt"`
-	UpdatedAt         time.Time         `json:"updatedAt"`
-	Deleted           bool              `json:"deleted,omitempty"`
-	Metadata          map[string]any    `json:"metadata,omitempty"`
-	Variants          []variantResponse `json:"variants,omitempty"`
+	Derivatives       *mediasvc.ImageDerivatives `json:"derivatives,omitempty"`
+	UUID              string                     `json:"uuid"`
+	TenantUUID        string                     `json:"tenant_uuid"`
+	Name              string                     `json:"name"`
+	Description       string                     `json:"description,omitempty"`
+	Driver            string                     `json:"driver"`
+	Folder            string                     `json:"folder,omitempty"`
+	ObjectKey         string                     `json:"objectKey"`
+	ExternalURL       string                     `json:"externalUrl,omitempty"`
+	SizeBytes         *int64                     `json:"sizeBytes,omitempty"`
+	MimeType          string                     `json:"mimeType,omitempty"`
+	OwnerSubjectType  string                     `json:"ownerSubjectType,omitempty"`
+	OwnerSubjectID    string                     `json:"ownerSubjectId,omitempty"`
+	Tags              []string                   `json:"tags,omitempty"`
+	BusinessStatus    string                     `json:"businessStatus"`
+	DownloadURL       string                     `json:"downloadUrl,omitempty"`
+	DownloadExpiredAt *time.Time                 `json:"downloadExpiredAt,omitempty"`
+	CreatedAt         time.Time                  `json:"createdAt"`
+	UpdatedAt         time.Time                  `json:"updatedAt"`
+	Deleted           bool                       `json:"deleted,omitempty"`
+	Metadata          map[string]any             `json:"metadata,omitempty"`
+	Variants          []variantResponse          `json:"variants,omitempty"`
 }
 
 type variantResponse struct {
@@ -446,6 +447,7 @@ func assetView(asset *mediasvc.Asset) assetResponse {
 		return assetResponse{}
 	}
 	resp := assetResponse{
+		Derivatives:       asset.Derivatives,
 		UUID:              asset.UUID,
 		TenantUUID:        asset.TenantUUID,
 		Name:              asset.Name,

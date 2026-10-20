@@ -276,9 +276,17 @@ func (r *DynamicRouter) isPublicAPIRequest(pluginID, method, clientPath string) 
 		return false
 	}
 	r.mu.RLock()
-	up := r.apis[pluginID]
+	up, mounted := r.apis[pluginID]
 	r.mu.RUnlock()
-	reqPath := normalizeGatePathForPolicy(clientPath, up.basePath)
+	if !mounted {
+		return false
+	}
+	if pol := r.gate.policies[pluginID]; pol != nil && pol.HTTPBase != "" &&
+		strings.TrimRight(strings.TrimSpace(pol.HTTPBase), "/") != strings.TrimRight(strings.TrimSpace(up.basePath), "/") {
+		// 防止策略安装后挂载了不同的上游 base（例如调试 Host 使用了固定前缀）。
+		return false
+	}
+	reqPath := NormalizePublicRoutePath(clientPath, up.basePath)
 	return r.gate.IsPublicRoute(pluginID, method, reqPath)
 }
 
@@ -831,6 +839,11 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		trimmed := trimToAPIClientPath(joinURLPath(r.basePrefix, pluginID, "api", clientPath))
 		normalized := normalizeGatePathForPolicy(trimmed, up.basePath)
 		reqPath := buildAPIUpstreamPath(up.target.Path, up.basePath, normalized)
+		if publicRoute == true {
+			// 公开判定与转发共用 base 相对路径；只在此边界拼接实际插件 base。
+			normalized = NormalizePublicRoutePath(clientPath, up.basePath)
+			reqPath = joinURLPath(up.target.Path, up.basePath, normalized)
+		}
 		req.URL.Path = reqPath
 		req.URL.RawPath = reqPath
 		// === 关键日志：最终上游路径 ===

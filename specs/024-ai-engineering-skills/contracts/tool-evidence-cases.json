@@ -1,0 +1,2630 @@
+{
+  "description": "离线合成夹具；摘要仅为格式样例，不是生产发布、工具或业务证据。runtime_cases 尚待真实实现执行。 新计算端口为设计中的 evaluate@2.0.0；既有 @1.0.0 与 V4 不被重解释。",
+  "fixtures": {
+    "builtin_dependencies": {
+      "schema": "powerx.skill-tools/v2",
+      "tools": [
+        {
+          "dependency_key": "calculator",
+          "tool_key": "powerx.calculation.evaluate",
+          "version": "2.0.0",
+          "input_schema": {
+            "id": "powerx.calculation.request/v1",
+            "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+          },
+          "output_schema": {
+            "id": "powerx.calculation.result/v1",
+            "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+          },
+          "permission": {
+            "actor": "runtime_internal",
+            "code": "pure_calculation"
+          },
+          "binding": {
+            "kind": "builtin",
+            "implementation_sha256": "sha256:90600015370b95ca4b5cadbf9a100224965ebdf20cfe05290db3701a945c1e84"
+          }
+        }
+      ]
+    },
+    "plugin_dependencies": {
+      "schema": "powerx.skill-tools/v2",
+      "tools": [
+        {
+          "dependency_key": "inventory_turnover",
+          "tool_key": "com.example.inventory.turnover",
+          "version": "2.1.0",
+          "input_schema": {
+            "id": "example.inventory.turnover-input/v2",
+            "sha256": "sha256:48ead40f3b571b24200aa70ed78cb2cc270fc39350348405fc1fa8b5949b5442"
+          },
+          "output_schema": {
+            "id": "example.inventory.turnover-output/v2",
+            "sha256": "sha256:091ff395cad3a552bd5bddaeb5c0ce9cfbbf11545ce4c2da9bb6e90dbb59477e"
+          },
+          "permission": {
+            "actor": "service_actor",
+            "code": "inventory:turnover:read"
+          },
+          "binding": {
+            "kind": "capability",
+            "capability_uuid": "4cc69a05-b9c7-5dc3-b549-01868c34a0ed",
+            "contract_uuid": "257a8601-129d-55e7-a92c-dbed1f9c4820",
+            "provider_version": "0.4.0",
+            "implementation_sha256": "sha256:052af7f3f425b354eaa74b77eaeac200d386ef57acfd5278483502c5fa9ee5fd",
+            "protocol": "http"
+          }
+        }
+      ]
+    },
+    "builtin_receipt": {
+      "schema": "powerx.tool-receipt/v1",
+      "execution_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+      "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+      "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+      "run_id": "fixture_run",
+      "trace_id": "fixture_trace",
+      "node_id": "fixture_node",
+      "attempt": 1,
+      "tool": {
+        "dependency_key": "calculator",
+        "tool_key": "powerx.calculation.evaluate",
+        "version": "2.0.0",
+        "input_schema": {
+          "id": "powerx.calculation.request/v1",
+          "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+        },
+        "output_schema": {
+          "id": "powerx.calculation.result/v1",
+          "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+        },
+        "permission": {
+          "actor": "runtime_internal",
+          "code": "pure_calculation"
+        },
+        "binding": {
+          "kind": "builtin",
+          "implementation_sha256": "sha256:90600015370b95ca4b5cadbf9a100224965ebdf20cfe05290db3701a945c1e84"
+        }
+      },
+      "invocation_binding": {
+        "kind": "builtin"
+      },
+      "authorization": {
+        "decision_uuid": "0e17f4d6-7f8e-5c79-a829-59a007c5b5fe",
+        "subject_uuid": "18b040ca-f200-558d-95ae-af798bf77319",
+        "actor": "runtime_internal"
+      },
+      "inputs": [
+        {
+          "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+          "field_key": "issued",
+          "label_key": "inventory.issued",
+          "datum_kind": "quantity",
+          "literal": "30",
+          "value": "30",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+          "input_state": "extracted_unverified",
+          "source": {
+            "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+            "kind": "run_input",
+            "object_type": "core.runtime_input",
+            "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+            "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+            "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+            "pointer": "/message",
+            "quote": "30",
+            "range": {
+              "start_byte": 7,
+              "end_byte": 9
+            }
+          }
+        },
+        {
+          "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+          "field_key": "inventory",
+          "label_key": "inventory.inventory",
+          "datum_kind": "quantity",
+          "literal": "12",
+          "value": "12",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+          "input_state": "extracted_unverified",
+          "source": {
+            "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+            "kind": "run_input",
+            "object_type": "core.runtime_input",
+            "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+            "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+            "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+            "pointer": "/message",
+            "quote": "12",
+            "range": {
+              "start_byte": 29,
+              "end_byte": 31
+            }
+          }
+        }
+      ],
+      "request": {
+        "artifact_uuid": "896aab8d-2129-5fb3-a832-872c0667be63",
+        "sha256": "sha256:518136710c566d6dca998a3a76712f2347df4e12d5476f05549809093ed28bcc"
+      },
+      "started_at": "2026-10-14T00:00:00Z",
+      "ended_at": "2026-10-14T00:00:01Z",
+      "status": "succeeded",
+      "result": {
+        "artifact_uuid": "6e10bf95-ce41-5f77-b6dd-6b9b6851fb7c",
+        "sha256": "sha256:322a7e0bab317d8aaf77730b4e5eef6dcaf8c7fd7ceff76fde4af9e05b0f58fa"
+      }
+    },
+    "plugin_receipt": {
+      "schema": "powerx.tool-receipt/v1",
+      "execution_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+      "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+      "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+      "run_id": "fixture_run",
+      "trace_id": "fixture_trace",
+      "node_id": "fixture_node",
+      "attempt": 1,
+      "tool": {
+        "dependency_key": "inventory_turnover",
+        "tool_key": "com.example.inventory.turnover",
+        "version": "2.1.0",
+        "input_schema": {
+          "id": "example.inventory.turnover-input/v2",
+          "sha256": "sha256:48ead40f3b571b24200aa70ed78cb2cc270fc39350348405fc1fa8b5949b5442"
+        },
+        "output_schema": {
+          "id": "example.inventory.turnover-output/v2",
+          "sha256": "sha256:091ff395cad3a552bd5bddaeb5c0ce9cfbbf11545ce4c2da9bb6e90dbb59477e"
+        },
+        "permission": {
+          "actor": "service_actor",
+          "code": "inventory:turnover:read"
+        },
+        "binding": {
+          "kind": "capability",
+          "capability_uuid": "4cc69a05-b9c7-5dc3-b549-01868c34a0ed",
+          "contract_uuid": "257a8601-129d-55e7-a92c-dbed1f9c4820",
+          "provider_version": "0.4.0",
+          "implementation_sha256": "sha256:052af7f3f425b354eaa74b77eaeac200d386ef57acfd5278483502c5fa9ee5fd",
+          "protocol": "http"
+        }
+      },
+      "invocation_binding": {
+        "kind": "capability",
+        "registration_version": 7,
+        "adapter_id": "fixture-inventory-http",
+        "catalog_sha256": "sha256:1d469f9048c880a6a240f932f11ba28cb5b274d866b46e4f4f2b353ee15c385e"
+      },
+      "authorization": {
+        "decision_uuid": "3ceab1a0-9c59-5ac8-86f6-8599ae3208f9",
+        "subject_uuid": "3917ad97-d943-5fcf-8aad-88bbcf1ea09e",
+        "actor": "service_actor"
+      },
+      "inputs": [
+        {
+          "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+          "field_key": "issued",
+          "label_key": "inventory.issued",
+          "datum_kind": "quantity",
+          "literal": "30",
+          "value": "30",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+          "input_state": "extracted_unverified",
+          "source": {
+            "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+            "kind": "run_input",
+            "object_type": "core.runtime_input",
+            "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+            "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+            "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+            "pointer": "/message",
+            "quote": "30",
+            "range": {
+              "start_byte": 7,
+              "end_byte": 9
+            }
+          }
+        },
+        {
+          "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+          "field_key": "inventory",
+          "label_key": "inventory.inventory",
+          "datum_kind": "quantity",
+          "literal": "12",
+          "value": "12",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+          "input_state": "extracted_unverified",
+          "source": {
+            "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+            "kind": "run_input",
+            "object_type": "core.runtime_input",
+            "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+            "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+            "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+            "pointer": "/message",
+            "quote": "12",
+            "range": {
+              "start_byte": 29,
+              "end_byte": 31
+            }
+          }
+        }
+      ],
+      "request": {
+        "artifact_uuid": "896aab8d-2129-5fb3-a832-872c0667be63",
+        "sha256": "sha256:9ee77800c4eb89796ee5481d267d8098f390cafa70eb1b75c43b4fddf7da2890"
+      },
+      "started_at": "2026-10-14T00:00:00Z",
+      "ended_at": "2026-10-14T00:00:01Z",
+      "status": "succeeded",
+      "result": {
+        "artifact_uuid": "6e10bf95-ce41-5f77-b6dd-6b9b6851fb7c",
+        "sha256": "sha256:3c8a682a406635113308582c8fe409f146d85d67bc1f9fb9cf901f409010ce86"
+      }
+    },
+    "timeout_receipt": {
+      "schema": "powerx.tool-receipt/v1",
+      "execution_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+      "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+      "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+      "run_id": "fixture_run",
+      "trace_id": "fixture_trace",
+      "node_id": "fixture_node",
+      "attempt": 1,
+      "tool": {
+        "dependency_key": "inventory_turnover",
+        "tool_key": "com.example.inventory.turnover",
+        "version": "2.1.0",
+        "input_schema": {
+          "id": "example.inventory.turnover-input/v2",
+          "sha256": "sha256:48ead40f3b571b24200aa70ed78cb2cc270fc39350348405fc1fa8b5949b5442"
+        },
+        "output_schema": {
+          "id": "example.inventory.turnover-output/v2",
+          "sha256": "sha256:091ff395cad3a552bd5bddaeb5c0ce9cfbbf11545ce4c2da9bb6e90dbb59477e"
+        },
+        "permission": {
+          "actor": "service_actor",
+          "code": "inventory:turnover:read"
+        },
+        "binding": {
+          "kind": "capability",
+          "capability_uuid": "4cc69a05-b9c7-5dc3-b549-01868c34a0ed",
+          "contract_uuid": "257a8601-129d-55e7-a92c-dbed1f9c4820",
+          "provider_version": "0.4.0",
+          "implementation_sha256": "sha256:052af7f3f425b354eaa74b77eaeac200d386ef57acfd5278483502c5fa9ee5fd",
+          "protocol": "http"
+        }
+      },
+      "invocation_binding": {
+        "kind": "capability",
+        "registration_version": 7,
+        "adapter_id": "fixture-inventory-http",
+        "catalog_sha256": "sha256:1d469f9048c880a6a240f932f11ba28cb5b274d866b46e4f4f2b353ee15c385e"
+      },
+      "authorization": {
+        "decision_uuid": "3ceab1a0-9c59-5ac8-86f6-8599ae3208f9",
+        "subject_uuid": "3917ad97-d943-5fcf-8aad-88bbcf1ea09e",
+        "actor": "service_actor"
+      },
+      "inputs": [
+        {
+          "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+          "field_key": "issued",
+          "label_key": "inventory.issued",
+          "datum_kind": "quantity",
+          "literal": "30",
+          "value": "30",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+          "input_state": "extracted_unverified",
+          "source": {
+            "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+            "kind": "run_input",
+            "object_type": "core.runtime_input",
+            "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+            "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+            "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+            "pointer": "/message",
+            "quote": "30",
+            "range": {
+              "start_byte": 7,
+              "end_byte": 9
+            }
+          }
+        },
+        {
+          "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+          "field_key": "inventory",
+          "label_key": "inventory.inventory",
+          "datum_kind": "quantity",
+          "literal": "12",
+          "value": "12",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+          "input_state": "extracted_unverified",
+          "source": {
+            "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+            "kind": "run_input",
+            "object_type": "core.runtime_input",
+            "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+            "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+            "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+            "pointer": "/message",
+            "quote": "12",
+            "range": {
+              "start_byte": 29,
+              "end_byte": 31
+            }
+          }
+        }
+      ],
+      "request": {
+        "artifact_uuid": "896aab8d-2129-5fb3-a832-872c0667be63",
+        "sha256": "sha256:9ee77800c4eb89796ee5481d267d8098f390cafa70eb1b75c43b4fddf7da2890"
+      },
+      "started_at": "2026-10-14T00:00:00Z",
+      "ended_at": "2026-10-14T00:00:01Z",
+      "status": "timed_out",
+      "error": {
+        "code": "skill.tool_timeout",
+        "stage": "tool_invoke",
+        "retryable": true
+      }
+    },
+    "conflict_report": {
+      "schema": "powerx.agent.response/v5",
+      "kind": "inventory_turnover",
+      "outcome": "needs_action",
+      "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+      "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+      "run_id": "fixture_run",
+      "trace_id": "fixture_trace",
+      "source_digest": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+      "receipts": [
+        {
+          "schema": "powerx.tool-receipt/v1",
+          "execution_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+          "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+          "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+          "run_id": "fixture_run",
+          "trace_id": "fixture_trace",
+          "node_id": "fixture_node",
+          "attempt": 1,
+          "tool": {
+            "dependency_key": "calculator",
+            "tool_key": "powerx.calculation.evaluate",
+            "version": "2.0.0",
+            "input_schema": {
+              "id": "powerx.calculation.request/v1",
+              "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+            },
+            "output_schema": {
+              "id": "powerx.calculation.result/v1",
+              "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+            },
+            "permission": {
+              "actor": "runtime_internal",
+              "code": "pure_calculation"
+            },
+            "binding": {
+              "kind": "builtin",
+              "implementation_sha256": "sha256:90600015370b95ca4b5cadbf9a100224965ebdf20cfe05290db3701a945c1e84"
+            }
+          },
+          "invocation_binding": {
+            "kind": "builtin"
+          },
+          "authorization": {
+            "decision_uuid": "0e17f4d6-7f8e-5c79-a829-59a007c5b5fe",
+            "subject_uuid": "18b040ca-f200-558d-95ae-af798bf77319",
+            "actor": "runtime_internal"
+          },
+          "inputs": [
+            {
+              "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+              "field_key": "issued",
+              "label_key": "inventory.issued",
+              "datum_kind": "quantity",
+              "literal": "30",
+              "value": "30",
+              "unit": "件",
+              "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+              "input_state": "extracted_unverified",
+              "source": {
+                "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+                "kind": "run_input",
+                "object_type": "core.runtime_input",
+                "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+                "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+                "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+                "pointer": "/message",
+                "quote": "30",
+                "range": {
+                  "start_byte": 7,
+                  "end_byte": 9
+                }
+              }
+            },
+            {
+              "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+              "field_key": "inventory",
+              "label_key": "inventory.inventory",
+              "datum_kind": "quantity",
+              "literal": "12",
+              "value": "12",
+              "unit": "件",
+              "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+              "input_state": "extracted_unverified",
+              "source": {
+                "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+                "kind": "run_input",
+                "object_type": "core.runtime_input",
+                "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+                "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+                "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+                "pointer": "/message",
+                "quote": "12",
+                "range": {
+                  "start_byte": 29,
+                  "end_byte": 31
+                }
+              }
+            }
+          ],
+          "request": {
+            "artifact_uuid": "896aab8d-2129-5fb3-a832-872c0667be63",
+            "sha256": "sha256:518136710c566d6dca998a3a76712f2347df4e12d5476f05549809093ed28bcc"
+          },
+          "started_at": "2026-10-14T00:00:00Z",
+          "ended_at": "2026-10-14T00:00:01Z",
+          "status": "succeeded",
+          "result": {
+            "artifact_uuid": "6e10bf95-ce41-5f77-b6dd-6b9b6851fb7c",
+            "sha256": "sha256:322a7e0bab317d8aaf77730b4e5eef6dcaf8c7fd7ceff76fde4af9e05b0f58fa"
+          }
+        }
+      ],
+      "presentation": {
+        "reported": [
+          {
+            "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+            "field_key": "issued",
+            "label_key": "inventory.issued",
+            "datum_kind": "quantity",
+            "literal": "30",
+            "value": "30",
+            "unit": "件",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "30",
+              "range": {
+                "start_byte": 7,
+                "end_byte": 9
+              }
+            }
+          },
+          {
+            "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+            "field_key": "inventory",
+            "label_key": "inventory.inventory",
+            "datum_kind": "quantity",
+            "literal": "12",
+            "value": "12",
+            "unit": "件",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "12",
+              "range": {
+                "start_byte": 29,
+                "end_byte": 31
+              }
+            }
+          },
+          {
+            "datum_uuid": "f1796b02-d3ea-5670-af64-1e9f957157a0",
+            "field_key": "reported_turnover",
+            "label_key": "inventory.reported_turnover",
+            "datum_kind": "reported",
+            "literal": "3",
+            "value": "3",
+            "unit": "1",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "3b5cb40b-4548-5d20-911d-39561d687c63",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "3",
+              "range": {
+                "start_byte": 54,
+                "end_byte": 55
+              }
+            }
+          }
+        ],
+        "computed": [
+          {
+            "datum_uuid": "75f41402-aa3f-5503-ba06-6052814569c2",
+            "field_key": "turnover",
+            "label_key": "inventory.turnover",
+            "receipt_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+            "output_pointer": "/value",
+            "value": "2.5",
+            "unit": "1",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "derivation": {
+              "kind": "expression",
+              "expression": "issued / inventory",
+              "operand_bindings": {
+                "issued": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+                "inventory": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4"
+              },
+              "precision": 2,
+              "percent": false,
+              "rounding": "half_away_from_zero"
+            }
+          }
+        ],
+        "conflicts": [
+          {
+            "conflict_uuid": "46ee5fbc-c2d1-50ed-bb3e-c04b8d20357b",
+            "reported_datum_uuid": "f1796b02-d3ea-5670-af64-1e9f957157a0",
+            "computed_datum_uuid": "75f41402-aa3f-5503-ba06-6052814569c2",
+            "reason": "value_mismatch"
+          }
+        ],
+        "gaps": [],
+        "hypotheses": [],
+        "actions": [
+          "请确认原文采用的库存及统计口径。"
+        ]
+      }
+    },
+    "completed_report": {
+      "schema": "powerx.agent.response/v5",
+      "kind": "inventory_turnover",
+      "outcome": "completed",
+      "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+      "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+      "run_id": "fixture_run",
+      "trace_id": "fixture_trace",
+      "source_digest": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+      "receipts": [
+        {
+          "schema": "powerx.tool-receipt/v1",
+          "execution_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+          "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+          "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+          "run_id": "fixture_run",
+          "trace_id": "fixture_trace",
+          "node_id": "fixture_node",
+          "attempt": 1,
+          "tool": {
+            "dependency_key": "calculator",
+            "tool_key": "powerx.calculation.evaluate",
+            "version": "2.0.0",
+            "input_schema": {
+              "id": "powerx.calculation.request/v1",
+              "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+            },
+            "output_schema": {
+              "id": "powerx.calculation.result/v1",
+              "sha256": "sha256:2f8e3ac74e7f9c050f50870d24efb165f448cbec15b5e27cfd07723f1f37afa0"
+            },
+            "permission": {
+              "actor": "runtime_internal",
+              "code": "pure_calculation"
+            },
+            "binding": {
+              "kind": "builtin",
+              "implementation_sha256": "sha256:90600015370b95ca4b5cadbf9a100224965ebdf20cfe05290db3701a945c1e84"
+            }
+          },
+          "invocation_binding": {
+            "kind": "builtin"
+          },
+          "authorization": {
+            "decision_uuid": "0e17f4d6-7f8e-5c79-a829-59a007c5b5fe",
+            "subject_uuid": "18b040ca-f200-558d-95ae-af798bf77319",
+            "actor": "runtime_internal"
+          },
+          "inputs": [
+            {
+              "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+              "field_key": "issued",
+              "label_key": "inventory.issued",
+              "datum_kind": "quantity",
+              "literal": "30",
+              "value": "30",
+              "unit": "件",
+              "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+              "input_state": "extracted_unverified",
+              "source": {
+                "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+                "kind": "run_input",
+                "object_type": "core.runtime_input",
+                "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+                "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+                "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+                "pointer": "/message",
+                "quote": "30",
+                "range": {
+                  "start_byte": 7,
+                  "end_byte": 9
+                }
+              }
+            },
+            {
+              "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+              "field_key": "inventory",
+              "label_key": "inventory.inventory",
+              "datum_kind": "quantity",
+              "literal": "12",
+              "value": "12",
+              "unit": "件",
+              "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+              "input_state": "extracted_unverified",
+              "source": {
+                "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+                "kind": "run_input",
+                "object_type": "core.runtime_input",
+                "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+                "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+                "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+                "pointer": "/message",
+                "quote": "12",
+                "range": {
+                  "start_byte": 29,
+                  "end_byte": 31
+                }
+              }
+            }
+          ],
+          "request": {
+            "artifact_uuid": "896aab8d-2129-5fb3-a832-872c0667be63",
+            "sha256": "sha256:518136710c566d6dca998a3a76712f2347df4e12d5476f05549809093ed28bcc"
+          },
+          "started_at": "2026-10-14T00:00:00Z",
+          "ended_at": "2026-10-14T00:00:01Z",
+          "status": "succeeded",
+          "result": {
+            "artifact_uuid": "6e10bf95-ce41-5f77-b6dd-6b9b6851fb7c",
+            "sha256": "sha256:322a7e0bab317d8aaf77730b4e5eef6dcaf8c7fd7ceff76fde4af9e05b0f58fa"
+          }
+        }
+      ],
+      "presentation": {
+        "reported": [
+          {
+            "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+            "field_key": "issued",
+            "label_key": "inventory.issued",
+            "datum_kind": "quantity",
+            "literal": "30",
+            "value": "30",
+            "unit": "件",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "30",
+              "range": {
+                "start_byte": 7,
+                "end_byte": 9
+              }
+            }
+          },
+          {
+            "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+            "field_key": "inventory",
+            "label_key": "inventory.inventory",
+            "datum_kind": "quantity",
+            "literal": "12",
+            "value": "12",
+            "unit": "件",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "12",
+              "range": {
+                "start_byte": 29,
+                "end_byte": 31
+              }
+            }
+          },
+          {
+            "datum_uuid": "f1796b02-d3ea-5670-af64-1e9f957157a0",
+            "field_key": "reported_turnover",
+            "label_key": "inventory.reported_turnover",
+            "datum_kind": "reported",
+            "literal": "3",
+            "value": "3",
+            "unit": "1",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "3b5cb40b-4548-5d20-911d-39561d687c63",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "3",
+              "range": {
+                "start_byte": 54,
+                "end_byte": 55
+              }
+            }
+          }
+        ],
+        "computed": [
+          {
+            "datum_uuid": "75f41402-aa3f-5503-ba06-6052814569c2",
+            "field_key": "turnover",
+            "label_key": "inventory.turnover",
+            "receipt_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+            "output_pointer": "/value",
+            "value": "2.5",
+            "unit": "1",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "derivation": {
+              "kind": "expression",
+              "expression": "issued / inventory",
+              "operand_bindings": {
+                "issued": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+                "inventory": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4"
+              },
+              "precision": 2,
+              "percent": false,
+              "rounding": "half_away_from_zero"
+            }
+          }
+        ],
+        "conflicts": [],
+        "gaps": [],
+        "hypotheses": [],
+        "actions": []
+      }
+    },
+    "percentage_report": {
+      "schema": "powerx.agent.response/v5",
+      "kind": "inventory_turnover",
+      "outcome": "needs_action",
+      "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+      "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+      "run_id": "fixture_run",
+      "trace_id": "fixture_trace",
+      "source_digest": "sha256:9cc51e4c6e5f7049a4ba01eb5ca03f2a6dca8e9157885c2581d539f82ca75dcd",
+      "receipts": [],
+      "presentation": {
+        "reported": [
+          {
+            "datum_uuid": "f1796b02-d3ea-5670-af64-1e9f957157a0",
+            "field_key": "reported_turnover",
+            "label_key": "inventory.reported_turnover",
+            "datum_kind": "reported",
+            "literal": "27.8",
+            "value": "27.8",
+            "unit": "%",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "68b5a4c9-f135-5934-a0ee-645275ed0b7d",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "1d73bcba-ab90-55f9-a99b-fd7827bfec7e",
+              "snapshot_uuid": "0cf264a4-ea31-5725-b2d1-ac3a7075c79d",
+              "snapshot_sha256": "sha256:9cc51e4c6e5f7049a4ba01eb5ca03f2a6dca8e9157885c2581d539f82ca75dcd",
+              "pointer": "/message",
+              "quote": "27.8",
+              "range": {
+                "start_byte": 16,
+                "end_byte": 20
+              }
+            }
+          }
+        ],
+        "computed": [],
+        "conflicts": [],
+        "hypotheses": [],
+        "actions": [],
+        "gaps": [
+          {
+            "key": "missing_counts",
+            "label_key": "inventory.missing_counts",
+            "missing_fields": [
+              "issued",
+              "inventory"
+            ]
+          }
+        ]
+      }
+    },
+    "calculation_request": {
+      "schema": "powerx.calculation.request/v1",
+      "expression": "issued / inventory",
+      "operands": {
+        "issued": {
+          "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+          "value": "30",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）"
+        },
+        "inventory": {
+          "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+          "value": "12",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）"
+        }
+      },
+      "precision": 2,
+      "percent": false,
+      "rounding": "half_away_from_zero",
+      "result_unit": "1"
+    },
+    "calculation_result": {
+      "schema": "powerx.calculation.result/v1",
+      "value": "2.5",
+      "unit": "1",
+      "precision": 2,
+      "percent": false,
+      "rounding": "half_away_from_zero"
+    },
+    "domain_algorithm_report": {
+      "schema": "powerx.agent.response/v5",
+      "kind": "inventory_turnover",
+      "outcome": "completed",
+      "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+      "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+      "run_id": "fixture_run",
+      "trace_id": "fixture_trace",
+      "source_digest": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+      "receipts": [
+        {
+          "schema": "powerx.tool-receipt/v1",
+          "execution_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+          "tenant_uuid": "1477b561-6a71-5056-9ff5-bd4c339b95b4",
+          "revision_uuid": "5c6164b4-e3a2-5935-a5ab-23a82be20d17",
+          "run_id": "fixture_run",
+          "trace_id": "fixture_trace",
+          "node_id": "fixture_node",
+          "attempt": 1,
+          "tool": {
+            "dependency_key": "inventory_turnover",
+            "tool_key": "com.example.inventory.turnover",
+            "version": "2.1.0",
+            "input_schema": {
+              "id": "example.inventory.turnover-input/v2",
+              "sha256": "sha256:48ead40f3b571b24200aa70ed78cb2cc270fc39350348405fc1fa8b5949b5442"
+            },
+            "output_schema": {
+              "id": "example.inventory.turnover-output/v2",
+              "sha256": "sha256:091ff395cad3a552bd5bddaeb5c0ce9cfbbf11545ce4c2da9bb6e90dbb59477e"
+            },
+            "permission": {
+              "actor": "service_actor",
+              "code": "inventory:turnover:read"
+            },
+            "binding": {
+              "kind": "capability",
+              "capability_uuid": "4cc69a05-b9c7-5dc3-b549-01868c34a0ed",
+              "contract_uuid": "257a8601-129d-55e7-a92c-dbed1f9c4820",
+              "provider_version": "0.4.0",
+              "implementation_sha256": "sha256:052af7f3f425b354eaa74b77eaeac200d386ef57acfd5278483502c5fa9ee5fd",
+              "protocol": "http"
+            }
+          },
+          "invocation_binding": {
+            "kind": "capability",
+            "registration_version": 7,
+            "adapter_id": "fixture-inventory-http",
+            "catalog_sha256": "sha256:1d469f9048c880a6a240f932f11ba28cb5b274d866b46e4f4f2b353ee15c385e"
+          },
+          "authorization": {
+            "decision_uuid": "3ceab1a0-9c59-5ac8-86f6-8599ae3208f9",
+            "subject_uuid": "3917ad97-d943-5fcf-8aad-88bbcf1ea09e",
+            "actor": "service_actor"
+          },
+          "inputs": [
+            {
+              "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+              "field_key": "issued",
+              "label_key": "inventory.issued",
+              "datum_kind": "quantity",
+              "literal": "30",
+              "value": "30",
+              "unit": "件",
+              "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+              "input_state": "extracted_unverified",
+              "source": {
+                "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+                "kind": "run_input",
+                "object_type": "core.runtime_input",
+                "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+                "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+                "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+                "pointer": "/message",
+                "quote": "30",
+                "range": {
+                  "start_byte": 7,
+                  "end_byte": 9
+                }
+              }
+            },
+            {
+              "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+              "field_key": "inventory",
+              "label_key": "inventory.inventory",
+              "datum_kind": "quantity",
+              "literal": "12",
+              "value": "12",
+              "unit": "件",
+              "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+              "input_state": "extracted_unverified",
+              "source": {
+                "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+                "kind": "run_input",
+                "object_type": "core.runtime_input",
+                "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+                "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+                "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+                "pointer": "/message",
+                "quote": "12",
+                "range": {
+                  "start_byte": 29,
+                  "end_byte": 31
+                }
+              }
+            }
+          ],
+          "request": {
+            "artifact_uuid": "896aab8d-2129-5fb3-a832-872c0667be63",
+            "sha256": "sha256:9ee77800c4eb89796ee5481d267d8098f390cafa70eb1b75c43b4fddf7da2890"
+          },
+          "started_at": "2026-10-14T00:00:00Z",
+          "ended_at": "2026-10-14T00:00:01Z",
+          "status": "succeeded",
+          "result": {
+            "artifact_uuid": "6e10bf95-ce41-5f77-b6dd-6b9b6851fb7c",
+            "sha256": "sha256:3c8a682a406635113308582c8fe409f146d85d67bc1f9fb9cf901f409010ce86"
+          }
+        }
+      ],
+      "presentation": {
+        "reported": [
+          {
+            "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+            "field_key": "issued",
+            "label_key": "inventory.issued",
+            "datum_kind": "quantity",
+            "literal": "30",
+            "value": "30",
+            "unit": "件",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "a51e967d-931e-5094-a998-843a33ca28f4",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "30",
+              "range": {
+                "start_byte": 7,
+                "end_byte": 9
+              }
+            }
+          },
+          {
+            "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+            "field_key": "inventory",
+            "label_key": "inventory.inventory",
+            "datum_kind": "quantity",
+            "literal": "12",
+            "value": "12",
+            "unit": "件",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "668d2516-4076-5218-a12b-d19e5b8c9c48",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "12",
+              "range": {
+                "start_byte": 29,
+                "end_byte": 31
+              }
+            }
+          },
+          {
+            "datum_uuid": "f1796b02-d3ea-5670-af64-1e9f957157a0",
+            "field_key": "reported_turnover",
+            "label_key": "inventory.reported_turnover",
+            "datum_kind": "reported",
+            "literal": "3",
+            "value": "3",
+            "unit": "1",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "input_state": "extracted_unverified",
+            "source": {
+              "source_uuid": "3b5cb40b-4548-5d20-911d-39561d687c63",
+              "kind": "run_input",
+              "object_type": "core.runtime_input",
+              "object_uuid": "52309531-9d0d-59c1-8e0c-f7f9bbcba422",
+              "snapshot_uuid": "bcac1e85-80fd-568d-b417-b5e7cf1c371a",
+              "snapshot_sha256": "sha256:383ac91131b48cc46d60ae0c9f8f74e251ad57fd95b79be54a08c80c1d6cbc05",
+              "pointer": "/message",
+              "quote": "3",
+              "range": {
+                "start_byte": 54,
+                "end_byte": 55
+              }
+            }
+          }
+        ],
+        "computed": [
+          {
+            "datum_uuid": "75f41402-aa3f-5503-ba06-6052814569c2",
+            "field_key": "turnover",
+            "label_key": "inventory.turnover",
+            "receipt_uuid": "9f955409-e0fa-57a6-a996-d2497a68f974",
+            "output_pointer": "/value",
+            "value": "2.5",
+            "unit": "1",
+            "scope": "同一仓库与统计周期（声明，尚未独立核实）",
+            "derivation": {
+              "kind": "domain_algorithm",
+              "algorithm_id": "example.inventory.turnover/v2",
+              "parameters_sha256": "sha256:9bc863ed5dea2ee31833c67add670c78c0dfab6c1bec230f6c2363289691e13b"
+            }
+          }
+        ],
+        "conflicts": [],
+        "gaps": [],
+        "hypotheses": [],
+        "actions": []
+      }
+    },
+    "percentage_calculation_request": {
+      "schema": "powerx.calculation.request/v1",
+      "expression": "issued / inventory",
+      "operands": {
+        "issued": {
+          "datum_uuid": "1b0f7a73-2fbd-56be-856c-c51a4630dd98",
+          "value": "30",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）"
+        },
+        "inventory": {
+          "datum_uuid": "45faeb0d-1082-59a2-bf27-ee3fc5882fe4",
+          "value": "12",
+          "unit": "件",
+          "scope": "同一仓库与统计周期（声明，尚未独立核实）"
+        }
+      },
+      "precision": 2,
+      "percent": true,
+      "rounding": "half_away_from_zero",
+      "result_unit": "%"
+    },
+    "percentage_calculation_result": {
+      "schema": "powerx.calculation.result/v1",
+      "value": "250",
+      "unit": "%",
+      "precision": 2,
+      "percent": true,
+      "rounding": "half_away_from_zero"
+    }
+  },
+  "schema_cases": [
+    {
+      "id": "valid_builtin_dependencies",
+      "fixture": "builtin_dependencies",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "valid_plugin_dependencies",
+      "fixture": "plugin_dependencies",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "valid_builtin_receipt",
+      "fixture": "builtin_receipt",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "valid_plugin_receipt",
+      "fixture": "plugin_receipt",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "valid_timeout_receipt",
+      "fixture": "timeout_receipt",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "valid_conflict_report",
+      "fixture": "conflict_report",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "valid_completed_report",
+      "fixture": "completed_report",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "valid_percentage_report",
+      "fixture": "percentage_report",
+      "valid": true,
+      "patch": []
+    },
+    {
+      "id": "reject_tools_v1",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/schema",
+          "value": "powerx.skill-tools/v1"
+        }
+      ]
+    },
+    {
+      "id": "reject_tools_empty",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools",
+          "value": []
+        }
+      ]
+    },
+    {
+      "id": "reject_version_latest",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/version",
+          "value": "latest"
+        }
+      ]
+    },
+    {
+      "id": "reject_version_^1.0.0",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/version",
+          "value": "^1.0.0"
+        }
+      ]
+    },
+    {
+      "id": "reject_version_1.*",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/version",
+          "value": "1.*"
+        }
+      ]
+    },
+    {
+      "id": "reject_version_01.0.0",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/version",
+          "value": "01.0.0"
+        }
+      ]
+    },
+    {
+      "id": "reject_version_1.0.0-01",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/version",
+          "value": "1.0.0-01"
+        }
+      ]
+    },
+    {
+      "id": "reject_missing_permission",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/tools/0/permission"
+        }
+      ]
+    },
+    {
+      "id": "reject_numeric_capability_id",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/binding/capability_uuid",
+          "value": "42"
+        }
+      ]
+    },
+    {
+      "id": "reject_nil_contract_uuid",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/binding/contract_uuid",
+          "value": "00000000-0000-0000-0000-000000000000"
+        }
+      ]
+    },
+    {
+      "id": "reject_unknown_protocol",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/binding/protocol",
+          "value": "shell"
+        }
+      ]
+    },
+    {
+      "id": "reject_missing_implementation_digest",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/tools/0/binding/implementation_sha256"
+        }
+      ]
+    },
+    {
+      "id": "reject_freeform_endpoint",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/tools/0/binding/endpoint",
+          "value": "http://example.invalid/run"
+        }
+      ]
+    },
+    {
+      "id": "reject_service_as_builtin",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/permission/actor",
+          "value": "service_actor"
+        }
+      ]
+    },
+    {
+      "id": "reject_builtin_permission_escalation",
+      "fixture": "builtin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/permission/code",
+          "value": "admin_manage"
+        }
+      ]
+    },
+    {
+      "id": "reject_plugin_runtime_actor",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/permission/actor",
+          "value": "runtime_internal"
+        }
+      ]
+    },
+    {
+      "id": "reject_unversioned_schema",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/input_schema/id",
+          "value": "input"
+        }
+      ]
+    },
+    {
+      "id": "reject_unhashed_schema",
+      "fixture": "plugin_dependencies",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/tools/0/output_schema/sha256",
+          "value": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "reject_success_without_output",
+      "fixture": "builtin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/result"
+        }
+      ]
+    },
+    {
+      "id": "reject_success_with_error",
+      "fixture": "builtin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/error",
+          "value": {
+            "code": "skill.tool_timeout",
+            "stage": "tool_invoke",
+            "retryable": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "reject_failure_with_output",
+      "fixture": "timeout_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/result",
+          "value": {
+            "artifact_uuid": "6e10bf95-ce41-5f77-b6dd-6b9b6851fb7c",
+            "sha256": "sha256:3c8a682a406635113308582c8fe409f146d85d67bc1f9fb9cf901f409010ce86"
+          }
+        }
+      ]
+    },
+    {
+      "id": "reject_failure_without_error",
+      "fixture": "timeout_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/error"
+        }
+      ]
+    },
+    {
+      "id": "reject_unknown_status",
+      "fixture": "builtin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/status",
+          "value": "ok"
+        }
+      ]
+    },
+    {
+      "id": "reject_invalid_timestamp",
+      "fixture": "builtin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ended_at",
+          "value": "yesterday"
+        }
+      ]
+    },
+    {
+      "id": "reject_zero_attempt",
+      "fixture": "builtin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/attempt",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "reject_claimed_verification",
+      "fixture": "builtin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/verified",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "reject_credentials",
+      "fixture": "plugin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/authorization/token",
+          "value": "fixture-only"
+        }
+      ]
+    },
+    {
+      "id": "reject_builtin_adapter_drift",
+      "fixture": "builtin_receipt",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/invocation_binding",
+          "value": {
+            "kind": "capability",
+            "registration_version": 7,
+            "adapter_id": "fixture-inventory-http",
+            "catalog_sha256": "sha256:1d469f9048c880a6a240f932f11ba28cb5b274d866b46e4f4f2b353ee15c385e"
+          }
+        }
+      ]
+    },
+    {
+      "id": "reject_invented_input_trust",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported/0/input_state",
+          "value": "verified"
+        }
+      ]
+    },
+    {
+      "id": "reject_source_trust_upgrade",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported/0/input_state",
+          "value": "authorized_record"
+        }
+      ]
+    },
+    {
+      "id": "reject_bad_pointer_escape",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported/0/source/pointer",
+          "value": "/bad~2path"
+        }
+      ]
+    },
+    {
+      "id": "reject_negative_source_offset",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported/0/source/range/start_byte",
+          "value": -1
+        }
+      ]
+    },
+    {
+      "id": "reject_numeric_float",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/computed/0/value",
+          "value": 2.5
+        }
+      ]
+    },
+    {
+      "id": "reject_infinite_value",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/computed/0/value",
+          "value": "NaN"
+        }
+      ]
+    },
+    {
+      "id": "reject_missing_rounding",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/presentation/computed/0/derivation/rounding"
+        }
+      ]
+    },
+    {
+      "id": "reject_invalid_precision",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/computed/0/derivation/precision",
+          "value": 13
+        }
+      ]
+    },
+    {
+      "id": "reject_completed_conflict",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/outcome",
+          "value": "completed"
+        }
+      ]
+    },
+    {
+      "id": "reject_completed_gap",
+      "fixture": "percentage_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/outcome",
+          "value": "completed"
+        }
+      ]
+    },
+    {
+      "id": "reject_v4_relabel_only",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/schema",
+          "value": "powerx.agent.response/v4"
+        }
+      ]
+    },
+    {
+      "id": "reject_system_failure_as_report",
+      "fixture": "conflict_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/outcome",
+          "value": "failed"
+        }
+      ]
+    },
+    {
+      "id": "reject_empty_report",
+      "fixture": "completed_report",
+      "valid": false,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported",
+          "value": []
+        },
+        {
+          "op": "replace",
+          "path": "/presentation/computed",
+          "value": []
+        }
+      ]
+    },
+    {
+      "id": "valid_calculation_request",
+      "fixture": "calculation_request",
+      "patch": [],
+      "valid": true
+    },
+    {
+      "id": "valid_calculation_result",
+      "fixture": "calculation_result",
+      "patch": [],
+      "valid": true
+    },
+    {
+      "id": "valid_domain_algorithm_report",
+      "fixture": "domain_algorithm_report",
+      "patch": [],
+      "valid": true
+    },
+    {
+      "id": "reject_calculator_unknown_rounding",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/rounding",
+          "value": "bankers"
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "reject_calculator_float_operand",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/operands/issued/value",
+          "value": 30.0
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "reject_calculator_missing_operand_ref",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/operands/issued/datum_uuid"
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "reject_calculator_excessive_precision",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/precision",
+          "value": 13
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "reject_calculator_result_missing_unit",
+      "fixture": "calculation_result",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/unit"
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "reject_percent_request_wrong_unit",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/percent",
+          "value": true
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "reject_percent_result_wrong_unit",
+      "fixture": "calculation_result",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/percent",
+          "value": true
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "reject_unscaled_percent_request",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/result_unit",
+          "value": "%"
+        }
+      ],
+      "valid": false
+    },
+    {
+      "id": "valid_percentage_calculation_request",
+      "fixture": "percentage_calculation_request",
+      "patch": [],
+      "valid": true
+    },
+    {
+      "id": "valid_percentage_calculation_result",
+      "fixture": "percentage_calculation_result",
+      "patch": [],
+      "valid": true
+    }
+  ],
+  "runtime_cases": [
+    {
+      "id": "missing_tool",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "catalog_contains_tool": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_unavailable",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "wrong_tool_version",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "installed_tool_version": "2.2.0"
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_version_or_contract_mismatch",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "schema_digest_drift",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "published_schema_matches_digest": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_version_or_contract_mismatch",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "implementation_unverifiable",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "installed_implementation_digest_known": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_version_or_contract_mismatch",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "duplicate_dependency_key",
+      "fixture": "plugin_dependencies",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/tools/-",
+          "value": {
+            "dependency_key": "inventory_turnover",
+            "tool_key": "com.example.inventory.turnover",
+            "version": "2.1.0",
+            "input_schema": {
+              "id": "example.inventory.turnover-input/v2",
+              "sha256": "sha256:48ead40f3b571b24200aa70ed78cb2cc270fc39350348405fc1fa8b5949b5442"
+            },
+            "output_schema": {
+              "id": "example.inventory.turnover-output/v2",
+              "sha256": "sha256:091ff395cad3a552bd5bddaeb5c0ce9cfbbf11545ce4c2da9bb6e90dbb59477e"
+            },
+            "permission": {
+              "actor": "service_actor",
+              "code": "inventory:turnover:read"
+            },
+            "binding": {
+              "kind": "capability",
+              "capability_uuid": "4cc69a05-b9c7-5dc3-b549-01868c34a0ed",
+              "contract_uuid": "257a8601-129d-55e7-a92c-dbed1f9c4820",
+              "provider_version": "0.4.0",
+              "implementation_sha256": "sha256:052af7f3f425b354eaa74b77eaeac200d386ef57acfd5278483502c5fa9ee5fd",
+              "protocol": "http"
+            }
+          }
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "capability_uuid_key_disagree",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "resolved_tool_key": "com.example.other"
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "unpublished_contract",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "contract_published": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_unavailable",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "unsupported_protocol",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "deployment_protocols": [
+          "core_internal"
+        ]
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_protocol_unavailable",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "executor_unavailable",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "executor_type": "workflow",
+        "deployment_executor_available": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.executor_unavailable",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "grant_revoked",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "previous_publication_authorized": true,
+        "current_grant_active": false
+      },
+      "expected": {
+        "stage": "permission_check",
+        "code": "skill.tool_dependency_denied",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "wrong_actor",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "actual_actor": "admin_user",
+        "actual_grant_actor": "service_actor"
+      },
+      "expected": {
+        "stage": "permission_check",
+        "code": "skill.tool_dependency_denied",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "cross_tenant_source",
+      "fixture": "conflict_report",
+      "patch": [],
+      "preconditions": {
+        "resolved_source_tenant_uuid": "4c5e4d8c-fc9c-5dd0-9724-889dd98040ee"
+      },
+      "expected": {
+        "stage": "source_resolution",
+        "code": "evidence.source_access_denied",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "unknown_object_same_denial",
+      "fixture": "conflict_report",
+      "patch": [],
+      "preconditions": {
+        "source_object_exists": false
+      },
+      "expected": {
+        "stage": "source_resolution",
+        "code": "evidence.source_access_denied",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "forged_source_uuid",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported/0/source/object_uuid",
+          "value": "7b072b8e-ab30-53c5-8017-1d4488c1e05f"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "source_resolution",
+        "code": "evidence.source_access_denied",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "quote_mismatch",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported/0/source/quote",
+          "value": "300"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "source_resolution",
+        "code": "evidence.source_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "reversed_range",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/reported/0/source/range/end_byte",
+          "value": 1
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "source_resolution",
+        "code": "evidence.source_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "percentage_only",
+      "fixture": "percentage_report",
+      "patch": [],
+      "preconditions": {
+        "only_percentage_provided": true
+      },
+      "expected": {
+        "stage": "input_validation",
+        "code": null,
+        "tool_calls": 0,
+        "task_state": "awaiting_params",
+        "outcome": "needs_action",
+        "failure_node": false
+      }
+    },
+    {
+      "id": "scope_incompatible",
+      "fixture": "conflict_report",
+      "patch": [],
+      "preconditions": {
+        "operand_scopes_comparable": false
+      },
+      "expected": {
+        "stage": "input_validation",
+        "code": null,
+        "tool_calls": 0,
+        "task_state": "awaiting_params",
+        "outcome": "needs_action",
+        "failure_node": false
+      }
+    },
+    {
+      "id": "unit_incompatible",
+      "fixture": "conflict_report",
+      "patch": [],
+      "preconditions": {
+        "operand_units_comparable": false
+      },
+      "expected": {
+        "stage": "input_validation",
+        "code": null,
+        "tool_calls": 0,
+        "task_state": "awaiting_params",
+        "outcome": "needs_action",
+        "failure_node": false
+      }
+    },
+    {
+      "id": "forged_counts_from_percentage",
+      "fixture": "conflict_report",
+      "patch": [],
+      "preconditions": {
+        "original_input": "仅有复购率 27.8%，没有客户人数。"
+      },
+      "expected": {
+        "stage": "source_resolution",
+        "code": "evidence.source_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "division_by_zero",
+      "fixture": "builtin_receipt",
+      "patch": [],
+      "preconditions": {
+        "resolved_denominator": "0"
+      },
+      "expected": {
+        "stage": "tool_invoke",
+        "code": "evidence.calculation_failed",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "tool_timeout",
+      "fixture": "timeout_receipt",
+      "patch": [],
+      "preconditions": {
+        "tool_exceeds_deadline": true
+      },
+      "expected": {
+        "stage": "tool_invoke",
+        "code": "skill.tool_timeout",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "tool_cancelled",
+      "fixture": "timeout_receipt",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/status",
+          "value": "cancelled"
+        },
+        {
+          "op": "replace",
+          "path": "/error/code",
+          "value": "skill.tool_cancelled"
+        }
+      ],
+      "preconditions": {
+        "context_cancelled": true
+      },
+      "expected": {
+        "stage": "tool_invoke",
+        "code": "skill.tool_cancelled",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "version_drifts_during_call",
+      "fixture": "plugin_receipt",
+      "patch": [],
+      "preconditions": {
+        "actual_provider_version": "0.5.0"
+      },
+      "expected": {
+        "stage": "result_validation",
+        "code": "skill.tool_dependency_version_or_contract_mismatch",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "side_effect_then_revocation",
+      "fixture": "plugin_receipt",
+      "patch": [],
+      "preconditions": {
+        "grant_revoked_during_call": true,
+        "side_effect_observed": true,
+        "automatic_retry_allowed": false
+      },
+      "expected": {
+        "stage": "result_validation",
+        "code": "skill.tool_dependency_denied",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "invalid_tool_output",
+      "fixture": "plugin_receipt",
+      "patch": [],
+      "preconditions": {
+        "output_schema_valid": false
+      },
+      "expected": {
+        "stage": "result_validation",
+        "code": "evidence.tool_result_invalid",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "missing_ledger",
+      "fixture": "conflict_report",
+      "patch": [],
+      "preconditions": {
+        "ledger_present": false
+      },
+      "expected": {
+        "stage": "evidence_validation",
+        "code": "evidence.tool_receipt_untrusted",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "replayed_receipt",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/receipts/0/run_id",
+          "value": "another_run"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "evidence_validation",
+        "code": "evidence.tool_receipt_untrusted",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "forged_receipt_uuid",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/computed/0/receipt_uuid",
+          "value": "f4baa0ce-3b96-5632-826c-77b2146da718"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "evidence_validation",
+        "code": "evidence.tool_receipt_untrusted",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "tampered_computed_value",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/computed/0/value",
+          "value": "9.99"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "evidence_validation",
+        "code": "evidence.tool_receipt_untrusted",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "foreign_tenant_receipt",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/receipts/0/tenant_uuid",
+          "value": "4c5e4d8c-fc9c-5dd0-9724-889dd98040ee"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "evidence_validation",
+        "code": "evidence.tool_receipt_untrusted",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "output_pointer_mismatch",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/computed/0/output_pointer",
+          "value": "/missing"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "result_validation",
+        "code": "evidence.tool_result_invalid",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "conflict_reference_absent",
+      "fixture": "conflict_report",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/presentation/conflicts/0/reported_datum_uuid",
+          "value": "1d17ce5b-f048-5510-aaea-31f12223212a"
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "final_validation",
+        "code": "agent.response_contract_invalid",
+        "tool_calls": 1,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "legacy_registry_only",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "entrypoint": "legacy_registry",
+        "published_definition_exists": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.legacy_invoke_upgrade_required",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "renamed_nonmarketing_skill",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "published_skill_key": "customer.inventory_review",
+        "authorized_candidate": true,
+        "same_generic_dispatch": true
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": null,
+        "tool_calls": 1,
+        "task_state": "completed",
+        "outcome": "completed",
+        "failure_node": false
+      }
+    },
+    {
+      "id": "history_read_does_not_execute",
+      "fixture": "conflict_report",
+      "patch": [],
+      "preconditions": {
+        "history_schema": "powerx.agent.response/v5",
+        "reload_only": true
+      },
+      "expected": {
+        "stage": "history_read",
+        "code": null,
+        "tool_calls": 0,
+        "task_state": "completed",
+        "outcome": "needs_action",
+        "failure_node": false
+      }
+    },
+    {
+      "id": "builtin_key_spoof",
+      "fixture": "builtin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "tool_key_is_deployment_builtin": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_unavailable",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "constant_in_report_expression",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/expression",
+          "value": "issued / 100"
+        }
+      ],
+      "preconditions": {
+        "expression_contains_business_numeric_constant": true
+      },
+      "expected": {
+        "stage": "input_validation",
+        "code": "evidence.calculation_plan_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "operand_not_from_resolved_source",
+      "fixture": "calculation_request",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/operands/issued/value",
+          "value": "300"
+        }
+      ],
+      "preconditions": {
+        "operand_value_matches_resolved_source": false,
+        "resolved_source_value": "30"
+      },
+      "expected": {
+        "stage": "source_resolution",
+        "code": "evidence.source_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "renamed_revision_rejects_old_semver",
+      "fixture": "plugin_dependencies",
+      "patch": [],
+      "preconditions": {
+        "request_version": "0.4.0",
+        "version_is_revision_uuid": false
+      },
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.legacy_invoke_upgrade_required",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    },
+    {
+      "id": "duplicate_tool_key",
+      "fixture": "plugin_dependencies",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/tools/-",
+          "value": {
+            "dependency_key": "second_inventory_dependency",
+            "tool_key": "com.example.inventory.turnover",
+            "version": "2.1.0",
+            "input_schema": {
+              "id": "example.inventory.turnover-input/v2",
+              "sha256": "sha256:48ead40f3b571b24200aa70ed78cb2cc270fc39350348405fc1fa8b5949b5442"
+            },
+            "output_schema": {
+              "id": "example.inventory.turnover-output/v2",
+              "sha256": "sha256:091ff395cad3a552bd5bddaeb5c0ce9cfbbf11545ce4c2da9bb6e90dbb59477e"
+            },
+            "permission": {
+              "actor": "service_actor",
+              "code": "inventory:turnover:read"
+            },
+            "binding": {
+              "kind": "capability",
+              "capability_uuid": "4cc69a05-b9c7-5dc3-b549-01868c34a0ed",
+              "contract_uuid": "257a8601-129d-55e7-a92c-dbed1f9c4820",
+              "provider_version": "0.4.0",
+              "implementation_sha256": "sha256:052af7f3f425b354eaa74b77eaeac200d386ef57acfd5278483502c5fa9ee5fd",
+              "protocol": "http"
+            }
+          }
+        }
+      ],
+      "preconditions": {},
+      "expected": {
+        "stage": "dependency_check",
+        "code": "skill.tool_dependency_invalid",
+        "tool_calls": 0,
+        "task_state": "failed",
+        "outcome": null,
+        "failure_node": true
+      }
+    }
+  ]
+}

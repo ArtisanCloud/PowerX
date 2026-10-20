@@ -1,0 +1,147 @@
+{
+  "schema": "powerx.system-recovery-two-modes-validation/v1",
+  "recorded_at": "2026-10-18T12:13:44.647623+00:00",
+  "implementation": {
+    "default_mode": "new_environment",
+    "local_only_mode": "overwrite_current",
+    "explicit_switch_and_return": true,
+    "inactive_environment_cleanup": true,
+    "independent_progress": "SSE",
+    "page_status_polling": false,
+    "core_catalog_in_program_component": true,
+    "plugin_readonly_schema_check": true,
+    "plugin_readonly_seeds_and_background_writes_disabled": true,
+    "local_rehearsal_background_workers_disabled": true
+  },
+  "validation": {
+    "frontend_units": {
+      "passed": 70,
+      "failed": 0
+    },
+    "browser_fixture": {
+      "passed": 12,
+      "failed": 0,
+      "desktop_and_narrow": true,
+      "real_installed_plugin_acceptance": false
+    },
+    "nuxt_build": true,
+    "postgres_readonly_schema": {
+      "ai_craft": true,
+      "skeleton": true,
+      "database_rejected_ddl": true,
+      "existing_schema_readable": true,
+      "missing_schema_rejected": true,
+      "writable_startup_preserved": true
+    },
+    "core_focused_units_and_vet": true,
+    "capability_check": {
+      "passed": true,
+      "declared": 1106,
+      "rest_routes": 1037
+    },
+    "native_final_catalog_run": {
+      "status": "passed",
+      "duration_seconds": 471.49,
+      "log": "test-results/recovery-workflow-native-final-session.log",
+      "new_environment_switch_return_cleanup": true,
+      "local_overwrite_and_return": true,
+      "coordinator_kill_compensation": true,
+      "actual_core_web_api_media": true,
+      "actual_local_cli_and_gateways": true,
+      "source_B_retained": true,
+      "owned_processes_released": true
+    },
+    "skeleton_host_root_path_tests_and_vet": true,
+    "real_installed_strict_business_reads": {
+      "passed": true,
+      "customer_accounts": true,
+      "base_templates": true,
+      "ai_craft_sample_tracks": true,
+      "http_200_error_envelopes_rejected": true,
+      "readonly_saved_profile_test_seconds": 28.35,
+      "source_user_table_count": 870,
+      "checks": "test-results/recovery-installed-strict-evidence.json"
+    },
+    "readonly_post_directory_guard": {
+      "bounded_uuid_reads_only": true,
+      "request_body_preserved": true,
+      "downstream_authorization_still_enforced": true,
+      "mutation_or_tenant_override_rejected": true
+    },
+    "candidate_verification_session": {
+      "standard_iam_record": true,
+      "ttl_seconds": 120,
+      "refresh_jwt_issued": false,
+      "revoked_and_only_created_row_removed": true,
+      "source_or_remote_database_rejected": true,
+      "source_sessions_modified": false
+    },
+    "nuxt_isolated_build": true
+  },
+  "installed_clone": {
+    "whole_environment_verified": true,
+    "scope": "local_development_database_local_media_configuration_and_current_program_builds",
+    "current_status": "prepared_and_all_temporary_services_stopped",
+    "core_and_plugin_builds": "current_worktree_builds_in_owned_clone_with_explicit_hashed_overrides",
+    "original_installed_binaries_replaced": false,
+    "original_package_unchanged": true,
+    "original_artifact_replay_verified": false,
+    "explicit_program_override_files": 85,
+    "matching_manifest_registration_in_clone": true,
+    "source_credential_grants_manually_widened": false,
+    "ai_craft_and_base_readonly_healthy": true,
+    "protected_business_probes_completed": true,
+    "private_profile": "~/.powerx/r/t18/profile.json",
+    "normal_password_login_verified": false
+  },
+  "source_preview": {
+    "plugin_id": "com.powerx.plugins.base",
+    "version": "0.1.4",
+    "deployment_env": "dev",
+    "database": "powerx",
+    "action": "rotate",
+    "applied": true,
+    "rotation_authorization": "explicit_user_approval",
+    "formal_catalog_seed_completed": true,
+    "formal_catalog_count": 1106,
+    "restart_performed_by_agent": true,
+    "original_core_pid": 81642,
+    "restarted_core_pid": 27520,
+    "restart_command": "make dev",
+    "core_health_http_status": 200,
+    "web_http_status": 200,
+    "user_web_service_stopped": false,
+    "source_customer_business_data_modified": false,
+    "remote_server_modified": false,
+    "credential_backup": "backend/plugins/.runtime-credential-repair-3803464538",
+    "credential_backup_private_and_ignored": true,
+    "current_core_pid_observed": 61761,
+    "current_core_healthy": true,
+    "final_current_core_process_stopped_by_agent": false
+  },
+  "scope_limits": {
+    "normal_password_login_verified": false,
+    "linux_namespace_acceptance": false,
+    "production_deployed": false,
+    "external_s3_agent_reports_captured": false,
+    "local_rehearsal_disables_external_agent_reports": true,
+    "online_packages_replay_redis_recovery_point": false,
+    "local_only_checkpoints_accepted_for_production": false,
+    "browser_live_visual_acceptance": false,
+    "browser_fixture_is_mocked_backend": true
+  },
+  "cleanup": {
+    "owned_failed_fixture_roots_removed": true,
+    "latest_native_fixture_removed": true,
+    "all_temporary_services_and_children_stopped": true,
+    "temporary_entry_ports_released": [
+      33330,
+      33377
+    ],
+    "prepared_private_user_rehearsal_retained": "~/.powerx/r/t18",
+    "prepared_rehearsal_running": false,
+    "ordinary_core_and_nuxt_healthy": true,
+    "only_authorized_source_core_restart_performed": true,
+    "remote_server_modified": false
+  }
+}

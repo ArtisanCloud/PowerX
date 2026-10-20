@@ -83,7 +83,7 @@ func tokenizeSourcesWithUnits(payload map[string]any, sources []string, units []
 				continue
 			}
 			after := text[span[1]:]
-			trimmed := strings.TrimLeft(after, " \t")
+			trimmed := trimNumericSpace(after)
 			unit := ""
 			for _, u := range units {
 				if strings.HasPrefix(trimmed, u) {
@@ -114,7 +114,7 @@ func tokenizeSourcesWithUnits(payload map[string]any, sources []string, units []
 				end += len(after) - len(trimmed) + len(unit)
 			}
 			quote := text[span[0]:end]
-			if !containsQuotedNumericToken(text, quote, literal+unit) && !strings.Contains(quote, " ") && !strings.Contains(quote, "\t") {
+			if !numericUnitBoundary(text, span[0], end, unit) {
 				continue
 			}
 			// 上下文只用于映射和审计，保持为原文连续片段。
@@ -337,4 +337,30 @@ func ValidateSelectionCoverage(selection SourceSelection, tokens []NumericToken,
 		}
 	}
 	return nil
+}
+
+// numericUnitBoundary 统一分词与来源核验的单位边界。中文单位后可直接连接语法词，
+// 例如“6000元到”“90天内”；ASCII 单位不能截成前缀，无单位数字不能吞掉百分号/单位。
+func numericUnitBoundary(text string, start, end int, unit string) bool {
+	if !numericTokenBoundary(text, start, end) {
+		return false
+	}
+	if end >= len(text) {
+		return true
+	}
+	tail := text[end:]
+	if isCompoundDurationUnit(unit, tail) {
+		return false
+	}
+	if unit == "" {
+		tail = trimNumericSpace(tail)
+	}
+	next, _ := utf8.DecodeRuneInString(tail)
+	if unicode.IsDigit(next) || strings.ContainsRune(".,%％", next) {
+		return false
+	}
+	if unicode.IsLetter(next) {
+		return unit != "" && unicode.Is(unicode.Han, next)
+	}
+	return true
 }

@@ -112,7 +112,11 @@ func (h *Handler) List(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
 		return
 	}
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	memberUUID, err := h.memberForRequest(c, tenantUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 
 	var req ListNotificationRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -152,7 +156,11 @@ func (h *Handler) Get(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
 		return
 	}
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	memberUUID, err := h.memberForRequest(c, tenantUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 	id := strings.TrimSpace(c.Param("uuid"))
 	item, err := h.svc.Get(c.Request.Context(), tenantUUID, memberUUID, id)
 	if err != nil {
@@ -176,12 +184,17 @@ func (h *Handler) MarkRead(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
 		return
 	}
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	memberUUID, err := h.memberForRequest(c, tenantUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 	id := strings.TrimSpace(c.Param("uuid"))
 	if err := h.svc.MarkRead(c.Request.Context(), tenantUUID, memberUUID, id); err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "更新已读状态失败", err)
 		return
 	}
+	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenantUUID, eventbus.TopicSystemNotification, notificationssvc.ReadEvent(tenantUUID, memberUUID, []string{id}), reqctx.GetTraceID(c.Request.Context()))
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
@@ -195,7 +208,11 @@ func (h *Handler) Delete(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
 		return
 	}
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	memberUUID, err := h.memberForRequest(c, tenantUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 	id := strings.TrimSpace(c.Param("uuid"))
 	if err := h.svc.Delete(c.Request.Context(), tenantUUID, memberUUID, id); err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "删除通知失败", err)
@@ -214,7 +231,11 @@ func (h *Handler) ClearAll(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
 		return
 	}
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	memberUUID, err := h.memberForRequest(c, tenantUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 	deleted, err := h.svc.DeleteAll(c.Request.Context(), tenantUUID, memberUUID)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "清空通知失败", err)
@@ -233,7 +254,11 @@ func (h *Handler) PushTestNotification(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
 		return
 	}
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	memberUUID, err := h.memberForRequest(c, tenantUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 
 	var req TestNotificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -265,7 +290,11 @@ func (h *Handler) PushTestNotificationQueue(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid required", err)
 		return
 	}
-	memberUUID := strings.TrimSpace(reqctx.GetSubject(c.Request.Context()))
+	memberUUID, err := h.memberForRequest(c, tenantUUID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusForbidden, "member identity invalid", nil)
+		return
+	}
 
 	var req TestNotificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -362,4 +391,17 @@ func (h *Handler) createNotification(ctx context.Context, tenantUUID, memberUUID
 		IsImportant: req.IsImportant,
 		Metadata:    metaJSON,
 	})
+}
+
+// Resolve the member from authenticated numeric IAM identity, never a caller
+// supplied recipient or a service/API-key subject string.
+func (h *Handler) memberForRequest(c *gin.Context, tenant string) (string, error) {
+	if h.deps == nil || h.deps.DB == nil {
+		return "", notificationssvc.ErrRecipientInvalid
+	}
+	member, err := notificationssvc.NewRecipientAccess(h.deps.DB).ConnectionMember(c.Request.Context(), tenant, reqctx.GetMemberID(c.Request.Context()), reqctx.GetUserID(c.Request.Context()), reqctx.IsRoot(c.Request.Context()))
+	if err == nil && member == "" {
+		return "", notificationssvc.ErrRecipientInvalid
+	}
+	return member, err
 }

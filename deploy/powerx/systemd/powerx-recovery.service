@@ -1,0 +1,21 @@
+[Unit]
+Description=PowerX independent snapshot and recovery coordinator
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=powerx
+Group=powerx
+UMask=0077
+WorkingDirectory=/var/lib/powerx-recovery/state
+ExecStart=/opt/powerx/backend/snapshot-tool -action coordinator -profile /etc/powerx/recovery-profile.json
+Restart=on-failure
+RestartSec=5
+# 常驻协调器提供恢复页面、独立认证及进度，拥有固定实例的 PG/Redis/Core/Node。
+# 业务恢复由协调器停启子进程；不要为恢复而停止此服务本身。
+KillMode=control-group
+TimeoutStopSec=120
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

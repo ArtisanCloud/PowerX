@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-17",
+  "scope": "PowerX Core standard-image-v1 source and isolated acceptance",
+  "source_implementation": {
+    "original_upload_and_derivative_states_are_independent": true,
+    "completion_and_ready_dedup_both_ensure_variants": true,
+    "formats": [
+      "JPEG",
+      "PNG",
+      "GIF first frame"
+    ],
+    "unsupported_examples": [
+      "WebP",
+      "SVG",
+      "HEIC",
+      "external_link"
+    ],
+    "taskbus": "formal RedisStreamTaskDriver with blocking dequeue and leased reclaim",
+    "max_attempts": 3,
+    "database_migration": "MigrateCoreModels adds media_derivative_jobs; no original data rewrite"
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/service/media ./internal/transport/http/admin/media ./internal/transport/http/openapi/media ./internal/service/integration_gateway/apikeypermissions ./pkg/corex/db/persistence/repository/media ./internal/app/shared ./cmd/app",
+      "result": "passed",
+      "coverage": [
+        "validated original to queued task to stored derivatives",
+        "concurrent ensure dedup",
+        "ready original reused without reupload",
+        "missing object repair with stable variant UUID",
+        "original bytes unchanged",
+        "manual variant preservation",
+        "legacy caller reuses Core generated ready variant",
+        "native PostgreSQL legacy variant creation concurrent with worker",
+        "bounded retries",
+        "decode/checksum/byte/pixel limits",
+        "JPEG EXIF orientation",
+        "TaskBus crash reclaim and stale result rejection",
+        "cross-tenant denial",
+        "typed payload rejection",
+        "live API-key grant and registration revocation",
+        "configured HTTP prefix",
+        "HTTP preview read",
+        "SSE updates without additional status HTTP requests"
+      ]
+    },
+    {
+      "command": "go test -race ./internal/service/media ./internal/transport/http/admin/media ./internal/transport/http/openapi/media ./internal/service/integration_gateway/apikeypermissions",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./internal/service/media ./internal/transport/http/admin/media ./internal/transport/http/openapi/media ./pkg/corex/db/persistence/repository/media ./internal/app/shared ./cmd/app",
+      "result": "passed"
+    },
+    {
+      "command": "POWERX_MEDIA_TEST_DSN=<local postgres, secret omitted> go test ./internal/service/media -run 'TestImageDerivatives|TestMediaUploadRetryPostgres' -count=1",
+      "result": "passed",
+      "isolation": "unique temporary PostgreSQL schema per test, dropped after tests"
+    },
+    {
+      "command": "make db-migrate CONFIG=<temporary config>; make capability-seed CAPABILITY_SEED_CONFIG=<temporary config>",
+      "result": "passed",
+      "isolation": "agent-created temporary database; both formal Media capability records were seeded; temporary database and secret config removed"
+    },
+    {
+      "command": "make capability-check",
+      "result": "failed_due_to_existing_unrelated_routes",
+      "missing_platform_capability_declarations": 0,
+      "uncovered_routes": [
+        "GET /api/v1/admin/ops/backup/events",
+        "POST /api/v1/admin/ops/backup/system-snapshots/policies",
+        "PUT /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id",
+        "PATCH /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id/status"
+      ],
+      "new_media_routes_covered": true
+    },
+    {
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./tests/contract/media",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "limits": {
+    "http_authentication": "tests inject authenticated context; real JWT or STS signature acceptance not claimed",
+    "taskbus_tests": "real formal driver against isolated miniredis, not production Redis persistence acceptance",
+    "storage_tests": "local driver exercised; real S3 installation acceptance pending",
+    "service_grant_status": "live isolated fixture grant evaluation passed; actual development Host key not seeded or granted in existing business database",
+    "existing_business_database_migrated": false,
+    "daily_core_service_replaced": false,
+    "framework_client_changes": false,
+    "aicraft_early_dedup_changes": false,
+    "installed_plugin_acceptance": "pending",
+    "full_repository_test_suite": "not claimed"
+  },
+  "resolved_test_issues": [
+    "An earlier race run observed an intermittent resource HTTP 500 with the in-memory SQLite SSE fixture. The HTTP fixture now uses an isolated temporary SQLite file so connection cancellation cannot discard the in-memory database; the focused race test passed three consecutive runs."
+  ],
+  "superseded_by": "media-image-derivatives-validation-20261018.json",
+  "superseded_reason": "Media-specific task-table design withdrawn; current implementation reuses existing event_task_histories and shared TaskBus lifecycle."
+}

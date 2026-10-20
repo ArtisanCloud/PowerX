@@ -11,7 +11,12 @@ COMMON = ['backend/cmd/database/upgrade_steps.go', 'backend/cmd/database/migrate
 GROUPS = {
     'core': ['backend/pkg/corex/db/database/**/*.go', 'backend/pkg/corex/db/migration/**/*.go',
              'backend/pkg/corex/db/persistence/model/**/*.go', 'backend/pkg/dynamic_form/persistence/model/*.go',
-             'backend/pkg/corex/db/persistence/repository/iam/permission*.go'],
+             'backend/pkg/corex/db/persistence/repository/iam/permission*.go',
+             'backend/pkg/corex/db/persistence/repository/authorization/*.go',
+             'backend/pkg/corex/iam/authorizationbaseline/*.go',
+             'backend/pkg/corex/iam/pluginpermission/*.go',
+             'backend/pkg/corex/iam/rootrole/*.go',
+             'backend/pkg/corex/iam/const.go'],
     'agent': ['backend/internal/server/agent/persistence/**/*.go'],
     'knowledge': ['backend/pkg/corex/db/migration/*knowledge*.go', 'backend/pkg/corex/db/persistence/vectorstore/**/*.go'],
     'catalog': ['backend/config/platform_capabilities/*.yaml',

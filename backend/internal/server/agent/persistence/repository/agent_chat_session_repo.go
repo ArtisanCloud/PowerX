@@ -36,12 +36,19 @@ func (r *AgentChatSessionRepository) GetOrCreate(
 ) (*dbmodel.AgentChatSession, error) {
 
 	tx := r.db.WithContext(ctx)
+	if defaults.SessionType == "" {
+		defaults.SessionType = dbmodel.SessionTypeAgent
+	}
+	if err := defaults.Scope().Validate(); err != nil {
+		return nil, err
+	}
 
 	// 单例：查找当前活动会话
 	if singleton {
 		var old dbmodel.AgentChatSession
 		err := tx.Scopes(dbmodel.WithScope(env, tenantUUID)).
 			Where("agent_id = ? AND singleton = ? AND status = 'active'", agentID, true).
+			Where("session_type = ? AND team_id = ?", defaults.SessionType, defaults.TeamID).
 			First(&old).Error
 		if err == nil {
 			return &old, nil
@@ -54,20 +61,22 @@ func (r *AgentChatSessionRepository) GetOrCreate(
 	// 创建新会话（或单例未命中时创建）
 	now := time.Now().UTC()
 	sess := &dbmodel.AgentChatSession{
-		Env:        env,
-		TenantUUID: tenantUUID,
-		AgentID:    agentID,
-		UserID:     userID,
-		Title:      defaults.Title,
-		Singleton:  singleton,
-		TTLDays:    defaults.TTLDays,
-		MaxKB:      defaults.MaxKB,
-		MaxTokens:  defaults.MaxTokens,
-		Status:     "active",
-		Meta:       defaults.Meta,
-		LatestAt:   &now,
-		Summary:    defaults.Summary,
-		SummaryAt:  defaults.SummaryAt,
+		Env:         env,
+		TenantUUID:  tenantUUID,
+		AgentID:     agentID,
+		UserID:      userID,
+		SessionType: defaults.SessionType,
+		TeamID:      defaults.TeamID,
+		Title:       defaults.Title,
+		Singleton:   singleton,
+		TTLDays:     defaults.TTLDays,
+		MaxKB:       defaults.MaxKB,
+		MaxTokens:   defaults.MaxTokens,
+		Status:      "active",
+		Meta:        defaults.Meta,
+		LatestAt:    &now,
+		Summary:     defaults.Summary,
+		SummaryAt:   defaults.SummaryAt,
 	}
 
 	// 默认策略兜底
@@ -135,10 +144,19 @@ func (r *AgentChatSessionRepository) ListByAgent(
 	agentID uint64,
 	statuses []string,
 	limit, offset int,
+	scopes ...dbmodel.ChatSessionScope,
 ) ([]dbmodel.AgentChatSession, error) {
+	scope := dbmodel.ChatSessionScope{SessionType: dbmodel.SessionTypeAgent}
+	if len(scopes) > 0 {
+		scope = scopes[0]
+	}
+	if err := scope.Validate(); err != nil {
+		return nil, err
+	}
 	tx := r.db.WithContext(ctx).
 		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("agent_id = ?", agentID)
+	tx = tx.Where("session_type = ? AND team_id = ?", scope.SessionType, scope.TeamID)
 
 	if len(statuses) > 0 {
 		tx = tx.Where("status IN ?", statuses)

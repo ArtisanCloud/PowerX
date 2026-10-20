@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-18",
+  "scope": "Snapshot restore entry availability and first-click confirmation",
+  "reported_issue": {
+    "site": "http://127.0.0.1:3030/ops/backup",
+    "observation": "User screenshots show a ready snapshot with an enabled restore button, followed by an unconfigured coordinator message.",
+    "restore_was_submitted": false,
+    "rehearsal_33330_running_at_initial_check": false
+  },
+  "changes": [
+    "Snapshot actions use the restore panel's observed service, installation, conflict and per-package availability.",
+    "Loading, unconfigured, offline, unregistered, maintenance, pending-task and request-error states are distinguished.",
+    "Disabled restore actions have a visible reason; snapshot export remains available.",
+    "A ready installation opens the selected snapshot confirmation on the first click.",
+    "Both the page refresh entry and snapshot-section refresh re-read restore availability.",
+    "Availability notifications are deduplicated and the initial empty snapshot input is stable, preventing a loading feedback loop.",
+    "The guide distinguishes daily service restart from starting the managed local rehearsal."
+  ],
+  "validation": {
+    "backup_unit_tests_passed": 77,
+    "unit_log": "test-results/recovery-availability-backup-unit-final.log",
+    "release_build_passed": true,
+    "build_log": "test-results/recovery-availability-build-final.log",
+    "browser_fixture_tests_passed": 13,
+    "browser_log": "test-results/recovery-availability-browser-final.log",
+    "desktop_and_narrow_screens_checked": true,
+    "unconfigured_site_disables_restore_and_keeps_export": true,
+    "configured_site_first_click_opens_confirmation": true,
+    "no_periodic_status_query": true,
+    "browser_backend": "controlled fixture; no real database restore performed in this UI regression"
+  },
+  "failed_attempt": {
+    "initial_browser_run_failed": true,
+    "reason": "New availability events plus an unstable empty snapshot input caused a first-load update loop.",
+    "fixed_and_retested": true,
+    "archive": "test-results/recovery-availability-browser-failed"
+  },
+  "cleanup": {
+    "owned_processes_released": true,
+    "ports_3477_3478_released": true,
+    "daily_3030_http_status": 200,
+    "audit": "test-results/recovery-availability-process-audit.json"
+  },
+  "boundaries": {
+    "daily_services_restarted": false,
+    "business_data_modified": false,
+    "existing_snapshots_modified": false,
+    "production_modified": false,
+    "daily_site_restore_executor_automatically_enabled": false
+  }
+}

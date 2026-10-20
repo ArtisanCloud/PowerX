@@ -2,7 +2,11 @@ openapi: 3.0.3
 info:
   title: PowerX Skills Management API
   version: "0.1.0"
-  description: Admin/Tenant HTTP contract for skill catalog, import, publish, rollback, binding, and invoke.
+  description: |
+    Admin/Tenant HTTP contract for skill catalog, import, publish, rollback, binding, and invoke.
+    Phase 23 target tool/evidence versions and legacy invocation migration are defined in
+    tool-evidence-contract.md and tool-evidence.v1.schema.json; they are not yet wired in production.
+    Registry SemVer must not be silently interpreted as a Definition Revision UUID.
 servers:
   - url: https://api.powerx.local/api/v1
 paths:

@@ -16,22 +16,66 @@ capabilities:
   tool_scopes:
   - notifications.create
   policy:
-    prefer: rest
+    prefer: core_internal
   docs:
   - backend/internal/transport/http/openapi/notifications/routes.go
   protocols:
+  - channel: core_internal
+    endpoint: core://notifications
+    method: INVOKE
+    schema_ref: docs/contracts/notification-member-delivery.openapi.yaml#/components/schemas/CreateOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: notifications.create
+    api_key: {scope: _scope.notifications.create, action: create, resource_type: capability, resource_pattern: notifications}
   - channel: rest
     endpoint: "/api/v1/notifications"
     method: POST
     schema_ref: backend/internal/transport/http/openapi/notifications/routes.go#POST:/notifications
-    auth_type: tenant_jwt
+    auth_type: api_key_or_sts
     actor_context: service_actor
     resource_scope: tenant
     sts_direct: true
     tool_scope: notifications.create
+    api_key: {scope: _scope.notifications.create, action: create, resource_type: capability, resource_pattern: notifications}
   title_i18n:
     en: Create Tenant Notification
     zh-CN: 创建租户通知
   description_i18n:
     en: Create a tenant-scoped notification for an optional member recipient.
     zh-CN: 为可选的成员接收人创建租户范围通知。
+
+- capability_id: com.corex.notifications.read_receipts
+  module: notifications
+  title: Acknowledge Owned Member Notifications
+  description: Acknowledge notifications created by this service for an explicit member.
+  title_i18n: {en: Acknowledge Owned Member Notifications, zh-CN: 确认本服务成员通知已读}
+  description_i18n: {en: Acknowledge notifications created by this service for an explicit member., zh-CN: 仅确认本服务创建并发送给指定成员的通知已读。}
+  permission_code: corex.notifications:read_receipts
+  agent_usable: false
+  risk_level: low
+  categories: [notification, tenant]
+  intents: [notifications.read_receipts]
+  tool_scopes: [notifications.read_receipts]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://notifications
+    method: INVOKE
+    schema_ref: docs/contracts/notification-member-delivery.openapi.yaml#/components/schemas/ReadReceiptOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: notifications.read_receipts
+    api_key: {scope: _scope.notifications.read_receipts, action: read_receipts, resource_type: capability, resource_pattern: notifications}
+  - channel: rest
+    endpoint: /api/v1/notifications/read-receipts
+    method: POST
+    schema_ref: docs/contracts/notification-member-delivery.openapi.yaml#/components/schemas/ReadReceiptInput
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: notifications.read_receipts
+    api_key: {scope: _scope.notifications.read_receipts, action: read_receipts, resource_type: capability, resource_pattern: notifications}

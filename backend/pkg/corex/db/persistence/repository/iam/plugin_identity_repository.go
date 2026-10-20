@@ -4,6 +4,9 @@ import (
 	"context"
 	"time"
 
+	authfacts "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/authorization"
+	baseline "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
+
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	tenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	base "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -69,7 +72,12 @@ func (r *PluginIdentityRepository) Snapshot(ctx context.Context, tenantID, membe
 		if err = r.db.WithContext(ctx).Model(&models.Role{}).Where("uuid IN ?", ids).Order("code").Pluck("code", &roleCodes).Error; err != nil {
 			return nil, nil, err
 		}
-		query = query.Where("permission_uuid IN (?)", r.db.Model(&models.RolePermission{}).Select("permission_uuid").Where("role_uuid IN ?", ids))
+		facts, err := authfacts.NewRepository(r.db).LoadPermissionFacts(ctx, tenantID, plugin)
+		if err != nil {
+			return nil, nil, err
+		}
+		_, permissions = baseline.SnapshotPermissions(facts, memberUUID, memberID, now)
+		return roleCodes, permissions, nil
 	}
 	err := query.Find(&permissions).Error
 	return roleCodes, permissions, err

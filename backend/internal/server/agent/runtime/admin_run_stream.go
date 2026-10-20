@@ -128,7 +128,7 @@ func (s *AdminRunService) Subscribe(ctx context.Context, id string, cursor uint6
 			cursor = event.Seq
 		}
 		for _, task := range tasks {
-			payload := dto.AgentTaskState{RunID: id, SessionID: strconv.FormatUint(row.SessionID, 10), MessageID: strconv.FormatUint(row.MessageID, 10), TraceID: row.TraceUUID.String(), TaskID: task.TaskID, Status: task.Status, PlanRevision: task.Revision, Attempt: task.Attempt, PoolID: task.PoolID, ReasonCode: task.ReasonCode, DependsOn: task.DependsOn, QueueReason: task.QueueReason}
+			payload := dto.AgentTaskState{RunID: id, SessionID: strconv.FormatUint(row.SessionID, 10), MessageID: strconv.FormatUint(row.MessageID, 10), TraceID: row.TraceUUID.String(), TaskID: task.TaskID, Status: task.Status, PlanRevision: task.Revision, Attempt: task.Attempt, PoolID: task.PoolID, ReasonCode: task.ReasonCode, FailureStage: task.FailureStage, DependsOn: task.DependsOn, QueueReason: task.QueueReason}
 			if err := emit(0, dto.EventAgentRunTaskStatus, dto.AgentRunEvent{RunID: id, SessionID: payload.SessionID, MessageID: payload.MessageID, TraceID: payload.TraceID, Event: dto.EventAgentRunTaskStatus, Payload: payload}); err != nil {
 				return err
 			}
@@ -165,9 +165,12 @@ func (s *AdminRunService) Subscribe(ctx context.Context, id string, cursor uint6
 				return err
 			}
 			// 完成消息已入库；流只投影同一条消息，不经过旧 HistorySink 再次保存。
+			message.Meta = s.evidence.ProjectHistory(ctx, message.Meta)
 			data := map[string]any{"content": message.Content}
 			if envelope, ok := message.Meta["response_envelope"]; ok {
 				data["response_envelope"] = envelope
+				data["response_labels"] = message.Meta["response_labels"]
+				data["response_evidence"] = message.Meta["response_evidence"]
 			}
 			if err := emit(0, dto.EventMeta, map[string]any{"assistant_message_id": message.ID, "assistant_message_uuid": message.UUID.String(), "run_id": id}); err != nil {
 				return err

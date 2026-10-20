@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	skillsopenapi "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/skills"
 	skillmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -16,7 +17,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-func TestSkillInvokeDirectPath(t *testing.T) {
+func TestSkillInvokeDirectPathRequiresDefinitionUpgrade(t *testing.T) {
 	db := setupSkillsDB(t)
 	require.NoError(t, db.Create(&skillmodel.SkillRegistryRecord{
 		SkillID:           "skill.invoke.incident-triage",
@@ -49,17 +50,14 @@ func TestSkillInvokeDirectPath(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, http.StatusConflict, resp.Code)
 
 	var data map[string]interface{}
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &data))
-	payload := data["data"].(map[string]interface{})
-	require.Equal(t, "skill", payload["protocol_used"])
-	require.Equal(t, "completed", payload["status"])
-	require.NotEmpty(t, payload["trace_id"])
+	require.Contains(t, resp.Body.String(), skillservice.ErrDefinitionContractUpgradeRequired.Error())
 }
 
-func TestSkillInvokeDirectPromptTemplateExecutor(t *testing.T) {
+func TestSkillInvokeDirectPromptTemplateRequiresDefinitionUpgrade(t *testing.T) {
 	db := setupSkillsDB(t)
 	manifest := datatypes.JSON([]byte(`{
 		"name":"Prompt Template Renderer",
@@ -106,13 +104,9 @@ func TestSkillInvokeDirectPromptTemplateExecutor(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
-	require.Equal(t, http.StatusOK, resp.Code)
+	require.Equal(t, http.StatusConflict, resp.Code)
 
 	var data map[string]interface{}
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &data))
-	payload := data["data"].(map[string]interface{})
-	result := payload["result"].(map[string]interface{})
-	require.Equal(t, "Incident PX-101 assigned to ops", result["rendered_text"])
-	require.Equal(t, "prompt-template", result["executor"])
-	require.Equal(t, false, payload["fallback_used"])
+	require.Contains(t, resp.Body.String(), skillservice.ErrDefinitionContractUpgradeRequired.Error())
 }

@@ -229,6 +229,8 @@ web-admin/
 
 ## Progress Tracking
 
+2026-10-17 补充：Core 已实现标准图片预览的集中规则、持久任务与正式 TaskBus 消费、复用原图补图、独立状态、Admin SSE 和类型化 service 能力。2026-10-18 修正：不新增 Media 任务表或列，复用已有统一 TaskBus 与 `event_task_histories`，Media 只保存资产与任务关联。本次 Core 源码／隔离测试与正式安装验收分开记录，详见 [图片预览合同](../../docs/contracts/media-image-derivatives.md) 和 tasks Phase 6；2026-10-18 收尾：原上传／复用不依赖 ensure 调用或 Framework 升级，Host 响应通过可选 derivatives 表达状态；用户态与服务态 SSE 复用 Redis 通知与共享流传输。Framework 后续仅按需扩展 HostAsset DTO，AI Craft delegated 改走 Core 原创建／复用入口并消费实际变体；这些外部仓库适配仍为独立后续任务。
+
 **Phase Status**  
 - [x] Phase 0: Research complete (/plan)  
 - [x] Phase 1: Design complete (/plan)  

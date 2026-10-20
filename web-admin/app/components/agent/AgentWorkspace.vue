@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ChatSessionScope } from "~/utils/agent/sessionScope";
 import type { Agent } from "~/types/agent";
 import ChatInterface from "@/components/agent/ChatInterface.vue";
 import ConfigPanel from "@/components/agent/ConfigPanel.vue";
@@ -27,7 +28,7 @@ const props = withDefaults(
   }>(),
   {
     forcedWorkspaceMode: undefined,
-  }
+  },
 );
 
 const { t, te, locale } = useI18n();
@@ -51,7 +52,9 @@ const workspaceMode = computed<"smart" | "team">(() => {
   if (props.forcedWorkspaceMode) return props.forcedWorkspaceMode;
   if (route.path.endsWith("/agent/sessions")) return "smart";
   if (route.path.endsWith("/agent/team-tasks")) return "team";
-  const raw = String(route.query.workspace || "").trim().toLowerCase();
+  const raw = String(route.query.workspace || "")
+    .trim()
+    .toLowerCase();
   return raw === "team" ? "team" : "smart";
 });
 const workspaceTeamId = computed(() => {
@@ -65,15 +68,17 @@ const workspaceTeamId = computed(() => {
 
 const teamOptions = ref<SelectOption[]>([]);
 const teamMap = ref<Record<string, AgentTeamRecord>>({});
-const teamMemberAgents = ref<Array<{
-  id: number;
-  name: string;
-  key?: string;
-  avatar?: string;
-  role: string;
-  isTL?: boolean;
-  skillHint?: string;
-}>>([]);
+const teamMemberAgents = ref<
+  Array<{
+    id: number;
+    name: string;
+    key?: string;
+    avatar?: string;
+    role: string;
+    isTL?: boolean;
+    skillHint?: string;
+  }>
+>([]);
 const teamWorkspaceNotice = ref("");
 
 const agentDisplayName = (agent: Agent) =>
@@ -84,7 +89,10 @@ const agentDescription = (agent: Agent) =>
   localizedAgentCatalogText(agent, "description") ||
   String(agent.description || "").trim();
 
-const localizedAgentCatalogText = (agent: Agent, field: "title" | "description") => {
+const localizedAgentCatalogText = (
+  agent: Agent,
+  field: "title" | "description",
+) => {
   const key = String(agent.key || "").trim();
   if (!key) return "";
   const normalized = key.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -93,8 +101,16 @@ const localizedAgentCatalogText = (agent: Agent, field: "title" | "description")
 };
 
 const teamDisplayName = (team: AgentTeamRecord) => {
-  const localeKey = locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : locale.value;
-  return String(team.display_name_i18n?.[localeKey] || t("agent.teamManagement.unnamedTeam")).trim();
+  const localeKey =
+    locale.value === "zh"
+      ? "zh-CN"
+      : locale.value === "en"
+        ? "en-US"
+        : locale.value;
+  return String(
+    team.display_name_i18n?.[localeKey] ||
+      t("agent.teamManagement.unnamedTeam"),
+  ).trim();
 };
 
 const findAgentUUIDByNumericID = (id: number) => {
@@ -109,13 +125,16 @@ const syncTeamRoute = async (teamId: string) => {
   if (base === "/agent") {
     await navigateTo(
       `${localePath(base)}?workspace=team&team_id=${encodeURIComponent(teamId)}`,
-      { replace: true }
+      { replace: true },
     );
     return;
   }
-  await navigateTo(`${localePath(base)}?team_id=${encodeURIComponent(teamId)}`, {
-    replace: true,
-  });
+  await navigateTo(
+    `${localePath(base)}?team_id=${encodeURIComponent(teamId)}`,
+    {
+      replace: true,
+    },
+  );
 };
 
 const loadTeamsForSelector = async () => {
@@ -158,18 +177,22 @@ const loadTeamsForSelector = async () => {
   }
 
   const picked =
-    (workspaceTeamId.value && map[workspaceTeamId.value] && workspaceTeamId.value) ||
+    (workspaceTeamId.value &&
+      map[workspaceTeamId.value] &&
+      workspaceTeamId.value) ||
     (options[0]?.value ? String(options[0].value) : "");
   if (!picked) return;
 
   if (workspaceTeamId.value && !map[workspaceTeamId.value]) {
-    teamWorkspaceNotice.value = t("agent.teamTasks.notices.teamUnavailable", { id: workspaceTeamId.value });
+    teamWorkspaceNotice.value = t("agent.teamTasks.notices.teamUnavailable", {
+      id: workspaceTeamId.value,
+    });
   }
 
   const pickedTeam = map[picked];
   if (!pickedTeam) return;
   const parentAgent = (agents.value || []).find(
-    (agent) => Number(agent.id) === Number(pickedTeam.parent_agent_id)
+    (agent) => Number(agent.id) === Number(pickedTeam.parent_agent_id),
   );
   teamMemberAgents.value = parentAgent
     ? [
@@ -184,11 +207,11 @@ const loadTeamsForSelector = async () => {
       ]
     : [];
   const parentUUID = findAgentUUIDByNumericID(pickedTeam.parent_agent_id);
-  if (parentUUID && currentAgentId.value !== parentUUID) {
-    await handleAgentSelect(parentUUID);
-  }
   if (picked !== workspaceTeamId.value) {
     await syncTeamRoute(picked);
+  }
+  if (parentUUID) {
+    await handleAgentSelect(parentUUID);
   }
   await loadTeamMembers(picked);
 };
@@ -205,7 +228,10 @@ const loadTeamMembers = async (teamId: string) => {
     const parentID = Number(teamMap.value[teamId]?.parent_agent_id || 0);
     const roleByAgent = new Map<number, string>();
     for (const member of members) {
-      roleByAgent.set(Number(member.child_agent_id), String(member.role || "executor"));
+      roleByAgent.set(
+        Number(member.child_agent_id),
+        String(member.role || "executor"),
+      );
     }
     const memberIDs = new Set<number>([
       ...members.map((m) => Number(m.child_agent_id)),
@@ -214,21 +240,31 @@ const loadTeamMembers = async (teamId: string) => {
     const mapped = (agents.value || [])
       .filter((agent) => memberIDs.has(Number(agent.id)))
       .sort((a, b) =>
-        Number(a.id) === parentID ? -1 : Number(b.id) === parentID ? 1 : Number(a.id) - Number(b.id)
+        Number(a.id) === parentID
+          ? -1
+          : Number(b.id) === parentID
+            ? 1
+            : Number(a.id) - Number(b.id),
       )
       .map((agent) => ({
         id: Number(agent.id),
         name: agentDisplayName(agent),
         key: agent.key,
-        role: Number(agent.id) === parentID ? "planner" : roleByAgent.get(Number(agent.id)) || "executor",
+        role:
+          Number(agent.id) === parentID
+            ? "planner"
+            : roleByAgent.get(Number(agent.id)) || "executor",
         isTL: Number(agent.id) === parentID,
-        avatar: typeof agent.meta?.avatar === "string" ? agent.meta.avatar : undefined,
+        avatar:
+          typeof agent.meta?.avatar === "string"
+            ? agent.meta.avatar
+            : undefined,
       }));
     teamMemberAgents.value = mapped;
   } catch {
     const fallbackParent = Number(teamMap.value[teamId]?.parent_agent_id || 0);
     const parent = (agents.value || []).find(
-      (agent) => Number(agent.id) === fallbackParent
+      (agent) => Number(agent.id) === fallbackParent,
     );
     teamMemberAgents.value = parent
       ? [
@@ -248,16 +284,30 @@ const loadTeamMembers = async (teamId: string) => {
   }
 };
 const workspaceTitle = computed(() =>
-  workspaceMode.value === "team" ? t("agent.teamTasks.workspaceTitle") : t("agent.chat.workspaceTitle")
+  workspaceMode.value === "team"
+    ? t("agent.teamTasks.workspaceTitle")
+    : t("agent.chat.workspaceTitle"),
 );
 const workspaceSubtitle = computed(() =>
   workspaceMode.value === "team"
     ? t("agent.teamTasks.workspaceSubtitle")
-    : t("agent.chat.workspaceSubtitle")
+    : t("agent.chat.workspaceSubtitle"),
 );
 
 // 会话状态管理
-const chatSessions = useChatSessions();
+const showLegacySessions = ref(false);
+const sessionScope = computed<ChatSessionScope>(() => ({
+  sessionType: showLegacySessions.value
+    ? "legacy"
+    : workspaceMode.value === "team"
+      ? "team"
+      : "agent",
+  teamId:
+    !showLegacySessions.value && workspaceMode.value === "team"
+      ? workspaceTeamId.value
+      : undefined,
+}));
+const chatSessions = useChatSessions({ scope: sessionScope });
 
 // 状态管理
 const currentAgentId = chatSessions.currentAgentId;
@@ -270,16 +320,27 @@ const hasMoreByAgent = chatSessions.hasMoreByAgent;
 // const getSessions = (agentId: number) => sessionsByAgent.value[agentId] || [];
 
 // 双通道聊天流管理
-const chat = useDualChannelConnection(currentAgentId, currentSessionId);
+const chat = useDualChannelConnection(currentAgentId, currentSessionId, {
+  scope: sessionScope,
+  key: chatSessions.scopeKey,
+});
 const runtimeLLM = ref<{ provider?: string; model?: string }>({});
-const systemDefaultLLM = ref<{ provider?: string; model?: string; params?: any }>({});
+const systemDefaultLLM = ref<{
+  provider?: string;
+  model?: string;
+  params?: any;
+}>({});
 
 // 设置消息回调
 chat.onMessage = (message) => {
   const type = String(message?.type || "").toLowerCase();
   if (type !== "meta") return;
-  const model = String(message?.llm_model || message?.data?.llm_model || "").trim();
-  const provider = String(message?.llm_provider || message?.data?.llm_provider || "").trim();
+  const model = String(
+    message?.llm_model || message?.data?.llm_model || "",
+  ).trim();
+  const provider = String(
+    message?.llm_provider || message?.data?.llm_provider || "",
+  ).trim();
   if (!model && !provider) return;
   runtimeLLM.value = {
     model: model || runtimeLLM.value.model,
@@ -301,7 +362,9 @@ const loadSystemDefaultLLM = async () => {
     const payload = envelope?.data ?? envelope;
     const profile = payload?.profile ?? payload;
     const model = String(profile?.model || payload?.model || "").trim();
-    const provider = String(profile?.provider || payload?.provider || "").trim();
+    const provider = String(
+      profile?.provider || payload?.provider || "",
+    ).trim();
     systemDefaultLLM.value = {
       model,
       provider,
@@ -331,7 +394,7 @@ const agentOwnerPluginID = (agent?: Agent | null) =>
     (agent as any)?.ownerPluginId ||
       (agent as any)?.owner_plugin_id ||
       agent?.meta?.pluginId ||
-      ""
+      "",
   ).trim();
 
 const stripLocalSuffix = (value: string) =>
@@ -361,7 +424,8 @@ const preferLocalDebugAgentID = (agentId: string, list: Agent[]) => {
     const candidateOwner = agentOwnerPluginID(candidate);
     if (candidateOwner !== expectedOwner) return false;
     if (expectedKey && candidate.key === expectedKey) return true;
-    if (stripLocalSuffix(candidate.key || "") === (current.key || "")) return true;
+    if (stripLocalSuffix(candidate.key || "") === (current.key || ""))
+      return true;
     return candidate.name === current.name;
   });
   return local?.uuid || agentId;
@@ -381,9 +445,11 @@ const handleStopGeneration = () => {
 };
 
 // Agent 级模型覆盖（来自 /admin/agents/:uuid/ai-setting）
-const agentAiSetting = ref<{ provider?: string; model?: string; params?: any } | null>(
-  null
-);
+const agentAiSetting = ref<{
+  provider?: string;
+  model?: string;
+  params?: any;
+} | null>(null);
 const loadAgentAISetting = async (agentId: string) => {
   try {
     const res: any = await get(`/admin/agents/${agentId}/ai-setting`, {
@@ -429,19 +495,36 @@ onMounted(async () => {
       await loadTeamsForSelector();
     } else if (agents.value && agents.value.length > 0) {
       const pendingAgent = chat.getPendingRun()?.agentId;
-      const last = pendingAgent || chatSessions.getLastSelectedAgentId?.() || null;
+      const last =
+        pendingAgent || chatSessions.getLastSelectedAgentId?.() || null;
       const fallbackId = agentsList.value[0]?.uuid || agents.value[0].uuid;
       const pickId =
         last && agents.value.some((a) => a.uuid === last) ? last : fallbackId;
-      await handleAgentSelect(pendingAgent === pickId ? pickId : preferLocalDebugAgentID(pickId, agents.value));
+      await handleAgentSelect(
+        pendingAgent === pickId
+          ? pickId
+          : preferLocalDebugAgentID(pickId, agents.value),
+      );
     }
-    const pending = currentAgentId.value ? chat.getPendingRun(currentAgentId.value) : null;
-    if (pending) await handleSelectSession({ agentId: pending.agentId, sessionId: pending.sessionId });
+    const pending = currentAgentId.value
+      ? chat.getPendingRun(currentAgentId.value)
+      : null;
+    if (
+      pending &&
+      (sessionsByAgent.value[pending.agentId] || []).some(
+        (session) => String(session.id) === pending.sessionId,
+      )
+    ) {
+      await handleSelectSession({
+        agentId: pending.agentId,
+        sessionId: pending.sessionId,
+      });
+    }
   } catch (e: any) {
     if (!(e?.status === 404 || e?.statusCode === 404)) {
       notifyOnce(
         t("agent.list.loadFailed") || "加载 Agent 列表失败",
-        e?.message || ""
+        e?.message || "",
       );
     }
   }
@@ -479,6 +562,11 @@ const handleSelectSession = async (payload: {
   sessionId: string | number;
 }) => {
   const { agentId, sessionId } = payload;
+  const listed = (sessionsByAgent.value[agentId] || []).some(
+    (session) => String(session.id) === String(sessionId),
+  );
+  if (!listed) return;
+  const requestScope = chatSessions.scopeKey.value;
   chat.cancel();
   chatSessions.selectSession(agentId, sessionId);
 
@@ -487,11 +575,19 @@ const handleSelectSession = async (payload: {
 
   // 加载会话历史消息（会自动缓存）
   try {
-    const historyMessages = await chatSessions.loadSessionMessages(sessionId, true);
+    const historyMessages = await chatSessions.loadSessionMessages(
+      sessionId,
+      true,
+    );
+    if (
+      requestScope !== chatSessions.scopeKey.value ||
+      String(currentSessionId.value) !== String(sessionId)
+    )
+      return;
     chat.messages.value = Array.isArray(historyMessages)
       ? [...historyMessages]
       : [];
-    void chat.resumePendingRun();
+    if (!showLegacySessions.value) void chat.resumePendingRun();
   } catch (error) {
     console.error("加载会话消息失败:", error);
     notifyOnce("加载会话消息失败", error instanceof Error ? error.message : "");
@@ -499,10 +595,11 @@ const handleSelectSession = async (payload: {
 };
 
 const handleNewSession = async () => {
-  if (!currentAgentId.value) return;
+  if (!currentAgentId.value || showLegacySessions.value) return;
+  const requestScope = chatSessions.scopeKey.value;
   try {
     const newSession = await chatSessions.createSession(currentAgentId.value);
-    if (newSession) {
+    if (newSession && requestScope === chatSessions.scopeKey.value) {
       chat.clearMessages();
     }
   } catch (error) {
@@ -537,7 +634,7 @@ const handleDeleteSession = async (payload: {
         try {
           const historyMessages = await chatSessions.loadSessionMessages(
             nextSessionId,
-            true
+            true,
           );
           chat.messages.value = Array.isArray(historyMessages)
             ? [...historyMessages]
@@ -577,8 +674,8 @@ const handleLoadMoreSessions = async () => {
 
 const handleClearAllSessions = async (agentId: string) => {
   const ok = await confirm({
-    title: "清空该智能体的全部会话？",
-    description: "该操作不可恢复，将删除该智能体下的所有历史会话与消息。",
+    title: t("agent.chat.clearWorkspaceTitle"),
+    description: t("agent.chat.clearWorkspaceDescription"),
     tone: "danger",
     confirmColor: "red",
     confirmLabel: t("common.delete") || "删除",
@@ -610,8 +707,12 @@ const handleRenameSession = async (payload: {
 const handleAgentSelect = async (agentId: string) => {
   try {
     chatSessions.selectAgent(agentId);
+    const requestScope = chatSessions.scopeKey.value;
     await chatSessions.listSessions(agentId);
-    chat.clearMessages();
+    if (requestScope !== chatSessions.scopeKey.value) return;
+    if (currentSessionId.value)
+      await handleSelectSession({ agentId, sessionId: currentSessionId.value });
+    else chat.clearMessages();
     runtimeLLM.value = {};
     await loadAgentAISetting(agentId);
   } catch (error) {
@@ -631,7 +732,10 @@ const handleTeamSelect = async (teamId: string) => {
   const parentUUID = findAgentUUIDByNumericID(team.parent_agent_id);
   if (!parentUUID) {
     teamWorkspaceNotice.value = "团队主智能体不可用，请检查团队配置。";
-    notifyOnce("团队主智能体不存在", `team_id=${picked} 的 parent_agent_id 未匹配到可用智能体。`);
+    notifyOnce(
+      "团队主智能体不存在",
+      `team_id=${picked} 的 parent_agent_id 未匹配到可用智能体。`,
+    );
     return;
   }
   await syncTeamRoute(picked);
@@ -651,10 +755,19 @@ const handleSendMessage = async (content: string) => {
   if (!canSendMessage.value) return;
   if (isSending.value) return;
   if (chat.isGenerating.value) return;
+  const requestScope = chatSessions.scopeKey.value;
   isSending.value = true;
-  const meta: any = { locale: locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : String(locale.value || "").trim() };
+  const meta: any = {
+    locale:
+      locale.value === "zh"
+        ? "zh-CN"
+        : locale.value === "en"
+          ? "en-US"
+          : String(locale.value || "").trim(),
+  };
   try {
     const ensuredSessionId = await ensureSessionForSend();
+    if (requestScope !== chatSessions.scopeKey.value) return;
     // 若当前会话仍是“未命名”，用首条问题自动命名（ChatGPT 风格）
     if (currentAgentId.value && currentSessionId.value && content?.trim()) {
       const sessions = sessionsByAgent.value?.[currentAgentId.value] || [];
@@ -670,7 +783,7 @@ const handleSendMessage = async (content: string) => {
           await chatSessions.renameSession(
             currentAgentId.value,
             currentSessionId.value,
-            title
+            title,
           );
         }
       }
@@ -684,16 +797,22 @@ const handleSendMessage = async (content: string) => {
       return;
     }
     Object.assign(meta, teamContext);
+    if (requestScope !== chatSessions.scopeKey.value) return;
     await chat.sendMessage(content, "chat", meta);
   } finally {
     isSending.value = false;
   }
 };
 
-const resolveTeamContextForSend = async (): Promise<Record<string, string | number> | null> => {
+const resolveTeamContextForSend = async (): Promise<Record<
+  string,
+  string | number
+> | null> => {
   if (workspaceMode.value !== "team") return {};
   // 团队身份只能来自当前团队路由的显式 team_id；不会从会话或智能体猜测。
-  const teamId = String(route.query.team_id || workspaceTeamId.value || "").trim();
+  const teamId = String(
+    route.query.team_id || workspaceTeamId.value || "",
+  ).trim();
   if (!teamId) return null;
   if (!teamMap.value[teamId]) {
     await loadTeamsForSelector();
@@ -709,10 +828,13 @@ const resolveTeamContextForSend = async (): Promise<Record<string, string | numb
 };
 
 const handleRetryMessage = async (messageId: string | number | null) => {
+  if (showLegacySessions.value) return;
+  const requestScope = chatSessions.scopeKey.value;
+  const requestSession = currentSessionId.value;
   if (isSending.value || chat.isGenerating.value) {
     notifyOnce(
       t("agent.chat.retryBusyTitle"),
-      t("agent.chat.retryBusyDescription")
+      t("agent.chat.retryBusyDescription"),
     );
     return;
   }
@@ -720,7 +842,7 @@ const handleRetryMessage = async (messageId: string | number | null) => {
   if (!currentSessionId.value || persistedMessageId === null) {
     notifyOnce(
       t("agent.chat.retryUnavailableTitle"),
-      t("agent.chat.retryUnavailableDescription")
+      t("agent.chat.retryUnavailableDescription"),
     );
     return;
   }
@@ -728,22 +850,27 @@ const handleRetryMessage = async (messageId: string | number | null) => {
   if (teamContext === null) {
     notifyOnce(
       t("agent.chat.retryUnavailableTitle"),
-      t("agent.chat.retryTeamContextMissing")
+      t("agent.chat.retryTeamContextMissing"),
     );
     return;
   }
 
   isSending.value = true;
   try {
-    await chat.regenerateFrom(
-      persistedMessageId,
-      "chat",
-      undefined,
-      {
-        ...teamContext,
-        locale: locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : String(locale.value || "").trim(),
-      }
-    );
+    if (
+      requestScope !== chatSessions.scopeKey.value ||
+      requestSession !== currentSessionId.value
+    )
+      return;
+    await chat.regenerateFrom(persistedMessageId, "chat", undefined, {
+      ...teamContext,
+      locale:
+        locale.value === "zh"
+          ? "zh-CN"
+          : locale.value === "en"
+            ? "en-US"
+            : String(locale.value || "").trim(),
+    });
   } catch (error) {
     console.error("[agent.retry]", {
       session_id: currentSessionId.value,
@@ -752,7 +879,7 @@ const handleRetryMessage = async (messageId: string | number | null) => {
     });
     notifyOnce(
       t("agent.chat.retryFailedTitle"),
-      t("agent.chat.retryFailedDescription")
+      t("agent.chat.retryFailedDescription"),
     );
   } finally {
     isSending.value = false;
@@ -760,6 +887,9 @@ const handleRetryMessage = async (messageId: string | number | null) => {
 };
 
 const handleRegenerateFrom = async (messageId: string | number) => {
+  if (showLegacySessions.value) return;
+  const requestScope = chatSessions.scopeKey.value;
+  const requestSession = currentSessionId.value;
   if (isSending.value) return;
   if (chat.isGenerating.value) return;
   if (!currentSessionId.value) {
@@ -774,7 +904,9 @@ const handleRegenerateFrom = async (messageId: string | number) => {
   try {
     const target = chat.messages.value.find((m: any) => m.id === idNum);
     const defaultValue =
-      target && typeof target.content === "string" ? String(target.content) : "";
+      target && typeof target.content === "string"
+        ? String(target.content)
+        : "";
     const edited = await prompt({
       title: "重新编辑问题",
       description: "修改这条问题后，将从这里重新生成后续回答。",
@@ -791,9 +923,19 @@ const handleRegenerateFrom = async (messageId: string | number) => {
       teamWorkspaceNotice.value = t("agent.chat.retryTeamContextMissing");
       return;
     }
+    if (
+      requestScope !== chatSessions.scopeKey.value ||
+      requestSession !== currentSessionId.value
+    )
+      return;
     await chat.regenerateFrom(idNum, "chat", edited, {
       ...teamContext,
-      locale: locale.value === "zh" ? "zh-CN" : locale.value === "en" ? "en-US" : String(locale.value || "").trim(),
+      locale:
+        locale.value === "zh"
+          ? "zh-CN"
+          : locale.value === "en"
+            ? "en-US"
+            : String(locale.value || "").trim(),
     });
   } finally {
     isSending.value = false;
@@ -872,7 +1014,9 @@ const handleSaveAgent = async (config: any) => {
     const aiParams = {
       systemPrompt: String(config?.systemPrompt || "").trim(),
       temperature:
-        typeof config?.temperature === "number" ? config.temperature : undefined,
+        typeof config?.temperature === "number"
+          ? config.temperature
+          : undefined,
       topP: typeof config?.topP === "number" ? config.topP : undefined,
       maxTokens:
         typeof config?.maxTokens === "number" ? config.maxTokens : undefined,
@@ -885,7 +1029,9 @@ const handleSaveAgent = async (config: any) => {
           ? config.presencePenalty
           : undefined,
       contextWindow:
-        typeof config?.contextWindow === "number" ? config.contextWindow : undefined,
+        typeof config?.contextWindow === "number"
+          ? config.contextWindow
+          : undefined,
       responseFormat: config?.responseFormat || undefined,
       streaming:
         typeof config?.streaming === "boolean" ? config.streaming : undefined,
@@ -928,12 +1074,12 @@ const handleSaveAgent = async (config: any) => {
               provider: true,
               model: true,
               ...Object.fromEntries(
-                Object.entries(aiParams).map(([k, v]) => [k, v !== undefined])
+                Object.entries(aiParams).map(([k, v]) => [k, v !== undefined]),
               ),
             },
             quotaPolicy: {},
           },
-          { useGlobalLoading: false }
+          { useGlobalLoading: false },
         );
       }
 
@@ -964,12 +1110,15 @@ const handleSaveAgent = async (config: any) => {
                 provider: true,
                 model: true,
                 ...Object.fromEntries(
-                  Object.entries(aiParams).map(([k, v]) => [k, v !== undefined])
+                  Object.entries(aiParams).map(([k, v]) => [
+                    k,
+                    v !== undefined,
+                  ]),
                 ),
               },
               quotaPolicy: {},
             },
-            { useGlobalLoading: false }
+            { useGlobalLoading: false },
           );
         } catch {}
       }
@@ -1007,8 +1156,10 @@ const currentAgentForChat = computed(() => {
     ? `${resolvedModel} (${resolvedProvider})`
     : resolvedModel;
   const defaultParams = systemDefaultLLM.value.params || {};
-  const resolvedTemperature = cfg?.params?.temperature ?? defaultParams?.temperature ?? 0.7;
-  const resolvedMaxTokens = cfg?.params?.maxTokens ?? defaultParams?.maxTokens ?? 2000;
+  const resolvedTemperature =
+    cfg?.params?.temperature ?? defaultParams?.temperature ?? 0.7;
+  const resolvedMaxTokens =
+    cfg?.params?.maxTokens ?? defaultParams?.maxTokens ?? 2000;
   const resolvedTopP = cfg?.params?.topP ?? defaultParams?.topP ?? 1;
   return {
     id: agent.uuid,
@@ -1035,22 +1186,46 @@ watch(
       await loadAgentAISetting(String(currentAgentId.value));
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 watch(
-  () => [workspaceMode.value, workspaceTeamId.value, (agents.value || []).length],
+  () => [
+    workspaceMode.value,
+    workspaceTeamId.value,
+    (agents.value || []).length,
+  ],
   async () => {
     if (workspaceMode.value === "team") {
       await loadTeamsForSelector();
     } else {
       teamWorkspaceNotice.value = "";
     }
-  }
+  },
 );
+
+const lastWorkspaceAgent = ref<string | null>(currentAgentId.value);
+watch(
+  currentAgentId,
+  (id) => {
+    if (id) lastWorkspaceAgent.value = id;
+  },
+  { flush: "sync" },
+);
+watch(showLegacySessions, async () => {
+  const agentId =
+    currentAgentId.value ||
+    chatSessions.getLastSelectedAgentId() ||
+    lastWorkspaceAgent.value ||
+    agentsList.value[0]?.uuid;
+  chat.cancel();
+  chat.clearMessages();
+  if (agentId) await handleAgentSelect(agentId);
+});
 
 // 允许发送消息
 const canSendMessage = computed(() => {
+  if (showLegacySessions.value) return false;
   if (!agents.value || agents.value.length === 0) return false;
   if (!isConnected.value) return false;
   if (!selectedAgent.value) return false;
@@ -1071,17 +1246,20 @@ const getAgentIcon = (agent: Agent) => {
 
 <template>
   <!-- 外层：左右完全分离，中间有空隙 -->
-  <div class="flex h-full gap-4 px-4 pt-4 pb-0 bg-gray-50">
+  <div
+    data-testid="agent-workspace"
+    class="agent-workspace flex gap-4 px-4 pt-4 pb-0 bg-gray-50"
+  >
     <!-- 🔌 左：插件面板（独立卡片） -->
     <AgentPluginRenderView />
     <!-- 🧱 右：主容器（独立卡片） -->
     <div
-      class="flex flex-1 min-w-0 min-h-0 bg-white border border-gray-200 rounded-lg shadow-sm"
+      class="flex flex-col md:flex-row flex-1 min-w-0 min-h-0 bg-white border border-gray-200 rounded-lg shadow-sm"
     >
       <!-- 左侧 Agent 选择器 -->
       <div
-        class="relative flex-shrink-0 transition-all duration-300 ease-in-out border-r border-gray-200 min-h-0"
-        :class="isLeftPanelCollapsed ? 'w-12' : 'w-80'"
+        class="relative flex-shrink-0 transition-all duration-300 ease-in-out border-r border-gray-200 min-h-0 overflow-hidden"
+        :class="isLeftPanelCollapsed ? 'w-full h-12 md:w-12 md:h-full' : 'w-full h-60 md:w-80 md:h-full'"
       >
         <!-- 收缩/展开按钮 -->
         <button
@@ -1107,13 +1285,26 @@ const getAgentIcon = (agent: Agent) => {
             :agents="agentsList"
             :current-agent-id="currentAgentId || undefined"
             :selector-mode="workspaceMode === 'team' ? 'team' : 'agent'"
-            :selector-options="workspaceMode === 'team' ? teamOptions : undefined"
-            :selector-value="workspaceMode === 'team' ? workspaceTeamId : undefined"
-            :selector-label="workspaceMode === 'team' ? t('agent.teamTasks.selector.label') : t('agent.selector.pickAgent')"
-            :selector-placeholder="workspaceMode === 'team' ? t('agent.teamTasks.selector.label') : t('agent.selector.pickAgent')"
+            :selector-options="
+              workspaceMode === 'team' ? teamOptions : undefined
+            "
+            :selector-value="
+              workspaceMode === 'team' ? workspaceTeamId : undefined
+            "
+            :selector-label="
+              workspaceMode === 'team'
+                ? t('agent.teamTasks.selector.label')
+                : t('agent.selector.pickAgent')
+            "
+            :selector-placeholder="
+              workspaceMode === 'team'
+                ? t('agent.teamTasks.selector.label')
+                : t('agent.selector.pickAgent')
+            "
             :show-sessions="true"
             :current-session-id="currentSessionId || undefined"
             :busy="isUiBusy"
+            :read-only="showLegacySessions"
             :sessions-by-agent="sessionsByAgent"
             :sessions-loading-by-agent="sessionsLoadingByAgent"
             :has-more-by-agent="hasMoreByAgent"
@@ -1127,7 +1318,37 @@ const getAgentIcon = (agent: Agent) => {
             @pin-session="handlePinSession"
             @load-more-sessions="handleLoadMoreSessions"
             @rename-session="handleRenameSession"
-          />
+          >
+            <template #session-sections>
+              <div
+                v-show="!isLeftPanelCollapsed"
+                class="flex flex-wrap md:flex-col md:items-stretch gap-1"
+                role="tablist"
+                :aria-label="t('agent.chat.sessionSections')"
+              >
+                <UButton
+                  role="tab"
+                  class="justify-start"
+                  :aria-selected="!showLegacySessions"
+                  :variant="!showLegacySessions ? 'soft' : 'ghost'"
+                  size="xs"
+                  @click="showLegacySessions = false"
+                >
+                  {{ t("agent.chat.currentSessions") }}
+                </UButton>
+                <UButton
+                  role="tab"
+                  class="justify-start"
+                  :aria-selected="showLegacySessions"
+                  :variant="showLegacySessions ? 'soft' : 'ghost'"
+                  size="xs"
+                  @click="showLegacySessions = true"
+                >
+                  {{ t("agent.chat.legacySessions") }}
+                </UButton>
+              </div>
+            </template>
+          </AgentSidebar>
 
           <!-- 收缩状态下的简化显示 -->
           <div
@@ -1158,23 +1379,35 @@ const getAgentIcon = (agent: Agent) => {
       <!-- 中间聊天界面 -->
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
         <div class="p-4 border-b border-gray-200 bg-white space-y-2">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
+          <div
+            class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div class="flex flex-wrap items-center gap-2 min-w-0">
               <UBadge
+                class="shrink-0 whitespace-nowrap"
                 :color="workspaceMode === 'team' ? 'warning' : 'primary'"
                 variant="soft"
               >
-                {{ workspaceMode === "team" ? t("agent.teamTasks.badge") : t("agent.chat.badge") }}
+                {{
+                  workspaceMode === "team"
+                    ? t("agent.teamTasks.badge")
+                    : t("agent.chat.badge")
+                }}
               </UBadge>
-              <div>
-                <div class="text-sm font-medium text-gray-900">{{ workspaceTitle }}</div>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium text-gray-900">
+                  {{ workspaceTitle }}
+                </div>
                 <div class="text-xs text-gray-500">{{ workspaceSubtitle }}</div>
               </div>
               <UPopover
                 v-if="workspaceMode === 'team' && teamMemberAgents.length"
                 :ui="{ content: 'w-96 p-0' }"
               >
-                <button class="ml-1 flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-white/10" type="button">
+                <button
+                  class="ml-1 flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-white/10"
+                  type="button"
+                >
                   <div class="flex -space-x-2">
                     <UAvatar
                       v-for="member in teamMemberAgents.slice(0, 5)"
@@ -1185,17 +1418,34 @@ const getAgentIcon = (agent: Agent) => {
                       class="ring-2 ring-white"
                     />
                   </div>
-	                  <span class="text-xs text-gray-400">{{ t("agent.teamTasks.memberCount", { count: teamMemberAgents.length }) }}</span>
+                  <span class="text-xs text-gray-400">{{
+                    t("agent.teamTasks.memberCount", {
+                      count: teamMemberAgents.length,
+                    })
+                  }}</span>
                 </button>
                 <template #content>
-                  <div class="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-gray-900">
+                  <div
+                    class="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-gray-900"
+                  >
                     <div class="mb-2 flex items-center justify-between">
                       <div>
-	                        <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ t("agent.teamTasks.membersTitle") }}</div>
-	                        <div class="text-xs text-gray-500">{{ t("agent.teamTasks.membersSubtitle") }}</div>
+                        <div
+                          class="text-sm font-semibold text-gray-900 dark:text-gray-100"
+                        >
+                          {{ t("agent.teamTasks.membersTitle") }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                          {{ t("agent.teamTasks.membersSubtitle") }}
+                        </div>
                       </div>
-                      <UButton size="xs" variant="ghost" icon="i-heroicons-cog-6-tooth" :to="localePath('/settings/ai/agent-teams')">
-	                        {{ t("agent.teamTasks.manage") }}
+                      <UButton
+                        size="xs"
+                        variant="ghost"
+                        icon="i-heroicons-cog-6-tooth"
+                        :to="localePath('/settings/ai/agent-teams')"
+                      >
+                        {{ t("agent.teamTasks.manage") }}
                       </UButton>
                     </div>
                     <div class="max-h-80 space-y-2 overflow-auto">
@@ -1204,16 +1454,35 @@ const getAgentIcon = (agent: Agent) => {
                         :key="member.id"
                         class="flex items-start gap-3 rounded-md border border-gray-100 p-2 dark:border-white/10"
                       >
-                        <UAvatar :src="member.avatar" :alt="member.name" size="sm" />
+                        <UAvatar
+                          :src="member.avatar"
+                          :alt="member.name"
+                          size="sm"
+                        />
                         <div class="min-w-0 flex-1">
                           <div class="flex items-center gap-2">
-                            <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{{ member.name }}</div>
-                            <UBadge size="xs" :color="member.isTL ? 'warning' : 'neutral'" variant="soft">
-                              {{ member.isTL ? 'TL' : member.role }}
+                            <div
+                              class="truncate text-sm font-medium text-gray-900 dark:text-gray-100"
+                            >
+                              {{ member.name }}
+                            </div>
+                            <UBadge
+                              size="xs"
+                              :color="member.isTL ? 'warning' : 'neutral'"
+                              variant="soft"
+                            >
+                              {{ member.isTL ? "TL" : member.role }}
                             </UBadge>
                           </div>
-	                          <div class="truncate text-xs text-gray-500">{{ member.key || t('agent.teamTasks.noKey') }}</div>
-                          <div v-if="member.skillHint" class="truncate text-[11px] text-gray-400">{{ member.skillHint }}</div>
+                          <div class="truncate text-xs text-gray-500">
+                            {{ member.key || t("agent.teamTasks.noKey") }}
+                          </div>
+                          <div
+                            v-if="member.skillHint"
+                            class="truncate text-[11px] text-gray-400"
+                          >
+                            {{ member.skillHint }}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1221,7 +1490,7 @@ const getAgentIcon = (agent: Agent) => {
                 </template>
               </UPopover>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <UButton
                 v-if="workspaceMode !== 'smart'"
                 size="xs"
@@ -1250,7 +1519,11 @@ const getAgentIcon = (agent: Agent) => {
             :title="teamWorkspaceNotice"
           >
             <template #actions>
-              <UButton size="xs" variant="soft" :to="localePath('/settings/ai/agent-teams')">
+              <UButton
+                size="xs"
+                variant="soft"
+                :to="localePath('/settings/ai/agent-teams')"
+              >
                 去团队管理
               </UButton>
             </template>
@@ -1259,6 +1532,13 @@ const getAgentIcon = (agent: Agent) => {
         </div>
 
         <ClientOnly>
+          <UAlert
+            v-if="showLegacySessions"
+            color="warning"
+            variant="soft"
+            :title="t('agent.chat.legacyReadOnlyTitle')"
+            :description="t('agent.chat.legacyReadOnlyDescription')"
+          />
           <ChatInterface
             :messages="chat.messages"
             :is-connected="!!isConnected"
@@ -1269,6 +1549,7 @@ const getAgentIcon = (agent: Agent) => {
             :tenant-uuid="currentTenantUuid"
             :connection-indicators="true"
             :can-send-message="canSendMessage"
+            :read-only="showLegacySessions"
             @send-message="handleSendMessage"
             @retry-message="handleRetryMessage"
             @regenerate-from="handleRegenerateFrom"
@@ -1292,7 +1573,8 @@ const getAgentIcon = (agent: Agent) => {
 
 <style scoped>
 /* 确保页面占满全高（你有顶栏时这里按需调整数值） */
-.h-full {
-  height: calc(100vh - 64px);
+.agent-workspace {
+  height: calc(100dvh - 112px);
+  min-height: 480px;
 }
 </style>

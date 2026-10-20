@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-18",
+  "scope": "fixed managed installation restore; no environment switching UI",
+  "remote_modified": false,
+  "daily_source_services_restarted": false,
+  "workflow": {
+    "one_confirmation": true,
+    "protection_snapshot_required": true,
+    "database_media_configuration_programs_replaced": true,
+    "fixed_config_path_and_dsn": true,
+    "normal_restart_keeps_restored_state": true,
+    "return_by_restoring_protection_snapshot": true,
+    "temporary_environments_removed": true,
+    "legacy_switch_http_status": 410
+  },
+  "native": {
+    "passed": true,
+    "duration_seconds": 423.71,
+    "actual_pg_redis_core_web_media": true,
+    "A_B_test5_media_and_configuration_assertions": true,
+    "separate_clean_target_different_instance_and_dsn": true,
+    "verification_target_background_and_network_isolation": true,
+    "sigkill_before_writes_compensates": true,
+    "owned_processes_released": true,
+    "source_evidence": "test-results/recovery-instance-acceptance-complete.log"
+  },
+  "installed_local_clone": {
+    "strict_readonly_business_checks": true,
+    "business_reads": [
+      "business:customer-list",
+      "business:base-template-list",
+      "business:ai-craft-sample-tracks"
+    ],
+    "original_package_program_replay_proven": false,
+    "local_program_overrides_explicit_and_sha_pinned": true,
+    "password_login_automated": false,
+    "source_business_data_changed": false
+  },
+  "frontend": {
+    "unit_passed": 71,
+    "browser_fixture_passed": 12,
+    "desktop_and_narrow_layout_checked": true,
+    "single_confirmation_and_independent_push": true,
+    "no_periodic_status_get": true,
+    "identity_change_releases_old_streams_and_tickets": true,
+    "browser_backend": "controlled fixture, not production",
+    "build_passed": true
+  },
+  "deployment_limits": [
+    "Current production server was not deployed or restarted.",
+    "Existing arbitrary/external PG/Redis installations require explicit managed deployment adoption; unregistered targets stay blocked.",
+    "Linux sandbox and real production scheduled package acceptance remain pending.",
+    "Online packages without a same-point Redis contract remain blocked for production whole-instance restore.",
+    "External S3 durable reports are not restored by this local baseline."
+  ],
+  "failed_attempts_preserved": [
+    "legacy runtime.yaml hardcoded verifier fixed",
+    "owned PostgreSQL smart-shutdown waiting for clients fixed with fast shutdown",
+    "test-only noncanonical artifact path fixed",
+    "isolated validation Web Unix-socket verification and routing fixed"
+  ],
+  "documentation": "docs/guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md",
+  "prepared_restart": {
+    "passed": true,
+    "web_http_status": 200,
+    "api_health_status": 200,
+    "formal_config_only": true,
+    "public_media_points_to_owned_entry": true,
+    "isolated_snapshot_storage": true,
+    "source_packages_and_policies_preserved": true,
+    "local_programs_updated_and_explicitly_pinned": true,
+    "own_process_exit_code": 0
+  },
+  "process_audit": {
+    "33330": "released",
+    "33377": "released",
+    "3477": "released",
+    "daily_3030": 200,
+    "daily_8077": 200
+  }
+}

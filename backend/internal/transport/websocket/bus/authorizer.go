@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
+	"github.com/ArtisanCloud/PowerX/internal/service/notifications"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -52,9 +54,10 @@ type DefaultAuthorizerOptions struct {
 }
 
 type DefaultAuthorizer struct {
-	topics topicLookup
-	acl    aclChecker
-	clock  func() time.Time
+	topics     topicLookup
+	acl        aclChecker
+	clock      func() time.Time
+	recipients *notifications.RecipientAccess
 }
 
 func NewDefaultAuthorizer(db *gorm.DB) *DefaultAuthorizer {
@@ -74,7 +77,7 @@ func NewDefaultAuthorizerWithOptions(opts DefaultAuthorizerOptions) *DefaultAuth
 	if aclStore == nil && opts.DB != nil {
 		aclStore = eventfabricrepo.NewAclRepository(opts.DB)
 	}
-	return &DefaultAuthorizer{topics: topicStore, acl: aclStore, clock: clock}
+	return &DefaultAuthorizer{topics: topicStore, acl: aclStore, clock: clock, recipients: notifications.NewRecipientAccess(opts.DB)}
 }
 
 func (a *DefaultAuthorizer) Authorize(ctx context.Context, client *Client, topic string) error {
@@ -98,6 +101,7 @@ func (a *DefaultAuthorizer) Authorize(ctx context.Context, client *Client, topic
 	if err := a.authorizeAction(ctx, authorizeInput{
 		TenantUUID: client.TenantUUID,
 		MemberID:   client.MemberID,
+		MemberUUID: client.MemberUUID,
 		UserID:     client.UserID,
 		IsRoot:     client.IsRoot,
 		Topic:      topic,
@@ -135,6 +139,7 @@ func (a *DefaultAuthorizer) AuthorizePublish(ctx context.Context, input PublishA
 type authorizeInput struct {
 	TenantUUID string
 	MemberID   uint64
+	MemberUUID string
 	UserID     uint64
 	IsRoot     bool
 	Topic      string
@@ -170,6 +175,20 @@ func (a *DefaultAuthorizer) authorizeAction(ctx context.Context, input authorize
 	}
 	if !strings.EqualFold(topicDef.TenantKey, tenantUUID) && !isSharedTopicTenant(topicDef.TenantKey) {
 		return ErrTopicNotAllowed
+	}
+	// Receiving one's own notifications is an authenticated member operation,
+	// not permission to consume arbitrary Event Fabric topics. Delivery remains
+	// tenant/member scoped and revalidates live IAM immediately before writing.
+	// Publish/replay and all other topics continue through the normal ACL.
+	if topic == eventbus.TopicSystemNotification && input.Action == "subscribe" {
+		member, err := a.recipients.ConnectionMember(ctx, tenantUUID, input.MemberID, input.UserID, input.IsRoot)
+		if err != nil {
+			return err
+		}
+		if member != input.MemberUUID {
+			return ErrMemberRequired
+		}
+		return nil
 	}
 	if strings.EqualFold(topicDef.TenantKey, tenantUUID) {
 		if IsDynamicTopicRegistered(tenantUUID, topic) {

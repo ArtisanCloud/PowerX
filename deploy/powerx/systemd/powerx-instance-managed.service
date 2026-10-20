@@ -1,0 +1,20 @@
+[Unit]
+Description=PowerX instance with coordinated writer lifecycle
+After=powerx-recovery.service
+Requires=powerx-recovery.service
+
+[Service]
+Type=simple
+User=powerx
+Group=powerx
+UMask=0077
+WorkingDirectory=/opt/powerx
+ExecStart=/opt/powerx/backend/snapshot-tool -action run-active -profile /etc/powerx/recovery-profile.json
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=120
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

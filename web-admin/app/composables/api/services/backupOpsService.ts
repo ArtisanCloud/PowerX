@@ -60,6 +60,7 @@ export interface BackupPolicyFilters {
 }
 
 export interface BackupJobFilters {
+	view?: "available" | "history";
   policyId?: string | number;
   status?: "pending" | "running" | "success" | "failed";
   from?: string;
@@ -202,10 +203,23 @@ export const useBackupOpsService = () => {
       return data.job;
     },
 
+    async createOneTime(): Promise<BackupJob> {
+      const resp = await api.post(`${adminBase}/jobs/run`, { one_time: true }, { timeout: 600000, useGlobalError: false });
+      return unwrap<{ job: BackupJob }>(resp).job;
+    },
+
+    async downloadJob(id: string | number): Promise<void> {
+      const blob = await api.get<Blob>(`${adminBase}/jobs/${encodeURIComponent(id)}/download`, { responseType: 'blob', timeout: 600000 } as any);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `powerx-database-${id}.dump`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
     async listJobs(filters?: BackupJobFilters): Promise<{ items: BackupJob[]; total: number; page: number; pageSize: number }> {
       const resp = await api.get(`${adminBase}/jobs`, {
         params: {
           policy_id: filters?.policyId ? String(filters.policyId) : undefined,
+          view: filters?.view,
           status: filters?.status,
           from: filters?.from,
           to: filters?.to,

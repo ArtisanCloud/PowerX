@@ -1,0 +1,190 @@
+{
+  "date": "2026-10-18",
+  "scope": "Core Media completion: existing upload compatibility, unified TaskBus/history, optional service events",
+  "architecture": {
+    "new_tables": [],
+    "new_columns": [],
+    "removed_media_task_model": true,
+    "removed_media_task_migration": true,
+    "shared_history_table": "event_task_histories",
+    "shared_history_repository": "pkg/corex/db/persistence/repository/event_fabric/task_history_repository.go",
+    "stream_history_adapter": "internal/service/event_fabric/task_queue/stream_history.go",
+    "delivery_and_lease_driver": "existing pkg/event_bus/RedisStreamTaskDriver",
+    "media_asset_reference_only": [
+      "task_id",
+      "recipe",
+      "source_checksum",
+      "missing_variants"
+    ],
+    "no_media_owned_lifecycle_fields": [
+      "status",
+      "attempts",
+      "run_token",
+      "lease_until",
+      "error_code"
+    ],
+    "media_worker_owns": [
+      "validate original and rule",
+      "generate missing image variants",
+      "submit business results"
+    ],
+    "taskbus_owns": [
+      "pending/running/completed/failed history",
+      "attempt accounting",
+      "retry and dead letter",
+      "lease validation",
+      "restart recovery",
+      "atomic task completion with business callback"
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/service/event_fabric/task_queue ./internal/service/media ./internal/transport/http/admin/media ./internal/transport/http/openapi/media ./internal/app/shared ./cmd/app ./internal/service/integration_gateway/apikeypermissions ./tests/contract/media",
+      "result": "passed",
+      "coverage": [
+        "shared history visible under actual tenant",
+        "no Media task table",
+        "no lifecycle state hidden in asset metadata",
+        "transaction rollback and atomic result completion",
+        "recovery duplicate cannot steal a live TaskBus lease",
+        "stale delivery rejected",
+        "bounded shared retries",
+        "enqueue failure leaves original ready",
+        "original bytes preserved",
+        "ready dedup repairs missing previews",
+        "legacy plugin variant compatibility",
+        "tenant and grant isolation",
+        "configured API prefix and SSE"
+      ]
+    },
+    {
+      "command": "go test -race ./internal/service/event_fabric/task_queue ./internal/service/media ./internal/transport/http/admin/media ./internal/transport/http/openapi/media",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./internal/service/event_fabric/task_queue ./internal/service/media ./internal/transport/http/admin/media ./internal/transport/http/openapi/media ./internal/app/shared ./cmd/app ./pkg/corex/db/persistence/repository/event_fabric ./pkg/corex/db/persistence/repository/media",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./pkg/event_bus -run 'TestRedisStream|TestRedisTask' -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "POWERX_MEDIA_TEST_DSN=<redacted local DSN> go test ./internal/service/media -run 'TestImageDerivatives|TestMediaUploadRetryPostgres' -count=1",
+      "result": "passed",
+      "isolation": "owned temporary PostgreSQL schemas, removed after tests"
+    },
+    {
+      "command": "make db-migrate CONFIG=<owned temporary database config>; query actual tables",
+      "result": "passed",
+      "media_derivative_jobs_table_count": 0,
+      "existing_event_task_histories_table_count": 1,
+      "temporary_database_and_secret_config_removed": true
+    },
+    {
+      "command": "make capability-check",
+      "result": "failed_due_to_existing_unrelated_routes",
+      "missing_platform_capability_declarations": 0,
+      "uncovered_routes": [
+        "GET /api/v1/admin/ops/backup/events",
+        "POST /api/v1/admin/ops/backup/system-snapshots/policies",
+        "PUT /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id",
+        "PATCH /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id/status"
+      ],
+      "new_media_routes_covered": true
+    },
+    {
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./internal/service/media ./internal/transport/http/mediaevents ./internal/transport/http/admin/media ./internal/transport/http/openapi/media ./internal/service/integration_gateway/apikeypermissions ./internal/http ./tests/contract/media",
+      "result": "passed",
+      "log": "/tmp/powerx-media-core-final-confirm.log",
+      "coverage": [
+        "original Host create / ticket upload / complete triggers generation without ensure call or ensure grant",
+        "custom API prefix",
+        "GetAsset returns optional derivative state and variant UUIDs",
+        "existing CreateAsset reuse repairs deleted preview without retransmitting original",
+        "original bytes unchanged",
+        "service STS and API-key event read grants",
+        "admin credentials rejected by service stream",
+        "cross-tenant asset not found",
+        "disabled registration refused",
+        "revoked STS credential and API key cannot emit further status",
+        "no HTTP status polling"
+      ]
+    },
+    {
+      "command": "go test ./internal/transport/http/mediaevents ./internal/transport/http/openapi/media ./tests/contract/media -count=1",
+      "result": "passed",
+      "log": "/tmp/powerx-media-core-final-updated.log",
+      "coverage": [
+        "idle heartbeat does not read status",
+        "expired credential cannot read or emit initial status",
+        "client disconnect releases Redis subscription",
+        "optional field is not added to required Host fields"
+      ]
+    },
+    {
+      "command": "go test -race ./internal/service/event_fabric/task_queue ./internal/service/media ./internal/transport/http/mediaevents ./internal/transport/http/admin/media ./internal/transport/http/openapi/media",
+      "result": "passed",
+      "log": "/tmp/powerx-media-core-final-race.log"
+    },
+    {
+      "command": "go vet ./internal/service/media ./internal/transport/http/mediaevents ./internal/transport/http/admin/media ./internal/transport/http/openapi/media ./internal/app/shared",
+      "result": "passed",
+      "log": "/tmp/powerx-media-core-final-vet.log"
+    },
+    {
+      "command": "POWERX_MEDIA_TEST_DSN=<owned isolated database> go test ./internal/service/media -run 'TestImageDerivatives|TestMediaUploadRetryPostgres' -count=1",
+      "result": "passed",
+      "log": "/tmp/powerx-media-core-final-postgres.log"
+    },
+    {
+      "command": "make db-migrate CONFIG=<owned temporary config>; make capability-seed CAPABILITY_SEED_CONFIG=<owned temporary config>",
+      "result": "passed",
+      "verification": {
+        "new_media_table_count": 0,
+        "shared_history_table_count": 1,
+        "formal_event_binding_seeded": true,
+        "active_tenant_registrations": 2,
+        "explicit_api_key_permission_definitions": 3,
+        "owned_database_removed": true,
+        "temporary_secret_config_removed": true
+      },
+      "notes": [
+        "formal seed includes typed core_internal and service event REST binding",
+        "active temporary tenant has read/ensure registrations",
+        "API-key definitions include explicit read/ensure and service-event read grant",
+        "existing business DB unchanged"
+      ]
+    }
+  ],
+  "limits": {
+    "existing_business_database_changed": false,
+    "user_services_restarted": false,
+    "installed_or_remote_acceptance": "pending",
+    "actual_development_host_key_grant_status": "pending; tested isolated live grant evaluation only",
+    "framework_or_aicraft_client_changes": false,
+    "production_redis_and_s3_acceptance": "pending; tests use official driver with isolated miniredis and local object storage",
+    "full_repository_test_suite": "not claimed",
+    "http_identity_verification": "Tests inject authenticated identities; no claim of real installed JWT/STS-signature or AI Craft browser acceptance.",
+    "service_event_core_transport": "implemented and tested; Framework/plugin consumer pending"
+  },
+  "supersedes": "media-image-derivatives-validation-20261017.json",
+  "compatibility": {
+    "original_upload_requests_unchanged": true,
+    "original_upload_status_independent": true,
+    "automatic_generation_requires_ensure_call": false,
+    "automatic_generation_requires_derivative_grant": false,
+    "framework_upgrade_required_for_automatic_generation": false,
+    "host_derivatives_response_field": "optional",
+    "get_asset": "read snapshot only; duplicate upload must reach existing CreateAsset reuse path",
+    "service_events": "optional existing Redis notifications and shared SSE transport; live derivative read grant required"
+  }
+}

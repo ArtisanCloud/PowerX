@@ -1,0 +1,117 @@
+{
+  "validated_at": "2026-10-16T08:04:35.718049+00:00",
+  "scope": "Local on-demand component backup/export implementation; production unchanged",
+  "implementation": {
+    "default_root_entry": "system snapshots",
+    "component_default_section": "on-demand backup and export",
+    "independent_schedules": "Advanced settings; existing enabled plans remain discoverable and unchanged",
+    "database_request": {
+      "method": "POST",
+      "path": "/admin/ops/backup/jobs/run",
+      "body": {
+        "one_time": true
+      }
+    },
+    "database_download": "GET /admin/ops/backup/jobs/:job_id/download; Root user only; same verified file descriptor and retention lock",
+    "media_request": {
+      "method": "POST",
+      "path": "/admin/ops/backup/archives/jobs",
+      "body": {
+        "source_id": "registered-local-media-source"
+      },
+      "idempotency_key": "UUID"
+    },
+    "scope_labels": [
+      "database only",
+      "media files only",
+      "historical media plus paired database"
+    ],
+    "no_policy_created": true,
+    "no_schedule_enabled": true,
+    "default_retention": {
+      "days": 7,
+      "count": 168,
+      "latest_preserved": true,
+      "protected_preserved": true,
+      "cleanup": "on success or explicit file maintenance"
+    },
+    "report_migration": "Existing RestoreDrillRecord model changes report_uri from varchar(512) to text; centralized AutoMigrate registration retained"
+  },
+  "validation": {
+    "go_affected_packages_passed": true,
+    "go_vet_passed": true,
+    "go_race_backup_and_archive_passed": true,
+    "native_postgresql": {
+      "passed": true,
+      "major": 14,
+      "dedicated_owned_database": true,
+      "assertions": [
+        "Zero policies can produce a real PostgreSQL custom dump",
+        "Download returns verified PGDMP archive",
+        "Same-size tampering returns 422",
+        "Existing varchar(512) report column migrates to text",
+        "Plugin business data survives isolated restore",
+        "Protection, actual file cleanup, mutual exclusion and restart scheduling remain valid"
+      ]
+    },
+    "frontend_unit": {
+      "files": 7,
+      "tests": 47,
+      "passed": true
+    },
+    "browser": {
+      "flows": 7,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "engine": "Chromium on macOS",
+      "api": "Controlled fixture",
+      "passed": true,
+      "zero_policy_database_and_media_downloads": true,
+      "scope_and_navigation_checked": true
+    },
+    "nuxt_build_passed": true,
+    "capability_check_passed": true,
+    "yaml_and_locale_json_valid": true,
+    "diff_check_passed": true,
+    "screenshots_visually_checked": true,
+    "cleanup": {
+      "fixture_processes_exited": true,
+      "ports_released": [
+        3477,
+        3478
+      ],
+      "failed_native_owned_databases_removed": 2,
+      "successful_native_fixture_cleanup_completed": true
+    },
+    "evidence_local": [
+      "test-results/on-demand-backend-tests.log",
+      "test-results/on-demand-native-postgres.log",
+      "test-results/on-demand-race.log",
+      "test-results/on-demand-vet.log",
+      "test-results/on-demand-ui-tests.log",
+      "test-results/on-demand-browser-tests.log",
+      "test-results/on-demand-web-build.log",
+      "test-results/on-demand-capability-check.log"
+    ]
+  },
+  "local_existing_state_read_only": {
+    "jobs": 0,
+    "policies": 2,
+    "enabled_policies": 0,
+    "current_report_type": "character varying"
+  },
+  "activation": "Run normal make db-migrate, restart the user-managed Core with current code and refresh the UI",
+  "limits": [
+    "No production deployment or service restart",
+    "Existing user Core/Web not restarted; new endpoints require current Core",
+    "Browser APIs are controlled fixtures, not live deployment acceptance",
+    "One-time media exports support registered local-media sources only",
+    "Linux and production scheduled complete-package acceptance remain separate"
+  ],
+  "production_changed": false,
+  "existing_user_services_restarted": false,
+  "git_commit_or_push": false,
+  "branch_switched": false
+}

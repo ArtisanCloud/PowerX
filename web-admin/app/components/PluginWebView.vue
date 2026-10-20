@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { usePluginBridge } from '~/composables/usePluginBridge'
+import { isAuthSessionCurrent, readAuthSession } from '~/utils/auth-session'
 
-const { register, unregister, navigateFrame } = usePluginBridge()
+const { prepareFrame, recoverFrameAuth, register, unregister, navigateFrame } = usePluginBridge()
+// Document requests need the host cookie before Vue mounts or reloads the iframe.
+prepareFrame()
 const { t } = useI18n()
 const frameInstanceId = ref('')
 
@@ -64,6 +67,8 @@ const height = ref<number>(props.min);
 const canMeasure = ref<boolean>(false); // 是否能同域测量
 const retryNonce = ref(0);
 const retryAttempts = ref(0);
+let authRecoveryAttempts = 0;
+let authRecoveryGeneration = 0;
 let ro: ResizeObserver | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -222,6 +227,17 @@ function scheduleAdminReadyRetry() {
 }
 
 async function onLoad() {
+  let rejectedDocument = false;
+  try {
+    const body = iframeRef.value?.contentWindow?.document?.body;
+    rejectedDocument = body?.getAttribute?.('data-powerx-plugin-frame-error') === 'PLUGIN_FRAME_AUTH_REQUIRED';
+  } catch {
+    // A cross-origin document cannot expose a checked load error to the host.
+  }
+  if (rejectedDocument) {
+    await recoverRejectedDocument();
+    return;
+  }
   if (iframeShowsAdminNotReady()) {
     scheduleAdminReadyRetry();
     applyViewportFill();
@@ -232,6 +248,36 @@ async function onLoad() {
   silenceIframeBridgeLogsIfNeeded();
   measureOnce();
   setObservers();
+}
+
+async function recoverRejectedDocument() {
+  clearRetryTimer();
+  clearObservers();
+  unregister(iframeRef.value);
+  const generation = ++authRecoveryGeneration;
+  const frame = iframeRef.value;
+  const current = () => generation === authRecoveryGeneration && frame === iframeRef.value;
+  let code = 'PLUGIN_FRAME_AUTH_REQUIRED';
+  if (authRecoveryAttempts === 0) {
+    authRecoveryAttempts += 1;
+    loading.value = true; error.value = null;
+    try {
+      const stamp = await recoverFrameAuth();
+      if (!current()) return;
+      if (stamp && isAuthSessionCurrent(stamp)) {
+        retryNonce.value += 1;
+        registerFrame();
+        return;
+      }
+    } catch (cause: any) {
+      if (!current()) return;
+      if (cause?.code !== 'AUTH_SESSION_CHANGED') code = 'PLUGIN_HOST_AUTH_UNAVAILABLE';
+    }
+  }
+  if (readAuthSession()?.status !== 'active') code = 'PLUGIN_AUTH_REQUIRED';
+  loading.value = false;
+  error.value = code;
+  applyViewportFill();
 }
 
 function onError() {
@@ -327,6 +373,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  authRecoveryGeneration += 1;
   clearObservers();
   clearRetryTimer();
   window.removeEventListener("resize", measureOnce);
@@ -353,6 +400,8 @@ watch(() => props.navigatePath, path => {
 
 // Only an explicit document entry change may reset the startup budget.
 watch(cleanSrc, async () => {
+  authRecoveryGeneration += 1; authRecoveryAttempts = 0;
+  prepareFrame();
   loading.value = true; error.value = null;
   retryAttempts.value = 0; retryNonce.value = 0;
   clearRetryTimer(); clearObservers();
@@ -361,6 +410,8 @@ watch(cleanSrc, async () => {
 });
 
 function retryManually() {
+  authRecoveryGeneration += 1; authRecoveryAttempts = 0;
+  prepareFrame();
   clearRetryTimer();
   retryAttempts.value = 0;
   loading.value = true; error.value = null;

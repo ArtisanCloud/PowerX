@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-18",
+  "scope": "Permanent recovery console for one managed current instance",
+  "platform": "darwin/arm64",
+  "passed": true,
+  "implemented": {
+    "same_origin_entry": "/__powerx_recovery/",
+    "assets_owned_by_independent_coordinator": true,
+    "available_with_core_and_web_stopped": true,
+    "html_navigation_during_maintenance": 200,
+    "offline_authentication": "Private installation recovery key and expiring HttpOnly SameSite session; independent of business database and JWT",
+    "live_root_can_prepare_independent_session": true,
+    "key_export_is_explicit_and_audited": true,
+    "refresh_and_reauthentication_resume_existing_progress": true,
+    "logout_revokes_session_and_releases_other_tabs": true,
+    "progress": "Read-only single-task header ticket over SSE; resource invalidation over SSE; no periodic status queries",
+    "destructive_requests": "CSRF and same-origin checks, fixed snapshot or job confirmation, generation fencing and idempotency",
+    "startup_failure_keeps_console_available": true,
+    "executor_failure_keeps_read_only_diagnostics": true,
+    "managed_normal_startup": "make dev with an existing RECOVERY_PROFILE starts the permanent coordinator",
+    "ordinary_unmanaged_startup_changed": false
+  },
+  "validation": {
+    "native_integration": {
+      "test": "TestRecoveryNativeApplicationFromPortablePackage",
+      "passed": true,
+      "duration_seconds": 395.91,
+      "core_and_web_stopped_before_console_access": true,
+      "offline_key_authentication_and_restore_submission": true,
+      "maintenance_refresh_and_new_cookie_jar_reauthentication": true,
+      "actual_postgresql_redis_core_web_media_and_config": true,
+      "restore_A_test5_absent_media_A_config_A": true,
+      "full_restart_retains_A": true,
+      "restore_protected_B_restores_test5_media_B_config_B": true,
+      "sigkill_compensation": true,
+      "separate_clean_target": true,
+      "recovery_credentials_survive_business_replacement": true,
+      "source_B_retained": true,
+      "log": "test-results/recovery-portal-native.log",
+      "report": "test-results/recovery-instance-evidence.json"
+    },
+    "go": {
+      "packages_passed": [
+        "internal/service/system_recovery",
+        "internal/service/snapshot_ops",
+        "internal/transport/http/admin/backup"
+      ],
+      "vet_passed": true,
+      "coverage": "Offline HTML, private expiring revocable credentials, live Root exchange, CSRF and origin rejection, typed requests, generation and resume concurrency, read-only progress scope, startup and executor failure",
+      "log": "test-results/recovery-portal-go-final.log"
+    },
+    "frontend_unit": {
+      "files_passed": 21,
+      "tests_passed": 164,
+      "scope": "Backup UI and auth/session regression including independent logout and console entry guard",
+      "log": "test-results/recovery-portal-web-unit-final.log"
+    },
+    "embedded_console_browser": {
+      "tests_passed": 2,
+      "viewports": ["1440x1000", "390x844"],
+      "real_components": "Embedded Go HTTP server, authentication, session store and filesystem notifications",
+      "controlled_component": "Restore driver; real data restoration is covered by the native integration test",
+      "checks": [
+        "Open ordinary site path with Core and Nuxt absent",
+        "Login, save recovery key and confirm restore",
+        "Other-tab logout closes confirmation and old connections",
+        "Refresh and reauthenticate during maintenance",
+        "Open report remains open after manual refresh",
+        "No catalog requests during 5.5 seconds without state changes",
+        "No localStorage or sessionStorage credentials and cookie hidden from JavaScript",
+        "No viewport overflow; desktop vertical tasks and narrow task navigation",
+        "Completion automatically returns to the business site"
+      ],
+      "screenshots_visually_reviewed": true,
+      "log": "test-results/recovery-portal-browser-final.log"
+    },
+    "backup_center_browser": {
+      "tests_passed": 13,
+      "backend": "Controlled fixture using final Nuxt release output",
+      "log": "test-results/recovery-portal-snapshots-browser-final.log"
+    },
+    "builds_passed": ["Core", "snapshot-tool with current embedded assets", "Nuxt release"],
+    "capability_check_passed": true,
+    "capability_seed_or_grants_mutated": false,
+    "contracts_yaml_parse_and_guide_links_passed": true,
+    "managed_start_make_dry_run_passed": true
+  },
+  "resolved_validation_failures": [
+    "Shared Go build cache referenced missing cache entries; isolated task cache used without deleting user caches or reinstalling the toolchain",
+    "Initial browser assertion expected the snapshots tab after reauthentication; corrected to the intended resumed jobs tab and reran both viewports"
+  ],
+  "cleanup": {
+    "owned_native_and_browser_processes_released": true,
+    "owned_listening_ports_released": true,
+    "daily_3030_http_status": 200,
+    "daily_8077_http_status": 200,
+    "daily_user_processes_restarted_or_adopted": false,
+    "audit": "test-results/recovery-portal-final-process-audit.json"
+  },
+  "limits": [
+    "Daily unmanaged 3030/8077 services were not restarted or adopted; use the documented managed startup to enable this console",
+    "Remote 47.116.10.200 and its Nginx/systemd configuration were not modified",
+    "Linux isolation, real production plugin restore and production scheduled packages are not acceptance-tested by this report",
+    "Native test verified actual application auth context, not human password login",
+    "Existing unmanaged PostgreSQL/Redis and arbitrary deployment directories require explicit managed deployment integration"
+  ]
+}

@@ -51,6 +51,20 @@ func TestIAMTypedInvocationPreservesBusinessError(t *testing.T) {
 	}
 }
 
+func TestIAMBaselineTypedInvocationPreservesStructuredErrors(t *testing.T) {
+	for _, status := range []int{400, 401, 403, 409, 503} {
+		code := "IAM_BASELINE_UNAVAILABLE"
+		invoker := &externalIdentityContractInvoker{err: dto.NewErrorWithCode(status, code, code, nil)}
+		request := map[string]interface{}{"capability_id": "com.corex.iam.authorization_baseline.service_read", "preferred_protocol": "core_internal", "payload": map[string]interface{}{"body": map[string]interface{}{"operation": "read_member_baselines"}}}
+		response := invokeExternalIdentityContract(t, externalIdentityContractEngine(invoker, true), request)
+		require.Equal(t, status, response.Code)
+		var envelope map[string]interface{}
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &envelope))
+		require.Equal(t, code, envelope["error_code"])
+		require.Equal(t, code, envelope["reason_code"])
+	}
+}
+
 func TestIAMTypedInvocationUnclassifiedFailureRemainsBadGateway(t *testing.T) {
 	for _, err := range []error{
 		errors.New("IAM_CONTEXT_WS_HANDLE_EXPIRED"), // 字符串不能冒充业务错误类型。

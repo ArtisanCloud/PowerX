@@ -28,7 +28,8 @@ func CalculatorDependency() ToolDependency {
 	return ToolDependency{evidence.CalculatorKey, evidence.CalculatorVersion, evidence.DraftSchema, evidence.ReportSchema, "pure_calculation"}
 }
 
-// CheckToolDependencies 在发布、绑定及执行前复用。外部工具必须由受信任端口检查授权及版本。
+// CheckToolDependencies 保留 V1 内置计算合同校验。生产发布/绑定/执行统一使用
+// DependencyService；此处旧 checker 仅供旧合同调用方诊断，不证明外部工具已可运行。
 func CheckToolDependencies(ctx context.Context, tenantUUID string, definition map[string]any, external ToolDependencyChecker) error {
 	raw, exists := definition["tool_dependencies"]
 	executor := nestedManifestMap(definition, "executor")

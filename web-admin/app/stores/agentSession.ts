@@ -16,55 +16,94 @@ export interface AgentSessionState {
   error: string | null;
 }
 
-export const useAgentSessionStore = defineStore("agentSession", {
-  state: (): AgentSessionState => ({
-    sessionsByAgent: {},
-    sessionsLoadingByAgent: {},
-    hasMoreByAgent: {},
-    currentSessionId: null,
-    currentAgentId: null,
-    error: null,
-  }),
+const emptyWorkspace = (): AgentSessionState => ({
+  sessionsByAgent: {},
+  sessionsLoadingByAgent: {},
+  hasMoreByAgent: {},
+  currentSessionId: null,
+  currentAgentId: null,
+  error: null,
+});
 
+export const useAgentSessionStore = defineStore("agentSession", {
+  state: () => ({
+    activeScopeKey: "",
+    workspaces: {} as Record<string, AgentSessionState>,
+  }),
   getters: {
+    activeWorkspace: (state): AgentSessionState =>
+      state.workspaces[state.activeScopeKey] || emptyWorkspace(),
+    sessionsByAgent(): AgentSessionState["sessionsByAgent"] {
+      return this.activeWorkspace.sessionsByAgent;
+    },
+    sessionsLoadingByAgent(): AgentSessionState["sessionsLoadingByAgent"] {
+      return this.activeWorkspace.sessionsLoadingByAgent;
+    },
+    hasMoreByAgent(): AgentSessionState["hasMoreByAgent"] {
+      return this.activeWorkspace.hasMoreByAgent;
+    },
+    currentSessionId(): AgentSessionState["currentSessionId"] {
+      return this.activeWorkspace.currentSessionId;
+    },
+    currentAgentId(): AgentSessionState["currentAgentId"] {
+      return this.activeWorkspace.currentAgentId;
+    },
+    error(): AgentSessionState["error"] {
+      return this.activeWorkspace.error;
+    },
+
     /**
      * 获取指定 agent 的会话列表
      */
-    getSessionsByAgent: (state) => (agentId: string) => {
-      return state.sessionsByAgent[agentId] || [];
+    getSessionsByAgent() {
+      return (agentId: string) => this.sessionsByAgent[agentId] || [];
     },
 
     /**
      * 获取指定 agent 的加载状态
      */
-    isLoadingByAgent: (state) => (agentId: string) => {
-      return state.sessionsLoadingByAgent[agentId] || false;
+    isLoadingByAgent() {
+      return (agentId: string) => this.sessionsLoadingByAgent[agentId] || false;
     },
 
     /**
      * 获取指定 agent 是否还有更多数据
      */
-    getHasMoreByAgent: (state) => (agentId: string) => {
-      return state.hasMoreByAgent[agentId] || false;
+    getHasMoreByAgent() {
+      return (agentId: string) => this.hasMoreByAgent[agentId] || false;
     },
 
     /**
      * 获取当前选中的会话
      */
-    currentSession: (state) => {
-      if (!state.currentAgentId || !state.currentSessionId) return null;
-      const sessions = state.sessionsByAgent[state.currentAgentId] || [];
-      return sessions.find((s) => s.id === state.currentSessionId) || null;
+    currentSession() {
+      if (!this.currentAgentId || !this.currentSessionId) return null;
+      return (
+        (this.sessionsByAgent[this.currentAgentId] || []).find(
+          (s) => s.id === this.currentSessionId,
+        ) || null
+      );
     },
   },
 
   actions: {
+    workspace(scopeKey = this.activeScopeKey): AgentSessionState {
+      return (this.workspaces[scopeKey] ||= emptyWorkspace());
+    },
+    activateScope(scopeKey: string) {
+      this.workspace(scopeKey);
+      this.activeScopeKey = scopeKey;
+    },
     /**
      * 设置加载状态
      */
-    setLoading(agentId: string, loading: boolean) {
-      this.sessionsLoadingByAgent = {
-        ...this.sessionsLoadingByAgent,
+    setLoading(
+      agentId: string,
+      loading: boolean,
+      scopeKey = this.activeScopeKey,
+    ) {
+      this.workspace(scopeKey).sessionsLoadingByAgent = {
+        ...this.workspace(scopeKey).sessionsLoadingByAgent,
         [agentId]: loading,
       };
     },
@@ -72,9 +111,13 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 设置会话列表
      */
-    setSessions(agentId: string, sessions: ChatSession[]) {
-      this.sessionsByAgent = {
-        ...this.sessionsByAgent,
+    setSessions(
+      agentId: string,
+      sessions: ChatSession[],
+      scopeKey = this.activeScopeKey,
+    ) {
+      this.workspace(scopeKey).sessionsByAgent = {
+        ...this.workspace(scopeKey).sessionsByAgent,
         [agentId]: sessions,
       };
     },
@@ -82,33 +125,42 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 添加会话到列表开头
      */
-    addSession(agentId: string, session: ChatSession) {
-      const currentSessions = this.sessionsByAgent[agentId] || [];
-      this.sessionsByAgent = {
-        ...this.sessionsByAgent,
+    addSession(
+      agentId: string,
+      session: ChatSession,
+      scopeKey = this.activeScopeKey,
+    ) {
+      const currentSessions =
+        this.workspace(scopeKey).sessionsByAgent[agentId] || [];
+      this.workspace(scopeKey).sessionsByAgent = {
+        ...this.workspace(scopeKey).sessionsByAgent,
         [agentId]: [session, ...currentSessions],
       };
 
       // 自动选中新会话
-      this.currentSessionId = session.id;
-      this.currentAgentId = agentId;
+      this.workspace(scopeKey).currentSessionId = session.id;
+      this.workspace(scopeKey).currentAgentId = agentId;
     },
 
     /**
      * 从列表中移除会话
      */
-    removeSession(agentId: string, sessionId: number | string) {
-      const sessions = this.sessionsByAgent[agentId] || [];
+    removeSession(
+      agentId: string,
+      sessionId: number | string,
+      scopeKey = this.activeScopeKey,
+    ) {
+      const sessions = this.workspace(scopeKey).sessionsByAgent[agentId] || [];
       const filteredSessions = sessions.filter((s) => s.id !== sessionId);
 
-      this.sessionsByAgent = {
-        ...this.sessionsByAgent,
+      this.workspace(scopeKey).sessionsByAgent = {
+        ...this.workspace(scopeKey).sessionsByAgent,
         [agentId]: filteredSessions,
       };
 
       // 如果删除的是当前选中的会话，自动选中第一个
-      if (this.currentSessionId === sessionId) {
-        this.currentSessionId =
+      if (this.workspace(scopeKey).currentSessionId === sessionId) {
+        this.workspace(scopeKey).currentSessionId =
           filteredSessions.length > 0 ? filteredSessions[0].id : null;
       }
     },
@@ -119,9 +171,10 @@ export const useAgentSessionStore = defineStore("agentSession", {
     updateSession(
       agentId: string,
       sessionId: number | string,
-      updates: Partial<ChatSession>
+      updates: Partial<ChatSession>,
+      scopeKey = this.activeScopeKey,
     ) {
-      const sessions = this.sessionsByAgent[agentId] || [];
+      const sessions = this.workspace(scopeKey).sessionsByAgent[agentId] || [];
       const session = sessions.find((s) => s.id === sessionId);
       if (session) {
         Object.assign(session, updates);
@@ -131,9 +184,13 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 设置是否还有更多数据
      */
-    setHasMore(agentId: string, hasMore: boolean) {
-      this.hasMoreByAgent = {
-        ...this.hasMoreByAgent,
+    setHasMore(
+      agentId: string,
+      hasMore: boolean,
+      scopeKey = this.activeScopeKey,
+    ) {
+      this.workspace(scopeKey).hasMoreByAgent = {
+        ...this.workspace(scopeKey).hasMoreByAgent,
         [agentId]: hasMore,
       };
     },
@@ -141,57 +198,69 @@ export const useAgentSessionStore = defineStore("agentSession", {
     /**
      * 设置错误信息
      */
-    setError(error: string | null) {
-      this.error = error;
+    setError(error: string | null, scopeKey = this.activeScopeKey) {
+      this.workspace(scopeKey).error = error;
     },
 
     /**
      * 选择会话
      */
-    selectSession(agentId: string, sessionId: number | string) {
-      this.currentAgentId = agentId;
-      this.currentSessionId = sessionId;
+    selectSession(
+      agentId: string,
+      sessionId: number | string,
+      scopeKey = this.activeScopeKey,
+    ) {
+      this.workspace(scopeKey).currentAgentId = agentId;
+      this.workspace(scopeKey).currentSessionId = sessionId;
     },
 
     /**
      * 选择 Agent
      */
-    selectAgent(agentId: string) {
-      this.currentAgentId = agentId;
-      this.currentSessionId = null;
+    selectAgent(agentId: string, scopeKey = this.activeScopeKey) {
+      if (this.workspace(scopeKey).currentAgentId !== agentId) {
+        this.workspace(scopeKey).currentAgentId = agentId;
+        this.workspace(scopeKey).currentSessionId = null;
+      }
     },
 
     /**
      * 清除错误
      */
-    clearError() {
-      this.error = null;
+    clearError(scopeKey = this.activeScopeKey) {
+      this.workspace(scopeKey).error = null;
     },
 
     /**
      * 清除所有数据
      */
-    clear() {
-      this.sessionsByAgent = {};
-      this.sessionsLoadingByAgent = {};
-      this.hasMoreByAgent = {};
-      this.currentSessionId = null;
-      this.currentAgentId = null;
-      this.error = null;
+    clear(scopeKey = this.activeScopeKey) {
+      this.workspace(scopeKey).sessionsByAgent = {};
+      this.workspace(scopeKey).sessionsLoadingByAgent = {};
+      this.workspace(scopeKey).hasMoreByAgent = {};
+      this.workspace(scopeKey).currentSessionId = null;
+      this.workspace(scopeKey).currentAgentId = null;
+      this.workspace(scopeKey).error = null;
     },
 
     /**
      * 清空某个 Agent 的会话列表
      */
-    clearSessionsForAgent(agentId: string) {
-      this.sessionsByAgent = { ...this.sessionsByAgent, [agentId]: [] };
-      this.sessionsLoadingByAgent = {
-        ...this.sessionsLoadingByAgent,
+    clearSessionsForAgent(agentId: string, scopeKey = this.activeScopeKey) {
+      this.workspace(scopeKey).sessionsByAgent = {
+        ...this.workspace(scopeKey).sessionsByAgent,
+        [agentId]: [],
+      };
+      this.workspace(scopeKey).sessionsLoadingByAgent = {
+        ...this.workspace(scopeKey).sessionsLoadingByAgent,
         [agentId]: false,
       };
-      this.hasMoreByAgent = { ...this.hasMoreByAgent, [agentId]: false };
-      if (this.currentAgentId === agentId) {
-        this.currentSessionId = null;
+      this.workspace(scopeKey).hasMoreByAgent = {
+        ...this.workspace(scopeKey).hasMoreByAgent,
+        [agentId]: false,
+      };
+      if (this.workspace(scopeKey).currentAgentId === agentId) {
+        this.workspace(scopeKey).currentSessionId = null;
       }
     },
   },

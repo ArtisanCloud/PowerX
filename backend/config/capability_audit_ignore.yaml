@@ -1,5 +1,13 @@
 routes:
   - method: GET
+    path: /api/v1/admin/ops/backup/jobs/:job_id/download
+    category: root_runtime_control
+    reason: Full-database file downloads require a Root user session and must never be published to tenants or plugins.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/jobs
+    category: root_runtime_control
+    reason: One-time whole-site media exports require a Root user session and must never be published to tenants or plugins.
+  - method: GET
     path: /api/v1/public/saas/registration-policy/effective
     category: public_registration
     reason: Public registration policy summary is anonymous signup UX metadata and must not be registered as a tenant capability.
@@ -103,3 +111,79 @@ routes:
     path: /api/v1/admin/ops/backup/archives/restores/:restore_id
     category: root_runtime_control
     reason: Whole-site media, SQL logs, SSH archive targets and restore directories are Root-only deployment operations; never publish as tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/system-snapshots
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: PUT
+    path: /api/v1/admin/ops/backup/system-snapshots/policy
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/imports
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id/export
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: DELETE
+    path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id
+    category: root_runtime_control
+    reason: Permanently removes whole-instance snapshot packages and their records; Root user session only, never publish as tenant, plugin, API-key or agent capability.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id/restores
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: PATCH
+    path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id/protection
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/system-snapshots/restores/:restore_id
+    category: root_runtime_control
+    reason: Whole-instance encrypted snapshot packages and isolated restore copies require a Root user session; never publish as tenant, plugin or agent capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/system-snapshots/recovery
+    category: root_runtime_control
+    reason: Whole-instance recovery and cutover require a Root user session and a private local coordinator; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/:snapshot_id/recovery
+    category: root_runtime_control
+    reason: Whole-instance recovery and cutover require a Root user session and a private local coordinator; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/recovery/:recovery_id/cutover
+    category: root_runtime_control
+    reason: Whole-instance recovery and cutover require a Root user session and a private local coordinator; never publish as tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/recovery/:recovery_id/rollback
+    category: root_runtime_control
+    reason: Whole-instance rollback requires a Root user session and an independently managed environment; never publish as tenant, plugin or agent capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/recovery/:recovery_id/cleanup
+    category: root_runtime_control
+    reason: Removes only coordinator-owned inactive environments with Root confirmation; never publish as tenant, plugin or agent capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/events
+    category: root_runtime_control
+    reason: Root-only whole-instance backup and recovery notifications reveal global operational state, not a tenant or plugin service capability.
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/policies
+    category: root_runtime_control
+    reason: Root-only policy for database, media, secrets and programs across the whole instance; never publish as a tenant or agent capability.
+  - method: PUT
+    path: /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id
+    category: root_runtime_control
+    reason: Changes a Root-owned whole-instance snapshot policy and is not a delegated tenant service operation.
+  - method: PATCH
+    path: /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id/status
+    category: root_runtime_control
+    reason: Starts or stops whole-instance capture schedules, requiring a Root user session, never a plugin or agent grant.

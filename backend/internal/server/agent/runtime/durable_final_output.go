@@ -56,7 +56,9 @@ func (r *DurableFinalOutputReader) ReadFinalOutput(ctx context.Context, run agen
 			return sessions.DurableOutput{}, sessions.ErrDependency
 		}
 		raw, err := json.Marshal(envelope)
-		return sessions.DurableOutput{ResponseEnvelope: raw}, err
+		labels, _ := json.Marshal(finalResponseCompanion(out.Data, "response_labels"))
+		ref, _ := json.Marshal(finalResponseCompanion(out.Data, "response_evidence"))
+		return sessions.DurableOutput{ResponseEnvelope: raw, ResponseLabels: labels, ResponseEvidence: ref}, err
 	}
 	// 无任务意图的默认对话保留既有直接答复；业务执行计划必须返回结构化报告。
 	if plan.PlanID != "invoke_default" {

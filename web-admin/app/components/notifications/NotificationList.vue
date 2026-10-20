@@ -5,6 +5,8 @@ import {
   NOTIFICATION_TYPES,
 } from "~/types/notification";
 
+const actionToast = useToast();
+
 const props = defineProps<{
   compact?: boolean;
 }>();
@@ -22,8 +24,9 @@ const {
   pageSize,
   totalCount,
   filter,
+  identityScope,
+  identityReady,
   fetchNotifications,
-  markAsRead,
   markAllAsRead,
   deleteNotification,
   getStats,
@@ -62,9 +65,9 @@ const readOptions = [
 ];
 
 // 当前过滤器值
-const selectedCategory = ref(null);
-const selectedType = ref(null);
-const selectedRead = ref(null);
+const selectedCategory = ref<string | null>(null);
+const selectedType = ref<string | null>(null);
+const selectedRead = ref<string | null>(null);
 const showImportantOnly = ref(false);
 
 // 监听过滤器变化
@@ -73,7 +76,7 @@ watch([selectedCategory, selectedType, selectedRead, showImportantOnly], () => {
 
   if (selectedCategory.value) newFilter.category = selectedCategory.value;
   if (selectedType.value) newFilter.type = selectedType.value;
-  if (selectedRead.value !== "")
+  if (selectedRead.value === "true" || selectedRead.value === "false")
     newFilter.isRead = selectedRead.value === "true";
   if (showImportantOnly.value) newFilter.isImportant = true;
 
@@ -134,10 +137,7 @@ const formatTime = (date: Date) => {
 };
 
 // 处理通知点击
-const handleNotificationClick = async (notification: Notification) => {
-  if (!notification.isRead) {
-    await markAsRead(notification.id);
-  }
+const handleNotificationClick = (notification: Notification) => {
   emit("select", notification);
 };
 
@@ -148,7 +148,8 @@ const handleActionClick = async (
   event: Event
 ) => {
   event.stopPropagation();
-  await executeAction(notification.id, actionId);
+  try { await executeAction(notification.id, actionId, notification); }
+  catch { actionToast.add({ title: t("header.notifications.navigationError"), color: "error" }); }
 };
 
 // 处理删除
@@ -167,9 +168,9 @@ const handleClearFilters = () => {
 };
 
 // 初始化
-onMounted(() => {
-  fetchNotifications();
-});
+watch([identityScope, identityReady], ([, ready]) => {
+  if (ready) void fetchNotifications();
+}, { immediate: true });
 </script>
 
 <template>

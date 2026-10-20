@@ -1,6 +1,7 @@
 import { effectScope, watch } from 'vue';
 import { useI18n, useColorMode } from '#imports';
 import { PluginBridgeHost, type FrameStatus } from '~/utils/plugin-bridge-host';
+import { recoverPluginFrameSession } from '~/utils/plugin-frame-session';
 
 let host: PluginBridgeHost | null = null;
 let scope: ReturnType<typeof effectScope> | null = null;
@@ -18,6 +19,8 @@ export function usePluginBridge() {
     scope.run(() => watch([locale, () => colorMode.preference], () => host?.broadcastMetadata()));
   }
   return {
+    prepareFrame: () => auth.initAuth(),
+    recoverFrameAuth: () => recoverPluginFrameSession(auth.refreshAuth),
     register: (frame: HTMLIFrameElement, meta: { pluginId: string; instanceId: string; onStatus: (status: FrameStatus) => void }) =>
       host?.register(frame, meta.pluginId, meta.instanceId, meta.onStatus),
     unregister: (frame?: HTMLIFrameElement | null) => { if (frame) host?.unregister(frame); },

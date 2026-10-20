@@ -21,6 +21,7 @@ declare global {
 }
 
 const props = defineProps<{
+  readOnly?: boolean;
   message: ChatMessage | DeepReadonly<ChatMessage>;
   isStreaming?: boolean;
   agentName?: string;
@@ -36,7 +37,7 @@ const emit = defineEmits<{
   (e: "regenerate", messageId: string | number): void;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const userStore = useUserStore();
 const traceModalOpen = ref(false);
 
@@ -51,8 +52,11 @@ const canRegenerateFromThisUserMessage = computed(() => {
 
 // 原始完整文本
 const normalizedRawContent = computed(() => {
+	const meta = (props.message as any)?.meta ?? (props.message as any)?.metadata ?? {};
+	if (meta.responseEvidenceState === 'unavailable' || meta.response_evidence_state === 'unavailable') return t('agent.response.evidenceUnavailable');
+	if (meta.failureStage || meta.failure_stage) return t('agent.response.executionFailed');
 	const envelope = (props.message as any)?.meta?.responseEnvelope ?? (props.message as any)?.metadata?.response_envelope;
-	if (isAgentResponseEnvelope(envelope)) return renderAgentResponseEnvelope(envelope, t);
+	if (isAgentResponseEnvelope(envelope)) return renderAgentResponseEnvelope(envelope, t, {labels: meta.responseLabels ?? meta.response_labels, locale: locale.value});
 	if (envelope) return t('agent.response.contractUpgradeRequired');
 	const c = (props.message as any)?.content;
   if (typeof c === "string") return c;
@@ -1359,6 +1363,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
             size="xs"
             variant="ghost"
             icon="i-heroicons-pencil-square"
+            :disabled="readOnly"
             @click="emit('regenerate', (message as any).id)"
             >重新编辑</UButton
           >
@@ -1367,6 +1372,7 @@ const downloadFile = (url: string, downloadUrl?: string) => {
             size="xs"
             variant="ghost"
             icon="i-heroicons-arrow-path"
+            :disabled="readOnly"
             @click="emit('retry')"
             >{{ t("common.retry") }}</UButton
           >

@@ -19,6 +19,39 @@ func NewTaskHistoryRepository(db *gorm.DB) *TaskHistoryRepository {
 	return &TaskHistoryRepository{db: db}
 }
 
+// Register 使用统一任务历史作为提交记录，可与业务事务一起提交；重复提交不覆盖终态。
+func (r *TaskHistoryRepository) Register(ctx context.Context, tx *gorm.DB, record *eventfabricmodel.TaskHistory) error {
+	if tx == nil {
+		tx = r.db
+	}
+	if tx == nil {
+		return errors.New("task history unavailable")
+	}
+	return tx.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "task_id"}, {Name: "tenant_key"}, {Name: "subscriber_id"}}, DoNothing: true}).Create(record).Error
+}
+
+// WithRecord 在共享任务行锁内校验投递归属，并允许业务结果与任务完成原子提交。
+func (r *TaskHistoryRepository) WithRecord(ctx context.Context, tenant, subscriber, id string, apply func(*gorm.DB, *eventfabricmodel.TaskHistory) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row eventfabricmodel.TaskHistory
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_key = ? AND subscriber_id = ? AND task_id = ?", tenant, subscriber, id).First(&row).Error; err != nil {
+			return err
+		}
+		if err := apply(tx, &row); err != nil {
+			return err
+		}
+		row.LastSeenAt = time.Now().UTC()
+		return tx.Save(&row).Error
+	})
+}
+
+// Recoverable 只供统一任务驱动启动补投使用，不是业务模块的私有轮询队列。
+func (r *TaskHistoryRepository) Recoverable(ctx context.Context, subscriber string, after uint64, limit int) ([]eventfabricmodel.TaskHistory, error) {
+	var rows []eventfabricmodel.TaskHistory
+	err := r.db.WithContext(ctx).Where("subscriber_id = ? AND id > ? AND status IN ?", subscriber, after, []string{eventfabricmodel.TaskHistoryStatusPending, eventfabricmodel.TaskHistoryStatusDeferred, eventfabricmodel.TaskHistoryStatusRunning}).Order("id").Limit(limit).Find(&rows).Error
+	return rows, err
+}
+
 func (r *TaskHistoryRepository) FindByKey(ctx context.Context, tenantKey, subscriberID, taskID string) (*eventfabricmodel.TaskHistory, error) {
 	if r == nil || r.db == nil {
 		return nil, nil

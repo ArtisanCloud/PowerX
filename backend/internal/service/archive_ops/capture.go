@@ -22,6 +22,9 @@ import (
 )
 
 func (s *Service) capture(ctx context.Context, j *jobRecord, p Policy, source Source) error {
+	return s.captureWithMode(ctx, j, p, source, false)
+}
+func (s *Service) captureWithMode(ctx context.Context, j *jobRecord, p Policy, source Source, online bool) error {
 	if containsPath(source.Directory, s.cfg.Directory) {
 		return errors.New("归档目录不能位于来源目录内部，拒绝备份自身")
 	}
@@ -59,59 +62,62 @@ func (s *Service) capture(ctx context.Context, j *jobRecord, p Policy, source So
 			return e
 		}
 		defer tx.Rollback(context.Background())
-		if e = tx.QueryRow(ctx, "SELECT current_database(),pg_export_snapshot()").Scan(&j.Database, &j.SnapshotID); e != nil {
+		if e = tx.QueryRow(ctx, "SELECT current_database(),pg_export_snapshot(),statement_timestamp()").Scan(&j.Database, &j.SnapshotID, &j.CreatedAt); e != nil {
 			return errors.New("无法导出数据库事务快照")
 		}
 	}
-	e := filepath.WalkDir(source.Directory, func(path string, d os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return fmt.Errorf("无法读取来源目录: %s", filepath.Base(path))
-		}
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if d.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("来源包含软链接，拒绝越界归档: %s", d.Name())
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if source.Kind == "postgresql_logs" {
-			if active[d.Name()] {
+	var e error
+	if !online {
+		e = filepath.WalkDir(source.Directory, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return fmt.Errorf("无法读取来源目录: %s", filepath.Base(path))
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if d.Type()&os.ModeSymlink != 0 {
+				return fmt.Errorf("来源包含软链接，拒绝越界归档: %s", d.Name())
+			}
+			if d.IsDir() {
 				return nil
 			}
-			ext := strings.ToLower(filepath.Ext(path))
-			if ext != ".log" && ext != ".csv" && ext != ".json" && ext != ".gz" {
+			if source.Kind == "postgresql_logs" {
+				if active[d.Name()] {
+					return nil
+				}
+				ext := strings.ToLower(filepath.Ext(path))
+				if ext != ".log" && ext != ".csv" && ext != ".json" && ext != ".gz" {
+					return nil
+				}
+			}
+			if source.Kind == "database_files" && !strings.HasSuffix(path, ".dump") && !strings.HasSuffix(path, ".dump.sha256") && !strings.HasSuffix(path, ".dump.json") {
 				return nil
 			}
-		}
-		if source.Kind == "database_files" && !strings.HasSuffix(path, ".dump") && !strings.HasSuffix(path, ".dump.sha256") && !strings.HasSuffix(path, ".dump.json") {
-			return nil
-		}
-		rel, e := filepath.Rel(source.Directory, path)
-		if e != nil {
-			return e
-		}
-		prefix := "media"
-		if source.Kind != "media" {
-			prefix = source.Kind
-		}
-		name := prefix + "/" + filepath.ToSlash(rel)
-		entry, added, e := s.captureFile(ctx, path, name)
-		if e != nil {
-			return e
-		}
-		entries[name] = entry
-		j.NewBytes += added
-		if len(entries)%20 == 0 {
-			j.FileCount = len(entries)
-			j.Phase = "capturing"
-			if e = s.saveJob(j); e != nil {
+			rel, e := filepath.Rel(source.Directory, path)
+			if e != nil {
 				return e
 			}
-		}
-		return nil
-	})
+			prefix := "media"
+			if source.Kind != "media" {
+				prefix = source.Kind
+			}
+			name := prefix + "/" + filepath.ToSlash(rel)
+			entry, added, e := s.captureFile(ctx, path, name)
+			if e != nil {
+				return e
+			}
+			entries[name] = entry
+			j.NewBytes += added
+			if len(entries)%20 == 0 {
+				j.FileCount = len(entries)
+				j.Phase = "capturing"
+				if e = s.saveJob(j); e != nil {
+					return e
+				}
+			}
+			return nil
+		})
+	}
 	if e != nil {
 		return e
 	}
@@ -119,7 +125,7 @@ func (s *Service) capture(ctx context.Context, j *jobRecord, p Policy, source So
 		return errors.New("没有已轮转日志；活动日志不会归档为完整文件")
 	}
 	if tx != nil {
-		if e = s.captureMediaReferences(ctx, tx, source, j, entries); e != nil {
+		if e = s.captureMediaReferences(ctx, tx, source, j, entries, online); e != nil {
 			return e
 		}
 		if e = s.dumpSnapshot(ctx, source, j); e != nil {
@@ -236,7 +242,7 @@ func verifyObject(ctx context.Context, path string, entry Entry) error {
 	}
 	return nil
 }
-func (s *Service) captureMediaReferences(ctx context.Context, tx pgx.Tx, source Source, j *jobRecord, entries map[string]Entry) error {
+func (s *Service) captureMediaReferences(ctx context.Context, tx pgx.Tx, source Source, j *jobRecord, entries map[string]Entry, online bool) error {
 	var s3 medriver.StorageDriver
 	for _, table := range []string{"public.media_assets", "public.media_asset_variants"} {
 		var exists *string
@@ -246,7 +252,7 @@ func (s *Service) captureMediaReferences(ctx context.Context, tx pgx.Tx, source 
 		if exists == nil {
 			continue
 		}
-		rows, e := tx.Query(ctx, "SELECT driver,bucket,storage_key,size_bytes,expected_checksum FROM "+table+" WHERE deleted_at IS NULL AND upload_state='ready'")
+		rows, e := tx.Query(ctx, "SELECT driver,bucket,storage_key,size_bytes,COALESCE(expected_checksum,'') FROM "+table+" WHERE deleted_at IS NULL AND upload_state='ready'")
 		if e != nil {
 			return errors.New("媒体引用清单读取失败")
 		}
@@ -275,7 +281,21 @@ func (s *Service) captureMediaReferences(ctx context.Context, tx pgx.Tx, source 
 				return errors.New("数据库媒体引用路径无效")
 			}
 			name := "media/" + joined
+			if online && (r.driver != "local" || !shaPattern.MatchString(r.checksum) || r.size < 0) {
+				return errors.New("在线系统快照要求本地媒体、有效 SHA256 和大小；请修复媒体元数据")
+			}
 			if r.driver == "local" {
+				if online {
+					entry, added, err := s.captureReferencedFile(ctx, source.Directory, joined, r.size, r.checksum)
+					if err != nil {
+						return err
+					}
+					if prior, ok := entries[name]; ok && (prior.SHA256 != entry.SHA256 || prior.Size != entry.Size) {
+						return errors.New("同一媒体路径存在不同内容引用，请修复媒体元数据")
+					}
+					entries[name] = entry
+					j.NewBytes += added
+				}
 				if _, ok := entries[name]; !ok {
 					entry, added, e := s.captureFile(ctx, filepath.Join(source.Directory, filepath.FromSlash(joined)), name)
 					if e != nil {

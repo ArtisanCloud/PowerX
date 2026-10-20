@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	"os"
 	"path/filepath"
 	"sort"
@@ -95,6 +96,9 @@ type agentInvokeRequest struct {
 	AttachmentUUIDs []uuid.UUID            `json:"attachment_uuids,omitempty"`
 	AgentID         string                 `json:"agent_id"`
 	SessionID       string                 `json:"session_id,omitempty"`
+	SessionType     string                 `json:"session_type,omitempty"`
+	TeamID          uint64                 `json:"team_id,omitempty"`
+	ParentAgentID   uint64                 `json:"parent_agent_id,omitempty"`
 	Message         string                 `json:"message"`
 	Meta            map[string]interface{} `json:"meta,omitempty"`
 }
@@ -925,7 +929,7 @@ func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
 	return &AgentChatHandler{
 		his:                 agentSvc.NewChatHistoryService(dep.DB),
 		cfgResolver:         agentSvc.NewChatConfigResolver(dep.DB),
-		ag:                  agentSvc.NewAgentService(dep.DB),
+		ag:                  agentSvc.NewAgentService(dep.DB, dep.SkillDependencies),
 		audit:               dep.CapabilityRegistryAudit,
 		settings:            agentSvc.NewAgentSettingService(dep.DB),
 		skillAudit:          skillservice.NewAuditTraceService(traceRepo, auditRepo),
@@ -1354,7 +1358,15 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		dto.ResponseError(c, 404, "未找到指定的 Agent", err)
 		return
 	}
-	teamID, _ := utils.ParseUintID(getParam("team_id"))
+	scope, scopeErr := querySessionScope(c)
+	if scopeErr == nil {
+		scopeErr = agentSvc.ValidateSessionScope(sess, agentID, scope, true)
+	}
+	if scopeErr != nil {
+		dto.ResponseError(c, 409, scopeErr.Error(), nil)
+		return
+	}
+	teamID := scope.TeamID
 	parentAgentID, _ := utils.ParseUintID(getParam("parent_agent_id"))
 	teamRuntimeContext, err := h.resolveTeamRuntimeContext(c.Request.Context(), env, tenantCtx.UUID(), agentID, teamID, parentAgentID)
 	if err != nil {
@@ -1564,6 +1576,18 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		return
 	}
 	runCtx = context.WithValue(runCtx, "locale", locale)
+	if raw := getParam("tool_input"); raw != "" {
+		var declaration evidence.StructuredToolInput
+		if err := evidence.DecodeToolJSON([]byte(raw), &declaration); err != nil {
+			dto.ResponseError(c, 400, "evidence.source_invalid", nil)
+			return
+		}
+		runCtx, err = evidence.WithStructuredToolInput(runCtx, declaration)
+		if err != nil {
+			dto.ResponseError(c, 400, "evidence.source_invalid", nil)
+			return
+		}
+	}
 	runCtx = runtime.ContextWithSkillStateStore(runCtx, runtimeSkillStateStore{service: h.skillStates})
 	var pendingTask map[string]any
 	if latestPendingTask, ok, err := h.latestRuntimePendingTask(c.Request.Context(), env, tenantRef, sess.ID, agentID, boundSkillIDs); err == nil && ok {
@@ -1844,6 +1868,12 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		return
 	}
 	ctx := c.Request.Context()
+	ctx, inputErr := evidence.WithStructuredToolInput(ctx, req.Context["tool_input"])
+	if inputErr != nil {
+		c.SSEvent(dto.EventError, gin.H{"code": "evidence.source_invalid"})
+		c.SSEvent(dto.EventEnd, gin.H{"success": false})
+		return
+	}
 	locale, localeErr := declaredAgentLocale(req.Context)
 	if localeErr != nil {
 		c.SSEvent(dto.EventError, gin.H{"message": localeErr.Error()})
@@ -2079,6 +2109,10 @@ func (h *AgentChatHandler) ResumeApprovedCapability(c *gin.Context) {
 		dto.ResponseError(c, 404, "agent.capability_approval_session_not_found", nil)
 		return
 	}
+	if !validateSessionQuery(c, sess, true) {
+		return
+	}
+
 	agentRecord, err := h.ag.Get(c.Request.Context(), env, tenantRef, sess.AgentID)
 	if err != nil || agentRecord == nil || agentRecord.UUID == uuid.Nil {
 		dto.ResponseError(c, 404, "agent.capability_approval_agent_not_found", nil)
@@ -2368,9 +2402,6 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 	var sess *dbmodel.AgentChatSession
 	if sessionParam != "" {
 		sess, _ = h.resolveSessionByParam(c, env, tenantRef, sessionParam)
-		if sess != nil {
-			agentID = sess.AgentID
-		}
 	}
 	if sess == nil && strings.TrimSpace(req.SessionID) != "" {
 		sess, _ = h.resolveSessionByParam(c, env, tenantRef, strings.TrimSpace(req.SessionID))
@@ -2379,7 +2410,22 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		dto.ResponseError(c, 400, "session_id 必填，请先创建会话", nil)
 		return
 	}
-	agentID = sess.AgentID
+	if agentID == 0 {
+		agentID = sess.AgentID
+	}
+	scope, scopeErr := parseSessionScope(req.SessionType, req.TeamID)
+	if scopeErr == nil {
+		scopeErr = agentSvc.ValidateSessionScope(sess, agentID, scope, true)
+	}
+	if scopeErr != nil {
+		dto.ResponseError(c, 409, scopeErr.Error(), nil)
+		return
+	}
+	teamContext, teamErr := h.resolveTeamRuntimeContext(c.Request.Context(), env, tenantUUID, agentID, req.TeamID, req.ParentAgentID)
+	if teamErr != nil {
+		dto.ResponseError(c, 400, teamErr.Error(), nil)
+		return
+	}
 	if _, err := h.ag.Get(c.Request.Context(), env, tenantRef, agentID); err != nil {
 		dto.ResponseError(c, 404, "未找到指定的 Agent", err)
 		return
@@ -2438,6 +2484,14 @@ func (h *AgentChatHandler) invokeWithSession(c *gin.Context, req agentInvokeRequ
 		return
 	}
 	runCtx := reqctx.WithTraceID(c.Request.Context(), traceID)
+	for key, value := range teamContext {
+		runCtx = context.WithValue(runCtx, key, value)
+	}
+	runCtx, err = evidence.WithStructuredToolInput(runCtx, req.Meta["tool_input"])
+	if err != nil {
+		dto.ResponseError(c, 400, "evidence.source_invalid", nil)
+		return
+	}
 	runCtx = context.WithValue(runCtx, "run_id", fmt.Sprintf("run_%d", time.Now().UnixNano()))
 	runCtx = context.WithValue(runCtx, "runId", runCtx.Value("run_id"))
 	runCtx = context.WithValue(runCtx, "env", env)

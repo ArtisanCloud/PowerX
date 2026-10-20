@@ -17,6 +17,7 @@ import (
 )
 
 type DepsOptions struct {
+	DisableBackgroundWorkers bool
 	PreserveInstalledCatalog bool
 	RuntimeIdentity          runtimeidentity.CoreInfo
 	PluginRequestIdentity    requestidentity.Options
@@ -200,6 +201,7 @@ type AgentLifecycleNotificationOptions struct {
 
 // KnowledgeSpaceOptions 描述知识空间域依赖。
 type KnowledgeSpaceOptions struct {
+	DisableBackgroundWorkers bool
 	ContentCursorSigningKey  []byte
 	RedisAddr                string
 	RedisPassword            string

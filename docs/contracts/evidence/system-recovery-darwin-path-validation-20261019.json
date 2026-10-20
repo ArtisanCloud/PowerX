@@ -1,0 +1,130 @@
+{
+  "recorded_at": "2026-10-18T17:57:47.208753+00:00",
+  "problem": "macOS /var -> /private/var is a verified system alias. The current-instance path check incorrectly rejected targets registered from an aliased PWD even though the configuration used the physical path.",
+  "actual_local_task": {
+    "id": "e6c32597-4216-4538-b594-7b04973951be",
+    "snapshot_id": "65ee8b07-f739-4bc0-944a-bfc3a225763c",
+    "status": "failed",
+    "rollback_snapshot_id": null,
+    "replacement_journal_created": false,
+    "business_overwritten": false,
+    "recorded_working_directory_prefix": "/var/www",
+    "configuration_path_prefix": "/private/var/www"
+  },
+  "fix": [
+    "Verify and normalize only macOS standard /var, /tmp and /etc aliases to their expected /private paths",
+    "Normalize every target before detecting duplicates, nested destinations and snapshot/runtime boundary overlap",
+    "Keep arbitrary business symlinks blocked; include the exact target in error messages",
+    "Recheck canonical target and parent immediately before replacement"
+  ],
+  "registered_source_audit": {
+    "read_only": true,
+    "passed": true,
+    "target_count": 42,
+    "components": [
+      "media",
+      "plugins",
+      "registry",
+      "web artifacts",
+      "capability catalog",
+      "auxiliary configuration"
+    ],
+    "alias": "/var to /private/var",
+    "overlap_check": "passed"
+  },
+  "source_validation": {
+    "go_packages_passed": 5,
+    "vet": "passed",
+    "core_build": "passed",
+    "unit_tests": [
+      "Verified standard /var, /tmp, /etc aliases and missing child paths",
+      "Rejected arbitrary business symlink with explicit path",
+      "Prepared, installed and reverted mixed /var and /private/var targets",
+      "Rejected target nesting across different alias spellings"
+    ],
+    "logs": [
+      "test-results/recovery-darwin-path-unit-final.log",
+      "test-results/recovery-darwin-path-go.log",
+      "test-results/recovery-darwin-path-vet.log",
+      "test-results/recovery-darwin-live-path-audit.log"
+    ]
+  },
+  "native_validation": {
+    "A_then_protected_B": true,
+    "auxiliary_restore_targets_owned_by_fixture": true,
+    "cache_namespace_rotates_on_recovery": true,
+    "darwin_aliased_pwd_and_mixed_paths": true,
+    "external_connection_blocks_before_overwrite": true,
+    "external_task_connection_blocks_before_overwrite": true,
+    "full_restart_retains_A": true,
+    "no_coordinator_or_gateway_process_started": true,
+    "passed": true,
+    "redis_protection_restored": true,
+    "same_config_dsn_and_ports": true,
+    "same_core_pid_across_restore": true,
+    "shared_cache_connection_does_not_block": true,
+    "shared_cache_data_retained": true
+  },
+  "native_launch": {
+    "pwd_prefix": "/tmp",
+    "configuration_path_prefix": "/private/tmp",
+    "mixed_media_plugin_web_and_capability_paths": true,
+    "shared_cache_db": 0,
+    "queue_db": 5,
+    "all_auxiliary_restore_targets_belong_to_owned_fixture": true
+  },
+  "browser": {
+    "passed": 3,
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "tests": [
+      "Recover at original website address and automatically reconnect on desktop",
+      "Recover and refresh completion on narrow screen",
+      "Temporary gateway error is localized and cleared by pushed synchronization"
+    ],
+    "log": "test-results/recovery-darwin-path-browser.log"
+  },
+  "cleanup": {
+    "owned_processes_released": true,
+    "ports_released": [
+      {
+        "port": 3489,
+        "released": true
+      },
+      {
+        "port": 62751,
+        "released": true
+      },
+      {
+        "port": 62872,
+        "released": true
+      },
+      {
+        "port": 62873,
+        "released": true
+      }
+    ],
+    "failed_fixture_removed": true,
+    "daily_services_http_health": {
+      "3030": 200,
+      "8077": 200
+    },
+    "daily_services_restarted_by_agent": false,
+    "remote_server_operated": false
+  },
+  "limits": [
+    "No automatic restore was executed on the user daily database; live target path audit was read-only",
+    "Current integration remains dev + PostgreSQL + local media only; production, Linux and real production plugins are not accepted",
+    "Non-system symlinks remain blocked; this change does not follow arbitrary links during overwrite"
+  ],
+  "core_sha256": "6987a95ce96d3b695d70443fc0a3ea248f473c9b64e3748166718444f3225987",
+  "production_deployed": false
+}

@@ -9,10 +9,13 @@ import (
 	"slices"
 	"strings"
 
+	baseline "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
+
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 
@@ -52,6 +55,9 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
 	}
+	if rootrole.IsManaged(*cur) {
+		return rootrole.ErrManaged
+	}
 	// 非 root：仅允许给本租户的 tenant 角色授权
 	if !actor.IsRoot {
 		ctxTenant := strings.TrimSpace(actor.TenantUUID)
@@ -72,6 +78,16 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContext, roleID uint64, triples []PermTriple) error {
 	if len(triples) == 0 {
 		return nil
+	}
+	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
+	if err != nil {
+		return err
+	}
+	if role == nil {
+		return gorm.ErrRecordNotFound
+	}
+	if rootrole.IsManaged(*role) {
+		return rootrole.ErrManaged
 	}
 	// 1) 先 upsert 权限行（幂等）
 	toUpsert := make([]dbm.Permission, 0, len(triples))
@@ -241,6 +257,9 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor Actor
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
 	}
+	if rootrole.IsManaged(*cur) {
+		return rootrole.ErrManaged
+	}
 	if !actor.IsRoot {
 		ctxTenant := strings.TrimSpace(actor.TenantUUID)
 		if ctxTenant == "" {
@@ -262,6 +281,20 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor Actor
 }
 
 func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64, wantIDs []uint64) (SetIDsResult, error) {
+	// 集合覆盖的读取、差集和写入也受共同源锁保护，避免使用事务外的过期差集。
+	if baseline.Managed(s.db) && !baseline.InTransaction(s.db) {
+		var out SetIDsResult
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+			var err error
+			out, err = NewRBACService(tx).SetPermissionIDs(ctx, actor, roleID, wantIDs)
+			return err
+		})
+		return out, err
+	}
+
 	// 角色查询：你的 GetFirst 可能返回 (*T,nil)，要判空
 	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
 	if err != nil {
@@ -269,6 +302,9 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, 
 	}
 	if role == nil { // ✅ 防 NPE
 		return SetIDsResult{}, service.ErrRoleNotFound
+	}
+	if rootrole.IsManaged(*role) {
+		return SetIDsResult{}, rootrole.ErrManaged
 	}
 
 	// 鉴权：非 root 只能改本租户

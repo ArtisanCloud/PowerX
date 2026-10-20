@@ -17,6 +17,7 @@ const (
 const DynamicBindPlaceholder = "__POWERX_DYNAMIC_PORT__"
 
 type Options struct {
+	PinExecutable bool // 显式选择不可变原生启动镜像，供固定实现的工具调用。
 	// 健康检查
 	HealthPath     string        // 例如 "/healthz"
 	HealthInterval time.Duration // 例如 2s

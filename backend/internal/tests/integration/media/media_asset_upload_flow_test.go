@@ -190,6 +190,41 @@ func newMemoryAssetRepo() *memoryAssetRepo {
 	return &memoryAssetRepo{assets: make(map[string]*mediamodel.MediaAsset), variants: make(map[string]*mediamodel.MediaAssetVariant)}
 }
 
+func (m *memoryAssetRepo) WithAssetUpload(_ context.Context, tenant, asset string, apply func(*mediamodel.MediaAsset) error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row := m.assets[asset]
+	if row == nil || row.TenantUUID != tenant || row.DeletedAt.Valid {
+		return gorm.ErrRecordNotFound
+	}
+	copy := cloneAsset(row)
+	if err := apply(copy); err != nil {
+		return err
+	}
+	m.assets[asset] = copy
+	return nil
+}
+
+func (m *memoryAssetRepo) WithVariantTransfer(_ context.Context, tenant, asset, variant string, apply func(*mediamodel.MediaAsset, *mediamodel.MediaAssetVariant) error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	parent := m.assets[asset]
+	if parent == nil || parent.TenantUUID != tenant || parent.DeletedAt.Valid {
+		return gorm.ErrRecordNotFound
+	}
+	for key, child := range m.variants {
+		if child.UUID.String() == variant && child.AssetUUID == asset && child.TenantUUID == tenant && !child.DeletedAt.Valid {
+			copy := cloneVariant(child)
+			if err := apply(cloneAsset(parent), copy); err != nil {
+				return err
+			}
+			m.variants[key] = copy
+			return nil
+		}
+	}
+	return gorm.ErrRecordNotFound
+}
+
 func (m *memoryAssetRepo) List(_ context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

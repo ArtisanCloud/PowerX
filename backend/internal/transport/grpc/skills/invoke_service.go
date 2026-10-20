@@ -2,6 +2,7 @@ package skills
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	skillsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/skills/v1"
@@ -47,6 +48,9 @@ func (s *invokeServer) InvokeSkill(ctx context.Context, req *skillsv1.InvokeSkil
 		TraceID:    "",
 	}, payload, nil)
 	if err != nil {
+		if errors.Is(err, skillservice.ErrDefinitionContractUpgradeRequired) {
+			return nil, status.Error(codes.FailedPrecondition, skillservice.ErrDefinitionContractUpgradeRequired.Error())
+		}
 		_, envelope := skillservice.MapInvokeError(err)
 		return nil, status.Error(codes.InvalidArgument, envelope.Message)
 	}

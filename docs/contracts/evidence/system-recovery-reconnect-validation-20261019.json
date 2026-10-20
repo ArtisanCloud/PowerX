@@ -1,0 +1,118 @@
+{
+  "recorded_at": "2026-10-18T18:30:20.698022+00:00",
+  "problem": [
+    "Return-to-site was scheduled only by single-job push; an event/reconnect catalog read could display complete without running completion navigation",
+    "Eight failed SSE attempts exhausted reconnect after about 24 seconds",
+    "A silently stalled response had no idle deadline"
+  ],
+  "actual_local_task": {
+    "id": "85f51d22-81fe-4a2e-848b-f9faf031e716",
+    "status": "complete",
+    "phase": "complete",
+    "completed_at_utc": "2026-10-18T18:16:36.528867Z",
+    "business_verified": true,
+    "diagnosis_read_only": true,
+    "existing_browser_not_accessible": true
+  },
+  "fix": [
+    "Reconcile completion consistently from both single-job push and catalog synchronization for the tracked task",
+    "Bound continuous SSE reconnect by five minutes, exponential backoff capped at four seconds",
+    "Ten-second connection/first-data deadline and forty-five-second stream inactivity deadline; heartbeat bytes reset inactivity, without querying task state",
+    "Preserve authentication cleanup and cancel old subscriptions; manual checkbox changes and a new task cancel outdated navigation"
+  ],
+  "regression_reproduction": {
+    "before_fix_failed": true,
+    "case": "Backend completes while the final job push is lost; resource-event catalog read reaches complete but original page does not return",
+    "log": "test-results/recovery-reconnect-red.log"
+  },
+  "controlled_browser": {
+    "passed": 6,
+    "driver": "Real embedded HTTP/session store and filesystem notifications with controlled restore driver",
+    "cases": [
+      "Desktop refresh and independent reauthentication",
+      "Narrow-screen refresh and independent reauthentication",
+      "Final job push lost; resource catalog completion still returns automatically",
+      "36-second network outage exceeds old eight-attempt limit, reconnects without user refresh or state polling",
+      "Silently held SSE response replaced after missing heartbeat; state resynchronized",
+      "Continuous outage stops within finite five-minute retry window, with no task-state queries"
+    ],
+    "time_controls": "36-second outage uses real browser time; inactivity and five-minute exhaustion use the browser clock",
+    "log": "test-results/recovery-reconnect-browser.log"
+  },
+  "source_validation": {
+    "system_recovery_go_tests": "passed",
+    "eventstream_build": "passed (no standalone tests)",
+    "vet": "passed",
+    "javascript_syntax": "passed",
+    "core_build": "passed",
+    "logs": [
+      "test-results/recovery-reconnect-go.log",
+      "test-results/recovery-reconnect-vet.log",
+      "test-results/recovery-reconnect-core-build.log"
+    ]
+  },
+  "native_validation": {
+    "A_then_protected_B": true,
+    "auxiliary_restore_targets_owned_by_fixture": true,
+    "backend_port": 65201,
+    "cache_namespace_rotates_on_recovery": true,
+    "config_file": "/private/tmp/pxr-1820680336/source/config.yaml",
+    "core_pid": 12657,
+    "darwin_aliased_pwd_and_mixed_paths": true,
+    "external_connection_blocks_before_overwrite": true,
+    "external_task_connection_blocks_before_overwrite": true,
+    "full_restart_retains_A": true,
+    "legacy_snapshot_missing_catalog": true,
+    "no_coordinator_or_gateway_process_started": true,
+    "passed": true,
+    "redis_protection_restored": true,
+    "same_config_dsn_and_ports": true,
+    "same_core_pid_across_restore": true,
+    "shared_cache_connection_does_not_block": true,
+    "shared_cache_data_retained": true
+  },
+  "native_browser": {
+    "passed": 3,
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "same_original_address": true,
+    "automatic_completion_and_reconnect": true,
+    "no_idle_catalog_polling": true,
+    "log": "test-results/recovery-reconnect-native-browser.log"
+  },
+  "cleanup": {
+    "owned_processes_exited": true,
+    "owned_ports_released": [
+      3487,
+      3489,
+      65081,
+      65082,
+      65201,
+      65202
+    ],
+    "native_fixture_removed": true,
+    "daily_http_status": {
+      "3030": 200,
+      "8077": 200
+    },
+    "daily_core_pid_unchanged": 79495,
+    "daily_services_restarted_by_agent": false,
+    "remote_server_operated": false
+  },
+  "rollout": "Core embeds portal/app.js; user must restart their normal Core and reload the page to load the fix. Existing completed task must not be submitted again.",
+  "limits": [
+    "No access to the existing user browser connection; two deterministic client defects reproduced separately",
+    "Full replacement was run only in the owned development fixture; Linux and production are not accepted by this run"
+  ],
+  "core_sha256": "642a975094ed8fa2f738100099e7dc76ed671c847d97de90ebc8c788862ede7b",
+  "script_sha256": "54a553b1cc7b517655507cb89412e247b408030fb4bf57054dd4f7b78d9bdafc",
+  "production_deployed": false
+}

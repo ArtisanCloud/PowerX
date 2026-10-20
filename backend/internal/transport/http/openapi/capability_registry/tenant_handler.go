@@ -979,7 +979,7 @@ func buildErrorObject(summary string) map[string]string {
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	var businessErr *dto.AppError
-	if errors.As(err, &businessErr) && (strings.HasPrefix(businessErr.Code, "METADATA_") || strings.HasPrefix(businessErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(businessErr.Code, "KNOWLEDGE_") || strings.HasPrefix(businessErr.Code, "SCHEDULER_") || strings.HasPrefix(businessErr.Code, "IAM_CONTEXT_")) {
+	if errors.As(err, &businessErr) && (strings.HasPrefix(businessErr.Code, "METADATA_") || strings.HasPrefix(businessErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(businessErr.Code, "KNOWLEDGE_") || strings.HasPrefix(businessErr.Code, "SCHEDULER_") || strings.HasPrefix(businessErr.Code, "IAM_CONTEXT_") || strings.HasPrefix(businessErr.Code, "IAM_BASELINE_")) {
 		// typed Core 业务错误保留原始 HTTP 状态，不能降为通用上游 502。
 		base := capability_registrydto.ErrInvalidRequest
 		base.HTTPStatus = businessErr.HTTPCode

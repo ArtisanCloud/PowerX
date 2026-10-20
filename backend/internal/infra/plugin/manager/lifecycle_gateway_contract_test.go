@@ -83,6 +83,35 @@ func TestInjectGlobalGatewayRuntimeEnvInjectsRuntimeSTSAndRemovesDeprecatedCrede
 	}
 }
 
+func TestGatewayAPIPrefixMatchesCoreInHostConfigAndProcessEnv(t *testing.T) {
+	cred := &PluginRuntimeCredential{
+		TenantUUID: "11111111-1111-4111-8111-111111111111", ClientID: "fixture-client", ClientSecret: "fixture-secret",
+		GRPCAddress: "127.0.0.1:9001", GatewayBaseURL: "http://127.0.0.1:8077",
+	}
+	for _, tc := range []struct{ configured, expected string }{
+		{"", "/api"}, {"/api/v1", "/api/v1"}, {"/api/v2", "/api/v2"}, {"/core/custom", "/core/custom"}, {"/", "/"},
+	} {
+		t.Run(tc.configured, func(t *testing.T) {
+			m := &managerImpl{opts: Options{CoreConfig: &config.Config{Server: config.ServerConfig{Port: 8077, APIPrefix: tc.configured}}}}
+			env := map[string]string{"PX_GATEWAY_API_PREFIX": "/stale-prefix"}
+			doc := map[string]any{"gateway": map[string]any{"api_prefix": "/stale-prefix"}}
+			if err := m.applyDelegatedHostContract(env, doc, "plugin.fixture", cred); err != nil {
+				t.Fatal(err)
+			}
+			if env["PX_GATEWAY_API_PREFIX"] != tc.expected || doc["gateway"].(map[string]any)["api_prefix"] != tc.expected {
+				t.Fatalf("Core API prefix was not propagated: env=%q structured=%v", env["PX_GATEWAY_API_PREFIX"], doc["gateway"])
+			}
+			env["PX_GATEWAY_API_PREFIX"] = "/stale-prefix"
+			if err := m.injectGlobalGatewayRuntimeEnv(env, "plugin.fixture", cred); err != nil {
+				t.Fatal(err)
+			}
+			if env["PX_GATEWAY_API_PREFIX"] != tc.expected {
+				t.Fatalf("process API prefix=%q, expected=%q", env["PX_GATEWAY_API_PREFIX"], tc.expected)
+			}
+		})
+	}
+}
+
 func TestDelegatedHostContractPrefersRuntimeEnvOverStaleHostValues(t *testing.T) {
 	t.Setenv("POWERX_HTTP_PROXY_BASE", "http://127.0.0.1:8081/")
 	t.Setenv("POWERX_PUBLIC_BASE_URL", "https://agent-dev.example.com/")

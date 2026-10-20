@@ -1,0 +1,107 @@
+{
+  "recorded_at": "2026-10-18T17:40:37.650202+00:00",
+  "problem": "The prior current-instance restore incorrectly treated disposable cache DB 0 as a whole-database recovery target. Actual local development services share this cache DB, so restore failed at preflight.",
+  "read_only_local_diagnosis": {
+    "cache_db": 0,
+    "queue_db": 5,
+    "event_bus": "local",
+    "failed_job": "acff9e90-7789-4851-b276-1aae4ac085a1",
+    "status": "failed",
+    "phase": "preflight before replacement",
+    "rollback_snapshot_created": false,
+    "replacement_journal_created": false,
+    "business_data_overwritten": false,
+    "external_clients_seen_in_cache_db": true
+  },
+  "changes": [
+    "Core cache keys use an installation-specific namespace and a recovery cache epoch",
+    "Ordinary restart reuses the current cache epoch; recovery starts a new epoch and rebuilds cache from the restored DB",
+    "Disposable cache DB is excluded from CLIENT LIST exclusivity checks, whole-DB dump and FLUSHDB",
+    "Persistent queue/event DBs retain exclusivity checks and protection-image recovery",
+    "Old dev Core artifacts lacking the cache isolation protocol keep the current maintenance adapter",
+    "Transient gateway messages are localized and cleared on successful pushed synchronization; failed phase is shown in Chinese"
+  ],
+  "native_regression": {
+    "A_then_protected_B": true,
+    "cache_namespace_rotates_on_recovery": true,
+    "external_connection_blocks_before_overwrite": true,
+    "external_task_connection_blocks_before_overwrite": true,
+    "full_restart_retains_A": true,
+    "no_coordinator_or_gateway_process_started": true,
+    "passed": true,
+    "redis_protection_restored": true,
+    "same_config_dsn_and_ports": true,
+    "same_core_pid_across_restore": true,
+    "shared_cache_connection_does_not_block": true,
+    "shared_cache_data_retained": true
+  },
+  "native_fixture_layout": {
+    "cache_db": 0,
+    "foreign_cache_connection": "held open during restore and browser regression",
+    "queue_db": 5,
+    "persistent_event_db": 5,
+    "production_plugins_enabled": false
+  },
+  "checks": {
+    "go_packages_all_tests_passed": 5,
+    "cache_namespace_miniredis_test": "passed; all cache mutations isolate keys",
+    "current_cache_scope_unit_tests": "passed",
+    "vet": "passed",
+    "core_build": "passed; embedded portal assets match current source",
+    "real_browser_tests": 3,
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "gateway_error_test": "Inject one 502 during initial catalog read; next SSE invalidation synchronizes state and removes transient warning",
+    "idle_page_status_polling": false
+  },
+  "logs": [
+    "test-results/recovery-shared-cache-unit.log",
+    "test-results/recovery-shared-cache-go.log",
+    "test-results/recovery-shared-cache-vet.log",
+    "test-results/recovery-shared-cache-native-final.log",
+    "test-results/recovery-shared-cache-browser.log"
+  ],
+  "cleanup": {
+    "owned_processes_released": true,
+    "ports_released": [
+      {
+        "port": 3489,
+        "released": true
+      },
+      {
+        "port": 54227,
+        "released": true
+      },
+      {
+        "port": 54308,
+        "released": true
+      },
+      {
+        "port": 54309,
+        "released": true
+      }
+    ],
+    "failed_fixture_removed_after_preserving_diagnostic_log": true,
+    "user_daily_services_http_health": {
+      "3030": 200,
+      "8077": 200
+    },
+    "user_daily_services_restarted": false,
+    "remote_server_operated": false
+  },
+  "limits": [
+    "Current automatic overwrite remains dev + PostgreSQL + local media only",
+    "Production, Linux and real installed production plugins are not accepted by this regression",
+    "Queue/event DBs shared with other active clients remain blocked; the fix does not authorize clearing other applications data"
+  ],
+  "core_sha256": "778e6dcfee8265dca6cdda06f1954d421550c89f5d94a4f2dccf7a26099fbe66",
+  "production_deployed": false
+}

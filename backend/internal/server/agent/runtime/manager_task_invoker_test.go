@@ -58,8 +58,8 @@ func testWorkerManagerSummary(t *testing.T, withReport bool) {
 	_, run, err = store.StartTask(ctx, id, run.Version, 0, "plan", "planner", 1)
 	require.NoError(t, err)
 	full := &flowschema.ExecutionPlan{PlanID: "review", Tasks: []flowschema.PlanTask{
-		{TaskID: "source", NodeKind: "skill", NodeRef: "skill.source", Stage: 1},
-		{TaskID: "campaign", NodeKind: "skill", NodeRef: "skill.campaign", Stage: 1},
+		{TaskID: "source", NodeKind: "skill", NodeRef: "skill.source", Stage: 1, Params: map[string]any{"message": "planner summary"}},
+		{TaskID: "campaign", NodeKind: "skill", NodeRef: "skill.campaign", Stage: 1, Params: map[string]any{"payload": map[string]any{"message": "rewritten source"}}},
 		{TaskID: "summary", NodeKind: "skill", NodeRef: "skill.summary", Stage: 2, DependsOn: []string{"source", "campaign"}, ParamRefs: map[string]string{
 			"source": "{{task.source.output.result.content}}", "campaign": "{{task.campaign.output.result.content}}",
 		}},
@@ -82,6 +82,9 @@ func testWorkerManagerSummary(t *testing.T, withReport bool) {
 	release := make(chan struct{})
 	manager.SetSkillInvoker(func(callCtx context.Context, in agent.SkillInvokeInput) (*agent.SkillInvokeOutput, error) {
 		calls.Add(1)
+		if in.Payload["message"] != "review 29万元" {
+			return nil, fmt.Errorf("original user source lost: %v", in.Payload)
+		}
 		if in.SkillID == "skill.summary" {
 			if in.Payload["source"] != "skill.source" || in.Payload["campaign"] != "skill.campaign" {
 				return nil, fmt.Errorf("missing persisted analysis results: %v", in.Payload)
@@ -93,11 +96,16 @@ func testWorkerManagerSummary(t *testing.T, withReport bool) {
 			draft := evidence.Draft{Schema: evidence.DraftSchema, Kind: "analysis",
 				Data:         []evidence.DraftDatum{{Key: "revenue", Label: "revenue", Unit: "万元", Scope: "campaign", Kind: "quantity", Source: evidence.Source{Pointer: "/message", Quote: "29万元", Literal: "29"}}},
 				Calculations: []evidence.Calculation{}, Hypotheses: []string{}, Gaps: []string{}, Actions: []string{}}
-			report, err := evidence.Compile(callCtx, draft, map[string]any{"message": "29万元"}, []string{"/message"}, id.TenantUUID, uuid.NewString(), id.TraceID)
+			report, err := evidence.Compile(callCtx, draft, in.Payload, []string{"/message"}, id.TenantUUID, uuid.NewString(), id.TraceID)
 			if err != nil {
 				return nil, err
 			}
-			return &agent.SkillInvokeOutput{Status: "completed", SkillID: in.SkillID, Result: map[string]any{"response_envelope": report}}, nil
+			return &agent.SkillInvokeOutput{Status: "completed", SkillID: in.SkillID, Result: map[string]any{
+				"response_envelope": report,
+				"response_labels": evidence.ResponseLabels{Schema: "labels/v1", RevisionUUID: "published", Locales: map[string]map[string]string{
+					"zh-CN": {"revenue": "收入"},
+				}},
+			}}, nil
 		} else {
 			started <- in.SkillID
 			select {
@@ -109,7 +117,7 @@ func testWorkerManagerSummary(t *testing.T, withReport bool) {
 		return &agent.SkillInvokeOutput{Status: "completed", SkillID: in.SkillID, Result: map[string]any{"content": in.SkillID}}, nil
 	})
 	executor := &ServiceSessionTaskExecutor{Runs: store, Objects: objects, Invoker: &ManagerTaskInvoker{Manager: manager}, Loader: planningInputLoaderFunc(func(callCtx context.Context, _ agent_run.TaskRef) (InvokePlanningInput, error) {
-		return InvokePlanningInput{Context: reqctx.WithEnv(reqctx.WithTenantUUID(callCtx, id.TenantUUID), id.Env), Message: "review"}, nil
+		return InvokePlanningInput{Context: reqctx.WithEnv(reqctx.WithTenantUUID(callCtx, id.TenantUUID), id.Env), Message: "review 29万元"}, nil
 	})}
 	deliveries, err := queue.Dequeue(ctx, id.TenantUUID+":"+id.Env, agent_run.AgentTaskSubscriber, "workers", "worker", 10, time.Millisecond)
 	require.NoError(t, err)
@@ -169,6 +177,9 @@ func testWorkerManagerSummary(t *testing.T, withReport bool) {
 	var report map[string]any
 	require.NoError(t, json.Unmarshal(result.ResponseEnvelope, &report))
 	require.Equal(t, evidence.ReportSchema, report["schema"])
+	var labels evidence.ResponseLabels
+	require.NoError(t, json.Unmarshal(result.ResponseLabels, &labels))
+	require.Equal(t, "收入", labels.Locales["zh-CN"]["revenue"])
 	_, err = evidence.ValidateReport(report)
 	require.NoError(t, err)
 }

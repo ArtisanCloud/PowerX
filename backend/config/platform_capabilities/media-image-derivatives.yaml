@@ -1,0 +1,83 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.media.image_derivatives.read
+    module: media
+    title: Image Derivative Status
+    description: Read preview processing status for an existing tenant media asset.
+    title_i18n: {zh-CN: 图片预览处理状态, en: Image Derivative Status}
+    description_i18n: {zh-CN: 读取原图上传与标准预览的独立处理状态。, en: Read original upload and standard preview processing status separately.}
+    permission_code: corex.media.image_derivatives:read
+    agent_usable: false
+    risk_level: low
+    categories: [media, image, read]
+    intents: [media.image_derivatives.status]
+    tool_scopes: [media.image_derivatives.read]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/media-image-derivatives.md, specs/001-media-storage/contracts/image-derivatives.openapi.yaml]
+    protocols:
+      - channel: core_internal
+        endpoint: core://media/image-derivatives
+        method: INVOKE
+        schema_ref: specs/001-media-storage/contracts/image-derivatives.openapi.yaml#/components/schemas/StatusOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: media.image_derivatives.read
+        api_key: {scope: _scope.media.image_derivatives.read, action: read, resource_type: capability, resource_pattern: media_image_derivatives}
+      - channel: rest
+        endpoint: /api/v1/tenant/media/assets/{asset_uuid}/derivatives/events
+        method: GET
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: true
+        tool_scope: media.image_derivatives.read
+        api_key: {scope: _scope.media.image_derivatives.read, action: read, resource_type: capability, resource_pattern: media_image_derivatives}
+      - channel: rest
+        endpoint: /api/v1/admin/media/assets/{uuid}/derivatives
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: media.image_derivatives.read
+      - channel: rest
+        endpoint: /api/v1/admin/media/assets/{uuid}/derivatives/events
+        method: GET
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: media.image_derivatives.read
+  - capability_id: com.corex.media.image_derivatives.ensure
+    module: media
+    title: Ensure Image Derivatives
+    description: Ensure missing standard previews using an existing original without retransmitting it.
+    title_i18n: {zh-CN: 补齐标准图片预览, en: Ensure Image Derivatives}
+    description_i18n: {zh-CN: 复用已上传的原图补齐标准预览，异步失败与原图上传独立。, en: Generate missing previews from a stored original with independent processing status.}
+    permission_code: corex.media.image_derivatives:ensure
+    agent_usable: false
+    risk_level: medium
+    categories: [media, image, write]
+    intents: [media.image_derivatives.ensure]
+    tool_scopes: [media.image_derivatives.ensure]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/media-image-derivatives.md, specs/001-media-storage/contracts/image-derivatives.openapi.yaml]
+    protocols:
+      - channel: core_internal
+        endpoint: core://media/image-derivatives
+        method: INVOKE
+        schema_ref: specs/001-media-storage/contracts/image-derivatives.openapi.yaml#/components/schemas/EnsureOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: media.image_derivatives.ensure
+        api_key: {scope: _scope.media.image_derivatives.ensure, action: ensure, resource_type: capability, resource_pattern: media_image_derivatives}
+      - channel: rest
+        endpoint: /api/v1/admin/media/assets/{uuid}/derivatives/ensure
+        method: POST
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: media.image_derivatives.ensure

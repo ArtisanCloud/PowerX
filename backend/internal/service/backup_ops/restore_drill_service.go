@@ -182,14 +182,7 @@ func (s *RestoreDrillService) trigger(ctx context.Context, req TriggerRestoreDri
 		zap.String("operator", saved.Operator),
 		zap.String("trace_id", saved.TraceID),
 	)
-	publishRestoreDrillStatus(ctx, map[string]any{
-		"drill_id":      toStringUint(saved.ID),
-		"source_job_id": toStringUint(saved.SourceJobID),
-		"status":        string(saved.Status),
-		"rto_seconds":   saved.RTOSec,
-		"trace_id":      strings.TrimSpace(saved.TraceID),
-		"operator":      strings.TrimSpace(saved.Operator),
-	})
+	publishRestoreDrillStatus(ctx, s.db, saved)
 	return saved, nil
 }
 

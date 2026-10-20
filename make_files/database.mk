@@ -25,12 +25,19 @@ db-create:
 	@echo "✅ 完成"
 
 # 你的其他目标不变（已改为跑包路径的写法）：
+# CONFIG 相对仓库根目录；避免 abspath 按空格拆分配置文件名。
+DATABASE_CONFIG_ARG = $(if $(strip $(CONFIG)),-config "$(if $(filter /%,$(firstword $(CONFIG))),,$(CURDIR)/)$(CONFIG)")
+
+.PHONY: init-secrets
+init-secrets:
+	@cd backend && $(GO) run ./cmd/database init-secrets $(DATABASE_CONFIG_ARG)
+
 .PHONY: migrate db-migrate
 migrate: db-migrate
 
 db-migrate:
 	@echo "执行数据库迁移..."
-	@cd backend && $(GO) run ./cmd/database migrate
+	@cd backend && $(GO) run ./cmd/database migrate $(DATABASE_CONFIG_ARG)
 
 .PHONY: db-rollback
 db-rollback:
@@ -56,7 +63,7 @@ db-refresh:
 .PHONY: db-status
 db-status:
 	@echo "查看数据库迁移状态..."
-	@cd backend && $(GO) run ./cmd/database status
+	@cd backend && $(GO) run ./cmd/database status $(DATABASE_CONFIG_ARG)
 
 .PHONY: iam-migration-report
 iam-migration-report:
@@ -83,6 +90,7 @@ iam-role-binding-duplicates-fix:
 .PHONY: help
 help:
 	@echo "数据库操作命令:"
+	@echo "  make init-secrets  - 首次手动部署：生成并保存独立密钥（可传 CONFIG=/实际/config.yaml）"
 	@echo "  make db-migrate    - 执行数据库迁移"
 	@echo "  make seed          - 顺序执行数据库种子与 Capability Registry 同步"
 	@echo "  make db-rollback   - 回滚数据库迁移"

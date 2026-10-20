@@ -47,6 +47,10 @@ func verifyArtifactFile(path string, artifact *modelops.BackupArtifact) error {
 		return err
 	}
 	defer f.Close()
+	return verifyOpenArtifactFile(f, artifact)
+}
+
+func verifyOpenArtifactFile(f *os.File, artifact *modelops.BackupArtifact) error {
 	info, err := f.Stat()
 	if err != nil {
 		return err

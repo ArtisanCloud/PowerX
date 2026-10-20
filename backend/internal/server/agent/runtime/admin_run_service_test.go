@@ -11,6 +11,7 @@ import (
 	agentauthz "github.com/ArtisanCloud/PowerX/internal/service/agent_authz"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	trace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	iam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -37,12 +38,12 @@ func adminRunFixture(t *testing.T, observeRedis ...func(*redis.Client)) (*AdminR
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(&model.AdminRunAdmission{}, &iam.User{}, &iam.Member{}))
 	// 旧聊天模型含 PostgreSQL JSONB 默认表达式；此处使用等价 SQLite 表测试真实事务路径。
-	require.NoError(t, db.Exec(fmt.Sprintf(`CREATE TABLE %s (id integer primary key, uuid text unique, created_at datetime, updated_at datetime, deleted_at datetime, env text, tenant_uuid text, agent_id integer, user_id integer, title text, singleton boolean, ttl_days integer, max_kb integer, max_tokens integer, summary text, summary_at datetime, status text, latest_at datetime, expired_at datetime, meta text)`, chatmodel.TableAgentChatSession)).Error)
+	require.NoError(t, db.Exec(fmt.Sprintf(`CREATE TABLE %s (id integer primary key, uuid text unique, created_at datetime, updated_at datetime, deleted_at datetime, env text, tenant_uuid text, agent_id integer, user_id integer, session_type text not null default 'legacy', team_id integer not null default 0, title text, singleton boolean, ttl_days integer, max_kb integer, max_tokens integer, summary text, summary_at datetime, status text, latest_at datetime, expired_at datetime, meta text)`, chatmodel.TableAgentChatSession)).Error)
 	require.NoError(t, db.Exec(fmt.Sprintf(`CREATE TABLE %s (id integer primary key, uuid text unique, created_at datetime, updated_at datetime, deleted_at datetime, env text, tenant_uuid text, session_id integer, agent_id integer, role text, content text, content_type text, format text, tokens integer, size_bytes integer, pinned boolean, is_error boolean, meta text)`, chatmodel.TableAgentChatMessage)).Error)
 	actor := iam.User{Status: 1, IsRoot: true}
 	require.NoError(t, db.Create(&actor).Error)
 	tenant := uuid.NewString()
-	session := chatmodel.AgentChatSession{Env: "dev", TenantUUID: &tenant, AgentID: 7, UserID: actor.ID, Status: "active"}
+	session := chatmodel.AgentChatSession{Env: "dev", TenantUUID: &tenant, AgentID: 7, UserID: actor.ID, SessionType: chatmodel.SessionTypeAgent, Status: "active"}
 	require.NoError(t, db.Create(&session).Error)
 	message := chatmodel.AgentChatMessage{Env: "dev", TenantUUID: &tenant, AgentID: 7, SessionID: session.ID, Role: "user", Content: "review"}
 	require.NoError(t, db.Create(&message).Error)
@@ -285,4 +286,25 @@ func TestAdminFailedHistoricalRunEndsWhenAssistantWasTruncated(t *testing.T) {
 		require.Equal(t, 1, ended)
 		require.Equal(t, 1, end)
 	}
+}
+
+func TestAdminInputPreservesOnlyIngressStructuredSource(t *testing.T) {
+	service, db, ctx, cfg := adminRunFixture(t)
+	original := "1234567890123456789012345678901234567890.125"
+	ctx, err := evidence.WithStructuredToolInput(ctx, evidence.StructuredToolInput{Schema: evidence.StructuredToolInputSchema, Values: map[string]string{"length_cm": original}})
+	require.NoError(t, err)
+	ctx = context.WithValue(ctx, "agent_structured_tool_input", map[string]any{"forged": true})
+	_, err = service.Admit(ctx, "review", cfg, "", "structured-input")
+	require.NoError(t, err)
+	var anchor model.AdminRunAdmission
+	require.NoError(t, db.First(&anchor).Error)
+	input, err := loadAdminRunInput(ctx, service.Objects, &anchor)
+	require.NoError(t, err)
+	fresh := reqctx.WithEnv(reqctx.WithUserUUID(reqctx.WithTenantUUID(context.Background(), anchor.TenantUUID.String()), reqctx.GetUserUUID(ctx)), anchor.Env)
+	// Worker 在当前身份/租户校验之后，从受控原件重新建立私有来源权威。
+	fresh, err = evidence.WithStructuredToolInput(fresh, input.Context["agent_structured_tool_input"])
+	require.NoError(t, err)
+	values, err := evidence.TrustedToolInputValues(fresh)
+	require.NoError(t, err)
+	require.Equal(t, json.Number(original), values["length_cm"])
 }

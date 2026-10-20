@@ -97,6 +97,7 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useRestoreCopyService, type RestoreCopy, type RestoreCopyPlan, type RestoreCopySource, type RestoreCopyConnection } from '~/composables/api/services/restoreCopyService';
 import type { BackupJob } from '~/composables/api/services/backupOpsService';
 import { formatBackupTime } from '~/utils/backup-display';
+import { useBackupEvents } from '~/composables/useBackupEvents';
 const props = defineProps<{ jobs: BackupJob[] }>();
 const { t, locale } = useI18n();
 const service = useRestoreCopyService();
@@ -119,16 +120,16 @@ const isRunning = (item: RestoreCopy) => item.status === 'queued' || item.status
 const phaseLabel = (phase: string) => ['queued', 'validating', 'creating', 'restoring', 'checking'].includes(phase) ? t(`backupCenter.copies.phase.${phase}`) : phase;
 const businessLabel = (key: string) => ['tenants', 'users', 'design_tasks', 'orders', 'sample_rounds'].includes(key) ? t(`backupCenter.copies.business.${key}`) : key;
 const failure = (e: any) => { const data = e?.response?._data || e?.data; return [...new Set([data?.message || e?.message || t('backupCenter.failed'), data?.error_code || data?.error, data?.trace_id || data?.request_id].filter(Boolean))].join(' · '); };
-let timer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 let listRevision = 0;
-async function refresh() {
-  if (loading.value || disposed) return;
-  clearTimeout(timer); loading.value = true;
+async function refresh(fromPush = false) {
+  if (disposed) return;
+  if (loading.value) { if (fromPush) pendingRefresh = true; return; }
+  loading.value = true;
   const revision = listRevision;
   try { const result = await service.list(); if (!disposed && revision === listRevision) { items.value = result; error.value = ''; } }
   catch (e) { if (!disposed && revision === listRevision) error.value = failure(e); }
-  finally { loading.value = false; if (!disposed && items.value.some(isRunning)) timer = setTimeout(refresh, error.value ? 10000 : 2000); }
+  finally { loading.value = false; if (pendingRefresh && !disposed) { pendingRefresh = false; void refresh(); } }
 }
 function resetPlan() { plan.value = undefined; source.value = undefined; confirmed.value = false; allowOlder.value = false; requestKey.value = ''; wizardError.value = ''; }
 function open(job?: BackupJob) { resetPlan(); file.value = undefined; sourceMode.value = job || jobOptions.value.length ? 'job' : 'upload'; jobId.value = job ? String(job.id) : jobOptions.value[0]?.value || ''; wizardOpen.value = true; }
@@ -196,7 +197,9 @@ async function remove() {
   catch (e) { deleteError.value = failure(e); } finally { deleting.value = false; }
 }
 watch(connectionOpen, open => { if (!open) { connectionRevision++; connection.value = undefined; copied.value = false; passwordCopied.value = false; } });
+let pendingRefresh = false;
+useBackupEvents("restore_copies", () => { void refresh(true); });
 onMounted(refresh);
-onBeforeUnmount(() => { disposed = true; clearTimeout(timer); connection.value = undefined; });
+onBeforeUnmount(() => { disposed = true; connection.value = undefined; });
 defineExpose({ open });
 </script>

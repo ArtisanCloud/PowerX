@@ -1,6 +1,6 @@
 ---
 name: api-naming
-description: PowerX API 命名与访问规范（/api/v1、/admin、/internal 边界）。
+description: PowerX API 命名、前缀配置、版本迁移与插件网关路径规范（/admin、/internal 边界）。
 ---
 
 # PowerX API Naming
@@ -8,8 +8,9 @@ description: PowerX API 命名与访问规范（/api/v1、/admin、/internal 边
 ## 步骤
 
 1) 打开 `本文件内嵌规则`。
-2) 按规则执行实现/校对。
-3) 完成后按核对清单验收。
+2) 涉及前缀配置、路径转换、公开策略或版本迁移时，读取 [共享前缀与版本规范](../../../../docs/standards/_shared/api-prefix-and-versioning.md)，按其中的来源、坐标与验收要求执行。
+3) 按规则执行实现/校对，并区分已实现行为、待办要求和实际运行环境证据。
+4) 完成后按核对清单验收。
 
 ## 核对点
 
@@ -79,6 +80,15 @@ description: PowerX API 命名与访问规范（/api/v1、/admin、/internal 边
 - 稳定对外接口必须挂在 `/api/v1`，有破坏性变更时升级 `/api/v2`
 - `/api/internal` 不承诺稳定版本，但变更需记录在变更日志
 - `/api` 仅作为兼容入口或内部路由代理，不建议新功能落地
+
+### 2.1 前缀统一管理与版本迁移
+
+前缀配置、版本升级、路径转换及验收要求统一见 [API 前缀统一管理与版本升级规范](../../../../docs/standards/_shared/api-prefix-and-versioning.md)。设计或修改路由、代理、公开策略、认证重定向和版本迁移时必须按该规范核对。
+
+- 修改 `server.api_prefix` 只改变路由挂载地址，不能替代 v2 合同、兼容层和调用方迁移。
+- Core API prefix、插件网关挂载 prefix 和插件自身 HTTP base 分别管理；Core 升级不得自动覆盖插件版本。
+- 路径构建与策略匹配共享转换规则；公开 exposure 与请求统一使用相对于插件 HTTP base 的比较路径。
+- 回归必须串联策略生成、安装、挂载与真实请求到模拟上游，并覆盖 v1、v2 和自定义前缀；这些路径测试不表示 v2 业务合同已交付。
 
 ---
 
@@ -203,5 +213,6 @@ GET /_p/<pluginId>/api/healthz
 
 ## 8. 变更记录
 
+- 2026-10-13：补充前缀统一管理、配置与契约版本区别、插件公开入口完整链路及版本迁移要求，引用共享规范。
 - 2026-02-03：首次定义 `/api/internal` 作为宿主/插件内部 API 前缀
 ````

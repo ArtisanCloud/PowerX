@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	"strings"
 	"time"
 
@@ -326,6 +327,12 @@ func (s *InvokeService) recordFailedTrace(
 func errorCodeFromError(err error) string {
 	if err == nil {
 		return ""
+	}
+	if errors.Is(err, ErrDefinitionContractUpgradeRequired) {
+		return ErrDefinitionContractUpgradeRequired.Error()
+	}
+	if failure, ok := evidence.FailureDetails(err); ok {
+		return failure.Code
 	}
 	msg := strings.ToLower(strings.TrimSpace(err.Error()))
 	for _, code := range []string{

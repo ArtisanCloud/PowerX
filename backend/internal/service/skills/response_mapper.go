@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -28,6 +29,8 @@ func MapInvokeError(err error) (int, ErrorEnvelope) {
 	msg := strings.TrimSpace(err.Error())
 	lower := strings.ToLower(msg)
 	switch {
+	case errors.Is(err, ErrDefinitionContractUpgradeRequired):
+		return http.StatusConflict, ErrorEnvelope{Code: ErrDefinitionContractUpgradeRequired.Error(), Message: ErrDefinitionContractUpgradeRequired.Error()}
 	case strings.Contains(lower, ErrorCodePluginNotInstalled), strings.Contains(lower, "plugin not installed"):
 		return http.StatusNotFound, ErrorEnvelope{Code: ErrorCodePluginNotInstalled, Message: msg}
 	case strings.Contains(lower, ErrorCodePluginExecutorUnavailable), strings.Contains(lower, "plugin executor unavailable"):

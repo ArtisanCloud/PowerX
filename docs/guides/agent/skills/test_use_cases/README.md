@@ -2,6 +2,8 @@
 
 本目录默认先走 UI 操作，再用 API 命令留证与自动化回归。
 
+当前 024 / V5 的单 Agent 页面测试入口为[单 Agent 页面验收指南](../../../features/024-ai-engineering-skills/guide.md)。以下 L1～L8 用例按各自实际安装状态使用。
+
 ## 一次性准备（仅 API 留证需要）
 
 ```bash
@@ -26,14 +28,12 @@ export TMP_DIR="${TMP_DIR:-$(mktemp -d /tmp/powerx-skill-cases.XXXXXX)}"
 echo "TMP_DIR=$TMP_DIR"
 ```
 
-## 先确认 Seed 现状（避免空跑）
+## 先确认所用示例的实际安装状态
 
-1. 当前默认 seed **不包含** `incident-triage`。
-2. 默认 seed 示例技能是：
-- `skill.thirdparty.prompt-template`
-- `skill.thirdparty.hello-echo`
-3. 如果你在技能库搜索 `incident-triage`，出现 `共0条` 是正常现象（除非你已手工导入）。
-4. 建议先在技能库搜索 `skill.thirdparty.prompt-template` 验证是否已执行过 seed。
+1. 本轮单 Agent V5 验收使用 `marketing.review_summarize`，发布及页面准备按上方指南。
+2. 旧用例中的 `skill.thirdparty.prompt-template`、`skill.thirdparty.hello-echo` 必须在当前租户已导入、发布且符合当前执行合同；目录存在不代表可运行。
+3. `incident-triage` 为可选扩展，不是本轮验收前置。
+4. 示例缺失时检查导入、发布与依赖，不通过全量 seed 或重置数据库补齐测试环境。
 
 ## 执行顺序
 

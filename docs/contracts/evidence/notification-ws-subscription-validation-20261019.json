@@ -1,0 +1,138 @@
+{
+  "generated_at": "2026-10-18T16:23:32.689322+00:00",
+  "scope": "Core personal notification subscription authorization and Header WS lifecycle",
+  "initial_report": {
+    "source": "user supplied AI Craft feedback, historical Safari session not directly observed",
+    "reported_local_time": "2026-10-18T23:57:40+08:00",
+    "notification_uuid": "3c0616d3-8ef9-46b2-8f26-644f3dc67bb2",
+    "http_status": 200,
+    "reported_subscriber_count": 1,
+    "reported_emitted_count": 0
+  },
+  "live_readonly_verification": {
+    "database": "powerx",
+    "schema": "public",
+    "member_uuid": "72e055f4-f6b9-483d-974e-2276f8cfb574",
+    "member_id": 13,
+    "member_status": 1,
+    "user_status": 1,
+    "is_root": false,
+    "personal_topic_member_subscribe_acl": false,
+    "notification_is_read": true,
+    "read_at": "2026-10-18T23:57:40.821851+08:00",
+    "member_notification_count": 2,
+    "member_unread_count": 1,
+    "topic_tenant_key": "global",
+    "topic_status": 1,
+    "topic_lifecycle": "active",
+    "database_writes": false
+  },
+  "root_causes": [
+    "Production DefaultAuthorizer required an exact member Topic ACL for personal notifications, while Root bypassed that check. Existing receipt/WS tests supplied an always-allow ACL and missed this.",
+    "WS module-global initialized flags outlived the first component scope that owned identity watches. New sessions with the same token were not independently observed.",
+    "Header needed to wait for the current session member context and track an already-open shared socket when context became ready later."
+  ],
+  "fixes": [
+    "Only canonical registered _topic.system.notification subscribe uses verified JWT plus live IAM member identity; publish/replay and other topics keep existing ACL rules.",
+    "Hub target filtering and live write-time tenant/member/JWT validation remain enforced; revoked identities close their sockets.",
+    "Per-consumer watches, auth/storage/network listeners and subscriptions are released with their Vue scope; the last subscription closes the shared socket.",
+    "Header waits for a matching session context, rejects stale callbacks, synchronizes read receipts through existing Pinia store and refreshes once on reconnect.",
+    "No periodic notification status/list reads, no new contract/table/migration, no Framework/plugin edits."
+  ],
+  "reproduction_before_fix": {
+    "frontend": "WS lifecycle suite: 3 of 4 tests failed, covering scope remount and same-token new local/storage sessions",
+    "backend": "Real WS fixture with production authorizer and denied member ACL received error instead of subscribe ack"
+  },
+  "validation": [
+    {
+      "cwd": "web-admin",
+      "command": "npx vitest run tests/unit/notifications",
+      "status": "passed",
+      "files": 5,
+      "tests": 30,
+      "includes": [
+        "real Header + useWSBus + useNotifications flow",
+        "bell 2 to 1 while old notice remains unread",
+        "shared list/detail state",
+        "no periodic list queries during idle 60 seconds",
+        "one reconnect list read",
+        "new account/session rejects old frames",
+        "new tenant rebinding",
+        "first scope teardown followed by remount",
+        "multiple consumers release only owned subscriptions"
+      ]
+    },
+    {
+      "cwd": "backend",
+      "command": "go test -race ./internal/transport/websocket/bus ./internal/service/notifications",
+      "status": "passed",
+      "includes": [
+        "production authorizer without per-member ACL",
+        "two ordinary members plus Root",
+        "same-member dual devices",
+        "target read receipt isolation",
+        "other-tenant isolation",
+        "publish/other-topic still denied",
+        "forged member rejected",
+        "queued frame revocation closes sockets"
+      ]
+    },
+    {
+      "cwd": "backend",
+      "command": "go test -race ./internal/transport/http/openapi/notifications ./internal/transport/http/admin/notifications",
+      "status": "passed",
+      "includes": [
+        "signed service token to actual HTTP receipt route to DB to member WS",
+        "production WS authorizer with ACL denying all",
+        "default/v1/v2/custom/root API prefixes"
+      ]
+    },
+    {
+      "cwd": "backend",
+      "command": "go vet ./internal/transport/websocket/bus ./internal/transport/http/openapi/notifications ./internal/transport/http/admin/notifications ./internal/service/notifications",
+      "status": "passed"
+    },
+    {
+      "cwd": "backend",
+      "command": "go build -o <temporary-directory>/powerx ./cmd/app",
+      "status": "passed",
+      "artifact": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-ws-build-nunxk9tl/powerx",
+      "log": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-notification-ws-build-nunxk9tl/build.log"
+    }
+  ],
+  "intermediate_failures": [
+    "After introducing live IAM into authorizer, revoked write test exposed an early return before socket cleanup; canDeliver now also checks recipient identity on authorization failure and the race test passes.",
+    "HTTP test compilation temporarily failed on an unrelated concurrently edited recovery dependency (undefined recoveryops, then import cycle); this task did not modify that module. Current source passed HTTP tests, vet and full app build.",
+    "Extended shared-socket reconnect coverage required updating the older mock to model the transport dropping the old session socket during identity changes; final frontend suite passed all 30 tests."
+  ],
+  "runtime_actions": {
+    "stopped_user_services": false,
+    "restarted_user_services": false,
+    "started_agent_services": false,
+    "user_core_pid_preserved": 76295,
+    "user_core_port": 8077,
+    "executed_migration": false,
+    "modified_live_acl": false,
+    "modified_live_notifications": false,
+    "modified_framework": false,
+    "modified_plugin": false
+  },
+  "acceptance_boundary": {
+    "controlled_source_and_transport_tests": "passed",
+    "actual_Safari_session": "not inspected; computer tool inventory had no browsers/apps",
+    "installed_three_account_acceptance": "pending user running rebuilt Core and updated web-admin, then refreshing all account/device pages",
+    "expected_result": "one planner reads business content; only that member devices update, bell 2 -> 1; other planner and Root unchanged"
+  },
+  "sha256": {
+    "backend/internal/transport/websocket/bus/authorizer.go": "d013542ee027930d00aa77dedda49196873a32be88f409c8be77b7a52a286b3e",
+    "backend/internal/transport/websocket/bus/client.go": "336391ba69c076e08fc071d99f6ddff75c6767525bdd1f084610d548933213b8",
+    "backend/internal/transport/websocket/bus/notification_test.go": "df48ad7b5ed4f216224f546cc131bf36157ea5f9672a0e299eb2eb9fc8b2be6b",
+    "backend/internal/transport/http/openapi/notifications/handler_test.go": "1dc22b4dc72dc86e4eb5d9b00eaeb00edff0b66ae85dc4ab5aaabc7d7fdcc116",
+    "web-admin/app/components/layout/Header.vue": "98ebed00f70da410215503274a48e7c9d75de402f16d4da03e19e9d36fece2fe",
+    "web-admin/app/composables/useWSBus.ts": "2943dea5d5ced991a18fea597739f9d09ebdf79034ae888398dea7876760df00",
+    "web-admin/tests/unit/notifications/ws-identity.spec.ts": "ca691bb8d6ddcf847ab366201139f3a013afcdbb0f50b15cafdfb48d71566fff",
+    "web-admin/tests/unit/notifications/header-reconnect.spec.ts": "b41e69ca28d58be07b07ccbb997bb3aecdaf360ea217a5fc7bbe01f19ebafea6",
+    "web-admin/tests/unit/notifications/header-ws-flow.spec.ts": "bd627f8a80bf22d55348d7016a921e61a7b20268bef6b2e60c42983a3f9e382d",
+    "docs/contracts/notification-member-delivery.md": "c110c1767c5574c5ce3c6112cd0fa47f5427f23d6ce894f4caaecf0576d69374"
+  }
+}

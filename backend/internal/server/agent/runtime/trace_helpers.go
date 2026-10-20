@@ -11,6 +11,7 @@ import (
 
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agenttrace "github.com/ArtisanCloud/PowerX/internal/service/agent_trace"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
@@ -186,17 +187,22 @@ func (tr *traceRuntime) failNode(ctx context.Context, nodeID, kind, ref string, 
 	if err != nil {
 		summary = err.Error()
 	}
+	code, stage := "AGENT_RUNTIME_NODE_FAILED", ""
+	if failure, ok := evidence.FailureDetails(err); ok {
+		code, stage = failure.Code, failure.Stage
+	}
 	_ = tr.logger.FailNode(ctx, agenttrace.AgentTraceNodeFailure{
 		AgentTraceNodeResult: agenttrace.AgentTraceNodeResult{
-			AgentRunMeta: tr.meta,
-			NodeID:       nodeID,
-			NodeSeq:      tr.nodeSeqFor(nodeID),
-			NodeKind:     kind,
-			NodeRef:      strings.TrimSpace(ref),
-			StartedAt:    tr.starts[nodeID],
-			EndedAt:      now,
+			AgentRunMeta:  tr.meta,
+			NodeID:        nodeID,
+			NodeSeq:       tr.nodeSeqFor(nodeID),
+			NodeKind:      kind,
+			NodeRef:       strings.TrimSpace(ref),
+			StartedAt:     tr.starts[nodeID],
+			EndedAt:       now,
+			OutputSummary: map[string]any{"failure_stage": stage},
 		},
-		ErrorCode:    "AGENT_RUNTIME_NODE_FAILED",
+		ErrorCode:    code,
 		ErrorSummary: summary,
 	})
 }

@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-17",
+  "scope": "backup_and_recovery_page_status_push",
+  "requirement": "specs/027-monitor-center/tasks.md T036: WebSocket/SSE status updates; polling is diagnostic only",
+  "implementation": {
+    "root_event_stream": "GET /admin/ops/backup/events",
+    "shared_resources": ["snapshots", "recovery", "archives", "restore_copies"],
+    "independent_progress_stream": "GET /__powerx_recovery/jobs/{id}/events",
+    "change_source": "OS file notifications for committed operation ledgers",
+    "periodic_business_status_queries": false,
+    "heartbeat_seconds": 15,
+    "reauthorize_after_seconds": 60,
+    "transport_reconnect_backoff_max_seconds": 30,
+    "progress_ticket": "Read-only, job-scoped, expiring Authorization header; no URL or persistent browser storage",
+    "downstream_close_aborts_upstream": true,
+    "repository_rule": "AGENTS.md: asynchronous task status and event push",
+    "framework_blocking_task_queue_changed": false
+  },
+  "validation": {
+    "go_full_affected_packages": "passed",
+    "go_race_watch_and_authenticated_streams": "passed",
+    "go_vet": "passed",
+    "linux_amd64_app_and_snapshot_tool_build": "passed",
+    "frontend_unit_tests": {"passed": 54, "files": 10},
+    "isolated_nuxt_production_build": "passed",
+    "playwright_chromium": {"passed": 8, "duration_seconds": 39.8},
+    "browser_checks": [
+      "Active snapshot sends no periodic list/detail queries while unchanged",
+      "A pushed ledger change updates the visible snapshot",
+      "Panels share one Root event connection",
+      "Closing the browser context releases the upstream event connection",
+      "Desktop and narrow-screen task navigation preserve context",
+      "Independent coordinator progress continues during simulated Core downtime",
+      "On-demand exports, isolated-copy preparation and multipart import remain usable"
+    ],
+    "unit_checks": [
+      "Split SSE frames, comments, idle timeout and bounded reconnect",
+      "Repeated short connections increase reconnect backoff",
+      "Normal reauthorization does not show a disconnection failure",
+      "Logout or identity change cancels the old connection",
+      "Last panel unsubscribe releases the shared connection",
+      "Proxy forwards downstream cancellation upstream"
+    ],
+    "browser_fixture_process_record": "test-results/snapshot-browser-processes.json",
+    "build_log": "test-results/backup-push-build.log"
+  },
+  "acceptance_boundary": {
+    "browser_backend": "Controlled fixture, with real built Nuxt proxy and browser event connections",
+    "go_stream_tests": "Real HTTP servers and real filesystem notifications with temporary fixture ledgers",
+    "native_windows_edge_run": false,
+    "installed_user_core_restarted": false,
+    "installed_stack_acceptance": "Pending user Core restart and page refresh",
+    "whole_application_restore_accepted": false,
+    "production_changed": false,
+    "agent_fixture_services_left_running": false
+  }
+}

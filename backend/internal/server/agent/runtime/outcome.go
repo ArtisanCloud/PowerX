@@ -6,6 +6,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 )
 
 const (
@@ -47,6 +48,9 @@ func recoveryDecisionFromVerdict(verdict VerificationVerdict) recoveryDecision {
 // code supplied by the caller instead of inspecting an arbitrary error string.
 // The original error remains available to server logs and Trace nodes.
 func runtimeFailureOutcome(reasonCode string, err error) runtimeOutcome {
+	if failure, ok := evidence.FailureDetails(err); ok {
+		return runtimeOutcome{Status: RuntimeOutcomeFailed, ReasonCode: failure.Code}
+	}
 	if modelReason := modelFailureReason(err); modelReason != "" {
 		return runtimeOutcome{Status: RuntimeOutcomeFailed, ReasonCode: modelReason}
 	}

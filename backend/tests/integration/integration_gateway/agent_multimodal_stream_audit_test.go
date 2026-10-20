@@ -279,6 +279,8 @@ func createAgentStreamTables(db *gorm.DB) error {
 			env TEXT,
 			tenant_uuid TEXT,
 			agent_id INTEGER,
+			session_type TEXT NOT NULL DEFAULT 'legacy',
+			team_id INTEGER NOT NULL DEFAULT 0,
 			user_id INTEGER,
 			title TEXT,
 			singleton INTEGER,

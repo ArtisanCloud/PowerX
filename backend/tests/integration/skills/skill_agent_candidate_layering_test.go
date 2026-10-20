@@ -22,16 +22,16 @@ func TestSkillAgentCandidateLayering_SystemAgentDedupeAndAuthzFilter(t *testing.
 
 	// 同名候选：agent custom 应覆盖 system builtin。
 	m.UpsertUnifiedCandidate(agentpkg.ToolCallCandidate{
-		Name:         "workflow.same",
-		NodeKind:     "workflow",
-		NodeRef:      "workflow.same.agent",
-		FlowID:       "workflow.same.agent",
-		AgentID:      "agent.custom.layering",
-		SourceScope:  "agent",
-		Source:       "builtin",
-		Visibility:   "tenant",
-		BindingStatus:"active",
-		Description:  "agent custom workflow candidate",
+		Name:          "workflow.same",
+		NodeKind:      "workflow",
+		NodeRef:       "workflow.same.agent",
+		FlowID:        "workflow.same.agent",
+		AgentID:       "agent.custom.layering",
+		SourceScope:   "agent",
+		Source:        "builtin",
+		Visibility:    "tenant",
+		BindingStatus: "active",
+		Description:   "agent custom workflow candidate",
 	})
 
 	// 未授权候选：source 与 tool_grants 均不满足，应被过滤掉。
@@ -61,6 +61,7 @@ func TestSkillAgentCandidateLayering_SystemAgentDedupeAndAuthzFilter(t *testing.
 		TenantUUID:    "tenant-layering",
 		AgentID:       "agent.custom.layering",
 		ToolGrantIDs:  []string{"ops.read"},
+		BoundToolIDs:  []string{"cap.tooling.allowed", "cap.tooling.denied"},
 		AllowedSource: []string{"builtin"},
 	}, 0)
 
@@ -82,4 +83,3 @@ func TestSkillAgentCandidateLayering_SystemAgentDedupeAndAuthzFilter(t *testing.
 	require.Equal(t, "tooling", allowed.NodeKind)
 	require.Equal(t, "cap.tooling.allowed", allowed.NodeRef)
 }
-

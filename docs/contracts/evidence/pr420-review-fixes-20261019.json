@@ -1,0 +1,109 @@
+{
+  "handoff_id": "a46ffc22455c4fd2a38d0beb7f685f15",
+  "pr": 420,
+  "recorded_at": "2026-10-19T05:35:30.880636+00:00",
+  "reviewed_source_sha": "9ce66fe890a7ce8d2e3111867386df6579440a3d",
+  "base_head": "85f85e295260a2fedc48103e2765065a35b32581",
+  "items": [
+    {
+      "id": "f0a5168bd3ff4b039419d35b0d9439ee",
+      "valid_at_reviewed_sha": true,
+      "status": "fixed_in_worktree_pending_commit",
+      "fix_commit_sha": null,
+      "change": "Atomic writes report whether rename published the record. Before publication failure, move newly imported contents back to staging for cleanup; if rollback rename fails, attempt direct cleanup. Preserve both contents and record for a post-publication sync error. Import audit records started and final success/failed outcomes.",
+      "files": [
+        "backend/internal/service/snapshot_ops/package.go",
+        "backend/internal/service/snapshot_ops/store.go"
+      ],
+      "verification": [
+        "TestImportPublicationFailureRollsBackContentsAndAllowsRetry: injected record publication failure, no orphan final/staging directory, another snapshot preserved, same encrypted package can retry and export",
+        "TestImportPublicationKeepsReadablePackageAfterPublishedSyncError: late sync error keeps readable contents and record",
+        "TestImportPublicationRemovesUnpublishedContentsWhenRollbackRenameFails: fallback cleanup removes only new unpublished contents",
+        "TestAtomicJSONPublicationState: published/early-failure state and temporary record cleanup"
+      ]
+    },
+    {
+      "id": "6317ba86eb3a2f3f89f79d1b4d0249c7",
+      "valid_at_reviewed_sha": true,
+      "status": "fixed_in_worktree_pending_commit",
+      "fix_commit_sha": null,
+      "change": "Root verification uses config.ResolveAPIPrefix, normalizes leading/trailing slash and composes one /admin/user/auth/me/context path.",
+      "files": [
+        "backend/internal/service/system_recovery/portal.go"
+      ],
+      "verification": [
+        "TestRecoveryPortalRootSessionResolvesAPIPrefix: full recovery-session POST succeeds for omitted, empty, whitespace, custom, no-leading-slash, trailing-slash and root prefixes; session remains valid after mocked Core closes",
+        "TestRecoveryPortalDefaultPrefixStillRejectsNonRoot: ordinary member receives 403 and no session cookie"
+      ]
+    }
+  ],
+  "validation": {
+    "packages_passed": [
+      "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops",
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup",
+      "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+      "github.com/ArtisanCloud/PowerX/internal/bootstrap"
+    ],
+    "log": "test-results/pr420-review/fix-packages-final.jsonl",
+    "vet": "passed",
+    "vet_log": "test-results/pr420-review/fix-vet-final.log",
+    "core_build": "passed",
+    "build_log": "test-results/pr420-review/fix-build-final.log",
+    "policy_fixture_repeat": {
+      "passed": 15,
+      "log": "test-results/pr420-review/policy-fixture-final.log"
+    },
+    "git_diff_check": "passed"
+  },
+  "initial_validation_failure": {
+    "log": "test-results/pr420-review/fix-packages.jsonl",
+    "test": "TestManualSnapshotHTTPBindsSelectedSystemPolicy",
+    "observed": "Expected idempotent replay 202, got transient 409 while background capture cleanup competed for the policy lock; isolated rerun passed 15/15 before fixture change.",
+    "resolution": "Use explicit capture-dispatch fixture for policy-binding/enqueue/idempotency test, keeping capture queued and avoiding an unrelated asynchronous cleanup race. Production lock behavior is unchanged; full four-package run and fixture 15/15 now pass."
+  },
+  "cleanup": {
+    "owned_test_pids_exited": [
+      15017
+    ],
+    "owned_test_ports_released": [
+      56116,
+      56118,
+      56125,
+      56127,
+      56133,
+      56135,
+      56137,
+      56139
+    ],
+    "packages_passed": [
+      "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops",
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup",
+      "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+      "github.com/ArtisanCloud/PowerX/internal/bootstrap"
+    ]
+  },
+  "scope": {
+    "existing_uncommitted_changes_preserved": true,
+    "user_snapshots_changed": false,
+    "user_services_restarted": false,
+    "remote_server_operated": false,
+    "branch_switched": false,
+    "committed": false,
+    "merged": false,
+    "pushed": false,
+    "deployed": false,
+    "github_review_threads_modified": false
+  },
+  "rollout": "Load by restarting normal Core after source update; no frontend or migration change required for these two fixes.",
+  "limits": [
+    "Record publication failure uses controlled filesystem fault injection; late directory-sync error is injected at the publication boundary, not a full-disk volume test.",
+    "Root identity upstream is an owned strict-path HTTP fixture; no live user credentials used.",
+    "Native full-site restore, Linux and production deployment were not repeated for this patch."
+  ],
+  "worktree_sha256": {
+    "backend/internal/service/snapshot_ops/package.go": "f1c4d562008e5bb08713e5808ba461fa1a849ffad36b888ebcc47414f4bbf791",
+    "backend/internal/service/snapshot_ops/store.go": "62cc87a0abf612867eaf39e8c153d4c81bff0111ac07aac9051a0629e6652043",
+    "backend/internal/service/system_recovery/portal.go": "af50c697b5c98facdfe905cd0eae9cd7704903f4fc65f65a614820b0401f6690"
+  },
+  "core_build_sha256": "fc8c7fda5256d661570606ac3e90baeb0a18c152cb5d324c1c4216b997857c48"
+}

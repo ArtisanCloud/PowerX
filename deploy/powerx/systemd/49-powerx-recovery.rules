@@ -1,0 +1,9 @@
+// 由 root 安装并保持 root 所有；仅允许 powerx 管理唯一的托管实例单元。
+polkit.addRule(function(action, subject) {
+  if (action.id === "org.freedesktop.systemd1.manage-units" &&
+      subject.user === "powerx" &&
+      action.lookup("unit") === "powerx-instance-managed.service" &&
+      ["start", "stop", "restart"].indexOf(action.lookup("verb")) !== -1) {
+    return polkit.Result.YES;
+  }
+});

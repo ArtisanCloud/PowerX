@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
 )
@@ -15,6 +16,7 @@ var (
 	ErrSkillDefinitionDraftNotFound    = errors.New("skill.definition_draft_not_found")
 	ErrSkillDefinitionRevisionNotFound = errors.New("skill.definition_revision_not_found")
 	ErrSkillPackageSourceNotFound      = errors.New("skill.package_source_not_found")
+	ErrSkillDefinitionRevisionConflict = errors.New("skill.definition_revision_conflict")
 )
 
 // SkillDefinitionRepository owns the tenant-scoped definition lifecycle.
@@ -198,6 +200,7 @@ func (r *SkillDefinitionRepository) AppendRevision(
 func (r *SkillDefinitionRepository) PublishCurrentRevision(
 	ctx context.Context,
 	tenantUUID, draftUUID, publishedArtifactURI, publishedChecksum, updatedByMemberUUID string,
+	checkedRevisionUUID ...string,
 ) (*models.SkillDefinitionDraft, *models.SkillDefinitionRevision, error) {
 	tenantUUID = normalizeUUID(tenantUUID)
 	draftUUID = normalizeUUID(draftUUID)
@@ -208,7 +211,7 @@ func (r *SkillDefinitionRepository) PublishCurrentRevision(
 	var revision models.SkillDefinitionRevision
 	now := time.Now()
 	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, draftUUID).Take(&draft).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, draftUUID).Take(&draft).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrSkillDefinitionDraftNotFound
 			}
@@ -216,6 +219,9 @@ func (r *SkillDefinitionRepository) PublishCurrentRevision(
 		}
 		if draft.CurrentRevisionUUID == "" {
 			return ErrSkillDefinitionRevisionNotFound
+		}
+		if len(checkedRevisionUUID) > 0 && draft.CurrentRevisionUUID != checkedRevisionUUID[0] {
+			return ErrSkillDefinitionRevisionConflict
 		}
 		if err := tx.Where("tenant_uuid = ? AND uuid = ?", tenantUUID, draft.CurrentRevisionUUID).Take(&revision).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -236,6 +236,9 @@ func pluginPermissionRowFromPermissionCodeSpec(pluginID, version string, spec pl
 	if businessPermissionCode := strings.TrimSpace(spec.BusinessPermissionCode); businessPermissionCode != "" {
 		meta["business_permission_code"] = businessPermissionCode
 	}
+	if spec.AuthorizationBaseline {
+		meta["authorization_baseline"] = true
+	}
 	if grants := dedupeNonEmpty(spec.DefaultRoleGrants); len(grants) > 0 {
 		meta["default_role_grants"] = grants
 	}

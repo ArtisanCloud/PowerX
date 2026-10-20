@@ -223,3 +223,7 @@ func logPlatformCapabilityError(err error) {
 	}
 	logger.WarnF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "integration_gateway.config"}), "[integration_gateway] load platform capabilities config failed: %v", err)
 }
+
+// PlatformCapabilitiesDirectory returns the same immutable catalog source used
+// by the registry publisher, so snapshot inventory does not infer another path.
+func PlatformCapabilitiesDirectory() (string, error) { return resolvePlatformCapabilitiesDir() }

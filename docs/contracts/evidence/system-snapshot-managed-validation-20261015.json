@@ -1,0 +1,181 @@
+{
+  "report_version": "powerx.system-recovery-validation/v1",
+  "validated_at": "2026-10-15T08:16:02.364907Z",
+  "scope": "Local source, macOS native integration and mocked-API browser regression; production acceptance pending",
+  "result": "local_passed_production_pending",
+  "production_deployed": false,
+  "production_changed": false,
+  "implementation": {
+    "managed_profile_protocol": 1,
+    "package_contract": "powerx.system-snapshot/v1",
+    "http_contract": "../system-snapshots.openapi.yaml",
+    "guide": "../../guides/deploy/027-monitor-center/usecase-us8-managed-recovery.md",
+    "components": [
+      "PostgreSQL logical dump and all-user-table counts/extensions",
+      "local media reference inventory and byte checksums",
+      "dedicated Redis RDB; initial load then AOF persistence",
+      "encrypted effective configuration, necessary key material and plugin registry",
+      "matching Core, Web and installed plugin program artifacts"
+    ],
+    "coordinator": "Independent private operational ledger and one whole-deployment active pointer; no business-DB dependency",
+    "cutover": "Freeze writers, capture fresh current B rollback package, switch A, verify read-only, persist writes-may-resume checkpoint, enable writes and verify again",
+    "post_write_failure": "Hold candidate and retain new data; no automatic old-DB overwrite",
+    "compatibility": "Historical data-only prepared copies remain unverified and cannot be formally switched"
+  },
+  "validation": {
+    "go_affected_packages": {
+      "passed": true,
+      "command": "go -C backend test ./config ./internal/service/snapshot_ops ./internal/service/system_recovery ./internal/transport/http/admin/backup ./internal/http ./internal/server/grpc ./internal/infra/plugin/manager ./internal/infra/plugin/manager/supervisor ./internal/bootstrap ./cmd/snapshot_tool ./cmd/app",
+      "evidence_local": "test-results/recovery-go-tests.log"
+    },
+    "go_race": {
+      "passed": true,
+      "packages": [
+        "snapshot_ops",
+        "system_recovery"
+      ],
+      "evidence_local": "test-results/recovery-race.log"
+    },
+    "go_vet": {
+      "passed": true,
+      "evidence_local": "test-results/recovery-vet.log"
+    },
+    "frontend_unit": {
+      "passed": true,
+      "test_files": 6,
+      "tests": 37,
+      "evidence_local": "test-results/recovery-ui-unit.log"
+    },
+    "browser": {
+      "passed": true,
+      "engine": "Chromium on macOS",
+      "api": "Controlled fixture, not production Core API",
+      "flows": 4,
+      "viewports": [
+        "desktop",
+        "390x844"
+      ],
+      "coverage": [
+        "separate formal-switch confirmation",
+        "Core unavailable during maintenance; job-scoped independent progress",
+        "legacy capture and data-only copy states",
+        "multipart import and passphrase export without browser persistence"
+      ],
+      "evidence_local": "test-results/recovery-browser.log"
+    },
+    "nuxt_build": {
+      "passed": true,
+      "evidence_local": "test-results/recovery-web-build.log"
+    },
+    "capability_check": {
+      "passed": true,
+      "new_root_ops_routes": "Ignored as root_runtime_control; no new Framework service capability/grant",
+      "evidence_local": "test-results/recovery-capability-check.log"
+    },
+    "native": {
+      "passed": true,
+      "platform": "darwin/arm64",
+      "postgres_major": 14,
+      "actual_processes": [
+        "PostgreSQL",
+        "Redis",
+        "Core",
+        "Node Web Admin",
+        "independent coordinator test child"
+      ],
+      "duration_seconds": 93.57,
+      "business_checks": 7,
+      "source_media_and_master_key_offline": true,
+      "portable_import_uses_target_master_key": true,
+      "all_source_user_table_counts_and_extensions_checked": true,
+      "core_web_auth_context_and_media_api": true,
+      "inactive_plugin_schema_role_binding_remap": true,
+      "original_postgres_role_password_unchanged": true,
+      "active_A_and_original_B_retained": true,
+      "redis_queue_restored_to_A": true,
+      "actual_coordinator_sigkill_compensated_to_B": true,
+      "native_failure_phase": "pointer_switched before writes resume",
+      "fresh_rollback_media_B_inspected": true,
+      "task_ids": {
+        "snapshot": "34178695-cb5c-4625-addd-d2dd41c43c0c",
+        "isolated_recovery": "18c25b4c-9a9e-400b-8777-715b54ae89d2",
+        "interrupted_cutover": "d0797140-0148-47d4-8ec2-20de58ca4434",
+        "successful_cutover": "8906aa0e-667d-494e-890a-b3a601a47a44",
+        "fresh_rollback_snapshot": "c6e326c6-c979-4ec3-8752-085a312c65d6"
+      },
+      "evidence_local": "test-results/recovery-native.log"
+    },
+    "coordinator_unit_failure_coverage": [
+      "pre-write stage failures and persisted-checkpoint interruption compensation",
+      "stale generation and idempotent requests",
+      "post-write failure retains candidate data in maintenance",
+      "explicit resume continues held candidate without reverting data"
+    ],
+    "isolation": {
+      "macos_policy_executed": true,
+      "source_file_access_denied": true,
+      "source_tcp_access_denied": true,
+      "candidate_unix_socket_allowed": true,
+      "startup_rejects_source_or_external_dependencies": true
+    },
+    "linux": {
+      "amd64_build_passed": true,
+      "bubblewrap_runtime_executed": false,
+      "evidence_local": "test-results/recovery-linux-build.log"
+    },
+    "cleanup": {
+      "owned_processes": 15,
+      "owned_ports_checked": 9,
+      "owned_ports_released": true,
+      "native_processes_released": true,
+      "browser_fixture_ports_released": [
+        3477,
+        3478
+      ],
+      "remaining_native_fixture_directories": 0
+    },
+    "maintenance_entry_guards": {
+      "passed": true,
+      "http_cases": 13,
+      "coverage": [
+        "GET/HEAD/OPTIONS and exact configured-prefix login/refresh allowed",
+        "writes and login-path suffix escapes rejected before business handler",
+        "WebSocket upgrades blocked during hold; allowed in normal mode",
+        "explicit gRPC health/STS allowlist; commands and streams rejected"
+      ],
+      "evidence_local": "test-results/recovery-guards.log"
+    }
+  },
+  "defects_found_and_fixed": [
+    "Unix-socket plugin DSN encoding",
+    "PID ownership survives Redis process-title changes",
+    "Short candidate PostgreSQL Unix-socket directory",
+    "Recovery panel registration and confirmation translation",
+    "Restore RDB before enabling AOF; reset verification cache state before initial writes",
+    "WebSocket GET upgrade cannot bypass read-only maintenance"
+  ],
+  "limits": {
+    "password_login_verified": false,
+    "auth_proof": "New target JWT checked by actual IAM context/member API; not a manual password-login exercise",
+    "active_production_plugins_tested": false,
+    "plugin_proof": "Real PostgreSQL inactive-installed-plugin schema, role and binding fixture; enabled plugins require registered business probes before verification can succeed",
+    "fixture_foreign_key_auto_migration_disabled": true,
+    "foreign_key_note": "Synthetic native fixture follows local migration connection behavior; not a production schema compatibility certificate",
+    "cross_os_native_restore_executed": false,
+    "linux_runtime_tested": false,
+    "production_scheduled_package_restored": false,
+    "entire_repository_test_suite_run": false
+  },
+  "pending_acceptance": [
+    "Install and validate Linux bubblewrap/systemd/polkit/private profile and independent progress routing in target environment",
+    "Register and pass each enabled production plugin business GET probe; manually validate password login and representative business flows",
+    "After approved upgrade, obtain a real scheduled complete package and restore it in an independent environment; record actual platform artifact overrides and extension compatibility"
+  ],
+  "authority": {
+    "production_deployment_performed": false,
+    "remote_services_restarted": false,
+    "existing_user_services_touched": false,
+    "git_commit_or_push_performed": false,
+    "branch_switched": false
+  }
+}

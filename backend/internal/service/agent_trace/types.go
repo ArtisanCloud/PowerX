@@ -276,6 +276,7 @@ type AgentTaskStateItem struct {
 	Attempt         uint64           `json:"attempt,omitempty"`
 	PoolID          string           `json:"pool_id,omitempty"`
 	ReasonCode      string           `json:"reason_code,omitempty"`
+	FailureStage    string           `json:"failure_stage,omitempty"`
 	QueueWaitMS     int64            `json:"queue_wait_ms,omitempty"`
 	RunID           string           `json:"run_id,omitempty"`
 	SessionID       string           `json:"session_id,omitempty"`

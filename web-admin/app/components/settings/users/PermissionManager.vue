@@ -12,6 +12,7 @@ import {
 import { watchDebounced } from "@vueuse/core";
 import { useI18n } from "#imports";
 import { storeToRefs } from "pinia";
+import { isCoreManagedRootRole } from "~/utils/managedRole";
 import { useRoleStore } from "~/stores/role";
 import { usePermissionStore } from "~/stores/permission"; // ✅ 权限 store
 import { useUserStore } from "~/stores/user";
@@ -36,6 +37,7 @@ type Role = {
   description?: string;
   userCount?: number;
   builtin?: boolean; // ✅ 与模板字段一致
+  scope?: string;
 };
 
 type Permission = {
@@ -102,7 +104,8 @@ type CapabilitySourceGroup = {
 
 /** ====== Pinia Store ====== */
 const roleStore = useRoleStore();
-const { roles } = storeToRefs(roleStore);
+const { roles: allRoles } = storeToRefs(roleStore);
+const roles = computed(() => allRoles.value.filter((role) => !isCoreManagedRootRole(role)));
 roleStore.ensureInitialized?.();
 
 const permissionStore = usePermissionStore();
@@ -1141,6 +1144,7 @@ const loadTenantOptions = async () => {
 };
 
 const openEditRoleForm = (role: Role) => {
+  if (isCoreManagedRootRole(role)) return;
   roleForm.name = role.name;
   roleForm.code = role.code;
   roleForm.description = role.description || "";
@@ -2009,6 +2013,7 @@ const isModulePartiallySelected = (module: string) => {
 /** 保存按钮：一次性提交 set-ids */
 const saving = ref(false);
 const saveRolePermissions = async () => {
+  if (isCoreManagedRootRole(selectedRole.value)) return;
   const roleId = selectedRole.value?.id;
   if (!roleId) return;
   try {

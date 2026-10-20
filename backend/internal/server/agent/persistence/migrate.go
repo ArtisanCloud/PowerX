@@ -69,6 +69,9 @@ func MigrateAgentModels(db *gorm.DB) error {
 	if err := backfillAgentChatMessageUUIDs(db); err != nil {
 		return err
 	}
+	if err := backfillAgentSessionScopes(db); err != nil {
+		return err
+	}
 	return nil
 
 }

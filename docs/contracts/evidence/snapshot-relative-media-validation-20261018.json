@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-18",
+  "observed_failure": {
+    "snapshot_id": "cd744fc9-ad5f-4f82-99a3-995e6521a8e3",
+    "created_local": "2026-10-18 15:17:21 +08:00",
+    "status": "failed",
+    "error": "source directory must be absolute",
+    "record_modified_by_agent": false
+  },
+  "cause": {
+    "media_setting": "storage.local.base_path",
+    "configured_value": "./storage/media",
+    "preflight": "systemSnapshotSources resolves the configured media directory to an absolute path",
+    "execution": "configureSystemSnapshots previously injected raw cfg.Storage.Local.BasePath into PostgresBackend, discarding the preflight result",
+    "component": "Core snapshot backend assembly"
+  },
+  "changes": [
+    "Inject initial.MediaRoot into the real database/media capture backend",
+    "Preserve the resolved absolute media root even when its directory is not yet ready at startup",
+    "Keep relative business media configuration and snapshot destination configuration independent; do not rewrite the running business configuration"
+  ],
+  "validation": {
+    "native_test": "TestNativeSystemSnapshotBootstrapWithRelativeMediaDirectory",
+    "before_fix": {
+      "result": "FAIL with the exact observed source directory must be absolute error after ready preflight",
+      "log": "test-results/snapshot-relative-before.log"
+    },
+    "after_fix": {
+      "result": "PASS",
+      "log": "test-results/snapshot-relative-native.log",
+      "scope": "Isolated native PostgreSQL 14; actual Core configureSystemSnapshots entry point, local filesystem, pg_dump and pg_restore; no mocked capture backend",
+      "assertions": [
+        "./storage/media remains relative in the business configuration",
+        "Manual snapshot bound to system policy becomes ready with all four components",
+        "Actual scheduler Tick creates a second ready snapshot",
+        "Exported encrypted package imports into a new snapshot store",
+        "Restored customer A and plugin track A match the snapshot database",
+        "Restored media bytes match A; plugin program manifest and built web output are present",
+        "Original database remains at customer B with the later plugin track, original media remains B",
+        "Online package recovery_supported remains false; no claim of Redis-consistent whole-system recovery"
+      ]
+    },
+    "go_test_and_vet": {
+      "result": "PASS",
+      "packages": [
+        "./internal/bootstrap",
+        "./internal/service/snapshot_ops",
+        "./internal/service/archive_ops",
+        "./internal/transport/http/admin/backup"
+      ],
+      "log": "test-results/snapshot-relative-go.log"
+    },
+    "core_build": {
+      "result": "PASS: go build ./cmd/app",
+      "log": "test-results/snapshot-relative-build.log",
+      "binary_size_bytes": 100219106
+    }
+  },
+  "cleanup": {
+    "postgres": {
+      "owner": "Codex relative media snapshot regression",
+      "pid": 15479,
+      "directory": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/pxsnap-relative-cq9rzpmr",
+      "port": 35432,
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "command": [
+        "/opt/homebrew/bin/pg_ctl",
+        "-D",
+        "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/pxsnap-relative-cq9rzpmr/pg",
+        "-l",
+        "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/pxsnap-relative-cq9rzpmr/postgres.log",
+        "-o",
+        "-p 35432 -h 127.0.0.1 -k /var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/pxsnap-relative-cq9rzpmr/sock -F",
+        "-w",
+        "start"
+      ],
+      "running": false,
+      "startedAt": "2026-10-18T07:20:54.888260+00:00",
+      "pidExited": true,
+      "portReleased": true,
+      "stoppedAt": "2026-10-18T07:23:25.999184+00:00",
+      "temporaryDirectoryRemoved": true
+    },
+    "user_services_untouched": {
+      "nuxt_pid": 15472,
+      "core_pid": 69962
+    },
+    "user_snapshot_store": "No writes, no deletion or relocation, no new capture triggered against the user instance",
+    "compiled_test_binary_removed": true
+  },
+  "limits": [
+    "Running user Core PID 69962 has not been restarted and still needs to load the backend fix",
+    "Native regression uses isolated fixture customer/plugin data, not the installed AI Craft UI or production server",
+    "Historical failed records retain their original failure state; create a new snapshot after restarting Core"
+  ],
+  "recorded_at": "2026-10-18T07:25:16.852803+00:00"
+}

@@ -1,10 +1,23 @@
 package evidence
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"time"
 )
+
+// ReportJSONSchemaV5 使用同一内嵌合同定义，禁止另外手写更宽的 Runtime Schema。
+func ReportJSONSchemaV5() map[string]any {
+	var schema map[string]any
+	if err := json.Unmarshal(toolContractJSON, &schema); err != nil {
+		panic(err)
+	}
+	delete(schema, "oneOf")
+	schema["$id"] = ReportSchemaV5
+	schema["$ref"] = "#/$defs/report"
+	return schema
+}
 
 // ReportJSONSchema exposes the same typed contract used by the runtime validator.
 func ReportJSONSchema() map[string]any {

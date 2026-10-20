@@ -1,0 +1,110 @@
+{
+  "recorded_at": "2026-10-18T18:13:49.982454+00:00",
+  "problem": "Old development snapshot did not collect programs/core/platform_capabilities; restore incorrectly required it while already retaining current Core as the local maintenance adapter. The generic missing-build message hid the actual component.",
+  "actual_local_task": {
+    "id": "7956347b-e136-4347-b336-433660ba70f7",
+    "snapshot_id": "65ee8b07-f739-4bc0-944a-bfc3a225763c",
+    "status": "failed",
+    "replacement_journal_created": false,
+    "rollback_snapshot_created": false,
+    "business_overwritten": false
+  },
+  "fix": [
+    "Only for an old development package using the current Core adapter, retain the registered current capability catalog with an explicit local_capability_adapter report check",
+    "A modern package missing its catalog or an unavailable current adapter catalog still fails before overwrite",
+    "File-copy errors identify source and target and preserve the underlying filesystem cause instead of incorrectly demanding a build"
+  ],
+  "real_package_read_only_audit": {
+    "snapshot_id": "65ee8b07-f739-4bc0-944a-bfc3a225763c",
+    "manifest_files_verified": 1652,
+    "owned_preparation_targets": 5,
+    "checks": [
+      "local_core_adapter",
+      "local_capability_adapter"
+    ],
+    "passed": true,
+    "live_database_connected": false,
+    "live_files_replaced": false,
+    "log": "test-results/recovery-legacy-real-package-audit.log"
+  },
+  "source_validation": {
+    "go_packages_passed": 2,
+    "vet": "passed",
+    "core_build": "passed",
+    "cases": [
+      "Legacy missing catalog preserves current catalog and reports compatibility scope",
+      "Legacy package with a catalog restores its historical bytes",
+      "Modern package missing catalog fails",
+      "Legacy package with unavailable current catalog fails",
+      "Missing Web input names source and destination and removes prepared temporary files"
+    ],
+    "logs": [
+      "test-results/recovery-legacy-catalog-unit.log",
+      "test-results/recovery-legacy-catalog-compatibility.log",
+      "test-results/recovery-legacy-catalog-vet.log",
+      "test-results/recovery-legacy-catalog-build.log"
+    ]
+  },
+  "native_validation": {
+    "A_then_protected_B": true,
+    "auxiliary_restore_targets_owned_by_fixture": true,
+    "backend_port": 56291,
+    "cache_namespace_rotates_on_recovery": true,
+    "config_file": "/private/tmp/pxr-687302197/source/config.yaml",
+    "core_pid": 65391,
+    "darwin_aliased_pwd_and_mixed_paths": true,
+    "external_connection_blocks_before_overwrite": true,
+    "external_task_connection_blocks_before_overwrite": true,
+    "full_restart_retains_A": true,
+    "legacy_snapshot_missing_catalog": true,
+    "no_coordinator_or_gateway_process_started": true,
+    "passed": true,
+    "redis_protection_restored": true,
+    "same_config_dsn_and_ports": true,
+    "same_core_pid_across_restore": true,
+    "shared_cache_connection_does_not_block": true,
+    "shared_cache_data_retained": true
+  },
+  "native_scope": "Owned PostgreSQL, Redis, Core and Web; uses the actual old Core artifact from A, fixture business records and a package without a capability catalog. Does not overwrite the user daily database or execute actual production plugins.",
+  "browser": {
+    "passed": 3,
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "automatic_completion_visible": true,
+    "no_idle_catalog_polling": true,
+    "temporary_gateway_error_recovery": true,
+    "log": "test-results/recovery-legacy-catalog-browser.log"
+  },
+  "cleanup": {
+    "owned_processes_released": true,
+    "owned_fixture_removed": true,
+    "ports_released": [
+      3489,
+      56236,
+      56237,
+      56291,
+      56292
+    ],
+    "daily_services_http_status": {
+      "3030": 200,
+      "8077": 200
+    },
+    "daily_core_pid_unchanged": 43763,
+    "daily_services_restarted_by_agent": false,
+    "remote_server_operated": false
+  },
+  "limits": [
+    "Legacy adapter compatibility is local development data recovery, not byte-for-byte replay of historical Core and capability catalog",
+    "Production and Linux full recovery are not accepted by this run"
+  ],
+  "core_sha256": "e5117262b47638fde094c11cf1e558250516cdfe63fa038a37cc3568d71b02b9",
+  "production_deployed": false
+}

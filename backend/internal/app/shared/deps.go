@@ -5,6 +5,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	authorizationbaselinesvc "github.com/ArtisanCloud/PowerX/internal/service/authorization_baseline"
 	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"net/http"
@@ -54,6 +55,7 @@ import (
 	cronschedulersvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/scheduler"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	eventshared "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
+	taskqueue "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/task_queue"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
 	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
@@ -85,6 +87,8 @@ import (
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	runtimehost "github.com/ArtisanCloud/PowerX/internal/service/runtime_host"
 	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
+	skillsvc "github.com/ArtisanCloud/PowerX/internal/service/skills"
+	snapshotops "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	wsbus "github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
@@ -193,15 +197,30 @@ func (r auditViolationReporter) Report(ctx context.Context, violation security.V
 	})
 }
 
+// CurrentRecoveryRuntime 隔离启动层依赖，避免 Config / gRPC / Deps 循环引用。
+type CurrentRecoveryRuntime interface {
+	Handler() http.Handler
+	StartNormal(context.Context, context.CancelFunc) error
+	Close()
+	TransitionRequested() bool
+	ExecMaintenance() error
+	FinishStartup() error
+}
+
 type Deps struct {
+	RecoveryReadOnly       bool
 	RuntimeIdentity        runtimeidentity.CoreInfo
 	RuntimeHostSvc         *runtimehost.Service
 	AgentSessionSvc        *agentsession.Service
 	AgentRunWorker         *agent_run.WorkerService
 	AgentAdminRun          *agentruntime.AdminRunService
+	SkillDependencies      *skillsvc.DependencyService
 	DB                     *gorm.DB
 	RestoreCopies          *backupops.RestoreCopyService
 	Archives               *archiveops.Service
+	SystemSnapshots        *snapshotops.Service
+	SystemRecovery         *snapshotops.CoordinatorStore
+	CurrentRecovery        CurrentRecoveryRuntime
 	ctx                    *context.Context
 	AuthUser               *authsvc.AuthService
 	AuthCustomer           *authsvc.AuthService
@@ -409,6 +428,16 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	})
 
 	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, opts.Queue, bus, svc, tenantSvc)
+	if eventFabricDeps != nil && eventFabricDeps.RedisClient != nil {
+		if eventFabricDeps.StreamTasks != nil {
+			mediaSvc.ConfigureDerivativeQueue(eventFabricDeps.StreamTasks)
+			mediaSvc.SetDerivativeEvents(func(ctx context.Context, tenant, asset string) {
+				if err := eventFabricDeps.RedisClient.Publish(ctx, mediasvc.ImageDerivativeEventChannel(tenant, asset), asset).Err(); err != nil {
+					pxlog.WarnF(ctx, "media derivative notification: %v", err)
+				}
+			})
+		}
+	}
 
 	var (
 		workflowReliable  event_bus.ReliableQueue
@@ -566,11 +595,16 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
+				&notificationssvc.CapabilityInvoker{Service: notificationsSvc, Publish: func(ctx context.Context, tenant string, payload any) {
+					wsbus.DefaultHub.PublishWithContext(ctx, tenant, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(ctx))
+				}},
+				&mediasvc.ImageDerivativeInvoker{Service: mediaSvc},
 				runtimescheduler.NewCleanupInvoker(runtimeSchedulerSvc),
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
 				metadatasvc.NewTagCapabilityInvoker(db),
 				runtimeidentity.NewInvoker(db, opts.RuntimeIdentity),
 				&requestidentity.Invoker{Service: requestIdentitySvc},
+				&authorizationbaselinesvc.Invoker{Service: authorizationbaselinesvc.NewService(db)},
 				knowledgeService.NewProvisioningCapabilityInvoker(db, func() *knowledgeService.Service {
 					if knowledgeDeps == nil {
 						return nil
@@ -654,6 +688,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
+	opts.KnowledgeSpace.DisableBackgroundWorkers = opts.DisableBackgroundWorkers
 	knowledgeDeps = newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc, eventFabricDeps)
 	if knowledgeDeps != nil && knowledgeDeps.HostDocuments != nil {
 		knowledgeDeps.ContentOverview = knowledgeService.NewContentOverviewService(db, knowledgeDeps.HostDocuments.Semantic(), opts.KnowledgeSpace.ContentCursorSigningKey)
@@ -859,6 +894,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	return &Deps{
 		RuntimeIdentity:                   opts.RuntimeIdentity,
+		SkillDependencies:                 skillsvc.NewRuntimeDependencyService(db),
 		AgentSessionSvc:                   agentsession.NewServiceWithExecutor(db, agentruntime.NewServiceSessionExecutor(db)),
 		RuntimeHostSvc:                    runtimehost.NewService(db, versionLockRedis),
 		DB:                                db,
@@ -987,6 +1023,7 @@ type EventFabricDeps struct {
 	BindingStore         manifestService.BindingStore
 	Reliable             event_bus.ReliableQueue
 	TaskDriver           event_bus.TaskDriver
+	StreamTasks          *taskqueue.StreamDriver
 	Scheduler            *deliveryService.BackoffScheduler
 	Delivery             deliveryService.Service
 	DLQ                  dlqService.Service
@@ -1162,10 +1199,14 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 
 	var reliableQueue event_bus.ReliableQueue
 	var taskDriver event_bus.TaskDriver
+	var streamTasks *taskqueue.StreamDriver
 	var scheduler *deliveryService.BackoffScheduler
 	retryWorkerFallbackEnabled := false
 	retryWorkerDriverName := ""
 	if redisClient != nil {
+		if base, err := event_bus.NewRedisStreamTaskDriver(redisClient, 2*time.Minute); err == nil {
+			streamTasks = taskqueue.NewStreamDriver(db, base)
+		}
 		reliableQueue = event_bus.NewRedisReliableQueue(redisClient)
 		redisTaskDriver := event_bus.NewRedisTaskDriver(event_bus.RedisTaskDriverOptions{
 			Client:           redisClient,
@@ -1519,6 +1560,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 		BindingStore:         bindingStore,
 		Reliable:             reliableQueue,
 		TaskDriver:           taskDriver,
+		StreamTasks:          streamTasks,
 		Scheduler:            scheduler,
 		Delivery:             deliverySvc,
 		DLQ:                  dlqSvc,
@@ -1847,26 +1889,30 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
 			Clock:         time.Now,
 		})
-		knowledgeworkflow.RegisterEventFabricReprocessDispatchHandler(knowledgeworkflow.EventFabricReprocessDispatchHandlerOptions{
-			EventBus:     bus,
-			DB:           db,
-			VectorStore:  routedVectorStore,
-			SubscriberID: eventbus.SubscriberKnowledgeSpaceReprocess,
-			Clock:        time.Now,
-		})
+		if !opts.DisableBackgroundWorkers {
+			knowledgeworkflow.RegisterEventFabricReprocessDispatchHandler(knowledgeworkflow.EventFabricReprocessDispatchHandlerOptions{
+				EventBus:     bus,
+				DB:           db,
+				VectorStore:  routedVectorStore,
+				SubscriberID: eventbus.SubscriberKnowledgeSpaceReprocess,
+				Clock:        time.Now,
+			})
+		}
 	} else {
 		reprocessPipeline = knowledgeworkflow.NewReprocessPipeline(knowledgeworkflow.ReprocessPipelineOptions{
 			EventBus:   bus,
 			EventTopic: reprocessTopic,
 			Clock:      time.Now,
 		})
-		_ = knowledgeworkflow.NewReprocessWorker(knowledgeworkflow.ReprocessWorkerOptions{
-			DB:          db,
-			VectorStore: routedVectorStore,
-			EventBus:    bus,
-			EventTopic:  reprocessTopic,
-			Clock:       time.Now,
-		}).Start()
+		if !opts.DisableBackgroundWorkers {
+			_ = knowledgeworkflow.NewReprocessWorker(knowledgeworkflow.ReprocessWorkerOptions{
+				DB:          db,
+				VectorStore: routedVectorStore,
+				EventBus:    bus,
+				EventTopic:  reprocessTopic,
+				Clock:       time.Now,
+			}).Start()
+		}
 	}
 	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
 		DB:              db,
@@ -1891,24 +1937,28 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 			AckTimeoutSec: int32(eventFabric.Config.AckTimeout / time.Second),
 			Clock:         time.Now,
 		})
-		knowledgeworkflow.RegisterEventFabricCorpusCheckDispatchHandler(knowledgeworkflow.EventFabricCorpusCheckDispatchHandlerOptions{
-			EventBus:     bus,
-			DB:           db,
-			SubscriberID: eventbus.SubscriberKnowledgeSpaceCorpusCheck,
-			Clock:        time.Now,
-		})
+		if !opts.DisableBackgroundWorkers {
+			knowledgeworkflow.RegisterEventFabricCorpusCheckDispatchHandler(knowledgeworkflow.EventFabricCorpusCheckDispatchHandlerOptions{
+				EventBus:     bus,
+				DB:           db,
+				SubscriberID: eventbus.SubscriberKnowledgeSpaceCorpusCheck,
+				Clock:        time.Now,
+			})
+		}
 	} else {
 		corpusCheckPipeline = knowledgeworkflow.NewCorpusCheckPipeline(knowledgeworkflow.CorpusCheckPipelineOptions{
 			EventBus:   bus,
 			EventTopic: "knowledge.corpus_check.run",
 			Clock:      time.Now,
 		})
-		_ = knowledgeworkflow.NewCorpusCheckWorker(knowledgeworkflow.CorpusCheckWorkerOptions{
-			DB:         db,
-			EventBus:   bus,
-			EventTopic: "knowledge.corpus_check.run",
-			Clock:      time.Now,
-		}).Start()
+		if !opts.DisableBackgroundWorkers {
+			_ = knowledgeworkflow.NewCorpusCheckWorker(knowledgeworkflow.CorpusCheckWorkerOptions{
+				DB:         db,
+				EventBus:   bus,
+				EventTopic: "knowledge.corpus_check.run",
+				Clock:      time.Now,
+			}).Start()
+		}
 	}
 	corpusCheckSvc := knowledgeService.NewCorpusCheckService(knowledgeService.CorpusCheckServiceOptions{
 		DB:       db,

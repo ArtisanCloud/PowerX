@@ -1,0 +1,162 @@
+{
+  "date": "2026-10-18",
+  "scope": "Selector caller context and internal routing metadata separation",
+  "reproduced_before_fix": {
+    "test": "TestBaselineThroughSelectorChain",
+    "default_and_explicit_scope_error": "IAM_BASELINE_INVALID_ARGUMENT"
+  },
+  "implementation": {
+    "caller_context_preserved": true,
+    "selector_metadata": "InvocationInput.ResolvedToolScope (json ignored)",
+    "typed_context_validation_retained": true,
+    "plugin_rest_metadata_tool_scope_preserved": true,
+    "public_contract_changed": false,
+    "schema_changed": false
+  },
+  "validation": [
+    {
+      "command": "go test ./internal/service/authorization_baseline ./internal/service/capability_registry ./internal/service/capability_registry/router",
+      "result": "passed"
+    },
+    {
+      "command": "go test -race ./internal/service/capability_registry ./internal/service/authorization_baseline",
+      "result": "passed",
+      "log": "/tmp/powerx-selector-context-race.log"
+    },
+    {
+      "command": "go test ./internal/service/media ./internal/service/notifications ./internal/transport/http/openapi/capability_registry ./internal/app/shared ./internal/service/integration_gateway/apikeypermissions ./internal/agent/toolstore ./internal/server/agent/bootstrap",
+      "result": "passed",
+      "log": "/tmp/powerx-selector-context-regression.log"
+    },
+    {
+      "command": "go vet ./internal/service/capability_registry ./internal/service/authorization_baseline ./internal/transport/http/openapi/capability_registry",
+      "result": "passed",
+      "log": "/tmp/powerx-selector-context-vet.log"
+    },
+    {
+      "command": "make capability-check",
+      "result": "passed",
+      "log": "/tmp/powerx-selector-context-capability-check.log"
+    },
+    {
+      "command": "git diff --check; upgrade_registry.py --check",
+      "result": "passed"
+    }
+  ],
+  "test_boundary": "Real PolicyGenerator, Selector, AuthorizationService, InvocationService, database Router, Core mux and baseline service with isolated SQLite IAM/grants. Does not prove running Core binary has this fix.",
+  "initialization": {
+    "core_config": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/etc/config.yaml",
+    "running_core_pid_at_config_check": 27520,
+    "operator": "codex-core-selector-fix-20261018",
+    "plugin_guard_and_retained_data_precheck": {
+      "activation": {
+        "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+        "guard_uuid": "03adf3af-4adc-4112-b545-b3db2782aba8",
+        "state": "pending",
+        "enabled_at": null,
+        "core_known_since": null,
+        "error_code": "ORDER_CONTENT_SETUP_CORE_UNAVAILABLE",
+        "operator": "plugin_install"
+      },
+      "changes": 0,
+      "read_cursors": 0,
+      "deliveries": 0,
+      "tenant_rls_context": "6b5d0240-9920-46da-b707-88200e0f51ea"
+    },
+    "original_preflight_result": {
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "permission_codes": [
+        "production.sample_track:read",
+        "production.bulk_order:read",
+        "operations.business_dashboard.cost:read"
+      ],
+      "member_count": 12,
+      "applied": false,
+      "tracking": {
+        "operations.business_dashboard.cost:read": {
+          "status": "uninitialized",
+          "known_since": null
+        },
+        "production.bulk_order:read": {
+          "status": "uninitialized",
+          "known_since": null
+        },
+        "production.sample_track:read": {
+          "status": "uninitialized",
+          "known_since": null
+        }
+      }
+    },
+    "original_apply_result": {
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "permission_codes": [
+        "production.sample_track:read",
+        "production.bulk_order:read",
+        "operations.business_dashboard.cost:read"
+      ],
+      "member_count": 12,
+      "applied": true,
+      "tracking": {
+        "operations.business_dashboard.cost:read": {
+          "status": "ready",
+          "known_since": "2026-10-18T11:07:30.719208Z"
+        },
+        "production.bulk_order:read": {
+          "status": "ready",
+          "known_since": "2026-10-18T11:07:30.719208Z"
+        },
+        "production.sample_track:read": {
+          "status": "ready",
+          "known_since": "2026-10-18T11:07:30.719208Z"
+        }
+      }
+    },
+    "original_readback_result": {
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "permission_codes": [
+        "production.sample_track:read",
+        "production.bulk_order:read",
+        "operations.business_dashboard.cost:read"
+      ],
+      "member_count": 12,
+      "applied": false,
+      "tracking": {
+        "operations.business_dashboard.cost:read": {
+          "status": "ready",
+          "known_since": "2026-10-18T11:07:30.719208Z"
+        },
+        "production.bulk_order:read": {
+          "status": "ready",
+          "known_since": "2026-10-18T11:07:30.719208Z"
+        },
+        "production.sample_track:read": {
+          "status": "ready",
+          "known_since": "2026-10-18T11:07:30.719208Z"
+        }
+      }
+    },
+    "core_baseline_initialized": true,
+    "plugin_activation_changed_by_agent": false,
+    "existing_role_grants_modified": false,
+    "raw_cli_stdout": [
+      "/tmp/powerx-selector-context-baseline-preflight.json",
+      "/tmp/powerx-selector-context-baseline-apply.json",
+      "/tmp/powerx-selector-context-baseline-after.json"
+    ]
+  },
+  "installed_plugin_effective_flags": {
+    "content_changes_enabled": true,
+    "initialize_on_install": true,
+    "host_notifications_enabled": false
+  },
+  "user_services_restarted": false,
+  "framework_or_plugin_source_changed": false,
+  "remaining": [
+    "Service owner rebuilds/restarts Core with this source.",
+    "Re-enable AI Craft so installed plugin can query Core and save its own activation automatically.",
+    "Retest installed baseline query and order page; host bell acceptance remains separate."
+  ]
+}

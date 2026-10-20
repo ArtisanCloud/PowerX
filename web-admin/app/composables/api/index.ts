@@ -385,6 +385,12 @@ const finishRequestLoading = () => {
  * ======================== */
 
 export const useApiClient = () => {
+  // SSE 使用同一前缀、鉴权与刷新流程；返回流，不占用全局加载状态。
+  const stream = (url: string, signal: AbortSignal) =>
+    request<ReadableStream<Uint8Array>>("GET", url, undefined, {
+      signal, timeout: 0, responseType: "stream", useGlobalLoading: false,
+      useGlobalError: false, headers: { Accept: "text/event-stream" },
+    } as ApiRequestConfig);
   /**
    * 核心请求方法（统一使用 $fetch）
    */
@@ -532,6 +538,7 @@ export const useApiClient = () => {
   };
 
   return {
+    stream,
     request,
     get,
     post,

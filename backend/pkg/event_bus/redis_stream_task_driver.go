@@ -261,6 +261,25 @@ var renewStreamTaskScript = redis.NewScript(
 		"local ids = redis.call('XCLAIM', KEYS[1], ARGV[1], ARGV[2], 0, ARGV[3], 'JUSTID'); " +
 		"if #ids ~= 1 then return 0 end; return redis.call('PEXPIRE', KEYS[2], ARGV[5])")
 
+// ValidateLease 检查现有 TaskBus 租约归属，不续期；供统一历史装饰器去重恢复投递。
+func (d *RedisStreamTaskDriver) ValidateLease(ctx context.Context, lease TaskLease) error {
+	if d == nil || d.client == nil || lease.Token == 0 {
+		return ErrLeaseStale
+	}
+	key, _ := taskLeaseKeys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
+	value, err := d.client.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return ErrLeaseStale
+	}
+	if err != nil {
+		return err
+	}
+	if value != leaseValue(lease.Owner, lease.Token) {
+		return ErrLeaseStale
+	}
+	return nil
+}
+
 func (d *RedisStreamTaskDriver) Renew(ctx context.Context, delivery StreamTaskDelivery) (StreamTaskDelivery, error) {
 	if d == nil || d.client == nil || delivery.StreamID == "" || delivery.Group == "" || delivery.Lease.Token == 0 {
 		return StreamTaskDelivery{}, fmt.Errorf("Stream task driver is unavailable")

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	evidencesvc "github.com/ArtisanCloud/PowerX/internal/service/agent_evidence"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 // AdminRunService 管理用户聊天 Run 的受理、恢复索引和唯一结果消息。
 // 与插件服务会话使用独立所有权记录，复用同一调度协议。
 type AdminRunService struct {
+	evidence          *evidencesvc.Service
 	repo              *repo.AdminRunRepository
 	Store             *agent_run.RedisStore
 	Queue             agent_run.TaskEnqueuer
@@ -38,7 +40,7 @@ type AdminRunService struct {
 }
 
 func NewAdminRunService(db *gorm.DB, store *agent_run.RedisStore, queue agent_run.TaskEnqueuer, objects agent_run.ReportObjectStore, env string, deadline time.Duration) *AdminRunService {
-	return &AdminRunService{repo: repo.NewAdminRunRepository(db), Store: store, Queue: queue, Objects: objects, Loader: newAdminInputLoader(db, objects), Output: &DurableFinalOutputReader{Runs: store, Objects: objects}, Env: env, Deadline: deadline}
+	return &AdminRunService{repo: repo.NewAdminRunRepository(db), evidence: evidencesvc.NewService(db), Store: store, Queue: queue, Objects: objects, Loader: newAdminInputLoader(db, objects), Output: &DurableFinalOutputReader{Runs: store, Objects: objects}, Env: env, Deadline: deadline}
 }
 func adminIdentity(row *model.AdminRunAdmission) agent_run.Snapshot {
 	return agent_run.Snapshot{TenantUUID: row.TenantUUID.String(), Env: row.Env, RunID: row.UUID.String(), SessionID: row.SessionUUID.String(), MessageID: row.MessageUUID.String(), TraceID: row.TraceUUID.String(), Status: "accepted", DeadlineAt: row.DeadlineAt}
@@ -259,9 +261,16 @@ func (s *AdminRunService) FinalizeRun(ctx context.Context, identity agent_run.Sn
 				return err
 			}
 			meta["response_envelope"] = envelope
+			for key, raw := range map[string]json.RawMessage{"response_labels": output.ResponseLabels, "response_evidence": output.ResponseEvidence} {
+				var value any
+				if len(raw) > 0 && json.Unmarshal(raw, &value) == nil && value != nil {
+					meta[key] = value
+				}
+			}
 		}
 	} else {
 		content = "本轮执行未完成，请查看运行追踪。"
+		projectTaskFailureMeta(meta, tasks)
 	}
 	return s.repo.WithSession(ctx, tenant, row.Env, row.SessionUUID, func(tx *repo.AdminRunRepository, session *chatmodel.AgentChatSession) error {
 		current, err := tx.Get(ctx, tenant, row.Env, id)
@@ -287,4 +296,16 @@ func adminTerminal(status string) bool {
 
 func (s *AdminRunService) ConfigureMedia(service *mediaservice.MediaService) {
 	s.Loader.media = service
+}
+
+// 只投影已有失败任务，不解释模型文本或重新分类历史错误。
+func projectTaskFailureMeta(meta datatypes.JSONMap, tasks []agent_run.TaskSnapshot) {
+	for _, task := range tasks {
+		if task.Status == "failed" && task.FailureStage != "" {
+			meta["reason_code"] = task.ReasonCode
+			meta["failure_stage"] = task.FailureStage
+			meta["outcome"] = RuntimeOutcomeFailed
+			return
+		}
+	}
 }

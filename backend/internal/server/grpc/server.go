@@ -105,6 +105,10 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	streamInterceptors := []grpc.StreamServerInterceptor{
 		middleware2.StreamAuth(middleware2.JWTVerifyConfig{Ring: ring}),
 	}
+	if deps != nil && deps.RecoveryReadOnly {
+		unaryInterceptors = append(unaryInterceptors, recoveryUnary)
+		streamInterceptors = append(streamInterceptors, recoveryStream)
+	}
 	if deps != nil && deps.EventFabric != nil && deps.EventFabric.Security != nil {
 		unaryInterceptors = append(unaryInterceptors, deps.EventFabric.Security.UnaryServerInterceptor())
 		streamInterceptors = append(streamInterceptors, deps.EventFabric.Security.StreamServerInterceptor())

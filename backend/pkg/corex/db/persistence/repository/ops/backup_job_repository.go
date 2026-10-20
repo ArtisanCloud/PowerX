@@ -27,7 +27,18 @@ func (r *BackupJobRepository) List(ctx context.Context, policyID uint64, limit, 
 }
 
 func (r *BackupJobRepository) ListWithFilters(ctx context.Context, policyID uint64, status string, from, to *time.Time, limit, offset int) ([]modelops.BackupJob, int64, error) {
+	return r.ListWithView(ctx, policyID, status, from, to, "", limit, offset)
+}
+
+// ListWithView 在分页前区分有文件登记的备份和完整执行历史，保留旧调用语义。
+func (r *BackupJobRepository) ListWithView(ctx context.Context, policyID uint64, status string, from, to *time.Time, view string, limit, offset int) ([]modelops.BackupJob, int64, error) {
 	q := r.db.WithContext(ctx).Model(&modelops.BackupJob{})
+	if view == "available" {
+		// 与详情及恢复使用的“最新未软删产物”一致，不能退回较旧的文件登记。
+		latest := r.db.WithContext(ctx).Model(&modelops.BackupArtifact{}).Select("MAX(id)").Group("job_id")
+		artifacts := r.db.WithContext(ctx).Model(&modelops.BackupArtifact{}).Select("job_id").Where("id IN (?)", latest).Where("TRIM(storage_uri) <> ?", "")
+		q = q.Where("status = ?", modelops.BackupJobStatusSuccess).Where("id IN (?)", artifacts)
+	}
 	if policyID > 0 {
 		q = q.Where("policy_id = ?", policyID)
 	}
@@ -54,9 +65,6 @@ func (r *BackupJobRepository) ListWithFilters(ctx context.Context, policyID uint
 }
 
 func (r *BackupJobRepository) ExistsRunningByPolicy(ctx context.Context, policyID uint64) (bool, error) {
-	if policyID == 0 {
-		return false, nil
-	}
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&modelops.BackupJob{}).

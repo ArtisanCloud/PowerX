@@ -39,6 +39,7 @@ func TestArchiveHTTPAndBrowserFixture(t *testing.T) {
 	g.POST("/policies", h.SaveArchivePolicy)
 	g.POST("/targets", h.SaveArchiveTarget)
 	g.POST("/policies/:policy_id/run", h.RunArchive)
+	g.POST("/jobs", h.CreateOneTimeArchive)
 	g.GET("/jobs/:job_id", h.GetArchive)
 	g.GET("/jobs/:job_id/download", h.DownloadArchive)
 	g.POST("/jobs/:job_id/retry", h.RetryArchive)
@@ -71,7 +72,16 @@ func TestArchiveHTTPAndBrowserFixture(t *testing.T) {
 		require.NoError(t, e)
 		return resp.StatusCode, raw
 	}
-	status, raw := call("POST", "/policies", `{"name":"media","source_id":"media","interval_minutes":60,"retention_days":7,"retention_count":168,"remote_retention_days":90,"remote_retention_count":2160,"include_database":false,"enabled":false}`, nil)
+	// 从零策略通过真正的用户 JWT HTTP 接口发起按需导出。
+	onceKey := uuid.NewString()
+	status, raw := call("POST", "/jobs", `{"source_id":"media"}`, map[string]string{"Idempotency-Key": onceKey})
+	require.Equal(t, 202, status, string(raw))
+	status, raw = call("POST", "/jobs", `{"source_id":"media","directory":"/etc"}`, map[string]string{"Idempotency-Key": onceKey})
+	require.Equal(t, 400, status, string(raw))
+	initial, e := svc.Overview(reqctx.WithIsRoot(ctx, true))
+	require.NoError(t, e)
+	require.Empty(t, initial.Policies)
+	status, raw = call("POST", "/policies", `{"name":"media","source_id":"media","interval_minutes":60,"retention_days":7,"retention_count":168,"remote_retention_days":90,"remote_retention_count":2160,"include_database":false,"enabled":false}`, nil)
 	require.Equal(t, 200, status, string(raw))
 	var p struct {
 		Data struct {
@@ -88,12 +98,16 @@ func TestArchiveHTTPAndBrowserFixture(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(raw, &started))
 	root := reqctx.WithIsRoot(ctx, true)
-	require.Eventually(t, func() bool { j, e := svc.Job(root, started.Data.Job.ID); return e == nil && j.Status != "running" }, 5*time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool { j, e := svc.Job(root, started.Data.Job.ID); return e == nil && j.Status == "success" }, 5*time.Second, 20*time.Millisecond)
 	status, raw = call("GET", "/jobs/"+started.Data.Job.ID, "", nil)
 	require.Equal(t, 200, status, string(raw))
 	require.Contains(t, string(raw), "photo.jpg")
 	require.NotContains(t, string(raw), "database_dsn")
-	status, raw = call("PATCH", "/jobs/"+started.Data.Job.ID+"/protection", `{"protected":false}`, nil)
+	// success 记录先封存，执行器随后释放策略锁；验证最终可操作状态，不把短暂 409 当成失败。
+	require.Eventually(t, func() bool {
+		status, raw = call("PATCH", "/jobs/"+started.Data.Job.ID+"/protection", `{"protected":false}`, nil)
+		return status == 200
+	}, 5*time.Second, 20*time.Millisecond)
 	require.Equal(t, 200, status, string(raw))
 	status, raw = call("PATCH", "/jobs/"+started.Data.Job.ID+"/protection", `{}`, nil)
 	require.Equal(t, 400, status, string(raw))

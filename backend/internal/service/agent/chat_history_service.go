@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	evidencesvc "github.com/ArtisanCloud/PowerX/internal/service/agent_evidence"
 	"strings"
 	"time"
 
@@ -101,10 +102,11 @@ func readSessionMetaString(meta datatypes.JSONMap, key string) string {
 }
 
 type ChatHistoryService struct {
-	db      *gorm.DB
-	sess    *repo.AgentChatSessionRepository
-	msg     *repo.AgentChatMessageRepository
-	summary *repo.AgentChatContextSummaryRepository
+	db       *gorm.DB
+	sess     *repo.AgentChatSessionRepository
+	msg      *repo.AgentChatMessageRepository
+	summary  *repo.AgentChatContextSummaryRepository
+	evidence *evidencesvc.Service
 }
 
 type RollingContextCompressionPolicy struct {
@@ -126,10 +128,11 @@ type RollingContextCompressionResult struct {
 
 func NewChatHistoryService(db *gorm.DB) *ChatHistoryService {
 	return &ChatHistoryService{
-		db:      db,
-		sess:    repo.NewAgentChatSessionRepository(db),
-		msg:     repo.NewAgentChatMessageRepository(db),
-		summary: repo.NewAgentChatContextSummaryRepository(db),
+		db:       db,
+		sess:     repo.NewAgentChatSessionRepository(db),
+		msg:      repo.NewAgentChatMessageRepository(db),
+		summary:  repo.NewAgentChatContextSummaryRepository(db),
+		evidence: evidencesvc.NewService(db),
 	}
 }
 
@@ -181,6 +184,12 @@ func (s *ChatHistoryService) GetOrCreateSession(
 		s.ensureDefaults(&def)
 	}
 
+	if def.SessionType == "" {
+		def.SessionType = dbmodel.SessionTypeAgent
+	}
+	if err := s.validateNewSessionScope(ctx, tenantUUID, agentID, def.Scope()); err != nil {
+		return nil, err
+	}
 	out, err := s.sess.GetOrCreate(ctx, env, tenantUUID, agentID, userID, singleton, def)
 	if err != nil {
 		return nil, err
@@ -209,8 +218,9 @@ func (s *ChatHistoryService) ListSessions(
 	ctx context.Context, env string, tenantUUID *string,
 	agentID uint64, statuses []string,
 	limit, offset int,
+	scopes ...dbmodel.ChatSessionScope,
 ) ([]dbmodel.AgentChatSession, error) {
-	return s.sess.ListByAgent(ctx, env, tenantUUID, agentID, statuses, limit, offset)
+	return s.sess.ListByAgent(ctx, env, tenantUUID, agentID, statuses, limit, offset, scopes...)
 }
 
 // UpdateSessionPolicy：可选更新 title / TTL / MaxKB / MaxTokens（部分字段更新）
@@ -290,7 +300,14 @@ func (s *ChatHistoryService) ListMessages(
 	ctx context.Context, env string, tenantUUID *string,
 	sessionID uint64, afterID uint64, limit int,
 ) ([]dbmodel.AgentChatMessage, error) {
-	return s.msg.ListBySession(ctx, env, tenantUUID, sessionID, afterID, limit)
+	items, err := s.msg.ListBySession(ctx, env, tenantUUID, sessionID, afterID, limit)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		items[i].Meta = s.evidence.ProjectHistory(ctx, items[i].Meta)
+	}
+	return items, nil
 }
 
 // AppendMessage：追加一条消息，并刷新会话“最近活跃/过期时间”
@@ -342,6 +359,7 @@ func (s *ChatHistoryService) FindMessageByID(
 	if err != nil {
 		return nil, err
 	}
+	out.Meta = s.evidence.ProjectHistory(ctx, out.Meta)
 	return &out, nil
 }
 
@@ -362,6 +380,7 @@ func (s *ChatHistoryService) FindMessageByUUID(
 	if err != nil {
 		return nil, err
 	}
+	out.Meta = s.evidence.ProjectHistory(ctx, out.Meta)
 	return &out, nil
 }
 

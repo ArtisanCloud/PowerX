@@ -10,6 +10,7 @@ import (
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -756,37 +757,21 @@ func (s *PermissionService) SyncPermissions(
 		}
 	}
 
-	// 调用仓储同步
-	res, err := s.perms.Sync(ctx, source, introduced, rows, dryRun)
-	if err != nil || dryRun {
-		return res, err
+	if dryRun {
+		return s.perms.Sync(ctx, source, introduced, rows, true)
 	}
-
-	// 同步成功且非 dryRun：自动把全部 active 权限授予 root 角色（若存在）
-	go func() {
-		ctx2 := context.Background()
-		rr := repo.NewRoleRepository(s.db)
-		rpr := repo.NewRolePermissionRepository(s.db)
-		pr := repo.NewPermissionRepository(s.db)
-
-		root, _ := rr.GetFirst(ctx2, "scope = ? AND code = ?", "system", "root")
-		if root == nil {
-			return
+	// 正式登记和 root 目录授权同事务完成；不能在后台 goroutine 中丢弃错误。
+	var res repo.SyncResult
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		res, err = repo.NewPermissionRepository(tx).Sync(ctx, source, introduced, rows, false)
+		if err != nil {
+			return err
 		}
-
-		ids, _ := pr.ListIDsByCondition(ctx2, map[string]any{
-			"status": dbm.PermissionStatusActive,
-		})
-		if len(ids) == 0 {
-			return
-		}
-
-		_ = s.db.WithContext(ctx2).Transaction(func(tx *gorm.DB) error {
-			return rpr.GrantByIDsTx(tx, root.ID, ids)
-		})
-	}()
-
-	return res, nil
+		_, err = rootrole.Ensure(tx)
+		return err
+	})
+	return res, err
 }
 
 func (s *PermissionService) UpdatePermissionFields(ctx context.Context, id uint64, description *string, status *string, deprecatedAt *int64) error {

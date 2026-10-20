@@ -53,4 +53,5 @@ func validateEntrypointAllowed(manifest map[string]interface{}, entrypoint strin
 	return fmt.Errorf("entrypoint %q not allowed in manifest, allowed: %s", target, strings.Join(allowed, ","))
 }
 
-var errNoExecutorMatched = errors.New("no executor matched for skill")
+var ErrDefinitionContractUpgradeRequired = errors.New("skill.definition_contract_upgrade_required")
+var errNoExecutorMatched = ErrDefinitionContractUpgradeRequired

@@ -35,6 +35,7 @@ import (
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -134,6 +135,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.DepartmentClosure{},
 		&modelIAM.Group{},
 		&modelIAM.MemberAssignment{},
+		&modelIAM.AuthorizationTracking{},
+		&modelIAM.AuthorizationStream{},
+		&modelIAM.AuthorizationSegment{},
 		&modelIAM.Position{},
 		&modelIAM.Team{},
 		&modelIAM.APIKeyProfile{},
@@ -289,7 +293,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err != nil {
 		return err
 	}
-	return EnsureCustomerMenuPermission(db)
+	if err = EnsureCustomerMenuPermission(db); err != nil {
+		return err
+	}
+	return authorizationbaseline.EnsureInitialized(db)
 }
 
 // EnsureCustomerMenuPermission 增量登记客户菜单，不重置角色授权、管理员或安装状态。
@@ -602,7 +609,7 @@ func migrateIntegrationGatewayModels(db *gorm.DB) error {
 }
 
 func migrateAgentServiceSessionModels(db *gorm.DB) error {
-	return db.AutoMigrate(&modelAgent.ServiceSession{}, &modelAgent.ServiceMessage{}, &modelAgent.ServiceInvocation{}, &modelAgent.AdminRunAdmission{})
+	return db.AutoMigrate(&modelAgent.ServiceSession{}, &modelAgent.ServiceMessage{}, &modelAgent.ServiceInvocation{}, &modelAgent.AdminRunAdmission{}, &modelAgent.EvidenceSnapshot{})
 }
 
 func migrateAgentA2AModels(db *gorm.DB) error {

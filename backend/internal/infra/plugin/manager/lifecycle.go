@@ -167,6 +167,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	}
 	apiHealthPath := resolveHealthPath(apiHC.HTTPPath, legacyBackendHealthPath, p.Endpoints.HTTPBasePath)
 	supOpts := supervisor.Options{
+		PinExecutable:  p.Runtime.PinExecutable,
 		HealthPath:     apiHealthPath,
 		HealthInterval: parseDurDefault(apiHC.Interval, 2*time.Second),
 		HealthTimeout:  parseDurDefault(apiHC.Timeout, 1*time.Second),
@@ -270,6 +271,13 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		} else {
 			grpcAddr = "127.0.0.1:0"
 		}
+	}
+	if cfg := m.opts.CoreConfig; cfg != nil && cfg.Recovery.ReadOnly() {
+		port, err := m.sup.ReserveAuxiliaryPort(p.ID)
+		if err != nil {
+			return err
+		}
+		grpcAddr = fmt.Sprintf("127.0.0.1:%d", port)
 	}
 	envAPI["POWERX_GRPC_ADDR"] = grpcAddr
 	if i := strings.LastIndexByte(grpcAddr, ':'); i >= 0 && i+1 < len(grpcAddr) {
@@ -562,6 +570,7 @@ func (m *managerImpl) injectGlobalGatewayRuntimeEnv(env map[string]string, plugi
 		return fmt.Errorf("GW_CFG_MISSING_BASE_URL: server.port missing")
 	}
 	env["PX_GATEWAY_BASE_URL"] = baseURL
+	applyCoreAPIPrefixEnv(env, cfg)
 	env["PX_GATEWAY_AUTH_SCHEME"] = "bearer"
 	applyWSContractEnv(env, cfg)
 	deleteDeprecatedGatewayRuntimeEnv(env)
@@ -569,6 +578,13 @@ func (m *managerImpl) injectGlobalGatewayRuntimeEnv(env map[string]string, plugi
 		return err
 	}
 	return nil
+}
+
+// Core 的实际路由配置是宿主调用前缀的权威来源，不能继承插件旧值。
+func applyCoreAPIPrefixEnv(env map[string]string, cfg *config.Config) {
+	if env != nil && cfg != nil {
+		env["PX_GATEWAY_API_PREFIX"] = config.ResolveAPIPrefix(cfg)
+	}
 }
 
 func (m *managerImpl) resolvePluginRuntimeCredential(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {

@@ -951,26 +951,7 @@ func registrationAdapterFromProtocol(capabilityID string, pluginID string, proto
 }
 
 func normalizePluginProtocolEndpoint(pluginID string, channel string, endpoint string) string {
-	endpoint = strings.TrimSpace(endpoint)
-	if endpoint == "" {
-		return ""
-	}
-	lowerEndpoint := strings.ToLower(endpoint)
-	if strings.HasPrefix(lowerEndpoint, "http://") || strings.HasPrefix(lowerEndpoint, "https://") || strings.HasPrefix(endpoint, "/_p/") {
-		return endpoint
-	}
-	normalizedChannel := strings.ToLower(strings.TrimSpace(channel))
-	if normalizedChannel != "rest" && normalizedChannel != "http" {
-		return endpoint
-	}
-	pluginID = strings.TrimSpace(pluginID)
-	if pluginID == "" {
-		return endpoint
-	}
-	if !strings.HasPrefix(endpoint, "/") {
-		endpoint = "/" + endpoint
-	}
-	return "/_p/" + pluginID + endpoint
+	return plugin_mgr.CatalogPluginEndpoint(pluginID, channel, endpoint)
 }
 
 func (w *SyncWorker) syncWorkflowTemplates(ctx context.Context, capabilityID string, templates []catalogWorkflowTemplate, capabilityHash string) error {
@@ -1543,7 +1524,9 @@ func buildProtocolBindings(protocols map[string]any, provide capabilityManifestP
 				ResourceScope: strings.TrimSpace(readString(item, "resource_scope", "resourceScope")),
 				STSDirect:     readBool(item, "sts_direct", "stsDirect"),
 			}
-			if schemaRef := schemaRefForChannel(channel, provide); schemaRef != "" {
+			if explicit := strings.TrimSpace(readString(item, "schema_ref", "schemaRef")); explicit != "" {
+				binding.SchemaRef = explicit
+			} else if schemaRef := schemaRefForChannel(channel, provide); schemaRef != "" {
 				binding.SchemaRef = schemaRef
 			}
 			bindings = append(bindings, binding)

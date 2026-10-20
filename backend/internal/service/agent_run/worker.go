@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/corex/agent/evidence"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 )
 
@@ -146,7 +147,8 @@ func (s *RedisStore) ProcessDelivery(ctx context.Context, queue LeasedTaskQueue,
 		!errors.Is(heartbeatErr, context.DeadlineExceeded) {
 		return fmt.Errorf("task lease heartbeat failed: %w", heartbeatErr)
 	}
-	if execCtx.Err() != nil {
+	_, typedFailure := evidence.FailureDetails(execErr)
+	if execCtx.Err() != nil && !typedFailure {
 		execErr = execCtx.Err()
 		if errors.Is(execErr, context.DeadlineExceeded) {
 			result.ReasonCode = "run.deadline"
@@ -170,11 +172,16 @@ func (s *RedisStore) ProcessDelivery(ctx context.Context, queue LeasedTaskQueue,
 				delivery.Lease.Owner, delivery.Lease.Token, result.ResultRef, result.EvidenceRef)
 		} else {
 			reason := strings.TrimSpace(result.ReasonCode)
+			failureStage := ""
+			if failure, ok := evidence.FailureDetails(execErr); ok {
+				reason = failure.Code
+				failureStage = failure.Stage
+			}
 			if reason == "" {
 				reason = "manual_review_required"
 			}
 			_, _, err = s.FailTask(finishCtx, identity, run.Version, ref.Revision, ref.TaskID,
-				delivery.Lease.Owner, delivery.Lease.Token, reason)
+				delivery.Lease.Owner, delivery.Lease.Token, reason, failureStage)
 		}
 		if errors.Is(err, ErrConflict) {
 			task, readErr := s.GetTask(finishCtx, identity, ref.Revision, ref.TaskID)

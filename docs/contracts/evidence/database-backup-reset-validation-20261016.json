@@ -1,0 +1,49 @@
+{
+  "validated_at": "2026-10-16T03:50:54.759647+00:00",
+  "scope": "Authorized local development database-backup history reset; production unchanged",
+  "database": "powerx",
+  "environment": "dev",
+  "postgres_port": 5432,
+  "before_active": {
+    "available_backups": 8,
+    "job_history": 9,
+    "restore_drills": 3,
+    "alerts": 1
+  },
+  "archived_database_rows": {
+    "ops_backup_jobs": 639,
+    "ops_backup_artifacts": 637,
+    "ops_restore_drill_records": 3,
+    "ops_backup_alerts": 1
+  },
+  "after_active": {
+    "available_backups": 0,
+    "job_history": 0,
+    "restore_drills": 0,
+    "alerts": 0
+  },
+  "preserved_policies": 2,
+  "enabled_policies": 0,
+  "archived_files": 659,
+  "archived_bytes": 1470226702,
+  "files_permanently_deleted": 0,
+  "private_archive": "test-results/backup-history-reset-20261016",
+  "validation": [
+    "PostgreSQL loopback identity and dev environment checked",
+    "Terminal, unprotected historical jobs only; schedules disabled",
+    "SQL metadata dump completed before mutation",
+    "SHA256 manifest for all 659 dump files",
+    "Same-filesystem archive move; metadata cleared in a guarded transaction",
+    "PostgreSQL queries confirm empty available/history/drill/alert lists",
+    "Policy digest unchanged; private archive mode 0700 and SQL mode 0600"
+  ],
+  "business_tables_changed": false,
+  "system_snapshots_changed": false,
+  "production_changed": false,
+  "user_services_restarted": false,
+  "local_manual_testing": {
+    "snapshot_packages": "Can exercise capture/export/import/isolated data copies",
+    "whole_application_ui_recovery": "Current local configuration has no recovery.profile_file; coordinator/registered targets must be configured first",
+    "native_regression": "See managed recovery guide local development regression; uses owned PostgreSQL/Redis/Core/Web processes and cleans them"
+  }
+}

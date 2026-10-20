@@ -2,6 +2,8 @@
 
 本文定义 Skill 在 PowerX 的双路径运行时接入方案。
 
+Phase 23 的版本固定、来源授权、真实回执、V5 及旧入口迁移以 [T199 合同](../../../../specs/024-ai-engineering-skills/contracts/tool-evidence-contract.md) 为准。[T203](../../../../specs/024-ai-engineering-skills/runtime-v5-implementation.md) 已完成显式新 Revision 的 V5 内置执行、受控历史和失败节点接线（部署须迁移）；[T204](../../../../specs/024-ai-engineering-skills/plugin-tool-example-implementation.md) 已接线显式固定的原生 HTTP/admin_user 纯计算插件，其他外部类型仍拒绝；旧双路径当前实际缺口见 [T198 审计](../../../../specs/024-ai-engineering-skills/tool-runtime-audit.md)。
+
 补充机制：
 
 1. PowerX 与插件之间的 Agent Skill Bridge 统一桥接规范见 [`../agent/agent_skill_bridge.md`](../agent/agent_skill_bridge.md)。本文的 Agent + Skill 主路径必须遵循该桥接边界：渠道进入 PowerX Agent Session，PowerX Agent Runtime 选择 Agent 已绑定 Skill，Skill action 映射到 capability_id，最终通过 PowerX Capability Invocation 执行业务。
@@ -166,6 +168,12 @@ Agent Runtime 必须支持节点级模型选择。首版可以全部继承 Agent
 ### 2.2 已实现计划执行与目标 Loop 的边界
 
 当前通用路径会在执行前从当前 Agent 已绑定、已授权的候选集中生成一个 `ExecutionPlan`，再由 Executor 调度节点。它具有多 Skill/DAG、依赖、并行、Trace 和结果回填基础，但不等价于“全系统资源可观察的自主 Loop”。
+
+用户原文与 Planner 参数分别传递。同步入口和持久化 Worker 在入口校验或恢复持久输入后，通过私有类型上下文保存原始 `message` 字节；Manager 组装 Skill 的最终 payload 后恢复该原文，覆盖 Planner 的同名值，包括嵌套 payload 和任务引用。不得以 Planner 摘要作为原文证据，也不得按 Skill ID 添加透传分支。显式结构化工具继续使用入口冻结的 typed input，其数值字段即使名为 `message` 也不得被自然语言覆盖；普通字符串 context key 不能提供原文权威。
+
+任务结果的内容寻址摘要针对保存的原始 JSON 字节。回读时先核对身份、locator 和原始结果摘要，再解码结果；不能把结构体解码成 map 后重新编码来判断是否被篡改。通用数值使用 `json.Number`，避免在任务间传递时损失精度。该规则同时适用于内置响应伴随对象和客户工具 DTO。
+
+Planner 输出必须包含显式非 null 的 `tool_calls` 数组。合法的空数组保留既有无工具对话流程；只有参数对象、缺少数组或格式错误时返回 `agent.planner_decision_invalid`，不能把协议失败当成合法的空工具选择并发布普通对话任务完成。
 
 以下流程是当前 Plan Executor 与后续 Loop 的衔接点：
 
@@ -483,3 +491,14 @@ flowchart TD
     S3 --> F[Final Response]
 ```
 ```
+
+## T203 当前执行边界
+
+新链从固定 Revision 编译字段、公式及 typed 工具依赖，实际执行后由同次 ledger 封存 V5；不会先生成 V4 再补回执。Runtime 已移除营销 Skill ID 的确定性任务覆盖。业务缺参/冲突保留 needs_action；typed 系统失败直接进入 failed，最终校验有实际失败节点。持久化 Worker 同步保留 code/stage，历史仅授权读取受控原件，不重执行或导入新 ledger。
+
+证据存入集中迁移的 `agent_evidence_snapshots.payload BYTEA`，与调度 Redis、结果对象和 Trace 摘要职责不同。实际迁移未执行，固有示例仍为既有 Revision。旧 transport 与真实插件验收按 T204/T205 继续。
+
+
+## T204 插件计算边界
+
+[T204 实现记录](../../../../specs/024-ai-engineering-skills/plugin-tool-example-implementation.md) 定义正式 plugin-tool-contract/v1、版本化结构化用户输入、Supervisor 原生镜像固定、统一依赖/实际调用装配与历史 Agent grant 重查。Core 不按业务工具或 Skill ID 分派。输入来源必须在 Planner 前冻结；插件只提供 typed 领域输出，V5 和回执仍由 Core 封存。旧 Registry 入口显式返回升级错误，实际用户服务与数据库未操作。

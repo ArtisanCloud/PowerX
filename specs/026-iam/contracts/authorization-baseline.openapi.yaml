@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  title: Member Authorization Baseline Core Internal Contract
+  version: 1.0.0
+  description: Fixed INVOKE core://iam/authorization-baseline through the existing tenant invocation transport. This contract does not add direct REST routes.
+paths: {}
+components:
+  schemas:
+    TypedBaselineOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, request]
+      properties:
+        operation: {type: string, enum: [read_member_baselines]}
+        request: {$ref: '#/components/schemas/BaselineQuery'}
+    BaselineQuery:
+      type: object
+      additionalProperties: false
+      required: [schema, member_uuids, permission_codes]
+      properties:
+        schema: {type: string, enum: [powerx.iam.authorization-baseline-query/v1]}
+        member_uuids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: {type: string, format: uuid}
+        permission_codes:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items: {type: string, pattern: '^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$'}
+    MicrosecondTime:
+      type: string
+      format: date-time
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$'
+    NullableMicrosecondTime:
+      type: string
+      format: date-time
+      nullable: true
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$'
+    BaselineResult:
+      type: object
+      additionalProperties: false
+      required: [schema, tenant_uuid, plugin_id, evaluated_at, items]
+      properties:
+        schema: {type: string, enum: [powerx.iam.authorization-baseline-result/v1]}
+        tenant_uuid: {type: string, format: uuid}
+        plugin_id: {type: string, minLength: 1}
+        evaluated_at: {$ref: '#/components/schemas/MicrosecondTime'}
+        items:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            oneOf:
+              - {$ref: '#/components/schemas/GrantedBaseline'}
+              - {$ref: '#/components/schemas/DeniedBaseline'}
+              - {$ref: '#/components/schemas/BaselineError'}
+    GrantedBaseline:
+      type: object
+      additionalProperties: false
+      required: [member_uuid, permission_code, status, allowed, baseline_kind, granted_at, known_since, visible_since, authorization_revision, data_scope, scope_fingerprint, valid_until, recheck_at]
+      properties:
+        member_uuid: {type: string, format: uuid}
+        permission_code: {type: string}
+        status: {type: string, enum: [decided]}
+        allowed: {type: boolean, enum: [true]}
+        baseline_kind: {type: string, enum: [native, reconstructed, initialized]}
+        granted_at: {$ref: '#/components/schemas/NullableMicrosecondTime'}
+        known_since: {$ref: '#/components/schemas/MicrosecondTime'}
+        visible_since: {$ref: '#/components/schemas/MicrosecondTime'}
+        authorization_revision: {type: string, minLength: 1}
+        data_scope: {type: string, enum: [TENANT]}
+        scope_fingerprint: {type: string, pattern: '^sha256:[a-f0-9]{64}$'}
+        valid_until: {$ref: '#/components/schemas/NullableMicrosecondTime'}
+        recheck_at: {$ref: '#/components/schemas/NullableMicrosecondTime'}
+    DeniedBaseline:
+      type: object
+      additionalProperties: false
+      required: [member_uuid, permission_code, status, allowed, granted_at, visible_since, authorization_revision, data_scope, scope_fingerprint, valid_until, recheck_at]
+      properties:
+        member_uuid: {type: string, format: uuid}
+        permission_code: {type: string}
+        status: {type: string, enum: [decided]}
+        allowed: {type: boolean, enum: [false]}
+        granted_at: {type: string, nullable: true, enum: [null]}
+        visible_since: {type: string, nullable: true, enum: [null]}
+        authorization_revision: {type: string, minLength: 1}
+        data_scope: {type: string, enum: [TENANT]}
+        scope_fingerprint: {type: string, pattern: '^sha256:[a-f0-9]{64}$'}
+        valid_until: {type: string, nullable: true, enum: [null]}
+        recheck_at: {$ref: '#/components/schemas/NullableMicrosecondTime'}
+    BaselineError:
+      type: object
+      additionalProperties: false
+      required: [member_uuid, permission_code, status, error_code]
+      properties:
+        member_uuid: {type: string, format: uuid}
+        permission_code: {type: string}
+        status: {type: string, enum: [error]}
+        error_code:
+          type: string
+          enum: [IAM_BASELINE_MEMBER_UNAVAILABLE, IAM_BASELINE_UNAVAILABLE, IAM_BASELINE_UNSUPPORTED_SCOPE, IAM_BASELINE_UNSUPPORTED_POLICY, IAM_BASELINE_ROOT_BYPASS_UNSUPPORTED]

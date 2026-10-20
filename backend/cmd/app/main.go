@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -22,6 +23,7 @@ import (
 	grpcserver "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
 	apikeypermissions "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
+	recoveryops "github.com/ArtisanCloud/PowerX/internal/service/system_recovery"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	pxcrypto "github.com/ArtisanCloud/PowerX/pkg/crypto"
 	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -38,12 +40,66 @@ import (
 // @description PowerX 核心与插件管理 API
 // @BasePath    /
 func main() {
-	startupStartedAt := time.Now()
+	if len(os.Args) == 2 && os.Args[1] == "--recovery-protocol" {
+		fmt.Printf(`{"protocol":%d,"platform":%q}`+"\n", config.RecoveryProtocol, runtime.GOOS+"/"+runtime.GOARCH)
+		return
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if len(os.Args) == 3 && os.Args[1] == "--current-maintenance" {
+		if err := recoveryops.RunCurrentMaintenance(ctx, os.Args[2]); err != nil && !errors.Is(err, context.Canceled) {
+			fmt.Fprintln(os.Stderr, "维护恢复启动失败，请检查本机恢复账本")
+		}
+		return
+	}
+	startup, err := recoveryops.CurrentBeforeConfig()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "当前实例存在无法读取的恢复现场，已阻止业务启动")
+		return
+	}
+	if startup != nil && !startup.AwaitingStartup() {
+		if err = startup.ExecMaintenance(); err != nil {
+			fmt.Fprintln(os.Stderr, "无法进入维护恢复模式")
+		}
+		return
+	}
+	cfg := config.GetGlobalConfig()
+	if startup == nil {
+		startup, err = recoveryops.CurrentStartup(cfg, config.GetGlobalConfigPath())
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "当前实例存在无法读取的恢复现场")
+			return
+		}
+		if startup != nil && !startup.AwaitingStartup() {
+			if err = startup.ExecMaintenance(); err != nil {
+				fmt.Fprintln(os.Stderr, "无法进入维护恢复模式")
+			}
+			return
+		}
+	}
+	cfg.Cache.Namespace, err = recoveryops.CurrentCacheNamespace(cfg, config.GetGlobalConfigPath())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "当前实例缓存隔离配置无法读取，已阻止业务启动")
+		return
+	}
+	recovery := runApplication(ctx, stop, cfg)
+	if recovery != nil && recovery.TransitionRequested() {
+		if err = recovery.ExecMaintenance(); err != nil {
+			fmt.Fprintln(os.Stderr, "无法进入维护恢复模式")
+		}
+		return
+	}
+	if ctx.Err() == nil && startup != nil && startup.AwaitingStartup() {
+		if err = startup.ExecMaintenance(); err != nil {
+			fmt.Fprintln(os.Stderr, "无法保留恢复维护现场")
+		}
+	}
+}
+
+func runApplication(ctx context.Context, stop context.CancelFunc, cfg *config.Config) (recovery shared.CurrentRecoveryRuntime) {
+	startupStartedAt := time.Now()
 
 	// 加载全局配置
-	cfg := config.GetGlobalConfig()
 	if cfg == nil {
 		logger.ErrorF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "加载配置文件失败")
 		os.Exit(1)
@@ -119,7 +175,24 @@ func main() {
 			return
 		}
 	} else {
+		recovery = deps.CurrentRecovery
+		if recovery != nil {
+			if err = recovery.StartNormal(ctx, stop); err != nil {
+				logger.ErrorF(ctx, "当前恢复启动失败: %v", err)
+				return
+			}
+			defer recovery.Close()
+			handler := recovery.Handler()
+			r.Any("/__powerx_recovery/*path", func(c *gin.Context) { handler.ServeHTTP(c.Writer, c.Request) })
+		}
+		if db, dbErr := deps.DB.DB(); dbErr == nil {
+			defer db.Close()
+		}
 		defer deps.AuditSvc.Close()
+		if deps.SystemSnapshots != nil {
+			defer deps.SystemSnapshots.Close()
+		}
+		r.Use(http.RecoveryMutationGuard(cfg.Recovery.ReadOnly() || os.Getenv("POWERX_COORDINATOR_MAINTENANCE") == "1", cfg.Server.APIPrefix))
 		r.Use(audit.GinAudit(deps.Auditor))
 
 		// 初始化插件管理器
@@ -129,6 +202,14 @@ func main() {
 			return
 		}
 
+		defer func() {
+			shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := pluginMgr.Shutdown(shutdown); err != nil {
+				logger.ErrorF(shutdown, "plugin shutdown failed: %v", err)
+			}
+		}()
+
 		// 配置 HTTP 路由
 		err = http.SetupRouter(cfg, r, deps)
 		if err != nil {
@@ -137,72 +218,96 @@ func main() {
 		}
 
 		// 启动 gRPC 服务
-		_, err = grpcserver.BootstrapGRPC(ctx, &cfg.Server.GRPC, deps)
+		grpcService, grpcErr := grpcserver.BootstrapGRPC(ctx, &cfg.Server.GRPC, deps)
+		err = grpcErr
+		if grpcService != nil {
+			defer grpcService.Stop()
+		}
 		if err != nil {
 			logger.ErrorF(ctx, "BootstrapGRPC failed: %s", err.Error())
 			return
 		}
 
-		if deps.KnowledgeSpace != nil && deps.KnowledgeSpace.HostDocuments != nil {
-			go func() {
-				if err := deps.KnowledgeSpace.HostDocuments.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-					logger.ErrorF(ctx, "Knowledge Host worker stopped: %v", err)
-					stop()
-				}
-			}()
-		}
-		if deps.AgentRunWorker != nil {
-			workerCtx, workerCancel := context.WithCancel(ctx)
-			workerDone := make(chan struct{})
-			go func() {
-				defer close(workerDone)
-				if err := deps.AgentRunWorker.Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
-					logger.ErrorF(ctx, "Agent durable worker stopped: %v", err)
-					stop()
-				}
-			}()
-			defer func() {
-				workerCancel()
-				select {
-				case <-workerDone:
-				case <-time.After(15 * time.Second):
-					logger.WarnF(ctx, "Agent worker shutdown timed out; leased work will be recovered")
-				}
-			}()
-		}
-		if deps.EventFabric != nil {
-			if deps.EventFabric.RetryWorker != nil {
-				go deps.EventFabric.RetryWorker.Run(ctx)
+		if !config.BackgroundWorkersDisabled(cfg) {
+			if deps.KnowledgeSpace != nil && deps.KnowledgeSpace.HostDocuments != nil {
+				go func() {
+					if err := deps.KnowledgeSpace.HostDocuments.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+						logger.ErrorF(ctx, "Knowledge Host worker stopped: %v", err)
+						stop()
+					}
+				}()
 			}
-			if deps.EventFabric.CronDispatcherWorker != nil {
-				go deps.EventFabric.CronDispatcherWorker.Run(ctx)
+			if deps.AgentRunWorker != nil {
+				workerCtx, workerCancel := context.WithCancel(ctx)
+				workerDone := make(chan struct{})
+				go func() {
+					defer close(workerDone)
+					if err := deps.AgentRunWorker.Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
+						logger.ErrorF(ctx, "Agent durable worker stopped: %v", err)
+						stop()
+					}
+				}()
+				defer func() {
+					workerCancel()
+					select {
+					case <-workerDone:
+					case <-time.After(15 * time.Second):
+						logger.WarnF(ctx, "Agent worker shutdown timed out; leased work will be recovered")
+					}
+				}()
 			}
-			if deps.EventFabric.NotificationWorker != nil {
-				go deps.EventFabric.NotificationWorker.Run(ctx)
-			}
-			if deps.EventFabric.Authorization != nil {
-				if deps.EventFabric.Authorization.TimeoutTaskWorker != nil {
-					go deps.EventFabric.Authorization.TimeoutTaskWorker.Run(ctx)
-				}
-				if deps.EventFabric.Authorization.Service != nil {
+			if deps.EventFabric != nil {
+				if deps.MediaSvc != nil && deps.EventFabric.StreamTasks != nil {
+					mediaCtx, mediaCancel := context.WithCancel(ctx)
+					mediaDone := make(chan struct{})
 					go func() {
-						if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
-							logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
+						defer close(mediaDone)
+						if err := deps.MediaSvc.RunImageDerivativeWorker(mediaCtx); err != nil && !errors.Is(err, context.Canceled) {
+							logger.ErrorF(ctx, "media derivative worker stopped: %v", err)
+						}
+					}()
+					defer func() {
+						mediaCancel()
+						select {
+						case <-mediaDone:
+						case <-time.After(15 * time.Second):
+							logger.WarnF(ctx, "media worker shutdown timed out; TaskBus will reclaim leased work")
 						}
 					}()
 				}
+				if deps.EventFabric.RetryWorker != nil {
+					go deps.EventFabric.RetryWorker.Run(ctx)
+				}
+				if deps.EventFabric.CronDispatcherWorker != nil {
+					go deps.EventFabric.CronDispatcherWorker.Run(ctx)
+				}
+				if deps.EventFabric.NotificationWorker != nil {
+					go deps.EventFabric.NotificationWorker.Run(ctx)
+				}
+				if deps.EventFabric.Authorization != nil {
+					if deps.EventFabric.Authorization.TimeoutTaskWorker != nil {
+						go deps.EventFabric.Authorization.TimeoutTaskWorker.Run(ctx)
+					}
+					if deps.EventFabric.Authorization.Service != nil {
+						go func() {
+							if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
+								logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
+							}
+						}()
+					}
+				}
 			}
-		}
-		if deps.RuntimeScheduler != nil && deps.RuntimeScheduler.Dispatcher != nil {
-			go deps.RuntimeScheduler.Dispatcher.Run(ctx)
-		}
-		if deps.RuntimeScheduler != nil && deps.RuntimeScheduler.NotificationProbe != nil {
-			if err := deps.RuntimeScheduler.NotificationProbe.Start(ctx); err != nil {
-				logger.WarnF(ctx, "runtime scheduler notification probe disabled: %v", err)
+			if deps.RuntimeScheduler != nil && deps.RuntimeScheduler.Dispatcher != nil {
+				go deps.RuntimeScheduler.Dispatcher.Run(ctx)
 			}
-		}
-		if deps.Workflow != nil && deps.Workflow.RunnerWorker != nil {
-			go deps.Workflow.RunnerWorker.Run(ctx)
+			if deps.RuntimeScheduler != nil && deps.RuntimeScheduler.NotificationProbe != nil {
+				if err := deps.RuntimeScheduler.NotificationProbe.Start(ctx); err != nil {
+					logger.WarnF(ctx, "runtime scheduler notification probe disabled: %v", err)
+				}
+			}
+			if deps.Workflow != nil && deps.Workflow.RunnerWorker != nil {
+				go deps.Workflow.RunnerWorker.Run(ctx)
+			}
 		}
 	}
 	if err := assertGlobalWrapKeyInitialized(); err != nil {
@@ -246,7 +351,7 @@ func main() {
 	}
 
 	// 核心路由与依赖初始化完成后，再异步恢复插件，避免反向阻塞宿主启动。
-	if !setupOnlyMode && pluginMgr != nil {
+	if !setupOnlyMode && pluginMgr != nil && os.Getenv("POWERX_COORDINATOR_MAINTENANCE") != "1" {
 		bootstrap.StartPluginAutoRestore(ctx, pluginMgr, cfg)
 	}
 
@@ -257,6 +362,16 @@ func main() {
 
 	// 运行 HTTP 服务
 	srv := &nethttp.Server{Handler: r}
+	if cfg.Recovery.HTTPSocket != "" {
+		_ = os.Remove(cfg.Recovery.HTTPSocket)
+		unixListener, unixErr := net.Listen("unix", cfg.Recovery.HTTPSocket)
+		if unixErr != nil {
+			logger.ErrorF(ctx, "recovery Unix listener failed: %v", unixErr)
+			return
+		}
+		defer os.Remove(cfg.Recovery.HTTPSocket)
+		go func() { _ = srv.Serve(unixListener) }()
+	}
 	serverStopped := make(chan struct{})
 	defer close(serverStopped)
 	go func() {
@@ -272,6 +387,13 @@ func main() {
 		}
 	}()
 	// HTTP 端口已绑定，依赖和路由已初始化；此处才报告就绪。
+	if recovery != nil {
+		if err = recovery.FinishStartup(); err != nil {
+			logger.ErrorF(ctx, "恢复后的正常启动确认失败: %v", err)
+			_ = ln.Close()
+			return
+		}
+	}
 	readyAt := time.Now()
 	startupDuration := readyAt.Sub(startupStartedAt)
 	startupLabel := "✅ PowerX 后台启动完成"
@@ -298,6 +420,7 @@ func main() {
 	if err := srv.Serve(ln); err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}
+	return
 }
 
 func canFallbackToSetupOnly(cfg *config.Config) bool {

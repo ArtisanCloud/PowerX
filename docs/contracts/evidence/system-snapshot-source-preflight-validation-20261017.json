@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-17",
+  "scope": "refresh_system_snapshot_source_preflight_after_plugin_reinstallation",
+  "root_cause": {
+    "core_started_with_plugin": "com.powerx.plugins.ai-craft@0.1.76",
+    "core_start_local_time": "2026-10-17T09:29:12+08:00",
+    "plugin_uninstall_local_time": "2026-10-17T09:36:49+08:00",
+    "plugin_reinstall_local_time": "2026-10-17T09:48:57+08:00",
+    "current_plugin": "com.powerx.plugins.ai-craft@0.1.77",
+    "running_core_executable_readable": true,
+    "web_admin_release_entry_exists": true,
+    "preflight_used_stale_startup_artifacts": true
+  },
+  "changes": [
+    "Overview, capture admission and schedule enablement resolve current sources instead of startup artifact paths.",
+    "A completed build can recover from the initial source enumeration failure without caching the old error.",
+    "Real resolver, deployment contract and missing artifact errors still block capture.",
+    "Artifact errors identify Core, Web Admin or the specific plugin version and file.",
+    "Coordinator dispatch refreshes encrypted source configuration before queueing capture."
+  ],
+  "validation": [
+    {
+      "command": "go test ./internal/service/snapshot_ops ./internal/bootstrap ./internal/transport/http/admin/backup ./internal/service/system_recovery -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go test -race ./internal/service/snapshot_ops ./internal/bootstrap -run 'Test(Preflight|SystemSnapshotPreflight)' -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./internal/service/snapshot_ops ./internal/bootstrap ./internal/transport/http/admin/backup",
+      "result": "passed"
+    }
+  ],
+  "read_only_local_media_audit": {
+    "ready_asset_references": 198,
+    "ready_variant_references": 1,
+    "readable_legacy_objects_without_checksum": 171,
+    "missing_original_objects": 3,
+    "objects_with_matching_registered_sha256": 25,
+    "present_object_size_or_checksum_mismatches": 0,
+    "database_writes": false,
+    "private_report": "test-results/snapshot-preflight-20261017/media-integrity-audit.json"
+  },
+  "acceptance_boundary": {
+    "user_owned_core_restarted": false,
+    "installed_local_snapshot_created": false,
+    "local_recovery_coordinator_configured": false,
+    "whole_application_restore_accepted": false,
+    "production_changed": false,
+    "temporary_agent_services_started": false,
+    "remaining": [
+      "User restart is needed to load the source fix into the existing Core process.",
+      "Historical media metadata and missing original files still block capture and need resolution.",
+      "Ordinary local development services have not been integrated with the managed recovery coordinator."
+    ]
+  }
+}

@@ -87,8 +87,9 @@ func (s *RedisStore) mutateTask(ctx context.Context, identity Snapshot, expected
 						"type": eventType, "status": task.Status, "task_id": taskID,
 						"attempt": task.Attempt, "fence": task.Fence, "pool_id": task.PoolID,
 						"queue_wait_ms": task.QueueWaitMS, "at": now.Format(time.RFC3339Nano),
-						"reason_code":  task.ReasonCode,
-						"queue_reason": task.QueueReason,
+						"reason_code":   task.ReasonCode,
+						"failure_stage": task.FailureStage,
+						"queue_reason":  task.QueueReason,
 					}})
 				return nil
 			})
@@ -168,7 +169,17 @@ func (s *RedisStore) CompleteTask(ctx context.Context, identity Snapshot, expect
 // FailTask records an explicit failure under the current fence. The executor
 // classifies side-effect uncertainty as manual_review_required; this method
 // never infers retry safety from an arbitrary Go error.
-func (s *RedisStore) FailTask(ctx context.Context, identity Snapshot, expectedVersion, revision uint64, taskID, owner string, fence uint64, reasonCode string) (TaskSnapshot, Snapshot, error) {
+func (s *RedisStore) FailTask(ctx context.Context, identity Snapshot, expectedVersion, revision uint64, taskID, owner string, fence uint64, reasonCode string, failureStage ...string) (TaskSnapshot, Snapshot, error) {
+	stage := ""
+	if len(failureStage) > 1 {
+		return TaskSnapshot{}, Snapshot{}, ErrInvalid
+	}
+	if len(failureStage) == 1 {
+		stage = failureStage[0]
+	}
+	if len(stage) > 64 {
+		return TaskSnapshot{}, Snapshot{}, ErrInvalid
+	}
 	if strings.TrimSpace(reasonCode) == "" || len(reasonCode) > 128 {
 		return TaskSnapshot{}, Snapshot{}, ErrInvalid
 	}
@@ -180,6 +191,7 @@ func (s *RedisStore) FailTask(ctx context.Context, identity Snapshot, expectedVe
 			return ErrConflict
 		}
 		task.Status, task.CompletedAt, task.ReasonCode = "failed", now, reasonCode
+		task.FailureStage = stage
 		return nil
 	})
 }

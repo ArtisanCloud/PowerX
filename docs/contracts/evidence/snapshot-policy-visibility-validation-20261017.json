@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-17",
+  "scope": "visible_single_system_snapshot_policy_after_save",
+  "observed_local_state": {
+    "policy_saved": true,
+    "enabled": false,
+    "interval_minutes": 1440,
+    "retention_days": 7,
+    "retention_count": 7,
+    "snapshot_execution_records": 0,
+    "finding": "Saving a disabled policy correctly did not start a capture, but the UI offered no visible policy section after closing the dialog."
+  },
+  "change": {
+    "navigation": "System snapshots > vertical Snapshot policy section; narrow screens use the existing section selector",
+    "summary": ["frequency", "enabled state", "next scheduled time", "retention days", "retention count"],
+    "save_feedback": "Save policy button, success message and automatic navigation to the policy summary",
+    "save_starts_snapshot": false,
+    "single_existing_policy_updated": true,
+    "new_status_polling": false,
+    "locale_files": ["zh", "en", "ja", "ko"]
+  },
+  "validation": {
+    "frontend_unit_tests": {"passed": 55, "files": 10},
+    "isolated_nuxt_production_build": "passed",
+    "full_chromium_browser_suite": {"passed": 9, "duration_seconds": 42.9},
+    "final_policy_browser_case": {"passed": 1, "duration_seconds": 10.6, "viewports": ["1440x1000", "390x844"]},
+    "verified_flows": [
+      "Save a disabled daily policy and show its saved values immediately",
+      "Keep policy values through section changes and page reload",
+      "Edit the same policy, enable it and display its next execution",
+      "Policy PUT requests never trigger a snapshot POST",
+      "Retain asynchronous task push and recovery flows"
+    ],
+    "visual_review": "Desktop and narrow-screen screenshots inspected; the policy is in one task section with its edit action accessible",
+    "final_screenshots": "test-results/backup-policy-final-browser/snapshots-saved-snapshot-p-ae9e9-eload-on-desktop-and-mobile-chromium/",
+    "initial_failure": "Initial policy case timed out because the mobile application sidebar reopened on reload. The test now uses the normal sidebar close control after reload; no forced clicks.",
+    "initial_failure_evidence": "test-results/backup-policy-initial-run/",
+    "process_record": "test-results/snapshot-browser-processes.json"
+  },
+  "acceptance_boundary": {
+    "browser_backend": "Controlled fixture with the real built Nuxt UI and proxy",
+    "actual_local_policy_mutated_by_regression": false,
+    "user_services_restarted": false,
+    "agent_fixture_services_left_running": false,
+    "production_changed": false,
+    "whole_system_restore_accepted": false
+  }
+}
