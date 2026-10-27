@@ -8,8 +8,9 @@ import (
 
 var (
 	namespacePattern = regexp.MustCompile(`^(_topic|[a-z][a-z0-9_-]*)(\.[a-z][a-z0-9_-]*)*$`)
-	namePattern      = regexp.MustCompile(`^[a-z][a-z0-9-_]*$`)
-	templateToken    = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}`)
+	// name 允许数字开头：manifest 中 {{tenant_uuid}} 等占位符渲染后为 UUID（可能以数字开头）。
+	namePattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9-_]*$`)
+	templateToken = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}`)
 )
 
 func validateCreateInput(input CreateTopicInput) error {
