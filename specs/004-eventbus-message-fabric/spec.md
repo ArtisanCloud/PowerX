@@ -72,6 +72,13 @@
    - 范围：topic 命名规范、版本策略（v1/v2）、兼容规则、回放标记、DLQ 语义。
    - 权威：`specs/004-eventbus-message-fabric/spec.md` 与 `specs/004-eventbus-message-fabric/contracts/*`。
 
+### Topic 段命名（manifest 与目录注册必须一致）
+
+- 语义键按 `namespace.name` 拆分；namespace 匹配 `^(_topic|[a-z][a-z0-9_-]*)(\.[a-z][a-z0-9_-]*)*$`，name 匹配 `^[a-z0-9][a-z0-9-_]*$`。
+- name 允许数字开头，因此数字开头的租户 UUID 字面值，以及 `{{tenant_uuid}}` 渲染得到的相同 UUID，必须都能通过校验。该放宽仅适用于 name，不适用于 namespace 段；name 仍禁止点号和下划线／短横线开头。
+- 动态模板使用双花括号。已有 `tenant_{{tenant_uuid}}` 命名继续兼容；manifest、publish 与 subscribe 的语义键须保持一致，不能单独改变某一端的前缀。
+- topic 中出现租户 UUID 不构成授权依据，租户身份仍由 JWT 注入，并执行 registry 与 ACL／grant 校验。注册与联调示例见 `docs/standards/powerx/web-admin/realtime/Topic_Registry_and_Grant_SOP.md`。
+
 ### 租户与鉴权优先级（必须一致）
 
 #### Tenant 来源优先级

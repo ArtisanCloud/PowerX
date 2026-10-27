@@ -46,30 +46,30 @@
 - 错误：`{tenant_uuid}`
 
 如果写成单花括号，变量不会渲染，会直接参与 `name` 校验，触发：
-- `name must match ^[a-z][a-z0-9-_]*$`
+- `name must match ^[a-z0-9][a-z0-9-_]*$`
 
 示例（正确）：
 
 ```yaml
 topics:
-  - topic: ai_craft.shopify.sync.progress.tenant_{{tenant_uuid}}
-  - topic: ai_craft.notify.tenant.tenant_{{tenant_uuid}}
+  - topic: ai_craft.shopify.sync.progress.{{tenant_uuid}}
+  - topic: _topic.notify.tenant.{{tenant_uuid}}
   - topic: ai_craft.order.tenant.tenant_{{tenant_uuid}}
 ```
 
 ### 3.3 Name 命名约束（强制）
 
-当前底座 `event_fabric` 目录校验要求 `name` 必须匹配：
+当前底座 `event_fabric` 的 manifest 解析与目录注册要求 `name` 必须匹配：
 
-- `^[a-z][a-z0-9-_]*$`
+- `^[a-z0-9][a-z0-9-_]*$`
 
 因此：
 
-1. 不要使用裸 UUID 作为 `name`（例如 `{{tenant_uuid}}`），因为租户 UUID 常以数字开头，会被拒绝。
-2. 推荐使用字母前缀方案：
-   - `tenant_{{tenant_uuid}}`
-3. 对应完整 topic 示例：
-   - `ai_craft.shopify.sync.progress.tenant_{{tenant_uuid}}`
+1. `name` 允许字母或数字开头，后续允许小写字母、数字、下划线和短横线；不能以 `_` 或 `-` 开头，也不能包含点号。
+2. 裸租户 UUID、`{{tenant_uuid}}` 以及 `tenant_{{tenant_uuid}}` 均可用作 `name`。例如 `_topic.notify.tenant.{{tenant_uuid}}` 可渲染为 `_topic.notify.tenant.6c868127-f83e-47b0-9e12-3a8c89f6689a`。
+3. 已有带 `tenant_` 前缀的 topic 继续有效；同一业务的 manifest、publish 和 subscribe 必须使用一致的名称，不能只修改其中一端。
+4. namespace 的规则保持不变：`^(_topic|[a-z][a-z0-9_-]*)(\.[a-z][a-z0-9_-]*)*$`。数字开头仅放宽最后一段 `name`，不能把裸 UUID 放入 namespace 段。
+5. 这些命名规则不替代租户隔离、topic registry 与 ACL／grant 授权；动态模板仍须使用双花括号。
 
 ---
 

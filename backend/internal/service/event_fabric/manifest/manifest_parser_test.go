@@ -143,3 +143,38 @@ topics:
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "topic[0] name must match")
 }
+
+func TestLoadAndRenderNumericTenantTopicNames(t *testing.T) {
+	const tenantUUID = "6c868127-f83e-47b0-9e12-3a8c89f6689a"
+	for _, topic := range []string{
+		"topic: _topic.notify.tenant." + tenantUUID,
+		"namespace: _topic.notify.tenant\n    name: " + tenantUUID,
+		"topic: _topic.notify.tenant.{{tenant_uuid}}",
+		"namespace: _topic.notify.tenant\n    name: '{{tenant_uuid}}'",
+	} {
+		t.Run(topic, func(t *testing.T) {
+			doc, err := Load([]byte("version: v1\ntopics:\n  - " + topic + "\n"))
+			require.NoError(t, err)
+			plan, err := doc.Render(SeedContext{TenantUUID: tenantUUID})
+			require.NoError(t, err)
+			require.Len(t, plan.Topics, 1)
+			require.Equal(t, "_topic.notify.tenant", plan.Topics[0].Topic.Namespace)
+			require.Equal(t, tenantUUID, plan.Topics[0].Topic.Name)
+			require.Equal(t, tenantUUID+"._topic.notify.tenant."+tenantUUID, plan.Topics[0].FullTopic)
+		})
+	}
+}
+
+func TestLoadPreservesTopicSegmentRestrictions(t *testing.T) {
+	for _, topic := range []string{
+		"namespace: _topic.notify.tenant\n    name: _progress",
+		"namespace: _topic.notify.tenant\n    name: progress.v1",
+		"namespace: _topic.notify.6tenant\n    name: progress",
+		"namespace: _topic.notify.tenant\n    name: '{tenant_uuid}'",
+	} {
+		t.Run(topic, func(t *testing.T) {
+			_, err := Load([]byte("version: v1\ntopics:\n  - " + topic + "\n"))
+			require.Error(t, err)
+		})
+	}
+}

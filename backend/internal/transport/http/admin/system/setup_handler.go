@@ -1480,13 +1480,27 @@ func isSetupProvisionWorkDir(dir string) bool {
 	if d == "" {
 		return false
 	}
+	for _, sourceDir := range []string{d, filepath.Join(d, "backend")} {
+		if isSetupSourceWorkDir(sourceDir) {
+			return true
+		}
+	}
 	if fi, err := os.Stat(filepath.Join(d, "database")); err == nil && !fi.IsDir() && (fi.Mode()&0o111) != 0 {
 		return true
 	}
-	if fi, err := os.Stat(filepath.Join(d, "backend", "cmd", "database")); err == nil && fi.IsDir() {
-		return true
-	}
 	return false
+}
+
+func isSetupSourceWorkDir(dir string) bool {
+	if fi, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil || fi.IsDir() {
+		return false
+	}
+	for _, tool := range []string{"database", "platform_capability_seed"} {
+		if fi, err := os.Stat(filepath.Join(dir, "cmd", tool)); err != nil || !fi.IsDir() {
+			return false
+		}
+	}
+	return true
 }
 
 func scheduleSetupOnlyAutoRestart(runtimePath string) {
@@ -1760,11 +1774,31 @@ func resolveSetupAIEnv(reqEnv string) string {
 }
 
 func defaultSetupMigrateCmd() string {
-	return "if [ -x ./database ]; then ./database migrate -config \"${POWERX_CONFIG:-etc/config.yaml}\"; elif [ -d backend/cmd/database ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database migrate -config \"${POWERX_CONFIG:-etc/config.yaml}\"; else echo 'database migrate tool not found (expect ./database or go toolchain in dev)' >&2; exit 127; fi"
+	// 源码布局优先，避免误用工作目录中遗留或不同平台的 database 二进制。
+	return `if [ -f go.mod ] && [ -d cmd/database ] && [ -d cmd/platform_capability_seed ] && command -v go >/dev/null 2>&1; then
+  go run ./cmd/database migrate -config "${POWERX_CONFIG:-etc/config.yaml}"
+elif [ -f backend/go.mod ] && [ -d backend/cmd/database ] && [ -d backend/cmd/platform_capability_seed ] && command -v go >/dev/null 2>&1; then
+  cd backend && go run ./cmd/database migrate -config "${POWERX_CONFIG:-etc/config.yaml}"
+elif [ -x ./database ]; then
+  ./database migrate -config "${POWERX_CONFIG:-etc/config.yaml}"
+else
+  echo 'database migrate tool not found (expect Go source with toolchain or ./database)' >&2
+  exit 127
+fi`
 }
 
 func defaultSetupSeedCmd() string {
-	return "if [ -x ./database ] && [ -x ./platform_capability_seed ]; then ./database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\" && ./platform_capability_seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; elif [ -d backend/cmd/database ] && [ -d backend/cmd/platform_capability_seed ] && command -v go >/dev/null 2>&1; then cd backend && go run ./cmd/database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\" && go run ./cmd/platform_capability_seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; elif [ -d cmd/database ] && [ -d cmd/platform_capability_seed ] && command -v go >/dev/null 2>&1; then go run ./cmd/database seed -config \"${POWERX_CONFIG:-etc/config.yaml}\" && go run ./cmd/platform_capability_seed -config \"${POWERX_CONFIG:-etc/config.yaml}\"; else echo 'seed tools not found (expect ./database + ./platform_capability_seed or go toolchain in dev)' >&2; exit 127; fi"
+	// 与 migrate 使用相同的源码优先级，保证两个阶段使用同一份实现。
+	return `if [ -f go.mod ] && [ -d cmd/database ] && [ -d cmd/platform_capability_seed ] && command -v go >/dev/null 2>&1; then
+  go run ./cmd/database seed -config "${POWERX_CONFIG:-etc/config.yaml}" && go run ./cmd/platform_capability_seed -config "${POWERX_CONFIG:-etc/config.yaml}"
+elif [ -f backend/go.mod ] && [ -d backend/cmd/database ] && [ -d backend/cmd/platform_capability_seed ] && command -v go >/dev/null 2>&1; then
+  cd backend && go run ./cmd/database seed -config "${POWERX_CONFIG:-etc/config.yaml}" && go run ./cmd/platform_capability_seed -config "${POWERX_CONFIG:-etc/config.yaml}"
+elif [ -x ./database ] && [ -x ./platform_capability_seed ]; then
+  ./database seed -config "${POWERX_CONFIG:-etc/config.yaml}" && ./platform_capability_seed -config "${POWERX_CONFIG:-etc/config.yaml}"
+else
+  echo 'seed tools not found (expect Go source with toolchain or ./database + ./platform_capability_seed)' >&2
+  exit 127
+fi`
 }
 
 func asMap(v any) map[string]any {
