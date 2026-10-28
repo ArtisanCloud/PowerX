@@ -1,0 +1,32 @@
+name: Source Install and Topic Regression
+
+on:
+  pull_request:
+    paths:
+      - 'backend/internal/transport/http/admin/system/**'
+      - 'backend/internal/service/event_fabric/**'
+      - 'backend/go.mod'
+      - 'backend/go.sum'
+      - 'docs/standards/powerx/web-admin/realtime/Topic_Registry_and_Grant_SOP.md'
+      - 'specs/004-eventbus-message-fabric/spec.md'
+      - '.github/workflows/source-install-topics.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-install-topics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Test setup tool selection and event fabric
+        working-directory: backend
+        run: go test ./internal/transport/http/admin/system ./internal/service/event_fabric/... -count=1
+      - name: Vet affected packages
+        working-directory: backend
+        run: go vet ./internal/transport/http/admin/system ./internal/service/event_fabric/directory ./internal/service/event_fabric/manifest

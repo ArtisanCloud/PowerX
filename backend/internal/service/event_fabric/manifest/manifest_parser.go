@@ -16,8 +16,9 @@ import (
 
 var (
 	topicNamespacePattern = regexp.MustCompile(`^(_topic|[a-z][a-z0-9_-]*)(\.[a-z][a-z0-9_-]*)*$`)
-	topicNamePattern      = regexp.MustCompile(`^[a-z][a-z0-9-_]*$`)
-	topicTemplateToken    = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}`)
+	// 与目录校验保持一致，允许租户 UUID 渲染为数字开头的 name。
+	topicNamePattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9-_]*$`)
+	topicTemplateToken = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}`)
 )
 
 // Manifest describes the declarative topic + ACL requirements for a plugin.
