@@ -208,6 +208,9 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	if s.router == nil {
 		return result, errors.New("invocation router unavailable")
 	}
+	if err := s.audit.checkStorageAdmission(ctx); err != nil {
+		return result, err
+	}
 	capabilityID := strings.TrimSpace(in.CapabilityID)
 	tenantUUID := strings.TrimSpace(in.TenantUUID)
 	if capabilityID == "" || tenantUUID == "" {

@@ -40,6 +40,7 @@
       </article></div>
     </UCard>
 </template>
+<template #logArchives><ArchiveGovernancePanel v-if="logArchivesVisited" /></template>
 <template #targets>
 <UCard>
       <template #header><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold">{{ t('backupCenter.archives.targets') }}</h3><UButton color="neutral" variant="outline" icon="i-heroicons-plus" :disabled="busy || !overview?.credentials.length" @click="openTarget()">{{ t('backupCenter.archives.newTarget') }}</UButton></div></template>
@@ -63,6 +64,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import ArchiveGovernancePanel from './ArchiveGovernancePanel.vue';
 import BackupSectionTabs from './BackupSectionTabs.vue';
 import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import * as v from 'valibot';
@@ -74,12 +76,15 @@ const section = ref('export');
 const sections = computed(() => [
   {value:'export',label:t('backupCenter.onDemand.tools'),icon:'i-heroicons-arrow-down-tray'},
   {value:'jobs',label:t('backupCenter.archives.jobs'),icon:'i-heroicons-archive-box'},
+  {value:'logArchives',label:t('storageGov.archive.title'),icon:'i-heroicons-document-magnifying-glass'},
   {value:'targets',label:t('backupCenter.archives.targets'),icon:'i-heroicons-cloud-arrow-up'},
   {value:'restores',label:t('backupCenter.archives.restores'),icon:'i-heroicons-arrow-uturn-left'},
   {value:'sources',label:t('backupCenter.archives.sources'),icon:'i-heroicons-cog-6-tooth'},
   {value:'policies',label:t('backupCenter.onDemand.advanced'),icon:'i-heroicons-adjustments-horizontal',count:enabledPolicyCount.value},
 ]);
 const overview = ref<ArchiveOverview>(); const error = ref(''); const notice = ref(''); const modalError = ref(''); const loading = ref(false); const busy = ref(false);
+const logArchivesVisited = ref(false);
+watch(section, value => { if (value === 'logArchives') logArchivesVisited.value = true; });
 const enabledPolicyCount = computed(() => overview.value?.policies.filter(policy => policy.enabled).length || 0);
 const mediaOptions = computed(() => (overview.value?.sources || []).filter(source => source.kind === 'media' && source.ready).map(source => ({value:source.id,label:source.name})));
 const oneTimeOpen = ref(false); const oneTimeKey = ref(''); const oneTimeForm = reactive({source_id:''});

@@ -60,6 +60,9 @@ func InitGlobalConfig(configPath string) error {
 	if err := config.ValidateDeploymentIdentity(); err != nil {
 		return fmt.Errorf("部署身份配置无效: %w", err)
 	}
+	if err := config.ReadEnvironmentIdentity(configPath); err != nil {
+		return err
+	}
 
 	// AI: default fill + global snapshot (read-only)
 	config.AI.SetDefaults()
@@ -291,7 +294,12 @@ func (c InstallConfig) EffectiveLockMode() string {
 
 // CoreX 全局配置
 type Config struct {
+	// EnvironmentID is the existing installation identity, resolved at runtime only.
+	EnvironmentID           string `yaml:"-" json:"-"`
+	environmentIdentityFile string
+
 	SystemSnapshots    SnapshotConfig           `yaml:"system_snapshots,omitempty"`
+	StorageGovernance  StorageGovernanceConfig  `yaml:"storage_governance,omitempty"`
 	Recovery           RecoveryConfig           `yaml:"recovery,omitempty"`
 	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
 	Deployment         DeploymentConfig         `yaml:"deployment"`          // 当前 PowerX 实例的稳定部署身份
@@ -813,6 +821,9 @@ func loadConfiguration(configPath string, migrationOnly bool) (*Config, error) {
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
 
+	if err := cfg.readEnvironmentIdentity(configPath, lookup); err != nil {
+		return nil, err
+	}
 	return cfg, nil
 }
 

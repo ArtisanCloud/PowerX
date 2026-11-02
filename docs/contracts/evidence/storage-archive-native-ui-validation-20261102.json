@@ -1,0 +1,145 @@
+{
+  "contract": "powerx.storage.archive-native-ui-acceptance/v0.6.2",
+  "observed_at": "2026-11-02T01:01:30.188283+08:00",
+  "passed": true,
+  "scope": {
+    "native_archive_chain": "actual Nuxt production artifact, production archive HTTP/JWT middleware, actual filesystem SSE, lifecycle engine and private versioned owned MinIO",
+    "identity_boundary": "page context and isolated signed Root JWT are controlled fixtures; not a claim of daily login or production provider acceptance",
+    "daily_instance": "normal existing Root session read-only API and real browser page; installed archive scheduler/source readiness confirmed"
+  },
+  "regressions": {
+    "relative_audit_directory": {
+      "before_http": 503,
+      "cause": "logs/audit passed to archive validator without absolute binding",
+      "after_http": 200,
+      "startup_regression_test": "passed"
+    },
+    "manual_archive_and_migration": {
+      "before_manual_http_requests": 0,
+      "cause": "Vue template compiled crypto.randomUUID to component-context crypto",
+      "fix": "script action methods create UUID keys for manual archive and migration",
+      "unit_regression": "failed before; passed after"
+    }
+  },
+  "native_chain": {
+    "private_versioning": "Enabled",
+    "target_saved_draft_only": true,
+    "unverified_target_enable_rejected": true,
+    "target_test_full_readback_passed": true,
+    "ui_explicit_enable": true,
+    "manual_run_http": 202,
+    "actual_sse_updates": true,
+    "source_deleted_after_verified_archive": true,
+    "local_cas_removed_before_retrieval": true,
+    "filename_search": true,
+    "remote_preview": true,
+    "tar_download_extracted_sha256_matches": true,
+    "disabled_archive_history_still_downloadable": true,
+    "policy_disabled_after_test": true,
+    "idle_observation_ms": 1800,
+    "idle_periodic_detail_requests": false,
+    "desktop_and_narrow_widths": [
+      1440,
+      390,
+      320
+    ],
+    "filters_retained_across_sections": true,
+    "horizontal_overflow": false,
+    "remote_versions_before_fixture_cleanup": 2
+  },
+  "checks": {
+    "frontend_scoped_unit_tests": 42,
+    "frontend_test_files": 8,
+    "isolated_frontend_build": "passed",
+    "three_affected_go_packages_race": "passed selected Archive|Storage tests",
+    "three_affected_go_packages_vet": "passed",
+    "upgrade_cli_validation_tests": "passed",
+    "upgrade_payload_registry_check": "passed",
+    "payload_registry_update": "core and catalog content-addressed checksums synchronized with current worktree; no migration executed"
+  },
+  "daily_instance_readiness": {
+    "core_pid": 23733,
+    "archive_http": 200,
+    "archive_scheduler_started": true,
+    "ready_sources": 4,
+    "archive_policies": 0,
+    "archive_jobs": 0,
+    "database_retention_ready": true,
+    "database_retention_worker_enabled": true,
+    "database_cleanup_enabled": false,
+    "database_reject_new_when_full": false,
+    "runtime_budget_sequential_read": "healthy",
+    "parallel_probe_note": "one parallel diagnostic collided with the nonblocking metadata lock; sequential runtime status was healthy",
+    "runtime_admission_enabled": true,
+    "user_services_restarted_by_agent": false,
+    "daily_configuration_changed_by_agent": false,
+    "latest_sample_slots": [
+      "2026-11-02 01:00:00+08",
+      "2026-11-02 00:55:00+08",
+      "2026-11-02 00:50:00+08",
+      "2026-11-02 00:45:00+08"
+    ]
+  },
+  "preservation": {
+    "sealed_logs": [
+      {
+        "name": "info-2026-10-13T15-16-40.592.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-11T08-25-44.153.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-15T14-28-06.998.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-08T18-43-57.673.log.gz",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-18T15-02-31.203.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-17T12-17-03.789.log",
+        "preserved": true
+      }
+    ],
+    "logging_collector": "on",
+    "log_statement": "mod"
+  },
+  "cleanup": {
+    "all_recorded_processes_exited": true,
+    "ports_released": true,
+    "owned_http_source_removed": true,
+    "owned_http_listener_released": true,
+    "owned_minio_data_removed": true
+  },
+  "source_sha256": {
+    "backend/internal/bootstrap/archive_governance.go": "9f76dff33d9668bfe60e17d092b4dd53695ab9e4da215c0ec02800cc666e10d0",
+    "backend/internal/bootstrap/archive_governance_test.go": "c227d92dc422060984974ae4995ba2eef56732323d1850d38d7caa200f4babe6",
+    "backend/internal/transport/http/admin/backup/archive_native_browser_test.go": "9ef67927cd76bcb24e9f21570c631a8ba4fbaab1ca3a1cbe5ccb49b95ddabf1d",
+    "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "855f7e144372b9b0e49b8539bd695cbc658996d2979726de672dba62372d6741",
+    "web-admin/tests/unit/storage/archive-governance.spec.ts": "d76b8f6b95494d1a4f693d1285cbf62aea3fd2cbf40199f71356cfe466962c4b",
+    "web-admin/tests/e2e/storage/archive-native.spec.ts": "3670534b44ad75311b7e022a27da61b4477d152c6bb22cff78f73bbe11d2e770",
+    "web-admin/playwright.archive-native.config.ts": "faf21335383e85f1176ab25fdfc061b66beff9a661d6ad556a37efafce12fc05",
+    "web-admin/scripts/snapshot-browser-fixture.mjs": "968ccdb3f887896cfaf663763f5ee3f44ac0334f609973b2f3dc3ad47b52d88b",
+    "scripts/ops/validate-storage-archive-ui.py": "8368ed4a9297a4c55b6c266932caa13b5d6a9064fd4782451a56dfa0ba1db8f4",
+    "backend/cmd/database/upgrade_payloads.json": "41406eb394f6b73f300a51fecd78e66830535bc67f3c700324ea99f526680df3"
+  },
+  "screenshots": [
+    "docs/contracts/evidence/storage-archive-native-ui-20261102/native-archive-1440.png",
+    "docs/contracts/evidence/storage-archive-native-ui-20261102/native-archive-390.png",
+    "docs/contracts/evidence/storage-archive-native-ui-20261102/native-archive-320.png"
+  ],
+  "limits": [
+    "Daily real sources were not uploaded or removed; native destructive chain uses owned fixtures only",
+    "No private cloud production target configured or enabled",
+    "No production deployment, database retention activation, or old-script handoff",
+    "Existing Mac history not imported, migrated or deleted",
+    "No seven-day/fourteen-day acceptance",
+    "Content-address registry check is not acceptance of all unrelated worktree migrations"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "owner": "codex-storage-runtime-native-tests",
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+  "started_at": "2026-10-30T10:07:41.573229+00:00",
+  "data_directory": "/tmp/px-storage-runtime-rza2m1dj/data",
+  "socket_directory": "/tmp/px-storage-runtime-rza2m1dj/socket",
+  "tcp_listener": true,
+  "listen_address": "127.0.0.1",
+  "port": 19489,
+  "command": [
+    "pg_ctl",
+    "-D",
+    "/tmp/px-storage-runtime-rza2m1dj/data",
+    "-o",
+    "-h 127.0.0.1 -k /tmp/px-storage-runtime-rza2m1dj/socket -p 19489",
+    "start",
+    "-w"
+  ],
+  "pid": 8867,
+  "test_exit_code": 0,
+  "stop_exit_code": 0,
+  "socket_released": true,
+  "stopped_at": "2026-10-30T10:08:18.405509+00:00"
+}

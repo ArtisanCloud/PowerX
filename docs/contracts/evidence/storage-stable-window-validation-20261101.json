@@ -1,0 +1,88 @@
+{
+  "contract": "powerx.storage.stable-window-acceptance/v0.6.1",
+  "completed_at": "2026-11-01T23:54:13.879781+08:00",
+  "scope": "Actual local Core, fixed PID, self-owned file logs only; not production, database expiry or archive acceptance.",
+  "started_at": "2026-11-01T15:38:06.272295Z",
+  "paused_at": "2026-11-01T15:53:11.355206Z",
+  "policy_active_seconds": 905.082911,
+  "monotonic_elapsed_seconds": 967.3747712090044,
+  "minimum_window_seconds": 900,
+  "core_pid": 30958,
+  "core_pid_unchanged": true,
+  "checkpoint_count": 10,
+  "scheduled_runs": [
+    {
+      "request_key": "scheduled:core-app-logs-7ae24726a59e:1992830",
+      "id": "14b2a162-50f1-439d-92df-7aa606a57591",
+      "source_id": "core-app-logs-7ae24726a59e",
+      "policy_revision": 5,
+      "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+      "state": "completed",
+      "started_at": "2026-11-01T15:42:48.85514Z",
+      "finished_at": "2026-11-01T15:42:49.275907Z",
+      "deleted_files": 1,
+      "removed_bytes": 315392,
+      "removed_allocated_bytes": 315392,
+      "available_before": 116527505408,
+      "available_after": 116527747072
+    }
+  ],
+  "manual_batch_invoked": false,
+  "sampling_times": [
+    "2026-11-01T15:42:48.862169Z",
+    "2026-11-01T15:47:48.616505Z",
+    "2026-11-01T15:52:48.622833Z"
+  ],
+  "sampling_intervals_seconds": [
+    299.754336,
+    300.006328
+  ],
+  "protected_canary_unchanged_until_cleanup": true,
+  "original_sealed_logs_hashes_unchanged": 6,
+  "database": {
+    "trace_rows": 3488,
+    "event_rows": 4796,
+    "legacy_trace_rows": 3472,
+    "legacy_event_rows": 4780,
+    "log_statement": "mod",
+    "logging_collector": "on"
+  },
+  "database_cleanup_remained_off": true,
+  "final_policy": {
+    "cleanup_mode": "expire_delete",
+    "source_id": "core-app-logs-7ae24726a59e",
+    "revision": 6,
+    "enabled": false,
+    "retention_days": 3650,
+    "max_bytes": 10737418240,
+    "require_archive": false,
+    "fingerprint": "bc6b67ae0a15b64b82e8fa8547089294f87f74751528132bcd4f849313edf3d6",
+    "owner_instance": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+    "operator_id": 1,
+    "updated_at": "2026-11-01T15:53:11.355206Z"
+  },
+  "temporary_awake_process": {
+    "owner": "codex-storage-stable-acceptance-20261101",
+    "pid": 28391,
+    "command": [
+      "/usr/bin/caffeinate",
+      "-i",
+      "-t",
+      "1500"
+    ],
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+    "started_at": "2026-11-01T23:37:18.617292+08:00",
+    "listen_ports": [],
+    "permanent_power_settings_changed": false,
+    "exited": true
+  },
+  "test_files_remaining": 0,
+  "continuous_fifteen_minute_window_passed": true,
+  "checkpoint_log": "tmp/storage-stable-acceptance-20261101/checkpoints.jsonl",
+  "pause_mechanism": "single test-only 905-second browser timer invoking the official API through the existing normal Root session; no periodic status polling added to product code",
+  "limitations": [
+    "Local file-log continuous-window acceptance only",
+    "Production deployment, archive/retrieval, database expiry and exhausted-capacity admission remain separate acceptance work"
+  ],
+  "original_database_legacy_classification_preserved": true
+}

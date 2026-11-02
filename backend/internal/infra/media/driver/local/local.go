@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"net/http"
 	"net/url"
@@ -159,26 +160,35 @@ func (d *Driver) Put(ctx context.Context, in driver.PutObjectInput) (*driver.Put
 	if err != nil {
 		return nil, err
 	}
+	peak := in.Size
+	if peak < 0 {
+		return nil, driver.ErrInvalidArgument
+	}
+	if peak == 0 {
+		peak = 1 << 20
+	}
+	ctx, release, err := budget.BeginPath(ctx, d.basePath, "media_upload", peak)
+	if err != nil {
+		return nil, driver.WrapError(d.name, "admission", err)
+	}
+	defer release()
 	if err = os.MkdirAll(filepath.Dir(path), d.dirPerm); err != nil {
 		return nil, driver.WrapError(d.name, "mkdir", err)
 	}
 
-	flags := os.O_CREATE | os.O_WRONLY
-	if in.Overwrite {
-		flags |= os.O_TRUNC
-	} else {
-		flags |= os.O_EXCL
-	}
-	file, err := os.OpenFile(path, flags, d.filePerm)
+	// 新增空间不足或请求取消时，只回滚本次暂存文件，保留已有对象。
+	file, err := os.CreateTemp(filepath.Dir(path), ".media-upload-")
 	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return nil, driver.ErrConflict
-		}
 		return nil, driver.WrapError(d.name, "open", err)
 	}
+	temporary := file.Name()
+	defer os.Remove(temporary)
 	defer file.Close()
+	if err = file.Chmod(d.filePerm); err != nil {
+		return nil, driver.WrapError(d.name, "chmod", err)
+	}
 
-	written, err := io.Copy(file, in.Body)
+	written, err := io.Copy(budget.Writer(ctx, file), in.Body)
 	if err != nil {
 		return nil, driver.WrapError(d.name, "write", err)
 	}
@@ -189,6 +199,24 @@ func (d *Driver) Put(ctx context.Context, in driver.PutObjectInput) (*driver.Put
 	info, err := file.Stat()
 	if err != nil {
 		return nil, driver.WrapError(d.name, "stat", err)
+	}
+
+	if err = file.Sync(); err != nil {
+		return nil, driver.WrapError(d.name, "sync", err)
+	}
+	if err = file.Close(); err != nil {
+		return nil, driver.WrapError(d.name, "close", err)
+	}
+	if in.Overwrite {
+		err = os.Rename(temporary, path)
+	} else {
+		err = os.Link(temporary, path)
+	}
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil, driver.ErrConflict
+		}
+		return nil, driver.WrapError(d.name, "publish", err)
 	}
 
 	return &driver.PutObjectResult{

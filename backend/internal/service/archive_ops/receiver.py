@@ -69,6 +69,13 @@ def cleanup(days,count):
 
 result={'ok':True,'namespace':str(namespace),'configured_root':root_arg}
 if operation=='init':pass
+elif operation=='test':
+    data=os.urandom(64);fd,name=tempfile.mkstemp(prefix='.target-test-',dir=namespace)
+    try:
+        with os.fdopen(fd,'wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
+        if hashlib.sha256(Path(name).read_bytes()).digest()!=hashlib.sha256(data).digest():raise ValueError('target readback failed')
+        result['verified']=True
+    finally:os.unlink(name)
 elif operation=='commit':
     incoming=regular(namespace/'incoming'/(job_id+'.json'));raw=incoming.read_bytes();manifest=json.loads(raw);verify(manifest)
     checksum=hashlib.sha256(raw).hexdigest();manifest['_archive_remote']={'committed_at':time.time(),'source_manifest_sha256':checksum}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"os"
 	"path/filepath"
@@ -34,6 +35,22 @@ func (s *Service) capture(ctx context.Context, j *Snapshot) error {
 		if e != nil {
 			return e
 		}
+	}
+	if budget.Enabled() {
+		peak := int64(64 << 20)
+		for _, path := range artifactRoots(cfg.Artifacts) {
+			n, err := budget.TreeBytes(ctx, path)
+			if err != nil {
+				return err
+			}
+			peak += n
+		}
+		run, release, err := budget.BeginPath(ctx, s.cfg.Directory, "system_snapshot", peak)
+		if err != nil {
+			return err
+		}
+		defer release()
+		ctx = run
 	}
 	capturedAt := s.opts.Now()
 	// 包内复制校验之外，再覆盖整个采集窗口，检测已复制文件被改写或新增/删除版本。
@@ -388,7 +405,7 @@ func copyTreeWithin(ctx context.Context, source, target, root string, stack map[
 	if e != nil {
 		return e
 	}
-	_, e = io.Copy(out, contextReader{ctx, in})
+	_, e = io.Copy(budget.Writer(ctx, out), contextReader{ctx, in})
 	if e == nil {
 		e = out.Sync()
 	}

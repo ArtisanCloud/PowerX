@@ -24,6 +24,46 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error
 	return migrateDatabase(ctx, db, cfg)
 }
 
+func validateMigrationScope(command, scope string) error {
+	if scope == "" {
+		return nil
+	}
+	if command != "migrate" || (scope != "storage-governance" && scope != "capability-retention") {
+		return fmt.Errorf("scope 仅支持 migrate -scope storage-governance 或 capability-retention")
+	}
+	return nil
+}
+
+// MigrateDatabaseScope 在开发库按显式来源限定迁移，不夹带 Core/IAM/Agent 的其他迁移或 seed。
+// 模型注册仍集中于 database/migration.go；安装镜像升级继续使用完整计划与 apply 协议。
+func MigrateDatabaseScope(ctx context.Context, db *gorm.DB, cfg *config.Config, scope string) error {
+	if err := validateMigrationScope("migrate", scope); err != nil {
+		return err
+	}
+	if scope == "" {
+		return MigrateDatabase(ctx, db, cfg)
+	}
+	if cfg == nil || (cfg.Deployment.Env != "dev" && cfg.Deployment.Env != "test") {
+		return fmt.Errorf("限定迁移仅支持 dev/test；已安装正式环境使用完整升级计划")
+	}
+	if db == nil || db.Dialector.Name() != "postgres" {
+		return fmt.Errorf("限定迁移需要 PostgreSQL")
+	}
+	run, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	return database.WithDatabaseMigrationLock(run, db, 30*time.Second, func(locked *gorm.DB) error {
+		return locked.WithContext(run).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("SET LOCAL lock_timeout='3s'").Error; err != nil {
+				return err
+			}
+			if scope == "capability-retention" {
+				return database.MigrateCapabilityRetentionModels(tx)
+			}
+			return database.MigrateStorageGovernanceModels(tx)
+		})
+	})
+}
+
 func migrateDatabase(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 
 	if err := database.MigrateCoreModels(db); err != nil {

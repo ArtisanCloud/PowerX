@@ -38,14 +38,16 @@ func (s *Service) StartScheduler() {
 		return
 	}
 	s.mu.Lock()
-	if s.ctx.Err() != nil {
+	if s.ctx.Err() != nil || s.schedulerRunning {
 		s.mu.Unlock()
 		return
 	}
+	s.schedulerRunning = true
 	s.workers.Add(1)
 	s.mu.Unlock()
 	go func() {
 		defer s.workers.Done()
+		defer func() { s.mu.Lock(); s.schedulerRunning = false; s.mu.Unlock() }()
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		for {

@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/infra/media/driver"
 	locadriver "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/ArtisanCloud/PowerX/internal/service/media"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
@@ -63,11 +65,10 @@ type localUploadHandler struct {
 	maxSize     int64
 	mediaSvc    *media.MediaService
 	driverName  string
+	storage     *locadriver.Driver
 }
 
 const uploadFormField = "upload-file"
-
-var errPayloadTooLarge = errors.New("payload exceeds max upload size")
 
 func newLocalUploadHandler(basePath, secret string, maxSize int64, svc *media.MediaService, driverName string) (*localUploadHandler, error) {
 	if strings.TrimSpace(basePath) == "" {
@@ -86,12 +87,17 @@ func newLocalUploadHandler(basePath, secret string, maxSize int64, svc *media.Me
 	if strings.TrimSpace(driverName) == "" {
 		driverName = "local"
 	}
+	storage, err := locadriver.New(locadriver.Options{BasePath: abs, Name: driverName})
+	if err != nil {
+		return nil, err
+	}
 	return &localUploadHandler{
 		basePath:    abs,
 		tokenSecret: []byte(strings.TrimSpace(secret)),
 		maxSize:     maxSize,
 		mediaSvc:    svc,
 		driverName:  driverName,
+		storage:     storage,
 	}, nil
 }
 
@@ -142,47 +148,71 @@ func (h *localUploadHandler) handle(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid object key"})
 		return
 	}
-	if err = os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		h.abortUploadError(c, "mkdir_failed", err)
-		return
+	peak := c.Request.ContentLength
+	if peak <= 0 {
+		peak = 1 << 20
 	}
-	file, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	ctx, release, err := budget.BeginPath(c.Request.Context(), h.basePath, "media_upload", peak)
 	if err != nil {
-		h.abortUploadError(c, "open_file_failed", err)
+		h.abortUploadError(c, "admission_failed", err)
 		return
 	}
-	defer file.Close()
+	defer release()
 
 	var mimeType string
+	var body io.Reader = c.Request.Body
+	size := c.Request.ContentLength
+	if size < 0 {
+		size = 0
+	}
 	contentType := strings.ToLower(strings.TrimSpace(c.GetHeader("Content-Type")))
 	if strings.Contains(contentType, "multipart/form-data") {
-		part, header, formErr := c.Request.FormFile(uploadFormField)
+		// Stream the part directly; ParseMultipartForm may spool outside the budget.
+		reader, formErr := c.Request.MultipartReader()
 		if formErr != nil {
-			_ = file.Close()
-			_ = os.Remove(dst)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "upload-file field required"})
 			return
 		}
-		defer part.Close()
-		_, err = h.copyToFile(file, part)
-		if header != nil {
-			if val := strings.TrimSpace(header.Header.Get("Content-Type")); val != "" {
-				mimeType = val
+		found := false
+		for i := 0; i < 16; i++ {
+			part, partErr := reader.NextPart()
+			if partErr != nil {
+				break
 			}
+			if part.FormName() != uploadFormField {
+				_ = part.Close()
+				continue
+			}
+			defer part.Close()
+			body, size = part, 0
+			mimeType = strings.TrimSpace(part.Header.Get("Content-Type"))
+			found = true
+			break
 		}
-	} else {
-		_, err = h.copyToFile(file, c.Request.Body)
+		if !found {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "upload-file field required"})
+			return
+		}
 	}
+	if h.maxSize > 0 {
+		body = http.MaxBytesReader(c.Writer, io.NopCloser(body), h.maxSize)
+	}
+	_, err = h.storage.Put(ctx, driver.PutObjectInput{ObjectKey: objectKey, Body: body, Size: size, Overwrite: true})
 	if err != nil {
-		_ = file.Close()
-		_ = os.Remove(dst)
-		if errors.Is(err, errPayloadTooLarge) {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
 			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
 			return
 		}
 		h.abortUploadError(c, "copy_failed", err)
 		return
 	}
+	file, err := os.Open(dst)
+	if err != nil {
+		h.abortUploadError(c, "open_file_failed", err)
+		return
+	}
+	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
@@ -193,7 +223,7 @@ func (h *localUploadHandler) handle(c *gin.Context) {
 		mimeType = detectFileContentType(file)
 	}
 
-	if err := h.syncUploadedAsset(c.Request.Context(), objectKey, info.Size(), mimeType); err != nil {
+	if err := h.syncUploadedAsset(ctx, objectKey, info.Size(), mimeType); err != nil {
 		h.abortUploadError(c, "sync_metadata_failed", err)
 		return
 	}
@@ -256,17 +286,6 @@ func (h *localUploadHandler) syncUploadedAsset(ctx context.Context, objectKey st
 	return nil
 }
 
-func (h *localUploadHandler) copyToFile(dst *os.File, src io.Reader) (int64, error) {
-	written, err := io.Copy(dst, src)
-	if err != nil {
-		return written, err
-	}
-	if h.maxSize > 0 && written > h.maxSize {
-		return written, errPayloadTooLarge
-	}
-	return written, nil
-}
-
 func (h *localUploadHandler) abortUploadError(c *gin.Context, reason string, err error) {
 	ctx := c.Request.Context()
 	pxlog.Error(pxlog.WithLogFields(ctx, map[string]interface{}{
@@ -276,7 +295,13 @@ func (h *localUploadHandler) abortUploadError(c *gin.Context, reason string, err
 		"driver":      h.driverName,
 		"request_uri": c.Request.RequestURI,
 	}), "local media upload failed: "+err.Error())
-	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+	status := http.StatusInternalServerError
+	if errors.Is(err, budget.ErrInsufficient) {
+		status = http.StatusInsufficientStorage
+	} else if errors.Is(err, budget.ErrBusy) || errors.Is(err, budget.ErrUnavailable) {
+		status = http.StatusServiceUnavailable
+	}
+	c.AbortWithStatusJSON(status, gin.H{
 		"error":  "local media upload failed",
 		"reason": reason,
 	})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -15,7 +16,9 @@ import (
 // CapabilityEventPublicationRepository 管理能力事件投递记录。
 type CapabilityEventPublicationRepository struct {
 	*baseRepo.BaseRepository[models.CapabilityEventPublication]
-	db *gorm.DB
+	db               *gorm.DB
+	retentionChecked bool
+	retentionOnce    sync.Once
 }
 
 // CapabilityEventPublicationFilter 提供按状态过滤能力。
@@ -43,6 +46,12 @@ func NewCapabilityEventPublicationRepository(db *gorm.DB) *CapabilityEventPublic
 func (r *CapabilityEventPublicationRepository) Create(ctx context.Context, event *models.CapabilityEventPublication) (*models.CapabilityEventPublication, error) {
 	if event == nil {
 		return nil, errors.New("capability event publication payload is nil")
+	}
+	r.retentionOnce.Do(func() {
+		r.retentionChecked = r.db.Migrator().HasColumn(&models.CapabilityEventPublication{}, "record_class") && r.db.Migrator().HasColumn(&models.CapabilityEventPublication{}, "terminal_at") && r.db.Migrator().HasColumn(&models.CapabilityEventPublication{}, "delivery_receipt")
+	})
+	if !r.retentionChecked {
+		return r.BaseRepository.WithDB(r.db.Omit("RecordClass", "TerminalAt", "DeliveryReceipt")).Create(ctx, event)
 	}
 	return r.BaseRepository.Create(ctx, event)
 }

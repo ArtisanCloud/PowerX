@@ -74,6 +74,10 @@ func TestAuditServiceRecordInvocation(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, records, 1)
 	require.Equal(t, "trace-123", records[0].TraceID)
+	require.Equal(t, "dispatched", records[0].Status)
+	require.NotEmpty(t, records[0].DeliveryReceipt)
+	require.NotNil(t, records[0].TerminalAt)
+	require.True(t, trace.EventPublished)
 }
 
 func TestAuditServiceAllowsMultipleInvocationsInOneTrace(t *testing.T) {
@@ -107,8 +111,8 @@ func TestAuditServiceAllowsMultipleInvocationsInOneTrace(t *testing.T) {
 	require.Equal(t, "shared-trace-123", traces[0].TraceID)
 	require.Equal(t, "shared-trace-123", traces[1].TraceID)
 	require.NotEqual(t, traces[0].UUID, traces[1].UUID)
-	require.True(t, traces[0].EventPublished)
-	require.True(t, traces[1].EventPublished)
+	require.False(t, traces[0].EventPublished)
+	require.False(t, traces[1].EventPublished)
 	require.NotNil(t, traces[0].EventPublicationID)
 	require.NotNil(t, traces[1].EventPublicationID)
 	require.NotEqual(t, *traces[0].EventPublicationID, *traces[1].EventPublicationID)

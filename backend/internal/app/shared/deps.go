@@ -89,6 +89,7 @@ import (
 	runtimescheduler "github.com/ArtisanCloud/PowerX/internal/service/runtime_scheduler"
 	skillsvc "github.com/ArtisanCloud/PowerX/internal/service/skills"
 	snapshotops "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
+	storagegov "github.com/ArtisanCloud/PowerX/internal/service/storage_governance"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	wsbus "github.com/ArtisanCloud/PowerX/internal/transport/websocket/bus"
@@ -219,6 +220,7 @@ type Deps struct {
 	RestoreCopies          *backupops.RestoreCopyService
 	Archives               *archiveops.Service
 	SystemSnapshots        *snapshotops.Service
+	StorageGovernance      *storagegov.Service
 	SystemRecovery         *snapshotops.CoordinatorStore
 	CurrentRecovery        CurrentRecoveryRuntime
 	ctx                    *context.Context

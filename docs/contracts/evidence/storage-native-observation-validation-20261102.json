@@ -1,0 +1,333 @@
+{
+  "schema": "powerx.storage-native-observation.validation.v1",
+  "recorded_at_utc": "2026-11-01 17:58:41 UTC",
+  "scope": "Local development actual daily Core and normal Root browser acceptance; pre-restart controlled checks retained below",
+  "result": "native_source_sampling_and_inapp_delivery_verified_header_reconnect_followup_open",
+  "configuration": {
+    "before_sha256": "d0def302cbca02c72bde96e7afa4b75487d9e57c7965d083290acaed5c96e89f",
+    "after_sha256": "a71d603d0bf773f7e5cdf38d8b529cf70d60948ff90f1ed349d3e098e283a617",
+    "source_id": "core-postgres-native",
+    "scope": "shared",
+    "recipient": "current Root in-app member",
+    "recipient_validated": true,
+    "policies_activated": false,
+    "postgres_settings_changed": false,
+    "services_restarted": false
+  },
+  "native_postgresql_preflight": {
+    "cluster_identity_matches_registered": true,
+    "logging_collector": "on",
+    "log_statement": "mod",
+    "log_truncate_on_rotation": "off",
+    "log_filename": "postgresql-audit-%Y-%m-%d_%H%M%S.log",
+    "same_filesystem": true,
+    "manifest_is_owner_controlled_regular_file": true,
+    "recipient_active_root_membership_validated_readonly": true,
+    "sql_settings_changed": false
+  },
+  "read_only_configured_acceptance": {
+    "test": "TestStorageNativeLocalObservationAcceptance",
+    "result": "passed",
+    "source_id": "core-postgres-native",
+    "scope": "shared",
+    "supported": true,
+    "scan_complete": true,
+    "observed_allocated_bytes": 98955264,
+    "stable_sealed_candidates": 14,
+    "protected": {
+      "active_or_unknown": 1,
+      "latest_rotation": 1
+    },
+    "daily_workers_started": false,
+    "daily_database_samples_written": false,
+    "notification_sent": false,
+    "daily_ledgers_changed": false,
+    "source_files_changed": false,
+    "identity": "controlled Root context in in-process test; no browser token minted and no real notification delivered"
+  },
+  "protection_validation": [
+    "Missing, malformed, oversized, duplicate-destination, traversal and foreign-directory manifests block candidates",
+    "Symlink, hardlink, writable manifest and group-writable source directory fail closed",
+    "Active logs excluded independently of mtime; latest sealed segment protected separately per stderr/csv stream",
+    "Rotation before or after atomic capture retains/restores originals",
+    "Open descriptor follows captured inode and prevents unlink; missing lsof proof also restores original",
+    "Only owned expired fixture logs removed; active/latest fixture logs preserved",
+    "Archive adapter uses the same manifest boundary; unavailable manifest blocks capture",
+    "Non-native source fingerprints unchanged; native fingerprint includes fixed manifest path, not mutable manifest contents"
+  ],
+  "validation": [
+    {
+      "command": "go test -race ./config ./internal/infra/storage_lifecycle ./internal/service/archive_ops ./internal/service/storage_governance ./internal/service/notifications ./internal/bootstrap -run 'Storage|CapacityNotification|Postgresql|NativePostgres|ArchiveNative' -count=1",
+      "result": "passed; 6 packages"
+    },
+    {
+      "command": "go test -race ./internal/infra/storage_lifecycle ./internal/service/archive_ops ./internal/bootstrap -run 'Postgresql|NativePostgres|ArchiveNative' -count=1",
+      "result": "passed after final native permission hardening; 3 packages"
+    },
+    {
+      "command": "go vet ./config ./internal/infra/storage_lifecycle ./internal/service/archive_ops ./internal/service/storage_governance ./internal/service/notifications ./internal/bootstrap",
+      "result": "passed; native packages rechecked after final changes"
+    },
+    {
+      "command": "POWERX_STORAGE_NATIVE_LOCAL_ACCEPTANCE_CONFIG=<absolute local dev config> go test ./internal/bootstrap -run '^TestStorageNativeLocalObservationAcceptance$' -count=1 -v",
+      "result": "passed against actual local file metadata and copied configuration; isolated temporary ledger, SQL metrics/sampling disabled only inside test"
+    },
+    {
+      "command": "npx vitest run tests/unit/storage/storage-runtime.spec.ts tests/unit/storage/archive-governance.spec.ts tests/unit/storage/storage-runtime-events.spec.ts",
+      "result": "passed; 3 files, 10 tests"
+    },
+    {
+      "command": "go build -o /dev/null ./cmd/app",
+      "result": "passed"
+    },
+    {
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "result": "passed; no migration executed"
+    },
+    {
+      "command": "git diff --check -- <affected tracked files>",
+      "result": "passed"
+    }
+  ],
+  "final_state": {
+    "file_document_revision": 26,
+    "file_policies": [
+      {
+        "cleanup_mode": "expire_delete",
+        "source_id": "core-app-logs-7ae24726a59e",
+        "revision": 8,
+        "enabled": false,
+        "retention_days": 3650
+      }
+    ],
+    "retained_run_count": 5,
+    "database_policy_file_exists": false,
+    "compile_artifact_removed": true
+  },
+  "process_ownership": {
+    "daily_core_pid": 42377,
+    "daily_nuxt_pid": 11794,
+    "daily_postgres_pid": 4407,
+    "daily_minio_pid": 4408,
+    "agent_services_started": [],
+    "user_services_restarted": false,
+    "owned_compile_artifact_removed": true,
+    "own_fixture_data_removed_by_test_cleanup": true
+  },
+  "pending": [
+    "Long-open header notification popover automatic recovery across Core restart needs independent reproduction; backend inbox and actual notification center are verified.",
+    "Explicit UI selection and activation of long-term retention/budgets/verified target remains separate.",
+    "Production deployment, installed legacy-script handoff, existing Mac archives and long-term observation remain separate."
+  ],
+  "documents": [
+    "docs/guides/deploy/027-monitor-center/usecase-us9-storage-archive-controls.md#79-接入-postgresql-原生文件日志及站内告警",
+    "tmp/storage-governance-archive-ui-optimization-plan-20261031.md",
+    "specs/027-monitor-center/tasks.md"
+  ],
+  "updated_at_utc": "2026-11-01 20:35:50 UTC",
+  "installed_runtime_before_restart": {
+    "runtime": {
+      "http": 200,
+      "worker_enabled": true,
+      "notifications_configured": false,
+      "pg_native_loaded": false,
+      "file_policy_enabled": false,
+      "last_observed_at": "2026-11-01T17:57:26.238887Z"
+    },
+    "archives": {
+      "http": 200,
+      "policy_count": 0,
+      "target_count": 0,
+      "job_count": 0,
+      "pg_native_loaded": false
+    }
+  },
+  "post_restart_acceptance": {
+    "core_pid": 93664,
+    "core_started_at_local": "2026-11-02T04:23:16+08:00",
+    "daily_nuxt_pid": 11794,
+    "identity": "Existing normal Root session; no fixture authentication, JWT minting or second Core",
+    "installed_api": {
+      "runtime": {
+        "http": 200,
+        "configured": true,
+        "worker_enabled": true,
+        "admission_enabled": true,
+        "notifications_configured": true,
+        "last_observed_at": "2026-11-01T20:33:21.526614Z",
+        "last_notification_at": "2026-11-01T20:23:21.558296Z",
+        "pg_native": {
+          "id": "core-postgres-native",
+          "name": "PostgreSQL 原生 SQL 日志（共享集群）",
+          "kind": "postgresql_logs",
+          "scope": "shared",
+          "instance_id": "",
+          "format": "postgresql",
+          "require_archive": true,
+          "supported": true
+        },
+        "enabled_policies": 0,
+        "run_count": 5
+      },
+      "overview": {
+        "http": 200,
+        "filesystem": {
+          "id": "kernel-fsid:01000012:0000001a",
+          "view": "process_filesystem",
+          "state": "observed",
+          "total_bytes": 994662584320,
+          "used_bytes": 934882025472,
+          "available_bytes": 59780558848,
+          "reserved_bytes": 0
+        },
+        "pg_native": {
+          "id": "core-postgres-native",
+          "name": "PostgreSQL 原生 SQL 日志（共享集群）",
+          "kind": "postgresql_logs",
+          "scope": "shared",
+          "filesystem_id": "kernel-fsid:01000012:0000001a",
+          "state": "observed",
+          "physical_bytes": 121401344,
+          "logical_bytes": 120377335,
+          "attributed_bytes": 121401344,
+          "files": 19,
+          "skipped": 0
+        },
+        "alerts": [
+          {
+            "code": "usage_critical",
+            "level": "critical"
+          }
+        ],
+        "sampling": {
+          "configured": true,
+          "worker_enabled": true,
+          "interval_seconds": 300,
+          "metadata_retention_days": 15
+        }
+      },
+      "archives": {
+        "http": 200,
+        "scheduler_started": true,
+        "pg_native": {
+          "id": "core-postgres-native",
+          "name": "PostgreSQL 原生 SQL 日志（共享集群）",
+          "kind": "postgresql_logs",
+          "directory": "/opt/homebrew/var/postgresql@14/powerx-audit-log",
+          "rotation_format": "postgresql",
+          "current_logfiles": "/opt/homebrew/var/postgresql@14/current_logfiles",
+          "ready": true
+        },
+        "policies": 0,
+        "targets": 0,
+        "jobs": 0
+      },
+      "notifications": {
+        "http": 200,
+        "total": 1,
+        "storage_alerts": [
+          {
+            "id": "d6244fc1-a745-5eff-9d1d-6f23caff1b7a",
+            "title": "主机存储需要处理",
+            "is_read": false,
+            "created_at": "2026-11-02T04:23:21.567258+08:00",
+            "related_id": "c77057d4aa99538dc9744656484da600656f26d3176c471671194396e53fbaed"
+          }
+        ]
+      }
+    },
+    "actual_ui": {
+      "automatic_governance": {
+        "scheduler_ready": true,
+        "alert_recipient_configured": true,
+        "native_source_visible": true,
+        "native_source_paused": true
+      },
+      "readonly_preview": {
+        "days": 7,
+        "max_bytes": 1073741824,
+        "draft_only": true,
+        "saved": false,
+        "candidate_count": 0,
+        "candidate_bytes": 0,
+        "protected": {
+          "active_or_unknown": 1,
+          "latest_rotation": 1,
+          "within_retention": 17
+        },
+        "run_invoked": false
+      },
+      "notification_center": {
+        "path": "/notifications",
+        "title": "主机存储需要处理",
+        "total": 1,
+        "unread": 1,
+        "important": 1,
+        "notification_opened_or_marked_read": false
+      }
+    },
+    "automatic_samples": [
+      {
+        "slot": "2026-11-02T04:25:00+08:00",
+        "created_at": "2026-11-02T04:28:21.745801+08:00",
+        "observed_at": "2026-11-01T20:28:21.560026Z",
+        "source_id": "core-postgres-native",
+        "bytes": 120352768,
+        "files": 19,
+        "state": "observed"
+      },
+      {
+        "slot": "2026-11-02T04:30:00+08:00",
+        "created_at": "2026-11-02T04:33:21.733329+08:00",
+        "observed_at": "2026-11-01T20:33:21.541501Z",
+        "source_id": "core-postgres-native",
+        "bytes": 121401344,
+        "files": 19,
+        "state": "observed"
+      }
+    ],
+    "observed_interval_seconds": 299.981475,
+    "startup_sample_note": "The existing 04:20 slot predates the new Core and was preserved by DoNothing de-duplication; new native source appeared automatically in the next two slots.",
+    "alerts": {
+      "created_at": "2026-11-02T04:23:21.567258+08:00",
+      "delivered_at": "2026-11-01T20:23:21.558296Z",
+      "pending": false,
+      "problem": null,
+      "unread_storage_alert_count_after_two_ticks": 1
+    },
+    "sql_logging": {
+      "logging_collector": "on",
+      "log_statement": "mod",
+      "log_truncate_on_rotation": "off",
+      "settings_changed": false
+    },
+    "state_preservation": {
+      "config_sha256": "a71d603d0bf773f7e5cdf38d8b529cf70d60948ff90f1ed349d3e098e283a617",
+      "file_document_revision": 26,
+      "file_policy_enabled_count": 0,
+      "native_policy_saved": false,
+      "retained_run_count": 5,
+      "database_retention_policy_file_exists": false,
+      "archive_policy_count": 0,
+      "archive_target_count": 0,
+      "archive_job_count": 0,
+      "source_deletion_invoked": false
+    },
+    "browser_followup": {
+      "initial_long_open_bell_showed_empty": true,
+      "backend_unread_api_had_alert": true,
+      "notification_center_after_reload_showed_alert": true,
+      "console_ws_failure_observed": true,
+      "automatic_reconnect_cause_proven": false,
+      "automatic_reconnect_acceptance": "pending independent reproduction",
+      "frontend_sync_code_changed": false
+    },
+    "agent_actions": {
+      "services_started": [],
+      "user_services_restarted": false,
+      "postgres_restarted": false,
+      "production_modified": false,
+      "retention_or_archive_activated": false
+    }
+  }
+}

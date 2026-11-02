@@ -32,6 +32,7 @@ import (
 	modelRuntimeScheduler "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelSkills "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
+	modelStorageGov "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/storage_governance"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
@@ -98,6 +99,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	if err = migrateRuntimeHostModels(db); err != nil {
+		return err
+	}
+	if err = MigrateStorageGovernanceModels(db); err != nil {
 		return err
 	}
 
@@ -297,6 +301,48 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	return authorizationbaseline.EnsureInitialized(db)
+}
+
+// MigrateStorageGovernanceModels 复用完整迁移的注册；开发限定入口只迁移治理元数据表。
+func MigrateStorageGovernanceModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelStorageGov.Policy{}, &modelStorageGov.PolicyRevision{}, &modelStorageGov.Sample{}, &modelStorageGov.CleanupRun{})
+}
+
+// MigrateCapabilityRetentionModels 只为既有调用审计表增加期限字段与索引。
+// 不执行整表 AutoMigrate、旧记录分类/终态回填、seed 或其他能力注册表升级。
+// 正式环境仍通过完整升级计划编排；限定入口仅供 dev/test 增量准备。
+func MigrateCapabilityRetentionModels(db *gorm.DB) error {
+	changes := []struct {
+		model   any
+		columns []string
+		indexes []string
+	}{
+		{&modelCapabilityRegistry.InvocationTrace{}, []string{"RecordClass", "CompletedAt"}, []string{"idx_capability_trace_retention", "idx_capability_trace_publication"}},
+		{&modelCapabilityRegistry.CapabilityEventPublication{}, []string{"RecordClass", "TerminalAt", "DeliveryReceipt"}, []string{"idx_capability_event_retention"}},
+	}
+	// 先验证全部来源，缺少任意旧表时不创建另一张表或悄悄扩展迁移范围。
+	for _, change := range changes {
+		if !db.Migrator().HasTable(change.model) {
+			return fmt.Errorf("capability retention requires existing invocation audit tables; run the installation upgrade first")
+		}
+	}
+	for _, change := range changes {
+		for _, column := range change.columns {
+			if !db.Migrator().HasColumn(change.model, column) {
+				if err := db.Migrator().AddColumn(change.model, column); err != nil {
+					return fmt.Errorf("add capability retention column %s: %w", column, err)
+				}
+			}
+		}
+		for _, index := range change.indexes {
+			if !db.Migrator().HasIndex(change.model, index) {
+				if err := db.Migrator().CreateIndex(change.model, index); err != nil {
+					return fmt.Errorf("add capability retention index %s: %w", index, err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // EnsureCustomerMenuPermission 增量登记客户菜单，不重置角色授权、管理员或安装状态。

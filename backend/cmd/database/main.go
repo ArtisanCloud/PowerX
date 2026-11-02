@@ -43,6 +43,7 @@ func main() {
 	}
 	fs := flag.NewFlagSet("database", flag.ContinueOnError)
 	configPath := fs.String("config", defaultConfigPath, "配置文件路径")
+	migrationScope := fs.String("scope", "", "仅 dev/test migrate 支持：storage-governance 或 capability-retention；留空执行完整迁移")
 	confirm := fs.Bool("confirm", false, "确认执行修复")
 	pluginID := fs.String("plugin-id", "", "要修复运行凭证的插件 ID")
 	confirmDatabase := fs.String("confirm-database", "", "refresh 必须填写实际数据库名")
@@ -56,6 +57,9 @@ func main() {
 			return
 		}
 		fatalf("解析参数失败: %v", err)
+	}
+	if err := validateMigrationScope(cmd, *migrationScope); err != nil {
+		fatalf("%v", err)
 	}
 
 	// 加载配置
@@ -79,7 +83,7 @@ func main() {
 
 	switch cmd {
 	case "migrate":
-		if err := MigrateDatabase(ctx, db, cfg); err != nil {
+		if err := MigrateDatabaseScope(ctx, db, cfg, *migrationScope); err != nil {
 			fatalf("migrate failed: %v", err)
 		}
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "migrate ok")

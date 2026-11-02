@@ -1,0 +1,11 @@
+[Unit]
+Description=Run temporary PowerX space guard every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+AccuracySec=10s
+Unit=powerx-space-guard.service
+
+[Install]
+WantedBy=timers.target

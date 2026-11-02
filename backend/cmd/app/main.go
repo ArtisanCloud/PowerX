@@ -105,7 +105,9 @@ func runApplication(ctx context.Context, stop context.CancelFunc, cfg *config.Co
 		os.Exit(1)
 	}
 	// 必须在任何 logger 输出之前初始化全局 logger，避免默认配置先占位。
-	logger.InitGlobalLogger(&cfg.LogConfig)
+	effectiveLogConfig := cfg.EffectiveLogConfig()
+	logger.InitGlobalLogger(&effectiveLogConfig)
+	defer logger.CloseGlobalLogger()
 	effectivePorts := config.ResolveEffectivePorts(cfg)
 	logger.InfoF(
 		ctx,

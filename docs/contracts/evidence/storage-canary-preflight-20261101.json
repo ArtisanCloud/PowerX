@@ -1,0 +1,63 @@
+{
+  "contract": "powerx.storage.canary-preflight/v0.6.1",
+  "checked_at": "2026-11-01T19:44:08.845881+08:00",
+  "scope": "Prepare self-owned files and a production-code read-only preview for the user to confirm in the existing local Root UI; no policy enabled or deletion run.",
+  "source_id": "core-app-logs-7ae24726a59e",
+  "settings": {
+    "retention_days": 3650,
+    "max_bytes": 10737418240,
+    "cleanup_mode": "expire_delete"
+  },
+  "baseline_candidate_count": 0,
+  "preview": {
+    "source_id": "core-app-logs-7ae24726a59e",
+    "policy_revision": 0,
+    "candidate_names": [
+      "info-2000-01-01T00-00-00.000.log"
+    ],
+    "candidate_bytes": 319488,
+    "protected": {
+      "active_or_unknown": 6,
+      "latest_rotation": 1,
+      "unsafe_file": 5,
+      "within_retention": 6
+    },
+    "observed_bytes": 637509632,
+    "over_budget": false,
+    "complete": true
+  },
+  "self_owned_files": [
+    {
+      "name": "info-2000-01-01T00-00-00.000.log",
+      "sha256": "bb901743dd32c465fec3fcdee330dff655bf59bac7bc09df325a2275a5e128db",
+      "bytes": 319488,
+      "role": "expired_canary"
+    },
+    {
+      "name": "info-2026-11-01T19-42-28.768.log",
+      "sha256": "706b1d3281ee9bc364d8ddb481d8421d15e53c4abc167a43ac4d0d8936e2970d",
+      "bytes": 327680,
+      "role": "protected_canary"
+    }
+  ],
+  "existing_log_files_selected": 0,
+  "database_or_archive_policies_modified": false,
+  "policy_enabled": false,
+  "agent_services_started": [],
+  "temporary_probe_source_removed": true,
+  "auth_tokens_read_created_or_exposed": false,
+  "browser_access": "unavailable",
+  "next_step": "Root user previews the stated source/settings, confirms that only the expired canary is selected, then explicitly enables and saves the test policy; do not run a manual batch for this automatic-cycle test.",
+  "automatic_cycle_clock_started": false,
+  "after_acceptance": "Disable this temporary policy; dispose only the owned retained canary after verification. The 3650-day setting is a test value, not the intended real retention policy.",
+  "browser_followup": {
+    "checked_at": "2026-11-01T20:01:53.139193+08:00",
+    "channel": "chrome_devtools",
+    "connected": true,
+    "page_id": 1,
+    "page": "http://127.0.0.1:3030/users/login?redirect=/monitor/storage",
+    "normal_root_login_required": true,
+    "credentials_read_or_tokens_fabricated": false,
+    "policy_enabled": false
+  }
+}

@@ -388,6 +388,8 @@ func toStruct(value interface{}) (*structpb.Struct, error) {
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	switch {
+	case errors.Is(err, capservice.ErrInvocationStorageCapacity):
+		return capability_registrydto.ErrUnavailable.WithHint("STORAGE_CAPACITY_EXHAUSTED: 存储容量保护已阻止新的调用，请处理容量后重试")
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
 		return capability_registrydto.ErrVersionLocked
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):

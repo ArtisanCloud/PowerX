@@ -15,15 +15,18 @@ import (
 
 // FileSinkOptions controls audit file output and rotation.
 type FileSinkOptions struct {
-	Enable      bool   `yaml:"enable"`
-	Dir         string `yaml:"dir"`
-	FilePrefix  string `yaml:"file_prefix"`
-	MaxSize     int    `yaml:"max_size"`
-	MaxBackups  int    `yaml:"max_backups"`
-	MaxAge      int    `yaml:"max_age"`
-	Compress    bool   `yaml:"compress"`
-	UseUTC      bool   `yaml:"use_utc"`
-	IncludeMeta bool   `yaml:"include_meta"`
+	// RetentionManaged is a trusted bootstrap handover, never a user payload.
+	// The lifecycle owner must be the only component allowed to delete archives.
+	RetentionManaged bool   `yaml:"-"`
+	Enable           bool   `yaml:"enable"`
+	Dir              string `yaml:"dir"`
+	FilePrefix       string `yaml:"file_prefix"`
+	MaxSize          int    `yaml:"max_size"`
+	MaxBackups       int    `yaml:"max_backups"`
+	MaxAge           int    `yaml:"max_age"`
+	Compress         bool   `yaml:"compress"`
+	UseUTC           bool   `yaml:"use_utc"`
+	IncludeMeta      bool   `yaml:"include_meta"`
 }
 
 // FileSink writes one JSON line per audit event and rotates by date + size.
@@ -47,11 +50,16 @@ func NewFileSink(opt FileSinkOptions) (*FileSink, error) {
 	if opt.MaxSize <= 0 {
 		opt.MaxSize = 100
 	}
-	if opt.MaxBackups <= 0 {
-		opt.MaxBackups = 30
-	}
-	if opt.MaxAge <= 0 {
-		opt.MaxAge = 30
+	if opt.RetentionManaged {
+		opt.MaxBackups = 0
+		opt.MaxAge = 0
+	} else {
+		if opt.MaxBackups <= 0 {
+			opt.MaxBackups = 30
+		}
+		if opt.MaxAge <= 0 {
+			opt.MaxAge = 30
+		}
 	}
 	if err := os.MkdirAll(opt.Dir, 0o755); err != nil {
 		return nil, err

@@ -1,0 +1,261 @@
+{
+  "contract": "powerx.storage.actual-canary-acceptance/v0.6.1",
+  "recorded_at": "2026-11-01T22:05:38.607679+08:00",
+  "scope": "Actual local user Core, real normal Root login and real UI preview/activation. File-only automatic cleanup; no production deployment, archive activation or database expiry test.",
+  "authentication": {
+    "normal_login_used": true,
+    "credentials_persisted_in_artifacts": false,
+    "auth_token_exported_or_fabricated": false
+  },
+  "login_fix": {
+    "problem": "Browser had a cached 2025-12-02 permanent redirect from /admin/menus to /admin/menus/; current Core canonical redirect reversed it, causing ERR_TOO_MANY_REDIRECTS after successful authentication.",
+    "implementation": "menuService network reads use cache=no-store; existing per-session application menu cache remains",
+    "files": [
+      "web-admin/app/composables/api/services/menuService.ts",
+      "web-admin/tests/unit/loading/loading-lifecycle.spec.ts"
+    ],
+    "real_browser_menu_status_after_fix": 200,
+    "unit_tests_passed": 49,
+    "test_files": 9,
+    "production_build_passed": true,
+    "logs": [
+      "tmp/storage-canary-acceptance-20261101/final-unit.log",
+      "tmp/storage-canary-acceptance-20261101/final-ui-build.log"
+    ]
+  },
+  "test_policy": {
+    "source_id": "core-app-logs-7ae24726a59e",
+    "retention_days": 3650,
+    "max_bytes": 10737418240,
+    "cleanup_mode": "expire_delete",
+    "only_expired_self_owned_candidate_before_enable": true,
+    "not_a_real_retention_recommendation": true
+  },
+  "actual_automatic_result": {
+    "scheduled_runs": [
+      {
+        "request_key": "scheduled:core-app-logs-7ae24726a59e:1992817",
+        "id": "1794818b-07e9-429a-af18-d90ecf9c3a6a",
+        "source_id": "core-app-logs-7ae24726a59e",
+        "policy_revision": 1,
+        "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+        "state": "completed",
+        "started_at": "2026-11-01T12:25:59.566431Z",
+        "finished_at": "2026-11-01T12:25:59.585765Z",
+        "deleted_files": 1,
+        "removed_bytes": 319488,
+        "removed_allocated_bytes": 319488,
+        "available_before": 141674905600,
+        "available_after": 141675188224
+      },
+      {
+        "request_key": "scheduled:core-app-logs-7ae24726a59e:1992821",
+        "id": "ca9b7b54-6e63-4add-8f4e-882a6ee767b0",
+        "source_id": "core-app-logs-7ae24726a59e",
+        "policy_revision": 1,
+        "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+        "state": "completed",
+        "started_at": "2026-11-01T13:28:01.650573Z",
+        "finished_at": "2026-11-01T13:28:01.657699Z",
+        "deleted_files": 0,
+        "removed_bytes": 0,
+        "removed_allocated_bytes": 0,
+        "available_before": 140712386560,
+        "available_after": 140712411136
+      }
+    ],
+    "manual_run_endpoint_called": false,
+    "expired_canary_removed_by_scheduler": true,
+    "removed_bytes": 319488,
+    "removed_allocated_bytes": 319488,
+    "available_delta_during_deletion": 282624,
+    "filesystem_delta_not_claimed_as_exact_reclaimed_bytes": true,
+    "retained_canary_hash_matched": true,
+    "original_sealed_log_hashes_matched": 6,
+    "ui_run_history_readback": "Batch completed; confirmed deletions 1",
+    "second_self_owned_fixture_after_restart": {
+      "started_at": "2026-11-01T13:57:48.865273Z",
+      "policy_revision": 3,
+      "deleted_files": 1,
+      "bytes": 319488,
+      "new_core_pid": 30958,
+      "new_core_started_at": "2026-11-01T21:57:43+08:00",
+      "manual_run_called": false
+    }
+  },
+  "database": {
+    "current_counts_and_logging": {
+      "trace_rows": 3480,
+      "event_rows": 4788,
+      "log_statement": "mod",
+      "logging_collector": "on"
+    },
+    "baseline_ids_preserved": {
+      "capability_registry_invocation_traces": {
+        "backup_rows": 3472,
+        "baseline_ids_still_present": 3472,
+        "missing_baseline_rows": 0
+      },
+      "capability_registry_event_publications": {
+        "backup_rows": 4780,
+        "baseline_ids_still_present": 4780,
+        "missing_baseline_rows": 0
+      }
+    },
+    "counts_increased_by_eight_each_during_other_application_activity": true,
+    "database_cleanup_remained_disabled": true,
+    "latest_readback": {
+      "trace_rows": 3480,
+      "event_rows": 4788,
+      "legacy_trace_rows": 3472,
+      "legacy_event_rows": 4780,
+      "log_statement": "mod",
+      "logging_collector": "on"
+    }
+  },
+  "sampling_window": {
+    "observed_at": [
+      "2026-11-01T12:20:59.332525Z",
+      "2026-11-01T12:25:59.607703Z",
+      "2026-11-01T12:30:59.577343Z",
+      "2026-11-01T12:35:59.61414Z",
+      "2026-11-01T13:28:01.68424Z",
+      "2026-11-01T13:33:01.682812Z",
+      "2026-11-01T13:38:01.552051Z"
+    ],
+    "gap_seconds": [
+      300.275178,
+      299.96964,
+      300.036797,
+      3122.0701,
+      299.998572,
+      299.869239
+    ],
+    "maximum_observed_gap_seconds": 3122.0701,
+    "wall_window_exceeded_900_seconds": true,
+    "continuous_fifteen_minute_cadence_not_certified": true,
+    "reason_of_gap": "Confirmed macOS Idle Sleep at 2026-11-01 20:38:23 +08:00; full Wake at 21:25:57. Power-management log matches the sampling gap.",
+    "power_log_evidence": {
+      "sleep_at": "2026-11-01T20:38:23+08:00",
+      "sleep_reason": "Idle Sleep",
+      "wake_at": "2026-11-01T21:25:57+08:00",
+      "source": "read-only pmset -g log",
+      "permanent_power_settings_changed": false
+    }
+  },
+  "cleanup": {
+    "policy_paused": true,
+    "policy_revision": 4,
+    "pause_transport": "normally authenticated same-origin official Root API; UI entry module was interrupted by network change",
+    "final_ui_shows_automatic_cleanup_off": true,
+    "test_files_remaining": 0,
+    "protected_canary_removed_only_after_pause_and_hash_verification": true,
+    "archive_policies_enabled": 0,
+    "agent_services_started": [],
+    "user_services_restarted_by_agent": false,
+    "screenshot": "docs/contracts/evidence/storage-canary-live-20261101/ui-paused-1440.png",
+    "temporary_awake_process_exited": true,
+    "permanent_power_settings_changed": false
+  },
+  "limitations": [
+    "No production deployment or actual historical Mac archive disposal",
+    "Archive/retrieval and database cleanup remain disabled in this user instance",
+    "The Mac slept during the intended window. Actual scheduled deletion and protection passed; uninterrupted fifteen-minute cadence and long-term uptime are not certified.",
+    "The repeat had normal sampling intervals but Core was restarted during the window. Restart takeover passed; uninterrupted same-process fifteen-minute uptime is not claimed."
+  ],
+  "source_sha256": {
+    "web-admin/app/composables/api/services/menuService.ts": "d6dd24346264ed1c6cba1729a2432e774ec0f00f78a33001ce01e6b7af38f1fc",
+    "web-admin/tests/unit/loading/loading-lifecycle.spec.ts": "1b345f3f7a6dfb004149b8ecc567c614f36108978419cd4f446eae7858e3aa5d"
+  },
+  "continuous_repeat_after_sleep": {
+    "completed_at": "2026-11-01T22:04:16.650878+08:00",
+    "monotonic_window_seconds": 1022.4298729579968,
+    "minimum_seconds": 900,
+    "sampling_times": [
+      "2026-11-01T13:48:01.439099Z",
+      "2026-11-01T13:53:01.417672Z",
+      "2026-11-01T13:57:48.612212Z",
+      "2026-11-01T14:02:48.854249Z"
+    ],
+    "sampling_intervals_seconds": [
+      299.978573,
+      287.19454,
+      300.242037
+    ],
+    "scheduled_runs": [
+      {
+        "request_key": "scheduled:core-app-logs-7ae24726a59e:1992823",
+        "id": "921feb5c-abfd-4579-be8a-f97eff039dc9",
+        "source_id": "core-app-logs-7ae24726a59e",
+        "policy_revision": 3,
+        "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+        "state": "completed",
+        "started_at": "2026-11-01T13:57:48.865273Z",
+        "finished_at": "2026-11-01T13:57:48.881385Z",
+        "deleted_files": 1,
+        "removed_bytes": 319488,
+        "removed_allocated_bytes": 319488,
+        "available_before": 129974198272,
+        "available_after": 129974530048
+      }
+    ],
+    "manual_run_invoked": false,
+    "expired_canary_deleted_by_scheduler": true,
+    "protected_canary_unchanged_until_cleanup": true,
+    "original_log_hashes_unchanged": 6,
+    "final_policy": {
+      "cleanup_mode": "expire_delete",
+      "source_id": "core-app-logs-7ae24726a59e",
+      "revision": 4,
+      "enabled": false,
+      "retention_days": 3650,
+      "max_bytes": 10737418240,
+      "require_archive": false,
+      "fingerprint": "bc6b67ae0a15b64b82e8fa8547089294f87f74751528132bcd4f849313edf3d6",
+      "owner_instance": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+      "operator_id": 1,
+      "updated_at": "2026-11-01T14:01:33.851724Z"
+    },
+    "test_files_remaining": 0,
+    "database_retention_remained_off": true,
+    "temporary_awake_process": {
+      "owner": "codex-storage-continuous-canary-20261101",
+      "pid": 96283,
+      "command": [
+        "/usr/bin/caffeinate",
+        "-i",
+        "-t",
+        "1100"
+      ],
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "started_at": "2026-11-01T21:46:31.102742+08:00",
+      "listen_ports": [],
+      "exited": true,
+      "permanent_power_settings_changed": false
+    },
+    "policy_active_seconds": 859.837758,
+    "core_pids_at_end": [
+      30958
+    ],
+    "core_process_changed_during_window": true,
+    "continuous_window_passed": false,
+    "sampling_intervals_remained_normal": true,
+    "restart_persisted_policy_and_automatic_takeover_passed": true
+  },
+  "workspace_wide_upgrade_registry_check": {
+    "state": "see current log; not included in frontend cache-fix pass",
+    "log": "tmp/storage-canary-acceptance-20261101/upgrade-registry-final.log",
+    "backend_registry_not_regenerated_by_this_frontend_fix": true,
+    "passed": false,
+    "reason": "UPGRADE_PAYLOAD_CHANGED: regenerate upgrade_payloads.json and review the new migration IDs",
+    "scope": "Whole-worktree backend release gate; no backend source changed in this menu cache fix. This is not reported as passed."
+  },
+  "diff_check_passed": true,
+  "followup_stable_window": {
+    "passed": true,
+    "evidence": "docs/contracts/evidence/storage-stable-window-validation-20261101.json",
+    "started_at": "2026-11-01T15:38:06.272295Z",
+    "paused_at": "2026-11-01T15:53:11.355206Z",
+    "core_pid_unchanged": true
+  }
+}

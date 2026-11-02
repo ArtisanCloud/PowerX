@@ -1,0 +1,95 @@
+{
+  "recorded_at": "2026-10-29T04:25:57.877948+00:00",
+  "authorization": "User requested local migrate after storage governance implementation",
+  "target": {
+    "database": "powerx",
+    "schema": "public",
+    "server_addr": "::1",
+    "server_port": 5432,
+    "version": "14.15 (Homebrew)",
+    "database_bytes": 349733667
+  },
+  "scope": "storage-governance",
+  "command": [
+    "go",
+    "run",
+    "./cmd/database",
+    "migrate",
+    "-config",
+    "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/etc/config.yaml",
+    "-scope",
+    "storage-governance"
+  ],
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+  "exit_code": 0,
+  "created_tables": [
+    "ops_storage_policies",
+    "ops_storage_policy_revisions",
+    "ops_storage_samples"
+  ],
+  "indexes": [
+    "idx_public_ops_storage_policies_deleted_at",
+    "idx_public_ops_storage_policy_revisions_deleted_at",
+    "idx_public_ops_storage_samples_deleted_at",
+    "idx_storage_sample_window",
+    "ops_storage_policies_pkey",
+    "ops_storage_policy_revisions_pkey",
+    "ops_storage_samples_pkey",
+    "uk_storage_policy_instance",
+    "uk_storage_policy_revision",
+    "uk_storage_sample_slot"
+  ],
+  "table_counts": {
+    "policies": 0,
+    "revisions": 0,
+    "samples": 0
+  },
+  "non_storage_schema_sha256_before": "66eb4e86adb6b991f740a549cf6506f471bcd2757210cd609114a4e54720fa2c",
+  "non_storage_schema_sha256_after": "66eb4e86adb6b991f740a549cf6506f471bcd2757210cd609114a4e54720fa2c",
+  "non_storage_schema_unchanged": true,
+  "iam_counts_before": {
+    "users": 14,
+    "members": 15,
+    "roles": 22,
+    "role_bindings": 21
+  },
+  "iam_counts_after": {
+    "users": 14,
+    "members": 15,
+    "roles": 22,
+    "role_bindings": 21
+  },
+  "config_unchanged": true,
+  "schema_backup": {
+    "path": "test-results/storage-local-migration/public-schema-before.sql",
+    "bytes": 622573,
+    "access": "private directory 0700 and file 0600; no business data dump"
+  },
+  "tests": {
+    "scoped_native_postgres": "2 passed with race; isolated schema, only three tables, repeated application, sentinel preserved; temporary cluster exited and socket released",
+    "cli_unit": "migration scope/command/environment guard and migration config loading passed",
+    "go_vet": "passed cmd/database and database package",
+    "upgrade_payload_check": "passed"
+  },
+  "remote_changed": false,
+  "seed_executed": false,
+  "full_migration_executed": false,
+  "business_cleanup_executed": false,
+  "user_service_restarted": false,
+  "core_pid_before": 44355,
+  "deployment": "dev",
+  "runtime_acceptance": "pending user restart; database schema verified, not installed UI/metrics acceptance",
+  "configuration_status": {
+    "storage_governance_block_present": false,
+    "stable_host_filesystem_identity_registered": false,
+    "postgres_metrics_enabled": false,
+    "sampling_enabled": false,
+    "cleanup_enabled": false
+  },
+  "notes": [
+    "Scoped CLI allowed only dev/test PostgreSQL; production image upgrades retain existing plan/apply protocol.",
+    "No full Core/IAM/Agent migrations or seeds were run.",
+    "Policy save requires deployment host_id/filesystem_id; PG metrics and background sampling require explicit config.",
+    "Current running Core process was preserved."
+  ]
+}

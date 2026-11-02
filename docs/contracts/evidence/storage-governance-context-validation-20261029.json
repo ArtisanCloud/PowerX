@@ -1,0 +1,189 @@
+{
+  "recorded_at": "2026-10-29T07:05:39.052382+00:00",
+  "scope": "Local environment/instance/resource policy editor and scope-bound manual estimates; not cleanup, live inventory or full US9 acceptance",
+  "base_sha": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "remote_changed": false,
+  "user_database_changed_this_slice": false,
+  "user_configuration_changed_this_slice": false,
+  "user_services_restarted": false,
+  "new_migration_required": false,
+  "cleanup_enabled": false,
+  "contract": {
+    "path": "specs/027-monitor-center/contracts/storage-governance.openapi.yaml",
+    "version": "0.3.0",
+    "existing_routes_only": true,
+    "schema_version": 1,
+    "catalog_version": 1,
+    "persistence": "Optional retention_mode extends JSON document, no new model or DDL. Runtime catalog/presets are response-only, excluded from saved policy and audit. Legacy absent-mode values retain prior combined semantics."
+  },
+  "implemented": [
+    "Trusted deployment-registered environment/instance -> resource -> allowed retention mode; no invented production environment or caller-selected path/scope",
+    "Production/staging prioritize recovery and traceability; development/test use bounded debugging suggestions; shared sources remain separately attributed",
+    "Backup copy-count and snapshot minimum verified points are distinct from days; media/archive CAS use protected mode with no invented universal byte budget",
+    "Host budget independent modal/save; blank initial budget, explicit actual-filesystem-derived suggestion; current resource save merges only saved other resources, preserving unsaved environment edits",
+    "Save then separate GET readback with canonical data/revision comparison; conflicts and readback failure preserve form; old mode changes only on explicit user action",
+    "Resource-bound estimate resolved by server registry. Days remain manual assumptions. Count returns artifact_inventory_required; protected returns retention_not_applicable, without fabricated bytes or days",
+    "Compact global observation/sampling/risk status; desktop vertical sections and narrow-screen selector; no periodic status queries; abort stale requests on source/identity/unmount",
+    "Four matching locale key sets, usage guide, design docs, OpenAPI and canonical specs task progress updated without completing pending US9 tasks"
+  ],
+  "suggestion_examples": {
+    "production_backup": {
+      "mode": "count",
+      "successful_artifacts": 2,
+      "budget_gib": 6,
+      "cadence": "daily suggestion only"
+    },
+    "development_backup": {
+      "mode": "count",
+      "successful_artifacts": 24,
+      "budget_gib": 1,
+      "cadence": "hourly suggestion only"
+    },
+    "production_snapshot": {
+      "mode": "count",
+      "artifacts": 2,
+      "minimum_verified_points": 2,
+      "budget_gib": 6
+    },
+    "development_snapshot": {
+      "mode": "count",
+      "artifacts": 1,
+      "minimum_verified_points": 1,
+      "budget_gib": 1
+    },
+    "production_application_logs": {
+      "mode": "days",
+      "days": 7,
+      "budget_gib": 1
+    },
+    "development_application_logs": {
+      "mode": "days",
+      "days": 3,
+      "budget_gib": 0.25
+    },
+    "shared_journal": {
+      "mode": "days",
+      "days": 2,
+      "budget_gib": 3
+    },
+    "host_example": {
+      "filesystem_total_gib": 117.74,
+      "filesystem_reserved_gib": 5,
+      "production_sources_registered": true,
+      "suggested_managed_gib": 90,
+      "suggested_free_gib": 20,
+      "suggested_critical_gib": 10,
+      "state": "draft only, no quota or cross-instance reservation"
+    }
+  },
+  "validation": {
+    "backend": {
+      "result": "passed",
+      "passed_cases": 25,
+      "race": true,
+      "native_postgres_cases": 3,
+      "skipped_cases": 1,
+      "skipped_test": "TestStorageLocalConfiguredAcceptance intentionally not opted in; this slice did not write user DB",
+      "command": "GOMAXPROCS=4 go test -p 2 -race ./internal/service/storage_governance ./internal/infra/storage_observer ./internal/transport/http/admin/storage ./internal/bootstrap ./config -run TestStorage -count=1 -v",
+      "log": "test-results/storage-context-native-tests.log",
+      "data_boundary": "Agent-owned temporary PostgreSQL 14 Unix-socket cluster and temporary files; not user/prod database"
+    },
+    "frontend_unit": {
+      "result": "passed",
+      "cases": 18,
+      "command": "npx vitest run tests/unit/storage tests/unit/backup/backup-sections.spec.ts",
+      "log": "test-results/storage-context-vitest.log"
+    },
+    "build": {
+      "result": "passed",
+      "command": "POWERX_NUXT_BUILD_DIR=.nuxt-storage-validation POWERX_NITRO_OUTPUT_DIR=.output-storage-validation npm run build",
+      "log": "test-results/storage-context-build.log"
+    },
+    "browser": {
+      "result": "passed",
+      "cases": 3,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "log": "test-results/storage-context-browser.log",
+      "data_boundary": "Actual final isolated Nuxt build/API client with controlled catalog/draft/history fixtures, not live host or remote acceptance",
+      "flows": [
+        "environment-specific count/day presets",
+        "actual-size host suggestion and independent save",
+        "unsaved edits preserved across environment/source/sections",
+        "saving one resource excludes unsaved others",
+        "scoped estimates and honest unknown states",
+        "global error/stale observation, no polling, narrow-screen navigation and overflow",
+        "database detail modal"
+      ]
+    },
+    "go_vet": {
+      "result": "passed",
+      "log": "test-results/storage-context-vet.log"
+    },
+    "capability_check": {
+      "result": "passed",
+      "log": "test-results/storage-context-capability-check.log",
+      "service_contract_changed": false,
+      "seed_executed": false
+    },
+    "typecheck": {
+      "result": "blocked_by_existing_HEAD_syntax",
+      "log": "test-results/storage-context-types.log",
+      "errors": [
+        "app/composables/api/menuConfig.ts:165 TS1005",
+        "app/composables/api/menuConfig.ts:186 TS1443"
+      ],
+      "file_matches_HEAD": true,
+      "full_typecheck_claimed": false
+    },
+    "other": [
+      "OpenAPI YAML and all internal references parse",
+      "173 matching storageGov locale keys in zh/en/ja/ko",
+      "Relative documentation links resolve",
+      "git diff --check and scoped new-file trailing-whitespace check passed"
+    ]
+  },
+  "cleanup": {
+    "postgres_pid": 46557,
+    "postgres_state": "exited",
+    "postgres_socket_released": true,
+    "temporary_cluster_removed": true,
+    "browser_pids": [
+      10587,
+      10593
+    ],
+    "browser_state": "exited",
+    "browser_ports": [
+      3485,
+      3486
+    ],
+    "browser_ports_released": true,
+    "record": "test-results/storage-browser/snapshot-browser-processes.json",
+    "observed_user_listener_pids": {
+      "core_8077": 14596,
+      "frontend_3030": 18054
+    },
+    "no_agent_services_left": true
+  },
+  "remaining": [
+    "User restart of existing Core and frontend refresh for v0.3 actual-source acceptance; no additional migrate if prior three metadata tables exist",
+    "T114 actual unique artifact inventory, reference sizes and verified restore-point counts",
+    "T113 gross ingress/compression/R95 and T115 verified local/remote continuous coverage",
+    "Cross-instance unique host budget coordination, native log configuration/retention, archive/cleanup execution, notifications and XDocker ownership",
+    "No live remote or Linux dual-environment retention acceptance in this slice"
+  ],
+  "source_sha256": {
+    "backend/internal/service/storage_governance/presets.go": "081984e105eae0fe1e675f5b471b147f8b7fe1ba7499bc43ee9185b884e87372",
+    "backend/internal/service/storage_governance/policy.go": "13c2f254f3542ad5265a412f114712ead8f99a6e958673a93c413ff3b814c854",
+    "backend/internal/service/storage_governance/estimate.go": "185fa020787ee1c3f5ee2d2c532a9208e296857cc5dc602ca7b0760025f1b53c",
+    "web-admin/app/components/monitor/storage/StoragePolicyDraftPanel.vue": "7b140d854cf39cb2fc48bd4b07827f61615d463f2139ca01bf65a7cd0d4dddd3",
+    "web-admin/app/components/monitor/storage/StorageGovernanceWorkspace.vue": "fda41926e8339e61a752f913d976d32f40911c4aeed76a78538d50e96578e937",
+    "web-admin/app/composables/api/services/storageGovernanceService.ts": "29f996f6bb10e0a1d2bc9d232b29cb597e2b56bab1a8c52fbb09c666b9f8133b",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml": "5f1ee18ce852b4a5c265d70d23a0ccec60819b443ddeb8b7dce2bac56b183929"
+  }
+}

@@ -40,6 +40,13 @@ func NewNotificationRepository(db *gorm.DB) *NotificationRepository {
 	}
 }
 
+// FindStorageAlert 使用固定用途与精确接收范围，不能读回其他通知。
+func (r *NotificationRepository) FindStorageAlert(ctx context.Context, tenant, member string, id uuid.UUID) (*models.Notification, error) {
+	var item models.Notification
+	err := r.db.WithContext(ctx).Unscoped().Where("tenant_uuid = ? AND member_uuid = ? AND uuid = ? AND related_type = ?", strings.ToLower(strings.TrimSpace(tenant)), strings.ToLower(strings.TrimSpace(member)), id, "storage_capacity").First(&item).Error
+	return &item, err
+}
+
 func (r *NotificationRepository) List(ctx context.Context, filter ListFilter) ([]models.Notification, int64, error) {
 	tenantUUID := strings.ToLower(strings.TrimSpace(filter.TenantUUID))
 	memberUUID := strings.TrimSpace(filter.MemberUUID)

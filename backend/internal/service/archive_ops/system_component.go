@@ -2,6 +2,7 @@ package archive_ops
 
 import (
 	"context"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"os"
 	"path/filepath"
@@ -41,7 +42,7 @@ func CaptureSystemComponent(ctx context.Context, directory string, source Source
 			in.Close()
 			return Job{}, e
 		}
-		_, e = io.Copy(out, &contextReader{ctx, in})
+		_, e = io.Copy(budget.Writer(ctx, out), &contextReader{ctx, in})
 		in.Close()
 		if e == nil {
 			e = out.Sync()

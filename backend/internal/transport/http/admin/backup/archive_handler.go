@@ -209,3 +209,38 @@ func (h *handler) DeleteArchiveRestore(c *gin.Context) {
 	}
 	dto.ResponseSuccess(c, gin.H{"deleted": true})
 }
+
+func (h *handler) MigrateArchive(c *gin.Context) {
+	if !h.archiveAvailable(c) {
+		return
+	}
+	var in struct {
+		PolicyID string `json:"policy_id"`
+		Confirm  bool   `json:"confirm"`
+	}
+	if !bindRestoreJSON(c, &in) {
+		return
+	}
+	if !in.Confirm {
+		dto.RespondErrorFrom(c, dto.NewErrorWithCode(400, "ARCHIVE_CONFIRM_REQUIRED", "请确认只复制并保留旧对象", nil))
+		return
+	}
+	out, err := h.archives.MigrateArchive(c.Request.Context(), c.Param("job_id"), in.PolicyID, c.GetHeader("Idempotency-Key"), resolveOperator(c))
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccessWithStatus(c, 202, gin.H{"job": out})
+}
+
+func (h *handler) ReconcileArchiveRemoteGC(c *gin.Context) {
+	if !h.archiveAvailable(c) || !emptyArchiveBody(c) {
+		return
+	}
+	out, err := h.archives.ReconcileRemoteGC(c.Request.Context(), c.Param("preview_id"))
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, out)
+}

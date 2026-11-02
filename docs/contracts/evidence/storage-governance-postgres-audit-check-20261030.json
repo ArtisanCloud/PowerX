@@ -1,0 +1,70 @@
+{
+  "contract": "powerx.storage-governance.postgres-audit-check/v0.5.1",
+  "recorded_at": "2026-10-30T22:28:46.801186+08:00",
+  "scope": "Read-only SSH inspection of production PostgreSQL and its existing retention; read-only SQL inspection of local development PostgreSQL. No settings, timer, service or business rows changed.",
+  "production": {
+    "host": "47.116.10.200",
+    "settings_checked_at_utc": "2026-10-30T14:25:56.599862+00:00",
+    "version_num": "160013",
+    "log_statement": "mod",
+    "log_statement_source": "configuration file",
+    "log_min_error_statement": "error",
+    "log_connections": "on",
+    "log_disconnections": "on",
+    "logging_collector": "off",
+    "logging_collector_source": "default",
+    "log_destination": "stderr",
+    "postmaster_pid": 1277087,
+    "postmaster_stderr": "/var/log/postgresql/postgresql-16-main.log",
+    "log_line_prefix": "%m [%p] %qdb=%d user=%u app=%a client=%r session=%c xid=%x ",
+    "pgaudit_installed": false,
+    "pgaudit_log": null,
+    "database_or_role_logging_overrides_returned": 0,
+    "bounded_active_log_check": {
+      "bytes_examined": 1048270,
+      "insert_statements": 1072,
+      "update_statements": 374,
+      "raw_sql_saved_or_emitted": false,
+      "delete_truncate_drop_probe_executed": false
+    },
+    "existing_guard": {
+      "timer_enabled": true,
+      "timer_active": true,
+      "latest_run_at_utc": "2026-10-30T14:23:21.849731+00:00",
+      "latest_run_errors": 0,
+      "postgres_files_deleted_in_latest_run": 0,
+      "retention_days": 7,
+      "closed_postgres_log_budget_bytes": 2147483648,
+      "budget_pressure_protects_latest_hours": 24,
+      "rotation": "copytruncate, daily or 100 MiB, compress immediately, maximum 336 segments, maxage 7 days"
+    },
+    "observed_file_set": {
+      "files": 15,
+      "total_file_bytes": 571977847,
+      "oldest_file_mtime_utc": "2026-10-28T16:01:07.669063+00:00",
+      "mtime_is_not_proof_of_continuous_statement_coverage": true
+    }
+  },
+  "local_development": {
+    "log_statement": "none",
+    "log_min_duration_statement": "-1",
+    "log_min_error_statement": "error",
+    "logging_collector": "off",
+    "pgaudit_installed": false,
+    "statement_logging_changed_by_this_check": false,
+    "all_delete_operations_auditable": false
+  },
+  "conclusions": [
+    "Production write-statement logging remains enabled; stderr is open on the current PostgreSQL log file.",
+    "The temporary guard rotates and deletes eligible old file logs; it does not DELETE or TRUNCATE database event or business tables.",
+    "Seven days is an upper retention rule, not a guaranteed minimum: the 2 GiB closed-log budget can remove files older than 24 hours sooner.",
+    "Existing copytruncate has a copy/truncate race; this is not a lossless immutable audit pipeline.",
+    "Long-term forensic retention requires a separately verified archive-before-delete policy and business actor audit; ordinary statement text does not preserve full deleted-row images."
+  ],
+  "sources": [
+    "https://www.postgresql.org/docs/16/runtime-config-logging.html#GUC-LOG-STATEMENT",
+    "scripts/ops/powerx-space-guard/README.md",
+    "scripts/ops/powerx-space-guard/guard.py",
+    "scripts/ops/powerx-space-guard/postgresql-common.logrotate"
+  ]
+}

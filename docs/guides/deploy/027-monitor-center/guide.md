@@ -1,5 +1,7 @@
 # 备份恢复中心与日志观测操作手册
 
+> 2026-11-01 开发交付：[US9 归档控制与取回](usecase-us9-storage-archive-controls.md)包含可选归档、UI 独立目标、双模式安全清理、数据库期限及本地增量准备。代码和隔离验证已完成，日常实例／生产／真实存量及长期运行分别验收；[总体存储治理](usecase-us9-storage-governance.md)的其余长期目标仍按 US9 任务维护。
+
 > 2026-10-18：系统快照恢复统一为“保护当前状态后覆盖当前实例”，不再要求管理员管理候选环境或切换。页面 A/B 测试流程及本地启动命令见[当前恢复手册](usecase-us8-managed-recovery.md)，结果见[本轮验证报告](../../../contracts/evidence/system-restore-inplace-validation-20261018.json)。正式站尚未升级，Linux／真实生产插件与定时包仍待验收。本文的数据库、媒体组件工具及旧切换章节属于兼容操作，不作为当前整站恢复主流程。
 
 > 停机时使用同一站点的 `/__powerx_recovery/`：页面、管理员认证和单任务进度由同一个 Core 的维护启动模式提供，沿用原端口和启动入口。Root 首次进入后保存恢复密钥；Core 已停机时可用密钥重新认证，维护中刷新可接续任务。页面操作及启动／部署要求见[当前恢复手册](usecase-us8-managed-recovery.md)。
@@ -142,6 +144,8 @@ flowchart LR
 | 还原验证、正式切换及回滚 | [US3 恢复流程](usecase-us3-restore-drill.md) | 隔离验证 + 业务核对 + 明确的维护窗口切换 |
 | 告警巡检 | [US2 监控](usecase-us2-monitor-and-alert.md) | 作业、错误和告警可定位 |
 | Loki / Trace | [US4 日志](usecase-us4-logs-trace.md) | 关联 request/trace 和错误 |
+| 双环境容量、历史与生命周期治理（分阶段验收） | [US9 存储治理](usecase-us9-storage-governance.md) | 预算／实际／预测分开、引用保护、真实回收、双环境与远端验收 |
+| 可选日志归档、期限与取回（开发交付） | [US9 归档控制](usecase-us9-storage-archive-controls.md) | UI 开关／目标、双模式保护、数据库增量准备与运行验收 |
 | 系统快照、恢复当前实例与异机验证（本地实现） | [当前恢复操作](usecase-us8-managed-recovery.md) | 页面创建 A、修改 B、保护后覆盖恢复、重启、从保护快照恢复 B |
 | 兼容包与隔离数据副本 | [第一阶段操作](usecase-us8-snapshot-packages.md) | 统一采集、加密导出导入、等待数据库完成的数据准备 |
 | 系统快照两轮验收（生产待执行） | [US8 系统快照验收](usecase-us8-system-snapshot-acceptance.md) | 本地 A／B 回退；真实 scheduled 完整包跨环境恢复；统一切换与失败回退 |

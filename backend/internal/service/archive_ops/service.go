@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -18,13 +19,15 @@ import (
 )
 
 type Service struct {
-	cfg     Config
-	opts    Options
-	ctx     context.Context
-	cancel  context.CancelFunc
-	mu      sync.Mutex
-	workers sync.WaitGroup
-	initErr error
+	cfg              Config
+	opts             Options
+	ctx              context.Context
+	cancel           context.CancelFunc
+	mu               sync.Mutex
+	workers          sync.WaitGroup
+	schedulerRunning bool
+	hostIdentity     string
+	initErr          error
 }
 
 func NewService(ctx context.Context, c Config, opts Options) *Service {
@@ -34,10 +37,18 @@ func NewService(ctx context.Context, c Config, opts Options) *Service {
 		s.initErr = opts.ConfigError
 		return s
 	}
+	hostname, hostErr := os.Hostname()
+	if hostErr != nil || strings.TrimSpace(hostname) == "" {
+		s.initErr = fmt.Errorf("archive execution host unavailable")
+		return s
+	}
+	machine, _ := os.ReadFile("/etc/machine-id")
+	hostDigest := sha256.Sum256(append([]byte(runtime.GOOS+"|"+hostname+"|"), machine...))
+	s.hostIdentity = hex.EncodeToString(hostDigest[:])
 	if s.initErr = validateConfig(&s.cfg); s.initErr != nil {
 		return s
 	}
-	for _, name := range []string{"policies", "targets", "jobs", "locks", "objects", "restores", "staging"} {
+	for _, name := range []string{"policies", "targets", "jobs", "locks", "objects", "restores", "staging", "secrets", "audit", "remote-gc"} {
 		if e := os.MkdirAll(filepath.Join(s.cfg.Directory, name), 0700); e != nil {
 			s.initErr = e
 			return s
@@ -53,6 +64,9 @@ func NewService(ctx context.Context, c Config, opts Options) *Service {
 		if path, e := filepath.EvalSymlinks(source.Directory); e == nil {
 			s.cfg.Sources[i].Directory = path
 		}
+	}
+	if err := s.publishCustodyControl(); err != nil {
+		s.initErr = err
 	}
 	return s
 }
@@ -83,13 +97,19 @@ func sourceStatus(source Source) Source {
 		source.Problem = "来源目录不存在或没有访问权限"
 		return source
 	}
-	if source.Kind == "postgresql_logs" && source.CurrentLogfiles == "" {
+	if source.Kind == "postgresql_logs" && source.RotationFormat == "" && source.CurrentLogfiles == "" {
 		source.Problem = "必须配置 PostgreSQL current_logfiles 文件，以识别正在写入的日志"
 		return source
 	}
-	if source.Kind == "postgresql_logs" {
+	if source.Kind == "postgresql_logs" && source.RotationFormat == "" {
 		if _, e := os.ReadFile(source.CurrentLogfiles); e != nil {
 			source.Problem = "无法读取 PostgreSQL current_logfiles"
+			return source
+		}
+	}
+	if source.RotationFormat != "" {
+		if plan, err := sealedLogPlan(context.Background(), source); err != nil || !plan.Complete {
+			source.Problem = "无法完整识别稳定封存日志"
 			return source
 		}
 	}
@@ -101,12 +121,25 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 	if e := s.check(ctx); e != nil {
 		return out, e
 	}
-	out = Overview{Instance: s.cfg.Instance, Directory: s.cfg.Directory, Policies: []Policy{}, Targets: []Target{}, Jobs: []Job{}, Restores: []Restore{}, Credentials: []string{}, Sources: []Source{}}
+	s.mu.Lock()
+	out.SchedulerStarted = s.schedulerRunning
+	s.mu.Unlock()
+	out = Overview{SchedulerStarted: out.SchedulerStarted, Instance: s.cfg.Instance, Directory: s.cfg.Directory, Policies: []Policy{}, Targets: []Target{}, Jobs: []Job{}, Restores: []Restore{}, Credentials: []string{}, Sources: []Source{}}
 	for _, source := range s.cfg.Sources {
 		out.Sources = append(out.Sources, sourceStatus(source))
 	}
 	for ref := range s.cfg.Credentials {
 		out.Credentials = append(out.Credentials, ref)
+	}
+	refs, err := s.s3CredentialRefs()
+	if err != nil {
+		return out, err
+	}
+	out.S3Credentials = refs
+	out.Custody = s.custodyStatus()
+	out.RemoteRuns, err = s.remoteGCRuns()
+	if err != nil {
+		return out, err
 	}
 	sort.Strings(out.Credentials)
 	for _, kind := range []string{"policies", "targets", "jobs", "restores"} {
@@ -118,12 +151,14 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 			switch kind {
 			case "policies":
 				var p Policy
-				if e = readJSON(s.path(kind, id), &p); e == nil {
+				if p, e = s.policy(ctx, id); e == nil {
 					out.Policies = append(out.Policies, p)
 				}
 			case "targets":
 				var t Target
 				if e = readJSON(s.path(kind, id), &t); e == nil {
+					t.VerificationValid = s.targetVerified(t)
+					t.Executor = "powerx:" + s.cfg.ExecutionNodeID
 					out.Targets = append(out.Targets, t)
 				}
 			case "jobs":
@@ -133,8 +168,11 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 					copy := j.Job
 					copy.Files = nil
 					out.Jobs = append(out.Jobs, copy)
-					if j.RemoteState == "pending" || j.RemoteState == "failed" {
+					if j.RemoteState == "pending" || j.RemoteState == "failed" || j.RemoteState == "unconfirmed" {
 						out.PendingTransfers++
+						if isLogSource(j.Kind) {
+							out.LogPendingTransfers++
+						}
 					}
 				}
 			case "restores":
@@ -169,20 +207,48 @@ func (s *Service) SavePolicy(ctx context.Context, p Policy) (Policy, error) {
 	if p.IncludeDatabase && (source.Kind != "media" || source.DatabaseDSN == "") {
 		return p, failure(400, "ARCHIVE_DATABASE_UNAVAILABLE", "此媒体来源没有可用于配套快照的数据库连接")
 	}
-	if source.Kind == "postgresql_logs" && p.TargetID == "" {
+	if p.Enabled && isLogSource(source.Kind) && p.TargetID == "" {
 		return p, failure(400, "ARCHIVE_TARGET_REQUIRED", "数据库日志归档需要配置异地目标")
+	}
+	if p.RemoteCleanupEnabled && p.TargetID == "" {
+		return p, failure(400, "ARCHIVE_TARGET_REQUIRED", "归档到期治理需要独立目标")
 	}
 	if p.Enabled {
 		status := sourceStatus(source)
 		if !status.Ready {
 			return p, failure(422, "ARCHIVE_SOURCE_UNAVAILABLE", status.Problem)
 		}
-	}
-	if p.TargetID != "" {
-		if _, e = s.target(p.TargetID); e != nil {
-			return p, e
+		if isLogSource(source.Kind) && s.custodyStatus().LegacyDetected && !s.ManagedLegacySource(source.Directory) {
+			return p, failure(409, "ARCHIVE_LEGACY_HANDOFF_REQUIRED", "此来源的旧临时任务尚未接管，请先完成部署绑定")
 		}
 	}
+	if p.TargetID != "" {
+		var target Target
+		if target, e = s.target(p.TargetID); e != nil {
+			return p, e
+		}
+		if (p.Enabled || p.RemoteCleanupEnabled) && (isLogSource(source.Kind) || target.Driver == "s3") && !s.targetVerified(target) {
+			return p, failure(422, "ARCHIVE_TARGET_UNVERIFIED", "请先从实际执行节点验证当前归档目标，再明确开启归档")
+		}
+		if p.Enabled || p.RemoteCleanupEnabled {
+			p.TargetRevision = target.Revision
+			p.TargetFingerprint = target.VerifiedFingerprint
+		}
+		if p.RemoteCleanupEnabled && target.Driver != "s3" {
+			return p, failure(400, "ARCHIVE_REMOTE_CLEANUP_UNSUPPORTED", "此远端到期任务仅支持已验证的 S3 目标")
+		}
+		if p.Enabled && target.Driver == "s3" && p.RemoteMaxBytes < 1 {
+			return p, failure(400, "ARCHIVE_BUDGET_REQUIRED", "请明确配置远端归档容量预算")
+		}
+	}
+	if p.RemoteMaxBytes < 0 || p.RemoteMaxBytes > 1<<50 {
+		return p, failure(400, "ARCHIVE_POLICY_INVALID", "归档预算无效")
+	}
+	unlock, e := s.lock(ctx, "settings")
+	if e != nil {
+		return p, failure(409, "ARCHIVE_BUSY", "归档配置正在修改")
+	}
+	defer unlock()
 	if p.ID == "" {
 		p.ID = uuid.NewString()
 		p.CreatedAt = time.Now().UTC()
@@ -192,13 +258,21 @@ func (s *Service) SavePolicy(ctx context.Context, p Policy) (Policy, error) {
 			return p, e
 		}
 		p.CreatedAt = old.CreatedAt
+		if old.Revision != p.Revision {
+			return p, failure(409, "ARCHIVE_REVISION_CONFLICT", "归档策略已被修改，请刷新后重试")
+		}
 	}
-	unlock, e := s.lock(ctx, p.ID)
-	if e != nil {
-		return p, failure(409, "ARCHIVE_BUSY", "该策略正在执行")
+	p.Revision++
+	if e = s.auditAction(ctx, "policy_change_intent", p.ID, p.Revision); e != nil {
+		return p, e
 	}
-	defer unlock()
 	e = writeJSON(s.path("policies", p.ID), p)
+	if e == nil {
+		e = s.publishCustodyControl()
+	}
+	if e == nil {
+		s.auditAction(ctx, "policy_saved", p.ID, p.Revision)
+	}
 	return p, e
 }
 
@@ -210,6 +284,12 @@ func (s *Service) SaveTarget(ctx context.Context, t Target) (Target, error) {
 		return t, e
 	}
 	t.Name = strings.TrimSpace(t.Name)
+	if t.Driver == "s3" {
+		return s.saveS3Target(ctx, t)
+	}
+	if t.Driver != "" && t.Driver != "ssh" {
+		return t, failure(400, "ARCHIVE_TARGET_INVALID", "归档目标类型无效")
+	}
 	hostOK := labelPattern.MatchString(t.Host) || net.ParseIP(t.Host) != nil || regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$`).MatchString(t.Host)
 	if t.Name == "" || len(t.Name) > 128 || !hostOK || !userPattern.MatchString(t.User) || t.Port < 1 || t.Port > 65535 || !remotePathPattern.MatchString(t.Directory) || filepath.Clean(t.Directory) != t.Directory || t.Directory == "/" {
 		return t, failure(400, "ARCHIVE_TARGET_INVALID", "SSH 主机、端口、用户名或绝对保存目录无效")
@@ -225,10 +305,17 @@ func (s *Service) SaveTarget(ctx context.Context, t Target) (Target, error) {
 	if t.ID == "" {
 		t.ID = uuid.NewString()
 	} else {
-		if _, e = s.target(t.ID); e != nil {
+		var old Target
+		if old, e = s.target(t.ID); e != nil {
 			return t, e
 		}
+		if old.Revision != t.Revision {
+			return t, failure(409, "ARCHIVE_REVISION_CONFLICT", "目标已被修改，请刷新后重试")
+		}
 	}
+	t.Revision++
+	t.VerifiedAt, t.VerifiedFingerprint = nil, ""
+	t.Executor = "powerx:" + s.cfg.ExecutionNodeID
 	e = writeJSON(s.path("targets", t.ID), t)
 	return t, e
 }
@@ -302,6 +389,9 @@ func (s *Service) startPolicy(ctx context.Context, p Policy, key, operator, trac
 			return j.Job, nil
 		}
 	}
+	if e = s.catalogCapacity(); e != nil {
+		return Job{}, e
+	}
 	unlock, e := s.lock(ctx, p.ID)
 	if e != nil {
 		return Job{}, failure(409, "ARCHIVE_BUSY", "该策略正在执行")
@@ -316,6 +406,10 @@ func (s *Service) startPolicy(ctx context.Context, p Policy, key, operator, trac
 		unlock()
 		return Job{}, failure(422, "ARCHIVE_SOURCE_UNAVAILABLE", status.Problem)
 	}
+	if isLogSource(source.Kind) && !p.Enabled {
+		unlock()
+		return Job{}, failure(409, "ARCHIVE_DISABLED", "请先在页面明确开启日志归档")
+	}
 	// 同一策略的执行锁已接管，旧 running 清单对应进程已经退出。
 	for _, id := range ids {
 		j, e := s.readJob(id)
@@ -326,13 +420,17 @@ func (s *Service) startPolicy(ctx context.Context, p Policy, key, operator, trac
 		}
 	}
 	now := time.Now().UTC()
-	j := jobRecord{Job: Job{ID: uuid.NewString(), PolicyID: p.ID, SourceID: p.SourceID, Kind: source.Kind, Status: "running", Phase: "capturing", CreatedAt: now, Warnings: []string{}, RemoteState: "not_requested", Operator: operator, TraceID: trace, RemoteRetentionDays: p.RemoteRetentionDays, RemoteRetentionCount: p.RemoteRetentionCount}, RequestKey: hash}
+	j := jobRecord{Job: Job{PolicyRevision: p.Revision, ID: uuid.NewString(), PolicyID: p.ID, SourceID: p.SourceID, Kind: source.Kind, Status: "running", Phase: "capturing", CreatedAt: now, Warnings: []string{}, RemoteState: "not_requested", Operator: operator, TraceID: trace, RemoteRetentionDays: p.RemoteRetentionDays, RemoteRetentionCount: p.RemoteRetentionCount}, RequestKey: hash}
 	j.OneTime = p.ID == ""
 	if p.TargetID != "" {
 		target, e := s.target(p.TargetID)
 		if e != nil {
 			unlock()
 			return Job{}, e
+		}
+		if (isLogSource(source.Kind) || target.Driver == "s3") && (!p.Enabled || !s.targetVerified(target) || p.TargetRevision != target.Revision || p.TargetFingerprint != target.VerifiedFingerprint) {
+			unlock()
+			return Job{}, failure(409, "ARCHIVE_DISABLED", "归档尚未开启或目标配置验证已失效")
 		}
 		j.Target = &target
 		j.RemoteState = "pending"
@@ -357,6 +455,10 @@ func (s *Service) Tick(ctx context.Context) error {
 	if s.initErr != nil {
 		return s.initErr
 	}
+	if err := s.publishCustodyControl(); err != nil {
+		return err
+	}
+	s.pruneExpiredCatalog(ctx)
 	ids, e := s.records("policies")
 	if e != nil {
 		return e
@@ -369,17 +471,48 @@ func (s *Service) Tick(ctx context.Context) error {
 			continue
 		}
 		if !p.Enabled {
+			if p.RemoteCleanupEnabled {
+				if err := s.refreshPolicyTarget(ctx, p); err != nil {
+					failures = append(failures, err.Error())
+				} else if err = s.tickRemoteGC(ctx, p); err != nil {
+					failures = append(failures, err.Error())
+				}
+			}
 			continue
 		}
+		if err := s.refreshPolicyTarget(ctx, p); err != nil {
+			failures = append(failures, err.Error())
+			continue
+		}
+		if p.RemoteCleanupEnabled {
+			if err := s.tickRemoteGC(ctx, p); err != nil {
+				failures = append(failures, err.Error())
+			}
+		}
 		latest := time.Time{}
+		var last jobRecord
 		jobs, _ := s.records("jobs")
 		for _, jid := range jobs {
 			j, e := s.readJob(jid)
 			if e == nil && j.PolicyID == p.ID && j.CreatedAt.After(latest) {
 				latest = j.CreatedAt
+				last = j
 			}
 		}
 		if time.Since(latest) < time.Duration(p.IntervalMinutes)*time.Minute {
+			continue
+		}
+		source, e := s.source(p.SourceID)
+		if e != nil {
+			failures = append(failures, e.Error())
+			continue
+		}
+		unchanged, e := s.sealedUnchanged(ctx, source, last, p)
+		if e != nil {
+			failures = append(failures, e.Error())
+			continue
+		}
+		if unchanged {
 			continue
 		}
 		job, runErr := s.start(ctx, p.ID, uuid.NewString(), "system.archive_timer", "", true)
@@ -417,12 +550,23 @@ func (s *Service) Tick(ctx context.Context) error {
 func (s *Service) execute(j *jobRecord, p Policy, source Source) {
 	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Minute)
 	defer cancel()
+	if isLogSource(source.Kind) {
+		if err := s.transferAllowed(ctx, *j); err != nil {
+			j.Status = "failed"
+			j.Error = "归档已关闭或配置变化"
+			_ = s.saveJob(j)
+			return
+		}
+	}
 	if e := s.capture(ctx, j, p, source); e != nil {
 		j.Status = "failed"
 		j.Phase = "failed"
 		j.Error = e.Error()
 		_ = s.saveJob(j)
 		return
+	}
+	if isLogSource(source.Kind) {
+		j.ProvenanceVerified = true
 	}
 	j.Status = "success"
 	j.Phase = "completed"
@@ -443,6 +587,9 @@ func (s *Service) retry(ctx context.Context, id string, synchronous bool) (Job, 
 	j, e := s.readJob(id)
 	if e != nil {
 		return Job{}, e
+	}
+	if err := s.transferAllowed(ctx, j); err != nil {
+		return Job{}, failure(409, "ARCHIVE_DISABLED", "归档已关闭或配置已改变，不能继续重传旧任务")
 	}
 	if j.Status != "success" || j.Target == nil {
 		return Job{}, failure(409, "ARCHIVE_TRANSFER_NOT_READY", "只能重传已有完整快照")

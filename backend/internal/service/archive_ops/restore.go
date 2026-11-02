@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/google/uuid"
 	"io"
 	"os"
@@ -134,6 +135,11 @@ func (s *Service) StartRestore(ctx context.Context, id string, allowOlder bool, 
 	return response, nil
 }
 func (s *Service) restore(ctx context.Context, j jobRecord, r *Restore, allowOlder bool, operator, trace string) error {
+	ctx, release, err := budget.BeginPath(ctx, s.cfg.Directory, "archive_restore", j.SizeBytes*2+(64<<20))
+	if err != nil {
+		return err
+	}
+	defer release()
 	if e := s.ensureObjects(ctx, j); e != nil {
 		return e
 	}
@@ -169,7 +175,7 @@ func (s *Service) restore(ctx context.Context, j jobRecord, r *Restore, allowOld
 			f.Close()
 			return e
 		}
-		_, e = io.Copy(f, &contextReader{ctx, source})
+		_, e = io.Copy(budget.Writer(ctx, f), &contextReader{ctx, source})
 		source.Close()
 		closed := f.Close()
 		if e != nil {
@@ -206,7 +212,7 @@ func (s *Service) Protect(ctx context.Context, id string, value bool) (Job, erro
 	}
 	defer unlock()
 	j.Protected = value
-	if j.RemoteState == "success" && j.Target != nil {
+	if j.RemoteState == "success" && j.Target != nil && j.Target.Driver != "s3" {
 		if _, e = s.remote(ctx, *j.Target, "protect", j.PolicyID, j.ID, map[string]any{"protected": value}); e != nil {
 			return Job{}, failure(503, "ARCHIVE_PROTECTION_FAILED", "远端保护状态更新失败；本地保护状态保持原值")
 		}
@@ -382,13 +388,25 @@ func (s *Service) RestoreDirectory(ctx context.Context, id string) (Restore, err
 }
 
 func (s *Service) DownloadFile(ctx context.Context, id string) (string, func(), error) {
+	if e := s.check(ctx); e != nil {
+		return "", nil, e
+	}
+	j, e := s.readJob(id)
+	if e != nil {
+		return "", nil, e
+	}
+	ctx, release, e := budget.BeginPath(ctx, s.cfg.Directory, "archive_download", j.SizeBytes*2+(64<<20))
+	if e != nil {
+		return "", nil, e
+	}
+	defer release()
 	f, e := os.CreateTemp(filepath.Join(s.cfg.Directory, "staging"), "download-*.tar.gz")
 	if e != nil {
 		return "", nil, e
 	}
 	path := f.Name()
 	cleanup := func() { os.Remove(path) }
-	e = s.Download(ctx, id, f)
+	e = s.Download(ctx, id, budget.Writer(ctx, f))
 	closed := f.Close()
 	if e != nil {
 		cleanup()

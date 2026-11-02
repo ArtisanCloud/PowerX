@@ -46,14 +46,39 @@ func validateConfig(c *Config) error {
 	if !labelPattern.MatchString(c.Instance) {
 		return fmt.Errorf("invalid archive instance identifier")
 	}
+	if c.ExecutionNodeID == "" {
+		c.ExecutionNodeID = c.Instance
+	}
+	if !labelPattern.MatchString(c.ExecutionNodeID) {
+		return fmt.Errorf("invalid archive execution node")
+	}
 	seen := map[string]bool{}
 	for _, source := range c.Sources {
 		if !labelPattern.MatchString(source.ID) || seen[source.ID] {
 			return fmt.Errorf("invalid or duplicate source identifier")
 		}
 		seen[source.ID] = true
-		if source.Kind != "media" && source.Kind != "postgresql_logs" && source.Kind != "database_files" {
+		if source.Kind != "media" && !isLogSource(source.Kind) && source.Kind != "database_files" {
 			return fmt.Errorf("unsupported archive source kind")
+		}
+		if isLogSource(source.Kind) && source.Kind != "postgresql_logs" && source.RotationFormat == "" {
+			return fmt.Errorf("sealed log rotation format required")
+		}
+		if source.RotationFormat != "" {
+			if !isLogSource(source.Kind) || (source.RotationFormat != "numeric" && source.RotationFormat != "lumberjack" && source.RotationFormat != "dated" && source.RotationFormat != "journal" && source.RotationFormat != "postgresql") {
+				return fmt.Errorf("sealed log rotation format invalid")
+			}
+			if source.RotationFormat == "postgresql" && (source.Kind != "postgresql_logs" || !filepath.IsAbs(source.CurrentLogfiles)) {
+				return fmt.Errorf("native PostgreSQL logs require an absolute current_logfiles manifest")
+			}
+			if len(source.ActiveFiles) > 16 || (source.RotationFormat != "journal" && len(source.ActiveFiles) == 0) {
+				return fmt.Errorf("sealed log active files required")
+			}
+			for _, name := range source.ActiveFiles {
+				if name == "" || filepath.Base(name) != name || strings.ContainsRune(name, 0) {
+					return fmt.Errorf("sealed log active name invalid")
+				}
+			}
 		}
 		if !filepath.IsAbs(source.Directory) {
 			return fmt.Errorf("source directory must be absolute")

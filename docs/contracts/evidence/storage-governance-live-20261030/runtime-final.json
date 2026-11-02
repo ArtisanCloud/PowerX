@@ -1,0 +1,242 @@
+{
+  "configured": true,
+  "worker_enabled": true,
+  "admission_enabled": true,
+  "budget": {
+    "host_id": "storage-live-powerx-storage-live-0kduaxty",
+    "filesystem_id": "acceptance-local-disk",
+    "revision": 15,
+    "available_bytes": 115075383296,
+    "used_bytes": 879587201024,
+    "reserved_bytes": 0,
+    "min_free_bytes": 1073741824,
+    "critical_free_bytes": 536870912,
+    "max_used_bytes": 0,
+    "active": []
+  },
+  "budget_policy": {
+    "revision": 7,
+    "min_free_bytes": 1073741824,
+    "critical_free_bytes": 536870912,
+    "max_used_bytes": 0,
+    "max_concurrent": 1
+  },
+  "lifecycle": {
+    "configured": true,
+    "allow_enforce": true,
+    "sources": [
+      {
+        "id": "acceptance-archive-required",
+        "name": "归档保护验收",
+        "kind": "application_logs",
+        "scope": "shared",
+        "instance_id": "",
+        "format": "numeric",
+        "require_archive": true,
+        "supported": true
+      },
+      {
+        "id": "acceptance-logs",
+        "name": "本地验收日志",
+        "kind": "application_logs",
+        "scope": "shared",
+        "instance_id": "",
+        "format": "numeric",
+        "require_archive": false,
+        "supported": true
+      },
+      {
+        "id": "acceptance-paused",
+        "name": "暂停策略验收",
+        "kind": "application_logs",
+        "scope": "shared",
+        "instance_id": "",
+        "format": "numeric",
+        "require_archive": false,
+        "supported": true
+      },
+      {
+        "id": "core-app-logs-432dd6884cc2",
+        "name": "应用日志",
+        "kind": "application_logs",
+        "scope": "test",
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "format": "lumberjack",
+        "require_archive": false,
+        "supported": true
+      },
+      {
+        "id": "core-archives",
+        "name": "归档对象与清单",
+        "kind": "archive_objects",
+        "scope": "test",
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "format": "",
+        "require_archive": false,
+        "supported": false,
+        "problem": "protected_resource"
+      },
+      {
+        "id": "core-audit-files",
+        "name": "审计文件日志（仅观测）",
+        "kind": "audit_logs",
+        "scope": "test",
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "format": "dated",
+        "require_archive": false,
+        "supported": true
+      },
+      {
+        "id": "core-backups",
+        "name": "数据库备份文件",
+        "kind": "backup_files",
+        "scope": "test",
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "format": "",
+        "require_archive": false,
+        "supported": false,
+        "problem": "protected_resource"
+      },
+      {
+        "id": "core-local-media",
+        "name": "本地媒体文件",
+        "kind": "media_files",
+        "scope": "test",
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "format": "",
+        "require_archive": false,
+        "supported": false,
+        "problem": "protected_resource"
+      },
+      {
+        "id": "core-snapshots",
+        "name": "系统快照文件",
+        "kind": "snapshot_files",
+        "scope": "test",
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "format": "",
+        "require_archive": false,
+        "supported": false,
+        "problem": "protected_resource"
+      }
+    ],
+    "policies": [
+      {
+        "source_id": "acceptance-logs",
+        "revision": 3,
+        "enabled": true,
+        "retention_days": 7,
+        "max_bytes": 1073741824,
+        "require_archive": false,
+        "fingerprint": "4b496588b83e9cd1b493fc7934afdee6aba778c2517dc8d32b2fb63f79469997",
+        "owner_instance": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "operator_id": 1,
+        "updated_at": "2026-10-30T13:18:36.960303Z"
+      },
+      {
+        "source_id": "acceptance-archive-required",
+        "revision": 2,
+        "enabled": false,
+        "retention_days": 7,
+        "max_bytes": 1073741824,
+        "require_archive": true,
+        "fingerprint": "df0587b6986241b14f245ce60663764d1814ae9180ab2de5160ae5daafe2eada",
+        "owner_instance": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "operator_id": 1,
+        "updated_at": "2026-10-30T13:11:55.237699Z"
+      },
+      {
+        "source_id": "acceptance-paused",
+        "revision": 3,
+        "enabled": false,
+        "retention_days": 7,
+        "max_bytes": 1073741824,
+        "require_archive": false,
+        "fingerprint": "7552d6e14319629e57dc3d0babf32cf80225c85ab2920bdfe1abb1bec6a77c60",
+        "owner_instance": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "operator_id": 1,
+        "updated_at": "2026-10-30T13:40:07.840214Z"
+      }
+    ],
+    "runs": [
+      {
+        "request_key": "18a7b30f-c98b-44ed-9f9b-3aa7ee8b4974",
+        "id": "ec6d499f-c5ed-413f-b9a4-e48de1788e51",
+        "source_id": "acceptance-logs",
+        "policy_revision": 1,
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "state": "completed",
+        "started_at": "2026-10-30T13:11:50.940965Z",
+        "finished_at": "2026-10-30T13:11:50.971896Z",
+        "deleted_files": 2,
+        "removed_bytes": 1572864,
+        "removed_allocated_bytes": 1572864,
+        "available_before": 132646961152,
+        "available_after": 132648480768
+      },
+      {
+        "request_key": "6e55ec0a-bef3-4f99-9b31-f521eb922269",
+        "id": "0f92c6b3-9b62-4de9-a02f-7b4c4a2ab4bd",
+        "source_id": "acceptance-archive-required",
+        "policy_revision": 1,
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "state": "blocked",
+        "started_at": "2026-10-30T13:11:55.217806Z",
+        "finished_at": "2026-10-30T13:11:55.223869Z",
+        "deleted_files": 0,
+        "removed_bytes": 0,
+        "removed_allocated_bytes": 0,
+        "available_before": 132647129088,
+        "available_after": 132647137280,
+        "problem": "archive_verification_required"
+      },
+      {
+        "request_key": "scheduled:acceptance-logs:1992630",
+        "id": "dc114403-aaca-4a20-9490-4c4e1f52b3e7",
+        "source_id": "acceptance-logs",
+        "policy_revision": 3,
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "state": "completed",
+        "started_at": "2026-10-30T13:30:58.634018Z",
+        "finished_at": "2026-10-30T13:30:58.65609Z",
+        "deleted_files": 1,
+        "removed_bytes": 1048576,
+        "removed_allocated_bytes": 1048576,
+        "available_before": 130685603840,
+        "available_after": 130686644224
+      },
+      {
+        "request_key": "scheduled:acceptance-logs:1992631",
+        "id": "f0d9792c-7950-42fb-9ddc-acdf60491d46",
+        "source_id": "acceptance-logs",
+        "policy_revision": 3,
+        "instance_id": "c9af21c6-bb89-4157-ac43-f5722a75cc3f",
+        "state": "completed",
+        "started_at": "2026-10-30T13:45:58.91448Z",
+        "finished_at": "2026-10-30T13:45:58.952153Z",
+        "deleted_files": 1,
+        "removed_bytes": 1048576,
+        "removed_allocated_bytes": 1048576,
+        "available_before": 115090915328,
+        "available_after": 115092119552
+      }
+    ],
+    "revision": 24,
+    "database_cleanup_enabled": false
+  },
+  "log_delivery": {
+    "accepted": 48,
+    "delivered": 43,
+    "dropped": 0,
+    "failed": 0,
+    "retries": 0,
+    "queued_entries": 5,
+    "queued_bytes": 2754,
+    "queue_capacity": 32,
+    "max_queue_bytes": 131072,
+    "closed": false
+  },
+  "notifications_configured": false,
+  "last_observed_at": "2026-10-30T13:46:44.43594Z",
+  "database_cleanup_enabled": false
+}

@@ -52,6 +52,25 @@ func archiveCommand(ctx context.Context, program string, args ...string) *exec.C
 	return cmd
 }
 func (s *Service) remote(ctx context.Context, t Target, op, policyID, jobID string, params map[string]any) (map[string]any, error) {
+	if t.Driver == "s3" {
+		if op != "read" && op != "verify" {
+			return nil, errors.New("S3 归档操作不支持")
+		}
+		j, err := s.readJob(jobID)
+		if err != nil || j.PolicyID != policyID || j.Target == nil || j.Target.ID != t.ID {
+			return nil, errors.New("归档任务目标不匹配")
+		}
+		var out Job
+		if op == "verify" {
+			out, err = s.verifyS3Job(ctx, j)
+		} else {
+			out, err = s.readS3Job(ctx, j)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true, "manifest": out}, nil
+	}
 	args, e := s.sshArgs(t)
 	if e != nil {
 		return nil, e
@@ -130,7 +149,13 @@ func (s *Service) upload(ctx context.Context, j *jobRecord) {
 	_ = s.saveJob(j)
 }
 func (s *Service) uploadSnapshot(ctx context.Context, j *jobRecord) error {
+	if e := s.transferAllowed(ctx, *j); e != nil {
+		return e
+	}
 	t := *j.Target
+	if t.Driver == "s3" {
+		return s.uploadS3Snapshot(ctx, j)
+	}
 	result, e := s.remote(ctx, t, "init", j.PolicyID, j.ID, nil)
 	if e != nil {
 		return e
@@ -146,6 +171,9 @@ func (s *Service) uploadSnapshot(ctx context.Context, j *jobRecord) error {
 	}
 	defer os.RemoveAll(stage)
 	for _, entry := range j.Files {
+		if e := s.transferAllowed(ctx, *j); e != nil {
+			return e
+		}
 		if !shaPattern.MatchString(entry.SHA256) {
 			return errors.New("对象清单无效")
 		}
@@ -174,6 +202,9 @@ func (s *Service) uploadSnapshot(ctx context.Context, j *jobRecord) error {
 	if e = s.rsync(ctx, t, manifestPath, expected+"/incoming/"+j.ID+".json", false); e != nil {
 		return e
 	}
+	if e = s.transferAllowed(ctx, *j); e != nil {
+		return e
+	}
 	if _, e = s.remote(ctx, t, "commit", j.PolicyID, j.ID, map[string]any{"days": j.RemoteRetentionDays, "count": j.RemoteRetentionCount}); e != nil {
 		return e
 	}
@@ -184,12 +215,46 @@ func (s *Service) TestTarget(ctx context.Context, id string) error {
 	if e := s.check(ctx); e != nil {
 		return e
 	}
+	return s.testTarget(ctx, id)
+}
+func (s *Service) testTarget(ctx context.Context, id string) error {
 	t, e := s.target(id)
 	if e != nil {
 		return e
 	}
-	testID := "00000000-0000-4000-8000-000000000000"
-	_, e = s.remote(ctx, t, "init", testID, "-", nil)
+	before, e := s.targetFingerprint(t)
+	if e != nil {
+		return e
+	}
+	if t.Driver == "s3" {
+		e = s.testS3Target(ctx, t)
+	} else {
+		testID := "00000000-0000-4000-8000-000000000000"
+		_, e = s.remote(ctx, t, "test", testID, "-", nil)
+	}
+	if e != nil {
+		return e
+	}
+	unlock, e := s.lock(ctx, "settings")
+	if e != nil {
+		return ErrBusy
+	}
+	defer unlock()
+	current, e := s.target(id)
+	if e != nil {
+		return e
+	}
+	after, e := s.targetFingerprint(current)
+	if e != nil || before != after {
+		return failure(409, "ARCHIVE_REVISION_CONFLICT", "测试期间目标或凭据变化，请重新验证")
+	}
+	now := time.Now().UTC()
+	current.Executor = "powerx:" + s.cfg.ExecutionNodeID
+	current.VerifiedAt = &now
+	current.VerifiedFingerprint = after
+	if e = writeJSON(s.path("targets", id), current); e == nil {
+		s.auditAction(ctx, "target_verified", id, current.Revision)
+	}
 	return e
 }
 
@@ -210,6 +275,9 @@ func (s *Service) ensureObjects(ctx context.Context, j jobRecord) error {
 	}
 	if j.Target == nil || j.RemoteState != "success" {
 		return errors.New("本地对象已不可用，且没有已验证异地副本")
+	}
+	if j.Target.Driver == "s3" {
+		return s.ensureS3Objects(ctx, j)
 	}
 	result, e := s.remote(ctx, *j.Target, "read", j.PolicyID, j.ID, nil)
 	if e != nil {

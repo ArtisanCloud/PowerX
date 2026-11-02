@@ -23,6 +23,12 @@ func loadFromYAML(cfg *Config, configPath string) error {
 		return fmt.Errorf("读取配置文件失败: %w", err)
 	}
 
+	if err := validateLokiYAML(data); err != nil {
+		return err
+	}
+	if err := validateStorageGovernanceYAML(data); err != nil {
+		return err
+	}
 	// 解析YAML
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return fmt.Errorf("解析YAML配置失败: %w", err)

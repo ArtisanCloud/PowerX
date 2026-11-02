@@ -1,0 +1,67 @@
+{
+  "schema": "powerx.storage-governance.commit-validation.v1",
+  "recorded_at_utc": "2026-11-02 06:35:18 UTC",
+  "scope": "Selected storage-governance commit on the existing branch; unrelated worktree changes preserved",
+  "parent_sha": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "branch": "024-ai-engineering-skills",
+  "verification": {
+    "selected_go_compiler_inputs": {
+      "method": "Go compiler overlay plus baseline go.mod/go.sum; no branch, worktree or checkout created",
+      "packages_selected": 21,
+      "race": "passed",
+      "vet": "passed",
+      "core_build": "passed",
+      "runtime_external_file_reads": "Not virtualized; controlled/installed acceptance evidence remains separate"
+    },
+    "frontend": {
+      "command": "npx vitest run tests/unit/storage",
+      "scope": "Current working tree; 7 storage suites",
+      "tests_passed": 37
+    },
+    "legacy_guard": {
+      "command": "python3 -m unittest discover -s scripts/ops/powerx-space-guard -p test_*.py",
+      "tests_passed": 29
+    },
+    "capability_check": {
+      "scope": "Current working tree; no seed or runtime grant changes",
+      "result": "passed",
+      "declared": 1236,
+      "referenced": 77,
+      "rest_routes": 1175,
+      "candidates": 1173,
+      "ignored_route_rules": 79
+    },
+    "staged_tree": {
+      "upgrade_registry": "All four groups recomputed and independently matched against actual Git index contents",
+      "contracts_yaml": "parsed",
+      "locales": "Only storageGov key added to each baseline locale; unrelated locale edits excluded",
+      "diff_check": "passed",
+      "credential_patterns": "No private-key/JWT/cloud-key patterns found in selected text; private runtime configuration and credentials excluded"
+    }
+  },
+  "fixes_during_commit_review": [
+    "Fixed StartRemoteGC racing with its caller by freezing the queued response before starting the worker and copying protection metadata; regression asserts returned state stays queued.",
+    "Replaced a fixed 10ms asynchronous lumberjack test delay with a bounded wait for its actual expected file state."
+  ],
+  "validation_limitations": [
+    "make unit-test cannot run: backend/test-silent.sh is missing; no full repository unit-suite pass is claimed.",
+    "An earlier check was interrupted by missing shared Go cache files; final source checks passed using a task-owned cache.",
+    "Long-open notification header recovery across Core restart remains an independently recorded UI follow-up.",
+    "Production deployment, installed-script handoff, actual long-term policy activation and old Mac objects are not completed by this commit."
+  ],
+  "safeguards": {
+    "branch_changed": false,
+    "worktree_created": false,
+    "user_services_restarted": false,
+    "production_mutated": false,
+    "private_config_staged": false,
+    "unrelated_staged_work_before": false,
+    "push_performed": false
+  },
+  "delivery_summary": "docs/contracts/storage-governance-delivery-summary-20261102.md",
+  "installed_acceptance": [
+    "docs/contracts/evidence/storage-stable-window-validation-20261101.json",
+    "docs/contracts/evidence/storage-installed-root-validation-20261102.json",
+    "docs/contracts/evidence/storage-native-observation-validation-20261102.json"
+  ]
+}

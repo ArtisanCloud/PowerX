@@ -30,6 +30,7 @@ func NewService(db *gorm.DB) *Service {
 }
 
 type CreateInput struct {
+	storageUUID uuid.UUID
 	TenantUUID  string
 	MemberUUID  string
 	Title       string
@@ -85,6 +86,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Notifi
 		RelatedType: strings.TrimSpace(input.RelatedType),
 		Actions:     input.Actions,
 		Metadata:    input.Metadata,
+	}
+	if input.storageUUID != uuid.Nil {
+		item.UUID = input.storageUUID
 	}
 	if item.MemberUUID != "" {
 		if err := NewRecipientAccess(s.db).Require(ctx, tenantUUID, item.MemberUUID); err != nil {

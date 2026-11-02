@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"net/url"
 	"os"
@@ -349,6 +350,20 @@ func (s *JobService) runBackupScript(ctx context.Context, policyID uint64, outpu
 	if s.runner == nil {
 		return fmt.Errorf("backup script runner unavailable")
 	}
+	var storagePeak int64
+	if budget.Enabled() {
+		var size int64
+		if s.db == nil || s.db.WithContext(ctx).Raw("SELECT pg_database_size(current_database())").Scan(&size).Error != nil || size < 0 || size > 1<<48 {
+			return budget.ErrUnavailable
+		}
+		storagePeak = size*2 + (64 << 20)
+		run, release, err := budget.BeginPath(ctx, s.artifactBaseDir, "database_backup", storagePeak)
+		if err != nil {
+			return err
+		}
+		defer release()
+		ctx = run
+	}
 	path := filepath.Join(s.scriptDir, "backup-db.sh")
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("backup script unavailable: %w", err)
@@ -362,6 +377,12 @@ func (s *JobService) runBackupScript(ctx context.Context, policyID uint64, outpu
 	env, err := postgresEnvironment(sourceDSN(s.db))
 	if err != nil {
 		return err
+	}
+	if storagePeak > 0 {
+		env = append(env, "POWERX_BACKUP_MAX_BYTES="+strconv.FormatInt(storagePeak, 10))
+		if err := budget.TrackOutput(ctx, outputPath); err != nil {
+			return err
+		}
 	}
 	spec.Env = env
 	res, err := s.runner.Run(ctx, spec)

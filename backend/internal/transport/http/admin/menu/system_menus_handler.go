@@ -233,6 +233,17 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					ParentID:    "monitor_center",
 					Permissions: []string{"admin:root", "menu.monitor:view"},
 				},
+				{
+					Key:         "monitor_storage_governance",
+					Title:       "存储治理",
+					Icon:        "i-heroicons-server-stack",
+					URL:         "/monitor/storage",
+					Order:       6,
+					Visible:     true,
+					Origin:      plugin_mgr.OriginSystem,
+					ParentID:    "monitor_center",
+					Permissions: []string{"admin:root"},
+				},
 			},
 		},
 		{

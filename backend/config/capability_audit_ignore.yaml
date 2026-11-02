@@ -187,3 +187,115 @@ routes:
     path: /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id/status
     category: root_runtime_control
     reason: Starts or stops whole-instance capture schedules, requiring a Root user session, never a plugin or agent grant.
+  - method: POST
+    path: /api/v1/admin/ops/storage/cleanup-previews
+    category: root_runtime_control
+    reason: Root user session only; registered application-log cleanup previews contain host file metadata and are not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/storage/cleanup-runs
+    category: root_runtime_control
+    reason: Root user session only; a confirmed preview permits one synchronous bounded batch of sealed application logs, never a caller-selected path or service grant.
+  - method: GET
+    path: /api/v1/admin/ops/storage/cleanup-runs
+    category: root_runtime_control
+    reason: Root user session only; instance-scoped host cleanup audit must not be exposed to tenant API Key or STS callers.
+  - method: GET
+    path: /api/v1/admin/ops/storage/cleanup-runs/:run_id
+    category: root_runtime_control
+    reason: Root user session only; readback of a bounded host-file operation is private platform runtime control.
+  - method: GET
+    path: /api/v1/admin/ops/storage/policy
+    category: root_runtime_control
+    reason: Platform Root user JWT only; instance-scoped host policy drafts are not tenant or delegated service capabilities. Saving cannot enable cleanup or modify legacy policies.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/policy
+    category: root_runtime_control
+    reason: Platform Root user JWT only; revision-checked host policy drafts and their audit must not be exposed to API Key, STS, tenants or plugins.
+  - method: GET
+    path: /api/v1/admin/ops/storage/history
+    category: root_runtime_control
+    reason: Platform Root user JWT only; filesystem and database occupancy observations are host operational metadata, not a tenant service API.
+  - method: GET
+    path: /api/v1/admin/ops/storage/overview
+    category: root_runtime_control
+    reason: Root user session only; process-filesystem observations include host-level inventory and are not tenant, plugin, or agent capabilities. API Key and STS are rejected by the real router.
+  - method: POST
+    path: /api/v1/admin/ops/storage/estimates
+    category: root_runtime_control
+    reason: Root-only pure capacity calculator for the storage operations page; manual assumptions do not save or enable policies and must not become a delegated host capability.
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/runtime/budget
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/runtime/policies/:source_id
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/previews
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/runs
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime/events
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/runs/:run_id/acknowledge
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/catalog
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/s3-credentials
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/targets/:target_id/imports
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/preview
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/migrations
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/policies/:policy_id/remote-cleanup-previews
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/remote-cleanup-runs/:preview_id
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/remote-cleanup-runs/:preview_id/reconcile
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-retention
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance and never a service API grant.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/database-retention
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance and never a service API grant.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-retention/previews
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance and never a service API grant.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-retention/runs
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance and never a service API grant.

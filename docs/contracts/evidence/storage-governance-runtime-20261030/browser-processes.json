@@ -1,0 +1,15 @@
+{
+  "owner": "storage-browser-tests",
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+  "startedAt": "2026-10-30T10:08:31.725Z",
+  "fixturePid": 12107,
+  "fixturePort": 3486,
+  "corePid": 12108,
+  "corePort": 3485,
+  "command": [
+    "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+    "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-storage-validation/server/index.mjs"
+  ],
+  "stoppedAt": "2026-10-30T10:09:21.096Z",
+  "coreExitedAt": "2026-10-30T10:09:21.104Z"
+}

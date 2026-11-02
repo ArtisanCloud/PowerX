@@ -1009,6 +1009,8 @@ func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 		return capability_registrydto.ErrInvalidRequest.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_ACCOUNT_INVALID_ARGUMENT"})
 	case errors.Is(err, customersvc.ErrCustomerAccountNotFound):
 		return capability_registrydto.ErrNotFound.WithDetails(map[string]interface{}{"reason_code": "CUSTOMER_ACCOUNT_NOT_FOUND"})
+	case errors.Is(err, capservice.ErrInvocationStorageCapacity):
+		return capability_registrydto.ErrUnavailable.WithDetails(map[string]interface{}{"reason_code": "STORAGE_CAPACITY_EXHAUSTED"}).WithHint("存储容量保护已阻止新的调用，请处理容量后重试")
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
 		return capability_registrydto.ErrVersionLocked
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):

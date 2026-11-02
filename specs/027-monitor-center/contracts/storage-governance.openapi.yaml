@@ -1,0 +1,2293 @@
+openapi: 3.0.3
+info:
+  title: PowerX Storage Governance — Explicit File Lifecycle and Shared Admission
+  version: 0.6.0
+  description: Root 用户的存储观察、显式文件清理模式与独立数据库期限。归档和直接到期删除分别授权；旧无 cleanup_mode 策略停用。数据库仅处理当前实例登记租户的能力调用审计及其发布通知，默认停用，需完成列与索引迁移再明确开启；不处理业务队列、不关闭
+    SQL 日志、不自动 VACUUM FULL 或删除 WAL。状态由 SSE 推送失效后读取，页面不轮询。
+servers:
+- url: /api/v1
+security:
+- RootUserJWT: []
+paths:
+  /admin/ops/storage/overview:
+    get:
+      operationId: getStorageObservation
+      summary: 读取只读观测快照（最多缓存五分钟）
+      description: 不接受 query 参数。只读有界扫描，不创建目录、不读取内容、不执行删除。部分或未知占用用状态和 null 表达。
+      responses:
+        '200':
+          description: 观测信封，具体来源可能为未知或部分采集
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Observation'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ops/storage/estimates:
+    post:
+      operationId: calculateStorageCapacity
+      summary: 对已登记资源按保留方式测算容量（兼容旧人工算例）
+      description: 'UI 必须提供 resource_id + retention_mode。环境、实例、名称和类型从当前部署登记解析，不接受覆盖。
+
+        days 模式用明确的每日增量假设计算；缺少增量返回 sampling_required。
+
+        count 模式只能用于备份／快照，target_days=0，当前返回 artifact_inventory_required，不能用平均大小伪造恢复保障。
+
+        protected 模式不按文件年龄清理，返回 retention_not_applicable。两种模式均拒绝 daily_increment_bytes。
+
+        无 resource_id 的旧纯算例仍兼容，不能当作资源策略估算。未知字段、query 和超过 4096 bytes 均拒绝。
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - target_days
+              - max_bytes
+              properties:
+                resource_id:
+                  type: string
+                  description: 当前部署登记的来源 ID；提供时 retention_mode 必填
+                retention_mode:
+                  type: string
+                  enum:
+                  - days
+                  - count
+                  - protected
+                retention_count:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                  description: count 模式至少 1，其他模式为 0
+                target_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+                  description: days 或旧纯算例至少 1；count/protected 为 0
+                max_bytes:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                  maximum: 9007199254740991
+                daily_increment_bytes:
+                  type: integer
+                  format: int64
+                  nullable: true
+                  minimum: 1
+                  maximum: 9007199254740991
+                protected_bytes:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  maximum: 9007199254740991
+                  default: 0
+      responses:
+        '200':
+          description: 测算结果，不保存或启用策略
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    required:
+                    - state
+                    - basis
+                    - required_bytes
+                    - deficit_bytes
+                    - supported_days
+                    - safety_factor
+                    - can_enable
+                    properties:
+                      state:
+                        type: string
+                        enum:
+                        - sampling_required
+                        - budget_feasible
+                        - budget_insufficient
+                        - artifact_inventory_required
+                        - retention_not_applicable
+                      basis:
+                        type: string
+                        enum:
+                        - unavailable
+                        - manual_assumption
+                      required_bytes:
+                        $ref: '#/components/schemas/NullableBytes'
+                      deficit_bytes:
+                        $ref: '#/components/schemas/NullableBytes'
+                      supported_days:
+                        type: number
+                        nullable: true
+                        minimum: 0
+                      safety_factor:
+                        type: number
+                        enum:
+                        - 1.3
+                      can_enable:
+                        type: boolean
+                        enum:
+                        - false
+                      resource:
+                        $ref: '#/components/schemas/ResourceRef'
+                      retention_mode:
+                        type: string
+                        enum:
+                        - days
+                        - count
+                        - protected
+                      retention_count:
+                        type: integer
+                        minimum: 0
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/ops/storage/policy:
+    get:
+      operationId: getStoragePolicyDraft
+      summary: 读取当前部署的策略草稿（未保存时 revision 为 0）
+      description: 不接受 query。平台级 tenant_id=0、当前 EnvironmentID 限定；身份或 schema 不匹配返回错误，不当成空策略。数据库表尚未迁移返回
+        503。
+      responses:
+        '200':
+          description: 统一信封 data 为策略草稿
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/PolicyDraft'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: saveStoragePolicyDraft
+      summary: 带 expected_revision 保存草稿；保存与修改审计原子提交
+      description: '仅 application/json，最大 32768 bytes，拒绝未知字段、query、多对象、缺失必填值及 null。
+
+        state 只能为 draft。来源 ID 必须已由部署登记；路径、SQL、命令、凭据与身份覆盖均不接受。
+
+        必须有 host_id、filesystem_id、instance_id。false 保护选项也须显式提供。
+
+        主机预算只是每实例的目标草稿，尚未承担跨环境／跨数据库原子协调。
+
+        不改旧保留策略或清理器所有权。最近 100 版修改审计有界保存。
+
+        客户端保存后应 GET 读回核对；409 或响应中断时保留草稿，重新读取后处理。
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyInput'
+      responses:
+        '200':
+          description: 统一信封 data 为已保存草稿；不是已启用策略
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/PolicyDraft'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: STORAGE_POLICY_REVISION_CONFLICT，旧 revision 不覆盖新版本
+        '415':
+          description: STORAGE_JSON_REQUIRED
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ops/storage/history:
+    get:
+      operationId: getStorageOccupancyHistory
+      summary: 当前实例最近 14 天占用观测及五分钟缺段
+      description: '不接受 query。指标口径 allocated-occupancy/v1。不是文件／归档内容的本地或远端历史覆盖。
+
+        仅部署显式开启 sampling_enabled 且 worker 允许运行时采样；后台每五分钟至多一条，保留 15 天元数据。
+
+        daily_increment_bytes 固定 null，rate_basis=ingress_not_instrumented；不将净占用差分当新增量。
+
+        查询窗口为当前完成五分钟槽之前的 14 天，expected_samples=4032；未采样、口径或身份变化明确报告。
+
+        无自动 UI 轮询；初次进入和用户刷新读取。数据库未迁移／不可读返回 503，不能返回伪零历史。
+
+
+        新增 sources 和每点 resources；记录各来源 bytes/files/state/problem/fingerprint。net_change_bytes
+        仅相同指纹、相邻有效完整观测且间隔不超过 10 分钟时计算，可负；不代表新写入。旧点没有资源摘要时保持未知。每份摘要最多 32 KiB，最多 64
+        个来源，不保存文件清单或路径。'
+      responses:
+        '200':
+          description: 统一信封 data 为占用观测窗口
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/OccupancyHistory'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ops/storage/cleanup-previews:
+    post:
+      operationId: previewApplicationLogCleanup
+      summary: 保存一批封存应用日志的清理预览
+      description: 仅 Root 用户 JWT；拒绝 query、API Key、STS、路径和实例覆盖。 当前只支持本实例由实际日志配置发现的普通应用日志。最多扫描
+        1000 个直属条目，最多 32 个候选；不完整扫描不允许执行。保护活动文件、最新一代、非正式轮转名称、软/硬链接、错误所有权与近期修改。正式/预发或要求验证归档的草稿目前只允许预览。
+      responses:
+        '200':
+          description: 统一成功信封
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/CleanupRecord'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: STORAGE_CLEANUP_BLOCKED 或 STORAGE_CLEANUP_PREVIEW_CHANGED；不得自动重发删除。
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - resource_id
+              - target_days
+              properties:
+                resource_id:
+                  type: string
+                target_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 3650
+  /admin/ops/storage/cleanup-runs:
+    post:
+      operationId: executeApplicationLogCleanup
+      summary: 确认并同步执行一批日志清理
+      description: 仅 Root 用户 JWT；拒绝 query、API Key、STS、路径和实例覆盖。 预览有效 10 分钟并绑定操作者、部署身份、来源指纹和规划
+        revision。执行重新检查，最长 10 秒有限批次，最后审计最多补写 3 秒。和原生日志轮转共用目录 inode 锁；不修改旧策略、不启动第二个定时器。每项先记录删除意图再删除再记录结果。客户端重放只读回已有状态，绝不再次删除。响应丢失应
+        GET 回读，仍不确定时明确 unconfirmed，不轮询或重发。
+      responses:
+        '200':
+          description: 统一成功信封
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/CleanupRecord'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: STORAGE_CLEANUP_BLOCKED 或 STORAGE_CLEANUP_PREVIEW_CHANGED；不得自动重发删除。
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - preview_id
+              - confirm
+              properties:
+                preview_id:
+                  type: string
+                  format: uuid
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+    get:
+      operationId: listApplicationLogCleanupRecords
+      summary: 读取本实例最近 100 条手动日志清理记录
+      description: 仅 Root 用户 JWT；拒绝 query、API Key、STS、路径和实例覆盖。
+      responses:
+        '200':
+          description: 统一成功信封
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        maxItems: 100
+                        items:
+                          $ref: '#/components/schemas/CleanupRecord'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: STORAGE_CLEANUP_BLOCKED 或 STORAGE_CLEANUP_PREVIEW_CHANGED；不得自动重发删除。
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/ops/storage/cleanup-runs/{run_id}:
+    get:
+      operationId: getApplicationLogCleanupRecord
+      summary: 回读单个日志清理批次
+      description: 仅 Root 用户 JWT；拒绝 query、API Key、STS、路径和实例覆盖。
+      responses:
+        '200':
+          description: 统一成功信封
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/CleanupRecord'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: STORAGE_CLEANUP_BLOCKED 或 STORAGE_CLEANUP_PREVIEW_CHANGED；不得自动重发删除。
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - in: path
+        name: run_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /admin/ops/storage/runtime:
+    get:
+      operationId: getStorageRuntime
+      summary: 读取自动治理、准入和通知状态
+      description: ''
+      responses:
+        '200':
+          description: 权威运行状态或已保存结果；响应丢失后先读回，不盲目重发执行。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/StorageRuntime'
+                required:
+                - code
+                - data
+        '400': &id001
+          $ref: '#/components/responses/Invalid'
+        '401': &id002
+          $ref: '#/components/responses/Unauthorized'
+        '403': &id003
+          $ref: '#/components/responses/Forbidden'
+        '503': &id004
+          $ref: '#/components/responses/Unavailable'
+  /admin/ops/storage/runtime/budget:
+    put:
+      operationId: saveStorageRuntimeBudget
+      summary: 保存同盘权威预算
+      description: 此预算与 /policy 规划草稿分开；expected_revision 乐观并发控制。预算收紧可能阻止新的媒体写入、备份与快照，不删除业务数据。
+      responses:
+        '200':
+          description: 权威运行状态或已保存结果；响应丢失后先读回，不盲目重发执行。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RuntimeBudgetPolicy'
+                required:
+                - code
+                - data
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '503': *id004
+        '409':
+          description: revision 冲突、执行来源受阻、旧清理器仍启用或账本忙。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                min_free_bytes: &id008
+                  type: integer
+                  format: int64
+                  minimum: 1
+                critical_free_bytes: &id009
+                  type: integer
+                  format: int64
+                  minimum: 1
+                max_used_bytes: &id010
+                  type: integer
+                  format: int64
+                  minimum: 0
+                max_concurrent: &id011
+                  type: integer
+                  format: int64
+                  minimum: 1
+                  maximum: 16
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+              required:
+              - min_free_bytes
+              - critical_free_bytes
+              - max_used_bytes
+              - max_concurrent
+              - expected_revision
+              - confirm
+              additionalProperties: false
+  /admin/ops/storage/runtime/policies/{source_id}:
+    put:
+      operationId: saveStorageRuntimePolicy
+      summary: 保存并明确启用或暂停封存日志策略
+      description: 显式部署 allow_enforce 以及旧清理器已退出均为前置条件；不能降低来源强制归档保护。
+      responses:
+        '200':
+          description: 权威运行状态或已保存结果；响应丢失后先读回，不盲目重发执行。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RuntimePolicy'
+                required:
+                - code
+                - data
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '503': *id004
+        '409':
+          description: revision 冲突、执行来源受阻、旧清理器仍启用或账本忙。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: &id005
+                  type: boolean
+                retention_days: &id013
+                  type: integer
+                  minimum: 1
+                  maximum: 3650
+                max_bytes: &id014
+                  type: integer
+                  format: int64
+                  minimum: 1
+                require_archive: *id005
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+                cleanup_mode: &id015
+                  type: string
+                  enum:
+                  - disabled
+                  - expire_delete
+                  - archive_then_delete
+                  default: disabled
+              required:
+              - enabled
+              - retention_days
+              - max_bytes
+              - require_archive
+              - expected_revision
+              - confirm
+              - cleanup_mode
+              additionalProperties: false
+      parameters:
+      - in: path
+        name: source_id
+        required: true
+        schema: &id006
+          type: string
+  /admin/ops/storage/runtime/previews:
+    post:
+      operationId: previewStorageRuntimePolicy
+      summary: 预览尚未保存的目标，保持文件不变
+      description: ''
+      responses:
+        '200':
+          description: 权威运行状态或已保存结果；响应丢失后先读回，不盲目重发执行。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RuntimePreview'
+                required:
+                - code
+                - data
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '503': *id004
+        '409':
+          description: revision 冲突、执行来源受阻、旧清理器仍启用或账本忙。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source_id: *id006
+                retention_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 3650
+                max_bytes:
+                  type: integer
+                  format: int64
+                  minimum: 1
+              required:
+              - source_id
+              - retention_days
+              - max_bytes
+              additionalProperties: false
+  /admin/ops/storage/runtime/runs:
+    post:
+      operationId: runStorageRuntimePolicy
+      summary: 按已保存版本同步执行最多 32 个封存文件
+      description: 只执行启用且属于当前实例的策略；重复 request_id 读回原结果，版本变化不能改用新策略。先落意图、逐项核对、再落结果；中断保留未知锁。
+      responses:
+        '200':
+          description: 权威运行状态或已保存结果；响应丢失后先读回，不盲目重发执行。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RuntimeRun'
+                required:
+                - code
+                - data
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '503': *id004
+        '409':
+          description: revision 冲突、执行来源受阻、旧清理器仍启用或账本忙。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source_id: *id006
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                request_id:
+                  type: string
+                  format: uuid
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+              required:
+              - source_id
+              - expected_revision
+              - request_id
+              - confirm
+              additionalProperties: false
+  /admin/ops/storage/runtime/runs/{run_id}/acknowledge:
+    post:
+      operationId: acknowledgeStorageRuntimeRun
+      summary: 人工核对后解除陈旧执行锁，保留未知结果
+      description: 仅当前执行实例、来源已暂停且执行记录超过两分钟；不删除文件、不重试旧批次、不将未知计为成功。
+      responses:
+        '200':
+          description: 权威运行状态或已保存结果；响应丢失后先读回，不盲目重发执行。
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RuntimeRun'
+                required:
+                - code
+                - data
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '503': *id004
+        '409':
+          description: revision 冲突、执行来源受阻、旧清理器仍启用或账本忙。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+              required:
+              - confirm
+              additionalProperties: false
+      parameters:
+      - in: path
+        name: run_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /admin/ops/storage/runtime/events:
+    get:
+      operationId: streamStorageRuntimeChanges
+      summary: 按共享账本文件变更推送失效通知
+      description: Root JWT；拒绝 query。snapshot/change/reconnect 事件，15 秒心跳只保活，每分钟重新鉴权；JWT
+        到期关闭，身份切换释放连接。收到 change 或重连后读取一次权威状态，不周期轮询。
+      responses:
+        '200':
+          description: SSE 失效通知，不含路径和凭据
+          content:
+            text/event-stream:
+              schema: *id006
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '503': *id004
+  /admin/ops/storage/database-retention:
+    get:
+      summary: 查看独立数据库期限、迁移门禁、物理表占用和有界运行记录
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/DatabaseRetentionStatus'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+    put:
+      summary: Root 显式保存数据库期限；failure_days 必须不小于 success_days，开启前校验迁移和外部引用
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                policy:
+                  $ref: '#/components/schemas/DatabaseRetentionPolicy'
+                confirm: &id007
+                  type: boolean
+                  enum:
+                  - true
+              required:
+              - expected_revision
+              - policy
+              - confirm
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/DatabaseRetentionPolicy'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/storage/database-retention/previews:
+    post:
+      summary: 只读检查有界批次
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+              required:
+              - expected_revision
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/DatabaseRetentionRun'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/storage/database-retention/runs:
+    post:
+      summary: 重新检查版本、租户、终态及引用后执行一次有界批次；未确认请求只回读，不自动重放
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                request_id:
+                  type: string
+                  format: uuid
+                confirm: *id007
+              required:
+              - expected_revision
+              - request_id
+              - confirm
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/DatabaseRetentionRun'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+components:
+  securitySchemes:
+    RootUserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 包含有效用户身份的用户态平台 Root JWT。API Key、service_actor 与 powerx-sts 均拒绝；先通过正式
+        JWT 中间件及安装租户上下文校验。
+  responses:
+    Invalid:
+      description: STORAGE_QUERY_FORBIDDEN、STORAGE_ESTIMATE_INVALID 或 STORAGE_POLICY_INVALID；仍使用项目统一错误信封
+    Unauthorized:
+      description: JWT 无效或过期
+    Forbidden:
+      description: STORAGE_ROOT_REQUIRED；不是 Root 用户授权面
+    Unavailable:
+      description: STORAGE_OBSERVER_UNAVAILABLE、STORAGE_OBSERVATION_FAILED 或 STORAGE_STATE_UNAVAILABLE
+  schemas:
+    NullableBytes:
+      type: integer
+      format: int64
+      minimum: 0
+      nullable: true
+      description: 未采集、失败或不完整时为 null，不能替换为 0。
+    ResourceUsage:
+      type: object
+      required:
+      - id
+      - name
+      - kind
+      - scope
+      - state
+      - physical_bytes
+      - logical_bytes
+      - attributed_bytes
+      - files
+      - skipped
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+        scope:
+          type: string
+          enum:
+          - dev
+          - test
+          - staging
+          - prod
+          - shared
+        tenant_uuid:
+          type: string
+          format: uuid
+          description: 仅部署显式登记，缺省为未细分而非租户通配符
+        instance_id:
+          type: string
+        filesystem_id:
+          type: string
+        state:
+          type: string
+          enum:
+          - observed
+          - partial
+          - unavailable
+        physical_bytes:
+          $ref: '#/components/schemas/NullableBytes'
+        logical_bytes:
+          $ref: '#/components/schemas/NullableBytes'
+        attributed_bytes:
+          $ref: '#/components/schemas/NullableBytes'
+        partial_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 仅本次已扫描部分的分配字节，未完成且未跨来源去重；不能当完整占用或加入去重合计。
+        files:
+          type: integer
+          format: int64
+          minimum: 0
+        skipped:
+          type: integer
+          format: int64
+          minimum: 0
+        problem:
+          type: string
+          description: 固定诊断码，不含文件路径或原始系统错误。打开失败区分 source_missing、source_permission_denied、source_symlink、source_unreadable；旧实例的
+            source_unreadable_or_symlink 仍兼容展示。
+    Observation:
+      type: object
+      required:
+      - mode
+      - cleanup_enabled
+      - identity
+      - observed_at
+      - expires_at
+      - filesystem
+      - resources
+      - coverage
+      - unattributed_bytes
+      - limitations
+      properties:
+        sampling:
+          $ref: '#/components/schemas/SamplingStatus'
+        database:
+          $ref: '#/components/schemas/DatabaseUsage'
+        alerts:
+          type: array
+          description: 当前快照的风险提示，尚非已送达的通知；20/10 GiB 与整盘使用率 80%/90%
+          items:
+            type: object
+            required:
+            - code
+            - level
+            properties:
+              code:
+                type: string
+              level:
+                type: string
+                enum:
+                - unknown
+                - warning
+                - critical
+              resource_id:
+                type: string
+        mode:
+          type: string
+          enum:
+          - observe
+          - enforce
+        cleanup_enabled: *id005
+        identity:
+          type: object
+          properties:
+            host_id:
+              type: string
+              description: 仅部署显式提供，不推断为物理宿主机
+            filesystem_id:
+              type: string
+              description: 部署登记的稳定文件系统 ID；不同于 filesystem.id 内核观测 ID
+            instance_id:
+              type: string
+              description: 复用实际安装 EnvironmentID
+            environment:
+              type: string
+              enum:
+              - dev
+              - test
+              - staging
+              - prod
+        observed_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        filesystem:
+          type: object
+          required:
+          - view
+          - state
+          - total_bytes
+          - used_bytes
+          - available_bytes
+          - reserved_bytes
+          properties:
+            id:
+              type: string
+              description: 当前内核 fsid，仅为本次文件系统计量身份，不是跨重建的宿主机 ID
+            view:
+              type: string
+              enum:
+              - process_filesystem
+            state:
+              type: string
+              enum:
+              - observed
+              - unavailable
+            total_bytes:
+              $ref: '#/components/schemas/NullableBytes'
+            used_bytes:
+              $ref: '#/components/schemas/NullableBytes'
+            available_bytes:
+              $ref: '#/components/schemas/NullableBytes'
+            reserved_bytes:
+              $ref: '#/components/schemas/NullableBytes'
+            problem:
+              type: string
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceUsage'
+        coverage:
+          type: string
+          enum:
+          - partial
+        unattributed_bytes:
+          $ref: '#/components/schemas/NullableBytes'
+        limitations:
+          type: array
+          items:
+            type: string
+        inventory:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - kind
+            - state
+            properties:
+              kind:
+                type: string
+              state:
+                type: string
+                enum:
+                - connected
+                - not_connected
+                - not_applicable
+                - disabled
+        runtime:
+          $ref: '#/components/schemas/StorageRuntime'
+    HostBudget:
+      type: object
+      additionalProperties: false
+      required:
+      - max_managed_bytes
+      - min_free_bytes
+      - critical_free_bytes
+      properties:
+        max_managed_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        min_free_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        critical_free_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 必须小于 min_free_bytes
+    ResourcePolicy:
+      description: 旧草稿省略 retention_mode 时保留原有天数与份数组合。新草稿显式选择模式，禁止静默转换。不同资源仅支持目录列出的
+        allowed_modes。
+      type: object
+      additionalProperties: false
+      required:
+      - resource_id
+      - target_days
+      - max_bytes
+      - retention_count
+      - min_verified_points
+      - protect_latest
+      - require_verified_archive
+      properties:
+        resource_id:
+          type: string
+          description: 当前部署登记的来源 ID，不可重复
+        retention_mode:
+          type: string
+          enum:
+          - days
+          - count
+          - protected
+          description: 可省略以兼容旧草稿；不能为 null。count/protected 的 target_days 必须为 0
+        target_days:
+          type: integer
+          minimum: 0
+          maximum: 3650
+        max_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 不超过主机草稿预算
+        retention_count:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          description: 0 表示未设定份数目标
+        min_verified_points:
+          type: integer
+          minimum: 0
+          description: 不超过 retention_count
+        protect_latest:
+          type: boolean
+        require_verified_archive:
+          type: boolean
+    PolicyInput:
+      type: object
+      additionalProperties: false
+      required:
+      - schema_version
+      - expected_revision
+      - state
+      - budget
+      - resources
+      properties:
+        schema_version:
+          type: integer
+          enum:
+          - 1
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 9007199254740990
+        state:
+          type: string
+          enum:
+          - draft
+        budget:
+          $ref: '#/components/schemas/HostBudget'
+        resources:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/ResourcePolicy'
+    PolicyDraft:
+      type: object
+      required:
+      - schema_version
+      - revision
+      - state
+      - identity
+      - budget
+      - resources
+      - updated_at
+      - updated_by
+      - cleanup_enabled
+      - legacy_policies_changed
+      - catalog_version
+      properties:
+        catalog_version:
+          type: integer
+          enum:
+          - 1
+        catalog:
+          type: array
+          description: 仅在响应附加的当前可信登记目录和环境建议；不持久化到策略／审计，不从路径猜环境，不枚举未登记实例。零来源时可省略。
+          items:
+            $ref: '#/components/schemas/ResourcePolicyOption'
+        schema_version:
+          type: integer
+          enum:
+          - 1
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        state:
+          type: string
+          enum:
+          - draft
+        identity:
+          type: object
+          properties:
+            host_id:
+              type: string
+            filesystem_id:
+              type: string
+            instance_id:
+              type: string
+            environment:
+              type: string
+              enum:
+              - dev
+              - test
+              - staging
+              - prod
+        budget:
+          description: revision=0 未保存时三项为 0；不能解释为已生效预算
+          type: object
+          properties:
+            max_managed_bytes:
+              type: integer
+              format: int64
+              minimum: 0
+            min_free_bytes:
+              type: integer
+              format: int64
+              minimum: 0
+            critical_free_bytes:
+              type: integer
+              format: int64
+              minimum: 0
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourcePolicy'
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: integer
+          format: int64
+        cleanup_enabled:
+          type: boolean
+          enum:
+          - false
+          description: 兼容字段，表示统一自动清理启用状态，当前固定 false。显式 Root 手动批次由独立接口授权，不受此字段暗示。
+        legacy_policies_changed:
+          type: boolean
+          enum:
+          - false
+    DatabaseUsage:
+      type: object
+      description: '使用部署现有 DB 连接、显式共享集群标识和重点表 allowlist；不扫描业务行、不安装扩展。
+
+        表总量=heap（含 FSM/VM）+普通 indexes+toast（含其索引），无重复分项。
+
+        database_bytes 包含表分项；WAL 为共享集群实际文件字节，不是某环境额度。
+
+        本对象不能与 df 已使用量相加；不尝试从 dead tuple 估计可复用字节。权限失败字段为 null。
+
+        '
+      required:
+      - state
+      - instance_id
+      - environment
+      - database_bytes
+      - wal_bytes
+      - wal_state
+      - reusable_bytes
+      - relations
+      properties:
+        state:
+          type: string
+          enum:
+          - observed
+          - partial
+          - unavailable
+        cluster_id:
+          type: string
+        instance_id:
+          type: string
+        environment:
+          type: string
+        database_bytes:
+          $ref: '#/components/schemas/NullableBytes'
+        wal_bytes:
+          $ref: '#/components/schemas/NullableBytes'
+        wal_state:
+          type: string
+          enum:
+          - observed
+          - unavailable
+        reusable_bytes:
+          $ref: '#/components/schemas/NullableBytes'
+        problem:
+          type: string
+        relations:
+          type: array
+          items:
+            type: object
+            required:
+            - id
+            - state
+            - heap_bytes
+            - indexes_bytes
+            - toast_bytes
+            - total_bytes
+            properties:
+              id:
+                type: string
+              state:
+                type: string
+                enum:
+                - observed
+                - partial
+                - unavailable
+              heap_bytes:
+                $ref: '#/components/schemas/NullableBytes'
+              indexes_bytes:
+                $ref: '#/components/schemas/NullableBytes'
+              toast_bytes:
+                $ref: '#/components/schemas/NullableBytes'
+              total_bytes:
+                $ref: '#/components/schemas/NullableBytes'
+              problem:
+                type: string
+    OccupancyHistory:
+      type: object
+      required:
+      - metric_version
+      - window_days
+      - sample_count
+      - expected_samples
+      - missing_samples
+      - metric_changes
+      - unavailable_samples
+      - state
+      - rate_basis
+      - daily_increment_bytes
+      - points
+      properties:
+        sampling:
+          $ref: '#/components/schemas/SamplingStatus'
+        metric_version:
+          type: string
+          enum:
+          - allocated-occupancy/v1
+        window_days:
+          type: integer
+          enum:
+          - 14
+        sample_count:
+          type: integer
+          minimum: 0
+          maximum: 4032
+        expected_samples:
+          type: integer
+          enum:
+          - 4032
+        missing_samples:
+          type: integer
+          minimum: 0
+        metric_changes:
+          type: integer
+          minimum: 0
+          description: schema／身份不匹配记录及内核文件系统 ID 变化次数
+        unavailable_samples:
+          type: integer
+          minimum: 0
+          description: 有观测记录但文件系统不可读取；不是成功采集数量
+        state:
+          type: string
+          enum:
+          - sampling_required
+          - occupancy_only
+        rate_basis:
+          type: string
+          enum:
+          - ingress_not_instrumented
+        daily_increment_bytes:
+          type: integer
+          nullable: true
+          description: 当前固定为 null，不能用占用差分代替
+        points:
+          type: array
+          maxItems: 4032
+          items:
+            type: object
+            required:
+            - observed_at
+            - used_bytes
+            - available_bytes
+            - database_bytes
+            - coverage
+            properties:
+              observed_at:
+                type: string
+                format: date-time
+              filesystem_id:
+                type: string
+              used_bytes:
+                $ref: '#/components/schemas/NullableBytes'
+              available_bytes:
+                $ref: '#/components/schemas/NullableBytes'
+              database_bytes:
+                $ref: '#/components/schemas/NullableBytes'
+              coverage:
+                type: string
+                enum:
+                - partial
+              database_problem:
+                type: string
+              resources:
+                type: array
+                maxItems: 64
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - id
+                  - fingerprint
+                  - state
+                  - bytes
+                  - files
+                  - net_change_bytes
+                  properties:
+                    id:
+                      type: string
+                    fingerprint:
+                      type: string
+                    state:
+                      type: string
+                      enum:
+                      - observed
+                      - partial
+                      - unavailable
+                    bytes:
+                      $ref: '#/components/schemas/NullableBytes'
+                    files:
+                      type: integer
+                      minimum: 0
+                    problem:
+                      type: string
+                    net_change_bytes:
+                      type: integer
+                      format: int64
+                      nullable: true
+                      description: 相邻可比观测的净变化，可正可负；不是新写入总量。
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+    SamplingStatus:
+      type: object
+      description: 当前部署配置与后台 worker 准入；不是 worker 已运行证明，不代表已有完整历史。正常 Core 启动后才开始定时采样。
+      required:
+      - configured
+      - worker_enabled
+      - interval_seconds
+      - metadata_retention_days
+      properties:
+        configured:
+          type: boolean
+        worker_enabled:
+          type: boolean
+          description: configured=true 且当前启动模式允许后台 worker；维护模式下为 false
+        interval_seconds:
+          type: integer
+          enum:
+          - 300
+        metadata_retention_days:
+          type: integer
+          enum:
+          - 15
+    ResourceRef:
+      type: object
+      required:
+      - id
+      - name
+      - kind
+      - scope
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+        scope:
+          type: string
+          enum:
+          - dev
+          - test
+          - staging
+          - prod
+          - shared
+        instance_id:
+          type: string
+          description: 实例来源必有 ID，共享来源不重复归属
+    ResourcePolicyOption:
+      type: object
+      required:
+      - resource
+      - allowed_modes
+      - preset
+      - protection_rules
+      properties:
+        resource:
+          $ref: '#/components/schemas/ResourceRef'
+        allowed_modes:
+          type: array
+          items:
+            type: string
+            enum:
+            - days
+            - count
+            - protected
+        protection_rules:
+          type: array
+          items:
+            type: string
+        preset:
+          type: object
+          description: 仅环境建议，不是已启用策略或原调度状态；max_bytes=null 表示必须显式分配，禁止使用统一 7 天/3 GiB。
+          required:
+          - version
+          - intent
+          - retention_mode
+          - target_days
+          - max_bytes
+          - retention_count
+          - min_verified_points
+          - protect_latest
+          - require_verified_archive
+          - suggested_cadence
+          properties:
+            version:
+              type: integer
+              enum:
+              - 1
+            intent:
+              type: string
+              enum:
+              - dev
+              - test
+              - staging
+              - prod
+              - shared
+            retention_mode:
+              type: string
+              enum:
+              - days
+              - count
+              - protected
+            target_days:
+              type: integer
+              minimum: 0
+            max_bytes:
+              $ref: '#/components/schemas/NullableBytes'
+            retention_count:
+              type: integer
+              minimum: 0
+            min_verified_points:
+              type: integer
+              minimum: 0
+            protect_latest:
+              type: boolean
+            require_verified_archive:
+              type: boolean
+            suggested_cadence:
+              type: string
+              enum:
+              - daily
+              - hourly
+              - on_demand
+              - native_rotation
+              - lifecycle
+        cleanup:
+          type: object
+          additionalProperties: false
+          required:
+          - supported
+          - retention_days
+          - retention_count
+          properties:
+            supported:
+              type: boolean
+            retention_days:
+              type: integer
+              minimum: 0
+            retention_count:
+              type: integer
+              minimum: 0
+            blocked_reason:
+              type: string
+    CleanupRecord:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - resource
+      - state
+      - created_at
+      - expires_at
+      - target_days
+      - actor_id
+      - can_execute
+      - items
+      - skipped
+      - deleted_files
+      - removed_file_bytes
+      - reclaimed_bytes
+      properties:
+        id:
+          type: string
+          format: uuid
+        resource:
+          $ref: '#/components/schemas/ResourceRef'
+        state:
+          type: string
+          enum:
+          - preview
+          - completed
+          - partial
+          - unconfirmed
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        target_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        actor_id:
+          type: integer
+        can_execute:
+          type: boolean
+        blocked_reason:
+          type: string
+        items:
+          type: array
+          maxItems: 32
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - name
+            - bytes
+            - outcome
+            properties:
+              name:
+                type: string
+                description: 仅文件名，不返回目录/ inode/凭据。
+              bytes:
+                type: integer
+                minimum: 0
+              outcome:
+                type: string
+                enum:
+                - candidate
+                - deleting
+                - deleted
+                - changed
+                - missing
+                - active_file
+                - unreadable
+                - failed
+                - not_attempted
+                - protected_after_preview
+        skipped:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        deleted_files:
+          type: integer
+          minimum: 0
+        removed_file_bytes:
+          type: integer
+          minimum: 0
+          description: 确认已移除文件的逻辑字节合计，不等于 df 实际释放。
+        reclaimed_bytes:
+          type: integer
+          nullable: true
+          description: 当前固定 null，物理释放未单独确认。
+    RuntimeBudgetPolicy:
+      type: object
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+        min_free_bytes: *id008
+        critical_free_bytes: *id009
+        max_used_bytes: *id010
+        max_concurrent: *id011
+      required:
+      - revision
+      - min_free_bytes
+      - critical_free_bytes
+      - max_used_bytes
+      - max_concurrent
+      description: 同盘权威策略；最低余量须大于紧急余量，max_used_bytes=0 不设整盘使用上限。配置默认值只在账本首次创建时生效。
+    RuntimeReservation:
+      type: object
+      properties:
+        id: *id006
+        instance_id: *id006
+        operation: *id006
+        peak_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        written_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        created_at: &id012
+          type: string
+          format: date-time
+        expires_at: *id012
+      required:
+      - id
+      - instance_id
+      - operation
+      - peak_bytes
+      - written_bytes
+      - created_at
+      - expires_at
+    RuntimeBudget:
+      type: object
+      properties:
+        host_id: *id006
+        filesystem_id: *id006
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        available_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        used_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        reserved_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        min_free_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        critical_free_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        max_used_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        active:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeReservation'
+          maxItems: 64
+      required:
+      - host_id
+      - filesystem_id
+      - revision
+      - available_bytes
+      - used_bytes
+      - reserved_bytes
+      - min_free_bytes
+      - critical_free_bytes
+      - max_used_bytes
+      - active
+    RuntimeSource:
+      type: object
+      properties:
+        id: *id006
+        name: *id006
+        kind: *id006
+        scope: *id006
+        instance_id: *id006
+        format: *id006
+        require_archive: *id005
+        supported: *id005
+        problem: *id006
+      required:
+      - id
+      - name
+      - kind
+      - scope
+      - instance_id
+      - format
+      - require_archive
+      - supported
+      description: 可信部署来源；require_archive 是旧配置的保守默认。显式 cleanup_mode=expire_delete
+        可在完成执行接管后使用全部文件保护检查进行直接到期删除。
+    RuntimePolicy:
+      type: object
+      properties:
+        source_id: *id006
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+        enabled: *id005
+        retention_days: *id013
+        max_bytes: *id014
+        require_archive: *id005
+        fingerprint: *id006
+        owner_instance: *id006
+        operator_id:
+          type: integer
+          format: int64
+          minimum: 1
+        updated_at: *id012
+        cleanup_mode: *id015
+      required:
+      - source_id
+      - revision
+      - enabled
+      - retention_days
+      - max_bytes
+      - require_archive
+      - fingerprint
+      - owner_instance
+      - operator_id
+      - updated_at
+      - cleanup_mode
+      description: cleanup_mode 为 disabled、expire_delete 或 archive_then_delete。旧无模式策略读入时停用；关闭归档不自动切换直接删除。策略、实例、操作者和目录快照在执行前重新核对。
+    RuntimeRun:
+      type: object
+      properties:
+        id: *id006
+        request_key: *id006
+        source_id: *id006
+        policy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        instance_id: *id006
+        state:
+          type: string
+          enum:
+          - executing
+          - completed
+          - partial
+          - blocked
+          - unconfirmed
+        started_at: *id012
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        deleted_files:
+          type: integer
+          format: int64
+          minimum: 0
+        removed_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        removed_allocated_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        available_before:
+          type: integer
+          format: int64
+          minimum: 0
+        available_after:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        pending_name: *id006
+        problem: *id006
+        acknowledged_at: *id012
+        acknowledged_by:
+          type: integer
+          format: int64
+          minimum: 1
+        pending_quarantine:
+          type: string
+          format: uuid
+          description: 私有隔离项标识，不包含路径；保留此文件时不能确认解除中断锁。
+      required:
+      - id
+      - request_key
+      - source_id
+      - policy_revision
+      - instance_id
+      - state
+      - started_at
+      - finished_at
+      - deleted_files
+      - removed_bytes
+      - removed_allocated_bytes
+      - available_before
+      - available_after
+      description: removed_* 是已确认移除文件的逻辑／分配量，不等于实际物理释放；available_before/after 为独立整盘观测。中断未知继续保留为
+        unconfirmed，不推算删除成功。人工确认只解除已暂停来源的陈旧执行锁。
+    RuntimePreview:
+      type: object
+      properties:
+        source_id: *id006
+        policy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        candidate_names:
+          type: array
+          items: *id006
+          maxItems: 32
+        candidate_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        protected:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            minimum: 0
+        observed_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        over_budget: *id005
+        complete: *id005
+        problem: *id006
+      required:
+      - source_id
+      - policy_revision
+      - candidate_names
+      - candidate_bytes
+      - protected
+      - observed_bytes
+      - over_budget
+      - complete
+      description: 纯预览；执行按已保存策略重新扫描并在逐项删除前复核，预览不承诺占用文件快照或完整历史覆盖。
+    RuntimeLifecycle:
+      type: object
+      properties:
+        configured: *id005
+        allow_enforce: *id005
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeSource'
+          maxItems: 64
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimePolicy'
+          maxItems: 64
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeRun'
+          maxItems: 50
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        problem: *id006
+        database_cleanup_enabled:
+          type: boolean
+          enum:
+          - false
+      required:
+      - configured
+      - allow_enforce
+      - sources
+      - policies
+      - runs
+      - revision
+      - database_cleanup_enabled
+    LokiDelivery:
+      type: object
+      properties:
+        accepted:
+          type: integer
+          format: int64
+          minimum: 0
+        delivered:
+          type: integer
+          format: int64
+          minimum: 0
+        dropped:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        retries:
+          type: integer
+          format: int64
+          minimum: 0
+        queued_entries:
+          type: integer
+          format: int64
+          minimum: 0
+        queued_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        queue_capacity:
+          type: integer
+          format: int64
+          minimum: 0
+        max_queue_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        last_error: *id006
+        closed: *id005
+      required:
+      - accepted
+      - delivered
+      - dropped
+      - failed
+      - retries
+      - queued_entries
+      - queued_bytes
+      - queue_capacity
+      - max_queue_bytes
+      - closed
+      description: 普通日志的进程累计计数；last_error 为当前降级原因，成功交付后可恢复。队列包含发送中批次的字节上限，不代表可靠审计保证。
+    StorageRuntime:
+      type: object
+      properties:
+        configured: *id005
+        worker_enabled: *id005
+        admission_enabled: *id005
+        budget:
+          $ref: '#/components/schemas/RuntimeBudget'
+        budget_policy:
+          $ref: '#/components/schemas/RuntimeBudgetPolicy'
+        lifecycle:
+          $ref: '#/components/schemas/RuntimeLifecycle'
+        log_delivery:
+          $ref: '#/components/schemas/LokiDelivery'
+        notifications_configured: *id005
+        last_observed_at: *id012
+        last_notification_at: *id012
+        notification_problem: *id006
+        problem: *id006
+        database_cleanup_enabled: &id017
+          type: boolean
+      required:
+      - configured
+      - worker_enabled
+      - admission_enabled
+      - notifications_configured
+      - database_cleanup_enabled
+    DatabaseRetentionPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        owner_instance: &id016
+          type: string
+        enabled:
+          type: boolean
+          default: false
+        success_days:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 3650
+        failure_days:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 3650
+        pending_hours:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 720
+        quarantine_days:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 3650
+        batch_limit:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000
+        max_bytes:
+          type: integer
+          format: int64
+          minimum: 67108864
+          maximum: 1125899906842624
+        adopt_legacy:
+          type: boolean
+          default: false
+        reject_new_when_full:
+          type: boolean
+          default: false
+          description: 独立于 enabled；在业务执行前检查两表物理占用、磁盘 critical 余量和整盘占用上限（含未释放预留）。任意目标表缺失或占用未知时拒绝新调用；HTTP 返回 503 和 STORAGE_CAPACITY_EXHAUSTED，gRPC 返回 Unavailable 及同一原因标记。行删除不代表物理预算已恢复。
+        updated_at:
+          type: string
+          format: date-time
+        actor:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - enabled
+      - success_days
+      - failure_days
+      - pending_hours
+      - quarantine_days
+      - batch_limit
+      - max_bytes
+      - adopt_legacy
+      - reject_new_when_full
+    DatabaseRetentionRun:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id016
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        state:
+          type: string
+          enum:
+          - preview
+          - unconfirmed
+          - completed
+          - failed
+        at:
+          type: string
+          format: date-time
+        actor:
+          type: integer
+          format: int64
+          minimum: 0
+        counts:
+          type: object
+          additionalProperties: false
+          properties:
+            traces:
+              type: integer
+              format: int64
+              minimum: 0
+            events:
+              type: integer
+              format: int64
+              minimum: 0
+            quarantined:
+              type: integer
+              format: int64
+              minimum: 0
+            classified:
+              type: integer
+              format: int64
+              minimum: 0
+        problem: *id016
+        policy_snapshot:
+          $ref: '#/components/schemas/DatabaseRetentionPolicy'
+    DatabaseRetentionStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        state_configured:
+          type: boolean
+          description: Whether the private runtime state coordinator is configured. Observation mode still returns this status without creating state.
+        enforcement_allowed:
+          type: boolean
+          description: Whether deployment configuration permits explicitly enabling retention or call admission protection.
+        migration_ready:
+          type: boolean
+          description: Independent schema and reference readiness, including when deployment enforcement is disabled.
+        migration_problem:
+          type: string
+        unconfirmed_runs:
+          type: integer
+          minimum: 0
+          description: New write batches stop at 100 unconfirmed outcomes; read-only status and previews remain available.
+        policy:
+          $ref: '#/components/schemas/DatabaseRetentionPolicy'
+        runs:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/DatabaseRetentionRun'
+        ready: *id017
+        problem: *id016
+        relation_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        scope: *id016
+        physical_reclaim: *id016
+        worker_enabled:
+          type: boolean

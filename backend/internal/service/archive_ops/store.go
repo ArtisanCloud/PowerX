@@ -54,7 +54,7 @@ func readJSON(path string, value any) error {
 	if errors.Is(e, os.ErrNotExist) {
 		return failure(404, "ARCHIVE_NOT_FOUND", "归档记录不存在")
 	}
-	if e != nil || !info.Mode().IsRegular() {
+	if e != nil || !info.Mode().IsRegular() || info.Size() > 8<<20 {
 		return failure(503, "ARCHIVE_STORE_UNAVAILABLE", "归档清单不可读取")
 	}
 	raw, e := os.ReadFile(path)
@@ -107,6 +107,11 @@ func (s *Service) policy(ctx context.Context, id string) (Policy, error) {
 		return p, failure(400, "ARCHIVE_ID_INVALID", "策略标识无效")
 	}
 	e := readJSON(s.path("policies", id), &p)
+	if e == nil && p.Revision == 0 {
+		if source, err := s.source(p.SourceID); err != nil || isLogSource(source.Kind) {
+			p.Enabled = false
+		}
+	}
 	return p, e
 }
 func (s *Service) lock(ctx context.Context, name string) (func(), error) {

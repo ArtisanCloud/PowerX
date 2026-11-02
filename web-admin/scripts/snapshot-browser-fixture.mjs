@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { createServer } from "node:http";
+import { createServer, request as nativeRequest } from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, resolve } from "node:path";
 
 const webPort = Number(process.env.POWERX_SNAPSHOT_BROWSER_PORT || 3477);
@@ -21,6 +21,13 @@ if (
 const entry = resolve(process.env.POWERX_SNAPSHOT_WEB_ENTRY || ".output/server/index.mjs");
 if (!existsSync(entry))
   throw new Error("Run npm run build before the snapshot browser tests");
+
+// 可选组合验收：仅归档接口和其 SSE 转发到自有 Go fixture，其余页面身份仍是明确的 fixture。
+const nativeArchive = process.env.POWERX_ARCHIVE_UI_NATIVE_FIXTURE
+  ? JSON.parse(readFileSync(process.env.POWERX_ARCHIVE_UI_NATIVE_FIXTURE, "utf8")) : undefined;
+if (nativeArchive && (new URL(nativeArchive.url).hostname !== "127.0.0.1" || nativeArchive.owner !== "owned-native-archive-ui")) {
+  throw new Error("Native archive browser tests require the owned loopback fixture");
+}
 
 // Browser-only API fixtures. Encryption and native PostgreSQL restore are tested in Go.
 const requests = [];
@@ -112,13 +119,29 @@ function json(response, status, data) {
   });
   response.end(JSON.stringify(data));
 }
+const storageSubscribers = new Set();
 const backend = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://127.0.0.1:${backendPort}`);
+  if (nativeArchive && (url.pathname.startsWith("/api/v1/admin/ops/backup/archives") || url.pathname === "/api/v1/admin/ops/backup/events")) {
+    requests.push({ method: request.method, path: url.pathname, nativeArchive: true, idempotencyKeyPresent: !!request.headers["idempotency-key"] });
+    const upstream = nativeRequest(new URL(url.pathname + url.search, nativeArchive.url), {
+      method: request.method, headers: {
+        "content-type": request.headers["content-type"] || "application/json",
+        ...(request.headers["idempotency-key"] ? { "idempotency-key": request.headers["idempotency-key"] } : {}),
+        authorization: `Bearer ${nativeArchive.token}`,
+      },
+    }, result => { response.writeHead(result.statusCode || 502, result.headers); result.pipe(response); });
+    upstream.on("error", () => { if (!response.headersSent) response.writeHead(502); response.end(); });
+    response.once("close", () => upstream.destroy());
+    request.pipe(upstream);
+    return;
+  }
   if (url.pathname === "/api/v1/__snapshot_browser/state") {
     if (request.method === "DELETE") reset();
     json(response, 200, { requests, overview, eventConnections: subscribers.size, progressConnections: [...jobSubscribers.values()].reduce((count,list)=>count+list.size,0) });
     return;
   }
+  if(url.pathname === "/api/v1/__snapshot_browser/storage-push") { for(const target of storageSubscribers)target.write('event: change\ndata: {"resources":["storage"]}\n\n');json(response,200,{ok:true,connections:storageSubscribers.size});return; }
   if(url.pathname === "/api/v1/__snapshot_browser/managed") {recovery={configured:true,online:true,generation:1,active_environment_id:"source",targets:[{id:"formal",label:"本站正式候选",environment:"dev",mode:"formal",allow_overwrite:true,allow_online_data:true}],jobs:[],progress_tokens:{}};overview.snapshots[0].recovery_supported=true;json(response,200,{ok:true});return;}
   if(url.pathname==='/api/v1/__snapshot_browser/empty-snapshots'){overview.snapshots=[];notify('snapshots');json(response,200,{ok:true});return;}
   if(url.pathname==='/api/v1/__snapshot_browser/empty-policies'){emptyPolicies=true;json(response,200,{ok:true});return;}
@@ -141,6 +164,7 @@ const backend = createServer(async (request, response) => {
     hasBearer,
     idempotencyKey: request.headers["idempotency-key"] || "",
   });
+  if(url.pathname==='/api/v1/admin/ops/storage/runtime/events') {if(!hasBearer){json(response,401,{});return;}eventStream(request,response,storageSubscribers,'snapshot',{resources:['storage']});return;}
   if(url.pathname==='/api/v1/admin/ops/backup/events') {
     if(!hasBearer){json(response,401,{});return;}
     if(coreStopped){json(response,503,{message:'Core is stopped'});return;}
@@ -380,7 +404,7 @@ const child = spawn(process.execPath, [entry], {
   },
 });
 const record = {
-  owner: "snapshot-browser-tests",
+  owner: process.env.POWERX_BROWSER_FIXTURE_OWNER || "snapshot-browser-tests",
   cwd: process.cwd(),
   startedAt: new Date().toISOString(),
   fixturePid: process.pid,
@@ -389,7 +413,7 @@ const record = {
   corePort: webPort,
   command: [process.execPath, entry],
 };
-const resultsDir = resolve("../test-results");
+const resultsDir = resolve(process.env.POWERX_BROWSER_RESULTS_DIR || "../test-results");
 mkdirSync(resultsDir, { recursive: true });
 function saveRecord() {
   writeFileSync(

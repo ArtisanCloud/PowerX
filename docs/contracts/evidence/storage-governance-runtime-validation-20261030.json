@@ -1,0 +1,276 @@
+{
+  "contract": "powerx.storage-governance.local-validation/v0.5",
+  "date": "2026-10-30",
+  "recorded_at_utc": "2026-10-30T10:11:56.770607+00:00",
+  "branch": "024-ai-engineering-skills",
+  "acceptance_scope": "Controlled source and isolated native PostgreSQL/SSH tests plus real Nuxt artifacts against controlled APIs. Not acceptance of the user-owned 3030/8077 services, production host, installed Loki, or long-period operation.",
+  "authorization_boundaries": {
+    "production_deployed": false,
+    "user_services_restarted": false,
+    "production_guard_disabled": false,
+    "database_event_deletion_enabled": false,
+    "committed_or_pushed": false,
+    "existing_dirty_worktree_preserved": true
+  },
+  "delivered": [
+    "explicit native-retention handover and legacy cleaner exclusion",
+    "sealed file-log policy with preview, revision, UUID idempotence and bounded batches",
+    "atomic private quarantine with inode verification and conflict preservation",
+    "fresh remote archive proof before protected source removal",
+    "independent shared budget ledger with renewal, crash recovery and controlled write admission",
+    "bounded asynchronous Loki delivery with observable failures and drops",
+    "deduplicated explicit-member capacity notifications and retry/recovery state",
+    "authenticated filesystem-change SSE with identity cleanup and retained form edits",
+    "six-section responsive UI and separate draft/runtime authority"
+  ],
+  "checks": {
+    "go_race": {
+      "tests_including_subtests": {
+        "pass": 386,
+        "skip": 4
+      },
+      "packages": {
+        "pass": 16,
+        "skip": 4
+      },
+      "skipped": [
+        {
+          "package": "github.com/ArtisanCloud/PowerX/config",
+          "test": "TestInstallationSecretsProcessHelper"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/bootstrap",
+          "test": "TestLivePluginRequestIdentity"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/bootstrap",
+          "test": "TestStorageLocalConfiguredAcceptance"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/bootstrap",
+          "test": "TestStorageLocalInventoryReadOnlyAcceptance"
+        }
+      ],
+      "native_database": "Agent-owned ephemeral loopback PostgreSQL; explicit opt-in test DSNs only; database and socket directories removed",
+      "native_ssh": "Agent-owned loopback SSH receiver, temporary keys and rsync; remote corruption blocks deletion"
+    },
+    "vitest": {
+      "storage": 30,
+      "backup_sections": 1,
+      "passed": true
+    },
+    "browser": {
+      "cases": 9,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "passed": true,
+      "proof": "Actual Nuxt production artifact, controlled API fixtures and owned SSE server; state retention, no periodic state queries, responsive overflow"
+    },
+    "nuxt_build": "passed with isolated build/output directories",
+    "go_vet": "passed for affected packages",
+    "capability_check": "passed, declared=1233 referenced=75 rest_routes=1174 candidates=1157 ignored_route_rules=67",
+    "linux_cross_build": {
+      "target": "linux/amd64",
+      "CGO_ENABLED": "0",
+      "artifacts": [
+        {
+          "program": "powerx",
+          "exit_code": 0,
+          "bytes": 107052257
+        },
+        {
+          "program": "archive-worker",
+          "exit_code": 0,
+          "bytes": 30918752
+        }
+      ]
+    },
+    "openapi": "0.5.0 YAML parses and internal references resolve",
+    "git_diff_check": "passed for affected paths",
+    "make_unit_test": {
+      "passed": false,
+      "reason": "Existing make target invokes missing backend/test-silent.sh; the full target was not reported as passing"
+    }
+  },
+  "cleanup": {
+    "native_processes": "docs/contracts/evidence/storage-governance-runtime-20261030/native-processes.json",
+    "browser_processes": "docs/contracts/evidence/storage-governance-runtime-20261030/browser-processes.json",
+    "fixed_test_ports_released": [
+      19489,
+      3485,
+      3486
+    ],
+    "cross_build_temporary_binaries_removed": true,
+    "user_owned_services_touched": false
+  },
+  "remaining": [
+    "production configuration, native PG/journal retention alignment and verified old/new guard handover",
+    "installed-host archive retrieval, notifications, worker and budget acceptance",
+    "seven-day stable run and fourteen-day complete sample window",
+    "versioned compressed CAS protocol",
+    "journal cursor/boot continuity and gap evidence",
+    "gross ingestion/compression metrics and R95",
+    "byte-budget automatic eviction for backups/snapshots and all temporary-attachment adapters",
+    "native rsync/download and server-side DB-restore growth admission",
+    "XDocker integration",
+    "database lifecycle deletion intentionally excluded by user decision"
+  ],
+  "screenshots": [
+    {
+      "viewport_width": 1440,
+      "path": "docs/contracts/evidence/storage-governance-runtime-20261030/runtime-1440.png",
+      "sha256": "1625876ea9af8c55cf242241cb7f4bd2eb1dfc45d6d0a1f51cb3494b01e2163c"
+    },
+    {
+      "viewport_width": 390,
+      "path": "docs/contracts/evidence/storage-governance-runtime-20261030/runtime-390.png",
+      "sha256": "a6c9a505173d90466178900dd801d823437da1e1c9149723ad33729a4893f27d"
+    },
+    {
+      "viewport_width": 320,
+      "path": "docs/contracts/evidence/storage-governance-runtime-20261030/runtime-320.png",
+      "sha256": "a5fbe7d04fec393a1b285ac3b45aaa1829bda719b11d397f404aa36494965f7f"
+    }
+  ],
+  "source_sha256": {
+    "backend/cmd/app/main.go": "ff857e03315c7a6fec902b52b027b85e86da7cba15ba8bce7b400f0548d66be1",
+    "backend/cmd/archive_worker/main.go": "02e7865abd233305de9d2ca70c2e9c6d196743d439955555057ce8b4b4c9c8e7",
+    "backend/config/capability_audit_ignore.yaml": "38553fa8ace0081707645106ca8e5abc137fbf075849aba1f0d90b2ff4bba92d",
+    "backend/config/loader.go": "7eafb5c6604d500cca2b1c9cf950de113540ac9c45a1f3068821600aa683a229",
+    "backend/config/loki_validation.go": "fd29e19424d4472d0a63cf944ba718b22ef0d2cb750136572d99268c34e00a78",
+    "backend/config/storage_governance.go": "2dbfe31bcc98a7f99ae42a78ae0fe74256773ad9f78f562f56ce351a20da67fa",
+    "backend/config/storage_governance_test.go": "06b365d227a419658c9a4aedc1dbb2e61d653c647e0b7cc2866e9993bd644189",
+    "backend/config/storage_governance_validation.go": "f5de4839aa95948a5d1d9d9a67cd3f77721b0b75157ab4afc760cd8c1469fef9",
+    "backend/config/storage_logging.go": "5d54e2b25d3a6b33b2b9de2d783122c6412720e07f91182b06202e3adb91f3b9",
+    "backend/etc/config_example.prod.yaml": "11edbf2bda4997a2dfcee579a1839de25dd3d23f4e63c734b87b7afb1dab23af",
+    "backend/etc/config_example.yaml": "8c0661caabddd6a0656a220446ca6d1d3dc54b169cef59324c107066de858903",
+    "backend/internal/bootstrap/app.go": "fdbb9e7b8b3772ff693b78a5c95f841ce21ac6866ef82a5b3f7f2852bea5935a",
+    "backend/internal/bootstrap/storage_governance.go": "6db44d2b154eed7500117cb3efe701020aa3b12527e59f8701f789e35899bc36",
+    "backend/internal/bootstrap/storage_runtime.go": "9111f144593ed4d957fc800546aedeb32057d5ff9bea78468c4eb61b60ce232f",
+    "backend/internal/infra/media/driver/local/local.go": "42620c05bf3eb8a8fd82268a215cedd2af4d4fc72221874aa28c02885014413a",
+    "backend/internal/infra/media/driver/local/local_test.go": "bcc44ce386aaadedce4d3ec434d1fdca0853189ee8064f487be9a5f7ebce56ed",
+    "backend/internal/infra/storage_budget/coordinator.go": "49ef83fc91284454ad5bc864878ea519720561f883e2f36252c7b223c8b794d1",
+    "backend/internal/infra/storage_budget/coordinator_test.go": "b0af35f57046036cfa9d311a20ad27dbdf419279a6b12954c1c6c32848147edd",
+    "backend/internal/infra/storage_budget/device.go": "3623493f6e01ce041717a52ee1d7e193108499159d0020a605a69b920515ee19",
+    "backend/internal/infra/storage_budget/operation.go": "b41dd127bbb0cf96ff007c1527e7f89f6ee9bff6b587088d592fc15a93d148bc",
+    "backend/internal/infra/storage_budget/operation_test.go": "a4a6c56ec4b049198649f6079a4cbeced25bce668c37e6af3bb32c80e0efb992",
+    "backend/internal/infra/storage_budget/private_files.go": "8d0d883402f90c9c6d3dc4f3439b37597a6f19761d61d3fc34f2f699700acc27",
+    "backend/internal/infra/storage_budget/quarantine.go": "696d863c40a2eeb54329a0ad552617d9bf3350504c2ea300634c3189ae5b6c5f",
+    "backend/internal/infra/storage_lifecycle/archive_plan.go": "32d242ee065a579b80bd23ea0e985643334def6e377f8ff24437cdbccdbd1c87",
+    "backend/internal/infra/storage_lifecycle/engine.go": "843dbd70d9dd12fd2489d44c08307f7b1db4a389404a53ad4de3a4262c6bd911",
+    "backend/internal/infra/storage_lifecycle/engine_test.go": "b5f15d7ebb9d1980ecfec259421b5de12a2ad705081ea79a0ac58de770b894db",
+    "backend/internal/infra/storage_lifecycle/preview.go": "ded333fcd09498cea58aa8a3460d62fe822725f857c61cbee681bd4083dd821c",
+    "backend/internal/infra/storage_observer/application_logs.go": "fb21951c130668f8a37afc991cfc30010fa9de6388ff3dddd6d4e0b568b4dc4e",
+    "backend/internal/service/archive_ops/capture.go": "6f82a65f2e4d65145f00640f622da0a7cea030fa173d743e8bbe6037964cccc7",
+    "backend/internal/service/archive_ops/changes.go": "3e485e28a8eb5c5b1fb6672676af4444a9f855993538329c2eb8ff4be502a81c",
+    "backend/internal/service/archive_ops/config.go": "f6abee35d92d6f3442957be7f30f38a6db75ff8a854dbc0b304c634cfd573a71",
+    "backend/internal/service/archive_ops/lifecycle_proof.go": "1f1eba0e018b626c592d71ee2e930745327470715ff408eaa234f343a8829aae",
+    "backend/internal/service/archive_ops/lifecycle_proof_test.go": "bc5e0d953b8192460fc209d250e4ebbebe05e6da64b99efccf56603b4c8ed49e",
+    "backend/internal/service/archive_ops/one_time_test.go": "19f3a067e7635e7d25a693fe5ec232ad50cab30b983e6dea676c3e1ae7c4a45a",
+    "backend/internal/service/archive_ops/online.go": "e82e7dbea1f42bb70463af70bd5ac16e6df31afffe78e38ed326ebc0512e0f99",
+    "backend/internal/service/archive_ops/online_test.go": "ccf0757b06b6d35dbf5ab20ae99716327992c9378c7a2aa9a541093f3edb8e7e",
+    "backend/internal/service/archive_ops/postgres_test.go": "cf00aff00b2e7d0e5d4393f30ef2158a08dabea035b6ff7bf72869c713b49f96",
+    "backend/internal/service/archive_ops/remote.go": "4f40e4363ff39eddcb9ba152674c896c90bc837a8989ca14878ef5f0b19dd6fd",
+    "backend/internal/service/archive_ops/restore.go": "f5e6dda32208c204fe24bda5eb1be01488353cba91c82ba003a42d803a863687",
+    "backend/internal/service/archive_ops/runtime.go": "7092bc94a9e538a4865d28889f19858d90c22242ef54868c1370386829de5582",
+    "backend/internal/service/archive_ops/sealed_logs.go": "90e4b2a193d865c20d4f744deea10eb827f989872e4f8896311bd909f9a4306c",
+    "backend/internal/service/archive_ops/service.go": "10be213566f551131b5f9868d94e2d46ef70d0d1558d367f6266ec93b842911e",
+    "backend/internal/service/archive_ops/service_test.go": "968c96121c3dbbe486886877b7ecc47b6b64ffa2cdccf1cb36f1a8981d731a9e",
+    "backend/internal/service/archive_ops/ssh_test.go": "b2d250ae369dd6136c98604a7160da624120d5fa00c0e0d39edfa47457628d08",
+    "backend/internal/service/archive_ops/store.go": "3cf28546acbf5bc2dcda5b74329566e9710be3a390a09e276c547c5d03a92ace",
+    "backend/internal/service/archive_ops/system_component.go": "cc3a2e1f7d02b944f18112c5498edd104584045f7855bba6ed06260c3295ed69",
+    "backend/internal/service/archive_ops/types.go": "2c287a2b02c56641742881f8b12e1b980b1c6e22ff2ae44492f4964be95122dc",
+    "backend/internal/service/backup_ops/job_service.go": "4e8d0d819d7e544b1fedba05801480de37a7818413dfc8baca4f39b6db4a59ef",
+    "backend/internal/service/backup_ops/restore_copy_archive.go": "25ced3b03867a9edf0c4c0a175d142d18182cb7179ee9d72062dcf8a1bf31116",
+    "backend/internal/service/monitor_logs/retention_service.go": "c9815ff2c51bf0994ad16315f9c819496b70a2800a6e2cf7f684b83cda6481ff",
+    "backend/internal/service/monitor_logs/storage_handover_test.go": "4bf5423021abf4b4023ac41cb189d71db50fbb522b9e837b017d791b8cee29b5",
+    "backend/internal/service/notifications/service.go": "18e9c55694a64aa6002f882a8d3fe39be73aa295f5696b50ac55ec163ff02bdb",
+    "backend/internal/service/notifications/storage_alert.go": "88be86e586b7bd4e572513ecf457b38fb4c9088b52616d640329df0fd711b021",
+    "backend/internal/service/notifications/storage_alert_test.go": "ab532fa958323a80a213a1139fe34c1f669953d1ee8e8ac4d96eecaf6373e401",
+    "backend/internal/service/snapshot_ops/capture.go": "f2d408b8c3f42854b5ee50062e523d301e3a59969a9f5d9c433d9bf2ad1f42c0",
+    "backend/internal/service/snapshot_ops/package.go": "2f454f6e85f44ba922e9e2afb2786b70ead2b8b3fd4e5bc2d05d5bd4819fdee2",
+    "backend/internal/service/snapshot_ops/service_test.go": "ecf88310c8f4d9bfebabda2658e29b82c41422661e9abedaf2559038c4013a56",
+    "backend/internal/service/storage_governance/alerts.go": "f5df06773353f28b19dafd77510f16b9eb3ab2219e3ee3cf0d19d71c44ba6ec9",
+    "backend/internal/service/storage_governance/cleanup.go": "9e683ff501451c6ef4145be8b1b5eabee094b0d234c798203094e29ff76533b5",
+    "backend/internal/service/storage_governance/estimate.go": "185fa020787ee1c3f5ee2d2c532a9208e296857cc5dc602ca7b0760025f1b53c",
+    "backend/internal/service/storage_governance/log_types.go": "b1b84fa631afa7beed32ab3b7a7e81df92bfd69bc000811c7dd34b9c962b6176",
+    "backend/internal/service/storage_governance/policy.go": "adfa1821cd07c24afd28eccdfcfa573bfccf0bc66a513e03e4ec79772c9317d6",
+    "backend/internal/service/storage_governance/postgres.go": "73fa9c47b695913227f4e775679188b87547bc06fd79c0f39015180d96501b19",
+    "backend/internal/service/storage_governance/presets.go": "4a664ac9c30b4c59b69c8a3e46b0673993f286b661e737e85dd68349210eb517",
+    "backend/internal/service/storage_governance/presets_test.go": "c79edfc1480ab19a68a9cedf7cbd17f41c84057d78758d537eaebe4c62169f16",
+    "backend/internal/service/storage_governance/resource_history_test.go": "fbd2b9e9b15469c2a5fddc22b8c83b0d1def687f2fe5324dcfaca475f17989f6",
+    "backend/internal/service/storage_governance/runtime.go": "1d46229aced7a48fed4ac17c5f8ea77a7b1ac6bc69f01a6a0563b4c18386632d",
+    "backend/internal/service/storage_governance/runtime_preview.go": "1b5d5bc61ff1c14c61c690910d5b64196d1c80571c909506e56d4481e7fe0ec9",
+    "backend/internal/service/storage_governance/runtime_test.go": "8d0b05b56af908ae002fd15517fe60ef8cd4b07de97853757f1917cbd66aba28",
+    "backend/internal/service/storage_governance/samples.go": "7d966e79fd35b9b1b49c67f3546c7c34eed1e89f810dd178914afa75612e6785",
+    "backend/internal/service/storage_governance/service.go": "f107e0279fcd6107e240bac7418dea6b6ca524807c41866cb3f0d93e0293cb45",
+    "backend/internal/service/storage_governance/service_test.go": "811ca5f2ea158d53cbc1058ad4c85ff6c09bc284bd64231eaf412c45a5b4b048",
+    "backend/internal/service/storage_governance/state_test.go": "9f2e62b982ee048ac87d0c0ab6f82bfb069e88e41462925c24bb499d5b5e4130",
+    "backend/internal/service/storage_governance/types.go": "9cd243ea177d4685ce2e6466e90a478b3e5967b83591281c97fdbd33a44d1353",
+    "backend/internal/transport/http/admin/storage/api.go": "b4388a9c92406bc90e7459f4547066f49055675f3ae60dd6b1210c0fc813e23d",
+    "backend/internal/transport/http/admin/storage/api_test.go": "41893adbe928cff93b93c3a7bb079b1b9afbfc2cb9aec95bba622a07851a737f",
+    "backend/internal/transport/http/admin/storage/cleanup_handler.go": "08e45a91b5b693dfb83c1876d3b803b7bc37e60531100936680dcf7054cd3a26",
+    "backend/internal/transport/http/admin/storage/cleanup_postgres_test.go": "85a055bcca0925266fc51fd99846246f9a05fa79c914bca07a9faef516b54cbd",
+    "backend/internal/transport/http/admin/storage/policy_handler.go": "92ef8f9398a4275a2620be3bf403008073772a92dd8483cd01b87944c104fcca",
+    "backend/internal/transport/http/admin/storage/runtime_handler.go": "b2a6bd9aff3cf4a7db4cb1f9a6f90bf9762cda9cbdf6f8acee87a0e4b5a45506",
+    "backend/internal/transport/http/admin/storage/runtime_test.go": "0e3b028684ead5e7e1dffcb97793d19bce76d04282c0871797c7ab38a3b837dc",
+    "backend/internal/transport/http/admin/storage/state_postgres_test.go": "190ea5d9a864cf5562d27810cffd50c9e9330dfa431e6ce7b2640e60f41f4793",
+    "backend/internal/transport/http/admin/storage/storage_handler.go": "604d8f38b5303dbd99732f85106e44975693555dfe637563dfe3743a49b8b96f",
+    "backend/pkg/corex/db/persistence/repository/notification/notification_repo.go": "b1e600a1f2aba07e4ed87a03393e11777ed98d4b4a37ada542ccc81fb367af99",
+    "backend/pkg/utils/logger/config/config.go": "2a62a250ec6a67cad1a82a27b96a0e352e3ce0e274df258ff8cec2b5b2fd3adc",
+    "backend/pkg/utils/logger/context_fields.go": "2f75c87f72f024bc64a47ed83b32c5d72cd4af3b3a46ae40bdffe17faf5261d3",
+    "backend/pkg/utils/logger/daily_rotate_writer.go": "2424ec2fa57932f3837ba4c40272ecda5e6b88360f6f76cfb8971f1b205aff70",
+    "backend/pkg/utils/logger/lib/chown.go": "f84081a1c3422189e994b41de0c9d27736d80055952b044ffa99f8976a6c7a24",
+    "backend/pkg/utils/logger/lib/chown_linux.go": "9737d1a1d94774989a105165faf89adbd4bf84df0b39415b1eebbdb5e9b3fa21",
+    "backend/pkg/utils/logger/lib/directory_lock.go": "bfaf1d802408814e550c3b1ffd75157d7cd66ac0f53b9299d43c726459cf68a6",
+    "backend/pkg/utils/logger/lib/lumberjack.go": "754692282e8833ccabc4a217fb8fcc238a3844181b996212db3908566fcdeb73",
+    "backend/pkg/utils/logger/lib/lumberjack_test.go": "963d3ecf99773ee946d77c5bced2790422459c6a30a52f0fcd00015e8b4c9c5d",
+    "backend/pkg/utils/logger/lib/rotate_test.go": "c014f2d269475a0c26152a26bad9e2ca867bc4a736c8f832171c36ed97a7fd35",
+    "backend/pkg/utils/logger/lib/testing_test.go": "7171205a1a4d8e7d0528b6f13db9b4776bfd4e25d02d2ef3e638f496afed9e29",
+    "backend/pkg/utils/logger/manager.go": "13f2f939e85e887dfb41e31c6cf44d4df5d1aae7812872e04bafb006137ec696",
+    "backend/pkg/utils/logger/manager_test.go": "b104ecc21bbf88b4d0a047f671ac4b819969a16f0ddfc24d4b0f300a6a31a705",
+    "backend/pkg/utils/logger/plugin_router_writer.go": "8a4b06b92ad8d0f0cb4f895c58cf30eeaebe3cb20c064c8ad43a39672d030495",
+    "backend/pkg/utils/logger/runtimebuffer/buffer.go": "6b7b29b107f3ee3397789f7553e6ae6a2633c2b25f11e194e71534479ea9c54c",
+    "backend/pkg/utils/logger/utils/file.go": "26dc11143067ce5a2d56fa674b7d2f79ce030906f62c984ea92a573d786284c8",
+    "backend/pkg/utils/logger/writer/fileWriter.go": "17ad2b7f893993abdcafa475174e5e57e267a43314d7f70897afc4ece5372792",
+    "backend/pkg/utils/logger/writer/loki.writer.go": "580845e45cdf5b37b0f7b64878ae0a3ca6dbac120b9cc5b55f83278626b2c65b",
+    "backend/pkg/utils/logger/writer/loki_async.go": "d9b9f028fc790aa222c8c2efed0ed78723256cea69262254965f26c6ab557990",
+    "backend/pkg/utils/logger/writer/loki_async_test.go": "7d9ba4bc56a4d4f5b8cb5b1575fd4ecfe705152ef007b0c2da614d14e5a84848",
+    "backend/scripts/ops/backup-db.sh": "b18fe43ebd3784aaf09aaf67e196f527c2e398acd8a8351e07e16790aae011f6",
+    "deploy/observability/loki/loki-config.yaml": "79011cc33a7bb2542bf43c4165897ac2646bcefea9cdcbbf785720e7988a8bdd",
+    "deploy/powerx/docker/observability/loki-config.yaml": "48cd7acb6b008370490b379a0fd93fa763202cfb15e10c0429c1750f3b187535",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-storage-governance.md": "ae9c8c34cfc780a0398f7cea88ef99a96c9dd199a48d825202dcb0ba9959fd63",
+    "docs/plan/deploy/storage-governance-tasks.md": "407ef86cfa2234eb4c2bd13d3df434a2d72ebcd1c0fb72aed94b5a8a621c7524",
+    "docs/plan/deploy/storage-governance-ui.md": "385db2544af294d81780888af14cf29b64abcf4879edc7b8b3150d11a271075f",
+    "docs/plan/deploy/storage-governance.md": "a2bda31fff7b55fa1a38f262635a4dafa965f707e46477466bb191457dee3d42",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml": "b795d348b2a3c48ad5199b87117c28b7ba547acf4e8239f73e3e5d519a1653fd",
+    "specs/027-monitor-center/tasks.md": "8f1ce1d2ded05e26fe0c1253514e453209f1c2a0186703632b31dfe9812f2775",
+    "web-admin/app/components/monitor/storage/StorageCleanupRecords.vue": "37b3f36c329ddb8c378b1634f5924206f7f19834cb4287afa52cf973c4a8f4ba",
+    "web-admin/app/components/monitor/storage/StorageGovernanceWorkspace.vue": "7ef7e567b3740b8912fbe5d6a7ed781b58161c103dbb2256600cb642e1e7360a",
+    "web-admin/app/components/monitor/storage/StorageHistoryPanel.vue": "1c6ef4dd54a844b9f3082ac13de53ab34ee63acc3d6e50cb816a57f7f733d25f",
+    "web-admin/app/components/monitor/storage/StorageLogCleanupPanel.vue": "d6728771507ddee60843080069777ab8f7986107fea8b4b39231f9ee843a6735",
+    "web-admin/app/components/monitor/storage/StoragePolicyDraftPanel.vue": "248d4a2184a460c48f175d0ade18f2319289e2f87cf6c978c7fb2fc9accc0fd5",
+    "web-admin/app/components/monitor/storage/StorageRuntimePanel.vue": "a61ceea935ad997dc5f6177670ef1b94821328495b2e2d1e101ec8d0eb2580ae",
+    "web-admin/app/composables/api/services/archiveOpsService.ts": "837a67cce1e99fd524a0cd0d78c1117cd91e1079cb7774898988d35e4d5e43f5",
+    "web-admin/app/composables/api/services/storageGovernanceService.ts": "69fc1063a66c57d6807580c7463755bfe38de8c56f95ee59549ae0afd6ad9a2e",
+    "web-admin/app/composables/api/services/storageRuntimeService.ts": "8f317f4992b595f1afbb6fc1fa89a25810528c0742bddcb30e060212d039540c",
+    "web-admin/app/composables/useStorageGovernanceEvents.ts": "b8ee996d4905b41ce2c8c6db7caeb2c40a581ce7f87a3e4da53099a336574669",
+    "web-admin/i18n/locales/en.json": "72d816a321c29ac6e766cc8732eec2a58dc3b11c06626a87e2624d2c38380472",
+    "web-admin/i18n/locales/ja.json": "5f9ed6153eaedff3e21afeb72185da05f61090ba951d05a0dfcc5ea6d3f7f40b",
+    "web-admin/i18n/locales/ko.json": "e16917a003157d055187708e389358d8cfda93531aa29d814d77a673f018040d",
+    "web-admin/i18n/locales/zh.json": "d6a38416dde149369634a0ed34692624fa338608e15369cc12720c9265caa314",
+    "web-admin/scripts/snapshot-browser-fixture.mjs": "cd443fedd568d6199b353edaee45999d5a127b860b3ab53de340e1812a91128e",
+    "web-admin/tests/e2e/storage/application-logs.spec.ts": "97871c02591449ea9af860ce2773374d7fa901e4bf61aaa099f86a15c40699e0",
+    "web-admin/tests/e2e/storage/runtime.spec.ts": "ec8f4544dfe22e442f074879fe6cf18cb7b581dba0fe20fcb49d92213399f953",
+    "web-admin/tests/e2e/storage/storage.spec.ts": "8ffa4413369e08843f60103a2ae3cb913404ee1fb1df5404ecd742ed236d02f6",
+    "web-admin/tests/unit/storage/fixtures.ts": "683dced31b0a0cc7869c6329bc5f87901821c308fe026da4919c743520302ecf",
+    "web-admin/tests/unit/storage/storage-governance-service.spec.ts": "9f0c3401e083f461515f72e76fb9031d08893f3471a0f42bd103fdb8da7a529b",
+    "web-admin/tests/unit/storage/storage-governance.spec.ts": "7a2dfcc895c87744928dea118054a2de7f26d690351f54622c0ef67152d02626",
+    "web-admin/tests/unit/storage/storage-runtime-events.spec.ts": "b147218b6e12d6c164a3e4270f9717ea22a29e057a624d019657bcc489e8709f",
+    "web-admin/tests/unit/storage/storage-runtime.spec.ts": "ddea7ce83dfe2ea3aafeff772cd42175aa7fc2e26e73b1a990f99705a9f70901",
+    "web-admin/tests/unit/storage/storage-state-panels.spec.ts": "0c1e8ca923eb4880614c262357d2d41420e512823ba7e7f2722e9b83ce0af409"
+  }
+}

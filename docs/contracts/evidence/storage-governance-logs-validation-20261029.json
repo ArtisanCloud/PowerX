@@ -1,0 +1,226 @@
+{
+  "recorded_at": "2026-10-29T09:21:58.295683+00:00",
+  "scope": "v0.4 configured ordinary application-log inventory, per-source occupancy history and Root-only bounded synchronous manual cleanup. This is not complete PowerX storage governance, automatic enforcement or production acceptance.",
+  "base_sha": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "remote_changed": false,
+  "user_configuration_changed": false,
+  "user_services_restarted": false,
+  "user_log_files_deleted": false,
+  "automatic_cleanup_enabled": false,
+  "implementation": {
+    "discovery": "Actual configured ordinary log basenames and native rotated names only; unrelated parent-directory files excluded. Enabled Agent debug/audit directories and local media registered for observation. Coverage explicitly lists disconnected, disabled and platform-inapplicable resource kinds.",
+    "history": "Every registered source receives optional allocated/deduplicated bytes, files, state, problem and private-definition fingerprint in new samples; old samples remain unknown. Net change only for compatible complete observations within 10 minutes; not gross ingress, deletion volume or R95.",
+    "history_bounds": {
+      "max_summary_bytes": 32768,
+      "max_sources": 64,
+      "interval_minutes": 5,
+      "metadata_retention_days": 15,
+      "display_window_days": 14
+    },
+    "manual_cleanup": {
+      "authorization": "Human Root user JWT only; no API Key, STS, service_actor or caller-supplied path/proxy fields. Preview binds instance, environment, actor, source identity, policy revision and expiry.",
+      "max_scanned_entries": 1000,
+      "max_candidates": 32,
+      "preview_valid_minutes": 10,
+      "work_timeout_seconds": 10,
+      "final_journal_timeout_seconds": 3,
+      "protection": "Only recognized sealed native rotations; active and latest generation protected, plus recent modifications, unknown names, symlinks, hardlinks, nonregular files and unsafe ownership/modes. Recheck inode/device/size/blocks/mtime/ctime before unlink.",
+      "cooperation": "Native mill/compression and manual batches use the same directory-inode flock; no lock file, extra timer or change to max_age/max_backups/max_size. Native async mill receives a trigger-time clock snapshot.",
+      "journal": "Persist executing, then each deletion intention before unlink, then each result. CAS serializes record writes. Replays never delete again; an interrupted executing record becomes unconfirmed. Counts are only confirmed removals; reclaimed_bytes stays null.",
+      "gates": "Legacy generic retention enabled blocks execution. Production/staging and resources requiring verified archives remain preview-only pending archive verification.",
+      "ui": "Existing native policy and direct preview are primary; host budget is not required. Generic planning is advanced and does not activate cleanup. Confirmation modal plus independent GET readback, manual record detail and retained context; no periodic status polling."
+    },
+    "metadata_bounds": "Per instance latest 100 records listed; admission cap 2000, preview/terminal records older 30 days may be pruned on new preview. Unconfirmed/executing intentions never automatically removed."
+  },
+  "local_migration": {
+    "result": "passed",
+    "command": "go run ./cmd/database migrate -config etc/config.yaml -scope storage-governance",
+    "database": "localhost/powerx.public",
+    "created_tables": [
+      "ops_storage_cleanup_runs"
+    ],
+    "all_governance_tables": [
+      "ops_storage_cleanup_runs",
+      "ops_storage_policies",
+      "ops_storage_policy_revisions",
+      "ops_storage_samples"
+    ],
+    "non_storage_columns_and_indexes_unchanged": true,
+    "iam_counts_unchanged": true,
+    "before": "test-results/storage-logs-schema-before.json",
+    "after": "test-results/storage-logs-schema-after.json",
+    "log": "test-results/storage-logs-local-migration.log",
+    "full_migration_or_seed": false
+  },
+  "validation": {
+    "native": {
+      "result": "passed",
+      "top_level_tests": 38,
+      "skipped_opt_in_local_tests": 2,
+      "race_detector": true,
+      "database": "Agent-owned temporary PostgreSQL, Unix socket only, fsync disabled only in disposable fixture; not user database",
+      "log": "test-results/storage-logs-native-tests.log",
+      "checks": [
+        "temporary-file preview, actual removal and durable readback",
+        "changed files, active/latest/link/ownership protections",
+        "legacy policy and revision change gates",
+        "expiry, actor and production archive gates",
+        "failure after unlink remains unknown and cannot reexecute",
+        "Root-only routes and strict payloads",
+        "additive resource histories and changed definitions",
+        "idempotent four-table scoped migration preserving business sentinel"
+      ]
+    },
+    "full_native_log_writer_package": {
+      "result": "passed",
+      "command": "go test -race ./pkg/utils/logger/lib -count=1",
+      "log": "test-results/storage-logs-writer-full.log"
+    },
+    "local_readonly_inventory": {
+      "result": "passed",
+      "actual_application_log_files": 8,
+      "writes_performed": false,
+      "boundary": "In-process service with actual local configuration, filesystem and database. No listener, worker, capture, draft save or cleanup. Not the existing running Core HTTP/browser.",
+      "log": "test-results/storage-logs-local-readonly.log"
+    },
+    "frontend_unit": {
+      "result": "passed",
+      "tests": 24,
+      "log": "test-results/storage-logs-vitest.log",
+      "includes": "Lost POST response followed by confirmed canonical readback; no duplicate execute; unconfirmed remains unknown; existing draft/scope regressions."
+    },
+    "build": {
+      "result": "passed",
+      "command": "POWERX_NUXT_BUILD_DIR=.nuxt-storage-validation POWERX_NITRO_OUTPUT_DIR=.output-storage-validation npm run build",
+      "log": "test-results/storage-logs-build.log"
+    },
+    "browser": {
+      "result": "passed",
+      "tests": 6,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "boundary": "Actual isolated Nuxt artifact and API client with controlled API fixtures, not live provider or user-host cleanup.",
+      "log": "test-results/storage-logs-browser.log",
+      "checks": [
+        "coverage statuses and native defaults without host budget",
+        "preview never submits deletion",
+        "single confirmed execution and independent record readback",
+        "cleanup record details",
+        "per-resource net change and legacy unknown values",
+        "section/source context retained and no idle requests",
+        "no document horizontal overflow"
+      ],
+      "screenshots": [
+        "test-results/storage-browser/application-logs-applicati-38654-story-and-records-at-1440px/log-preview-1440.png",
+        "test-results/storage-browser/application-logs-applicati-673e7-istory-and-records-at-320px/log-history-320.png"
+      ]
+    },
+    "vet": {
+      "result": "passed",
+      "log": "test-results/storage-logs-vet.log"
+    },
+    "linux_cross_compile": {
+      "result": "passed",
+      "target": "linux/amd64 CGO_ENABLED=0 collector test binary",
+      "runtime_execution": false,
+      "log": "test-results/storage-logs-linux-build.log"
+    },
+    "capability_check": {
+      "result": "passed",
+      "log": "test-results/storage-logs-capability-check.log",
+      "boundary": "Four explicit Root host-control route ignores added; not a delegated Framework capability. No new service binding or capability seed."
+    },
+    "contracts_and_locales": "OpenAPI 0.4.0 internal references validated; 261 storageGov leaves match across zh/en/ja/ko; upgrade registry check and git diff --check passed.",
+    "full_typecheck": {
+      "result": "blocked_by_existing_HEAD_syntax",
+      "command": "npx vue-tsc --noEmit -p .nuxt-storage-validation/tsconfig.app.json",
+      "log": "test-results/storage-logs-typecheck.log",
+      "errors": [
+        "menuConfig.ts:165 TS1005",
+        "menuConfig.ts:186 TS1443"
+      ],
+      "file_matches_HEAD": true,
+      "unrelated_file_changed": false,
+      "note": "Bare vue-tsc against root files=[] project references is not accepted as application typecheck proof."
+    }
+  },
+  "process_cleanup": {
+    "agent_postgresql": {
+      "owner": "codex-storage-logs-validation",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+      "cluster": "/tmp/px-sg-p0kuk11r",
+      "listen": "unix socket only",
+      "port": 19486,
+      "pid": 29809,
+      "start_command": [
+        "/opt/homebrew/bin/pg_ctl",
+        "-D",
+        "/tmp/px-sg-p0kuk11r/data",
+        "-l",
+        "/tmp/px-sg-p0kuk11r/postgres.log",
+        "-o",
+        "-k /tmp/px-sg-p0kuk11r/sock -h '' -p 19486 -c fsync=off",
+        "-w",
+        "start"
+      ],
+      "state": "exited",
+      "test_exit_code": 0,
+      "socket_released": true
+    },
+    "agent_browser": {
+      "owner": "storage-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-10-29T09:17:50.740Z",
+      "fixturePid": 88875,
+      "fixturePort": 3486,
+      "corePid": 88879,
+      "corePort": 3485,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-storage-validation/server/index.mjs"
+      ],
+      "stoppedAt": "2026-10-29T09:18:41.673Z",
+      "coreExitedAt": "2026-10-29T09:18:41.677Z"
+    },
+    "owned_processes_exited": true,
+    "released_ports": [
+      3485,
+      3486
+    ],
+    "user_listener_pids_preserved": {
+      "frontend_3030": 18054,
+      "core_8077": 90165
+    }
+  },
+  "remaining": [
+    "Complete PowerX inventory and independent plugin databases, temporary uploads/mail attachments and real host ownership attribution",
+    "Actual source ingestion/deletion rates, R95 and verified historical coverage; occupied-byte deltas are not ingestion",
+    "PostgreSQL/journal/Loki archival verification and lifecycle adapters; production/staging execution stays blocked",
+    "Backup, snapshot, media and archive cleanup adapters with comprehensive references and recovery-point protection",
+    "Authoritative shared-host budget, cross-process leases/reservations and actual physical space reclamation confirmation",
+    "Unified automatic execution, asynchronous TaskBus plus WS/SSE progress and alerts/notification delivery",
+    "XDocker host delegation and installed-host Linux/production end-to-end acceptance after user loads new Core"
+  ],
+  "source_sha256": {
+    "backend/internal/bootstrap/storage_governance.go": "8a29780a7eaf3eead8d236c6eff8a20d2f9fb75d9e222dc7512ef380209135ad",
+    "backend/internal/service/storage_governance/cleanup.go": "9e683ff501451c6ef4145be8b1b5eabee094b0d234c798203094e29ff76533b5",
+    "backend/internal/service/storage_governance/samples.go": "7d966e79fd35b9b1b49c67f3546c7c34eed1e89f810dd178914afa75612e6785",
+    "backend/internal/infra/storage_observer/application_logs.go": "dea22442e0e40eb05705a2784af0be2d166f145c7a8562fa31c3c906d6d7dbba",
+    "backend/internal/infra/storage_observer/collector.go": "3c83006888c5bdee957f8cb69c1c0c2d10e26429e89f1d58bc2b6b9aa7da9a53",
+    "backend/internal/transport/http/admin/storage/cleanup_handler.go": "08e45a91b5b693dfb83c1876d3b803b7bc37e60531100936680dcf7054cd3a26",
+    "backend/pkg/corex/db/persistence/repository/storage_governance/cleanup_repo.go": "60c81b01774325a53d705e79779979369cf1a76b891aa8a0d15d06fdeb4b6e32",
+    "backend/pkg/corex/db/persistence/model/storage_governance/cleanup_run_gorm.go": "ef66d4f25d903609092f9ee2d3fa066082824c338445c1b647d23250fcce31de",
+    "backend/pkg/utils/logger/lib/lumberjack.go": "754692282e8833ccabc4a217fb8fcc238a3844181b996212db3908566fcdeb73",
+    "backend/pkg/utils/logger/lib/directory_lock.go": "bfaf1d802408814e550c3b1ffd75157d7cd66ac0f53b9299d43c726459cf68a6",
+    "web-admin/app/components/monitor/storage/StorageLogCleanupPanel.vue": "f40968d7f2df450b27fa92bb5cbf3bb8453ea11b5c258129bed897dc5e142cf5",
+    "web-admin/app/components/monitor/storage/StorageCleanupRecords.vue": "37b3f36c329ddb8c378b1634f5924206f7f19834cb4287afa52cf973c4a8f4ba",
+    "web-admin/app/components/monitor/storage/StorageHistoryPanel.vue": "1c6ef4dd54a844b9f3082ac13de53ab34ee63acc3d6e50cb816a57f7f733d25f",
+    "web-admin/app/composables/api/services/storageGovernanceService.ts": "1cd96d5b853774fba522c7deae2931e663af9e7e151cb1fb6e7a2ed32d905da3",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml": "0b2b465e1f3ba452e6850b9008391ee52409f1ab5c5d131b62d23ad2d49317c9"
+  }
+}

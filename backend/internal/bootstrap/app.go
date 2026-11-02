@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	storagebudget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -62,7 +63,8 @@ func composePostgresDSNFromDB(driver string, host string, port int, user string,
 func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error) {
 
 	// 初始化全局 Logger
-	logger.InitGlobalLogger(&cfg.LogConfig)
+	effectiveLogConfig := cfg.EffectiveLogConfig()
+	logger.InitGlobalLogger(&effectiveLogConfig)
 	logger.Info(ctx, "🚀 全局 Logger 初始化成功")
 
 	// 读取 Wrap 密钥
@@ -195,6 +197,11 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		knowledgeRedisDB = queueRedisDB
 	}
 
+	auditFile := cfg.Audit.File
+	if cfg.StorageGovernance.LifecycleEnabled && cfg.StorageGovernance.ManageNativeRetention {
+		auditFile.MaxAge = 0
+		auditFile.MaxBackups = 0
+	}
 	opts := &shared.DepsOptions{
 		DisableBackgroundWorkers: config.BackgroundWorkersDisabled(cfg),
 		PreserveInstalledCatalog: cfg.Install.EffectiveStatus() == "installed",
@@ -222,15 +229,16 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		AuditPersistToDB:         cfg.Audit.PersistToDB,
 		AuditEnableGORMCallbacks: cfg.Audit.EnableGORMCallbacks,
 		AuditFileSink: auditsvc.FileSinkOptions{
-			Enable:      cfg.Audit.File.Enable,
-			Dir:         cfg.Audit.File.Dir,
-			FilePrefix:  cfg.Audit.File.FilePrefix,
-			MaxSize:     cfg.Audit.File.MaxSize,
-			MaxBackups:  cfg.Audit.File.MaxBackups,
-			MaxAge:      cfg.Audit.File.MaxAge,
-			Compress:    cfg.Audit.File.Compress,
-			UseUTC:      cfg.Audit.File.UseUTC,
-			IncludeMeta: cfg.Audit.File.IncludeMeta,
+			RetentionManaged: cfg.StorageGovernance.LifecycleEnabled && cfg.StorageGovernance.ManageNativeRetention,
+			Enable:           cfg.Audit.File.Enable,
+			Dir:              cfg.Audit.File.Dir,
+			FilePrefix:       cfg.Audit.File.FilePrefix,
+			MaxSize:          cfg.Audit.File.MaxSize,
+			MaxBackups:       auditFile.MaxBackups,
+			MaxAge:           auditFile.MaxAge,
+			Compress:         cfg.Audit.File.Compress,
+			UseUTC:           cfg.Audit.File.UseUTC,
+			IncludeMeta:      cfg.Audit.File.IncludeMeta,
 		},
 		Storage: mediasvc.StorageOptions{
 			DefaultDriver: cfg.Storage.DefaultDriver,
@@ -625,10 +633,16 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		c := cfg.Storage.S3
 		defaults.Sources[0].S3 = &archiveops.S3Config{Endpoint: c.Endpoint, Bucket: c.Bucket, Region: c.Region, AccessKey: c.AccessKey, SecretKey: c.SecretKey, UseSSL: c.UseSSL, ForcePathStyle: c.ForcePathStyle}
 	}
+	defaults.ExecutionNodeID = cfg.EnvironmentID
+	defaults.Sources = append(defaults.Sources, registeredArchiveLogs(cfg)...)
 	archCfg, archErr := archiveops.RuntimeConfig(defaults)
+	if err := configureStorageGovernance(cfg, deps, archCfg, archErr, defaults.Sources[1].Directory); err != nil {
+		logger.WarnF(ctx, "storage governance observer unavailable: %v", err)
+	}
 	if archErr != nil {
 		logger.WarnF(ctx, "archive config unavailable: %v", archErr)
 	}
+	archCfg.StorageBudget = storagebudget.DefaultConfig()
 	deps.Archives = archiveops.NewService(ctx, archCfg, archiveops.Options{ConfigError: archErr, RestoreDatabase: func(run context.Context, path string, older bool, operator, trace string) (string, string, error) {
 		run = reqctx.WithIsRoot(run, true)
 		f, err := os.Open(path)
@@ -656,6 +670,12 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 	if !config.BackgroundWorkersDisabled(cfg) {
 		monitorlogs.StartRetentionScheduler(ctx, cfg, db)
+		if cfg.StorageGovernance.SamplingEnabled && deps.StorageGovernance != nil {
+			deps.StorageGovernance.StartSampling(ctx, func(err error) { logger.WarnF(ctx, "storage observation sampling unavailable: %v", err) })
+		}
+		if deps.StorageGovernance != nil {
+			deps.StorageGovernance.StartRuntime(ctx, func(err error) { logger.WarnF(ctx, "storage runtime check failed") })
+		}
 	}
 
 	return deps, nil

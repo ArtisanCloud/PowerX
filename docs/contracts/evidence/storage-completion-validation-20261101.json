@@ -1,0 +1,207 @@
+{
+  "contract": "powerx.storage.development-completion/v0.6.1",
+  "recorded_at": "2026-11-01T15:35:26.917589+08:00",
+  "branch": "024-ai-engineering-skills",
+  "base_commit": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "scope": "Development closeout of TMP-SG-01 through TMP-SG-11; deployment, actual inventory disposition, daily/production runtime and long-period acceptance are separate operational work.",
+  "checks": {
+    "go_race": {
+      "passed": true,
+      "packages": 5,
+      "log": "tmp/storage-completion-20261101/go-race.log"
+    },
+    "go_vet": {
+      "passed": true,
+      "packages": 3,
+      "log": "tmp/storage-completion-20261101/go-vet.log"
+    },
+    "root_http_readiness": {
+      "passed": true,
+      "log": "tmp/storage-completion-20261101/http-readiness.log",
+      "checks": [
+        "observation GET returns readable readiness",
+        "non-root and API-key identities denied",
+        "configuration missing cannot enable writes"
+      ]
+    },
+    "native_postgresql": {
+      "passed": true,
+      "port": 19442,
+      "version": "PostgreSQL 14",
+      "log": "tmp/storage-completion-20261101/go-native-migration.log",
+      "checks": [
+        "5 columns and 3 indexes added to existing audit tables only",
+        "repeat execution is idempotent",
+        "old status and JSON payload preserved; classification remains legacy_unclassified; terminal timestamps stay null",
+        "missing source refuses before changes",
+        "index failure rolls back all DDL",
+        "existing metadata-only scope remains independent",
+        "unrelated sentinel and table set preserved"
+      ]
+    },
+    "frontend_unit": {
+      "passed": true,
+      "tests": 44,
+      "files": 8,
+      "log": "tmp/storage-completion-20261101/ui-unit.log"
+    },
+    "frontend_build": {
+      "passed": true,
+      "isolated_build_directory": ".nuxt-storage-archive-validation",
+      "log": "tmp/storage-completion-20261101/ui-build.log"
+    },
+    "browser": {
+      "passed": true,
+      "tests": 3,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "api_mode": "fixtures; real Nuxt artifact and API client",
+      "log": "tmp/storage-completion-20261101/browser.log",
+      "checks": [
+        "one compact readiness summary with preparation modal",
+        "readiness blocks configuration and preview until prerequisites are ready",
+        "manual readback recovers without enabling cleanup",
+        "archive form/filter/retrieval and safe-default regressions",
+        "no horizontal overflow",
+        "no periodic status reads",
+        "retention changes save with separate confirmation; guard may remain enabled while cleanup is disabled"
+      ],
+      "screenshots": [
+        "docs/contracts/evidence/storage-completion-20261101/database-readiness-1440.png",
+        "docs/contracts/evidence/storage-completion-20261101/database-readiness-390.png",
+        "docs/contracts/evidence/storage-completion-20261101/database-readiness-320.png"
+      ]
+    },
+    "backend_build": {
+      "passed": true,
+      "entrypoint": "backend/cmd/app",
+      "binary_sha256": "bb4d15dddc15a5b2067c29c2ffa243a30643a4a46fc94df8add99c499a236c6c"
+    },
+    "capability_check": {
+      "passed": true,
+      "new_service_binding": false,
+      "log": "tmp/storage-completion-20261101/capability-check.log"
+    },
+    "upgrade_payload_registry": {
+      "passed": true,
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check"
+    },
+    "openapi_and_translations": {
+      "passed": true
+    },
+    "frontend_full_typecheck": {
+      "passed": false,
+      "state": "not_rerun_existing_unrelated_syntax_blocker",
+      "file": "web-admin/app/composables/api/menuConfig.ts",
+      "lines": [
+        165,
+        186
+      ],
+      "prior_log": "tmp/storage-ui-implementation-20261031/frontend-typecheck.log",
+      "file_modified_this_task": false,
+      "not_claimed_as_full_project_pass": true
+    },
+    "previous_s3_and_full_archive_proofs": {
+      "state": "not_repeated_unchanged_service",
+      "reference": "docs/contracts/evidence/storage-archive-controls-validation-20261031.json"
+    }
+  },
+  "changes_this_turn": [
+    "backend/cmd/database/main.go",
+    "backend/cmd/database/migrate.go",
+    "backend/cmd/database/migrate_scope_test.go",
+    "backend/internal/service/storage_governance/database_retention.go",
+    "backend/internal/service/storage_governance/database_retention_test.go",
+    "backend/internal/transport/http/admin/storage/runtime_test.go",
+    "backend/pkg/corex/db/database/migration.go",
+    "docs/guides/deploy/027-monitor-center/guide.md",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-storage-archive-controls.md",
+    "docs/plan/deploy/storage-governance-tasks.md",
+    "docs/plan/deploy/storage-governance-ui.md",
+    "docs/plan/deploy/storage-governance.md",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml",
+    "specs/027-monitor-center/tasks.md",
+    "tmp/storage-governance-archive-ui-optimization-plan-20261031.md",
+    "web-admin/app/components/monitor/storage/DatabaseRetentionPanel.vue",
+    "web-admin/app/composables/api/services/storageRuntimeService.ts",
+    "web-admin/i18n/locales/en.json",
+    "web-admin/i18n/locales/zh.json",
+    "web-admin/tests/e2e/storage/archive-governance.spec.ts",
+    "web-admin/tests/unit/storage/database-retention-readiness.spec.ts"
+  ],
+  "source_sha256": {
+    "backend/cmd/database/main.go": "7388614ba9a019a094eace7c7d6b7d41fbcf1755a921f1092bcb4fb1bad0fbc4",
+    "backend/cmd/database/migrate.go": "e6646fa594c29690e6de6621450e3ae5cfc145c55185fcfcbbe1c683d27197b0",
+    "backend/cmd/database/migrate_scope_test.go": "d8d0272a11c162feb53297406c760ca04086d15a072b44b7ae73b3c6348ce7ab",
+    "backend/internal/service/storage_governance/database_retention.go": "7455dc47907fcf18cdd96da8ceb7b651c45c78f27f470b24b520b1656fbff8db",
+    "backend/internal/service/storage_governance/database_retention_test.go": "6e0f3e3353041f8f50135a18fa5e8339e3434e49c59726fe460df1e9554383e5",
+    "backend/internal/transport/http/admin/storage/runtime_test.go": "795db9ef45092565f5ecdf91ac0401f560bcd07b4e5f39ce2285794059761b36",
+    "backend/pkg/corex/db/database/migration.go": "2a797951cd009a366784f2f28342a97fc95f48883a9394177b071a2aab37b02b",
+    "docs/guides/deploy/027-monitor-center/guide.md": "b13941fe2b5d644314afbb02bd96721fe620ff36f2a3b55d31645bc58f822649",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-storage-archive-controls.md": "8808b9bd7dd5aef2d721c9ecfc9e4d2b60d4a4c6e9d65f24f7e0cc97d266efdc",
+    "docs/plan/deploy/storage-governance-tasks.md": "41fa78caf18df8ad5b99bac338144dc359310de024c030c28353b69d4c1c0693",
+    "docs/plan/deploy/storage-governance-ui.md": "663bab884e7c6cd149cda3c55cfc1e4fe297c6d4c7f0a6d77ccd854d81fa4468",
+    "docs/plan/deploy/storage-governance.md": "b8851a3e68aa3b55e568af8adaf857a8c14527f49273075826a4a882800f2a51",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml": "04b0084a87620594a0ece3cf9467aa7f1942e698572ef539642ae064b0791cba",
+    "specs/027-monitor-center/tasks.md": "3165ac11c0174f5ebdef664b986788e48053ff7d0e60da398783a086a8ebbdc0",
+    "web-admin/app/components/monitor/storage/DatabaseRetentionPanel.vue": "81336a2931bc6b45ca7f84132f7ab62ad19dced233cc3917009273a772768b6e",
+    "web-admin/app/composables/api/services/storageRuntimeService.ts": "3baceb039fd36075b540ce5fdbaee26ed7dcac0161ee0692294cf0cc4bffdd5e",
+    "web-admin/i18n/locales/en.json": "3766e7bd66684be941e41a76ad7e20c57e71e391c53c6519c9ea06a355119a2a",
+    "web-admin/i18n/locales/zh.json": "4f91529dc641d963ca94713ffe55faea4ac79823bd9b98d022ede03e56c34b36",
+    "web-admin/tests/e2e/storage/archive-governance.spec.ts": "ff3dd61e54d2b63cf19896be7bd0c395480fba1e0c945c0429eca1499a652175",
+    "web-admin/tests/unit/storage/database-retention-readiness.spec.ts": "72107aa549658d3c30272f1ae8bfbfc4a3b8dac4ae57e7a3742e1ef4356cbf58"
+  },
+  "cleanup": {
+    "checked_at": "2026-11-01T15:35:26.917589+08:00",
+    "owned_browser": {
+      "owner": "archive-governance-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-storage-archive-validation/server/index.mjs"
+      ],
+      "startedAt": "2026-11-01T07:33:57.510Z",
+      "fixturePid": 33249,
+      "fixturePort": 3488,
+      "corePid": 33259,
+      "corePort": 3487,
+      "stoppedAt": "2026-11-01T07:34:19.496Z",
+      "coreExitedAt": "2026-11-01T07:34:19.501Z"
+    },
+    "postgres": {
+      "owner": "codex-storage-completion-20261101",
+      "pid": 8247,
+      "port": 19442,
+      "stopped_at": "2026-11-01T15:32:52.104820+08:00",
+      "pid_exited": true,
+      "listener_released": true,
+      "test_data_retained_under": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/px-retention-wh517kcd/data"
+    },
+    "pids_exited": true,
+    "released_ports": [
+      3488,
+      3487,
+      19442
+    ],
+    "user_owned_services_untouched": true
+  },
+  "runtime_operations": {
+    "daily_services_restarted": false,
+    "daily_configuration_changed": false,
+    "daily_database_migrated": false,
+    "production_accessed": false,
+    "business_rows_deleted": false,
+    "existing_mac_archives_deleted": false,
+    "fifteen_minute_window_started": false
+  },
+  "remaining_operational_work": [
+    "Prepare selected local backup, increment and deployment settings, then reload after development delivery",
+    "Choose policies explicitly in UI; begin a full 900-second local acceptance window after readiness",
+    "Validate actual private target and existing archive import/migration/retrieval",
+    "Plan production capacity and table migration window; deploy compatible scripts and transfer source ownership",
+    "Dispose old Mac objects only after original prerequisites and explicit scope; validate production and long-period behavior"
+  ]
+}

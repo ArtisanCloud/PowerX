@@ -615,3 +615,38 @@ storage:
     force_path_style: true
     external_domain: ""
     presign_endpoint: ""
+
+# 运行治理独立于规划草稿；下列开关默认关闭，不接管现有清理器。
+# 启用前按 US9 场景 F 核对同盘路径、旧 timer、异地归档和可用余量。
+storage_governance:
+  schema_version: 1
+  mode: observe
+  host_id: ""                         # 同一主机的所有实例一致
+  filesystem_id: ""                   # 实际挂载身份；不能每个实例各填一个
+  filesystem_path: /
+  runtime_directory: /var/lib/powerx/storage-runtime
+  sampling_enabled: false
+  postgres_enabled: false
+  postgres_cluster_id: ""
+  lifecycle_enabled: false             # 登记日志生命周期与五分钟容量观察
+  manage_native_retention: false       # 显式移交：保留轮转压缩，关闭 Core 原生按天／份数删除
+  allow_enforce: false                 # 还需 Root 为来源保存 enabled=true
+  admission_enabled: false             # 保护新增本地写入；空间不足会拒绝任务／上传
+  min_free_bytes: 21474836480           # 20 GiB
+  critical_free_bytes: 10737418240      # 10 GiB
+  host_budget_bytes: 96636764160        # 90 GiB，整盘实占 + 未写出预留
+  max_concurrent: 1
+  notification_tenant_uuid: ""         # 显式指定有效租户／成员；不广播
+  notification_member_uuid: ""
+  sources: []                          # 普通应用日志自动登记；PG／journal 需明确接入
+  # 原生 PG 示例：仅登记，不会启用清理／传输；路径按本机集群填写。
+  # sources:
+  #   - id: shared-postgres-native
+  #     name: PostgreSQL native SQL logs
+  #     kind: postgresql_logs
+  #     scope: shared
+  #     path: /var/lib/postgresql/14/main/log
+  #     rotation_format: postgresql
+  #     active_files: [postgresql-]        # 对应 postgresql-%Y-%m-%d_%H%M%S.log 前缀
+  #     current_logfiles: /var/lib/postgresql/14/main/current_logfiles
+  #     require_verified_archive: true    # 默认要求归档；UI 显式模式才可选择安全到期删除

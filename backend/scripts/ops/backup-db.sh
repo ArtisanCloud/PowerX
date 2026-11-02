@@ -18,6 +18,13 @@ if ! command -v pg_dump >/dev/null 2>&1; then
   exit 127
 fi
 
+# Core 准入后给出的单次文件硬上限；与共享租约一起限制独立 pg_dump 子进程。
+if [[ -n "${POWERX_BACKUP_MAX_BYTES:-}" ]]; then
+  [[ "${POWERX_BACKUP_MAX_BYTES}" =~ ^[0-9]{1,15}$ ]] || exit 1
+  (( POWERX_BACKUP_MAX_BYTES > 0 )) || exit 1
+  ulimit -f "$(( (POWERX_BACKUP_MAX_BYTES + 1023) / 1024 ))"
+fi
+
 OUTPUT_DIR="$(dirname "${OUTPUT_PATH}")"
 mkdir -p "${OUTPUT_DIR}"
 TMP_FILE="${OUTPUT_PATH}.tmp.$$"
