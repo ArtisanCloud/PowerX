@@ -201,6 +201,13 @@ auth:
   access_ttl: "720h"
   refresh_ttl: "336h"
 
+customer_auth:
+  # 小程序微信登录（Shared App）：Core 调 code2session 校验 wx.login code。
+  # app_secret 是密钥，生产请用 CORE_X_CUSTOMER_WECHAT_MINIAPP_APP_ID / _APP_SECRET 注入。
+  wechat_miniapp:
+    app_id: ""
+    app_secret: ""
+
 event:
   bus:
     type: local

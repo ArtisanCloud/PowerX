@@ -462,12 +462,12 @@ components:
       type: object
       required: [channel, credential]
       properties:
-        channel: {type: string, enum: [shopify_storefront]}
+        channel: {type: string, enum: [shopify_storefront, wechat_miniapp]}
         credential:
           type: object
           required: [type, value]
           properties:
-            type: {type: string, enum: [shopify_customer_access_token]}
+            type: {type: string, enum: [shopify_customer_access_token, wechat_miniapp_code]}
             value: {type: string}
     CustomerMembership:
       type: object

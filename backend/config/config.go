@@ -298,6 +298,7 @@ type Config struct {
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
 	WebAdminPort       int                      `yaml:"web_admin_port"`      // Web Admin 公开访问端口（setup/install 写入）
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
+	CustomerAuth       CustomerAuthConfig       `yaml:"customer_auth"`       // 客户委派登录渠道（小程序等）
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
 	Queue              QueueConfig              `yaml:"queue"`               // 全局队列驱动
 	Scheduler          SchedulerConfig          `yaml:"scheduler"`           // 全局调度器
@@ -404,6 +405,18 @@ type AuthConfig struct {
 
 	AccessTTLStr  string `yaml:"access_ttl"`  // e.g. "15m"
 	RefreshTTLStr string `yaml:"refresh_ttl"` // e.g. "336h" (14d)
+}
+
+// CustomerAuthConfig 客户委派登录渠道配置。
+type CustomerAuthConfig struct {
+	WeChatMiniApp WeChatMiniAppAuthConfig `yaml:"wechat_miniapp"`
+}
+
+// WeChatMiniAppAuthConfig 平台小程序凭证（Shared App），由 Core 调用 code2session。
+// app_secret 属于密钥，生产环境请用环境变量 CORE_X_CUSTOMER_WECHAT_MINIAPP_APP_SECRET 注入。
+type WeChatMiniAppAuthConfig struct {
+	AppID     string `yaml:"app_id"`
+	AppSecret string `yaml:"app_secret"`
 }
 
 // 事件总线配置
@@ -963,6 +976,12 @@ func loadFromEnvironment(cfg *Config, lookup environmentLookup) error {
 	}
 	if v := getenv("CORE_X_AUTH_REFRESH_TTL"); v != "" {
 		cfg.Auth.RefreshTTLStr = v
+	}
+	if v := getenv("CORE_X_CUSTOMER_WECHAT_MINIAPP_APP_ID"); v != "" {
+		cfg.CustomerAuth.WeChatMiniApp.AppID = v
+	}
+	if v := getenv("CORE_X_CUSTOMER_WECHAT_MINIAPP_APP_SECRET"); v != "" {
+		cfg.CustomerAuth.WeChatMiniApp.AppSecret = v
 	}
 
 	// EventBus配置

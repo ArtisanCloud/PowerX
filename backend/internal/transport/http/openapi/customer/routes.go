@@ -21,12 +21,24 @@ type handler struct {
 	auth        *customersvc.CustomerAuthService
 }
 
-func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps) {
+// RouteOption 调整客户委派路由的可选能力。
+type RouteOption func(*customersvc.CustomerAuthService)
+
+// WithWeChatMiniApp 用平台小程序凭证启用 wechat_miniapp 渠道。
+func WithWeChatMiniApp(cfg customersvc.WeChatMiniAppConfig) RouteOption {
+	return func(auth *customersvc.CustomerAuthService) { auth.WithWeChatMiniApp(cfg) }
+}
+
+func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps, opts ...RouteOption) {
 	if group == nil || deps == nil || deps.DB == nil || deps.AuthCustomer == nil {
 		return
 	}
 	tokens := customersvc.NewCustomerTokenService(deps.DB, deps.AuthCustomer.JWTSecret, deps.AuthCustomer.Issuer, deps.AuthCustomer.AccessTTL)
-	h := &handler{memberships: customersvc.NewMembershipService(deps.DB), tokens: tokens, auth: customersvc.NewCustomerAuthService(deps.DB, tokens)}
+	auth := customersvc.NewCustomerAuthService(deps.DB, tokens)
+	for _, opt := range opts {
+		opt(auth)
+	}
+	h := &handler{memberships: customersvc.NewMembershipService(deps.DB), tokens: tokens, auth: auth}
 	g := group.Group("/tenant/customer")
 	g.POST("/memberships:resolve", h.resolve)
 	g.GET("/memberships", h.list)
@@ -87,16 +99,24 @@ func (h *handler) issue(c *gin.Context, register bool) {
 		respondMembershipError(c, err)
 		return
 	}
-	if req.Channel != customersvc.ShopifyStorefrontChannel || req.Credential.Type != "shopify_customer_access_token" {
-		respondError(c, http.StatusBadRequest, "CUSTOMER_INVALID_ARGUMENT", customersvc.ErrCustomerCredentialInvalid)
-		return
-	}
 	var pair customersvc.TokenPair
 	var membership customersvc.Membership
-	if register {
-		pair, membership, err = h.auth.RegisterShopify(c.Request.Context(), tenantUUID, req.Credential.Value)
-	} else {
-		pair, membership, err = h.auth.LoginShopify(c.Request.Context(), tenantUUID, req.Credential.Value)
+	switch {
+	case req.Channel == customersvc.ShopifyStorefrontChannel && req.Credential.Type == "shopify_customer_access_token":
+		if register {
+			pair, membership, err = h.auth.RegisterShopify(c.Request.Context(), tenantUUID, req.Credential.Value)
+		} else {
+			pair, membership, err = h.auth.LoginShopify(c.Request.Context(), tenantUUID, req.Credential.Value)
+		}
+	case req.Channel == customersvc.WeChatMiniAppChannel && req.Credential.Type == customersvc.WeChatMiniAppCredentialType:
+		if register {
+			pair, membership, err = h.auth.RegisterWeChatMiniApp(c.Request.Context(), tenantUUID, req.Credential.Value)
+		} else {
+			pair, membership, err = h.auth.LoginWeChatMiniApp(c.Request.Context(), tenantUUID, req.Credential.Value)
+		}
+	default:
+		respondError(c, http.StatusBadRequest, "CUSTOMER_INVALID_ARGUMENT", customersvc.ErrCustomerCredentialInvalid)
+		return
 	}
 	if err != nil {
 		h.auth.RecordAttempt(c.Request.Context(), tenantUUID, claims.PluginID, req.Channel, req.Credential.Value, c.ClientIP(), capability, "CUSTOMER_CREDENTIAL_INVALID", false)

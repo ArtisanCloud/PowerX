@@ -4,6 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	httpmiddleware "github.com/ArtisanCloud/PowerX/internal/http/middleware"
+	customerSvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
 	metadataAdmin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/metadata"
 	agentOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/agent"
 	agentSessionOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/agent_session"
@@ -48,7 +49,10 @@ func RegisterAPIRoutes(
 	agentOpenAPI.Register(publicGroup, protectedGroup, deps)
 	agentSessionOpenAPI.NewHandler(deps.AgentSessionSvc).Register(protectedGroup)
 	capabilityRegistryOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
-	customerOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
+	customerOpenAPI.RegisterTenantRoutes(protectedGroup, deps, customerOpenAPI.WithWeChatMiniApp(customerSvc.WeChatMiniAppConfig{
+		AppID:     cfg.CustomerAuth.WeChatMiniApp.AppID,
+		AppSecret: cfg.CustomerAuth.WeChatMiniApp.AppSecret,
+	}))
 	iamOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	requestIdentityOpenAPI.Register(protectedGroup, deps)
 	skillsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)

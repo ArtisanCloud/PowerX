@@ -61,7 +61,7 @@ capabilities:
   description_i18n: {en: Verify the storefront credential in Core and register the tenant customer identity., zh-CN: 由底座验证店铺凭证并注册当前租户的客户身份。}
   module: customer
   title: Customer Auth Register
-  description: Verify a Shopify Storefront customer access token in Core and register its Core customer identity for the current tenant.
+  description: Verify a delegated customer credential in Core (Shopify Storefront customer access token or WeChat mini-program wx.login code) and register, idempotently, its Core customer identity for the current tenant.
   permission_code: corex.customer.auth:register
   agent_usable: false
   risk_level: high
@@ -83,7 +83,7 @@ capabilities:
   description_i18n: {en: Verify the storefront credential and issue a token for an existing tenant customer., zh-CN: 验证店铺凭证并为当前租户的已有客户签发令牌。}
   module: customer
   title: Customer Auth Login
-  description: Verify a Shopify Storefront customer access token in Core and issue a Core customer JWT for an existing tenant identity.
+  description: Verify a delegated customer credential in Core (Shopify Storefront customer access token or WeChat mini-program wx.login code) and issue a Core customer JWT for an existing tenant identity.
   permission_code: corex.customer.auth:login
   agent_usable: false
   risk_level: high
