@@ -33,13 +33,14 @@ type ShopifyStorefrontConfig struct {
 type VerifiedShopifyCustomer struct{ Subject, DisplayName, GivenName, FamilyName, Email, Phone string }
 
 type CustomerAuthService struct {
-	db          *gorm.DB
-	accounts    *AccountService
-	memberships *MembershipService
-	tokens      *CustomerTokenService
-	client      *http.Client
-	clientApps  ClientAppRegistry
-	verifiers   map[string]MiniAppCodeVerifier
+	db             *gorm.DB
+	accounts       *AccountService
+	memberships    *MembershipService
+	tokens         *CustomerTokenService
+	client         *http.Client
+	clientApps     ClientAppRegistry
+	verifiers      map[string]MiniAppCodeVerifier
+	phoneVerifiers map[string]MiniAppPhoneVerifier
 }
 
 func NewCustomerAuthService(db *gorm.DB, tokens *CustomerTokenService) *CustomerAuthService {

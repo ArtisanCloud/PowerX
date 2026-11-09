@@ -33,6 +33,7 @@ func (s *CustomerAuthService) WithClientApps(registry ClientAppRegistry) *Custom
 	if s != nil {
 		s.clientApps = registry
 		s.verifiers = map[string]MiniAppCodeVerifier{WeChatMiniAppChannel: weChatCode2Session{service: s}}
+		s.phoneVerifiers = map[string]MiniAppPhoneVerifier{WeChatMiniAppChannel: weChatPhoneNumber{service: s, tokens: &weChatAccessTokens{}}}
 	}
 	return s
 }
@@ -69,29 +70,38 @@ func (s *CustomerAuthService) LoginMiniApp(ctx context.Context, tenantUUID, plat
 	return pair, m, nil
 }
 
-// verifyMiniApp：插件 STS → 注册表查应用 → 插件 / 租户授权 → 密钥已配置 → 平台校验器校验 code。
-func (s *CustomerAuthService) verifyMiniApp(ctx context.Context, tenantUUID, platform, appID, code string) (ClientApp, MiniAppUser, string, error) {
+// resolveClientApp：插件 STS → 注册表查应用 → 插件 / 租户授权 → 平台有登录校验器 → 密钥已配置。
+func (s *CustomerAuthService) resolveClientApp(ctx context.Context, tenantUUID, platform, appID string) (ClientApp, string, error) {
 	pluginID, err := stsPluginID(ctx)
 	if err != nil {
-		return ClientApp{}, MiniAppUser{}, "", err
+		return ClientApp{}, "", err
 	}
 	if s.clientApps == nil {
-		return ClientApp{}, MiniAppUser{}, "", ErrCustomerClientAppNotFound
+		return ClientApp{}, "", ErrCustomerClientAppNotFound
 	}
 	app, ok := s.clientApps.Lookup(platform, appID)
 	if !ok {
-		return ClientApp{}, MiniAppUser{}, "", ErrCustomerClientAppNotFound
+		return ClientApp{}, "", ErrCustomerClientAppNotFound
 	}
 	if !app.allows(pluginID, tenantUUID) {
-		return ClientApp{}, MiniAppUser{}, "", ErrCustomerClientAppForbidden
+		return ClientApp{}, "", ErrCustomerClientAppForbidden
 	}
-	verifier, ok := s.verifiers[app.Platform]
-	if !ok {
-		return ClientApp{}, MiniAppUser{}, "", ErrCustomerClientPlatformUnsupported
+	if _, ok := s.verifiers[app.Platform]; !ok {
+		return ClientApp{}, "", ErrCustomerClientPlatformUnsupported
 	}
 	if app.Secret == "" {
-		return ClientApp{}, MiniAppUser{}, "", ErrCustomerClientAppNotConfigured
+		return ClientApp{}, "", ErrCustomerClientAppNotConfigured
 	}
+	return app, pluginID, nil
+}
+
+// verifyMiniApp：解析客户端应用后，用平台校验器校验登录 code。
+func (s *CustomerAuthService) verifyMiniApp(ctx context.Context, tenantUUID, platform, appID, code string) (ClientApp, MiniAppUser, string, error) {
+	app, pluginID, err := s.resolveClientApp(ctx, tenantUUID, platform, appID)
+	if err != nil {
+		return ClientApp{}, MiniAppUser{}, "", err
+	}
+	verifier := s.verifiers[app.Platform]
 	code = strings.TrimSpace(code)
 	if code == "" {
 		return ClientApp{}, MiniAppUser{}, "", ErrCustomerCredentialInvalid

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	customersvc "github.com/ArtisanCloud/PowerX/internal/service/customer"
@@ -30,6 +31,8 @@ func TestMiniAppErrorsHaveStableReasonCodes(t *testing.T) {
 		{customersvc.ErrCustomerClientPlatformUnsupported, http.StatusBadRequest, "CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED"},
 		{customersvc.ErrCustomerClientAppNotConfigured, http.StatusServiceUnavailable, "CUSTOMER_CLIENT_APP_NOT_CONFIGURED"},
 		{customersvc.ErrCustomerCredentialInvalid, http.StatusUnauthorized, "CUSTOMER_CREDENTIAL_INVALID"},
+		{customersvc.ErrCustomerPhoneCodeInvalid, http.StatusUnauthorized, "CUSTOMER_PHONE_CODE_INVALID"},
+		{customersvc.ErrCustomerPhoneConflict, http.StatusConflict, "CUSTOMER_PHONE_CONFLICT"},
 	} {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
@@ -41,4 +44,20 @@ func TestMiniAppErrorsHaveStableReasonCodes(t *testing.T) {
 		require.NotEmpty(t, body)
 		require.Contains(t, w.Body.String(), tt.reason)
 	}
+}
+
+func TestPhoneVerifyRejectsUnauthenticatedAndBadInput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &handler{}
+	engine := gin.New()
+	engine.POST("/api/v1/tenant/customer/phone:verify", h.verifyPhone)
+	for _, body := range []string{`{}`, `not-json`} {
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/tenant/customer/phone:verify", strings.NewReader(body)))
+		require.Equal(t, http.StatusBadRequest, w.Code, body)
+	}
+	// 没有插件 STS 凭证时不得进入换号流程。
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/tenant/customer/phone:verify", strings.NewReader(`{"channel":"wechat_miniapp","app_id":"wx1","credential":{"type":"wechat_miniapp_phone_code","value":"c"}}`)))
+	require.Equal(t, http.StatusUnauthorized, w.Code)
 }

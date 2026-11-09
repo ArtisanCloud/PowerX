@@ -45,6 +45,7 @@ func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps, opts ...Rou
 	g.POST("/auth/validate", h.validate)
 	g.POST("/auth/register", h.register)
 	g.POST("/auth/login", h.login)
+	g.POST("/phone:verify", h.verifyPhone)
 }
 
 func (h *handler) resolve(c *gin.Context) {
@@ -130,10 +131,17 @@ func (h *handler) issue(c *gin.Context, register bool) {
 		return
 	}
 	h.auth.RecordAttempt(c.Request.Context(), tenantUUID, claims.PluginID, req.Channel, req.Credential.Value, c.ClientIP(), capability, "", true)
+	// phone_verified 供插件决定是否引导客户完成手机号认证。
+	phoneVerified, err := h.auth.PhoneVerified(c.Request.Context(), membership.CustomerUUID)
+	if err != nil {
+		respondMembershipError(c, err)
+		return
+	}
 	dto.ResponseSuccess(c, gin.H{
-		"access_token":  pair.AccessToken,
-		"refresh_token": pair.RefreshToken,
-		"expires_in":    pair.ExpiresIn,
+		"access_token":   pair.AccessToken,
+		"refresh_token":  pair.RefreshToken,
+		"expires_in":     pair.ExpiresIn,
+		"phone_verified": phoneVerified,
 		"context": gin.H{
 			"tenant_uuid":     membership.TenantUUID,
 			"customer_uuid":   membership.CustomerUUID,
@@ -153,46 +161,98 @@ func (h *handler) respondCurrent(c *gin.Context, capabilityID string) {
 		respondError(c, http.StatusBadRequest, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
 		return
 	}
-	if c.Request.URL.RawQuery != "" || c.GetHeader("X-Tenant-UUID") != "" || c.GetHeader("X-Customer-UUID") != "" || c.GetHeader("X-Membership-UUID") != "" {
-		respondError(c, http.StatusBadRequest, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
+	tenantUUID, customerUUID, _, ok := h.currentCustomer(c, capabilityID)
+	if !ok {
 		return
 	}
-	claims := reqctx.GetClaims(c.Request.Context())
-	if claims == nil || !strings.EqualFold(claims.Issuer, "powerx-sts") || !hasAudience(claims.Audience, "powerx:api") || strings.TrimSpace(claims.PluginID) == "" {
-		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
-		return
-	}
-	tenantUUID, err := reqctx.CanonicalTenantUUID(claims.TenantUUID)
-	if err != nil {
-		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
-		return
-	}
-	if err := h.memberships.AuthorizeDelegatedActorForCapability(c.Request.Context(), tenantUUID, claims.PluginID, capabilityID); err != nil {
-		respondMembershipError(c, err)
-		return
-	}
-	raw := strings.TrimSpace(c.GetHeader(customerAuthorizationHeader))
-	if !strings.HasPrefix(strings.ToLower(raw), "bearer ") {
-		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
-		return
-	}
-	customerClaims, err := h.tokens.Validate(c.Request.Context(), strings.TrimSpace(raw[7:]))
-	if err != nil || customerClaims == nil {
-		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
-		return
-	}
-	customerUUID, customerErr := uuid.Parse(strings.TrimSpace(customerClaims.CustomerUUID))
-	if customerErr != nil || customerClaims.TenantUUID != tenantUUID {
-		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
-		return
-	}
-	item, err := h.memberships.ResolveCurrent(c.Request.Context(), tenantUUID, customerUUID.String())
+	item, err := h.memberships.ResolveCurrent(c.Request.Context(), tenantUUID, customerUUID)
 	if err != nil {
 		respondMembershipError(c, err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"item": item})
 }
+
+// currentCustomer 校验插件 STS（含能力授权）与当前客户 token，返回租户、客户与插件；失败时已写出响应。
+// 租户、客户只来自凭证，请求里携带的租户 / 客户标识一律拒绝。
+func (h *handler) currentCustomer(c *gin.Context, capabilityID string) (string, string, string, bool) {
+	if c.Request.URL.RawQuery != "" || c.GetHeader("X-Tenant-UUID") != "" || c.GetHeader("X-Customer-UUID") != "" || c.GetHeader("X-Membership-UUID") != "" {
+		respondError(c, http.StatusBadRequest, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
+		return "", "", "", false
+	}
+	claims := reqctx.GetClaims(c.Request.Context())
+	if claims == nil || !strings.EqualFold(claims.Issuer, "powerx-sts") || !hasAudience(claims.Audience, "powerx:api") || strings.TrimSpace(claims.PluginID) == "" {
+		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
+		return "", "", "", false
+	}
+	tenantUUID, err := reqctx.CanonicalTenantUUID(claims.TenantUUID)
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
+		return "", "", "", false
+	}
+	if err := h.memberships.AuthorizeDelegatedActorForCapability(c.Request.Context(), tenantUUID, claims.PluginID, capabilityID); err != nil {
+		respondMembershipError(c, err)
+		return "", "", "", false
+	}
+	raw := strings.TrimSpace(c.GetHeader(customerAuthorizationHeader))
+	if !strings.HasPrefix(strings.ToLower(raw), "bearer ") {
+		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
+		return "", "", "", false
+	}
+	customerClaims, err := h.tokens.Validate(c.Request.Context(), strings.TrimSpace(raw[7:]))
+	if err != nil || customerClaims == nil {
+		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
+		return "", "", "", false
+	}
+	customerUUID, customerErr := uuid.Parse(strings.TrimSpace(customerClaims.CustomerUUID))
+	if customerErr != nil || customerClaims.TenantUUID != tenantUUID {
+		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
+		return "", "", "", false
+	}
+	return tenantUUID, customerUUID.String(), claims.PluginID, true
+}
+
+type phoneVerifyRequest struct {
+	Channel    string `json:"channel" binding:"required"`
+	AppID      string `json:"app_id"`
+	Credential struct {
+		Type  string `json:"type" binding:"required"`
+		Value string `json:"value" binding:"required"`
+	} `json:"credential"`
+}
+
+// verifyPhone 为当前客户认证手机号（小程序 getPhoneNumber 的一次性 code）。
+func (h *handler) verifyPhone(c *gin.Context) {
+	var req phoneVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "CUSTOMER_INVALID_ARGUMENT", err)
+		return
+	}
+	tenantUUID, customerUUID, pluginID, ok := h.currentCustomer(c, customersvc.CustomerPhoneVerifyCapabilityID)
+	if !ok {
+		return
+	}
+	want, isMiniApp := customersvc.MiniAppPhoneCredentialType(req.Channel)
+	if !isMiniApp || strings.TrimSpace(req.Credential.Type) != want || strings.TrimSpace(req.AppID) == "" {
+		respondError(c, http.StatusBadRequest, "CUSTOMER_INVALID_ARGUMENT", customersvc.ErrCustomerPhoneCodeInvalid)
+		return
+	}
+	channel := strings.TrimSpace(req.Channel) + "_phone"
+	if err := h.auth.AllowAttempt(c.Request.Context(), tenantUUID, pluginID, channel, customerUUID, c.ClientIP()); err != nil {
+		h.auth.RecordAttempt(c.Request.Context(), tenantUUID, pluginID, channel, customerUUID, c.ClientIP(), customersvc.CustomerPhoneVerifyCapabilityID, "CUSTOMER_FORBIDDEN", false)
+		respondMembershipError(c, err)
+		return
+	}
+	out, err := h.auth.VerifyMiniAppPhone(c.Request.Context(), tenantUUID, customerUUID, req.Channel, req.AppID, req.Credential.Value)
+	if err != nil {
+		h.auth.RecordAttempt(c.Request.Context(), tenantUUID, pluginID, channel, customerUUID, c.ClientIP(), customersvc.CustomerPhoneVerifyCapabilityID, "CUSTOMER_PHONE_VERIFY_FAILED", false)
+		respondAuthError(c, err)
+		return
+	}
+	h.auth.RecordAttempt(c.Request.Context(), tenantUUID, pluginID, channel, customerUUID, c.ClientIP(), customersvc.CustomerPhoneVerifyCapabilityID, "", true)
+	dto.ResponseSuccess(c, gin.H{"phone_masked": out.PhoneMasked, "verified_at": out.VerifiedAt, "phone_verified": true})
+}
+
 func isMiniAppCredential(channel, credentialType string) bool {
 	want, ok := customersvc.MiniAppCredentialType(channel)
 	return ok && strings.TrimSpace(credentialType) == want
@@ -206,6 +266,10 @@ func respondAuthError(c *gin.Context, err error) {
 		respondError(c, http.StatusForbidden, "CUSTOMER_CLIENT_APP_FORBIDDEN", err)
 	case errors.Is(err, customersvc.ErrCustomerClientPlatformUnsupported):
 		respondError(c, http.StatusBadRequest, "CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED", err)
+	case errors.Is(err, customersvc.ErrCustomerPhoneCodeInvalid):
+		respondError(c, http.StatusUnauthorized, "CUSTOMER_PHONE_CODE_INVALID", err)
+	case errors.Is(err, customersvc.ErrCustomerPhoneConflict):
+		respondError(c, http.StatusConflict, "CUSTOMER_PHONE_CONFLICT", err)
 	case errors.Is(err, customersvc.ErrCustomerClientAppNotConfigured):
 		respondError(c, http.StatusServiceUnavailable, "CUSTOMER_CLIENT_APP_NOT_CONFIGURED", err)
 	case errors.Is(err, customersvc.ErrCustomerCredentialInvalid):
