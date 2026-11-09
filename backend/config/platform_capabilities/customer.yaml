@@ -56,12 +56,35 @@ capabilities:
     tool_scope: customer.auth.validate
   title_i18n: {en: Customer Auth Validate, zh-CN: 客户认证校验}
   description_i18n: {en: Validate the current customer credential without accepting a customer identifier in the request., zh-CN: 校验当前客户凭证，不接受请求中指定客户标识。}
+- capability_id: com.corex.customer.phone.verify
+  module: customer
+  title: Customer Phone Verify
+  description: Verify the current customer's phone number with a one-time mini-program phone code (WeChat getPhoneNumber) exchanged by Core using the registered client app, and store it as the verified primary phone.
+  permission_code: corex.customer.phone:verify
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.phone.verify]
+  tool_scopes: [customer.phone.verify]
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/tenant/customer/phone:verify"
+    method: POST
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/http-openapi.yaml#/paths/~1tenant~1customer~1phone:verify/post
+    auth_type: sts_and_customer_jwt
+    actor_context: service_actor
+    resource_scope: customer_self
+    sts_direct: true
+    tool_scope: customer.phone.verify
+  title_i18n: {en: Customer Phone Verify, zh-CN: 客户手机号认证}
+  description_i18n: {en: Verify and bind the current customer's phone number from a mini-program phone code; plugins never see the raw number., zh-CN: 用小程序手机号 code 为当前客户认证并绑定手机号，插件只拿到脱敏号码。}
 - capability_id: com.corex.customer.auth.register
   title_i18n: {en: Customer Registration, zh-CN: 客户注册}
   description_i18n: {en: Verify the storefront credential in Core and register the tenant customer identity., zh-CN: 由底座验证店铺凭证并注册当前租户的客户身份。}
   module: customer
   title: Customer Auth Register
-  description: Verify a Shopify Storefront customer access token in Core and register its Core customer identity for the current tenant.
+  description: Verify a delegated customer credential in Core (Shopify Storefront customer access token or one-time mini-program login code such as WeChat wx.login, together with the registered client app_id) and register, idempotently, its Core customer identity for the current tenant.
   permission_code: corex.customer.auth:register
   agent_usable: false
   risk_level: high
@@ -83,7 +106,7 @@ capabilities:
   description_i18n: {en: Verify the storefront credential and issue a token for an existing tenant customer., zh-CN: 验证店铺凭证并为当前租户的已有客户签发令牌。}
   module: customer
   title: Customer Auth Login
-  description: Verify a Shopify Storefront customer access token in Core and issue a Core customer JWT for an existing tenant identity.
+  description: Verify a delegated customer credential in Core (Shopify Storefront customer access token or one-time mini-program login code such as WeChat wx.login, together with the registered client app_id) and issue a Core customer JWT for an existing tenant identity.
   permission_code: corex.customer.auth:login
   agent_usable: false
   risk_level: high

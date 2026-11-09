@@ -71,6 +71,7 @@ func TestValidateSTSRouteOnlyAllowsGatewayAndCoreCapabilityRoutes(t *testing.T) 
 		{"POST", "/api/v1/tenant/customer/auth/register"},
 		{"POST", "/api/v1/tenant/customer/auth/login"},
 		{"POST", "/api/v1/tenant/customer/auth/validate"},
+		{"POST", "/api/v1/tenant/customer/phone:verify"},
 		{"GET", "/api/v1/tenant/iam/roles"},
 		{"POST", "/api/v1/tenant/iam/members:batch-find-by-display-names"},
 		{"GET", "/api/v1/tenant/knowledge/spaces"},
