@@ -202,11 +202,18 @@ auth:
   refresh_ttl: "336h"
 
 customer_auth:
-  # 小程序微信登录（Shared App）：Core 调 code2session 校验 wx.login code。
-  # app_secret 是密钥，生产请用 CORE_X_CUSTOMER_WECHAT_MINIAPP_APP_ID / _APP_SECRET 注入。
-  wechat_miniapp:
-    app_id: ""
-    app_secret: ""
+  # 客户端应用注册表：小程序等平台的凭证由 Core 持有，插件登录时只转发一次性 code 与 app_id。
+  # Core 先校验调用插件（与可选租户）有权使用该应用，再用该应用的密钥校验 code。
+  # platform：wechat_miniapp（已支持）、alipay_miniapp / douyin_miniapp（预留，登录会返回 CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED）。
+  # app_secret 与 app_secret_env 二选一，生产环境请用 app_secret_env 指向注入密钥的环境变量。
+  client_apps: []
+  # client_apps:
+  #   - platform: wechat_miniapp
+  #     app_id: wx0000000000000000
+  #     name: 示例小程序
+  #     app_secret_env: CORE_X_EXAMPLE_WECHAT_SECRET
+  #     plugin_ids: [com.powerx.plugins.example]
+  #     tenant_uuids: []   # 为空表示不限租户
 
 event:
   bus:

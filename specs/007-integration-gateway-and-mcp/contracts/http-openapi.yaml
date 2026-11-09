@@ -462,12 +462,21 @@ components:
       type: object
       required: [channel, credential]
       properties:
-        channel: {type: string, enum: [shopify_storefront, wechat_miniapp]}
+        channel: {type: string, enum: [shopify_storefront, wechat_miniapp, alipay_miniapp, douyin_miniapp]}
+        app_id:
+          type: string
+          description: >-
+            Client app (mini program) id; required when channel is a mini-program platform. Core looks it up in
+            customer_auth.client_apps, checks the calling plugin (and tenant) is allowed to use it, then verifies the
+            one-time code with that app's credentials. alipay_miniapp / douyin_miniapp are reserved and currently
+            answer CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED. Errors: CUSTOMER_CLIENT_APP_NOT_FOUND (400),
+            CUSTOMER_CLIENT_APP_FORBIDDEN (403), CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED (400),
+            CUSTOMER_CLIENT_APP_NOT_CONFIGURED (503).
         credential:
           type: object
           required: [type, value]
           properties:
-            type: {type: string, enum: [shopify_customer_access_token, wechat_miniapp_code]}
+            type: {type: string, enum: [shopify_customer_access_token, wechat_miniapp_code, alipay_miniapp_code, douyin_miniapp_code]}
             value: {type: string}
     CustomerMembership:
       type: object

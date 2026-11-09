@@ -24,9 +24,9 @@ type handler struct {
 // RouteOption 调整客户委派路由的可选能力。
 type RouteOption func(*customersvc.CustomerAuthService)
 
-// WithWeChatMiniApp 用平台小程序凭证启用 wechat_miniapp 渠道。
-func WithWeChatMiniApp(cfg customersvc.WeChatMiniAppConfig) RouteOption {
-	return func(auth *customersvc.CustomerAuthService) { auth.WithWeChatMiniApp(cfg) }
+// WithClientApps 用客户端应用注册表启用小程序（wechat_miniapp 等）委派登录。
+func WithClientApps(registry customersvc.ClientAppRegistry) RouteOption {
+	return func(auth *customersvc.CustomerAuthService) { auth.WithClientApps(registry) }
 }
 
 func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps, opts ...RouteOption) {
@@ -58,6 +58,8 @@ func (h *handler) validate(c *gin.Context) { h.respondCurrent(c, "com.corex.cust
 type authRequest struct {
 	TenantUUID string `json:"tenant_uuid"`
 	Channel    string `json:"channel" binding:"required"`
+	// AppID 是客户端应用（小程序）ID；channel 为小程序平台时必填，Core 据此在注册表中找到凭证并校验插件授权。
+	AppID      string `json:"app_id"`
 	Credential struct {
 		Type  string `json:"type" binding:"required"`
 		Value string `json:"value" binding:"required"`
@@ -108,11 +110,15 @@ func (h *handler) issue(c *gin.Context, register bool) {
 		} else {
 			pair, membership, err = h.auth.LoginShopify(c.Request.Context(), tenantUUID, req.Credential.Value)
 		}
-	case req.Channel == customersvc.WeChatMiniAppChannel && req.Credential.Type == customersvc.WeChatMiniAppCredentialType:
+	case isMiniAppCredential(req.Channel, req.Credential.Type):
+		if strings.TrimSpace(req.AppID) == "" {
+			respondError(c, http.StatusBadRequest, "CUSTOMER_INVALID_ARGUMENT", customersvc.ErrCustomerClientAppNotFound)
+			return
+		}
 		if register {
-			pair, membership, err = h.auth.RegisterWeChatMiniApp(c.Request.Context(), tenantUUID, req.Credential.Value)
+			pair, membership, err = h.auth.RegisterMiniApp(c.Request.Context(), tenantUUID, req.Channel, req.AppID, req.Credential.Value)
 		} else {
-			pair, membership, err = h.auth.LoginWeChatMiniApp(c.Request.Context(), tenantUUID, req.Credential.Value)
+			pair, membership, err = h.auth.LoginMiniApp(c.Request.Context(), tenantUUID, req.Channel, req.AppID, req.Credential.Value)
 		}
 	default:
 		respondError(c, http.StatusBadRequest, "CUSTOMER_INVALID_ARGUMENT", customersvc.ErrCustomerCredentialInvalid)
@@ -187,8 +193,21 @@ func (h *handler) respondCurrent(c *gin.Context, capabilityID string) {
 	}
 	dto.ResponseSuccess(c, gin.H{"item": item})
 }
+func isMiniAppCredential(channel, credentialType string) bool {
+	want, ok := customersvc.MiniAppCredentialType(channel)
+	return ok && strings.TrimSpace(credentialType) == want
+}
+
 func respondAuthError(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, customersvc.ErrCustomerClientAppNotFound):
+		respondError(c, http.StatusBadRequest, "CUSTOMER_CLIENT_APP_NOT_FOUND", err)
+	case errors.Is(err, customersvc.ErrCustomerClientAppForbidden):
+		respondError(c, http.StatusForbidden, "CUSTOMER_CLIENT_APP_FORBIDDEN", err)
+	case errors.Is(err, customersvc.ErrCustomerClientPlatformUnsupported):
+		respondError(c, http.StatusBadRequest, "CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED", err)
+	case errors.Is(err, customersvc.ErrCustomerClientAppNotConfigured):
+		respondError(c, http.StatusServiceUnavailable, "CUSTOMER_CLIENT_APP_NOT_CONFIGURED", err)
 	case errors.Is(err, customersvc.ErrCustomerCredentialInvalid):
 		respondError(c, http.StatusUnauthorized, "CUSTOMER_CREDENTIAL_INVALID", err)
 	case errors.Is(err, customersvc.ErrCustomerIdentityNotFound):

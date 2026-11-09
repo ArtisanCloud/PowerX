@@ -38,7 +38,8 @@ type CustomerAuthService struct {
 	memberships *MembershipService
 	tokens      *CustomerTokenService
 	client      *http.Client
-	wechat      WeChatMiniAppConfig
+	clientApps  ClientAppRegistry
+	verifiers   map[string]MiniAppCodeVerifier
 }
 
 func NewCustomerAuthService(db *gorm.DB, tokens *CustomerTokenService) *CustomerAuthService {
