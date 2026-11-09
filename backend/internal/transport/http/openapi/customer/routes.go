@@ -209,6 +209,10 @@ func (h *handler) currentCustomer(c *gin.Context, capabilityID string) (string, 
 		respondError(c, http.StatusUnauthorized, "CUSTOMER_UNAUTHORIZED", customersvc.ErrCustomerUnauthorized)
 		return "", "", "", false
 	}
+	if _, err := h.memberships.ResolveCurrent(c.Request.Context(), tenantUUID, customerUUID.String()); err != nil {
+		respondMembershipError(c, err)
+		return "", "", "", false
+	}
 	return tenantUUID, customerUUID.String(), claims.PluginID, true
 }
 

@@ -44,5 +44,8 @@ func (r *AccountRepository) UpdateAdminProfile(ctx context.Context, tenant, id, 
 	if len(updates) == 0 {
 		return gorm.ErrInvalidData
 	}
+	if err := invalidateChangedPhone(account, updates); err != nil {
+		return err
+	}
 	return r.db.WithContext(ctx).Model(&account).Updates(updates).Error
 }

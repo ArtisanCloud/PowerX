@@ -3,6 +3,7 @@ package customer
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	modelaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelcustomer "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/customer"
+	customerrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/customer"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -26,10 +28,6 @@ const (
 
 	weChatStableTokenURL = "https://api.weixin.qq.com/cgi-bin/stable_token"
 	weChatPhoneNumberURL = "https://api.weixin.qq.com/wxa/business/getuserphonenumber"
-
-	// 账户 metadata 中的手机号验证标记。
-	metaPhoneVerifiedAt  = "phone_verified_at"
-	metaPhoneVerifiedVia = "phone_verified_via"
 )
 
 var miniAppPhoneCredentialTypes = map[string]string{
@@ -90,6 +88,10 @@ func (s *CustomerAuthService) VerifyMiniAppPhone(ctx context.Context, tenantUUID
 	if err != nil {
 		return PhoneVerification{}, err
 	}
+	// 在消费一次性上游 code 前拒绝已停用或过期的客户。
+	if _, err := s.memberships.ResolveCurrent(ctx, tenantUUID, customerUUID); err != nil {
+		return PhoneVerification{}, err
+	}
 	verifier, ok := s.phoneVerifiers[app.Platform]
 	if !ok {
 		return PhoneVerification{}, ErrCustomerClientPlatformUnsupported
@@ -105,78 +107,62 @@ func (s *CustomerAuthService) VerifyMiniAppPhone(ctx context.Context, tenantUUID
 	phone := info.E164()
 	now := time.Now().UTC()
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var membership modelcustomer.TenantMembership
-		if err := tx.Where("tenant_uuid = ? AND customer_uuid = ?", tenantUUID, customerUUID).First(&membership).Error; err != nil {
+		repo := customerrepo.NewAccountRepository(tx)
+		if err := repo.LockPhoneVerification(ctx, phone); err != nil {
+			return ErrCustomerUpstreamDependency
+		}
+		account, membership, err := repo.LockPhoneAccount(ctx, tenantUUID, customerUUID)
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrCustomerMembershipNotFound
 			}
 			return ErrCustomerUpstreamDependency
 		}
-		if err := ensurePhoneNotTaken(tx, tenantUUID, customerUUID, phone); err != nil {
-			return err
+		// 上游调用期间可能发生停用或到期，必须在持锁事务中再次判断。
+		if account.Status != modelcustomer.StatusActive || membership.Status != modelcustomer.StatusActive || (membership.ExpiresAt != nil && !membership.ExpiresAt.After(time.Now())) {
+			return ErrCustomerMembershipInactive
 		}
-		var account modelcustomer.Account
-		if err := tx.Where("uuid = ?", customerUUID).First(&account).Error; err != nil {
+		others, err := repo.OtherPhoneAccounts(ctx, tenantUUID, customerUUID, phone)
+		if err != nil {
 			return ErrCustomerUpstreamDependency
+		}
+		for _, other := range others {
+			if other.HasVerifiedPhone() {
+				return ErrCustomerPhoneConflict
+			}
 		}
 		meta := map[string]any{}
 		if len(account.Metadata) > 0 {
-			_ = json.Unmarshal(account.Metadata, &meta)
-		}
-		meta[metaPhoneVerifiedAt] = now.Format(time.RFC3339)
-		meta[metaPhoneVerifiedVia] = app.Platform + ":" + app.AppID
-		raw, _ := json.Marshal(meta)
-		if err := tx.Model(&modelcustomer.Account{}).Where("uuid = ?", customerUUID).Updates(map[string]any{"primary_phone": phone, "metadata": datatypes.JSON(raw)}).Error; err != nil {
-			return ErrCustomerUpstreamDependency
-		}
-		if strings.TrimSpace(membership.PrimaryContactUUID) != "" {
-			if err := tx.Model(&modelcustomer.Contact{}).Where("uuid = ? AND tenant_uuid = ?", membership.PrimaryContactUUID, tenantUUID).Update("phone", phone).Error; err != nil {
+			if err := json.Unmarshal(account.Metadata, &meta); err != nil {
 				return ErrCustomerUpstreamDependency
 			}
 		}
+		if meta == nil {
+			meta = map[string]any{}
+		}
+		meta[modelcustomer.PhoneVerifiedAtKey] = now.Format(time.RFC3339)
+		meta[modelcustomer.PhoneVerifiedViaKey] = app.Platform + ":" + app.AppID
+		meta[modelcustomer.PhoneVerifiedHashKey] = modelcustomer.PhoneVerificationHash(phone)
+		raw, _ := json.Marshal(meta)
 		changes, _ := json.Marshal(map[string]any{"fields": []string{"primary_phone"}, "verified_via": app.Platform + ":" + app.AppID, "plugin_id": pluginID})
-		return tx.Create(&modelaudit.AuditEvent{OccurredAt: now, TenantUUID: tenantUUID, Source: "customer.auth.phone", Operation: "customer.account.phone_verified", ResourceType: "customer.account", ResourceID: customerUUID, Outcome: "SUCCESS", Severity: "INFO", CorrelationID: reqctx.GetTraceID(ctx), ChangesAfter: datatypes.JSON(changes), ChangesRedacted: true}).Error
-	})
+		if err := repo.SaveVerifiedPhone(ctx, account, membership, phone, datatypes.JSON(raw), &modelaudit.AuditEvent{OccurredAt: now, TenantUUID: tenantUUID, Source: "customer.auth.phone", Operation: "customer.account.phone_verified", ResourceType: "customer.account", ResourceID: customerUUID, Outcome: "SUCCESS", Severity: "INFO", CorrelationID: reqctx.GetTraceID(ctx), ChangesAfter: datatypes.JSON(changes), ChangesRedacted: true}); err != nil {
+			return ErrCustomerUpstreamDependency
+		}
+		return nil
+	}, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return PhoneVerification{}, err
 	}
 	return PhoneVerification{PhoneMasked: MaskPhone(info.PurePhone), VerifiedAt: now}, nil
 }
 
-// ensurePhoneNotTaken：同一租户内其他客户已验证同一号码时拒绝；未验证的号码（如导入数据）不算冲突。
-func ensurePhoneNotTaken(tx *gorm.DB, tenantUUID, customerUUID, phone string) error {
-	var others []modelcustomer.Account
-	members := tx.Model(&modelcustomer.TenantMembership{}).Select("customer_uuid").Where("tenant_uuid = ?", tenantUUID)
-	if err := tx.Where("primary_phone = ? AND uuid <> ? AND uuid IN (?)", phone, customerUUID, members).Find(&others).Error; err != nil {
-		return ErrCustomerUpstreamDependency
-	}
-	for _, other := range others {
-		if phoneVerified(other.Metadata) {
-			return ErrCustomerPhoneConflict
-		}
-	}
-	return nil
-}
-
-func phoneVerified(metadata datatypes.JSON) bool {
-	if len(metadata) == 0 {
-		return false
-	}
-	meta := map[string]any{}
-	if err := json.Unmarshal(metadata, &meta); err != nil {
-		return false
-	}
-	v, _ := meta[metaPhoneVerifiedAt].(string)
-	return strings.TrimSpace(v) != ""
-}
-
-// PhoneVerified 返回客户是否已完成手机号认证（登录响应据此决定是否引导认证）。
+// PhoneVerified 返回当前号码是否具有匹配的认证证据；缺少号码绑定的旧标记不可信。
 func (s *CustomerAuthService) PhoneVerified(ctx context.Context, customerUUID string) (bool, error) {
-	var account modelcustomer.Account
-	if err := s.db.WithContext(ctx).Select("metadata").Where("uuid = ?", customerUUID).First(&account).Error; err != nil {
+	account, err := customerrepo.NewAccountRepository(s.db).PhoneAccount(ctx, customerUUID)
+	if err != nil {
 		return false, ErrCustomerUpstreamDependency
 	}
-	return phoneVerified(account.Metadata), nil
+	return account.HasVerifiedPhone(), nil
 }
 
 // ---- 微信 ----

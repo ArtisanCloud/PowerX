@@ -99,7 +99,12 @@ paths:
         Requires plugin STS Authorization and X-PowerX-Customer-Authorization. Core looks up the client app (channel, app_id)
         in customer_auth.client_apps, checks the calling plugin may use it, exchanges the one-time getPhoneNumber code with
         the platform (WeChat getuserphonenumber via a cached stable access_token), then stores the E.164 phone as the account
-        primary_phone with metadata phone_verified_at. A phone already verified by another customer in the tenant is rejected.
+        primary_phone with metadata phone_verified_at, phone_verified_via and phone_verified_hash bound to that number.
+        The account and membership must be active and unexpired both before the exchange and inside the write transaction.
+        PostgreSQL serializes verification of the same phone across instances using a transaction-scoped advisory lock and
+        READ COMMITTED reads. A phone already verified by another customer in any tenant shared with the target account is rejected.
+        Admin or service profile edits that change or clear primary_phone invalidate its verification; reverting the edit does
+        not restore verification. Legacy markers without a matching phone hash require a new verification.
       parameters:
         - $ref: '#/components/parameters/CustomerDelegationAuthorization'
       requestBody:
@@ -131,7 +136,7 @@ paths:
                   phone_verified: {type: boolean}
         '400': {description: CUSTOMER_INVALID_ARGUMENT, CUSTOMER_CLIENT_APP_NOT_FOUND or CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED}
         '401': {description: CUSTOMER_UNAUTHORIZED or CUSTOMER_PHONE_CODE_INVALID}
-        '403': {description: CUSTOMER_FORBIDDEN or CUSTOMER_CLIENT_APP_FORBIDDEN}
+        '403': {description: CUSTOMER_FORBIDDEN, CUSTOMER_CLIENT_APP_FORBIDDEN or CUSTOMER_MEMBERSHIP_INACTIVE}
         '409': {description: CUSTOMER_PHONE_CONFLICT}
         '503': {description: CUSTOMER_UPSTREAM_DEPENDENCY or CUSTOMER_CLIENT_APP_NOT_CONFIGURED}
   /admin/capabilities:
@@ -543,7 +548,7 @@ components:
         access_token: {type: string}
         refresh_token: {type: string}
         expires_in: {type: integer, format: int64}
-        phone_verified: {type: boolean, description: Whether the customer has a Core-verified phone (see /tenant/customer/phone:verify).}
+        phone_verified: {type: boolean, description: Whether the current primary_phone has matching Core verification evidence; changes invalidate it (see /tenant/customer/phone:verify).}
         context:
           type: object
           required: [tenant_uuid, customer_uuid, membership_uuid, status, roles, scopes, authenticated, source]
