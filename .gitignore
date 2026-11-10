@@ -109,6 +109,15 @@ api/grpc/gen/*
 .cache
 .gomodcache
 storage/
+# Source and test namespaces are not runtime storage directories.
+!backend/internal/transport/http/admin/storage/
+!backend/internal/transport/http/admin/storage/**
+!web-admin/app/components/monitor/storage/
+!web-admin/app/components/monitor/storage/**
+!web-admin/tests/unit/storage/
+!web-admin/tests/unit/storage/**
+!web-admin/tests/e2e/storage/
+!web-admin/tests/e2e/storage/**
 
 .claude
 
@@ -126,3 +135,6 @@ reports/
 # Isolated Nuxt build/output directories used by browser acceptance
 /web-admin/.nuxt-*/
 /web-admin/.output-*/
+
+# Plugin replacement recovery artifacts (contains host configuration)
+.powerx-install-backups/

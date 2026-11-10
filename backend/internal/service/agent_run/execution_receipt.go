@@ -32,8 +32,8 @@ func (s *RedisStore) executionReceipt(ctx context.Context, ref TaskRef, owner st
 		return "", WorkResult{}, ErrInvalid
 	}
 	claim := uuid.NewString()
-	stateKey, _ := runKeys(identity)
-	_, taskKey, _ := schedulingKeys(identity)
+	stateKey, _ := s.runKeys(identity)
+	_, taskKey, _ := s.schedulingKeys(identity)
 	for retry := 0; retry < 10; retry++ {
 		var receipt WorkResult
 		var acquired string

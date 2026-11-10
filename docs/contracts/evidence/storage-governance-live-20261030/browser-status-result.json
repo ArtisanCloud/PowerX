@@ -1,0 +1,61 @@
+{
+  "real_core": true,
+  "mocked_api_routes": 0,
+  "started_at": "2026-10-30T13:40:04.782Z",
+  "checks": {
+    "draft_retained_across_sections": true,
+    "real_sse_refresh_preserves_open_draft": true,
+    "preview_excludes_business_and_links": true,
+    "no_idle_status_polling": true,
+    "navigation_and_no_document_overflow_at_1440_390_320": true
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime/events",
+      "time": 1793367606052
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793367606052
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793367607078
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793367607862
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793367607862
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/ops/storage/runtime/previews",
+      "time": 1793367608081
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/policy",
+      "time": 1793367612768
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/history",
+      "time": 1793367612833
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/cleanup-runs",
+      "time": 1793367612884
+    }
+  ],
+  "page_errors": [],
+  "finished_at": "2026-10-30T13:40:13.633Z"
+}

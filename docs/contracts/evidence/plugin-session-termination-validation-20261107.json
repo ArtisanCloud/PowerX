@@ -1,0 +1,383 @@
+{
+  "date": "2026-11-07",
+  "scope": "Core plugin session termination and verified host login recovery v2",
+  "status": "source_validated_not_deployed",
+  "workspace": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+  "branch": "024-ai-engineering-skills",
+  "boundaries": {
+    "other_repositories_modified": false,
+    "daily_services_restarted": false,
+    "database_or_auth_state_changed": false,
+    "key_profile_or_grant_changed": false,
+    "schema_migrated": false,
+    "existing_session_extended": false,
+    "capability_seed_executed": false,
+    "real_user_plugin_acceptance": false
+  },
+  "contract": {
+    "access_deadline": "min(now + AccessTTL, original login session expiry)",
+    "refresh_policy": "fixed original deadline; no sliding extension or rotation",
+    "current_user_probe": "GET <api-prefix>/admin/user/auth/me/session",
+    "plugin_report": "auth:required / IAM_CONTEXT_USER_SESSION_INVALID with exact v2 origin, frame, sequence and current session snapshot binding",
+    "terminal_http_status": 401,
+    "temporary_failure": "503 AUTH_SESSION_UNAVAILABLE preserves the host session",
+    "refresh_token_response": "omitted on access refresh; actual signed access lifetime returned as expires_in"
+  },
+  "validation": {
+    "go": {
+      "command": "GOWORK=off go test -json -race ./internal/service/auth ./pkg/auth/... ./internal/service/plugin_identity ./internal/transport/http/admin/user/auth ./internal/transport/http/public/saas ./internal/http",
+      "cwd": "backend",
+      "counts_including_subtests": {
+        "pass": 256
+      },
+      "packages": [
+        {
+          "Package": "github.com/ArtisanCloud/PowerX/pkg/auth",
+          "Action": "pass",
+          "Elapsed": 0.002
+        },
+        {
+          "Package": "github.com/ArtisanCloud/PowerX/pkg/auth/middleware",
+          "Action": "pass",
+          "Elapsed": 0.003
+        },
+        {
+          "Package": "github.com/ArtisanCloud/PowerX/internal/service/auth",
+          "Action": "pass",
+          "Elapsed": 0.005
+        },
+        {
+          "Package": "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity",
+          "Action": "pass",
+          "Elapsed": 0.006
+        },
+        {
+          "Package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/user/auth",
+          "Action": "pass",
+          "Elapsed": 2.452
+        },
+        {
+          "Package": "github.com/ArtisanCloud/PowerX/internal/transport/http/public/saas",
+          "Action": "skip",
+          "Elapsed": 0
+        },
+        {
+          "Package": "github.com/ArtisanCloud/PowerX/internal/http",
+          "Action": "pass",
+          "Elapsed": 2.948
+        }
+      ],
+      "log": "/tmp/powerx-session-recovery-go-final.jsonl"
+    },
+    "vet": {
+      "command": "GOWORK=off go vet ./pkg/auth/... ./internal/service/auth ./internal/transport/http/admin/user/auth ./internal/transport/http/public/saas",
+      "cwd": "backend",
+      "exit_code": 0
+    },
+    "core_build": {
+      "command": "GOWORK=off go build -o /tmp/powerx-session-recovery-core ./cmd/app",
+      "cwd": "backend",
+      "exit_code": 0,
+      "artifact": "/tmp/powerx-session-recovery-core",
+      "sha256": "58aa95680200f3ed745e304dd094bcf539b72e2c3680331f45b4d04e90074c8c"
+    },
+    "frontend_unit": {
+      "passed": 109,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/powerx-session-recovery-vitest.json"
+    },
+    "frontend_build": {
+      "command": "POWERX_NUXT_BUILD_DIR=.nuxt-session-recovery-20261107 POWERX_NITRO_OUTPUT_DIR=.output-session-recovery-20261107 npm run build",
+      "cwd": "web-admin",
+      "result": "Build complete",
+      "log": "/tmp/powerx-session-recovery-build.log",
+      "isolated_output": true
+    },
+    "browser": {
+      "command": "POWERX_WEB_OUTPUT=.output-session-recovery-20261107 NO_PROXY=127.0.0.1,localhost,::1 no_proxy=127.0.0.1,localhost,::1 npx playwright test --config playwright.session.config.ts --project=chromium",
+      "cwd": "web-admin",
+      "stats": {
+        "startTime": "2026-11-07T03:14:06.351Z",
+        "duration": 30116.34,
+        "expected": 13,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "desktop_width": 1440,
+      "narrow_width": 390,
+      "mode": "headless Chromium against built Core frontend and mock backend",
+      "native_windows_chrome_edge_tested": false,
+      "real_core_backend_tested": false,
+      "log": "/tmp/powerx-session-recovery-browser-final.log"
+    },
+    "capability_check": {
+      "command": "make capability-check CAPABILITY_CHECK_GENERATED=tmp/capability-check/session-recovery-20261107.generated.yaml",
+      "exit_code": 0,
+      "summary": "capability-audit: ok, declared=1242 referenced=83 rest_routes=1175 candidates=1245 ignored_route_rules=120",
+      "log": "/tmp/powerx-session-recovery-capability-check-final.log",
+      "new_route_is_user_auth_private": true,
+      "note": "A transient parallel storage_governance compile/audit failure disappeared after that independent worktree change completed. Those source files were not edited for this task."
+    },
+    "scoped_git_diff_check": 0
+  },
+  "temporary_services": {
+    "record": {
+      "owner": "session-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-11-07T03:14:06.422Z",
+      "fixturePid": 59050,
+      "fixturePort": 3474,
+      "corePid": 59051,
+      "corePort": 3473,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-session-recovery-20261107/server/index.mjs"
+      ],
+      "stoppedAt": "2026-11-07T03:14:36.459Z",
+      "coreExitedAt": "2026-11-07T03:14:36.463Z"
+    },
+    "pids_confirmed_exited": true,
+    "ports_confirmed_released": [
+      3473,
+      3474
+    ],
+    "daily_ports_untouched": [
+      8077,
+      3030
+    ]
+  },
+  "files": [
+    {
+      "path": "backend/pkg/auth/jwt.go",
+      "sha256": "d6154de0874fa52bc66b7fd93635e75375d3cd663b47bce18bb541ed258b2254",
+      "new_in_this_task": false,
+      "before_sha256": "cdf1194798143366fb026bd252abeaab63e4bf71f802bd75a8bf0201a472e2fb"
+    },
+    {
+      "path": "backend/internal/service/auth/auth_service.go",
+      "sha256": "b0aec15b19c329c415392a22b32e3e0a65bba73bd7f81b65c566ffa547983f17",
+      "new_in_this_task": false,
+      "before_sha256": "c67f5789188ec740065c3b9d67d2ac1dbce356b923ff040e805f85df93057f39"
+    },
+    {
+      "path": "backend/internal/service/auth/saas_signup_service.go",
+      "sha256": "8ebef517c9fcc0be371372ce7c06341e7b76dd48bdb58216eb4ca6a0a5435d62",
+      "new_in_this_task": false,
+      "before_sha256": "5c9d70b1b15e1802c00cd36924d3225630f20c0b2ff93cf35eddfc011e5d3f52"
+    },
+    {
+      "path": "backend/internal/transport/http/admin/user/auth/auth_handler.go",
+      "sha256": "05745f45512e4e37c5ecdc79b1fb0fc1534ef588b1ab904c4988c69ef91447ff",
+      "new_in_this_task": false,
+      "before_sha256": "6521973b65a66cc7bff7071112d53ae4a17e5fc2204a2d6f4a41ca4c3de418e6"
+    },
+    {
+      "path": "backend/internal/transport/http/admin/user/auth/api.go",
+      "sha256": "f0612260989125e2ae0b220510a238339e1f217d02b356518e53d0b27698a553",
+      "new_in_this_task": false,
+      "before_sha256": "1d45b8532ccab6fa3a4f94a26fddb9d0293f42611caed86b4513b0b0afb81713"
+    },
+    {
+      "path": "backend/internal/transport/http/admin/user/auth/me_extra_handler.go",
+      "sha256": "27d3a64ce0e303e1a5d0a7af5d103f0c350fcd56ea6c169445997faff9dbe3bf",
+      "new_in_this_task": false,
+      "before_sha256": "a4b75366053c01b5ebf7ed2081ada2c20375a0b880f4d3959948930a8e94568e"
+    },
+    {
+      "path": "web-admin/app/utils/auth-session.ts",
+      "sha256": "2ea612969d469be1f6cad81ae716d3eaa299d720d6e2f60037e6427d6fb646cf",
+      "new_in_this_task": false,
+      "before_sha256": "3e42ea987a628cb63ce23104348c0f795e87d5b4ec00faf9e121586556318397"
+    },
+    {
+      "path": "web-admin/app/utils/plugin-bridge-host.ts",
+      "sha256": "006d6da299c5dfa2c293bd5eab29db2de4ec6fa8791e0095c8d5be710b801e42",
+      "new_in_this_task": false,
+      "before_sha256": "c7c1cae12708177e7a17a622d023dd1139225f9f7dafc54aefe3a72ea0dc1a4a"
+    },
+    {
+      "path": "web-admin/app/utils/plugin-frame-session.ts",
+      "sha256": "e017211044b50b6f55c726dcb9577a2c914779012148800fa0571174fea8e943",
+      "new_in_this_task": false,
+      "before_sha256": "4baa2e1b257a3f5c7c845c7999fe58218ee1f0b263d103b4f6a3c223bef82702"
+    },
+    {
+      "path": "web-admin/app/types/pluginBridge.ts",
+      "sha256": "d9fbaeacbbdded96aae56dd93acccd04f8c8dc42ecee02c4d0bf749173264075",
+      "new_in_this_task": false,
+      "before_sha256": "d10a2c99b08fda2ebdecfb4bdf5d343667b43ddb30dc799ce26e2fe71d8abfb4"
+    },
+    {
+      "path": "web-admin/public/powerx-bridge-client.js",
+      "sha256": "4af4fbcd54a07fa91cf0a0a18cbefcd9c0a10edc06080d85280abcce40092b09",
+      "new_in_this_task": false,
+      "before_sha256": "c0385a9c7167f7bc46d59e18ad519b3d010af53db970ff3f500bb029ade0db9f"
+    },
+    {
+      "path": "web-admin/app/composables/useAuth.ts",
+      "sha256": "c1a14a9db80c190d95448a76c9167716e732d578d321b025de77b6bffdf0b82e",
+      "new_in_this_task": false,
+      "before_sha256": "3763ab58972e2eec1175219e313563e8c24ed10840510b6a86783dc93f0fa786"
+    },
+    {
+      "path": "web-admin/app/composables/usePluginBridge.ts",
+      "sha256": "aa22d7f9f059d5085677359973593d40ca77ff52cf67f5ac1527bd4ab040c5e1",
+      "new_in_this_task": false,
+      "before_sha256": "1b05151a2612c258a5b8418a2e4d850247fb300a7265e8e77d7f3e8488943cad"
+    },
+    {
+      "path": "web-admin/app/middleware/01-auth.global.ts",
+      "sha256": "1948a9b92cb180201e6f2cab0c5c19bb766e2ad88107e36dd0309a87c79f0be5",
+      "new_in_this_task": false,
+      "before_sha256": "19831e840de8da06b5d45c9e00e0ae81b4a4a3cf276c8541e60fec9db9fb6dd1"
+    },
+    {
+      "path": "docs/contracts/plugin-session-bridge-v2.md",
+      "sha256": "34089663c3b2ff6c725382817809c5b40650c479fd883888f74802de47fb23b2",
+      "new_in_this_task": false,
+      "before_sha256": "451e8245884720c30dfe07e984c13b8cf55b48088a3d5d1c3e443c64bd99bb82"
+    },
+    {
+      "path": "web-admin/tests/unit/auth/auth-session.spec.ts",
+      "sha256": "4bedcffd5885d32bb66f5a2ad42b93255d2403d88164413ea926f53deba2bb60",
+      "new_in_this_task": false,
+      "before_sha256": "5e5193eb5217c26374121e28f78fc8cbbf061532bb845f67c6d1eb5760d4a471"
+    },
+    {
+      "path": "web-admin/tests/unit/auth/plugin-bridge-host.spec.ts",
+      "sha256": "2d7ed1d88206ae341f9026ebfe882427f035b732ff8c1525a5004df827e4d630",
+      "new_in_this_task": false,
+      "before_sha256": "ac5da8be036ffe7a0cb59b0c19db15a4a2a035f76e1afee9f5a06365ffe8a110"
+    },
+    {
+      "path": "web-admin/tests/unit/auth/bridge-auth-session.spec.ts",
+      "sha256": "104db7114e53f93894ac6734de0b837ba1a221b2214e28618181fb8c64e25181",
+      "new_in_this_task": false,
+      "before_sha256": "4e25e72e26652d2afaf246cc9cb97f62e81d27a1038b602ad42cf1111be07423"
+    },
+    {
+      "path": "web-admin/scripts/session-browser-fixture.mjs",
+      "sha256": "d61f93732cf84cdc067a2128b08d0c90972085dc200dae40bc403384ae009ff5",
+      "new_in_this_task": false,
+      "before_sha256": "b2e5ccb33ea51fe56a790f415a3f84d9c98ceec945e81c69600a82315d0d4fda"
+    },
+    {
+      "path": "web-admin/tests/e2e/session/bookmark-session.spec.ts",
+      "sha256": "03c05742ec0a494dc61f7031a32ce7ded57a6e7dacbbec8f59b49d7d4bf7f3ee",
+      "new_in_this_task": false,
+      "before_sha256": "6a768e40e4e646687ed456b9c2b738c072302cb3c0efa9b0acaceb58bfcaad45"
+    },
+    {
+      "path": "backend/config/capability_audit_ignore.yaml",
+      "sha256": "bd52fbbb6c30f9319b8cb61f8a3fcda2c57d058277ae66c65bc50c809aeaed2d",
+      "new_in_this_task": false,
+      "before_sha256": "5cd5d6a9279a5a38bab17717d748f7faf6962eb054710c208575393a4843dfdd"
+    },
+    {
+      "path": "web-admin/i18n/locales/zh.json",
+      "sha256": "008225854b569bca2c6f23ee9f10c126bf6be93e4a4df343b190ff04d2f669cd",
+      "new_in_this_task": false,
+      "before_sha256": "83c651de27ee8fdeaa267ecf99f57f8e741c7a3c110e4253c3b4c1200f2eef90"
+    },
+    {
+      "path": "web-admin/i18n/locales/en.json",
+      "sha256": "34c0aab896e075bc6cfbc7033d5ac69c4032dd34b93d9d8df56782380edab9b9",
+      "new_in_this_task": false,
+      "before_sha256": "a2fd874f403c62e624ab5505e14d0036a9f80916feb0ae4039311962867d4af8"
+    },
+    {
+      "path": "web-admin/i18n/locales/ja.json",
+      "sha256": "4706756c61169acf490352ac33fb2bbe9ae1a8c15b06d2e346363392bce3df5d",
+      "new_in_this_task": false,
+      "before_sha256": "ce3418a64976d58d66197a5b66a6833947c99af5401b1f2cae49b5967bfad25d"
+    },
+    {
+      "path": "web-admin/i18n/locales/ko.json",
+      "sha256": "53d8cebdf243948362d39fdcc9b0e4ab82906c238b3f9e81ee28409f956a240e",
+      "new_in_this_task": false,
+      "before_sha256": "5f98f06b64a228edd4892f5d0385c1e92e45b1947aede3fdd3f4a4bc4f34038e"
+    },
+    {
+      "path": "backend/internal/transport/http/public/saas/signup_handler.go",
+      "sha256": "531886a0aa2afdb81762832069264ec85cd4bdc12c76d2d8bc425f0718485615",
+      "new_in_this_task": false,
+      "before_sha256": "fc5f548b7482933b7d3313bce016a4df6fb50eab6cffb309f67a2dbc1a6ccc6a"
+    },
+    {
+      "path": "backend/pkg/auth/middleware/jwt.go",
+      "sha256": "135786832ca42d27abbaa6d7d5b9bd4e466bbb695d83ba943d69875c44ddbc0b",
+      "new_in_this_task": false,
+      "before_sha256": "20b4cd3116744792e6d18c604d75c4c9b20c509f42e878ab3f045d998489fb2c"
+    },
+    {
+      "path": "backend/internal/service/auth/user_session.go",
+      "sha256": "384d3b6f48295406228c6a59dd112febe443deeebef4e4adc47c189cc9a0de38",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/service/auth/user_session_test.go",
+      "sha256": "38c56ea5d84f1c85f324237d495fa0808a823a638d340f41cab3ce5c5edf0a34",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "backend/pkg/auth/session_deadline_test.go",
+      "sha256": "97c162ac456198c2c416f94df05ff98cb6ed0e32638f6a2721f186c80f15689b",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "backend/pkg/auth/middleware/user_session_error_test.go",
+      "sha256": "2efc75afb1fdf25740ef392aebbf7f357030390740b58bd006a8186c0ebaa888",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/transport/http/admin/user/auth/session_handler.go",
+      "sha256": "743077412e643af11b1a4f16d3973909d3e4ae4fc6f836b20929ffb9837648e3",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/transport/http/admin/user/auth/session_handler_test.go",
+      "sha256": "4215f8bd2457e980c2c1a8d8d0b225551b7ccb3905b83d74b3d735db2effb539",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "web-admin/app/utils/auth-failure.ts",
+      "sha256": "11e8c1b33e59d42177d3eaa351ac3232d9d0f991ab30907b2330335ea12033a2",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "web-admin/app/utils/host-session-recovery.ts",
+      "sha256": "4389b443865639aaca4ea50bb0af1a0886c2ccfb798fb7d5812f2ea7a388f4a7",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "web-admin/tests/unit/auth/host-session-recovery.spec.ts",
+      "sha256": "35d5ce2961cf0f09aa5c574ed2a632fdd1ce889156119c4a8cc8ba9f33f223d0",
+      "new_in_this_task": true,
+      "before_sha256": null
+    },
+    {
+      "path": "docs/contracts/plugin-session-termination-v2.md",
+      "sha256": "b232a9718133e85b19dc65c22301c79729c6a15228ee80e40492567083df445d",
+      "new_in_this_task": true,
+      "before_sha256": null
+    }
+  ],
+  "shared_worktree_note": "Hashes identify the exact validated worktree. Shared files may include prior or concurrent work. In capability_audit_ignore.yaml this task added only the current-user session GET rule; the four storage database-retention rules belong to the parallel task.",
+  "pending": [
+    "Core owner rebuild/restart daily Core and frontend using the usual commands",
+    "Framework consume/report explicit terminal session errors with the new v2 method and publish/install its package",
+    "AI Craft adopt Framework and recover its own drafts under the original user/tenant",
+    "Real deployed browser/plugin acceptance after those deployments"
+  ],
+  "handoff": "docs/contracts/plugin-session-termination-v2.md"
+}

@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/internal/productinfo"
 	"net"
 	nethttp "net/http"
 	"os"
@@ -40,6 +42,10 @@ import (
 // @description PowerX 核心与插件管理 API
 // @BasePath    /
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--product-info" {
+		_ = json.NewEncoder(os.Stdout).Encode(productinfo.LoadExecutable())
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "--recovery-protocol" {
 		fmt.Printf(`{"protocol":%d,"platform":%q}`+"\n", config.RecoveryProtocol, runtime.GOOS+"/"+runtime.GOARCH)
 		return
@@ -77,9 +83,8 @@ func main() {
 			return
 		}
 	}
-	cfg.Cache.Namespace, err = recoveryops.CurrentCacheNamespace(cfg, config.GetGlobalConfigPath())
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "当前实例缓存隔离配置无法读取，已阻止业务启动")
+	if err = recoveryops.EnsureEnvironmentIdentity(cfg, config.GetGlobalConfigPath()); err != nil {
+		fmt.Fprintln(os.Stderr, "当前环境身份无法读取，已阻止业务启动")
 		return
 	}
 	recovery := runApplication(ctx, stop, cfg)
@@ -105,7 +110,9 @@ func runApplication(ctx context.Context, stop context.CancelFunc, cfg *config.Co
 		os.Exit(1)
 	}
 	// 必须在任何 logger 输出之前初始化全局 logger，避免默认配置先占位。
-	logger.InitGlobalLogger(&cfg.LogConfig)
+	effectiveLogConfig := cfg.EffectiveLogConfig()
+	logger.InitGlobalLogger(&effectiveLogConfig)
+	defer logger.CloseGlobalLogger()
 	effectivePorts := config.ResolveEffectivePorts(cfg)
 	logger.InfoF(
 		ctx,
@@ -175,6 +182,9 @@ func runApplication(ctx context.Context, stop context.CancelFunc, cfg *config.Co
 			return
 		}
 	} else {
+		if deps.PluginMarketplace != nil {
+			defer deps.PluginMarketplace.CloseDistribution()
+		}
 		recovery = deps.CurrentRecovery
 		if recovery != nil {
 			if err = recovery.StartNormal(ctx, stop); err != nil {
@@ -253,6 +263,24 @@ func runApplication(ctx context.Context, stop context.CancelFunc, cfg *config.Co
 					case <-workerDone:
 					case <-time.After(15 * time.Second):
 						logger.WarnF(ctx, "Agent worker shutdown timed out; leased work will be recovered")
+					}
+				}()
+			}
+			if deps.AIMediaSvc != nil && deps.EventFabric != nil && deps.EventFabric.StreamTasks != nil {
+				mediaCtx, mediaCancel := context.WithCancel(ctx)
+				mediaDone := make(chan struct{})
+				go func() {
+					defer close(mediaDone)
+					if err := deps.AIMediaSvc.Run(mediaCtx); err != nil && !errors.Is(err, context.Canceled) {
+						logger.ErrorF(ctx, "AI media worker stopped: %v", err)
+					}
+				}()
+				defer func() {
+					mediaCancel()
+					select {
+					case <-mediaDone:
+					case <-time.After(15 * time.Second):
+						logger.WarnF(ctx, "AI media worker shutdown timed out; TaskBus will reclaim leased work")
 					}
 				}()
 			}
@@ -351,6 +379,9 @@ func runApplication(ctx context.Context, stop context.CancelFunc, cfg *config.Co
 	}
 
 	// 核心路由与依赖初始化完成后，再异步恢复插件，避免反向阻塞宿主启动。
+	if !setupOnlyMode && deps.PluginMarketplace != nil && !config.BackgroundWorkersDisabled(cfg) && !cfg.Recovery.ReadOnly() && os.Getenv("POWERX_COORDINATOR_MAINTENANCE") != "1" {
+		deps.PluginMarketplace.StartDistribution(ctx)
+	}
 	if !setupOnlyMode && pluginMgr != nil && os.Getenv("POWERX_COORDINATOR_MAINTENANCE") != "1" {
 		bootstrap.StartPluginAutoRestore(ctx, pluginMgr, cfg)
 	}

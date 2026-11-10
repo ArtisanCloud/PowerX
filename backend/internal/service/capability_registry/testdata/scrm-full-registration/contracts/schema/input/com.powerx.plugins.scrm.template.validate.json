@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateValidateInput",
+  "type": "object",
+  "properties": {
+    "rules": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "要执行的规则 ID，留空则运行基础校验。"
+    },
+    "strict": {
+      "type": "boolean",
+      "description": "true 时所有规则都会当成错误返回，默认仅关键规则标记为 error。"
+    }
+  },
+  "additionalProperties": false
+}

@@ -58,24 +58,27 @@ type ListNotificationRequest struct {
 }
 
 type NotificationView struct {
-	ID          string         `json:"id"`
-	Title       string         `json:"title"`
-	Content     string         `json:"content"`
-	Type        string         `json:"type"`
-	Category    string         `json:"category"`
-	IsRead      bool           `json:"isRead"`
-	IsImportant bool           `json:"isImportant"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	UserID      string         `json:"userId,omitempty"`
-	RelatedID   string         `json:"relatedId,omitempty"`
-	RelatedType string         `json:"relatedType,omitempty"`
-	Actions     []any          `json:"actions,omitempty"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
+	Revision       int64          `json:"revision"`
+	SourceRevision int64          `json:"sourceRevision,omitempty"`
+	ID             string         `json:"id"`
+	Title          string         `json:"title"`
+	Content        string         `json:"content"`
+	Type           string         `json:"type"`
+	Category       string         `json:"category"`
+	IsRead         bool           `json:"isRead"`
+	IsImportant    bool           `json:"isImportant"`
+	CreatedAt      time.Time      `json:"createdAt"`
+	UpdatedAt      time.Time      `json:"updatedAt"`
+	UserID         string         `json:"userId,omitempty"`
+	RelatedID      string         `json:"relatedId,omitempty"`
+	RelatedType    string         `json:"relatedType,omitempty"`
+	Actions        []any          `json:"actions,omitempty"`
+	Metadata       map[string]any `json:"metadata,omitempty"`
 }
 
 func toNotificationView(item *notificationmodel.Notification) NotificationView {
 	view := NotificationView{
+		Revision: item.Revision, SourceRevision: item.SourceRevision,
 		ID:          item.UUID.String(),
 		Title:       item.Title,
 		Content:     item.Content,
@@ -190,11 +193,20 @@ func (h *Handler) MarkRead(c *gin.Context) {
 		return
 	}
 	id := strings.TrimSpace(c.Param("uuid"))
-	if err := h.svc.MarkRead(c.Request.Context(), tenantUUID, memberUUID, id); err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "更新已读状态失败", err)
+	var body struct {
+		ExpectedRevision int64 `json:"expected_revision"`
+	}
+	if c.Request.ContentLength != 0 {
+		if c.ShouldBindJSON(&body) != nil {
+			dto.ResponseError(c, 400, "invalid read receipt", nil)
+			return
+		}
+	}
+	if err := h.svc.MarkReadVersion(c.Request.Context(), tenantUUID, memberUUID, id, body.ExpectedRevision); err != nil {
+		dto.RespondErrorFrom(c, err)
 		return
 	}
-	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenantUUID, eventbus.TopicSystemNotification, notificationssvc.ReadEvent(tenantUUID, memberUUID, []string{id}), reqctx.GetTraceID(c.Request.Context()))
+	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenantUUID, eventbus.TopicSystemNotification, notificationssvc.ReadEventVersioned(tenantUUID, memberUUID, []string{id}, map[string]int64{id: max(1, body.ExpectedRevision)}), reqctx.GetTraceID(c.Request.Context()))
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
@@ -404,4 +416,31 @@ func (h *Handler) memberForRequest(c *gin.Context, tenant string) (string, error
 		return "", notificationssvc.ErrRecipientInvalid
 	}
 	return member, err
+}
+
+// PresentationSource only resolves registered routes. Business data and image
+// requests use the existing Gateway with the current user identity, never a
+// service credential or a URL supplied by notification metadata.
+func (h *Handler) PresentationSource(c *gin.Context) {
+	c.Header("Cache-Control", "private, no-store")
+	if h == nil || h.svc == nil {
+		c.Status(503)
+		return
+	}
+	tenant, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, 400, "tenant_uuid required", nil)
+		return
+	}
+	member, err := h.memberForRequest(c, tenant)
+	if err != nil {
+		dto.ResponseError(c, 403, "member identity invalid", nil)
+		return
+	}
+	source, err := h.svc.PresentationSource(c.Request.Context(), tenant, member, c.Param("uuid"))
+	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, source)
 }

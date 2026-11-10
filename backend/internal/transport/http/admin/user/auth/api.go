@@ -19,6 +19,7 @@ func RegisterAPIRoutes(
 	authProtectedAdminGroup := protectedGroup.Group("/admin/user/auth")
 	{
 		authProtectedAdminGroup.POST("/logout", hAuthUser.LogoutHandler(deps.AuthUser))
+		authProtectedAdminGroup.GET("/me/session", hAuthUser.CurrentSession)
 	}
 
 	hMeContext := NewMeContextHandler(deps)

@@ -1,0 +1,84 @@
+{
+  "date": "2026-10-22",
+  "scope": "Marketplace review follow-up: live result-journal retry and strict tenant matching for manual enable reports",
+  "validation_mode": "temporary private journals, controlled HTTP fixtures and browser API fixtures on the existing local Nuxt service",
+  "fixes": [
+    {
+      "issue": "A successful installation could remain at phase=install after a local journal write failure until restart",
+      "behavior": "Keep known outcomes per attempt, expose an unconfirmed count, and retry local writes from the running worker with fixed event IDs, payloads and timestamps before delivery",
+      "safety": "Retry does not request another download, run the installer or enable again, or reconcile unrelated in-flight installs"
+    },
+    {
+      "issue": "An empty tenant could bypass matching and report another tenant's installation as enabled or failed",
+      "behavior": "Manual enable reports require a nonempty matching tenant plus the current Marketplace source, instance and installation revision",
+      "safety": "Root runtime-only enable without tenant context retains its existing behavior and does not advance another tenant's distribution record"
+    }
+  ],
+  "checks": [
+    {
+      "working_directory": "backend",
+      "command": "go test -p 2 ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/infra/plugin/manager ./internal/transport/http/admin/plugin -count=1 -timeout=120s",
+      "result": "passed",
+      "log": "/tmp/powerx-distribution-feedback-core-final.log"
+    },
+    {
+      "working_directory": "backend",
+      "command": "go test -race ./internal/service/plugin_marketplace -run 'TestDistribution(ResultWrite|FailedResultWrite|EmptyTenant|UnconfirmedResult|RestartAfterUnwritten)' -count=1 -timeout=60s",
+      "result": "passed",
+      "log": "/tmp/powerx-distribution-feedback-regression.log"
+    },
+    {
+      "working_directory": "backend",
+      "command": "go vet -p 2 ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/infra/plugin/manager ./internal/transport/http/admin/plugin ./internal/app/shared ./internal/bootstrap ./cmd/app",
+      "result": "passed",
+      "log": "/tmp/powerx-distribution-feedback-vet.log"
+    },
+    {
+      "working_directory": "web-admin",
+      "command": "npx vitest run tests/unit/plugins/remote-marketplace.spec.ts",
+      "result": "10 tests passed",
+      "log": "/tmp/powerx-distribution-feedback-ui-unit.log"
+    },
+    {
+      "working_directory": "web-admin",
+      "command": "PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3030 NO_PROXY=127.0.0.1,localhost,::1 no_proxy=127.0.0.1,localhost,::1 npx playwright test tests/e2e/plugins/marketplace.spec.ts --project=chromium --workers=1 --retries=0 --grep 'unconfirmed result notice'",
+      "result": "3 tests passed: 1440px dark Chinese, 390px light Chinese, 1440px light English; screenshots visually inspected",
+      "log": "/tmp/powerx-distribution-feedback-browser.log"
+    },
+    {
+      "working_directory": "web-admin",
+      "command": "ESLint on RemoteMarketplace.vue, marketplaceService.ts, remote-marketplace.spec.ts and marketplace.spec.ts using a temporary config from the installed @nuxt/eslint-config createConfigForNuxt factory",
+      "result": "passed with no warnings; the default root config was empty because its generated .nuxt/eslint.config.mjs was absent, so the initial ignored-file run was not used as validation",
+      "log": "/tmp/powerx-distribution-feedback-eslint-effective.log"
+    },
+    {
+      "working_directory": "web-admin",
+      "command": "node scripts/check-api-response-shape.mjs",
+      "result": "passed",
+      "log": "/tmp/powerx-distribution-feedback-api-shape.log"
+    },
+    { "command": "git diff --check", "result": "passed" }
+  ],
+  "regressions": [
+    "A live worker retries after restoring the journal without restarting or touching a second in-flight installation",
+    "Buffered installed and enabled/failed results preserve complete event payloads and ordering; repeated result calls do not duplicate events",
+    "Download, install and enable failure results recover after local journal write failures",
+    "Unconfirmed counts do not count the same attempt twice",
+    "Empty, whitespace-only and other-tenant contexts cannot report success or failure; a matching tenant can",
+    "HTTP install-only and enable-failure paths preserve actual responses and call the installer only once when the journal is temporarily blocked",
+    "The real Root manual-enable handler without tenant context does not change the original tenant's attempt",
+    "The warning is visible within desktop and narrow-screen viewports in Chinese and English; manual refresh clears a recovered warning with no automatic polling or installation request",
+    "Existing local-upload and shared-installer regressions remain passing"
+  ],
+  "limitations": [
+    "While the filesystem is unwritable, the newest known result is in memory and is not durable; a process exit uses the persisted intent and actual registry to reconcile conservatively",
+    "Restart recovery does not infer tenant activation success from runtime state alone and does not reinstall",
+    "Real two-deployment Marketplace acceptance with administrator enrollment codes and user-owned plugins remains pending"
+  ],
+  "operations": {
+    "user_services_started_or_restarted": false,
+    "user_database_migrated": false,
+    "plugin_business_source_modified": false,
+    "temporary_services": "Test-scoped HTTP servers and workers exited with their test commands; Playwright reused the existing frontend on port 3030"
+  }
+}

@@ -37,6 +37,7 @@ type openAIChatReq struct {
 	Model       string              `json:"model"`
 	Messages    []map[string]string `json:"messages"`
 	Temperature float32             `json:"temperature,omitempty"`
+	TopP        float32             `json:"top_p,omitempty"`
 	MaxTokens   int                 `json:"max_tokens,omitempty"`
 	Stream      bool                `json:"stream,omitempty"`
 	Stop        []string            `json:"stop,omitempty"`
@@ -125,6 +126,7 @@ func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 			{"role": "user", "content": userMessage},
 		},
 		Temperature: float32(mc.Temperature),
+		TopP:        mc.TopP,
 		MaxTokens:   mc.MaxTokens,
 		Stream:      streaming,
 	}
@@ -151,11 +153,22 @@ func (c *openaiClient) makeBody(mc *config.ModelConfig, userMessage string, stre
 	m := map[string]any{}
 	b, _ := json.Marshal(alias(req))
 	_ = json.Unmarshal(b, &m)
+	if mc.TemperatureSet {
+		m["temperature"] = mc.Temperature
+	}
+	if mc.TopPSet {
+		m["top_p"] = mc.TopP
+	}
 	for k, v := range req.Extra {
 		if k == "response_format" && (mc.ResponseFormat != "" || len(mc.ResponseSchema) > 0) {
 			return nil, errors.New("AI_RESPONSE_FORMAT_CONFLICT")
 		}
 		m[k] = v
+	}
+	delete(m, "api_path")
+	delete(m, "base_url")
+	if err := applyChatParameterPolicy(m, c.chatPolicy(mc)); err != nil {
+		return nil, err
 	}
 	return json.Marshal(m)
 }

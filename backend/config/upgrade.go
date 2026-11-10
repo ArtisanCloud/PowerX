@@ -27,6 +27,9 @@ func LoadForUpgrade(path, dataDir string) (*Config, string, error) {
 		return nil, "", fmt.Errorf("UPGRADE_CONFIG_UNREADABLE")
 	}
 	var raw Config
+	if err := rejectQueueNamespace(body); err != nil {
+		return nil, "", fmt.Errorf("UPGRADE_CONFIG_INVALID")
+	}
 	if err := yaml.Unmarshal(body, &raw); err != nil {
 		return nil, "", fmt.Errorf("UPGRADE_CONFIG_INVALID")
 	}

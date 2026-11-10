@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -13,12 +14,24 @@ type RedisCache struct {
 	namespace string
 }
 
+// RedisClient 仅供启动装配复用已配置连接；生命周期仍由缓存提供器管理。
+func (r *RedisCache) RedisClient() redis.UniversalClient {
+	if r == nil || r.client == nil {
+		return nil
+	}
+	return r.client
+}
+
 func (r *RedisCache) key(key string) string { return r.namespace + key }
 
 // NewRedisCache 创建一个新的 RedisCache 实例
-func NewRedisCache(client *redis.Client) *RedisCache {
+func NewRedisCache(client *redis.Client, namespace ...string) *RedisCache {
+	var prefix string
+	if len(namespace) > 0 {
+		prefix = redisnamespace.Key(namespace[0], "")
+	}
 	return &RedisCache{
-		client: client,
+		client: client, namespace: prefix,
 	}
 }
 

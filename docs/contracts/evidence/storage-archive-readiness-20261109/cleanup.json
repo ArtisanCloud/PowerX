@@ -1,0 +1,14 @@
+{
+  "owned_http_fixture_count": 7,
+  "owned_fixture_runner_pids": [
+    46361
+  ],
+  "all_fixture_listeners_released": true,
+  "all_fixture_runners_exited": true,
+  "test_temporary_directories_removed_by_context_managers": true,
+  "root_session_file_created": false,
+  "root_session_persisted": false,
+  "cloud_resources_created": false,
+  "core_restarted_or_migrated": false,
+  "live_governance_configuration_changed": false
+}

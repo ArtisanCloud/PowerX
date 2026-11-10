@@ -22,6 +22,7 @@ import (
 type Logger struct {
 	driver *zap.Logger
 	config config.LogConfig
+	loki   *writer.LokiWriter
 }
 
 // 全局变量用来存储 Logger 实例
@@ -61,6 +62,7 @@ func NewLogger(config *config.LogConfig) *Logger {
 	encoder := zapcore.NewJSONEncoder(encoderConfig)
 
 	var cores []zapcore.Core
+	var loki *writer.LokiWriter
 
 	// Console 日志
 	if config.Console {
@@ -100,7 +102,8 @@ func NewLogger(config *config.LogConfig) *Logger {
 
 	// Loki 日志
 	if config.Loki.Enable {
-		lokiCore := zapcore.NewCore(encoder, writer.NewLokiWriter(&config.Loki), config.ParseLogLevel())
+		loki = writer.NewLokiWriter(&config.Loki)
+		lokiCore := zapcore.NewCore(encoder, loki, config.ParseLogLevel())
 		cores = append(cores, lokiCore)
 	}
 
@@ -113,6 +116,7 @@ func NewLogger(config *config.LogConfig) *Logger {
 	return &Logger{
 		driver: logger,
 		config: *config,
+		loki:   loki,
 	}
 }
 
@@ -148,6 +152,7 @@ func (l *Logger) WithContext(ctx context.Context) *Logger {
 		return &Logger{
 			driver: l.driver.With(fields...),
 			config: l.config,
+			loki:   l.loki,
 		}
 	}
 	return l
@@ -386,8 +391,39 @@ func InitGlobalLogger(config *config.LogConfig) {
 	globalInstance = next
 	globalMu.Unlock()
 	if prev != nil && prev.driver != nil {
-		_ = prev.driver.Sync()
+		_ = prev.Close()
 	}
+}
+
+// Close 释放普通日志异步交付 worker；网络不可用不会无限阻止退出。
+func (l *Logger) Close() error {
+	if l.loki != nil {
+		err := l.loki.Close()
+		// 文件写入已同步落到各自 writer；Zap Sync 也使其他缓冲出口收尾。
+		if l.driver != nil {
+			_ = l.driver.Sync()
+		}
+		return err
+	}
+	if l.driver != nil {
+		return l.driver.Sync()
+	}
+	return nil
+}
+
+// CloseGlobalLogger 在进程退出时有界收尾。
+func CloseGlobalLogger() error { return GetGlobalLogger().Close() }
+
+// LokiDeliveryStatus 供 Root 监控读取，不包含出口地址或日志内容。
+func LokiDeliveryStatus() *writer.LokiDeliveryStats {
+	globalMu.RLock()
+	l := globalInstance
+	globalMu.RUnlock()
+	if l == nil || l.loki == nil {
+		return nil
+	}
+	s := l.loki.Stats()
+	return &s
 }
 
 // GetGlobalLogger 获取全局Logger实例

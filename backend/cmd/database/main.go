@@ -43,10 +43,11 @@ func main() {
 	}
 	fs := flag.NewFlagSet("database", flag.ContinueOnError)
 	configPath := fs.String("config", defaultConfigPath, "配置文件路径")
+	migrationScope := fs.String("scope", "", "仅 dev/test migrate 支持：customer-client-apps、backup-cleanup-retention、storage-governance、capability-retention、system-table-retention、task-history-idempotency 、event-fabric-service-identity 或 scheduler-task-dispatch；留空执行完整迁移")
 	confirm := fs.Bool("confirm", false, "确认执行修复")
 	pluginID := fs.String("plugin-id", "", "要修复运行凭证的插件 ID")
-	confirmDatabase := fs.String("confirm-database", "", "refresh 必须填写实际数据库名")
-	confirmSchema := fs.String("confirm-schema", "", "refresh 必须填写实际 schema 名")
+	confirmDatabase := fs.String("confirm-database", "", "refresh 或 system-table-retention 限定迁移必须填写实际数据库名")
+	confirmSchema := fs.String("confirm-schema", "", "refresh 或 system-table-retention 限定迁移必须填写实际 schema 名")
 	policyID := fs.Uint64("policy-id", 0, "backup-run 指定策略；不填则只运行到期策略")
 	keepRestoreDB := fs.Bool("keep-restore-database", false, "验证完成后保留本次隔离库用于业务核对")
 	jobID := fs.Uint64("job-id", 0, "backup-restore-verify 的来源备份任务")
@@ -56,6 +57,9 @@ func main() {
 			return
 		}
 		fatalf("解析参数失败: %v", err)
+	}
+	if err := validateMigrationScope(cmd, *migrationScope); err != nil {
+		fatalf("%v", err)
 	}
 
 	// 加载配置
@@ -79,7 +83,12 @@ func main() {
 
 	switch cmd {
 	case "migrate":
-		if err := MigrateDatabase(ctx, db, cfg); err != nil {
+		if *migrationScope == "system-table-retention" {
+			if err := validateSystemTableRetentionTarget(ctx, db, cfg, *confirmDatabase, *confirmSchema); err != nil {
+				fatalf("%v", err)
+			}
+		}
+		if err := MigrateDatabaseScope(ctx, db, cfg, *migrationScope); err != nil {
 			fatalf("migrate failed: %v", err)
 		}
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "migrate ok")
@@ -89,6 +98,12 @@ func main() {
 			fatalf("seed failed: %v", err)
 		}
 		logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "seed ok")
+
+	case "seed-client-apps-menu":
+		if err := seed.SeedClientApplicationMenu(db); err != nil {
+			fatalf("client application menu seed failed: %v", err)
+		}
+		logger.InfoF(ctx, "client application menu permission ready; existing role grants unchanged")
 
 	case "seed-native-marketing-skills":
 		if err := seed.SeedNativeMarketingSkills(db, cfg); err != nil {

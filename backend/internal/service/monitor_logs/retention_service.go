@@ -32,20 +32,24 @@ const (
 )
 
 type RetentionService struct {
-	db          *gorm.DB
-	cfg         logcfg.RetentionConfig
-	cron        *eventscheduler.Service
-	fileRet     *FileRetentionProvider
-	dbRet       *DBRetentionProvider
-	maxHistory  int
-	sysSetting  *settingsvc.SettingService
-	staticPaths []string
-	updateCh    chan struct{}
+	lifecycleOwned bool
+	db             *gorm.DB
+	cfg            logcfg.RetentionConfig
+	cron           *eventscheduler.Service
+	fileRet        *FileRetentionProvider
+	dbRet          *DBRetentionProvider
+	maxHistory     int
+	sysSetting     *settingsvc.SettingService
+	staticPaths    []string
+	updateCh       chan struct{}
 
 	mu      sync.RWMutex
 	runs    []RetentionRun
 	nextRun *time.Time
 }
+
+// NativeRetentionDelegated 表示旧调度器已让出文件清理执行权。
+func (s *RetentionService) NativeRetentionDelegated() bool { return s != nil && s.lifecycleOwned }
 
 func StartRetentionScheduler(ctx context.Context, cfg *config.Config, db *gorm.DB) {
 	if cfg == nil {
@@ -58,7 +62,7 @@ func StartRetentionScheduler(ctx context.Context, cfg *config.Config, db *gorm.D
 	retentionServiceMu.Lock()
 	retentionService = svc
 	retentionServiceMu.Unlock()
-	if svc == nil || !svc.Config().Enabled {
+	if svc == nil || !svc.Config().Enabled || svc.lifecycleOwned {
 		return
 	}
 	go svc.loop(ctx)
@@ -86,16 +90,17 @@ func NewRetentionService(cfg *config.Config, db *gorm.DB) *RetentionService {
 		paths = append(paths, cfg.Audit.File.Dir)
 	}
 	svc := &RetentionService{
-		db:          db,
-		cfg:         rcfg,
-		cron:        eventscheduler.NewService(),
-		fileRet:     NewFileRetentionProvider(append([]string{}, paths...)),
-		dbRet:       NewDBRetentionProvider(db, rcfg.BatchSize, rcfg.MaxDeleteRowsPerRun, append([]logcfg.RetentionDBTable{}, rcfg.DBTables...)),
-		maxHistory:  50,
-		sysSetting:  settingsvc.NewSettingService(db),
-		staticPaths: append([]string{}, paths...),
-		updateCh:    make(chan struct{}, 1),
-		runs:        make([]RetentionRun, 0, 50),
+		lifecycleOwned: cfg.StorageGovernance.LifecycleEnabled,
+		db:             db,
+		cfg:            rcfg,
+		cron:           eventscheduler.NewService(),
+		fileRet:        NewFileRetentionProvider(append([]string{}, paths...)),
+		dbRet:          NewDBRetentionProvider(db, rcfg.BatchSize, rcfg.MaxDeleteRowsPerRun, append([]logcfg.RetentionDBTable{}, rcfg.DBTables...)),
+		maxHistory:     50,
+		sysSetting:     settingsvc.NewSettingService(db),
+		staticPaths:    append([]string{}, paths...),
+		updateCh:       make(chan struct{}, 1),
+		runs:           make([]RetentionRun, 0, 50),
 	}
 	svc.applyPersistedPolicy(context.Background())
 	return svc
@@ -118,6 +123,12 @@ func (s *RetentionService) Policy() RetentionPolicy {
 func (s *RetentionService) UpdatePolicy(ctx context.Context, policy RetentionPolicy, operator string) (RetentionPolicy, error) {
 	if s == nil {
 		return RetentionPolicy{}, fmt.Errorf("retention service unavailable")
+	}
+	if s.lifecycleOwned && policy.Enabled {
+		return RetentionPolicy{}, fmt.Errorf("日志生命周期已移交存储治理，旧清理器不能重新启用")
+	}
+	if len(policy.DBTables) > 0 {
+		return RetentionPolicy{}, fmt.Errorf("通用数据库清理已禁用，请在存储治理中配置已批准的类型化清理策略")
 	}
 	cfg := normalizeRetentionConfig(fromRetentionPolicy(policy))
 	if err := validateRetentionConfig(cfg); err != nil {
@@ -352,6 +363,12 @@ func (s *RetentionService) computeNext(lastRun *time.Time) (*time.Time, error) {
 }
 
 func (s *RetentionService) execute(ctx context.Context, operator string, dryRun bool, retentionDays *int) RetentionRun {
+	if s.lifecycleOwned && !dryRun {
+		now := time.Now()
+		run := RetentionRun{RunID: fmt.Sprintf("ret-%d", now.UnixNano()), TriggeredBy: operator, StartedAt: now, EndedAt: now, Status: "failed", Sources: []string{}, ErrorSummary: "存储治理已登记生命周期；旧清理器禁止删除文件和数据库事件，请先关闭旧策略"}
+		s.appendRun(run)
+		return run
+	}
 	if strings.TrimSpace(operator) == "" {
 		operator = "system"
 	}

@@ -34,6 +34,12 @@ type ClaimsAuthorizer interface {
 	PermissionsForClaims(ctx context.Context, claims reqctx.CoreXClaims, pluginID string) (perms []string, policyVersion string, err error)
 }
 
+// RouteClaimsAuthorizer keeps service grants bound to their declared transport
+// and actor plane, even when an Admin route shares a business permission code.
+type RouteClaimsAuthorizer interface {
+	PermissionsForRoute(ctx context.Context, claims reqctx.CoreXClaims, pluginID, method, reqPath string) (perms []string, policyVersion string, err error)
+}
+
 type RoutePermissionResolver interface {
 	RoutePermission(ctx context.Context, pluginID, method, reqPath string) (*Permission, error)
 }
@@ -349,7 +355,9 @@ func (g *authzGate) CheckAndMint(ctx context.Context, pluginID, method, reqPath 
 		var perms []string
 		var policyVersion string
 		var err error
-		if claimsAuthorizer, ok := g.az.(ClaimsAuthorizer); ok {
+		if routeAuthorizer, ok := g.az.(RouteClaimsAuthorizer); ok {
+			perms, policyVersion, err = routeAuthorizer.PermissionsForRoute(ctx, base, pluginID, method, reqPath)
+		} else if claimsAuthorizer, ok := g.az.(ClaimsAuthorizer); ok {
 			perms, policyVersion, err = claimsAuthorizer.PermissionsForClaims(ctx, base, pluginID)
 		} else {
 			perms, policyVersion, err = g.az.Permissions(ctx, base.TenantID, base.UserID, pluginID)

@@ -1,0 +1,124 @@
+{
+  "real_core": true,
+  "mocked_api_routes": 0,
+  "started_at": "2026-10-30T13:11:48.117Z",
+  "checks": {
+    "preview_only_sealed_expired": true,
+    "manual_real_deletion_and_protection": true,
+    "idle_no_status_polling": true,
+    "archive_requirement_cannot_be_weakened": true,
+    "actual_sse_updates_runtime": true,
+    "narrow_no_document_overflow": true
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime/events",
+      "time": 1793365909162
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793365909162
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365910086
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/ops/storage/runtime/previews",
+      "time": 1793365910341
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/ops/storage/runtime/policies/acceptance-logs",
+      "time": 1793365910718
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793365910745
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365910745
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365910746
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/ops/storage/runtime/previews",
+      "time": 1793365910844
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/ops/storage/runtime/runs",
+      "time": 1793365910938
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793365910994
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365910994
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365910995
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793365915210
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365915210
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793365915227
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365915227
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793365915234
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365915234
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/overview",
+      "time": 1793365915252
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/ops/storage/runtime",
+      "time": 1793365915252
+    }
+  ],
+  "automatic_candidate_created_at": "2026-10-30T13:11:55.249Z",
+  "automatic_candidate": "check.log.4",
+  "page_errors": [],
+  "finished_at": "2026-10-30T13:11:55.504Z"
+}

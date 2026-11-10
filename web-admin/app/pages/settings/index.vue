@@ -300,6 +300,11 @@ const settingCategories = computed(() => {
   const items = [
     ...baseSettingCategories,
     {
+      key: "client-apps", title: t("clientApps.title"), description: t("clientApps.description"),
+      icon: "i-heroicons-device-phone-mobile", iconBg: "bg-sky-50 dark:bg-sky-900/20",
+      iconColor: "text-sky-600", path: "/settings/client-apps",
+    },
+    {
       key: "metadata-governance",
       title: t("settings.metadataGovernance.title"),
       description: t("settings.metadataGovernance.description"),

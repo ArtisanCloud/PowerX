@@ -1,0 +1,17 @@
+id: com.powerx.plugins.scrm.lead.conflict.resolve
+type: API
+version: 1.0.0
+description: "通过 PowerX Gateway 处理 SCRM/CRM 线索身份字段同步冲突。冲突只覆盖 display_name、phone、email。"
+rbac:
+  resource: scrm.leads
+  actions: [write]
+metadata:
+  bridge:
+    scope: identity_conflict
+    allowed_fields: [display_name, phone, email]
+    rejected_fields_policy: fail
+    transport: powerx_gateway
+  protocols:
+    capability:
+      action: resolve
+      subject: scrm.lead.conflict

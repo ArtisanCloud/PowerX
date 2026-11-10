@@ -1,0 +1,939 @@
+openapi: 3.0.3
+info:
+  title: SCRM Provider Messaging Admin Transport
+  version: 0.1.0
+  description: T033–T035 八个管理路由已接共享入口、会话/消息查询与幂等接单业务，并绑定显式运行装配；当前主启动真实设施仍由 T023 阻断。HTTP 接单不直接调用平台，Admin RBAC 不替代 Capability 服务身份授权。
+x-runtime-status: management_business_bound_runtime_gated
+servers:
+- url: /api/v1
+security:
+- AdminBearer: []
+paths:
+  /admin/messaging/endpoints:
+    get:
+      operationId: listMessagingEndpoints
+      summary: listMessagingEndpoints
+      description: 仅列当前可信租户/主体可见入口；稳定 UUID 升序 keyset 分页，默认 50/最多 100。本地 cursor 绑定租户和成员，不是授权凭据或平台游标，不保证跨请求数据快照；改名不改变排序。分类和历史探测不代表当前已获准。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_endpoints:read
+      responses:
+        '200':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          description: 本系统不透明分页 cursor，不是平台增量游标；提供时非空，最多 2048 UTF-8 字节。
+          minLength: 1
+          x-max-utf8-bytes: 2048
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+  /admin/messaging/endpoint-discoveries:
+    post:
+      operationId: discoverMessagingEndpoints
+      summary: discoverMessagingEndpoints
+      description: 显式读取已授权平台可发现入口并整批保存稳定 UUID；结果非法或保存失败整批回滚，重发现保留本地名称与启停配置；新入口默认 disabled，不暴露原生标识或凭据，不发送消息。首期 customer_service。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_endpoints:manage
+      responses:
+        '200':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoverEndpoints'
+  /admin/messaging/endpoints/{uuid}:
+    patch:
+      operationId: updateMessagingEndpoint
+      summary: updateMessagingEndpoint
+      description: 仅本系统展示名称和启停，不改平台账号名称；必须提供 expected_config_version，冲突返回 409。启用须新探测确认平台/实现/授权/入口四维；目标仍未核实。失败只保存失败证据，不部分保存名称或状态。停用不依赖平台在线，也不撤回远端效果。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_endpoints:manage
+      responses:
+        '200':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEndpoint'
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /admin/messaging/endpoints/{uuid}/probe:
+    post:
+      operationId: probeMessagingEndpoint
+      summary: probeMessagingEndpoint
+      description: 只读平台验证及保存证据，不发送测试消息，不代表特定会话可回复。保存时复核账号快照、入口版本和探测先后；旧结果不得覆盖新配置。列表不将历史探测作为当前授权。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_endpoints:manage
+      responses:
+        '200':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /admin/messaging/conversations:
+    get:
+      operationId: listMessagingConversations
+      summary: listMessagingConversations
+      description: 只读元数据，正文使用独立权限；先在租户事务内验证入口。按创建时间与 UUID 降序 keyset 分页；最近活动变化不改变翻页顺序，非跨请求快照。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_conversations:read
+      responses:
+        '200':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: endpoint_uuid
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          description: 本系统不透明分页 cursor，不是平台增量游标；提供时非空，最多 2048 UTF-8 字节。
+          minLength: 1
+          x-max-utf8-bytes: 2048
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+  /admin/messaging/conversations/{uuid}/messages:
+    get:
+      operationId: listMessagingMessages
+      summary: listMessagingMessages
+      description: 使用独立正文权限，租户事务内由会话确定入口并验证归属；按 recorded_at 和 UUID 降序 keyset 分页。cursor 绑定租户/成员/资源/父对象，不能混用；只投影类型化正文，不返回 SDK payload/密钥/原生标识。空文本原样返回，未知内容仅返回明确占位。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_messages:read
+      responses:
+        '200':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          description: 本系统不透明分页 cursor，不是平台增量游标；提供时非空，最多 2048 UTF-8 字节。
+          minLength: 1
+          x-max-utf8-bytes: 2048
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+  /admin/messaging/executions:
+    post:
+      operationId: submitMessagingReply
+      summary: submitMessagingReply
+      description: 首期仅单会话文本回复。相同主体/租户/入口/操作/业务键及指纹返回同一执行；异内容 409。202 只表示可靠接单，状态可能已进一步推进或为未知；不隐式换账号/Provider。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_executions:reply
+      responses:
+        '202':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitReply'
+  /admin/messaging/executions/{uuid}:
+    get:
+      operationId: readMessagingExecution
+      summary: readMessagingExecution
+      description: 精确执行读取权限，按当前 member 主体和租户/入口/会话范围查询持久执行；其他成员或租户同样 404。只返回安全状态投影，不含正文、凭据、原生回执、幂等键、指纹或 raw evidence；不根据时间推算送达。
+      x-implementation-status: business_implemented_runtime_gated
+      security:
+      - AdminBearer: []
+      x-required-permission: scrm.messaging_executions:read
+      responses:
+        '200':
+          description: 成功仅代表本操作合同结果；不代表平台送达。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+components:
+  securitySchemes:
+    AdminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 可信 scope=access 管理 JWT；真实 Router 校验签名/issuer/audience，精确 IAM 决策再次验证成员与租户。开发免认证、refresh/service token、query/header tenant 都不能替代管理会话。
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          description: 服务端按请求 locale 和受控机器码目录渲染具体原因及恢复提示；不返回 SDK 原始错误。
+        details:
+          type: object
+          additionalProperties: false
+          required: [next_action_code]
+          properties:
+            reason_code:
+              type: string
+            next_action_code:
+              type: string
+              enum:
+              - check_request
+              - sign_in
+              - request_permission
+              - reload_configuration
+              - review_original_request
+              - enable_endpoint
+              - inspect_configuration
+              - check_account
+              - verify_endpoint
+              - inspect_reply_conditions
+              - reconcile_execution
+              - query_or_retry_same_request
+              - wait_then_check
+              - inspect_storage
+              - inspect_provider_response
+              - inspect_history_gap
+              - run_rate_limited_recovery
+              - inspect_source_conflict
+              - inspect_recovery_result
+              - retry_inbox
+              - resume_inbox
+              - inspect_reply_result
+              - inspect_events
+              - inspect_audit
+              - no_action
+              - unknown
+              - inspect_authorization
+              - inspect_platform_authorization
+      required:
+      - code
+      - message
+      - details
+    Failure:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum:
+          - false
+        error:
+          $ref: '#/components/schemas/Error'
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+      required:
+      - success
+      - error
+      - timestamp
+      - request_id
+    Evidence:
+      type: object
+      additionalProperties: false
+      properties:
+        dimension:
+          type: string
+          enum:
+          - platform
+          - implementation
+          - authorization
+          - endpoint
+          - target
+        state:
+          type: string
+          enum:
+          - confirmed
+          - rejected
+          - unverified
+        reason_code:
+          type: string
+        checked_at:
+          type: string
+          format: date-time
+      required:
+      - dimension
+      - state
+      - reason_code
+    OperationAvailability:
+      type: object
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum:
+          - message.receive
+          - message.reply
+          - message.notify
+          - broadcast.create
+        available:
+          type: boolean
+        checks:
+          type: array
+          minItems: 5
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/Evidence'
+          description: 服务端保证五个维度各出现一次；available 只由可信服务计算。
+      required:
+      - operation
+      - available
+      - checks
+    Endpoint:
+      type: object
+      additionalProperties: false
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        channel_account_uuid:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          minLength: 1
+        provider_code:
+          type: string
+          pattern: ^[a-z][a-z0-9_]*$
+        product_code:
+          type: string
+          pattern: ^[a-z][a-z0-9_]*$
+        status:
+          type: string
+          enum:
+          - disabled
+          - enabled
+        config_version:
+          type: integer
+          format: int64
+          minimum: 1
+        last_probe_at:
+          type: string
+          format: date-time
+        last_error_code:
+          type: string
+          description: 稳定机器码，不返回 SDK/数据库原始错误。
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationAvailability'
+      required:
+      - uuid
+      - channel_account_uuid
+      - display_name
+      - provider_code
+      - product_code
+      - status
+      - config_version
+      - operations
+    DiscoverEndpoints:
+      type: object
+      additionalProperties: false
+      properties:
+        channel_account_uuid:
+          type: string
+          format: uuid
+        product_code:
+          type: string
+          enum:
+          - customer_service
+      required:
+      - channel_account_uuid
+      - product_code
+    UpdateEndpoint:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_config_version
+      anyOf:
+      - required: [display_name]
+      - required: [status]
+      properties:
+        expected_config_version:
+          type: integer
+          format: int64
+          minimum: 1
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        status:
+          type: string
+          enum:
+          - enabled
+          - disabled
+    Conversation:
+      type: object
+      additionalProperties: false
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        endpoint_uuid:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        status:
+          type: string
+          minLength: 1
+        customer_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        last_activity_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - uuid
+      - endpoint_uuid
+      - display_name
+      - status
+    TextContent:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum:
+          - text
+        text:
+          type: string
+          minLength: 1
+      required:
+      - type
+      - text
+    ReceivedTextContent:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [text]
+        text:
+          type: string
+          description: 保留入站原文，包含合法空文本；不用于放宽回复请求校验。
+      required: [type, text]
+    UnsupportedContent:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum:
+          - unsupported
+        reason_code:
+          type: string
+          minLength: 1
+      required:
+      - type
+      - reason_code
+    Message:
+      type: object
+      additionalProperties: false
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        conversation_uuid:
+          type: string
+          format: uuid
+        direction:
+          type: string
+          enum:
+          - inbound
+          - outbound
+        content:
+          oneOf:
+          - $ref: '#/components/schemas/ReceivedTextContent'
+          - $ref: '#/components/schemas/UnsupportedContent'
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
+        recorded_at:
+          type: string
+          format: date-time
+      required:
+      - uuid
+      - conversation_uuid
+      - direction
+      - content
+      - recorded_at
+    SubmitReply:
+      type: object
+      additionalProperties: false
+      properties:
+        endpoint_uuid:
+          type: string
+          format: uuid
+        intent:
+          type: string
+          enum:
+          - reply
+        target:
+          type: object
+          additionalProperties: false
+          properties:
+            conversation_uuid:
+              type: string
+              format: uuid
+          required:
+          - conversation_uuid
+        content:
+          $ref: '#/components/schemas/TextContent'
+        idempotency_key:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - endpoint_uuid
+      - intent
+      - target
+      - content
+      - idempotency_key
+    Execution:
+      type: object
+      additionalProperties: false
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        endpoint_uuid:
+          type: string
+          format: uuid
+        conversation_uuid:
+          type: string
+          format: uuid
+        message_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        intent:
+          type: string
+          enum:
+          - reply
+        status:
+          type: string
+          enum:
+          - queued
+          - submitting
+          - provider_accepted
+          - sent
+          - delivered
+          - read
+          - failed
+          - outcome_unknown
+        error_code:
+          type: string
+        retry_class:
+          type: string
+          enum:
+          - none
+          - safe_retry
+          - manual_reconcile
+        next_action_code:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - uuid
+      - endpoint_uuid
+      - conversation_uuid
+      - intent
+      - status
+      - retry_class
+      - updated_at
+    EndpointList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Endpoint'
+        next_cursor:
+          type: string
+          nullable: true
+      required:
+      - items
+      - next_cursor
+    ConversationList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conversation'
+        next_cursor:
+          type: string
+          nullable: true
+      required:
+      - items
+      - next_cursor
+    MessageList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        next_cursor:
+          type: string
+          nullable: true
+      required:
+      - items
+      - next_cursor
+    EndpointResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data:
+          $ref: '#/components/schemas/Endpoint'
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+      required:
+      - success
+      - data
+      - timestamp
+      - request_id
+    EndpointListResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data:
+          $ref: '#/components/schemas/EndpointList'
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+      required:
+      - success
+      - data
+      - timestamp
+      - request_id
+    ConversationListResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data:
+          $ref: '#/components/schemas/ConversationList'
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+      required:
+      - success
+      - data
+      - timestamp
+      - request_id
+    MessageListResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data:
+          $ref: '#/components/schemas/MessageList'
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+      required:
+      - success
+      - data
+      - timestamp
+      - request_id
+    ExecutionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data:
+          $ref: '#/components/schemas/Execution'
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+      required:
+      - success
+      - data
+      - timestamp
+      - request_id
+  responses:
+    BadRequest:
+      description: 类型或参数无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Failure'
+    Unauthenticated:
+      description: 可信身份缺失
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Failure'
+    PermissionDenied:
+      description: 授权不足或范围不匹配
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Failure'
+    NotFound:
+      description: 当前范围对象不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Failure'
+    Conflict:
+      description: 幂等内容冲突或配置版本冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Failure'
+    RateLimited:
+      description: 频率限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Failure'
+    Unavailable:
+      description: 运行依赖不可用
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Failure'

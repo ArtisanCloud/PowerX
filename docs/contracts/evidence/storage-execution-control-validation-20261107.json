@@ -1,0 +1,119 @@
+{
+  "date": "2026-11-07",
+  "scope": "SG-11 managed execution pause, explicit resume and handoff latch",
+  "status": "source and isolated acceptance complete; whole commercial gates and daily/production cutover incomplete",
+  "branch": "024-ai-engineering-skills",
+  "authority": "fixed execution-control domain in existing configuration/revision tables; scoped CAS, immutable UUID operation and formal TaskBus; monotonic host watermark and verified private projection",
+  "migration": "No new tables/models or runtime migration; no daily/production migration or adoption",
+  "default": "unmanaged preserves existing behavior; explicit first pause/begin_handoff engages global protection; not automatic safety activation",
+  "guards": [
+    "file lifecycle per-file commit",
+    "archive admission, transfer, remote batch cleanup and local retention",
+    "database backup plan admission and per-artifact retention",
+    "ordinary snapshot plan admission and automatic retention",
+    "invocation retention transaction",
+    "two fixed system-table retention transactions"
+  ],
+  "semantics": [
+    "pause desired state blocks the next guarded step without publisher acknowledgement; disabled/exited consumer accepted",
+    "existing bounded guarded step may finish before pause returns; shared gate lock precedes resource lock; same SQL connection",
+    "pause successful response includes independent host watermark; publication also writes monotonic watermark",
+    "resume requires previous/current publication proofs and publisher available; pending open stays blocked",
+    "handoff checks registered policy DTO enable flags and publication revisions, never claims external executor detection",
+    "operator declarations cover legacy executors and admitted jobs; completion stays paused and resume requires all registered policies still paused",
+    "Root-only human session, strict DTO, explicit reason/confirmation, CAS and original UUID receipt",
+    "unknown response locks mutations/modal; GET 404 stays unknown, no POST retry; SSE preserves draft/CAS; no periodic status reads"
+  ],
+  "tests": {
+    "native_top_level_distinct_cases": 39,
+    "native_repetitions": 3,
+    "native_top_level_passes": 117,
+    "native_new_gate_cases": 7,
+    "effect_subcases": [
+      "file-deletion",
+      "backup-admission",
+      "snapshot-admission",
+      "archive-retention",
+      "invocation-retention"
+    ],
+    "real_system_rows": "expired probe rows preserved during global handoff and removed only after separate resume/enable; latest/protected rows retained",
+    "frontend_files": 35,
+    "frontend_tests": 243,
+    "http": "real Gin/JWT/PostgreSQL/formal TaskBus/SSE; Redis transport miniredis; custom /custom/v2 prefix; anonymous/nonRoot/APIKey/plugin rejection and strict inputs",
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "Root pause through real HTTP/PostgreSQL/formal TaskBus and SSE",
+        "resume requires separate confirmation and publication",
+        "SSE preserves frozen CAS draft; conflict needs explicit latest reload",
+        "lost committed response stays locked through 404, then reconciles original GET receipt only",
+        "registered policy enabled/pending blocks handoff; both operator declarations required; completion stays paused",
+        "post-handoff resume preserves resource pause; no automatic legacy activation",
+        "light 1440 task navigation, reason retention, primary action and no overflow",
+        "light 390 task navigation, reason retention, primary action and no overflow",
+        "dark 1440 task navigation, reason retention, primary action and no overflow",
+        "dark 390 task navigation, reason retention, primary action and no overflow",
+        "idle observation has no periodic status reads; leaving releases SSE"
+      ],
+      "runtime_errors": [],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "idle_control_requests": [],
+      "idle_observation_seconds": 2.5,
+      "leaving_releases_sse": true,
+      "boundary": "actual daily Nuxt with controlled gate/table/SSE routes redirected only to owned HTTP/PG/TaskBus; authorized Root login, other daily operations read-only"
+    },
+    "sql_audit": {
+      "logging_collector": "on",
+      "log_statement": "mod",
+      "log_truncate_on_rotation": "off"
+    },
+    "checks": [
+      "focused Go regression/bootstrap/repository tests passed",
+      "go vet passed",
+      "make capability-check passed; only fixed Root routes ignored, no service capability change",
+      "strict OpenAPI YAML duplicate-key and shape check passed",
+      "scoped git diff --check passed"
+    ]
+  },
+  "limits": [
+    "not automatic cancellation/drain of already admitted long jobs",
+    "explicit Root maintenance, independent restore and business media writes are outside the switch",
+    "legacy binaries/scripts/Loki do not implement this gate; operator assertions are not automatic process proof",
+    "joint database plus host metadata restore epoch and actual old-binary deployment handoff incomplete",
+    "no guarantee of acknowledged pause for a crash between SQL commit and independent watermark confirmation; unknown remains query-only",
+    "no automatic restore drills, external KMS or real long-term external target/dual environment/7/14 day acceptance",
+    "backup/snapshot regression adapters use synthetic captures, not physical restore proof"
+  ],
+  "live_mutations": {
+    "daily_core_restart": false,
+    "daily_migration_or_policy_change": false,
+    "production_access_or_change": false,
+    "user_archive_objects_deleted": false,
+    "user_service_stopped": false,
+    "business_data_changed": false,
+    "test_resources_only": true
+  },
+  "artifacts": "tmp/storage-commercial-execution-control-20261107/",
+  "overall_sg11_complete": false,
+  "cleanup": {
+    "postgres_stopped": true,
+    "owned_postgres_root_removed": true,
+    "owned_http_proxy_ports_closed": [
+      64658,
+      63156
+    ],
+    "owned_browser_children_remaining": [],
+    "temporary_jwt_removed": true,
+    "daily_services": {
+      "3030": "listening; not managed by this cleanup",
+      "8077": "listening; not managed by this cleanup"
+    }
+  }
+}

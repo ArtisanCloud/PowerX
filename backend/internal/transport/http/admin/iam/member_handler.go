@@ -35,12 +35,15 @@ type CreateMemberReq struct {
 	Member          m.Member `json:"member" validate:"required"`
 	User            m.User   `json:"user"`
 	DeptIDs         []uint64 `json:"dept_ids"`
-	InitialPassword string   `json:"initial_password"`
+	InitialPassword string   `json:"initial_password" validate:"omitempty,min=6,max=64"`
+	RoleUUIDs       []string `json:"role_uuids" validate:"omitempty,dive,uuid"`
 }
 type UpdateMemberReq struct {
-	Member  *m.Member `json:"member"`
-	User    *m.User   `json:"user"`
-	DeptIDs *[]uint64 `json:"dept_ids"`
+	Member    *m.Member               `json:"member"`
+	User      *m.User                 `json:"user"`
+	DeptIDs   *[]uint64               `json:"dept_ids"`
+	RoleUUIDs *[]string               `json:"role_uuids" validate:"omitempty,dive,uuid"`
+	Contact   *svc.MemberContactPatch `json:"contact"`
 }
 type SetMemberStatusReq struct {
 	Status *int16 `json:"status" validate:"required"`
@@ -88,8 +91,11 @@ func (h *MemberHandler) List(c *gin.Context) {
 
 // GET /api/v1/admin/iam/members/:id
 func (h *MemberHandler) Get(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	id, ok := h.requireManagedMember(c, tenantUUID)
 	if !ok {
 		return
 	}
@@ -117,9 +123,11 @@ func (h *MemberHandler) Create(c *gin.Context) {
 		User:            req.User,
 		DeptIDs:         req.DeptIDs,
 		InitialPassword: req.InitialPassword,
+		RoleUUIDs:       req.RoleUUIDs,
 	})
 	if err != nil {
-		if errors.Is(err, svc.ErrMemberDisplayNameConflict) {
+		var appError *dto.AppError
+		if errors.As(err, &appError) || errors.Is(err, svc.ErrMemberDisplayNameConflict) {
 			dto.RespondErrorFrom(c, err)
 			return
 		}
@@ -131,7 +139,6 @@ func (h *MemberHandler) Create(c *gin.Context) {
 
 // PATCH /api/v1/admin/iam/members/:id
 func (h *MemberHandler) Update(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req UpdateMemberReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -141,12 +148,19 @@ func (h *MemberHandler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
+	id, ok := h.requireManagedMember(c, tenantUUID)
+	if !ok {
+		return
+	}
 	if err := h.S.UpdateMemberByTenantUUID(c.Request.Context(), tenantUUID, id, svc.UpdateMemberInput{
-		Member:  req.Member,
-		User:    req.User,
-		DeptIDs: req.DeptIDs,
+		Member:    req.Member,
+		User:      req.User,
+		DeptIDs:   req.DeptIDs,
+		RoleUUIDs: req.RoleUUIDs,
+		Contact:   req.Contact,
 	}); err != nil {
-		if errors.Is(err, svc.ErrMemberDisplayNameConflict) {
+		var appError *dto.AppError
+		if errors.As(err, &appError) || errors.Is(err, svc.ErrMemberDisplayNameConflict) {
 			dto.RespondErrorFrom(c, err)
 			return
 		}
@@ -158,7 +172,6 @@ func (h *MemberHandler) Update(c *gin.Context) {
 
 // PUT /api/v1/admin/iam/members/:id/status
 func (h *MemberHandler) SetStatus(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req SetMemberStatusReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -168,8 +181,13 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 	if !ok {
 		return
 	}
+	id, ok := h.requireManagedMember(c, tenantUUID)
+	if !ok {
+		return
+	}
 	if err := h.S.SetMemberStatusByTenantUUID(c.Request.Context(), tenantUUID, id, *req.Status, req.Reason); err != nil {
-		if errors.Is(err, svc.ErrMemberDisplayNameConflict) {
+		var appError *dto.AppError
+		if errors.As(err, &appError) || errors.Is(err, svc.ErrMemberDisplayNameConflict) {
 			dto.RespondErrorFrom(c, err)
 			return
 		}
@@ -181,8 +199,11 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 
 // DELETE /api/v1/admin/iam/members/:id
 func (h *MemberHandler) Delete(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	id, ok := h.requireManagedMember(c, tenantUUID)
 	if !ok {
 		return
 	}
@@ -195,8 +216,11 @@ func (h *MemberHandler) Delete(c *gin.Context) {
 
 // PUT /api/v1/admin/iam/members/:id/restore
 func (h *MemberHandler) Restore(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	id, ok := h.requireManagedMember(c, tenantUUID, true)
 	if !ok {
 		return
 	}
@@ -209,13 +233,16 @@ func (h *MemberHandler) Restore(c *gin.Context) {
 
 // PUT /api/v1/admin/iam/members/:id/departments
 func (h *MemberHandler) PutDepartments(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req PutMemberDepartmentsReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
 	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	id, ok := h.requireManagedMember(c, tenantUUID)
 	if !ok {
 		return
 	}
@@ -228,13 +255,16 @@ func (h *MemberHandler) PutDepartments(c *gin.Context) {
 
 // POST /api/v1/admin/iam/members/:id/force-logout
 func (h *MemberHandler) ForceMemberLogout(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req ForceMemberLogoutReq
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)
 		return
 	}
 	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	id, ok := h.requireManagedMember(c, tenantUUID)
 	if !ok {
 		return
 	}

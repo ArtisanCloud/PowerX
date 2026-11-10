@@ -10,10 +10,12 @@ import (
 
 	owners "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	capmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	iammodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	gwmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	gwrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -34,7 +36,18 @@ func TestAPIKeyOwnerHTTPCreateSaveAppendClearRestoreRotateAndIsolation(t *testin
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(&iammodel.APIKey{}, &iammodel.APIKeyProfile{}, &iammodel.APIKeyProfilePermission{}, &iammodel.Permission{}, &gwmodel.IntegrationGatewayAPIKey{}, &gwmodel.IntegrationGatewayAPIKeyPermission{}, &gwmodel.IntegrationGatewayAPIKeyAuditLog{}))
+	require.NoError(t, db.AutoMigrate(&capmodels.CapabilityRecord{}, &capmodels.CapabilityRegistration{}))
 	tenant := uuid.NewString()
+	const provider = "com.powerx.plugins.ecommerce"
+	const capability = provider + ".product.spu.subscription.plan.read"
+	explicitMeta, err := pluginpermission.ExplicitAPIKeyMetadata(&pluginpermission.APIKeySpec{CapabilityID: capability, PluginID: provider, Scope: "_scope.ecommerce.subscription_plans.read", Action: "read", ResourceType: "capability", ResourcePattern: "subscription_plans", Effect: "allow"}, provider, capability, true)
+	require.NoError(t, err)
+	explicitRaw, err := json.Marshal(explicitMeta)
+	require.NoError(t, err)
+	explicit := &iammodel.Permission{Module: "commerce", Resource: "subscription_plans_service", Action: "read", Source: "plugin:" + provider, AllowAPIKey: true, Status: iammodel.PermissionStatusActive, Meta: datatypes.JSON(explicitRaw)}
+	require.NoError(t, db.Create(explicit).Error)
+	require.NoError(t, db.Create(&capmodels.CapabilityRecord{CapabilityID: capability, PluginID: provider, PluginVersion: "0.3.1", Status: "published", Title: "Read plans", CapabilitiesHash: "fixture", ProtocolHash: "fixture"}).Error)
+	require.NoError(t, db.Create(&capmodels.CapabilityRegistration{CapabilityID: capability, TenantUUID: tenant, Status: "published", Version: 1, ContractRef: "2.0.0"}).Error)
 	profile := &iammodel.APIKeyProfile{TenantUUID: tenant, Key: "owner-http", Name: "owner HTTP", Status: 1}
 	require.NoError(t, db.Create(profile).Error)
 	ids := []uint64{}
@@ -63,12 +76,15 @@ func TestAPIKeyOwnerHTTPCreateSaveAppendClearRestoreRotateAndIsolation(t *testin
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
-	router.POST("/keys", handler.CreateAPIKey)
-	router.POST("/keys/:key_id/rotate", handler.RotateAPIKey)
-	router.GET("/keys/:key_id/plugin-owners", ownerHandler.GetPluginOwners)
-	router.PUT("/keys/:key_id/plugin-owners", ownerHandler.SetPluginOwners)
-	router.PUT("/profiles/:profile_id/permissions", handler.SetAPIKeyProfilePermissions)
-	router.POST("/profiles/:profile_id/permissions/append", handler.AppendAPIKeyProfilePermissions)
+	router.POST("/admin/integration/api-keys", handler.CreateAPIKey)
+	router.POST("/admin/integration/api-keys/:key_id/rotate", handler.RotateAPIKey)
+	router.GET("/admin/integration/api-keys/:key_id/plugin-owners", ownerHandler.GetPluginOwners)
+	router.PUT("/admin/integration/api-keys/:key_id/plugin-owners", ownerHandler.SetPluginOwners)
+	router.GET("/admin/integration/api-keys/:key_id/explicit-grants", ownerHandler.GetExplicitGrants)
+	router.POST("/admin/integration/api-keys/:key_id/explicit-grants", ownerHandler.AppendExplicitGrants)
+	router.DELETE("/admin/integration/api-keys/:key_id/explicit-grants/:permission_id", ownerHandler.RevokeExplicitGrant)
+	router.PUT("/admin/integration/api-key-profiles/:profile_id/permissions", handler.SetAPIKeyProfilePermissions)
+	router.POST("/admin/integration/api-key-profiles/:profile_id/permissions/append", handler.AppendAPIKeyProfilePermissions)
 	request := func(method, path string, body any, headers map[string]string, status int) map[string]any {
 		t.Helper()
 		raw, _ := json.Marshal(body)
@@ -87,19 +103,26 @@ func TestAPIKeyOwnerHTTPCreateSaveAppendClearRestoreRotateAndIsolation(t *testin
 		}
 		return response
 	}
-	create := request("POST", "/keys", map[string]any{"profile_id": profile.ID, "name": "owner HTTP", "plugin_ids": []string{"com.powerx.plugins.scrm"}}, nil, 201)
+	create := request("POST", "/admin/integration/api-keys", map[string]any{"profile_id": profile.ID, "name": "owner HTTP", "plugin_ids": []string{"com.powerx.plugins.scrm"}}, nil, 201)
 	key := create["api_key"].(map[string]any)
 	id := key["key_id"].(string)
-	ownersPath := "/keys/" + id + "/plugin-owners"
+	explicitPath := "/admin/integration/api-keys/" + id + "/explicit-grants"
+	explicitBody := map[string]any{"permission_ids": []uint64{explicit.ID}}
+	request("POST", explicitPath, explicitBody, nil, 200)
+	require.Len(t, request("GET", explicitPath, nil, nil, 200)["grants"], 1)
+	request("POST", explicitPath, map[string]any{"permission_ids": []uint64{explicit.ID}, "tenant_uuid": uuid.NewString()}, nil, 400)
+	request("POST", explicitPath, explicitBody, map[string]string{"X-Test-Auth": "api_key"}, 403)
+	request("POST", explicitPath, explicitBody, map[string]string{"X-Test-Tenant": uuid.NewString()}, 404)
+	ownersPath := "/admin/integration/api-keys/" + id + "/plugin-owners"
 	request("PUT", ownersPath, map[string]any{"plugin_ids": []string{"com.powerx.plugins.crm"}}, nil, 200)
-	profilePath := "/profiles/" + strconv.FormatUint(profile.ID, 10) + "/permissions"
+	profilePath := "/admin/integration/api-key-profiles/" + strconv.FormatUint(profile.ID, 10) + "/permissions"
 	request("PUT", profilePath, map[string]any{"permission_ids": ids}, nil, 200)
 	request("POST", profilePath+"/append", map[string]any{"permission_ids": ids}, nil, 200)
 	require.Equal(t, []any{"com.powerx.plugins.crm"}, request("GET", ownersPath, nil, nil, 200)["plugin_ids"])
 	request("PUT", profilePath, map[string]any{"permission_ids": []uint64{}}, nil, 200)
 	require.Equal(t, []any{"com.powerx.plugins.crm"}, request("GET", ownersPath, nil, nil, 200)["plugin_ids"])
 	request("PUT", profilePath, map[string]any{"permission_ids": ids}, nil, 200)
-	rotation := request("POST", "/keys/"+id+"/rotate", map[string]any{}, nil, 200)
+	rotation := request("POST", "/admin/integration/api-keys/"+id+"/rotate", map[string]any{}, nil, 200)
 	rotatedKey := rotation["api_key"].(map[string]any)
 	require.Equal(t, []any{"com.powerx.plugins.crm"}, rotatedKey["plugin_ids"])
 	rotatedID := rotatedKey["key_id"].(string)
@@ -108,13 +131,22 @@ func TestAPIKeyOwnerHTTPCreateSaveAppendClearRestoreRotateAndIsolation(t *testin
 	require.Equal(t, "revoked", stored.Status)
 	rows, err := gwrepo.NewIntegrationGatewayAPIKeyPermissionRepository(db).ListByAPIKeyUUID(context.Background(), uuid.MustParse(rotatedID))
 	require.NoError(t, err)
-	require.Len(t, rows, 2)
+	require.Len(t, rows, 3)
 	for _, row := range rows {
-		require.Equal(t, "com.powerx.plugins.crm", row.PluginID)
+		if row.Scope == "_scope.ecommerce.subscription_plans.read" {
+			require.Equal(t, provider, row.PluginID)
+		} else {
+			require.Equal(t, "com.powerx.plugins.crm", row.PluginID)
+		}
 	}
+	require.Len(t, request("GET", "/admin/integration/api-keys/"+rotatedID+"/explicit-grants", nil, nil, 200)["grants"], 1)
+	request("DELETE", "/admin/integration/api-keys/"+rotatedID+"/explicit-grants/"+strconv.FormatUint(explicit.ID, 10), nil, nil, 200)
+	rows, err = gwrepo.NewIntegrationGatewayAPIKeyPermissionRepository(db).ListByAPIKeyUUID(context.Background(), uuid.MustParse(rotatedID))
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
 	for _, body := range []any{map[string]any{"plugin_ids": []string{"*"}}, map[string]any{}, map[string]any{"plugin_ids": nil}, map[string]any{"plugin_ids": []string{"com.powerx.plugins.crm"}, "tenant_uuid": uuid.NewString()}} {
-		request("PUT", "/keys/"+rotatedID+"/plugin-owners", body, nil, 400)
+		request("PUT", "/admin/integration/api-keys/"+rotatedID+"/plugin-owners", body, nil, 400)
 	}
-	request("PUT", "/keys/"+rotatedID+"/plugin-owners", map[string]any{"plugin_ids": []string{"com.powerx.plugins.crm"}}, map[string]string{"X-Test-Tenant": uuid.NewString()}, 404)
-	request("PUT", "/keys/"+rotatedID+"/plugin-owners", map[string]any{"plugin_ids": []string{"com.powerx.plugins.crm"}}, map[string]string{"X-Test-Auth": "api_key"}, 403)
+	request("PUT", "/admin/integration/api-keys/"+rotatedID+"/plugin-owners", map[string]any{"plugin_ids": []string{"com.powerx.plugins.crm"}}, map[string]string{"X-Test-Tenant": uuid.NewString()}, 404)
+	request("PUT", "/admin/integration/api-keys/"+rotatedID+"/plugin-owners", map[string]any{"plugin_ids": []string{"com.powerx.plugins.crm"}}, map[string]string{"X-Test-Auth": "api_key"}, 403)
 }

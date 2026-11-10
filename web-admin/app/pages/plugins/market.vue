@@ -1,26 +1,13 @@
 <template>
-  <div class="space-y-6 p-4">
-    <div class="flex items-center justify-between gap-3">
-      <div v-if="isRoot" class="flex items-center gap-2">
-        <UButton :variant="'solid'" size="sm" :to="'/plugins/market'">
-          {{ marketTabLabel }}
-        </UButton>
-        <UButton variant="ghost" size="sm" :to="'/plugins/installed'">
-          {{ installedTabLabel }}
-        </UButton>
-      </div>
+  <div class="min-w-0 space-y-6 p-4 sm:p-6">
+    <div :class="isRoot ? 'min-w-0' : 'flex items-center justify-between gap-3'">
+      <PluginSourceNav v-if="isRoot" />
       <h1 v-else class="text-lg font-semibold text-[var(--text-primary)]">
         插件订阅
       </h1>
       <div class="flex items-center gap-2">
         <UButton
-          v-if="isRoot"
-          size="sm"
-          icon="i-heroicons-arrow-down-tray"
-          @click="openInstallGeneric"
-          >安装</UButton
-        >
-        <UButton
+          v-if="!isRoot"
           icon="i-heroicons-arrow-path"
           variant="ghost"
           size="sm"
@@ -30,6 +17,8 @@
       </div>
     </div>
 
+    <RemoteMarketplace v-if="isRoot" ref="remoteMarket" />
+    <template v-else>
     <!-- 筛选区 -->
     <div
       class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
@@ -140,6 +129,7 @@
       </div>
     </div>
 
+    </template>
     <!-- 安装对话框 -->
     <InstallDialog
       v-model="installOpen"
@@ -154,10 +144,13 @@ import PluginCard, {
   type MarketplacePlugin,
 } from "~/components/plugins/PluginCard.vue";
 import InstallDialog from "~/components/plugins/InstallDialog.vue";
+import RemoteMarketplace from "~/components/plugins/RemoteMarketplace.vue";
+import PluginSourceNav from "~/components/plugins/PluginSourceNav.vue";
 import { useUserStore } from "~/stores/user";
 
 definePageMeta({
   layout: "default",
+  title: "plugins.presentation.market",
 });
 
 const q = ref("");
@@ -182,8 +175,6 @@ const sortOptions = ["默认排序", "安装量", "更新时间", "名称"];
 const userStore = useUserStore();
 const isRoot = computed(() => userStore.isRoot);
 const isTenantAdmin = computed(() => userStore.isCurrentTenantAdmin);
-const marketTabLabel = computed(() => "插件市场");
-const installedTabLabel = computed(() => "已安装");
 const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 const statusOptions = computed(() =>
   isRoot.value
@@ -193,8 +184,10 @@ const statusOptions = computed(() =>
 
 // 后端数据（不使用本地 mock）
 const all = ref<MarketplacePlugin[]>([]);
+const remoteMarket = ref<InstanceType<typeof RemoteMarketplace>>();
 
 async function fetchMarketplace() {
+  if (isRoot.value) return;
   try {
     const { useAdminPluginsService } = await import(
       "~/composables/api/services/adminPluginsService"
@@ -316,6 +309,7 @@ onMounted(() => {
 });
 
 function refresh() {
+  if (isRoot.value) { remoteMarket.value?.refresh(); return; }
   fetchMarketplace();
 }
 
@@ -326,10 +320,7 @@ function openInstall(p: MarketplacePlugin) {
   installOpen.value = true;
   console.info("[openInstall] fired with", p); // 便于确认点击链路没问题
 }
-function openInstallGeneric() {
-  selectedPlugin.value = undefined as any;
-  installOpen.value = true;
-}
+
 async function onInstalled(payload?: {
   plugin: MarketplacePlugin | null;
   state: any;
@@ -355,7 +346,8 @@ async function onInstalled(payload?: {
     }
 
     // 3) 再从后端拉一次最新市场数据，确保状态一致
-    await fetchMarketplace();
+    if (isRoot.value) await remoteMarket.value?.refresh();
+    else await fetchMarketplace();
 
     // 4) （可选）若当前过滤条件把“已安装”过滤掉了，可以考虑把 status 回到“全部状态”
     // if (status.value !== "全部状态") status.value = "全部状态"

@@ -1,0 +1,197 @@
+capabilities:
+  imports:
+    - contracts/capabilities/com.powerx.plugins.scrm.lead.activity.record.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.lead.conflict.resolve.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.lead.identity.update.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.lead.mapping.upsert.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.lead.status.get.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.leads.read.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.leads.write.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.messaging.conversations.list.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.messaging.endpoints.list.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.messaging.executions.read.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.messaging.executions.reply.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.messaging.messages.list.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.runtime_ops.invoke.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.social_channel_accounts.read.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.social_channel_accounts.write.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.audit.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.batch_clone.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.compose.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.create.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.delete.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.list.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.publish.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.quality_distribute.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.read.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.review.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.update.yaml
+    - contracts/capabilities/com.powerx.plugins.scrm.template.validate.yaml
+  provides:
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.lead.activity.record.yaml
+      id: com.powerx.plugins.scrm.lead.activity.record
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.lead.conflict.resolve.yaml
+      id: com.powerx.plugins.scrm.lead.conflict.resolve
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.lead.identity.update.yaml
+      id: com.powerx.plugins.scrm.lead.identity.update
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.lead.mapping.upsert.yaml
+      id: com.powerx.plugins.scrm.lead.mapping.upsert
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.lead.status.get.yaml
+      id: com.powerx.plugins.scrm.lead.status.get
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.leads.read.yaml
+      id: com.powerx.plugins.scrm.leads.read
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.leads.write.yaml
+      id: com.powerx.plugins.scrm.leads.write
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.messaging.conversations.list.yaml
+      id: com.powerx.plugins.scrm.messaging.conversations.list
+      schemas:
+        input: docs/contracts/messaging-service.openapi.yaml
+        output: docs/contracts/messaging-service.openapi.yaml
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.messaging.endpoints.list.yaml
+      id: com.powerx.plugins.scrm.messaging.endpoints.list
+      schemas:
+        input: docs/contracts/messaging-service.openapi.yaml
+        output: docs/contracts/messaging-service.openapi.yaml
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.messaging.executions.read.yaml
+      id: com.powerx.plugins.scrm.messaging.executions.read
+      schemas:
+        input: docs/contracts/messaging-service.openapi.yaml
+        output: docs/contracts/messaging-service.openapi.yaml
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.messaging.executions.reply.yaml
+      id: com.powerx.plugins.scrm.messaging.executions.reply
+      schemas:
+        input: docs/contracts/messaging-service.openapi.yaml
+        output: docs/contracts/messaging-service.openapi.yaml
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.messaging.messages.list.yaml
+      id: com.powerx.plugins.scrm.messaging.messages.list
+      schemas:
+        input: docs/contracts/messaging-service.openapi.yaml
+        output: docs/contracts/messaging-service.openapi.yaml
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.runtime_ops.invoke.yaml
+      id: com.powerx.plugins.scrm.runtime_ops.invoke
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.social_channel_accounts.read.yaml
+      id: com.powerx.plugins.scrm.social_channel_accounts.read
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.social_channel_accounts.write.yaml
+      id: com.powerx.plugins.scrm.social_channel_accounts.write
+      schemas:
+        input: ""
+        output: ""
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.audit.yaml
+      id: com.powerx.plugins.scrm.template.audit
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.audit.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.audit.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.batch_clone.yaml
+      id: com.powerx.plugins.scrm.template.batch_clone
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.batch_clone.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.batch_clone.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.compose.yaml
+      id: com.powerx.plugins.scrm.template.compose
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.compose.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.compose.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.create.yaml
+      id: com.powerx.plugins.scrm.template.create
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.create.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.create.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.delete.yaml
+      id: com.powerx.plugins.scrm.template.delete
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.delete.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.delete.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.list.yaml
+      id: com.powerx.plugins.scrm.template.list
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.list.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.list.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.publish.yaml
+      id: com.powerx.plugins.scrm.template.publish
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.publish.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.publish.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.quality_distribute.yaml
+      id: com.powerx.plugins.scrm.template.quality_distribute
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.quality_distribute.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.quality_distribute.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.read.yaml
+      id: com.powerx.plugins.scrm.template.read
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.read.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.read.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.review.yaml
+      id: com.powerx.plugins.scrm.template.review
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.review.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.review.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.update.yaml
+      id: com.powerx.plugins.scrm.template.update
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.update.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.update.json
+      version: 1.0.0
+    - descriptor: contracts/capabilities/com.powerx.plugins.scrm.template.validate.yaml
+      id: com.powerx.plugins.scrm.template.validate
+      schemas:
+        input: contracts/schema/input/com.powerx.plugins.scrm.template.validate.json
+        output: contracts/schema/output/com.powerx.plugins.scrm.template.validate.json
+      version: 1.0.0
+  required:
+    - com.corex.capabilities.grant_status.read
+    - com.corex.iam.authorization.check
+    - com.corex.iam.directory.read
+    - com.corex.iam.members.read

@@ -39,8 +39,14 @@ func InitGlobalConfig(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("读取配置文件失败: %w", err)
 	}
+	if err := rejectQueueNamespace(data); err != nil {
+		return err
+	}
 
 	var config Config
+	// 此入口保留原有其他配置语义，仅与 Load 共用市场默认值。
+	// YAML 显式填写 api_root（包括空字符串）仍优先于内置默认值。
+	config.Plugin.Marketplace = DefaultMarketplaceConfig()
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
@@ -59,6 +65,9 @@ func InitGlobalConfig(configPath string) error {
 	}
 	if err := config.ValidateDeploymentIdentity(); err != nil {
 		return fmt.Errorf("部署身份配置无效: %w", err)
+	}
+	if err := config.ReadEnvironmentIdentity(configPath); err != nil {
+		return err
 	}
 
 	// AI: default fill + global snapshot (read-only)
@@ -291,14 +300,19 @@ func (c InstallConfig) EffectiveLockMode() string {
 
 // CoreX 全局配置
 type Config struct {
+	// EnvironmentID is the existing installation identity, resolved at runtime only.
+	EnvironmentID           string `yaml:"-" json:"-"`
+	environmentIdentityFile string
+
 	SystemSnapshots    SnapshotConfig           `yaml:"system_snapshots,omitempty"`
+	StorageGovernance  StorageGovernanceConfig  `yaml:"storage_governance,omitempty"`
 	Recovery           RecoveryConfig           `yaml:"recovery,omitempty"`
 	Version            string                   `yaml:"version"`             // 系统版本（用于权限 introduced 等）
 	Deployment         DeploymentConfig         `yaml:"deployment"`          // 当前 PowerX 实例的稳定部署身份
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
 	WebAdminPort       int                      `yaml:"web_admin_port"`      // Web Admin 公开访问端口（setup/install 写入）
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
-	CustomerAuth       CustomerAuthConfig       `yaml:"customer_auth"`       // 客户委派登录：客户端应用注册表（小程序等）
+	CustomerAuth       CustomerAuthConfig       `yaml:"customer_auth"`       // 客户委派登录：旧配置的显式迁移来源
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
 	Queue              QueueConfig              `yaml:"queue"`               // 全局队列驱动
 	Scheduler          SchedulerConfig          `yaml:"scheduler"`           // 全局调度器
@@ -559,8 +573,9 @@ type CapabilityRegistryConfig struct {
 	DefaultRateLimit          CapabilityRegistryRateLimitConfig `yaml:"default_rate_limit"`
 	DefaultHTTPTimeoutSeconds int                               `yaml:"default_http_timeout_seconds"`
 	// AIMultimodalHTTPTimeoutSeconds is the Core capability-proxy response
-	// deadline. It is not the LLM provider request deadline and must leave a
-	// response window after a provider timeout.
+	// deadline floor. Effective AI proxy timeout is at least the configured
+	// ai.runtime.queue_wait_timeout + ai.defaults.llm.request_timeout + 10s,
+	// allowing a structured provider/queue error to reach the caller.
 	AIMultimodalHTTPTimeoutSeconds int                                  `yaml:"ai_multimodal_http_timeout_seconds"`
 	Notifications                  CapabilityRegistryNotificationConfig `yaml:"notifications"`
 }
@@ -814,6 +829,9 @@ func loadConfiguration(configPath string, migrationOnly bool) (*Config, error) {
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
 
+	if err := cfg.readEnvironmentIdentity(configPath, lookup); err != nil {
+		return nil, err
+	}
 	return cfg, nil
 }
 
@@ -1231,6 +1249,24 @@ func loadFromEnvironment(cfg *Config, lookup environmentLookup) error {
 		cfg.Audit.File.IncludeMeta = strings.EqualFold(v, "true") || v == "1"
 	}
 
+	if v, ok := lookup("POWERX_MARKETPLACE_PUBLIC_SITE_URL"); ok {
+		cfg.Plugin.Marketplace.PublicSiteURL = v
+	}
+	if v := getenv("POWERX_MARKETPLACE_API_ROOT"); v != "" {
+		cfg.Plugin.Marketplace.APIRoot = v
+	}
+	if v := getenv("POWERX_MARKETPLACE_DOWNLOAD_TOKEN"); v != "" {
+		cfg.Plugin.Marketplace.DownloadToken = v
+	}
+	if v := getenv("POWERX_MARKETPLACE_ENROLLMENT_TOKEN"); v != "" {
+		cfg.Plugin.Marketplace.EnrollmentToken = v
+	}
+	if v := getenv("POWERX_MARKETPLACE_HEARTBEAT_SECONDS"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
+			cfg.Plugin.Marketplace.HeartbeatSeconds = seconds
+		}
+	}
+
 	// FeatureGate配置
 	if license := getenv("CORE_X_FEATURE_GATE_LICENSE_KEY"); license != "" {
 		cfg.FeatureGate.LicenseKey = license
@@ -1325,6 +1361,9 @@ func loadFromEnvironment(cfg *Config, lookup environmentLookup) error {
 		}
 	}
 
+	if getenv("CORE_X_QUEUE_NAMESPACE") != "" {
+		return fmt.Errorf("CORE_X_QUEUE_NAMESPACE is not supported; Redis scope uses the existing environment ID")
+	}
 	// 数据库配置
 	if host := getenv("CORE_X_DB_HOST"); host != "" {
 		cfg.Database.Host = host

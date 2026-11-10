@@ -1,0 +1,536 @@
+openapi: 3.0.3
+info:
+  title: PowerX optional log archives and verified retrieval
+  version: 0.7.0
+  description: Extends resource-archives.openapi.yaml. Root user JWT only, no delegated
+    service grants. Archive defaults off; save, verify and enable are distinct. New
+    S3 profiles never inherit business storage.s3. Disabling transfers does not enable
+    source deletion or stop SQL logging. Namespace GC uses exact versions and references;
+    incomplete outcomes remain unconfirmed. Legacy/rebuilt catalogs and migration
+    copies default protected; existing Mac objects are retained.
+servers:
+- url: /api/v1
+security:
+- RootUserJWT: []
+paths:
+  /admin/ops/backup/archives/policies/{policy_id}/requests/{request_id}:
+    get:
+      summary: Read the original manual archive request without executing or retrying it
+      description: Root human JWT only. Reads original job evidence without resolving
+        the current policy or querying control authority. A positive result proves a
+        matching persisted job, not completion or current deletion eligibility. No
+        query or request body is accepted. A missing record never proves non-execution.
+      parameters:
+      - in: path
+        name: policy_id
+        required: true
+        schema: { type: string, format: uuid }
+      - in: path
+        name: request_id
+        required: true
+        schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Fixed original identity and current recorded status; Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer }
+                  data:
+                    $ref: '#/components/schemas/ArchiveRunRequestReceipt'
+        '400': { description: Invalid UUID or unexpected query or body }
+        '401': { description: Human user login required }
+        '403': { description: Platform Root required; API keys and service actors rejected }
+        '404': { description: Original request unconfirmed; retain its UUID and submission lock }
+        '409': { description: Original request context conflict; retain its UUID }
+        '503': { description: Catalog missing, damaged, oversized or ambiguous; outcome remains unknown }
+  /admin/ops/backup/archives/catalog:
+    get:
+      summary: Search durable source-gone history by original filename, source and
+        archive date
+      parameters:
+      - in: query
+        name: q
+        schema: &id001
+          type: string
+      - in: query
+        name: source_id
+        schema: *id001
+      - in: query
+        name: from
+        schema: *id001
+      - in: query
+        name: to
+        schema: *id001
+      - in: query
+        name: page
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CatalogJob'
+                      pagination:
+                        type: object
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/backup/archives/s3-credentials:
+    post:
+      summary: Save a dedicated private server-side credential reference; never return
+        key material
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialInput'
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      ref: *id001
+                      revision:
+                        type: integer
+                        format: int64
+                        minimum: 0
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/backup/archives/targets/{target_id}/imports:
+    post:
+      summary: Verify existing temporary/native manifest versions and rebuild protected
+        history; no source or remote object deletion
+      parameters:
+      - in: path
+        name: target_id
+        required: true
+        schema: &id002
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                confirm: &id004
+                  type: boolean
+                  enum:
+                  - true
+              required:
+              - confirm
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      imported:
+                        type: integer
+                        format: int64
+                        minimum: 0
+                      existing:
+                        type: integer
+                        format: int64
+                        minimum: 0
+                      failed:
+                        type: integer
+                        format: int64
+                        minimum: 0
+                      unconfirmed:
+                        type: integer
+                        format: int64
+                        minimum: 0
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/backup/archives/jobs/{job_id}/preview:
+    get:
+      summary: Verify exact versions and preview at most 64 KiB of text, optionally
+        bounded gzip decode
+      parameters:
+      - in: path
+        name: job_id
+        required: true
+        schema: *id002
+      - in: query
+        name: entry
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      name: *id001
+                      text: *id001
+                      truncated: &id003
+                        type: boolean
+                      verified: *id003
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/backup/archives/jobs/{job_id}/migrations:
+    post:
+      summary: Copy one verified log archive to another enabled verified S3 policy;
+        retain origin and protect new copy
+      parameters:
+      - in: path
+        name: job_id
+        required: true
+        schema: *id002
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema: *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                policy_id: *id002
+                confirm: *id004
+              required:
+              - policy_id
+              - confirm
+      responses:
+        '202':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      job:
+                        $ref: '#/components/schemas/CatalogJob'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/backup/archives/policies/{policy_id}/remote-cleanup-previews:
+    post:
+      summary: Preview only expired exact versions under the selected namespace; latest,
+        shared, protected or uncertain references are retained
+      parameters:
+      - in: path
+        name: policy_id
+        required: true
+        schema: *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: {}
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RemoteGC'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/backup/archives/remote-cleanup-runs/{preview_id}:
+    post:
+      summary: Asynchronously execute an unexpired preview after rechecking target,
+        policy and every reference; GC has separate enablement
+      parameters:
+      - in: path
+        name: preview_id
+        required: true
+        schema: *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                confirmation: *id002
+              required:
+              - confirmation
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RemoteGC'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+  /admin/ops/backup/archives/remote-cleanup-runs/{preview_id}/reconcile:
+    post:
+      summary: Read exact versions and reconcile an interrupted result; no additional
+        deletion
+      parameters:
+      - in: path
+        name: preview_id
+        required: true
+        schema: *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: {}
+      responses:
+        '200':
+          description: Root operation result; errors preserve originals and do not
+            imply completion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/RemoteGC'
+        '400':
+          description: Invalid typed request
+        '403':
+          description: Root user JWT required; service actors and API keys rejected
+        '409':
+          description: Revision, protection, enablement or identity conflict
+        '503':
+          description: Storage, schema or executor unavailable
+components:
+  securitySchemes:
+    RootUserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ArchiveRunRequestReceipt:
+      type: object
+      additionalProperties: false
+      required: [request_id, policy_id, job_id, policy_revision, source_id, status, phase, remote_state, created_at, updated_at]
+      properties:
+        request_id: { type: string, format: uuid }
+        policy_id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid }
+        policy_revision: { type: integer, format: int64, minimum: 1 }
+        source_id: { type: string }
+        status: { type: string }
+        phase: { type: string }
+        remote_state: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CredentialInput:
+      type: object
+      additionalProperties: false
+      properties:
+        ref:
+          type: string
+          maxLength: 64
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        access_key:
+          type: string
+          writeOnly: true
+        secret_key:
+          type: string
+          writeOnly: true
+        session_token:
+          type: string
+          writeOnly: true
+      required:
+      - ref
+      - expected_revision
+      - access_key
+      - secret_key
+    CatalogJob:
+      type: object
+      description: Durable job summary, with original filenames, exact object and
+        manifest versions/hashes. Imported/rebuilt records are protected. Download
+        and bounded gzip preview read exact versions; no active log overwrite or database
+        restore.
+      properties:
+        id: *id002
+        source_id: *id001
+        source_file_name: *id001
+        status: *id001
+        remote_state: *id001
+        protected: *id003
+        imported: *id003
+        recovered: *id003
+        provenance_verified: *id003
+        migrated_from: *id001
+        remote_manifest_version: *id001
+        remote_manifest_sha256: *id001
+        origin_manifest: *id001
+        origin_manifest_version: *id001
+        origin_manifest_sha256: *id001
+        files:
+          type: array
+          items:
+            type: object
+    RemoteGC:
+      type: object
+      properties:
+        id: *id002
+        policy_id: *id002
+        policy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        state:
+          type: string
+          enum:
+          - preview
+          - queued
+          - running
+          - blocked
+          - unconfirmed
+          - completed
+        candidate_versions:
+          type: integer
+          format: int64
+          minimum: 0
+        candidate_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        deleted_versions:
+          type: integer
+          format: int64
+          minimum: 0
+        confirmed_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        protected:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            minimum: 0
+        problem: *id001
+      description: Unconfirmed totals are partial readback facts, not a completed
+        batch or filesystem capacity measurement. Reconciliation only reads exact
+        versions and never resumes deletion.

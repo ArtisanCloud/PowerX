@@ -1,0 +1,191 @@
+{
+  "record_schema": "powerx.validation-evidence/v1",
+  "milestone": "deployment-fingerprint M0 protocol and client baseline",
+  "contract_revision": "1.1",
+  "recorded_at": "2026-10-23T07:23:50.185847+00:00",
+  "scope": "SH-FP-01/02 executable baseline plus explicit opt-in infra client methods; not full feature delivery or SH-FP-03 deployment acceptance.",
+  "repositories": {
+    "PowerX": {
+      "head": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+      "preexisting_dirty_worktree": true,
+      "branch_changed": false
+    },
+    "PowerXPluginMarket": {
+      "head": "781f851c842b50ddf34122b509467318f1b6d149",
+      "preexisting_dirty_worktree": true,
+      "branch_changed": false
+    }
+  },
+  "bundle": {
+    "path": "contracts/deployment-fingerprint/v1",
+    "manifest_sha256": "56afa70ef483c0d3973b6069c16baa19e16f897c4f69c2e270685cc3b4b4a55c",
+    "mirrors_identical": true,
+    "source_file_count": 20,
+    "schema_cases": 29,
+    "golden_vectors": 4,
+    "http_compatibility_scenarios": 12,
+    "http_scenario_operations": [
+      "register",
+      "heartbeat"
+    ],
+    "checksum_is_release_signature": false
+  },
+  "owned_changes": {
+    "both_repositories": [
+      "contracts/deployment-fingerprint/v1/*",
+      "scripts/check-deployment-fingerprint-contracts.py"
+    ],
+    "PowerX": [
+      "backend/internal/infra/plugin/marketplace/client.go",
+      "backend/internal/infra/plugin/marketplace/distribution.go",
+      "backend/internal/infra/plugin/marketplace/deployment.go",
+      "backend/internal/infra/plugin/marketplace/deployment_test.go",
+      "docs/contracts/powerx-marketplace-basic-integration.md",
+      "docs/contracts/evidence/deployment-fingerprint-m0-20261023.json"
+    ],
+    "PowerXPluginMarket": [
+      "backend/internal/deployment/contract_m0_fixtures_test.go",
+      "backend/internal/http/identity/deployment_m0_powerx_test.go",
+      "docs/marketplace/powerx-deployment-fingerprint-development-plan.md (M0 record section only)",
+      "docs/marketplace/powerx-deployment-fingerprint-contract.md (shared bundle link only)",
+      "docs/marketplace/evidence/deployment-fingerprint-m0-20261023.json"
+    ]
+  },
+  "checks": [
+    {
+      "name": "shared_bundle_integrity_both_directions",
+      "result": "passed",
+      "command": "python3 scripts/check-deployment-fingerprint-contracts.py --peer <other-repository-root>",
+      "detail": "Executed from both repositories; all 20 protocol source files and the frozen checksum manifest agree."
+    },
+    {
+      "name": "core_shared_protocol_go_race",
+      "result": "passed",
+      "cwd": "PowerX/contracts/deployment-fingerprint/v1",
+      "command": "go test -race ./... -count=1 -timeout=60s",
+      "log": "/tmp/powerx-fingerprint-m0-core-bundle.log"
+    },
+    {
+      "name": "market_shared_protocol_go_race",
+      "result": "passed",
+      "cwd": "PowerXPluginMarket/contracts/deployment-fingerprint/v1",
+      "command": "go test -race ./... -count=1 -timeout=60s",
+      "log": "/tmp/powerx-fingerprint-m0-market-bundle.log"
+    },
+    {
+      "name": "shared_protocol_node",
+      "result": "passed",
+      "cwd": "PowerXPluginMarket/contracts/deployment-fingerprint/v1",
+      "command": "npm test",
+      "tests": 42,
+      "failed": 0,
+      "log": "/tmp/powerx-fingerprint-m0-node-verified.log"
+    },
+    {
+      "name": "core_actual_http_client_race",
+      "result": "passed",
+      "cwd": "PowerX/backend",
+      "command": "go test -race ./internal/infra/plugin/marketplace -run '^TestDeployment' -count=1 -timeout=60s",
+      "detail": "12 shared scenarios exercised for registration and heartbeat; concurrent rediscovery coalescing, bounded rollback, parameter-error cooldown, omission/clear, capability restoration, response validation and no replay of malformed successful POST. Optional live fixture case is separately exercised below.",
+      "log": "/tmp/powerx-fingerprint-m0-client-final-complete.log"
+    },
+    {
+      "name": "core_concurrent_rediscovery_repeated",
+      "result": "passed",
+      "cwd": "PowerX/backend",
+      "command": "go test -race ./internal/infra/plugin/marketplace -run '^TestDeploymentConcurrentRollbackSharesOneRediscovery$' -count=20 -timeout=60s",
+      "log": "/tmp/powerx-fingerprint-m0-concurrency-repeat.log"
+    },
+    {
+      "name": "market_actual_manifest_parser",
+      "result": "passed",
+      "cwd": "PowerXPluginMarket/backend",
+      "command": "go test ./internal/deployment -run '^TestM0SharedManifestGoldenFixtures$' -count=1 -timeout=60s",
+      "vectors": 4,
+      "detail": "Actual Marketplace ParseManifest consumes the same golden vectors as the Go and Node references. Marketplace production parser belongs to parallel development, not to this change.",
+      "log": "/tmp/powerx-fingerprint-m0-market-golden-final.log"
+    },
+    {
+      "name": "actual_core_client_and_market_base_api",
+      "result": "passed",
+      "cwd": "PowerXPluginMarket/backend",
+      "command": "MARKET_DEPLOYMENT_M0_POWERX_CHECK=1 go test ./internal/http/identity -run '^TestDeploymentM0ActualPowerXAgainstOldMarket$' -count=1 -timeout=90s -v",
+      "detail": "Actual Core Go client calls actual Marketplace base instance router using a test-private SQLite fixture. A frozen legacy strict-DTO boundary emits ordinary 400 invalid_input for extended heartbeat fields. This is controlled compatibility evidence, not two deployed instances. Base register/heartbeat reach the actual router and leave exactly one installation instance. Online capability rollback itself is covered by the controlled Core HTTP scenarios.",
+      "log": "/tmp/powerx-fingerprint-m0-old-market-final.log"
+    },
+    {
+      "name": "existing_core_config_distribution_install_regression",
+      "result": "passed",
+      "cwd": "PowerX/backend",
+      "command": "POWERX_MARKETPLACE_LIVE_TEST=0 go test -p 2 ./config ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/infra/plugin/manager ./internal/transport/http/admin/plugin -count=1 -timeout=150s",
+      "packages": 5,
+      "detail": "Includes existing local-upload/installer regressions. Production installer and local-upload handlers were not edited in this M0 change.",
+      "log": "/tmp/powerx-fingerprint-m0-core-regression.log"
+    },
+    {
+      "name": "core_go_vet",
+      "result": "passed",
+      "cwd": "PowerX/backend",
+      "command": "go vet ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace",
+      "log": "/tmp/powerx-fingerprint-m0-vet-final-complete.log"
+    },
+    {
+      "name": "shared_reference_javascript_eslint",
+      "result": "passed",
+      "detail": "ESLint recommended rules, Node globals, ECMAScript 2024, both conformance.mjs and conformance.test.mjs; temporary config used installed Core tooling, no lint rules disabled.",
+      "log": "/tmp/powerx-fingerprint-m0-eslint-verified.log"
+    },
+    {
+      "name": "openapi_local_references",
+      "result": "passed",
+      "detail": "YAML parsed; 7 unique operation IDs; all 23 local schema/response references resolved. New endpoint definitions describe the agreed protocol, not currently mounted routes."
+    },
+    {
+      "name": "whitespace_both_repositories",
+      "result": "passed",
+      "command": "git diff --check"
+    },
+    {
+      "name": "owned_fixture_process_cleanup",
+      "result": "passed",
+      "detail": "Both recorded test processes are gone and their listener ports are released; test children completed, httptest.Close executed. No user process was stopped."
+    }
+  ],
+  "runtime_boundaries": {
+    "daily_worker_connected_to_new_methods": false,
+    "product_or_public_proof_endpoint_implemented_here": false,
+    "runtime_monotonic_challenge_store_implemented_here": false,
+    "build_packaging_connected_here": false,
+    "marketplace_business_services_implemented_here": false,
+    "frontend_or_browser_acceptance_performed": false,
+    "production_build_performed": false,
+    "actual_dual_deployment_acceptance_performed": false,
+    "a01_to_a24_closed": false,
+    "site_state_and_fetch_policy_files": "Acceptance input fixtures; runtime state-machine and real DNS/dialer/egress enforcement remain owner tasks."
+  },
+  "data_and_process_safety": {
+    "application_database_migrated": false,
+    "user_service_restarted_or_stopped": false,
+    "plugin_business_source_changed": false,
+    "local_upload_install_flow_changed": false,
+    "new_install_triggered": false,
+    "isolated_fixture_processes": [
+      {
+        "pid": 782,
+        "port": 61167,
+        "state": "exited/listener released",
+        "result": "initial test failed because a parallel new handler returned extension-specific code; frozen legacy boundary added, final run passed"
+      },
+      {
+        "pid": 12413,
+        "port": 63283,
+        "state": "exited/listener released",
+        "result": "passed"
+      }
+    ],
+    "test_process_command": "MARKET_DEPLOYMENT_M0_POWERX_CHECK=1 go test ./internal/http/identity -run '^TestDeploymentM0ActualPowerXAgainstOldMarket$' -count=1 -v",
+    "test_process_cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerXPluginMarket/backend",
+    "fixture_database": "Test-private SQLite using the existing newDistributionFixture; not user configuration or application DB.",
+    "parallel_work": "Other Marketplace production deployment feature changes observed in the working tree were not modified, reverted or counted as this delivery."
+  }
+}

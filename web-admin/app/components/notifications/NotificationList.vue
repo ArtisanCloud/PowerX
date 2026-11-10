@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import NotificationBusinessCard from "./NotificationBusinessCard.vue";
+import { isBusinessNotification } from "~/composables/useNotificationPresentation";
+import { primaryNotificationNavigation } from "~/utils/notification-navigation";
 import type { Notification } from "~/types/notification";
 import {
   NOTIFICATION_CATEGORIES,
@@ -136,6 +139,12 @@ const formatTime = (date: Date) => {
   return date.toLocaleDateString();
 };
 
+const openBusinessNotification = async (notification: Notification) => {
+ const action = primaryNotificationNavigation(notification);
+ if (!action) return;
+ try { await executeAction(notification.id, action.id, notification); }
+ catch { actionToast.add({ title: t("header.notifications.navigationError"), color: "error" }); }
+};
 // 处理通知点击
 const handleNotificationClick = (notification: Notification) => {
   emit("select", notification);
@@ -295,7 +304,8 @@ watch([identityScope, identityReady], ([, ready]) => {
           }"
           @click="handleNotificationClick(notification)"
         >
-          <div class="flex items-start space-x-3">
+          <NotificationBusinessCard v-if="isBusinessNotification(notification)" :notification="notification" @open="openBusinessNotification(notification)" />
+          <div v-else class="flex items-start space-x-3">
             <!-- 图标 -->
             <div class="flex-shrink-0 mt-1">
               <UIcon

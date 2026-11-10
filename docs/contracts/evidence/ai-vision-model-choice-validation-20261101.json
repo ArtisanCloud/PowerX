@@ -1,0 +1,102 @@
+{
+  "task": "vision-model-choice",
+  "recorded_at": "2026-11-01T12:00:37.403405+00:00",
+  "scope": "Mac source and controlled fixtures; no live-provider inference or business DB writes",
+  "behavior": [
+    "complete authoritative online IDs",
+    "confirmed vision group with official source and date",
+    "unknown models remain explicitly selectable",
+    "known incompatible models disabled and backend rejects save/invoke",
+    "legacy invalid binding stays visible without automatic replacement",
+    "no unconfirmed first-ID default",
+    "image generation binding preserved"
+  ],
+  "checks": {
+    "frontend_unit": {
+      "files": 10,
+      "tests": 68,
+      "result": "passed",
+      "log": "/tmp/powerx-vision-choice-unit-final.log"
+    },
+    "go_test": {
+      "packages": 6,
+      "result": "passed",
+      "logs": [
+        "/tmp/powerx-vision-choice-go-test.log",
+        "/tmp/powerx-vision-choice-http-driver.log"
+      ]
+    },
+    "vet": {
+      "result": "passed",
+      "log": "/tmp/powerx-vision-choice-vet.log"
+    },
+    "typecheck": {
+      "result": "passed",
+      "log": "/tmp/powerx-vision-choice-typecheck.log"
+    },
+    "core_build": "passed darwin/arm64",
+    "nuxt_build": {
+      "result": "passed",
+      "log": "/tmp/powerx-vision-choice-build.log"
+    },
+    "capability_check": {
+      "result": "passed",
+      "log": "/tmp/powerx-vision-choice-capability.log"
+    },
+    "browser": {
+      "unique_scenarios_verified": 15,
+      "full_run": {
+        "passed": 11,
+        "failed": 4,
+        "log": "/tmp/powerx-vision-choice-e2e-final.log"
+      },
+      "targeted_online_first": {
+        "passed": 2,
+        "log": "/tmp/powerx-vision-choice-e2e-targeted.log"
+      },
+      "final_choices": {
+        "passed": 3,
+        "log": "/tmp/powerx-vision-choice-e2e-confirmed.log"
+      },
+      "resolution": "Exact accessible names changed after adding descriptions; disabled state uses Reka data-disabled and forced-click preservation. Parameter editing now waits for selector close/focus restoration."
+    }
+  },
+  "source_sha256": {
+    "backend/internal/service/agent/vision_model_usage.go": "90955691a7d0e19eab560591a3a0c210e19966aa3730327a2f945f3f83db9036",
+    "backend/internal/service/agent/openai_vision_usage.json": "14cc3eff8a4fbc04bda7a6963b5a12d113d23e2dee1a04d4e977385221894cf6",
+    "backend/internal/service/agent/online_model_catalog.go": "462fd015f7b54f5d4fc41a2396208c486fea846c0a2e5e37f005ad332aab59d3",
+    "backend/internal/service/agent/online_first_models.go": "64bb0d178b266adac64909acb37dcc984195bfc10b83f172808242de283370f6",
+    "backend/internal/server/agent/catalog/media_contract.go": "ba724ddd9c09cb2aac7cdc87ce2ba0ea89b6888c81267bed6c9e9e005d2e7319",
+    "backend/internal/service/ai/media_catalog.go": "3c6a12825d94831af8e4118516826aee7b901aab4eebc8943e88c3f751541fb5",
+    "web-admin/app/utils/ai-vision-model-choice.ts": "d2e2617f747e8207fadd09b827b5fc10986d95a9a6f4972fb58a95474613ef1a",
+    "web-admin/app/components/settings/ai/ProviderModelForm.vue": "1f6bf2a6a050f9a2d724e82c56b6940a4262c8ca349f99692a0429531d29be46",
+    "web-admin/app/components/settings/ai/OnlineModelCatalogModal.vue": "3ee043def38b2982a35bd2eca192dfafe80c1dcd2fabcaeb47d2c4931282314a",
+    "web-admin/app/pages/settings/ai/index.vue": "aea9a763757cc92cf88dd0e0c0c46b9a8c4e2613911ca204a689ddf15f21bad7",
+    "web-admin/app/composables/api/services/aiSettingService.ts": "ccd68e578bb6812162e88b6fb8210eadfd717200284d1ba0237408e52af3abd6"
+  },
+  "screenshots": [
+    "/tmp/powerx-vision-choice-playwright-confirmed/vision-model-choice-vision-2480a-d-preserve-bindings-narrow--chromium/vision-choices-narrow.png",
+    "/tmp/powerx-vision-choice-playwright-confirmed/vision-model-choice-vision-82ee0--preserve-bindings-desktop--chromium/vision-choices-desktop.png"
+  ],
+  "private_artifacts": "/tmp/powerx-vision-choice-20261101-194405",
+  "temporary_service": {
+    "stopped_at": "2026-11-01T11:59:49.975638+00:00",
+    "pid": 76778,
+    "children": [
+      77503,
+      77523,
+      77624,
+      77625,
+      80343
+    ],
+    "port": 3047,
+    "port_released": true,
+    "owned_processes_exited": true
+  },
+  "runtime": {
+    "user_core_port": 8077,
+    "user_core_pid_observed": 20488,
+    "state": "requires user rebuild/restart; user process untouched",
+    "real_provider_inference": "not run"
+  }
+}

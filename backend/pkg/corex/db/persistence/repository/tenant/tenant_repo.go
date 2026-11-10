@@ -178,7 +178,7 @@ func (r *TenantRepository) ListActiveUUIDs(ctx context.Context) ([]string, error
 		return uuids, nil
 	}
 	if err := r.DB.WithContext(ctx).
-		Table(model.TableIAMTenant).
+		Model(&dbm.Tenant{}).
 		Where("status = ?", dbm.TenantStatusActive).
 		Where("deleted_at IS NULL").
 		Pluck("uuid", &uuids).Error; err != nil {

@@ -1,0 +1,243 @@
+{
+  "validated_at": "2026-10-22T00:32:58.123685+00:00",
+  "scope": "PowerX Core thumbnail_64 derivatives and business notification card v2; source and controlled acceptance",
+  "git": {
+    "branch": "024-ai-engineering-skills",
+    "base_sha": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+    "implementation_commit_sha": null,
+    "uncommitted": true,
+    "note": "Shared worktree already contained other changes; no branch switch or commit performed."
+  },
+  "contracts": {
+    "recipe": "standard-image-v2",
+    "variants": {
+      "preview": 1600,
+      "thumbnail": 320,
+      "thumbnail_64": 64
+    },
+    "thumbnail_64_max_bytes": 32768,
+    "card": "business_notification_card.v2",
+    "v1_card_compatible": true,
+    "new_permissions_required_for_automatic_upload": false,
+    "history_backfill_default_dry_run": true,
+    "legacy_successor_registered_atomically": true
+  },
+  "checks": {
+    "core_targeted_tests": {
+      "status": "passed",
+      "packages": [
+        "service/media",
+        "infra/media/driver/local",
+        "service/notifications",
+        "event_fabric/task_queue",
+        "event_bus",
+        "openapi/media",
+        "admin/media",
+        "mediaevents",
+        "tests/contract/media",
+        "cmd/media_tool",
+        "config",
+        "bootstrap",
+        "shared",
+        "integration_gateway/apikeypermissions"
+      ]
+    },
+    "native_postgres": {
+      "status": "passed",
+      "packages": [
+        "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/notification",
+        "github.com/ArtisanCloud/PowerX/internal/service/notifications",
+        "github.com/ArtisanCloud/PowerX/internal/service/media",
+        "github.com/ArtisanCloud/PowerX/cmd/media_tool",
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/media"
+      ],
+      "test_events_passed": 110,
+      "top_level_tests_passed": 65,
+      "isolated_schema_per_test": true,
+      "note": "Native fixtures use isolated PostgreSQL schemas; some package tests intentionally remain SQLite or httptest fixtures."
+    },
+    "race": {
+      "status": "passed",
+      "full_scope": [
+        "media",
+        "event_bus",
+        "task_queue",
+        "notifications",
+        "plugin_mgr"
+      ],
+      "latest_focused_scope": "Legacy, HistoricalSource, Backfill, CompletedHistory, Missing64, UploadedThumbnail64"
+    },
+    "vet": "passed",
+    "frontend_notification_tests": {
+      "status": "passed",
+      "files": 7,
+      "tests": 52
+    },
+    "nuxt_build": {
+      "status": "passed",
+      "isolated_build_dir": ".nuxt-media-v2-validation",
+      "output": ".output-media-v2-validation"
+    },
+    "browser": {
+      "status": "passed",
+      "scenarios": 4,
+      "viewports": [
+        {
+          "width": 1440,
+          "height": 1000
+        },
+        {
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "thumbnail_actual": {
+        "width": 64,
+        "height": 36,
+        "payload_bytes": 208
+      },
+      "preview_actual": {
+        "width": 1600,
+        "height": 900,
+        "payload_bytes": 6993
+      },
+      "network": [
+        {
+          "cards": 20,
+          "thumbnail_requests": 7,
+          "decoded_dimensions": {
+            "width": 64,
+            "height": 36
+          },
+          "encoded_body_bytes": 1456,
+          "transfer_bytes": 3556,
+          "preview_requests_before_click": 0,
+          "fixture_only": true
+        },
+        {
+          "cards": 50,
+          "thumbnail_requests": 6,
+          "decoded_dimensions": {
+            "width": 64,
+            "height": 36
+          },
+          "encoded_body_bytes": 1248,
+          "transfer_bytes": 3048,
+          "preview_requests_before_click": 0,
+          "fixture_only": true
+        }
+      ],
+      "no_idle_state_polling": true,
+      "preview_does_not_acknowledge_business_read": true,
+      "synthetic_provider_fixture_only": true
+    },
+    "plugin_registration": "v1/v2 same business type coexist; same-version duplicates rejected; registry reload preserves both",
+    "shared_schema_examples": "v1/v2 OpenAPI and client fixture validation passed; ready without variant_uuid rejected; item order may vary",
+    "capability_check": "passed",
+    "upgrade_registry_check": "passed",
+    "production_capability_seed_executed": false,
+    "historical_migrations_changed": false
+  },
+  "backend_pixel_cases": {
+    "source": "actual Core renderer/worker bytes decoded in tests",
+    "cases": [
+      "1200x1600 => 48x64",
+      "1600x900 => 64x36",
+      "transparent PNG alpha preserved",
+      "17x9 remains 17x9",
+      "JPEG EXIF orientation 6; output omits EXIF",
+      "GIF first frame => PNG"
+    ]
+  },
+  "authorization_limits": {
+    "controlled_grants_checked": [
+      "STS/API Key live grants",
+      "tenant registration/publication",
+      "cross-tenant denial",
+      "revocation",
+      "typed operations"
+    ],
+    "credential_authentication_injected_in_http_fixtures": true,
+    "real_installed_sts_exchange_or_gateway_api_key": false,
+    "real_ai_craft_member_cost_cropping": false
+  },
+  "ownership": {
+    "Core": "generation, durable task transition, statuses, UUID reads, explicit maintenance command, card v2 render/contracts",
+    "Framework": "alignment tasks documented; this turn did not edit its repository",
+    "AI Craft": "business list/images, Local implementation and media-to-delivery invalidation remain plugin work",
+    "general_Redis_isolation": "parallel task confirmed by user; media consumes the shared namespace; real deployment not changed here"
+  },
+  "pending": [
+    "Framework SDK/template/fixture alignment and publication",
+    "AI Craft authorized thumbnail/preview bindings and member-level media-ready invalidation",
+    "real installed API Key and STS acceptance",
+    "real merchant table bandwidth and cost permission acceptance",
+    "deployment Redis namespace verification owned by parallel task",
+    "target-tenant production dry-run review and explicit backfill execution"
+  ],
+  "cleanup": {
+    "postgres": {
+      "owner": "codex-media-v2-controlled-validation",
+      "pid": 24353,
+      "port": 59839,
+      "data": "/tmp/powerx-media-v2-pg-me0lo4mu/data",
+      "status": "stopped",
+      "port_released": true,
+      "stopped_at": "2026-10-22T00:27:56.837759+00:00"
+    },
+    "browser_ports_released": {
+      "3491": true,
+      "3492": true
+    }
+  },
+  "artifacts": [
+    "docs/contracts/evidence/media-thumbnail64-20261022/desktop-preview.png",
+    "docs/contracts/evidence/media-thumbnail64-20261022/desktop-detail.png",
+    "docs/contracts/evidence/media-thumbnail64-20261022/narrow-preview.png",
+    "docs/contracts/evidence/media-thumbnail64-20261022/narrow-detail.png",
+    "docs/contracts/evidence/media-thumbnail64-20261022/desktop-network.json",
+    "docs/contracts/evidence/media-thumbnail64-20261022/narrow-network.json",
+    "docs/contracts/evidence/media-thumbnail64-20261022/visible-20-network.json",
+    "docs/contracts/evidence/media-thumbnail64-20261022/visible-50-network.json",
+    "docs/contracts/evidence/media-thumbnail64-20261022/backfill-controlled.json"
+  ],
+  "source_manifest_sha256": "8df470a4b448909af1c29982e32153e00db91eb9db5cee6d71de08aab27104ed",
+  "source_files_sha256": {
+    "backend/internal/service/media/image_derivatives.go": "cc90a6cabc3d539ded465338dade5d82f4c5058a9ba42014a3f6ba4232df8b26",
+    "backend/internal/service/media/image_derivative_worker.go": "b3e3d2b4edb32320dd98351d97c93e53a67a957aaa8e293055e23a9863181f10",
+    "backend/internal/service/media/image_renderer.go": "16ae9f5a31e79e7c7b9945ea1b6e3db8737669c8a88689866b52efa16bc97ceb",
+    "backend/internal/service/media/image_derivative_backfill.go": "dfce4c8d8f77f2fe7c6c91a068f45e9b9841355f69510f692d9ce2ce860a2f4b",
+    "backend/internal/service/media/image_source_checksum.go": "e2cb622a8b04b85c950b53694709c268f1a2eae7514013c71e2cfbd22562bbdf",
+    "backend/internal/service/media/service.go": "851f73a2f2d9b8b08ffacd192e669250c8a6ca6dc46e81840b7201422370aac2",
+    "backend/internal/service/media/variant_transfer.go": "94d7dd634f283c85552a7a4ed21370224308e64ac7d1a887f102b6b909d59411",
+    "backend/internal/service/media/options.go": "e3ba83f18440405c982aeb9052076c83307ed814f7f171edd8f4c17bfe996104",
+    "backend/internal/service/media/bootstrap.go": "921af50da6fd8ee64a701fa0d706e9b2e35da326be41d32bb556046c1d86e2ae",
+    "backend/internal/service/media/image_derivatives_v2_test.go": "3ef0be4481fe632417d3159da3c399790456dbe0cda6bf8332bf56338c3b4979",
+    "backend/pkg/corex/db/persistence/repository/media/derivative_repo.go": "c9f75e12ec6db2922934fa8d423799a18b19e28c520992e5d885c6698a667b3a",
+    "backend/pkg/corex/db/persistence/repository/media/derivative_backfill.go": "5f449e4aaa5f317af3e1fd04e11007f24ec4ce6b76a97d317c75ee54b4e7a2b3",
+    "backend/internal/infra/media/driver/local/local.go": "9115d3edc21a53b10d5f522e4d969085f91becd0f9690946535166616caa7ad4",
+    "backend/cmd/media_tool/main.go": "647818830c55cfcb6fc1628a3d728fef21a49212807067121ab169033c4d358c",
+    "backend/cmd/media_tool/derivatives.go": "dc3ddb82f8e2fe883873f9bc858877c1d90d1eee514d2dcce1519970bff5ae1f",
+    "backend/cmd/media_tool/derivatives_test.go": "72483e2bbb3c968ea62515aa319e8c07f4f06fcb75526d4d91b68cfda53c11b5",
+    "backend/internal/transport/http/openapi/media/host_contract.go": "2f721f8161590aa9ea6779bac9e51ebf5790904ddd3089bf82b594e5c4cbb31e",
+    "backend/internal/service/notifications/business_card.go": "7a8ff14788b87726a29468762b5c383b8428f7515df3583f30073d8b209f620b",
+    "backend/pkg/corex/db/persistence/repository/notification/business_card.go": "fbffae7a1c61c51e0ba34f6479f801b15e6c2e36425a9ffb96a739f558714f0b",
+    "backend/pkg/plugin_mgr/notification_presentation.go": "f9f7e1a3d13a8774d910bd84c180478bfd3bfeaefa8e6b2143d7904555c3b7e5",
+    "backend/tests/contract/media/thumbnail64_contract_test.go": "3e752ddb09670279398ddb7a703d527396321bc38b04672a7d7439acee8eaf70",
+    "backend/internal/infra/plugin/manager/loader.go": "52f275ee88a5e97807ded49bfc742b71ea9d21acebe39c10483f0ca353acf3b5",
+    "backend/internal/infra/plugin/manager/notification_presentation_test.go": "3fbccd44d331d4425393d7d55e8831823bc109c6a70d96050bf6aa23f0099d46",
+    "web-admin/app/components/notifications/NotificationBusinessCard.vue": "5797876b642845d98bac5cccd190cf1890ee6a82f51ddfd1bdfefa9fa87ba670",
+    "web-admin/app/composables/useNotificationPresentation.ts": "cbce373ae122720f188e041aa580303bef46419fca815754156c201a14167c6f",
+    "web-admin/app/composables/api/services/notificationPresentationService.ts": "7eabbb8e405e385819a3a3c5a95c9776f42ed4f3f792ed21f5831d4ae48d884a",
+    "web-admin/tests/unit/notifications/business-card.spec.ts": "b8de8cce4e27629a91f1bee691bb1387106b8e2a70186042f0a31d23d1b3ac8b",
+    "web-admin/tests/e2e/notifications/business-card.spec.ts": "d90396e76a0160bbb0edfb336c4fad2506dfc5722a4de98a986abf2bfb26ecf2",
+    "specs/001-media-storage/contracts/image-derivatives.openapi.yaml": "9dc83e216393ecffb9ff703bf8d9b6032c57e2e04303ab296fecc53683bf08ca",
+    "specs/001-media-storage/contracts/http-openapi.yaml": "13f92b62fcd386e61cbc7a54222fd53485ed43f11e943daab75324b2e07a8063",
+    "docs/contracts/business-notification-card.openapi.yaml": "009562b46eb0f257cbbc427e0bbc6fdf3c32f33bc7337d614af870f095537718",
+    "docs/contracts/fixtures/media-image-derivatives.v2.json": "1add45ec2aa034890f33967c9fe8aabeb53b7e9b94133f603c5e6603f803e2db",
+    "docs/contracts/fixtures/business-notification-card.v2.json": "7b1c37d54756b2dbe14b196ed01b57efedff27ecc8750f11647f36b08d3b6a1e",
+    "docs/contracts/media-thumbnail64-framework-handoff.md": "5b5bc167e728653815a0d8082332b2166069a5f41d82ae7752bd0d586ed6c759",
+    "docs/contracts/media-image-derivatives.md": "3c5f3455e7074353e543490fb9e555fa2f0248f0142f9d530dadb09a1dda2159",
+    "docs/contracts/business-notification-card.md": "7b2f3d63b4ec9c7f122c44b1d7a0be814e03840bada4ee17012a2838cf503df1"
+  }
+}

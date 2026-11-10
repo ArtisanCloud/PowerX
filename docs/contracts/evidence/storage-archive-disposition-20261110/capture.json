@@ -1,0 +1,10 @@
+{
+  "controlled_capture_retention": true,
+  "job_id": "a14f38a7-bab2-4689-99e3-789e56b6c93f",
+  "minute_scheduler_observed": false,
+  "no_replacement_job": true,
+  "original_request": "a9fac371-3c47-4352-8c3c-0fc0fd8b85b4",
+  "partial_capture_preserved": true,
+  "scene": "capture",
+  "source_cleanup_before_retry": false
+}

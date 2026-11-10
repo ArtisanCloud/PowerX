@@ -859,7 +859,7 @@ func groupAsCategories(sys []admdto.AdminMenuItem, i18n []admdto.MenuI18nPackage
 		catBusinessKey:         {ID: catBusinessKey, Title: "menu.section.businessOperations", Order: -100, Origin: plugin_mgr.OriginSystem},
 		catAppsKey:             {ID: catAppsKey, Title: i18nOrDefault("menu.section.apps", "Apps", i18n, locales), Order: -50, Origin: plugin_mgr.OriginPlugin},
 		catPluginMarketKey:     {ID: catPluginMarketKey, Title: "menu.pluginMarketplace", Order: -25, Origin: plugin_mgr.OriginSystem},
-		plugin_mgr.KeySettings: {ID: plugin_mgr.KeySettings, Title: i18nOrDefault("menu.section.settings", "Settings", i18n, locales), Order: 0, Origin: plugin_mgr.OriginSystem},
+		plugin_mgr.KeySettings: {ID: plugin_mgr.KeySettings, Title: "menu.section.settings", Order: 0, Origin: plugin_mgr.OriginSystem},
 	}
 
 	plugGroups := map[string]*pluginGroup{}

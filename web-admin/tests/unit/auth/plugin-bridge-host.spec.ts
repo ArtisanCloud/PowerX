@@ -132,3 +132,37 @@ describe('host bridge contract v2',()=>{
   });
 
 });
+
+describe('verified plugin reauthentication reports',()=>{
+  function recoveryHost(recover: ReturnType<typeof vi.fn>) {
+    host.dispose();host=new PluginBridgeHost(()=>({locale:'zh',theme:'dark'}),1000,undefined,recover);
+    host.register(frame,pluginId,instanceId,status);send('bridge:ready');return packets('auth-token').at(-1);
+  }
+  it('only verifies a current complete report and suppresses repeated rejection loops',async()=>{
+    const recover=vi.fn(async()=> 'active' as const),auth=recoveryHost(recover);
+    send('auth:required',{...auth,source:'plugin',type:'auth:required',code:'IAM_CONTEXT_USER_SESSION_INVALID'});
+    await Promise.resolve();await Promise.resolve();expect(recover).toHaveBeenCalledTimes(1);expect(packets('auth-token')).toHaveLength(2);
+    const latest=packets('auth-token').at(-1);send('auth:required',{...latest,source:'plugin',type:'auth:required',code:'IAM_CONTEXT_USER_SESSION_INVALID'});expect(recover).toHaveBeenCalledTimes(1);
+  });
+  it('rejects forged origins, identity, generation and non-user error codes',()=>{
+    const recover=vi.fn(),auth=recoveryHost(recover),report={sequence:auth.sequence,sessionId:auth.sessionId,revision:auth.revision,code:'IAM_CONTEXT_USER_SESSION_INVALID'};
+    send('auth:required',report,'https://other.invalid');
+    for(const change of [{instanceId:'other'},{pluginId:'other'},{sessionId:'old'},{revision:0},{sequence:0},{code:'IAM_CONTEXT_SERVICE_CREDENTIAL_EXPIRED'},{code:'IAM_CONTEXT_USER_FORBIDDEN'}])send('auth:required',{...report,...change});
+    expect(recover).not.toHaveBeenCalled();
+  });
+  it('accepts structured user-session rejection during initial context application',async()=>{
+    const recover=vi.fn(async()=> 'signed-out' as const),auth=recoveryHost(recover);
+    send('auth:rejected',{sequence:auth.sequence,sessionId:auth.sessionId,revision:auth.revision,code:'IAM_CONTEXT_USER_SESSION_INVALID'});await Promise.resolve();expect(recover).toHaveBeenCalledTimes(1);
+  });
+  it('aborts pending verification when its frame is unregistered',()=>{
+    const recover=vi.fn(()=>new Promise<'active'>(()=>{})),auth=recoveryHost(recover);
+    send('auth:required',{sequence:auth.sequence,sessionId:auth.sessionId,revision:auth.revision,code:'IAM_CONTEXT_USER_SESSION_INVALID'});
+    const signal=recover.mock.calls[0][1] as AbortSignal;host.unregister(frame);expect(signal.aborted).toBe(true);
+  });
+});
+
+it('allows a later explicit report to detect session termination after an earlier healthy verification',async()=>{
+  host.dispose();const recover=vi.fn(async()=> 'active' as const);host=new PluginBridgeHost(()=>({locale:'zh',theme:'dark'}),1000,undefined,recover);host.register(frame,pluginId,instanceId,status);send('bridge:ready');
+  let auth=packets('auth-token').at(-1);send('auth:required',{sequence:auth.sequence,sessionId:auth.sessionId,revision:auth.revision,code:'IAM_CONTEXT_USER_SESSION_INVALID'});await Promise.resolve();await Promise.resolve();
+  vi.advanceTimersByTime(5001);auth=packets('auth-token').at(-1);send('auth:required',{sequence:auth.sequence,sessionId:auth.sessionId,revision:auth.revision,code:'IAM_CONTEXT_USER_SESSION_INVALID'});expect(recover).toHaveBeenCalledTimes(2);
+});

@@ -1,0 +1,84 @@
+{
+  "ready": {
+    "asset_uuid": "11111111-1111-4111-8111-111111111111",
+    "upload_state": "ready",
+    "status": "ready",
+    "recipe": "standard-image-v2",
+    "attempts": 1,
+    "retryable": false,
+    "items": [
+      {
+        "variant": "preview",
+        "status": "ready",
+        "variant_uuid": "22222222-2222-4222-8222-000000000001"
+      },
+      {
+        "variant": "thumbnail",
+        "status": "ready",
+        "variant_uuid": "22222222-2222-4222-8222-000000000002"
+      },
+      {
+        "variant": "thumbnail_64",
+        "status": "ready",
+        "variant_uuid": "22222222-2222-4222-8222-000000000003"
+      }
+    ]
+  },
+  "partial_processing": {
+    "asset_uuid": "11111111-1111-4111-8111-111111111111",
+    "upload_state": "ready",
+    "status": "processing",
+    "recipe": "standard-image-v2",
+    "attempts": 1,
+    "retryable": false,
+    "items": [
+      {
+        "variant": "preview",
+        "status": "ready",
+        "variant_uuid": "22222222-2222-4222-8222-000000000001"
+      },
+      {
+        "variant": "thumbnail",
+        "status": "ready",
+        "variant_uuid": "22222222-2222-4222-8222-000000000002"
+      },
+      {
+        "variant": "thumbnail_64",
+        "status": "processing"
+      }
+    ]
+  },
+  "partial_failed": {
+    "asset_uuid": "11111111-1111-4111-8111-111111111111",
+    "upload_state": "ready",
+    "status": "failed",
+    "recipe": "standard-image-v2",
+    "attempts": 1,
+    "retryable": true,
+    "items": [
+      {
+        "variant": "preview",
+        "status": "ready",
+        "variant_uuid": "22222222-2222-4222-8222-000000000001"
+      },
+      {
+        "variant": "thumbnail",
+        "status": "ready",
+        "variant_uuid": "22222222-2222-4222-8222-000000000002"
+      },
+      {
+        "variant": "thumbnail_64",
+        "status": "failed",
+        "error_code": "MEDIA_THUMBNAIL_64_BYTE_LIMIT",
+        "retryable": true
+      }
+    ],
+    "error_code": "MEDIA_THUMBNAIL_64_BYTE_LIMIT"
+  },
+  "read_order": [
+    "find item by variant name",
+    "require item.status=ready and variant_uuid",
+    "GetVariant(variant_uuid)",
+    "presign-download using parent asset_uuid and variant_uuid"
+  ]
+}

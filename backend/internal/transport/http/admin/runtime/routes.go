@@ -24,6 +24,7 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 
 	// Standardized endpoints for plugin runtimes.
 	standardGroup := protectedGroup.Group("/admin/runtime")
+	standardGroup.POST("/task-queue/v2/invoke", taskQueueV2Handler(deps))
 	standardGroup.POST("/ws-bus/grant", h.grant)
 	standardGroup.POST("/ws-bus/publish", h.publish)
 	if taskQueueHandler != nil {

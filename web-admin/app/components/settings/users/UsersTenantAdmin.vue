@@ -19,7 +19,9 @@ import { useRoleService } from "~/composables/api/services/roleService";
 import {
   useUserService,
   type MemberWithProfile,
+  type UserListParams,
 } from "~/composables/api/services/userService";
+import { useTenantUserService } from "~/composables/api/services/tenantUserService";
 import type { Department } from "~/composables/api/services/departmentService";
 
 // ==== 输入属性（Root 复用时传入 tenantUuid） ====
@@ -29,10 +31,15 @@ const toast = useToast();
 
 // ==== 部门store ====
 const departmentStore = useDepartmentStore();
-const userService = useUserService();
+const rootUserService = useUserService();
+const tenantUserService = useTenantUserService();
 const roleService = useRoleService();
 const userStore = useUserStore();
 const { user: currentUser, isRoot, isCurrentTenantAdmin } = storeToRefs(userStore);
+const userService = computed(() => isRoot.value
+  ? { ...rootUserService, createUser: rootUserService.createSystemUser }
+  : tenantUserService);
+const managementId = (row: RowUser) => isRoot.value ? row.userUuid : row.id;
 
 // ===== 类型与数据 =====
 type StatusType = "active" | "inactive";
@@ -45,6 +52,7 @@ interface RowUser {
   email?: string;
   phone?: string;
   department?: string;
+  departmentIds: number[];
   roles?: string[] | null;
   status: StatusType | string;
   isRoot?: boolean;
@@ -55,6 +63,9 @@ interface RowUser {
 // 表格数据和加载状态
 const users = ref<RowUser[]>([]);
 const loading = ref(false);
+const loadError = ref(false);
+const loadErrorMessage = ref("");
+let loadRequest = 0;
 
 // ====== 过滤/分页（与你现有一致） ======
 const searchQuery = ref("");
@@ -64,7 +75,19 @@ const filters = reactive({
   status: null as string | null,
 });
 
-const pagination = reactive({ page: 1, pageSize: 10, total: 0, totalPages: 0 });
+const pagination = reactive({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+const pageSizeItems = computed(() =>
+  [10, 20, 50].map((value) => ({
+    value,
+    label: t("organization.user.pagination.pageSize", { count: value }),
+  }))
+);
+const paginationStart = computed(() =>
+  pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1
+);
+const paginationEnd = computed(() =>
+  Math.min(pagination.page * pagination.pageSize, pagination.total)
+);
 
 // 将部门数据转换为SelectTree需要的TreeNode格式
 const departmentTreeItems = computed(() => {
@@ -77,6 +100,24 @@ const departmentTreeItems = computed(() => {
   });
 
   return departmentStore.tree.map(convertDepartmentToTreeNode);
+});
+
+const departmentOptions = computed(() => {
+  const options: { label: string; value: string; disabled?: boolean }[] = [];
+  const walk = (nodes: Department[], parent = "") => {
+    for (const node of nodes) {
+      const label = parent ? `${parent} / ${node.name}` : node.name;
+      options.push({ label, value: String(node.id), disabled: node.status === 0 && !userForm.departmentIds.includes(String(node.id)) });
+      walk(node.children || [], label);
+    }
+  };
+  walk(departmentStore.tree);
+  for (const id of userForm.departmentIds) {
+    if (!options.some(option => option.value === id)) {
+      options.push({ label: String(t("organization.user.form.unavailableDepartment")), value: id });
+    }
+  }
+  return options;
 });
 
 const roleFilterItems = ref([
@@ -208,7 +249,7 @@ const importExportItems = computed(() => [
 // ====== 新增/编辑 ======
 const showForm = ref(false);
 const isEditing = ref(false);
-const editingUserUuid = ref<string | null>(null);
+const editingAccountId = ref<string | null>(null);
 
 // 统一"扁平表单" -> 后端映射 User+Member（我们之前对齐的）
 const userForm = reactive({
@@ -216,7 +257,7 @@ const userForm = reactive({
   username: "",
   email: "",
   phone: "",
-  departmentId: null as number | null,
+  departmentIds: [] as string[],
   roleUuids: [] as string[],
   avatarUrl: "",
   password: "",
@@ -224,6 +265,8 @@ const userForm = reactive({
   status: "active" as "active" | "disabled" | "locked",
   meta: {} as Record<string, any>,
 });
+const originalDepartmentIds = ref<string[]>([]);
+const departmentSelectionChanged = () => JSON.stringify([...userForm.departmentIds].sort()) !== JSON.stringify([...originalDepartmentIds.value].sort());
 const selectedRoleOptions = computed<RoleOption[]>({
   get() {
     const selected = new Set(normalizeRoleUUIDs(userForm.roleUuids));
@@ -294,7 +337,8 @@ function resetForm() {
   userForm.username = "";
   userForm.email = "";
   userForm.phone = "";
-  userForm.departmentId = null;
+  userForm.departmentIds = [];
+  originalDepartmentIds.value = [];
   userForm.roleUuids = [];
   userForm.avatarUrl = "";
   userForm.password = "";
@@ -302,7 +346,7 @@ function resetForm() {
   userForm.status = "active";
   userForm.meta = {};
   isEditing.value = false;
-  editingUserUuid.value = null;
+  editingAccountId.value = null;
 }
 
 async function openAddForm() {
@@ -319,13 +363,6 @@ async function openAddForm() {
   userForm.username = "";
   userForm.email = "";
   userForm.phone = "";
-  if (typeof window !== "undefined") {
-    window.requestAnimationFrame(() => {
-      userForm.username = "";
-      userForm.email = "";
-      userForm.phone = "";
-    });
-  }
 }
 
 async function openEditForm(row: RowUser) {
@@ -347,7 +384,7 @@ async function openEditForm(row: RowUser) {
   }
   resetForm();
   isEditing.value = true;
-  editingUserUuid.value = row.userUuid;
+  editingAccountId.value = managementId(row) || null;
 
   // 将行数据映射回表单
   userForm.name = row.name;
@@ -357,8 +394,10 @@ async function openEditForm(row: RowUser) {
   userForm.avatarUrl = row.avatar;
   userForm.status = row.status === "active" ? "active" : "disabled";
   userForm.meta = row.meta || {};
+  userForm.departmentIds = (row.departmentIds || []).map(String);
+  originalDepartmentIds.value = [...userForm.departmentIds];
   await loadTenantRoles();
-  await loadUserRoles(editingUserUuid.value);
+  await loadUserRoles(editingAccountId.value);
   showForm.value = true;
 }
 
@@ -412,7 +451,7 @@ async function saveUser() {
   }
 
   try {
-    if (isEditing.value && editingUserUuid.value) {
+    if (isEditing.value && editingAccountId.value) {
       // 更新用户
       const updatePayload = {
         tenant_uuid: props.tenantUuid,
@@ -422,14 +461,20 @@ async function saveUser() {
         phone,
         avatar_url: userForm.avatarUrl.trim(),
         status: userForm.status === "active" ? 1 : 0,
+        ...(departmentSelectionChanged() ? { dept_ids: userForm.departmentIds.map(Number) } : {}),
       };
-      await userService.updateUser(editingUserUuid.value, updatePayload);
-      await userService.setUserRoles(editingUserUuid.value, {
-        tenant_uuid: props.tenantUuid,
-        role_uuids: userForm.roleUuids,
+      await userService.value.updateUser(editingAccountId.value, {
+        ...updatePayload,
+        ...(!isRoot.value ? { role_uuids: userForm.roleUuids } : {}),
       });
+      if (isRoot.value) {
+        await rootUserService.setUserRoles(editingAccountId.value, {
+          tenant_uuid: props.tenantUuid,
+          role_uuids: userForm.roleUuids,
+        });
+      }
     } else {
-      // 创建系统用户
+      // 创建当前管理范围内的用户
       const createPayload = {
         tenant_uuid: props.tenantUuid,
         display_name: displayName,
@@ -440,10 +485,10 @@ async function saveUser() {
         meta: userForm.meta ?? {},
         username,
         initial_password: userForm.password,
-        dept_ids: userForm.departmentId ? [userForm.departmentId] : [],
+        dept_ids: userForm.departmentIds.map(Number),
         role_uuids: userForm.roleUuids,
       };
-      await userService.createSystemUser(createPayload);
+      await userService.value.createUser(createPayload);
     }
     showForm.value = false;
     await loadUsers(); // 重新加载数据
@@ -490,7 +535,7 @@ async function loadTenantRoles() {
 async function loadUserRoles(userUuid: string | null) {
   if (!userUuid) return;
   try {
-    const response = await userService.getUserRoles(userUuid, {
+    const response = await userService.value.getUserRoles(userUuid, {
       tenant_uuid: props.tenantUuid,
     });
     userForm.roleUuids = normalizeRoleUUIDs(response.data?.role_uuids || []);
@@ -514,7 +559,7 @@ async function hydrateRowsRoles(rows: RowUser[]) {
         return;
       }
       try {
-        const response = await userService.getUserRoles(row.userUuid, {
+        const response = await userService.value.getUserRoles(managementId(row)!, {
           tenant_uuid: props.tenantUuid,
         });
         const roleUUIDs = normalizeRoleUUIDs(response.data?.role_uuids || []);
@@ -532,7 +577,7 @@ async function hydrateRowsRoles(rows: RowUser[]) {
 async function deleteUser(userUuid: string) {
   if (!confirm(t("organization.user.confirmDelete"))) return;
   try {
-    await userService.deleteUser(userUuid);
+    await userService.value.deleteUser(userUuid);
     await loadUsers(); // 重新加载数据
     toast.add({
       title: String(t("organization.user.toast.deleted")),
@@ -558,7 +603,7 @@ async function toggleUserStatus(row: RowUser) {
   }
   try {
     const newStatus = row.status === "active" ? 0 : 1;
-    await userService.setUserStatus(row.userUuid, { status: newStatus });
+    await userService.value.setUserStatus(managementId(row)!, { status: newStatus });
     await loadUsers(); // 重新加载数据
     toast.add({
       title: String(t("organization.user.toast.statusUpdated")),
@@ -616,7 +661,7 @@ async function submitResetPassword() {
     return;
   }
   try {
-    await userService.resetUserPassword(target.userUuid || "", {
+    await userService.value.resetUserPassword(managementId(target) || "", {
       new_password: resetPasswordForm.password,
     });
     showResetPassword.value = false;
@@ -649,27 +694,28 @@ const paginatedUsers = computed(() => {
   return users.value;
 });
 
-const hasNextPage = computed(() => pagination.page < pagination.totalPages);
-const hasPrevPage = computed(() => pagination.page > 1);
-
 async function changePage(p: number) {
-  if (p >= 1 && p <= pagination.totalPages) {
+  if (!loading.value && p !== pagination.page && p >= 1 && p <= pagination.totalPages) {
     pagination.page = p;
     await loadUsers();
   }
 }
 
 async function changePageSize(size: number) {
+  if (loading.value || size === pagination.pageSize) return;
   pagination.pageSize = size;
   pagination.page = 1;
   await loadUsers();
 }
 
 function resetFilters() {
+  const changed = Boolean(
+    searchQuery.value || filters.department || filters.role || filters.status
+  );
   filters.department = filters.role = filters.status = null;
   searchQuery.value = "";
   pagination.page = 1;
-  loadUsers();
+  if (!changed) loadUsers();
 }
 
 // 监听搜索和过滤条件变化
@@ -850,7 +896,7 @@ const columns = computed(() => {
                     });
                     return;
                   }
-                  deleteUser(u.userUuid);
+                  deleteUser(managementId(u)!);
                 },
               },
               () => t("organization.common.delete")
@@ -872,7 +918,8 @@ function maskPhone(phone: string): string {
 
 // 转换API数据为组件需要的格式
 function transformUserData(memberWithProfile: MemberWithProfile): RowUser {
-  const { Member, User } = memberWithProfile as any;
+  const { Member, User, DeptIDs } = memberWithProfile as any;
+  const departmentIds: number[] = Array.isArray(DeptIDs) ? DeptIDs : [];
   return {
     id: Member.uuid,
     userUuid: User?.uuid,
@@ -880,7 +927,8 @@ function transformUserData(memberWithProfile: MemberWithProfile): RowUser {
     username: Member.username,
     email: User?.email || "",
     phone: User?.phone || "",
-    department: Member.meta?.title || Member.meta?.department || "",
+    departmentIds,
+    department: departmentIds.map(id => departmentOptions.value.find(option => option.value === String(id))?.label).filter(Boolean).join("、"),
     roles: null,
     status: Member.status === 1 ? "active" : "inactive",
     isRoot: Boolean(User?.is_root),
@@ -896,15 +944,23 @@ function transformUserData(memberWithProfile: MemberWithProfile): RowUser {
 
 // 加载用户数据
 async function loadUsers() {
+  const request = ++loadRequest;
   if (!props.tenantUuid) {
+    users.value = [];
+    pagination.total = 0;
+    pagination.totalPages = 1;
+    loading.value = false;
     return;
   }
   try {
     loading.value = true;
-    const params: any = {
+    loadError.value = false;
+    loadErrorMessage.value = "";
+    const params: UserListParams = {
       tenant_uuid: props.tenantUuid,
       page: pagination.page,
       page_size: pagination.pageSize,
+      ...(filters.department ? { dept_id: Number(filters.department), recursive: true } : {}),
       status: filters.status
         ? filters.status === "active"
           ? 1
@@ -920,25 +976,38 @@ async function loadUsers() {
     if (tenantRoleOptions.value.length === 0) {
       await loadTenantRoles();
     }
-    const response = await userService.getUsers(params);
+    const response = await userService.value.getUsers(params);
+    if (request !== loadRequest) return;
 
     if (response.data) {
+      const meta = response.data.pagination;
+      const totalPages = Math.max(1, meta.pages);
+      // Removing the final row or a concurrent deletion can invalidate this page.
+      if (params.page! > totalPages) {
+        pagination.page = totalPages;
+        await loadUsers();
+        return;
+      }
       const rows = response.data.items.map(transformUserData);
       await hydrateRowsRoles(rows);
+      if (request !== loadRequest) return;
       const visibleRows = canViewRootUsers.value
         ? rows
         : rows.filter((row: RowUser) => !row.isRoot);
       users.value = visibleRows;
-      pagination.total = visibleRows.length;
-      pagination.totalPages = Math.max(
-        1,
-        Math.ceil(visibleRows.length / pagination.pageSize)
-      );
+      pagination.page = meta.page;
+      pagination.pageSize = meta.page_size;
+      pagination.total = meta.total;
+      pagination.totalPages = totalPages;
     }
   } catch (error) {
+    if (request !== loadRequest) return;
     console.error("加载用户数据失败:", error);
+    users.value = [];
+    loadError.value = true;
+    loadErrorMessage.value = parseApiMessage(error, String(t("organization.user.listLoadFailed")));
   } finally {
-    loading.value = false;
+    if (request === loadRequest) loading.value = false;
   }
 }
 
@@ -1041,42 +1110,83 @@ onMounted(async () => {
     </div>
 
     <!-- 表格 + 分页 -->
-    <div class="bg-white rounded-lg shadow-sm">
+    <div class="min-w-0 bg-white rounded-lg shadow-sm">
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        :title="$t('organization.user.listLoadFailed')"
+        :description="loadErrorMessage"
+        class="mb-3"
+      >
+        <template #actions>
+          <UButton color="error" variant="outline" size="sm" @click="loadUsers">
+            {{ $t("common.retry") }}
+          </UButton>
+        </template>
+      </UAlert>
       <UTable
         :data="paginatedUsers"
         :columns="columns"
         :loading="loading"
-        :empty-state="{
-          icon: 'i-heroicons-circle-stack-20-solid',
-          label: '暂无用户数据',
-          description: '当前没有找到任何用户信息',
-        }"
+        :empty="$t('organization.user.emptyUsers')"
       />
       <div
-        v-if="pagination.totalPages > 1"
-        class="px-6 py-4 border-t border-gray-200 flex justify-between items-center"
+        data-testid="user-pagination"
+        class="flex flex-col gap-3 border-t border-default px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
       >
-        <div class="text-sm text-gray-600">
-          第 {{ pagination.page }} / {{ pagination.totalPages }} 页， 共
-          {{ pagination.total }} 条
-        </div>
-        <div class="flex gap-2">
-          <UButton
-            :disabled="!hasPrevPage || loading"
-            variant="outline"
+        <p class="text-sm text-muted" aria-live="polite" data-testid="user-pagination-summary">
+          {{ $t("organization.user.pagination.showing", {
+            start: paginationStart,
+            end: paginationEnd,
+            total: pagination.total,
+          }) }}
+          <span class="mt-1 block text-xs">
+            {{ $t("organization.user.pagination.pageOf", {
+              page: pagination.page,
+              pages: pagination.totalPages,
+            }) }}
+          </span>
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 lg:justify-end">
+          <USelect
+            :model-value="pagination.pageSize"
+            :items="pageSizeItems"
+            :disabled="loading"
+            :aria-label="$t('organization.user.pagination.perPage')"
+            class="w-32"
+            @update:model-value="changePageSize"
+          />
+          <UPagination
+            :page="pagination.page"
+            :items-per-page="pagination.pageSize"
+            :total="pagination.total"
+            :sibling-count="0"
+            show-edges
+            :show-controls="false"
+            :disabled="loading"
             size="sm"
-            icon="i-heroicons-chevron-left"
-            @click="changePage(pagination.page - 1)"
-            >上一页</UButton
+            @update:page="changePage"
           >
-          <UButton
-            :disabled="!hasNextPage || loading"
-            variant="outline"
-            size="sm"
-            icon="i-heroicons-chevron-right"
-            @click="changePage(pagination.page + 1)"
-            >下一页</UButton
-          >
+            <template #prev>
+              <UButton
+                :aria-label="$t('organization.user.pagination.previous')"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-heroicons-chevron-left"
+              />
+            </template>
+            <template #next>
+              <UButton
+                :aria-label="$t('organization.user.pagination.next')"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-heroicons-chevron-right"
+              />
+            </template>
+          </UPagination>
         </div>
       </div>
     </div>
@@ -1094,10 +1204,12 @@ onMounted(async () => {
           ? t('organization.user.form.editUserDesc')
           : t('organization.user.form.addUserDesc')
       "
+      :ui="{ content: 'max-w-2xl', footer: 'justify-end' }"
     >
-      <template #content>
-        <div class="py-8 px-8">
+      <template #body>
+        <div>
           <form
+            id="tenant-user-form"
             @submit.prevent="saveUser"
             class="grid grid-cols-1 md:grid-cols-2 gap-4"
             autocomplete="off"
@@ -1106,6 +1218,7 @@ onMounted(async () => {
               <UInput
                 v-model="userForm.name"
                 name="px-user-display-name"
+                class="w-full"
                 autocomplete="off"
               />
             </UFormField>
@@ -1117,6 +1230,7 @@ onMounted(async () => {
                 v-model="userForm.username"
                 :placeholder="$t('organization.user.form.usernamePlaceholder')"
                 name="px-tenant-username"
+                class="w-full"
                 autocomplete="new-password"
               />
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -1132,6 +1246,7 @@ onMounted(async () => {
                 v-model="userForm.email"
                 type="email"
                 name="px-user-email"
+                class="w-full"
                 autocomplete="off"
               />
             </UFormField>
@@ -1141,7 +1256,24 @@ onMounted(async () => {
                 type="tel"
                 :placeholder="$t('organization.user.form.phonePlaceholder')"
                 name="px-user-phone"
+                class="w-full"
                 autocomplete="new-password"
+              />
+            </UFormField>
+            <UFormField :label="$t('organization.user.form.department')" name="departments">
+              <USelectMenu
+                v-model="userForm.departmentIds"
+                :items="departmentOptions"
+                multiple
+                value-key="value"
+                label-key="label"
+                :portal="false"
+                :placeholder="$t('organization.user.form.selectDepartment')"
+                :content="roleSelectContent"
+                :ui="roleSelectUi"
+                :loading="departmentStore.status === 'loading'"
+                class="w-full"
+                data-testid="user-departments"
               />
             </UFormField>
             <UFormField :label="$t('organization.user.form.role')" required>
@@ -1156,7 +1288,7 @@ onMounted(async () => {
                 :search-input="{
                   placeholder: $t('organization.user.form.searchRole'),
                 }"
-                :portal="true"
+                :portal="false"
                 :content="roleSelectContent"
                 :ui="roleSelectUi"
                 class="w-full"
@@ -1180,19 +1312,16 @@ onMounted(async () => {
                 name="px-user-confirm-password"
                 autocomplete="new-password"
             /></UFormField>
-            <div class="md:col-span-2 flex justify-end gap-3 mt-2">
-              <UButton
-                color="neutral"
-                variant="outline"
-                @click="showForm = false"
-                >{{ $t("organization.common.cancel") }}</UButton
-              >
-              <UButton type="submit" color="primary">{{
-                $t("organization.common.save")
-              }}</UButton>
-            </div>
           </form>
         </div>
+      </template>
+      <template #footer>
+        <UButton type="button" color="neutral" variant="outline" @click="showForm = false">
+          {{ $t("organization.common.cancel") }}
+        </UButton>
+        <UButton form="tenant-user-form" type="submit" color="primary">
+          {{ $t("organization.common.save") }}
+        </UButton>
       </template>
     </UModal>
 

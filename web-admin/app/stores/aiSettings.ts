@@ -1,10 +1,12 @@
 import { defineStore } from "pinia";
+import { aiProviderErrorMessage } from "~/utils/ai-provider-error";
 import {
   AISettingService,
   type AgentProfile,
   type AgentCredential,
   type SaveSettingsPayload,
   type Provider,
+  type TenantModelCatalog,
 } from "~/composables/api/services/aiSettingService";
 
 const compactError = (raw: unknown): string => {
@@ -32,7 +34,7 @@ const compactError = (raw: unknown): string => {
   }
 
   const bodyPos = message.indexOf("body=");
-  let brief = bodyPos >= 0 ? message.slice(0, bodyPos).trim() : message;
+  let brief = aiProviderErrorMessage(message) || (bodyPos >= 0 ? message.slice(0, bodyPos).trim() : message);
   brief = brief.replace(/\s+/g, " ");
   if (brief.length > 180) {
     brief = `${brief.slice(0, 180)}...`;
@@ -49,6 +51,14 @@ const extractErrorDetail = (raw: unknown): string => {
 export interface AISettingsState {
   providers: Provider[];
   models: string[];
+  modelsCatalog: TenantModelCatalog | null;
+  providersLoading: boolean;
+  providersError: boolean;
+  modelsLoading: boolean;
+  modelsError: boolean;
+  modelsLoaded: boolean;
+  modelsRequestID: number;
+  modelsContext: string;
   profiles: AgentProfile[];
   activeProfile: AgentProfile | null;
   credentials: AgentCredential[];
@@ -56,8 +66,10 @@ export interface AISettingsState {
   loading: boolean;
   saving: boolean;
   testing: boolean;
+  testingAction: "connection" | "quick" | null;
   lastTestMessage: string;
   lastTestDetail: string;
+  testResultRevision: number;
   initialized: boolean;
 }
 
@@ -65,6 +77,14 @@ export const useAISettingsStore = defineStore("aiSettings", {
   state: (): AISettingsState => ({
     providers: [],
     models: [],
+    modelsCatalog: null,
+    providersLoading: false,
+    providersError: false,
+    modelsLoading: false,
+    modelsError: false,
+    modelsLoaded: false,
+    modelsRequestID: 0,
+    modelsContext: "",
     profiles: [],
     activeProfile: null,
     credentials: [],
@@ -72,8 +92,10 @@ export const useAISettingsStore = defineStore("aiSettings", {
     loading: false,
     saving: false,
     testing: false,
+    testingAction: null,
     lastTestMessage: "",
     lastTestDetail: "",
+    testResultRevision: 0,
     initialized: false,
   }),
 
@@ -132,7 +154,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
       try {
         this.currentEnv = env || this.currentEnv || "default";
         const [providers, profiles, credentials] = await Promise.all([
-          AISettingService.getProviders(),
+          this.fetchProviders(undefined, this.currentEnv),
           AISettingService.getProfiles(this.currentEnv),
           AISettingService.getCredentials(this.currentEnv),
         ]);
@@ -206,39 +228,54 @@ export const useAISettingsStore = defineStore("aiSettings", {
      * 获取供应商列表
      */
     async fetchProviders(modality?: string, env?: string) {
+      this.providersLoading = true;
+      this.providersError = false;
       try {
         const targetEnv = env || this.currentEnv || "default";
         const normModality = modality ? this.mapModality(modality) : undefined;
         const providers = await AISettingService.getProviders(normModality, targetEnv);
         this.providers = providers;
+        return providers;
       } catch (error) {
+        this.providers = [];
+        this.providersError = true;
         console.error("获取供应商列表失败:", error);
         throw error;
+      } finally {
+        this.providersLoading = false;
       }
     },
 
     /**
      * 获取模型列表
      */
-    async fetchModels(provider?: string, modality?: string, env?: string, app?: string) {
+    async fetchModels(provider?: string, modality?: string, env?: string, app?: string, baseURL?: string) {
       // 关键：参数不全就短路，但不清空 models
       if (!provider || !modality) {
         console.info("fetchModels -> 参数不全，跳过:", { provider, modality });
-        return;
+        return false;
       }
 
+      const requestID = ++this.modelsRequestID;
+      const normProvider = provider.trim().toLowerCase();
+      const normModality = this.mapModality(modality);
+      const normEnv = env || this.currentEnv || "default";
+      const context = JSON.stringify([normEnv, normProvider, normModality, app || "", baseURL?.trim() || ""]);
+      if (this.modelsContext !== context) { this.models = []; this.modelsCatalog = null; }
+      this.modelsContext = context;
+      this.modelsLoading = true;
+      this.modelsError = false;
+      this.modelsLoaded = false;
       try {
-        // ✅ 参数规范化
-        const normProvider = provider.trim().toLowerCase(); // "OpenAI" -> "openai"
-        const normModality = this.mapModality(modality);
-        const normEnv = env || this.currentEnv || "default";
-
-        const res = await AISettingService.getModels(
+        const res = await AISettingService.getModelCatalog(
           normProvider,
           normModality,
           normEnv,
-          app
+          app,
+          baseURL
         );
+        // 切换实例／模态后，较慢的旧请求不能覆盖当前目录。
+        if (requestID !== this.modelsRequestID) return false;
 
         // ✅ 打印原始响应
         // console.info("raw models response", JSON.stringify(res));
@@ -249,13 +286,20 @@ export const useAISettingsStore = defineStore("aiSettings", {
         } else {
           const data = res as any;
           this.models = data?.models ?? data?.items ?? [];
+          this.modelsCatalog = data;
         }
+        this.modelsLoaded = true;
+        return true;
         // console.info("store.models set to", this.models);
       } catch (error) {
+        if (requestID !== this.modelsRequestID) return false;
         console.error("获取模型列表失败:", error);
         // 发生错误时才清空 models
         this.models = [];
+        this.modelsError = true;
         throw error;
+      } finally {
+        if (requestID === this.modelsRequestID) this.modelsLoading = false;
       }
     },
 
@@ -268,6 +312,8 @@ export const useAISettingsStore = defineStore("aiSettings", {
         // 后端 contract.Modality
         case "llm":
           return "llm";
+        case "vlm":
+          return "vlm";
         case "image":
           return "image";
         case "embedding":
@@ -319,10 +365,11 @@ export const useAISettingsStore = defineStore("aiSettings", {
     /**
      * 获取凭证
      */
-    async fetchCredentials(env?: string) {
+    async fetchCredentials(env?: string, options: { useGlobalLoading?: boolean } = {}) {
       try {
         const response = await AISettingService.getCredentials(
-          env || this.currentEnv
+          env || this.currentEnv,
+          options
         );
         this.credentials = response.credentials;
         if (response.env) {
@@ -387,24 +434,38 @@ export const useAISettingsStore = defineStore("aiSettings", {
      * 测试连接
      */
     async testConnection(provider: string, payload: any) {
+      if (this.testing) throw new Error("AI_TEST_IN_PROGRESS");
       this.testing = true;
+      this.testingAction = "connection";
+      this.clearTestMessage();
+      const revision = this.testResultRevision;
       try {
         const nextPayload = {
           ...payload,
           env: payload.env || this.currentEnv || "default",
         };
         const result = await AISettingService.testConnection(nextPayload);
-        this.lastTestMessage = `连接测试成功 - Provider: ${provider}`;
-        this.lastTestDetail = "";
+        if (!result.ok || !result.verification?.endpoint_reachable ||
+          (result.verification.authentication !== "not_required" && !result.verification.api_key_verified) ||
+          result.verification.generation_submitted !== false) {
+          throw new Error(result.message || "AI_CONNECTION_RESPONSE_INVALID");
+        }
+        if (revision === this.testResultRevision) {
+          this.lastTestMessage = `连接测试成功 - Provider: ${provider}`;
+          this.lastTestDetail = "";
+        }
         return result;
       } catch (error) {
         console.error("连接测试失败:", error);
         const raw = error instanceof Error ? error.message : error;
-        this.lastTestMessage = `连接测试失败: ${compactError(raw)}`;
-        this.lastTestDetail = extractErrorDetail(raw);
+        if (revision === this.testResultRevision) {
+          this.lastTestMessage = `连接测试失败: ${compactError(raw)}`;
+          this.lastTestDetail = extractErrorDetail(raw);
+        }
         throw error;
       } finally {
         this.testing = false;
+        this.testingAction = null;
       }
     },
 
@@ -417,24 +478,34 @@ export const useAISettingsStore = defineStore("aiSettings", {
       payload: any,
       message = "Hello, this is a test message."
     ) {
+      if (this.testing) throw new Error("AI_TEST_IN_PROGRESS");
       this.testing = true;
+      this.testingAction = "quick";
+      this.clearTestMessage();
+      const revision = this.testResultRevision;
       try {
         const result = await AISettingService.testQuickCall({
           ...payload,
           env: payload.env || this.currentEnv || "default",
           prompt: message,
         });
-        this.lastTestMessage = `快速调用测试成功 - Model: ${model}`;
-        this.lastTestDetail = "";
+        if (!result?.ok) throw new Error(result?.message || "AI_TEST_CALL_FAILED");
+        if (revision === this.testResultRevision) {
+          this.lastTestMessage = `快速调用测试成功 - Model: ${model}`;
+          this.lastTestDetail = "";
+        }
         return result;
       } catch (error) {
         console.error("快速调用测试失败:", error);
         const raw = error instanceof Error ? error.message : error;
-        this.lastTestMessage = `快速调用测试失败: ${compactError(raw)}`;
-        this.lastTestDetail = extractErrorDetail(raw);
+        if (revision === this.testResultRevision) {
+          this.lastTestMessage = `快速调用测试失败: ${compactError(raw)}`;
+          this.lastTestDetail = extractErrorDetail(raw);
+        }
         throw error;
       } finally {
         this.testing = false;
+        this.testingAction = null;
       }
     },
 
@@ -442,6 +513,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
      * 清除测试消息
      */
     clearTestMessage() {
+      this.testResultRevision++;
       this.lastTestMessage = "";
       this.lastTestDetail = "";
     },

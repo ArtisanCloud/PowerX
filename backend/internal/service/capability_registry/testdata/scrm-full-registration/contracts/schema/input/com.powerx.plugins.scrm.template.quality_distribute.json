@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateQualityDistributeInput",
+  "type": "object",
+  "properties": {
+    "scan_filter": {
+      "type": "object",
+      "properties": {
+        "q": { "type": "string" },
+        "page": { "type": "integer", "minimum": 1, "default": 1 },
+        "page_size": { "type": "integer", "minimum": 1, "maximum": 50, "default": 5 }
+      }
+    },
+    "validate_rules": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "传入需要执行的校验规则，默认使用基础规则"
+    },
+    "clone": {
+      "type": "object",
+      "properties": {
+        "copies": { "type": "integer", "minimum": 1, "maximum": 20, "default": 1 },
+        "name_prefix": { "type": "string" },
+        "description_prefix": { "type": "string" }
+      }
+    },
+    "update_payload": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "publish_channel": {
+      "type": "string",
+      "description": "克隆完成后需要发布到的渠道"
+    }
+  },
+  "required": ["update_payload"],
+  "additionalProperties": false
+}

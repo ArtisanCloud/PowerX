@@ -1,0 +1,175 @@
+{
+  "checked_at": "2026-10-22T13:32:46.007394+00:00",
+  "scope": "Core Agnes image and asynchronous video provider; existing media v2 capabilities and TaskBus lifecycle",
+  "status": "source_and_controlled_validation_passed_runtime_configuration_pending",
+  "branch": "024-ai-engineering-skills",
+  "base_sha": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+  "changes_committed": false,
+  "provider": {
+    "id": "agnes",
+    "label": "Agnes AI",
+    "auth": "bearer",
+    "default_base_url": "https://apihub.agnes-ai.com/v1",
+    "models": [
+      {
+        "model_key": "agnes/agnes-image-2.5-flash",
+        "capability": "image_generation"
+      },
+      {
+        "model_key": "agnes/agnes-image-2.1-flash",
+        "capability": "image_generation"
+      },
+      {
+        "model_key": "agnes/agnes-video-2.5",
+        "capability": "video_generation"
+      },
+      {
+        "model_key": "agnes/agnes-video-2.5-flash",
+        "capability": "video_generation"
+      }
+    ],
+    "image_parameters": [
+      "size",
+      "ratio"
+    ],
+    "video_parameters": [
+      "resolution",
+      "max_duration_sec",
+      "aspect_ratio",
+      "mode"
+    ],
+    "supported_video_modes": [
+      "text",
+      "keyframe",
+      "reference"
+    ],
+    "video_reference_scope": "public HTTP(S) images only; no audio or video references declared",
+    "image_reference_limit": 3,
+    "video_reference_limit": {
+      "agnes-video-2.5": 8,
+      "agnes-video-2.5-flash": 5
+    },
+    "video_resolution": {
+      "agnes-video-2.5": [
+        "720p",
+        "1080p",
+        "2K"
+      ],
+      "agnes-video-2.5-flash": [
+        "720p"
+      ]
+    },
+    "video_fixed_square_1K": "not exposed, to avoid silently ignoring aspect_ratio",
+    "video_duration_seconds": {
+      "min": 4,
+      "max": 12
+    },
+    "provider_cancel": "unsupported; query only, no DELETE",
+    "provider_query": "GET /agnesapi with video_id and model_name; public status, not internal_status",
+    "framework_contract_changes_required": false
+  },
+  "validation": {
+    "go": {
+      "passed_including_subtests": 70,
+      "skipped": 0,
+      "race": true,
+      "vet": "passed",
+      "log": "/private/tmp/powerx-agnes-core-race-20261022.jsonl",
+      "sha256": "37b6883f1e2b685c9843ff144143255730b09b794a3ef3b1bb953862a0f79cec"
+    },
+    "go_build": {
+      "passed": true,
+      "artifact": "/private/tmp/powerx-agnes-core-20261022",
+      "sha256": "afd0914af765333ab8a49769ce71f2a1fc7043a34738dd628f4032c1e646dbd5"
+    },
+    "nuxt": {
+      "passed_tests": 7,
+      "log": "/private/tmp/powerx-agnes-nuxt-tests-20261022.log",
+      "sha256": "a733a42dbba3974fccbd8cfb6bf0f670ace3eeb56d522fea365dee46ff10f6d3",
+      "build": "passed",
+      "build_log": "/private/tmp/powerx-agnes-nuxt-build-20261022.log",
+      "build_log_sha256": "7e938cc5b14c07dfe126e95309bb219024e20e195d0b939826ab98e0167f72e9",
+      "build_dir": "web-admin/.nuxt-agnes-20261022",
+      "output_dir": "web-admin/.output"
+    },
+    "capability_check": {
+      "passed": true,
+      "log": "/private/tmp/powerx-agnes-capability-check-20261022.log",
+      "sha256": "187985d750d24869a3be29e8b6fff66df89673c448330dd963f34853d4ff3796"
+    },
+    "upgrade_registry_check": "passed; provider adapter does not change migration payload inputs",
+    "cases": [
+      "Agnes image request layout, Base64 decoding and reference images",
+      "video text/keyframe/reference payloads and string duration",
+      "video_id retained instead of id/task_id",
+      "queries always include model_name and use /agnesapi outside /v1",
+      "completed public status wins over internal pending",
+      "structured status, upstream code and trace retained",
+      "redirect does not forward credentials and submission is not automatically retried",
+      "invalid mode, parameters, limits and fixed square tier rejected before Core task creation",
+      "Core image output persisted and read back as identical PNG bytes",
+      "video task reloaded after runtime reconstruction, same idempotency key returns same Core task",
+      "repeated Core queries do not query supplier or submit generation",
+      "completed fixture video persisted and read back as identical MP4 bytes",
+      "native task ID and supplier addresses absent from public task result",
+      "settings choose legal size/resolution, retain saved values and preserve other providers"
+    ]
+  },
+  "runtime_acceptance": {
+    "status": "pending_user_restart_and_Agnes_credentials",
+    "core_pid_observed": 24339,
+    "core_restarted_by_agent": false,
+    "local_configuration": {
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "env": "dev",
+      "credential_rows": 0,
+      "profiles": []
+    },
+    "paid_provider_calls": 0,
+    "live_supplier_calls": 0,
+    "copied_CourtMate_credentials": false,
+    "real_image_and_video_generation": "not validated"
+  },
+  "browser_acceptance": {
+    "status": "not_run",
+    "reason": "CUA browser inventory empty; iab and chrome unavailable",
+    "desktop": "not validated",
+    "narrow_screen": "not validated",
+    "component_and_build_checks_are_not_browser_acceptance": true
+  },
+  "references": {
+    "existing_verified_adapter": "/private/var/www/html/ArtisanCloud/X/BasketballWorkspace/com.powerx.plugins.court-mate/backend/internal/services/ai_settings/image.go",
+    "official": [
+      "https://www.agnes-ai.com/en/docs/agnes-image-25-flash",
+      "https://www.agnes-ai.com/en/docs/agnes-image-21-flash",
+      "https://www.agnes-ai.com/en/docs/agnes-video-25",
+      "https://www.agnes-ai.com/en/docs/agnes-video-25-flash"
+    ]
+  },
+  "next_steps": [
+    "user restarts existing Core by its normal development command",
+    "save Agnes key and both image/video profiles in the original MediaXStudio key tenant, env dev",
+    "read Agnes typed catalog with original key and confirm configured/available",
+    "real generation after credential and cost scope are confirmed",
+    "desktop/narrow-screen page acceptance remains outstanding"
+  ],
+  "source_sha256": {
+    "backend/config/agents/providers.d/agnes.yaml": "29a8f505510ee03e47194db8c0f801fee265b5643c2a11fd9dfd5de0aad8ab34",
+    "backend/internal/server/ai/drivers/agnes/common.go": "b5099dc173a4e3b5d8a72b7c99e784d1c37a968a0d4c3a75ddda86e4200666d3",
+    "backend/internal/server/ai/drivers/agnes/image.go": "b8f485108014f270f99cda6e9990d7d3f47e0a7ae3b670b27cc301a368557581",
+    "backend/internal/server/ai/drivers/agnes/video.go": "c4cd7e804cd57485e1611f8a9c347c9cfd441815434770250ca7d1a461cf631a",
+    "backend/internal/server/ai/drivers/agnes/media_test.go": "dcc34bc2a72e93e09ebdd9a205e723c1ba23554ea230231edd3d1cd9dfe3db21",
+    "backend/internal/server/ai/factory/image/factory.go": "885e9783efa0a609e45954b7cea8193396de330876ef9765b6358616a67c3cbb",
+    "backend/internal/server/ai/factory/video/factory.go": "566c2104b189a13ccc050bc47e566d8cb4bd4873ab744405a52b4d3ed7286fbb",
+    "backend/internal/server/agent/contract/video.go": "370f8b2f42130a27c214d65990e7704f536a0e70dd97796c13f6098f4a6e0977",
+    "backend/internal/service/ai/media_catalog.go": "caf98bac6107a6a99cc3151fabcea56d451f56833e00bbc5bfd667bf3a239068",
+    "backend/internal/service/ai/media_worker.go": "b580f0d48a420e031d37d3882184e64a89e7e16da6dcb42d7f891341deffe955",
+    "backend/internal/service/ai/media_agnes_test.go": "03641198e1aff732c72cd1a88549cc4b1407f1f31b11ef9beb8951c10077fd60",
+    "web-admin/app/utils/agnesMediaSettings.ts": "fc733c411331991aaf488fc03888faa89d20c4bd9b246b3ddca020a6ec0dac5e",
+    "web-admin/app/components/settings/ai/ModalityParamsForm.vue": "8c3f79915dcbc422f170938ed083a272976a3c66e9e4208ddaf8473353c116d8",
+    "web-admin/app/pages/settings/ai/index.vue": "8229016f18fd8d7f091dd498cc10b20ee0ee9260f1d30b799548054c3ed47ecb",
+    "web-admin/tests/unit/ai/agnes-media-settings.spec.ts": "b2a11b893266d529e39dac12c8eec7ae6ed4ef3d8e8ae54b27aadb2aeae1764f",
+    "docs/contracts/ai-media-v2.md": "5795884cc7f55596927b15acaccdc56d2db1be78b29589cb2c8a115e4f245d77"
+  },
+  "temporary_services_started": []
+}

@@ -79,3 +79,9 @@ func TestShouldSkipModelKeyVerification_ForCatalogReadCapabilities(t *testing.T)
 		})
 	}
 }
+
+func TestConnectionProbeSkipsModelVerificationOnlyForItsExactCapability(t *testing.T) {
+	for _, id := range []string{"com.corex.ai.connection.test", "com.corex.ai.connection.test.extra", "com.corex.ai.connection.invoke"} {
+		require.Equal(t, id == "com.corex.ai.connection.test", shouldSkipModelKeyVerification(id, map[string]interface{}{"body": map[string]any{"operation": "test_connection"}}, ""))
+	}
+}

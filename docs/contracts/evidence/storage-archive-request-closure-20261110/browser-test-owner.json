@@ -1,0 +1,17 @@
+{
+  "owner": "codex archive fault browser fixture",
+  "pid": 12339,
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+  "command": [
+    "go",
+    "-C",
+    "backend",
+    "test",
+    "./internal/transport/http/admin/backup",
+    "-run",
+    "^TestArchiveInterruptionRootHTTPAndOwnedBrowser$",
+    "-count=1",
+    "-v"
+  ],
+  "ports": "recorded in http-private.json"
+}

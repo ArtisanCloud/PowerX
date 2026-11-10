@@ -27,7 +27,14 @@ func (s *Service) PublishRuntimeConfig() error {
 	if os.Getenv("POWERX_OPS_ARCHIVE_CONFIG") != "" {
 		return nil
 	}
-	raw, e := marshalConfig(s.cfg)
+	snapshot := s.cfg
+	snapshot.PolicyControlRequired = s.policyControlRequired()
+	snapshot.TargetControlRequired = s.targetControlRequired()
+	// 独立凭据权威启用后，运行快照只发布引用；旧部署来源留在原位置供明确接管。
+	if snapshot.CredentialVault != nil {
+		snapshot.S3Credentials = nil
+	}
+	raw, e := marshalConfig(snapshot)
 	if e != nil {
 		return e
 	}
@@ -38,14 +45,16 @@ func (s *Service) StartScheduler() {
 		return
 	}
 	s.mu.Lock()
-	if s.ctx.Err() != nil {
+	if s.ctx.Err() != nil || s.schedulerRunning {
 		s.mu.Unlock()
 		return
 	}
+	s.schedulerRunning = true
 	s.workers.Add(1)
 	s.mu.Unlock()
 	go func() {
 		defer s.workers.Done()
+		defer func() { s.mu.Lock(); s.schedulerRunning = false; s.mu.Unlock() }()
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		for {

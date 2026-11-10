@@ -1,0 +1,194 @@
+{
+  "fixture_owner": "Core",
+  "contract": "capability_version_upgrade_error.v1",
+  "route": "POST /api/v1/admin/capability-registry/capabilities/{capabilityId}/tenants/{tenant_uuid}/upgrade",
+  "scope": "Errors emitted by the upgrade confirmation handler after authentication middleware; human Admin JWT only, not a service capability. Timestamp is runtime-generated and omitted from canonical examples.",
+  "machine_reason_published": true,
+  "cases": [
+    {
+      "name": "invalid",
+      "status": 400,
+      "audit_id": 0,
+      "body": {
+        "code": 400,
+        "message": "capability.upgrade_invalid",
+        "error": "capability.upgrade_invalid",
+        "error_code": "capability.upgrade_invalid",
+        "reason_code": "capability.upgrade_invalid",
+        "details": {
+          "reason_code": "capability.upgrade_invalid",
+          "retryable": false,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "forbidden",
+      "status": 403,
+      "audit_id": 0,
+      "body": {
+        "code": 403,
+        "message": "capability.upgrade_forbidden",
+        "error": "capability.upgrade_forbidden",
+        "error_code": "capability.upgrade_forbidden",
+        "reason_code": "capability.upgrade_forbidden",
+        "details": {
+          "reason_code": "capability.upgrade_forbidden",
+          "retryable": false,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "not_found",
+      "status": 404,
+      "audit_id": 0,
+      "body": {
+        "code": 404,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_not_found",
+        "error_code": "capability.upgrade_not_found",
+        "reason_code": "capability.upgrade_not_found",
+        "details": {
+          "reason_code": "capability.upgrade_not_found",
+          "retryable": false,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "hash_mismatch",
+      "status": 409,
+      "audit_id": 0,
+      "body": {
+        "code": 409,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_hash_mismatch",
+        "error_code": "capability.upgrade_hash_mismatch",
+        "reason_code": "capability.upgrade_hash_mismatch",
+        "details": {
+          "reason_code": "capability.upgrade_hash_mismatch",
+          "retryable": false,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "binding_mismatch",
+      "status": 409,
+      "audit_id": 0,
+      "body": {
+        "code": 409,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_binding_mismatch",
+        "error_code": "capability.upgrade_binding_mismatch",
+        "reason_code": "capability.upgrade_binding_mismatch",
+        "details": {
+          "reason_code": "capability.upgrade_binding_mismatch",
+          "retryable": false,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "unavailable",
+      "status": 503,
+      "audit_id": 0,
+      "body": {
+        "code": 503,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_unavailable",
+        "error_code": "capability.upgrade_unavailable",
+        "reason_code": "capability.upgrade_unavailable",
+        "details": {
+          "reason_code": "capability.upgrade_unavailable",
+          "retryable": true,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "persistence_failed",
+      "status": 503,
+      "audit_id": 0,
+      "body": {
+        "code": 503,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_persistence_failed",
+        "error_code": "capability.upgrade_persistence_failed",
+        "reason_code": "capability.upgrade_persistence_failed",
+        "details": {
+          "reason_code": "capability.upgrade_persistence_failed",
+          "retryable": true,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "runtime_apply_failed",
+      "status": 503,
+      "audit_id": 42,
+      "body": {
+        "code": 503,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_runtime_apply_failed",
+        "error_code": "capability.upgrade_runtime_apply_failed",
+        "reason_code": "capability.upgrade_runtime_apply_failed",
+        "details": {
+          "reason_code": "capability.upgrade_runtime_apply_failed",
+          "retryable": true,
+          "trace_id": "fixture.trace",
+          "audit_id": 42,
+          "approval_persisted": true
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "audit_finalize_failed",
+      "status": 500,
+      "audit_id": 42,
+      "body": {
+        "code": 500,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_audit_finalize_failed",
+        "error_code": "capability.upgrade_audit_finalize_failed",
+        "reason_code": "capability.upgrade_audit_finalize_failed",
+        "details": {
+          "reason_code": "capability.upgrade_audit_finalize_failed",
+          "retryable": true,
+          "trace_id": "fixture.trace",
+          "audit_id": 42,
+          "approval_persisted": true,
+          "runtime_confirmed": true
+        },
+        "request_id": "fixture.request"
+      }
+    },
+    {
+      "name": "unknown",
+      "status": 500,
+      "audit_id": 0,
+      "body": {
+        "code": 500,
+        "message": "capability.upgrade_failed",
+        "error": "capability.upgrade_failed",
+        "error_code": "capability.upgrade_failed",
+        "reason_code": "capability.upgrade_failed",
+        "details": {
+          "reason_code": "capability.upgrade_failed",
+          "retryable": false,
+          "trace_id": "fixture.trace"
+        },
+        "request_id": "fixture.request"
+      }
+    }
+  ]
+}

@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"errors"
+	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/notification"
 	"gorm.io/gorm"
 	"net/http"
 	"strings"
@@ -17,14 +18,16 @@ const ReadReceiptCapabilityID = "com.corex.notifications.read_receipts"
 const ReadReceiptContract = "notification_read_receipt.v1"
 
 type ReadReceiptInput struct {
-	MemberUUID        string   `json:"member_uuid"`
-	NotificationUUIDs []string `json:"notification_uuids"`
+	Revisions         map[string]int64 `json:"revisions,omitempty"`
+	MemberUUID        string           `json:"member_uuid"`
+	NotificationUUIDs []string         `json:"notification_uuids"`
 }
 
 type ReadReceipt struct {
-	Contract          string   `json:"contract"`
-	MemberUUID        string   `json:"member_uuid"`
-	NotificationUUIDs []string `json:"notification_uuids"`
+	Revisions         map[string]int64 `json:"revisions,omitempty"`
+	Contract          string           `json:"contract"`
+	MemberUUID        string           `json:"member_uuid"`
+	NotificationUUIDs []string         `json:"notification_uuids"`
 }
 
 func receiptError(status int, code string) error {
@@ -80,20 +83,36 @@ func (s *Service) Acknowledge(ctx context.Context, input ReadReceiptInput) (*Rea
 		}
 		seen[id] = true
 	}
+	for id, version := range input.Revisions {
+		if !seen[id] || version < 1 || version > maxCardRevision {
+			return nil, receiptError(400, "NOTIFICATION_READ_RECEIPT_INVALID")
+		}
+	}
 	if err := NewRecipientAccess(s.db).Require(ctx, tenant, input.MemberUUID); err != nil {
 		return nil, err
 	}
-	if err := s.repo.AcknowledgeOwned(ctx, tenant, owner, input.MemberUUID, input.NotificationUUIDs, s.now()); err != nil {
+	if err := s.repo.AcknowledgeOwned(ctx, tenant, owner, input.MemberUUID, input.NotificationUUIDs, s.now(), input.Revisions); err != nil {
+		if errors.Is(err, repo.ErrRevisionConflict) {
+			return nil, receiptError(409, "NOTIFICATION_REVISION_CONFLICT")
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, receiptError(403, "NOTIFICATION_READ_RECEIPT_FORBIDDEN")
 		}
 		return nil, receiptError(503, "NOTIFICATION_UNAVAILABLE")
 	}
-	return &ReadReceipt{Contract: ReadReceiptContract, MemberUUID: input.MemberUUID, NotificationUUIDs: input.NotificationUUIDs}, nil
+	return &ReadReceipt{Revisions: input.Revisions, Contract: ReadReceiptContract, MemberUUID: input.MemberUUID, NotificationUUIDs: input.NotificationUUIDs}, nil
 }
 
 // ReadEvent shares the existing tenant/member guarded notification topic. It is
 // an invalidation/receipt, never a second created notification.
 func ReadEvent(tenant, member string, ids []string) map[string]any {
 	return map[string]any{"eventType": "notification_read", "payload_version": 1, "contract": ReadReceiptContract, "tenant_uuid": tenant, "userId": member, "notification_uuids": ids}
+}
+
+func ReadEventVersioned(tenant, member string, ids []string, revisions map[string]int64) map[string]any {
+	event := ReadEvent(tenant, member, ids)
+	if len(revisions) > 0 {
+		event["revisions"] = revisions
+	}
+	return event
 }

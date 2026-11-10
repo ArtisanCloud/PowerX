@@ -18,6 +18,7 @@ make_files/
 ├── clean.mk        # 清理相关任务
 ├── docker.mk       # Docker 相关任务
 ├── database.mk     # 数据库相关任务
+├── media.mk        # 历史派生图扫描清单与确认执行
 ├── mcp.mk          # MCP 服务相关任务
 └── perm.mk         # OpenAPI & 权限同步（Swagger 生成 / 最小 OpenAPI / 权限目录同步）
 ```
@@ -76,6 +77,12 @@ make_files/
 * `make capability-seed` - 同步正式 capability、租户 registration 与精确 API Key 权限定义；不迁移表、不授予现有 Key 新权限
 * `make seed` - 执行 `db-seed`（含 Metadata Governance 与企业基础元数据）后再执行 `capability-seed`
 * `make db-reset` - 重置数据库
+
+### media.mk - 历史图片补图维护
+
+* `make media-derivatives-scan CONFIG=/path/core.yaml REPORT=/path/scan.jsonl`：只读扫描当前环境全部租户，输出可审阅清单；TENANT_UUID 仅为可选筛选。
+* `make media-derivatives-apply CONFIG=/path/core.yaml PLAN=/path/scan.jsonl CONFIRM=1`：限定清单候选，复用 TaskBus 分批提交，独立进度支持继续执行。
+* 不属于 migrate、seed、启动或普通读取依赖。参数、异常和完成检查见 [媒体合同维护章节](../docs/contracts/media-image-derivatives.md#扫描清单--确认执行)。
 
 ### mcp.mk - MCP 服务任务
 

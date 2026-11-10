@@ -36,18 +36,20 @@ type createNotificationRequest struct {
 }
 
 type notificationView struct {
-	Actions     []notificationssvc.Action `json:"actions,omitempty"`
-	ID          string                    `json:"id"`
-	Title       string                    `json:"title"`
-	Content     string                    `json:"content"`
-	Type        string                    `json:"type"`
-	Category    string                    `json:"category"`
-	IsRead      bool                      `json:"isRead"`
-	IsImportant bool                      `json:"isImportant"`
-	CreatedAt   time.Time                 `json:"createdAt"`
-	UpdatedAt   time.Time                 `json:"updatedAt"`
-	UserID      string                    `json:"userId,omitempty"`
-	Metadata    map[string]any            `json:"metadata,omitempty"`
+	Actions        []notificationssvc.Action `json:"actions,omitempty"`
+	Revision       int64                     `json:"revision"`
+	SourceRevision int64                     `json:"sourceRevision,omitempty"`
+	ID             string                    `json:"id"`
+	Title          string                    `json:"title"`
+	Content        string                    `json:"content"`
+	Type           string                    `json:"type"`
+	Category       string                    `json:"category"`
+	IsRead         bool                      `json:"isRead"`
+	IsImportant    bool                      `json:"isImportant"`
+	CreatedAt      time.Time                 `json:"createdAt"`
+	UpdatedAt      time.Time                 `json:"updatedAt"`
+	UserID         string                    `json:"userId,omitempty"`
+	Metadata       map[string]any            `json:"metadata,omitempty"`
 }
 
 func newHandler(deps *shared.Deps) *handler {
@@ -145,6 +147,7 @@ func (h *handler) create(c *gin.Context) {
 
 func toNotificationView(item *notificationmodel.Notification) notificationView {
 	view := notificationView{
+		Revision: item.Revision, SourceRevision: item.SourceRevision,
 		ID:          item.UUID.String(),
 		Title:       item.Title,
 		Content:     item.Content,
@@ -186,6 +189,6 @@ func (h *handler) acknowledge(c *gin.Context) {
 		return
 	}
 	tenant := reqctx.GetTenantUUID(c.Request.Context())
-	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenant, eventbus.TopicSystemNotification, notificationssvc.ReadEvent(tenant, receipt.MemberUUID, receipt.NotificationUUIDs), reqctx.GetTraceID(c.Request.Context()))
+	bus.DefaultHub.PublishWithContext(c.Request.Context(), tenant, eventbus.TopicSystemNotification, notificationssvc.ReadEventVersioned(tenant, receipt.MemberUUID, receipt.NotificationUUIDs, receipt.Revisions), reqctx.GetTraceID(c.Request.Context()))
 	dto.ResponseSuccess(c, receipt)
 }

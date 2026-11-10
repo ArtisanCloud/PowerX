@@ -1,0 +1,52 @@
+{
+  "owner": "codex archive disposition acceptance",
+  "owned_pids": [
+    2543,
+    8020,
+    8447,
+    19674,
+    20293,
+    36515,
+    36518,
+    36603,
+    36604,
+    36619,
+    46998,
+    55243,
+    55526,
+    55555,
+    55672,
+    55729,
+    55730,
+    55745,
+    57131,
+    57343,
+    57348,
+    57352,
+    57450,
+    57451,
+    57453,
+    57483,
+    57493,
+    74509
+  ],
+  "owned_ports": [
+    51584,
+    51598,
+    52392,
+    56830,
+    56855,
+    65124
+  ],
+  "all_original_owned_processes_exited": true,
+  "reused_pids_not_touched": [],
+  "all_owned_listeners_closed": true,
+  "owned_pg_root_removed": true,
+  "private_jwt_files_removed": true,
+  "daily_core_listening_pids": [
+    21228
+  ],
+  "daily_nuxt_pid": 34360,
+  "agent_restarted_daily_services": false,
+  "note": "Core runtime PID changed externally during this task; it was not stopped or started by this agent."
+}

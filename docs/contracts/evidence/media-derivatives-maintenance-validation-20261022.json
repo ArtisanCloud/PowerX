@@ -1,0 +1,145 @@
+{
+  "validated_at": "2026-10-22T07:00:38.271425+00:00",
+  "scope": "Core explicit historical image derivative scan / reviewed-plan apply maintenance",
+  "implementation": {
+    "base_commit": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+    "implementation_commit": null,
+    "uncommitted": true,
+    "source_sha256": {
+      "Makefile": "1dd36f049f9d4ba7b84c77e53af0d3057d8e147acec271dbf82f031e24e2a782",
+      "make_files/media.mk": "02a690ca384c0a5e66ff3eb6dbfc7f4ad1907e72fcf6c33b25043b810c7c225b",
+      "make_files/README.md": "2bf074571df5f51b6e584465d03f18c5abcea7dbeea6e0fa37e4a82bd9421fce",
+      "scripts/ops/media-derivatives.sh": "8d5527acbf3e58eb37f763571509b53d153645a20ab2cc4c9b6587bbd52d9543",
+      "backend/cmd/media_tool/derivatives.go": "a366884785fee47c17329658c8e3e4945c1928993c8c82ad3e4ce87abfaa194b",
+      "backend/cmd/media_tool/derivatives_test.go": "74356fed054ed119e1d2c3b6ff05fe1610b02423b15d7092cdfc99061d9d458e",
+      "backend/cmd/media_tool/derivative_apply.go": "ced5bba2ac12aa7c68bf30d9f4ceae78d4ce98809c5a73d388a8498a1c61e6fc",
+      "backend/cmd/media_tool/derivative_plan.go": "02219d7a9878fbd85fae72d53ca2d4c69fcf22b77cfcdf49f8393a1e32ca2a50",
+      "backend/cmd/media_tool/derivative_plan_test.go": "d4ed8ab8d3a9c87870131960f971b7e966225ca91c14979f852b01093e7adf60",
+      "backend/cmd/media_tool/derivative_lock_unix.go": "3e5f4c9693ca3a0367d8f13d8e0395f62709a94d35744235335314842ade19c0",
+      "backend/cmd/media_tool/derivative_lock_other.go": "a78ce835acf65d80148e0ecdf140a79ca6d229695a340b200d3c9094fdb543cc",
+      "backend/internal/service/media/image_derivative_backfill.go": "1e51b679aa88ce46c58a567eb8599ce2e5fd356039bcc8dd035d827f499ca858",
+      "backend/internal/service/media/image_derivatives.go": "06f32fcd1f26f4856b4f6c5d729176a9a999d00792f93b62483325e8061dccc7",
+      "backend/internal/service/media/image_derivative_plan.go": "5637a141369d886a8cd6e76cf6083e6d735a970eb2ea184bb65327471e1116a3",
+      "backend/internal/service/media/image_derivative_plan_test.go": "e7be326b2d60117bd986729526f78c4695548fe355cb11d2c0af6a531b2092d8",
+      "docs/contracts/media-image-derivatives.md": "f6bd4159fe8fd9fc238e54b6663847b25c73280661524ced5cc30ee13179074c"
+    }
+  },
+  "contracts": {
+    "recipe": "standard-image-v2",
+    "plan": "media_derivatives_backfill_plan.v1",
+    "progress": "media_derivatives_backfill_progress.v1",
+    "make_targets": [
+      "media-derivatives-scan",
+      "media-derivatives-apply"
+    ],
+    "public_sdk_changes": false
+  },
+  "checks": {
+    "native_postgres_and_race": [
+      {
+        "log": "/private/tmp/px-media-maint-aw66jb9o/native-race.jsonl",
+        "sha256": "94bbfa8ae7621eb5e0b0b75e7b029354288a1eb1565fe459121a520c67edef4a",
+        "packages": [
+          "github.com/ArtisanCloud/PowerX/cmd/media_tool",
+          "github.com/ArtisanCloud/PowerX/internal/service/media"
+        ],
+        "passed_tests_including_subtests": {
+          "github.com/ArtisanCloud/PowerX/cmd/media_tool": 18,
+          "github.com/ArtisanCloud/PowerX/internal/service/media": 77
+        },
+        "failed": 0
+      },
+      {
+        "log": "/private/tmp/px-media-maint-aw66jb9o/final-cli-race.jsonl",
+        "sha256": "c13d8150708a8d90d44c2fbf88c8df5b41329f7fe491304cef747cfdc50e34ba",
+        "packages": [
+          "github.com/ArtisanCloud/PowerX/cmd/media_tool"
+        ],
+        "passed_tests_including_subtests": {
+          "github.com/ArtisanCloud/PowerX/cmd/media_tool": 19
+        },
+        "failed": 0
+      }
+    ],
+    "final_effective_passed_tests_including_subtests": 96,
+    "vet": {
+      "status": "passed",
+      "packages": [
+        "./cmd/media_tool",
+        "./internal/service/media"
+      ]
+    },
+    "transport_and_contract_regression": {
+      "status": "passed",
+      "packages": [
+        "./tests/contract/media",
+        "./internal/transport/http/openapi/media",
+        "./internal/transport/http/admin/media"
+      ]
+    },
+    "make_targets": {
+      "status": "passed",
+      "verification": "real make targets with test-owned argv-capture executable; scan/apply path forwarding and explicit confirmation; no shell evaluation"
+    },
+    "shell_syntax": "passed",
+    "diff_check": "passed",
+    "standalone_binary_build": {
+      "status": "passed",
+      "command": "go build -o <test-artifacts>/media_tool ./cmd/media_tool",
+      "help_contract": "media_tool help derivatives-backfill exposes report/plan/progress/confirm",
+      "artifact": "/private/tmp/px-media-maint-aw66jb9o/media_tool",
+      "sha256": "c764df94cfd68a4d08486cb6ce7969b3af59b55f0a8e8a36ccd2e9d2b3059355",
+      "transient_unrelated_worktree_compile_error": "Marketplace deliveryBackoff was defined by concurrent work; no Marketplace files changed by this task"
+    }
+  },
+  "behaviors_verified": [
+    "dry-run produces a scope-bound plan and zero TaskBus histories",
+    "legacy v1 valid variants reused; only missing specs generated",
+    "complete scan cursor never skips plan execution",
+    "only reviewed candidate UUIDs reach the service",
+    "source checksum and no-expanded-missing-spec fences rechecked under parent lock",
+    "wrong environment / tenant / incomplete / duplicate / inconsistent plans rejected",
+    "exclusive report creation and no config/plan overwrite by progress",
+    "progress SHA256 binding, file lock, fsync, interrupted tail recovery",
+    "cancellation retains accepted prefix and resumes remaining candidates",
+    "failed and absent assets remain in execution summary",
+    "same plan replay accepts active task without duplicate history",
+    "actual worker completion produces ready variants"
+  ],
+  "acceptance_boundary": {
+    "target_tenant_backfill_executed": false,
+    "production_executed": false,
+    "user_services_restarted": false,
+    "database_migration_or_seed_run_on_target": false,
+    "real_AI_Craft_installed_refresh_verified": false,
+    "test_storage": "synthetic assets in test-owned temporary paths",
+    "taskbus": "test-owned miniredis and isolated PostgreSQL"
+  },
+  "temporary_services": {
+    "owner": "Codex media maintenance validation",
+    "root": "/private/tmp/px-media-maint-aw66jb9o",
+    "port": 60681,
+    "command": [
+      "/opt/homebrew/bin/pg_ctl",
+      "-D",
+      "/private/tmp/px-media-maint-aw66jb9o/data",
+      "-l",
+      "/private/tmp/px-media-maint-aw66jb9o/postgres.log",
+      "-o",
+      "-p 60681 -h 127.0.0.1 -k /private/tmp/px-media-maint-aw66jb9o/socket",
+      "-w",
+      "start"
+    ],
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "dsn": "host=127.0.0.1 port=60681 user=media_maint_test dbname=postgres sslmode=disable",
+    "pid": 69536,
+    "stopped": true,
+    "port_released": true
+  },
+  "remaining_operations": [
+    "target operator selects Core config and tenant, scans and reviews plan before explicit apply",
+    "final ready state and actual variant reads checked through existing status/SSE",
+    "AI Craft current-member notification/list refresh remains joint installed acceptance"
+  ],
+  "superseded_by": "media-derivatives-maintenance-all-tenants-validation-20261022.json"
+}

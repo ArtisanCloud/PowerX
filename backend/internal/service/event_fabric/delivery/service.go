@@ -218,6 +218,10 @@ func NewService(opts Options) (Service, error) {
 }
 
 func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err error) {
+	// 服务信封只能通过正式 typed 通道创建；旧回放/内部发布不能覆盖或冒领它。
+	if strings.HasPrefix(req.EventID, eventfabricrepo.ServiceEventPrefix) {
+		return shared.ErrUnauthorized
+	}
 	start := s.clock().UTC()
 	tenantKey, tenantErr := resolveTenantKey(req.TenantUUID)
 	if tenantErr != nil {
@@ -482,6 +486,9 @@ func (s *serviceImpl) Ack(ctx context.Context, deliveryID string, subscriberID s
 		err = fmt.Errorf("delivery attempt %s not found", deliveryID)
 		return err
 	}
+	if strings.HasPrefix(attempt.EventID, eventfabricrepo.ServiceEventPrefix) {
+		return shared.ErrUnauthorized
+	}
 	if subscriberID != "" && !strings.EqualFold(subscriberID, attempt.SubscriberID) {
 		err = fmt.Errorf("subscriber mismatch")
 		return err
@@ -610,6 +617,9 @@ func (s *serviceImpl) Nack(ctx context.Context, deliveryID string, subscriberID 
 	if attempt == nil {
 		err = fmt.Errorf("delivery attempt %s not found", deliveryID)
 		return plan, err
+	}
+	if strings.HasPrefix(attempt.EventID, eventfabricrepo.ServiceEventPrefix) {
+		return plan, shared.ErrUnauthorized
 	}
 	if subscriberID != "" && !strings.EqualFold(subscriberID, attempt.SubscriberID) {
 		err = fmt.Errorf("subscriber mismatch")
@@ -790,6 +800,9 @@ func (s *serviceImpl) PollRetry(ctx context.Context, limit int) (map[string][]De
 			}
 		}
 
+		if strings.HasPrefix(attempt.EventID, eventfabricrepo.ServiceEventPrefix) {
+			continue
+		}
 		envelope, err := s.envelopes.FindByUUID(ctx, attempt.EnvelopeUUID)
 		if err != nil || envelope == nil {
 			continue

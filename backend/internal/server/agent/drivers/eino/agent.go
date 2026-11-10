@@ -771,7 +771,17 @@ func modelConfigFromChatConfig(c *dto.ChatConfig) *config2.ModelConfig {
 			"cache_mode": mode,
 		}
 	}
+	if c.ReasoningEffort != "" {
+		if extra == nil {
+			extra = map[string]any{}
+		}
+		extra["reasoning_effort"] = c.ReasoningEffort
+	}
 	return &config2.ModelConfig{
+		ParameterProfile:      c.ParameterProfile,
+		TemperatureSet:        c.TemperatureSet,
+		TopP:                  c.TopP,
+		TopPSet:               c.TopPSet,
 		Provider:              strings.TrimSpace(c.Provider),
 		Endpoint:              strings.TrimSpace(c.Endpoint),
 		APIKey:                strings.TrimSpace(c.APIKey),
@@ -825,14 +835,16 @@ func mapToChatConfig(m map[string]any) *dto.ChatConfig {
 		return 0
 	}
 	return &dto.ChatConfig{
-		ModelName:    strings.TrimSpace(getStr("model_name")),
-		Provider:     strings.TrimSpace(getStr("provider")),
-		Endpoint:     strings.TrimSpace(getStr("endpoint")),
-		APIKey:       strings.TrimSpace(getStr("api_key")),
-		Temperature:  getF("temperature"),
-		MaxTokens:    getI("max_tokens"),
-		SystemPrompt: strings.TrimSpace(getStr("system_prompt")),
-		CacheMode:    strings.TrimSpace(getStr("cache_mode")),
+		ReasoningEffort: strings.TrimSpace(getStr("reasoning_effort")),
+		TopP:            float32(getF("top_p")),
+		ModelName:       strings.TrimSpace(getStr("model_name")),
+		Provider:        strings.TrimSpace(getStr("provider")),
+		Endpoint:        strings.TrimSpace(getStr("endpoint")),
+		APIKey:          strings.TrimSpace(getStr("api_key")),
+		Temperature:     getF("temperature"),
+		MaxTokens:       getI("max_tokens"),
+		SystemPrompt:    strings.TrimSpace(getStr("system_prompt")),
+		CacheMode:       strings.TrimSpace(getStr("cache_mode")),
 	}
 }
 

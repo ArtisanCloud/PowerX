@@ -2,6 +2,8 @@ package plugin_dev
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"gopkg.in/yaml.v3"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +17,7 @@ func TestBuildSyncCapabilitiesDerivesPermissionCodesFromExposureAsset(t *testing
 			Entries: []capabilityCatalogEntry{
 				{
 					ID:      "com.powerx.plugins.base.local.template.create",
-					Version: "1.0.0",
+					Version: "2.0.0",
 					Protocols: map[string]interface{}{
 						"rest": map[string]interface{}{
 							"method":   "POST",
@@ -47,6 +49,7 @@ exposure:
 
 	items := buildSyncCapabilities(req.Catalog, exposurePermissions, nil)
 	require.Len(t, items, 1)
+	require.Equal(t, "2.0.0", items[0]["version"])
 	require.Equal(t, []string{"com.powerx.plugins.base.local.template:create"}, items[0]["tool_scope"])
 	require.Equal(t, []string{"com.powerx.plugins.base.local.template:create"}, items[0]["annotations"].(map[string]interface{})["permission_codes"])
 }
@@ -204,4 +207,42 @@ func TestDescriptorMetadataFromCatalogAssetsRequiresReferencedDescriptor(t *test
 		},
 	}, nil)
 	require.ErrorContains(t, err, "capability descriptor asset missing")
+}
+
+func TestCatalogPermissionServiceDeclarationSurvivesWireBoundary(t *testing.T) {
+	raw := []byte(`
+- type: api
+  permission_code: commerce.plans:read
+  module: commerce
+  resource: plans
+  action: read
+  independent: true
+  protocol_bindings:
+    - channel: rest
+      method: POST
+      path: /plugin/plans/query
+      actor_context: service_actor
+      resource_scope: tenant
+  api_key:
+    capability_id: com.example.plans.plans.read
+    plugin_id: com.example.plans
+    scope: _scope.plans.read
+    action: read
+    resource_type: capability
+    resource_pattern: plans
+    effect: allow
+`)
+	var permissions []catalogPluginPermissionDeclaration
+	require.NoError(t, yaml.Unmarshal(raw, &permissions))
+	normalized := normalizeCatalogPluginPermissions(permissions)
+	encoded, err := json.Marshal(normalized)
+	require.NoError(t, err)
+	var wire []map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &wire))
+	require.Len(t, wire, 1)
+	require.Equal(t, "plans", wire[0]["resource"])
+	require.Equal(t, "read", wire[0]["action"])
+	key := wire[0]["api_key"].(map[string]any)
+	require.Equal(t, "com.example.plans.plans.read", key["capability_id"])
+	require.Equal(t, "_scope.plans.read", key["scope"])
 }

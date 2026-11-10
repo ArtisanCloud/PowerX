@@ -23,6 +23,9 @@ func (s *JobService) SetProtected(ctx context.Context, jobID uint64, protected b
 	if artifact == nil {
 		return ErrInvalidBackupRequest
 	}
+	if artifact.CleanupState == "quarantined" {
+		return controlFailure(409, "BACKUP_ARTIFACT_QUARANTINED")
+	}
 	path, err := validatedArtifactPath(s.artifactBaseDir, artifact)
 	if err != nil {
 		return err
@@ -34,5 +37,6 @@ func (s *JobService) SetProtected(ctx context.Context, jobID uint64, protected b
 		return err
 	}
 	s.audit(ctx, obsops.AuditRecord{ResourceType: "backup_job", ResourceID: fmt.Sprint(jobID), Operation: "set_protected", Outcome: "success", Severity: "info", Detail: map[string]any{"protected": protected, "operator": normalizeOperator(operator), "trace_id": traceID}})
+	s.cleanupSvc.notifyChanged()
 	return nil
 }

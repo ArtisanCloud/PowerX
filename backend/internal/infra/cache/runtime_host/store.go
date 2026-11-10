@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -19,13 +20,20 @@ type Entry struct {
 	Value     []byte
 	ExpiresAt time.Time
 }
-type Store struct{ client redis.UniversalClient }
+type Store struct {
+	client    redis.UniversalClient
+	namespace string
+}
 
-func NewStore(client redis.UniversalClient) *Store {
+func NewStore(client redis.UniversalClient, namespace ...string) *Store {
 	if client != nil && reflect.ValueOf(client).Kind() == reflect.Ptr && reflect.ValueOf(client).IsNil() {
 		client = nil
 	}
-	return &Store{client: client}
+	s := &Store{client: client}
+	if len(namespace) > 0 {
+		s.namespace = namespace[0]
+	}
+	return s
 }
 func Key(tenant, subject, namespace, key string) string {
 	raw, _ := json.Marshal([]string{tenant, subject, namespace, key})
@@ -50,7 +58,7 @@ func (s *Store) Get(ctx context.Context, key string) (*Entry, error) {
 	if s == nil || s.client == nil {
 		return nil, errors.New("runtime_host.redis_unavailable")
 	}
-	raw, err := getScript.Run(ctx, s.client, []string{key}).Text()
+	raw, err := getScript.Run(ctx, s.client, []string{redisnamespace.Key(s.namespace, key)}).Text()
 	if errors.Is(err, redis.Nil) {
 		return &Entry{}, nil
 	}
@@ -68,11 +76,11 @@ func (s *Store) Set(ctx context.Context, key string, value []byte, ttl time.Dura
 	if s == nil || s.client == nil {
 		return errors.New("runtime_host.redis_unavailable")
 	}
-	return setScript.Run(ctx, s.client, []string{key}, value, ttl.Milliseconds()).Err()
+	return setScript.Run(ctx, s.client, []string{redisnamespace.Key(s.namespace, key)}, value, ttl.Milliseconds()).Err()
 }
 func (s *Store) Delete(ctx context.Context, key string) error {
 	if s == nil || s.client == nil {
 		return errors.New("runtime_host.redis_unavailable")
 	}
-	return s.client.Del(ctx, key).Err()
+	return s.client.Del(ctx, redisnamespace.Key(s.namespace, key)).Err()
 }

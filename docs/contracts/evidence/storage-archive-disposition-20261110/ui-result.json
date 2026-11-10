@@ -1,0 +1,214 @@
+{
+  "checks": [
+    "light 1440 task tabs, reason and approval retained; responsive confirmation",
+    "light 390 task tabs, reason and approval retained; responsive confirmation",
+    "dark 1440 task tabs, reason and approval retained; responsive confirmation",
+    "dark 390 task tabs, reason and approval retained; responsive confirmation",
+    "Native Core commits retained original job; truncated successful response preserves UUID and blocks repeated submit",
+    "Missing, unavailable and mismatched receipts stay locked; reload restores the original pending request from the default overview",
+    "Disconnect is visible inside dialog; reconnect preserves original context with no idle status queries",
+    "Original UUID read resolves lost response; partial capture protected, source untouched, no new job or policy enablement; one explicit write",
+    "Leaving route releases the production SSE"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794278483628
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278483629
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278483635
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278483643
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278483647
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628",
+      "method": "GET",
+      "at": 1794278483800
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628/interruption-review",
+      "method": "GET",
+      "at": 1794278484264
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628/interruption-retentions",
+      "method": "POST",
+      "at": 1794278487056,
+      "request_id": "870642b1-93eb-419d-95d0-6dac04b9e42c"
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278487084
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278487084
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628",
+      "method": "GET",
+      "at": 1794278487086
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278487089
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628",
+      "method": "GET",
+      "at": 1794278487090
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278487090
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278487106
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278487106
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628",
+      "method": "GET",
+      "at": 1794278487106
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/870642b1-93eb-419d-95d0-6dac04b9e42c",
+      "method": "GET",
+      "at": 1794278487226
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/870642b1-93eb-419d-95d0-6dac04b9e42c",
+      "method": "GET",
+      "at": 1794278487300
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/870642b1-93eb-419d-95d0-6dac04b9e42c",
+      "method": "GET",
+      "at": 1794278487351
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794278489115
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278489117
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278489117
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278489123
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278489123
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628",
+      "method": "GET",
+      "at": 1794278489241
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794278489769
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278489832
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278489832
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628",
+      "method": "GET",
+      "at": 1794278489832
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/870642b1-93eb-419d-95d0-6dac04b9e42c",
+      "method": "GET",
+      "at": 1794278492512
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278492527
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278492527
+    }
+  ],
+  "errors": [],
+  "application_submits": [
+    "870642b1-93eb-419d-95d0-6dac04b9e42c"
+  ],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    }
+  ],
+  "request_id": "870642b1-93eb-419d-95d0-6dac04b9e42c",
+  "job_id": "0191063d-6741-45f5-b5c7-b76f405aa628",
+  "result": "passed"
+}

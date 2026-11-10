@@ -1,0 +1,94 @@
+{
+  "task": "model-selector-ui-refinement",
+  "recorded_at": "2026-11-01T12:24:53.269986+00:00",
+  "scope": "Frontend layout only, controlled browser fixtures; no Core runtime/data changes",
+  "design": [
+    "Provider and Model labels and controls share a baseline",
+    "Vision category controls are inside the selector popup",
+    "Default form shows one compact usage/source row",
+    "Official documentation and timestamps are in collapsed model details",
+    "Known invalid usage remains visible and disabled",
+    "Default Base URL hint stays one line with full title",
+    "Popup width constrained to viewport"
+  ],
+  "checks": {
+    "frontend_unit": {
+      "result": "passed",
+      "tests": 68,
+      "log": "/tmp/powerx-model-selector-ui-unit.log"
+    },
+    "typecheck": {
+      "result": "passed",
+      "log": "/tmp/powerx-model-selector-ui-typecheck-final.log"
+    },
+    "production_build": {
+      "result": "passed",
+      "log": "/tmp/powerx-model-selector-ui-build.log"
+    },
+    "browser": {
+      "unique_scenarios_verified": 16,
+      "full_run": {
+        "passed": 15,
+        "failed": 1,
+        "log": "/tmp/powerx-model-selector-ui-final.log"
+      },
+      "compact_desktop_final": {
+        "passed": 1,
+        "log": "/tmp/powerx-model-selector-ui-compact.log",
+        "resolution": "Wait for popup opening animation to settle before minimum-width assertion"
+      },
+      "mobile_visual_final": {
+        "passed": 1,
+        "log": "/tmp/powerx-model-selector-ui-mobile.log"
+      },
+      "viewports": [
+        "1440x1000",
+        "1280x900",
+        "390x844"
+      ],
+      "representative_catalog": {
+        "confirmed": 14,
+        "other": 116
+      },
+      "verified": [
+        "Provider/Model y and height alignment",
+        "Default details hidden",
+        "Auth fields remain close to selector row",
+        "Popup readable and within viewport",
+        "No horizontal page overflow",
+        "Unknown/disabled model handling",
+        "Save and reload binding consistency",
+        "Image-generation profile preserved"
+      ]
+    }
+  },
+  "screenshots": {
+    "desktop": "/tmp/powerx-model-selector-ui-final/vision-model-choice-vision-82ee0--preserve-bindings-desktop--chromium/vision-choices-desktop.png",
+    "mobile": "/tmp/powerx-model-selector-ui-mobile/vision-model-choice-vision-2480a-d-preserve-bindings-narrow--chromium/vision-choices-narrow.png",
+    "picker_mobile": "/tmp/powerx-model-selector-ui-final/vision-model-choice-vision-2480a-d-preserve-bindings-narrow--chromium/vision-picker-narrow.png",
+    "compact_desktop": "/tmp/powerx-model-selector-ui-compact/vision-model-choice-compac-adc42-ils-out-of-the-default-form-chromium/model-selector-compact-desktop.png"
+  },
+  "source_sha256": {
+    "web-admin/app/components/settings/ai/ProviderModelForm.vue": "e8d91b335a64bfd874dfffed7b92e6eedc890a6f5ffdb67e8addcbf830fb4144",
+    "web-admin/i18n/locales/zh.json": "5d607cf705f84dba33da3b958bfb3148550e4ec29e18f5489274a162acb77815",
+    "web-admin/i18n/locales/en.json": "f31ec0b91afa027c9ae3d1c57513a2225db1b1a5e5f47037e033aa61e9796a17",
+    "web-admin/tests/e2e/ai/vision-model-choice.spec.ts": "90bc78a15df2c2801e15877b166ddcf4b5a7bb45bab26c16308407c76f311316",
+    "web-admin/tests/e2e/ai/online-first.spec.ts": "c9d12162489123e04592b1e565164275a945f5b36a34a0b5e953d61995f3a6af",
+    "web-admin/tests/unit/ai/provider-model-form.spec.ts": "8e42f88294fe6a8abcdeaf9948392f8a5e9ceb0f2bfbbedd1bf6f8fc89f772ba"
+  },
+  "temporary_service": {
+    "stopped_at": "2026-11-01T12:24:53.182745+00:00",
+    "pid": 62034,
+    "children": [
+      62392,
+      62409,
+      62508,
+      62509,
+      64590
+    ],
+    "port": 3049,
+    "port_released": true,
+    "owned_processes_exited": true
+  },
+  "private_artifacts": "/tmp/powerx-model-selector-ui-20261101-201343"
+}

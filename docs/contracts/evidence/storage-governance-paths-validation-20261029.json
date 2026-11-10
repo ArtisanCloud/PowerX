@@ -1,0 +1,184 @@
+{
+  "recorded_at": "2026-10-29T14:50:47.862356+00:00",
+  "version": "0.4.1",
+  "base_sha": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "problem": "Existing application/debug/audit logs and media appeared unavailable; snapshots appeared partial with no visible scanned amount.",
+  "cause": {
+    "runtime_pid": 24363,
+    "kernel_cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "shell_pwd": "/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "alias": "macOS /var -> private/var",
+    "path_failure": "Go Getwd accepts an equivalent shell PWD alias; filepath.Abs therefore retained /var for relative log paths. Media already used /var in deployment config. The descriptor-based collector rejected the symlink ancestor. Earlier read-only acceptance used only canonical cwd and missed this runtime form.",
+    "snapshot_failure": "Fixed per-source entry/time fractions discarded unused budget from small sources, cutting off the later 10018-file snapshot directory even while the global budget had capacity."
+  },
+  "fix": {
+    "registration": "Resolve existing targets in trusted deployment configuration once at startup, including existing ancestors of not-yet-created directories. Bind source IDs/paths and ordinary-log lifecycle to the same canonical root. No directory creation, no caller-controlled paths.",
+    "boundaries": "After binding, descriptor-based no-follow and per-item mutation checks remain. Nested symlinks and later symlink replacement are refused. Inaccessible or invalid roots stay unavailable without preventing business startup.",
+    "scan_budget": "Remaining entry/time budget divided over remaining sources; unchanged global default ceiling of 20000 entries and two seconds. No background rescan, unbounded scan or page polling.",
+    "diagnostics": [
+      "source_missing",
+      "source_permission_denied",
+      "source_symlink",
+      "source_unreadable"
+    ],
+    "partial_display": "Show known scanned bytes with incomplete/not-deduplicated label. Never publish partial bytes as complete attributed usage or add them to a complete total. Absent values remain unknown."
+  },
+  "local_readonly_acceptance": {
+    "result": "passed",
+    "same_shell_pwd_reproduced": true,
+    "configured_source_results": [
+      {
+        "id": "core-agent-debug",
+        "state": "observed",
+        "files": 73,
+        "partial_bytes": 0,
+        "problem": ""
+      },
+      {
+        "id": "core-app-logs-7ae24726a59e",
+        "state": "observed",
+        "files": 8,
+        "partial_bytes": 0,
+        "problem": ""
+      },
+      {
+        "id": "core-audit-files",
+        "state": "observed",
+        "files": 76,
+        "partial_bytes": 0,
+        "problem": ""
+      },
+      {
+        "id": "core-backups",
+        "state": "observed",
+        "files": 0,
+        "partial_bytes": 0,
+        "problem": ""
+      },
+      {
+        "id": "core-local-media",
+        "state": "observed",
+        "files": 299,
+        "partial_bytes": 0,
+        "problem": ""
+      },
+      {
+        "id": "core-snapshots",
+        "state": "observed",
+        "files": 10018,
+        "partial_bytes": 0,
+        "problem": ""
+      }
+    ],
+    "log": "test-results/storage-path-fix-local-readonly.log",
+    "boundary": "In-process service with actual local configuration and files/database; no worker/listener, draft write, capture, cleanup or migration. Existing user Core has not loaded this code until user restarts."
+  },
+  "validation": {
+    "backend": {
+      "result": "passed",
+      "top_level_tests": 22,
+      "race_detector": true,
+      "opt_in_local_tests_skipped": 2,
+      "packages": [
+        "internal/bootstrap",
+        "internal/infra/storage_observer",
+        "internal/service/storage_governance"
+      ],
+      "log": "test-results/storage-path-fix-backend.log",
+      "checks": [
+        "aliased shell PWD and absolute media path",
+        "source binding does not follow later alias retargeting",
+        "missing descendants never created",
+        "descriptor symlink refusal unchanged",
+        "missing and permission failures distinguished",
+        "later source uses remaining scan budget"
+      ]
+    },
+    "frontend_unit": {
+      "result": "passed",
+      "cases": 24,
+      "log": "test-results/storage-path-fix-vitest.log"
+    },
+    "build": {
+      "result": "passed",
+      "log": "test-results/storage-path-fix-build.log"
+    },
+    "browser": {
+      "result": "passed",
+      "cases": 6,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "log": "test-results/storage-path-fix-browser.log",
+      "boundary": "Isolated actual Nuxt artifact and controlled API fixtures. Partial/missing explanations, confirmed manual log flow, history, context and no idle requests tested. Not live user-Core HTTP acceptance."
+    },
+    "vet": {
+      "result": "passed",
+      "log": "test-results/storage-path-fix-vet.log"
+    },
+    "linux_cross_compile": {
+      "result": "passed",
+      "runtime_tested": false,
+      "log": "test-results/storage-path-fix-linux.log"
+    },
+    "full_typecheck": {
+      "result": "not_claimed",
+      "previous_blocker": "menuConfig.ts:165 TS1005; :186 TS1443",
+      "file_still_matches_HEAD": true,
+      "not_rerun_this_followup": true
+    },
+    "contract": "OpenAPI 0.4.1; unchanged DTO shape, clarified problem codes and partial-byte semantics; 266 storageGov leaves match across four locales."
+  },
+  "changes_not_performed": {
+    "migration": false,
+    "user_configuration": false,
+    "user_files_deleted": false,
+    "user_samples_or_drafts_written": false,
+    "user_services_restarted": false,
+    "remote_systems_modified": false,
+    "automatic_cleanup_enabled": false
+  },
+  "process_cleanup": {
+    "record": {
+      "owner": "storage-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-10-29T14:46:52.663Z",
+      "fixturePid": 87326,
+      "fixturePort": 3486,
+      "corePid": 87327,
+      "corePort": 3485,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-storage-validation/server/index.mjs"
+      ],
+      "stoppedAt": "2026-10-29T14:48:07.754Z",
+      "coreExitedAt": "2026-10-29T14:48:07.760Z"
+    },
+    "owned_processes_exited": true,
+    "released_ports": [
+      3485,
+      3486
+    ]
+  },
+  "remaining": [
+    "User restarts Core with original command and refreshes Web Admin for installed-runtime acceptance. No new migration needed.",
+    "Scans exceeding the global limit remain partial; displaying scanned bytes is not a resumable background collector.",
+    "Previous whole-PowerX coverage, other lifecycle adapters and unified automatic-governance tasks remain open."
+  ],
+  "source_sha256": {
+    "backend/internal/bootstrap/storage_governance.go": "8c74cc39b4f9509d03851645aedb8d60220bc231cf70ba9be72ddd8a4b11de4d",
+    "backend/internal/bootstrap/storage_governance_test.go": "1a877e550395c009b6177deedd8dbc982d280d058934270a5d924f18f67d7c64",
+    "backend/internal/bootstrap/storage_governance_local_test.go": "aca25f84874f7f2ea1397ea4c0a00afb2ca1f4e53cbeb0d023beb99dbce5d36b",
+    "backend/internal/infra/storage_observer/collector.go": "f60d42636ae3f2cc4d232ae94c0a2546cc4f58ac69878ed0c097f959af3fd44f",
+    "backend/internal/infra/storage_observer/collector_test.go": "5d8fadd13e9c3f43bc4480ba9316402a70a1bb0d38efdb45f76ae0ad325ee224",
+    "web-admin/app/components/monitor/storage/StorageGovernanceWorkspace.vue": "c2eb77960ac0c4bfae8cf26eca6a36c486a7dd358190e7ffff237d296176f7af",
+    "web-admin/app/composables/api/services/storageGovernanceService.ts": "71fb30966716cd335a600c617adab8fa95d0cc2c7fbb14a150bd10fa343554f0",
+    "web-admin/tests/unit/storage/storage-governance.spec.ts": "7a2dfcc895c87744928dea118054a2de7f26d690351f54622c0ef67152d02626",
+    "web-admin/tests/e2e/storage/application-logs.spec.ts": "69a67e0d85dec81eee49202c91a2d572b3fdf8b1e7288853309d9d9724534b65",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml": "0d28b431cacc3a1a6ca56941aa117bc9b91cafce81396e4f105671b6a524ff9d"
+  }
+}

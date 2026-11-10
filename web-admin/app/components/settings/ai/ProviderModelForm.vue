@@ -1,5 +1,5 @@
 <template>
-  <UForm :state="state" class="space-y-4">
+  <UForm :state="state" class="space-y-4" data-testid="ai-provider-model-form">
     <!-- Provider / App / Model 行 -->
     <div :class="gridClass">
       <div :class="providerColClass">
@@ -11,8 +11,9 @@
           :items="providerOptions"
           value-key="value"
           label-key="label"
-          :disabled="!providerOptions?.length"
-          :loading="!providerOptions?.length"
+          :disabled="providersLoading || !providerOptions.length"
+          :aria-busy="providersLoading"
+          data-testid="ai-provider-select"
           icon="i-heroicons-building-library"
           class="w-full"
           :ui="searchableSelectUi"
@@ -20,6 +21,16 @@
           :placeholder="$t('agent.config.selectProvider')"
           @update:model-value="emit('providerChanged', $event)"
         />
+        <p v-if="providersLoading" role="status" class="mt-2 text-xs text-muted">
+          {{ $t('settings.ai.catalog.providersLoading') }}
+        </p>
+        <p v-if="providersError" role="alert" class="mt-2 text-sm text-error">
+          {{ $t('settings.ai.catalog.providersFailed') }}
+          <UButton type="button" size="xs" variant="link" :loading="providersLoading" @click="emit('retryProviders')">{{ $t('settings.ai.catalog.retry') }}</UButton>
+        </p>
+        <p v-else-if="!providersLoading && !providerOptions.length" role="status" class="mt-2 text-sm text-muted">
+          {{ $t('settings.ai.catalog.noProviders') }}
+        </p>
       </div>
       <div v-if="appOptions?.length" :class="appColClass">
         <label class="block text-sm mb-1 text-[var(--text-secondary)]"
@@ -35,29 +46,84 @@
         />
       </div>
       <div :class="modelColClass">
-        <label class="block text-sm mb-1 text-[var(--text-secondary)]"
-          >Model</label
-        >
+        <label class="mb-1 block text-sm text-[var(--text-secondary)]">Model</label>
         <USelectMenu
           v-model="state.model"
-          :items="modelOptions"
+          :items="visibleModelOptions"
+          data-testid="ai-model-select"
           value-key="value"
           label-key="label"
-          :disabled="!modelOptions?.length"
+          :disabled="modelsLoading || (!visionMode && !visibleModelOptions.length)"
           icon="i-heroicons-cpu-chip"
           class="w-full"
-          :ui="searchableSelectUi"
+          :ui="modelSelectUi"
           :search-input="{ placeholder: '搜索 Model...' }"
           :placeholder="$t('agent.config.selectModel')"
-          :loading="!modelOptions?.length"
-        />
-        <p
-          v-if="String(state.model || '').trim()"
-          class="mt-1 text-xs text-[var(--text-secondary)] break-all leading-5"
+          :aria-busy="modelsLoading"
         >
-          {{ state.model }}
+          <template v-if="visionMode" #content-top>
+            <div role="group" :aria-label="$t('settings.ai.visionModels.groups')" class="border-b border-default p-2" data-testid="ai-vision-model-groups">
+              <div class="grid grid-cols-2 gap-1 rounded-lg bg-muted/40 p-1">
+                <button v-for="group in ['supported', 'other'] as const" :key="group" type="button"
+                  :aria-pressed="visionGroup === group" :data-testid="`ai-vision-models-${group}`"
+                  class="flex min-w-0 items-center justify-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium whitespace-nowrap"
+                  :class="visionGroup === group ? 'bg-primary/15 text-primary' : 'text-muted hover:bg-elevated'"
+                  @click.stop="visionGroup = group">
+                  <span>{{ $t(`settings.ai.visionModels.${group === 'supported' ? 'confirmedShort' : 'otherShort'}`) }}</span>
+                  <span class="tabular-nums opacity-70">{{ group === 'supported' ? supportedModels.length : otherModels.length }}</span>
+                </button>
+              </div>
+              <p v-if="visionGroup === 'supported' && !supportedModels.length && !modelsLoading" role="status" class="px-1 pt-2 text-xs text-muted">{{ $t('settings.ai.visionModels.noneConfirmed') }}</p>
+            </div>
+          </template>
+          <template #item-label="{ item }">
+            <span class="block truncate">{{ item.label }}</span>
+            <span v-if="visionMode && item.vision?.status === 'unsupported'" class="block whitespace-normal text-xs text-error">{{ $t(visionUsageKey(item.vision)) }}</span>
+          </template>
+        </USelectMenu>
+        <p v-if="modelsLoading" role="status" class="mt-2 text-xs text-muted">{{ $t('settings.ai.catalog.modelsLoading') }}</p>
+        <p v-if="modelsError" role="alert" class="mt-2 text-sm text-error">
+          {{ $t(dynamicModels ? 'settings.ai.catalog.instanceModelsFailed' : 'settings.ai.catalog.modelsFailed') }}
+          <UButton type="button" size="xs" variant="link" :loading="modelsLoading" @click="emit('retryModels')">{{ $t('settings.ai.catalog.retry') }}</UButton>
         </p>
+        <p v-if="modelsError && !dynamicModels" class="mt-1 text-xs text-muted">{{ $t('settings.ai.onlineModels.setupConnection') }}</p>
+        <p v-else-if="!modelsLoading && !modelOptions.length && !visionMode" role="status" class="mt-2 text-sm text-muted">{{ $t(dynamicModels ? 'settings.ai.catalog.noInstanceModels' : 'settings.ai.catalog.noModels') }}</p>
       </div>
+    </div>
+
+    <div v-if="visionMode || hasCatalogInfo || dynamicModels || catalogSource !== 'local'" class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs" data-testid="ai-model-tools">
+      <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <span v-if="visionMode && selectedVision && !modelsLoading" class="inline-flex items-center gap-1.5"
+          :class="selectedVision.status === 'unsupported' ? 'text-error' : selectedVision.status === 'supported' ? 'text-primary' : 'text-warning'"
+          :role="selectedVision.status === 'unsupported' ? 'alert' : 'status'" data-testid="ai-vision-model-status">
+          <UIcon :name="selectedVision.status === 'supported' ? 'i-heroicons-check-circle' : 'i-heroicons-exclamation-triangle'" class="size-3.5 shrink-0" />
+          {{ $t(selectedVision.status === 'supported' ? 'settings.ai.visionModels.supportedShort' : selectedVision.status === 'unknown' ? 'settings.ai.visionModels.unknownShort' : visionUsageKey(selectedVision)) }}
+        </span>
+        <span v-else-if="usageUnspecified && !modelsLoading" class="text-warning" data-testid="ai-model-usage-unspecified">{{ $t('settings.ai.onlineModels.usageUnspecified') }}</span>
+        <span v-if="hasCatalogInfo" class="rounded bg-elevated px-2 py-0.5 text-muted" data-testid="ai-model-source">{{ $t(`settings.ai.modelDetails.source_${catalogSource}`) }}</span>
+      </div>
+      <div class="ml-auto flex shrink-0 items-center gap-2">
+        <UButton v-if="hasCatalogInfo || selectedVision" type="button" size="xs" color="neutral" variant="link" data-testid="ai-model-details-toggle" :aria-expanded="showModelDetails" aria-controls="ai-model-details" :trailing-icon="showModelDetails ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" @click="showModelDetails = !showModelDetails">{{ $t('settings.ai.modelDetails.title') }}</UButton>
+        <UButton v-if="catalogSource !== 'local' && !dynamicModels" type="button" size="xs" color="neutral" variant="link" icon="i-heroicons-arrow-path" data-testid="ai-online-models" :disabled="modelsLoading || !state.provider" @click="emit('updateOnlineModels')">{{ $t('settings.ai.onlineModels.update') }}</UButton>
+        <UButton v-if="dynamicModels" type="button" size="xs" color="neutral" variant="link" icon="i-heroicons-arrow-path" data-testid="ai-instance-models-refresh" :loading="modelsLoading" :disabled="modelsLoading" @click="emit('retryModels')">{{ $t('settings.ai.catalog.refreshModels') }}</UButton>
+      </div>
+    </div>
+
+    <div v-if="showModelDetails" id="ai-model-details" role="region" :aria-label="$t('settings.ai.modelDetails.title')" class="rounded-lg bg-muted/30 p-3 text-xs" data-testid="ai-model-details">
+      <dl class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="sm:col-span-2"><dt class="text-muted">Model</dt><dd class="mt-1 break-all font-mono">{{ state.model || '—' }}</dd></div>
+        <div v-if="hasCatalogInfo"><dt class="text-muted">{{ $t('settings.ai.modelDetails.sourceLabel') }}</dt><dd class="mt-1">{{ $t(`settings.ai.onlineModels.source_${catalogSource}`) }}</dd></div>
+        <div v-if="catalogSource === 'online' && catalogUpdatedAt"><dt class="text-muted">{{ $t('settings.ai.onlineModels.updatedAt') }}</dt><dd class="mt-1">{{ new Date(catalogUpdatedAt).toLocaleString() }}</dd></div>
+        <div v-if="visionMode && selectedVision" class="sm:col-span-2"><dt class="text-muted">{{ $t('settings.ai.modelDetails.usage') }}</dt><dd class="mt-1">{{ $t(visionUsageKey(selectedVision)) }}</dd></div>
+        <div v-if="visionMode && selectedVision?.source !== 'unknown' && selectedVision" class="sm:col-span-2"><dt class="text-muted">{{ $t('settings.ai.modelDetails.evidence') }}</dt><dd class="mt-1 flex flex-wrap items-center gap-2">
+          <a v-if="visionDocumentationURL(selectedVision.source_url)" :href="visionDocumentationURL(selectedVision.source_url)" target="_blank" rel="noopener noreferrer" class="text-primary underline">{{ $t('settings.ai.visionModels.officialDocs') }}</a>
+          <span v-else>{{ $t('settings.ai.visionModels.providerAPI') }}</span>
+          <span v-if="selectedVision.checked_at" class="whitespace-nowrap text-muted">{{ selectedVision.checked_at }}</span>
+        </dd></div>
+      </dl>
+      <p v-if="usageUnspecified" class="mt-3 text-muted" data-testid="ai-model-usage-detail">{{ $t('settings.ai.onlineModels.unspecifiedSelection') }}</p>
+      <p v-else-if="visionMode && selectedVision?.status === 'supported'" class="mt-3 text-muted">{{ $t('settings.ai.visionModels.trialHint') }}</p>
+      <p v-if="dynamicModels" class="mt-3 text-muted">{{ $t('settings.ai.catalog.instanceModelsHint') }}</p>
     </div>
 
     <div v-if="authModeOptions.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -82,35 +148,61 @@
       >
         <label class="block text-sm mb-1 text-[var(--text-secondary)]">
           {{ field.label }}
-          <span v-if="field.required" class="text-red-500">*</span>
+          <span v-if="field.required && !(field.type === 'password' && hasSavedCredentials)" class="text-red-500">*</span>
         </label>
         <SecretInput
           v-if="field.type === 'password'"
           :key="`${state.provider}:${state.authMode}:${field.key}`"
           v-model="state[getStateKey(field.key)]"
-          :placeholder="field.placeholder"
-          :required="field.required"
+          :placeholder="hasSavedCredentials ? $t('settings.ai.sharedCredential.reusePlaceholder') : field.placeholder"
+          :required="field.required && !hasSavedCredentials"
+          :disabled="providersLoading"
+          :data-testid="getStateKey(field.key) === 'apiKey' ? 'ai-api-key' : undefined"
         />
         <UInput
           v-else
+          class="w-full"
           v-model="state[getStateKey(field.key)]"
           :type="field.type"
           :placeholder="field.placeholder"
           :required="field.required"
+          :disabled="providersLoading"
+          :data-testid="field.key === 'base_url' ? 'ai-base-url' : undefined"
+          @change="field.key === 'base_url' && emit('baseUrlChanged')"
         />
+        <p v-if="field.key === 'base_url' && !String(state.baseURL || '').trim() && defaultAuthValues.baseURL" class="mt-1 truncate text-xs text-muted" :title="defaultAuthValues.baseURL" data-testid="ai-default-base-url-hint">
+          {{ $t('settings.ai.connectionTest.emptyBaseUsesDefault') }} {{ defaultAuthValues.baseURL }}
+        </p>
+        <p v-if="field.type === 'password' && (hasSavedCredentials || String(state[getStateKey(field.key)] || '').trim())" class="mt-1 text-xs leading-relaxed text-muted" data-testid="ai-shared-credential-hint">
+          {{ $t(String(state[getStateKey(field.key)] || '').trim() ? 'settings.ai.sharedCredential.replaceHint' : 'settings.ai.sharedCredential.reuseHint', { provider: activeProvider?.name || state.provider }) }}
+        </p>
       </div>
     </div>
   </UForm>
 </template>
 
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 import type { SelectOption } from "~/composables/api/types/select";
+import { visionDocumentationURL, visionUsageKey, type VisionModelOption } from '~/utils/ai-vision-model-choice';
+import { defaultAIProviderBaseURL } from "~/utils/ai-provider-endpoint";
 
 const props = withDefaults(
   defineProps<{
     providerOptions?: SelectOption[];
     appOptions?: SelectOption[];
-    modelOptions?: SelectOption[];
+    modelOptions?: VisionModelOption[];
+    visionMode?: boolean;
+    modelContext?: string;
+    providersLoading?: boolean;
+    providersError?: boolean;
+    modelsLoading?: boolean;
+    modelsError?: boolean;
+    dynamicModels?: boolean;
+    catalogSource?: string;
+    catalogUpdatedAt?: string;
+    usageUnspecified?: boolean;
+    hasSavedCredentials?: boolean;
     activeProvider?: {
       id: string;
       name: string;
@@ -145,13 +237,42 @@ const props = withDefaults(
     providerOptions: () => [],
     appOptions: () => [],
     modelOptions: () => [],
+    providersLoading: false,
+    providersError: false,
+    modelsLoading: false,
+    modelsError: false,
+    dynamicModels: false,
+    hasSavedCredentials: false,
     activeProvider: null,
   }
 );
 
+const { t } = useI18n();
+const visionGroup = ref<'supported' | 'other'>('supported');
+const showModelDetails = ref(false);
+const hasCatalogInfo = computed(() => ['online', 'local', 'instance'].includes(props.catalogSource || ''));
+watch(() => props.modelContext, () => { showModelDetails.value = false; });
+const supportedModels = computed(() => props.modelOptions.filter(item => item.vision?.status === 'supported'));
+const otherModels = computed(() => props.modelOptions.filter(item => item.vision?.status !== 'supported'));
+const selectedVision = computed(() => props.modelOptions.find(item => item.value === props.state.model)?.vision);
+const visibleModelOptions = computed(() => {
+  if (!props.visionMode) return props.modelOptions;
+  const list = visionGroup.value === 'supported' ? supportedModels.value : otherModels.value;
+  const selected = props.modelOptions.find(item => item.value === props.state.model);
+  // 分组不修改绑定；始终可见当前值，包括升级前保存的不适用型号。
+  return selected && !list.includes(selected) ? [{ ...selected, label: `${selected.label} · ${t('settings.ai.visionModels.currentBinding')}` }, ...list] : list;
+});
+watch([() => props.modelContext, () => props.state.model, () => selectedVision.value?.status], () => {
+  visionGroup.value = selectedVision.value?.status === 'unknown' ? 'other' : 'supported';
+}, { immediate: true });
+
 const emit = defineEmits<{
   (e: "providerChanged", provider: string): void;
   (e: "appChanged", app: string): void;
+  (e: "retryProviders"): void;
+  (e: "retryModels"): void;
+  (e: "baseUrlChanged"): void;
+  (e: "updateOnlineModels"): void;
 }>();
 
 const searchableSelectUi = {
@@ -174,20 +295,25 @@ const searchableSelectUi = {
   empty: "px-3 py-3 text-sm text-slate-400",
 };
 
+const modelSelectUi = {
+  ...searchableSelectUi,
+  content: `${searchableSelectUi.content} min-w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]`,
+};
+
 const hasApp = computed(() => Boolean(props.appOptions?.length));
 const gridClass = computed(() =>
   hasApp.value
-    ? "grid grid-cols-1 md:grid-cols-12 gap-4"
-    : "grid grid-cols-1 md:grid-cols-2 gap-4"
+    ? "grid grid-cols-1 md:grid-cols-12 gap-4 items-start"
+    : "grid grid-cols-1 md:grid-cols-2 gap-4 items-start"
 );
 const providerColClass = computed(() =>
-  hasApp.value ? "md:col-span-3" : ""
+  hasApp.value ? "min-w-0 md:col-span-3" : "min-w-0"
 );
 const appColClass = computed(() =>
-  hasApp.value ? "md:col-span-3" : ""
+  hasApp.value ? "min-w-0 md:col-span-3" : "min-w-0"
 );
 const modelColClass = computed(() =>
-  hasApp.value ? "md:col-span-6" : ""
+  hasApp.value ? "min-w-0 md:col-span-6" : "min-w-0"
 );
 
 const isAzure = computed(() => props.state.provider === "Azure OpenAI");
@@ -216,7 +342,7 @@ const defaultAuthValues = computed(() => {
   const modeDefaults = selectedAuthMode.value?.defaults ?? {};
   const providerDefaults = props.activeProvider?.auth?.defaults ?? {};
   return {
-    baseURL: String((modeDefaults as any).base_url || (providerDefaults as any).base_url || "").trim(),
+    baseURL: defaultAIProviderBaseURL(props.activeProvider, props.state.authMode),
     region: String((modeDefaults as any).region || (providerDefaults as any).region || "").trim(),
   };
 });
@@ -246,11 +372,7 @@ watch(
 watch(
   defaultAuthValues,
   (next) => {
-    // 仅在字段为空时用默认值回填，避免覆盖用户输入
-    const defBaseURL = String(next.baseURL || "").trim();
-    if (defBaseURL && !String(props.state.baseURL || "").trim()) {
-      props.state.baseURL = defBaseURL;
-    }
+    // 默认地址通过占位和说明展示，保留用户清空地址的意图。
     const defRegion = String(next.region || "").trim();
     if (defRegion && !String(props.state.region || "").trim()) {
       props.state.region = defRegion;

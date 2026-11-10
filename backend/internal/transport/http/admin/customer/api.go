@@ -11,6 +11,14 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 	}
 	h := NewHandler(deps)
 	g := protectedGroup.Group("/admin/customers")
+	if deps.CustomerClientApps != nil {
+		g.GET("/client-apps/catalog", h.ClientAppsCatalog)
+		g.GET("/client-apps", h.ListClientApps)
+		g.POST("/client-apps", h.SaveClientApp)
+		g.POST("/client-apps/import", h.ImportClientApp)
+		g.GET("/client-apps/:app_uuid", h.GetClientApp)
+		g.PATCH("/client-apps/:app_uuid", h.SaveClientApp)
+	}
 	g.GET("/overview", h.Overview)
 	g.GET("/accounts", h.ListAccounts)
 	g.POST("/accounts", h.CreateAccount)

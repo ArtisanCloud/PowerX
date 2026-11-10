@@ -1,0 +1,296 @@
+openapi: 3.0.3
+info:
+  title: Root host budget authority
+  version: 1.0.0
+  description: Pre-release breaking replacement of flat budget DTO. No automatic activation
+    or legacy fallback. Owner-scoped DB authority with host-wide shared ledger.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /admin/ops/storage/runtime/budget:
+    get:
+      operationId: getHostBudgetConfiguration
+      responses:
+        '200':
+          description: Committed receipt or current configuration; saving is not publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Configuration'
+        '400':
+          description: Invalid typed DTO or missing confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Root only; service identities forbidden
+        '409':
+          description: CAS, request, owner or origin conflict
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+    put:
+      operationId: saveHostBudget
+      responses:
+        '200':
+          description: Committed receipt or current configuration; saving is not publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400':
+          description: Invalid typed DTO or missing confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Root only; service identities forbidden
+        '409':
+          description: CAS, request, owner or origin conflict
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - confirm
+              - expected_revision
+              - settings
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+                expected_revision:
+                  type: integer
+                  minimum: 1
+                settings:
+                  $ref: '#/components/schemas/Settings'
+  /admin/ops/storage/runtime/budget/adoptions:
+    post:
+      operationId: adoptHostBudget
+      responses:
+        '200':
+          description: Committed receipt or current configuration; saving is not publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400':
+          description: Invalid typed DTO or missing confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Root only; service identities forbidden
+        '409':
+          description: CAS, request, owner or origin conflict
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - confirm
+              - legacy_revision
+              - legacy_digest
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+                legacy_revision:
+                  type: integer
+                  minimum: 1
+                legacy_digest:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+  /admin/ops/storage/runtime/budget/requests/{request_id}:
+    get:
+      operationId: getHostBudgetRequest
+      responses:
+        '200':
+          description: Committed receipt or current configuration; saving is not publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400':
+          description: Invalid typed DTO or missing confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Root only; service identities forbidden
+        '409':
+          description: CAS, request, owner or origin conflict
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+        '404':
+          description: Receipt unknown; not proof that submission failed
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Settings:
+      type: object
+      additionalProperties: false
+      required:
+      - min_free_bytes
+      - critical_free_bytes
+      - max_used_bytes
+      - max_concurrent
+      properties:
+        min_free_bytes:
+          type: integer
+          minimum: 1
+          maximum: 1125899906842624
+        critical_free_bytes:
+          type: integer
+          minimum: 1
+          maximum: 1125899906842624
+        max_used_bytes:
+          type: integer
+          minimum: 0
+          maximum: 1125899906842624
+        max_concurrent:
+          type: integer
+          minimum: 1
+          maximum: 16
+      description: critical_free_bytes < min_free_bytes; maximum used 0 disables only
+        that cap.
+    Configuration:
+      type: object
+      required:
+      - authority
+      - state
+      - ready
+      - can_manage
+      - owner_instance
+      - desired_revision
+      - applied_revision
+      - snapshot_revision
+      - desired_policy
+      - effective_policy
+      - pending_protection
+      - legacy_revision
+      - legacy_digest
+      properties:
+        authority:
+          type: string
+          enum:
+          - legacy
+          - database
+          - unavailable
+        state:
+          type: string
+          enum:
+          - legacy
+          - unavailable
+          - unconfirmed
+          - unconfigured
+          - pending
+          - applied
+          - failed
+        ready:
+          type: boolean
+        can_manage:
+          type: boolean
+        owner_instance:
+          type: string
+        desired_revision:
+          type: integer
+          minimum: 0
+        applied_revision:
+          type: integer
+          minimum: 0
+        legacy_revision:
+          type: integer
+          minimum: 0
+        snapshot_revision:
+          type: integer
+          nullable: true
+          minimum: 1
+        desired_policy:
+          allOf:
+          - $ref: '#/components/schemas/Settings'
+          nullable: true
+        effective_policy:
+          allOf:
+          - $ref: '#/components/schemas/Settings'
+          nullable: true
+        pending_protection:
+          type: boolean
+        legacy_digest:
+          type: string
+        problem:
+          type: string
+    Mutation:
+      type: object
+      required:
+      - request_id
+      - operation_revision
+      - operation_policy
+      - configuration
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        operation_revision:
+          type: integer
+          minimum: 1
+        operation_policy:
+          $ref: '#/components/schemas/Settings'
+        configuration:
+          $ref: '#/components/schemas/Configuration'

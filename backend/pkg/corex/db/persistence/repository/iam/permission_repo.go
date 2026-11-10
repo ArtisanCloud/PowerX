@@ -256,8 +256,14 @@ func (r *PermissionRepository) Sync(ctx context.Context, source, introduced stri
 
 	// 落库：1) upsert 新增/更新  2) 批量标记废弃
 	if len(toUpsert) > 0 {
-		if err := r.UpsertBatch(ctx, toUpsert); err != nil {
-			return res, err
+		if strings.HasPrefix(source, "plugin:") {
+			if _, err := r.UpsertPluginCapabilityPermissions(ctx, toUpsert); err != nil {
+				return res, err
+			}
+		} else {
+			if err := r.UpsertBatch(ctx, toUpsert); err != nil {
+				return res, err
+			}
 		}
 	}
 	if len(toDeprecateIDs) > 0 {

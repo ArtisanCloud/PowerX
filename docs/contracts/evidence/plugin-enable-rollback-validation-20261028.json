@@ -1,0 +1,57 @@
+{
+  "schema": "powerx.plugin_enable_rollback_validation.v1",
+  "verified_at": "2026-10-28T08:51:59.859901+00:00",
+  "finding": "P1: HTTP enable handler completed ready drain jobs before lifecycle preparation, losing the failure rollback checkpoint",
+  "original_reproduction": {
+    "overlay": "/tmp/workspacex-install-review/overlay.json",
+    "test": "TestReviewHTTPEnableFailurePreservesReadyDrain",
+    "before_fix": "failed: HTTP 400, binding enabled=false, drain=completed, new usage guard=nil",
+    "after_fix": "passed: HTTP 400, binding enabled=false, drain=ready_to_uninstall, new usage blocked"
+  },
+  "changes": [
+    "Removed pre-enable drain completion from PluginEnableHandler",
+    "Removed duplicate post-enable drain completion from installation handler",
+    "Kept drain checkpoint preparation and failure rollback owned by Core lifecycle"
+  ],
+  "regression": {
+    "file": "backend/internal/bootstrap/plugin_runtime_activation_http_test.go",
+    "test": "TestHTTPEnableOwnsNoDrainCheckpoint",
+    "cases": [
+      "credential_preflight_failure",
+      "startup_failure",
+      "cancelled_startup_failure",
+      "unready_drain",
+      "successful_enable"
+    ],
+    "assertions": [
+      "HTTP invokes lifecycle with original drain checkpoint intact",
+      "Failures preserve disabled binding, original drain fields and credential JSON",
+      "Failures preserve ready or draining state and new usage blocking",
+      "Success completes drain and enables binding"
+    ]
+  },
+  "checks": {
+    "original_overlay_reproduction": "passed",
+    "http_regression_cases": "5 passed",
+    "packages_passed": [
+      "internal/bootstrap",
+      "internal/infra/plugin/manager",
+      "internal/transport/http/admin/plugin",
+      "internal/service/plugin",
+      "internal/service/runtime_scheduler",
+      "internal/service/auth"
+    ],
+    "go_build_cmd_app": "passed",
+    "git_diff_check": "passed"
+  },
+  "deployment": {
+    "runtime_restarted": false,
+    "runtime_pid_unchanged": 5997,
+    "requires_core_restart_to_load_fix": true,
+    "production_configuration_and_grants_modified": false
+  },
+  "logs": {
+    "suite": "/tmp/powerx-enable-rollback-fix-20261028/tests.log",
+    "build": "/tmp/powerx-enable-rollback-fix-20261028/build.log"
+  }
+}

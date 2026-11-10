@@ -39,23 +39,26 @@ type Options struct {
 
 	CoreConfig *config.Config
 
-	Loader              Loader
-	Registry            Registry
-	HTTP                *router.DynamicRouter
-	Supervisor          *supervisor.Supervisor
-	PostInstallManifest PostInstallManifestHook
-	PostEnablePlugin    PostEnablePluginHook
-	PostUninstall       PostUninstallHook
-	TenantInstanceCount TenantPluginInstanceChecker
-	RuntimeCredential   PluginRuntimeCredentialProvider
+	Loader               Loader
+	Registry             Registry
+	HTTP                 *router.DynamicRouter
+	Supervisor           *supervisor.Supervisor
+	PostInstallManifest  PostInstallManifestHook
+	PostEnablePlugin     PostEnablePluginHook
+	PostUninstall        PostUninstallHook
+	TenantInstanceCount  TenantPluginInstanceChecker
+	RuntimeCredential    PluginRuntimeCredentialProvider
+	PrepareEventFabric   func(context.Context, plugin_mgr.Plugin, string, string, bool, func(map[string]string) error) error
+	PrepareRuntimeEnable func(context.Context, string) (func(context.Context) error, error)
 }
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）
 type managerImpl struct {
-	mu   sync.RWMutex
-	opts Options
-	http *router.DynamicRouter
-	sup  *supervisor.Supervisor // 新增
+	installMu sync.Mutex
+	mu        sync.RWMutex
+	opts      Options
+	http      *router.DynamicRouter
+	sup       *supervisor.Supervisor // 新增
 
 	// 内部通信令牌：pluginID -> token（仅内存，不落盘）
 	tokens map[string]string
@@ -86,6 +89,10 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("bootstrap"))
 	}
 
+	if err := m.recoverPendingInstalls(ctx); err != nil {
+		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("bootstrap.install_recovery"))
+	}
+
 	// 3) 扫描磁盘上的已安装插件目录，填充/刷新注册表（状态先标记为 installed）
 	descs, err := m.opts.Loader.Discover(ctx, m.opts.InstalledRoot)
 	if err != nil {
@@ -105,8 +112,12 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 			id, ver, adminMenus, d.Paths.FrontendAdminDir)
 
 		prevState := plugin_mgr.StateInstalled
-		if old, ok := m.opts.Registry.Get(ctx, id); ok && old.Version == ver {
+		if old, ok := m.opts.Registry.GetVersion(ctx, id, ver); ok {
 			prevState = old.State // 同版本覆盖 manifest/paths，保留状态（你已应用 C2 的逻辑）
+			// 磁盘扫描只能发现产物，不能重新判定安装来源。
+			d.InstallOrigin = old.InstallOrigin
+			d.InstallMetadata = old.InstallMetadata
+			d.Revision = old.Revision
 		}
 
 		if err := m.opts.Registry.Put(ctx, d, prevState); err != nil {

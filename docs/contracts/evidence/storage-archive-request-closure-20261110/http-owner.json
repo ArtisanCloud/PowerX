@@ -1,0 +1,13 @@
+{
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/internal/transport/http/admin/backup",
+  "directory": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestArchiveInterruptionRootHTTPAndOwnedBrowser1226641531/001/archive",
+  "job_id": "a00ed855-3c36-48dd-bac5-de00c573918f",
+  "owner": "codex archive disposition fixture",
+  "pid": 13058,
+  "policy_id": "4f0d6f63-90d6-4bf5-badb-8b242d2a27eb",
+  "source": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestArchiveInterruptionRootHTTPAndOwnedBrowser1226641531/001/source",
+  "unknown_expected_version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "unknown_input_digest": "f3c593d9fedc33d34924fb34de4d7d0ae8592f3a758b6ee58ae0c01becc866b2",
+  "unknown_request_id": "478f6386-bf97-432e-bb10-353584b5e625",
+  "url": "http://127.0.0.1:59957"
+}

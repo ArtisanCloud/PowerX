@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"context"
 	"errors"
 	"strings"
 )
@@ -37,12 +38,14 @@ var (
 
 // ClientApp 是客户端应用注册表中的一项：凭证由 Core 持有，只有登记的插件（与可选的租户）可以使用。
 type ClientApp struct {
-	Platform    string
-	AppID       string
-	Name        string
-	Secret      string
-	PluginIDs   []string
-	TenantUUIDs []string
+	Platform          string
+	AppID             string
+	Name              string
+	Secret            string
+	PluginIDs         []string
+	TenantUUIDs       []string
+	CredentialVersion int64
+	CredentialScope   string
 }
 
 func (a ClientApp) allows(pluginID, tenantUUID string) bool {
@@ -59,9 +62,9 @@ func containsTrimmed(list []string, want string) bool {
 	return false
 }
 
-// ClientAppRegistry 按 (平台, app_id) 查找客户端应用。本期由配置提供，之后可换成数据库与后台管理。
+// ClientAppRegistry 在已验证的租户和插件作用域中查找客户端应用。
 type ClientAppRegistry interface {
-	Lookup(platform, appID string) (ClientApp, bool)
+	Lookup(ctx context.Context, tenantUUID, pluginID, platform, appID string) (ClientApp, bool, error)
 }
 
 // StaticClientAppRegistry 是基于配置的注册表。
@@ -78,10 +81,13 @@ func NewStaticClientAppRegistry(apps []ClientApp) *StaticClientAppRegistry {
 	return r
 }
 
-func (r *StaticClientAppRegistry) Lookup(platform, appID string) (ClientApp, bool) {
+func (r *StaticClientAppRegistry) Lookup(ctx context.Context, tenantUUID, pluginID, platform, appID string) (ClientApp, bool, error) {
 	if r == nil {
-		return ClientApp{}, false
+		return ClientApp{}, false, nil
 	}
 	app, ok := r.apps[strings.TrimSpace(platform)+"|"+strings.TrimSpace(appID)]
-	return app, ok
+	if ok && !app.allows(pluginID, tenantUUID) {
+		return ClientApp{}, false, ErrCustomerClientAppForbidden
+	}
+	return app, ok, nil
 }

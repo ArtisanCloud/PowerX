@@ -1,0 +1,127 @@
+{
+  "date": "2026-11-09",
+  "task": "T155 readonly preflight preparation; future Alibaba Cloud OSS target not configured",
+  "status": "source preparation and controlled CLI boundary tests complete; real T155 remote transfer/retrieval deferred until user provisions OSS",
+  "user_direction": "Future storage provider Alibaba Cloud OSS; no bucket/endpoint/credential reference available yet. No cloud account or target was invented.",
+  "implemented": [
+    "Three fixed Core GETs only; explicit API prefix and target UUID, never select first target automatically",
+    "Checks target/policy database applied versions and execution snapshot, sealed active credential reference/store readiness and current-node verification metadata",
+    "HTTPS except local Core, no redirects/proxy inheritance/TLS bypass; bounded response and strict JSON",
+    "Private bounded regular single-link owner-only session file or stdin; no argv token value; 0600 new report, no overwrite",
+    "No raw error body, unknown credential fields or endpoint embedded secrets; reflected session prevents report creation",
+    "Always t155_passed=false and authorizes_transfer=false, even if candidate metadata is ready",
+    "OSS standard S3 endpoint/path-style mismatch hints based on official docs; independent lifetime, provider protocol and actual retrieval explicitly unverified"
+  ],
+  "validation": {
+    "python_unittest_cases": 19,
+    "result": "passed",
+    "cases": [
+      "real subprocess CLI exact GETs with custom prefix",
+      "legacy empty target returns pending exit=3",
+      "candidate config never marks remote acceptance or authorization",
+      "explicit selection including duplicate target handling",
+      "publication/version mismatch and worker unready",
+      "credential revocation/recovery/legacy/rotation and unavailable store",
+      "known loopback target and stale node verification",
+      "OSS native endpoint/path-style mismatch hints",
+      "embedded endpoint credentials/unknown secret fields/raw HTTP errors not echoed",
+      "private token permissions, symlink/hardlink/FIFO/size/control characters",
+      "reflected token not written",
+      "private exclusive report/no overwrite",
+      "redirect refused and HTTP403 classified without body",
+      "duplicate keys/oversized responses rejected"
+    ],
+    "live_core": {
+      "read_at": "2026-11-09T14:20:20.056794+00:00",
+      "core": "http://127.0.0.1:8077/api/v1",
+      "cli_exit_code": 3,
+      "target_count": 0,
+      "enabled_archive_policy_count": 0,
+      "target_authority": "legacy",
+      "policy_authority": "legacy",
+      "credential_store_configured": false,
+      "issues": [
+        "CREDENTIAL_STORE_NOT_READY",
+        "POLICY_CONTROL_NOT_APPLIED",
+        "TARGET_CONTROL_NOT_APPLIED",
+        "TARGET_NOT_CONFIGURED",
+        "TARGET_SELECTION_REQUIRED"
+      ],
+      "operations": "normal Root login in memory, CLI three GETs only; no policy, target, credential, transfer or cloud mutation"
+    },
+    "not_executed": [
+      "OSS bucket provisioning or provider request",
+      "real remote transfer/version retrieval/source-loss recovery",
+      "configuration adoption, migration, restart or live executor handoff",
+      "new UI/backend runtime behavior or capability contract changes"
+    ]
+  },
+  "provider_contract_review": {
+    "checked_on": "2026-11-09",
+    "sources": [
+      "https://www.alibabacloud.com/help/en/oss/developer-reference/use-aws-sdks-to-access-oss",
+      "https://help.aliyun.com/zh/oss/developer-reference/compatibility-with-amazon-s3"
+    ],
+    "facts_used": "official S3 endpoint format and virtual-host request requirement; OSS has S3 differences",
+    "unverified_requirements": [
+      "bucket versioning state",
+      "private ACL/policy/lifecycle responses",
+      "object version lists and PUT version header",
+      "full GET of exact version and version-specific cleanup",
+      "account/domain/TLS requirements and actual executor reachability"
+    ],
+    "conclusion": "No blanket OSS compatibility or incompatibility claim; protect existing checks until actual target evidence exists."
+  },
+  "process_cleanup": {
+    "owned_http_fixture_count": 7,
+    "owned_fixture_runner_pids": [
+      46361
+    ],
+    "all_fixture_listeners_released": true,
+    "all_fixture_runners_exited": true,
+    "test_temporary_directories_removed_by_context_managers": true,
+    "root_session_file_created": false,
+    "root_session_persisted": false,
+    "cloud_resources_created": false,
+    "core_restarted_or_migrated": false,
+    "live_governance_configuration_changed": false
+  },
+  "next_task": {
+    "id": "T158",
+    "action": "Accepted archive joint failure regression with owned protocol server/control database",
+    "completion": "Inject remote disconnect, credential invalidation and control DB unavailability; preserve original UUID/local content and unknown result, no false remote success/deletion eligibility; verify native and actual UI event/error behavior. No OSS resource required.",
+    "t155_resumption": "After user prepares OSS through formal UI, freeze dedicated prefix/owned source and target/credential versions, validate transfer/full read/exact retrieval after owned-source loss, then clean only owned test versions and retain receipts."
+  },
+  "limitations": [
+    "Read-only metadata observation does not prove long-term independence, network reachability or provider protocol behavior.",
+    "Tests use owned temporary HTTP fixtures and current Core metadata; no actual OSS access occurred.",
+    "Output candidate readiness is not approval and cannot enable transfer or cleanup.",
+    "T155, live handoff, external keys, whole-site recovery, dual environment and 7/14-day gates remain open."
+  ],
+  "evidence_files": [
+    {
+      "path": "docs/contracts/evidence/storage-archive-readiness-20261109/tests-final.log",
+      "sha256": "e7224bbe5e01a2641ad685fafe14224af54520fba3da8d72ebddb8383e99e93e"
+    },
+    {
+      "path": "docs/contracts/evidence/storage-archive-readiness-20261109/current-preflight-final.json",
+      "sha256": "8b273980b535dea9714d7c2caff44cd4a2a2b15dee6ded4c61329436e1468416"
+    },
+    {
+      "path": "docs/contracts/evidence/storage-archive-readiness-20261109/live-cli-final.json",
+      "sha256": "8f8c61e3cf93c73acd1a42196af68676ca67b5e11ccc08a83310cad446f21fe7"
+    },
+    {
+      "path": "docs/contracts/evidence/storage-archive-readiness-20261109/cleanup.json",
+      "sha256": "9a6138808d5e9cec3f6b0bd514414dd12a7c9e1a01263323b0306b6e1f932d1c"
+    }
+  ],
+  "source_sha256": {
+    "scripts/ops/check-storage-archive-readiness.py": "d153e127370b772ae5beb6f1fca7f21e994aac70751edc59b8fe02942234396d",
+    "scripts/ops/test_storage_archive_readiness.py": "12578625912a3fc71716875bf07c4f50df95aacbf4a69dbd2a2143db5154ce2c",
+    "docs/contracts/storage-archive-readiness.md": "f8b9738bfb86cb131fa6f458ecd0f998ea6f65fc306a47fab41d2c3a592e87e8",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-oss-readiness.md": "0e5ffc5619716af793d98321078146fe4370b95fac7b8583e7b43a1a69351f22",
+    "docs/guides/deploy/027-monitor-center/guide.md": "72c5447d756f5cecefb246ecaa1cf109550aa11f2d50f43a08cab7bea36162cb",
+    "specs/027-monitor-center/tasks.md": "a57bf56715bc2a85b669ddc406b5a5b59e9a07b0091773e8928882c2015a4d69"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-29",
+  "scope": "API Key shared Profile select-all and independent plugin grant navigation UX; frontend only",
+  "live_read_only_diagnosis": {
+    "profile_id": 1,
+    "key_count": 11,
+    "fixed_plugin_permissions": [
+      {
+        "id": 208090,
+        "resource": "subscription_plans_service",
+        "action": "read",
+        "name": null,
+        "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+        "api_key": {
+          "scope": "_scope.ecommerce.subscription_plans.read",
+          "action": "read",
+          "effect": "allow",
+          "plugin_id": "com.powerx.plugins.ecommerce",
+          "resource_type": "capability",
+          "resource_pattern": "subscription_plans"
+        }
+      }
+    ],
+    "query_mode": "PostgreSQL default_transaction_read_only=on; no business writes executed"
+  },
+  "changes": [
+    "Shared Profile permissions exclude fixed plugin provider permissions from select-all",
+    "Profile tasks split into shared permissions and Keys/independent grants; desktop vertical navigation and narrow horizontal navigation",
+    "Existing fixed plugin Profile selections remain visible in a warning and are removed from the draft only on explicit user action",
+    "Conflict action opens editable selection of affected Keys and exact capability IDs; truncated reports do not auto-select a partial set",
+    "Preview and confirm remain required; owner bindings and actual grants are not automatically changed"
+  ],
+  "tests": {
+    "iam_unit": "52 tests passed across 9 files",
+    "controlled_browser": "9 passed; real Nuxt dev UI with intercepted API fixtures; 1440x1000 and 390x844",
+    "browser_behaviors": [
+      "Shared select-all sends shared permission IDs only",
+      "Draft and search preserved when switching tasks",
+      "Legacy conflict details and owner-clear regression",
+      "Exact Key/capability preselection requires preview before write",
+      "Unknown commit result does not resubmit automatically",
+      "Late Profile errors ignored",
+      "Desktop and narrow navigation/panels/controls inspected"
+    ],
+    "nuxt_production_build": "passed; isolated build directory; final source build",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "web-admin/app/pages/settings/integration-api-keys.vue": "ad14eb0cbf7aa69736507aca103b62d7cd59ab9a2ddf5dfc7f2f76d7d7da96af",
+    "web-admin/app/utils/apiKeyProfilePermissions.ts": "29990d90a2566516969db73f1db42421a9f744223a944df568b98128cb1127ac",
+    "web-admin/app/components/settings/ApiKeyBatchGrantModal.vue": "3bed1a01ff60d7d28189ac929ed9458ec4f27426524baa36cc9aa42238d91df5",
+    "web-admin/tests/unit/iam/api-key-profile-permissions.spec.ts": "839ada343c0fb53999fd6b8520f1e2a14c8519a0c3220727d2c07ecb5fe381d4",
+    "web-admin/tests/unit/iam/api-key-batch-grants.spec.ts": "62703c1fc78d9163f8b5eb8118ed3d5b6fcb3622c71f815a6768415c5f58a19c",
+    "web-admin/tests/e2e/iam/api-key-batch-grants.spec.ts": "a4aab47d7580fb210131b00879755917179dfb49437957d1ccd90b5d11e9b33a",
+    "web-admin/tests/e2e/iam/api-key-conflicts.spec.ts": "ca268da523cb6c5e8fda7c930fcfe603ee5aa372c62a8188e8872facdb6569ec",
+    "web-admin/playwright.api-key-batch.config.ts": "51fa503fab910de1f4d90e869082e364560091a3d5a613f2b2cdb98503d9b97e",
+    "docs/contracts/api-key-explicit-grants.md": "533f1db33ad35dc547e38cd8457356934f388a1ae9c7beb8ae88f8c54b02dc98"
+  },
+  "locale_namespace_sha256": {
+    "zh": "07172ea1f86a49e24214192726882012a4c0b8efa267a5773b2303f4139528b1",
+    "en": "44ac330184e2898f8d41d94e08415c5c92401840462d732bb8eab9c8fc1f487f"
+  },
+  "concurrent_edits": "Unrelated storageGov locale changes retained; only integrationApiKeyProfile namespace added by this task",
+  "artifacts": "/tmp/powerx-api-key-profile-ux-20261029-162718",
+  "screenshots": [
+    "/tmp/powerx-api-key-profile-ux-20261029-162718/browser-final/api-key-batch-grants-narro-f6b62-itching-preserves-the-draft-chromium/shared-narrow.png",
+    "/tmp/powerx-api-key-profile-ux-20261029-162718/browser-final/api-key-batch-grants-deskt-af790-itching-preserves-the-draft-chromium/shared-desktop.png"
+  ],
+  "runtime": {
+    "core_pid": 90165,
+    "core_started": "2026-10-29 16:22:41",
+    "batch_route_present_in_running_binary": true,
+    "nuxt_pid": 18054,
+    "user_services_restarted": false,
+    "agent_services_started": [],
+    "real_key_grants_modified": false,
+    "real_service_key_acceptance": "not performed; actual grant selection and confirmation remain user actions"
+  },
+  "next_action": "Refresh the page. Use 全选共享权限 -> 保存共享权限 for the shared Profile. Use 配置插件能力授权 -> select target Keys -> preview -> confirm for Ecommerce read."
+}

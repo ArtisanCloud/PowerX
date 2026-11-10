@@ -19,6 +19,11 @@ type Event struct {
 // Serve 先发送当前状态，再按变更通知发送；最长一分钟后重新鉴权连接。
 // 订阅必须在初次读取之前建立，避免初始查询与监听之间的事件丢失。
 func Serve(ctx context.Context, w http.ResponseWriter, sub *opswatch.Subscription, snapshot func([]string) (Event, error)) error {
+	return ServeNotifications(ctx, w, sub.Changes, sub.Errors, snapshot)
+}
+
+// ServeNotifications 复用同一只读 SSE 协议，合并正式任务事件与私有运行账本变更。
+func ServeNotifications(ctx context.Context, w http.ResponseWriter, changes <-chan []string, problems <-chan error, snapshot func([]string) (Event, error)) error {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -57,12 +62,12 @@ func Serve(ctx context.Context, w http.ResponseWriter, sub *opswatch.Subscriptio
 			return ctx.Err()
 		case <-reauthorize.C:
 			return send(Event{Name: "reconnect", Data: map[string]string{"reason": "reauthorize"}})
-		case e, ok := <-sub.Errors:
+		case e, ok := <-problems:
 			if !ok {
 				return nil
 			}
 			return e
-		case names, ok := <-sub.Changes:
+		case names, ok := <-changes:
 			if !ok {
 				return nil
 			}

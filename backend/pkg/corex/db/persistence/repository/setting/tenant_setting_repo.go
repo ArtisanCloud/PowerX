@@ -39,6 +39,16 @@ func (r *TenantSettingRepository) GetByTenantAndKey(ctx context.Context, tenantU
 	return &s, nil
 }
 
+// GetByTenantAndKeyForUpdate 用于事务内原子修改单项租户配置。
+func (r *TenantSettingRepository) GetByTenantAndKeyForUpdate(ctx context.Context, tenantUUID, key string) (*dbsetting.TenantSetting, error) {
+	var item dbsetting.TenantSetting
+	err := r.with(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND key = ?", tenantUUID, key).First(&item).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &item, err
+}
+
 func (r *TenantSettingRepository) ListByTenantAndPrefix(ctx context.Context, tenantUUID, prefix string) ([]*dbsetting.TenantSetting, error) {
 	var list []*dbsetting.TenantSetting
 	err := r.with(ctx).

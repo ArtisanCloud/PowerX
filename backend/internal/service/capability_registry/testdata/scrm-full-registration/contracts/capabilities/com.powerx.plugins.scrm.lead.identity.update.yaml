@@ -1,0 +1,18 @@
+id: com.powerx.plugins.scrm.lead.identity.update
+type: API
+version: 1.0.0
+description: "通过 PowerX Gateway 更新 SCRM 私域线索的基础身份字段。仅允许 display_name、phone、email 双向同步。"
+rbac:
+  resource: scrm.leads
+  actions: [write]
+metadata:
+  bridge:
+    scope: identity_sync
+    allowed_fields: [display_name, phone, email]
+    rejected_fields_policy: fail
+    source_plugins: [com.powerx.plugins.crm]
+    transport: powerx_gateway
+  protocols:
+    capability:
+      action: update
+      subject: scrm.lead.identity

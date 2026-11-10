@@ -1,0 +1,44 @@
+id: com.powerx.plugins.scrm.leads.write
+type: API
+version: 1.0.0
+description: "创建、更新、导入、分配与推进线索状态的管理端能力。"
+rbac:
+  resource: scrm.leads
+  actions: [write]
+metadata:
+  protocols:
+    rest:
+      - method: POST
+        path: /api/v1/admin/leads
+      - method: PUT
+        path: /api/v1/admin/leads/{lead_id}
+      - method: DELETE
+        path: /api/v1/admin/leads/{lead_id}
+      - method: POST
+        path: /api/v1/admin/leads/import
+      - method: POST
+        path: /api/v1/admin/leads/import/preview
+      - method: POST
+        path: /api/v1/admin/leads/import/confirm
+      - method: POST
+        path: /api/v1/admin/leads/assign/batch
+      - method: POST
+        path: /api/v1/admin/leads/{lead_id}/assign
+      - method: POST
+        path: /api/v1/admin/leads/{lead_id}/status
+      - method: POST
+        path: /api/v1/admin/leads/{lead_id}/activities
+      - method: POST
+        path: /api/v1/admin/leads/{lead_id}/activities/{activity_id}/attachments
+      - method: POST
+        path: /api/v1/admin/leads/{lead_id}/node-attachments
+      - method: DELETE
+        path: /api/v1/admin/leads/{lead_id}/attachments/{attachment_id}
+      - method: POST
+        path: /api/v1/admin/leads/{lead_id}/conversations/bind
+      - method: POST
+        path: /api/v1/admin/leads/source-catalogs
+      - method: PATCH
+        path: /api/v1/admin/leads/source-catalogs/{catalog_id}
+      - method: DELETE
+        path: /api/v1/admin/leads/source-catalogs/{catalog_id}

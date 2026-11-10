@@ -4,6 +4,8 @@ package archive_ops
 import (
 	"context"
 	"errors"
+	vault "github.com/ArtisanCloud/PowerX/internal/infra/archive_credentials"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"io"
@@ -11,16 +13,28 @@ import (
 )
 
 type Config struct {
-	Directory   string                `yaml:"directory" json:"directory"`
-	Instance    string                `yaml:"instance" json:"instance"`
-	Sources     []Source              `yaml:"sources" json:"sources"`
-	Credentials map[string]Credential `yaml:"credentials" json:"-"`
+	RemoteExecutionBlocked bool                    `yaml:"remote_execution_blocked,omitempty" json:"-"`
+	PolicyControlRequired  bool                    `yaml:"policy_control_required,omitempty" json:"-"`
+	TargetControlRequired  bool                    `yaml:"target_control_required,omitempty" json:"-"`
+	CredentialVault        *vault.Config           `yaml:"credential_vault,omitempty" json:"-"`
+	ExecutionNodeID        string                  `yaml:"execution_node_id,omitempty" json:"-"`
+	CustodyBindingFile     string                  `yaml:"custody_binding_file,omitempty" json:"-"`
+	StorageBudget          *budget.Config          `yaml:"storage_budget,omitempty" json:"-"`
+	Directory              string                  `yaml:"directory" json:"directory"`
+	Instance               string                  `yaml:"instance" json:"instance"`
+	Sources                []Source                `yaml:"sources" json:"sources"`
+	Credentials            map[string]Credential   `yaml:"credentials" json:"-"`
+	S3Credentials          map[string]S3Credential `yaml:"s3_credentials,omitempty" json:"-"`
+	LegacyReceiptDirectory string                  `yaml:"legacy_receipt_directory,omitempty" json:"-"`
 }
 type Source struct {
 	ID              string    `yaml:"id" json:"id"`
 	Name            string    `yaml:"name" json:"name"`
 	Kind            string    `yaml:"kind" json:"kind"`
 	Directory       string    `yaml:"directory" json:"directory"`
+	RotationFormat  string    `yaml:"rotation_format,omitempty" json:"rotation_format,omitempty"`
+	ActiveFiles     []string  `yaml:"active_files,omitempty" json:"-"`
+	FileOwnerUID    *uint32   `yaml:"file_owner_uid,omitempty" json:"-"`
 	CurrentLogfiles string    `yaml:"current_logfiles" json:"current_logfiles,omitempty"`
 	DatabaseDSN     string    `yaml:"database_dsn" json:"-"`
 	Ready           bool      `yaml:"-" json:"ready"`
@@ -41,6 +55,14 @@ type Credential struct {
 	KnownHostsFile string `yaml:"known_hosts_file"`
 }
 type Policy struct {
+	ControlDigest        string    `json:"control_digest,omitempty"`
+	ExecutionReady       bool      `json:"execution_ready"`
+	ExecutionProblem     string    `json:"execution_problem,omitempty"`
+	RemoteCleanupEnabled bool      `json:"remote_cleanup_enabled"`
+	TargetRevision       int64     `json:"target_revision"`
+	TargetFingerprint    string    `json:"target_fingerprint,omitempty"`
+	Revision             int64     `json:"revision"`
+	RemoteMaxBytes       int64     `json:"remote_max_bytes"`
 	ID                   string    `json:"id"`
 	Name                 string    `json:"name"`
 	SourceID             string    `json:"source_id"`
@@ -55,57 +77,92 @@ type Policy struct {
 	CreatedAt            time.Time `json:"created_at"`
 }
 type Target struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Host          string `json:"host"`
-	Port          int    `json:"port"`
-	User          string `json:"user"`
-	Directory     string `json:"directory"`
-	CredentialRef string `json:"credential_ref"`
+	ControlDigest       string     `json:"control_digest,omitempty"`
+	VerificationValid   bool       `json:"verification_valid"`
+	Driver              string     `json:"driver,omitempty"`
+	Revision            int64      `json:"revision"`
+	Endpoint            string     `json:"endpoint,omitempty"`
+	Bucket              string     `json:"bucket,omitempty"`
+	Prefix              string     `json:"prefix,omitempty"`
+	Region              string     `json:"region,omitempty"`
+	ForcePathStyle      bool       `json:"force_path_style"`
+	VerifiedAt          *time.Time `json:"verified_at,omitempty"`
+	VerifiedFingerprint string     `json:"verified_fingerprint,omitempty"`
+	Executor            string     `json:"executor,omitempty"`
+	ID                  string     `json:"id"`
+	Name                string     `json:"name"`
+	Host                string     `json:"host"`
+	Port                int        `json:"port"`
+	User                string     `json:"user"`
+	Directory           string     `json:"directory"`
+	CredentialRef       string     `json:"credential_ref"`
 }
 type Entry struct {
-	Path       string    `json:"path"`
-	SHA256     string    `json:"sha256"`
-	Size       int64     `json:"size"`
-	ModifiedAt time.Time `json:"modified_at"`
-	Driver     string    `json:"driver,omitempty"`
-	Bucket     string    `json:"bucket,omitempty"`
-	StorageKey string    `json:"storage_key,omitempty"`
+	SourceSnapshot string    `json:"source_snapshot,omitempty"`
+	ArchiveKey     string    `json:"archive_key,omitempty"`
+	ArchiveVersion string    `json:"archive_version,omitempty"`
+	Path           string    `json:"path"`
+	SHA256         string    `json:"sha256"`
+	Size           int64     `json:"size"`
+	ModifiedAt     time.Time `json:"modified_at"`
+	Driver         string    `json:"driver,omitempty"`
+	Bucket         string    `json:"bucket,omitempty"`
+	StorageKey     string    `json:"storage_key,omitempty"`
 }
 type Job struct {
-	ID                   string    `json:"id"`
-	OneTime              bool      `json:"one_time,omitempty"`
-	PolicyID             string    `json:"policy_id"`
-	SourceID             string    `json:"source_id"`
-	Kind                 string    `json:"kind"`
-	Status               string    `json:"status"`
-	Phase                string    `json:"phase"`
-	CreatedAt            time.Time `json:"created_at"`
-	UpdatedAt            time.Time `json:"updated_at"`
-	Files                []Entry   `json:"files,omitempty"`
-	FileCount            int       `json:"file_count"`
-	SizeBytes            int64     `json:"size_bytes"`
-	NewBytes             int64     `json:"new_bytes"`
-	Database             string    `json:"database,omitempty"`
-	SnapshotID           string    `json:"snapshot_id,omitempty"`
-	Error                string    `json:"error,omitempty"`
-	Warnings             []string  `json:"warnings"`
-	Protected            bool      `json:"protected"`
-	RemoteState          string    `json:"remote_state"`
-	RemotePath           string    `json:"remote_path,omitempty"`
-	RemoteError          string    `json:"remote_error,omitempty"`
-	Attempts             int       `json:"attempts"`
-	RetryAt              time.Time `json:"retry_at,omitempty"`
-	Target               *Target   `json:"target,omitempty"`
-	RemoteRetentionDays  int       `json:"remote_retention_days"`
-	RemoteRetentionCount int       `json:"remote_retention_count"`
-	Operator             string    `json:"operator"`
-	TraceID              string    `json:"trace_id,omitempty"`
-	IdempotencyHash      string    `json:"-"`
+	CommandDrainState     string            `json:"command_drain_state,omitempty"`
+	CaptureRetention      *CaptureRetention `json:"capture_retention,omitempty"`
+	ExecutionState        string            `json:"execution_state,omitempty"`
+	InterruptionPending   bool              `json:"interruption_pending,omitempty"`
+	InterruptedAt         *time.Time        `json:"interrupted_at,omitempty"`
+	InterruptedPhase      string            `json:"interrupted_phase,omitempty"`
+	Recovered             bool              `json:"recovered,omitempty"`
+	MigratedFrom          string            `json:"migrated_from,omitempty"`
+	OriginManifest        string            `json:"origin_manifest,omitempty"`
+	OriginManifestVersion string            `json:"origin_manifest_version,omitempty"`
+	OriginManifestSHA256  string            `json:"origin_manifest_sha256,omitempty"`
+	PolicyRevision        int64             `json:"policy_revision"`
+	RemoteManifestVersion string            `json:"remote_manifest_version,omitempty"`
+	RemoteManifestSHA256  string            `json:"remote_manifest_sha256,omitempty"`
+	Imported              bool              `json:"imported,omitempty"`
+	ProvenanceVerified    bool              `json:"provenance_verified"`
+	SourceFileName        string            `json:"source_file_name,omitempty"`
+	ID                    string            `json:"id"`
+	OneTime               bool              `json:"one_time,omitempty"`
+	PolicyID              string            `json:"policy_id"`
+	SourceID              string            `json:"source_id"`
+	Kind                  string            `json:"kind"`
+	Status                string            `json:"status"`
+	Phase                 string            `json:"phase"`
+	CreatedAt             time.Time         `json:"created_at"`
+	UpdatedAt             time.Time         `json:"updated_at"`
+	Files                 []Entry           `json:"files,omitempty"`
+	FileCount             int               `json:"file_count"`
+	SizeBytes             int64             `json:"size_bytes"`
+	NewBytes              int64             `json:"new_bytes"`
+	Database              string            `json:"database,omitempty"`
+	SnapshotID            string            `json:"snapshot_id,omitempty"`
+	Error                 string            `json:"error,omitempty"`
+	Warnings              []string          `json:"warnings"`
+	Protected             bool              `json:"protected"`
+	RemoteState           string            `json:"remote_state"`
+	RemotePath            string            `json:"remote_path,omitempty"`
+	RemoteError           string            `json:"remote_error,omitempty"`
+	Attempts              int               `json:"attempts"`
+	RetryAt               time.Time         `json:"retry_at,omitempty"`
+	Target                *Target           `json:"target,omitempty"`
+	RemoteRetentionDays   int               `json:"remote_retention_days"`
+	RemoteRetentionCount  int               `json:"remote_retention_count"`
+	Operator              string            `json:"operator"`
+	TraceID               string            `json:"trace_id,omitempty"`
+	IdempotencyHash       string            `json:"-"`
 }
 type jobRecord struct {
+	CommandProtocol int              `json:"command_protocol,omitempty"`
+	RetainedObjects []retainedObject `json:"retained_objects,omitempty"`
 	Job
-	RequestKey string `json:"request_key"`
+	ExecutionID string `json:"execution_id,omitempty"`
+	RequestKey  string `json:"request_key"`
 }
 type Restore struct {
 	ID               string    `json:"id"`
@@ -120,21 +177,46 @@ type Restore struct {
 	DirectoryDevice  uint64    `json:"directory_device,omitempty"`
 	DirectoryInode   uint64    `json:"directory_inode,omitempty"`
 }
+type ExecutionAttention struct {
+	ID             string `json:"id"`
+	PolicyID       string `json:"policy_id"`
+	ExecutionState string `json:"execution_state"`
+}
 type Overview struct {
-	Instance         string    `json:"instance"`
-	Directory        string    `json:"directory"`
-	Sources          []Source  `json:"sources"`
-	Credentials      []string  `json:"credentials"`
-	Policies         []Policy  `json:"policies"`
-	Targets          []Target  `json:"targets"`
-	Jobs             []Job     `json:"jobs"`
-	Restores         []Restore `json:"restores"`
-	PendingTransfers int       `json:"pending_transfers"`
+	RemoteExecution                   RemoteExecutionAvailability `json:"remote_execution"`
+	ProbeCommandConfirmationVersion   int                         `json:"probe_command_confirmation_version"`
+	CommandConfirmationVersion        int                         `json:"command_confirmation_version"`
+	CommandExecution                  CommandDrainOverview        `json:"command_execution"`
+	InterruptionRequestClosureVersion int                         `json:"interruption_request_closure_version"`
+	InterruptionResolutionVersion     int                         `json:"interruption_resolution_version"`
+	ExecutionAttention                []ExecutionAttention        `json:"execution_attention"`
+	ExecutionVersion                  int                         `json:"execution_version"`
+	RunRequestVersion                 int                         `json:"run_request_version"`
+	PolicyConfiguration               PolicyConfiguration         `json:"policy_configuration"`
+	TargetConfiguration               TargetConfiguration         `json:"target_configuration"`
+	CredentialOverview                CredentialOverview          `json:"credential_overview"`
+	LogPendingTransfers               int                         `json:"log_pending_transfers"`
+	SchedulerStarted                  bool                        `json:"scheduler_started"`
+	Custody                           CustodyStatus               `json:"custody"`
+	RemoteRuns                        []RemoteGCResult            `json:"remote_runs"`
+	S3Credentials                     []string                    `json:"s3_credentials"`
+	Instance                          string                      `json:"instance"`
+	Directory                         string                      `json:"directory"`
+	Sources                           []Source                    `json:"sources"`
+	Credentials                       []string                    `json:"credentials"`
+	Policies                          []Policy                    `json:"policies"`
+	Targets                           []Target                    `json:"targets"`
+	Jobs                              []Job                       `json:"jobs"`
+	Restores                          []Restore                   `json:"restores"`
+	PendingTransfers                  int                         `json:"pending_transfers"`
 }
 type DatabaseRestorer func(context.Context, string, bool, string, string) (string, string, error)
 type Options struct {
-	RestoreDatabase DatabaseRestorer
-	ConfigError     error
+	RequirePolicyControl bool
+	RequireTargetControl bool
+	RetentionNow         func() time.Time
+	RestoreDatabase      DatabaseRestorer
+	ConfigError          error
 }
 
 func failure(status int, code, msg string) error { return dto.NewErrorWithCode(status, code, msg, nil) }

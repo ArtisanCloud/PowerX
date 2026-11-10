@@ -1,0 +1,153 @@
+{
+  "contract": "powerx.storage.local-restart-ready/v0.6.1",
+  "recorded_at": "2026-11-01T18:53:56.233248+08:00",
+  "scope": "User-authorized preparation of existing local dev database and startup configuration. No production changes, user service restarts or cleanup policy activation.",
+  "backup": {
+    "at": "2026-11-01T18:17:40.496373+08:00",
+    "format": "PostgreSQL custom",
+    "bytes": 41286420,
+    "sha256": "69d4cf634010c2218c87a343e16c2811d4c896372cf4fc4c0c63da361876563d",
+    "pg_restore_list_passed": true,
+    "source_database": "powerx",
+    "source_system_identifier": "7352204949267279408",
+    "full_restore_checked": true,
+    "restore_checked_at": "2026-11-01T18:47:46.177317+08:00",
+    "restore_target": "agent_owned_private_unix_socket_cluster",
+    "restored_counts": {
+      "restored_tables": 231,
+      "trace_rows": 3472,
+      "event_rows": 4780
+    },
+    "private_dump": "tmp/storage-local-ready-20261101/powerx-before.dump",
+    "private_startup_config_copy": "tmp/storage-local-ready-20261101/config.before.yaml"
+  },
+  "migration": {
+    "at": "2026-11-01T18:48:30.893678+08:00",
+    "scope": "capability-retention",
+    "exit_code": 0,
+    "target_database": "powerx",
+    "target_port": 5432,
+    "backup_verified": true,
+    "startup_config_unchanged": true,
+    "other_migrations_or_seed_run": false,
+    "temporary_cli_file_and_loki_outputs_disabled": true
+  },
+  "configuration": {
+    "at": "2026-11-01T18:49:22.877794+08:00",
+    "runtime_directory": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/storage/storage-governance",
+    "runtime_mode": "0o700",
+    "same_filesystem": true,
+    "startup_config_sha256": "d0def302cbca02c72bde96e7afa4b75487d9e57c7965d083290acaed5c96e89f",
+    "changed_keys": [
+      "storage_governance.lifecycle_enabled",
+      "storage_governance.manage_native_retention",
+      "storage_governance.allow_enforce",
+      "storage_governance.admission_enabled",
+      "storage_governance.runtime_directory",
+      "storage_governance.min_free_bytes",
+      "storage_governance.critical_free_bytes",
+      "storage_governance.max_concurrent"
+    ],
+    "sampling_enabled": true,
+    "postgres_metrics_enabled": true,
+    "host_identity_preserved": true,
+    "filesystem_identity_preserved": true,
+    "unrelated_configuration_unchanged": true,
+    "no_policy_enabled": true,
+    "user_service_restarted": false
+  },
+  "database_after": {
+    "database": "powerx",
+    "columns": 5,
+    "indexes": 3,
+    "tables": 231,
+    "log_statement": "mod",
+    "logging_collector": "on",
+    "pending_restart": false,
+    "old_trace_unclassified": 3472,
+    "old_events_unclassified": 4780
+  },
+  "existing_data_preservation": {
+    "at": "2026-11-01T18:50:53.420159+08:00",
+    "comparison": "canonical JSON of old columns in UTC; only added retention columns excluded",
+    "tables": {
+      "capability_registry_invocation_traces": {
+        "backup_rows": 3472,
+        "current_rows": 3472,
+        "missing_backup_rows": 0,
+        "changed_old_row_content": 0,
+        "new_rows_after_backup": 0
+      },
+      "capability_registry_event_publications": {
+        "backup_rows": 4780,
+        "current_rows": 4780,
+        "missing_backup_rows": 0,
+        "changed_old_row_content": 0,
+        "new_rows_after_backup": 0
+      }
+    }
+  },
+  "archive": {
+    "directory": "/Users/michaelhu/.powerx/storage/archives",
+    "policy_count": 0,
+    "enabled_archive_policies": 0,
+    "enabled_remote_cleanup_policies": 0,
+    "policies_modified": false
+  },
+  "readiness_probe": {
+    "passed": true,
+    "test": "TestStorageLocalRuntimePreparedReadOnlyAcceptance",
+    "source": "backend/internal/bootstrap/storage_governance_local_test.go",
+    "postgresql_session_forced_read_only": true,
+    "uses_actual_config_and_existing_environment_identity": true,
+    "runtime_configured": true,
+    "enforcement_allowed": true,
+    "migration_ready": true,
+    "worker_start_permitted": true,
+    "workers_started_by_probe": false,
+    "file_policies_enabled": false,
+    "database_expiry_enabled": false,
+    "database_call_rejection_enabled": false,
+    "application_and_audit_logging_enabled": true,
+    "daily_instance_runtime_acceptance": false,
+    "private_log": "tmp/storage-local-ready-20261101/readiness.private.log",
+    "source_sha256": "ee307dc9c85d0955fa801e971b988205b1ca74ccfed901bf9498e42ce1c42867"
+  },
+  "go_vet": {
+    "passed": true,
+    "package": "backend/internal/bootstrap"
+  },
+  "cleanup": {
+    "owner": "codex-storage-local-ready-20261101",
+    "pid": 87245,
+    "stopped_at": "2026-11-01T18:52:29.451630+08:00",
+    "pid_exited": true,
+    "unix_socket_removed": true,
+    "tcp_listener_never_opened": true,
+    "user_services_untouched": true,
+    "temporary_restored_database_removed": true,
+    "data_removed_at": "2026-11-01T18:54:24.733075+08:00"
+  },
+  "observed_user_service_pids": {
+    "3030": [
+      11794
+    ],
+    "8077": [
+      13300
+    ],
+    "5432": [
+      4407
+    ]
+  },
+  "fifteen_minute_clock_started": false,
+  "next_steps": [
+    "User reloads Core with the same daily command and config; frontend refresh loads current UI",
+    "Read back actual runtime readiness via the existing Root session",
+    "Choose and confirm the test policy in UI; archive remains opt-in and independent",
+    "Begin a full 900-second automatic-cycle acceptance window only after actual readiness and test policy readback"
+  ],
+  "rollback": {
+    "configuration": "Restore private config.before.yaml to backend/etc/config.yaml, then reload Core; it is not performed automatically",
+    "database": "Added columns/indexes remain backward-compatible; do not restore or drop live data automatically. The verified pre-migration dump is retained privately."
+  }
+}

@@ -9,6 +9,7 @@ import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent"
 	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
+	modelAIMedia "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ai"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelCapabilityRegistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
@@ -32,9 +33,11 @@ import (
 	modelRuntimeScheduler "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_scheduler"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelSkills "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/skills"
+	modelStorageGov "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/storage_governance"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	opsrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"github.com/google/uuid"
@@ -51,6 +54,10 @@ func MigrateUpgradeJournal(db *gorm.DB) error {
 // Migrate 执行数据库迁移
 func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = ensurePostgresSchemas(db); err != nil {
+		return err
+	}
+
+	if err = db.AutoMigrate(&modelAIMedia.MediaTask{}); err != nil {
 		return err
 	}
 
@@ -98,6 +105,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	if err = migrateRuntimeHostModels(db); err != nil {
+		return err
+	}
+	if err = MigrateStorageGovernanceModels(db); err != nil {
 		return err
 	}
 
@@ -297,6 +307,97 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	return authorizationbaseline.EnsureInitialized(db)
+}
+
+// MigrateStorageGovernanceModels 复用完整迁移的注册；开发限定入口只迁移治理元数据表。
+func MigrateStorageGovernanceModels(db *gorm.DB) error {
+	if err := db.AutoMigrate(&modelStorageGov.ControlConfiguration{}, &modelStorageGov.ControlRevision{}, &modelStorageGov.Policy{}, &modelStorageGov.PolicyRevision{}, &modelStorageGov.Sample{}, &modelStorageGov.CleanupRun{}); err != nil {
+		return err
+	}
+	return CheckStorageGovernanceSchema(db)
+}
+
+// MigrateCapabilityRetentionModels 只为既有调用审计表增加期限字段与索引。
+// 不执行整表 AutoMigrate、旧记录分类/终态回填、seed 或其他能力注册表升级。
+// 正式环境仍通过完整升级计划编排；限定入口仅供 dev/test 增量准备。
+func MigrateCapabilityRetentionModels(db *gorm.DB) error {
+	changes := []struct {
+		model   any
+		columns []string
+		indexes []string
+	}{
+		{&modelCapabilityRegistry.InvocationTrace{}, []string{"RecordClass", "CompletedAt"}, []string{"idx_capability_trace_retention", "idx_capability_trace_publication"}},
+		{&modelCapabilityRegistry.CapabilityEventPublication{}, []string{"RecordClass", "TerminalAt", "DeliveryReceipt"}, []string{"idx_capability_event_retention"}},
+	}
+	// 先验证全部来源，缺少任意旧表时不创建另一张表或悄悄扩展迁移范围。
+	for _, change := range changes {
+		if !db.Migrator().HasTable(change.model) {
+			return fmt.Errorf("capability retention requires existing invocation audit tables; run the installation upgrade first")
+		}
+	}
+	for _, change := range changes {
+		for _, column := range change.columns {
+			if !db.Migrator().HasColumn(change.model, column) {
+				if err := db.Migrator().AddColumn(change.model, column); err != nil {
+					return fmt.Errorf("add capability retention column %s: %w", column, err)
+				}
+			}
+		}
+		for _, index := range change.indexes {
+			if !db.Migrator().HasIndex(change.model, index) {
+				if err := db.Migrator().CreateIndex(change.model, index); err != nil {
+					return fmt.Errorf("add capability retention index %s: %w", index, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// MigrateSystemTableRetentionIndexes 只为两张既有观测表补固定索引；不建表、改列、回填、seed 或启用清理。
+// 正式安装继续使用完整模型迁移；此函数供 dev/test 限定入口在主机迁移锁和事务内调用。
+func MigrateSystemTableRetentionIndexes(db *gorm.DB) error {
+	if db == nil || db.Dialector.Name() != "postgres" {
+		return fmt.Errorf("system table retention indexes require PostgreSQL")
+	}
+	changes := []struct {
+		model        any
+		table, index string
+		columns      []string
+	}{
+		{&modelCapabilityRegistry.HealthProbeResult{}, modelCapabilityRegistry.HealthProbeResult{}.TableName(), "idx_registry_probe_retention", []string{"probe_window_start", "adapter_id"}},
+		{&modelCapabilityRegistry.DiscoveryCacheEntry{}, modelCapabilityRegistry.DiscoveryCacheEntry{}.TableName(), "idx_registry_discovery_expiry", []string{"expires_at"}},
+	}
+	// 全部来源先就绪，缺少任何表或字段时不能留下局部索引。
+	for _, change := range changes {
+		if !db.Migrator().HasTable(change.model) {
+			return fmt.Errorf("system retention requires existing source tables")
+		}
+		for _, column := range change.columns {
+			if !db.Migrator().HasColumn(change.model, column) {
+				return fmt.Errorf("system retention requires existing source columns")
+			}
+		}
+	}
+	for _, change := range changes {
+		if !db.Migrator().HasIndex(change.model, change.index) {
+			if err := db.Migrator().CreateIndex(change.model, change.index); err != nil {
+				return fmt.Errorf("create fixed retention index %s: %w", change.index, err)
+			}
+		}
+		var valid bool
+		// 同名错误索引不能冒充就绪；不自动删除、替换索引。
+		err := db.Raw(`SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class i ON i.oid=x.indexrelid JOIN pg_catalog.pg_am am ON am.oid=i.relam
+		 WHERE x.indrelid=to_regclass(?) AND i.relname=? AND x.indisvalid AND x.indisready AND NOT x.indisunique AND x.indpred IS NULL AND x.indexprs IS NULL AND am.amname='btree'
+		 AND x.indnatts=? AND (SELECT string_agg(a.attname,',' ORDER BY k.ord) FROM unnest(x.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_catalog.pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum)=?)`, change.table, change.index, len(change.columns), strings.Join(change.columns, ",")).Scan(&valid).Error
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return fmt.Errorf("fixed retention index definition mismatch: %s", change.index)
+		}
+	}
+	return nil
 }
 
 // EnsureCustomerMenuPermission 增量登记客户菜单，不重置角色授权、管理员或安装状态。
@@ -525,6 +626,8 @@ func migrateCustomerModels(db *gorm.DB) error {
 		&modelCustomer.Contact{},
 		&modelCustomer.ContactIdentity{},
 		&modelCustomer.AccountImport{},
+		&modelCustomer.ClientApplication{},
+		&modelCustomer.ClientAppBinding{},
 	); err != nil {
 		return err
 	}
@@ -573,6 +676,8 @@ func ensureCustomerContactIdentityDictionaryIndex(db *gorm.DB) error {
 }
 
 func migrateCapabilityRegistryModels(db *gorm.DB) error {
+	// HealthProbeResult / DiscoveryCacheEntry 的固定清理索引集中由下方 AutoMigrate 挂载；
+	// 运行时只检查索引，不自动 DDL，也不因升级而启用删除策略。
 	// trace_id 是一条分布式链路的关联键；同一链路可包含多个 capability invocation。
 	// 旧索引错误地把 trace_id 当成调用记录唯一键，必须在 AutoMigrate 前显式移除。
 	if db.Migrator().HasIndex(&modelCapabilityRegistry.InvocationTrace{}, "uk_capability_invocation_trace") {
@@ -647,18 +752,76 @@ func migrateAgentA2AModels(db *gorm.DB) error {
 	return nil
 }
 
+// MigrateBackupPolicyControlModels 为既有备份表集中挂载版本及删除意图增量，不回填或启用历史配置。
+func MigrateBackupPolicyControlModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelOps.BackupPolicy{}, &modelOps.BackupJob{}, &modelOps.BackupArtifact{})
+}
+
+// MigrateBackupCleanupRetentionModels is optional operational audit; never part of storage admission readiness.
+func MigrateBackupCleanupRetentionModels(db *gorm.DB) error {
+	if e := db.AutoMigrate(&modelOps.BackupCleanupRetention{}); e != nil {
+		return e
+	}
+	if !opsrepo.NewBackupCleanupRetentionRepository(db).Ready(db.Statement.Context) {
+		return fmt.Errorf("backup retention receipt schema or request uniqueness not ready")
+	}
+	return nil
+}
+
+// MigrateBackupCleanupResolutionModels 仅准备新的人工处置审计，不改变配置或业务准入。
+func MigrateBackupCleanupResolutionModels(db *gorm.DB) error {
+	if e := db.AutoMigrate(&modelOps.BackupCleanupResolution{}); e != nil {
+		return e
+	}
+	if !opsrepo.NewBackupCleanupResolutionRepository(db).Ready(db.Statement.Context) {
+		return fmt.Errorf("backup cleanup resolution schema or request uniqueness not ready")
+	}
+	return nil
+}
+
 func migrateOpsModels(db *gorm.DB) error {
+	if err := MigrateBackupCleanupResolutionModels(db); err != nil {
+		return err
+	}
+	if err := MigrateBackupCleanupRetentionModels(db); err != nil {
+		return err
+	}
+	if err := MigrateBackupPolicyControlModels(db); err != nil {
+		return err
+	}
 	return db.AutoMigrate(
 		&modelOps.DeployReleaseRecord{},
 		&modelOps.PluginLifecycleAudit{},
-		&modelOps.BackupPolicy{},
-		&modelOps.BackupJob{},
-		&modelOps.BackupArtifact{},
 		&modelOps.BackupAlert{},
 		&modelOps.RestoreDrillRecord{},
 		&modelOps.ApprovalPolicyProfile{},
 		&modelOps.MigrationRunbookRecord{},
 	)
+}
+
+// MigrateTaskHistoryIdempotency 仅为既有历史表补充可空幂等列与唯一索引。
+// 不回填旧幂等键、不重建表、不删除历史；校验失败时回滚本次增量。
+func MigrateTaskHistoryIdempotency(db *gorm.DB) error {
+	if db == nil {
+		return &TaskHistorySchemaError{Reason: "database_unavailable"}
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		model := &modelEventFabric.TaskHistory{}
+		if !tx.Migrator().HasTable(model) {
+			return &TaskHistorySchemaError{Reason: "history_table_missing"}
+		}
+		if !tx.Migrator().HasColumn(model, "IdempotencyKey") {
+			if err := tx.Migrator().AddColumn(model, "IdempotencyKey"); err != nil {
+				return err
+			}
+		}
+		if !tx.Migrator().HasIndex(model, taskHistoryIdempotencyIndex) {
+			if err := tx.Migrator().CreateIndex(model, taskHistoryIdempotencyIndex); err != nil {
+				return err
+			}
+		}
+		return CheckTaskHistorySchema(tx)
+	})
 }
 
 func migrateEventFabricModels(db *gorm.DB) error {
@@ -679,8 +842,14 @@ func migrateEventFabricModels(db *gorm.DB) error {
 	); err != nil {
 		return err
 	}
+	if err := MigrateTaskHistoryIdempotency(db); err != nil {
+		return err
+	}
 
 	if err := migration.CreateEventDeliveryTables(db); err != nil {
+		return err
+	}
+	if err := MigrateEventServiceDeliveryIdentity(db); err != nil {
 		return err
 	}
 	if err := migration.CreateEventReplayTables(db); err != nil {
@@ -690,6 +859,52 @@ func migrateEventFabricModels(db *gorm.DB) error {
 		return err
 	}
 	return migration.EnsureEventTopicsGovernanceMigration(db)
+}
+
+// MigrateEventServiceDeliveryIdentity 只补齐既有投递表的领取主体字段，不回填身份或修改旧投递状态。
+func MigrateEventServiceDeliveryIdentity(db *gorm.DB) error {
+	if db == nil || !db.Migrator().HasTable(&modelEventFabric.DeliveryAttempt{}) {
+		return fmt.Errorf("EVENT_FABRIC_SCHEMA_NOT_READY: delivery table missing")
+	}
+	if !db.Migrator().HasColumn(&modelEventFabric.DeliveryAttempt{}, "ClaimedBy") {
+		if err := db.Migrator().AddColumn(&modelEventFabric.DeliveryAttempt{}, "ClaimedBy"); err != nil {
+			return err
+		}
+	}
+	return CheckEventServiceDeliverySchema(db)
+}
+
+// CheckEventServiceDeliverySchema 是只读预检，不在运行请求中修复结构。
+func CheckEventServiceDeliverySchema(db *gorm.DB) error {
+	if db == nil || !db.Migrator().HasColumn(&modelEventFabric.DeliveryAttempt{}, "ClaimedBy") {
+		return fmt.Errorf("EVENT_FABRIC_SCHEMA_NOT_READY: run database migrate -scope event-fabric-service-identity on dev/test, or formal upgrade on installed environments")
+	}
+	return nil
+}
+
+// MigrateSchedulerTaskDispatch adds only durable scheduler delivery columns.
+// Existing runs and business state are retained without replay or backfill.
+func MigrateSchedulerTaskDispatch(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("SCHEDULER_DATABASE_UNAVAILABLE")
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		model := &modelRuntimeScheduler.SchedulerJobRun{}
+		if !tx.Migrator().HasTable(model) {
+			return fmt.Errorf("SCHEDULER_RUN_TABLE_MISSING")
+		}
+		for _, name := range []string{"DispatchPayloadJSON", "DispatchAttempts", "NextDispatchAt"} {
+			if !tx.Migrator().HasColumn(model, name) {
+				if err := tx.Migrator().AddColumn(model, name); err != nil {
+					return err
+				}
+			}
+		}
+		if !tx.Migrator().HasIndex(model, "idx_scheduler_run_dispatch") {
+			return tx.Migrator().CreateIndex(model, "idx_scheduler_run_dispatch")
+		}
+		return nil
+	})
 }
 
 func migrateRuntimeSchedulerModels(db *gorm.DB) error {
@@ -1032,4 +1247,9 @@ func migrateSkillsModels(db *gorm.DB) error {
 		&modelSkills.SkillLifecycleAudit{},
 		&modelSkills.SkillInstallTask{},
 	)
+}
+
+// MigrateCustomerClientAppModels 仅准备租户客户端应用及 Provider 连接表。
+func MigrateCustomerClientAppModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelCustomer.ClientApplication{}, &modelCustomer.ClientAppBinding{})
 }

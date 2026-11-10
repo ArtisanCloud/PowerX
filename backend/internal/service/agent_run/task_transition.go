@@ -36,8 +36,8 @@ func (s *RedisStore) mutateTask(ctx context.Context, identity Snapshot, expected
 		!validTaskRevision(revision, taskID) || !strings.HasPrefix(eventType, "agent_run.") || mutate == nil {
 		return TaskSnapshot{}, Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
-	_, taskKey, _ := schedulingKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
+	_, taskKey, _ := s.schedulingKeys(identity)
 	field := taskField(revision, taskID)
 	for attempt := 0; attempt < 5; attempt++ {
 		var updated Snapshot
@@ -250,7 +250,7 @@ func (s *RedisStore) RenewTaskLease(ctx context.Context, identity Snapshot, revi
 		fence == 0 || !until.After(s.clock()) {
 		return TaskSnapshot{}, ErrInvalid
 	}
-	_, taskKey, _ := schedulingKeys(identity)
+	_, taskKey, _ := s.schedulingKeys(identity)
 	field := taskField(revision, taskID)
 	for attempt := 0; attempt < 5; attempt++ {
 		var task TaskSnapshot

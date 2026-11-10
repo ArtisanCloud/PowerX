@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateReviewInput",
+  "type": "object",
+  "properties": {
+    "template_id": { "type": "string" },
+    "approved": { "type": "boolean" },
+    "comments": { "type": "string" }
+  },
+  "required": ["template_id", "approved"],
+  "additionalProperties": false
+}

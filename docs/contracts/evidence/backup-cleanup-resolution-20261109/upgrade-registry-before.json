@@ -1,0 +1,18 @@
+[
+  {
+    "name": "core",
+    "checksum": "d217755d3d3ac1a33f4384f319906def362e0613c5531484147b2a5a219fa2cd"
+  },
+  {
+    "name": "agent",
+    "checksum": "0ea0b5bbe36d5c1cf352e6f97ba3225dcc62e544a6cdb6e09170fd031418e0a4"
+  },
+  {
+    "name": "knowledge",
+    "checksum": "96fdc7091f1ce811976d0ee3169cae9702a9e7682019469c263ba6f9c9ea3b4c"
+  },
+  {
+    "name": "catalog",
+    "checksum": "1912fef25ac4eb9ad8d537e9a9b8f1cf591a006a44da80838d3bfdef3025bcaa"
+  }
+]

@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-29",
+  "purpose": "Tenant-scoped batch independent API Key grants with preview and atomic commit",
+  "source_sha256": {
+    "backend/internal/service/integration_gateway/apikeypermissions/explicit_grants.go": "3f03a120f2cccc7c051d96443d585f0321563bfae51bb20b8ebad9b8c1cf2ffc",
+    "backend/internal/transport/http/admin/integration_gateway/handler.go": "ce3db3ea2c301371374eb26f695e66761d79cee9b1b14f6c4a9b8bc1f743195c",
+    "backend/config/platform_capabilities/integration_api_key_owners.yaml": "eef98e5180a1fff05fedc77a06b22512946f6da8589dba534f75d7303467ef94",
+    "web-admin/app/pages/settings/integration-api-keys.vue": "4e6431675ccb0246d220f458679d98c4dfc2e0081f3abf4eece0d7634187a252",
+    "web-admin/app/composables/api/services/integrationGatewayApiKeyService.ts": "e08e0379c0b1339fef4971594c021f2738cb1a7d211c4341c6904c853033d0e9",
+    "web-admin/i18n/locales/zh.json": "e4dcbe25bab7970fedf23c18a2e463f9409934ec997ce6b855b4b8b75266575c",
+    "web-admin/i18n/locales/en.json": "e8445005a9911a45ae70d62262195e5b841951b5fd1a7624a95876f8f16a98cf",
+    "docs/contracts/api-key-explicit-grants.md": "43176312c57e71e50d5cec74d90e5671038dbe2a16108a7f66e9308364af2cd2",
+    "backend/internal/service/integration_gateway/apikeypermissions/batch_explicit_grants.go": "51c02a5d132e698086937fac6535f3ca5b0a7765915c7b4ccf9dfc4e331e74eb",
+    "backend/internal/service/integration_gateway/apikeypermissions/batch_explicit_grants_test.go": "d8f8a3cd069f3d7a7e95718e74a7459e2c6ac9cc13a2c092a75981febcfa5d1c",
+    "backend/internal/transport/http/admin/integration_gateway/apikey_batch_grant_handler.go": "6d1968705cfd01d26a3b4250ac5c66634e3bf1e3bda2b800304edcc77dc53b3c",
+    "backend/internal/transport/http/admin/integration_gateway/apikey_batch_grant_handler_test.go": "4b40befcee48e09a51420d9a5e1150b2fa69026c7fa7c9a192abfae77dbb5597",
+    "web-admin/app/components/settings/ApiKeyBatchGrantModal.vue": "39f1a0f6efc2dd45b7b32c468354c9285b03960ead25ffdf1941271282215872",
+    "web-admin/tests/unit/iam/api-key-batch-grants.spec.ts": "eeeb47869c4b326ef01818c26eb7dd28d510867ea42fde314d2e8ee583e3ff9d",
+    "web-admin/tests/e2e/iam/api-key-batch-grants.spec.ts": "6cae6c43e8f269979bab29c325a463719394f8e9d3811193f024042068998509",
+    "web-admin/playwright.api-key-batch.config.ts": "8573895de61397a651b89bee322ea53a1e5188171531f5328802afde7f39b9eb",
+    "specs/007-integration-gateway-and-mcp/contracts/api-key-batch-grants.openapi.yaml": "8799ddc40a44d120fd8f35112c5d95788607a614d181bf3a80bdff8390832c21"
+  },
+  "authorization_boundaries": [
+    "Administrator user JWT only; API Key/STS/member rejected",
+    "Canonical explicit service permissions only; published capability and tenant registration required",
+    "No actual business Key grants, owner changes or Profile permissions changed in this task",
+    "Targeted existing admin capability metadata seeded: com.corex.integration.api_key_owners.admin_manage; count=1"
+  ],
+  "validation": {
+    "go_service_http_auth_tests": "passed (3 packages; full package regression)",
+    "postgres_batch_tests": "passed against isolated schemas; schemas removed by test cleanup",
+    "atomic_failure_test": "injected failure during second Key audit; first Key permissions, policies and audits all rolled back",
+    "go_vet": "passed for affected service/HTTP packages",
+    "go_build": "passed cmd/app; artifact not launched",
+    "capability_check": "passed; declared=1233 referenced=75 rest_routes=1174 candidates=1146",
+    "capability_seed": "passed; only existing owner/admin capability metadata updated, preserve-installed-state=true",
+    "frontend_unit": "49 passed in 8 IAM files, including 5 new batch workflow tests",
+    "browser": "3 passed against user dev UI with intercepted fixture API; desktop 1440x1000 and narrow 390x844; selection retention, preview retry, no duplicate submit, unknown-result re-preview, screenshots visually inspected",
+    "nuxt_build": "passed with isolated POWERX_NUXT_BUILD_DIR",
+    "runtime": "user-owned Core PID 53928 started 15:15:34; not restarted. Live new endpoint and actual business Key grants not accepted yet."
+  },
+  "artifacts": "/tmp/powerx-api-key-batch-20261029-160401",
+  "screenshots": [
+    "/tmp/powerx-api-key-batch-20261029-160401/browser/api-key-batch-grants-deskt-a27f2-etry-review-and-atomic-save-chromium/batch-desktop-review.png",
+    "/tmp/powerx-api-key-batch-20261029-160401/browser/api-key-batch-grants-narro-2664f-etry-review-and-atomic-save-chromium/batch-narrow-review.png"
+  ],
+  "temporary_services": {
+    "started": [],
+    "retained": []
+  },
+  "next_user_action": "Restart local Core using the normal user command; refresh UI, use current Profile API Key list -> 批量独立授权 -> select Keys and service capabilities -> preview -> confirm batch save. Keep plugin owners."
+}

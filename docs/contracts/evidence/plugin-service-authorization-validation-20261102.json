@@ -1,0 +1,202 @@
+{
+  "scope": "Mac local PowerX Core; controlled Core regression, not deployed SCRM acceptance",
+  "checked_at": "2026-11-01T16:29:12.884809+00:00",
+  "checks": {
+    "go_test_packages": [
+      "github.com/ArtisanCloud/PowerX/pkg/corex/iam/stsproof",
+      "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx",
+      "github.com/ArtisanCloud/PowerX/pkg/auth/middleware",
+      "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth",
+      "github.com/ArtisanCloud/PowerX/internal/service/iam",
+      "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity",
+      "github.com/ArtisanCloud/PowerX/internal/service/capability_registry",
+      "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router",
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/iam",
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry",
+      "github.com/ArtisanCloud/PowerX/internal/bootstrap",
+      "github.com/ArtisanCloud/PowerX/internal/app/shared",
+      "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway",
+      "github.com/ArtisanCloud/PowerX/internal/http"
+    ],
+    "grpc_auth_middleware": "compiled; no dedicated test files",
+    "go_vet": "passed",
+    "core_build": {
+      "path": "/tmp/powerx-plugin-service-core",
+      "sha256": "6d6dec1a7996548b65e1098aef0509fccaf0c0464c1e3358e0d97444c7b3bb45"
+    },
+    "capability_check": "capability-audit: ok, declared=1236 referenced=77 rest_routes=1175 candidates=1172 ignored_route_rules=79"
+  },
+  "controlled_tests": {
+    "backend/internal/transport/http/openapi/iam/plugin_authorization_test.go": [
+      "TestPluginAuthorizationHTTPAndTypedEntry"
+    ],
+    "backend/internal/service/plugin_identity/service_invocation_test.go": [
+      "TestServiceInvocationProofBindingAndRevocation",
+      "TestServiceInvocationDispatchUsesFixedRouteAndNoAdminBearer",
+      "TestServiceInvocationAPIKeyRetainsCallerAndExactGrant",
+      "TestServiceInvocationCacheFailureIsUnavailable"
+    ],
+    "backend/pkg/corex/iam/stsproof/issued_test.go": [
+      "TestSharedJWTSecretCannotForgeCoreIssuance"
+    ],
+    "backend/internal/transport/grpc/auth/sts_issuance_test.go": [
+      "TestExchangeRecordsAuthenticatedSTSIdentity"
+    ],
+    "backend/internal/transport/http/openapi/capability_registry/tenant_plugin_service_test.go": [
+      "TestTrustedPluginServiceHTTPDoesNotInjectProxyCredentials"
+    ],
+    "backend/internal/service/capability_registry/plugin_service_binding_test.go": [
+      "TestServiceTicketContractRejectsFreeProxyBinding"
+    ]
+  },
+  "local_seed": {
+    "command": "make capability-seed CAPABILITY_SEED_FLAGS=\"-preserve-installed-state -capability-ids=com.corex.iam.authorization.check,com.corex.iam.identity_context.service_read\"",
+    "completed": true,
+    "preimage_private_directory": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-plugin-service-_jmki35c",
+    "key_grants_unchanged": true,
+    "profile_permissions_unchanged": true,
+    "catalog": [
+      {
+        "capability_id": "com.corex.iam.authorization.check",
+        "status": "published",
+        "capabilities_hash": "7e65e5e23003d296bd80b3f9069d82cbc4acaab51665755213f62c4f316dd26c",
+        "protocol_hash": "cc3f71a4f9d30643b621f5acfe3db20abf77b77212fa1ec4a7be50838d0a9d6d",
+        "protocols": [
+          {
+            "method": "INVOKE",
+            "channel": "core_internal",
+            "endpoint": "core://iam/authorization",
+            "auth_type": "api_key_or_bearer",
+            "schema_ref": "docs/contracts/plugin-service-authorization.openapi.yaml#/components/schemas/AuthorizationOperation",
+            "tool_scope": "iam.authorization.check",
+            "actor_context": "service_actor",
+            "resource_scope": "tenant"
+          },
+          {
+            "method": "POST",
+            "channel": "rest",
+            "endpoint": "/api/v1/tenant/iam/authorization:check",
+            "auth_type": "api_key_or_bearer",
+            "schema_ref": "specs/026-iam/contracts/http-openapi.yaml#/paths/~1tenant~1iam~1authorization:check/post",
+            "sts_direct": true,
+            "tool_scope": "iam.authorization.check",
+            "actor_context": "service_actor",
+            "resource_scope": "tenant"
+          }
+        ]
+      },
+      {
+        "capability_id": "com.corex.iam.identity_context.service_read",
+        "status": "published",
+        "capabilities_hash": "3f1dd24ea362839b4aea97909f6a01ea3c8c694f4465222c392ce30891991084",
+        "protocol_hash": "fcbfdfeec994e1ffce4690565c46dbbeba0186c99cc1c4aad3feb461b46f79c2",
+        "protocols": [
+          {
+            "method": "INVOKE",
+            "channel": "core_internal",
+            "endpoint": "core://iam/identity-context",
+            "auth_type": "api_key_or_sts",
+            "schema_ref": "specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/components/schemas/TypedIdentityOperation",
+            "tool_scope": "iam.identity_context.resolve",
+            "actor_context": "service_actor",
+            "resource_scope": "tenant"
+          },
+          {
+            "method": "POST",
+            "channel": "rest",
+            "endpoint": "/api/v1/admin/iam/identity-contexts:resolve",
+            "auth_type": "user_jwt",
+            "schema_ref": "specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1admin~1iam~1identity-contexts:resolve/post",
+            "tool_scope": "iam.identity_context.resolve",
+            "actor_context": "admin_user",
+            "resource_scope": "tenant"
+          },
+          {
+            "method": "POST",
+            "channel": "rest",
+            "endpoint": "/api/v1/tenant/iam/identity-contexts:resolve",
+            "auth_type": "api_key_or_sts",
+            "schema_ref": "specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1tenant~1iam~1identity-contexts:resolve/post",
+            "sts_direct": true,
+            "tool_scope": "iam.identity_context.resolve",
+            "actor_context": "service_actor",
+            "resource_scope": "tenant"
+          },
+          {
+            "method": "POST",
+            "channel": "rest",
+            "endpoint": "/api/v1/admin/iam/identity-contexts:revalidate-ws",
+            "auth_type": "user_jwt",
+            "schema_ref": "specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1admin~1iam~1identity-contexts:revalidate-ws/post",
+            "tool_scope": "iam.identity_context.resolve",
+            "actor_context": "admin_user",
+            "resource_scope": "tenant"
+          },
+          {
+            "method": "POST",
+            "channel": "rest",
+            "endpoint": "/api/v1/tenant/iam/identity-contexts:revalidate-ws",
+            "auth_type": "api_key_or_sts",
+            "schema_ref": "specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml#/paths/~1tenant~1iam~1identity-contexts:revalidate-ws/post",
+            "sts_direct": true,
+            "tool_scope": "iam.identity_context.resolve",
+            "actor_context": "service_actor",
+            "resource_scope": "tenant"
+          }
+        ]
+      }
+    ]
+  },
+  "existing_host_key_read_only_smoke": {
+    "http_status": 200,
+    "credential": "existing WorkspaceX configuration Lab Key (not SCRM)",
+    "response": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "items": [
+          {
+            "capability_id": "com.corex.iam.authorization.check",
+            "status": "not_granted",
+            "reason_code": "CAPABILITY_NOT_GRANTED"
+          },
+          {
+            "capability_id": "com.corex.iam.identity_context.service_read",
+            "status": "not_granted",
+            "reason_code": "CAPABILITY_NOT_GRANTED"
+          },
+          {
+            "capability_id": "com.powerx.plugins.ecommerce.product.configuration.read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          },
+          {
+            "capability_id": "com.powerx.plugins.ecommerce.purchase.option.write",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          },
+          {
+            "capability_id": "com.powerx.plugins.ecommerce.purchase.operation.read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          }
+        ]
+      },
+      "timestamp": 1793549298,
+      "request_id": "ee535dda-d5eb-4109-be4f-f76d7b0c176e"
+    }
+  },
+  "deployment": {
+    "daily_core_pid_observed": 30958,
+    "daily_core_port": 8077,
+    "daily_core_restarted_by_agent": false,
+    "agent_temporary_services_retained": false,
+    "fresh_sts_exchange_required_for_new_contract": true,
+    "real_scrm_invocation_tested": false,
+    "remaining": [
+      "User restarts local daily Core using original command",
+      "SCRM publishes dedicated core_service_ticket binding and implements ticket verification with its own granted service identity",
+      "Real SCRM/consumer integration acceptance"
+    ]
+  }
+}

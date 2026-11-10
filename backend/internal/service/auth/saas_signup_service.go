@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
-	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	modeliam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modeltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
@@ -19,7 +18,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -101,6 +99,14 @@ func (s *SaaSSignupService) AccessTTL() time.Duration {
 		return time.Hour
 	}
 	return s.auth.AccessTTL
+}
+
+// AccessExpiresIn 返回注册流程实际签发的凭证剩余期限。
+func (s *SaaSSignupService) AccessExpiresIn(access string) int {
+	if s == nil || s.auth == nil {
+		return 0
+	}
+	return s.auth.AccessExpiresIn(access)
 }
 
 func (s *SaaSSignupService) Signup(ctx context.Context, in SaaSSignupInput) (*SaaSSignupResult, error) {
@@ -552,25 +558,11 @@ func (s *AuthService) issueTokensFor(ctx context.Context, ten *modeltenant.Tenan
 		IsRoot:     u.IsRoot,
 		Roles:      roleCodes,
 	}
-	jti := uuid.NewString()
-	claims.ID = jti
-	access, err := pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
+	access, refresh, err := s.issueSessionTokens(ctx, claims)
 	if err != nil {
 		return "", "", err
 	}
-	refresh, err := pkgauth.GenerateRefreshJWT(claims, s.Issuer, []string{s.Audience}, jti, s.RefreshTTL, s.JWTSecret)
-	if err != nil {
-		return "", "", err
-	}
-	if err = s.RTRepo.Issue(ctx, &modeliam.RefreshToken{
-		JTI:        jti,
-		TenantUUID: ten.UUID.String(),
-		MemberUUID: m.UUID.String(),
-		UserUUID:   u.UUID.String(),
-		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
-	}); err != nil {
-		return "", "", err
-	}
+
 	if s.Cache != nil {
 		ttl := 10 * time.Minute
 		_ = s.Cache.Set(ctx, middleware.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)

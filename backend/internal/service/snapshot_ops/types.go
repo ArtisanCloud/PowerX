@@ -11,18 +11,19 @@ const Contract = "powerx.system-snapshot/v1"
 
 // Config 由宿主注入，HTTP 调用方不能指定来源路径或数据库连接。
 type Config struct {
-	Directory       string
-	DirectorySource string
-	Instance        string
-	Version         string
-	Platform        string
-	MediaRoot       string
-	DatabaseDSN     string
-	EffectiveConfig []byte
-	ConfigFiles     map[string]string
-	Artifacts       map[string]string
-	LifecycleRoots  []string
-	SourceProblem   string
+	PolicyControlRequired bool
+	Directory             string
+	DirectorySource       string
+	Instance              string
+	Version               string
+	Platform              string
+	MediaRoot             string
+	DatabaseDSN           string
+	EffectiveConfig       []byte
+	ConfigFiles           map[string]string
+	Artifacts             map[string]string
+	LifecycleRoots        []string
+	SourceProblem         string
 }
 
 // Policy 是统一采集策略，不允许分别指定数据库和媒体周期。
@@ -35,6 +36,7 @@ type Policy struct {
 
 // NamedPolicy 是可维护的策略；只有默认策略可以启用自动调度。
 type NamedPolicy struct {
+	Revision int64 `json:"revision,omitempty"`
 	Policy
 	ID        string     `json:"id"`
 	Name      string     `json:"name"`
@@ -72,6 +74,11 @@ type Component struct {
 
 // Snapshot 的采集状态与业务恢复验收状态分别记录。
 type Snapshot struct {
+	CleanupError      string      `json:"cleanup_error,omitempty"`
+	PolicyRevision    int64       `json:"policy_revision,omitempty"`
+	PolicyFingerprint string      `json:"policy_fingerprint,omitempty"`
+	AdmissionDeadline *time.Time  `json:"admission_deadline,omitempty"`
+	RetentionToken    string      `json:"retention_token,omitempty"`
 	PolicyID          string      `json:"policy_id,omitempty"`
 	PolicyName        string      `json:"policy_name,omitempty"`
 	Attempt           int         `json:"attempt,omitempty"`
@@ -118,19 +125,20 @@ type Restore struct {
 }
 
 type Overview struct {
-	Directory        string        `json:"directory"`
-	DirectorySource  string        `json:"directory_source"`
-	Ready            bool          `json:"ready"`
-	Problems         []string      `json:"problems"`
-	Instance         string        `json:"instance"`
-	Policy           Policy        `json:"policy"`
-	Policies         []NamedPolicy `json:"policies"`
-	DefaultPolicyID  string        `json:"default_policy_id"`
-	NextRunAt        *time.Time    `json:"next_run_at,omitempty"`
-	SchedulerError   string        `json:"scheduler_error,omitempty"`
-	Snapshots        []Snapshot    `json:"snapshots"`
-	Restores         []Restore     `json:"restores"`
-	CutoverAvailable bool          `json:"cutover_available"`
+	PolicyControlProblem string        `json:"policy_control_problem,omitempty"`
+	Directory            string        `json:"directory"`
+	DirectorySource      string        `json:"directory_source"`
+	Ready                bool          `json:"ready"`
+	Problems             []string      `json:"problems"`
+	Instance             string        `json:"instance"`
+	Policy               Policy        `json:"policy"`
+	Policies             []NamedPolicy `json:"policies"`
+	DefaultPolicyID      string        `json:"default_policy_id"`
+	NextRunAt            *time.Time    `json:"next_run_at,omitempty"`
+	SchedulerError       string        `json:"scheduler_error,omitempty"`
+	Snapshots            []Snapshot    `json:"snapshots"`
+	Restores             []Restore     `json:"restores"`
+	CutoverAvailable     bool          `json:"cutover_available"`
 }
 
 // Backend 将 PostgreSQL 与文件采集细节放在适配层，方便真实集成测试。
@@ -141,10 +149,11 @@ type Backend interface {
 
 type AuditEvent struct{ Action, ID, Operator, TraceID, Outcome string }
 type Options struct {
-	Backend Backend
-	Sources func(context.Context) (Config, error)
-	Audit   func(context.Context, AuditEvent) error
-	Now     func() time.Time
+	RequirePolicyControl bool
+	Backend              Backend
+	Sources              func(context.Context) (Config, error)
+	Audit                func(context.Context, AuditEvent) error
+	Now                  func() time.Time
 	// DispatchCapture 将采集交给独立协调器；Core 停止后任务继续执行。
 	DispatchCapture func(context.Context, string) error
 	Coordinator     bool

@@ -1,0 +1,1141 @@
+{
+  "date": "2026-10-22",
+  "branch": "024-ai-engineering-skills",
+  "base_sha": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+  "changes_committed": false,
+  "scope": "Core media v2 legacy registration upgrade; all affected tenants; original credentials retained",
+  "controlled_checks": [
+    {
+      "log": "/private/tmp/px-catalog-sobbsdur/final-packages-race.jsonl",
+      "sha256": "32666c18cd3a33536262432efffdbb1c3b24a5feece44529ed582adaafc75d9b",
+      "passed_tests_including_subtests": 197,
+      "skipped_tests": [
+        "TestUpgradeCatalogPreservesExistingCapabilityIdentityStateAndGraphs",
+        "TestOwnerPostgresConcurrentProfileSaveAndOwnerChange"
+      ],
+      "failed_tests": []
+    },
+    {
+      "log": "/private/tmp/px-catalog-sobbsdur/media-final-race.jsonl",
+      "sha256": "f5ce41694421406e800ee31d80c74079e08b78846cf4a6f3b174bd8bc54564c5",
+      "passed_tests_including_subtests": 8,
+      "skipped_tests": [],
+      "failed_tests": []
+    },
+    {
+      "log": "/private/tmp/px-catalog-sobbsdur/installed-final.jsonl",
+      "sha256": "70ccded5c81dc803b34f5381636e1aeb2ec37ce316c0df923574e56fe31e7b34",
+      "passed_tests_including_subtests": 1,
+      "skipped_tests": [],
+      "failed_tests": []
+    }
+  ],
+  "additional_checks": {
+    "capability_check": {
+      "passed": true,
+      "declared": 1111,
+      "referenced": 74,
+      "rest_routes": 1042,
+      "candidates": 1124,
+      "ignored_route_rules": 50
+    },
+    "upgrade_registry_check": true,
+    "vet": "passed",
+    "app_build": {
+      "passed": true,
+      "path": "/private/tmp/px-catalog-sobbsdur/powerx-current",
+      "sha256": "bf524a24c5b6934f4978c5470639cc58d6e532ea4b91d3944ceaf1c239755596"
+    },
+    "router_and_service_race_after_final_adjustment": "passed"
+  },
+  "migration_payloads": [
+    {
+      "name": "core",
+      "checksum": "027afe76b4c88afef536053d8ab1bac91879ed985593311ab6827e966f4b5d42"
+    },
+    {
+      "name": "agent",
+      "checksum": "cbeff1dc07fd5a8d2255548be41caec2f1e771b7a8794be685e5d8f926221a98"
+    },
+    {
+      "name": "knowledge",
+      "checksum": "b51a96aa038da235d97875c13368053f0c2bec1d582ad841d676a6711f85ecf3"
+    },
+    {
+      "name": "catalog",
+      "checksum": "218f21ada031cd2ece15b792d0475b1b78384d5dac25cd96fd52421857f8e115"
+    }
+  ],
+  "local_development": {
+    "base_url": "http://127.0.0.1:8077",
+    "registration_upgrade": {
+      "tenants": 4,
+      "registrations": 32,
+      "versions": [
+        2
+      ],
+      "original_key_unchanged": true,
+      "original_grants_unchanged": 69925,
+      "upgrade_audits": 32
+    },
+    "original_credential_mode": "api_key",
+    "before_directory_calls": [
+      {
+        "capability": "vision_understanding",
+        "operation": "list_providers",
+        "http_status": 502,
+        "request_id": "478577ab-ed23-4309-9aa2-c9099e04b4b3"
+      },
+      {
+        "capability": "vision_understanding",
+        "operation": "list_models",
+        "http_status": 502,
+        "request_id": "f3196a4d-a18c-4e1b-b191-1b7bee8dc763"
+      },
+      {
+        "capability": "image_generation",
+        "operation": "list_providers",
+        "http_status": 502,
+        "request_id": "5d39a3d8-d23c-4a68-9458-408da56c8817"
+      },
+      {
+        "capability": "image_generation",
+        "operation": "list_models",
+        "http_status": 502,
+        "request_id": "741a9e6d-0d69-4ffa-9dce-7fed77cd8a08"
+      },
+      {
+        "capability": "video_generation",
+        "operation": "list_providers",
+        "http_status": 502,
+        "request_id": "4af205be-4653-42b3-9c65-195ec3ee3b58"
+      },
+      {
+        "capability": "video_generation",
+        "operation": "list_models",
+        "http_status": 502,
+        "request_id": "5cf5a730-d4ce-4c47-a95b-abb556d5372c"
+      },
+      {
+        "capability": "speech_synthesis",
+        "operation": "list_providers",
+        "http_status": 502,
+        "request_id": "c54e2a31-cf39-47f2-be3f-148e6d04d185"
+      },
+      {
+        "capability": "speech_synthesis",
+        "operation": "list_models",
+        "http_status": 502,
+        "request_id": "81a29b5f-104b-4bba-a589-42b67b38413a"
+      }
+    ],
+    "runtime_acceptance": {
+      "status": "local_catalog_grants_and_task_routes_passed",
+      "core_pid": 24339,
+      "directory_calls": [
+        {
+          "capability": "vision_understanding",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 2,
+          "request_id": "8266ad1f-fdf6-453c-9099-3baf5a88fd58",
+          "trace_id": "de2f298d-c32a-4e8b-b770-1bd9e6665262",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "vision_understanding",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 14,
+          "request_id": "70de305c-61ab-45ac-8b5e-9c512147b5ea",
+          "trace_id": "2ac0cb26-23cc-4272-95bc-72de4dc32e8d",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "qwen-cn/qwen-vl-max",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-max",
+              "configured": true,
+              "available": true,
+              "reason_code": null
+            },
+            {
+              "model_key": "qwen-cn/qwen-vl-max-latest",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-max-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-vl-plus",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-vl-plus-latest",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-plus-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen2.5-vl-72b-instruct",
+              "provider": "qwen-cn",
+              "model": "qwen2.5-vl-72b-instruct",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen3-vl-flash",
+              "provider": "qwen-cn",
+              "model": "qwen3-vl-flash",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen3-vl-plus",
+              "provider": "qwen-cn",
+              "model": "qwen3-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-max",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-max",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-max-latest",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-max-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-plus",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-plus-latest",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-plus-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen2.5-vl-72b-instruct",
+              "provider": "qwen-intl",
+              "model": "qwen2.5-vl-72b-instruct",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen3-vl-flash",
+              "provider": "qwen-intl",
+              "model": "qwen3-vl-flash",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen3-vl-plus",
+              "provider": "qwen-intl",
+              "model": "qwen3-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        },
+        {
+          "capability": "image_generation",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 3,
+          "request_id": "4e3b103e-cbeb-4ef9-a75d-c164137f1f31",
+          "trace_id": "f671da50-b411-44a1-a2e2-778158270c9c",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "image_generation",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 9,
+          "request_id": "20dabd07-224b-4f33-a95a-692b269ae4aa",
+          "trace_id": "98834ec0-ae51-445c-831a-46aad6a1b58d",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "openai/dall-e-2",
+              "provider": "openai",
+              "model": "dall-e-2",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/dall-e-3",
+              "provider": "openai",
+              "model": "dall-e-3",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/gpt-image-1",
+              "provider": "openai",
+              "model": "gpt-image-1",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/gpt-image-1-mini",
+              "provider": "openai",
+              "model": "gpt-image-1-mini",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/gpt-image-1.5",
+              "provider": "openai",
+              "model": "gpt-image-1.5",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-image-2.0",
+              "provider": "qwen-cn",
+              "model": "qwen-image-2.0",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-image-2.0-pro",
+              "provider": "qwen-cn",
+              "model": "qwen-image-2.0-pro",
+              "configured": true,
+              "available": true,
+              "reason_code": null
+            },
+            {
+              "model_key": "qwen-intl/qwen-image-2.0",
+              "provider": "qwen-intl",
+              "model": "qwen-image-2.0",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-image-2.0-pro",
+              "provider": "qwen-intl",
+              "model": "qwen-image-2.0-pro",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        },
+        {
+          "capability": "video_generation",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 1,
+          "request_id": "b223f207-0568-46b0-a393-0dafae02c2f5",
+          "trace_id": "5a2770a4-0d5d-41cc-afcb-753c14091ba8",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "video_generation",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 4,
+          "request_id": "15b98843-249f-4cf9-95fc-963de19a0118",
+          "trace_id": "255e71be-eb29-4fc9-87ef-e3b684fa6058",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-0-lite-t2v-250428",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-0-lite-t2v-250428",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-0-pro-250528",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-0-pro-250528",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-0-pro-fast-251015",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-0-pro-fast-251015",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-5-pro-251215",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-5-pro-251215",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        },
+        {
+          "capability": "speech_synthesis",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 2,
+          "request_id": "2f32e7f8-1b30-4d39-960d-652461853542",
+          "trace_id": "33c0d53c-8847-4e99-960e-319c44b362cc",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "speech_synthesis",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 2,
+          "request_id": "60d9d991-dd1f-4118-a088-67d28caee36e",
+          "trace_id": "96fef87f-7da3-4fb1-b4db-eaa8dbac3524",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "qwen-cn/qwen3-tts-flash",
+              "provider": "qwen-cn",
+              "model": "qwen3-tts-flash",
+              "configured": true,
+              "available": true,
+              "reason_code": null
+            },
+            {
+              "model_key": "qwen-intl/qwen3-tts-flash",
+              "provider": "qwen-intl",
+              "model": "qwen3-tts-flash",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        }
+      ],
+      "contract_assertions": {
+        "contract_version": 2,
+        "protocol_used": "core_internal",
+        "fallback_used": false
+      },
+      "task_binding_checks": [
+        {
+          "operation": "get",
+          "capability_id": "com.corex.ai.media.tasks.read",
+          "http_status": 404,
+          "response": {
+            "code": 404,
+            "message": "registry.invalid_request",
+            "error": "AI_TASK_NOT_FOUND",
+            "error_code": "AI_TASK_NOT_FOUND",
+            "reason_code": "AI_TASK_NOT_FOUND",
+            "details": {
+              "code": "registry.invalid_request",
+              "hint": "请求缺少必填字段或格式不合法",
+              "reason_code": "AI_TASK_NOT_FOUND"
+            },
+            "timestamp": 1792673807,
+            "request_id": "f3a0be7c-e35e-4753-8a92-ed3ff4d612f2"
+          },
+          "task_uuid": "508b8978-5c5b-4974-a6b9-f2dc390a6b74",
+          "expected": "404 AI_TASK_NOT_FOUND; no task submitted or changed"
+        },
+        {
+          "operation": "cancel",
+          "capability_id": "com.corex.ai.media.tasks.cancel",
+          "http_status": 404,
+          "response": {
+            "code": 404,
+            "message": "registry.invalid_request",
+            "error": "AI_TASK_NOT_FOUND",
+            "error_code": "AI_TASK_NOT_FOUND",
+            "reason_code": "AI_TASK_NOT_FOUND",
+            "details": {
+              "code": "registry.invalid_request",
+              "hint": "请求缺少必填字段或格式不合法",
+              "reason_code": "AI_TASK_NOT_FOUND"
+            },
+            "timestamp": 1792673807,
+            "request_id": "34221aac-f260-48f9-a692-98f0aaa4b61f"
+          },
+          "task_uuid": "508b8978-5c5b-4974-a6b9-f2dc390a6b74",
+          "expected": "404 AI_TASK_NOT_FOUND; no task submitted or changed"
+        }
+      ],
+      "post_user_migration": {
+        "executed_by": "user",
+        "command_reported": "make db-migrate",
+        "configuration": "backend/etc/config.yaml",
+        "completion_log": {
+          "path": "backend/logs/info.log",
+          "timestamp": "2026-10-22T20:56:05.558+0800",
+          "msg": "migrate ok"
+        },
+        "schema": {
+          "database": "powerx",
+          "media_task_table": "ai_media_tasks",
+          "column_count": 26,
+          "indexes": [
+            "ai_media_tasks_pkey",
+            "idx_public_ai_media_tasks_deleted_at",
+            "idx_public_ai_media_tasks_status",
+            "idx_public_ai_media_tasks_tenant_uuid",
+            "idx_public_ai_media_tasks_uuid",
+            "uk_ai_media_request"
+          ]
+        },
+        "task_route_regression": "get/cancel nonexistent task both return 404 AI_TASK_NOT_FOUND",
+        "core_process_pid": 24339,
+        "agent_restarted_core": false,
+        "paid_provider_calls": 0
+      },
+      "remaining": "video configuration and separately authorized paid provider lifecycle acceptance"
+    },
+    "paid_provider_calls": 0,
+    "repeat_upgrade": {
+      "passed": true,
+      "upgraded_registrations": 32,
+      "min_version": 2,
+      "max_version": 2,
+      "upgrade_audits": 32
+    },
+    "grant_status": {
+      "http_status": 200,
+      "items": [
+        {
+          "capability_id": "com.corex.ai.catalog.providers.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.ai.catalog.models.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.ai.vlm.invoke",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.ai.image.invoke",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.ai.video.invoke",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.ai.tts.invoke",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.ai.media.tasks.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.ai.media.tasks.cancel",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        }
+      ],
+      "request_id": "8bbd29b9-357a-4ce5-98ab-c8348f71edad"
+    },
+    "runtime_acceptance_before_user_restart": {
+      "status": "pending_user_authorized_restart",
+      "old_process_pid": 15410,
+      "reason": "running binary lacks MediaInvoker; eight original credential catalog calls returned unsupported capability"
+    },
+    "grant_status_before_media_setup": {
+      "http_status": 200,
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "capability_id": "com.corex.ai.catalog.providers.read",
+              "status": "granted",
+              "reason_code": "CAPABILITY_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.ai.catalog.models.read",
+              "status": "granted",
+              "reason_code": "CAPABILITY_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.ai.vlm.invoke",
+              "status": "not_granted",
+              "reason_code": "CAPABILITY_NOT_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.ai.image.invoke",
+              "status": "not_granted",
+              "reason_code": "CAPABILITY_NOT_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.ai.video.invoke",
+              "status": "not_granted",
+              "reason_code": "CAPABILITY_NOT_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.ai.tts.invoke",
+              "status": "not_granted",
+              "reason_code": "CAPABILITY_NOT_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.ai.media.tasks.read",
+              "status": "not_granted",
+              "reason_code": "CAPABILITY_NOT_GRANTED"
+            },
+            {
+              "capability_id": "com.corex.ai.media.tasks.cancel",
+              "status": "not_granted",
+              "reason_code": "CAPABILITY_NOT_GRANTED"
+            }
+          ]
+        },
+        "timestamp": 1792671424,
+        "request_id": "af0337cc-1d62-4965-b67b-7b22fe2810f9"
+      }
+    },
+    "media_setup": {
+      "evidence": "docs/contracts/evidence/ai-media-local-setup-validation-20261022.json",
+      "grants_added": 6,
+      "profiles_added": 3,
+      "credential_unchanged": true,
+      "shared_profile_changed": false,
+      "existing_grants_retained": 69925,
+      "existing_grants_changed_or_missing": 0,
+      "current_grant_count": 69931,
+      "audit_id": 1712,
+      "selected_models": [
+        {
+          "capability": "vision_understanding",
+          "model_key": "qwen-cn/qwen-vl-max",
+          "provider": "qwen-cn",
+          "model": "qwen-vl-max",
+          "configured": true,
+          "available": true,
+          "reason_code": null
+        },
+        {
+          "capability": "image_generation",
+          "model_key": "qwen-cn/qwen-image-2.0-pro",
+          "provider": "qwen-cn",
+          "model": "qwen-image-2.0-pro",
+          "configured": true,
+          "available": true,
+          "reason_code": null
+        },
+        {
+          "capability": "speech_synthesis",
+          "model_key": "qwen-cn/qwen3-tts-flash",
+          "provider": "qwen-cn",
+          "model": "qwen3-tts-flash",
+          "configured": true,
+          "available": true,
+          "reason_code": null
+        }
+      ],
+      "idempotence": {
+        "grants_to_add": 0,
+        "profiles_to_add": 0
+      },
+      "video_next_step": "user_will_configure_video_credential_in_Core_then_revalidate_without_paid_generation",
+      "paid_provider_calls": 0,
+      "next_steps": [
+        {
+          "owner": "user",
+          "action": "configure_video_credential_and_model_in_Core_for_the_same_tenant_dev_environment"
+        },
+        {
+          "owner": "Core_agent",
+          "action": "after_configuration_notification_revalidate_video_catalog_without_paid_generation"
+        },
+        {
+          "owner": "deployment_and_plugin_owners",
+          "action": "real_provider_generation_and_playback_after_model_and_cost_budget_are_confirmed"
+        }
+      ],
+      "post_migration_checked_at": "2026-10-22T12:56:46.187069+00:00"
+    },
+    "runtime_acceptance_before_user_migration": {
+      "status": "catalog_passed_task_storage_blocked",
+      "user_restarted_core_pid": 24339,
+      "directory_calls": [
+        {
+          "capability": "vision_understanding",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 2,
+          "request_id": "5c1232ba-38e9-4672-a857-5cfbdfbeafd8",
+          "trace_id": "84de5b22-efe6-48fa-a70e-db4705f159aa",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "vision_understanding",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 14,
+          "request_id": "feb60d7f-35fc-4cdb-8188-0b7997c1dc3a",
+          "trace_id": "bc290301-d440-4bf0-98c9-a0ef5dd7fb03",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "qwen-cn/qwen-vl-max",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-max",
+              "configured": true,
+              "available": true,
+              "reason_code": null
+            },
+            {
+              "model_key": "qwen-cn/qwen-vl-max-latest",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-max-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-vl-plus",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-vl-plus-latest",
+              "provider": "qwen-cn",
+              "model": "qwen-vl-plus-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen2.5-vl-72b-instruct",
+              "provider": "qwen-cn",
+              "model": "qwen2.5-vl-72b-instruct",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen3-vl-flash",
+              "provider": "qwen-cn",
+              "model": "qwen3-vl-flash",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen3-vl-plus",
+              "provider": "qwen-cn",
+              "model": "qwen3-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-max",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-max",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-max-latest",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-max-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-plus",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-vl-plus-latest",
+              "provider": "qwen-intl",
+              "model": "qwen-vl-plus-latest",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen2.5-vl-72b-instruct",
+              "provider": "qwen-intl",
+              "model": "qwen2.5-vl-72b-instruct",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen3-vl-flash",
+              "provider": "qwen-intl",
+              "model": "qwen3-vl-flash",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen3-vl-plus",
+              "provider": "qwen-intl",
+              "model": "qwen3-vl-plus",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        },
+        {
+          "capability": "image_generation",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 3,
+          "request_id": "c8ae1cde-90da-4965-bc1b-3bea81296b22",
+          "trace_id": "7a250dbf-cd6e-454d-b0a9-e93581c67dc4",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "image_generation",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 9,
+          "request_id": "2952aada-6b27-4cbe-9aca-2ee6ad758578",
+          "trace_id": "f8abc6b0-61d6-4120-886d-4530f7778cd7",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "openai/dall-e-2",
+              "provider": "openai",
+              "model": "dall-e-2",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/dall-e-3",
+              "provider": "openai",
+              "model": "dall-e-3",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/gpt-image-1",
+              "provider": "openai",
+              "model": "gpt-image-1",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/gpt-image-1-mini",
+              "provider": "openai",
+              "model": "gpt-image-1-mini",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "openai/gpt-image-1.5",
+              "provider": "openai",
+              "model": "gpt-image-1.5",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-image-2.0",
+              "provider": "qwen-cn",
+              "model": "qwen-image-2.0",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-cn/qwen-image-2.0-pro",
+              "provider": "qwen-cn",
+              "model": "qwen-image-2.0-pro",
+              "configured": true,
+              "available": true,
+              "reason_code": null
+            },
+            {
+              "model_key": "qwen-intl/qwen-image-2.0",
+              "provider": "qwen-intl",
+              "model": "qwen-image-2.0",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "qwen-intl/qwen-image-2.0-pro",
+              "provider": "qwen-intl",
+              "model": "qwen-image-2.0-pro",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        },
+        {
+          "capability": "video_generation",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 1,
+          "request_id": "0a741ae3-a133-4f43-85e0-9ff724eae20c",
+          "trace_id": "6cd87b5d-d264-4885-84bc-2b948e549c08",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "video_generation",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 4,
+          "request_id": "73052afa-583f-4fb6-ba3a-6706230857ce",
+          "trace_id": "62f450cc-1c71-4ea8-a328-061dcc8af052",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-0-lite-t2v-250428",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-0-lite-t2v-250428",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-0-pro-250528",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-0-pro-250528",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-0-pro-fast-251015",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-0-pro-fast-251015",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            },
+            {
+              "model_key": "volcengine/seedance:doubao-seedance-1-5-pro-251215",
+              "provider": "volcengine",
+              "model": "doubao-seedance-1-5-pro-251215",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        },
+        {
+          "capability": "speech_synthesis",
+          "operation": "list_providers",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 2,
+          "request_id": "dd7f1e14-f817-4438-b1e5-f9308028ddda",
+          "trace_id": "5d42a16d-d5e8-4817-9afa-e33fb5cbfb5c",
+          "framework_payload_alias_matches": true
+        },
+        {
+          "capability": "speech_synthesis",
+          "operation": "list_models",
+          "http_status": 200,
+          "protocol_used": "core_internal",
+          "fallback_used": false,
+          "contract_version": 2,
+          "count": 2,
+          "request_id": "6207751c-6879-4f23-b3ea-896b702be115",
+          "trace_id": "7e44dac2-6930-4d0f-9e69-2c465bd08a63",
+          "framework_payload_alias_matches": true,
+          "models": [
+            {
+              "model_key": "qwen-cn/qwen3-tts-flash",
+              "provider": "qwen-cn",
+              "model": "qwen3-tts-flash",
+              "configured": true,
+              "available": true,
+              "reason_code": null
+            },
+            {
+              "model_key": "qwen-intl/qwen3-tts-flash",
+              "provider": "qwen-intl",
+              "model": "qwen3-tts-flash",
+              "configured": false,
+              "available": false,
+              "reason_code": "AI_MODEL_NOT_CONFIGURED"
+            }
+          ]
+        }
+      ],
+      "contract_assertions": {
+        "contract_version": 2,
+        "protocol_used": "core_internal",
+        "fallback_used": false
+      },
+      "task_binding_checks": [
+        {
+          "operation": "get",
+          "capability_id": "com.corex.ai.media.tasks.read",
+          "http_status": 502,
+          "response": {
+            "code": 502,
+            "message": "integration.invoke_failed",
+            "error": "ERROR: relation \"public.ai_media_tasks\" does not exist (SQLSTATE 42P01)",
+            "details": {
+              "code": "integration.invoke_failed",
+              "hint": "能力调用失败，请参考 trace_id 排查",
+              "next_steps": [
+                "检查事件总线与 Plugin 状态，确保协议通道可用",
+                "若错误提示手动升级，请在 Workflow/Admin 控制台确认模板升级"
+              ]
+            },
+            "timestamp": 1792673099,
+            "request_id": "990d310a-3f92-4c75-b6cc-74bf3fa2e6e6"
+          },
+          "task_uuid": "ef0a56cf-add2-4eb8-90cf-1924924f6d9e",
+          "expected": "404 AI_TASK_NOT_FOUND; no task submitted or changed"
+        },
+        {
+          "operation": "cancel",
+          "capability_id": "com.corex.ai.media.tasks.cancel",
+          "http_status": 502,
+          "response": {
+            "code": 502,
+            "message": "integration.invoke_failed",
+            "error": "ERROR: relation \"public.ai_media_tasks\" does not exist (SQLSTATE 42P01)",
+            "details": {
+              "code": "integration.invoke_failed",
+              "hint": "能力调用失败，请参考 trace_id 排查",
+              "next_steps": [
+                "检查事件总线与 Plugin 状态，确保协议通道可用",
+                "若错误提示手动升级，请在 Workflow/Admin 控制台确认模板升级"
+              ]
+            },
+            "timestamp": 1792673099,
+            "request_id": "df624e95-5a7d-4f33-a5bd-4393fd362801"
+          },
+          "task_uuid": "ef0a56cf-add2-4eb8-90cf-1924924f6d9e",
+          "expected": "404 AI_TASK_NOT_FOUND; no task submitted or changed"
+        }
+      ],
+      "blocker": {
+        "code": "LOCAL_AI_MEDIA_TASKS_TABLE_MISSING",
+        "table": "public.ai_media_tasks",
+        "formal_migration_entry": "make db-migrate CONFIG=backend/etc/config.yaml",
+        "execution": "user_will_execute_existing_migration_then_notify_agent_for_revalidation",
+        "existing_entry_also_migrates": [
+          "Core",
+          "Agent",
+          "conditional Knowledge stores"
+        ],
+        "user_owned_core_pid": 24339,
+        "user_owned_core_restarted_by_agent": false
+      }
+    }
+  },
+  "broader_suite_limitations": [
+    "Earlier tests/integration/capability_registry run failed on fixtures missing iam_permission and an invocation without a configured gRPC client; not claimed as globally green."
+  ],
+  "temporary_postgres": {
+    "pid": 87946,
+    "port": 64039,
+    "root": "/private/tmp/px-catalog-sobbsdur",
+    "stopped": true,
+    "port_released": true
+  }
+}

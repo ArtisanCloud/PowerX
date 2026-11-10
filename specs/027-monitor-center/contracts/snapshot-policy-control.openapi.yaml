@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: Root system snapshot plan authority
+  version: 1.0.0
+  description: Snapshot plans use database authority, explicit paused adoption, catalog
+    and plan CAS, immutable UUID receipts and formal TaskBus publication. Runtime/recovery
+    records remain independent of the business database.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /admin/ops/backup/system-snapshots/policy-configuration:
+    get:
+      operationId: getSystemSnapshotPolicyConfiguration
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Configuration'
+        '400':
+          description: Invalid typed request or confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root only; service identities rejected
+        '409':
+          description: CAS, ownership, origin or UUID request conflict
+        '428':
+          description: Legacy contract or adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+  /admin/ops/backup/system-snapshots/policy-configuration/adoptions:
+    post:
+      operationId: adoptSystemSnapshotPolicies
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400':
+          description: Invalid typed request or confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root only; service identities rejected
+        '409':
+          description: CAS, ownership, origin or UUID request conflict
+        '428':
+          description: Legacy contract or adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Adoption'
+  /admin/ops/backup/system-snapshots/policy-configuration/changes:
+    post:
+      operationId: changeSystemSnapshotPolicy
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400':
+          description: Invalid typed request or confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root only; service identities rejected
+        '409':
+          description: CAS, ownership, origin or UUID request conflict
+        '428':
+          description: Legacy contract or adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Change'
+  /admin/ops/backup/system-snapshots/policy-configuration/requests/{request_id}:
+    get:
+      operationId: getSystemSnapshotPolicyRequest
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400':
+          description: Invalid typed request or confirmation
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root only; service identities rejected
+        '409':
+          description: CAS, ownership, origin or UUID request conflict
+        '428':
+          description: Legacy contract or adoption required
+        '503':
+          description: Authority unavailable or unknown commit; query original UUID
+        '404':
+          description: Receipt absent; do not automatically resubmit.
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Settings:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - retention_count
+      - retention_days
+      - interval_minutes
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        retention_count:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10000
+        retention_days:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 3650
+        interval_minutes:
+          type: integer
+          minimum: 1
+          maximum: 525600
+          description: Retention days * 1440 must cover the interval.
+    Entry:
+      type: object
+      additionalProperties: false
+      required:
+      - revision
+      - settings
+      - enabled
+      - current
+      - id
+      - fingerprint
+      - anchor
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        settings:
+          $ref: '#/components/schemas/ObservedSettings'
+        enabled:
+          type: boolean
+        current:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        fingerprint:
+          type: string
+        anchor:
+          type: string
+          format: date-time
+    Configuration:
+      type: object
+      additionalProperties: false
+      required:
+      - authority
+      - state
+      - ready
+      - desired_revision
+      - applied_revision
+      - snapshot_revision
+      - legacy_digest
+      - policies
+      - execution_ready
+      properties:
+        authority:
+          type: string
+          enum:
+          - legacy
+          - database
+          - unavailable
+        state:
+          type: string
+          enum:
+          - legacy
+          - pending
+          - applied
+          - failed
+          - unconfirmed
+          - unavailable
+        ready:
+          type: boolean
+        desired_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        applied_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        snapshot_revision:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        legacy_digest:
+          type: string
+        policies:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Entry'
+        execution_ready:
+          type: object
+          additionalProperties:
+            type: boolean
+        problem:
+          type: string
+    Adoption:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - legacy_digest
+      - confirm
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        legacy_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        confirm:
+          type: boolean
+          enum:
+          - true
+    Change:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - expected_revision
+      - expected_policy_revision
+      - policy_id
+      - action
+      - confirm
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_policy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        action:
+          type: string
+          enum:
+          - save
+          - status
+          - current
+        settings:
+          $ref: '#/components/schemas/Settings'
+        enabled:
+          type: boolean
+        confirm:
+          type: boolean
+          enum:
+          - true
+        policy_id:
+          type: string
+          description: Empty for creation; UUID otherwise.
+      description: save requires full settings only and pauses/clears current; current
+        selects a paused plan and pauses prior current; status requires enabled only,
+        enabling requires the current plan and supported execution mode.
+    Mutation:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - operation_revision
+      - policy_id
+      - configuration
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        operation_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        configuration:
+          $ref: '#/components/schemas/Configuration'
+        policy_id:
+          type: string
+    ObservedSettings:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - retention_count
+      - retention_days
+      - interval_minutes
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        retention_count:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10000
+        retention_days:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 3650
+        interval_minutes:
+          type: integer
+          minimum: 1
+          maximum: 525600
+          description: Retention days * 1440 must cover the interval.

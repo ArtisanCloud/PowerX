@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -15,7 +16,9 @@ import (
 // InvocationTraceRepository 管理能力调用追踪记录。
 type InvocationTraceRepository struct {
 	*baseRepo.BaseRepository[models.InvocationTrace]
-	db *gorm.DB
+	db               *gorm.DB
+	retentionChecked bool
+	retentionOnce    sync.Once
 }
 
 // InvocationTraceFilter 用于筛选追踪记录。
@@ -44,6 +47,12 @@ func NewInvocationTraceRepository(db *gorm.DB) *InvocationTraceRepository {
 func (r *InvocationTraceRepository) Create(ctx context.Context, trace *models.InvocationTrace) (*models.InvocationTrace, error) {
 	if trace == nil {
 		return nil, errors.New("invocation trace payload is nil")
+	}
+	r.retentionOnce.Do(func() {
+		r.retentionChecked = r.db.Migrator().HasColumn(&models.InvocationTrace{}, "record_class") && r.db.Migrator().HasColumn(&models.InvocationTrace{}, "completed_at")
+	})
+	if !r.retentionChecked {
+		return r.BaseRepository.WithDB(r.db.Omit("RecordClass", "CompletedAt")).Create(ctx, trace)
 	}
 	return r.BaseRepository.Create(ctx, trace)
 }

@@ -5,8 +5,8 @@ import type { ApiResponse } from "../types/types";
 import type { PowerModel } from "../types";
 
 export interface Provider {
-  ID: string;
-  Name: string;
+  id: string;
+  name: string;
   apps?: { id: string; name: string }[];
   auth?: {
     scheme?: string;
@@ -22,12 +22,131 @@ export interface Provider {
   };
 }
 
+interface ProviderCatalogResponse {
+  env: string;
+  modality: string;
+  providers: Provider[];
+}
+
+export interface VisionModelUsage {
+  status: 'supported' | 'unsupported' | 'unknown';
+  reason_code?: string;
+  source: 'provider_api' | 'official_docs' | 'unknown';
+  source_url?: string;
+  checked_at?: string;
+}
+
+export interface OnlineCatalogModel {
+  operations?: Record<string, ImageOperation>;
+  parameter_profile?: ModelParameterProfile;
+  id: string;
+  label: string;
+  modalities: string[];
+  match: "local" | "provider" | "manual" | "unmatched";
+  manual_modalities: string[];
+  reported_modalities?: string[];
+  manual_confirmed?: boolean;
+  review_required?: boolean;
+  input_modalities?: string[];
+  output_modalities?: string[];
+  vision?: VisionModelUsage;
+}
+
+export interface ImageOperation {
+  driver: string;
+  parameters: Record<string, { type: string; enum?: Array<string | number>; default?: unknown }>;
+}
+
+export interface TenantModelCatalog {
+  models: string[];
+  catalog_source: 'online' | 'instance' | 'local' | 'unknown';
+  source?: string;
+  updated_at?: string;
+  items?: OnlineCatalogModel[];
+}
+
+export interface ModelParameterProfile {
+  version: number;
+  provider: string;
+  model: string;
+  source: 'official_docs' | 'provider_api' | 'unknown';
+  source_url?: string;
+  checked_at?: string;
+  defaults: Record<string, unknown>;
+  sampling: 'supported' | 'reasoning_none' | 'unsupported' | 'unknown';
+  reasoning_efforts?: string[];
+  token_parameter?: string;
+  supported_parameters?: string[];
+  supported_parameters_known?: boolean;
+  max_output_tokens?: number;
+}
+
+export interface OnlineModelCatalog {
+  provider: string;
+  env: string;
+  app: string;
+  protocol: string;
+  source: string;
+  updated_at: string;
+  revision: string;
+  models: OnlineCatalogModel[];
+  corrected_count?: number;
+}
+
+export interface OnlineModelSyncRequest {
+  env: string;
+  provider: string;
+  app: string;
+  modality: string;
+  action: "refresh" | "assign" | "unassign";
+  revision?: string;
+  models?: string[];
+  confirm_unknown?: boolean;
+}
+
+export interface ConnectionVerification {
+  provider: string;
+  probe: "models" | "key_info" | "ollama_tags";
+  endpoint_reachable: boolean;
+  api_key_verified: boolean;
+  authentication: "api_key" | "not_required";
+  model_access_verified: false;
+  generation_submitted: false;
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  verification?: ConnectionVerification;
+  message?: string;
+}
+
+export interface VisionTrialContext {
+  env: string;
+  provider: string;
+  model: string;
+  app: string;
+  connection?: { baseURL: string; apiKey?: string; authMode: string; organization: string; region: string; secretId: string; secretKey?: string; azureDeployment: string };
+  params: { maxTokens: number; jsonMode: boolean; reasoningEffort?: string; temperature?: number; topP?: number };
+}
+export interface VisionTrialResult {
+  type: 'analysis';
+  provider: string;
+  model: string;
+  text: string;
+  trace_id: string;
+  elapsed_ms: number;
+  env: string;
+  usage?: Record<string, unknown>;
+}
+export type VisionTrialImage = { type: 'image_url'; url: string } | { type: 'image_base64'; content: string };
+
 export interface AgentProfile extends PowerModel {
   modality: string;
   provider: string;
   model: string;
   label: string;
   defaults: {
+    [key: string]: any;
     maxTokens: number;
     stream: boolean;
     temperature: number;
@@ -41,8 +160,8 @@ export interface AgentCredential extends PowerModel {
   name: string;
   provider: string;
   authScheme: string;
+  has_credentials?: boolean;
   data: {
-    api_key: string;
     azure_deployment: string;
     base_url: string;
     organization: string;
@@ -63,9 +182,15 @@ export interface SaveSettingsPayload {
     region?: string;
     azureDeployment?: string;
     temperature?: number;
+    reasoningEffort?: string;
     maxTokens?: number;
     topP?: number;
     stream?: boolean;
+  };
+  vlm?: {
+    provider: string; app?: string; model: string; apiKey?: string; baseURL?: string;
+    organization?: string; region?: string; reuseCredential?: boolean;
+    maxTokens?: number; reasoningEffort?: string; temperature?: number; topP?: number; jsonMode?: boolean;
   };
   image?: {
     provider: string;
@@ -334,10 +459,17 @@ export class AISettingService {
     const url = params.toString()
       ? `${ApiEndpoints.ADMIN_AGENTS.PROVIDERS}?${params.toString()}`
       : ApiEndpoints.ADMIN_AGENTS.PROVIDERS;
-    const response = await get<ApiResponse<Provider[]>>(
+    const response = await get<ApiResponse<ProviderCatalogResponse>>(
       url
     );
-    return response.data.providers || [];
+    const providers = response.data?.providers;
+    if (!Array.isArray(providers) || providers.some(provider =>
+      !provider || typeof provider.id !== "string" || !provider.id.trim() ||
+      typeof provider.name !== "string" || !provider.name.trim()
+    )) {
+      throw new Error("AI_PROVIDER_CATALOG_INVALID");
+    }
+    return providers;
   }
 
   /**
@@ -347,25 +479,40 @@ export class AISettingService {
     provider?: string,
     modality?: string,
     env?: string,
-    app?: string
+    app?: string,
+    baseURL?: string
   ): Promise<string[]> {
+    return (await this.getModelCatalog(provider, modality, env, app, baseURL)).models;
+  }
+
+  static async getModelCatalog(provider?: string, modality?: string, env?: string, app?: string, baseURL?: string): Promise<TenantModelCatalog> {
     const { get } = useApiClient();
     const params = new URLSearchParams();
     if (provider) params.append("provider", provider);
     if (modality) params.append("modality", modality);
     if (env) params.append("env", env);
     if (app) params.append("app", app);
+    // 私有实例发现使用表单地址，尚未保存的地址也可读取；不在 URL 中携带密钥。
+    if (provider?.trim().toLowerCase() === "ollama" && baseURL?.trim()) params.append("base_url", baseURL.trim());
 
     const url = params.toString()
       ? `${ApiEndpoints.ADMIN_AGENTS.MODELS}?${params.toString()}`
       : ApiEndpoints.ADMIN_AGENTS.MODELS;
 
-    const response = await get<ApiResponse<string[]>>(url);
+    const response = await get<ApiResponse<string[]>>(url, { useGlobalLoading: false });
     const data: any = response.data as any;
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.models)) return data.models;
-    if (Array.isArray(data?.items)) return data.items;
-    return [];
+    if (Array.isArray(data)) return { models: data, catalog_source: 'unknown' };
+    if (Array.isArray(data?.models)) return { ...data, catalog_source: data.catalog_source || 'unknown' };
+    if (Array.isArray(data?.items)) return { models: data.items, catalog_source: 'unknown' };
+    return { models: [], catalog_source: 'unknown' };
+  }
+
+  static async syncOnlineModels(payload: OnlineModelSyncRequest): Promise<OnlineModelCatalog> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<OnlineModelCatalog>>(ApiEndpoints.ADMIN_AGENTS.ONLINE_MODELS_SYNC, payload, { useGlobalLoading: false });
+    const result = response.data;
+    if (!result || !result.revision || !Array.isArray(result.models)) throw new Error("AI_MODEL_DISCOVERY_RESPONSE_INVALID");
+    return result;
   }
 
   /**
@@ -385,13 +532,14 @@ export class AISettingService {
   /**
    * 测试连接
    */
-  static async testConnection(payload: SaveSettingsPayload): Promise<any> {
+  static async testConnection(payload: SaveSettingsPayload): Promise<ConnectionTestResult> {
     const { post } = useApiClient();
-    const response = await post<ApiResponse<any>>(
+    const response = await post<ApiResponse<ConnectionTestResult>>(
       ApiEndpoints.ADMIN_AGENTS.TEST_CONNECTION,
-      payload
+      payload,
+      { useGlobalLoading: false }
     );
-    return response.data;
+    return response.data || { ok: false };
   }
 
   /**
@@ -401,9 +549,29 @@ export class AISettingService {
     const { post } = useApiClient();
     const response = await post<ApiResponse<any>>(
       ApiEndpoints.ADMIN_AGENTS.TEST_CALL,
-      payload
+      payload,
+      { useGlobalLoading: false }
     );
     return response.data;
+  }
+
+  /** 显式执行一次视觉试跑；由 Core 配置控制推理期限，不被前端通用 30 秒截断。 */
+  static async trialVision(context: VisionTrialContext, image: VisionTrialImage, prompt: string, signal: AbortSignal): Promise<VisionTrialResult> {
+    const { post } = useApiClient();
+    const response = await post<ApiResponse<{ ok: boolean; generation_submitted: boolean; result: VisionTrialResult }>>(
+      ApiEndpoints.ADMIN_AGENTS.TEST_CALL,
+      { env: context.env, modality: 'vlm', execute: true,
+        ...(context.connection ? { useFormConnection: true } : {}),
+        vlm: { provider: context.provider, app: context.app, model: context.model, ...(!context.connection ? { reuseCredential: true } : {}), ...context.connection, ...context.params },
+        inputs: [{ type: 'text', content: prompt }, image] },
+      { signal, timeout: 0, retry: 0, useGlobalLoading: false, useGlobalError: false },
+    );
+    const data = response.data;
+    if (data?.generation_submitted === false) throw Object.assign(new Error('AI_VISION_TRIAL_NOT_SUPPORTED'), { errorCode: 'AI_VISION_TRIAL_NOT_SUPPORTED' });
+    if (!data?.ok || data.generation_submitted !== true || data.result?.type !== 'analysis' || !data.result.text?.trim() || !data.result.trace_id) {
+      throw Object.assign(new Error('AI_OUTPUT_INVALID'), { errorCode: 'AI_OUTPUT_INVALID' });
+    }
+    return data.result;
   }
 
   /**
@@ -434,7 +602,7 @@ export class AISettingService {
   /**
    * 获取凭证列表
    */
-  static async getCredentials(env?: string): Promise<{
+  static async getCredentials(env?: string, options: { useGlobalLoading?: boolean } = {}): Promise<{
     env: string;
     credentials: AgentCredential[];
   }> {
@@ -446,7 +614,7 @@ export class AISettingService {
       : ApiEndpoints.ADMIN_AGENTS.CREDENTIALS;
     const response = await get<
       ApiResponse<{ env: string; credentials: AgentCredential[] }>
-    >(url);
+    >(url, options);
     return response.data || { env: "default", credentials: [] };
   }
 

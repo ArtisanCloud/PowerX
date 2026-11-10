@@ -1,0 +1,238 @@
+{
+  "date": "2026-11-05",
+  "scope": "Core Event Fabric plugin installation, tenant mappings and Framework contract",
+  "affected_race_tests": {
+    "records_including_subtests": {
+      "pass": 665,
+      "skip": 17
+    },
+    "top_level_tests": {
+      "pass": 323,
+      "skip": 17
+    },
+    "passed_packages": [
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/scheduler",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/pluginbinding",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/service_channel",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/task_queue",
+      "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router",
+      "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor",
+      "github.com/ArtisanCloud/PowerX/internal/service/plugin",
+      "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric",
+      "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager",
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin",
+      "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions",
+      "github.com/ArtisanCloud/PowerX/internal/bootstrap"
+    ],
+    "skips": [
+      "TestPrepareConcurrentSameTenantPostgres",
+      "TestPackageManifestPreparation",
+      "TestRuntimeQueuePrepareIsolatedCatalog",
+      "TestRuntimeQueueSeededAPIKeyGrantStatus",
+      "TestRuntimeQueueRealRedisPostgresSettlement",
+      "TestConcurrentClaimsOneActiveReceipt",
+      "TestPostgresConcurrentApprovalAndManifestRemoval",
+      "TestPostgresPluginIsolationUsesConnectedDSNIdentity",
+      "TestPowerXPluginDatabaseIsolationIntegration",
+      "TestPublicExposureInstalledPlugin",
+      "TestLivePluginRequestIdentity",
+      "TestOwnerPostgresConcurrentProfileSaveAndOwnerChange",
+      "TestStorageLocalConfiguredAcceptance",
+      "TestStorageLocalInventoryReadOnlyAcceptance",
+      "TestStorageLocalRuntimePreparedReadOnlyAcceptance",
+      "TestStorageNativeLocalObservationAcceptance",
+      "TestNativeSystemSnapshotBootstrapWithRelativeMediaDirectory"
+    ],
+    "failures": [],
+    "log_sha256": "d7611ebaf9b24dc066fb87c6b060891becffe8fbcd4deb6efb0b9f4a3b763b25"
+  },
+  "isolated_postgres_race_tests": {
+    "records_including_subtests": {
+      "pass": 43
+    },
+    "top_level_tests": {
+      "pass": 24
+    },
+    "passed_packages": [
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/pluginbinding",
+      "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/service_channel"
+    ],
+    "skips": [],
+    "failures": [],
+    "log_sha256": "a9b79de6f0593cc412ad7a175930d39d9a93612f1bb4876d754a4ec6d84d6c22"
+  },
+  "real_package_declaration_fixture": {
+    "plugin_id": "com.powerx.plugins.ai-craft",
+    "version": "0.1.78",
+    "topic_bindings": 13,
+    "executed_plugin_binary": false,
+    "executed_plugin_migration": false,
+    "namespace_assignment_fixture": {
+      "powerx.channel.master": "com.powerx.plugins.ai-craft"
+    },
+    "applied_assignment_to_daily_core": false,
+    "files_sha256": {
+      "plugin.yaml": "4145d6f8d98447bba86cf2b94e4e0a6b324b61c0ef464f3957cb762e4896b396",
+      "plugin.d/capabilities.yaml": "8924acd3efe066772ff616c7c2db865bd3d987c6b1f2143fa4b2d21d2693de3f",
+      "config/event_fabric_service.yaml": "8c2414b0ece959c74dbcf17337e99d30a6a7de88a70d81456089e5e83d1d0dc2",
+      "config/values.example.yaml": "604b22fb53f21c420e76b8c4cf6b83a63d13ff2a1d4fefd4190320b283c60adc"
+    }
+  },
+  "checks": {
+    "build_cmd_app": 0,
+    "vet_affected_packages": 0,
+    "diff_check": 0,
+    "capability_check": {
+      "exit": 2,
+      "missing_capability_declarations": 0,
+      "uncovered_http_routes": 52,
+      "routes": [
+        "POST /api/v1/alerts/:alert_id/ack",
+        "GET /api/v1/archives/catalog",
+        "POST /api/v1/archives/cleanup",
+        "POST /api/v1/archives/jobs",
+        "GET /api/v1/archives/jobs/:job_id",
+        "GET /api/v1/archives/jobs/:job_id/download",
+        "POST /api/v1/archives/jobs/:job_id/migrations",
+        "GET /api/v1/archives/jobs/:job_id/preview",
+        "PATCH /api/v1/archives/jobs/:job_id/protection",
+        "POST /api/v1/archives/jobs/:job_id/restore",
+        "POST /api/v1/archives/jobs/:job_id/retry",
+        "POST /api/v1/archives/policies",
+        "POST /api/v1/archives/policies/:policy_id/remote-cleanup-previews",
+        "POST /api/v1/archives/policies/:policy_id/run",
+        "POST /api/v1/archives/remote-cleanup-runs/:preview_id",
+        "POST /api/v1/archives/remote-cleanup-runs/:preview_id/reconcile",
+        "DELETE /api/v1/archives/restores/:restore_id",
+        "GET /api/v1/archives/restores/:restore_id",
+        "POST /api/v1/archives/s3-credentials",
+        "POST /api/v1/archives/targets",
+        "POST /api/v1/archives/targets/:target_id/imports",
+        "POST /api/v1/archives/targets/:target_id/test",
+        "POST /api/v1/cleanup",
+        "POST /api/v1/jobs/run",
+        "PATCH /api/v1/policies/:policy_id",
+        "POST /api/v1/policies/:policy_id/current",
+        "POST /api/v1/policies/:policy_id/disable",
+        "POST /api/v1/policies/:policy_id/enable",
+        "POST /api/v1/restore-copies",
+        "DELETE /api/v1/restore-copies/:copy_id",
+        "POST /api/v1/restore-copies/:copy_id/connection",
+        "POST /api/v1/restore-copies/imports",
+        "POST /api/v1/restore-copies/plan",
+        "POST /api/v1/restore-drills",
+        "POST /api/v1/restore-drills/run",
+        "POST /api/v1/system-snapshots",
+        "DELETE /api/v1/system-snapshots/:snapshot_id",
+        "POST /api/v1/system-snapshots/:snapshot_id/export",
+        "POST /api/v1/system-snapshots/:snapshot_id/recovery",
+        "POST /api/v1/system-snapshots/:snapshot_id/restores",
+        "POST /api/v1/system-snapshots/imports",
+        "GET /api/v1/system-snapshots/policies",
+        "POST /api/v1/system-snapshots/policies",
+        "PUT /api/v1/system-snapshots/policies/:policy_id",
+        "PATCH /api/v1/system-snapshots/policies/:policy_id/status",
+        "PUT /api/v1/system-snapshots/policy",
+        "GET /api/v1/system-snapshots/recovery",
+        "POST /api/v1/system-snapshots/recovery/:recovery_id/cleanup",
+        "POST /api/v1/system-snapshots/recovery/:recovery_id/cutover",
+        "POST /api/v1/system-snapshots/recovery/:recovery_id/rollback",
+        "GET /api/v1/system-snapshots/restores/:restore_id",
+        "POST /api/v1/targets/test"
+      ],
+      "boundary": "Existing shared-worktree alerts/backup/recovery and other routes; this change adds no HTTP routes."
+    },
+    "scoped_event_fabric_audit": "capability-audit: ok, declared=1242 referenced=4 rest_routes=1175 candidates=0 ignored_route_rules=88",
+    "capability_seed": {
+      "exit": 0,
+      "database": "isolated powerx_eventfabric_test_binding",
+      "capability_ids": [
+        "com.corex.eventfabric.service_publish",
+        "com.corex.eventfabric.service_consume"
+      ],
+      "daily_database": false,
+      "records": [
+        {
+          "capability_id": "com.corex.eventfabric.service_consume",
+          "status": "published",
+          "capabilities_hash": "dfedadf3c5ad08813993e2019b0ed04bc1751e4340ca16d1caee475bff837b3b",
+          "protocol_hash": "3fa60e403608c22bad61571ae31079388f86d06e1f01c7bfec93764008a68e27"
+        },
+        {
+          "capability_id": "com.corex.eventfabric.service_publish",
+          "status": "published",
+          "capabilities_hash": "700b08bebd1e329a66bb2bc35b5c9eb0f16aa523fe87352b0e4b9a6968327807",
+          "protocol_hash": "3de3c38ff2c9c4777da3d6d1863c7a95343012255b33e000b1a1825258343885"
+        }
+      ]
+    },
+    "upgrade_registry_check": 0,
+    "upgrade_payloads_regenerated_from_current_shared_worktree": true,
+    "database_registry_and_base_capability_tests": 0,
+    "source_drift_after_validation": []
+  },
+  "runtime_boundary": {
+    "daily_core_restarted": false,
+    "daily_database_modified": false,
+    "daily_key_profile_or_grants_changed": false,
+    "framework_source_changed": false,
+    "ai_craft_source_changed": false,
+    "actual_installation_or_business_event_replay": false,
+    "database_schema_changes_required_by_this_patch": false
+  },
+  "cleanup": {
+    "owner": "codex-event-fabric-binding-validation",
+    "pid": 13591,
+    "port": 53199,
+    "process_stopped": true,
+    "socket_released": true,
+    "temporary_database_removed": true,
+    "helper_removed": true,
+    "validation_binary_removed": true,
+    "daily_core_restarted": false,
+    "daily_database_modified": false
+  },
+  "handoff": "docs/contracts/plugin-event-fabric-install.md",
+  "source_sha256": {
+    "backend/cmd/database/upgrade_payloads.json": "1534eb47e70319d1bac75c72e54cae368f11fc40c97665a993ab89cb5591a406",
+    "backend/config/platform_capabilities/event_fabric.yaml": "f2fc09379822a5c7b6b564055662d0adfcc5caf588072f24f3a69431d9872a26",
+    "backend/config/plugin.go": "336e58935f40748d8ae0e9c93f9162b195eec7d3304113a5803483b5dd977db5",
+    "backend/internal/bootstrap/plugin.go": "9594a2508fa89edd74a6b74ebe541a1d3f09c236eebaaa761d9599d451ad9d59",
+    "backend/internal/bootstrap/plugin_event_fabric_runtime.go": "f625f0232c9426a91b8d2f0eabda053c816093f82e185a5500c0881cb335d9af",
+    "backend/internal/bootstrap/plugin_runtime_activation_http_test.go": "8b45c6fc1ccde0ce0a43c5a18d9b2a2ed7890745c6800e8ecc76baac53bbf789",
+    "backend/internal/infra/plugin/manager/event_fabric_runtime.go": "d37a4cb8770803c08b79ebf04490e3ac6f5feb957c859f163b70e3812cb2a3e6",
+    "backend/internal/infra/plugin/manager/event_fabric_runtime_test.go": "6539e5996949cace39315845a2103eb3068eecfac07d4998d6f1770637de5858",
+    "backend/internal/infra/plugin/manager/lifecycle.go": "bf6627a2644f3a1e6560c5c51355ed595b4f5ee20544a11ed8e99477247b3194",
+    "backend/internal/infra/plugin/manager/manager.go": "4674f745cf3cde38591c1b8022d4769623ba7ee0b0516ae5e68db2927f039300",
+    "backend/internal/infra/plugin/manager/switch.go": "20a75c79155e5bbd8a4021ff3406dda9e7c9a8326737c4546a796fca096fe5e5",
+    "backend/internal/service/event_fabric/directory/directory_service.go": "9e06ffa29c317c0341551d84a7aeff3261044b37d487cb85687c8eeb03e00a6d",
+    "backend/internal/service/event_fabric/directory/plugin_owner.go": "f1a27ffc2d454a4b2fb6397f370e23518b7e78c24a8a6ed7a4ada294ac81dfdd",
+    "backend/internal/service/event_fabric/manifest/binding_store.go": "47a15b0b59fa61cf81829c605ac2e1b3a5b8d296d571921210e4756593fbd153",
+    "backend/internal/service/event_fabric/manifest/seed_service.go": "5d754d59fae4675f65661a67d96b9a8c84b2a09e75d0065d5fc2161bbc91c6ed",
+    "backend/internal/service/event_fabric/manifest/seed_service_test.go": "c4fafd583e08b981f951d474483a950231f2c9b748940bddfe539ed2a4c87ca4",
+    "backend/internal/service/event_fabric/pluginbinding/config.go": "f5935a47e20d2c84543db904482889600ed55068ec3b83e45568e9ad79ac3219",
+    "backend/internal/service/event_fabric/pluginbinding/contract.go": "70f5b36c53c10333996a0a9ade77d469dd185ee052d7fa63b62fc98822198805",
+    "backend/internal/service/event_fabric/pluginbinding/service.go": "ea561aacecbf8184ebc6327570c2734add51d4defbb624416071127e00a9009c",
+    "backend/internal/service/event_fabric/pluginbinding/service_test.go": "7a34f8fcc01deaeca98b113aee0db5bb87c0e3373acaf16b85437cfc9f5e2cc2",
+    "backend/internal/service/event_fabric/service_channel/invoker.go": "ca85cd3e6d7134b123b966b665f8b291207c3afc401a0947a19079aee30f236f",
+    "backend/internal/service/event_fabric/service_channel/service.go": "f019a5dba48b8011d4e5a22970fb44425a0787ecb12ed71e6b1221dc5f3c82e3",
+    "backend/internal/service/event_fabric/service_channel/service_test.go": "2b2ddab55f4e1c47d5fe182518045e3ea2005cab37e02b7e61e6f5a40228e9f3",
+    "backend/internal/service/event_fabric/service_channel/topic_bindings.go": "08d351ac95b5d4b96345114cf49fc5ff3873581c7d60213e0470e8802e558ddc",
+    "backend/internal/service/event_fabric/service_channel/topic_bindings_test.go": "b1a859f366acc8e22105aa94ed9b250d4de0ea6085c0c1599c0dce3be900ad32",
+    "backend/internal/service/plugin/tenant_event_fabric_test.go": "c8147d7862eb8a43e56e2ace70bd28e76aede3399cf9816c38a772e588d14f63",
+    "backend/internal/service/plugin/tenant_instance_service.go": "be760d715e3948bf5fc3df551d0280cebf610afad02da19656f4fb127d65fdd8",
+    "backend/internal/transport/http/admin/plugin/plugin_handler.go": "3ebfc39ebabc60ad604e266f0b802177d0a7b6f241652de0e4ae24e7bc09cad2",
+    "backend/internal/transport/http/admin/plugin/tenant_handler.go": "4aa932bd937cb011ac86c802318943d7a016cb5ef1c0c32918de1a761f598ea9",
+    "backend/pkg/corex/db/persistence/repository/event_fabric/manifest_binding_repository.go": "dce0a69e13bbeeaf115ab78a7cafc045887e54a0091c7796ce110dd5c6a46a58",
+    "backend/pkg/plugin_mgr/event_fabric.go": "dfc7a3ea2d0b87da570c4a40f239ef1e020a932c597eaaa9416b9229ca7cf826",
+    "docs/contracts/event-fabric-service-v1.md": "9ea5e1a1a10e350b126707053aaeec55cc091bdb61b868b0e31048e108eae7f0",
+    "docs/contracts/event-fabric-service-v1.openapi.yaml": "1afe8c6315759c118dce93a0e2704cda268a3a7a5d93993c9f05bd2d42622ccf",
+    "docs/contracts/plugin-event-fabric-install.md": "e9a54db18bd13e9a62c69e7a91055d3ed6fcc7b030c81d560be635247ff7a358"
+  }
+}

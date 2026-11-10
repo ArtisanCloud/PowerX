@@ -1,0 +1,99 @@
+openapi: 3.0.3
+info:
+  title: Tenant API Key Batch Independent Grants
+  version: 1.0.0
+servers:
+  - url: /api/v1
+security:
+  - UserBearer: []
+paths:
+  /admin/integration/api-key-grants/batch:
+    post:
+      operationId: BatchAppendAPIKeyExplicitGrants
+      description: >-
+        Administrator user JWT only. Tenant is read from authenticated context.
+        Only canonical explicitly declared service permissions can be appended.
+        Preview (dry_run=true) validates without writing. Commit revalidates the
+        preview hash and writes all Keys and per-Key audits in one transaction.
+        Existing permissions, resource owners, credentials and Profiles are preserved.
+        Request IDs are deduplicated. Maximum 50 Keys and 128 permission IDs.
+        No automatic retries; preview again after an uncertain response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [key_ids, permission_ids]
+              properties:
+                key_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items: {type: string, format: uuid}
+                permission_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 128
+                  items: {type: integer, minimum: 1}
+                dry_run: {type: boolean, default: false}
+                expected_plan_hash:
+                  type: string
+                  description: Required for commit; returned by successful preview.
+                  pattern: '^[a-f0-9]{64}$'
+      responses:
+        '200':
+          description: Validated preview or committed and read-back batch.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, data]
+                properties:
+                  code: {type: integer, example: 200}
+                  data: {$ref: '#/components/schemas/BatchResult'}
+        '400': {description: API_KEY_BATCH_GRANT_INVALID, API_KEY_BATCH_PREVIEW_REQUIRED or invalid explicit service permission}
+        '401': {description: Missing authenticated tenant context}
+        '403': {description: API_KEY_OWNER_ADMIN_REQUIRED or API_KEY_OWNER_TENANT_MISMATCH; API Key and STS rejected}
+        '404': {description: API_KEY_NOT_FOUND; foreign tenant Key data is not disclosed}
+        '409': {description: 'API_KEY_BATCH_PREVIEW_STALE, API_KEY_INACTIVE, API_KEY_PROFILE_INACTIVE, CAPABILITY_UNKNOWN or CAPABILITY_TENANT_NOT_REGISTERED'}
+        '500': {description: Database failure; transaction rolled back. A disconnected response alone cannot prove rollback.}
+components:
+  securitySchemes:
+    UserBearer: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    BatchResult:
+      type: object
+      required: [committed, key_count, added_count, plan_hash, keys, permissions]
+      properties:
+        committed: {type: boolean}
+        key_count: {type: integer}
+        added_count: {type: integer}
+        plan_hash: {type: string}
+        keys:
+          type: array
+          items:
+            type: object
+            required: [key_id, name, owner_plugin_ids, added_count, existing_count]
+            properties:
+              key_id: {type: string, format: uuid}
+              name: {type: string}
+              owner_plugin_ids: {type: array, items: {type: string}}
+              added_count: {type: integer}
+              existing_count: {type: integer}
+        permissions:
+          type: array
+          items:
+            type: object
+            required: [permission_id, name, capability_id, plugin_id, scope, action, resource_type, resource_pattern, effect]
+            properties:
+              permission_id: {type: integer}
+              name: {type: string}
+              capability_id: {type: string}
+              plugin_id: {type: string}
+              scope: {type: string}
+              action: {type: string}
+              resource_type: {type: string}
+              resource_pattern: {type: string}
+              effect: {type: string, enum: [allow]}

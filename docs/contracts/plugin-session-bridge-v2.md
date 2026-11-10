@@ -154,3 +154,7 @@ npm run test:session-browsers -- --project=chrome --project=edge
 需要重新登录的边界是完整会话已不存在、已退出，或宿主续期凭证真正失效；Cookie 丢失和临时插件 Document 拒绝不是要求反复登录的理由。持续权限、代理或服务问题保留有效宿主会话并显示连接重试提示。插件／Framework 的认证消息合同、权限与后端鉴权要求保持不变。
 
 自动恢复补充回归：12 个定向测试文件／89 项通过，macOS Chrome／Chromium 的 18 项浏览器用例通过；生产模式构建、自检、四语言词条及 diff 校验通过。测试自己的进程已退出，3473／3474 端口已释放。该补充代码尚需随最新完整 Core `web-admin` 产物发布；Windows／Edge 和正式站已安装 AI Craft 仍待客户环境验收。
+
+## 2026-11-07：会话终止后的宿主核验与登录恢复
+
+Core 新增当前用户只读会话核验，裁剪 Access Token 到原登录会话期限，并增加受身份/代际检查的插件失效报告。详细消息、错误分类、Framework 接法、AI Craft 草稿边界及部署验收见 [插件会话终止与宿主登录恢复](plugin-session-termination-v2.md)。桥接仍为 v2；不能让任意 auth:rejected、服务错误或未知 401 直接触发宿主退出。

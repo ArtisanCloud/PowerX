@@ -46,7 +46,7 @@ func TestRestoreRootRejectsTenantAdminAndServicePlanes(t *testing.T) {
 			router := gin.New()
 			router.Use(func(c *gin.Context) {
 				ctx := reqctx.WithIsRoot(c.Request.Context(), tc.root)
-				ctx = reqctx.WithClaims(ctx, &reqctx.CoreXClaims{Platforms: tc.planes})
+				ctx = reqctx.WithClaims(ctx, &reqctx.CoreXClaims{IsRoot: tc.root, UserID: 1, Scope: "access", Platforms: tc.planes})
 				claims := reqctx.GetClaims(ctx)
 				claims.Issuer = tc.issuer
 				c.Request = c.Request.WithContext(ctx)

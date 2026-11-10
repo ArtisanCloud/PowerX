@@ -1,0 +1,235 @@
+{
+  "checks": [
+    "Root read-only inventory shows missing historical identity and explicit filter",
+    "light 1440 inventory/primary action/navigation",
+    "light 390 inventory/primary action/navigation",
+    "dark 1440 inventory/primary action/navigation",
+    "dark 390 inventory/primary action/navigation",
+    "independent vertical sections preserve the Root import draft",
+    "lost committed SSE response and failed GET preserve original UUID without automatic retry",
+    "GET original UUID reconciles the atomic independent coverage proof",
+    "light 1440 proof/recent receipt/context/navigation",
+    "light 390 proof/recent receipt/context/navigation",
+    "dark 1440 proof/recent receipt/context/navigation",
+    "dark 390 proof/recent receipt/context/navigation",
+    "shared SSE invalidation refreshes state with zero idle queries or repeated mutation"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/monitor/backup/overview",
+      "method": "GET",
+      "at": 1794216388627
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/policies",
+      "method": "GET",
+      "at": 1794216388630
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-drills",
+      "method": "GET",
+      "at": 1794216388635
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/alerts",
+      "method": "GET",
+      "at": 1794216388641
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794216388673
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/policy-configuration",
+      "method": "GET",
+      "at": 1794216388676
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/recovery",
+      "method": "GET",
+      "at": 1794216388678
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794216388680
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794216388686
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794216388686
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794216388710
+    },
+    {
+      "path": "/api/v1/admin/monitor/backup/overview",
+      "method": "GET",
+      "at": 1794216388712
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/policy-configuration",
+      "method": "GET",
+      "at": 1794216388715
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/policy-configuration",
+      "method": "GET",
+      "at": 1794216388720
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794216388720
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794216388727
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/alerts",
+      "method": "GET",
+      "at": 1794216388735
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794216388735
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/recovery",
+      "method": "GET",
+      "at": 1794216388735
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794216388740
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794216388782
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794216388790
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794216388808
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794216388808
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794216388813
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794216389310
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "POST",
+      "at": 1794216391283
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794216391320
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794216391320
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794216391320
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794216391382
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794216391382
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794216391382
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports/605e72f7-3f79-4e33-b509-263b63927158",
+      "method": "GET",
+      "at": 1794216391551
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports/605e72f7-3f79-4e33-b509-263b63927158",
+      "method": "GET",
+      "at": 1794216392955
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794216392969
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794216392969
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794216395613
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794216395613
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794216395613
+    }
+  ],
+  "errors": [],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    }
+  ],
+  "result": "passed"
+}

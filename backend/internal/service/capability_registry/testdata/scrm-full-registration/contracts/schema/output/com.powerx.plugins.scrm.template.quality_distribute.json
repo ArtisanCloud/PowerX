@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateQualityDistributeOutput",
+  "type": "object",
+  "properties": {
+    "scanned_total": { "type": "integer", "minimum": 0 },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "template_id": { "type": "integer" },
+          "field": { "type": "string" },
+          "message": { "type": "string" },
+          "severity": { "type": "string" }
+        },
+        "required": ["template_id", "field", "message", "severity"],
+        "additionalProperties": true
+      }
+    },
+    "cloned_ids": {
+      "type": "array",
+      "items": { "type": "integer" }
+    },
+    "failed_clones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_id": { "type": "integer" },
+          "reason": { "type": "string" }
+        },
+        "required": ["source_id", "reason"],
+        "additionalProperties": false
+      }
+    },
+    "publish_status": { "type": "string" }
+  },
+  "required": ["scanned_total", "violations", "cloned_ids", "failed_clones"],
+  "additionalProperties": false
+}

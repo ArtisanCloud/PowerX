@@ -39,7 +39,7 @@ func TestUninstallAndPurgeNeverCleansDatabaseResources(t *testing.T) {
 		InstalledRoot: installedRoot,
 		Registry:      registry,
 		CoreConfig: &coreconfig.Config{
-			Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+			Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			Plugin: coreconfig.PluginAggregateConfig{
 				PluginConfig: coreconfig.PluginConfig{AllowDestructiveDBCleanup: true},
 			},

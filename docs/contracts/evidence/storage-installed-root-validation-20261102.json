@@ -1,0 +1,137 @@
+{
+  "contract": "powerx.storage.installed-root-acceptance/v0.6.3",
+  "observed_at": "2026-11-02T01:28:05.981456+08:00",
+  "passed": true,
+  "scope": "actual running local PowerX Core, existing normal Root browser session at 3030, formal UI and APIs, separate owned private versioned MinIO; no fixture auth or fabricated JWT",
+  "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+  "baseline_core_pid": 23733,
+  "execution_core_pid": 42377,
+  "agent_restarted_user_service": false,
+  "restart_during_draft": "brief external Core reload before enable; persisted credential and target remained available afterwards",
+  "ui_actions": [
+    "dedicated credential saved",
+    "dedicated target saved and write/readback verified",
+    "policy saved disabled with zero jobs",
+    "explicit archive enable",
+    "manual archive batch",
+    "archive_then_delete saved after exact one-canary preview",
+    "manual cleanup batch",
+    "source policy restored paused",
+    "archive disabled",
+    "source-gone filename search",
+    "owned file selected and verified preview"
+  ],
+  "archive": {
+    "job_id": "1cbe0045-eb1e-49d3-a619-190a4f36ce47",
+    "policy_id": "83906aee-20d7-406b-b3f5-e4f0c763f7e7",
+    "target_id": "a7bb4d7d-86f3-4916-b60f-1f4e7f43e909",
+    "source_id": "core-app-logs-7ae24726a59e",
+    "file_count": 6,
+    "size_bytes": 420449194,
+    "remote_state": "success",
+    "remote_manifest_version": "39413cdf-fe47-4944-9bcb-c0f37bd37217",
+    "private_versioning": "Enabled",
+    "remote_versions_before_owned_retirement": 7,
+    "destination": "temporary owned loopback MinIO :19400, not existing :9000 or a long-term archive setting",
+    "normal_sealed_logs_copied_for_whole_source_archive": true,
+    "normal_originals_deleted": false
+  },
+  "cleanup_execution": {
+    "mode": "archive_then_delete",
+    "retention_days_used_only_to_exclude_real_history": 3650,
+    "preview_candidate_names": [
+      "info-2000-01-02T00-00-00.000.log"
+    ],
+    "run_id": "a7ed7676-bfd6-42cb-a5a4-613f1bf849bb",
+    "request_key": "566da0b5-cc0d-4286-bd28-ffebb0095d29",
+    "state": "completed",
+    "policy_revision": 7,
+    "deleted_files": 1,
+    "removed_bytes": 59,
+    "removed_allocated_bytes": 4096,
+    "source_gone": true,
+    "canary_cas_removed_before_ui_preview": true,
+    "cas_recovered_from_remote_by_ui_preview": true
+  },
+  "retrieval": {
+    "ui_preview_bytes": 59,
+    "ui_preview_sha256": "163ded011535540f71503db5f4ddaab81a6df5c71af15695e9679425faa60872",
+    "download_method": "authenticated formal download API; browser gzip/tar stream discarded unrelated log bodies without output or a Downloads file",
+    "download": {
+      "http": 200,
+      "compressed_bytes": 33838033,
+      "tar_bytes": 420461056,
+      "tar_entries": 7,
+      "canary_bytes": 59,
+      "sha256": "163ded011535540f71503db5f4ddaab81a6df5c71af15695e9679425faa60872",
+      "verified": true,
+      "source_and_cas_were_removed": true,
+      "archive_policy_disabled": true
+    },
+    "archive_disabled_during_retrieval": true
+  },
+  "preservation": {
+    "original_sealed_logs": [
+      {
+        "name": "info-2026-10-13T15-16-40.592.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-11T08-25-44.153.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-15T14-28-06.998.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-08T18-43-57.673.log.gz",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-18T15-02-31.203.log",
+        "preserved": true
+      },
+      {
+        "name": "info-2026-10-17T12-17-03.789.log",
+        "preserved": true
+      }
+    ],
+    "sql_logging_collector": "on",
+    "sql_log_statement": "mod",
+    "database_retention_document_exists": false,
+    "business_database_expiry_enabled": false,
+    "existing_mac_minio_9000_changed": false
+  },
+  "final_state": {
+    "runtime_file_policy_enabled": false,
+    "runtime_file_policy_revision": 8,
+    "archive_record_counts": {
+      "policies": 0,
+      "targets": 0,
+      "jobs": 0,
+      "secrets": 0
+    },
+    "test_cas_bytes_removed": 420449194,
+    "audit_and_cleanup_run_records_retained": true,
+    "latest_monitor_sample_slots": [
+      "2026-11-02 01:25:00+08",
+      "2026-11-02 01:20:00+08",
+      "2026-11-02 01:15:00+08",
+      "2026-11-02 01:10:00+08"
+    ],
+    "config_sha256": "d0def302cbca02c72bde96e7afa4b75487d9e57c7965d083290acaed5c96e89f"
+  },
+  "temporary_target_cleanup": {
+    "pid_exited": true,
+    "ports_released": true,
+    "owned_target_data_removed": true
+  },
+  "limits": [
+    "Manual installed archive/cleanup acceptance; not a new continuous 15-minute automatic archive window",
+    "No production deployment or real cloud target activation",
+    "No business database row-expiry activation",
+    "Existing Mac historical objects were not migrated or deleted",
+    "No long-term policy enabled by this acceptance"
+  ]
+}

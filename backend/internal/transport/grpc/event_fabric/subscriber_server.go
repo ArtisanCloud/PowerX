@@ -1,15 +1,12 @@
 package eventfabric
 
 import (
-	"context"
-	"errors"
 	"strings"
 	"time"
 
-eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
+	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
-	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
+	servicechannel "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/service_channel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,12 +18,12 @@ const defaultPollInterval = 200 * time.Millisecond
 // EventSubscriberServer 提供流式订阅能力。
 type EventSubscriberServer struct {
 	eventfabricv1.UnimplementedEventSubscriberServiceServer
-	delivery     delivery.Service
+	delivery     ServiceChannel
 	pollInterval time.Duration
 }
 
 // NewEventSubscriberServer 构建订阅服务实例。
-func NewEventSubscriberServer(svc delivery.Service, interval time.Duration) *EventSubscriberServer {
+func NewEventSubscriberServer(svc ServiceChannel, interval time.Duration) *EventSubscriberServer {
 	if interval <= 0 {
 		interval = defaultPollInterval
 	}
@@ -41,80 +38,18 @@ func (s *EventSubscriberServer) Subscribe(req *eventfabricv1.SubscribeRequest, s
 		return status.Error(codes.FailedPrecondition, "event delivery service unavailable")
 	}
 
-	ctx := stream.Context()
-	tenant, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	in := servicechannel.Request{ContractVersion: req.GetContractVersion(), Operation: "subscribe", TenantUUID: req.GetTenantUuid(), PluginID: req.GetPluginId(), SubscriberID: req.GetSubscriberId(), Topics: req.GetTopics(), BatchSize: int(req.GetBatchSize()), SupportedVersions: req.GetSupportedVersions(), CompatibilityMode: compatibilityModeToString(req.GetCompatibilityMode())}
+	err := s.delivery.Stream(stream.Context(), in, func(kind string, value any) error {
+		if kind != "delivery" {
+			return nil
+		}
+		item := value.(servicechannel.Message)
+		return stream.Send(&eventfabricv1.DeliveryMessage{DeliveryId: item.DeliveryID, EventId: item.EventID, IdempotencyKey: item.IdempotencyKey, Attributes: item.Attributes, Topic: item.Topic, TraceId: item.TraceID, Version: item.Version, Payload: item.Payload, PayloadFormat: "json", Attempt: int32(item.Attempt), MaxAttempts: int32(item.MaxAttempts), RemainingAttempts: int32(item.MaxAttempts - item.Attempt), AckDeadline: timestamppb.New(item.AckDeadline), SubscriberId: item.SubscriberID, TenantUuid: item.TenantUUID, ContractVersion: item.ContractVersion, PublishedBy: item.PublishedBy, PublisherPluginId: item.PublisherPluginID})
+	})
 	if err != nil {
-		return err
+		return convertDeliveryError(err)
 	}
-	subscriber := strings.TrimSpace(req.GetSubscriberId())
-	if subscriber == "" {
-		return status.Error(codes.InvalidArgument, "subscriber_id is required")
-	}
-
-	batch := int(req.GetBatchSize())
-	if batch <= 0 {
-		batch = 50
-	}
-
-	ctx = context.WithValue(ctx, sharedsvc.ContextTenantKey, tenant)
-	ctx = context.WithValue(ctx, sharedsvc.ContextSubscriberKey, subscriber)
-
-	if topics := normalizeTopics(req.GetTopics()); len(topics) > 0 {
-		ctx = context.WithValue(ctx, sharedsvc.ContextTopicsKey, topics)
-	}
-
-	if mode := compatibilityModeToString(req.GetCompatibilityMode()); mode != "" {
-		ctx = context.WithValue(ctx, sharedsvc.ContextCompatibilityMode, mode)
-	}
-	if versions := normalizeSupportedVersions(req.GetSupportedVersions()); len(versions) > 0 {
-		ctx = context.WithValue(ctx, sharedsvc.ContextAcceptedVersions, versions)
-	}
-
-	sleep := s.pollInterval
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		results, err := s.delivery.PollRetry(ctx, batch)
-		if err != nil {
-			if errors.Is(err, sharedsvc.ErrTenantMismatch) {
-				return status.Error(codes.InvalidArgument, err.Error())
-			}
-			return status.Errorf(codes.Internal, "poll retry failed: %v", err)
-		}
-
-		if len(results) == 0 {
-			time.Sleep(sleep)
-			continue
-		}
-
-		for _, attempts := range results {
-			for _, attempt := range attempts {
-				deadline := time.Now().Add(attempt.AckTimeout)
-				msg := &eventfabricv1.DeliveryMessage{
-					DeliveryId:        attempt.DeliveryUUID,
-					EventId:           attempt.EventID,
-					Topic:             attempt.TopicFullName,
-					TraceId:           attempt.TraceID,
-					Version:           attempt.Version,
-					Payload:           attempt.Payload,
-					PayloadFormat:     attempt.PayloadFormat,
-					Headers:           attempt.Headers,
-					Attempt:           attempt.AttemptNumber,
-					MaxAttempts:       attempt.MaxAttempts,
-					RemainingAttempts: attempt.Remaining,
-					AckDeadline:       timestamppb.New(deadline),
-					SubscriberId:      attempt.SubscriberID,
-				}
-				if err := stream.Send(msg); err != nil {
-					return err
-				}
-			}
-		}
-	}
+	return nil
 }
 
 func normalizeTopics(topics []string) map[string]struct{} {
@@ -136,11 +71,11 @@ func normalizeTopics(topics []string) map[string]struct{} {
 func compatibilityModeToString(mode eventfabricv1.VersionCompatibilityMode) string {
 	switch mode {
 	case eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_STRICT:
-		return string(delivery.CompatibilityModeStrict)
+		return "strict"
 	case eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_BACKWARD:
-		return string(delivery.CompatibilityModeBackward)
+		return "backward"
 	case eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_ANY:
-		return string(delivery.CompatibilityModeAny)
+		return "any"
 	default:
 		return ""
 	}
@@ -168,6 +103,6 @@ func RegisterEventSubscriberServer(deps *shared.Deps) Registrar {
 		if deps == nil || deps.EventFabric == nil || deps.EventFabric.Delivery == nil {
 			return
 		}
-		eventfabricv1.RegisterEventSubscriberServiceServer(server, NewEventSubscriberServer(deps.EventFabric.Delivery, defaultPollInterval))
+		eventfabricv1.RegisterEventSubscriberServiceServer(server, NewEventSubscriberServer(servicechannel.NewService(deps.DB, deps.EventFabric.Audit), defaultPollInterval))
 	}
 }

@@ -1,0 +1,25 @@
+# Contract-check inventory only. No runtime loader reads this file.
+version: 1
+authority: contract_check_only
+admin_openapi: docs/contracts/messaging.openapi.yaml
+service_contract: specs/008-channel-provider-messaging/contracts/messaging-capabilities.yaml
+admin_authentication: verified_member_bearer_with_exact_iam_decision
+admin_route_count: 8
+runtime_gate: T023
+service_registration_gate: T045
+event_registration_gate: T046
+withheld_capabilities:
+- com.powerx.plugins.scrm.messaging.events.subscribe
+withheld_topics:
+- powerx.messaging.message.received.v1
+- powerx.messaging.conversation.updated.v1
+- powerx.messaging.execution.updated.v1
+- powerx.messaging.control.received.v1
+registered_capabilities:
+- com.powerx.plugins.scrm.messaging.endpoints.list
+- com.powerx.plugins.scrm.messaging.conversations.list
+- com.powerx.plugins.scrm.messaging.messages.list
+- com.powerx.plugins.scrm.messaging.executions.reply
+- com.powerx.plugins.scrm.messaging.executions.read
+service_catalog_status: registered_runtime_gated
+service_openapi: docs/contracts/messaging-service.openapi.yaml

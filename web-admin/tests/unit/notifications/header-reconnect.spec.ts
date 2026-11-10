@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
@@ -14,7 +15,7 @@ const identityScope = ref('tenant:member:actor:session-one');
 let wrapper: ReturnType<typeof mount> | undefined;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.clearAllMocks(); setActivePinia(createPinia());
   vi.stubGlobal('process', { ...process, client: true });
   fixture.user = reactive({ currentTenantUuid: '11111111-1111-4111-8111-111111111111', currentMemberUuid: '22222222-2222-4222-8222-222222222222', contextSessionStamp: { sessionId: 'session-one', revision: 1 }, user: { id: 1 }, fetchUserContext: vi.fn().mockResolvedValue(undefined) });
   localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ version: 1, status: 'active', sessionId: 'session-one', revision: 1, accessToken: 'fixture', refreshToken: 'fixture', tokenType: 'Bearer', expiresAt: Date.now() + 60000, scope: 'access', tenantUuid: fixture.user.currentTenantUuid }));

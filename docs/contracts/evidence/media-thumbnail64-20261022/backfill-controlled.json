@@ -1,0 +1,126 @@
+{
+  "environment": "agent-owned native PostgreSQL + miniredis; synthetic assets only",
+  "dry_run": [
+    {
+      "kind": "asset",
+      "result": {
+        "through_id": 3,
+        "id": 1,
+        "asset_uuid": "a0eae4a1-e72d-554b-98c6-b18e2abed2eb",
+        "outcome": "would_enqueue",
+        "missing": [
+          "preview",
+          "thumbnail",
+          "thumbnail_64"
+        ]
+      }
+    },
+    {
+      "kind": "asset",
+      "result": {
+        "through_id": 3,
+        "id": 2,
+        "asset_uuid": "ac6705d4-cbef-56e8-9377-1fa2d17f289d",
+        "outcome": "source_missing",
+        "missing": [
+          "preview",
+          "thumbnail",
+          "thumbnail_64"
+        ]
+      }
+    },
+    {
+      "kind": "asset",
+      "result": {
+        "through_id": 3,
+        "id": 3,
+        "asset_uuid": "64c747b0-b857-5d1f-a31f-9e531e342fc4",
+        "outcome": "skipped"
+      }
+    },
+    {
+      "kind": "summary",
+      "namespace": "test:media-v2-native-command",
+      "result": {
+        "dry_run": true,
+        "recipe": "standard-image-v2",
+        "scanned": 3,
+        "missing": 2,
+        "submitted": 0,
+        "active": 0,
+        "skipped": 1,
+        "failed": 0,
+        "source_missing": 1,
+        "after_id": 3,
+        "through_id": 3
+      }
+    }
+  ],
+  "explicit_apply": [
+    {
+      "kind": "asset",
+      "result": {
+        "through_id": 3,
+        "id": 1,
+        "asset_uuid": "a0eae4a1-e72d-554b-98c6-b18e2abed2eb",
+        "outcome": "submitted",
+        "missing": [
+          "preview",
+          "thumbnail",
+          "thumbnail_64"
+        ],
+        "job_uuid": "37431722-4e08-44ed-b545-e0b2379b645e"
+      }
+    },
+    {
+      "kind": "asset",
+      "result": {
+        "through_id": 3,
+        "id": 2,
+        "asset_uuid": "ac6705d4-cbef-56e8-9377-1fa2d17f289d",
+        "outcome": "source_missing",
+        "missing": [
+          "preview",
+          "thumbnail",
+          "thumbnail_64"
+        ]
+      }
+    },
+    {
+      "kind": "asset",
+      "result": {
+        "through_id": 3,
+        "id": 3,
+        "asset_uuid": "64c747b0-b857-5d1f-a31f-9e531e342fc4",
+        "outcome": "skipped"
+      }
+    },
+    {
+      "kind": "summary",
+      "namespace": "test:media-v2-native-command",
+      "result": {
+        "dry_run": false,
+        "recipe": "standard-image-v2",
+        "scanned": 3,
+        "missing": 2,
+        "submitted": 1,
+        "active": 0,
+        "skipped": 1,
+        "failed": 0,
+        "source_missing": 1,
+        "after_id": 3,
+        "through_id": 3
+      }
+    }
+  ],
+  "apply_completion": {
+    "status": "ready",
+    "required_variants": [
+      "preview",
+      "thumbnail",
+      "thumbnail_64"
+    ],
+    "asserted_by": "TestNativeBackfillCommandDefaultsToReadOnlyDryRun"
+  },
+  "production_executed": false
+}

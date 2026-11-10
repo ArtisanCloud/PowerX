@@ -22,13 +22,14 @@ import (
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
-	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
+	ollamadriver "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/ollama"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
-	vlmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/vlm"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/modeldiscovery"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
@@ -97,14 +98,22 @@ type ProviderHealthRecord struct {
 }
 
 type AgentSettingService struct {
-	db          *gorm.DB
-	credRepo    *repoai.AIProviderCredentialRepository
-	profRepo    *repoai.AIModelProfileRepository
-	routeRepo   *repoai.AIRoutePolicyRepository
-	usageRepo   *repoai.AIUsageLogRepository
-	tks         *tenantkeys.TenantKeyService
-	tenantRepo  *tenantrepo.TenantRepository
-	settingRepo *settingrepo.TenantSettingRepository
+	db                    *gorm.DB
+	credRepo              *repoai.AIProviderCredentialRepository
+	profRepo              *repoai.AIModelProfileRepository
+	routeRepo             *repoai.AIRoutePolicyRepository
+	usageRepo             *repoai.AIUsageLogRepository
+	tks                   *tenantkeys.TenantKeyService
+	tenantRepo            *tenantrepo.TenantRepository
+	settingRepo           *settingrepo.TenantSettingRepository
+	modelDiscoveryTimeout time.Duration
+}
+
+// NewAgentSettingServiceWithCatalogTimeout 由应用依赖注入目录查询期限。
+func NewAgentSettingServiceWithCatalogTimeout(db *gorm.DB, timeout time.Duration) *AgentSettingService {
+	svc := NewAgentSettingService(db)
+	svc.modelDiscoveryTimeout = timeout
+	return svc
 }
 
 func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
@@ -139,7 +148,7 @@ func (s *AgentSettingService) GetTenantCurrentAIEnv(
 	if e := json.Unmarshal(out.ValueJSON, &v); e != nil {
 		return "", false, nil
 	}
-	v = strings.TrimSpace(v)
+	v = dbmodel.CanonicalAIEnvironment(v)
 	if v == "" {
 		return "", false, nil
 	}
@@ -149,7 +158,7 @@ func (s *AgentSettingService) GetTenantCurrentAIEnv(
 func (s *AgentSettingService) SetTenantCurrentAIEnv(
 	ctx context.Context, tenantUUID string, env string,
 ) error {
-	e := strings.TrimSpace(env)
+	e := dbmodel.CanonicalAIEnvironment(env)
 	if e == "" {
 		return fmt.Errorf("env 不能为空")
 	}
@@ -283,7 +292,7 @@ func (s *AgentSettingService) Models(modality, provider, app string) ([]string, 
 	return out, nil
 }
 
-// ModelsForTenant：给 HTTP handler 用；针对 OpenRouter 支持远端拉取模型列表，失败则回退到本地 catalog。
+// ModelsForTenant 优先供应商在线目录；没有模型接口的供应商才提供本地目录。
 func (s *AgentSettingService) ModelsForTenant(
 	ctx context.Context,
 	env string,
@@ -291,16 +300,44 @@ func (s *AgentSettingService) ModelsForTenant(
 	modality string,
 	provider string,
 	app string,
+	baseURL string,
 ) ([]string, error) {
 	mod := strings.TrimSpace(strings.ToLower(modality))
 	prov := strings.TrimSpace(strings.ToLower(provider))
 	app = strings.TrimSpace(strings.ToLower(app))
-
-	// OpenRouter：模型目录变化快，优先走远端 /models；失败则回退到本地目录（占位/示例）。
-	if prov == "openrouter" && (mod == "llm" || mod == "embedding") {
-		if remote, err := s.fetchOpenRouterModels(ctx, env, tenantUUID, mod); err == nil && len(remote) > 0 {
-			return remote, nil
+	if reg := catalog.GetGlobalAIRegister(); reg != nil {
+		if canonical := reg.CanonicalProvider(prov); canonical != "" {
+			prov = canonical
 		}
+	}
+	if prov == "ollama" {
+		baseURL = strings.TrimSpace(baseURL)
+		if baseURL == "" {
+			storedBase, _, err := s.resolveConnFromStore(ctx, env, tenantUUID, prov, "", "")
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, err
+			}
+			baseURL = storedBase
+			if baseURL == "" {
+				baseURL = catalog.AuthReqFromCatalog(prov).DefaultBaseURL
+			}
+		}
+		// 私有实例失败必须显式报错，不能把静态样例冒充已安装型号。
+		return ollamadriver.ListModels(ctx, baseURL, mod)
+	}
+
+	// 在线同步结果按租户、环境、供应商、App 和连接指纹隔离；不污染全局 YAML。
+	if online, exists, err := s.onlineModels(ctx, env, tenantUUID, mod, prov, app); err != nil {
+		if dto.CodeOf(err) == "AI_MODEL_SYNC_UNSUPPORTED" {
+			// 明确不支持目录协议的接入方式（如 Azure deployment）保留本地型号；上游失败不能走此分支。
+			return s.Models(mod, prov, app)
+		}
+		return nil, err
+	} else if exists {
+		return online, nil
+	}
+	if _, supported := modeldiscovery.ProviderSpec(prov); supported {
+		return nil, syncError(409, "AI_SETTINGS_PROVIDER_NOT_CONFIGURED")
 	}
 	return s.Models(mod, prov, app)
 }
@@ -404,9 +441,40 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 	prof *dbmodel.AIModelProfile,
 	setActive bool, // ← 新增开关，通常传 true
 ) error {
+	env = dbmodel.CanonicalAIEnvironment(env)
+	cred.Name = dbmodel.AICredentialNameForEnvironment(cred.Name, env, utils.Slug(cred.Provider))
 	cred.Env, cred.TenantUUID = env, tenantUUID
 	prof.Env, prof.TenantUUID = env, tenantUUID
+	if prof.Modality == "llm" {
+		if err := s.ValidateLLMParameters(ctx, env, tenantUUID, prof.Provider, prof.Model, prof.Defaults); err != nil {
+			return err
+		}
+	}
+	if prof.Modality == "vlm" {
+		if err := s.ValidateVLMProfile(ctx, env, tenantUUID, prof.Provider, prof.Model, prof.Defaults); err != nil {
+			return err
+		}
+	}
 	s.applyManifestToProfile(prof)
+	if prof.Modality == "image" {
+		if err := s.normalizeImageProfile(ctx, env, tenantUUID, prof); err != nil {
+			return err
+		}
+	}
+	if findModelManifest(prof.Modality, prof.Provider, prof.Model) == nil {
+		if _, online := modeldiscovery.ProviderSpec(prof.Provider); online {
+			model, err := s.TenantModelManifest(ctx, env, tenantUUID, prof.Modality, prof.Provider, prof.Model)
+			if err != nil {
+				return err
+			}
+			if len(model.Operations) > 0 {
+				prof.Tags = append(prof.Tags, catalog.OnlineUsageSelectedTag)
+			}
+		}
+	}
+	if err := normalizeCredentialEndpoint(cred); err != nil {
+		return err
+	}
 
 	// 是否提交了新密钥？
 	sensKeys := []string{"api_key", "secret_id", "secret_key", "access_token", "client_secret", "secret"}
@@ -473,17 +541,10 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 			}
 		}
 	} else {
-		// 没提新密钥：保留旧的 __sealed 和 base_url（如有）
-		if old, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, cred.Name, cred.Provider); err == nil && old != nil {
-			if cred.Data != nil {
-				if cred.Data["__sealed"] == nil && old.Data != nil && old.Data["__sealed"] != nil {
-					cred.Data["__sealed"] = old.Data["__sealed"]
-				}
-				if baseURL == "" && old.Data != nil {
-					if bu, _ := old.Data["base_url"].(string); strings.TrimSpace(bu) != "" {
-						cred.Data["base_url"] = bu
-					}
-				}
+		// 未提交新密钥时保留密文；只有省略 base_url 才继承旧地址，显式空值使用默认地址。
+		if old, err := s.credRepo.FindByEquivalentScopeNameProvider(ctx, env, tenantUUID, cred.Name, cred.Provider); err == nil && old != nil {
+			if err := s.inheritCredentialForEnvironment(ctx, env, tenantUUID, cred, old); err != nil {
+				return err
 			}
 		} else if len(placeholderKeys) > 0 {
 			return fmt.Errorf("密钥字段为占位符且没有可保留的已保存密钥：%s", strings.Join(placeholderKeys, ","))
@@ -520,7 +581,7 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 
 // SaveCredentialOnly：用于“连接测试成功后自动保存凭据”（不写画像、不激活默认路由）
 // - 会 SealSensitive（api_key/secret/...）
-// - 若未提交新密钥，则保留旧的 __sealed / base_url
+// - 未提交新密钥时保留旧密文；base_url 缺省保留，显式空值恢复默认地址。
 func (s *AgentSettingService) SaveCredentialOnly(
 	ctx context.Context,
 	env string, tenantUUID *string,
@@ -529,32 +590,22 @@ func (s *AgentSettingService) SaveCredentialOnly(
 	if cred == nil {
 		return fmt.Errorf("credential 不能为空")
 	}
+	env = dbmodel.CanonicalAIEnvironment(env)
+	cred.Name = dbmodel.AICredentialNameForEnvironment(cred.Name, env, utils.Slug(cred.Provider))
 	cred.Env, cred.TenantUUID = env, tenantUUID
+	if err := normalizeCredentialEndpoint(cred); err != nil {
+		return err
+	}
 
 	// 是否提交了新密钥？
 	sensKeys := []string{"api_key", "access_token", "client_secret", "secret"}
 	hasNewSecret, placeholderKeys := normalizeCredentialSecretInput(cred.Data, sensKeys...)
 
-	baseURL := ""
-	if cred.Data != nil {
-		if v, _ := cred.Data["base_url"].(string); v != "" {
-			baseURL = v
-		}
-	}
-
-	// 没提新密钥：保留旧的 __sealed 和 base_url（如有）
+	// 未提交新密钥时保留密文；只有省略 base_url 才继承旧地址，显式空值使用默认地址。
 	if !hasNewSecret {
-		if old, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, cred.Name, cred.Provider); err == nil && old != nil {
-			if cred.Data == nil {
-				cred.Data = datatypes.JSONMap{}
-			}
-			if cred.Data["__sealed"] == nil && old.Data != nil && old.Data["__sealed"] != nil {
-				cred.Data["__sealed"] = old.Data["__sealed"]
-			}
-			if baseURL == "" && old.Data != nil {
-				if bu, _ := old.Data["base_url"].(string); strings.TrimSpace(bu) != "" {
-					cred.Data["base_url"] = bu
-				}
+		if old, err := s.credRepo.FindByEquivalentScopeNameProvider(ctx, env, tenantUUID, cred.Name, cred.Provider); err == nil && old != nil {
+			if err := s.inheritCredentialForEnvironment(ctx, env, tenantUUID, cred, old); err != nil {
+				return err
 			}
 		} else if len(placeholderKeys) > 0 {
 			return fmt.Errorf("密钥字段为占位符且没有可保留的已保存密钥：%s", strings.Join(placeholderKeys, ","))
@@ -583,11 +634,21 @@ func (s *AgentSettingService) resolveConnFromStore(
 	req := catalog.AuthReqFromCatalog(provider)
 	logger.InfoF(ctx, "[agent_setting] resolve_conn start env=%s tenant=%s provider=%s name=%s need_key=%t need_base=%t has_base=%t has_api_key=%t", env, s.tenantScopeKey(tenantUUID), provider, name, req.NeedKey, req.NeedBaseURL, strings.TrimSpace(baseURLIn) != "", strings.TrimSpace(apiKeyIn) != "")
 
-	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, provider)
+	cred, err := s.credRepo.FindByEquivalentScopeNameProvider(ctx, env, tenantUUID, name, provider)
 	if err != nil {
 		logger.WarnF(ctx, "[agent_setting] credential lookup failed env=%s tenant=%s provider=%s name=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, name, err)
 		return baseURL, apiKey, err
 	}
+	return s.resolveConnFromCredential(ctx, env, tenantUUID, provider, cred, baseURL, apiKey)
+}
+
+// resolveConnFromCredential 从同一凭据快照解析地址及密钥，避免并发修改时混用两次读取。
+func (s *AgentSettingService) resolveConnFromCredential(ctx context.Context, env string, tenantUUID *string, provider string, cred *dbmodel.AIProviderCredential, baseURL, apiKey string) (string, string, error) {
+	name := cred.Name
+	if cred.Env != dbmodel.CanonicalAIEnvironment(env) {
+		logger.InfoF(ctx, "[ai.settings] legacy credential selected tenant=%s provider=%s canonical_env=%s storage_env=%s credential_name=%s", s.tenantScopeKey(tenantUUID), provider, dbmodel.CanonicalAIEnvironment(env), cred.Env, cred.Name)
+	}
+	req := catalog.AuthReqFromCatalog(provider)
 	// 先用存量 base_url
 	if baseURL == "" {
 		if v, ok := cred.Data["base_url"].(string); ok {
@@ -605,7 +666,7 @@ func (s *AgentSettingService) resolveConnFromStore(
 		}
 
 		sec := map[string]any{}
-		if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
+		if e := s.tks.UnsealSensitive(ctx, cred.Env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
 			if apiKey == "" {
 				if v, ok := sec["api_key"].(string); ok && strings.TrimSpace(v) != "" {
 					apiKey = strings.TrimSpace(v)
@@ -634,10 +695,15 @@ func (s *AgentSettingService) resolveConnFromStore(
 	if apiKey == "" && !req.NeedKey {
 		logger.InfoF(ctx, "[agent_setting] resolve_conn skip_api_key env=%s tenant=%s provider=%s name=%s reason=provider_does_not_require_key", env, s.tenantScopeKey(tenantUUID), provider, name)
 	}
-	if strings.TrimSpace(baseURL) == "" && strings.TrimSpace(req.DefaultBaseURL) != "" {
+	if strings.TrimSpace(baseURL) == "" {
+		mode, _ := cred.Data["auth_mode"].(string)
+		defaultBase, err := ResolveFormBaseURL(provider, mode, "")
+		if err != nil {
+			return baseURL, apiKey, err
+		}
 		// Provider 默认地址是协议的一部分（例如 Ollama 的本地默认端口），
 		// 不是从其他环境或其他凭据复制配置。
-		baseURL = strings.TrimSpace(req.DefaultBaseURL)
+		baseURL = defaultBase
 		logger.InfoF(ctx, "[agent_setting] resolved provider default base_url env=%s tenant=%s provider=%s name=%s", env, s.tenantScopeKey(tenantUUID), provider, name)
 	}
 	if req.NeedBaseURL && strings.TrimSpace(baseURL) == "" {
@@ -656,102 +722,35 @@ func (s *AgentSettingService) ResolveConnFromStore(
 	return s.resolveConnFromStore(ctx, env, tenantUUID, provider, baseURLIn, apiKeyIn)
 }
 
-// 只用“这次提交的表单值”直连一次（不读库、不回退、不解封）
+// PingStrict 使用本次参数执行只读鉴权检查，不提交生成请求。
 func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider, model, baseURL, apiKey, secretID, secretKey, region string) error {
-	if strings.TrimSpace(provider) == "" || strings.TrimSpace(model) == "" {
-		return fmt.Errorf("provider/model 不能为空")
-	}
-	rule := s.resolveModelRule(modality, provider, model)
-
-	// 应用规则
-	if rule.RequireAPIKey && strings.TrimSpace(apiKey) == "" {
-		return fmt.Errorf("%s/%s 需要 apiKey", provider, model)
-	}
-	if rule.RequireSecretID && strings.TrimSpace(secretID) == "" {
-		return fmt.Errorf("%s/%s 需要 secretId", provider, model)
-	}
-	if rule.RequireSecretKey && strings.TrimSpace(secretKey) == "" {
-		return fmt.Errorf("%s/%s 需要 secretKey", provider, model)
-	}
-	if strings.TrimSpace(baseURL) == "" {
-		if rule.DefaultBaseURL != "" {
-			baseURL = rule.DefaultBaseURL
-		} else if rule.RequireBaseURL {
-			return fmt.Errorf("%s/%s 需要 baseURL", provider, model)
-		}
-	}
-	if err := validateEndpoint(baseURL); err != nil {
-		return err
-	}
-
-	cli, err := agentllm.NewClient(provider)
-	if err != nil {
-		return err
-	}
-	_ = cli // 仅做 provider 驱动可用性校验；真实探活统一走 QuickCallLLMResult 链路。
-
-	_, err = s.QuickCallLLMResult(
-		ctx, "", nil,
-		provider, model, baseURL, apiKey, secretID, secretKey, region, "",
-		0, 0,
-		"ping",
-	)
-	return normalizePingLLMError(provider, model, err)
+	_, err := s.VerifyConnection(ctx, "", nil, contract.Modality(modality), ConnectionInput{Provider: provider, Model: model, BaseURL: baseURL, APIKey: apiKey})
+	return err
 }
 
-// TestConnectionPreferInput：测试接口用
-// 逻辑：如果提交里有 baseURL 或 apiKey（任一非空），就用提交参数“严格直连”；
-// 否则从库里读取已保存配置（含密钥解封）后再 ping。
+// TestConnectionPreferInput 为 HTTP、gRPC、Setup 复用相同的只读鉴权检查。
 func (s *AgentSettingService) TestConnectionPreferInput(
 	ctx context.Context, env string, tenantUUID *string,
 	modality, provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 ) error {
-
-	mod := strings.ToLower(strings.TrimSpace(modality))
-	prov := strings.TrimSpace(provider)
-
-	switch contract.Modality(mod) {
-	case contract.ModLLM:
-		if strings.TrimSpace(prov) == "" {
-			return fmt.Errorf("provider 不能为空")
-		}
-		if strings.TrimSpace(model) == "" {
-			return fmt.Errorf("model 不能为空")
-		}
-		// 要求具备可用 driver
-		if _, err := agentllm.NewClient(prov); err != nil {
-			return fmt.Errorf("Provider %s 暂未实现 LLM 直连驱动，无法测试连接", prov)
-		}
-		// 与正式调用链对齐：统一走 QuickCallLLMResult。
-		prompt := "ping"
-		if strings.TrimSpace(baseURL) != "" || strings.TrimSpace(apiKey) != "" || strings.TrimSpace(secretID) != "" || strings.TrimSpace(secretKey) != "" {
-			_, err := s.QuickCallLLMResult(
-				ctx, env, tenantUUID,
-				prov, model, baseURL, apiKey, secretID, secretKey, region, authMode,
-				0, 0,
-				prompt,
-			)
-			return normalizePingLLMError(prov, model, err)
-		}
-		_, err := s.QuickCallLLMResult(
-			ctx, env, tenantUUID,
-			prov, model, "", "", "", "", "", authMode,
-			0, 0,
-			prompt,
-		)
-		return normalizePingLLMError(prov, model, err)
-
-	case contract.ModImage:
-		return s.PingImage(ctx, env, tenantUUID, provider, model, baseURL, apiKey, secretID, secretKey, region, "")
-	default:
-		return s.PingGeneric(ctx, env, tenantUUID, contract.Modality(mod), provider, model, baseURL, apiKey)
-	}
+	_, err := s.VerifyConnection(ctx, env, tenantUUID, contract.Modality(strings.ToLower(strings.TrimSpace(modality))), ConnectionInput{Provider: provider, Model: model, BaseURL: baseURL, APIKey: apiKey, AuthMode: authMode})
+	return err
 }
 
-// 对非 LLM 模态的基础校验，暂不做真实连通测试
+// RotateTenantCredentials 轮换当前租户作用域内的凭据密钥。
 func (s *AgentSettingService) RotateTenantCredentials(
 	ctx context.Context, env string, tenantUUID *string,
 ) error {
+	for _, source := range dbmodel.AIEnvironmentReadOrder(env) {
+		if err := s.rotateTenantCredentialsInStoredEnvironment(ctx, source, tenantUUID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// 每份密文仍在原来的物理环境轮换，不把旧数据搬到另一个 RSA 作用域。
+func (s *AgentSettingService) rotateTenantCredentialsInStoredEnvironment(ctx context.Context, env string, tenantUUID *string) error {
 	scopeKey := s.tenantScopeKey(tenantUUID)
 	creds, err := s.credRepo.ListByScope(ctx, env, tenantUUID)
 	if err != nil {
@@ -791,7 +790,11 @@ func (s *AgentSettingService) RotateTenantCredentials(
 		for k, v := range item.secrets {
 			item.cred.Data[k] = v
 		}
-		sealed, err := s.tks.SealSensitive(ctx, env, scopeKey, item.cred.Data, sensitiveCredentialKeys...)
+		keys := append([]string{}, sensitiveCredentialKeys...)
+		for key := range item.secrets {
+			keys = append(keys, key)
+		}
+		sealed, err := s.tks.SealSensitive(ctx, env, scopeKey, item.cred.Data, keys...)
 		if err != nil {
 			return err
 		}
@@ -807,126 +810,28 @@ func (s *AgentSettingService) RotateTenantCredentials(
 func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantUUID *string,
 	provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 ) error {
-	if err := ensureModelExists(string(contract.ModLLM), provider, model); err != nil {
-		return err
-	}
-	_, err := s.QuickCallLLMResult(
-		ctx, env, tenantUUID,
-		provider, model, baseURL, apiKey, secretID, secretKey, region, authMode,
-		0, 0,
-		"ping",
-	)
-	return normalizePingLLMError(provider, model, err)
+	_, err := s.VerifyConnection(ctx, env, tenantUUID, contract.ModLLM, ConnectionInput{Provider: provider, Model: model, BaseURL: baseURL, APIKey: apiKey, AuthMode: authMode})
+	return err
 }
 
 func (s *AgentSettingService) PingImage(
 	ctx context.Context, env string, tenantUUID *string,
 	provider, model, baseURL, apiKey, secretID, secretKey, region, organization string,
 ) error {
-	logger.InfoF(ctx, "[agent_setting] ping_image start env=%s provider=%s model=%s", env, strings.TrimSpace(provider), strings.TrimSpace(model))
-	if err := ensureModelExists(string(contract.ModImage), provider, model); err != nil {
-		return err
-	}
-	p := strings.TrimSpace(strings.ToLower(provider))
-	req := catalog.AuthReqFromCatalog(provider)
-	var err error
-	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantUUID, p, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
-	if err != nil {
-		return err
-	}
-	if err := validateEndpoint(baseURL); err != nil {
-		return err
-	}
-
-	manifest := findModelManifest(string(contract.ModImage), provider, model)
-	size := "256x256"
-	quality := "auto"
-	format := "png"
-	promptHint := ""
-	if manifest != nil && manifest.Defaults != nil {
-		if v, ok := manifest.Defaults["size"].(string); ok && strings.TrimSpace(v) != "" {
-			size = strings.TrimSpace(v)
-		}
-		if v, ok := manifest.Defaults["quality"].(string); ok && strings.TrimSpace(v) != "" {
-			quality = strings.TrimSpace(v)
-		}
-		if v, ok := manifest.Defaults["format"].(string); ok && strings.TrimSpace(v) != "" {
-			format = strings.TrimSpace(v)
-		}
-		if v, ok := manifest.Defaults["promptHint"].(string); ok && strings.TrimSpace(v) != "" {
-			promptHint = strings.TrimSpace(v)
-		}
-	}
-	prompt := "A tiny white cube on a blue background."
-	if promptHint != "" {
-		prompt = strings.TrimSpace(prompt + "\n" + promptHint)
-	}
-
-	mc := agentcfg.ModelConfig{
-		Provider:     provider,
-		Endpoint:     baseURL,
-		APIKey:       apiKey,
-		SecretID:     secretID,
-		SecretKey:    secretKey,
-		Region:       region,
-		Model:        model,
-		Organization: organization,
-		Extra:        s.buildModelExtras(contract.ModImage, provider, model),
-	}
-
-	driverKey := p
-	if man, ok := catalog.GetGlobalAIRegister().Manifest(p); ok && man != nil {
-		if dk := strings.ToLower(strings.TrimSpace(man.Drivers["image"])); dk != "" {
-			driverKey = dk
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-
-	var invokeErr error
-	switch driverKey {
-	case "qwen":
-		cli, err := vlmfactory.NewClient(driverKey)
-		if err != nil {
-			return err
-		}
-		_, invokeErr = cli.Invoke(ctx, contract.VLMRequest{
-			Messages: []contract.Message{
-				{
-					Role: "user",
-					Content: []contract.ContentPart{
-						{Type: contract.ContentTypeText, Text: "请回复 ok"},
-					},
-				},
-			},
-			MaxTokens: 8,
-			Runtime:   map[string]any{"config": &mc},
-		})
-	default:
-		cli, err := imagefactory.NewClient(driverKey)
-		if err != nil {
-			return err
-		}
-		_, invokeErr = cli.Generate(ctx, contract.ImageRequest{
-			Prompt:  prompt,
-			Size:    size,
-			Quality: quality,
-			Format:  format,
-			Runtime: map[string]any{"config": &mc},
-		})
-	}
-	if invokeErr == nil {
-		logger.InfoF(ctx, "[agent_setting] ping_image success env=%s provider=%s model=%s", env, strings.TrimSpace(provider), strings.TrimSpace(model))
-	}
-	return invokeErr
+	_, err := s.VerifyConnection(ctx, env, tenantUUID, contract.ModImage, ConnectionInput{Provider: provider, Model: model, BaseURL: baseURL, APIKey: apiKey, Organization: organization})
+	return err
 }
 
 func (s *AgentSettingService) PingGeneric(
 	ctx context.Context, env string, tenantUUID *string,
 	modality contract.Modality, provider, model, baseURL, apiKey string,
 ) error {
-	if err := ensureModelExists(string(modality), provider, model); err != nil {
+	var endpointErr error
+	baseURL, endpointErr = ResolveFormBaseURL(provider, "", baseURL)
+	if endpointErr != nil {
+		return endpointErr
+	}
+	if err := s.ensureTenantModelExists(ctx, env, tenantUUID, string(modality), provider, model); err != nil {
 		return err
 	}
 	req := catalog.AuthReqFromCatalog(provider)
@@ -952,7 +857,13 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 	baseURL string,
 	apiKey string,
 ) (int, error) {
-	if err := ensureModelExists(string(contract.ModEmbed), provider, model); err != nil {
+	var endpointErr error
+	baseURL, endpointErr = ResolveFormBaseURL(provider, "", baseURL)
+	if endpointErr != nil {
+		return 0, endpointErr
+	}
+	env = dbmodel.CanonicalAIEnvironment(env)
+	if err := s.ensureTenantModelExists(ctx, env, tenantUUID, string(contract.ModEmbed), provider, model); err != nil {
 		return 0, err
 	}
 	p := strings.ToLower(strings.TrimSpace(provider))
@@ -1034,7 +945,7 @@ func (s *AgentSettingService) ProbeEmbeddingDimensionsPreferInput(
 		profile.CapCache["max_input_tokens"] = maxInputTokens
 	}
 	// keep existing defaults/cap_cache best-effort (no hard dependency)
-	if exist, e := s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, "embedding", p, m); e == nil && exist != nil {
+	if exist, e := s.profRepo.FindByEquivalentScopeModalityProviderModel(ctx, env, tenantUUID, "embedding", p, m); e == nil && exist != nil {
 		if exist.Defaults != nil {
 			for k, v := range exist.Defaults {
 				if _, ok := profile.Defaults[k]; ok {
@@ -1079,7 +990,7 @@ func (s *AgentSettingService) BuildEmbeddingConfig(
 	baseURL string,
 	apiKey string,
 ) (agentconf.EmbeddingConfig, error) {
-	if err := ensureModelExists(string(contract.ModEmbed), provider, model); err != nil {
+	if err := s.ensureTenantModelExists(ctx, env, tenantUUID, string(contract.ModEmbed), provider, model); err != nil {
 		return agentconf.EmbeddingConfig{}, err
 	}
 	p := strings.ToLower(strings.TrimSpace(provider))
@@ -1133,7 +1044,7 @@ func (s *AgentSettingService) BuildImageConfig(
 	region string,
 	organization string,
 ) (*agentcfg.ModelConfig, error) {
-	if err := ensureModelExists(string(contract.ModImage), provider, model); err != nil {
+	if err := s.ensureTenantModelExists(ctx, env, tenantUUID, string(contract.ModImage), provider, model); err != nil {
 		return nil, err
 	}
 	p := strings.ToLower(strings.TrimSpace(provider))
@@ -1160,7 +1071,7 @@ func (s *AgentSettingService) BuildImageConfig(
 	rg := strings.TrimSpace(region)
 	azureDeployment := ""
 	name := utils.Slug(env + "-" + p)
-	if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
+	if cred, err := s.credRepo.FindByEquivalentScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
 		if org == "" {
 			if v, ok := cred.Data["organization"].(string); ok {
 				org = strings.TrimSpace(v)
@@ -1209,8 +1120,12 @@ func (s *AgentSettingService) BuildModelConfig(
 	if mod == "" {
 		return nil, fmt.Errorf("modality 不能为空")
 	}
-	if err := ensureModelExists(mod, provider, model); err != nil {
-		return nil, err
+	if err := s.ensureTenantModelExists(ctx, env, tenantUUID, mod, provider, model); err != nil {
+		// 目录复核不应中断租户先前已明确保存的未知文本／向量配置。
+		// 已知媒体冲突仍拒绝；新选择和保存继续走严格的候选校验。
+		if !s.legacyConfiguredCandidate(ctx, env, tenantUUID, mod, provider, model) {
+			return nil, err
+		}
 	}
 	p := strings.ToLower(strings.TrimSpace(provider))
 	m := strings.TrimSpace(model)
@@ -1246,7 +1161,7 @@ func (s *AgentSettingService) BuildModelConfig(
 	azureDeployment := ""
 
 	name := utils.Slug(env + "-" + p)
-	if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
+	if cred, err := s.credRepo.FindByEquivalentScopeNameProvider(ctx, env, tenantUUID, name, p); err == nil && cred != nil {
 		if org == "" {
 			if v, ok := cred.Data["organization"].(string); ok {
 				org = strings.TrimSpace(v)
@@ -1276,7 +1191,7 @@ func (s *AgentSettingService) BuildModelConfig(
 		}
 		if sid == "" || sk == "" {
 			sec := map[string]any{}
-			if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
+			if e := s.tks.UnsealSensitive(ctx, cred.Env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
 				if sid == "" {
 					if v, ok := sec["secret_id"].(string); ok && strings.TrimSpace(v) != "" {
 						sid = strings.TrimSpace(v)
@@ -1292,16 +1207,17 @@ func (s *AgentSettingService) BuildModelConfig(
 	}
 
 	return &agentcfg.ModelConfig{
-		Provider:        provider,
-		Endpoint:        bu,
-		APIKey:          ak,
-		SecretID:        sid,
-		SecretKey:       sk,
-		Region:          rg,
-		Model:           m,
-		Organization:    org,
-		AzureDeployment: azureDeployment,
-		Extra:           s.buildModelExtras(contract.Modality(mod), provider, model),
+		ParameterProfile: s.ModelParameterProfile(ctx, env, tenantUUID, provider, model),
+		Provider:         provider,
+		Endpoint:         bu,
+		APIKey:           ak,
+		SecretID:         sid,
+		SecretKey:        sk,
+		Region:           rg,
+		Model:            m,
+		Organization:     org,
+		AzureDeployment:  azureDeployment,
+		Extra:            s.buildModelExtras(contract.Modality(mod), provider, model),
 	}, nil
 }
 
@@ -1506,7 +1422,21 @@ func (s *AgentSettingService) QuickCallLLMResult(
 	provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 	temperature float64, maxTokens int,
 	prompt string,
+	options ...LLMCallParameters,
 ) (*agentcfg.InvokeResult, error) {
+	applyParameters := func(mc *agentcfg.ModelConfig) {
+		mc.ParameterProfile = s.ModelParameterProfile(ctx, env, tenantUUID, provider, model)
+		if len(options) > 0 {
+			mc.TopP, mc.TemperatureSet = options[0].TopP, options[0].TemperatureSet
+			mc.TopPSet = options[0].TopPSet
+			if options[0].ReasoningEffort != "" {
+				if mc.Extra == nil {
+					mc.Extra = map[string]any{}
+				}
+				mc.Extra["reasoning_effort"] = options[0].ReasoningEffort
+			}
+		}
+	}
 	if strings.TrimSpace(prompt) == "" {
 		prompt = "Say hello in one short sentence."
 	}
@@ -1536,6 +1466,7 @@ func (s *AgentSettingService) QuickCallLLMResult(
 				MaxTokens:    maxTokens,
 				Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
 			}
+			applyParameters(&mc)
 			return agentllm.Invoke(ctx, &mc, prompt)
 		}
 		// OpenAI SDK 兼容：走 openai client
@@ -1554,6 +1485,7 @@ func (s *AgentSettingService) QuickCallLLMResult(
 			AccessToken:  ak,
 			Extra:        s.buildModelExtras(contract.ModLLM, "hunyuan", model),
 		}
+		applyParameters(&mc)
 		return agentllm.Invoke(ctx, &mc, prompt)
 	}
 
@@ -1611,6 +1543,7 @@ func (s *AgentSettingService) QuickCallLLMResult(
 		AccessToken:  ak,
 		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
+	applyParameters(&mc)
 	return agentllm.Invoke(ctx, &mc, prompt)
 }
 
@@ -1620,11 +1553,17 @@ func (s *AgentSettingService) QuickCallLLM(
 	provider, model, baseURL, apiKey, secretID, secretKey, region, authMode string,
 	temperature float64, maxTokens int,
 	prompt string,
+	options ...LLMCallParameters,
 ) (string, error) {
+	var endpointErr error
+	baseURL, endpointErr = ResolveFormBaseURL(provider, authMode, baseURL)
+	if endpointErr != nil {
+		return "", endpointErr
+	}
 	result, err := s.QuickCallLLMResult(
 		ctx, env, tenantUUID,
 		provider, model, baseURL, apiKey, secretID, secretKey, region, authMode,
-		temperature, maxTokens, prompt,
+		temperature, maxTokens, prompt, options...,
 	)
 	if err != nil {
 		return "", err
@@ -1696,7 +1635,7 @@ func (s *AgentSettingService) resolveHunyuanFromStore(
 	ctx context.Context, env string, tenantUUID *string,
 ) (baseURL string, secretID string, secretKey string, region string, err error) {
 	name := utils.Slug(env + "-hunyuan")
-	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantUUID, name, "hunyuan")
+	cred, err := s.credRepo.FindByEquivalentScopeNameProvider(ctx, env, tenantUUID, name, "hunyuan")
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -1723,7 +1662,7 @@ func (s *AgentSettingService) resolveHunyuanFromStore(
 		SecretID  string `json:"secret_id"`
 		SecretKey string `json:"secret_key"`
 	}
-	if e := s.tks.UnsealSensitive(ctx, env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
+	if e := s.tks.UnsealSensitive(ctx, cred.Env, s.tenantScopeKey(tenantUUID), cred.Data, &sec); e == nil {
 		if secretID == "" {
 			secretID = strings.TrimSpace(sec.SecretID)
 		}
@@ -1920,6 +1859,15 @@ func ensureModelExists(modality, provider, model string) error {
 	if strings.TrimSpace(provider) == "" || strings.TrimSpace(model) == "" {
 		return fmt.Errorf("%s provider/model 不能为空", modality)
 	}
+	reg := catalog.GetGlobalAIRegister()
+	if reg != nil && reg.CanonicalProvider(provider) == "ollama" {
+		manifest, ok := reg.Manifest("ollama")
+		if ok && manifest != nil && strings.EqualFold(manifest.Drivers[catalog.NormalizeModality(modality)], "ollama") {
+			// 私有实例型号由实例提供，不能用 YAML 样例目录拦截 :14b/:latest 或自定义型号。
+			// 此处仅校验 Provider 支持该模态；存在性与执行能力由实例响应确认。
+			return nil
+		}
+	}
 	if manifest := findModelManifest(modality, provider, model); manifest == nil {
 		return fmt.Errorf("provider %s 不包含模型 %s (%s)", provider, model, modality)
 	}
@@ -1996,9 +1944,6 @@ func findModelManifest(modality, provider, model string) *catalog.ModelManifest 
 	reg := catalog.GetGlobalAIRegister()
 	app, pureModel := splitAppModel(reg, provider, model)
 	candidates := []string{strings.TrimSpace(strings.ToLower(modality))}
-	if candidates[0] == "audio_tts" || candidates[0] == "audio_asr" {
-		candidates = append(candidates, "audio")
-	}
 	for _, mod := range candidates {
 		models, err := reg.ModelsByApp(mod, provider, app)
 		if err != nil {
@@ -2060,33 +2005,7 @@ func catalogGetProviders(mod string) []aiProviderItem {
 	m := strings.TrimSpace(strings.ToLower(mod))
 	reg := catalog.GetGlobalAIRegister()
 
-	// ✅ 对齐：图像/视频两套 Provider 列表保持一致：image ∪ video
-	var items []catalog.ProviderItem
-	if m == "video" || m == "image" || m == "audio_tts" || m == "audio_asr" {
-		seen := map[string]struct{}{}
-		add := func(list []catalog.ProviderItem) {
-			for _, it := range list {
-				if it.ID == "" {
-					continue
-				}
-				if _, ok := seen[it.ID]; ok {
-					continue
-				}
-				seen[it.ID] = struct{}{}
-				items = append(items, it)
-			}
-		}
-		if m == "video" || m == "image" {
-			add(reg.Providers("image"))
-			add(reg.Providers("video"))
-		}
-		if m == "audio_tts" || m == "audio_asr" {
-			add(reg.Providers(m))
-			add(reg.Providers("audio"))
-		}
-	} else {
-		items = reg.Providers(m)
-	}
+	items := reg.Providers(m)
 	out := make([]aiProviderItem, 0, len(items))
 	for _, it := range items {
 		appItems := reg.Apps(it.ID, m)
@@ -2117,27 +2036,9 @@ func catalogGetModels(mod, prov, app string) ([]aiModelItem, error) {
 		}
 	}
 
-	// ✅ 对齐：图像/视频如果该模态没模型，则回退到另一模态（避免下拉为空）
 	ms, err := reg.ModelsByApp(m, p, a)
 	if err != nil {
 		return nil, err
-	}
-	if len(ms) == 0 {
-		if m == "video" {
-			if fallback, e := reg.ModelsByApp("image", p, a); e == nil && len(fallback) > 0 {
-				ms = fallback
-			}
-		}
-		if m == "image" {
-			if fallback, e := reg.ModelsByApp("video", p, a); e == nil && len(fallback) > 0 {
-				ms = fallback
-			}
-		}
-		if m == "audio_tts" || m == "audio_asr" {
-			if fallback, e := reg.ModelsByApp("audio", p, a); e == nil && len(fallback) > 0 {
-				ms = fallback
-			}
-		}
 	}
 	out := make([]aiModelItem, 0, len(ms))
 	for _, m := range ms {
@@ -2150,7 +2051,7 @@ func (s *AgentSettingService) ListProfiles(
 	ctx context.Context, env string, tenantUUID *string, modalities ...string,
 ) ([]dbmodel.AIModelProfile, error) {
 
-	return s.profRepo.ListByScope(ctx, env, tenantUUID, modalities...)
+	return s.profRepo.ListByEquivalentScope(ctx, env, tenantUUID, modalities...)
 
 }
 
@@ -2159,18 +2060,18 @@ func (s *AgentSettingService) ListCredentials(
 	ctx context.Context, env string, tenantUUID *string,
 ) ([]dbmodel.AIProviderCredential, error) {
 
-	return s.credRepo.ListByScope(ctx, env, tenantUUID)
+	return s.credRepo.ListByEquivalentScope(ctx, env, tenantUUID)
 }
 
 func (s *AgentSettingService) GetActiveProfile(
 	ctx context.Context, env string, tenantUUID *string, modality string,
 ) (*dbmodel.AIModelProfile, error) {
-	rp, err := s.routeRepo.FindDefaultByScopeModality(ctx, env, tenantUUID, modality) // Name="__default"
+	rp, err := s.routeRepo.FindEquivalentDefaultByScopeModality(ctx, env, tenantUUID, modality) // Name="__default"
 	if err == nil && rp != nil && rp.Provider != "" && rp.Model != "" {
-		return s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, modality, rp.Provider, rp.Model)
+		return s.profRepo.FindByEquivalentScopeModalityProviderModel(ctx, env, tenantUUID, modality, rp.Provider, rp.Model)
 	}
 	// 没设置默认时可选一个兜底（例如最近更新的）
-	list, err := s.profRepo.ListByScope(ctx, env, tenantUUID, modality)
+	list, err := s.profRepo.ListByEquivalentScope(ctx, env, tenantUUID, modality)
 	if err != nil || len(list) == 0 {
 		// 最后兜底：读取 config.yaml 的 ai.defaults（仅作为“系统默认值”，不代表已完成凭据配置）
 		cfg := agentconf.GetGlobalAIConfig()
@@ -2271,14 +2172,14 @@ func (s *AgentSettingService) GetActiveProfile(
 func (s *AgentSettingService) GetProfile(
 	ctx context.Context, env string, tenantUUID *string, modality, provider, model string,
 ) (*dbmodel.AIModelProfile, error) {
-	return s.profRepo.FindByScopeModalityProviderModel(ctx, env, tenantUUID, modality, provider, model)
+	return s.profRepo.FindByEquivalentScopeModalityProviderModel(ctx, env, tenantUUID, modality, provider, model)
 }
 
 // service：设置某模态的“当前激活”
 func (s *AgentSettingService) SetActiveProfile(
 	ctx context.Context, env string, tenantUUID *string, modality, provider, model string,
 ) error {
-	return s.routeRepo.UpsertDefaultByScopeModality(ctx, env, tenantUUID, modality, provider, model)
+	return s.routeRepo.UpsertDefaultByScopeModality(ctx, dbmodel.CanonicalAIEnvironment(env), tenantUUID, modality, provider, model)
 }
 
 // 统一解析规则：优先从 catalog 读取；否则按常见 provider 兜底。

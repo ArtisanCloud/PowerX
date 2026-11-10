@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"net/url"
 	"os"
@@ -27,10 +28,14 @@ import (
 )
 
 type JobService struct {
+	authority           PolicyAuthority
+	requireControl      bool
 	db                  *gorm.DB
 	policyRepo          *repoops.BackupPolicyRepository
 	jobRepo             *repoops.BackupJobRepository
 	artifactRepo        *repoops.BackupArtifactRepository
+	retainRepo          *repoops.BackupCleanupRetentionRepository
+	resolutionRepo      *repoops.BackupCleanupResolutionRepository
 	runner              ScriptRunner
 	auditor             obsops.AuditWriter
 	alertSvc            *AlertService
@@ -79,6 +84,8 @@ func NewJobService(db *gorm.DB) *JobService {
 		policyRepo:          repoops.NewBackupPolicyRepository(db),
 		jobRepo:             repoops.NewBackupJobRepository(db),
 		artifactRepo:        repoops.NewBackupArtifactRepository(db),
+		retainRepo:          repoops.NewBackupCleanupRetentionRepository(db),
+		resolutionRepo:      repoops.NewBackupCleanupResolutionRepository(db),
 		runner:              NewOSScriptRunner(),
 		auditor:             obsops.NewUnifiedAuditWriter(db),
 		alertSvc:            NewAlertService(db),
@@ -186,47 +193,14 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 		retErr = ErrBackupPolicyNotFound
 		return nil, retErr
 	}
-	if req.TriggerType == modelops.BackupTriggerTypeScheduled {
-		due, e := s.policyDue(ctx, policy, time.Now().UTC())
-		if e != nil {
-			return nil, e
-		}
-		if !due {
-			return nil, nil
-		}
-	}
-	if err := s.jobRepo.FailInterrupted(ctx, req.PolicyID, time.Now().UTC().Add(-s.backupScriptTimeout-10*time.Minute)); err != nil {
+	saved, captured, err := s.admitPolicyJob(ctx, req, policy)
+	if err != nil {
 		return nil, err
 	}
-	running, err := s.jobRepo.ExistsRunningByPolicy(ctx, req.PolicyID)
-	if err != nil {
-		retErr = err
-		return nil, retErr
+	if saved == nil {
+		return nil, nil
 	}
-	if running {
-		retErr = ErrBackupJobAlreadyRunning
-		return nil, retErr
-	}
-
-	now := time.Now().UTC()
-	triggerType := req.TriggerType
-	if strings.TrimSpace(string(triggerType)) == "" {
-		triggerType = modelops.BackupTriggerTypeManual
-	}
-	job := &modelops.BackupJob{
-		PolicyID:    req.PolicyID,
-		Status:      modelops.BackupJobStatusRunning,
-		TriggerType: triggerType,
-		StartedAt:   &now,
-		Operator:    normalizeOperator(req.Operator),
-		TraceID:     strings.TrimSpace(req.TraceID),
-	}
-	job.Normalize()
-	saved, err := s.jobRepo.Create(ctx, job)
-	if err != nil {
-		retErr = err
-		return nil, retErr
-	}
+	policy = captured
 
 	artifactPath, prepErr := s.prepareArtifactPath(ctx, saved, policy)
 	execErr := prepErr
@@ -275,7 +249,7 @@ func (s *JobService) TriggerJob(ctx context.Context, req TriggerJobRequest) (*mo
 			})
 		}
 	}
-	if updated.Status == modelops.BackupJobStatusSuccess && policy.DrillEnabled && s.restoreSvc != nil {
+	if updated.Status == modelops.BackupJobStatusSuccess && policy.DrillEnabled && s.restoreSvc != nil && s.authority == nil {
 		interval := int(policy.DrillIntervalDays)
 		if interval <= 0 {
 			interval = 7
@@ -349,6 +323,20 @@ func (s *JobService) runBackupScript(ctx context.Context, policyID uint64, outpu
 	if s.runner == nil {
 		return fmt.Errorf("backup script runner unavailable")
 	}
+	var storagePeak int64
+	if budget.Enabled() {
+		var size int64
+		if s.db == nil || s.db.WithContext(ctx).Raw("SELECT pg_database_size(current_database())").Scan(&size).Error != nil || size < 0 || size > 1<<48 {
+			return budget.ErrUnavailable
+		}
+		storagePeak = size*2 + (64 << 20)
+		run, release, err := budget.BeginPath(ctx, s.artifactBaseDir, "database_backup", storagePeak)
+		if err != nil {
+			return err
+		}
+		defer release()
+		ctx = run
+	}
 	path := filepath.Join(s.scriptDir, "backup-db.sh")
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("backup script unavailable: %w", err)
@@ -362,6 +350,12 @@ func (s *JobService) runBackupScript(ctx context.Context, policyID uint64, outpu
 	env, err := postgresEnvironment(sourceDSN(s.db))
 	if err != nil {
 		return err
+	}
+	if storagePeak > 0 {
+		env = append(env, "POWERX_BACKUP_MAX_BYTES="+strconv.FormatInt(storagePeak, 10))
+		if err := budget.TrackOutput(ctx, outputPath); err != nil {
+			return err
+		}
 	}
 	spec.Env = env
 	res, err := s.runner.Run(ctx, spec)
@@ -462,6 +456,9 @@ func (s *JobService) RunDue(ctx context.Context) error {
 	var failures []error
 	for i := range policies {
 		policy := policies[i]
+		if (s.requireControl || policy.ControlScopeID != "") && !policy.IsCurrent {
+			continue
+		}
 		due, e := s.policyDue(ctx, &policy, time.Now().UTC())
 		if e != nil {
 			failures = append(failures, e)

@@ -66,8 +66,8 @@ func (s *RedisStore) InstallPlan(ctx context.Context, identity Snapshot, expecte
 	if s == nil || s.client == nil || !validScope(identity) || expectedVersion == 0 || !validPlan(plan) {
 		return Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
-	planKey, taskKey, _ := schedulingKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
+	planKey, taskKey, _ := s.schedulingKeys(identity)
 	rawPlan, err := json.Marshal(plan)
 	if err != nil {
 		return Snapshot{}, err
@@ -137,8 +137,8 @@ func (s *RedisStore) QueueTask(ctx context.Context, identity Snapshot, expectedV
 	if s == nil || s.client == nil || !validScope(identity) || expectedVersion == 0 || revision == 0 || !taskIDPattern.MatchString(taskID) {
 		return TaskSnapshot{}, Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
-	_, taskKey, outboxKey := schedulingKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
+	_, taskKey, outboxKey := s.schedulingKeys(identity)
 	field := taskField(revision, taskID)
 	for attempt := 0; attempt < 5; attempt++ {
 		var updated Snapshot
@@ -225,7 +225,7 @@ func (s *RedisStore) GetTask(ctx context.Context, identity Snapshot, revision ui
 	if _, err := s.Get(ctx, identity.TenantUUID, identity.Env, identity.RunID); err != nil {
 		return TaskSnapshot{}, err
 	}
-	_, taskKey, _ := schedulingKeys(identity)
+	_, taskKey, _ := s.schedulingKeys(identity)
 	raw, err := s.client.HGet(ctx, taskKey, taskField(revision, taskID)).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return TaskSnapshot{}, ErrNotFound
@@ -248,7 +248,7 @@ func (s *RedisStore) ListTasks(ctx context.Context, identity Snapshot, revision 
 	if s == nil || s.client == nil || !validScope(identity) {
 		return nil, ErrInvalid
 	}
-	_, taskKey, _ := schedulingKeys(identity)
+	_, taskKey, _ := s.schedulingKeys(identity)
 	values, err := s.client.HGetAll(ctx, taskKey).Result()
 	if err != nil {
 		return nil, err

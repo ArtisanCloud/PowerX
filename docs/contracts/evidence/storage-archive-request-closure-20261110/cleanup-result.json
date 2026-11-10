@@ -1,0 +1,33 @@
+{
+  "owner": "codex archive request closure validation",
+  "owned_pids": [
+    1473,
+    1903,
+    12338,
+    12339,
+    13058,
+    14583,
+    14586,
+    14634,
+    14635,
+    14650,
+    91697,
+    94079,
+    94383,
+    94580,
+    99327,
+    99328
+  ],
+  "owned_ports": [
+    59957,
+    60149
+  ],
+  "all_recorded_owned_processes_exited": true,
+  "reused_pids_not_touched": [],
+  "all_owned_listeners_closed": true,
+  "owned_pg_root_removed": true,
+  "private_jwt_file_removed": true,
+  "daily_nuxt_pid": 34360,
+  "daily_core_pid": 58697,
+  "agent_restarted_daily_services": false
+}

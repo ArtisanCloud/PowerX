@@ -1,0 +1,117 @@
+{
+  "paid_provider_calls": false,
+  "existing_services_restarted": false,
+  "database": "powerx_ai_media_test_c9b1e5e10e5e4b4c",
+  "steps": [
+    {
+      "name": "postgres_media_tests",
+      "exit_code": 0,
+      "seconds": 3.74
+    },
+    {
+      "name": "core_migration",
+      "exit_code": 0,
+      "seconds": 18.62
+    },
+    {
+      "name": "capability_seed",
+      "exit_code": 0,
+      "seconds": 4.75
+    },
+    {
+      "name": "postgres_media_final_contract_tests",
+      "exit_code": 0,
+      "seconds": 5.25,
+      "cleanup": true
+    }
+  ],
+  "cleanup": true,
+  "scope": "Core implementation and controlled validation only",
+  "validation_date": "2026-10-19",
+  "final_checks": [
+    {
+      "name": "related_go_packages_and_app_compile",
+      "status": "passed",
+      "packages": [
+        "internal/server/agent/catalog",
+        "internal/server/ai/drivers/...",
+        "internal/server/ai/factory/image",
+        "internal/service/agent",
+        "internal/service/ai",
+        "internal/service/media",
+        "internal/service/event_fabric/task_queue",
+        "internal/service/capability_registry",
+        "internal/service/integration_gateway/apikeypermissions",
+        "internal/transport/http/admin/agent",
+        "internal/transport/http/openapi/ai",
+        "internal/transport/http/openapi/capability_registry",
+        "internal/app/shared",
+        "pkg/corex/db/database",
+        "tests/contract/integration_gateway",
+        "cmd/app"
+      ]
+    },
+    {
+      "name": "race",
+      "status": "passed",
+      "command": "GOMAXPROCS=2 GOFLAGS=-p=2 go test -race ./internal/service/ai ./internal/transport/http/openapi/ai ./internal/service/event_fabric/task_queue ./internal/server/ai/drivers/qwen -count=1 -timeout 180s",
+      "final_http_followup": "go test -race ./internal/transport/http/openapi/ai -count=1 -timeout 120s"
+    },
+    {
+      "name": "go_vet",
+      "status": "passed",
+      "packages": [
+        "internal/service/ai",
+        "internal/service/media",
+        "internal/service/event_fabric/task_queue",
+        "internal/transport/http/openapi/ai",
+        "internal/server/agent/catalog",
+        "internal/server/ai/drivers/qwen",
+        "internal/server/ai/drivers/volcengine",
+        "internal/service/capability_registry",
+        "pkg/corex/db/persistence/repository/ai"
+      ]
+    },
+    {
+      "name": "capability_check",
+      "status": "passed",
+      "declared": 1109,
+      "referenced": 73,
+      "rest_routes": 1041,
+      "candidates": 1121
+    },
+    {
+      "name": "shared_openapi_and_fixtures",
+      "status": "passed"
+    },
+    {
+      "name": "git_diff_check",
+      "status": "passed"
+    }
+  ],
+  "controlled_coverage": [
+    "Explicit media capability filtering, empty directory and unconfigured model denial",
+    "Qwen VLM temperature zero, native image and TTS controlled HTTP calls",
+    "Unsupported parameter type/range/enum and structured REST error details",
+    "Concurrent idempotency and conflict handling on SQLite and disposable PostgreSQL",
+    "Core runtime recreation, stable task ID and supplier submit count unchanged by read",
+    "Actual Redis Stream TaskBus driver with miniredis, fenced lifecycle and lease support",
+    "Volcengine async submit/query/cancel with controlled HTTP provider",
+    "Managed PNG/WAV/MP4 assets reopened through MediaService and verified by SHA256",
+    "Wrong media output and private download destination rejection",
+    "API Key and STS live grants, actual capability registry/router invocation and grant-status",
+    "Cross-tenant/caller denial and revoked grant rejection",
+    "SSE initial snapshot, event update, Redis reconnect recovery and no task reads on heartbeat",
+    "Uncertain submission does not regenerate and unchanged supplier state emits no new event"
+  ],
+  "not_validated": [
+    "Paid/live provider calls",
+    "Installed plugin deployment acceptance",
+    "Development Host API key live grant-status (no key supplied)",
+    "Browser playback against real providers"
+  ],
+  "temporary_database_removed": true,
+  "temporary_config_removed": true,
+  "framework_source_modified": false,
+  "owned_services_left_running": false
+}

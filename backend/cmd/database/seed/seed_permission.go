@@ -109,6 +109,7 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		menuPerm("settings.users"),
 		menuPerm("settings.roles"),
 		menuPerm("settings.config"),
+		clientApplicationMenuPermission(),
 		menuPerm("settings.ai"),
 		menuPerm("settings.ai.model"),
 		menuPerm("settings.ai.cost"),
@@ -133,23 +134,23 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 	ctx := context.Background()
 
 	// 1) upsert 系统级角色：root、system_monitor（tenant_id=0）
-	rootOut, err := rr.Upsert(ctx, &dbm.Role{
+	rootOut, err := rr.UpsertPreservingIdentity(ctx, &dbm.Role{
 		Scope:      "system",
 		TenantUUID: "",
 		Code:       "root",
 		Name:       "Super Admin",
 		Builtin:    true,
-	}, []clause.Column{{Name: "scope"}, {Name: "tenant_uuid"}, {Name: "code"}})
+	})
 	if err != nil {
 		return fmt.Errorf("upsert root: %w", err)
 	}
-	monitorOut, err := rr.Upsert(ctx, &dbm.Role{
+	monitorOut, err := rr.UpsertPreservingIdentity(ctx, &dbm.Role{
 		Scope:      "system",
 		TenantUUID: "",
 		Code:       "system_monitor",
 		Name:       "System Monitor",
 		Builtin:    true,
-	}, []clause.Column{{Name: "scope"}, {Name: "tenant_uuid"}, {Name: "code"}})
+	})
 	if err != nil {
 		return fmt.Errorf("upsert system_monitor: %w", err)
 	}
@@ -216,8 +217,8 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 	// role_user：租户基础使用权限。普通用户默认可访问智能会话，
 	// 但不获得 IAM/Capability Registry 等后台治理写权限。
 	if err := db.WithContext(ctx).
-		Raw(`
-			SELECT id FROM public.iam_permission
+		Raw(fmt.Sprintf(`
+			SELECT id FROM %s
 			WHERE status = ?
 			  AND (meta->>'module' IS NULL OR (meta->>'module') != ?)
 			  AND module != 'menu'
@@ -225,20 +226,20 @@ func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 			    action IN ('read','list')
 			    OR module = 'agent'
 			  )
-		`, dbm.PermissionStatusActive, "system").
+		`, (&dbm.Permission{}).TableName()), dbm.PermissionStatusActive, "system").
 		Scan(&tenantUserIDs).Error; err != nil {
 		return fmt.Errorf("list tenant user ids: %w", err)
 	}
 
 	// role_readonly：只读权限，不默认授予 Agent 会话创建/调用能力。
 	if err := db.WithContext(ctx).
-		Raw(`
-			SELECT id FROM public.iam_permission
+		Raw(fmt.Sprintf(`
+			SELECT id FROM %s
 			WHERE status = ?
 			  AND (meta->>'module' IS NULL OR (meta->>'module') != ?)
 			  AND module != 'menu'
 			  AND action IN ('read','list')
-		`, dbm.PermissionStatusActive, "system").
+		`, (&dbm.Permission{}).TableName()), dbm.PermissionStatusActive, "system").
 		Scan(&tenantReadOnlyIDs).Error; err != nil {
 		return fmt.Errorf("list tenant readonly ids: %w", err)
 	}
@@ -335,4 +336,17 @@ func syncRoleMenuPermissionsTx(tx *gorm.DB, rpr *infraiam.RolePermissionReposito
 		}
 	}
 	return rpr.GrantByIDsTx(tx, roleID, allowedMenuIDs)
+}
+
+// SeedClientApplicationMenu adds only the new menu permission. Existing role
+// grants and any operator changes to an existing permission stay untouched.
+func SeedClientApplicationMenu(db *gorm.DB) error {
+	permission := clientApplicationMenuPermission()
+	return db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "module"}, {Name: "resource"}, {Name: "action"}}, DoNothing: true}).Create(&permission).Error
+}
+
+func clientApplicationMenuPermission() dbm.Permission {
+	permission := menuPerm("settings.client_apps")
+	permission.AllowAPIKey = false
+	return permission
 }

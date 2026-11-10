@@ -1,0 +1,252 @@
+{
+  "date": "2026-11-10",
+  "started": "2026-11-09",
+  "task": "T158 archive component process interruption and original-job handling",
+  "status": "source and bounded owned acceptance passed; daily runtime and production not changed; entire T158/SG-09/SG-11 remain open",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "implemented": [
+    "exact per-Service job/execution UUID observation, with no execution ownership from old records",
+    "quiescent original policy/migration lock reconciliation on startup and existing Tick; busy peer records unchanged",
+    "same-policy replacement and interrupted automatic transfer/remote-GC fences",
+    "partial capture shared-CAS reclamation fence until controlled resolution",
+    "explicit same-job Retry for complete snapshots only; full remote readback required before clearing current attention",
+    "public local/S3/SSH historical manifests omit current execution gate and local execution/request hashes",
+    "independent execution_version=1 UI compatibility marker; execution_attention independent of recent-100 truncation",
+    "persistent interruption visibility across task tabs and read failures; confirmation dialog; SSE state, no periodic metadata reads"
+  ],
+  "validation": {
+    "backend_final": {
+      "packages": [
+        "archive_ops",
+        "storage_governance",
+        "admin/backup"
+      ],
+      "race": "passed",
+      "vet": "passed",
+      "artifact": "storage-archive-restart-20261110/backend-final.log"
+    },
+    "owned_os_processes": {
+      "result": "passed",
+      "race": true,
+      "scenes": [
+        "capture blocked at owned PostgreSQL media-reference read after 24 local CAS writes",
+        "object received, acknowledgement blocked, worker SIGKILL",
+        "manifest received, acknowledgement blocked, worker SIGKILL"
+      ],
+      "same_archive_root_new_os_pid": true,
+      "original_request_and_job_preserved": true,
+      "all_local_cas_sha256_preserved": true,
+      "replacement_jobs": 0,
+      "automatic_interrupted_retry": false,
+      "minute_scheduler_observation_seconds": 62,
+      "due_time_fixture": "only the owned original record CreatedAt was moved back 48 hours",
+      "no_archive_delete_beyond_target_probe_baseline": true,
+      "source_cleanup_proof_before_explicit_retry": false,
+      "explicit_same_job_retry_verified": true,
+      "remote_manifest_does_not_export_current_gate": true,
+      "boundary": "test executable running production archive Service/scheduler; not full cmd/app Core restart or power-loss durability"
+    },
+    "native_control_regression": {
+      "result": "passed",
+      "scenes": [
+        "object acknowledgement loss",
+        "manifest acknowledgement loss",
+        "credential rejection",
+        "owned control connection termination"
+      ],
+      "postgresql": "native, owned Unix socket",
+      "control": "formal migration and TaskBus publication",
+      "redis": "miniredis protocol fixture",
+      "s3": "versioned protocol fixture",
+      "entire_database_shutdown": false
+    },
+    "frontend": {
+      "success": true,
+      "numTotalTests": 43,
+      "numPassedTests": 43,
+      "numFailedTests": 0,
+      "files": [
+        {
+          "name": "web-admin/tests/unit/storage/archive-credentials.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-execution.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-governance.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-policies.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-run-request.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-targets.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/storage-resource-configuration.spec.ts",
+          "status": "passed"
+        }
+      ]
+    },
+    "actual_browser": {
+      "result": "passed",
+      "checks": [
+        "Real lost object PUT acknowledgement shows local capture completed and remote incomplete with original job ID",
+        "light 1440 failure/identity/navigation/draft retention",
+        "light 390 failure/identity/navigation/draft retention",
+        "dark 1440 failure/identity/navigation/draft retention",
+        "dark 390 failure/identity/navigation/draft retention",
+        "Metadata HTTP503 preserves original row, local result, remote failure and draft",
+        "Original job recovery and full readback arrive through native fsnotify and shared production SSE",
+        "Disconnected SSE is visible, retains task and draft, and sends no periodic detail reads",
+        "Reconnection synchronizes metadata with no periodic reads; exactly one explicit retry of the original job, no new capture",
+        "Leaving the page releases the archive SSE connection"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "viewports": [
+        1440,
+        390
+      ],
+      "mutations": [
+        {
+          "path": "/api/v1/admin/ops/backup/archives/jobs/5dc1e6bb-1124-4395-b75d-60aa8f863bd0/retry",
+          "method": "POST",
+          "at": 1794240034277
+        }
+      ],
+      "runtime_errors": [],
+      "idle_windows_seconds": [
+        1.6,
+        1.8
+      ],
+      "visual_inspected": [
+        "dark-390-retry-confirm.png",
+        "light-1440-failure.png"
+      ],
+      "boundary": "daily Nuxt shell; private signed Root HTTP/fsnotify/SSE fixture recreates Service in same process. Separate from actual OS SIGKILL tests; no daily archive policy or control-database mutation"
+    },
+    "capability_check": {
+      "result": "passed",
+      "declared": 1242,
+      "referenced": 83,
+      "rest_routes": 1175,
+      "candidates": 1285,
+      "ignored_route_rules": 149,
+      "new_platform_capability": false,
+      "daily_seed": false
+    },
+    "final_followups": {
+      "changes": "explicit Retry AbortSignal/account switch isolation, imported-history rendering, public local download manifest",
+      "covered_by": "current-source 43 frontend checks, final 3-package race/vet and export-manifest regression; no claim these are additional OS-crash or browser scenarios"
+    }
+  },
+  "cleanup": {
+    "owner": "codex archive restart acceptance",
+    "owned_pids": [
+      56038,
+      68205,
+      68575,
+      69996,
+      70016,
+      70018,
+      70019,
+      70035,
+      76792,
+      84971,
+      84994,
+      85002,
+      85097,
+      85099,
+      87831,
+      87834
+    ],
+    "owned_ports": [
+      59292,
+      59297,
+      59573,
+      61112,
+      61126,
+      61138,
+      61158,
+      62937,
+      63444
+    ],
+    "all_owned_processes_exited": true,
+    "all_owned_listeners_closed": true,
+    "owned_pg_root_removed": true,
+    "private_http_jwt_removed": true,
+    "daily_user_services": {
+      "Core": {
+        "pid": 74295,
+        "still_running": true
+      },
+      "Nuxt": {
+        "pid": 34360,
+        "still_running": true
+      }
+    }
+  },
+  "runtime_boundaries": {
+    "daily_core_restarted": false,
+    "daily_nuxt_restarted": false,
+    "daily_schema_migrated": false,
+    "daily_policy_changed": false,
+    "business_data_deleted": false,
+    "plugin_permission_or_capacity_admission_changed": false,
+    "production_deployed": false,
+    "legacy_executor_taken_over": false,
+    "real_oss_tested": false
+  },
+  "remaining": [
+    "T158 controlled disposition of interrupted incomplete capture; no automatic recapture or unsafe clearing of gates",
+    "whole Core/worker joint restart and full database outage acceptance",
+    "T155 future Alibaba OSS true transfer, full verification and exact source-gone retrieval",
+    "legacy executor live handoff and per-resource explicit adoption",
+    "whole-site restore, external key custody, dual environments and 7/14-day evidence"
+  ],
+  "next": {
+    "task": "T158 controlled disposition of the original interrupted incomplete capture",
+    "prerequisites": "freeze UUID/version/content proof, policy pause and executor-drain, protected retention, audit and lost-response receipt contract; owned resources only",
+    "acceptance": "Root UI can review and explicitly settle the original task without losing files or audit; active workers, concurrency, stale versions, recovery and unknown responses cannot bypass protection or automatically create a replacement",
+    "user_restart_needed_for_next_development": false
+  },
+  "source_sha256": {
+    "backend/internal/service/archive_ops/execution.go": "00fcdba4359bfbdf608d25c91e32002152c64143a9afb491e2c5f5871c4ff9f8",
+    "backend/internal/service/archive_ops/service.go": "fae5909bd0d0442aa5bc388c376c1e6c1c8e7d5f2a5671f37c183c47b4908ef2",
+    "backend/internal/service/archive_ops/types.go": "5552e92cd7ce9f0117edad733a11b35b41f6b4311504861e7588b7965d2d661a",
+    "backend/internal/service/archive_ops/store.go": "36d2ccf6797d63ec032af3329d2e4218341b281dfaf31cc5e9f9b0b8a8b7364b",
+    "backend/internal/service/archive_ops/restore.go": "d42eb8dc05167a421db428b9f898463ea44b2c7f299f4dc8e0ac9f15c3843ecc",
+    "backend/internal/service/archive_ops/catalog.go": "3aa778d766f49aa2180b03dfdf11ea292a57ecb5f9c460d678c64f5d45a0ef47",
+    "backend/internal/service/archive_ops/remote.go": "37fedd6ff0540a7a163ccb0e49518a4d5624a7099c838c1ffed39fb98738f95b",
+    "backend/internal/service/archive_ops/s3_transfer.go": "72cbc856a2b1f4b47420b067e98f6344d8edb06c4c42dfbdcc78aee8f23a83f4",
+    "backend/internal/service/archive_ops/migration.go": "1a03487c2ced452880c9117c23666f4be1a31cece159125aff9a37d5177f0493",
+    "backend/internal/service/archive_ops/run_request.go": "d04a619865fc06acd626b917cb83e2da7a2d63a698976068fe2471b78b03a8dc",
+    "backend/internal/service/archive_ops/execution_test.go": "727684b2bb92d2682524498f2044dde1ea48e6ab256b6ed8f40397292c852ce2",
+    "backend/internal/service/archive_ops/process_restart_test.go": "dcfeff56d098bd94e40b8e976a9338073bddabbab5e21f062185ec5b26bd746e",
+    "backend/internal/transport/http/admin/backup/archive_fault_browser_test.go": "9e97722bb24d10d6623812183e95696305689e3473c23765e516ae8aad6fc798",
+    "web-admin/app/utils/archive-execution.ts": "1106ed2221b09acbb5f2a6cf192b2de2fb5ef037108b532e82ec63536a26600a",
+    "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "1c7a21c645d208f850498f50290ef2e54c992fcde2cb9d657a93f311a9d2a5d9",
+    "web-admin/app/composables/api/services/archiveOpsService.ts": "d755e71c09a77b33cd99b44750020984bbdd01fcb51f5f17a77d8eeac6815d03",
+    "web-admin/i18n/locales/zh.json": "d770cd9a84c7032e492807bb4cb54e3a421aac9f66a9560b7ba43b8936c11dd7",
+    "web-admin/i18n/locales/en.json": "73f78656551ff2835ffbaf5eca5e1b80b54745c24a9ed0e196c980da3a547675",
+    "web-admin/tests/unit/storage/archive-execution.spec.ts": "13348d88ccb2a3c6e8cacb16165c83d94534d691e136586f2ab1a86a26d56f86",
+    "web-admin/tests/unit/storage/archive-governance.spec.ts": "2e1d29c2be580d1eba04992f0801f0b902928e151329215346d912126de9f5cf",
+    "scripts/ops/test-storage-archive-restart-ui.mjs": "0d5a4fde6f4ab90fd9028ecc19b40f440584010a37622ff7eaf55558657c2a29",
+    "docs/contracts/storage-archive-process-restart.md": "58575f84ecca050e9a0da27ae21c12b0411061187dabce62a7c0a9ea5dbfc295",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-archive-restart.md": "7f334b1893e8e58047760249ef473582fa7bb303ba75619ba8132b52b8744f4c",
+    "docs/guides/deploy/027-monitor-center/guide.md": "5bab3ca05d4a877608ed8be9482e0d3c57ef2e192ecc3e7c0179e30a75ae6ff0",
+    "specs/027-monitor-center/tasks.md": "67b422a877e1899f47df2eec0cfecf22050b9d13ab9a403aad064826b37a90c3"
+  }
+}

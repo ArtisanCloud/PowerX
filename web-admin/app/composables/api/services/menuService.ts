@@ -380,6 +380,8 @@ export const useMenuService = () => {
       const run = async () => {
         const res = await apiClient.get<ApiResponse<MenusResponse>>(baseUrl, {
           params: { locale: resolvedLocale },
+          // 升级前缓存的斜杠 301 可与当前路由形成循环；权限菜单只使用下方实例级短缓存。
+          cache: "no-store",
           // 菜单解析由入口按钮和侧栏管理等待状态，不遮盖整个页面。
           useGlobalLoading: false,
         });

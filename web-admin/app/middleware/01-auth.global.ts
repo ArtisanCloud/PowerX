@@ -88,8 +88,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
       needRefresh = !token;
     } catch (error) {
       if (error instanceof AuthSessionChangedError || (error as any)?.authSessionStamp && !isAuthSessionCurrent((error as any).authSessionStamp)) return;
-      clearAuthStorage();
-      return redirectToLogin();
+      // 服务不可用不能清理登录；只有已确认 signed-out 才进入登录流程。
+      if (readAuthSession()?.status !== 'active') return redirectToLogin();
+      throw error;
     }
   }
 

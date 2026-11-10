@@ -1,0 +1,73 @@
+{
+  "validated_at": "2026-10-30T03:54:33.457261+00:00",
+  "scope": "AI Settings default/dev alias compatibility and storage-environment encryption",
+  "incident": {
+    "request_id": "e2cd3ecb-4c0c-48cb-a224-451e5009a52f",
+    "trace_id": "7e09ba42-f702-47d1-ba27-9032408a53fe",
+    "observed_status": 409,
+    "cause": "tenant OpenAI credential stored under default/default-openai while UI requested dev; global dev placeholder is not a tenant credential"
+  },
+  "policy": {
+    "logical_environment": "default is a historical alias of dev; unrelated environments unchanged",
+    "precedence": "complete canonical record first; legacy read only if corresponding canonical record is missing; never merge secrets/parameters from conflicting records",
+    "isolation": "tenant/global scope remains explicit; no production/staging/other-tenant fallback",
+    "decryption": "use credential.Env for the envelope and RSA key-pair scope",
+    "writes": "normal saves use canonical dev names and re-seal inherited secrets in the target environment; preserve old records and arbitrary sealed fields",
+    "catalog": "default/dev snapshot reads compatible; new revisions use dev; existing fingerprints and manual candidates preserved",
+    "rotation": "each stored environment rotates separately within the requested logical alias, other environments unchanged"
+  },
+  "validation": {
+    "regression": "5 Go packages passed; gRPC package compiled (no tests)",
+    "scenarios": [
+      "legacy encrypted credential queried from dev with valid saved key sent to controlled provider",
+      "global dev placeholder cannot shadow tenant legacy credential",
+      "canonical credential wins and invalid canonical record cannot borrow old key",
+      "profile parameters and default routes preserved",
+      "credential and profile saves succeed without retyping the old key",
+      "arbitrary inherited secret fields remain sealed",
+      "old snapshot and tenant-current-env canonicalization",
+      "tenant, production and staging isolation",
+      "per-storage-environment rotation remains decryptable",
+      "HTTP provider configured/credential list and sync consume legacy records with canonical response env"
+    ],
+    "race": "4 packages passed",
+    "vet": "passed",
+    "build": {
+      "result": "passed",
+      "binary": "/tmp/powerx-ai-env-alias-core",
+      "sha256": "0eed3b5cc3f697034695325e7d92d62dd66edb0dd21d18455b361fcd416b2ecb"
+    },
+    "capability_check": "passed; no publication/grants changed",
+    "logs": {
+      "regression": "/tmp/powerx-ai-env-alias-20261030-110217/regression.log",
+      "race": "/tmp/powerx-ai-env-alias-20261030-110217/race.log",
+      "vet": "/tmp/powerx-ai-env-alias-20261030-110217/vet.log",
+      "capability_check": "/tmp/powerx-ai-env-alias-20261030-110217/capability_check.log"
+    }
+  },
+  "runtime_boundary": {
+    "user_owned_core": "8077 PID 73515 not restarted; user restart required",
+    "real_provider_calls": "none; controlled provider fixtures only",
+    "real_database_mutations": "none; no SQL migrations, key changes or re-sealing against the development database",
+    "retained_agent_services": [],
+    "frontend": "no layout or component changes in this fix"
+  },
+  "source_sha256": {
+    "backend/internal/server/agent/persistence/model/ai_environment.go": "f10b2a77e25c0bee71a9ebac074ca4cdb24fb61bffd7d066c272c5d7aaf171f9",
+    "backend/internal/server/agent/persistence/model/ai_environment_test.go": "b9bb292f418ce0ae4a74542fbb4174d233d6fa8943b8fab781c287b08553cd89",
+    "backend/internal/server/agent/persistence/repository/ai_environment_read.go": "376bec0a49d3536391e0d56e9d3425c5154185b19d3cba78d9c961112dfad433",
+    "backend/internal/service/agent/credential_environment.go": "d6b89adf141b7c4e1ed85776a9684d6d6f39ed404c7f5ac8102ab00553100e35",
+    "backend/internal/service/agent/online_catalog_environment.go": "3d456ee2939bbe0a0b18d428d1124da48c81dfa5954cd26f95d064d81610ae4b",
+    "backend/internal/service/agent/ai_environment_test.go": "8202552fe40769b749de1c915ade37945b106a312abffc4abf57a585a21a5f7e",
+    "backend/internal/service/agent/agent_setting_service.go": "4f7d166d0a4c1ee67615b1eaf516e55f612b35051d78bde02a21fa762bdc9c47",
+    "backend/internal/service/agent/online_model_catalog.go": "1506a64ab9fb4fd91b359431cfca30f92fdf3721d030f44012dc55a3ddddfa7e",
+    "backend/internal/service/agent/connection_verification.go": "81581e7d83eb54e98328f99ccac3cc55e081444ed7ef0aa6fb0718bf1c1da601",
+    "backend/internal/service/ai/service.go": "22606525bf82fdeccdf9919382a33f3b583d410f5e941551ae5ffa233acef615",
+    "backend/internal/service/ai/media_catalog.go": "14ef6938ff925889f9cebe0c7a6ff66a435748a0f9ae448de1204e08c228ef63",
+    "backend/internal/service/ai/settings_catalog.go": "caeeb9f3cc17a590fca8a73513ea14837b20a850f5086da6b067b0845c154fc2",
+    "backend/internal/transport/http/admin/agent/setting_handler.go": "15e69eac505e28e2c5a17858b6fb3fc12ea3869283d6c4cfbe846ba4c39958ae",
+    "backend/internal/transport/http/admin/agent/online_model_handler_test.go": "2d28828b9197af6bf665014aa97bf909e75e0cc6342cedaae7c6a5bcfe325c9c",
+    "backend/internal/transport/grpc/agent/setting_handler.go": "9fd8056d34e236caff5f0d28f412e2427f799f57ddbbae6a3870cd06be84601e",
+    "docs/contracts/ai-online-model-catalog.md": "0b94a1118b38a1817b4304591df66ee15b02f3ddc36d35e66ae1fd7700ff93e4"
+  }
+}

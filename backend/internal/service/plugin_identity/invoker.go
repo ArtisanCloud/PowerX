@@ -43,6 +43,28 @@ func (i *Invoker) InvokeCoreCapability(ctx context.Context, in cap.CoreCapabilit
 	if err = Decode(raw, &request); err != nil {
 		return nil, err
 	}
+	if request.Operation == "resolve_service_invocation" {
+		if len(in.Context) != 0 {
+			return nil, failure(400, "IAM_SERVICE_INVOCATION_INVALID_ARGUMENT")
+		}
+		for key := range in.Payload {
+			if key != "body" {
+				return nil, failure(400, "IAM_SERVICE_INVOCATION_INVALID_ARGUMENT")
+			}
+		}
+		var query ServiceInvocationQuery
+		if err = Decode(request.Request, &query); err != nil {
+			return nil, err
+		}
+		result, err := i.Service.ResolveServiceInvocation(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+		if result.TenantUUID != in.TenantUUID {
+			return nil, failure(403, "IAM_SERVICE_INVOCATION_TENANT_FORBIDDEN")
+		}
+		return map[string]interface{}{"result": result}, nil
+	}
 	var result Result
 	switch request.Operation {
 	case "resolve_request_identity":

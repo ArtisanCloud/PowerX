@@ -1,0 +1,101 @@
+{
+  "date": "2026-11-09",
+  "status": "local_data_repair_applied_and_database_verified_browser_acceptance_pending",
+  "authorization": {
+    "user_authorized_local_apply": true,
+    "remote_authorized_or_modified": false
+  },
+  "target": {
+    "environment": "dev",
+    "database": "powerx",
+    "loopback_only": true
+  },
+  "execution": {
+    "tool": "backend/cmd/root-catalog-repair",
+    "contract": "core.iam.root_catalog_repair.v2",
+    "binary_sha256": "747cd57ad4a8f2308f506c528934b1c9820aa302ac1612160cfd755fdc281d7d",
+    "plan_fingerprint": "2d73e63cb34fe29ee9b9a41154783831578d39a2c5c673a72abf1e9cf668df11",
+    "applied": true,
+    "repaired": 523,
+    "applied_at": "2026-11-09T15:19:57.116986Z",
+    "operator": "codex-user-authorized-local-maintenance-20261109"
+  },
+  "backup": {
+    "private_directory": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/tmp/private/root-catalog-apply-20261109-dqy3ccuj",
+    "tables": [
+      "public.iam_role",
+      "public.iam_permission",
+      "public.iam_role_permission",
+      "public.iam_authorization_tracking",
+      "public.iam_authorization_streams",
+      "public.iam_authorization_segments"
+    ],
+    "validated_table_data": 6,
+    "bytes": 296414,
+    "sha256": "89cffdaddcea0782a05826a798de56e7e5ceb31989ba46925147511ffedc4e45",
+    "directory_mode": "0700",
+    "data_file_mode": "0600"
+  },
+  "postchecks": {
+    "root_link_mismatches_before": 523,
+    "root_link_mismatches_after": 0,
+    "dangling_root_links_after": 0,
+    "ordinary_role_permissions_unchanged": true,
+    "other_authorization_streams_and_segments_unchanged": true,
+    "remaining_candidates": 0,
+    "remaining_blocked": 0,
+    "remaining_history": 0,
+    "remaining_history_blocked": 0,
+    "permissions": [
+      {
+        "permission": "production.bulk_order:read",
+        "before_revision": 11,
+        "after_revision": 12,
+        "state": "allowed",
+        "baseline_kind": "native",
+        "known_since_preserved": true,
+        "visible_since": "2026-11-09T23:19:57.116986+08:00"
+      },
+      {
+        "permission": "production.sample_track:read",
+        "before_revision": 11,
+        "after_revision": 12,
+        "state": "allowed",
+        "baseline_kind": "native",
+        "known_since_preserved": true,
+        "visible_since": "2026-11-09T23:19:57.116986+08:00"
+      }
+    ]
+  },
+  "runtime": {
+    "http_status": 200,
+    "product": {
+      "build_info": {
+        "schema": "powerx.build-fingerprint/v1",
+        "component": "backend",
+        "release_id": "development",
+        "source_commit": "unknown",
+        "build_id": "2811d05ab06a23bc7f759793f345d0ce7f35b72d73eeccc8607113a43b1c082c"
+      }
+    },
+    "user_service_restarted": false
+  },
+  "acceptance": {
+    "database": "passed",
+    "browser": "pending_browser_access_unavailable",
+    "authenticated_service_http": "not_executed",
+    "current_image_fixture_regression": "3 top-level tests; 93 pass records; no failures; not live acceptance",
+    "fixture_log": "/tmp/powerx-root-current-visibility-verification-20261109.jsonl"
+  },
+  "boundaries": {
+    "seed_executed": false,
+    "core_or_plugin_restarted": false,
+    "new_core_build_deployed": false,
+    "business_records_or_notifications_retried": false,
+    "remote_modified": false,
+    "framework_or_plugin_source_modified": false,
+    "agent_services_started": false,
+    "history_backdated": false
+  },
+  "next": "Refresh the existing AI Craft order-content panel as Root; check original sample/bulk orders and images, then compare an ordinary authorized member. No restart required for the committed database repair. Remote uses its own preview and backup before any separate authorized apply."
+}

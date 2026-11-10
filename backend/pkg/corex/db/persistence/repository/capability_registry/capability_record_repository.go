@@ -101,7 +101,18 @@ func (r *CapabilityRecordRepository) GetByCapabilityID(ctx context.Context, capa
 	if cached, ok, err := r.readCache(ctx, capabilityID); err != nil {
 		logger.WarnF(ctx, "[capability_registry] read capability cache failed id=%s err=%v", capabilityID, err)
 	} else if ok {
-		return cached, nil
+		// 独立升级进程没有当前实例的 Redis 句柄，需校对已提交修订。
+		var revision models.CapabilityRecord
+		if err := r.db.WithContext(ctx).Select("capability_id", "capabilities_hash", "protocol_hash", "status", "updated_at").Where("capability_id = ?", capabilityID).First(&revision).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, ErrCapabilityRecordNotFound
+			}
+			return nil, err
+		}
+		if cached.CapabilitiesHash == revision.CapabilitiesHash && cached.ProtocolHash == revision.ProtocolHash && cached.Status == revision.Status && cached.UpdatedAt.Equal(revision.UpdatedAt) {
+			return cached, nil
+		}
+		r.invalidateCache(ctx, capabilityID)
 	}
 
 	var record models.CapabilityRecord

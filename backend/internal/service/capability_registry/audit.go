@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,9 +15,12 @@ import (
 	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	auditpkg "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	auditpayload "github.com/ArtisanCloud/PowerX/pkg/corex/audit/payload"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // CatalogSyncEvent 表示 Capability Sync 过程中广播的事件负载。
@@ -48,13 +53,16 @@ type InvocationAuditInput struct {
 
 // AuditService 负责 Capability Registry 相关的事件、审计与指标上报。
 type AuditService struct {
-	jobs    *repo.CapabilitySyncJobRepository
-	events  *repo.CapabilityEventPublicationRepository
-	traces  *repo.InvocationTraceRepository
-	bus     event_bus.EventBus
-	auditor auditpkg.Auditor
-	metrics *capmetrics.CapabilityRegistryMetrics
-	now     func() time.Time
+	admission    func(context.Context) error
+	admissionMu  sync.Mutex
+	lastRejected time.Time
+	jobs         *repo.CapabilitySyncJobRepository
+	events       *repo.CapabilityEventPublicationRepository
+	traces       *repo.InvocationTraceRepository
+	bus          event_bus.EventBus
+	auditor      auditpkg.Auditor
+	metrics      *capmetrics.CapabilityRegistryMetrics
+	now          func() time.Time
 }
 
 // AuditServiceOptions 配置 AuditService。
@@ -104,6 +112,13 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 	if a == nil {
 		return
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+	// 仅修改值副本中的错误摘要；业务调用返回和原始 map 保持原样。
+	input.ErrorSummary = auditpayload.SafeText(input.ErrorSummary)
 
 	invocationUUID, traceErr := a.insertInvocationTrace(ctx, input)
 
@@ -114,19 +129,30 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 	var publicationID uuid.UUID
 	if a.events != nil && len(payloadBytes) > 0 {
 		model := &models.CapabilityEventPublication{
-			TenantUUID: input.TenantUUID,
-			Topic:      topic,
-			Payload:    datatypes.JSON(payloadBytes),
-			Status:     "pending",
-			TraceID:    input.TraceID,
+			RecordClass: models.InvocationNotificationClass,
+			TenantUUID:  input.TenantUUID,
+			Topic:       topic,
+			Payload:     datatypes.JSON(payloadBytes),
+			Status:      "pending",
+			TraceID:     input.TraceID,
 		}
 		if saved, err := a.events.Create(ctx, model); err == nil {
 			publicationID = saved.UUID
 		}
 	}
 
+	publicationStatus, receipt := "unconfirmed", ""
 	if a.bus != nil {
-		a.bus.Publish(topic, eventPayload, ctx)
+		if publisher, ok := a.bus.(event_bus.AcknowledgedPublisher); ok {
+			ack, err := publisher.PublishAcknowledged(topic, eventPayload, ctx)
+			if err != nil {
+				publicationStatus = "failed"
+			} else {
+				publicationStatus, receipt = ack.Status, ack.EventID
+			}
+		} else {
+			a.bus.Publish(topic, eventPayload, ctx)
+		}
 		if a.auditor != nil {
 			a.auditor.LogBusPublish(ctx, topic, 1)
 		}
@@ -145,9 +171,12 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 			}
 		}
 	}
+	if publicationID != uuid.Nil && a.events != nil {
+		_ = a.events.MarkPublicationResult(ctx, input.TenantUUID, publicationID, publicationStatus, receipt, a.now().UTC())
+	}
 
 	if publicationID != uuid.Nil && invocationUUID != uuid.Nil && a.traces != nil {
-		_ = a.traces.MarkEventPublished(ctx, invocationUUID, publicationID)
+		_ = a.traces.LinkPublication(ctx, input.TenantUUID, invocationUUID, publicationID, publicationStatus == "published" || publicationStatus == "dispatched")
 	}
 
 	var metricErr error
@@ -163,6 +192,10 @@ func (a *AuditService) insertInvocationTrace(ctx context.Context, input Invocati
 	if a == nil || a.traces == nil {
 		return uuid.Nil, nil
 	}
+	request, response, summarized := baselineAuditSummary(input)
+	if !summarized {
+		request, response = auditpayload.Snapshot(input.RequestPayload), auditpayload.Snapshot(input.ResponsePayload)
+	}
 	payload := &models.InvocationTrace{
 		CallerSubject:     callerSubject(ctx),
 		TraceID:           input.TraceID,
@@ -174,10 +207,15 @@ func (a *AuditService) insertInvocationTrace(ctx context.Context, input Invocati
 		FallbackUsed:      input.FallbackUsed,
 		Status:            strings.TrimSpace(input.Status),
 		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
-		RequestPayload:    marshalJSONValue(input.RequestPayload),
-		ResponsePayload:   marshalJSONValue(input.ResponsePayload),
+		RequestPayload:    datatypes.JSON(request),
+		ResponsePayload:   datatypes.JSON(response),
 		ErrorSummary:      input.ErrorSummary,
 		LatencyMS:         int(input.Latency / time.Millisecond),
+	}
+	if models.TerminalInvocation(strings.TrimSpace(input.Status)) {
+		at := a.now().UTC()
+		payload.RecordClass = models.InvocationAuditClass
+		payload.CompletedAt = &at
 	}
 	saved, err := a.traces.Create(ctx, payload)
 	if err != nil {
@@ -251,13 +289,34 @@ func normalizeStatus(status string) string {
 	return trimmed
 }
 
-func marshalJSONValue(value interface{}) datatypes.JSON {
-	if value == nil {
-		return datatypes.JSON([]byte("null"))
+var ErrInvocationStorageCapacity = errors.New("invocation storage admission blocked")
+
+// SetStorageAdmission 仅由 bootstrap 在提供请求前注入，拒绝发生在业务副作用之前。
+func (a *AuditService) SetStorageAdmission(check func(context.Context) error) { a.admission = check }
+func (a *AuditService) checkStorageAdmission(ctx context.Context) error {
+	if a == nil || a.admission == nil {
+		return nil
 	}
-	bytes, err := json.Marshal(value)
-	if err != nil {
-		return datatypes.JSON([]byte("null"))
+	err := a.admission(ctx)
+	if err == nil {
+		return nil
 	}
-	return datatypes.JSON(bytes)
+	a.admissionMu.Lock()
+	defer a.admissionMu.Unlock()
+	if time.Since(a.lastRejected) >= time.Minute {
+		a.lastRejected = time.Now()
+		code, _, ok := StorageAdmissionFailure(err)
+		if !ok {
+			code = "STORAGE_GOVERNANCE_UNAVAILABLE"
+		}
+		logger.WarnF(ctx, "storage.admission.invocation_rejected: reason_code=%s new capability calls are blocked before execution", code)
+	}
+	if _, _, ok := StorageAdmissionFailure(err); !ok {
+		err = dto.NewErrorWithCode(503, "STORAGE_GOVERNANCE_UNAVAILABLE", "存储治理服务暂不可用", nil)
+	}
+	public := PublicStorageAdmissionError(err)
+	if dto.CodeOf(public) == "STORAGE_CAPACITY_EXHAUSTED" {
+		return fmt.Errorf("%w: %w", ErrInvocationStorageCapacity, public)
+	}
+	return public
 }

@@ -1,0 +1,77 @@
+{
+  "checked_at": "2026-10-21T08:12:17.598421+00:00",
+  "cause": "User-owned Nuxt dev on 3030 consumed a production client manifest after a production build wrote to the shared .nuxt directory. Fresh HTML referenced hashed assets returning 404.",
+  "before": {
+    "page_status": 200,
+    "missing_assets": [
+      "/_nuxt/entry.BK7dIEGT.css",
+      "/_nuxt/B_x-Lxp3.js",
+      "/_nuxt/CJpJhjt2.js",
+      "/_nuxt/default.BEftFL0l.css"
+    ],
+    "asset_status": 404,
+    "vite_client_endpoint_status": 200,
+    "production_output_timestamp": "2026-10-21T06:23:25.964Z"
+  },
+  "fix": {
+    "development_build_dir": ".nuxt",
+    "production_build_dir": ".nuxt-build",
+    "explicit_override": "POWERX_NUXT_BUILD_DIR preserved",
+    "nitro_output": "default .output unchanged; validation output isolated under /tmp/powerx-build-isolation-output",
+    "files": [
+      "web-admin/nuxt.config.ts",
+      "web-admin/tests/unit/build/config-build-directories.spec.ts",
+      "web-admin/README.md"
+    ]
+  },
+  "verification": {
+    "config_tests": {
+      "passed": 2,
+      "log": "/tmp/powerx-build-directory-isolation-vitest.log"
+    },
+    "production_build_while_dev_running": {
+      "passed": true,
+      "log": "/tmp/powerx-build-directory-isolation-build.log",
+      "production_manifest_exists": true
+    },
+    "development_manifest": {
+      "sha256_before_build": "a9d74a1f5e565ce165b3e16fb3116b3cde037c0d2a37a8c646af6a7b235425c7",
+      "sha256_after_build": "a9d74a1f5e565ce165b3e16fb3116b3cde037c0d2a37a8c646af6a7b235425c7",
+      "size_after_build": 454
+    },
+    "real_anonymous_browser": {
+      "passed": true,
+      "result": "Renders login with redirect=/plugins/local; no _nuxt asset failures or page errors.",
+      "log": "/tmp/powerx-build-directory-isolation-browser.log"
+    },
+    "controlled_local_plugin_browser_tests": {
+      "passed": 5,
+      "scope": "Narrow local source navigation plus desktop/narrow directory and archive upload, with controlled API responses.",
+      "log": "/tmp/powerx-build-directory-isolation-plugins.log"
+    },
+    "diff_check": "passed"
+  },
+  "process": {
+    "port": 3030,
+    "pid_before": 15472,
+    "pid_after": 15472,
+    "started": "2026-10-15 15:41:20 local",
+    "owner": "user",
+    "configuration_reload": "Existing Nuxt dev watcher regenerated development manifests after the config edit. No manual stop/restart or extra service started."
+  },
+  "boundary": "No user plugin installation, data changes or authenticated real-user browser session acceptance claimed.",
+  "after": {
+    "page_status": 200,
+    "has_vite_client": true,
+    "assets": [
+      {
+        "path": "/_nuxt/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/node_modules/nuxt/dist/app/entry.async.js",
+        "status": 200
+      },
+      {
+        "path": "/_nuxt/@vite/client",
+        "status": 200
+      }
+    ]
+  }
+}

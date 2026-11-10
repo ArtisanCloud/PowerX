@@ -1,0 +1,46 @@
+{
+  "owner": "codex archive restart acceptance",
+  "owned_pids": [
+    56038,
+    68205,
+    68575,
+    69996,
+    70016,
+    70018,
+    70019,
+    70035,
+    76792,
+    84971,
+    84994,
+    85002,
+    85097,
+    85099,
+    87831,
+    87834
+  ],
+  "owned_ports": [
+    59292,
+    59297,
+    59573,
+    61112,
+    61126,
+    61138,
+    61158,
+    62937,
+    63444
+  ],
+  "all_owned_processes_exited": true,
+  "all_owned_listeners_closed": true,
+  "owned_pg_root_removed": true,
+  "private_http_jwt_removed": true,
+  "daily_user_services": {
+    "Core": {
+      "pid": 74295,
+      "still_running": true
+    },
+    "Nuxt": {
+      "pid": 34360,
+      "still_running": true
+    }
+  }
+}

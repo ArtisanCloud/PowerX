@@ -176,22 +176,26 @@ func (s *TenantDirectoryService) GetTenant(ctx context.Context, tenantUUID strin
 }
 
 type AuthorizationCheckInput struct {
-	MemberUUID string
-	UserUUID   string
-	Resource   string
-	Action     string
-	TraceID    string
+	PluginID       string
+	PermissionCode string
+	MemberUUID     string
+	UserUUID       string
+	Resource       string
+	Action         string
+	TraceID        string
 }
 
 type AuthorizationCheckResult struct {
-	Allowed    bool   `json:"allowed"`
-	ReasonCode string `json:"reason_code"`
-	TenantUUID string `json:"tenant_uuid"`
-	MemberUUID string `json:"member_uuid"`
-	UserUUID   string `json:"user_uuid"`
-	Resource   string `json:"resource"`
-	Action     string `json:"action"`
-	TraceID    string `json:"trace_id,omitempty"`
+	PluginID       string `json:"plugin_id,omitempty"`
+	PermissionCode string `json:"permission_code,omitempty"`
+	Allowed        bool   `json:"allowed"`
+	ReasonCode     string `json:"reason_code"`
+	TenantUUID     string `json:"tenant_uuid"`
+	MemberUUID     string `json:"member_uuid"`
+	UserUUID       string `json:"user_uuid"`
+	Resource       string `json:"resource"`
+	Action         string `json:"action"`
+	TraceID        string `json:"trace_id,omitempty"`
 }
 
 func (s *TenantDirectoryService) ListDepartments(ctx context.Context, tenantUUID string) ([]TenantDirectoryDepartment, error) {
@@ -320,6 +324,9 @@ func (s *TenantDirectoryService) MemberDepartmentUUIDs(ctx context.Context, tena
 }
 
 func (s *TenantDirectoryService) CheckAuthorization(ctx context.Context, tenantUUID string, input AuthorizationCheckInput) (AuthorizationCheckResult, error) {
+	if strings.TrimSpace(input.PluginID) != "" || strings.TrimSpace(input.PermissionCode) != "" {
+		return s.checkPluginAuthorization(ctx, tenantUUID, input)
+	}
 	if err := s.requireDB(); err != nil {
 		return AuthorizationCheckResult{}, err
 	}

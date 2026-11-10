@@ -13,12 +13,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
-	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -30,10 +28,12 @@ import (
 // POST /api/admin/plugins/install/local
 // body: {"src_dir": "/absolute/or/relative/path", "enable": false}
 type installLocalReq struct {
-	SrcDir   string                     `json:"src_dir"`
-	Enable   bool                       `json:"enable"`
-	Force    bool                       `json:"force"`
-	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
+	ConfirmLegacyProvider bool                       `json:"confirm_legacy_provider"`
+	ExpectedRevision      string                     `json:"expected_revision"`
+	SrcDir                string                     `json:"src_dir"`
+	Enable                bool                       `json:"enable"`
+	Force                 bool                       `json:"force"`
+	Metadata              plugin_mgr.InstallMetadata `json:"metadata"`
 }
 
 func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
@@ -124,45 +124,20 @@ func PluginInstallLocalHandler(deps *shared.Deps) gin.HandlerFunc {
 			return
 		}
 		p, err := mgr.InstallFromFile(ctx, srcPath, plugin_mgr.InstallOptions{
-			AutoEnable:     req.Enable,
-			Force:          req.Force,
-			HostConfigSeed: hostSeed,
-			Metadata:       meta,
+			LocalUpload:           strings.HasPrefix(strings.ToLower(c.ContentType()), "multipart/form-data"),
+			Origin:                plugin_mgr.InstallOrigin{Type: "local", Channel: "local"},
+			AutoEnable:            req.Enable,
+			Force:                 req.Force,
+			ExpectedRevision:      firstNonEmptyInstallRevision(req.ExpectedRevision, c.PostForm("expected_revision")),
+			ConfirmLegacyProvider: req.ConfirmLegacyProvider || c.PostForm("confirm_legacy_provider") == "true",
+			HostConfigSeed:        hostSeed,
+			Metadata:              meta,
 		})
 		if err != nil {
 			respondPluginInstallError(c, "安装失败", err)
 			return
 		}
-		seeded := 0
-		var tenantInstance any
-		if req.Enable {
-			if err := completeReadyDrainJobsAfterRuntimeEnabled(c, deps, p.ID); err != nil {
-				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Drain 状态恢复失败", err)
-				return
-			}
-			tenantInstance, err = enableInstalledPluginForCurrentTenant(c, deps, p)
-			if err != nil {
-				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：租户插件启用失败", err)
-				return
-			}
-			seeded, err = ensureEnabledTenantEventFabricTopics(c, deps, p.ID)
-			if err != nil {
-				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Topic 注册失败", err)
-				return
-			}
-		}
-		// 安装接口返回“刚安装的版本”（已在 InstallFromFile 内保证）
-		dtoRequest.ResponseSuccess(c, gin.H{
-			"installed": gin.H{
-				"id":      p.ID,
-				"version": p.Version,
-				"state":   p.State,
-			},
-			"enabled":                     req.Enable,
-			"tenant_instance":             tenantInstance,
-			"event_fabric_seeded_tenants": seeded,
-			"metadata":                    meta,
-		})
+		finishPluginInstallation(c, deps, p, req.Enable)
 	}
 }
 
@@ -605,12 +580,14 @@ func PluginSwitchVersionHandler(deps *shared.Deps) gin.HandlerFunc {
 // POST /api/admin/plugins/install/url
 // body: {"url":"https://.../com.powerx.demo.hello_world-0.1.2.zip","sha256":"...","enable":true}
 type installURLReq struct {
-	URL      string                     `json:"url"     validate:"required,url"`
-	SHA256   string                     `json:"sha256"`
-	Enable   bool                       `json:"enable"`
-	Force    bool                       `json:"force"`
-	Sign     string                     `json:"signature"`
-	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
+	ConfirmLegacyProvider bool                       `json:"confirm_legacy_provider"`
+	ExpectedRevision      string                     `json:"expected_revision"`
+	URL                   string                     `json:"url"     validate:"required,url"`
+	SHA256                string                     `json:"sha256"`
+	Enable                bool                       `json:"enable"`
+	Force                 bool                       `json:"force"`
+	Sign                  string                     `json:"signature"`
+	Metadata              plugin_mgr.InstallMetadata `json:"metadata"`
 }
 
 func PluginInstallURLHandler(deps *shared.Deps) gin.HandlerFunc {
@@ -639,64 +616,46 @@ func PluginInstallURLHandler(deps *shared.Deps) gin.HandlerFunc {
 			return
 		}
 		p, err := mgr.InstallFromURL(ctx, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
-			VerifyChecksum:  req.SHA256 != "", // 传了就校验
-			VerifySignature: false,            // 先关；后续接公钥再开
-			AutoEnable:      req.Enable,
-			Force:           req.Force,
-			HostConfigSeed:  hostSeed,
-			Metadata:        meta,
+			Origin:                plugin_mgr.InstallOrigin{Type: "local", Channel: "url"},
+			VerifyChecksum:        req.SHA256 != "", // 传了就校验
+			VerifySignature:       false,            // 先关；后续接公钥再开
+			AutoEnable:            req.Enable,
+			Force:                 req.Force,
+			ExpectedRevision:      req.ExpectedRevision,
+			ConfirmLegacyProvider: req.ConfirmLegacyProvider,
+			HostConfigSeed:        hostSeed,
+			Metadata:              meta,
 		})
 		if err != nil {
 			respondPluginInstallError(c, "安装失败", err)
 			return
 		}
 
-		// 可选：安装完切换并启用该版本
-		if req.Enable {
-			if _, err := mgr.SwitchVersion(ctx, p.ID, p.Version, true); err != nil {
-				respondPluginInstallError(c, "安装成功但启用失败", err)
-				return
-			}
-		}
-		seeded := 0
-		var tenantInstance any
-		if req.Enable {
-			if err := completeReadyDrainJobsAfterRuntimeEnabled(c, deps, p.ID); err != nil {
-				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Drain 状态恢复失败", err)
-				return
-			}
-			tenantInstance, err = enableInstalledPluginForCurrentTenant(c, deps, p)
-			if err != nil {
-				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：租户插件启用失败", err)
-				return
-			}
-			seeded, err = ensureEnabledTenantEventFabricTopics(c, deps, p.ID)
-			if err != nil {
-				dtoRequest.ResponseError(c, http.StatusInternalServerError, "安装失败：Topic 注册失败", err)
-				return
-			}
-		}
-
-		dtoRequest.ResponseSuccess(c, gin.H{
-			"installed": gin.H{
-				"id":      p.ID,
-				"version": p.Version,
-				"state":   string(p.State),
-			},
-			"enabled":                     req.Enable,
-			"tenant_instance":             tenantInstance,
-			"event_fabric_seeded_tenants": seeded,
-			"metadata":                    meta,
-		})
+		finishPluginInstallation(c, deps, p, req.Enable)
 	}
 }
 
-func completeReadyDrainJobsAfterRuntimeEnabled(c *gin.Context, deps *shared.Deps, pluginID string) error {
-	if deps == nil || deps.DB == nil {
-		return plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("database dependency missing"))
+// finishPluginInstallation 统一所有安装源的租户启用、凭证下发和 Topic 注册。
+func finishPluginInstallation(c *gin.Context, deps *shared.Deps, p plugin_mgr.Plugin, enable bool) {
+	seeded := 0
+	var instance any
+	if enable {
+		var err error
+		instance, err = enableInstalledPluginForCurrentTenant(c, deps, p)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "插件已安装，但当前租户启用失败，请到已安装页面重试", err)
+			return
+		}
+		seeded, err = ensureEnabledTenantEventFabricTopics(c, deps, p.ID)
+		if err != nil {
+			dtoRequest.ResponseError(c, http.StatusInternalServerError, "插件已安装，但 Topic 注册失败，请到已安装页面处理", err)
+			return
+		}
 	}
-	_, err := reposetting.NewPluginDrainJobRepository(deps.DB).MarkReadyJobsCompletedByPlugin(c.Request.Context(), pluginID, time.Now().UTC())
-	return err
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"installed": gin.H{"id": p.ID, "version": p.Version, "state": p.State, "provider": p.Provider, "revision": p.Revision, "install_origin": p.InstallOrigin},
+		"enabled":   enable, "tenant_instance": instance, "event_fabric_seeded_tenants": seeded, "metadata": p.InstallMetadata,
+	})
 }
 
 func enableInstalledPluginForCurrentTenant(c *gin.Context, deps *shared.Deps, p plugin_mgr.Plugin) (any, error) {
@@ -723,6 +682,16 @@ func enableInstalledPluginForCurrentTenant(c *gin.Context, deps *shared.Deps, p 
 }
 
 func respondPluginInstallError(c *gin.Context, message string, err error) {
+	var replacement *plugin_mgr.ReplacementRequiredError
+	if errors.As(err, &replacement) {
+		dtoRequest.ResponseErrorWithDetails(c, 409, replacement.Error(), nil, gin.H{"code": "PLUGIN_REPLACEMENT_REQUIRED", "plugin_id": replacement.PluginID, "current": replacement.Current, "target": replacement.Target, "requires_provider_confirmation": replacement.RequiresProviderConfirmation})
+		return
+	}
+	var installError *plugin_mgr.ManagerError
+	if errors.As(err, &installError) && strings.HasPrefix(installError.Op, "PLUGIN_") && installError.Op != "PLUGIN_DRAIN_REQUIRED" {
+		dtoRequest.ResponseErrorWithDetails(c, plugin_mgr.HTTPStatusOf(installError.Code), installError.Msg, nil, gin.H{"code": installError.Op})
+		return
+	}
 	status := plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err))
 	if details := platformPreflightErrorDetails(err); len(details) > 0 {
 		dtoRequest.ResponseErrorWithDetails(c, status, "plugin package platform incompatible", nil, details)
@@ -871,4 +840,11 @@ func normalizeScope(scope string) string {
 	default:
 		return s
 	}
+}
+
+func firstNonEmptyInstallRevision(body, form string) string {
+	if body != "" {
+		return body
+	}
+	return form
 }

@@ -61,14 +61,14 @@ func (s *RedisStore) PublishArchiveHealth(ctx context.Context, env string, healt
 	if err != nil {
 		return err
 	}
-	return s.client.Set(ctx, archiveHealthKey(env), raw, policy.HealthTTL).Err()
+	return s.client.Set(ctx, s.key(archiveHealthKey(env)), raw, policy.HealthTTL).Err()
 }
 
 func (s *RedisStore) CheckArchiveAdmission(ctx context.Context, env string, policy ArchivePolicy) error {
 	if s == nil || s.client == nil || !validArchiveEnv(env) || policy.Validate() != nil {
 		return ErrInvalid
 	}
-	raw, err := s.client.Get(ctx, archiveHealthKey(env)).Bytes()
+	raw, err := s.client.Get(ctx, s.key(archiveHealthKey(env))).Bytes()
 	if err != nil {
 		return fmt.Errorf("%w: health unavailable", ErrArchiveHealthStale)
 	}
@@ -92,8 +92,8 @@ func (s *RedisStore) ExpireArchivedRun(ctx context.Context, identity Snapshot, o
 	if err != nil {
 		return err
 	}
-	state, events := runKeys(identity)
-	plans, tasks, outbox := schedulingKeys(identity)
+	state, events := s.runKeys(identity)
+	plans, tasks, outbox := s.schedulingKeys(identity)
 	for attempt := 0; attempt < 5; attempt++ {
 		err = s.client.Watch(ctx, func(tx *redis.Tx) error {
 			values, err := tx.HGetAll(ctx, state).Result()

@@ -1,4 +1,6 @@
 import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, readAuthSession } from './auth-session';
+import { isUserSessionReport } from './auth-failure';
+import type { HostSessionRecovery } from './host-session-recovery';
 import type { HostBridgeBody } from '../types/pluginBridge';
 
 export const PLUGIN_BRIDGE_VERSION = 2;
@@ -7,13 +9,14 @@ type FrameBinding = {
   frame: HTMLIFrameElement; pluginId: string; instanceId: string; origin: string;
   onStatus: (status: FrameStatus) => void; ready: boolean; navigationReady: boolean; sequence: number;
   fingerprint: string; sessionId?: string; authSequence: number; authApplied: boolean; desiredPath?: string; navigationId?: string; navigationPath?: string; completedPath?: string;
+  recoveryKey?: string; recoveryCheckedAt?: number; recoveryPending?: boolean; recoveryAbort?: AbortController;
   timer?: ReturnType<typeof setTimeout>; onLoad: () => void;
 };
 
 /** Host-owned lifecycle. Message payloads cannot select a different window or origin. */
 export class PluginBridgeHost {
   private frames = new Map<HTMLIFrameElement, FrameBinding>();
-  constructor(private metadata: () => { locale: string; theme: string }, private timeoutMs = 8000, private refreshSession?: () => Promise<unknown>) {
+  constructor(private metadata: () => { locale: string; theme: string }, private timeoutMs = 8000, private refreshSession?: () => Promise<unknown>, private recoverSession?: HostSessionRecovery) {
     window.addEventListener('message', this.receive);
     window.addEventListener(AUTH_SESSION_EVENT, this.sessionChanged);
     window.addEventListener('storage', this.storageChanged);
@@ -31,6 +34,7 @@ export class PluginBridgeHost {
     const binding: FrameBinding = { frame, pluginId, instanceId, origin: url.origin, onStatus,
       ready: false, navigationReady: false, sequence: 0, fingerprint: '', authSequence: 0, authApplied: false, onLoad: () => {} };
     binding.onLoad = () => {
+      binding.recoveryAbort?.abort(); binding.recoveryKey = undefined; binding.recoveryPending = false;
       binding.ready = false; binding.navigationReady = false; binding.authApplied = false; binding.fingerprint = '';
       binding.navigationId = undefined; binding.navigationPath = undefined; binding.completedPath = undefined;
       this.wait(binding, 'PLUGIN_BRIDGE_TIMEOUT'); this.sync(binding);
@@ -92,6 +96,26 @@ export class PluginBridgeHost {
     }
     if (this.frames.get(binding.frame) === binding) this.sendAuth(binding, true);
   }
+  private async verifyReauthentication(binding: FrameBinding, data: any) {
+    const session = readAuthSession();
+    if (!this.recoverSession || !binding.ready || !isUserSessionReport(data.code) || session?.status !== 'active' ||
+      data.sequence !== binding.authSequence || data.sessionId !== session.sessionId || data.revision !== session.revision) return;
+    const key = `${session.sessionId}:${session.revision}`;
+    // 抑制同一轮适配器的消息循环；后续显式报告仍能发现刚发生的撤销/到期。
+    if (binding.recoveryKey === key && (binding.recoveryPending || Date.now() - (binding.recoveryCheckedAt || 0) < 5000)) return;
+    binding.recoveryKey = key; binding.recoveryCheckedAt = Date.now(); binding.recoveryPending = true;
+    binding.recoveryAbort?.abort();
+    const abort = new AbortController(); binding.recoveryAbort = abort;
+    try {
+      const result = await this.recoverSession({ sessionId: session.sessionId, revision: session.revision }, abort.signal);
+      if (abort.signal.aborted || this.frames.get(binding.frame) !== binding) return;
+      if (result === 'active') this.sendAuth(binding, true);
+    } catch (error: any) {
+      if (!abort.signal.aborted && this.frames.get(binding.frame) === binding && error?.code !== 'AUTH_SESSION_CHANGED') {
+        binding.onStatus({ state: 'error', code: 'PLUGIN_HOST_AUTH_UNAVAILABLE' });
+      }
+    } finally { if (binding.recoveryAbort === abort) binding.recoveryPending = false; }
+  }
   navigate(frame: HTMLIFrameElement, path: string) {
     const binding = this.frames.get(frame);
     if (!binding) return;
@@ -132,8 +156,10 @@ export class PluginBridgeHost {
       binding.authApplied = true; this.settle(binding); return;
     }
     if (data.type === 'auth:rejected' && data.sequence === binding.authSequence) {
-      clearTimeout(binding.timer); binding.onStatus({state:'error',code:'PLUGIN_AUTH_CONTEXT_FAILED'}); return;
+      clearTimeout(binding.timer); binding.onStatus({state:'error',code:'PLUGIN_AUTH_CONTEXT_FAILED'});
+      void this.verifyReauthentication(binding, data); return;
     }
+    if (data.type === 'auth:required') { void this.verifyReauthentication(binding, data); return; }
     if (data.type === 'auth-token:request') { void this.refreshAndSend(binding); return; }
     if (data.type === 'request-sync') { this.sync(binding); this.sendAuth(binding, true); return; }
     if (data.type === 'navigation:result' && data.requestId === binding.navigationId) {
@@ -159,6 +185,7 @@ export class PluginBridgeHost {
   unregister(frame: HTMLIFrameElement) {
     const binding = this.frames.get(frame);
     if (!binding) return;
+    binding.recoveryAbort?.abort();
     clearTimeout(binding.timer); frame.removeEventListener('load', binding.onLoad); this.frames.delete(frame);
   }
   dispose() {

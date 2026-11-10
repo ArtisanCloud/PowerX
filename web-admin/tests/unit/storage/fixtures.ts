@@ -1,0 +1,12 @@
+import type { StoragePolicy, StoragePolicyOption } from '~/composables/api/services/storageGovernanceService';
+export const GiB = 1024 ** 3;
+export function catalog(): StoragePolicyOption[] {
+  return [
+    { resource: { id: 'dev-backup', name: '开发备份', kind: 'backup_files', scope: 'dev', instance_id: 'dev-install' }, allowed_modes: ['count'], preset: { version: 1, intent: 'dev', retention_mode: 'count', target_days: 0, max_bytes: GiB, retention_count: 24, min_verified_points: 0, protect_latest: true, require_verified_archive: false, suggested_cadence: 'hourly' }, protection_rules: ['latest_success'] },
+    { resource: { id: 'prod-backup', name: '正式备份', kind: 'backup_files', scope: 'prod', instance_id: 'prod-install' }, allowed_modes: ['count'], preset: { version: 1, intent: 'prod', retention_mode: 'count', target_days: 0, max_bytes: 6 * GiB, retention_count: 2, min_verified_points: 0, protect_latest: true, require_verified_archive: true, suggested_cadence: 'daily' }, protection_rules: ['latest_success'] },
+    { resource: { id: 'prod-logs', name: '正式应用日志', kind: 'application_logs', scope: 'prod', instance_id: 'prod-install' }, allowed_modes: ['days', 'protected'], preset: { version: 1, intent: 'prod', retention_mode: 'days', target_days: 7, max_bytes: GiB, retention_count: 0, min_verified_points: 0, protect_latest: true, require_verified_archive: true, suggested_cadence: 'native_rotation' }, protection_rules: ['sealed_only'] },
+    { resource: { id: 'shared-journal', name: '共享 journal', kind: 'journal', scope: 'shared' }, allowed_modes: ['days', 'protected'], preset: { version: 1, intent: 'shared', retention_mode: 'days', target_days: 2, max_bytes: 3 * GiB, retention_count: 0, min_verified_points: 0, protect_latest: true, require_verified_archive: true, suggested_cadence: 'native_rotation' }, protection_rules: ['native_retention'] },
+  ];
+}
+export function policy(): StoragePolicy { return { schema_version: 1, revision: 1, state: 'draft', identity: { host_id: 'host', filesystem_id: 'fs', instance_id: 'dev-install', environment: 'dev' }, budget: { max_managed_bytes: 90 * GiB, min_free_bytes: 20 * GiB, critical_free_bytes: 10 * GiB }, resources: [], updated_at: null, updated_by: 1, cleanup_enabled: false, legacy_policies_changed: false, catalog_version: 1, catalog: catalog() }; }
+export function resources(): any[] { return catalog().map(o => ({ ...o.resource, state: 'observed', physical_bytes: 4096, logical_bytes: 4096, attributed_bytes: 4096, files: 1, skipped: 0 })); }

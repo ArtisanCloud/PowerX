@@ -1,0 +1,99 @@
+{
+  "checks": [
+    "light 1440 command protection visible; verification disabled across task tabs",
+    "light 390 command protection visible; verification disabled across task tabs",
+    "dark 1440 command protection visible; verification disabled across task tabs",
+    "dark 390 command protection visible; verification disabled across task tabs",
+    "SSE reconnect preserves protection with no idle polling; controlled proof update refreshes UI without changing task or starting verification",
+    "Original interrupted task remains discoverable after local drain and tab switch"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794283863637
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794283863638
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794283863638
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794283863647
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794283863648
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/f3ddcfbd-5428-4b4e-af2d-49fda767704d",
+      "method": "GET",
+      "at": 1794283863770
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794283866378
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794283866389
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794283866389
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/f3ddcfbd-5428-4b4e-af2d-49fda767704d",
+      "method": "GET",
+      "at": 1794283866389
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794283869084
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794283869084
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/f3ddcfbd-5428-4b4e-af2d-49fda767704d",
+      "method": "GET",
+      "at": 1794283869084
+    }
+  ],
+  "errors": [],
+  "application_submits": [],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    }
+  ],
+  "result": "passed",
+  "job_id": "f3ddcfbd-5428-4b4e-af2d-49fda767704d"
+}

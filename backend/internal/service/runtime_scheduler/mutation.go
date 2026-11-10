@@ -49,6 +49,12 @@ func (s *Service) ResumeJob(ctx context.Context, id, operator, trace string) (ou
 }
 func (s *Service) TriggerJob(ctx context.Context, id, operator, trace string) (out *TriggerResult, err error) {
 	err = s.withJobFence(ctx, id, func(locked *Service) error { out, err = locked.triggerJob(ctx, id, operator, trace); return err })
+	if err == nil && out != nil && out.Run != nil && len(out.Run.DispatchPayloadJSON) > 0 {
+		err = s.publishRun(ctx, out.Job, out.Run, s.clock().UTC())
+		if err == nil {
+			err = s.db.WithContext(ctx).Where("uuid = ?", out.Run.UUID).First(out.Run).Error
+		}
+	}
 	return
 }
 func (s *Service) setStatus(ctx context.Context, id, status, operator, trace string) (out *models.SchedulerJob, err error) {

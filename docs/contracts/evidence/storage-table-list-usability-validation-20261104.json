@@ -1,0 +1,112 @@
+{
+  "recorded_at": "2026-11-04T14:22:50.302636+00:00",
+  "scope": "local system table inventory presentation and controls; existing Root APIs only",
+  "result": "passed",
+  "changes": {
+    "columns": [
+      "automatic cleanup state",
+      "retention period",
+      "actions"
+    ],
+    "filters": [
+      "keyword matching table or purpose",
+      "purpose category",
+      "cleanup state"
+    ],
+    "sorts": [
+      "allocated bytes",
+      "net allocation change",
+      "oldest timestamp",
+      "newest timestamp",
+      "configured retention days",
+      "table name"
+    ],
+    "directions": [
+      "ascending",
+      "descending"
+    ],
+    "unknown_values": "last in both directions",
+    "retention_comparison": "maximum configured success/failure period; revision counts are not days",
+    "configuration": "navigate to existing configuration; no implicit enable/save/cleanup",
+    "context": "filters and sorting survive refresh, push and section navigation; changes reset pagination",
+    "policy_reads": "two fixed read-only endpoints, sequential to avoid shared host lock contention; failure remains unknown"
+  },
+  "tests": {
+    "targeted_unit_tests": 21,
+    "actual_root_browser": [
+      "normal_root_login",
+      "separate_cleanup_and_retention_columns",
+      "sort_capacity",
+      "sort_growth",
+      "sort_oldest",
+      "sort_newest",
+      "sort_retention",
+      "sort_name",
+      "combined_filters_and_section_context",
+      "configuration_navigation_without_save",
+      "protection_reason_visible",
+      "typed_configuration_without_enable",
+      "empty_state_and_reset",
+      "mobile_390",
+      "mobile_320"
+    ],
+    "widths": [
+      1440,
+      390,
+      320
+    ],
+    "empty_and_reset": true,
+    "browser_errors": [],
+    "storage_write_requests": 0,
+    "policy_documents_unchanged": true,
+    "last_browser_http_failures": [],
+    "first_browser_issue": "one concurrent read returned 409; retained as unknown; sequential fixed-policy reads passed subsequent acceptance",
+    "locales": [
+      "zh",
+      "en",
+      "ja",
+      "ko"
+    ]
+  },
+  "cleanup": {
+    "owner": "storage-table-usability-20261104",
+    "checked_at": "2026-11-04T14:22:50.199826+00:00",
+    "owned_processes_exited": [
+      21412,
+      21423,
+      21425,
+      21401,
+      21466,
+      28768,
+      28743,
+      28785,
+      28731,
+      28767,
+      39331,
+      39332,
+      39347,
+      39317,
+      39224
+    ],
+    "services_started": [],
+    "user_processes_preserved": [
+      {
+        "pid": 76613,
+        "port": 8077
+      },
+      {
+        "pid": 76292,
+        "port": 3030
+      }
+    ]
+  },
+  "artifacts": [
+    "tmp/storage-table-usability-20261104/REPORT.md",
+    "tmp/storage-table-usability-20261104/task-delta.patch",
+    "tmp/storage-table-usability-20261104/unit.log",
+    "tmp/storage-table-usability-20261104/ui-result.json",
+    "tmp/storage-table-usability-20261104/desktop-controls-and-rows.png",
+    "tmp/storage-table-usability-20261104/tables-390.png",
+    "tmp/storage-table-usability-20261104/tables-320.png"
+  ]
+}

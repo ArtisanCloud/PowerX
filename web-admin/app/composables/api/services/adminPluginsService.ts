@@ -1,8 +1,22 @@
 import { useApiClient } from "../index";
 
+export interface PluginProviderIdentity { id: string; authority: string }
+
+export interface PluginInstallOrigin {
+  type: 'local' | 'marketplace' | 'unknown';
+  source_id?: string;
+  channel?: string;
+  sha256?: string;
+}
+
 export type AdminPluginItem = {
+  install_origin?: PluginInstallOrigin;
+  provider?: PluginProviderIdentity;
+  revision?: string;
+  state?: string;
   id: string;
   name?: string;
+  menus?: { title: string }[];
   version?: string;
   description?: string;
   author?: string;
@@ -70,7 +84,7 @@ export const useAdminPluginsService = () => {
       }),
 
     // 安装（从 URL）
-    installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; force?: boolean; metadata?: Record<string, any> }) =>
+    installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; force?: boolean; expected_revision?: string; confirm_legacy_provider?: boolean; metadata?: Record<string, any> }) =>
       api.post(`${base}/install/url`, payload, {
         timeout: 120000, // 构建/解压/启用可能超过默认 30s
       }),

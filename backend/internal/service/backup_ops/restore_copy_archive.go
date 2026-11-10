@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"net/url"
 	"os"
@@ -146,6 +147,9 @@ func (s *RestoreCopyService) archive(ctx context.Context, source RestoreSource) 
 	if err != nil {
 		return restoreArchive{}, err
 	}
+	if artifact != nil && artifact.CleanupState == "quarantined" {
+		return restoreArchive{}, controlFailure(409, "BACKUP_ARTIFACT_QUARANTINED")
+	}
 	root, err := resolveBackupArtifactBaseDir()
 	if err != nil {
 		return restoreArchive{}, err
@@ -165,6 +169,11 @@ func (s *RestoreCopyService) Import(ctx context.Context, name string, input io.R
 	if len(name) > 255 || !strings.EqualFold(filepath.Ext(name), ".dump") {
 		return RestoreImport{}, restoreFailure(400, "RESTORE_IMPORT_INVALID", "请选择 PostgreSQL .dump 文件")
 	}
+	ctx, release, admissionErr := budget.BeginPath(ctx, s.store.root, "database_restore_import", RestoreUploadLimit)
+	if admissionErr != nil {
+		return RestoreImport{}, admissionErr
+	}
+	defer release()
 	id := uuid.NewString()
 	path := filepath.Join(s.store.root, "imports", id+".dump")
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -180,7 +189,7 @@ func (s *RestoreCopyService) Import(ctx context.Context, name string, input io.R
 	}()
 	hash := sha256.New()
 	reader := &restoreContextReader{ctx: ctx, reader: io.LimitReader(input, RestoreUploadLimit+1)}
-	size, err := io.Copy(io.MultiWriter(f, hash), reader)
+	size, err := io.Copy(io.MultiWriter(budget.Writer(ctx, f), hash), reader)
 	if err != nil {
 		return RestoreImport{}, err
 	}

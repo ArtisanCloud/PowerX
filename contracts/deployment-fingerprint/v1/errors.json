@@ -1,0 +1,37 @@
+{
+  "marketplace_compatibility_400": [
+    "invalid_input",
+    "instance_extension_unsupported"
+  ],
+  "never_downgrade_http_status": [
+    401,
+    403,
+    429,
+    500,
+    502,
+    503,
+    504
+  ],
+  "business_errors": [
+    "fingerprint_manifest_invalid",
+    "fingerprint_digest_mismatch",
+    "fingerprint_import_conflict",
+    "site_url_invalid",
+    "site_target_not_public",
+    "site_not_found",
+    "challenge_not_found",
+    "challenge_expired",
+    "challenge_superseded",
+    "instance_revoked",
+    "instance_feature_unsupported",
+    "instance_public_url_unset",
+    "instance_public_url_mismatch",
+    "site_probe_rate_limited",
+    "site_fetch_failed",
+    "site_probe_timeout"
+  ],
+  "core_protocol_errors": [
+    "MARKETPLACE_DEPLOYMENT_PROTOCOL_INVALID",
+    "MARKETPLACE_REGISTRATION_UNSUPPORTED"
+  ]
+}

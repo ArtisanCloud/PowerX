@@ -1,5 +1,209 @@
 routes:
   - method: GET
+    path: /api/v1/admin/ops/backup/archives/policies/:policy_id/requests/:request_id
+    category: root_runtime_control
+    reason: Root human only; read-only reconciliation of an original archive request. No execution, unlock, tenant capability or delegated service grant.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-quarantine-inventory
+    category: root_runtime_control
+    reason: Root human readonly quarantine inventory and on-demand diagnostic; no delegated plugin capability or mutation.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-quarantine-inventory/:request_id
+    category: root_runtime_control
+    reason: Root human readonly quarantine inventory and on-demand diagnostic; no delegated plugin capability or mutation.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-quarantine-inventory/:request_id/inspection
+    category: root_runtime_control
+    reason: Root human readonly quarantine inventory and on-demand diagnostic; no delegated plugin capability or mutation.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/quarantine-preview
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting quarantine of damaged backup artifacts, not a plugin service capability.
+  - method: POST
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/quarantines
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting quarantine of damaged backup artifacts, not a plugin service capability.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/quarantines
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting quarantine of damaged backup artifacts, not a plugin service capability.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-quarantines/:request_id
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting quarantine of damaged backup artifacts, not a plugin service capability.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/resolution-preview
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting current cleanup resolution with drain and audit, never delegated plugin access.
+  - method: POST
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/resolutions
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting current cleanup resolution with drain and audit, never delegated plugin access.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/resolutions
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting current cleanup resolution with drain and audit, never delegated plugin access.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-resolutions/:request_id
+    category: root_runtime_control
+    reason: Root human only; fixed non-deleting current cleanup resolution with drain and audit, never delegated plugin access.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-retention-history
+    category: root_runtime_control
+    reason: Root human only; bounded legacy receipt inventory and explicit independent historical import, not execution authority or delegated service access.
+  - method: POST
+    path: /api/v1/admin/ops/backup/cleanup-retention-imports
+    category: root_runtime_control
+    reason: Root human only; bounded legacy receipt inventory and explicit independent historical import, not execution authority or delegated service access.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-retention-imports
+    category: root_runtime_control
+    reason: Root human only; bounded legacy receipt inventory and explicit independent historical import, not execution authority or delegated service access.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-retention-imports/:request_id
+    category: root_runtime_control
+    reason: Root human only; bounded legacy receipt inventory and explicit independent historical import, not execution authority or delegated service access.
+  - method: POST
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/retentions
+    category: root_runtime_control
+    reason: Real Root human only; token and version bound backup retention protection with immutable UUID receipts. No tenant or delegated service grant.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/retentions
+    category: root_runtime_control
+    reason: Real Root human only; token and version bound backup retention protection with immutable UUID receipts. No tenant or delegated service grant.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-retentions/:request_id
+    category: root_runtime_control
+    reason: Real Root human only; token and version bound backup retention protection with immutable UUID receipts. No tenant or delegated service grant.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id/verification
+    category: root_runtime_control
+    reason: Root human only; explicitly requested cancellable read-only integrity diagnostic, never a deletion proof, service grant or background job.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews
+    category: root_runtime_control
+    reason: Platform Root human session only; read-only unconfirmed backup deletion metadata is host runtime control, never a tenant, API Key or delegated service capability.
+  - method: GET
+    path: /api/v1/admin/ops/backup/cleanup-reviews/:artifact_id
+    category: root_runtime_control
+    reason: Platform Root human session only; token-bound metadata inspection of registered backup files cannot delete, retry, unlock or grant service access.
+  - method: GET
+    path: /api/v1/admin/user/auth/me/session
+    category: user_authentication
+    reason: Read-only verification of the currently authenticated human login session; rejects service credentials and identity overrides. Host login recovery only, never a tenant capability or service grant.
+  - method: POST
+    path: /api/v1/admin/agents/models/sync
+    category: admin_configuration
+    reason: Tenant owner/admin user JWT only; synchronizes saved provider catalogs and classifies local configuration candidates. This mutation is not a delegated Framework Host capability; service actors are explicitly rejected and existing typed catalog reads consume the saved result.
+  - method: POST
+    path: /api/v1/admin/ops/storage/cleanup-previews
+    category: root_runtime_control
+    reason: Root user session only; registered application-log cleanup previews contain host file metadata and are not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/storage/cleanup-runs
+    category: root_runtime_control
+    reason: Root user session only; a confirmed preview permits one synchronous bounded batch of sealed application logs, never a caller-selected path or service grant.
+  - method: GET
+    path: /api/v1/admin/ops/storage/cleanup-runs
+    category: root_runtime_control
+    reason: Root user session only; instance-scoped host cleanup audit must not be exposed to tenant API Key or STS callers.
+  - method: GET
+    path: /api/v1/admin/ops/storage/cleanup-runs/:run_id
+    category: root_runtime_control
+    reason: Root user session only; readback of a bounded host-file operation is private platform runtime control.
+  - method: GET
+    path: /api/v1/admin/ops/storage/policy
+    category: root_runtime_control
+    reason: Platform Root user JWT only; instance-scoped host policy drafts are not tenant or delegated service capabilities. Saving cannot enable cleanup or modify legacy policies.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/policy
+    category: root_runtime_control
+    reason: Platform Root user JWT only; revision-checked host policy drafts and their audit must not be exposed to API Key, STS, tenants or plugins.
+  - method: GET
+    path: /api/v1/admin/ops/storage/history
+    category: root_runtime_control
+    reason: Platform Root user JWT only; filesystem and database occupancy observations are host operational metadata, not a tenant service API.
+  - method: GET
+    path: /api/v1/admin/ops/storage/overview
+    category: root_runtime_control
+    reason: Root user session only; process-filesystem observations include host-level inventory and are not tenant, plugin, or agent capabilities. API Key and STS are rejected by the real router.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables
+    category: root_runtime_control
+    reason: Human Root user JWT only; current-database table allocation and bounded time ranges are instance operational metadata, not tenant or delegated service capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables/:table_id
+    category: root_runtime_control
+    reason: Human Root user JWT only; fixed catalog table observation accepts no arbitrary table, schema or SQL. API Key and STS remain rejected.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables/monitoring
+    category: root_runtime_control
+    reason: Human Root only; instance-wide table sampling, worker health and alert thresholds are host operational metadata.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/database-tables/monitoring
+    category: root_runtime_control
+    reason: Human Root only; explicit CAS policy activation cannot be delegated to tenant, API Key or STS callers.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-tables/monitoring/adoptions
+    category: root_runtime_control
+    reason: Human Root only; explicit platform configuration handover with a paused initial policy, not a tenant or delegated service capability.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables/monitoring/requests/:request_id
+    category: root_runtime_control
+    reason: Original human Root only; instance configuration mutation receipt reconciliation, not an API Key or STS service endpoint.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/history
+    category: root_runtime_control
+    reason: Human Root only; bounded fixed-catalog allocation history is instance operational metadata, not a tenant service.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention/adoptions
+    category: root_runtime_control
+    reason: Root human access only; fixed reviewed adapter retention and original receipts, no service delegation.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention/changes
+    category: root_runtime_control
+    reason: Root human access only; fixed reviewed adapter retention and original receipts, no service delegation.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention/requests/:request_id
+    category: root_runtime_control
+    reason: Root human access only; fixed reviewed adapter retention and original receipts, no service delegation.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention/runs/:request_id
+    category: root_runtime_control
+    reason: Root human access only; fixed reviewed adapter retention and original receipts, no service delegation.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention
+    category: root_runtime_control
+    reason: Human Root JWT only; fixed adapter, explicit policy and bounded preview-confirmed host maintenance must not be delegated to API Key, STS or plugins.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention
+    category: root_runtime_control
+    reason: Human Root JWT only; fixed adapter, explicit policy and bounded preview-confirmed host maintenance must not be delegated to API Key, STS or plugins.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention/previews
+    category: root_runtime_control
+    reason: Human Root JWT only; fixed adapter, explicit policy and bounded preview-confirmed host maintenance must not be delegated to API Key, STS or plugins.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-tables/:table_id/retention/runs
+    category: root_runtime_control
+    reason: Human Root JWT only; fixed adapter, explicit policy and bounded preview-confirmed host maintenance must not be delegated to API Key, STS or plugins.
+  - method: POST
+    path: /api/v1/admin/ops/storage/estimates
+    category: root_runtime_control
+    reason: Root-only pure capacity calculator for the storage operations page; manual assumptions do not save or enable policies and must not become a delegated host capability.
+  - method: GET
+    path: /api/v1/admin/plugins/marketplace/catalog
+    category: root_runtime_control
+    reason: Root user JWT only; remote package discovery belongs to host installation operations and must not be published as a tenant or plugin capability.
+  - method: GET
+    path: /api/v1/admin/plugins/marketplace/catalog/:plugin_id/versions
+    category: root_runtime_control
+    reason: Root user JWT only; host-platform package selection belongs to installation operations and must not be published as a tenant or plugin capability.
+  - method: POST
+    path: /api/v1/admin/plugins/marketplace/install
+    category: root_runtime_control
+    reason: Root user JWT only; downloading and installing executable packages is host runtime control and must not be published as a tenant or plugin capability.
+  - method: GET
     path: /api/v1/admin/ops/backup/jobs/:job_id/download
     category: root_runtime_control
     reason: Full-database file downloads require a Root user session and must never be published to tenants or plugins.
@@ -187,3 +391,272 @@ routes:
     path: /api/v1/admin/ops/backup/system-snapshots/policies/:policy_id/status
     category: root_runtime_control
     reason: Starts or stops whole-instance capture schedules, requiring a Root user session, never a plugin or agent grant.
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/runtime/budget
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime/policies/:source_id
+    category: root_runtime_control
+    reason: Platform-wide log policy configuration requires a human Root session; never delegated to tenants, API Keys, STS, plugins or agents.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/policies/:source_id/adoptions
+    category: root_runtime_control
+    reason: Platform-wide log policy configuration requires a human Root session; never delegated to tenants, API Keys, STS, plugins or agents.
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime/policies/:source_id/requests/:request_id
+    category: root_runtime_control
+    reason: Platform-wide log policy configuration requires a human Root session; never delegated to tenants, API Keys, STS, plugins or agents.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/runtime/policies/:source_id
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/previews
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/runs
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime/events
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/runs/:run_id/acknowledge
+    category: root_runtime_control
+    reason: Host-wide disk protection requires a human Root session and is never delegated to tenants, plugins or agents.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/catalog
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/s3-credentials
+    category: root_runtime_control
+    reason: Independent archive credentials require a human Root session; secrets and key operations are never delegated to plugins, API Keys, STS or agents.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/s3-credentials/requests/:request_id
+    category: root_runtime_control
+    reason: Independent archive credentials require a human Root session; secrets and key operations are never delegated to plugins, API Keys, STS or agents.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/s3-credentials/:credential_ref/adoptions
+    category: root_runtime_control
+    reason: Independent archive credentials require a human Root session; secrets and key operations are never delegated to plugins, API Keys, STS or agents.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/s3-credentials/:credential_ref/revocations
+    category: root_runtime_control
+    reason: Independent archive credentials require a human Root session; secrets and key operations are never delegated to plugins, API Keys, STS or agents.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/credential-store/rotations
+    category: root_runtime_control
+    reason: Independent archive credentials require a human Root session; secrets and key operations are never delegated to plugins, API Keys, STS or agents.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/s3-credentials
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/targets/:target_id/imports
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/preview
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/migrations
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/policies/:policy_id/remote-cleanup-previews
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/remote-cleanup-runs/:preview_id
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/remote-cleanup-runs/:preview_id/reconcile
+    category: root_runtime_control
+    reason: Root user JWT only; private log custody, credentials, retrieval and exact-version
+      cleanup are deployment operations, not tenant or delegated capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-retention/adoptions
+    category: root_runtime_control
+    reason: Root human session only; fixed invocation audit retention control and receipts.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-retention/changes
+    category: root_runtime_control
+    reason: Root human session only; fixed invocation audit retention control and receipts.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-retention/requests/:request_id
+    category: root_runtime_control
+    reason: Root human session only; fixed invocation audit retention control and receipts.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-retention/runs/:request_id
+    category: root_runtime_control
+    reason: Root human session only; fixed invocation audit retention control and receipts.
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-retention
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance
+      and never a service API grant.
+  - method: PUT
+    path: /api/v1/admin/ops/storage/database-retention
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance
+      and never a service API grant.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-retention/previews
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance
+      and never a service API grant.
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-retention/runs
+    category: root_runtime_control
+    reason: Root user JWT only; typed invocation-audit retention is instance maintenance
+      and never a service API grant.
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/target-configuration
+    category: root_runtime_control
+    reason: Root human session only; platform archive target authority and immutable receipts must never be tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/target-configuration/adoptions
+    category: root_runtime_control
+    reason: Root human session only; platform archive target authority and immutable receipts must never be tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/target-configuration/requests/:request_id
+    category: root_runtime_control
+    reason: Root human session only; platform archive target authority and immutable receipts must never be tenant or plugin capabilities.
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/policy-configuration
+    category: root_runtime_control
+    reason: Root human session only; platform archive policy authority and receipts must never be tenant or plugin capabilities.
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/policy-configuration/adoptions
+    category: root_runtime_control
+    reason: Root human session only; platform archive policy authority and receipts must never be tenant or plugin capabilities.
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/policy-configuration/requests/:request_id
+    category: root_runtime_control
+    reason: Root human session only; platform archive policy authority and receipts must never be tenant or plugin capabilities.
+
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime/budget
+    category: root_runtime_control
+    reason: Host-wide budget configuration and immutable receipts require a human Root session; never delegated to tenants or services.
+  - method: POST
+    path: /api/v1/admin/ops/storage/runtime/budget/adoptions
+    category: root_runtime_control
+    reason: Host-wide budget configuration and immutable receipts require a human Root session; never delegated to tenants or services.
+  - method: GET
+    path: /api/v1/admin/ops/storage/runtime/budget/requests/:request_id
+    category: root_runtime_control
+    reason: Host-wide budget configuration and immutable receipts require a human Root session; never delegated to tenants or services.
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/policy-configuration
+    category: root_runtime_control
+    reason: Whole-database backup configuration authority and receipts require a human Root session; no tenant or service grant.
+
+  - method: POST
+    path: /api/v1/admin/ops/backup/policy-configuration/adoptions
+    category: root_runtime_control
+    reason: Whole-database backup configuration authority and receipts require a human Root session; no tenant or service grant.
+
+  - method: POST
+    path: /api/v1/admin/ops/backup/policy-configuration/changes
+    category: root_runtime_control
+    reason: Whole-database backup configuration authority and receipts require a human Root session; no tenant or service grant.
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/policy-configuration/requests/:request_id
+    category: root_runtime_control
+    reason: Whole-database backup configuration authority and receipts require a human Root session; no tenant or service grant.
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/system-snapshots/policy-configuration
+    category: root_runtime_control
+    reason: Root system snapshot policy authority and immutable receipts
+
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/policy-configuration/adoptions
+    category: root_runtime_control
+    reason: Root system snapshot policy authority and immutable receipts
+
+  - method: POST
+    path: /api/v1/admin/ops/backup/system-snapshots/policy-configuration/changes
+    category: root_runtime_control
+    reason: Root system snapshot policy authority and immutable receipts
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/system-snapshots/policy-configuration/requests/:request_id
+    category: root_runtime_control
+    reason: Root system snapshot policy authority and immutable receipts
+
+  - method: GET
+    path: /api/v1/admin/ops/storage/execution-control
+    category: root_runtime_control
+    reason: Human Root scoped storage execution protection
+
+  - method: POST
+    path: /api/v1/admin/ops/storage/execution-control/changes
+    category: root_runtime_control
+    reason: Human Root emergency pause and explicit handoff latch
+
+  - method: GET
+    path: /api/v1/admin/ops/storage/execution-control/requests/:request_id
+    category: root_runtime_control
+    reason: Human Root immutable execution control receipts
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/interruption-review
+    category: root_runtime_control
+    reason: Human Root bounded incomplete capture review and immutable retain-and-close receipts; no tenant or plugin capability
+
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/jobs/:job_id/interruption-retentions
+    category: root_runtime_control
+    reason: Human Root bounded incomplete capture review and immutable retain-and-close receipts; no tenant or plugin capability
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/interruption-requests/:request_id
+    category: root_runtime_control
+    reason: Human Root bounded incomplete capture review and immutable retain-and-close receipts; no tenant or plugin capability
+
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/interruption-requests/:request_id/review
+    category: root_runtime_control
+    reason: Human Root read-only unknown request review; not a tenant or plugin capability
+
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/interruption-requests/:request_id/closures
+    category: root_runtime_control
+    reason: Human Root audited unknown conclusion preserving all task protection; not a tenant or plugin capability
+
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/commands/:record_id/review
+    category: root_runtime_control
+    reason: Human Root fixed local command identity review; no tenant or plugin capability
+  - method: POST
+    path: /api/v1/admin/ops/backup/archives/commands/:record_id/confirmations
+    category: root_runtime_control
+    reason: Human Root immutable local drain attestation; no signals or tenant capability
+  - method: GET
+    path: /api/v1/admin/ops/backup/archives/command-confirmation-requests/:request_id
+    category: root_runtime_control
+    reason: Human Root read-only original command confirmation receipt

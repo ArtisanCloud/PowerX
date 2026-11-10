@@ -1,0 +1,84 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.iam.member_accounts.admin_read
+    module: iam
+    title: Read Tenant Members and Roles
+    description: Read members and their direct role bindings in the authenticated user's current tenant.
+    title_i18n: {en: Read Tenant Members and Roles, zh-CN: 查看租户成员}
+    description_i18n: {en: Read current tenant members and roles., zh-CN: 根据登录租户查看成员列表、详情和直接角色绑定。}
+    permission_code: corex.iam.member_accounts:read
+    agent_usable: false
+    risk_level: low
+    categories: [iam, admin]
+    intents: [iam.member_accounts.admin_read]
+    tool_scopes: [iam.member_accounts.admin_read]
+    policy: {prefer: rest}
+    docs: [docs/contracts/tenant-member-management.md]
+    protocols:
+      - {channel: rest, endpoint: /api/v1/admin/iam/members, method: GET, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#List", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_read}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members/:id", method: GET, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#Get", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_read}
+      - channel: rest
+        endpoint: /api/v1/admin/iam/members/:id/roles
+        method: GET
+        schema_ref: backend/internal/transport/http/admin/iam/member_accounts.go#ListRoles
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: iam.member_accounts.admin_read
+  - capability_id: com.corex.iam.member_accounts.admin_write
+    module: iam
+    title: Manage Tenant Member Accounts
+    description: Manage direct tenant role bindings and reset login passwords for current tenant members, excluding Root accounts.
+    title_i18n: {en: Manage Tenant Member Accounts, zh-CN: 管理租户成员账号}
+    description_i18n: {en: Manage roles and passwords of current tenant members., zh-CN: 根据登录租户管理成员角色和密码，保护 Root 账号。}
+    permission_code: corex.iam.member_accounts:write
+    agent_usable: false
+    risk_level: high
+    categories: [iam, admin]
+    intents: [iam.member_accounts.admin_write]
+    tool_scopes: [iam.member_accounts.admin_write]
+    policy: {prefer: rest}
+    docs: [docs/contracts/tenant-member-management.md]
+    protocols:
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members", method: POST, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#Create", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members/:id", method: PATCH, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#Update", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members/:id/status", method: PUT, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#SetStatus", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members/:id/restore", method: PUT, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#Restore", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members/:id/departments", method: PUT, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#PutDepartments", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members/:id/force-logout", method: POST, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#ForceMemberLogout", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_write}
+      - channel: rest
+        endpoint: /api/v1/admin/iam/members/:id/roles
+        method: PUT
+        schema_ref: backend/internal/transport/http/admin/iam/member_accounts.go#SetRoles
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: iam.member_accounts.admin_write
+      - channel: rest
+        endpoint: /api/v1/admin/iam/members/:id/password
+        method: PUT
+        schema_ref: backend/internal/transport/http/admin/iam/member_accounts.go#ResetPassword
+        auth_type: user_jwt
+        actor_context: admin_user
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: iam.member_accounts.admin_write
+
+  - capability_id: com.corex.iam.member_accounts.admin_delete
+    module: iam
+    title: Remove Tenant Members
+    description: Remove a member from the authenticated user's current tenant without deleting the global login account.
+    title_i18n: {en: Remove Tenant Members, zh-CN: 删除租户成员}
+    description_i18n: {en: Remove current tenant membership only., zh-CN: 仅删除当前租户的成员关系，保留全局登录账号。}
+    permission_code: corex.iam.member_accounts:delete
+    agent_usable: false
+    risk_level: high
+    categories: [iam, admin]
+    intents: [iam.member_accounts.admin_delete]
+    tool_scopes: [iam.member_accounts.admin_delete]
+    policy: {prefer: rest}
+    docs: [docs/contracts/tenant-member-management.md]
+    protocols:
+      - {channel: rest, endpoint: "/api/v1/admin/iam/members/:id", method: DELETE, schema_ref: "backend/internal/transport/http/admin/iam/member_handler.go#Delete", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.member_accounts.admin_delete}

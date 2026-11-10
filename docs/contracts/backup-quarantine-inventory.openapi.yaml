@@ -1,0 +1,121 @@
+openapi: 3.0.3
+info:
+  title: PowerX readonly quarantine inventory
+  version: '2026-11-09'
+  description: Root human access only. No state mutation or restore authority. Existing maintenance v7/ledger v4; no new schema.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /admin/ops/backup/cleanup-quarantine-inventory:
+    get:
+      operationId: listQuarantineInventory
+      description: Bounded independent and current-Scope SQL history plus current metadata, filtered and paginated after merge. No dump reads. Unknown or duplicate query rejected.
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 1, maximum: 100000, default: 1}}
+        - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: current, in: query, schema: {type: string, enum: [all, quarantined, not_quarantined, missing, unavailable, identity_changed], default: all}}
+        - {name: result, in: query, schema: {type: string, enum: [all, checking, quarantined, rejected], default: all}}
+        - {name: diagnosis, in: query, schema: {type: string, enum: [all, missing, size_changed, checksum_mismatch, sidecars_missing, sidecar_mismatch, metadata_invalid], default: all}}
+        - {name: q, in: query, description: Exact request UUID, original token, artifact ID or job ID. Trimmed., schema: {type: string, maxLength: 64}}
+        - {name: sort, in: query, schema: {type: string, enum: [time, size, artifact], default: time}}
+        - {name: direction, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
+      responses:
+        '200':
+          description: Ordinary JSON envelope with current observation, not deletion or restore proof.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [items, total, page, page_size, unattributed_quarantined_artifacts, observed_at]
+                    properties:
+                      items: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/Item'}}
+                      total: {type: integer, minimum: 0, maximum: 4096}
+                      page: {type: integer}
+                      page_size: {type: integer}
+                      unattributed_quarantined_artifacts: {type: integer, minimum: 0, description: Current SQL quarantine markers not attributable to exact history for this Scope; nonzero means incomplete coverage.}
+                      observed_at: {type: string, format: date-time}
+        '400': {description: Invalid or unknown query}
+        '403': {description: Root human access session required}
+        '409': {description: Independent source changed during observation}
+        '423': {description: Source or merge limit exceeded; no truncated completeness claim}
+        '503': {description: SQL schema, independent source or history conflict unavailable; never an empty success}
+  /admin/ops/backup/cleanup-quarantine-inventory/{request_id}:
+    get:
+      operationId: getQuarantineInventoryRequest
+      parameters:
+        - {$ref: '#/components/parameters/RequestID'}
+      responses:
+        '200':
+          description: Exact history and current observation in JSON data envelope. No query accepted.
+          content:
+            application/json:
+              schema: {type: object, properties: {data: {$ref: '#/components/schemas/Item'}}}
+        '400': {description: Invalid UUID or any query}
+        '403': {description: Root human only}
+        '404': {description: Unknown UUID does not prove non-execution}
+        '409': {description: Independent source changed}
+        '423': {description: Bounded source limit}
+        '503': {description: Source unavailable}
+  /admin/ops/backup/cleanup-quarantine-inventory/{request_id}/inspection:
+    get:
+      operationId: inspectQuarantineArtifact
+      description: Explicit one-shot read-only SSE, max five minutes. Bind exact snapshot, cooperating policy lock, no-follow fixed file evidence and final SQL/recovery recheck. No persistent job, state change, automatic retry or unquarantine. EOF/incomplete never succeeds.
+      parameters:
+        - {$ref: '#/components/parameters/RequestID'}
+        - {name: expected_snapshot, in: query, required: true, schema: {type: string, pattern: '^[a-f0-9]{64}$'}}
+      responses:
+        '200':
+          description: SSE progress with CleanupVerification running; complete payload Inspection directly, without data envelope. Failure after stream starts sends incomplete or EOF.
+          content:
+            text/event-stream:
+              schema: {type: string}
+        '400': {description: Invalid, duplicate or extra query}
+        '403': {description: Root human only}
+        '404': {description: Request not found}
+        '409': {description: Snapshot changed, source ineligible or policy busy}
+        '423': {description: Source limit}
+        '503': {description: Source or database pool unavailable}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  parameters:
+    RequestID: {name: request_id, in: path, required: true, schema: {type: string, format: uuid, description: Canonical lowercase nonzero UUID}}
+  schemas:
+    Item:
+      type: object
+      required: [request_id, artifact_id, job_id, policy_id, token, result, diagnosis, reason, actor_id, created_at, completed_at, history_status, current, cleanup_state, size_bytes, can_inspect, snapshot, valid_backup_proof]
+      properties:
+        request_id: {type: string, format: uuid}
+        artifact_id: {type: string}
+        job_id: {type: string}
+        policy_id: {type: string}
+        token: {type: string, format: uuid, description: Original token only}
+        result: {type: string, enum: [checking, quarantined, rejected]}
+        diagnosis: {type: string, enum: [missing, size_changed, checksum_mismatch, sidecars_missing, sidecar_mismatch, metadata_invalid]}
+        reason: {type: string, maxLength: 256}
+        actor_id: {type: string}
+        created_at: {type: string, format: date-time}
+        completed_at: {type: string, format: date-time, nullable: true}
+        history_status: {type: string, enum: [covered, sql_replayed, sql_missing, checkpoint_required, independent_missing, conflict]}
+        current: {type: string, enum: [quarantined, not_quarantined, missing, unavailable, identity_changed]}
+        cleanup_state: {type: string, enum: ['', pending, unconfirmed, retained, quarantined, other]}
+        size_bytes: {type: integer, format: int64, nullable: true, description: Current registered size; no filesystem scan}
+        can_inspect: {type: boolean}
+        snapshot: {type: string, description: Empty when ineligible; otherwise SHA256 for readonly inspection only}
+        valid_backup_proof: {type: boolean, enum: [false]}
+    Inspection:
+      type: object
+      required: [request_id, snapshot, verification, currently_quarantined, read_only, quarantine_unchanged, valid_backup_proof]
+      properties:
+        request_id: {type: string, format: uuid}
+        snapshot: {type: string, pattern: '^[a-f0-9]{64}$'}
+        verification: {type: object, description: Existing CleanupVerification DTO bound to artifact_id/token; content_verified indicates this temporary content check only.}
+        currently_quarantined: {type: boolean}
+        read_only: {type: boolean, enum: [true]}
+        quarantine_unchanged: {type: boolean, enum: [true]}
+        valid_backup_proof: {type: boolean, enum: [false]}

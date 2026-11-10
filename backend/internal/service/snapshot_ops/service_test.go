@@ -92,6 +92,7 @@ func captureReady(t *testing.T, s *Service) Snapshot {
 	}, 30*time.Second, 10*time.Millisecond)
 	require.Equal(t, "ready", j.Status, j.Error)
 	waitIdle(t, s)
+	s.workers.Wait() // flock 是进程间互斥；Wait 同时为注入后续测试回调建立 Go happens-before。
 	return j
 }
 

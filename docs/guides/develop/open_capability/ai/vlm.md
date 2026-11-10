@@ -1,34 +1,15 @@
-# VLM 开放能力调试指南
+# 视觉理解开放能力 v2
 
-VLM 面向视觉多模态输入（图文理解等），REST 入口：`POST /api/v1/ai/vlm/invoke`。
+正式能力为 `com.corex.ai.vlm.invoke`，REST 入口为 `POST /api/v1/ai/vlm/invoke`。型号必须来自当前凭证的能力目录，示例型号仅说明合同，调用前须完成目标租户配置、授权和费用额度确认。
 
-```bash
-export HTTP_BASE="http://127.0.0.1:8077/api/v1"
-export API_KEY="<api-key>"
+完整字段、授权绑定、错误和任务推送规则见 [AI 媒体 v2 合同](../../../../contracts/ai-media-v2.md)。
+
+推荐服务调用 `/api/v1/tenant/invocations`，`preferred_protocol` 为 `core_internal`，body 使用固定 typed operation。禁止自选 method/endpoint/query；运行通道和环境由启动配置及目标租户设置确定。
+
+```json
+{"capability_id":"com.corex.ai.vlm.invoke","preferred_protocol":"core_internal","payload":{"body":{"operation":"invoke","contract_version":2,"model_key":"qwen-cn/qwen-vl-max","inputs":[{"type":"text","content":"分析参考图"},{"type":"image_url","url":"https://example.com/reference.png"}],"params":{"temperature":0}}}}
 ```
 
-## 1. 直接 REST 调用
+直接 REST 使用同一 body（可省略 operation），凭证放在 Authorization header；不传 env query 或 X-PowerX-Env。
 
-```bash
-curl -sS -X POST "$HTTP_BASE/ai/vlm/invoke?env=dev" \
-  -H "Authorization: ApiKey $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model_key": "openai/gpt-4o-mini",
-    "inputs": [
-      {"type":"text","text":"描述这张图"},
-      {"type":"image_url","url":"https://example.com/demo.png"}
-    ],
-    "params": {"temperature": 0.1}
-  }'
-```
-
-## 2. 与 Selector 的关系
-
-当前建议优先直连 REST 入口进行 VLM 调试。若后续发布稳定的 VLM 专属 `capability_id`，再统一迁移到 `/tenant/invocations`。
-
-## 3. 常见错误
-
-- `model_key required`：缺少模型键
-- `model not configured for tenant`：租户未配置该模型
-- `provider driver not implemented`：对应 provider 的 VLM 驱动尚未实现
+VLM 同步返回 `type: analysis` 和 `text`。已有正式 VLM 能力声明，Schema 与授权以 v2 合同为准。

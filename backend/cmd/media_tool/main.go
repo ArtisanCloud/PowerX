@@ -57,6 +57,11 @@ func main() {
 		}
 		printRootUsage()
 		return
+	case "derivatives-backfill":
+		if err := runDerivativeBackfill(os.Args[2:]); err != nil && !errors.Is(err, flag.ErrHelp) {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case commandCleanup:
 		if err := runCleanupCommand(os.Args[2:]); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
@@ -308,6 +313,7 @@ func closeSQL(db *gorm.DB) {
 func printRootUsage() {
 	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "用法: %s <子命令> [参数]", os.Args[0])
 	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "可用子命令:")
+	fmt.Fprintln(os.Stderr, "  derivatives-backfill  显式补齐标准图片规格（默认 dry-run）")
 	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "  %s\t清理软删除媒资并写入审计记录", commandCleanup)
 	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "示例:")
 	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "legacy"}), "  go run ./cmd/media_tool %s --dry-run --before=24h", commandCleanup)
@@ -315,6 +321,8 @@ func printRootUsage() {
 
 func printCommandUsage(cmd string) {
 	switch cmd {
+	case "derivatives-backfill":
+		_ = runDerivativeBackfill([]string{"--help"})
 	case commandCleanup:
 		flagSet := flag.NewFlagSet(commandCleanup, flag.ExitOnError)
 		flagSet.SetOutput(os.Stderr)

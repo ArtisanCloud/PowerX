@@ -89,7 +89,7 @@ type Logger struct {
 	file *os.File
 	mu   sync.Mutex
 
-	millCh    chan bool
+	millCh    chan time.Time
 	startMill sync.Once
 }
 
@@ -282,9 +282,18 @@ func (l *Logger) filename() string {
 // files are removed, keeping at most l.MaxBackups files, as long as
 // none of them are older than MaxAge.
 func (l *Logger) millRunOnce() error {
+	return l.millRunOnceAt(currentTime())
+}
+
+// 截取触发时刻，异步清理不再读取可被测试／重配置替换的全局时钟。
+func (l *Logger) millRunOnceAt(now time.Time) error {
 	if l.MaxBackups == 0 && l.MaxAge == 0 && !l.Compress {
 		return nil
 	}
+	return withDirectoryLock(l.dir(), func() error { return l.millRunLocked(now) })
+}
+
+func (l *Logger) millRunLocked(now time.Time) error {
 
 	files, err := l.oldLogFiles()
 	if err != nil {
@@ -315,7 +324,7 @@ func (l *Logger) millRunOnce() error {
 	}
 	if l.MaxAge > 0 {
 		diff := time.Duration(int64(24*time.Hour) * int64(l.MaxAge))
-		cutoff := currentTime().Add(-1 * diff)
+		cutoff := now.Add(-1 * diff)
 
 		var remaining []logInfo
 		for _, f := range files {
@@ -356,9 +365,9 @@ func (l *Logger) millRunOnce() error {
 // millRun runs in a goroutine to manage post-rotation compression and removal
 // of old log files.
 func (l *Logger) millRun() {
-	for range l.millCh {
+	for now := range l.millCh {
 		// what am I going to do, log this?
-		_ = l.millRunOnce()
+		_ = l.millRunOnceAt(now)
 	}
 }
 
@@ -366,11 +375,11 @@ func (l *Logger) millRun() {
 // starting the mill goroutine if necessary.
 func (l *Logger) mill() {
 	l.startMill.Do(func() {
-		l.millCh = make(chan bool, 1)
+		l.millCh = make(chan time.Time, 1)
 		go l.millRun()
 	})
 	select {
-	case l.millCh <- true:
+	case l.millCh <- currentTime():
 	default:
 	}
 }

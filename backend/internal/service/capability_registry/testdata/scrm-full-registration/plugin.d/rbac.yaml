@@ -1,0 +1,2033 @@
+permissions:
+  - actions:
+      - read
+      - sync
+      - update
+    resource: acquisition.group_chat
+  - actions:
+      - create
+      - delete
+      - publish
+      - read
+      - update
+    resource: acquisition.group_code
+  - actions:
+      - create
+      - read
+      - update
+    resource: acquisition.group_tag
+  - actions:
+      - create
+      - delete
+      - read
+      - update
+    resource: acquisition.staff_code
+  - actions:
+      - publish
+      - read
+      - update
+    resource: acquisition.staff_welcome
+  - actions:
+      - create
+      - read
+      - update
+    resource: channel_code
+  - actions:
+      - publish
+      - read
+    resource: channel_welcome_sync
+  - actions:
+      - create
+      - read
+    resource: com.powerx.plugins.scrm:capability
+  - actions:
+      - read
+      - write
+    resource: com.powerx.plugins.scrm:capability.exposure
+  - actions:
+      - manage
+      - read
+      - write
+    resource: com.powerx.plugins.scrm:capability.lifecycle
+  - actions:
+      - manage
+      - read
+    resource: com.powerx.plugins.scrm:capability.quota
+  - actions:
+      - read
+      - review
+      - update
+    resource: com.powerx.plugins.scrm:capability.review
+  - actions:
+      - read
+    resource: com.powerx.plugins.scrm:iam.audit
+  - actions:
+      - delete
+      - read
+      - write
+    resource: com.powerx.plugins.scrm:iam.department
+  - actions:
+      - read
+    resource: com.powerx.plugins.scrm:iam.permission
+  - actions:
+      - delete
+      - read
+      - write
+    resource: com.powerx.plugins.scrm:iam.role
+  - actions:
+      - mint
+    resource: com.powerx.plugins.scrm:iam.sts
+  - actions:
+      - read
+      - write
+    resource: com.powerx.plugins.scrm:iam.tenant
+  - actions:
+      - read
+      - write
+    resource: com.powerx.plugins.scrm:iam.user
+  - actions:
+      - create
+    resource: integration
+  - actions:
+      - manage
+      - read
+    resource: integration.approvals
+  - actions:
+      - invoke
+    resource: integration.dispatch
+  - actions:
+      - manage
+      - read
+    resource: integration.grant_matrix
+  - actions:
+      - manage
+      - read
+    resource: integration.secrets
+  - actions:
+      - manage
+      - read
+    resource: integration.webhooks
+  - actions:
+      - manage
+      - purchase
+      - read
+    resource: marketplace.license
+  - actions:
+      - read
+      - review
+      - write
+    resource: marketplace.listings
+  - actions:
+      - manage
+      - read
+    resource: marketplace.recommendation
+  - actions:
+      - read
+    resource: marketplace.revenue
+  - actions:
+      - read
+    resource: marketplace.sla
+  - actions:
+      - ingest
+      - view
+    resource: marketplace.usage
+  - actions:
+      - command
+      - read
+    resource: operations.incident
+  - actions:
+      - manage
+      - read
+    resource: operations.plugin.admin
+  - actions:
+      - export
+      - read
+    resource: operations.plugin.audit
+  - actions:
+      - execute
+      - read
+    resource: operations.plugin.ops
+  - actions:
+      - command
+      - manage
+      - read
+    resource: operations.sla
+  - actions:
+      - manage
+      - read
+    resource: operations.support
+  - actions:
+      - invoke
+      - manage
+      - observe
+      - read
+    resource: runtime.ops
+  - actions:
+      - read
+      - write
+    resource: scrm.leads
+  - actions:
+      - read
+    resource: scrm.messaging_conversations
+  - actions:
+      - manage
+      - read
+    resource: scrm.messaging_endpoints
+  - actions:
+      - read
+      - reply
+    resource: scrm.messaging_executions
+  - actions:
+      - read
+    resource: scrm.messaging_messages
+  - actions:
+      - read
+      - write
+    resource: scrm.social_channel_accounts
+  - actions:
+      - create
+      - delete
+      - read
+      - update
+    resource: template
+  - action: read
+    api_key:
+      action: read
+      capability_id: com.powerx.plugins.scrm.messaging.conversations.list
+      effect: allow
+      plugin_id: com.powerx.plugins.scrm
+      resource_pattern: messaging.conversations.list
+      resource_type: capability
+      scope: _scope.scrm.messaging.conversations.list
+    data_scope: tenant
+    default_role_grants: []
+    description_i18n:
+      en: List messaging conversations
+      zh-CN: 查询消息会话
+    independent: true
+    module: scrm
+    permission_code: scrm.messaging_service_conversations:read
+    protocol_bindings:
+      - actor_context: service_actor
+        channel: rest
+        method: POST
+        path: /api/v1/service/messaging/conversations.list
+        resource_scope: tenant
+    resource: messaging_service_conversations
+    risk_level: high
+    title_i18n:
+      en: List messaging conversations
+      zh-CN: 查询消息会话
+    type: api
+  - action: read
+    api_key:
+      action: read
+      capability_id: com.powerx.plugins.scrm.messaging.endpoints.list
+      effect: allow
+      plugin_id: com.powerx.plugins.scrm
+      resource_pattern: messaging.endpoints.list
+      resource_type: capability
+      scope: _scope.scrm.messaging.endpoints.list
+    data_scope: tenant
+    default_role_grants: []
+    description_i18n:
+      en: List messaging entries
+      zh-CN: 查询消息入口
+    independent: true
+    module: scrm
+    permission_code: scrm.messaging_service_endpoints:read
+    protocol_bindings:
+      - actor_context: service_actor
+        channel: rest
+        method: POST
+        path: /api/v1/service/messaging/endpoints.list
+        resource_scope: tenant
+    resource: messaging_service_endpoints
+    risk_level: high
+    title_i18n:
+      en: List messaging entries
+      zh-CN: 查询消息入口
+    type: api
+  - action: read
+    api_key:
+      action: read
+      capability_id: com.powerx.plugins.scrm.messaging.executions.read
+      effect: allow
+      plugin_id: com.powerx.plugins.scrm
+      resource_pattern: messaging.executions.read
+      resource_type: capability
+      scope: _scope.scrm.messaging.executions.read
+    data_scope: tenant
+    default_role_grants: []
+    description_i18n:
+      en: Read reply executions
+      zh-CN: 查询回复执行
+    independent: true
+    module: scrm
+    permission_code: scrm.messaging_service_executions:read
+    protocol_bindings:
+      - actor_context: service_actor
+        channel: rest
+        method: POST
+        path: /api/v1/service/messaging/executions.read
+        resource_scope: tenant
+    resource: messaging_service_executions
+    risk_level: high
+    title_i18n:
+      en: Read reply executions
+      zh-CN: 查询回复执行
+    type: api
+  - action: reply
+    api_key:
+      action: reply
+      capability_id: com.powerx.plugins.scrm.messaging.executions.reply
+      effect: allow
+      plugin_id: com.powerx.plugins.scrm
+      resource_pattern: messaging.executions.reply
+      resource_type: capability
+      scope: _scope.scrm.messaging.executions.reply
+    data_scope: tenant
+    default_role_grants: []
+    description_i18n:
+      en: Submit messaging replies
+      zh-CN: 提交消息回复
+    independent: true
+    module: scrm
+    permission_code: scrm.messaging_service_executions:reply
+    protocol_bindings:
+      - actor_context: service_actor
+        channel: rest
+        method: POST
+        path: /api/v1/service/messaging/executions.reply
+        resource_scope: tenant
+    resource: messaging_service_executions
+    risk_level: high
+    title_i18n:
+      en: Submit messaging replies
+      zh-CN: 提交消息回复
+    type: api
+  - action: read
+    api_key:
+      action: read
+      capability_id: com.powerx.plugins.scrm.messaging.messages.list
+      effect: allow
+      plugin_id: com.powerx.plugins.scrm
+      resource_pattern: messaging.messages.list
+      resource_type: capability
+      scope: _scope.scrm.messaging.messages.list
+    data_scope: tenant
+    default_role_grants: []
+    description_i18n:
+      en: Read messaging content
+      zh-CN: 读取消息正文
+    independent: true
+    module: scrm
+    permission_code: scrm.messaging_service_messages:read
+    protocol_bindings:
+      - actor_context: service_actor
+        channel: rest
+        method: POST
+        path: /api/v1/service/messaging/messages.list
+        resource_scope: tenant
+    resource: messaging_service_messages
+    risk_level: high
+    title_i18n:
+      en: Read messaging content
+      zh-CN: 读取消息正文
+    type: api
+rbac:
+  resources:
+    - actions:
+        - read
+        - sync
+        - update
+      resource: acquisition.group_chat
+    - actions:
+        - create
+        - delete
+        - publish
+        - read
+        - update
+      resource: acquisition.group_code
+    - actions:
+        - create
+        - read
+        - update
+      resource: acquisition.group_tag
+    - actions:
+        - create
+        - delete
+        - read
+        - update
+      resource: acquisition.staff_code
+    - actions:
+        - publish
+        - read
+        - update
+      resource: acquisition.staff_welcome
+    - actions:
+        - create
+        - read
+        - update
+      resource: channel_code
+    - actions:
+        - publish
+        - read
+      resource: channel_welcome_sync
+    - actions:
+        - create
+        - read
+      resource: com.powerx.plugins.scrm:capability
+    - actions:
+        - read
+        - write
+      resource: com.powerx.plugins.scrm:capability.exposure
+    - actions:
+        - manage
+        - read
+        - write
+      resource: com.powerx.plugins.scrm:capability.lifecycle
+    - actions:
+        - manage
+        - read
+      resource: com.powerx.plugins.scrm:capability.quota
+    - actions:
+        - read
+        - review
+        - update
+      resource: com.powerx.plugins.scrm:capability.review
+    - actions:
+        - read
+      resource: com.powerx.plugins.scrm:iam.audit
+    - actions:
+        - delete
+        - read
+        - write
+      resource: com.powerx.plugins.scrm:iam.department
+    - actions:
+        - read
+      resource: com.powerx.plugins.scrm:iam.permission
+    - actions:
+        - delete
+        - read
+        - write
+      resource: com.powerx.plugins.scrm:iam.role
+    - actions:
+        - mint
+      resource: com.powerx.plugins.scrm:iam.sts
+    - actions:
+        - read
+        - write
+      resource: com.powerx.plugins.scrm:iam.tenant
+    - actions:
+        - read
+        - write
+      resource: com.powerx.plugins.scrm:iam.user
+    - actions:
+        - create
+      resource: integration
+    - actions:
+        - manage
+        - read
+      resource: integration.approvals
+    - actions:
+        - invoke
+      resource: integration.dispatch
+    - actions:
+        - manage
+        - read
+      resource: integration.grant_matrix
+    - actions:
+        - manage
+        - read
+      resource: integration.secrets
+    - actions:
+        - manage
+        - read
+      resource: integration.webhooks
+    - actions:
+        - manage
+        - purchase
+        - read
+      resource: marketplace.license
+    - actions:
+        - read
+        - review
+        - write
+      resource: marketplace.listings
+    - actions:
+        - manage
+        - read
+      resource: marketplace.recommendation
+    - actions:
+        - read
+      resource: marketplace.revenue
+    - actions:
+        - read
+      resource: marketplace.sla
+    - actions:
+        - ingest
+        - view
+      resource: marketplace.usage
+    - actions:
+        - command
+        - read
+      resource: operations.incident
+    - actions:
+        - manage
+        - read
+      resource: operations.plugin.admin
+    - actions:
+        - export
+        - read
+      resource: operations.plugin.audit
+    - actions:
+        - execute
+        - read
+      resource: operations.plugin.ops
+    - actions:
+        - command
+        - manage
+        - read
+      resource: operations.sla
+    - actions:
+        - manage
+        - read
+      resource: operations.support
+    - actions:
+        - invoke
+        - manage
+        - observe
+        - read
+      resource: runtime.ops
+    - actions:
+        - read
+        - write
+      resource: scrm.leads
+    - actions:
+        - read
+      resource: scrm.messaging_conversations
+    - actions:
+        - manage
+        - read
+      resource: scrm.messaging_endpoints
+    - actions:
+        - read
+        - reply
+      resource: scrm.messaging_executions
+    - actions:
+        - read
+      resource: scrm.messaging_messages
+    - actions:
+        - read
+      resource: scrm.messaging_service_conversations
+    - actions:
+        - read
+      resource: scrm.messaging_service_endpoints
+    - actions:
+        - read
+        - reply
+      resource: scrm.messaging_service_executions
+    - actions:
+        - read
+      resource: scrm.messaging_service_messages
+    - actions:
+        - read
+        - write
+      resource: scrm.social_channel_accounts
+    - actions:
+        - create
+        - delete
+        - read
+        - update
+      resource: template
+routes:
+  adminManifest: /api/v1/admin/manifest
+  basePath: /api/v1
+  permissions:
+    - method: GET
+      path: /admin/capabilities
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability
+    - method: GET
+      path: /admin/capabilities/exposure/*
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability.exposure
+    - method: PUT
+      path: /admin/capabilities/exposure/*
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:capability.exposure
+    - method: GET
+      path: /admin/capabilities/exposure/template
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability.exposure
+    - method: GET
+      path: /admin/capabilities/lifecycle
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability.lifecycle
+    - method: POST
+      path: /admin/capabilities/lifecycle
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:capability.lifecycle
+    - method: POST
+      path: /admin/capabilities/lifecycle/*/status
+      permission:
+        action: manage
+        resource: com.powerx.plugins.scrm:capability.lifecycle
+    - method: GET
+      path: /admin/capabilities/lifecycle/template
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability.lifecycle
+    - method: GET
+      path: /admin/capabilities/quotas/*
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability.quota
+    - method: POST
+      path: /admin/capabilities/quotas/*
+      permission:
+        action: manage
+        resource: com.powerx.plugins.scrm:capability.quota
+    - method: POST
+      path: /admin/capabilities/register
+      permission:
+        action: create
+        resource: com.powerx.plugins.scrm:capability
+    - method: GET
+      path: /admin/capabilities/register/template
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability
+    - method: POST
+      path: /admin/capabilities/register/validate
+      permission:
+        action: create
+        resource: com.powerx.plugins.scrm:capability
+    - method: GET
+      path: /admin/capabilities/reviews/*
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:capability.review
+    - method: POST
+      path: /admin/capabilities/reviews/*/resubmit
+      permission:
+        action: update
+        resource: com.powerx.plugins.scrm:capability.review
+    - method: POST
+      path: /admin/capabilities/reviews/tasks/*/comments
+      permission:
+        action: update
+        resource: com.powerx.plugins.scrm:capability.review
+    - method: POST
+      path: /admin/capabilities/reviews/tasks/*/decision
+      permission:
+        action: review
+        resource: com.powerx.plugins.scrm:capability.review
+    - method: GET
+      path: /admin/conversations/:conversation_id/events
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: GET
+      path: /admin/customer-groups
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: PUT
+      path: /admin/customer-groups/:group_uuid/operations
+      permission:
+        action: update
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/customer-groups/owners
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/customer-groups/sources
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: POST
+      path: /admin/customer-groups/tags
+      permission:
+        action: create
+        resource: acquisition.group_tag
+    - method: GET
+      path: /admin/dev-console/audit/events
+      permission:
+        action: read
+        resource: operations.plugin.audit
+    - method: GET
+      path: /admin/dev-console/audit/export
+      permission:
+        action: export
+        resource: operations.plugin.audit
+    - method: GET
+      path: /admin/dev-console/config/sections
+      permission:
+        action: read
+        resource: operations.plugin.admin
+    - method: PUT
+      path: /admin/dev-console/config/sections/*
+      permission:
+        action: manage
+        resource: operations.plugin.admin
+    - method: GET
+      path: /admin/dev-console/jobs/runs
+      permission:
+        action: read
+        resource: operations.plugin.ops
+    - method: POST
+      path: /admin/dev-console/jobs/runs/*/retry
+      permission:
+        action: execute
+        resource: operations.plugin.ops
+    - method: POST
+      path: /admin/dev-console/safe-ops/actions
+      permission:
+        action: execute
+        resource: operations.plugin.ops
+    - method: GET
+      path: /admin/dev-console/troubleshooting/summary
+      permission:
+        action: read
+        resource: operations.plugin.ops
+    - method: GET
+      path: /admin/dev-console/webhooks/attempts
+      permission:
+        action: read
+        resource: operations.plugin.ops
+    - method: GET
+      path: /admin/dev-console/webhooks/attempts/*
+      permission:
+        action: read
+        resource: operations.plugin.ops
+    - method: GET
+      path: /admin/iam/audit/logs
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.audit
+    - method: POST
+      path: /admin/iam/auth/local/sts
+      permission:
+        action: mint
+        resource: com.powerx.plugins.scrm:iam.sts
+    - method: GET
+      path: /admin/iam/departments
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.department
+    - method: POST
+      path: /admin/iam/departments
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.department
+    - method: DELETE
+      path: /admin/iam/departments/*
+      permission:
+        action: delete
+        resource: com.powerx.plugins.scrm:iam.department
+    - method: PATCH
+      path: /admin/iam/departments/*
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.department
+    - method: GET
+      path: /admin/iam/members
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: POST
+      path: /admin/iam/members
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: PATCH
+      path: /admin/iam/members/*
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: POST
+      path: /admin/iam/members/import
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: GET
+      path: /admin/iam/permissions
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.permission
+    - method: GET
+      path: /admin/iam/roles
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.role
+    - method: POST
+      path: /admin/iam/roles
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.role
+    - method: DELETE
+      path: /admin/iam/roles/*
+      permission:
+        action: delete
+        resource: com.powerx.plugins.scrm:iam.role
+    - method: PATCH
+      path: /admin/iam/roles/*
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.role
+    - method: DELETE
+      path: /admin/iam/roles/*/members
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.role
+    - method: POST
+      path: /admin/iam/roles/*/members
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.role
+    - method: PUT
+      path: /admin/iam/roles/*/permissions
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.role
+    - method: GET
+      path: /admin/iam/tenants
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.tenant
+    - method: POST
+      path: /admin/iam/tenants
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.tenant
+    - method: PATCH
+      path: /admin/iam/tenants/*
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.tenant
+    - method: GET
+      path: /admin/iam/user-directory
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: GET
+      path: /admin/iam/users
+      permission:
+        action: read
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: POST
+      path: /admin/iam/users
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: PATCH
+      path: /admin/iam/users/*
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: POST
+      path: /admin/iam/users/import
+      permission:
+        action: write
+        resource: com.powerx.plugins.scrm:iam.user
+    - method: GET
+      path: /admin/integration/approvals
+      permission:
+        action: read
+        resource: integration.approvals
+    - method: POST
+      path: /admin/integration/approvals/:id/approve
+      permission:
+        action: manage
+        resource: integration.approvals
+    - method: POST
+      path: /admin/integration/approvals/:id/reject
+      permission:
+        action: manage
+        resource: integration.approvals
+    - method: GET
+      path: /admin/integration/grant-matrix
+      permission:
+        action: read
+        resource: integration.grant_matrix
+    - method: GET
+      path: /admin/integration/secrets
+      permission:
+        action: read
+        resource: integration.secrets
+    - method: POST
+      path: /admin/integration/secrets
+      permission:
+        action: manage
+        resource: integration.secrets
+    - method: GET
+      path: /admin/integration/secrets/:id/audit
+      permission:
+        action: read
+        resource: integration.secrets
+    - method: POST
+      path: /admin/integration/secrets/:id/revoke
+      permission:
+        action: manage
+        resource: integration.secrets
+    - method: POST
+      path: /admin/integration/secrets/:id/rotate
+      permission:
+        action: manage
+        resource: integration.secrets
+    - method: POST
+      path: /admin/integration/secrets/:id/rotate/complete
+      permission:
+        action: manage
+        resource: integration.secrets
+    - method: GET
+      path: /admin/integration/webhooks
+      permission:
+        action: read
+        resource: integration.webhooks
+    - method: POST
+      path: /admin/integration/webhooks
+      permission:
+        action: manage
+        resource: integration.webhooks
+    - method: DELETE
+      path: /admin/integration/webhooks/:id
+      permission:
+        action: manage
+        resource: integration.webhooks
+    - method: PUT
+      path: /admin/integration/webhooks/:id
+      permission:
+        action: manage
+        resource: integration.webhooks
+    - method: GET
+      path: /admin/integration/webhooks/:id/attempts
+      permission:
+        action: read
+        resource: integration.webhooks
+    - method: POST
+      path: /admin/integration/webhooks/attempts/:attemptId/replay
+      permission:
+        action: manage
+        resource: integration.webhooks
+    - method: GET
+      path: /admin/leads
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/*
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: DELETE
+      path: /admin/leads/:lead_id
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: PUT
+      path: /admin/leads/:lead_id
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/activities
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/:lead_id/activities
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/activities/:activity_id/attachments
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/:lead_id/activities/:activity_id/attachments
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/:lead_id/assign
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/assignments
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: DELETE
+      path: /admin/leads/:lead_id/attachments/:attachment_id
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/attachments/:attachment_id/download
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/conversations
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/:lead_id/conversations/bind
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/node-attachments
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/:lead_id/node-attachments
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/sources
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/:lead_id/status
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/status-history
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/:lead_id/timeline
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/acquisition/group-chats
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/leads/acquisition/group-chats/:chat_id
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/leads/acquisition/group-chats/:chat_id/customers/:external_userid/followups
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/leads/acquisition/group-chats/:chat_id/customers/:external_userid/timeline
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/leads/acquisition/group-chats/customers/:external_userid/relations
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: POST
+      path: /admin/leads/acquisition/group-chats/sync
+      permission:
+        action: sync
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/leads/acquisition/group-chats/sync/tasks
+      permission:
+        action: read
+        resource: acquisition.group_chat
+    - method: POST
+      path: /admin/leads/acquisition/group-chats/sync/tasks/clear
+      permission:
+        action: sync
+        resource: acquisition.group_chat
+    - method: GET
+      path: /admin/leads/acquisition/group-codes
+      permission:
+        action: read
+        resource: acquisition.group_code
+    - method: POST
+      path: /admin/leads/acquisition/group-codes
+      permission:
+        action: create
+        resource: acquisition.group_code
+    - method: DELETE
+      path: /admin/leads/acquisition/group-codes/:group_code_uuid
+      permission:
+        action: delete
+        resource: acquisition.group_code
+    - method: GET
+      path: /admin/leads/acquisition/group-codes/:group_code_uuid
+      permission:
+        action: read
+        resource: acquisition.group_code
+    - method: PUT
+      path: /admin/leads/acquisition/group-codes/:group_code_uuid
+      permission:
+        action: update
+        resource: acquisition.group_code
+    - method: POST
+      path: /admin/leads/acquisition/group-codes/:group_code_uuid/sync
+      permission:
+        action: publish
+        resource: acquisition.group_code
+    - method: GET
+      path: /admin/leads/acquisition/group-tags
+      permission:
+        action: read
+        resource: acquisition.group_tag
+    - method: POST
+      path: /admin/leads/acquisition/group-tags
+      permission:
+        action: create
+        resource: acquisition.group_tag
+    - method: GET
+      path: /admin/leads/acquisition/group-tags/:group_tag_uuid/bindings
+      permission:
+        action: read
+        resource: acquisition.group_tag
+    - method: POST
+      path: /admin/leads/acquisition/group-tags/:group_tag_uuid/rules/replay
+      permission:
+        action: update
+        resource: acquisition.group_tag
+    - method: GET
+      path: /admin/leads/acquisition/staff-codes
+      permission:
+        action: read
+        resource: acquisition.staff_code
+    - method: POST
+      path: /admin/leads/acquisition/staff-codes
+      permission:
+        action: create
+        resource: acquisition.staff_code
+    - method: DELETE
+      path: /admin/leads/acquisition/staff-codes/:staff_code_uuid
+      permission:
+        action: delete
+        resource: acquisition.staff_code
+    - method: PATCH
+      path: /admin/leads/acquisition/staff-codes/:staff_code_uuid/status
+      permission:
+        action: update
+        resource: acquisition.staff_code
+    - method: PUT
+      path: /admin/leads/acquisition/staff-codes/:staff_code_uuid/welcome-config
+      permission:
+        action: update
+        resource: acquisition.staff_welcome
+    - method: POST
+      path: /admin/leads/acquisition/staff-codes/:staff_code_uuid/welcome-config/sync
+      permission:
+        action: publish
+        resource: acquisition.staff_welcome
+    - method: GET
+      path: /admin/leads/acquisition/staff-codes/:staff_code_uuid/welcome-config/sync-status
+      permission:
+        action: read
+        resource: acquisition.staff_welcome
+    - method: POST
+      path: /admin/leads/assign/batch
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/channel-codes
+      permission:
+        action: read
+        resource: channel_code
+    - method: POST
+      path: /admin/leads/channel-codes
+      permission:
+        action: create
+        resource: channel_code
+    - method: GET
+      path: /admin/leads/channel-codes/:code_uuid/events
+      permission:
+        action: read
+        resource: channel_code
+    - method: PATCH
+      path: /admin/leads/channel-codes/:code_uuid/status
+      permission:
+        action: update
+        resource: channel_code
+    - method: PUT
+      path: /admin/leads/channel-codes/:code_uuid/welcome-config
+      permission:
+        action: update
+        resource: channel_code
+    - method: GET
+      path: /admin/leads/channel-codes/:code_uuid/welcome-config/history
+      permission:
+        action: read
+        resource: channel_code
+    - method: POST
+      path: /admin/leads/channel-codes/:code_uuid/welcome-config/sync
+      permission:
+        action: publish
+        resource: channel_welcome_sync
+    - method: GET
+      path: /admin/leads/channel-codes/:code_uuid/welcome-config/sync-status
+      permission:
+        action: read
+        resource: channel_welcome_sync
+    - method: GET
+      path: /admin/leads/channel-rules/wecom/customer-dm
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: PUT
+      path: /admin/leads/channel-rules/wecom/customer-dm
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/import
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/import/confirm
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/import/preview
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/source-catalogs
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/source-catalogs
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: DELETE
+      path: /admin/leads/source-catalogs/:catalog_id
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: PATCH
+      path: /admin/leads/source-catalogs/:catalog_id
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/wecom/sync
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/wecom/sync-tasks
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/wecom/sync-tasks/clear
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/wecom/writeback-dead-letters
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: POST
+      path: /admin/leads/wecom/writeback-dead-letters/:dead_letter_uuid/replay
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: GET
+      path: /admin/leads/wecom/writeback-policy
+      permission:
+        action: read
+        resource: scrm.leads
+    - method: PUT
+      path: /admin/leads/wecom/writeback-policy
+      permission:
+        action: write
+        resource: scrm.leads
+    - method: POST
+      path: /admin/marketplace/checklist/graphql
+      permission:
+        action: review
+        resource: marketplace.listings
+    - method: GET
+      path: /admin/marketplace/listings
+      permission:
+        action: read
+        resource: marketplace.listings
+    - method: POST
+      path: /admin/marketplace/listings
+      permission:
+        action: write
+        resource: marketplace.listings
+    - method: GET
+      path: /admin/marketplace/listings/:id
+      permission:
+        action: read
+        resource: marketplace.listings
+    - method: PATCH
+      path: /admin/marketplace/listings/:id
+      permission:
+        action: write
+        resource: marketplace.listings
+    - method: POST
+      path: /admin/marketplace/listings/:id/publish
+      permission:
+        action: review
+        resource: marketplace.listings
+    - method: POST
+      path: /admin/marketplace/listings/:id/review
+      permission:
+        action: review
+        resource: marketplace.listings
+    - method: POST
+      path: /admin/marketplace/listings/:id/suspend
+      permission:
+        action: review
+        resource: marketplace.listings
+    - method: GET
+      path: /admin/marketplace/recommendation/experiments
+      permission:
+        action: read
+        resource: marketplace.recommendation
+    - method: POST
+      path: /admin/marketplace/recommendation/experiments
+      permission:
+        action: manage
+        resource: marketplace.recommendation
+    - method: PATCH
+      path: /admin/marketplace/recommendation/experiments/:id
+      permission:
+        action: manage
+        resource: marketplace.recommendation
+    - method: POST
+      path: /admin/marketplace/recommendation/weights/refresh
+      permission:
+        action: manage
+        resource: marketplace.recommendation
+    - method: GET
+      path: /admin/marketplace/revenue-share/reports
+      permission:
+        action: read
+        resource: marketplace.revenue
+    - method: POST
+      path: /admin/marketplace/usage
+      permission:
+        action: ingest
+        resource: marketplace.usage
+    - method: GET
+      path: /admin/marketplace/usage/tenants/:tenantId/licenses/:licenseId/metrics
+      permission:
+        action: view
+        resource: marketplace.usage
+    - method: GET
+      path: /admin/messaging/conversations
+      permission:
+        action: read
+        resource: scrm.messaging_conversations
+    - method: GET
+      path: /admin/messaging/conversations/:uuid/messages
+      permission:
+        action: read
+        resource: scrm.messaging_messages
+    - method: POST
+      path: /admin/messaging/endpoint-discoveries
+      permission:
+        action: manage
+        resource: scrm.messaging_endpoints
+    - method: GET
+      path: /admin/messaging/endpoints
+      permission:
+        action: read
+        resource: scrm.messaging_endpoints
+    - method: PATCH
+      path: /admin/messaging/endpoints/:uuid
+      permission:
+        action: manage
+        resource: scrm.messaging_endpoints
+    - method: POST
+      path: /admin/messaging/endpoints/:uuid/probe
+      permission:
+        action: manage
+        resource: scrm.messaging_endpoints
+    - method: POST
+      path: /admin/messaging/executions
+      permission:
+        action: reply
+        resource: scrm.messaging_executions
+    - method: GET
+      path: /admin/messaging/executions/:uuid
+      permission:
+        action: read
+        resource: scrm.messaging_executions
+    - method: GET
+      path: /admin/operations/incidents
+      permission:
+        action: read
+        resource: operations.incident
+    - method: POST
+      path: /admin/operations/incidents
+      permission:
+        action: command
+        resource: operations.incident
+    - method: GET
+      path: /admin/operations/incidents/:incidentId
+      permission:
+        action: read
+        resource: operations.incident
+    - method: PATCH
+      path: /admin/operations/incidents/:incidentId
+      permission:
+        action: command
+        resource: operations.incident
+    - method: POST
+      path: /admin/operations/incidents/:incidentId/timeline
+      permission:
+        action: command
+        resource: operations.incident
+    - method: GET
+      path: /admin/operations/sla/profiles
+      permission:
+        action: read
+        resource: operations.sla
+    - method: POST
+      path: /admin/operations/sla/profiles
+      permission:
+        action: manage
+        resource: operations.sla
+    - method: PATCH
+      path: /admin/operations/sla/profiles/actuals
+      permission:
+        action: command
+        resource: operations.sla
+    - method: POST
+      path: /admin/operations/sla/profiles/recompute
+      permission:
+        action: command
+        resource: operations.sla
+    - method: POST
+      path: /admin/operations/support/channels/test
+      permission:
+        action: manage
+        resource: operations.support
+    - method: GET
+      path: /admin/operations/support/metrics
+      permission:
+        action: read
+        resource: operations.support
+    - method: GET
+      path: /admin/operations/support/playbook
+      permission:
+        action: read
+        resource: operations.support
+    - method: PUT
+      path: /admin/operations/support/playbook
+      permission:
+        action: manage
+        resource: operations.support
+    - method: POST
+      path: /admin/runtime/bootstrap
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: GET
+      path: /admin/runtime/dictionaries
+      permission:
+        action: read
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/dictionaries
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: DELETE
+      path: /admin/runtime/dictionaries/:item_id
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: PATCH
+      path: /admin/runtime/dictionaries/:item_id
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/event-bridge/emit
+      permission:
+        action: invoke
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/internal/event-fabric/topics
+      permission:
+        action: invoke
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/internal/ws-bus/grant
+      permission:
+        action: invoke
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/internal/ws-bus/publish
+      permission:
+        action: invoke
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/internal/ws-bus/register
+      permission:
+        action: invoke
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/internal/ws-bus/test-notification
+      permission:
+        action: invoke
+        resource: runtime.ops
+    - method: GET
+      path: /admin/runtime/metrics
+      permission:
+        action: observe
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/quota/overrides
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: GET
+      path: /admin/runtime/quota/status
+      permission:
+        action: read
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/sessions/*/ack
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/sessions/*/close
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/sessions/*/heartbeat
+      permission:
+        action: observe
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/sessions/*/invoke
+      permission:
+        action: invoke
+        resource: runtime.ops
+    - method: POST
+      path: /admin/runtime/sessions/register
+      permission:
+        action: manage
+        resource: runtime.ops
+    - method: GET
+      path: /admin/social/channel-accounts
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-accounts
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/channel-accounts/*
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: DELETE
+      path: /admin/social/channel-accounts/:account_uuid
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: PUT
+      path: /admin/social/channel-accounts/:account_uuid
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: PATCH
+      path: /admin/social/channel-accounts/:account_uuid/capabilities
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-accounts/:account_uuid/channel-members
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-accounts/:account_uuid/restore
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-accounts/:account_uuid/test-app-secret
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-accounts/:account_uuid/test-connection
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-accounts/:account_uuid/test-contact-secret
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/channel-accounts/deleted
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/channel-platform/wecom/openwork
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: PUT
+      path: /admin/social/channel-platform/wecom/openwork
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-platform/wecom/openwork/suite-ticket/refresh
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-platform/wecom/openwork/suite-ticket/verify
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/channel-platform/wecom/openwork/templates
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-platform/wecom/openwork/templates
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: DELETE
+      path: /admin/social/channel-platform/wecom/openwork/templates/:template_id
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: PUT
+      path: /admin/social/channel-platform/wecom/openwork/templates/:template_id
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/channel-platform/wecom/openwork/templates/:template_id/default
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/capabilities
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/customer-tags
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/customer-tags/operations
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/customer-tags/pull
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/customer-tags/relations
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/customers
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/customers/pull
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/customers/records
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/staff-members
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/staff-tags
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/staff-tags
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: DELETE
+      path: /admin/social/openwork/foundation/staff-tags/:tag_uuid
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: PUT
+      path: /admin/social/openwork/foundation/staff-tags/:tag_uuid
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/staff-tags/:tag_uuid/members
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/staff-tags/:tag_uuid/members
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/staff-tags/pull
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/sync/conflicts
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/sync/conflicts/:conflict_uuid/replay
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/sync/dead-letters
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/sync/dead-letters/:dead_letter_uuid/replay
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/sync/jobs
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/foundation/sync/jobs
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/sync/metrics
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/foundation/sync/overview
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/authorize/complete
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/authorize/owners
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/authorize/restart
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/authorize/start
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/authorize/status
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/authorized-apps
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/authorized-apps/:candidate_uuid/confirm
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/authorized-apps/:candidate_uuid/reprocess
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/authorized-apps/connect
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/bindings
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/bindings/:binding_uuid/default
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/events
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/foundation/access/status
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/go-live-gates
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/sync/conflicts
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/sync/conflicts/:conflict_uuid/replay
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/sync/dashboard
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: GET
+      path: /admin/social/openwork/wecom/sync/jobs
+      permission:
+        action: read
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/social/openwork/wecom/sync/jobs
+      permission:
+        action: write
+        resource: scrm.social_channel_accounts
+    - method: POST
+      path: /admin/templates/*/validate
+      permission:
+        action: update
+        resource: template
+    - method: POST
+      path: /admin/templates/batch-clone
+      permission:
+        action: create
+        resource: template
+    - method: POST
+      path: /integration/capabilities/invoke
+      permission:
+        action: create
+        resource: integration
+    - method: POST
+      path: /integration/dispatch
+      permission:
+        action: invoke
+        resource: integration.dispatch
+    - method: GET
+      path: /integration/grant-matrix
+      permission:
+        action: read
+        resource: integration.grant_matrix
+    - method: POST
+      path: /integration/grant-matrix
+      permission:
+        action: manage
+        resource: integration.grant_matrix
+    - method: POST
+      path: /integration/secrets
+      permission:
+        action: manage
+        resource: integration.secrets
+    - method: POST
+      path: /integration/secrets/:secretId/rotate
+      permission:
+        action: manage
+        resource: integration.secrets
+    - method: POST
+      path: /integration/webhooks/dlq/:attemptId/replay
+      permission:
+        action: manage
+        resource: integration.webhooks
+    - method: GET
+      path: /integration/webhooks/subscriptions
+      permission:
+        action: read
+        resource: integration.webhooks
+    - method: POST
+      path: /integration/webhooks/subscriptions
+      permission:
+        action: manage
+        resource: integration.webhooks
+    - method: POST
+      path: /marketplace/licenses
+      permission:
+        action: purchase
+        resource: marketplace.license
+    - method: GET
+      path: /marketplace/licenses/*
+      permission:
+        action: read
+        resource: marketplace.license
+    - method: POST
+      path: /marketplace/licenses/*
+      permission:
+        action: manage
+        resource: marketplace.license
+    - method: POST
+      path: /marketplace/licenses/*/offline-extend
+      permission:
+        action: manage
+        resource: marketplace.license
+    - method: GET
+      path: /marketplace/listings
+      permission:
+        action: read
+        resource: marketplace.listings
+    - method: POST
+      path: /marketplace/listings
+      permission:
+        action: write
+        resource: marketplace.listings
+    - method: GET
+      path: /marketplace/listings/*
+      permission:
+        action: read
+        resource: marketplace.listings
+    - method: PATCH
+      path: /marketplace/listings/*
+      permission:
+        action: write
+        resource: marketplace.listings
+    - method: POST
+      path: /marketplace/listings/*
+      permission:
+        action: review
+        resource: marketplace.listings
+    - method: POST
+      path: /marketplace/listings/*/status
+      permission:
+        action: review
+        resource: marketplace.listings
+    - method: GET
+      path: /marketplace/revenue-share/reports
+      permission:
+        action: read
+        resource: marketplace.revenue
+    - method: GET
+      path: /marketplace/sla/*
+      permission:
+        action: read
+        resource: marketplace.sla
+    - method: POST
+      path: /marketplace/usage
+      permission:
+        action: ingest
+        resource: marketplace.usage
+    - method: GET
+      path: /marketplace/usage/tenants/*/licenses/*/metrics
+      permission:
+        action: view
+        resource: marketplace.usage
+    - method: GET
+      path: /templates
+      permission:
+        action: read
+        resource: template
+    - method: POST
+      path: /templates
+      permission:
+        action: create
+        resource: template
+    - method: DELETE
+      path: /templates/*
+      permission:
+        action: delete
+        resource: template
+    - method: GET
+      path: /templates/*
+      permission:
+        action: read
+        resource: template
+    - method: PUT
+      path: /templates/*
+      permission:
+        action: update
+        resource: template
+    - method: POST
+      path: /templates/*/validate
+      permission:
+        action: update
+        resource: template
+    - method: POST
+      path: /templates/batch-clone
+      permission:
+        action: create
+        resource: template
+  rbac: /api/v1/admin/rbac

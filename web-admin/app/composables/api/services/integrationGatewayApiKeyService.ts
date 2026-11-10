@@ -20,6 +20,21 @@ export interface IntegrationGatewayPermissionCatalogItem {
   meta?: Record<string, any>;
 }
 
+export interface BatchApiKeyGrantPayload {
+  key_ids: string[];
+  permission_ids: number[];
+  dry_run: boolean;
+  expected_plan_hash?: string;
+}
+export interface BatchApiKeyGrantResult {
+  committed: boolean;
+  key_count: number;
+  added_count: number;
+  plan_hash: string;
+  keys: Array<{ key_id: string; name: string; owner_plugin_ids: string[]; added_count: number; existing_count: number }>;
+  permissions: Array<IntegrationGatewayApiKeyPermission & { permission_id: number; capability_id: string; name: string }>;
+}
+
 export interface IntegrationGatewayApiKeyRecord {
   key_id: string;
   tenant_uuid: string;
@@ -130,6 +145,8 @@ export const useIntegrationGatewayApiKeyService = () => {
   const apiClient = useApiClient();
 
   return {
+    batchAppendExplicitGrants: (payload: BatchApiKeyGrantPayload) =>
+      apiClient.post<ApiResponse<BatchApiKeyGrantResult>>(`${baseUrl}/api-key-grants/batch`, payload, { timeout: 60_000, retry: 0 }),
     listApiKeyProfiles: (tenantUUID: string) => {
       return apiClient.get<ApiResponse<{ items: IntegrationGatewayApiKeyProfile[] }>>(
         `${baseUrl}/api-key-profiles${buildQuery({ tenant_uuid: tenantUUID })}`

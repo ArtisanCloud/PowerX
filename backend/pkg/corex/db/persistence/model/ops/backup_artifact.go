@@ -10,6 +10,9 @@ import (
 type BackupArtifact struct {
 	coremodel.PowerUUIDModel
 
+	CleanupState string `gorm:"column:cleanup_state;type:varchar(32);not null;default:''" json:"cleanup_state"`
+	CleanupToken string `gorm:"column:cleanup_token;type:varchar(36);not null;default:''" json:"cleanup_token"`
+
 	JobID       uint64 `gorm:"column:job_id;not null;index:idx_ops_backup_artifact_job" json:"job_id"`
 	StorageURI  string `gorm:"column:storage_uri;type:varchar(512);not null" json:"storage_uri"`
 	SizeBytes   int64  `gorm:"column:size_bytes;not null" json:"size_bytes"`

@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info: {title: Runtime Cache service contract, version: 1.0.0}
+paths: {}
+components:
+  schemas:
+    CacheOperation:
+      type: object
+      additionalProperties: false
+      required: [contract_version, tenant_key, operation, namespace, key]
+      properties:
+        contract_version: {type: string, enum: [cache.service.v1]}
+        tenant_key: {type: string, format: uuid}
+        operation: {type: string, enum: [get, set, delete]}
+        namespace: {type: string, minLength: 1, maxLength: 128}
+        key: {type: string, minLength: 1, maxLength: 512}
+        value_base64: {type: string, format: byte, description: Required only for set; canonical Base64, decoded size at most 1 MiB.}
+        ttl_ms: {type: integer, minimum: 1, maximum: 86400000, description: Required only for set.}
+      oneOf:
+        - properties:
+            operation: {enum: [get, delete]}
+          not:
+            anyOf:
+              - required: [value_base64]
+              - required: [ttl_ms]
+        - properties:
+            operation: {enum: [set]}
+          required: [value_base64, ttl_ms]

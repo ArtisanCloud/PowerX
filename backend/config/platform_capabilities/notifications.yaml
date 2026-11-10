@@ -79,3 +79,49 @@ capabilities:
     sts_direct: true
     tool_scope: notifications.read_receipts
     api_key: {scope: _scope.notifications.read_receipts, action: read_receipts, resource_type: capability, resource_pattern: notifications}
+
+- capability_id: com.corex.notifications.invalidate_card
+  module: notifications
+  title: Update Owned Member Business Card
+  description: Advance the source revision of an owned member notification and publish an invalidation.
+  title_i18n: {en: Update Owned Member Business Card, zh-CN: 更新本服务成员通知卡片}
+  description_i18n: {en: Advance an owned card revision without creating another notification., zh-CN: 推进本服务成员卡片版本并推送变化，不新建通知。}
+  permission_code: corex.notifications:invalidate_card
+  agent_usable: false
+  risk_level: low
+  categories: [notification, tenant]
+  intents: [notifications.invalidate_card]
+  tool_scopes: [notifications.invalidate_card]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://notifications
+    method: INVOKE
+    schema_ref: docs/contracts/business-notification-card.openapi.yaml#/components/schemas/InvalidateCardOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: notifications.invalidate_card
+    api_key: {scope: _scope.notifications.invalidate_card, action: invalidate_card, resource_type: capability, resource_pattern: notifications}
+
+- capability_id: com.corex.notifications.presentation_source
+  module: notifications
+  title: Read Own Notification Presentation Binding
+  description: Resolve a current member notification to registered plugin Gateway routes.
+  title_i18n: {en: Read Own Notification Presentation Binding, zh-CN: 读取本人通知卡片展示绑定}
+  description_i18n: {en: Resolve own member notification to registered Gateway routes., zh-CN: 将本人成员通知解析为已登记的插件网关路径。}
+  permission_code: corex.notifications:presentation_source
+  agent_usable: false
+  risk_level: low
+  categories: [notification, tenant]
+  intents: [notifications.presentation_source]
+  tool_scopes: [notifications.presentation_source]
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/admin/notifications/:uuid/presentation-source
+    method: GET
+    schema_ref: docs/contracts/business-notification-card.openapi.yaml#/paths/~1admin~1notifications~1{uuid}~1presentation-source
+    auth_type: jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    tool_scope: notifications.presentation_source

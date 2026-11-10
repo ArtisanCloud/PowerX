@@ -1,0 +1,56 @@
+{
+  "menu": {
+    "com": {
+      "powerx": {
+        "plugins": {
+          "scrm": {
+            "root": {
+              "title": "SCRM"
+            },
+            "channel_access": {
+              "title": "Channel Access",
+              "dashboard": "Touchpoint Dashboard",
+              "accounts": "Account Access"
+            },
+            "lead_operations": {
+              "title": "Lead Operations"
+            },
+            "leads": {
+              "title": "Lead Capture Pool"
+            },
+            "channel_org_tags": {
+              "title": "Channel Org & Tags"
+            },
+            "org_management": {
+              "title": "Organization management"
+            },
+            "org_staff_tags": {
+              "title": "Staff Tags"
+            },
+            "customer_operations": {
+              "title": "Customer operations"
+            },
+            "customers": {
+              "title": "Customers"
+            },
+            "customer_tags": {
+              "title": "Tag management"
+            },
+            "customer_groups": {
+              "title": "Customer Groups"
+            },
+            "group_analysis": {
+              "title": "Group Analytics"
+            },
+            "engagement": {
+              "title": "Engagement and collaboration"
+            },
+            "messaging": {
+              "title": "Message center"
+            }
+          }
+        }
+      }
+    }
+  }
+}

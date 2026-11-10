@@ -1,0 +1,13 @@
+# Temporary PowerX policy. Invoked by both daily logrotate and the five-minute guard.
+# The custody archiver owns deletion. Never expire an unarchived segment here.
+# copytruncate is transitional until logging_collector is activated by an approved restart.
+/var/log/postgresql/*.log {
+    daily
+    rotate -1
+    maxsize 100M
+    copytruncate
+    compress
+    notifempty
+    missingok
+    su root root
+}

@@ -8,6 +8,7 @@
           <td class="py-4 pr-4"><UBadge variant="subtle" :color="job.status === 'success' ? 'success' : job.status === 'failed' ? 'error' : 'neutral'">{{ statusLabel(job.status) }}</UBadge><p v-if="job.protected" class="mt-2 max-w-32 text-xs text-emerald-700 dark:text-emerald-400">{{ t('backupCenter.protected') }}</p><p v-if="job.error_message || job.error_summary" class="mt-2 max-w-56 break-words text-xs text-red-600 dark:text-red-400">{{ job.error_message || job.error_summary }}</p></td>
           <td class="max-w-sm py-4 pr-4">
             <UBadge size="xs" variant="subtle" :color="job.storage_uri ? 'neutral' : job.status === 'success' ? 'warning' : 'neutral'" class="mb-2">{{ t(job.storage_uri ? 'backupCenter.workspace.fileRegistered' : 'backupCenter.workspace.fileUnregistered') }}</UBadge>
+            <UBadge v-if="job.cleanup_state === 'quarantined'" color="warning" variant="subtle" class="mb-2">{{ t('backupQuarantine.states.quarantined') }}</UBadge>
             <p class="break-all font-mono text-xs">{{ job.storage_uri ? backupFileName(job.storage_uri) : t(job.status === 'success' ? 'backupCenter.pruned' : 'backupCenter.noArtifact') }}</p>
             <details class="mt-2 text-xs" data-testid="backup-file-details">
               <summary class="cursor-pointer text-primary-600 dark:text-primary-400">{{ t('backupCenter.workspace.fileDetails') }}</summary>
@@ -35,6 +36,6 @@ const { t, locale } = useI18n();
 const statusLabel = (status: string) => backupStatusKey(status) ? t(backupStatusKey(status)!) : status;
 const triggerLabel = (type: string) => type === 'scheduled' ? t('backupCenter.workspace.scheduledTrigger') : type === 'manual' ? t('backupCenter.workspace.manualTrigger') : type || '—';
 const timeLabel = (value?: string) => formatBackupTime(value, String(locale?.value || 'zh-CN'));
-const canRestore = (job: BackupJob) => job.status === 'success' && !!job.storage_uri;
+const canRestore = (job: BackupJob) => job.status === 'success' && !!job.storage_uri && job.cleanup_state !== 'quarantined';
 const formatSize = (bytes?: number) => !bytes ? '-' : bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1048576).toFixed(1)} MiB`;
 </script>

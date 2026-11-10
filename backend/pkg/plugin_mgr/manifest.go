@@ -4,11 +4,13 @@ package plugin_mgr
 
 // Manifest 映射 plugin.yaml（声明态）；运行期你会把它 + Paths 组装成 Plugin。
 type Manifest struct {
-	ID           string `yaml:"id"            json:"id"`
-	Version      string `yaml:"version"       json:"version"`
-	Name         string `yaml:"name"          json:"name"`
-	Description  string `yaml:"description"   json:"description"`
-	CoreXVersion string `yaml:"corex_version" json:"corex_version"`
+	NotificationPresentations []NotificationPresentationSpec `yaml:"notification_presentations,omitempty" json:"notification_presentations,omitempty"`
+	Provider                  ProviderIdentity               `yaml:"provider,omitempty" json:"provider,omitempty"`
+	ID                        string                         `yaml:"id"            json:"id"`
+	Version                   string                         `yaml:"version"       json:"version"`
+	Name                      string                         `yaml:"name"          json:"name"`
+	Description               string                         `yaml:"description"   json:"description"`
+	CoreXVersion              string                         `yaml:"corex_version" json:"corex_version"`
 
 	Runtime      RuntimeSpec        `yaml:"runtime"   json:"runtime"`
 	Endpoints    EndpointSpec       `yaml:"endpoints" json:"endpoints"`

@@ -16,7 +16,7 @@ const access = { canExecute: ref(true), isRoot: ref(false), permissionHint: ref(
 vi.mock('~/composables/useOpsAccess', () => ({ useOpsAccess: () => access }));
 import BackupPage from '~/pages/ops/backup.vue';
 
-const stubs = { UIcon: true, SystemSnapshotsPanel: true, RestoreCopiesPanel: true,
+const stubs = { BackupRetentionHistory: {template: '<div data-testid="history-panel-stub"/>'}, BackupCleanupReviews: {template: '<div data-testid="review-panel-stub"/>'}, DatabaseBackupPolicies: {template: '<div data-testid="shared-policy-editor"/>'}, UIcon: true, SystemSnapshotsPanel: true, RestoreCopiesPanel: true,
   UCard: { template: '<div><slot name="header"/><slot/><slot name="footer"/></div>' },
   UButton: { props: ['disabled'], template: '<button :disabled="disabled"><slot/></button>' },
   UBadge: { template: '<span><slot/></span>' },
@@ -29,6 +29,7 @@ const stubs = { UIcon: true, SystemSnapshotsPanel: true, RestoreCopiesPanel: tru
   UModal: { props: ['open'], template: '<div v-if="open"><slot name="body"/><slot name="footer"/></div>' },
 };
 const page = () => mount(BackupPage, { global: { stubs } });
+async function operations(w: any) { await flushPromises(); w.findComponent(stubs.UTabs).vm.$emit('update:modelValue', 'operations'); await flushPromises(); }
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -36,7 +37,7 @@ beforeEach(() => {
   route.query = {};
   vi.stubGlobal('useRoute', () => route);
   vi.stubGlobal('navigateTo', vi.fn(async (to) => { route.query = to.query; }));
-  access.canExecute.value = true; access.isRoot.value = false;
+  access.canExecute.value = true; access.isRoot.value = true;
   const policy = { id: 7, name: '开发库备份', enabled: false, interval_hours: 1, schedule: '1h', retention_count: 168, retention_days: 7, retention_mode: 'age_and_count', drill_enabled: false };
   service.getOverview.mockResolvedValue({ policies_enabled: 0, runtime: { source_database: 'powerx_dev', artifact_directory: '/opt/powerx-dev/storage/backups', ready: true, problems: [] } });
   service.listPolicies.mockResolvedValue({ items: [policy] });
@@ -51,7 +52,7 @@ describe('backup workspace navigation', () => {
     access.isRoot.value = true;
     route.query = { job_id: '798' };
     service.getJob.mockResolvedValue({ id: 798, status: 'failed', error_message: 'historical backup failed' });
-    const wrapper = page(); await flushPromises();
+    const wrapper = page(); await operations(wrapper);
     expect(service.getJob).toHaveBeenCalledWith('798');
     expect(wrapper.get('[data-section="files"]').attributes('style') || '').not.toContain('display: none');
     expect(wrapper.text()).toContain('historical backup failed');
@@ -65,7 +66,7 @@ describe('backup workspace navigation', () => {
   it('opens the linked restore report and replaces it when the route changes', async () => {
     route.query = { drill_id: '99' };
     service.getRestoreDrill.mockResolvedValue({ id: 99, source_job_id: 798, status: 'failed', report_uri: 'restore failed report' });
-    const wrapper = page(); await flushPromises();
+    const wrapper = page(); await operations(wrapper);
     expect(service.getRestoreDrill).toHaveBeenCalledWith('99');
     expect(wrapper.get('[data-section="verification"]').attributes('style') || '').not.toContain('display: none');
     const report = wrapper.get('[data-section="verification"] details');
@@ -79,25 +80,23 @@ describe('backup workspace navigation', () => {
   });
   it('rejects ambiguous links without requesting a task', async () => {
     route.query = { job_id: '798', drill_id: '99' };
-    const wrapper = page(); await flushPromises();
+    const wrapper = page(); await operations(wrapper);
     expect(wrapper.get('[data-testid="backup-linked-task"]').text()).toContain('backupCenter.taskLink.unavailable');
     expect(service.getJob).not.toHaveBeenCalled();
     expect(service.getRestoreDrill).not.toHaveBeenCalled();
     wrapper.unmount();
   });
-  it('disables policy-free full-database export for non-root operators', async () => {
-    const wrapper=page();await flushPromises();
-    const create=wrapper.findAll('button').find(b=>b.text()==='backupCenter.onDemand.createDatabase')!;
-    expect(create.attributes('disabled')).toBeDefined();
-    await create.trigger('click');
-    expect(service.createOneTime).not.toHaveBeenCalled();
-    wrapper.unmount();
+  it('blocks tenant operators from the entire host backup UI and makes no backup requests', async () => {
+    access.isRoot.value = false; access.canExecute.value = true; route.query = { job_id: '1' };
+    const wrapper = page(); await flushPromises();
+    expect(wrapper.text()).toContain('backupCenter.platformRootOnly'); expect(wrapper.findComponent(stubs.UTabs).exists()).toBe(false);
+    expect(service.getOverview).not.toHaveBeenCalled(); expect(service.listPolicies).not.toHaveBeenCalled(); expect(service.getJob).not.toHaveBeenCalled(); expect(service.createOneTime).not.toHaveBeenCalled();
   });
   it('creates a one-time database backup with no policy and opens its file list', async () => {
     access.isRoot.value = true;
     service.listPolicies.mockResolvedValue({items:[]});
     service.createOneTime.mockResolvedValue({id:901,policy_id:0,status:'success'});
-    const wrapper = page(); await flushPromises();
+    const wrapper = page(); await operations(wrapper);
     wrapper.findComponent(stubs.UTabs).vm.$emit('update:modelValue','operations'); await flushPromises();
     const once = wrapper.findAll('button').find(b=>b.text()==='backupCenter.onDemand.createDatabase')!;
     expect(once.attributes('disabled')).toBeUndefined();
@@ -112,7 +111,7 @@ describe('backup workspace navigation', () => {
     wrapper.unmount();
   });
   it('starts with operations and separates runtime settings and instructions', async () => {
-    const wrapper = page(); await flushPromises();
+    const wrapper = page(); await operations(wrapper);
     expect(wrapper.find('[data-testid="backup-operations"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="backup-guide"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('backupCenter.policySteps');
@@ -128,7 +127,7 @@ describe('backup workspace navigation', () => {
   });
 
   it('uses a vertical task view and does not stack policies under backup files', async () => {
-    const wrapper = mount(BackupPage, {attachTo:document.body, global:{stubs}}); await flushPromises();
+    const wrapper = mount(BackupPage, {attachTo:document.body, global:{stubs}}); await operations(wrapper);
     expect(wrapper.get('[role="tablist"]').attributes('aria-orientation')).toBe('vertical');
     expect(wrapper.get('[data-section="export"]').isVisible()).toBe(true);
     expect(wrapper.get('[data-section="policies"]').isVisible()).toBe(false);
@@ -142,7 +141,7 @@ describe('backup workspace navigation', () => {
 
   it('defaults to registered backups and resets pagination when opening execution history', async () => {
 	service.listJobs.mockResolvedValue({ items: [], total: 42 });
-	const wrapper = page(); await flushPromises();
+	const wrapper = page(); await operations(wrapper);
 	expect(service.listJobs).toHaveBeenLastCalledWith({ view: 'available', page: 1, pageSize: 20 });
 	await wrapper.findAll('button').find(b => b.text() === 'backupCenter.next')!.trigger('click');
 	await flushPromises();
@@ -160,7 +159,7 @@ describe('backup workspace navigation', () => {
 
   it('clears the previous list when switching history fails', async () => {
     service.listJobs.mockResolvedValueOnce({items:[{id:99,status:'success',storage_uri:'file:///backup/a.dump'}],total:1});
-    const wrapper = page(); await flushPromises();
+    const wrapper = page(); await operations(wrapper);
     service.listJobs.mockRejectedValueOnce(new Error('history unavailable'));
     await wrapper.get('[data-testid="backup-job-views"]').findAll('button').find(b => b.text() === 'backupCenter.workspace.executionHistory')!.trigger('click');
     await flushPromises();
@@ -168,21 +167,26 @@ describe('backup workspace navigation', () => {
     expect(wrapper.text()).not.toContain('a.dump');
   });
 
-  it('enables the actual selected policy and updates its visible schedule state', async () => {
-    const wrapper = page(); await flushPromises();
-    const policy = wrapper.get('[data-testid="backup-policy"]');
-    await policy.findAll('button').find(button => button.text() === 'backupCenter.workspace.enableSchedule')!.trigger('click');
-    await flushPromises();
-    expect(service.enablePolicy).toHaveBeenCalledWith(7);
-    expect(wrapper.text()).toContain('backupCenter.workspace.scheduleOn');
-    expect(service.triggerJob).not.toHaveBeenCalled();
+  it('uses the shared versioned editor without calling legacy policy setters', async () => {
+    const wrapper = page(); await operations(wrapper);
+    expect(wrapper.find('[data-testid="shared-policy-editor"]').exists()).toBe(true);
+    expect(service.enablePolicy).not.toHaveBeenCalled(); expect(service.triggerJob).not.toHaveBeenCalled();
   });
 
-  it('preserves execution restrictions for read-only operators', async () => {
-    access.canExecute.value = false;
+  it('clears cached backup data and blocks controls when Root permission is revoked', async () => {
+    const wrapper = page(); await operations(wrapper); expect(service.listPolicies).toHaveBeenCalled();
+    access.isRoot.value = false; await flushPromises(); expect(wrapper.findComponent(stubs.UTabs).exists()).toBe(false); expect(wrapper.text()).toContain('backupCenter.platformRootOnly');
+    expect(wrapper.text()).not.toContain('开发库备份');
+  });
+
+  it('discards a list response which completes after Root access is revoked', async () => {
+    let resolve!: (value: unknown) => void;
+    service.listPolicies.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
     const wrapper = page(); await flushPromises();
-    expect(wrapper.get('[data-testid="backup-policy"]').findAll('button').every(button => button.attributes('disabled') !== undefined)).toBe(true);
-    expect(service.enablePolicy).not.toHaveBeenCalled();
-    expect(service.triggerJob).not.toHaveBeenCalled();
+    access.isRoot.value = false; await flushPromises();
+    resolve({ items: [{ id: 9, name: 'previous-root-private-plan' }] }); await flushPromises();
+    expect(wrapper.findComponent(stubs.UTabs).exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('previous-root-private-plan');
+    expect(service.listJobs).not.toHaveBeenCalled();
   });
 });

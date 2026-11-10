@@ -18,7 +18,7 @@ func TestInjectGlobalGatewayRuntimeEnvInjectsRuntimeSTSAndRemovesDeprecatedCrede
 	m := &managerImpl{
 		opts: Options{
 			CoreConfig: &config.Config{
-				Server: config.ServerConfig{Port: 8077},
+				Server: config.ServerConfig{Port: 8077}, Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 				Auth: config.AuthConfig{
 					JWTSecret:    "0123456789abcdef0123456789abcdef",
 					Issuer:       "powerx-auth",
@@ -92,7 +92,7 @@ func TestGatewayAPIPrefixMatchesCoreInHostConfigAndProcessEnv(t *testing.T) {
 		{"", "/api"}, {"/api/v1", "/api/v1"}, {"/api/v2", "/api/v2"}, {"/core/custom", "/core/custom"}, {"/", "/"},
 	} {
 		t.Run(tc.configured, func(t *testing.T) {
-			m := &managerImpl{opts: Options{CoreConfig: &config.Config{Server: config.ServerConfig{Port: 8077, APIPrefix: tc.configured}}}}
+			m := &managerImpl{opts: Options{CoreConfig: &config.Config{Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}, EnvironmentID: "existing-environment-test", Server: config.ServerConfig{Port: 8077, APIPrefix: tc.configured}}}}
 			env := map[string]string{"PX_GATEWAY_API_PREFIX": "/stale-prefix"}
 			doc := map[string]any{"gateway": map[string]any{"api_prefix": "/stale-prefix"}}
 			if err := m.applyDelegatedHostContract(env, doc, "plugin.fixture", cred); err != nil {
@@ -120,7 +120,7 @@ func TestDelegatedHostContractPrefersRuntimeEnvOverStaleHostValues(t *testing.T)
 	m := &managerImpl{
 		opts: Options{
 			CoreConfig: &config.Config{
-				Server: config.ServerConfig{Port: 8081},
+				Server: config.ServerConfig{Port: 8081}, Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			},
 		},
 	}
@@ -170,7 +170,7 @@ context:
 	m := &managerImpl{
 		opts: Options{
 			CoreConfig: &config.Config{
-				Server: config.ServerConfig{Port: 8077},
+				Server: config.ServerConfig{Port: 8077}, Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			},
 		},
 	}

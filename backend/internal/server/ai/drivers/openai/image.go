@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
@@ -37,15 +37,20 @@ func (c *imageClient) Health(ctx context.Context) error {
 }
 
 type openAIImageReq struct {
-	Model             string `json:"model"`
-	Prompt            string `json:"prompt"`
-	Size              string `json:"size,omitempty"`
-	Quality           string `json:"quality,omitempty"`
-	OutputFormat      string `json:"output_format,omitempty"`
-	ResponseFormat    string `json:"response_format,omitempty"`
-	N                 int    `json:"n,omitempty"`
-	Background        string `json:"background,omitempty"`
-	OutputCompression int    `json:"output_compression,omitempty"`
+	Model             string                 `json:"model"`
+	Prompt            string                 `json:"prompt"`
+	Size              string                 `json:"size,omitempty"`
+	Quality           string                 `json:"quality,omitempty"`
+	OutputFormat      string                 `json:"output_format,omitempty"`
+	ResponseFormat    string                 `json:"response_format,omitempty"`
+	N                 int                    `json:"n,omitempty"`
+	Background        string                 `json:"background,omitempty"`
+	OutputCompression *int                   `json:"output_compression,omitempty"`
+	Images            []openAIImageReference `json:"images,omitempty"`
+}
+
+type openAIImageReference struct {
+	URL string `json:"image_url"`
 }
 
 type openAIImageResp struct {
@@ -53,7 +58,7 @@ type openAIImageResp struct {
 		B64JSON string `json:"b64_json"`
 		URL     string `json:"url"`
 	} `json:"data"`
-	Usage map[string]int `json:"usage"`
+	Usage map[string]json.RawMessage `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
 		Type    string `json:"type,omitempty"`
@@ -77,8 +82,9 @@ func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*
 	if prompt == "" {
 		return nil, errors.New("openai image: prompt required")
 	}
-	if len(in.RefImages) > 0 {
-		return nil, errors.New("openai image: reference images not supported")
+	references, err := prepareImageReferences(in, mc)
+	if err != nil {
+		return nil, err
 	}
 
 	req := openAIImageReq{
@@ -88,6 +94,7 @@ func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*
 		Quality:      normalizeImageQuality(strings.TrimSpace(in.Quality), mc.Model),
 		OutputFormat: normalizeImageFormat(strings.TrimSpace(in.Format)),
 	}
+	req.Images = references
 
 	if in.Runtime != nil {
 		if v, ok := in.Runtime["response_format"]; ok {
@@ -106,8 +113,8 @@ func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*
 			}
 		}
 		if v, ok := in.Runtime["output_compression"]; ok {
-			if n := intFromRuntime(v); n > 0 {
-				req.OutputCompression = n
+			if n := intFromRuntime(v); n >= 0 {
+				req.OutputCompression = &n
 			}
 		}
 	}
@@ -120,6 +127,17 @@ func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*
 	endpoint, headers, err := buildImageEndpointAndHeaders(mc)
 	if err != nil {
 		return nil, err
+	}
+	if len(req.Images) > 0 {
+		path, pathErr := imageEditPath(mc)
+		if pathErr != nil {
+			return nil, pathErr
+		}
+		base := strings.TrimRight(mc.Endpoint, "/")
+		if base == "" {
+			base = "https://api.openai.com"
+		}
+		endpoint = joinEndpoint(base, path)
 	}
 
 	httpClient := imageHTTPClient(mc)
@@ -137,20 +155,39 @@ func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*
 	defer resp.Body.Close()
 	logger.InfoF(ctx, "[ai-image] openai http_call provider=%s model=%s status=%d latency_ms=%d", strings.TrimSpace(c.rawProvider), strings.TrimSpace(mc.Model), resp.StatusCode, time.Since(start).Milliseconds())
 
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	// Base64 PNG 结果可大于 8 MiB；显式检测上限与读失败，不能截断后继续解析。
+	limit := int64(128 << 20)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("openai image status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		limit = 1 << 20
+	}
+	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, core.MediaHTTPError(resp.StatusCode, resp.Header, raw)
+	}
+	if readErr != nil {
+		return nil, imageResponseError("AI_PROVIDER_RESPONSE_INVALID", resp, "read_failed")
+	}
+	if int64(len(raw)) > limit {
+		return nil, imageResponseError("AI_OUTPUT_LIMIT_EXCEEDED", resp, "response_too_large")
 	}
 
 	var out openAIImageResp
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, err
+		return nil, imageResponseError("AI_PROVIDER_RESPONSE_INVALID", resp, "invalid_json")
 	}
-	if out.Error != nil && strings.TrimSpace(out.Error.Message) != "" {
-		return nil, errors.New(out.Error.Message)
+	if out.Error != nil {
+		return nil, core.MediaHTTPError(resp.StatusCode, resp.Header, raw)
 	}
 	if len(out.Data) == 0 {
-		return nil, errors.New("openai image: empty response")
+		return nil, imageResponseError("AI_OUTPUT_INVALID", resp, "empty_images")
+	}
+	// GPT Image 的 usage 还包含 input_tokens_details 等嵌套对象；仅转换公共计数。
+	usage := map[string]int{}
+	for key, raw := range out.Usage {
+		var count int
+		if json.Unmarshal(raw, &count) == nil {
+			usage[key] = count
+		}
 	}
 
 	imgs := make([][]byte, 0, len(out.Data))
@@ -159,7 +196,7 @@ func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*
 		if strings.TrimSpace(item.B64JSON) != "" {
 			decoded, err := base64.StdEncoding.DecodeString(item.B64JSON)
 			if err != nil {
-				return nil, fmt.Errorf("openai image: decode base64 failed: %w", err)
+				return nil, imageResponseError("AI_OUTPUT_INVALID", resp, "invalid_image_base64")
 			}
 			imgs = append(imgs, decoded)
 		} else if strings.TrimSpace(item.URL) != "" {
@@ -171,8 +208,9 @@ func (c *imageClient) Generate(ctx context.Context, in contract.ImageRequest) (*
 		ImageURLs: urls,
 		Provider:  strings.TrimSpace(c.rawProvider),
 		Model:     strings.TrimSpace(mc.Model),
-		Usage:     out.Usage,
+		Usage:     usage,
 		LatencyMS: int(time.Since(start).Milliseconds()),
+		TraceID:   strings.TrimSpace(resp.Header.Get("X-Request-Id")),
 	}, nil
 }
 
@@ -270,7 +308,7 @@ func normalizeImageQuality(q, model string) string {
 	}
 	lower := strings.ToLower(strings.TrimSpace(q))
 	modelLower := strings.ToLower(strings.TrimSpace(model))
-	if strings.HasPrefix(modelLower, "gpt-image") {
+	if strings.HasPrefix(modelLower, "gpt-image") || modelLower == "chatgpt-image-latest" {
 		switch lower {
 		case "standard":
 			return "medium"

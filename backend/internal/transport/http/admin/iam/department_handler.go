@@ -97,14 +97,15 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	err := h.Svc.UpdateDepartment(ctx, tenantUUID, id, orgsvc.UpdateDepartmentOpts{
-		Name:           req.Name,
-		Key:            req.Key,
-		NewParentID:    req.NewParentID,
-		Sort:           req.Sort,
-		LeaderMemberID: req.LeaderMemberID,
-		Status:         req.Status,
-		Meta:           req.Meta,
-		HasNewParentID: hasNewParent,
+		Name:              req.Name,
+		Key:               req.Key,
+		NewParentID:       req.NewParentID,
+		Sort:              req.Sort,
+		LeaderMemberID:    req.LeaderMemberID,
+		HasLeaderMemberID: req.HasLeaderMemberID,
+		Status:            req.Status,
+		Meta:              req.Meta,
+		HasNewParentID:    hasNewParent,
 	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "更新部门失败", err)

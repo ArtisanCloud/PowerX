@@ -1,0 +1,44 @@
+{
+  "success": true,
+  "numTotalTests": 62,
+  "numPassedTests": 62,
+  "numFailedTests": 0,
+  "files": [
+    {
+      "name": "web-admin/tests/unit/backup/resource-archives.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/archive-credentials.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/archive-disposition.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/archive-execution.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/archive-governance.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/archive-policies.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/archive-run-request.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/archive-targets.spec.ts",
+      "status": "passed"
+    },
+    {
+      "name": "web-admin/tests/unit/storage/storage-resource-configuration.spec.ts",
+      "status": "passed"
+    }
+  ]
+}

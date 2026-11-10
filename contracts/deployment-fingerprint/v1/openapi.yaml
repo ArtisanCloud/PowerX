@@ -1,0 +1,186 @@
+openapi: 3.1.0
+info:
+  title: PowerX deployment fingerprint shared protocol
+  version: 1.1.0
+  description: M0 protocol baseline. New deployment endpoints and Marketplace extension handling remain planned.
+servers:
+  - url: https://marketplace.artisan-cloud.com/api/v1
+paths:
+  /host/instances/discovery:
+    get:
+      operationId: discoverPowerXInstanceProtocol
+      security: []
+      responses:
+        '200':
+          description: Base protocol plus optional server feature declaration.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MarketEnvelope'
+                  - properties:
+                      data: {$ref: 'protocol.schema.json#/$defs/Discovery'}
+  /host/instances/register:
+    post:
+      operationId: registerPowerXInstance
+      security: [{instanceBearer: []}]
+      description: Self-generated credential is persisted before calling. Fingerprint remains in the original registration body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: 'protocol.schema.json#/$defs/RegisterLegacy'
+                - $ref: 'protocol.schema.json#/$defs/RegisterExtended'
+      responses:
+        '200':
+          description: Existing instance and protocol; negotiated response additionally requires server_time and site_challenges.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MarketEnvelope'
+                  - properties:
+                      data:
+                        anyOf:
+                          - $ref: 'protocol.schema.json#/$defs/RegisterResponseLegacy'
+                          - $ref: 'protocol.schema.json#/$defs/RegisterResponseExtended'
+        '400': {$ref: '#/components/responses/InvalidInput'}
+        '401': {description: Credential rejected; do not generate a replacement identity.}
+  /host/instances/heartbeat:
+    post:
+      operationId: heartbeatPowerXInstance
+      security: [{instanceBearer: []}]
+      parameters:
+        - $ref: '#/components/parameters/Fingerprint'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: 'protocol.schema.json#/$defs/HeartbeatLegacy'
+                - $ref: 'protocol.schema.json#/$defs/HeartbeatExtended'
+      responses:
+        '200':
+          description: Recorded heartbeat. Capability negotiation determines which response variant is required.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MarketEnvelope'
+                  - properties:
+                      data:
+                        oneOf:
+                          - $ref: 'protocol.schema.json#/$defs/HeartbeatResponseLegacy'
+                          - $ref: 'protocol.schema.json#/$defs/HeartbeatResponseExtended'
+        '400': {$ref: '#/components/responses/InvalidInput'}
+        '401': {description: Credential rejected.}
+        '403': {description: Fingerprint binding rejected.}
+        '429': {description: Retain identity and honor Retry-After.}
+        '503': {description: Retain identity and use existing delivery backoff.}
+  /system/product:
+    servers: [{url: 'https://admin.example.com/api/v1'}]
+    get:
+      operationId: readPowerXProductDeclaration
+      security: []
+      responses:
+        '200':
+          description: Anonymous declaration without private instance or tenant data; development mode is explicit.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CoreEnvelope'
+                  - properties:
+                      data: {$ref: 'protocol.schema.json#/$defs/ProductInformation'}
+  /system/marketplace-proof:
+    servers: [{url: 'https://admin.example.com/api/v1'}]
+    get:
+      operationId: readPowerXInstanceProof
+      security: []
+      parameters: [{$ref: '#/components/parameters/ChallengeID'}]
+      responses:
+        '200':
+          description: Read only the named active proof. No challenge enumeration.
+          headers:
+            Cache-Control: {schema: {const: no-store}}
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CoreEnvelope'
+                  - properties:
+                      data: {$ref: 'protocol.schema.json#/$defs/Proof'}
+        '404': {description: Named proof is unavailable; no private state is returned.}
+        '503': {description: Maintenance or proof subsystem unavailable.}
+  /.well-known/powerx.json:
+    servers: [{url: 'https://admin.example.com'}]
+    get:
+      operationId: readPowerXWebManifest
+      security: []
+      description: Relative to explicit site_base; subpath deployments append this suffix to that base.
+      responses:
+        '200':
+          description: Web-admin public component manifest. Revalidation is required.
+          content:
+            application/json:
+              schema: {$ref: 'protocol.schema.json#/$defs/Manifest'}
+  /.well-known/powerx-instance.json:
+    servers: [{url: 'https://admin.example.com'}]
+    get:
+      operationId: readPowerXWebInstanceProof
+      security: []
+      description: Fixed Core upstream and path only. Strip visitor Authorization/Cookie. Relative to site_base.
+      parameters: [{$ref: '#/components/parameters/ChallengeID'}]
+      responses:
+        '200':
+          description: Bare proof decoded from the Core success envelope.
+          headers:
+            Cache-Control: {schema: {const: no-store}}
+          content:
+            application/json:
+              schema: {$ref: 'protocol.schema.json#/$defs/Proof'}
+        '404': {description: Named proof unavailable.}
+components:
+  securitySchemes:
+    instanceBearer: {type: http, scheme: bearer}
+  parameters:
+    Fingerprint:
+      name: X-PowerX-Fingerprint
+      in: header
+      required: true
+      schema: {type: string, pattern: '^[a-f0-9]{64}$'}
+    ChallengeID:
+      name: challenge_id
+      in: query
+      required: true
+      schema: {type: string, format: uuid}
+  schemas:
+    MarketEnvelope:
+      type: object
+      required: [code, data]
+      properties:
+        code: {const: 0}
+        message: {type: string}
+        data: {}
+    CoreEnvelope:
+      type: object
+      required: [code, data]
+      properties:
+        code: {const: 200}
+        message: {type: string}
+        data: {}
+  responses:
+    InvalidInput:
+      description: Generic legacy invalid_input can trigger one bounded rediscovery only for an extended registration or heartbeat.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, error]
+            properties:
+              code: {const: 400}
+              error: {enum: [invalid_input, instance_extension_unsupported]}
+              message: {type: string}

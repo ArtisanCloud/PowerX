@@ -34,6 +34,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/runtime"
 	schedulerHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/scheduler"
 	skillsHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/skills"
+	storageHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
 	userauth "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/user/auth"
@@ -100,5 +101,6 @@ func RegisterAPIRoutes(
 	skillsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	opsHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	monitorHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	storageHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	metadataHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }

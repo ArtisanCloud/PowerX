@@ -261,6 +261,26 @@ func (r *DynamicRouter) publicAwareAPIAuth() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		if strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
+			q, e := url.ParseQuery(c.Request.URL.RawQuery)
+			if e != nil || len(q["authorization"]) > 1 {
+				dto.RespondErrorFrom(c, dto.NewErrorWithCode(400, "PLUGIN_WS_AUTH_INVALID", "PLUGIN_WS_AUTH_INVALID", nil))
+				c.Abort()
+				return
+			}
+			token := q.Get("authorization")
+			if token != "" {
+				if strings.ContainsAny(token, "\r\n\x00") || !strings.HasPrefix(token, "Bearer ") || len(token) <= 7 || c.GetHeader("Authorization") != "" && c.GetHeader("Authorization") != token {
+					dto.RespondErrorFrom(c, dto.NewErrorWithCode(400, "PLUGIN_WS_AUTH_INVALID", "PLUGIN_WS_AUTH_INVALID", nil))
+					c.Abort()
+					return
+				}
+				c.Request.Header.Set("Authorization", token)
+				q.Del("authorization")
+				c.Request.URL.RawQuery = q.Encode()
+				c.Request.RequestURI = c.Request.URL.RequestURI()
+			}
+		}
 		for _, mw := range r.apiMiddleware {
 			mw(c)
 			if c.IsAborted() {
@@ -852,6 +872,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
 		req.Header.Del(requestidentity.Header)
+		req.Header.Del("X-PowerX-Service-Invocation")
 		for _, header := range []string{"X-PowerX-CTX", "X-PowerX-CTX-SIG", "X-PowerX-User-UUID", "X-PowerX-Member-UUID", "X-PowerX-Is-Root", "X-PowerX-Roles", "X-PowerX-Permission-Codes"} {
 			req.Header.Del(header)
 		}

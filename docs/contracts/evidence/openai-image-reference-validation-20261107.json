@@ -1,0 +1,357 @@
+{
+  "recorded_at": "2026-11-06T16:51:44.602477+00:00",
+  "scope": "Core GPT-Image-2 reference image support; controlled tests plus read-only current service-Key check",
+  "base_commit": "a1956aa3601786ed05a59236477ed3a67cfc7a67",
+  "uncommitted_worktree": true,
+  "limits": {
+    "max_images": 16,
+    "max_image_bytes": 5242880,
+    "max_total_image_bytes": 20971520,
+    "max_image_pixels": 36000000,
+    "image_request_max_bytes": 33554432,
+    "success_response_max_bytes": 134217728
+  },
+  "protocol": {
+    "generation": "POST /v1/images/generations",
+    "references": "POST /v1/images/edits JSON images[].image_url",
+    "inline_formats": [
+      "image/png",
+      "image/jpeg",
+      "image/webp"
+    ],
+    "remote_http_references": "explicitly unsupported in this slice",
+    "preserves_order": true
+  },
+  "checks": {
+    "affected_full_race": {
+      "top_level": {
+        "pass": 244,
+        "skip": 2
+      },
+      "including_subtests": {
+        "pass": 549,
+        "skip": 2
+      },
+      "packages": [
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/server/agent/contract",
+          "status": "skip"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/server/agent/catalog",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/openai",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/service/agent",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/service/capability_registry",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/ai",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+          "status": "pass"
+        }
+      ],
+      "skips": [
+        "TestSettingsConnectionOllamaLiveReadOnly",
+        "TestMediaSubmissionLegacyTaskHistoryMigrationAndSameKeyRecovery"
+      ],
+      "log_sha256": "f00bebc63cf34605d4325cddd55f77b50f99052026d1b9bc9daaac8643d37ce5"
+    },
+    "final_changed_paths_race": {
+      "top_level": {
+        "pass": 21
+      },
+      "including_subtests": {
+        "pass": 48
+      },
+      "packages": [
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/openai",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/ai",
+          "status": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry",
+          "status": "pass"
+        }
+      ],
+      "skips": [],
+      "log_sha256": "3a66c3400a2e942ec86ce719f59766cfbdee990cd15b0308c206f42f90812f1b"
+    }
+  },
+  "go_vet": "passed for affected driver/catalog/AI/HTTP packages",
+  "core_build": {
+    "command": "cd backend && GOWORK=off go build -o /tmp/powerx-image-reference-core ./cmd/app",
+    "result": "passed",
+    "os": "darwin",
+    "arch": "arm64",
+    "sha256": "52edb52a9ea4cba46c31c1136eb1bc8f51b8b77f23e9481cfee8b42798bd9589",
+    "deployed": false
+  },
+  "openapi_yaml": "parsed and additive operation fields verified using gopkg.in/yaml.v3",
+  "live_read_only_before_restart": {
+    "core": "http://127.0.0.1:8077/api/v1",
+    "paid_generation": false,
+    "results": {
+      "grant_status": {
+        "http_status": 200,
+        "result": {
+          "code": 200,
+          "data": {
+            "items": [
+              {
+                "capability_id": "com.corex.ai.catalog.models.read",
+                "status": "granted",
+                "reason_code": "CAPABILITY_GRANTED"
+              },
+              {
+                "capability_id": "com.corex.ai.image.invoke",
+                "status": "granted",
+                "reason_code": "CAPABILITY_GRANTED"
+              },
+              {
+                "capability_id": "com.corex.ai.media.tasks.read",
+                "status": "granted",
+                "reason_code": "CAPABILITY_GRANTED"
+              }
+            ]
+          }
+        }
+      },
+      "catalog": {
+        "http_status": 200,
+        "result": {
+          "code": 200,
+          "data": {
+            "trace_id": "b6c34f18-3f9e-4fae-ac06-dbd6283f9452",
+            "status": "completed",
+            "result": {
+              "result": {
+                "items": [
+                  {
+                    "model_key": "openai/gpt-image-2",
+                    "provider": "openai",
+                    "model": "gpt-image-2",
+                    "capabilities": [
+                      "image_generation"
+                    ],
+                    "configured": true,
+                    "available": true,
+                    "operations": {
+                      "image_generation": {
+                        "driver": "openai",
+                        "input_types": [
+                          "text"
+                        ],
+                        "max_images": 0,
+                        "parameters": {
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "png",
+                              "jpeg",
+                              "webp"
+                            ]
+                          },
+                          "n": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10
+                          },
+                          "quality": {
+                            "type": "string",
+                            "enum": [
+                              "auto",
+                              "low",
+                              "medium",
+                              "high"
+                            ],
+                            "default": "auto"
+                          },
+                          "size": {
+                            "type": "string",
+                            "enum": [
+                              "auto",
+                              "1024x1024",
+                              "1536x1024",
+                              "1024x1536"
+                            ],
+                            "default": "1024x1024"
+                          }
+                        },
+                        "available": true,
+                        "parameter_schema": {
+                          "properties": {
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "png",
+                                "jpeg",
+                                "webp"
+                              ]
+                            },
+                            "n": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10
+                            },
+                            "quality": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "low",
+                                "medium",
+                                "high"
+                              ],
+                              "default": "auto"
+                            },
+                            "size": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "1024x1024",
+                                "1536x1024",
+                                "1024x1536"
+                              ],
+                              "default": "1024x1024"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "defaults": {
+                          "format": "png",
+                          "quality": "auto",
+                          "size": "1024x1024"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "core_pid": 93308,
+    "port": 8077,
+    "ownership": "user",
+    "restarted_by_agent": false,
+    "current_catalog_max_images": 0
+  },
+  "not_performed": [
+    "daily Core restart or deployment",
+    "paid provider generation",
+    "schema migration",
+    "authorization/Profile/Key/registration changes",
+    "Framework or MediaXStudio source edits"
+  ],
+  "pending": [
+    "Core owner rebuild/restart",
+    "read current service-Key model catalog again after restart",
+    "user-arranged real two-reference generation and output review"
+  ],
+  "files": [
+    {
+      "path": "backend/internal/server/ai/drivers/openai/image.go",
+      "sha256": "100db4219141c813b21fbf19a53b6963a160867d883f4e1b1be10c533cdaab48"
+    },
+    {
+      "path": "backend/config/agents/providers.d/openai.yaml",
+      "sha256": "1d005bfae61ebd3efcfa447c54931193050048dc23c571f8af6da3079ef11a52"
+    },
+    {
+      "path": "backend/internal/server/agent/contract/image.go",
+      "sha256": "648d7ed3fb2e273ab71bd09d92647ff2e942b0ee83b577da3d652ef4938c8d8e"
+    },
+    {
+      "path": "backend/internal/server/agent/catalog/media_contract.go",
+      "sha256": "b34b60387dfa4eafeb338f62f085e90fdc1a631552f10c1346dd4ecc1d505bf8"
+    },
+    {
+      "path": "backend/internal/service/ai/media_catalog.go",
+      "sha256": "ff692f7933e1e53c110c3ae4647e82da1fea3f4314f5b409e9a109fc701ca956"
+    },
+    {
+      "path": "backend/internal/service/ai/media_runtime.go",
+      "sha256": "332a9dff09610786e699fedca13a762d45e9a0097691af38bcc3a09f58089b93"
+    },
+    {
+      "path": "backend/internal/service/ai/media_worker.go",
+      "sha256": "2ec49c78b6028e111c3f13ca31384bfc5f3923d380bf7a2c0575e24fe260d062"
+    },
+    {
+      "path": "backend/internal/service/ai/media_assets.go",
+      "sha256": "a6a416c3673b6ae205089fff5d1a48a00446d09c9ca8c11e984734df7899c995"
+    },
+    {
+      "path": "backend/internal/transport/http/openapi/ai/media_handler.go",
+      "sha256": "5af6e8ab6fb58db6aa6e8af54821c4911022536d9c4c334065422a1556fa99ef"
+    },
+    {
+      "path": "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go",
+      "sha256": "158a245e152d14621dd8fe21257a0c2b23e5ea9137fb2dedb849ad3a1a772829"
+    },
+    {
+      "path": "docs/contracts/ai-media-v2.md",
+      "sha256": "2f3fe00e18875f598cd5ff757783da599042097b4d185968d76b07bff55e5715"
+    },
+    {
+      "path": "docs/contracts/ai-media-v2.openapi.yaml",
+      "sha256": "d11653bcb861644532fbd6790b76e24c4006d4f7b40bcfd4d9c3a16ed4ce0f63"
+    },
+    {
+      "path": "backend/internal/server/agent/contract/media_limits.go",
+      "sha256": "1e7653c18e2b0a7c5e1e318b658cc13ca20eb88a68d8896c9566ab60e554c966"
+    },
+    {
+      "path": "backend/internal/server/ai/drivers/openai/image_reference.go",
+      "sha256": "9cf47e60992fcf1dd441003f52f4dff56aa4e434109ed9a41fc00137963c2055"
+    },
+    {
+      "path": "backend/internal/server/ai/drivers/openai/image_reference_test.go",
+      "sha256": "45edef566ce1977fb816ea422b59e11c577a12a8b47ab3d3047d343b8287eda4"
+    },
+    {
+      "path": "backend/internal/service/ai/media_openai_reference_test.go",
+      "sha256": "82ec97f88039c1d7ca7b887b647b69b4433c245afda40fed3d8c0de156255ad2"
+    },
+    {
+      "path": "backend/internal/transport/http/openapi/ai/media_reference_request_test.go",
+      "sha256": "4531259ccfda557a8a7b0c4114d1fa208311be2ad41deecedba427145e2df723"
+    },
+    {
+      "path": "backend/internal/transport/http/openapi/capability_registry/tenant_image_request_test.go",
+      "sha256": "c22093caac204557e171ba6acc3c6faed536687a849d431d3a420f18461b0d1b"
+    },
+    {
+      "path": "docs/contracts/openai-image-reference.md",
+      "sha256": "6436975450e699c8063ecddd6f31c0eded7c73d7f3a2cecaec0f22e0e870dee4"
+    }
+  ],
+  "before_snapshot": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-image-reference-before-w4z3ry6m"
+}

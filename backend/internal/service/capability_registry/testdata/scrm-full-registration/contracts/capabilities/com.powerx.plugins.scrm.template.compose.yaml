@@ -1,0 +1,27 @@
+id: com.powerx.plugins.scrm.template.compose
+type: Tool
+version: 1.0.0
+description: "复合 Workflow，串联草稿、审核、发布节点，供 Workflow Builder 与 Agent Hub 复用。"
+rbac:
+  resource: template
+  actions: [create]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.compose.v1
+    path: schema/input/com.powerx.plugins.scrm.template.compose.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.compose.v1
+    path: schema/output/com.powerx.plugins.scrm.template.compose.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    workflow:
+      template: contracts/exposure/workflow/template-compose.json
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.compose
+      scope: agent.template.compose
+      transport: workflow
+      endpoint: contracts/exposure/workflow/template-compose.json
+    agent_stream:
+      channel: contracts/exposure/agent-streams/template-compose.yaml

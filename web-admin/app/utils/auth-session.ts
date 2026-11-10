@@ -1,3 +1,4 @@
+import { isTerminalAuthFailure } from './auth-failure';
 import { decodeJwtPayload } from './auth-token';
 import { syncAuthCookies } from './auth-cookie';
 
@@ -139,8 +140,7 @@ export async function refreshAuthSession(
         return commitAuthSession(payload, stamp).accessToken;
       } catch (error: any) {
         if (!isAuthSessionCurrent(stamp)) throw new AuthSessionChangedError();
-        const status = Number(error?.status || error?.statusCode || error?.response?.status || 0);
-        if (status === 401) clearAuthSession(stamp);
+        if (isTerminalAuthFailure(error)) clearAuthSession(stamp);
         if (error && typeof error === 'object') error.authSessionStamp = captureAuthSession();
         throw error;
       } finally {

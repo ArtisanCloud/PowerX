@@ -1,0 +1,152 @@
+{
+  "recorded_at": "2026-10-29T04:08:45.329816+00:00",
+  "scope": "local observation, policy drafts and bounded occupancy sampling; not full US9 or deployment acceptance",
+  "base_sha": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "remote_changed": false,
+  "user_database_migrated": false,
+  "user_services_restarted": false,
+  "cleanup_enabled": false,
+  "contract": {
+    "path": "specs/027-monitor-center/contracts/storage-governance.openapi.yaml",
+    "version": "0.2.0",
+    "resource_paths": [
+      "/admin/ops/storage/overview",
+      "/admin/ops/storage/estimates",
+      "/admin/ops/storage/policy",
+      "/admin/ops/storage/history"
+    ]
+  },
+  "implemented": [
+    "deployment-registered host/filesystem/instance/resource/optional tenant identities",
+    "platform tenant_id=0 instance-scoped draft persistence; revision CAS and atomic audit; no legacy setting writes",
+    "three centrally registered metadata models with upgrade payload refreshed",
+    "fixed current-connection PostgreSQL database/two relation allowlist/heap/index/TOAST/shared-WAL metadata; read failure remains null; no page scans",
+    "explicit opt-in background sampling; at most one compact 4 KiB record per five-minute slot; 15-day metadata retention; 14-day read window with gaps/unavailable/metric and filesystem changes",
+    "current snapshot free-space 20/10 GiB and filesystem usage 80/90 percent warnings",
+    "UI draft save then separate GET readback, source/tab draft preservation, database detail modal, lazy/manual occupancy history, abort on identity changes; four matching locales"
+  ],
+  "validation": {
+    "backend": {
+      "result": "passed",
+      "cases": 20,
+      "race": true,
+      "native_postgres_cases": 3,
+      "skipped": 0,
+      "log": "test-results/storage-state-native-tests.log",
+      "command": "GOMAXPROCS=4 go test -p 2 -race ./internal/service/storage_governance ./internal/infra/storage_observer ./internal/transport/http/admin/storage ./internal/bootstrap ./config -run TestStorage -count=1 -v",
+      "native_scope": "Agent-owned temporary PostgreSQL 14 cluster, Unix socket only; fixture schemas and limited role; CAS concurrency, audit rollback, scope/dedup/retention, TOAST/index accounting and denied WAL tested"
+    },
+    "frontend_unit": {
+      "result": "passed",
+      "cases": 15,
+      "command": "npx vitest run tests/unit/storage tests/unit/backup/backup-sections.spec.ts",
+      "log": "test-results/storage-state-vitest.log"
+    },
+    "browser": {
+      "result": "passed",
+      "cases": 3,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "command": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome npx playwright test --config playwright.storage.config.ts",
+      "log": "test-results/storage-state-browser.log",
+      "data_boundary": "Actual isolated Nuxt build and API client; controlled catalog, draft and history fixtures. Not live host/provider/database or remote acceptance."
+    },
+    "build": {
+      "result": "passed",
+      "command": "POWERX_NUXT_BUILD_DIR=.nuxt-storage-validation POWERX_NITRO_OUTPUT_DIR=.output-storage-validation npm run build",
+      "log": "test-results/storage-state-build.log"
+    },
+    "go_vet": {
+      "result": "passed",
+      "log": "test-results/storage-state-vet.log"
+    },
+    "linux_collector_compile": {
+      "result": "passed",
+      "runtime_tested": false,
+      "artifact": "test-results/storage-state-observer-linux.test"
+    },
+    "capability_check": {
+      "result": "passed",
+      "log": "test-results/storage-state-capability-check.log",
+      "service_contract_changed": false,
+      "seed_executed": false
+    },
+    "typecheck": {
+      "result": "blocked_by_existing_HEAD_syntax",
+      "command": "npx vue-tsc --noEmit --pretty false -p .nuxt-storage-validation/tsconfig.app.json",
+      "log": "test-results/storage-state-types.log",
+      "errors": [
+        "app/composables/api/menuConfig.ts:165 TS1005",
+        "app/composables/api/menuConfig.ts:186 TS1443"
+      ],
+      "file_matches_HEAD": true,
+      "storage_full_typecheck_claimed": false
+    },
+    "other": [
+      "four locales have identical 115 storageGov keys",
+      "OpenAPI YAML and all internal schema references parse",
+      "upgrade_registry.py --check passed",
+      "git diff --check passed"
+    ]
+  },
+  "cleanup": {
+    "postgres_pid": 71695,
+    "postgres_state": "exited",
+    "postgres_socket_released": true,
+    "temporary_cluster_removed": true,
+    "browser_pids": [
+      55470,
+      55475
+    ],
+    "browser_processes_exited": true,
+    "browser_ports": [
+      3485,
+      3486
+    ],
+    "no_agent_services_left": true
+  },
+  "task_status": {
+    "completed_in_this_slice": [
+      "T104",
+      "T106",
+      "T108",
+      "T112"
+    ],
+    "partial": [
+      "T105",
+      "T107",
+      "T110",
+      "T111",
+      "T113",
+      "T116",
+      "T148",
+      "T149",
+      "T153"
+    ],
+    "canonical": "specs/027-monitor-center/tasks.md"
+  },
+  "remaining": [
+    "gross pre-cleanup ingress instrumentation, measured compression ratios and real 14-day R95",
+    "verified local/remote artifact history, backup count/CAS protected-space estimates",
+    "all-filesystem/deleted-open attribution and full encoding/CAS metrics",
+    "legacy cleaner discovery and exclusive ownership transfer",
+    "cross-instance atomic budgets, reservations and protected execution",
+    "budget/offline/recovery notification delivery",
+    "automatic retention and cleanup execution",
+    "user database migration plus user-owned Core restart for local installed acceptance",
+    "Linux host, development/production sustained cycles and XDocker integration"
+  ],
+  "limitations": [
+    "Host and disk IDs are deployment registration; filesystem remains process-visible, not a verified physical-host inventory.",
+    "Current DB allowlist is the two incident-heavy Core tables, not every plugin table. WAL is shared cluster usage; reusable bytes remain unknown.",
+    "Occupancy samples do not measure gross ingestion or prove file/remote historical coverage. Actual rate remains null; calculator still manual_assumption and can_enable=false.",
+    "Draft host budgets are per-instance metadata, not a cross-environment enforcement coordinator.",
+    "Metadata row/body bounds do not constitute a hard physical PostgreSQL quota including indexes/WAL/bloat.",
+    "No cleanup or enable endpoint is registered. New metadata tables were migrated only inside the temporary test cluster."
+  ]
+}

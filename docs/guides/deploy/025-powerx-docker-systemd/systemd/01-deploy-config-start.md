@@ -343,3 +343,7 @@ POWERX_CONFIG=/etc/powerx/config.yaml ./platform_capability_seed
 说明：
 - 会自动创建（幂等）`role_readonly` 内置角色，并授予只读权限。
 - 会创建/更新 demo 账号，并强制绑定到 `role_readonly`（只读演示用途）。
+
+### Redis 实例作用域
+
+正式实例与开发实例均直接使用环境管理已有的环境 ID（`installation.json.id` / `active_environment_id`），自动为缓存、队列、通知频道和插件绑定生成 `powerx:<环境 ID>:` 前缀。无需另配 namespace，DB 号和数据库连接变化不改变该 ID，插件重装和升级也会沿用。完整规则、旧任务切换和同库验收见 [dev 配置中的 Redis 实例命名空间](../systemd-dev/01-deploy-dev-config-start.md#71-redis-实例命名空间)。部署前须核对旧任务归属，不清空 Redis DB。

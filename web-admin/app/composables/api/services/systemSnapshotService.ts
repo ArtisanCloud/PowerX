@@ -8,6 +8,9 @@ export interface SnapshotComponent {
   size_bytes: number;
 }
 export interface SystemSnapshot {
+ policy_revision?:number;
+ cleanup_error?:string;
+ retention_token?:string;
   attempt?: number;
   retry_at?: string;
   policy_id?: string;
@@ -39,6 +42,7 @@ export interface SystemSnapshotPolicy {
 }
 export interface SystemSnapshotPolicyInput extends SystemSnapshotPolicy { name: string }
 export interface NamedSnapshotPolicy extends SystemSnapshotPolicyInput {
+ revision?:number;
   id: string;
   is_default: boolean;
   next_run_at?: string;
@@ -59,6 +63,7 @@ export interface SystemSnapshotRestore {
   error?: string;
 }
 export interface SystemSnapshotOverview {
+ policy_control_problem?:string;
  directory: string;
  directory_source: "recovery_profile" | "environment" | "configuration" | "install_root" | "default" | "explicit";
   ready: boolean;
@@ -79,27 +84,28 @@ export const useSystemSnapshotService = () => {
   const base = "/admin/ops/backup/system-snapshots";
   const config = { useGlobalLoading: false, useGlobalError: false };
   return {
-    async overview(): Promise<SystemSnapshotOverview> {
+    async overview(signal?: AbortSignal): Promise<SystemSnapshotOverview> {
       return api.unwrap<{ overview: SystemSnapshotOverview }>(
-        await api.get(base, config),
+        await api.get(base, { ...config, signal }),
       ).overview;
     },
     async savePolicy(
       policy: SystemSnapshotPolicyInput,
       id?: string,
+      signal?: AbortSignal,
     ): Promise<NamedSnapshotPolicy> {
       return api.unwrap<{ policy: NamedSnapshotPolicy }>(
-        id ? await api.put(`${base}/policies/${encodeURIComponent(id)}`, policy, config) : await api.post(`${base}/policies`, policy, config),
+        id ? await api.put(`${base}/policies/${encodeURIComponent(id)}`, policy, { ...config, signal, retry: 0 }) : await api.post(`${base}/policies`, policy, { ...config, signal, retry: 0 }),
       ).policy;
     },
-    async setPolicyEnabled(id: string, enabled: boolean): Promise<NamedSnapshotPolicy> {
-      return api.unwrap<{ policy: NamedSnapshotPolicy }>(await api.patch(`${base}/policies/${encodeURIComponent(id)}/status`, {enabled}, config)).policy;
+    async setPolicyEnabled(id: string, enabled: boolean, signal?: AbortSignal): Promise<NamedSnapshotPolicy> {
+      return api.unwrap<{ policy: NamedSnapshotPolicy }>(await api.patch(`${base}/policies/${encodeURIComponent(id)}/status`, {enabled}, { ...config, signal, retry: 0 })).policy;
     },
-    async setDefaultPolicy(id: string): Promise<NamedSnapshotPolicy> {
-      return api.unwrap<{ policy: NamedSnapshotPolicy }>(await api.patch(`${base}/policies/${encodeURIComponent(id)}/status`, {enabled:false,make_default:true}, config)).policy;
+    async setDefaultPolicy(id: string, signal?: AbortSignal): Promise<NamedSnapshotPolicy> {
+      return api.unwrap<{ policy: NamedSnapshotPolicy }>(await api.patch(`${base}/policies/${encodeURIComponent(id)}/status`, {enabled:false,make_default:true}, { ...config, signal, retry: 0 })).policy;
     },
-    async create(key: string, policyID: string): Promise<SystemSnapshot> {
-      const result=api.unwrap<{snapshot:SystemSnapshot;coordinator?:{recovery:RecoveryJob;progress_token:string}}>(await api.post(base,{policy_id:policyID}, {...config,headers:{"Idempotency-Key":key}}));
+    async create(key: string, policyID: string,policyRevision?:number): Promise<SystemSnapshot> {
+      const result=api.unwrap<{snapshot:SystemSnapshot;coordinator?:{recovery:RecoveryJob;progress_token:string}}>(await api.post(base,{policy_id:policyID,...(policyRevision?{policy_revision:policyRevision}:{})}, {...config,headers:{"Idempotency-Key":key}}));
       return {...result.snapshot,coordinator:result.coordinator};
     },
     async exportFile(id: string, password: string): Promise<Blob> {

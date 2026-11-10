@@ -154,3 +154,45 @@ test('an already-open expired host session renews once during document recovery'
     expect(state.requests.filter((item: { path: string }) => item.path.endsWith('/user/auth/refresh'))).toHaveLength(1);
   } finally { await context.close(); }
 });
+
+for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
+  test(`a valid access token with an ended server session returns to login at width ${viewport.width}`,async({browser,baseURL,request})=>{
+    await request.put('/api/v1/__session_test/state',{data:{sessionState:'expired',contextCode:'IAM_CONTEXT_USER_SESSION_INVALID'}});
+    const context=await openContext(browser,baseURL!,session());await context.setDefaultTimeout(10000);
+    try{
+      const page=await context.newPage();await page.setViewportSize(viewport);
+      const destination=`${bookmark}?tab=saved#draft`;
+      await page.goto(destination);
+      await expect(page).toHaveURL(new RegExp('/users/login\\?redirect='));
+      expect(new URL(page.url()).searchParams.get('redirect')).toBe(destination);
+      expect(page.url()).not.toContain('fixture-refresh');
+      expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('powerx.session')!).status)).toBe('signed-out');
+      await expect(page.locator('iframe')).toHaveCount(0);
+      const state=await(await page.request.get('/api/v1/__session_test/state')).json();
+      expect(state.requests.filter((item:{path:string})=>item.path.endsWith('/user/auth/me/session'))).toHaveLength(1);
+      expect(state.requests.filter((item:{path:string})=>item.path.endsWith('/user/auth/refresh'))).toHaveLength(0);
+    }finally{await context.close()}
+  });
+}
+
+test('a plugin session rejection cannot log out a server-confirmed active host',async({browser,baseURL,request})=>{
+  await request.put('/api/v1/__session_test/state',{data:{sessionState:'active',contextCode:'IAM_CONTEXT_USER_SESSION_INVALID'}});
+  const snapshot=session(),context=await openContext(browser,baseURL!,snapshot);
+  try{
+    const page=await context.newPage();await page.goto(bookmark);
+    await expect(page.getByText('插件无法确认当前用户身份')).toBeVisible();
+    expect(page.url()).toBe(baseURL+bookmark);expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('powerx.session')!))).toEqual(snapshot);
+    const state=await(await page.request.get('/api/v1/__session_test/state')).json();
+    expect(state.requests.filter((item:{path:string})=>item.path.endsWith('/user/auth/me/session'))).toHaveLength(1);
+  }finally{await context.close()}
+});
+
+test('temporary Core verification failure preserves the host session and route',async({browser,baseURL,request})=>{
+  await request.put('/api/v1/__session_test/state',{data:{sessionState:'unavailable',contextCode:'IAM_CONTEXT_USER_SESSION_INVALID'}});
+  const snapshot=session(),context=await openContext(browser,baseURL!,snapshot);
+  try{
+    const page=await context.newPage();await page.goto(bookmark);
+    await expect(page.getByText('宿主会话暂时无法核验')).toBeVisible();
+    expect(page.url()).toBe(baseURL+bookmark);expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('powerx.session')!))).toEqual(snapshot);
+  }finally{await context.close()}
+});

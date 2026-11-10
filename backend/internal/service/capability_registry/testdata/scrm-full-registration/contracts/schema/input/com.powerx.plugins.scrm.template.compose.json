@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateComposeInput",
+  "type": "object",
+  "properties": {
+    "draft": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name"],
+      "additionalProperties": true
+    },
+    "publish_channel": { "type": "string" }
+  },
+  "required": ["draft"],
+  "additionalProperties": false
+}

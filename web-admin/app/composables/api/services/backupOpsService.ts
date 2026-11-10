@@ -17,6 +17,7 @@ export interface BackupPolicy {
 }
 
 export interface BackupJob {
+  cleanup_state?: string;
   id: number | string;
   policy_id: number | string;
   status: string;
@@ -121,14 +122,16 @@ const unwrap = <T>(payload: unknown): T => {
   return payload as T;
 };
 
+const policyRequest = (signal?: AbortSignal) => signal ? { signal, useGlobalLoading: false, useGlobalError: false, retry: 0 } : {};
 const adminBase = "/admin/ops/backup";
 
 export const useBackupOpsService = () => {
   const api = useApiClient();
 
   return {
-    async listPolicies(filters?: BackupPolicyFilters): Promise<{ items: BackupPolicy[]; total: number; page: number; pageSize: number }> {
+    async listPolicies(filters?: BackupPolicyFilters, signal?: AbortSignal): Promise<{ items: BackupPolicy[]; total: number; page: number; pageSize: number }> {
       const resp = await api.get(`${adminBase}/policies`, {
+        ...policyRequest(signal),
         params: {
           status: filters?.status,
           keyword: filters?.keyword,
@@ -160,8 +163,8 @@ export const useBackupOpsService = () => {
       drill_enabled?: boolean;
       drill_interval_days?: number;
       target_ref?: string;
-    }): Promise<BackupPolicy> {
-      const resp = await api.post(`${adminBase}/policies`, payload);
+    }, signal?: AbortSignal): Promise<BackupPolicy> {
+      const resp = await api.post(`${adminBase}/policies`, payload, policyRequest(signal));
       const data = unwrap<{ policy: BackupPolicy }>(resp);
       return data.policy;
     },
@@ -179,22 +182,22 @@ export const useBackupOpsService = () => {
       drill_enabled?: boolean;
       drill_interval_days?: number;
       target_ref?: string;
-    }): Promise<BackupPolicy> {
-      const resp = await api.patch(`${adminBase}/policies/${policyId}`, payload);
+    }, signal?: AbortSignal): Promise<BackupPolicy> {
+      const resp = await api.patch(`${adminBase}/policies/${policyId}`, payload, policyRequest(signal));
       const data = unwrap<{ policy: BackupPolicy }>(resp);
       return data.policy;
     },
 
-    async enablePolicy(policyId: string | number): Promise<void> {
-      await api.post(`${adminBase}/policies/${policyId}/enable`, {});
+    async enablePolicy(policyId: string | number, signal?: AbortSignal): Promise<void> {
+      await api.post(`${adminBase}/policies/${policyId}/enable`, {}, policyRequest(signal));
     },
 
-    async disablePolicy(policyId: string | number): Promise<void> {
-      await api.post(`${adminBase}/policies/${policyId}/disable`, {});
+    async disablePolicy(policyId: string | number, signal?: AbortSignal): Promise<void> {
+      await api.post(`${adminBase}/policies/${policyId}/disable`, {}, policyRequest(signal));
     },
 
-    async setCurrentPolicy(policyId: string | number): Promise<void> {
-      await api.post(`${adminBase}/policies/${policyId}/current`, {});
+    async setCurrentPolicy(policyId: string | number, signal?: AbortSignal): Promise<void> {
+      await api.post(`${adminBase}/policies/${policyId}/current`, {}, policyRequest(signal));
     },
 
     async triggerJob(policyId: string | number): Promise<BackupJob> {

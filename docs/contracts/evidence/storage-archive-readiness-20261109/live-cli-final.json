@@ -1,0 +1,18 @@
+{
+  "exit_code": 3,
+  "summary": {
+    "report_written": true,
+    "configuration_ready": false,
+    "issues": [
+      "CREDENTIAL_STORE_NOT_READY",
+      "POLICY_CONTROL_NOT_APPLIED",
+      "TARGET_CONTROL_NOT_APPLIED",
+      "TARGET_NOT_CONFIGURED",
+      "TARGET_SELECTION_REQUIRED"
+    ],
+    "t155_passed": false,
+    "authorizes_transfer": false
+  },
+  "token_persisted": false,
+  "operation_boundary": "CLI: exactly three Core GETs; outside CLI: normal Root login in memory only"
+}

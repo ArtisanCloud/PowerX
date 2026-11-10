@@ -13,7 +13,7 @@ capabilities:
     intents: [iam.identity_context.resolve]
     tool_scopes: [iam.identity_context.resolve]
     policy: {prefer: core_internal}
-    docs: [docs/contracts/plugin-request-identity.md, docs/contracts/plugin-ws-revalidation.md, specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml]
+    docs: [docs/contracts/plugin-request-identity.md, docs/contracts/plugin-ws-revalidation.md, docs/contracts/plugin-service-authorization.md, specs/018-plugin-request-identity/contracts/identity-context.openapi.yaml]
     protocols:
       - channel: core_internal
         endpoint: core://iam/identity-context

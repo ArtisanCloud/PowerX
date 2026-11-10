@@ -13,6 +13,7 @@ import (
 	coremdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	baseline "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -73,6 +74,17 @@ func (s *UserService) ListUsers(ctx context.Context, f repoi.UserListFilter) ([]
 	// 状态（这里按 User 的 status 过滤；如果你还要按 member.status 再加一个独立字段过滤）
 	if f.Status != nil {
 		base = base.Where("u.status = ?", *f.Status)
+	}
+	if f.DeptID != nil {
+		if tenantUUID == "" {
+			return nil, 0, errors.New("tenant_uuid required for department filter")
+		}
+		base = base.Joins("JOIN " + coremdl.TableIAMMemberDepartment + " AS md ON md.member_id = m.id AND md.tenant_uuid = m.tenant_uuid")
+		if f.Recursive {
+			base = base.Joins("JOIN "+coremdl.TableIAMDepartmentClosure+" AS dc ON dc.tenant_uuid = m.tenant_uuid AND dc.descendant_id = md.department_id").Where("dc.ancestor_id = ?", *f.DeptID)
+		} else {
+			base = base.Where("md.department_id = ?", *f.DeptID)
+		}
 	}
 
 	// 先算总数：对 u.id 计数（去重）
@@ -159,19 +171,36 @@ func (s *UserService) ListUsers(ctx context.Context, f repoi.UserListFilter) ([]
 		}
 	}
 
+	deptIDs := map[uint64][]uint64{}
+	if len(mMap) > 0 {
+		memberIDs := make([]uint64, 0, len(mMap))
+		for _, member := range mMap {
+			memberIDs = append(memberIDs, member.ID)
+		}
+		var affiliations []m.MemberDepartment
+		if err := s.DB.WithContext(ctx).Where("tenant_uuid = ? AND member_id IN ?", tenantUUID, memberIDs).Order("department_id ASC").Find(&affiliations).Error; err != nil {
+			return nil, 0, err
+		}
+		for _, affiliation := range affiliations {
+			deptIDs[affiliation.MemberID] = append(deptIDs[affiliation.MemberID], affiliation.DepartmentID)
+		}
+	}
 	// 最终拼装（保持 ids 顺序）
 	out := make([]iam.MemberWithProfile, 0, len(ids))
 	for _, id := range ids {
 		u := uMap[id]
 		var mem *m.Member
+		var affiliations []uint64
 		if tenantUUID != "" {
 			if mm, ok := mMap[id]; ok {
 				mem = &mm
+				affiliations = deptIDs[mm.ID]
 			}
 		}
 		out = append(out, iam.MemberWithProfile{
-			User:   &u,
-			Member: mem,
+			User:    &u,
+			Member:  mem,
+			DeptIDs: affiliations,
 		})
 	}
 	return out, total, nil
@@ -295,15 +324,7 @@ func (s *UserService) CreateSystemUser(
 
 		// 5) 可选：部门隶属
 		if len(deptIDs) > 0 {
-			rows := make([]*m.MemberDepartment, 0, len(deptIDs))
-			for _, did := range deptIDs {
-				rows = append(rows, &m.MemberDepartment{
-					TenantUUID:   tenantUUID,
-					MemberID:     mem.ID,
-					DepartmentID: did,
-				})
-			}
-			if err := tx.WithContext(ctx).Create(&rows).Error; err != nil {
+			if err := iam.NewMemberService(tx).PutMemberDepartments(ctx, tenantUUID, mem.ID, deptIDs); err != nil {
 				return err
 			}
 		}
@@ -620,7 +641,7 @@ func (s *UserService) UpdateUser(ctx context.Context, id uint64, updates map[str
 	return err
 }
 
-func (s *UserService) UpdateUserInTenant(ctx context.Context, id uint64, tenantUUID string, updates map[string]any, username *string) error {
+func (s *UserService) UpdateUserInTenant(ctx context.Context, id uint64, tenantUUID string, updates map[string]any, username *string, deptIDs *[]uint64) error {
 	tenantUUID = strings.TrimSpace(tenantUUID)
 	if id == 0 || tenantUUID == "" {
 		return errors.New("user_id/tenant_uuid required")
@@ -660,11 +681,16 @@ func (s *UserService) UpdateUserInTenant(ctx context.Context, id uint64, tenantU
 		memberFields["username"] = normalized
 	}
 
-	if len(userFields) == 0 && len(memberFields) == 0 {
+	if len(userFields) == 0 && len(memberFields) == 0 && deptIDs == nil {
 		return nil
 	}
 
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if deptIDs != nil && baseline.Managed(tx) {
+			if err := baseline.Lock(tx); err != nil {
+				return err
+			}
+		}
 		var user m.User
 		if err := tx.Where("id = ?", id).First(&user).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -728,6 +754,9 @@ func (s *UserService) UpdateUserInTenant(ctx context.Context, id uint64, tenantU
 				}
 				return err
 			}
+		}
+		if deptIDs != nil {
+			return iam.NewMemberService(tx).PutMemberDepartments(ctx, tenantUUID, member.ID, *deptIDs)
 		}
 		return nil
 	})

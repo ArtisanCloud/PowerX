@@ -15,6 +15,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 )
 
 const (
@@ -55,14 +56,15 @@ type volcengineVideoResultResp struct {
 }
 
 type seedanceTaskResp struct {
-	ID      string                 `json:"id"`
-	TaskID  string                 `json:"task_id"`
-	Status  string                 `json:"status"`
-	State   string                 `json:"state"`
-	Content map[string]interface{} `json:"content"`
-	Output  map[string]interface{} `json:"output"`
-	Data    map[string]interface{} `json:"data"`
-	Error   *struct {
+	RequestID string                 `json:"request_id"`
+	ID        string                 `json:"id"`
+	TaskID    string                 `json:"task_id"`
+	Status    string                 `json:"status"`
+	State     string                 `json:"state"`
+	Content   map[string]interface{} `json:"content"`
+	Output    map[string]interface{} `json:"output"`
+	Data      map[string]interface{} `json:"data"`
+	Error     *struct {
 		Message string `json:"message"`
 		Code    any    `json:"code"`
 	} `json:"error"`
@@ -392,12 +394,18 @@ func doSeedanceRequest(ctx context.Context, method, endpoint, apiKey string, bod
 
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("volcengine seedance video status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return nil, core.MediaHTTPError(resp.StatusCode, resp.Header, raw)
 	}
 
 	var out seedanceTaskResp
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, fmt.Errorf("volcengine seedance video decode failed: %w", err)
+	}
+	if out.RequestID == "" {
+		out.RequestID = resp.Header.Get("X-Request-Id")
+	}
+	if out.RequestID == "" {
+		out.RequestID = resp.Header.Get("X-Tt-Logid")
 	}
 	return &out, nil
 }

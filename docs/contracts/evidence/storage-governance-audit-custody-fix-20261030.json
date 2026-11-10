@@ -1,0 +1,240 @@
+{
+  "contract": "powerx.storage-governance.audit-custody-fix/v0.5.2",
+  "recorded_at": "2026-10-30T23:42:19.557239+08:00",
+  "branch": "024-ai-engineering-skills",
+  "authorization": "User requested fix after PostgreSQL audit/retention review; user referred to existing local MinIO endpoint. No database or user Core restart authorized or performed.",
+  "active_fixes": [
+    "Production ordinary guard never deletes PostgreSQL or app audit logs directly; native logrotate rotate=-1 with no maxage.",
+    "Fixed-source root SSH custody, immutable-inode checks and same-filesystem private quarantine; only fresh verified receiver proof allows eligible local removal.",
+    "Mac private versioned MinIO bucket with no automatic object/version expiration; credentials remain receiver-side.",
+    "Data and manifest full versioned GET, byte count and SHA-256 verification, private ACL/policy checks, signed short-lived receipts and source hash recheck.",
+    "Mac local PostgreSQL log_statement=mod active through reload; existing production mod retained.",
+    "Five-minute receiver LaunchAgent with independent 285-second process-group supervisor; partial batches and unconfirmed commit responses distinguished."
+  ],
+  "source_fixes_not_deployed_to_production": [
+    "Audit FileSink trusted retention handover now survives constructor defaults and reaches actual writer.",
+    "All environments require fresh archive proof for audit_logs, postgresql_logs and journal; caller opt-out cannot weaken it."
+  ],
+  "checks": {
+    "python_local_tests": 21,
+    "python_deployed_server_tests": 16,
+    "go_race_full_packages": [
+      "./pkg/corex/audit",
+      "./internal/infra/storage_lifecycle",
+      "./internal/service/storage_governance",
+      "./internal/transport/http/admin/storage",
+      "./internal/bootstrap"
+    ],
+    "go_race_result": "passed",
+    "go_vet": "passed for audit/lifecycle/bootstrap",
+    "core_build": "passed; standalone validation binary removed",
+    "openapi": "0.5.2 YAML parses",
+    "production_sql_canary": {
+      "scope": "production",
+      "trace_counts": {
+        "CREATE": 1,
+        "INSERT": 1,
+        "DELETE": 1,
+        "TRUNCATE": 1,
+        "DROP": 1
+      },
+      "probe_used_only_transactional_temporary_table": true,
+      "business_rows_modified": false,
+      "raw_sql_saved": false,
+      "postmaster_pid": 1277087
+    },
+    "local_sql_canary": {
+      "scope": "local-development",
+      "trace_counts": {
+        "CREATE": 1,
+        "INSERT": 1,
+        "DELETE": 1,
+        "TRUNCATE": 1,
+        "DROP": 1
+      },
+      "probe_used_only_transactional_temporary_table": true,
+      "business_rows_modified": false,
+      "raw_sql_saved": false,
+      "postmaster_pid": 6897
+    },
+    "real_ssh_s3_custody": {
+      "recorded_at": 1793373230.723841,
+      "real_ssh_and_minio": true,
+      "inventory_files": 110,
+      "canary_bytes": 79,
+      "corrupt_archive_blocked": true,
+      "invalid_receipt_blocked": true,
+      "original_retained_after_failures": true,
+      "fresh_object_and_manifest_readback": true,
+      "source_deleted_after_verification": true,
+      "archived_version_still_readable_after_source_delete": true,
+      "anonymous_object_get_http": 403,
+      "only_agent_owned_canary_deleted_in_this_probe": true,
+      "runtime_never_deletes_s3_objects": true
+    },
+    "real_s3_closed_endpoint": {
+      "real_closed_endpoint_test": true,
+      "status": "failed",
+      "source_deletes": 0,
+      "failure_reason": "EndpointConnectionError",
+      "archive_started": 0
+    },
+    "latest_completed_scheduled_run": {
+      "started_at": 1793374647.266997,
+      "status": "ok",
+      "uploaded_files": 18,
+      "uploaded_bytes": 131604641,
+      "verified_files": 18,
+      "source_deleted": 0,
+      "source_retained": 0,
+      "source_commit_unconfirmed": 0,
+      "failed_files": 0,
+      "deferred_files": 0,
+      "offsite_objects_deleted": 0,
+      "failure_reasons": {},
+      "finished_at": 1793374763.486259
+    },
+    "independent_supervisor": {
+      "started_at": 1793374642.3247502,
+      "supervisor_pid": 6313,
+      "child_pid": 6368,
+      "timeout_seconds": 285,
+      "elapsed_seconds": 123.164,
+      "timed_out": false,
+      "child_exit": 0,
+      "child_stderr_bytes": 0,
+      "finished_at": 1793374765.488836
+    },
+    "coverage_snapshot": {
+      "closed_files_now": 110,
+      "covered_by_receiver_index_now": 110,
+      "indexed_snapshots": 110,
+      "indexed_bytes": 973021836,
+      "eligible_for_verified_reclamation_now": 1,
+      "newly_closed_files_can_arrive_between_inventory_and_run": true
+    },
+    "production_host": {
+      "pids": {
+        "postgresql@16-main.service": 1277087,
+        "powerx-backend.service": 1292693,
+        "powerx-dev-backend.service": 1381539
+      },
+      "health": {
+        "8080": 200,
+        "8081": 200
+      },
+      "source_hashes": {
+        "guard.py": "c991f4abda7500c4eca8fd9d1036a3c8241cb425bb451a5b111a24b355b050aa",
+        "audit_custody.py": "b253145e3fad5b54f20e9d456b29bc52cc43c14e7876243300cccd765f7b7005",
+        "test_guard.py": "32bf27f876cbf31ef0f60d7da0962c2c69713918d9fc0fa6290b090f16e1a19f",
+        "test_audit_custody.py": "af253ed7bf7f399b77402dc31ad89c925db82ac85e86e9bc6baa15ae624c684c",
+        "postgresql-common.logrotate": "03ce7e6c8316ce85b2935e632507598f31f582065bce2d686a97590c78a5b747"
+      },
+      "postgres": {
+        "log_statement": "mod",
+        "logging_collector": "off",
+        "collector_pending_restart": true,
+        "unexpected_configuration_errors": 0
+      },
+      "rotation_rule_matches": true,
+      "guard_timer_enabled": "enabled",
+      "guard_timer_active": "active",
+      "sql_probe": {
+        "scope": "production",
+        "trace_counts": {
+          "CREATE": 1,
+          "INSERT": 1,
+          "DELETE": 1,
+          "TRUNCATE": 1,
+          "DROP": 1
+        },
+        "probe_used_only_transactional_temporary_table": true,
+        "business_rows_modified": false,
+        "raw_sql_saved": false,
+        "postmaster_pid": 1277087
+      },
+      "receiver_config_mode": "0o600"
+    }
+  },
+  "persistent_service": {
+    "label": "com.powerx.audit-archive",
+    "domain": "gui/501",
+    "plist": "/Users/michaelhu/Library/LaunchAgents/com.powerx.audit-archive.plist",
+    "command": [
+      "/opt/anaconda3/bin/python",
+      "/Users/michaelhu/PowerX-ops-backups/47.116.10.200/audit-archive/run_receiver.py",
+      "--config",
+      "/Users/michaelhu/PowerX-ops-backups/47.116.10.200/audit-archive/receiver.json"
+    ],
+    "cwd": "/Users/michaelhu/PowerX-ops-backups/47.116.10.200/audit-archive",
+    "trigger_seconds": 300,
+    "installed_at": 1793373615.960466,
+    "purpose": "temporary audit custody until production governance replaces it",
+    "persistent_service_authorized_by_guard_request": true,
+    "not_a_temporary_debug_server": true,
+    "supervisor_timeout_seconds": 285,
+    "owned_previous_worker_pid": null,
+    "supervisor_installed_at": 1793374243.3541849,
+    "supervisor_last_pid": 6313,
+    "worker_last_pid": 6368
+  },
+  "pending_activation": {
+    "local_postgresql": {
+      "pid_unchanged": 6897,
+      "version": 14,
+      "log_statement_active": "mod",
+      "logging_collector": "off",
+      "pending_restart": true,
+      "command": "brew services restart postgresql@14"
+    },
+    "production_postgresql": {
+      "pid_unchanged": 1277087,
+      "version": 16,
+      "log_statement_active": "mod",
+      "logging_collector": "off",
+      "pending_restart": true,
+      "command": "systemctl restart postgresql@16-main.service"
+    },
+    "copytruncate_window_closed": false,
+    "restart_permission_needed_from": "AGENTS.md process management",
+    "new_powerx_production_deployed": false
+  },
+  "boundaries": [
+    "Current S3 target is the user Mac localhost MinIO, not always-online cloud storage and not offsite protection for Mac-local PostgreSQL.",
+    "No SQL/business rows, pending events, database WAL, backups or snapshots were removed. Only transactional temporary tables exercised SQL audit.",
+    "The real deletion probe used only an agent-owned over-age audit canary; deliberately corrupt canary S3 version cleanup was fixture-only. Runtime never deletes S3 objects or versions.",
+    "Statement logs capture attempts and database identity; they do not prove transaction commit, preserve full deleted rows, or infer absent business-actor fields.",
+    "Current active log segments are not sealed-file archives; old production Core native retention is not fully handed over until a suitable version is deployed.",
+    "Mac sleep or receiver failure keeps originals; archive blockage/capacity is surfaced in state/logs, not an external notification integration."
+  ],
+  "cleanup": {
+    "temporary_debug_servers_started": false,
+    "temporary_unit_children_reaped": true,
+    "validation_binary_removed": true,
+    "persistent_audit_job_intentionally_retained": true,
+    "private_secrets_or_raw_sql_in_evidence": false
+  },
+  "source_sha256": {
+    "backend/internal/bootstrap/app.go": "e7de5f33741837b9340ea1e59aaa5d09726c1a68c33234026e84abcc9af0ce67",
+    "backend/internal/bootstrap/storage_runtime.go": "a05d906bd049324fb4b70d2de6ca63c67e8609604c7fe4da4ea0882ee99612d1",
+    "backend/internal/infra/storage_lifecycle/engine.go": "4eb81f5c9ea51c7dc24b6c7b114e39f410a0f27cf4a982d8806a440d2af32cf0",
+    "backend/internal/infra/storage_lifecycle/engine_test.go": "03c8f86d840637fb2305920e1e579121b977d537e5cc6cf3b840f22079fdc368",
+    "backend/pkg/corex/audit/file_sink.go": "fcb57852440e3ae091316bfa27ce749a466596dd9861aa7d927133dc1a7ef63d",
+    "backend/pkg/corex/audit/file_sink_retention_test.go": "bf8ccbd4f03731c1cf5c4245b05df993f47ec7605ff339b501f091b4de473529",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-storage-audit-custody.md": "8d47a49c2ec6b69c372134bfc45d80c114e632567c058db52440081bb7df6bb3",
+    "scripts/ops/powerx-space-guard/README.md": "d5660d29eaf145a1e30ce677a3156163e98d973cdd4125a75cca031e1bac44d0",
+    "scripts/ops/powerx-space-guard/archive_s3.py": "8ab495ab98e889f873cb0b68463a427668b1310702d7aeae5c5510d3f70dc5de",
+    "scripts/ops/powerx-space-guard/audit_custody.py": "b253145e3fad5b54f20e9d456b29bc52cc43c14e7876243300cccd765f7b7005",
+    "scripts/ops/powerx-space-guard/guard.py": "c991f4abda7500c4eca8fd9d1036a3c8241cb425bb451a5b111a24b355b050aa",
+    "scripts/ops/powerx-space-guard/postgresql-audit.conf": "bdd923da12b6d055582f241a592908d03a32481aee660eac951236674454ec61",
+    "scripts/ops/powerx-space-guard/postgresql-common.logrotate": "03ce7e6c8316ce85b2935e632507598f31f582065bce2d686a97590c78a5b747",
+    "scripts/ops/powerx-space-guard/requirements-receiver.txt": "506e04645b8fce333e6a8bc6376a689a364c59d06e900741a8dd9025e6b06f37",
+    "scripts/ops/powerx-space-guard/run_receiver.py": "e347f226a11134bc6dd60178e02fc3278a0f5a80ee1c80981e2cac39aed44cbe",
+    "scripts/ops/powerx-space-guard/syslog.logrotate": "131d8f3c3a8fbfc6e91138911d7546f91f7d06d7a80e4e155bd1008ae82e0580",
+    "scripts/ops/powerx-space-guard/test_archive_s3.py": "a8ffb55b162572dfe4685b34e100d39da885b6a9168b6cea22a9dc6eda071fa8",
+    "scripts/ops/powerx-space-guard/test_audit_custody.py": "af253ed7bf7f399b77402dc31ad89c925db82ac85e86e9bc6baa15ae624c684c",
+    "scripts/ops/powerx-space-guard/test_guard.py": "32bf27f876cbf31ef0f60d7da0962c2c69713918d9fc0fa6290b090f16e1a19f",
+    "scripts/ops/powerx-space-guard/test_receiver_supervisor.py": "8fe0de35bc7b6e90f62738772e71d6312a53b793dbef2c6ab7a9826237433037",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml": "335a174babdf5f1d9dfbee31ff37cd9e5d7b06a3de33c9dacb8ca13de7b50ace"
+  }
+}

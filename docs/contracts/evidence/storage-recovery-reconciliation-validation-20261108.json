@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-08T12:19:45.334141+00:00",
+  "scope": "Core source and isolated PostgreSQL / formal TaskBus / native HTTP-SSE / Vue component validation. No daily instance adoption or production deployment.",
+  "branch": "024-ai-engineering-skills",
+  "plugin_regression": {
+    "status": "verified_existing_evidence",
+    "captured_at": "2026-11-08T06:06:44.752167182Z",
+    "evidence": "workspacex-storage-recovery-recheck-20261108.json",
+    "original_identity_unchanged": true,
+    "both_grants": "granted",
+    "sdk": "official Framework v0.0.28",
+    "readonly_lookup_found": false,
+    "customer_writes": 0,
+    "rerun_by_this_change": false
+  },
+  "implemented": [
+    "Atomic Root prepare_restore across fixed resource domains, immutable recovery provenance and TaskBus registration",
+    "Version rebase above DB history, local projection and per-item watermarks; paused execution flags; conservative shared budget",
+    "Source/audit/publication validation and active legacy inventory before separate acknowledgement",
+    "S3 sealed credentials require new epoch-specific submission and targets require fresh complete verification",
+    "Independent anchor v1-to-v2 upgrade preserves epoch and blocks older executors",
+    "Installation document isolation fixes both pre-existing shared host budget regressions",
+    "Root UI prepares and reconciles by SSE, preserves frozen requests, never revives historical enabled state"
+  ],
+  "validation": {
+    "backend_unique_latest_results": {
+      "pass": 364,
+      "skip": 22
+    },
+    "backend_test_count_includes_named_subtests": true,
+    "backend_race_enabled": true,
+    "logs": [
+      "backend-tests.jsonl",
+      "backend-final-tests.jsonl",
+      "concurrent-tests.jsonl",
+      "database-adapters-tests.jsonl",
+      "archive-final-tests.jsonl"
+    ],
+    "backend_skipped_tests": [
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+        "test": "TestVolumeRebindNativeReadOnlySource"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/archive_ops",
+        "test": "TestLiveS3Governance"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/archive_ops",
+        "test": "TestMediaDatabaseSnapshotNativePostgres"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops",
+        "test": "TestNativePostgresPortableRestoreAWithSourceAtB/manual"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops",
+        "test": "TestNativePostgresPortableRestoreAWithSourceAtB/scheduled"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+        "test": "TestCurrentRegisteredRestorePathAudit"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+        "test": "TestCurrentRegisteredSnapshotPreparationAudit"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+        "test": "TestCurrentRetainedBrowserFixture"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+        "test": "TestRecoveryNativeApplicationFromPortablePackage"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+        "test": "TestRecoveryPortalBrowserFixture"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+        "test": "TestRecoveryPreparedInstalledLocalClone"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/system_recovery",
+        "test": "TestRecoverySavedOwnedProfileBusinessChecks"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestDatabaseRetentionNativeAPIAndAdmission"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageNativeCleanupJournalFailureIsUnknownAndNeverReexecuted"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageNativeLogCleanupExpiryActorAndProductionArchiveGates"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageNativeLogCleanupPreviewExecuteReadbackAndIdempotence"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageNativeLogCleanupRechecksChangesOwnershipAndPolicy"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageNativePolicyCASAuditRollbackAndRoute"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageNativePostgresMetricsAndDeniedWAL"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageNativeSamplesBoundedIdempotentAndInstanceScoped"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestStorageSafetyNativePostgres"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+        "test": "TestSystemTableInventoryNativePostgresReadOnly"
+      }
+    ],
+    "frontend": {
+      "unique_tests_passed": 139,
+      "files": 21,
+      "full_run": "frontend-tests-full.log",
+      "latest_affected_run": "frontend-final-tests.log",
+      "real_browser_or_daily_instance_acceptance": false
+    },
+    "go_vet": "passed (vet.log and vet-final.log)",
+    "core_build": "passed (build.log; temporary binary removed after hash capture)",
+    "capability_check": "passed; contract catalog unchanged; no capability-seed or grant mutation",
+    "openapi_yaml_parse": "passed for execution-control and archive-credentials",
+    "failure_history": "Initial broader run exposed a stale HTTP expectation requiring confirmed during pending recovery; later validation exposed version-field distinction of ControlPublication. Both fixed and affected packages rerun successfully. Final unique results use latest run per test.",
+    "postgres": {
+      "log_statement": "mod",
+      "logging_collector": "on",
+      "leftover_owned_schemas": 0
+    }
+  },
+  "cleanup": {
+    "postgres": {
+      "pid": 99528,
+      "children": [
+        {
+          "pid": 99528,
+          "ppid": 1,
+          "command": "/opt/homebrew/Cellar/postgresql@14/14.15/bin/postgres -D /tmp/powerx-control-owned-reconcile-5ftjw3gw/data -h  -k /tmp/powerx-control-owned-reconcile-5ftjw3gw -p 55444 -c logging_collector=on -c log_statement=mod"
+        },
+        {
+          "pid": 99529,
+          "ppid": 99528,
+          "command": "postgres: logger"
+        },
+        {
+          "pid": 99531,
+          "ppid": 99528,
+          "command": "postgres: checkpointer"
+        },
+        {
+          "pid": 99532,
+          "ppid": 99528,
+          "command": "postgres: background writer"
+        },
+        {
+          "pid": 99533,
+          "ppid": 99528,
+          "command": "postgres: walwriter"
+        },
+        {
+          "pid": 99534,
+          "ppid": 99528,
+          "command": "postgres: autovacuum launcher"
+        },
+        {
+          "pid": 99535,
+          "ppid": 99528,
+          "command": "postgres: stats collector"
+        },
+        {
+          "pid": 99536,
+          "ppid": 99528,
+          "command": "postgres: logical replication launcher"
+        }
+      ],
+      "stop_output": "waiting for server to shut down.... done\nserver stopped",
+      "remaining_pids": [],
+      "socket_released": true,
+      "tcp_listener_never_opened": true
+    },
+    "test_http_servers": "httptest cleanup completed; package tests exited successfully",
+    "user_processes_stopped_or_restarted": false,
+    "build": {
+      "sha256": "b0e1f4b8578c021cdb4b6a61199986f60dc68f1f9301799fcc0d0538d16c39f5",
+      "size": 106797682,
+      "temporary_binary_removed": true
+    }
+  },
+  "not_performed": [
+    "Daily service restart, daily policy writes, production actions",
+    "Long-lived archive target acceptance or full backup/physical restore with business reconciliation",
+    "External script/timer/process ownership handoff",
+    "External KMS or SSH credential recovery proof",
+    "7-day continuous run and 14-day sample acceptance",
+    "Git branch change, staging or commit of the pre-existing dirty workspace"
+  ],
+  "remaining_limits": [
+    "SSH credential recovery has no governed epoch contract and stays blocked; migrate to governed S3 or implement the separate contract",
+    "Missing/corrupt independent proof or mismatched vault authority fails closed; no bypass by deleting metadata",
+    "Whole-disk/external restoration that rolls back the independent maintenance root remains outside this proof",
+    "Deployment and actual per-resource acceptance remain required"
+  ],
+  "review": {
+    "patch": "tmp/storage-reconcile-20261108/review.patch",
+    "baseline": "current working tree at start of this change, not repository HEAD",
+    "reconstructed_before_hunks": "tmp/storage-reconcile-20261108/reconstructed-before-hunks.json"
+  },
+  "source_sha256": {
+    "backend/internal/infra/archive_credentials/store.go": "d66730623d22cb8872c806fc9b854937c49ef695e76004d1c4731f4bb45476b8",
+    "backend/internal/infra/storage_budget/coordinator.go": "f94f173b8faa4bfd03143ab03863f5ae9f881f2fc7c94d78c5374df1d78031d2",
+    "backend/internal/infra/storage_budget/document_scope.go": "1b05bef2c96eaf82e1282bfbccbd5ddba29367a3f3b3d9a0f10cb37b094687e5",
+    "backend/internal/infra/storage_budget/document_scope_test.go": "2f3c5a109ad7e199fc29bb135f83184d2b9d3edf0cc7287064122257077c7f17",
+    "backend/internal/infra/storage_recovery/anchor.go": "11c97908cc45cb56e2cc59fbf82181c53e65e261b7e9864254d70679d3117d2c",
+    "backend/internal/infra/storage_recovery/upgrade_test.go": "c550f632f5e3ac3c5511ad425f64e20e4b7672717d8d0dfb9f563a0230925a94",
+    "backend/internal/service/archive_ops/credential_vault.go": "cd2b58572ac216ca1911a0aeb248d77e6ddfc8a1c6cfa7f91bfb242fce5a7a7f",
+    "backend/internal/service/archive_ops/recovery.go": "718946f6473c63ece2bdfbf7b76277a034057792823e4137ea86e5d2c3b386bf",
+    "backend/internal/service/archive_ops/recovery_test.go": "8b7733b0303bc624de6de3c18da21b91a4464933d719d1e3bc4e8a20c52ee7df",
+    "backend/internal/service/archive_ops/s3_target.go": "705e2f189ea26e2280abfcaccd71845526f5c7ba5d76a8775978017c2c4d2f54",
+    "backend/internal/service/archive_ops/service.go": "d7e44092ed21f0921fd50335cf48f43ab19a8210004d486bc6395aded7a02b34",
+    "backend/internal/service/storage_governance/archive_policy_control.go": "c689c6b0e243b8ba7bea51c172b3f60cb56d08b7c45d7c6a338805f38b0ec7aa",
+    "backend/internal/service/storage_governance/archive_target_control.go": "e066c503f822af69fa706b8e52e08f8aca26e275afaee202addd250ef94fa4b2",
+    "backend/internal/service/storage_governance/backup_policy_control.go": "fb25fe0cfe52ea1a989f0be65334809c27e1abac41159d7f63c95435470732cd",
+    "backend/internal/service/storage_governance/budget_control.go": "62fa86bb244cd04807536d76cd19fb8ac449e1602092b741ae66687b175b8c5c",
+    "backend/internal/service/storage_governance/control_service.go": "c340a1e44aa229011eb8c280766a391116b9f0f572e155fad0de759cef0cc3fe",
+    "backend/internal/service/storage_governance/database_retention_control.go": "b08a54cdbf02a32f3d9f979e0e4c30063c019b29250065b865c24fc5c175c662",
+    "backend/internal/service/storage_governance/execution_control.go": "f426ef2649ce293fb888324e775412d1af13ed3e89cfbca74cf9442be49d55fa",
+    "backend/internal/service/storage_governance/lifecycle_control.go": "19dab6e59e1954acf31962570b16bfebbd0de78c660e70fed2c3021cc4a47246",
+    "backend/internal/service/storage_governance/recovery_control.go": "0298791ee7e9df5768c2f1e0fa10f1ee2fbc85b3098e32732f366e16c7f2c894",
+    "backend/internal/service/storage_governance/recovery_control_postgres_test.go": "222181fdffa5ba0d48ed37e334f49e9157320e0b6e587b45947ea7d721ed07d6",
+    "backend/internal/service/storage_governance/recovery_reconcile.go": "23f2f2717e167607598a85684b109a1f2bc17082f8cd33c7da89e8deb3e69e4d",
+    "backend/internal/service/storage_governance/recovery_reconcile_postgres_test.go": "641f30cb3967b49aaf22834b33081d5af938f8ead83797d9c773d15116e1c117",
+    "backend/internal/service/storage_governance/service.go": "1d4eb868f3a1a6031c5e5bcce67f13b66faa52a8ab3749eec2798d070f0eb303",
+    "backend/internal/service/storage_governance/snapshot_policy_control.go": "bbdb977e68041d6d4b884551e583ba08901874f4ca1dbe4161fb5708988d99e6",
+    "backend/internal/service/storage_governance/system_table_retention_control.go": "65148e2798306019a1653582ddd47c4689deb84a6ad022ce6f8ba7775216bba8",
+    "backend/internal/service/storage_governance/table_monitoring_control.go": "3916876e7eff72b288ee4f94a4dbd2a08f8bff5373952df181563bbac5b804dc",
+    "backend/internal/service/system_recovery/current_storage.go": "d3215def70fedb1c76e32c029a1c92b99914be515febfe6aa522a23dfbc0163d",
+    "backend/internal/transport/http/admin/storage/execution_control_postgres_test.go": "a87a60502bb54250ac475eebb807d5439ba9899b9fb10053a25a2ca88f7b772e",
+    "backend/pkg/corex/db/persistence/repository/storage_governance/control_repo.go": "e446d1c0697365d2d085ef1942a7faee0069a80fb21d07081b36f9e56e9ee2f1",
+    "docs/contracts/archive-credential-vault.md": "ddc0f03bc226e6d775bb0ef57eb45dad7cd2511eddfc7934c7b837e00005aed7",
+    "docs/contracts/evidence/workspacex-storage-recovery-recheck-20261108.json": "280b384cc45ae0654f405bee0cf17341ec50097c172b7f560d852bbeac3db445",
+    "docs/contracts/storage-execution-control.md": "a7d139e9313a9c56ba1a1d73168506d37e4f1c5507b913e2bfa20044790dc160",
+    "docs/contracts/storage-host-budget-control.md": "28d3a1442c395cd5870a2562d72c0129906ba8511e4873dcb8f8bb279359676e",
+    "docs/plan/deploy/storage-governance-tasks.md": "09a7a9107b1172033700947d34bc14019888524724b2c6f13260bf44f5f139d9",
+    "specs/027-monitor-center/contracts/archive-credentials.openapi.yaml": "719363ad768930dbe93af6a72014f7e7b5991cf6462746c47a2dbd7524fa4292",
+    "specs/027-monitor-center/contracts/execution-control.openapi.yaml": "af0644629c5bf6d8f8e7af45a93ccda5731466f3327afe40a3c35c81e2f88f5c",
+    "specs/027-monitor-center/tasks.md": "a05576dbc4f365cf19a7a47007c0f25b72cb0f5f1219265388d927274a6317e9",
+    "web-admin/app/components/monitor/storage/StorageExecutionControl.vue": "494345f6cc1ea13f981165989dc368e06f6274736ebfcadc95e83d89b07bcc70",
+    "web-admin/app/components/ops/backup/ArchiveCredentialManager.vue": "dbfd88d6257b9c93e21ae0e1ef9e9774cb477f854fc873370add2d3a02480902",
+    "web-admin/app/composables/api/services/archiveOpsService.ts": "0221fffee9a58632e5e2291312a0eb5b36caae168d7c9d4489d2716c1ca98a3a",
+    "web-admin/app/composables/api/services/storageExecutionService.ts": "642f777c58893bea0a79d206a04a5de1872acaf5a4220a4b0b502004ddcde74f",
+    "web-admin/i18n/locales/en.json": "b6969584d99190d9e0c44c0d63b152409a83159fdfb0da9752349318d861038d",
+    "web-admin/i18n/locales/ja.json": "82546243f524578e6992f470b73d7d4ab86672a1304e7744da7a0eba536c39d3",
+    "web-admin/i18n/locales/ko.json": "f1517ca8dfc06aa75aa06f1caeeab66cd55b70e29e4bead031772c7511f76722",
+    "web-admin/i18n/locales/zh.json": "cbcc5e6e1946d755c92732d3f1be0e9ed839effc43d966e75f798b2e6c1cb8b9",
+    "web-admin/tests/unit/storage/archive-credentials.spec.ts": "36111fb99ff31cb8f46142442cde27dc901e0b8be9e8eef3c9900cdbd615c558",
+    "web-admin/tests/unit/storage/execution-control.spec.ts": "daa94673858ad8bca51d002d11d27125e9dffaf919ce5fcbd916e31900cefe6c"
+  }
+}

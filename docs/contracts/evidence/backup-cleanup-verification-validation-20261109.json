@@ -1,0 +1,129 @@
+{
+  "date": "2026-11-09",
+  "task": "T172 request-scoped backup integrity diagnostic",
+  "status": "source_and_isolated_acceptance_passed",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "scope": {
+    "daily_core_restarted": false,
+    "daily_database_migrated": false,
+    "production_mutated": false,
+    "business_data_deleted": false,
+    "cleanup_intents_cleared": false,
+    "capability_grants_expanded": false,
+    "new_schema_or_admission_dependency": false,
+    "queue_or_detached_worker_created": false,
+    "verification_is_persistent_proof": false,
+    "diagnostic_enables_deletion": false,
+    "ownership_transferred": false,
+    "browser": "Actual Nuxt frontend; backup APIs and shared/verification SSE routed only to owned HTTP/PG fixture. Existing daily authentication used for authorized Root login, unrelated mutations blocked."
+  },
+  "contract": {
+    "entry": "Root backup center / database backups / cleanup reviews / file metadata or integrity check",
+    "endpoint": "GET configured API prefix + /admin/ops/backup/cleanup-reviews/{artifact_id}/verification?expected_token=...",
+    "stream": "explicit one-shot progress/complete, no retry/reconnect on EOF or error",
+    "bounds": "five-minute request-scoped compute; registered dump size; 64-KiB sidecars; three-second DB read, lock acquisition and release; JWT expiry and cancellation",
+    "protection": "existing policy advisory lock; full file-descriptor paths; exact artifact/token; files and database compared before/after; no marker mutation",
+    "root_only": true
+  },
+  "native": {
+    "result": "passed",
+    "log": "backup-cleanup-verification-20261109/native-final.log",
+    "command": "go test -race ./internal/service/backup_ops ./internal/transport/http/admin/backup -run ^TestCleanup(Review|Verification) -count=1 -v -timeout=90s",
+    "database": "owned PostgreSQL14 Unix socket storage_control_test, fresh schema with central migrations; removed after tests",
+    "file_scope": "Real reads of controlled byte fixtures and matching v1 sidecars; this turn does not claim pg_dump/pg_restore or business restoration. Earlier real backup acceptance is separately versioned evidence.",
+    "checks": [
+      "Full hash and both sidecars match; progress never claims verified",
+      "Same-size corruption and mismatched manifest/checksum do not succeed",
+      "Absent sidecar can match dump but cannot verify the full artifact",
+      "Symlink at any component, hardlink, FIFO and outside-root paths rejected",
+      "Atomic replacement, unlink and growth prevent a success report",
+      "Request cancellation and failed writer stop reading; subsequent read can reacquire policy lock",
+      "Single-connection pool fails quickly without a read or self-lock; other admission paths unchanged",
+      "Busy policy and stale token rejected; concurrent metadata change invalidates terminal result",
+      "Root native JWT/HTTP succeeds; ordinary user, API key and service actors rejected",
+      "Undefined control column returns typed redacted 503 before SSE",
+      "Original dump bytes and unknown cleanup markers are preserved"
+    ]
+  },
+  "regression": {
+    "frontend": "16 test files / 124 tests passed",
+    "backend": "affected backup/service, transport, storage-governance and repository packages passed race regression; final backup service/transport race passed after lock changes",
+    "vet": "backup service/transport passed",
+    "capability_check": "passed, declared=1242 referenced=83 rest_routes=1175 candidates=1257 ignored_route_rules=130; no published grants changed",
+    "contract_and_locales": "OpenAPI and all locale JSON parsed; related git diff --check passed"
+  },
+  "browser": {
+    "result": "passed",
+    "checks": [
+      "unknown cleanup is discoverable outside its section",
+      "no idle review requests",
+      "shared SSE refreshes list, preserves frozen detail and marks stale",
+      "unchanged shared SSE synchronization preserves a pending explicit verification stream",
+      "light 1440 navigation, retained state, actions, no overflow",
+      "light 390 navigation, retained state, actions, no overflow",
+      "dark 1440 navigation, retained state, actions, no overflow",
+      "dark 390 navigation, retained state, actions, no overflow",
+      "truncated check produces no success and does not reconnect or retry",
+      "read failure remains discoverable and retains rows"
+    ],
+    "page_errors": [],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "viewports": [
+      1440,
+      390
+    ],
+    "layout": "Only current diagnostic section displayed; desktop vertical navigation and narrow selector; section switches retain result and in-progress state",
+    "faults": "A real native terminal frame was delayed by the owned proxy to verify an unrelated unchanged shared SSE synchronization does not cancel the explicit read. A separate truncated-stream fixture produces no success and no automatic retry. These injections are identified as controlled browser fixtures.",
+    "idle_scope": "2.2-second real no-review-polling observation, 60-second fake timer unit check; not a long-duration deployment claim",
+    "screenshots": [
+      "backup-cleanup-verification-20261109/dark-1440-detail.png",
+      "backup-cleanup-verification-20261109/dark-390-detail.png",
+      "backup-cleanup-verification-20261109/light-1440-detail.png",
+      "backup-cleanup-verification-20261109/light-390-detail.png"
+    ]
+  },
+  "cleanup": {
+    "result": "passed",
+    "record": "backup-cleanup-verification-20261109/process-cleanup.json",
+    "tracked_owned_processes_exited": 9,
+    "loopback_listeners_released": 4,
+    "private_test_token_removed": true,
+    "owned_postgres_data_removed": true,
+    "user_core_pid_unchanged": 3164,
+    "user_nuxt_pid_unchanged": 34360
+  },
+  "remaining": [
+    "No automatic hashing/reconciliation, durable execution proof or cleanup unlock is implemented",
+    "Manual confirmation to retain needs its own UUID/CAS/audit/persistent receipt and server-side revalidation contract",
+    "T155 long-lived private S3/OSS target acceptance still requires UI target and server credential reference",
+    "Actual executor handoff/resource adoption, whole-system business restore, external key custody, dual-environment 7-day/14-day evidence and release remain incomplete"
+  ],
+  "next_development": {
+    "task": "T172 explicit confirmation to retain",
+    "prerequisite": "Freeze persistent UUID/CAS/audit/receipt and executor exclusion contract; use isolated fixtures, preserve user/production resources",
+    "done_when": "Server revalidates content and exact intent; concurrent/stale/active-operation attempts cannot unlock incorrectly; lost responses reconcile the same UUID without redoing deletion. No browser verified flag is accepted as authority."
+  },
+  "next_field_acceptance": {
+    "task": "T155 long-lived target acceptance",
+    "prerequisite": "UI-configured private S3/OSS endpoint/bucket/region and server credential reference",
+    "done_when": "Independent-prefix archive/full verification/source removal/exact retrieval pass; clean only owned test objects before proceeding to executor handoff"
+  },
+  "source_sha256": {
+    "backend/internal/service/backup_ops/cleanup_verification.go": "84e8a1968e4c2084347bf6e56bc2a2b33104b99e7672d7aa79db4d04d62a7ea7",
+    "backend/internal/service/backup_ops/cleanup_review.go": "4397e768b56c7c4d5223f0fe05c1e2d2dc05b61c57571943db46696bc2d42f3a",
+    "backend/internal/service/backup_ops/policy_lock.go": "4a22405966e8ff14c12401c9b45c62aaf754be360059b34076f1277c852a74a6",
+    "backend/internal/service/backup_ops/cleanup_verification_test.go": "777161cd68b86790e5dddd023b377ad154b88f4d2e7bb752973ddeadf0b544df",
+    "backend/internal/service/backup_ops/cleanup_verification_postgres_test.go": "9cd1ece333d010f5dce3e56b7a537ff812e1b943ac02318966368412a952be27",
+    "backend/internal/transport/http/admin/backup/cleanup_review_handler.go": "02a8b4020769ea376f395e6038f7a05df870811caa264b15be5f90dc7768c741",
+    "backend/internal/transport/http/admin/backup/cleanup_review_postgres_test.go": "1913e6a77a3c644f3320fb8847699eb851e4aba7af733e3abc6f04b5ce29ed62",
+    "backend/internal/transport/http/admin/backup/cleanup_verification_test.go": "1e488a0ead46796ea8406c7166576a5d0ab500f25e3a26afb139c336cec6b6c3",
+    "web-admin/app/components/ops/backup/BackupCleanupReviews.vue": "08243408a6726e1f481aae5c833ccff86a8f0cc846843c8b9aff2c36c8033c0c",
+    "web-admin/app/composables/api/services/backupCleanupReviewService.ts": "9ccac12a52c4ad5cf09976fd4ef3ba6749ad049b225813c41e3c7ed44a676f47",
+    "web-admin/tests/unit/backup/cleanup-verification.spec.ts": "214d31ecb3670a2ee9cdab3b53f442e7cfcc1de9b9fe2345bf5d636e2e900f02",
+    "web-admin/tests/unit/backup/cleanup-review.spec.ts": "e9531d74e5ce67f7559fb027402e3e386b8e64e4d26376959788cef5f7baf38e"
+  }
+}

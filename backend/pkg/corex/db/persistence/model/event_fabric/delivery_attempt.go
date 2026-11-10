@@ -12,10 +12,12 @@ import (
 type DeliveryAttempt struct {
 	coremodel.PowerUUIDModel
 
-	TenantKey     string     `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_delivery_attempts_tenant_key;uniqueIndex:uk_event_delivery_attempt,priority:1" json:"tenant_key"`
-	EnvelopeUUID  uuid.UUID  `gorm:"column:envelope_uuid;type:uuid;not null;index:idx_event_delivery_attempts_envelope" json:"envelope_uuid"`
-	EventID       string     `gorm:"column:event_id;type:varchar(128);not null;index:idx_event_delivery_attempts_event;uniqueIndex:uk_event_delivery_attempt,priority:2" json:"event_id"`
-	SubscriberID  string     `gorm:"column:subscriber_id;type:varchar(128);not null;index:idx_event_delivery_attempts_subscriber;uniqueIndex:uk_event_delivery_attempt,priority:3" json:"subscriber_id"`
+	TenantKey    string    `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_delivery_attempts_tenant_key;uniqueIndex:uk_event_delivery_attempt,priority:1" json:"tenant_key"`
+	EnvelopeUUID uuid.UUID `gorm:"column:envelope_uuid;type:uuid;not null;index:idx_event_delivery_attempts_envelope" json:"envelope_uuid"`
+	EventID      string    `gorm:"column:event_id;type:varchar(128);not null;index:idx_event_delivery_attempts_event;uniqueIndex:uk_event_delivery_attempt,priority:2" json:"event_id"`
+	SubscriberID string    `gorm:"column:subscriber_id;type:varchar(128);not null;index:idx_event_delivery_attempts_subscriber;uniqueIndex:uk_event_delivery_attempt,priority:3" json:"subscriber_id"`
+	// ClaimedBy 保存实际领取主体的 SHA-256，不允许同 owner 的另一凭据确认回执。
+	ClaimedBy     string     `gorm:"column:claimed_by;type:varchar(64);not null;default:''" json:"-"`
 	DeliveryNo    int        `gorm:"column:delivery_no;type:int;not null;default:1;uniqueIndex:uk_event_delivery_attempt,priority:4" json:"delivery_no"`
 	Status        string     `gorm:"column:status;type:varchar(32);not null;default:'pending';index:idx_event_delivery_attempts_status" json:"status"`
 	LatencyMs     int        `gorm:"column:latency_ms;type:int;not null;default:0" json:"latency_ms"`

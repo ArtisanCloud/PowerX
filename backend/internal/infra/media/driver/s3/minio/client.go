@@ -55,8 +55,8 @@ type UploadInfo struct {
 	VersionID string
 }
 
-// GetObjectOptions 为下载对象提供扩展字段（暂为空）。
-type GetObjectOptions struct{}
+// GetObjectOptions 固定读取的对象版本，避免归档读取被最新版本替换。
+type GetObjectOptions struct{ VersionID string }
 
 // RemoveObjectOptions 定义删除对象时的附加参数。
 type RemoveObjectOptions struct {
@@ -67,6 +67,7 @@ type RemoveObjectOptions struct {
 
 // ObjectInfo 描述对象元信息。
 type ObjectInfo struct {
+	VersionID    string
 	Size         int64
 	ContentType  string
 	LastModified time.Time
@@ -193,7 +194,7 @@ func (c *Client) PutObject(ctx context.Context, bucket, object string, reader io
 	if resp.StatusCode == http.StatusPreconditionFailed {
 		return UploadInfo{}, &ErrorResponse{StatusCode: resp.StatusCode, Code: "PreconditionFailed", Message: "object already exists"}
 	}
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return UploadInfo{}, c.parseError(resp)
 	}
 
@@ -208,10 +209,15 @@ func (c *Client) PutObject(ctx context.Context, bucket, object string, reader io
 }
 
 // GetObject 下载对象。
-func (c *Client) GetObject(ctx context.Context, bucket, object string, _ GetObjectOptions) (*Object, error) {
+func (c *Client) GetObject(ctx context.Context, bucket, object string, opts GetObjectOptions) (*Object, error) {
 	urlObj, canonicalPath, err := c.buildObjectURL(bucket, object)
 	if err != nil {
 		return nil, err
+	}
+	if opts.VersionID != "" {
+		query := urlObj.Query()
+		query.Set("versionId", opts.VersionID)
+		urlObj.RawQuery = query.Encode()
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlObj.String(), nil)
 	if err != nil {
@@ -224,12 +230,12 @@ func (c *Client) GetObject(ctx context.Context, bucket, object string, _ GetObje
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		defer resp.Body.Close()
 		return nil, c.parseError(resp)
 	}
 
-	info := ObjectInfo{}
+	info := ObjectInfo{VersionID: resp.Header.Get("x-amz-version-id")}
 	if cl := resp.Header.Get("Content-Length"); cl != "" {
 		if n, convErr := parseInt64(cl); convErr == nil {
 			info.Size = n
@@ -279,7 +285,7 @@ func (c *Client) RemoveObject(ctx context.Context, bucket, object string, opts R
 	if resp.StatusCode == http.StatusNotFound {
 		return &ErrorResponse{StatusCode: resp.StatusCode, Code: "NotFound", Message: "object not found"}
 	}
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return c.parseError(resp)
 	}
 	return nil
@@ -331,7 +337,7 @@ func (c *Client) BucketExists(ctx context.Context, bucket string) (bool, error) 
 	if resp.StatusCode == http.StatusNotFound {
 		return false, nil
 	}
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return false, c.parseError(resp)
 	}
 	return true, nil

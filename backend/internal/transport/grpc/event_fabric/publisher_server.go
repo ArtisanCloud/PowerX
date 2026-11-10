@@ -3,12 +3,12 @@ package eventfabric
 import (
 	"context"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"strings"
-	"time"
 
-eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
+	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
+	servicechannel "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/service_channel"
 	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -17,13 +17,19 @@ eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabri
 )
 
 // EventDeliveryServer 提供 Publish/Ack/Nack gRPC 能力。
+type ServiceChannel interface {
+	Publish(context.Context, servicechannel.Request) (map[string]any, error)
+	Settle(context.Context, servicechannel.Request) (map[string]any, error)
+	Stream(context.Context, servicechannel.Request, func(string, any) error) error
+}
+
 type EventDeliveryServer struct {
 	eventfabricv1.UnimplementedEventDeliveryServiceServer
-	delivery delivery.Service
+	delivery ServiceChannel
 }
 
 // NewEventDeliveryServer 构建 gRPC 服务实例。
-func NewEventDeliveryServer(svc delivery.Service) *EventDeliveryServer {
+func NewEventDeliveryServer(svc ServiceChannel) *EventDeliveryServer {
 	return &EventDeliveryServer{delivery: svc}
 }
 
@@ -32,36 +38,9 @@ func (s *EventDeliveryServer) PublishEvent(ctx context.Context, req *eventfabric
 		return nil, status.Error(codes.FailedPrecondition, "event delivery service unavailable")
 	}
 
-	tenant, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
-	if err != nil {
-		return nil, err
-	}
-	topic := strings.TrimSpace(req.GetTopic())
-	if topic == "" {
-		return nil, status.Error(codes.InvalidArgument, "topic is required")
-	}
-
-	attributes := make(map[string]string, len(req.GetAttributes()))
-	for k, v := range req.GetAttributes() {
-		if key := strings.TrimSpace(k); key != "" {
-			attributes[key] = v
-		}
-	}
-	if _, ok := attributes["principal_id"]; !ok {
-		// 默认使用 gRPC metadata 中的主体也可，但此处保持空值由服务内部审计处理。
-		attributes["principal_id"] = ""
-	}
-
-	err = s.delivery.Publish(ctx, delivery.PublishRequest{
-		TenantUUID:     tenant,
-		Topic:          topic,
-		EventID:        strings.TrimSpace(req.GetEventId()),
-		TraceID:        strings.TrimSpace(req.GetTraceId()),
-		Version:        strings.TrimSpace(req.GetVersion()),
-		Payload:        req.GetPayload(),
-		PayloadFormat:  strings.TrimSpace(req.GetPayloadFormat()),
-		IdempotencyKey: strings.TrimSpace(req.GetIdempotencyKey()),
-		Attributes:     attributes,
+	_, err := s.delivery.Publish(ctx, servicechannel.Request{
+		ContractVersion: req.GetContractVersion(), Operation: "publish", TenantUUID: req.GetTenantUuid(), PluginID: req.GetPluginId(),
+		Event: &servicechannel.Event{EventID: req.GetEventId(), Topic: req.GetTopic(), Version: req.GetVersion(), Payload: req.GetPayload(), IdempotencyKey: req.GetIdempotencyKey(), TraceID: req.GetTraceId(), Attributes: req.GetAttributes()},
 	})
 	if err != nil {
 		return nil, convertDeliveryError(err)
@@ -77,7 +56,7 @@ func (s *EventDeliveryServer) AckDelivery(ctx context.Context, req *eventfabricv
 		return nil, status.Error(codes.InvalidArgument, "delivery_id is required")
 	}
 
-	if err := s.delivery.Ack(ctx, strings.TrimSpace(req.GetDeliveryId()), strings.TrimSpace(req.GetSubscriberId())); err != nil {
+	if _, err := s.delivery.Settle(ctx, servicechannel.Request{ContractVersion: req.GetContractVersion(), Operation: "ack", TenantUUID: req.GetTenantUuid(), PluginID: req.GetPluginId(), SubscriberID: req.GetSubscriberId(), DeliveryID: req.GetDeliveryId()}); err != nil {
 		return nil, convertDeliveryError(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -91,23 +70,34 @@ func (s *EventDeliveryServer) NackDelivery(ctx context.Context, req *eventfabric
 		return nil, status.Error(codes.InvalidArgument, "delivery_id is required")
 	}
 
-	plan, err := s.delivery.Nack(ctx, strings.TrimSpace(req.GetDeliveryId()), strings.TrimSpace(req.GetSubscriberId()), strings.TrimSpace(req.GetReason()))
+	result, err := s.delivery.Settle(ctx, servicechannel.Request{ContractVersion: req.GetContractVersion(), Operation: "nack", TenantUUID: req.GetTenantUuid(), PluginID: req.GetPluginId(), SubscriberID: req.GetSubscriberId(), DeliveryID: req.GetDeliveryId(), Reason: req.GetReason()})
 	if err != nil {
 		return nil, convertDeliveryError(err)
 	}
-
-	seconds := int32(plan.NextDelay / time.Second)
-	if seconds < 0 {
-		seconds = 0
-	}
-	return &eventfabricv1.NackDeliveryResponse{
-		RemainingAttempts: plan.RemainingAttempts,
-		NextDelaySeconds:  seconds,
-		Strategy:          plan.Strategy,
-	}, nil
+	return &eventfabricv1.NackDeliveryResponse{Strategy: result["outcome"].(string), RemainingAttempts: int32(result["remaining_attempts"].(int)), NextDelaySeconds: int32(result["next_delay_seconds"].(int))}, nil
 }
 
 func convertDeliveryError(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return status.Error(codes.Canceled, "EVENT_FABRIC_CANCELLED")
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return status.Error(codes.DeadlineExceeded, "EVENT_FABRIC_DEADLINE_EXCEEDED")
+	}
+	if code := dto.CodeOf(err); code != "" {
+		mapped := codes.Unavailable
+		switch dto.StatusCode(err) {
+		case 400:
+			mapped = codes.InvalidArgument
+		case 401:
+			mapped = codes.Unauthenticated
+		case 403:
+			mapped = codes.PermissionDenied
+		case 409:
+			mapped = codes.FailedPrecondition
+		}
+		return status.Error(mapped, code)
+	}
 	switch {
 	case errors.Is(err, sharedsvc.ErrTenantMismatch):
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -128,6 +118,6 @@ func RegisterEventDeliveryServer(deps *shared.Deps) Registrar {
 		if deps == nil || deps.EventFabric == nil || deps.EventFabric.Delivery == nil {
 			return
 		}
-		eventfabricv1.RegisterEventDeliveryServiceServer(server, NewEventDeliveryServer(deps.EventFabric.Delivery))
+		eventfabricv1.RegisterEventDeliveryServiceServer(server, NewEventDeliveryServer(servicechannel.NewService(deps.DB, deps.EventFabric.Audit)))
 	}
 }

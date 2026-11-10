@@ -366,12 +366,18 @@ func TestCleanupExistingBackups(t *testing.T) {
 	isNil(err, t)
 	equals(len(b2), n, t)
 
-	// we need to wait a little bit since the files get deleted on a different
-	// goroutine.
-	<-time.After(time.Millisecond * 10)
-
 	// now we should have 3 files - the primary, one backup, and one compressed backup
 	// (the compressed and uncompressed versions both exist, counting as 2 backup files)
+	// Wait for the actual asynchronous result; a fixed 10ms delay flakes when
+	// directory-lock acquisition competes with the rest of the test suite.
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		files, err := ioutil.ReadDir(dir)
+		if err == nil && len(files) == 3 {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 	fileCount(dir, 3, t)
 }
 

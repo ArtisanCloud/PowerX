@@ -1,0 +1,116 @@
+openapi: 3.0.3
+info: {title: Plugin Authorization and Trusted Service Invocation, version: 1.0.0}
+paths: {}
+components:
+  schemas:
+    AuthorizationOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, request]
+      properties:
+        operation: {type: string, enum: [check]}
+        request:
+          type: object
+          additionalProperties: false
+          required: [member_uuid, user_uuid]
+          oneOf:
+            - required: [plugin_id, permission_code]
+            - required: [resource, action]
+              not: {anyOf: [{required: [plugin_id]}, {required: [permission_code]}]}
+          properties:
+            member_uuid: {type: string, format: uuid}
+            user_uuid: {type: string, format: uuid}
+            plugin_id: {type: string, minLength: 1}
+            permission_code: {type: string, minLength: 1}
+            resource: {type: string}
+            action: {type: string}
+    ServiceInvocationOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, request]
+      properties:
+        operation: {type: string, enum: [resolve_service_invocation]}
+        request: {$ref: '#/components/schemas/ServiceInvocationQuery'}
+    ServiceInvocationQuery:
+      type: object
+      additionalProperties: false
+      required: [schema, invocation_ticket, capability_id, capability_version, method, path, body_sha256]
+      properties:
+        schema: {type: string, enum: [powerx.iam.service-invocation-query/v1]}
+        invocation_ticket: {type: string, pattern: '^pxsvc_v1_[A-Za-z0-9_-]{43}$', writeOnly: true}
+        capability_id: {type: string, minLength: 1}
+        capability_version: {type: string, minLength: 1}
+        method: {type: string, enum: [POST, GET, PUT, PATCH, DELETE]}
+        path: {type: string, description: 'Actual full plugin API path, without query string.'}
+        body_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+    ServiceInvocationIdentity:
+      type: object
+      additionalProperties: false
+      required: [schema, actor_type, tenant_uuid, caller_subject, target_plugin_id, capability_id, capability_version, provider_version, capabilities_hash, protocol_hash, method, path, body_sha256, request_id, trace_id, expires_at]
+      properties:
+        schema: {type: string, enum: [powerx.iam.service-invocation/v1]}
+        actor_type: {type: string, enum: [service_actor]}
+        tenant_uuid: {type: string, format: uuid}
+        caller_subject: {type: string}
+        caller_plugin_id: {type: string}
+        target_plugin_id: {type: string}
+        capability_id: {type: string}
+        capability_version: {type: string}
+        provider_version: {type: string}
+        capabilities_hash: {type: string}
+        protocol_hash: {type: string}
+        method: {type: string}
+        path: {type: string}
+        body_sha256: {type: string}
+        request_id: {type: string}
+        trace_id: {type: string}
+        expires_at: {type: string, format: date-time}
+    PluginRecovery:
+      type: object
+      additionalProperties: false
+      properties:
+        next_action_code: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_]{2,63}$'}
+        retryable: {type: boolean}
+        retry_after_ms: {type: integer, minimum: 0, maximum: 86400000}
+        retry_after: {type: integer, minimum: 0, maximum: 86400}
+        operation_id: {type: string, format: uuid}
+        operation_uuid: {type: string, format: uuid}
+        request_id: {type: string, format: uuid}
+        current_revision: {type: integer, minimum: 0, maximum: 9007199254740991}
+        expected_revision: {type: integer, minimum: 0, maximum: 9007199254740991}
+    PluginServiceFailureDetails:
+      type: object
+      description: Core supplies error_code/reason_code; no upstream messages or arbitrary details are forwarded.
+      properties:
+        reason_code: {type: string, pattern: '^[A-Z][A-Z0-9_]{2,127}$'}
+        upstream_error_code: {type: string}
+        upstream_status: {type: integer, minimum: 400, maximum: 599}
+        trace_id: {type: string, description: Core invocation trace.}
+        upstream_request_id: {type: string, format: uuid}
+        upstream_trace_id: {type: string, description: Validated UUID or 32 hexadecimal characters.}
+        recovery: {$ref: '#/components/schemas/PluginRecovery'}
+        next_action_code: {type: string, pattern: '^[A-Za-z][A-Za-z0-9_]{2,63}$'}
+        retryable: {type: boolean}
+        retry_after_ms: {type: integer, minimum: 0, maximum: 86400000}
+        retry_after: {type: integer, minimum: 0, maximum: 86400}
+        operation_id: {type: string, format: uuid}
+        operation_uuid: {type: string, format: uuid}
+        request_id: {type: string, format: uuid}
+        current_revision: {type: integer, minimum: 0, maximum: 9007199254740991}
+        expected_revision: {type: integer, minimum: 0, maximum: 9007199254740991}
+    CoreStreamPayload:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body: {type: object}
+        query:
+          type: object
+          additionalProperties: false
+          properties:
+            env: {type: string, enum: [dev, staging, prod]}
+        method: {type: string, enum: [POST], description: Optional exact assertion against the formal binding.}
+        endpoint: {type: string, description: Optional exact relative-path assertion; never a routing authority.}
+        headers:
+          type: object
+          description: Only matching Content-Type/Accept assertions are accepted; Core rebuilds request headers.

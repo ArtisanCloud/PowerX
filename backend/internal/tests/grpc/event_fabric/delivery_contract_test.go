@@ -9,6 +9,7 @@ import (
 
 	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
+	channel "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/service_channel"
 	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
 	"google.golang.org/grpc"
@@ -31,14 +32,15 @@ func TestEventDeliveryGRPCContracts(t *testing.T) {
 	tenantCtx := eventFabricGRPCContext(t, baseCtx, sampleTenantUUID)
 
 	pubResp, err := env.deliveryClient.PublishEvent(tenantCtx, &eventfabricv1.PublishEventRequest{
+		ContractVersion: channel.Contract, PluginId: "com.powerx.plugins.fixture",
 		TenantUuid:    sampleTenantUUID,
 		Topic:         "tenant-corex.corex.workflow.approved",
 		EventId:       "evt-001",
 		TraceId:       "trace-abc",
 		Version:       "v1",
-		Payload:       []byte("hello"),
+		Payload:       []byte(`{"hello":true}`),
 		PayloadFormat: "json",
-		Attributes:    map[string]string{"principal_id": "svc-publisher"},
+		Attributes:    map[string]string{"source": "transport-fixture"},
 	})
 	if err != nil {
 		t.Fatalf("PublishEvent unexpected error: %v", err)
@@ -49,8 +51,9 @@ func TestEventDeliveryGRPCContracts(t *testing.T) {
 	}
 
 	ackResp, err := env.deliveryClient.AckDelivery(tenantCtx, &eventfabricv1.AckDeliveryRequest{
+		ContractVersion: channel.Contract, PluginId: "com.powerx.plugins.fixture",
 		DeliveryId:   "delivery-001",
-		SubscriberId: "svc-sub",
+		SubscriberId: "com.powerx.plugins.fixture",
 	})
 	if err != nil {
 		t.Fatalf("AckDelivery unexpected error: %v", err)
@@ -59,8 +62,9 @@ func TestEventDeliveryGRPCContracts(t *testing.T) {
 
 	env.stub.nackPlan = delivery.RetryPlan{MaxAttempts: 5, RemainingAttempts: 3, NextDelay: 2 * time.Second, Strategy: "exponential-jitter"}
 	nackResp, err := env.deliveryClient.NackDelivery(tenantCtx, &eventfabricv1.NackDeliveryRequest{
+		ContractVersion: channel.Contract, PluginId: "com.powerx.plugins.fixture",
 		DeliveryId:   "delivery-001",
-		SubscriberId: "svc-sub",
+		SubscriberId: "com.powerx.plugins.fixture",
 		Reason:       "temporary failure",
 	})
 	if err != nil {
@@ -78,8 +82,9 @@ func TestEventDeliveryErrorMapping(t *testing.T) {
 
 	env.stub.ackErr = sharedsvc.ErrUnauthorized
 	_, err := env.deliveryClient.AckDelivery(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID), &eventfabricv1.AckDeliveryRequest{
+		ContractVersion: channel.Contract, PluginId: "com.powerx.plugins.fixture",
 		DeliveryId:   "delivery-err",
-		SubscriberId: "svc-sub",
+		SubscriberId: "com.powerx.plugins.fixture",
 	})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied got %v", status.Code(err))
@@ -87,8 +92,9 @@ func TestEventDeliveryErrorMapping(t *testing.T) {
 
 	env.stub.nackErr = sharedsvc.ErrRetryExhausted
 	_, err = env.deliveryClient.NackDelivery(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID), &eventfabricv1.NackDeliveryRequest{
+		ContractVersion: channel.Contract, PluginId: "com.powerx.plugins.fixture",
 		DeliveryId:   "delivery-err",
-		SubscriberId: "svc-sub",
+		SubscriberId: "com.powerx.plugins.fixture",
 		Reason:       "exhausted",
 	})
 	if status.Code(err) != codes.FailedPrecondition {
@@ -102,7 +108,7 @@ func TestEventSubscriberStream(t *testing.T) {
 
 	message := delivery.DeliveryAttempt{
 		AttemptNumber: 1,
-		SubscriberID:  "svc-sub",
+		SubscriberID:  "com.powerx.plugins.fixture",
 		DeliveryUUID:  "attempt-001",
 		EnvelopeUUID:  "env-001",
 		EventID:       "evt-001",
@@ -122,8 +128,9 @@ func TestEventSubscriberStream(t *testing.T) {
 	ctx, cancel := context.WithCancel(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID))
 	defer cancel()
 	stream, err := env.subscriberClient.Subscribe(ctx, &eventfabricv1.SubscribeRequest{
+		ContractVersion: channel.Contract, PluginId: "com.powerx.plugins.fixture",
 		TenantUuid:        sampleTenantUUID,
-		SubscriberId:      "svc-sub",
+		SubscriberId:      "com.powerx.plugins.fixture",
 		BatchSize:         10,
 		CompatibilityMode: eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_BACKWARD,
 		SupportedVersions: []string{"v2"},
@@ -136,11 +143,14 @@ func TestEventSubscriberStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recv error: %v", err)
 	}
+	if msg.GetContractVersion() != channel.Contract {
+		t.Fatal("missing application contract")
+	}
 	if msg.GetDeliveryId() != "attempt-001" || msg.GetEventId() != "evt-001" {
 		t.Fatalf("unexpected message payload: %+v", msg)
 	}
 	assertNoEventFabricTenantLeakProto(t, msg)
-	if msg.GetSubscriberId() != "svc-sub" || msg.GetTopic() != "tenant-corex.corex.workflow.approved" {
+	if msg.GetSubscriberId() != "com.powerx.plugins.fixture" || msg.GetTopic() != "tenant-corex.corex.workflow.approved" {
 		t.Fatalf("unexpected subscriber/topic: %+v", msg)
 	}
 	if msg.GetAckDeadline().AsTime().Before(time.Now()) {
@@ -162,8 +172,8 @@ func newEventDeliveryGRPCTestEnv(t *testing.T) *eventDeliveryGRPCTestEnv {
 	server := grpc.NewServer()
 
 	stub := newGRPCDeliveryStub()
-	eventfabricv1.RegisterEventDeliveryServiceServer(server, eventfabricgrpc.NewEventDeliveryServer(stub))
-	eventfabricv1.RegisterEventSubscriberServiceServer(server, eventfabricgrpc.NewEventSubscriberServer(stub, 20*time.Millisecond))
+	eventfabricv1.RegisterEventDeliveryServiceServer(server, eventfabricgrpc.NewEventDeliveryServer(&grpcChannelAdapter{stub}))
+	eventfabricv1.RegisterEventSubscriberServiceServer(server, eventfabricgrpc.NewEventSubscriberServer(&grpcChannelAdapter{stub}, 20*time.Millisecond))
 
 	go func() {
 		if err := server.Serve(listener); err != nil {
@@ -266,4 +276,36 @@ func (s *grpcDeliveryStub) enqueuePollResult(result map[string][]delivery.Delive
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pollQueue = append(s.pollQueue, result)
+}
+
+// Only transport DTO mapping is stubbed here. Authentication and reliable
+// persistence are covered by the service_channel and production-auth suites.
+type grpcChannelAdapter struct{ stub *grpcDeliveryStub }
+
+func (a *grpcChannelAdapter) Publish(ctx context.Context, in channel.Request) (map[string]any, error) {
+	e := in.Event
+	err := a.stub.Publish(ctx, delivery.PublishRequest{TenantUUID: in.TenantUUID, Topic: e.Topic, EventID: e.EventID, TraceID: e.TraceID, Version: e.Version, Payload: e.Payload, PayloadFormat: "json", IdempotencyKey: e.IdempotencyKey, Attributes: e.Attributes})
+	return map[string]any{"accepted": true}, err
+}
+func (a *grpcChannelAdapter) Settle(ctx context.Context, in channel.Request) (map[string]any, error) {
+	if in.Operation == "ack" {
+		return map[string]any{"confirmed": true}, a.stub.Ack(ctx, in.DeliveryID, in.SubscriberID)
+	}
+	plan, err := a.stub.Nack(ctx, in.DeliveryID, in.SubscriberID, in.Reason)
+	return map[string]any{"outcome": plan.Strategy, "remaining_attempts": int(plan.RemainingAttempts), "next_delay_seconds": int(plan.NextDelay / time.Second)}, err
+}
+func (a *grpcChannelAdapter) Stream(ctx context.Context, in channel.Request, send func(string, any) error) error {
+	results, err := a.stub.PollRetry(ctx, in.BatchSize)
+	if err != nil {
+		return err
+	}
+	for _, rows := range results {
+		for _, r := range rows {
+			if err = send("delivery", channel.Message{ContractVersion: channel.Contract, TenantUUID: in.TenantUUID, SubscriberID: r.SubscriberID, DeliveryID: r.DeliveryUUID, EventID: r.EventID, Topic: r.TopicFullName, Version: r.Version, Payload: r.Payload, TraceID: r.TraceID, Attempt: int(r.AttemptNumber), MaxAttempts: int(r.MaxAttempts), AckDeadline: time.Now().Add(r.AckTimeout)}); err != nil {
+				return err
+			}
+		}
+	}
+	<-ctx.Done()
+	return ctx.Err()
 }

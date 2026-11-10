@@ -1,0 +1,12 @@
+{
+  "backend/internal/testutil/archivefault/s3.go": "8e5a3f5b568c4ec310d6bede9b38bc668505c2a6aa82c33a9af4bdcbfe6d12d8",
+  "backend/internal/service/storage_governance/fault_injection_test.go": "57b5317dbf65eb099da5d6d0fc6f5fbb0409af28e2a4d48b4c6c3b120798cbad",
+  "backend/internal/transport/http/admin/backup/archive_fault_browser_test.go": "1aefd203b890f8a6efc5219ca350f506ffd3260e36ddfbb01ac35e8c99a14ab4",
+  "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "e46f5be18cd6e12c92bbc4d9c0b7250fb2e7783d420d3c6bc12ae2d6d4898d90",
+  "web-admin/tests/unit/storage/archive-governance.spec.ts": "f9145bcd79fdc713c2d713ff0e0388a4b066e279143fae584a7be2990275e90d",
+  "web-admin/i18n/locales/zh.json": "8a2858733d00706a63e1af82a34224a0d661a967a2a252fd5ddf5a3b366fe232",
+  "web-admin/i18n/locales/en.json": "aa7d8af3c70f1f0f14553f87f53358cb80ec1701e4feb9beb1cc31453c17fcc6",
+  "scripts/ops/test-storage-archive-fault-ui.mjs": "fdd451a999202a98a9ce9fcb02be1d78794cbfd0f78d2f1eb206ede95271c3d5",
+  "docs/contracts/storage-archive-accepted-faults.md": "e3616a6b97a85d8ab417c60a10234d128fe1e8ee145ea1e68d14b0c210d76747",
+  "docs/guides/deploy/027-monitor-center/usecase-us9-archive-faults.md": "66cfc1ef444bf31e4d4a1ea33bb68c7eb0cdab719bf99a082e15835fdb842dcb"
+}

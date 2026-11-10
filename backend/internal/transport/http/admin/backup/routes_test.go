@@ -19,7 +19,7 @@ func TestBackupProtectionAdminBoundary(t *testing.T) {
 			r := gin.New()
 			if root {
 				r.Use(func(c *gin.Context) {
-					c.Request = c.Request.WithContext(reqctx.WithIsRoot(c.Request.Context(), true))
+					c.Request = c.Request.WithContext(reqctx.WithIsRoot(reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{IsRoot: true, UserID: 1, Scope: "access"}), true))
 					c.Next()
 				})
 			}
@@ -44,7 +44,7 @@ func TestBackupJobListRejectsUnknownViewBeforeDatabaseAccess(t *testing.T) {
 	t.Setenv("POWERX_OPS_BACKUP_ARTIFACT_DIR", t.TempDir())
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		c.Request = c.Request.WithContext(reqctx.WithIsRoot(c.Request.Context(), true))
+		c.Request = c.Request.WithContext(reqctx.WithIsRoot(reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{IsRoot: true, UserID: 1, Scope: "access"}), true))
 		c.Next()
 	})
 	RegisterAPIRoutes(nil, r.Group("/custom"), &shared.Deps{DB: &gorm.DB{Config: &gorm.Config{}}})
@@ -61,14 +61,14 @@ func TestDatabaseDownloadRootAndOneTimeInputBoundary(t *testing.T) {
 		r := gin.New()
 		if root {
 			r.Use(func(c *gin.Context) {
-				c.Request = c.Request.WithContext(reqctx.WithIsRoot(c.Request.Context(), true))
+				c.Request = c.Request.WithContext(reqctx.WithIsRoot(reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{IsRoot: true, UserID: 1, Scope: "access"}), true))
 				c.Next()
 			})
 		}
 		RegisterAPIRoutes(nil, r.Group("/custom"), &shared.Deps{DB: &gorm.DB{Config: &gorm.Config{}}})
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest("GET", "/custom/admin/ops/backup/jobs/0/download", nil))
-		want := http.StatusForbidden
+		want := http.StatusUnauthorized
 		if root {
 			want = http.StatusBadRequest
 		}

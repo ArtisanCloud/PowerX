@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/stsproof"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -130,6 +131,9 @@ func JwtMiddleware(
 					issuer,
 					audiences,
 				)
+				if abortCurrentUserSessionAuthError(c, http.StatusUnauthorized, "AUTH_SESSION_REVOKED") {
+					return
+				}
 				if !abortIAMMemberDirectoryAuthError(c, http.StatusUnauthorized, "IAM_UNAUTHORIZED") {
 					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token revoked"})
 				}
@@ -212,6 +216,16 @@ func JwtMiddleware(
 		}
 		// G. 注入上下文（统一使用 reqctx.With*，并修正 platform 类型）
 		reqCtx = reqctx.WithClaims(reqCtx, claims)
+		if claims.Issuer == "powerx-sts" {
+			status := 0
+			if err := stsproof.Verify(reqCtx, authCache, claims); err != nil {
+				status = 401
+				if errors.Is(err, stsproof.ErrUnavailable) {
+					status = 503
+				}
+			}
+			reqCtx = reqctx.WithSTSIssuanceStatus(reqCtx, status)
+		}
 		reqCtx = reqctx.WithTenantUUID(reqCtx, tenantUUID)
 		if tenantUUIDValue != uuid.Nil {
 			reqCtx = reqctx.WithTenantUUIDValue(reqCtx, tenantUUIDValue)
@@ -255,6 +269,21 @@ func JwtMiddleware(
 		// H. 业务回调：缓存 miss 或需要强校验时，cb 回源 DB
 		if cb != nil {
 			if err := cb(reqCtx, claims); err != nil {
+				if isCurrentUserSessionPath(c.Request.URL.Path) {
+					status := http.StatusServiceUnavailable
+					var business *dto.AppError
+					var checked interface {
+						error
+						HTTPStatus() int
+					}
+					if errors.As(err, &business) {
+						status = business.HTTPCode
+					} else if errors.As(err, &checked) {
+						status = checked.HTTPStatus()
+					}
+					abortCurrentUserSessionAuthError(c, status, "subject_validation_failed")
+					return
+				}
 				var credentialError interface {
 					error
 					HTTPStatus() int
@@ -318,6 +347,9 @@ func respondServiceCredentialError(c *gin.Context, status int) {
 // deliberately owns credential parsing, so the route contract must select the
 // stable envelope here rather than relying on an unreachable handler.
 func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode string) bool {
+	if abortCurrentUserSessionAuthError(c, status, reasonCode) {
+		return true
+	}
 	if strings.HasPrefix(c.Request.URL.Path, "/_p/") && strings.Contains(c.Request.URL.Path, "/api/") {
 		code := "IAM_CONTEXT_USER_SESSION_INVALID"
 		if status == http.StatusForbidden {
@@ -412,6 +444,11 @@ func abortIAMMemberDirectoryAuthError(c *gin.Context, status int, reasonCode str
 }
 
 func abortRequestIdentityExpired(c *gin.Context) bool {
+	if isCurrentUserSessionPath(c.Request.URL.Path) {
+		dto.RespondErrorFrom(c, &dto.AppError{HTTPCode: 401, Code: "AUTH_ACCESS_EXPIRED", Message: "AUTH_ACCESS_EXPIRED"})
+		c.Abort()
+		return true
+	}
 	code := ""
 	if strings.HasSuffix(c.Request.URL.Path, "/tenant/iam/identity-contexts:resolve") {
 		code = "IAM_CONTEXT_SERVICE_CREDENTIAL_EXPIRED"
@@ -525,4 +562,29 @@ func scopeAllowed(got string, allow []string) bool {
 		}
 	}
 	return false
+}
+
+// 当前用户会话核验的拒绝必须在全局鉴权阶段也保留可区分的机器码。
+func abortCurrentUserSessionAuthError(c *gin.Context, status int, reason string) bool {
+	if !isCurrentUserSessionPath(c.Request.URL.Path) {
+		return false
+	}
+	code := "AUTH_SESSION_UNAVAILABLE"
+	if status == 401 {
+		code = "AUTH_SESSION_INVALID"
+		if reason == "AUTH_SESSION_REVOKED" {
+			code = reason
+		}
+	} else if status == 403 {
+		code = "AUTH_USER_FORBIDDEN"
+	} else {
+		status = 503
+	}
+	dto.RespondErrorFrom(c, &dto.AppError{HTTPCode: status, Code: code, Message: code})
+	c.Abort()
+	return true
+}
+
+func isCurrentUserSessionPath(path string) bool {
+	return !strings.Contains(path, "/_p/") && strings.HasSuffix(path, "/admin/user/auth/me/session")
 }

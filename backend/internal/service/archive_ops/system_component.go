@@ -2,6 +2,7 @@ package archive_ops
 
 import (
 	"context"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"os"
 	"path/filepath"
@@ -21,7 +22,17 @@ func CaptureSystemComponent(ctx context.Context, directory string, source Source
 		return Job{}, service.initErr
 	}
 	j := jobRecord{Job: Job{ID: uuid.NewString(), PolicyID: uuid.NewString(), SourceID: source.ID, Kind: "media", CreatedAt: time.Now().UTC()}}
+	// 系统快照也使用受控命令执行器；先登记本次执行，pg_dump 才能绑定原命令证明。
+	// 不放宽普通归档的缺证保护，不把系统快照伪装为目标探测。
+	finish, e := service.beginExecution(&j)
+	if e != nil {
+		return Job{}, e
+	}
+	defer finish()
 	if e := service.captureWithMode(ctx, &j, Policy{IncludeDatabase: true}, source, true); e != nil {
+		return Job{}, e
+	}
+	if e := service.requireJobCommandsDrained(j); e != nil {
 		return Job{}, e
 	}
 	for _, entry := range j.Files {
@@ -41,7 +52,7 @@ func CaptureSystemComponent(ctx context.Context, directory string, source Source
 			in.Close()
 			return Job{}, e
 		}
-		_, e = io.Copy(out, &contextReader{ctx, in})
+		_, e = io.Copy(budget.Writer(ctx, out), &contextReader{ctx, in})
 		in.Close()
 		if e == nil {
 			e = out.Sync()

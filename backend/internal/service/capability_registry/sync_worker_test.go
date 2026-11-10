@@ -15,6 +15,7 @@ import (
 	iammodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -75,6 +76,31 @@ func TestSyncWorkerProcessArtifact(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("expected capability.catalog.sync_succeeded event")
 	}
+}
+
+func TestCatalogJSONContractVersionReachesTenantRegistration(t *testing.T) {
+	db := newMemoryDB(t)
+	root := buildSamplePlugin(t, true)
+	path := filepath.Join(root, "capabilities", "catalog.json")
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(raw, &payload))
+	item := payload["capabilities"].([]any)[0].(map[string]any)
+	item["version"] = "2.0.0"
+	raw, err = json.Marshal(payload)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, raw, 0o600))
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db, TenantUUID: "tenant-corex"})
+	require.NoError(t, worker.ProcessArtifact(context.Background(), root))
+	reg, err := repo.NewCapabilityRegistryRepository(db).GetLatest(context.Background(), nil, "demo.capability", "tenant-corex")
+	require.NoError(t, err)
+	require.Equal(t, "2.0.0", reg.ContractRef)
+	record, err := repo.NewCapabilityRecordRepository(db, nil).GetByCapabilityID(context.Background(), "demo.capability")
+	require.NoError(t, err)
+	var annotations map[string]any
+	require.NoError(t, json.Unmarshal(record.Annotations, &annotations))
+	require.Equal(t, "2.0.0", annotations["version"])
 }
 
 func TestSyncWorkerProcessArtifactCreatesTenantRegistration(t *testing.T) {
@@ -684,4 +710,53 @@ type fakeCapabilityAlerting struct {
 
 func (f *fakeCapabilityAlerting) NotifyAssetIssue(ctx context.Context, input AssetAlertInput) {
 	f.events = append(f.events, input)
+}
+
+func TestCatalogMaterializesOnlyExplicitPluginServiceAPIKey(t *testing.T) {
+	const pluginID = "com.example.plans"
+	capability := catalogCapability{ID: pluginID + ".plans.read"}
+	declaration := pluginPermissionDeclaration{
+		Type: "api", PermissionCode: "commerce.plans:read", Module: "commerce", Resource: "plans", Action: "read", Independent: true,
+		ProtocolBindings: []permissionProtocolBinding{{Channel: "rest", Method: "POST", Path: "/plugin/plans/query", ActorContext: "service_actor", ResourceScope: "tenant"}},
+		APIKey:           &plugin_mgr.APIKeyPermissionSpec{CapabilityID: capability.ID, PluginID: pluginID, Scope: "_scope.plans.read", Action: "read", ResourceType: "capability", ResourcePattern: "plans", Effect: "allow"},
+	}
+	for i := 0; i < 2; i++ {
+		row, err := permissionRowFromPluginDeclaration(pluginMetadata{ID: pluginID}, capability, declaration)
+		require.NoError(t, err)
+		require.True(t, row.AllowAPIKey)
+		var meta map[string]any
+		require.NoError(t, json.Unmarshal(row.Meta, &meta))
+		require.Equal(t, true, meta["api_key_explicit"])
+		require.Equal(t, capability.ID, meta["capability_id"])
+		require.Equal(t, "plans", meta["api_key"].(map[string]any)["resource_pattern"])
+	}
+	db := newMemoryDB(t)
+	worker := NewSyncWorker(SyncWorkerConfig{DB: db})
+	capability.Permissions = []pluginPermissionDeclaration{declaration}
+	capability.ToolScope = []string{declaration.PermissionCode}
+	for i := 0; i < 2; i++ {
+		require.NoError(t, worker.syncCapabilityPermissions(context.Background(), pluginMetadata{ID: pluginID}, capability))
+		var stored iammodel.Permission
+		require.NoError(t, db.Where("source = ? AND module = ? AND resource = ? AND action = ?", "plugin:"+pluginID, "commerce", "plans", "read").First(&stored).Error)
+		require.True(t, stored.AllowAPIKey)
+		var persisted map[string]any
+		require.NoError(t, json.Unmarshal(stored.Meta, &persisted))
+		require.Equal(t, true, persisted["api_key_explicit"])
+		require.NotEmpty(t, persisted["protocol_bindings"])
+	}
+	declaration.ProtocolBindings = append(declaration.ProtocolBindings, permissionProtocolBinding{Channel: "rest", Method: "GET", Path: "/admin/plans", ActorContext: "admin_user", ResourceScope: "tenant"})
+	_, mixedErr := permissionRowFromPluginDeclaration(pluginMetadata{ID: pluginID}, capability, declaration)
+	require.Error(t, mixedErr)
+	declaration.ProtocolBindings = declaration.ProtocolBindings[:1]
+	declaration.ProtocolBindings[0].ActorContext = "admin_user"
+	_, err := permissionRowFromPluginDeclaration(pluginMetadata{ID: pluginID}, capability, declaration)
+	require.Error(t, err)
+	declaration.ProtocolBindings[0].ActorContext = "service_actor"
+	declaration.APIKey.CapabilityID = pluginID + ".plans.manage"
+	_, err = permissionRowFromPluginDeclaration(pluginMetadata{ID: pluginID}, capability, declaration)
+	require.Error(t, err)
+	declaration.APIKey = nil
+	row, err := permissionRowFromPluginDeclaration(pluginMetadata{ID: pluginID}, capability, declaration)
+	require.NoError(t, err)
+	require.False(t, row.AllowAPIKey)
 }

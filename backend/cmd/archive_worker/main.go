@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	"os"
 	"os/signal"
@@ -32,6 +33,14 @@ func main() {
 	if e != nil {
 		fmt.Fprintln(os.Stderr, "archive config unavailable:", e)
 		os.Exit(1)
+	}
+	if cfg.StorageBudget != nil {
+		c, err := budget.New(*cfg.StorageBudget)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "shared storage budget unavailable")
+			os.Exit(1)
+		}
+		budget.SetDefault(c)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

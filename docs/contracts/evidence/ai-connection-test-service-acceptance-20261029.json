@@ -1,0 +1,185 @@
+{
+  "schema": "powerx.ai_connection_test.acceptance.v1",
+  "verified_at": "2026-10-29T04:43:44.839651+00:00",
+  "environment": "Mac development",
+  "capability_id": "com.corex.ai.connection.test",
+  "core_health": {
+    "configured": true,
+    "core_version": "v1.0.0",
+    "deployment_env": "dev",
+    "install_status": "installed",
+    "runtime_mode": "powerx",
+    "service": "CoreX",
+    "status": "ok",
+    "version": "v1.0.0"
+  },
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "host_key": {
+    "key_id": "93a38cbd-15b6-4437-96cd-16b5f45d35a6",
+    "name": "PowerX Plugin Development Key",
+    "existing_key_reused": true,
+    "plaintext_redisclosed": false,
+    "shared_profile_changed": false,
+    "other_keys_unchanged": 10,
+    "old_permissions_preserved": true,
+    "added_permission": {
+      "scope": "_scope.ai.connection.test",
+      "action": "test",
+      "resource_type": "api",
+      "resource_pattern": "ai-connection-test",
+      "effect": "allow"
+    }
+  },
+  "publication": {
+    "status": "published",
+    "provider_version": "2025.01",
+    "capabilities_hash": "49a30d6cfe2eb8bf1637c064fb2bf0f5ecec12a9c79ee742147de2b1b16cf43a",
+    "protocol_hash": "1bd4c598f83be5b652d7b9abe6c51d29677d00f8ddb45db24c857d66758540d5"
+  },
+  "registration": {
+    "adapters": [
+      {
+        "adapter_id": "com-corex-ai-connection-test-core_internal",
+        "endpoint": "core://ai/connection",
+        "is_active": true,
+        "labels": {
+          "actor_context": "service_actor",
+          "auth_type": "api_key_or_sts",
+          "method": "INVOKE",
+          "resource_scope": "tenant",
+          "schema_ref": "docs/contracts/ai-connection-test.v1.openapi.yaml#/components/schemas/ConnectionTestOperation",
+          "tool_scope": "ai.connection.test"
+        },
+        "service_ref": "core://ai/connection",
+        "timeout_ms": 5000,
+        "transport_type": "core_internal",
+        "weight": 100
+      }
+    ],
+    "capability_id": "com.corex.ai.connection.test",
+    "contract_ref": "docs/contracts/ai-connection-test.v1.openapi.yaml",
+    "created_at": "2026-10-28T23:24:29+08:00",
+    "disable_reason": "",
+    "environment_policies": {
+      "default": {
+        "is_enabled": true
+      }
+    },
+    "published_at": "2026-10-28T23:20:29+08:00",
+    "routing_policy": {
+      "cooldown_seconds": 0,
+      "fallback_sequence": [
+        "com-corex-ai-connection-test-core_internal"
+      ],
+      "rate_limit": {},
+      "sticky_keys": null,
+      "strategy": "weighted",
+      "tenant_strategies": null
+    },
+    "status": "published",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "tool_grant_ids": [
+      "ai.connection.test"
+    ],
+    "updated_at": "2026-10-28T23:24:29+08:00",
+    "updated_by": "integration_gateway.bootstrap",
+    "version": 2
+  },
+  "grant_status": {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "items": [
+        {
+          "capability_id": "com.corex.ai.connection.test",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        }
+      ]
+    },
+    "timestamp": 1793248956,
+    "request_id": "a434aa07-ed08-40eb-9e29-479b453ddde2"
+  },
+  "actual_service_invocation": {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "payload": {
+        "result": {
+          "contract_version": 1,
+          "ok": true,
+          "env": "dev",
+          "modality": "llm",
+          "verification": {
+            "provider": "ollama",
+            "probe": "ollama_tags",
+            "endpoint_reachable": true,
+            "api_key_verified": false,
+            "authentication": "not_required",
+            "model_access_verified": false,
+            "generation_submitted": false
+          }
+        }
+      },
+      "trace_id": "1edb59dd-0ee7-4a38-863b-cf451eca0c5d",
+      "status": "completed",
+      "protocol_used": "core_internal",
+      "result": {
+        "result": {
+          "contract_version": 1,
+          "ok": true,
+          "env": "dev",
+          "modality": "llm",
+          "verification": {
+            "provider": "ollama",
+            "probe": "ollama_tags",
+            "endpoint_reachable": true,
+            "api_key_verified": false,
+            "authentication": "not_required",
+            "model_access_verified": false,
+            "generation_submitted": false
+          }
+        }
+      },
+      "fallback_used": false
+    },
+    "timestamp": 1793248956,
+    "request_id": "04e00620-96a4-4f73-8ee7-5deeed440324"
+  },
+  "checks": {
+    "prompt_rejected": {
+      "http_status": 400,
+      "request_id": "aea20d60-9e60-44c4-8e2d-921348a1ccb4",
+      "http_trace_id": "0de8b0b6-36e0-4e16-b20d-ff74196369aa"
+    },
+    "free_endpoint_rejected": {
+      "http_status": 400,
+      "request_id": "93c87314-8dad-41f4-83cf-a7687ceb503d",
+      "http_trace_id": "5b7ec874-4f8c-488e-8cc6-8e98825f55dc"
+    },
+    "admin_route_service_credential_denied": {
+      "http_status": 403,
+      "request_id": "a9525faf-8d25-4c14-9971-7fb35a47dc73",
+      "http_trace_id": "dbc7e532-7adf-4cf6-9614-6c1c07d78866"
+    },
+    "affected_package_tests": "10 passed",
+    "probe_race": "passed",
+    "go_vet": "passed",
+    "core_build": "passed",
+    "capability_check": "passed",
+    "scoped_capability_seed": "passed",
+    "generation_submitted": false,
+    "credentials_and_configuration_not_saved": "guaranteed by fixed saved-connection service path and tested with credential snapshots"
+  },
+  "consumer_scope": "Core service binding accepted; Framework button/client split remains PowerXPlugin responsibility",
+  "contract_manifest": {
+    "schema": "powerx.ai_connection_test.source.v1",
+    "contract_version": 1,
+    "capability_id": "com.corex.ai.connection.test",
+    "sha256": {
+      "docs/contracts/ai-settings-connection-test.md": "4de6266dcd4c96150c7cddef93c32562035c9144d578d39f87a5517ce4ef2e7d",
+      "docs/contracts/ai-connection-test.v1.openapi.yaml": "a34a629f64122d1bc606e7769f0de10716afadf42b2691355e29c517c5e59a3c",
+      "docs/contracts/fixtures/ai-connection-test.v1.json": "6c1097684fef0d9bad5d775f59de38dcc3e262c3b4e1c96691b373832dbd76b7"
+    }
+  }
+}

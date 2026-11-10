@@ -24,7 +24,7 @@ func (d *RedisStreamTaskDriver) RetireRun(ctx context.Context, tenant, subscribe
 	if d == nil || d.client == nil || tenant == "" || subscriber == "" || group == "" || !validRetiredRunID(runID) || at.IsZero() {
 		return fmt.Errorf("invalid retired run")
 	}
-	stream := taskStreamKey(tenant, subscriber)
+	stream := d.streamKey(tenant, subscriber)
 	base := strings.TrimSuffix(stream, ":stream")
 	if err := d.client.XGroupCreateMkStream(ctx, stream, group, "0").Err(); err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
 		return err
@@ -97,12 +97,12 @@ func (d *RedisStreamTaskDriver) RetireRun(ctx context.Context, tenant, subscribe
 		if !strings.HasPrefix(id, runID+":") {
 			return fmt.Errorf("retirement task identity mismatch")
 		}
-		lease, fence := taskLeaseKeys(tenant, subscriber, id)
+		lease, fence := d.leases.keys(tenant, subscriber, id)
 		if _, err := d.client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 			// 队列项已移除，撤销在途投递租约，阻止迟到的 NACK 重新排队。
 			pipe.Del(ctx, lease)
 			pipe.ExpireAt(ctx, fence, at)
-			pipe.ExpireAt(ctx, taskDedupeKey(tenant, subscriber, id), at)
+			pipe.ExpireAt(ctx, d.dedupeKey(tenant, subscriber, id), at)
 			return nil
 		}); err != nil {
 			return err

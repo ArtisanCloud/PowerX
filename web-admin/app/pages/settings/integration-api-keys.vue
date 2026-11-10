@@ -1,18 +1,25 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
-import { useUserStore } from "~/stores/user";
-import { parseApiKeyPluginOwners } from "~/utils/apiKeyPluginOwners";
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useUserStore } from '~/stores/user';
+import ApiKeyBatchGrantModal from '~/components/settings/ApiKeyBatchGrantModal.vue';
+import ApiKeyPermissionAccess from '~/components/settings/ApiKeyPermissionAccess.vue';
+import ApiKeyOwnerConflictNotice from '~/components/settings/ApiKeyOwnerConflictNotice.vue';
+import {
+  parseApiKeyOwnerConflicts,
+  type ApiKeyOwnerConflictReport,
+} from '~/utils/apiKeyOwnerConflicts';
+import { parseApiKeyPluginOwners } from '~/utils/apiKeyPluginOwners';
 import {
   useIntegrationGatewayApiKeyService,
   type IntegrationGatewayApiKeyRecord,
   type IntegrationGatewayApiKeyProfile,
   type IntegrationGatewayPermissionCatalogItem,
-} from "~/composables/api/services/integrationGatewayApiKeyService";
+} from '~/composables/api/services/integrationGatewayApiKeyService';
 
 definePageMeta({
-  title: "API Key 管理",
-  icon: "i-heroicons-key",
+  title: 'API Key 管理',
+  icon: 'i-heroicons-key',
   order: 12,
 });
 
@@ -27,8 +34,16 @@ type PermissionResourceGroup = {
 };
 
 const userStore = useUserStore();
-const { isRoot, isCurrentTenantAdmin, currentTenantUuid, currentTenant, memberTenants } = storeToRefs(userStore);
-const allowAccess = computed(() => Boolean(isRoot.value || isCurrentTenantAdmin.value));
+const {
+  isRoot,
+  isCurrentTenantAdmin,
+  currentTenantUuid,
+  currentTenant,
+  memberTenants,
+} = storeToRefs(userStore);
+const allowAccess = computed(() =>
+  Boolean(isRoot.value || isCurrentTenantAdmin.value),
+);
 const canSwitchTenant = computed(() => Boolean(isRoot.value));
 
 const toast = useToast();
@@ -40,24 +55,28 @@ const switchingTenant = ref(false);
 const creatingProfile = ref(false);
 const updatingProfileID = ref<number | null>(null);
 const creatingKey = ref(false);
-const rotatingKeyID = ref("");
-const revokingKeyID = ref("");
-const deletingKeyID = ref("");
+const rotatingKeyID = ref('');
+const revokingKeyID = ref('');
+const deletingKeyID = ref('');
 const savingPermissions = ref(false);
 const loadingPermissions = ref(false);
+const profileConflict = ref<ApiKeyOwnerConflictReport | null>(null);
+const ownerConflict = ref<ApiKeyOwnerConflictReport | null>(null);
 const ownerOpen = ref(false);
 const ownerTarget = ref<IntegrationGatewayApiKeyRecord | null>(null);
-const ownerText = ref("");
+const ownerText = ref('');
 const savingOwners = ref(false);
 const loadingOwners = ref(false);
-const legacyOwnerBindings = ref<Array<{ scope: string; action: string; plugin_id: string }>>([]);
+const legacyOwnerBindings = ref<
+  Array<{ scope: string; action: string; plugin_id: string }>
+>([]);
 let ownerLoadGeneration = 0;
 let refreshInFlight: Promise<void> | null = null;
 
-const tenantUUID = ref("");
-const selectedTenantUUID = ref("");
-const searchProfile = ref("");
-const searchPermission = ref("");
+const tenantUUID = ref('');
+const selectedTenantUUID = ref('');
+const searchProfile = ref('');
+const searchPermission = ref('');
 
 const apiKeyProfiles = ref<IntegrationGatewayApiKeyProfile[]>([]);
 const apiKeys = ref<IntegrationGatewayApiKeyRecord[]>([]);
@@ -67,55 +86,96 @@ const selectedProfileID = ref<number | null>(null);
 const selectedPermissionIDs = ref<number[]>([]);
 const initialPermissionIDs = ref<number[]>([]);
 
-const latestPlainKey = ref("");
-const latestPlainKeyLabel = ref("");
+const latestPlainKey = ref('');
+const latestPlainKeyLabel = ref('');
 
 const createProfileOpen = ref(false);
 const renameProfileOpen = ref(false);
 const createKeyOpen = ref(false);
+const batchGrantOpen = ref(false);
+const authorizationSection = ref<'profile' | 'keys'>('profile');
+function navigateAuthorizationSection(event: KeyboardEvent) {
+  if (
+    ![
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End',
+    ].includes(event.key)
+  )
+    return;
+  event.preventDefault();
+  authorizationSection.value =
+    event.key === 'Home'
+      ? 'profile'
+      : event.key === 'End'
+        ? 'keys'
+        : authorizationSection.value === 'profile'
+          ? 'keys'
+          : 'profile';
+  nextTick(() =>
+    document
+      .getElementById(`api-key-${authorizationSection.value}-tab`)
+      ?.focus(),
+  );
+}
+const batchInitialKeyIDs = ref<string[]>([]);
+const batchInitialPermissionIDs = ref<number[]>([]);
+function openBatchGrant(permissionIDs: number[] = [], keyIDs: string[] = []) {
+  batchInitialKeyIDs.value = keyIDs;
+  batchInitialPermissionIDs.value = permissionIDs;
+  batchGrantOpen.value = true;
+}
+
 const rotateOpen = ref(false);
 const rotateTarget = ref<IntegrationGatewayApiKeyRecord | null>(null);
 
 const createProfileForm = reactive({
-  name: "",
-  key: "",
+  name: '',
+  key: '',
 });
 
 const renameProfileForm = reactive({
-  name: "",
+  name: '',
 });
 
 const createKeyForm = reactive({
-  name: "",
-  description: "",
-  expiresAt: "",
-  pluginOwners: "",
+  name: '',
+  description: '',
+  expiresAt: '',
+  pluginOwners: '',
 });
 
 const rotateForm = reactive({
-  name: "",
-  description: "",
-  expiresAt: "",
+  name: '',
+  description: '',
+  expiresAt: '',
 });
 
 const tenantOptions = computed(() =>
   (memberTenants.value || []).map((item) => ({
     label: item.tenant_name || item.tenant_uuid,
     value: item.tenant_uuid,
-    description: item.is_admin ? "admin" : "member",
-  }))
+    description: item.is_admin ? 'admin' : 'member',
+  })),
 );
 
 const effectiveTenantUUID = computed(() => {
-  const fromContext = String(currentTenantUuid.value || "").trim();
+  const fromContext = String(currentTenantUuid.value || '').trim();
   if (fromContext) return fromContext;
-  return String(tenantUUID.value || "").trim();
+  return String(tenantUUID.value || '').trim();
 });
 
-const hasValidTenant = computed(() => /^[0-9a-fA-F-]{36}$/.test(effectiveTenantUUID.value));
+const hasValidTenant = computed(() =>
+  /^[0-9a-fA-F-]{36}$/.test(effectiveTenantUUID.value),
+);
 
 const selectedProfile = computed(
-  () => apiKeyProfiles.value.find((item) => item.id === selectedProfileID.value) || null
+  () =>
+    apiKeyProfiles.value.find((item) => item.id === selectedProfileID.value) ||
+    null,
 );
 
 const filteredProfiles = computed(() => {
@@ -139,14 +199,19 @@ const keyCountMap = computed<Record<number, number>>(() => {
 
 const profileKeys = computed(() => {
   if (!selectedProfileID.value) return [];
-  return apiKeys.value.filter((item) => Number(item.profile_id) === Number(selectedProfileID.value));
+  return apiKeys.value.filter(
+    (item) => Number(item.profile_id) === Number(selectedProfileID.value),
+  );
 });
 
 const permissionGroups = computed<PermissionResourceGroup[]>(() => {
-  const grouped = new Map<string, Map<string, IntegrationGatewayPermissionCatalogItem[]>>();
+  const grouped = new Map<
+    string,
+    Map<string, IntegrationGatewayPermissionCatalogItem[]>
+  >();
   for (const item of permissionCatalog.value) {
-    const resourceName = String(item.resource || "unknown_resource");
-    const actionName = String(item.action || "unknown_action");
+    const resourceName = String(item.resource || 'unknown_resource');
+    const actionName = String(item.action || 'unknown_action');
     if (!grouped.has(resourceName)) grouped.set(resourceName, new Map());
     const actionMap = grouped.get(resourceName)!;
     if (!actionMap.has(actionName)) actionMap.set(actionName, []);
@@ -166,34 +231,39 @@ const permissionGroups = computed<PermissionResourceGroup[]>(() => {
 });
 
 function metaString(value: unknown): string {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return "";
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value);
+  return '';
 }
 
-function permissionCapabilityID(item: IntegrationGatewayPermissionCatalogItem): string {
+function permissionCapabilityID(
+  item: IntegrationGatewayPermissionCatalogItem,
+): string {
   return String(
     metaString(item.meta?.capability_id) ||
       metaString(item.meta?.permission_code) ||
-      metaString(item.meta?.code)
+      metaString(item.meta?.code),
   ).trim();
 }
 
-function permissionSearchText(item: IntegrationGatewayPermissionCatalogItem): string {
+function permissionSearchText(
+  item: IntegrationGatewayPermissionCatalogItem,
+): string {
   const title = permissionTitle(item);
   const capabilityID = permissionCapabilityID(item);
-  const metaText = item.meta ? JSON.stringify(item.meta) : "";
+  const metaText = item.meta ? JSON.stringify(item.meta) : '';
   return [
     title,
     capabilityID,
     item.module,
     item.resource,
     item.action,
-    item.description || "",
+    item.description || '',
     metaText,
   ]
-    .join(" ")
+    .join(' ')
     .toLowerCase();
 }
 
@@ -204,7 +274,9 @@ const filteredPermissionGroups = computed<PermissionResourceGroup[]>(() => {
   for (const resourceGroup of permissionGroups.value) {
     const actions: PermissionActionGroup[] = [];
     for (const actionGroup of resourceGroup.actions) {
-      const permissions = actionGroup.permissions.filter((item) => permissionSearchText(item).includes(keyword));
+      const permissions = actionGroup.permissions.filter((item) =>
+        permissionSearchText(item).includes(keyword),
+      );
       if (permissions.length > 0) {
         actions.push({
           actionName: actionGroup.actionName,
@@ -222,40 +294,49 @@ const filteredPermissionGroups = computed<PermissionResourceGroup[]>(() => {
   return groups;
 });
 
-const allPermissionItems = computed<IntegrationGatewayPermissionCatalogItem[]>(() => permissionCatalog.value || []);
+const allPermissionItems = computed<IntegrationGatewayPermissionCatalogItem[]>(
+  () => permissionCatalog.value || [],
+);
 
 const totalPermissionCount = computed(() => allPermissionItems.value.length);
 
-const totalCheckedPermissionCount = computed(() => checkedCount(allPermissionItems.value));
+const totalCheckedPermissionCount = computed(() =>
+  checkedCount(allPermissionItems.value),
+);
 
 function permissionTitle(item: IntegrationGatewayPermissionCatalogItem) {
-  const label = String(item.meta?.label || "").trim();
+  const label = String(item.meta?.label || '').trim();
   if (label) return label;
   return `${item.resource}.${item.action}`;
 }
 
 const permissionDirty = computed(() => {
-  const current = Array.from(new Set(selectedPermissionIDs.value)).sort((a, b) => a - b);
-  const initial = Array.from(new Set(initialPermissionIDs.value)).sort((a, b) => a - b);
+  const current = Array.from(new Set(selectedPermissionIDs.value)).sort(
+    (a, b) => a - b,
+  );
+  const initial = Array.from(new Set(initialPermissionIDs.value)).sort(
+    (a, b) => a - b,
+  );
   if (current.length !== initial.length) return true;
   return current.some((item, index) => item !== initial[index]);
 });
 
 function normalizeSelectNumber(raw: unknown): number {
-  if (typeof raw === "number") return raw;
-  if (typeof raw === "string") return Number(raw) || 0;
-  if (raw && typeof raw === "object") {
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') return Number(raw) || 0;
+  if (raw && typeof raw === 'object') {
     const value = (raw as any).value;
-    if (typeof value === "number") return value;
-    if (typeof value === "string") return Number(value) || 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return Number(value) || 0;
   }
   return 0;
 }
 
 function normalizeSelectString(raw: unknown): string {
-  if (typeof raw === "string") return raw;
-  if (raw && typeof raw === "object" && typeof (raw as any).value === "string") return (raw as any).value;
-  return "";
+  if (typeof raw === 'string') return raw;
+  if (raw && typeof raw === 'object' && typeof (raw as any).value === 'string')
+    return (raw as any).value;
+  return '';
 }
 
 function isChecked(permissionID: number) {
@@ -269,7 +350,10 @@ function setPermission(permissionID: number, checked: boolean) {
   selectedPermissionIDs.value = Array.from(current);
 }
 
-function togglePermissions(items: IntegrationGatewayPermissionCatalogItem[], checked: boolean) {
+function togglePermissions(
+  items: IntegrationGatewayPermissionCatalogItem[],
+  checked: boolean,
+) {
   const current = new Set(selectedPermissionIDs.value);
   for (const item of items) {
     const permissionID = Number(item.id);
@@ -299,24 +383,37 @@ async function refreshAll() {
     try {
       const [profileResp, keyResp, catalogResp] = await Promise.all([
         svc.listApiKeyProfiles(effectiveTenantUUID.value),
-        svc.listApiKeys({ tenant_uuid: effectiveTenantUUID.value, page: 1, page_size: 200 }),
+        svc.listApiKeys({
+          tenant_uuid: effectiveTenantUUID.value,
+          page: 1,
+          page_size: 200,
+        }),
         svc.listPermissionCatalog(),
       ]);
-      apiKeyProfiles.value = Array.isArray(profileResp?.data?.items) ? profileResp.data.items : [];
-      apiKeys.value = Array.isArray(keyResp?.data?.items) ? keyResp.data.items : [];
-      permissionCatalog.value = Array.isArray(catalogResp?.data?.items) ? catalogResp.data.items : [];
+      apiKeyProfiles.value = Array.isArray(profileResp?.data?.items)
+        ? profileResp.data.items
+        : [];
+      apiKeys.value = Array.isArray(keyResp?.data?.items)
+        ? keyResp.data.items
+        : [];
+      permissionCatalog.value = Array.isArray(catalogResp?.data?.items)
+        ? catalogResp.data.items
+        : [];
 
       const currentSelected = selectedProfileID.value || 0;
-      const exists = apiKeyProfiles.value.some((item) => item.id === currentSelected);
+      const exists = apiKeyProfiles.value.some(
+        (item) => item.id === currentSelected,
+      );
       if (!exists) {
         const active = apiKeyProfiles.value.find((item) => item.status === 1);
-        selectedProfileID.value = active?.id || apiKeyProfiles.value[0]?.id || null;
+        selectedProfileID.value =
+          active?.id || apiKeyProfiles.value[0]?.id || null;
       }
     } catch (err: any) {
       toast.add({
-        title: "加载失败",
-        description: err?.message || "无法加载 API Key 数据",
-        color: "error",
+        title: '加载失败',
+        description: err?.message || '无法加载 API Key 数据',
+        color: 'error',
       });
     } finally {
       loading.value = false;
@@ -336,14 +433,16 @@ async function loadSelectedProfilePermissions() {
   loadingPermissions.value = true;
   try {
     const resp = await svc.getProfilePermissions(profile.id);
-    const ids = Array.isArray(resp?.data?.permission_ids) ? resp.data.permission_ids.map((id) => Number(id)) : [];
+    const ids = Array.isArray(resp?.data?.permission_ids)
+      ? resp.data.permission_ids.map((id) => Number(id))
+      : [];
     selectedPermissionIDs.value = ids;
     initialPermissionIDs.value = [...ids];
   } catch (err: any) {
     toast.add({
-      title: "加载 Profile 权限失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
+      title: '加载 Profile 权限失败',
+      description: err?.message || '请稍后重试',
+      color: 'error',
     });
     selectedPermissionIDs.value = [];
     initialPermissionIDs.value = [];
@@ -363,13 +462,13 @@ async function handleTenantSelect(raw: unknown) {
     selectedTenantUUID.value = value;
     await refreshAll();
     await loadSelectedProfilePermissions();
-    toast.add({ title: "已切换租户", color: "success" });
+    toast.add({ title: '已切换租户', color: 'success' });
   } catch (err: any) {
     selectedTenantUUID.value = tenantUUID.value;
     toast.add({
-      title: "切换租户失败",
-      description: err?.message || "请检查权限",
-      color: "error",
+      title: '切换租户失败',
+      description: err?.message || '请检查权限',
+      color: 'error',
     });
   } finally {
     switchingTenant.value = false;
@@ -377,15 +476,15 @@ async function handleTenantSelect(raw: unknown) {
 }
 
 function openCreateProfile() {
-  createProfileForm.name = "";
-  createProfileForm.key = "";
+  createProfileForm.name = '';
+  createProfileForm.key = '';
   createProfileOpen.value = true;
 }
 
 async function submitCreateProfile() {
-  const name = String(createProfileForm.name || "").trim();
+  const name = String(createProfileForm.name || '').trim();
   if (!name) {
-    toast.add({ title: "请输入 Profile 名称", color: "warning" });
+    toast.add({ title: '请输入 Profile 名称', color: 'warning' });
     return;
   }
   creatingProfile.value = true;
@@ -393,19 +492,19 @@ async function submitCreateProfile() {
     const resp = await svc.createApiKeyProfile({
       tenant_uuid: effectiveTenantUUID.value,
       name,
-      key: String(createProfileForm.key || "").trim() || undefined,
+      key: String(createProfileForm.key || '').trim() || undefined,
     });
     const createdID = Number(resp?.data?.id || 0);
     createProfileOpen.value = false;
     await refreshAll();
     if (createdID) selectedProfileID.value = createdID;
     await loadSelectedProfilePermissions();
-    toast.add({ title: "Profile 创建成功", color: "success" });
+    toast.add({ title: 'Profile 创建成功', color: 'success' });
   } catch (err: any) {
     toast.add({
-      title: "创建 Profile 失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
+      title: '创建 Profile 失败',
+      description: err?.message || '请稍后重试',
+      color: 'error',
     });
   } finally {
     creatingProfile.value = false;
@@ -414,16 +513,16 @@ async function submitCreateProfile() {
 
 function openRenameProfile() {
   if (!selectedProfile.value) return;
-  renameProfileForm.name = selectedProfile.value.name || "";
+  renameProfileForm.name = selectedProfile.value.name || '';
   renameProfileOpen.value = true;
 }
 
 async function submitRenameProfile() {
   const profile = selectedProfile.value;
   if (!profile?.id) return;
-  const name = String(renameProfileForm.name || "").trim();
+  const name = String(renameProfileForm.name || '').trim();
   if (!name) {
-    toast.add({ title: "请输入 Profile 名称", color: "warning" });
+    toast.add({ title: '请输入 Profile 名称', color: 'warning' });
     return;
   }
   updatingProfileID.value = profile.id;
@@ -434,12 +533,12 @@ async function submitRenameProfile() {
     });
     renameProfileOpen.value = false;
     await refreshAll();
-    toast.add({ title: "Profile 已更新", color: "success" });
+    toast.add({ title: 'Profile 已更新', color: 'success' });
   } catch (err: any) {
     toast.add({
-      title: "更新失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
+      title: '更新失败',
+      description: err?.message || '请稍后重试',
+      color: 'error',
     });
   } finally {
     updatingProfileID.value = null;
@@ -457,14 +556,14 @@ async function toggleSelectedProfileStatus(nextStatus: number) {
     });
     await refreshAll();
     toast.add({
-      title: nextStatus === 1 ? "Profile 已启用" : "Profile 已停用",
-      color: "success",
+      title: nextStatus === 1 ? 'Profile 已启用' : 'Profile 已停用',
+      color: 'success',
     });
   } catch (err: any) {
     toast.add({
-      title: "更新状态失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
+      title: '更新状态失败',
+      description: err?.message || '请稍后重试',
+      color: 'error',
     });
   } finally {
     updatingProfileID.value = null;
@@ -474,19 +573,36 @@ async function toggleSelectedProfileStatus(nextStatus: number) {
 async function savePermissions() {
   const profile = selectedProfile.value;
   if (!profile?.id) return;
+  const tenant = effectiveTenantUUID.value;
+  profileConflict.value = null;
   savingPermissions.value = true;
   try {
-    const ids = Array.from(new Set(selectedPermissionIDs.value)).filter((item) => Number(item) > 0);
+    const ids = Array.from(new Set(selectedPermissionIDs.value)).filter(
+      (item) => Number(item) > 0,
+    );
     await svc.setProfilePermissions(profile.id, ids);
+    if (
+      effectiveTenantUUID.value !== tenant ||
+      selectedProfileID.value !== profile.id
+    )
+      return;
     initialPermissionIDs.value = [...ids];
     await refreshAll();
-    toast.add({ title: "权限保存成功", color: "success" });
+    toast.add({ title: '权限保存成功', color: 'success' });
   } catch (err: any) {
-    toast.add({
-      title: "保存失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
-    });
+    if (
+      effectiveTenantUUID.value !== tenant ||
+      selectedProfileID.value !== profile.id
+    )
+      return;
+    profileConflict.value = parseApiKeyOwnerConflicts(err);
+    if (!profileConflict.value) {
+      toast.add({
+        title: '保存失败',
+        description: err?.message || '请稍后重试',
+        color: 'error',
+      });
+    }
   } finally {
     savingPermissions.value = false;
   }
@@ -494,26 +610,26 @@ async function savePermissions() {
 
 function openCreateKey() {
   if (!selectedProfile.value?.id) {
-    toast.add({ title: "请先选择 Profile", color: "warning" });
+    toast.add({ title: '请先选择 Profile', color: 'warning' });
     return;
   }
   if (selectedProfile.value.status !== 1) {
-    toast.add({ title: "当前 Profile 未启用", color: "warning" });
+    toast.add({ title: '当前 Profile 未启用', color: 'warning' });
     return;
   }
-  createKeyForm.name = "";
-  createKeyForm.description = "";
-  createKeyForm.expiresAt = "";
-  createKeyForm.pluginOwners = "";
+  createKeyForm.name = '';
+  createKeyForm.description = '';
+  createKeyForm.expiresAt = '';
+  createKeyForm.pluginOwners = '';
   createKeyOpen.value = true;
 }
 
 async function submitCreateKey() {
   const profile = selectedProfile.value;
   if (!profile?.id) return;
-  const name = String(createKeyForm.name || "").trim();
+  const name = String(createKeyForm.name || '').trim();
   if (!name) {
-    toast.add({ title: "请输入 Key 名称", color: "warning" });
+    toast.add({ title: '请输入 Key 名称', color: 'warning' });
     return;
   }
   creatingKey.value = true;
@@ -522,20 +638,20 @@ async function submitCreateKey() {
       tenant_uuid: effectiveTenantUUID.value,
       profile_id: profile.id,
       name,
-      description: String(createKeyForm.description || "").trim() || undefined,
-      expires_at: String(createKeyForm.expiresAt || "").trim() || undefined,
+      description: String(createKeyForm.description || '').trim() || undefined,
+      expires_at: String(createKeyForm.expiresAt || '').trim() || undefined,
       plugin_ids: parseApiKeyPluginOwners(createKeyForm.pluginOwners),
     });
-    latestPlainKey.value = String(resp?.data?.plain_key || "");
+    latestPlainKey.value = String(resp?.data?.plain_key || '');
     latestPlainKeyLabel.value = String(resp?.data?.api_key?.name || name);
     createKeyOpen.value = false;
     await refreshAll();
-    toast.add({ title: "API Key 创建成功", color: "success" });
+    toast.add({ title: 'API Key 创建成功', color: 'success' });
   } catch (err: any) {
     toast.add({
-      title: "创建失败",
+      title: '创建失败',
       description: ownerErrorDescription(err),
-      color: "error",
+      color: 'error',
     });
   } finally {
     creatingKey.value = false;
@@ -543,58 +659,96 @@ async function submitCreateKey() {
 }
 
 function ownerErrorDescription(err: any): string {
-  if (err?.message === "API_KEY_PLUGIN_OWNER_INVALID") return t("integrationApiKeyOwners.invalid");
-  if (err?.message === "API_KEY_PLUGIN_OWNER_LIMIT") return t("integrationApiKeyOwners.limit");
-  return err?.message || t("integrationApiKeyOwners.retry");
+  if (err?.message === 'API_KEY_PLUGIN_OWNER_INVALID')
+    return t('integrationApiKeyOwners.invalid');
+  if (err?.message === 'API_KEY_PLUGIN_OWNER_LIMIT')
+    return t('integrationApiKeyOwners.limit');
+  return err?.message || t('integrationApiKeyOwners.retry');
 }
 
 async function openOwners(record: IntegrationGatewayApiKeyRecord) {
-  if (record.status !== "active") return;
+  if (record.status !== 'active') return;
+  ownerConflict.value = null;
   ownerTarget.value = record;
-  ownerText.value = (record.plugin_ids || []).join("\n");
+  ownerText.value = (record.plugin_ids || []).join('\n');
   legacyOwnerBindings.value = [];
   const generation = ++ownerLoadGeneration;
   ownerOpen.value = true;
   loadingOwners.value = true;
   try {
     const resp = await svc.getPluginOwners(record.key_id);
-    if (generation === ownerLoadGeneration && ownerTarget.value?.key_id === record.key_id) {
-      ownerText.value = (resp.data?.plugin_ids || []).join("\n");
-      legacyOwnerBindings.value = resp.data?.binding_mode === "legacy_permissions" ? (resp.data.permission_bindings || []) : [];
+    if (
+      generation === ownerLoadGeneration &&
+      ownerTarget.value?.key_id === record.key_id
+    ) {
+      ownerText.value = (resp.data?.plugin_ids || []).join('\n');
+      legacyOwnerBindings.value =
+        resp.data?.binding_mode === 'legacy_permissions'
+          ? resp.data.permission_bindings || []
+          : [];
     }
   } catch (err: any) {
     if (generation !== ownerLoadGeneration) return;
     ownerOpen.value = false;
-    toast.add({ title: t("integrationApiKeyOwners.readFailed"), description: ownerErrorDescription(err), color: "error" });
-  } finally { if (generation === ownerLoadGeneration) loadingOwners.value = false; }
+    toast.add({
+      title: t('integrationApiKeyOwners.readFailed'),
+      description: ownerErrorDescription(err),
+      color: 'error',
+    });
+  } finally {
+    if (generation === ownerLoadGeneration) loadingOwners.value = false;
+  }
 }
 
 async function saveOwners() {
   const target = ownerTarget.value;
   if (!target || loadingOwners.value || savingOwners.value) return;
   if (target.tenant_uuid !== effectiveTenantUUID.value) {
-    toast.add({ title: t("integrationApiKeyOwners.tenantChanged"), color: "warning" });
+    toast.add({
+      title: t('integrationApiKeyOwners.tenantChanged'),
+      color: 'warning',
+    });
     ownerOpen.value = false;
     return;
   }
+  ownerConflict.value = null;
+  const tenant = effectiveTenantUUID.value;
   savingOwners.value = true;
   try {
     const ids = parseApiKeyPluginOwners(ownerText.value);
     const resp = await svc.setPluginOwners(target.key_id, ids);
+    if (
+      effectiveTenantUUID.value !== tenant ||
+      ownerTarget.value?.key_id !== target.key_id
+    )
+      return;
     target.plugin_ids = resp.data?.plugin_ids || [];
     ownerOpen.value = false;
     await refreshAll();
-    toast.add({ title: t("integrationApiKeyOwners.saved"), color: "success" });
+    toast.add({ title: t('integrationApiKeyOwners.saved'), color: 'success' });
   } catch (err: any) {
-    toast.add({ title: t("integrationApiKeyOwners.saveFailed"), description: ownerErrorDescription(err), color: "error" });
-  } finally { savingOwners.value = false; }
+    if (
+      effectiveTenantUUID.value !== tenant ||
+      ownerTarget.value?.key_id !== target.key_id
+    )
+      return;
+    ownerConflict.value = parseApiKeyOwnerConflicts(err);
+    if (!ownerConflict.value)
+      toast.add({
+        title: t('integrationApiKeyOwners.saveFailed'),
+        description: ownerErrorDescription(err),
+        color: 'error',
+      });
+  } finally {
+    savingOwners.value = false;
+  }
 }
 
 function openRotate(record: IntegrationGatewayApiKeyRecord) {
   rotateTarget.value = record;
-  rotateForm.name = record.name || "";
-  rotateForm.description = record.description || "";
-  rotateForm.expiresAt = record.expires_at || "";
+  rotateForm.name = record.name || '';
+  rotateForm.description = record.description || '';
+  rotateForm.expiresAt = record.expires_at || '';
   rotateOpen.value = true;
 }
 
@@ -605,63 +759,71 @@ async function submitRotate() {
   try {
     const resp = await svc.rotateApiKey(target.key_id, {
       tenant_uuid: effectiveTenantUUID.value,
-      name: String(rotateForm.name || "").trim() || undefined,
-      description: String(rotateForm.description || "").trim() || undefined,
-      expires_at: String(rotateForm.expiresAt || "").trim() || undefined,
+      name: String(rotateForm.name || '').trim() || undefined,
+      description: String(rotateForm.description || '').trim() || undefined,
+      expires_at: String(rotateForm.expiresAt || '').trim() || undefined,
     });
-    latestPlainKey.value = String(resp?.data?.plain_key || "");
-    latestPlainKeyLabel.value = String(resp?.data?.api_key?.name || target.name);
+    latestPlainKey.value = String(resp?.data?.plain_key || '');
+    latestPlainKeyLabel.value = String(
+      resp?.data?.api_key?.name || target.name,
+    );
     rotateOpen.value = false;
     await refreshAll();
-    toast.add({ title: "轮换成功", color: "success" });
+    toast.add({ title: '轮换成功', color: 'success' });
   } catch (err: any) {
     toast.add({
-      title: "轮换失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
+      title: '轮换失败',
+      description: err?.message || '请稍后重试',
+      color: 'error',
     });
   } finally {
-    rotatingKeyID.value = "";
+    rotatingKeyID.value = '';
   }
 }
 
 async function revokeKey(record: IntegrationGatewayApiKeyRecord) {
-  if (!record?.key_id || record.status !== "active") return;
-  const confirmed = window.confirm(`确认吊销 API Key：${record.name}（${record.key_prefix}）？`);
+  if (!record?.key_id || record.status !== 'active') return;
+  const confirmed = window.confirm(
+    `确认吊销 API Key：${record.name}（${record.key_prefix}）？`,
+  );
   if (!confirmed) return;
   revokingKeyID.value = record.key_id;
   try {
-    await svc.revokeApiKey(record.key_id, { tenant_uuid: effectiveTenantUUID.value });
+    await svc.revokeApiKey(record.key_id, {
+      tenant_uuid: effectiveTenantUUID.value,
+    });
     await refreshAll();
-    toast.add({ title: "已吊销", color: "success" });
+    toast.add({ title: '已吊销', color: 'success' });
   } catch (err: any) {
     toast.add({
-      title: "吊销失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
+      title: '吊销失败',
+      description: err?.message || '请稍后重试',
+      color: 'error',
     });
   } finally {
-    revokingKeyID.value = "";
+    revokingKeyID.value = '';
   }
 }
 
 async function deleteKey(record: IntegrationGatewayApiKeyRecord) {
   if (!record?.key_id) return;
-  const confirmed = window.confirm(`确认删除 API Key：${record.name}（${record.key_prefix}）？删除后将不再显示。`);
+  const confirmed = window.confirm(
+    `确认删除 API Key：${record.name}（${record.key_prefix}）？删除后将不再显示。`,
+  );
   if (!confirmed) return;
   deletingKeyID.value = record.key_id;
   try {
     await svc.deleteApiKey(record.key_id);
     await refreshAll();
-    toast.add({ title: "已删除", color: "success" });
+    toast.add({ title: '已删除', color: 'success' });
   } catch (err: any) {
     toast.add({
-      title: "删除失败",
-      description: err?.message || "请稍后重试",
-      color: "error",
+      title: '删除失败',
+      description: err?.message || '请稍后重试',
+      color: 'error',
     });
   } finally {
-    deletingKeyID.value = "";
+    deletingKeyID.value = '';
   }
 }
 
@@ -669,9 +831,9 @@ async function copyPlainKey() {
   if (!latestPlainKey.value) return;
   try {
     await navigator.clipboard.writeText(latestPlainKey.value);
-    toast.add({ title: "已复制明文 Key", color: "success" });
+    toast.add({ title: '已复制明文 Key', color: 'success' });
   } catch {
-    toast.add({ title: "复制失败，请手动复制", color: "warning" });
+    toast.add({ title: '复制失败，请手动复制', color: 'warning' });
   }
 }
 
@@ -686,8 +848,13 @@ watch(
       await refreshAll();
       await loadSelectedProfilePermissions();
     }
-  }
+  },
 );
+
+watch([effectiveTenantUUID, selectedProfileID], () => {
+  profileConflict.value = null;
+  ownerConflict.value = null;
+});
 
 watch(selectedProfileID, async (raw) => {
   if (raw === null || raw === undefined) {
@@ -707,7 +874,7 @@ onMounted(async () => {
   try {
     await userStore.fetchUserContext({ force: true });
   } catch {}
-  tenantUUID.value = currentTenantUuid.value || "";
+  tenantUUID.value = currentTenantUuid.value || '';
   selectedTenantUUID.value = tenantUUID.value;
   await refreshAll();
   await loadSelectedProfilePermissions();
@@ -718,14 +885,27 @@ onMounted(async () => {
   <div class="p-6 space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">API Key 权限管理</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+          API Key 权限管理
+        </h1>
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          左侧选 Profile，右侧按权限目录勾选并保存；Key 自动继承 Profile 权限。
+          {{ t('integrationApiKeyProfile.description') }}
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <UButton icon="i-heroicons-arrow-path" :loading="loading" @click="refreshAll">刷新</UButton>
-        <UButton color="neutral" variant="soft" icon="i-heroicons-plus-circle" :disabled="!hasValidTenant" @click="openCreateProfile">
+        <UButton
+          icon="i-heroicons-arrow-path"
+          :loading="loading"
+          @click="refreshAll"
+          >刷新</UButton
+        >
+        <UButton
+          color="neutral"
+          variant="soft"
+          icon="i-heroicons-plus-circle"
+          :disabled="!hasValidTenant"
+          @click="openCreateProfile"
+        >
           新建 Profile
         </UButton>
       </div>
@@ -742,19 +922,33 @@ onMounted(async () => {
 
     <template v-else>
       <UCard>
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div
+          class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+        >
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div class="rounded border border-gray-200 dark:border-gray-700 px-3 py-2">
+            <div
+              class="rounded border border-gray-200 dark:border-gray-700 px-3 py-2"
+            >
               <div class="text-xs text-gray-500">当前租户</div>
-              <div class="text-sm font-medium">{{ currentTenant?.tenant_name || tenantUUID || "-" }}</div>
+              <div class="text-sm font-medium">
+                {{ currentTenant?.tenant_name || tenantUUID || '-' }}
+              </div>
             </div>
-            <div class="rounded border border-gray-200 dark:border-gray-700 px-3 py-2">
+            <div
+              class="rounded border border-gray-200 dark:border-gray-700 px-3 py-2"
+            >
               <div class="text-xs text-gray-500">tenant_uuid</div>
-              <div class="text-sm font-mono break-all">{{ effectiveTenantUUID || "-" }}</div>
+              <div class="text-sm font-mono break-all">
+                {{ effectiveTenantUUID || '-' }}
+              </div>
             </div>
           </div>
           <div class="w-full lg:w-[320px]">
-            <UFormField :label="canSwitchTenant ? '切换租户（Root）' : '租户（当前上下文）'">
+            <UFormField
+              :label="
+                canSwitchTenant ? '切换租户（Root）' : '租户（当前上下文）'
+              "
+            >
               <USelectMenu
                 v-if="canSwitchTenant"
                 v-model="selectedTenantUUID"
@@ -767,8 +961,11 @@ onMounted(async () => {
                 :disabled="switchingTenant || tenantOptions.length === 0"
                 @update:model-value="handleTenantSelect"
               />
-              <div v-else class="rounded border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm">
-                {{ currentTenant?.tenant_name || "-" }}
+              <div
+                v-else
+                class="rounded border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm"
+              >
+                {{ currentTenant?.tenant_name || '-' }}
               </div>
             </UFormField>
           </div>
@@ -794,18 +991,25 @@ onMounted(async () => {
               :key="profile.id"
               type="button"
               class="w-full rounded border p-3 text-left transition"
-              :class="selectedProfileID === profile.id
-                ? 'border-primary-400 bg-primary-50 dark:border-primary-500 dark:bg-primary-500/10'
-                : 'border-gray-200 hover:border-primary-300 dark:border-gray-700 dark:hover:border-primary-600'"
+              :class="
+                selectedProfileID === profile.id
+                  ? 'border-primary-400 bg-primary-50 dark:border-primary-500 dark:bg-primary-500/10'
+                  : 'border-gray-200 hover:border-primary-300 dark:border-gray-700 dark:hover:border-primary-600'
+              "
               @click="selectedProfileID = profile.id"
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
                   <div class="font-medium truncate">{{ profile.name }}</div>
-                  <div class="text-xs text-gray-500 font-mono truncate">{{ profile.key }}</div>
+                  <div class="text-xs text-gray-500 font-mono truncate">
+                    {{ profile.key }}
+                  </div>
                 </div>
-                <UBadge :color="profile.status === 1 ? 'success' : 'error'" variant="subtle">
-                  {{ profile.status === 1 ? "active" : "disabled" }}
+                <UBadge
+                  :color="profile.status === 1 ? 'success' : 'error'"
+                  variant="subtle"
+                >
+                  {{ profile.status === 1 ? 'active' : 'disabled' }}
                 </UBadge>
               </div>
               <div class="mt-2 text-xs text-gray-500">
@@ -813,7 +1017,10 @@ onMounted(async () => {
               </div>
             </button>
 
-            <div v-if="filteredProfiles.length === 0" class="rounded border border-dashed p-4 text-sm text-gray-500">
+            <div
+              v-if="filteredProfiles.length === 0"
+              class="rounded border border-dashed p-4 text-sm text-gray-500"
+            >
               暂无 Profile，先创建一个再配置权限。
             </div>
           </div>
@@ -825,10 +1032,8 @@ onMounted(async () => {
               <div>
                 <div class="font-semibold">权限配置</div>
                 <div v-if="selectedProfile" class="text-xs text-gray-500">
-                  Profile：{{ selectedProfile.name }} · <span class="font-mono">#{{ selectedProfile.id }}</span>
-                </div>
-                <div v-if="selectedProfile" class="text-xs text-gray-500">
-                  全模块：已选 {{ totalCheckedPermissionCount }}/{{ totalPermissionCount }}
+                  Profile：{{ selectedProfile.name }} ·
+                  <span class="font-mono">#{{ selectedProfile.id }}</span>
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
@@ -860,41 +1065,24 @@ onMounted(async () => {
                 >
                   启用
                 </UButton>
-                <UButton
-                  size="xs"
-                  variant="soft"
-                  :disabled="!selectedProfile || selectedProfile.status !== 1 || totalPermissionCount === 0"
-                  @click="toggleAllPermissions(true)"
-                >
-                  全模块全选
-                </UButton>
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="soft"
-                  :disabled="!selectedProfile || selectedProfile.status !== 1 || totalPermissionCount === 0"
-                  @click="toggleAllPermissions(false)"
-                >
-                  全模块清空
-                </UButton>
-                <UButton
-                  size="xs"
-                  color="primary"
-                  :loading="savingPermissions"
-                  :disabled="!selectedProfile || selectedProfile.status !== 1 || !permissionDirty"
-                  @click="savePermissions"
-                >
-                  保存权限
-                </UButton>
               </div>
             </div>
           </template>
 
-          <div v-if="!selectedProfile" class="rounded border border-dashed p-4 text-sm text-gray-500">
+          <div
+            v-if="!selectedProfile"
+            class="rounded border border-dashed p-4 text-sm text-gray-500"
+          >
             请选择左侧 Profile 后再配置权限。
           </div>
 
           <template v-else>
+            <ApiKeyOwnerConflictNotice
+              v-if="profileConflict"
+              :report="profileConflict"
+              operation="profile"
+              class="mb-3"
+            />
             <UAlert
               v-if="selectedProfile.status !== 1"
               color="warning"
@@ -905,176 +1093,458 @@ onMounted(async () => {
             />
 
             <div
-              v-if="loadingPermissions"
-              class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-500"
+              class="mt-4 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[9rem_minmax(0,1fr)]"
             >
-              加载权限中...
-            </div>
-
-            <div v-else class="mt-3 space-y-3 max-h-[72vh] overflow-auto pr-1">
-              <UInput
-                v-model="searchPermission"
-                icon="i-heroicons-magnifying-glass"
-                placeholder="搜索权限（支持 capability_id / 路径 / resource / action）"
-              />
-              <div
-                v-for="resourceGroup in filteredPermissionGroups"
-                :key="`resource-${resourceGroup.resourceName}`"
-                class="rounded border border-gray-200 dark:border-gray-700 p-3"
+              <nav
+                role="tablist"
+                @keydown="navigateAuthorizationSection"
+                :aria-label="t('integrationApiKeyProfile.tasks')"
+                class="flex gap-2 lg:flex-col"
               >
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div class="font-medium break-all">resource：{{ resourceGroup.resourceName }}</div>
-                  <div class="flex items-center gap-2 text-xs">
-                    <span class="text-gray-500">
-                      已选 {{ checkedCount(resourceGroup.actions.flatMap((item) => item.permissions)) }}/{{ resourceGroup.actions.flatMap((item) => item.permissions).length }}
-                    </span>
-                    <UButton
-                      size="xs"
-                      variant="soft"
-                      :disabled="selectedProfile.status !== 1"
-                      @click="togglePermissions(resourceGroup.actions.flatMap((item) => item.permissions), true)"
-                    >
-                      全选
-                    </UButton>
-                    <UButton
-                      size="xs"
-                      color="neutral"
-                      variant="soft"
-                      :disabled="selectedProfile.status !== 1"
-                      @click="togglePermissions(resourceGroup.actions.flatMap((item) => item.permissions), false)"
-                    >
-                      清空
-                    </UButton>
-                  </div>
-                </div>
-
-                <div class="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
-                  <div
-                    v-for="actionGroup in resourceGroup.actions"
-                    :key="`action-${resourceGroup.resourceName}-${actionGroup.actionName}`"
-                    class="rounded border border-gray-100 dark:border-gray-800 p-2"
-                  >
-                    <div class="flex items-center justify-between gap-2 text-xs text-gray-500">
-                      <span class="font-medium">{{ actionGroup.actionName }}</span>
-                      <span>{{ checkedCount(actionGroup.permissions) }}/{{ actionGroup.permissions.length }}</span>
-                    </div>
-
-                    <div class="mt-2 space-y-2">
-                      <label
-                        v-for="item in actionGroup.permissions"
-                        :key="`perm-${item.id}`"
-                        class="flex items-start gap-2 rounded border border-gray-100 dark:border-gray-800 p-2"
-                      >
-                        <UCheckbox
-                          :model-value="isChecked(Number(item.id))"
-                          :disabled="selectedProfile.status !== 1"
-                          @update:model-value="setPermission(Number(item.id), Boolean($event))"
-                        />
-                        <div class="min-w-0 text-xs">
-                          <div class="font-medium break-all">
-                            {{ permissionTitle(item) }}
-                          </div>
-                          <div class="font-mono text-[11px] text-gray-500 break-all">
-                            #{{ item.id }} · {{ item.resource }} · {{ item.action }}
-                          </div>
-                          <div
-                            v-if="permissionCapabilityID(item)"
-                            class="font-mono text-[11px] text-gray-500 break-all"
-                          >
-                            capability: {{ permissionCapabilityID(item) }}
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="permissionCatalog.length === 0" class="rounded border border-dashed p-4 text-sm text-gray-500">
-                权限目录为空，请先检查后端权限初始化。
-              </div>
-              <div
-                v-else-if="filteredPermissionGroups.length === 0"
-                class="rounded border border-dashed p-4 text-sm text-gray-500"
-              >
-                未找到匹配权限，请换一个关键词（例如：`POST /api/v1/admin/agents`、`admin_agents`）。
-              </div>
-            </div>
-
-            <div class="mt-4 space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-semibold">当前 Profile 的 API Key</div>
                 <UButton
-                  size="xs"
-                  color="primary"
-                  icon="i-heroicons-plus"
-                  :disabled="!selectedProfile || selectedProfile.status !== 1"
-                  @click="openCreateKey"
+                  id="api-key-profile-tab"
+                  role="tab"
+                  :tabindex="authorizationSection === 'profile' ? 0 : -1"
+                  :aria-selected="authorizationSection === 'profile'"
+                  aria-controls="api-key-profile-panel"
+                  :color="
+                    authorizationSection === 'profile' ? 'primary' : 'neutral'
+                  "
+                  :variant="
+                    authorizationSection === 'profile' ? 'soft' : 'ghost'
+                  "
+                  class="justify-start"
+                  @click="authorizationSection = 'profile'"
+                  >{{ t('integrationApiKeyProfile.sharedTab') }}</UButton
                 >
-                  新建 API Key
-                </UButton>
-              </div>
-              <div class="overflow-x-auto">
-                <table class="min-w-full text-sm border border-gray-200 dark:border-gray-700 rounded">
-                  <thead class="bg-gray-50 dark:bg-gray-800/50">
-                    <tr>
-                      <th class="px-3 py-2 text-left whitespace-nowrap">名称</th>
-                      <th class="px-3 py-2 text-left whitespace-nowrap">Key 前缀</th>
-                      <th class="px-3 py-2 text-left whitespace-nowrap">{{ t("integrationApiKeyOwners.column") }}</th>
-                      <th class="px-3 py-2 text-left whitespace-nowrap">状态</th>
-                      <th class="px-3 py-2 text-left whitespace-nowrap">过期时间</th>
-                      <th class="px-3 py-2 text-left whitespace-nowrap">更新时间</th>
-                      <th class="px-3 py-2 text-left whitespace-nowrap">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="item in profileKeys" :key="item.key_id" class="border-t border-gray-200 dark:border-gray-700">
-                      <td class="px-3 py-2">{{ item.name }}</td>
-                      <td class="px-3 py-2 font-mono">{{ item.key_prefix }}</td>
-                      <td class="px-3 py-2">
-                        <div v-for="pluginID in item.plugin_ids || []" :key="pluginID" class="font-mono text-xs break-all">{{ pluginID }}</div>
-                        <span v-if="!item.plugin_ids?.length" class="text-sm text-gray-500 dark:text-gray-300">{{ t("integrationApiKeyOwners.unbound") }}</span>
-                      </td>
-                      <td class="px-3 py-2">
-                        <UBadge :color="item.status === 'active' ? 'success' : 'neutral'" variant="subtle">
-                          {{ item.status }}
-                        </UBadge>
-                      </td>
-                      <td class="px-3 py-2 font-mono">{{ item.expires_at || "-" }}</td>
-                      <td class="px-3 py-2 font-mono">{{ item.updated_at }}</td>
-                      <td class="px-3 py-2">
-                        <div class="flex flex-nowrap gap-2">
-                          <UButton size="xs" variant="soft" :disabled="item.status !== 'active'" @click="openOwners(item)">{{ t("integrationApiKeyOwners.configure") }}</UButton>
-                          <UButton size="xs" variant="soft" :loading="rotatingKeyID === item.key_id" @click="openRotate(item)">
-                            轮换
-                          </UButton>
+                <UButton
+                  id="api-key-keys-tab"
+                  role="tab"
+                  :tabindex="authorizationSection === 'keys' ? 0 : -1"
+                  :aria-selected="authorizationSection === 'keys'"
+                  aria-controls="api-key-keys-panel"
+                  :color="
+                    authorizationSection === 'keys' ? 'primary' : 'neutral'
+                  "
+                  :variant="authorizationSection === 'keys' ? 'soft' : 'ghost'"
+                  class="justify-start"
+                  @click="authorizationSection = 'keys'"
+                  >{{ t('integrationApiKeyProfile.keysTab') }}</UButton
+                >
+              </nav>
+              <div class="min-w-0">
+                <section
+                  v-show="authorizationSection === 'profile'"
+                  id="api-key-profile-panel"
+                  role="tabpanel"
+                  aria-labelledby="api-key-profile-tab"
+                  class="space-y-3"
+                >
+                  <div
+                    class="flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div>
+                      <h2 class="font-semibold">
+                        {{ t('integrationApiKeyProfile.sharedTitle') }}
+                      </h2>
+                      <p class="text-sm text-muted">
+                        {{ t('integrationApiKeyProfile.sharedHelp') }}
+                      </p>
+                      <p class="text-xs text-muted">
+                        {{
+                          t('integrationApiKeyProfile.selected', {
+                            count: totalCheckedPermissionCount,
+                            total: totalPermissionCount,
+                          })
+                        }}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                      <UButton
+                        size="xs"
+                        variant="soft"
+                        :disabled="
+                          !selectedProfile ||
+                          selectedProfile.status !== 1 ||
+                          totalPermissionCount === 0
+                        "
+                        @click="toggleAllPermissions(true)"
+                      >
+                        {{ t('integrationApiKeyProfile.selectAll') }}
+                      </UButton>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="soft"
+                        :disabled="
+                          !selectedProfile ||
+                          selectedProfile.status !== 1 ||
+                          totalPermissionCount === 0
+                        "
+                        @click="toggleAllPermissions(false)"
+                      >
+                        {{ t('integrationApiKeyProfile.clearAll') }}
+                      </UButton>
+                      <UButton
+                        size="xs"
+                        color="primary"
+                        :loading="savingPermissions"
+                        :disabled="
+                          !selectedProfile ||
+                          selectedProfile.status !== 1 ||
+                          !permissionDirty
+                        "
+                        @click="savePermissions"
+                      >
+                        {{ t('integrationApiKeyProfile.save') }}
+                      </UButton>
+                    </div>
+                  </div>
+                  <div
+                    v-if="loadingPermissions"
+                    class="mt-3 rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-500"
+                  >
+                    加载权限中...
+                  </div>
+
+                  <div
+                    v-else
+                    class="mt-3 space-y-3 max-h-[72vh] overflow-auto pr-1"
+                  >
+                    <UInput
+                      v-model="searchPermission"
+                      icon="i-heroicons-magnifying-glass"
+                      placeholder="搜索权限（支持 capability_id / 路径 / resource / action）"
+                    />
+                    <div
+                      v-for="resourceGroup in filteredPermissionGroups"
+                      :key="`resource-${resourceGroup.resourceName}`"
+                      class="rounded border border-gray-200 dark:border-gray-700 p-3"
+                    >
+                      <div
+                        class="flex flex-wrap items-center justify-between gap-2"
+                      >
+                        <div class="font-medium break-all">
+                          resource：{{ resourceGroup.resourceName }}
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                          <span class="text-gray-500">
+                            已选
+                            {{
+                              checkedCount(
+                                resourceGroup.actions.flatMap(
+                                  (item) => item.permissions,
+                                ),
+                              )
+                            }}/{{
+                              resourceGroup.actions.flatMap(
+                                (item) => item.permissions,
+                              ).length
+                            }}
+                          </span>
                           <UButton
                             size="xs"
-                            color="error"
                             variant="soft"
-                            :loading="revokingKeyID === item.key_id"
-                            :disabled="item.status !== 'active'"
-                            @click="revokeKey(item)"
+                            :disabled="selectedProfile.status !== 1"
+                            @click="
+                              togglePermissions(
+                                resourceGroup.actions.flatMap(
+                                  (item) => item.permissions,
+                                ),
+                                true,
+                              )
+                            "
                           >
-                            吊销
+                            全选
                           </UButton>
                           <UButton
                             size="xs"
-                            color="error"
-                            variant="outline"
-                            :loading="deletingKeyID === item.key_id"
-                            @click="deleteKey(item)"
+                            color="neutral"
+                            variant="soft"
+                            :disabled="selectedProfile.status !== 1"
+                            @click="
+                              togglePermissions(
+                                resourceGroup.actions.flatMap(
+                                  (item) => item.permissions,
+                                ),
+                                false,
+                              )
+                            "
                           >
-                            删除
+                            清空
                           </UButton>
                         </div>
-                      </td>
-                    </tr>
-                    <tr v-if="profileKeys.length === 0">
-                      <td colspan="7" class="px-3 py-4 text-center text-gray-500">当前 Profile 暂无 API Key</td>
-                    </tr>
-                  </tbody>
-                </table>
+                      </div>
+
+                      <div class="mt-2 grid grid-cols-1 gap-2 2xl:grid-cols-2">
+                        <div
+                          v-for="actionGroup in resourceGroup.actions"
+                          :key="`action-${resourceGroup.resourceName}-${actionGroup.actionName}`"
+                          class="rounded border border-gray-100 dark:border-gray-800 p-2"
+                        >
+                          <div
+                            class="flex items-center justify-between gap-2 text-xs text-gray-500"
+                          >
+                            <span class="font-medium">{{
+                              actionGroup.actionName
+                            }}</span>
+                            <span
+                              >{{ checkedCount(actionGroup.permissions) }}/{{
+                                actionGroup.permissions.length
+                              }}</span
+                            >
+                          </div>
+
+                          <div class="mt-2 space-y-2">
+                            <label
+                              v-for="item in actionGroup.permissions"
+                              :key="`perm-${item.id}`"
+                              class="flex items-start gap-2 rounded border border-gray-100 dark:border-gray-800 p-2"
+                            >
+                              <UCheckbox
+                                class="shrink-0"
+                                :model-value="isChecked(Number(item.id))"
+                                :disabled="selectedProfile.status !== 1"
+                                @update:model-value="
+                                  setPermission(
+                                    Number(item.id),
+                                    Boolean($event),
+                                  )
+                                "
+                              />
+                              <div class="min-w-0 flex-1 text-xs">
+                                <div class="font-medium break-all">
+                                  {{ permissionTitle(item) }}
+                                </div>
+                                <ApiKeyPermissionAccess :permission="item" />
+                                <div
+                                  class="font-mono text-[11px] text-gray-500 break-all"
+                                >
+                                  #{{ item.id }} · {{ item.resource }} ·
+                                  {{ item.action }}
+                                </div>
+                                <div
+                                  v-if="permissionCapabilityID(item)"
+                                  class="font-mono text-[11px] text-gray-500 break-all"
+                                >
+                                  capability: {{ permissionCapabilityID(item) }}
+                                </div>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      v-if="permissionCatalog.length === 0"
+                      class="rounded border border-dashed p-4 text-sm text-gray-500"
+                    >
+                      权限目录为空，请先检查后端权限初始化。
+                    </div>
+                    <div
+                      v-else-if="allPermissionItems.length === 0"
+                      class="rounded border border-dashed p-4 text-sm text-gray-500"
+                    >
+                      {{ t('integrationApiKeyProfile.noShared') }}
+                    </div>
+                    <div
+                      v-else-if="filteredPermissionGroups.length === 0"
+                      class="rounded border border-dashed p-4 text-sm text-gray-500"
+                    >
+                      未找到匹配权限，请换一个关键词（例如：`POST
+                      /api/v1/admin/agents`、`admin_agents`）。
+                    </div>
+                  </div>
+                </section>
+                <section
+                  v-show="authorizationSection === 'keys'"
+                  id="api-key-keys-panel"
+                  role="tabpanel"
+                  aria-labelledby="api-key-keys-tab"
+                  class="space-y-3"
+                >
+                  <p class="text-sm text-muted">
+                    {{ t('integrationApiKeyProfile.keysHelp') }}
+                  </p>
+                  <div class="space-y-2">
+                    <div
+                      class="flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <div class="font-semibold">当前 Profile 的 API Key</div>
+                      <div class="flex flex-wrap gap-2">
+                        <UDropdownMenu
+                          :items="[
+                            {
+                              label: t(
+                                'integrationApiKeyProfile.advancedAppend',
+                              ),
+                              onSelect: () => openBatchGrant(),
+                            },
+                          ]"
+                        >
+                          <UButton
+                            size="xs"
+                            color="neutral"
+                            variant="ghost"
+                            :disabled="
+                              selectedProfile.status !== 1 ||
+                              !profileKeys.length
+                            "
+                            icon="i-heroicons-ellipsis-horizontal"
+                            >{{
+                              t('integrationApiKeyProfile.advanced')
+                            }}</UButton
+                          >
+                        </UDropdownMenu>
+                        <UButton
+                          size="xs"
+                          color="primary"
+                          icon="i-heroicons-plus"
+                          :disabled="
+                            !selectedProfile || selectedProfile.status !== 1
+                          "
+                          @click="openCreateKey"
+                        >
+                          新建 API Key
+                        </UButton>
+                      </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table
+                        class="min-w-full text-sm border border-gray-200 dark:border-gray-700 rounded"
+                      >
+                        <thead class="bg-gray-50 dark:bg-gray-800/50">
+                          <tr>
+                            <th class="px-3 py-2 text-left whitespace-nowrap">
+                              名称
+                            </th>
+                            <th class="px-3 py-2 text-left whitespace-nowrap">
+                              Key 前缀
+                            </th>
+                            <th class="px-3 py-2 text-left whitespace-nowrap">
+                              {{ t('integrationApiKeyOwners.column') }}
+                            </th>
+                            <th class="px-3 py-2 text-left whitespace-nowrap">
+                              状态
+                            </th>
+                            <th class="px-3 py-2 text-left whitespace-nowrap">
+                              过期时间
+                            </th>
+                            <th class="px-3 py-2 text-left whitespace-nowrap">
+                              更新时间
+                            </th>
+                            <th class="px-3 py-2 text-left whitespace-nowrap">
+                              操作
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr
+                            v-for="item in profileKeys"
+                            :key="item.key_id"
+                            class="border-t border-gray-200 dark:border-gray-700"
+                          >
+                            <td class="px-3 py-2">{{ item.name }}</td>
+                            <td class="px-3 py-2 font-mono">
+                              {{ item.key_prefix }}
+                            </td>
+                            <td class="px-3 py-2">
+                              <div
+                                v-for="pluginID in item.plugin_ids || []"
+                                :key="pluginID"
+                                class="font-mono text-xs break-all"
+                              >
+                                {{ pluginID }}
+                              </div>
+                              <span
+                                v-if="!item.plugin_ids?.length"
+                                class="text-sm text-gray-500 dark:text-gray-300"
+                                >{{
+                                  t('integrationApiKeyOwners.unbound')
+                                }}</span
+                              >
+                            </td>
+                            <td class="px-3 py-2">
+                              <UBadge
+                                :color="
+                                  item.status === 'active'
+                                    ? 'success'
+                                    : 'neutral'
+                                "
+                                variant="subtle"
+                              >
+                                {{ item.status }}
+                              </UBadge>
+                            </td>
+                            <td class="px-3 py-2 font-mono">
+                              {{ item.expires_at || '-' }}
+                            </td>
+                            <td class="px-3 py-2 font-mono">
+                              {{ item.updated_at }}
+                            </td>
+                            <td class="px-3 py-2">
+                              <div class="flex flex-nowrap gap-2">
+                                <UButton
+                                  size="xs"
+                                  variant="soft"
+                                  class="shrink-0 whitespace-nowrap"
+                                  :disabled="selectedProfile.status !== 1 || item.status !== 'active'"
+                                  @click="openBatchGrant([], [item.key_id])"
+                                  >{{ t('integrationApiKeyProfile.appendToKey') }}</UButton
+                                >
+                                <UButton
+                                  size="xs"
+                                  variant="soft"
+                                  :disabled="item.status !== 'active'"
+                                  @click="openOwners(item)"
+                                  >{{
+                                    t('integrationApiKeyOwners.configure')
+                                  }}</UButton
+                                >
+                                <UButton
+                                  size="xs"
+                                  variant="soft"
+                                  :loading="rotatingKeyID === item.key_id"
+                                  @click="openRotate(item)"
+                                >
+                                  轮换
+                                </UButton>
+                                <UButton
+                                  size="xs"
+                                  color="error"
+                                  variant="soft"
+                                  :loading="revokingKeyID === item.key_id"
+                                  :disabled="item.status !== 'active'"
+                                  @click="revokeKey(item)"
+                                >
+                                  吊销
+                                </UButton>
+                                <UButton
+                                  size="xs"
+                                  color="error"
+                                  variant="outline"
+                                  :loading="deletingKeyID === item.key_id"
+                                  @click="deleteKey(item)"
+                                >
+                                  删除
+                                </UButton>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr v-if="profileKeys.length === 0">
+                            <td
+                              colspan="7"
+                              class="px-3 py-4 text-center text-gray-500"
+                            >
+                              当前 Profile 暂无 API Key
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
               </div>
             </div>
           </template>
@@ -1091,62 +1561,153 @@ onMounted(async () => {
         <template #description>
           <div class="space-y-2">
             <div class="text-xs">名称：{{ latestPlainKeyLabel }}</div>
-            <div class="font-mono text-xs break-all rounded bg-white/80 px-2 py-1 dark:bg-gray-900">
+            <div
+              class="font-mono text-xs break-all rounded bg-white/80 px-2 py-1 dark:bg-gray-900"
+            >
               {{ latestPlainKey }}
             </div>
             <div class="flex gap-2">
-              <UButton size="xs" variant="outline" icon="i-heroicons-clipboard" @click="copyPlainKey">复制</UButton>
-              <UButton size="xs" variant="ghost" @click="latestPlainKey = ''">隐藏</UButton>
+              <UButton
+                size="xs"
+                variant="outline"
+                icon="i-heroicons-clipboard"
+                @click="copyPlainKey"
+                >复制</UButton
+              >
+              <UButton size="xs" variant="ghost" @click="latestPlainKey = ''"
+                >隐藏</UButton
+              >
             </div>
           </div>
         </template>
       </UAlert>
     </template>
 
-    <UModal v-model:open="createProfileOpen" title="新建 API Key Profile" :ui="{ content: 'max-w-lg' }">
+    <UModal
+      v-model:open="createProfileOpen"
+      title="新建 API Key Profile"
+      :ui="{ content: 'max-w-lg' }"
+    >
       <template #body>
         <div class="space-y-3">
           <UFormField label="Profile 名称">
-            <UInput v-model="createProfileForm.name" placeholder="例如：Plugin Runtime Profile" />
+            <UInput
+              v-model="createProfileForm.name"
+              placeholder="例如：Plugin Runtime Profile"
+            />
           </UFormField>
           <UFormField label="Profile Key（可选）">
-            <UInput v-model="createProfileForm.key" placeholder="例如：plugin.runtime.default" />
+            <UInput
+              v-model="createProfileForm.key"
+              placeholder="例如：plugin.runtime.default"
+            />
           </UFormField>
         </div>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="subtle" @click="createProfileOpen = false">取消</UButton>
-          <UButton color="primary" :loading="creatingProfile" @click="submitCreateProfile">创建</UButton>
+          <UButton
+            color="neutral"
+            variant="subtle"
+            @click="createProfileOpen = false"
+            >取消</UButton
+          >
+          <UButton
+            color="primary"
+            :loading="creatingProfile"
+            @click="submitCreateProfile"
+            >创建</UButton
+          >
         </div>
       </template>
     </UModal>
 
-    <UModal v-model:open="ownerOpen" :title="t('integrationApiKeyOwners.title')" :description="t('integrationApiKeyOwners.description')" :ui="{ content: 'max-w-lg' }">
+    <UModal
+      v-model:open="ownerOpen"
+      :title="t('integrationApiKeyOwners.title')"
+      :description="t('integrationApiKeyOwners.description')"
+      :ui="{ content: 'max-w-lg' }"
+    >
       <template #body>
         <div class="space-y-4">
-          <div class="text-sm">{{ t("integrationApiKeyOwners.keyLabel") }}{{ ownerTarget?.name }}</div>
+          <div class="text-sm">
+            {{ t('integrationApiKeyOwners.keyLabel') }}{{ ownerTarget?.name }}
+          </div>
           <template v-if="legacyOwnerBindings.length">
-            <UAlert color="warning" variant="subtle" :title="t('integrationApiKeyOwners.legacyTitle')" :description="t('integrationApiKeyOwners.legacyDescription')" />
+            <UAlert
+              color="warning"
+              variant="subtle"
+              :title="t('integrationApiKeyOwners.legacyTitle')"
+              :description="t('integrationApiKeyOwners.legacyDescription')"
+            />
             <div class="space-y-1 text-xs font-mono break-all">
-              <div v-for="(binding, index) in legacyOwnerBindings" :key="index">{{ binding.scope }} · {{ binding.action }} → {{ binding.plugin_id }}</div>
+              <div v-for="(binding, index) in legacyOwnerBindings" :key="index">
+                {{ binding.scope }} · {{ binding.action }} →
+                {{ binding.plugin_id }}
+              </div>
             </div>
           </template>
-          <UFormField :label="t('integrationApiKeyOwners.pluginLabel')" :description="t('integrationApiKeyOwners.inputHelp')">
-            <UTextarea v-model="ownerText" :rows="4" class="w-full" :disabled="loadingOwners || savingOwners" placeholder="com.powerx.plugins.crm" />
+          <UFormField
+            :label="t('integrationApiKeyOwners.pluginLabel')"
+            :description="t('integrationApiKeyOwners.inputHelp')"
+          >
+            <UTextarea
+              v-model="ownerText"
+              :rows="4"
+              class="w-full"
+              :disabled="loadingOwners || savingOwners"
+              placeholder="com.powerx.plugins.crm"
+            />
           </UFormField>
-          <p class="text-sm text-gray-600 dark:text-gray-300">{{ t("integrationApiKeyOwners.scopeHelp") }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-300">
+            {{ t('integrationApiKeyOwners.scopeHelp') }}
+          </p>
         </div>
       </template>
       <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="subtle" :disabled="savingOwners" @click="ownerOpen = false">{{ t("integrationApiKeyOwners.cancel") }}</UButton>
-          <UButton color="primary" :loading="savingOwners" :disabled="loadingOwners" @click="saveOwners">{{ t("integrationApiKeyOwners.save") }}</UButton>
+        <div class="w-full space-y-3">
+          <ApiKeyOwnerConflictNotice
+            v-if="ownerConflict"
+            :report="ownerConflict"
+            operation="owners"
+          />
+          <div class="flex justify-end gap-2">
+            <UButton
+              color="neutral"
+              variant="subtle"
+              :disabled="savingOwners"
+              @click="ownerOpen = false"
+              >{{ t('integrationApiKeyOwners.cancel') }}</UButton
+            >
+            <UButton
+              color="primary"
+              :loading="savingOwners"
+              :disabled="loadingOwners"
+              @click="saveOwners"
+              >{{ t('integrationApiKeyOwners.save') }}</UButton
+            >
+          </div>
         </div>
       </template>
     </UModal>
 
-    <UModal v-model:open="renameProfileOpen" title="重命名 Profile" :ui="{ content: 'max-w-lg' }">
+    <ApiKeyBatchGrantModal
+      v-model:open="batchGrantOpen"
+      :tenant-uuid="effectiveTenantUUID"
+      :profile-id="selectedProfileID || 0"
+      :profile-name="selectedProfile?.name || ''"
+      :keys="profileKeys"
+      :permissions="permissionCatalog"
+      :initial-key-ids="batchInitialKeyIDs"
+      :initial-permission-ids="batchInitialPermissionIDs"
+      @saved="refreshAll"
+    />
+
+    <UModal
+      v-model:open="renameProfileOpen"
+      title="重命名 Profile"
+      :ui="{ content: 'max-w-lg' }"
+    >
       <template #body>
         <UFormField label="Profile 名称">
           <UInput v-model="renameProfileForm.name" />
@@ -1154,8 +1715,17 @@ onMounted(async () => {
       </template>
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="subtle" @click="renameProfileOpen = false">取消</UButton>
-          <UButton color="primary" :loading="updatingProfileID === selectedProfile?.id" @click="submitRenameProfile">
+          <UButton
+            color="neutral"
+            variant="subtle"
+            @click="renameProfileOpen = false"
+            >取消</UButton
+          >
+          <UButton
+            color="primary"
+            :loading="updatingProfileID === selectedProfile?.id"
+            @click="submitRenameProfile"
+          >
             保存
           </UButton>
         </div>
@@ -1171,28 +1741,56 @@ onMounted(async () => {
       <template #body>
         <div class="space-y-3">
           <UFormField label="Key 名称">
-            <UInput v-model="createKeyForm.name" placeholder="例如：plugin-runtime-key" />
+            <UInput
+              v-model="createKeyForm.name"
+              placeholder="例如：plugin-runtime-key"
+            />
           </UFormField>
-          <UFormField :label="t('integrationApiKeyOwners.createLabel')" :description="t('integrationApiKeyOwners.createHelp')">
-            <UTextarea v-model="createKeyForm.pluginOwners" :rows="3" class="w-full" placeholder="com.powerx.plugins.crm" />
+          <UFormField
+            :label="t('integrationApiKeyOwners.createLabel')"
+            :description="t('integrationApiKeyOwners.createHelp')"
+          >
+            <UTextarea
+              v-model="createKeyForm.pluginOwners"
+              :rows="3"
+              class="w-full"
+              placeholder="com.powerx.plugins.crm"
+            />
           </UFormField>
           <UFormField label="描述（可选）">
             <UInput v-model="createKeyForm.description" />
           </UFormField>
           <UFormField label="过期时间（可选）">
-            <UInput v-model="createKeyForm.expiresAt" placeholder="RFC3339，例如 2026-12-31T23:59:59Z" />
+            <UInput
+              v-model="createKeyForm.expiresAt"
+              placeholder="RFC3339，例如 2026-12-31T23:59:59Z"
+            />
           </UFormField>
         </div>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="subtle" @click="createKeyOpen = false">取消</UButton>
-          <UButton color="primary" :loading="creatingKey" @click="submitCreateKey">创建</UButton>
+          <UButton
+            color="neutral"
+            variant="subtle"
+            @click="createKeyOpen = false"
+            >取消</UButton
+          >
+          <UButton
+            color="primary"
+            :loading="creatingKey"
+            @click="submitCreateKey"
+            >创建</UButton
+          >
         </div>
       </template>
     </UModal>
 
-    <UModal v-model:open="rotateOpen" title="轮换 API Key" :ui="{ content: 'max-w-2xl' }">
+    <UModal
+      v-model:open="rotateOpen"
+      title="轮换 API Key"
+      :ui="{ content: 'max-w-2xl' }"
+    >
       <template #body>
         <div class="space-y-3">
           <UFormField label="Key 名称">
@@ -1202,14 +1800,24 @@ onMounted(async () => {
             <UInput v-model="rotateForm.description" />
           </UFormField>
           <UFormField label="过期时间（可选）">
-            <UInput v-model="rotateForm.expiresAt" placeholder="RFC3339，可选" />
+            <UInput
+              v-model="rotateForm.expiresAt"
+              placeholder="RFC3339，可选"
+            />
           </UFormField>
         </div>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="subtle" @click="rotateOpen = false">取消</UButton>
-          <UButton color="primary" :loading="Boolean(rotatingKeyID)" @click="submitRotate">确认轮换</UButton>
+          <UButton color="neutral" variant="subtle" @click="rotateOpen = false"
+            >取消</UButton
+          >
+          <UButton
+            color="primary"
+            :loading="Boolean(rotatingKeyID)"
+            @click="submitRotate"
+            >确认轮换</UButton
+          >
         </div>
       </template>
     </UModal>

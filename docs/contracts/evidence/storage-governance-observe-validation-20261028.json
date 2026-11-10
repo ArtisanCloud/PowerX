@@ -1,0 +1,138 @@
+{
+  "feature": "027-monitor-center/US9",
+  "slice": "read_only_observation_and_manual_capacity_estimate",
+  "verified_at": "2026-10-28T15:43:23.336499+00:00",
+  "source_state": "uncommitted local worktree; baseline SHA is not a fix commit",
+  "baseline_head": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "contract": "specs/027-monitor-center/contracts/storage-governance.openapi.yaml",
+  "status": "local_controlled_validation_passed; full US9 and deployment acceptance pending",
+  "surfaces": {
+    "page": "/monitor/storage",
+    "overview": "GET /api/v1/admin/ops/storage/overview",
+    "estimate": "POST /api/v1/admin/ops/storage/estimates",
+    "authorization": "human Root JWT only; API Key and STS rejected"
+  },
+  "checks": {
+    "backend": {
+      "result": "passed",
+      "test_cases": 12,
+      "race_detector": true,
+      "packages": [
+        "internal/service/storage_governance",
+        "internal/infra/storage_observer",
+        "internal/transport/http/admin/storage",
+        "internal/bootstrap"
+      ],
+      "command": "GOMAXPROCS=4 go test -p 2 -race ./internal/service/storage_governance ./internal/infra/storage_observer ./internal/transport/http/admin/storage ./internal/bootstrap -run TestStorage -count=1",
+      "proof": [
+        "real JWT middleware and module router",
+        "actual temporary filesystem through HTTP",
+        "hardlink/overlapping-source attribution",
+        "symlink boundary and partial/missing-source states",
+        "bounded metadata reads",
+        "cache and cancellation",
+        "capacity overflow and explicit assumption semantics",
+        "installation identity and unsupported mode rejection"
+      ]
+    },
+    "go_vet": {
+      "result": "passed",
+      "scope": "same four backend packages"
+    },
+    "linux_collector_cross_compile": {
+      "result": "passed",
+      "target": "linux/amd64, CGO_ENABLED=0",
+      "runtime_acceptance": false
+    },
+    "frontend_unit": {
+      "result": "passed",
+      "tests": 8,
+      "command": "npx vitest run tests/unit/storage tests/unit/backup/backup-sections.spec.ts"
+    },
+    "nuxt_build": {
+      "result": "passed",
+      "isolated_build": ".nuxt-storage-validation",
+      "isolated_output": ".output-storage-validation"
+    },
+    "browser": {
+      "result": "passed",
+      "tests": 3,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "command": "npx playwright test --config playwright.storage.config.ts",
+      "api_data": "controlled fixtures; not server inventory",
+      "proof": [
+        "real Nuxt production build and API client",
+        "mobile navigation closes before input",
+        "empty increment remains sampling_required",
+        "budget deficit with 14 days/3 GiB",
+        "draft preserved across sections",
+        "failed refresh retains labelled prior data",
+        "no horizontal document overflow",
+        "no periodic observation requests"
+      ],
+      "artifacts": "test-results/storage-browser (local, ignored by Git)"
+    },
+    "locales": {
+      "result": "passed",
+      "locales": [
+        "zh",
+        "en",
+        "ja",
+        "ko"
+      ],
+      "storage_keys_each": 75
+    },
+    "capability_check": {
+      "result": "passed",
+      "audit": "capability-audit: ok, declared=1233 referenced=75 rest_routes=1173 candidates=1132 ignored_route_rules=52",
+      "publication": "Root operations explicitly ignored; no tenant/agent capability published"
+    },
+    "git_diff_check": {
+      "result": "passed"
+    }
+  },
+  "lifecycle": {
+    "test_processes": {
+      "fixturePid": {
+        "pid": 75749,
+        "exited": true
+      },
+      "corePid": {
+        "pid": 75752,
+        "exited": true
+      }
+    },
+    "released_ports": [
+      3485,
+      3486
+    ],
+    "local_user_services_restarted": false,
+    "remote_services_changed": false,
+    "database_migration_run": false,
+    "capability_seed_run": false,
+    "automatic_cleanup_enabled": false
+  },
+  "task_progress": {
+    "complete": [
+      "T101",
+      "T102",
+      "T147"
+    ],
+    "pending": 62,
+    "authority": "specs/027-monitor-center/tasks.md"
+  },
+  "pending": [
+    "live local backend acceptance requires user restarting the existing Core service",
+    "database internal metrics/WAL attribution",
+    "14-day historical sampling and estimated rate from observations",
+    "verified local/remote history coverage",
+    "persisted policies, enablement, cleanup previews and execution",
+    "global budgets, persistent reservations and workspace leases",
+    "alerts and XDocker delegation",
+    "Linux runtime and remote production/development acceptance"
+  ]
+}

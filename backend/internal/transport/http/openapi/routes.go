@@ -52,7 +52,12 @@ func RegisterAPIRoutes(
 	agentOpenAPI.Register(publicGroup, protectedGroup, deps)
 	agentSessionOpenAPI.NewHandler(deps.AgentSessionSvc).Register(protectedGroup)
 	capabilityRegistryOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
-	customerOpenAPI.RegisterTenantRoutes(protectedGroup, deps, customerOpenAPI.WithClientApps(customerClientApps(cfg)))
+	if deps.CustomerClientApps != nil {
+		deps.CustomerClientApps.SetLegacyApplications(customerClientApps(cfg))
+		customerOpenAPI.RegisterTenantRoutes(protectedGroup, deps, customerOpenAPI.WithClientApps(deps.CustomerClientApps))
+	} else {
+		customerOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
+	}
 	iamOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 	requestIdentityOpenAPI.Register(protectedGroup, deps)
 	skillsOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
@@ -67,15 +72,15 @@ func RegisterAPIRoutes(
 	runtimeHostOpenAPI.RegisterTenantRoutes(protectedGroup, deps)
 }
 
-// customerClientApps 把配置中的客户端应用注册表转换为客户服务使用的注册表。
+// customerClientApps 只装载旧配置的显式迁移来源，不作为运行时注册表。
 // 尚未填写密钥的应用照常登记，登录时明确返回未配置，并在启动时提示。
-func customerClientApps(cfg *config.Config) customerSvc.ClientAppRegistry {
+func customerClientApps(cfg *config.Config) []customerSvc.ClientApp {
 	apps := make([]customerSvc.ClientApp, 0, len(cfg.CustomerAuth.ClientApps))
 	for _, a := range cfg.CustomerAuth.ClientApps {
 		if a.Secret() == "" {
-			logger.WarnF(context.Background(), "customer_auth.client_apps %s/%s 未配置密钥，该应用的登录会返回 CUSTOMER_CLIENT_APP_NOT_CONFIGURED", a.Platform, a.AppID)
+			logger.WarnF(context.Background(), "customer_auth.client_apps %s/%s 未配置密钥，该应用的迁移需要补充凭证", a.Platform, a.AppID)
 		}
 		apps = append(apps, customerSvc.ClientApp{Platform: a.Platform, AppID: a.AppID, Name: a.Name, Secret: a.Secret(), PluginIDs: a.PluginIDs, TenantUUIDs: a.TenantUUIDs})
 	}
-	return customerSvc.NewStaticClientAppRegistry(apps)
+	return apps
 }

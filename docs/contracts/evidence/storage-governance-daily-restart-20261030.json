@@ -1,0 +1,76 @@
+{
+  "contract": "powerx.storage-governance.daily-restart-check/v0.5.1",
+  "checked_at": "2026-10-30T22:22:01.673462+08:00",
+  "scope": "Read-only examination of the user-owned daily 3030/8077 services after user restart. No authenticated runtime response was available; no self-signed JWT or alternate authenticated router was used.",
+  "services": [
+    {
+      "port": 8077,
+      "pid": 13572,
+      "started_at": "2026-10-30T22:13:43+08:00",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+      "config": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/etc/config.yaml",
+      "health_http": 200
+    },
+    {
+      "port": 3030,
+      "pid": 7371,
+      "started_at": "2026-10-30T22:12:07+08:00",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin"
+    }
+  ],
+  "binary_check": {
+    "method": "Exact literals in the current executable bytes; not a source-build or timer acceptance claim",
+    "contains": [
+      "runRuntimeSchedule",
+      "runRuntimeLifecycle",
+      "storage enforce requires explicit native retention handover",
+      "storage budget insufficient",
+      "media_upload"
+    ]
+  },
+  "configuration": {
+    "schema_version": 1,
+    "mode": "observe",
+    "runtime_directory_configured": false,
+    "runtime_flags": {
+      "lifecycle_enabled": false,
+      "manage_native_retention": false,
+      "allow_enforce": false,
+      "admission_enabled": false
+    },
+    "sampling_enabled": true,
+    "postgres_enabled": true,
+    "legacy_log_retention_enabled": false
+  },
+  "live_sampling": {
+    "source": "Read-only SQL against loopback powerx.public.ops_storage_samples; transaction default read-only and 5 second statement timeout",
+    "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+    "latest_observed_slot": "2026-10-30T22:15:00+08:00",
+    "latest_created_at": "2026-10-30T22:18:49.563464+08:00",
+    "includes": [
+      "filesystem",
+      "database",
+      "resources",
+      "coverage"
+    ],
+    "created_after_backend_restart": true
+  },
+  "runtime_api": {
+    "path": "/api/v1/admin/ops/storage/runtime",
+    "unauthenticated_http": 401,
+    "authenticated_state_verified": false
+  },
+  "conclusion": "New process and capacity observation verified. Daily instance lifecycle and admission remain disabled. Fifteen-minute automatic cleanup acceptance cannot start from this restart.",
+  "next_steps": [
+    "Configure the local runtime directory and explicit lifecycle/native-retention handover/admission flags with valid shared budget thresholds.",
+    "Load that startup configuration in a new backend process, then explicitly save and enable each approved file-log source policy.",
+    "Confirm worker and policy readback before accepting a real fifteen-minute batch; keep database event cleanup disabled."
+  ],
+  "changes": {
+    "configuration_modified": false,
+    "user_services_restarted_by_agent": false,
+    "files_deleted": false,
+    "database_rows_written_by_agent": false,
+    "production_touched": false
+  }
+}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Temporary PowerX legacy scheduling headroom guard
+After=local-fs.target postgresql@16-main.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/powerx-ops/transition-20261109/capacity.py --apply
+TimeoutStartSec=180
+Nice=15
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal

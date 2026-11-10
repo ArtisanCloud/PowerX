@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-23",
+  "source_commit": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+  "source_worktree_uncommitted": true,
+  "scope": "Admin AI provider identity contract and selector states; shared Agent ConfigPanel consumer",
+  "changes": [
+    "Provider uses formal id/name fields in API client, settings page and Agent configuration panel",
+    "Invalid provider identities fail explicitly before rendering options",
+    "Preserve provider auth/apps/configured payload; resolve active provider through id",
+    "Remove placeholder entries from provider/model item arrays",
+    "Separate actual loading, empty catalog and failed/retry states",
+    "Failed model reload retains current model draft and credentials",
+    "Image tab accurately identifies shared understanding/generation modality; backend modality and execution contracts unchanged",
+    "zh/en/ja/ko catalog state messages"
+  ],
+  "source_sha256": {
+    "web-admin/app/composables/api/services/aiSettingService.ts": "37ab6a6058906d00f86057c94b68863c79d72f3664e1ceaf0e6144bb2eeea6ac",
+    "web-admin/app/components/agent/ConfigPanel.vue": "c59a1358f2bba5165fc05198f464196d204ed62060f081497669129bd83fe753",
+    "web-admin/app/components/settings/ai/ProviderModelForm.vue": "d1a4dbab813bd16ca37baeff71af46ce400f125b72f25e8f7eadf670010ed8a1",
+    "web-admin/app/pages/settings/ai/index.vue": "8aa69a5624006dea7d18b9025ba32219a012e511163c3ff765412612da1f8125",
+    "web-admin/app/stores/aiSettings.ts": "c31b4699b5340318be8507661d659641357c4514ff64e49a94e5644a87b0f3ed",
+    "web-admin/tests/unit/ai/provider-catalog.spec.ts": "25445696af10c1902e35ec262d6efcb69debde1f74679ee56dfb0ac55e79bd44",
+    "web-admin/tests/unit/ai/provider-model-form.spec.ts": "9d113609ee000f24847b3e4bf5a0aa8d3ebd71c268f02d61345a2a83f58bfad0"
+  },
+  "controlled_validation": {
+    "unit_tests": {
+      "passed": true,
+      "tests": 26,
+      "files": 4,
+      "log": "/private/tmp/powerx-ai-provider-ui-tests-20261023.log",
+      "command": "npx vitest run tests/unit/ai/provider-catalog.spec.ts tests/unit/ai/provider-model-form.spec.ts tests/unit/ai/agnes-media-settings.spec.ts tests/unit/components/secret-input.spec.ts"
+    },
+    "nuxt_build": {
+      "passed": true,
+      "log": "/private/tmp/powerx-ai-provider-ui-build-20261023.log",
+      "build_dir": "/private/tmp/powerx-ai-provider-ui-nuxt-20261023",
+      "output_dir": "/private/tmp/powerx-ai-provider-ui-output-20261023",
+      "user_dev_build_dir_overwritten": false
+    },
+    "i18n": {
+      "validated": [
+        "zh",
+        "en",
+        "ja",
+        "ko"
+      ],
+      "keys": [
+        "imageModality",
+        "providersFailed",
+        "modelsFailed",
+        "noProviders",
+        "noModels",
+        "retry"
+      ]
+    },
+    "coverage": [
+      "formal lower-case Admin provider response and auth preservation",
+      "empty provider/model directories do not spin indefinitely",
+      "legacy/missing identity fields and invalid array cause explicit failure",
+      "failure/retry recovery preserves credentials",
+      "selector labels and selected provider id propagation",
+      "credential field visibility and existing Base URL preservation",
+      "Agnes parameter regressions",
+      "secret visibility regressions"
+    ]
+  },
+  "acceptance_boundary": {
+    "live_browser_verified": false,
+    "desktop_narrow_verified": false,
+    "browser_blocker": "CUA reports Browser is not available: iab; no connected browser surface",
+    "real_supplier_calls": 0,
+    "database_writes": 0,
+    "remote_config_changes": 0,
+    "user_services_restarted": false,
+    "agent_owned_servers_started": 0,
+    "committed": false,
+    "published": false
+  },
+  "related_remote_read_only_check": {
+    "host": "47.116.10.200",
+    "cloud_disk_bytes": 128849018880,
+    "cloud_disk_gib": 120,
+    "root_partition_bytes_last_observed": 128637189632,
+    "root_filesystem_last_observed": "79G total; 96% used; filesystem resize still pending at observation",
+    "remaining_user_step": "sudo resize2fs /dev/nvme0n1p3; then df -h /",
+    "note": "Cloud/partition work is user-operated; this UI task does not execute expansion, snapshot creation or deletion."
+  }
+}

@@ -80,3 +80,9 @@ perm.seed: permgen.apply
 .PHONY: perm.seed.from-swag
 perm.seed.from-swag: swagger.gen permgen.apply
 	@echo "✅ 权限已同步（基于 swagger.gen）"
+# 独立旧数据修复；默认只读预览，不属于 migrate/启动/权限 seed。
+ROOT_CATALOG_REPAIR_CONFIG ?= etc/config.yaml
+ROOT_CATALOG_REPAIR_ARGS ?=
+.PHONY: root-catalog-repair
+root-catalog-repair:
+	cd backend && go run ./cmd/root-catalog-repair --config "$(ROOT_CATALOG_REPAIR_CONFIG)" $(ROOT_CATALOG_REPAIR_ARGS)

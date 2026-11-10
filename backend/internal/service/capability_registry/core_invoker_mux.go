@@ -3,6 +3,7 @@ package capability_registry
 import (
 	"context"
 	"errors"
+	"io"
 )
 
 type CoreCapabilityMux struct {
@@ -32,6 +33,29 @@ func (m *CoreCapabilityMux) InvokeCoreCapability(ctx context.Context, in CoreCap
 			continue
 		}
 		return nil, err
+	}
+	return nil, ErrCoreCapabilityNotHandled
+}
+
+// CoreCapabilityStreamInvoker 仅接收正式固定绑定，不能代理任意 URL。
+type CoreCapabilityStreamInvoker interface {
+	InvokeCoreCapabilityStream(context.Context, CoreCapabilityInvokeInput) (io.ReadCloser, error)
+}
+
+func (m *CoreCapabilityMux) InvokeCoreCapabilityStream(ctx context.Context, in CoreCapabilityInvokeInput) (io.ReadCloser, error) {
+	if m == nil {
+		return nil, ErrCoreCapabilityNotHandled
+	}
+	for _, invoker := range m.invokers {
+		streamer, ok := invoker.(CoreCapabilityStreamInvoker)
+		if !ok {
+			continue
+		}
+		body, err := streamer.InvokeCoreCapabilityStream(ctx, in)
+		if errors.Is(err, ErrCoreCapabilityNotHandled) {
+			continue
+		}
+		return body, err
 	}
 	return nil, ErrCoreCapabilityNotHandled
 }

@@ -1,0 +1,9 @@
+{
+  "job_id": "00392900-4a50-4e7f-8ad8-9a34b15da7d2",
+  "minute_scheduler_observed": false,
+  "no_replacement_job": true,
+  "original_request": "39b57bcb-a5c0-45bd-894d-ee02aad65154",
+  "partial_capture_preserved": true,
+  "scene": "capture",
+  "source_cleanup_before_retry": false
+}

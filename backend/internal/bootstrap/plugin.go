@@ -17,8 +17,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/runtimecredential"
+	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/autoseed"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/pluginbinding"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	settingservice "github.com/ArtisanCloud/PowerX/internal/service/setting"
 	skillservice "github.com/ArtisanCloud/PowerX/internal/service/skills"
@@ -145,8 +147,23 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		RuntimeCredential: func(ctx context.Context, pluginID string) (*pmimpl.PluginRuntimeCredential, error) {
 			return ensurePluginRuntimeCredential(ctx, deps, cfg, pluginID)
 		},
+		PrepareEventFabric: func(ctx context.Context, plugin pm.Plugin, tenant, path string, provision bool, persist func(map[string]string) error) error {
+			return preparePluginEventFabric(ctx, deps, plugin, tenant, path, provision, cfg.Plugin.EventFabricNamespaceOwners, persist)
+		},
+		PrepareRuntimeEnable: func(ctx context.Context, pluginID string) (func(context.Context) error, error) {
+			return preparePluginRuntimeEnable(ctx, deps, pluginID)
+		},
 	})
 	pmimpl.InitGlobal(mgr)
+	if deps.CapabilityInvocationSvc != nil {
+		deps.CapabilityInvocationSvc.BindPluginServiceTargetResolver(func(ctx context.Context, tenant, pluginID, version, requestPath string) (string, error) {
+			p, err := mgr.Get(ctx, pluginID)
+			if err := capservice.ValidatePluginServiceRuntime(p, version, err); err != nil {
+				return "", err
+			}
+			return dr.ResolvePluginServiceTarget(ctx, tenant, pluginID, version, requestPath)
+		})
+	}
 	if err := mgr.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
@@ -248,7 +265,7 @@ func ensurePluginRuntimeCredential(ctx context.Context, deps *shared.Deps, cfg *
 				return fmt.Errorf("load installed plugin runtime credential: %w", err)
 			}
 		}
-		if err := credSvc.VerifyClient(ctx, systemTenantUUID, pluginID, clientID, clientSecret, "powerx:api", "access", ""); err != nil {
+		if err := credSvc.ValidateStoredClientCredential(ctx, systemTenantUUID, pluginID, clientID, clientSecret, "powerx:api", "access", ""); err != nil {
 			return fmt.Errorf("verify plugin runtime credential: %w", err)
 		}
 		// 明文写入失败时，事务回滚首次创建的 hash；不留下无法恢复的孤立凭证记录。
@@ -293,7 +310,7 @@ func loadInstalledPluginClientSecret(ctx context.Context, credSvc *settingservic
 	if saved, err := runtimecredential.Read(credentialPath); err == nil {
 		if saved.TenantUUID != tenantUUID || saved.ClientID != clientID {
 			reasons = append(reasons, "durable credential identity mismatch")
-		} else if err := credSvc.VerifyClient(ctx, tenantUUID, pluginID, clientID, saved.ClientSecret, "powerx:api", "access", ""); err == nil {
+		} else if err := credSvc.ValidateStoredClientCredential(ctx, tenantUUID, pluginID, clientID, saved.ClientSecret, "powerx:api", "access", ""); err == nil {
 			return saved.ClientSecret, nil
 		} else {
 			reasons = append(reasons, "durable credential rejected: "+err.Error())
@@ -318,7 +335,7 @@ func loadInstalledPluginClientSecret(ctx context.Context, credSvc *settingservic
 			reasons = append(reasons, candidate+": "+err.Error())
 			continue
 		}
-		if err := credSvc.VerifyClient(ctx, tenantUUID, pluginID, clientID, secret, "powerx:api", "access", ""); err == nil {
+		if err := credSvc.ValidateStoredClientCredential(ctx, tenantUUID, pluginID, clientID, secret, "powerx:api", "access", ""); err == nil {
 			return secret, nil
 		} else {
 			reasons = append(reasons, candidate+": "+err.Error())
@@ -500,6 +517,9 @@ func seedPluginEventFabric(ctx context.Context, deps *shared.Deps, tenantUUID, p
 	plugin, err := manager.Get(ctx, pluginID)
 	if err != nil {
 		return fmt.Errorf("load plugin %s: %w", pluginID, err)
+	}
+	if pluginbinding.Declared(plugin) {
+		return fmt.Errorf("EVENT_FABRIC_INSTALL_PREPARATION_REQUIRED: use explicit tenant activation")
 	}
 	manifestPath, err := autoseed.ResolveManifestPath(plugin)
 	if err != nil {

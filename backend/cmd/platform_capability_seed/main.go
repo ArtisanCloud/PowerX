@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"gorm.io/gorm"
 	"os"
 	"strings"
 
@@ -24,6 +25,7 @@ func main() {
 	}
 	configPath := flag.String("config", defaultConfigPath, "PowerX config path")
 	preserve := flag.Bool("preserve-installed-state", true, "增量更新正式合同，保留现有授权开关和目录状态")
+	ids := flag.String("capability-ids", "", "可选：逗号分隔的正式能力 ID；租户范围始终覆盖全部受影响租户")
 	flag.Parse()
 
 	cfg, err := config.Load(*configPath)
@@ -44,23 +46,33 @@ func main() {
 	ctx := context.Background()
 	// Publish exact permission metadata alongside the capability catalog. This
 	// does not attach permissions to API keys or change credential grants.
-	var permissionErr error
-	if *preserve {
-		permissionErr = apikeypermissions.EnsureUpgradePermissions(ctx, db)
-	} else {
-		permissionErr = apikeypermissions.EnsureTemplatePermissions(ctx, iamrepo.NewPermissionRepository(db))
+	var capabilityIDs []string
+	if strings.TrimSpace(*ids) != "" {
+		for _, id := range strings.Split(*ids, ",") {
+			capabilityIDs = append(capabilityIDs, strings.TrimSpace(id))
+		}
 	}
-	if err := permissionErr; err != nil {
-		fatalf("seed platform permission metadata failed: %v", err)
+	if len(capabilityIDs) > 0 && !*preserve {
+		fatalf("scoped upgrades require preserve-installed-state")
 	}
-	seeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
-		PreserveInstalledState: *preserve,
-		RecordRepo:             caprepo.NewCapabilityRecordRepository(db, nil),
-		RegistryRepo:           caprepo.NewCapabilityRegistryRepository(db),
-		TenantRepo:             tenantrepo.NewTenantRepository(db),
-		Logger:                 logger.GetGlobalLogger(),
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *preserve {
+			if err := apikeypermissions.EnsureUpgradePermissionsForCapabilities(ctx, tx, capabilityIDs); err != nil {
+				return err
+			}
+		} else if err := apikeypermissions.EnsureTemplatePermissions(ctx, iamrepo.NewPermissionRepository(tx)); err != nil {
+			return err
+		}
+		return integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
+			PreserveInstalledState: *preserve,
+			CapabilityIDs:          capabilityIDs,
+			RecordRepo:             caprepo.NewCapabilityRecordRepository(tx, nil),
+			RegistryRepo:           caprepo.NewCapabilityRegistryRepository(tx),
+			TenantRepo:             tenantrepo.NewTenantRepository(tx),
+			Logger:                 logger.GetGlobalLogger(),
+		}).Ensure(ctx)
 	})
-	if err := seeder.Ensure(ctx); err != nil {
+	if err != nil {
 		fatalf("seed platform capabilities failed: %v", err)
 	}
 	logger.InfoF(ctx, "platform capability seed ok")

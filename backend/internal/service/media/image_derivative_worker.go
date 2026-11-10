@@ -21,7 +21,8 @@ import (
 )
 
 const derivativeQueueTenant = "core-media"
-const derivativeSubscriber = "image-derivatives-v1"
+const legacyDerivativeSubscriber = "image-derivatives-v1"
+const derivativeSubscriber = "image-derivatives-v2"
 const derivativeGroup = "media-workers"
 const ImageDerivativeChangedTopic = "media.image-derivatives.changed"
 
@@ -43,7 +44,11 @@ func (s *MediaService) RunImageDerivativeWorker(ctx context.Context) error {
 	}
 	worker := "media-" + uuid.NewString()
 	for {
-		if e := s.derivativeQueue.Recover(ctx, derivativeQueueTenant, derivativeSubscriber); e == nil {
+		e := s.derivativeQueue.Recover(ctx, derivativeQueueTenant, legacyDerivativeSubscriber)
+		if e == nil {
+			e = s.derivativeQueue.Recover(ctx, derivativeQueueTenant, derivativeSubscriber)
+		}
+		if e == nil {
 			break
 		} else {
 			logger.WarnF(ctx, "TaskBus recovery: %v", e)
@@ -55,7 +60,10 @@ func (s *MediaService) RunImageDerivativeWorker(ctx context.Context) error {
 		}
 	}
 	for ctx.Err() == nil {
-		deliveries, e := s.derivativeQueue.Dequeue(ctx, derivativeQueueTenant, derivativeSubscriber, derivativeGroup, worker, 1, 3*time.Second)
+		deliveries, e := s.derivativeQueue.Dequeue(ctx, derivativeQueueTenant, legacyDerivativeSubscriber, derivativeGroup, worker, 1, time.Millisecond)
+		if e == nil && len(deliveries) == 0 {
+			deliveries, e = s.derivativeQueue.Dequeue(ctx, derivativeQueueTenant, derivativeSubscriber, derivativeGroup, worker, 1, 3*time.Second)
+		}
 		if e != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
@@ -108,17 +116,26 @@ func (s *MediaService) handleDerivativeDelivery(ctx context.Context, d event_bus
 		var render *imageRenderError
 		return s.derivativeQueue.Reject(finishCtx, d, derivativeErrorCode(err), errors.As(err, &render))
 	}
-	return s.derivativeQueue.Ack(finishCtx, d)
+	if err := s.derivativeQueue.Ack(finishCtx, d); err != nil {
+		return err
+	}
+	// Legacy completion has already registered its v2 successor atomically.
+	// Ensure only publishes that durable message; recovery can replay it after a crash.
+	if task.Recipe == legacyImageDerivativeRecipe {
+		_, err := s.EnsureImageDerivatives(finishCtx, task.Tenant, task.Asset, false)
+		return err
+	}
+	return nil
 }
 func (s *MediaService) processImageDerivative(ctx context.Context, task derivativeTask, delivery event_bus.StreamTaskDelivery) error {
 	var source *m.MediaAsset
 	err := s.derivatives.WithAsset(ctx, task.Tenant, task.Asset, func(st *r.DerivativeState) error {
 		ref := derivativeRef(st.Asset)
-		if ref.TaskID != task.TaskID || ref.Recipe != task.Recipe || task.Recipe != ImageDerivativeRecipe || st.Asset.UploadState != m.UploadStateReady || st.Asset.ExpectedChecksum != task.SourceChecksum {
+		if ref.TaskID != task.TaskID || ref.Recipe != task.Recipe || len(recipeProfiles(task.Recipe)) == 0 || st.Asset.UploadState != m.UploadStateReady || st.Asset.ExpectedChecksum != task.SourceChecksum {
 			return errDerivativeStale
 		}
 		for _, v := range st.Variants {
-			if (v.Variant == "preview" || v.Variant == "thumbnail") && (v.UploadState == m.UploadStatePending || v.UploadState == m.UploadStateUploaded) && v.UploadExpiresAt != nil && time.Now().Before(*v.UploadExpiresAt) {
+			if isRecipeVariant(task.Recipe, v.Variant) && (v.UploadState == m.UploadStatePending || v.UploadState == m.UploadStateUploaded) && v.UploadExpiresAt != nil && time.Now().Before(*v.UploadExpiresAt) {
 				return errDerivativeVariantPending
 			}
 		}
@@ -133,42 +150,84 @@ func (s *MediaService) processImageDerivative(ctx context.Context, task derivati
 }
 
 func (s *MediaService) generateImageVariants(ctx context.Context, a *m.MediaAsset, task derivativeTask, delivery event_bus.StreamTaskDelivery) error {
-	objectVersion := uuid.NewString()
-	object, err := s.manager.Get(ctx, a.Driver, driver.GetObjectInput{Bucket: a.Bucket, ObjectKey: a.StorageKey})
+	policy := s.imageProcessingPolicy()
+	release, err := policy.acquire(ctx)
 	if err != nil {
 		return err
 	}
-	if object == nil || object.Body == nil {
-		return errors.New("original object missing")
-	}
-	defer object.Body.Close()
-	img, format, err := renderSource(ctx, object.Body, a.ExpectedChecksum)
+	defer release()
+	// Snapshot only missing profiles under the parent lock. Admission below
+	// rechecks validity, task identity and the shared lease before committing.
+	profiles := []imageProfile{}
+	err = s.derivatives.WithAsset(ctx, task.Tenant, task.Asset, func(st *r.DerivativeState) error {
+		ref := derivativeRef(st.Asset)
+		if ref.TaskID != task.TaskID || ref.Recipe != task.Recipe || st.Asset.ExpectedChecksum != task.SourceChecksum {
+			return errDerivativeStale
+		}
+		for _, p := range recipeProfiles(task.Recipe) {
+			valid := false
+			for _, v := range st.Variants {
+				if v.Variant == p.Name {
+					var e error
+					valid, e = s.usableImageVariant(ctx, st.Asset, v)
+					if e != nil {
+						return e
+					}
+				}
+			}
+			if !valid {
+				profiles = append(profiles, p)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	generated := make(map[string]*m.MediaAssetVariant, 2)
-	defer func() { // 未被事务接纳的对象不得遗留（已就绪旧对象由正常 purge 生命周期管理）。
+	generated := make(map[string]*m.MediaAssetVariant, len(profiles))
+	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		for _, v := range generated {
 			_ = s.manager.Delete(cleanupCtx, v.Driver, driver.DeleteObjectInput{Bucket: v.Bucket, ObjectKey: v.StorageKey})
 		}
 	}()
-	for _, p := range imageProfiles {
-		raw, mime, w, h, e := encodeDerivative(ctx, img, format, p.Edge)
+	if len(profiles) > 0 {
+		objectVersion := uuid.NewString()
+		object, e := s.manager.Get(ctx, a.Driver, driver.GetObjectInput{Bucket: a.Bucket, ObjectKey: a.StorageKey})
 		if e != nil {
 			return e
 		}
-		sum := sha256.Sum256(raw)
-		checksum := hex.EncodeToString(sum[:])
-		key := fmt.Sprintf("%s/generated/%s/%s/%s/%s", a.UUID.String(), a.TenantUUID, ImageDerivativeRecipe, objectVersion, p.Name)
-		v := &m.MediaAssetVariant{TenantUUID: a.TenantUUID, AssetUUID: a.UUID.String(), Variant: p.Name, Name: p.Name, Driver: a.Driver, Bucket: a.Bucket, BaseURL: a.BaseURL, StorageKey: key, SizeBytes: int64(len(raw)), MimeType: mime, UploadState: m.UploadStateReady, ExpectedChecksum: checksum, TicketVersion: 1, Meta: derivativeMeta(a, checksum, w, h)}
-		v.UUID = uuid.New()
-		now := time.Now().UTC()
-		v.CompletedAt = &now
-		generated[p.Name] = v
-		if _, e = s.manager.Put(ctx, a.Driver, driver.PutObjectInput{Bucket: a.Bucket, ObjectKey: key, Body: bytes.NewReader(raw), Size: int64(len(raw)), ContentType: mime, Overwrite: false}); e != nil {
+		if object == nil || object.Body == nil {
+			return errors.New("original object missing")
+		}
+		defer object.Body.Close()
+		img, format, e := renderSourceWithOptions(ctx, object.Body, a.ExpectedChecksum, policy.options)
+		if e != nil {
 			return e
+		}
+		for _, p := range profiles {
+			raw, mime, w, h, e := encodeDerivative(ctx, img, format, p.Edge)
+			if e != nil {
+				return e
+			}
+			if p.Name == "thumbnail_64" && len(raw) > Thumbnail64MaxBytes {
+				return &imageRenderError{"MEDIA_THUMBNAIL_64_BYTE_LIMIT"}
+			}
+			sum := sha256.Sum256(raw)
+			checksum := hex.EncodeToString(sum[:])
+			key := fmt.Sprintf("%s/generated/%s/%s/%s/%s", a.UUID.String(), a.TenantUUID, task.Recipe, objectVersion, p.Name)
+			v := &m.MediaAssetVariant{TenantUUID: a.TenantUUID, AssetUUID: a.UUID.String(), Variant: p.Name, Name: p.Name, Driver: a.Driver, Bucket: a.Bucket, BaseURL: a.BaseURL, StorageKey: key, SizeBytes: int64(len(raw)), MimeType: mime, UploadState: m.UploadStateReady, ExpectedChecksum: checksum, TicketVersion: 1, Meta: derivativeMeta(a, checksum, w, h)}
+			meta := extractMeta(v.Meta)
+			meta["recipe"] = task.Recipe
+			v.Meta, _ = json.Marshal(meta)
+			v.UUID = uuid.New()
+			now := time.Now().UTC()
+			v.CompletedAt = &now
+			generated[p.Name] = v
+			if _, e = s.manager.Put(ctx, a.Driver, driver.PutObjectInput{Bucket: a.Bucket, ObjectKey: key, Body: bytes.NewReader(raw), Size: int64(len(raw)), ContentType: mime, Overwrite: false}); e != nil {
+				return e
+			}
 		}
 	}
 	accepted := []string{}
@@ -176,10 +235,10 @@ func (s *MediaService) generateImageVariants(ctx context.Context, a *m.MediaAsse
 	err = s.derivativeQueue.Complete(ctx, delivery, func(tx *gorm.DB) error {
 		return s.derivatives.WithTx(ctx, tx, a.TenantUUID, a.UUID.String(), func(st *r.DerivativeState) error {
 			ref := derivativeRef(st.Asset)
-			if ref.TaskID != task.TaskID || st.Asset.UploadState != m.UploadStateReady || st.Asset.ExpectedChecksum != task.SourceChecksum {
+			if ref.TaskID != task.TaskID || ref.Recipe != task.Recipe || st.Asset.UploadState != m.UploadStateReady || st.Asset.ExpectedChecksum != task.SourceChecksum {
 				return errDerivativeStale
 			}
-			for _, p := range imageProfiles {
+			for _, p := range recipeProfiles(task.Recipe) {
 				var old *m.MediaAssetVariant
 				for _, v := range st.Variants {
 					if v.Variant == p.Name {
@@ -200,6 +259,9 @@ func (s *MediaService) generateImageVariants(ctx context.Context, a *m.MediaAsse
 					}
 					// 不覆盖调用方仍存在的变体；缺失对象和 Core 生成的旧版本可补齐。
 					v := generated[p.Name]
+					if v == nil {
+						return errors.New("derivative changed during generation; retry required")
+					}
 					if stringFromMeta(extractMeta(old.Meta), "generator") == "powerx-media" {
 						obsolete = append(obsolete, *old)
 					}
@@ -207,12 +269,38 @@ func (s *MediaService) generateImageVariants(ctx context.Context, a *m.MediaAsse
 					v.TicketVersion = old.TicketVersion + 1
 					*old = *v
 				} else {
+					if generated[p.Name] == nil {
+						return errors.New("derivative disappeared during generation; retry required")
+					}
 					st.Variants = append(st.Variants, generated[p.Name])
 				}
 				accepted = append(accepted, p.Name)
 			}
 			ref.Missing = nil
 			setDerivativeRef(st.Asset, ref)
+			if task.Recipe == legacyImageDerivativeRecipe {
+				missing := []string{}
+				for _, p := range imageProfiles {
+					valid := false
+					for _, v := range st.Variants {
+						if v.Variant == p.Name {
+							var e error
+							valid, e = s.usableImageVariant(ctx, st.Asset, v)
+							if e != nil {
+								return e
+							}
+						}
+					}
+					if !valid {
+						missing = append(missing, p.Name)
+					}
+				}
+				if len(missing) > 0 {
+					if _, e := s.registerDerivativeTask(ctx, st, ImageDerivativeRecipe, missing); e != nil {
+						return e
+					}
+				}
+			}
 			return nil
 		})
 	})
@@ -227,4 +315,13 @@ func (s *MediaService) generateImageVariants(ctx context.Context, a *m.MediaAsse
 		}
 	}
 	return err
+}
+
+func isRecipeVariant(recipe, name string) bool {
+	for _, p := range recipeProfiles(recipe) {
+		if p.Name == name {
+			return true
+		}
+	}
+	return false
 }

@@ -1,0 +1,103 @@
+{
+  "recorded_at": "2026-10-29T07:37:37.417286+00:00",
+  "scope": "Frontend distinction between measured PowerX resources, current environment database and all-content disk-volume usage. Not full PowerX accounting or live host acceptance.",
+  "base_sha": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "backend_contract_changed": false,
+  "new_migration_required": false,
+  "user_database_changed": false,
+  "user_configuration_changed": false,
+  "remote_changed": false,
+  "user_services_restarted": false,
+  "cleanup_enabled": false,
+  "source_verification": {
+    "filesystem": "HistoryPoint.used_bytes and available_bytes copy the sampled Filesystem fields; the scope is the Core-visible disk volume, including other applications and personal files, not PowerX ownership.",
+    "database": "HistoryPoint.database_bytes copies the currently connected database size. postgres_metrics_repo.go reads pg_catalog.pg_database_size(current_database()); this excludes file logs, media, backups and separate plugin databases.",
+    "no_complete_total": "Overview.coverage is partial. Neither the entire disk nor the current database is a complete PowerX total. No disk-minus-database subtraction is attributed to PowerX."
+  },
+  "implemented": [
+    "Overview defaults to measured PowerX data: current environment database and registered non-shared directories, with total explicitly not fully measured.",
+    "Whole-disk cards and registered shared sources have a separate scope selection. Unclassified disk usage is explicitly not attributed to PowerX.",
+    "History navigation renamed Usage history. Default table contains only timestamp and current environment database; whole-disk table contains only timestamp, all-content disk used and available space.",
+    "Removed mixed Total usage column, long blue technical notice and duplicate physical/deduplicated directory columns; sampling details expand on demand while errors and scope changes remain visible.",
+    "History dates follow selected UI locale. Four languages use explicit measurement scope labels.",
+    "Scope switches preserve history selection and directory filter context, reuse the same loaded observations and add no polling. Identity change still aborts and resets prior data.",
+    "Usage guide, UI design and canonical specs progress clarify current behavior and remaining accounting coverage."
+  ],
+  "validation": {
+    "unit": {
+      "result": "passed",
+      "cases": 18,
+      "log": "test-results/storage-scope-vitest.log",
+      "checks": [
+        "PowerX overview hides whole-disk cards and shared sources by default",
+        "disk and database history byte values never share one table",
+        "unknown values stay unknown",
+        "scope switches and inactivity add no periodic API reads",
+        "existing draft/conflict/identity/section preservation regressions"
+      ]
+    },
+    "build": {
+      "result": "passed",
+      "log": "test-results/storage-scope-build.log",
+      "command": "POWERX_NUXT_BUILD_DIR=.nuxt-storage-validation POWERX_NITRO_OUTPUT_DIR=.output-storage-validation npm run build"
+    },
+    "browser": {
+      "result": "all_three_viewports_passed_across_initial_and_unchanged_recheck",
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "initial_log": "test-results/storage-scope-browser-first-run.log",
+      "initial_result": "390 and 320 passed; 1440 exceeded the unchanged 45-second overall test limit after reaching the new history UI",
+      "desktop_recheck_log": "test-results/storage-scope-browser-desktop-recheck.log",
+      "desktop_recheck": "unchanged test and 45-second limit passed in 10.7 seconds; no application or test changes between runs",
+      "data_boundary": "Actual isolated Nuxt artifact and API client, controlled fixtures, not user/live database inventory",
+      "screenshots": [
+        "test-results/storage-browser/storage-read-only-observat-6de98-apacity-calculator-at-320px/storage-powerx-history-320.png",
+        "test-results/storage-scope-desktop-recheck/storage-read-only-observat-1983f-pacity-calculator-at-1440px/storage-powerx-history-1440.png"
+      ]
+    },
+    "other": [
+      "192 storageGov keys match across zh/en/ja/ko",
+      "Locale JSON parses; edited block only, other modules preserved",
+      "Relative documentation links and evidence JSON verified",
+      "git diff --check passed"
+    ],
+    "full_typecheck": "Not claimed. Previous current-HEAD menuConfig.ts syntax blocker remains outside this frontend scope correction; see prior context validation evidence."
+  },
+  "cleanup": {
+    "first_fixture_pids": [
+      3861,
+      3994
+    ],
+    "recheck_fixture_pids": [
+      16271,
+      16272
+    ],
+    "all_owned_processes_exited": true,
+    "ports_released": [
+      3485,
+      3486
+    ],
+    "records": [
+      "test-results/storage-scope-browser-first-processes.json",
+      "test-results/storage-browser/snapshot-browser-processes.json"
+    ],
+    "no_agent_services_left": true
+  },
+  "remaining": [
+    "Complete PowerX resource/independent plugin DB registration and ownership accounting are still missing",
+    "Directory-level history, actual file/remote archive coverage and ingestion/R95 are not implemented",
+    "This correction changes presentation only, not sampling or cleanup behavior; prior US9 incomplete tasks remain open"
+  ],
+  "source_sha256": {
+    "web-admin/app/components/monitor/storage/StorageGovernanceWorkspace.vue": "4fde03fe2f1e3280c1f8389084ab62c2c46caa6ef0f4a1dba0304ee206a22ca1",
+    "web-admin/app/components/monitor/storage/StorageHistoryPanel.vue": "096bd9c6b6f85ece3c8939db97a67c9774f540f40565f8953194d9dc5a936276",
+    "web-admin/tests/unit/storage/storage-governance.spec.ts": "63eed39168a977aba862bd76073e4f13cd1c89a501302f6e7583432b22ab906a",
+    "web-admin/tests/unit/storage/storage-state-panels.spec.ts": "e1bfc39ef9633ead5d594dd8ec13468856f37e5191b6fba6064ebac24180758f",
+    "web-admin/tests/e2e/storage/storage.spec.ts": "b9ae088469d8f1e5f3609f00d2c1e82109c03e9415799d6af9ce12d8c5bac40d"
+  }
+}

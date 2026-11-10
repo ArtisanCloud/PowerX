@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
@@ -81,14 +80,17 @@ func PluginListHandler(c *gin.Context) {
 		sort.Slice(menus, func(i, j int) bool { return menus[i].Order < menus[j].Order })
 
 		out = append(out, pluginDto.PluginItem{
-			ID:       p.ID,
-			Name:     p.ID, // 或使用 p.Manifest.Name（若你对外暴露了）
-			Version:  p.Version,
-			State:    string(p.State),
-			AdminURL: adminURL,
-			APIBase:  prefix + "/" + p.ID + "/api",
-			HasAdmin: hasAdmin,
-			Menus:    menus,
+			Provider:      p.Provider,
+			Revision:      p.Revision,
+			InstallOrigin: p.InstallOrigin.Normalized(),
+			ID:            p.ID,
+			Name:          p.ID, // 或使用 p.Manifest.Name（若你对外暴露了）
+			Version:       p.Version,
+			State:         string(p.State),
+			AdminURL:      adminURL,
+			APIBase:       prefix + "/" + p.ID + "/api",
+			HasAdmin:      hasAdmin,
+			Menus:         menus,
 		})
 	}
 
@@ -118,14 +120,17 @@ func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 		}
 		ctx := c.Request.Context()
 		tenantUUID := optionalTenantContext(c)
+		if deps.PluginMarketplace != nil {
+			if current, err := mgr.Get(ctx, id); err == nil {
+				defer func() {
+					logMarketplaceReportError(ctx, deps.PluginMarketplace.RecordPluginEnableResult(current, tenantUUID, c.Writer.Status() < 400))
+				}()
+			}
+		}
 		if tenantUUID != "" {
 			ctx = reqctx.WithTenantUUID(ctx, tenantUUID)
 		}
-		if err := completeReadyDrainJobsForPlugin(c, deps, id); err != nil {
-			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用插件失败：Drain 状态恢复失败", err)
-			return
-		}
-		if err := mgr.Enable(ctx, id); err != nil {
+		if err := mgr.Enable(pluginMgr.WithEventFabricProvisioning(ctx), id); err != nil {
 			dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
 			return
 		}
@@ -140,14 +145,6 @@ func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 		}
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "event_fabric_seeded_tenants": seeded})
 	}
-}
-
-func completeReadyDrainJobsForPlugin(c *gin.Context, deps *shared.Deps, pluginID string) error {
-	if deps == nil || deps.DB == nil {
-		return nil
-	}
-	_, err := reposetting.NewPluginDrainJobRepository(deps.DB).MarkReadyJobsCompletedByPlugin(c.Request.Context(), pluginID, time.Now().UTC())
-	return err
 }
 
 func enablePluginForCurrentTenantIfPresent(c *gin.Context, deps *shared.Deps, pluginID string) error {
@@ -170,7 +167,7 @@ func enablePluginForCurrentTenantIfPresent(c *gin.Context, deps *shared.Deps, pl
 	if err != nil {
 		return err
 	}
-	svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+	svc := configuredTenantPluginService(deps)
 	_, clientID, clientSecret, err := svc.Enable(c.Request.Context(), tenantUUID, p, nil)
 	if err != nil {
 		return err

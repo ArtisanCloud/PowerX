@@ -55,6 +55,12 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	}
 
 	overviewHandler := NewAdminOverviewHandler(AdminOverviewHandlerOptions{
+		Namespace: func() string {
+			if deps.EventFabric != nil {
+				return deps.EventFabric.EnvironmentID
+			}
+			return ""
+		}(),
 		DB: deps.DB,
 		Directory: func() *directory.DirectoryService {
 			if deps.EventFabric != nil {

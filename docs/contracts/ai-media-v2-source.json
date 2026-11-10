@@ -1,0 +1,12 @@
+{
+  "source_repository": "ArtisanCloud/PowerX",
+  "source_commit": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+  "source_worktree_uncommitted": true,
+  "snapshot_date": "2026-10-22",
+  "sha256": {
+    "ai-media-v2.md": "0abf7992153c206779ba1e8faba66f49d25ff4a049b99e718d859a11a0a75e4f",
+    "ai-media-v2.openapi.yaml": "ea8be3e47ddc28c4e35a8051ac5e02ed3d1b93f28944d7a443e72088309e16ad",
+    "fixtures/ai-media-v2.json": "eb456d570a615ce449b4acfebf3dbcca210dd843216946ee3124aabdd98bc33c",
+    "fixtures/capability-version-upgrade-errors.v1.json": "ff70b10ec2099bf96fe026fe1b91d55306e8ef1a5e24942aafc4bb9504a57faf"
+  }
+}

@@ -1,0 +1,362 @@
+{
+  "schema": "powerx.validation/openai-image-defaults/v1",
+  "validated_at": "2026-11-03T22:01:05.857748+08:00",
+  "official_reference": "https://developers.openai.com/api/reference/resources/images/methods/generate",
+  "implementation": {
+    "source_of_truth": "OpenAI exact-model image_generation contract; save and runtime share catalog.MediaDefaults and ValidateMediaParameters",
+    "quality_default": "auto",
+    "quality_options": [
+      "auto",
+      "low",
+      "medium",
+      "high"
+    ],
+    "snapshots": "gpt-image-2-2026-04-21 shares the existing operation anchor",
+    "frontend": "model-specific defaults/options, per-model drafts, explicit legal values preserved, invalid saved values visible and save blocked; responsive desktop/narrow fields and bilingual feedback",
+    "invalid_save": "HTTP 422 / AI_MODEL_DEFAULTS_INVALID, parameter quality and allowed_values; before credential/profile/route writes",
+    "legacy_driver_compatibility": "unchanged; invalid profile defaults are rejected before dispatch",
+    "new_runtime_grants": false
+  },
+  "scoped_live_repair": {
+    "plan": {
+      "schema": "powerx.ai.image-quality-repair/v1",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "profile_id": 194,
+      "env": "dev",
+      "modality": "image",
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "before_quality": "standard",
+      "after_quality": "auto",
+      "before_defaults_hash": "35fd4e735ee460e69ddcc1f73a2621ffabf12ebe89518cd6ed3f1de72242d650",
+      "after_defaults_hash": "42e8162be7790ab75379096ed9e8fa2cb62ed32ed7ad219c29ab4130647cbda2",
+      "eligible": true
+    },
+    "applied": true,
+    "observed_after_quality": "auto",
+    "observed_after_defaults_hash": "42e8162be7790ab75379096ed9e8fa2cb62ed32ed7ad219c29ab4130647cbda2",
+    "full_defaults_hash_matches_preview": true,
+    "private_preview": "/Users/michaelhu/.powerx/repairs/image-quality-20261103/preview.json",
+    "private_result": "/Users/michaelhu/.powerx/repairs/image-quality-20261103/applied.json",
+    "private_readback": "/Users/michaelhu/.powerx/repairs/image-quality-20261103/after.json",
+    "command": "backend/cmd/ai-image-quality-repair, preview then apply; no direct SQL updates or startup migrations",
+    "scope": "profile 194 only, dev/image/openai/gpt-image-2; quality standard to auto; other defaults, credentials, profiles and frozen tasks/candidates are not rewritten"
+  },
+  "real_service_key_acceptance": {
+    "identity": {
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "key_name": "Media Studio Development Key",
+      "status": "active",
+      "current_env": "dev",
+      "read_only_transaction": true
+    },
+    "endpoint": "POST http://127.0.0.1:8077/api/v1/tenant/invocations",
+    "authorization_scheme": "ApiKey",
+    "credential_source": "existing MediaXStudio backend/.env PX_GATEWAY_API_KEY, used in memory only",
+    "request": {
+      "capability_id": "com.corex.ai.catalog.models.read",
+      "preferred_protocol": "core_internal",
+      "payload": {
+        "body": {
+          "operation": "list_models",
+          "provider": "openai",
+          "capability": "image_generation"
+        }
+      }
+    },
+    "http_status": 200,
+    "target_model": {
+      "model_key": "openai/gpt-image-2",
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "label": "GPT-Image-2",
+      "capabilities": [
+        "image_generation"
+      ],
+      "configured": true,
+      "available": true,
+      "operations": {
+        "image_generation": {
+          "driver": "openai",
+          "input_types": [
+            "text"
+          ],
+          "max_images": 0,
+          "max_videos": 0,
+          "parameters": {
+            "format": {
+              "type": "string",
+              "enum": [
+                "png",
+                "jpeg",
+                "webp"
+              ]
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "quality": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "low",
+                "medium",
+                "high"
+              ],
+              "default": "auto"
+            },
+            "size": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "1024x1024",
+                "1536x1024",
+                "1024x1536"
+              ],
+              "default": "1024x1024"
+            }
+          },
+          "async": false,
+          "available": true,
+          "parameter_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "format": {
+                "type": "string",
+                "enum": [
+                  "png",
+                  "jpeg",
+                  "webp"
+                ]
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "quality": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "default": "auto"
+              },
+              "size": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "1024x1024",
+                  "1536x1024",
+                  "1024x1536"
+                ],
+                "default": "1024x1024"
+              }
+            },
+            "type": "object"
+          },
+          "defaults": {
+            "format": "png",
+            "quality": "auto",
+            "size": "1024x1024"
+          }
+        }
+      },
+      "usage_source": "local_adaptation",
+      "inference_verified": false
+    },
+    "invocation_trace_id": "75c65110-b957-4f29-8a5b-850cd588c2b5",
+    "http_trace_id": "225aea25-14fc-44aa-81fc-91b3da5dfcff",
+    "request_id": "bd44a79a-1e4c-4e9c-9f5c-99a9aa8ee4ac",
+    "private_response": "/Users/michaelhu/.powerx/repairs/image-quality-20261103/live-catalog-after-apikey.json",
+    "admin_jwt_used": false,
+    "paid_generation_submitted": false,
+    "note": "Initial manual probe incorrectly used Bearer and received 401; official ApiKey scheme passed without changing credentials or grants."
+  },
+  "checks": [
+    {
+      "name": "focused service and HTTP regression",
+      "command": "go test ./internal/service/agent ./internal/transport/http/admin/agent -run \"TestImage|TestAdminImage|TestSharedProvider\" -count=1",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-go-focused.log",
+      "log_sha256": "509fbe3ac1d63bfde3eeb936c5e67b81808dea7980710583e8ca05f712a61f03"
+    },
+    {
+      "name": "affected Go packages",
+      "command": "go test ./internal/service/agent ./internal/service/ai ./internal/transport/http/admin/agent ./internal/server/agent/catalog ./internal/server/ai/drivers/openai ./cmd/ai-image-quality-repair",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-regression.log",
+      "log_sha256": "a504620c5c1c6db80deccbdcf832c2576e28bf4789049be47c8112519b273013"
+    },
+    {
+      "name": "service API key catalog",
+      "command": "go test ./internal/service/ai -run TestImage2ServiceKeyCatalogDefaultsAfterScopedRepair -count=1",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-service-key.log",
+      "log_sha256": "70e5676c2a8c6837e51c864e623ebf3afa60816b7426874d7c548fe565fc22bc"
+    },
+    {
+      "name": "race",
+      "command": "go test -race ./internal/service/agent ./internal/transport/http/admin/agent -run \"TestImage|TestAdminImage|TestSharedProvider\" -count=1",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-race.log",
+      "log_sha256": "18b1eb2cb3d730a836eeb26dce4f9659f718f1bd601af3bea9e9e75bff52316d"
+    },
+    {
+      "name": "vet",
+      "command": "go vet ./internal/service/ai ./internal/service/agent ./internal/transport/http/admin/agent ./cmd/ai-image-quality-repair",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-vet.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "Core compile",
+      "command": "go build -o /tmp/powerx-image-defaults-core ./cmd/app",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-core-build.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "repair tool compile",
+      "command": "go build -o /tmp/powerx-ai-image-quality-repair ./cmd/ai-image-quality-repair",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-repair-build.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "frontend unit",
+      "command": "npx vitest run tests/unit/ai/model-parameters.spec.ts tests/unit/ai/provider-model-form.spec.ts tests/unit/ai/vision-trial-service.spec.ts",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-vitest-regression.log",
+      "log_sha256": "3d743d078a79d714583eab7dce5d4351dc7b9a0855d09f4f2c1111cf9ee4f273"
+    },
+    {
+      "name": "image UI",
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3042 npx playwright test --config playwright.ai-models.config.ts image-defaults.spec.ts --output /tmp/powerx-image-defaults-ui-final --max-failures=1",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-playwright.log",
+      "log_sha256": "5dac6650f9304dbc896ef5365ef4f45d6ca32a1d8a16bbe0476accaf81a1e701"
+    },
+    {
+      "name": "existing UI regression",
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3042 npx playwright test --config playwright.ai-models.config.ts model-parameters.spec.ts shared-provider-credentials.spec.ts vision-settings.spec.ts",
+      "exit_code": 0,
+      "log": "/tmp/powerx-image-defaults-browser-regression.log",
+      "log_sha256": "f5fa77c077b7b160124d48472054d97a1a59368ac0b80f7a5a7f3ba2c70534e4"
+    }
+  ],
+  "test_counts": {
+    "frontend_unit": 19,
+    "image_browser": 4,
+    "existing_browser": 6
+  },
+  "screenshots": [
+    {
+      "path": "docs/contracts/evidence/openai-image-defaults-20261103/image-new-desktop.png",
+      "sha256": "bf2f3246385543bde337a00a89ff20652b909cb1978960d02be4ea59752761bb"
+    },
+    {
+      "path": "docs/contracts/evidence/openai-image-defaults-20261103/image-invalid-desktop.png",
+      "sha256": "58f494ab7002cd41fbc5b3f8d0df278d95d1e2d29c6cfc207025dd1cdb579f73"
+    },
+    {
+      "path": "docs/contracts/evidence/openai-image-defaults-20261103/image-legacy-narrow.png",
+      "sha256": "d7b37eb99a35bd751241ae2bcd60db872795bb7d0312614c562ab3b8ad53f386"
+    },
+    {
+      "path": "docs/contracts/evidence/openai-image-defaults-20261103/image-legacy-desktop.png",
+      "sha256": "9f51c36629ba348db7ad940a80b201b3e634dd1f6ec25e39bb9359da4fc92802"
+    },
+    {
+      "path": "docs/contracts/evidence/openai-image-defaults-20261103/image-invalid-narrow.png",
+      "sha256": "430ec85552d0776a7bf516619a60aba4f4181ea020c6a927d1b0e67c67df14ed"
+    },
+    {
+      "path": "docs/contracts/evidence/openai-image-defaults-20261103/image-new-narrow.png",
+      "sha256": "6a43808d48fd31e80bb72aa23b95c27259de06f28c87ccbe4feeec94ea4c55b6"
+    }
+  ],
+  "ui_review": {
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "checked": [
+      "default auto",
+      "exact enum menu",
+      "invalid saved value visible and save disabled",
+      "legal high retained after reload",
+      "switching to a different model uses its own defaults/options",
+      "draft retained on return",
+      "no horizontal form overflow",
+      "mobile invalid label does not overflow"
+    ],
+    "visual_inspected": true,
+    "api_fixtures_isolated": true,
+    "mediaxstudio_two_pages_operated_here": false
+  },
+  "source_sha256": {
+    "backend/config/agents/providers.d/openai.yaml": "59897a3f10cf1f183b38a58cd2ce80090aa4b45dbac8ee5990dd3a9d3f91f360",
+    "backend/internal/server/agent/catalog/media_contract.go": "79cbcb03d024aaa55f1d25eb1e11d19d350cd3075b37c2f43e3120f336055308",
+    "backend/internal/service/ai/media_catalog.go": "61e097473d0b6a31adbb188843b340bd1e221d2b497f6989c53e2ddf4252b856",
+    "backend/internal/service/ai/image_defaults_test.go": "611e8ebc79c86966cdb2a7c5a252bbe56ec479cba247e44129161ecd311477bb",
+    "backend/internal/service/agent/agent_setting_service.go": "90d797dae88946d7194a10d0f1f44364e07e977fcf253861467e115a786a9031",
+    "backend/internal/service/agent/online_first_models.go": "31d820ff5cc0f8695500c0bd3aea26c29d116109545e5d9574861169c95cb2a8",
+    "backend/internal/service/agent/online_model_catalog.go": "89f262cd877d4778040e86398260fd75ff93ccae21ab8cd5eda47a0b161e1e0a",
+    "backend/internal/service/agent/image_settings.go": "83f470941186173b563995b87cfaccce206baa057f3266f668fc7e5dd6a17d1a",
+    "backend/internal/service/agent/image_settings_test.go": "fd8f1a6e757c0a5515a866e55b332e072ed70c03625eeb686379e8f8291c1f19",
+    "backend/internal/service/agent/image_quality_repair.go": "658b4292c5c5e45a9d93ba576cb7b1055a7683751c2f084fefc465133669a361",
+    "backend/internal/transport/http/admin/agent/setting_handler.go": "644b7e684700b1213181c2908f5a682cd35df11641d7d9358e8f7be62e2cd221",
+    "backend/internal/transport/http/admin/agent/shared_credential_test.go": "28e174745a62e620e17261540c75c2fd28bb6c082154d1c48a1da587db6cd5b5",
+    "backend/cmd/ai-image-quality-repair/main.go": "ccf7af1288a41c36bbf00f78a05aa644318585c7695491c51f69028f4bda7738",
+    "web-admin/app/pages/settings/ai/index.vue": "67eb4056d7dce9ec7234f8a4488b9523e24048da89bfdd979a5aadafabfe5348",
+    "web-admin/app/components/settings/ai/ModalityParamsForm.vue": "1444fa177faaabbeb642b29921e52e038669c224944d99edd11175aa2930423a",
+    "web-admin/app/composables/api/services/aiSettingService.ts": "76dac15d7deefda135a70151297fc789b0f54452a094ee6320cc3a5dd5ac1fe1",
+    "web-admin/app/utils/ai-model-parameters.ts": "e5095e1548f62f885604cb0dbc17747063e2169e81da34e18e8fc34a1ac99036",
+    "web-admin/tests/unit/ai/model-parameters.spec.ts": "d0cec56778c22eb03135bb393b21624e77c5cf3cf35dd0d8fc2664f486d31308",
+    "web-admin/tests/e2e/ai/image-defaults.spec.ts": "5a1541ae97cd37a35f0674ca069bfc4624350f768394076b916d8ed0d2d61cac",
+    "web-admin/playwright.ai-models.config.ts": "44f4cc3e2d8fe1cf27f01cdd3088d1a9998b4e70641d0996eab48670752107b5",
+    "web-admin/i18n/locales/zh.json": "3662f3e8a81809145a48307711e2705bd50da7b03fd4efb3b73d87b0447adfac",
+    "web-admin/i18n/locales/en.json": "d1789c2e5b52a926a125aef3e46720843a03407680b702adcb0b0138be6c1499"
+  },
+  "compiled_core": {
+    "path": "/tmp/powerx-image-defaults-core",
+    "sha256": "8a6d66cc5a6b6bf9aeac2a2306f913d245dadc6b53a17853db587fb9bf59a32f",
+    "started_by_agent": false
+  },
+  "process_cleanup": {
+    "pid": 13942,
+    "command": [
+      "node",
+      "node_modules/nuxt/bin/nuxt.mjs",
+      "dev",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "3042",
+      "--open=false"
+    ],
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+    "port": 3042,
+    "owner": "codex temporary fixture UI validation",
+    "log": "/tmp/powerx-image-defaults-nuxt.log",
+    "stopped": true,
+    "port_released": true
+  },
+  "running_core_observation": [
+    "p77727",
+    "capp",
+    "f27"
+  ],
+  "remaining_boundary": "MediaXStudio can explicitly reload its catalog and continue integration. No real image generation was requested or accepted here. No Framework or plugin code changed."
+}

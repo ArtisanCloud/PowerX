@@ -23,10 +23,12 @@ const (
 )
 
 type PolicyService struct {
-	repo          *repoops.BackupPolicyRepository
-	auditor       obsops.AuditWriter
-	metrics       *inst.Recorder
-	deploymentEnv string
+	authority      PolicyAuthority
+	requireControl bool
+	repo           *repoops.BackupPolicyRepository
+	auditor        obsops.AuditWriter
+	metrics        *inst.Recorder
+	deploymentEnv  string
 }
 
 type ListPolicyOptions struct {
@@ -134,6 +136,9 @@ func (s *PolicyService) ListPolicies(ctx context.Context, opt ListPolicyOptions)
 }
 
 func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyRequest) (*modelops.BackupPolicy, error) {
+	if e := s.legacyWriteAllowed(ctx); e != nil {
+		return nil, e
+	}
 	startedAt := time.Now()
 	var retErr error
 	defer func() { s.metrics.Observe(ctx, "backup_create_policy", startedAt, retErr) }()
@@ -206,6 +211,9 @@ func (s *PolicyService) CreatePolicy(ctx context.Context, req CreatePolicyReques
 }
 
 func (s *PolicyService) UpdatePolicy(ctx context.Context, req UpdatePolicyRequest) (*modelops.BackupPolicy, error) {
+	if e := s.legacyWriteAllowed(ctx); e != nil {
+		return nil, e
+	}
 	startedAt := time.Now()
 	var retErr error
 	defer func() { s.metrics.Observe(ctx, "backup_update_policy", startedAt, retErr) }()
@@ -312,6 +320,9 @@ func (s *PolicyService) UpdatePolicy(ctx context.Context, req UpdatePolicyReques
 }
 
 func (s *PolicyService) SetPolicyEnabled(ctx context.Context, req SetPolicyEnabledRequest) error {
+	if e := s.legacyWriteAllowed(ctx); e != nil {
+		return e
+	}
 	startedAt := time.Now()
 	var retErr error
 	defer func() { s.metrics.Observe(ctx, "backup_set_policy_enabled", startedAt, retErr) }()
@@ -353,6 +364,9 @@ func (s *PolicyService) SetPolicyEnabled(ctx context.Context, req SetPolicyEnabl
 }
 
 func (s *PolicyService) SetCurrentPolicy(ctx context.Context, req SetCurrentPolicyRequest) error {
+	if e := s.legacyWriteAllowed(ctx); e != nil {
+		return e
+	}
 	startedAt := time.Now()
 	var retErr error
 	defer func() { s.metrics.Observe(ctx, "backup_set_current_policy", startedAt, retErr) }()
@@ -398,6 +412,9 @@ func (s *PolicyService) SetCurrentPolicy(ctx context.Context, req SetCurrentPoli
 
 // UpsertPolicy 将 gRPC 输入转换为 Create/Update。
 func (s *PolicyService) UpsertPolicy(ctx context.Context, req UpsertPolicyRequest) (*modelops.BackupPolicy, error) {
+	if e := s.legacyWriteAllowed(ctx); e != nil {
+		return nil, e
+	}
 	if kind := strings.TrimSpace(req.BackupType); kind != "" && kind != "logical" {
 		return nil, ErrInvalidBackupPolicy
 	}

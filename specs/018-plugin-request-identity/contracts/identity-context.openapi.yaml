@@ -102,6 +102,7 @@ components:
       oneOf:
         - {$ref: '#/components/schemas/ResolveIdentityOperation'}
         - {$ref: '#/components/schemas/WSIdentityOperation'}
+        - {$ref: '../../../docs/contracts/plugin-service-authorization.openapi.yaml#/components/schemas/ServiceInvocationOperation'}
     ResolveIdentityOperation:
       type: object
       additionalProperties: false

@@ -1,0 +1,134 @@
+openapi: 3.0.3
+info:
+  title: Tenant Client Application Management
+  version: 1.0.0
+  description: Admin user JWT and live tenant RBAC only. Tenant is taken from verified context. Credentials are write-only, encrypted with the tenant key and never included in responses or audit records. No STS or API Key management access.
+servers: [{url: /api/v1}]
+security: [{bearerAuth: []}]
+paths:
+  /admin/customers/client-apps:
+    get:
+      operationId: listClientApplications
+      parameters:
+      - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      - {name: kind, in: query, schema: {type: string}}
+      - {name: provider, in: query, schema: {type: string}}
+      - {name: q, in: query, schema: {type: string, maxLength: 128}}
+      responses:
+        '200': {description: 'data.payload contains items (Application[]) and pagination (total, page, page_size).', content: {application/json: {schema: {type: object}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+    post:
+      operationId: createClientApplication
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SaveApplication'}}}}
+      responses:
+        '200': {$ref: '#/components/responses/Application'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /admin/customers/client-apps/catalog:
+    get:
+      operationId: getClientApplicationCatalog
+      description: Returns supported kinds/providers, enabled current-tenant plugin IDs, and metadata for explicitly importable legacy applications. No credential values.
+      responses:
+        '200': {description: 'data.payload contains kinds, providers, plugin_ids and legacy_applications.', content: {application/json: {schema: {type: object}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /admin/customers/client-apps/import:
+    post:
+      operationId: importLegacyClientApplication
+      description: Explicit copy into the current tenant. Intersects plugin grants with enabled plugins in this tenant. Tenant-scoped legacy records are visible only to that tenant; unrestricted legacy records require root. No runtime configuration fallback.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false, required: [platform, app_id], properties: {platform: {type: string, enum: [wechat_miniapp]}, app_id: {type: string}}}
+      responses:
+        '200': {$ref: '#/components/responses/Application'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: No eligible legacy configuration in this tenant.}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /admin/customers/client-apps/{app_uuid}:
+    parameters: [{name: app_uuid, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      operationId: getClientApplication
+      responses:
+        '200': {$ref: '#/components/responses/Application'}
+        '404': {description: Application not found in the current tenant.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    patch:
+      operationId: updateClientApplication
+      description: expected_version must match the latest revision. Kind/provider/AppID and connection UUID are immutable. Omit app_secret to keep the existing credential; an empty value is rejected. An active application requires a configured credential. No automatic conflict retries.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SaveApplication'}}}}
+      responses:
+        '200': {$ref: '#/components/responses/Application'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: Application not found in the current tenant.}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    SaveApplication:
+      type: object
+      additionalProperties: false
+      required: [expected_version, name, kind, status, plugin_ids, connections]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 0, description: '0 for creation; current version >=1 for update.'}
+        name: {type: string, minLength: 1, maxLength: 128}
+        kind: {type: string, enum: [mini_program]}
+        status: {type: string, enum: [active, disabled]}
+        plugin_ids: {type: array, minItems: 1, maxItems: 64, uniqueItems: true, items: {type: string}}
+        connections:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [provider, app_id]
+            properties:
+              uuid: {type: string, format: uuid, description: Required on update.}
+              provider: {type: string, enum: [wechat]}
+              app_id: {type: string, minLength: 1, maxLength: 128}
+              app_secret: {type: string, minLength: 1, maxLength: 64, pattern: '^[!-~]+$', writeOnly: true}
+    Application:
+      type: object
+      properties:
+        uuid: {type: string, format: uuid}
+        name: {type: string}
+        kind: {type: string}
+        status: {type: string}
+        version: {type: integer, format: int64}
+        plugin_ids: {type: array, items: {type: string}}
+        updated_at: {type: string, format: date-time}
+        connections:
+          type: array
+          items:
+            type: object
+            properties:
+              uuid: {type: string, format: uuid}
+              provider: {type: string}
+              platform: {type: string}
+              app_id: {type: string}
+              secret_configured: {type: boolean, description: Stored credential presence; does not prove provider/device acceptance.}
+  responses:
+    Application:
+      description: Application saved or read; no credential value.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  payload: {$ref: '#/components/schemas/Application'}
+    Invalid: {description: 'CLIENT_APP_INVALID_ARGUMENT / SECRET_REQUIRED / SECRET_INVALID / PROVIDER_UNSUPPORTED / IDENTITY_IMMUTABLE / VERSION_REQUIRED. Unknown fields and request body tenant overrides are rejected.'}
+    Forbidden: {description: 'Requires live admin user RBAC. Plugin must be enabled and owned by the current tenant.'}
+    Conflict: {description: 'CLIENT_APP_DUPLICATE or CLIENT_APP_VERSION_CONFLICT.'}
+    Unavailable: {description: 'CLIENT_APP_STORAGE_UNAVAILABLE or CLIENT_APP_SECRET_UNAVAILABLE. No fallback to deployment configuration.'}

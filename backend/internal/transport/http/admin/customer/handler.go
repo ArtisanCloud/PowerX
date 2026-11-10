@@ -14,14 +14,15 @@ import (
 )
 
 type Handler struct {
-	svc      *customersvc.AccountService
-	contacts *customersvc.ContactService
-	imports  *customersvc.AccountImportService
-	repairs  *customersvc.ContactRepairService
+	clientApps *customersvc.ClientApplicationService
+	svc        *customersvc.AccountService
+	contacts   *customersvc.ContactService
+	imports    *customersvc.AccountImportService
+	repairs    *customersvc.ContactRepairService
 }
 
 func NewHandler(deps *shared.Deps) *Handler {
-	return &Handler{svc: customersvc.NewAccountService(deps.DB), contacts: customersvc.NewContactService(deps.DB), imports: deps.CustomerImports, repairs: deps.CustomerContactRepairs}
+	return &Handler{clientApps: deps.CustomerClientApps, svc: customersvc.NewAccountService(deps.DB), contacts: customersvc.NewContactService(deps.DB), imports: deps.CustomerImports, repairs: deps.CustomerContactRepairs}
 }
 
 type listAccountsRequest struct {

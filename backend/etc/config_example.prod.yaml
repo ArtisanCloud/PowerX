@@ -145,6 +145,11 @@ log:
       module: runtime
     batch_wait: 1
     batch_size: 100
+    queue_capacity: 512
+    max_queue_bytes: 8388608
+    max_entry_bytes: 65536
+    request_timeout_ms: 2000
+    flush_timeout_ms: 2000
   retention:
     enabled: true
     cron: "10 3 * * *"
@@ -199,8 +204,8 @@ auth:
   refresh_ttl: "336h"
 
 customer_auth:
-  # 客户端应用注册表：小程序等平台的凭证由 Core 持有，插件登录时只转发一次性 code 与 app_id。
-  # Core 先校验调用插件（与可选租户）有权使用该应用，再用该应用的密钥校验 code。
+  # 旧配置迁移来源：请在“设置 → 客户端应用”显式迁入当前租户。
+  # 运行时仅使用租户独立数据库登记；停用、缺表和密钥错误均不回退此配置。
   # platform：wechat_miniapp（已支持）、alipay_miniapp / douyin_miniapp（预留，登录会返回 CUSTOMER_CLIENT_PLATFORM_UNSUPPORTED）。
   # app_secret 与 app_secret_env 二选一，生产环境请用 app_secret_env 指向注入密钥的环境变量。
   client_apps: []
@@ -210,7 +215,7 @@ customer_auth:
   #     name: 示例小程序
   #     app_secret_env: CORE_X_EXAMPLE_WECHAT_SECRET
   #     plugin_ids: [com.powerx.plugins.example]
-  #     tenant_uuids: []   # 为空表示不限租户
+  #     tenant_uuids: []   # 为空时仅 root 可选择迁入当前租户；不表示运行时跨租户共享
 
 event:
   bus:
@@ -264,6 +269,7 @@ event:
         cache_ttl_seconds: 0
 
 queue:
+  # Redis 隔离自动使用现有环境 ID；不单独配置 namespace。
   driver: redis
   redis:
     addr: localhost:6379
@@ -303,6 +309,7 @@ capability_registry:
   default_http_timeout_seconds: 20
   # Core capability proxy response timeout. It must exceed the LLM request
   # timeout so a provider-side timeout can be returned as a structured error.
+  # AI 代理时限下限；实际至少覆盖 queue_wait_timeout + request_timeout + 10 秒。
   ai_multimodal_http_timeout_seconds: 310
 
 low_code:
@@ -537,6 +544,14 @@ plugin:
   base_prefix: /_p
   installed_dir: ./plugins/installed
   market_cache_dir: ./plugins/market_cache
+  marketplace:
+    # 可选：网站访问基址（支持 /console/ 子路径）；不是 storage.public_base_url。
+    # 环境覆盖 POWERX_MARKETPLACE_PUBLIC_SITE_URL；替换或清空后重启加载并重新核验。
+    public_site_url: ""
+    api_root: https://marketplace.artisan-cloud.com/api/v1 # 可改为私有 Marketplace HTTPS API 根地址。
+    # 不配置时使用官方默认值；显式填写空字符串可关闭市场连接。
+    heartbeat_seconds: 300
+    # 首次接入通过服务端环境变量 POWERX_MARKETPLACE_ENROLLMENT_TOKEN 提供接入码。
   auto_restore_parallelism: 1
   read_timeout_sec: 15
   write_timeout_sec: 15
@@ -618,6 +633,12 @@ plugin:
       data_suite_path: ../config/plugins/debug/data_suite.yaml
 
 storage:
+  # 派生预览：原稿保持不变；内存预算为每任务估算值，默认单任务处理。
+  image_derivatives:
+    max_source_bytes: 67108864
+    max_pixels: 80000000
+    max_working_bytes: 536870912
+    max_parallel_jobs: 1
   default_driver: local
   ttl_seconds: 43200
   local:
@@ -636,3 +657,40 @@ storage:
     force_path_style: true
     external_domain: ""
     presign_endpoint: ""
+
+# 运行治理独立于规划草稿；下列开关默认关闭，不接管现有清理器。
+# 启用前按 US9 场景 F 核对同盘路径、旧 timer、异地归档和可用余量。
+storage_governance:
+  # 本次核心范围发布默认关闭远端归档和旧执行器接管；验收通过后才可另行开放。
+  advanced_operations_enabled: false
+  schema_version: 1
+  mode: observe
+  host_id: ""                         # 同一主机的所有实例一致
+  filesystem_id: ""                   # 实际挂载身份；不能每个实例各填一个
+  filesystem_path: /
+  runtime_directory: /var/lib/powerx/storage-runtime
+  sampling_enabled: false
+  postgres_enabled: false
+  postgres_cluster_id: ""
+  lifecycle_enabled: false             # 登记日志生命周期与五分钟容量观察
+  manage_native_retention: false       # 显式移交：保留轮转压缩，关闭 Core 原生按天／份数删除
+  allow_enforce: false                 # 还需 Root 为来源保存 enabled=true
+  admission_enabled: false             # 保护新增本地写入；空间不足会拒绝任务／上传
+  min_free_bytes: 21474836480           # 20 GiB
+  critical_free_bytes: 10737418240      # 10 GiB
+  host_budget_bytes: 96636764160        # 90 GiB，整盘实占 + 未写出预留
+  max_concurrent: 1
+  notification_tenant_uuid: ""         # 显式指定有效租户／成员；不广播
+  notification_member_uuid: ""
+  sources: []                          # 普通应用日志自动登记；PG／journal 需明确接入
+  # 原生 PG 示例：仅登记，不会启用清理／传输；路径按本机集群填写。
+  # sources:
+  #   - id: shared-postgres-native
+  #     name: PostgreSQL native SQL logs
+  #     kind: postgresql_logs
+  #     scope: shared
+  #     path: /var/lib/postgresql/14/main/log
+  #     rotation_format: postgresql
+  #     active_files: [postgresql-]        # 对应 postgresql-%Y-%m-%d_%H%M%S.log 前缀
+  #     current_logfiles: /var/lib/postgresql/14/main/current_logfiles
+  #     require_verified_archive: true    # 默认要求归档；UI 显式模式才可选择安全到期删除

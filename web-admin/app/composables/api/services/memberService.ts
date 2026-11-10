@@ -48,6 +48,9 @@ export type MemberUpdateParams = {
 
 /** 成员查询参数（列表） */
 export interface MemberQuery {
+  dept_id?: number;
+  recursive?: boolean;
+  q?: string;
   // 常见筛选与分页参数，按需扩展
   department_id?: number;
   keyword?: string; // 按姓名/手机/邮箱模糊查询
@@ -76,11 +79,14 @@ function normalizeMembers(members: any[]): Member[] {
   return members
     .filter((m) => m && typeof m === "object")
     .map((m) => {
+      const member = m.Member ?? m.member ?? m;
+      const user = m.User ?? m.user;
       const item: Member = {
-        id: Number(m.id),
-        name: String(m.name ?? ""),
+        ...m,
+        id: Number(member.id),
+        name: String(member.display_name || member.name || member.username || user?.display_name || ""),
         mobile: typeof m.mobile === "string" ? m.mobile : (m.mobile ?? null),
-        email: typeof m.email === "string" ? m.email : (m.email ?? null),
+        email: user?.email ?? member.email ?? null,
         title: typeof m.title === "string" ? m.title : (m.title ?? null),
         department_id:
           typeof m.department_id === "number"
@@ -93,7 +99,6 @@ function normalizeMembers(members: any[]): Member[] {
         sort: typeof m.sort === "number" ? m.sort : (m.sort ?? null),
         status: typeof m.status === "number" ? m.status : (m.status ?? null),
         meta: m.meta,
-        ...m,
       };
       return item;
     });
@@ -118,6 +123,30 @@ export function useMemberService() {
   const baseUrl = "/admin/iam/members";
 
   return {
+    /** 按正式分页合同读取完整候选；失败向上抛出，不能伪装成无人可选。 */
+    listAll: async (query: MemberQuery = {}): Promise<Member[]> => {
+      const members: Member[] = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const response = await apiClient.get<ApiResponse<any>>(baseUrl, {
+          params: { ...query, page, page_size: 100 },
+        });
+        const data = response?.data ?? response;
+        const pagination = data?.pagination;
+        if (!Array.isArray(data?.items) || !Number.isInteger(pagination?.pages) || pagination.pages < 0) {
+          throw new Error("IAM_MEMBER_LIST_RESPONSE_INVALID");
+        }
+        const batch = normalizeMembers(data.items);
+        if (batch.some(member => !Number.isSafeInteger(member.id) || member.id <= 0 || !member.name)) {
+          throw new Error("IAM_MEMBER_LIST_RESPONSE_INVALID");
+        }
+        members.push(...batch);
+        pages = pagination.pages;
+        page += 1;
+      } while (page <= pages);
+      return members;
+    },
     /**
      * 获取成员列表（可带筛选/分页）
      * 统一返回 Member[]

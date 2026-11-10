@@ -29,7 +29,7 @@ func IsCoreSensitivePermission(permission modelsiam.Permission) bool {
 		return true
 	}
 	// CSV 导入属于用户确认的 Admin 操作，不能被默认派生为服务 API Key grant。
-	if (module == "customer" && strings.HasPrefix(resource, "admin_customers_imports")) || (module == "menu" && resource == "customer") {
+	if (module == "customer" && strings.HasPrefix(resource, "admin_customers_imports")) || (module == "menu" && (resource == "customer" || resource == "settings.client_apps")) {
 		return true
 	}
 	if module == "customer" && strings.HasPrefix(resource, "admin_customers_") {
@@ -43,6 +43,10 @@ func IsCoreSensitivePermission(permission modelsiam.Permission) bool {
 	endpoint := strings.TrimSpace(anyToString(meta["api_endpoint"]))
 	if endpoint == "" {
 		return false
+	}
+	// Admin 连接测试包含凭据保存行为；服务调用只能使用独立的只读 typed grant。
+	if endpoint == "/api/v1/admin/agents/test/connection" {
+		return true
 	}
 	for _, prefix := range sensitiveEndpointPrefixes {
 		if strings.HasPrefix(endpoint, prefix) {
@@ -97,6 +101,8 @@ var sensitiveEndpointPrefixes = []string{
 	"/api/v1/admin/integration/api-key-profiles",
 	"/api/v1/admin/iam/permissions",
 	"/api/v1/admin/iam/roles",
+	"/api/v1/admin/iam/members",
+	"/api/v1/admin/iam/users",
 }
 
 func parseMeta(raw []byte) map[string]any {

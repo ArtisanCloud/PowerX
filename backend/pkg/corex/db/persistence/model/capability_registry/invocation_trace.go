@@ -12,9 +12,11 @@ import (
 // InvocationTrace 记录能力调用链路的审计记录。
 type InvocationTrace struct {
 	coremodel.PowerUUIDModel
+	RecordClass string     `gorm:"column:record_class;type:varchar(64);not null;default:legacy_unclassified" json:"-"`
+	CompletedAt *time.Time `gorm:"column:completed_at;index:idx_capability_trace_retention,priority:3" json:"-"`
 
 	TraceID            string         `gorm:"column:trace_id;type:varchar(128);not null;index:idx_capability_invocation_trace" json:"trace_id"`
-	TenantUUID         string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_capability_invocation_tenant" json:"tenant_uuid"`
+	TenantUUID         string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_capability_invocation_tenant;index:idx_capability_trace_retention,priority:1" json:"tenant_uuid"`
 	CallerSubject      string         `gorm:"column:caller_subject;type:varchar(512);not null;default:'';index:idx_capability_invocation_caller" json:"-"`
 	PluginID           string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_capability_invocation_plugin" json:"plugin_id"`
 	CapabilityID       string         `gorm:"column:capability_id;type:varchar(256);not null;index:idx_capability_invocation_capability" json:"capability_id"`
@@ -23,14 +25,14 @@ type InvocationTrace struct {
 	ProtocolUsed       string         `gorm:"column:protocol_used;type:varchar(32);not null" json:"protocol_used"`
 	FallbackUsed       bool           `gorm:"column:fallback_used;not null;default:false" json:"fallback_used"`
 	FallbackReason     string         `gorm:"column:fallback_reason;type:text" json:"fallback_reason,omitempty"`
-	Status             string         `gorm:"column:status;type:varchar(32);not null;index:idx_capability_invocation_status" json:"status"`
+	Status             string         `gorm:"column:status;type:varchar(32);not null;index:idx_capability_invocation_status;index:idx_capability_trace_retention,priority:2" json:"status"`
 	IdempotencyKey     string         `gorm:"column:idempotency_key;type:varchar(128)" json:"idempotency_key,omitempty"`
 	RequestPayload     datatypes.JSON `gorm:"column:request_payload;type:jsonb;default:'{}'" json:"request_payload,omitempty"`
 	ResponsePayload    datatypes.JSON `gorm:"column:response_payload;type:jsonb;default:'{}'" json:"response_payload,omitempty"`
 	ErrorSummary       string         `gorm:"column:error_summary;type:text" json:"error_summary,omitempty"`
 	LatencyMS          int            `gorm:"column:latency_ms;not null;default:0" json:"latency_ms"`
 	EventPublished     bool           `gorm:"column:event_published;not null;default:false" json:"event_published"`
-	EventPublicationID *uuid.UUID     `gorm:"column:event_publication_id;type:uuid" json:"event_publication_id,omitempty"`
+	EventPublicationID *uuid.UUID     `gorm:"column:event_publication_id;type:uuid;index:idx_capability_trace_publication" json:"event_publication_id,omitempty"`
 }
 
 func (InvocationTrace) TableName() string {
@@ -40,11 +42,14 @@ func (InvocationTrace) TableName() string {
 // CapabilityEventPublication 记录能力调用相关事件的投递信息。
 type CapabilityEventPublication struct {
 	coremodel.PowerUUIDModel
+	RecordClass     string     `gorm:"column:record_class;type:varchar(64);not null;default:legacy_unclassified" json:"-"`
+	TerminalAt      *time.Time `gorm:"column:terminal_at;index:idx_capability_event_retention,priority:3" json:"-"`
+	DeliveryReceipt string     `gorm:"column:delivery_receipt;type:varchar(512);not null;default:''" json:"-"`
 
-	TenantUUID  string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_capability_event_tenant" json:"tenant_uuid"`
+	TenantUUID  string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_capability_event_tenant;index:idx_capability_event_retention,priority:1" json:"tenant_uuid"`
 	Topic       string         `gorm:"column:topic;type:varchar(256);not null;index:idx_capability_event_topic" json:"topic"`
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb;not null" json:"payload"`
-	Status      string         `gorm:"column:status;type:varchar(32);not null;index:idx_capability_event_status" json:"status"`
+	Status      string         `gorm:"column:status;type:varchar(32);not null;index:idx_capability_event_status;index:idx_capability_event_retention,priority:2" json:"status"`
 	Attempts    int            `gorm:"column:attempts;not null;default:0" json:"attempts"`
 	LastError   string         `gorm:"column:last_error;type:text" json:"last_error,omitempty"`
 	TraceID     string         `gorm:"column:trace_id;type:varchar(128);not null;index:idx_capability_event_trace" json:"trace_id"`

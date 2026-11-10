@@ -1,0 +1,108 @@
+{
+  "recorded_at": "2026-10-29T05:17:40.894005+00:00",
+  "scope": "Local configuration readiness and real local database acceptance; user service not restarted",
+  "remote_changed": false,
+  "config_path": "backend/etc/config.yaml",
+  "only_storage_governance_config_changed": true,
+  "config_private_backup": "test-results/storage-local-configuration/config-before.yaml",
+  "config_permissions": "0600",
+  "config_before_sha256": "ba60132ed426ed089f0ac4dc70e00447c8013cc8e28d7bea9b8609dc0da7a063",
+  "config_after_sha256": "b9652991ab91099de43ea1aaa70e4040380b1a61ec583f4397bdfb0ede204aa1",
+  "configuration": {
+    "schema_version": 1,
+    "mode": "observe",
+    "host_id": "host-3626cb347a5c93e4146f13fa",
+    "filesystem_id": "fs-96f39fa6-d058-4dd9-9f01-145cc4e87d43",
+    "filesystem_path": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "postgres_enabled": true,
+    "postgres_cluster_id": "pg-7352204949267279408",
+    "sampling_enabled": true,
+    "sources": []
+  },
+  "identity_sources": {
+    "host": "SHA-256-derived local IOPlatformUUID; raw UUID not recorded",
+    "filesystem": "actual APFS Data volume UUID",
+    "postgres": "localhost pg_control_system().system_identifier",
+    "instance": "existing installation.json; no new identity"
+  },
+  "local_database": "localhost:5432/powerx.public",
+  "actual_validation": {
+    "filesystem_database_two_relations_wal": "observed via configured service, JWT middleware and Storage module routes",
+    "draft_save_readback_conflict": "passed in transaction and rolled back",
+    "occupancy": "real current occupancy persisted; normal scheduled worker requires user Core restart",
+    "backend_cases_passed": 16,
+    "opt_in_native_fixture_skips": 3,
+    "race": true,
+    "fresh_local_replay": "passed",
+    "metadata_rows": {
+      "policies": 0,
+      "policy_revisions": 0,
+      "samples": 3,
+      "max_sample_bytes": 523
+    },
+    "non_storage_schema_baseline_matches_migration_handoff": true,
+    "iam_counts_before_fresh_replay": {
+      "users": 15,
+      "members": 16,
+      "roles": 22,
+      "role_bindings": 22
+    },
+    "iam_counts_after_fresh_replay": {
+      "users": 15,
+      "members": 16,
+      "roles": 22,
+      "role_bindings": 22
+    },
+    "iam_counts_unchanged_during_fresh_replay": true,
+    "baseline_note": "Fresh replay baseline used. Older handoff counts are historical. A diagnostic catalog read timed out during concurrent workspace activity; no write or restart followed that timeout."
+  },
+  "ui_validation": {
+    "unit_cases": 15,
+    "browser_cases": 3,
+    "widths": [
+      1440,
+      390,
+      320
+    ],
+    "browser_boundary": "isolated Nuxt build with controlled HTTP fixtures, not installed user Core",
+    "nuxt_build": "passed",
+    "go_vet": "passed",
+    "sampling_status": "configuration and worker admission are distinct from running state and actual historical coverage"
+  },
+  "logs": [
+    "test-results/storage-local-ready-go.log",
+    "test-results/storage-local-ready-reread.log",
+    "test-results/storage-local-ready-vitest.log",
+    "test-results/storage-local-ready-build.log",
+    "test-results/storage-local-ready-browser.log",
+    "test-results/storage-local-ready-vet.log",
+    "test-results/storage-local-ready-capability-check.log"
+  ],
+  "service_ownership": {
+    "existing_user_core_pid": 44355,
+    "core_restarted": false,
+    "new_business_worker_started": false,
+    "temporary_browser_pids": [
+      2372,
+      2373
+    ],
+    "temporary_browser_processes_exited": true,
+    "temporary_ports_released": [
+      3485,
+      3486
+    ]
+  },
+  "cleanup_enabled": false,
+  "next_acceptance": [
+    "Restart original local Core and check Root page, database details and draft save",
+    "Verify normal five-minute schedule after restart; existing samples do not imply fourteen days of history"
+  ],
+  "unfinished_us9": [
+    "gross ingress/compression/R95",
+    "verified archive coverage",
+    "global reservation/ownership/cleanup",
+    "notification delivery",
+    "Linux/production/XDocker acceptance"
+  ],
+  "full_typecheck": "not claimed; previous evidence reported HEAD menuConfig.ts syntax errors outside this change"
+}

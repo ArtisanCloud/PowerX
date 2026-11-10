@@ -7,11 +7,13 @@ import (
 
 	im "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 var ErrManaged = errors.New("IAM_ROOT_ROLE_CORE_MANAGED")
+var ErrCatalogInconsistent = errors.New("IAM_ROOT_ROLE_CATALOG_INCONSISTENT")
 
 // IsManaged 不依赖可变的 builtin 标记，避免旧数据丢失标记后开放编辑。
 func IsManaged(role im.Role) bool {
@@ -36,7 +38,13 @@ func Ensure(db *gorm.DB) (bool, error) {
 		changed = true
 	} else if err != nil {
 		return false, err
-	} else if !role.Builtin || role.DeletedAt.Valid {
+	}
+	// 数字主键冲突不代表 UUID 关系正确。旧关系指向其他 UUID 时，不能
+	// 通过 ON CONFLICT DO NOTHING 冒充同步成功，也不在启动/安装中修旧数据。
+	if err = checkRoleCatalog(db, role); err != nil {
+		return changed, err
+	}
+	if !role.Builtin || role.DeletedAt.Valid {
 		if err = db.Unscoped().Model(&role).Updates(map[string]any{"builtin": true, "deleted_at": nil}).Error; err != nil {
 			return false, err
 		}
@@ -55,7 +63,59 @@ func Ensure(db *gorm.DB) (bool, error) {
 		grants = append(grants, im.RolePermission{RoleID: role.ID, RoleUUID: role.UUID, PermissionID: permission.ID, PermissionUUID: permission.PermissionUUID})
 	}
 	result := db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(grants, 200)
-	return changed || result.RowsAffected > 0, result.Error
+	if result.Error != nil {
+		return changed, result.Error
+	}
+	missing, err := missingCatalogPermissions(db, role)
+	if err == nil && missing > 0 {
+		err = ErrCatalogInconsistent
+	}
+	return changed || result.RowsAffected > 0, err
+}
+
+// CheckCatalog 只读诊断 Root 关联；不重绑历史 UUID，也不写授权源。
+func CheckCatalog(db *gorm.DB) error {
+	ready, err := schemaReady(db)
+	if err != nil || !ready {
+		return err
+	}
+	var role im.Role
+	if err := db.Unscoped().Where("scope=? AND tenant_uuid=? AND code=?", iam.RoleScopeSystem, "", iam.CodeSystemRoot).Take(&role).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrCatalogInconsistent
+		}
+		return err
+	}
+	if !role.Builtin || role.DeletedAt.Valid || role.UUID == uuid.Nil {
+		return ErrCatalogInconsistent
+	}
+	if err := checkRoleCatalog(db, role); err != nil {
+		return err
+	}
+	missing, err := missingCatalogPermissions(db, role)
+	if err == nil && missing > 0 {
+		return ErrCatalogInconsistent
+	}
+	return err
+}
+
+func missingCatalogPermissions(db *gorm.DB, role im.Role) (int64, error) {
+	var missing int64
+	err := db.Table((&im.Permission{}).TableName()+" p").Where("p.status=? AND p.deleted_at IS NULL", im.PermissionStatusActive).
+		Where("NOT EXISTS (SELECT 1 FROM "+(&im.RolePermission{}).TableName()+" rp WHERE rp.role_uuid=? AND rp.permission_uuid=p.permission_uuid)", role.UUID).Count(&missing).Error
+	return missing, err
+}
+
+func checkRoleCatalog(db *gorm.DB, role im.Role) error {
+	var inconsistent int64
+	err := db.Table((&im.RolePermission{}).TableName()+" rp").
+		Joins("LEFT JOIN "+(&im.Permission{}).TableName()+" p ON p.id=rp.permission_id").
+		Where("(rp.role_id=? OR rp.role_uuid=?) AND (rp.role_id<>? OR rp.role_uuid IS NULL OR rp.role_uuid<>? OR p.id IS NULL OR rp.permission_uuid IS NULL OR rp.permission_uuid<>p.permission_uuid)", role.ID, role.UUID, role.ID, role.UUID).
+		Count(&inconsistent).Error
+	if err == nil && inconsistent > 0 {
+		return ErrCatalogInconsistent
+	}
+	return err
 }
 
 func schemaReady(db *gorm.DB) (bool, error) {

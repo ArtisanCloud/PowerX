@@ -11,6 +11,7 @@ import (
 	gwmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	settingmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -80,6 +81,11 @@ func TestGrantStatusGatewayKeyUsesActualKeyPermission(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "api_key:"+key.UUID.String(), access.Subject)
 	require.True(t, access.Granted[capabilityID])
+	// Core 的能力 grant 与可操作资源的插件 owner 是两层校验；保持现有 Core 行为。
+	require.NoError(t, db.Model(&gwmodel.IntegrationGatewayAPIKeyPermission{}).Where("api_key_uuid=? AND scope=?", key.UUID, "_scope.knowledge.directory.read").Update("plugin_id", "com.example.caller").Error)
+	coreItems, err := service.CheckCurrentCredential(ctx, []string{capabilityID})
+	require.NoError(t, err)
+	require.Equal(t, GrantStatusGranted, coreItems[0].Status)
 	otherKey := gwmodel.IntegrationGatewayAPIKey{TenantUUID: grantStatusTestTenant, ProfileID: key.ProfileID, Name: "test-other", KeyPrefix: "test", KeyHash: "test-other-key-hash", Status: "active"}
 	require.NoError(t, db.Create(&otherKey).Error)
 	require.NoError(t, db.Create(&gwmodel.IntegrationGatewayAPIKeyPermission{APIKeyUUID: otherKey.UUID, Scope: "_scope.capabilities.grant_status.read", Action: "read", ResourceType: "api", ResourcePattern: "grant-status", Effect: "allow"}).Error)
@@ -220,4 +226,62 @@ func newGrantStatusTestDB(t *testing.T) *gorm.DB {
 		&settingmodel.PluginInstanceConfig{}, &iammodel.APIKeyProfile{}, &iammodel.Permission{}, &iammodel.APIKeyProfilePermission{},
 	))
 	return db
+}
+
+func TestPublishedPluginDeclarationUsesLiveExactAPIKeyGrant(t *testing.T) {
+	db := newGrantStatusTestDB(t)
+	require.NoError(t, db.AutoMigrate(&gwmodel.IntegrationGatewayAPIKey{}, &gwmodel.IntegrationGatewayAPIKeyPermission{}))
+	const pluginID = "com.example.plans"
+	capabilityID := pluginID + ".read"
+	seedGrantStatusCapability(t, db, GrantStatusCapabilityID, true)
+	seedGrantStatusCapability(t, db, capabilityID, true)
+	discovery := iammodel.Permission{Module: "capability_registry", Resource: "grant-status", Action: "read", Effect: "allow", Status: iammodel.PermissionStatusActive, AllowAPIKey: true, Meta: datatypes.JSON([]byte(`{"capability_id":"com.corex.capabilities.grant_status.read","api_key_explicit":true,"api_key":{"scope":"_scope.capabilities.grant_status.read","action":"read","resource_type":"api","resource_pattern":"grant-status","effect":"allow"}}`))}
+	require.NoError(t, db.Create(&discovery).Error)
+	declaration := pluginPermissionDeclaration{Type: "api", PermissionCode: "commerce.plans:read", Independent: true, ProtocolBindings: []permissionProtocolBinding{{ActorContext: "service_actor", ResourceScope: "tenant"}}, APIKey: &plugin_mgr.APIKeyPermissionSpec{CapabilityID: capabilityID, PluginID: pluginID, Scope: "_scope.plans.read", Action: "read", ResourceType: "capability", ResourcePattern: "plans", Effect: "allow"}}
+	permission, err := permissionRowFromPluginDeclaration(pluginMetadata{ID: pluginID}, catalogCapability{ID: capabilityID}, declaration)
+	require.NoError(t, err)
+	require.NoError(t, db.Create(&permission).Error)
+	key := gwmodel.IntegrationGatewayAPIKey{TenantUUID: grantStatusTestTenant, ProfileID: 1, Name: "test", KeyPrefix: "test", KeyHash: "plugin-test-key-hash", Status: "active"}
+	require.NoError(t, db.Create(&key).Error)
+	require.NoError(t, db.Create(&gwmodel.IntegrationGatewayAPIKeyPermission{APIKeyUUID: key.UUID, Scope: "_scope.capabilities.grant_status.read", Action: "read", ResourceType: "api", ResourcePattern: "grant-status", Effect: "allow"}).Error)
+	grant := gwmodel.IntegrationGatewayAPIKeyPermission{APIKeyUUID: key.UUID, Scope: "_scope.plans.read", Action: "read", ResourceType: "capability", ResourcePattern: "plans", PluginID: pluginID, Effect: "allow"}
+	require.NoError(t, db.Create(&grant).Error)
+	ctx := reqctx.WithAuthenticatedAPIKeyHash(reqctx.WithClaims(reqctx.WithTenantUUID(context.Background(), grantStatusTestTenant), &reqctx.CoreXClaims{TenantUUID: grantStatusTestTenant, MemberID: 1, Platforms: []string{"api_key"}}), key.KeyHash)
+	check := func(want string) {
+		items, err := NewGrantStatusService(db).CheckCurrentCredential(ctx, []string{capabilityID})
+		require.NoError(t, err)
+		require.Equal(t, want, items[0].Status)
+	}
+	check(GrantStatusGranted)
+	for _, owner := range []string{"com.example.other", ""} {
+		require.NoError(t, db.Model(&grant).Update("plugin_id", owner).Error)
+		check(GrantStatusNotGranted)
+		access, err := NewGrantStatusService(db).CurrentAccess(ctx)
+		require.NoError(t, err)
+		require.False(t, access.Granted[capabilityID])
+		var denied *DirectGrantError
+		require.ErrorAs(t, access.Require(capabilityID), &denied)
+		require.Equal(t, 403, denied.Status)
+	}
+	require.NoError(t, db.Model(&grant).Update("plugin_id", pluginID).Error)
+	check(GrantStatusGranted)
+	require.NoError(t, db.Model(&permission).Update("source", "plugin:com.example.other").Error)
+	check(GrantStatusNotGranted)
+	require.NoError(t, db.Model(&permission).Update("source", "plugin:"+pluginID).Error)
+	check(GrantStatusGranted)
+	require.NoError(t, db.Model(&permission).Update("allow_api_key", false).Error)
+	check(GrantStatusNotGranted)
+	require.NoError(t, db.Model(&permission).Update("allow_api_key", true).Error)
+	check(GrantStatusGranted)
+	foreignTenant := "22222222-2222-2222-2222-222222222222"
+	foreign := reqctx.WithClaims(reqctx.WithTenantUUID(ctx, foreignTenant), &reqctx.CoreXClaims{TenantUUID: foreignTenant, Platforms: []string{"api_key"}})
+	_, err = NewGrantStatusService(db).CheckCurrentCredential(foreign, []string{capabilityID})
+	require.ErrorIs(t, err, ErrGrantStatusUnauthorized)
+	require.NoError(t, db.Model(&grant).Update("action", "manage").Error)
+	check(GrantStatusNotGranted)
+	require.NoError(t, db.Model(&grant).Update("action", "read").Error)
+	check(GrantStatusGranted)
+	require.NoError(t, db.Model(&key).Update("status", "revoked").Error)
+	_, err = NewGrantStatusService(db).CheckCurrentCredential(ctx, []string{capabilityID})
+	require.ErrorIs(t, err, ErrGrantStatusUnauthorized)
 }

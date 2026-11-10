@@ -1,0 +1,11 @@
+{
+  "auth_boundary": "isolated signed Root JWT; daily identity and control database are not exercised",
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/internal/transport/http/admin/backup",
+  "directory": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestArchiveAcceptedFaultBrowserFixture1306616393/001/archives",
+  "job_id": "3452c2b9-6a59-40ab-822a-39fa40b9ab8d",
+  "owner": "codex archive fault UI fixture",
+  "pid": 14942,
+  "s3_url": "http://127.0.0.1:55277",
+  "source": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestArchiveAcceptedFaultBrowserFixture1306616393/001/logs",
+  "url": "http://127.0.0.1:55279"
+}

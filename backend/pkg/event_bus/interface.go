@@ -31,6 +31,18 @@ type EventBus interface {
 	Close() error
 }
 
+// PublicationReceipt 只证明生产端发布／分发，不表示订阅者业务已经完成。
+type PublicationReceipt struct {
+	EventID     string
+	Status      string // published、dispatched、unrouted
+	Subscribers int64
+}
+
+// AcknowledgedPublisher 为调用审计提供真实发布结果，不改变 TaskBus 的投递合同。
+type AcknowledgedPublisher interface {
+	PublishAcknowledged(eventType string, payload interface{}, ctx context.Context) (PublicationReceipt, error)
+}
+
 // RetryItem 描述待重试或延迟投递的流水。
 type RetryItem struct {
 	EventID      string            `json:"event_id"`
@@ -92,16 +104,17 @@ type QueueDriverCapability struct {
 
 // TaskMessage 是任务驱动层的统一消息信封。
 type TaskMessage struct {
-	ID           string
-	TenantKey    string
-	SubscriberID string
-	Topic        string
-	Payload      []byte
-	Headers      map[string]string
-	Attempt      int
-	TraceID      string
-	VisibleAt    time.Time
-	Metadata     map[string]string
+	ID             string
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
+	TenantKey      string
+	SubscriberID   string
+	Topic          string
+	Payload        []byte
+	Headers        map[string]string
+	Attempt        int
+	TraceID        string
+	VisibleAt      time.Time
+	Metadata       map[string]string
 }
 
 // DequeueRequest 描述一次任务拉取请求。

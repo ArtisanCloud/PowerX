@@ -17,8 +17,8 @@ func (s *RedisStore) Cancel(ctx context.Context, identity Snapshot) (Snapshot, e
 	if s == nil || s.client == nil || !validScope(identity) {
 		return Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
-	_, taskKey, outboxKey := schedulingKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
+	_, taskKey, outboxKey := s.schedulingKeys(identity)
 	for retry := 0; retry < 10; retry++ {
 		var run Snapshot
 		err := s.client.Watch(ctx, func(tx *redis.Tx) error {

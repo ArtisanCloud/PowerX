@@ -53,9 +53,9 @@ describe('authoritative host session', () => {
     commitAuthSession({access_token:token('current')},stamp); expect(readAuthSession()?.refreshToken).toBe('refresh-current');
     expect(() => commitAuthSession({access_token:token('other')})).toThrow('AUTH_SESSION_PAYLOAD_INVALID');
   });
-  it('invalidates only the current session on refresh 401', async () => {
+  it('invalidates only the current session on a verified terminal refresh 401', async () => {
     commitAuthSession(payload('current'));
-    await expect(refreshAuthSession(async () => { throw {status:401}; })).rejects.toMatchObject({status:401});
+    await expect(refreshAuthSession(async () => { throw {status:401,data:{error_code:'AUTH_SESSION_EXPIRED'}}; })).rejects.toMatchObject({status:401});
     expect(readAuthSession()?.status).toBe('signed-out');
   });
   it('keeps state on transient failure and rejects stale commits', async () => {
@@ -64,4 +64,9 @@ describe('authoritative host session', () => {
     expect(readAuthSession()).toEqual(current); const stamp = captureAuthSession()!; clearAuthSession();
     expect(() => commitAuthSession(payload('current'),stamp)).toThrow(AuthSessionChangedError);
   });
+});
+
+it.each([{status:401},{status:403,data:{error_code:'AUTH_USER_FORBIDDEN'}},{status:401,data:{error_code:'IAM_CONTEXT_SERVICE_CREDENTIAL_INVALID'}}])('does not clear host state for a nonterminal refresh response %j',async error=>{
+  const current=commitAuthSession(payload('current'));
+  await expect(refreshAuthSession(async()=>{throw error})).rejects.toMatchObject({status:error.status});expect(readAuthSession()).toEqual(current);
 });

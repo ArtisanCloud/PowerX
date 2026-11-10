@@ -13,6 +13,8 @@ import (
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	repoIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -68,11 +70,14 @@ type CreateMemberInput struct {
 	User            modelIAM.User // 用于 ensure/create user（email/phone/头像/展示名）
 	DeptIDs         []uint64      // 初始部门
 	InitialPassword string        // 如需写 credential，可在此接入
+	RoleUUIDs       []string      // nil 保持旧调用行为；显式数组在创建事务内分配角色
 }
 type UpdateMemberInput struct {
-	Member  *modelIAM.Member
-	User    *modelIAM.User
-	DeptIDs *[]uint64 // nil 不改；空数组清空
+	Member    *modelIAM.Member
+	User      *modelIAM.User
+	DeptIDs   *[]uint64 // nil 不改；空数组清空
+	RoleUUIDs *[]string // nil 不改；显式数组在编辑事务内替换直绑角色
+	Contact   *MemberContactPatch
 }
 
 func normalizeTenantUUID(tenantUUID string) (string, error) {
@@ -83,73 +88,75 @@ func normalizeTenantUUID(tenantUUID string) (string, error) {
 	return tenantUUID, nil
 }
 
-// 列表（按租户/关键词/状态/部门递归筛选），不写 SQL，借助 BaseRepository.FindByCondition 的 callback
+// 列表按租户、关键词、成员状态及部门筛选，并在分页前去重。
 func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) (items []MemberWithProfile, total int64, err error) {
 	tenantUUID, err := normalizeTenantUUID(opt.TenantUUID)
 	if err != nil {
 		return nil, 0, err
 	}
-	cond := map[string]interface{}{} // 这里不再用 cond 传筛选，全部放在回调里
+	if opt.Page < 1 {
+		opt.Page = 1
+	}
+	if opt.PageSize < 1 {
+		opt.PageSize = 10
+	}
+	q := s.DB.WithContext(ctx).Table(model.TableIAMMember+" AS m").
+		Joins("LEFT JOIN "+model.TableIAMUser+" AS u ON u.id = m.user_id").
+		// 明确租户、过滤 root、软删
+		Where("m.tenant_uuid = ?", tenantUUID).
+		Where("m.username <> ?", ROOT_USERNAME).
+		Where("COALESCE(u.is_root, false) = ?", false).
+		Where("m.deleted_at IS NULL")
 
-	page, err := s.MemberRepo.FindByCondition(ctx, cond, opt.Page, opt.PageSize,
-		func(db *gorm.DB, _ interface{}) *gorm.DB {
-			q := db.Table(model.TableIAMMember+" AS m").
-				Joins("LEFT JOIN "+model.TableIAMUser+" AS u ON u.id = m.user_id").
-				// 明确租户、过滤 root、软删
-				Where("m.tenant_uuid = ?", tenantUUID).
-				Where("m.username <> ?", ROOT_USERNAME).
-				Where("m.deleted_at IS NULL")
+	// 关键词：m.username / m.display_name / u.email / u.phone
+	if kw := strings.TrimSpace(opt.Keyword); kw != "" {
+		kw = strings.ToLower(kw)
+		like := "%" + kw + "%"
+		q = q.Where("("+
+			"LOWER(m.username) LIKE ? OR "+
+			"LOWER(m.display_name) LIKE ? OR "+
+			"LOWER(u.email) LIKE ? OR "+
+			"LOWER(u.phone) LIKE ?"+
+			")", like, like, like, like)
+	}
 
-			// 关键词：m.username / m.display_name / u.email / u.phone
-			if kw := strings.TrimSpace(opt.Keyword); kw != "" {
-				kw = strings.ToLower(kw)
-				like := "%" + kw + "%"
-				q = q.Where("("+
-					"LOWER(m.username) LIKE ? OR "+
-					"LOWER(m.display_name) LIKE ? OR "+
-					"LOWER(u.email) LIKE ? OR "+
-					"LOWER(u.phone) LIKE ?"+
-					")", like, like, like, like)
-			}
+	// 状态
+	if opt.Status != nil {
+		q = q.Where("m.status = ?", *opt.Status)
+	}
 
-			// 状态
-			if opt.Status != nil {
-				q = q.Where("m.status = ?", *opt.Status)
-			}
-
-			// 部门过滤（可递归）
-			if opt.DeptID != nil {
-				if opt.Recursive {
-					q = q.
-						Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_uuid = m.tenant_uuid").
-						Joins("JOIN "+model.TableIAMDepartmentClosure+" AS dc ON dc.tenant_uuid = m.tenant_uuid AND dc.descendant_id = md.department_id").
-						Where("dc.ancestor_id = ?", *opt.DeptID)
-				} else {
-					q = q.
-						Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_uuid = m.tenant_uuid").
-						Where("md.department_id = ?", *opt.DeptID)
-				}
-			}
-
-			// ✅ 关键：DISTINCT + 只按 m.id 排序，避免 PG 报错 42P10
-			so := "DESC"
-			if strings.ToLower(opt.SortOrder) == "asc" {
-				so = "ASC"
-			}
-			return q.
-				Select("DISTINCT ON (m.id) m.*").
-				Order("m.id " + so)
-		}, nil)
-	if err != nil {
+	// 部门过滤（可递归）
+	if opt.DeptID != nil {
+		if opt.Recursive {
+			q = q.
+				Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_uuid = m.tenant_uuid").
+				Joins("JOIN "+model.TableIAMDepartmentClosure+" AS dc ON dc.tenant_uuid = m.tenant_uuid AND dc.descendant_id = md.department_id").
+				Where("dc.ancestor_id = ?", *opt.DeptID)
+		} else {
+			q = q.
+				Joins("JOIN "+model.TableIAMMemberDepartment+" AS md ON md.member_id = m.id AND md.tenant_uuid = m.tenant_uuid").
+				Where("md.department_id = ?", *opt.DeptID)
+		}
+	}
+	// 独立计算去重总数，不能让 Count 将 m.* 当成列名或覆盖列表投影。
+	if err = q.Session(&gorm.Session{}).Model(&modelIAM.Member{}).Distinct("m.id").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	order := "m.id DESC"
+	if strings.EqualFold(opt.SortOrder, "asc") {
+		order = "m.id ASC"
+	}
+	var rows []*modelIAM.Member
+	if err = q.Select("m.*").Group("m.id").Order(order).Limit(opt.PageSize).Offset((opt.Page - 1) * opt.PageSize).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// 组装返回：一次性批量取 user，避免 N+1
-	items = make([]MemberWithProfile, 0, len(page.List))
-	memberIDs := make([]uint64, 0, len(page.List))
-	userIDs := make([]uint64, 0, len(page.List))
-	seenU := make(map[uint64]struct{}, len(page.List))
-	for _, mem := range page.List {
+	items = make([]MemberWithProfile, 0, len(rows))
+	memberIDs := make([]uint64, 0, len(rows))
+	userIDs := make([]uint64, 0, len(rows))
+	seenU := make(map[uint64]struct{}, len(rows))
+	for _, mem := range rows {
 		memberIDs = append(memberIDs, mem.ID)
 		if _, ok := seenU[mem.UserID]; !ok {
 			seenU[mem.UserID] = struct{}{}
@@ -190,10 +197,10 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 	}
 
 	conflictingNames := make(map[string]struct{})
-	if len(page.List) > 0 {
-		nameKeys := make([]string, 0, len(page.List))
-		seenNames := make(map[string]struct{}, len(page.List))
-		for _, mem := range page.List {
+	if len(rows) > 0 {
+		nameKeys := make([]string, 0, len(rows))
+		seenNames := make(map[string]struct{}, len(rows))
+		for _, mem := range rows {
 			if mem.Status != 1 {
 				continue
 			}
@@ -226,7 +233,7 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 		}
 	}
 
-	for _, mem := range page.List {
+	for _, mem := range rows {
 		items = append(items, MemberWithProfile{
 			Member:  mem,
 			User:    userByID[mem.UserID],
@@ -237,7 +244,7 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 			}(),
 		})
 	}
-	return items, page.Total, nil
+	return items, total, nil
 }
 
 func (s *MemberService) GetMember(ctx context.Context, tenantUUID string, memberID uint64) (*MemberWithProfile, error) {
@@ -305,6 +312,10 @@ func (s *MemberService) GetMemberByTenantUUID(ctx context.Context, tenantUUID st
 }
 
 func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in CreateMemberInput) (uint64, error) {
+	in.Member.Username = strings.ToLower(strings.TrimSpace(in.Member.Username))
+	if !memberAccountUsernamePattern.MatchString(in.Member.Username) {
+		return 0, dto.NewBadRequest("用户名应为 3 至 64 位小写字母、数字、点、下划线或短横线，并以字母开头", nil)
+	}
 	var err error
 	tenantUUID, err = normalizeTenantUUID(tenantUUID)
 	if err != nil {
@@ -322,6 +333,7 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in 
 
 		// 1) ensure/create user
 		var u *modelIAM.User
+		createdUser := false
 		var err error
 		if e := strings.TrimSpace(in.User.Email); e != "" {
 			u, err = s.UserRepo.FindByEmail(ctx, strings.ToLower(e))
@@ -346,19 +358,27 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in 
 				Status:      1,
 				Meta:        in.User.Meta,
 			}
-			if in.Member.Status != 0 {
-				u.Status = in.Member.Status
-			}
 			if _, err = s.UserRepo.WithDB(tx).Create(ctx, u); err != nil {
 				if repository.IsUniqueViolation(err) {
 					return errors.New("user already exists")
 				}
 				return err
 			}
+			createdUser = true
+		}
+		if u.IsRoot && !reqctx.IsRoot(ctx) {
+			return dto.NewForbidden("租户管理员不能管理 Root 账号", nil)
+		}
+		var existingMember int64
+		if err := tx.Model(&modelIAM.Member{}).Where("tenant_uuid = ? AND user_id = ?", tenantUUID, u.ID).Count(&existingMember).Error; err != nil {
+			return err
+		}
+		if existingMember > 0 {
+			return dto.NewBadRequest("该账号已经是当前租户成员", nil)
 		}
 
 		// 2) optional：写入密码 Credential（仅当提供了 InitialPassword 且不存在密码凭证时）
-		if pw := strings.TrimSpace(in.InitialPassword); pw != "" {
+		if pw := strings.TrimSpace(in.InitialPassword); pw != "" && createdUser {
 			// 选 identifier：email > phone > username
 			identifier := strings.ToLower(strings.TrimSpace(u.Email))
 			if identifier == "" {
@@ -442,23 +462,12 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantUUID string, in 
 
 		// 4) 初始部门（覆盖式）
 		if len(in.DeptIDs) > 0 {
-			if _, err := s.MemberDeptRepo.Delete(ctx, map[string]interface{}{
-				"tenant_uuid = ?": tenantUUID,
-				"member_id = ?":   mem.ID,
-			}, nil, true); err != nil {
+			if err := s.PutMemberDepartments(ctx, tenantUUID, mem.ID, in.DeptIDs); err != nil {
 				return err
 			}
-			rows := make([]*modelIAM.MemberDepartment, 0, len(in.DeptIDs))
-			for _, did := range in.DeptIDs {
-				rows = append(rows, &modelIAM.MemberDepartment{
-					TenantUUID:   tenantUUID,
-					MemberID:     mem.ID,
-					DepartmentID: did,
-				})
-			}
-			if _, err := s.MemberDeptRepo.CreateBatch(ctx, rows); err != nil {
-				return err
-			}
+		}
+		if in.RoleUUIDs != nil {
+			return s.replaceMemberRolesTx(ctx, tx, tenantUUID, mem.ID, in.RoleUUIDs, true)
 		}
 		return nil
 	})
@@ -496,6 +505,9 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 		}
 
 		if in.Member != nil {
+			if name := strings.ToLower(strings.TrimSpace(in.Member.Username)); name != "" && !memberAccountUsernamePattern.MatchString(name) {
+				return dto.NewBadRequest("用户名格式无效", nil)
+			}
 			targetDisplayName := mem.DisplayName
 			targetStatus := mem.Status
 			if v := strings.TrimSpace(in.Member.DisplayName); v != "" {
@@ -528,8 +540,8 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 			if len(fields) > 0 {
 				if _, err := s.MemberRepo.WithDB(tx).Patch(ctx,
 					map[string]interface{}{
-						model.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
-						model.TableIAMMember + ".id = ?":          memberID,
+						model.TableIAMMember + ".tenant_uuid": tenantUUID,
+						model.TableIAMMember + ".id":          memberID,
 					},
 					fields,
 				); err != nil {
@@ -542,6 +554,9 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 		}
 
 		if in.User != nil {
+			if !reqctx.IsRoot(ctx) && (in.User.Status != 0 || in.User.IsRoot) {
+				return dto.NewForbidden("租户成员接口不能修改全局账号状态或 Root 身份", nil)
+			}
 			uFields := map[string]interface{}{}
 			if v := strings.TrimSpace(in.User.Email); v != "" {
 				uFields["email"] = strings.ToLower(v)
@@ -563,7 +578,7 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 			}
 			if len(uFields) > 0 {
 				if _, err := s.UserRepo.WithDB(tx).Patch(ctx,
-					map[string]interface{}{"id = ?": mem.UserID},
+					map[string]interface{}{"id": mem.UserID},
 					uFields,
 				); err != nil {
 					return err
@@ -571,26 +586,18 @@ func (s *MemberService) UpdateMember(ctx context.Context, tenantUUID string, mem
 			}
 		}
 
-		if in.DeptIDs != nil {
-			if _, err := s.MemberDeptRepo.WithDB(tx).Delete(ctx, map[string]interface{}{
-				"tenant_uuid = ?": tenantUUID,
-				"member_id = ?":   memberID,
-			}, nil, true); err != nil {
+		if in.Contact != nil {
+			if err := s.updateMemberContactTx(ctx, tx, mem.UserID, *in.Contact); err != nil {
 				return err
 			}
-			if len(*in.DeptIDs) > 0 {
-				rows := make([]*modelIAM.MemberDepartment, 0, len(*in.DeptIDs))
-				for _, did := range *in.DeptIDs {
-					rows = append(rows, &modelIAM.MemberDepartment{
-						TenantUUID:   tenantUUID,
-						MemberID:     memberID,
-						DepartmentID: did,
-					})
-				}
-				if _, err = s.MemberDeptRepo.WithDB(tx).CreateBatch(ctx, rows); err != nil {
-					return err
-				}
+		}
+		if in.DeptIDs != nil {
+			if err := s.PutMemberDepartments(ctx, tenantUUID, memberID, *in.DeptIDs); err != nil {
+				return err
 			}
+		}
+		if in.RoleUUIDs != nil {
+			return s.replaceMemberRolesTx(ctx, tx, tenantUUID, memberID, *in.RoleUUIDs, false)
 		}
 		return nil
 	})
@@ -713,7 +720,7 @@ func (s *MemberService) PutMemberDepartments(ctx context.Context, tenantUUID str
 		// 2) 若传了部门，校验这些部门都在本租户里
 		if len(deptIDs) > 0 {
 			var existCnt int64
-			if err = tx.Table(model.TableIAMDepartment).
+			if err = tx.Model(&modelIAM.Department{}).
 				Where("tenant_uuid = ? AND id IN ?", tenantUUID, deptIDs).
 				Count(&existCnt).Error; err != nil {
 				return err

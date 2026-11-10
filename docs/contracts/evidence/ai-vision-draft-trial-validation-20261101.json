@@ -1,0 +1,111 @@
+{
+  "task": "vision-current-form-trial",
+  "recorded_at": "2026-11-01T13:52:31.330654+00:00",
+  "behavior": [
+    "Current form model, API key, endpoint and parameters override stored configuration",
+    "Blank API key alone reuses same tenant/environment credentials",
+    "Explicit empty endpoint uses provider default",
+    "No saved profile or online snapshot required for admin trial/parameter check",
+    "No configuration/profile/route/catalog writes during trial",
+    "Formal runtime publication, registration and grant checks unchanged",
+    "Service credentials cannot access this admin draft trial",
+    "Legacy Core rejects new form requests before inference; UI explains upgrade required"
+  ],
+  "validation": {
+    "go_test": {
+      "result": "passed",
+      "packages": 5,
+      "log": "/tmp/powerx-vision-draft-trial-go-final.log"
+    },
+    "frontend_unit": {
+      "result": "passed",
+      "tests": 69,
+      "files": 10,
+      "log": "/tmp/powerx-vision-draft-trial-unit-verified.log"
+    },
+    "typecheck": {
+      "result": "passed",
+      "log": "/tmp/powerx-vision-draft-trial-types-verified.log"
+    },
+    "vet": {
+      "result": "passed",
+      "log": "/tmp/powerx-vision-draft-trial-vet-final.log"
+    },
+    "core_build": {
+      "result": "passed",
+      "path": "/tmp/powerx-vision-draft-trial-20261101-203046/powerx",
+      "sha256": "aa714442651ae402d8cc2a8771de8773cdddf7524d41b7c13256e385f62d40f1"
+    },
+    "nuxt_build": {
+      "result": "passed",
+      "log": "/tmp/powerx-vision-draft-trial-build-final.log"
+    },
+    "browser": {
+      "result": "passed",
+      "cases": 4,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "log": "/tmp/powerx-vision-draft-trial-verified.log",
+      "scenarios": [
+        "No saved VLM profile; current key and custom address execute directly",
+        "New unsaved model plus cleared key/address executes without saving",
+        "Input preserved across close/reopen and context changes",
+        "Error recovery and cancellation",
+        "Generation profile preserved"
+      ]
+    },
+    "http_proof": [
+      "Typed OpenAI driver received draft key, custom /draft/v1 route, unsaved model and 3072 budget",
+      "Blank key used saved key but retained draft route/model",
+      "Different tenant or environment cannot reuse key",
+      "Parameter-only check submitted no inference",
+      "DB record counts and credentials/active profile unchanged"
+    ],
+    "capability_check": {
+      "result": "failed_on_unrelated_existing_taskqueue_declarations",
+      "missing": [
+        "com.corex.runtime.taskqueue.service_consume",
+        "com.corex.runtime.taskqueue.service_enqueue"
+      ],
+      "log": "/tmp/powerx-vision-draft-trial-capability.log"
+    }
+  },
+  "runtime": {
+    "pid": 46181,
+    "binary": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build2678380443/b001/exe/app",
+    "binary_mtime": "2026-11-01T20:10:54.873337",
+    "latest_task_source_mtime": "2026-11-01T21:41:12.306209",
+    "binary_built_after_task_sources": false,
+    "contains_form_trial_builder": false,
+    "contains_draft_parameter_validator": false
+  },
+  "runtime_acceptance": "User-owned Core requires rebuild/restart; no real OpenAI inference performed",
+  "temporary_service": {
+    "stopped_at": "2026-11-01T13:52:31.243343+00:00",
+    "pid": 67108,
+    "children": [
+      67440,
+      67456,
+      67550,
+      67551,
+      69182
+    ],
+    "port": 3051,
+    "port_released": true,
+    "owned_processes_exited": true
+  },
+  "source_sha256": {
+    "backend/internal/service/agent/vision_trial_config.go": "40e869aac381628030c38c1ecf6949dba1b4b2fb8ece03c8f643b425293f3cfb",
+    "backend/internal/service/ai/vision_trial.go": "09b355f139af5b99c3c015a64ad16a4268931f706ae69f4d4a7c684bdb1e5254",
+    "backend/internal/service/ai/service.go": "471a50e9f8e99d6cbb144767f8a202a1783e594b84b9a5e0aaeb71291bdc37ce",
+    "backend/internal/transport/http/admin/agent/setting_handler.go": "3db65061dc915a3bb91d129ada9a808d582a4dab8195e0160e11baa007386e76",
+    "backend/internal/transport/http/admin/agent/setting_vision_run.go": "f92a1876f8512f01bb6f1c94f9b0b7d9cb024157e5596cf7cdbf660c57217c6c",
+    "web-admin/app/pages/settings/ai/index.vue": "25c550a65edc640eb25917525dc0caf878ddab5f0119aaac4beb317b7ea5fd2b",
+    "web-admin/app/composables/api/services/aiSettingService.ts": "68a207aa8dceb6c4f578b36da287e5c9944cc166c82e7b3c38a0b91e87a54942",
+    "web-admin/app/components/settings/ai/VisionTrialModal.vue": "71d3f9264c4766ff62b222bbb29e56d37a2f661e9a6e419091ad5bfc268b4f14"
+  },
+  "private_artifacts": "/tmp/powerx-vision-draft-trial-20261101-203046",
+  "incidental_compile_fix": "Removed unused net/http import from task_queue/runtime_service.go; no task queue behavior changed"
+}

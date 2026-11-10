@@ -1,0 +1,201 @@
+openapi: 3.0.3
+info: {title: Core business notification cards, version: 2.0.0}
+security:
+- userJWT: []
+paths:
+  /admin/notifications/{uuid}/presentation-source:
+    get:
+      description: User JWT and current member scope. Resolves only installed, enabled plugin manifest bindings. Does not read business content with service credentials. Standard data envelope, private no-store.
+      parameters:
+      - {in: path, name: uuid, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Registered same-origin Gateway routes; the browser must authenticate each subsequent GET.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/PresentationSource'}
+        '404': {description: 'Missing notification, foreign member or no card reference'}
+        '503': {description: 'Plugin disabled, missing binding or unavailable'}
+  /admin/notifications/{uuid}/read:
+    patch:
+      description: Existing user read route. Dynamic cards require expected_revision from the displayed Core notification. This never acknowledges business content.
+      parameters:
+      - {in: path, name: uuid, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expected_revision: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991}
+      responses:
+        '200': {description: Core notification read}
+        '409': {description: NOTIFICATION_REVISION_CONFLICT; refresh before retrying with a current version}
+components:
+  securitySchemes:
+    userJWT: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    Presentation:
+      oneOf:
+      - {$ref: '#/components/schemas/PresentationV1'}
+      - {$ref: '#/components/schemas/PresentationV2'}
+    PresentationV2:
+      type: object
+      additionalProperties: false
+      required: [contract, revision, title, summary, updated_at, unread_change_count]
+      properties:
+        contract: {type: string, enum: [business_notification_card.v2]}
+        revision: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991}
+        title: {type: string, minLength: 1, maxLength: 255}
+        summary: {type: string, maxLength: 4000}
+        updated_at: {type: string, format: date-time}
+        unread_change_count: {type: integer, format: int64, minimum: 0, maximum: 9007199254740991}
+        image:
+          type: object
+          additionalProperties: false
+          required: [alt, thumbnail, preview]
+          properties:
+            alt: {type: string, maxLength: 255}
+            thumbnail:
+              allOf:
+              - {$ref: '#/components/schemas/CardRendition'}
+              - {properties: {variant: {type: string, enum: [thumbnail_64]}}}
+            preview:
+              allOf:
+              - {$ref: '#/components/schemas/CardRendition'}
+              - {properties: {variant: {type: string, enum: [preview]}}}
+    CardRendition:
+      type: object
+      additionalProperties: false
+      required: [variant, status]
+      description: 'image_key is required only when ready and forbidden otherwise. Resolve an opaque recipient/delivery/asset/variant binding on every authenticated GET. Thumbnail bytes must be JPEG/PNG <=32768 bytes and <=64px on both axes. Preview is fetched on click and must never resolve origin or thumbnail_64.'
+      properties:
+        variant: {type: string, enum: [thumbnail_64, preview]}
+        status: {type: string, enum: [not_requested, waiting_upload, waiting_source, queued, processing, ready, failed, scheduling_failed, unsupported, unavailable]}
+        image_key: {type: string, pattern: '^[A-Za-z0-9_-]{1,256}$'}
+        error_code: {type: string, maxLength: 128}
+        retryable: {type: boolean}
+      oneOf:
+      - required: [image_key]
+        properties: {status: {type: string, enum: [ready]}}
+      - not: {required: [image_key]}
+        properties: {status: {type: string, enum: [not_requested, waiting_upload, waiting_source, queued, processing, failed, scheduling_failed, unsupported, unavailable]}}
+    CardReference:
+      type: object
+      additionalProperties: false
+      required: [contract, source_plugin, business_type, delivery_key, source_revision]
+      properties:
+        contract: {type: string, enum: [business_notification_card.v1, business_notification_card.v2]}
+        source_plugin: {type: string, maxLength: 128, pattern: '^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$'}
+        business_type: {type: string, pattern: '^[A-Za-z0-9_-]{1,256}$'}
+        delivery_key: {type: string, pattern: '^[A-Za-z0-9_-]{1,256}$', description: 'Opaque recipient-scoped reference, never an authorization credential.'}
+        source_revision: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991}
+    PresentationBinding:
+      type: object
+      additionalProperties: false
+      required: [contract, business_type, presentation_path, preview_path]
+      properties:
+        contract: {type: string, enum: [business_notification_card.v1, business_notification_card.v2]}
+        business_type: {type: string}
+        presentation_path: {type: string, description: 'Plugin-relative /admin path with exactly one {delivery_key}; no URL, query, traversal or other variables.'}
+        preview_path: {type: string, description: 'Plugin-relative /admin path with exactly one {delivery_key} and one {image_key}.'}
+    PresentationSource:
+      type: object
+      additionalProperties: false
+      required: [contract, source_plugin, presentation_url, preview_url_template]
+      properties:
+        contract: {type: string, enum: [business_notification_card.v1, business_notification_card.v2]}
+        source_plugin: {type: string}
+        presentation_url: {type: string, description: 'Same-origin registered /_p/{plugin}/api/{version}/admin path.'}
+        preview_url_template: {type: string, description: Same-origin registered Gateway path with only the image_key placeholder unresolved.}
+    PresentationV1:
+      type: object
+      additionalProperties: false
+      required: [contract, revision, title, summary, updated_at, unread_change_count]
+      properties:
+        contract: {type: string, enum: [business_notification_card.v1]}
+        revision: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991, description: Recipient-visible state version; at least the latest sourceRevision received from Core.}
+        title: {type: string, minLength: 1, maxLength: 255}
+        summary: {type: string, maxLength: 4000, description: Plain text localized using Accept-Language and cropped to current permissions.}
+        updated_at: {type: string, format: date-time, description: Latest change visible to this member; do not disclose hidden cost-only changes.}
+        unread_change_count: {type: integer, format: int64, minimum: 0, maximum: 9007199254740991, description: 'Plugin business reading cursor, independent of Core isRead.'}
+        image:
+          type: object
+          additionalProperties: false
+          required: [image_key, alt]
+          properties:
+            image_key: {type: string, pattern: '^[A-Za-z0-9_-]{1,256}$', description: 'Recipient-authorized image reference, never a URL or bearer token.'}
+            alt: {type: string, maxLength: 255}
+    InvalidateCardOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, member_uuid, notification_uuid, source_revision]
+      properties:
+        operation: {type: string, enum: [invalidate_card]}
+        member_uuid: {type: string, format: uuid}
+        notification_uuid: {type: string, format: uuid}
+        source_revision: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991}
+        card_reference: {$ref: '#/components/schemas/CardReference'}
+        reason: {type: string, enum: [content_changed, access_changed, presentation_changed], default: content_changed, description: Content changes reopen the Core notification. Access and presentation-only changes preserve read state. Media readiness never reopens the notification or changes business unread counts.}
+    InvalidateCardResult:
+      type: object
+      additionalProperties: false
+      required: [notification_uuid, revision, source_revision, changed]
+      properties:
+        notification_uuid: {type: string, format: uuid}
+        revision: {type: integer, format: int64, minimum: 1}
+        source_revision: {type: integer, format: int64, minimum: 1}
+        changed: {type: boolean}
+    NotificationCardView:
+      type: object
+      required: [id, revision, sourceRevision, title, content, type, category, isRead, isImportant, createdAt, updatedAt, userId, metadata]
+      properties:
+        id: {type: string, format: uuid}
+        revision: {type: integer, format: int64, minimum: 1, description: Core version for update ordering and read receipts.}
+        sourceRevision: {type: integer, format: int64, minimum: 1, description: Current recipient-visible source watermark.}
+        title: {type: string}
+        content: {type: string}
+        type: {type: string}
+        category: {type: string}
+        isRead: {type: boolean}
+        isImportant: {type: boolean}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        userId: {type: string, format: uuid}
+        relatedId: {type: string}
+        relatedType: {type: string}
+        actions:
+          type: array
+          items:
+            type: object
+            required: [id, label, type, action, params]
+            properties:
+              id: {type: string}
+              label: {type: string}
+              type: {type: string}
+              action: {type: string, enum: [navigate]}
+              params:
+                type: object
+                required: [path]
+                properties:
+                  path: {type: string}
+        metadata:
+          type: object
+          required: [business_card]
+          additionalProperties: true
+          properties:
+            business_card: {$ref: '#/components/schemas/CardReference'}
+    NotificationUpdatedEvent:
+      allOf:
+      - {$ref: '#/components/schemas/NotificationCardView'}
+      - type: object
+        required: [eventType, payload_version, tenant_uuid]
+        properties:
+          eventType: {type: string, enum: [notification_updated]}
+          payload_version: {type: integer, enum: [1]}
+          tenant_uuid: {type: string, format: uuid}

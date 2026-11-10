@@ -21,7 +21,15 @@ func (s *Service) captureWithRetry(ctx context.Context, j *Snapshot) error {
 	return s.captureAttempts(ctx, j, delays)
 }
 func (s *Service) captureAttempts(ctx context.Context, j *Snapshot, delays []time.Duration) error {
+	if j.AdmissionDeadline != nil {
+		run, cancel := context.WithDeadline(ctx, *j.AdmissionDeadline)
+		defer cancel()
+		ctx = run
+	}
 	for attempt := 0; ; attempt++ {
+		if e := s.validateCaptureAdmission(j); e != nil {
+			return e
+		}
 		if e := ctx.Err(); e != nil {
 			return e
 		}

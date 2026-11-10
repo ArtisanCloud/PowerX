@@ -1,0 +1,154 @@
+{
+  "contract": "powerx.storage.database-admission-acceptance/v0.6.1",
+  "observed_at": "2026-11-02T00:22:18.952336+08:00",
+  "scope": "isolated PostgreSQL, production HTTP/gRPC handlers and service composition; controlled identity, route registration and business adapter; not installed-host acceptance",
+  "passed": true,
+  "regression_before_fix": {
+    "host_max_used_bytes": 1,
+    "http_expected": 503,
+    "http_observed": 200,
+    "business_executed_despite_host_limit": true,
+    "run_passed": false,
+    "cleanup": {
+      "stop_exit_code": 0,
+      "postmaster_pid_file_removed": true,
+      "socket_released": true,
+      "pid_exited": true,
+      "owned_cluster_removed": true
+    }
+  },
+  "fixes": [
+    "invocation admission checks shared host max-used budget including active reservations",
+    "gRPC exposes Unavailable and STORAGE_CAPACITY_EXHAUSTED before business execution"
+  ],
+  "hardening": [
+    "missing either target relation yields explicit unknown physical usage instead of relying on driver scalar-NULL behavior"
+  ],
+  "verified": [
+    "default policy off and GET creates no policy file",
+    "Root typed API save, preview, revision and idempotent batch",
+    "successful requests retain trace and publication audit",
+    "cleanup disabled with rejection enabled",
+    "host max-used, critical reserve and other jobs reservations reject before router, business and new audit rows",
+    "real relation usage exceeds 64 MiB and blocks new calls",
+    "success 30-day versus failure 90-day terminal-time windows",
+    "pending/unknown, unregistered/deleted tenant, missing terminal time and reference protection",
+    "explicit legacy payload proof, fresh quarantine grace and later expiry",
+    "actual startup worker cycle removes 5 canary traces using 2-row batches plus final empty batch and change events",
+    "missing target relation fails physical-usage check",
+    "ordinary VACUUM preserves remaining rows",
+    "SQL collector and mod write logging remain on; DELETE appears in SQL logs"
+  ],
+  "physical_bytes": {
+    "before_delete": 81649664,
+    "after_delete": 81649664,
+    "after_ordinary_vacuum": 1318912,
+    "guaranteed_immediate_filesystem_reclaim": false
+  },
+  "test_runs": [
+    {
+      "name": "api-admission",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./internal/transport/http/admin/storage",
+        "-run",
+        "^TestDatabaseRetentionNativeAPIAndAdmission$",
+        "-count=1",
+        "-v"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 30.776
+    },
+    {
+      "name": "retention-repository",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./pkg/corex/db/persistence/repository/capability_registry",
+        "-run",
+        "Retention|LegacyPending",
+        "-count=1",
+        "-v"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.27
+    },
+    {
+      "name": "grpc-capacity",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./internal/transport/grpc/capability_registry",
+        "-run",
+        "^TestStorageCapacityRejectionPreservesGRPCContract$",
+        "-count=1",
+        "-v"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 4.706
+    }
+  ],
+  "other_checks": {
+    "four_affected_packages_race": "passed",
+    "four_affected_packages_vet": "passed",
+    "runner_python_syntax": "passed",
+    "upgrade_payload_registry": "UPGRADE_PAYLOAD_CHANGED; release gate remains unresolved"
+  },
+  "sql_logging": {
+    "collector": true,
+    "statement": "mod",
+    "delete_recorded": true,
+    "private_sql_log_sha256": [
+      "c1f9d2a8ad095be996456acb3f9eb865f74d0abeb8aba506c83eaeaa2fa4e2e8",
+      "22d0bd10f7c62640decf3708a1084c4eb2296c0280cc780d1df5748fbf0b16a3",
+      "f8aeb60fb1b78daae3e7f211ed4f8c08bd814942fca0da180da7781ff922d096",
+      "043cbf80c71ea5bd6dc6c793039d6471f4fe7511088aa11ce72e243ae687ce5d",
+      "73500f7dc0f6dbdc4672925e8c5aa9f37468ccc8bf13899caa0864464e5c660a",
+      "c032f8f47472bba319999fa9220f4ccee21d91d021aead92754d9f29a0b7a8a8",
+      "5c6a0b4fed9e55abdc8ee3e0576c25dbcb1200b2aef139cd826d8266669d8ca3"
+    ],
+    "sql_body_published": false,
+    "temporary_sql_logs_removed_with_owned_cluster": true
+  },
+  "cleanup": {
+    "stop_exit_code": 0,
+    "postmaster_pid_file_removed": true,
+    "socket_released": true,
+    "pid_exited": true,
+    "owned_cluster_removed": true
+  },
+  "daily_instance_read_only_check": {
+    "database_retention_document_exists": false,
+    "any_file_policy_enabled": false,
+    "logging_collector": "on",
+    "log_statement": "mod",
+    "configuration_sha256": "d0def302cbca02c72bde96e7afa4b75487d9e57c7965d083290acaed5c96e89f",
+    "user_core_pid": 30958,
+    "user_nuxt_pid": 11794,
+    "user_services_restarted_by_agent": false,
+    "business_records_deleted": false,
+    "production_changed": false,
+    "mac_existing_archives_deleted": false
+  },
+  "source_sha256": {
+    "backend/internal/service/storage_governance/database_retention.go": "f8937cb20777b0a29b11d56ea4213d5b40f6e12382293ddc05344ed030e82dda",
+    "backend/pkg/corex/db/persistence/repository/capability_registry/retention_repository.go": "c2c4e77ab893037200c97eb8269ad526f75efc314f2b003ed2734343b85d5508",
+    "backend/pkg/corex/db/persistence/repository/capability_registry/retention_repository_test.go": "ebcac9383f8008a5c902190c30cf977c724af7d358c40363d1c597ead4c9ae61",
+    "backend/internal/transport/grpc/capability_registry/integration_gateway_server.go": "9cc5de19f738111a258195b086cfb7ab9fd6156ce3040a5c21db5167fb91e00b",
+    "backend/internal/transport/grpc/capability_registry/storage_capacity_test.go": "7aec55616f9040dbc2f8a26dc5488fda67e3136208dc90b2bd2b2db20e39e6ac",
+    "backend/internal/transport/http/admin/storage/database_acceptance_postgres_test.go": "628db5709407dedc031c12f640f8994f3e49d97b0540a57be900c92ca025a644",
+    "scripts/ops/validate-storage-database.py": "365696135cb88d604c3c2cd7fd4133903bca18c3e078280e4ec3e63d2cf6847f"
+  },
+  "limits": [
+    "No daily database retention or rejection policy activated",
+    "No daily 15-minute database retention acceptance performed; native startup cycle is separate",
+    "No production deployment, production table migration or old-script takeover",
+    "No actual Mac historical archive import, migration or retrieval acceptance",
+    "No 7-day/14-day acceptance",
+    "Whole-worktree upgrade payload registry still requires release review"
+  ]
+}

@@ -1,6 +1,6 @@
 # PowerX Media 标准图片预览
 
-PowerX Media 负责从已存储原图生成通用 `preview`、`thumbnail`，以及资产关联和规则检查；投递、尝试次数、租约、失败重试、恢复和历史统一归现有 TaskBus。Framework 负责正式客户端与 local/delegated 适配；插件负责业务关联、状态展示与鉴权读取，不能把 Core 的原图上传成功解释为预览已完成。
+PowerX Media 负责从已存储原图生成通用 `preview`、`thumbnail`、`thumbnail_64`，以及资产关联和规则检查；投递、尝试次数、租约、失败重试、恢复和历史统一归现有 TaskBus。Framework 负责正式客户端与 local/delegated 适配；插件负责业务关联、状态展示与鉴权读取，不能把 Core 的原图上传成功解释为预览已完成。
 
 ## 调用兼容与范围
 
@@ -35,16 +35,38 @@ flowchart LR
 
 ## 集中预览规则
 
-当前规则版本 `standard-image-v1`，规则仅在 Core `imageProfiles` 定义：
+当前规则版本 `standard-image-v2`，规则仅在 Core `imageProfiles` 定义：
 
 | 变体 | 最长边 | 编码 |
 | --- | --- | --- |
-| preview | 1600 px | JPEG 原图输出 JPEG，质量 85；PNG／GIF 输出 PNG |
+| preview | 1600 px | JPEG 原图输出 JPEG，质量 85；PNG／GIF／静态 WebP 输出 PNG |
 | thumbnail | 320 px | 同上 |
+| thumbnail_64 | 64 px | 同上，文件不超过 32,768 bytes |
 
-保持比例，不放大小图；PNG 保留透明度；JPEG 按 EXIF Orientation 旋转显示；GIF 取第一帧。原图及原始元数据保持不变，派生图不复制 EXIF。
+保持比例，不放大小图；PNG／WebP 保留透明度；JPEG 按 EXIF Orientation 旋转显示；GIF 取第一帧。原图及原始元数据保持不变，派生图不复制 EXIF。
 
-本次支持 JPEG、PNG、GIF。WebP、SVG、HEIC 等明确返回 `unsupported`，不伪装为生成成功。外链不后台抓取，返回 `unsupported`。单张原图上限 32 MiB、2400 万像素；先检查尺寸再完整解码，单次处理上下文期限 90 秒。算法为面积平均缩小，生成规则变更须提升 recipe 版本并验收已有图的兼容行为。
+支持 JPEG、PNG、GIF 和静态 WebP（VP8／VP8L／含 alpha 的 VP8X）；WebP 派生图输出 PNG，原图保持 WebP。动画 WebP 不取首帧伪装成功，解码失败返回 `MEDIA_IMAGE_DECODE_FAILED`。SVG、HEIC 等明确返回 `unsupported`，不伪装为生成成功。外链不后台抓取，返回 `unsupported`。算法为面积平均缩小，生成规则变更须提升 recipe 版本并验收已有图的兼容行为。2026-11-10 的大图输入修复保留原有算法与 `standard-image-v2`，已有有效变体继续复用。
+
+### 高清原稿与处理预算
+
+原稿上传、保存及下载与预览派生独立。以下配置只限制派生任务，不压缩、覆盖或删除原稿，也不替代上传接口的文件大小及校验和检查：
+
+```yaml
+storage:
+  image_derivatives:
+    max_source_bytes: 67108864   # 64 MiB 的派生源文件上限
+    max_pixels: 80000000        # 像素上限；还须满足下面的内存预算
+    max_working_bytes: 536870912 # 每任务 512 MiB 保守估算预算
+    max_parallel_jobs: 1        # 同一 MediaService 的最大同时处理数
+```
+
+未配置该区块时采用上述默认值；已有配置文件无需为缺省字段增加环境变量。启动配置校验拒绝非法数值。Core 主服务、显式派生维护工具及媒体栈均接收同一配置；本地／S3 使用相同处理限制。`max_parallel_jobs` 是处理并发上限，不自动创建额外 worker。
+
+完整解码前检查真实图片头、像素数和估算预算：`宽×高×8 + 宽×24 + 压缩字节×2 + 两份1600×1600 RGBA缓冲 + 16 MiB余量`，覆盖 16-bit PNG、扫描行及输入缓冲。像素、源文件或预算分别超限时返回 `MEDIA_IMAGE_PIXEL_LIMIT`、`MEDIA_IMAGE_BYTE_LIMIT`、`MEDIA_IMAGE_MEMORY_LIMIT`；配置非法返回 `MEDIA_IMAGE_CONFIGURATION_INVALID`。因此像素上限不是全部图片都能处理的承诺，实际须同时满足预算。预算是内存估算，不是操作系统 RSS 硬上限；总资源须考虑处理并发及 Core 其他业务。
+
+处理槽位等待及存储／解码读取遵守任务取消，保留既有 90 秒处理上下文、TaskBus 租约、重试及事务接纳机制。超限任务明确失败，原稿仍为 `ready` 并可按原权限下载。历史失败任务不会因 GET、启动或升级自动重试；部署后须使用既有 ensure 的 `retry_failed=true` 显式重试，或走后文的已审阅回填流程。不需要数据库迁移、调整授权或修改 Framework 合同。
+
+本机真实图片受控验收使用 `POWERX_MEDIA_LARGE_IMAGE_FIXTURES=/path/to/images go test ./internal/service/media -run '^TestLargeImageOriginalFixturesThroughTaskBus$' -count=1`（在 backend 目录执行，且不设置 `POWERX_MEDIA_TEST_DSN`）。仅只读原文件；上传、TaskBus 与结果读取使用临时 SQLite、miniredis 和临时对象目录。覆盖原稿哈希、三种变体真实像素／大小／哈希、完成状态及复用。受控验收不等同于已经部署或实际租户浏览器验收。
 
 ## 状态与重试
 
@@ -55,12 +77,13 @@ flowchart LR
   "asset_uuid": "已上传的资产 UUID",
   "upload_state": "ready",
   "status": "queued",
-  "recipe": "standard-image-v1",
+  "recipe": "standard-image-v2",
   "attempts": 0,
   "retryable": false,
   "items": [
     {"variant": "preview", "status": "queued"},
-    {"variant": "thumbnail", "status": "queued"}
+    {"variant": "thumbnail", "status": "queued"},
+    {"variant": "thumbnail_64", "status": "queued"}
   ]
 }
 ```
@@ -71,7 +94,7 @@ flowchart LR
 | waiting_upload | 原图尚未确认上传 |
 | waiting_source | 原图记录已就绪，但源对象不可用；检查存储后重新 ensure |
 | queued / processing | 已持久登记／正在执行；不等于生成完成 |
-| ready | 两个标准变体均可复用或已生成 |
+| ready | 本配方三个标准变体均有效并有 variant_uuid |
 | failed | 解码／限额等永久失败，或瞬时故障达到重试上限 |
 | scheduling_failed | TaskBus 不可用或投递耗尽；原图仍保留，恢复后重新 ensure |
 | unsupported | 本版不支持该格式或外链 |
@@ -164,3 +187,72 @@ make capability-seed
 - `backend/internal/transport/http/openapi/media/derivative_events.go`：可选插件服务态 SSE。
 - `backend/internal/transport/http/mediaevents/stream.go`：两种身份共用的通知传输与有界连接。
 - `backend/internal/transport/http/openapi/media/image_derivatives_test.go`：既有 Host 上传 → 自动任务 → 变体读取／重复补图及服务通知授权回归。
+
+
+## v2 升级与历史复用（2026-10-22）
+
+配方要求的规格与每张变体的生成配方分别记录。v1 的 preview/thumbnail 编码规则与 v2 相同；来源校验和匹配、记录有效且存储对象存在时原位复用，不改 UUID、文件、生成元数据或票据版本。只补缺失规格，原图每个执行批次只解码一次。早于校验和约束的历史记录，由显式 ensure 读取有界原图字节计算并锁内补记 expected_checksum；已有 metadata 校验和必须匹配。dry-run 只在计划副本计算，不写库，不重传或修改原文件。无法证明来源的旧变体重新生成，不把空校验和当成有效来源证明。thumbnail_64 上限 32,768 字节，超限为 MEDIA_THUMBNAIL_64_BYTE_LIMIT，不降级到大图。显式上传该规格也必须有 checksum，并校验实际 JPEG/PNG 字节、大小和解码尺寸；不能靠文件名或客户端 metadata 声明尺寸。
+
+响应 recipe 表示目标配方 v2；items 由规格清单计算，数组顺序不属于协议。completed 任务本身不能使一个缺少 variant_uuid 的项目变为 ready。缺少历史新规格时为 not_requested；v2 已完成却缺失结果记录时为 unavailable / MEDIA_DERIVATIVE_RESULT_INCOMPLETE，GET 不创建任务；其他 ready 项可以独立读取。项目失败可附 error_code/retryable；原图顶层上传状态独立。
+
+新任务使用 image-derivatives-v2 subscriber；旧任务继续使用 image-derivatives-v1，旧 worker 不会领取 v2。新 worker 在 v1 完成事务内同时登记 v2 后继，只补 64px；完成后尚未投递就重启时，统一历史恢复仍能找回该后继。显式 ensure 可在父资产锁下替换关联，旧投递因 task_id/recipe/source_checksum/统一租约检查无法覆盖后继。每批缺失结果通过一次统一 TaskBus 完成事务接纳；本批失败不接纳暂存输出，但此前 ready 图继续可读，重试仅生成仍缺失项目。
+
+### 显式维护命令
+
+从 backend 目录运行，使用可信运维身份持有的目标 Core 配置与数据库凭据；这是离线维护入口，不是普通插件权限升级。默认覆盖当前 Core 环境全部租户的历史资产；`--tenant` 仅作为可选缩小范围的筛选，不要求维护人员逐租户执行。每张资产和任务仍保留自己的 tenant_uuid，禁止通过 Web 请求传入任意数据库配置。普通上传仍不需要 ensure grant；插件人工补图继续使用现有 ensure 能力。
+
+```sh
+go run ./cmd/media_tool derivatives-backfill --config /path/to/core.yaml --report /path/to/scan.jsonl --batch-size 50 --concurrency 2
+```
+
+默认 dry-run，仅读取数据库和存储，不连接 Redis、不登记任务、不运行完整应用启动、插件、seed 或 worker。历史记录缺少来源校验和时，会有界读取原图计算 SHA-256，仅用于内存中的计划，不落库；因此只读扫描仍可能产生原图下载流量。维护命令要求本地存储目录已存在，不创建缺失目录。全量执行须使用已审阅的 --plan 并增加 --dry-run=false --confirm，不能无清单直接全局写入。支持 --assets <uuid1,uuid2>、--after-id <最后完整输出ID>、--through-id <固定上界>、--retry-failed；--limit 0 是默认值，表示完整处理当前环境的固定快照范围。按递增 ID 扫描并固定高水位，避免并发上传令范围不断扩张。并发限制 1..8，批大小 1..200，默认分批扫描直至固定快照范围全部处理完，不会在100条或某个租户后停止。LIMIT 非零只用于显式抽样或受限执行。
+
+输出 JSONL asset 和 summary：would_enqueue、submitted、active、skipped、failed、source_missing。submitted 表示任务已登记，不能当生成成功；通过原状态/SSE 观察最终结果。临时存储故障归 failed，不当成 source_missing。每条 asset 输出也包含 through_id。中断可从最后完整记录 ID 及其 through_id 继续；进程突然退出尚未输出的已登记任务，重跑仍通过 ensure 去重。失败记录可按 assets 重试，不能仅推进游标后丢弃失败清单。不要求重传原图。
+
+### 扫描清单 → 确认执行
+
+Core 托管的资产统一使用此维护流程，包括 Core 本机磁盘和对象存储。AI Craft 自己管理的本地资产由插件自己的工具处理。本流程只补派生资源，不迁移业务关联或存储位置；不挂到 make migrate、应用启动或页面读取。
+
+在仓库根目录运行以下两个入口。REPORT 的父目录须已存在，报告以 0600 独占创建，不覆盖旧文件；相对路径均相对于仓库根目录。CONFIG 必须指向目标环境已有的可信配置，命令读取相同 installation.json 环境 ID。
+
+```sh
+make media-derivatives-scan CONFIG=/path/to/core.yaml REPORT=/path/to/scan.jsonl BATCH_SIZE=50 CONCURRENCY=2
+make media-derivatives-apply CONFIG=/path/to/core.yaml PLAN=/path/to/scan.jsonl CONFIRM=1 BATCH_SIZE=50 CONCURRENCY=2
+```
+
+扫描只写指定的本地报告文件，不修改数据库、原图、变体或队列。JSONL 包含：
+
+- `kind=plan`：`media_derivatives_backfill_plan.v2`、environment_id、scope=all_tenants（默认）或 tenant（显式筛选）、可选 tenant_uuid、目标 recipe、创建时间及资产/ID/limit 范围。
+- `kind=asset`：资产 UUID、实际所属 tenant_uuid、工具内部扫描 ID、through_id、缺失规格、来源 source_checksum、outcome/error_code。
+- `kind=summary`：全局统计、tenant_count、固定上界、最后扫描游标、`complete=true`。默认 LIMIT=0 会扫描完整快照；只有显式 LIMIT=100 等限制时，complete 才只表示受限的这次扫描正常结束。
+
+执行只提交报告中 `would_enqueue` 的候选 UUID；扫描失败、源文件缺失和已跳过项不自动加入执行范围。扫描有 failed 时命令返回非零，完整报告中的其余候选仍可审阅后执行；源文件缺失不能靠重复提交恢复。汇总保留 `scan_failed` 和 `scan_source_missing`，异常明细继续查看原扫描文件。损坏、未完成、重复、统计/范围不一致、配方不匹配的清单一律拒绝。执行可选 TENANT_UUID 仅用于核对单租户清单，不能把全量清单改成单租户执行；拒绝 ASSETS、AFTER_ID、THROUGH_ID 等范围覆盖。
+
+执行默认保存 `<plan>.progress.jsonl`，也可以用 `PROGRESS=/path/to/progress.jsonl` 指定。进度合同为 `media_derivatives_backfill_progress.v2`，绑定清单完整字节 SHA-256、环境、全量/筛选范围和配方，每条结果 fsync 后才推进。**扫描游标与执行进度完全独立，执行从候选 UUID 开始，不使用扫描结束的 after_id。** 重复相同执行命令会跳过已经 submitted/active/skipped 的项；LIMIT 限制本次尝试的候选数，未处理完时重复同一命令继续。不要编辑清单、换用其他清单的进度文件或删除执行进度来表示任务重试。
+
+执行进度使用 Linux/macOS OS 文件锁，同一文件的并行执行明确失败，进程退出时自动释放。中断后原命令可继续；验证文件头后可丢弃未写完整的最后一行，其对应任务由现有 ensure 去重。文件头损坏或完整行损坏不会被自动修复。`failed_assets`、`source_missing_assets` 和剩余候选在 execution_summary 中单独列出，失败返回非零，scan_by_tenant 汇总所有扫描租户（包含源文件缺失等异常），by_tenant 汇总各租户候选、提交、失败和剩余数量；单个租户的资源异常不会中断其他租户的处理。人工允许重新开启失败任务周期时显式增加 `RETRY_FAILED=1`；已经成功提交后才异步失败的任务，需重新扫描并用新清单确认重试。
+
+任务提交前在父资产锁内复核来源校验和，以及当前缺失规格是否仍属于审阅范围。其他预览图在扫描后丢失、来源改变等情况返回 `MEDIA_BACKFILL_PLAN_CHANGED`，须重新扫描审阅；已被其他任务补齐的规格直接复用。`submission_complete=true` 只表示当前清单候选已完成提交/复用，**不代表图片生成完成**；最终仍通过状态/SSE 和实际 variant_uuid 读取验证。运维中止提交不会取消已经入队的任务，原图和已有可用派生图保留。
+
+扫描更多分片时使用新 REPORT，并传入上次扫描输出的 AFTER_ID 与 THROUGH_ID，固定同一上界。扫描中断产生的报告没有 complete=true，不能作为执行清单；可以重扫原范围，或按最后完整 asset 的游标和 through_id 创建下一份报告，再将中断片段涉及的候选单独重扫。不要把失败清单遗落在已推进的游标之前。CONCURRENCY 限制维护扫描/提交并发，实际图片生成并发继续由 Core worker 配置控制。
+
+发布包已包含 media_tool。无需 Go 工具链时，可给 Make 指定 `MEDIA_TOOL=/path/to/media_tool`。无源码 Makefile 的部署环境，在 backend 工作目录直接执行等价命令（路径建议全部使用绝对路径）：
+
+```sh
+/path/to/media_tool derivatives-backfill --config /path/to/core.yaml --report /path/to/scan.jsonl --dry-run=true
+/path/to/media_tool derivatives-backfill --config /path/to/core.yaml --plan /path/to/scan.jsonl --dry-run=false --confirm
+```
+
+全量入口的受控回归记录见 [media-derivatives-maintenance-all-tenants-validation-20261022.json](evidence/media-derivatives-maintenance-all-tenants-validation-20261022.json)。单租户诊断可额外加 TENANT_UUID，但全量修复不需要列出租户。维护合同本轮为 v2，旧 v1 清单/进度不能推断为全量范围，须重新扫描生成 v2 清单。目标环境补图须由维护人员按实际配置扫描、审阅后执行。
+
+### 环境隔离与发布顺序
+
+TaskBus Stream、delay、dead-letter、dedupe、lease、fence 和 retirement 均按稳定命名空间隔离；共享历史结果接纳也包含 namespace，跨环境租约不被接纳。派生 SSE 的 Redis Pub/Sub 频道使用相同命名空间。心跳不读取状态。
+
+安装态作用域直接使用环境管理已有的环境 ID（`installation.json.id` / `active_environment_id`），物理前缀统一为 `powerx:<环境 ID>:`。不再配置 `queue.namespace`，不从数据库连接或 dev/prod 标签派生另一套身份。Core 与 `media_tool` 读取相同环境记录，数据库凭据和 Redis DB 变化不改变作用域；缺少合法环境记录时维护命令报错，不创建另一套 ID，也不降级为共享队列。
+
+部署时先停止旧版本 worker，固定并核对正式/开发身份，再启动新版本；共享 SQL 历史恢复各自未完成任务到新命名空间。新 worker 同时恢复 v1/v2 的任务记录，不扫描所有资产。旧 Redis 键不自动删除或 FLUSHDB；确认归属与历史恢复后由运维单独处理。v1 已完成但还没有 64px 的历史资产通过上述显式命令补齐。修改 namespace 后，历史中有效任务会按原 task_id 恢复；不要在旧 worker 仍运行时同时切换命名空间。
+
+共享消费样例：[media-image-derivatives.v2.json](fixtures/media-image-derivatives.v2.json)。真实安装态跨租户、API Key/STS grant-status、实际正式/开发配置仍须分别验收，不用隔离测试结果替代。
+
+本次 v2 的 [受控验收记录](evidence/media-thumbnail64-core-validation-20261022.json)、[历史补图 dry-run / apply 演练](evidence/media-thumbnail64-20261022/backfill-controlled.json)及 [Framework / AI Craft 详细任务](media-thumbnail64-framework-handoff.md)已单独归档。演练使用隔离 PostgreSQL 与合成图片，不代表目标租户已执行补图或安装态已验收。

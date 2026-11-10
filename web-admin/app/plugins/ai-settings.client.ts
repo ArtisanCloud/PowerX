@@ -30,6 +30,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (!userStore.context) {
         await userStore.fetchUserContext();
       }
+      // 公共页面及未就绪的会话不需要下载 AI 设置的完整依赖。
+      const { useAISettingsStore } = await import("~/stores/aiSettings");
       const store = useAISettingsStore();
       await store.initialize();
       initialized.value = true;

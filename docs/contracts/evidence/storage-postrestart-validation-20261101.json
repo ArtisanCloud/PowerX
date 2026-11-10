@@ -1,0 +1,224 @@
+{
+  "contract": "powerx.storage.postrestart-observation/v0.6.1",
+  "checked_at": "2026-11-01T19:16:37.883260+08:00",
+  "scope": "Actual user-owned local Core after reload; read-only observation. No cleanup activation, UI acceptance or production result is inferred.",
+  "core": {
+    "pid": 20488,
+    "started_at": "2026-11-01T18:57:54+08:00",
+    "elapsed_since_restart_seconds": 1123.88326,
+    "config_sha256": "d0def302cbca02c72bde96e7afa4b75487d9e57c7965d083290acaed5c96e89f",
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend"
+  },
+  "http": {
+    "http://127.0.0.1:8077/healthz": {
+      "status": 200,
+      "content_type": "application/json; charset=utf-8"
+    },
+    "http://127.0.0.1:3030/monitor/storage": {
+      "status": 200,
+      "content_type": "text/html;charset=utf-8"
+    }
+  },
+  "sampling": {
+    "passed": true,
+    "samples": [
+      {
+        "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+        "slot": "2026-11-01T19:00:00+08:00",
+        "observed_at": "2026-11-01T11:03:00.787427Z",
+        "status": 1,
+        "filesystem_state": "observed",
+        "available_bytes": 157211930624,
+        "used_bytes": 837450653696,
+        "resources": [
+          {
+            "id": "core-agent-debug",
+            "bytes": 2899968,
+            "state": "observed"
+          },
+          {
+            "id": "core-app-logs-7ae24726a59e",
+            "bytes": 636837888,
+            "state": "observed"
+          },
+          {
+            "id": "core-audit-files",
+            "bytes": 1403637760,
+            "state": "observed"
+          },
+          {
+            "id": "core-backups",
+            "bytes": 0,
+            "state": "observed"
+          },
+          {
+            "id": "core-local-media",
+            "bytes": 370003968,
+            "state": "observed"
+          },
+          {
+            "id": "core-snapshots",
+            "bytes": 2432929792,
+            "state": "observed"
+          }
+        ]
+      },
+      {
+        "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+        "slot": "2026-11-01T19:05:00+08:00",
+        "observed_at": "2026-11-01T11:08:00.787354Z",
+        "status": 1,
+        "filesystem_state": "observed",
+        "available_bytes": 157491552256,
+        "used_bytes": 837171032064,
+        "resources": [
+          {
+            "id": "core-agent-debug",
+            "bytes": 2899968,
+            "state": "observed"
+          },
+          {
+            "id": "core-app-logs-7ae24726a59e",
+            "bytes": 636837888,
+            "state": "observed"
+          },
+          {
+            "id": "core-audit-files",
+            "bytes": 1403637760,
+            "state": "observed"
+          },
+          {
+            "id": "core-backups",
+            "bytes": 0,
+            "state": "observed"
+          },
+          {
+            "id": "core-local-media",
+            "bytes": 370003968,
+            "state": "observed"
+          },
+          {
+            "id": "core-snapshots",
+            "bytes": 2432929792,
+            "state": "observed"
+          }
+        ]
+      },
+      {
+        "instance_id": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+        "slot": "2026-11-01T19:10:00+08:00",
+        "observed_at": "2026-11-01T11:13:00.38679Z",
+        "status": 1,
+        "filesystem_state": "observed",
+        "available_bytes": 156903436288,
+        "used_bytes": 837759148032,
+        "resources": [
+          {
+            "id": "core-agent-debug",
+            "bytes": 2899968,
+            "state": "observed"
+          },
+          {
+            "id": "core-app-logs-7ae24726a59e",
+            "bytes": 636837888,
+            "state": "observed"
+          },
+          {
+            "id": "core-audit-files",
+            "bytes": 1403637760,
+            "state": "observed"
+          },
+          {
+            "id": "core-backups",
+            "bytes": 0,
+            "state": "observed"
+          },
+          {
+            "id": "core-local-media",
+            "bytes": 370003968,
+            "state": "observed"
+          },
+          {
+            "id": "core-snapshots",
+            "bytes": 2432929792,
+            "state": "observed"
+          }
+        ]
+      }
+    ],
+    "observed_intervals_seconds": [
+      299.999927,
+      299.599436
+    ],
+    "slots_are_five_minute_buckets_not_execution_timestamps": true,
+    "same_slot_dedup_can_retain_a_pre_restart_sample": true
+  },
+  "capacity_observer": {
+    "version": 1,
+    "signature": "",
+    "observed_at": "2026-11-01T11:13:03.297754Z"
+  },
+  "budget_configuration": {
+    "revision": 1,
+    "min_free_bytes": 21474836480,
+    "critical_free_bytes": 10737418240,
+    "max_used_bytes": 0,
+    "max_concurrent": 1
+  },
+  "database": {
+    "trace_rows": 3472,
+    "event_rows": 4780,
+    "database_bytes": 360538915,
+    "log_statement": "mod",
+    "logging_collector": "on"
+  },
+  "logging": {
+    "info.log": {
+      "bytes": 94415018,
+      "modified_at": "2026-11-01T19:16:44.051583+08:00"
+    },
+    "error.log": {
+      "bytes": 473218,
+      "modified_at": "2026-10-28T15:06:38.166665+08:00"
+    }
+  },
+  "filesystem": {
+    "total_bytes": 994662584320,
+    "available_bytes": 156116828160,
+    "used_bytes": 838545756160
+  },
+  "policy_state": {
+    "file_cleanup_enabled": false,
+    "database_cleanup_enabled": false,
+    "database_call_rejection_enabled": false,
+    "archive_enabled_policies": 0,
+    "file_or_database_cleanup_runs": 0
+  },
+  "observed_listener_pids": {
+    "3030": [
+      11794
+    ],
+    "8077": [
+      20488
+    ],
+    "5432": [
+      4407
+    ]
+  },
+  "changes_made_by_this_check": [],
+  "browser_access": {
+    "available": false,
+    "reason": "browser access host unavailable",
+    "ui_activated_by_agent": false,
+    "auth_bypassed_or_token_fabricated": false
+  },
+  "acceptance": {
+    "postrestart_monitoring": "passed",
+    "automatic_deletion": "not_started_policies_disabled",
+    "archive_and_retrieval": "not_started_archive_disabled",
+    "exhausted_capacity_admission": "not_exercised_in_user_instance",
+    "production": "not_checked"
+  },
+  "agent_processes_started": [],
+  "next_requirement_for_cleanup_acceptance": "Use the existing Root UI session to explicitly confirm the intended test policy, then measure a complete automatic cycle after readback."
+}

@@ -1,5 +1,11 @@
 # PowerX Agent Governance
 
+## 系列任务进度与阶段交付
+
+- 当用户委托的一系列任务尚未全部完成时，每完成一个任务或交付一个阶段，最终回复必须明确说明：本轮完成了什么、整体还未完成什么，以及接下来优先执行哪一项任务。不得等用户追问后才说明下一步。
+- 下一项任务必须具体、可执行，并说明完成标准及必要前置条件；需要用户重启服务、提供配置或完成其他操作时，明确写出所需动作。不得仅列出全部剩余事项，或以“可以继续”“后续完善”等模糊表述代替下一项任务。
+- 必须区分源码实现、隔离测试、实际部署、资源接管和运行验收的完成状态；单项完成不得表述为整套任务完成。已有正式任务清单时，阶段进度与下一项任务必须与该清单保持一致。
+
 ## Git 分支管理
 
 - 默认在用户当前所在的 Git 分支上进行修改。
@@ -37,6 +43,14 @@ payload must fail explicitly and be migrated to the typed binding. After a
 capability change, run `make capability-check`, `make capability-seed`, the
 affected API-key/grant tests, and verify `grant-status` for the development
 Host API key.
+
+## Plugin-owned API Key permission rule
+
+- Plugin API Key permissions require an explicit, independent service API declaration with a capability ID owned by the publishing plugin. A boolean `allow_api_key` cannot opt an Admin or inferred permission into service access.
+- Runtime grants for plugin capabilities MUST match the exact `plugin_id` as well as scope, action, resource type and resource pattern. An empty owner is not a plugin wildcard. Core capability grants keep their existing resource-owner checks.
+- Inferred permissions MUST NOT overwrite explicit declarations across capabilities or change their default role grants. Incompatible explicit API Key declarations sharing one permission triple MUST fail before publication; installation/startup sync must enforce the same ownership protection.
+- The current plugin API Key declaration contract supports `service_actor` with `resource_scope: tenant`. This is a scoped plugin contract, not a universal requirement for Core capabilities; the same capability may keep a separate Admin permission/binding.
+- See `docs/contracts/plugin-api-key-permissions.md` for validation, migration and acceptance boundaries.
 
 ## 页面设计与产品体验
 

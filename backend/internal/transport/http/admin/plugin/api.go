@@ -30,6 +30,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 		// 统一使用 v2 响应格式，仅保留一个入口
 		grp.GET("/marketplace/plugins", tenantAdmin, MarketplaceListV2Handler(cfg.Plugin.BasePrefix, deps))
+		grp.GET("/marketplace/catalog", rootOnly, MarketplaceCatalogHandler(deps))
+		grp.GET("/marketplace/catalog/:plugin_id/versions", rootOnly, MarketplaceVersionsHandler(deps))
+		grp.POST("/marketplace/install", rootOnly, MarketplaceInstallHandler(deps))
 		grp.GET("/tenant-instances", tenantAdmin, TenantPluginInstanceListHandler(deps))
 		grp.POST("/tenant-instances/:plugin_id/enable", tenantAdmin, TenantPluginInstanceEnableHandler(deps))
 		grp.POST("/tenant-instances/:plugin_id/disable", tenantAdmin, TenantPluginInstanceDisableHandler(deps))

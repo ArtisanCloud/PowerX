@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -25,6 +26,7 @@ type currentRedisEndpoint struct {
 	options redis.Options
 }
 type currentRedisImage struct {
+	Namespace string                         `json:"namespace"`
 	Version   int                            `json:"version"`
 	Databases map[string][]currentRedisEntry `json:"databases"`
 }
@@ -103,10 +105,17 @@ func captureCurrentRedis(ctx context.Context, cfg *config.Config, file string) e
 	if err != nil {
 		return err
 	}
-	image := currentRedisImage{Version: 1, Databases: map[string][]currentRedisEntry{}}
+	namespace := ""
+	if len(endpoints) > 0 {
+		namespace, err = cfg.RedisNamespace()
+		if err != nil {
+			return err
+		}
+	}
+	image := currentRedisImage{Version: 2, Namespace: namespace, Databases: map[string][]currentRedisEntry{}}
 	for _, endpoint := range endpoints {
 		c := redis.NewClient(&endpoint.options)
-		entries, err := captureCurrentRedisClient(ctx, c, endpoint.options.DB)
+		entries, err := captureCurrentRedisClient(ctx, c, endpoint.options.DB, namespace)
 		_ = c.Close()
 		if err != nil {
 			return err
@@ -119,12 +128,16 @@ func captureCurrentRedis(ctx context.Context, cfg *config.Config, file string) e
 	}
 	return os.WriteFile(file, data, 0600)
 }
-func captureCurrentRedisClient(ctx context.Context, c *redis.Client, db int) ([]currentRedisEntry, error) {
+func captureCurrentRedisClient(ctx context.Context, c *redis.Client, db int, namespace ...string) ([]currentRedisEntry, error) {
 	if err := checkCurrentRedisClient(ctx, c, db); err != nil {
 		return nil, err
 	}
 	// 单次 Lua 原子读取，避免逐键采集期间得到相互不一致的队列状态。
-	value, err := c.Eval(ctx, `local keys=redis.call('KEYS','*');if #keys>100000 then return redis.error_reply('too many keys') end;local out={};local size=0;for _,k in ipairs(keys) do local d=redis.call('DUMP',k);size=size+#d;if size>67108864 then return redis.error_reply('too much data') end;table.insert(out,{k,d,redis.call('PTTL',k)}) end;return out`, nil).Slice()
+	pattern := "*"
+	if len(namespace) > 0 {
+		pattern = redisnamespace.Key(namespace[0], "*")
+	}
+	value, err := c.Eval(ctx, `local keys=redis.call('KEYS',ARGV[1]);if #keys>100000 then return redis.error_reply('too many keys') end;local out={};local size=0;for _,k in ipairs(keys) do local d=redis.call('DUMP',k);size=size+#d;if size>67108864 then return redis.error_reply('too much data') end;table.insert(out,{k,d,redis.call('PTTL',k)}) end;return out`, nil, pattern).Slice()
 	if err != nil {
 		return nil, errors.New("Redis 状态过大或无法一致采集，未覆盖当前实例")
 	}
@@ -159,10 +172,24 @@ func restoreCurrentRedis(ctx context.Context, cfg *config.Config, data []byte) e
 	if err != nil {
 		return err
 	}
-	image := currentRedisImage{Version: 1, Databases: map[string][]currentRedisEntry{}}
+	namespace := ""
+	if len(endpoints) > 0 {
+		namespace, err = cfg.RedisNamespace()
+		if err != nil {
+			return err
+		}
+	}
+	image := currentRedisImage{Version: 2, Namespace: namespace, Databases: map[string][]currentRedisEntry{}}
 	if len(data) > 0 {
-		if len(data) > 96*1024*1024 || json.Unmarshal(data, &image) != nil || image.Version != 1 {
+		if len(data) > 96*1024*1024 || json.Unmarshal(data, &image) != nil || image.Version != 2 || image.Namespace != namespace {
 			return errors.New("Redis 保护快照无效")
+		}
+	}
+	for _, entries := range image.Databases {
+		for _, entry := range entries {
+			if !strings.HasPrefix(entry.Key, redisnamespace.Key(namespace, "")) {
+				return errors.New("Redis 保护快照不属于当前实例命名空间")
+			}
 		}
 	}
 	if err = checkCurrentRedis(ctx, cfg); err != nil {
@@ -174,7 +201,7 @@ func restoreCurrentRedis(ctx context.Context, cfg *config.Config, data []byte) e
 			return errors.New("Redis 保护快照与当前已配置逻辑库不一致")
 		}
 		c := redis.NewClient(&endpoint.options)
-		err := restoreCurrentRedisClient(ctx, c, endpoint.options.DB, entries)
+		err := restoreCurrentRedisClient(ctx, c, endpoint.options.DB, entries, namespace)
 		_ = c.Close()
 		if err != nil {
 			return err
@@ -182,12 +209,19 @@ func restoreCurrentRedis(ctx context.Context, cfg *config.Config, data []byte) e
 	}
 	return nil
 }
-func restoreCurrentRedisClient(ctx context.Context, c *redis.Client, db int, entries []currentRedisEntry) error {
+func restoreCurrentRedisClient(ctx context.Context, c *redis.Client, db int, entries []currentRedisEntry, namespace ...string) error {
 	if err := checkCurrentRedisClient(ctx, c, db); err != nil {
 		return err
 	}
-	args := []any{}
+	prefix := ""
+	if len(namespace) > 0 {
+		prefix = redisnamespace.Key(namespace[0], "")
+	}
+	args := []any{prefix + "*"}
 	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Key, prefix) {
+			return errors.New("Redis 保护快照不属于当前实例命名空间")
+		}
 		ttl := int64(0)
 		if entry.ExpiresAt > 0 {
 			ttl = entry.ExpiresAt - time.Now().UnixMilli()
@@ -197,7 +231,7 @@ func restoreCurrentRedisClient(ctx context.Context, c *redis.Client, db int, ent
 		}
 		args = append(args, entry.Key, ttl, string(entry.Dump))
 	}
-	_, err := c.Eval(ctx, `redis.call('FLUSHDB');for i=1,#ARGV,3 do redis.call('RESTORE',ARGV[i],ARGV[i+1],ARGV[i+2],'REPLACE') end;return 1`, nil, args...).Result()
+	_, err := c.Eval(ctx, `local keys=redis.call('KEYS',ARGV[1]);for _,key in ipairs(keys) do redis.call('DEL',key) end;for i=2,#ARGV,3 do redis.call('RESTORE',ARGV[i],ARGV[i+1],ARGV[i+2],'REPLACE') end;return 1`, nil, args...).Result()
 	if err != nil {
 		return errors.New("Redis 恢复失败，已保留维护现场")
 	}

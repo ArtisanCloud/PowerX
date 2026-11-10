@@ -1,0 +1,152 @@
+{
+  "checked_at": "2026-10-26T07:22:59.379620+00:00",
+  "scope": "Local tenant Admin user-management fix; user will perform local account acceptance after backend restart.",
+  "changes": [
+    "Tenant Admin uses /admin/iam/members; Root retains /admin/system/users",
+    "Tenant context derives from authenticated JWT; Member UUID used for operations",
+    "User/member/credential/department/role creation is transactional",
+    "Default role_user creation requires corex.iam.member_accounts:write; assigning other roles or editing roles additionally requires iam.role:bind",
+    "Contact changes synchronize login credential identifiers",
+    "Enable/disable/delete affect tenant membership; global User status and Root identity cannot be changed through tenant management",
+    "Root accounts, cross-tenant members and roles are protected",
+    "Pagination counts unique members before paging; delayed form clearing removed"
+  ],
+  "authorization_and_api_test": {
+    "command": "go test ./internal/transport/http/admin/iam ./internal/service/iam ./internal/service/system ./pkg/auth/middleware ./internal/http",
+    "result": "passed",
+    "test": "TestTenantAdminMemberAccountLifecycleAndIsolation",
+    "environment": "isolated SQLite fixtures, signed non-root Admin JWT, shared production member routes and actual RBAC permission evaluation",
+    "assertions": [
+      "create without Root succeeds",
+      "root and tenant IDs in create body cannot elevate identity or change target tenant",
+      "read member roles",
+      "list and pagination",
+      "edit member and roles atomically",
+      "contact and credential identifier update",
+      "invalid role rolls back edits and creation",
+      "member status does not change global User status",
+      "global User status override rejected",
+      "password reset stores valid hash",
+      "cross-tenant patch/status/roles/password/delete rejected",
+      "Root password reset and adding Root account rejected",
+      "RootOnlyCB continues to reject Admin system-user creation",
+      "deleting/restoring membership preserves global User and other tenant membership",
+      "user-write-only actor can create default Tenant User",
+      "role-bind revocation prevents creation with elevated role and changes to roles",
+      "user-write revocation immediately prevents creation"
+    ]
+  },
+  "unit_tests": {
+    "command": "npx vitest run tests/unit/iam/users-pagination.spec.ts tests/unit/iam/tenant-user-service.spec.ts",
+    "result": "14 passed",
+    "coverage": [
+      "pagination, search, stale responses, request failure/retry",
+      "create using tenant service, preserve Root path",
+      "creation failure preserves inputs",
+      "edit by member UUID with roles in same update",
+      "tenant service paths and payload exclude caller tenant selection"
+    ]
+  },
+  "browser_tests": {
+    "command": "npx playwright test --config playwright.tenant-users.config.ts",
+    "result": "5 passed",
+    "environment": "existing local Nuxt server at 127.0.0.1:3030 with browser API fixtures; no real account writes",
+    "coverage": [
+      "1440px non-root Admin creates and edits, failed create preserves fields and retry succeeds",
+      "390px non-root Admin creates and edits",
+      "desktop tenant Admin pagination and search",
+      "390px Root pagination and page size",
+      "English empty search pagination"
+    ],
+    "root_api_requested_by_tenant_admin": false
+  },
+  "capability_check": {
+    "result": "passed",
+    "declared": 1113,
+    "referenced": 74,
+    "rest_routes": 1045,
+    "candidates": 1133,
+    "ignored_route_rules": 50,
+    "note": "New bindings are Admin JWT/RBAC only. Direct member routes do not require service-actor grants or Registry publication to operate."
+  },
+  "remote_changes": false,
+  "user_owned_service_restarts": false,
+  "agent_started_persistent_services": false,
+  "local_runtime": {
+    "backend_pid_before_manual_restart": 12875,
+    "frontend_pid": 18054,
+    "backend_port": 8077,
+    "frontend_port": 3030,
+    "next_action": "Owner restarts the existing local backend in its original terminal, then logs in again as matrix and verifies the HTTP page. The running HTTP process was not restarted by the agent."
+  },
+  "source_sha256": {
+    "backend/internal/service/iam/member_accounts.go": "1e542ff4c80535d0660e2994296f6a1e6122feff2cd0127893852744cf34b6a8",
+    "backend/internal/service/iam/member_service.go": "2200a66913557c28f1f9c9996730b308b630767e04059e2c99d1e2643cc57283",
+    "backend/internal/transport/http/admin/iam/member_accounts.go": "c73250b9ceb03c1527c9e8fc7d22efed2f29c3ce0cfc3e0799a399b6f2260199",
+    "backend/internal/transport/http/admin/iam/member_handler.go": "00cc188211405a6c13a7e553dc3153213136f290163e8f78816b86d56c0d8c3e",
+    "backend/internal/transport/http/admin/iam/member_accounts_test.go": "d7f12af56d2c40b7721c47a8f0a81d10490238947ff89075a78d7d8d1a0292e5",
+    "backend/internal/transport/http/admin/iam/api.go": "929a1c417b4bc89067f743defb314d5c161c786a53844b0d4a3f363ca7c74346",
+    "backend/config/platform_capabilities/iam_member_accounts.yaml": "aaad466f8335c55f25650ca0368d6700e2080c585fe0f0fa171220409405c6d6",
+    "web-admin/app/composables/api/services/tenantUserService.ts": "83eabe0cbf0bdccd68e1b6d3bd20333c4bf9a28edd78bd4de2bfc78e245eb251",
+    "web-admin/app/components/settings/users/UsersTenantAdmin.vue": "40a5cdb1f0d3701cd08f62719b5b6a812f79c08289ceae287a50c124fd23bcfc",
+    "backend/pkg/corex/db/persistence/repository/iam/permission_live_platform.go": "dccfd93735c8151e1e53fb3bc905e296f9ec927935b3622561b12ab02bf5da5c",
+    "backend/internal/service/integration_gateway/apikeypermissions/policy.go": "42b5ce03e0646086427dc257c5579881320ddf0b327e5b3d99bdb86cbe1ffde1"
+  },
+  "permission_contract_revision": {
+    "checked_at": "2026-10-26T08:15:33.115984+00:00",
+    "cause": "Previous management check referenced legacy iam.user read/write rows. In the local instance these rows are deprecated and owned by plugin:com.powerx.plugins.ai-craft, so the tenant Admin formal grants did not satisfy that old check.",
+    "permission_codes": [
+      "corex.iam.member_accounts:read",
+      "corex.iam.member_accounts:write",
+      "corex.iam.member_accounts:delete"
+    ],
+    "required_source": "platform_capability",
+    "required_state": "active + allow + live UUID role binding",
+    "local_metadata_seed": "passed, scoped to three member-account Admin capabilities, preserves existing tenant grants",
+    "tenant_grant_changes": "Completed after the user instructed continuation of the concrete local repair: three operation permissions added only to the existing target Tenant Admin role. All 438 previous grants preserved.",
+    "local_matrix_before_new_grant": {
+      "read_check": 403,
+      "member_list_query": "passed, total 11, page size 10",
+      "is_root": false
+    },
+    "new_regressions": [
+      "TestMemberManagementUsesOwnedLiveUUIDPermissions: rejects legacy plugin/source/status/effect and expired/revoked grants; accepts canonical UUID grants despite stale numeric columns",
+      "TestTenantAdminMemberAccountLifecycleAndIsolation: passed with dedicated Core permissions",
+      "TestMemberManagementPermissionsHaveDedicatedCoreNamespace: three operation permissions, no Admin API-key grants",
+      "Frontend permission error details: 14 unit tests passed"
+    ],
+    "go_vet": "passed",
+    "remote_changes": false,
+    "user_owned_services_restarted": false,
+    "regression_command": "GOMAXPROCS=2 go test -p 1 ./internal/service/iam ./internal/transport/http/admin/iam ./pkg/corex/db/persistence/repository/iam ./internal/service/integration_gateway/apikeypermissions -run 'Test(MemberManagement|TenantAdminMemberAccount|CustomerProfilePermission)' -count=1",
+    "regression_result": "passed",
+    "frontend_regression": "14 passed, includes visible permission error details"
+  },
+  "local_permission_repair": {
+    "added_permissions": [
+      206642,
+      206629,
+      206633
+    ],
+    "authorization": {
+      "delete": true,
+      "read": true,
+      "write": true
+    },
+    "checked_at": "2026-10-26T12:31:15Z",
+    "current_role_grants": 441,
+    "database": "powerx",
+    "is_root": false,
+    "member_list": {
+      "page_rows": 10,
+      "total": 11
+    },
+    "member_uuid": "451cd6d6-793a-41b3-bacd-867b131bfb2b",
+    "previous_role_grants": 438,
+    "remote_changes": false,
+    "role_uuid": "b5034087-6ab9-4e97-933b-c8d6a61632ce",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "verification": "direct current-source services against the actual local instance database; HTTP process still requires owner restart"
+  },
+  "current_acceptance_boundary": "Current-source permission and listing services validated with the actual local PostgreSQL records: matrix remains non-root, read/write/delete granted, 11 tenant members readable. Full HTTP/browser acceptance with the real user session awaits owner backend restart. Signed-JWT HTTP fixtures and frontend fixtures pass."
+}

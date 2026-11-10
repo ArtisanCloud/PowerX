@@ -145,7 +145,7 @@ func (s *RedisStore) GetPlan(ctx context.Context, identity Snapshot, revision ui
 	if s == nil || s.client == nil || !validScope(identity) || revision == 0 {
 		return Plan{}, ErrInvalid
 	}
-	planKey, _, _ := schedulingKeys(identity)
+	planKey, _, _ := s.schedulingKeys(identity)
 	raw, err := s.client.HGet(ctx, planKey, strconv.FormatUint(revision, 10)).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return Plan{}, ErrNotFound
@@ -164,7 +164,7 @@ func (s *RedisStore) GetPlan(ctx context.Context, identity Snapshot, revision ui
 }
 
 func (s *RedisStore) planTasks(ctx context.Context, identity Snapshot, plan Plan) ([]TaskSnapshot, error) {
-	_, taskKey, _ := schedulingKeys(identity)
+	_, taskKey, _ := s.schedulingKeys(identity)
 	fields := make([]string, len(plan.Tasks))
 	for i, definition := range plan.Tasks {
 		fields[i] = taskField(plan.Revision, definition.TaskID)

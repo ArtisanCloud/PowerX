@@ -68,6 +68,8 @@ type ModelManifest struct {
 	Tags         []string       `yaml:"tags,omitempty"     json:"tags,omitempty"`
 	Defaults     map[string]any `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Limits       map[string]int `yaml:"limits,omitempty"   json:"limits,omitempty"`
+	// Operations 是逐型号发布的可执行媒体合同；缺失时不得推断可调用能力。
+	Operations map[string]MediaOperation `yaml:"operations,omitempty" json:"operations,omitempty"`
 }
 
 // ---------- Registry ----------
@@ -115,6 +117,7 @@ func (r *Registry) addManifestBytes(b []byte) error {
 	if err := yaml.Unmarshal(b, &m); err != nil {
 		return err
 	}
+	normalizeVisionModality(&m)
 	if m.ID == "" || m.Name == "" {
 		return errors.New("invalid manifest: missing id/name")
 	}

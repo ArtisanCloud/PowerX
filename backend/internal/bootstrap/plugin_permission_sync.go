@@ -8,6 +8,7 @@ import (
 
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	modelsiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	pluginPermission "github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"gorm.io/gorm"
 )
@@ -76,6 +77,11 @@ func buildPluginPermissionRows(manifest plugin_mgr.Manifest) []modelsiam.Permiss
 			out = append(out, row)
 			continue
 		}
+		// An invalid canonical declaration must not fall through to the legacy
+		// resource/action importer and accidentally become an API-key grant.
+		if spec.PermissionCode != "" || spec.APIKey != nil || spec.AllowAPIKey {
+			continue
+		}
 		resource := strings.TrimSpace(spec.Resource)
 		if resource == "" {
 			continue
@@ -92,18 +98,6 @@ func buildPluginPermissionRows(manifest plugin_mgr.Manifest) []modelsiam.Permiss
 				"module": firstNonEmpty(strings.TrimSpace(spec.Module), pluginID),
 				"type":   firstNonEmpty(strings.TrimSpace(spec.Type), "action"),
 			}
-			allowAPIKey := true
-			if spec.APIKey != nil {
-				meta["api_key"] = map[string]any{
-					"scope":            strings.TrimSpace(spec.APIKey.Scope),
-					"action":           firstNonEmpty(strings.TrimSpace(spec.APIKey.Action), action),
-					"resource_type":    strings.TrimSpace(spec.APIKey.ResourceType),
-					"resource_pattern": strings.TrimSpace(spec.APIKey.ResourcePattern),
-					"plugin_id":        strings.TrimSpace(spec.APIKey.PluginID),
-					"effect":           firstNonEmpty(strings.TrimSpace(spec.APIKey.Effect), "allow"),
-				}
-				allowAPIKey = true
-			}
 			metaBytes, _ := json.Marshal(meta)
 			out = append(out, modelsiam.Permission{
 				Module:      pluginID,
@@ -111,7 +105,7 @@ func buildPluginPermissionRows(manifest plugin_mgr.Manifest) []modelsiam.Permiss
 				Action:      action,
 				Effect:      "allow",
 				Description: strings.TrimSpace(spec.Description),
-				AllowAPIKey: allowAPIKey,
+				AllowAPIKey: false,
 				Meta:        metaBytes,
 				Status:      modelsiam.PermissionStatusActive,
 				Source:      "plugin:" + pluginID,
@@ -251,15 +245,16 @@ func pluginPermissionRowFromPermissionCodeSpec(pluginID, version string, spec pl
 	if errors := pluginPermissionManifestRegistrationErrors(spec, permissionCode, menuValidation); len(errors) > 0 {
 		meta["registration_errors"] = errors
 	}
-	if spec.APIKey != nil {
-		meta["api_key"] = map[string]any{
-			"scope":            strings.TrimSpace(spec.APIKey.Scope),
-			"action":           firstNonEmpty(strings.TrimSpace(spec.APIKey.Action), action),
-			"resource_type":    strings.TrimSpace(spec.APIKey.ResourceType),
-			"resource_pattern": strings.TrimSpace(spec.APIKey.ResourcePattern),
-			"plugin_id":        strings.TrimSpace(spec.APIKey.PluginID),
-			"effect":           firstNonEmpty(strings.TrimSpace(spec.APIKey.Effect), "allow"),
-		}
+	serviceBinding := len(spec.ProtocolBindings) > 0
+	for _, binding := range spec.ProtocolBindings {
+		serviceBinding = serviceBinding && (binding.ActorContext == "service_actor" && binding.ResourceScope == "tenant")
+	}
+	keyMeta, keyErr := pluginPermission.ExplicitAPIKeyMetadata(spec.APIKey, pluginID, "", serviceBinding)
+	if keyErr != nil || (spec.AllowAPIKey && spec.APIKey == nil) || (spec.APIKey != nil && (spec.Type != "api" || !spec.Independent || spec.BusinessPermissionCode != "" || spec.APIKey.Action != action)) {
+		return modelsiam.Permission{}, false
+	}
+	for key, value := range keyMeta {
+		meta[key] = value
 	}
 	metaBytes, _ := json.Marshal(meta)
 	return modelsiam.Permission{
@@ -268,7 +263,7 @@ func pluginPermissionRowFromPermissionCodeSpec(pluginID, version string, spec pl
 		Action:      action,
 		Effect:      "allow",
 		Description: strings.TrimSpace(spec.Description),
-		AllowAPIKey: spec.AllowAPIKey || spec.APIKey != nil,
+		AllowAPIKey: keyMeta != nil,
 		Meta:        metaBytes,
 		Status:      modelsiam.PermissionStatusActive,
 		Source:      "plugin:" + pluginID,

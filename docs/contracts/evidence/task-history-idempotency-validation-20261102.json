@@ -1,0 +1,125 @@
+{
+  "schema": "powerx.task-history-idempotency-validation/v1",
+  "recorded_at": "2026-11-02T06:20:45.658333+00:00",
+  "environment": "Mac local Core; PostgreSQL powerx/public; no remote environment changed",
+  "migration": {
+    "entry": "backend/cmd/database migrate -scope task-history-idempotency",
+    "exit_code": 0,
+    "before": {
+      "column": false,
+      "index": false
+    },
+    "after": {
+      "column": "nullable varchar(255)",
+      "index": "UNIQUE (tenant_key, subscriber_id, idempotency_key)",
+      "valid": true,
+      "ready": true
+    }
+  },
+  "data_preservation": {
+    "before": {
+      "history": {
+        "count": 265,
+        "digest": "878ae7475ca914a6d77b2f99e2ea8ecc"
+      },
+      "media": {
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "after": {
+      "history": {
+        "count": 265,
+        "digest": "878ae7475ca914a6d77b2f99e2ea8ecc"
+      },
+      "media": {
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "matched": true,
+    "failed_request_media_rows": 0,
+    "failed_request_history_rows": 0,
+    "correlation_ids": [
+      "1eda555f-8c7b-4264-bab3-f8337221aae1",
+      "5baf90e0-760a-4077-93cb-67ae1bd8d79d",
+      "94e82345-1473-443a-922f-a2ab63be3d77"
+    ]
+  },
+  "backup": {
+    "directory": "/Users/michaelhu/.powerx/backups/task-history-20261102-140506-24acc6c6",
+    "archive_sha256": "6afe32b5a9df91a02a7f0fc452a829a3ef1814ce4355872ba8d7e551aa5c6920",
+    "verified_by_restore": true,
+    "permissions": "directory 0700; archive and verification files 0600",
+    "scope": [
+      "event_task_histories",
+      "ai_media_tasks"
+    ]
+  },
+  "checks": {
+    "native_regressions": {
+      "exit_code": 0,
+      "log_path": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-task-history-fix-5tc6ntgg/native-tests.log",
+      "sha256": "e0276f0ef5659b281cdc63d87ad4f3ef567b175f1bbbef7086484cc97743235e"
+    },
+    "installed_migration": {
+      "exit_code": 0,
+      "log_path": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-task-history-fix-5tc6ntgg/installed-migration.log",
+      "sha256": "5608e0e06d80f7bf4a1a73a99dd28bd45730e78d4ff91f86c3e892295a521745"
+    },
+    "installed_repository_rollback_probe": {
+      "exit_code": 0,
+      "log_path": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-task-history-fix-5tc6ntgg/installed-probe.log",
+      "sha256": "730a1f4998f091ffe6dd62a79110e33f2381a4a2bf4fce46a98152024718674a"
+    },
+    "affected_package_regressions": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-task-history-regressions.log",
+      "sha256": "3c770a5130854458814d8be659c587bb7b76b18b8f1d6f3a702b781176b8d6ce"
+    },
+    "vet": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-task-history-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "upgrade_registry_tests": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-task-history-upgrade-registry.log",
+      "sha256": "0f5e4c28ca1b75740103c5bc4f68318203379c3ab794a7c8a5134aa232fa77af"
+    }
+  },
+  "source_files": {
+    "backend/pkg/corex/db/database/migration.go": "0bf1c479162db47fd86e0c934fac50642c30e7ab102c2cd02cac76457be3ebbc",
+    "backend/pkg/corex/db/database/task_history_schema.go": "ef78233a981e0d5f99477317352c914150a9a14354e17bb98c1a62e3e173821d",
+    "backend/cmd/database/migrate.go": "f0ad9ab27e47505fa4f8186ae140e70545cdb719e8768e89c152af1012caca97",
+    "backend/cmd/database/main.go": "d32eec2504dbb49984719ea4e554525174b61c125319cc3c97f7eba0a12d7d5b",
+    "backend/cmd/database/migrate_scope_test.go": "4f1d0d5dce86dce4796fc823816d44d88a7b47e7f210eb46d0120f3672d24ef4",
+    "backend/cmd/database/upgrade_steps.go": "e9a4ade4485267c4fc0e150926f2bf4b6d9269a7c534cb29af5008b4d856fd72",
+    "backend/cmd/database/upgrade_payloads.json": "42e02992043b21aca6aba4ae5e5780b9be08d679f93f9f1813bf4381e0579d34",
+    "backend/cmd/database/task_history_scope_postgres_test.go": "44944fe1675c8a9738d9e735a201d936680217e2b725ada66d64e77993573170",
+    "backend/internal/bootstrap/app.go": "22a6ad8e705168bc620dddef5696d04e9064c5984357f30574abd9af791860c7",
+    "backend/internal/service/ai/media_legacy_task_history_postgres_test.go": "5f454062488920804dafca26c3af5cdf52f0ca0e40657aed124fa8816db364f5",
+    "docs/contracts/task-history-idempotency-migration.md": "9317cba493d1c225ca89ce67fd76e8d6af69b2e7dc93df92209bbbe88d0d2431"
+  },
+  "builds": {
+    "/tmp/powerx-task-history-core": "1a41157f02bb5479b06122e34a24bb42eaef33f8f97f6347607f9477a2fa0ca1",
+    "/tmp/powerx-task-history-database": "be13585065210141e1ae1ade857940b6dfe805e1af50cd15f055afb4d0d3f69b"
+  },
+  "acceptance": {
+    "native_old_schema_regression": true,
+    "same_key_retry_and_repeat_registration": true,
+    "original_values_preserved": true,
+    "migration_failure_ddl_rollback": true,
+    "installed_official_repository_registration_then_rollback": true,
+    "real_provider_generation_executed": false,
+    "real_plugin_continue_attempt_clicked": false,
+    "new_startup_check_loaded_in_daily_process": false,
+    "database_fix_effective_without_restart": true
+  },
+  "cleanup": {
+    "owned_disposable_database_dropped": true,
+    "daily_core_pid_untouched": 93664,
+    "agent_owned_service_left_running": false
+  },
+  "next_step": "MediaXStudio may continue the existing attempt with the original idempotency key and unchanged request; wait for the Core task acknowledgement. New startup gate loads on the next user-owned Core restart."
+}

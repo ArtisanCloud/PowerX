@@ -1,4 +1,6 @@
 import type { LoginResponse } from "./api/services/authService";
+import { createHostSessionRecovery } from '~/utils/host-session-recovery';
+import { loginRecoveryLocation } from '~/utils/auth-failure';
 import { clearIndependentRecoverySession } from '~/utils/recovery-session';
 import { useAuthService } from "./api/services/authService";
 import { AUTH_SESSION_EVENT, AUTH_SESSION_KEY, captureAuthSession, clearAuthSession, commitAuthSession, isAuthSessionCurrent, readAuthSession, refreshAuthSession, syncAuthSessionCookies } from "~/utils/auth-session";
@@ -92,6 +94,25 @@ export const useAuth = () => {
     });
   };
 
+  const recoverSession = createHostSessionRecovery({
+    refresh: refreshAuth,
+    probe: async (snapshot, signal) => {
+      const cfg = useRuntimeConfig();
+      const baseURL = String(cfg.public.apiBase || '/api/v1').replace(/\/+$/, '');
+      const response: any = await $fetch(`${baseURL}/admin/user/auth/me/session`, {
+        method: 'GET', headers: { Authorization: `${snapshot.tokenType} ${snapshot.accessToken}` }, timeout: 15000, signal,
+      });
+      const data = response?.data ?? response;
+      if (data?.status !== 'active') throw Object.assign(new Error('AUTH_SESSION_UNAVAILABLE'), { status: 503 });
+      return data;
+    },
+    login: async stamp => {
+      if (isAuthSessionCurrent(stamp) && readAuthSession()?.status === 'signed-out') {
+        await navigateTo(loginRecoveryLocation(window.location.pathname + window.location.search + window.location.hash), { replace: true });
+      }
+    },
+  });
+
   if (process.client && !(window as any).__powerxAuthSessionListener) {
     const synchronize = () => initAuth();
     window.addEventListener(AUTH_SESSION_EVENT, synchronize);
@@ -168,5 +189,6 @@ export const useAuth = () => {
     logout,
     initAuth,
     refreshAuth,
+    recoverSession,
   };
 };

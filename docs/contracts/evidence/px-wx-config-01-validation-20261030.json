@@ -1,0 +1,755 @@
+{
+  "schema": "powerx.px-wx-config-01.acceptance.v1",
+  "verified_at": "2026-10-30T09:11:18.834863+00:00",
+  "environment": "Mac development only",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "tenant_name": "System",
+  "core_health": {
+    "configured": true,
+    "core_version": "v1.0.0",
+    "deployment_env": "dev",
+    "install_status": "installed",
+    "runtime_mode": "powerx",
+    "service": "CoreX",
+    "status": "ok",
+    "version": "v1.0.0"
+  },
+  "core_error_fix": {
+    "source_tests": "passed",
+    "go_vet": "passed",
+    "build": "passed",
+    "loaded_runtime": "verified through public Framework v0.0.28 and actual config service Key after user restart",
+    "expected_conflict_status": 409,
+    "expected_error_code": "COMMERCE_CONFIGURATION_IDEMPOTENCY_CONFLICT",
+    "live_http_status": 409,
+    "live_error_code": "COMMERCE_CONFIGURATION_IDEMPOTENCY_CONFLICT",
+    "http_request_trace_id": "e736e7a0-1329-4ec2-9eff-95ad529b90d2",
+    "upstream_trace_id": "224a23da-9c5b-4cc6-b6bf-df7ca8329381",
+    "verified_at": "2026-10-30T09:11:18.834863+00:00"
+  },
+  "package": {
+    "plugin_id": "com.powerx.plugins.ecommerce",
+    "version": "0.4.0",
+    "platform": "darwin/arm64",
+    "package_path": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/com.powerx.plugin.ecommerce/dist/0.4.0-darwin-arm64-wx-config-01-20261030-162614/package.tar.gz",
+    "package_sha256": "54276bacec320578fa06364e3e59c9f88ffd67472466ba7e07ea5826ebca167a",
+    "plugin_sha256": "04a48f2ddaa9eb79f7fecd7763682169abdfbb347d8fae7d2d370d730bee6736",
+    "migrate_sha256": "eaf080db4cbaa669d1e7d325a7b623d5613699704a362f4201b731e51df196e8",
+    "migration_args": [
+      "migrate"
+    ],
+    "test_packages": 5,
+    "make_dist_passed": true,
+    "migration_record": {
+      "entry": "backend/bin/migrate",
+      "args": [
+        "migrate"
+      ],
+      "workdir": "./backend",
+      "once": true,
+      "timeout": "60s",
+      "hash": "5e88f41fdf7981fc0f71fcd461e41ef8c5748db981ea887fb464cba45d84bb94",
+      "last_status": "success",
+      "executed_at": "2026-10-30T08:31:50.72516Z"
+    },
+    "installed_revision": "c7cb8e21-a7fd-4fdf-abf9-3655d4a20d7b",
+    "framework_consumer": {
+      "module": "github.com/ArtisanCloud/PowerXPlugin/framework/backend/go",
+      "replace": null,
+      "sum": "h1:7GepcxQI5uKsscllwXRgRvCa02/mr7YV7j6OSsqn1X4=",
+      "version": "v0.0.28"
+    },
+    "source_head": "54c2634b928b981c5ec3b8a2311344c46ebfd329",
+    "source_changes_from_prior_delivery": [
+      "backend/cmd/distmanifest/main.go",
+      "plugin.yaml"
+    ],
+    "verification": {
+      "plugin_test_packages": 5,
+      "make_dist": "passed",
+      "capability_check": "passed",
+      "core_error_tests": "passed",
+      "core_error_go_vet": "passed",
+      "core_build": "passed",
+      "core_error_live_acceptance": "passed: real Framework/API Key HTTP 409 with structured error code and upstream trace"
+    },
+    "changed_source_sha256": {
+      "plugin.yaml": "3deac14da6905f645d52a3666edbfba8dfb98c477a2dc4a6417055853a1481b7",
+      "backend/cmd/distmanifest/main.go": "9e93342ff6ae249b86538fb0e8e63ad1cd896cae885c96e2e5788f258f573bb8",
+      "backend/cmd/distmanifest/main_test.go": "9c96b0c960145e8a737789268bf331ac452c8fd43e6ecc0d201d3dff4c2a1d58",
+      "backend/cmd/distmanifest/locales/zh-CN.json": "127f4fccfb824be777ce8b0242948fb9bbf3204478c6ccfee8d1af480e23c54a",
+      "web-admin/nuxt.config.ts": "2cb21a41184cabbea5490efb998794dcf90ec9f834c12223b6062f86c865e950",
+      "docs/contracts/product-configuration-service.md": "985944bacc8d40773f53035fd9ed502cd255a271594db9eafa3313ad5e5e8bd4"
+    },
+    "package_catalog_sha256": "45e4dfbe43d90ef625004ef4f0e2fa20af409e29eabd1522ead532cbc998acba"
+  },
+  "installation": {
+    "http": {
+      "id": "com.powerx.plugins.ecommerce",
+      "install_origin": {
+        "type": "local",
+        "source_id": "local",
+        "channel": "local"
+      },
+      "provider": {
+        "id": "",
+        "authority": ""
+      },
+      "revision": "c7cb8e21-a7fd-4fdf-abf9-3655d4a20d7b",
+      "state": "enabled",
+      "version": "0.4.0"
+    },
+    "runtime": {
+      "id": "com.powerx.plugins.ecommerce",
+      "processes": [
+        {
+          "process_id": "com.powerx.plugins.ecommerce",
+          "role": "backend",
+          "shared": true,
+          "info": {
+            "id": "com.powerx.plugins.ecommerce",
+            "pid": 69907,
+            "port": 60137,
+            "state": "running",
+            "healthy": true,
+            "restarts": 0,
+            "started_at": "2026-10-30T08:56:50.701523Z",
+            "stopped_at": "0001-01-01T00:00:00Z",
+            "health_fails": 0,
+            "health_ok_count": 79
+          }
+        },
+        {
+          "process_id": "com.powerx.plugins.ecommerce_admin",
+          "role": "admin",
+          "shared": true,
+          "info": {
+            "id": "com.powerx.plugins.ecommerce_admin",
+            "pid": 70546,
+            "port": 60234,
+            "state": "running",
+            "healthy": true,
+            "restarts": 0,
+            "started_at": "2026-10-30T08:57:00.713806Z",
+            "stopped_at": "0001-01-01T00:00:00Z",
+            "health_fails": 0,
+            "health_ok_count": 157
+          }
+        }
+      ],
+      "runtime": {
+        "health_fails": 0,
+        "health_ok": 79,
+        "healthy": true,
+        "last_exit_err": "",
+        "pid": 69907,
+        "port": 60137,
+        "restarts": 0,
+        "started_at": "2026-10-30T08:56:50.701523Z",
+        "state": "running",
+        "stopped_at": "0001-01-01T00:00:00Z"
+      },
+      "runtime_scope": {
+        "process_id_prefix": "com.powerx.plugins.ecommerce",
+        "scope": "global_plugin_process",
+        "shared_by_tenants": true,
+        "tenant_instance_key": "",
+        "tenant_isolated": false
+      },
+      "state": "enabled",
+      "tenant_instances": {
+        "managed_by": "TenantPluginInstance",
+        "note": "租户启用/停用只改变租户实例访问权，不复制或停止全局插件进程"
+      },
+      "version": "0.4.0"
+    },
+    "migration": {
+      "entry": "backend/bin/migrate",
+      "args": [
+        "migrate"
+      ],
+      "workdir": "./backend",
+      "once": true,
+      "timeout": "60s",
+      "hash": "5e88f41fdf7981fc0f71fcd461e41ef8c5748db981ea887fb464cba45d84bb94",
+      "last_status": "success",
+      "executed_at": "2026-10-30T08:31:50.72516Z"
+    }
+  },
+  "capabilities": [
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.product.configuration.read",
+      "contract_version": "1.0.0",
+      "provider_version": "0.4.0",
+      "status": "published",
+      "capabilities_hash": "fa1adba2e87d915cf3ee91e6552d8c190351085ecd2c479b8ab32d26a00fee9a",
+      "protocol_hash": "ff72bcf3b5c21852876619e3a242ce7abf4ded4d8bf8444663bf8d2d6911bfae",
+      "registration_status": "published",
+      "registration_version": 2,
+      "adapter_endpoint": "/_p/com.powerx.plugins.ecommerce/api/v1/plugin/commerce/products/query",
+      "verified_after_restart_at": "2026-10-30T09:11:18.834863+00:00"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.purchase.option.write",
+      "contract_version": "1.0.0",
+      "provider_version": "0.4.0",
+      "status": "published",
+      "capabilities_hash": "565f15203c0b3dd0d0c8053e4ed7cee1edf5126764b15a7f4f9c40a10e785a2e",
+      "protocol_hash": "4ed63d1129f602c0afc78a863c8545c287c290de90f2d10375893853b234353d",
+      "registration_status": "published",
+      "registration_version": 2,
+      "adapter_endpoint": "/_p/com.powerx.plugins.ecommerce/api/v1/plugin/commerce/purchase-options/save",
+      "verified_after_restart_at": "2026-10-30T09:11:18.834863+00:00"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.purchase.operation.read",
+      "contract_version": "1.0.0",
+      "provider_version": "0.4.0",
+      "status": "published",
+      "capabilities_hash": "0c4f4a720e3ce5e92704033a41df287a23227942869b846cf7b0cbfdb1b51462",
+      "protocol_hash": "23d31a270ce1bf1e731bc9ad95f9d130d711134d99d11e91945d762a56d512f8",
+      "registration_status": "published",
+      "registration_version": 2,
+      "adapter_endpoint": "/_p/com.powerx.plugins.ecommerce/api/v1/plugin/commerce/purchase-options/operations/query",
+      "verified_after_restart_at": "2026-10-30T09:11:18.834863+00:00"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+      "contract_version": "2.0.0",
+      "provider_version": "0.4.0",
+      "status": "published",
+      "capabilities_hash": "776c04027784a1a46cb8715a9667a45c0785a82d9f617f2844296efd9992c828",
+      "protocol_hash": "0d12ac13a2c2baffe66d00596c8e13152cf4a419ccaef57a5725ea42bc874d95",
+      "registration_status": "published",
+      "registration_version": 5,
+      "adapter_endpoint": "/_p/com.powerx.plugins.ecommerce/api/v1/plugin/commerce/subscription-plans/query",
+      "verified_after_restart_at": "2026-10-30T09:11:18.834863+00:00"
+    }
+  ],
+  "key": {
+    "key_id": "de76c445-a14c-494b-aeec-e3281eb393b6",
+    "name": "dev-workspacex-ecommerce-config-lab",
+    "profile_id": 12,
+    "owner_plugin_ids": [
+      "com.powerx.plugins.workspacex"
+    ],
+    "private_key_file": "/Users/michaelhu/.powerx/keys/dev-workspacex-ecommerce-config-lab.key",
+    "private_key_mode": "0600",
+    "grants": [
+      {
+        "permission_id": 208090,
+        "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+        "scope": "_scope.ecommerce.subscription_plans.read",
+        "action": "read",
+        "resource_type": "capability",
+        "resource_pattern": "subscription_plans",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      },
+      {
+        "permission_id": 214752,
+        "capability_id": "com.powerx.plugins.ecommerce.purchase.option.write",
+        "scope": "_scope.ecommerce.purchase_options.write",
+        "action": "write",
+        "resource_type": "capability",
+        "resource_pattern": "purchase_options",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      },
+      {
+        "permission_id": 214753,
+        "capability_id": "com.powerx.plugins.ecommerce.product.configuration.read",
+        "scope": "_scope.ecommerce.product_configuration.read",
+        "action": "read",
+        "resource_type": "capability",
+        "resource_pattern": "product_configuration",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      },
+      {
+        "permission_id": 214754,
+        "capability_id": "com.powerx.plugins.ecommerce.purchase.operation.read",
+        "scope": "_scope.ecommerce.purchase_operations.read",
+        "action": "read",
+        "resource_type": "capability",
+        "resource_pattern": "purchase_operations",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      }
+    ],
+    "grant_status": [
+      {
+        "capability_id": "com.powerx.plugins.ecommerce.product.configuration.read",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.powerx.plugins.ecommerce.purchase.option.write",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.powerx.plugins.ecommerce.purchase.operation.read",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      }
+    ],
+    "extra_core_permission": "read own capability grant-status only"
+  },
+  "preservation": {
+    "old_read_only_key_unchanged": true,
+    "old_key_new_capabilities": "not_granted",
+    "old_key_plan_read_http": 200,
+    "shared_profile_permission_set_unchanged": true,
+    "shared_profile_permission_count": 352,
+    "scheduler_original_uuids_preserved": true,
+    "orders_payments_refunds_not_granted": true
+  },
+  "category": {
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "id": "5e12b6d9-2b1a-430e-b4af-214a2030eaf5",
+    "code": "lab-software-subscriptions",
+    "displayName": "Lab 软件订阅",
+    "aliasSlug": "lab-software-subscriptions",
+    "path": "/5e12b6d9-2b1a-430e-b4af-214a2030eaf5/",
+    "level": 0,
+    "sortOrder": 0,
+    "status": "enabled",
+    "isFeatured": false,
+    "effective_template": null,
+    "required_attributes": [],
+    "attributes_example": {},
+    "required_new_product_fields": [
+      "code",
+      "name",
+      "category_id",
+      "category_path",
+      "description"
+    ]
+  },
+  "lab": {
+    "one-time": {
+      "operation": {
+        "idempotency_key": "px-wx-config-01:20261030:one-time:001",
+        "object_type": "commerce_operation",
+        "result": {
+          "auto_renew": false,
+          "charge_type": "one_time",
+          "code": "LAB-WX-CONFIG-01-ONE-TIME-20261030",
+          "editable": true,
+          "name": "Lab WorkspaceX one-time",
+          "object_type": "purchase_configuration",
+          "period_months": 0,
+          "prices": [
+            {
+              "currency": "CNY",
+              "price_decimal": "1.00",
+              "references": [
+                {
+                  "object_type": "pricebook",
+                  "uuid": "6b942eb4-ea78-4d1c-a799-78704b2b7982"
+                },
+                {
+                  "object_type": "pricebook_version",
+                  "uuid": "0f80d558-5977-41f7-a716-c04502a61bdf"
+                },
+                {
+                  "object_type": "pricebook_item",
+                  "uuid": "2d831dea-c1f6-4cc8-90fb-59ab60dec48e"
+                }
+              ],
+              "status": "draft"
+            }
+          ],
+          "purpose": "initial_purchase",
+          "references": [
+            {
+              "object_type": "spu",
+              "uuid": "629d5c0b-fd09-482c-ba8b-5c8a3e187184"
+            },
+            {
+              "object_type": "spu_version",
+              "uuid": "694dc7e1-359f-42fd-b454-65d83422ab4c"
+            },
+            {
+              "object_type": "sku",
+              "uuid": "fb4151f8-1d55-4f5e-af1d-bed9f7ceaee4"
+            }
+          ],
+          "regions": [
+            "CN"
+          ],
+          "revision": "4934f20485e43568314c7903a8dc24dad69122c59ce1ed4a6a79c9a71237082b",
+          "spu_uuid": "629d5c0b-fd09-482c-ba8b-5c8a3e187184",
+          "status": "draft",
+          "uuid": "2e84eddc-b147-4b7e-b61a-999ffedd558b"
+        },
+        "status": "succeeded",
+        "trace_id": "15360144-36e4-4f29-8fcf-75f32f1eea92",
+        "uuid": "a20d3078-91e8-43da-8f41-fbb58679fc47"
+      },
+      "product": {
+        "code": "LAB-WX-CONFIG-01-ONE-TIME-20261030",
+        "name": "Lab WorkspaceX one-time PX-WX-CONFIG-01",
+        "object_type": "spu",
+        "product_type": "one_time",
+        "purchase_options": [
+          {
+            "auto_renew": false,
+            "charge_type": "one_time",
+            "code": "LAB-WX-CONFIG-01-ONE-TIME-20261030",
+            "editable": true,
+            "name": "Lab WorkspaceX one-time",
+            "object_type": "purchase_configuration",
+            "period_months": 0,
+            "prices": [
+              {
+                "currency": "CNY",
+                "price_decimal": "1.00",
+                "references": [
+                  {
+                    "object_type": "pricebook",
+                    "uuid": "6b942eb4-ea78-4d1c-a799-78704b2b7982"
+                  },
+                  {
+                    "object_type": "pricebook_version",
+                    "uuid": "0f80d558-5977-41f7-a716-c04502a61bdf"
+                  },
+                  {
+                    "object_type": "pricebook_item",
+                    "uuid": "2d831dea-c1f6-4cc8-90fb-59ab60dec48e"
+                  }
+                ],
+                "status": "draft"
+              }
+            ],
+            "purpose": "initial_purchase",
+            "references": [
+              {
+                "object_type": "spu",
+                "uuid": "629d5c0b-fd09-482c-ba8b-5c8a3e187184"
+              },
+              {
+                "object_type": "spu_version",
+                "uuid": "694dc7e1-359f-42fd-b454-65d83422ab4c"
+              },
+              {
+                "object_type": "sku",
+                "uuid": "fb4151f8-1d55-4f5e-af1d-bed9f7ceaee4"
+              }
+            ],
+            "regions": [
+              "CN"
+            ],
+            "revision": "4934f20485e43568314c7903a8dc24dad69122c59ce1ed4a6a79c9a71237082b",
+            "spu_uuid": "629d5c0b-fd09-482c-ba8b-5c8a3e187184",
+            "status": "draft",
+            "uuid": "2e84eddc-b147-4b7e-b61a-999ffedd558b"
+          }
+        ],
+        "revision": "0c9ebcd1d9ffd95628e2477f2ca2c53d1e5930e725bc5d073f6ddd4e72d748f1",
+        "status": "draft",
+        "uuid": "629d5c0b-fd09-482c-ba8b-5c8a3e187184"
+      },
+      "business_operation_trace_id": "15360144-36e4-4f29-8fcf-75f32f1eea92",
+      "core_write_invocation_trace_id": "cddfa647-b1cf-44d6-8c9d-ad9d5452d784"
+    },
+    "annual": {
+      "operation": {
+        "idempotency_key": "px-wx-config-01:20261030:annual:001",
+        "object_type": "commerce_operation",
+        "result": {
+          "auto_renew": false,
+          "charge_type": "annual",
+          "code": "LAB-WX-CONFIG-01-ANNUAL-20261030",
+          "editable": true,
+          "name": "Lab WorkspaceX annual",
+          "object_type": "purchase_configuration",
+          "period_months": 12,
+          "prices": [
+            {
+              "currency": "CNY",
+              "price_decimal": "2.00",
+              "references": [
+                {
+                  "object_type": "pricebook",
+                  "uuid": "1df3a11d-e903-46f5-a5d7-54c4da0a1b44"
+                },
+                {
+                  "object_type": "pricebook_version",
+                  "uuid": "4b799184-7516-4b94-acf6-0ab5ff00b36d"
+                },
+                {
+                  "object_type": "pricebook_item",
+                  "uuid": "35581eab-bf12-41a0-ad8b-3f7eec41f8d0"
+                }
+              ],
+              "status": "draft"
+            }
+          ],
+          "purpose": "annual_update",
+          "references": [
+            {
+              "object_type": "spu",
+              "uuid": "bee06d06-de49-4b47-9a3a-2d033f766d44"
+            },
+            {
+              "object_type": "spu_version",
+              "uuid": "532f07a6-dd17-4a01-8f74-5adefa67aa73"
+            },
+            {
+              "object_type": "sku",
+              "uuid": "d02e773a-dc8d-42af-a50a-696d15cbfb6f"
+            },
+            {
+              "object_type": "subscription_plan",
+              "uuid": "3bef023e-b72a-4776-8e28-fdb501ad48da"
+            }
+          ],
+          "regions": [
+            "CN"
+          ],
+          "revision": "26d105db7221eb2b22763a15a67c006bcc9e73e0d8f88a10097e389798105641",
+          "spu_uuid": "bee06d06-de49-4b47-9a3a-2d033f766d44",
+          "status": "draft",
+          "uuid": "f8b133a6-480a-417a-8b95-74996dc08c97"
+        },
+        "status": "succeeded",
+        "trace_id": "843936bc-ad59-4229-819c-77b3f0f30b79",
+        "uuid": "da18afb2-373d-412e-bce2-83c77d7e5f21"
+      },
+      "product": {
+        "code": "LAB-WX-CONFIG-01-ANNUAL-20261030",
+        "name": "Lab WorkspaceX annual PX-WX-CONFIG-01",
+        "object_type": "spu",
+        "product_type": "subscription",
+        "purchase_options": [
+          {
+            "auto_renew": false,
+            "charge_type": "annual",
+            "code": "LAB-WX-CONFIG-01-ANNUAL-20261030",
+            "editable": true,
+            "name": "Lab WorkspaceX annual",
+            "object_type": "purchase_configuration",
+            "period_months": 12,
+            "prices": [
+              {
+                "currency": "CNY",
+                "price_decimal": "2.00",
+                "references": [
+                  {
+                    "object_type": "pricebook",
+                    "uuid": "1df3a11d-e903-46f5-a5d7-54c4da0a1b44"
+                  },
+                  {
+                    "object_type": "pricebook_version",
+                    "uuid": "4b799184-7516-4b94-acf6-0ab5ff00b36d"
+                  },
+                  {
+                    "object_type": "pricebook_item",
+                    "uuid": "35581eab-bf12-41a0-ad8b-3f7eec41f8d0"
+                  }
+                ],
+                "status": "draft"
+              }
+            ],
+            "purpose": "annual_update",
+            "references": [
+              {
+                "object_type": "spu",
+                "uuid": "bee06d06-de49-4b47-9a3a-2d033f766d44"
+              },
+              {
+                "object_type": "spu_version",
+                "uuid": "532f07a6-dd17-4a01-8f74-5adefa67aa73"
+              },
+              {
+                "object_type": "sku",
+                "uuid": "d02e773a-dc8d-42af-a50a-696d15cbfb6f"
+              },
+              {
+                "object_type": "subscription_plan",
+                "uuid": "3bef023e-b72a-4776-8e28-fdb501ad48da"
+              }
+            ],
+            "regions": [
+              "CN"
+            ],
+            "revision": "26d105db7221eb2b22763a15a67c006bcc9e73e0d8f88a10097e389798105641",
+            "spu_uuid": "bee06d06-de49-4b47-9a3a-2d033f766d44",
+            "status": "draft",
+            "uuid": "f8b133a6-480a-417a-8b95-74996dc08c97"
+          }
+        ],
+        "revision": "01d5f351fa9d9c2ab3e9787f2432e323b215aec3a2e981022ad353bd8a355725",
+        "status": "draft",
+        "uuid": "bee06d06-de49-4b47-9a3a-2d033f766d44"
+      },
+      "plans": {
+        "items": [
+          {
+            "auto_renew": false,
+            "billing_cycle": "yearly",
+            "billing_value": 0,
+            "currency": "CNY",
+            "name": "Lab WorkspaceX annual",
+            "plan_code": "LAB-WX-CONFIG-01-ANNUAL-20261030",
+            "price_decimal": "2.0000",
+            "status": "draft",
+            "uuid": "3bef023e-b72a-4776-8e28-fdb501ad48da"
+          }
+        ]
+      },
+      "business_operation_trace_id": "843936bc-ad59-4229-819c-77b3f0f30b79"
+    }
+  },
+  "framework": {
+    "module": "github.com/ArtisanCloud/PowerXPlugin/framework/backend/go",
+    "replace": null,
+    "sum": "h1:7GepcxQI5uKsscllwXRgRvCa02/mr7YV7j6OSsqn1X4=",
+    "version": "v0.0.28"
+  },
+  "traces": {
+    "framework-query-result": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "d4156da3-45fc-4c52-ba2b-988d6d1395b9",
+      "http_request_trace_id": "587ede97-1007-4b2b-8d2b-5d37e8e41588",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-save-one-time-result": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "cddfa647-b1cf-44d6-8c9d-ad9d5452d784",
+      "http_request_trace_id": "365a7691-5bfe-45e6-b584-db8207e94223",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-one-time-replay": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "64586fff-23f4-4a7b-b737-38257d354b37",
+      "http_request_trace_id": "5dede48b-b68c-457e-8182-742a2f7bac92",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-annual-recovered": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "e3b85665-57e3-4761-9472-a16b6398e54f",
+      "http_request_trace_id": "7c1822af-4e07-4a4a-9920-31ba6d154386",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-annual-replay": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "d158b59f-41e1-4767-a736-9474eefe024e",
+      "http_request_trace_id": "d7062b80-a4dd-4e54-9caa-ac8af51483e2",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-product-one-time-readback": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "2036a435-ec26-4e80-8e4a-bc5c522b5c4e",
+      "http_request_trace_id": "989c6823-3fea-4ce5-8d11-fe01dafcb237",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-product-annual-readback": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "4c5daa5b-b853-480d-b4c2-8d3816cc2e9b",
+      "http_request_trace_id": "1ef2f28b-9ad9-407c-a193-87aec34ec91a",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-plan-read-annual-result": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "c6398e80-566f-4064-8184-d2ab08429ad5",
+      "http_request_trace_id": "c481e060-4582-436e-960a-06b976876d34",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-product-one-time-after-restart": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "9594c0ab-0284-49dd-a84d-2e61e14f6ff9",
+      "http_request_trace_id": "98306511-c198-4363-beb2-a7487ba4addc",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-product-annual-after-restart": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "341ffea2-c608-459f-aad6-42bcbc193f3a",
+      "http_request_trace_id": "cf85fdc9-584f-4fc5-a44e-4c9e73294c4d",
+      "protocol_used": "rest",
+      "fallback_used": false
+    },
+    "framework-annual-recovery-after-restart": {
+      "http_status": 200,
+      "auth_scheme": "ApiKey",
+      "core_invocation_trace_id": "819fabbe-0224-421a-8162-cd1eb8534b3d",
+      "http_request_trace_id": "d266a509-342e-43f3-b44f-d2280d2fac65",
+      "protocol_used": "rest",
+      "fallback_used": false
+    }
+  },
+  "acceptance": {
+    "one_time_and_annual_saved_by_real_service_key": true,
+    "same_key_same_content_replay_returns_identical_receipt": true,
+    "controlled_success_response_loss_recovered_by_original_key": true,
+    "all_new_products_options_and_price_versions_remain_draft": true,
+    "annual_months": 12,
+    "auto_renew": false,
+    "conflict_rejected_live_before_core_fix": 502,
+    "conflict_structured_code_after_core_fix": "passed",
+    "unsafe_original_package_rejected_by_distribution_guard": true,
+    "conflict_http_status_after_core_fix": 409,
+    "post_restart_drafts_grants_old_key_and_shared_profile": "passed"
+  },
+  "source_sha256": {
+    "backend/internal/service/capability_registry/invocation_service.go": "ff177e16a32724f4658529092fbc2521aabc999f39422bc9baaee7c78b7fe307",
+    "backend/internal/service/capability_registry/invocation_service_test.go": "a05872377aa38439a469496544b0ad6e06bc6cc3d56b37e748cc38fe005b5b51",
+    "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go": "3564589ce5bcda27856f48fb627c069c1c670c4b99a61d1b02b9475fe995a255",
+    "backend/internal/transport/http/openapi/capability_registry/tenant_rest_error_test.go": "681fd1c5c1cde0b0f7876117c5084ee82752d1e471ac0ab3d8bdcf4402c46f92"
+  },
+  "scope": {
+    "admin_jwt_not_used_as_business_acceptance": true,
+    "official_framework_public_module_no_replace": true,
+    "no_manual_sql_or_installed_file_edit": true,
+    "production_ubuntu_untouched": true,
+    "agent_temporary_app_servers_started": 0
+  },
+  "loaded_core_before_restart": {
+    "pid": 36280,
+    "executable": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build2715843422/b001/exe/app",
+    "sha256": "efcc17bf0afb7e7c96c1a9e23c88d64725a7541e50f5991963428c074620c3ec",
+    "build_info": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build2715843422/b001/exe/app: go1.26.7\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=darwin"
+  },
+  "prepared_core_binary": {
+    "path": "/tmp/powerx-wx-config-01-20261030-162614/powerx-core",
+    "sha256": "1c99619f14f0db4543f6bf9be1ec3a8b0298c334920ba6ff4c7692d35f60d1a4",
+    "loaded": false,
+    "runtime_fix_verified": true
+  },
+  "loaded_core_after_restart": {
+    "pid": 69564,
+    "executable": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build3937600646/b001/exe/app",
+    "sha256": "a5f5d805b0dbb2fe48fa72518284fa1d12750d334b528fb3a00eb11d0283770f",
+    "startup_owned_by": "user",
+    "verified_at": "2026-10-30T09:11:18.834863+00:00",
+    "build_info": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build3937600646/b001/exe/app: go1.26.7\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=darwin"
+  },
+  "status": "accepted",
+  "remaining_work": []
+}

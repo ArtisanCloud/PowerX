@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	storagerecovery "github.com/ArtisanCloud/PowerX/internal/infra/storage_recovery"
 	snapshots "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
 )
 
@@ -36,12 +37,13 @@ func (r *CurrentRuntime) prepareCurrentFiles(ctx context.Context, j *snapshots.M
 	if err != nil {
 		return journal, errors.New("快照缺少 Core 程序")
 	}
-	localAdapter := !bytes.Contains(raw, []byte(CurrentRecoveryProtocol)) || !bytes.Contains(raw, []byte(CurrentCacheProtocol))
+	legacyRecoveryAdapter := !bytes.Contains(raw, []byte(CurrentRecoveryProtocol)) || !bytes.Contains(raw, []byte(CurrentCacheProtocol))
+	localAdapter := legacyRecoveryAdapter || !bytes.Contains(raw, []byte(storagerecovery.Protocol))
 	if !localAdapter {
 		inputs[r.spec.Executable] = core
 	} else {
 		// 旧本地快照仍可验证数据；不执行不认识维护启动协议的旧 Core。
-		j.Checks = append(j.Checks, snapshots.RecoveryCheck{Name: "local_core_adapter", Passed: true, Detail: "旧开发快照不支持当前维护与缓存隔离协议，保留本轮 Core 执行器；此项不作为旧 Core 程序逐字节恢复证明"})
+		j.Checks = append(j.Checks, snapshots.RecoveryCheck{Name: "local_core_adapter", Passed: true, Detail: "旧开发快照不支持当前维护、缓存隔离或存储恢复保护协议，保留本轮 Core 执行器；此项不作为旧 Core 程序逐字节恢复证明"})
 	}
 	for _, kind := range []string{"core/web-admin", "core/platform_capabilities"} {
 		target := source.Artifacts[kind]
@@ -51,7 +53,7 @@ func (r *CurrentRuntime) prepareCurrentFiles(ctx context.Context, j *snapshots.M
 		input := filepath.Join(staging, "programs", filepath.FromSlash(kind))
 		if kind == "core/platform_capabilities" {
 			_, statErr := os.Lstat(input)
-			if errors.Is(statErr, os.ErrNotExist) && localAdapter && r.spec.Environment == "dev" {
+			if errors.Is(statErr, os.ErrNotExist) && legacyRecoveryAdapter && r.spec.Environment == "dev" {
 				// 早期开发包没有采集正式能力目录。只有保留当前 Core 作为本地
 				// 维护适配器时，才允许配套保留当前目录；不得伪称历史程序完整恢复。
 				physical, err := currentRestoreTarget(target)

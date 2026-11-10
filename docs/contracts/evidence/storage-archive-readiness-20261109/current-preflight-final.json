@@ -1,0 +1,70 @@
+{
+  "schema": "powerx.archive-readiness/v1",
+  "observed_at": "2026-11-09T14:20:20.056794+00:00",
+  "mode": "read_only_preflight",
+  "selected_target_id": null,
+  "configuration_ready": false,
+  "issues": [
+    "CREDENTIAL_STORE_NOT_READY",
+    "POLICY_CONTROL_NOT_APPLIED",
+    "TARGET_CONTROL_NOT_APPLIED",
+    "TARGET_NOT_CONFIGURED",
+    "TARGET_SELECTION_REQUIRED"
+  ],
+  "target_control": {
+    "authority": "legacy",
+    "ready": true,
+    "state": "legacy",
+    "desired_revision": 0,
+    "applied_revision": 0,
+    "snapshot_revision": null
+  },
+  "credential_store": {
+    "configured": false,
+    "ready": false,
+    "rotation_required": false,
+    "revision": 0
+  },
+  "policy_control": {
+    "authority": "legacy",
+    "ready": true,
+    "state": "legacy",
+    "desired_revision": 0,
+    "applied_revision": 0,
+    "snapshot_revision": null,
+    "enabled_count": 0
+  },
+  "targets": [],
+  "observations": [
+    {
+      "path": "/admin/ops/backup/archives/target-configuration",
+      "http_status": 200,
+      "problem": null
+    },
+    {
+      "path": "/admin/ops/backup/archives/s3-credentials",
+      "http_status": 200,
+      "problem": null
+    },
+    {
+      "path": "/admin/ops/backup/archives/policy-configuration",
+      "http_status": 200,
+      "problem": null
+    }
+  ],
+  "independence_and_lifetime_verified": false,
+  "provider_protocol_verified": false,
+  "transfer_performed": false,
+  "retrieval_performed": false,
+  "t155_passed": false,
+  "authorizes_configuration_change": false,
+  "authorizes_transfer": false,
+  "required_live_evidence": [
+    "independent_long_term_target",
+    "provider_protocol_and_versioning",
+    "private_bucket_and_lifecycle",
+    "owned_prefix_transfer_full_read",
+    "exact_retrieval_after_owned_source_loss",
+    "owned_object_cleanup_and_receipts"
+  ]
+}

@@ -107,7 +107,7 @@ func seedNativeMarketingSkillDefinitions(ctx context.Context, db *gorm.DB, cfg *
 	if driverName == "s3" && (strings.TrimSpace(cfg.Storage.S3.Endpoint) == "" || strings.TrimSpace(cfg.Storage.S3.Bucket) == "") {
 		return fmt.Errorf("seed_native_marketing_skills_s3_storage_config_required")
 	}
-	manager, _ := mediasvc.BuildMediaStack(ctx, db, nil, mediasvc.StorageOptions{
+	manager, _ := mediasvc.BuildMediaStack(ctx, db, nil, mediasvc.StorageOptions{ImageDerivatives: mediasvc.ImageDerivativeOptions{MaxSourceBytes: cfg.Storage.ImageDerivatives.MaxSourceBytes, MaxPixels: cfg.Storage.ImageDerivatives.MaxPixels, MaxWorkingBytes: cfg.Storage.ImageDerivatives.MaxWorkingBytes, MaxParallelJobs: cfg.Storage.ImageDerivatives.MaxParallelJobs},
 		DefaultDriver: driverName, TTLSeconds: cfg.Storage.TTLSeconds,
 		Local: mediasvc.StorageLocalOptions{BasePath: cfg.Storage.Local.BasePath, PublicBaseURL: cfg.Storage.Local.PublicBaseURL, UploadTokenSecret: cfg.Storage.Local.UploadTokenSecret, PublicTokenSecret: cfg.Storage.Local.PublicTokenSecret, MaxUploadSizeBytes: cfg.Storage.Local.MaxUploadSizeBytes},
 		S3:    mediasvc.StorageS3Options{Endpoint: cfg.Storage.S3.Endpoint, Region: cfg.Storage.S3.Region, AccessKey: cfg.Storage.S3.AccessKey, SecretKey: cfg.Storage.S3.SecretKey, SessionToken: cfg.Storage.S3.SessionToken, Bucket: cfg.Storage.S3.Bucket, UseSSL: cfg.Storage.S3.UseSSL, ForcePathStyle: cfg.Storage.S3.ForcePathStyle, ExternalDomain: cfg.Storage.S3.ExternalDomain, PresignEndpoint: cfg.Storage.S3.PresignEndpoint},

@@ -3,12 +3,16 @@ package manager
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
@@ -50,11 +54,6 @@ func TestBootstrapKeepsManagerAvailableWhenPermissionSyncFails(t *testing.T) {
 }
 
 func TestBootstrapDoesNotRestoreEnabledPluginSynchronously(t *testing.T) {
-	if os.Getenv("POWERX_TEST_PLUGIN_PROCESS") == "1" {
-		runBootstrapTestPluginProcess()
-		return
-	}
-
 	ctx := context.Background()
 	root := t.TempDir()
 	installedRoot := filepath.Join(root, "installed")
@@ -82,7 +81,7 @@ func TestBootstrapDoesNotRestoreEnabledPluginSynchronously(t *testing.T) {
 			Supervisor:    supervisor.New(),
 			CoreConfig: &config.Config{
 				Server:     config.ServerConfig{Port: 8077},
-				Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev},
+				Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			},
 			RuntimeCredential: func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
 				require.Equal(t, "com.powerx.plugins.restore-test", pluginID)
@@ -114,11 +113,6 @@ func TestBootstrapDoesNotRestoreEnabledPluginSynchronously(t *testing.T) {
 }
 
 func TestRestoreEnabledPluginsMountsEnabledPlugin(t *testing.T) {
-	if os.Getenv("POWERX_TEST_PLUGIN_PROCESS") == "1" {
-		runBootstrapTestPluginProcess()
-		return
-	}
-
 	ctx := context.Background()
 	root := t.TempDir()
 	installedRoot := filepath.Join(root, "installed")
@@ -146,7 +140,7 @@ func TestRestoreEnabledPluginsMountsEnabledPlugin(t *testing.T) {
 			Supervisor:    supervisor.New(),
 			CoreConfig: &config.Config{
 				Server:     config.ServerConfig{Port: 8077},
-				Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev},
+				Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			},
 			RuntimeCredential: func(ctx context.Context, pluginID string) (*PluginRuntimeCredential, error) {
 				require.Equal(t, "com.powerx.plugins.restore-test", pluginID)
@@ -165,6 +159,22 @@ func TestRestoreEnabledPluginsMountsEnabledPlugin(t *testing.T) {
 		sup:  supervisor.New(),
 	}
 	m.sup = m.opts.Supervisor
+	t.Cleanup(func() {
+		info, running := m.sup.Status("com.powerx.plugins.restore-test")
+		if running {
+			cwd, err := os.Getwd()
+			require.NoError(t, err)
+			t.Logf("agent-owned PID=%d command=%s -test.run=^TestBootstrapPluginProcess$ cwd=%s port=%d cleanup=Supervisor.Stop", info.PID, desc.Paths.Entry, cwd, info.Port)
+		}
+		require.NoError(t, m.sup.Stop("com.powerx.plugins.restore-test"))
+		if running {
+			connection, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", info.Port), 100*time.Millisecond)
+			if connection != nil {
+				_ = connection.Close()
+			}
+			require.Error(t, err, "测试辅助进程退出后必须释放监听端口")
+		}
+	})
 
 	require.NoError(t, m.Bootstrap(ctx))
 	require.NoError(t, m.restoreEnabledPlugins(ctx))
@@ -172,9 +182,6 @@ func TestRestoreEnabledPluginsMountsEnabledPlugin(t *testing.T) {
 	resp := performBootstrapDebugRequest(engine)
 	require.Contains(t, resp, `"com.powerx.plugins.restore-test"`)
 	require.Contains(t, resp, `"basePath":"/api/v1"`)
-	t.Cleanup(func() {
-		_ = m.Disable(ctx, "com.powerx.plugins.restore-test")
-	})
 }
 
 func TestBootstrapKeepsManagerAvailableWhenEnabledPluginRestoreFails(t *testing.T) {
@@ -296,7 +303,12 @@ func performBootstrapDebugRequest(engine *gin.Engine) string {
 	return rec.Body.String()
 }
 
-func runBootstrapTestPluginProcess() {
+func TestBootstrapPluginProcess(t *testing.T) {
+	if os.Getenv("POWERX_TEST_PLUGIN_PROCESS") != "1" {
+		return
+	}
+	// 模拟一秒冷启动，防止恢复用例再次依赖辅助进程在 500ms 内启动。
+	time.Sleep(time.Second)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -339,7 +351,8 @@ func writeBootstrapRestoreTestPlugin(t *testing.T, root string) {
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "backend", "bin"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "web-admin"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "config"), 0o755))
-	wrapper := "#!/bin/sh\nPOWERX_TEST_PLUGIN_PROCESS=1 exec " + exe + "\n"
+	// 子进程只运行 HTTP 辅助入口，不重新执行整个 manager 测试集。
+	wrapper := "#!/bin/sh\nPOWERX_TEST_PLUGIN_PROCESS=1 exec '" + strings.ReplaceAll(exe, "'", "'\"'\"'") + "' -test.run='^TestBootstrapPluginProcess$'\n"
 	require.NoError(t, os.WriteFile(filepath.Join(root, "backend", "bin", "plugin"), []byte(wrapper), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
 id: com.powerx.plugins.restore-test
@@ -350,8 +363,7 @@ runtime:
   entry: backend/bin/plugin
   health:
     http: /healthz
-    interval: 100ms
-    timeout: 100ms
+# 使用运行时默认的健康检查间隔和请求超时，覆盖正常的冷启动预算。
 endpoints:
   http_base_path: /api/v1
 frontend:

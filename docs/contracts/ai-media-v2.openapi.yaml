@@ -1,0 +1,1047 @@
+openapi: 3.0.3
+info:
+  title: PowerX AI Media v2
+  version: 2.0.0
+  description: Core-owned model capabilities, typed execution and recoverable media
+    tasks.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+- apiKeyAuth: []
+paths:
+  /ai/vlm/invoke:
+    post:
+      operationId: invokeMediaVlm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaInvokeRequest'
+      responses:
+        '400':
+          description: Invalid typed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Grant denied or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Task not owned or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Configuration, version or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Capability, input or parameter unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Provider rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisEnvelope'
+  /ai/image/invoke:
+    post:
+      operationId: invokeMediaImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaInvokeRequest'
+      responses:
+        '400':
+          description: Invalid typed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Grant denied or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Task not owned or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Configuration, version or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Capability, input or parameter unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Provider rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '202':
+          description: Durable Core media task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaTaskEnvelope'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Required here or in idempotency_key. Same key with a different
+          request returns 409.
+  /ai/video/invoke:
+    post:
+      operationId: invokeMediaVideo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaInvokeRequest'
+      responses:
+        '400':
+          description: Invalid typed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Grant denied or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Task not owned or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Configuration, version or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Capability, input or parameter unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Provider rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '202':
+          description: Durable Core media task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaTaskEnvelope'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Required here or in idempotency_key. Same key with a different
+          request returns 409.
+  /ai/tts/invoke:
+    post:
+      operationId: invokeMediaTts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaInvokeRequest'
+      responses:
+        '400':
+          description: Invalid typed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Grant denied or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Task not owned or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Configuration, version or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Capability, input or parameter unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Provider rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '202':
+          description: Durable Core media task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaTaskEnvelope'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Required here or in idempotency_key. Same key with a different
+          request returns 409.
+  /ai/media/tasks/{task_uuid}:
+    get:
+      operationId: mediaTaskGet
+      parameters:
+      - name: task_uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: Invalid typed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Grant denied or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Task not owned or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Configuration, version or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Capability, input or parameter unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Provider rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '200':
+          description: Owned media task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaTaskEnvelope'
+  /ai/media/tasks/{task_uuid}/cancel:
+    post:
+      operationId: mediaTaskCancel
+      parameters:
+      - name: task_uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '400':
+          description: Invalid typed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Grant denied or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Task not owned or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Configuration, version or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Capability, input or parameter unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Provider rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '200':
+          description: Owned media task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaTaskEnvelope'
+  /ai/media/tasks/{task_uuid}/events:
+    get:
+      operationId: mediaTaskEvents
+      parameters:
+      - name: task_uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Last-Event-ID
+        in: header
+        schema: &id001
+          type: string
+        description: task_uuid:revision; reconnect returns current snapshot instead
+          of replaying intermediate states.
+      responses:
+        '400':
+          description: Invalid typed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Grant denied or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Task not owned or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Configuration, version or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Capability, input or parameter unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: Provider rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '200':
+          description: SSE status snapshots with id task_uuid:revision, heartbeat
+            comments, reconnect/error control events. No credentials in URL.
+          content:
+            text/event-stream:
+              schema: *id001
+  /admin/agents/models:
+    get:
+      operationId: adminMediaModels
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: view
+        in: query
+        schema:
+          enum:
+          - capabilities
+      - name: capability
+        in: query
+        schema: *id001
+      - name: provider
+        in: query
+        schema: *id001
+      - name: app
+        in: query
+        schema: *id001
+      responses:
+        '200':
+          description: Admin JWT/RBAC catalog. models view=capabilities returns v2
+            items; absent view retains the admin string selector contract.
+      description: Admin user JWT only. Services use the typed core_internal binding.
+  /admin/agents/providers:
+    get:
+      operationId: adminMediaProviders
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: view
+        in: query
+        schema:
+          enum:
+          - capabilities
+      - name: capability
+        in: query
+        schema: *id001
+      - name: provider
+        in: query
+        schema: *id001
+      - name: app
+        in: query
+        schema: *id001
+      responses:
+        '200':
+          description: Admin JWT/RBAC catalog. models view=capabilities returns v2
+            items; absent view retains the admin string selector contract.
+      description: Admin user JWT only. Services use the typed core_internal binding.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: ApiKey <token>
+  schemas:
+    ContentItem:
+      type: object
+      additionalProperties: false
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - text
+          - image_url
+          - image_base64
+          - video_url
+        content: *id001
+        url: *id001
+        role: *id001
+    MediaInvokeRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - contract_version
+      - model_key
+      - inputs
+      properties:
+        contract_version:
+          type: integer
+          enum:
+          - 2
+        operation:
+          type: string
+          enum:
+          - invoke
+        model_key: *id001
+        inputs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        params:
+          type: object
+          description: Validated against the selected model operation parameter_schema;
+            unknown keys are rejected.
+        idempotency_key:
+          type: string
+          pattern: ^[A-Za-z0-9._:-]{1,128}$
+    MediaInvokeOperation:
+      allOf:
+      - $ref: '#/components/schemas/MediaInvokeRequest'
+      - required:
+        - operation
+    CatalogOperation:
+      oneOf:
+      - $ref: '#/components/schemas/MediaCatalogOperation'
+      - $ref: '#/components/schemas/SettingsProvidersOperation'
+      - $ref: '#/components/schemas/SettingsModelsOperation'
+    MediaCatalogOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - operation
+      properties:
+        operation:
+          type: string
+          enum:
+          - list_models
+          - list_providers
+        provider: *id001
+        app: *id001
+        capability:
+          type: string
+          enum:
+          - vision_understanding
+          - image_generation
+          - video_generation
+          - speech_synthesis
+          - image_understanding
+    SettingsProvidersOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, modality]
+      properties:
+        operation:
+          type: string
+          enum: [list_settings_providers]
+        modality:
+          type: string
+          enum: [llm]
+    SettingsModelsOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, modality, provider]
+      properties:
+        operation:
+          type: string
+          enum: [list_settings_models]
+        modality:
+          type: string
+          enum: [llm]
+        provider:
+          type: string
+          minLength: 1
+          description: Exact id returned by list_settings_providers.
+        app:
+          type: string
+          description: Required for providers with apps; otherwise empty or omitted. Never split an Ollama tag on colon.
+    SettingsCatalogApp:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: {type: string, minLength: 1}
+        name: {type: string, minLength: 1}
+    SettingsCatalogProvider:
+      type: object
+      additionalProperties: false
+      required: [id, name, apps]
+      properties:
+        id: {type: string, minLength: 1}
+        name:
+          type: string
+          minLength: 1
+          description: Core-owned provider display name, never inferred from model names.
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsCatalogApp'
+    SettingsProviderCatalog:
+      type: object
+      additionalProperties: false
+      required: [contract_version, catalog_kind, env, modality, providers]
+      properties:
+        contract_version: {type: integer, enum: [1]}
+        catalog_kind: {type: string, enum: [ai_settings]}
+        env: {type: string, minLength: 1}
+        modality: {type: string, enum: [llm]}
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsCatalogProvider'
+    SettingsCatalogModel:
+      type: object
+      additionalProperties: false
+      required: [model_key, provider, model, label]
+      properties:
+        model_key:
+          type: string
+          minLength: 1
+          description: Opaque provider/model or provider/app:model key; preserve the complete native model tag.
+        provider: {type: string, minLength: 1}
+        model: {type: string, minLength: 1}
+        label: {type: string, minLength: 1}
+    SettingsModelCatalog:
+      type: object
+      additionalProperties: false
+      required: [contract_version, catalog_kind, env, modality, provider, app, items]
+      properties:
+        contract_version: {type: integer, enum: [1]}
+        catalog_kind: {type: string, enum: [ai_settings]}
+        env: {type: string, minLength: 1}
+        modality: {type: string, enum: [llm]}
+        provider: {type: string, minLength: 1}
+        app: {type: string}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsCatalogModel'
+    TaskOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - operation
+      - task_uuid
+      properties:
+        operation:
+          type: string
+          enum:
+          - get
+          - cancel
+        task_uuid:
+          type: string
+          format: uuid
+    ParameterSchema:
+      type: object
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - string
+          - boolean
+          - number
+          - integer
+        enum:
+          type: array
+          items: {}
+        minimum:
+          type: number
+        maximum:
+          type: number
+        default: {}
+    ModelOperation:
+      type: object
+      required:
+      - driver
+      - input_types
+      - max_images
+      - max_videos
+      - parameters
+      - async
+      - available
+      - parameter_schema
+      - defaults
+      properties:
+        driver: *id001
+        input_types:
+          type: array
+          items: *id001
+        max_images:
+          type: integer
+        max_image_bytes:
+          type: integer
+          format: int64
+          description: 单张参考图解码后的字节上限；省略时未声明。
+        max_total_image_bytes:
+          type: integer
+          format: int64
+          description: 所有参考图解码后的字节总量上限；省略时未声明。
+        max_image_pixels:
+          type: integer
+          format: int64
+          description: 单张参考图的像素数上限；省略时未声明。
+        max_videos:
+          type: integer
+        parameters:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ParameterSchema'
+        async:
+          type: boolean
+        available:
+          type: boolean
+        reason_code: *id001
+        parameter_schema:
+          type: object
+        defaults:
+          type: object
+    MediaModel:
+      type: object
+      required:
+      - model_key
+      - provider
+      - model
+      - label
+      - capabilities
+      - configured
+      - available
+      - operations
+      properties:
+        model_key: *id001
+        provider: *id001
+        model: *id001
+        app: *id001
+        label: *id001
+        capabilities:
+          type: array
+          items: *id001
+        configured:
+          type: boolean
+        available:
+          type: boolean
+        reason_code: *id001
+        operations:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ModelOperation'
+    MediaCatalog:
+      type: object
+      required:
+      - contract_version
+      - items
+      properties:
+        contract_version:
+          enum:
+          - 2
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaModel'
+    MediaAsset:
+      type: object
+      additionalProperties: false
+      required:
+      - media_asset_uuid
+      - type
+      - mime_type
+      - size_bytes
+      - checksum
+      - checksum_algorithm
+      properties:
+        media_asset_uuid:
+          type: string
+          format: uuid
+        type:
+          enum:
+          - image
+          - video
+          - audio
+        mime_type: *id001
+        size_bytes:
+          type: integer
+          minimum: 1
+        checksum:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        checksum_algorithm:
+          enum:
+          - sha256
+    MediaTask:
+      type: object
+      additionalProperties: false
+      required:
+      - contract_version
+      - task_uuid
+      - status
+      - phase
+      - model_key
+      - capability
+      - revision
+      - trace_id
+      - cancel_status
+      - assets
+      - created_at
+      - updated_at
+      properties:
+        contract_version:
+          enum:
+          - 2
+        task_uuid:
+          type: string
+          format: uuid
+        status:
+          enum:
+          - queued
+          - running
+          - succeeded
+          - failed
+          - cancelled
+        phase:
+          enum:
+          - queued
+          - submitting
+          - waiting_provider
+          - materializing
+          - completed
+        model_key: *id001
+        capability: *id001
+        revision:
+          type: integer
+          minimum: 1
+        trace_id: *id001
+        error_code: *id001
+        provider_error_code: *id001
+        cancel_status:
+          enum:
+          - none
+          - requested
+          - confirmed
+          - unsupported
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaAsset'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        upstream_status:
+          type: integer
+        provider_trace_id:
+          type: string
+    AnalysisResult:
+      type: object
+      required:
+      - contract_version
+      - type
+      - text
+      - trace_id
+      - provider
+      - model
+      properties:
+        contract_version:
+          enum:
+          - 2
+        type:
+          enum:
+          - analysis
+        text: *id001
+        trace_id: *id001
+        provider: *id001
+        model: *id001
+        usage:
+          type: object
+    MediaTaskEnvelope:
+      type: object
+      required:
+      - data
+      properties:
+        code:
+          type: integer
+        message: *id001
+        data:
+          $ref: '#/components/schemas/MediaTask'
+        request_id: *id001
+    AnalysisEnvelope:
+      type: object
+      required:
+      - data
+      properties:
+        code:
+          type: integer
+        message: *id001
+        data:
+          $ref: '#/components/schemas/AnalysisResult'
+        request_id: *id001
+    CatalogEnvelope:
+      type: object
+      required:
+      - data
+      properties:
+        code:
+          type: integer
+        message: *id001
+        data:
+          $ref: '#/components/schemas/MediaCatalog'
+        request_id: *id001
+    ErrorEnvelope:
+      type: object
+      properties:
+        code: {}
+        message: *id001
+        error_code: *id001
+        details:
+          type: object
+        request_id: *id001
+        trace_id: *id001

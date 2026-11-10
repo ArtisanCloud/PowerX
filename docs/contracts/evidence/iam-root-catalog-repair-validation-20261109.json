@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-09",
+  "status": "source_and_isolated_validation_complete_daily_apply_pending",
+  "failure": "IAM_BASELINE_ROOT_BYPASS_UNSUPPORTED caused by stale root role UUID links and ignored numeric-key conflict",
+  "changes": [
+    "backend/pkg/corex/iam/rootrole/root_role.go",
+    "backend/pkg/corex/iam/rootrole/catalog_integrity_test.go",
+    "backend/pkg/corex/iam/authorizationbaseline/root_catalog_repair.go",
+    "backend/pkg/corex/iam/authorizationbaseline/root_catalog_repair_test.go",
+    "backend/cmd/root-catalog-repair/main.go",
+    "make_files/perm.mk",
+    "docs/contracts/iam-root-catalog-repair.md",
+    "docs/guides/features/iam-authorization-baseline/guide.md"
+  ],
+  "regression": {
+    "pass": 188,
+    "skip": 6
+  },
+  "skipped_acceptance": [
+    "TestLivePluginRequestIdentity",
+    "TestStorageLocalConfiguredAcceptance",
+    "TestStorageLocalInventoryReadOnlyAcceptance",
+    "TestStorageLocalRuntimePreparedReadOnlyAcceptance",
+    "TestStorageNativeLocalObservationAcceptance",
+    "TestNativeSystemSnapshotBootstrapWithRelativeMediaDirectory"
+  ],
+  "postgres_database_removed": true,
+  "daily_readonly_preview": {
+    "total_links": 1148,
+    "candidates": 523,
+    "blocked": 0,
+    "applied": false,
+    "fingerprint": "8cc2577fd78145a328e12dfdb4bc6372ccdbef1f13d6b97beb2dc5eef1e8d8ab"
+  },
+  "core_build": "pass",
+  "vet": "pass",
+  "core_restarted": false,
+  "framework_modified": false,
+  "ai_craft_code_modified": false,
+  "schema_or_migration_change": false,
+  "daily_grants_or_database_modified": false,
+  "next": "review exact plan, explicitly execute standalone repair, deploy Core, verify real Root order-content history and ordinary member isolation"
+}

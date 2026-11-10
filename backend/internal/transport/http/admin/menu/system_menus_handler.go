@@ -231,7 +231,18 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 					Visible:     true,
 					Origin:      plugin_mgr.OriginSystem,
 					ParentID:    "monitor_center",
-					Permissions: []string{"admin:root", "menu.monitor:view"},
+					Permissions: []string{"admin:root"},
+				},
+				{
+					Key:         "monitor_storage_governance",
+					Title:       "存储治理",
+					Icon:        "i-heroicons-server-stack",
+					URL:         "/monitor/storage",
+					Order:       6,
+					Visible:     true,
+					Origin:      plugin_mgr.OriginSystem,
+					ParentID:    "monitor_center",
+					Permissions: []string{"admin:root"},
 				},
 			},
 		},
@@ -302,6 +313,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 				"menu.settings:view",
 			},
 			Children: []admdto.AdminMenuItem{
+				{Key: "settings_client_apps", Title: "menu.clientApps", Icon: "i-heroicons-device-phone-mobile", URL: "/settings/client-apps", Order: 7, Visible: true, Origin: plugin_mgr.OriginSystem, ParentID: plugin_mgr.KeySettings, Permissions: []string{"menu.settings.client_apps:view"}},
 				{
 					Key:      plugin_mgr.KeyUserManagement,
 					Title:    "menu.userManagement",

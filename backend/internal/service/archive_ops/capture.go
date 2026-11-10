@@ -9,6 +9,7 @@ import (
 	"fmt"
 	medriver "github.com/ArtisanCloud/PowerX/internal/infra/media/driver"
 	s3driver "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/s3"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/jackc/pgx/v5"
 	"io"
 	"net/url"
@@ -28,8 +29,50 @@ func (s *Service) captureWithMode(ctx context.Context, j *jobRecord, p Policy, s
 	if containsPath(source.Directory, s.cfg.Directory) {
 		return errors.New("归档目录不能位于来源目录内部，拒绝备份自身")
 	}
+	if budget.Enabled() {
+		var peak int64
+		var err error
+		if isLogSource(source.Kind) && source.RotationFormat != "" {
+			plan, e := sealedLogPlan(ctx, source)
+			err = e
+			if err == nil && !plan.Complete {
+				err = budget.ErrUnavailable
+			}
+			for _, candidate := range plan.Candidates {
+				peak += candidate.Bytes
+				if peak < 0 {
+					err = budget.ErrUnavailable
+					break
+				}
+			}
+		} else {
+			peak, err = budget.TreeBytes(ctx, source.Directory)
+		}
+		if err != nil {
+			return err
+		}
+		if p.IncludeDatabase {
+			conn, err := pgx.Connect(ctx, source.DatabaseDSN)
+			if err != nil {
+				return budget.ErrUnavailable
+			}
+			var size int64
+			err = conn.QueryRow(ctx, "SELECT pg_database_size(current_database())").Scan(&size)
+			conn.Close(ctx)
+			if err != nil || size < 0 || size > 1<<48 {
+				return budget.ErrUnavailable
+			}
+			peak += size * 2
+		}
+		run, release, err := budget.BeginPath(ctx, s.cfg.Directory, "archive_capture", peak+(64<<20))
+		if err != nil {
+			return err
+		}
+		defer release()
+		ctx = run
+	}
 	active := map[string]bool{}
-	if source.Kind == "postgresql_logs" {
+	if source.Kind == "postgresql_logs" && source.RotationFormat == "" {
 		raw, e := os.ReadFile(source.CurrentLogfiles)
 		if e != nil {
 			return errors.New("无法识别正在写入的 PostgreSQL 日志")
@@ -67,7 +110,9 @@ func (s *Service) captureWithMode(ctx context.Context, j *jobRecord, p Policy, s
 		}
 	}
 	var e error
-	if !online {
+	if !online && isLogSource(source.Kind) && source.RotationFormat != "" {
+		e = s.captureSealedLogs(ctx, j, source, entries)
+	} else if !online {
 		e = filepath.WalkDir(source.Directory, func(path string, d os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return fmt.Errorf("无法读取来源目录: %s", filepath.Base(path))
@@ -189,7 +234,7 @@ func (s *Service) captureReader(ctx context.Context, r io.Reader, name string, s
 	tmp := f.Name()
 	defer os.Remove(tmp)
 	hash := sha256.New()
-	n, e := io.Copy(io.MultiWriter(f, hash), &contextReader{ctx, r})
+	n, e := io.Copy(io.MultiWriter(budget.Writer(ctx, f), hash), &contextReader{ctx, r})
 	if e == nil && size >= 0 && size != n {
 		e = errors.New("文件大小与元数据不符")
 	}
@@ -366,7 +411,7 @@ func (s *Service) dumpSnapshot(ctx context.Context, source Source, j *jobRecord)
 	}
 	tmp := filepath.Join(s.cfg.Directory, "staging", j.ID+".dump")
 	defer os.Remove(tmp)
-	cmd := exec.CommandContext(ctx, "pg_dump", "--no-password", "--format=custom", "--snapshot="+j.SnapshotID, "--file", tmp)
+	cmd := exec.Command("pg_dump", "--no-password", "--format=custom", "--snapshot="+j.SnapshotID)
 	env := append(os.Environ(), "PGHOST="+cfg.Host, "PGPORT="+fmt.Sprint(cfg.Port), "PGUSER="+cfg.User, "PGPASSWORD="+cfg.Password, "PGDATABASE="+cfg.Database)
 	// URI 中的 TLS 参数保留，不把 DSN 或密码放入命令行。
 	mode := "prefer"
@@ -397,10 +442,21 @@ func (s *Service) dumpSnapshot(ctx context.Context, source Source, j *jobRecord)
 		}
 	}
 	cmd.Env = append(env, "PGSSLMODE="+mode)
-	cmd.Stdout = io.Discard
+	output, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer output.Close()
+	cmd.Stdout = budget.Writer(ctx, output)
 	cmd.Stderr = io.Discard
-	if e = cmd.Run(); e != nil {
+	if e = s.runArchiveCommand(ctx, cmd, j.ID, "pg_dump"); e != nil {
 		return errors.New("配套 pg_dump 快照失败，请检查客户端版本和读取权限")
+	}
+	if e = output.Sync(); e != nil {
+		return e
+	}
+	if e = output.Close(); e != nil {
+		return e
 	}
 	entry, added, e := s.captureFile(ctx, tmp, "database/database.dump")
 	if e != nil {

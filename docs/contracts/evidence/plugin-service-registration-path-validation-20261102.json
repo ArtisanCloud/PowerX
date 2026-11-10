@@ -1,0 +1,103 @@
+{
+  "schema": "powerx.plugin-service-registration-validation/v1",
+  "recorded_at": "2026-11-02T07:38:26.853933+00:00",
+  "scope": "Core service-ticket capability registration only; no Framework/SCRM source changes, live grant changes, seed, or service restart",
+  "implementation": [
+    "Only an exact channel/method/path match to metadata auth_type=core_service_ticket permits a full fixed API path.",
+    "REST, service_actor, tenant, valid method/schema and independent service API permission remain mandatory.",
+    "Normal binding prefix rules and API Key owner/grant/default-role logic are unchanged.",
+    "Fixed service paths reject host _p segments, absolute URLs, queries/fragments, dynamic/wildcard paths, encoded paths, and traversal.",
+    "Local service-ticket schema refs split packaged filename and JSON Pointer; missing/invalid fragments are rejected without rewriting stored refs."
+  ],
+  "descriptor_fixture_sha256": {
+    "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.conversations.list.yaml": "0a0c8b78551cd4f8166247d8faef77e85b405258eec679d28f63b21799f373c5",
+    "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.endpoints.list.yaml": "95a57028ecc9163f52c569e587a1e5dfdc629674736054c7c0e16de30ae5a248",
+    "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.executions.read.yaml": "2f060b2f7ad6f4f2b81e397f5a1228ad3408cccc87a8f8964acade59f2810180",
+    "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.executions.reply.yaml": "d2173777597bb03c810673e2744b6804cff2bba1450c4ffd6ba967f7a2da52cc",
+    "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.messages.list.yaml": "dfb29d021fbaec10ac35675fd1b99e2334ff4d92aa8cec1242b32b2fb1f39216",
+    "docs/contracts/messaging-service.openapi.yaml": "5e435b938ed3d7a8d368384d81494ddca25fae18340eabf98bdabcc5f3a6a260"
+  },
+  "validation": {
+    "five_real_descriptors": true,
+    "actual_adjacent_scrm_descriptors_validated": true,
+    "default_base_path": "/api/v1",
+    "custom_base_path": "/custom/api/v7",
+    "formal_ProcessArtifact_repeat_sync_and_tenant_registration": true,
+    "installation_FSLoader_and_manifest_permission_SyncPermissions_repeat": true,
+    "five_explicit_service_API_key_permissions_materialized": true,
+    "ungranted_key_still_denied": true,
+    "runtime_mounted_base_tenant_usage_guards": true,
+    "negative_cases": [
+      "path/method mismatch",
+      "missing schema",
+      "invalid method/channel",
+      "wrong actor/scope",
+      "not independent",
+      "permission alias",
+      "wrong plugin/capability owner",
+      "ordinary binding prefix",
+      "ticket belongs to another path/method",
+      "host proxy path",
+      "absolute URL",
+      "query/fragment including empty query",
+      "dynamic/wildcard/traversal/encoded path",
+      "missing/invalid schema file/fragment"
+    ],
+    "related_regression_packages": 8,
+    "original_ticket_business_error_revocation_owner_tests": "passed in full affected packages"
+  },
+  "checks": {
+    "targeted": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-scrm-registration-targeted.log",
+      "sha256": "2876058133922b9d426d83dc32dade4052a4e627f50ae9e8fe8a55b4af06ed69"
+    },
+    "install-sync": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-scrm-registration-install-sync.log",
+      "sha256": "2467166bf1a2a9e0e4e6b1d308061225910d5c2375c1c59c9201d8af507d5783"
+    },
+    "regressions": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-scrm-registration-regressions.log",
+      "sha256": "28d0ab51cf4948a6758180cf992beda5a9fb51b0cdd059b699659cf71f86cc14"
+    },
+    "vet": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-scrm-registration-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-scrm-registration-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "capability-check": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-scrm-registration-capability-check.log",
+      "sha256": "a3055cb173dfb6b49a4870545afe303ad2a4faf4621c2e5adbe97ea7e9aa0341"
+    }
+  },
+  "source_sha256": {
+    "backend/internal/service/capability_registry/sync_worker.go": "aeefc88bf31fd7a68c80ac49baf5199dc65eedd968238ee30ebab8199f8043f2",
+    "backend/internal/service/capability_registry/plugin_service_binding.go": "7493e94109de1c7964a5a6d11c7c9a769b32b9ee26c8b56f35a2513e1e8c33a3",
+    "backend/internal/service/capability_registry/plugin_service_invocation.go": "48f5e5a71688e6df05a119d28718edc6c1594ce044ef54ab0cecea6b6210de44",
+    "backend/internal/service/capability_registry/plugin_service_descriptor_test.go": "52281cb13b8d161ce8698c3bc0f108f45efeb74b77ff71e4d73c4a8e772ebfc9",
+    "backend/internal/bootstrap/plugin_service_descriptor_install_test.go": "aaf4f2e81e638a3f5309c04f900f36aa89f10c4382cfc7423de3d15d8480d084",
+    "backend/internal/infra/plugin/manager/router/service_target_test.go": "5ad824fb49049fd68cdc94a10cb88887db46603cc7eb0b032b75b45c9049d2f9",
+    "docs/contracts/plugin-service-authorization.md": "84c6cd3ce9f519333934ee0b4629b52aa802f6a9a13fd87c20c1d776a18366e4"
+  },
+  "compiled_core": {
+    "path": "/tmp/powerx-scrm-registration-core",
+    "sha256": "c4d5ff98b36831a36b429e69ccf6a87de24e8f5f6c10aa79bb28619942ab55a2",
+    "started": false
+  },
+  "runtime_boundary": {
+    "live_database_or_authorization_writes": false,
+    "capability_seed_run": false,
+    "daily_core_pid_unchanged": 93664,
+    "daily_core_contains_fix": false,
+    "plugin_runtime_reinstalled": false,
+    "real_scrm_service_call_acceptance": "not part of this source registration fix; deploy updated Core before re-registering"
+  }
+}

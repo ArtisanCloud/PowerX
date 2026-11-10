@@ -1,0 +1,9 @@
+{
+  "job_id": "750935ca-bb5d-4ab3-bcf8-f44c7e9ca5bc",
+  "minute_scheduler_observed": false,
+  "no_replacement_job": true,
+  "original_request": "e8784ec2-9f58-4e1d-a103-d1c42dc2090c",
+  "partial_capture_preserved": true,
+  "scene": "manifest-ack",
+  "source_cleanup_before_retry": false
+}

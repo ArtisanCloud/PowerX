@@ -7,12 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/redis/go-redis/v9"
 )
 
 // redisEventBus Redis事件总线实现
 type redisEventBus struct {
+	namespace  string
 	client     *redis.Client
 	handlersMu sync.RWMutex
 	handlers   map[string][]Handler
@@ -24,12 +26,15 @@ type redisEventBus struct {
 }
 
 // NewRedisEventBus 创建Redis事件总线
-func NewRedisEventBus(opts *redis.Options) EventBus {
+func NewRedisEventBus(opts *redis.Options, namespace ...string) EventBus {
 	reb := &redisEventBus{
 		client:    redis.NewClient(opts),
 		handlers:  make(map[string][]Handler),
 		processed: make(map[string]time.Time),
 		closeCh:   make(chan struct{}),
+	}
+	if len(namespace) > 0 {
+		reb.namespace = namespace[0]
 	}
 
 	// 启动订阅循环
@@ -44,12 +49,22 @@ func NewRedisEventBus(opts *redis.Options) EventBus {
 // startSubscriberLoop 启动订阅循环
 func (reb *redisEventBus) startSubscriberLoop() {
 	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.redis"})
-	reb.pubsub = reb.client.PSubscribe(context.Background(), "corex:event:*")
-	ch := reb.pubsub.Channel()
+	reb.handlersMu.Lock()
+	if reb.closed {
+		reb.handlersMu.Unlock()
+		return
+	}
+	pubsub := reb.client.PSubscribe(context.Background(), redisnamespace.Key(reb.namespace, "corex:event:*"))
+	reb.pubsub = pubsub
+	reb.handlersMu.Unlock()
+	ch := pubsub.Channel()
 
 	for {
 		select {
-		case msg := <-ch:
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
 			if msg == nil {
 				continue
 			}
@@ -168,7 +183,10 @@ func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx con
 	if logCtx == nil {
 		logCtx = logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.redis"})
 	}
-	if reb.closed {
+	reb.handlersMu.RLock()
+	closed := reb.closed
+	reb.handlersMu.RUnlock()
+	if closed {
 		logger.WarnF(logCtx, "Redis事件总线已关闭，无法发布事件 %s", eventType)
 		return
 	}
@@ -199,7 +217,7 @@ func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx con
 	}
 
 	// 发布到Redis
-	channel := fmt.Sprintf("corex:event:%s", eventType)
+	channel := redisnamespace.Key(reb.namespace, fmt.Sprintf("corex:event:%s", eventType))
 	if err := reb.client.Publish(context.Background(), channel, b).Err(); err != nil {
 		logger.ErrorF(logCtx, "发布Redis事件失败: %v", err)
 		return
@@ -211,24 +229,25 @@ func (reb *redisEventBus) Publish(eventType string, payload interface{}, ctx con
 // Close 关闭事件总线
 func (reb *redisEventBus) Close() error {
 	logCtx := logger.WithLogFields(context.Background(), map[string]interface{}{"module": "event_bus.redis"})
+	reb.handlersMu.Lock()
 	if reb.closed {
+		reb.handlersMu.Unlock()
 		return nil
 	}
 
 	reb.closed = true
 	close(reb.closeCh)
+	pubsub := reb.pubsub
+	reb.handlers = make(map[string][]Handler)
+	reb.handlersMu.Unlock()
 
-	if reb.pubsub != nil {
-		reb.pubsub.Close()
+	if pubsub != nil {
+		pubsub.Close()
 	}
 
 	if reb.client != nil {
 		reb.client.Close()
 	}
-
-	reb.handlersMu.Lock()
-	reb.handlers = make(map[string][]Handler)
-	reb.handlersMu.Unlock()
 
 	reb.dedupeMu.Lock()
 	reb.processed = make(map[string]time.Time)

@@ -63,6 +63,35 @@ func TestInvocationFailureDetailsPreservesRemoteProviderFailure(t *testing.T) {
 	require.Equal(t, "response_headers", providerFailure["phase"])
 }
 
+func TestRESTUpstreamBusinessErrorPreservesExplicitCodeAndTrace(t *testing.T) {
+	err := newRESTUpstreamError(http.StatusConflict, http.MethodPost, "/_p/ecommerce/api/v1/plugin/commerce/purchase-options/save", []byte(`{"error_code":"COMMERCE_CONFIGURATION_IDEMPOTENCY_CONFLICT","message":"localized conflict message","trace_id":"upstream-trace","details":{"reason_code":"different-code"}}`))
+	var upstream *RESTUpstreamError
+	require.ErrorAs(t, err, &upstream)
+	require.Equal(t, "COMMERCE_CONFIGURATION_IDEMPOTENCY_CONFLICT", upstream.BusinessCode)
+	require.Equal(t, upstream.BusinessCode, upstream.RemoteCode)
+	require.Equal(t, "localized conflict message", upstream.Cause)
+	details := InvocationFailureDetails(err)
+	require.Equal(t, upstream.BusinessCode, details["reason_code"])
+	require.Equal(t, "upstream-trace", details["upstream_trace_id"])
+	require.Equal(t, http.StatusConflict, details["upstream_status"])
+}
+
+func TestRESTUpstreamDoesNotInferBusinessCodeFromMessage(t *testing.T) {
+	for _, raw := range []string{
+		`{"message":"COMMERCE_CONFIGURATION_IDEMPOTENCY_CONFLICT"}`,
+		`{"error_code":"localized conflict message"}`,
+		`{"error_code":"INVALID-CODE"}`,
+		`{"error_code":"1_INVALID"}`,
+		`{"error_code":409}`,
+		`{"error_code":"COMMERCE_CONFIGURATION_IDEMPOTENCY_CONFLICT",`,
+	} {
+		err := newRESTUpstreamError(http.StatusConflict, http.MethodPost, "/plugin/commerce/save", []byte(raw))
+		var upstream *RESTUpstreamError
+		require.ErrorAs(t, err, &upstream)
+		require.Empty(t, upstream.BusinessCode, raw)
+	}
+}
+
 func TestInvocationServiceInvokeRESTAppliesPathParamsAndTenantHeader(t *testing.T) {
 	t.Parallel()
 	testutil.SkipIfNoLocalListener(t)

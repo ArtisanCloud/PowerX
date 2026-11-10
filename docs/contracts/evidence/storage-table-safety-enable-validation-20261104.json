@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "recorded_at": "2026-11-04T10:20:34.017468+00:00",
+  "scope": "actual local development 3030 -> 8077; no production operations",
+  "result": "passed",
+  "services": {
+    "core_pid": 76613,
+    "core_port": 8077,
+    "frontend_pid": 76292,
+    "frontend_port": 3030,
+    "user_processes_restarted": false
+  },
+  "migration": {
+    "scope": "system-table-retention",
+    "database": "powerx",
+    "schema": "public",
+    "command_cwd": "backend",
+    "target_guards": [
+      "dev/test only",
+      "configured endpoint and all fallbacks local",
+      "explicit database/schema confirmation",
+      "live registered PostgreSQL cluster identity"
+    ],
+    "effects": "two fixed indexes only; no source rows or unrelated tables modified",
+    "indexes": [
+      {
+        "name": "idx_registry_discovery_expiry",
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX idx_registry_discovery_expiry ON public.capability_registry_discovery_cache USING btree (expires_at)"
+      },
+      {
+        "name": "idx_registry_probe_retention",
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX idx_registry_probe_retention ON public.capability_registry_health_probe_results USING btree (probe_window_start, adapter_id)"
+      }
+    ]
+  },
+  "monitoring": {
+    "enabled_through": "Root UI save",
+    "policy": {
+      "revision": 1,
+      "owner_instance": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+      "enabled": true,
+      "warning_bytes": 4294967296,
+      "growth_bytes": 268435456,
+      "growth_window_minutes": 15,
+      "stale_after_minutes": 45,
+      "failure_limit": 3,
+      "updated_at": "2026-11-04T10:10:34.013436Z",
+      "actor": 1
+    },
+    "state": "observed",
+    "tables": 63,
+    "all_tables_observed": true,
+    "alerts": [],
+    "scheduled_cleanup_cycle_after_enable": {
+      "owner_instance": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+      "cycle_id": "9e1b288d-9f97-44c6-a76d-31d36a1537e1",
+      "state": "completed",
+      "started_at": "2026-11-04T10:17:23.025195Z",
+      "finished_at": "2026-11-04T10:17:23.030884Z",
+      "last_success_at": "2026-11-04T10:17:23.030884Z",
+      "consecutive_failures": 0
+    },
+    "threshold_notification_delivery": "not triggered; not claimed as delivered",
+    "backlog": {
+      "owner_instance": "a98bdaf0-6262-4b58-bd5d-b9c0c4ef7567",
+      "state": "disabled",
+      "observed_at": "2026-11-04T10:12:22.781163Z",
+      "since": null,
+      "eligible_present": false,
+      "quarantine_present": false,
+      "policy_revision": 0
+    }
+  },
+  "owned_canary_acceptance": {
+    "seeded_rows": 9,
+    "preview_and_delete_through": "Root UI, explicit rule save, preview and independent confirmation",
+    "cases": [
+      {
+        "table": "capability_registry_health_probe_results",
+        "preview_rows": 1,
+        "deleted_rows": 1,
+        "run_state": "completed",
+        "final_policy_enabled": false
+      },
+      {
+        "table": "capability_registry_discovery_cache",
+        "preview_rows": 1,
+        "deleted_rows": 1,
+        "run_state": "completed",
+        "final_policy_enabled": false
+      }
+    ],
+    "protected_rows_verified": 7,
+    "protected_cases": [
+      "latest active probe",
+      "unknown pending probe",
+      "future retry",
+      "sole current probe",
+      "active expired fallback cache",
+      "future expiry",
+      "unregistered tenant"
+    ],
+    "remaining_test_rows_removed": true,
+    "source_counts_restored": {
+      "probe": 0,
+      "cache": 0
+    },
+    "unknown_operation_intents": 0
+  },
+  "other_policies": {
+    "new_cleanup_rules": "disabled after owned test",
+    "existing_call_audit_retention": "disabled; no policy document; API/UI unchanged",
+    "file_cleanup_enabled": false
+  },
+  "postgres_logging": {
+    "log_statement": "mod",
+    "logging_collector": "on"
+  },
+  "ui": {
+    "widths": [
+      1440,
+      390,
+      320
+    ],
+    "normal_root_login": true,
+    "mocked_storage_endpoints": false,
+    "document_and_modal_overflow": false,
+    "settings_and_context_preserved": true,
+    "final_readonly_storage_writes": 0,
+    "initial_test_runner_issue": "after successful deletions and canary removal, status locator remained on settings tab; final read-only run explicitly selected status and passed",
+    "final_result": "passed"
+  },
+  "regressions": {
+    "target_guard_unit": "passed; remote host, DSN override, remote fallback and malformed DSN rejected before database access",
+    "native_postgres": [
+      "atomic narrow migration, repeat, missing source, wrong index, wrong cluster",
+      "system-table retention runtime",
+      "Root HTTP storage safety"
+    ],
+    "frontend_unit": "7 passed",
+    "go_vet": "passed",
+    "race_scope_guard": "passed"
+  },
+  "cleanup": {
+    "owner": "storage-safety-enable-20261104",
+    "checked_at": "2026-11-04T10:18:36.212366+00:00",
+    "processes": [
+      {
+        "source": "ui-process.json",
+        "pid": 94939,
+        "exited": true
+      },
+      {
+        "source": "ui-process.json",
+        "pid": 94941,
+        "exited": true
+      },
+      {
+        "source": "ui-process.json",
+        "pid": 94945,
+        "exited": true
+      },
+      {
+        "source": "ui-process.json",
+        "pid": 94946,
+        "exited": true
+      },
+      {
+        "source": "ui-process.json",
+        "pid": 94964,
+        "exited": true
+      },
+      {
+        "source": "readonly-ui-process.json",
+        "pid": 15097,
+        "exited": true
+      },
+      {
+        "source": "readonly-ui-process.json",
+        "pid": 15099,
+        "exited": true
+      },
+      {
+        "source": "readonly-ui-process.json",
+        "pid": 15103,
+        "exited": true
+      },
+      {
+        "source": "readonly-ui-process.json",
+        "pid": 15104,
+        "exited": true
+      },
+      {
+        "source": "readonly-ui-process.json",
+        "pid": 15120,
+        "exited": true
+      },
+      {
+        "source": "native-process.json",
+        "pid": 13520,
+        "exited": true
+      }
+    ],
+    "removed_pgdata": [
+      "pgdata-32n962vk",
+      "pgdata-l5kquzpd",
+      "pgdata-s87gwfgw"
+    ],
+    "removed_sockets": [],
+    "user_processes_preserved": [
+      {
+        "pid": 76613,
+        "port": 8077
+      },
+      {
+        "pid": 76292,
+        "port": 3030
+      }
+    ],
+    "temporary_tcp_port_19464_free": true
+  },
+  "artifacts": [
+    "tmp/storage-safety-enable-20261104/REPORT.md",
+    "tmp/storage-safety-enable-20261104/ui-result.json",
+    "tmp/storage-safety-enable-20261104/readonly-ui-result.json",
+    "tmp/storage-safety-enable-20261104/canary-protection.json",
+    "tmp/storage-safety-enable-20261104/canary-cleanup.json",
+    "tmp/storage-safety-enable-20261104/final-database.json",
+    "tmp/storage-safety-enable-20261104/native-postgres-tests.log",
+    "tmp/storage-safety-enable-20261104/migration-task-delta.patch"
+  ]
+}

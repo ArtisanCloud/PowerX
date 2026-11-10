@@ -2,13 +2,16 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/stsproof"
 )
 
 type KeyResolver interface {
@@ -91,6 +94,16 @@ func attachClaimsToCtx(ctx context.Context, ring KeyResolver) context.Context {
 	}
 	if claims != nil {
 		ctx = reqctx.WithClaims(ctx, claims)
+		if claims.Issuer == "powerx-sts" {
+			status := 0
+			if err := stsproof.Verify(ctx, cache.GetCache(), claims); err != nil {
+				status = 401
+				if errors.Is(err, stsproof.ErrUnavailable) {
+					status = 503
+				}
+			}
+			ctx = reqctx.WithSTSIssuanceStatus(ctx, status)
+		}
 		if claims.TenantUUID != "" {
 			ctx = reqctx.WithTenantUUID(ctx, claims.TenantUUID)
 		}

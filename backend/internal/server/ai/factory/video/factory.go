@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/agnes"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/volcengine"
 )
 
 func NewClient(provider string) (Client, error) {
 	switch normalize(provider) {
+	case "agnes":
+		return agnes.NewVideoClient(), nil
 	case "volcengine", "volc", "volcano", "bytedance":
 		return volcengine.NewVideoClient(provider), nil
 	default:

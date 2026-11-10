@@ -60,6 +60,9 @@ type CapabilityInvoker struct {
 }
 
 func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in cap.CoreCapabilityInvokeInput) (map[string]interface{}, error) {
+	if in.CapabilityID == InvalidateCardCapabilityID {
+		return i.invokeInvalidateCard(ctx, in)
+	}
 	if in.CapabilityID == ReadReceiptCapabilityID {
 		return i.invokeReadReceipt(ctx, in)
 	}
@@ -101,14 +104,7 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in cap.Cor
 	if err != nil {
 		return nil, err
 	}
-	payload := map[string]interface{}{"id": item.UUID.String(), "title": item.Title, "content": item.Content, "type": item.Type, "category": item.Category, "isRead": item.IsRead, "isImportant": item.IsImportant, "createdAt": item.CreatedAt, "updatedAt": item.UpdatedAt, "userId": item.MemberUUID, "metadata": op.Metadata}
-	if len(item.Actions) > 0 {
-		var actions []Action
-		if err := json.Unmarshal(item.Actions, &actions); err != nil {
-			return nil, err
-		}
-		payload["actions"] = actions
-	}
+	payload := CreatedEvent(item)
 	i.Publish(ctx, in.TenantUUID, payload)
 	return map[string]interface{}{"result": payload}, nil
 }
@@ -145,6 +141,6 @@ func (i *CapabilityInvoker) invokeReadReceipt(ctx context.Context, in cap.CoreCa
 	if err != nil {
 		return nil, err
 	}
-	i.Publish(ctx, in.TenantUUID, ReadEvent(in.TenantUUID, result.MemberUUID, result.NotificationUUIDs))
+	i.Publish(ctx, in.TenantUUID, ReadEventVersioned(in.TenantUUID, result.MemberUUID, result.NotificationUUIDs, result.Revisions))
 	return map[string]interface{}{"result": result}, nil
 }

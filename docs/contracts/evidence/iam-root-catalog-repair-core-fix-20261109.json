@@ -1,0 +1,207 @@
+{
+  "date": "2026-11-09",
+  "scope": "Core review fixes for root catalog availability isolation and complete repair-plan confirmation",
+  "status": "source_and_isolated_validation_complete_daily_preview_only",
+  "changes": {
+    "catalog_checks": "explicit Root catalog synchronization still rejects inconsistent numeric/UUID links",
+    "ordinary_source_transactions": "isolate only IAM_ROOT_ROLE_CATALOG_INCONSISTENT; ordinary user deactivation and role revocation proceed; other errors still fail",
+    "root_history": "do not recompute still-Root histories under a bad catalog; Root/user deactivation still records denial",
+    "startup": "read-only Root catalog warning instead of whole-Core initialization failure",
+    "repair_contract": "core.iam.root_catalog_repair.v2",
+    "repair_plan": "catalog plus exact affected tenant/plugin/member/permission/stream revisions and all prior historical segments fingerprinted",
+    "repair_apply": "only reviewed streams upgraded, expected revisions and known_since verified; directory and history changes remain atomic"
+  },
+  "validation": {
+    "unique_top_level_pass": 53,
+    "unique_pass_records_including_parent_and_subtests": 95,
+    "skipped": [
+      [
+        "github.com/ArtisanCloud/PowerX/pkg/corex/db/database",
+        "TestPostgresMigrationUpgradesRootWithoutBusinessRolesOrBackdatedHistory"
+      ]
+    ],
+    "go_race": [
+      {
+        "log": "/tmp/powerx-root-catalog-fix-postgres-final.jsonl",
+        "sha256": "577d3a813276e3c5ac51b3d918d56ff0febae7202ff5f23730d9b8c8a8c1ae2a",
+        "top_level_pass": 33,
+        "pass_records": 68,
+        "package_results": [
+          {
+            "package": "github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline",
+            "result": "pass"
+          }
+        ]
+      },
+      {
+        "log": "/tmp/powerx-root-catalog-fix-integration-final.jsonl",
+        "sha256": "517b54a7699fcaf1410645d69129c1248af415fba595cbbb7a1c74232e186d6a",
+        "top_level_pass": 12,
+        "pass_records": 12,
+        "package_results": [
+          {
+            "package": "github.com/ArtisanCloud/PowerX/pkg/corex/db/database",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/ArtisanCloud/PowerX/internal/bootstrap",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/ArtisanCloud/PowerX/internal/service/iam",
+            "result": "pass"
+          }
+        ]
+      },
+      {
+        "log": "/tmp/powerx-root-catalog-fix-iam-final.jsonl",
+        "sha256": "67209cd19eb1c0aa7d68b6ccff9be2c2df86bd3d66d8f9a0386c4710cf65e209",
+        "top_level_pass": 17,
+        "pass_records": 24,
+        "package_results": [
+          {
+            "package": "github.com/ArtisanCloud/PowerX/internal/service/iam",
+            "result": "pass"
+          }
+        ]
+      }
+    ],
+    "vet": {
+      "exit_code": 0,
+      "log": "/tmp/powerx-root-catalog-fix-vet.log"
+    },
+    "builds": [
+      {
+        "path": "/tmp/powerx-root-catalog-fix-core",
+        "sha256": "9be5e7f345e6781e84de0c8c8a49f024f245d679c2a4e12945a0fb4b5ea4bbbf",
+        "exit_code": 0
+      },
+      {
+        "path": "/tmp/powerx-root-catalog-repair-v2",
+        "sha256": "df4771fe98821854a685a2dbdb4174dca8707d1e2334a0c5d355812e7a9d3109",
+        "exit_code": 0
+      }
+    ],
+    "scoped_diff_check_exit": 0,
+    "gofmt_pending": false
+  },
+  "owned_postgres_validation": {
+    "pid": 98843,
+    "database_was_isolated": true,
+    "tcp_listening": false,
+    "unix_socket_port": 55439,
+    "tests_include_523_candidates": true,
+    "tests_include_concurrent_source_writes": true,
+    "tests_include_new_root_after_preview": true,
+    "tests_include_unrelated_user_deactivation": true,
+    "pid_exited": true,
+    "unix_socket_released": true,
+    "directory_removed": true,
+    "metadata": "/tmp/powerx-root-catalog-fix-pg.json"
+  },
+  "daily_readonly_preview": {
+    "contract": "core.iam.root_catalog_repair.v2",
+    "applied": false,
+    "total_links": 1148,
+    "candidates": 523,
+    "blocked": 0,
+    "history": 2,
+    "history_blocked": 0,
+    "fingerprint": "2d73e63cb34fe29ee9b9a41154783831578d39a2c5c673a72abf1e9cf668df11",
+    "private_plan": "/tmp/powerx-root-catalog-preview-8qxv1ivy/plan.json",
+    "private_log": "/tmp/powerx-root-catalog-preview-8qxv1ivy/preview-output.log"
+  },
+  "files": [
+    {
+      "path": "backend/pkg/corex/iam/rootrole/root_role.go",
+      "before_sha256": "33881f45bb785b716b3fffa1c785468462e4464b683d84d51362064000369288",
+      "sha256": "5c1423ee0342b2f497547ee76e1a21b055c9526ceb60441d6a3279c9a46f91aa"
+    },
+    {
+      "path": "backend/pkg/corex/iam/authorizationbaseline/root_catalog_repair.go",
+      "before_sha256": "9611e206abf54924d3b780c10d75cc78666482781e2c614b10502b587e14ba15",
+      "sha256": "c208a4f27c40e101b739be24dcc83631c4356a1142d49b4a6a8c7ba13259c439"
+    },
+    {
+      "path": "backend/pkg/corex/iam/authorizationbaseline/root_catalog_repair_test.go",
+      "before_sha256": "1c33a568e614a390db60f9150d622f42ce667daa67d51d31ada73fe7822362d3",
+      "sha256": "b6f1a2b997eb8df8921126f739fde03614582610b058f78af1a97f095c279245"
+    },
+    {
+      "path": "backend/pkg/corex/iam/authorizationbaseline/bootstrap.go",
+      "before_sha256": "c34abb7f17d0a0ac3bd9db322955a15daa1e68b89a6517baba3c035526847465",
+      "sha256": "a1b700f2c488936516d52127cb096b7a051771f05b6ecf5381e1068d9cdd41a4"
+    },
+    {
+      "path": "backend/pkg/corex/iam/authorizationbaseline/transaction.go",
+      "before_sha256": "c6a353aebad4f1368321e08eeb9a953ed65f87bc35109d80bbdb05784185f096",
+      "sha256": "eab3a441984036406f5fe3a89d8d9ac23aacb6137d8f448d380d4e40a150b0c3"
+    },
+    {
+      "path": "backend/internal/bootstrap/authorization_baseline.go",
+      "before_sha256": "544f76fd4bc73a3c318018480823206306400b0236c76b890593b6c9a7ab6e31",
+      "sha256": "d227aafcbd087f198fbbe8687da335fe9c976320110754ea10041ca6d8785811"
+    },
+    {
+      "path": "backend/internal/bootstrap/authorization_baseline_test.go",
+      "before_sha256": "252e6dc7f6baec5135c325d9e3cd5724075a6b3994a90dbf7f8bc41ae5756243",
+      "sha256": "7def19d83c68dafbbda6937423f6bb97cc6e9a7cdc0e203efe2118f8eba130c9"
+    },
+    {
+      "path": "docs/contracts/iam-root-catalog-repair.md",
+      "before_sha256": "0b6d7a9c741554e63d12caa75cd7505f0940f6ca3f18da919c5900409aa62457",
+      "sha256": "24d810b264d3e05a0cd1629cf861c296c9e302b796c0976e132914c0f957b799"
+    },
+    {
+      "path": "docs/guides/features/iam-authorization-baseline/guide.md",
+      "before_sha256": "f72a7c9ea56041b35f7992f0e8c5f3aa2ffa6beba766ce96bce2fdf170cde0ad",
+      "sha256": "fda61a0705f1d6b0eb13ecb12eadf12ee51f23d7399649a00c3cbdf7aaace7dc"
+    },
+    {
+      "path": "backend/pkg/corex/iam/authorizationbaseline/ledger.go",
+      "before_sha256": "496812ba569d1ce3850a30dc47e8218643f880716aa2d84762423b1e28ceb054",
+      "sha256": "56c8cfa5b5ed3e39098de22bbf06a6b525887ee29049dc8d196541c494fd6884"
+    },
+    {
+      "path": "backend/pkg/corex/iam/authorizationbaseline/root_catalog_repair_history.go",
+      "before_sha256": null,
+      "sha256": "5831dac94f7b8b25e6f071c95213f5a1b82ea652974faa035b04d3b5aa40edf7"
+    },
+    {
+      "path": "backend/pkg/corex/iam/authorizationbaseline/root_catalog_repair_safety_test.go",
+      "before_sha256": null,
+      "sha256": "ec0afbacbe40b7011837616da82b0393ae1df64c932441624e45d7a90909a89c"
+    }
+  ],
+  "before_snapshot": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-root-catalog-fix-before-gc74k33o",
+  "scoped_patch": "/tmp/powerx-root-catalog-fix-20261109.patch",
+  "boundaries": {
+    "daily_apply_executed": false,
+    "daily_authorization_data_changed": false,
+    "daily_schema_migration_executed": false,
+    "core_or_plugin_deployed": false,
+    "user_service_restarted": false,
+    "framework_or_plugin_source_changed": false,
+    "business_requests_retried": false,
+    "api_key_or_sts_grants_changed": false,
+    "commit_or_push": false
+  },
+  "next": {
+    "priority": "Review and explicitly authorize the new v2 daily plan before applying catalog/history repair",
+    "expected_daily_change": {
+      "catalog_links": 523,
+      "root_authorization_streams": 2
+    },
+    "preconditions": [
+      "new plan contract v2 and current fingerprint reviewed",
+      "blocked and history_blocked are empty",
+      "protected pre-execution database backup and maintenance operator recorded",
+      "re-preview if fingerprint changes"
+    ],
+    "after_apply": "Core owner deploys/restarts the corrected Core and verifies actual Root plus ordinary-member baseline and order-content behavior"
+  }
+}

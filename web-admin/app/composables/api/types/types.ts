@@ -29,6 +29,8 @@ export interface PaginatedResponse<T> {
 
 // 请求配置扩展
 export interface ApiRequestConfig extends RequestInit {
+  responseType?: "json" | "text" | "blob" | "arrayBuffer" | "stream";
+  retry?: number;
   timeout?: number; // ofetch 单次请求超时（毫秒）
   params?: Record<string, any>;
   useGlobalError?: boolean; // 是否使用全局错误处理

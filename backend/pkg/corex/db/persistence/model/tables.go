@@ -177,6 +177,8 @@ const TableOpsDeployReleaseRecords = "ops_deploy_release_records"
 const TableOpsPluginLifecycleAudits = "ops_plugin_lifecycle_audits"
 const TableOpsBackupPolicies = "ops_backup_policies"
 const TableOpsBackupJobs = "ops_backup_jobs"
+const TableOpsBackupCleanupRetentions = "ops_backup_cleanup_retentions"
+const TableOpsBackupCleanupResolutions = "ops_backup_cleanup_resolutions"
 const TableOpsBackupArtifacts = "ops_backup_artifacts"
 const TableOpsBackupAlerts = "ops_backup_alerts"
 const TableOpsRestoreDrillRecords = "ops_restore_drill_records"
@@ -189,3 +191,6 @@ const (
 	TableIAMAuthorizationStream   = "iam_authorization_streams"
 	TableIAMAuthorizationSegment  = "iam_authorization_segments"
 )
+
+const TableCustomerClientApplications = "customer_client_applications"
+const TableCustomerClientAppBindings = "customer_client_app_bindings"

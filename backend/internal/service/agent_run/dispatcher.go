@@ -41,7 +41,7 @@ func (s *RedisStore) DispatchPending(ctx context.Context, identity Snapshot, que
 	if terminal(run.Status) {
 		return 0, ErrConflict
 	}
-	_, _, outboxKey := schedulingKeys(identity)
+	_, _, outboxKey := s.schedulingKeys(identity)
 	cursorKey := strings.TrimSuffix(outboxKey, ":outbox") + ":dispatch_cursor"
 	cursor, err := s.client.Get(ctx, cursorKey).Result()
 	if err != nil {
@@ -97,7 +97,7 @@ func taskQueueTenant(identity Snapshot) string {
 
 // 游标写入与终态清理互斥，避免迟到的投递补写一个无 TTL 的孤立游标。
 func (s *RedisStore) advanceDispatchCursor(ctx context.Context, identity Snapshot, key, value string) error {
-	state, _ := runKeys(identity)
+	state, _ := s.runKeys(identity)
 	for attempt := 0; attempt < 5; attempt++ {
 		err := s.client.Watch(ctx, func(tx *redis.Tx) error {
 			fields, err := tx.HGetAll(ctx, state).Result()

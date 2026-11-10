@@ -1,0 +1,99 @@
+{
+  "processes": [
+    {
+      "pid": 38304,
+      "owner": "codex database backup control validation",
+      "command": [
+        "/opt/homebrew/opt/postgresql@14/bin/pg_ctl",
+        "-D",
+        "/tmp/powerx-control-owned-db-backup-vtt1pahz/data",
+        "-l",
+        "/tmp/powerx-control-owned-db-backup-vtt1pahz/postgres.log",
+        "-o",
+        "-h \"\" -k /tmp/powerx-control-owned-db-backup-vtt1pahz -p 55442",
+        "-w",
+        "start"
+      ],
+      "cwd": "/tmp/powerx-control-owned-db-backup-vtt1pahz",
+      "exited": true
+    },
+    {
+      "pid": 48172,
+      "owner": "codex cleanup review browser proxy",
+      "command": "node tmp/storage-backup-review-20261109/live-ui.mjs",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "exited": true
+    },
+    {
+      "pid": 44988,
+      "owner": "codex cleanup review fixture",
+      "command": "go test ./internal/transport/http/admin/backup -run ^TestCleanupReviewNativeHTTPAndSSE$ -count=1 -v",
+      "cwd": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestCleanupReviewNativeHTTPAndSSE2784949123/001",
+      "exited": true
+    },
+    {
+      "pid": 48179,
+      "owner": "codex browser child",
+      "command": "/Users/michaelhu/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "exited": true
+    },
+    {
+      "pid": 48232,
+      "owner": "codex browser child",
+      "command": "/Users/michaelhu/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "exited": true
+    },
+    {
+      "pid": 48233,
+      "owner": "codex browser child",
+      "command": "/Users/michaelhu/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "exited": true
+    },
+    {
+      "pid": 48248,
+      "owner": "codex browser child",
+      "command": "ps",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "exited": true
+    },
+    {
+      "pid": 43098,
+      "owner": "codex native HTTP test",
+      "command": "go test -race ./internal/transport/http/admin/backup -run ^TestCleanupReviewNativeHTTPAndSSE$",
+      "cwd": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestCleanupReviewNativeHTTPAndSSE3916095657/001",
+      "port": 52094,
+      "exited": true
+    },
+    {
+      "pid": 61761,
+      "owner": "codex native HTTP test",
+      "command": "go test -race ./internal/transport/http/admin/backup -run ^TestCleanupReviewNativeHTTPAndSSE$",
+      "cwd": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestCleanupReviewNativeHTTPAndSSE3356683994/001",
+      "port": 55248,
+      "exited": true
+    }
+  ],
+  "listeners": [
+    {
+      "port": 53016,
+      "released": true
+    },
+    {
+      "port": 52428,
+      "released": true
+    },
+    {
+      "port": 52094,
+      "released": true
+    },
+    {
+      "port": 55248,
+      "released": true
+    }
+  ],
+  "postgres_data_removed": true,
+  "fixture_credential_removed": true
+}

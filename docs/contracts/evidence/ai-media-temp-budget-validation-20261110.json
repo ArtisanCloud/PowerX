@@ -1,0 +1,322 @@
+{
+  "recorded_at": "2026-11-10T23:27:49.236173+08:00",
+  "scope": "PR426 AI media temporary output storage admission",
+  "review_url": "https://github.com/ArtisanCloud/PowerX/pull/426#discussion_r4526347560",
+  "original_reviewed_commit": "5fcbb00cd1060ed0d20453e0a55e37ed3c217bb0",
+  "fix_parent": "47ef2899f003b59b9e73b12042110a63c2843a80",
+  "status": "source_and_controlled_regression_passed_deployment_not_performed",
+  "behavior": {
+    "admission_before_temporary_creation": true,
+    "filesystem_path": "os.TempDir() passed to existing BeginPath device guard",
+    "initial_stream_window_bytes": 1048576,
+    "per_output_limit_bytes": 536870912,
+    "writer_checks_reservation_growth": true,
+    "same_filesystem_final_transfer_shares_lease": true,
+    "close_and_remove_temporary_before_lease_release": true,
+    "existing_taskbus_transfer_deferral_preserved": true,
+    "provider_regeneration_on_capacity_denial": false,
+    "admission_disabled_legacy_compatibility": true,
+    "storage_error_codes": [
+      "AI_MEDIA_STORAGE_CAPACITY_EXHAUSTED",
+      "AI_MEDIA_STORAGE_UNAVAILABLE"
+    ]
+  },
+  "before_fix": {
+    "meaningful_failure_reproduced": true,
+    "cases": [
+      "TestMediaOutputAdmissionRejectsBeforeCreatingOrReading",
+      "TestMediaOutputAdmissionHonorsConcurrentReservation"
+    ]
+  },
+  "checks": {
+    "media-race": {
+      "check": "media-race",
+      "exit_code": 0,
+      "seconds": 41.84,
+      "top_level_test_passes": 17,
+      "subtest_passes": 5,
+      "test_failures": [],
+      "package_passes": [
+        "github.com/ArtisanCloud/PowerX/internal/service/ai"
+      ],
+      "output_tail": [
+        "{\"Time\":\"2026-11-10T23:25:39.947085+08:00\",\"Action\":\"output\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/service/ai\",\"Test\":\"TestMediaRejectsProviderOutputOfWrongType\",\"Output\":\"{\\\"debug\\\":\\\"info\\\",\\\"msg\\\":\\\"[ai.catalog] loaded 18 provider manifests from dirs=[/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/config/agents/providers.d]\\\",\\\"module\\\":\\\"agent.catalog\\\"}\\n\"}",
+        "{\"Time\":\"2026-11-10T23:25:40.099049+08:00\",\"Action\":\"output\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/service/ai\",\"Test\":\"TestMediaRejectsProviderOutputOfWrongType\",\"Output\":\"--- PASS: TestMediaRejectsProviderOutputOfWrongType (0.33s)\\n\"}",
+        "{\"Time\":\"2026-11-10T23:25:40.09907+08:00\",\"Action\":\"pass\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/service/ai\",\"Test\":\"TestMediaRejectsProviderOutputOfWrongType\",\"Elapsed\":0.33}",
+        "{\"Time\":\"2026-11-10T23:25:40.099316+08:00\",\"Action\":\"output\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/service/ai\",\"Output\":\"PASS\\n\"}",
+        "{\"Time\":\"2026-11-10T23:25:41.108549+08:00\",\"Action\":\"output\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/service/ai\",\"Output\":\"ok  \\tgithub.com/ArtisanCloud/PowerX/internal/service/ai\\t15.695s\\n\"}",
+        "{\"Time\":\"2026-11-10T23:25:41.108569+08:00\",\"Action\":\"pass\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/service/ai\",\"Elapsed\":15.696}"
+      ]
+    },
+    "budget-local-race": {
+      "check": "budget-local-race",
+      "exit_code": 0,
+      "seconds": 3.5,
+      "top_level_test_passes": 17,
+      "subtest_passes": 11,
+      "test_failures": [],
+      "package_passes": [
+        "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local",
+        "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
+      ],
+      "output_tail": [
+        "{\"Time\":\"2026-11-10T23:25:01.85906+08:00\",\"Action\":\"pass\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/infra/storage_budget\",\"Test\":\"TestBoundedEstimatorRejectsSymlinksRatherThanCountingUnknownAsZero\",\"Elapsed\":0}",
+        "{\"Time\":\"2026-11-10T23:25:01.859112+08:00\",\"Action\":\"output\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/infra/storage_budget\",\"Output\":\"PASS\\n\"}",
+        "{\"Time\":\"2026-11-10T23:25:02.467245+08:00\",\"Action\":\"output\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local\",\"Output\":\"ok  \\tgithub.com/ArtisanCloud/PowerX/internal/infra/media/driver/local\\t1.475s\\n\"}",
+        "{\"Time\":\"2026-11-10T23:25:02.467294+08:00\",\"Action\":\"pass\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local\",\"Elapsed\":1.475}",
+        "{\"Time\":\"2026-11-10T23:25:02.866503+08:00\",\"Action\":\"output\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/infra/storage_budget\",\"Output\":\"ok  \\tgithub.com/ArtisanCloud/PowerX/internal/infra/storage_budget\\t1.904s\\n\"}",
+        "{\"Time\":\"2026-11-10T23:25:02.866536+08:00\",\"Action\":\"pass\",\"Package\":\"github.com/ArtisanCloud/PowerX/internal/infra/storage_budget\",\"Elapsed\":1.905}"
+      ]
+    },
+    "vet": {
+      "check": "vet",
+      "exit_code": 0,
+      "seconds": 2.37,
+      "top_level_test_passes": 0,
+      "subtest_passes": 0,
+      "test_failures": [],
+      "package_passes": [],
+      "output_tail": []
+    },
+    "linux-build": {
+      "check": "linux-build",
+      "exit_code": 0,
+      "seconds": 31.94,
+      "top_level_test_passes": 0,
+      "subtest_passes": 0,
+      "test_failures": [],
+      "package_passes": [],
+      "output_tail": []
+    }
+  },
+  "passed_test_cases": [
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionRejectsBeforeCreatingOrReading"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionHonorsConcurrentReservation"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionReleasesWhenTemporaryCreationFails"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionReleasesOnReadFailureAndCancellation/read_failure"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionReleasesOnReadFailureAndCancellation/cancelled"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionReleasesOnReadFailureAndCancellation"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionStopsBeforeUnreservedGrowth"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionSharesLeaseThroughLocalTransfer"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionDefersTransferWithoutRegenerating"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestCopyMediaOutputPreservesSizeLimitAndChecksum/empty"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestCopyMediaOutputPreservesSizeLimitAndChecksum/at_limit"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestCopyMediaOutputPreservesSizeLimitAndChecksum/over_limit"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestCopyMediaOutputPreservesSizeLimitAndChecksum"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaOutputAdmissionClassifiesUnavailableStorage"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaFetcherRejectsPrivateSupplierURLBeforeRequest"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaLegacyRegistrationUpgradeOriginalCredentials"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaTaskRestartIdempotencyManagedResultAndIsolation"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaCatalogRoutesByDeclaredCapabilityAndRejectsParameters"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaTaskCancelAndUncertainSubmissionNeverRegenerates"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaTypedSTSAndAPIKeyLiveGrants"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaWaitingProviderDoesNotPublishUnchangedStatusAndCancelDoesNotDeleteRunning"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/service/ai",
+      "test": "TestMediaRejectsProviderOutputOfWrongType"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local",
+      "test": "TestDeleteRemovesEmptyParentDirs"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local",
+      "test": "TestDeleteKeepsNonEmptyParentDir"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local",
+      "test": "TestPutFailurePreservesExistingObjectAndRemovesOnlyOwnedTemporaryFile"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/media/driver/local",
+      "test": "TestRequireExistingPathInitializationNeverCreatesDirectories"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestBudgetTwoInstancesCannotOverbookAndReleaseIsIdempotent"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestBudgetCrashLeaseExpiresAndUnknownLedgerFailsClosed"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestBudgetPreservesFloorAndWrittenBytesAreNotReservedTwice"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestBudgetMetadataRejectsSymlinkAndForeignIdentity"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestBudgetInitialPolicyIsAuthoritativeAcrossInstances"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestBudgetDirectoryReplacementAndLedgerSymlinksFailClosed"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestStartupRebindRequiresStableProofAndIdleDisabledState"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/unproven-volume"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/active-reservation"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/expired-reservation"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/enabled-file"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/enabled-database"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/enabled-typed"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/unconfirmed"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/pending-quarantine"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/missing-enabled"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/corrupt-state"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup/ownership"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestRebindPreservesLedgerOnUnknownVolumeReservationsOrCleanup"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestInstallationDocumentsAreIsolatedAndLegacyOwnerSurvivesStartupOrder"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestVolumeIdentityParserRequiresUniqueRootUUID"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestOperationNestedWritersShareLeaseExpandAndRelease"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestOperationRefusesBeforeWritingWhenSharedBudgetCannotExpand"
+    },
+    {
+      "package": "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget",
+      "test": "TestBoundedEstimatorRejectsSymlinksRatherThanCountingUnknownAsZero"
+    }
+  ],
+  "top_level_passes": 34,
+  "subtest_passes": 16,
+  "upgrade_manifest_check_passed": true,
+  "sources_sha256": {
+    "backend/internal/service/ai/media_assets.go": "e18f0ded5b241771ba974b4960cc61aca9ddd81e26d70a5f1f468b99ed313303",
+    "backend/internal/service/ai/media_catalog.go": "464182c5ced34768c47ceec333deb946b3d9f12acf689aa8d209116763003604",
+    "backend/internal/service/ai/media_assets_budget_test.go": "3a6087f62690f1f5aea649048b60400eddd0d65e0c6913a7b35b33b3b86f2ba4",
+    "docs/contracts/ai-media-v2.md": "dda9f68ac0e3486461b24eae82e348b0ec7dd546f1c3077e1c6116699e3a3e1a"
+  },
+  "boundaries": {
+    "linux_package_cross_compilation_only": true,
+    "linux_native_runtime_tested": false,
+    "real_disk_exhaustion_performed": false,
+    "size_limit_edges_use_small_bounded_copy_fixture": true,
+    "test_database": "owned temporary SQLite; no configured PostgreSQL DSN used",
+    "provider": "owned httptest fixtures; no paid provider calls",
+    "daily_or_production_database_modified": false,
+    "user_services_restarted": false,
+    "production_deployed": false,
+    "external_review_comment_posted": false,
+    "whole_repository_tested": false
+  },
+  "cleanup": {
+    "go_test_processes_exited": true,
+    "temporary_http_and_redis_fixtures_use_test_cleanup": true,
+    "temporary_downloads_and_budget_leases_verified_released": true,
+    "persistent_agent_services_started": false
+  }
+}

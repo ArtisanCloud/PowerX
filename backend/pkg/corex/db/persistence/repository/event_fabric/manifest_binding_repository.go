@@ -59,6 +59,14 @@ func (r *ManifestBindingRepository) ListTopicBindings(ctx context.Context, tenan
 	return records, nil
 }
 
+// TopicOwners 用于旧主题迁移核验，发现多个插件声明同一主题时拒绝自动认领。
+func (r *ManifestBindingRepository) TopicOwners(ctx context.Context, tenantKey, topicID string) ([]string, error) {
+	var owners []string
+	err := r.db.WithContext(ctx).Model(&eventfabricmodel.TopicManifestBinding{}).
+		Where("tenant_key = ? AND topic_uuid = ?", r.tenantKey(tenantKey), topicID).Distinct().Pluck("plugin_id", &owners).Error
+	return owners, err
+}
+
 func (r *ManifestBindingRepository) UpsertTopicBinding(ctx context.Context, record *eventfabricmodel.TopicManifestBinding) error {
 	if record == nil {
 		return nil

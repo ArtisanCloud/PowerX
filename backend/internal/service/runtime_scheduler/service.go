@@ -25,18 +25,20 @@ import (
 const CapabilityID = "com.corex.scheduler.jobs"
 
 type Service struct {
-	db      *gorm.DB
-	jobs    *repo.JobRepository
-	runs    *repo.RunRepository
-	plugins *reposetting.PluginInstanceConfigRepository
-	eventBu event_bus.EventBus
-	clock   func() time.Time
+	db            *gorm.DB
+	jobs          *repo.JobRepository
+	runs          *repo.RunRepository
+	plugins       *reposetting.PluginInstanceConfigRepository
+	eventBu       event_bus.EventBus
+	taskPublisher TaskPublisher
+	clock         func() time.Time
 }
 
 type Options struct {
-	DB       *gorm.DB
-	EventBus event_bus.EventBus
-	Clock    func() time.Time
+	DB            *gorm.DB
+	EventBus      event_bus.EventBus
+	TaskPublisher TaskPublisher
+	Clock         func() time.Time
 }
 
 func NewService(opts Options) *Service {
@@ -48,12 +50,13 @@ func NewService(opts Options) *Service {
 		clock = time.Now
 	}
 	return &Service{
-		db:      opts.DB,
-		jobs:    repo.NewJobRepository(opts.DB),
-		runs:    repo.NewRunRepository(opts.DB),
-		plugins: reposetting.NewPluginInstanceConfigRepository(opts.DB),
-		eventBu: opts.EventBus,
-		clock:   clock,
+		db:            opts.DB,
+		jobs:          repo.NewJobRepository(opts.DB),
+		runs:          repo.NewRunRepository(opts.DB),
+		plugins:       reposetting.NewPluginInstanceConfigRepository(opts.DB),
+		eventBu:       opts.EventBus,
+		taskPublisher: opts.TaskPublisher,
+		clock:         clock,
 	}
 }
 
@@ -361,6 +364,9 @@ func (s *Service) triggerJob(ctx context.Context, jobID, operator, traceID strin
 		ActorMemberID:   actor.MemberID,
 		ActorMemberUUID: actor.MemberUUID,
 	}
+	if err := s.prepareTaskDispatch(job, run, now); err != nil {
+		return nil, err
+	}
 	next, nextErr := nextAfterDispatch(job, now)
 	if nextErr != nil {
 		return nil, nextErr
@@ -394,9 +400,10 @@ func (s *Service) triggerJob(ctx context.Context, jobID, operator, traceID strin
 	if err != nil {
 		return nil, mapDBErr(err)
 	}
-	payload := s.buildTriggerPayload(job, createdRun, models.TriggerSourceManual, now)
-	if s.eventBu != nil {
-		s.eventBu.Publish(models.TopicSchedulerTriggeredV1, payload, ctx)
+	if len(createdRun.DispatchPayloadJSON) == 0 {
+		if err := s.publishRun(ctx, job, createdRun, now); err != nil {
+			return nil, err
+		}
 	}
 	return &TriggerResult{Job: job, Run: createdRun}, nil
 }
@@ -417,6 +424,9 @@ func (s *Service) DispatchDue(ctx context.Context, input DispatchDueInput) (*Dis
 	if limit > 500 {
 		limit = 500
 	}
+	if err := s.dispatchPendingTasks(ctx, now, limit); err != nil {
+		return nil, err
+	}
 	dueJobs, err := s.jobs.ListDue(ctx, now, limit)
 	if err != nil {
 		return nil, mapDBErr(err)
@@ -433,6 +443,9 @@ func (s *Service) DispatchDue(ctx context.Context, input DispatchDueInput) (*Dis
 		if ok {
 			result.DispatchedCount++
 		}
+	}
+	if err := s.dispatchPendingTasks(ctx, now, limit); err != nil {
+		return result, err
 	}
 	return result, nil
 }
@@ -485,6 +498,9 @@ func (s *Service) dispatchDueJobLocked(ctx context.Context, jobID uuid.UUID, now
 			ActorMemberID:   actor.MemberID,
 			ActorMemberUUID: actor.MemberUUID,
 		}
+		if err := s.prepareTaskDispatch(&job, run, now); err != nil {
+			return err
+		}
 		if err := tx.Create(run).Error; err != nil {
 			return err
 		}
@@ -520,11 +536,14 @@ func (s *Service) dispatchDueJobLocked(ctx context.Context, jobID uuid.UUID, now
 	if createdRun == nil {
 		return false, nil
 	}
-	payload := s.buildTriggerPayload(&job, createdRun, createdRun.TriggerSource, now)
-	if s.eventBu != nil {
-		dispatchCtx := reqctx.WithTenantUUID(ctx, job.TenantUUID)
-		dispatchCtx = reqctx.WithTraceID(dispatchCtx, createdRun.TraceID)
-		s.eventBu.Publish(models.TopicSchedulerTriggeredV1, payload, dispatchCtx)
+	// Durable task runs are dispatched after the outer job fence commits.
+	if len(createdRun.DispatchPayloadJSON) > 0 {
+		return true, nil
+	}
+	dispatchCtx := reqctx.WithTenantUUID(ctx, job.TenantUUID)
+	dispatchCtx = reqctx.WithTraceID(dispatchCtx, createdRun.TraceID)
+	if err := s.publishRun(dispatchCtx, &job, createdRun, now); err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -628,6 +647,9 @@ func (s *Service) normalizeSpec(ctx context.Context, spec JobSpec, requirePayloa
 	}
 	if spec.Payload == nil {
 		spec.Payload = map[string]any{}
+	}
+	if _, err := taskDispatchDeclaration(spec.Payload); err != nil {
+		return JobSpec{}, err
 	}
 	if _, err := computeNextRun(spec.ScheduleType, spec.ScheduleExpr, spec.Timezone, s.clock()); err != nil {
 		return JobSpec{}, err

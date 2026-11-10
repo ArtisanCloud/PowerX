@@ -88,7 +88,49 @@ func TestVersionUpgradeCannotApplyWithoutAudit(t *testing.T) {
 	store := &upgradeTestStore{hash: "old", apply: func() error { called = true; return errors.New("must not apply") }}
 	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{UserID: 1, IsRoot: true})
 	_, err := NewVersionUpgradeService(db, store).Confirm(ctx, VersionUpgradeInput{TenantUUID: grantStatusTestTenant, CapabilityID: capID, CapabilitiesHash: hash, Reason: "test"})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrVersionUpgradePersistenceFailed)
 	require.False(t, called)
 	require.Equal(t, "old", store.hash)
+}
+
+func TestVersionUpgradeClassifiesPartialCommitFailures(t *testing.T) {
+	db := newGrantStatusTestDB(t)
+	require.NoError(t, db.AutoMigrate(&audit.AuditEvent{}))
+	capID := "com.corex.test.upgrade.phases"
+	seedGrantStatusCapability(t, db, capID, true)
+	hash := strings.Repeat("a", 64)
+	require.NoError(t, db.Model(&capm.CapabilityRecord{}).Where("capability_id = ?", capID).Update("capabilities_hash", hash).Error)
+	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{UserID: 1, IsRoot: true})
+	input := VersionUpgradeInput{TenantUUID: grantStatusTestTenant, CapabilityID: capID, CapabilitiesHash: hash, Reason: "fixture"}
+	_, err := NewVersionUpgradeService(nil, nil).Confirm(ctx, input)
+	require.ErrorIs(t, err, ErrVersionUpgradeUnavailable)
+	private := errors.New("private runtime storage error")
+	store := &upgradeTestStore{hash: "old", apply: func() error { return private }}
+	result, err := NewVersionUpgradeService(db, store).Confirm(ctx, input)
+	require.ErrorIs(t, err, ErrVersionUpgradeRuntimeApplyFailed)
+	require.ErrorIs(t, err, private)
+	require.NotZero(t, result.AuditID)
+	require.Equal(t, "old", store.hash)
+	var approval audit.AuditEvent
+	require.NoError(t, db.First(&approval, result.AuditID).Error)
+	require.Equal(t, "APPROVED", approval.Outcome)
+	store.apply = nil
+	retried, err := NewVersionUpgradeService(db, store).Confirm(ctx, input)
+	require.NoError(t, err)
+	require.NotZero(t, retried.AuditID)
+	require.Equal(t, hash, store.hash)
+	finalizeFailure := errors.New("private audit update failure")
+	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("test:fail_upgrade_audit_finalize", func(tx *gorm.DB) {
+		if _, ok := tx.Statement.Model.(*audit.AuditEvent); ok {
+			tx.AddError(finalizeFailure)
+		}
+	}))
+	result, err = NewVersionUpgradeService(db, store).Confirm(ctx, input)
+	require.ErrorIs(t, err, ErrVersionUpgradeAuditFinalizeFailed)
+	require.ErrorIs(t, err, finalizeFailure)
+	require.NotZero(t, result.AuditID)
+	require.Equal(t, hash, store.hash)
+	approval = audit.AuditEvent{}
+	require.NoError(t, db.First(&approval, result.AuditID).Error)
+	require.Equal(t, "APPROVED", approval.Outcome)
 }

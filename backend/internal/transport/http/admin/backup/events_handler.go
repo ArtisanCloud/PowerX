@@ -23,6 +23,10 @@ func (h *handler) BackupEvents(c *gin.Context) {
 		"archives":       h.archives.ChangeDirectories(),
 		"restore_copies": h.copySvc.ChangeDirectories(),
 	}
+	if h.storageGovernance != nil {
+		resources["backup_policies"] = h.storageGovernance.RuntimeChangeDirectories()
+		resources["snapshots"] = append(resources["snapshots"], h.storageGovernance.RuntimeChangeDirectories()...)
+	}
 	ctx := c.Request.Context()
 	if claims := reqctx.GetClaims(ctx); claims != nil && claims.ExpiresAt != nil {
 		var cancel context.CancelFunc
@@ -35,9 +39,54 @@ func (h *handler) BackupEvents(c *gin.Context) {
 		return
 	}
 	defer sub.Close()
-	_ = eventstream.Serve(ctx, c.Writer, sub, func(names []string) (eventstream.Event, error) {
+	changes := sub.Changes
+	if h.storageGovernance != nil {
+		runtime, unsubscribe := h.storageGovernance.SubscribeRuntime()
+		defer unsubscribe()
+		merged := make(chan []string, 1)
+		changes = merged
+		run, cancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		defer func() { cancel(); <-done }()
+		go func() {
+			defer close(done)
+			defer close(merged)
+			for {
+				select {
+				case <-run.Done():
+					return
+				case names, ok := <-sub.Changes:
+					if !ok {
+						return
+					}
+					select {
+					case merged <- names:
+					case <-run.Done():
+						return
+					}
+				case event := <-runtime:
+					if event.Reason == "configuration_changed" {
+						select {
+						case merged <- []string{"archives", "backup_policies", "snapshots"}:
+						case <-run.Done():
+							return
+						}
+					}
+					if event.Reason == "backup_cleanup_changed" {
+						select {
+						case merged <- []string{"backup_cleanup"}:
+						case <-run.Done():
+							return
+						}
+					}
+				}
+			}
+		}()
+	}
+
+	_ = eventstream.ServeNotifications(ctx, c.Writer, changes, sub.Errors, func(names []string) (eventstream.Event, error) {
 		if names == nil {
-			names = []string{"snapshots", "recovery", "archives", "restore_copies"}
+			names = []string{"snapshots", "recovery", "archives", "restore_copies", "backup_policies", "backup_cleanup"}
 		}
 		return eventstream.Event{Name: "invalidate", Data: gin.H{"resources": names}}, nil
 	})

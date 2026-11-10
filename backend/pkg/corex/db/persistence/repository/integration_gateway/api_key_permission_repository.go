@@ -83,6 +83,21 @@ func APIKeyPermissionGranted(items []models.IntegrationGatewayAPIKeyPermission, 
 	return false
 }
 
+// APIKeyPermissionGrantedForPlugin 校验插件能力的授权归属。空 owner 不作为
+// 插件通配符；Core 自身的服务合同继续使用 APIKeyPermissionGranted。
+func APIKeyPermissionGrantedForPlugin(items []models.IntegrationGatewayAPIKeyPermission, pluginID, scope, action, resourceType, resource string) bool {
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return false
+	}
+	for i := range items {
+		if items[i].PluginID == pluginID && APIKeyPermissionGranted(items[i:i+1], scope, action, resourceType, resource) {
+			return true
+		}
+	}
+	return false
+}
+
 func resourcePatternMatch(pattern string, resource string) bool {
 	pattern = strings.TrimSpace(pattern)
 	resource = strings.TrimSpace(resource)

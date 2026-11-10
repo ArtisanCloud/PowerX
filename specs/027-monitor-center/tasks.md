@@ -8,9 +8,11 @@
 
 **2026-10-15 范围更新**：US8 本地开发与 macOS 原生整站恢复／切换回归已完成。Linux 运行验收、生产插件业务验收及部署后真实 scheduled 包的独立还原仍待执行；原有日志任务不属于本次快照实现范围。
 
+**2026-10-28 范围更新**：新增 [US9 双环境存储治理](#us9-storage-governance)，任务 T101～T165；本文件是唯一任务状态来源。已有文档登记及本地只读页面切片；完整治理与部署验收待执行，US6／US8 原有任务状态不变。
+
 ## Format: `[ID] [P?] [Story] Description`
 - **[P]**: 可并行（不同文件、无直接依赖）
-- **[Story]**: 所属故事（US1/US2/US3）或阶段（Setup/Foundation/Polish）
+- **[Story]**: 所属故事（US1～US9，按下文现有编号）或阶段（Setup/Foundation/Polish）
 
 ## Phase 1: Setup (Shared Infrastructure)
 
@@ -322,3 +324,631 @@ Task T029: MonitorCenterWorkspace 接入备份日志摘要
 - [x] 本地单元、原生 PostgreSQL、桌面／窄屏受控 API 浏览器流程和构建验证；完整证据见 [按需备份验收](../../docs/contracts/evidence/backup-on-demand-validation-20261016.json)。
 
 本轮不替代 T099／M8.8 的 Linux、正式插件和生产定时完整包验收。
+
+---
+
+<a id="us9-storage-governance"></a>
+
+## Phase 11: User Story 9 - 双环境存储治理 (Priority: P1，只读切片已本地实现，其余待实施与部署验收)
+
+**Goal**: 在 120 GiB 同机正式／开发环境管理容量、历史窗口及自动生命周期，保持业务引用、日志与可用恢复点保护。
+
+**Requirements**: `spec.md` 的 US9、FR-049～FR-068、SC-017～SC-024；实施顺序见 `plan.md` 的 US9。
+
+**Design**: [总体方案](../../docs/plan/deploy/storage-governance.md)、[UI 设计](../../docs/plan/deploy/storage-governance-ui.md)、[实施验收](../../docs/guides/deploy/027-monitor-center/usecase-us9-storage-governance.md)。
+
+**Authority**: 本节为存储治理任务状态的唯一来源。SG 编号保留为设计阶段交叉引用，不在 docs 重复维护勾选。落点中标为“拟新增”的是设计路径，不代表文件、正式合同或能力已发布；最终结构由 T104～T109 冻结。
+
+**Independent Test**: 两实例／共享资源只读对账、预算缺口、跨进程预留竞争、一轮受控清理、保护项、真实归档取回及桌面／窄屏推送均可独立核验，再推进自动周期和 XDocker 对接。
+
+### 实施顺序与阶段门禁
+
+```text
+SG-00 文档
+  → SG-01 合同／资源身份
+  → SG-02 只读观测与估算
+  → SG-03 全局预留与租约
+  → SG-04 日志封存、压缩与异地覆盖
+  → SG-05 文件生命周期／SG-06 终态数据／SG-07 恢复点治理
+  → SG-08 UI 与事件推送真实接入
+  → SG-09 双环境上线验收
+  → SG-10 XDocker 接管验收
+```
+
+UI 布局可使用明确标记的 fixtures 提前验证，自动执行不能跳过 SG-03、相应资源适配器与验收。可先交付只读观测，但必须明确“清理未启用”，不得以只读页面交付代表自动治理完成。
+
+| 阶段 | 负责人角色 | 前提 | 阶段退出条件 |
+|---|---|---|---|
+| P0：SG-01～02 | Core 后端／运维 | 本文基线 | 双环境来源可核对、整盘账目不重复、估算和未知状态真实 |
+| P1：SG-03～04 | Core 后端／运维 | P0 合同与来源 | 跨进程预算不超卖、保护条件完整、归档校验／取回证据 |
+| P2：SG-05～07 | Core 后端；插件协作 | P1 | 每类预览、受控执行、崩溃恢复和误删防护通过 |
+| P3：SG-08～09 | 前端／QA／运维 | 对应后端合同 | 真实页面推送、权限、自动周期及故障注入通过 |
+| P4：SG-10 | XDocker／Core／QA | 主机协作合同冻结 | 无重复控制器，卷与物理空间一致，部署迁移后规则不变 |
+
+### US9 任务清单
+
+<a id="us9-sg-00"></a>
+
+#### SG-00：文档基线
+
+- [x] T101 [US9] [SG-00.1] 记录 120 GiB 双环境容量池、目标天数／容量参数、生命周期、UI 和开发清单。 落点：`docs/plan/deploy/storage-governance.md`、`docs/plan/deploy/storage-governance-ui.md`。
+- [x] T102 [US9] [SG-00.2] 将 US9 规格、实施计划与完整任务登记到 specs，并在部署／监控文档建立索引；specs 为任务状态唯一来源。 落点：`specs/027-monitor-center/spec.md`、`specs/027-monitor-center/plan.md`、`specs/027-monitor-center/tasks.md`。
+- [ ] T103 [US9] [SG-00.3] 项目负责人／运维确认来源归属、远端目标、关键审计留存要求、允许的保护例外和维护窗口。未确认前不配置自动删除。 落点：`docs/guides/deploy/027-monitor-center/usecase-us9-storage-governance.md`。
+
+<a id="us9-sg-01"></a>
+
+#### SG-01：合同、身份与兼容策略
+
+- [x] T104 [US9] [SG-01.1] 定义 host／filesystem／deployment instance／tenant／resource 身份；复用实际环境合同，登记共享 PG、journal、Loki，不从路径猜身份。 落点：`backend/internal/service/storage_governance/types.go`。
+- [ ] T105 [US9] [SG-01.2] 冻结整数 bytes、逻辑／物理／压缩量、数据库内部可复用量、覆盖缺口及样本口径；定义归因与唯一对象去重。 落点：`backend/internal/service/storage_governance/types.go`。
+- [x] T106 [US9] [SG-01.3] 定义带 revision 的主机预算与资源策略 DTO／存储模型；定义天数、份数、最低验证点、保护项、启停与草稿状态；旧策略保持原值。 落点：`backend/internal/service/storage_governance/policy.go`、`backend/pkg/corex/db/database/migration.go`。
+- [ ] T107 [US9] [SG-01.4] 冻结估算、预览、幂等执行、任务详情、启停／保护的 Admin OpenAPI 和错误码；首期 Root 用户 JWT，按真实路由测试授权。 落点：`specs/027-monitor-center/contracts/storage-governance.openapi.yaml`、`backend/internal/transport/http/admin/storage/api.go`。
+- [x] T108 [US9] [SG-01.5] 明确配置权威和优先级：部署拥有主机身份、路径及凭据；UI 管理策略；持久化模式和 schema 版本明确。未知来源／错误配置不得静默启用。 落点：`backend/config/config.go`、`backend/config/loader.go`。
+- [ ] T109 [US9] [SG-01.6] 新旧清理器资源所有权互斥：接管前检测旧 Cron／timer／应用清理任务，迁移记录可回退，不同时清同一来源。 落点：`backend/internal/service/storage_governance/ownership.go`（拟新增）。
+
+**交付物**：正式合同、迁移设计、权限矩阵、资源登记 schema、配置说明。预计涉及 `backend/config/`、`internal/service/monitor_logs/`、新治理域、集中 migration、`docs/contracts/`；新增代码路径在合同评审后确定。
+
+<a id="us9-sg-02"></a>
+
+#### SG-02：只读采集、容量总账与估算
+
+- [ ] T110 [US9] [SG-02.1] 实现文件系统普通可用／预留／已用、未纳管目录、已删除仍占用、挂载和权限覆盖采集；不得为扫描读取或输出凭据内容。 落点：`backend/internal/service/storage_governance/filesystem_collector.go`（拟新增）。
+- [ ] T111 [US9] [SG-02.2] 实现文件实际分配、压缩后大小、硬链接／CAS 去重与共享资源归因；子额度不重复计入总账。 落点：`backend/internal/service/storage_governance/file_collector.go`（拟新增）。
+- [x] T112 [US9] [SG-02.3] 实现数据库表／索引／TOAST／WAL 计量、环境归属及来源不可读状态；禁止把 DB 无权限报为 0。 落点：`backend/internal/infra/storage_observer/postgres.go`、`backend/pkg/corex/db/persistence/repository/storage_governance/postgres_metrics_repo.go`。
+- [ ] T113 [US9] [SG-02.4] 记录清理前新增量和压缩率，构建 14 天样本，样本数／断档／口径变更可见；计算 `D × R95 × 1.3 + P` 和预算缺口。 落点：`backend/internal/service/storage_governance/estimate.go`、`backend/internal/service/storage_governance/samples.go`（拟新增）。
+- [ ] T114 [US9] [SG-02.5] 实现备份／快照按唯一对象、成功份数及保护额外占用估算；不能以单份平均值保证可用恢复点数量。 落点：`backend/internal/service/storage_governance/estimate.go`。
+- [ ] T115 [US9] [SG-02.6] 实现本地／远端实际历史覆盖与缺段视图；目标保留天数、实际窗口和预测天数分别返回。 落点：`backend/internal/service/storage_governance/coverage.go`（拟新增）。
+- [ ] T116 [US9] [SG-02.7] 实现 20／10 GiB、80%／90%、预算缺口、采集失联的告警与恢复通知；采集策略默认只读。 落点：`backend/internal/service/storage_governance/alerts.go`（拟新增）。
+
+**验收**：构造两实例共享 PG／journal／CAS、独立挂载、采集失败和并发写入；账目无重复，估算示例 7 天为 2.73 GiB、14 天为 5.46 GiB；未知来源使覆盖不完整而非绿色正常。
+
+<a id="us9-sg-03"></a>
+
+#### SG-03：跨环境预算预留与持久租约
+
+- [ ] T117 [US9] [SG-03.1] 实现每文件系统唯一预算协调者，跨 Core／worker／正式／开发原子预留，支持独立于业务 DB 的持久状态和锁。 落点：`backend/internal/service/storage_governance/budget.go`（拟新增）。
+- [ ] T118 [US9] [SG-03.2] 定义预留尚未写出部分与实际已写部分的转换，续租、超时接管、取消释放、重启恢复、幂等操作和审计。 落点：`backend/internal/service/storage_governance/reservation.go`（拟新增）。
+- [ ] T119 [US9] [SG-03.3] dump、归档压缩、上传、导入／导出、下载取回、快照创建／恢复均接入峰值空间预检；替代单一 128 MiB 局部假设，保留原有内容大小检查。 落点：`backend/internal/service/snapshot_ops/preflight.go`、`backend/internal/service/storage_governance/admission.go`（拟新增）。
+- [ ] T120 [US9] [SG-03.4] 实现 20 GiB 余量准入、10 GiB 紧急行为和每盘初始并发 1；保护中的业务不因容量告警被任意终止。 落点：`backend/internal/service/storage_governance/admission.go`（拟新增）。
+- [ ] T121 [US9] [SG-03.5] 建立候选预览指纹、revision、有效期和执行前复核；提供作业状态机、取消和“部分完成／待核验”。 落点：`backend/internal/service/storage_governance/cleanup_plan.go`（拟新增）、`backend/internal/service/storage_governance/cleanup_run.go`（拟新增）。
+- [ ] T122 [US9] [SG-03.6] 审计与任务账本自身有容量／保留限制，避免自动治理循环产生日志撑满盘。 落点：`backend/internal/service/storage_governance/audit.go`（拟新增）。
+
+**验收**：两个环境同时申请超过余量的大任务只能安全接纳允许的任务；Core／业务 DB 不可用、进程崩溃、重复请求、预览后新增引用均不导致超卖或误删；多盘任务分别预留。
+
+<a id="us9-sg-04"></a>
+
+#### SG-04：PostgreSQL、journal、Loki 与异地覆盖
+
+- [ ] T123 [US9] [SG-04.1] 运维核实 PG 实际日志目的地与 collector／轮转、journal 配置和两环境共享关系；collector 变更另定维护窗口，不在开发测试中重启线上 PG。 落点：`docs/guides/deploy/027-monitor-center/usecase-us7-remote-log-archives.md`。
+- [ ] T124 [US9] [SG-04.2] 给归档 CAS 增加压缩对象编码版本、内容与存储哈希、实际物理计量；兼容读取旧未压缩对象、恢复与远端协议，不原地覆盖有效对象。 落点：`backend/internal/service/archive_ops/types.go`、`backend/internal/service/archive_ops/capture.go`、`backend/internal/service/archive_ops/encoding.go`（拟新增）。
+- [ ] T125 [US9] [SG-04.3] 增加 PG 源日志回收握手：活动文件排除、封存稳定检测、远端校验、源与 CAS 双份计量、过期候选与保护。 落点：`backend/internal/service/archive_ops/capture.go`、`backend/internal/service/storage_governance/postgres_log_lifecycle.go`（拟新增）。
+- [ ] T126 [US9] [SG-04.4] 增加 journal 专用来源：游标／boot 边界、持续导出、封段、远端确认、断线追赶与覆盖缺口；原生容量清理与归档存在竞争时如实记录缺失。 落点：`backend/internal/service/archive_ops/journal.go`（拟新增）。
+- [ ] T127 [US9] [SG-04.5] 证明“本地 7／2 天、远端 90 天”的目标与实际覆盖独立；实现远端独立生命周期任务、namespace 安全、离线重试、清单保留及取回验证。 落点：`backend/internal/service/archive_ops/remote.go`、`backend/internal/service/storage_governance/coverage.go`（拟新增）。
+- [ ] T128 [US9] [SG-04.6] 对齐独立 archive-worker 与 Core 的来源和锁，业务库不可用时已有封存日志仍可归档；版本／实例信息可核对。 落点：`backend/cmd/archive_worker/main.go`。
+- [ ] T129 [US9] [SG-04.7] Loki 本地 1 天／1 GiB 的实际组件配置、WAL／索引／chunk 与采集副本计量；不把该额度冒充原生硬上限。 落点：`deploy/observability/loki/loki-config.yaml`、`deploy/powerx/docker/observability/loki-config.yaml`。
+- [x] T130 [US9] [SG-04.8] 普通日志转发采用有界异步交付，断网／Loki 拒绝不拖慢业务请求；可靠审计单独定义保证，丢弃／积压可见且不形成自我日志循环。 落点：`backend/pkg/utils/logger/writer/loki.writer.go`。
+
+**验收**：真实回环 SSH／固定接收器、错误指纹、断网、磁盘不足、源变化、活动文件、重试、旧压缩协议兼容、远端取回；停业务 HTTP 不影响封存归档。journal 离线超过本地窗口需报缺口，不能声称全部保护。不得用删除 `pg_wal`、truncate 活动日志或关闭日志通过验收。
+
+<a id="us9-sg-05"></a>
+
+#### SG-05：临时文件、上传与附件
+
+- [ ] T131 [US9] [SG-05.1] 盘点本仓库 multipart／导入／发布／导出入口，统一成功、绑定失败、超限、取消、panic 收尾；核实异步任务移交后不再依赖请求临时文件。 落点：`backend/internal/transport/http/admin/plugin/install_handler.go`、`backend/internal/transport/http/admin/plugin_release/publish_handler.go`。
+- [ ] T132 [US9] [SG-05.2] 受控任务工作区接入容量限制与 SG-03 租约，普通源目录不接受通用按 mtime 删除；崩溃接管与符号链接防护通过。 落点：`backend/internal/service/storage_governance/workspace.go`（拟新增）。
+- [ ] T133 [US9] [SG-05.3] 定义插件／Framework 的暂存登记、持久化确认、引用与释放合同；明确邮件附件归插件所有，外仓实现单独跟踪。 落点：`docs/contracts/temporary-workspace-lifecycle.md`（拟新增）、`backend/internal/service/storage_governance/workspace.go`（拟新增）。
+- [ ] T134 [US9] [SG-05.4] 旧未登记 multipart／附件进入“待核实／隔离保留”队列；只有来源、引用和回退证据充分时迁移，不把历史目录自动纳入清理。 落点：`backend/internal/service/storage_governance/legacy_inventory.go`（拟新增）。
+- [ ] T135 [US9] [SG-05.5] 正式 2.75／开发 1.25 GiB 临时池和共享 2 GiB 可重建缓存接入；缓存须证明可重建和无引用，VS Code／源码不自动处理。 落点：`backend/internal/service/storage_governance/cache_lifecycle.go`（拟新增）。
+
+**验收**：大文件边界、请求失败／取消、异步移交、进程终止后接管、附件持久化失败、任务仍在使用的旧文件全部覆盖，业务持久文件校验不变。
+
+<a id="us9-sg-06"></a>
+
+#### SG-06：追踪、事件与审计数据库生命周期
+
+- [ ] T136 [US9] [SG-06.1] 核对调用追踪、事件发布、审计真实模型与查询／重试／幂等／外键依赖，冻结终态、业务时间、最小窗口和租户边界。 落点：`backend/internal/service/storage_governance/db_adapter.go`（拟新增）。
+- [ ] T137 [US9] [SG-06.2] 实现类型化 preview／cleanup 适配器，复核终态与无引用；拒绝用普通 `db_tables` 时间规则替代业务保护。 落点：`backend/internal/service/storage_governance/db_lifecycle.go`（拟新增）、`backend/internal/service/monitor_logs/db_retention_provider.go`。
+- [ ] T138 [US9] [SG-06.3] 分批删除、取消、超时、锁等待、死锁重试和 WAL／副本压力限制；适用索引在独立测试数据验证。 落点：`backend/internal/service/storage_governance/db_lifecycle.go`（拟新增）。
+- [ ] T139 [US9] [SG-06.4] 接入正式／开发追踪、终态事件与普通审计子额度；安全／法律保留优先，保护项导致超额时告警不删。 落点：`backend/internal/service/storage_governance/policy.go`。
+- [ ] T140 [US9] [SG-06.5] 报告删除行数、库内可复用量和物理释放差异；维护 autovacuum 与 WAL／长事务／复制槽观测，不自动跑 VACUUM FULL。 落点：`backend/internal/infra/storage_observer/postgres.go`、`backend/pkg/corex/db/persistence/repository/storage_governance/postgres_metrics_repo.go`。
+- [ ] T141 [US9] [SG-06.6] 评审时间分区及在线迁移方案，验证唯一键／外键、查询、在途数据、历史回填、锁窗口、额外空间和回退；这属于独立结构优化门禁。 落点：`backend/pkg/corex/db/database/migration.go`、`docs/plan/deploy/storage-governance.md`。
+
+**验收**：使用真实临时 PostgreSQL 数据库验证 pending／retry／inflight／回执待完成与已终态混合数据、租户隔离和并发引用；物理空间未下降时不得报告释放成功。分区移除不能带走仍需保护的记录。
+
+<a id="us9-sg-07"></a>
+
+#### SG-07：备份、系统快照与 CAS 保护
+
+- [ ] T142 [US9] [SG-07.1] 在现有按时间／份数规则上增加字节预算和最低成功备份数；最新成功、显式保护及运行引用优先，存量配置不静默改值。 落点：`backend/internal/service/backup_ops/retention.go`。
+- [ ] T143 [US9] [SG-07.2] 系统快照区分生成就绪、内容存在、恢复能力与实际恢复验证；保护正式 2／开发 1 个已验证恢复点的目标，不把旧 ready 记录直接补成已验证。 落点：`backend/internal/service/snapshot_ops/policies.go`。
+- [ ] T144 [US9] [SG-07.3] 统一 backup／archive／snapshot 对象引用与锁，独立清理器不得破坏系统快照；GC 覆盖远端、恢复、导出、下载引用及未发布临时对象。 落点：`backend/internal/service/archive_ops/restore.go`、`backend/internal/service/snapshot_ops/delete.go`。
+- [ ] T145 [US9] [SG-07.4] 为未产出新备份的策略提供到期检查，协调旧“成功作业后清理”的触发方式，避免双执行。 落点：`backend/internal/service/monitor_logs/retention_service.go`、`backend/internal/service/storage_governance/ownership.go`（拟新增）。
+- [ ] T146 [US9] [SG-07.5] 本地清理后保留远端清单、历史与可取回状态；验证最新完整包带离服务器后独立恢复。 落点：`backend/internal/service/archive_ops/remote.go`、`backend/internal/service/snapshot_ops/package.go`。
+
+**验收**：保护项超过额度时报冲突；没有已验证恢复点时页面明确显示缺口；压缩／本地 GC／异地过期不破坏被引用恢复点；完成独立恢复与业务核对。
+
+<a id="us9-sg-08"></a>
+
+#### SG-08：UI、API 与事件推送
+
+- [x] T147 [US9] [SG-08.1] 按 UI 文档增加 `/monitor/storage` 工作区与菜单授权；默认概览、内部纵向分区、窄屏选择器，不把所有功能堆成一页。 落点：`web-admin/app/pages/monitor/storage.vue`、`web-admin/app/components/monitor/MonitorCenterWorkspace.vue`。
+- [ ] T148 [US9] [SG-08.2] 新 API 客户端／store 接入资源范围、实占／目标／估算／历史覆盖，加载／空／错误／过期样本分别处理。 落点：`web-admin/app/composables/api/services/storageGovernanceService.ts`、`web-admin/app/stores/storageGovernance.ts`（拟新增）。
+- [ ] T149 [US9] [SG-08.3] 策略抽屉实现草稿、版本冲突、GiB→bytes、份数／天数、估算缺口、保存／启用分离；复用权威备份／归档配置。 落点：`web-admin/app/components/monitor/storage/StoragePolicyDrawer.vue`（拟新增）。
+- [ ] T150 [US9] [SG-08.4] 归档视图实现实际覆盖、缺段、校验与取回状态，携带上下文进入 `/ops/backup` 详情，不复制策略。 落点：`web-admin/app/components/monitor/storage/ArchiveCoveragePanel.vue`（拟新增）、`web-admin/app/pages/ops/backup.vue`。
+- [ ] T151 [US9] [SG-08.5] 清理预览／任务抽屉实现保护与跳过原因、部分完成、实际释放与审计；取消后已完成部分保持真实。 落点：`web-admin/app/components/monitor/storage/CleanupRunDrawer.vue`（拟新增）。
+- [ ] T152 [US9] [SG-08.6] 复用 TaskBus 与事件总线接入 WS／SSE；事件去重、版本顺序、重连快照、断线提示、身份切换释放连接；无状态轮询。 落点：`web-admin/app/composables/useStorageGovernanceEvents.ts`（拟新增）、`web-admin/app/composables/useBackupEvents.ts`。
+- [ ] T153 [US9] [SG-08.7] 告警在所有分区可发现；详情不泄露目录凭据或其他租户内容；i18n、键盘、深浅主题与无障碍一起交付。 落点：`web-admin/app/components/monitor/storage/StorageGovernanceWorkspace.vue`。
+
+**验收**：真实路由／真实 API／浏览器请求记录，而非仅 fixtures。检查桌面、390 px、320 px、主操作、分区草稿保留、失败反馈和授权；持续静置时无周期状态请求。
+
+<a id="us9-sg-09"></a>
+
+#### SG-09：双环境试运行与交付
+
+- [ ] T154 [US9] [SG-09.1] 重新采集主机总账与策略、记录版本／进程／服务基线和来源权限；只读阶段不改变原任务。 落点：`docs/guides/deploy/027-monitor-center/usecase-us9-storage-governance.md`。
+- [ ] T155 [US9] [SG-09.2] 选择独立且长期在线的远端目标，配置凭据引用和已核对主机指纹，完成真实传输、校验和取回。 落点：`docs/contracts/evidence/storage-governance-archive-validation.json`（拟新增）。
+- [ ] T156 [US9] [SG-09.3] 逐资源 observe → preview → 受控 execute → enforce；每类单独记录启用版本、操作者与回退办法。 落点：`docs/guides/deploy/027-monitor-center/usecase-us9-storage-governance.md`。
+- [ ] T157 [US9] [SG-09.4] 连续至少 7 天自动周期验证，14 天样本后复核预算；分别保存正式／开发结果及共享计量，不能等待 7 天后默认标成功。 落点：`docs/contracts/evidence/storage-governance-runtime-validation.json`（拟新增）。
+- [ ] T158 [US9] [SG-09.5] 故障注入：断网、目标满、DB 不可用、Core／worker 重启、过期预览、重复任务、活动引用、采集断线、资源超预算和物理盘紧张。 落点：`backend/internal/service/storage_governance/fault_injection_test.go`（拟新增）、`web-admin/tests/e2e/ops/storage-governance.spec.ts`（拟新增）。
+- [ ] T159 [US9] [SG-09.6] 核对业务／插件请求、备份恢复、日志查询、历史缺口与物理空间；需要重启／迁移的操作另取得授权并记录窗口。 落点：`docs/contracts/evidence/storage-governance-business-validation.json`（拟新增）。
+- [ ] T160 [US9] [SG-09.7] 发布正式合同、配置迁移说明、验证证据、完整修复 SHA／PR／CI、实际部署版本和未完成项；未部署不得写“线上已解决”。 落点：`specs/027-monitor-center/contracts/storage-governance.openapi.yaml`、`docs/guides/deploy/027-monitor-center/usecase-us9-storage-governance.md`。
+
+<a id="us9-sg-10"></a>
+
+#### SG-10：XDocker 后续对接（外部协作）
+
+- [ ] T161 [US9] [SG-10.1] 与 XDocker 冻结主机／文件系统／卷／容器／实例身份、采集范围、可用空间和预留合同；未核对能力前不写成已支持。 落点：`docs/contracts/storage-host-delegation.v1.md`（拟新增）。
+- [ ] T162 [US9] [SG-10.2] 明确物理卷、容器日志、镜像层、构建缓存和 release 的所有者及清理资格，防止 PowerX 与 XDocker 双重计算／执行。 落点：`docs/contracts/storage-host-delegation.v1.md`（拟新增）。
+- [ ] T163 [US9] [SG-10.3] 实现主机唯一预留权威的接管与退回，迁移过程不丢失有效任务租约；XDocker 断联时拒绝未知空间的新大任务并保留业务服务。 落点：`backend/internal/service/storage_governance/host_delegation.go`（拟新增）。
+- [ ] T164 [US9] [SG-10.4] 若消费 Core 服务能力，补正式最小权限 `core_internal` 合同和对应 API Key／STS 授权；运行相关 capability／grant 检查，不开放任意命令代理。 落点：`backend/config/platform_capabilities/storage_governance.yaml`（拟新增）、`docs/contracts/storage-host-delegation.v1.md`（拟新增）。
+- [ ] T165 [US9] [SG-10.5] 宿主机、容器、卷内采样对账；整机和 PowerX 视图一致，迁移后保留原策略、引用、审计和恢复能力。 落点：`docs/contracts/evidence/storage-governance-xdocker-validation.json`（拟新增）。
+
+<a id="us9-commercial-gates"></a>
+#### SG-11：商用配置治理收口（发布阻塞，2026-11-05 新增）
+
+本阶段对应 FR-069～FR-075、SC-025～SC-028，目标约束见[商用交付设计](../../docs/plan/deploy/storage-governance-commercial.md)。当前 UI 和基础执行切片保持原有证据；不能以页面可编辑或历史测试替代商用门槛。推荐依赖顺序：T166 → T168 → T167 → T169 → T170 → T171 → T172 → T173 → T174；只读观察可继续，不能据此关闭发布门槛。
+
+**2026-11-08 当前收口（覆盖下方历史待办表述）**：
+
+| 剩余项 | 当前状态与证据边界 |
+|---|---|
+| 插件调用回归 | 已核对 WorkspaceX 14:06 原专用身份的两项 granted 与 Framework v0.0.28 只读 Lookup `found=false`；客户／订单／支付写入为 0。采用既有复验，不冒充本轮重新调用。见 `docs/contracts/evidence/workspacex-storage-recovery-recheck-20261108.json`。 |
+| 恢复统一核对 | 已实现受控跨资源版本重建、暂停、来源／审计／发布比对、S3 凭据与目标代次、v2 旧程序隔离；原生 PostgreSQL／TaskBus 与组件验证见 `storage-recovery-reconciliation-validation-20261108.json`。日常部署、完整物理恢复和 SSH 凭据合同仍未验收，不勾选整个 T171。 |
+| 真实归档与恢复 | 长期在线目标、源文件清理后取回、真实备份恢复／业务核对及不开归档的清理路径，继续按资源现场验收。历史临时目标证据不替代。 |
+| 旧执行器交接 | 已登记 legacy 启用资源会阻止恢复确认；真实脚本／timer／进程盘点、停止与归属交接仍待现场证明。 |
+| UI 接管 | 新增恢复重建与资源核对入口；日常资源仍以实际配置为准，本轮未接管数据库自动清理。 |
+| 发布运行 | 开发／正式环境完整验收、至少 7 天运行及 14 天样本、部署回退／故障演练和最终可审阅提交仍待完成。 |
+
+2026-11-05 源码进展：T168 完成 HTTP 新旧路由、五个旧 gRPC 方法及页面 Root 收口；T167／T169 仅完成内部事务与正式 TaskBus 发布基础，尚未接管各资源或实现原子执行快照。[实现边界](../../docs/contracts/storage-control-authority.md)和[证据](../../docs/contracts/evidence/storage-commercial-foundation-validation-20261105.json)区分隔离测试、本地 UI 与未重启的运行端；日常库未迁移、未写入策略，正式站未操作。
+
+2026-11-05 续进：系统表容量监控接入数据库权威、显式接管、只读请求回执、原子执行快照与正式 TaskBus／SSE。接管默认暂停；旧 JSON 写入口拒绝，断库或版本不符暂停监控。[表监控合同](../../docs/contracts/storage-table-monitoring-control.md)记录边界。T166／T167／T169／T171／T172 本轮仅完成该资源的接入切片，其余资源和总任务保持未完成。
+
+2026-11-06 续进：文件日志保留按可信 source 独立接入数据库权威与版本；显式接管默认暂停、原 JSON 只读、正式 TaskBus 发布批准快照、SSE 通知及只读 UUID 回执。最终逐文件删除与配置保存共用资源／行锁，覆盖首次接管与暂停竞争，断库和快照不符阻止新删除。页面区分策略编辑和预览清理并保留草稿。[日志合同](../../docs/contracts/storage-file-lifecycle-control.md)记录边界；[当前隔离证据](../../docs/contracts/evidence/storage-lifecycle-control-validation-20261106.json)覆盖 CAS／暂停竞争、真实文件清理、HTTP／SSE 及明暗桌面／窄屏 UI。总任务仍未关闭，其他资源、密钥、完整恢复与长期证据继续待办。
+
+2026-11-06 凭据续进：T170 的归档目标 S3 凭据文件提供器接入独立加密目录与外部挂载主密钥，支持显式旧来源接管、版本／请求回执、吊销、主密钥重新加密和 Root UI；值不读回，旧验证因身份／版本变化失效。普通新明文写入口拒绝，绑定后禁止失钥／吊销回退旧配置。[凭据合同](../../docs/contracts/archive-credential-vault.md)明确旧历史对象仍保留、文件提供器与外部 KMS 的边界；目标／策略数据库接管、完整恢复时代次及长期证据仍未关闭，[隔离验收证据](../../docs/contracts/evidence/archive-credential-vault-validation-20261106.json)覆盖密文／失钥／回滚保护、真实 Root HTTP／SSE 和明暗桌面／窄屏闭环；不勾选 T170 或整个 SG-11。
+
+2026-11-06 目标续进：归档目标以固定 `archive-targets` 列表接入数据库权威，显式核对旧来源摘要、逐目标版本与列表 CAS、不可变 UUID 回执、正式 TaskBus 和原子执行投影；验证结果独立记账，目标变更立即阻止新传输并要求重测。Root UI 显示保存／生效／快照版本，冲突保留原草稿与基准，未知请求只读核对；新版独立 worker 禁止回退旧目标 JSON。[目标合同](../../docs/contracts/archive-target-control.md)与[隔离证据](../../docs/contracts/evidence/archive-target-control-validation-20261106.json)记录本轮范围。归档策略数据库接管、完整恢复时代次、旧二进制部署接管及长期验收继续待办，不勾选 SG-11 总门槛。
+
+2026-11-06 策略续进：`archive-policies` 接入数据库权威、逐条／列表CAS、UUID回执、来源指纹、正式TaskBus投影和Root显式启用；旧策略接管和定义保存默认暂停两个开关。任务准入、S3写入、远端批次删除与本地保留核对当前权威，策略→目标锁复用同一事务；HTTP／Tick结束后的保留使用有界服务上下文。备份中心媒体页与存储治理共用编辑器，保留本地媒体计划及按需导出；不再调用旧策略／SSH目标表单。[策略合同](../../docs/contracts/archive-policy-control.md)和[隔离证据](../../docs/contracts/evidence/archive-policy-control-validation-20261106.json)记录原生PostgreSQL、实际HTTP／SSE、S3协议仿真与明暗桌面／窄屏UI。其他配置域、SSH受控执行、完整联合恢复及长期真实目标证据继续待办，不关闭SG-11总门槛。
+
+2026-11-07 预算续进：`host-budget` 按明确安装归属接入数据库CAS／不可变回执／正式TaskBus，首份成功发布在主机账本中选定归属及authority UUID。同盘其他实例复用归属权威，不能独立覆盖；接管保留旧保护值，待发布放宽不扩额、收紧先保护；新增／续租在数据库→主机锁内核验，释放不依赖DB。共享弹层采用概览／设置／预留纵向分区并保留CAS草稿。[预算合同](../../docs/contracts/storage-host-budget-control.md)及[隔离证据](../../docs/contracts/evidence/storage-host-budget-control-validation-20261107.json)记录边界。修复配置任务恢复副本复用原投递幂等键导致的发布冲突，继续使用正式任务恢复与历史租约。其他配置域、联合恢复、旧二进制交接及长期目标证据未关闭。
+
+2026-11-07 数据库备份续进：现有计划表接入目录／单条 CAS、UUID 回执、同事务计划行／不可变审计／正式 TaskBus 登记；Root 显式接管保留原定义快照并暂停定时、当前选择和自动恢复演练。定义修改先暂停，启用及当前计划分别确认；源指纹／发布版本守卫作用于作业准入及逐产物删除，删除意图未知时不自动重做。备份中心与存储治理复用同一编辑器及 SSE。[固定合同](../../docs/contracts/database-backup-policy-control.md)及[隔离证据](../../docs/contracts/evidence/database-backup-policy-control-validation-20261107.json)记录边界；未迁移日常库、未重启用户服务、未验证真实 pg_dump／独立恢复。系统快照接管、自动恢复演练及未知删除处置 UI、联合恢复时代次和其他商用门槛继续待办，不勾选 T166／T167／T169／T172～T174。
+
+2026-11-07 系统快照续进：普通计划迁入 `snapshot-policies` 数据库控制域，旧 JSON 保留只读，运行／恢复记录维持独立账本；Root 暂停式接管、目录／单计划CAS、UUID回执、正式TaskBus投影及本机归属水位已接入。手动采集确认计划版本，自动清理按捕获版本逐包守卫后原子隔离，未知意图不重做；保护导入包和恢复引用。列表与计划分区、双入口共用UI及SSE完成隔离验收。[合同](../../docs/contracts/snapshot-policy-control.md)和[证据](../../docs/contracts/evidence/snapshot-policy-control-validation-20261107.json)记录范围。旧独立协调器模式自动计划拒绝开启，手动已准入采集可完成；数据库期限、联合恢复时代次、旧二进制交接及真实长期目标仍未关闭，保持 SG-11 总门槛未勾选。
+
+2026-11-07 调用日志期限续进：`database-retention` 接入现有控制表的 CAS、不可变配置回执、正式 TaskBus／SSE 与单调本机投影；旧 JSON 不覆盖，有旧未知结果时禁止接管，接管和保存期限均暂停清理，启用单独确认。两张调用日志表的固定适配器保持租户／分类／终态／引用保护；五分钟预览、消费预览、数据变更与完成回执共用有界 PostgreSQL 事务，同一连接完成。容量保护待确认只收紧，响应丢失仅 GET 原请求，概览／清单／积压告警使用同一权威。[合同](../../docs/contracts/database-retention-control.md)和[隔离证据](../../docs/contracts/evidence/database-retention-control-validation-20261107.json)记录真实行清理、容量拒绝、SQL 写日志保持开启、Root HTTP／SSE 与明暗桌面／窄屏。未迁移日常库、未重启用户服务、未清理生产数据；专项系统表期限接管、旧二进制交接、联合恢复时代次与 SG-09 长期证据仍未完成，不勾选整个 SG-11。
+
+2026-11-07 专项系统表续进：健康探测历史和退休发现缓存采用两个固定派生控制域，独立 CAS／不可变 UUID 回执／正式 TaskBus 投影与本机水位；只接管当前适配器的来源证明，另一类修改不作废其预览。接管／保存暂停，启用单独确认；同事务消费五分钟预览、固定适配器处理和完成回执，单连接可用，外部级联引用／缺索引阻止执行。系统表详情按策略／预览／记录分区，未知结果锁住父弹层并只 GET 原请求，明暗桌面／窄屏完成真实 HTTP／SSE 写入验收。[合同](../../docs/contracts/system-table-retention-control.md)及[证据](../../docs/contracts/evidence/system-table-retention-control-validation-20261107.json)记录范围。统一周期的未接管／暂停策略按暂停处理；不代表整个 T169 的紧急停用优先级或离线期限已完成。未迁移日常或生产库、未重启用户服务；旧执行器交接、联合恢复时代次、自动恢复演练和 SG-09 长期目标继续待办，不勾选 SG-11 总门槛。
+
+- [ ] T166 [US9] [SG-11.1] 冻结配置权威、资源身份与平台范围、版本／幂等请求、发布／执行状态和失败合同；盘点所有数据库／JSON 写入口，明确运行账本与配置快照的不同权威。同步正式 DTO／OpenAPI、数据模型和兼容说明。落点：`specs/027-monitor-center/contracts/storage-governance.openapi.yaml`、`data-model.md`、`docs/plan/deploy/storage-governance-commercial.md`。验收：每个资源及旧入口只有一条配置写入链路和可追踪生效版本。
+- [ ] T167 [US9] [SG-11.2] 在平台数据库实现正式配置版本、原子条件更新、创建幂等、当前计划唯一性、修改审计与可靠发布意图的同事务提交；集中注册迁移，备份／快照不再依赖前端预读防覆盖。落点：现有 `backend/pkg/corex/db/persistence/model/ops/`、对应 repository、集中 migration 与备份／快照／治理 service。验收：并发只一方成功，重复创建不增加记录，故障不留下半提交；迁移先在自有隔离库验收。
+- [x] T168 [US9] [SG-11.3] 收口整机／全库 Root 授权，包括 `/admin/ops/backup` 与 `/admin/backup` 的配置、启停、当前计划及执行入口；明确现有租户 RBAC 的兼容与升级反馈，拒绝服务身份冒用。落点：`backend/internal/transport/http/admin/backup/`、`storage/` 及相关权限合同。验收：匿名、普通用户、带租户备份权限用户、API Key、STS 的真实路由矩阵均拒绝，合法 Root 通过。
+- [ ] T169 [US9] [SG-11.4] 复用正式 TaskBus／事件实现配置发布、持久确认、原子只读执行快照、版本／所有权约束及紧急停用优先级；规定断库下已批准版本的资格、期限和失效行为，不建立私有轮询队列。落点：既有治理、预算、归档、备份与快照执行器及 bootstrap。验收：发布中断、乱序、重复消息、断库、重启和停用竞争不产生错误生效或未知删除。
+- [ ] T170 [US9] [SG-11.5] 对接独立受控密钥存储；加密落盘、密钥分离、版本、轮换、吊销、独立恢复与目标验证失效联动；迁移现有凭据时不得在日志／导出／浏览器中泄露。落点：现有 `archive_ops` 凭据实现、API DTO、导出／恢复清单。验收：无明文普通导出，密钥不可用明确阻塞，轮换后旧证明不能启用。
+- [ ] T171 [US9] [SG-11.6] 实现旧数据库／JSON 配置的只读盘点、dry-run、冲突和身份检测、待接管导入、唯一写入口切换与回退；恢复数据库、运维账本和凭据引用时重新验证环境与生效版本，不自动复活历史启用值。落点：集中升级入口及既有 snapshot／recovery／storage 服务。验收：重复升级幂等、旧执行器状态可见、无双写／双执行；业务与用户服务按维护授权操作。
+- [ ] T172 [US9] [SG-11.7] UI 就地配置接入正式版本与发布合同，明确期望／生效版本、待发布／失败／待核对、停用及恢复后待确认；保留草稿并提供明确冲突处理，前后端字段范围、单位和零值语义一致。落点：现有 `web-admin/app/components/monitor/storage/`、备份／归档配置和 API client。验收：桌面／窄屏、真实 API 错误和事件重连均通过，无常驻状态轮询。
+- [ ] T173 [US9] [SG-11.8] 使用自有隔离 DB／文件系统／对象存储完成 CAS、幂等、权限、发布、密钥和恢复故障注入及完整 UI 写入闭环；不使用客户／生产资源取得删除证据。落点：相关 Go 集成测试、前端 E2E、正式 evidence。验收：SC-025～SC-028 逐项有证据，fixtures、真实接口、本地运行和生产验收分别标识。
+- [ ] T174 [US9] [SG-11.9] 将配置、运维目录、密钥恢复、升级回退、错误处置、正式版本与已知限制写入交付手册；复核 SG-09 长期及双环境证据，并给出明确可发布／阻塞结论。落点：正式手册、contracts/evidence、SG-09 和 SG-11 交付记录。验收：全部商用门槛满足后才关闭阶段；未部署不报告生产生效。
+
+### US9 测试与证据矩阵
+
+| 类型 | 核心证据 | 不能替代它的证据 |
+|---|---|---|
+| 估算／规则单测 | 单位、样本不足、保护项、份数、边界和冲突 | UI 中手写一个正确数字 |
+| 文件系统集成 | 临时独立目录、租约竞争、CAS、符号链接、真实分配变化 | 仅 mock 删除函数 |
+| PostgreSQL 集成 | 临时库真实状态／事务／索引／WAL及数据核对 | 仅直接调用过滤函数 |
+| 真实路由授权 | Root／无权 Admin／服务身份及跨实例边界 | 手动注入已授权上下文 |
+| 归档集成 | 真实回环接收器、哈希、离线重试和取回 | SSH 连通或 HTTP 202 |
+| Web Admin E2E | 桌面／窄屏、真实 API、请求记录、状态推送 | 构建或原型截图 |
+| 运行验收 | 正式／开发真实自动周期、完整版本和数据快照 | 本地单测通过 |
+| 恢复验收 | 带离源机恢复与业务核对 | 文件 ready 或 dump 可解析 |
+
+新增测试放在对应域的 service／repository／handler 与 `web-admin/tests` 中，覆盖实际不变量，不以重复实现的断言充数。现有可参考测试位于 `archive_ops/ssh_test.go`、`backup_ops/artifact_cleanup_service_test.go`、`snapshot_ops/delete_test.go` 及 `backend/tests/integration/ops/logging_loki_retention_test.go`。
+
+每份运行证据记录时间／时区、提交与构建版本、环境／实例、模式、来源、策略版本、任务、实际计量、保护项、错误、归档／取回结论和业务检查；不保存密钥、口令或认证 URL。后续新增的证据文件名和正式合同路径由实施 PR 一并登记。
+
+### US9 文档交付边界
+
+以下为早期交付范围；“当前”仅指当时切片。后续启停、预算、告警、备份与归档配置的实现见 SG-11 逐日期记录，不能把这些历史描述重复列为新待办。
+
+已完成 T101～T102、T104／T106／T108／T112 与 T147。2026-10-29 新增稳定部署资源身份、平台级 revision 草稿／事务审计、严格配置 schema、当前连接下重点表／索引／TOAST／共享 WAL 计量。T106 当前启停合同固定禁用，实际启用仍由 T107／T152 后续实现。T112 当前覆盖两张重点表的固定 allowlist，不承诺对任意插件表完整覆盖。
+
+T113 已补独立五分钟占用采样、15 天有界元数据及 14 天缺失／不可用／口径变化视图；清理前新增量、压缩率与真实 R95 尚未埋点，故 T113 不勾选。T116 只有 20/10 GiB、整盘使用率 80%/90% 的当前快照提示；预算缺口及失联／恢复通知未完成。T148／T149 已接草稿保存／读回、资源级人工测算及环境上下文；T150 仅有占用历史，不是归档覆盖。实际产物估算、归档覆盖、备份权威策略复用与远端证据仍未满足整项，保持未勾选。
+
+初次实现仅本地开发与临时库验收。后续按用户授权，已定向迁移本地 `powerx.public` 的三张治理元数据表；没有执行完整 Core／IAM／Agent 迁移或 seed。远程、既有配置和用户服务均未改动，不安装系统 timer、不删除业务文件。
+
+### US9 需求／任务映射
+
+| 需求 | 主任务范围 | 验收口径 |
+|---|---|---|
+| FR-049～FR-051、FR-064、FR-067 | T104～T109 | 来源／单位／合同、权限与新旧兼容 |
+| FR-050～FR-053 | T110～T116 | SC-017～SC-018：实占、覆盖、估算与未知状态 |
+| FR-060～FR-063 | T117～T122 | SC-019～SC-020：预算、持久租约、预览与真实结果 |
+| FR-057～FR-058、FR-063、FR-067 | T123～T130 | SC-021：封存、压缩、journal 缺口、异地及非阻塞 |
+| FR-054、FR-056 | T131～T135 | SC-020：暂存移交、引用与崩溃收尾 |
+| FR-054～FR-055、FR-063 | T136～T141 | SC-020：终态、租户、WAL 与逻辑／物理区别 |
+| FR-054、FR-059、FR-063 | T142～T146 | SC-020～SC-021：恢复点、CAS 引用与取回 |
+| FR-052～FR-053、FR-062、FR-064～FR-066 | T147～T153 | SC-018、SC-022：参数、权限、分区与推送 |
+| FR-068 | T154～T160 | SC-023：双环境自动周期、14 天复核和交付证据 |
+| FR-064、FR-067 | T161～T165 | SC-024：XDocker 唯一权威、接管／退回 |
+| FR-069～FR-075 | T166～T174 | SC-025～SC-028：商用配置权威、并发、发布、Root、密钥与恢复 |
+
+**Checkpoint**: T101／T102 为文档登记，T104／T106／T108／T112 为身份、策略草稿、配置与 PG 计量，T147 为页面入口与任务分区；其余未勾选项待完整交付。占用采样不是新增量和归档覆盖，当前风险提示不是通知投递，自动保留与 XDocker 未完成。原 US6 与 US8 未完成任务及 T099／M8.8 保持原状态；任何局部交付不自动完成本节或既有运行验收。
+
+本地只读切片的验证范围和待办见[2026-10-28 验证记录](../../docs/contracts/evidence/storage-governance-observe-validation-20261028.json)。浏览器数据为受控 fixtures；Go 路由测试读取真实临时目录。未进行远程部署或自动清理。
+
+2026-10-29 实现与验证范围见[策略及计量验证记录](../../docs/contracts/evidence/storage-governance-state-validation-20261029.json)。新增元数据迁移仅在 Agent 临时 PG 验证；用户数据库和远程服务未改动。
+
+2026-10-29 用户授权本地 migrate：三张治理表和索引已创建，原非治理 schema／IAM 数量不变；限定入口、临时 PG 幂等／隔离回归和实际结果见[本地迁移证据](../../docs/contracts/evidence/storage-governance-local-migration-20261029.json)。本地迁移当时主机／文件系统配置及指标／采样开关未设置；后续配置准备结果见下条记录。Core 重启及运行验收尚待完成，不勾选完整运行验收任务。
+
+2026-10-29 本地验收配置准备：按用户“继续实现缺失”的授权，仅在私有 `backend/etc/config.yaml` 新增观察配置。主机标识取本机硬件 UUID 的 SHA-256 派生值，文件系统登记实际 APFS 卷 UUID，PG 集群登记当前连接的 `pg_control_system()` 标识；复用原安装实例身份。PG 只读指标与 300 秒占用采样已配置，自动清理保持关闭。真实本地 JWT／Storage 模块验证数据库、两张表、WAL、草稿保存／读回／冲突及占用写入；测试草稿事务已回滚。新增 `sampling` 状态区分配置和 worker 准入，不声称进程已运行或已有完整历史。
+
+详见[本地验收准备证据](../../docs/contracts/evidence/storage-governance-local-ready-20261029.json)。原 Core 未重启；正常定时周期与实际用户页面验收待用户重启后执行。T113 的新增量／压缩率／R95、T115 的归档覆盖及其他未勾选任务仍未完成，不能将此次配置接通算作完整 US9 完成。
+
+### 2026-10-29：环境与资源策略具象化（v0.3）
+
+- T106 合同补充：可选 `retention_mode=days/count/protected`，旧无 mode 组合值原样读取／保存；新响应的 `catalog_version=1/catalog` 是运行期部署目录和建议，不写入策略／审计 JSON。本次没有模型／DDL 变化，无新 migrate。
+- T148／T149 局部交付：按登记环境／实例再选资源，明确显示正式／开发／共享意图；开发备份 24 份／1 GiB、正式 2 份／6 GiB，快照分别至少 1／2 个已验证恢复点，日志按天，媒体／归档对象只按引用保护。主机预算独立弹层和保存；当前资源保存不夹带其他未保存编辑。主机建议使用实际容量及预留，旧值不自动覆盖。
+- 测算新增可信 resource_id 解析，不接受调用者覆盖环境／实例／路径；按天仍是人工假设，按份数明确 `artifact_inventory_required`，引用保护为 `retention_not_applicable`。T114 的真实产物清单、T115 覆盖仍待实现，不以新增模式勾选完成。
+- 验证：18 项前端单测，25 项临时原生 PG／路由／服务 race 测试，1440／390／320 三种宽度的真实 Nuxt 构建＋受控 API 流程，隔离构建、vet、能力审计通过。完整前端类型检查仍被原有 `menuConfig.ts:165/186` 语法错误阻塞。运行环境与远程验收未替代。
+- 证据及进程收尾见[环境策略验证记录](../../docs/contracts/evidence/storage-governance-context-validation-20261029.json)。没有重启用户 Core、变更私有配置／用户数据库或操作远程；所有本轮临时服务已退出，自动清理关闭。用户重启 Core 加载 v0.3 后继续实际页面验收。
+
+### 2026-10-29：PowerX 与整盘范围澄清
+
+- T148／T150 展示边界修正：概览默认查看 PowerX 数据库与非共享登记目录，总量明确未完整统计；整盘指标和共享来源单列。历史导航改为“用量历史”，默认当前数据库记录，整盘记录另选，不把两种范围放在同一表格中。
+- 明确未完成内容：当前摘要采样没有目录历史、插件独立库完整计量或完整 PowerX 总量；T110／T113／T115／T150 等不因命名和分区修正而完成。采样详情按需展开，失败和范围变化保持可发现，无页面轮询。
+- 本次仅前端展示、四种语言、回归和操作说明，无后端合同／迁移变化。范围隔离、分区保留和窄屏检查见[范围澄清验收](../../docs/contracts/evidence/storage-governance-scope-validation-20261029.json)。刷新前端即可，无需为此变更重启 Core。
+
+### 2026-10-29 v0.4：普通应用日志手动闭环及逐来源历史
+
+- T110／T148 局部交付：从实际日志配置发现普通日志，仅匹配对应活动和正式轮转文件；自动登记本地媒体、已启用的调试／审计目录。覆盖清单列未接入、禁用和平台不适用；没有宣称插件独立库／临时附件等已覆盖。
+- T113／T148 局部交付：摘要保存逐来源占用、文件数、状态、失败原因和归因指纹，最多 32 KiB／槽，仍保留 15 天；每个来源可看历史与相邻可比净变化。真实流入、压缩率和 R95 未埋点，T113 保持未勾选。
+- T120～T122、T151 局部交付：Root 的普通应用日志预览绑定实例／操作者／指纹／revision／有效期；最多 32 项的同步批次逐项复核、先记意图、再删除、再记结果，幂等回读。活动、最新轮转、链接、所有权不符和近期修改受保护。数据库故障后未知结果不重删、不宣称物理释放。覆盖所有资源的保护、持久租约、真实释放和异步任务仍未完成，相关整项不勾选。
+- T123／T125／T145 局部交付：与原生日志 writer 共用目录 inode 锁，不额外生成锁文件、不增加自动定时器、不改旧保留值。异步轮转清理使用触发时刻快照，避免读取被测试时钟替换的全局变量。旧通用保留器启用则阻止新执行；正式／预发和要求验证归档的来源当前只预览。全面移交、PG／journal 归档仍待完成。
+- 四张治理元数据表统一注册，新表 `ops_storage_cleanup_runs` 已经授权的本地限定迁移创建；其他表结构／索引和 IAM 数量读回一致。没有执行实际日志删除、重启用户服务或操作远程。
+- 页面默认实际日志保留／预览流程，主机预算不是必填。其他来源规划在高级折叠中，旧入口继续可用；记录只覆盖本模块的日志批次。受控浏览器、原生 PG 的保护／故障回归、本地只读日志识别及完整边界见[验证记录](../../docs/contracts/evidence/storage-governance-logs-validation-20261029.json)。
+
+### 2026-10-29 v0.4.1：真实启动路径与有界扫描修正
+
+- T110／T148 局部修正：启动登记时解析可信配置的现存目录别名（含 macOS `/var → /private/var` 和 shell PWD），固定目标后仍不跟随内部／后来替换的软链；缺失子目录不创建。打开失败分别说明缺失、权限和软链。
+- 扫描仍为 20000 条／2 秒总上限，后面的来源可以使用前面未用完的额度。UI 单独标注未完成的已扫描字节，不冒充完整去重占用。
+- 本机只读验收复现实际 PWD 别名，读取普通日志 8 文件、调试 73、审计 76、媒体 299、快照 10018 文件。未写采样／草稿、未清理用户文件、未迁移或重启服务；其他 US9 未完成项不因此勾选。详见[路径修正证据](../../docs/contracts/evidence/storage-governance-paths-validation-20261029.json)。
+
+
+### 2026-10-30 v0.5 文件治理与共享预算交付（本地，未部署）
+
+- T117／T118／T120 局部交付：`internal/infra/storage_budget` 以同盘私有账本、flock、原子落盘支持权威预算、revision、未写出预留、已写转换、续租、到期恢复和取消释放。两个实例竞争、初始默认冲突、损坏账本和写前扩张有受控测试；未宣称全部外部工具和所有恢复后的 DB 写入均受控。
+- T119 局部交付：本地媒体、数据库备份、归档、配套 dump、快照捕获／导入导出、归档恢复／下载和恢复包上传接入共享准入；archive-worker 运行配置可携带同一预算身份。受控 Writer 在扩张前准入，脚本 dump 有文件大小上限。原生 rsync 下载及服务端恢复增长仍需补齐适配，因此整项保持未完成。
+- T121／T122 局部交付：运行策略预览、已保存 revision 执行、UUID 幂等、32 文件批次、1000 项扫描、最多 100 条执行元数据；删除意图先落盘，逐项最终策略与文件核对在共享锁内；中断结果未知并阻止重做。来源暂停且超过两分钟后可人工解除陈旧锁，保留未知历史；完整通用异步作业与取消机制尚未覆盖。
+- T125／T128 局部交付：封存 numeric／lumberjack／dated／journal 文件归档，支持 PG stderr 数字轮转；删除前重新验证本文件的异地清单和对象哈希，活动、最新、变化、链接、属主不符均跳过。旧 collector current_logfiles 路径保持兼容；真实主机移交与独立 worker 现场配置仍待验收。
+- T130 本地实现完成：Loki 普通日志采用有界内存、批量、有限重试、请求与退出超时，计量丢弃／失败／积压，恢复后清除当前降级，不递归写失败出口。受控故障服务验证写入延迟与内存边界；不承诺审计可靠交付，也没有升级线上服务。
+- T116／T148／T149／T151～T153 局部交付：六分区中的自动治理弹层、运行预算与草稿分离、readback、失联提示、SSE 真实文件变更与分钟重鉴权；部署显式接收人通知，固定通知身份重试、失败冷却和恢复信号。1440／390／320 下验证表单保留、按事件更新和无状态轮询；全部归档覆盖／图表／生产通知验收仍未满足整项。
+- 数据库删除、CAS 压缩编码、journal 游标和覆盖缺口、真实流入／R95、备份／快照按字节淘汰、完整临时附件与 XDocker 不属于已完成能力。7 天运行、14 天完整样本和正式安装验收保持待完成。证据：`docs/contracts/evidence/storage-governance-runtime-validation-20261030.json`。
+
+- v0.5 移交加固：`manage_native_retention` 明确移交 Core 普通／审计文件原生保留权，关闭按天／份数删除但继续轮转压缩；未明确移交不能允许执行。旧通用清理器在生命周期登记后拒绝破坏性操作和重新启用，保证本轮数据库事件只监控。PG／journal 外部原生配置仍需现场对齐。最终候选先原子移入同盘私有隔离区再核对 inode，轮转替换冲突保留两份文件并阻止继续；隔离项未处理不能解除中断锁。
+
+- 2026-10-30 真实隔离实例补验：实际 Core／PG／Redis／Nuxt 接通，无存储 API mocks；修正观察耗时导致错过清理边界的问题，独立十五分钟定时器实测约 900.28 秒触发，自动删除 1 MiB 过期封存日志。暂停／链接／业务文件和旧 pending 数据保留。补齐旧 HTTP 上传入口的共享预算、原子暂存与流式 multipart，低空间拒绝写入。证据见 `docs/contracts/evidence/storage-governance-live-validation-20261030.json`。日常实例和线上未切换；T157 的七天／十四天及 SG-09 双环境条件仍待完成。
+
+
+### 2026-10-31：归档 UI 控制与数据库期限本地实现（不替代线上验收）
+
+- T119～T130／T149／T151 局部实现：显式 `cleanup_mode`，旧无模式策略停用；新配置、验证和归档启用分开。独立 S3 凭据引用及执行节点指纹，私有桶／确切版本完整读回；直接到期删除仍走文件保护。临时守护协议 2、可信部署绑定及逐来源接管工具已写入源码，尚未部署旧安装副本。
+- T123～T130／T144～T146：持久历史目录、受限 gzip 预览、临时／原生清单导入和索引重建、来源保留的异步迁移、按引用与确切版本到期、独立每小时检查和只读未确认结果核对。旧 Mac 对象仍保留，存量生产凭据匹配／迁移和退役尚未执行。
+- T136～T141 局部实现：调用通知发布确认与终态分类，独立数据库期限、旧 pending 的同租户／链路／负载核验隔离、终态到期与引用检查、有界事务和幂等意图；可显式选择预算满前拒绝新的能力调用。未知记录不删；不运行 VACUUM FULL 或删除 WAL。大表列／索引生产迁移、普通 VACUUM 与物理复用、长期容量跟踪保持待验收。
+- T147～T153：存储治理与备份中心复用同一归档面板，按任务分区和弹层配置；身份变化销毁旧上下文，SSE 驱动，无详情／列表常驻轮询。真实 Nuxt 产物的 1440／390／320 浏览器检查通过；API fixtures 仅证明页面，未代替日常实例／生产链路。
+- 真实隔离 MinIO 通过具体版本读回、源与 CAS 消失后下载／预览、目录重建、迁移（原件保留）和远端确切版本到期；真实隔离 PostgreSQL 通过终态／引用保护与旧 pending 隔离。测试及部署边界见 `docs/contracts/evidence/storage-archive-controls-validation-20261031.json`，操作见 `docs/guides/deploy/027-monitor-center/usecase-us9-storage-archive-controls.md`。
+- 未执行生产部署／重启／数据库迁移／旧 Mac 对象清理。正式任务的七天／十四天、双环境、真实存量旧归档及原生 PG collector 激活仍未满足；不因本地代码交付勾选这些完整任务。
+
+### 2026-11-01：v0.6 开发收尾（运行验收随后安排）
+
+- 已补齐 `migrate -scope capability-retention`：通过集中 `cmd/database/migrate.go → pkg/corex/db/database/migration.go` 增量增加两表 5 列／3 索引，不夹带完整 AutoMigrate、seed、旧数据分类或清理；仅 dev/test，统一升级锁、事务和超时。独立真实 PG 验证幂等、保留旧状态／正文、缺表拒绝和索引失败整批回滚。原 `storage-governance` 范围仍只处理监控元数据，语义不变。
+- 数据库期限状态在观察模式返回 Root 可读的运行／授权／迁移就绪信息，不再把未配置运行目录一律当作服务故障；不创建状态或隐式启用。页面使用简短阻塞状态与“查看准备步骤”弹层，部署与迁移可分别定位，刷新成功清除旧错误；保留无轮询、表单状态和卸载取消。
+- 补齐 100 批未确认结果停止新写批次的门禁，保留全部意图、状态和只读预览；不通过丢弃运行证据控制目录增长。
+- 开发文档、OpenAPI、升级载荷校验和临时计划已同步；本地运行和十五分钟周期安排在交付后，操作者何时启动日常服务不再作为开发工作的等待条件。
+- 本次未执行日常／生产迁移、策略启用、业务记录删除、真实旧归档处置或用户服务重启。TMP-SG-01～11 的代码和开发侧验证见 `docs/contracts/evidence/storage-completion-validation-20261101.json`；真实存量、TMP-SG-12、生产及长期验收继续作为运行任务，不能提前勾选。
+
+### 2026-11-01 后续：本地已准备为可重启验收状态
+
+- 按用户 `fix` 备份现有本地配置及 `powerx` 库，39.4 MiB 自定义格式 dump 在 Agent 自建私有 socket PostgreSQL 完整恢复，231 张表可恢复；隔离服务已关闭。限定 `capability-retention` 迁移完成，新增 5 列／3 索引，没有 seed 或其他迁移。
+- 备份与迁移后逐条比较旧字段：3472 条追踪、4780 条事件均存在且内容不变，保持未分类与空终态；数据库 SQL 写日志／采集器开启且无待重启配置。私有运行目录 0700、同盘身份、部署门禁和余量保护已配置，没有开启清理／归档策略。
+- 真实配置的只读组装检查 `TestStorageLocalRuntimePreparedReadOnlyAcceptance` 及 bootstrap vet 通过：复用原安装身份，结构／授权／运行状态就绪；不启动 worker 或用户服务。证据为 `docs/contracts/evidence/storage-local-ready-validation-20261101.json`。下一步仅需操作者重新加载 Core、刷新前端并从 UI 明确启用测试策略，再开始完整十五分钟运行验收；不是生产部署完成。
+
+### 2026-11-01 本地重启后观测（监控通过，清理尚未启用）
+
+- 操作者已于 18:57:54 重新加载 Core（8077 PID 20488），工作目录与配置校验值匹配本地准备记录；健康检查和 3030 页面均返回 200。19:16 检查时重启已超过 15 分钟，19:03／19:08／19:13 三次实际采样成功，间隔约 300 秒，容量观测账本持续更新。
+- PostgreSQL 仍保留 3472 条 trace、4780 条 event；SQL 写操作记录与 collector 保持开启。可用空间约 145.4 GiB，高于 20／10 GiB 余量门槛；这只是本地进程可见文件系统，不能表示生产容量或受保护数据总上限已验收。
+- 文件／数据库清理、调用拒绝和归档策略均未开启，无清理批次。因此只将实际重启后的监控采样记为通过，不将其替代自动删除、UI 取回或磁盘耗尽准入测试。浏览器访问宿主暂不可用，未伪造会话或绕过 Root UI 授权；启用测试策略后再验自动清理周期。证据为 `docs/contracts/evidence/storage-postrestart-validation-20261101.json`。
+
+### 2026-11-01 真实 Root 页面与自动文件批次验收
+
+- 使用用户提供的既有账号正常登录，没有伪造会话。定位并修复 2025 年缓存的菜单 301 与当前规范路径形成循环：菜单网络读取使用 `cache: no-store`，既有应用内短缓存保留。实际菜单请求恢复 200；相关 49 项前端测试及隔离生产构建通过。
+- 在真实 `/monitor/storage` 页面预览仅命中 1 份自建过期日志，显式启用临时 3650 天／10 GiB 的 `expire_delete` 策略。后台 scheduled 批次于 20:25:59 删除 1 份（319488 字节），保护测试文件及 6 份真实封存日志保留、哈希一致；后续批次删除数为 0，未调用手动执行接口。
+- 最后通过正常登录会话的同源正式 Root API 暂停策略，并从实际 UI 读回 Paused、总开关关闭；清理剩余自有测试文件，未开启归档或数据库删除。备份中的 3472 条 trace 和 4780 条 event 的原始 ID 全部仍在，运行期间另外各新增 8 条；PostgreSQL 日志保持开启。证据为 `docs/contracts/evidence/storage-canary-live-validation-20261101.json`。
+- 电源日志确认 Mac 于 20:38:23 Idle Sleep、21:25:57 Wake，与采样间断吻合。因此真实自动删除／保护验收通过，连续十五分钟在线节奏、生产、归档取回及长期验收保持未通过／未执行状态，不能用本次结果代替。
+
+### 同日补测：防休眠窗口与后端重启接管
+
+- 临时 `caffeinate -i` 仅作用于本次测试，没有修改永久电源配置，结束已退出。第二份自有过期日志在 21:57:48 被 scheduled 批次自动删除，保护样例和 6 份原封存日志哈希仍一致；样例已清理，最终策略 revision=4、enabled=false。
+- 窗口中后端由 PID 46181 切为 30958（21:57:43 启动），新进程沿用策略并于启动约 5 秒后完成自动接管。21:48／21:53／21:57:48／22:02:48 采样间隔约 287～300 秒；重启接管通过，但不宣称同一进程持续十五分钟未中断。
+- 前端相关 49 项测试、独立构建及 diff 检查通过。当前整仓升级载荷校验存在差异，未通过、未在本前端修复中盲目重新生成；生产发布仍需单独处理。最终证据继续为 `docs/contracts/evidence/storage-canary-live-validation-20261101.json`，未改变归档／数据库删除停用边界。
+
+### 同日最终稳定窗口：连续十五分钟文件治理验收通过
+
+- 用户确认保持服务运行后，23:38:06～23:53:11 策略有效开启 905.08 秒，全程保持同一 Core PID 30958；墙钟与单调时钟差异约 0.23 秒，没有此前的休眠／进程切换中断。
+- 23:42:48 scheduled 批次自动删除 1 份自有过期日志（315392 字节），未调用手动执行；23:42:48／23:47:48／23:52:48 三次采样间隔约 300 秒。保护样例及 6 份真实封存日志哈希一致；数据库旧分类记录保留，SQL 写操作记录和 collector 开启。
+- 一次性测试结束暂停成功，最终策略 revision=6、enabled=false；自有测试文件清理完毕，临时防休眠进程已退出，未改变永久电源设置。记录为 `docs/contracts/evidence/storage-stable-window-validation-20261101.json`。
+- 这一项仅关闭本地文件治理连续窗口验收；生产、归档取回、数据库到期、容量不足拒绝以及七／十四天等完整验收门槛保持独立，不据此全部勾选。
+
+### 2026-11-02 数据库期限与容量保护组合验收
+
+- 复现整盘占用上限漏检：隔离 PG 中将自有预算设为 1 byte，修复前 HTTP 仍返回 200 并执行业务。调用准入现同时检查关系物理占用、主机 critical 余量和整盘上限（包含在途预留）；检查位于路由／业务副作用及新增调用审计行之前。gRPC 不再把容量拒绝降为通用调用失败，返回 `Unavailable` 和 `STORAGE_CAPACITY_EXHAUSTED`。缺失目标表的物理占用显式返回未知，保持拒绝保护。
+- 新增 `scripts/ops/validate-storage-database.py`：自建 PostgreSQL、随机私有 Unix socket、禁用 TCP、不读日常配置，并在写入前校验集群标识。真实 Admin HTTP、Selector、调用服务、审计及 gRPC 组合验证；身份上下文、路由登记和业务适配器是受控 fixture，不混称真实用户登录或日常实例验收。
+- 默认关闭／只读不落策略、暂停删除而保护独立开启、真实 64 MiB 关系超限、整盘上限／critical／预留拒绝、不同成功／失败期限、终态时间、pending／未知／租户／引用保护、旧通知核验与宽限、批次幂等均通过。真实 worker 启动周期按 2 行批次推进 5 行并发布变化事件；连续十五分钟日常数据库运行仍单独验收。
+- 28 条大体积自有记录删除前后关系均为 81649664 字节；普通 `VACUUM (ANALYZE)` 后为 1318912 字节，不使用 `VACUUM FULL`、清表或 WAL 删除，不对生产承诺相同回收量。临时 PG 的 collector／SQL mod 日志持续开启，SQL 日志实际记录 DELETE，正文随临时集群清理而未公开。
+- 三项 native／gRPC 测试命令及四个受影响包 race、vet 通过。自建集群进程退出、socket 释放、临时数据移除；日常 Core PID 30958／Nuxt PID 11794 未重启，日常配置校验值仍一致、数据库策略文件不存在、文件策略暂停，SQL collector／mod 日志开启。证据：`docs/contracts/evidence/storage-database-admission-validation-20261102.json`。
+- 日常／生产数据库清理和拒绝未开启，真实旧归档未动；归档实际 UI 取回、生产发布与长期验收仍待执行。整仓 `UPGRADE_PAYLOAD_CHANGED` 仍为发布门禁，不因本轮局部测试通过而勾选部署完成。
+
+### 2026-11-02 后续：归档原生 API 与 UI 组合验收完成
+
+- 日常 Root 会话实际发现归档接口 503：默认相对 `logs/audit` 未在 bootstrap 转为绝对路径。新增相对审计／应用／额外来源注册回归并修复；操作者重新加载后的 Core PID 23733 已返回 200，归档调度器运行、4 个来源就绪，真实页面显示 0 个开启策略。
+- 实际产物点击“归档一批”没有请求，编译代码证明模板将 `crypto.randomUUID` 解析为组件上下文属性。手动归档和迁移改为脚本动作生成 UUID；回归先失败后通过，手动调用实际返回 202。现有分区与表单结构保持不变。
+- 新增自有原生浏览器 fixture 与 `scripts/ops/validate-storage-archive-ui.py`：实际 Nuxt 产物、正式归档 HTTP／JWT／SSE、生命周期及独立私有版本 MinIO 组合验收。页面身份和 Root JWT 明确为受控 fixture，导航外壳依赖 fixture，归档接口与对象内容不伪造。
+- UI 草稿不传输、未验证目标拒绝启用、验证后明确开启、实际上传与清单版本、按远端证明回收自有原件、本地 CAS 消失后的原名检索／预览／tar 下载与 SHA-256、关闭后继续下载均通过。1440／390／320 宽度、分区筛选保留、真实 SSE 更新及空闲无周期详情请求通过；截图和证据见 `docs/contracts/evidence/storage-archive-native-ui-validation-20261102.json`。
+- 42 项前端相关测试、独立生产构建、3 个相关 Go 包 race／vet 通过。临时 MinIO、Go HTTP、Nuxt／fixture 全部退出，端口和临时数据清理；日常 6 份封存日志哈希仍一致，PostgreSQL collector／mod 日志保持开启，日常／生产数据及 Mac 已有对象未删除。
+- 升级载荷注册表的 core／catalog 校验和已按当前完整工作树同步，`--check` 与升级 CLI 参数保护测试通过；未执行迁移，也不将内容一致性扩大为所有无关迁移语义已验收。生产部署、实际目标启用、旧脚本接管、Mac 历史和长期运行仍保持独立任务。
+- 本次重启后的日常监控也已连续采样：00:45／00:50／00:55／01:00 四个实际槽位均存在，约 5 分钟间隔。该证据说明停用清理策略时仍持续监控，不代表日常归档或数据库删除已启用。
+
+### 2026-11-02 当前日常实例：正常 Root 页面手动闭环验收通过
+
+- 用户再次委托验证后，在 `3030 → 8077` 实际日常实例使用原有正常 Root 会话操作，没有 fixture 身份、伪造 JWT 或另起 Core。通过真实页面保存临时独立凭据／目标／归档草稿，验证后明确开启并手动归档；草稿阶段任务数为 0。目标为 Agent 自有 `19400` 私有版本 MinIO，原有 `9000` 未改动。草稿阶段外部 Core 重载后，保存的配置仍能回读并完成测试，执行 PID 为 42377。
+- 真实来源按整目录封存规则归档 6 项、420449194 字节，取得远端具体清单版本并完整验证。仅自建 59 字节日志满足本次 3650 天测试期限；实际 UI 预览清楚列出唯一候选，保存 `archive_then_delete` 后手动执行只删除该样例。原有 6 份封存原件哈希不变，文件策略立即恢复暂停 revision=8。
+- 移除样例的自有本地 CAS 后，关闭归档策略，仍在实际 UI 按原名检索、选中样例并预览，远端恢复的 59 字节 SHA-256 一致。正常 Root 的正式下载接口返回 200；浏览器流式解压 gzip／tar，样例哈希再次吻合；其他日志正文未输出或另存 Downloads。
+- 验收后先确认所有测试策略停用，再按本轮具体 ID、属主／哈希、基线及剩余引用核对移除测试配置与缓存副本。当前策略／目标／任务／凭据均恢复 0，约 401 MiB 新建 CAS 副本和自有 MinIO 数据清理，临时 PID／端口退出；操作审计和 59 字节清理批次继续保留。数据库行期限／调用拒绝保持未启用，SQL collector／mod 日志仍开启；01:10／01:15／01:20／01:25 监控采样持续存在。
+- 证据：`docs/contracts/evidence/storage-installed-root-validation-20261102.json`。这是日常实例的手动归档／清理／取回证明，不将其扩大为新一轮连续十五分钟自动归档或生产部署；长期正式目标／期限、原有 Mac 历史和业务数据库清理仍未擅自启用。
+
+### 2026-11-02 下一步：原生 PostgreSQL 来源与通知准备
+
+- [x] 新增原生 `postgresql` 封存格式和受信任 `current_logfiles` 配置，动态活动集与目录／属主／权限／链接／命名验证；清理及归档共用活动／最新／稳定保护。原子捕获后复查打开句柄，工具缺失、权限不足、警告及超时一律保留；清单变化或复原冲突保留原件／隔离意图。
+- [x] 本地共享集群文件来源和有效 Root 成员的站内通知接收配置准备完成，其他模块配置及安装身份未变。只读实际目录接线验收通过，不启动日常 worker、不写数据库样本／来源／通知。
+- [x] 针对性 Go race／vet、前端 10 项测试、Core 构建及升级载荷检查通过；范例、四语错误原因、操作与回滚文档同步。
+- [x] 日常 Core 重新加载后的真实 PG 来源、采样、站内告警交付及状态验收：操作者重启后的 PID 93664 读取新配置；Root 实际页面来源暂停、通知配置有效，归档来源 ready。正常 04:28／04:33 两轮采样含 PG 来源且间隔约 300 秒；04:23 交付的存储告警在通知中心实页可见、仍为一条未读，运行账本无交付错误。
+- [ ] 长期开页右上角通知浮层跨后端重启的自动同步复查：本轮曾显示空，而后台未读接口已有告警；刷新后通知中心可见。仅记录现象，尚未修复／证明重连根因，不以通知落库代替全部前端实时同步验收。
+- [ ] 长期实际期限／预算／归档目标经 UI 明确配置后启用；当前文件删除暂停、归档配置为 0、数据库期限策略未写入。生产和旧 Mac 对象仍按既有独立任务执行。
+- 证据：`docs/contracts/evidence/storage-native-observation-validation-20261102.json`；临时任务清单第十三节。原生 SQL 日志持续开启，未改变数据库日志设置，也未重启用户服务。
+- 后验收边界：本机整盘约 94% 已用／55.7 GiB 可用，容量风险告警与观测一致；PG 实际只读预览 0 候选，活动 1／最新 1／期限内 17。文件删除、归档及数据库期限仍停用，既有 5 条文件运行记录保留；没有写入 PG 来源清理策略或改变生产／旧 Mac 对象。
+
+
+### 2026-11-05：商用交付门槛重新收口
+
+以下为当日评审记录；当前实现与剩余项以 SG-11 的后续日期记录及各域合同为准。
+
+- 已完成的本地资源配置接入保留阶段证据：174 项存储／备份相关测试，以及正常 Root 实页的就地编辑、上下文、两种主题和桌面／窄屏检查。实页验收只读，没有改动日常策略；临时证据位于 `tmp/storage-resource-config-20261105/README.md`，不能作为正式发布的唯一证据。
+- 当前实现仍存在配置数据库／可写 JSON 混合、数据库备份接口的 RBAC 例外、备份／快照缺少后端原子版本条件，以及凭据独立文件尚未完成商用密钥治理。这些是 SG-11 的发布阻塞项，不因 UI 接通而视为解决。
+- 本次只补齐产品约束、规格和正式待办，不声称已经完成数据库迁移、授权变更、密钥迁移、重启、部署或生产验收。原有未完成任务及已验证范围保持不变。
+
+
+2026-11-07 执行保护续进：`execution-control` 复用现有配置／不可变回执／正式 TaskBus；暂停无需消费者在线，成功答复前留下主机水位；受控步骤与策略写入按开关共享锁、开关变更独占锁隔离。恢复需完整发布证明，交接锁定检查已登记自动策略暂停和发布，两个运维声明明确不等于外部进程／任务排空的自动证明。交接完成仍暂停，恢复单独确认且不恢复历史启用值；顶部 Root UI、纵向任务分区、原 UUID 核对、SSE 已接入。[合同](../../docs/contracts/storage-execution-control.md)与[证据](../../docs/contracts/evidence/storage-execution-control-validation-20261107.json)记录隔离原生／HTTP／UI范围；旧进程现场交接、联合恢复时代次、自动恢复演练、外部 KMS 与长期目标仍未完成，不勾选 T171 或整个 SG-11。未迁移日常库、未重启用户服务、未操作正式站或用户归档对象。
+
+
+2026-11-08 恢复保护续进：托管原地维护恢复在数据库覆盖之前写入既有维护根的独立代次；运行目录与数据库一起回放旧启用状态仍保持阻止。安装协议标记后不重建缺失证明；保留当前治理部署接线，旧 Core 缺少新协议时不能直接替换执行器。Root 新增“恢复后核对”，确认绑定当前代次、要求已登记策略暂停／发布及运维三项声明，确认后仍暂停，恢复／启用分别执行。原 UUID 回执不解除下一恢复；SSE 保留表单代次，未知结果只读核对。此切片不是整站物理恢复、外部整盘回退或旧进程现场交接；跨资源版本重建、目标／凭据代次证明及长期现场验收继续待办。详见 docs/contracts/storage-execution-control.md 与对应 20261108 evidence，不勾选整个 T171／SG-11。
+
+
+2026-11-08 统一重建续进：独立恢复代次下，Root `prepare_restore` 将已接管资源的配置、审计与正式 TaskBus 注册原子提交；新版本高于数据库历史、运行投影及单项策略水位，所有执行开关暂停，预算保留更严格限制。确认前核对发布内容、来源、旧启用库存以及本代次 S3 凭据／目标验证；`acknowledge_restore` 和恢复开关分开。v1→v2 保留原独立证明、缺失不重建，旧 Core 不可绕过。修复同盘多实例安装文档冲突，两项旧预算回归恢复通过。合同与证据：`docs/contracts/storage-execution-control.md`、`docs/contracts/evidence/storage-recovery-reconciliation-validation-20261108.json`。本轮没有部署／重启日常服务、启用清理或操作正式站；旧进程现场交接、长期目标、SSH 凭据合同、完整备份恢复及长期运行验收继续待办。
+
+### 2026-11-09：按顺序补齐真实产物验收
+
+- 第 1 项插件回归已有 2026-11-08 14:06 的实际成功回执：WorkspaceX 原专用 Key、官方 Framework v0.0.28，两项 GrantStatus 均 granted，只读 Lookup 返回 found=false；本轮核对 `docs/contracts/evidence/workspacex-storage-recovery-recheck-20261108.json`，没有再次执行客户写入、订单或支付。
+- 第 2 项统一恢复已由上一日期的源码与隔离证据覆盖；本轮不重复实现，也不把它等同于实际部署或整站物理恢复。
+- 第 3 项补齐 `scripts/ops/validate-storage-artifacts.py` 与新版控制链原生测试：在新建自有 PostgreSQL / MinIO 中，六项真实产物与保护验收通过（race）。实际 pg_dump / pg_restore 核对历史数据和源库新值；数据库配置与正式 TaskBus 实现参与执行；S3 最新版本替换、源及 CAS 删除后仍按旧确切版本取回，恢复后旧凭据失效，新凭据与目标确认后可读取。普通日志不开归档的真实到期清理和活动／最新／业务文件保留单独通过。Redis 为 miniredis，未冒充真实 Redis 或日常 worker 的现场证明。
+- 合同与结果：`docs/contracts/storage-artifact-acceptance.md`、`docs/contracts/evidence/storage-artifact-acceptance-validation-20261109.json`。全部本轮服务 PID／socket／端口与测试数据／凭据已收尾；SQL 修改日志持续开启。未重启日常服务、迁移日常库、修改实际策略、删除业务数据或操作正式站。
+- 下一项仍属于第 3 项／T155：取得长期在线私有 S3／OSS 的目标名称或 endpoint／bucket／region／凭据引用，使用独立来源和前缀完成真实目标上的归档、完整校验、源消失后取回及收尾。完成后再进行第 4 项旧脚本／定时任务／执行器的现场交接。实际资源接管、整站业务恢复、SSH／外部密钥、双环境 7 天运行和 14 天样本及发布交付继续待办，不勾选整个 SG-09／SG-11。
+
+### 2026-11-09：第 4 项交接的只读准备
+
+- 第 3 项现场前置再次只读确认：本机 Core 归档目标为 0、配置 authority=legacy，执行保护 mode=unmanaged。没有创建目标、接管或启用策略，不关闭 T155；目标信息仍需通过正式 UI／凭据引用准备。
+- 独立推进不改变执行权的开发准备：`scripts/ops/powerx-space-guard/handoff_inventory.py` 读取程序版本／哈希、systemd 服务／timer／覆盖、自定义 cron、可见进程及来源绑定／未确认隔离区，提供新建私有报告和前后差异。无 apply、迁移、停止、绑定、删除或启用功能，`authorizes_switch` 恒为 false；快照与实时检查、unknown 与零任务分别呈现。代码与现有守护共 54 项测试通过（新增 25 项），含真实 CLI 子进程、脱敏、超时／权限、failed／enabled timer、软硬链接、系统 mask、RFC3339、容量告警／过期回执与根目录逃逸检查。
+- 47.116.10.200 使用 stdin 和硬时限执行了原生只读盘点，没有安装探针或变更服务器。观察到 failed 与 success；最终 service exit=2，11:05 的守护回执 critical、约 9.05 GiB 可用／88.07% 已用、错误数 0。容量告警不能误判成程序崩溃，也不据单次 success 声称稳定；timer 始终启用。旧 guard／audit helper 未声明新版绑定协议，Core 来源绑定缺失；不能据此宣称已完成升级、双执行防护或长期稳定。主机未执行 stop／disable／restart、写策略或清理命令。
+- 合同：`docs/contracts/storage-executor-handoff-inventory.md`；手册场景 D 与临时守护 README 已同步，明确部分来源转移不能停止整套共享 guard。回执：`docs/contracts/evidence/storage-handoff-inventory-validation-20261109.json`。
+- 下一优先项仍是第 3 项真实长期目标验收。目标准备后完成独立前缀归档／完整校验／源消失后取回，再在授权维护步骤中升级识别新协议的旧程序、预览并核对来源绑定、检查在途任务和唯一执行权；完成交接仍暂停，再单独恢复和逐资源启用。实际交接与资源接管、全站业务恢复及 SG-09／SG-11 长期／发布门槛继续待办。
+
+
+### 2026-11-09：T172 备份清理待核对的只读切片
+
+- 现有 pending/unconfirmed 清理意图接入 Root 分区、顶层发现提醒、分页列表及精确 token 的只读文件结构检查；不完整／孤立／软删记录保持可见，错误时保留列表并提示状态未知。缺表／列返回专用错误；没有新表、迁移或能力准入依赖。
+- 复用共享备份 SSE，原服务在意图／清理结果／保护变化后发出失效通知；事件保留冻结 token 并提示陈旧，显式重新检查。仅查询元数据，不自动删除、重做、清空未知标记或宣称完整性已验证。原任务保护／下载入口继续服从既有安全锁。
+- 原生隔离 PostgreSQL／JWT／HTTP／SSE、前后端回归和真实 Nuxt 桌面 1440／窄屏 390 的明暗主题检查见 `docs/contracts/evidence/backup-cleanup-review-validation-20261109.json`。本轮自有进程／数据收尾；日常与正式站不迁移、不重启、不改策略。自动完整校验及清理结果处理仍未交付，不关闭整个 T172／SG-11。
+- 下一优先项继续是第 3 项／T155 长期在线目标验收：通过正式 UI 准备私有 S3／OSS endpoint、bucket、region 与服务器凭据引用，使用独立前缀完成归档、完整校验、源消失后取回及收尾；同机／Mac MinIO 的隔离通过不替代该项。目标可用后再推进第 4 项现场执行器交接；接管、整站恢复与长期运行／发布门槛仍未关闭。
+
+
+### 2026-11-09：T172 按需完整性诊断续进
+
+- 清理核对弹窗分为文件现状／完整性校验，桌面纵向导航、窄屏选择器，仅展示当前阶段并保留状态。新增 Root 精确 token 的一次 SSE 完整读取：dump SHA256 与登记值、清单及 checksum 文件核对，文件／记录变化、缺失、损坏、中断均不能变成成功。结果为当前请求诊断，不持久化，也不改变清理标记或产生删除资格。
+- 复用既有策略作业锁，五分钟计算上限及三秒 DB 读取／锁获取／解锁边界；单连接池只在本诊断快速拒绝，未增加能力准入依赖。请求取消即停止，不创建脱离请求的后台任务／私有队列，不自动重连、重读或轮询。既有正式 TaskBus 消费合同保持。
+- 源码、隔离原生 PG/JWT/HTTP/SSE 与故障注入、真实 Nuxt 桌面 1440／窄屏 390 明暗主题验收见 `docs/contracts/evidence/backup-cleanup-verification-validation-20261109.json`；未迁移日常库、重启用户服务、修改正式站或解除任何现场未知记录。保持 T172／SG-11 总门槛未勾选。
+- 下一可独立开发项：T172 人工确认保留流程，先冻结 UUID／CAS／审计／持久回执及执行器排空边界，再实现服务与 UI；重新核验服务端内容和状态后才允许确认，不接受浏览器布尔结果、不顺带重做删除。验收需覆盖响应丢失、并发、旧 token、活动作业与断库，未知结果仍锁住。T155 仍是现场优先项，需通过正式 UI 准备长期在线 S3／OSS 目标与凭据引用后完成独立前缀归档、完整校验、源消失后精确取回，再推进现场执行器交接。
+
+
+### 2026-11-09：T172 人工确认保留并保护
+
+- 新增 Root 固定操作、UUID／输入摘要／原意图版本、服务端重新完整核验、已发布全局及计划暂停／恢复围栏、策略会话锁及活动任务检查。最终短事务行锁／CAS、protected=true 和成功回执同提交。原清理状态与 token 保留，不删除或解除意图；旧诊断布尔值不能用作授权。
+- 运维请求／审计集中迁移 `ops_backup_cleanup_retentions`；checking→retained/rejected 终态不可改。只在新功能检查必需列及真实 request_id 唯一性，不进入 ControlService.Ready 或业务能力准入。容量清单登记该表、分类 protected 并排除普通日志清理。独立 dev/test scope 已加，只迁移自身表；正式安装仍使用内容寻址升级，官方载荷生成器已更新并检查。
+- 第三纵向任务分区实现原因／明确确认、SSE 进度、丢失响应后的原 UUID GET 核对和显式同请求恢复。未完成请求从当前意图历史找回，未知时保留冻结输入并锁住父弹窗；没有周期查询或自动 POST。源码、原生 PG/JWT/HTTP/SSE、并发／回滚／中断／围栏／迁移索引故障及明暗 1440/390 验收见 `docs/contracts/evidence/backup-cleanup-retention-validation-20261109.json`。
+- 本轮仅自有隔离资源，未迁移日常数据库、重启用户服务、修改正式站或确认任何现场清理。T172／SG-11 总门槛仍未勾选。
+- 下一独立工程项为 T171：把新增回执表、checking 状态与原请求恢复纳入受控恢复／安装升级联合验收，明确数据库回放后的历史事实与当前执行资格，验证不自动重放／不信任旧回执、升级重复与回退不丢 UUID 履历。先在自有隔离 DB／维护目录做故障注入，完成后再进入授权的日常／现场验收。T155 长期私有目标、旧执行器现场交接、整站业务恢复、外部密钥及 7/14 天证据继续待办。
+
+
+### 2026-11-09：T171 保留回执的恢复代次与安装升级联验
+
+- 人工保留的 review_version 绑定独立维护锚点的协议／安装／AnchorID／Epoch；元数据相同的 SQL 回放也不能沿用旧页面请求。原请求登记后、Fence 捕获前中断及完整读取期间发生恢复均覆盖；终态回执只读历史，不重新写保护。证明不可用时只读检查继续，省略可写版本并展示原因。
+- 维护协议升为 v3；完整 v1/v2 显式升级保留锚点和代次，重复／中断接续不会重新初始化。旧快照 v2 Core 走既有开发适配边界保留当前执行器，不能借回退取消恢复保护；日常安装标记未在本轮操作。
+- 正式 installed core callback + UpgradeRunner 的 plan/apply／重复／事务失败／重试，在自有独立数据库验证 checking/retained/rejected 的现存 UUID 履历、protected 和原 token 保留；真实 pg_dump/pg_restore 对自有测试 schema 回放，验证新代次继续阻止旧请求，不自动开启策略。
+- [合同](../../docs/contracts/backup-cleanup-retention.md#2026-11-09-t171恢复代次与正式升级联合验收)与[证据](../../docs/contracts/evidence/backup-retention-recovery-validation-20261109.json)区分源码、隔离 SQL 回放／正式回调、HTTP/SSE 及 UI；不代表完整安装升级发布、业务恢复、日常／线上迁移或重启。T171／SG-11 保持未勾选。
+- SQL 恢复会丢失快照之后的数据库回执，404／恢复后 checking 不证明此前未执行。本轮通过独立代次拒绝旧版本复用，但没有独立于数据库的完整 UUID 墓碑。**下一独立工程项**：在既有维护根接入保留请求最小身份／输入摘要／结论的恢复凭据，先冻结原子写入、恢复顺序、损坏／冲突和失效关闭合同，再验证 SQL 回放后仍可核对快照之后的 UUID，禁止复用且不把历史回执当当前保护。无需操作日常服务即可先完成隔离开发；现场启用再走维护授权。T155 长期私有目标、旧执行器现场交接、整站业务恢复、外部密钥与 7/14 天证据继续待办。
+
+
+### 2026-11-09：T171 独立保留请求恢复凭据
+
+- 既有维护根新增有界、私有、完整性校验且原子替换的 UUID 凭据；v4 绑定独立 LedgerID，先登记原请求身份／输入再接纳 SQL，SQL 确认终态后保存历史结果再答复成功。没有跨 SQL／文件系统原子事务的虚假承诺；中间故障保留原 UUID 与未知状态。
+- GET 原 UUID／精确意图列表合并独立与 SQL 历史，标明来源；SQL 行回放、缺失、冲突或代次变化不能重放保护、补建 SQL 或复用 UUID。终态不依赖 SQL 回执表在线；未知历史禁止执行，UI 保留 UUID、允许关闭和分区切换，无自动 POST／状态轮询。
+- v1/v2/v3 完整锚点可接续至 v4，保留身份和代次；登记后丢失凭据不重建，受控数据库覆盖前验证。固定 4096 请求／16 MiB，上限拒绝新登记而不自动删除去重履历。普通控制权威和能力准入不增加此依赖。
+- [合同](../../docs/contracts/backup-retention-recovery-ledger.md)与[证据](../../docs/contracts/evidence/backup-retention-ledger-validation-20261109.json)覆盖文件故障／并发、原生 SQL 两阶段间隙、真实测试 schema dump/restore、Root HTTP/SSE、桌面／窄屏明暗主题。仅源码与自有隔离验收；未迁移或重启日常／线上，T171／SG-11 未勾选。
+- **下一独立工程项：旧回执只读盘点、显式导入及覆盖证明。** 新登记覆盖从 v4 开始；先预览已有 SQL 记录的数量、归属、摘要及冲突，再由 Root 显式提交绑定快照与 UUID 的导入。完成标准为重复幂等、故障不丢原记录、未导入缺口可见且不能伪报“全部覆盖”，覆盖后恢复 SQL 仍可核对旧 UUID。可先使用自有 DB／维护根开发，无需用户立即重启。跨代次未知意图的人工终结／解除原清理锁、T155 长期目标、旧执行器现场交接及整站／长期运行验收继续待办。
+
+### 2026-11-09：T171 旧回执显式导入与覆盖证明
+
+- 完成前项的源码与自有隔离验证：Root 当前 Scope 固定来源盘点、分页／覆盖过滤、其他 Scope 单独计数、冻结快照／UUID／操作人／原因、独立 pending 先登记、整批身份与终态审计单文件原子提交。保留原 Actor／原因／结果，checking 不获得执行资格；无 SQL DML、不改 protected、token 或策略。
+- 维护协议 v5／凭据 v2 接续真实 v4/v1 历史与中断升级；记录过的凭据缺失／损坏禁止重建。固定 4096 身份／SQL 行、1024 导入审计、16 MiB；超限、冲突、坏行及源漂移阻断整批，旧记录保留。
+- 当前实例恢复和数据库补偿在 SQL 覆盖前检查所有 Scope 的当前 SQL 回执独立覆盖；缺口／坏行／来源不可用不推进代次。当前 Scope 完整、历史导入证明与整库恢复资格分别呈现；正常插件调用准入不新增此依赖。
+- Root 正式 HTTP/JWT/SSE、原生 PostgreSQL／测试 schema dump/restore、文件故障、4097 来源上限、恢复前无代次推进、真实 Nuxt 1440／390 明暗主题与无轮询验证，见[合同](../../docs/contracts/backup-retention-history-import.md)、[操作指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-backup-history.md)和[证据](../../docs/contracts/evidence/backup-retention-history-import-validation-20261109.json)。仅源码与自有隔离资源，未迁移／重启日常或正式站，T171／SG-11 仍未关闭。
+- **下一独立工程项：T172 跨代次未知清理意图的人工终结。** 先冻结“保留／隔离处置”与原未知历史的关系、执行器排空证明、当前 artifact/token 和内容重验、UUID/CAS/审计及响应丢失合同，再实现 Root 服务与 UI；完成标准是并发／恢复／断库／丢响应均不重复执行、不把 checking 改成“此前未执行”、不在解除锁时顺带删除。可先在自有 DB／维护根开发，无需立即重启。T155 长期私有目标、真实归档与源消失后取回、旧执行器现场交接、整站恢复、外部密钥及 7/14 天证据仍是整体待办。
+- 整包检查补充：当前共享工作区 `upgrade_registry.py --check` 的 core 载荷与登记不同（`UPGRADE_PAYLOAD_CHANGED`）。本切片不修改该扫描集中的生产源，也不自动重生成其他模型／迁移的载荷与 ID；需对应变更整合评审后复查，发布门槛保持未完成。
+
+### 2026-11-09：T172 未知意图的人工保留处置
+
+- 完成完整、可核验备份的固定 `retain_cleanup` 操作：新 UUID／Actor／Scope／artifact/token／版本／历史摘要／原因／代次冻结；原保留请求与 checking 历史不改。独立先登记，再 SQL 接纳；当前保护、cleanup_state=retained 与新处置终态同事务，原 token 保留，不删除／开启计划。
+- 正式全局与计划暂停／恢复 Fence、既有 policy 会话锁、无活动备份／drill、完整 dump／两个 sidecar 和最终描述符身份复核。并发、源漂移、内容变化、SQL 回滚、接纳前／后故障、checkpoint 失败及丢响应有隔离证据。GET 不修补，原请求只显式同输入重试；跨代次历史不重放保护。当前意图退出注意清单，旧未知仍未知。
+- 平台 protected 审计 `ops_backup_cleanup_resolutions` 中央迁移；dev/test 精确 scope 仅处理该表。新表／索引缺失只影响本操作，不进入普通插件／数据库容量准入。维护 v6／凭据 v3 保留真实 v5/v2 的原身份和导入审计；恢复前同时检查新表全 Scope 覆盖。
+- Root 严格 HTTP/JWT/SSE、真实测试 schema dump/restore、新 scope／正式 Core 升级回调、UI 明暗 1440／390、冻结草稿／未知 UUID／父弹层锁／推送／无轮询，见[合同](../../docs/contracts/backup-cleanup-resolution.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-cleanup-resolution.md)、[证据](../../docs/contracts/evidence/backup-cleanup-resolution-validation-20261109.json)。仅源码与自有隔离，未迁移或重启日常／生产；T172／SG-11 未勾选。
+- 新模型和中央 `migrate.go` 已由官方生成器更新内容寻址载荷；该入口属于四组 COMMON，四组 ID 变化均记录。登记一致性不替代其他共享改动／payload 回调／完整发布审查，也不代表现场应用。
+- **下一独立工程项：T172 缺损产物的人工隔离处置。** 先冻结文件缺失／校验不符／sidecar 不完整的诊断、当前身份和维护 Fence，明确隔离仅阻止自动处理，不伪称有效备份，不删除、不清 token／原历史；实现 Root UUID/CAS／审计及 UI，并以并发、恢复、SQL／文件故障与响应丢失验收。可先用自有 DB／维护目录开发，无需立即重启。当前同代次未知处置、缺失 SQL 履历仍不得新建任务绕过，须先核对原 UUID 和维护保护。T155 长期目标及真实取回、旧执行器交接、完整业务恢复、外部密钥与 7/14 天证据继续待办。
+
+### 2026-11-09：T172 缺损产物的人工隔离处置
+
+- 固定 `quarantine_cleanup`：显式按需 SSE 诊断与冻结缺损分类／证据摘要，POST 重验。安全固定父目录及存在／缺失路径、文件描述符与 ctime；完整／unsafe／变化／不可观测不具隔离资格。六种已知缺损可处理，不把 metadata／sidecar 问题说成 dump 必然损坏。既有 policy 锁、正式暂停／恢复 Fence、无活动任务、当前身份和最终 CAS 同时检查。
+- 原子提交 `cleanup_state=quarantined` 与新回执；保留 Job.status／protected、文件、原 token 和未知历史。可用列表排除，历史标记隔离；下载、保护变更、恢复验证／副本拒绝使用，副本在锁内重新读取来源。无 unlink、移动、清 token、自动解除或空间释放承诺。
+- 复用 protected 审计表并中央迁移 operation／expected_diagnosis／diagnostic_digest；旧行默认 retain_cleanup。维护 v7／凭据 v4 保留真实 v6/v3 typed 保留请求与导入审计、共享原上限；独立先登记、SQL 后 checkpoint，缺 SQL 不补建，历史终态不在 SQL 回放后重放隔离。新列就绪检查不影响普通插件调用准入。
+- Root 严格 HTTP/JWT/SSE、原生 PostgreSQL 并发／文件／SQL／checkpoint／代次／真实 schema dump/restore、旧表升级和正式 Core callback、171 前端回归、真实 Nuxt 明暗 1440／390 及丢终帧／GET 暂不可用验收见[合同](../../docs/contracts/backup-cleanup-quarantine.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-cleanup-quarantine.md)、[证据](../../docs/contracts/evidence/backup-cleanup-quarantine-validation-20261109.json)。本轮自有资源收尾；未迁移／重启日常和生产，未接管或隔离现场产物。T172／SG-11 不勾选。
+- **下一独立工程项：T172 隔离产物台账与只读复查。** 产物退出注意清单后，Root 可按隔离状态定位产物、原 token 与处置 UUID，查看分类／时间／原因并显式复查；完成标准为分页／过滤、SQL 回放后历史与当前状态分开、桌面／窄屏和无轮询，不开放解除隔离或删除。可先使用自有数据库继续，无需用户立即重启。T155 长期私有目标及真实取回、旧执行器现场交接、整站恢复、外部密钥、双环境及 7/14 天证据仍待办。
+
+### 2026-11-09：T172 隔离产物台账与只读复查
+
+- 完成当前 Scope 独立／SQL 隔离身份的有界合并，历史结果与当前 SQL 标记并列。支持精确 UUID／原 token／产物或作业 ID、当前状态／结果／分类过滤、时间／登记容量／产物排序及服务端分页；批量 SQL 无 N+1，不因进入页面读取 dump。
+- 显式呈现 SQL 回放／缺失、checkpoint 待补、独立覆盖缺口、身份变化、软删／孤立及冲突。无归属当前隔离标记单独告警，不宣称完整覆盖；无法读取保留旧结果并提示未知。已发现的来源错误／覆盖告警在备份中心顶部仍可进入，不因切换分区消失。
+- Root 固定 UUID／只读 snapshot／恢复代次的单次 SSE 复查，既有 policy 锁内重查身份、安全文件描述符诊断和最终状态核对。文件后来完整也不解除隔离、不补写历史、不授予恢复资格；无 SQL DML、自动扫描、POST、后台任务或状态轮询。没有新迁移／维护协议／普通能力准入依赖。
+- 4 个相关包 race/vet、185 前端回归、原生 PostgreSQL 故障／4097 超限／孤立／真实 schema dump/restore、严格 Root HTTP/JWT/SSE 和实际 Nuxt 明暗 1440／390 的下拉筛选／排序／历史与当前分离／断流／断库告警验收，见[合同](../../docs/contracts/backup-quarantine-inventory.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-quarantine-inventory.md)、[证据](../../docs/contracts/evidence/backup-quarantine-inventory-validation-20261109.json)。浏览器受控 SQL 标记回放与原生真正 dump/restore 分别留证；本轮仅源码与自有隔离资源，不代表日常／生产部署、现场接管或整个 T172／SG-11 完成。
+- **下一现场优先项恢复到 T155：长期在线私有 S3／OSS 目标端到端验收。** 前置条件是在正式 UI 中准备长期 endpoint、bucket、region 与服务器凭据引用（不得依赖 Mac 在线或同机 MinIO）。使用独立测试前缀归档、完整读取校验，再在自有隔离源消失后精确取回，确认原审计和凭据边界并清理测试对象，才算通过；目标尚未就绪时不能以本地 fixture 替代该项。之后再在授权维护窗口推进旧执行器现场交接。外部密钥、整站业务恢复、逐资源接管、双环境、7/14 天和完整发布审查继续待办。
+
+### 2026-11-09：T155 阿里云 OSS 目标待配置与只读前置准备
+
+- 用户已明确未来使用阿里云 OSS，目前尚未创建／配置。T155 真实传输、校验及源消失后取回暂待目标就绪，不替换为 Mac／同机 MinIO，不勾选 SG-09／SG-11。
+- 只读观察本地 Core：三个归档元数据接口均 200，目标／策略为 legacy/ready（尚未接管），目标 0、启用归档策略 0；独立凭据存储 configured=false／ready=false。这里不能推断“磁盘满”“缺权限”或“需要补迁移”。本轮没有接管、保存／测试目标、启用策略、云端传输／删除、迁移或重启。
+- 新增 `scripts/ops/check-storage-archive-readiness.py`：固定三个 Core GET，显式目标选择，目标与策略的数据库版本／执行快照、独立 sealed/active 凭据及节点验证核对；HTTPS、禁止重定向、私有会话／报告、响应上限与脱敏。19 项真实 CLI／临时 HTTP 边界测试通过；本地实际 CLI 返回待配置 3。即使候选配置就绪，t155_passed／authorizes_transfer 仍恒 false。[合同](../../docs/contracts/storage-archive-readiness.md)、[OSS 手册](../../docs/guides/deploy/027-monitor-center/usecase-us9-oss-readiness.md)、[证据](../../docs/contracts/evidence/storage-archive-readiness-validation-20261109.json)区分准备与真实远端验收。
+- 核对官方 OSS S3 兼容 endpoint／虚拟托管要求；本仓库客户端还依赖版本状态、私有 ACL／policy、生命周期、版本清单及确切版本完整取回／清理。没有 OSS 实测，不宣称这些能力全部支持，也不跳过安全检查；需要时依据具体失败证据补专用适配。
+- **下一可独立推进项为 T158 归档联合故障回归**：在自有协议服务和数据库内，对已接纳归档注入远端断连、凭据失效及控制数据库不可用，验收原 UUID／本地内容保留、未知结果可核对、无虚假远端成功／删除资格，并核对实际 UI 推送和错误状态；它不替代 OSS 真实验收。OSS 就绪后再通过 UI 明确目标／凭据引用，用独立前缀和自有源接续 T155，之后才推进现场执行器交接。正式接管、外部密钥、整站恢复、双环境与 7/14 天证据仍待办。
+
+### 2026-11-09：T158 已接纳归档传输故障回归与状态展示
+
+- 新增 `storage_governance/fault_injection_test.go`，使用自有 PostgreSQL、正式集中迁移／TaskBus 发布与版本化协议服务，覆盖对象 PUT 已收下但 ACK 丢失、清单 ACK 丢失、后续请求凭据被拒绝、远端已接收对象时正式控制事务连接被中断。只终止自有池的唯一 PostgreSQL backend，未停数据库服务器或其他会话；Redis 仍为 miniredis 协议夹具。完整停库、Core／worker 重启不是本轮证据。
+- 四场景验收保留原请求／Job ID，非空本地内容 SHA256 及源文件相符，远端未完成验证不显示 success，源清理握手为 false，无故障引发的远端 DELETE；恢复后显式重试同一任务，完整读回再获得成功／握手，内容对象复用。清单确认丢失后的同键新版本允许保留，不声称无重复版本。
+- 页面分别显示本地采集、远端结果和原归档任务编号；说明部分内容可能已经收到，不将本地成功误认为远端成功。窄屏检索改为响应式网格，避免搜索框被日期框挤没。实际 Nuxt／归档 HTTP／fsnotify／SSE 验收四种主题尺寸、元数据 503、断连／重连、上下文与原编号保留，无空闲状态周期查询／自动写入，离开释放连接。页面夹具不接管数据库配置，不将它与原生控制测试合并冒称现场接管。
+- 合同、操作步骤和证据：`docs/contracts/storage-archive-accepted-faults.md`、`docs/guides/deploy/027-monitor-center/usecase-us9-archive-faults.md`、`docs/contracts/evidence/storage-archive-fault-validation-20261109.json`；工作与过程记录 `tmp/storage-archive-faults-20261109/PLAN.md`。本轮无新迁移、策略默认值或生产执行改动。
+- **下一可独立实施项仍为 T158：手动归档接纳响应丢失的原请求核对。** 当前按钮每次点击重新生成 UUID，POST 已接纳但浏览器未收到回复后，再点击可能生成另一任务。须冻结原 UUID／策略上下文，接入只读原请求核对，未知结果保持可见和锁定；404 不证明未执行，分区／SSE／失败不生成新请求或自动 POST。以接纳后截断回复、重复点击、读取失败及重连证明原 UUID 可恢复、没有重复任务。可在自有资源继续开发，无需此时重启日常服务。T158 其余联合故障、T155 阿里云 OSS 真传输与源消失后取回、旧执行器现场交接、资源接管、整站恢复、外部密钥、双环境和 7／14 天证据仍待办，不勾选 SG-09／SG-11。
+
+### 2026-11-09：T158 手动归档接纳响应丢失与原请求核对
+
+- 新增 Root `GET /archives/policies/:policy_id/requests/:request_id`，复用持久任务中的原请求摘要，返回固定最小身份和记录状态，不读当前策略／控制 DB、不写任务／重试／解锁；目录缺失／损坏／重复匹配／证据不完整均关闭。404 仅表示未核对到，不证明此前未执行。自定义前缀、真实 Root 用户与八类拒绝身份已覆盖；该端点列为 Root 运维审计忽略，不发布租户／插件能力，不运行日常 seed。
+- 新 UI 在 POST 前将原 UUID／策略 ID／策略版本／来源和时间保存到当前登录会话的 sessionStorage，不保存令牌／凭据／恢复票据。重复点击、分区／同会话路由返回／刷新、SSE 和读取失败不新建编号、不应用级重放 POST；404／503／错误回执维持锁定，正面且匹配的原回执才显示原任务入口。身份切换隔离旧上下文，迟到回应不进入新身份页面。
+- 手动 POST 新增可选 `expected_policy_revision`，新 UI 始终提交已查看版本；空旧 body 兼容。版本冲突不建任务，同一请求键不能换策略版本。overview 声明 `run_request_version=1`；旧日常 Core 未加载新接口时页面禁止提交，避免热更新页面误调用旧接口。日常生效需要用户按原 VS Code 流程编译／重启 Core；本轮未代操作。
+- 真实 Nuxt／注册 HTTP／PostgreSQL／正式 TaskBus 控制发布／fsnotify／SSE 联合验收通过；Redis 是 miniredis、S3 是版本协议夹具，不等同 OSS 验收。部分 202 响应体截断：应用 fetch=1、HTTP POST=1、原任务=1；响应头前 socket 丢失：应用 fetch=1、浏览器透明 HTTP 重传=2、原 UUID 不变、任务仍为 1。两种边界分开记录，不能用 retry:0 声称传输层永不重传。
+- 证据与说明：`docs/contracts/storage-archive-run-request.md`、`docs/guides/deploy/027-monitor-center/usecase-us9-archive-request.md`、`docs/contracts/evidence/storage-archive-request-validation-20261109.json`；工作记录 `tmp/storage-archive-request-20261109/PLAN.md`。本轮无迁移、业务准入／权限／清理默认值改变，无现场资源接管或生产部署。
+- **下一独立项仍为 T158：Core／worker 写入中断与真实进程重启联合回归。** 使用自有进程、归档根和目标，在接纳后采集／远端写入中途停止再启动，验收原请求／任务身份及本地内容保留、旧 running 不误报当前活跃或已完成、不自动生成第二任务、不凭旧远端结果放行删除，并核对页面推送／未知状态。可独立开发，无需停止或重启日常服务。T155 待未来阿里云 OSS 真传输与源消失后取回；完整停库、现场旧执行器交接、逐资源接管、整站恢复、外部密钥、双环境与 7／14 天证据仍待办，不勾选整个 T158／SG-09／SG-11。
+
+### 2026-11-10：T158 归档执行中断识别与原任务重传
+
+- 归档 Service 为采集／远传／迁移注册本次执行 UUID，只读 Job／Catalog／Overview／原请求区分 active、unconfirmed、interrupted、recorded。GET 不接管锁、不改任务；另有执行器持有原策略／迁移锁时不判定死亡。启动与既有 Tick 确认排空后记录原阶段／中断时间；本地采集成功与远端未知分开，保留原请求和内容。
+- 原锁内禁止替代采集；Tick 先对账，待处理策略不自动重传／新建／远端回收。采集中断的 CAS 尚可能没有 Files 引用，归档根共享对象回收保持围栏。完整快照可在 UI 确认后重传原 Job ID，当前控制与目标检查／完整读回不变；只在成功后解除待处理标记，保留中断历史。未完成采集仍不能重传或任意解除保护。
+- overview 新增 execution_version=1；新 UI 同时检查原请求协议和执行协议，旧 Core 不支持时阻止手动采集。顶部中断提示不因分区、错误或近期 100 条截断消失。执行归属／当前待处理门禁不写入 S3／SSH／下载历史清单，下载也不导出本地执行 UUID 和请求摘要；导入历史不继承当前执行资格。
+- 自有二进制运行生产归档组件，真实 SIGKILL 后新 OS 进程同根启动，覆盖媒体采集已写 CAS 且阻塞于自有 PostgreSQL 引用查询、S3 对象／清单已接收但尚未 ACK。三场景 race 通过；真实分钟调度观察 62 秒，测试中回拨原记录时间保证到期，原任务／SHA 保留、无替代任务／自动重试、无探针基线以外 DELETE、显式同任务重传完整成功。它不是整套 cmd/app Core 进程验收。
+- Root JWT／HTTP／fsnotify／SSE 与实际 Nuxt UI 单独使用同进程 Service 重建夹具验收；明暗 1440／390、503、断线／重连、上下文、确认弹层和单次原任务 Retry 通过，无空闲周期查询。与真实 OS 测试分开留证，不冒称浏览器贯穿完整 Core SIGKILL。3 包 race/vet、43 项前端、4 类原生 PostgreSQL／正式 TaskBus 既有故障及 capability-check 通过；S3／Redis 仍为协议夹具。
+- [合同](../../docs/contracts/storage-archive-process-restart.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-archive-restart.md)、[证据](../../docs/contracts/evidence/storage-archive-restart-validation-20261110.json)；工作目录为 `tmp/storage-archive-process-20261109/`（跨日完成）。本轮未迁移日常库、修改日常策略、重启用户服务或接管现场，不勾选 T158／SG-09／SG-11 总门槛。
+- **下一独立工程项为 T158 中断采集原任务的受控处置。** 先冻结原 UUID／采集版本与内容证明、策略暂停／执行排空、明确保留和结束、审计及响应丢失回执；服务端重查后才可结束阻塞，不把清标记或删局部对象作为替代。验收需覆盖活动作业、并发、旧版本、断库／恢复、未知回执及实际 UI，且不自动重建第二任务。无需此时重启日常服务即可开发。T155 待未来阿里云 OSS 的真实传输／取回；整套 Core／worker 重启、完整停库、旧执行器现场交接、逐资源接管、整站恢复、外部密钥、双环境及 7／14 天证据继续待办。
+
+### 2026-11-10：T158 中断采集保留与原任务结束
+
+- 新增固定 Root `retain_and_close`：核验暂停策略与原执行／GC 锁、逐个完整读取本地 CAS，再在独立恢复代次和正式控制 Guard 下，原子提交原任务的 protected 保留引用、审核原因／操作者、终态和原 UUID 回执。结束后仍需另行明确启用；不生成替代任务、不删除源／CAS／临时／远端内容，不把局部对象认证为完整 Files。
+- 缺完整采集清单时保守保留当前共享 CAS 集合，限制 10000 个／64 GiB／5 分钟并推送进度；拒绝软硬链、变化、损坏、未知项与旧版本。GC 保护这些引用，但能回收集合以外的无用对象；不允许普通取消保护、下载、重传或恢复不完整保留任务。任务与回执故障不成为删除许可，新增字段不进入普通业务准入／权限和 schema readiness。
+- 最小请求台账先登记，任务与终态同文件落盘，再确认回执；不声称 DB／文件跨存储原子提交。UUID 不能改输入；registered 无终态不自动重做，错误／缺失／仅历史事实保持未知。台账缺失时可从原任务终态只读找回；SQL／任务回放和恢复代次变化不能重用旧预览或重新授予当前保护。全文件系统回退后的独立 UUID 墓碑仍属 SG-11 恢复门槛。
+- UI 使用概览／内容核验／审核确认纵向分区及窄屏选择器；原因草稿保留，推送更新原任务并使旧证明失效。最小身份在 POST 前保存至本登录 sessionStorage，不保存原因正文或凭据；回复丢失只 GET 原请求，404／503／错身份／恢复前回执不解锁，断连提示在弹层内可见。备份中心与存储治理均明确显示 retained，旧错误不冒充当前待处置状态。
+- 源码、3 包 race/vet、前端回归、真实 Root HTTP／SSE／自定义前缀、原生 PostgreSQL／正式 TaskBus 暂停发布／策略版本变化／控制连接关闭、自有归档组件 SIGKILL 后保留原局部内容及实际 Nuxt 明暗 1440／390 验收见[证据](../../docs/contracts/evidence/storage-archive-disposition-validation-20261110.json)。Redis 仍为协议夹具；OS 场景不是整套 cmd/app 重启，不证明外部 pg_dump／SSH／rsync 或远端执行器已排空。正式接管／重新启用前该项仍须独立验收。
+- 新增三条接口列为 Root 运维审计忽略，归档范围的能力审计通过；全仓 `capability-check` 仍有客户模块五条 client-apps 路由未覆盖，本轮未擅自扩大权限或修改其声明。文档为[合同](../../docs/contracts/storage-archive-interruption-retention.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-archive-interruption-retention.md)，过程记录 `tmp/storage-archive-disposition-20261110/PLAN.md`。本轮未迁移日常库、修改日常策略、重启用户服务、部署正式站或提交代码；T158／SG-09／SG-11 总门槛仍未勾选。
+- **下一独立项仍为 T158：registered 无终态处置请求的人工只读核对与受控结案。** 绑定原 UUID／输入、恢复代次、当前任务和排空证明；区分历史未知、当前保护及确切终态，提供可审计的人工作结论。验收须覆盖并发、回放／断库、确认回复丢失和实际 UI，不能假定此前未执行、重放动作、复用编号或删内容。无需此时重启日常服务即可开发。T155 阿里云 OSS、完整 Core／DB 与外部命令排空、旧执行器交接、逐资源接管、整站恢复、外部密钥、双环境和 7／14 天证据继续待办。
+
+
+### 2026-11-10：T158 无终态处置请求的人工核对与结案
+
+- 源码实现：Root 只读核对原 UUID／输入、原登记代次与当前恢复代次、当前任务、暂停策略及组件执行锁。代次变化明确显示，既不推断此前未执行，也不认证 CAS 完整性；活动锁／当前不符／控制链不可用不通过。
+- Root 明确填写原因确认 close_unknown_keep_protection，原台账单文件原子记录 closed_unknown 和新结案 UUID／输入摘要／核对版本／人员／时间／当前保护证明；不写任务、源或对象，不释放 interruption_pending／GC 围栏，不创建或重放采集。原 retain UUID 始终只读，结案 UUID 不得用于另一结案或 retain 输入；历史结论不能跨恢复重新授予当前保护。
+- UI 增加“核对未知请求／确认人工结案”纵向任务分区，窄屏选择分区；草稿保留、旧 Core 能力标记、最小会话意图、原 UUID 核对和 SSE 断线反馈。确认回复丢失、404、坏回执及刷新不重放 POST；匹配原输入／结案／当前保护才结束待确认，保留审计。
+- 隔离验证：Service 并发／原请求与策略锁／旧预览／配置锁等待期间变更／恢复回放、正式 PostgreSQL 发布控制与断库、Root 默认及自定义 HTTP 前缀、真实 Nuxt 代理自有后端的桌面／窄屏明暗主题与截断成功回复。本轮全仓 capability-check 通过；未修改客户权限声明或 seed 日常库。
+- [合同](../../docs/contracts/storage-archive-request-closure.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-archive-request-closure.md)、[证据](../../docs/contracts/evidence/storage-archive-request-closure-validation-20261110.json)；临时计划 tmp/storage-archive-request-resolution-20261110/PLAN.md。源码／隔离验收不等于正式部署／资源接管；未重启用户服务、修改现场策略、迁移日常库或提交代码。
+- **下一独立项仍为 T158：归档外部采集命令退出与排空回归。** 在自有 PostgreSQL 和协议服务中，使 pg_dump／SSH／rsync 等原任务子命令处于实际执行中，再取消／终止归档组件，验收所属子进程退出、监听与文件句柄释放、原 UUID／内容保留，未证明排空时不能把组件锁可取得当作安全处置许可。前置为 Agent 自有子进程归属记录和可控故障点，无需日常 Core 重启或 OSS。T155 阿里云 OSS 真传输／源消失后取回、完整 Core／DB 故障、全文件系统回退的 UUID 墓碑、旧执行器现场交接、逐资源接管、整站恢复、外部密钥、双环境及 7／14 天证据仍待办，不勾选整个 T158／SG-09／SG-11。
+
+
+### 2026-11-10：T158 归档本机外部命令退出与排空保护
+
+- 源码实现：pg_dump／SSH／rsync 统一独立进程组，Linux WNOWAIT／Darwin NOTE_EXIT 观察 leader 但不提前 reap；取消先 TERM、有界升级 KILL，正常退出也结束同组残留，再 Wait 并确认组消失。最后信号前直接 leader 身份仍占用，不在回收后按裸 PID 补杀。Service.Close 同时等待 worker 和直接 API 命令。
+- 私有 command-executions 按原任务保存 idle／prepared／running／drained 序列证明，绑定任务／执行 nonce／新命令 UUID／主机；fork 前持久化，缺失／损坏／异主机／旧协议不认证。状态是本机组排空，业务成功和异地 ACK 仍单独检查；没有新增数据库迁移、业务／插件准入依赖、任务队列或公开杀进程接口。
+- 原任务处置、未知请求人工结案、新采集／重传、回收与封存日志清理握手接入保护；取消后原采集仍 interrupted，已有内容保留。组件 SIGKILL 后孤儿命令可能继续存活，此时原证明保持未知，重启不补杀、不清标记、不创建替代任务；旧锁可取得不构成排空证明。
+- UI 复用 overview／job GET 和原 fsnotify／SSE，常显未确认与相关任务入口，弹层禁用提前内容核验；分区切换保持注意状态，断线与重连不周期查询、不自动核验或 POST。
+- 隔离验收：真实 pg_dump 在自有 PostgreSQL 表锁等待中 Close，真实 SSH／rsync 的 SSH 子进程阻塞握手后取消，忽略 TERM 的父子组、组件 SIGKILL 与同根重启、丢失／损坏／旧协议、历史结案不能恢复当前保护；Darwin 原生 race／vet，Linux amd64 仅交叉编译，前端 67 项、真实 Nuxt 代理自有后端的明暗 1440／390／SSE 验收。初次整包发现旧 captureTest 在采集解锁与后续清理间抢锁的测试竞态，夹具改为等待原 execution 完成后再验收恢复；归档整包及受影响测试重跑通过，不隐藏首轮结果。
+- [合同](../../docs/contracts/storage-archive-command-drain.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-archive-command-drain.md)、[证据](../../docs/contracts/evidence/storage-archive-command-drain-validation-20261110.json)，临时计划 tmp/storage-archive-command-drain-20261110/PLAN.md。全仓 capability-check 通过；自有服务与对象交付前清理，未重启日常 Core／Nuxt、迁移日常库、部署正式站或提交代码。
+- **下一独立项仍为 T158：本机命令启动身份与人工排空证明的受控确认。** 给新执行绑定可核对的 OS 启动／主机身份；Root 只读查看原任务／命令／恢复代次和当前状态，再通过不可变版本、原因与确认记录结论。验收并发、PID 重用／身份不符、旧记录缺证、恢复回放及确认回复丢失，不能按裸 PID 杀进程或把“未找到进程”直接当作已排空；仍未知就继续保留保护。可使用 Agent 自有进程开发，无需日常重启或 OSS。真实 Linux 运行、异地 SSH 接收器、T155 阿里云 OSS、整套 Core／DB 崩溃、现场旧执行器交接、逐资源接管、整站恢复与独立墓碑、外部密钥、双环境及 7／14 天证据继续待办，不勾选整个 T158／SG-09／SG-11。
+
+
+### 2026-11-10：T158 原任务命令启动身份与人工排空确认
+
+- 源码实现：新命令协议 2 记录内核 PID／PGID／UID／启动标记、boot／namespace 摘要；Root 只读核对原任务／执行／命令、当前暂停策略、原锁、独立恢复代次和系统观察。仅完整身份、同次系统启动内原 leader 与原组都缺失时可人工确认。旧证据、缺失／损坏、PID 身份不符／仍存活、boot 变化均不补造已排空，不发送终止信号。
+- 正向确认只原子新增 command-confirmations/<command_id>.json，含请求 UUID／输入及原记录摘要、版本／身份／观察／恢复代次、人员／原因／时间；它同时为不可变终态和匹配原命令的本机证明。原任务、原命令、源、CAS、远端和策略字节不改；原采集仍保持 interruption_pending，后续须独立内容核验。新执行／命令或恢复不继承旧资格。
+- 尚未进入正向写入的确定错误记录不可变 rejected，方便控制库恢复后按原请求核对再重新审核；已尝试写入的异常保持未知。原 UUID 不换输入，重复确认不重做；缺失／错误／历史回执不解除当前待确认，无 DB migration、私有队列或业务／插件准入依赖。
+- UI 增加独立“作用与边界／核对启动身份／人工审核确认”纵向分区，窄屏选择；内核细节按需展开，草稿、最小会话意图、身份变更及 SSE 断线反馈接通。确认前保存原身份／摘要，丢失回复、坏回执、刷新、SSE 不自动 POST 或周期请求。旧 Core 无版本标记不能提交。
+- 验收：真实父组件 SIGKILL 后孤儿仍活跃而拒绝，测试外部核实归属并结束组后才确认；控制启动标记模拟 PID 重用比较（未声称强制内核重用）；真实 pg_dump 完成后的 final ack 丢失夹具；正式 PostgreSQL／TaskBus 暂停发布和断控制连接；Root 默认／自定义 HTTP 前缀；真实 Nuxt 代理自有后端的截断回复、404／503／错／历史回执、刷新和 SSE。Darwin 原生三个后端包 race／vet、78 项前端／10 文件、明暗1440／390和全仓 capability-check 通过；Linux仅交叉编译。
+- [合同](../../docs/contracts/storage-archive-command-confirmation.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-archive-command-confirmation.md)、[证据](../../docs/contracts/evidence/storage-archive-command-confirmation-validation-20261110.json)，临时计划 tmp/storage-archive-command-confirmation-20261110/PLAN.md。自有测试资源交付前清理；未重启日常 Core／Nuxt、迁移日常库、部署正式站、接管现场或提交代码，不勾选 T158／SG-09／SG-11 总门槛。
+- **下一独立项仍为 T158：目标探测命令的范围绑定与受控排空确认。** 对没有 job 的探测记录明确绑定原目标、执行／命令身份、当前主机／恢复代次及所有引用该目标的已发布暂停策略，补齐可发现的 UI 入口、不可变回执和原请求恢复。验收目标变更／删除、并发探测、活跃／复用身份、断库和确认回复丢失；缺少历史身份仍保护，不挪用任意任务或按裸 PID 杀进程。可使用自有 SSH／目标夹具开发，无需日常重启或 OSS。旧记录现场核对、真实 Linux 运行、远端接收器、T155 阿里云 OSS、整套 Core／DB 崩溃、旧执行器交接、逐资源接管、整站恢复／独立墓碑、外部密钥、双环境与 7／14 天证据继续待办。
+
+### 2026-11-10：T158 目标探测范围绑定与本机排空确认
+
+- 无 job 的 SSH 探测新建协议 3 原目标绑定（ID／版本／控制摘要／实际设置／凭据指纹）和独立执行编号，同目标探测串行；未知旧记录不可覆盖。原任务协议／摘要兼容，旧探测无绑定只读显示缺证，不挪用任务或补造确认。
+- Root 复用原三接口，确认输入回显固定 target_id，绑定原 record／execution／command、OS 身份与恢复代次；正式策略与目标必须完整发布，在同一事务锁定整份引用集合、核对全部暂停并取得执行锁。目标修改／删除、新增引用、活动／未发布策略和断库都不能使用旧预览；重新核对只能确认原目标本机命令退出，不验证或启用当前目标。
+- UI 告警可发现无任务探测，纵向核对／确认分区展示原目标与当前变更状态、版本、引用策略；最小意图加入目标范围，回复丢失沿原 UUID 只读核对，SSE 失效保留草稿，无状态轮询。不可变证明不改原命令／目标／业务数据，下一次显式探测产生新身份，旧回执不继承。
+- 三个相关 Go 包 race／vet、原生 PostgreSQL 发布／单连接／断库／原命令确认专项、Root JWT／自定义前缀 HTTP、95 项前端回归、真实 Nuxt 明暗 1440／390 与截断回复／重载／断流验收、capability-check 均通过。Linux 仅交叉编译；HTTP／SQL 夹具在真实 ssh 退出后回放丢失 final ack，与整套进程崩溃验收分开。[合同](../../docs/contracts/storage-archive-probe-confirmation.md)、[指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-archive-probe-confirmation.md)、[证据](../../docs/contracts/evidence/storage-archive-probe-confirmation-validation-20261110.json)及 `tmp/storage-archive-probe-confirmation-20261110/PLAN.md` 留存。
+- 自有 PostgreSQL／HTTP／浏览器代理和临时令牌／Linux 编译产物已清理；日常 Core／Nuxt 未重启，未迁移日常库、改现场策略、部署正式站、接管资源或提交代码。仅完成本轮源码与隔离验收，不勾选整个 T158／SG-09／SG-11。
+- **下一独立工程项仍为 T158：远端 SSH 接收器执行身份与中断后只读核对。** 在既有 receiver 协议中绑定原目标／执行范围，区分本机命令退出和远端写入状态；用 Agent 自有 SSH／接收器夹具验证本机取消后远端仍写入、重复／旧确认、重连和目标变更时继续保护，不凭本机证明释放远端资格。完成标准为明确的状态合同、Root 可发现诊断、无自动重放／删除和隔离进程清理证据；前置仅为自有协议测试资源，无需此时重启日常服务或等待 OSS。旧缺证记录现场核对、真实 Linux 运行、T155 阿里云 OSS 真传输／源消失后取回、整套 Core／DB 故障、独立墓碑、旧执行器交接、逐资源接管、整站恢复、外部密钥、双环境与 7／14 天证据仍待办。
+
+
+### 2026-11-10：用户确认核心范围发布，冻结今日收口
+
+- 用户接受：先收口已验收核心功能，未验收远端 SSH／OSS 和现场接管保持关闭且 UI 标为未就绪。原 80 条未勾选／US9 65 条总项、SG-09／SG-11 的 15 条发布门槛不因缩小本次范围而勾选，不继续用高级 T158 支线阻塞核心候选。冻结清单见 `tmp/storage-release-20261110/PLAN.md`。
+- RC1 范围盘点、RC2 系统快照兼容修复、RC3 高级操作默认关闭、RC4 构建／隔离联合回归已完成。系统快照组件补执行登记和排空复核，真实 PG 的手动／定时在线采集、业务并发写入及独立恢复通过；远端门槛下发到正式运行配置，后端和 UI 均阻止远端执行／接管，不改历史配置，不关闭容量、内容、权限、日志和恢复保护。
+- 当前 Linux 后端及 Nuxt 生产构建通过；8 包完整 race 及另外 4 包存储／准入／schema 定向回归通过，另一个 repository 包没有测试文件；374 项前端、真实桌面／窄屏和明暗归档页面、Root／数据库期限／迁移／错误分类、vet 和 capability-check 通过。早期自有环境命名、端口、SQL 日志前置与测试目录常数问题均独立留证，最终结论取纠正后的专项结果，不隐藏失败日志。
+- [发布合同](../../docs/contracts/storage-core-release.md)、[操作指南](../../docs/guides/deploy/027-monitor-center/usecase-us9-core-release.md)、[证据](../../docs/contracts/evidence/storage-core-release-validation-20261110.json)。仅候选源码和自有隔离验收；构建标为 uncommitted，未提交／推送、迁移日常库、重启用户服务、操作正式站或接管旧脚本。高级操作默认开关不能代替未来真实 OSS、所有权和恢复验收。
+- **下一项 RC5：用户按原 VS Code 配置重新编译并重启本地 Core 后，核对实际运行。** 完成标准：控制链／迁移／配置发布就绪，磁盘与表观测正常，核心期限按批准配置运行，远端归档和接管仍关闭，WorkspaceX 原两项权限 granted 且官方 SDK 只读 Lookup 正常返回找到／未找到，无客户／订单／支付写入。Agent 不擅自重启日常服务。
+- **之后仅剩 RC6 正式发布操作：** 明确正式版本与可审阅提交范围（当前 worktree 含大量既有修改），取得恢复点和正式 upgrade 只读 status／plan，在批准窗口部署并复验，记录真实 SHA／进程／主机。今天不接管旧 timer／脚本。完整商用规格、Linux 原生、远端接收器／真实 OSS、整套 Core／DB 故障、独立墓碑／密钥、双环境 7／14 天及既有通知长期复查留后续；T158／SG-09／SG-11 总门槛保持未完成。
+
+
+### 2026-11-10：核心范围本地运行与最新 SDK 收尾
+
+- 用户已重启本地 Core（PID 56782），Root 六个管理 GET 均 200，schema／控制依赖 ready；67 张登记表中 65 张有观测，2 张缺失保留未知。远端归档和接管仍按批准范围关闭，命令未知计数为 0。
+- 当前预算和数据库期限为 legacy／待 UI 接管，期限 enabled=false，尚未自动清理日常数据库；没有修改策略来取得运行证据。不能把 schema_ready 与策略已启用混为一谈，也不把 ADOPTION_REQUIRED 当成之前控制链失效。
+- RC5 只读验收完成：原 dev-workspacex-customer-identity-lab 的两项授权在官方 Framework v0.0.28 及最新已发布 v0.0.29 均 granted，typed Lookup 正常 found=false。最新模块通过官方发布与 Go proxy 核对，精确 v0.0.29／无 replace；原私有 Key 留在 Ubuntu 且材料不变，客户／订单／支付写入为 0。临时探针和反向转发已清理，未修改 WorkspaceX 源码／配置／进程。
+- 用户进一步明确：SDK 最新版本可查；PowerX 在写完、共同总结上传后打版本，提交范围之后一起总结，不作为当前开发的前置提问。今天批准范围的 RC1～RC5 已收口，下一步仅共同总结本次改动及必需依赖、提交说明和证据；随后按既有流程上传／打版本／正式部署验收。尚未 commit、push、tag 或操作正式站；高级完整规格和 SG-09／SG-11 保持待办。

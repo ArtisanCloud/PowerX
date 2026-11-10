@@ -20,7 +20,7 @@ func KnownClientPlatforms() []string {
 
 // CustomerAuthConfig 客户委派登录配置。
 type CustomerAuthConfig struct {
-	// ClientApps 是客户端应用注册表：每个小程序（或其他平台应用）的凭证，以及允许使用它的插件 / 租户。
+	// ClientApps 仅为旧配置显式迁移来源；运行时使用租户独立数据库登记，不回退此配置。
 	ClientApps []CustomerClientAppConfig `yaml:"client_apps"`
 }
 

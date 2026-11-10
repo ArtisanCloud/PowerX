@@ -11,6 +11,11 @@ type ImageClient interface {
 	Health(ctx context.Context) error
 }
 
+// ImageRequestValidator 在创建付费任务前和驱动发送前使用同一套输入校验。
+type ImageRequestValidator interface {
+	Validate(ImageRequest) error
+}
+
 type ImageRequest struct {
 	Prompt    string
 	RefImages []ContentPart // 可选：图生图（image_url / image_base64）

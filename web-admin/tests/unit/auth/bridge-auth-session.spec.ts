@@ -151,3 +151,25 @@ describe('injected consumer v2',()=>{
   });
 
 });
+
+it('reports only the last verified iframe session and sends no credentials with a login hint',()=>{
+  const f=fixture();try{
+    f.message('sync');f.message('auth-token',{sequence:3,sessionId:'current',revision:2,expiresAt:Date.now()+10000,accessToken:'private-access'});
+    const client=f.dom.window.PowerXBridgeClient;
+    client.reportSessionInvalid({sessionId:'old',revision:2,code:'IAM_CONTEXT_USER_SESSION_INVALID'});
+    client.reportSessionInvalid({sessionId:'current',revision:2,code:'IAM_CONTEXT_SERVICE_CREDENTIAL_EXPIRED'});
+    expect(f.post.mock.calls.filter(call=>call[0].type==='auth:required')).toHaveLength(0);
+    client.reportSessionInvalid({sessionId:'current',revision:2,code:'IAM_CONTEXT_USER_SESSION_INVALID'});
+    const report=f.post.mock.calls.at(-1)![0];expect(report).toMatchObject({type:'auth:required',sequence:3,sessionId:'current',revision:2,code:'IAM_CONTEXT_USER_SESSION_INVALID'});
+    expect(JSON.stringify(report)).not.toContain('private-access');expect(report.refreshToken).toBeUndefined();
+    f.message('auth-cleared',{sequence:4});client.reportSessionInvalid({sessionId:'current',revision:2,code:'IAM_CONTEXT_USER_SESSION_INVALID'});
+    expect(f.post.mock.calls.filter(call=>call[0].type==='auth:required')).toHaveLength(1);
+  }finally{f.close()}
+});
+it('preserves the terminal machine code during context application without trusting error text',async()=>{
+  const f=fixture();try{
+    f.message('sync');f.dom.window.PowerXBridgeClient.onAuthToken(async()=>{throw {status:401,data:{error_code:'IAM_CONTEXT_USER_SESSION_INVALID',message:'private error'}}});
+    f.message('auth-token',{sequence:1,sessionId:'current',revision:2,expiresAt:Date.now()+10000,accessToken:'private-access'});
+    await new Promise(resolve=>setTimeout(resolve,0));const report=f.post.mock.calls.at(-1)![0];expect(report).toMatchObject({type:'auth:rejected',sequence:1,sessionId:'current',revision:2,code:'IAM_CONTEXT_USER_SESSION_INVALID'});expect(JSON.stringify(report)).not.toContain('private');
+  }finally{f.close()}
+});

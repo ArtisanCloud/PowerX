@@ -90,7 +90,7 @@ func configureSystemSnapshots(ctx context.Context, cfg *config.Config, deps *sha
 		}
 	}}
 	audit := obsops.NewUnifiedAuditWriter(deps.DB)
-	options := snapshotops.Options{Backend: native, Sources: source, RecoveryStore: func() *snapshotops.CoordinatorStore { return deps.SystemRecovery }, Audit: func(run context.Context, event snapshotops.AuditEvent) error {
+	options := snapshotops.Options{RequirePolicyControl: true, Backend: native, Sources: source, RecoveryStore: func() *snapshotops.CoordinatorStore { return deps.SystemRecovery }, Audit: func(run context.Context, event snapshotops.AuditEvent) error {
 		return audit.Write(run, obsops.AuditRecord{ResourceType: "system_snapshot", ResourceID: event.ID, Operation: event.Action, Outcome: event.Outcome, Severity: "info", Detail: map[string]any{"operator": event.Operator, "trace_id": event.TraceID}})
 	}}
 	if deps.SystemRecovery != nil {
@@ -115,11 +115,21 @@ func configureSystemSnapshots(ctx context.Context, cfg *config.Config, deps *sha
 		options.Coordinator = true
 	}
 	deps.SystemSnapshots = snapshotops.NewService(ctx, initial, options)
+	if deps.StorageGovernance != nil {
+		if e := deps.StorageGovernance.BindSystemSnapshotControl(deps.SystemSnapshots); e != nil {
+			logger.WarnF(ctx, "系统快照计划控制面不可用: %v", e)
+		}
+	}
 	if deps.SystemRecovery == nil && !config.BackgroundWorkersDisabled(cfg) {
 		// 普通启动直接登记当前实例，恢复时由同一 Core exec 进入维护模式。
 		if current, err := recoveryops.NewCurrentRuntime(ctx, cfg, config.GetGlobalConfigPath(), initial, deps.SystemSnapshots); err == nil && current != nil {
 			deps.CurrentRecovery = current
 			deps.SystemRecovery = current.Coordinator.Store
+			if deps.StorageGovernance != nil {
+				if err := deps.StorageGovernance.BindRecoveryAnchor(current.StorageRecoveryAnchor()); err != nil {
+					logger.WarnF(ctx, "存储恢复保护未接通，受控执行保持阻止")
+				}
+			}
 		} else if err != nil {
 			logger.WarnF(ctx, "当前实例维护恢复未启用: %v", err)
 		}

@@ -88,9 +88,11 @@ type assetRepository interface {
 }
 
 type MediaService struct {
-	derivatives       derivativeRepository
-	derivativeQueue   *taskqueue.StreamDriver
-	derivativeChanged func(context.Context, string, string)
+	imageProcessing          *imageProcessingPolicy
+	derivativeEventNamespace string
+	derivatives              derivativeRepository
+	derivativeQueue          *taskqueue.StreamDriver
+	derivativeChanged        func(context.Context, string, string)
 	*service.BaseService
 	repo       assetRepository
 	manager    *mediamgr.MediaManager
@@ -109,11 +111,12 @@ func NewMediaService(db *gorm.DB, repo assetRepository, manager *mediamgr.MediaM
 		defaultTTL = 12 * time.Hour
 	}
 	svc := &MediaService{
-		BaseService: &service.BaseService{DB: db},
-		repo:        repo,
-		manager:     manager,
-		audit:       audit,
-		defaultTTL:  defaultTTL,
+		imageProcessing: newImageProcessingPolicy(ImageDerivativeOptions{}),
+		BaseService:     &service.BaseService{DB: db},
+		repo:            repo,
+		manager:         manager,
+		audit:           audit,
+		defaultTTL:      defaultTTL,
 	}
 	if db != nil {
 		svc.derivatives = mediarepo.NewDerivativeRepository(db)
@@ -976,6 +979,9 @@ func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVar
 	if variantName == "" {
 		return nil, fmt.Errorf("variant required")
 	}
+	if variantName == "thumbnail_64" && (in.Checksum == "" || in.SizeBytes < 1 || in.SizeBytes > Thumbnail64MaxBytes || (normalizeUploadMIME(in.MimeType) != "image/png" && normalizeUploadMIME(in.MimeType) != "image/jpeg")) {
+		return nil, ErrUploadValidationFailed
+	}
 	if variantName == "origin" {
 		asset, err := s.GetAsset(ctx, tenantUUID, assetUUID, false)
 		if err != nil {
@@ -1027,6 +1033,11 @@ func (s *MediaService) CreateAssetVariant(ctx context.Context, in CreateAssetVar
 			continue
 		}
 		meta[k] = v
+	}
+	if variantName == "thumbnail_64" {
+		for _, key := range []string{"generator", "recipe", "source_checksum", "width", "height", "validated_profile"} {
+			delete(meta, key)
+		}
 	}
 	metaJSON, err := json.Marshal(meta)
 	if err != nil {
@@ -1095,6 +1106,15 @@ func (s *MediaService) OpenAssetVariantResource(ctx context.Context, tenantUUID,
 		return nil, nil, err
 	}
 	out := toAssetVariant(entity)
+	if variantName == "thumbnail_64" {
+		parent, e := s.repo.FindByUUID(ctx, tenantUUID, assetUUID, false)
+		if e != nil {
+			return nil, nil, variantError(e)
+		}
+		if !variantRecordUsable(parent, entity) {
+			return out, nil, ErrInvalidStatusTransition
+		}
+	}
 	if s.manager == nil {
 		return out, nil, fmt.Errorf("media manager not configured")
 	}
@@ -1640,7 +1660,7 @@ func normalizeVariantName(value string) string {
 		return "origin"
 	}
 	switch trimmed {
-	case "origin", "preview", "thumbnail":
+	case "origin", "preview", "thumbnail", "thumbnail_64":
 		return trimmed
 	default:
 		return ""

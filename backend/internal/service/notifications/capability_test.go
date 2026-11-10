@@ -15,6 +15,7 @@ import (
 	gm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	nm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/notification"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -52,8 +53,10 @@ func TestNotificationServiceGrantsAndTypedCreate(t *testing.T) {
 	_, err := i.InvokeCoreCapability(ctx, in)
 	require.NoError(t, err)
 	require.Equal(t, member.UUID.String(), published["userId"])
-	actions, ok := published["actions"].([]Action)
-	require.True(t, ok)
+	rawActions, err := json.Marshal(published["actions"])
+	require.NoError(t, err)
+	var actions []Action
+	require.NoError(t, json.Unmarshal(rawActions, &actions))
 	require.Len(t, actions, 1)
 	require.Equal(t, "/_p/plugin.test/admin/order?target=opaque", actions[0].Params["path"])
 	for _, field := range []string{"endpoint", "headers", "method", "tenant_uuid", "payload"} {
@@ -76,7 +79,7 @@ func TestNotificationServiceGrantsAndTypedCreate(t *testing.T) {
 	for _, row := range rows {
 		var meta map[string]any
 		require.NoError(t, json.Unmarshal(row.Meta, &meta))
-		if meta["capability_id"] == CreateCapabilityID || meta["capability_id"] == ReadReceiptCapabilityID {
+		if meta["capability_id"] == CreateCapabilityID || meta["capability_id"] == ReadReceiptCapabilityID || meta["capability_id"] == InvalidateCardCapabilityID {
 			require.NoError(t, db.Create(&row).Error)
 		}
 	}
@@ -98,6 +101,27 @@ func TestNotificationServiceGrantsAndTypedCreate(t *testing.T) {
 	require.NoError(t, db.Create(&readGrant).Error)
 	_, err = s.Acknowledge(keyCtx, input)
 	require.NoError(t, err)
+	require.NoError(t, db.Create(&cm.CapabilityRecord{CapabilityID: InvalidateCardCapabilityID, PluginID: "core", PluginVersion: "1", Status: "published"}).Error)
+	require.NoError(t, db.Create(&cm.CapabilityRegistration{CapabilityID: InvalidateCardCapabilityID, TenantUUID: tenant, Status: "published", Version: 1, RoutingPolicyID: uuid.New()}).Error)
+	s.LookupPresentationPlugin = func(_ context.Context, id string) (plugin_mgr.Plugin, error) {
+		return plugin_mgr.Plugin{ID: id, State: plugin_mgr.StateEnabled, Endpoints: plugin_mgr.EndpointSpec{HTTPBasePath: "/api/v1"}, NotificationPresentations: []plugin_mgr.NotificationPresentationSpec{{Contract: BusinessCardContract, BusinessType: "order", PresentationPath: "/admin/cards/{delivery_key}/presentation", PreviewPath: "/admin/cards/{delivery_key}/images/{image_key}"}}}, nil
+	}
+	cardMetadata, _ := json.Marshal(map[string]any{"business_card": BusinessCardReference{Contract: BusinessCardContract, SourcePlugin: "plugin.test", BusinessType: "order", DeliveryKey: "opaque", SourceRevision: 1}})
+	card, err := s.Create(keyCtx, CreateInput{TenantUUID: tenant, MemberUUID: member.UUID.String(), Title: "card", Content: "generic", Metadata: cardMetadata})
+	require.NoError(t, err)
+	invalidation := InvalidateCardInput{MemberUUID: member.UUID.String(), NotificationUUID: card.UUID.String(), SourceRevision: 2}
+	_, _, err = s.InvalidateCard(keyCtx, invalidation)
+	require.Error(t, err)
+	cardGrant := gm.IntegrationGatewayAPIKeyPermission{APIKeyUUID: key.UUID, Scope: "_scope.notifications.invalidate_card", Action: "invalidate_card", ResourceType: "capability", ResourcePattern: "notifications", Effect: "allow"}
+	require.NoError(t, db.Create(&cardGrant).Error)
+	updated, changed, err := s.InvalidateCard(keyCtx, invalidation)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.EqualValues(t, 2, updated.Revision)
+	require.NoError(t, db.Delete(&cardGrant).Error)
+	invalidation.SourceRevision = 3
+	_, _, err = s.InvalidateCard(keyCtx, invalidation)
+	require.Error(t, err)
 	require.NoError(t, db.Delete(&grant).Error)
 	require.Error(t, s.AuthorizeCreate(keyCtx))
 }

@@ -11,6 +11,7 @@ import (
 	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	replay "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -84,7 +85,11 @@ type replayGRPCTestEnv struct {
 
 func newReplayGRPCTestEnv(t *testing.T) *replayGRPCTestEnv {
 	listener := bufconn.Listen(replayBufSize)
-	server := grpc.NewServer()
+	// Mapping fixture supplies an explicit trusted identity, never request metadata.
+	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, next grpc.UnaryHandler) (any, error) {
+		ctx = reqctx.WithClaims(reqctx.WithTenantUUID(ctx, sampleTenantUUID), &reqctx.CoreXClaims{TenantUUID: sampleTenantUUID})
+		return next(ctx, req)
+	}))
 
 	stub := &stubReplayGRPCService{}
 	eventfabricv1.RegisterEventReplayServiceServer(server, eventfabricgrpc.NewEventReplayServer(stub))

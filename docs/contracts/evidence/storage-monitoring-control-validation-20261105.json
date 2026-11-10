@@ -1,0 +1,162 @@
+{
+  "validated_at": "2026-11-05T14:49:52.155228+00:00",
+  "scope": "SG-11 system table capacity monitoring resource adoption",
+  "commercial_complete": false,
+  "production_verified": false,
+  "daily_database_migrated": false,
+  "user_services_restarted": false,
+  "daily_storage_policy_writes": false,
+  "completed_resource_slice": [
+    "fixed typed monitoring settings and explicit legacy adoption",
+    "database CAS, audit, idempotency receipt and TaskBus registration",
+    "atomic private execution projection and DB confirmation",
+    "original request read-only reconciliation",
+    "pending-disable fence, stale/scope/digest checks, DB-required offline rule",
+    "TaskBus event and file change merged into SSE",
+    "UI draft/version/unknown-result workflow and explicit latest read"
+  ],
+  "tests": {
+    "go_affected": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-monitoring-20261105/affected-go.log"
+    },
+    "go_vet": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-monitoring-20261105/vet.log"
+    },
+    "race": {
+      "result": "passed",
+      "cases": 16,
+      "native_postgres_cases": 9,
+      "redis_transport": "miniredis fixture, not deployed Redis",
+      "log": "tmp/storage-commercial-monitoring-20261105/native-final.log"
+    },
+    "frontend_unit": {
+      "files": 25,
+      "cases": 183,
+      "result": "passed",
+      "log": "tmp/storage-commercial-monitoring-20261105/ui-unit.log"
+    },
+    "capability_check": {
+      "result": "passed",
+      "summary": "capability-audit: ok, declared=1242 referenced=83 rest_routes=1175 candidates=1203 ignored_route_rules=90",
+      "generated_to_temporary_file": true,
+      "runtime_registry_seeded": false,
+      "log": "tmp/storage-commercial-monitoring-20261105/capability.log"
+    },
+    "gin_group_middleware_regression": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-monitoring-20261105/generator.log"
+    },
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "legacy read-only preview in real UI",
+        "explicit adoption, TaskBus publication and SSE confirmation",
+        "real threshold save and second confirmed version",
+        "light 1440 real form navigation",
+        "light 390 real form navigation",
+        "dark 1440 real form navigation",
+        "dark 390 real form navigation"
+      ],
+      "viewport_widths": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "page_errors": [],
+      "idle_observation_seconds": 2,
+      "idle_business_requests": [],
+      "storage_writes_to_owned_fixture": [
+        {
+          "path": "/api/v1/admin/ops/storage/database-tables/monitoring/adoptions",
+          "method": "POST"
+        },
+        {
+          "path": "/api/v1/admin/ops/storage/database-tables/monitoring",
+          "method": "PUT"
+        }
+      ],
+      "test_final_database_assertions": {
+        "desired_revision": 2,
+        "applied_revision": 2,
+        "growth_bytes": 134217728,
+        "enabled": false
+      },
+      "authentication": "normal daily frontend login; storage requests use an owned test JWT stripped of daily authentication headers",
+      "transport": "local HTTP proxy routes every storage API, including SSE, to owned HTTP service; no JSON response mocks",
+      "log": "tmp/storage-commercial-monitoring-20261105/live-ui.log",
+      "backend_log": "tmp/storage-commercial-monitoring-20261105/browser-http.log",
+      "result_artifact": "tmp/storage-commercial-monitoring-20261105/ui-result.json",
+      "screenshots": [
+        "tmp/storage-commercial-monitoring-20261105/light-1440.png",
+        "tmp/storage-commercial-monitoring-20261105/light-390.png",
+        "tmp/storage-commercial-monitoring-20261105/dark-1440.png",
+        "tmp/storage-commercial-monitoring-20261105/dark-390.png"
+      ]
+    },
+    "contract_documents": {
+      "openapi": "parsed",
+      "locale_json": "four parsed",
+      "scoped_whitespace": "passed"
+    }
+  },
+  "limitations": [
+    "one monitoring resource adopted; file lifecycle, archive, backup, snapshot and DB retention authority integrations remain",
+    "does not delete records or reclaim disk",
+    "does not prove fleet ownership handover or production runtime behavior",
+    "complete restore epoch fencing when DB and runtime directory both roll back remains T171",
+    "credential encryption/rotation, other plan uniqueness and complete commercial gates remain",
+    "SG-09 long-run and remote object retrieval not replaced by this rehearsal"
+  ],
+  "cleanup": {
+    "owned_postgres_stopped": true,
+    "owned_postgres_data_removed": true,
+    "temporary_credential_removed": true,
+    "owned_browser_children_alive": [],
+    "released_owned_http_proxy_ports": [
+      53519,
+      54003,
+      56204,
+      56292,
+      58078,
+      58123,
+      58772,
+      61140,
+      61422,
+      62036
+    ],
+    "test_schemas_remaining": 0,
+    "user_processes": {
+      "34360": {
+        "alive": true,
+        "same_runtime": true
+      },
+      "35804": {
+        "alive": true,
+        "same_runtime": true
+      }
+    }
+  },
+  "source_sha256": {
+    "backend/internal/service/storage_governance/table_monitoring.go": "2ba2a1908f80a257f6304784060febe58c51e24e777f0f3db2bae95874079b32",
+    "backend/internal/service/storage_governance/types.go": "f5f1168912c6ef40d1ed8e55b46a656db26cf6c4ad201ab0d3acadabdb0445d0",
+    "backend/internal/service/storage_governance/service.go": "5215d15067a11ae696bb38172e49ffe541785c433b2b32e5e3a55648dd6a5ef0",
+    "backend/internal/service/storage_governance/control_service.go": "40e2ebc8a6fe8f4abbe8cb6c8b02e8efc50edc25270195a08feb477ff0da9e8d",
+    "backend/internal/infra/storage_budget/coordinator.go": "9c653052e99684284b08fea4f0ee81ec1dad80ffe61321fe7a353a578f0c227f",
+    "backend/internal/bootstrap/storage_governance.go": "3b704e34826c1491a6a3ed501803d3fa77172e6f141c2b7aca0645c8d8ced438",
+    "backend/internal/bootstrap/app.go": "62b01dda82e3aa5c5d9d987cbbaa34dffd28b8e39b8969932b4e3be77a0634c5",
+    "backend/internal/transport/http/admin/storage/database_tables_handler.go": "bd085f8531a20c32b20743512f47ca654328e40c316f4df3c5a9775884f11b8d",
+    "backend/internal/transport/http/admin/storage/api.go": "31df00604b5ddc5a6a13e9c48eb78509ccd9bf07a9df0e7c41fcf02669c84a6d",
+    "web-admin/app/components/monitor/storage/TableMonitoringControl.vue": "2da9c380423afacfc39c8ca718e991723388690ca524816f5ad54dbe9ad0d9f6",
+    "web-admin/app/composables/api/services/storageDatabaseTablesService.ts": "d5e556281294efe7e4a3ee1ec0a271531dd47eac1ee9907663e976ca440f3f5d",
+    "backend/cmd/capability_gen/main.go": "8be61ac95ebfc7a78631c3d0c5198a00968a30d876fc38618935d5c4795b8181",
+    "backend/cmd/capability_audit/main.go": "44d74ccff456bd75bedafa45c64800769ec5e9b6f24167d3712f4f3f73fdb6c9",
+    "backend/internal/service/storage_governance/table_monitoring_control.go": "e24b5334779d3a7aad98f6d271d36ff865b074f4fc70ed9d3f038fb5ae50204b",
+    "backend/internal/transport/http/admin/storage/monitoring_control_postgres_test.go": "3c1ccd09094c9ca74b1804600e428e7f3fb2ef2d3e9e8f782b72124a2b3a5cd5",
+    "backend/internal/service/storage_governance/table_monitoring_control_postgres_test.go": "803049fb38f3fbc63c07472bebb9b0766e2a13e07908718f0f90b839278247ad"
+  }
+}

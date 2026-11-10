@@ -33,11 +33,16 @@ type FileConfig struct {
 
 // LokiConfig Loki日志配置
 type LokiConfig struct {
-	Enable    bool              `yaml:"enable"`     // 是否启用Loki
-	URL       string            `yaml:"url"`        // Loki服务器地址
-	Labels    map[string]string `yaml:"labels"`     // 低基数标签（system/service/env/instance/module）
-	BatchWait int               `yaml:"batch_wait"` // 批量等待时间(秒)
-	BatchSize int               `yaml:"batch_size"` // 批量大小
+	Enable           bool              `yaml:"enable"`          // 是否启用Loki
+	URL              string            `yaml:"url"`             // Loki服务器地址
+	Labels           map[string]string `yaml:"labels"`          // 低基数标签（system/service/env/instance/module）
+	BatchWait        int               `yaml:"batch_wait"`      // 批量等待时间(秒)
+	BatchSize        int               `yaml:"batch_size"`      // 批量大小
+	QueueCapacity    int               `yaml:"queue_capacity"`  // 有界内存队列条数；满时丢弃普通日志并计量
+	MaxQueueBytes    int64             `yaml:"max_queue_bytes"` // 队列与发送中批次共用字节预算
+	MaxEntryBytes    int               `yaml:"max_entry_bytes"` // 单条日志上限；不截断审计内容冒充成功
+	RequestTimeoutMS int               `yaml:"request_timeout_ms"`
+	FlushTimeoutMS   int               `yaml:"flush_timeout_ms"`
 }
 
 // AgentDebugConfig 控制 Agent 单请求调试追踪文件。

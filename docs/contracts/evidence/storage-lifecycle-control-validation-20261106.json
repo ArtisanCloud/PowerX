@@ -1,0 +1,172 @@
+{
+  "date": "2026-11-06T10:55:00.139659+08:00",
+  "stage": "SG-11 per-source file lifecycle configuration",
+  "result": "bounded_slice_passed",
+  "source": {
+    "repository": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+    "branch": "024-ai-engineering-skills",
+    "head": "a1956aa3601786ed05a59236477ed3a67cfc7a67",
+    "worktree_dirty": true,
+    "committed": false,
+    "source_manifest": "tmp/storage-commercial-lifecycle-20261106/source-sha256.json",
+    "bounded_baseline_diff": "tmp/storage-commercial-lifecycle-20261106/bounded-baseline.diff"
+  },
+  "implemented": [
+    "Root-only typed per-source adoption/configuration/request receipt routes",
+    "database CAS, immutable origin and UUID receipts, audit and formal TaskBus intent in one transaction",
+    "first adoption paused, old policies read-only, private published snapshots are execution projections",
+    "database authority and approved source/version/digest/operator/time proof required before cleanup",
+    "resource advisory and row lock before host ledger lock and native final per-file unlink",
+    "pending changes or unavailable authority fence old batches; callback commit ambiguity preserved as unconfirmed",
+    "bounded lock acquisition waits never re-enter a mutation callback",
+    "independent source versions, no enabled legacy revival after managed adoption",
+    "UI retention versus preview/cleanup sections, pending/applied versions, drafts, explicit conflict reload and query-only unknown results",
+    "SSE updates running journal result and no idle status polling",
+    "disabled publisher still permits pausing a previously enabled policy"
+  ],
+  "validation": {
+    "go": {
+      "command": "POWERX_STORAGE_CONTROL_TEST_DSN=<owned unix socket> go test -race -count=1 -v ./internal/infra/storage_lifecycle ./internal/service/storage_governance ./internal/transport/http/admin/storage",
+      "result": "passed",
+      "top_level_passed": 73,
+      "native_control_lifecycle_monitoring_http_passed": [
+        "TestControlNativePostgresCASIdempotencyAndRollback",
+        "TestControlNativePostgresTaskBusRecoverySupersessionAndConfirmation",
+        "TestControlNativePostgresFailedPublicationDoesNotClaimApplied",
+        "TestControlNativePostgresWorkerRecoversCommittedIntentAndStops",
+        "TestLifecycleNativePostgresAdoptionPublicationDeletionAndReceipts",
+        "TestLifecycleNativePostgresPauseAndFirstAdoptionFence",
+        "TestLifecycleNativePostgresPublisherRejectsChangedRegisteredSource",
+        "TestLifecycleNativePostgresMissingDatabaseAndTamperedSnapshotBlock",
+        "TestTableMonitoringNativePostgresAdoptionSaveReceiptAndProjection",
+        "TestTableMonitoringNativePostgresSnapshotTamperAndMissingAuthorityFailClosed",
+        "TestTableMonitoringNativePostgresAdoptionReceiptSurvivesLaterLegacyDrift",
+        "TestTableMonitoringNativePostgresExitedWorkerRequiresRestart",
+        "TestLifecycleControlNativeHTTPAndSSE",
+        "TestMonitoringControlNativeHTTPAndSSE"
+      ],
+      "skipped_unrelated_opt_in_fixtures": [
+        "TestSystemTableRetentionRuntimeNativePostgres",
+        "TestStorageNativeLogCleanupPreviewExecuteReadbackAndIdempotence",
+        "TestStorageNativeLogCleanupRechecksChangesOwnershipAndPolicy",
+        "TestStorageNativeCleanupJournalFailureIsUnknownAndNeverReexecuted",
+        "TestStorageNativeLogCleanupExpiryActorAndProductionArchiveGates",
+        "TestDatabaseRetentionNativeAPIAndAdmission",
+        "TestSystemTableInventoryNativePostgresReadOnly",
+        "TestStorageNativePolicyCASAuditRollbackAndRoute",
+        "TestStorageNativeSamplesBoundedIdempotentAndInstanceScoped",
+        "TestStorageNativePostgresMetricsAndDeniedWAL",
+        "TestStorageSafetyNativePostgres"
+      ],
+      "log": "tmp/storage-commercial-lifecycle-20261106/final-native-current.log"
+    },
+    "vet": {
+      "result": "passed",
+      "packages": [
+        "internal/infra/storage_lifecycle",
+        "internal/service/storage_governance",
+        "internal/transport/http/admin/storage",
+        "pkg/corex/db/persistence/repository/storage_governance"
+      ],
+      "log": "tmp/storage-commercial-lifecycle-20261106/go-vet-current.log"
+    },
+    "frontend": {
+      "result": "passed",
+      "files": 25,
+      "tests": 189,
+      "log": "tmp/storage-commercial-lifecycle-20261106/final-ui-current.log",
+      "nullable_api_followup": "tmp/storage-commercial-lifecycle-20261106/final-api-nullability.log"
+    },
+    "capability_check": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-lifecycle-20261106/capability-check.log",
+      "runtime_seeded": false
+    },
+    "openapi": {
+      "result": "passed",
+      "version": "0.8.0",
+      "internal_refs_resolved": 166
+    },
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "legacy policy explicitly read-only until adoption",
+        "paused database adoption, TaskBus and SSE version 1",
+        "real UI save enables 14-day policy only after published version 2",
+        "real bounded cleanup of two owned expired files with completed journal",
+        "explicit pause published version 3",
+        "light 1440 policy sections, retained draft and action visibility",
+        "light 390 policy sections, retained draft and action visibility",
+        "dark 1440 policy sections, retained draft and action visibility",
+        "dark 390 policy sections, retained draft and action visibility"
+      ],
+      "request_log": "tmp/storage-commercial-lifecycle-20261106/ui-result.json",
+      "write_responses": [
+        {
+          "path": "/api/v1/admin/ops/storage/runtime/policies/owned-logs/adoptions",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/storage/runtime/policies/owned-logs",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/storage/runtime/previews",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/admin/ops/storage/runtime/runs",
+          "status": 200,
+          "state": "completed",
+          "deleted_files": 2
+        },
+        {
+          "path": "/api/v1/admin/ops/storage/runtime/policies/owned-logs",
+          "status": 200
+        }
+      ],
+      "idle_requests": [],
+      "viewports": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "screenshots": [
+        "tmp/storage-commercial-lifecycle-20261106/light-1440.png",
+        "tmp/storage-commercial-lifecycle-20261106/light-390.png",
+        "tmp/storage-commercial-lifecycle-20261106/dark-1440.png",
+        "tmp/storage-commercial-lifecycle-20261106/dark-390.png"
+      ],
+      "fixture_boundary": "all storage APIs proxied to owned HTTP/PG/TaskBus fixture and temporary log directory; daily login session used only for real frontend Root access; capacity metrics are fixture values, not host capacity acceptance"
+    },
+    "native_browser_assertions": {
+      "adoption_version": 1,
+      "enabled_14_day_version": 2,
+      "paused_version": 3,
+      "expired_owned_logs_deleted": 2,
+      "active_latest_business_files_preserved": true,
+      "log": "tmp/storage-commercial-lifecycle-20261106/live-http.log"
+    },
+    "earlier_attempts": "attempt1 label mismatch; attempt2 revealed stale executing result and lock contention, repaired; attempt3 responsive test selector timing fixed. Final current-source closed loop passed."
+  },
+  "environment": {
+    "daily_database_migrated": false,
+    "daily_policies_written": false,
+    "user_services_restarted": false,
+    "production_accessed": false,
+    "production_data_deleted": false,
+    "owned_temporary_postgres_http_proxy_browser_cleaned": true,
+    "cleanup": "tmp/storage-commercial-lifecycle-20261106/cleanup.json"
+  },
+  "remaining_release_blockers": [
+    "host budget, archive targets/policies and credentials, backups/snapshots, database retention configuration authority still pending",
+    "T170 controlled encrypted credential store and independent recovery",
+    "T171 full restore epoch when database and runtime directory roll back together, ownership handover and controlled rollback",
+    "other SG-11 resources and end-to-end gates remain open",
+    "SG-09 real remote retrieval and 7/14-day runtime evidence remain required",
+    "daily Core binary has not been rebuilt/restarted and daily DB has not been migrated; no deployment acceptance claimed"
+  ]
+}

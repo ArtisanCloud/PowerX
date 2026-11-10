@@ -288,32 +288,8 @@ func (s *AuthService) Login(ctx context.Context, tenantUUID, identifier, passwor
 		return "", "", errors.New("audience misconfigured")
 	}
 
-	jti := uuid.NewString()
-	claims.ID = jti
-	access, err = pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
+	access, refresh, err = s.issueSessionTokens(ctx, claims)
 	if err != nil {
-		return "", "", err
-	}
-	//fmt.Dump(ctx, "jwt sign(refresh)",
-	//	"issuer", s.Issuer,
-	//	"aud", s.Audience,
-	//	"member", claims.MemberUUID,
-	//	"tenant", claims.TenantUUID,
-	//	"ttl", s.RefreshTTL.String(),
-	//	"secret_fp", utils.SecretFP(s.JWTSecret),
-	//)
-	refresh, err = pkgauth.GenerateRefreshJWT(claims, s.Issuer, []string{s.Audience}, jti, s.RefreshTTL, s.JWTSecret)
-	if err != nil {
-		return "", "", err
-	}
-
-	if err = s.RTRepo.Issue(ctx, &model.RefreshToken{
-		JTI:        jti,
-		TenantUUID: ten.UUID.String(),
-		MemberUUID: m.UUID.String(),
-		UserUUID:   u.UUID.String(),
-		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
-	}); err != nil {
 		return "", "", err
 	}
 
@@ -424,25 +400,11 @@ func (s *AuthService) issueRootTenantTokens(ctx context.Context, ten *tenantmdl.
 		Platforms:  s.Platforms,
 		IsRoot:     true,
 	}
-	jti := uuid.NewString()
-	claims.ID = jti
-	access, err = pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
+	access, refresh, err = s.issueSessionTokens(ctx, claims)
 	if err != nil {
 		return "", "", err
 	}
-	refresh, err = pkgauth.GenerateRefreshJWT(claims, s.Issuer, []string{s.Audience}, jti, s.RefreshTTL, s.JWTSecret)
-	if err != nil {
-		return "", "", err
-	}
-	if err = s.RTRepo.Issue(ctx, &model.RefreshToken{
-		JTI:        jti,
-		TenantUUID: ten.UUID.String(),
-		MemberUUID: "",
-		UserUUID:   u.UUID.String(),
-		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
-	}); err != nil {
-		return "", "", err
-	}
+
 	if s.Cache != nil {
 		ttl := 10 * time.Minute
 		_ = s.Cache.Set(ctx, middleware.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)
@@ -506,63 +468,76 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	// 1) 解析并校验 refresh token（iss/aud/exp/nbf/iat/签名）
 	claims, err := pkgauth.ParseAndValidate(refreshJWT, s.JWTSecret, s.Issuer, s.Audience)
 	if err != nil {
-		return "", errors.New("invalid token")
+		return "", authFailure(401, "AUTH_REFRESH_INVALID", "invalid_refresh_token")
 	}
 	if claims.Scope != "refresh" {
-		return "", errors.New("not refresh token")
+		return "", authFailure(401, "AUTH_REFRESH_INVALID", "invalid_refresh_scope")
 	}
 
 	// 2) 校验 refresh 的 JTI 是否有效、未撤销、未过期、绑定一致
-	rt, err := s.RTRepo.GetByJTI(ctx, claims.ID)
-	if err != nil || rt == nil || (rt.RevokedAt != nil) || time.Now().UnixMilli() > rt.ExpiresAt {
-		return "", errors.New("refresh expired or revoked")
+	rt, err := s.loginSession(ctx, claims)
+	if err != nil {
+		return "", sessionLookupError(err)
 	}
-	if rt.MemberUUID != claims.MemberUUID || rt.TenantUUID != claims.TenantUUID || rt.UserUUID != claims.UserUUID {
-		return "", errors.New("refresh token mismatch")
+	deadline := time.UnixMilli(rt.ExpiresAt)
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(deadline) {
+		deadline = claims.ExpiresAt.Time
 	}
 
 	// 3) 从仓库加载 user / member / tenant（用于后续快照写缓存）
 	ten, err := s.tenantByUUID(ctx, claims.TenantUUID)
 	if err != nil {
-		return "", err
+		return "", sessionLookupError(err)
 	}
 	u, err := s.UserRepo.FindByID(ctx, claims.UserID)
-	if err != nil || u == nil {
-		return "", errors.New("user not found")
+	if err != nil {
+		return "", sessionLookupError(err)
+	}
+	if u == nil {
+		return "", authFailure(401, "AUTH_SESSION_INVALID", "user_not_found")
+	}
+	if ten == nil {
+		return "", authFailure(401, "AUTH_SESSION_INVALID", "tenant_not_found")
 	}
 	if u.IsRoot && rt.MemberUUID == "" {
-		if u.Status != 1 || ten.Status != 1 || u.UUID.String() != claims.UserUUID {
-			return "", errors.New("refresh token mismatch")
+		if u.Status != 1 || ten.Status != 1 {
+			return "", authFailure(403, "AUTH_USER_FORBIDDEN", "principal_disabled")
+		}
+		if u.UUID.String() != claims.UserUUID {
+			return "", authFailure(401, "AUTH_SESSION_INVALID", "identity_mismatch")
 		}
 		claims.IsRoot = true
 		claims.MemberID = 0
 		claims.MemberUUID = ""
 		claims.Roles = nil
-		return pkgauth.GenerateAccessJWT(*claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
+		return s.refreshSessionAccess(*claims, deadline)
 	}
 	m, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
 		"id = ?":          claims.MemberID,
 		"tenant_uuid = ?": ten.UUID.String(), // 双重约束，防串租户
 	}, nil)
-	if err != nil || m == nil {
-		return "", errors.New("member not found")
+	if err != nil {
+		return "", sessionLookupError(err)
+	}
+	if m == nil {
+		return "", authFailure(401, "AUTH_SESSION_INVALID", "member_not_found")
 	}
 	if u.Status != 1 {
-		return "", errors.New("user disabled")
+		return "", authFailure(403, "AUTH_USER_FORBIDDEN", "user_disabled")
 	}
 	if m.Status != 1 {
-		return "", errors.New("member disabled")
+		return "", authFailure(403, "AUTH_USER_FORBIDDEN", "member_disabled")
 	}
 	if ten.Status != 1 {
-		return "", errors.New("tenant disabled")
+		return "", authFailure(403, "AUTH_USER_FORBIDDEN", "tenant_disabled")
 	}
 	if strings.TrimSpace(m.UUID.String()) != strings.TrimSpace(claims.MemberUUID) ||
 		strings.TrimSpace(u.UUID.String()) != strings.TrimSpace(claims.UserUUID) {
-		return "", errors.New("refresh token mismatch")
+		return "", authFailure(401, "AUTH_SESSION_INVALID", "identity_mismatch")
 	}
 	roleCodes, err := s.roleCodesForMember(ctx, ten.UUID.String(), m.ID)
 	if err != nil {
-		return "", err
+		return "", sessionLookupError(err)
 	}
 
 	// 4) 重新签发新的 access。角色必须从数据库重新加载，不能复用 refresh token 里的旧角色快照。
@@ -575,15 +550,9 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	claims.Phone = strings.TrimSpace(u.Phone)
 	claims.IsRoot = u.IsRoot
 	claims.Roles = roleCodes
-	access, err := pkgauth.GenerateAccessJWT(
-		*claims, // Tenant/User/Member/Platforms/Env 都沿用
-		s.Issuer,
-		[]string{s.Audience},
-		s.AccessTTL,
-		s.JWTSecret,
-	)
+	access, err := s.refreshSessionAccess(*claims, deadline)
 	if err != nil {
-		return "", err
+		return "", sessionLookupError(err)
 	}
 
 	// 6) 刷新缓存快照（命中率高，避免每次鉴权都查库）

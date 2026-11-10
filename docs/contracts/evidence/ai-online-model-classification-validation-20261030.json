@@ -1,0 +1,128 @@
+{
+  "recorded_at": "2026-10-30T22:39:57.520710+08:00",
+  "status": "source_and_controlled_validation_passed_pending_user_restart",
+  "scope": "Mac local Core AI online model classification and image selector",
+  "changes": [
+    "Preserve explicit image/audio/video provider metadata separately from executable local modality contracts.",
+    "Publish exact Images API text-to-image contracts for gpt-image-2, gpt-image-2-2026-04-21 and chatgpt-image-latest.",
+    "Reclassify legacy snapshots on read and refresh; unknown unverified candidates require individual review.",
+    "Reject bulk/contradicting assignments; require confirm_unknown for individual text/embedding candidates; support unassign with revision validation.",
+    "Separate current-modality choices, pending models and other modalities in the catalog UI.",
+    "Preserve saved model selection when absent from the candidate catalog; keep configured legacy unknown text/embedding runtime compatibility without allowing known image models as text.",
+    "Decode nested image usage metadata without rejecting successful GPT Image responses."
+  ],
+  "official_sources": [
+    "https://developers.openai.com/api/reference/resources/models/methods/list",
+    "https://developers.openai.com/api/docs/models/gpt-image-2",
+    "https://developers.openai.com/api/reference/resources/images/methods/generate"
+  ],
+  "validation": {
+    "backend_packages_passed": [
+      "internal/service/agent",
+      "internal/service/ai",
+      "internal/server/ai/modeldiscovery",
+      "internal/server/ai/drivers/openai",
+      "internal/transport/http/admin/agent",
+      "internal/server/agent/catalog"
+    ],
+    "backend_regressions": [
+      "legacy image repair on read and persisted refresh",
+      "unknown single confirmation and removal",
+      "declared media conflicts and bulk rejection",
+      "HTTP strict-body confirmation enforcement",
+      "saved unknown text profile runtime compatibility and known-media rejection",
+      "image generation route/body and nested usage"
+    ],
+    "go_vet": "passed for affected service, discovery, OpenAI driver and admin transport packages",
+    "go_build": "passed cmd/app",
+    "build_path": "/tmp/powerx-model-classification-20261030/app",
+    "build_sha256": "f8a6ce501584e16a40b42cd439c2ac4218f930311f442a40048e2058df5ee4e2",
+    "vue_tsc": "passed",
+    "vitest": {
+      "files": 7,
+      "passed": 55
+    },
+    "playwright": {
+      "passed": 4,
+      "desktop": true,
+      "narrow": true,
+      "base_url": "http://127.0.0.1:3039",
+      "output": "/tmp/powerx-model-classification-20261030/playwright-acceptance",
+      "api_fixtures": true,
+      "real_provider_generation": false,
+      "checked": [
+        "image-2 visible in image dropdown",
+        "modality-specific counts and other-modality section",
+        "search context across tabs",
+        "saved unknown selection preservation",
+        "individual confirmation and provider draft/save flow",
+        "no model generation on catalog synchronization"
+      ]
+    }
+  },
+  "installed_host_readback": {
+    "core_pid": 13572,
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "image_models": [
+      "gpt-image-2",
+      "gpt-image-2-2026-04-21",
+      "chatgpt-image-latest",
+      "gpt-image-1",
+      "gpt-image-1-mini",
+      "gpt-image-1.5",
+      "dall-e-3",
+      "dall-e-2"
+    ],
+    "image_2_absent_from_llm": true,
+    "active_profiles_unchanged": true,
+    "profiles_hash": "79bacdc206a497724ee3af68f466616dd6e14f63d235420f13e033dc0acaaa3a",
+    "latest_legacy_runtime_compatibility_guard_loaded": false
+  },
+  "fresh_provider_refresh": {
+    "passed": false,
+    "http_status": 502,
+    "error_code": "AI_MODEL_DISCOVERY_UNREACHABLE",
+    "request_id": "bfd337a7-87ab-443b-9c2d-5de51b2b03bd",
+    "source": "https://api.openai.com/v1/models",
+    "attempts": 2,
+    "model_generation_submitted": false,
+    "limitation": "Core-to-provider catalog request failed; this is not a successful fresh-provider or generation acceptance."
+  },
+  "processes": {
+    "user_services_untouched": {
+      "frontend": 7371,
+      "core": 13572
+    },
+    "agent_temporary_frontend": {
+      "pid": 89873,
+      "command": [
+        "node",
+        "node_modules/nuxt/bin/nuxt.mjs",
+        "dev",
+        "--open=false",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "3039"
+      ],
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "port": 3039,
+      "ownership": "agent-temporary",
+      "build_dir": ".nuxt-model-classification-20261030-2238",
+      "output_dir": ".output-model-classification-20261030-2238",
+      "stopped": true,
+      "descendants": [
+        90196,
+        90206,
+        90314,
+        90315,
+        93202
+      ],
+      "port_released": true
+    }
+  },
+  "remaining": [
+    "User selected restart later. Restart local Core via the existing user launch method, then repeat live readback and online refresh."
+  ],
+  "private_evidence_directory": "/tmp/powerx-model-classification-20261030"
+}

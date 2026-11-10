@@ -1,0 +1,159 @@
+{
+  "timestamp": "2026-10-23T18:43:24.349828+08:00",
+  "source_commit": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+  "source_worktree_uncommitted": true,
+  "scope": "Core Admin AI settings endpoint/API-key verification, no generation",
+  "changes": [
+    "Replace image/text generation and local-only connection checks with bounded read-only authentication probes",
+    "Validate response shape and reject a deliberately invalid key before asserting authentication",
+    "No generation-driver imports in the connection probe; no POST to vendor, retry, or redirect",
+    "Separate endpoint/key verification from model access and generated-media acceptance",
+    "Structured errors retain upstream_status and generation_submitted; vendor 401/403 map to Core 422",
+    "Unverified credentials are not saved; unsupported or unverifiable probe health remains unknown",
+    "Button-local loading, duplicate-click protection, silent credential metadata refresh, no embedding generation/activation in connection check",
+    "Media quick button accurately says parameter check; explicit text-run button calls the model",
+    "Chinese/English/Japanese/Korean status and error translations"
+  ],
+  "source_sha256": {
+    "backend/internal/server/ai/connectionprobe/probe.go": "58c352f6fb9846b43910e21ebc99c39a81bf28674e614fd19059ce742159c5f9",
+    "backend/internal/server/ai/connectionprobe/probe_test.go": "61a277f73e4f49f09adaa53ec103d7a38523d923624c85914d49b6622ac6a5db",
+    "backend/internal/service/agent/connection_verification.go": "455434f62e0dacf4439928765d29a0b922467087bc0f3ee009e11b5a2f943a44",
+    "backend/internal/service/agent/connection_verification_test.go": "f6a19b4e1b038fef225668c8bc0253c6741658c813e0339992897cb348e27429",
+    "backend/internal/service/agent/agent_setting_service.go": "89d9ce3f5c6ba06024a48d7752531468c370053b400e21a261026144e244f4d4",
+    "backend/internal/transport/http/admin/agent/setting_handler.go": "4709e7a106378eac253f651fccde2b5a402d32b62e0b34ad5310dac9b3debee4",
+    "backend/internal/transport/http/admin/agent/setting_connection_test.go": "667335f9f9e5ed29222b94420fdde596c0cbbfb8ac535738699c0ec4108221fa",
+    "web-admin/app/composables/api/services/aiSettingService.ts": "aa8d5d90a58b02cf41306dcc2aa26d4f1ba4d3a8f1d714aff614f8905efedd16",
+    "web-admin/app/stores/aiSettings.ts": "71044b3955dc5dacc937234acd6db6c369f3030d792d358068447b9f009a1735",
+    "web-admin/app/components/settings/ai/TestPanel.vue": "816c295492f7dca92ae25d96b5bebb063a0cd1998a68e4e7b8c650d4acd1e30c",
+    "web-admin/app/pages/settings/ai/index.vue": "58a3e1e4cc762da9481041f01a2e9272eb87fe390be53df15f481124e4f6e9e2",
+    "web-admin/tests/unit/ai/connection-test.spec.ts": "25976daabf3a753996220f79ba9bbf41c434bbc698f3d2b8fb01fbf15da29e3b",
+    "docs/contracts/ai-settings-connection-test.md": "c0654b926181bd729c2d511cf6217684e4e7d39dfd40237fa18609a4b07fa3ef",
+    "web-admin/i18n/locales/zh.json": "64fc0e41c029f22d82ab682cb9c95f3ea0d510651c6e5b07ca303b5063e8f94b",
+    "web-admin/i18n/locales/en.json": "a1206e7100292e1758441e045418ee99dbc53993755dece24c4050a2e43f2b8f",
+    "web-admin/i18n/locales/ja.json": "6626d5cdf773f2bb76b02bc15a777f67f63ebe131cc75efd68152c5448b13860",
+    "web-admin/i18n/locales/ko.json": "466dad36b76a7f106482501fbdc9030646829b459e7de7fd7ca7dfa910227d3b"
+  },
+  "controlled_validation": {
+    "go_race": {
+      "passed": true,
+      "packages": [
+        "internal/server/ai/connectionprobe",
+        "internal/service/agent",
+        "internal/transport/http/admin/agent"
+      ],
+      "log": "/private/tmp/powerx-ai-connection-race-20261023.log"
+    },
+    "go_vet": {
+      "passed": true,
+      "log": "/private/tmp/powerx-ai-connection-vet-20261023.log"
+    },
+    "core_build": {
+      "passed": true,
+      "command": "go build -o /private/tmp/powerx-ai-connection-core-20261023 ./cmd/app",
+      "log": "/private/tmp/powerx-ai-connection-core-build-20261023.log",
+      "binary_started": false
+    },
+    "ui_tests": {
+      "passed": true,
+      "tests": 36,
+      "files": 5,
+      "log": "/private/tmp/powerx-ai-connection-ui-tests-20261023.log"
+    },
+    "nuxt_build": {
+      "passed": true,
+      "isolated_output": true,
+      "log": "/private/tmp/powerx-ai-connection-build-20261023.log",
+      "output_dir": "/private/tmp/powerx-ai-connection-output-20261023"
+    },
+    "diff_check": {
+      "passed": true
+    }
+  },
+  "live_readonly_verification": {
+    "passed": true,
+    "environment": "current local Core credential store, dev environment",
+    "provider": "agnes",
+    "database_access": "read-only transaction, rolled back",
+    "entry": "new AgentSettingService.VerifyConnection invoked from a temporary helper, not the user-owned running HTTP process",
+    "vendor_operation": "GET /v1/models only; at most two GET requests per check",
+    "results": [
+      {
+        "generation_submitted": false,
+        "modality": "image",
+        "model": "agnes-image-2.5-flash",
+        "verification": {
+          "provider": "agnes",
+          "probe": "models",
+          "endpoint_reachable": true,
+          "api_key_verified": true,
+          "authentication": "api_key",
+          "model_access_verified": false,
+          "generation_submitted": false
+        }
+      },
+      {
+        "generation_submitted": false,
+        "modality": "video",
+        "model": "agnes-video-2.5",
+        "verification": {
+          "provider": "agnes",
+          "probe": "models",
+          "endpoint_reachable": true,
+          "api_key_verified": true,
+          "authentication": "api_key",
+          "model_access_verified": false,
+          "generation_submitted": false
+        }
+      }
+    ],
+    "generation_submitted": false,
+    "temporary_helper_removed": true,
+    "log": "/private/tmp/powerx-ai-connection-live-readonly-20261023.log"
+  },
+  "broader_checks": {
+    "full_go_test": {
+      "passed": false,
+      "command": "go test ./...",
+      "failed_packages": [
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "github.com/ArtisanCloud/PowerX/tests/contract/event_fabric",
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "FAIL"
+      ],
+      "log": "/private/tmp/powerx-ai-connection-all-go-tests-20261023.log",
+      "note": "Full shared working tree is not green. Failures are outside the connection probe paths; baseline before this task was not measured."
+    },
+    "go_build_all": {
+      "passed": false,
+      "command": "go build ./...",
+      "log": "/private/tmp/powerx-ai-connection-build-go-20261023.log",
+      "note": "Non-test-named integration fixture helpers reference test-only symbols (newPluginReleaseEnv / multiPlanStubAgent). Core cmd/app build passes."
+    },
+    "upgrade_registry": {
+      "passed": false,
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "result": "UPGRADE_PAYLOAD_CHANGED",
+      "connection_change_touches_upgrade_inputs": false,
+      "manifest_regenerated": false,
+      "note": "Existing shared-tree payload-input drift; no migration or upgrade payload input was changed for this fix."
+    }
+  },
+  "acceptance_boundaries": {
+    "running_core_restarted_by_agent": false,
+    "desktop_and_narrow_browser_checked": false,
+    "browser_unavailable": "CUA reported no enabled apps or browsers",
+    "new_http_handler_exercised_with_real_vendor": false,
+    "generation_or_paid_provider_acceptance_performed": false,
+    "framework_contract_changed": false,
+    "user_next_step": "Restart the existing local Core normally, refresh http://127.0.0.1:3030/settings/ai, then click Test connection; verify local loading and clear key failures."
+  }
+}

@@ -1,0 +1,64 @@
+id: com.powerx.plugins.scrm.social_channel_accounts.write
+type: API
+version: 1.0.0
+description: "维护渠道账号、企微授权、同步任务、冲突重放与渠道基础配置的管理端能力。"
+rbac:
+  resource: scrm.social_channel_accounts
+  actions: [write]
+metadata:
+  protocols:
+    rest:
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/authorized-apps/{candidate_uuid}/confirm
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/authorized-apps/{candidate_uuid}/reprocess
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/authorized-apps/connect
+      - method: POST
+        path: /api/v1/admin/social/channel-accounts
+      - method: PUT
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}
+      - method: DELETE
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}
+      - method: POST
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}/restore
+      - method: POST
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}/test-connection
+      - method: POST
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}/test-app-secret
+      - method: POST
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}/test-contact-secret
+      - method: POST
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}/channel-members
+      - method: PATCH
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}/capabilities
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/authorize/start
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/authorize/restart
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/authorize/complete
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/sync/jobs
+      - method: POST
+        path: /api/v1/admin/social/openwork/wecom/sync/conflicts/{conflict_uuid}/replay
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/sync/jobs
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/staff-tags/pull
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/staff-tags
+      - method: PUT
+        path: /api/v1/admin/social/openwork/foundation/staff-tags/{tag_uuid}
+      - method: DELETE
+        path: /api/v1/admin/social/openwork/foundation/staff-tags/{tag_uuid}
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/staff-tags/{tag_uuid}/members
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/customers/pull
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/customer-tags/pull
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/customer-tags/operations
+      - method: POST
+        path: /api/v1/admin/social/openwork/foundation/customer-tags/relations

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	eventaudit "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/audit"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
@@ -39,18 +41,21 @@ type SeedServiceOptions struct {
 	Bindings   BindingStore
 	// PluginUsageGuard rejects new plugin-owned Event Fabric resources while a plugin is draining.
 	PluginUsageGuard func(ctx context.Context, pluginID string) error
+	// NamespaceAllowed 由 Core 配置注入，包内声明不能扩大命名空间归属。
+	NamespaceAllowed func(pluginID, namespace string) bool
 }
 
 // SeedService 根据 manifest 计划自动创建 Topic 与 ACL。
 type SeedService struct {
-	dir        directoryClient
-	acl        aclClient
-	audit      eventaudit.Service
-	logger     *pxlog.Logger
-	clock      func() time.Time
-	maxRetries int
-	bindings   BindingStore
-	guard      func(ctx context.Context, pluginID string) error
+	dir              directoryClient
+	acl              aclClient
+	audit            eventaudit.Service
+	logger           *pxlog.Logger
+	clock            func() time.Time
+	maxRetries       int
+	bindings         BindingStore
+	guard            func(ctx context.Context, pluginID string) error
+	namespaceAllowed func(string, string) bool
 }
 
 // SeedResult 描述一次播种操作的结果。
@@ -79,14 +84,15 @@ func NewSeedService(opts SeedServiceOptions) *SeedService {
 		opts.MaxRetries = 3
 	}
 	return &SeedService{
-		dir:        opts.Directory,
-		acl:        opts.ACL,
-		audit:      opts.Audit,
-		logger:     opts.Logger,
-		clock:      opts.Clock,
-		maxRetries: opts.MaxRetries,
-		bindings:   opts.Bindings,
-		guard:      opts.PluginUsageGuard,
+		dir:              opts.Directory,
+		acl:              opts.ACL,
+		audit:            opts.Audit,
+		logger:           opts.Logger,
+		clock:            opts.Clock,
+		maxRetries:       opts.MaxRetries,
+		bindings:         opts.Bindings,
+		guard:            opts.PluginUsageGuard,
+		namespaceAllowed: opts.NamespaceAllowed,
 	}
 }
 
@@ -104,6 +110,31 @@ func (s *SeedService) ApplyManifest(ctx context.Context, m *Manifest, seedCtx Se
 
 // ApplyPlan 根据 SeedPlan 执行播种。
 func (s *SeedService) ApplyPlan(ctx context.Context, plan *SeedPlan, seedCtx SeedContext) (*SeedResult, error) {
+	return s.applyPlan(ctx, plan, seedCtx, true)
+}
+
+// PreparePlan only prepares declared resources before process launch. Existing
+// bindings outside this plan stay intact if a new plugin version cannot start.
+func (s *SeedService) PreparePlan(ctx context.Context, plan *SeedPlan, seedCtx SeedContext) (*SeedResult, error) {
+	if plan == nil || seedCtx.PluginID == "" || seedCtx.TenantUUID == "" {
+		return nil, fmt.Errorf("EVENT_FABRIC_INSTALL_OWNER_REQUIRED")
+	}
+	for _, topic := range plan.Topics {
+		for _, grant := range topic.ACL {
+			if grant.PrincipalType != "plugin" || grant.PrincipalID != seedCtx.PluginID {
+				return nil, fmt.Errorf("EVENT_FABRIC_INSTALL_ACL_OWNER_INVALID: %s", topic.Key)
+			}
+			for _, action := range grant.Actions {
+				if action != acl.PrincipalActionPublish && action != acl.PrincipalActionSubscribe {
+					return nil, fmt.Errorf("EVENT_FABRIC_INSTALL_ACL_ACTION_INVALID: %s", topic.Key)
+				}
+			}
+		}
+	}
+	return s.applyPlan(ctx, plan, seedCtx, false)
+}
+
+func (s *SeedService) applyPlan(ctx context.Context, plan *SeedPlan, seedCtx SeedContext, prune bool) (*SeedResult, error) {
 	if plan == nil {
 		return nil, fmt.Errorf("seed plan is nil")
 	}
@@ -122,21 +153,44 @@ func (s *SeedService) ApplyPlan(ctx context.Context, plan *SeedPlan, seedCtx See
 			Key:       topicPlan.Key,
 			FullTopic: topicPlan.FullTopic,
 		}
-		record, created, err := s.upsertTopic(ctx, topicPlan.Topic)
+		var record *topicRecord
+		var created bool
+		var err error
+		if prune {
+			// 旧声明式同步不能绕过新安装路径写入的 Core 归属。
+			existing, lookupErr := s.dir.FindTopicByFullName(ctx, topicPlan.Topic.TenantUUID, topicPlan.Topic.Namespace, topicPlan.Topic.Name)
+			if lookupErr != nil {
+				return result, lookupErr
+			}
+			if owner := directory.PluginOwner(existing); owner != "" && owner != seedCtx.PluginID {
+				return result, fmt.Errorf("EVENT_FABRIC_INSTALL_TOPIC_OWNER_CONFLICT: %s", topicPlan.Key)
+			}
+			record, created, err = s.upsertTopic(ctx, topicPlan.Topic)
+		} else {
+			record, created, err = s.ensureOwnedTopic(ctx, topicPlan, seedCtx)
+		}
 		if err != nil {
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("topic %s: %w", topicPlan.FullTopic, err))
 			result.Topics = append(result.Topics, topicRes)
 			continue
 		}
+		topicRes.FullTopic = record.FullName()
 		topicRes.TopicID = record.ID
 		topicRes.Created = created
 		if created {
 			s.writeAudit(ctx, "TOPIC_CREATE", record.ID, record.FullName(), seedCtx, nil)
 		}
-		s.recordTopicBinding(ctx, topicPlan, record, seedCtx)
+		if err := s.recordTopicBinding(ctx, topicPlan, record, seedCtx); err != nil {
+			return result, fmt.Errorf("record topic binding: %w", err)
+		}
 
 		grantCount := 0
 		for _, aclPlan := range topicPlan.ACL {
+			if !prune && !created {
+				if err := s.verifyExistingACL(ctx, record, aclPlan); err != nil {
+					return result, err
+				}
+			}
 			applied, grantErr := s.applyACL(ctx, topicPlan.Key, record, aclPlan, seedCtx)
 			if grantErr != nil {
 				combinedErr = errors.Join(combinedErr, fmt.Errorf("topic %s acl %s/%s: %w",
@@ -152,8 +206,10 @@ func (s *SeedService) ApplyPlan(ctx context.Context, plan *SeedPlan, seedCtx See
 				record.FullName(), created, grantCount, seedCtx.PluginID, seedCtx.TenantUUID)
 		}
 	}
-	if err := s.pruneStaleTopicBindings(ctx, seedCtx, currentTopicKeys); err != nil {
-		combinedErr = errors.Join(combinedErr, err)
+	if prune {
+		if err := s.pruneStaleTopicBindings(ctx, seedCtx, currentTopicKeys); err != nil {
+			combinedErr = errors.Join(combinedErr, err)
+		}
 	}
 	if combinedErr != nil {
 		return result, combinedErr
@@ -169,9 +225,9 @@ func (s *SeedService) ensurePluginAcceptsNewUsage(ctx context.Context, pluginID 
 	return s.guard(ctx, pluginID)
 }
 
-func (s *SeedService) recordTopicBinding(ctx context.Context, topicPlan TopicPlan, record *topicRecord, seedCtx SeedContext) {
+func (s *SeedService) recordTopicBinding(ctx context.Context, topicPlan TopicPlan, record *topicRecord, seedCtx SeedContext) error {
 	if s.bindings == nil || record == nil || strings.TrimSpace(seedCtx.PluginID) == "" {
-		return
+		return nil
 	}
 	topicKey := topicPlan.Key
 	if strings.TrimSpace(topicKey) == "" {
@@ -186,10 +242,7 @@ func (s *SeedService) recordTopicBinding(ctx context.Context, topicPlan TopicPla
 		FullTopic:  record.FullName(),
 		TopicID:    record.ID,
 	})
-	if err != nil && s.logger != nil {
-		s.logger.WarnF(ctx, "[event_fabric.seed] record topic binding failed tenant=%s plugin=%s topic=%s err=%v",
-			seedCtx.TenantUUID, seedCtx.PluginID, record.FullName(), err)
-	}
+	return err
 }
 
 func (s *SeedService) pruneStaleTopicBindings(ctx context.Context, seedCtx SeedContext, currentTopicKeys map[string]struct{}) error {
@@ -236,9 +289,9 @@ func (s *SeedService) pruneStaleTopicBindings(ctx context.Context, seedCtx SeedC
 	return combinedErr
 }
 
-func (s *SeedService) recordAclBinding(ctx context.Context, topicKey string, plan ACLPlan, signature string, seedCtx SeedContext) {
+func (s *SeedService) recordAclBinding(ctx context.Context, topicKey string, plan ACLPlan, signature string, seedCtx SeedContext) error {
 	if s.bindings == nil || strings.TrimSpace(seedCtx.PluginID) == "" {
-		return
+		return nil
 	}
 	topicKey = strings.TrimSpace(topicKey)
 	if topicKey == "" {
@@ -253,10 +306,7 @@ func (s *SeedService) recordAclBinding(ctx context.Context, topicKey string, pla
 		ActionsHash:   signature,
 		Actions:       plan.Actions,
 	})
-	if err != nil && s.logger != nil {
-		s.logger.WarnF(ctx, "[event_fabric.seed] record acl binding failed tenant=%s plugin=%s topic_key=%s principal=%s err=%v",
-			seedCtx.TenantUUID, seedCtx.PluginID, topicKey, plan.PrincipalID, err)
-	}
+	return err
 }
 
 func normalizeTopicKey(value string) string {
@@ -311,10 +361,14 @@ func (s *SeedService) applyACL(ctx context.Context, topicKey string, topic *topi
 	if topicKey == "" {
 		topicKey = fmt.Sprintf("%s.%s", topic.Namespace, topic.Name)
 	}
-	signature := hashActions(plan.Actions)
+	// 同一业务 key 可以在升级时绑定新物理主题，不能沿用旧 Topic 的 ACL 命中记录。
+	signature := topic.ID + ":" + hashActions(plan.Actions)
 	if s.bindings != nil && strings.TrimSpace(seedCtx.PluginID) != "" {
 		existing, err := s.bindings.GetACL(ctx, seedCtx.TenantUUID, seedCtx.PluginID, topicKey, plan.PrincipalType, plan.PrincipalID)
-		if err == nil && existing != nil && existing.ActionsHash == signature {
+		if err != nil {
+			return 0, err
+		}
+		if existing != nil && existing.ActionsHash == signature {
 			if s.logger != nil {
 				s.logger.DebugF(ctx, "[event_fabric.seed] skip acl grant tenant=%s plugin=%s topic=%s principal=%s reason=unchanged",
 					seedCtx.TenantUUID, seedCtx.PluginID, topic.FullName(), plan.PrincipalID)
@@ -339,7 +393,9 @@ func (s *SeedService) applyACL(ctx context.Context, topicKey string, topic *topi
 		"principal_type": plan.PrincipalType,
 		"principal_id":   plan.PrincipalID,
 	})
-	s.recordAclBinding(ctx, topicKey, plan, signature, seedCtx)
+	if err := s.recordAclBinding(ctx, topicKey, plan, signature, seedCtx); err != nil {
+		return 0, fmt.Errorf("record acl binding: %w", err)
+	}
 	return len(plan.Actions), nil
 }
 
@@ -430,4 +486,108 @@ func hashActions(actions []acl.PrincipalAction) string {
 	}
 	sort.Strings(values)
 	return strings.Join(values, ",")
+}
+
+// ensureOwnedTopic 在任何绑定写入之前检查归属。旧主题必须已有同插件的权威绑定；不自动认领公共主题。
+func (s *SeedService) ensureOwnedTopic(ctx context.Context, plan TopicPlan, seed SeedContext) (*topicRecord, bool, error) {
+	if s.bindings == nil || seed.PluginID == "" || plan.Topic.TenantUUID != seed.TenantUUID {
+		return nil, false, fmt.Errorf("EVENT_FABRIC_INSTALL_OWNER_REQUIRED")
+	}
+	allowed := s.namespaceAllowed
+	if allowed == nil {
+		allowed = PluginNamespaceAllowed
+	}
+	previous, err := s.bindings.GetTopic(ctx, seed.TenantUUID, seed.PluginID, plan.Key)
+	if err != nil {
+		return nil, false, err
+	}
+	existing, err := s.dir.FindTopicByFullName(ctx, seed.TenantUUID, plan.Topic.Namespace, plan.Topic.Name)
+	if err != nil {
+		return nil, false, err
+	}
+	if existing != nil {
+		owner := directory.PluginOwner(existing)
+		if (owner != "" && owner != seed.PluginID) || (existing.ScopeType == eventfabricmodel.TopicScopePlugin && existing.ScopeID != seed.PluginID && existing.ScopeID != seed.TenantUUID) {
+			return nil, false, fmt.Errorf("EVENT_FABRIC_INSTALL_TOPIC_OWNER_CONFLICT: %s", plan.Key)
+		}
+		if owner == "" && (previous == nil || previous.TopicID != existing.UUID.String() || previous.FullTopic != existing.FullTopic) {
+			return nil, false, fmt.Errorf("EVENT_FABRIC_INSTALL_TOPIC_OWNER_REQUIRED: %s", plan.Key)
+		}
+		if existing.Lifecycle != eventfabricmodel.TopicLifecycleActive {
+			return nil, false, fmt.Errorf("EVENT_FABRIC_INSTALL_TOPIC_NOT_READY: %s", plan.Key)
+		}
+		if owners, ok := s.bindings.(interface {
+			TopicOwners(context.Context, string, string) ([]string, error)
+		}); ok {
+			plugins, err := owners.TopicOwners(ctx, seed.TenantUUID, existing.UUID.String())
+			if err != nil {
+				return nil, false, err
+			}
+			for _, plugin := range plugins {
+				if plugin != seed.PluginID {
+					return nil, false, fmt.Errorf("EVENT_FABRIC_INSTALL_TOPIC_OWNER_CONFLICT: %s", plan.Key)
+				}
+			}
+		}
+		if marker, ok := s.dir.(interface {
+			MarkPluginTopic(context.Context, *eventfabricmodel.TopicDefinition, string, string) error
+		}); ok {
+			if err := marker.MarkPluginTopic(ctx, existing, seed.PluginID, plan.Key); err != nil {
+				return nil, false, err
+			}
+		}
+		return topicFromModel(existing), false, nil
+	}
+	if !allowed(seed.PluginID, plan.Topic.Namespace) {
+		return nil, false, fmt.Errorf("EVENT_FABRIC_INSTALL_NAMESPACE_DENIED: %s", plan.Topic.Namespace)
+	}
+	if previous != nil && previous.FullTopic == plan.FullTopic {
+		return nil, false, fmt.Errorf("EVENT_FABRIC_INSTALL_TOPIC_MISSING: %s", plan.Key)
+	}
+	input := plan.Topic
+	input.PluginOwner = seed.PluginID
+	input.PluginTopicKey = plan.Key
+	record, created, err := s.ensureTopic(ctx, input)
+	if err != nil {
+		return nil, false, err
+	}
+	// 并发创建命中已有记录时重新检查归属，不把冲突当成授权依据。
+	if !created {
+		return s.ensureOwnedTopic(ctx, plan, seed)
+	}
+	return record, true, nil
+}
+
+// PluginNamespaceAllowed 是未配置额外归属时的默认规则，允许插件名及其常用前缀。
+func PluginNamespaceAllowed(pluginID, namespace string) bool {
+	alias := strings.TrimPrefix(pluginID, "com.powerx.plugins.")
+	if alias == pluginID || alias == "" || strings.Contains(alias, ".") {
+		return false
+	}
+	alias = strings.ReplaceAll(alias, "-", "_")
+	for _, root := range []string{alias, "powerx." + alias, "_topic." + alias, pluginID} {
+		if namespace == root || strings.HasPrefix(namespace, root+".") {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *SeedService) verifyExistingACL(ctx context.Context, topic *topicRecord, plan ACLPlan) error {
+	reader, ok := s.acl.(interface {
+		HasPermission(context.Context, string, uuid.UUID, string, string, time.Time) (bool, error)
+	})
+	if !ok {
+		return fmt.Errorf("EVENT_FABRIC_INSTALL_ACL_VERIFIER_REQUIRED")
+	}
+	for _, action := range plan.Actions {
+		granted, err := reader.HasPermission(ctx, topic.TenantKey, uuid.MustParse(topic.ID), plan.PrincipalID, string(action), s.clock())
+		if err != nil {
+			return err
+		}
+		if !granted {
+			return fmt.Errorf("EVENT_FABRIC_INSTALL_ACL_REQUIRED: %s", topic.FullName())
+		}
+	}
+	return nil
 }

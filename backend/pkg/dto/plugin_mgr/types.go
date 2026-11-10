@@ -1,5 +1,7 @@
 package plugin_mgr
 
+import pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+
 type PluginMenuItem struct {
 	ID    string `json:"id"` // plugin id
 	Title string `json:"title"`
@@ -9,12 +11,15 @@ type PluginMenuItem struct {
 }
 
 type PluginItem struct {
-	ID       string           `json:"id"`
-	Name     string           `json:"name"`
-	Version  string           `json:"version"`
-	State    string           `json:"state"`     // installed/enabled/disabled
-	AdminURL string           `json:"admin_url"` // /_p/<id>/admin/
-	APIBase  string           `json:"api_base"`  // /_p/<id>/api
-	HasAdmin bool             `json:"has_admin"`
-	Menus    []PluginMenuItem `json:"menus"`
+	Provider      pm.ProviderIdentity `json:"provider"`
+	Revision      string              `json:"revision"`
+	InstallOrigin pm.InstallOrigin    `json:"install_origin"`
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	Version       string              `json:"version"`
+	State         string              `json:"state"`     // installed/enabled/disabled
+	AdminURL      string              `json:"admin_url"` // /_p/<id>/admin/
+	APIBase       string              `json:"api_base"`  // /_p/<id>/api
+	HasAdmin      bool                `json:"has_admin"`
+	Menus         []PluginMenuItem    `json:"menus"`
 }

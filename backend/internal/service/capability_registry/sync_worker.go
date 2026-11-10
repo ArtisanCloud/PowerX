@@ -22,6 +22,7 @@ import (
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	pluginPermission "github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -39,6 +40,7 @@ type RedisClient interface {
 
 // SyncWorkerConfig captures dependencies required by the Capability Sync Worker.
 type SyncWorkerConfig struct {
+	CachePrefix     string
 	DB              *gorm.DB
 	Redis           RedisClient
 	EventBus        event_bus.EventBus
@@ -81,7 +83,7 @@ func NewSyncWorker(cfg SyncWorkerConfig) *SyncWorker {
 		clock = time.Now
 	}
 
-	recordRepo := repo.NewCapabilityRecordRepository(cfg.DB, cfg.Redis)
+	recordRepo := repo.NewCapabilityRecordRepository(cfg.DB, cfg.Redis, repo.CapabilityRecordRepositoryOptions{CachePrefix: cfg.CachePrefix})
 	templateRepo := repo.NewWorkflowTemplateRepository(cfg.DB)
 	jobRepo := repo.NewCapabilitySyncJobRepository(cfg.DB)
 
@@ -161,6 +163,9 @@ func (w *SyncWorker) ProcessArtifact(ctx context.Context, path string) error {
 	if pluginMeta.Name == "" {
 		pluginMeta.Name = manifest.Name
 	}
+	if err := validateCatalogAPIKeyPermissionOwnership(pluginMeta, catalog.Capabilities); err != nil {
+		return err
+	}
 
 	var errs []error
 	for _, capability := range catalog.Capabilities {
@@ -210,6 +215,9 @@ func (w *SyncWorker) syncCapability(ctx context.Context, artifactPath, root stri
 	capabilityID := capability.capabilityID()
 	if capabilityID == "" {
 		return errors.New("capability id missing")
+	}
+	if err := validateServiceTicketProtocols(capability.Protocols); err != nil {
+		return err
 	}
 
 	startedAt := w.now()
@@ -333,8 +341,16 @@ func (w *SyncWorker) syncCapabilityPermissions(ctx context.Context, plugin plugi
 		return errors.New("plugin id missing")
 	}
 	codes := permissionCodesFromCatalogCapability(pluginID, capability)
+	explicitCodes := map[string]bool{}
+	for _, declaration := range capability.Permissions {
+		explicitCodes[strings.TrimSpace(declaration.PermissionCode)] = true
+	}
 	rows := make([]iammodel.Permission, 0, len(codes)+len(capability.Permissions))
+	roleGrants := map[string][]string{}
 	for _, code := range codes {
+		if explicitCodes[code] {
+			continue
+		}
 		module, resource, action, ok := parsePluginPermissionCode(code, pluginID)
 		if !ok {
 			return fmt.Errorf("invalid capability permission_code: capability=%s permission_code=%s", capability.capabilityID(), code)
@@ -358,24 +374,22 @@ func (w *SyncWorker) syncCapabilityPermissions(ctx context.Context, plugin plugi
 			Source:     "plugin:" + pluginID,
 			Introduced: firstNonEmptyCatalogString(strings.TrimSpace(capability.Version), strings.TrimSpace(plugin.Version)),
 		})
-	}
-	if len(rows) > 0 {
-		if err := w.permissionRepo.UpsertBatch(ctx, rows); err != nil {
-			return err
-		}
-		if err := w.grantCapabilityPermissionsToDefaultRoles(ctx, rows, defaultRoleGrantsFromCapability(capability)); err != nil {
-			return err
-		}
+		roleGrants[pluginPermissionRowKey(rows[len(rows)-1])] = defaultRoleGrantsFromCapability(capability)
 	}
 	for _, declaration := range capability.Permissions {
 		row, err := permissionRowFromPluginDeclaration(plugin, capability, declaration)
 		if err != nil {
 			return err
 		}
-		if err := w.permissionRepo.UpsertBatch(ctx, []iammodel.Permission{row}); err != nil {
-			return err
-		}
-		if err := w.grantCapabilityPermissionsToDefaultRoles(ctx, []iammodel.Permission{row}, declaration.DefaultRoleGrants); err != nil {
+		rows = append(rows, row)
+		roleGrants[pluginPermissionRowKey(row)] = declaration.DefaultRoleGrants
+	}
+	accepted, err := w.permissionRepo.UpsertPluginCapabilityPermissions(ctx, rows)
+	if err != nil {
+		return err
+	}
+	for _, row := range accepted {
+		if err := w.grantCapabilityPermissionsToDefaultRoles(ctx, []iammodel.Permission{row}, roleGrants[pluginPermissionRowKey(row)]); err != nil {
 			return err
 		}
 	}
@@ -415,13 +429,27 @@ func permissionRowFromPluginDeclaration(plugin pluginMetadata, capability catalo
 		"independent":              declaration.Independent,
 		"protocol_bindings":        normalizedPermissionProtocolBindings(declaration.ProtocolBindings),
 	}
+	serviceBinding := len(declaration.ProtocolBindings) > 0
+	for _, binding := range declaration.ProtocolBindings {
+		serviceBinding = serviceBinding && (binding.ActorContext == "service_actor" && binding.ResourceScope == "tenant")
+	}
+	if declaration.APIKey != nil && (declaration.Type != "api" || !declaration.Independent || declaration.BusinessPermissionCode != "" || declaration.APIKey.Action != action) {
+		return iammodel.Permission{}, errors.New("PLUGIN_API_KEY_SERVICE_PERMISSION_REQUIRED")
+	}
+	keyMeta, err := pluginPermission.ExplicitAPIKeyMetadata(declaration.APIKey, pluginID, capability.capabilityID(), serviceBinding)
+	if err != nil {
+		return iammodel.Permission{}, err
+	}
+	for key, value := range keyMeta {
+		meta[key] = value
+	}
 	return iammodel.Permission{
 		Module:      module,
 		Resource:    resource,
 		Action:      action,
 		Effect:      "allow",
 		Description: description,
-		AllowAPIKey: false,
+		AllowAPIKey: keyMeta != nil,
 		Meta:        datatypes.JSON(mustRawJSON(meta)),
 		Status:      iammodel.PermissionStatusActive,
 		Source:      "plugin:" + pluginID,
@@ -578,6 +606,9 @@ func permissionCodesFromCatalogCapability(pluginID string, capability catalogCap
 }
 
 func validatePluginPermissionDeclarations(pluginID, capabilityID string, capabilityProtocols []models.ProtocolBinding, declarations []pluginPermissionDeclaration) error {
+	if err := validateServiceTicketProtocols(capabilityProtocols); err != nil {
+		return err
+	}
 	permissionCodes := map[string]pluginPermissionDeclaration{}
 	for idx := range declarations {
 		declaration := normalizePluginPermissionDeclaration(declarations[idx])
@@ -588,6 +619,11 @@ func validatePluginPermissionDeclarations(pluginID, capabilityID string, capabil
 	}
 	for idx := range declarations {
 		declaration := declarations[idx]
+		if declaration.APIKey != nil {
+			if _, err := permissionRowFromPluginDeclaration(pluginMetadata{ID: pluginID}, catalogCapability{ID: capabilityID}, declaration); err != nil {
+				return err
+			}
+		}
 		prefix := fmt.Sprintf("capability %s permissions[%d]", capabilityID, idx)
 		switch declaration.Type {
 		case "menu", "page", "action", "api":
@@ -691,11 +727,23 @@ func validatePluginPermissionDeclarations(pluginID, capabilityID string, capabil
 			if binding.Path == "" || !strings.HasPrefix(binding.Path, "/") {
 				return fmt.Errorf("%s path must start with /", bindingPrefix)
 			}
-			if strings.Contains(binding.Path, "{") || strings.Contains(binding.Path, "}") || strings.Contains(binding.Path, ":") {
-				return fmt.Errorf("%s dynamic path must use *: %s", bindingPrefix, binding.Path)
-			}
-			if strings.Contains(binding.Path, "/_p/") || strings.HasPrefix(binding.Path, "/api/v1") {
-				return fmt.Errorf("%s path must be plugin internal route: %s", bindingPrefix, binding.Path)
+			if permissionBindingUsesServiceTicket(binding, capabilityProtocols) {
+				if declaration.Type != "api" || !declaration.Independent || declaration.BusinessPermissionCode != "" {
+					return fmt.Errorf("%s core_service_ticket requires an independent API permission", bindingPrefix)
+				}
+				if binding.ActorContext != "service_actor" || binding.ResourceScope != "tenant" {
+					return fmt.Errorf("%s core_service_ticket requires service_actor and tenant scope", bindingPrefix)
+				}
+				if _, err := FixedPluginServicePath(binding.Path); err != nil {
+					return fmt.Errorf("%s invalid fixed service path: %w", bindingPrefix, err)
+				}
+			} else {
+				if strings.Contains(binding.Path, "{") || strings.Contains(binding.Path, "}") || strings.Contains(binding.Path, ":") {
+					return fmt.Errorf("%s dynamic path must use *: %s", bindingPrefix, binding.Path)
+				}
+				if strings.Contains(binding.Path, "/_p/") || strings.HasPrefix(binding.Path, "/api/v1") {
+					return fmt.Errorf("%s path must be plugin internal route: %s", bindingPrefix, binding.Path)
+				}
 			}
 			if binding.ActorContext == "" {
 				return fmt.Errorf("%s actor_context missing", bindingPrefix)
@@ -911,17 +959,28 @@ func registrationAdapterFromProtocol(capabilityID string, pluginID string, proto
 	if channel == "" {
 		return registryservice.AdapterEndpoint{}
 	}
+	endpoint := normalizePluginProtocolEndpoint(pluginID, channel, protocol.Endpoint)
 	adapterID := strings.TrimSpace(protocol.ToolRef)
 	if adapterID == "" {
 		adapterID = strings.TrimSpace(protocol.RPC)
 	}
 	if adapterID == "" {
 		adapterID = strings.TrimSpace(protocol.Method)
+		if strings.EqualFold(channel, "rest") || strings.EqualFold(channel, "http") {
+			// 同能力同方法可绑定多条路由；ID 不依赖声明顺序或同步次数。
+			// ToolRef/RPC 是显式身份，保留其既有优先级和语义。
+			method := strings.ToUpper(adapterID)
+			if method == "" {
+				method = strings.ToLower(channel)
+			}
+			identity := strings.ToLower(channel) + "\x00" + strings.ToUpper(strings.TrimSpace(protocol.Method)) + "\x00" + endpoint
+			digest := sha256.Sum256([]byte(identity))
+			adapterID = method + "." + fmt.Sprintf("%x", digest)
+		}
 	}
 	if adapterID == "" {
 		adapterID = channel
 	}
-	endpoint := normalizePluginProtocolEndpoint(pluginID, channel, protocol.Endpoint)
 	serviceRef := strings.TrimSpace(protocol.RPC)
 	if serviceRef == "" {
 		serviceRef = strings.TrimSpace(protocol.ToolRef)
@@ -1009,11 +1068,25 @@ func (w *SyncWorker) validateSchemaRefs(ctx context.Context, artifactPath, root 
 		if strings.Contains(schemaRef, "://") {
 			continue
 		}
-		refPath := filepath.Join(root, filepath.Clean(schemaRef))
+		fileRef, fragment := schemaRef, ""
+		if binding.AuthType == PluginServiceAuthType {
+			var err error
+			fileRef, fragment, err = serviceTicketLocalSchemaRef(schemaRef)
+			if err != nil {
+				return w.raiseAssetAlert(ctx, artifactPath, plugin, capability.capabilityID(), schemaRef, AssetAlertReasonSchemaInvalid, err.Error(), err)
+			}
+		}
+		refPath := filepath.Join(root, filepath.Clean(fileRef))
 		raw, err := os.ReadFile(refPath)
 		if err != nil {
 			detail := fmt.Sprintf("protocol schema %s missing: %v", schemaRef, err)
 			return w.raiseAssetAlert(ctx, artifactPath, plugin, capability.capabilityID(), schemaRef, AssetAlertReasonSchemaMissing, detail, err)
+		}
+		if binding.AuthType == PluginServiceAuthType {
+			if err := validateServiceTicketSchemaDocument(raw, fragment); err != nil {
+				return w.raiseAssetAlert(ctx, artifactPath, plugin, capability.capabilityID(), schemaRef, AssetAlertReasonSchemaInvalid, err.Error(), err)
+			}
+			continue
 		}
 		if len(raw) == 0 {
 			continue
@@ -1502,7 +1575,14 @@ func buildProtocolBindings(protocols map[string]any, provide capabilityManifestP
 		return nil, errors.New("metadata.protocols missing")
 	}
 	bindings := make([]models.ProtocolBinding, 0)
-	for channel, raw := range protocols {
+	// YAML mapping 没有顺序语义；固定通道顺序，避免重复同步时协议/hash 漂移。
+	channels := make([]string, 0, len(protocols))
+	for channel := range protocols {
+		channels = append(channels, channel)
+	}
+	sort.Strings(channels)
+	for _, channel := range channels {
+		raw := protocols[channel]
 		channel = strings.TrimSpace(channel)
 		if channel == "" {
 			continue
@@ -1643,7 +1723,7 @@ type catalogCapability struct {
 	ID                string                        `json:"id"`
 	CapabilityIDAlias string                        `json:"capability_id"`
 	Type              string                        `json:"-"`
-	Version           string                        `json:"-"`
+	Version           string                        `json:"version,omitempty"`
 	Title             string                        `json:"title"`
 	TitleI18n         map[string]string             `json:"title_i18n"`
 	Description       string                        `json:"description"`
@@ -1676,6 +1756,9 @@ func (c catalogCapability) normalizedAnnotations() json.RawMessage {
 	annotations := map[string]any{}
 	if len(c.Annotations) > 0 && string(c.Annotations) != "null" {
 		_ = json.Unmarshal(c.Annotations, &annotations)
+	}
+	if version := strings.TrimSpace(c.Version); version != "" {
+		annotations["version"] = version
 	}
 	if code := strings.TrimSpace(c.PermissionCode); code != "" {
 		annotations["permission_code"] = code
@@ -1726,21 +1809,22 @@ func (c catalogCapability) hashSource() interface{} {
 }
 
 type pluginPermissionDeclaration struct {
-	Type                   string                      `json:"type" yaml:"type"`
-	PermissionCode         string                      `json:"permission_code" yaml:"permission_code"`
-	Module                 string                      `json:"module,omitempty" yaml:"module"`
-	Resource               string                      `json:"resource,omitempty" yaml:"resource"`
-	Action                 string                      `json:"action,omitempty" yaml:"action"`
-	MenuPath               []string                    `json:"menu_path,omitempty" yaml:"menu_path"`
-	PagePermissionCodes    []string                    `json:"page_permission_codes,omitempty" yaml:"page_permission_codes"`
-	TitleI18n              map[string]string           `json:"title_i18n" yaml:"title_i18n"`
-	DescriptionI18n        map[string]string           `json:"description_i18n" yaml:"description_i18n"`
-	RiskLevel              string                      `json:"risk_level" yaml:"risk_level"`
-	DataScope              string                      `json:"data_scope,omitempty" yaml:"data_scope"`
-	DefaultRoleGrants      []string                    `json:"default_role_grants,omitempty" yaml:"default_role_grants"`
-	BusinessPermissionCode string                      `json:"business_permission_code,omitempty" yaml:"business_permission_code"`
-	Independent            bool                        `json:"independent,omitempty" yaml:"independent"`
-	ProtocolBindings       []permissionProtocolBinding `json:"protocol_bindings,omitempty" yaml:"protocol_bindings"`
+	APIKey                 *plugin_mgr.APIKeyPermissionSpec `json:"api_key,omitempty" yaml:"api_key"`
+	Type                   string                           `json:"type" yaml:"type"`
+	PermissionCode         string                           `json:"permission_code" yaml:"permission_code"`
+	Module                 string                           `json:"module,omitempty" yaml:"module"`
+	Resource               string                           `json:"resource,omitempty" yaml:"resource"`
+	Action                 string                           `json:"action,omitempty" yaml:"action"`
+	MenuPath               []string                         `json:"menu_path,omitempty" yaml:"menu_path"`
+	PagePermissionCodes    []string                         `json:"page_permission_codes,omitempty" yaml:"page_permission_codes"`
+	TitleI18n              map[string]string                `json:"title_i18n" yaml:"title_i18n"`
+	DescriptionI18n        map[string]string                `json:"description_i18n" yaml:"description_i18n"`
+	RiskLevel              string                           `json:"risk_level" yaml:"risk_level"`
+	DataScope              string                           `json:"data_scope,omitempty" yaml:"data_scope"`
+	DefaultRoleGrants      []string                         `json:"default_role_grants,omitempty" yaml:"default_role_grants"`
+	BusinessPermissionCode string                           `json:"business_permission_code,omitempty" yaml:"business_permission_code"`
+	Independent            bool                             `json:"independent,omitempty" yaml:"independent"`
+	ProtocolBindings       []permissionProtocolBinding      `json:"protocol_bindings,omitempty" yaml:"protocol_bindings"`
 }
 
 type permissionProtocolBinding struct {

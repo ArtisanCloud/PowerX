@@ -60,7 +60,11 @@ func recordKey(msg event_bus.TaskMessage) (string, string) {
 	return tenant, id
 }
 func deliveryKey(d event_bus.StreamTaskDelivery) string {
-	return d.Message.ID + ":" + strconv.FormatUint(d.Lease.Token, 10)
+	key := d.Message.ID + ":" + strconv.FormatUint(d.Lease.Token, 10)
+	if d.Lease.Namespace != "" {
+		key = d.Lease.Namespace + ":" + key
+	}
+	return key
 }
 func terminal(status string) bool {
 	return status == m.TaskHistoryStatusCompleted || status == m.TaskHistoryStatusFailed || status == m.TaskHistoryStatusCancelled
@@ -204,14 +208,31 @@ func (d *StreamDriver) withDelivery(ctx context.Context, item event_bus.StreamTa
 	}
 	tenant, id := recordKey(item.Message)
 	return d.repo.WithRecord(ctx, tenant, item.Message.SubscriberID, id, func(tx *gorm.DB, row *m.TaskHistory) error {
+		if err := d.base.ValidateLease(ctx, item.Lease); err != nil {
+			return err
+		}
 		if terminal(row.Status) {
 			return ErrTaskTerminal
 		}
 		if metadata(row)[activeDeliveryKey] != deliveryKey(item) {
 			return event_bus.ErrLeaseStale
 		}
-		return apply(tx, row)
+		if err := apply(tx, row); err != nil {
+			return err
+		}
+		return d.base.ValidateLease(ctx, item.Lease)
 	})
+}
+
+// Apply 在有效 TaskBus 租约内持久化中间业务状态，不改变投递终态。
+func (d *StreamDriver) Apply(ctx context.Context, item event_bus.StreamTaskDelivery, apply func(*gorm.DB) error) error {
+	return d.withDelivery(ctx, item, func(tx *gorm.DB, _ *m.TaskHistory) error { return apply(tx) })
+}
+
+// Renew 复用正式 TaskBus 租约保活；不读取业务状态。
+func (d *StreamDriver) Renew(ctx context.Context, item event_bus.StreamTaskDelivery) error {
+	_, err := d.base.Renew(ctx, item)
+	return err
 }
 
 // Complete 把业务对象更新与共享任务完成放到同一个事务；旧投递不能接纳结果。
@@ -257,6 +278,11 @@ func (d *StreamDriver) Defer(ctx context.Context, item event_bus.StreamTaskDeliv
 
 // Reject 的上限与 DLQ 统一归 TaskBus。永久错误和达到上限的投递进入失败终态。
 func (d *StreamDriver) Reject(ctx context.Context, item event_bus.StreamTaskDelivery, reason string, permanent bool) error {
+	return d.RejectAt(ctx, item, reason, permanent, time.Time{})
+}
+
+// RejectAt retains the shared attempt limit and persists the requested retry time.
+func (d *StreamDriver) RejectAt(ctx context.Context, item event_bus.StreamTaskDelivery, reason string, permanent bool, when time.Time) error {
 	dead := false
 	err := d.withDelivery(ctx, item, func(_ *gorm.DB, row *m.TaskHistory) error {
 		dead = permanent || row.Attempt >= attempts(item.Message)
@@ -276,11 +302,14 @@ func (d *StreamDriver) Reject(ctx context.Context, item event_bus.StreamTaskDeli
 	if dead {
 		limit = item.Message.Attempt + 1
 	}
-	_, err = d.base.Nack(ctx, item, time.Now().Add(d.retryDelay), reason, limit)
+	if when.IsZero() {
+		when = time.Now().Add(d.retryDelay)
+	}
+	_, err = d.base.Nack(ctx, item, when, reason, limit)
 	return err
 }
 
-// Recover 仅在消费者启动时使用共享历史补投；常驻消费依然由正式 TaskBus 阻塞驱动。
+// Recover 在消费者启动或传输连接恢复时使用共享历史补投；常驻消费依然由正式 TaskBus 阻塞驱动。
 func (d *StreamDriver) Recover(ctx context.Context, queueTenant, subscriber string) error {
 	var after uint64
 	for {

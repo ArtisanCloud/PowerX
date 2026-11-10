@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/service"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"sort"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/internal/service"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -49,6 +50,11 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 		return err
 	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		leaderUUID, err := departmentLeaderUUID(ctx, tx, d.TenantUUID, d.LeaderMemberID)
+		if err != nil {
+			return err
+		}
+		d.LeaderMemberUUID = leaderUUID
 		// 可选：0 当作根（前端误传 0 时兜底）
 		if parentID != nil && *parentID == 0 {
 			parentID = nil
@@ -116,14 +122,15 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 }
 
 type UpdateDepartmentOpts struct {
-	Name           *string
-	Key            *string
-	NewParentID    *uint64
-	Sort           *int
-	LeaderMemberID *uint64
-	Status         *int16
-	Meta           any
-	HasNewParentID bool
+	HasLeaderMemberID bool
+	Name              *string
+	Key               *string
+	NewParentID       *uint64
+	Sort              *int
+	LeaderMemberID    *uint64
+	Status            *int16
+	Meta              any
+	HasNewParentID    bool
 }
 
 // Update（含可选 Move）
@@ -168,8 +175,13 @@ func (s *OrgService) UpdateDepartment(ctx context.Context, tenantUUID string, de
 		if opt.Sort != nil {
 			patch["sort"] = *opt.Sort
 		}
-		if opt.LeaderMemberID != nil {
-			patch["leader_member_id"] = *opt.LeaderMemberID
+		if opt.HasLeaderMemberID || opt.LeaderMemberID != nil {
+			leaderUUID, err := departmentLeaderUUID(ctx, tx, tenantUUID, opt.LeaderMemberID)
+			if err != nil {
+				return err
+			}
+			patch["leader_member_id"] = opt.LeaderMemberID
+			patch["leader_member_uuid"] = leaderUUID
 		}
 		if opt.Status != nil {
 			patch["status"] = *opt.Status
@@ -189,6 +201,20 @@ func (s *OrgService) UpdateDepartment(ctx context.Context, tenantUUID string, de
 		}
 		return nil
 	})
+}
+
+func departmentLeaderUUID(ctx context.Context, tx *gorm.DB, tenant string, memberID *uint64) (*uuid.UUID, error) {
+	if memberID == nil {
+		return nil, nil
+	}
+	var member m.Member
+	if err := tx.WithContext(ctx).Select("uuid").Where("tenant_uuid = ? AND id = ? AND status = ?", tenant, *memberID, 1).First(&member).Error; err != nil {
+		return nil, err
+	}
+	if member.UUID == uuid.Nil {
+		return nil, errors.New("leader member UUID missing")
+	}
+	return &member.UUID, nil
 }
 
 // newParentID == nil 表示把部门移动为根节点

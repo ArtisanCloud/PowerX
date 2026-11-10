@@ -1,0 +1,32 @@
+id: com.powerx.plugins.scrm.template.validate
+type: API
+version: 1.0.0
+description: "对指定模板执行规则校验并返回违规项，支持 Agent 巡检。"
+rbac:
+  resource: template
+  actions: [read]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.validate.v1
+    path: schema/input/com.powerx.plugins.scrm.template.validate.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.validate.v1
+    path: schema/output/com.powerx.plugins.scrm.template.validate.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    rest:
+      method: POST
+      path: /api/v1/templates/{id}/validate
+      description: "PowerX Gateway 统一鉴权后的模板校验入口"
+    grpc:
+      service: powerx.template.TemplateService
+      method: ValidateTemplate
+    workflow:
+      template: contracts/exposure/workflow/template-quality-distribute.json
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.validate
+      scope: agent.template.validate
+      transport: http
+      endpoint: /api/v1/templates/{id}/validate

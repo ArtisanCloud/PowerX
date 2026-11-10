@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useNotificationReadsStore } from "~/stores/notificationReads";
+import NotificationBusinessCard from "./NotificationBusinessCard.vue";
+import { isBusinessNotification } from "~/composables/useNotificationPresentation";
+import { primaryNotificationNavigation } from "~/utils/notification-navigation";
 import type { Notification } from "~/types/notification";
 
 const props = defineProps<{
@@ -16,7 +20,13 @@ const emit = defineEmits<{
 const { executeAction, markAsRead, isNotificationRead } = useNotifications();
 const { t } = useI18n();
 const actionToast = useToast();
-const displayNotification = computed(() => props.notification ? { ...props.notification, isRead: isNotificationRead(props.notification) } : null);
+const notificationEvents = useNotificationReadsStore();
+const currentNotification = computed(() => {
+ const original = props.notification; if (!original) return null;
+ const updated = notificationEvents.updates[original.id];
+ return updated && (updated.revision || 1) > (original.revision || 1) ? updated : original;
+});
+const displayNotification = computed(() => currentNotification.value ? { ...currentNotification.value, isRead: isNotificationRead(currentNotification.value) } : null);
 
 // 获取通知图标
 const getNotificationIcon = (notification: Notification) => {
@@ -77,15 +87,15 @@ const formatFullTime = (date: Date) => {
 
 // 处理操作点击
 const handleActionClick = async (actionId: string) => {
-  if (!props.notification) return;
-  try { await executeAction(props.notification.id, actionId, props.notification); }
+  if (!currentNotification.value) return;
+  try { await executeAction(currentNotification.value.id, actionId, currentNotification.value); }
   catch { actionToast.add({ title: t("header.notifications.navigationError"), color: "error" }); }
 };
 
 // 标记为已读
 const handleMarkAsRead = async () => {
-  if (!props.notification || isNotificationRead(props.notification)) return;
-  try { await markAsRead(props.notification.id); }
+  if (!currentNotification.value || isNotificationRead(currentNotification.value)) return;
+  try { await markAsRead(currentNotification.value.id, currentNotification.value); }
   catch { actionToast.add({ title: t('header.notifications.readError'), color: 'error' }); }
 };
 
@@ -184,8 +194,9 @@ watch(
         </div>
       </div>
 
+      <NotificationBusinessCard v-if="isBusinessNotification(displayNotification)" :notification="displayNotification" class="mb-6" @open="primaryNotificationNavigation(displayNotification) && handleActionClick(primaryNotificationNavigation(displayNotification)!.id)" />
       <!-- 通知内容 -->
-      <div class="mb-6">
+      <div v-if="!isBusinessNotification(displayNotification)" class="mb-6">
         <div class="prose prose-sm max-w-none">
           <p class="text-gray-700 leading-relaxed whitespace-pre-wrap">
             {{ displayNotification.content }}
@@ -195,7 +206,7 @@ watch(
 
       <!-- 关联信息 -->
       <div
-        v-if="displayNotification.relatedId || displayNotification.metadata"
+        v-if="!isBusinessNotification(displayNotification) && (displayNotification.relatedId || displayNotification.metadata)"
         class="mb-6 p-4 bg-gray-50 rounded-lg"
       >
         <h3 class="text-sm font-medium text-gray-900 mb-3">相关信息</h3>

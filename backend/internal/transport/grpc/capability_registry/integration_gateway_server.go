@@ -12,6 +12,9 @@ import (
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/google/uuid"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -178,6 +181,21 @@ func (s *IntegrationGatewayServer) InvokeCapability(ctx context.Context, req *ga
 	})
 	if err != nil {
 		template := selectInvokeErrorTemplate(err)
+		if code, _, ok := capservice.StorageAdmissionFailure(err); ok {
+			traceID := strings.TrimSpace(req.GetTraceId())
+			if traceID == "" {
+				traceID = reqctx.GetTraceID(ctx)
+			}
+			if traceID == "" {
+				traceID = uuid.NewString()
+			}
+			safe := capability_registrydto.ToGRPCError(template, capservice.PublicStorageAdmissionError(err))
+			withDetails, detailErr := status.Convert(safe).WithDetails(&errdetails.ErrorInfo{Reason: code, Domain: "powerx.storage", Metadata: map[string]string{"trace_id": traceID}})
+			if detailErr == nil {
+				return nil, withDetails.Err()
+			}
+			return nil, safe
+		}
 		return nil, capability_registrydto.ToGRPCError(template, err)
 	}
 
@@ -387,7 +405,12 @@ func toStruct(value interface{}) (*structpb.Struct, error) {
 }
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
+	if code, hint, ok := capservice.StorageAdmissionFailure(err); ok {
+		return capability_registrydto.ErrUnavailable.WithDetails(map[string]interface{}{"reason_code": code}).WithHint(code + ": " + hint)
+	}
 	switch {
+	case errors.Is(err, capservice.ErrInvocationStorageCapacity):
+		return capability_registrydto.ErrUnavailable.WithHint("STORAGE_CAPACITY_EXHAUSTED: 存储容量保护已阻止新的调用，请处理容量后重试")
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
 		return capability_registrydto.ErrVersionLocked
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):

@@ -26,22 +26,11 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	memberSvc := service.NewMemberService(deps.DB)
 	hMember := NewMemberHandler(memberSvc)
 
-	// /admin/iam/members（保持不变）
-	gMember := protectedGroup.Group("/admin/iam/members")
-	{
-		gMember.GET("", hMember.List)
-		gMember.GET("/:id", hMember.Get)
-		gMember.POST("", hMember.Create)
-		gMember.PATCH("/:id", hMember.Update)
-		gMember.PUT("/:id/status", hMember.SetStatus)
-		gMember.DELETE("/:id", hMember.Delete)
-		gMember.PUT("/:id/restore", hMember.Restore)
-		gMember.PUT("/:id/departments", hMember.PutDepartments)
-		gMember.POST("/:id/force-logout", hMember.ForceMemberLogout)
-	}
+	registerMemberRoutes(protectedGroup, hMember)
 
 	// 新增：/admin/iam/users 分组（租户内视角：按 user 操作其在当前租户的 member）
 	gUser := protectedGroup.Group("/admin/iam/users")
+	gUser.Use(hMember.authorizeManagement)
 	{
 		gUser.GET("/:user_id/member", hMember.GetMemberByUser)  // 查询某个 user 在当前租户的 member
 		gUser.GET("/members", hMember.BatchGetMembersByUsers)   // 批量：user_ids 查询在本租户的 members
@@ -145,4 +134,25 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gSysPerm.PATCH("/:id", hPerm.Update)         // 更新描述 /（可选）状态
 		gSysPerm.PUT("/:id/status", hPerm.SetStatus) // 仅状态切换
 	}
+}
+
+// registerMemberRoutes 供正式路由和 HTTP 授权回归共用。
+func registerMemberRoutes(protectedGroup *gin.RouterGroup, hMember *MemberHandler) {
+	gMember := protectedGroup.Group("/admin/iam/members")
+	gMember.Use(hMember.authorizeManagement)
+	{
+		gMember.GET("", hMember.List)
+		gMember.GET("/:id", hMember.Get)
+		gMember.POST("", hMember.Create)
+		gMember.PATCH("/:id", hMember.Update)
+		gMember.PUT("/:id/status", hMember.SetStatus)
+		gMember.DELETE("/:id", hMember.Delete)
+		gMember.PUT("/:id/restore", hMember.Restore)
+		gMember.PUT("/:id/departments", hMember.PutDepartments)
+		gMember.POST("/:id/force-logout", hMember.ForceMemberLogout)
+		gMember.GET("/:id/roles", hMember.ListRoles)
+		gMember.PUT("/:id/roles", hMember.SetRoles)
+		gMember.PUT("/:id/password", hMember.ResetPassword)
+	}
+
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"hash/fnv"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -39,8 +40,10 @@ func lockBackupPolicy(ctx context.Context, db *gorm.DB, policyID uint64) (func()
 	}
 	return func() {
 		// 解锁失败时丢弃连接，防止会话锁留在池中。
+		release, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
 		var unlocked bool
-		if err := conn.QueryRowContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", key, id).Scan(&unlocked); err != nil || !unlocked {
+		if err := conn.QueryRowContext(release, "SELECT pg_advisory_unlock($1, $2)", key, id).Scan(&unlocked); err != nil || !unlocked {
 			_ = conn.Raw(func(any) error { return driver.ErrBadConn })
 		}
 		_ = conn.Close()

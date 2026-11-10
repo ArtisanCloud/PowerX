@@ -1,0 +1,18 @@
+[Unit]
+Description=Temporary verified seven-day successful IAM baseline audit retention
+After=postgresql@16-main.service powerx-transition-capacity.service
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+UMask=0077
+StateDirectory=powerx-baseline-retention
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /opt/powerx-ops/transition-20261109/retention.py
+TimeoutStartSec=180
+KillMode=control-group
+Nice=15
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal

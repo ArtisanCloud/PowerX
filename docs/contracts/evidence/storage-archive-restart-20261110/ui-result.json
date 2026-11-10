@@ -1,0 +1,171 @@
+{
+  "checks": [
+    "Real lost object PUT acknowledgement shows local capture completed and remote incomplete with original job ID",
+    "light 1440 failure/identity/navigation/draft retention",
+    "light 390 failure/identity/navigation/draft retention",
+    "dark 1440 failure/identity/navigation/draft retention",
+    "dark 390 failure/identity/navigation/draft retention",
+    "Metadata HTTP503 preserves original row, local result, remote failure and draft",
+    "Original job recovery and full readback arrive through native fsnotify and shared production SSE",
+    "Disconnected SSE is visible, retains task and draft, and sends no periodic detail reads",
+    "Reconnection synchronizes metadata with no periodic reads; exactly one explicit retry of the original job, no new capture",
+    "Leaving the page releases the archive SSE connection"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794240030891
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240030894
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240030906
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240030931
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240030932
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240032891
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240032892
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240032915
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240032915
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/5dc1e6bb-1124-4395-b75d-60aa8f863bd0/retry",
+      "method": "POST",
+      "at": 1794240034277
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240034293
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240034294
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240034298
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240034298
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240034300
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240034300
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240034309
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240034309
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794240034871
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794240034873
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794240035876
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794240035877
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794240037882
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240037891
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240037891
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794240037894
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794240037894
+    }
+  ],
+  "errors": [],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    }
+  ],
+  "result": "passed"
+}

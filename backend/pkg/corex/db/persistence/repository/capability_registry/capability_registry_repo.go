@@ -36,6 +36,16 @@ func (r *CapabilityRegistryRepository) resolveDB(db *gorm.DB) *gorm.DB {
 	return r.db
 }
 
+// ListRegisteredTenants 仅供平台目录维护枚举已有注册，不作为租户业务查询入口。
+func (r *CapabilityRegistryRepository) ListRegisteredTenants(ctx context.Context, capabilityIDs []string) ([]string, error) {
+	var tenants []string
+	if len(capabilityIDs) == 0 {
+		return tenants, nil
+	}
+	err := r.db.WithContext(ctx).Model(&models.CapabilityRegistration{}).Where("capability_id IN ?", capabilityIDs).Distinct("tenant_uuid").Order("tenant_uuid").Pluck("tenant_uuid", &tenants).Error
+	return tenants, err
+}
+
 // Create 创建新的能力注册快照（版本需从 1 开始）。
 func (r *CapabilityRegistryRepository) Create(ctx context.Context, db *gorm.DB, reg Registration) (Registration, error) {
 	return r.persist(ctx, r.resolveDB(db), reg, 0, true)
@@ -145,6 +155,13 @@ func (r *CapabilityRegistryRepository) ListLatest(ctx context.Context, db *gorm.
 func (r *CapabilityRegistryRepository) persist(ctx context.Context, db *gorm.DB, reg Registration, expectedVersion uint64, allowMissing bool) (Registration, error) {
 	var out Registration
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 先串行化同一 tenant/capability 的快照追加，再读取最新版本。
+		// 仅锁旧行无法阻止并发事务各自追加相同版本的新行。
+		if tx.Dialector.Name() == "postgres" {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", reg.TenantUUID+"::"+reg.CapabilityID).Error; err != nil {
+				return err
+			}
+		}
 		var latest models.CapabilityRegistration
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("capability_id = ?", reg.CapabilityID).
@@ -234,6 +251,16 @@ func (r *CapabilityRegistryRepository) persist(ctx context.Context, db *gorm.DB,
 		if len(adapterModels) > 0 {
 			if err := tx.Create(&adapterModels).Error; err != nil {
 				return err
+			}
+			// GORM 的 default:true 会在 INSERT 时把显式 false 改为 true。
+			// 新快照必须保留管理员禁用位，且解码结果与最终数据库一致。
+			for i, adapter := range reg.Adapters {
+				if !adapter.IsActive {
+					if err := tx.Model(&adapterModels[i]).Update("is_active", false).Error; err != nil {
+						return err
+					}
+					adapterModels[i].IsActive = false
+				}
 			}
 		}
 

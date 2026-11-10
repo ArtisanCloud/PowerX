@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/core"
 )
 
 type vlmClient struct{}
@@ -38,7 +39,7 @@ func (c *vlmClient) Invoke(ctx context.Context, in contract.VLMRequest) (*contra
 		"messages": buildMessages(in.Messages),
 		"stream":   false,
 	}
-	if in.Temperature > 0 {
+	if in.Temperature > 0 || in.Runtime["temperature_set"] == true {
 		reqBody["temperature"] = in.Temperature
 	}
 	if in.TopP > 0 {
@@ -73,18 +74,7 @@ func (c *vlmClient) Invoke(ctx context.Context, in contract.VLMRequest) (*contra
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(body))
-		// 常见误配：国际站(ap-southeast-1/us-east-1) Key 调了中国内地域名，返回 invalid_api_key。
-		if resp.StatusCode == http.StatusUnauthorized &&
-			strings.Contains(strings.ToLower(msg), "invalid_api_key") &&
-			strings.Contains(strings.ToLower(base), "dashscope.aliyuncs.com") {
-			return nil, fmt.Errorf(
-				"qwen vlm 鉴权失败：当前 endpoint=%s 可能与 API Key 所属地域不匹配。若 Key 来自 ap-southeast-1，请使用 https://dashscope-intl.aliyuncs.com/compatible-mode/v1；原始响应=%s",
-				base,
-				msg,
-			)
-		}
-		return nil, fmt.Errorf("qwen vlm status=%d body=%s", resp.StatusCode, msg)
+		return nil, core.MediaHTTPError(resp.StatusCode, resp.Header, body)
 	}
 
 	var result struct {

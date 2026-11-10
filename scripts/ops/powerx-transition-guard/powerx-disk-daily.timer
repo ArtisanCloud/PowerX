@@ -1,0 +1,11 @@
+[Unit]
+Description=PowerX disk daily report at 00:05 Asia/Shanghai
+
+[Timer]
+OnCalendar=*-*-* 00:05:00 Asia/Shanghai
+Persistent=true
+AccuracySec=1s
+Unit=powerx-disk-daily.service
+
+[Install]
+WantedBy=timers.target

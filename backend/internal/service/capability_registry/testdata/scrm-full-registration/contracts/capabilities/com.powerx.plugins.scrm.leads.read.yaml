@@ -1,0 +1,34 @@
+id: com.powerx.plugins.scrm.leads.read
+type: API
+version: 1.0.0
+description: "读取线索、线索来源、线索活动与会话关联的管理端能力。"
+rbac:
+  resource: scrm.leads
+  actions: [read]
+metadata:
+  protocols:
+    rest:
+      - method: GET
+        path: /api/v1/admin/leads
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/assignments
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/status-history
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/activities
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/timeline
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/activities/{activity_id}/attachments
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/node-attachments
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/attachments/{attachment_id}/download
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/sources
+      - method: GET
+        path: /api/v1/admin/leads/{lead_id}/conversations
+      - method: GET
+        path: /api/v1/admin/leads/source-catalogs

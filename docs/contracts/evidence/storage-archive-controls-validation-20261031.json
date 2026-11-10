@@ -1,0 +1,337 @@
+{
+  "contract": "powerx.storage-archive-controls.validation/v0.6.0",
+  "implementation_started": "2026-10-31",
+  "recorded_at": "2026-11-01T00:58:12.154700+08:00",
+  "branch": "024-ai-engineering-skills",
+  "scope": "Local source and isolated acceptance; no production rollout, no existing Mac archive removal. Browser uses real Nuxt artifacts with API fixtures; native MinIO and PostgreSQL checks are separate real integrations, not full production UI acceptance.",
+  "checks": {
+    "go_race": {
+      "passed": true,
+      "packages": 7,
+      "log": "tmp/storage-ui-implementation-20261031/go-race-final.log",
+      "supplementary_logs": [
+        "tmp/storage-ui-implementation-20261031/go-safety-final.log",
+        "tmp/storage-ui-implementation-20261031/go-db-final.log"
+      ],
+      "additional_checks": [
+        "actual host identity invalidates copied target proof even with same logical node",
+        "cleanup pause retains independently enabled capacity admission",
+        "batch record contains immutable policy snapshot"
+      ]
+    },
+    "go_http_bootstrap": {
+      "passed": true,
+      "packages": 4,
+      "log": "tmp/storage-ui-implementation-20261031/go-http-final.log"
+    },
+    "go_vet": {
+      "passed": true,
+      "latest_passed": true
+    },
+    "python": {
+      "passed": true,
+      "tests": 29
+    },
+    "frontend_unit": {
+      "passed": true,
+      "tests": 41,
+      "files": 7
+    },
+    "frontend_build": {
+      "passed": true,
+      "build_dir": ".nuxt-storage-archive-validation",
+      "output_dir": ".output-storage-archive-validation"
+    },
+    "browser": {
+      "passed": true,
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "checks": [
+        "primary preview and browser download controls reachable",
+        "vertical navigation and narrow selects",
+        "filters retained between sections",
+        "save/load do not enable transfers",
+        "unverified target refused on explicit confirmation",
+        "idle period has no repeated reads; unit tests advance one hour",
+        "global error remains visible; manual refresh recovers",
+        "no horizontal overflow",
+        "database expiry settings save with number validation and confirmation at each width",
+        "capacity admission remains enabled with database cleanup paused"
+      ],
+      "screenshots": [
+        "docs/contracts/evidence/storage-archive-controls-20261031/archive-390.png",
+        "docs/contracts/evidence/storage-archive-controls-20261031/archive-320.png",
+        "docs/contracts/evidence/storage-archive-controls-20261031/archive-1440.png",
+        "docs/contracts/evidence/storage-archive-controls-20261031/database-390.png",
+        "docs/contracts/evidence/storage-archive-controls-20261031/database-320.png",
+        "docs/contracts/evidence/storage-archive-controls-20261031/database-1440.png"
+      ]
+    },
+    "real_minio": {
+      "passed": true,
+      "server": "agent_owned_loopback_19400",
+      "bucket": "powerx-storage-validation",
+      "region": "AsiaShanghai",
+      "checks": [
+        "private versioned bucket proof",
+        "exact version and SHA256/size readback",
+        "source and local CAS gone, still search/download/preview",
+        "catalog rebuilt from remote manifests",
+        "migration with verified new copy and retained origin versions",
+        "reference-aware exact-version expiry",
+        "real automatic minute scheduler tick"
+      ],
+      "automatic_cycle_seconds": 60.25
+    },
+    "real_postgresql": {
+      "passed": true,
+      "server": "agent_owned_PostgreSQL_14_loopback_19432",
+      "checks": [
+        "registered tenant scope",
+        "terminal and time cutoffs",
+        "pending/unknown/recent/foreign/reference protection",
+        "explicit legacy adoption with one matching trace and payload",
+        "unverified older rows do not starve valid pending notifications",
+        "quarantine grace keeps data before expiry"
+      ],
+      "production_rows_deleted": 0
+    },
+    "capability_check": {
+      "passed": true,
+      "delegated_storage_capability_added": false
+    },
+    "diff_check": {
+      "passed": true
+    },
+    "frontend_full_typecheck": {
+      "passed": false,
+      "state": "blocked_by_unchanged_existing_syntax",
+      "file": "web-admin/app/composables/api/menuConfig.ts",
+      "lines": [
+        165,
+        186
+      ],
+      "errors": [
+        "TS1005",
+        "TS1443"
+      ],
+      "file_last_modified": "2026-08-23T14:45:46+08:00",
+      "file_changed_by_this_task": false,
+      "explanation": "Unescaped Markdown fences inside an existing template literal prevent the whole-project checker from proceeding; build and scoped UI tests pass. This is not reported as a full typecheck pass."
+    },
+    "backend_build": {
+      "passed": true,
+      "entrypoint": "backend/cmd/app",
+      "binary": "tmp/storage-ui-implementation-20261031/powerx-validation",
+      "log": "tmp/storage-ui-implementation-20261031/backend-build.log",
+      "bytes": 104115186,
+      "sha256": "941f7ae24114c7613daef7328425493271e2ba1214e68a2bf5ec1142b47eb708"
+    }
+  },
+  "production_read_only_observations": [
+    {
+      "at": "2026-10-31T21:36:43+08:00",
+      "available_bytes": 5248147456,
+      "powerx_pro_bytes": 33663294487
+    },
+    {
+      "at": null,
+      "source": "read-only df during this implementation; exact timestamp not captured",
+      "filesystem": "/dev/nvme0n1p3",
+      "total_bytes": 126424895488,
+      "used_bytes": 115677954048,
+      "available_bytes": 5378424832,
+      "df_use_percent": 96
+    },
+    {
+      "at": "2026-10-31T16:33:09.050632+00:00",
+      "source": "read-only os.statvfs with server UTC clock",
+      "total_bytes": 126424895488,
+      "used_bytes": 115512696832,
+      "available_bytes": 5543682048,
+      "reserved_free_bytes": 5368516608,
+      "df_equivalent_use_percent": 96
+    }
+  ],
+  "boundaries": {
+    "user_services_restarted_by_agent": false,
+    "production_config_changed": false,
+    "production_scripts_upgraded": false,
+    "production_database_migrated": false,
+    "production_database_rows_deleted": false,
+    "existing_mac_archive_objects_deleted": false,
+    "postgresql_logging_configuration_changed": false,
+    "daily_instance_and_production_accepted": false,
+    "postgres_native_collector_activation_done": false,
+    "seven_day_fourteen_day_acceptance_done": false,
+    "new_cloud_S3_OSS_provider_accepted": false
+  },
+  "owned_process_cleanup": {
+    "recorded_at": "2026-11-01T00:26:56.687120+08:00",
+    "processes": [
+      {
+        "pid": 1429,
+        "ports": [
+          19400,
+          19401
+        ],
+        "owner": "Codex-storage-archive-validation",
+        "result": "owned_process_signalled"
+      },
+      {
+        "pid": 1548,
+        "ports": [
+          19432
+        ],
+        "owner": "Codex-storage-archive-validation",
+        "result": "already_exited"
+      },
+      {
+        "pid": 8401,
+        "ports": [
+          19432
+        ],
+        "owner": "Codex-storage-archive-validation",
+        "result": "owned_process_signalled"
+      }
+    ],
+    "ports": {
+      "19400": {
+        "listening": false
+      },
+      "19401": {
+        "listening": false
+      },
+      "19432": {
+        "listening": false
+      },
+      "3487": {
+        "listening": false
+      },
+      "3488": {
+        "listening": false
+      }
+    },
+    "final_checked_at": "2026-11-01T00:55:09.434355+08:00",
+    "owned_native_pids_gone": true,
+    "browser_fixture": {
+      "owner": "archive-governance-browser-tests",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-10-31T16:43:52.632Z",
+      "fixturePid": 87483,
+      "fixturePort": 3488,
+      "corePid": 87484,
+      "corePort": 3487,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-storage-archive-validation/server/index.mjs"
+      ],
+      "stoppedAt": "2026-10-31T16:44:20.168Z",
+      "coreExitedAt": "2026-10-31T16:44:20.173Z"
+    }
+  },
+  "remaining_before_production": [
+    "Resolve release gates including existing full frontend typecheck errors",
+    "Re-measure disk, WAL and growth; plan capacity and large-table migration window",
+    "Deploy compatible Core and installed scripts, reconcile in-flight legacy receiver work, then bind each source",
+    "Use UI to configure and verify the actual target, then explicitly choose archive/deletion/database policy and admission behavior",
+    "Verify real existing Mac manifests and source receipts, migrate and test retrieval; old copies remain until this succeeds",
+    "Validate production and daily instance cycles, 7-day operation and 14-day budget review; native PostgreSQL collector restart is separate"
+  ],
+  "source_sha256": {
+    "backend/internal/bootstrap/storage_governance.go": "ee24c7a357e383a44234c7223d62c55654ace226afd70e111c07a01cf55ac43e",
+    "backend/internal/bootstrap/storage_runtime.go": "c0868e735518c280262f34f11768ebd21b59f360e66664396622a032ed5f4bf9",
+    "backend/internal/infra/storage_lifecycle/archive_plan.go": "32d242ee065a579b80bd23ea0e985643334def6e377f8ff24437cdbccdbd1c87",
+    "backend/internal/infra/storage_lifecycle/engine.go": "5fc7eed610d5b844647d846c26a29735a9d2ae1f1f899a0133eed4362d06333f",
+    "backend/internal/infra/storage_lifecycle/engine_test.go": "d3493eb4ae21effc11a5c707f251bc1759009e96e1223efdccd7f51e7882ba87",
+    "backend/internal/infra/storage_lifecycle/ownership.go": "2f67f91da25bbaf59aaa7c20ce7f189fc9cb593bb80b4f2bfbf6224c1ec48eee",
+    "backend/internal/infra/storage_lifecycle/preview.go": "ded333fcd09498cea58aa8a3460d62fe822725f857c61cbee681bd4083dd821c",
+    "backend/internal/service/archive_ops/capture.go": "aef8b3204615016878d5c67ad3d9e10e5757da3c89b52e16f7f1a8b43e217fd8",
+    "backend/internal/service/archive_ops/catalog.go": "374cd8cc0338afef93e3fd785242dab9b1d618e2e0073dcf7058022d47a05897",
+    "backend/internal/service/archive_ops/catalog_rebuild.go": "7215a5220a64d072a0fa158619e3135d3ad9c605549bf814e89c80388113d7d3",
+    "backend/internal/service/archive_ops/catalog_retention.go": "3885ccc7abb35828d1c653517e4dec96312ad19b24ee51d1aa9a5c4f24a1952a",
+    "backend/internal/service/archive_ops/changes.go": "9eeafd818a203bfe5c3e2ca5f9095e901a42951a7aa6e332669cca67411f814b",
+    "backend/internal/service/archive_ops/config.go": "987ec97a05914f68fb2e62493ff1de8e1e6a84e4c41e026f2e1c48a79e96c6a2",
+    "backend/internal/service/archive_ops/control.go": "09534473eda942d291589165a8245fb58175fed167844414a8d6b34ae0c8c32d",
+    "backend/internal/service/archive_ops/custody_control.go": "3bd398c9dd75beba07664a09888820174ecad226501967b303077b4a5b0c0e06",
+    "backend/internal/service/archive_ops/gc_reconcile.go": "45f1ce1b24389a330d1536bb091eee45f44cfd4b411d222b8ab24901a8982c80",
+    "backend/internal/service/archive_ops/legacy_import.go": "af59aebf76df2333814dd46e51be70c071de48648daf7c0175c94ca3ae1ceccd",
+    "backend/internal/service/archive_ops/lifecycle_proof.go": "40bb8ab05172d7a9eea610d263a316e586cc061ace2813e6092262fe8b5d3732",
+    "backend/internal/service/archive_ops/lifecycle_proof_test.go": "5cea680af46c151acd2f9beaaf2a5fcfd7a3a30f891b71b4cad86bb5dd95820c",
+    "backend/internal/service/archive_ops/live_s3_test.go": "c18d4907a2cfcd3ec9416db133ba2d92b59ce5aa7d4ba3d140496541185eb6f7",
+    "backend/internal/service/archive_ops/migration.go": "938f5fcfb9e932a435a6fe7858b9b050a7316215966d4df5371464d92bbe71a2",
+    "backend/internal/service/archive_ops/one_time_test.go": "19f3a067e7635e7d25a693fe5ec232ad50cab30b983e6dea676c3e1ae7c4a45a",
+    "backend/internal/service/archive_ops/online.go": "e82e7dbea1f42bb70463af70bd5ac16e6df31afffe78e38ed326ebc0512e0f99",
+    "backend/internal/service/archive_ops/online_test.go": "ccf0757b06b6d35dbf5ab20ae99716327992c9378c7a2aa9a541093f3edb8e7e",
+    "backend/internal/service/archive_ops/postgres_test.go": "cf00aff00b2e7d0e5d4393f30ef2158a08dabea035b6ff7bf72869c713b49f96",
+    "backend/internal/service/archive_ops/receiver.py": "9fe6e8f863d3c284230c7d39dc9ff377967eb4c98d0691e394d75515f9a672bb",
+    "backend/internal/service/archive_ops/remote.go": "19ffe6b1c9ec0e06eca07029ab9788be144a533e18fb66311f5fbf29fc2efc61",
+    "backend/internal/service/archive_ops/remote_gc.go": "3d712f1c5148a8be3b16ac563add7f80dd1e0dfadfb559af7ab29c0927bf4f3c",
+    "backend/internal/service/archive_ops/restore.go": "e4ac0bae45ca2c72909da81262520037e1abf06032ab80feb035a473d359ff29",
+    "backend/internal/service/archive_ops/runtime.go": "6850f1c0394e31cf0e5d877872bb52c38009a1680e4050b7f743b88e357843f8",
+    "backend/internal/service/archive_ops/s3_governance_test.go": "61dad6ed19aedd89c2c3a11fb02a7d3fc3f427ae933f74bdb0615e608fdbc7d4",
+    "backend/internal/service/archive_ops/s3_target.go": "f343d04dfe26275b973221734f92af79bc0dcfc22e0e8fe511828dfa33708b09",
+    "backend/internal/service/archive_ops/s3_transfer.go": "627274d4671f80a27d2f9e9c75560a374965e288c3ba809457be04d9b9745d1a",
+    "backend/internal/service/archive_ops/sealed_logs.go": "7eb62bc6b82a7da6970b789567724ea22b820f1d0ebe999e36cc7ca8df380f53",
+    "backend/internal/service/archive_ops/service.go": "0c086e98d69c7a5e6a9400fe9b1d8445ea697c7106df6dd5541fa9aee97fba2b",
+    "backend/internal/service/archive_ops/service_test.go": "968c96121c3dbbe486886877b7ecc47b6b64ffa2cdccf1cb36f1a8981d731a9e",
+    "backend/internal/service/archive_ops/ssh_test.go": "9e751bef3a21c3f8f59751f13839124ba757b3ddd299d4b0559a663baf0addb8",
+    "backend/internal/service/archive_ops/store.go": "7ce92dbc9b44aaa2ce1d807ca13b8036d43794e288318b9d907715984c69c24d",
+    "backend/internal/service/archive_ops/system_component.go": "cc3a2e1f7d02b944f18112c5498edd104584045f7855bba6ed06260c3295ed69",
+    "backend/internal/service/archive_ops/types.go": "1e7aae494ab7500750e6f60d92b92c54aaa0de078fda7d3d7b1e32d926a32dc9",
+    "backend/internal/service/capability_registry/audit.go": "93831d1e6b02005e8a20afe68c5d501b243afcd7e77d94d9b3a1d34aef8cff7c",
+    "backend/internal/service/capability_registry/invocation_service.go": "07477287e9a5180d540400aeba90e46f64ba5ccfff1bad50ba85d27a378933c1",
+    "backend/internal/service/storage_governance/alerts.go": "f5df06773353f28b19dafd77510f16b9eb3ab2219e3ee3cf0d19d71c44ba6ec9",
+    "backend/internal/service/storage_governance/cleanup.go": "9e683ff501451c6ef4145be8b1b5eabee094b0d234c798203094e29ff76533b5",
+    "backend/internal/service/storage_governance/database_retention.go": "c2d769f27e2077a7754d63703764c50d182bd433ab0f3193ebbec1c3ac7635cb",
+    "backend/internal/service/storage_governance/database_retention_test.go": "3fb9ad0f9c3c1f861c5612c98dd6fc6d40a0a8e3e131c55a1c9ae3914bf35e3b",
+    "backend/internal/service/storage_governance/estimate.go": "185fa020787ee1c3f5ee2d2c532a9208e296857cc5dc602ca7b0760025f1b53c",
+    "backend/internal/service/storage_governance/log_types.go": "b1b84fa631afa7beed32ab3b7a7e81df92bfd69bc000811c7dd34b9c962b6176",
+    "backend/internal/service/storage_governance/policy.go": "adfa1821cd07c24afd28eccdfcfa573bfccf0bc66a513e03e4ec79772c9317d6",
+    "backend/internal/service/storage_governance/postgres.go": "73fa9c47b695913227f4e775679188b87547bc06fd79c0f39015180d96501b19",
+    "backend/internal/service/storage_governance/presets.go": "4a664ac9c30b4c59b69c8a3e46b0673993f286b661e737e85dd68349210eb517",
+    "backend/internal/service/storage_governance/presets_test.go": "c79edfc1480ab19a68a9cedf7cbd17f41c84057d78758d537eaebe4c62169f16",
+    "backend/internal/service/storage_governance/resource_history_test.go": "fbd2b9e9b15469c2a5fddc22b8c83b0d1def687f2fe5324dcfaca475f17989f6",
+    "backend/internal/service/storage_governance/runtime.go": "184e1586abfb996d6c33510c5e74760a525595120ed5493e00326044531db0ac",
+    "backend/internal/service/storage_governance/runtime_preview.go": "1b5d5bc61ff1c14c61c690910d5b64196d1c80571c909506e56d4481e7fe0ec9",
+    "backend/internal/service/storage_governance/runtime_test.go": "0591853455cd22a623e7d65835c9552a9a44bedb481f1473322662f995dcd8af",
+    "backend/internal/service/storage_governance/samples.go": "7d966e79fd35b9b1b49c67f3546c7c34eed1e89f810dd178914afa75612e6785",
+    "backend/internal/service/storage_governance/service.go": "dc8bf6aacc6c0cfc6e76cef563fcce5d173678b0c92be71bfc5078ab29dd58a0",
+    "backend/internal/service/storage_governance/service_test.go": "811ca5f2ea158d53cbc1058ad4c85ff6c09bc284bd64231eaf412c45a5b4b048",
+    "backend/internal/service/storage_governance/state_test.go": "9f2e62b982ee048ac87d0c0ab6f82bfb069e88e41462925c24bb499d5b5e4130",
+    "backend/internal/service/storage_governance/types.go": "06df23731e6301d6b41e15b119e5cd07131f6d28fef6850eef864e7dd4d9ba60",
+    "backend/pkg/corex/db/persistence/model/capability_registry/invocation_trace.go": "3554034e03b7423b74812bed3762ec11388099b116f69ebdd95d25e56753994f",
+    "backend/pkg/corex/db/persistence/model/capability_registry/retention.go": "b7b28558dd865d0874d3fb11fc93cc3403ccb04b11ae126438b30ddff64ca606",
+    "backend/pkg/corex/db/persistence/repository/capability_registry/retention_repository.go": "8d93af6c83f606ea7d081191914393f875c3bad23d39f9f01848f03776256ca2",
+    "backend/pkg/corex/db/persistence/repository/capability_registry/retention_repository_test.go": "3cba435689f3dab87a7fa0f9f9373ba7c5792fa6a93ddaf825832412762c7099",
+    "backend/pkg/event_bus/interface.go": "87ad78fdc44cc0a94b54b0278782b64b1b3d7d8c3297d464e48a0189c17cf584",
+    "backend/pkg/event_bus/publication_ack.go": "cb0f8638512b03b1c8db7c4fabcfe8cace38cdd7d6aa9ee18b5644414dcda7d0",
+    "backend/pkg/event_bus/publication_ack_test.go": "c038e571d08a1b4b378456e89c2dac5c720100e71e19e67143b6860ec68d202f",
+    "docs/contracts/log-archive-governance.openapi.yaml": "fd3621f5e1dc264d7c5c6426e8d343156a04c7925e60111c46ca6a713ee296c9",
+    "docs/contracts/resource-archives.openapi.yaml": "88a7d7df4d34f43aaeca0eb8ebff4063af4f22f4086f87d379f6e554d10f5a0a",
+    "scripts/ops/powerx-space-guard/README.md": "bb11210f707c1e330de7a8fb9e27dfbb15e506b1aec3a45833cd9ca09f034bff",
+    "scripts/ops/powerx-space-guard/archive_s3.py": "1bef6a7add7cabebf772ba980c1f8c230020dfddddcd930179bf4d9d7498853f",
+    "scripts/ops/powerx-space-guard/audit_custody.py": "14ee854038a47fd62780a443956c4ad7511d95fd59507dc9f1b017dd1dab602f",
+    "scripts/ops/powerx-space-guard/bind_core.py": "1889ec0305c0939c6a8d929e161087a5a405f46c15fbd7152aefe11592635923",
+    "scripts/ops/powerx-space-guard/custody_policy.py": "2416bf100c8e2f321766f33a38905a9ee37ed0ab194aaac5b275592b94696408",
+    "scripts/ops/powerx-space-guard/guard.py": "30299952c1d4e49fff56f0a3078dfb26c29703cbbf350ab7a8737285ce5d0dff",
+    "scripts/ops/powerx-space-guard/run_receiver.py": "e347f226a11134bc6dd60178e02fc3278a0f5a80ee1c80981e2cac39aed44cbe",
+    "scripts/ops/powerx-space-guard/test_archive_s3.py": "7aea110d550190f24f37fc31050595b3fbfba5ee381a44f416b57ba3986e1fc8",
+    "scripts/ops/powerx-space-guard/test_audit_custody.py": "922e9a0e09ca2c15d32748f11161cac9d399a3403829bb7d6f73da0020941a7c",
+    "scripts/ops/powerx-space-guard/test_bind_core.py": "228d673ce78e4717891629796ac5579614159cd3ecae9c20ecf0d81d6961a678",
+    "scripts/ops/powerx-space-guard/test_custody_policy.py": "1e5d13c3189f2a6fe663cd101c94465db42544f9ef868b135325a520ba0b79e4",
+    "scripts/ops/powerx-space-guard/test_guard.py": "32bf27f876cbf31ef0f60d7da0962c2c69713918d9fc0fa6290b090f16e1a19f",
+    "scripts/ops/powerx-space-guard/test_receiver_supervisor.py": "8fe0de35bc7b6e90f62738772e71d6312a53b793dbef2c6ab7a9826237433037",
+    "specs/027-monitor-center/contracts/storage-governance.openapi.yaml": "7a6fdc3940e1f9980174ab16dd874a68e453d107a7afc5ca1083e458580cbd33",
+    "web-admin/app/components/monitor/storage/DatabaseRetentionPanel.vue": "767a4203b9f77eed636d2c586f13208ab426ada6e17db71e6ee1678d7ec7dcdb",
+    "web-admin/app/components/monitor/storage/StorageGovernanceWorkspace.vue": "9b3a1218dba33f3df1c001dcc5be7d7716de9ba73c69ca21faeede4965dd5aa0",
+    "web-admin/app/components/monitor/storage/StorageRuntimePanel.vue": "aeffa79ca2504c9cd994d151de2c334310c6a27a75e2eff2f0a8546251525813",
+    "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "17e4b088b3a0e17d2bf887d02c96c2e478589252d0ca9ad12a65ce7b0a6c922d",
+    "web-admin/app/components/ops/backup/ArchiveGovernancePanel.vue": "fd089748c032e304f7e94aef6d5b74447abe0c1b0fff855799ee6eb407312301",
+    "web-admin/app/composables/api/services/archiveOpsService.ts": "78ac6285fba9259ab714b8ef9706180a674ba3e821526e643081e7766c7e549c",
+    "web-admin/app/composables/api/services/storageRuntimeService.ts": "b421bc570b044f3d79b6d741154cb9e737536ce6381ac955e4681ec18b0ecc28"
+  }
+}

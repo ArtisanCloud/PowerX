@@ -1,0 +1,140 @@
+{
+  "date": "2026-11-09",
+  "task": "T172 manual retention confirmation and additive protection",
+  "status": "source_and_isolated_acceptance_passed",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "scope": {
+    "agent_migrated_daily_database": false,
+    "agent_restarted_daily_core": false,
+    "production_mutated": false,
+    "business_data_deleted": false,
+    "artifact_cleanup_state_or_token_changed": false,
+    "capability_grants_expanded": false,
+    "optional_table_added_to_capability_admission_or_ControlReady": false,
+    "private_worker_or_polling_queue_created": false,
+    "resource_handoff_performed": false,
+    "browser": "Actual Nuxt frontend, Root login via existing local authentication. All backup APIs/SSE routed to owned HTTP/PostgreSQL fixtures; unrelated mutations denied. Login can update existing auth/audit metadata; no daily policies or business operations were executed."
+  },
+  "contract": {
+    "name": "Confirm retention and protect, never acknowledge deletion or unlock",
+    "mutation": "Original Job.protected=true plus durable retained receipt in the same short transaction; artifact marker and token unchanged",
+    "identity": "Real Root human only, UUID/input digest/Actor/exact intent version, stable installation Scope, paused published global and policy configuration/recovery Fence",
+    "concurrency": "One session holds request and existing policy advisory locks; short SQL transaction locks artifact and Job rows; at least two connections",
+    "hashing": "Full server-side hash and bounded sidecars outside SQL transaction; pinned file identities rechecked before commit",
+    "history": "checking -> retained/rejected terminal immutable. Receipt is an operation-time historical fact, not current integrity or deletion eligibility. Original UUID is explicitly resumed after interruption; no auto-replay. Database rollback and off-database tombstones remain a T171 joint-acceptance boundary."
+  },
+  "migration": {
+    "model": "ops_backup_cleanup_retentions",
+    "central_entry": "pkg/corex/db/database/migration.go MigrateBackupCleanupRetentionModels",
+    "dev_test_scope": "backup-cleanup-retention",
+    "scope_checks": [
+      "one table only, no policies/jobs/seed/reset",
+      "repeated migrate preserves receipt",
+      "prod/staging scope refused",
+      "missing/nonunique request index fails migration instead of silently accepting",
+      "optional table absent leaves Control Ready and read-only inventory working"
+    ],
+    "capacity_catalog": "registered protected with created_at; ordinary log cleanup excluded",
+    "installed_upgrade": "registered through Core migration, official content-addressed payload generator regenerated/check passed; actual installed plan/apply not performed"
+  },
+  "native": {
+    "result": "passed",
+    "log": "backup-cleanup-retention-20261109/native-final.log",
+    "command": "go test -p 1 -race ./internal/service/storage_governance ./internal/transport/http/admin/backup ./cmd/database -run TestBackupRetentionNative|TestCleanupReviewNativeHTTPAndSSE|TestBackupRetentionScopeNative|TestStorageMigrationScopeRejects -count=1 -v -timeout=100s",
+    "infrastructure": "Owned PostgreSQL14 Unix socket, storage_control_test, fresh schemas. Publication uses formal StreamDriver/TaskHistory with miniredis transport, not real Redis acceptance. All removed afterward.",
+    "files": "Controlled real byte fixtures and v1 sidecars; not a pg_dump/pg_restore or business restore claim.",
+    "checks": [
+      "real Root JWT/HTTP/SSE and typed body validation, service credentials denied",
+      "server rehashes, same-size corruption rejected with durable receipt",
+      "same UUID same input replays without another hash/write; altered body or Actor refused",
+      "original snapshot mismatch rejected; original cleanup fields and dump bytes preserved",
+      "two-connection success; no long SQL transaction encloses hash",
+      "simulated crash after durable admission resumes with a new service and same UUID",
+      "cancellation produces known rejection when no commit was attempted",
+      "same UUID active request cannot run another reader; competing UUID is rejected",
+      "changed execution configuration Fence during hashing prevents final protection",
+      "stale running job record blocks operation even without session holder",
+      "injected final receipt SQL failure rolls back Job protection",
+      "optional migration and true unique request index checked; existing Control Ready unaffected"
+    ],
+    "test_isolation_note": "Native packages run with -p 1 on this shared cluster, since existing whole-database policy locks intentionally span schemas. Earlier parallel package contention was a fixture collision, not a relaxed lock rule."
+  },
+  "regression": {
+    "frontend": "17 files / 131 tests passed",
+    "backend": "backup service, storage governance, HTTP backup transport and ops repository race suites passed; storage-only final suite also passed after catalog updates",
+    "vet": "five affected packages including database command passed",
+    "capability_check": "passed, declared=1242 referenced=83 rest_routes=1175 candidates=1261 ignored_route_rules=133; no capability grants/seed expanded",
+    "payload_check": "official upgrade_registry.py --check passed",
+    "openapi_locales": "OpenAPI and four locale JSON files parsed"
+  },
+  "browser": {
+    "result": "passed",
+    "checks": [
+      "Root retention form is isolated and its draft survives section switches",
+      "lost committed response preserves UUID and locks source/close without automatic retries",
+      "GET original UUID reconciles the persisted committed protection and receipt",
+      "light 1440 navigation/context/receipt and primary action",
+      "light 390 navigation/context/receipt and primary action",
+      "dark 1440 navigation/context/receipt and primary action",
+      "dark 390 navigation/context/receipt and primary action",
+      "reopened intent reads retained receipt from the database without new writes"
+    ],
+    "page_errors": [],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "viewports": [
+      1440,
+      390
+    ],
+    "layout": "Third vertical diagnostic stage on desktop, selector on narrow screens; drafts and receipts survive section changes",
+    "fault_injection": "Owned proxy forwards real admitted/progress frames but drops a committed terminal frame and temporarily denies receipt reads. UI retains original UUID and locks source/close; explicit GET reconciles real persisted protection without a second POST. This is controlled fault injection, not a production outage claim.",
+    "idle": "1.8-second observed idle request window, no polling; not long-term runtime acceptance",
+    "screenshots": [
+      "backup-cleanup-retention-20261109/dark-1440-receipt.png",
+      "backup-cleanup-retention-20261109/dark-390-receipt.png",
+      "backup-cleanup-retention-20261109/light-1440-receipt.png",
+      "backup-cleanup-retention-20261109/light-390-receipt.png",
+      "backup-cleanup-retention-20261109/unknown-1440.png"
+    ]
+  },
+  "cleanup": {
+    "result": "passed",
+    "record": "backup-cleanup-retention-20261109/process-cleanup.json",
+    "tracked_owned_processes_exited": 9,
+    "listeners_released": 4,
+    "owned_data_and_token_removed": true,
+    "daily_core_final_observed_pid": 16175,
+    "daily_nuxt_final_observed_pid": 34360,
+    "daily_service_note": "No stop/restart command was issued by this agent. Final observed Core PID differs from the previous turn; no claim is made about who restarted it."
+  },
+  "remaining": [
+    "T171 joint recovery/installed-upgrade acceptance for the new receipt/checking state and UUID history; no independent operation tombstones claimed",
+    "no confirmation of deleted outcomes, no cleanup intent unlock and no disk reclamation from this action",
+    "long-lived private S3/OSS target acceptance, actual executor handoff/resource adoption, whole-system business restore, external key custody, dual-environment 7-day/14-day evidence and release remain incomplete"
+  ],
+  "next": {
+    "task": "T171 receipt integration with controlled recovery and installed upgrades",
+    "prerequisite": "Owned isolated DB and maintenance directory; verify optional model migration and existing recovery epoch contracts before any live environment work",
+    "done_when": "Interrupted checking rows and old receipts survive upgrade safely; restore cannot auto-replay or use a historical receipt as current authorization; repeat upgrade/rollback preserve UUID audit and protective state"
+  },
+  "local_enablement": "Review the configured development database/schema, run scoped migration, rebuild/restart Core and refresh frontend. Agent did not execute this against daily Core.",
+  "source_sha256": {
+    "backend/pkg/corex/db/persistence/model/ops/backup_cleanup_retention.go": "aeeef8199117ea2d8d711a0ac1c0b2b2419dde4e847c2c55fe30e2b6b1018aaa",
+    "backend/pkg/corex/db/persistence/repository/ops/backup_cleanup_retention_repository.go": "692f44ed334e2131e769221a4a155b479fb83e0efcc37e211b3b0a3a575b783e",
+    "backend/pkg/corex/db/database/migration.go": "25cf2c2755c4f235f6e645e30fac5b3ca70710bf93bc2f4e9dd3d1e77a151cf5",
+    "backend/internal/service/backup_ops/cleanup_retention.go": "77125464aa0d4fe07ab26858123f60de8238a78b702cd35ff8d58a4dc6a30454",
+    "backend/internal/service/backup_ops/cleanup_retention_lock.go": "2b787ee386702e40121c5e00d96f673b0797708eb22c02721c287e295c4e7f1e",
+    "backend/internal/service/storage_governance/backup_policy_control.go": "1e53e0bd462efc46475d5469cf2a83cca599da8feaf0bee3ecf3fb6cb3af1839",
+    "backend/internal/service/storage_governance/backup_retention_postgres_test.go": "ca7e4b9dfbe3fead0a93c37a8b7e80deb98ed82a781de91c287af3eadebde6c0",
+    "backend/internal/transport/http/admin/backup/cleanup_review_handler.go": "6bea260047e1ab6c832d6557c6bc296120cd7617d0a7fe2f5ed711ca9074c6f7",
+    "backend/internal/transport/http/admin/backup/cleanup_retention_test.go": "8deca4fbdcbac20f851151e41178ee091a6ca974e7945e1b293985dd6cd5f182",
+    "backend/cmd/database/migrate.go": "0568df6587937c6eaa24d2b8ccbe18a92d7bf1679e697ed8fc05194ad15060cf",
+    "backend/cmd/database/upgrade_payloads.json": "503ddfa9e080fe760f427c760cbd68c3de5a1ac0f783ce0565f78a6e2def36fe",
+    "web-admin/app/components/ops/backup/BackupRetainReview.vue": "3d0fcf446921d5ec2091acb79390c644d5f0c7be2dfbdcbea2c13a231920ef09",
+    "web-admin/app/components/ops/backup/BackupCleanupReviews.vue": "ed20b694a82a83a5629350c0908ae3efbc425d30c17a8b6ce8b0e30f164a5d01",
+    "web-admin/app/composables/api/services/backupRetentionService.ts": "89fc1ed83508001be5390fad903d881c94643df129f8ade53368f395ad3cfcf6"
+  }
+}

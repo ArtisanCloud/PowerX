@@ -1,0 +1,27 @@
+id: com.powerx.plugins.scrm.template.audit
+type: Tool
+version: 1.0.0
+description: "巡检既有模板并自动修复的 Workflow 场景。"
+rbac:
+  resource: template
+  actions: [read]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.audit.v1
+    path: schema/input/com.powerx.plugins.scrm.template.audit.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.audit.v1
+    path: schema/output/com.powerx.plugins.scrm.template.audit.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    workflow:
+      template: contracts/exposure/workflow/template-audit.json
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.audit
+      scope: agent.template.audit
+      transport: workflow
+      endpoint: contracts/exposure/workflow/template-audit.json
+    agent_stream:
+      channel: contracts/exposure/agent-streams/template-audit.yaml

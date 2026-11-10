@@ -23,12 +23,35 @@ func loadFromYAML(cfg *Config, configPath string) error {
 		return fmt.Errorf("读取配置文件失败: %w", err)
 	}
 
+	if err := rejectQueueNamespace(data); err != nil {
+		return err
+	}
+	if err := validateLokiYAML(data); err != nil {
+		return err
+	}
+	if err := validateStorageGovernanceYAML(data); err != nil {
+		return err
+	}
 	// 解析YAML
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return fmt.Errorf("解析YAML配置失败: %w", err)
 	}
 
 	logger.InfoF(logger.WithLogFields(context.Background(), map[string]interface{}{"module": "config.loader"}), "✅ 成功加载配置文件: %s", configPath)
+	return nil
+}
+
+func rejectQueueNamespace(data []byte) error {
+	// Redis scope is owned by the existing environment identity, not queue configuration.
+	var legacy struct {
+		Queue map[string]any `yaml:"queue"`
+	}
+	if err := yaml.Unmarshal(data, &legacy); err != nil {
+		return fmt.Errorf("解析YAML配置失败: %w", err)
+	}
+	if _, exists := legacy.Queue["namespace"]; exists {
+		return fmt.Errorf("queue.namespace is not supported; Redis scope uses the existing environment ID")
+	}
 	return nil
 }
 

@@ -10,6 +10,7 @@ import (
 	httpAdmin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin"
 	systemHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	httpOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi"
+	productHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/public/product"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -43,6 +44,7 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 			Audiences: []string{"powerx:api"},
 		}),
 	)
+	productHTTP.RegisterRoutes(r.Group(config.ResolveAPIPrefix(cfg)), deps)
 	// 给外部注册 CoreX Admin 相关路由（含 ops 管理域预留挂载点）
 	httpAdmin.RegisterAPIRoutes(r, authUser, cfg, deps)
 	// 给外部注册开放平台（Tenant/OpenAPI）路由
@@ -80,6 +82,7 @@ func SetupSetupOnlyRouter(cfg *config.Config, r *gin.Engine) error {
 	}
 	r.GET("/healthz", httpAdmin.HealthHandler)
 	publicGroup := r.Group(prefix)
+	productHTTP.RegisterRoutes(publicGroup, nil)
 	publicGroup.GET("/health", httpAdmin.HealthHandler)
 
 	hSetup := systemHTTP.NewSetupHandler(nil)

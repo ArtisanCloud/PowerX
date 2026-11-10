@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"io"
 	"os"
 	"path/filepath"
@@ -50,6 +51,11 @@ func (s *Service) ExportFile(ctx context.Context, id, password string) (string, 
 	if e = requireSpace(s.cfg.Directory, size); e != nil {
 		return "", nil, e
 	}
+	ctx, release, e := budget.BeginPath(ctx, s.cfg.Directory, "snapshot_export", size)
+	if e != nil {
+		return "", nil, e
+	}
+	defer release()
 	wrapped, e := os.ReadFile(filepath.Join(s.data(id), "key.enc"))
 	if e != nil {
 		return "", nil, e
@@ -100,7 +106,7 @@ func (s *Service) ExportFile(ctx context.Context, id, password string) (string, 
 		_ = writer.CloseWithError(te)
 		done <- te
 	}()
-	e = encryptStream(&packageWriter{writer: f, remaining: maxPackageBytes}, contextReader{ctx, reader}, password)
+	e = encryptStream(&packageWriter{writer: budget.Writer(ctx, f), remaining: maxPackageBytes}, contextReader{ctx, reader}, password)
 	_ = reader.CloseWithError(e)
 	te := <-done
 	if e == nil {
@@ -155,6 +161,11 @@ func (s *Service) Import(ctx context.Context, source io.Reader, password string)
 		return out, e
 	}
 	defer unlock()
+	ctx, release, e := budget.BeginPath(ctx, s.cfg.Directory, "snapshot_import", maxPackageBytes)
+	if e != nil {
+		return out, e
+	}
+	defer release()
 	temp, e := os.MkdirTemp(filepath.Join(s.cfg.Directory, "staging"), "import-")
 	if e != nil {
 		return out, e
@@ -321,7 +332,7 @@ func extractPackage(ctx context.Context, source io.Reader, dir string) error {
 		if e != nil {
 			return e
 		}
-		n, e := io.Copy(f, contextReader{ctx, tr})
+		n, e := io.Copy(budget.Writer(ctx, f), contextReader{ctx, tr})
 		if e == nil && n != h.Size {
 			e = io.ErrUnexpectedEOF
 		}

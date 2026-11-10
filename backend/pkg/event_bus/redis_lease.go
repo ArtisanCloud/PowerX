@@ -22,6 +22,7 @@ var (
 // delivered at least once, but only the current fencing token can be renewed
 // or acknowledged by a worker.
 type TaskLease struct {
+	Namespace    string `json:",omitempty"`
 	TenantKey    string
 	SubscriberID string
 	MessageID    string
@@ -31,8 +32,9 @@ type TaskLease struct {
 }
 
 type RedisTaskLeases struct {
-	client redis.UniversalClient
-	now    func() time.Time
+	client    redis.UniversalClient
+	now       func() time.Time
+	namespace string
 }
 
 func NewRedisTaskLeases(client redis.UniversalClient) (*RedisTaskLeases, error) {
@@ -48,7 +50,7 @@ func (m *RedisTaskLeases) Acquire(ctx context.Context, tenant, subscriber, messa
 	if m == nil || m.client == nil || !validLeaseParts(tenant, subscriber, messageID, owner, ttl) {
 		return TaskLease{}, fmt.Errorf("invalid task lease request")
 	}
-	leaseKey, tokenKey := taskLeaseKeys(tenant, subscriber, messageID)
+	leaseKey, tokenKey := m.keys(tenant, subscriber, messageID)
 	token, err := m.client.Incr(ctx, tokenKey).Uint64()
 	if err != nil {
 		return TaskLease{}, err
@@ -61,17 +63,17 @@ func (m *RedisTaskLeases) Acquire(ctx context.Context, tenant, subscriber, messa
 	if !ok {
 		return TaskLease{}, ErrLeaseBusy
 	}
-	return TaskLease{TenantKey: tenant, SubscriberID: subscriber, MessageID: messageID, Owner: owner, Token: token, ExpiresAt: m.now().Add(ttl)}, nil
+	return TaskLease{Namespace: m.namespace, TenantKey: tenant, SubscriberID: subscriber, MessageID: messageID, Owner: owner, Token: token, ExpiresAt: m.now().Add(ttl)}, nil
 }
 
 var renewLeaseScript = redis.NewScript("if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end; return redis.call('PEXPIRE', KEYS[1], ARGV[2])")
 var releaseLeaseScript = redis.NewScript("if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end; return redis.call('DEL', KEYS[1])")
 
 func (m *RedisTaskLeases) Renew(ctx context.Context, lease TaskLease, ttl time.Duration) (TaskLease, error) {
-	if m == nil || m.client == nil || !validLeaseParts(lease.TenantKey, lease.SubscriberID, lease.MessageID, lease.Owner, ttl) || lease.Token == 0 {
+	if m == nil || m.client == nil || lease.Namespace != m.namespace || !validLeaseParts(lease.TenantKey, lease.SubscriberID, lease.MessageID, lease.Owner, ttl) || lease.Token == 0 {
 		return TaskLease{}, fmt.Errorf("invalid task lease")
 	}
-	key, _ := taskLeaseKeys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
+	key, _ := m.keys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
 	updated, err := renewLeaseScript.Run(ctx, m.client, []string{key}, leaseValue(lease.Owner, lease.Token), ttl.Milliseconds()).Int64()
 	if err != nil {
 		return TaskLease{}, err
@@ -84,10 +86,10 @@ func (m *RedisTaskLeases) Renew(ctx context.Context, lease TaskLease, ttl time.D
 }
 
 func (m *RedisTaskLeases) Release(ctx context.Context, lease TaskLease) error {
-	if m == nil || m.client == nil || !validLeaseParts(lease.TenantKey, lease.SubscriberID, lease.MessageID, lease.Owner, time.Millisecond) || lease.Token == 0 {
+	if m == nil || m.client == nil || lease.Namespace != m.namespace || !validLeaseParts(lease.TenantKey, lease.SubscriberID, lease.MessageID, lease.Owner, time.Millisecond) || lease.Token == 0 {
 		return fmt.Errorf("invalid task lease")
 	}
-	key, _ := taskLeaseKeys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
+	key, _ := m.keys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
 	deleted, err := releaseLeaseScript.Run(ctx, m.client, []string{key}, leaseValue(lease.Owner, lease.Token)).Int64()
 	if err != nil {
 		return err
@@ -101,10 +103,10 @@ func (m *RedisTaskLeases) Release(ctx context.Context, lease TaskLease) error {
 // Verify must be called before applying a worker result. RunStore must also
 // perform its own CAS; this check alone cannot make business side effects safe.
 func (m *RedisTaskLeases) Verify(ctx context.Context, lease TaskLease) error {
-	if m == nil || m.client == nil || !validLeaseParts(lease.TenantKey, lease.SubscriberID, lease.MessageID, lease.Owner, time.Millisecond) || lease.Token == 0 {
+	if m == nil || m.client == nil || lease.Namespace != m.namespace || !validLeaseParts(lease.TenantKey, lease.SubscriberID, lease.MessageID, lease.Owner, time.Millisecond) || lease.Token == 0 {
 		return fmt.Errorf("invalid task lease")
 	}
-	key, _ := taskLeaseKeys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
+	key, _ := m.keys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
 	current, err := m.client.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) || current != leaseValue(lease.Owner, lease.Token) {
 		return ErrLeaseStale
@@ -129,4 +131,9 @@ func taskLeaseKeys(tenant, subscriber, messageID string) (string, string) {
 
 func leaseValue(owner string, token uint64) string {
 	return strconv.Itoa(len(owner)) + ":" + owner + ":" + strconv.FormatUint(token, 10)
+}
+
+func (m *RedisTaskLeases) keys(tenant, subscriber, message string) (string, string) {
+	lease, fence := taskLeaseKeys(tenant, subscriber, message)
+	return NamespacedTaskKey(m.namespace, lease), NamespacedTaskKey(m.namespace, fence)
 }

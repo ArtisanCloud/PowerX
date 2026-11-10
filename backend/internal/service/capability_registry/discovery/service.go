@@ -117,6 +117,22 @@ func (s *Service) GetSnapshot(ctx context.Context, tenantUUID, capabilityID, cli
 	}
 	now := s.now()
 	if ok {
+		// 安装态升级可能来自其他进程；未过期缓存也必须校对注册版本。
+		if snapshot.Source != SnapshotSourceReplica {
+			latest, loadErr := s.registryRepo.GetLatest(ctx, nil, capabilityID, tenantUUID)
+			if loadErr == nil && latest.Version != snapshot.Version {
+				fresh := s.buildSnapshot(latest, key.ClientID, now, SnapshotSourceRegistry)
+				if err := s.storeSnapshot(ctx, fresh); err != nil {
+					return Snapshot{}, err
+				}
+				return fresh, nil
+			}
+			if loadErr != nil {
+				snapshot.Stale = true
+				snapshot.Source = SnapshotSourceCache
+				return snapshot, nil
+			}
+		}
 		if snapshot.Source != SnapshotSourceReplica {
 			snapshot.Source = SnapshotSourceCache
 		}

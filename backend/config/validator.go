@@ -242,6 +242,19 @@ func (c *Config) Validate() error {
 	if c.Storage.TTLSeconds <= 0 {
 		errors = append(errors, "storage.ttl_seconds 必须大于0")
 	}
+	image := c.Storage.ImageDerivatives
+	if image.MaxSourceBytes < 1 || image.MaxSourceBytes > 512<<20 {
+		errors = append(errors, "storage.image_derivatives.max_source_bytes 必须在 1..536870912 范围内")
+	}
+	if image.MaxPixels < 1 || image.MaxPixels > 200_000_000 {
+		errors = append(errors, "storage.image_derivatives.max_pixels 必须在 1..200000000 范围内")
+	}
+	if image.MaxWorkingBytes < 1 || image.MaxWorkingBytes > 4<<30 {
+		errors = append(errors, "storage.image_derivatives.max_working_bytes 必须在 1..4294967296 范围内")
+	}
+	if image.MaxParallelJobs < 1 || image.MaxParallelJobs > 8 {
+		errors = append(errors, "storage.image_derivatives.max_parallel_jobs 必须在 1..8 范围内")
+	}
 	if strings.EqualFold(c.Storage.DefaultDriver, "local") {
 		if strings.TrimSpace(c.Storage.Local.BasePath) == "" {
 			errors = append(errors, "storage.local.base_path 不能为空")

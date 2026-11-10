@@ -1,8 +1,55 @@
 # 备份恢复中心与日志观测操作手册
 
+> 2026-11-10：[原任务命令启动身份与人工确认](usecase-us9-archive-command-confirmation.md)补齐内核身份、Root 只读核对、不可变确认／拒绝回执、原请求恢复和分区 UI。下一项为没有任务绑定的目标探测命令核对，现场与总发布门槛仍待办。
+> 2026-11-10：[归档外部命令退出与保护](usecase-us9-archive-command-drain.md)补齐本机进程组结束、持久化排空证明和页面保护提示。强杀组件后的失主命令不自动补杀／认证；下一项为启动身份与人工排空证明的受控确认，现场与发布门槛继续待办。
+> 2026-11-10：[未知处置请求人工结案](usecase-us9-archive-request-closure.md)补齐原 UUID／输入／恢复代次核对、人工未知结论、原保护保留及结案回复丢失核对。下一项为归档外部采集命令退出与排空回归，现场与发布门槛继续待办。
+> 2026-11-10：[中断采集保留并结束](usecase-us9-archive-interruption-retention.md)补齐 Root 审核、共享 CAS 保护、原请求回执及 UI；结束不等于完整归档或释放空间。下一项为 registered 无终态请求的人工核对与受控结案，现场与发布门槛继续待办。
+> 2026-11-10：[归档执行中断与原任务处理](usecase-us9-archive-restart.md)补齐执行归属、重启对账、替代任务与局部回收围栏，以及完整快照确认重传；真实 OS 组件与 HTTP/SSE／实际页面分别验收。下一项是中断采集原任务的受控处置，日常部署与 OSS 现场门槛仍待完成。
+> 2026-11-09：[手动归档原请求核对](usecase-us9-archive-request.md)补齐 T158 接纳回复丢失：原 UUID／策略版本、Root 固定只读回执、同会话刷新恢复、错误与缺失不解锁；旧 Core 不支持时禁用提交。源码与自有原生／实际浏览器通过，未重启日常 Core；下一项为写入中的真实进程中断与重启回归。
+
+> 2026-11-09：[已接纳归档故障检查](usecase-us9-archive-faults.md)补充 T158 的传输故障回归和本地／远端独立状态、原任务编号及窄屏检索；自有 PostgreSQL／协议与实际 Nuxt SSE 分层验收。手动接纳响应丢失、真实 OSS 和现场运行仍按任务清单待办。
+
+> 2026-11-09：[阿里云 OSS 接入准备与只读检查](usecase-us9-oss-readiness.md)补齐 T155 前置工具和真实验收清单。用户计划未来使用 OSS，目前未配置；本机目标／策略未接管且无目标，凭据提供器未配置。只读检查不授予执行许可，T155 真实取回保持待办。
+
+
+> 2026-11-09：[隔离产物台账与只读复查](usecase-us9-quarantine-inventory.md)接续人工隔离，单独展示历史处置与当前数据库标记，支持精确查找、过滤／排序和按需 SSE 复查。完整文件也不解除隔离；没有新迁移／协议或普通能力准入依赖。本轮仅源码与自有隔离验收。
+
+
+> 2026-11-09：[缺损备份人工隔离](usecase-us9-cleanup-quarantine.md)新增独立纵向任务分区。逻辑隔离阻止下载／恢复，文件、原 token 和未知历史保留，不代表有效备份或释放空间。当前维护 v7／凭据 v4；未迁移或重启日常／正式站。
+
+
+> 2026-11-09：[未知清理意图的人工保留](usecase-us9-cleanup-resolution.md)新增 Root 文件详情“终结意图并保留”。完整核验并排空受控协作任务后，原子保护当前备份／保留当前意图／保存新回执，原 token 与未知历史不改、不删除。新审计表单独就绪检查，维护协议 v6／凭据 v3；本轮没有迁移或重启日常／正式站。
+
+> 2026-11-09：[旧备份保留回执盘点与导入](usecase-us9-backup-history.md)面向 Root，入口为“数据库备份 → 历史回执覆盖”。只复制历史身份／结论到既有独立维护根；未知仍未知，不写保护或删除。包含当前覆盖与历史证明区别、确认暂停、原 UUID 响应丢失核对、恢复前阻断及升级回退。源码与自有隔离验收不代表现场接管。
+
+> 2026-11-07：[受控任务暂停与执行器交接](usecase-us9-storage-execution.md)说明顶部执行保护、消费者故障时暂停、已登记策略核对和单独恢复。仅完成源码与隔离验收，旧进程现场证明和联合恢复尚未完成。
+
+> 2026-11-04：[数据库日志安全监控与清理](usecase-us9-table-safety.md)补充写入限额／脱敏、逐表净占用历史与告警，以及旧探测和已退休缓存的固定清理规则。默认关闭，迁移与明确配置后启用；本地隔离验收不代表正式站已部署。
+
+> 2026-11-01 开发交付：[US9 归档控制与取回](usecase-us9-storage-archive-controls.md)包含可选归档、UI 独立目标、双模式安全清理、数据库期限及本地增量准备。代码和隔离验证已完成，日常实例／生产／真实存量及长期运行分别验收；[总体存储治理](usecase-us9-storage-governance.md)的其余长期目标仍按 US9 任务维护。
+
 > 2026-10-18：系统快照恢复统一为“保护当前状态后覆盖当前实例”，不再要求管理员管理候选环境或切换。页面 A/B 测试流程及本地启动命令见[当前恢复手册](usecase-us8-managed-recovery.md)，结果见[本轮验证报告](../../../contracts/evidence/system-restore-inplace-validation-20261018.json)。正式站尚未升级，Linux／真实生产插件与定时包仍待验收。本文的数据库、媒体组件工具及旧切换章节属于兼容操作，不作为当前整站恢复主流程。
 
 > 停机时使用同一站点的 `/__powerx_recovery/`：页面、管理员认证和单任务进度由同一个 Core 的维护启动模式提供，沿用原端口和启动入口。Root 首次进入后保存恢复密钥；Core 已停机时可用密钥重新认证，维护中刷新可接续任务。页面操作及启动／部署要求见[当前恢复手册](usecase-us8-managed-recovery.md)。
+
+### 近期 Use Case 索引
+
+| 文档 | 适用角色 | 验收口径 |
+|---|---|---|
+| [核心范围发布与验收](usecase-us9-core-release.md) | Root / 研发 / 运维 | 默认关闭未验收远端与接管，核心回归、本地重启和正式发布分步记账 |
+| [目标探测命令范围与确认](usecase-us9-archive-probe-confirmation.md) | Root / QA / 运维 | 原目标、引用策略、当前状态和本机退出；不验证新目标，原 UUID 恢复 |
+| [原任务命令启动身份与人工确认](usecase-us9-archive-command-confirmation.md) | Root / QA / 运维 | 核对启动与进程组、记录本机证明、回复丢失核对；不结束原任务或远端资格 |
+| [归档外部命令退出与保护](usecase-us9-archive-command-drain.md) | Root / QA / 运维 | pg_dump／SSH／rsync 本机组退出、未知证明保护、SSE；异地接收器另行核对 |
+| [未知处置请求人工结案](usecase-us9-archive-request-closure.md) | Root / QA / 运维 | 核对已登记无终态请求、保留未知历史及原任务保护；回复丢失只读原编号 |
+| [中断采集保留并结束](usecase-us9-archive-interruption-retention.md) | Root / QA / 运维 | 单次内容核验、审核保留、原 UUID 核对；原策略保持暂停，不删内容 |
+| [归档执行中断与原任务处理](usecase-us9-archive-restart.md) | Root / QA / 运维 | 识别旧 running、保留局部内容、确认重传原任务；未完成采集保持保护 |
+| [手动归档原请求核对](usecase-us9-archive-request.md) | Root / QA / 运维 | 接纳回复丢失、原 UUID／版本只读核对、刷新保留与无重复任务；日常接口生效需用户启动新版 Core |
+| [已接纳归档故障检查](usecase-us9-archive-faults.md) | Root / QA / 运维 | 远端确认丢失、凭据被拒绝、控制连接中断；原任务及内容保留、实际 SSE 和无周期查询 |
+| [OSS 接入准备与只读检查](usecase-us9-oss-readiness.md) | Root / 云账号维护者 / QA | 三个固定 GET、私有脱敏报告；真实 OSS 未验收，不替代 T155 |
+| [隔离台账与只读复查](usecase-us9-quarantine-inventory.md) | Root / QA / 运维 | 原 UUID 定位、历史与当前分开、按需诊断及无写入／轮询 |
+| [缺损备份隔离](usecase-us9-cleanup-quarantine.md) | Root / QA / 运维 | 稳定缺损、原 UUID、无删除、历史与当前分开；仅源码及隔离验收 |
+| [未知意图保留](usecase-us9-cleanup-resolution.md) | Root / QA / 运维 | 完整备份保留与保护、原历史不改 |
+| [历史回执覆盖](usecase-us9-backup-history.md) | Root / QA / 运维 | 显式导入旧身份与恢复前独立覆盖 |
 
 ## 1. 功能背景与目标
 
@@ -142,6 +189,8 @@ flowchart LR
 | 还原验证、正式切换及回滚 | [US3 恢复流程](usecase-us3-restore-drill.md) | 隔离验证 + 业务核对 + 明确的维护窗口切换 |
 | 告警巡检 | [US2 监控](usecase-us2-monitor-and-alert.md) | 作业、错误和告警可定位 |
 | Loki / Trace | [US4 日志](usecase-us4-logs-trace.md) | 关联 request/trace 和错误 |
+| 双环境容量、历史与生命周期治理（分阶段验收） | [US9 存储治理](usecase-us9-storage-governance.md) | 预算／实际／预测分开、引用保护、真实回收、双环境与远端验收 |
+| 可选日志归档、期限与取回（开发交付） | [US9 归档控制](usecase-us9-storage-archive-controls.md) | UI 开关／目标、双模式保护、数据库增量准备与运行验收 |
 | 系统快照、恢复当前实例与异机验证（本地实现） | [当前恢复操作](usecase-us8-managed-recovery.md) | 页面创建 A、修改 B、保护后覆盖恢复、重启、从保护快照恢复 B |
 | 兼容包与隔离数据副本 | [第一阶段操作](usecase-us8-snapshot-packages.md) | 统一采集、加密导出导入、等待数据库完成的数据准备 |
 | 系统快照两轮验收（生产待执行） | [US8 系统快照验收](usecase-us8-system-snapshot-acceptance.md) | 本地 A／B 回退；真实 scheduled 完整包跨环境恢复；统一切换与失败回退 |

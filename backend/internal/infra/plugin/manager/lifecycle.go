@@ -3,6 +3,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -25,7 +26,9 @@ import (
 
 // Enable: 启用插件 = (挂 Admin 静态) + (启动进程并健康检查) + (挂 API/Admin 反代) + (更新注册表)
 // internal/infra/plugin/manager/lifecycle.go
-func (m *managerImpl) Enable(ctx context.Context, id string) error {
+func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
+	ctx, unlock := m.lockInstallMutation(ctx)
+	defer unlock()
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -57,21 +60,26 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			plugin_mgr.WithMsg("GW_BOOTSTRAP_CONTRACT_BROKEN: %v", err),
 		)
 	}
-	if err := m.ensureDelegatedHostContractForEnable(&p, runtimeCred); err != nil {
+	if err := m.persistDelegatedHostContractForEnable(ctx, &p, runtimeCred); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err,
 			plugin_mgr.WithOp("enable.host_config"), plugin_mgr.WithPlugin(p.ID), plugin_mgr.WithVersion(p.Version))
-	}
-	if err := m.opts.Registry.UpdateHostConfig(ctx, p.ID, p.Version, p.HostConfig); err != nil {
-		return err
-	}
-	if err := m.opts.Registry.Save(ctx); err != nil {
-		return err
 	}
 	logger.InfoF(ctx, "[plugin-enable] id=%s ver=%s state=%s admin_menus=%d",
 		p.ID, p.Version, p.State, len(p.Frontend.Admin.Menus))
 
 	if m.http == nil {
 		return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("enable"), plugin_mgr.WithMsg("dynamic router not initialized"))
+	}
+	if m.opts.PrepareRuntimeEnable != nil {
+		rollback, err := m.opts.PrepareRuntimeEnable(ctx, id)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if enableErr != nil && rollback != nil {
+				enableErr = errors.Join(enableErr, rollback(context.WithoutCancel(ctx)))
+			}
+		}()
 	}
 
 	InstallPolicy(m.http, p.ID, PolicyFromPlugin(p))
@@ -103,6 +111,13 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			plugin_mgr.WithPlugin(id),
 			plugin_mgr.WithVersion(p.Version),
 		)
+	}
+
+	if eventFabricPreparationDeclared(p) {
+		if err := m.prepareEventFabricForEnable(ctx, &p, runtimeCred); err != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err,
+				plugin_mgr.WithOp("enable.event_fabric"), plugin_mgr.WithPlugin(p.ID), plugin_mgr.WithVersion(p.Version))
+		}
 	}
 
 	// 清理遗留进程记录，避免 Start 时命中 “already running”
@@ -664,6 +679,8 @@ func deleteDeprecatedGatewayRuntimeEnv(env map[string]string) {
 
 // Disable: 停用插件 = (卸载路由) + (停进程) + (更新注册表)
 func (m *managerImpl) Disable(ctx context.Context, id string) error {
+	ctx, unlock := m.lockInstallMutation(ctx)
+	defer unlock()
 	p, err := m.mustGet(ctx, id)
 	if err != nil {
 		return err

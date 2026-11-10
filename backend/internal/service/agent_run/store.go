@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -55,6 +56,7 @@ type Event struct {
 }
 
 type RedisStore struct {
+	namespace        string
 	client           redis.UniversalClient
 	clock            func() time.Time
 	queueWaitTimeout time.Duration
@@ -66,14 +68,18 @@ func NewRedisStore(client redis.UniversalClient) (*RedisStore, error) {
 
 // NewRedisStoreWithQueueWaitTimeout configures the independent queue-wait
 // budget used when a Run is reconciled.
-func NewRedisStoreWithQueueWaitTimeout(client redis.UniversalClient, queueWaitTimeout time.Duration) (*RedisStore, error) {
+func NewRedisStoreWithQueueWaitTimeout(client redis.UniversalClient, queueWaitTimeout time.Duration, namespace ...string) (*RedisStore, error) {
 	if client == nil {
 		return nil, fmt.Errorf("%w: Redis client is required", ErrInvalid)
 	}
 	if queueWaitTimeout < time.Second || queueWaitTimeout > 24*time.Hour {
 		return nil, fmt.Errorf("%w: queue wait timeout must be between 1s and 24h", ErrInvalid)
 	}
-	return &RedisStore{client: client, clock: time.Now, queueWaitTimeout: queueWaitTimeout}, nil
+	store := &RedisStore{client: client, clock: time.Now, queueWaitTimeout: queueWaitTimeout}
+	if len(namespace) > 0 {
+		store.namespace = namespace[0]
+	}
+	return store, nil
 }
 
 func (s *RedisStore) Create(ctx context.Context, initial Snapshot) (Snapshot, error) {
@@ -92,7 +98,7 @@ func (s *RedisStore) createAdmission(ctx context.Context, initial Snapshot, reco
 	now := s.clock().UTC()
 	initial.Version, initial.EventSeq = 1, 1
 	initial.CreatedAt, initial.UpdatedAt = now, now
-	stateKey, eventsKey := runKeys(initial)
+	stateKey, eventsKey := s.runKeys(initial)
 	for attempt := 0; attempt < 5; attempt++ {
 		var existing Snapshot
 		err := s.client.Watch(ctx, func(tx *redis.Tx) error {
@@ -144,7 +150,7 @@ func (s *RedisStore) Get(ctx context.Context, tenantUUID, env, runID string) (Sn
 	if s == nil || s.client == nil || !validScope(identity) {
 		return Snapshot{}, ErrInvalid
 	}
-	stateKey, _ := runKeys(identity)
+	stateKey, _ := s.runKeys(identity)
 	values, err := s.client.HGetAll(ctx, stateKey).Result()
 	if err != nil {
 		return Snapshot{}, err
@@ -162,7 +168,7 @@ func (s *RedisStore) Transition(ctx context.Context, identity Snapshot, expected
 	if s == nil || s.client == nil || !validScope(identity) || expectedVersion == 0 || !validStatus(nextStatus) || !strings.HasPrefix(eventType, "agent_run.") {
 		return Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
 	for attempt := 0; attempt < 5; attempt++ {
 		var updated Snapshot
 		err := s.client.Watch(ctx, func(tx *redis.Tx) error {
@@ -212,7 +218,7 @@ func (s *RedisStore) Events(ctx context.Context, tenantUUID, env, runID string, 
 	if afterSeq > run.EventSeq {
 		return nil, ErrInvalid
 	}
-	_, eventsKey := runKeys(identity)
+	_, eventsKey := s.runKeys(identity)
 	entries, err := s.client.XRangeN(ctx, eventsKey, fmt.Sprintf("(%d-0", afterSeq), "+", limit).Result()
 	if err != nil {
 		return nil, err
@@ -371,4 +377,14 @@ func formatOptionalTime(value time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func (s *RedisStore) key(key string) string { return redisnamespace.Key(s.namespace, key) }
+func (s *RedisStore) runKeys(v Snapshot) (string, string) {
+	a, b := runKeys(v)
+	return s.key(a), s.key(b)
+}
+func (s *RedisStore) schedulingKeys(v Snapshot) (string, string, string) {
+	a, b, c := schedulingKeys(v)
+	return s.key(a), s.key(b), s.key(c)
 }

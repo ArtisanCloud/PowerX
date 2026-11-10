@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateAuditInput",
+  "type": "object",
+  "properties": {
+    "filters": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "page": { "type": "integer", "minimum": 1, "default": 1 },
+        "page_size": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "additionalProperties": true
+    },
+    "update_payload": {
+      "type": "object",
+      "description": "用于巡检后自动修订模板的参数。",
+      "properties": {
+        "description": { "type": "string" },
+        "content": { "type": "string" },
+        "metadata": { "type": "object" }
+      },
+      "required": ["content"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["update_payload"],
+  "additionalProperties": false
+}

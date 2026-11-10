@@ -718,7 +718,7 @@ func (s *PluginDrainJobService) runtimeBlockerDetails(ctx context.Context, plugi
 func (s *PluginDrainJobService) schedulerBlockerQuery(ctx context.Context, pluginID string) *gorm.DB {
 	return s.db.WithContext(ctx).
 		Table("scheduler_jobs").
-		Where("owner_type = ? AND owner_id = ? AND status IN ?", "plugin", pluginID, []string{"active", "paused"}).
+		Where("owner_type = ? AND owner_id = ? AND status = ?", "plugin", pluginID, "active").
 		Where("deleted_at IS NULL")
 }
 

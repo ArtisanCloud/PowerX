@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func fixture(t *testing.T) (*StreamDriver, *gorm.DB, *miniredis.Miniredis) {
+func fixture(t *testing.T, namespace ...string) (*StreamDriver, *gorm.DB, *miniredis.Miniredis) {
 	t.Helper()
 	old := core.PowerXSchema
 	core.PowerXSchema = "main"
@@ -41,12 +41,34 @@ func fixture(t *testing.T) (*StreamDriver, *gorm.DB, *miniredis.Miniredis) {
 	mini := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: mini.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
-	base, err := event_bus.NewRedisStreamTaskDriver(client, time.Second)
+	base, err := event_bus.NewRedisStreamTaskDriver(client, time.Second, namespace...)
 	require.NoError(t, err)
 	return NewStreamDriverWithRetryDelay(db, base, time.Millisecond), db, mini
 }
 func message(id string) event_bus.TaskMessage {
 	return event_bus.TaskMessage{ID: id, TenantKey: "core-worker", SubscriberID: "fixture", Topic: "fixture.work", Payload: []byte(`{"business_uuid":"opaque"}`), Metadata: map[string]string{recordTenantKey: "tenant-a", "kind": "fixture", "max_attempts": "3"}}
+}
+
+func TestSharedHistoryLeaseExpiryRollsBackBusinessResult(t *testing.T) {
+	d, db, mini := fixture(t)
+	ctx := context.Background()
+	msg := message("fixture_expired_commit")
+	require.NoError(t, d.Enqueue(ctx, msg))
+	items := dequeue(t, d)
+	require.Len(t, items, 1)
+	require.ErrorIs(t, d.Complete(ctx, items[0], func(tx *gorm.DB) error {
+		if err := tx.Exec("INSERT INTO fixture_results VALUES ('expired')").Error; err != nil {
+			return err
+		}
+		mini.FastForward(2 * time.Second)
+		return nil
+	}), event_bus.ErrLeaseStale)
+	var count int64
+	require.NoError(t, db.Table("fixture_results").Count(&count).Error)
+	require.Zero(t, count)
+	history, err := d.Status(ctx, "tenant-a", msg.SubscriberID, msg.ID)
+	require.NoError(t, err)
+	require.Equal(t, m.TaskHistoryStatusRunning, history.Status)
 }
 func dequeue(t *testing.T, d *StreamDriver) []event_bus.StreamTaskDelivery {
 	t.Helper()

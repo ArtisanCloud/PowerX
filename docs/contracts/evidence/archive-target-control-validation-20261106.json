@@ -1,0 +1,187 @@
+{
+  "date": "2026-11-06T13:27:44.588368+08:00",
+  "scope": "SG-11 archive target configuration authority slice; not archive policy migration or release acceptance",
+  "source": {
+    "branch": "024-ai-engineering-skills",
+    "base_commit": "a1956aa3601786ed05a59236477ed3a67cfc7a67",
+    "uncommitted": true,
+    "fingerprints": {
+      "backend/internal/service/archive_ops/target_control.go": "7af80d68e4370919c21f60313e7c0558845fb76fc82a414d3661c1dfc4082bc1",
+      "backend/internal/service/archive_ops/target_control_test.go": "b20dad4e6a8b95c3e2865e36b71e6814fd7ab5cef9af440c457b71d00738ab3b",
+      "backend/internal/service/archive_ops/service.go": "b886010fdfeb3278f56886f506ae1fa2e8103299e7ef26c1f6fbeff58bd5e48c",
+      "backend/internal/service/archive_ops/types.go": "6562b196305ba137ebc7fa6cdd53f24afa0c2269c5417c7b62b447249aa0e143",
+      "backend/internal/service/archive_ops/remote.go": "4118623a6e49f3946d8c8e82634312263f56c3a45b10e88d21b75dc0dd22268f",
+      "backend/internal/service/archive_ops/control.go": "2552d4d14c9a271c648aa4cc8a2f4f616304d3334c1213048579b60aa5b69a1a",
+      "backend/internal/service/archive_ops/changes.go": "0b7d435a9f5bef29fe68a5666d33dca4e6e3795db9fff2facdaa49fc7f6d37c5",
+      "backend/internal/service/archive_ops/runtime.go": "13270d7aaece82ddaca2597e4390017d53c69f90fb9d7362fff54e1c732e9dbe",
+      "backend/internal/service/storage_governance/archive_target_control.go": "fa220a28b9ea88bbef0cfe17212c78d4e0f26c1ea5ef51f98ac87ff192c091f7",
+      "backend/internal/service/storage_governance/archive_target_control_postgres_test.go": "80f5d64d4f6348ce40a62cfe5fefd7bdfeec6b1597fa38d64338149acef2c00f",
+      "backend/internal/infra/storage_budget/coordinator.go": "78b218a0274301ee949b0fa13433ec5af53158c770f9ec96005f4b95499a489f",
+      "backend/internal/bootstrap/app.go": "ee778330af5803e39ad32d410ba1bcc75d4f96a6782ed6d57fb937bccd6aabdf",
+      "backend/internal/transport/http/admin/backup/archive_handler.go": "23c1c7fca756312c05fcf4875c9ec75ec562f034440ceabbcb1ae9d4a0a941ac",
+      "backend/internal/transport/http/admin/backup/handler.go": "88fa67aeb632d1f6bde46a541fc1c0620ecb3db8b6aada44f5240e13aae5818d",
+      "backend/internal/transport/http/admin/backup/events_handler.go": "c44dc51fdd757b8830393788f5f5cab82267d286141e3758a7c7e29ad9fc1f5b",
+      "backend/internal/transport/http/admin/backup/routes.go": "a3ed3970f91ecf5d1aa3b483bfa6d88c475157a74543488e84d659aa9a0a2a47",
+      "backend/internal/transport/http/admin/backup/target_control_postgres_test.go": "d7c67cac12a1677dd2f0c33ae09b07748473b0a5ad3c2c0b32f1ff97d2b06b0e",
+      "backend/config/capability_audit_ignore.yaml": "92f8580d470f9f5ab5f15a3e0cf6e25816dc84b8772b364af16d963471d529e7",
+      "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "935b92c7159bde4b41611c2a1f812ba3b3331dbc69d118a97c28db285cafa4e0",
+      "web-admin/app/components/ops/backup/ArchiveTargetControlStatus.vue": "c93552fcd2248f83a27e3028940d4c0c8f9defcb217fc0d1da44c185cab32f9a",
+      "web-admin/app/composables/api/services/archiveOpsService.ts": "53ae33789209a9647fa4a51031159128bf76de81b1045ada2e0ba250491d08b4",
+      "web-admin/tests/unit/storage/archive-targets.spec.ts": "7e6bc32d13c2a413a42dad6b81a951dcd9c10c806d211da256fdca1466772f9a",
+      "web-admin/tests/unit/storage/archive-governance.spec.ts": "d224a3ce0523cb6ae382c47bf093039b1f29015cd64cd7a2bb2d57a60dde15ac",
+      "web-admin/tests/unit/storage/storage-resource-configuration.spec.ts": "1a339fb23f853cfc2e3e75c96c205d83ba7e9625ea7da64505993d5a93e04ef8",
+      "web-admin/i18n/locales/zh.json": "a79b61b5d4abbf46b7fb9d60e8b575dfcac3fe664b3e9bc4c5109c033cb7e4de",
+      "web-admin/i18n/locales/en.json": "052b3de7b5f44bb63b451d994edbb0ef0119a2bf08a267d6fd07332855638858",
+      "web-admin/i18n/locales/ja.json": "ae27dac20e587cb62b82af71748f774bacb90c65c8ff3061cb611e375d59b610",
+      "web-admin/i18n/locales/ko.json": "42a4fe27541f58ad0e20b19530dc1dad09d73215bdb47030dff7effc305a051d"
+    }
+  },
+  "implementation": [
+    "Fixed archive-targets DB catalog with per-target revisions, explicit origin-digest adoption, immutable actor/request receipts and CAS",
+    "Formal TaskBus registration/publication; private scope/revision/digest-checked executor projection",
+    "Separate final-guarded verification proof; target/credential/node edits invalidate proof",
+    "New worker binding prevents fallback to legacy JSON; old binaries still need controlled deployment handoff",
+    "Root UI shows saved/active/snapshot versions, preserves drafts/CAS, reconciles unknown writes with GET only",
+    "Backup SSE merges configuration and filesystem events; no permanent status polling"
+  ],
+  "verification": {
+    "postgres": {
+      "result": "passed",
+      "tests": 5,
+      "transport": "owned PostgreSQL14 unix socket; miniredis transport with formal StreamDriver",
+      "covers": [
+        "adoption and original file preservation",
+        "per-target/catalog CAS and immutable request idempotency",
+        "concurrent saves",
+        "unchanged target during unrelated publication",
+        "stale verification rejection",
+        "projection tamper and DB row rollback",
+        "source drift and forbidden fields",
+        "superseded initial adoption cannot bypass origin check"
+      ],
+      "log": "tmp/storage-commercial-targets-20261106/native-tests.log"
+    },
+    "http_sse": {
+      "result": "passed",
+      "transport": "real Gin routes, JWT Root guards, owned PostgreSQL and blocking TaskBus worker",
+      "s3": "owned versioned S3 protocol simulation; no external cloud provider",
+      "log": "tmp/storage-commercial-targets-20261106/browser-http.log"
+    },
+    "backend_packages": {
+      "result": "passed",
+      "packages": [
+        "archive_ops",
+        "storage_governance",
+        "http/admin/backup",
+        "storage_budget",
+        "bootstrap"
+      ],
+      "log": "tmp/storage-commercial-targets-20261106/backend-tests.log",
+      "latest_fault_patch": "five native tests and race run repeated after final initial-publication origin check"
+    },
+    "race": {
+      "result": "passed",
+      "packages": [
+        "storage_governance",
+        "archive_ops"
+      ],
+      "filter": "^TestArchiveTarget",
+      "log": "tmp/storage-commercial-targets-20261106/race-tests.log"
+    },
+    "vet": {
+      "result": "passed",
+      "logs": [
+        "tmp/storage-commercial-targets-20261106/vet.log",
+        "tmp/storage-commercial-targets-20261106/vet-final-governance.log"
+      ]
+    },
+    "capability_check": {
+      "result": "passed",
+      "new_routes": "explicit Root runtime-control ignores; no tenant or service capability/grant added",
+      "log": "tmp/storage-commercial-targets-20261106/capability-check.log"
+    },
+    "frontend_related": {
+      "result": "passed",
+      "files": 15,
+      "tests": 106,
+      "log": "tmp/storage-commercial-targets-20261106/frontend-tests.log"
+    },
+    "frontend_broad_snapshot": {
+      "result": "not_all_green",
+      "passed": 649,
+      "failed": 1,
+      "skipped": 1,
+      "unresolved": "tests/unit/ai/agnes-media-settings.spec.ts: other-provider labels missing; AI parameter module was not modified in this slice",
+      "log": "tmp/storage-commercial-targets-20261106/frontend-all-tests.log",
+      "scope": "broad run before final small target UI changes; current related suite repeated and passed"
+    },
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "explicit adoption; legacy target proof invalidated then S3 write/readback verification through real UI/API",
+        "real SSE preserves draft; concurrent catalog edit returns 409; explicit reload and save require fresh verification",
+        "committed response loss blocks editing; original UUID receipt resolves through GET without repeated target creation",
+        "light 1440: navigation, draft retention, main actions and no document overflow",
+        "light 390: navigation, draft retention, main actions and no document overflow",
+        "dark 1440: navigation, draft retention, main actions and no document overflow",
+        "dark 390: navigation, draft retention, main actions and no document overflow"
+      ],
+      "runtime_errors": [],
+      "idle_requests": [],
+      "layouts": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "screenshots": [
+        "tmp/storage-commercial-targets-20261106/light-1440.png",
+        "tmp/storage-commercial-targets-20261106/light-1440-editor.png",
+        "tmp/storage-commercial-targets-20261106/light-390.png",
+        "tmp/storage-commercial-targets-20261106/light-390-editor.png",
+        "tmp/storage-commercial-targets-20261106/dark-1440.png",
+        "tmp/storage-commercial-targets-20261106/dark-1440-editor.png",
+        "tmp/storage-commercial-targets-20261106/dark-390.png",
+        "tmp/storage-commercial-targets-20261106/dark-390-editor.png"
+      ],
+      "log": "tmp/storage-commercial-targets-20261106/ui-result.json",
+      "latest_fault_patch": "backend publication-origin guard changed after this normal UI flow; request contract and UI unchanged"
+    },
+    "contract": {
+      "result": "parsed",
+      "file": "specs/027-monitor-center/contracts/archive-target-control.openapi.yaml",
+      "operations": 5
+    }
+  },
+  "environment_boundary": {
+    "daily_services_restarted": false,
+    "daily_database_migrated": false,
+    "daily_storage_policy_writes": false,
+    "production_changed": false,
+    "local_archive_objects_deleted": false,
+    "daily_root_login": "authorized UI authentication only; archive API and SSE redirected to owned fixture"
+  },
+  "cleanup": {
+    "http_port_released": true,
+    "s3_port_released": true,
+    "fixture_process_exited": true,
+    "fixture_directory_removed": true,
+    "credential_file_removed": true,
+    "browser_and_proxy_closed": true,
+    "proxy_ports_released": true,
+    "browser_children_exited": true,
+    "test_schemas_removed": true,
+    "postgres_process_exited": true,
+    "postgres_socket_released": true,
+    "postgres_directory_removed": true
+  },
+  "remaining": [
+    "Archive policy DB authority and enable/remote-cleanup revision guard",
+    "Host budget, backup/snapshot and remaining domains",
+    "Full DB+snapshot+binding+credential joint restore epochs and external KMS",
+    "Old executor/binary deployment handoff",
+    "Real long-lived private cloud storage transfer/retrieval and SG-09 7/14-day acceptance"
+  ]
+}

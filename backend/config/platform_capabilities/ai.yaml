@@ -57,11 +57,24 @@ capabilities:
   tool_scopes:
   - ai.llm
   policy:
-    prefer: rest
+    prefer: core_internal
   docs:
   - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
   - backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto
   protocols:
+  - channel: core_internal
+    endpoint: core://ai/llm/stream
+    method: INVOKE
+    schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/components/schemas/LLMStreamRequest
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.llm
+    api_key:
+      scope: _scope.ai.llm.stream
+      action: stream
+      resource_type: capability
+      resource_pattern: ai_llm_stream
   - channel: rest
     endpoint: "/api/v1/ai/llm/stream"
     method: POST
@@ -166,7 +179,7 @@ capabilities:
 - capability_id: com.corex.ai.image.invoke
   module: ai
   title: Image Invoke
-  description: 图像生成/理解调用。
+  description: Image generation with persisted Core task and managed media assets.
   permission_code: corex.ai.image:invoke
   agent_usable: true
   risk_level: medium
@@ -178,28 +191,34 @@ capabilities:
   tool_scopes:
   - ai.image
   policy:
-    prefer: rest
-    fallback:
-    - grpc
+    prefer: core_internal
   docs:
-  - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
-  - backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto
+  - docs/contracts/ai-media-v2.openapi.yaml
+  - docs/contracts/ai-media-v2.md
   protocols:
-  - channel: rest
-    endpoint: "/api/v1/ai/image/invoke"
-    method: POST
-    schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1image~1invoke/post
-    auth_type: tenant_jwt
+  - channel: core_internal
+    endpoint: core://ai/media
+    method: INVOKE
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/components/schemas/MediaInvokeOperation
+    auth_type: api_key_or_sts
     actor_context: service_actor
     resource_scope: tenant
+    tool_scope: ai.image
+    api_key: &id001
+      scope: _scope.ai.image.invoke
+      action: invoke
+      resource_type: capability
+      resource_pattern: ai_image
+  - channel: rest
+    endpoint: /api/v1/ai/image/invoke
+    method: POST
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/paths/~1ai~1image~1invoke/post
     sts_direct: true
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
     tool_scope: ai.image
-  - channel: grpc
-    endpoint: powerx.ai.v1.MultimodalService
-    rpc: Invoke
-    schema_ref: backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService
-    auth_type: tenant_jwt
-    tool_scope: ai.image
+    api_key: *id001
   title_i18n:
     en: Image Invoke
   description_i18n:
@@ -207,7 +226,7 @@ capabilities:
 - capability_id: com.corex.ai.video.invoke
   module: ai
   title: Video Invoke
-  description: 视频生成/理解调用。
+  description: Video generation with recoverable Core task lifecycle.
   permission_code: corex.ai.video:invoke
   agent_usable: true
   risk_level: medium
@@ -219,28 +238,34 @@ capabilities:
   tool_scopes:
   - ai.video
   policy:
-    prefer: rest
-    fallback:
-    - grpc
+    prefer: core_internal
   docs:
-  - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
-  - backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto
+  - docs/contracts/ai-media-v2.openapi.yaml
+  - docs/contracts/ai-media-v2.md
   protocols:
-  - channel: rest
-    endpoint: "/api/v1/ai/video/invoke"
-    method: POST
-    schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1video~1invoke/post
-    auth_type: tenant_jwt
+  - channel: core_internal
+    endpoint: core://ai/media
+    method: INVOKE
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/components/schemas/MediaInvokeOperation
+    auth_type: api_key_or_sts
     actor_context: service_actor
     resource_scope: tenant
+    tool_scope: ai.video
+    api_key: &id001
+      scope: _scope.ai.video.invoke
+      action: invoke
+      resource_type: capability
+      resource_pattern: ai_video
+  - channel: rest
+    endpoint: /api/v1/ai/video/invoke
+    method: POST
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/paths/~1ai~1video~1invoke/post
     sts_direct: true
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
     tool_scope: ai.video
-  - channel: grpc
-    endpoint: powerx.ai.v1.MultimodalService
-    rpc: Invoke
-    schema_ref: backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService
-    auth_type: tenant_jwt
-    tool_scope: ai.video
+    api_key: *id001
   title_i18n:
     en: Video Invoke
   description_i18n:
@@ -248,7 +273,7 @@ capabilities:
 - capability_id: com.corex.ai.tts.invoke
   module: ai
   title: TTS Invoke
-  description: 语音合成调用。
+  description: Speech synthesis with persisted Core task and managed audio.
   permission_code: corex.ai.tts:invoke
   agent_usable: true
   risk_level: medium
@@ -260,28 +285,34 @@ capabilities:
   tool_scopes:
   - ai.tts
   policy:
-    prefer: rest
-    fallback:
-    - grpc
+    prefer: core_internal
   docs:
-  - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
-  - backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto
+  - docs/contracts/ai-media-v2.openapi.yaml
+  - docs/contracts/ai-media-v2.md
   protocols:
-  - channel: rest
-    endpoint: "/api/v1/ai/tts/invoke"
-    method: POST
-    schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1tts~1invoke/post
-    auth_type: tenant_jwt
+  - channel: core_internal
+    endpoint: core://ai/media
+    method: INVOKE
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/components/schemas/MediaInvokeOperation
+    auth_type: api_key_or_sts
     actor_context: service_actor
     resource_scope: tenant
+    tool_scope: ai.tts
+    api_key: &id001
+      scope: _scope.ai.tts.invoke
+      action: invoke
+      resource_type: capability
+      resource_pattern: ai_tts
+  - channel: rest
+    endpoint: /api/v1/ai/tts/invoke
+    method: POST
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/paths/~1ai~1tts~1invoke/post
     sts_direct: true
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
     tool_scope: ai.tts
-  - channel: grpc
-    endpoint: powerx.ai.v1.MultimodalService
-    rpc: Invoke
-    schema_ref: backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService
-    auth_type: tenant_jwt
-    tool_scope: ai.tts
+    api_key: *id001
   title_i18n:
     en: TTS Invoke
   description_i18n:
@@ -330,7 +361,7 @@ capabilities:
 - capability_id: com.corex.ai.vlm.invoke
   module: ai
   title: VLM Invoke
-  description: Vision-language model invocation for image and text inputs.
+  description: Vision understanding with typed analysis output.
   permission_code: corex.ai.vlm:invoke
   agent_usable: true
   risk_level: medium
@@ -342,28 +373,34 @@ capabilities:
   tool_scopes:
   - ai.vlm
   policy:
-    prefer: rest
-    fallback:
-    - grpc
+    prefer: core_internal
   docs:
-  - specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml
-  - backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto
+  - docs/contracts/ai-media-v2.openapi.yaml
+  - docs/contracts/ai-media-v2.md
   protocols:
-  - channel: rest
-    endpoint: "/api/v1/ai/vlm/invoke"
-    method: POST
-    schema_ref: specs/007-integration-gateway-and-mcp/contracts/ai-multimodal.http-openapi.yaml#/paths/~1ai~1vlm~1invoke/post
-    auth_type: tenant_jwt
+  - channel: core_internal
+    endpoint: core://ai/media
+    method: INVOKE
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/components/schemas/MediaInvokeOperation
+    auth_type: api_key_or_sts
     actor_context: service_actor
     resource_scope: tenant
+    tool_scope: ai.vlm
+    api_key: &id001
+      scope: _scope.ai.vlm.invoke
+      action: invoke
+      resource_type: capability
+      resource_pattern: ai_vlm
+  - channel: rest
+    endpoint: /api/v1/ai/vlm/invoke
+    method: POST
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/paths/~1ai~1vlm~1invoke/post
     sts_direct: true
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
     tool_scope: ai.vlm
-  - channel: grpc
-    endpoint: powerx.ai.v1.MultimodalService
-    rpc: Invoke
-    schema_ref: backend/api/grpc/contracts/powerx/ai/v1/multimodal.proto#MultimodalService
-    auth_type: tenant_jwt
-    tool_scope: ai.vlm
+    api_key: *id001
   title_i18n:
     en: VLM Invoke
   description_i18n:

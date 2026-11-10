@@ -328,3 +328,42 @@ func (s *bindingStoreStub) UpsertACL(_ context.Context, record manifest.ACLBindi
 	s.acls[key] = record
 	return nil
 }
+
+func (s *directoryStub) UpsertTopic(ctx context.Context, in directory.UpsertTopicInput) (*directory.Topic, bool, error) {
+	old, _ := s.FindTopicByFullName(ctx, in.TenantUUID, in.Namespace, in.Name)
+	if old != nil {
+		return &directory.Topic{ID: old.UUID.String(), TenantUUID: old.TenantKey, Namespace: old.Namespace, Name: old.Name, FullTopic: old.FullTopic}, false, nil
+	}
+	created, err := s.CreateTopic(ctx, in)
+	return created, true, err
+}
+func (s *directoryStub) UpdateLifecycle(_ context.Context, in directory.UpdateLifecycleInput) (*directory.Topic, error) {
+	for _, row := range s.topics {
+		if row.UUID.String() == in.TopicID {
+			row.Lifecycle = in.TargetState
+			return &directory.Topic{ID: in.TopicID, FullTopic: row.FullTopic}, nil
+		}
+	}
+	return nil, fmt.Errorf("topic missing")
+}
+func (s *bindingStoreStub) ListTopics(_ context.Context, tenant, plugin string) ([]manifest.TopicBindingRecord, error) {
+	var rows []manifest.TopicBindingRecord
+	for _, r := range s.topics {
+		if r.TenantUUID == tenant && r.PluginID == plugin {
+			rows = append(rows, r)
+		}
+	}
+	return rows, nil
+}
+func (s *bindingStoreStub) DeleteTopic(_ context.Context, tenant, plugin, key string) error {
+	delete(s.topics, s.topicKey(tenant, plugin, key))
+	return nil
+}
+func (s *bindingStoreStub) DeleteACLByTopic(_ context.Context, tenant, plugin, key string) error {
+	for k, r := range s.acls {
+		if r.TenantUUID == tenant && r.PluginID == plugin && r.TopicKey == key {
+			delete(s.acls, k)
+		}
+	}
+	return nil
+}

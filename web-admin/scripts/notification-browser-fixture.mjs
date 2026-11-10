@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WebSocketServer } from 'ws';
 
@@ -16,12 +16,19 @@ const context = { is_root: true, current_tenant_uuid: tenant, current_member_id:
   user: { id: 1, email: 'notification@example.invalid', display_name: '通知验收', status: 1, is_root: true },
   members: [{tenant_uuid: tenant, tenant_name: '通知验收', member_id: 1, member_uuid: member, is_admin: true}],
 };
-const initial = () => [
+const thumbnailBytes = readFileSync(new URL('../tests/fixtures/notification-media-v2/thumbnail.png', import.meta.url));
+const previewBytes = readFileSync(new URL('../tests/fixtures/notification-media-v2/preview.png', import.meta.url));
+const cardContract = 'business_notification_card.v2';
+const businessMode = process.env.POWERX_NOTIFICATION_BUSINESS_FIXTURE === "1";
+const initial = () => businessMode ? ["sample_track", "bulk_order"].map((kind, index) => ({ id: index ? taskNotificationID : notificationID, title: "订单内容更新", content: "请查看当前可见的内容变化", type: "info", category: "order", isRead: false, isImportant: false, revision: 1, sourceRevision: 1, userId: member, createdAt: "2026-10-21T04:00:00Z", updatedAt: "2026-10-21T04:00:00Z", metadata: { business_card: { contract: cardContract, source_plugin: "plugin.cards", business_type: kind, delivery_key: kind, source_revision: 1 } }, actions: [{id: "view_business", label: "查看订单", type: "primary", action: "navigate", params: {path: "/profile?order=" + kind}}] })) : [
   { id: notificationID, title: '数据库备份完成', content: '备份任务 #803 已完成，可查看备份文件及执行记录。', relatedId: '803', relatedType: 'backup_job' },
   { id: taskNotificationID, title: '恢复验证失败', content: '恢复验证 #99 失败，请查看验证报告。', relatedId: '99', relatedType: 'restore_drill',
     actions: [{id: 'view_business', label: '查看恢复验证', type: 'primary', action: 'navigate', params: {path: '/ops/backup?drill_id=99'}}] },
 ].map(n => ({ ...n, type: n.id === taskNotificationID ? 'error' : 'success', category: 'system', isRead: false, isImportant: false, createdAt: '2026-10-19T04:00:00Z', updatedAt: '2026-10-19T04:00:00Z', userId: member }));
 let items = initial();
+let allowed = {sample_track: true, bulk_order: true};
+let imageFailures = 0;
+const readBody = async request => { let raw = ""; for await (const chunk of request) raw += chunk; return raw ? JSON.parse(raw) : {}; };
 const requests = [];
 const streams = new Set();
 const json = (response, status, data) => { response.writeHead(status, {'content-type': 'application/json', 'cache-control': 'no-store'}); response.end(JSON.stringify(data)); };
@@ -32,11 +39,46 @@ const publish = payload => {
 const backend = createServer(async (request, response) => {
   const url = new URL(request.url, `http://127.0.0.1:${backendPort}`);
   if (url.pathname === '/api/v1/__notification_fixture') {
-    if (request.method === 'DELETE') { items = initial(); requests.length = 0; }
-    if (request.method === 'POST') publish({title: '不应进入铃铛的临时任务', type: 'info', category: 'system'});
+    if (request.method === 'DELETE') { items = initial(); allowed = {sample_track: true, bulk_order: true}; imageFailures = 0; requests.length = 0; }
+    if (request.method === 'POST') {
+      if (!businessMode) publish({title: '不应进入铃铛的临时任务', type: 'info', category: 'system'});
+      else {
+        const body = await readBody(request);
+        if (/^rows-(20|50)$/.test(body.action || '')) {
+          const count = Number(body.action.slice(5)); const original = initial()[0];
+          items = Array.from({length: count}, (_, i) => ({...structuredClone(original), id: i ? `55555555-5555-4555-8555-${String(i).padStart(12,'0')}` : notificationID,
+            metadata: {business_card: {...original.metadata.business_card, delivery_key: 'sample_track-' + i}}}));
+        }
+        else if (body.action === 'disconnect') for (const ws of sockets.clients) ws.terminate();
+        else if (body.action === 'image-failure') imageFailures = 1;
+        else {
+          const item = items[0];
+          if (body.action !== 'duplicate') { item.revision++; item.sourceRevision++; if (body.action === 'revoke') allowed.sample_track = false; else if (body.action === 'grant') allowed.sample_track = true; else item.isRead = false; }
+          publish({...item, eventType: 'notification_updated', payload_version: 1, tenant_uuid: tenant});
+        }
+      }
+    }
     return json(response, 200, {requests, items, subscribers: [...sockets.clients].filter(s => s.subscribed).length});
   }
-  requests.push({method: request.method, path: url.pathname, query: url.search});
+  requests.push({method: request.method, path: url.pathname, query: url.search, authenticated: Boolean(request.headers.authorization), language: request.headers['accept-language']});
+  const sourcePath = url.pathname.match(/^\/api\/v1\/admin\/notifications\/([^/]+)\/presentation-source$/);
+  if (businessMode && sourcePath) {
+    const item = items.find(n => n.id === sourcePath[1]);
+    if (!item) return json(response, 404, {});
+    const key = item.metadata.business_card.delivery_key;
+    return json(response, 200, {data: {contract: cardContract, source_plugin: 'plugin.cards', presentation_url: `/_p/plugin.cards/api/v1/admin/notification-cards/${key}/presentation`, preview_url_template: `/_p/plugin.cards/api/v1/admin/notification-cards/${key}/images/{image_key}`}});
+  }
+  const presentationPath = url.pathname.match(/^\/_p\/plugin.cards\/api\/v1\/admin\/notification-cards\/([^/]+)\/(presentation|images\/[^/]+)$/);
+  if (businessMode && presentationPath) {
+    if (!request.headers.authorization || !allowed[presentationPath[1].startsWith('sample_track') ? 'sample_track' : 'bulk_order']) return json(response, 403, {code: 'ORDER_ACCESS_DENIED'});
+    const item = items.find(n => n.metadata.business_card.delivery_key === presentationPath[1]);
+    if (!item) return json(response, 410, {});
+    if (presentationPath[2] === 'presentation') return json(response, 200, {data: {contract: cardContract, revision: item.sourceRevision, title: (presentationPath[1].startsWith('sample_track') ? '小单 A-102' : '大单 B-508') + ` · v${item.sourceRevision}`, summary: '设计图与生产说明已更新，当前成员可见摘要。', updated_at: item.updatedAt, unread_change_count: item.sourceRevision, image: {alt: '当前订单设计图', thumbnail: {variant: 'thumbnail_64', status: 'ready', image_key: 'thumb-' + item.sourceRevision}, preview: {variant: 'preview', status: 'ready', image_key: 'preview-' + item.sourceRevision}}}});
+    if (imageFailures-- > 0) return json(response, 503, {code: 'IMAGE_TEMPORARILY_UNAVAILABLE'});
+    const bytes = presentationPath[2].startsWith('images/thumb-') ? thumbnailBytes : previewBytes;
+    response.writeHead(200, {'content-type': 'image/png', 'content-length': bytes.length, 'cache-control': 'private, no-store'});
+    return response.end(bytes);
+  }
   if (url.pathname.endsWith('/setup/status')) return json(response, 200, {data: {configured: true, requires_login: true, install_status: 'installed'}});
   if (url.pathname.endsWith('/user/auth/me/context')) return json(response, 200, {data: context});
   if (url.pathname.endsWith('/admin/menus')) return json(response, 200, {data: {categories: [{id: 'ops', title: '运维', children: [{id: 'backup', title: '备份中心', path: '/ops/backup', visible: true, origin: 'core'}]}]}});
@@ -54,8 +96,10 @@ const backend = createServer(async (request, response) => {
     const item = items.find(n => n.id === notificationPath[1]);
     if (!item) return json(response, 404, {message: '通知不存在'});
     if (request.method === 'PATCH' && notificationPath[2]) {
+      const body = await readBody(request);
+      if (businessMode && body.expected_revision !== item.revision) return json(response, 409, {code: 'NOTIFICATION_REVISION_CONFLICT'});
       item.isRead = true;
-      publish({eventType: 'notification_read', payload_version: 1, contract: 'notification_read_receipt.v1', tenant_uuid: tenant, userId: member, notification_uuids: [item.id]});
+      publish({eventType: 'notification_read', payload_version: 1, contract: 'notification_read_receipt.v1', tenant_uuid: tenant, userId: member, notification_uuids: [item.id], ...(businessMode ? {revisions: {[item.id]: item.revision}} : {})});
       return json(response, 200, {data: {ok: true}});
     }
     return json(response, 200, {data: item});
@@ -75,7 +119,7 @@ sockets.on('connection', ws => {
   });
 });
 await new Promise((yes, no) => { backend.once('error', no); backend.listen(backendPort, '127.0.0.1', yes); });
-const entry = resolve('.output-notification-validation/server/index.mjs');
+const entry = resolve(process.env.POWERX_NOTIFICATION_OUTPUT || '.output-notification-validation/server/index.mjs');
 const child = spawn(process.execPath, [entry], {cwd: process.cwd(), stdio: 'inherit', env: {...process.env,
   NODE_ENV: 'production', HOST: '127.0.0.1', PORT: String(webPort), POWERX_BACKEND: `http://127.0.0.1:${backendPort}`,
   NUXT_PUBLIC_API_BASE: '/api/v1', NUXT_PUBLIC_POWERX_CORE_BASE: `http://127.0.0.1:${backendPort}`,

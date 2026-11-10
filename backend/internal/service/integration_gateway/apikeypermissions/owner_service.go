@@ -10,7 +10,6 @@ import (
 	"time"
 
 	apikeycache "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeycache"
-	modelsiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	iamrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	igwrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
@@ -50,9 +49,20 @@ type OwnerPolicy struct {
 	Mode      string                   `json:"mode"`
 	PluginIDs []string                 `json:"plugin_ids,omitempty"`
 	Bindings  []OwnerPermissionBinding `json:"bindings,omitempty"`
+	// Explicit grants are independent of Profile permissions and owner expansion.
+	ExplicitGrants []ExplicitGrant `json:"explicit_grants,omitempty"`
 }
 
-func (p OwnerPolicy) Encode() datatypes.JSON { raw, _ := json.Marshal(p); return datatypes.JSON(raw) }
+func (p OwnerPolicy) Encode() datatypes.JSON {
+	// Older Core binaries must reject policies whose independent grants they
+	// cannot preserve, rather than silently deleting them during reconciliation.
+	p.Version = 1
+	if len(p.ExplicitGrants) > 0 {
+		p.Version = 2
+	}
+	raw, _ := json.Marshal(p)
+	return datatypes.JSON(raw)
+}
 func (p OwnerPolicy) Owners() []string {
 	if p.Mode == "key" {
 		if p.PluginIDs == nil {
@@ -78,7 +88,7 @@ func ResolveOwnerPolicy(raw datatypes.JSON, grants []models.IntegrationGatewayAP
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return policy, ownerError(dto.NewInternal("插件owner绑定数据无效", err), "API_KEY_PLUGIN_OWNER_INVALID")
 		}
-		if policy.Version != 1 || (policy.Mode != "key" && policy.Mode != "legacy_permissions") {
+		if (policy.Version != 1 && policy.Version != 2) || (policy.Mode != "key" && policy.Mode != "legacy_permissions") || (len(policy.ExplicitGrants) > 0 && policy.Version != 2) {
 			return policy, ownerError(dto.NewInternal("插件owner绑定版本或模式无效", nil), "API_KEY_PLUGIN_OWNER_INVALID")
 		}
 	} else {
@@ -101,21 +111,26 @@ func ResolveOwnerPolicy(raw datatypes.JSON, grants []models.IntegrationGatewayAP
 			}
 		}
 	}
+	if err := validateStoredExplicitGrants(policy.ExplicitGrants); err != nil {
+		return policy, err
+	}
 	return policy, nil
 }
 
 func BindOwnerPolicy(keyID uuid.UUID, base []models.IntegrationGatewayAPIKeyPermission, policy OwnerPolicy) ([]models.IntegrationGatewayAPIKeyPermission, error) {
+	if err := validateStoredExplicitGrants(policy.ExplicitGrants); err != nil {
+		return nil, err
+	}
 	if policy.Mode == "key" {
-		return BindPluginOwners(keyID, base, policy.PluginIDs)
+		items, err := BindPluginOwners(keyID, base, policy.PluginIDs)
+		if err != nil {
+			return nil, err
+		}
+		return mergeExplicitGrantRows(keyID, items, policy.ExplicitGrants), nil
 	}
 	out := []models.IntegrationGatewayAPIKeyPermission{}
 	for _, item := range base {
-		owners := []string{}
-		for _, b := range policy.Bindings {
-			if b.Scope == item.Scope && b.Action == item.Action && b.ResourceType == item.ResourceType && b.ResourcePattern == item.ResourcePattern && b.Effect == item.Effect && (item.PluginID == "" || item.PluginID == b.PluginID) {
-				owners = append(owners, b.PluginID)
-			}
-		}
+		owners := ownersForGrant(policy, item)
 		// A new owner-sensitive grant is never inferred from another permission.
 		items, err := BindPluginOwners(keyID, []models.IntegrationGatewayAPIKeyPermission{item}, owners)
 		if err != nil {
@@ -123,7 +138,7 @@ func BindOwnerPolicy(keyID uuid.UUID, base []models.IntegrationGatewayAPIKeyPerm
 		}
 		out = append(out, items...)
 	}
-	return out, nil
+	return mergeExplicitGrantRows(keyID, out, policy.ExplicitGrants), nil
 }
 
 func ownerError(err *dto.AppError, code string) error {
@@ -225,26 +240,59 @@ func RequireOwnerAdministrator(ctx context.Context, tenant string) error {
 }
 
 func (s *APIKeyOwnerService) ProfileGrants(ctx context.Context, tx *gorm.DB, profileID uint64) ([]models.IntegrationGatewayAPIKeyPermission, error) {
-	ids, err := iamrepo.NewAPIKeyProfilePermissionRepository(tx).ListPermissionIDsOfProfile(ctx, profileID)
+	definitions, err := s.profileGrantDefinitions(ctx, tx, profileID)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := iamrepo.NewPermissionRepository(tx).FindByIDs(ctx, ids)
+	return grantsOf(definitions), nil
+}
+
+// ProfileResourceGrants 仅返回需要按调用方资源 owner 绑定的 Profile 权限。
+func (s *APIKeyOwnerService) ProfileResourceGrants(ctx context.Context, tx *gorm.DB, profileID uint64) ([]models.IntegrationGatewayAPIKeyPermission, error) {
+	definitions, err := s.profileGrantDefinitions(ctx, tx, profileID)
 	if err != nil {
 		return nil, err
 	}
 	out := []models.IntegrationGatewayAPIKeyPermission{}
-	for _, p := range rows {
-		if p == nil || p.Status != modelsiam.PermissionStatusActive || !p.AllowAPIKey {
-			continue
+	for _, definition := range definitions {
+		if definition.providerGrant == nil {
+			out = append(out, definition.grant)
 		}
-		resolved, ok := ResolvePermission(*p)
-		if !ok {
-			continue
-		}
-		out = append(out, models.IntegrationGatewayAPIKeyPermission{Scope: resolved.Scope, Action: resolved.Action, ResourceType: resolved.ResourceType, ResourcePattern: resolved.ResourcePattern, PluginID: resolved.PluginID, Effect: resolved.Effect})
 	}
 	return out, nil
+}
+
+func bindProfileDefinitions(keyID uuid.UUID, definitions []profileGrantDefinition, policy OwnerPolicy) ([]models.IntegrationGatewayAPIKeyPermission, error) {
+	resources := []models.IntegrationGatewayAPIKeyPermission{}
+	providers := []ExplicitGrant{}
+	for _, definition := range definitions {
+		if definition.providerGrant != nil {
+			providers = append(providers, *definition.providerGrant)
+		} else {
+			resources = append(resources, definition.grant)
+		}
+	}
+	bound, err := BindOwnerPolicy(keyID, resources, policy)
+	if err != nil {
+		return nil, err
+	}
+	return mergeExplicitGrantRows(keyID, bound, providers), nil
+}
+
+// BindProfileGrants 使用 Profile 统一授权，同时保留调用方资源 owner 与已有 Key 追加授权。
+func (s *APIKeyOwnerService) BindProfileGrants(ctx context.Context, tx *gorm.DB, tenant string, profileID uint64, keyID uuid.UUID, policy OwnerPolicy) ([]models.IntegrationGatewayAPIKeyPermission, error) {
+	profile, err := iamrepo.NewAPIKeyProfileRepository(tx).LockTenantProfile(ctx, tenant, profileID)
+	if err != nil {
+		return nil, s.mapKeyError(err)
+	}
+	if profile.Status != 1 {
+		return nil, ownerError(dto.NewConflict("API Key Profile已停用", nil), "API_KEY_PROFILE_DISABLED")
+	}
+	definitions, err := s.profileGrantDefinitions(ctx, tx, profileID)
+	if err != nil {
+		return nil, err
+	}
+	return bindProfileDefinitions(keyID, definitions, policy)
 }
 
 func (s *APIKeyOwnerService) SnapshotKeyTx(ctx context.Context, tx *gorm.DB, tenant string, keyID uuid.UUID) (*models.IntegrationGatewayAPIKey, *OwnerPolicy, error) {
@@ -276,18 +324,23 @@ func (s *APIKeyOwnerService) SnapshotKeyTx(ctx context.Context, tx *gorm.DB, ten
 }
 
 func (s *APIKeyOwnerService) SyncProfileTx(ctx context.Context, tx *gorm.DB, tenant string, profileID uint64) (int, int, error) {
-	if _, err := iamrepo.NewAPIKeyProfileRepository(tx).LockTenantProfile(ctx, tenant, profileID); err != nil {
-		return 0, 0, err
-	}
-	base, err := s.ProfileGrants(ctx, tx, profileID)
+	profile, err := iamrepo.NewAPIKeyProfileRepository(tx).LockTenantProfile(ctx, tenant, profileID)
 	if err != nil {
 		return 0, 0, err
 	}
+	definitions, err := s.profileGrantDefinitions(ctx, tx, profileID)
+	if err != nil {
+		return 0, 0, err
+	}
+	base := grantsOf(definitions)
 	keys, err := igwrepo.NewIntegrationGatewayAPIKeyRepository(tx).ListActiveByProfile(ctx, tenant, profileID)
 	if err != nil {
 		return 0, 0, err
 	}
 	permRepo := igwrepo.NewIntegrationGatewayAPIKeyPermissionRepository(tx)
+	policies := make([]OwnerPolicy, 0, len(keys))
+	report := ownerConflictReport{}
+	// 在当前 Profile/Key 锁与事务内先完成全部校验，返回完整冲突再决定是否写入。
 	for _, key := range keys {
 		current, err := permRepo.ListByAPIKeyUUID(ctx, key.UUID)
 		if err != nil {
@@ -297,7 +350,15 @@ func (s *APIKeyOwnerService) SyncProfileTx(ctx context.Context, tx *gorm.DB, ten
 		if err != nil {
 			return 0, 0, err
 		}
-		items, err := BindOwnerPolicy(key.UUID, base, policy)
+		report.add(key, policy, definitions)
+		policies = append(policies, policy)
+	}
+	if err := report.err(profile.ID, profile.Name); err != nil {
+		return 0, 0, err
+	}
+	for i, key := range keys {
+		policy := policies[i]
+		items, err := bindProfileDefinitions(key.UUID, definitions, policy)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -344,15 +405,21 @@ func (s *APIKeyOwnerService) SetOwners(ctx context.Context, tenant string, keyID
 		if err != nil {
 			return err
 		}
-		base, err := s.ProfileGrants(ctx, tx, key.ProfileID)
+		definitions, err := s.profileGrantDefinitions(ctx, tx, key.ProfileID)
 		if err != nil {
 			return err
 		}
-		grants, err := BindPluginOwners(keyID, base, owners)
+		next := OwnerPolicy{Version: 1, Mode: "key", PluginIDs: owners, ExplicitGrants: previous.ExplicitGrants}
+		report := ownerConflictReport{}
+		report.add(*key, next, definitions)
+		if err := report.err(key.ProfileID, ""); err != nil {
+			return err
+		}
+		grants, err := bindProfileDefinitions(keyID, definitions, next)
 		if err != nil {
 			return err
 		}
-		if err := igwrepo.NewIntegrationGatewayAPIKeyRepository(tx).UpdateOwnerPolicy(ctx, tenant, keyID, EncodePluginOwners(owners), actor); err != nil {
+		if err := igwrepo.NewIntegrationGatewayAPIKeyRepository(tx).UpdateOwnerPolicy(ctx, tenant, keyID, next.Encode(), actor); err != nil {
 			return err
 		}
 		if err := igwrepo.NewIntegrationGatewayAPIKeyPermissionRepository(tx).ReplaceAll(ctx, keyID, grants); err != nil {

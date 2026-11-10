@@ -25,7 +25,7 @@ schema_config:
         period: 24h
 
 limits_config:
-  retention_period: 720h
+  retention_period: 24h # 普通运行日志检索窗口；不是审计归档或 1 GiB 硬上限
   reject_old_samples: true
   reject_old_samples_max_age: 168h
 

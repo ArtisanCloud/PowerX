@@ -1,0 +1,447 @@
+{
+  "contract": "storage-governance.overnight-observation.v1",
+  "recorded_at": "2026-10-31T10:10:51.305354+08:00",
+  "scope": {
+    "kind": "read_only_operational_review",
+    "source_host": "47.116.10.200",
+    "window_start": "2026-10-31T00:00:00+08:00",
+    "window_end": "2026-10-31T10:06:30+08:00",
+    "inspection_changed_server_config": false,
+    "inspection_started_or_restarted_services": false,
+    "inspection_deleted_database_rows_or_files": false,
+    "archive_verification": "read_only exact-version full GET for data and manifest; SHA-256 and byte count compared with source receipts"
+  },
+  "assessment": {
+    "guard_operating": true,
+    "archive_receiver_currently_operating": true,
+    "disk_pressure_resolved": false,
+    "capacity_state": "warning",
+    "reason": "Available space is below 12 GiB and declining while the business database continues to grow. File-log retention does not reclaim protected database events.",
+    "archive_availability": "Mac-hosted loopback MinIO is not continuously available during Mac sleep."
+  },
+  "server": {
+    "checked_at_utc": "2026-10-31T02:09:10.253183+00:00",
+    "window": {
+      "start_epoch": 1793376000.0,
+      "end_epoch": 1793412390.0
+    },
+    "guard": {
+      "runs": 120,
+      "statuses": {
+        "ok": 39,
+        "warning": 81
+      },
+      "invalid_report_files": 0,
+      "error_count": 0,
+      "max_interval_seconds": 303.01447343826294,
+      "gaps_over_600_seconds": 0,
+      "first": {
+        "started_at": "2026-10-30T16:03:52.822577+00:00",
+        "epoch": 1793376232.8225737,
+        "after": {
+          "total_bytes": 126424895488,
+          "used_bytes": 107711119360,
+          "available_bytes": 13345259520,
+          "reserved_bytes": 5368516608,
+          "used_ratio": 0.8519771279559707
+        },
+        "database_sizes_bytes": {
+          "postgres": 7674903,
+          "powerx_dev": 249764887,
+          "powerx_pro": 31234841623
+        },
+        "database_checked_epoch": 1793375326.6020913,
+        "status": "ok"
+      },
+      "last": {
+        "started_at": "2026-10-31T02:02:27.322148+00:00",
+        "epoch": 1793412147.322143,
+        "after": {
+          "total_bytes": 126424895488,
+          "used_bytes": 109131616256,
+          "available_bytes": 11924762624,
+          "reserved_bytes": 5368516608,
+          "used_ratio": 0.8632130233112082
+        },
+        "database_sizes_bytes": {
+          "postgres": 7674903,
+          "powerx_dev": 249789463,
+          "powerx_pro": 32296942615
+        },
+        "database_checked_epoch": 1793411544.4290962,
+        "status": "warning"
+      },
+      "available_delta_bytes": -1420496896,
+      "database_deltas_bytes": {
+        "postgres": 0,
+        "powerx_dev": 24576,
+        "powerx_pro": 1062100992
+      },
+      "database_rows_changed_reported": 0,
+      "direct_audit_deletes": 0,
+      "ordinary_deletes_by_source": {
+        "nginx": 1
+      },
+      "audit_budgets_at_window_end": {
+        "postgres": {
+          "state": "archive_required",
+          "closed_files": 35,
+          "allocated_bytes": 603652096,
+          "budget_bytes": 2147483648,
+          "over_budget": false,
+          "blocked_deletions": 0
+        },
+        "postgres-native": {
+          "state": "archive_required",
+          "closed_files": 0,
+          "allocated_bytes": 0,
+          "budget_bytes": 2147483648,
+          "over_budget": false,
+          "blocked_deletions": 0
+        },
+        "prod-audit": {
+          "state": "archive_required",
+          "closed_files": 88,
+          "allocated_bytes": 404062208,
+          "budget_bytes": 536870912,
+          "over_budget": false,
+          "blocked_deletions": 0
+        },
+        "dev-audit": {
+          "state": "archive_required",
+          "closed_files": 7,
+          "allocated_bytes": 28327936,
+          "budget_bytes": 536870912,
+          "over_budget": false,
+          "blocked_deletions": 0
+        }
+      },
+      "latest": {
+        "started_at": "2026-10-31T02:07:28.826929+00:00",
+        "epoch": 1793412448.8269224,
+        "after": {
+          "total_bytes": 126424895488,
+          "used_bytes": 109178388480,
+          "available_bytes": 11877990400,
+          "reserved_bytes": 5368516608,
+          "used_ratio": 0.8635829838622489
+        },
+        "database_sizes_bytes": {
+          "postgres": 7674903,
+          "powerx_dev": 249789463,
+          "powerx_pro": 32296942615
+        },
+        "database_checked_epoch": 1793411544.4290962,
+        "status": "warning"
+      }
+    },
+    "services": {
+      "powerx-space-guard.timer": {
+        "Result": "success",
+        "ActiveState": "active",
+        "SubState": "waiting"
+      },
+      "powerx-space-guard.service": {
+        "MainPID": "0",
+        "Result": "success",
+        "ExecMainStatus": "0",
+        "ActiveState": "inactive",
+        "SubState": "dead"
+      },
+      "postgresql@16-main.service": {
+        "MainPID": "1277087",
+        "Result": "success",
+        "ExecMainStatus": "0",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "powerx-backend.service": {
+        "MainPID": "1292693",
+        "Result": "success",
+        "NRestarts": "0",
+        "ExecMainStatus": "0",
+        "Id": "powerx-backend.service",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "powerx-dev-backend.service": {
+        "MainPID": "1381539",
+        "Result": "success",
+        "NRestarts": "0",
+        "ExecMainStatus": "0",
+        "Id": "powerx-dev-backend.service",
+        "ActiveState": "active",
+        "SubState": "running"
+      },
+      "powerx-dev-runner.service": {
+        "MainPID": "0",
+        "Result": "exec-condition",
+        "NRestarts": "327802",
+        "ExecMainStatus": "0",
+        "Id": "powerx-dev-runner.service",
+        "ActiveState": "activating",
+        "SubState": "auto-restart"
+      }
+    },
+    "postgresql": {
+      "log_statement": "mod",
+      "logging_collector": "off",
+      "collector_pending_restart": true,
+      "top_tables": [
+        {
+          "schemaname": "public",
+          "relname": "capability_registry_invocation_traces",
+          "estimated_rows": 9828655,
+          "total_bytes": 24624201728
+        },
+        {
+          "schemaname": "public",
+          "relname": "capability_registry_event_publications",
+          "estimated_rows": 9812376,
+          "total_bytes": 7669940224
+        },
+        {
+          "schemaname": "public",
+          "relname": "capability_registry_records",
+          "estimated_rows": 1166,
+          "total_bytes": 5169152
+        },
+        {
+          "schemaname": "public",
+          "relname": "iam_permission",
+          "estimated_rows": 1080,
+          "total_bytes": 3948544
+        },
+        {
+          "schemaname": "px_com_powerx_plugins_ai_craft",
+          "relname": "ai_craft_notification_deliveries",
+          "estimated_rows": 1922,
+          "total_bytes": 2523136
+        },
+        {
+          "schemaname": "public",
+          "relname": "knowledge_vectors_v1_1536",
+          "estimated_rows": 0,
+          "total_bytes": 1671168
+        }
+      ]
+    },
+    "health": {
+      "8080": 200,
+      "8081": 200
+    },
+    "current_filesystem": {
+      "total_bytes": 126424895488,
+      "used_bytes": 109191278592,
+      "available_bytes": 11865100288,
+      "reserved_bytes": 5368516608
+    }
+  },
+  "receiver": {
+    "runs": 107,
+    "statuses": {
+      "ok": 106,
+      "failed": 1
+    },
+    "first_finished_at": "2026-10-31T00:00:58.483333+08:00",
+    "last_finished_at": "2026-10-31T10:05:12.396778+08:00",
+    "totals": {
+      "uploaded_files": 27,
+      "uploaded_bytes": 138725483,
+      "verified_files": 33,
+      "source_deleted": 6,
+      "source_commit_unconfirmed": 0,
+      "offsite_objects_deleted": 0,
+      "failed_files": 0
+    },
+    "gaps_over_600_seconds": [
+      {
+        "from": "2026-10-31T08:58:09.535282+08:00",
+        "to": "2026-10-31T09:54:10.310635+08:00",
+        "seconds": 3360.775353193283
+      }
+    ],
+    "failures": [
+      {
+        "finished_at": "2026-10-31T09:54:10.310635+08:00",
+        "status": "failed",
+        "reasons": {},
+        "reason": "custody_rpc_failed"
+      }
+    ],
+    "current_last_run": {
+      "started_at": 1793412279.319511,
+      "status": "ok",
+      "uploaded_files": 0,
+      "uploaded_bytes": 0,
+      "verified_files": 0,
+      "source_deleted": 0,
+      "source_retained": 0,
+      "source_commit_unconfirmed": 0,
+      "failed_files": 0,
+      "deferred_files": 0,
+      "offsite_objects_deleted": 0,
+      "failure_reasons": {},
+      "finished_at": 1793412312.3967779
+    },
+    "supervisor": {
+      "started_at": 1793412270.2787042,
+      "supervisor_pid": 22062,
+      "child_pid": 22198,
+      "timeout_seconds": 285,
+      "elapsed_seconds": 43.14,
+      "timed_out": false,
+      "child_exit": 0,
+      "child_stderr_bytes": 0,
+      "finished_at": 1793412313.418916
+    }
+  },
+  "source_expiry_archive_reverification": {
+    "checked_at": "2026-10-31T10:06:23.434214+08:00",
+    "private_versioned_bucket_checks": "passed",
+    "receipts_this_window": 6,
+    "confirmed_deleted": 6,
+    "verified_files": [
+      {
+        "source": "prod-audit",
+        "name": "audit_event-2026-10-23.log.gz",
+        "bytes": 1044944,
+        "verified_at_utc": "2026-10-30T16:00:19.503764+00:00",
+        "state": "deleted",
+        "data_and_manifest_readback": "passed"
+      },
+      {
+        "source": "prod-audit",
+        "name": "audit_event-2026-10-24-2026-10-23T18-02-30.658.log.gz",
+        "bytes": 4641091,
+        "verified_at_utc": "2026-10-30T18:06:30.224466+00:00",
+        "state": "deleted",
+        "data_and_manifest_readback": "passed"
+      },
+      {
+        "source": "dev-audit",
+        "name": "audit_event-2026-10-23.log.gz",
+        "bytes": 1204642,
+        "verified_at_utc": "2026-10-30T16:00:20.423378+00:00",
+        "state": "deleted",
+        "data_and_manifest_readback": "passed"
+      },
+      {
+        "source": "prod-audit",
+        "name": "audit_event-2026-10-24-2026-10-23T22-09-34.180.log.gz",
+        "bytes": 4613981,
+        "verified_at_utc": "2026-10-30T22:11:19.195602+00:00",
+        "state": "deleted",
+        "data_and_manifest_readback": "passed"
+      },
+      {
+        "source": "prod-audit",
+        "name": "audit_event-2026-10-24-2026-10-23T20-06-21.034.log.gz",
+        "bytes": 4622122,
+        "verified_at_utc": "2026-10-30T20:06:26.426883+00:00",
+        "state": "deleted",
+        "data_and_manifest_readback": "passed"
+      },
+      {
+        "source": "prod-audit",
+        "name": "audit_event-2026-10-24-2026-10-24T00-14-32.336.log.gz",
+        "bytes": 4587881,
+        "verified_at_utc": "2026-10-31T00:16:16.396357+00:00",
+        "state": "deleted",
+        "data_and_manifest_readback": "passed"
+      }
+    ],
+    "total_verified_bytes": 20714661,
+    "incomplete_receipts": [],
+    "quarantine": [
+      {
+        "directory": "/opt/powerx/backend/logs/audit/.powerx-audit-custody",
+        "files": 0
+      },
+      {
+        "directory": "/opt/powerx-dev/backend/logs/audit/.powerx-audit-custody",
+        "files": 0
+      }
+    ],
+    "s3_objects_modified_or_deleted": false
+  },
+  "archive_index_snapshot": {
+    "entries": 130,
+    "data_bytes": 1035769118,
+    "coverage_claim": "Local receiver index only; not an assertion of complete coverage of all current open files or database rows."
+  },
+  "receiver_gap_investigation": {
+    "source": "macOS pmset -g log",
+    "events": [
+      {
+        "local_time": "2026-10-31T09:01:29+08:00",
+        "event": "Entering Sleep",
+        "reason": "Clamshell Sleep"
+      },
+      {
+        "local_time": "2026-10-31T09:53:15+08:00",
+        "event": "Wake from Deep Idle",
+        "reason": "lid / HID Activity"
+      }
+    ],
+    "inference": "The receiver gap overlaps Mac sleep. The 09:54 RPC failure only records custody_rpc_failed; its underlying SSH error was not retained, so no more specific cause is asserted.",
+    "first_success_after_failure": "2026-10-31T09:59:28.697+08:00",
+    "server_guard_continued": true
+  },
+  "database_sampling_boundary": {
+    "cadence_seconds": 3600,
+    "cached_sizes_in_guard_reports": true,
+    "first_database_sample_at": "2026-10-30T23:48:46.602091+08:00",
+    "last_database_sample_at": "2026-10-31T09:52:24.429096+08:00",
+    "size_delta_bytes": 1062100992,
+    "table_rows_are_estimates": true,
+    "database_rows_were_preserved": true,
+    "sql_statement_logging_limitation": "log_statement=mod logs modifying statements; this review does not claim complete transaction outcome or affected-row forensic coverage."
+  },
+  "local_powerx_config": {
+    "mode": "observe",
+    "sampling_enabled": true,
+    "postgres_enabled": true,
+    "lifecycle_enabled": false,
+    "manage_native_retention": false,
+    "allow_enforce": false,
+    "admission_enabled": false,
+    "absent_boolean_fields_use_false_default": true,
+    "acceptance_boundary": "Daily local configuration provides observation; this run is not acceptance of the new PowerX lifecycle/admission mechanisms in production."
+  },
+  "remaining_work": [
+    {
+      "item": "database growth and disk headroom",
+      "state": "open",
+      "detail": "Two capability trace/event tables dominate database size. Preserve pending events; plan retention/archive semantics or disk expansion before free capacity reaches critical thresholds."
+    },
+    {
+      "item": "always-online private archive",
+      "state": "temporary Mac target",
+      "detail": "Move the receiver/archive to an always-online private storage target for continuous reclamation; retain originals whenever custody cannot be established."
+    },
+    {
+      "item": "PostgreSQL native logging collector",
+      "state": "pending restart",
+      "detail": "Production log_statement=mod remains active, but logging_collector=off and pending_restart=true. The transitional copytruncate race has not been removed."
+    },
+    {
+      "item": "PowerX lifecycle and audit source handoff",
+      "state": "pending production deployment",
+      "detail": "Temporary guard remains responsible for server retention; do not treat observation-mode local PowerX as active production lifecycle/admission enforcement."
+    }
+  ],
+  "other_observation": {
+    "unit": "powerx-dev-runner.service",
+    "observed_state": "activating/auto-restart",
+    "result": "exec-condition",
+    "n_restarts_cumulative": 327802,
+    "boundary": "Cumulative count, not an overnight count; root cause not investigated in this storage-policy review. Production and development backend health endpoints returned HTTP 200."
+  },
+  "measurement_limits": [
+    "Targeted live filesystem/SQL/service and persisted run-report review; no end-to-end browser login assertion.",
+    "No full filesystem du inventory repeated in this review artifact.",
+    "Reported zero database mutations describes the guard and this inspection, not unrelated application activity.",
+    "Physical file bytes, pg_database_size and table total relation sizes are different measurements. No exact attribution of all filesystem growth is claimed."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-30",
+  "scope": "Base URL clearing semantics for Mac development AI settings",
+  "cause": "Empty form endpoint was interpreted as reuse of the saved custom endpoint; blank endpoint could also be overwritten when inheriting existing secrets during save.",
+  "behavior": {
+    "admin_form_empty": "current Provider/auth-mode default",
+    "explicit_saved_empty": "persist empty and resolve Provider default at runtime",
+    "internal_credential_patch_omitted_field": "preserve existing endpoint",
+    "required_custom_endpoint_without_default": "fail explicitly",
+    "service_saved_connection": "unchanged until a successful save",
+    "frontend": "show effective default when blank; keep clears through Provider switching and reload",
+    "diagnostics": "log validated connection probe target without credentials"
+  },
+  "validation": {
+    "go_test": "passed internal/service/agent, internal/server/ai/connectionprobe, internal/transport/http/admin/agent; gRPC package compiled",
+    "race": "same three packages passed",
+    "go_vet": "same three packages plus internal/transport/grpc/agent passed",
+    "go_build": "./cmd/app passed, artifact /tmp/powerx-base-url-reset-core",
+    "vitest": "30 tests in 4 files passed",
+    "vue_tsc": "--noEmit passed",
+    "browser": "Desktop and narrow full flows passed (2 cases), including clearing, context switches, empty request payload, save, reload and real input interaction after reload; startup and mobile sidebar settled. Ollama desktop/narrow discovery also passed. Controlled API fixtures, not live OpenAI account acceptance.",
+    "runtime_boundary": "new supplied credential reached only the configured default fixture server; old proxy received zero requests before save. Saved service route preserved old connection until save. Cleared connection readback and catalog used the default afterwards."
+  },
+  "live_environment": {
+    "agent_started_services": [],
+    "agent_restarted_services": false,
+    "agent_changed_saved_credentials": false,
+    "core_pid": 95270,
+    "core_started_at": "2026-10-30 14:11:54 +0800",
+    "core_port": 8077,
+    "runtime_fix_present": "binary contains ResolveFormBaseURL, normalizeCredentialEndpoint and validated connection probe target log marker",
+    "frontend_pid": 18054,
+    "frontend_port": 3030,
+    "provider_account_acceptance": "pending user test with official credential; no live generation request made by agent"
+  },
+  "artifact_directory": "/tmp/powerx-base-url-reset-20261030-140008/browser",
+  "changed_files": [
+    "backend/internal/server/ai/connectionprobe/probe.go",
+    "backend/internal/service/agent/agent_setting_service.go",
+    "backend/internal/service/agent/connection_endpoint.go",
+    "backend/internal/service/agent/connection_endpoint_test.go",
+    "backend/internal/service/agent/connection_verification.go",
+    "backend/internal/service/agent/credential_environment.go",
+    "backend/internal/transport/http/admin/agent/setting_connection_test.go",
+    "docs/contracts/ai-online-model-catalog.md",
+    "web-admin/app/components/settings/ai/ProviderModelForm.vue",
+    "web-admin/app/pages/settings/ai/index.vue",
+    "web-admin/app/utils/ai-provider-endpoint.ts",
+    "web-admin/i18n/locales/en.json",
+    "web-admin/i18n/locales/zh.json",
+    "web-admin/tests/e2e/ai/online-models.spec.ts",
+    "web-admin/tests/unit/ai/provider-endpoint.spec.ts",
+    "web-admin/tests/unit/ai/provider-model-form.spec.ts"
+  ],
+  "sha256": {
+    "backend/internal/server/ai/connectionprobe/probe.go": "52b0275c8137d498f9aa52e6d6c50c813d5b3dadf502da76cf147284fa1ad45a",
+    "backend/internal/service/agent/agent_setting_service.go": "e5eb02dbbdbda554e7838df0d83e0480594edae010482dc899b210208fd1ef45",
+    "backend/internal/service/agent/connection_endpoint.go": "82de51b07c78ca2ef8872006ff6b2827fa495419f026d5f6120dec840deee167",
+    "backend/internal/service/agent/connection_endpoint_test.go": "fbf420ff6891e3fd81b668736be33da6d51f6611fa125cfa54c5049f24014ee4",
+    "backend/internal/service/agent/connection_verification.go": "a2a39306976be183b0edb2acb8bb54024e973a3c49e92fe81ba59d1c33c73c51",
+    "backend/internal/service/agent/credential_environment.go": "c6d8ecbe44f89cc7132d3d11bae65e21b1309c71a3e7c5d3687fe5d7717574d6",
+    "backend/internal/transport/http/admin/agent/setting_connection_test.go": "d168f11ee2e1c72fc8160d6fef09208b4150b20c0162bc0aea90b1596f4f6701",
+    "docs/contracts/ai-online-model-catalog.md": "be84ec15626effb24a5bb8d1b752828b05494719c8a8746e3448282c08128efd",
+    "web-admin/app/components/settings/ai/ProviderModelForm.vue": "fbc0056af9797a4784dfe518a4bbc55f518ce6a45302c81ecc507afc23b56f0a",
+    "web-admin/app/pages/settings/ai/index.vue": "aa947c7d49c0b109795ab94a22b98584a5d995912d7e98668be451b30b3f8c3c",
+    "web-admin/app/utils/ai-provider-endpoint.ts": "b5acfab9ccf60680aec76ed66f2f7d95ab598c3af60d187a1d16fa71f47b6cfb",
+    "web-admin/i18n/locales/en.json": "c33765e41ffa9a830ee5963399e672ba4ad2a4be9b147d99ec6370754212990d",
+    "web-admin/i18n/locales/zh.json": "e01fe1f248c4b1ebf18d85a0123c60ff0e15a60d6a1bc6347bc1aab2f7dba572",
+    "web-admin/tests/e2e/ai/online-models.spec.ts": "c808b20b0c6fa050ad958e43efbb4f5a51c793a0a909c0aeb00ea5e5e72b68cc",
+    "web-admin/tests/unit/ai/provider-endpoint.spec.ts": "08bac72ccf3657c904516a490160f44293de462718a2f39cb480aa4f4f953c67",
+    "web-admin/tests/unit/ai/provider-model-form.spec.ts": "3a01904315b76fd0befaf3abe579e07d408b0ce150dfcf225dc96c4c9ab85228"
+  }
+}

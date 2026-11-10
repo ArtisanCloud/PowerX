@@ -148,13 +148,16 @@
                 >
               </div>
             </div>
+            <UAlert v-if="replacementPreview" color="warning" variant="soft" :title="t('plugins.installFlow.currentInstallation')" :description="`${replacementPreview.current.version} → ${replacementPreview.target.version} · ${replacementPreview.target.provider.id} · ${replacementPreview.target.provider.authority}`" />
+            <UCheckbox v-if="replacementPreview?.requires_provider_confirmation" v-model="providerBindingConfirmed" :label="t('plugins.installFlow.providerBindingConfirmation')" />
             <div class="flex items-center gap-3">
-              <USwitch v-model="state.forceInstall" />
+              <USwitch v-model="state.forceInstall" :disabled="state.installMode !== 'local' && !replacementPreview" />
               <span class="text-sm text-[var(--text-secondary)]"
                 >{{ t("plugins.installDialog.forceInstall") }}</span
               >
             </div>
 
+            <p v-if="state.installMode !== 'local' && !replacementPreview" class="text-xs text-[var(--text-secondary)]">{{ t('plugins.installFlow.localPreviewHelp') }}</p>
             <div
               v-if="drainRequired"
               class="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100"
@@ -232,6 +235,7 @@
           <UButton
             color="primary"
             :loading="installing"
+            :disabled="!!replacementPreview && (!state.forceInstall || (replacementPreview.requires_provider_confirmation && !providerBindingConfirmed))"
             @click="confirmInstall"
             icon="i-heroicons-arrow-down-tray"
             >{{ t("plugins.installDialog.actions.install") }}</UButton
@@ -306,7 +310,7 @@ const state = reactive({
   namespace: "",
   releaseChannel: releaseChannelOptions[0].value,
   autoUpdate: true,
-  forceInstall: true,
+  forceInstall: false,
   perms: {
     network: true,
     storage: true,
@@ -315,6 +319,9 @@ const state = reactive({
   notes: "",
 });
 
+interface ReplacementPreview { requires_provider_confirmation?: boolean; current: { version: string; revision: string; provider: { id: string; authority: string } }; target: { version: string; provider: { id: string; authority: string } } }
+const replacementPreview = ref<ReplacementPreview>();
+const providerBindingConfirmed = ref(false);
 const installing = ref(false);
 const creatingDrain = ref(false);
 const drainRequired = ref(false);
@@ -328,6 +335,8 @@ watch(
   () => props.modelValue,
   async (visible) => {
     if (!visible) return;
+    replacementPreview.value = undefined;
+    state.forceInstall = state.installMode === 'local'; providerBindingConfirmed.value = false;
     if (!userStore.context) {
       try {
         await userStore.fetchUserContext();
@@ -575,6 +584,9 @@ function onLocalDirChange(event: Event) {
   }
 }
 
+watch(() => state.installMode, (mode) => { state.forceInstall = mode === 'local'; });
+watch(() => [state.url, state.installMode, state.localDirFiles], () => { replacementPreview.value = undefined; if (state.installMode !== 'local') state.forceInstall = false; providerBindingConfirmed.value = false; });
+
 function openLocalDirSelector() {
   localDirInputRef.value?.click();
 }
@@ -653,6 +665,7 @@ function buildPlatformIncompatibleMessage(error: any): string {
 }
 
 async function confirmInstall() {
+  if (replacementPreview.value && (!state.forceInstall || (replacementPreview.value.requires_provider_confirmation && !providerBindingConfirmed.value))) return;
   drainRequired.value = false;
   drainCreated.value = false;
   drainPluginId.value = "";
@@ -692,6 +705,8 @@ async function confirmInstall() {
         sha256: state.sha256 || undefined,
         enable: !!state.enableAfterInstall,
         force: !!state.forceInstall,
+        expected_revision: replacementPreview.value?.current.revision,
+        confirm_legacy_provider: providerBindingConfirmed.value,
         metadata: buildInstallMetadataPayload(),
       });
 
@@ -711,6 +726,8 @@ async function confirmInstall() {
       const formData = await buildLocalInstallFormData(state.localDirFiles);
       formData.append("enable", String(!!state.enableAfterInstall));
       formData.append("force", String(!!state.forceInstall));
+      if (replacementPreview.value) formData.append("expected_revision", replacementPreview.value.current.revision);
+      if (providerBindingConfirmed.value) formData.append("confirm_legacy_provider", "true");
       formData.append("metadata", JSON.stringify(buildInstallMetadataPayload()));
       await svc.installFromLocal(formData);
 
@@ -735,6 +752,11 @@ async function confirmInstall() {
     });
     close();
   } catch (error: any) {
+    if (getErrorDetails(error).code === 'PLUGIN_REPLACEMENT_REQUIRED') {
+      replacementPreview.value = getErrorDetails(error) as ReplacementPreview;
+      state.forceInstall = false; providerBindingConfirmed.value = false;
+      return;
+    }
     console.error("plugin install failed:", error);
     if (isAlreadyInstalledConflict(error)) {
       toast.add({

@@ -1,0 +1,29 @@
+{
+  "changes": [
+    {
+      "group": "core",
+      "registered": "d217755d3d3ac1a33f4384f319906def362e0613c5531484147b2a5a219fa2cd",
+      "current": "914671b741d72fa385f446e9b8ccb39f9d63ecafb02264cb20d8d23151c83f76"
+    },
+    {
+      "group": "agent",
+      "registered": "0ea0b5bbe36d5c1cf352e6f97ba3225dcc62e544a6cdb6e09170fd031418e0a4",
+      "current": "34856fb1309d2b3239b58eb2e36a21efcdd936f0abecd56866e523ef635688e9"
+    },
+    {
+      "group": "knowledge",
+      "registered": "96fdc7091f1ce811976d0ee3169cae9702a9e7682019469c263ba6f9c9ea3b4c",
+      "current": "e3c4460dbaeb775031eabfe4f0c0af165c627ab94bfe770efb8e9a31e886e394"
+    },
+    {
+      "group": "catalog",
+      "registered": "1912fef25ac4eb9ad8d537e9a9b8f1cf591a006a44da80838d3bfdef3025bcaa",
+      "current": "770eab21e7f87e1f5347e3ad71e88aec706ea4595c10e3fa9df1b7ffd46e41a3"
+    }
+  ],
+  "reason": "New audit model and central scope entry; cmd/database/migrate.go is COMMON to all four generated payload groups, so all content-addressed IDs change.",
+  "prior_shared_core_drift": "recorded in prior T171 evidence; generator freezes current shared sources without reviewing all unrelated changes",
+  "generator": "official deploy/powerx/container/upgrade_registry.py",
+  "applied_to_database": false,
+  "acceptance": "registry consistency only; full release, other payload callbacks and production adoption remain separate"
+}

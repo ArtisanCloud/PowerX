@@ -28,7 +28,7 @@ func TestInstallFromFileRejectsIncompatibleExecutableBeforeReplacing(t *testing.
 			Registry:      registry,
 			Loader:        NewFSLoader(),
 			CoreConfig: &coreconfig.Config{
-				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			},
 		},
 		databaseSectionBuilder: testDatabaseSection,

@@ -3,7 +3,7 @@ import { useApiClient } from "~/composables/api";
 import { connectBackupEvents } from "~/utils/backup-sse";
 import { AUTH_SESSION_EVENT, readAuthSession } from "~/utils/auth-session";
 
-export type BackupResource = "snapshots" | "recovery" | "archives" | "restore_copies";
+export type BackupResource = "snapshots" | "recovery" | "archives" | "restore_copies" | "backup_policies" | "backup_cleanup";
 const handlers = new Map<BackupResource, Set<() => void>>();
 const status = ref<"idle" | "connecting" | "connected" | "disconnected">("idle");
 let disconnect: (() => void) | undefined;

@@ -18,7 +18,8 @@ export type PluginBridgeMessage = PluginBridgeEnvelope & { source: 'plugin' | 'p
   | { type: 'bridge:ready'; navigationReady: boolean }
   | { type: 'request-sync' | 'auth-token:request' }
   | { type: 'auth:applied'; sequence: number; sessionId: string; revision: number }
-  | { type: 'auth:rejected'; sequence: number }
+  | { type: 'auth:rejected'; sequence: number; sessionId?: string; revision?: number; code?: string }
+  | { type: 'auth:required'; sequence: number; sessionId: string; revision: number; code: 'IAM_CONTEXT_USER_SESSION_INVALID' }
   | { type: 'navigation:result'; requestId: string; ok: boolean }
 );
 
@@ -38,5 +39,6 @@ export interface PowerXFrameBridgeClient {
   setNavigator(handler: (path: string, request: PluginNavigationRequest) => void | Promise<void>): () => void;
   requestSync(): void;
   requestAuth(): void;
+  reportSessionInvalid(failure: { sessionId: string; revision: number; code: 'IAM_CONTEXT_USER_SESSION_INVALID' }): void;
   getLastSyncAt(): number;
 }

@@ -44,6 +44,10 @@ func bindCustomerAdminJSON(c *gin.Context, request any, limit int64, code string
 	if err := decoder.Decode(request); err != nil {
 		var large *http.MaxBytesError
 		if errors.As(err, &large) {
+			if code == "CLIENT_APP_INVALID_ARGUMENT" {
+				dto.RespondErrorFrom(c, dto.NewErrorWithCode(413, "CLIENT_APP_REQUEST_TOO_LARGE", "客户端应用请求超过大小限制", nil))
+				return false
+			}
 			if code == "CUSTOMER_PROFILE_REQUEST_INVALID" {
 				dto.RespondErrorFrom(c, dto.NewErrorWithCode(413, "CUSTOMER_PROFILE_TOO_LARGE", "客户资料请求超过大小限制", nil))
 				return false

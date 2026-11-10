@@ -1,0 +1,23 @@
+id: com.powerx.plugins.scrm.template.publish
+type: API
+version: 1.0.0
+description: "将审核通过的模板发布到业务租户。"
+rbac:
+  resource: template
+  actions: [update]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.publish.v1
+    path: schema/input/com.powerx.plugins.scrm.template.publish.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.publish.v1
+    path: schema/output/com.powerx.plugins.scrm.template.publish.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    rest:
+      method: POST
+      path: /api/v1/templates/{id}/publish
+    workflow:
+      template: contracts/exposure/workflow/template-compose.json

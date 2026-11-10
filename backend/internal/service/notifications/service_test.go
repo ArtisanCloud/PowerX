@@ -71,8 +71,13 @@ func TestCreateValidatesRecipientAndKeepsHistoryMemberScoped(t *testing.T) {
 	require.EqualValues(t, 1, total)
 	require.Len(t, items, 1)
 	input.MemberUUID = ""
-	_, err = s.Create(ctx, input)
+	broadcast, err := s.Create(ctx, input)
 	require.NoError(t, err)
+	require.NoError(t, s.MarkReadVersion(ctx, tenant, b.UUID.String(), broadcast.UUID.String(), 1))
+	var unchanged nm.Notification
+	require.NoError(t, db.Where("uuid = ?", broadcast.UUID).First(&unchanged).Error)
+	require.False(t, unchanged.IsRead, "reading a broadcast never changes other members' state")
+	require.Error(t, s.MarkReadVersion(ctx, other, b.UUID.String(), broadcast.UUID.String(), 1))
 }
 
 func TestNotificationTargetNeverFallsBackFromMalformedMember(t *testing.T) {

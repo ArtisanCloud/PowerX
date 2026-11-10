@@ -121,7 +121,7 @@ func (h *MeExtraHandler) SwitchTenant(c *gin.Context) {
 		"token_type":    "Bearer",
 		"access_token":  tokens.AccessToken,
 		"refresh_token": tokens.RefreshToken,
-		"expires_in":    int(h.auth.AccessTTL.Seconds()),
+		"expires_in":    h.auth.AccessExpiresIn(tokens.AccessToken),
 		"scope":         "access",
 		"context":       resp,
 	})

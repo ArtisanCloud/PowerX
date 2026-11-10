@@ -15,6 +15,13 @@ func TestIdentityTicketTraceRedactionDoesNotMutateExecution(t *testing.T) {
 	require.Equal(t, "opaque-secret", get(original))
 }
 
+func TestServiceInvocationTicketIsNeverPersistedInAudit(t *testing.T) {
+	original := map[string]interface{}{"body": map[string]interface{}{"operation": "resolve_service_invocation", "request": map[string]interface{}{"invocation_ticket": "private-service-ticket"}}}
+	redacted := redactIdentityTicketPayload("com.corex.iam.identity_context.service_read", original)
+	require.Equal(t, "[REDACTED]", redacted["body"].(map[string]interface{})["request"].(map[string]interface{})["invocation_ticket"])
+	require.Equal(t, "private-service-ticket", original["body"].(map[string]interface{})["request"].(map[string]interface{})["invocation_ticket"])
+}
+
 func TestWSHandleResponseStructIsRedactedWithoutMutation(t *testing.T) {
 	result := struct {
 		Handle string `json:"ws_revalidation_handle"`

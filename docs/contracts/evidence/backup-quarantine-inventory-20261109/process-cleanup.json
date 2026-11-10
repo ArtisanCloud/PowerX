@@ -1,0 +1,37 @@
+{
+  "owned_schemas_remaining": 0,
+  "owned_databases_remaining": 0,
+  "http_browser_and_children_exited": true,
+  "owned_ports_released": [
+    57937,
+    57676
+  ],
+  "owned_jwt_file_removed": true,
+  "owned_postgres_pid": 99314,
+  "owned_postgres_exited": true,
+  "owned_cluster_removed": true,
+  "daily_processes": {
+    "8077": {
+      "pid": 74295,
+      "original_process_present": true,
+      "listener_present": true,
+      "restarted_by_agent": false
+    },
+    "3030": {
+      "pid": 34360,
+      "original_process_present": true,
+      "listener_present": true,
+      "restarted_by_agent": false
+    }
+  },
+  "production_touched": false,
+  "native_http_final": {
+    "pid": 63503,
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/internal/transport/http/admin/backup",
+    "command": "go -C backend test -race ./internal/transport/http/admin/backup -run ^TestCleanupReviewNativeHTTPAndSSE$ -count=1 -v",
+    "listener": "127.0.0.1:58866",
+    "exited": true,
+    "listener_released": true
+  },
+  "daily_core_pid_note": "PID 74295 was observed read-only this turn; the previous slice had a different PID. No agent restart was performed."
+}

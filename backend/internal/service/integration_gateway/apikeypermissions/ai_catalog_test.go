@@ -103,8 +103,12 @@ func TestCheckedInAIModelCatalogCapabilitiesAreAPIKeyGrantable(t *testing.T) {
 		}
 		capabilityID, _ := meta["capability_id"].(string)
 		wantScope, ok := want[capabilityID]
-		if !ok || meta["type"] != "api" {
+		// Service grants come from the typed binding, separate from Admin REST.
+		if !ok || meta["type"] != "capability_service" {
 			continue
+		}
+		if meta["api_key_explicit"] != true {
+			t.Fatalf("capability %s service grant is not explicit", capabilityID)
 		}
 		if row.Status != modelsiam.PermissionStatusActive || !row.AllowAPIKey {
 			t.Fatalf("capability %s is not an active API Key permission", capabilityID)

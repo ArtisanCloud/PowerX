@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PowerX Plugin Manifest",
+  "type": "object",
+  "required": ["id", "name"],
+  "$defs": {
+    "menu": {
+      "type": "object",
+      "required": ["path", "title"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/_p/[a-z0-9.-]+/admin(/.*)?$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/menu"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$",
+      "description": "插件唯一 ID，例如 com.powerx.sample"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "menus": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/menu"
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9.-]+\\.[a-z0-9.-]+\\.[a-z0-9.-]+$"
+      }
+    }
+  },
+  "additionalProperties": false
+}

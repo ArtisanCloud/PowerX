@@ -13,6 +13,7 @@ func (s *Service) SaveCoordinatorSource(c Config) error {
 	if s.initErr != nil {
 		return s.initErr
 	}
+	c.PolicyControlRequired = s.controlRequired()
 	raw, e := json.Marshal(c)
 	if e != nil {
 		return e
@@ -59,6 +60,9 @@ func (s *Service) RunQueuedCapture(ctx context.Context, id string) error {
 	if j.Status != "queued" {
 		return errors.New("capture is not queued")
 	}
+	if e = s.validateCaptureAdmission(&j); e != nil {
+		return e
+	}
 	e = s.captureWithRetry(ctx, &j)
 	if e != nil {
 		j.Status = "failed"
@@ -76,7 +80,7 @@ func (s *Service) RunQueuedCapture(ctx context.Context, id string) error {
 	}
 	s.finishAudit(ctx, "capture", id, j.Status)
 	if e == nil {
-		_ = s.cleanup(ctx)
+		s.finishCaptureCleanup(ctx, &j)
 	}
 	return e
 }

@@ -1,0 +1,15 @@
+[Unit]
+Description=Temporary PowerX file log retention and capacity guard
+After=local-fs.target postgresql@16-main.service
+ConditionPathExists=!/etc/powerx-space-guard.disabled
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/powerx-ops/space-guard/guard.py --apply
+TimeoutStartSec=5min
+Nice=15
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal

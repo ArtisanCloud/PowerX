@@ -4,14 +4,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/agnes"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/google"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/openai"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/qwen"
 	"github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/volcengine"
 )
 
 // NewClient returns provider-specific Image driver.
 func NewClient(provider string) (Client, error) {
 	switch normalize(provider) {
+	case "agnes":
+		return agnes.NewImageClient(), nil
+	case "qwen":
+		return qwen.NewImageClient(), nil
 	case "openai":
 		return openai.NewImageClient(provider), nil
 	case "google", "gemini":

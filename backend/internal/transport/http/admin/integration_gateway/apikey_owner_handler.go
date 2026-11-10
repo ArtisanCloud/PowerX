@@ -73,7 +73,7 @@ func (h *APIKeyOwnerHandler) SetPluginOwners(c *gin.Context) {
 	actor := strconv.FormatUint(reqctx.GetUserID(c.Request.Context()), 10)
 	result, err := h.service.SetOwners(c.Request.Context(), tenant, id, *input.PluginIDs, actor)
 	if err != nil {
-		dto.RespondErrorFrom(c, err)
+		respondAPIKeyPermissionError(c, err)
 		return
 	}
 	dto.ResponseSuccess(c, result)

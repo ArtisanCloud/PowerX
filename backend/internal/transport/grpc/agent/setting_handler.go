@@ -79,7 +79,7 @@ func (s *SettingAIServiceServer) ListModels(ctx context.Context, req *settingv1.
 
 /*************** SaveSettings ***************/
 func (s *SettingAIServiceServer) SaveSettings(ctx context.Context, req *settingv1.SaveSettingsRequest) (*settingv1.SaveSettingsResponse, error) {
-	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	env := dbmodel.CanonicalAIEnvironment(utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default")))
 	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
 	if err != nil {
 		return &settingv1.SaveSettingsResponse{
@@ -121,7 +121,7 @@ func (s *SettingAIServiceServer) SaveSettings(ctx context.Context, req *settingv
 
 /*************** TestConnection ***************/
 func (s *SettingAIServiceServer) TestConnection(ctx context.Context, req *settingv1.TestConnectionRequest) (*settingv1.TestConnectionResponse, error) {
-	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	env := dbmodel.CanonicalAIEnvironment(utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default")))
 	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
 	if err != nil {
 		return &settingv1.TestConnectionResponse{
@@ -145,7 +145,7 @@ func (s *SettingAIServiceServer) TestConnection(ctx context.Context, req *settin
 
 /*************** TestQuickCall（LLM） ***************/
 func (s *SettingAIServiceServer) TestQuickCall(ctx context.Context, req *settingv1.TestQuickCallRequest) (*settingv1.TestQuickCallResponse, error) {
-	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	env := dbmodel.CanonicalAIEnvironment(utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default")))
 	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
 	if err != nil {
 		return &settingv1.TestQuickCallResponse{
@@ -181,7 +181,7 @@ func (s *SettingAIServiceServer) TestQuickCall(ctx context.Context, req *setting
 
 /*************** Profiles/Credentials ***************/
 func (s *SettingAIServiceServer) GetActiveProfile(ctx context.Context, req *settingv1.GetActiveProfileRequest) (*settingv1.GetActiveProfileResponse, error) {
-	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	env := dbmodel.CanonicalAIEnvironment(utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default")))
 	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
 	if err != nil {
 		return &settingv1.GetActiveProfileResponse{
@@ -204,7 +204,7 @@ func (s *SettingAIServiceServer) GetActiveProfile(ctx context.Context, req *sett
 }
 
 func (s *SettingAIServiceServer) SetActiveProfile(ctx context.Context, req *settingv1.SetActiveProfileRequest) (*settingv1.SetActiveProfileResponse, error) {
-	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	env := dbmodel.CanonicalAIEnvironment(utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default")))
 	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
 	if err != nil {
 		return &settingv1.SetActiveProfileResponse{
@@ -230,7 +230,7 @@ func (s *SettingAIServiceServer) SetActiveProfile(ctx context.Context, req *sett
 }
 
 func (s *SettingAIServiceServer) ListProfiles(ctx context.Context, req *settingv1.ListProfilesRequest) (*settingv1.ListProfilesResponse, error) {
-	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	env := dbmodel.CanonicalAIEnvironment(utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default")))
 	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
 	if err != nil {
 		return &settingv1.ListProfilesResponse{
@@ -260,7 +260,7 @@ func (s *SettingAIServiceServer) ListProfiles(ctx context.Context, req *settingv
 }
 
 func (s *SettingAIServiceServer) ListCredentials(ctx context.Context, req *settingv1.ListCredentialsRequest) (*settingv1.ListCredentialsResponse, error) {
-	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	env := dbmodel.CanonicalAIEnvironment(utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default")))
 	tenantUUID, err := requireTenantUUID(ctx, req.GetCtx())
 	if err != nil {
 		return &settingv1.ListCredentialsResponse{
