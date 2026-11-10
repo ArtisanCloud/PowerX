@@ -1,0 +1,34 @@
+id: com.powerx.plugins.scrm.template.create
+type: API
+version: 1.0.0
+description: "创建模板的原子能力，暴露 REST/gRPC/Workflow/Agent 多协议入口。"
+rbac:
+  resource: template
+  actions: [create]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.create.v1
+    path: schema/input/com.powerx.plugins.scrm.template.create.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.create.v1
+    path: schema/output/com.powerx.plugins.scrm.template.create.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    rest:
+      method: POST
+      path: /api/v1/templates
+      description: "PowerX Gateway 统一鉴权后的 REST 入口"
+    grpc:
+      service: powerx.template.TemplateService
+      method: CreateTemplate
+    workflow:
+      template: contracts/exposure/workflow/template-compose.json
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.create
+      scope: agent.template.create
+      transport: http
+      endpoint: /api/v1/templates
+    agent_stream:
+      channel: contracts/exposure/agent-streams/template-compose.yaml

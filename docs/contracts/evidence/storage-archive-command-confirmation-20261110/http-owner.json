@@ -1,0 +1,10 @@
+{
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/internal/transport/http/admin/backup",
+  "directory": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestArchiveCommandConfirmationRootHTTPAndOwnedBrowser3681013151/001/archive",
+  "job_id": "a711d975-7274-43e3-99fe-8b344fd78d57",
+  "owner": "codex archive command confirmation fixture",
+  "pid": 43724,
+  "policy_id": "3b999cdc-d6d5-4fc0-9007-5b1203985cb7",
+  "source": "/private/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/TestArchiveCommandConfirmationRootHTTPAndOwnedBrowser3681013151/001/source",
+  "url": "http://127.0.0.1:59865"
+}

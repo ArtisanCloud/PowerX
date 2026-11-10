@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	vault "github.com/ArtisanCloud/PowerX/internal/infra/archive_credentials"
 	"io"
 	"net"
 	"net/http"
@@ -23,14 +24,10 @@ import (
 	"github.com/minio/minio-go/v7"
 )
 
-// S3Credential 只存于私有运维配置／secrets 目录，不进入概览或任务清单。
-type S3Credential struct {
-	Revision     int64  `json:"revision" yaml:"revision"`
-	AccessKey    string `json:"access_key" yaml:"access_key"`
-	SecretKey    string `json:"secret_key" yaml:"secret_key"`
-	SessionToken string `json:"session_token,omitempty" yaml:"session_token,omitempty"`
-}
+// S3Credential 保留旧来源兼容形态；新值只写独立加密权威，不进入概览或任务清单。
+type S3Credential = vault.Value
 type SaveS3CredentialInput struct {
+	RequestID        string `json:"request_id"`
 	Ref              string `json:"ref"`
 	ExpectedRevision int64  `json:"expected_revision"`
 	AccessKey        string `json:"access_key"`
@@ -43,25 +40,46 @@ type S3CredentialView struct {
 }
 
 func (s *Service) s3Credential(ref string) (S3Credential, error) {
-	if !labelPattern.MatchString(ref) {
-		return S3Credential{}, failure(400, "ARCHIVE_CREDENTIAL_INVALID", "凭据引用无效")
+	epoch, epochError := s.recoveryEpoch()
+	if epochError != nil {
+		return S3Credential{}, epochError
 	}
-	if c, ok := s.cfg.S3Credentials[ref]; ok && c.AccessKey != "" && c.SecretKey != "" {
-		return c, nil
+	if e := s.credentialProviderBound(); e != nil {
+		return S3Credential{}, credentialError(e)
 	}
-	p := filepath.Join(s.cfg.Directory, "secrets", ref+".json")
-	st, err := os.Lstat(p)
-	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0077 != 0 {
-		return S3Credential{}, failure(422, "ARCHIVE_CREDENTIAL_UNAVAILABLE", "独立归档凭据未配置或权限不正确")
+	if s.cfg.CredentialVault != nil {
+		if s.vault == nil {
+			return S3Credential{}, credentialError(vault.ErrUnavailable)
+		}
+		if s.vault.Snapshot(s.ctx).RotationRequired {
+			return S3Credential{}, credentialError(vault.ErrRotationRequired)
+		}
+		value, view, _, e := s.vault.Get(s.ctx, ref)
+		if e == nil {
+			if epoch != view.RecoveryEpoch {
+				return S3Credential{}, failure(409, "ARCHIVE_CREDENTIAL_RECOVERY_REQUIRED", "恢复后须重新提交凭据，历史启用和吊销状态不能直接沿用")
+			}
+			return value, nil
+		}
+		if !errors.Is(e, vault.ErrNotFound) {
+			return S3Credential{}, credentialError(e)
+		}
 	}
-	var c S3Credential
-	if err = readJSON(p, &c); err != nil || c.AccessKey == "" || c.SecretKey == "" {
-		return c, failure(422, "ARCHIVE_CREDENTIAL_UNAVAILABLE", "独立归档凭据不可用")
+	if epoch != "" {
+		return S3Credential{}, failure(409, "ARCHIVE_CREDENTIAL_RECOVERY_REQUIRED", "恢复后须重新提交独立加密凭据")
 	}
-	return c, nil
+	value, e := s.legacyS3Credential(ref)
+	return value, credentialError(e)
 }
 func (s *Service) s3CredentialRefs() ([]string, error) {
 	refs := map[string]bool{}
+	if s.vault != nil {
+		for _, v := range s.vault.Snapshot(s.ctx).Credentials {
+			if v.State == "active" {
+				refs[v.Ref] = true
+			}
+		}
+	}
 	for ref := range s.cfg.S3Credentials {
 		refs[ref] = true
 	}
@@ -79,46 +97,37 @@ func (s *Service) s3CredentialRefs() ([]string, error) {
 	for ref := range refs {
 		out = append(out, ref)
 	}
+	if s.vault != nil {
+		for _, v := range s.vault.Snapshot(s.ctx).Credentials {
+			if v.State == "revoked" {
+				for i := len(out) - 1; i >= 0; i-- {
+					if out[i] == v.Ref {
+						out = append(out[:i], out[i+1:]...)
+					}
+				}
+			}
+		}
+	}
 	sort.Strings(out)
 	return out, nil
 }
-func (s *Service) SaveS3Credential(ctx context.Context, in SaveS3CredentialInput) (S3CredentialView, error) {
-	var out S3CredentialView
-	if err := s.check(ctx); err != nil {
-		return out, err
+func (s *Service) SaveS3Credential(ctx context.Context, in SaveS3CredentialInput) (CredentialMutation, error) {
+	if e := s.credentialRoot(ctx); e != nil {
+		return CredentialMutation{}, e
 	}
-	if !labelPattern.MatchString(in.Ref) || in.AccessKey == "" || in.SecretKey == "" || len(in.AccessKey) > 256 || len(in.SecretKey) > 1024 || len(in.SessionToken) > 16384 || in.ExpectedRevision < 0 {
-		return out, failure(400, "ARCHIVE_CREDENTIAL_INVALID", "请填写独立归档凭据及版本")
-	}
-	if _, configured := s.cfg.S3Credentials[in.Ref]; configured {
-		return out, failure(409, "ARCHIVE_CREDENTIAL_DEPLOYED", "此凭据由部署配置管理，请创建新的凭据引用")
-	}
-	unlock, err := s.lock(ctx, "settings")
-	if err != nil {
-		return out, ErrBusy
-	}
-	defer unlock()
-	p := filepath.Join(s.cfg.Directory, "secrets", in.Ref+".json")
-	var old S3Credential
-	if _, err = os.Lstat(p); err == nil {
-		if err = readJSON(p, &old); err != nil {
-			return out, err
+	if s.vault != nil {
+		_, _, _, e := s.vault.Get(ctx, in.Ref)
+		if errors.Is(e, vault.ErrNotFound) {
+			epoch, e := s.recoveryEpoch()
+			if e != nil {
+				return CredentialMutation{}, e
+			}
+			if _, legacy := s.legacyS3Credential(in.Ref); legacy == nil && epoch == "" {
+				return CredentialMutation{}, failure(428, "ARCHIVE_CREDENTIAL_ADOPTION_REQUIRED", "旧凭据须先明确接管")
+			}
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return out, err
 	}
-	if old.Revision != in.ExpectedRevision {
-		return out, failure(409, "ARCHIVE_REVISION_CONFLICT", "凭据已被修改，请使用新的引用或刷新版本")
-	}
-	c := S3Credential{Revision: old.Revision + 1, AccessKey: in.AccessKey, SecretKey: in.SecretKey, SessionToken: in.SessionToken}
-	if err = s.auditAction(ctx, "credential_change_intent", in.Ref, c.Revision); err != nil {
-		return out, err
-	}
-	if err = writeJSON(p, c); err != nil {
-		return out, err
-	}
-	s.auditAction(ctx, "credential_saved", in.Ref, c.Revision)
-	return S3CredentialView{Ref: in.Ref, Revision: c.Revision}, nil
+	return s.mutateCredential(ctx, vault.Input{Action: "save", RequestID: in.RequestID, Ref: in.Ref, ExpectedRevision: in.ExpectedRevision, Value: S3Credential{AccessKey: in.AccessKey, SecretKey: in.SecretKey, SessionToken: in.SessionToken}})
 }
 func validS3Target(t Target) bool {
 	u, err := url.Parse(t.Endpoint)
@@ -175,6 +184,9 @@ func (s *Service) saveS3Target(ctx context.Context, t Target) (Target, error) {
 	return t, nil
 }
 func (s *Service) s3Client(t Target) (*minio.Client, error) {
+	if e := s.remoteExecutionAllowed(); e != nil {
+		return nil, e
+	}
 	if !validS3Target(t) {
 		return nil, failure(422, "ARCHIVE_TARGET_INVALID", "归档目标配置无效")
 	}
@@ -185,11 +197,21 @@ func (s *Service) s3Client(t Target) (*minio.Client, error) {
 	return minio.New(t.Endpoint, &minio.Options{AccessKey: c.AccessKey, SecretKey: c.SecretKey, SessionToken: c.SessionToken, Region: t.Region, ForcePathStyle: t.ForcePathStyle, HTTPClient: &http.Client{Timeout: 45 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}})
 }
 func (s *Service) targetFingerprint(t Target) (string, error) {
+	epoch, epochError := s.recoveryEpoch()
+	if epochError != nil {
+		return "", epochError
+	}
+	if epoch != "" && t.Driver != "s3" {
+		return "", failure(409, "ARCHIVE_CREDENTIAL_RECOVERY_REQUIRED", "恢复后的 SSH 凭据尚无受控核对证明")
+	}
 	t.VerificationValid = false
 	t.VerifiedAt = nil
 	t.VerifiedFingerprint = ""
 	t.Executor = ""
 	raw, _ := json.Marshal(t)
+	if epoch != "" {
+		raw = append(raw, []byte("\x00recovery:"+epoch)...)
+	}
 	node, _ := json.Marshal(struct {
 		NodeID       string
 		HostIdentity string
@@ -203,6 +225,14 @@ func (s *Service) targetFingerprint(t Target) (string, error) {
 		}
 		secret, _ := json.Marshal(c)
 		raw = append(raw, secret...)
+		if s.cfg.CredentialVault != nil && s.vault != nil {
+			_, _, identity, e := s.vault.Get(s.ctx, t.CredentialRef)
+			if e == nil {
+				raw = append(raw, []byte(identity)...)
+			} else if !errors.Is(e, vault.ErrNotFound) {
+				return "", credentialError(e)
+			}
+		}
 	} else {
 		credential, ok := s.cfg.Credentials[t.CredentialRef]
 		if !ok {

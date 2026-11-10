@@ -1,0 +1,241 @@
+{
+  "date": "2026-11-10",
+  "status": "source_and_controlled_validation_complete_runtime_restart_pending",
+  "repository": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+  "implementation": {
+    "configuration": "storage.image_derivatives",
+    "defaults": {
+      "max_source_bytes": 67108864,
+      "max_pixels": 80000000,
+      "max_working_bytes": 536870912,
+      "max_parallel_jobs": 1
+    },
+    "budget_semantics": "per-job conservative estimate before full decode, not OS RSS hard limit; total resource use also depends on concurrency and Core business load",
+    "algorithm_and_recipe": "existing area averaging and standard-image-v2 unchanged; reuse valid existing variants; no automatic historical regeneration",
+    "original": "upload/storage/download/checksum remain separate from derivative failures",
+    "taskbus": "existing lease, acceptance, events, retry and 90-second context preserved"
+  },
+  "validation": {
+    "race_regression": {
+      "log": "/tmp/powerx-large-image-regression-final-20261110.jsonl",
+      "sha256": "2ff0796c759dfa1ebc08fc76a8c1a07ee94e3982c51979207aed268b9774a9c9",
+      "packages": {
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media": "pass",
+        "github.com/ArtisanCloud/PowerX/config": "pass",
+        "github.com/ArtisanCloud/PowerX/cmd/media_tool": "pass",
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/media": "pass",
+        "github.com/ArtisanCloud/PowerX/internal/service/media": "pass"
+      },
+      "top_level_passes": 127,
+      "pass_records": 246,
+      "failures": [],
+      "skips": [
+        "TestInstallationSecretsProcessHelper",
+        "TestNativeBackfillCommandDefaultsToReadOnlyDryRun",
+        "TestVariantHTTPTransferPostgres",
+        "TestImageDerivativesConcurrentLegacyVariantPostgres",
+        "TestLargeImageOriginalFixturesThroughTaskBus",
+        "TestPNGChecksumRepairPostgresReadonlyAndLocking",
+        "TestMediaUploadRetryPostgres",
+        "TestUploadedObjectServerFileFixtures/POWERX_MEDIA_TEST_XLSX",
+        "TestUploadedObjectServerFileFixtures/POWERX_MEDIA_TEST_MARKDOWN"
+      ]
+    },
+    "real_source_files_in_isolated_taskbus": {
+      "log": "/tmp/powerx-large-image-fixtures-final-20261110.jsonl",
+      "sha256": "af54733d03df06c24f0612a0c7ba4c0c07cbe4926a1a03d4f7c815ac77a1ce53",
+      "packages": {
+        "github.com/ArtisanCloud/PowerX/internal/service/media": "pass"
+      },
+      "top_level_passes": 1,
+      "pass_records": 3,
+      "failures": [],
+      "skips": [],
+      "fixtures": {
+        "category2.png": {
+          "variants": [
+            {
+              "variant": "preview",
+              "width": 1600,
+              "height": 507,
+              "bytes": 176875,
+              "checksum_verified": true
+            },
+            {
+              "variant": "thumbnail",
+              "width": 320,
+              "height": 101,
+              "bytes": 17681,
+              "checksum_verified": true
+            },
+            {
+              "variant": "thumbnail_64",
+              "width": 64,
+              "height": 20,
+              "bytes": 1939,
+              "checksum_verified": true
+            }
+          ],
+          "original_preserved": true,
+          "taskbus_status": "ready",
+          "elapsed": "392.707917ms"
+        },
+        "shaker_cat1.jpg": {
+          "variants": [
+            {
+              "variant": "preview",
+              "width": 1203,
+              "height": 1600,
+              "bytes": 256506,
+              "checksum_verified": true
+            },
+            {
+              "variant": "thumbnail",
+              "width": 240,
+              "height": 320,
+              "bytes": 18062,
+              "checksum_verified": true
+            },
+            {
+              "variant": "thumbnail_64",
+              "width": 48,
+              "height": 64,
+              "bytes": 1746,
+              "checksum_verified": true
+            }
+          ],
+          "original_preserved": true,
+          "taskbus_status": "ready",
+          "elapsed": "8.16629225s"
+        }
+      }
+    },
+    "vet_and_build": {
+      "vet-final": {
+        "exit_code": 0,
+        "log": "/tmp/powerx-large-image-vet-final-20261110.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "build-final": {
+        "exit_code": 0,
+        "log": "/tmp/powerx-large-image-build-final-20261110.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "source_images": [
+      {
+        "fixture": "/private/var/www/html/ArtisanCloud/X/CraftWorkspace/docs/images/category2.png",
+        "sha256": "5896cc0337d892da1d78f34bc0088d2b58b945188372154624af843567312974",
+        "bytes": 435660,
+        "source_unchanged": true
+      },
+      {
+        "fixture": "/private/var/www/html/ArtisanCloud/X/CraftWorkspace/docs/images/shaker cat1.jpg",
+        "sha256": "df02a99be148adf3d918556a816586ebfe06d49709dcd3258a4f839759bec2d4",
+        "bytes": 10698505,
+        "source_unchanged": true
+      }
+    ]
+  },
+  "artifact": {
+    "path": "/tmp/powerx-large-image-core-20261110",
+    "bytes": 108049858,
+    "sha256": "ec2f65775f86abb1d4ff083ae630288c20ab81165083b6f237e3077055a7a358",
+    "executed_or_deployed": false
+  },
+  "files": [
+    {
+      "path": "backend/config/storage.go",
+      "sha256": "c2af6d233e2e25059c1db8bffc39ec88f3aeeac8b529feec0d8e96bf9596eb56"
+    },
+    {
+      "path": "backend/config/defaults.go",
+      "sha256": "45c4df1b9984ca33114792867546c70fe0f438aed00d82d1228c706e46a1f0c5"
+    },
+    {
+      "path": "backend/config/validator.go",
+      "sha256": "f8de65c3f7f5e6ad759fed6a4c86882e92ede391e80e1b78d45f7be67fa94dac"
+    },
+    {
+      "path": "backend/etc/config_example.yaml",
+      "sha256": "32ad56d5708d4b52d897bbcb37eb4d41f730dec359ba44a12c23d890e71a3d72"
+    },
+    {
+      "path": "backend/etc/config_example.prod.yaml",
+      "sha256": "9a7df8b1528c2f325700187f01c5b39fea33964ea909e3fc4d5cc86532adb47c"
+    },
+    {
+      "path": "backend/internal/service/media/options.go",
+      "sha256": "c4c712f262adf6f714c699b0cebd2565f744f5b555d799271247b0c6c6fff017"
+    },
+    {
+      "path": "backend/internal/service/media/bootstrap.go",
+      "sha256": "90e8aa025e7cf498f17420e840f02d14214fcad4516d0b202968a8b3ee12e26d"
+    },
+    {
+      "path": "backend/internal/service/media/service.go",
+      "sha256": "1b634c7127959e561efefc5bb76934be7de4a61058336db6a589022eb754253d"
+    },
+    {
+      "path": "backend/internal/service/media/image_renderer.go",
+      "sha256": "be8e8d86bce0b322e94e5c8ba8cc13d0be87b36ee21e7408660281e1f0b20f6c"
+    },
+    {
+      "path": "backend/internal/service/media/image_derivative_worker.go",
+      "sha256": "02f8ffadeab48d10dd20dbad1be1ac5e57b7d883b5d3830b598229fabcb8bb7c"
+    },
+    {
+      "path": "backend/internal/service/media/image_source_checksum.go",
+      "sha256": "baaf9cc6953e7884e0a998aa2b690fd878fe651aa2ee018abe0506d1ace82d55"
+    },
+    {
+      "path": "backend/internal/bootstrap/app.go",
+      "sha256": "61c7370ef5c1395807d7a5e240eb30aab6bef74edcf2d4e7c6e2430ed6c84737"
+    },
+    {
+      "path": "backend/cmd/media_tool/derivatives.go",
+      "sha256": "e0f0df113ed4f5131855754744edc2b5ad607a94e5b6fdf8c2b840e329fea855"
+    },
+    {
+      "path": "backend/cmd/png-checksum-repair/main.go",
+      "sha256": "433a986e6708ea162a16e5618f09fdadcda0c6ce062b7d88b35c4e30dbf564b6"
+    },
+    {
+      "path": "backend/cmd/database/seed/seed_native_marketing_agents.go",
+      "sha256": "7c5220b9e0917aab9ec412437335614e13e93181a1cb8287a7f23f9ac1512b1b"
+    },
+    {
+      "path": "docs/contracts/media-image-derivatives.md",
+      "sha256": "498d1cd70e23f18881d952d31ba320c48b822c6a13bb247b3a410b46e2b60f97"
+    },
+    {
+      "path": "backend/internal/service/media/image_processing.go",
+      "sha256": "c1df81f8adb2919deff48067637183ba517731b5acf0967256308336d843d65d"
+    },
+    {
+      "path": "backend/internal/service/media/image_processing_test.go",
+      "sha256": "427993acb05146cb3ce76a17a25a72da7754e838f477f9f6942748b83dbd8e7a"
+    },
+    {
+      "path": "backend/config/image_derivatives_test.go",
+      "sha256": "8aa6313c59e5f6afd2a5e4db9b92062d1667f6399c18df599f954f7cc5326425"
+    }
+  ],
+  "review": {
+    "before_snapshot": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-large-image-before-_khd10zx",
+    "scoped_patch": "/tmp/powerx-large-image-fix-20261110.patch",
+    "initial_example_yaml_indentation_error": "fixed; final full config race suite passes; JWT check also passes"
+  },
+  "boundaries": {
+    "daily_database_modified": false,
+    "remote_modified": false,
+    "core_or_plugin_restarted": false,
+    "source_images_modified": false,
+    "new_dependencies": false,
+    "framework_or_plugin_code_modified": false,
+    "database_migration_required": false,
+    "agent_persistent_services_started": false,
+    "test_resources": "go test processes exited; embedded miniredis uses RunT cleanup; SQLite and object directories use t.TempDir cleanup"
+  },
+  "next": "User rebuild/restart the existing Core with its original command (make dev rebuilds source if that is the existing launch mode). Upload category2.png then shaker cat1.jpg and verify preview readiness/download. Previously failed assets require explicit retry_failed=true/approved existing retry UI; no GET/startup backfill."
+}

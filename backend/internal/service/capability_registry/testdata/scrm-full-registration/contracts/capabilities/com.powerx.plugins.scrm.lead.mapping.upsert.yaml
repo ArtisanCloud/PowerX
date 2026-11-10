@@ -1,0 +1,17 @@
+id: com.powerx.plugins.scrm.lead.mapping.upsert
+type: API
+version: 1.0.0
+description: "通过 PowerX Gateway 创建或更新 SCRM 私域线索与外部销售线索的 UUID 映射关系。"
+rbac:
+  resource: scrm.leads
+  actions: [write]
+metadata:
+  bridge:
+    scope: lead_mapping
+    reference_policy: uuid_only
+    source_plugins: [com.powerx.plugins.crm]
+    transport: powerx_gateway
+  protocols:
+    capability:
+      action: upsert
+      subject: scrm.lead.mapping

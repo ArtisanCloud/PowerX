@@ -52,14 +52,34 @@ const activeNode = computed(
 
 const memberService = useMemberService();
 const members = ref<{ label: string; value: number }[]>([]);
+const noLeaderValue = "__none__";
+const loadingMembers = ref(false);
+const membersError = ref(false);
+let membersRequest = 0;
 
 const loadMembers = async () => {
-  const list = await memberService.listAll(); // 你实际的 API
-  members.value = list.map((m: any) => ({ label: m.name, value: m.id }));
+  const request = ++membersRequest;
+  loadingMembers.value = true;
+  membersError.value = false;
+  try {
+    const list = await memberService.listAll({ status: 1 });
+    if (request !== membersRequest) return;
+    members.value = list.map(member => ({ label: member.name, value: member.id }));
+  } catch {
+    if (request !== membersRequest) return;
+    members.value = [];
+    membersError.value = true;
+  } finally {
+    if (request === membersRequest) loadingMembers.value = false;
+  }
 };
-onMounted(() => {
-  ensureTenantAndTree().catch(() => {});
-  loadMembers().catch(() => {});
+onMounted(async () => {
+  await ensureTenantAndTree().catch(() => {});
+  await loadMembers();
+});
+watch(() => userStore.currentTenantUuid, () => {
+  members.value = [];
+  loadMembers();
 });
 
 const searchQuery = ref("");
@@ -121,12 +141,15 @@ const resetForm = () => {
 };
 
 const openAddForm = () => {
+  reset();
   resetForm();
   clearErrors();
   showForm.value = true;
+  loadMembers();
 };
 
 const openEditForm = (dept: Department & any) => {
+  reset();
   // 这里的 dept 建议从 flat 里取全量（你 trailing 里已传 parent_id）
   const full = flat.value.find((d) => d.id === dept.id) || dept;
   departmentForm.name = full.name ?? "";
@@ -143,6 +166,7 @@ const openEditForm = (dept: Department & any) => {
   originalEditing.value = JSON.parse(JSON.stringify(full));
   clearErrors();
   showForm.value = true;
+  loadMembers();
 };
 
 const closeFormModal = () => {
@@ -410,7 +434,7 @@ const columns = computed(() => {
       cell: ({ row }: any) => {
         const d: any = row.original;
         const leaderName =
-          d.leader_name || d.leader?.name || d.leader_member_id || "-";
+          d.leader_name || d.leader?.name || members.value.find(member => member.value === d.leader_member_id)?.label || "-";
         return h("span", String(leaderName));
       },
     },
@@ -954,24 +978,28 @@ function buildUpdatePayload(): DepartmentUpdateParams {
                 $t('organization.department.form.leader') || '部门负责人'
               "
             >
-              <USelect
-                :model-value="departmentForm.leader_member_id"
-                :items="[
-                  {
-                    label: $t('organization.common.none') || '无',
-                    value: null,
-                  },
-                  ...members,
-                ]"
-                option-attribute="label"
-                value-attribute="value"
+              <USelectMenu
+                :model-value="departmentForm.leader_member_id ?? noLeaderValue"
+                data-testid="department-leader"
+                :items="[{ label: $t('organization.common.none'), value: noLeaderValue }, ...members]"
+                value-key="value"
+                label-key="label"
+                :portal="false"
+                :ui="{ content: 'z-[120]' }"
+                :loading="loadingMembers"
+                :disabled="loadingMembers || membersError"
+                :search-input="{ placeholder: $t('organization.department.form.searchLeader') }"
                 class="w-full"
                 @update:model-value="
                   (v) =>
                     (departmentForm.leader_member_id =
-                      v === '' ? null : v === null ? null : Number(v))
+                      v === noLeaderValue || v == null ? null : Number(v))
                 "
               />
+              <div v-if="membersError" role="alert" class="mt-2 flex items-center gap-2 text-sm text-error">
+                <span>{{ $t('organization.department.form.leadersLoadFailed') }}</span>
+                <UButton type="button" variant="link" size="xs" @click="loadMembers">{{ $t('common.retry') }}</UButton>
+              </div>
             </UFormField>
 
             <UFormField

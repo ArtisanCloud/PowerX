@@ -15,6 +15,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -94,6 +95,9 @@ type catalogPluginPermissionDeclaration struct {
 	Type                   string                             `json:"type" yaml:"type"`
 	PermissionCode         string                             `json:"permission_code" yaml:"permission_code"`
 	Module                 string                             `json:"module,omitempty" yaml:"module"`
+	Resource               string                             `json:"resource,omitempty" yaml:"resource"`
+	Action                 string                             `json:"action,omitempty" yaml:"action"`
+	APIKey                 *pluginMgr.APIKeyPermissionSpec    `json:"api_key,omitempty" yaml:"api_key"`
 	TitleI18n              map[string]string                  `json:"title_i18n" yaml:"title_i18n"`
 	DescriptionI18n        map[string]string                  `json:"description_i18n" yaml:"description_i18n"`
 	RiskLevel              string                             `json:"risk_level" yaml:"risk_level"`
@@ -263,6 +267,7 @@ func buildSyncCapabilities(catalog capabilityCatalogSnapshot, exposurePermission
 		}
 		out = append(out, map[string]interface{}{
 			"id":           id,
+			"version":      strings.TrimSpace(entry.Version),
 			"title":        firstNonEmpty(strings.TrimSpace(entry.Title), strings.TrimSpace(descriptor.Title), firstCatalogLocaleValue(titleI18n), id),
 			"description":  firstNonEmpty(strings.TrimSpace(entry.Description), strings.TrimSpace(descriptor.Description), firstCatalogLocaleValue(descriptionI18n)),
 			"categories":   entry.Tags,
@@ -355,6 +360,8 @@ func normalizeCatalogPluginPermissions(in []catalogPluginPermissionDeclaration) 
 		permission.Type = strings.TrimSpace(permission.Type)
 		permission.PermissionCode = strings.TrimSpace(permission.PermissionCode)
 		permission.Module = strings.TrimSpace(permission.Module)
+		permission.Resource = strings.TrimSpace(permission.Resource)
+		permission.Action = strings.TrimSpace(permission.Action)
 		permission.TitleI18n = cleanCatalogLocaleMap(permission.TitleI18n)
 		permission.DescriptionI18n = cleanCatalogLocaleMap(permission.DescriptionI18n)
 		permission.RiskLevel = strings.TrimSpace(permission.RiskLevel)

@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	ops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
+	"github.com/jackc/pgx/v5"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -16,13 +19,23 @@ import (
 )
 
 func TestStorageMigrationScopeRejectsOtherCommandsAndEnvironments(t *testing.T) {
+	require.NoError(t, validateMigrationScope("migrate", "backup-cleanup-retention"))
+	require.NoError(t, validateMigrationScope("migrate", "backup-cleanup-resolution"))
 	require.NoError(t, validateMigrationScope("migrate", "storage-governance"))
 	require.NoError(t, validateMigrationScope("migrate", "capability-retention"))
+	require.NoError(t, validateMigrationScope("migrate", "system-table-retention"))
+	require.Error(t, validateMigrationScope("seed", "system-table-retention"))
+	require.NoError(t, validateMigrationScope("migrate", "task-history-idempotency"))
+	require.NoError(t, validateMigrationScope("migrate", "event-fabric-service-identity"))
+	require.NoError(t, validateMigrationScope("migrate", "scheduler-task-dispatch"))
+	require.Error(t, validateMigrationScope("seed", "scheduler-task-dispatch"))
+	require.Error(t, validateMigrationScope("seed", "event-fabric-service-identity"))
+	require.Error(t, validateMigrationScope("seed", "task-history-idempotency"))
 	require.Error(t, validateMigrationScope("seed", "capability-retention"))
 	require.Error(t, validateMigrationScope("seed", "storage-governance"))
 	require.Error(t, validateMigrationScope("migrate", "everything"))
 	for _, env := range []string{"prod", "staging", ""} {
-		for _, scope := range []string{"storage-governance", "capability-retention"} {
+		for _, scope := range []string{"backup-cleanup-resolution", "backup-cleanup-retention", "storage-governance", "capability-retention", "system-table-retention", "task-history-idempotency", "event-fabric-service-identity", "scheduler-task-dispatch"} {
 			err := MigrateDatabaseScope(context.Background(), nil, &config.Config{Deployment: config.DeploymentConfig{Env: env}}, scope)
 			require.Error(t, err)
 		}
@@ -127,8 +140,94 @@ func TestStorageMigrationScopeNativeCreatesOnlyGovernanceTables(t *testing.T) {
 	}
 	var tables []string
 	require.NoError(t, db.Raw("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname=? ORDER BY tablename", schema).Scan(&tables).Error)
-	require.Equal(t, []string{"business_sentinel", "ops_storage_cleanup_runs", "ops_storage_policies", "ops_storage_policy_revisions", "ops_storage_samples"}, tables)
+	require.Equal(t, []string{"business_sentinel", "ops_storage_cleanup_runs", "ops_storage_control_configurations", "ops_storage_control_revisions", "ops_storage_policies", "ops_storage_policy_revisions", "ops_storage_samples"}, tables)
 	var value string
 	require.NoError(t, db.Raw("SELECT value FROM "+schema+".business_sentinel WHERE id=1").Scan(&value).Error)
 	require.Equal(t, "preserved", value)
+}
+
+func TestBackupRetentionScopeNativeOnlyOwnTableAndPreservesReceipt(t *testing.T) {
+	dsn := os.Getenv("POWERX_STORAGE_CONTROL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("owned temporary PostgreSQL only")
+	}
+	parsed, e := pgx.ParseConfig(dsn)
+	require.NoError(t, e)
+	require.True(t, strings.HasPrefix(parsed.Host, "/tmp/powerx-control-owned-"))
+	require.Equal(t, "storage_control_test", parsed.User)
+	db, e := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, e)
+	pool, e := db.DB()
+	require.NoError(t, e)
+	defer pool.Close()
+	previous := coremodel.PowerXSchema
+	schema := "backup_retention_scope_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	coremodel.PowerXSchema = schema
+	defer func() { db.Exec("DROP SCHEMA " + schema + " CASCADE"); coremodel.PowerXSchema = previous }()
+	require.NoError(t, db.Exec("CREATE SCHEMA "+schema).Error)
+	cfg := &config.Config{Deployment: config.DeploymentConfig{Env: "test"}}
+	require.NoError(t, MigrateDatabaseScope(context.Background(), db, cfg, "backup-cleanup-retention"))
+	require.False(t, db.Migrator().HasTable(&ops.BackupPolicy{}))
+	require.False(t, db.Migrator().HasTable(&ops.BackupJob{}))
+	now := time.Now().UTC()
+	row := ops.BackupCleanupRetention{RequestID: uuid.New(), ArtifactID: 1, CleanupToken: uuid.NewString(), ActorID: 1, InputDigest: strings.Repeat("a", 64), ReviewVersion: strings.Repeat("b", 64), ScopeFingerprint: strings.Repeat("c", 64), Reason: "owned scope migration", State: "rejected", CompletedAt: &now}
+	require.NoError(t, db.Create(&row).Error)
+	require.NoError(t, MigrateDatabaseScope(context.Background(), db, cfg, "backup-cleanup-retention"))
+	var found ops.BackupCleanupRetention
+	require.NoError(t, db.Where("request_id = ?", row.RequestID).First(&found).Error)
+	require.Equal(t, row.Reason, found.Reason)
+	require.Equal(t, "rejected", found.State)
+	var count int64
+	require.NoError(t, db.Raw("SELECT count(*) FROM information_schema.tables WHERE table_schema = ?", schema).Scan(&count).Error)
+	require.Equal(t, int64(1), count)
+	require.NoError(t, db.Exec("DROP INDEX "+schema+".uk_backup_retain_request").Error)
+	require.NoError(t, db.Exec("CREATE INDEX uk_backup_retain_request ON "+ops.BackupCleanupRetention{}.TableName()+"(request_id)").Error)
+	require.Error(t, MigrateDatabaseScope(context.Background(), db, cfg, "backup-cleanup-retention"))
+	found = ops.BackupCleanupRetention{}
+	require.NoError(t, db.Where("request_id = ?", row.RequestID).First(&found).Error)
+	require.Equal(t, row.Reason, found.Reason)
+
+}
+
+func TestCleanupResolutionScopeNativeOnlyOwnTableAndPreservesReceipt(t *testing.T) {
+	dsn := os.Getenv("POWERX_STORAGE_CONTROL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("owned temporary PostgreSQL only")
+	}
+	parsed, e := pgx.ParseConfig(dsn)
+	require.NoError(t, e)
+	require.True(t, strings.HasPrefix(parsed.Host, "/tmp/powerx-control-owned-"))
+	require.Equal(t, "storage_control_test", parsed.User)
+	db, e := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, e)
+	pool, e := db.DB()
+	require.NoError(t, e)
+	defer pool.Close()
+	previous := coremodel.PowerXSchema
+	schema := "cleanup_resolution_scope_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	coremodel.PowerXSchema = schema
+	defer func() { db.Exec("DROP SCHEMA " + schema + " CASCADE"); coremodel.PowerXSchema = previous }()
+	require.NoError(t, db.Exec("CREATE SCHEMA "+schema).Error)
+	cfg := &config.Config{Deployment: config.DeploymentConfig{Env: "test"}}
+	require.NoError(t, MigrateDatabaseScope(context.Background(), db, cfg, "backup-cleanup-resolution"))
+	require.False(t, db.Migrator().HasTable(&ops.BackupPolicy{}))
+	require.False(t, db.Migrator().HasTable(&ops.BackupJob{}))
+	now := time.Now().UTC()
+	row := ops.BackupCleanupResolution{RequestID: uuid.New(), ArtifactID: 1, CleanupToken: uuid.NewString(), ActorID: 1, InputDigest: strings.Repeat("a", 64), ReviewVersion: strings.Repeat("b", 64), ScopeFingerprint: strings.Repeat("c", 64), Reason: "owned scope migration", State: "rejected", CompletedAt: &now}
+	require.NoError(t, db.Create(&row).Error)
+	require.NoError(t, MigrateDatabaseScope(context.Background(), db, cfg, "backup-cleanup-resolution"))
+	var found ops.BackupCleanupResolution
+	require.NoError(t, db.Where("request_id = ?", row.RequestID).First(&found).Error)
+	require.Equal(t, row.Reason, found.Reason)
+	require.Equal(t, "rejected", found.State)
+	var count int64
+	require.NoError(t, db.Raw("SELECT count(*) FROM information_schema.tables WHERE table_schema = ?", schema).Scan(&count).Error)
+	require.Equal(t, int64(1), count)
+	require.NoError(t, db.Exec("DROP INDEX "+schema+".uk_backup_resolution_request").Error)
+	require.NoError(t, db.Exec("CREATE INDEX uk_backup_resolution_request ON "+ops.BackupCleanupResolution{}.TableName()+"(request_id)").Error)
+	require.Error(t, MigrateDatabaseScope(context.Background(), db, cfg, "backup-cleanup-resolution"))
+	found = ops.BackupCleanupResolution{}
+	require.NoError(t, db.Where("request_id = ?", row.RequestID).First(&found).Error)
+	require.Equal(t, row.Reason, found.Reason)
+
 }

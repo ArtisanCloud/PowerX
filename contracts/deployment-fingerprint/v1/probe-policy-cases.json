@@ -1,0 +1,53 @@
+{
+  "scope": "MK-FP-04 acceptance inputs; real DNS/dialer/egress enforcement remains a later implementation task",
+  "cases": [
+    {
+      "input": "http://public.example/",
+      "identification": "allowed",
+      "instance_verification": "https_required"
+    },
+    {
+      "input": "https://public.example/",
+      "identification": "allowed",
+      "instance_verification": "allowed"
+    },
+    {
+      "resolved_addresses": [
+        "93.184.216.34",
+        "127.0.0.1"
+      ],
+      "result": "blocked",
+      "reason": "mixed_public_and_private_results"
+    },
+    {
+      "resolved_addresses": [
+        "::ffff:127.0.0.1"
+      ],
+      "result": "blocked",
+      "reason": "mapped_loopback"
+    },
+    {
+      "redirect": "https://other.example/",
+      "result": "blocked",
+      "reason": "first_version_no_redirects"
+    },
+    {
+      "decompressed_response_bytes": 524289,
+      "resource": "html",
+      "result": "budget_exceeded"
+    },
+    {
+      "elapsed_ms": 15001,
+      "result": "budget_exceeded"
+    },
+    {
+      "asset_count": 5,
+      "result": "budget_exceeded"
+    },
+    {
+      "target_asset": "https://outside.example/app.js",
+      "result": "blocked",
+      "reason": "cross_origin_asset"
+    }
+  ]
+}

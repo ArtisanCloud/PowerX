@@ -1,0 +1,166 @@
+{
+  "checks": [
+    "light 1440 startup review and confirmation navigation preserves draft and approval",
+    "light 390 startup review and confirmation navigation preserves draft and approval",
+    "dark 1440 startup review and confirmation navigation preserves draft and approval",
+    "dark 390 startup review and confirmation navigation preserves draft and approval",
+    "Truncated success response, bad/historical receipts and reload preserve the original immutable request",
+    "One explicit confirmation, original GET recovery, no idle polling; command and task unchanged, original capture still interrupted"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794296151156
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794296151157
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794296151157
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794296151186
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794296151187
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/commands/a711d975-7274-43e3-99fe-8b344fd78d57/review",
+      "method": "GET",
+      "at": 1794296151734
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/commands/a711d975-7274-43e3-99fe-8b344fd78d57/confirmations",
+      "method": "POST",
+      "at": 1794296153635,
+      "request_id": "2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e"
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794296153651
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794296153651
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/command-confirmation-requests/2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e",
+      "method": "GET",
+      "at": 1794296153761
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/command-confirmation-requests/2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e",
+      "method": "GET",
+      "at": 1794296153796
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/command-confirmation-requests/2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e",
+      "method": "GET",
+      "at": 1794296153831
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/command-confirmation-requests/2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e",
+      "method": "GET",
+      "at": 1794296153866
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794296154984
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794296154984
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794296154984
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794296154998
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794296154998
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794296155536
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794296155545
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794296155545
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/command-confirmation-requests/2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e",
+      "method": "GET",
+      "at": 1794296158258
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794296158271
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794296158271
+    }
+  ],
+  "errors": [],
+  "application_submits": [
+    "2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e"
+  ],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    }
+  ],
+  "result": "passed",
+  "job_id": "a711d975-7274-43e3-99fe-8b344fd78d57",
+  "request_id": "2b4b1985-7717-4c4e-b7bd-cfcfc3cf409e"
+}

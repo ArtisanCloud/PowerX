@@ -1,0 +1,157 @@
+{
+  "schema": "powerx.validation/scrm-full-catalog-adapters/v1",
+  "validated_at": "2026-11-02T20:29:36.190177+08:00",
+  "scope": "Core source and controlled registration tests only; no running environment changes",
+  "reproduction": {
+    "before_expected_exit_code": 1,
+    "log": "/tmp/powerx-scrm-adapter-before.log",
+    "log_sha256": "70eeac6a01b55c2801f853970aaefe56ecfd75370ad553096af49e9d8804c18b",
+    "duplicate_adapter_ids": [
+      "com.powerx.plugins.scrm.leads.read.GET",
+      "com.powerx.plugins.scrm.leads.write.POST",
+      "com.powerx.plugins.scrm.runtime_ops.invoke.POST",
+      "com.powerx.plugins.scrm.social_channel_accounts.read.GET",
+      "com.powerx.plugins.scrm.social_channel_accounts.write.POST"
+    ]
+  },
+  "fix": {
+    "auto_rest_http_identity": "capability_id + . + upper(method) + . + sha256(lower(channel) + NUL + upper(trim(method)) + NUL + normalized_catalog_endpoint)",
+    "explicit_toolref_rpc": "existing identity precedence preserved",
+    "duplicate_binding": "still rejected; no deduplication or index/random suffix",
+    "protocol_mapping": "sort channel names; preserve arrays within each channel",
+    "authorization": "no changes to ticket, method/path/schema, grant or plugin owner checks"
+  },
+  "complete_catalog": {
+    "plugin_id": "com.powerx.plugins.scrm",
+    "source_manifest_version": "0.1.0",
+    "sources": [
+      "portable original-file fixture",
+      "adjacent actual SCRM checkout"
+    ],
+    "capabilities_per_source": 27,
+    "adapters_per_source_per_registration": 139,
+    "syncs_per_source": 2,
+    "entrypoints": [
+      "FSLoader.LoadDescriptor",
+      "syncPluginManifestPermissions",
+      "SyncWorker.ProcessArtifact"
+    ],
+    "assertions": [
+      "all capabilities and all expected adapters registered",
+      "no failed sync jobs",
+      "adapter IDs unique and stable",
+      "capabilities_hash and protocol_hash stable",
+      "five messaging contracts retain core_service_ticket/service_actor/tenant and 1.0.0",
+      "five independent explicit API Key permissions retain SCRM owner"
+    ],
+    "fixture": "backend/internal/service/capability_registry/testdata/scrm-full-registration",
+    "original_files": 74,
+    "original_bytes": 519019,
+    "source_sha256_manifest": "backend/internal/service/capability_registry/testdata/scrm-full-registration/source-sha256.json",
+    "source_sha256_manifest_digest": "c15ea5b0c10d7242afd7385179d43d54868ec524e21859c1398704c3dc1ac9d2",
+    "all_originals_match_adjacent_source": true,
+    "database": "test-owned in-memory SQLite only",
+    "runtime": "non-executable temporary placeholders; no plugin or migration execution"
+  },
+  "checks": [
+    {
+      "name": "identity_and_duplicate_regressions",
+      "command": "go test ./internal/service/capability_registry -run \"TestRESTRegistrationAdapter|TestRegistrationAdapterID|TestDuplicateRESTBinding|TestProtocolMapOrder\" -count=1",
+      "cwd": "backend",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-unit.log",
+      "log_sha256": "4c0b21ec8042ac7f3e125d7bdf4718a4d40aa2345a03403d9c8e54c0011c9ac9"
+    },
+    {
+      "name": "complete_scrm_registration",
+      "command": "go test ./internal/bootstrap -run \"^TestSCRMCompleteManifestRegistersAndResyncsAllCapabilities$\" -count=1 -v",
+      "cwd": "backend",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-full-manifest.log",
+      "log_sha256": "9f5f6971dcd49dd8e6594b8c8b66c39b1b80b4c8033577fa8b5a3cc1043136cc"
+    },
+    {
+      "name": "affected_regression_packages",
+      "command": "go test ./internal/service/capability_registry ./internal/service/capability_registry/registry ./internal/service/capability_registry/router ./internal/bootstrap ./internal/service/plugin_identity ./internal/transport/http/openapi/capability_registry ./internal/infra/plugin/manager ./internal/infra/plugin/manager/router",
+      "cwd": "backend",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-regression.log",
+      "log_sha256": "d121502cce812479b14d6e59c81bca66939b97227df784f6c3a025c3711e2a6d"
+    },
+    {
+      "name": "grant_and_owner_regressions",
+      "command": "go test ./internal/service/integration_gateway/apikeypermissions ./internal/transport/http/openapi/iam ./pkg/corex/iam/pluginpermission",
+      "cwd": "backend",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-grant-regression.log",
+      "log_sha256": "144fabedabbd9489657e4113d918614d04d9478789045c41edaa40e332c68161"
+    },
+    {
+      "name": "vet",
+      "command": "go vet ./internal/service/capability_registry ./internal/service/capability_registry/registry ./internal/bootstrap ./internal/service/plugin_identity ./internal/transport/http/openapi/capability_registry ./internal/infra/plugin/manager ./internal/infra/plugin/manager/router",
+      "cwd": "backend",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-vet.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "final_bootstrap_vet",
+      "command": "go vet ./internal/bootstrap",
+      "cwd": "backend",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-bootstrap-vet.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "core_compile",
+      "command": "go build -o /tmp/powerx-scrm-adapter-core ./cmd/app",
+      "cwd": "backend",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-build.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "capability_governance",
+      "command": "make capability-check",
+      "cwd": "repository root",
+      "exit_code": 0,
+      "log": "/tmp/powerx-scrm-adapter-capability-check.log",
+      "log_sha256": "a3055cb173dfb6b49a4870545afe303ad2a4faf4621c2e5adbe97ea7e9aa0341"
+    }
+  ],
+  "additional_checks": [
+    {
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check -- <task files>",
+      "exit_code": 0
+    }
+  ],
+  "built_artifact": {
+    "path": "/tmp/powerx-scrm-adapter-core",
+    "sha256": "59db051d7fda19959079f6d4ee3d05922f632a153d251bdc2b3793b946eae3db",
+    "executed": false
+  },
+  "source_sha256": {
+    "backend/internal/service/capability_registry/sync_worker.go": "e379c1e0d665b019f3aeaec84202737ac29bb3a57b2aa820d0f556671dba70dd",
+    "backend/internal/service/capability_registry/registration_adapter_identity_test.go": "ca498b0cf91384c2cfd866256677e98fc3d513d6bc9db8238219f3f8a26c97c9",
+    "backend/internal/bootstrap/scrm_full_registration_test.go": "700615846d67a0b32590b72dc44d085d1eba1bb9bd8aa29c50b8de78bbfbe0f3",
+    "docs/contracts/plugin-service-authorization.md": "5821c59d3d9c21d94291312b2c5852807b4869a542b925acd2e4c2ef30326c98"
+  },
+  "runtime_boundary": {
+    "user_core_port": 8077,
+    "observed_pid": 93664,
+    "restarted": false,
+    "installed": false,
+    "seeded": false,
+    "migrated": false,
+    "live_grants_changed": false,
+    "user_database_written": false,
+    "agent_services_left_running": false,
+    "actual_messaging_not_exercised": true,
+    "activation": "only a subsequent normal sync using the rebuilt Core generates new adapter IDs; existing runtime remains unchanged",
+    "compatibility": "new generated REST IDs and deterministic channel order may change the next registration; historical registrations are not rewritten manually"
+  }
+}

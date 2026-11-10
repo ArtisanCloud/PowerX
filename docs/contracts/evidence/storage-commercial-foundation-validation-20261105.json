@@ -1,0 +1,154 @@
+{
+  "validated_at": "2026-11-05T10:13:53.716445+00:00",
+  "scope": "SG-11 first implementation slice: T168 and internal T167/T169 foundation",
+  "commercial_complete": false,
+  "production_verified": false,
+  "daily_backend_restarted": false,
+  "daily_database_migrated": false,
+  "storage_policy_writes_to_daily_or_production": false,
+  "completed_tasks": [
+    "T168"
+  ],
+  "partial_tasks": {
+    "T166": "internal contract and model documented; per-resource write inventory and API freeze remain",
+    "T167": "atomic configuration/revision/TaskBus registration foundation; current plan uniqueness and domain adoption remain",
+    "T169": "formal TaskBus recovery, ordering, confirmation foundation; atomic execution snapshots, ownership, emergency stop and offline qualification remain"
+  },
+  "tests": {
+    "http_root": {
+      "kind": "real registered Gin routes and signed JWT with owned SQLite",
+      "routes": 87,
+      "denied_identities": 8,
+      "denied_checks": 696,
+      "root_new_and_legacy_reads": "passed",
+      "log": "tmp/storage-commercial-20261105/root-contract.log"
+    },
+    "grpc_root": {
+      "kind": "five actual handler method boundaries after shared authentication",
+      "network_or_jwt_interceptor_acceptance": false,
+      "root_reaches_request_validation": true,
+      "denied_identities": [
+        "anonymous",
+        "ordinary user",
+        "tenant operator",
+        "API Key",
+        "service actor",
+        "plugin",
+        "refresh token",
+        "Root without user",
+        "STS"
+      ]
+    },
+    "control": {
+      "kind": "owned temporary PostgreSQL and SQLite; Redis stream transport emulated by miniredis",
+      "race": "passed",
+      "tests": 11,
+      "native_postgres_tests": 4,
+      "cas_concurrent_updates": 12,
+      "cas_winners": 1,
+      "identical_concurrent_requests": 8,
+      "identical_result_records": 1,
+      "covered": [
+        "central migration repeated",
+        "transaction rollback on task registration failure",
+        "atomic CAS and idempotency",
+        "original receipt separate from latest configuration",
+        "JSONB stable digest",
+        "scope/secret boundaries",
+        "superseded task cannot publish",
+        "publisher failure cannot confirm",
+        "TaskBus recovery and durable confirmation",
+        "worker cancellation and sealed bindings"
+      ],
+      "log": "tmp/storage-commercial-20261105/control-race.log"
+    },
+    "affected_go": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-20261105/affected-go.log"
+    },
+    "go_vet": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-20261105/affected-vet.log"
+    },
+    "root_race": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-20261105/root-race.log"
+    },
+    "frontend_unit": {
+      "files": 24,
+      "passed": 175,
+      "log": "tmp/storage-commercial-20261105/affected-ui.log"
+    },
+    "frontend_live": {
+      "kind": "real local Root login and read-only APIs against existing user processes",
+      "backend_contains_new_root_gate": false,
+      "viewports": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "checks": [
+        "real Root login and backup workspace",
+        "light 1440 navigation and primary action",
+        "light 390 navigation and primary action",
+        "dark 1440 navigation and primary action",
+        "dark 390 navigation and primary action"
+      ],
+      "browser_errors": [],
+      "idle_observation_seconds": 2,
+      "idle_requests": [],
+      "backup_writes": [],
+      "artifacts": "tmp/storage-commercial-20261105/ui-result.json",
+      "screenshots": [
+        "tmp/storage-commercial-20261105/root-dark-1440.png",
+        "tmp/storage-commercial-20261105/root-dark-390.png",
+        "tmp/storage-commercial-20261105/root-light-1440.png",
+        "tmp/storage-commercial-20261105/root-light-390.png"
+      ]
+    },
+    "documents": {
+      "backup_openapi": "parsed",
+      "four_locales": "parsed",
+      "scoped_diff_whitespace": "passed"
+    }
+  },
+  "not_yet_integrated": [
+    "domain adapters and unique writes",
+    "backup/snapshot atomic update/current plan rules",
+    "atomic approved execution snapshot",
+    "emergency disable fencing and offline expiry",
+    "encrypted key storage and rotation",
+    "legacy inventory/import/ownership cutover and restore",
+    "UI desired/applied version workflow",
+    "audit/receipt retention rules",
+    "SG-09 remote retrieval and 7/14 day acceptance"
+  ],
+  "cleanup": {
+    "owned_postgres_stopped": true,
+    "owned_postgres_port_released": true,
+    "owned_postgres_temp_directory_removed": true,
+    "owned_browser_children_alive": [],
+    "user_processes": {
+      "34360": {
+        "alive": true,
+        "same_runtime": true
+      },
+      "35804": {
+        "alive": true,
+        "same_runtime": true
+      }
+    }
+  },
+  "sources_sha256": {
+    "backend/pkg/auth/root_user.go": "74874c90decd25a90b631e54abbd04200e0ce24a3bce0f8b7fd12af990aab257",
+    "backend/internal/transport/http/admin/backup/authorization.go": "aac9d06071b3f05f12444d7749e414df246b03dbc728d0da3d4208eaa66864b7",
+    "backend/internal/transport/grpc/ops/backup_handler.go": "e440a7e5885bd2df7f9ccab6c0e65611747cc741ce71cdde0f8619ea7ead800d",
+    "backend/pkg/corex/db/persistence/model/storage_governance/control_gorm.go": "ea6d0f14b2ca4825313a090e5e12b4aecd247677db14d1c2a7a9f5b59e9ed33a",
+    "backend/pkg/corex/db/persistence/repository/storage_governance/control_repo.go": "95851207db9aade432aa2abf023ffa842af49aa6d6ec4ac4396680405ec8743f",
+    "backend/internal/service/storage_governance/control_service.go": "a7a43bfec79def219b4e65e60002afbfa1ee896f26f856945a167ace7635a9a1",
+    "web-admin/app/pages/ops/backup.vue": "617f56e0a40bfd63e306b74825f3781f837cf0da1c15f2c4e7e1af772441c3e4"
+  }
+}

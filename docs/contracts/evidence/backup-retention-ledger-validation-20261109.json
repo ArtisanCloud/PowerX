@@ -1,0 +1,296 @@
+{
+  "date": "2026-11-09",
+  "task": "T171 independent backup-retention request recovery ledger",
+  "status": "source_and_isolated_acceptance_passed",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "scope": {
+    "agent_migrated_daily_database": false,
+    "agent_restarted_daily_services": false,
+    "agent_mutated_daily_policies": false,
+    "production_mutated": false,
+    "user_archive_objects_mutated": false,
+    "new_database_tables_or_columns": false,
+    "new_capabilities_or_grants": false,
+    "maintenance_protocol": "powerx.storage-recovery/v4",
+    "ordinary_capacity_admission_depends_on_ledger": false
+  },
+  "contract": {
+    "file": "existing maintenance root/storage-retention-ledger.json",
+    "before_sql": "durable UUID, Actor, scope, input identity, review version and generation reservation",
+    "after_sql": "persist confirmed terminal history before reporting completion; unknown across the SQL/file gap",
+    "max_records": 4096,
+    "max_bytes": 16777216,
+    "retention": "no automatic UUID deletion; full ledger refuses new registrations with HTTP 507",
+    "private_storage": "owner-only regular file, no symlink/hardlink, fixed ledger identity, checksum and atomic fsync/rename",
+    "not_an_offsite_backup": true,
+    "no_new_mac_or_s3_target": true,
+    "replay": "historical read only; never repairs SQL or re-protects",
+    "new_public_fields": [
+      "record_source: database|maintenance",
+      "recovery_blocked: boolean"
+    ],
+    "recovery_blocked_is_not_task_drain_proof": true
+  },
+  "validation": {
+    "frontend": {
+      "files": 17,
+      "tests": 135,
+      "result": "passed"
+    },
+    "backend": {
+      "race_packages": [
+        "storage_recovery",
+        "backup_ops",
+        "system_recovery",
+        "storage_governance",
+        "HTTP backup",
+        "cmd/database"
+      ],
+      "result": "passed",
+      "late_guard_changes": "critical-unit-final.log, final-guard-unit.log and native-final-guard.log replay current reservation/epoch/unbound-anchor guards",
+      "vet_packages": 6,
+      "vet_result": "passed"
+    },
+    "file_ledger": {
+      "result": "passed",
+      "cases": [
+        "immutable identity and terminal CAS",
+        "same UUID different input conflicts",
+        "concurrent reservation preserves one identity",
+        "generation transition preserves history",
+        "missing epoch permits historical reads but no writes",
+        "missing/corrupt/foreign/permission/symlink/hardlink failures",
+        "4096-record capacity preserves existing reads",
+        "genuine v1/v2/v3 upgrade and mixed-version crash reentry preserve identity",
+        "recorded v4 missing ledger cannot be reconstructed",
+        "managed restore checks ledger before SQL overwrite"
+      ]
+    },
+    "native_postgresql": {
+      "result": "passed",
+      "version": "14",
+      "owned_unix_socket_cluster": true,
+      "taskbus": "formal StreamDriver/TaskHistory configuration publication with miniredis transport",
+      "cases": [
+        "pre-SQL failure leaves permanent independent UUID and no SQL row",
+        "missing SQL history cannot re-admit original UUID",
+        "commit before independent completion returns unknown and GET does not write ledger",
+        "explicit original terminal replay finalizes history without hashing or protection writes",
+        "dropping optional SQL receipt table preserves independent terminal lookup and normal Control.Ready",
+        "missing/unbound ledger disables writable versions but not read-only inventory or normal control",
+        "resumed request crossing a restore remains checking in both histories; no false rejected terminal",
+        "real pg_dump/pg_restore of owned schema preserves post-snapshot identity and result outside SQL",
+        "old terminal replay does not re-protect or recreate SQL; changed input conflicts",
+        "official installed core callback and UpgradeRunner plan/apply/repeat/transaction failure/retry preserve existing database history/protection/token",
+        "actual Root JWT HTTP/SSE and strict body/permission checks"
+      ]
+    },
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "light 1440 missing-version warning/blocked action/navigation",
+        "light 390 missing-version warning/blocked action/navigation",
+        "dark 1440 missing-version warning/blocked action/navigation",
+        "dark 390 missing-version warning/blocked action/navigation",
+        "Root retention form is isolated and its draft survives section switches",
+        "lost committed response preserves UUID and locks source/close without automatic retries",
+        "GET original UUID reconciles the persisted committed protection and receipt",
+        "light 1440 navigation/context/receipt and primary action",
+        "light 390 navigation/context/receipt and primary action",
+        "dark 1440 navigation/context/receipt and primary action",
+        "dark 390 navigation/context/receipt and primary action",
+        "reopened intent reads retained receipt from the database without new writes",
+        "light 1440 native independent history/UUID/blocked action/navigation",
+        "light 390 native independent history/UUID/blocked action/navigation",
+        "dark 1440 native independent history/UUID/blocked action/navigation",
+        "dark 390 native independent history/UUID/blocked action/navigation"
+      ],
+      "page_errors": [],
+      "viewports": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "backend": "owned native HTTP/JWT/PostgreSQL/SSE fixture; daily Nuxt supplies current UI",
+      "faults": [
+        "transport omits review_version for missing-proof UI only",
+        "drops real committed terminal SSE frame and temporarily denies GET receipts",
+        "browser-only native fixture injects SQL-admission failure after real independent UUID reservation"
+      ],
+      "assertions": [
+        "blocked source/UUID remain visible across task sections",
+        "unknown history has no execute/resume/new-submit button and does not trap dialog close",
+        "lost successful response uses GET without duplicate POST",
+        "form and receipt survive task navigation",
+        "1800 ms observed idle has no periodic status query"
+      ],
+      "concurrent_restore": "validated separately by native PostgreSQL tests, not browser fixture",
+      "screenshots": [
+        {
+          "file": "dark-1440-independent-blocked.png",
+          "sha256": "a3e8680187a0f6a01166730dae5930b0759daafb4127b7de56a120167bc098f4"
+        },
+        {
+          "file": "dark-1440-proof-unavailable.png",
+          "sha256": "6f279371e4d974029a06d8770fa1c8124f70e6bba90aa79a2455f94c989f78e3"
+        },
+        {
+          "file": "dark-1440-receipt.png",
+          "sha256": "3767699770046d83326a372bc860c6eec659f4ff14f761c214b2792da29ec7c0"
+        },
+        {
+          "file": "dark-390-independent-blocked.png",
+          "sha256": "6df57b38536b82df3baf2ee406ce13b3fa4cf69c53876539b97392f059d4e3af"
+        },
+        {
+          "file": "dark-390-proof-unavailable.png",
+          "sha256": "c9a91decf4f287b4d82ccbc0d40f8dabd4f89145a11203c3dcbb0f787eaccf83"
+        },
+        {
+          "file": "dark-390-receipt.png",
+          "sha256": "ea1c76509c5211a43489568093bf7c0dc71f34d6d829ea41619cc2ac976e3e25"
+        },
+        {
+          "file": "light-1440-independent-blocked.png",
+          "sha256": "a5abcee80915e59dde3a2e023ab383a224f720a63a21f5611c6e151c46e5bb9c"
+        },
+        {
+          "file": "light-1440-proof-unavailable.png",
+          "sha256": "c22ad5b083c676af103a555b76bf943061619c09dad2df1b015da03cd919da7c"
+        },
+        {
+          "file": "light-1440-receipt.png",
+          "sha256": "f998d4e232578f56a4ae63117628ca5e86612ab6a257bec26fb6b0c196e25685"
+        },
+        {
+          "file": "light-390-independent-blocked.png",
+          "sha256": "b13cc80b7be6d0387a17b9b785f79e495e3b03baab55aa183aad1c0514403776"
+        },
+        {
+          "file": "light-390-proof-unavailable.png",
+          "sha256": "464f7515db928fc63eb2dc86b0bd1454db954f26372e41ea13727d7fa6f14105"
+        },
+        {
+          "file": "light-390-receipt.png",
+          "sha256": "670d2e2d392914a66c31ddcad86e9d874badb0c93cde389e1cbce9a08efc06a0"
+        },
+        {
+          "file": "unknown-1440.png",
+          "sha256": "1a00cdd24e33fe16c24353b288c429d5f52ab4c1ab83fbb78d22ceef239c4ae4"
+        }
+      ]
+    },
+    "contracts": {
+      "openapi": "1.4.0 parses with POST-only 507 and new source/block fields",
+      "locales": "zh/en/ja/ko valid JSON",
+      "capability_check": "passed: declared=1242 referenced=83 rest_routes=1175 candidates=1262 ignored_route_rules=133",
+      "upgrade_registry_check": "passed; no schema payload regeneration required",
+      "scoped_diff_check": "passed"
+    }
+  },
+  "cleanup": {
+    "processes": [
+      {
+        "pid": 768,
+        "exited": true
+      },
+      {
+        "pid": 29494,
+        "exited": true
+      },
+      {
+        "pid": 30243,
+        "exited": true
+      },
+      {
+        "pid": 32276,
+        "exited": true
+      },
+      {
+        "pid": 32347,
+        "exited": true
+      },
+      {
+        "pid": 32354,
+        "exited": true
+      },
+      {
+        "pid": 32355,
+        "exited": true
+      },
+      {
+        "pid": 32370,
+        "exited": true
+      },
+      {
+        "pid": 72998,
+        "exited": true
+      },
+      {
+        "pid": 94564,
+        "exited": true
+      },
+      {
+        "pid": 94897,
+        "exited": true
+      }
+    ],
+    "listeners": [
+      {
+        "port": 53264,
+        "released": true
+      },
+      {
+        "port": 52939,
+        "released": true
+      }
+    ],
+    "owned_postgres_data_removed": true,
+    "private_test_token_removed": true,
+    "leftover_owned_upgrade_databases": false
+  },
+  "daily_services_final_observation": {
+    "core_pid": 16175,
+    "core_port": 8077,
+    "nuxt_pid": 34360,
+    "nuxt_port": 3030,
+    "agent_did_not_restart_or_stop": true
+  },
+  "limitations": [
+    "Coverage starts at v4 independent reservation. A complete preview/import/coverage proof for pre-v4 SQL history remains next task.",
+    "SQL/file commit is not atomic: a crash can preserve checking rather than a known historical result; it still prevents UUID reuse.",
+    "No automatic terminal resolution of cross-generation unknown intents, deletion acknowledgement or cleanup-token unlock.",
+    "Only owned schema dump/restore, controlled artifacts, protocol-marker fixtures and current API callbacks were tested; not production whole-system recovery or real old deployed binaries.",
+    "Private SHA256 integrity is not an external signature against an owner who can replace the maintenance root. Whole-volume rollback/host loss requires independent backup.",
+    "No daily/production deployment, old executor handoff, permanent S3/OSS target or 7/14 day acceptance."
+  ],
+  "next_task": {
+    "id": "T171",
+    "action": "Read-only inventory of pre-v4 SQL receipts, explicit Root import with frozen snapshot/request UUID and complete coverage proof.",
+    "completion": "Counts/source/digests/conflicts visible; repeat idempotent; failure preserves old records and never claims complete coverage; after coverage and SQL restore old UUIDs remain reconcilable.",
+    "user_restart_required_for_isolated_development": false
+  },
+  "source_sha256": {
+    "backend/internal/infra/storage_recovery/anchor.go": "5f88c40e53952edd76089021de1f63c7c21ca376e4a18924de7af65af836ea01",
+    "backend/internal/infra/storage_recovery/retention.go": "5e80ec808fc4e70a7240e4ac81ff64bca3972f6a678c5b8b8542d22f1a400b43",
+    "backend/internal/infra/storage_recovery/retention_test.go": "0487c4ac90e270a663c954a9eba1f07ced715fb30fd2f06dc13c1829894f6504",
+    "backend/internal/infra/storage_recovery/upgrade_test.go": "375621396fd508cd4600fc92977d08e0348fbf95843052a289a9042497f090c4",
+    "backend/internal/service/backup_ops/cleanup_retention.go": "ae51321e93b5bd9864e1d13588ec10361d8f75371c709d9291d28420bd4a6b40",
+    "backend/internal/service/backup_ops/cleanup_retention_ledger.go": "fc5901fd2e602096e6be980cb6537b0381b4f5b1ddae3b0bcc79f184fb23a97e",
+    "backend/internal/service/storage_governance/backup_policy_control.go": "7eda3510ff4185b95b358c6b5cb23ed17ac7e533251f2917f5b7bc98e97865b3",
+    "backend/internal/service/storage_governance/backup_retention_postgres_test.go": "c38c5b59e8d632d72009524a27285a9ff208511e53637f3de5db0a9f8bc1b469",
+    "backend/internal/service/storage_governance/backup_retention_recovery_postgres_test.go": "ab656ab6322c2123364446d3ecae5aee0d98e4e1426529aaa526c5eb307cd4cb",
+    "backend/internal/service/storage_governance/backup_retention_ledger_postgres_test.go": "0bcb35f47bbd89d52128e8b9af59b4c7a803a5e3f3f009e8abd5a95241be7cee",
+    "backend/internal/service/system_recovery/current_storage.go": "b3c19933812deab9623f5f4667bac28fbe91843e83dbc7cd510c0b7b32f125a0",
+    "backend/internal/service/system_recovery/current_storage_test.go": "69b31db34feaec101d50bd2cfcc542894ba1647df23fa408993d6d32981c1d88",
+    "backend/internal/service/system_recovery/current_legacy_test.go": "b4812054fe2ed065585310327bacfa37bafc9d8acce665d78d5cfc5c93cd646b",
+    "backend/internal/transport/http/admin/backup/cleanup_review_postgres_test.go": "753abd484bc1e54021652462c11340fc1b403613531c774f5c523112933f74bd",
+    "web-admin/app/components/ops/backup/BackupRetainReview.vue": "99554be42af4527abbe157b926e17a0b731b8b8983fb5298f9e102930a085d57",
+    "web-admin/app/composables/api/services/backupRetentionService.ts": "357eac8b17beccbe57643a9ca66c228b84d08d6f032ceb66ff5472ada13ad785",
+    "web-admin/tests/unit/backup/backup-retention.spec.ts": "299c53abb4cfb166ddb607fa87f9ff6a532c6baf723c98d5846ec934e62facc3"
+  }
+}

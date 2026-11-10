@@ -11,6 +11,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestRedisScopeUsesOnlyExistingEnvironmentID(t *testing.T) {
+	cfg := GetDefaults()
+	_, err := cfg.RedisNamespace()
+	require.Error(t, err)
+	cfg.EnvironmentID = "22164c23-28b9-440d-9377-5792a438d0e5"
+	a, err := cfg.RedisNamespace()
+	require.NoError(t, err)
+	require.Equal(t, cfg.EnvironmentID, a)
+	cfg.Deployment.Env = "prod"
+	cfg.Queue.Redis.DB, cfg.Cache.DB = 6, 7
+	cfg.Database.DSN = "postgres://other:secret@different:5432/renamed?sslmode=disable"
+	b, err := cfg.RedisNamespace()
+	require.NoError(t, err)
+	require.Equal(t, a, b)
+	for _, id := range []string{"", " environment", "env:other", "*", "{env}", "env\n"} {
+		cfg.EnvironmentID = id
+		_, err = cfg.RedisNamespace()
+		require.Error(t, err)
+	}
+}
+
 func TestEnvironmentIdentityReadsExistingRecordAndDoesNotCreateAnother(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "config.yaml")
@@ -64,4 +85,7 @@ func TestEnvironmentIdentityIsNotAnotherUserSetting(t *testing.T) {
 	require.NotContains(t, string(raw), cfg.EnvironmentID)
 	require.NoError(t, yaml.Unmarshal([]byte("environment_id: forged\n"), cfg))
 	require.Equal(t, "runtime-existing-environment", cfg.EnvironmentID)
+	file := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(file, []byte("queue:\n  namespace: obsolete\n"), 0600))
+	require.ErrorContains(t, loadFromYAML(cfg, file), "queue.namespace is not supported")
 }

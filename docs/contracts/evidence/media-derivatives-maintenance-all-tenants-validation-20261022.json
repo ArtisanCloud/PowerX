@@ -1,0 +1,140 @@
+{
+  "validated_at": "2026-10-22T11:30:13.194301+00:00",
+  "scope": "Default full-environment historical image derivative maintenance across all tenants",
+  "implementation": {
+    "base_commit": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+    "implementation_commit": null,
+    "uncommitted": true,
+    "source_sha256": {
+      "make_files/media.mk": "fe1d42add78f4639a19aa26d76f4a00658eb6f0faa4b13677e56bac36ccd753f",
+      "make_files/README.md": "f14018ec6272362fac32ba610b39fcdf4d1bcade10571fe16aa0e225a7a233fe",
+      "scripts/ops/media-derivatives.sh": "0d45ad1e701533a8458e482b48f2800bbd153ea3d83a84cc763b0200c3b9b959",
+      "backend/cmd/media_tool/derivatives.go": "390277ede3dcbb34ceb08fbbf4733c2eddfbbec2ba92fd7427d3d14f0ec6d08b",
+      "backend/cmd/media_tool/derivatives_test.go": "f9edd1bdcdbe335235129acb712aa1dadaafd037ab7a73be7986977e7d95884d",
+      "backend/cmd/media_tool/derivative_apply.go": "0fd1dbeafe16a58006b883547ae0edffb12b88902939431da26e56729f6bac1c",
+      "backend/cmd/media_tool/derivative_plan.go": "c4b8b276771b52374bef19eeeb09aa9ad2e9449ab39d22fca20e2f00581867ec",
+      "backend/cmd/media_tool/derivative_plan_test.go": "7a574e959c0316be297c955122ac877f41e5662b69a64a5a5eec340068db4dc6",
+      "backend/cmd/media_tool/derivative_lock_unix.go": "3e5f4c9693ca3a0367d8f13d8e0395f62709a94d35744235335314842ade19c0",
+      "backend/cmd/media_tool/derivative_lock_other.go": "a78ce835acf65d80148e0ecdf140a79ca6d229695a340b200d3c9094fdb543cc",
+      "backend/internal/service/media/image_derivative_backfill.go": "f1b32a9ede09748e10e791e45bf0fced084e9d0ed78c2cf4e12e0b77d6d43e03",
+      "backend/internal/service/media/image_derivatives.go": "c9a90fbe7327afafbb509b43af2b4cfa0e230f0cce81be7ea4f07ab1b241f860",
+      "backend/internal/service/media/image_derivative_plan.go": "9131b618fec9ffab124b694106e70517d8bfc7592384d89b1fd84bd00e0aa832",
+      "backend/internal/service/media/image_derivative_plan_test.go": "29b5641754dd73a3ce957d4fbca6ecb672b1c5378f8943a689b9b5e60c380baa",
+      "backend/pkg/corex/db/persistence/repository/media/derivative_backfill.go": "ae2a5f15082c4709c56d35f2979c6ef3dbf9ffaf4ca9e15cf29486cd0a4d2de8",
+      "docs/contracts/media-image-derivatives.md": "8e9cd3f848a998b7511f6c0c70d34b57dec07055bca0833038409a9396215042"
+    }
+  },
+  "contract": {
+    "plan": "media_derivatives_backfill_plan.v2",
+    "progress": "media_derivatives_backfill_progress.v2",
+    "default_scope": "all_tenants",
+    "default_limit": 0,
+    "tenant_parameter": "optional filter only",
+    "tenant_owner": "required per asset and per task; cannot be inferred from another row",
+    "legacy_v1_plans": "rescan required",
+    "queue_and_public_media_contracts": "unchanged"
+  },
+  "checks": {
+    "native_postgres_race": {
+      "status": "passed",
+      "packages": [
+        "github.com/ArtisanCloud/PowerX/cmd/media_tool",
+        "github.com/ArtisanCloud/PowerX/internal/service/media"
+      ],
+      "test_cases_including_subtests": {
+        "github.com/ArtisanCloud/PowerX/cmd/media_tool": 20,
+        "github.com/ArtisanCloud/PowerX/internal/service/media": 79
+      },
+      "total": 99,
+      "failures": [],
+      "log_path": "/private/tmp/px-media-all-yx4570vn/native-race.jsonl",
+      "sha256": "bf5ca2a8f55a4210a6b13f714465b9c7b745cabbc5deae96ac6a42ac33074884"
+    },
+    "vet": {
+      "status": "passed",
+      "packages": [
+        "./cmd/media_tool",
+        "./internal/service/media",
+        "./pkg/corex/db/persistence/repository/media"
+      ]
+    },
+    "transport_and_contract_regression": {
+      "status": "passed",
+      "packages": [
+        "./tests/contract/media",
+        "./internal/transport/http/openapi/media",
+        "./internal/transport/http/admin/media"
+      ]
+    },
+    "make_targets": "passed; real make with test-owned executable verifies no required tenant and default --limit 0",
+    "standalone_binary": {
+      "status": "passed",
+      "path": "/private/tmp/px-media-all-yx4570vn/media_tool",
+      "sha256": "e716bd79bb96dc0267c96033c272763801b76931e551c97f6934a6670c057a9e"
+    },
+    "shell_syntax": "passed",
+    "diff_check": "passed"
+  },
+  "controlled_acceptance": {
+    "native_global_scan": {
+      "assets": 4,
+      "tenants": 2,
+      "candidate_images": 2,
+      "source_missing": 1,
+      "skipped_non_image": 1,
+      "dry_run_creates_no_history": true
+    },
+    "native_global_apply": {
+      "one_existing_task_reused": true,
+      "other_tenant_task_submitted": true,
+      "total_histories": 2,
+      "task_payload_tenants_match_actual_owners": true,
+      "both_tenants_finish_ready": true,
+      "same_plan_repeat_adds_no_histories": true
+    },
+    "more_than_100": {
+      "test": "TestGlobalBackfillDoesNotStopAtOneHundredAssets",
+      "images": 105,
+      "tenants": 2,
+      "scanned": 105,
+      "missing": 105,
+      "jobs_created_by_dry_run": 0
+    },
+    "unchanged_tenant_boundaries": [
+      "ordinary tenant-filtered repository method still rejects empty tenant",
+      "cross-tenant asset status access still fails",
+      "source checksum / tenant / missing-spec fence checked under parent lock"
+    ],
+    "plan_and_progress": [
+      "global plan carries explicit scope and per-record tenant UUID",
+      "per-tenant scan and execution summaries include failures and source-missing results",
+      "plan cannot be narrowed by tenant override during execution",
+      "cancellation, journal locking, hash binding and interrupted-tail recovery retained"
+    ]
+  },
+  "temporary_services": {
+    "owner": "Codex all-tenant media maintenance validation",
+    "root": "/private/tmp/px-media-all-yx4570vn",
+    "port": 64811,
+    "command": [
+      "/opt/homebrew/bin/pg_ctl",
+      "-D",
+      "/private/tmp/px-media-all-yx4570vn/data",
+      "-l",
+      "/private/tmp/px-media-all-yx4570vn/postgres.log",
+      "-o",
+      "-p 64811 -h 127.0.0.1 -k /private/tmp/px-media-all-yx4570vn/socket",
+      "-w",
+      "start"
+    ],
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+    "dsn": "host=127.0.0.1 port=64811 user=media_all_test dbname=postgres sslmode=disable",
+    "pid": 3092,
+    "stopped": true,
+    "port_released": true
+  },
+  "target_environment_backfill_executed": false,
+  "user_services_restarted": false,
+  "normal_migration_or_startup_hook_added": false,
+  "framework_sdk_changes_required": false
+}

@@ -1,0 +1,61 @@
+{
+  "processes": [
+    {
+      "pid": 768,
+      "exited": true
+    },
+    {
+      "pid": 29494,
+      "exited": true
+    },
+    {
+      "pid": 30243,
+      "exited": true
+    },
+    {
+      "pid": 32276,
+      "exited": true
+    },
+    {
+      "pid": 32347,
+      "exited": true
+    },
+    {
+      "pid": 32354,
+      "exited": true
+    },
+    {
+      "pid": 32355,
+      "exited": true
+    },
+    {
+      "pid": 32370,
+      "exited": true
+    },
+    {
+      "pid": 72998,
+      "exited": true
+    },
+    {
+      "pid": 94564,
+      "exited": true
+    },
+    {
+      "pid": 94897,
+      "exited": true
+    }
+  ],
+  "listeners": [
+    {
+      "port": 53264,
+      "released": true
+    },
+    {
+      "port": 52939,
+      "released": true
+    }
+  ],
+  "owned_postgres_data_removed": true,
+  "private_test_token_removed": true,
+  "leftover_owned_upgrade_databases": false
+}

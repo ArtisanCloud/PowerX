@@ -265,6 +265,9 @@ func (s *RestoreDrillService) resolveRestoreArtifactPath(ctx context.Context, so
 	if artifact == nil || strings.TrimSpace(artifact.StorageURI) == "" {
 		return "", ErrInvalidRestoreDrillRequest
 	}
+	if artifact.CleanupState == "quarantined" {
+		return "", controlFailure(409, "BACKUP_ARTIFACT_QUARANTINED")
+	}
 	path, err := parseFileStorageURI(artifact.StorageURI)
 	if err != nil {
 		return "", fmt.Errorf("invalid restore artifact uri: %w", err)

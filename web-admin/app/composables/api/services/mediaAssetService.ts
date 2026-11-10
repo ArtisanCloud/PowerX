@@ -37,7 +37,7 @@ export interface MediaAssetVariantAdminView {
   uuid: string;
   tenant_uuid: string;
   assetUuid: string;
-  variant: "origin" | "preview" | "thumbnail" | string;
+  variant: "origin" | "preview" | "thumbnail" | "thumbnail_64" | string;
   name?: string;
   driver: MediaAssetDriver;
   objectKey: string;
@@ -251,7 +251,7 @@ export const useMediaAssetService = () => {
 
     buildVariantResourcePath: (
       uuid: string,
-      variant: "origin" | "preview" | "thumbnail",
+      variant: "origin" | "preview" | "thumbnail" | "thumbnail_64",
       disposition: "inline" | "attachment" = "inline"
     ) => {
       const id = uuid?.trim();
@@ -261,7 +261,7 @@ export const useMediaAssetService = () => {
 
     getVariantResourceBlob: async (
       uuid: string,
-      variant: "origin" | "preview" | "thumbnail",
+      variant: "origin" | "preview" | "thumbnail" | "thumbnail_64",
       disposition: "inline" | "attachment" = "inline"
     ): Promise<Blob> => {
       const id = uuid?.trim();

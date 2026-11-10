@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -19,9 +20,15 @@ import (
 )
 
 var (
-	ErrVersionUpgradeForbidden    = errors.New("capability.upgrade_forbidden")
-	ErrVersionUpgradeInvalid      = errors.New("capability.upgrade_invalid")
-	ErrVersionUpgradeHashMismatch = errors.New("capability.upgrade_hash_mismatch")
+	ErrVersionUpgradeForbidden           = errors.New("capability.upgrade_forbidden")
+	ErrVersionUpgradeInvalid             = errors.New("capability.upgrade_invalid")
+	ErrVersionUpgradeHashMismatch        = errors.New("capability.upgrade_hash_mismatch")
+	ErrVersionUpgradeBindingMismatch     = errors.New("capability.upgrade_binding_mismatch")
+	ErrVersionUpgradeNotFound            = errors.New("capability.upgrade_not_found")
+	ErrVersionUpgradeUnavailable         = errors.New("capability.upgrade_unavailable")
+	ErrVersionUpgradePersistenceFailed   = errors.New("capability.upgrade_persistence_failed")
+	ErrVersionUpgradeRuntimeApplyFailed  = errors.New("capability.upgrade_runtime_apply_failed")
+	ErrVersionUpgradeAuditFinalizeFailed = errors.New("capability.upgrade_audit_finalize_failed")
 )
 
 type VersionUpgradeStore interface {
@@ -74,7 +81,7 @@ func (s *VersionUpgradeService) Confirm(ctx context.Context, in VersionUpgradeIn
 		return out, ErrVersionUpgradeInvalid
 	}
 	if s == nil || s.db == nil || s.store == nil {
-		return out, errors.New("capability.upgrade_unavailable")
+		return out, ErrVersionUpgradeUnavailable
 	}
 	in.TenantUUID = tenant.String()
 	in.CapabilitiesHash = strings.ToLower(in.CapabilitiesHash)
@@ -100,17 +107,68 @@ func (s *VersionUpgradeService) Confirm(ctx context.Context, in VersionUpgradeIn
 		if registration.Status != "published" {
 			return gorm.ErrRecordNotFound
 		}
+		if err := verifyMediaUpgradeBinding(tx, record, registration); err != nil {
+			return err
+		}
 		return tx.Create(&approval).Error
 	})
 	if err != nil {
-		return out, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return out, fmt.Errorf("%w: %w", ErrVersionUpgradeNotFound, err)
+		}
+		if errors.Is(err, ErrVersionUpgradeHashMismatch) || errors.Is(err, ErrVersionUpgradeBindingMismatch) {
+			return out, err
+		}
+		return out, fmt.Errorf("%w: %w", ErrVersionUpgradePersistenceFailed, err)
 	}
 	out.AuditID = approval.ID
 	// Never confirm before the approval audit has durably committed.
 	if err = s.store.ConfirmUpgrade(ctx, in.TenantUUID, in.CapabilityID, in.CapabilitiesHash); err != nil {
-		return out, err
+		return out, fmt.Errorf("%w: %w", ErrVersionUpgradeRuntimeApplyFailed, err)
 	}
 	meta, _ = json.Marshal(map[string]any{"reason": in.Reason, "actor_user_uuid": claims.UserUUID, "actor_member_uuid": claims.MemberUUID, "runtime_apply": "confirmed"})
 	err = s.db.WithContext(ctx).Model(&approval).Updates(map[string]any{"outcome": "SUCCESS", "meta": datatypes.JSON(meta)}).Error
-	return out, err
+	if err != nil {
+		return out, fmt.Errorf("%w: %w", ErrVersionUpgradeAuditFinalizeFailed, err)
+	}
+	return out, nil
+}
+
+// 确认 hash 不能把尚未迁移的 HTTP 注册伪装成已升级的 typed binding。
+func verifyMediaUpgradeBinding(tx *gorm.DB, record modelregistry.CapabilityRecord, registration modelregistry.CapabilityRegistration) error {
+	media := isAIModelCatalogReadCapability(record.CapabilityID)
+	switch record.CapabilityID {
+	case "com.corex.ai.vlm.invoke", "com.corex.ai.image.invoke", "com.corex.ai.video.invoke", "com.corex.ai.tts.invoke", "com.corex.ai.media.tasks.read", "com.corex.ai.media.tasks.cancel":
+		media = true
+	}
+	if !media {
+		return nil
+	}
+	var protocols []modelregistry.ProtocolBinding
+	if json.Unmarshal(record.Protocols, &protocols) != nil {
+		return ErrVersionUpgradeBindingMismatch
+	}
+	endpoint := ""
+	for _, binding := range protocols {
+		if binding.Channel == "core_internal" && binding.Method == "INVOKE" && binding.ActorContext == "service_actor" {
+			endpoint = binding.Endpoint
+			break
+		}
+	}
+	if endpoint == "" {
+		return ErrVersionUpgradeBindingMismatch
+	}
+	var adapters []modelregistry.AdapterEndpoint
+	if err := tx.Where("registration_id = ?", registration.ID).Find(&adapters).Error; err != nil {
+		return err
+	}
+	if len(adapters) != 1 {
+		return ErrVersionUpgradeBindingMismatch
+	}
+	ep := adapters[0]
+	var labels map[string]string
+	if json.Unmarshal(ep.Labels, &labels) != nil || ep.TransportType != "core_internal" || ep.Endpoint != endpoint || ep.ServiceRef != endpoint || labels["method"] != "INVOKE" {
+		return ErrVersionUpgradeBindingMismatch
+	}
+	return nil
 }

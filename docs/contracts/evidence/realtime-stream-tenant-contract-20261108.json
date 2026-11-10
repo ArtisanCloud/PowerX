@@ -1,0 +1,113 @@
+{
+  "date": "2026-11-08",
+  "scope": "post-restart realtime subscription failure; Core tenant guard and official Framework HTTP interoperability",
+  "status": "redis_fix_loaded_sdk_stream_request_contract_blocked",
+  "runtime": {
+    "core_pid": 95939,
+    "core_port": 8077,
+    "build_id": "73bc053a2ad545fba0c5eae6d34b0e02c7d35f03f06bc97d45cd8fece4e05c36",
+    "installed_plugin_pid": 96282,
+    "plugin_id": "com.powerx.plugins.ai-craft",
+    "plugin_version": "0.1.78",
+    "framework_module_version": "v0.0.28",
+    "framework_local_source_replace": true,
+    "note": "Local replace means module version alone does not identify published SDK source."
+  },
+  "observed_cursor_audits": [
+    {
+      "at": "2026-11-08T14:09:12.773513+08:00",
+      "status": "completed",
+      "summary": "",
+      "trace_id": "104019e4-c980-46db-8548-f398213c3261"
+    },
+    {
+      "at": "2026-11-08T14:09:11.049592+08:00",
+      "status": "completed",
+      "summary": "",
+      "trace_id": "e9a0476e-fdc1-4072-a2be-89324c3cf240"
+    },
+    {
+      "at": "2026-11-08T14:09:09.268369+08:00",
+      "status": "completed",
+      "summary": "",
+      "trace_id": "15b4608c-d016-4173-b500-7f8212aee77a"
+    },
+    {
+      "at": "2026-11-08T14:09:07.476665+08:00",
+      "status": "completed",
+      "summary": "",
+      "trace_id": "11a5abd4-8e1b-46ae-94b7-0b2c2ff1e6b9"
+    }
+  ],
+  "observed_stream_http_failure": {
+    "method": "POST",
+    "path": "/api/v1/tenant/invocations/stream",
+    "status": 400,
+    "at": "2026-11-08T14:10:30.740+08:00",
+    "trace_id": "3a08e6f4-ebcd-436f-9812-fc2a761ee3e5",
+    "note": "Access log proves HTTP status; exact tenant-override rejection is reproduced separately in isolated HTTP tests."
+  },
+  "root_cause": {
+    "framework_emits": "tenant_uuid HTTP header from StreamInput.TenantUUID",
+    "sdk_file": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/PowerXPlugin/framework/backend/go/runtime/powerx/hostcontract/invocation_stream.go",
+    "sdk_file_sha256": "144a413356bf0d0a88d4c1342323ed9b33b6eb1c7377c198bcd26e5332f62294",
+    "sdk_line": 155,
+    "core_boundary": "tenantUUIDFromRequest rejects caller tenant headers and tenant_uuid URL query; identity comes only from authenticated credential context",
+    "controlled_core_response_contains": "capability.tenant_override",
+    "controlled_sdk_failure": {
+      "status": 400,
+      "code": "CAPABILITY_STREAM_UPSTREAM_FAILED",
+      "reason_code": "CAPABILITY_STREAM_UPSTREAM_FAILED"
+    },
+    "control_without_header": "same synthetic credentials, body, capability and grant yield authorized SSE ready",
+    "installed_binary_line_evidence": "go tool objdump hostcontract.InvokeStream contains invocation_stream.go:155 instructions"
+  },
+  "core_regression": {
+    "top_level_passed": 6,
+    "passed_records_including_parent_and_subtests": 28,
+    "failures": [],
+    "log": "/tmp/powerx-realtime-stream-tenant-contract.jsonl",
+    "log_sha256": "d8eb438627fd05987474a48cea51fcd7eab3bf1e06481c05c3a3fed7bb1136e8"
+  },
+  "official_framework_interop": {
+    "top_level_passed": 1,
+    "passed_records_including_parent_and_subtests": 3,
+    "failures": [],
+    "log": "/tmp/powerx-realtime-framework-interop-tests.jsonl",
+    "log_sha256": "cf2f40252afa8db26001592ccd1c218f98636ebd2c603a8d9f3e2b2cf445e367"
+  },
+  "interop_artifacts": {
+    "directory": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-realtime-framework-interop-5qnq9f_v",
+    "overlay": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-realtime-framework-interop-5qnq9f_v/overlay.json",
+    "modfile": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/powerx-realtime-framework-interop-5qnq9f_v/go.mod"
+  },
+  "interop_method": "Official SDK imported with isolated alternate go.mod and source overlay; legacy request rejected; diagnostic RoundTripper deletes tenant header only for comparison. No SDK source or repository module edits.",
+  "vet": {
+    "command": "GOWORK=off go vet ./internal/transport/http/openapi/capability_registry",
+    "exit_code": 0,
+    "log": "/tmp/powerx-realtime-stream-tenant-vet.log"
+  },
+  "new_core_test": {
+    "path": "backend/internal/transport/http/openapi/capability_registry/tenant_stream_tenant_contract_test.go",
+    "sha256": "f0780ca6018f071585eab95668d15208cc8744fd067afee84e28783d0bdf538b"
+  },
+  "required_followup": [
+    "Framework shared stream transport removes caller tenant override header; retains credential identity, typed tenant_key, traces and grant checks",
+    "AI Craft consumes released fixed SDK, rebuilds and formally upgrades package",
+    "Validate actual plugin identity SSE 200/ready/heartbeat plus browser event receipt and reconnect/revocation"
+  ],
+  "boundaries": {
+    "core_production_tenant_guard_changed": false,
+    "framework_or_plugin_source_changed": false,
+    "installed_package_changed": false,
+    "user_service_restarted": false,
+    "migration_repeated": false,
+    "key_or_grant_changed": false,
+    "business_work_retried": false,
+    "real_provider_generation_invoked": false,
+    "test_credentials_synthetic": true,
+    "test_database_in_memory": true,
+    "test_http_servers_closed_by_test_cleanup": true,
+    "complete_installed_plugin_acceptance": false
+  }
+}

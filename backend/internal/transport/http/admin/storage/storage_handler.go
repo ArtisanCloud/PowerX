@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	storagegov "github.com/ArtisanCloud/PowerX/internal/service/storage_governance"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -19,16 +19,7 @@ func fail(c *gin.Context, status int, code, message string) {
 
 func requireRootUser(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	claims := reqctx.GetClaims(c.Request.Context())
-	allowed := claims != nil && reqctx.IsRoot(c.Request.Context()) && claims.UserID != 0 && claims.Issuer != "powerx-sts"
-	if claims != nil {
-		for _, plane := range claims.Platforms {
-			if plane == "api_key" || plane == "service_actor" {
-				allowed = false
-			}
-		}
-	}
-	if !allowed {
+	if !auth.IsPlatformRootSession(c.Request.Context()) {
 		fail(c, http.StatusForbidden, "STORAGE_ROOT_REQUIRED", "存储治理仅允许平台 Root 用户会话")
 		c.Abort()
 		return

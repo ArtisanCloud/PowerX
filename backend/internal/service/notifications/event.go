@@ -11,6 +11,7 @@ import (
 // open the same record through the existing member-scoped notification API.
 func CreatedEvent(item *nm.Notification) map[string]any {
 	body := map[string]any{
+		"revision": item.Revision, "sourceRevision": item.SourceRevision,
 		"id": item.UUID.String(), "title": item.Title, "content": item.Content,
 		"type": item.Type, "category": item.Category,
 		"isRead": item.IsRead, "isImportant": item.IsImportant,
@@ -22,6 +23,12 @@ func CreatedEvent(item *nm.Notification) map[string]any {
 		var actions []any
 		if json.Unmarshal(item.Actions, &actions) == nil {
 			body["actions"] = actions
+		}
+	}
+	if len(item.Metadata) > 0 {
+		var metadata map[string]any
+		if json.Unmarshal(item.Metadata, &metadata) == nil {
+			body["metadata"] = metadata
 		}
 	}
 	return body

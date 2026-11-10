@@ -24,6 +24,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 			Adapters: []router.AdapterEndpoint{
 				{
 					AdapterID:     "adapter-primary",
+					IsActive:      true,
 					TransportType: "grpc",
 					Endpoint:      "grpc://translator.corex.svc:443",
 					Weight:        80,
@@ -31,6 +32,7 @@ func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 				},
 				{
 					AdapterID:     "adapter-backup",
+					IsActive:      true,
 					TransportType: "http",
 					Endpoint:      "https://translator.corex/api",
 					Weight:        20,

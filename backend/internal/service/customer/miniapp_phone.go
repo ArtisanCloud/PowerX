@@ -174,8 +174,9 @@ type weChatAccessTokens struct {
 }
 
 type cachedToken struct {
-	value     string
-	expiresAt time.Time
+	value             string
+	expiresAt         time.Time
+	credentialVersion int64
 }
 
 const weChatTokenRefreshMargin = 5 * time.Minute
@@ -183,8 +184,8 @@ const weChatTokenRefreshMargin = 5 * time.Minute
 func (c *weChatAccessTokens) get(ctx context.Context, client *http.Client, app ClientApp, force bool) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	key := app.Platform + "|" + app.AppID
-	if t, ok := c.tokens[key]; ok && !force && time.Now().Before(t.expiresAt) {
+	key := app.CredentialScope + "|" + app.Platform + "|" + app.AppID
+	if t, ok := c.tokens[key]; ok && t.credentialVersion == app.CredentialVersion && !force && time.Now().Before(t.expiresAt) {
 		return t.value, nil
 	}
 	body, _ := json.Marshal(map[string]any{"grant_type": "client_credential", "appid": app.AppID, "secret": app.Secret, "force_refresh": force})
@@ -211,7 +212,7 @@ func (c *weChatAccessTokens) get(ctx context.Context, client *http.Client, app C
 	if c.tokens == nil {
 		c.tokens = map[string]cachedToken{}
 	}
-	c.tokens[key] = cachedToken{value: out.AccessToken, expiresAt: time.Now().Add(ttl)}
+	c.tokens[key] = cachedToken{value: out.AccessToken, expiresAt: time.Now().Add(ttl), credentialVersion: app.CredentialVersion}
 	return out.AccessToken, nil
 }
 

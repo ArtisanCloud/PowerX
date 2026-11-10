@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: PowerX non-deleting cleanup-intent retention resolution
+  version: '2026-11-09'
+  description: Root human access only. Relative to configured prefix. Fixed retain_cleanup
+    operation, no deletion or schedule changes. Private maintenance protocol v6 /
+    ledger v3.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /admin/ops/backup/cleanup-reviews/{artifact_id}/resolution-preview:
+    get:
+      operationId: previewCleanupRetainResolution
+      description: Only expected_token query is accepted. Fixed current intent, published
+        pause and old identity coverage. Observation does not certify final drain.
+      parameters:
+      - &id001
+        name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[1-9][0-9]*$
+      - &id002
+        name: expected_token
+        in: query
+        required: true
+        schema: &id007
+          type: string
+          format: uuid
+          description: Canonical lowercase nonzero UUID
+      responses:
+        '200':
+          description: Root read-only observation or historical receipt. Historical
+            success is not current protection proof.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Preview'
+        '400': &id003
+          description: Invalid, unknown or duplicate input
+        '403': &id004
+          description: Root human access session required; no API Key/STS or other
+            actor/scope
+        '409': &id005
+          description: Immutable input, intent or review changed
+        '503': &id006
+          description: Source, optional audit schema or independent ledger unavailable
+  /admin/ops/backup/cleanup-reviews/{artifact_id}/resolutions:
+    get:
+      operationId: listCleanupRetainResolutions
+      parameters:
+      - *id001
+      - *id002
+      description: Latest 20 independent receipts for exact artifact/token; accepted
+        history remains after the current intent leaves the attention list.
+      responses:
+        '200':
+          description: Root read-only observation or historical receipt. Historical
+            success is not current protection proof.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - items
+                    properties:
+                      items:
+                        type: array
+                        maxItems: 20
+                        items:
+                          $ref: '#/components/schemas/Receipt'
+        '400': *id003
+        '403': *id004
+        '409': *id005
+        '503': *id006
+    post:
+      operationId: resolveCleanupIntentRetained
+      description: No query. Immutable UUID/actor/scope/input. Independent reservation
+        precedes SQL and accepted. Cooperating policy lock plus published pause and
+        active-job checks; full server file verification then atomic protection/current
+        retained state/new receipt. Original token and unknown history unchanged.
+        SSE accepted/progress/complete or uncertain. EOF is unknown; GET original
+        UUID or explicit identical retry only. Terminal independent history never
+        replays protection.
+      parameters:
+      - *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Input'
+      responses:
+        '200':
+          description: SSE accepted/checking, progress, complete retained/rejected.
+            Complete checking is allowed only as a non-executable recovery_blocked
+            historical result. SQLCommitted with incomplete independent checkpoint
+            requires explicit same request to persist history only.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400': *id003
+        '403': *id004
+        '409': *id005
+        '503': *id006
+        '507':
+          description: Shared bounded independent history full
+  /admin/ops/backup/cleanup-resolutions/{request_id}:
+    get:
+      operationId: getCleanupRetainResolution
+      description: No query. GET never repairs or replays. A 404 is not evidence of
+        non-execution. Missing SQL history or changed epoch returns blocked unknown;
+        SQL terminal with incomplete checkpoint reports checking and CHECKPOINT_REQUIRED.
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema: *id007
+      responses:
+        '200':
+          description: Root read-only observation or historical receipt. Historical
+            success is not current protection proof.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Receipt'
+        '400': *id003
+        '403': *id004
+        '409': *id005
+        '503': *id006
+        '404':
+          description: UUID unknown; preserve original request
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Input:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - expected_token
+      - review_version
+      - history_digest
+      - reason
+      - confirm
+      properties:
+        request_id: *id007
+        expected_token: *id007
+        review_version: &id008
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        history_digest: *id008
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 256
+        confirm:
+          type: boolean
+          enum:
+          - true
+    Preview:
+      type: object
+      required:
+      - item
+      - review_version
+      - history_digest
+      - unknown_records
+      - can_resolve
+      - observed_at
+      properties:
+        item:
+          type: object
+          required:
+          - artifact_id
+          - token
+          properties:
+            artifact_id:
+              type: string
+            token: *id007
+        review_version:
+          type: string
+          description: Empty if blocked; otherwise canonical SHA256
+        history_digest:
+          type: string
+          description: Empty if unavailable; otherwise canonical SHA256
+        unknown_records:
+          type: integer
+          minimum: 0
+        can_resolve:
+          type: boolean
+        problem:
+          type: string
+        observed_at:
+          type: string
+          format: date-time
+    Receipt:
+      type: object
+      required:
+      - request_id
+      - artifact_id
+      - token
+      - review_version
+      - history_digest
+      - reason
+      - actor_id
+      - state
+      - created_at
+      - completed_at
+      - can_resume
+      - recovery_blocked
+      - independent_complete
+      - sql_committed
+      - original_history_preserved
+      properties:
+        request_id: *id007
+        artifact_id:
+          type: string
+        token: *id007
+        review_version: *id008
+        history_digest: *id008
+        reason:
+          type: string
+        actor_id:
+          type: string
+        state:
+          type: string
+          enum:
+          - checking
+          - retained
+          - rejected
+        problem:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        can_resume:
+          type: boolean
+        recovery_blocked:
+          type: boolean
+        independent_complete:
+          type: boolean
+        sql_committed:
+          type: boolean
+        original_history_preserved:
+          type: boolean
+          enum:
+          - true

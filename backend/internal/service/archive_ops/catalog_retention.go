@@ -18,6 +18,9 @@ func (s *Service) catalogCapacity() error {
 	return nil
 }
 func (s *Service) pruneExpiredCatalog(ctx context.Context) {
+	if s.requireCommandsDrained(false) != nil {
+		return
+	}
 	ids, err := s.records("jobs")
 	if err != nil {
 		return

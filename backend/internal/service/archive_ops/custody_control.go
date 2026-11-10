@@ -50,14 +50,21 @@ type custodyBinding struct {
 func (s *Service) publishCustodyControl() error {
 	now := time.Now().UTC()
 	out := custodyControl{Protocol: 2, NodeID: s.cfg.ExecutionNodeID, PublishedAt: now, ValidUntil: now.Add(3 * time.Minute), Sources: []custodySource{}}
-	ids, err := s.records("policies")
+	ids, err := s.policyIDs(s.ctx)
 	if err != nil {
-		return err
+		if s.policyControlRequired() {
+			ids = nil
+		} else {
+			return err
+		}
 	}
 	enabled := map[string]bool{}
 	for _, id := range ids {
 		p, err := s.policy(s.ctx, id)
 		if err != nil {
+			if s.policyControlRequired() {
+				continue
+			}
 			return err
 		}
 		if p.Enabled && p.TargetID != "" {

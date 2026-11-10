@@ -19,16 +19,23 @@ import (
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	"github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
+	taskqueue "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/task_queue"
 	gov "github.com/ArtisanCloud/PowerX/internal/service/storage_governance"
 	capgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability_registry"
 	caphttp "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
+	mevent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	tenants "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -85,8 +92,8 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 		require.NoError(t, db.Raw("SHOW "+name).Scan(&actual).Error)
 		require.Equal(t, expected, actual, "SQL write logging must remain enabled during cleanup")
 	}
-	ctx := reqctx.WithIsRoot(reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{UserID: 1, IsRoot: true}), true)
-	root := reqctx.CoreXClaims{UserID: 1, IsRoot: true}
+	ctx := reqctx.WithIsRoot(reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{UserID: 1, IsRoot: true, Scope: "access"}), true)
+	root := reqctx.CoreXClaims{UserID: 1, IsRoot: true, Scope: "access"}
 	tenant := &tenants.Tenant{Key: "owned-retention-test", Name: "Owned retention test"}
 	require.NoError(t, db.Create(tenant).Error)
 	tenantID := tenant.UUID.String()
@@ -94,7 +101,26 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 	dir := t.TempDir()
 	coordinator, err := budget.New(budget.Config{Directory: filepath.Join(dir, "runtime"), FilesystemPath: dir, HostID: "owned-host", FilesystemID: "owned-fs", InstanceID: "owned-test", MinFreeBytes: 1 << 20, CriticalFreeBytes: 1})
 	require.NoError(t, err)
-	svc, err := gov.NewService(gov.Options{DB: db, Collector: testCollector{}, FilesystemPath: dir, Budget: coordinator, Identity: gov.Identity{HostID: "owned-host", FilesystemID: "owned-fs", InstanceID: "owned-test"}, DatabaseRetentionAllowed: true, LifecycleWorkerEnabled: true})
+	require.NoError(t, database.MigrateStorageGovernanceModels(db))
+	require.NoError(t, db.AutoMigrate(&mevent.TaskHistory{}))
+	mini := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mini.Addr()})
+	t.Cleanup(func() { _ = redisClient.Close() })
+	base, err := event_bus.NewRedisStreamTaskDriver(redisClient, time.Second, "owned-retention-acceptance")
+	require.NoError(t, err)
+	queue := taskqueue.NewStreamDriver(db, base)
+	scope := gov.ControlScope{HostID: "owned-host", FilesystemID: "owned-fs", InstanceID: "owned-test"}
+	control, err := gov.NewControlService(db, gov.ControlOptions{Scope: scope, Queue: queue})
+	require.NoError(t, err)
+	applyControl := func() {
+		items, e := queue.Dequeue(ctx, "platform:storage-control", "core.storage.control."+scope.ID(), "owned-retention", "owned-acceptance", 10, time.Millisecond)
+		require.NoError(t, e)
+		require.NotEmpty(t, items)
+		for _, item := range items {
+			require.NoError(t, control.ApplyDelivery(ctx, item))
+		}
+	}
+	svc, err := gov.NewService(gov.Options{Control: control, ControlWorkerEnabled: true, DB: db, Collector: testCollector{}, FilesystemPath: dir, Budget: coordinator, Identity: gov.Identity{HostID: "owned-host", FilesystemID: "owned-fs", InstanceID: "owned-test"}, DatabaseRetentionAllowed: true, LifecycleWorkerEnabled: true})
 	require.NoError(t, err)
 	read := func() gov.DatabaseRetentionStatus {
 		w := request(t, root, "GET", path, "", svc)
@@ -106,12 +132,48 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 		return out.Data
 	}
 	save := func(p gov.DatabaseRetentionPolicy) gov.DatabaseRetentionPolicy {
-		raw, e := json.Marshal(map[string]interface{}{"expected_revision": p.Revision, "confirm": true, "policy": p})
+		settings := gov.DatabaseRetentionSettings{SuccessDays: p.SuccessDays, FailureDays: p.FailureDays, PendingHours: p.PendingHours, QuarantineDays: p.QuarantineDays, BatchLimit: p.BatchLimit, MaxBytes: p.MaxBytes, AdoptLegacy: p.AdoptLegacy, RejectNewWhenFull: p.RejectNewWhenFull}
+		_, e := svc.ChangeDatabaseRetention(ctx, gov.DatabaseRetentionChange{RequestID: uuid.NewString(), ExpectedRevision: p.Revision, Action: "save", Settings: &settings, Confirm: true})
 		require.NoError(t, e)
-		w := request(t, root, "PUT", path, string(raw), svc)
-		require.Equal(t, 200, w.Code, w.Body.String())
-		return read().Policy
+		applyControl()
+		next := read().Policy
+		if p.Enabled {
+			yes := true
+			_, e = svc.ChangeDatabaseRetention(ctx, gov.DatabaseRetentionChange{RequestID: uuid.NewString(), ExpectedRevision: next.Revision, Action: "status", Enabled: &yes, Confirm: true})
+			require.NoError(t, e)
+			applyControl()
+			next = read().Policy
+		}
+		return next
 	}
+	legacy := read()
+	_, err = svc.AdoptDatabaseRetention(ctx, gov.DatabaseRetentionAdoption{RequestID: uuid.NewString(), LegacyDigest: legacy.Configuration.LegacyDigest, Confirm: true})
+	require.NoError(t, err)
+	applyControl()
+	saveBudgetPolicy := func(ctx context.Context, _ int64, p budget.BudgetPolicy) (budget.BudgetPolicy, error) {
+		c, e := svc.HostBudgetConfiguration(ctx)
+		if e != nil {
+			return p, e
+		}
+		if c.Authority == "legacy" {
+			_, e = svc.AdoptHostBudget(ctx, gov.HostBudgetAdoption{RequestID: uuid.NewString(), LegacyRevision: c.LegacyRevision, LegacyDigest: c.LegacyDigest, Confirm: true})
+			if e != nil {
+				return p, e
+			}
+			applyControl()
+			c, e = svc.HostBudgetConfiguration(ctx)
+			if e != nil {
+				return p, e
+			}
+		}
+		_, e = svc.SaveHostBudget(ctx, gov.HostBudgetChange{RequestID: uuid.NewString(), ExpectedRevision: c.DesiredRevision, Settings: gov.HostBudgetSettings{MinFreeBytes: p.MinFreeBytes, CriticalFreeBytes: p.CriticalFreeBytes, MaxUsedBytes: p.MaxUsedBytes, MaxConcurrent: p.MaxConcurrent}, Confirm: true})
+		if e != nil {
+			return p, e
+		}
+		applyControl()
+		return coordinator.Policy(ctx)
+	}
+
 	initial := read()
 	require.True(t, initial.Ready)
 	require.False(t, initial.Policy.Enabled)
@@ -152,6 +214,21 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 	require.Equal(t, 1, business.calls)
 	require.Equal(t, [2]int64{1, 1}, counts(), "successful execution must still record trace and publication")
 
+	// 运行时控制结构消失时明确拒绝，不能伪报容量耗尽或进入业务／审计副作用。
+	controlTable := coremodel.PowerXSchema + ".ops_storage_control_configurations"
+	require.NoError(t, db.Exec("ALTER TABLE "+controlTable+" RENAME TO owned_hidden_configurations").Error)
+	w = invoke()
+	require.Equal(t, 503, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), "STORAGE_CONTROL_SCHEMA_NOT_READY")
+	require.NotContains(t, w.Body.String(), "STORAGE_CAPACITY_EXHAUSTED")
+	require.Equal(t, 1, business.calls)
+	require.Equal(t, [2]int64{1, 1}, counts())
+	_, err = capgrpc.NewIntegrationGatewayServer(deps).InvokeCapability(ctx, &gatewayv1.InvokeCapabilityRequest{CapabilityId: capability, TenantUuid: tenantID, PreferredProtocol: "core_internal"})
+	require.Equal(t, codes.Unavailable, status.Code(err))
+	require.Contains(t, err.Error(), "STORAGE_CONTROL_SCHEMA_NOT_READY")
+	require.Equal(t, 1, routes.routes)
+	require.NoError(t, db.Exec("ALTER TABLE "+coremodel.PowerXSchema+".owned_hidden_configurations RENAME TO ops_storage_control_configurations").Error)
+
 	p := initial.Policy
 	p.RejectNewWhenFull = true // 删除保持关闭，容量保护独立开启。
 	p.MaxBytes = 64 << 20
@@ -162,7 +239,7 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 	budgetPolicy, err := coordinator.Policy(ctx)
 	require.NoError(t, err)
 	budgetPolicy.MaxUsedBytes = 1 // 实测整盘占用必然超过 1 byte，无需填满磁盘。
-	budgetPolicy, err = coordinator.SavePolicy(ctx, budgetPolicy.Revision, budgetPolicy)
+	budgetPolicy, err = saveBudgetPolicy(ctx, budgetPolicy.Revision, budgetPolicy)
 	require.NoError(t, err)
 	w = invoke()
 	require.Equal(t, 503, w.Code, w.Body.String())
@@ -174,19 +251,19 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 	require.Contains(t, err.Error(), "STORAGE_CAPACITY_EXHAUSTED")
 	require.Equal(t, 2, routes.routes, "capacity rejection must precede router mutation")
 	budgetPolicy.MaxUsedBytes = 0
-	budgetPolicy, err = coordinator.SavePolicy(ctx, budgetPolicy.Revision, budgetPolicy)
+	budgetPolicy, err = saveBudgetPolicy(ctx, budgetPolicy.Revision, budgetPolicy)
 	require.NoError(t, err)
 	space, err := coordinator.Status(ctx)
 	require.NoError(t, err)
 	budgetPolicy.CriticalFreeBytes = space.AvailableBytes + (512 << 20)
 	budgetPolicy.MinFreeBytes = budgetPolicy.CriticalFreeBytes + (1 << 20)
-	budgetPolicy, err = coordinator.SavePolicy(ctx, budgetPolicy.Revision, budgetPolicy)
+	budgetPolicy, err = saveBudgetPolicy(ctx, budgetPolicy.Revision, budgetPolicy)
 	require.NoError(t, err)
 	w = invoke()
 	require.Equal(t, 503, w.Code, "insufficient host reserve must block without filling the real disk")
 	require.Equal(t, before, counts())
 	budgetPolicy.MinFreeBytes, budgetPolicy.CriticalFreeBytes = 1<<20, 1
-	budgetPolicy, err = coordinator.SavePolicy(ctx, budgetPolicy.Revision, budgetPolicy)
+	budgetPolicy, err = saveBudgetPolicy(ctx, budgetPolicy.Revision, budgetPolicy)
 	require.NoError(t, err)
 	lease, err := coordinator.Reserve(ctx, "owned-acceptance", 32<<20, time.Minute)
 	require.NoError(t, err)
@@ -194,7 +271,7 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 	space, err = coordinator.Status(ctx)
 	require.NoError(t, err)
 	budgetPolicy.MaxUsedBytes = space.UsedBytes + (16 << 20)
-	budgetPolicy, err = coordinator.SavePolicy(ctx, budgetPolicy.Revision, budgetPolicy)
+	budgetPolicy, err = saveBudgetPolicy(ctx, budgetPolicy.Revision, budgetPolicy)
 	require.NoError(t, err)
 	w = invoke()
 	require.Equal(t, 503, w.Code, "other jobs' reservations must count towards shared host capacity")
@@ -202,7 +279,7 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 	require.Equal(t, 2, business.calls)
 	require.NoError(t, lease.Release(context.Background()))
 	budgetPolicy.MaxUsedBytes = 0
-	_, err = coordinator.SavePolicy(ctx, budgetPolicy.Revision, budgetPolicy)
+	_, err = saveBudgetPolicy(ctx, budgetPolicy.Revision, budgetPolicy)
 	require.NoError(t, err)
 
 	// 真实关系占用超过 64 MiB；TOAST 使用不可压缩数据，不依赖伪造采样。
@@ -233,7 +310,13 @@ func TestDatabaseRetentionNativeAPIAndAdmission(t *testing.T) {
 	p.Enabled = true
 	p = save(p)
 	key := uuid.NewString()
-	body := fmt.Sprintf(`{"expected_revision":%d,"request_id":%q,"confirm":true}`, p.Revision, key)
+	preview = request(t, root, "POST", path+"/previews", fmt.Sprintf(`{"expected_revision":%d}`, p.Revision), svc)
+	require.Equal(t, 200, preview.Code, preview.Body.String())
+	var previewData struct {
+		Data gov.DatabaseRetentionRun `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(preview.Body.Bytes(), &previewData))
+	body := fmt.Sprintf(`{"expected_revision":%d,"request_id":%q,"preview_id":%q,"confirm":true}`, p.Revision, key, previewData.Data.ID)
 	w = request(t, root, "POST", path+"/runs", body, svc)
 	require.Equal(t, 200, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), `"traces":28`)

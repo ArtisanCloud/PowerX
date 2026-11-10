@@ -1,0 +1,96 @@
+{
+  "validated_at": "2026-10-29T13:33:44.324152+08:00",
+  "scope": "Mac Core 用户部门关联、负责人选择及部门筛选修复",
+  "branch": "024-ai-engineering-skills",
+  "changes": [
+    "用户创建和编辑支持多部门，未改动时保留关联，空数组明确清空",
+    "租户与 Root 列表在服务端按部门及子部门筛选、去重计数和分页，返回正式 DeptIDs",
+    "负责人按正式成员分页合同解析，支持搜索、失败提示和重试",
+    "负责人变更同步数字 ID 与 UUID，显式 null 清空，两条写入路径验证租户归属",
+    "窄屏表单滚动、固定操作区、下拉层级及连续编辑提示遮挡修复"
+  ],
+  "checks": {
+    "backend": {
+      "status": "passed",
+      "packages": [
+        "./internal/service/system",
+        "./internal/service/iam",
+        "./internal/transport/http/admin/iam",
+        "./internal/transport/http/admin/system"
+      ],
+      "go_vet": "passed",
+      "go_build_cmd_app": "passed",
+      "fixture": "隔离 SQLite 数据库，包含真实 HTTP Handler 与事务回读"
+    },
+    "frontend_unit": {
+      "status": "passed",
+      "files": 6,
+      "tests": 36,
+      "command": "npx vitest run tests/unit/iam"
+    },
+    "browser": {
+      "status": "passed",
+      "tests": 7,
+      "viewports": [
+        {
+          "width": 1440,
+          "height": 1000
+        },
+        {
+          "width": 390,
+          "height": 1000
+        },
+        {
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:13330 npx playwright test --config playwright.tenant-users.config.ts --reporter=line",
+      "fixture": "已构建 Nuxt 前端与隔离 API fixture，覆盖租户 Admin、Root、分页、部门选择与清空、子部门筛选、第二页负责人、失败重试"
+    },
+    "nuxt_build": {
+      "status": "passed",
+      "build_dir": "/tmp/powerx-user-departments-20261029-130009/nuxt-build"
+    },
+    "scoped_diff_check": "passed"
+  },
+  "acceptance_boundary": {
+    "business_database_modified": false,
+    "live_core_restart_required": true,
+    "live_database_readback": "pending after user restart",
+    "browser_api_fixture": true
+  },
+  "user_services_preserved": {
+    "core_pid": 44355,
+    "core_port": 8077,
+    "frontend_pid": 18054,
+    "frontend_port": 3030
+  },
+  "agent_temporary_frontend": {
+    "pid": 90555,
+    "command": [
+      "node",
+      ".output/server/index.mjs"
+    ],
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+    "host": "127.0.0.1",
+    "port": 13330,
+    "owner": "agent temporary browser acceptance",
+    "stopped": true,
+    "port_released": true,
+    "stopped_at": "2026-10-29T13:33:44.317371+08:00"
+  },
+  "artifacts_dir": "/tmp/powerx-user-departments-20261029-130009",
+  "source_sha256": {
+    "backend/internal/service/system/user_service.go": "ae84e3f798f62cb580d5c44a043c7829beab17007235a5ccf777e1ed822d07a1",
+    "backend/internal/service/iam/member_service.go": "3055c31612bfc5f2051f0ddba9f981edfb33960c2f9ba24bd89682946db214c4",
+    "backend/internal/service/iam/org_service.go": "34edac56a084a0cd2cfcf137b043ac71910220a9719d7a9ec45aaa3ea48ff993",
+    "backend/internal/transport/http/admin/system/user_handler.go": "bffc1ccf0a74628cd991e6ce1f5695361a2ffb09111f0ffbedde57d152c30551",
+    "backend/internal/transport/http/admin/iam/dto.go": "2074ba08cea6d88f38a3bdb72eb8095c85d266f5fdb0286b86a5ea290bfd60a5",
+    "backend/internal/transport/http/admin/iam/department_handler.go": "ffe645ebf00e0e3bb46c2788254eaeea81b8c5aeaf28f26e3f80e9089af17d36",
+    "web-admin/app/components/settings/users/UsersTenantAdmin.vue": "142e561aa0c459cd444a97ca07f8b6d1806b98fe5ef19442b3d0d2e1f49b1491",
+    "web-admin/app/components/settings/users/DepartmentManager.vue": "829f09f4fe16b56c94a8d0f21f4f57841669fdda4044d6ec6774e29ad90034ed",
+    "web-admin/app/composables/api/services/memberService.ts": "51b8b3eea2bc2ad2b114b2af5f9713268c3c7f2ab2498c03bcf7773e12385cf0",
+    "web-admin/app/composables/api/services/tenantUserService.ts": "cef5f928794aa1b59fe140c02dcfb40a9343520bc6988d2e1fc278cb1b086a5d"
+  }
+}

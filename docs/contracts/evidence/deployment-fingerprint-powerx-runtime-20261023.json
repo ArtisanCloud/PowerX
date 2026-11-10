@@ -1,0 +1,320 @@
+{
+  "record_schema": "powerx.validation-evidence/v1",
+  "recorded_at": "2026-10-23T08:08:06.922213+00:00",
+  "scope": "PowerX deployment-fingerprint M2 and Core portion of M4: runtime, build integration and controlled verification; does not close M6/M7 or A01-A24.",
+  "source": {
+    "head": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+    "branch": "024-ai-engineering-skills",
+    "preexisting_dirty_worktree": true,
+    "branch_changed": false,
+    "existing_file_changes_are_only_owned_slices": true
+  },
+  "configuration": {
+    "file": "actual loaded POWERX_CONFIG; source default backend/etc/config.yaml",
+    "key": "plugin.marketplace.public_site_url",
+    "environment": "POWERX_MARKETPLACE_PUBLIC_SITE_URL",
+    "unset_env_preserves_file": true,
+    "explicit_empty_env_clears": true,
+    "apply": "restart/reload by operator; no new automatic file watcher",
+    "invalid_optional_site": "warning, disable deployment extension, preserve ordinary registration and local install"
+  },
+  "public_endpoints": [
+    "<configured_api_prefix>/system/product",
+    "<configured_api_prefix>/system/marketplace-proof?challenge_id=<uuid>",
+    "<site_base>/.well-known/powerx.json",
+    "<site_base>/.well-known/powerx-instance.json?challenge_id=<uuid>"
+  ],
+  "checks": [
+    {
+      "name": "backend_regression",
+      "status": "passed",
+      "cwd": "backend",
+      "command": "go test -p 2 ./config ./internal/productinfo ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/infra/plugin/manager ./internal/transport/http/admin/plugin ./internal/transport/http/public/product ./internal/http -count=1 -timeout=180s",
+      "packages": 8,
+      "log": "/tmp/powerx-fingerprint-runtime-regression.log"
+    },
+    {
+      "name": "runtime_race_checks",
+      "status": "passed",
+      "cwd": "backend",
+      "command": "go test -race ./internal/service/plugin_marketplace ./internal/infra/plugin/marketplace ./internal/productinfo ./internal/transport/http/public/product -run 'TestDeployment|TestRuntimeParser|TestSidecar|TestAnonymousProduct' -count=1 -timeout=90s",
+      "packages": 4,
+      "log": "/tmp/powerx-fingerprint-runtime-race-verified.log"
+    },
+    {
+      "name": "final_service_regression_race",
+      "status": "passed",
+      "cwd": "backend",
+      "command": "go test -race ./internal/service/plugin_marketplace -count=1 -timeout=120s",
+      "log": "/tmp/powerx-fingerprint-runtime-service-regression-final.log"
+    },
+    {
+      "name": "go_vet",
+      "status": "passed",
+      "cwd": "backend",
+      "command": "go vet ./internal/productinfo ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/transport/http/public/product ./internal/http",
+      "log": "/tmp/powerx-fingerprint-runtime-vet-final.log"
+    },
+    {
+      "name": "native_final_main_program_build",
+      "status": "passed",
+      "cwd": "backend",
+      "command": "go build -o /tmp/powerx-fingerprint-runtime-app -ldflags '-X github.com/ArtisanCloud/PowerX/internal/productinfo.ReleaseID=runtime-test -X github.com/ArtisanCloud/PowerX/internal/productinfo.SourceCommit=controlled-source' ./cmd/app",
+      "log": "/tmp/powerx-fingerprint-runtime-build-final.log"
+    },
+    {
+      "name": "native_sidecar_and_actual_executable_self_check",
+      "status": "passed",
+      "cwd": "backend",
+      "commands": [
+        "go run ./cmd/build_fingerprint -binary /tmp/powerx-fingerprint-runtime-app -release runtime-test -commit controlled-source",
+        "/tmp/powerx-fingerprint-runtime-app --product-info"
+      ],
+      "state": "available",
+      "log": "/tmp/powerx-fingerprint-runtime-sidecar-final.log"
+    },
+    {
+      "name": "actual_marketplace_manifest_parser",
+      "status": "passed",
+      "cwd": "PowerXPluginMarket/backend",
+      "command": "go test -overlay <temporary-overlay.json> ./internal/deployment -run ^TestControlledPowerXFinalReleaseManifests$ -count=1 -v",
+      "details": "Temporary test-only Go overlay reads the actual generated native backend and Nitro web manifests, invokes Marketplace ParseManifest, and records matching build IDs. Overlay directory removed; no Marketplace source edited and no DB accessed.",
+      "log": "/tmp/powerx-fingerprint-runtime-market-artifacts-final.log"
+    },
+    {
+      "name": "nuxt_production_build",
+      "status": "passed",
+      "cwd": "web-admin",
+      "command": "POWERX_VERSION=runtime-test POWERX_SOURCE_SHA=controlled-source POWERX_NUXT_BUILD_DIR=.nuxt-fingerprint-validation POWERX_NITRO_OUTPUT_DIR=.output-fingerprint-validation POWERX_BUILD_TARGET=prod NUXT_APP_BASE_URL=/console/ npm run build",
+      "details": "Isolated build/output directories; existing .nuxt and .output were not replaced. Existing Browserslist age and chunk-size warnings remain.",
+      "log": "/tmp/powerx-fingerprint-runtime-nuxt-build-final.log"
+    },
+    {
+      "name": "actual_nitro_http_root_and_subpath",
+      "status": "passed",
+      "cwd": "web-admin",
+      "command": "node scripts/check-deployment-fingerprint-output.mjs .output-fingerprint-validation",
+      "details": "Actual built Nitro server tested at / and /console/: generator metadata, manifest JSON and no-cache, four final resource bytes/SHA256, no-store proof, Core envelope unwrap, no forwarded visitor Authorization/Cookie, arbitrary query rejection. Upstream Core proof is controlled test HTTP; this is not a live Core or real Marketplace verification transaction.",
+      "log": "/tmp/powerx-fingerprint-runtime-output-check-final.log"
+    },
+    {
+      "name": "frontend_unit_regression",
+      "status": "passed",
+      "cwd": "web-admin",
+      "command": "npx vitest run tests/unit/plugins/marketplace-proof.spec.ts tests/unit/plugins/build-fingerprint.spec.ts tests/unit/plugins/remote-marketplace.spec.ts",
+      "tests": 17,
+      "log": "/tmp/powerx-fingerprint-runtime-node-tests-final.log"
+    },
+    {
+      "name": "meaningful_eslint",
+      "status": "passed",
+      "details": "Temporary ESLint config used installed recommended JS rules, TypeScript parser, Node globals, and explicit Nuxt config global. Both server files, generator, HTTP output checker, new tests and nuxt.config.ts checked. Empty repository ESLint config alone was not counted as validation.",
+      "log": "/tmp/powerx-fingerprint-runtime-eslint-verified.log"
+    },
+    {
+      "name": "shared_schema_and_digest_agreement",
+      "status": "passed",
+      "details": "Runtime Go parser and actual Node generator consume the four shared golden vectors; runtime embedded schema equals the frozen shared schema. Both protocol snapshots pass the peer integrity checker."
+    },
+    {
+      "name": "systemd_recipe",
+      "status": "passed_dry_run",
+      "command": "make -n dist-systemd",
+      "details": "Recipe includes ldflags on actual cmd/app, subsequent sidecar generation, common frontend release metadata and production-only intermediate cleanup. Full systemd bundle was not built.",
+      "log": "/tmp/powerx-fingerprint-runtime-dist-dryrun.log"
+    },
+    {
+      "name": "source_and_document_checks",
+      "status": "passed",
+      "details": "git diff --check, guide relative links and schema peer checksum verification passed."
+    }
+  ],
+  "generated_controlled_artifacts": {
+    "note": "Actual output from the dirty worktree with fixture release runtime-test and fixture source controlled-source; NOT an official release or a trusted Marketplace import. Only comments were added after the final native build.",
+    "backend": {
+      "schema": "powerx.build-fingerprint/v1",
+      "product": "powerx",
+      "component": "backend",
+      "release_id": "runtime-test",
+      "source_commit": "controlled-source",
+      "target": {
+        "os": "darwin",
+        "arch": "arm64"
+      },
+      "artifacts": [
+        {
+          "kind": "binary",
+          "path": "powerx-fingerprint-runtime-app",
+          "sha256": "ee0c6076a4b217353dc7a1cc97765a67d3a630739224370fd9f4fa78d94da6ba",
+          "size": 102199234
+        }
+      ],
+      "build_id": "d1529a1c5ad74b02aa1843357f6449ec1d07621d1ab379a701271ea8fee2af82",
+      "built_at": "2026-10-23T08:03:51Z"
+    },
+    "web-admin": {
+      "schema": "powerx.build-fingerprint/v1",
+      "product": "powerx",
+      "component": "web-admin",
+      "release_id": "runtime-test",
+      "source_commit": "controlled-source",
+      "target": {
+        "os": "any",
+        "arch": "any"
+      },
+      "artifacts": [
+        {
+          "kind": "public_asset",
+          "path": "_nuxt/ldV0r1mP.js",
+          "sha256": "408005b8823398320009e09fb8e3d611e452e942f503801d1b2b8c08fdc8166f",
+          "size": 522338
+        },
+        {
+          "kind": "public_asset",
+          "path": "_nuxt/entry.Cx-cCCEQ.css",
+          "sha256": "2a0888fadfd6639847507bc56adbae2608129d5b09144dadcbd737a3d9a7cf6a",
+          "size": 288672
+        },
+        {
+          "kind": "public_asset",
+          "path": "_nuxt/2ZiZL8rG.js",
+          "sha256": "2a12789cfb8a2496072426275ac30c29b96add85eb5a0e36fb94ce01e462a981",
+          "size": 14624
+        },
+        {
+          "kind": "public_asset",
+          "path": "_nuxt/4DjA9wZb.js",
+          "sha256": "d2bc7cb4cce89d85ebc51a09e52b09974dd6a34458aea0045b23f9d254b08b6a",
+          "size": 218
+        }
+      ],
+      "built_at": "2026-10-23T07:54:28.753Z",
+      "build_id": "9161fc591915c938e185d26e500a23bffd043b0b4b8e9d224a658a7d99659366"
+    }
+  },
+  "behavior_verified": [
+    "legacy market compatibility",
+    "ordinary 400 rediscovery and one old-format retry",
+    "capability recovery without restart",
+    "credential-free public discovery",
+    "registered worker restart retains instance ID and credential",
+    "network failure retains still-valid proof",
+    "empty set clears proof",
+    "monotonic elapsed-time deadline independent of Marketplace wall clock",
+    "full request RTT and 1-second safety margin deducted",
+    "same challenge never extends or resurrects deadline",
+    "configuration generation rejects stale in-flight response",
+    "URL change and clear remove old local proof",
+    "HTTP declaration allowed; HTTPS required for challenges",
+    "401/403 remove local proofs without new identity",
+    "strict manifest JSON/schema and actual binary SHA256/size self-check",
+    "API prefix v1/v2/custom handlers",
+    "fixed upstream proxy, no visitor credentials, no arbitrary target",
+    "unchanged local upload/installer and durable result-report regressions"
+  ],
+  "not_executed": [
+    "Docker image build/run",
+    "complete make dist-systemd bundle",
+    "user existing Core/Nuxt service reload",
+    "real public HTTPS deployment",
+    "real Marketplace challenge creation and consume transaction against a deployed Core",
+    "two independently deployed instances acceptance",
+    "browser navigation/visual acceptance; no management page was changed"
+  ],
+  "safety": {
+    "application_database_migrated": false,
+    "user_service_restarted_or_stopped": false,
+    "new_plugin_install_triggered": false,
+    "plugin_business_source_modified": false,
+    "local_upload_install_flow_modified": false,
+    "marketplace_business_source_modified_this_turn": false,
+    "deployment_credentials_or_nonces_persisted_in_artifacts": false
+  },
+  "processes": {
+    "all_agent_owned_services_stopped": true,
+    "successful_http_check": [
+      {
+        "pid": 84116,
+        "role": "test upstream + runner",
+        "port": 64925
+      },
+      {
+        "pid": 84123,
+        "role": "Nitro root",
+        "port": 64926
+      },
+      {
+        "pid": 84212,
+        "role": "Nitro subpath",
+        "port": 64935
+      }
+    ],
+    "initial_failed_http_check": [
+      {
+        "pid": 58923,
+        "role": "runner/upstream",
+        "port": 59087
+      },
+      {
+        "pid": 58943,
+        "role": "Nitro",
+        "port": 59089
+      }
+    ],
+    "cleanup": "Child exit awaited, upstream server closed, ps/lsof confirm recorded processes/listeners absent. In-process Go httptest fixtures closed by tests."
+  },
+  "resolved_during_validation": [
+    "Postbuild-generated JSON was not in Nitro static index; generation moved to nitro:build:public-assets before asset indexing and root/subpath HTTP checks passed.",
+    "Persisted-identity worker startup revealed discovery credential forwarding; public discovery now uses a credential-free client and restart regression passes."
+  ],
+  "source_file_sha256": {
+    "backend/config/plugin.go": "1cbee331f9158d5d5c6de08ed7c7b8c269380ce41dd9f47dcf6b12ab272968d6",
+    "backend/config/config.go": "7926b542dcd2f74b5e13cbdf2c799ba808bd2824dbff9dd5ebc8cb3525a1dc88",
+    "backend/config/marketplace_deployment_test.go": "677605244e4815d4282c09b0f31885aed2647f00f13102fc5f4999f00e874068",
+    "backend/cmd/app/main.go": "1c054efcb35e235b48f60fe8601bce1b6011e23978d52115ebee0cbbf1b40185",
+    "backend/cmd/build_fingerprint/main.go": "766c7b966736c41167404a43c85a416cc0da884d5db797b6d6131fa8e9d52eee",
+    "backend/internal/productinfo/manifest.go": "00b15243fa6d344874f8cdaca8b4ba7675c9731d3009541b644f3626f8995168",
+    "backend/internal/productinfo/runtime.go": "a87400a6721002bc0fa3597f97c602adcb2932676bf3b76e728c50b230421c12",
+    "backend/internal/productinfo/schema.go": "adc203f99546373b70252ae2cf113eadf1469431e113900369150bb2622e219a",
+    "backend/internal/productinfo/protocol.schema.json": "ed01dc43e3b05943b33fc6f2bc0495ab503da62a10e3dc00215dfe11cee66a99",
+    "backend/internal/productinfo/manifest_test.go": "b1d50308946749c29ac548296e61286ae4d18453ff65f8113353c25d7c371bc9",
+    "backend/internal/app/shared/options.go": "06a91fd13a786a21b34ae5fb852514e0866491367d0be03dafe92b36cb8b8119",
+    "backend/internal/app/shared/plugin_marketplace.go": "9ae3c9914cbdd636014b640a519ce79e7d162bedf7d3a75851122461cea7e903",
+    "backend/internal/bootstrap/app.go": "1dec7338e78d10cc2544dd92aa31df07a576b2a064e9a4000f5df935bd2445e0",
+    "backend/internal/http/router.go": "76c6ddf496d9413e2bb11af8b69db26a163ea98509d0fb71aa0dd6d081e47e35",
+    "backend/internal/http/install_guard_middleware.go": "739d724a01e9ea9722223bc90d0dec70980bf3f353fb56ea995ee271e05e1ebd",
+    "backend/internal/infra/plugin/marketplace/deployment.go": "8e71eeea667dc928922a958b7d2e6647986eadbd37a2c8da383f522d6bd93934",
+    "backend/internal/infra/plugin/marketplace/deployment_site.go": "135d795dd59fcbb25bb0cc87f81132589f399ae78f4c135d1d11200facaa13be",
+    "backend/internal/infra/plugin/marketplace/distribution.go": "936f6355423329699861782a7e1a769a81da4d4946ed9bfe7ce72a9ada9df20f",
+    "backend/internal/service/plugin_marketplace/service.go": "c863cf3ffb9db9f147d1fcb28449d4508ca72f072da224454828099743e6021e",
+    "backend/internal/service/plugin_marketplace/automatic_registration.go": "4a4d3dd66c79d9e0dc8a2846f73cd3129f7fc6ae03278f2bc466266c19fd4e6a",
+    "backend/internal/service/plugin_marketplace/distribution.go": "8b5c95b382765256c0925e026d7a7a7725e23b62c0a3f9b59b8da199a13b6ff9",
+    "backend/internal/service/plugin_marketplace/deployment.go": "4d0022e7f0d8f278e9db104a8e2e25b4ff0a88b131d9f55a9c67436624c653f8",
+    "backend/internal/service/plugin_marketplace/deployment_test.go": "5c25ed55aa887deb7fbb40e8fbe9b58e86d5580a43d6717397365b70405bbcd2",
+    "backend/internal/transport/http/public/product/api.go": "b4c2b0e28e8c528872545bdb3a0129c9476fafe04e10daba5a165f0721829bfb",
+    "backend/internal/transport/http/public/product/handler.go": "c2cee185ed17a6ce52f768bc92e80063191a9e2fe9465dbd096b43ddc019e5c7",
+    "backend/internal/transport/http/public/product/handler_test.go": "487b9920bafdbce70538d60e9fc389a06960ee9cad51f031af9e10ae6be36ace",
+    "web-admin/nuxt.config.ts": "9b2a16e250a84e3fe1fef38fb59c333b091b1cd0ba46e3d2f5ed71e0fa1f169d",
+    "web-admin/package.json": "05633c601c3ff6ee86d515469139f66a477caef6c6e8b266317be4e5ac43136c",
+    "web-admin/server/middleware/00-marketplace-proof.ts": "6dd72351f475cb2999fc7d07be8c912b140f5c5b8f3ba5f4971ae7b7cca4c35f",
+    "web-admin/server/utils/marketplace-proof.ts": "5f9521204730c9863fa109773d6a68f81683d80a6b9ef548c11a1c63ddd353fa",
+    "web-admin/scripts/build-fingerprint.mjs": "563f5ba90cd2656c21a9a7d2d421917d2b542bf8d955586b471b8d4fd977f6eb",
+    "web-admin/scripts/check-deployment-fingerprint-output.mjs": "66868305829d43baaf2f92b4f8e3d90798af7b125b73b35b54db74e14ac79e31",
+    "web-admin/tests/unit/plugins/marketplace-proof.spec.ts": "4a5f9ebd1e9e46fb0308e5401f97861da44fb2d389a15eb16c36c692ee15d753",
+    "web-admin/tests/unit/plugins/build-fingerprint.spec.ts": "e0514c6d29229a347b11461fdb300207b4f301fc1424762a27209ec6e2d57e79",
+    "make_files/dist.mk": "8d228237eb8dbc4a3f142a96b54f9dd19337733707a500a2238a3a04a10c7689",
+    "deploy/powerx/docker/dockerfiles/backend.Dockerfile": "9221f599ceeda0e48a9c276d37bf45dfe67bc78ef407398c29be747429ef5ed5",
+    "deploy/powerx/docker/dockerfiles/web-admin.Dockerfile": "b8fb080fb6446da56909a078ae27ad3917139f21b030b392a9d234f76f945a99",
+    "backend/etc/config_example.yaml": "5e485ad0e670e8b7fa7f9aff3d71402078b79db949af43380cbcf1a4c13fa718",
+    "backend/etc/config_example.prod.yaml": "e5a1d3fbf2584819b1a9e1af8b8a66e9a13d16bcce620b944fd7d576d386dedb",
+    "backend/go.mod": "87d994f236b0672129d9675fb7db52c043e26ecab59426f6ea05cc62d48f8690",
+    "backend/go.sum": "c63eee75450e18ae3f4f17c367a3c77130855b54d19a494aa509651b038734e2"
+  },
+  "guide": "docs/guides/deploy/powerx-deployment-fingerprint/guide.md",
+  "temporary_artifact_cleanup": [
+    "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.nuxt-fingerprint-validation",
+    "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/.output-fingerprint-validation",
+    "/tmp/powerx-fingerprint-runtime-app",
+    "/tmp/powerx-fingerprint-runtime-app.build.json"
+  ]
+}

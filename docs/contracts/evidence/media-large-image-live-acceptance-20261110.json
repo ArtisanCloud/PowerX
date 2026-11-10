@@ -1,0 +1,141 @@
+{
+  "date": "2026-11-10",
+  "status": "core_live_generation_and_plugin_persistence_verified_plugin_modal_stale_merge_reproduced",
+  "scope": "read-only investigation of the reported upload; no retry, database change, source image edit or service restart",
+  "core_runtime": {
+    "port": 8077,
+    "pid_observed": 58697,
+    "started_at_local": "2026-11-10 11:24:21 Asia/Shanghai",
+    "build_id": "0c1fc4e26e65b878ba4511e1cdec18fb19500f46493cd61fdef790bb6f624f9d"
+  },
+  "plugin_asset_uuid": "8f5b8514-1591-4a11-8954-bba61a105e3c",
+  "core_asset_uuid": "80e250a5-9a16-586e-9230-616ce7080e88",
+  "core_task": {
+    "task_id": "df9bcdcd-5676-410d-a731-2bd350f2c4d0",
+    "status": "completed",
+    "attempt": 1,
+    "error_message": "",
+    "completed_at": "2026-11-10T11:27:05.579423+08:00",
+    "trace_id": ""
+  },
+  "core_variants": [
+    {
+      "uuid": "43dfbfca-2873-4bcd-99f2-25d101b7eb52",
+      "variant": "preview",
+      "mime_type": "image/jpeg",
+      "size_bytes": 256506,
+      "upload_state": "ready",
+      "completed_at": "2026-11-10T11:27:03.481645+08:00",
+      "expected_checksum": "13611d3cd292475a5e01aa2301a908141855b336d977359ea19c8905fd2b832d",
+      "width": 1203,
+      "height": 1600
+    },
+    {
+      "uuid": "9a417917-30a6-4603-8e0f-f7b8321d0b27",
+      "variant": "thumbnail",
+      "mime_type": "image/jpeg",
+      "size_bytes": 18062,
+      "upload_state": "ready",
+      "completed_at": "2026-11-10T11:27:04.487557+08:00",
+      "expected_checksum": "faae31b97fa87beda0c492e05f995657e7949e1ad0ea300df1cc6000db78b1f5",
+      "width": 240,
+      "height": 320
+    },
+    {
+      "uuid": "fd4fa550-9f22-4ffe-aae8-b7bd1ec46081",
+      "variant": "thumbnail_64",
+      "mime_type": "image/jpeg",
+      "size_bytes": 1746,
+      "upload_state": "ready",
+      "completed_at": "2026-11-10T11:27:05.515235+08:00",
+      "expected_checksum": "fbc539795d939b5840efc35b6819fa46c58da504debc25b51c030b872530bc03",
+      "width": 48,
+      "height": 64
+    }
+  ],
+  "actual_objects": [
+    {
+      "variant": "original",
+      "exists": true,
+      "bytes": 10698505,
+      "size_matches": true,
+      "sha256_matches": true
+    },
+    {
+      "variant": "preview",
+      "exists": true,
+      "bytes": 256506,
+      "size_matches": true,
+      "sha256_matches": true
+    },
+    {
+      "variant": "thumbnail",
+      "exists": true,
+      "bytes": 18062,
+      "size_matches": true,
+      "sha256_matches": true
+    },
+    {
+      "variant": "thumbnail_64",
+      "exists": true,
+      "bytes": 1746,
+      "size_matches": true,
+      "sha256_matches": true
+    }
+  ],
+  "plugin_projection": {
+    "status": "preview_ready",
+    "updated_at": "2026-11-10T11:27:05.600967+08:00",
+    "original_asset_id": "80e250a5-9a16-586e-9230-616ce7080e88",
+    "preview_asset_id": "80e250a5-9a16-586e-9230-616ce7080e88",
+    "renditions": {
+      "recipe": "standard-image-v2",
+      "job_uuid": "df9bcdcd-5676-410d-a731-2bd350f2c4d0",
+      "attempts": 1,
+      "thumbnail": {
+        "variant": "thumbnail_64",
+        "status": "ready",
+        "variant_uuid": "fd4fa550-9f22-4ffe-aae8-b7bd1ec46081",
+        "object_key": "80e250a5-9a16-586e-9230-616ce7080e88/fd4fa550-9f22-4ffe-aae8-b7bd1ec46081",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1746
+      },
+      "preview": {
+        "variant": "preview",
+        "status": "ready",
+        "variant_uuid": "43dfbfca-2873-4bcd-99f2-25d101b7eb52",
+        "object_key": "80e250a5-9a16-586e-9230-616ce7080e88/43dfbfca-2873-4bcd-99f2-25d101b7eb52",
+        "mime_type": "image/jpeg",
+        "size_bytes": 256506
+      }
+    }
+  },
+  "frontend_reproduction": {
+    "source_component": "/private/var/www/html/ArtisanCloud/X/CraftWorkspace/com.powerx.plugin.ai-craft/web-admin/app/components/operations/AiCraftManualSessionOpsModal.vue",
+    "source_functions_executed": true,
+    "initial_upload_url": "",
+    "later_server_url_present": true,
+    "merged_url": "",
+    "stale_uploaded_item_wins": true
+  },
+  "frontend_source_sha256": "0b7b2029ee22899d0a1d88e0c8f4a8f5f12dbf2ee80a268615ed2f08d3d8e29c",
+  "frontend_locations": {
+    "merge_order_and_duplicate_skip": "AiCraftManualSessionOpsModal.vue:674-689",
+    "upload_snapshot_retained": "AiCraftManualSessionOpsModal.vue:1268-1278",
+    "empty_url_rendered_unavailable": "AiCraftManualSessionOpsModal.vue:382-392"
+  },
+  "required_plugin_fix": [
+    "Reconcile candidate images by asset UUID using fresh authoritative server rendition state; do not retain the upload-time empty URL over the same asset becoming ready.",
+    "Update the open modal from the existing relevant push/refresh flow while preserving unsaved choices and fields. Do not add periodic status polling.",
+    "Handle failed/revoked states by invalidating old preview references; do not fall back to original or untrusted external URLs.",
+    "Regress upload processing -> ready while modal stays open, duplicate identity merge, failure/revocation and unsaved form preservation."
+  ],
+  "acceptance_limits": {
+    "core_database_and_object_bytes": "verified live",
+    "plugin_database_projection": "verified live",
+    "current_frontend_merge_function": "executed from current TypeScript source with upload/ready inputs; stale empty URL reproduced",
+    "authenticated_browser_request_and_render": "not executed",
+    "plugin_code_modified": false
+  },
+  "next": "AI Craft owner fixes the modal merge/update path, then verifies this existing asset displays its preview without re-uploading or restarting Core."
+}

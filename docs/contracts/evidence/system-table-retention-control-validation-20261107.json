@@ -1,0 +1,332 @@
+{
+  "date": "2026-11-07",
+  "scope": "SG-11 two fixed system-table retention adapters",
+  "status": "source and isolated acceptance complete; daily/production adoption and whole commercial gates incomplete",
+  "branch": "024-ai-engineering-skills",
+  "adapters": [
+    "capability_registry_health_probe_results",
+    "capability_registry_discovery_cache"
+  ],
+  "authority": "existing configuration and immutable revision tables; fixed per-adapter domains, independent CAS/publication/legacy fingerprints; formal TaskBus and SSE, monotonic private projection with live database guard",
+  "migration": "No new model/table or startup migration; existing control and cleanup ledger registration reused. No daily migration.",
+  "execution": "same-connection PostgreSQL transaction consumes actor/table/version/cutoff-bound five-minute preview, runs fixed eligibility adapter and stores completion receipt. Missing receipt never authorizes another POST. Bounded 30-day terminal receipt GC in independent sys-retention namespaces.",
+  "protections": [
+    "pause on adoption and retention save; enable separately",
+    "legacy unknown outcomes block only that adapter adoption; old shared JSON remains unchanged",
+    "latest probes, unknown statuses, future retries, current/valid caches, recent retirements and unknown tenants remain",
+    "foreign references and missing indexes block deletion; existing ROW EXCLUSIVE and in-transaction reference preflight preserved",
+    "expired/consumed or cross-table preview rejected; exact replay returns original receipt without re-deleting",
+    "receipt write failure rolls back deletion and preview consumption",
+    "tamper, missing projection, database-only rollback or source mismatch disables execution; no legacy fallback",
+    "Root human session; API keys, service and plugin/STS identities rejected",
+    "parent modal locked during writes/unknown outcomes; nested task switches retain draft, original CAS and original request reconciliation",
+    "unadopted/paused policies do not falsely fail shared lifecycle health"
+  ],
+  "tests": {
+    "new_system_control_cases": 6,
+    "controlled_runtime_case": 1,
+    "race_distinct_cases": 27,
+    "race_repetitions": 3,
+    "race_passes": 81,
+    "race_scope": "system adapters/runtime plus invocation retention, shared control and backup/snapshot regressions",
+    "frontend_files": 34,
+    "frontend_tests": 235,
+    "http": "real Gin/JWT/PostgreSQL/formal TaskBus/SSE; Redis transport miniredis; custom /custom/v2 prefix and Root boundary exercised",
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "explicit paused adapter adoption through HTTP/PostgreSQL/TaskBus/SSE",
+        "retention save pauses cleanup and activation is independent",
+        "SSE keeps original CAS draft; explicit latest reload resolves conflict",
+        "lost committed configuration uses original GET receipt and locks parent modal",
+        "real isolated probe deletion binds preview; lost execution response is query-only",
+        "light 1440 nested task navigation, draft preservation, primary action and no overflow",
+        "light 390 nested task navigation, draft preservation, primary action and no overflow",
+        "dark 1440 nested task navigation, draft preservation, primary action and no overflow",
+        "dark 390 nested task navigation, draft preservation, primary action and no overflow",
+        "discovery adapter opens independently without changing the probe policy"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "runtime_errors": [],
+      "idle_control_requests": [],
+      "idle_observation_seconds": 2.5,
+      "boundary": "actual Nuxt, owned HTTP/PG control/inventory/SSE; authorized daily Root login, unrelated daily API reads only. An expired isolated probe row was deleted, latest retained."
+    },
+    "checks": [
+      "focused backend/bootstrap/repository regressions passed",
+      "go vet passed",
+      "make capability-check passed",
+      "strict OpenAPI YAML validation without duplicate keys",
+      "scoped git diff --check passed"
+    ]
+  },
+  "limits": [
+    "controlled fake-clock advancement of two real runtime cycles is not a 15-minute or long-term acceptance",
+    "global emergency-stop priority/worker-outage handling remains part of whole T169",
+    "old executable handoff, joint database/runtime restore epoch, automatic restore drills and external key provider incomplete",
+    "backup/snapshot regression adapters use synthetic captures; not physical restore acceptance",
+    "no SG-09 real external target, dual environment or 7/14 day evidence",
+    "extended Japanese/Korean messages use English fallback; browser acceptance Chinese"
+  ],
+  "not_performed": [
+    "daily/production database migration or adoption",
+    "stop/restart of user-owned services",
+    "production cleanup or deployment",
+    "commit or push"
+  ],
+  "cleanup": {
+    "postgres_stopped": true,
+    "owned_postgres_root_removed": true,
+    "owned_http_proxy_ports_closed": [
+      59926,
+      59112
+    ],
+    "owned_browser_children_remaining": [],
+    "temporary_jwt_removed": true,
+    "daily_services": {
+      "3030": "listening; not managed by this cleanup",
+      "8077": "listening; not managed by this cleanup"
+    }
+  },
+  "sources": [
+    {
+      "file": "backend/internal/service/storage_governance/system_table_retention.go",
+      "sha256": "5fbbd5e3fa6fd65055f3b1ae22591bf61176bc2eb3ce4de2ef0c9f96deb6f835",
+      "initial_baseline_sha256": "0f2589bb25e2825fe898d8bd851940d45460a9dc83ff7e7a3bdbcadae3d54b70",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/service/storage_governance/system_table_retention_postgres_test.go",
+      "sha256": "88d177c314bcd0bb643060577939a968e8c7e43019bdd966869685bd7a0a42f8",
+      "initial_baseline_sha256": "7a58ff62133bb06b20c68b542ead3eb2fb5cdb5a11d1f1f7a3c02e245f3b849b",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/service/storage_governance/control_service.go",
+      "sha256": "8af87e649a1bed349bbc6055510aa58b2d016fdede15b05d0cdf27c545ca66a0",
+      "initial_baseline_sha256": "5d92a1a30df42868947baea4f501bf683ce416e2b86178271ecf55090abc91fb",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/service/storage_governance/service.go",
+      "sha256": "4a3c2bb7ab1ecf65ccdd9b05b7b9672f606e6c20fda8f261b82521a3186f3150",
+      "initial_baseline_sha256": "038c64e435972e39a8f253a919d4837a227e4148cae9f202b0107a8c5278e568",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/service/storage_governance/table_monitoring.go",
+      "sha256": "869a2574109da6ebdfe731c1feb7c7217e245f4dd3eeec265574381d18ecb03c",
+      "initial_baseline_sha256": "03fa10681d3707751a066bd96169bafcfdc6454f523905f6e1df4822991e017a",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/infra/storage_budget/coordinator.go",
+      "sha256": "975aa3a7ed1018ad7e4761a49a52ccc3b85257055445aa977d85b0b5b24dcfa1",
+      "initial_baseline_sha256": "c1ff3f83b3be98e6414c73d0bae03e2bc23f69e97f7529187eaac2ce44bc4a1e",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/pkg/corex/db/persistence/repository/storage_governance/retention_run_repo.go",
+      "sha256": "3c8e2e9466a9b4f1978e0b62b1465edfe5c6074c007770233df766b06ec51777",
+      "initial_baseline_sha256": "62eee8e9dcad6405c5d3360ff7f2cfd4b3223ed06c8ed5dfcdaab29dbb1a6293",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/transport/http/admin/storage/api.go",
+      "sha256": "e37ed18d6f3bb36087b121af63c9f16263a2fd8fa1b1a5e4de6374709ff69c37",
+      "initial_baseline_sha256": "114c043f5311c0bf207d6af4b82084bee047dbe8ee424181794dcc9dbee5b922",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/transport/http/admin/storage/system_table_retention_handler.go",
+      "sha256": "6a00f41088d9fc8b2e1f913b83f9a7e0a1e2a34b14cef87e01c778118f307858",
+      "initial_baseline_sha256": "ccb9b33985185f6e2dd93c6f032d13e024e2ce9f43a808c5a777eb916f402dd7",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/transport/http/admin/storage/storage_safety_postgres_test.go",
+      "sha256": "081df6b878bdae59c0d00a269c21a7ce12eac183c3964ad82f43bf1a81930019",
+      "initial_baseline_sha256": "5e135ce27a3a28bc15813fdc9c21726132cdc163cfefa1c2f96189d945fb1c49",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/config/capability_audit_ignore.yaml",
+      "sha256": "e972378a21a3c66df7607214fd0b93335715b8fdfc28ace48a588c1143022575",
+      "initial_baseline_sha256": "bd52fbbb6c30f9319b8cb61f8a3fcda2c57d058277ae66c65bc50c809aeaed2d",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/app/components/monitor/storage/SystemTableRetentionControl.vue",
+      "sha256": "07efea0417a5700d2db19a14b69574794927ac994fb02e113317fbb6f132e0bd",
+      "initial_baseline_sha256": "fde0cfd4a959432638d8a66af66fa069c9fc9763190ae7bded877b28fcfc2f3d",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/app/components/monitor/storage/SystemDatabaseTablesPanel.vue",
+      "sha256": "702c39504076ff8804992032ab9a04b6d165375b51c7398c940eacb7bc2c434b",
+      "initial_baseline_sha256": "36816ebf13b45d440213121c3c9b90da4265958d5f18200c1e42d1fbfa87a1e2",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/app/composables/api/services/storageDatabaseTablesService.ts",
+      "sha256": "47d20607181b6f3b136a044cd510f294d449663336054287a1b07824a1c18234",
+      "initial_baseline_sha256": "d5e556281294efe7e4a3ee1ec0a271531dd47eac1ee9907663e976ca440f3f5d",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/app/utils/storage-table-list.ts",
+      "sha256": "92eec6fa051653d09a33ebcc765efb35cc382b2ca547c494100a6ddbaee505b0",
+      "initial_baseline_sha256": "1315d9892e0b2f6abe2d7448836d981dfc615769272d18b424324e8cd90ee05a",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/tests/unit/storage/table-safety-controls.spec.ts",
+      "sha256": "b1cc7b68791c4808f6a50c82cb81021e1ad6bddd0609624f552cfb6cd27cba1f",
+      "initial_baseline_sha256": "bdd632f635eb13bebd2c956f9647b3d8185766ad3826893dfd602f7ca9be67c2",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/tests/unit/storage/storage-table-list.spec.ts",
+      "sha256": "de001b2f471ea2c244f4e75c324790e28a1aef3c5b1c03837a8f482898a68af0",
+      "initial_baseline_sha256": "5e56d604ff54790d22b1cd0057cc45736f1c8273a2c5df47521dfd96320402d4",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/i18n/locales/zh.json",
+      "sha256": "858156a6d79f0ce0795fed40933bc95442e96a191adb5a187608424cc5790a60",
+      "initial_baseline_sha256": "a09847185ae6b2a1f3dad98ae59bdf9d55447032a2e24385e8cd26dc05b6be56",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/i18n/locales/en.json",
+      "sha256": "a8bbf02acbcf6763343efa93a778690c49788f10fef0d22f8a66559de5ae58e1",
+      "initial_baseline_sha256": "889a2b401e906310cb545ad1b2449d0e30b43ff1be56e898a0ba2ba8fe016711",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/i18n/locales/ja.json",
+      "sha256": "34552d4f81982a2e8a93b26352259f584a6a72589dc4acf0664ee2442c145f48",
+      "initial_baseline_sha256": "451829e8c0952988c31f509b6b834951c56e48f0f57cc83fb2cd9e2c78894de1",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "web-admin/i18n/locales/ko.json",
+      "sha256": "52a3cd027a66c7448dcf32feee7a547d56af2907128558ce164f260d98cec0b0",
+      "initial_baseline_sha256": "a0b1b927ab44da56297274333f167bc01a464c2a611a0db2541f7e5b01e92f00",
+      "changed_since_initial_baseline": true
+    },
+    {
+      "file": "backend/internal/service/storage_governance/system_table_retention_control.go",
+      "sha256": "a210dc207aee9254a00966049b1d4fd3d2eb51d44b723f785277b1a3d89d9ff3"
+    },
+    {
+      "file": "backend/internal/service/storage_governance/system_table_retention_execution.go",
+      "sha256": "70add09a84babb60615bbed29dc57176778c0263eed6a77a2a5161236947a060"
+    },
+    {
+      "file": "backend/internal/service/storage_governance/system_table_retention_control_postgres_test.go",
+      "sha256": "fc5778be57e2194e1e0ef23a2d1ca201c49c840bce7eccf272ebafdac837e41b"
+    },
+    {
+      "file": "backend/internal/service/storage_governance/database_retention.go",
+      "sha256": "cf6b87ec689e534332286877ebd105be5871ccd8082f974800d34007fdbaf5a7"
+    },
+    {
+      "file": "backend/internal/transport/http/admin/storage/system_retention_control_postgres_test.go",
+      "sha256": "51ea8fd92dbad8a308d16445538d77c2e57301e15a9ec0ee6cfe3e59572a3e12"
+    },
+    {
+      "file": "web-admin/tests/unit/storage/system-retention-control.spec.ts",
+      "sha256": "5669445a2d2471b24bd582bf330ed4ec88c23b61510c03971b89a6ae76f7935b"
+    },
+    {
+      "file": "docs/contracts/system-table-retention-control.md",
+      "sha256": "494052bea56b9ed85fe355c95b27c84ab0fe7590e471678ce212b7ee403119aa"
+    },
+    {
+      "file": "specs/027-monitor-center/contracts/system-table-retention-control.openapi.yaml",
+      "sha256": "40e4f752980203d42493ee37338f5641110c2bad21178171ef3bc502b5639a07"
+    },
+    {
+      "file": "specs/027-monitor-center/contracts/storage-governance.openapi.yaml",
+      "sha256": "40846e16df2352bcd710cfcb13b7ba2c0af1b74e25a6cc4b57cd74adad1e11b4"
+    },
+    {
+      "file": "docs/contracts/storage-control-authority.md",
+      "sha256": "1388af277de17ecf3d3f51a41026edb7b12796cec92f6706f532a7a9b59facbd"
+    },
+    {
+      "file": "docs/contracts/database-retention-control.md",
+      "sha256": "cd82448f7dc0cdbec0da1cf9cc3f6e2b0ef7924bb5e49f0657629ef3a374d8a9"
+    },
+    {
+      "file": "docs/contracts/snapshot-policy-control.md",
+      "sha256": "f1ca87ed7a7d3c283a8d98c8d19a1c89de99a46293d501d52d28586ccbb7b213"
+    },
+    {
+      "file": "docs/plan/deploy/storage-governance-commercial.md",
+      "sha256": "be2f41f671266f2b4ed1342b47c9114e90ee78b9c0d6619e52887eb6791f9f12"
+    },
+    {
+      "file": "docs/plan/deploy/storage-governance-tasks.md",
+      "sha256": "cb78d11a7a9702bed62c4d803be9fedddc8c998af0883bd01a547d40edd73872"
+    },
+    {
+      "file": "specs/027-monitor-center/tasks.md",
+      "sha256": "3eba21cba25a151f45067437bc565491caf88ffc8dd20a037da74aceb0137ad4"
+    },
+    {
+      "file": "specs/027-monitor-center/data-model.md",
+      "sha256": "3042015cff95740ce2d311567dd40a2c4cfcb161a644d1d7f37ba5d718e83d18"
+    },
+    {
+      "file": "tmp/storage-governance-archive-ui-optimization-plan-20261031.md",
+      "sha256": "1802b594caf73d5c15e4cc7b89c3a2cf9610b68d43d36781c7cae7935321ef5f"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/native-race.log",
+      "sha256": "c5ee29d697e793d0e3a80502678a975a3e7f344e8a6cf2d86b10b37dbf9d2e39"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/frontend-regression.log",
+      "sha256": "76f91bb396aaab2a85fea8fddaa7a44cf550310a6229ccf90d2b77e654b3ab0d"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/backend-regression.log",
+      "sha256": "08eb3358d9d87b849424e782160ed5a2cddd5ceeef8e75134df70904c78b4cdf"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/http.log",
+      "sha256": "644d4eccbe36a0be46de958c287bfee7e7254c736bd5ebbc417f26353c7f9a00"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/browser-http.log",
+      "sha256": "468b6b132e689de013c3d0315be6620f4b8e801805f97052a8551e7d0b8b26ac"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/ui-result.json",
+      "sha256": "7aaba09962e85319cf4e81b6b06f13317ce28813f69bec1cb1b1bfaa3f4c2e47"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/capability-check.log",
+      "sha256": "d8ad652f9b96ae117ab98cbc7cc96eefe1ebb16621cdf15424638286c0c6d01f"
+    },
+    {
+      "file": "tmp/storage-commercial-system-retention-20261107/cleanup.json",
+      "sha256": "c66b74e13d5af261ee6e9a31173b3e0df14c55cce266c4515b2ac07fe2e670b9"
+    }
+  ]
+}

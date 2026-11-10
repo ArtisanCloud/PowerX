@@ -1,0 +1,256 @@
+{
+  "date": "2026-11-09",
+  "task": "T172 quarantine inventory and explicit readonly current-file inspection",
+  "status": "this source slice and owned isolated acceptance complete; full T172/SG-11, live adoption and release gates remain open",
+  "branch": "024-ai-engineering-skills",
+  "boundaries": {
+    "source_implemented": true,
+    "isolated_native_and_real_browser_passed": true,
+    "daily_or_production_migration": false,
+    "maintenance_protocol_change": false,
+    "daily_or_production_restart_by_agent": false,
+    "governance_policy_or_business_data_mutation": false,
+    "production_or_legacy_executor_handoff": false,
+    "commit_push_or_branch_change": false
+  },
+  "implemented": [
+    "Root human read-only current-Scope independent/SQL identity merge; exact UUID/original token/artifact or job ID lookup, current/result/diagnosis filters, time/current registered size/numeric artifact sorting and pagination after bounded merge",
+    "Historical decision and current SQL state are separate. SQL replay/missing receipt/checkpoint gap/independent gap/conflict, changed identity, missing/soft-deleted/orphaned records are explicit",
+    "Unattributed physical quarantine markers counted separately and warned, never treated as full current-Scope coverage; cross-Scope records not exposed; invalid SQL-only history fails closed",
+    "4096 source/merge/marker bounds, existing ledger 16MiB. One read-only repeatable-read SQL transaction batch-loads metadata without N+1; independent record digest and epoch checked before/after",
+    "Exact history UUID plus readonly snapshot bound to generation/current metadata/source status; cooperating policy lock, full no-follow fixed descriptor/ctime file probe and final metadata/generation recheck; five-minute request bound; no detached job",
+    "No SQL DML, independent write, auto-resume, deletion, unquarantine or restore authority; a verified current file still returns valid_backup_proof=false and quarantine_unchanged=true",
+    "Independent vertical task and history/inspection details; metadata read on initial/manual/event/reconnect only. No automatic file scan, mutation or polling; drafts/results retained, stale state blocked, previous results retained on failure, global source/coverage warning discoverable",
+    "No new schema, migration, maintenance protocol or ordinary capacity/capability admission dependency; existing v7/ledger v4 and prior protected audit model required"
+  ],
+  "validation": {
+    "backend": {
+      "race_packages": 4,
+      "go_vet_packages": 4,
+      "result": "passed",
+      "additional_final_native": "changed orphan classification and readonly cases rerun under race; strict native HTTP/JWT/SSE rerun with actual cwd/owned listener lifecycle proof",
+      "native_cases": [
+        "historical quarantine and current marker separate",
+        "restored complete synthetic file passes content check but cannot release quarantine or confer restore proof",
+        "original independent inventory unchanged and current job/token/status/protection unchanged by read-only checks",
+        "SQL receipt missing/conflicting, hard/soft artifact loss, orphaned Job, token change and unattributed marker",
+        "missing audit column and registered independent file fail as unknown, not empty",
+        "4097 SQL source limit fails without false truncation",
+        "metadata and recovery epoch change or cooperating policy lock busy stop inspection",
+        "genuine owned schema pg_dump/pg_restore shows historical quarantined/current unconfirmed/sql_replayed; explicit current inspection does not replay disposition",
+        "Root HTTP strict duplicate/unknown/page/filter/snapshot inputs and API-key/service-actor/non-root rejection"
+      ],
+      "unit_cases": "mapping, exact lookup, filter-before-pagination, numeric artifact/current-size ordering and invalid options",
+      "queue_boundary": "existing formal TaskBus wrapper plus miniredis and owned native PG; no production distributed queue or external-process handoff acceptance"
+    },
+    "frontend": {
+      "vitest_files": 21,
+      "vitest_tests": 185,
+      "result": "passed",
+      "browser": "real daily Nuxt Root login; all backup API reads and fixture setup mutations routed to owned HTTP/JWT/SSE/PostgreSQL via narrow proxy; browser inventory emits GET only; unrelated mutations blocked",
+      "checks": [
+        "Root inventory discovers a settled artifact; exact request filter applied without file reads",
+        "Actual current-state dropdown filters to empty and back; sort direction submitted explicitly",
+        "light 1440 list/filter/navigation/context",
+        "light 390 list/filter/navigation/context",
+        "dark 1440 list/filter/navigation/context",
+        "dark 390 list/filter/navigation/context",
+        "lost terminal SSE produces incomplete diagnosis and never changes quarantine",
+        "restored synthetic file passes full read but remains quarantined and has no restore proof",
+        "light 1440 history/inspection/result retention",
+        "light 390 history/inspection/result retention",
+        "dark 1440 history/inspection/result retention",
+        "dark 390 history/inspection/result retention",
+        "controlled SQL marker replay displays historical quarantine and current non-quarantine separately; native pg_dump/restore proof is separate",
+        "metadata outage retains previous rows and global warning; explicit read restores current context",
+        "shared SSE syncs metadata; zero idle queries, automatic scans or browser mutations"
+      ],
+      "page_errors": [],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "explicit_file_checks": 3,
+      "faults": [
+        "first explicit check terminal SSE frame withheld: incomplete, not success",
+        "later complete synthetic file check keeps quarantine and no-restore explanation",
+        "controlled SQL marker replay triggers metadata push and historical/current separation without another scan",
+        "metadata outage preserves prior rows with global warning; explicit read restores context"
+      ],
+      "not_proven": "browser controlled SQL update is separate from genuine native schema dump/restore; no browser or production whole-site recovery claim",
+      "localization": "zh/en; ja/ko key coverage uses English strings, not linguistic acceptance"
+    },
+    "other": {
+      "capability_check": "passed declared=1242 referenced=83 rest_routes=1175 candidates=1279 ignored_route_rules=148; three new Root GETs are manual controls, not delegated plugin bindings",
+      "upgrade_registry": "--check passed; this slice adds no scanned schema/migration payload source and does not regenerate payload IDs; unrelated shared-source release review remains open",
+      "openapi_locales_gofmt_scoped_code_whitespace": "passed"
+    }
+  },
+  "process_cleanup": {
+    "owned_schemas_remaining": 0,
+    "owned_databases_remaining": 0,
+    "http_browser_and_children_exited": true,
+    "owned_ports_released": [
+      57937,
+      57676
+    ],
+    "owned_jwt_file_removed": true,
+    "owned_postgres_pid": 99314,
+    "owned_postgres_exited": true,
+    "owned_cluster_removed": true,
+    "daily_processes": {
+      "8077": {
+        "pid": 74295,
+        "original_process_present": true,
+        "listener_present": true,
+        "restarted_by_agent": false
+      },
+      "3030": {
+        "pid": 34360,
+        "original_process_present": true,
+        "listener_present": true,
+        "restarted_by_agent": false
+      }
+    },
+    "production_touched": false,
+    "native_http_final": {
+      "pid": 63503,
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/internal/transport/http/admin/backup",
+      "command": "go -C backend test -race ./internal/transport/http/admin/backup -run ^TestCleanupReviewNativeHTTPAndSSE$ -count=1 -v",
+      "listener": "127.0.0.1:58866",
+      "exited": true,
+      "listener_released": true
+    },
+    "daily_core_pid_note": "PID 74295 was observed read-only this turn; the previous slice had a different PID. No agent restart was performed."
+  },
+  "limitations": [
+    "No live migration, protocol-marker upgrade, restart, adoption or real artifact disposition was performed. Normal Root login/read access may generate normal access/audit logs.",
+    "Inventory has current metadata and registered size only, not fresh filesystem usage. Read-only inspection is a temporary diagnostic, not an unlock or restore authorization.",
+    "Missing/unattributed/corrupt history is visible or blocks observation; this inventory does not repair/import it or recreate SQL/independent identities.",
+    "Global source bounds fail closed at 4096. No cross-storage atomic snapshot or stable multi-page snapshot under concurrent change is claimed.",
+    "Cooperating policy locks do not prove legacy or external process drain. Host loss/whole-volume rollback still need independent recovery safeguards and keys.",
+    "Whole-system deployed recovery, long-term private object target/retrieval, external keys, per-resource handoff, dual environment and 7/14-day evidence remain open."
+  ],
+  "next_task": {
+    "id": "T155",
+    "action": "Long-term private S3/OSS target end-to-end acceptance before live executor handoff",
+    "prerequisites": "Target endpoint/bucket/region and server credential reference prepared through formal UI; long-term online service independent of this Mac and of the source host. Do not send secrets in chat.",
+    "completion": "Use independent prefix, archive, full read/checksum, remove only an owned isolated source copy, retrieve exact original content, verify immutable history and clean owned remote test objects. Native/local fixtures do not replace this external-target gate.",
+    "daily_restart_required_for_this_completed_slice": false,
+    "deployment_note": "daily/production still need their authorized upgrade process for matching runtime and existing dependencies"
+  },
+  "evidence_files": [
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/backend-final.log",
+      "sha256": "ab903fcddc272c87b274cdc5a74ac9783bdea66ae642564d92073aaeb23a2e67"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/native-final.log",
+      "sha256": "546d69b90fefb6f2ec877d6e0ed9cbef0743c9d3268031d0624e3f0f755533f1"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/http-final.log",
+      "sha256": "1ad54c4e3305dd7138bf717f00cdfd972c0f3e50df67cc0be58c235b49533e6a"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/frontend-final.log",
+      "sha256": "293ab817a66b566598b7133997992f7212835fffb8a77923a6e85f00c5260d5b"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/vet-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/capability-check.log",
+      "sha256": "1ceecb9ed4a67049f5ab49f72da87ab6e4251a07c314eb8c59794f610f9276e9"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/registry-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/browser-http.log",
+      "sha256": "3152c5caa440dd971fff51a1299e7734741705849ff933bad76b5c36abd7607e"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/browser-ui.log",
+      "sha256": "63a58873abce3fa48a0ab234f4858ad9d909fef45476a5f77b74d1da3221da9d"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/ui-result.json",
+      "sha256": "f41b67a8aa58ab139c615170edbb39eea58744d126e2b3e7fc6dbacef9a82adf"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/process-cleanup.json",
+      "sha256": "339360a34819eba295cdb28e64f3be7e4d17aaa612fa315eb56959745279ba72"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/dark-1440-inspection.png",
+      "sha256": "f451dc5e5721cf60ac3af6e01fb6ec38216da1ed0cc01e8ec3068a7bcb361edc"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/dark-1440-inventory.png",
+      "sha256": "e09fe77e92bffefe5f177f4ff33d6dab9520b25b1295338e4aab7d743a362e8c"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/dark-390-inspection.png",
+      "sha256": "57c680592b57ccf9b5aa77849412c817e34c9abf24a47a34ae7539d813d690b9"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/dark-390-inventory.png",
+      "sha256": "da5249a92b9a22721a7453c72694cdcf3df6f06b9f162e888f0470ab3cff40dc"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/light-1440-inspection.png",
+      "sha256": "e9d5014e0bccaa57a39b1e11f3f9e2559b61cb7dec27e1cd34a542b7d4291e87"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/light-1440-inventory.png",
+      "sha256": "e78b7a548cfac8744a7a76c692e63bdf4418fb66a0317f5084f11a8c71e88179"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/light-390-inspection.png",
+      "sha256": "397a733e2a0e47cb94e2b2ddd2f0adca4178ec2caf2d4d58dad4ea2d3ed2f0ab"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/light-390-inventory.png",
+      "sha256": "040cca76f469491713da6c3636ed3cd0b9afbdb4585805fcc04e0f76059091ea"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-quarantine-inventory-20261109/sql-replayed-1440.png",
+      "sha256": "ab451d08b0f557653901fdad5fc191da63fcf02cf29aeb5de5b4edc5ec1cedf0"
+    }
+  ],
+  "source_sha256": {
+    "backend/internal/service/backup_ops/quarantine_inventory.go": "23bc03375056c7390d027d69ef0429145b171c7dba6ca7760fef24ff6c91b942",
+    "backend/internal/service/backup_ops/quarantine_inventory_test.go": "e840c109b595e3ef62d5483f324247ae37b62736ed008b4d65c44ec34e555349",
+    "backend/pkg/corex/db/persistence/repository/ops/backup_artifact_repository.go": "547ac854007c0f027a9c70a97e7a666704408addaf96d28b9a37fc20df63323b",
+    "backend/pkg/corex/db/persistence/repository/ops/backup_cleanup_resolution_repository.go": "75f938f74048f17ecb455a9d95639604362150fb1f8fce3f4c237e6b2465ac9d",
+    "backend/internal/transport/http/admin/backup/quarantine_inventory_handler.go": "e52902dd85781b13c092c412e7e7661545324b3798b37bf88c15179d9a140685",
+    "backend/internal/transport/http/admin/backup/quarantine_inventory_test.go": "58d36a7f6c276da32be8143363ec14512f9cffc6fb267082dff7d7e43e4e71d4",
+    "backend/internal/transport/http/admin/backup/routes.go": "aa3c88add4d4bf0fcd7faf502627ff8a61ac17eacc2235f7df3a5986a0e92782",
+    "backend/internal/transport/http/admin/backup/cleanup_quarantine_test.go": "176d0a829de423d3a09e72ba024e82630626b32c899e4686a92193753d8ec594",
+    "backend/internal/transport/http/admin/backup/cleanup_review_postgres_test.go": "7245bc858a62a6586b55b14dfd853c2c8ee50d54b5b6135fa116a8f52e6a58ba",
+    "backend/config/capability_audit_ignore.yaml": "2f9ad280591900cb590e1320963fd963d72478338288dea87051b4f1ee689ba4",
+    "backend/internal/service/storage_governance/quarantine_inventory_postgres_test.go": "ddc7bbf827011df1424f83e1eccb403110d7cacfe75efbcd94ca21c77b3c2212",
+    "backend/internal/service/storage_governance/cleanup_quarantine_replay_test.go": "f582bf322ded5de819ccb3d2d23810bf86ac54622e088ba5aa08cac7fbf1be66",
+    "web-admin/app/components/ops/backup/BackupQuarantineInventory.vue": "a506b6d1225b65f37156d6eca539789eadf70e8cf0cd2905a2fefc1fb4b1de10",
+    "web-admin/app/pages/ops/backup.vue": "03f30b70424876dae183065ad78288750b52f5a14e6434659b0d9f5641075e8f",
+    "web-admin/app/composables/api/services/quarantineInventoryService.ts": "7123421d01e0f2ef5a5d18d966c0e86f8ba89427843d5a7ccf8389ddc2352ebb",
+    "web-admin/tests/unit/backup/quarantine-inventory.spec.ts": "08c9361142f72774ed5ac202ba54a689874b0fc467da7d00012e413afddee6ad",
+    "docs/contracts/backup-quarantine-inventory.md": "2d1c7f4822c28ecc6ff70b5f54f99ca8c1827f58e33b3e7b19506f38494ca15b",
+    "docs/contracts/backup-quarantine-inventory.openapi.yaml": "80b3e10c20e2bce061c9ec7f314d6be5d4a756f33d82a1979167872347b40dd1",
+    "docs/contracts/backup-cleanup-quarantine.md": "4049effa41dca5abf1ef9ae7084c206997b942e4524163a8d3bf68092b183bd5",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-quarantine-inventory.md": "56f9ff03f0f1de55d5e92cfd7efc19aacc2c07a158391953b41efc0f63e220ba",
+    "docs/guides/deploy/027-monitor-center/guide.md": "b51f409d9b0d9f0e7560fb1275c142240da082bf0e38099d796d39a43b16035d",
+    "specs/027-monitor-center/tasks.md": "89e57b5ac829c352c2493153cad88612d3bc3e5110620aca950e8e747668a6e8",
+    "web-admin/i18n/locales/zh.json": "01c005548e517063074bf0993e8a0e61529644e5025a1d6a6c5073ed06a887e8",
+    "web-admin/i18n/locales/en.json": "9502385fc4bd9162917851ad83776c65150e72353af66010117c6b712f7eaa97",
+    "web-admin/i18n/locales/ja.json": "8d85be7c6615bccaf2c21fa98ee5f0bea638ed0223a19a838c797e3c3301ab64",
+    "web-admin/i18n/locales/ko.json": "5ea94f17b32d7cbe320f2fea1c9105a85345cf3504b5a6c42d8c9a6abf75b4b5"
+  }
+}

@@ -8,7 +8,10 @@ import (
 	"testing"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +22,7 @@ func newCredentialInstallManager(t *testing.T) (*managerImpl, string) {
 	require.NoError(t, registry.Load(context.Background()))
 	return &managerImpl{opts: Options{
 		InstalledRoot: filepath.Join(root, "installed"), Registry: registry, Loader: NewFSLoader(),
-		CoreConfig: &config.Config{Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}},
+		CoreConfig: &config.Config{Deployment: config.DeploymentConfig{Env: config.DeploymentEnvDev}, EnvironmentID: "existing-environment-test"},
 	}, databaseSectionBuilder: testDatabaseSection}, root
 }
 
@@ -47,7 +50,7 @@ func TestForceInstallRecoversCredentialBeforeRemovingOldVersion(t *testing.T) {
 		return testInstallCredential(), nil
 	}
 	src2 := writeReplaceTestPlugin(t, filepath.Join(root, "src2"), "second")
-	updated, err := m.InstallFromFile(ctx, src2, plugin_mgr.InstallOptions{Force: true})
+	updated, err := m.InstallFromFile(ctx, src2, plugin_mgr.InstallOptions{Force: true, ExpectedRevision: p.Revision})
 	require.NoError(t, err)
 	require.Equal(t, 1, calls)
 	hc, err := loadHostConfig(updated.Paths.HostValuesFile)
@@ -76,7 +79,11 @@ func TestCredentialPreflightFailureLeavesForceTargetAndRegistryIntact(t *testing
 			m.opts.RuntimeCredential = func(context.Context, string) (*PluginRuntimeCredential, error) {
 				return nil, errors.New("POWERX_STS_CLIENT_ID missing")
 			}
-			_, err = m.InstallFromFile(ctx, src, plugin_mgr.InstallOptions{Force: true})
+			expectedRevision := p.Revision
+			if !registered {
+				expectedRevision = ""
+			}
+			_, err = m.InstallFromFile(ctx, src, plugin_mgr.InstallOptions{Force: true, ExpectedRevision: expectedRevision})
 			require.ErrorContains(t, err, "runtime_credential_preflight")
 			binary, err := os.ReadFile(filepath.Join(p.Paths.Root, "backend/bin/plugin"))
 			require.NoError(t, err)
@@ -132,4 +139,23 @@ func TestEnablePersistsRepairedCredentialToRegistryBeforeStarting(t *testing.T) 
 	require.Equal(t, plugin_mgr.StateInstalled, stored.State)
 	require.Equal(t, "test-client", stored.HostConfig.Values["POWERX_STS_CLIENT_ID"])
 	require.Equal(t, "test-secret", stored.HostConfig.Values["POWERX_STS_CLIENT_SECRET"])
+}
+
+func TestFailedRuntimeStartRollsBackPreparedActivation(t *testing.T) {
+	m, root := newCredentialInstallManager(t)
+	ctx := context.Background()
+	p, err := m.InstallFromFile(ctx, writeReplaceTestPlugin(t, filepath.Join(root, "src"), "not an executable"), plugin_mgr.InstallOptions{})
+	require.NoError(t, err)
+	m.opts.RuntimeCredential = func(context.Context, string) (*PluginRuntimeCredential, error) { return testInstallCredential(), nil }
+	m.http = router.NewDynamicRouter("/_p", gin.New())
+	m.sup = supervisor.New()
+	t.Cleanup(func() { _ = m.sup.Stop(p.ID) })
+	prepared, rolledBack := false, false
+	m.opts.PrepareRuntimeEnable = func(context.Context, string) (func(context.Context) error, error) {
+		prepared = true
+		return func(context.Context) error { rolledBack = true; return nil }, nil
+	}
+	require.Error(t, m.Enable(ctx, p.ID))
+	require.True(t, prepared)
+	require.True(t, rolledBack)
 }

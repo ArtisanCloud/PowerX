@@ -13,7 +13,8 @@ type IntegrationGatewayAPIKey struct {
 
 	TenantUUID string `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_igw_api_key_tenant" json:"tenant_uuid"`
 	ProfileID  uint64 `gorm:"column:profile_id;not null;index:idx_igw_api_key_profile" json:"profile_id"`
-	// Owner policy survives permission replacement; NULL preserves legacy per-permission bindings.
+	// Key policy survives permission replacement. Version 2 also stores independent
+	// explicit grants; NULL preserves legacy per-permission owner bindings.
 	PluginOwnerPolicy datatypes.JSON `gorm:"column:plugin_owner_policy;type:jsonb" json:"-"`
 	Name              string         `gorm:"column:name;type:varchar(128);not null" json:"name"`
 	Description       string         `gorm:"column:description;type:text" json:"description,omitempty"`

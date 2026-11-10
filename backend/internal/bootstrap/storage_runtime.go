@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -35,7 +36,7 @@ func configureStorageRuntime(cfg *config.Config, deps *shared.Deps, opts *gov.Op
 	}
 	coordinator, err := budget.New(budget.Config{Directory: bindStorageSourcePath(c.RuntimeDirectory), FilesystemPath: opts.FilesystemPath, HostID: c.HostID, FilesystemID: c.FilesystemID, InstanceID: cfg.EnvironmentID, MinFreeBytes: c.MinFreeBytes, CriticalFreeBytes: c.CriticalFreeBytes, MaxUsedBytes: c.HostBudgetBytes, MaxConcurrent: c.MaxConcurrent})
 	if err != nil {
-		return errors.New("storage runtime directory or filesystem identity unavailable")
+		return fmt.Errorf("storage runtime directory or filesystem identity unavailable: %w", err)
 	}
 	opts.Budget = coordinator
 	opts.AdmissionEnabled = c.AdmissionEnabled

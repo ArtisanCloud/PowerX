@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -27,7 +28,11 @@ type RedisStreamTaskDriver struct {
 	leases    *RedisTaskLeases
 	leaseTTL  time.Duration
 	dedupeTTL time.Duration
+	namespace string
 }
+
+// EnvironmentNamespace is the server-owned queue scope, never supplied by callers.
+func (d *RedisStreamTaskDriver) EnvironmentNamespace() string { return d.namespace }
 
 type StreamNackOutcome string
 
@@ -36,15 +41,26 @@ const (
 	StreamDead    StreamNackOutcome = "dead"
 )
 
-func NewRedisStreamTaskDriver(client redis.UniversalClient, leaseTTL time.Duration) (*RedisStreamTaskDriver, error) {
+func NewRedisStreamTaskDriver(client redis.UniversalClient, leaseTTL time.Duration, namespace ...string) (*RedisStreamTaskDriver, error) {
 	if client == nil || leaseTTL < time.Second {
 		return nil, fmt.Errorf("Redis Stream task driver needs a client and lease TTL >= 1s")
+	}
+	if len(namespace) > 1 {
+		return nil, fmt.Errorf("only one task namespace is allowed")
+	}
+	scope := ""
+	if len(namespace) == 1 {
+		scope = strings.TrimSpace(namespace[0])
+	}
+	if len(scope) > 256 {
+		return nil, fmt.Errorf("task namespace too long")
 	}
 	leases, err := NewRedisTaskLeases(client)
 	if err != nil {
 		return nil, err
 	}
-	return &RedisStreamTaskDriver{client: client, leases: leases, leaseTTL: leaseTTL, dedupeTTL: 24 * time.Hour}, nil
+	leases.namespace = scope
+	return &RedisStreamTaskDriver{client: client, leases: leases, leaseTTL: leaseTTL, dedupeTTL: 24 * time.Hour, namespace: scope}, nil
 }
 
 func (d *RedisStreamTaskDriver) Type() QueueDriverType { return QueueDriverRedis }
@@ -66,8 +82,11 @@ func (d *RedisStreamTaskDriver) Enqueue(ctx context.Context, message TaskMessage
 	if err != nil {
 		return err
 	}
-	stream := taskStreamKey(message.TenantKey, message.SubscriberID)
-	dedupe := taskDedupeKey(message.TenantKey, message.SubscriberID, message.ID)
+	if strings.TrimSpace(message.IdempotencyKey) != "" {
+		return d.enqueueWithIdempotency(ctx, message, raw)
+	}
+	stream := d.streamKey(message.TenantKey, message.SubscriberID)
+	dedupe := d.dedupeKey(message.TenantKey, message.SubscriberID, message.ID)
 	retired := strings.TrimSuffix(stream, ":stream") + ":retired_runs"
 	runID := message.Metadata["run_id"]
 	if runID != "" && (!validRetiredRunID(runID) || !strings.HasPrefix(message.ID, runID+":")) {
@@ -126,7 +145,7 @@ func (d *RedisStreamTaskDriver) Dequeue(ctx context.Context, tenant, subscriber,
 	if wait > 30*time.Second {
 		wait = 30 * time.Second
 	}
-	stream := taskStreamKey(tenant, subscriber)
+	stream := d.streamKey(tenant, subscriber)
 	if err := d.client.XGroupCreateMkStream(ctx, stream, group, "0").Err(); err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
 		return nil, err
 	}
@@ -201,7 +220,7 @@ func (d *RedisStreamTaskDriver) Defer(ctx context.Context, delivery StreamTaskDe
 
 func (d *RedisStreamTaskDriver) requeue(ctx context.Context, delivery StreamTaskDelivery, retryAt time.Time, reason string, maxAttempts int, failed bool) (StreamNackOutcome, error) {
 	if d == nil || d.client == nil || delivery.StreamID == "" || delivery.Group == "" ||
-		delivery.Lease.Token == 0 || maxAttempts < 1 || maxAttempts > 100 ||
+		delivery.Lease.Token == 0 || delivery.Lease.Namespace != d.namespace || maxAttempts < 1 || maxAttempts > 100 ||
 		strings.TrimSpace(reason) == "" || len(reason) > 128 {
 		return "", fmt.Errorf("invalid Stream task NACK")
 	}
@@ -224,9 +243,9 @@ func (d *RedisStreamTaskDriver) requeue(ctx context.Context, delivery StreamTask
 	} else if retryAt.After(time.Now()) {
 		mode = "delayed"
 	}
-	stream := taskStreamKey(message.TenantKey, message.SubscriberID)
+	stream := d.streamKey(message.TenantKey, message.SubscriberID)
 	base := strings.TrimSuffix(stream, ":stream")
-	leaseKey, _ := taskLeaseKeys(message.TenantKey, message.SubscriberID, message.ID)
+	leaseKey, _ := d.leases.keys(message.TenantKey, message.SubscriberID, message.ID)
 	n, err := nackStreamTaskScript.Run(ctx, d.client,
 		[]string{stream, base + ":delay", base + ":dead", leaseKey, base + ":retired_runs"},
 		delivery.Group, delivery.StreamID, leaseValue(delivery.Lease.Owner, delivery.Lease.Token),
@@ -251,7 +270,7 @@ func (d *RedisStreamTaskDriver) PromoteDue(ctx context.Context, tenant, subscrib
 	if d == nil || d.client == nil || strings.TrimSpace(tenant) == "" || strings.TrimSpace(subscriber) == "" || limit < 1 || limit > 1000 {
 		return 0, fmt.Errorf("invalid delayed task promotion")
 	}
-	stream := taskStreamKey(tenant, subscriber)
+	stream := d.streamKey(tenant, subscriber)
 	base := strings.TrimSuffix(stream, ":stream")
 	return promoteDelayedScript.Run(ctx, d.client, []string{stream, base + ":delay", base + ":retired_runs"}, time.Now().UnixMilli(), limit).Int64()
 }
@@ -263,10 +282,10 @@ var renewStreamTaskScript = redis.NewScript(
 
 // ValidateLease 检查现有 TaskBus 租约归属，不续期；供统一历史装饰器去重恢复投递。
 func (d *RedisStreamTaskDriver) ValidateLease(ctx context.Context, lease TaskLease) error {
-	if d == nil || d.client == nil || lease.Token == 0 {
+	if d == nil || d.client == nil || lease.Token == 0 || lease.Namespace != d.namespace {
 		return ErrLeaseStale
 	}
-	key, _ := taskLeaseKeys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
+	key, _ := d.leases.keys(lease.TenantKey, lease.SubscriberID, lease.MessageID)
 	value, err := d.client.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
 		return ErrLeaseStale
@@ -281,11 +300,11 @@ func (d *RedisStreamTaskDriver) ValidateLease(ctx context.Context, lease TaskLea
 }
 
 func (d *RedisStreamTaskDriver) Renew(ctx context.Context, delivery StreamTaskDelivery) (StreamTaskDelivery, error) {
-	if d == nil || d.client == nil || delivery.StreamID == "" || delivery.Group == "" || delivery.Lease.Token == 0 {
+	if d == nil || d.client == nil || delivery.StreamID == "" || delivery.Group == "" || delivery.Lease.Token == 0 || delivery.Lease.Namespace != d.namespace {
 		return StreamTaskDelivery{}, fmt.Errorf("Stream task driver is unavailable")
 	}
-	stream := taskStreamKey(delivery.Lease.TenantKey, delivery.Lease.SubscriberID)
-	leaseKey, _ := taskLeaseKeys(delivery.Lease.TenantKey, delivery.Lease.SubscriberID, delivery.Lease.MessageID)
+	stream := d.streamKey(delivery.Lease.TenantKey, delivery.Lease.SubscriberID)
+	leaseKey, _ := d.leases.keys(delivery.Lease.TenantKey, delivery.Lease.SubscriberID, delivery.Lease.MessageID)
 	n, err := renewStreamTaskScript.Run(ctx, d.client, []string{stream, leaseKey},
 		delivery.Group, delivery.Lease.Owner, delivery.StreamID,
 		leaseValue(delivery.Lease.Owner, delivery.Lease.Token), d.leaseTTL.Milliseconds()).Int64()
@@ -307,11 +326,11 @@ var ackStreamTaskScript = redis.NewScript(
 // Ack refuses stale fencing tokens and deletes the Stream entry only after
 // the current worker's result has been persisted by its caller.
 func (d *RedisStreamTaskDriver) Ack(ctx context.Context, delivery StreamTaskDelivery) error {
-	if d == nil || d.client == nil || delivery.StreamID == "" || delivery.Group == "" || delivery.Lease.Token == 0 {
+	if d == nil || d.client == nil || delivery.StreamID == "" || delivery.Group == "" || delivery.Lease.Token == 0 || delivery.Lease.Namespace != d.namespace {
 		return fmt.Errorf("invalid Stream task acknowledgement")
 	}
-	stream := taskStreamKey(delivery.Lease.TenantKey, delivery.Lease.SubscriberID)
-	leaseKey, _ := taskLeaseKeys(delivery.Lease.TenantKey, delivery.Lease.SubscriberID, delivery.Lease.MessageID)
+	stream := d.streamKey(delivery.Lease.TenantKey, delivery.Lease.SubscriberID)
+	leaseKey, _ := d.leases.keys(delivery.Lease.TenantKey, delivery.Lease.SubscriberID, delivery.Lease.MessageID)
 	n, err := ackStreamTaskScript.Run(ctx, d.client, []string{stream, leaseKey},
 		delivery.Group, delivery.StreamID, leaseValue(delivery.Lease.Owner, delivery.Lease.Token)).Int64()
 	if err != nil {
@@ -332,4 +351,16 @@ func taskDedupeKey(tenant, subscriber, messageID string) string {
 	sum := sha256.Sum256([]byte(messageID))
 	stream := taskStreamKey(tenant, subscriber)
 	return strings.TrimSuffix(stream, ":stream") + ":dedupe:" + hex.EncodeToString(sum[:])
+}
+
+// NamespacedTaskKey keeps logical environments separate while preserving the
+// existing Redis Cluster hash tag. Empty scope is explicit legacy compatibility.
+func NamespacedTaskKey(namespace, key string) string {
+	return redisnamespace.Key(namespace, key)
+}
+func (d *RedisStreamTaskDriver) streamKey(tenant, subscriber string) string {
+	return NamespacedTaskKey(d.namespace, taskStreamKey(tenant, subscriber))
+}
+func (d *RedisStreamTaskDriver) dedupeKey(tenant, subscriber, message string) string {
+	return NamespacedTaskKey(d.namespace, taskDedupeKey(tenant, subscriber, message))
 }

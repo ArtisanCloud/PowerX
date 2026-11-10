@@ -50,6 +50,30 @@ func TestCreateDrainJobAutoDrainsWhenNoRuntimeBlockers(t *testing.T) {
 	}
 }
 
+func TestPausedSchedulerJobsPermitDrainWithoutCancellingSchedules(t *testing.T) {
+	db := newPluginDrainTestDB(t)
+	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{IsRoot: true, UserID: 7})
+	const pluginID = "com.powerx.plugins.base"
+	repo := reposetting.NewPluginInstanceConfigRepository(db)
+	if err := repo.Upsert(ctx, &dbsetting.PluginInstanceConfig{TenantUUID: "6b5d0240-9920-46da-b707-88200e0f51ea", PluginID: pluginID, Key: reposetting.KeyClientCredentials, Enabled: true, Status: dbsetting.PluginInstanceStatusEnabled}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("INSERT INTO scheduler_jobs (owner_type, owner_id, status) VALUES (?, ?, ?)", "plugin", pluginID, "paused").Error; err != nil {
+		t.Fatal(err)
+	}
+	job, err := NewPluginDrainJobService(db).CreateDrainJob(ctx, CreateDrainJobInput{PluginID: pluginID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job.Status != dbsetting.PluginDrainJobStatusReadyToUninstall {
+		t.Fatalf("status=%s", job.Status)
+	}
+	var count int64
+	if err := db.Table("scheduler_jobs").Where("owner_id = ? AND status = ?", pluginID, "paused").Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("paused schedule lost: count=%d err=%v", count, err)
+	}
+}
+
 func TestTenantPluginEnableRejectedWhileReadyDrainJobBlocksNewUsage(t *testing.T) {
 	db := newPluginDrainTestDB(t)
 	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{IsRoot: true, UserID: 7})

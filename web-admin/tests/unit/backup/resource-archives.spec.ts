@@ -6,7 +6,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 const service = vi.hoisted(() => ({ overview: vi.fn(), createOneTime: vi.fn(), savePolicy: vi.fn(), saveTarget: vi.fn(), run: vi.fn(), retry: vi.fn(), protect: vi.fn(), restore: vi.fn(), cleanup: vi.fn(), download: vi.fn(), removeRestore: vi.fn(), testTarget: vi.fn() }));
 vi.mock('~/composables/api/services/archiveOpsService', () => ({ useArchiveOpsService: () => service }));
 import Panel from '~/components/ops/backup/ResourceArchivesPanel.vue';
-const stubs = { UIcon: true,
+const stubs = { ArchiveGovernanceBody: {props:["mediaMode"],template:'<div data-testid="shared-archive-editor">shared editor</div>'}, UIcon: true,
  UCard: { template: '<div><slot name="header"/><slot/></div>' },
  UButton: { props: ['disabled', 'loading'], template: '<button :disabled="disabled || loading"><slot/></button>' },
  UBadge: { template: '<span><slot/></span>' }, UAlert: { props: ['title'], template: '<p>{{title}}</p>' },
@@ -38,7 +38,7 @@ describe('media and remote archive operations', () => {
    expect(service.savePolicy).not.toHaveBeenCalled();expect(service.run).not.toHaveBeenCalled();
    expect(w.get('[data-section="jobs"]').isVisible()).toBe(true);
  });
- it('shows source paths, independent retention and remote failure explicitly', async () => { const w = panel(); await flushPromises(); expect(w.text()).toContain('/stable/archives'); expect(w.text()).toContain('/media'); expect(w.text()).toContain('connection unavailable'); expect(w.text()).toContain('backupCenter.archives.credentialsMissing'); });
+ it('shows source paths, independent retention and remote failure explicitly', async () => { const w = panel(); await flushPromises(); expect(w.text()).toContain('/stable/archives'); expect(w.text()).toContain('/media'); expect(w.text()).toContain('connection unavailable'); expect(service.saveTarget).not.toHaveBeenCalled(); });
  it('keeps jobs, policies and sources in separate vertical panels', async () => {
    const w = panel(); await flushPromises();
    expect(w.get('[data-section="export"]').isVisible()).toBe(true);
@@ -50,9 +50,12 @@ describe('media and remote archive operations', () => {
    expect(w.get('[data-section="policies"]').isVisible()).toBe(true);
    expect(service.run).not.toHaveBeenCalled();
  });
- it('enables a specific saved policy without silently starting a backup', async () => { const w = panel(); await flushPromises(); await button(w, 'workspace.enableSchedule').trigger('click'); await flushPromises(); expect(service.savePolicy).toHaveBeenCalledWith({ ...policy, enabled: true }); expect(service.run).not.toHaveBeenCalled(); });
- it('requires run confirmation and preserves the idempotency key across an uncertain retry', async () => { service.run.mockRejectedValueOnce(new Error('network lost')); const w = panel(); await flushPromises(); await button(w, 'archives.runNow').trigger('click'); expect(service.run).not.toHaveBeenCalled(); await button(w, 'confirm').trigger('click'); await flushPromises(); await button(w, 'confirm').trigger('click'); await flushPromises(); expect(service.run.mock.calls[0]![1]).toEqual(service.run.mock.calls[1]![1]); });
+ it('uses the same versioned policy and target editor without legacy direct writes',async()=>{const w=panel();await flushPromises();await w.findAll('[role="tab"]').find(b=>b.text()==='backupCenter.onDemand.advanced')!.trigger('click');expect(w.find('[data-testid="media-policy-control"]').exists()).toBe(true);expect(w.find('#archive-policy-form').exists()).toBe(false);expect(w.find('#archive-target-form').exists()).toBe(false);expect(service.savePolicy).not.toHaveBeenCalled();expect(service.saveTarget).not.toHaveBeenCalled();});
+ it('retains on-demand media export after visiting shared schedule configuration',async()=>{const w=panel();await flushPromises();await w.findAll('[role="tab"]').find(b=>b.text()==='backupCenter.onDemand.advanced')!.trigger('click');await w.findAll('[role="tab"]').find(b=>b.text()==='backupCenter.onDemand.tools')!.trigger('click');await button(w,'onDemand.createMedia').trigger('click');expect(w.find('#one-time-media-form').exists()).toBe(true);expect(service.run).not.toHaveBeenCalled();});
  it('retries the failed remote job without creating another snapshot', async () => { const w = panel(); await flushPromises(); await button(w, 'archives.retry').trigger('click'); await flushPromises(); expect(service.retry).toHaveBeenCalledWith('job'); expect(service.run).not.toHaveBeenCalled(); });
  it('does not offer restoration for SQL logs', async () => { service.overview.mockResolvedValue({ ...overview(), jobs: [{ ...job, kind: 'postgresql_logs' }] }); const w = panel(); await flushPromises(); expect(button(w, 'archives.restore')).toBeUndefined(); });
  it('refreshes active jobs from push without timed requests and unsubscribes on unmount', async () => { vi.useFakeTimers(); service.overview.mockResolvedValue({ ...overview(), jobs: [{ ...job, status: 'running' }] }); const w = panel(); await flushPromises(); await w.findAll('[role="tab"]').find(b=>b.text()==='backupCenter.archives.sources')!.trigger('click'); await vi.advanceTimersByTimeAsync(30000); expect(service.overview).toHaveBeenCalledTimes(1); emitBackupEvent('archives'); await flushPromises(); expect(service.overview).toHaveBeenCalledTimes(2); w.unmount(); emitBackupEvent('archives'); await vi.advanceTimersByTimeAsync(10000); expect(service.overview).toHaveBeenCalledTimes(2); });
+});
+it('labels retained incomplete captures and offers no download, retry, restoration or ordinary unprotection',async()=>{
+ service.overview.mockResolvedValue({...overview(),jobs:[{...job,status:'retained',protected:true,error:'old capture needs review'}]});const w=panel();await flushPromises();expect(w.text()).toContain('backupCenter.archives.state.retained');expect(w.text()).not.toContain('old capture needs review');expect(button(w,'archives.download')).toBeUndefined();expect(button(w,'archives.retry')).toBeUndefined();expect(button(w,'archives.restore')).toBeUndefined();expect(button(w,'unprotect')).toBeUndefined();
 });

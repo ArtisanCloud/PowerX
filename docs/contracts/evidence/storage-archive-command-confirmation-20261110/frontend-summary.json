@@ -1,0 +1,379 @@
+{
+  "passed": 78,
+  "failed": 0,
+  "files": 10,
+  "tests": [
+    {
+      "file": "web-admin/tests/unit/backup/resource-archives.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "media and remote archive operations creates a media-only export with no saved policy and preserves its retry key",
+          "status": "passed"
+        },
+        {
+          "title": "media and remote archive operations shows source paths, independent retention and remote failure explicitly",
+          "status": "passed"
+        },
+        {
+          "title": "media and remote archive operations keeps jobs, policies and sources in separate vertical panels",
+          "status": "passed"
+        },
+        {
+          "title": "media and remote archive operations uses the same versioned policy and target editor without legacy direct writes",
+          "status": "passed"
+        },
+        {
+          "title": "media and remote archive operations retains on-demand media export after visiting shared schedule configuration",
+          "status": "passed"
+        },
+        {
+          "title": "media and remote archive operations retries the failed remote job without creating another snapshot",
+          "status": "passed"
+        },
+        {
+          "title": "media and remote archive operations does not offer restoration for SQL logs",
+          "status": "passed"
+        },
+        {
+          "title": "media and remote archive operations refreshes active jobs from push without timed requests and unsubscribes on unmount",
+          "status": "passed"
+        },
+        {
+          "title": "labels retained incomplete captures and offers no download, retry, restoration or ordinary unprotection",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-command-confirmation.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "separates read review from confirmation and preserves draft across task sections",
+          "status": "passed"
+        },
+        {
+          "title": "holds original request after reply loss, 404, mismatched input and historical receipt, then settles only current exact proof",
+          "status": "passed"
+        },
+        {
+          "title": "restores original pending request after remount without timers or automatic posts",
+          "status": "passed"
+        },
+        {
+          "title": "invalidates old review on push changes and retains reason and current task",
+          "status": "passed"
+        },
+        {
+          "title": "never confirms an ineligible legacy or active identity",
+          "status": "passed"
+        },
+        {
+          "title": "ignores an old identity response and retains its original request",
+          "status": "passed"
+        },
+        {
+          "title": "keeps corrupt session context visible and prevents a new mutation",
+          "status": "passed"
+        },
+        {
+          "title": "rejects cached replacement and receipt execution mismatch",
+          "status": "passed"
+        },
+        {
+          "title": "matches Go JSON HTML and unicode escaping for immutable input digest",
+          "status": "passed"
+        },
+        {
+          "title": "rejects impossible eligible response and incomplete receipt",
+          "status": "passed"
+        },
+        {
+          "title": "settles a matching pre-write rejection without granting drain or replaying",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-credentials.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "adopts only after explicit confirmation and never enables a policy or returns secret values",
+          "status": "passed"
+        },
+        {
+          "title": "preserves unsent fields across sections and push reads, then erases secrets after save",
+          "status": "passed"
+        },
+        {
+          "title": "keeps unknown requests query-only, closes the confirmation layer and never resubmits",
+          "status": "passed"
+        },
+        {
+          "title": "rejects mismatched receipts and blocks old/plaintext backend writes",
+          "status": "passed"
+        },
+        {
+          "title": "requires explicit master-key rewrap, makes no periodic status reads and releases requests",
+          "status": "passed"
+        },
+        {
+          "title": "validates fixed read and mutation envelopes",
+          "status": "passed"
+        },
+        {
+          "title": "requires fresh input after restore instead of adopting the old legacy value",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-disposition.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "verifies and confirms separately, preserving reason across tabs without mutations",
+          "status": "passed"
+        },
+        {
+          "title": "retains original UUID on lost response, 404 or rolled-back history; reconciles without replay",
+          "status": "passed"
+        },
+        {
+          "title": "restores pending intent after remount without timed queries",
+          "status": "passed"
+        },
+        {
+          "title": "ignores an old-login response and retains that login original intent",
+          "status": "passed"
+        },
+        {
+          "title": "rejects replacement cached input and mismatched receipts",
+          "status": "passed"
+        },
+        {
+          "title": "requires a complete matching verification stream",
+          "status": "passed"
+        },
+        {
+          "title": "matches Go canonical JSON escaping for human reasons",
+          "status": "passed"
+        },
+        {
+          "title": "push invalidation preserves reason but requires a new content proof",
+          "status": "passed"
+        },
+        {
+          "title": "shows a corrupt saved context and blocks new mutation instead of hiding the error",
+          "status": "passed"
+        },
+        {
+          "title": "displays the persisted audit of a retained capture without another verification or write",
+          "status": "passed"
+        },
+        {
+          "title": "manually reviews unknown history, preserves closure draft across tabs, and never repeats retention",
+          "status": "passed"
+        },
+        {
+          "title": "keeps closure intent after reply loss and remount, only original GET with matching current proof settles",
+          "status": "passed"
+        },
+        {
+          "title": "invalidates closure review on SSE changes and keeps reason; old Core cannot submit",
+          "status": "passed"
+        },
+        {
+          "title": "blocks content verification when the original local command proof is unknown",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-execution.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "archive execution evidence requires current executor proof for running records",
+          "status": "passed"
+        },
+        {
+          "title": "archive execution evidence keeps interruption attention while explicitly retrying",
+          "status": "passed"
+        },
+        {
+          "title": "archive execution evidence does not turn imported historical execution metadata into current ownership or a current gate",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-governance.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "never starts transmission on load, save, or failed target verification; enabling requires its own confirmation",
+          "status": "passed"
+        },
+        {
+          "title": "keeps filters and forms through tab and push changes, retrieves source-gone history, and makes no periodic reads",
+          "status": "passed"
+        },
+        {
+          "title": "starts a manual archive and migration from their buttons with separate UUID request keys",
+          "status": "passed"
+        },
+        {
+          "title": "separates local capture from remote confirmation and retains the original job identity",
+          "status": "passed"
+        },
+        {
+          "title": "keeps the failed original job and search draft during metadata failure; push recovery does not replay a mutation",
+          "status": "passed"
+        },
+        {
+          "title": "retains the UUID after lost acceptance, blocks repeat clicks and 404, and reconciles only the original request",
+          "status": "passed"
+        },
+        {
+          "title": "restores pending request after remount without replay or timed request reads",
+          "status": "passed"
+        },
+        {
+          "title": "isolates login owners and ignores a late response belonging to the previous login",
+          "status": "passed"
+        },
+        {
+          "title": "blocks new submission on older Core or failed context persistence",
+          "status": "passed"
+        },
+        {
+          "title": "does not present old running as active and preserves interruption across tabs",
+          "status": "passed"
+        },
+        {
+          "title": "confirms retransfer of the original complete interrupted job without new capture",
+          "status": "passed"
+        },
+        {
+          "title": "shows unconfirmed external command protection across task tabs without starting work",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-policies.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "requires explicit paused adoption, shows independent versions, and never silently enables",
+          "status": "passed"
+        },
+        {
+          "title": "draft saves contain only editable settings; pushes preserve original CAS and unsent fields",
+          "status": "passed"
+        },
+        {
+          "title": "activation has an explicit confirmation binding the original catalog and verified target",
+          "status": "passed"
+        },
+        {
+          "title": "unknown policy writes reconcile the original UUID only; 404 cannot unlock another save",
+          "status": "passed"
+        },
+        {
+          "title": "rejects mismatched receipts and keeps old or unavailable backends read-only with no polling",
+          "status": "passed"
+        },
+        {
+          "title": "validates typed receipt and configuration envelopes",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-run-request.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "persists the fixed non-secret intent before POST, restores it, and prevents a second intent",
+          "status": "passed"
+        },
+        {
+          "title": "only a positive receipt matching all frozen identity fields clears the intent",
+          "status": "passed"
+        },
+        {
+          "title": "invalid or unavailable session storage never becomes absence or authorizes a POST",
+          "status": "passed"
+        },
+        {
+          "title": "uses fixed readonly request lookup and explicit policy revision with write retry disabled",
+          "status": "passed"
+        },
+        {
+          "title": "requires valid bounded receipt identity and dates; drops unknown response fields",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/archive-targets.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "requires explicit adoption and shows saved, active and executor versions separately",
+          "status": "passed"
+        },
+        {
+          "title": "keeps draft and original CAS basis across event reads; conflicts require explicit reload",
+          "status": "passed"
+        },
+        {
+          "title": "unknown writes only query the immutable request; 404 remains unresolved and never resubmits",
+          "status": "passed"
+        },
+        {
+          "title": "does not accept a different operation receipt or silently use an old backend; no status polling",
+          "status": "passed"
+        },
+        {
+          "title": "validates fixed database mutation envelopes",
+          "status": "passed"
+        },
+        {
+          "title": "failed explicit reload preserves the draft and its original base version",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "web-admin/tests/unit/storage/storage-resource-configuration.spec.ts",
+      "status": "passed",
+      "cases": [
+        {
+          "title": "resource-local backup and snapshot settings routes both resources to their shared authority editors without legacy calls",
+          "status": "passed"
+        },
+        {
+          "title": "resource-local archive configuration shows saved target and policy without listing artifacts or sending data, edits locally and verifies the saved target",
+          "status": "passed"
+        },
+        {
+          "title": "resource-local archive configuration keeps archive drafts across closing and reopening, and saving a draft does not enable transmission or remote cleanup",
+          "status": "passed"
+        },
+        {
+          "title": "resource-local archive configuration blocks replay of an uncertain target creation and checks its original result using only reads",
+          "status": "passed"
+        },
+        {
+          "title": "installation ownership does not bind another installation’s source to the local configuration API",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}

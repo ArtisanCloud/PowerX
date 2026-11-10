@@ -15,8 +15,10 @@ import (
 	eventbus "github.com/ArtisanCloud/PowerX/internal/event_bus"
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	auditpkg "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	auditpayload "github.com/ArtisanCloud/PowerX/pkg/corex/audit/payload"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -115,6 +117,8 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
+	// 仅修改值副本中的错误摘要；业务调用返回和原始 map 保持原样。
+	input.ErrorSummary = auditpayload.SafeText(input.ErrorSummary)
 
 	invocationUUID, traceErr := a.insertInvocationTrace(ctx, input)
 
@@ -188,6 +192,10 @@ func (a *AuditService) insertInvocationTrace(ctx context.Context, input Invocati
 	if a == nil || a.traces == nil {
 		return uuid.Nil, nil
 	}
+	request, response, summarized := baselineAuditSummary(input)
+	if !summarized {
+		request, response = auditpayload.Snapshot(input.RequestPayload), auditpayload.Snapshot(input.ResponsePayload)
+	}
 	payload := &models.InvocationTrace{
 		CallerSubject:     callerSubject(ctx),
 		TraceID:           input.TraceID,
@@ -199,8 +207,8 @@ func (a *AuditService) insertInvocationTrace(ctx context.Context, input Invocati
 		FallbackUsed:      input.FallbackUsed,
 		Status:            strings.TrimSpace(input.Status),
 		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
-		RequestPayload:    marshalJSONValue(input.RequestPayload),
-		ResponsePayload:   marshalJSONValue(input.ResponsePayload),
+		RequestPayload:    datatypes.JSON(request),
+		ResponsePayload:   datatypes.JSON(response),
 		ErrorSummary:      input.ErrorSummary,
 		LatencyMS:         int(input.Latency / time.Millisecond),
 	}
@@ -281,17 +289,6 @@ func normalizeStatus(status string) string {
 	return trimmed
 }
 
-func marshalJSONValue(value interface{}) datatypes.JSON {
-	if value == nil {
-		return datatypes.JSON([]byte("null"))
-	}
-	bytes, err := json.Marshal(value)
-	if err != nil {
-		return datatypes.JSON([]byte("null"))
-	}
-	return datatypes.JSON(bytes)
-}
-
 var ErrInvocationStorageCapacity = errors.New("invocation storage admission blocked")
 
 // SetStorageAdmission 仅由 bootstrap 在提供请求前注入，拒绝发生在业务副作用之前。
@@ -308,7 +305,18 @@ func (a *AuditService) checkStorageAdmission(ctx context.Context) error {
 	defer a.admissionMu.Unlock()
 	if time.Since(a.lastRejected) >= time.Minute {
 		a.lastRejected = time.Now()
-		logger.WarnF(ctx, "storage.capacity.invocation_rejected: new capability calls are blocked before execution")
+		code, _, ok := StorageAdmissionFailure(err)
+		if !ok {
+			code = "STORAGE_GOVERNANCE_UNAVAILABLE"
+		}
+		logger.WarnF(ctx, "storage.admission.invocation_rejected: reason_code=%s new capability calls are blocked before execution", code)
 	}
-	return fmt.Errorf("%w: %s", ErrInvocationStorageCapacity, err.Error())
+	if _, _, ok := StorageAdmissionFailure(err); !ok {
+		err = dto.NewErrorWithCode(503, "STORAGE_GOVERNANCE_UNAVAILABLE", "存储治理服务暂不可用", nil)
+	}
+	public := PublicStorageAdmissionError(err)
+	if dto.CodeOf(public) == "STORAGE_CAPACITY_EXHAUSTED" {
+		return fmt.Errorf("%w: %w", ErrInvocationStorageCapacity, public)
+	}
+	return public
 }

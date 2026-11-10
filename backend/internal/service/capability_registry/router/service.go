@@ -29,6 +29,7 @@ type Service struct {
 	now          func() time.Time
 	stateMu      sync.RWMutex
 	adapterState map[string]map[string]healthState
+	versions     map[string]uint64
 	stickyMu     sync.RWMutex
 	stickyMap    map[string]string
 }
@@ -70,6 +71,7 @@ func NewService(opts ServiceOptions) *Service {
 		metrics:      metrics,
 		now:          clock,
 		adapterState: make(map[string]map[string]healthState),
+		versions:     make(map[string]uint64),
 		stickyMap:    make(map[string]string),
 	}
 }
@@ -128,6 +130,9 @@ func (s *Service) Simulate(ctx context.Context, reg registry.Registration, in In
 }
 
 func (s *Service) routeWithRegistration(ctx context.Context, reg registry.Registration, in InvokeRequest, mutate bool) (InvokeResult, error) {
+	if mutate {
+		s.syncRegistrationVersion(in.TenantUUID, in.CapabilityID, reg.Version)
+	}
 	start := s.now()
 	selection, err := s.selectAdapter(ctx, reg, in)
 	if err != nil {
@@ -152,7 +157,7 @@ func (s *Service) routeWithRegistration(ctx context.Context, reg registry.Regist
 			if mutate && selection.fallbackUsed {
 				s.publishEvent(ctx, in, result)
 			}
-			return result, nil
+			return result, observeErr
 		}
 		return InvokeResult{}, err
 	}
@@ -255,6 +260,29 @@ type adapterSelection struct {
 	labels       map[string]string
 }
 
+func (s *Service) syncRegistrationVersion(tenant, capability string, version uint64) {
+	key := routingKey(tenant, capability)
+	s.stateMu.Lock()
+	if s.versions == nil {
+		s.versions = make(map[string]uint64)
+	}
+	previous, seen := s.versions[key]
+	if seen && previous != version {
+		delete(s.adapterState, key)
+	}
+	s.versions[key] = version
+	s.stateMu.Unlock()
+	if seen && previous != version {
+		s.stickyMu.Lock()
+		for sticky := range s.stickyMap {
+			if strings.HasPrefix(sticky, key+"::") {
+				delete(s.stickyMap, sticky)
+			}
+		}
+		s.stickyMu.Unlock()
+	}
+}
+
 func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, in InvokeRequest) (adapterSelection, error) {
 	key := routingKey(in.TenantUUID, in.CapabilityID)
 	adapter := adapterSelection{}
@@ -274,7 +302,7 @@ func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, 
 	if in.StickyKey != "" {
 		stickyID := s.currentSticky(in, key)
 		if stickyID != "" {
-			if ep, ok := findAdapter(reg.Adapters, stickyID); ok && s.isAdapterHealthy(key, stickyID) {
+			if ep, ok := findAdapter(adapters, stickyID); ok && ep.IsActive && s.isAdapterHealthy(key, stickyID) {
 				adapter.adapterID = ep.AdapterID
 				adapter.endpoint = preferredEndpoint(ep)
 				adapter.transport = ep.TransportType
@@ -285,7 +313,7 @@ func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, 
 	}
 
 	for _, ep := range adapters {
-		if !s.isAdapterHealthy(key, ep.AdapterID) {
+		if !ep.IsActive || !s.isAdapterHealthy(key, ep.AdapterID) {
 			continue
 		}
 		adapter.adapterID = ep.AdapterID
@@ -295,7 +323,7 @@ func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, 
 		return adapter, nil
 	}
 
-	if reg.FallbackPlan != nil && reg.FallbackPlan.StaticResponse != nil {
+	if preferredTransport != "core_internal" && reg.FallbackPlan != nil && reg.FallbackPlan.StaticResponse != nil {
 		payload, _ := json.Marshal(reg.FallbackPlan.StaticResponse.Payload)
 		adapter.fallbackUsed = true
 		adapter.payload = payload

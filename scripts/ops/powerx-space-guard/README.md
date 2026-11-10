@@ -45,7 +45,15 @@ python3 scripts/ops/powerx-space-guard/run_receiver.py --config /path/to/private
 
 ## 新版上线时交接
 
-先核实正式版本已经接管同样的日志来源、任务调度、失败记录、磁盘阈值与保留边界，再停临时任务，避免两个清理器重叠。停止守护不会还原已过期的日志。
+先在目标主机执行只读盘点，再由 Core Root 进入交接锁定，逐资源核对来源、任务调度、失败记录、磁盘阈值与保留边界。报告不是停止任务的许可：
+
+```sh
+python3 /path/to/powerx-space-guard/handoff_inventory.py --output /root/powerx-handoff-before.json
+```
+
+报告区分 failed、空闲及仍会自动启动的 timer，拒绝把权限／探测失败当作零任务。工具没有 `--apply`，不读取或导出凭据；详细解释见[交接盘点合同](../../../docs/contracts/storage-executor-handoff-inventory.md)和[手册场景 D](../../../docs/guides/deploy/027-monitor-center/usecase-us9-storage-execution.md#场景-d旧执行器只读盘点与预演2026-11-09)。
+
+旧 guard 同时承担日志轮转、journal、系统日志和容量观察。**只接管部分来源不能直接停止整个 guard**；必须先核实剩余职责的归属。只有经过批准、确认整套职责已移交且在途任务已核对的维护步骤，才使用以下整套退役命令。停止守护不会还原已过期的日志。
 
 ```sh
 systemctl disable --now powerx-space-guard.timer
@@ -59,7 +67,7 @@ touch /etc/powerx-space-guard.disabled
 launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.powerx.audit-archive.plist
 ```
 
-恢复系统守护时可删除 disabled 文件，运行 `systemctl enable --now powerx-space-guard.timer`。暂停任务不要求重启业务服务；激活 PostgreSQL 原生采集器则必须单独取得重启许可。配置备份位于 `revisions/`，回滚也不能关闭 SQL 写操作记录或删除已归档版本。
+回退时保持 Core 交接锁定和策略暂停，核对程序理解当前绑定、来源执行权及在途任务，再在维护步骤中恢复 timer；不得只删除 disabled、绑定或水位文件来恢复旧执行器。暂停任务不要求重启业务服务；激活 PostgreSQL 原生采集器则必须单独取得重启许可。配置备份位于 `revisions/`，回滚也不能关闭 SQL 写操作记录或删除已归档版本。
 
 ## 本地验证
 

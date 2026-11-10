@@ -92,9 +92,16 @@ func (s *Service) readJob(id string) (jobRecord, error) {
 	if e == nil && j.ID != id {
 		e = failure(503, "ARCHIVE_STORE_CORRUPT", "归档清单身份不符")
 	}
+	if e == nil {
+		if _, err := retainedReferences(j); err != nil {
+			e = failure(503, "ARCHIVE_RETAINED_EVIDENCE_UNAVAILABLE", "保留内容证明损坏，停止归档及回收")
+		}
+	}
 	return j, e
 }
 func (s *Service) saveJob(j *jobRecord) error {
+	j.ExecutionState = ""
+	j.CommandDrainState = ""
 	j.UpdatedAt = time.Now().UTC()
 	return writeJSON(s.path("jobs", j.ID), j)
 }
@@ -102,6 +109,20 @@ func (s *Service) objectPath(sha string) string {
 	return filepath.Join(s.cfg.Directory, "objects", sha[:2], sha)
 }
 func (s *Service) policy(ctx context.Context, id string) (Policy, error) {
+	if policies, ok := ctx.Value(guardedPolicyContext{}).([]Policy); ok {
+		for _, p := range policies {
+			if p.ID == id {
+				return p, nil
+			}
+		}
+		return Policy{}, failure(404, "ARCHIVE_POLICY_NOT_FOUND", "策略不存在")
+	}
+	if s.policyControlRequired() {
+		if s.policyAuthority == nil {
+			return Policy{}, failure(503, "ARCHIVE_POLICY_CONTROL_UNAVAILABLE", "策略控制面不可用")
+		}
+		return s.policyAuthority.Resolve(ctx, id)
+	}
 	var p Policy
 	if !validID(id) {
 		return p, failure(400, "ARCHIVE_ID_INVALID", "策略标识无效")

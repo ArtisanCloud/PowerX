@@ -1,0 +1,428 @@
+{
+  "date": "2026-11-08",
+  "scope": "Core storage-governance schema readiness and invocation admission error classification",
+  "status": {
+    "source_validated": true,
+    "local_development_database_scope_migrated": true,
+    "daily_core_restarted_by_agent": false,
+    "new_runtime_deployed": false,
+    "real_ai_craft_browser_acceptance": false,
+    "server_deployment_or_migration_performed": false
+  },
+  "workspace": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+  "branch": "024-ai-engineering-skills",
+  "contract": {
+    "http_status": 503,
+    "grpc_status": "Unavailable",
+    "reason_codes": [
+      "STORAGE_CONTROL_SCHEMA_NOT_READY",
+      "STORAGE_GOVERNANCE_UNAVAILABLE",
+      "STORAGE_CAPACITY_EXHAUSTED"
+    ],
+    "grpc_details": "google.rpc.ErrorInfo reason + metadata.trace_id",
+    "http_details": "error_code / reason_code / details.trace_id",
+    "redaction": "underlying SQL, credentials and arbitrary details are not forwarded",
+    "startup": "bounded read-only check; recovery/login/root diagnostics remain accessible; dependent calls fail closed"
+  },
+  "live_database": {
+    "config": "backend/etc/config.yaml through config.LoadForMigration and its environment resolution",
+    "expected_environment": "dev",
+    "confirmed_local_endpoint": true,
+    "command": "GOWORK=off go run ./cmd/database migrate -config etc/config.yaml -scope storage-governance",
+    "cwd": "backend",
+    "exit_code": 0,
+    "before": {
+      "columns": null,
+      "database": "powerx",
+      "indexes": null,
+      "schema": "public",
+      "server_address": "::1",
+      "server_port": 5432,
+      "tables": {
+        "ops_storage_cleanup_runs": true,
+        "ops_storage_control_configurations": false,
+        "ops_storage_control_revisions": false,
+        "ops_storage_policies": true,
+        "ops_storage_policy_revisions": true,
+        "ops_storage_samples": true
+      }
+    },
+    "after": {
+      "columns": [
+        "applied_revision",
+        "request_digest"
+      ],
+      "control_configuration_rows": 0,
+      "control_revision_rows": 0,
+      "database": "powerx",
+      "indexes": [
+        {
+          "definition": "CREATE UNIQUE INDEX uk_ops_control_request ON public.ops_storage_control_revisions USING btree (tenant_id, scope_id, request_id)",
+          "name": "uk_ops_control_request",
+          "ready": true,
+          "unique": true,
+          "valid": true
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX uk_ops_control_revision ON public.ops_storage_control_revisions USING btree (tenant_id, scope_id, domain, revision)",
+          "name": "uk_ops_control_revision",
+          "ready": true,
+          "unique": true,
+          "valid": true
+        },
+        {
+          "definition": "CREATE UNIQUE INDEX uk_ops_control_scope_domain ON public.ops_storage_control_configurations USING btree (tenant_id, scope_id, domain)",
+          "name": "uk_ops_control_scope_domain",
+          "ready": true,
+          "unique": true,
+          "valid": true
+        }
+      ],
+      "schema": "public",
+      "server_address": "::1",
+      "server_port": 5432,
+      "tables": {
+        "ops_storage_cleanup_runs": true,
+        "ops_storage_control_configurations": true,
+        "ops_storage_control_revisions": true,
+        "ops_storage_policies": true,
+        "ops_storage_policy_revisions": true,
+        "ops_storage_samples": true
+      }
+    },
+    "log": "/tmp/powerx-storage-admission-live-migration.log",
+    "policy_adoption_performed": false,
+    "cleanup_enabled": false,
+    "business_data_migration_or_seed_performed": false,
+    "schema_scope": "six governance metadata tables only; no refresh/reset/seed"
+  },
+  "validation": {
+    "targeted_cases": {
+      "passed_including_parent_and_subtests": 30,
+      "failed": 0,
+      "test_names": [
+        "TestStorageSchemaNativeExactRelationAndKeyOrder",
+        "TestStorageSchemaZeroGormHandleIsUnavailable",
+        "TestStorageSchemaReadOnlyMissingAndUnavailable",
+        "TestStorageSchemaChecksFieldsExactUniqueIndexesAndAllSixTables/missing_column",
+        "TestStorageSchemaChecksFieldsExactUniqueIndexesAndAllSixTables/missing_index",
+        "TestStorageSchemaChecksFieldsExactUniqueIndexesAndAllSixTables/nonunique_index",
+        "TestStorageSchemaChecksFieldsExactUniqueIndexesAndAllSixTables/wrong_columns",
+        "TestStorageSchemaChecksFieldsExactUniqueIndexesAndAllSixTables/missing_other_table",
+        "TestStorageSchemaChecksFieldsExactUniqueIndexesAndAllSixTables",
+        "TestStorageSchemaPostgresPartialIndexAndReadFailure",
+        "TestStorageAdmissionHTTPReturnsMachineCodeAndTraceWithoutPrivateErrors/STORAGE_CONTROL_SCHEMA_NOT_READY",
+        "TestStorageAdmissionHTTPReturnsMachineCodeAndTraceWithoutPrivateErrors/STORAGE_GOVERNANCE_UNAVAILABLE",
+        "TestStorageAdmissionHTTPReturnsMachineCodeAndTraceWithoutPrivateErrors/STORAGE_CAPACITY_EXHAUSTED",
+        "TestStorageAdmissionHTTPReturnsMachineCodeAndTraceWithoutPrivateErrors",
+        "TestStorageAdmissionGRPCPreservesStructuredReasonAndTrace/STORAGE_CONTROL_SCHEMA_NOT_READY",
+        "TestStorageAdmissionGRPCPreservesStructuredReasonAndTrace/STORAGE_GOVERNANCE_UNAVAILABLE",
+        "TestStorageAdmissionGRPCPreservesStructuredReasonAndTrace/STORAGE_CAPACITY_EXHAUSTED",
+        "TestStorageAdmissionGRPCPreservesStructuredReasonAndTrace",
+        "TestAdmissionClassificationNeverTreatsDependencyFailureAsCapacity/STORAGE_CONTROL_SCHEMA_NOT_READY",
+        "TestAdmissionClassificationNeverTreatsDependencyFailureAsCapacity/STORAGE_GOVERNANCE_UNAVAILABLE",
+        "TestAdmissionClassificationNeverTreatsDependencyFailureAsCapacity/STORAGE_CAPACITY_EXHAUSTED",
+        "TestAdmissionClassificationNeverTreatsDependencyFailureAsCapacity/UNCLASSIFIED_FAILURE",
+        "TestAdmissionClassificationNeverTreatsDependencyFailureAsCapacity",
+        "TestPublicAdmissionErrorOnlyPreservesSafeRecoveryCode",
+        "TestAdmissionMissingSchemaUnavailableAndWorkerAreDifferent",
+        "TestAdmissionUnderlyingErrorClassificationAndRedaction",
+        "TestStorageGovernanceScopeNativeRepeatAndRollback/repeat",
+        "TestStorageGovernanceScopeNativeRepeatAndRollback/rollback",
+        "TestStorageGovernanceScopeNativeRepeatAndRollback",
+        "TestDatabaseRetentionNativeAPIAndAdmission"
+      ]
+    },
+    "broader_go_race": {
+      "command": "GOWORK=off go test -json -race ./pkg/corex/db/database ./pkg/corex/db/persistence/repository/storage_governance ./internal/service/storage_governance ./internal/service/capability_registry ./internal/transport/http/openapi/capability_registry ./internal/transport/grpc/capability_registry ./internal/transport/http/admin/storage ./cmd/database ./internal/bootstrap",
+      "cwd": "backend",
+      "counts_including_parent_and_subtests": {
+        "skip": 23,
+        "pass": 551,
+        "fail": 2
+      },
+      "packages": [
+        {
+          "package": "github.com/ArtisanCloud/PowerX/pkg/corex/db/database",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability_registry",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/service/capability_registry",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/bootstrap",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/cmd/database",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/service/storage_governance",
+          "result": "fail"
+        }
+      ],
+      "skipped_tests": [
+        "TestPostgresMigrationAutomaticallyInitializesAllTenants",
+        "TestPostgresMigrationUpgradesRootWithoutBusinessRolesOrBackdatedHistory",
+        "TestSchedulerDispatchMigrationNativePreservesLegacy",
+        "TestUpgradeReadOnlyAndLegacyJournal",
+        "TestUpgradeTransactionFailureRetryIdempotenceAndChecksum",
+        "TestUpgradeGlobalLockAndPlanDrift",
+        "TestUpgradeNontransactionalFailureRequiresRestore",
+        "TestUpgradeInterruptedTransactionAndVerification",
+        "TestLivePluginRequestIdentity",
+        "TestStorageLocalConfiguredAcceptance",
+        "TestStorageLocalInventoryReadOnlyAcceptance",
+        "TestStorageLocalRuntimePreparedReadOnlyAcceptance",
+        "TestStorageNativeLocalObservationAcceptance",
+        "TestNativeSystemSnapshotBootstrapWithRelativeMediaDirectory",
+        "TestTaskHistoryMigrationScopeNativePreservesLegacyRowsAndConstraints",
+        "TestTaskHistoryMigrationScopeNativeRollsBackAndRejectsInvalidIndexes/wrong_columns",
+        "TestTaskHistoryMigrationScopeNativeRollsBackAndRejectsInvalidIndexes/name_collision",
+        "TestTaskHistoryMigrationScopeNativeRollsBackAndRejectsInvalidIndexes/partial_index",
+        "TestTaskHistoryMigrationScopeNativeRollsBackAndRejectsInvalidIndexes/duplicate_existing_keys",
+        "TestTaskHistoryMigrationScopeNativeRollsBackAndRejectsInvalidIndexes/wrong_column_type",
+        "TestInstalledCoreUpgradeMigratesLegacyRootBaselineWithNewIdentity",
+        "TestInstalledCatalogUpgradeMigratesLegacyBindings",
+        "TestSystemTableInventoryNativePostgresReadOnly"
+      ],
+      "failed_tests": [
+        "TestHostBudgetNativePostgresSharedOwnerAndCompetingAdoption",
+        "TestHostBudgetNativePostgresLostProjectionCannotRevertOtherInstancesToLegacy"
+      ],
+      "log": "/tmp/powerx-storage-admission-final.jsonl",
+      "all_green": false
+    },
+    "baseline_comparison": {
+      "method": "go test -overlay of pre-edit source snapshots; worktree and branches unchanged",
+      "failed_before_change": [
+        "TestHostBudgetNativePostgresSharedOwnerAndCompetingAdoption",
+        "TestHostBudgetNativePostgresLostProjectionCannotRevertOtherInstancesToLegacy"
+      ],
+      "log": "/tmp/powerx-storage-admission-baseline.jsonl",
+      "note": "Two existing host-budget cross-instance tests also fail on pre-edit source. Their budget.New failure predates this admission/schema fix. They are not reported as passing."
+    },
+    "core_build": {
+      "command": "GOWORK=off go build -o /tmp/powerx-storage-admission-core ./cmd/app",
+      "exit_code": 0,
+      "artifact": "/tmp/powerx-storage-admission-core",
+      "sha256": "9ab77dfe04e33c92e54a9262d4ef3f7e0b6813a477d2f283491a99c63c2d2caf",
+      "log": "/tmp/powerx-storage-admission-build.log"
+    },
+    "vet": {
+      "exit_code": 0,
+      "log": "/tmp/powerx-storage-admission-vet.log",
+      "scope": "affected database, repository, storage service, capability service, HTTP/gRPC, database CLI, bootstrap packages"
+    },
+    "upgrade_payloads": {
+      "regenerated": true,
+      "check_exit": 0,
+      "generator": "python3 deploy/powerx/container/upgrade_registry.py",
+      "unit_tests_passed": 3
+    },
+    "capability_check": {
+      "exit_code": 0,
+      "log": "/tmp/powerx-storage-admission-capability-check.log",
+      "seed_executed": false,
+      "formal_capability_or_grant_changed": false
+    },
+    "scoped_diff_check_exit": 0
+  },
+  "temporary_services": [
+    {
+      "owner": "storage-admission-fix-20261108",
+      "directory": "/tmp/powerx-control-owned-admission-skqn3hxe",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "port": 16684,
+      "user": "storage_control_test",
+      "socket": "/tmp/powerx-control-owned-admission-skqn3hxe",
+      "command": [
+        "/opt/homebrew/bin/pg_ctl",
+        "-D",
+        "/tmp/powerx-control-owned-admission-skqn3hxe/data",
+        "-l",
+        "/tmp/powerx-control-owned-admission-skqn3hxe/postgres.log",
+        "-o",
+        "-k /tmp/powerx-control-owned-admission-skqn3hxe -p 16684 -h '' -c max_connections=40 -c logging_collector=on -c log_statement=mod",
+        "-w",
+        "start"
+      ],
+      "pid": 67431,
+      "stop_exit": 0,
+      "stopped_at": "2026-11-08T05:43:20.010878+00:00",
+      "pid_exited": true,
+      "socket_released": true,
+      "directory_removed": true
+    },
+    {
+      "owner": "storage-admission-native-legacy-tests-20261108",
+      "directory": "/tmp/pxst-admission-uj78teig",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+      "port": 19464,
+      "user": "storage_control_test",
+      "socket": "/tmp/pxst-admission-uj78teig",
+      "command": [
+        "/opt/homebrew/bin/pg_ctl",
+        "-D",
+        "/tmp/pxst-admission-uj78teig/data",
+        "-l",
+        "/tmp/pxst-admission-uj78teig/postgres.log",
+        "-o",
+        "-k /tmp/pxst-admission-uj78teig -p 19464 -h '' -c max_connections=40 -c logging_collector=on -c log_statement=mod",
+        "-w",
+        "start"
+      ],
+      "pid": 729,
+      "stop_exit": 0,
+      "stopped_at": "2026-11-08T05:43:20.125770+00:00",
+      "pid_exited": true,
+      "socket_released": true,
+      "directory_removed": true
+    }
+  ],
+  "daily_service": {
+    "port": 8077,
+    "pid_observed": 28958,
+    "owner": "user",
+    "agent_restarted_or_stopped": false
+  },
+  "files": [
+    {
+      "path": "backend/pkg/corex/db/persistence/repository/storage_governance/control_repo.go",
+      "sha256": "cd89505da73ab2bbffd64b8e3dd21ac40a235e61a1291757f4e1395ba338617c",
+      "before_sha256": "972f363e906200d0378b74eb56c460466c3ea2847df01c4277329a45a7ac0ce0"
+    },
+    {
+      "path": "backend/internal/service/storage_governance/control_service.go",
+      "sha256": "c745520e084c6363b89c0d6b37981491aa550fb2a62c40743613ebd883423024",
+      "before_sha256": "adeed919a0d34f0530a8dc60e48c5270ae8b0ca46a480ba7313976e737626c9e"
+    },
+    {
+      "path": "backend/internal/service/storage_governance/database_retention_control.go",
+      "sha256": "a6a3b28164069be9b255a3ac763cb80047c5675dcbb3376fdc4bbf77247779f0",
+      "before_sha256": "5bacc8c3bb2eaf87f527b86485af11de83013de4072d0cd86f4f6e0f6d47aac2"
+    },
+    {
+      "path": "backend/internal/service/storage_governance/database_retention.go",
+      "sha256": "63da76edc978c8fef133956684cf48a8d0ab80c71e77e51295a7de97f4728e95",
+      "before_sha256": "cf6b87ec689e534332286877ebd105be5871ccd8082f974800d34007fdbaf5a7"
+    },
+    {
+      "path": "backend/internal/service/capability_registry/audit.go",
+      "sha256": "544ca3b6573e0ba772782408e105d5ffa2c043d71d3b964e080c74a9c95579aa",
+      "before_sha256": "fbb76c2a34d9a62a174d688ade149ad8c2208142aa2fcf528ea1f3ec73f99edc"
+    },
+    {
+      "path": "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go",
+      "sha256": "ce9815ba0749ebc5f0a748fa01ac675f01b0c45d7da6fcb498a637b2683cb8f2",
+      "before_sha256": "158a245e152d14621dd8fe21257a0c2b23e5ea9137fb2dedb849ad3a1a772829"
+    },
+    {
+      "path": "backend/internal/transport/grpc/capability_registry/integration_gateway_server.go",
+      "sha256": "b16371aa8b6c0c03dbafca319feee6b7fc5bcaad57b38781ea1bd5e45557889e",
+      "before_sha256": "9cc5de19f738111a258195b086cfb7ab9fd6156ce3040a5c21db5167fb91e00b"
+    },
+    {
+      "path": "backend/internal/bootstrap/storage_governance.go",
+      "sha256": "ac2f704002410e9cbe91b87cdf219c6e7f2ee317e6d175b21f5c36b168a402bb",
+      "before_sha256": "a93f0b74d3fb9ac66fcf1c13a97ad291b99f78297b23c3942b4c191caefcf436"
+    },
+    {
+      "path": "backend/pkg/corex/db/database/migration.go",
+      "sha256": "2e65467f952a970ce255afc5df1478e9f2078f74cb1808184682f13bc7ebbc5e",
+      "before_sha256": "0d4107c1f3aacfd399a528abeff25353269dbbfefa73ed4297837d451da6e6fe"
+    },
+    {
+      "path": "backend/cmd/database/upgrade_steps.go",
+      "sha256": "8ec92847775fefdafc96911ec88846be0c433b2d7a31f61015a8066b16f36ac5",
+      "before_sha256": "fefcfa67b3e84e19590ba659c3436ea160880f2924fe275f4b9797c27ccfd78f"
+    },
+    {
+      "path": "backend/cmd/database/upgrade_payloads.json",
+      "sha256": "fb220c7a8a672aa624216a938c529e0eb83a1cc510f803787c3fec3b68f8c372",
+      "before_sha256": "1534eb47e70319d1bac75c72e54cae368f11fc40c97665a993ab89cb5591a406"
+    },
+    {
+      "path": "backend/internal/transport/http/admin/storage/database_acceptance_postgres_test.go",
+      "sha256": "2c3cdfb8d0fff2055eb4319162d26e94feefb1c104b9e2b84efa03eeb88bff73",
+      "before_sha256": "2be2f3f4c8d87da2e7af2635eb187ce80fac4a1333363d8b1a1716521f0e1efe"
+    },
+    {
+      "path": "backend/cmd/database/migrate_scope_test.go",
+      "sha256": "50e59afdd384595eb981f580258d18cd41172562b9b900f48cfa07e335a933bd",
+      "before_sha256": "ab1fa9289b043dbbd70668c64097875af5595a2681ee6a46d00369ae160f3e96"
+    },
+    {
+      "path": "backend/pkg/corex/db/database/storage_governance_schema.go",
+      "sha256": "0e88e5079557fafc521cf3b7b0454ac7c70801ad5d11664545d91262846b6e04",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/pkg/corex/db/database/storage_governance_schema_test.go",
+      "sha256": "b7e723731275d48cf80641f73d150953d22ff38641b06c714585497f039536cb",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/service/storage_governance/admission_error.go",
+      "sha256": "f96c0f9f584a1462b6029a31e3d6c853cf737f138e370d0dc42f63d3ee945a1c",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/service/storage_governance/admission_error_test.go",
+      "sha256": "7481fade3013b63f422d5bd457857e1a2383fc4d6dd80eaa11beef69351b47d7",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/service/capability_registry/storage_admission.go",
+      "sha256": "c534e0988846d93e83fcc5f450b215ae2887cddcf7de87466e04b26ab8c7e1a3",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/service/capability_registry/storage_admission_test.go",
+      "sha256": "c852643eeb3eeed394ad1c6d1558b6d9b3b8cf46049ca30c6c5459341b2c43d6",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/transport/http/openapi/capability_registry/tenant_storage_admission_test.go",
+      "sha256": "9f13f5c78c6e83edf0a01e550171f4ff65fe3bf89ad161b73fcb88be37f82fed",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/transport/grpc/capability_registry/storage_admission_test.go",
+      "sha256": "f55dda76c5ac9b0c664808b9c9c18e1414b1fde7a9a77be1afab20a246fd573f",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/cmd/database/storage_governance_scope_postgres_test.go",
+      "sha256": "efc0c373d1b935a91f429fe0e25846a9b5b225c425ddcc389c75dafe9ae9981f",
+      "before_sha256": null
+    },
+    {
+      "path": "docs/contracts/storage-admission-readiness.md",
+      "sha256": "26263fac0cc36d21341e30230f9bed14d60c302be5bb6f6ca79d998c4ec16c57",
+      "before_sha256": null
+    }
+  ],
+  "review_note": "The shared worktree already has unrelated uncommitted changes. File hashes identify the validated state; compare this task snapshot for its bounded changes. Validation uses owned isolated PostgreSQL clusters, SQLite, and controlled HTTP/gRPC identities; it does not substitute for deployed plugin acceptance.",
+  "handoff": "docs/contracts/storage-admission-readiness.md",
+  "pending": [
+    "User rebuilds/restarts daily Core to load the new code and re-create stopped governance consumers",
+    "Recheck Root governance readiness/legacy confirmation without implicit policy adoption",
+    "Read-only AI Craft list and realtime acceptance under the original plugin identity after restart",
+    "Separate follow-up for the two pre-existing host-budget cross-instance test failures"
+  ]
+}

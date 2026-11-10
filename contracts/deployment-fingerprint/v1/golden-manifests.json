@@ -1,0 +1,132 @@
+{
+  "vectors": [
+    {
+      "name": "web-assets-unsorted",
+      "manifest": {
+        "schema": "powerx.build-fingerprint/v1",
+        "product": "powerx",
+        "component": "web-admin",
+        "release_id": "1.0.0-fixture",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "target": {
+          "os": "any",
+          "arch": "any"
+        },
+        "artifacts": [
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/theme.css",
+            "sha256": "471a3e6ffa6ba8d329ba369277bab2005772524b93583f1cc3f42d9082ab597e",
+            "size": 36
+          },
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/entry.js",
+            "sha256": "19941f7b83582b455abe1c878f17e8dbc085c9734ab04556a64d8020f9996fa0",
+            "size": 33
+          }
+        ],
+        "built_at": "2026-10-23T00:00:00.000Z",
+        "build_id": "61407a34f8ed53d317015fbcbfbed17b69c2a3eea3724a0892a2e10ef024def7"
+      },
+      "canonical_payload": "{\"artifacts\":[{\"kind\":\"public_asset\",\"path\":\"_nuxt/entry.js\",\"sha256\":\"19941f7b83582b455abe1c878f17e8dbc085c9734ab04556a64d8020f9996fa0\",\"size\":33},{\"kind\":\"public_asset\",\"path\":\"_nuxt/theme.css\",\"sha256\":\"471a3e6ffa6ba8d329ba369277bab2005772524b93583f1cc3f42d9082ab597e\",\"size\":36}],\"component\":\"web-admin\",\"product\":\"powerx\",\"release_id\":\"1.0.0-fixture\",\"schema\":\"powerx.build-fingerprint/v1\",\"source_commit\":\"0123456789abcdef0123456789abcdef01234567\",\"target\":{\"arch\":\"any\",\"os\":\"any\"}}",
+      "build_id": "61407a34f8ed53d317015fbcbfbed17b69c2a3eea3724a0892a2e10ef024def7"
+    },
+    {
+      "name": "backend-linux-arm64",
+      "manifest": {
+        "schema": "powerx.build-fingerprint/v1",
+        "product": "powerx",
+        "component": "backend",
+        "release_id": "1.0.0-fixture",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "target": {
+          "os": "linux",
+          "arch": "arm64"
+        },
+        "artifacts": [
+          {
+            "kind": "binary",
+            "path": "powerx",
+            "sha256": "d828ed23d5802d3cfe8b536d91a6254704af2f25f3b85e574049de46c0fc8986",
+            "size": 23
+          }
+        ],
+        "built_at": "2026-10-23T00:00:00.000Z",
+        "build_id": "89fc7e814d66ca932dba6a07cc0e03f8cf08aaa266ba030fdf8856f891da2223"
+      },
+      "canonical_payload": "{\"artifacts\":[{\"kind\":\"binary\",\"path\":\"powerx\",\"sha256\":\"d828ed23d5802d3cfe8b536d91a6254704af2f25f3b85e574049de46c0fc8986\",\"size\":23}],\"component\":\"backend\",\"product\":\"powerx\",\"release_id\":\"1.0.0-fixture\",\"schema\":\"powerx.build-fingerprint/v1\",\"source_commit\":\"0123456789abcdef0123456789abcdef01234567\",\"target\":{\"arch\":\"arm64\",\"os\":\"linux\"}}",
+      "build_id": "89fc7e814d66ca932dba6a07cc0e03f8cf08aaa266ba030fdf8856f891da2223"
+    },
+    {
+      "name": "unicode-escaping-safe-integer",
+      "manifest": {
+        "schema": "powerx.build-fingerprint/v1",
+        "product": "powerx",
+        "component": "web-admin",
+        "release_id": "版本-🙂<>&  ",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "target": {
+          "os": "any",
+          "arch": "any"
+        },
+        "artifacts": [
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/theme.css",
+            "sha256": "471a3e6ffa6ba8d329ba369277bab2005772524b93583f1cc3f42d9082ab597e",
+            "size": 9007199254740991
+          },
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/entry.js",
+            "sha256": "19941f7b83582b455abe1c878f17e8dbc085c9734ab04556a64d8020f9996fa0",
+            "size": 33
+          }
+        ],
+        "built_at": "2026-10-23T00:00:00.000Z",
+        "build_id": "ecb25baec1166a00cba8f0362fca4faf024c3831cbe67843113d086307d8f958"
+      },
+      "canonical_payload": "{\"artifacts\":[{\"kind\":\"public_asset\",\"path\":\"_nuxt/entry.js\",\"sha256\":\"19941f7b83582b455abe1c878f17e8dbc085c9734ab04556a64d8020f9996fa0\",\"size\":33},{\"kind\":\"public_asset\",\"path\":\"_nuxt/theme.css\",\"sha256\":\"471a3e6ffa6ba8d329ba369277bab2005772524b93583f1cc3f42d9082ab597e\",\"size\":9007199254740991}],\"component\":\"web-admin\",\"product\":\"powerx\",\"release_id\":\"版本-🙂<>&  \",\"schema\":\"powerx.build-fingerprint/v1\",\"source_commit\":\"0123456789abcdef0123456789abcdef01234567\",\"target\":{\"arch\":\"any\",\"os\":\"any\"}}",
+      "build_id": "ecb25baec1166a00cba8f0362fca4faf024c3831cbe67843113d086307d8f958"
+    },
+    {
+      "name": "unicode-artifact-order",
+      "manifest": {
+        "schema": "powerx.build-fingerprint/v1",
+        "product": "powerx",
+        "component": "web-admin",
+        "release_id": "1.0.0-fixture",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "target": {
+          "os": "any",
+          "arch": "any"
+        },
+        "artifacts": [
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/דּ.js",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "size": 1
+          },
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/🙂.js",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "size": 2
+          }
+        ],
+        "built_at": "2026-10-23T00:00:00.000Z",
+        "build_id": "033db5e5926c00d31828aed1aebd1732345f881c617691979bfc14740fc31be9"
+      },
+      "canonical_payload": "{\"artifacts\":[{\"kind\":\"public_asset\",\"path\":\"_nuxt/דּ.js\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"size\":1},{\"kind\":\"public_asset\",\"path\":\"_nuxt/🙂.js\",\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"size\":2}],\"component\":\"web-admin\",\"product\":\"powerx\",\"release_id\":\"1.0.0-fixture\",\"schema\":\"powerx.build-fingerprint/v1\",\"source_commit\":\"0123456789abcdef0123456789abcdef01234567\",\"target\":{\"arch\":\"any\",\"os\":\"any\"}}",
+      "build_id": "033db5e5926c00d31828aed1aebd1732345f881c617691979bfc14740fc31be9"
+    }
+  ],
+  "artifact_contents": {
+    "backend.bin": "fixture PowerX backend\n",
+    "_nuxt/entry.js": "export const product = \"powerx\";\n",
+    "_nuxt/theme.css": ":root { color-scheme: light dark; }\n"
+  },
+  "note": "Synthetic protocol fixtures, not official releases or downloadable plugin packages."
+}

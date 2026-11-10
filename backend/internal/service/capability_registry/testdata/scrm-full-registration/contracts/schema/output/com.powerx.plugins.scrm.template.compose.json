@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateComposeOutput",
+  "type": "object",
+  "properties": {
+    "draft_id": { "type": "string", "description": "兼容旧版流程的草稿 ID" },
+    "template_id": { "type": "string", "description": "模板主键" },
+    "publish_status": { "type": "string", "description": "兼容旧版的发布状态（如 published:channel）" },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "published", "archived"],
+      "description": "模板当前状态"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": ["pending", "approved", "rejected"],
+      "description": "审核状态"
+    },
+    "publish_channel": { "type": "string" },
+    "cleanup_reason": { "type": "string" },
+    "cleaned_at": { "type": "string", "format": "date-time" },
+    "lifecycle": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "string", "enum": ["draft", "review", "publish", "cleanup"] },
+          "status": { "type": "string" },
+          "review_status": { "type": "string" },
+          "reviewed_by": { "type": "string" },
+          "reviewed_at": { "type": "string", "format": "date-time" },
+          "publish_channel": { "type": "string" },
+          "published_at": { "type": "string", "format": "date-time" },
+          "cleanup_reason": { "type": "string" },
+          "cleaned_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": ["draft_id", "template_id", "publish_status", "status", "review_status"],
+  "additionalProperties": true
+}

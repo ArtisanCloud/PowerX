@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: PowerX Plugin Skeleton API
+  version: 0.1.0
+servers:
+  - url: /
+paths:
+  /api/v1/admin/messaging/endpoints:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1endpoints'
+  /api/v1/admin/messaging/endpoint-discoveries:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1endpoint-discoveries'
+  /api/v1/admin/messaging/endpoints/{uuid}:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1endpoints~1{uuid}'
+  /api/v1/admin/messaging/endpoints/{uuid}/probe:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1endpoints~1{uuid}~1probe'
+  /api/v1/admin/messaging/conversations:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1conversations'
+  /api/v1/admin/messaging/conversations/{uuid}/messages:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1conversations~1{uuid}~1messages'
+  /api/v1/admin/messaging/executions:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1executions'
+  /api/v1/admin/messaging/executions/{uuid}:
+    $ref: './messaging.openapi.yaml#/paths/~1admin~1messaging~1executions~1{uuid}'
+  /api/v1/ping:
+    get:
+      summary: Ping
+      description: Returns basic service health.
+      responses:
+        '200':
+          description: Successful ping response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+  /healthz:
+    get:
+      summary: Health check
+      description: Framework-provided health probe endpoint.
+      responses:
+        '200':
+          description: Service is healthy
+
+components:
+  securitySchemes:
+    AdminBearer:
+      $ref: ./messaging.openapi.yaml#/components/securitySchemes/AdminBearer

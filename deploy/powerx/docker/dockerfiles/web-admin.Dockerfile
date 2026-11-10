@@ -4,7 +4,11 @@ WORKDIR /src/web-admin
 COPY web-admin/package.json web-admin/package-lock.json ./
 RUN npm ci
 COPY web-admin/ ./
-ENV POWERX_BUILD_TARGET=prod
+ARG POWERX_SOURCE_SHA=unknown
+ARG POWERX_VERSION=unversioned
+ARG POWERX_BUILD_TIME
+ARG NUXT_APP_BASE_URL=/
+ENV POWERX_BUILD_TARGET=prod POWERX_SOURCE_SHA=$POWERX_SOURCE_SHA POWERX_VERSION=$POWERX_VERSION POWERX_BUILD_TIME=$POWERX_BUILD_TIME NUXT_APP_BASE_URL=$NUXT_APP_BASE_URL
 RUN npm run build && node scripts/check-container-output.mjs
 
 FROM node:22-alpine3.22

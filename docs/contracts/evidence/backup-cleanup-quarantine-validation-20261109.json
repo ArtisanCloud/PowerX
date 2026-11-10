@@ -1,0 +1,272 @@
+{
+  "date": "2026-11-09",
+  "task": "T172 explicit non-deleting quarantine of damaged or incomplete backup artifact",
+  "status": "source and owned isolated acceptance complete for this slice; full T172, SG-11, deployment, adoption and release remain open",
+  "branch": "024-ai-engineering-skills",
+  "implemented": [
+    "Fixed quarantine_cleanup operation and Root human access only; exact original UUID, actor, scope, artifact/token/version/history/generation, diagnosis, digest and reason",
+    "Explicit on-demand bounded SSE preview; POST repeats fixed safe diagnosis. Missing/size/hash/sidecar/metadata known defects only; healthy/unsafe/changing/unavailable cannot succeed",
+    "Open no-follow parent and held regular single-link file descriptors; bind presence/negative lookup, device/inode/size/mode/mtime/ctime/link count; recheck before final guarded transaction",
+    "Existing cooperating policy lock, published global and plan pause/recovery Fence, no active backup/drill, current row locks and CAS",
+    "Atomic artifact.cleanup_state=quarantined plus new audit terminal only. Job.status/protected, files, original token and unknown history unchanged; valid_backup_proof=false",
+    "Quarantined artifacts excluded from available backup view and download/protection/drill/restore-copy source. Restore copy re-reads source inside policy lock",
+    "Existing protected audit table adds operation default retain_cleanup, expected_diagnosis, diagnostic_digest via central migration; new readiness isolated from normal capability admission",
+    "Maintenance v7 and ledger v4 preserve genuine v6/v3 typed retain records and import audits. Shared 4096 identities,16MiB,1024 imports; recorded missing ledger never rebuilt",
+    "Independent reservation before SQL, final SQL then independent checkpoint; missing SQL not recreated, original retry history-only if terminal, no replay after SQL restore",
+    "Independent vertical UI task; no automatic diagnosis/POST/polling, frozen pending input and aggregate parent modal lock, push invalidates readonly preview and synchronizes receipt only"
+  ],
+  "validation": {
+    "backend": {
+      "race_packages": 7,
+      "result": "passed",
+      "native_specific_tests": 5,
+      "known_damage_cases": 6,
+      "fault_cases": 8,
+      "native_proofs": [
+        "single winner for concurrent different UUIDs",
+        "file arrival/change and ctime-restored-mtime rejection; no-follow links/FIFO/outside/missing-parent guards",
+        "healthy backup ineligible",
+        "accepted response loss keeps original UUID and permits explicit identical retry",
+        "SQL rollback leaves current state and original unknown unchanged",
+        "checkpoint after committed SQL resumes only receipt",
+        "epoch change preserves unknown and blocks current mutation",
+        "real owned schema pg_dump/pg_restore leaves independent terminal historical only; fresh current review required",
+        "new missing column cannot alter ordinary database/capability admission",
+        "actual protected/download/restore-drill/restore-copy Plan guards reject quarantine",
+        "genuine v6/v3 protocol upgrade preserves typed retain identity and import audit",
+        "official installed Core callback with actual old table columns removed backfills retain_cleanup without losing UUID/state/token; UpgradeRunner repeat/failure/retry",
+        "Root native HTTP JWT/SSE strict body and API-key-plane rejection"
+      ],
+      "queue_boundary": "formal TaskBus wrapper on owned PG plus miniredis transport; no production distributed queue or external executor handoff acceptance"
+    },
+    "frontend": {
+      "vitest_files": 20,
+      "vitest_tests": 171,
+      "result": "passed",
+      "browser": "real daily Nuxt frontend, Root login; all backup mutations routed through a narrow proxy to owned native HTTP/JWT/SSE/PostgreSQL; unrelated mutation blocked",
+      "checks": [
+        "Explicit on-demand diagnosis, Root current-intent conditions and explicit confirmation; draft survives vertical task switches",
+        "light 1440 form/confirmation/primary action/navigation",
+        "light 390 form/confirmation/primary action/navigation",
+        "dark 1440 form/confirmation/primary action/navigation",
+        "dark 390 form/confirmation/primary action/navigation",
+        "lost committed terminal SSE frame and unavailable GET preserve UUID and dialog lock without automatic retry",
+        "GET original UUID reconciles independent terminal receipt without repeating current-state changes",
+        "light 1440 historical receipt/context/close/navigation",
+        "light 390 historical receipt/context/close/navigation",
+        "dark 1440 historical receipt/context/close/navigation",
+        "dark 390 historical receipt/context/close/navigation",
+        "settled current intent leaves attention list; original history remains separate",
+        "shared SSE updates current lists; zero idle state queries and no duplicate mutation"
+      ],
+      "page_errors": [],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "diagnosis_requests": 1,
+      "quarantine_posts": 1,
+      "fault": "real server SQL completed; terminal SSE frame withheld and GET temporarily denied; original UUID GET reconciles without second mutation",
+      "localization": "zh/en and key coverage ja/ko; new ja/ko copy in English, not linguistic acceptance"
+    },
+    "other": {
+      "go_vet": "passed seven packages",
+      "capability_check": "passed declared=1242 referenced=83 rest_routes=1175 candidates=1274 ignored_route_rules=145",
+      "upgrade_registry": "official generate and --check passed; only core payload differs from previous slice; full shared release review still open",
+      "openapi_locale_gofmt_whitespace": "passed"
+    }
+  },
+  "upgrade_payload_change": [
+    {
+      "group": "core",
+      "previous_slice_checksum": "914671b741d72fa385f446e9b8ccb39f9d63ecafb02264cb20d8d23151c83f76",
+      "current_checksum": "2515069dd7c288cf776a00565b3bd3aad3474c8b06d918845dd2051cd80fed0f"
+    }
+  ],
+  "process_cleanup": {
+    "owned_schemas_remaining": 0,
+    "owned_databases_remaining": 0,
+    "http_browser_and_children_exited": true,
+    "owned_ports_released": [
+      59581,
+      59356
+    ],
+    "owned_jwt_file_removed": true,
+    "owned_postgres_pid": 3734,
+    "owned_postgres_exited": true,
+    "owned_cluster_removed": true,
+    "daily_processes": {
+      "8077": {
+        "pid": 16175,
+        "original_process_present": true,
+        "listener_present": true,
+        "restarted_by_agent": false
+      },
+      "3030": {
+        "pid": 34360,
+        "original_process_present": true,
+        "listener_present": true,
+        "restarted_by_agent": false
+      }
+    },
+    "production_touched": false
+  },
+  "limitations": [
+    "No daily or production migration, maintenance protocol marker upgrade, policy changes, restart, adoption or real artifact disposition performed.",
+    "Logical quarantine does not delete/move files, free capacity, repair backup or establish valid-backup proof. No unquarantine action.",
+    "Current quarantine is visible in backup history; unified queryable quarantine inventory and readonly follow-up remains the next slice.",
+    "Only safe stable known damage of registered-policy successful jobs with current exact pending/unconfirmed intent; one-time/orphaned/soft-deleted/unsafe/unavailable sources are not eligible.",
+    "Unknown original history remains unknown; independent receipts are historical facts, not current execution or restore authority after SQL replay.",
+    "SQL and independent files are two phases; failures can remain unknown. A prior independent UUID missing SQL cannot create a fresh SQL task.",
+    "Cooperating locks and SQL activity checks do not prove unregistered legacy scripts or external process drain; host/root tampering and whole-volume rollback need external recovery safeguards.",
+    "Owned schema replay and core installed callback are not full deployed system recovery or all payload/shared changes release approval.",
+    "Long-term private S3/OSS and real retrieval, external keys, live executor handoff, dual environment and 7/14-day evidence remain open."
+  ],
+  "next_task": {
+    "id": "T172",
+    "action": "Quarantined artifact inventory and explicit readonly follow-up",
+    "completion": "Root pagination/filter for quarantine, exact original token and disposition UUID/classification/time/reason, current diagnosis on explicit action; separate historical outcome from current state after SQL replay; desktop/narrow/no polling acceptance; no implicit unquarantine or deletion.",
+    "isolated_development_requires_user_restart": false
+  },
+  "evidence_files": [
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/backend-full.log",
+      "sha256": "26a5ac232796ec8c8093920dd4d0c6bed4fea5ab716c5eb4d495408b0bed8a94"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/native-quarantine-final.log",
+      "sha256": "653725920324f4109b8aeb28f622f323b8a7b3f956f1a6414e6a787ca86a2c2e"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/native-readiness-final.log",
+      "sha256": "9fd596c4a5e53ff5ba76b60c46bbed1185c9b5a61562a6231423ca2769c5a2d3"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/installed-upgrade-final.log",
+      "sha256": "c9c6919c6d77393bffb642618a011ad00ec2b7a0a2075ce8dc3bbffa674dacff"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/frontend-final.log",
+      "sha256": "ab11aee2f957eee1cc48bb5f058121e93664ce7b34bfd68d38ef2f9b829124a9"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/vet-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/capability-check.log",
+      "sha256": "dc16fb57d83c4a67159a302acc0e8916c8cfaa38cddaa584e348151d3853a233"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/registry-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/browser-http.log",
+      "sha256": "9be2adc5cdec1e3880faccfa020634eae731d8d54e334b7bd6a5e5a62d50c074"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/browser-ui.log",
+      "sha256": "4490ca0cffa4f8940b95c2e4b335ca48b8700b31d0048fbcdf48b25cfe51fcb6"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/ui-result.json",
+      "sha256": "b57a25a0849b312a536bbc8057f152dbd47c5e18a9ee30711f43334e07df063d"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/process-cleanup.json",
+      "sha256": "df1ca1b312e338f7642bb854f97003bfdab9521bfec1eaddef20266293f18fde"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/registry-change.json",
+      "sha256": "abf04f0f027185b3a686126ce4597469a4917dbc262694092b60af842e502dc4"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/dark-1440-form.png",
+      "sha256": "a6e1d9ed1f846419569a89057b3e08cdf14eaf99086e1a9683d5448b8a73be39"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/dark-1440-receipt.png",
+      "sha256": "375bf6a58f298cdcfce51b670269a8de124be4c084785316ad78526e26203ca6"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/dark-390-form.png",
+      "sha256": "936106f3488c584d6da1bd3aef5a9fc5fec1ab390fb93f1b660dfdcb5f47b310"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/dark-390-receipt.png",
+      "sha256": "3264787764b049d196f7009f9fb1e7193a7565e6c7345f1dce1b0fff9039ea2a"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/light-1440-form.png",
+      "sha256": "4d77a64e83894280eafd205bb6ed315282f63d1c346a065370080bbb90f24ddd"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/light-1440-receipt.png",
+      "sha256": "45e08842cafb977dd0797394b3fd8c629d262323673ae15b29b6532db09e2030"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/light-390-form.png",
+      "sha256": "bd637612da2e2f6b1ee6b9c6131de953629fc645d415501cde63010b97e7f153"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/light-390-receipt.png",
+      "sha256": "2df38fc61168460b07fb692ee4225761f0fd9796b8b71b5ca137c0011c77acbd"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-cleanup-quarantine-20261109/unknown-1440.png",
+      "sha256": "421d1d69311897f3bc8be22863fd78a6f1c3d15b3b53791ef7561cce148af2d6"
+    }
+  ],
+  "source_sha256": {
+    "backend/internal/service/backup_ops/cleanup_quarantine.go": "273824004869333719197e8e54d68f1c90e130938b803bc5c0063bb311b86d44",
+    "backend/internal/service/backup_ops/cleanup_quarantine_probe.go": "4d1ee6268b5911dff18b7114f287ee046b86b16dcc8e7e7433c8e20217afbe84",
+    "backend/internal/service/backup_ops/cleanup_quarantine_probe_test.go": "fd0419332415e72247bc3d7709c62872c09b363003da6dd08b7b9ab3e19e9f52",
+    "backend/internal/service/backup_ops/cleanup_resolution.go": "dddfbc3e59962b1eebd8d44f57b8ced35c59c57c1274810a957d1f3a038a7d15",
+    "backend/internal/service/backup_ops/artifact_download.go": "a41b9920751c38663fe5d297eb88a203f6407c6bc05917fc553bd79155a8162f",
+    "backend/internal/service/backup_ops/protection.go": "420b74bfe9093c66b4cc1306f8ff97106a556d8f0a49f3a3e0be277742539850",
+    "backend/internal/service/backup_ops/restore_drill_service.go": "f8853113bcde25bd5cb807f88e18785005b5a022968eb762ca3a09c79061c501",
+    "backend/internal/service/backup_ops/restore_copy_archive.go": "ed490a66d2d93e6a3cd017d6641d394e53498063666518e5fcf9dfa2725b0d7d",
+    "backend/internal/service/backup_ops/restore_copy_service.go": "4b68f4fbf9e774ef79fbbc03be34a78e01cf125c591013006244b5ba8f7466c6",
+    "backend/internal/infra/storage_recovery/anchor.go": "2118087c38ecd88a83e714bdea2c015ac9bad6677b27b9c4ab7f589dfd564e24",
+    "backend/internal/infra/storage_recovery/retention.go": "3845d5d08ff57425321d44a15ac266a54882802f5272fe829e379f9e7524953e",
+    "backend/internal/infra/storage_recovery/retention_import_test.go": "9c90a550b43b077a85fc71fb367b5f5ecd8176709cafcd3f0fb01aa339bbedb2",
+    "backend/internal/infra/storage_recovery/upgrade_test.go": "7d3825b0dcf230c3dfadaec99df10228f95771c157cdd8fb13e80b22470e7c83",
+    "backend/internal/service/system_recovery/current_storage.go": "0586fd0d3dd57ae93a68ff8b977b9d2b535879c19866c8edbab7e297918c93c9",
+    "backend/internal/service/system_recovery/current_storage_test.go": "040fcbaf3d1cefbf7865830887c6623db399f55e185c6becab440384640fed39",
+    "backend/pkg/corex/db/persistence/model/ops/backup_cleanup_resolution_gorm.go": "235f6311f9c90d62257b6a82bbf3b63b6a7305abfbdcd2587c69c309eb9c793c",
+    "backend/pkg/corex/db/persistence/repository/ops/backup_cleanup_resolution_repository.go": "e7992d555f31268a3bc57008e206e38b674290448d6d668e9ec2029e62f4bd13",
+    "backend/pkg/corex/db/persistence/repository/ops/backup_job_repository.go": "07e380a1ae0c8909ff1eb3834d6457d3605dd2b114b8b624d6b5512f0315bf4a",
+    "backend/cmd/database/backup_retention_upgrade_postgres_test.go": "f9a409c3ac9ac35ee54fba97303227936aee42793adc88836be2847d27a58609",
+    "backend/cmd/database/upgrade_payloads.json": "9106e1111f5758923cd15ca1fa1ebe1f703a4341898f48ec0864e8d25470d64b",
+    "backend/internal/service/storage_governance/cleanup_quarantine_postgres_test.go": "6aaa443b6e6932e7213410cf1730c16b6210c8586793eb5db96a6e6eddf91ced",
+    "backend/internal/service/storage_governance/cleanup_quarantine_replay_test.go": "2e5a2f2a080e43cdb3dafecc51a826bdadce9d2df734c0c92e9bf448631a1c1d",
+    "backend/internal/transport/http/admin/backup/cleanup_quarantine_handler.go": "702b57d4846fbdd9f06dca00134b669611e0a1bb2a487802acacb2f4493579db",
+    "backend/internal/transport/http/admin/backup/cleanup_quarantine_test.go": "6ecb3ec1b56fe3a4cec0687192d03fdafe7d9ad306eab1e62876369368da35be",
+    "backend/internal/transport/http/admin/backup/cleanup_review_postgres_test.go": "0fc301d23fa228090a9ca2f9266bf0229f5cfda6332646ef885628ace7a3cfbb",
+    "backend/internal/transport/http/admin/backup/handler.go": "2e84c17f5d678b327b20967c1ab8055c1ec146da835baec994e1057cd4949c6d",
+    "backend/internal/transport/http/admin/backup/routes.go": "648aaf057b34cbefe4656c6b377e2d401e1c089a9d9209c2af3370f0c074a51f",
+    "backend/config/capability_audit_ignore.yaml": "1cbacddb486fd9a23176b0012610537d57ece5578f905223397d2fa5eb84dfbd",
+    "web-admin/app/components/ops/backup/BackupCleanupQuarantine.vue": "f335eccf34ccac2b37534e1dd530903c4858b54c5cae71ad4d214341404c6470",
+    "web-admin/app/components/ops/backup/BackupCleanupReviews.vue": "62f78bbb47149dd479c056e1f1638b27b420a5f7ba2662fecbe5789b9139745b",
+    "web-admin/app/components/ops/backup/BackupJobTable.vue": "ecbad24549cf2fde20f409f927f04d4af6930f772847a5d0d42134be28e94968",
+    "web-admin/app/composables/api/services/backupQuarantineService.ts": "83522ffa4ac7015a576d64a307b7f686e27925ee34c9711034b8b3955f9a7404",
+    "web-admin/app/composables/api/services/backupOpsService.ts": "5b55e635c124cb1142f4b4466f8d16303123659ebaa0dadd05fab333e01254cf",
+    "web-admin/tests/unit/backup/cleanup-quarantine.spec.ts": "ba40f0f657443bcc7c4900c7aee5151e63e676e7153935df55618a1434333680",
+    "docs/contracts/backup-cleanup-quarantine.md": "b0f4f6e0b7527ec227cc3142955c5fd34f7ee6f017e807cafeecb9c8e8f1f5ca",
+    "docs/contracts/backup-cleanup-quarantine.openapi.yaml": "4cec473384c201e1e9499c57c8c474a20f581dbb041e598b5d162c93a33b13a5",
+    "docs/contracts/backup-cleanup-resolution.md": "8897d367f6e6c71751675dd628e3072e2042d404f76a9952e1f60c0ae601898b",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-cleanup-quarantine.md": "ded64dd897e8fc43a24de23d076e64c3ab9bc768d49ddc655716e43445abb6d3",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-cleanup-resolution.md": "d9627fcf4f6aca17e863daa9486fe4672b3f99abc8b3258d635003a5aa34ca3a",
+    "docs/guides/deploy/027-monitor-center/guide.md": "f6bae351e088a560ace2282d0fe45e94dc439f08961f88bd3b431f4fe632102e",
+    "specs/027-monitor-center/tasks.md": "213acaae792414b9c3ec99b5d80053e163c6e98f3086b2f0c021b4d40b6d7c0b",
+    "web-admin/i18n/locales/zh.json": "94fe3a3f3e5467218bf5b717fd1dafa31ecc401f3fd512189fb67178a9a130ba",
+    "web-admin/i18n/locales/en.json": "390029299bbe7a70cadfa8637479701cb52defc60b2e37884494cd55beaac7ee",
+    "web-admin/i18n/locales/ja.json": "821c7c572dde6faacab1dc294f7657014df0636d24534d8614a05aee15c34936",
+    "web-admin/i18n/locales/ko.json": "b2296b510bc01884e01b81d12b28a2e5c1cbc9d30d522647902364a36851765d"
+  }
+}

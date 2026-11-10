@@ -37,7 +37,7 @@ func TestPostgresPluginIsolationUsesConnectedDSNIdentity(t *testing.T) {
 	require.NoError(t, admin.Exec("CREATE TABLE "+table+" (id integer PRIMARY KEY, value text NOT NULL)").Error)
 	require.NoError(t, admin.Exec("INSERT INTO "+table+" VALUES (1, 'preserved')").Error)
 	m := &managerImpl{opts: Options{CoreConfig: &coreconfig.Config{
-		Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev}, Database: cfg,
+		Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev}, EnvironmentID: "existing-environment-test", Database: cfg,
 	}}}
 	section, err := m.buildDatabaseSection(pluginID)
 	require.NoError(t, err)

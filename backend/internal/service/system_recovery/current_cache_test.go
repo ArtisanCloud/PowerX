@@ -18,7 +18,17 @@ func TestCurrentCacheRestartsKeepScopeButRecoveryCreatesFreshScope(t *testing.T)
 	require.Equal(t, a, again)
 	other, err := CurrentCacheNamespace(cfg, filepath.Join(t.TempDir(), "other.yaml"))
 	require.NoError(t, err)
+	require.Equal(t, a, other, "配置路径不是另一套 Redis 身份")
+	cfg.Database.DSN = "postgres://rotated@database/current_fixture?sslmode=disable"
+	other, err = CurrentCacheNamespace(cfg, r.spec.ConfigFile)
+	require.NoError(t, err)
+	require.Equal(t, a, other, "数据库连接变化不改变环境身份")
+	originalID := cfg.EnvironmentID
+	cfg.EnvironmentID = "another-existing-environment"
+	other, err = CurrentCacheNamespace(cfg, r.spec.ConfigFile)
+	require.NoError(t, err)
 	require.NotEqual(t, a, other)
+	cfg.EnvironmentID = originalID
 	require.NoError(t, r.rotateCurrentCache())
 	after, err := CurrentCacheNamespace(cfg, r.spec.ConfigFile)
 	require.NoError(t, err)

@@ -1,0 +1,159 @@
+{
+  "date": "2026-11-08",
+  "scope": "SG-11 managed same-instance maintenance restore execution barrier and explicit Root review",
+  "status": "source and isolated acceptance complete; full T171 and commercial/production acceptance incomplete",
+  "branch": "024-ai-engineering-skills",
+  "authority": "existing installation maintenance root, protocol marker, private binding and independently generated restore epoch outside ordinary database/runtime restore payload; existing execution-control CAS/revision/TaskBus/SSE",
+  "restore_boundary": [
+    "same Core and original port; no second daemon or credential in progress URL",
+    "epoch is durably written after protection snapshot and before DatabaseTouched/database replacement; no business overwrite if marker cannot be committed",
+    "startup and compensation do not clear epoch; protocol-required missing/unsafe metadata is not reconstructed",
+    "current storage_governance deployment wiring preserved; unsupported historical Core retained as a local adapter, not executed as the restored program; existing modern capability completeness checks preserved",
+    "pending/mismatched epoch blocks guarded ordinary plans even when old DB control rows and old private execution projections match",
+    "acknowledge_restore freezes epoch/CAS/UUID, requires registered automatic policies paused and published plus three operator declarations; acknowledgement remains paused and must publish before separate resume",
+    "historical UUID receipt cannot acknowledge a later restore; unknown response stays query-only through missing receipt",
+    "root human identity, source registration and existing data protections preserved"
+  ],
+  "related_fixes": [
+    "read-only index verification now resolves exact PostgreSQL relation and ordered key columns without the current driver cross-schema/unordered GetIndexes ambiguity",
+    "empty GORM handle in maintenance/readiness preflight is unavailable rather than panic",
+    "missing dto import in a concurrently edited retention loader repaired without changing its business logic"
+  ],
+  "tests": {
+    "native_distinct_top_level_cases": 42,
+    "native_repetitions": 3,
+    "native_top_level_passes": 126,
+    "new_recovery_cases": 3,
+    "native_scope": "execution/lifecycle/archive/backup/snapshot/invocation/system-table regressions plus recovery rollback/marker/ack cases; real PostgreSQL, race enabled",
+    "rollback_proof": "real control rows/revisions and private gate documents replayed to old mutually matching copies; independent newer epoch still blocks. Not physical whole-database or whole-site restore.",
+    "maintenance": "race tests for independent marker, symlink/hardlink/permission/missing proof, same-job replay/shared lock, existing recovery services and bootstrap passed",
+    "schema": "native two simultaneous schemas/exact relation, partial index and SQLite/missing/unavailable checks passed",
+    "http": "real Gin/JWT/PostgreSQL/formal TaskBus and SSE with custom /custom/v2 API prefix; Redis transport miniredis; strict action/declarations and Root boundaries passed",
+    "frontend_files": 35,
+    "frontend_tests": 246,
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "restore checkpoint remains visible and blocks acknowledgement of enabled registered policies",
+        "new restore epoch preserves original draft; stale submission fails and explicit latest resets declarations",
+        "light 1440 restore navigation, retained reason, visible action and no overflow",
+        "light 390 restore navigation, retained reason, visible action and no overflow",
+        "dark 1440 restore navigation, retained reason, visible action and no overflow",
+        "dark 390 restore navigation, retained reason, visible action and no overflow",
+        "three declarations required; lost committed acknowledgement uses original GET only and stays paused",
+        "old acknowledgement remains historical and cannot clear a subsequent restore",
+        "separate published resume keeps resource policies paused",
+        "no periodic idle state reads; leaving releases SSE"
+      ],
+      "runtime_errors": [],
+      "widths": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "idle_requests": [],
+      "idle_observation_seconds": 2.5,
+      "websocket_passthrough": [
+        {
+          "host": "127.0.0.1",
+          "port": 3030
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 3030
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 8077
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 3030
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 8077
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 3030
+        }
+      ],
+      "leaving_releases_sse": true,
+      "boundary": "actual daily Nuxt; storage control/table/SSE routes redirected to owned backend; only authorized daily login/read and normal authenticated notification/HMR WebSocket connections pass through. Maintenance epoch writes are test-only owned fixture calls, not a real restore."
+    },
+    "diagnosis": "Earlier proxy lacked WebSocket tunnelling, causing notification handshake failure -> auth refresh -> SSE restart -> legitimate resync. Proxy fixed without changing product auth/refresh behavior; final fresh-connection idle observation has zero control requests. Missing-receipt check now asserts the actual 404 and persistent unknown lock instead of a transient error banner.",
+    "sql_audit": {
+      "logging_collector": "on",
+      "log_statement": "mod",
+      "log_truncate_on_rotation": "off"
+    },
+    "checks": [
+      "go vet passed",
+      "make capability-check passed; no published capability/service plane changes or daily seed",
+      "strict OpenAPI YAML and reference/enum shape checks passed",
+      "scoped git diff --check passed"
+    ]
+  },
+  "limits": [
+    "only managed same-instance maintenance restore; external tool/full-disk rollback including the maintenance anchor is not detected",
+    "cross-resource watermark/source reconciliation and restore target/credential revocation/verification epoch proofs remain incomplete",
+    "operator declarations do not prove external old executors stopped or admitted jobs drained",
+    "old binaries/processes/real server handoff not performed",
+    "no real whole-site pg_restore/business restore, automatic recovery drill, external KMS, real remote target or dual-environment 7/14-day evidence",
+    "backup/snapshot regression captures are synthetic; 2.5-second idle observation is not 15-minute or long-term validation"
+  ],
+  "live_mutations": {
+    "daily_service_restart": false,
+    "daily_database_migration_or_policy_change": false,
+    "production_access_or_change": false,
+    "business_data_changed": false,
+    "user_archive_objects_deleted": false,
+    "user_services_stopped": false
+  },
+  "cleanup": {
+    "postgres_stopped": true,
+    "private_postgres_root_removed": true,
+    "owned_http_and_proxy_ports_closed": [
+      59623,
+      57419,
+      59698,
+      55862,
+      57976
+    ],
+    "owned_browser_children_remaining": [],
+    "all_artifact_test_jwts_removed": true,
+    "stopped_owned_fixture_pids_at_cleanup": [
+      17602,
+      24854
+    ],
+    "superseded_fixture_stops": [
+      {
+        "pid": 94051,
+        "command": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build1232404758/b001/storage.test -test.paniconexit0 -test.run=^TestExecutionControlNativeHTTPAndSSE$ -test.count=1 -test.v=true -test.timeout=9m0s"
+      },
+      {
+        "pid": 3248,
+        "command": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build3072017576/b001/storage.test -test.paniconexit0 -test.run=^TestExecutionControlNativeHTTPAndSSE$ -test.count=1 -test.v=true -test.timeout=9m0s"
+      },
+      {
+        "pid": 7510,
+        "command": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build1570628077/b001/storage.test -test.paniconexit0 -test.run=^TestExecutionControlNativeHTTPAndSSE$ -test.count=1 -test.v=true -test.timeout=9m0s"
+      },
+      {
+        "pid": 14554,
+        "command": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build1533390667/b001/storage.test -test.paniconexit0 -test.run=^TestExecutionControlNativeHTTPAndSSE$ -test.count=1 -test.v=true -test.timeout=9m0s"
+      }
+    ],
+    "daily_services": {
+      "3030": "listening; never managed by this cleanup",
+      "8077": "listening; never managed by this cleanup"
+    }
+  },
+  "fixture_teardown": "Browser assertions passed. Owned HTTP fixture processes with lingering test connections were explicitly stopped after verification; private PG/HTTP/proxy/browser resources and test JWTs are removed/closed. No user process was stopped.",
+  "artifacts": "tmp/storage-commercial-recovery-20261108/",
+  "overall_sg11_complete": false
+}

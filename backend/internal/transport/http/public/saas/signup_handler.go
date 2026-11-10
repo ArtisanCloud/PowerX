@@ -161,7 +161,7 @@ func (h *SignupHandler) Signup(c *gin.Context) {
 		"token_type":    "Bearer",
 		"access_token":  result.AccessToken,
 		"refresh_token": result.RefreshToken,
-		"expires_in":    int(h.service.AccessTTL().Seconds()),
+		"expires_in":    h.service.AccessExpiresIn(result.AccessToken),
 		"scope":         "access",
 		"context": gin.H{
 			"is_root":             false,

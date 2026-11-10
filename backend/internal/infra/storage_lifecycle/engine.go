@@ -24,6 +24,7 @@ import (
 var ErrBlocked = errors.New("storage lifecycle blocked")
 var ErrConflict = errors.New("storage lifecycle revision conflict")
 var ErrInvalid = errors.New("storage lifecycle invalid")
+var ErrManaged = errors.New("storage lifecycle requires database configuration")
 
 type Source struct {
 	ID              string   `json:"id"`
@@ -42,17 +43,18 @@ type Source struct {
 	Problem         string   `json:"problem,omitempty"`
 }
 type Policy struct {
-	CleanupMode    string    `json:"cleanup_mode"`
-	SourceID       string    `json:"source_id"`
-	Revision       int64     `json:"revision"`
-	Enabled        bool      `json:"enabled"`
-	RetentionDays  int       `json:"retention_days"`
-	MaxBytes       int64     `json:"max_bytes"`
-	RequireArchive bool      `json:"require_archive"`
-	Fingerprint    string    `json:"fingerprint"`
-	OwnerInstance  string    `json:"owner_instance"`
-	OperatorID     uint64    `json:"operator_id"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ConfigurationDigest string    `json:"configuration_digest,omitempty"`
+	CleanupMode         string    `json:"cleanup_mode"`
+	SourceID            string    `json:"source_id"`
+	Revision            int64     `json:"revision"`
+	Enabled             bool      `json:"enabled"`
+	RetentionDays       int       `json:"retention_days"`
+	MaxBytes            int64     `json:"max_bytes"`
+	RequireArchive      bool      `json:"require_archive"`
+	Fingerprint         string    `json:"fingerprint"`
+	OwnerInstance       string    `json:"owner_instance"`
+	OperatorID          uint64    `json:"operator_id"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 type Candidate struct {
 	Name       string `json:"name"`
@@ -106,10 +108,11 @@ type Status struct {
 	DatabaseCleanupEnabled bool     `json:"database_cleanup_enabled"`
 }
 type document struct {
-	Version  int               `json:"version"`
-	Revision int64             `json:"revision"`
-	Policies map[string]Policy `json:"policies"`
-	Runs     []Run             `json:"runs"`
+	Version   int                    `json:"version"`
+	Revision  int64                  `json:"revision"`
+	Policies  map[string]Policy      `json:"policies"`
+	Published map[string]Publication `json:"published,omitempty"`
+	Runs      []Run                  `json:"runs"`
 }
 type Options struct {
 	Coordinator       *budget.Coordinator
@@ -128,6 +131,7 @@ type Engine struct {
 	sources    map[string]Source
 	beforeHold func()
 	afterHold  func()
+	authority  authorityState
 }
 
 func New(opts Options) (*Engine, error) {
@@ -193,8 +197,14 @@ func New(opts Options) (*Engine, error) {
 	return e, nil
 }
 func decode(raw []byte) (document, error) {
-	d := document{Version: 1, Policies: map[string]Policy{}, Runs: []Run{}}
+	d := document{Version: 1, Policies: map[string]Policy{}, Published: map[string]Publication{}, Runs: []Run{}}
 	if len(raw) > 0 && (json.Unmarshal(raw, &d) != nil || d.Version != 1 || d.Policies == nil || len(d.Policies) > 64 || len(d.Runs) > 100) {
+		return d, ErrInvalid
+	}
+	if d.Published == nil {
+		d.Published = map[string]Publication{}
+	}
+	if len(d.Published) > 64 {
 		return d, ErrInvalid
 	}
 	// 旧账本没有显式清理模式；升级只观察，不把旧布尔值迁成直接删除。
@@ -207,28 +217,61 @@ func decode(raw []byte) (document, error) {
 	return d, nil
 }
 func (e *Engine) update(ctx context.Context, fn func(*document) error) error {
-	_, err := e.opts.Coordinator.Document(ctx, "lifecycle", func(raw []byte) ([]byte, error) {
-		d, err := decode(raw)
-		if err != nil {
-			return nil, err
+	// 仅竞争锁时等待，尚未进入回调才可继续获取；持久化／unlink 回调最多执行一次。
+	wait, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
+	defer cancel()
+	var err error
+	for {
+		entered := false
+		_, err = e.opts.Coordinator.Document(wait, "lifecycle", func(raw []byte) ([]byte, error) {
+			entered = true
+			d, err := decode(raw)
+			if err != nil {
+				return nil, err
+			}
+			if err = fn(&d); err != nil {
+				return nil, err
+			}
+			d.Revision++
+			return json.Marshal(d)
+		})
+		if !errors.Is(err, budget.ErrBusy) || entered {
+			break
 		}
-		if err = fn(&d); err != nil {
-			return nil, err
+		timer := time.NewTimer(5 * time.Millisecond)
+		select {
+		case <-wait.Done():
+			timer.Stop()
+			return err
+		case <-timer.C:
 		}
-		d.Revision++
-		return json.Marshal(d)
-	})
+	}
 	if err == nil && e.opts.Publish != nil {
 		e.opts.Publish()
 	}
 	return err
 }
 func (e *Engine) load(ctx context.Context) (document, error) {
-	raw, err := e.opts.Coordinator.Document(ctx, "lifecycle", nil)
-	if err != nil {
-		return document{}, err
+	// 发布快照与状态读取共用主机锁。仅在本次只读调用内有界等待锁，
+	// 避免原子发布的短暂占用被误报为策略保存失败；不重试任何写入或删除。
+	wait, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
+	defer cancel()
+	for {
+		raw, err := e.opts.Coordinator.Document(wait, "lifecycle", nil)
+		if !errors.Is(err, budget.ErrBusy) {
+			if err != nil {
+				return document{}, err
+			}
+			return decode(raw)
+		}
+		timer := time.NewTimer(5 * time.Millisecond)
+		select {
+		case <-wait.Done():
+			timer.Stop()
+			return document{}, err
+		case <-timer.C:
+		}
 	}
-	return decode(raw)
 }
 func (e *Engine) Status(ctx context.Context) (Status, error) {
 	d, err := e.load(ctx)
@@ -254,7 +297,14 @@ func (e *Engine) Status(ctx context.Context) (Status, error) {
 	}
 	for _, s := range e.sources {
 		out.Sources = append(out.Sources, s)
-		if p, ok := d.Policies[s.ID]; ok {
+		if e.policyAuthority() != nil && s.Supported {
+			p, err := e.resolvePolicy(ctx, &d, s.ID)
+			if err != nil {
+				p.Enabled = false
+				out.Problem = "configuration_authority_unavailable"
+			}
+			out.Policies = append(out.Policies, p)
+		} else if p, ok := d.Policies[s.ID]; ok {
 			out.Policies = append(out.Policies, p)
 		}
 	}
@@ -273,7 +323,7 @@ func (e *Engine) Status(ctx context.Context) (Status, error) {
 	}
 	return out, nil
 }
-func (e *Engine) Save(ctx context.Context, actor uint64, id string, expected int64, p Policy) (Policy, error) {
+func (e *Engine) preparePolicy(ctx context.Context, actor uint64, id string, p Policy) (Policy, error) {
 	s, ok := e.sources[id]
 	if !ok || actor == 0 || p.RetentionDays < 1 || p.RetentionDays > 3650 || p.MaxBytes < 1 || p.MaxBytes > 1<<50 {
 		return Policy{}, ErrInvalid
@@ -312,7 +362,20 @@ func (e *Engine) Save(ctx context.Context, actor uint64, id string, expected int
 	p.OperatorID = actor
 	p.OwnerInstance = e.opts.InstanceID
 	p.UpdatedAt = e.opts.Now().UTC()
-	err := e.update(ctx, func(d *document) error {
+	return p, nil
+}
+
+func (e *Engine) Save(ctx context.Context, actor uint64, id string, expected int64, p Policy) (Policy, error) {
+	if e.policyAuthority() != nil {
+		return Policy{}, ErrManaged
+	}
+	var err error
+	p, err = e.preparePolicy(ctx, actor, id, p)
+	if err != nil {
+		return p, err
+	}
+	s := e.sources[id]
+	err = e.update(ctx, func(d *document) error {
 		current := d.Policies[id]
 		if !s.Supported && current.Revision == 0 {
 			return ErrInvalid
@@ -339,8 +402,8 @@ func (e *Engine) Preview(ctx context.Context, id string) (Preview, error) {
 	if err != nil {
 		return Preview{}, err
 	}
-	p, ok := d.Policies[id]
-	if !ok {
+	p, err := e.resolvePolicy(ctx, &d, id)
+	if err != nil || p.SourceID == "" {
 		return Preview{}, ErrInvalid
 	}
 	return e.inspect(ctx, id, p)
@@ -501,11 +564,14 @@ func (e *Engine) runWithKey(ctx context.Context, id, key string, expected int64)
 			return previous, nil
 		}
 	}
-	p, ok := d.Policies[id]
+	p, err := e.resolvePolicy(ctx, &d, id)
+	if err != nil {
+		return Run{}, ErrBlocked
+	}
 	if expected > 0 && p.Revision != expected {
 		return Run{}, ErrConflict
 	}
-	if !ok || !p.Enabled || !e.opts.AllowEnforce || p.OwnerInstance != e.opts.InstanceID {
+	if !p.Enabled || !e.opts.AllowEnforce || p.OwnerInstance != e.opts.InstanceID {
 		return Run{}, ErrBlocked
 	}
 	if blocked, err := e.legacyBlocked(ctx, e.sources[id]); err != nil || blocked {
@@ -525,8 +591,8 @@ func (e *Engine) runWithKey(ctx context.Context, id, key string, expected int64)
 	}
 	run := Run{ID: uuid.NewString(), RequestKey: key, SourceID: id, PolicyRevision: p.Revision, InstanceID: e.opts.InstanceID, State: "executing", StartedAt: e.opts.Now().UTC(), AvailableBefore: space.AvailableBytes}
 	err = e.update(ctx, func(d *document) error {
-		current := d.Policies[id]
-		if !current.Enabled || current.Revision != p.Revision {
+		current := e.rawPolicy(d, id)
+		if !current.Enabled || current != p {
 			return ErrConflict
 		}
 		for _, r := range d.Runs {
@@ -560,8 +626,8 @@ func (e *Engine) runWithKey(ctx context.Context, id, key string, expected int64)
 	persist := func() error {
 		return e.update(context.WithoutCancel(ctx), func(d *document) error {
 			if run.PendingName != "" {
-				pNow := d.Policies[id]
-				if !pNow.Enabled || pNow.Revision != p.Revision {
+				pNow := e.rawPolicy(d, id)
+				if !pNow.Enabled || pNow != p {
 					return ErrConflict
 				}
 			}
@@ -584,7 +650,7 @@ func (e *Engine) runWithKey(ctx context.Context, id, key string, expected int64)
 			run.Problem = "state_unavailable"
 			break
 		}
-		if latest := current.Policies[id]; !latest.Enabled || latest.Revision != p.Revision {
+		if latest := e.rawPolicy(&current, id); !latest.Enabled || latest != p {
 			run.Problem = "policy_changed"
 			break
 		}
@@ -611,37 +677,55 @@ func (e *Engine) runWithKey(ctx context.Context, id, key string, expected int64)
 			return run, ErrBlocked
 		}
 		// 主机账本锁覆盖最终策略检查和 unlink；暂停成功后不会继续删下一文件。
-		err = e.update(ctx, func(d *document) error {
-			latest := d.Policies[id]
-			if !latest.Enabled || latest.Revision != p.Revision {
-				run.PendingName = ""
-				run.PendingQuarantine = ""
-				run.Problem = "policy_changed"
-			} else {
-				removed, problem, held := e.remove(ctx, source, candidate, run.PendingQuarantine)
-				if removed {
-					run.DeletedFiles++
-					run.RemovedBytes += candidate.Bytes
-					run.RemovedAllocatedBytes += candidate.Allocated
-				} else {
-					run.Problem = problem
-				}
-				if held {
-					run.State = "unconfirmed"
-				} else {
+		entered := false
+		commitCandidate := func() error {
+			entered = true
+			return e.update(ctx, func(d *document) error {
+				latest := e.rawPolicy(d, id)
+				if !latest.Enabled || latest != p {
 					run.PendingName = ""
 					run.PendingQuarantine = ""
+					run.Problem = "policy_changed"
+				} else {
+					removed, problem, held := e.remove(ctx, source, candidate, run.PendingQuarantine)
+					if removed {
+						run.DeletedFiles++
+						run.RemovedBytes += candidate.Bytes
+						run.RemovedAllocatedBytes += candidate.Allocated
+					} else {
+						run.Problem = problem
+					}
+					if held {
+						run.State = "unconfirmed"
+					} else {
+						run.PendingName = ""
+						run.PendingQuarantine = ""
+					}
 				}
-			}
-			for i, r := range d.Runs {
-				if r.ID == run.ID {
-					d.Runs[i] = run
-					return nil
+				for i, r := range d.Runs {
+					if r.ID == run.ID {
+						d.Runs[i] = run
+						return nil
+					}
 				}
-			}
-			return ErrInvalid
-		})
+				return ErrInvalid
+			})
+		}
+		if authority := e.policyAuthority(); authority != nil {
+			err = authority.Fence(ctx, source, p, commitCandidate)
+		} else {
+			err = commitCandidate()
+		}
 		if err != nil {
+			if !entered {
+				run.PendingName = ""
+				run.PendingQuarantine = ""
+				run.Problem = "configuration_authority_blocked"
+				break
+			}
+			run.State = "unconfirmed"
+			run.Problem = "configuration_commit_unconfirmed"
+			_ = persist()
 			return run, ErrBlocked
 		}
 		if run.State == "unconfirmed" {

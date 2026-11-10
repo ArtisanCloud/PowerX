@@ -22,12 +22,13 @@ func BuildMediaStack(ctx context.Context, db *gorm.DB, audit auditsvc.Service, o
 	manager := mediamgr.New(opts.DefaultDriver)
 
 	if drv, err := local.New(local.Options{
-		Name:          "local",
-		BasePath:      opts.Local.BasePath,
-		PublicBaseURL: opts.Local.PublicBaseURL,
-		EnableUpload:  true,
-		UploadToken:   opts.Local.UploadTokenSecret,
-		MaxUploadSize: opts.Local.MaxUploadSizeBytes,
+		RequireExistingPath: opts.RequireExistingLocalPath,
+		Name:                "local",
+		BasePath:            opts.Local.BasePath,
+		PublicBaseURL:       opts.Local.PublicBaseURL,
+		EnableUpload:        true,
+		UploadToken:         opts.Local.UploadTokenSecret,
+		MaxUploadSize:       opts.Local.MaxUploadSizeBytes,
 	}); err != nil {
 		pxlog.Warn(ctx, "init local media driver failed: "+err.Error())
 	} else {
@@ -63,6 +64,7 @@ func BuildMediaStack(ctx context.Context, db *gorm.DB, audit auditsvc.Service, o
 
 	ttl := time.Duration(opts.TTLSeconds) * time.Second
 	svc := NewMediaService(db, nil, manager, audit, ttl)
+	svc.ConfigureImageDerivatives(opts.ImageDerivatives)
 	svc.SetPublicResourceTokenSecret(opts.Local.PublicTokenSecret)
 
 	return manager, svc

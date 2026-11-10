@@ -68,16 +68,18 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
   watch(() => readStore.revision, () => {
     if (readStore.scope !== readScope()) return;
     const before = notifications.value.length;
-    notifications.value = notifications.value.map(n => readStore.reads[n.id] ? { ...n, isRead: true } : n).filter(matchesFilter);
+    notifications.value = notifications.value.map(n => (readStore.reads[n.id] || 0) >= (n.revision || 1) ? { ...n, isRead: true } : n).filter(matchesFilter);
     if (filter.value.isRead === false) totalCount.value = Math.max(0, totalCount.value - before + notifications.value.length);
     refreshFilteredList();
   }, { flush: "sync" });
   let generation = 0;
+  const appliedEventVersions = new Map<string, number>();
   let listRequest = 0;
   const stamp = () => `${generation}:${identity.value}:${captureAuthSession()?.sessionId || ""}`;
   const accepts = (input: { userId?: string }) => input.userId === undefined || input.userId === "" || (typeof input.userId === "string" && input.userId.toLowerCase() === String(userStore.currentMemberUuid || "").toLowerCase());
   watch(identityScope, () => {
     generation += 1;
+    appliedEventVersions.clear();
     listRequest += 1;
     hasRequestedList = false;
     notifications.value = [];
@@ -98,12 +100,12 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
   const normalizeRecord = (record: NotificationRecord): Notification => {
     const createdAt = normalizeDate(record.createdAt);
     return {
-      id: record.id,
+      id: record.id, revision: record.revision, sourceRevision: record.sourceRevision,
       title: record.title,
       content: record.content,
       type: record.type as Notification["type"],
       category: record.category as Notification["category"],
-      isRead: record.isRead || readStore.reads[record.id] === true,
+      isRead: record.isRead || (readStore.reads[record.id] || 0) >= (record.revision || 1),
       isImportant: record.isImportant,
       createdAt,
       updatedAt: normalizeDate(record.updatedAt || createdAt),
@@ -128,6 +130,7 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
     if (disposed) return;
     hasRequestedList = true;
     const request = ++listRequest;
+    const eventRevision = readStore.eventRevision;
     const requestIdentity = stamp();
     const isCurrentRequest = () => !disposed && request === listRequest && requestIdentity === stamp();
     loading.value = true;
@@ -143,10 +146,11 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
         isImportant: filter.value.isImportant,
       });
       if (!isCurrentRequest()) return;
+      if (eventRevision !== readStore.eventRevision) { void fetchNotifications(); return; }
       const items = (data?.items || []).filter(accepts);
       notifications.value = items.map(normalizeRecord).filter(matchesFilter);
       const confirmedReads = filter.value.isRead === false
-        ? items.filter(item => !item.isRead && readStore.reads[item.id]).length
+        ? items.filter(item => !item.isRead && (readStore.reads[item.id] || 0) >= (item.revision || 1)).length
         : 0;
       totalCount.value = Math.max(0, (data?.pagination?.total ?? items.length) - confirmedReads);
     } catch (err) {
@@ -162,34 +166,30 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
     // Only persisted notifications belong in the bell. Task/progress events
     // without a server identity must never become unresolvable local records.
     if (typeof input.id !== 'string' || !input.id.trim() || !userStore.currentTenantUuid || !accepts(input)) return;
-    if (notifications.value.some(n => n.id === input.id)) return;
-    const createdAt = normalizeDate(input.createdAt || input.updatedAt || null);
-    const payload: Notification = {
-      id: input.id,
-      title: input.title || "新通知",
-      content: input.content || "",
-      type: (input.type || "info") as Notification["type"],
-      category: (input.category || "system") as Notification["category"],
-      isRead: input.isRead === true || readStore.reads[input.id || ""] === true,
-      isImportant: input.isImportant ?? false,
-      createdAt,
-      updatedAt: normalizeDate(input.updatedAt || createdAt),
-      userId: input.userId,
-      relatedId: input.relatedId,
-      relatedType: input.relatedType,
-      actions: input.actions,
-      metadata: input.metadata,
-    };
-    if (matchesFilter(payload)) {
-      if (currentPage.value === 1) {
-        notifications.value = [payload, ...notifications.value];
-        if (notifications.value.length > pageSize.value) {
-          notifications.value = notifications.value.slice(0, pageSize.value);
-        }
-      }
-      totalCount.value += 1;
-    }
+    const existing = notifications.value.find(n => n.id === input.id);
+    if (existing && (input.revision || 1) <= (existing.revision || 1)) return;
+    const payload = normalizeRecord({ ...input, id: input.id, title: input.title || "新通知", content: input.content || "", type: input.type || "info", category: input.category || "system", isRead: input.isRead === true, isImportant: input.isImportant ?? false, createdAt: input.createdAt as any, updatedAt: input.updatedAt as any });
+    readStore.update(readScope(), payload);
   };
+
+  watch(() => readStore.eventRevision, () => {
+    if (readStore.scope !== readScope()) return;
+    for (const update of Object.values(readStore.updates)) {
+      if (!accepts(update) || (appliedEventVersions.get(update.id) || 0) >= (update.revision || 1)) continue;
+      appliedEventVersions.set(update.id, update.revision || 1);
+      const index = notifications.value.findIndex(n => n.id === update.id);
+      if (index >= 0 && (notifications.value[index]!.revision || 1) >= (update.revision || 1)) continue;
+      const normalized = { ...update, isRead: update.isRead || (readStore.reads[update.id] || 0) >= (update.revision || 1) };
+      if (index >= 0) notifications.value.splice(index, 1);
+      if (matchesFilter(normalized) && index < 0) totalCount.value++;
+      if (!matchesFilter(normalized) && index >= 0) totalCount.value = Math.max(0, totalCount.value - 1);
+      if (matchesFilter(normalized) && currentPage.value === 1) notifications.value = [normalized, ...notifications.value].slice(0, pageSize.value);
+    }
+    if (hasRequestedList && !refreshQueued) {
+      refreshQueued = true;
+      void Promise.resolve().then(() => { refreshQueued = false; if (!disposed && identityReady.value) void fetchNotifications(); });
+    }
+  }, { flush: "sync" });
 
   // 获取单个通知详情
   const getNotification = async (id: string): Promise<Notification | null> => {
@@ -200,20 +200,22 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
   };
 
   // 标记为已读
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (id: string, displayed?: Notification) => {
+    const item = displayed?.id === id ? displayed : notifications.value.find(n => n.id === id);
+    const version = item?.revision;
     const requestIdentity = stamp();
-    await api.markRead(id);
+    if (version) await api.markRead(id, version); else await api.markRead(id);
     if (requestIdentity !== stamp()) return;
-    readStore.record(readScope(), [id]);
+    readStore.record(readScope(), [id], { [id]: version || 1 });
   };
 
   // 批量标记为已读
   const markAllAsRead = async () => {
     const requestIdentity = stamp();
     const unread = notifications.value.filter((n) => !n.isRead);
-    await Promise.all(unread.map((n) => api.markRead(n.id)));
+    await Promise.all(unread.map((n) => n.revision ? api.markRead(n.id, n.revision) : api.markRead(n.id)));
     if (requestIdentity !== stamp()) return;
-    readStore.record(readScope(), unread.map(n => n.id));
+    readStore.record(readScope(), unread.map(n => n.id), Object.fromEntries(unread.map(n => [n.id, n.revision || 1])));
   };
 
   // 删除通知
@@ -271,11 +273,12 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
     fetchNotifications();
   };
 
-  const isNotificationRead = (notification: Pick<Notification, "id" | "isRead">) => notification.isRead || readStore.reads[notification.id] === true;
+  const isNotificationRead = (notification: Pick<Notification, "id" | "isRead" | "revision">) => notification.isRead || (readStore.reads[notification.id] || 0) >= (notification.revision || 1);
 
   const applyReadReceipt = (input: any) => {
     if (input?.eventType !== 'notification_read' || input?.payload_version !== 1 || input?.contract !== 'notification_read_receipt.v1' || input?.tenant_uuid !== userStore.currentTenantUuid || input?.userId !== userStore.currentMemberUuid || !Array.isArray(input?.notification_uuids) || input.notification_uuids.length < 1 || input.notification_uuids.length > 100 || input.notification_uuids.some((id: unknown) => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id))) return;
-    readStore.record(readScope(), input.notification_uuids);
+    if (input.revisions && Object.values(input.revisions).some(v => !Number.isSafeInteger(v) || Number(v) < 1)) return;
+    readStore.record(readScope(), input.notification_uuids, input.revisions || {});
   };
 
   const openNotification = async (notificationId: string) => {
@@ -288,7 +291,7 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
 
   // 执行通知操作
   const executeAction = async (notificationId: string, actionId: string, displayed?: Notification) => {
-    const notification = notifications.value.find((n) => n.id === notificationId) || (displayed?.id === notificationId && accepts(displayed) ? displayed : undefined);
+    const notification = displayed?.id === notificationId && accepts(displayed) ? displayed : notifications.value.find((n) => n.id === notificationId);
     const action = notification?.actions?.find((a) => a.id === actionId);
 
     if (!action) return;
@@ -309,7 +312,7 @@ export const useNotifications = (initialFilter: NotificationFilter = {}) => {
     }
 
     // 标记为已读
-    if (requestStamp === stamp()) await markAsRead(notificationId);
+    if (requestStamp === stamp()) await markAsRead(notificationId, notification);
   };
 
   watch([currentPage, pageSize], () => {

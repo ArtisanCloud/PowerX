@@ -1,0 +1,61 @@
+import { chromium } from '../../web-admin/node_modules/playwright/index.mjs';
+import { readFileSync,writeFileSync,statSync,unlinkSync } from 'node:fs';
+import { resolve } from 'node:path';
+import http from 'node:http';
+import net from 'node:net';
+import { execFileSync } from 'node:child_process';
+const dir=resolve(process.env.POWERX_ARCHIVE_FAULT_UI_ARTIFACTS || 'tmp/storage-archive-faults-20261109'), privateFile=resolve(dir,'http-private.json'),owner=JSON.parse(readFileSync(privateFile)),token=owner.token;
+if(owner.owner!=='codex archive fault UI fixture'||new URL(owner.url).hostname!=='127.0.0.1'||[3030,8077].includes(Number(new URL(owner.url).port))||(statSync(privateFile).mode&0o077)!==0)throw new Error('Refuse non-owned or non-private archive fixture');
+const result={checks:[],requests:[],errors:[]},upstreams=new Set();let browser,context,page,hideCatalog=false,dropEvents=false;const eventResponses=new Set();
+const processOwner={owner:'codex archive fault browser proxy',pid:process.pid,command:'node scripts/ops/test-storage-archive-fault-ui.mjs',cwd:process.cwd(),ports:[]};
+const base='/api/v1/admin/ops/backup';
+const proxy=http.createServer((req,res)=>{
+ const u=new URL(req.url,'http://127.0.0.1:3030'),controlled=u.pathname.startsWith(base)||u.pathname.startsWith('/api/v1/admin/monitor/backup');
+ if(controlled)result.requests.push({path:u.pathname,method:req.method,at:Date.now()});
+ if(controlled&&hideCatalog&&req.method==='GET'&&u.pathname.includes('/archives/catalog')){res.writeHead(503,{'content-type':'application/json'});res.end(JSON.stringify({code:503,message:'owned archive metadata unavailable'}));return}
+ if(controlled&&dropEvents&&u.pathname.endsWith('/events')){res.writeHead(503);res.end();return}
+ if(!controlled&&!['GET','HEAD','OPTIONS'].includes(req.method)&&!u.pathname.includes('/auth/')){res.writeHead(403);res.end('unrelated mutation blocked');return}
+ const remote=controlled?new URL(u.pathname+u.search,owner.url):u;if(!controlled&&!['127.0.0.1:3030','localhost:3030'].includes(remote.host)){res.writeHead(403);res.end();return}
+ const headers=controlled?{authorization:'Bearer '+token,accept:req.headers.accept||'application/json','content-type':'application/json'}:{...req.headers,host:remote.host};delete headers['proxy-connection'];
+ const up=http.request(remote,{method:req.method,headers},r=>{
+  if(controlled&&u.pathname.endsWith('/events')){eventResponses.add(res);res.on('close',()=>eventResponses.delete(res))}
+  res.writeHead(r.statusCode,r.headers);r.pipe(res)
+ });upstreams.add(up);up.on('close',()=>upstreams.delete(up));up.on('error',()=>{if(!res.headersSent)res.writeHead(502);res.end()});res.on('close',()=>up.destroy());req.pipe(up);
+});
+const relaySockets=new Set();
+const allowedRelay=(host,port)=>['127.0.0.1','localhost','::1'].includes(host)&&[3030,8077,5173].includes(Number(port));
+proxy.on('connect',(req,socket,head)=>{
+ const u=new URL('http://'+req.url);if(!allowedRelay(u.hostname,u.port)){socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');return}
+ const remote=net.connect(Number(u.port),u.hostname,()=>{socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');if(head.length)remote.write(head);socket.pipe(remote);remote.pipe(socket)});relaySockets.add(remote);relaySockets.add(socket);(result.ws_tunnels??=[]).push({host:u.hostname,port:Number(u.port)});
+ for(const current of [remote,socket]){current.on('error',()=>{remote.destroy();socket.destroy()});current.on('close',()=>{relaySockets.delete(current);remote.destroy();socket.destroy()})}
+});
+proxy.on('upgrade',(req,socket,head)=>{
+ const u=new URL(req.url,'http://127.0.0.1:3030');const port=Number(u.port||80);if(!allowedRelay(u.hostname,port)){socket.destroy();return}
+ const remote=net.connect(port,u.hostname,()=>{const headers={...req.headers,host:u.host};delete headers['proxy-connection'];remote.write(`${req.method} ${u.pathname+u.search} HTTP/${req.httpVersion}\r\n`+Object.entries(headers).map(([k,v])=>`${k}: ${v}\r\n`).join('')+'\r\n');if(head.length)remote.write(head);socket.pipe(remote);remote.pipe(socket)});relaySockets.add(remote);relaySockets.add(socket);(result.ws_upgrades??=[]).push({host:u.hostname,port,path:u.pathname});
+ for(const current of [remote,socket]){current.on('error',()=>{remote.destroy();socket.destroy()});current.on('close',()=>{relaySockets.delete(current);remote.destroy();socket.destroy()})}
+});
+const assert=(v,m)=>{if(!v)throw new Error(m)},mark=m=>{result.checks.push(m);console.log(m)};
+const ownedPost=async(action)=>{const r=await fetch(owner.url+base+'/__owned-fixture/'+action,{method:'POST',headers:{authorization:'Bearer '+token}});assert(r.ok,'owned transition failed: '+action);return r.json()};
+try{
+ await new Promise(done=>proxy.listen(0,'127.0.0.1',done));processOwner.ports.push(proxy.address().port);
+ browser=await chromium.launch({headless:true,proxy:{server:'http://127.0.0.1:'+proxy.address().port,bypass:'<-loopback>'}});
+ const rows=execFileSync('ps',['-axo','pid=,ppid=,comm='],{encoding:'utf8'}).trim().split('\n').map(l=>{const m=l.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);return m?{pid:+m[1],ppid:+m[2],binary:m[3]}:null}).filter(Boolean),ids=new Set([process.pid]);for(let i=0;i<8;i++)for(const r of rows)if(ids.has(r.ppid))ids.add(r.pid);processOwner.children=rows.filter(r=>ids.has(r.pid)&&r.pid!==process.pid);writeFileSync(resolve(dir,'ui-owner.json'),JSON.stringify(processOwner,null,2));
+ context=await browser.newContext({viewport:{width:1440,height:1000},locale:'zh-CN'});await context.addInitScript(()=>localStorage.setItem('welcome_guide_completed','true'));page=await context.newPage();page.on('pageerror',e=>result.errors.push(e.message));
+ await page.goto('http://127.0.0.1:3030/users/login',{waitUntil:'domcontentloaded',timeout:60000});await page.locator('input[name=identifier]').fill(process.env.POWERX_CHECK_USER);await page.locator('input[name=password]').fill(process.env.POWERX_CHECK_PASSWORD);await page.locator('form button[type=submit]').click();await page.waitForURL(u=>!u.pathname.includes('/users/login'),{timeout:45000,waitUntil:'domcontentloaded'});
+ await page.goto('http://127.0.0.1:3030/monitor/storage',{waitUntil:'domcontentloaded',timeout:60000});const zh=JSON.parse(readFileSync('web-admin/i18n/locales/zh.json'));
+ const workspace=page.getByTestId('storage-workspace'),nav=workspace.getByTestId('backup-section-tabs').first();await nav.getByRole('tab',{name:zh.storageGov.archives,exact:true}).click();
+ const panel=page.getByTestId('archive-governance');const job=panel.locator(`[data-archive-job-id="${owner.job_id}"]`);await job.waitFor();await job.getByTestId('archive-remote-state').getByText(zh.storageGov.archive.remoteStates.failed,{exact:true}).waitFor();
+ assert((await job.getByTestId('archive-local-state').textContent())===zh.storageGov.archive.localStates.success,'local capture not distinct');assert((await job.getByTestId('archive-job-id').textContent()).includes(owner.job_id),'original job missing');assert(await job.getByTestId('archive-transfer-warning').isVisible(),'unconfirmed content warning missing');mark('Real lost object PUT acknowledgement shows local capture completed and remote incomplete with original job ID');
+ const query=panel.getByTestId('archive-search').locator('input').or(panel.locator('input[data-testid="archive-search"]')).first();await query.fill(owner.job_id);
+ const tabs=panel.getByTestId('backup-section-tabs').first();const choose=async(value,width)=>{if(width>=640)await tabs.getByRole('tab',{name:zh.storageGov.archive[value],exact:true}).click();else await tabs.locator('select[data-section-select]').selectOption(value)};
+ for(const theme of ['light','dark']){await page.evaluate(theme=>window.useNuxtApp().$colorMode.preference=theme,theme);for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await choose('targets',width);await choose('catalog',width);assert(await query.inputValue()===owner.job_id,'search draft lost');assert((await query.boundingBox()).width>=140,'search input too narrow');await job.scrollIntoViewIfNeeded();assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),'page overflow');await page.screenshot({path:resolve(dir,`${theme}-${width}-failure.png`),fullPage:true,animations:'disabled'});mark(`${theme} ${width} failure/identity/navigation/draft retention`);}}
+ hideCatalog=true;const missing=page.waitForResponse(r=>r.url().includes('/archives/catalog')&&r.status()===503);await ownedPost('sync');await missing;await panel.getByText('owned archive metadata unavailable',{exact:true}).waitFor();assert(await job.count()===1,'metadata outage erased prior row');assert((await job.getByTestId('archive-remote-state').textContent())===zh.storageGov.archive.remoteStates.failed,'outage replaced prior failure');mark('Metadata HTTP503 preserves original row, local result, remote failure and draft');
+ hideCatalog=false;await ownedPost('recover');await job.getByTestId('archive-remote-state').getByText(zh.storageGov.archive.remoteStates.success,{exact:true}).waitFor({timeout:30000});assert(!await job.getByTestId('archive-transfer-warning').count(),'verified original job still warned');assert((await job.getByTestId('archive-job-id').textContent()).includes(owner.job_id),'recovery created another row');mark('Original job recovery and full readback arrive through native fsnotify and shared production SSE');
+ dropEvents=true;for(const r of eventResponses)r.destroy();await panel.getByText(zh.storageGov.archive.disconnected,{exact:true}).waitFor({timeout:15000});assert(await job.count()===1,'disconnect erased job');assert(await query.inputValue()===owner.job_id,'disconnect erased draft');await page.screenshot({path:resolve(dir,'disconnected-390.png'),fullPage:true});
+ const countReads=()=>result.requests.filter(r=>r.method==='GET'&&!r.path.endsWith('/events')).length;await page.waitForTimeout(600);let before=countReads();await page.waitForTimeout(1600);assert(countReads()===before,'disconnected metadata polling');mark('Disconnected SSE is visible, retains task and draft, and sends no periodic detail reads');
+ dropEvents=false;const reconnect=page.waitForResponse(r=>r.url().endsWith('/ops/backup/events')&&r.status()===200);await reconnect;await ownedPost('sync');await panel.getByText(zh.storageGov.archive.disconnected,{exact:true}).waitFor({state:'hidden',timeout:15000});await page.waitForTimeout(650);before=countReads();await page.waitForTimeout(1800);assert(countReads()===before,'idle metadata polling');
+ const detail=await (await fetch(owner.url+base+'/archives/jobs/'+owner.job_id,{headers:{authorization:'Bearer '+token}})).json();assert(detail.data.job.attempts===2&&detail.data.job.remote_state==='success','original job retry not verified');assert(!result.requests.some(r=>r.method!=='GET'),'browser sent archive mutation');assert(!result.errors.length,result.errors.join(';'));mark('Reconnection synchronizes current metadata; zero idle polling or browser mutation');
+ await page.goto('http://127.0.0.1:3030/users/profile',{waitUntil:'domcontentloaded'});await page.waitForTimeout(350);assert(eventResponses.size===0,'archive SSE leaked after route leave');mark('Leaving the page releases the archive SSE connection');result.result='passed';
+}catch(e){result.result='failed';result.error=e.message;if(page)await page.screenshot({path:resolve(dir,'failure.png'),fullPage:true}).catch(()=>{})}
+finally{if(context)await context.close();if(browser)await browser.close();for(const up of upstreams)up.destroy();for(const socket of relaySockets)socket.destroy();proxy.closeAllConnections?.();await new Promise(done=>proxy.close(done));writeFileSync(resolve(dir,'ui-result.json'),JSON.stringify(result,null,2));writeFileSync(resolve(dir,'ui-owner.json'),JSON.stringify({...processOwner,browser_closed:true,proxy_closed:true},null,2));await ownedPost('finish').catch(()=>{});unlinkSync(privateFile);writeFileSync(resolve(dir,'http-owner.json'),JSON.stringify(Object.fromEntries(Object.entries(owner).filter(([k])=>k!=='token')),null,2));}
+console.log(JSON.stringify({result:result.result,error:result.error,checks:result.checks,errors:result.errors}));if(result.result!=='passed')process.exitCode=1;

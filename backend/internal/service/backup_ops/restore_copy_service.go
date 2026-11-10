@@ -215,6 +215,17 @@ func (s *RestoreCopyService) Create(ctx context.Context, in CreateRestoreCopy) (
 			return RestoreCopy{}, restoreFailure(409, "RESTORE_SOURCE_BUSY", "备份正在使用或清理，请稍后重试")
 		}
 	}
+	if in.SourceJobID > 0 {
+		fresh, e := s.archive(ctx, in.RestoreSource)
+		if e != nil {
+			unlock()
+			return RestoreCopy{}, e
+		}
+		if fresh != archive {
+			unlock()
+			return RestoreCopy{}, restoreFailure(409, "RESTORE_SOURCE_CHANGED", "备份来源已变化，请重新核对")
+		}
+	}
 	id := uuid.NewString()
 	token := strings.ReplaceAll(id, "-", "")
 	password, err := restoreRandomPassword()

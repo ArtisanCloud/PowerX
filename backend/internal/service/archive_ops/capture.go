@@ -411,7 +411,7 @@ func (s *Service) dumpSnapshot(ctx context.Context, source Source, j *jobRecord)
 	}
 	tmp := filepath.Join(s.cfg.Directory, "staging", j.ID+".dump")
 	defer os.Remove(tmp)
-	cmd := exec.CommandContext(ctx, "pg_dump", "--no-password", "--format=custom", "--snapshot="+j.SnapshotID)
+	cmd := exec.Command("pg_dump", "--no-password", "--format=custom", "--snapshot="+j.SnapshotID)
 	env := append(os.Environ(), "PGHOST="+cfg.Host, "PGPORT="+fmt.Sprint(cfg.Port), "PGUSER="+cfg.User, "PGPASSWORD="+cfg.Password, "PGDATABASE="+cfg.Database)
 	// URI 中的 TLS 参数保留，不把 DSN 或密码放入命令行。
 	mode := "prefer"
@@ -449,7 +449,7 @@ func (s *Service) dumpSnapshot(ctx context.Context, source Source, j *jobRecord)
 	defer output.Close()
 	cmd.Stdout = budget.Writer(ctx, output)
 	cmd.Stderr = io.Discard
-	if e = cmd.Run(); e != nil {
+	if e = s.runArchiveCommand(ctx, cmd, j.ID, "pg_dump"); e != nil {
 		return errors.New("配套 pg_dump 快照失败，请检查客户端版本和读取权限")
 	}
 	if e = output.Sync(); e != nil {

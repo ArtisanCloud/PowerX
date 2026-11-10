@@ -11,6 +11,8 @@ import (
 
 // 逻辑卸载：停用（如在用）+ 从注册表移除 + Save
 func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional ...string) error {
+	ctx, unlock := m.lockInstallMutation(ctx)
+	defer unlock()
 	// 安全默认：UI/常规卸载不执行数据库 destructive 清理。
 	return m.uninstall(ctx, false, id, versionOptional...)
 }
@@ -19,6 +21,8 @@ func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional 
 // clearDatabase=true: 保持历史行为（卸载时清理 schema/role）
 // clearDatabase=false: 仅停用与注册表移除，不触碰数据库资源
 func (m *managerImpl) uninstall(ctx context.Context, clearDatabase bool, id string, versionOptional ...string) error {
+	ctx, unlock := m.lockInstallMutation(ctx)
+	defer unlock()
 	if id == "" {
 		return plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithOp("uninstall"), plugin_mgr.WithMsg("empty plugin id"))
 	}

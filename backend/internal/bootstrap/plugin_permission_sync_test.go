@@ -270,3 +270,31 @@ func TestPluginPermissionRowsPreserveExplicitAuthorizationBaselineRegistration(t
 	require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
 	require.Equal(t, true, meta["authorization_baseline"])
 }
+
+func TestExplicitPluginAPIKeySurvivesBootstrapAndRejectsAdminFallback(t *testing.T) {
+	const pluginID = "com.example.plans"
+	spec := plugin_mgr.PermissionSpec{
+		PermissionCode: "commerce.plans:read", Type: "api", Module: "commerce", Resource: "plans", Action: "read", Independent: true,
+		ProtocolBindings: []plugin_mgr.PermissionProtocolBinding{{Channel: "rest", Method: "POST", Path: "/plugin/plans/query", ActorContext: "service_actor", ResourceScope: "tenant"}},
+		APIKey:           &plugin_mgr.APIKeyPermissionSpec{CapabilityID: pluginID + ".plans.read", PluginID: pluginID, Scope: "_scope.plans.read", Action: "read", ResourceType: "capability", ResourcePattern: "plans", Effect: "allow"},
+	}
+	manifest := plugin_mgr.Manifest{ID: pluginID, Version: "1.0.0", Permissions: []plugin_mgr.PermissionSpec{spec}}
+	for i := 0; i < 2; i++ {
+		rows := buildPluginPermissionRows(manifest)
+		require.Len(t, rows, 1)
+		require.True(t, rows[0].AllowAPIKey)
+		var meta map[string]any
+		require.NoError(t, json.Unmarshal(rows[0].Meta, &meta))
+		require.Equal(t, true, meta["api_key_explicit"])
+		require.Equal(t, pluginID+".plans.read", meta["capability_id"])
+		require.Equal(t, "_scope.plans.read", meta["api_key"].(map[string]any)["scope"])
+	}
+	// Even legacy action fields must not revive an invalid canonical service grant.
+	manifest.Permissions[0].Actions = []string{"read"}
+	manifest.Permissions[0].ProtocolBindings[0].ActorContext = "admin_user"
+	require.Empty(t, buildPluginPermissionRows(manifest))
+	manifest.Permissions[0].APIKey = nil
+	rows := buildPluginPermissionRows(manifest)
+	require.Len(t, rows, 1)
+	require.False(t, rows[0].AllowAPIKey)
+}

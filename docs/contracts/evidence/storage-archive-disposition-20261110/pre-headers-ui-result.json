@@ -1,0 +1,150 @@
+{
+  "checks": [
+    "light 1440 task tabs, reason and approval retained; responsive confirmation",
+    "light 390 task tabs, reason and approval retained; responsive confirmation",
+    "dark 1440 task tabs, reason and approval retained; responsive confirmation",
+    "dark 390 task tabs, reason and approval retained; responsive confirmation",
+    "Before-header loss: application submits=1, wire POST=1, same original UUID and exactly one retained task"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794278897566
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278897569
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278897573
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278897602
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278897606
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/bf5a6b80-0761-49ab-828e-c0b520a4db0c",
+      "method": "GET",
+      "at": 1794278897792
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/bf5a6b80-0761-49ab-828e-c0b520a4db0c/interruption-review",
+      "method": "GET",
+      "at": 1794278898029
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/bf5a6b80-0761-49ab-828e-c0b520a4db0c/interruption-retentions",
+      "method": "POST",
+      "at": 1794278900065,
+      "request_id": "bac8d768-2059-4093-9fba-1d6078adbda6"
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278900094
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278900094
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/bf5a6b80-0761-49ab-828e-c0b520a4db0c",
+      "method": "GET",
+      "at": 1794278900096
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278900100
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/bf5a6b80-0761-49ab-828e-c0b520a4db0c",
+      "method": "GET",
+      "at": 1794278900100
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278900103
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278900119
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278900119
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/bf5a6b80-0761-49ab-828e-c0b520a4db0c",
+      "method": "GET",
+      "at": 1794278900119
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/bac8d768-2059-4093-9fba-1d6078adbda6",
+      "method": "GET",
+      "at": 1794278900151
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794278900167
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794278900168
+    }
+  ],
+  "errors": [],
+  "application_submits": [
+    "bac8d768-2059-4093-9fba-1d6078adbda6"
+  ],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    }
+  ],
+  "request_id": "bac8d768-2059-4093-9fba-1d6078adbda6",
+  "job_id": "bf5a6b80-0761-49ab-828e-c0b520a4db0c",
+  "loss_mode": "pre-headers",
+  "result": "passed"
+}

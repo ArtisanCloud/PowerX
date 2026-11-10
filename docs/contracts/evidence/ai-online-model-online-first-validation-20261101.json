@@ -1,0 +1,101 @@
+{
+  "recorded_at": "2026-11-01T00:26:09.999534+08:00",
+  "status": "source_and_controlled_validation_passed_pending_user_core_restart",
+  "scope": "Mac local Core online-first model discovery, configuration and typed media catalog",
+  "accepted_policy": "Complete online list; provider-undeclared usage is labeled and may be saved for the current modality, then separately verified through inference.",
+  "behavior": [
+    "Online IDs are authoritative and are not merged with local sample IDs or filtered by local model registration.",
+    "First read fetches when no matching connection snapshot exists; manual refresh replaces the successful scoped snapshot.",
+    "Provider-declared input/output modalities are preserved; OpenAI IDs without usage fields remain unspecified.",
+    "Unknown online IDs can be saved with an existing fixed modality driver template and explicit tenant profile.",
+    "The typed media catalog uses the same online IDs and keeps configuration, invocation grants and actual inference proof separate.",
+    "No catalog API declared for the connection mode: visibly local catalog. Authentication, network and upstream failures never silently fall back.",
+    "Refreshing or selecting does not send a generation request or alter another modality configuration."
+  ],
+  "validation": {
+    "backend_packages_passed": [
+      "internal/server/ai/modeldiscovery",
+      "internal/server/agent/catalog",
+      "internal/service/agent",
+      "internal/service/ai",
+      "internal/transport/http/admin/agent",
+      "internal/service/integration_gateway/apikeypermissions",
+      "tests/contract/integration_gateway",
+      "internal/server/ai/drivers/openai"
+    ],
+    "grpc_agent_compiled": true,
+    "go_vet": "passed",
+    "core_build": "passed darwin/arm64",
+    "core_binary_sha256": "8e615701e8533e8e02ee901d536c5e3f115893ad795b65581e281ec0b8a51e45",
+    "vue_typecheck": "passed",
+    "frontend_unit_tests": {
+      "passed": 55,
+      "files": 7
+    },
+    "frontend_production_build": "passed",
+    "browser_tests": {
+      "passed": 10,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "isolation": "fixture JWT and intercepted API; no writes to developer database",
+      "flows": [
+        "Ollama discovery/recovery",
+        "new unregistered online vision model selection/save/reload",
+        "online provenance and search/tab preservation",
+        "error diagnostics and connection drafts",
+        "vision/image generation isolation"
+      ],
+      "model_generation_requests": 0
+    },
+    "controlled_vision_invoke": {
+      "passed": true,
+      "model": "fresh-vision-native",
+      "type": "analysis",
+      "text_nonempty": true,
+      "transport": "actual typed VLM driver with httptest provider; not live OpenAI"
+    },
+    "capability_check": "passed; no formal bindings/grants changed, no live seed required"
+  },
+  "processes": {
+    "user_services_untouched": {
+      "core": 19409,
+      "frontend": 7371
+    },
+    "agent_temporary_frontend": {
+      "pid": 72662,
+      "command": [
+        "node",
+        "node_modules/nuxt/bin/nuxt.mjs",
+        "dev",
+        "--open=false",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "3043"
+      ],
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "port": 3043,
+      "ownership": "agent-temporary",
+      "build_dir": ".nuxt-online-first-20261101-001154"
+    },
+    "cleanup": {
+      "pid": 72662,
+      "owned_group_remaining": [],
+      "port3043_released": true,
+      "stopped_at": "2026-11-01T00:24:02+0800"
+    }
+  },
+  "remaining": [
+    "User rebuild/restart of local Core on port 8077 through the existing user launch method.",
+    "Fresh authenticated online catalog and real-provider inference acceptance on the restarted runtime.",
+    "MediaXStudio two-entry binding and director 06 preservation remain separate plugin-side acceptance."
+  ],
+  "private_evidence_directory": "/tmp/powerx-online-first-20261031-234644",
+  "official_sources": [
+    "https://developers.openai.com/api/reference/resources/models/methods/list",
+    "https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties",
+    "https://platform.claude.com/docs/en/api/models/list"
+  ]
+}

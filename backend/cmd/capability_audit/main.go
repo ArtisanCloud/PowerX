@@ -135,7 +135,7 @@ func (d *declaredCapabilities) merge(other declaredCapabilities) {
 var capabilityIDPattern = regexp.MustCompile(`com\.corex\.[A-Za-z0-9][A-Za-z0-9._/-]*[A-Za-z0-9]`)
 
 var (
-	reGroupAssign = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*([A-Za-z_][A-Za-z0-9_]*)\.Group\("([^"]*)"\)`)
+	reGroupAssign = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*([A-Za-z_][A-Za-z0-9_]*)\.Group\("([^"]*)"[ \t]*[,)]`)
 	reRouteCall   = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\.(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|Any)\("([^"]*)"`)
 )
 

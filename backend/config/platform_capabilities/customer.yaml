@@ -578,3 +578,72 @@ capabilities:
     api_key: {scope: _scope.customer.external_identities.service_manage, action: manage, resource_type: capability, resource_pattern: customer_external_identities_service_manage}
   title_i18n: {en: Customer External Identity Manage, zh-CN: 客户外部身份管理}
   description_i18n: {en: Explicitly bind a customer or atomically create and bind an external identity., zh-CN: 显式绑定已有客户，或原子创建客户及外部身份，不按邮箱自动合并。}
+
+- capability_id: com.corex.customer.client_apps.admin_manage
+  module: customer
+  title: Tenant Client Application Management
+  description: Manage only current-tenant client applications, encrypted provider credentials and grants to enabled plugins in the same tenant. Admin user sessions only.
+  permission_code: corex.customer.client_apps.admin_manage
+  agent_usable: false
+  risk_level: high
+  categories: [customer, admin, client_apps]
+  intents: [customer.client_apps.admin_manage]
+  tool_scopes: [customer.client_apps.admin_manage]
+  title_i18n: {en: Client Application Management, zh-CN: 客户端应用管理}
+  description_i18n: {en: Manage applications and write-only credentials for the current tenant., zh-CN: 管理本租户应用、只写凭证及本租户插件授权。}
+  policy: {prefer: rest}
+  protocols:
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/client-apps"
+    method: GET
+    schema_ref: docs/contracts/client-applications.openapi.yaml#/paths/~1admin~1customers~1client-apps/get
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.client_apps.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/client-apps"
+    method: POST
+    schema_ref: docs/contracts/client-applications.openapi.yaml#/paths/~1admin~1customers~1client-apps/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.client_apps.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/client-apps/catalog"
+    method: GET
+    schema_ref: docs/contracts/client-applications.openapi.yaml#/paths/~1admin~1customers~1client-apps~1catalog/get
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.client_apps.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/client-apps/import"
+    method: POST
+    schema_ref: docs/contracts/client-applications.openapi.yaml#/paths/~1admin~1customers~1client-apps~1import/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.client_apps.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/client-apps/{app_uuid}"
+    method: GET
+    schema_ref: docs/contracts/client-applications.openapi.yaml#/paths/~1admin~1customers~1client-apps~1{app_uuid}/get
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.client_apps.admin_manage
+  - channel: rest
+    endpoint: "/api/v1/admin/customers/client-apps/{app_uuid}"
+    method: PATCH
+    schema_ref: docs/contracts/client-applications.openapi.yaml#/paths/~1admin~1customers~1client-apps~1{app_uuid}/patch
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.client_apps.admin_manage

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -56,10 +57,14 @@ func (r *ChatConfigResolver) ResolveForAgentChat(
 	if err != nil {
 		return nil, err
 	}
-	mergeChatConfig(out, agentCfg)
+	if err := r.mergeModelOverride(ctx, env, tenantUUID, out, agentCfg); err != nil {
+		return nil, err
+	}
 
 	// 3) 本次请求临时覆盖
-	mergeChatConfig(out, req)
+	if err := r.mergeModelOverride(ctx, env, tenantUUID, out, req); err != nil {
+		return nil, err
+	}
 
 	// 4) Agent Profile 是运行时身份约束，必须始终合入最终 system prompt。
 	// LLM provider/model 只能作为执行引擎，不能覆盖当前 Agent 的 persona。
@@ -76,7 +81,36 @@ func (r *ChatConfigResolver) ResolveForAgentChat(
 		return nil, fmt.Errorf("AI Settings 凭据不可用 env=%s tenant=%s provider=%s model=%s: %w", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
 	}
 
+	out.ParameterProfile = r.setting.ModelParameterProfile(ctx, env, tenantUUID, out.Provider, out.ModelName)
 	return out, nil
+}
+
+// 型号改变时先载入目标型号独立保存的参数，再叠加调用者的显式覆盖。
+func (r *ChatConfigResolver) mergeModelOverride(ctx context.Context, env string, tenant *string, dst, src *dto.ChatConfig) error {
+	if src == nil {
+		return nil
+	}
+	provider, model := dst.Provider, dst.ModelName
+	if src.Provider != "" {
+		provider = strings.TrimSpace(src.Provider)
+	}
+	if src.ModelName != "" {
+		model = strings.TrimSpace(src.ModelName)
+	}
+	if provider != dst.Provider || model != dst.ModelName {
+		target := &dto.ChatConfig{Provider: provider, ModelName: model, SystemPrompt: dst.SystemPrompt, CacheMode: dst.CacheMode, EnableStream: dst.EnableStream}
+		if provider == dst.Provider {
+			target.Endpoint, target.APIKey = dst.Endpoint, dst.APIKey
+		}
+		profile, err := r.setting.GetProfile(ctx, env, tenant, "llm", provider, model)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		applyLLMDefaultsFromProfile(target, profile)
+		*dst = *target
+	}
+	mergeChatConfig(dst, src)
+	return nil
 }
 
 func (r *ChatConfigResolver) appendAgentProfilePrompt(
@@ -152,13 +186,7 @@ func (r *ChatConfigResolver) buildFromActiveProfile(
 	}
 	applyLLMDefaultsFromProfile(out, prof)
 
-	// profile 本身不含凭据，执行时需要补 base_url/api_key
-	if strings.TrimSpace(out.Provider) != "" {
-		if err := r.fillConnFromStore(ctx, env, tenantUUID, out); err != nil {
-			logger.WarnF(ctx, "[agent_chat_config] active profile credential failed env=%s tenant=%s provider=%s model=%s err=%v", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
-			return nil, fmt.Errorf("AI Settings 凭据不可用 env=%s tenant=%s provider=%s model=%s: %w", env, tenantScopeForLog(tenantUUID), strings.TrimSpace(out.Provider), strings.TrimSpace(out.ModelName), err)
-		}
-	}
+	// 凭据在最终型号确定后统一补全，避免复用活动供应商的连接。
 	return out, nil
 }
 
@@ -230,8 +258,19 @@ func mergeChatConfig(dst *dto.ChatConfig, src *dto.ChatConfig) {
 	if strings.TrimSpace(src.SystemPrompt) != "" {
 		dst.SystemPrompt = strings.TrimSpace(src.SystemPrompt)
 	}
-	if src.Temperature > 0 {
+	if src.TemperatureSet || src.Temperature > 0 {
 		dst.Temperature = src.Temperature
+		dst.TemperatureSet = src.TemperatureSet
+	}
+	if src.ReasoningEffort != "" {
+		dst.ReasoningEffort = src.ReasoningEffort
+	}
+	if src.TopPSet || src.TopP > 0 {
+		dst.TopP = src.TopP
+		dst.TopPSet = src.TopPSet
+	}
+	if src.MaxConcurrentRequests > 0 {
+		dst.MaxConcurrentRequests = src.MaxConcurrentRequests
 	}
 	if src.MaxTokens > 0 {
 		dst.MaxTokens = src.MaxTokens
@@ -246,8 +285,9 @@ func applyLLMDefaultsFromProfile(out *dto.ChatConfig, prof *dbmodel.AIModelProfi
 		return
 	}
 	if v, ok := prof.Defaults["temperature"]; ok {
-		if f, ok2 := asFloat64(v); ok2 && f > 0 {
+		if f, ok2 := asFloat64(v); ok2 && f >= 0 {
 			out.Temperature = f
+			out.TemperatureSet = true
 		}
 	}
 	if v, ok := prof.Defaults["maxTokens"]; ok {
@@ -261,8 +301,13 @@ func applyLLMDefaultsFromProfile(out *dto.ChatConfig, prof *dbmodel.AIModelProfi
 		}
 	}
 	if v, ok := prof.Defaults["topP"]; ok {
-		// dto.ChatConfig 没有 top_p 字段；这里暂不透传，避免“看似配置了但不生效”的误导
-		_ = v
+		if f, ok := asFloat64(v); ok {
+			out.TopP = float32(f)
+			out.TopPSet = true
+		}
+	}
+	if v, ok := prof.Defaults["reasoning_effort"].(string); ok {
+		out.ReasoningEffort = v
 	}
 	if v, ok := prof.Defaults["stream"]; ok {
 		if b, ok2 := v.(bool); ok2 && b {
@@ -340,6 +385,9 @@ func chatConfigFromAgentSetting(setting *dbmodel.AgentSetting) *dto.ChatConfig {
 
 func asFloat64(v any) (float64, bool) {
 	switch vv := v.(type) {
+	case json.Number:
+		n, err := vv.Float64()
+		return n, err == nil
 	case float64:
 		return vv, true
 	case float32:
@@ -354,6 +402,9 @@ func asFloat64(v any) (float64, bool) {
 
 func asInt(v any) (int, bool) {
 	switch vv := v.(type) {
+	case json.Number:
+		n, err := vv.Int64()
+		return int(n), err == nil
 	case int:
 		return vv, true
 	case int64:

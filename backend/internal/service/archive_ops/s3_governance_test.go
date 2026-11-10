@@ -239,20 +239,14 @@ func TestS3CorruptionPublicBucketAndChangedTargetFailClosed(t *testing.T) {
 }
 func TestS3CredentialIsPrivateAndNeverReturned(t *testing.T) {
 	s, _, _, _ := s3Fixture(t)
-	view, err := s.SaveS3Credential(archiveRoot(), SaveS3CredentialInput{Ref: "private-new", AccessKey: "test-key", SecretKey: "test-secret"})
-	require.NoError(t, err)
-	require.EqualValues(t, 1, view.Revision)
-	info, err := os.Stat(filepath.Join(s.cfg.Directory, "secrets", "private-new.json"))
-	require.NoError(t, err)
-	require.Zero(t, info.Mode().Perm()&0077)
+	_, err := s.SaveS3Credential(credentialRootContext(), SaveS3CredentialInput{RequestID: uuid.NewString(), Ref: "private-new", AccessKey: "test-key", SecretKey: "test-secret"})
+	require.Error(t, err, "new credential writes cannot fall back to plaintext without an independent store")
+	require.NoFileExists(t, filepath.Join(s.cfg.Directory, "secrets", "private-new.json"))
 	out, err := s.Overview(archiveRoot())
 	require.NoError(t, err)
 	raw, err := json.Marshal(out)
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), "test-secret")
-	require.NotContains(t, string(raw), "test-key")
-	_, err = s.SaveS3Credential(archiveRoot(), SaveS3CredentialInput{Ref: "private-new", AccessKey: "changed", SecretKey: "changed"})
-	require.Error(t, err)
 }
 
 func TestRemoteExpiryKeepsSharedVersionsAndRejectsChangedPreview(t *testing.T) {

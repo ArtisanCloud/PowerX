@@ -1,0 +1,177 @@
+{
+  "create": {
+    "operation": "create",
+    "member_uuid": "22222222-2222-4222-8222-222222222222",
+    "title": "订单内容更新",
+    "content": "请查看当前可见内容。",
+    "category": "order",
+    "metadata": {
+      "business_card": {
+        "contract": "business_notification_card.v2",
+        "source_plugin": "com.powerx.plugins.ai-craft",
+        "business_type": "sample_track",
+        "delivery_key": "opaque-member-delivery",
+        "source_revision": 1
+      }
+    },
+    "navigation": {
+      "label": "查看订单",
+      "path": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks?notification_target=opaque-member-delivery"
+    }
+  },
+  "presentation": {
+    "contract": "business_notification_card.v2",
+    "revision": 2,
+    "title": "小单 A-102",
+    "summary": "设计图已更新。",
+    "updated_at": "2026-10-21T04:00:00Z",
+    "unread_change_count": 2,
+    "image": {
+      "alt": "当前设计图",
+      "thumbnail": {
+        "variant": "thumbnail_64",
+        "status": "ready",
+        "image_key": "opaque-thumbnail-64"
+      },
+      "preview": {
+        "variant": "preview",
+        "status": "ready",
+        "image_key": "opaque-preview-1600"
+      }
+    }
+  },
+  "invalidate": {
+    "operation": "invalidate_card",
+    "member_uuid": "22222222-2222-4222-8222-222222222222",
+    "notification_uuid": "33333333-3333-4333-8333-333333333333",
+    "source_revision": 2,
+    "reason": "presentation_changed"
+  },
+  "read_receipt": {
+    "operation": "acknowledge_read",
+    "member_uuid": "22222222-2222-4222-8222-222222222222",
+    "notification_uuids": [
+      "33333333-3333-4333-8333-333333333333"
+    ],
+    "revisions": {
+      "33333333-3333-4333-8333-333333333333": 2
+    }
+  },
+  "notification": {
+    "id": "33333333-3333-4333-8333-333333333333",
+    "revision": 1,
+    "sourceRevision": 1,
+    "title": "订单内容更新",
+    "content": "请查看当前可见内容。",
+    "type": "info",
+    "category": "order",
+    "isRead": false,
+    "isImportant": false,
+    "createdAt": "2026-10-21T04:00:00Z",
+    "updatedAt": "2026-10-21T04:00:00Z",
+    "userId": "22222222-2222-4222-8222-222222222222",
+    "metadata": {
+      "business_card": {
+        "contract": "business_notification_card.v2",
+        "source_plugin": "com.powerx.plugins.ai-craft",
+        "business_type": "sample_track",
+        "delivery_key": "opaque-member-delivery",
+        "source_revision": 1
+      }
+    },
+    "actions": [
+      {
+        "id": "view_business",
+        "label": "查看订单",
+        "type": "primary",
+        "action": "navigate",
+        "params": {
+          "path": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks?notification_target=opaque-member-delivery"
+        }
+      }
+    ]
+  },
+  "updated_event": {
+    "id": "33333333-3333-4333-8333-333333333333",
+    "revision": 2,
+    "sourceRevision": 2,
+    "title": "订单内容更新",
+    "content": "请查看当前可见内容。",
+    "type": "info",
+    "category": "order",
+    "isRead": false,
+    "isImportant": false,
+    "createdAt": "2026-10-21T04:00:00Z",
+    "updatedAt": "2026-10-21T04:00:00Z",
+    "userId": "22222222-2222-4222-8222-222222222222",
+    "metadata": {
+      "business_card": {
+        "contract": "business_notification_card.v2",
+        "source_plugin": "com.powerx.plugins.ai-craft",
+        "business_type": "sample_track",
+        "delivery_key": "opaque-member-delivery",
+        "source_revision": 1
+      }
+    },
+    "actions": [
+      {
+        "id": "view_business",
+        "label": "查看订单",
+        "type": "primary",
+        "action": "navigate",
+        "params": {
+          "path": "/_p/com.powerx.plugins.ai-craft/admin/operations/ai-craft/tracks?notification_target=opaque-member-delivery"
+        }
+      }
+    ],
+    "eventType": "notification_updated",
+    "payload_version": 1,
+    "tenant_uuid": "11111111-1111-4111-8111-111111111111"
+  },
+  "invalidate_result": {
+    "notification_uuid": "33333333-3333-4333-8333-333333333333",
+    "revision": 2,
+    "source_revision": 2,
+    "changed": true
+  },
+  "presentation_pending": {
+    "contract": "business_notification_card.v2",
+    "revision": 2,
+    "title": "小单 A-102",
+    "summary": "设计图已更新。",
+    "updated_at": "2026-10-21T04:00:00Z",
+    "unread_change_count": 2,
+    "image": {
+      "alt": "当前设计图",
+      "thumbnail": {
+        "variant": "thumbnail_64",
+        "status": "queued"
+      },
+      "preview": {
+        "variant": "preview",
+        "status": "ready",
+        "image_key": "opaque-preview-1600"
+      }
+    }
+  },
+  "presentation_binding": {
+    "contract": "business_notification_card.v2",
+    "business_type": "sample_track",
+    "presentation_path": "/admin/operations/order-content-notifications/sample-tracks/{delivery_key}/presentation-v2",
+    "preview_path": "/admin/operations/order-content-notifications/sample-tracks/{delivery_key}/images/{image_key}"
+  },
+  "upgrade_v1_reference": {
+    "operation": "invalidate_card",
+    "member_uuid": "22222222-2222-4222-8222-222222222222",
+    "notification_uuid": "33333333-3333-4333-8333-333333333333",
+    "source_revision": 2,
+    "reason": "presentation_changed",
+    "card_reference": {
+      "contract": "business_notification_card.v2",
+      "source_plugin": "com.powerx.plugins.ai-craft",
+      "business_type": "sample_track",
+      "delivery_key": "opaque-member-delivery",
+      "source_revision": 2
+    }
+  }
+}

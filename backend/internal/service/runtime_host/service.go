@@ -55,8 +55,8 @@ type Service struct {
 	cache  *cache.Store
 }
 
-func NewService(db *gorm.DB, client redis.UniversalClient) *Service {
-	return &Service{repo: repo.NewRepository(db), access: capability.NewDirectGrantService(db), cache: cache.NewStore(client)}
+func NewService(db *gorm.DB, client redis.UniversalClient, namespace ...string) *Service {
+	return &Service{repo: repo.NewRepository(db), access: capability.NewDirectGrantService(db), cache: cache.NewStore(client, namespace...)}
 }
 func (s *Service) authorize(ctx context.Context, capID string) (scope, error) {
 	var out scope
@@ -141,6 +141,9 @@ func (s *Service) GetCache(ctx context.Context, namespace, key string) (*CacheEn
 	if e != nil {
 		return nil, e
 	}
+	return s.getCache(ctx, sc, namespace, key)
+}
+func (s *Service) getCache(ctx context.Context, sc scope, namespace, key string) (*CacheEntry, error) {
 	k, e := cacheKey(sc, namespace, key)
 	if e != nil {
 		return nil, e
@@ -160,6 +163,9 @@ func (s *Service) SetCache(ctx context.Context, namespace, key, value string, tt
 	if e != nil {
 		return e
 	}
+	return s.setCache(ctx, sc, namespace, key, value, ttl)
+}
+func (s *Service) setCache(ctx context.Context, sc scope, namespace, key, value string, ttl int64) error {
 	k, e := cacheKey(sc, namespace, key)
 	if e != nil {
 		return e
@@ -178,6 +184,9 @@ func (s *Service) DeleteCache(ctx context.Context, namespace, key string) error 
 	if e != nil {
 		return e
 	}
+	return s.deleteCache(ctx, sc, namespace, key)
+}
+func (s *Service) deleteCache(ctx context.Context, sc scope, namespace, key string) error {
 	k, e := cacheKey(sc, namespace, key)
 	if e != nil {
 		return e

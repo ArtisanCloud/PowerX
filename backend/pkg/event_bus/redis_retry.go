@@ -6,17 +6,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/redis/go-redis/v9"
 )
 
 type redisReliableQueue struct {
-	client *redis.Client
+	client    *redis.Client
+	namespace string
 }
 
 // NewRedisReliableQueue 构建基于 Redis SortedSet 的可靠投递队列。
-func NewRedisReliableQueue(client *redis.Client) ReliableQueue {
-	return &redisReliableQueue{client: client}
+func NewRedisReliableQueue(client *redis.Client, namespace ...string) ReliableQueue {
+	q := &redisReliableQueue{client: client}
+	if len(namespace) > 0 {
+		q.namespace = namespace[0]
+	}
+	return q
 }
+
+func (q *redisReliableQueue) key(key string) string { return redisnamespace.Key(q.namespace, key) }
 
 func retryKey(tenantKey string) string {
 	return fmt.Sprintf("event:retry:%s", tenantKey)
@@ -47,7 +55,7 @@ func (q *redisReliableQueue) ScheduleRetry(ctx context.Context, item RetryItem) 
 		Score:  float64(item.ExecuteAt.UnixMilli()),
 		Member: string(payload),
 	}
-	return q.client.ZAdd(ctx, retryKey(item.TenantKey), z).Err()
+	return q.client.ZAdd(ctx, q.key(retryKey(item.TenantKey)), z).Err()
 }
 
 func (q *redisReliableQueue) PopDueRetries(ctx context.Context, tenantKey string, now time.Time, limit int) ([]RetryItem, error) {
@@ -64,7 +72,7 @@ func (q *redisReliableQueue) PopDueRetries(ctx context.Context, tenantKey string
 		Count:  int64(limit),
 	}
 
-	values, err := q.client.ZRangeByScoreWithScores(ctx, retryKey(tenantKey), zRange).Result()
+	values, err := q.client.ZRangeByScoreWithScores(ctx, q.key(retryKey(tenantKey)), zRange).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +104,7 @@ func (q *redisReliableQueue) PopDueRetries(ctx context.Context, tenantKey string
 		items = append(items, item)
 	}
 
-	if err := q.client.ZRem(ctx, retryKey(tenantKey), members...).Err(); err != nil {
+	if err := q.client.ZRem(ctx, q.key(retryKey(tenantKey)), members...).Err(); err != nil {
 		return nil, err
 	}
 	return items, nil
@@ -111,7 +119,7 @@ func (q *redisReliableQueue) RemoveRetry(ctx context.Context, item RetryItem) er
 	if err != nil {
 		return err
 	}
-	return q.client.ZRem(ctx, retryKey(item.TenantKey), string(payload)).Err()
+	return q.client.ZRem(ctx, q.key(retryKey(item.TenantKey)), string(payload)).Err()
 }
 
 func (q *redisReliableQueue) AcquireLease(ctx context.Context, lease DeliveryLease) (bool, error) {
@@ -126,8 +134,8 @@ func (q *redisReliableQueue) AcquireLease(ctx context.Context, lease DeliveryLea
 		lease.AckTimeout = 30 * time.Second
 	}
 
-	instanceKey := leaseInstanceKey(lease.TenantKey, lease.SubscriberID, lease.LeaseID)
-	counterKey := leaseCounterKey(lease.TenantKey, lease.SubscriberID)
+	instanceKey := q.key(leaseInstanceKey(lease.TenantKey, lease.SubscriberID, lease.LeaseID))
+	counterKey := q.key(leaseCounterKey(lease.TenantKey, lease.SubscriberID))
 
 	acquired, err := q.client.SetNX(ctx, instanceKey, "1", lease.AckTimeout).Result()
 	if err != nil {
@@ -162,8 +170,8 @@ func (q *redisReliableQueue) ReleaseLease(ctx context.Context, lease DeliveryLea
 		return fmt.Errorf("tenant key, subscriber id and lease id are required")
 	}
 
-	instanceKey := leaseInstanceKey(lease.TenantKey, lease.SubscriberID, lease.LeaseID)
-	counterKey := leaseCounterKey(lease.TenantKey, lease.SubscriberID)
+	instanceKey := q.key(leaseInstanceKey(lease.TenantKey, lease.SubscriberID, lease.LeaseID))
+	counterKey := q.key(leaseCounterKey(lease.TenantKey, lease.SubscriberID))
 
 	removed, err := q.client.Del(ctx, instanceKey).Result()
 	if err != nil {

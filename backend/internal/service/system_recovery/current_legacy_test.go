@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	storagerecovery "github.com/ArtisanCloud/PowerX/internal/infra/storage_recovery"
 	snapshots "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -20,6 +21,7 @@ func TestCurrentCapabilityCatalogLegacyCompatibility(t *testing.T) {
 	}{
 		{name: "legacy_missing_catalog_preserves_adapter_catalog", core: "old-core", current: true},
 		{name: "legacy_with_catalog_restores_it", core: "old-core", catalog: true, current: true},
+		{name: "previous_executor_keeps_current_adapter", core: CurrentRecoveryProtocol + CurrentCacheProtocol + storagerecovery.PreviousProtocol, catalog: true, current: true},
 		{name: "modern_missing_catalog_fails", core: CurrentRecoveryProtocol + CurrentCacheProtocol, current: true, failure: "快照正式能力目录不可读取"},
 		{name: "legacy_cannot_run_without_current_catalog", core: "old-core", failure: "当前 Core 配套目录也不可用"},
 	} {
@@ -58,6 +60,12 @@ func TestCurrentCapabilityCatalogLegacyCompatibility(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			if scenario.name == "previous_executor_keeps_current_adapter" {
+				require.Contains(t, checkNames(job.Checks), "local_core_adapter")
+				for _, file := range journal.Files {
+					require.NotEqual(t, r.spec.Executable, file.Target, "previous executor must not replace independent-receipt-aware executor")
+				}
+			}
 			require.NoError(t, r.installCurrentFiles(context.Background(), &journal))
 			data, err := os.ReadFile(filepath.Join(catalog, "contract.yaml"))
 			require.NoError(t, err)

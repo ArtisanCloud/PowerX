@@ -126,7 +126,7 @@ func (r *CurrentRuntime) restoreCurrent(ctx context.Context, j *snapshots.Manage
 	if err != nil {
 		return err
 	}
-	current, err := sourceConfig(source)
+	current, err := r.currentSourceConfig(source)
 	if err != nil {
 		return err
 	}
@@ -172,6 +172,8 @@ func (r *CurrentRuntime) restoreCurrent(ctx context.Context, j *snapshots.Manage
 	restored.Event = current.Event
 	restored.Recovery = current.Recovery
 	restored.SystemSnapshots = current.SystemSnapshots
+	// 主机身份、运维目录和治理接线属于当前安装，不能被旧 YAML 关闭或重定向。
+	restored.StorageGovernance = current.StorageGovernance
 	restored.Plugin.InstalledDir = current.Plugin.InstalledDir
 	restored.Plugin.RegistryFile = current.Plugin.RegistryFile
 	journal, err := r.prepareCurrentFiles(ctx, j, source, staging, configuration, &restored)
@@ -212,6 +214,9 @@ func (r *CurrentRuntime) restoreCurrent(ctx context.Context, j *snapshots.Manage
 		return err
 	}
 	if err = r.phase(j, "rollback_point_saved"); err != nil {
+		return err
+	}
+	if err = r.beginStorageRestoreChecked(ctx, j, source.DatabaseDSN); err != nil {
 		return err
 	}
 	journal.DatabaseTouched = true
@@ -360,11 +365,14 @@ func (r *CurrentRuntime) compensateCurrent(ctx context.Context, j *snapshots.Man
 			return err
 		}
 		if journal.DatabaseTouched {
+			if err = r.beginStorageRestoreChecked(ctx, j, source.DatabaseDSN); err != nil {
+				return err
+			}
 			if err = replaceCurrentDatabase(ctx, source.DatabaseDSN, filepath.Join(target, "database/database.dump")); err != nil {
 				return err
 			}
 		}
-		cfg, err := sourceConfig(source)
+		cfg, err := r.currentSourceConfig(source)
 		if err != nil {
 			return err
 		}

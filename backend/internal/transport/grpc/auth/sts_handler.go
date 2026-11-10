@@ -15,17 +15,20 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/service/setting"
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/stsproof"
 	"gorm.io/gorm"
 )
 
 type STSServiceServer struct {
 	stsv1.UnimplementedSTSServiceServer
-	issuer     string
-	ring       *KeyRing
-	cred       *setting.PluginInstanceConfigService
-	tenantRepo *tenantrepo.TenantRepository
+	issuer        string
+	ring          *KeyRing
+	cred          *setting.PluginInstanceConfigService
+	tenantRepo    *tenantrepo.TenantRepository
+	issuanceStore cache.ICache
 }
 
 func NewSTSServiceServer(deps *shared.Deps) *STSServiceServer {
@@ -34,7 +37,7 @@ func NewSTSServiceServer(deps *shared.Deps) *STSServiceServer {
 func NewSTSServiceServerWithRing(deps *shared.Deps, ring *KeyRing) *STSServiceServer {
 	// 默认 issuer（gRPC 验证不校验 issuer，仅用于回显）
 	issuer := "powerx-sts"
-	srv := &STSServiceServer{issuer: issuer, ring: ring}
+	srv := &STSServiceServer{issuer: issuer, ring: ring, issuanceStore: cache.GetCache()}
 	if deps != nil {
 		srv.cred = setting.NewPluginInstanceConfigService(deps)
 		if deps.TenantSvc != nil && deps.TenantSvc.Repo != nil {
@@ -158,6 +161,7 @@ func (s *STSServiceServer) Exchange(ctx context.Context, req *stsv1.ExchangeRequ
 		Scope:      scope,
 		PluginID:   pluginID,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
 			Issuer:    s.issuer,
 			Subject:   subject,
 			Audience:  []string{aud},
@@ -180,6 +184,14 @@ func (s *STSServiceServer) Exchange(ctx context.Context, req *stsv1.ExchangeRequ
 	ss, err := tok.SignedString(key)
 	if err != nil {
 		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sign failed: "+err.Error(), req.GetCtx().GetRequestId())}, nil
+	}
+	// 共享 JWT 验签密钥不能证明令牌经过了 Core 的凭据交换。
+	// 已配置的缓存故障时拒绝签发；没有缓存的 legacy fixture 保持原入口行为，
+	// 但其令牌不能用于需要签发证明的新服务能力。
+	if store := s.issuanceStore; store != nil && pluginID != "" {
+		if err := stsproof.Record(ctx, store, claims); err != nil {
+			return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 503, "STS_ISSUANCE_UNAVAILABLE", req.GetCtx().GetRequestId())}, nil
+		}
 	}
 
 	return &stsv1.ExchangeResponse{

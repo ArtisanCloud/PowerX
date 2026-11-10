@@ -24,6 +24,7 @@ class InitTests(unittest.TestCase):
             self.assertEqual(config['server']['write_timeout_seconds'],0)
             self.assertEqual(config['http_security']['web_admin_origins'],['https://dev.example.com'])
             self.assertEqual(config['storage']['local']['public_base_url'],'https://dev.example.com/media')
+            self.assertEqual(config['plugin']['marketplace']['api_root'],'https://marketplace.artisan-cloud.com/api/v1')
             self.assertNotEqual(config['auth']['jwt_secret'],config['database']['password'])
             self.assertEqual(config['install']['status'],'uninstalled')
             self.assertTrue(config['install']['allow_without_db'])
@@ -35,6 +36,12 @@ class InitTests(unittest.TestCase):
             self.assertEqual((root/'config/config.yaml').read_bytes(),original)
             self.assertEqual((root/'config/config.yaml').stat().st_mode & 0o777,0o600)
             self.assertEqual((root/'config').stat().st_mode & 0o777,0o700)
+
+            config['plugin']['marketplace']['api_root']='https://private.example/api/v1'
+            (root/'config/config.yaml').write_text(yaml.safe_dump(config))
+            customized=(root/'config/config.yaml').read_bytes()
+            module.initialize(root/'config',root/'data',ROOT/'backend/etc/config_example.prod.yaml')
+            self.assertEqual((root/'config/config.yaml').read_bytes(),customized)
 
     def test_incomplete_initialization_is_not_overwritten(self):
         with tempfile.TemporaryDirectory() as temp:

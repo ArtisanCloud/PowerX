@@ -38,6 +38,7 @@ func (r *DerivativeRepository) WithTx(ctx context.Context, tx *gorm.DB, tenant, 
 			return err
 		}
 		before := append([]byte{}, parent.Meta...)
+		beforeChecksum := parent.ExpectedChecksum
 		var variants []*m.MediaAssetVariant
 		if err := tx.Where("tenant_uuid = ? AND asset_uuid = ?", tenant, asset).Find(&variants).Error; err != nil {
 			return err
@@ -50,11 +51,19 @@ func (r *DerivativeRepository) WithTx(ctx context.Context, tx *gorm.DB, tenant, 
 		if err := apply(state); err != nil {
 			return err
 		}
+		updates := map[string]any{}
 		if !reflect.DeepEqual(before, []byte(parent.Meta)) {
-			if err := tx.Model(&parent).Where("tenant_uuid = ? AND uuid = ?", tenant, asset).Update("meta", parent.Meta).Error; err != nil {
+			updates["meta"] = parent.Meta
+		}
+		if beforeChecksum != parent.ExpectedChecksum {
+			updates["expected_checksum"] = parent.ExpectedChecksum
+		}
+		if len(updates) > 0 {
+			if err := tx.Model(&parent).Where("tenant_uuid = ? AND uuid = ?", tenant, asset).Updates(updates).Error; err != nil {
 				return err
 			}
 		}
+
 		for _, v := range state.Variants {
 			if prior, ok := old[v.Variant]; ok && reflect.DeepEqual(prior, *v) {
 				continue

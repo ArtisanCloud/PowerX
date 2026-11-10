@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/instanceidentity"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,6 +21,7 @@ import (
 
 // Service 协调组件和独立账本；完整性、业务验证与正式切换分别记录。
 type Service struct {
+	policyAuthority    PolicyAuthority
 	cfg                Config
 	opts               Options
 	key                []byte
@@ -33,11 +35,7 @@ type Service struct {
 
 // DefaultStorage 返回默认根目录及来源；显式配置不会改变其他安装路径。
 func DefaultStorage() (string, string) {
-	if r := os.Getenv("POWERX_LINKS_ROOT"); filepath.IsAbs(r) {
-		return filepath.Join(r, "storage", "system-snapshots"), "install_root"
-	}
-	h, _ := os.UserHomeDir()
-	return filepath.Join(h, ".powerx", "storage", "system-snapshots"), "default"
+	return instanceidentity.DefaultStorage(os.Getenv("POWERX_LINKS_ROOT"))
 }
 func DefaultDirectory() string { directory, _ := DefaultStorage(); return directory }
 func NewService(ctx context.Context, cfg Config, opts Options) *Service {
@@ -45,6 +43,9 @@ func NewService(ctx context.Context, cfg Config, opts Options) *Service {
 		ctx = context.Background()
 	}
 	run, cancel := context.WithCancel(ctx)
+	if opts.RequirePolicyControl {
+		cfg.PolicyControlRequired = true
+	}
 	s := &Service{cfg: cfg, opts: opts, ctx: run, cancel: cancel}
 	if s.opts.Now == nil {
 		s.opts.Now = func() time.Time { return time.Now().UTC() }
@@ -231,9 +232,10 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 	if e := s.check(ctx); e != nil {
 		return out, e
 	}
-	state, e := s.policyState()
+	state, e := s.runtimePolicyState(ctx)
 	if e != nil {
-		return out, e
+		out.PolicyControlProblem = e.Error()
+		state = policyState{Version: 1, Policies: []policyRecord{}}
 	}
 	policy := state.current()
 	out.Policy = policy.Policy
@@ -314,47 +316,65 @@ func (s *Service) Start(ctx context.Context, key string) (Snapshot, error) {
 
 // StartForPolicy 将用户确认的系统策略绑定到本次采集，策略切换后不得静默改用新策略。
 func (s *Service) StartForPolicy(ctx context.Context, key, policyID string) (Snapshot, error) {
+	return s.StartForPolicyRevision(ctx, key, policyID, 0)
+}
+func (s *Service) StartForPolicyRevision(ctx context.Context, key, policyID string, expectedRevision int64) (Snapshot, error) {
 	if e := s.check(ctx); e != nil {
 		return Snapshot{}, e
 	}
 	if !validID(policyID) {
 		return Snapshot{}, failure(400, "SNAPSHOT_POLICY_REQUIRED", "请选择系统默认快照策略")
 	}
+	if s.controlRequired() {
+		return s.startForPolicy(ctx, key, "manual", policyID, expectedRevision)
+	}
 	unlock, e := lockFile(filepath.Join(s.cfg.Directory, "locks", "policy.lock"))
 	if e != nil {
 		return Snapshot{}, e
 	}
 	defer unlock()
-	return s.startForPolicy(ctx, key, "manual", policyID)
+	return s.startForPolicy(ctx, key, "manual", policyID, expectedRevision)
 }
 func (s *Service) start(ctx context.Context, key, trigger string) (Snapshot, error) {
-	return s.startForPolicy(ctx, key, trigger, "")
+	return s.startForPolicy(ctx, key, trigger, "", 0)
 }
-func capturePolicyReplay(prior Snapshot, policyID string) (Snapshot, error) {
-	if policyID != "" && prior.PolicyID != policyID {
+func capturePolicyReplay(prior Snapshot, policyID string, expectedRevision int64) (Snapshot, error) {
+	if policyID != "" && prior.PolicyID != policyID || expectedRevision > 0 && prior.PolicyRevision != expectedRevision {
 		return Snapshot{}, failure(409, "SNAPSHOT_IDEMPOTENCY_CONFLICT", "本次请求已关联其他快照策略，请重新发起")
 	}
 	return prior, nil
 }
-func (s *Service) startForPolicy(ctx context.Context, key, trigger, policyID string) (Snapshot, error) {
+func (s *Service) startForPolicy(ctx context.Context, key, trigger, policyID string, expectedRevision int64) (Snapshot, error) {
+	maintenance := s.controlRequired() && policyID == "" && trigger == "manual"
+	if maintenance {
+		trigger = "maintenance"
+	}
 	var out Snapshot
+	if s.controlRequired() && policyID != "" {
+		if s.policyAuthority == nil {
+			return out, failure(503, "SNAPSHOT_POLICY_CONTROL_UNAVAILABLE", "策略控制面不可用")
+		}
+		if expectedRevision < 1 {
+			return out, failure(428, "SNAPSHOT_POLICY_REVISION_REQUIRED", "请核对并提交快照计划版本")
+		}
+	}
 	if !validID(key) {
 		return out, failure(400, "SNAPSHOT_IDEMPOTENCY_REQUIRED", "请提供 UUID Idempotency-Key")
 	}
 	if prior, found, e := s.findCaptureRequest(key); e != nil {
 		return out, e
 	} else if found {
-		return capturePolicyReplay(prior, policyID)
+		return capturePolicyReplay(prior, policyID, expectedRevision)
 	}
 	if policyID != "" {
-		current, e := s.policyRecord()
+		current, e := s.runtimePolicyRecord(ctx)
 		if e != nil {
 			return out, e
 		}
 		if current.ID == "" {
 			return out, failure(409, "SNAPSHOT_POLICY_REQUIRED", "请先设置系统默认快照策略，再创建快照")
 		}
-		if current.ID != policyID {
+		if current.ID != policyID || expectedRevision > 0 && current.Revision != expectedRevision {
 			return out, failure(409, "SNAPSHOT_POLICY_CHANGED", "系统默认快照策略已变化，请核对当前策略后重新创建")
 		}
 	}
@@ -383,7 +403,7 @@ func (s *Service) startForPolicy(ctx context.Context, key, trigger, policyID str
 		_ = readJSON(s.record("requests", id), &saved)
 		if saved.Hash == hash {
 			unlock()
-			return capturePolicyReplay(v, policyID)
+			return capturePolicyReplay(v, policyID, expectedRevision)
 		}
 		if v.Status == "queued" || v.Status == "capturing" || v.Status == "verifying" {
 			if s.opts.DispatchCapture != nil {
@@ -400,7 +420,10 @@ func (s *Service) startForPolicy(ctx context.Context, key, trigger, policyID str
 			}
 		}
 	}
-	policy, e := s.policyRecord()
+	var policy policyRecord
+	if !maintenance {
+		policy, e = s.runtimePolicyRecord(ctx)
+	}
 	if e != nil {
 		unlock()
 		return out, e
@@ -415,11 +438,41 @@ func (s *Service) startForPolicy(ctx context.Context, key, trigger, policyID str
 		return out, e
 	}
 	out = Snapshot{PolicyID: policy.ID, PolicyName: policy.Name, ID: id, Status: "queued", Phase: "queued", CreatedAt: s.opts.Now(), UpdatedAt: s.opts.Now(), Trigger: trigger, Instance: s.cfg.Instance, Version: s.cfg.Version, Components: []Component{}, TraceID: reqctx.GetTraceID(ctx), Operator: operator(ctx)}
-	if e = s.audit(ctx, "capture", id, "queued"); e != nil {
+	if e = s.audit(ctx, "capture", id, "requested"); e != nil {
 		unlock()
 		return Snapshot{}, e
 	}
-	if e = atomicJSON(s.record("snapshots", id), out); e != nil {
+	entered := false
+	admit := func(p PolicyEntry) error {
+		entered = true
+		out.PolicyID = p.ID
+		out.PolicyName = p.Settings.Name
+		out.PolicyRevision = p.Revision
+		out.PolicyFingerprint = p.Fingerprint
+		deadline := s.opts.Now().Add(45 * time.Minute)
+		out.AdmissionDeadline = &deadline
+		return atomicJSON(s.record("snapshots", id), out)
+	}
+	if s.controlRequired() && !maintenance {
+		if s.policyAuthority == nil {
+			e = failure(503, "SNAPSHOT_POLICY_CONTROL_UNAVAILABLE", "策略控制面不可用")
+		} else {
+			e = s.policyAuthority.Guard(ctx, policy.ID, policy.Revision, trigger, admit)
+		}
+	} else {
+		e = atomicJSON(s.record("snapshots", id), out)
+	}
+	if e != nil {
+		if entered {
+			out.Status = "admission_unconfirmed"
+			out.Phase = "admission_unconfirmed"
+			out.ErrorCode = "SNAPSHOT_ADMISSION_UNCONFIRMED"
+			out.Error = e.Error()
+			_ = atomicJSON(s.record("snapshots", id), out)
+		} else {
+			_ = os.Remove(s.record("requests", id))
+			_ = os.Remove(s.data(id))
+		}
 		unlock()
 		return Snapshot{}, e
 	}
@@ -464,7 +517,7 @@ func (s *Service) startForPolicy(ctx context.Context, key, trigger, policyID str
 		_ = atomicJSON(s.record("snapshots", j.ID), j)
 		s.finishAudit(ctx, "capture", j.ID, j.Status)
 		if e == nil {
-			_ = s.cleanup(run)
+			s.finishCaptureCleanup(run, &j)
 		}
 	}(out)
 	return out, nil
@@ -478,7 +531,7 @@ func (s *Service) Tick(ctx context.Context) error {
 		return e
 	}
 	defer scheduleUnlock()
-	record, e := s.policyRecord()
+	record, e := s.runtimePolicyRecord(ctx)
 	p := record.Policy
 	if e != nil || !p.Enabled {
 		return e
@@ -503,16 +556,18 @@ func (s *Service) Tick(ctx context.Context) error {
 	if !latest.IsZero() && s.opts.Now().Sub(latest) < time.Duration(p.IntervalMinutes)*time.Minute {
 		return nil
 	}
-	policyUnlock, e := lockFile(filepath.Join(s.cfg.Directory, "locks", "policy.lock"))
+	if !s.controlRequired() {
+		policyUnlock, err := lockFile(filepath.Join(s.cfg.Directory, "locks", "policy.lock"))
+		if err != nil {
+			return err
+		}
+		defer policyUnlock()
+	}
+	current, e := s.runtimePolicyRecord(ctx)
 	if e != nil {
 		return e
 	}
-	defer policyUnlock()
-	current, e := s.policyRecord()
-	if e != nil {
-		return e
-	}
-	if current.ID != record.ID || current.Policy != record.Policy || !current.Anchor.Equal(record.Anchor) {
+	if current.ID != record.ID || current.Revision != record.Revision || current.Policy != record.Policy || !current.Anchor.Equal(record.Anchor) {
 		return nil
 	}
 	_, e = s.start(ctx, uuid.NewString(), "scheduled")
@@ -568,6 +623,9 @@ func (s *Service) Protect(ctx context.Context, id string, value bool) (Snapshot,
 	return j, atomicJSON(s.record("snapshots", id), j)
 }
 func (s *Service) cleanup(ctx context.Context) error {
+	if s.controlRequired() {
+		return failure(428, "SNAPSHOT_RETENTION_CAPTURE_REQUIRED", "受控清理需要已准入的快照版本")
+	}
 	policyUnlock, e := lockFile(filepath.Join(s.cfg.Directory, "locks", "policy.lock"))
 	if e != nil {
 		return e

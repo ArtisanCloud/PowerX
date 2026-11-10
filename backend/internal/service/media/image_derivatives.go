@@ -15,16 +15,37 @@ import (
 	"gorm.io/gorm"
 )
 
-const ImageDerivativeRecipe = "standard-image-v1"
+const ImageDerivativeRecipe = "standard-image-v2"
+const legacyImageDerivativeRecipe = "standard-image-v1"
+const Thumbnail64MaxBytes = 32 << 10
+
+type imageProfile struct {
+	Name string
+	Edge int
+}
+
+func recipeProfiles(recipe string) []imageProfile {
+	if recipe == legacyImageDerivativeRecipe {
+		return imageProfiles[:2]
+	}
+	if recipe == ImageDerivativeRecipe {
+		return imageProfiles
+	}
+	return nil
+}
+
+func recipeSubscriber(recipe string) string {
+	if recipe == legacyImageDerivativeRecipe {
+		return legacyDerivativeSubscriber
+	}
+	return derivativeSubscriber
+}
 
 func ImageDerivativeEventChannel(tenant, asset string) string {
 	return "powerx:media:derivatives:" + tenant + ":" + asset
 }
 
-var imageProfiles = []struct {
-	Name string
-	Edge int
-}{{"preview", 1600}, {"thumbnail", 320}}
+var imageProfiles = []imageProfile{{"preview", 1600}, {"thumbnail", 320}, {"thumbnail_64", 64}}
 
 type derivativeRepository interface {
 	WithAsset(context.Context, string, string, func(*r.DerivativeState) error) error
@@ -69,20 +90,62 @@ type ImageDerivativeItem struct {
 	Variant     string `json:"variant"`
 	Status      string `json:"status"`
 	VariantUUID string `json:"variant_uuid,omitempty"`
+	ErrorCode   string `json:"error_code,omitempty"`
+	Retryable   bool   `json:"retryable,omitempty"`
 }
 
 func imageMIME(mime string) bool { return strings.HasPrefix(normalizeUploadMIME(mime), "image/") }
 func supportedImageMIME(mime string) bool {
 	switch normalizeUploadMIME(mime) {
-	case "image/jpeg", "image/png", "image/gif":
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
 		return true
 	}
 	return false
 }
+
+// variantRecordUsable is a read-only projection. Object existence is checked by
+// ensure/worker, never by a status GET. Missing objects discovered there remain
+// unavailable until an accepted result clears ref.Missing.
+func variantRecordUsable(a *m.MediaAsset, v *m.MediaAssetVariant) bool {
+	if v.UploadState != m.UploadStateReady || !imageMIME(v.MimeType) || v.UUID == uuid.Nil || v.SizeBytes <= 0 {
+		return false
+	}
+	meta := extractMeta(v.Meta)
+	if stringFromMeta(meta, "generator") == "powerx-media" {
+		compatible := false
+		edge := 0
+		for _, p := range recipeProfiles(stringFromMeta(meta, "recipe")) {
+			if p.Name == v.Variant {
+				compatible = true
+				edge = p.Edge
+				break
+			}
+		}
+		w, _ := meta["width"].(float64)
+		h, _ := meta["height"].(float64)
+		if a.ExpectedChecksum == "" || !compatible || w < 1 || h < 1 || w > float64(edge) || h > float64(edge) || v.SizeBytes < 1 || stringFromMeta(meta, "source_checksum") != a.ExpectedChecksum {
+			return false
+		}
+	}
+	if v.Variant == "thumbnail_64" {
+		w, _ := meta["width"].(float64)
+		h, _ := meta["height"].(float64)
+		if w < 1 || h < 1 || w > 64 || h > 64 || v.SizeBytes < 1 || v.SizeBytes > Thumbnail64MaxBytes ||
+			(normalizeUploadMIME(v.MimeType) != "image/png" && normalizeUploadMIME(v.MimeType) != "image/jpeg") ||
+			stringFromMeta(meta, "source_checksum") != a.ExpectedChecksum {
+			return false
+		}
+		if stringFromMeta(meta, "generator") != "powerx-media" && meta["validated_profile"] != "thumbnail_64" {
+			return false
+		}
+	}
+	return true
+}
+
 func derivativeView(st *r.DerivativeState, history *ef.TaskHistory) *ImageDerivatives {
 	a := st.Asset
 	ref := derivativeRef(a)
-	out := &ImageDerivatives{AssetUUID: a.UUID.String(), UploadState: a.UploadState, Status: "not_requested", Recipe: ImageDerivativeRecipe, JobUUID: ref.TaskID, Items: make([]ImageDerivativeItem, 0, 2)}
+	out := &ImageDerivatives{AssetUUID: a.UUID.String(), UploadState: a.UploadState, Status: "not_requested", Recipe: ImageDerivativeRecipe, JobUUID: ref.TaskID, Items: make([]ImageDerivativeItem, 0, len(imageProfiles))}
 	if history != nil {
 		out.Attempts = history.Attempt
 		out.ErrorCode = history.ErrorMessage
@@ -91,8 +154,6 @@ func derivativeView(st *r.DerivativeState, history *ef.TaskHistory) *ImageDeriva
 			out.Status = "queued"
 		case ef.TaskHistoryStatusRunning:
 			out.Status = "processing"
-		case ef.TaskHistoryStatusCompleted:
-			out.Status = "ready"
 		case ef.TaskHistoryStatusFailed, ef.TaskHistoryStatusCancelled:
 			out.Status = "failed"
 		}
@@ -107,26 +168,42 @@ func derivativeView(st *r.DerivativeState, history *ef.TaskHistory) *ImageDeriva
 	if !supportedImageMIME(a.MimeType) || stringFromMeta(extractMeta(a.Meta), "upload_method") == string(UploadMethodExternalLink) {
 		out.Status = "unsupported"
 	}
+	allReady := true
 	for _, p := range imageProfiles {
 		item := ImageDerivativeItem{Variant: p.Name, Status: out.Status}
-		for _, v := range st.Variants {
-			if v.Variant == p.Name && v.UploadState == m.UploadStateReady {
-				item.Status = "ready"
-				item.VariantUUID = v.UUID.String()
+		// A completed legacy recipe has not requested the new profile.
+		if ref.Recipe == legacyImageDerivativeRecipe && p.Name == "thumbnail_64" {
+			item.Status = "not_requested"
+		}
+		missing := false
+		for _, name := range ref.Missing {
+			if name == p.Name {
+				missing = true
 			}
 		}
-		for _, missing := range ref.Missing {
-			if missing == p.Name && out.Status != "ready" {
-				item.Status = out.Status
-				item.VariantUUID = ""
+		for _, v := range st.Variants {
+			acceptedAfterRequest := history != nil && history.SubmittedAt != nil && v.CompletedAt != nil && !v.CompletedAt.Before(*history.SubmittedAt)
+			if v.Variant == p.Name && (!missing || acceptedAfterRequest) && variantRecordUsable(a, v) {
+				item.Status, item.VariantUUID = "ready", v.UUID.String()
+				break
 			}
+		}
+		if item.Status != "ready" {
+			allReady = false
+			item.ErrorCode, item.Retryable = out.ErrorCode, out.Retryable
 		}
 		out.Items = append(out.Items, item)
 	}
-	if len(ref.Missing) == 0 && out.Items[0].Status == "ready" && out.Items[1].Status == "ready" {
-		out.Status = "ready"
-		out.ErrorCode = ""
-		out.Retryable = false
+	if !allReady && history != nil && history.Status == ef.TaskHistoryStatusCompleted && ref.Recipe == ImageDerivativeRecipe && out.Status == "not_requested" {
+		out.Status, out.ErrorCode, out.Retryable = "unavailable", "MEDIA_DERIVATIVE_RESULT_INCOMPLETE", true
+		for i := range out.Items {
+			if out.Items[i].Status != "ready" {
+				out.Items[i].Status, out.Items[i].ErrorCode, out.Items[i].Retryable = out.Status, out.ErrorCode, true
+			}
+		}
+	}
+	if allReady && out.Status != "waiting_upload" && out.Status != "unsupported" {
+		out.Status, out.ErrorCode, out.Retryable = "ready", "", false
 	}
 	return out
 }
@@ -138,7 +215,7 @@ func (s *MediaService) derivativeHistory(ctx context.Context, st *r.DerivativeSt
 	if s.derivativeQueue == nil {
 		return nil, MediaUpstreamDependencyError(errors.New("TaskBus unavailable"))
 	}
-	return s.derivativeQueue.StatusWithTx(ctx, st.Tx, st.Asset.TenantUUID, derivativeSubscriber, ref.TaskID)
+	return s.derivativeQueue.StatusWithTx(ctx, st.Tx, st.Asset.TenantUUID, recipeSubscriber(ref.Recipe), ref.TaskID)
 }
 func (s *MediaService) ImageDerivativeStatus(ctx context.Context, tenant, asset string) (*ImageDerivatives, error) {
 	if s.derivatives == nil {
@@ -161,6 +238,10 @@ func (s *MediaService) ImageDerivativeStatus(ctx context.Context, tenant, asset 
 
 // EnsureImageDerivatives 业务检查与共享任务登记同事务；投递、恢复、重试归 TaskBus。
 func (s *MediaService) EnsureImageDerivatives(ctx context.Context, tenant, asset string, retryFailed bool) (*ImageDerivatives, error) {
+	return s.ensureImageDerivatives(ctx, tenant, asset, retryFailed, nil)
+}
+
+func (s *MediaService) ensureImageDerivatives(ctx context.Context, tenant, asset string, retryFailed bool, expected *ImageDerivativeBackfillExpectation) (*ImageDerivatives, error) {
 	if s.derivatives == nil || s.manager == nil || s.derivativeQueue == nil {
 		return nil, MediaUpstreamDependencyError(errors.New("media TaskBus unavailable"))
 	}
@@ -181,7 +262,25 @@ func (s *MediaService) EnsureImageDerivatives(ctx context.Context, tenant, asset
 			out.Status = "waiting_source"
 			out.ErrorCode = "MEDIA_IMAGE_SOURCE_UNAVAILABLE"
 			out.Retryable = true
+			for i := range out.Items {
+				if out.Items[i].Status != "ready" {
+					out.Items[i].Status, out.Items[i].ErrorCode, out.Items[i].Retryable = out.Status, out.ErrorCode, true
+				}
+			}
 			return nil
+		}
+		if a.ExpectedChecksum == "" {
+			checksum, e := s.storedImageChecksum(ctx, a)
+			if e != nil {
+				return e
+			}
+			a.ExpectedChecksum = checksum
+			meta := extractMeta(a.Meta)
+			meta["content_sha256"] = checksum
+			a.Meta, _ = json.Marshal(meta)
+		}
+		if expected != nil && (expected.TenantUUID != a.TenantUUID || expected.SourceChecksum != a.ExpectedChecksum) {
+			return errBackfillPlanChanged
 		}
 		missing := []string{}
 		for _, p := range imageProfiles {
@@ -205,6 +304,11 @@ func (s *MediaService) EnsureImageDerivatives(ctx context.Context, tenant, asset
 			out.Status = "ready"
 			return nil
 		}
+		// Recheck under the parent lock: a disappeared preview after scan must not
+		// silently expand a reviewed thumbnail-only plan into a full regeneration.
+		if expected != nil && !expected.allows(missing) {
+			return errBackfillPlanChanged
+		}
 		if history != nil && ref.Recipe == ImageDerivativeRecipe && ref.SourceChecksum == a.ExpectedChecksum {
 			if history.Status == ef.TaskHistoryStatusPending || history.Status == ef.TaskHistoryStatusDeferred || history.Status == ef.TaskHistoryStatusRunning {
 				var msg event_bus.TaskMessage
@@ -218,17 +322,11 @@ func (s *MediaService) EnsureImageDerivatives(ctx context.Context, tenant, asset
 				return nil
 			}
 		}
-		ref = derivativeReference{TaskID: uuid.NewString(), Recipe: ImageDerivativeRecipe, SourceChecksum: a.ExpectedChecksum, Missing: missing}
-		task := derivativeTask{Tenant: tenant, Asset: asset, TaskID: ref.TaskID, Recipe: ref.Recipe, SourceChecksum: ref.SourceChecksum}
-		raw, _ := json.Marshal(task)
-		msg := event_bus.TaskMessage{ID: ref.TaskID, TenantKey: derivativeQueueTenant, SubscriberID: derivativeSubscriber, Topic: ImageDerivativeChangedTopic, Payload: raw, Metadata: map[string]string{"taskbus_record_tenant": tenant, "kind": "media_image_derivatives"}}
-		if e := s.derivativeQueue.Register(ctx, st.Tx, msg); e != nil {
+		scheduled, e = s.registerDerivativeTask(ctx, st, ImageDerivativeRecipe, missing)
+		if e != nil {
 			return e
 		}
-		setDerivativeRef(a, ref)
-		scheduled = &msg
-		out = derivativeView(st, nil)
-		out.Status = "queued"
+		out = derivativeView(st, &ef.TaskHistory{Status: ef.TaskHistoryStatusPending})
 		return nil
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -252,12 +350,24 @@ func (s *MediaService) EnsureImageDerivatives(ctx context.Context, tenant, asset
 	return out, nil
 }
 
-func (s *MediaService) usableImageVariant(ctx context.Context, a *m.MediaAsset, v *m.MediaAssetVariant) (bool, error) {
-	if v.UploadState != m.UploadStateReady || !imageMIME(v.MimeType) {
-		return false, nil
+// registerDerivativeTask participates in the parent's existing transaction.
+// Legacy completion uses it to persist its v2 successor atomically, so a crash
+// between task completion and Redis enqueue cannot lose the required new work.
+func (s *MediaService) registerDerivativeTask(ctx context.Context, st *r.DerivativeState, recipe string, missing []string) (*event_bus.TaskMessage, error) {
+	a := st.Asset
+	ref := derivativeReference{TaskID: uuid.NewString(), Recipe: recipe, SourceChecksum: a.ExpectedChecksum, Missing: missing}
+	task := derivativeTask{Tenant: a.TenantUUID, Asset: a.UUID.String(), TaskID: ref.TaskID, Recipe: recipe, SourceChecksum: ref.SourceChecksum}
+	raw, _ := json.Marshal(task)
+	msg := event_bus.TaskMessage{ID: ref.TaskID, TenantKey: derivativeQueueTenant, SubscriberID: recipeSubscriber(recipe), Topic: ImageDerivativeChangedTopic, Payload: raw, Metadata: map[string]string{"taskbus_record_tenant": a.TenantUUID, "kind": "media_image_derivatives"}}
+	if err := s.derivativeQueue.Register(ctx, st.Tx, msg); err != nil {
+		return nil, err
 	}
-	meta := extractMeta(v.Meta)
-	if stringFromMeta(meta, "generator") == "powerx-media" && (stringFromMeta(meta, "recipe") != ImageDerivativeRecipe || stringFromMeta(meta, "source_checksum") != a.ExpectedChecksum) {
+	setDerivativeRef(a, ref)
+	return &msg, nil
+}
+
+func (s *MediaService) usableImageVariant(ctx context.Context, a *m.MediaAsset, v *m.MediaAssetVariant) (bool, error) {
+	if !variantRecordUsable(a, v) {
 		return false, nil
 	}
 	stat, err := s.manager.Stat(ctx, v.Driver, driver.StatObjectInput{Bucket: v.Bucket, ObjectKey: v.StorageKey})
@@ -303,6 +413,11 @@ func (s *MediaService) withImageDerivatives(ctx context.Context, a *Asset, ensur
 	if err != nil {
 		state = &ImageDerivatives{AssetUUID: a.UUID, UploadState: a.UploadState, Status: "unavailable", Recipe: ImageDerivativeRecipe, ErrorCode: "MEDIA_DERIVATIVE_DEPENDENCY_UNAVAILABLE", Retryable: true, Items: []ImageDerivativeItem{}}
 	}
+	if len(state.Items) == 0 && state.Status == "unavailable" {
+		for _, p := range imageProfiles {
+			state.Items = append(state.Items, ImageDerivativeItem{Variant: p.Name, Status: "unavailable", ErrorCode: state.ErrorCode, Retryable: true})
+		}
+	}
 	a.Derivatives = state
 	return a
 }
@@ -321,4 +436,12 @@ func (s *MediaService) publishDerivative(ctx context.Context, tenant, asset stri
 // SetDerivativeEvents 提供状态失效通知；消费方收到事件后按已鉴权接口读取状态。
 func (s *MediaService) SetDerivativeEvents(changed func(context.Context, string, string)) {
 	s.derivativeChanged = changed
+}
+
+// SetDerivativeEventNamespace must match TaskBus's stable deployment namespace.
+func (s *MediaService) SetDerivativeEventNamespace(namespace string) {
+	s.derivativeEventNamespace = strings.TrimSpace(namespace)
+}
+func (s *MediaService) DerivativeEventChannel(tenant, asset string) string {
+	return event_bus.NamespacedTaskKey(s.derivativeEventNamespace, ImageDerivativeEventChannel(tenant, asset))
 }

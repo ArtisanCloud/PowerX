@@ -1,0 +1,136 @@
+{
+  "date": "2026-11-08",
+  "scope": "Core Runtime Host Redis dependency assembly",
+  "status": "source_validated_waiting_for_user_runtime_restart",
+  "root_cause": {
+    "integration_gateway_redis_configured": false,
+    "old_assembly": "Runtime Host used optional IntegrationGatewayDeps.RedisClient instead of the configured Core cache client",
+    "observed_error": "REALTIME_UNAVAILABLE",
+    "latest_readonly_audit": {
+      "at": "2026-11-08T13:59:02.446558+08:00",
+      "status": "failed",
+      "summary": "REALTIME_UNAVAILABLE",
+      "trace_id": "bdeef615-3a88-41e4-9b52-8668b59d0678"
+    }
+  },
+  "change": {
+    "source": "cache.InitCache configured Core Redis client",
+    "injection": "DepsOptions.RuntimeHostRedis",
+    "namespace": "existing tenant/service subject/namespace/environment keys preserved",
+    "ownership": "Core cache provider owns client lifecycle",
+    "unavailable": "no implicit local store or guessed connection",
+    "database_migration_required": false,
+    "grant_or_key_change_required": false,
+    "plugin_source_modified": false
+  },
+  "validation": {
+    "go_race": {
+      "command": "GOWORK=off go test -json -race ./pkg/cache ./internal/bootstrap ./internal/app/shared ./internal/service/runtime_host ./internal/infra/cache/runtime_host",
+      "counts_including_parent_and_subtests": {
+        "pass": 113,
+        "skip": 10
+      },
+      "packages": [
+        {
+          "package": "github.com/ArtisanCloud/PowerX/pkg/cache",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/infra/cache/runtime_host",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/app/shared",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/service/runtime_host",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/ArtisanCloud/PowerX/internal/bootstrap",
+          "result": "pass"
+        }
+      ],
+      "skipped": [
+        "TestRealtimeOwnedRedisRetentionCursorAndScope",
+        "TestRealRedisAtomicExpiry",
+        "TestLivePluginRequestIdentity",
+        "TestCacheFrameworkBridgeFixture",
+        "TestRealtimeFrameworkBridgeFixture",
+        "TestStorageLocalConfiguredAcceptance",
+        "TestStorageLocalInventoryReadOnlyAcceptance",
+        "TestStorageLocalRuntimePreparedReadOnlyAcceptance",
+        "TestStorageNativeLocalObservationAcceptance",
+        "TestNativeSystemSnapshotBootstrapWithRelativeMediaDirectory"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/powerx-runtime-redis-tests.jsonl"
+    },
+    "new_bootstrap_tests": [
+      "configured main cache without gateway Redis; nondefault Redis DB; initial cursor, publish and read; ordinary cache preservation; environment isolation",
+      "missing, typed-nil and nil native client remain unavailable"
+    ],
+    "build": {
+      "command": "GOWORK=off go build -o /tmp/powerx-runtime-redis-core ./cmd/app",
+      "exit_code": 0,
+      "artifact": "/tmp/powerx-runtime-redis-core",
+      "sha256": "b0842553469c7f879a14da97b33c398631649fb174a5c11a8bfee3ba366f7e03"
+    },
+    "vet_exit": 0,
+    "scoped_diff_check_exit": 0
+  },
+  "files": [
+    {
+      "path": "backend/pkg/cache/redis.go",
+      "sha256": "4f60875d127ea6301fd04da6654cf1e7cb2b2356d7310b0ae9729432398d546d",
+      "before_sha256": "150c39892cb459b8253ba660968d0aff209504f5e3fb37dc10e99db338d946dc"
+    },
+    {
+      "path": "backend/internal/app/shared/options.go",
+      "sha256": "0a7a31f561b1d46960602aaa77713159ac000931ddde86e1e29185b87b6ff35b",
+      "before_sha256": "4522ddcdbf8d56691b366b165245a1db49caf0be6794eecb53a572dfab2cc302"
+    },
+    {
+      "path": "backend/internal/app/shared/deps.go",
+      "sha256": "8c48bacdd10234c8e0c61755a60caa736e02082091ee2dc3fcb224c8b59a8d4a",
+      "before_sha256": "ee0d4506fd232162ad89ea5ae5c0498f8fc76a648f96e47b7eeffac1f8d40ec4"
+    },
+    {
+      "path": "backend/internal/bootstrap/app.go",
+      "sha256": "f5cc25511746cf48148b8396cf94f607d1b25b144b2a814613f87cffe5adb4b2",
+      "before_sha256": "81645cc08254256da682207abe4f30c98f4171ea9b8cd2865030347026dc6d22"
+    },
+    {
+      "path": "backend/internal/bootstrap/runtime_host_redis.go",
+      "sha256": "0c886ec413ffedac0ba92694cd0ad4248710ec2f7a69ca850ad1af5834dfd6ef",
+      "before_sha256": null
+    },
+    {
+      "path": "backend/internal/bootstrap/runtime_host_redis_test.go",
+      "sha256": "46596da184b90f8582b0c67b34b1d9da2c96a91939bba4445520c743cc407ab1",
+      "before_sha256": null
+    },
+    {
+      "path": "docs/contracts/runtime-host-redis-assembly.md",
+      "sha256": "a2707a85fa8d036afd657a76bf69933749f277b3eb6407e20b06e8f9c4184cdf",
+      "before_sha256": null
+    }
+  ],
+  "live_boundaries": {
+    "daily_process_restarted_by_agent": false,
+    "database_modified_this_followup": false,
+    "cache_configuration_or_credentials_changed": false,
+    "grant_or_profile_changed": false,
+    "business_retry_or_generation_performed": false,
+    "deployed_subscription_ack_validated": false,
+    "continuous_browser_subscription_validated": false,
+    "existing_chrome_profile_left_untouched": true
+  },
+  "pending": [
+    "User recompiles and restarts Core under AGENTS.md daily-process ownership rules",
+    "Recheck the original plugin identity: cursor success and nonempty WSBUS_SUBSCRIBED ACK",
+    "Verify sustained subscription/reconnection and real business event delivery with AI Craft"
+  ],
+  "handoff": "docs/contracts/runtime-host-redis-assembly.md"
+}

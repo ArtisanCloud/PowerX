@@ -1,0 +1,30 @@
+id: com.powerx.plugins.scrm.template.update
+type: API
+version: 1.0.0
+description: "更新模板内容的原子能力，覆盖名称/描述/正文。"
+rbac:
+  resource: template
+  actions: [update]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.update.v1
+    path: schema/input/com.powerx.plugins.scrm.template.update.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.update.v1
+    path: schema/output/com.powerx.plugins.scrm.template.update.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    rest:
+      method: PUT
+      path: /api/v1/templates/{id}
+      description: "PowerX Gateway 统一鉴权后的 REST 更新入口"
+    grpc:
+      service: powerx.template.TemplateService
+      method: UpdateTemplate
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.update
+      scope: agent.template.update
+      transport: http
+      endpoint: /api/v1/templates/{id}

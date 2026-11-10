@@ -1,0 +1,34 @@
+{
+  "contract_revision": "1.1",
+  "feature": "powerx.deployment-fingerprint/v1",
+  "registration_protocol": "powerx.instance-registration/v1",
+  "build_schema": "powerx.build-fingerprint/v1",
+  "proof_schema": "powerx.instance-proof/v1",
+  "digest_prefix": "powerx.build-fingerprint/v1\n",
+  "max_challenges": 4,
+  "max_active_site_urls": 1,
+  "max_challenge_ttl_ms": 600000,
+  "safety_margin_ms": 1000,
+  "capability_cache_ms": 600000,
+  "retry_backoff_ms": [
+    5000,
+    300000
+  ],
+  "probe_budget_ms": 15000,
+  "request_budget_ms": 5000,
+  "max_html_bytes": 524288,
+  "max_manifest_bytes": 262144,
+  "max_asset_bytes": 2097152,
+  "max_assets": 4,
+  "max_total_asset_bytes": 8388608,
+  "max_proof_bytes": 16384,
+  "default_allowed_ports": [
+    80,
+    443
+  ],
+  "probe_concurrency": {
+    "global": 4,
+    "per_admin": 2,
+    "per_site": 1
+  }
+}

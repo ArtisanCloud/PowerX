@@ -1,0 +1,27 @@
+id: com.powerx.plugins.scrm.template.quality_distribute
+type: Tool
+version: 1.0.0
+description: "模板巡检 + 批量克隆分发的复合 Workflow，供 Agent 快速使用。"
+rbac:
+  resource: template
+  actions: [read]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.quality_distribute.v1
+    path: schema/input/com.powerx.plugins.scrm.template.quality_distribute.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.quality_distribute.v1
+    path: schema/output/com.powerx.plugins.scrm.template.quality_distribute.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    workflow:
+      template: contracts/exposure/workflow/template-quality-distribute.json
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.quality_distribute
+      scope: agent.template.quality_distribute
+      transport: workflow
+      endpoint: contracts/exposure/workflow/template-quality-distribute.json
+    agent_stream:
+      channel: contracts/exposure/agent-streams/template-quality-distribute.yaml

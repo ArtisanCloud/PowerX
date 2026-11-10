@@ -10,6 +10,7 @@ import (
 	sm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	tm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
@@ -58,6 +59,21 @@ func TestStartupInitializesTrackingButReadOnlyRecoveryDoesNot(t *testing.T) {
 	var repeated im.AuthorizationTracking
 	require.NoError(t, db.Where("tenant_uuid=?", tenant.UUID.String()).Take(&repeated).Error)
 	require.Equal(t, track, repeated)
+	var root im.Role
+	var permission im.Permission
+	require.NoError(t, db.Where("scope=? AND code=?", "system", "root").Take(&root).Error)
+	require.NoError(t, db.First(&permission).Error)
+	// 注入历史冲突后启动继续，旧关系仍原样保留且只读诊断明确报错。
+	pool, err := db.DB()
+	require.NoError(t, err)
+	stale := uuid.New()
+	_, err = pool.Exec("UPDATE "+(&im.RolePermission{}).TableName()+" SET role_uuid=? WHERE role_id=? AND permission_id=?", stale, root.ID, permission.ID)
+	require.NoError(t, err)
+	require.NoError(t, initializeAuthorizationBaselines(context.Background(), cfg, db))
+	require.ErrorIs(t, rootrole.CheckCatalog(db), rootrole.ErrCatalogInconsistent)
+	var link im.RolePermission
+	require.NoError(t, db.Where("role_id=? AND permission_id=?", root.ID, permission.ID).Take(&link).Error)
+	require.Equal(t, stale, link.RoleUUID)
 	require.NoError(t, db.Migrator().DropTable(&im.AuthorizationSegment{}))
 	require.ErrorIs(t, initializeAuthorizationBaselines(context.Background(), cfg, db), ErrBootstrapDependencyUnavailable)
 }

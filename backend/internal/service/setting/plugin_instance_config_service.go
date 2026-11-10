@@ -189,6 +189,16 @@ func (s *PluginInstanceConfigService) VerifyClient(
 	tenantUUID string,
 	pluginID, clientID, clientSecret, wantAudience, wantScope, wantActorKind string,
 ) error {
+	return s.verifyClient(ctx, tenantUUID, pluginID, clientID, clientSecret, wantAudience, wantScope, wantActorKind, true)
+}
+
+// ValidateStoredClientCredential validates credential material for the trusted
+// lifecycle recovery path. It does not authorize STS exchange or tenant access.
+func (s *PluginInstanceConfigService) ValidateStoredClientCredential(ctx context.Context, tenantUUID, pluginID, clientID, clientSecret, wantAudience, wantScope, wantActorKind string) error {
+	return s.verifyClient(ctx, tenantUUID, pluginID, clientID, clientSecret, wantAudience, wantScope, wantActorKind, false)
+}
+
+func (s *PluginInstanceConfigService) verifyClient(ctx context.Context, tenantUUID, pluginID, clientID, clientSecret, wantAudience, wantScope, wantActorKind string, requireEnabled bool) error {
 	if strings.TrimSpace(clientID) == "" || strings.TrimSpace(clientSecret) == "" {
 		return errors.New("missing client credentials")
 	}
@@ -196,7 +206,7 @@ func (s *PluginInstanceConfigService) VerifyClient(
 	if err != nil {
 		return err
 	}
-	if cfg == nil || !cfg.Enabled {
+	if cfg == nil || (requireEnabled && !cfg.Enabled) {
 		return errors.New("plugin disabled or credentials not found")
 	}
 

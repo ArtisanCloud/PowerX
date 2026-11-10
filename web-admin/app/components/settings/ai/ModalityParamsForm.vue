@@ -2,6 +2,12 @@
   <div class="space-y-4">
     <!-- LLM 参数 -->
     <div v-if="activeModality === 'llm'" class="space-y-4">
+      <ModelParameterInfo :profile="parameterProfile" />
+      <UButton type="button" variant="ghost" size="xs" data-testid="ai-use-model-defaults" @click="$emit('resetModelParameters')">{{ $t('settings.ai.parameters.useDefaults') }}</UButton>
+      <UFormField v-if="parameterProfile?.reasoning_efforts?.length" :label="$t('settings.ai.vision.reasoningEffort')">
+        <USelect v-model="llm.reasoningEffort" :items="parameterProfile.reasoning_efforts" class="w-full" data-testid="llm-reasoning" />
+      </UFormField>
+      <p v-if="!canSample('temperature') || !canSample('top_p')" class="text-xs text-muted" role="status">{{ $t('settings.ai.parameters.samplingUnavailable') }}</p>
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label
@@ -11,6 +17,8 @@
           </label>
           <USlider
             v-model="llm.temperature"
+            :disabled="!canSample('temperature')"
+            data-testid="llm-temperature"
             :min="0"
             :max="2"
             :step="0.1"
@@ -28,11 +36,13 @@
           </label>
           <UInput
             v-model="llm.maxTokens"
+            data-testid="llm-max-tokens"
             type="number"
             :min="1"
-            :max="32000"
+            :max="parameterProfile?.max_output_tokens"
             placeholder="4096"
           />
+          <p class="text-xs text-muted mt-1">{{ $t('settings.ai.parameters.budgetHint') }}</p>
         </div>
       </div>
       <div class="grid grid-cols-2 gap-4">
@@ -44,6 +54,8 @@
           </label>
           <USlider
             v-model="llm.topP"
+            :disabled="!canSample('top_p')"
+            data-testid="llm-top-p"
             :min="0"
             :max="1"
             :step="0.01"
@@ -76,53 +88,72 @@
     </div>
 
     <!-- 图像生成参数 -->
-    <div v-else-if="activeModality === 'image'" class="space-y-4">
-      <div class="grid grid-cols-2 gap-4">
+    <div v-else-if="activeModality === 'vlm' && vlm" class="space-y-4" data-testid="vlm-parameters">
+      <p class="text-sm text-muted">{{ $t('settings.ai.vision.hint') }}</p>
+      <UFormField :label="$t('settings.ai.vision.maxTokens')">
+        <UInput v-model.number="vlm.maxTokens" type="number" :min="1" :max="128000" data-testid="vlm-max-tokens" />
+      </UFormField>
+      <ModelParameterInfo v-if="parameterProfile" :profile="parameterProfile" />
+      <UFormField v-if="visionReasoningOptions.length" :label="$t('settings.ai.vision.reasoningEffort')">
+        <USelect v-model="vlm.reasoningEffort" :items="visionReasoningOptions" class="w-full" data-testid="vlm-reasoning" />
+      </UFormField>
+      <div v-if="visionSamplingAvailable" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <UFormField :label="$t('settings.ai.vision.temperature')"><UInput v-model.number="vlm.temperature" type="number" :min="0" :max="2" :step="0.1" :placeholder="$t('settings.ai.vision.providerDefault')" /></UFormField>
+        <UFormField label="Top P"><UInput v-model.number="vlm.topP" type="number" :min="0" :max="1" :step="0.1" :placeholder="$t('settings.ai.vision.providerDefault')" /></UFormField>
+      </div>
+      <UCheckbox v-model="vlm.jsonMode" :label="$t('settings.ai.vision.jsonMode')" />
+    </div>
+    <div v-else-if="activeModality === 'image'" class="min-w-0 space-y-4" data-testid="image-parameters">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label
             class="block text-sm font-medium text-[var(--text-primary)] mb-2"
           >
-            图像尺寸
+            {{ $t('settings.ai.imageParameters.size') }}
           </label>
           <USelect
             v-model="image.size"
-            :options="imageSizeOptions"
-            placeholder="选择尺寸"
+            :items="imageSizeOptions"
+            class="w-full"
+            :placeholder="$t('settings.ai.imageParameters.sizePlaceholder')"
           />
         </div>
-        <div>
+        <div v-if="!isAgnesProvider(image.provider) && imageQualityOptions.length">
           <label
             class="block text-sm font-medium text-[var(--text-primary)] mb-2"
           >
-            图像质量
+            {{ $t('settings.ai.imageParameters.quality') }}
           </label>
           <USelect
             v-model="image.quality"
-            :options="imageQualityOptions"
-            placeholder="选择质量"
+            :items="imageQualityOptions"
+            class="w-full min-w-0"
+            :placeholder="$t('settings.ai.imageParameters.qualityPlaceholder')"
+            data-testid="image-quality"
           />
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-4">
+      <div v-if="!isAgnesProvider(image.provider)" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label
             class="block text-sm font-medium text-[var(--text-primary)] mb-2"
           >
-            输出格式
+            {{ $t('settings.ai.imageParameters.format') }}
           </label>
           <USelect
             v-model="image.format"
-            :options="imageFormatOptions"
-            placeholder="选择格式"
+            :items="imageFormatOptions"
+            class="w-full min-w-0"
+            :placeholder="$t('settings.ai.imageParameters.formatPlaceholder')"
           />
         </div>
         <div>
           <label
             class="block text-sm font-medium text-[var(--text-primary)] mb-2"
           >
-            提示词增强
+            {{ $t('settings.ai.imageParameters.promptHint') }}
           </label>
-          <UInput v-model="image.promptHint" placeholder="可选的提示词前缀" />
+          <UInput v-model="image.promptHint" class="w-full" :placeholder="$t('settings.ai.imageParameters.promptHintPlaceholder')" />
         </div>
       </div>
     </div>
@@ -323,11 +354,12 @@
           </label>
           <USelect
             v-model="video.resolution"
-            :options="videoResolutionOptions"
+            :items="videoResolutionOptions"
+            class="w-full"
             placeholder="选择分辨率"
           />
         </div>
-        <div>
+        <div v-if="!isAgnesProvider(video.provider)">
           <label
             class="block text-sm font-medium text-[var(--text-primary)] mb-2"
           >
@@ -352,12 +384,12 @@
           <UInput
             v-model="video.maxDurationSec"
             type="number"
-            :min="1"
-            :max="60"
+            :min="isAgnesProvider(video.provider) ? 4 : 1"
+            :max="isAgnesProvider(video.provider) ? 12 : 60"
             placeholder="10"
           />
         </div>
-        <div>
+        <div v-if="!isAgnesProvider(video.provider)">
           <label
             class="block text-sm font-medium text-[var(--text-primary)] mb-2"
           >
@@ -437,8 +469,10 @@
 
 <script setup lang="ts">
 import { nextTick, ref } from "vue";
+import { isAgnesProvider } from "~/utils/agnesMediaSettings";
 type Modality =
   | "llm"
+  | "vlm"
   | "image"
   | "embedding"
   | "audio_tts"
@@ -448,8 +482,10 @@ type Modality =
   | "rerank";
 
 interface Props {
+  parameterProfile?: import('~/composables/api/services/aiSettingService').ModelParameterProfile;
   activeModality: Modality;
   llm: any;
+  vlm?: any;
   image: any;
   embedding: any;
   audioTts: any;
@@ -458,7 +494,7 @@ interface Props {
   model3d: any;
   rerank: any;
   imageSizeOptions: string[];
-  imageQualityOptions: string[];
+  imageQualityOptions: Array<string | { label: string; value: string; disabled?: boolean }>;
   imageFormatOptions: string[];
   truncateOptions: string[];
   videoResolutionOptions: string[];
@@ -470,7 +506,16 @@ interface Props {
   topKOptions: number[];
 }
 
-defineProps<Props>();
+import ModelParameterInfo from './ModelParameterInfo.vue';
+import { computed } from 'vue';
+import { modelSupportsParameter } from '~/utils/ai-model-parameters';
+const props = defineProps<Props>();
+defineEmits<{ (e: 'resetModelParameters'): void }>();
+const canSample = (field: string) => modelSupportsParameter(props.parameterProfile, field, props.llm.reasoningEffort);
+const visionReasoningOptions = computed(() => props.parameterProfile?.reasoning_efforts || (props.vlm?.provider === 'openai' && props.vlm?.model === 'gpt-6-luna' ? ['none', 'low', 'medium', 'high', 'xhigh', 'max'] : []));
+const visionSamplingAvailable = computed(() => props.parameterProfile
+  ? modelSupportsParameter(props.parameterProfile, 'temperature', props.vlm?.reasoningEffort)
+  : props.vlm?.provider !== 'openai' || props.vlm?.model !== 'gpt-6-luna' || props.vlm?.reasoningEffort === 'none');
 
 const truncateOpen = ref(false);
 

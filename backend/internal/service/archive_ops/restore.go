@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ func (s *Service) Job(ctx context.Context, id string) (Job, error) {
 		return Job{}, e
 	}
 	j, e := s.readJob(id)
-	return j.Job, e
+	return s.observedJob(j), e
 }
 func (s *Service) Download(ctx context.Context, id string, w io.Writer) error {
 	if e := s.check(ctx); e != nil {
@@ -66,7 +67,8 @@ func (s *Service) Download(ctx context.Context, id string, w io.Writer) error {
 			return e
 		}
 	}
-	raw, e := os.ReadFile(s.path("jobs", id))
+	// 导出公开历史清单，不把本地执行 UUID／请求摘要当作可恢复执行凭据。
+	raw, e := json.MarshalIndent(archiveManifest(j.Job), "", "  ")
 	if e != nil {
 		return e
 	}
@@ -211,6 +213,13 @@ func (s *Service) Protect(ctx context.Context, id string, value bool) (Job, erro
 		return Job{}, failure(409, "ARCHIVE_BUSY", "该策略正在执行")
 	}
 	defer unlock()
+	j, e = s.readJob(id)
+	if e != nil {
+		return Job{}, e
+	}
+	if j.CaptureRetention != nil && !value {
+		return Job{}, failure(409, "ARCHIVE_CAPTURE_RETENTION_PROTECTED", "不完整采集的保留内容不能通过普通操作取消保护")
+	}
 	j.Protected = value
 	if j.RemoteState == "success" && j.Target != nil && j.Target.Driver != "s3" {
 		if _, e = s.remote(ctx, *j.Target, "protect", j.PolicyID, j.ID, map[string]any{"protected": value}); e != nil {
@@ -224,7 +233,7 @@ func (s *Service) Cleanup(ctx context.Context) (int, error) {
 	if e := s.check(ctx); e != nil {
 		return 0, e
 	}
-	ids, e := s.records("policies")
+	ids, e := s.policyIDs(ctx)
 	if e != nil {
 		return 0, e
 	}
@@ -240,6 +249,28 @@ func (s *Service) Cleanup(ctx context.Context) (int, error) {
 	return total, nil
 }
 func (s *Service) cleanup(ctx context.Context, policyID string) (int, error) {
+	if !s.policyControlRequired() {
+		return s.cleanupApproved(ctx, policyID)
+	}
+	p := Policy{}
+	var err error
+	if policyID != "" {
+		p, err = s.policy(ctx, policyID)
+		if err != nil {
+			return 0, err
+		}
+		if !p.Enabled && !p.RemoteCleanupEnabled {
+			return 0, nil
+		}
+	}
+	count := 0
+	err = s.guardPolicyAction(ctx, p, "local-retention", func(run context.Context) error { var e error; count, e = s.cleanupApproved(run, policyID); return e })
+	return count, err
+}
+func (s *Service) cleanupApproved(ctx context.Context, policyID string) (int, error) {
+	if e := s.requireCommandsDrained(false); e != nil {
+		return 0, e
+	}
 	unlock, e := s.lock(ctx, policyID)
 	if e != nil {
 		return 0, nil
@@ -269,7 +300,13 @@ func (s *Service) cleanup(ctx context.Context, policyID string) (int, error) {
 	sort.Slice(rows, func(i, j int) bool { return rows[i].CreatedAt.After(rows[j].CreatedAt) })
 	n := 0
 	for i, j := range rows {
+		if ctx.Err() != nil {
+			return n, ctx.Err()
+		}
 		if i == 0 || j.Protected || (j.Target != nil && j.RemoteState != "success") {
+			continue
+		}
+		if s.policyControlRequired() && j.Target != nil && (j.Target.Revision != p.TargetRevision || j.Target.VerifiedFingerprint != p.TargetFingerprint) {
 			continue
 		}
 		if i < p.RetentionCount && time.Since(j.CreatedAt) < time.Duration(p.RetentionDays)*24*time.Hour {
@@ -288,7 +325,7 @@ func (s *Service) cleanup(ctx context.Context, policyID string) (int, error) {
 		return n, nil
 	}
 	defer gcUnlock()
-	policyIDs, _ := s.records("policies")
+	policyIDs, _ := s.policyIDs(ctx)
 	policyIDs = append(policyIDs, "")
 	locks := []func(){}
 	defer func() {
@@ -313,10 +350,30 @@ func (s *Service) cleanup(ctx context.Context, policyID string) (int, error) {
 		if e != nil {
 			return n, e
 		}
-		if j.Status == "running" {
+		if j.Status == "running" || interruptionPending(j) {
 			return n, nil
 		}
-		if j.Status == "success" {
+		refs, e := retainedReferences(j)
+		if e != nil {
+			return n, e
+		}
+		for _, ref := range refs {
+			used[ref.SHA256] = true
+		}
+		preserve := j.Protected || (j.Status != "pruned" && j.Status != "expired")
+		if policies, ok := ctx.Value(guardedPolicyContext{}).([]Policy); ok && j.PolicyID != "" {
+			active := false
+			for _, policy := range policies {
+				if policy.ID == j.PolicyID {
+					active = policy.Enabled || policy.RemoteCleanupEnabled
+					break
+				}
+			}
+			if !active {
+				preserve = true
+			}
+		}
+		if preserve {
 			for _, f := range j.Files {
 				used[f.SHA256] = true
 			}
@@ -332,6 +389,9 @@ func (s *Service) cleanup(ctx context.Context, policyID string) (int, error) {
 		}
 		files, _ := os.ReadDir(filepath.Join(s.cfg.Directory, "objects", dir.Name()))
 		for _, f := range files {
+			if ctx.Err() != nil {
+				return n, ctx.Err()
+			}
 			if shaPattern.MatchString(f.Name()) && !used[f.Name()] {
 				path := filepath.Join(s.cfg.Directory, "objects", dir.Name(), f.Name())
 				info, e := os.Lstat(path)

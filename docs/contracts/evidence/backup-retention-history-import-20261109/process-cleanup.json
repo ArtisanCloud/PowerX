@@ -1,0 +1,28 @@
+{
+  "owned_pids_exited": [
+    52702,
+    52997,
+    53903,
+    53984,
+    53995,
+    53996,
+    54023,
+    76630
+  ],
+  "http_proxy_ports_released": [
+    62730,
+    62871
+  ],
+  "postgres_socket_port": 55442,
+  "postgres_stopped": true,
+  "owned_schema_count_before_stop": 0,
+  "owned_cluster_removed": true,
+  "credential_file_absent": true,
+  "daily_observation": {
+    "core_pid": 16175,
+    "core_port": 8077,
+    "nuxt_pid": 34360,
+    "nuxt_port": 3030,
+    "not_restarted_or_stopped": true
+  }
+}

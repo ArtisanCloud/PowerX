@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"time"
 
+	redisnamespace "github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
@@ -39,7 +40,7 @@ func (reb *redisEventBus) PublishAcknowledged(eventType string, payload interfac
 	}
 	run, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	n, err := reb.client.Publish(run, fmt.Sprintf("corex:event:%s", eventType), raw).Result()
+	n, err := reb.client.Publish(run, redisnamespace.Key(reb.namespace, fmt.Sprintf("corex:event:%s", eventType)), raw).Result()
 	if err != nil {
 		return out, err
 	}

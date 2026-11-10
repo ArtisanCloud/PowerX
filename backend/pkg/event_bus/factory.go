@@ -17,9 +17,10 @@ type Config struct {
 
 // RedisConfig Redis配置
 type RedisConfig struct {
-	Addr     string `json:"addr"`
-	Password string `json:"password"`
-	DB       int    `json:"db"`
+	Namespace string `json:"namespace,omitempty"`
+	Addr      string `json:"addr"`
+	Password  string `json:"password"`
+	DB        int    `json:"db"`
 }
 
 // NewEventBusWithConfig 根据配置创建事件总线
@@ -41,7 +42,7 @@ func NewEventBusWithConfig(config *Config) (EventBus, error) {
 			DB:       config.Redis.DB,
 		}
 
-		return NewRedisEventBus(opts), nil
+		return NewRedisEventBus(opts, config.Redis.Namespace), nil
 
 	case "local", "":
 		return NewLocalEventBus(), nil

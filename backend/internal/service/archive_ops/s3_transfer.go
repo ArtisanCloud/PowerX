@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/minio/minio-go/v7"
 )
 
@@ -124,10 +125,15 @@ func (s *Service) uploadS3Snapshot(ctx context.Context, j *jobRecord) error {
 			if err != nil {
 				return err
 			}
-			info, e := c.PutObject(ctx, t.Bucket, entry.ArchiveKey, f, entry.Size, minio.PutObjectOptions{ContentType: "application/octet-stream", OnlyIfAbsent: true})
+			var info minio.UploadInfo
+			e := s.guardTransfer(ctx, *j, func(run context.Context) error {
+				var err error
+				info, err = c.PutObject(run, t.Bucket, entry.ArchiveKey, f, entry.Size, minio.PutObjectOptions{ContentType: "application/octet-stream", OnlyIfAbsent: true})
+				return err
+			})
 			f.Close()
 			if e != nil {
-				return errors.New("归档对象写入失败，源文件继续保留")
+				return archiveWriteError(e, "归档对象写入失败，源文件继续保留")
 			}
 			entry.ArchiveVersion = info.VersionID
 			latest[entry.ArchiveKey] = minio.ObjectVersion{VersionID: info.VersionID, Size: entry.Size}
@@ -139,7 +145,7 @@ func (s *Service) uploadS3Snapshot(ctx context.Context, j *jobRecord) error {
 	if err = s.transferAllowed(ctx, *j); err != nil {
 		return err
 	}
-	raw, err := json.Marshal(j.Job)
+	raw, err := json.Marshal(archiveManifest(j.Job))
 	if err != nil {
 		return err
 	}
@@ -147,9 +153,14 @@ func (s *Service) uploadS3Snapshot(ctx context.Context, j *jobRecord) error {
 		return errors.New("归档清单过大")
 	}
 	j.RemotePath = namespace + "/manifests/" + j.ID + ".json"
-	info, err := c.PutObject(ctx, t.Bucket, j.RemotePath, bytes.NewReader(raw), int64(len(raw)), minio.PutObjectOptions{ContentType: "application/json"})
+	var info minio.UploadInfo
+	err = s.guardTransfer(ctx, *j, func(run context.Context) error {
+		var putErr error
+		info, putErr = c.PutObject(run, t.Bucket, j.RemotePath, bytes.NewReader(raw), int64(len(raw)), minio.PutObjectOptions{ContentType: "application/json"})
+		return putErr
+	})
 	if err != nil {
-		return errors.New("归档清单发布失败")
+		return archiveWriteError(err, "归档清单发布失败")
 	}
 	digest := sha256.Sum256(raw)
 	j.RemoteManifestVersion = info.VersionID
@@ -158,6 +169,18 @@ func (s *Service) uploadS3Snapshot(ctx context.Context, j *jobRecord) error {
 		return err
 	}
 	return s.transferAllowed(ctx, *j)
+}
+
+// 保留权威校验的安全错误码，外部存储的原始错误不得进入任务展示。
+func archiveWriteError(err error, message string) error {
+	var app *dto.AppError
+	if errors.As(err, &app) && app.Code != "" {
+		return failure(app.HTTPCode, app.Code, message+"（"+app.Code+"）")
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return failure(503, "ARCHIVE_WRITE_INTERRUPTED", message+"（执行超时或服务停止，源文件继续保留）")
+	}
+	return errors.New(message)
 }
 
 func (s *Service) readS3Job(ctx context.Context, j jobRecord) (Job, error) {

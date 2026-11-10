@@ -1,0 +1,332 @@
+{
+  "schema": "powerx.ecommerce.plan_read_acceptance.v1",
+  "verified_at": "2026-10-28T14:42:02.651679+00:00",
+  "environment": "Mac development only",
+  "core_runtime": {
+    "version": "v1.0.0",
+    "environment": "dev",
+    "platform": "darwin/arm64",
+    "go_version": "go1.26.7",
+    "pid": 35787,
+    "binary_sha256": "e26518f3513eb4af2154fda8d9891675478adf20414b36c8c55ff73ae88fa7fd",
+    "source_head": "97ae4d43e0d0e48516d8ffe46bbd7bc388aab0ad",
+    "source_has_uncommitted_changes": true,
+    "startup_owned_by": "user"
+  },
+  "provider": {
+    "plugin_id": "com.powerx.plugins.ecommerce",
+    "provider_version": "0.3.1",
+    "provider_version_source": "Core CapabilityRecord.plugin_version",
+    "contract_version": "2.0.0",
+    "platform": "darwin/arm64",
+    "binary_sha256": "2cc492c5e3e9d049628e728950fcf6154837c25f0b31043c8f23a316b99326f1",
+    "matches_formally_installed_package": true,
+    "runtime": {
+      "id": "com.powerx.plugins.ecommerce",
+      "processes": [
+        {
+          "process_id": "com.powerx.plugins.ecommerce",
+          "role": "backend",
+          "shared": true,
+          "info": {
+            "id": "com.powerx.plugins.ecommerce",
+            "pid": 36108,
+            "port": 58215,
+            "state": "running",
+            "healthy": true,
+            "restarts": 0,
+            "started_at": "2026-10-28T14:35:03.393386Z",
+            "stopped_at": "0001-01-01T00:00:00Z",
+            "health_fails": 0,
+            "health_ok_count": 32
+          }
+        },
+        {
+          "process_id": "com.powerx.plugins.ecommerce_admin",
+          "role": "admin",
+          "shared": true,
+          "info": {
+            "id": "com.powerx.plugins.ecommerce_admin",
+            "pid": 36693,
+            "port": 58345,
+            "state": "running",
+            "healthy": true,
+            "restarts": 0,
+            "started_at": "2026-10-28T14:35:13.399914Z",
+            "stopped_at": "0001-01-01T00:00:00Z",
+            "health_fails": 0,
+            "health_ok_count": 62
+          }
+        }
+      ],
+      "runtime": {
+        "health_fails": 0,
+        "health_ok": 32,
+        "healthy": true,
+        "last_exit_err": "",
+        "pid": 36108,
+        "port": 58215,
+        "restarts": 0,
+        "started_at": "2026-10-28T14:35:03.393386Z",
+        "state": "running",
+        "stopped_at": "0001-01-01T00:00:00Z"
+      },
+      "runtime_scope": {
+        "process_id_prefix": "com.powerx.plugins.ecommerce",
+        "scope": "global_plugin_process",
+        "shared_by_tenants": true,
+        "tenant_instance_key": "",
+        "tenant_isolated": false
+      },
+      "state": "enabled",
+      "tenant_instances": {
+        "managed_by": "TenantPluginInstance",
+        "note": "租户启用/停用只改变租户实例访问权，不复制或停止全局插件进程"
+      },
+      "version": "0.3.1"
+    }
+  },
+  "capability": {
+    "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+    "status": "published",
+    "capabilities_hash": "776c04027784a1a46cb8715a9667a45c0785a82d9f617f2844296efd9992c828",
+    "protocol_hash": "0d12ac13a2c2baffe66d00596c8e13152cf4a419ccaef57a5725ea42bc874d95"
+  },
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "registration": {
+    "adapters": [
+      {
+        "adapter_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read.POST",
+        "endpoint": "/_p/com.powerx.plugins.ecommerce/api/v1/plugin/commerce/subscription-plans/query",
+        "is_active": true,
+        "labels": {
+          "method": "POST",
+          "source": "plugin_catalog"
+        },
+        "service_ref": "",
+        "timeout_ms": 30000,
+        "transport_type": "rest",
+        "weight": 100
+      }
+    ],
+    "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+    "contract_ref": "2.0.0",
+    "created_at": "2026-10-28T22:39:57+08:00",
+    "disable_reason": "",
+    "environment_policies": {},
+    "published_at": "2026-10-28T22:13:51+08:00",
+    "routing_policy": {
+      "cooldown_seconds": 60,
+      "fallback_sequence": null,
+      "rate_limit": {},
+      "sticky_keys": null,
+      "strategy": "weighted_round_robin",
+      "tenant_strategies": null
+    },
+    "status": "published",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "tool_grant_ids": [],
+    "updated_at": "2026-10-28T22:39:57+08:00",
+    "updated_by": "system",
+    "version": 3
+  },
+  "key": {
+    "key_id": "6bd49d32-11b0-4dc6-a4bb-7de758e3f21e",
+    "name": "dev-workspacex-ecommerce-lab",
+    "new_dedicated_key": true,
+    "profile_id": 11,
+    "grants": [
+      {
+        "scope": "_scope.capabilities.grant_status.read",
+        "action": "read",
+        "effect": "allow",
+        "plugin_id": "",
+        "resource_type": "api",
+        "resource_pattern": "grant-status"
+      },
+      {
+        "scope": "_scope.ecommerce.subscription_plans.read",
+        "action": "read",
+        "effect": "allow",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "resource_type": "capability",
+        "resource_pattern": "subscription_plans"
+      }
+    ],
+    "original_dev_workspacex_unchanged": true
+  },
+  "preservation": {
+    "shared_profile_permission_ids_unchanged": true,
+    "existing_keys_unchanged": true,
+    "existing_key_count": 11,
+    "read_only_comparison": true
+  },
+  "lab": {
+    "spu_uuid": "dff349e2-7dce-4d8d-b236-ee60cdc9cd5c",
+    "spu_status": "draft",
+    "plan_uuid": "86d8103d-5117-460c-9299-98e973907e23",
+    "expected_service_response": {
+      "items": [
+        {
+          "auto_renew": false,
+          "billing_cycle": "month",
+          "billing_value": 1,
+          "currency": "CNY",
+          "name": "WorkspaceX Lab 月度套餐",
+          "plan_code": "workspacex-lab-monthly",
+          "price_decimal": "1.0000",
+          "status": "active",
+          "uuid": "86d8103d-5117-460c-9299-98e973907e23"
+        }
+      ]
+    }
+  },
+  "invocation": {
+    "request": {
+      "method": "POST",
+      "path": "/api/v1/tenant/invocations",
+      "body": {
+        "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+        "preferred_protocol": "rest",
+        "payload": {
+          "spu_uuid": "dff349e2-7dce-4d8d-b236-ee60cdc9cd5c"
+        }
+      }
+    },
+    "response": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "payload": {
+          "items": [
+            {
+              "auto_renew": false,
+              "billing_cycle": "month",
+              "billing_value": 1,
+              "currency": "CNY",
+              "name": "WorkspaceX Lab 月度套餐",
+              "plan_code": "workspacex-lab-monthly",
+              "price_decimal": "1.0000",
+              "status": "active",
+              "uuid": "86d8103d-5117-460c-9299-98e973907e23"
+            }
+          ]
+        },
+        "trace_id": "f7a8ea95-f1c0-4db0-98a3-0c9a7e27fff6",
+        "status": "completed",
+        "protocol_used": "rest",
+        "result": {
+          "items": [
+            {
+              "auto_renew": false,
+              "billing_cycle": "month",
+              "billing_value": 1,
+              "currency": "CNY",
+              "name": "WorkspaceX Lab 月度套餐",
+              "plan_code": "workspacex-lab-monthly",
+              "price_decimal": "1.0000",
+              "status": "active",
+              "uuid": "86d8103d-5117-460c-9299-98e973907e23"
+            }
+          ]
+        },
+        "fallback_used": false
+      },
+      "timestamp": 1793198397,
+      "request_id": "1dc51ae9-0633-444a-8ef9-206dec2853d4"
+    },
+    "persisted_trace": {
+      "status": "completed",
+      "trace_id": "f7a8ea95-f1c0-4db0-98a3-0c9a7e27fff6",
+      "plugin_id": "com.powerx.plugins.ecommerce",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+      "fallback_used": false,
+      "protocol_used": "rest",
+      "caller_subject": "api_key:6bd49d32-11b0-4dc6-a4bb-7de758e3f21e"
+    },
+    "http_trace_id": "7e99e9a4-6a0c-43d5-8710-170ebd0319f8",
+    "forwarded_route": "/_p/com.powerx.plugins.ecommerce/api/v1/plugin/commerce/subscription-plans/query",
+    "service_identity": "API Key authenticated by Core; signed plugin JWT with api_key platform and registered native service permission; no user session ticket"
+  },
+  "http_checks": [
+    {
+      "check": "accepted-key-grant-status.json",
+      "http_status": 200,
+      "request_id": "c556ee84-7713-442d-a527-33ba07feef79",
+      "trace_id": "b204763d-3a73-4161-bc94-a3c15569febd",
+      "error": null
+    },
+    {
+      "check": "accepted-key-direct-read.json",
+      "http_status": 200,
+      "request_id": "08c54beb-d60c-4c30-bbab-7ef84ca3ae05",
+      "trace_id": "07f56509-7ad8-439c-af50-0e5d445c2fc0",
+      "error": null
+    },
+    {
+      "check": "accepted-registration-activate.json",
+      "http_status": 200,
+      "request_id": "4844d4f1-b64f-4a61-95ca-7b18870f98e1",
+      "trace_id": "1054ae42-05c2-4fd4-86d0-ca22eb6203ba",
+      "error": null
+    },
+    {
+      "check": "accepted-key-invocation.json",
+      "http_status": 200,
+      "request_id": "1dc51ae9-0633-444a-8ef9-206dec2853d4",
+      "trace_id": "7e99e9a4-6a0c-43d5-8710-170ebd0319f8",
+      "error": null
+    },
+    {
+      "check": "accepted-key-admin-denied.json",
+      "http_status": 403,
+      "request_id": "a0f4cf30-0a90-46f2-b246-8a5623ffcbdb",
+      "trace_id": "504d3fc1-967e-45f7-9f6d-89b67870ed87",
+      "error": "插件owner绑定需要管理员用户身份"
+    },
+    {
+      "check": "accepted-capability.json",
+      "http_status": 200,
+      "request_id": "810548df-05a2-4a1b-8561-8885e3905455",
+      "trace_id": "800717fc-f125-4d68-bef5-b951b79370a8",
+      "error": null
+    },
+    {
+      "check": "accepted-registration.json",
+      "http_status": 200,
+      "request_id": "6165a882-362a-4078-ab1c-179c2dfb59c2",
+      "trace_id": "60314703-4b20-410e-970d-f1f2d31d2828",
+      "error": null
+    },
+    {
+      "check": "accepted-explicit-grants.json",
+      "http_status": 200,
+      "request_id": "77420e70-de47-4c18-8f06-a749c11e411a",
+      "trace_id": "08962b87-696c-4548-9cbc-f8e0b436de1a",
+      "error": null
+    }
+  ],
+  "changes": [
+    "Per-Key explicit service grants via formal administrator API, durable across Profile/owner reconciliation and rotation",
+    "Preserve catalog contract version in tenant registration",
+    "Plugin gateway evaluates service Key grants against the route actor plane, provider ownership, publication and latest tenant registration",
+    "Registration API receives and reports adapter activation; omitted update preserves prior state"
+  ],
+  "validation": {
+    "gateway_http_regression": "passed; API Key middleware + Core IAM authorizer + actual HTTP proxy, including revoke, provider/tenant isolation, disabled declarations/Key/Profile, and Admin denial",
+    "registration_http_regression": "passed; create default, explicit disable, omitted update preservation, explicit enable and GET state",
+    "affected_go_packages": "passed",
+    "core_build": "passed",
+    "capability_check": "passed: declared=1230 referenced=74 rest_routes=1170 candidates=1130 ignored_route_rules=50",
+    "management_capability_seed": "passed; scoped to three new administrator endpoints; no shared Profile expansion"
+  },
+  "scope": {
+    "admin_jwt_not_used_as_business_acceptance": true,
+    "database_writes_via_official_apis_only": true,
+    "installed_plugin_files_not_edited": true,
+    "production_or_ubuntu_accessed": false,
+    "spu_is_lab_draft": true,
+    "workspacex_consumer_acceptance": "to be performed by WorkspaceX with the delivered new Key"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "date": "2026-11-06",
+  "scope": "Core legacy License cache injection and host config persistence",
+  "checks": {
+    "affected_race_tests": {
+      "records_including_subtests": {
+        "pass": 497,
+        "skip": 9
+      },
+      "top_level": {
+        "pass": 201,
+        "skip": 9
+      },
+      "skips": [
+        "TestPostgresPluginIsolationUsesConnectedDSNIdentity",
+        "TestLivePluginRequestIdentity",
+        "TestPowerXPluginDatabaseIsolationIntegration",
+        "TestPublicExposureInstalledPlugin",
+        "TestStorageLocalConfiguredAcceptance",
+        "TestStorageLocalInventoryReadOnlyAcceptance",
+        "TestStorageLocalRuntimePreparedReadOnlyAcceptance",
+        "TestStorageNativeLocalObservationAcceptance",
+        "TestNativeSystemSnapshotBootstrapWithRelativeMediaDirectory"
+      ],
+      "failures": [],
+      "passed_packages": [
+        "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router",
+        "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor",
+        "github.com/ArtisanCloud/PowerX/cmd/plugin-host-config",
+        "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager",
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin",
+        "github.com/ArtisanCloud/PowerX/internal/bootstrap"
+      ],
+      "log_sha256": "0503923b099e92bcdab38020aa5aebc0ccda262b07398ec025d501d9c03421c4"
+    },
+    "cmd_app_build": 0,
+    "affected_vet": 0,
+    "diff_check": 0
+  },
+  "historical_repair": {
+    "default_mode": "read_only_preview",
+    "source_confirmation_required": true,
+    "stopped_core_required": true,
+    "snapshot_digest_required": true,
+    "private_backup_required": true,
+    "manual_provider_or_redis_url_deleted": false,
+    "whole_marketplace_deleted": false,
+    "empty_generated_ancestors_pruned": true,
+    "machine_crash_atomicity_claimed": false
+  },
+  "runtime_boundary": {
+    "daily_core_restarted": false,
+    "daily_database_modified": false,
+    "topic_acl_modified": false,
+    "key_or_profile_modified": false,
+    "plugin_source_modified": false,
+    "historical_live_configuration_applied": false,
+    "default_registry_preview": "PLUGIN_HOST_CONFIG_NOT_FOUND; actual runtime registry must be confirmed before cleanup",
+    "real_ai_craft_startup_acceptance": "pending plugin catalogs.events fix/new package and deployment"
+  },
+  "before_source_sha256": {
+    "backend/internal/infra/plugin/manager/host_redis.go": "6ae9bcc0025da0f823f1732094144a8c75f988aa6bbe41a92ebba38779ebf76c",
+    "backend/internal/infra/plugin/manager/host_redis_test.go": "b4f28f2f0e0008ba163946cb1187bdf4a8b4ab5e58c5f8241e1d410a9a7b7f13",
+    "backend/internal/infra/plugin/manager/host_config.go": "43025834034644733508f0e55c89d2aab50e0755614c416f815c668d3a0aaba3",
+    "backend/internal/infra/plugin/manager/lifecycle.go": "bf6627a2644f3a1e6560c5c51355ed595b4f5ee20544a11ed8e99477247b3194"
+  },
+  "source_sha256": {
+    "backend/internal/infra/plugin/manager/host_redis.go": "6f20e376701939818a232767e53d8448152ea54ccf2f7ee02075f565b5fc80ad",
+    "backend/internal/infra/plugin/manager/host_redis_test.go": "09a06d1129b0673b08b3ef6f5d5fad4d25562192a2308da45c08fbc775505cbf",
+    "backend/internal/infra/plugin/manager/host_config.go": "de31a44a7762c32b24ea07adca896cd61bb143eda39c2bbb503484d46b063fb7",
+    "backend/internal/infra/plugin/manager/host_config_update.go": "66302f1ccc8c88e3e247a614e6b6dcf1f76e90d3b3468fd19cba2f8e395a2cb8",
+    "backend/internal/infra/plugin/manager/lifecycle.go": "3c5c53975b7cc62afb3b4286f446e4a2af5197187d6e184a61a4a2df291dae8c",
+    "backend/internal/infra/plugin/manager/legacy_license_cache.go": "1114c5cb19d0fdb2126aa43ff9ecf529debd047196efa191fe2851e5beb3fd02",
+    "backend/internal/infra/plugin/manager/legacy_license_cache_test.go": "02dc6eae9a76fefb65bda0b64475e83f6752420bc74e0aa7ba439975bbb34d0a",
+    "backend/cmd/plugin-host-config/main.go": "6c5be64351a165c0249bc2928ec726c7927d6ac199580ae3d04691990dca3fbe",
+    "backend/cmd/plugin-host-config/main_test.go": "a0a2ee2822635fcaf1bbf12cb928054c4492a6c5f47d6c21ac302ac659701aff",
+    "docs/contracts/plugin-license-cache-config-upgrade.md": "c9908c4df44311b9f8a0c67c66bd5b9f6aadc9086d5b005faa86226744e55526"
+  },
+  "guide": "docs/contracts/plugin-license-cache-config-upgrade.md",
+  "cleanup": {
+    "agent_started_service": false,
+    "validation_binary_removed": true
+  }
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	auditpayload "github.com/ArtisanCloud/PowerX/pkg/corex/audit/payload"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -408,8 +409,8 @@ func (s *Service) recordInvocation(
 	eventPublished bool,
 	routedAdapter string,
 ) error {
-	reqJSON, _ := json.Marshal(request)
-	respJSON, _ := json.Marshal(response)
+	reqJSON := auditpayload.Snapshot(request)
+	respJSON := auditpayload.Snapshot(response)
 
 	record := &models.IntegrationInvocationLog{
 		RouteUUID:          route.RouteID,
@@ -423,7 +424,7 @@ func (s *Service) recordInvocation(
 		RoutedAdapter:      routedAdapter,
 		EventPublished:     eventPublished,
 		ErrorCode:          errorCode,
-		ErrorMessage:       errorMessage,
+		ErrorMessage:       auditpayload.SafeText(errorMessage),
 	}
 	_, err := s.invocations.Create(ctx, record)
 	return err
@@ -452,7 +453,7 @@ func (s *Service) publishEvent(ctx context.Context, route manager.Route, traceID
 		"routed_capability_id": route.CapabilityID,
 		"routed_adapter":       result.RoutedAdapter,
 		"error_code":           result.ErrorCode,
-		"error_message":        result.ErrorMessage,
+		"error_message":        auditpayload.SafeText(result.ErrorMessage),
 		"duration_ms":          result.Duration.Milliseconds(),
 	}
 

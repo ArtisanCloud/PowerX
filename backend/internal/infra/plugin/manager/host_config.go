@@ -293,7 +293,7 @@ func (m *managerImpl) applyDelegatedHostContract(selected map[string]string, str
 	setNestedValue(structured, []string{"event_bridge", "taskbus_provider"}, "host")
 	setNestedValue(structured, []string{"event_bridge", "enabled"}, true)
 	setNestedValue(structured, []string{"event_bridge", "mode"}, "taskbus")
-	return nil
+	return m.applyHostRedisNamespace(selected, structured, pluginID)
 }
 
 func (m *managerImpl) applyHostCORSContract(selected map[string]string, structured map[string]any) {
@@ -359,79 +359,79 @@ func sanitizeHostCORSOrigins(values []string) []string {
 	return out
 }
 
-// ensureDelegatedHostContractForEnable repairs stale host-values before process start.
-// This keeps old installed versions self-healing without forcing reinstall.
+// ensureDelegatedHostContractForEnable 在写入成功之后才替换内存配置。
+// 正式 Enable 使用 persistDelegatedHostContractForEnable，将 registry 保存纳入回滚范围。
 func (m *managerImpl) ensureDelegatedHostContractForEnable(p *plugin_mgr.Plugin, runtimeCred *PluginRuntimeCredential) error {
 	if p == nil {
 		return nil
 	}
-	hvPath := strings.TrimSpace(p.Paths.HostValuesFile)
-
-	hc := p.HostConfig
-	if hc == nil && hvPath != "" {
-		if loaded, err := loadHostConfig(hvPath); err == nil && loaded != nil {
-			hc = loaded
-			p.HostConfig = loaded
-		}
-	}
-	if hc == nil {
-		hc = &plugin_mgr.HostConfig{}
-		p.HostConfig = hc
-	}
-
-	values := cloneStringMap(hc.Values)
-	spec := cloneAnyMap(hc.Spec)
-	if spec == nil {
-		spec = map[string]any{}
-	}
-	if err := m.applyDelegatedHostContract(values, spec, p.ID, runtimeCred); err != nil {
+	next, data, err := m.buildDelegatedHostConfigForEnable(p, runtimeCred)
+	if err != nil {
 		return err
 	}
-	m.applyHostCORSContract(values, spec)
-	hc.Values = values
-	hc.Spec = spec
+	return m.commitHostConfigUpdate(context.Background(), p, next, data, false)
+}
 
-	if hvPath == "" {
-		hc.ValuesFile = hvPath
-		return nil
+func (m *managerImpl) persistDelegatedHostContractForEnable(ctx context.Context, p *plugin_mgr.Plugin, cred *PluginRuntimeCredential) error {
+	next, data, err := m.buildDelegatedHostConfigForEnable(p, cred)
+	if err != nil {
+		return err
 	}
+	return m.commitHostConfigUpdate(ctx, p, next, data, true)
+}
 
-	doc := map[string]any{}
-	if raw, err := os.ReadFile(hvPath); err == nil && len(raw) > 0 {
-		_ = yaml.Unmarshal(raw, &doc)
+func (m *managerImpl) buildDelegatedHostConfigForEnable(p *plugin_mgr.Plugin, cred *PluginRuntimeCredential) (*plugin_mgr.HostConfig, []byte, error) {
+	hc := cloneHostConfig(p.HostConfig)
+	if hc == nil {
+		hc = &plugin_mgr.HostConfig{}
+	}
+	path := strings.TrimSpace(p.Paths.HostValuesFile)
+	doc := cloneAnyMap(hc.Spec)
+	if path != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, nil, err
+		}
+		if err == nil {
+			if len(strings.TrimSpace(string(raw))) == 0 {
+				return nil, nil, fmt.Errorf("HOST_VALUES_INVALID: empty document")
+			}
+			var fileDoc map[string]any
+			if err := yaml.Unmarshal(raw, &fileDoc); err != nil || fileDoc == nil {
+				return nil, nil, fmt.Errorf("HOST_VALUES_INVALID: invalid document")
+			}
+			doc = fileDoc
+		}
 	}
 	if doc == nil {
 		doc = map[string]any{}
 	}
-
-	envDoc := map[string]any{}
-	if m0, ok := doc["env"].(map[string]any); ok {
-		envDoc = cloneAnyMap(m0)
+	values := cloneStringMap(hc.Values)
+	if values == nil {
+		values = map[string]string{}
 	}
-	for k, v := range values {
-		envDoc[k] = v
+	if err := m.applyDelegatedHostContract(values, doc, p.ID, cred); err != nil {
+		return nil, nil, err
+	}
+	m.applyHostCORSContract(values, doc)
+	envDoc, _ := doc["env"].(map[string]any)
+	envDoc = cloneAnyMap(envDoc)
+	if envDoc == nil {
+		envDoc = map[string]any{}
+	}
+	for key, value := range values {
+		envDoc[key] = value
 	}
 	deleteDeprecatedProviderModeEnvKeys(envDoc)
 	doc["env"] = envDoc
-	deleteDeprecatedProviderModeKeys(doc)
-	setNestedValue(doc, []string{"context", "provider_mode"}, "delegated")
-	setNestedValue(doc, []string{"taskbus_provider"}, "host")
-	setNestedValue(doc, []string{"event_bridge", "taskbus_provider"}, "host")
-	setNestedValue(doc, []string{"event_bridge", "enabled"}, true)
-	setNestedValue(doc, []string{"event_bridge", "mode"}, "taskbus")
-	m.applyHostCORSContract(values, doc)
-
 	data, err := yaml.Marshal(doc)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	if err := runtimecredential.AtomicWrite(hvPath, data, 0o600); err != nil {
-		return err
-	}
-
-	hc.ValuesFile = hvPath
+	hc.Values = values
+	hc.ValuesFile = path
 	hc.Spec = stripHostConfigMeta(cloneAnyMap(doc))
-	return nil
+	return hc, data, nil
 }
 
 func loadHostConfig(path string) (*plugin_mgr.HostConfig, error) {

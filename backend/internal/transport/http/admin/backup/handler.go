@@ -10,6 +10,7 @@ import (
 	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
 	snapshotops "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
+	storagegov "github.com/ArtisanCloud/PowerX/internal/service/storage_governance"
 	backupdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup/dto"
 	modelops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/ops"
 	repoops "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/ops"
@@ -21,31 +22,43 @@ import (
 )
 
 type handler struct {
-	policySvc    *backupops.PolicyService
-	jobSvc       *backupops.JobService
-	restoreSvc   *backupops.RestoreDrillService
-	copySvc      *backupops.RestoreCopyService
-	archives     *archiveops.Service
-	snapshots    *snapshotops.Service
-	coordinator  *snapshotops.CoordinatorStore
-	alertSvc     *backupops.AlertService
-	artifactRepo *repoops.BackupArtifactRepository
+	storageGovernance *storagegov.Service
+	policySvc         *backupops.PolicyService
+	jobSvc            *backupops.JobService
+	restoreSvc        *backupops.RestoreDrillService
+	copySvc           *backupops.RestoreCopyService
+	archives          *archiveops.Service
+	snapshots         *snapshotops.Service
+	coordinator       *snapshotops.CoordinatorStore
+	alertSvc          *backupops.AlertService
+	artifactRepo      *repoops.BackupArtifactRepository
 }
 
 func NewHandler(deps *shared.Deps) *handler {
 	if deps == nil || deps.DB == nil {
 		return nil
 	}
+	policies := deps.DatabaseBackupPolicies
+	if policies == nil {
+		policies = backupops.NewPolicyService(deps.DB, deps.RuntimeIdentity.DeploymentEnv)
+		policies.RequireControl()
+	}
+	jobs := deps.DatabaseBackupJobs
+	if jobs == nil {
+		jobs = backupops.NewJobService(deps.DB)
+		jobs.RequireControl()
+	}
 	return &handler{
-		policySvc:    backupops.NewPolicyService(deps.DB, deps.RuntimeIdentity.DeploymentEnv),
-		jobSvc:       backupops.NewJobService(deps.DB),
-		restoreSvc:   backupops.NewRestoreDrillService(deps.DB),
-		copySvc:      deps.RestoreCopies,
-		archives:     deps.Archives,
-		snapshots:    deps.SystemSnapshots,
-		coordinator:  deps.SystemRecovery,
-		alertSvc:     backupops.NewAlertService(deps.DB),
-		artifactRepo: repoops.NewBackupArtifactRepository(deps.DB),
+		storageGovernance: deps.StorageGovernance,
+		policySvc:         policies,
+		jobSvc:            jobs,
+		restoreSvc:        backupops.NewRestoreDrillService(deps.DB),
+		copySvc:           deps.RestoreCopies,
+		archives:          deps.Archives,
+		snapshots:         deps.SystemSnapshots,
+		coordinator:       deps.SystemRecovery,
+		alertSvc:          backupops.NewAlertService(deps.DB),
+		artifactRepo:      repoops.NewBackupArtifactRepository(deps.DB),
 	}
 }
 
@@ -482,10 +495,12 @@ func buildJobDetailResponse(row *modelops.BackupJob, artifact *modelops.BackupAr
 	storageURI := ""
 	sizeBytes := int64(0)
 	checksum := ""
+	cleanupState := ""
 	if artifact != nil {
 		storageURI = strings.TrimSpace(artifact.StorageURI)
 		sizeBytes = artifact.SizeBytes
 		checksum = strings.TrimSpace(artifact.Checksum)
+		cleanupState = artifact.CleanupState
 	}
 	return gin.H{
 		"id":            row.ID,
@@ -503,6 +518,7 @@ func buildJobDetailResponse(row *modelops.BackupJob, artifact *modelops.BackupAr
 		"storage_uri":   storageURI,
 		"size_bytes":    sizeBytes,
 		"checksum":      checksum,
+		"cleanup_state": cleanupState,
 	}
 }
 

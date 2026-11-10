@@ -1,0 +1,101 @@
+{
+  "checks": [
+    "Owned PostgreSQL, formal TaskBus, target verification and explicit policy enablement prepared without daily mutation",
+    "Before-header socket loss: application fetch count=1, HTTP wire count=2, all use original UUID, native job count=1"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794237427458
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794237427458
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794237427459
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794237427493
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794237427494
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/policies/88e9d134-370e-47b7-a683-8e5d3bb53c00/run",
+      "method": "POST",
+      "at": 1794237427604,
+      "request_id": "2be836a9-77c4-4004-8980-95462d8cfba8"
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/policies/88e9d134-370e-47b7-a683-8e5d3bb53c00/run",
+      "method": "POST",
+      "at": 1794237427696,
+      "request_id": "2be836a9-77c4-4004-8980-95462d8cfba8"
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794237427701
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794237427701
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794237427756
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794237427757
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794237427798
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794237427800
+    }
+  ],
+  "errors": [],
+  "application_submits": [
+    {
+      "request_id": "2be836a9-77c4-4004-8980-95462d8cfba8",
+      "at": 1794237427605
+    }
+  ],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    }
+  ],
+  "request_id": "2be836a9-77c4-4004-8980-95462d8cfba8",
+  "job_id": "938ee514-a03d-43a3-9b5e-c952dff272b8",
+  "wire_submits": 2,
+  "loss_mode": "pre-headers",
+  "result": "passed"
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplatePublishOutput",
+  "type": "object",
+  "properties": {
+    "template_id": { "type": "string" },
+    "publish_status": { "type": "string", "enum": ["deployed", "pending", "failed"] },
+    "published_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["template_id", "publish_status"],
+  "additionalProperties": true
+}

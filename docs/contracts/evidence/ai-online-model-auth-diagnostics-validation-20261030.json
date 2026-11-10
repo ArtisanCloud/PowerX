@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-30",
+  "scope": "Mac development Core and web-admin; provider catalog error diagnostics and test feedback isolation",
+  "incident": {
+    "request_id": "06c46fb4-a49a-4cb3-bc1c-665d357db080",
+    "trace_id": "88b6146d-ffb3-4fc4-b9e8-4922a9e778c2",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "env": "dev",
+    "credential_storage_env": "default",
+    "provider": "openai",
+    "source": "https://api.chatanywhere.tech/v1/models",
+    "upstream_status": 403,
+    "error_code": "AI_MODEL_SYNC_AUTH_FAILED",
+    "upstream_reason": "legacy_free_key_retired",
+    "diagnostic": "Provider states legacy free API credentials are retired and requests signup/login plus GitHub linking. No upstream body or credentials retained.",
+    "stale_connection_result": {
+      "request_id": "a80fe99b-9610-46be-8035-99bb6caa550a",
+      "time": "2026-10-30T12:03:51+08:00",
+      "actual_provider": "ollama",
+      "status": 200
+    }
+  },
+  "checks": {
+    "go_test": [
+      "internal/server/ai/modeldiscovery",
+      "internal/service/agent",
+      "internal/transport/http/admin/agent"
+    ],
+    "go_test_result": "passed",
+    "go_vet": "passed same 3 packages",
+    "go_build": "passed ./cmd/app (Darwin arm64, artifact /tmp/powerx-model-catalog-diagnostics-core)",
+    "vitest": "19 passed in connection-test.spec.ts and online-model-catalog.spec.ts",
+    "vue_tsc": "passed --noEmit",
+    "playwright": "4 passed; desktop/narrow catalog update and Ollama discovery. Includes retired-key status/URL, clearing prior results, ignoring delayed responses after Provider switch and return.",
+    "live_provider": "Read-only DB transaction, saved credential resolution, GET catalog only; new safe classification confirmed against actual 403. No generation submitted.",
+    "playwright_diagnostics": "2 passed after adding auth-error screenshots and overflow checks for both desktop and narrow views; animations disabled for captures."
+  },
+  "boundaries": {
+    "database_writes": false,
+    "credential_changes": false,
+    "agent_started_services": [],
+    "user_core_pid": 67278,
+    "core_port": 8077,
+    "user_nuxt_pid": 18054,
+    "nuxt_port": 3030,
+    "restart_performed": false,
+    "backend_diagnostics_loaded_in_running_core": false,
+    "next_required": "User obtains and saves new provider credential. Restart Core normally to load backend diagnostic changes. Successful catalog fetch with a replacement credential is not yet verified."
+  },
+  "changed_files": [
+    "backend/internal/transport/http/admin/agent/online_model_handler_test.go",
+    "backend/internal/transport/http/admin/agent/online_model_handler.go",
+    "backend/internal/server/ai/modeldiscovery/client.go",
+    "backend/internal/server/ai/modeldiscovery/client_test.go",
+    "web-admin/app/stores/aiSettings.ts",
+    "web-admin/app/components/settings/ai/OnlineModelCatalogModal.vue",
+    "web-admin/app/pages/settings/ai/index.vue",
+    "web-admin/tests/unit/ai/online-model-catalog.spec.ts",
+    "web-admin/tests/unit/ai/connection-test.spec.ts",
+    "web-admin/tests/e2e/ai/online-models.spec.ts",
+    "web-admin/i18n/locales/zh.json",
+    "web-admin/i18n/locales/en.json",
+    "backend/internal/service/agent/online_model_catalog.go",
+    "docs/contracts/ai-online-model-catalog.md"
+  ],
+  "sha256": {
+    "backend/internal/transport/http/admin/agent/online_model_handler_test.go": "261a7d2e674bc568fd01e2c45762c34cf9682078c32c1185f88b6790b98af383",
+    "backend/internal/transport/http/admin/agent/online_model_handler.go": "798d855b5a3ca3b8d2bdd47729f583acc3ffc59415a5b7b207377ea7603eabc5",
+    "backend/internal/server/ai/modeldiscovery/client.go": "0fa1d8fd8f87c4ecdef6215865c42a2e04abf9acb41079b7e02585654d06a1a7",
+    "backend/internal/server/ai/modeldiscovery/client_test.go": "6589e66038f9fd561c4bec01e1d54093c0e7f01d909a1611081e50e003f5fbd1",
+    "web-admin/app/stores/aiSettings.ts": "c9f34b35c4e6b6fd91d27df8378c3826ad1dcfb50ff3d5a618e1c69b1f06a064",
+    "web-admin/app/components/settings/ai/OnlineModelCatalogModal.vue": "d1d5ee3fa88b783dcd29d97e0bc859523530cf92210235945ef8e11bb2b9e790",
+    "web-admin/app/pages/settings/ai/index.vue": "395c306124fb2da0abd687015fe2b3f0084f3a39f9d48bac1d9e24271ca99ca1",
+    "web-admin/tests/unit/ai/online-model-catalog.spec.ts": "32dfb557ab1fca216166d98551423cf21e355211c1d16806eba6a8f56c1eb820",
+    "web-admin/tests/unit/ai/connection-test.spec.ts": "db91370203c1e31b9564356e318337a196e2e520ae7fce660f644e02185c16e1",
+    "web-admin/tests/e2e/ai/online-models.spec.ts": "4c5c4b14d29063799fb0ef25b931e67a89a46a826af6e750036e95acd1826d54",
+    "web-admin/i18n/locales/zh.json": "173de9c3d00fc0114c31d18e1bd334772140c61d86319da30335c53b6ea9480f",
+    "web-admin/i18n/locales/en.json": "696450a0f978ef17f7ae0e491fd6b1638db98e152dec7ff1c0d0c6e634c1e599",
+    "backend/internal/service/agent/online_model_catalog.go": "ff2d8e1857dfdfc89efb0d1cd00c7dfd8181eef69d206bd14ca7fb57bd4a6ccb",
+    "docs/contracts/ai-online-model-catalog.md": "89df4ddc01d612f5536074fed685636ae358eab6ec2abea273a203146e85e7b2"
+  },
+  "artifacts": "/tmp/powerx-model-auth-20261030-121220/browser"
+}

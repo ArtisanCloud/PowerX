@@ -4,6 +4,7 @@ aliases: ["OpenAI API", "openai.com"]
 
 drivers:
   llm: openai
+  vlm: openai
   embedding: openai
   image: openai
   audio_tts: openai
@@ -20,6 +21,9 @@ auth:
 modalities:
   llm:
     models:
+      - id: gpt-6-luna
+        label: "GPT-6 Luna"
+        tags: ["text", "vision-capable"]
       - id: gpt-4o
         label: "GPT-4o"
         tags: ["omni","multimodal","flagship"]
@@ -70,6 +74,26 @@ modalities:
           max_tokens: 1024
           api_path: "/v1/chat/completions"
 
+  # 单图是本项目本轮支持范围，并非供应商官方上限。
+  vlm:
+    models:
+      - id: gpt-6-luna
+        label: "GPT-6 Luna"
+        defaults: { max_tokens: 2048, reasoning_effort: none }
+        operations:
+          vision_understanding:
+            driver: openai
+            input_types: [text, image_url, image_base64]
+            max_images: 1
+            max_videos: 0
+            async: false
+            parameters:
+              max_tokens: { type: integer, minimum: 1, maximum: 128000, default: 2048 }
+              reasoning_effort: { type: string, enum: [none, low, medium, high, xhigh, max], default: none }
+              temperature: { type: number, minimum: 0, maximum: 2 }
+              top_p: { type: number, minimum: 0, maximum: 1 }
+              json_mode: { type: boolean, default: false }
+
   embedding:
     models:
       - id: text-embedding-3-small
@@ -82,19 +106,202 @@ modalities:
 
   image:
     models:
+      # 官方 Images API 合同，精确列举型号；不把未知的 gpt-* 推断为文本。
+      # https://developers.openai.com/api/reference/resources/images/methods/generate
+      - id: gpt-image-2
+        label: "GPT-Image-2"
+        tags: ["img-gen"]
+        operations: &gpt_image_2_operations
+          image_generation:
+            driver: openai
+            # 官方 Images Edits JSON 协议；Core 另行限制单图与请求总量。
+            # https://developers.openai.com/api/reference/resources/images/methods/edit
+            input_types: [text, image_url, image_base64]
+            max_images: 16
+            max_image_bytes: 5242880
+            max_total_image_bytes: 20971520
+            max_image_pixels: 36000000
+            max_videos: 0
+            parameters:
+              size:
+                type: string
+                enum: [auto, 1024x1024, 1536x1024, 1024x1536]
+                default: 1024x1024
+              quality:
+                type: string
+                enum: [auto, low, medium, high]
+                default: auto
+              format:
+                type: string
+                enum: [png, jpeg, webp]
+              n:
+                type: integer
+                minimum: 1
+                maximum: 10
+      - id: gpt-image-2-2026-04-21
+        label: "GPT-Image-2 (2026-04-21)"
+        tags: ["img-gen", "snapshot"]
+        operations: *gpt_image_2_operations
+      - id: chatgpt-image-latest
+        label: "ChatGPT Image Latest"
+        tags: ["img-gen"]
+        operations: *gpt_image_2_operations
       - id: gpt-image-1
+        operations:
+          image_generation:
+            driver: openai
+            input_types:
+            - text
+            max_images: 0
+            max_videos: 0
+            parameters:
+              size:
+                type: string
+                enum:
+                - 1024x1024
+                - 1536x1024
+                - 1024x1536
+                default: 1024x1024
+              quality:
+                type: string
+                enum:
+                - auto
+                - low
+                - medium
+                - high
+              format:
+                type: string
+                enum:
+                - png
+                - jpeg
+                - webp
+              n:
+                type: integer
+                minimum: 1
+                maximum: 10
         label: "GPT-Image-1"
         tags: ["img-gen","inpainting","variation"]
       - id: gpt-image-1-mini
+        operations:
+          image_generation:
+            driver: openai
+            input_types:
+            - text
+            max_images: 0
+            max_videos: 0
+            parameters:
+              size:
+                type: string
+                enum:
+                - 1024x1024
+                - 1536x1024
+                - 1024x1536
+                default: 1024x1024
+              quality:
+                type: string
+                enum:
+                - auto
+                - low
+                - medium
+                - high
+              format:
+                type: string
+                enum:
+                - png
+                - jpeg
+                - webp
+              n:
+                type: integer
+                minimum: 1
+                maximum: 10
         label: "GPT-Image-1 mini"
         tags: ["img-gen","fast","cheap"]
       - id: gpt-image-1.5
+        operations:
+          image_generation:
+            driver: openai
+            input_types:
+            - text
+            max_images: 0
+            max_videos: 0
+            parameters:
+              size:
+                type: string
+                enum:
+                - 1024x1024
+                - 1536x1024
+                - 1024x1536
+                default: 1024x1024
+              quality:
+                type: string
+                enum:
+                - auto
+                - low
+                - medium
+                - high
+              format:
+                type: string
+                enum:
+                - png
+                - jpeg
+                - webp
+              n:
+                type: integer
+                minimum: 1
+                maximum: 10
         label: "GPT-Image-1.5"
         tags: ["img-gen","high-quality"]
       - id: dall-e-3
+        operations:
+          image_generation:
+            driver: openai
+            input_types:
+            - text
+            max_images: 0
+            max_videos: 0
+            parameters:
+              size:
+                type: string
+                enum:
+                - 1024x1024
+                - 1792x1024
+                - 1024x1792
+                default: 1024x1024
+              quality:
+                type: string
+                enum:
+                - standard
+                - hd
+              n:
+                type: integer
+                minimum: 1
+                maximum: 1
         label: "DALL·E 3"
         tags: ["img-gen","legacy"]
       - id: dall-e-2
+        operations:
+          image_generation:
+            driver: openai
+            input_types:
+            - text
+            max_images: 0
+            max_videos: 0
+            parameters:
+              size:
+                type: string
+                enum:
+                - 256x256
+                - 512x512
+                - 1024x1024
+                default: 1024x1024
+              quality:
+                type: string
+                enum:
+                - standard
+              n:
+                type: integer
+                minimum: 1
+                maximum: 10
         label: "DALL·E 2"
         tags: ["img-gen","legacy"]
 

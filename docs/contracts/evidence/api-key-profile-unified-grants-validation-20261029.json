@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-29",
+  "scope": "Restore one Profile permission-selection flow; fix provider-vs-resource-owner binding in Profile materialization",
+  "behavior": [
+    "Profile may select Core and formally declared plugin service permissions together; select-all includes both",
+    "Canonical plugin service grant keeps exact provider and requires valid explicit IAM declaration, publication and current-tenant registration",
+    "Core resource permissions retain existing Key owner and legacy per-permission scope checks",
+    "Save/append/create/rotate/owner-change and Key override reconciliation share Profile binding logic",
+    "Profile grants remain Profile-sourced and are removed by unchecking; per-Key exceptions remain untouched",
+    "Per-Key append is retained as an optional advanced operation; not required for Profile authorization"
+  ],
+  "tests": {
+    "backend": "passed full apikeypermissions, integration_gateway HTTP and capability_registry packages",
+    "postgres": "passed provider/Profile tests in isolated schemas; cleanup complete; rollback checked against DB-read snapshots to respect JSONB normalization",
+    "http": "Profile save/append, create, rotate, revoke, API Key actor rejection and foreign-tenant isolation passed",
+    "atomicity": "injected second-Key write failure rolls back first Key and Profile selection",
+    "frontend": "50 IAM unit tests passed",
+    "browser": "8 controlled browser tests passed against actual Nuxt dev UI with fixture APIs; desktop1440x1000 and narrow390x844; Profile Core+Ecommerce select-all/save, task-state retention, advanced append and error regression",
+    "build": "Go app build, affected Go vet and Nuxt production build passed",
+    "capability-check": "passed: declared=1233 referenced=75 rest_routes=1174 candidates=1146"
+  },
+  "live_read_only_prerequisites": {
+    "permission_id": 208090,
+    "iam_status": "active",
+    "allow_api_key": true,
+    "api_key_explicit": true,
+    "provider": "com.powerx.plugins.ecommerce",
+    "capability_id": "com.powerx.plugins.ecommerce.product.spu.subscription.plan.read",
+    "published": true,
+    "tenant_registration": "published",
+    "registration_version": 3
+  },
+  "runtime": {
+    "core_pid": 90165,
+    "new_profile_binder_in_running_binary": false,
+    "restart_required": true,
+    "user_services_restarted": false,
+    "agent_services_started": [],
+    "actual_key_or_profile_grants_changed": false,
+    "real_service_key_acceptance": "pending user restart and explicit Profile save; no live credential invocation claimed"
+  },
+  "source_sha256": {
+    "backend/internal/service/integration_gateway/apikeypermissions/owner_conflict.go": "9f231cdbad12f7b5fbef17d42c79d87abdfecf8d1bb05b558902181ed32d37cb",
+    "backend/internal/service/integration_gateway/apikeypermissions/owner_service.go": "c8ceae4478420061145a9a981cc722fe3ee3e21ca3b46037c7908dd035646e2a",
+    "backend/internal/service/integration_gateway/apikeypermissions/explicit_grants.go": "b2b1c59d741e4ca0cf3e2157af484906f17ff0eea2def37ab6d391257479495d",
+    "backend/internal/service/integration_gateway/apikeypermissions/profile_provider_grants_test.go": "9a61461c21c4717cc13fd6dff8d8186001d2f0b6c660f4adcd71287683b0c131",
+    "backend/internal/transport/http/admin/integration_gateway/apikey_handler.go": "e6fdcc80fe6bd4eb3745ddc3422709217ea0860c662bf4e8634618260a440211",
+    "backend/internal/transport/http/admin/integration_gateway/apikey_profile_provider_test.go": "926e9c7198c48813df9b1274d7a9f936d4d79322d9c031c16d6932ef3f20f996",
+    "web-admin/app/pages/settings/integration-api-keys.vue": "900ce9d42ba1f9de614dc9aaf3b720c4f0aa349cd52b3200e55d3bd14a1242ba",
+    "web-admin/tests/e2e/iam/api-key-batch-grants.spec.ts": "5eee5a2547a0af21860b10109b7bbfcd7d105208fb14baad5abd9fa1e06e78d9",
+    "web-admin/tests/e2e/iam/api-key-conflicts.spec.ts": "e17134fadbaf3911f26a9fa630f6ca8a34fe2f3aec892ddaec3bc5a2506ba5cb",
+    "docs/contracts/api-key-explicit-grants.md": "1baddf242dede568e9b765b41b22503a284e775e2149a4e3f35d4d64f29ee7ce",
+    "docs/contracts/api-key-plugin-owners.md": "08b5964e165ab822f2d02fd4503d69f13b1838e8679aed7f650a397e0986d581",
+    "docs/contracts/plugin-api-key-permissions.md": "69913ca0d9819423c1f79c72c63c57b34bbd1d10285c9f05123ff552e23565cc"
+  },
+  "removed_own_files": [
+    "web-admin/app/utils/apiKeyProfilePermissions.ts",
+    "web-admin/tests/unit/iam/api-key-profile-permissions.spec.ts"
+  ],
+  "artifacts": "/tmp/powerx-api-key-profile-unified-20261029-200154",
+  "screenshots": [
+    "/tmp/powerx-api-key-profile-unified-20261029-200154/browser/api-key-batch-grants-narro-d1590-draft-across-Key-management-chromium/profile-narrow.png",
+    "/tmp/powerx-api-key-profile-unified-20261029-200154/browser/api-key-batch-grants-deskt-cee5f-draft-across-Key-management-chromium/profile-desktop.png"
+  ],
+  "next_action": "User restarts local Core on 8077 using the usual command, refreshes page and uses Profile -> select permissions -> save. Existing grants and owner bindings were not automatically changed.",
+  "last_recheck": {
+    "time": "2026-10-29T21:47:58",
+    "verified_source_hashes_unchanged": true,
+    "focused_profile_service_tests": "passed",
+    "real_http_profile_save_create_rotate_revoke_and_isolation_test": "passed",
+    "core_pid": 90165,
+    "new_profile_binder_in_running_binary": false,
+    "actual_grants_modified": false,
+    "services_started_or_restarted": [],
+    "optional_live_profile_query": "read-only metadata query timed out; no live Profile write or acceptance claimed"
+  }
+}

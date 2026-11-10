@@ -1,0 +1,159 @@
+openapi: 3.0.3
+info:
+  title: Root managed storage execution protection
+  version: 1.0.0
+  description: Current installation only. Pause blocks the next guarded step without waiting for publication. Resume requires confirmed publication. Legacy executors and admitted long jobs require operator verification; this API does not terminate them.
+servers:
+  - url: /api/v1
+security:
+  - RootUserJWT: []
+paths:
+  /admin/ops/storage/execution-control:
+    get:
+      operationId: getStorageExecutionConfiguration
+      summary: Read execution state and registered policy pause inventory
+      responses:
+        '200':
+          description: Database state, publication proof and scoped policy inventory; unmanaged is not protected
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, data]
+                properties:
+                  code: {type: integer}
+                  data: {$ref: '#/components/schemas/Configuration'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /admin/ops/storage/execution-control/changes:
+    post:
+      operationId: changeStorageExecution
+      summary: Explicit pause, resume, begin handoff or complete handoff while remaining paused
+      description: CAS, original UUID, operator reason and confirmation required. Pause is available with publisher disabled or exited if the control database and host metadata remain accessible. No automatic write retries. Handoff completion checks registered configurations paused and published, plus two operator declarations. These do not prove that external executors stopped or jobs drained. First engagement must pause or begin handoff, or acknowledge an independently recorded managed restore. prepare_restore atomically checks registered sources, rebases revisions above database and runtime watermarks, pauses automatic execution and registers publication using the formal TaskBus. It preserves historical receipts and does not enable policies or perform a transfer. Missing resources, unknown domains and changed sources block the transaction. The operation revision may jump above expected_revision + 1. After publication, archive credentials require a new sealed save for this epoch and targets require fresh verification. acknowledge_restore requires successful preparation and resource verification as well as its exact expected_recovery_epoch, environment_checked and both handoff declarations, with all registered policies paused/published. It leaves execution paused and requires publication before a separate resume. Recovery anchor loss does not silently recreate proof.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Change'}
+      responses:
+        '200':
+          description: Immutable operation receipt plus current state, which may have been superseded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MutationEnvelope'}
+        '400': {description: Unknown fields, missing confirmation, invalid UUID/action/reason or missing handoff declarations}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {description: CAS/payload conflict, invalid transition, handoff locked, policy not paused or publication pending}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /admin/ops/storage/execution-control/requests/{request_id}:
+    get:
+      operationId: getStorageExecutionRequest
+      summary: Query original immutable receipt without reissuing a mutation
+      parameters:
+        - in: path
+          name: request_id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Original action, revision and payload; configuration may be unavailable independently
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MutationEnvelope'}
+        '400': {description: Invalid request UUID}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {description: Receipt not found; this does not authorize another POST after an unknown outcome}
+        '409': {description: UUID belongs to another control domain or immutable receipt cannot be verified}
+        '503': {$ref: '#/components/responses/Unavailable'}
+components:
+  securitySchemes:
+    RootUserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Verified human platform Root access session only; no plugin, STS, API Key or service identity
+  responses:
+    Unauthenticated: {description: Human Root session required}
+    Forbidden: {description: Verified identity is not an eligible human Root session}
+    Unavailable: {description: Required schema, database, binding or proof unavailable; no execution permission inferred}
+  schemas:
+    Change:
+      type: object
+      additionalProperties: false
+      required: [request_id, expected_revision, action, reason, confirm]
+      properties:
+        request_id: {type: string, format: uuid}
+        expected_revision: {type: integer, format: int64, minimum: 0}
+        action: {type: string, enum: [pause, resume, begin_handoff, complete_handoff, acknowledge_restore, prepare_restore]}
+        reason: {type: string, minLength: 3, maxLength: 500}
+        confirm: {type: boolean, enum: [true]}
+        expected_recovery_epoch: {type: string, format: uuid, description: Required for prepare_restore and acknowledge_restore; freezes the independent current maintenance restore identifier}
+        environment_checked: {type: boolean, default: false, description: Required true for prepare_restore and acknowledge_restore; operator verification of installation, source, budget, targets and credentials}
+        external_stopped: {type: boolean, default: false, description: Required true for handoff completion, restore preparation or restore acknowledgement; operator declaration only}
+        admitted_tasks_checked: {type: boolean, default: false, description: Required true for handoff completion, restore preparation or restore acknowledgement; operator declaration only}
+    PolicyStatus:
+      type: object
+      required: [domain, kind, paused, confirmed]
+      properties:
+        domain: {type: string, maxLength: 96, description: Registered fixed control domain; never accepted as a mutation selector}
+        kind: {type: string, enum: [archives, backups, snapshots, invocations, probes, discovery, file_logs, unknown]}
+        resource_name: {type: string, description: Registered display name only; no filesystem path or credentials}
+        paused: {type: boolean}
+        confirmed: {type: boolean, description: Database desired/applied revision confirmation, not external process proof}
+        problem: {type: string}
+    Configuration:
+      type: object
+      required: [mode, desired_revision, applied_revision, confirmed, can_pause, can_resume, worker_ready, policies, recovery]
+      properties:
+        mode: {type: string, enum: [unmanaged, open, paused, handoff, recovery, unavailable]}
+        desired_revision: {type: integer, format: int64, minimum: 0}
+        applied_revision: {type: integer, format: int64, minimum: 0}
+        confirmed: {type: boolean}
+        can_pause: {type: boolean}
+        can_resume: {type: boolean}
+        worker_ready: {type: boolean}
+        policies:
+          type: array
+          maxItems: 128
+          items: {$ref: '#/components/schemas/PolicyStatus'}
+        problem: {type: string}
+        recovery: {$ref: '#/components/schemas/Recovery'}
+    Recovery:
+      type: object
+      required: [state, prepared]
+      properties:
+        state: {type: string, enum: [not_connected, none, pending, acknowledged, unavailable]}
+        prepared: {type: boolean, description: Current epoch has an explicit atomic configuration rebuild}
+        resources:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            required: [domain, kind, revision, state]
+            properties:
+              domain: {type: string, maxLength: 96}
+              kind: {type: string}
+              revision: {type: integer, format: int64, minimum: 0}
+              state: {type: string, enum: [pending, ready]}
+              problem: {type: string}
+        epoch: {type: string, format: uuid}
+        job_id: {type: string, format: uuid}
+        snapshot_id: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+      description: Pending or acknowledged includes the independent maintenance epoch and job/snapshot/time. No path, credential or progress ticket is returned. Acknowledgement remains paused and requires its own publication; a newer epoch invalidates older acknowledgements.
+    MutationEnvelope:
+      type: object
+      required: [code, data]
+      properties:
+        code: {type: integer}
+        data:
+          type: object
+          required: [request_id, operation_revision, operation, configuration]
+          properties:
+            request_id: {type: string, format: uuid}
+            operation_revision: {type: integer, format: int64, minimum: 1}
+            operation: {$ref: '#/components/schemas/Change'}
+            configuration: {$ref: '#/components/schemas/Configuration'}

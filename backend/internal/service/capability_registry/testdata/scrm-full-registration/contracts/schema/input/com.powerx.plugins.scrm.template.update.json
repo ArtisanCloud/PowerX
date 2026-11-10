@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateUpdateInput",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "模板主键 ID" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "content": { "type": "string" }
+  },
+  "required": ["id"],
+  "additionalProperties": false
+}

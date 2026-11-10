@@ -1,0 +1,109 @@
+version: 1
+capabilities:
+- capability_id: com.corex.ai.media.tasks.read
+  module: ai
+  title: AI Media Task Read
+  description: Tenant and caller scoped media task read.
+  title_i18n:
+    en: AI Media Task Read
+    zh-CN: AI 媒体任务查询
+  description_i18n:
+    en: Read or cancel an owned media task.
+    zh-CN: 访问当前租户和当前调用主体拥有的媒体任务。
+  permission_code: corex.ai.media_tasks:read
+  agent_usable: true
+  risk_level: low
+  categories:
+  - ai
+  - media
+  - task
+  intents:
+  - ai.media.tasks.read
+  tool_scopes:
+  - ai.media.tasks.read
+  policy:
+    prefer: core_internal
+  docs:
+  - docs/contracts/ai-media-v2.md
+  - docs/contracts/ai-media-v2.openapi.yaml
+  protocols:
+  - channel: core_internal
+    endpoint: core://ai/media-tasks
+    method: INVOKE
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/components/schemas/TaskOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.media.tasks.read
+    api_key: &id001
+      scope: _scope.ai.media.tasks.read
+      action: read
+      resource_type: capability
+      resource_pattern: ai_media_tasks
+  - channel: rest
+    endpoint: /api/v1/ai/media/tasks/{task_uuid}
+    method: GET
+    sts_direct: true
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.media.tasks.read
+    api_key: *id001
+  - channel: rest
+    endpoint: /api/v1/ai/media/tasks/{task_uuid}/events
+    method: GET
+    sts_direct: true
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.media.tasks.read
+    api_key: *id001
+- capability_id: com.corex.ai.media.tasks.cancel
+  module: ai
+  title: AI Media Task Cancel
+  description: Tenant and caller scoped media task cancel.
+  title_i18n:
+    en: AI Media Task Cancel
+    zh-CN: AI 媒体任务取消
+  description_i18n:
+    en: Read or cancel an owned media task.
+    zh-CN: 访问当前租户和当前调用主体拥有的媒体任务。
+  permission_code: corex.ai.media_tasks:cancel
+  agent_usable: true
+  risk_level: medium
+  categories:
+  - ai
+  - media
+  - task
+  intents:
+  - ai.media.tasks.cancel
+  tool_scopes:
+  - ai.media.tasks.cancel
+  policy:
+    prefer: core_internal
+  docs:
+  - docs/contracts/ai-media-v2.md
+  - docs/contracts/ai-media-v2.openapi.yaml
+  protocols:
+  - channel: core_internal
+    endpoint: core://ai/media-tasks
+    method: INVOKE
+    schema_ref: docs/contracts/ai-media-v2.openapi.yaml#/components/schemas/TaskOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.media.tasks.cancel
+    api_key: &id002
+      scope: _scope.ai.media.tasks.cancel
+      action: cancel
+      resource_type: capability
+      resource_pattern: ai_media_tasks
+  - channel: rest
+    endpoint: /api/v1/ai/media/tasks/{task_uuid}/cancel
+    method: POST
+    sts_direct: true
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.media.tasks.cancel
+    api_key: *id002

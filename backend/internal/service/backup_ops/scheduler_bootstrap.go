@@ -13,6 +13,7 @@ func RegisterPolicyScheduler(ctx context.Context, db *gorm.DB, tick time.Duratio
 		return nil
 	}
 	svc := NewJobService(db)
+	svc.RequireControl()
 	svc.RegisterPolicyScheduler(ctx, tick)
 	return svc
 }

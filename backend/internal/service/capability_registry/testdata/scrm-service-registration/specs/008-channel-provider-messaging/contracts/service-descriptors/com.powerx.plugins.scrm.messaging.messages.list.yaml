@@ -1,0 +1,53 @@
+id: com.powerx.plugins.scrm.messaging.messages.list
+type: API
+version: 1.0.0
+status: active
+description: scrm.messaging.capability.messages.list
+rbac:
+  resource: scrm.messaging_service_messages
+  actions: [read]
+consumes:
+  - id: messaging.MessageRequest
+    path: docs/contracts/messaging-service.openapi.yaml
+    kind: input
+    version: 1.0.0
+provides:
+  - id: messaging.MessagePage
+    path: docs/contracts/messaging-service.openapi.yaml
+    kind: output
+    version: 1.0.0
+permissions:
+  - type: api
+    permission_code: scrm.messaging_service_messages:read
+    independent: true
+    title_i18n: {zh-CN: 读取消息正文, en: Read messaging content}
+    description_i18n: {zh-CN: 读取消息正文, en: Read messaging content}
+    risk_level: high
+    data_scope: tenant
+    default_role_grants: []
+    module: scrm
+    resource: messaging_service_messages
+    action: read
+    protocol_bindings:
+      - channel: rest
+        method: POST
+        path: /api/v1/service/messaging/messages.list
+        actor_context: service_actor
+        resource_scope: tenant
+    api_key:
+      capability_id: com.powerx.plugins.scrm.messaging.messages.list
+      plugin_id: com.powerx.plugins.scrm
+      scope: _scope.scrm.messaging.messages.list
+      action: read
+      resource_type: capability
+      resource_pattern: messaging.messages.list
+      effect: allow
+metadata:
+  protocols:
+    rest:
+      method: POST
+      path: /api/v1/service/messaging/messages.list
+      auth_type: core_service_ticket
+      actor_context: service_actor
+      resource_scope: tenant
+      schema_ref: docs/contracts/messaging-service.openapi.yaml#/components/schemas/MessageRequest

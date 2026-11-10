@@ -21,6 +21,8 @@ func runtimeFixture(t *testing.T) *gov.Service {
 	require.NoError(t, err)
 	e, err := lifecycle.New(lifecycle.Options{Coordinator: c, InstanceID: "dev", AllowEnforce: true, Sources: []lifecycle.Source{{ID: "logs", Name: "Logs", Kind: "application_logs", Scope: "dev", InstanceID: "dev", Directory: dir, ActiveFiles: []string{"app.log"}, Format: "numeric", OwnerUID: uint32(os.Geteuid())}}})
 	require.NoError(t, err)
+	_, err = e.Save(context.Background(), 1, "logs", 0, lifecycle.Policy{Enabled: true, RetentionDays: 7, MaxBytes: 1 << 20})
+	require.NoError(t, err)
 	s, err := gov.NewService(gov.Options{FilesystemPath: dir, Collector: testCollector{}, Identity: gov.Identity{HostID: "host", FilesystemID: "disk", InstanceID: "dev"}, Budget: c, Lifecycle: e, LifecycleWorkerEnabled: true})
 	require.NoError(t, err)
 	return s
@@ -28,7 +30,7 @@ func runtimeFixture(t *testing.T) *gov.Service {
 func TestRuntimeRoutesRequireHumanRootAndStrictTypedInput(t *testing.T) {
 	s := runtimeFixture(t)
 	prefix := "/api/v1/admin/ops/storage/runtime"
-	for _, in := range []struct{ method, path, body string }{{"GET", prefix, ""}, {"PUT", prefix + "/budget", `{"expected_revision":1,"confirm":true}`}, {"PUT", prefix + "/policies/logs", `{}`}, {"POST", prefix + "/runs", `{}`}, {"GET", prefix + "/events", ""}, {"POST", prefix + "/runs/id/acknowledge", `{"confirm":true}`}} {
+	for _, in := range []struct{ method, path, body string }{{"GET", prefix, ""}, {"GET", prefix + "/policies/logs", ""}, {"GET", prefix + "/policies/logs/requests/request", ""}, {"POST", prefix + "/policies/logs/adoptions", `{}`}, {"PUT", prefix + "/budget", `{"expected_revision":1,"confirm":true}`}, {"PUT", prefix + "/policies/logs", `{}`}, {"POST", prefix + "/runs", `{}`}, {"GET", prefix + "/events", ""}, {"POST", prefix + "/runs/id/acknowledge", `{"confirm":true}`}} {
 		for _, claims := range []reqctx.CoreXClaims{{UserID: 1}, {UserID: 1, IsRoot: true, Platforms: []string{"api_key"}}, {UserID: 0, IsRoot: true}} {
 			w := request(t, claims, in.method, in.path, in.body, s)
 			require.Equal(t, 403, w.Code, w.Body.String())
@@ -41,9 +43,10 @@ func TestRuntimeRoutesRequireHumanRootAndStrictTypedInput(t *testing.T) {
 	}
 	body := `{"expected_revision":0,"enabled":true,"retention_days":7,"max_bytes":1048576,"require_archive":false,"confirm":true}`
 	w := request(t, root, "PUT", prefix+"/policies/logs", body, s)
-	require.Equal(t, 200, w.Code, w.Body.String())
+	require.Equal(t, 400, w.Code, w.Body.String())
+	body = `{"request_id":"10000000-0000-4000-8000-000000000002","expected_revision":1,"enabled":true,"cleanup_mode":"expire_delete","retention_days":7,"max_bytes":1048576,"require_archive":false,"confirm":true}`
 	w = request(t, root, "PUT", prefix+"/policies/logs", body, s)
-	require.Equal(t, 409, w.Code, w.Body.String())
+	require.Equal(t, 503, w.Code, w.Body.String(), "no database authority must never fall back to legacy JSON writes")
 	w = request(t, root, "GET", prefix, "", s)
 	require.Equal(t, 200, w.Code, w.Body.String())
 	require.NotContains(t, w.Body.String(), s.RuntimeChangeDirectories()[0])
@@ -85,5 +88,5 @@ func TestDatabaseRetentionReadinessIsReadableInObservationModeAndStillRootOnly(t
 	require.Equal(t, "database_retention_runtime_not_configured", out.Data.Problem)
 	require.Equal(t, "database_unavailable", out.Data.MigrationProblem)
 	w = request(t, reqctx.CoreXClaims{UserID: 1, IsRoot: true}, "PUT", path, `{"expected_revision":0,"confirm":true,"policy":{"enabled":true}}`)
-	require.Equal(t, 503, w.Code, w.Body.String())
+	require.Equal(t, 428, w.Code, w.Body.String())
 }

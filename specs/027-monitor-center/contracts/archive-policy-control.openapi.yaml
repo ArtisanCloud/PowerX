@@ -1,0 +1,333 @@
+openapi: 3.0.3
+info:
+  title: Root archive policy control
+  version: 1.0.0
+  description: Pre-release breaking replacement of legacy Policy body. Platform Root human access session only.
+    Initial adoption and definition saves pause both flags. Settings never contain credentials.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /admin/ops/backup/archives/policy-configuration:
+    get:
+      operationId: getArchivePolicyConfiguration
+      responses:
+        '200':
+          description: Committed request receipt or current metadata; not automatic execution.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PolicyConfiguration'
+        '400':
+          description: Invalid typed body or action
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root human user only; API Key and STS forbidden
+        '409':
+          description: Version, source, target or request conflict
+        '422':
+          description: Unverified target, invalid provider or unavailable source
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Control unavailable or unknown commit; query original request UUID
+  /admin/ops/backup/archives/policy-configuration/adoptions:
+    post:
+      operationId: adoptPausedArchivePolicies
+      responses:
+        '200':
+          description: Committed request receipt or current metadata; not automatic execution.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PolicyMutation'
+        '400':
+          description: Invalid typed body or action
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root human user only; API Key and STS forbidden
+        '409':
+          description: Version, source, target or request conflict
+        '422':
+          description: Unverified target, invalid provider or unavailable source
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Control unavailable or unknown commit; query original request UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - legacy_digest
+              - confirm
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                legacy_digest:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+  /admin/ops/backup/archives/policies:
+    post:
+      operationId: saveOrConfirmArchivePolicy
+      responses:
+        '200':
+          description: Committed request receipt or current metadata; not automatic execution.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PolicyMutation'
+        '400':
+          description: Invalid typed body or action
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root human user only; API Key and STS forbidden
+        '409':
+          description: Version, source, target or request conflict
+        '422':
+          description: Unverified target, invalid provider or unavailable source
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Control unavailable or unknown commit; query original request UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyChange'
+  /admin/ops/backup/archives/policy-configuration/requests/{request_id}:
+    get:
+      operationId: getArchivePolicyRequest
+      responses:
+        '200':
+          description: Committed request receipt or current metadata; not automatic execution.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PolicyMutation'
+        '400':
+          description: Invalid typed body or action
+        '401':
+          description: Human access session required
+        '403':
+          description: Platform Root human user only; API Key and STS forbidden
+        '409':
+          description: Version, source, target or request conflict
+        '422':
+          description: Unverified target, invalid provider or unavailable source
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Control unavailable or unknown commit; query original request UUID
+        '404':
+          description: Receipt not visible. This never permits another write.
+      parameters:
+      - in: path
+        name: request_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PolicySettings:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - source_id
+      - interval_minutes
+      - retention_days
+      - retention_count
+      - remote_retention_days
+      - remote_retention_count
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Trimmed, maximum 128 UTF-8 bytes.
+        source_id:
+          type: string
+        target_id:
+          type: string
+          default: ''
+        interval_minutes:
+          type: integer
+          minimum: 1
+          maximum: 525600
+        retention_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        retention_count:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        remote_retention_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        remote_retention_count:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        remote_max_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 1125899906842624
+          description: 0 is unset. Required positive for active S3 archiving or remote cleanup.
+        include_database:
+          type: boolean
+    PolicyChange:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - expected_revision
+      - action
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_policy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+          default: 0
+        policy_id:
+          type: string
+          default: ''
+        action:
+          type: string
+          enum:
+          - save
+          - status
+        settings:
+          $ref: '#/components/schemas/PolicySettings'
+        enabled:
+          type: boolean
+        remote_cleanup_enabled:
+          type: boolean
+        confirm:
+          type: boolean
+          default: false
+        expected_target_revision:
+          type: integer
+          format: int64
+          minimum: 0
+          default: 0
+        expected_target_fingerprint:
+          type: string
+          default: ''
+      description: save requires settings and rejects non-null enabled/remote_cleanup_enabled, confirm=true or nonzero
+        target proof. status requires an existing policy UUID, both flags and confirm=true, forbids settings. All-off
+        can pause without target proof; active local-only media uses target proof 0/empty.
+    PolicyConfiguration:
+      type: object
+      required:
+      - authority
+      - ready
+      - state
+      - desired_revision
+      - applied_revision
+      - snapshot_revision
+      - legacy_digest
+      - legacy_count
+      - policies
+      properties:
+        authority:
+          type: string
+          enum:
+          - database
+          - legacy
+          - unavailable
+        ready:
+          type: boolean
+        state:
+          type: string
+        desired_revision:
+          type: integer
+          format: int64
+        applied_revision:
+          type: integer
+          format: int64
+        snapshot_revision:
+          type: integer
+          format: int64
+          nullable: true
+        legacy_digest:
+          type: string
+        legacy_count:
+          type: integer
+        problem:
+          type: string
+        policies:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            description: Desired definitions. Overview adds execution_ready and execution_problem independently
+              of enabled configuration.
+    PolicyMutation:
+      type: object
+      required:
+      - request_id
+      - operation_revision
+      - configuration
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        operation_revision:
+          type: integer
+          format: int64
+        policy_id:
+          type: string
+          format: uuid
+        configuration:
+          $ref: '#/components/schemas/PolicyConfiguration'

@@ -1,0 +1,128 @@
+{
+  "scope": "actual local developer frontend, normal Root login, read-only storage APIs",
+  "result": "passed",
+  "measured_at": "2026-11-04T13:06:01.208Z",
+  "first_diagnosis": {
+    "same_origin_requests": 999,
+    "slowest_development_module_ms": 6384,
+    "login_harness_result": "initial script did not submit login; no app failure inferred; normal login rerun succeeded"
+  },
+  "before": {
+    "storage_enter_visible_ms": 2672,
+    "reload_visible_ms": 1411,
+    "forced_boot_splash_ms": 800
+  },
+  "after": {
+    "storage_enter_visible_ms": 1130,
+    "reload_visible_ms": 1105,
+    "full_screen_loading_dialog_seen": false,
+    "final_loading_state": {
+      "gl:autoVisible": false,
+      "gl:manualVisible": false,
+      "gl:lockCount": 0,
+      "gl:message": "加载中…",
+      "gl:navPending": false,
+      "gl:reqPending": 0
+    },
+    "browser_errors": [],
+    "storage_writes": 0,
+    "monitoring": {
+      "enabled": true,
+      "state": "observed",
+      "tables": 63
+    },
+    "viewports": [
+      1440,
+      390,
+      320
+    ]
+  },
+  "measurement_limit": "warm running Vite server; browser snapshots every 500ms; page workspace visible and modal absent, not a full production performance benchmark; infinite spinner from user screenshot not reproduced",
+  "fixes": [
+    "remove forced boot splash and its shared-lock reset",
+    "lazy import AI settings store only after bootstrap prerequisites"
+  ],
+  "tests": {
+    "loading_and_storage_controls": "18 passed",
+    "final_lock_ownership_regression": "1 passed after test stub cleanup"
+  },
+  "cleanup": {
+    "checked_at": "2026-11-04T13:07:57.785303+00:00",
+    "owned_processes": [
+      {
+        "pid": 81344,
+        "exited": true
+      },
+      {
+        "pid": 81317,
+        "exited": true
+      },
+      {
+        "pid": 81245,
+        "exited": true
+      },
+      {
+        "pid": 81182,
+        "exited": true
+      },
+      {
+        "pid": 81311,
+        "exited": true
+      },
+      {
+        "pid": 87872,
+        "exited": true
+      },
+      {
+        "pid": 87849,
+        "exited": true
+      },
+      {
+        "pid": 87955,
+        "exited": true
+      },
+      {
+        "pid": 87865,
+        "exited": true
+      },
+      {
+        "pid": 87871,
+        "exited": true
+      },
+      {
+        "pid": 7207,
+        "exited": true
+      },
+      {
+        "pid": 7208,
+        "exited": true
+      },
+      {
+        "pid": 7089,
+        "exited": true
+      },
+      {
+        "pid": 7188,
+        "exited": true
+      },
+      {
+        "pid": 7228,
+        "exited": true
+      }
+    ],
+    "user_processes": [
+      {
+        "pid": 76613,
+        "port": 8077,
+        "preserved": true
+      },
+      {
+        "pid": 76292,
+        "port": 3030,
+        "preserved": true
+      }
+    ],
+    "temporary_services_started": false
+  },
+  "artifact_directory": "tmp/storage-loading-20261104"
+}

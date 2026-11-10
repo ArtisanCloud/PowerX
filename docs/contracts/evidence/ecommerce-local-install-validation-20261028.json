@@ -1,0 +1,186 @@
+{
+  "schema": "powerx.ecommerce.local_install_validation.v1",
+  "verified_at": "2026-10-28T07:12:47.999210+00:00",
+  "environment": "Mac development",
+  "plugin_id": "com.powerx.plugins.ecommerce",
+  "version": "0.3.1",
+  "platform": "darwin/arm64",
+  "package": {
+    "package_path": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/Plugins/com.powerx.plugin.ecommerce/dist/powerx-ecommerce-local-install-20261028-144428/0.3.1/package.tar.gz",
+    "package_sha256": "e946155b5a699ad4f19feb1859db71645af5b22872e643357151c2b9baf28ce5",
+    "binary_sha256": "2cc492c5e3e9d049628e728950fcf6154837c25f0b31043c8f23a316b99326f1",
+    "plugin_version": "0.3.1",
+    "contract_version": "2.0.0"
+  },
+  "installation": {
+    "method": "POST",
+    "path": "/api/v1/admin/plugins/install/local",
+    "content_type": "multipart/form-data",
+    "enable": true,
+    "force": true,
+    "expected_revision_checked": true,
+    "trace_id": "18c2dd1b-bf8f-4946-a008-e2ca9b4fa7c1",
+    "revision": "d517edd4-cf1f-4b80-83a3-8ef5638cfadc",
+    "state": "enabled"
+  },
+  "runtime": {
+    "core_pid": 5997,
+    "backend": {
+      "health_fails": 0,
+      "health_ok": 30,
+      "healthy": true,
+      "last_exit_err": "",
+      "pid": 10024,
+      "port": 61942,
+      "restarts": 0,
+      "started_at": "2026-10-28T07:07:42.590193Z",
+      "state": "running",
+      "stopped_at": "0001-01-01T00:00:00Z"
+    },
+    "processes": [
+      {
+        "process_id": "com.powerx.plugins.ecommerce",
+        "role": "backend",
+        "shared": true,
+        "info": {
+          "id": "com.powerx.plugins.ecommerce",
+          "pid": 10024,
+          "port": 61942,
+          "state": "running",
+          "healthy": true,
+          "restarts": 0,
+          "started_at": "2026-10-28T07:07:42.590193Z",
+          "stopped_at": "0001-01-01T00:00:00Z",
+          "health_fails": 0,
+          "health_ok_count": 30
+        }
+      },
+      {
+        "process_id": "com.powerx.plugins.ecommerce_admin",
+        "role": "admin",
+        "shared": true,
+        "info": {
+          "id": "com.powerx.plugins.ecommerce_admin",
+          "pid": 10600,
+          "port": 62116,
+          "state": "running",
+          "healthy": true,
+          "restarts": 0,
+          "started_at": "2026-10-28T07:07:52.604476Z",
+          "stopped_at": "0001-01-01T00:00:00Z",
+          "health_fails": 0,
+          "health_ok_count": 59
+        }
+      }
+    ]
+  },
+  "http_checks": [
+    {
+      "check": "plugin_health",
+      "http_status": 200,
+      "bytes": 16,
+      "trace_id": null,
+      "application_code": null,
+      "data_present": false
+    },
+    {
+      "check": "admin_page",
+      "http_status": 200,
+      "bytes": 3911,
+      "trace_id": null
+    },
+    {
+      "check": "admin_asset",
+      "path": "/_p/com.powerx.plugins.ecommerce/admin/assets/entry.3EvU0M50.css",
+      "http_status": 200,
+      "bytes": 194788
+    },
+    {
+      "check": "admin_asset",
+      "path": "/_p/com.powerx.plugins.ecommerce/admin/assets/C5iNWbDB.js",
+      "http_status": 200,
+      "bytes": 346002
+    },
+    {
+      "check": "admin_asset",
+      "path": "/_p/com.powerx.plugins.ecommerce/admin/assets/Dh5A2wtn.js",
+      "http_status": 200,
+      "bytes": 137665
+    },
+    {
+      "check": "product_list",
+      "http_status": 200,
+      "bytes": 177,
+      "trace_id": "f615ca4e-13b4-4b74-899b-3af420e91451",
+      "application_code": null,
+      "data_present": true
+    }
+  ],
+  "installed_artifact": {
+    "binary_sha256": "2cc492c5e3e9d049628e728950fcf6154837c25f0b31043c8f23a316b99326f1",
+    "matches_package": true,
+    "contract_version": "2.0.0"
+  },
+  "runtime_credential_preserved": {
+    "POWERX_STS_CLIENT_ID": true,
+    "POWERX_STS_CLIENT_SECRET": true,
+    "POWERX_GRPC_UPSTREAM_TENANT_UUID": true
+  },
+  "database": {
+    "binding_and_schema_preserved": true,
+    "installer_regenerated_managed_database_password": true
+  },
+  "scheduler": {
+    "same_uuids": true,
+    "active_jobs": [
+      {
+        "uuid": "fcd09292-0893-47e6-afee-55ac3d375b1c",
+        "name": "ecommerce-payment-reconciliation",
+        "status": "active",
+        "schedule_type": "interval",
+        "schedule_expr": "3600s"
+      },
+      {
+        "uuid": "d41e1e58-625b-4772-8fa5-6959052a217e",
+        "name": "ecommerce-order-timeout-close",
+        "status": "active",
+        "schedule_type": "interval",
+        "schedule_expr": "60s"
+      },
+      {
+        "uuid": "5a0f94a5-9ecd-4246-aaf9-1c19ae30c5f9",
+        "name": "channel.master.metric.refresh",
+        "status": "active",
+        "schedule_type": "interval",
+        "schedule_expr": "1800s"
+      },
+      {
+        "uuid": "0bb5e139-199b-4be1-bcb7-a923b926cbe5",
+        "name": "channel.master.credential.checker",
+        "status": "active",
+        "schedule_type": "interval",
+        "schedule_expr": "3600s"
+      }
+    ]
+  },
+  "capability_directory_readback": {
+    "plan_read_published_records": 0,
+    "publication_registration_and_key_grants_performed": false
+  },
+  "changes": [
+    "Ecommerce dist verifier uses current pricing.coupon_template read/manage permission codes",
+    "Core drain accepts paused scheduler jobs without cancellation",
+    "Core lifecycle validates stored credential material separately from STS authorization",
+    "Explicit Root enable restores the existing system runtime binding and ready drain jobs, with rollback on startup failure"
+  ],
+  "validation": [
+    "Ecommerce complete make dist and dist-verify passed",
+    "Core bootstrap, manager, plugin drain, runtime scheduler, admin plugin, auth tests passed",
+    "Core executable compiled successfully",
+    "Installed binary SHA-256 matches fresh package",
+    "Backend and admin healthy with zero restarts",
+    "Admin HTML, three assets and authenticated product list returned HTTP 200",
+    "Four original scheduler UUIDs restored active"
+  ],
+  "scope": "Plugin installation and runtime validation only; WorkspaceX integration and service Key authorization remain separate"
+}

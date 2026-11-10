@@ -1,0 +1,8 @@
+{
+  "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.conversations.list.yaml": "0a0c8b78551cd4f8166247d8faef77e85b405258eec679d28f63b21799f373c5",
+  "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.endpoints.list.yaml": "95a57028ecc9163f52c569e587a1e5dfdc629674736054c7c0e16de30ae5a248",
+  "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.executions.read.yaml": "2f060b2f7ad6f4f2b81e397f5a1228ad3408cccc87a8f8964acade59f2810180",
+  "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.executions.reply.yaml": "d2173777597bb03c810673e2744b6804cff2bba1450c4ffd6ba967f7a2da52cc",
+  "specs/008-channel-provider-messaging/contracts/service-descriptors/com.powerx.plugins.scrm.messaging.messages.list.yaml": "dfb29d021fbaec10ac35675fd1b99e2334ff4d92aa8cec1242b32b2fb1f39216",
+  "docs/contracts/messaging-service.openapi.yaml": "5e435b938ed3d7a8d368384d81494ddca25fae18340eabf98bdabcc5f3a6a260"
+}

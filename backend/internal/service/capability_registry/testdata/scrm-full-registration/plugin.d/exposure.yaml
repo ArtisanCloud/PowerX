@@ -1,0 +1,676 @@
+exposure:
+  channels:
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/assignments
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/status-history
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/activities
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/timeline
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/activities/{activity_id}/attachments
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/node-attachments
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/attachments/{attachment_id}/download
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/sources
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/conversations
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/source-catalogs
+      method: GET
+      rbac: scrm.leads:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}
+      method: PUT
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}
+      method: DELETE
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/import
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/import/preview
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/import/confirm
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/assign/batch
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/assign
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/status
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/activities
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/activities/{activity_id}/attachments
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/node-attachments
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/attachments/{attachment_id}
+      method: DELETE
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/{lead_id}/conversations/bind
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/source-catalogs
+      method: POST
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/source-catalogs/{catalog_id}
+      method: PATCH
+      rbac: scrm.leads:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.leads.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/leads/source-catalogs/{catalog_id}
+      method: DELETE
+      rbac: scrm.leads:write
+      type: rest
+    - actor_context: service_actor
+      auth: core_service_ticket
+      capability: com.powerx.plugins.scrm.messaging.conversations.list
+      entrypoint: /api/v1/service/messaging/conversations.list
+      method: POST
+      rbac: scrm.messaging_service_conversations:read
+      resource_scope: tenant
+      schema_ref: docs/contracts/messaging-service.openapi.yaml#/components/schemas/ConversationRequest
+      type: rest
+    - actor_context: service_actor
+      auth: core_service_ticket
+      capability: com.powerx.plugins.scrm.messaging.endpoints.list
+      entrypoint: /api/v1/service/messaging/endpoints.list
+      method: POST
+      rbac: scrm.messaging_service_endpoints:read
+      resource_scope: tenant
+      schema_ref: docs/contracts/messaging-service.openapi.yaml#/components/schemas/PageRequest
+      type: rest
+    - actor_context: service_actor
+      auth: core_service_ticket
+      capability: com.powerx.plugins.scrm.messaging.executions.read
+      entrypoint: /api/v1/service/messaging/executions.read
+      method: POST
+      rbac: scrm.messaging_service_executions:read
+      resource_scope: tenant
+      schema_ref: docs/contracts/messaging-service.openapi.yaml#/components/schemas/ExecutionRequest
+      type: rest
+    - actor_context: service_actor
+      auth: core_service_ticket
+      capability: com.powerx.plugins.scrm.messaging.executions.reply
+      entrypoint: /api/v1/service/messaging/executions.reply
+      method: POST
+      rbac: scrm.messaging_service_executions:reply
+      resource_scope: tenant
+      schema_ref: docs/contracts/messaging-service.openapi.yaml#/components/schemas/ReplyRequest
+      type: rest
+    - actor_context: service_actor
+      auth: core_service_ticket
+      capability: com.powerx.plugins.scrm.messaging.messages.list
+      entrypoint: /api/v1/service/messaging/messages.list
+      method: POST
+      rbac: scrm.messaging_service_messages:read
+      resource_scope: tenant
+      schema_ref: docs/contracts/messaging-service.openapi.yaml#/components/schemas/MessageRequest
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/bootstrap
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/sessions/register
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/sessions/{sessionID}/ack
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/sessions/{sessionID}/heartbeat
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/sessions/{sessionID}/close
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/sessions/{sessionID}/invoke
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/quota/status
+      method: GET
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/metrics
+      method: GET
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/internal/event-fabric/topics
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/internal/ws-bus/publish
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/internal/ws-bus/test-notification
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/internal/ws-bus/grant
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.runtime_ops.invoke
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/runtime/internal/ws-bus/register
+      method: POST
+      rbac: runtime.ops:invoke
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorized-apps
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorize/owners
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-schema
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/deleted
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorize/status
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/foundation/access/status
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/bindings
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/sync/jobs
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/sync/conflicts
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/sync/dashboard
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/go-live-gates
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/sync/overview
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/sync/metrics
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/capabilities
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-tags
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-tags/{tag_uuid}/members
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-members
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/customers
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/customers/records
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/customer-tags
+      method: GET
+      rbac: scrm.social_channel_accounts:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorized-apps/{candidate_uuid}/confirm
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorized-apps/{candidate_uuid}/reprocess
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorized-apps/connect
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}
+      method: PUT
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}
+      method: DELETE
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}/restore
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}/test-connection
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}/test-app-secret
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}/test-contact-secret
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}/channel-members
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/channel-accounts/{account_uuid}/capabilities
+      method: PATCH
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorize/start
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorize/restart
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/authorize/complete
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/sync/jobs
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/wecom/sync/conflicts/{conflict_uuid}/replay
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/sync/jobs
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-tags/pull
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-tags
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-tags/{tag_uuid}
+      method: PUT
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-tags/{tag_uuid}
+      method: DELETE
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/staff-tags/{tag_uuid}/members
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/customers/pull
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/customer-tags/pull
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/customer-tags/operations
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.social_channel_accounts.write
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/admin/social/openwork/foundation/customer-tags/relations
+      method: POST
+      rbac: scrm.social_channel_accounts:write
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.batch_clone
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates/batch-clone
+      method: POST
+      rbac: template:create
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.create
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates
+      method: POST
+      rbac: template:create
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.delete
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates/{id}
+      method: DELETE
+      rbac: template:delete
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.list
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates
+      method: GET
+      rbac: template:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.publish
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates/{id}/publish
+      method: POST
+      rbac: template:update
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.read
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates/{id}
+      method: GET
+      rbac: template:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.review
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates/{id}/review
+      method: POST
+      rbac: template:update
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.update
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates/{id}
+      method: PUT
+      rbac: template:update
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.validate
+      entrypoint: ${POWERX_PLUGIN_HTTP_BASE:-/api/v1}/templates/{id}/validate
+      method: POST
+      rbac: template:read
+      type: rest
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.lead.activity.record
+      rbac: scrm.leads:write
+      type: capability
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.lead.conflict.resolve
+      rbac: scrm.leads:write
+      type: capability
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.lead.identity.update
+      rbac: scrm.leads:write
+      type: capability
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.lead.mapping.upsert
+      rbac: scrm.leads:write
+      type: capability
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.lead.status.get
+      rbac: scrm.leads:read
+      type: capability
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.audit
+      type: agent_tool
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.compose
+      type: agent_tool
+    - auth: jwt
+      capability: com.powerx.plugins.scrm.template.quality_distribute
+      type: agent_tool

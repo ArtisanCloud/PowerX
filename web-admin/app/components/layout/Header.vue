@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import NotificationBusinessCard from "~/components/notifications/NotificationBusinessCard.vue";
+import { isBusinessNotification } from "~/composables/useNotificationPresentation";
+import { useNotificationReadsStore } from "~/stores/notificationReads";
 import { useDebounceFn } from "@vueuse/core";
 import { useUserStore } from "~/stores/user";
 import { useAuth } from "~/composables/useAuth";
@@ -22,6 +25,9 @@ const canAccessSettings = computed(
 const { notifications, totalCount: unreadCount, fetchNotifications, addNotification, openNotification, applyReadReceipt, identityScope } =
   useNotifications({ isRead: false });
 const wsBus = useWSBus();
+const notificationEvents = useNotificationReadsStore();
+const bellOpen = ref(false);
+const recentNotifications = computed(() => notifications.value.filter(n => !n.isRead).slice(0, 5));
 const notificationIdentityReady = computed(() => {
   void identityScope.value;
   const session = readAuthSession();
@@ -34,7 +40,7 @@ let lastConnectedNotificationIdentity = '';
 // 初次载入由身份监听负责；同一登录上下文重连后只补读一次。
 watch([wsBus.connected, notificationIdentityReady, identityScope], ([connected, ready, identity], previous) => {
   if (!connected || !ready) return;
-  if (previous?.[0] === false && identity === lastConnectedNotificationIdentity) void fetchNotifications();
+  if (previous?.[0] === false && identity === lastConnectedNotificationIdentity) { notificationEvents.presentationEpoch++; void fetchNotifications(); }
   lastConnectedNotificationIdentity = identity;
 }, { immediate: true });
 const notificationToast = useToast();
@@ -132,7 +138,17 @@ const collectMenuBreadcrumbs = (
   return chains;
 };
 
+const isPluginManagement = computed(() => userStore.isRoot && ['/plugins/market', '/plugins/local', '/plugins/installed'].includes(route.path));
+
 const menuBreadcrumbs = computed(() => {
+  const pluginTitles: Record<string, string> = {
+    '/plugins/market': 'plugins.presentation.market',
+    '/plugins/local': 'plugins.sources.local',
+    '/plugins/installed': 'plugins.sources.installed',
+  };
+  if (userStore.isRoot && pluginTitles[route.path]) {
+    return [{ title: t('plugins.sources.navigation'), path: '/plugins/market' }, { title: t(pluginTitles[route.path]!) }];
+  }
   const payload = menuResponse.value;
   const categories = (payload?.categories || []) as MenuCategory[];
   const sourceItems =
@@ -253,36 +269,6 @@ const userMenuItems = computed(() => {
         onSelect: handleLogout,
       },
     ],
-  ];
-});
-
-// 通知菜单项
-const notificationItems = computed(() => {
-  const recentNotifications = notifications.value.filter(notification => !notification.isRead).slice(0, 5);
-
-  const notificationMenuItems = recentNotifications.map((notification) => ({
-    label: notification.title,
-    description:
-      notification.content.length > 50
-        ? notification.content.substring(0, 50) + "..."
-        : notification.content,
-    icon: getNotificationIcon(notification.type),
-    badge: !notification.isRead ? "new" : undefined,
-    onSelect: () => handleOpenNotification(notification.id),
-  }));
-
-  return [
-    notificationMenuItems.length > 0 ? notificationMenuItems : [{
-      label: t("header.notifications.empty"),
-      icon: "i-heroicons-bell-slash",
-      disabled: true,
-    }],
-    [{
-      label: t("header.notifications.viewAll"),
-      icon: "i-heroicons-eye",
-      onSelect: () => navigateToAppPath("/notifications"),
-      badge: unreadCount.value > 0 ? unreadCount.value.toString() : undefined,
-    }],
   ];
 });
 
@@ -422,10 +408,10 @@ const getSearchResultTypeIcon = (type: string) => {
     class="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200/60 dark:border-gray-700/60 shadow-sm h-16 flex items-center justify-between px-6 sticky top-0 z-40"
   >
     <!-- 左侧：面包屑导航 -->
-    <div class="flex items-center space-x-4">
-      <nav class="flex" aria-label="Breadcrumb">
-        <ol class="flex items-center space-x-2">
-          <li>
+    <div class="flex min-w-0 items-center space-x-4">
+      <nav class="flex min-w-0" aria-label="Breadcrumb">
+        <ol class="flex min-w-0 items-center space-x-2">
+          <li class="shrink-0">
             <NuxtLink
               :to="$localePath('/dashboard')"
               class="text-gray-500 hover:text-gray-700"
@@ -436,7 +422,8 @@ const getSearchResultTypeIcon = (type: string) => {
           <li
             v-for="(crumb, index) in menuBreadcrumbs"
             :key="`${index}:${crumb.title}`"
-            class="flex items-center"
+            class="min-w-0 items-center whitespace-nowrap"
+            :class="isPluginManagement && index < menuBreadcrumbs.length - 1 ? 'hidden sm:flex' : 'flex'"
           >
             <UIcon
               class="w-4 h-4 text-gray-400 mx-2 inline-block"
@@ -511,7 +498,7 @@ const getSearchResultTypeIcon = (type: string) => {
     <!-- 右侧：操作按钮 -->
     <div class="flex items-center space-x-4">
       <!-- 通知 -->
-      <UDropdownMenu :items="notificationItems">
+      <UPopover v-model:open="bellOpen" :content="{ align: 'end' }">
         <UButton variant="ghost" size="sm" class="relative" :aria-label="t('header.notifications.viewAll')">
           <span class="w-5 h-5 inline-block">
             <UIcon class="w-5 h-5 inline-block" name="i-heroicons-bell" />
@@ -524,7 +511,19 @@ const getSearchResultTypeIcon = (type: string) => {
             class="absolute -top-1 -right-1"
           />
         </UButton>
-      </UDropdownMenu>
+      <template #content>
+          <div class="w-[min(24rem,calc(100vw-1rem))] max-h-[75vh] overflow-y-auto p-2" data-testid="notification-bell">
+            <p v-if="!recentNotifications.length" class="p-3 text-sm text-muted">{{ t('header.notifications.empty') }}</p>
+            <template v-for="notification in recentNotifications" :key="notification.id">
+              <NotificationBusinessCard v-if="isBusinessNotification(notification)" :notification="notification" compact class="mb-2" @open="bellOpen = false; handleOpenNotification(notification.id)" />
+              <button v-else type="button" class="block w-full rounded p-3 text-left hover:bg-elevated" @click="bellOpen = false; handleOpenNotification(notification.id)">
+                <span class="block font-medium">{{ notification.title }}</span><span class="block line-clamp-2 text-sm text-muted">{{ notification.content }}</span>
+              </button>
+            </template>
+            <UButton variant="ghost" block @click="bellOpen = false; navigateToAppPath('/notifications')">{{ t('header.notifications.viewAll') }}</UButton>
+          </div>
+        </template>
+      </UPopover>
 
       <!-- 用户菜单 -->
       <UDropdownMenu :items="userMenuItems">

@@ -1,5 +1,7 @@
 # PowerX 存储治理方案：120 GiB 单机、正式与开发双环境
 
+> **2026-11-05 商用交付门槛**：[配置治理约束](storage-governance-commercial.md)及 [SG-11 正式任务](../../../specs/027-monitor-center/tasks.md#us9-commercial-gates)已登记，均待实现。现有本地 UI／配置接入证据不代表唯一权威、原子并发、Root 权限收口、密钥治理及升级恢复已经完成；SG-09 长期运行要求继续有效。
+
 > 2026-11-01 实施入口：已补归档独立启停／S3 UI 配置、直接安全到期删除、持久历史与取回、版本引用清理、临时执行器接管及独立数据库期限。2026-11-01 又补齐独立 `capability-retention` 增量范围、观察模式就绪回读及未确认批次上限。实际本地范围、部署门禁与尚未上线项见 [v0.6 手册](../../guides/deploy/027-monitor-center/usecase-us9-storage-archive-controls.md) 和 [验证证据](../../contracts/evidence/storage-archive-controls-validation-20261031.json)。本文完整长期目标仍按 US9 任务逐项验收，不将本地实现当作生产完成。
 
 

@@ -2,6 +2,8 @@ import { useApiClient } from "../index";
 import type { ApiResponse } from "../types/types";
 
 export interface NotificationRecord {
+  revision?: number;
+  sourceRevision?: number;
   id: string;
   title: string;
   content: string;
@@ -83,9 +85,10 @@ export const useNotificationService = () => {
         `${baseUrl}/${encodeURIComponent(uuid)}`
       );
     },
-    markRead: (uuid: string) => {
+    markRead: (uuid: string, revision?: number) => {
       return apiClient.patch<ApiResponse<{ ok: boolean }>>(
-        `${baseUrl}/${encodeURIComponent(uuid)}/read`
+        `${baseUrl}/${encodeURIComponent(uuid)}/read`,
+        revision ? { expected_revision: revision } : undefined
       );
     },
     delete: (uuid: string) => {

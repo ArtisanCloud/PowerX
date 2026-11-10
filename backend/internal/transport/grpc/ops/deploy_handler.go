@@ -32,11 +32,21 @@ func NewDeployHandler(deps *shared.Deps) *DeployHandler {
 	if deps == nil || deps.DB == nil {
 		return nil
 	}
+	policies := deps.DatabaseBackupPolicies
+	if policies == nil {
+		policies = backupops.NewPolicyService(deps.DB, deps.RuntimeIdentity.DeploymentEnv)
+		policies.RequireControl()
+	}
+	jobs := deps.DatabaseBackupJobs
+	if jobs == nil {
+		jobs = backupops.NewJobService(deps.DB)
+		jobs.RequireControl()
+	}
 	return &DeployHandler{
 		svc:        deployops.NewService(deps.DB),
 		pluginSvc:  deployops.NewPluginLifecycleService(deps.DB),
-		policySvc:  backupops.NewPolicyService(deps.DB, deps.RuntimeIdentity.DeploymentEnv),
-		backupSvc:  backupops.NewJobService(deps.DB),
+		policySvc:  policies,
+		backupSvc:  jobs,
 		restoreSvc: backupops.NewRestoreDrillService(deps.DB),
 		migrateSvc: migrationops.NewService(deps.DB),
 	}

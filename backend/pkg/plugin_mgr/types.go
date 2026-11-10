@@ -1,20 +1,100 @@
 package plugin_mgr
 
 import (
+	"context"
 	"encoding/json"
+	"net/url"
+	"strings"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
 )
 
 // ------- 安装与运行期公共类型 -------
 
 type InstallOptions struct {
-	RunMigrations   bool
-	VerifyChecksum  bool
-	VerifySignature bool
-	Force           bool
-	AutoEnable      bool
-	HostConfigSeed  *HostConfig
-	Metadata        InstallMetadata
+	// LocalUpload 仅由本地 multipart 上传入口设置，兼容原有 force 上传流程。
+	// 市场及 URL 安装不能通过请求体启用此模式。
+	LocalUpload           bool
+	Provider              ProviderIdentity
+	ExpectedRevision      string
+	ConfirmLegacyProvider bool
+	// Marketplace 在写入安装目录前核对包身份与下载大小。
+	ExpectedPluginID string
+	ExpectedVersion  string
+	ExpectedSize     int64
+	// DownloadVerified 仅由宿主市场入口设置，在真实文件校验后、进入安装器前持久化结果。
+	DownloadVerified func(context.Context, DownloadVerification) error `json:"-" yaml:"-"`
+	RunMigrations    bool
+	VerifyChecksum   bool
+	VerifySignature  bool
+	Force            bool
+	AutoEnable       bool
+	HostConfigSeed   *HostConfig
+	Metadata         InstallMetadata
+	// Origin 由宿主安装入口设置，不能从 manifest 或客户端 metadata 推断。
+	Origin InstallOrigin
+}
+
+type DownloadVerification struct {
+	SHA256 string
+	Size   int64
+}
+
+// ProviderIdentity 用发布者标识及其签发域确认插件身份，独立于包的安装来源。
+// 本地包由执行导入的 Root 信任其声明；市场入口仅使用服务端目录的 owner_dev_id。
+type ProviderIdentity struct {
+	ID        string `yaml:"id" json:"id"`
+	Authority string `yaml:"authority" json:"authority"`
+}
+
+// Normalized 拒绝无法定位签发域的发布者身份；空值用于兼容旧安装包。
+func (p ProviderIdentity) Normalized() ProviderIdentity {
+	u, err := url.Parse(strings.TrimSpace(p.Authority))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || strings.TrimSpace(p.ID) == "" {
+		return ProviderIdentity{}
+	}
+	u.Scheme, u.Host = strings.ToLower(u.Scheme), strings.ToLower(u.Host)
+	return ProviderIdentity{ID: strings.TrimSpace(p.ID), Authority: strings.TrimRight(u.String(), "/")}
+}
+
+// Known 表示已经记录可比较的发布者身份，不代表已完成包签名校验。
+func (p ProviderIdentity) Known() bool { return p.Normalized().ID != "" }
+
+// SameProvider 比较签发域内的发布者，不能用 author 或下载来源代替。
+func (p ProviderIdentity) SameProvider(other ProviderIdentity) bool {
+	a, b := p.Normalized(), other.Normalized()
+	return a.ID != "" && a == b
+}
+
+// InstallOrigin 是版本级来源凭据；老记录没有来源时必须保持 unknown。
+type InstallOrigin struct {
+	Type     string `json:"type"`
+	SourceID string `json:"source_id,omitempty"`
+	Channel  string `json:"channel,omitempty"`
+	SHA256   string `json:"sha256,omitempty"`
+	OS       string `json:"os,omitempty"`
+	Arch     string `json:"arch,omitempty"`
+}
+
+// Normalized 将缺失或无法确认的来源明确表示为 unknown。
+func (o InstallOrigin) Normalized() InstallOrigin {
+	if o.Type != "local" && o.Type != "marketplace" {
+		return InstallOrigin{Type: "unknown"}
+	}
+	if o.Type == "marketplace" && o.SourceID == "" {
+		return InstallOrigin{Type: "unknown"}
+	}
+	if o.Type == "local" {
+		o.SourceID = "local"
+	}
+	return o
+}
+
+// SameSource 只有可确认的类型和来源标识均一致时才返回 true。
+func (o InstallOrigin) SameSource(other InstallOrigin) bool {
+	a, b := o.Normalized(), other.Normalized()
+	return a.Type != "unknown" && a.Type == b.Type && a.SourceID == b.SourceID
 }
 
 // InstallMetadata 记录一次安装请求携带的额外上下文。
@@ -102,9 +182,12 @@ const (
 
 // 运行期模型（用于对外返回）
 type Plugin struct {
-	ID      string      `json:"id"`
-	Version string      `json:"version"`
-	State   PluginState `json:"state"`
+	NotificationPresentations []NotificationPresentationSpec `json:"notification_presentations,omitempty"`
+	Provider                  ProviderIdentity               `json:"provider"`
+	Revision                  string                         `json:"revision"`
+	ID                        string                         `json:"id"`
+	Version                   string                         `json:"version"`
+	State                     PluginState                    `json:"state"`
 
 	// 这些来自 manifest：
 	Name                 string       `json:"name"`
@@ -131,6 +214,7 @@ type Plugin struct {
 	HostConfig      *HostConfig      `json:"host_config,omitempty"`
 	Migration       *MigrationRecord `json:"migration,omitempty"`
 	InstallMetadata InstallMetadata  `json:"install_metadata,omitempty"`
+	InstallOrigin   InstallOrigin    `json:"install_origin"`
 }
 
 type MigrationStatus string
@@ -298,14 +382,7 @@ type PermissionProtocolBinding struct {
 	ResourceScope string `yaml:"resource_scope,omitempty" json:"resource_scope,omitempty"`
 }
 
-type APIKeyPermissionSpec struct {
-	Scope           string `yaml:"scope" json:"scope"`
-	Action          string `yaml:"action" json:"action"`
-	ResourceType    string `yaml:"resource_type" json:"resource_type"`
-	ResourcePattern string `yaml:"resource_pattern" json:"resource_pattern"`
-	PluginID        string `yaml:"plugin_id,omitempty" json:"plugin_id,omitempty"`
-	Effect          string `yaml:"effect,omitempty" json:"effect,omitempty"`
-}
+type APIKeyPermissionSpec = pluginpermission.APIKeySpec
 
 type RBACResource struct {
 	Resource string   `yaml:"resource" json:"resource"` // e.g. "hello.report"

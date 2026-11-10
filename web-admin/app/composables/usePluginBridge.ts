@@ -1,6 +1,7 @@
 import { effectScope, watch } from 'vue';
 import { useI18n, useColorMode } from '#imports';
 import { PluginBridgeHost, type FrameStatus } from '~/utils/plugin-bridge-host';
+import { captureAuthSession } from '~/utils/auth-session';
 import { recoverPluginFrameSession } from '~/utils/plugin-frame-session';
 
 let host: PluginBridgeHost | null = null;
@@ -14,13 +15,16 @@ export function usePluginBridge() {
     host = new PluginBridgeHost(() => ({
       locale: String(locale.value),
       theme: colorMode.preference === 'auto' ? 'system' : colorMode.preference,
-    }), 8000, auth.refreshAuth);
+    }), 8000, auth.refreshAuth, auth.recoverSession);
     scope = effectScope(true);
     scope.run(() => watch([locale, () => colorMode.preference], () => host?.broadcastMetadata()));
   }
   return {
     prepareFrame: () => auth.initAuth(),
-    recoverFrameAuth: () => recoverPluginFrameSession(auth.refreshAuth),
+    recoverFrameAuth: () => recoverPluginFrameSession(auth.refreshAuth, async () => {
+      const stamp = captureAuthSession();
+      if (stamp) await auth.recoverSession(stamp);
+    }),
     register: (frame: HTMLIFrameElement, meta: { pluginId: string; instanceId: string; onStatus: (status: FrameStatus) => void }) =>
       host?.register(frame, meta.pluginId, meta.instanceId, meta.onStatus),
     unregister: (frame?: HTMLIFrameElement | null) => { if (frame) host?.unregister(frame); },

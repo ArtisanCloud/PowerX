@@ -20,6 +20,9 @@ var ErrUnavailable = errors.New("storage budget unavailable")
 var ErrInsufficient = errors.New("storage budget insufficient")
 var ErrBusy = errors.New("storage budget busy")
 
+// ErrDeviceChanged 表示持久账本与当前设备不同，且不能安全核验为同一文件系统。
+var ErrDeviceChanged = errors.New("storage budget device changed; verified filesystem rebind required")
+
 type Config struct {
 	Directory         string           `yaml:"directory" json:"directory"`
 	FilesystemPath    string           `yaml:"filesystem_path" json:"filesystem_path"`
@@ -54,13 +57,15 @@ type Snapshot struct {
 	Active            []Reservation `json:"active"`
 }
 type ledger struct {
-	Version      int                    `json:"version"`
-	HostID       string                 `json:"host_id"`
-	FilesystemID string                 `json:"filesystem_id"`
-	Device       uint64                 `json:"device"`
-	Revision     int64                  `json:"revision"`
-	Reservations map[string]Reservation `json:"reservations"`
-	Policy       *BudgetPolicy          `json:"policy,omitempty"`
+	Control          *ControlProjection     `json:"control,omitempty"`
+	Version          int                    `json:"version"`
+	HostID           string                 `json:"host_id"`
+	FilesystemID     string                 `json:"filesystem_id"`
+	Device           uint64                 `json:"device"`
+	Revision         int64                  `json:"revision"`
+	Reservations     map[string]Reservation `json:"reservations"`
+	Policy           *BudgetPolicy          `json:"policy,omitempty"`
+	DeviceRebindings []deviceRebinding      `json:"device_rebindings,omitempty"`
 }
 
 // BudgetPolicy 在所有同盘实例之间共享，不能各自解释运行余量。
@@ -72,9 +77,13 @@ type BudgetPolicy struct {
 	MaxConcurrent     int   `json:"max_concurrent"`
 }
 type Coordinator struct {
-	cfg    Config
-	device uint64
-	inode  uint64
+	authorityMu      sync.RWMutex
+	authority        BudgetAuthority
+	cfg              Config
+	device           uint64
+	inode            uint64
+	initializing     bool
+	verifyFilesystem func(string, string) bool
 }
 type Lease struct {
 	c        *Coordinator
@@ -84,6 +93,10 @@ type Lease struct {
 }
 
 func New(c Config) (*Coordinator, error) {
+	return newCoordinator(c, stableFilesystemMatches)
+}
+
+func newCoordinator(c Config, verify func(string, string) bool) (*Coordinator, error) {
 	if !filepath.IsAbs(c.Directory) || !filepath.IsAbs(c.FilesystemPath) || c.HostID == "" || c.FilesystemID == "" || c.InstanceID == "" {
 		return nil, ErrUnavailable
 	}
@@ -123,11 +136,12 @@ func New(c Config) (*Coordinator, error) {
 			return nil, ErrUnavailable
 		}
 	}
-	coordinator := &Coordinator{cfg: c, device: uint64(dir.Dev), inode: dir.Ino}
+	coordinator := &Coordinator{cfg: c, device: uint64(dir.Dev), inode: dir.Ino, initializing: true, verifyFilesystem: verify}
 	// 首次注册即持久化权威策略，避免尚未执行任务时各实例读取不同默认值。
 	if err := coordinator.locked(context.Background(), true, func(*ledger) error { return nil }); err != nil {
 		return nil, err
 	}
+	coordinator.initializing = false
 	return coordinator, nil
 }
 func (c *Coordinator) locked(ctx context.Context, write bool, fn func(*ledger) error) error {
@@ -158,8 +172,18 @@ func (c *Coordinator) locked(ctx context.Context, write bool, fn func(*ledger) e
 		if json.Unmarshal(raw, &state) != nil {
 			return ErrUnavailable
 		}
-		if state.Version != 1 || state.HostID != c.cfg.HostID || state.FilesystemID != c.cfg.FilesystemID || state.Device != c.device || state.Reservations == nil || len(state.Reservations) > 64 {
+		if state.Version != 1 || state.HostID != c.cfg.HostID || state.FilesystemID != c.cfg.FilesystemID || state.Reservations == nil || len(state.Reservations) > 64 || len(state.DeviceRebindings) > 8 {
 			return ErrUnavailable
+		}
+		if state.Device != c.device {
+			if !c.initializing || !write || len(state.Reservations) != 0 || c.verifyFilesystem == nil || !c.verifyFilesystem(c.cfg.FilesystemPath, c.cfg.FilesystemID) || !c.rebindPoliciesSafe() {
+				return ErrDeviceChanged
+			}
+			state.DeviceRebindings = append(state.DeviceRebindings, deviceRebinding{PreviousDevice: state.Device, Device: c.device, InstanceID: c.cfg.InstanceID, At: c.cfg.Now().UTC(), Reason: "same_stable_filesystem_no_reservations_cleanup_disabled"})
+			if len(state.DeviceRebindings) > 8 {
+				state.DeviceRebindings = state.DeviceRebindings[len(state.DeviceRebindings)-8:]
+			}
+			state.Device = c.device
 		}
 	} else if !os.IsNotExist(readErr) {
 		return ErrUnavailable
@@ -205,7 +229,7 @@ func (c *Coordinator) snapshot(state *ledger) (Snapshot, error) {
 }
 func (c *Coordinator) Status(ctx context.Context) (Snapshot, error) {
 	var out Snapshot
-	err := c.locked(ctx, false, func(s *ledger) error { var e error; out, e = c.snapshot(s); return e })
+	err := c.withAuthorizedBudget(ctx, false, func(s *ledger) error { var e error; out, e = c.snapshot(s); return e })
 	return out, err
 }
 func (c *Coordinator) Reserve(ctx context.Context, operation string, peak int64, ttl time.Duration) (*Lease, error) {
@@ -213,7 +237,7 @@ func (c *Coordinator) Reserve(ctx context.Context, operation string, peak int64,
 		return nil, ErrUnavailable
 	}
 	id := uuid.NewString()
-	err := c.locked(ctx, true, func(s *ledger) error {
+	err := c.withAuthorizedBudget(ctx, true, func(s *ledger) error {
 		current, e := c.snapshot(s)
 		if e != nil {
 			return e
@@ -245,7 +269,7 @@ func (l *Lease) Progress(ctx context.Context, written, peak int64, ttl time.Dura
 	if written < 0 || peak < written || peak > 1<<50 || ttl <= 0 || ttl > 24*time.Hour {
 		return ErrUnavailable
 	}
-	return l.c.locked(ctx, true, func(s *ledger) error {
+	return l.c.withAuthorizedBudget(ctx, true, func(s *ledger) error {
 		r, ok := s.Reservations[l.id]
 		if !ok || r.InstanceID != l.c.cfg.InstanceID {
 			return ErrUnavailable
@@ -300,12 +324,16 @@ func (c *Coordinator) Document(ctx context.Context, name string, update func([]b
 // DocumentTransaction 在持锁期间先持久化意图，再提交外部有界事务及结果。
 // persist 只在回调执行期间有效，不得留存或跨 goroutine 使用。
 func (c *Coordinator) DocumentTransaction(ctx context.Context, name string, update func([]byte, func([]byte) error) ([]byte, error)) ([]byte, error) {
-	if name != "lifecycle" && name != "alerts" && name != "ownership" && name != "database-retention" {
+	if name != "execution-control-binding" && name != "execution-control-snapshot" && name != "system-retention-probe-binding" && name != "system-retention-probe-control" && name != "system-retention-discovery-binding" && name != "system-retention-discovery-control" && name != "database-retention-binding" && name != "database-retention-control" && name != "snapshot-policy-control" && name != "backup-policy-control" && name != "archive-policy-control" && name != "archive-target-control" && name != "lifecycle" && name != "alerts" && name != "ownership" && name != "database-retention" && name != "table-monitoring" && name != "table-monitoring-control" && name != "cleanup-health" && name != "database-backlog" && name != "system-table-retention" {
 		return nil, ErrUnavailable
 	}
 	var out []byte
 	err := c.locked(ctx, false, func(_ *ledger) error {
-		raw, err := c.readPrivate(name+".json", 1<<20)
+		filename, err := c.documentNameLocked(name)
+		if err != nil {
+			return err
+		}
+		raw, err := c.readPrivate(filename, 1<<20)
 		if err != nil && !os.IsNotExist(err) {
 			return ErrUnavailable
 		}
@@ -315,7 +343,7 @@ func (c *Coordinator) DocumentTransaction(ctx context.Context, name string, upda
 			if !active || len(next) > 1<<20 || !json.Valid(next) {
 				return ErrUnavailable
 			}
-			return c.writePrivate(name+".json", next)
+			return c.writePrivate(filename, next)
 		}
 		next, e := update(raw, persist)
 		if e != nil {
@@ -343,15 +371,29 @@ func validBudget(p BudgetPolicy) bool {
 }
 func (c *Coordinator) Policy(ctx context.Context) (BudgetPolicy, error) {
 	var out BudgetPolicy
-	err := c.locked(ctx, false, func(s *ledger) error { out = *s.Policy; return nil })
+	err := c.withAuthorizedBudget(ctx, false, func(s *ledger) error { out = *s.Policy; return nil })
 	return out, err
 }
 func (c *Coordinator) SavePolicy(ctx context.Context, expected int64, p BudgetPolicy) (BudgetPolicy, error) {
+	if c.authorityFence() != nil {
+		return p, ErrControlRequired
+	}
+	binding, e := c.readControlBinding()
+	if e != nil || binding != nil {
+		return p, ErrControlRequired
+	}
 	p.Revision = expected + 1
 	if !validBudget(p) {
 		return p, ErrInvalid
 	}
 	err := c.locked(ctx, true, func(s *ledger) error {
+		binding, e := c.readControlBinding()
+		if e != nil || binding != nil {
+			return ErrControlRequired
+		}
+		if s.Control != nil {
+			return ErrControlRequired
+		}
 		if s.Policy.Revision != expected {
 			return ErrBusy
 		}

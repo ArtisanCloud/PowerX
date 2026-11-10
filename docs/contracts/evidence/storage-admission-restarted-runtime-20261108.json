@@ -1,0 +1,87 @@
+{
+  "date": "2026-11-08",
+  "scope": "read-only verification after user restarted local Core",
+  "runtime": {
+    "pid": 30573,
+    "started_at_local": "2026-11-08 13:47:54 +0800",
+    "port": 8077,
+    "health_http": 200,
+    "build_id": "ec022de86ad2ef199cea9c8c3777e5565c898e1c9d8e5a5ee07a61b81105d4bc",
+    "fix_markers_present": [
+      "CheckStorageGovernanceSchema",
+      "StorageAdmissionFailure",
+      "STORAGE_GOVERNANCE_UNAVAILABLE"
+    ],
+    "binary_note": "Symbol stripping makes go tool nm insufficient; markers read from the running executable, with current process start time and runtime build fingerprint."
+  },
+  "database_metadata": {
+    "columns": [
+      "applied_revision",
+      "request_digest"
+    ],
+    "control_configuration_rows": 0,
+    "control_revision_rows": 0,
+    "database": "powerx",
+    "indexes": [
+      {
+        "definition": "CREATE UNIQUE INDEX uk_ops_control_request ON public.ops_storage_control_revisions USING btree (tenant_id, scope_id, request_id)",
+        "name": "uk_ops_control_request",
+        "ready": true,
+        "unique": true,
+        "valid": true
+      },
+      {
+        "definition": "CREATE UNIQUE INDEX uk_ops_control_revision ON public.ops_storage_control_revisions USING btree (tenant_id, scope_id, domain, revision)",
+        "name": "uk_ops_control_revision",
+        "ready": true,
+        "unique": true,
+        "valid": true
+      },
+      {
+        "definition": "CREATE UNIQUE INDEX uk_ops_control_scope_domain ON public.ops_storage_control_configurations USING btree (tenant_id, scope_id, domain)",
+        "name": "uk_ops_control_scope_domain",
+        "ready": true,
+        "unique": true,
+        "valid": true
+      }
+    ],
+    "schema": "public",
+    "server_address": "::1",
+    "server_port": 5432,
+    "tables": {
+      "ops_storage_cleanup_runs": true,
+      "ops_storage_control_configurations": true,
+      "ops_storage_control_revisions": true,
+      "ops_storage_policies": true,
+      "ops_storage_policy_revisions": true,
+      "ops_storage_samples": true
+    }
+  },
+  "observed_plugin_requests": [
+    {
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "method": "GET",
+      "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/sample-tracks",
+      "time_local": "2026-11-08T13:48:38.181+0800",
+      "upstream_status": 200,
+      "trace_id": "1f463e3f-ecd3-44e9-bc4a-e35235d3b0d7"
+    },
+    {
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "method": "GET",
+      "path": "/_p/com.powerx.plugins.ai-craft/api/v1/ws",
+      "time_local": "2026-11-08T13:48:37.715+0800",
+      "upstream_status": 101,
+      "trace_id": "96c022f1-3e8d-412a-8020-4d77f7c0ae37"
+    }
+  ],
+  "boundaries": {
+    "agent_restarted_service": false,
+    "agent_retried_business_request": false,
+    "migration_repeated": false,
+    "auth_or_policy_changed": false,
+    "credentials_requested_or_exposed": false,
+    "websocket_handshake_only": true,
+    "ai_craft_page_content_material_cleanup_and_message_delivery_still_require_plugin_acceptance": true
+  }
+}

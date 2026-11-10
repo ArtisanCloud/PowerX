@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-09T10:25:32.632479+08:00",
+  "scope": "source, owned native PostgreSQL / MinIO artifact acceptance; no daily or production resource adoption",
+  "branch": "024-ai-engineering-skills",
+  "ordered_progress": {
+    "1_plugin_regression": "existing 2026-11-08 14:06 original-Key Framework v0.0.28 success receipt reviewed; not replayed this turn",
+    "2_recovery_reconciliation": "existing source and isolated evidence reviewed; no claim of whole-site restore or daily deployment",
+    "3_native_artifacts": "six native acceptance cases passed; long-lived remote target remains required"
+  },
+  "passed": true,
+  "native": {
+    "checked_at": "2026-11-09T10:25:32.632479+08:00",
+    "passed": true,
+    "failure": null,
+    "scope": "source and owned native artifact acceptance only",
+    "tests": [
+      {
+        "name": "governed-artifacts",
+        "command": [
+          "go",
+          "test",
+          "-json",
+          "-race",
+          "./internal/service/storage_governance",
+          "-run",
+          "^(TestStorageNativeRealBackupRestore|TestStorageNativeRealS3ArchiveRecovery|TestLifecycleNativePostgresAdoptionPublicationDeletionAndReceipts)$",
+          "-count=1",
+          "-parallel=1",
+          "-timeout=180s"
+        ],
+        "exit_code": 0,
+        "tests": {
+          "TestLifecycleNativePostgresAdoptionPublicationDeletionAndReceipts": "pass",
+          "TestStorageNativeRealBackupRestore": "pass",
+          "TestStorageNativeRealS3ArchiveRecovery": "pass"
+        },
+        "passed": true,
+        "elapsed_seconds": 11.455
+      },
+      {
+        "name": "archive-native",
+        "command": [
+          "go",
+          "test",
+          "-json",
+          "-race",
+          "./internal/service/archive_ops",
+          "-run",
+          "^(TestLiveS3Governance|TestMediaDatabaseSnapshotNativePostgres)$",
+          "-count=1",
+          "-parallel=1",
+          "-timeout=180s"
+        ],
+        "exit_code": 0,
+        "tests": {
+          "TestLiveS3Governance": "pass",
+          "TestMediaDatabaseSnapshotNativePostgres": "pass"
+        },
+        "passed": true,
+        "elapsed_seconds": 3.233
+      },
+      {
+        "name": "backup-native",
+        "command": [
+          "go",
+          "test",
+          "-json",
+          "-race",
+          "./internal/service/backup_ops",
+          "-run",
+          "^(TestBackupIntegration)$",
+          "-count=1",
+          "-parallel=1",
+          "-timeout=180s"
+        ],
+        "exit_code": 0,
+        "tests": {
+          "TestBackupIntegration": "pass"
+        },
+        "passed": true,
+        "elapsed_seconds": 3.957
+      }
+    ],
+    "sql_audit": {
+      "logging_collector": "on",
+      "log_statement": "mod",
+      "log_truncate_on_rotation": "off"
+    },
+    "remaining_database_inventory": {
+      "databases": [
+        "postgres"
+      ],
+      "owned_schemas": 0
+    },
+    "remote": {
+      "versioning": "Enabled",
+      "versions": 9,
+      "bytes": 7217,
+      "scope": "owned ephemeral loopback MinIO; not a cloud or long-lived target"
+    },
+    "cleanup": {
+      "recorded_processes_exited": true,
+      "postgres_stopped": true,
+      "postgres_pid_exited": true,
+      "postgres_socket_released": true,
+      "minio_ports_released": true,
+      "owned_data_and_credentials_removed": true
+    },
+    "cleanup_errors": [],
+    "not_performed": [
+      "daily/production migration, restart, policy adoption or data deletion",
+      "long-lived remote target validation",
+      "whole-site physical restore or actual customer-data restore",
+      "external executor handoff",
+      "7-day/14-day runtime acceptance"
+    ],
+    "source_sha256": {
+      "scripts/ops/validate-storage-artifacts.py": "b84b69b58dab7b28f7bfcd21c39912e5ba3666001d4ddf06d2af16948c754675",
+      "backend/internal/service/storage_governance/recovery_artifacts_postgres_test.go": "aea73f378e6ff0921eb6866a9935dabbfe5886cfe5bd943209a0a97d79a44750",
+      "backend/scripts/ops/backup-db.sh": "b18fe43ebd3784aaf09aaf67e196f527c2e398acd8a8351e07e16790aae011f6",
+      "backend/scripts/ops/restore-drill.sh": "d8a036377847835ba422683e33979bea92cfe7506de9cbfd609572fb5ea71bec",
+      "backend/internal/service/archive_ops/live_s3_test.go": "c18d4907a2cfcd3ec9416db133ba2d92b59ce5aa7d4ba3d140496541185eb6f7",
+      "backend/internal/service/archive_ops/postgres_test.go": "cf00aff00b2e7d0e5d4393f30ef2158a08dabea035b6ff7bf72869c713b49f96",
+      "backend/internal/service/backup_ops/integration_test.go": "f2dbe3fe2da1ec37d05489d59ed0a9786a8937119e396e03b9e3b3c8e734d81c",
+      "backend/internal/service/storage_governance/lifecycle_control_postgres_test.go": "c384cae776673d39b4d1f46ecdf4538d505b9903a59c20c718e19f7a7a568a57"
+    }
+  },
+  "queue_boundary": "formal TaskBus implementation and PostgreSQL registration/publication; Redis backend is miniredis, not live Redis",
+  "failure_cleanup": {
+    "expected_exit_code": 1,
+    "failure": "RuntimeError: owned MinIO startup failed",
+    "cleanup": {
+      "recorded_processes_exited": true,
+      "postgres_stopped": true,
+      "postgres_pid_exited": true,
+      "postgres_socket_released": true,
+      "minio_ports_released": true,
+      "owned_data_and_credentials_removed": true
+    },
+    "cleanup_errors": []
+  },
+  "failure_history": {
+    "runs": [
+      {
+        "run": "run-1",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-2",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-3",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-4",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-5",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-6",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-7",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-8",
+        "passed": false,
+        "cleanup_complete": true
+      },
+      {
+        "run": "run-9",
+        "passed": true,
+        "cleanup_complete": true
+      }
+    ],
+    "explanation": [
+      "test setup initially omitted the restore metadata table and private vault preparation",
+      "vault reference must be saved before target creation; save and status use distinct confirmation contracts",
+      "owned MinIO region explicitly set and verified after AuthorizationHeaderMalformed; no user MinIO change",
+      "wait for remote final state, not local capture success; archive path includes category prefix and real rotation ages are distinct"
+    ],
+    "product_bypass_or_relaxation_added": false
+  },
+  "other_validation": {
+    "go_vet_storage_governance": "passed",
+    "ui_changed": false,
+    "browser_acceptance_performed": false
+  },
+  "remaining": [
+    "long-lived private S3/OSS target and exact retrieval acceptance using a dedicated prefix",
+    "whole-site business restore and independent external key custody",
+    "real legacy script/timer/executor ownership handoff",
+    "daily and production resource adoption and per-resource runtime acceptance",
+    "dual-environment 7-day automatic cycles and 14-day sample evidence",
+    "reviewable commit and deployment; no git staging or commit performed"
+  ],
+  "artifacts": "tmp/storage-artifact-acceptance-20261109/verified/",
+  "source_sha256": {
+    "scripts/ops/validate-storage-artifacts.py": "b84b69b58dab7b28f7bfcd21c39912e5ba3666001d4ddf06d2af16948c754675",
+    "backend/internal/service/storage_governance/recovery_artifacts_postgres_test.go": "aea73f378e6ff0921eb6866a9935dabbfe5886cfe5bd943209a0a97d79a44750",
+    "backend/scripts/ops/backup-db.sh": "b18fe43ebd3784aaf09aaf67e196f527c2e398acd8a8351e07e16790aae011f6",
+    "backend/scripts/ops/restore-drill.sh": "d8a036377847835ba422683e33979bea92cfe7506de9cbfd609572fb5ea71bec",
+    "backend/internal/service/archive_ops/live_s3_test.go": "c18d4907a2cfcd3ec9416db133ba2d92b59ce5aa7d4ba3d140496541185eb6f7",
+    "backend/internal/service/archive_ops/postgres_test.go": "cf00aff00b2e7d0e5d4393f30ef2158a08dabea035b6ff7bf72869c713b49f96",
+    "backend/internal/service/backup_ops/integration_test.go": "f2dbe3fe2da1ec37d05489d59ed0a9786a8937119e396e03b9e3b3c8e734d81c",
+    "backend/internal/service/storage_governance/lifecycle_control_postgres_test.go": "c384cae776673d39b4d1f46ecdf4538d505b9903a59c20c718e19f7a7a568a57"
+  }
+}

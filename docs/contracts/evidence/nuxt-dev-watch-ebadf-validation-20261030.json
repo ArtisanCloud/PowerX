@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-30",
+  "incident": {
+    "user_listener_pid": 35758,
+    "port": 3030,
+    "error": "Nitro child process spawn EBADF",
+    "node": "v22.13.0",
+    "nuxt": "4.2.2",
+    "nitro": "2.12.9",
+    "vite": "7.3.0",
+    "numeric_fd_count": 11244,
+    "highest_fd": 11248,
+    "launchctl_maxfiles_soft": 10240,
+    "observed_watch_targets": [
+      ".output-storage-validation",
+      ".output-media-v2-validation",
+      ".output-root-role-validation",
+      ".output-notification-validation",
+      ".output-recovery",
+      ".nuxt-storage-validation",
+      ".nuxt-agnes-20261022",
+      ".nuxt-media-v2-validation",
+      ".nuxt-build"
+    ],
+    "page_before": "HTTP request timed out"
+  },
+  "fix": "Exclude inactive generated trees and root-level test reports in Nuxt source scanning plus Vite/Nitro file watchers; preserve current build templates and business source paths. No cache/output trees deleted.",
+  "validation": {
+    "unit": "3 tests passed, including real filesystem change events for source and active generated template",
+    "typescript": "vue-tsc --noEmit passed",
+    "isolated_nuxt_start": "Nitro built in 1173ms without EBADF",
+    "isolated_numeric_fds": 1507,
+    "isolated_highest_fd": 1549,
+    "ai_page_http": 200,
+    "real_component_module_http": 200,
+    "active_build_module_hmr": {
+      "active_build_module_initial": true,
+      "active_build_module_update": true
+    },
+    "temporary_process": {
+      "owner": "Codex temporary verification",
+      "pid": 91504,
+      "pgid": 91504,
+      "command": [
+        "node",
+        "node_modules/.bin/nuxt",
+        "dev",
+        "--open=false",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "3039"
+      ],
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "port": 3039,
+      "started_at": "2026-10-30 14:37:31",
+      "build_dir": "/tmp/powerx-nuxt-watch-20261030-143523/nuxt",
+      "output_dir": "/tmp/powerx-nuxt-watch-20261030-143523/output",
+      "cleanup": {
+        "terminated_agent_process_group": true,
+        "debug_port_released": true
+      }
+    },
+    "user_service_action": "User-owned PID 35758 was not stopped or restarted. Port 3030 still requires user restart to load new watcher rules.",
+    "no_dependency_changes": true
+  },
+  "changed_files": [
+    "web-admin/nuxt.config.ts",
+    "web-admin/scripts/dev-watch-ignore.mjs",
+    "web-admin/tests/unit/plugins/dev-watch-ignore.spec.ts"
+  ],
+  "sha256": {
+    "web-admin/nuxt.config.ts": "2403f221f7f6be5eddcc6c707db34494fded9e124451a2a848ff3ec0049aad0b",
+    "web-admin/scripts/dev-watch-ignore.mjs": "2f6fd3f9e5dd4c33204fd4a86372f1a1f0b4a66a26b636140935842331bff6bc",
+    "web-admin/tests/unit/plugins/dev-watch-ignore.spec.ts": "6790845661e9a2f8cdf5b593495502dee004cdb0a2524d007ec28e2292e6e39b"
+  },
+  "references": [
+    "https://github.com/paulmillr/chokidar/issues/1385"
+  ]
+}

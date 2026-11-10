@@ -11,9 +11,13 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
 
-// InstallFromFile: 从本地目录安装插件（最小实现）
+// installDirectory 执行各来源共用的目录安装流程，由外层事务控制替换。
 // 约定 srcDir 下包含 plugin.yaml，可能还包含 backend/bin/*、frontend/* 等
-func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
+func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts plugin_mgr.InstallOptions, revision string, suppliedCredential *PluginRuntimeCredential, commit func(Descriptor) error) (result plugin_mgr.Plugin, installErr error) {
+	if opts.Origin.Type == "" {
+		opts.Origin = plugin_mgr.InstallOrigin{Type: "local", Channel: "directory"}
+	}
+	opts.Origin = opts.Origin.Normalized()
 	if srcDir == "" {
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
 			plugin_mgr.CodeInvalidArg, plugin_mgr.WithOp("install_file"), plugin_mgr.WithMsg("srcDir is empty"),
@@ -33,6 +37,14 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
 			plugin_mgr.CodeInvalidManifest, plugin_mgr.WithOp("install_file"), plugin_mgr.WithMsg("manifest.id or version empty"),
 		)
+	}
+	if opts.Provider.Known() {
+		if man.Provider.Known() && !man.Provider.SameProvider(opts.Provider) {
+			return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeConflict, plugin_mgr.WithMsg("package provider differs from selected marketplace provider"))
+		}
+		man.Provider = opts.Provider.Normalized()
+	} else {
+		man.Provider = man.Provider.Normalized()
 	}
 	// 安装阶段提前做一次完整校验，避免把坏包复制进 installed 目录。
 	if err := NewFSLoader().Validate(ctx, man, absSrc); err != nil {
@@ -54,8 +66,8 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
 	// 在删除旧产物前恢复并验证凭证，避免 Force 删除唯一保存明文 secret 的配置。
-	var runtimeCred *PluginRuntimeCredential
-	if m.opts.RuntimeCredential != nil {
+	runtimeCred := suppliedCredential
+	if m.opts.RuntimeCredential != nil && runtimeCred == nil {
 		runtimeCred, err = m.resolvePluginRuntimeCredential(ctx, man.ID)
 		if err == nil {
 			err = m.injectRuntimeSTSContract(map[string]string{}, man.ID, runtimeCred)
@@ -66,99 +78,40 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 				plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version))
 		}
 	}
-	if opts.Force {
-		// Force 覆盖语义：替换运行产物，不应默认清理业务数据库资源。
-		if m.opts.Registry != nil && m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
-			if err := m.replaceInstalledVersion(ctx, man.ID, man.Version, destRoot); err != nil {
-				return plugin_mgr.Plugin{}, err
-			}
-		} else if _, err := os.Stat(destRoot); err == nil {
-			if err := os.RemoveAll(destRoot); err != nil {
-				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-					plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.force_cleanup"), plugin_mgr.WithPath(destRoot),
-				)
-			}
-		}
-	}
 
 	if _, err := os.Stat(destRoot); err == nil {
-		// 若注册表尚未登记该版本，视为上次安装失败的残留，先清理再继续
-		if m.opts.Registry != nil && !m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
-			if err := os.RemoveAll(destRoot); err != nil {
-				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-					plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.cleanup"), plugin_mgr.WithPath(destRoot),
-				)
-			}
-		} else {
-			if m.opts.Registry != nil {
-				if existing, ok := m.opts.Registry.GetVersion(ctx, man.ID, man.Version); ok {
-					if err := m.validatePluginDatabaseBinding(man.ID, existing.HostConfig); err != nil {
-						return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-							plugin_mgr.CodeConflict,
-							err,
-							plugin_mgr.WithOp("install_file.database_binding"),
-							plugin_mgr.WithPlugin(man.ID),
-							plugin_mgr.WithVersion(man.Version),
-						)
-					}
-				}
-			}
-			// 同版本重复安装按幂等处理：仍执行一次权限同步（upsert），再返回已安装版本。
-			if m.opts.PostInstallManifest != nil {
-				if err := m.opts.PostInstallManifest(ctx, man); err != nil {
-					return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
-						plugin_mgr.CodeInternal,
-						err,
-						plugin_mgr.WithOp("install_file.register_permissions"),
-						plugin_mgr.WithPlugin(man.ID),
-						plugin_mgr.WithVersion(man.Version),
-					)
-				}
-			}
-			if m.opts.Registry != nil {
-				if p, ok := m.opts.Registry.GetVersion(ctx, man.ID, man.Version); ok {
-					return p, nil
-				}
-				if p, ok := m.opts.Registry.Get(ctx, man.ID); ok && p.Version == man.Version {
-					return p, nil
-				}
-			}
-			return plugin_mgr.Plugin{
-				ID:                   man.ID,
-				Version:              man.Version,
-				State:                plugin_mgr.StateInstalled,
-				Runtime:              man.Runtime,
-				Frontend:             man.Frontend,
-				Endpoints:            man.Endpoints,
-				Exposure:             man.Exposure,
-				RBAC:                 man.RBAC,
-				Events:               man.Events,
-				RequiredCapabilities: append([]string(nil), man.Capabilities.Required...),
-				Backend:              man.Backend,
-				Routes:               man.Routes,
-				Permissions:          append([]plugin_mgr.PermissionSpec(nil), man.Permissions...),
-				Agents:               append([]plugin_mgr.AgentSpec(nil), man.Agents...),
-				Tools:                append([]plugin_mgr.ToolSpec(nil), man.Tools...),
-				Workflows:            append([]plugin_mgr.WorkflowSpec(nil), man.Workflows...),
-				Paths: plugin_mgr.InstalledPaths{
-					Root:              destRoot,
-					FrontendAdminDir:  ResolvePath(destRoot, man.Frontend.Admin.StaticDir),
-					Entry:             ResolvePath(destRoot, man.Runtime.Entry),
-					PublicDir:         ResolvePath(destRoot, "public"),
-					ContractsOpenAPI:  ResolvePath(destRoot, "contracts/openapi.yaml"),
-					ContractsProtoDir: ResolvePath(destRoot, "contracts/proto"),
-					ConfigDir:         ResolvePath(destRoot, "config"),
-				},
-				Name:        man.Name,
-				Description: man.Description,
-				Metadata:    man.Metadata,
-			}, nil
+		if m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
+			return plugin_mgr.Plugin{}, installConflict("PLUGIN_INSTALL_CHANGED", "目标安装已变化，请刷新后重新确认")
 		}
+		// 首次安装的遗留目录仍先完成凭证预检；安全替换由外层事务负责。
+		if err := os.RemoveAll(destRoot); err != nil {
+			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.cleanup"), plugin_mgr.WithPath(destRoot))
+		}
+	} else if !os.IsNotExist(err) {
+		return plugin_mgr.Plugin{}, err
 	}
+
 	if err := os.MkdirAll(destRoot, 0o755); err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file"), plugin_mgr.WithPath(destRoot),
 		)
+	}
+	// 首次安装失败也不能留下可被 Bootstrap 误识别的半成品。
+	if commit == nil {
+		defer func() {
+			if installErr == nil {
+				return
+			}
+			recoveryCtx := context.WithoutCancel(ctx)
+			if m.opts.Registry.HasVersion(recoveryCtx, man.ID, man.Version) {
+				if m.http != nil {
+					_ = m.Disable(recoveryCtx, man.ID)
+				}
+				_ = m.opts.Registry.Remove(recoveryCtx, man.ID, man.Version)
+				_ = m.opts.Registry.Save(recoveryCtx)
+			}
+			_ = os.RemoveAll(destRoot)
+		}()
 	}
 
 	// 3) 拷贝整个目录
@@ -204,10 +157,12 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		paths.HostValuesFile = hostCfg.ValuesFile
 	}
 	desc := Descriptor{
+		Revision:        revision,
 		Manifest:        man,
 		Paths:           paths,
 		HostConfig:      hostCfg,
 		InstallMetadata: opts.Metadata,
+		InstallOrigin:   opts.Origin,
 	}
 
 	if rec, err := m.runPluginMigrate(ctx, desc, opts); err != nil {
@@ -227,12 +182,18 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		}
 	}
 
-	// 5) 登记为 installed（Bootstrap 已处理“同版本跳过”，这里就是新装）
-	if err := m.opts.Registry.Put(ctx, desc, plugin_mgr.StateInstalled); err != nil {
-		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("install_file"))
-	}
-	if err := m.opts.Registry.Save(ctx); err != nil {
-		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("install_file.save"))
+	// 5) 所有入口共用这一提交点；替换入口在这里原子切换单份安装登记。
+	if commit != nil {
+		if err := commit(desc); err != nil {
+			return plugin_mgr.Plugin{}, err
+		}
+	} else {
+		if err := m.opts.Registry.Put(ctx, desc, plugin_mgr.StateInstalled); err != nil {
+			return plugin_mgr.Plugin{}, err
+		}
+		if err := m.opts.Registry.Save(ctx); err != nil {
+			return plugin_mgr.Plugin{}, err
+		}
 	}
 
 	// 6) 可选：安装后立即启用
@@ -247,6 +208,9 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 
 	// 7) 直接返回“刚安装的版本”视图（避免读 current 造成显示老版本）
 	return plugin_mgr.Plugin{
+		Provider:             man.Provider,
+		Revision:             revision,
+		Migration:            desc.Migration,
 		ID:                   man.ID,
 		Version:              man.Version,
 		State:                installedState,
@@ -259,92 +223,9 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		Paths:                desc.Paths,
 		HostConfig:           hostCfg,
 		InstallMetadata:      opts.Metadata,
+		InstallOrigin:        opts.Origin.Normalized(),
+		Name:                 man.Name, Description: man.Description, Metadata: man.Metadata,
 	}, nil
-}
-
-func (m *managerImpl) replaceInstalledVersion(ctx context.Context, id, version, destRoot string) error {
-	if strings.TrimSpace(id) == "" || strings.TrimSpace(version) == "" {
-		return plugin_mgr.NewError(
-			plugin_mgr.CodeInvalidArg,
-			plugin_mgr.WithOp("install_file.force_replace"),
-			plugin_mgr.WithPlugin(id),
-			plugin_mgr.WithVersion(version),
-			plugin_mgr.WithMsg("id or version empty"),
-		)
-	}
-	if m == nil || m.opts.Registry == nil {
-		return plugin_mgr.NewError(
-			plugin_mgr.CodeInternal,
-			plugin_mgr.WithOp("install_file.force_replace"),
-			plugin_mgr.WithPlugin(id),
-			plugin_mgr.WithVersion(version),
-			plugin_mgr.WithMsg("registry not provided"),
-		)
-	}
-
-	if cur, ok := m.opts.Registry.Get(ctx, id); ok && cur.Version == version && cur.State == plugin_mgr.StateEnabled {
-		if m.opts.TenantInstanceCount != nil {
-			count, err := m.opts.TenantInstanceCount(ctx, id)
-			if err != nil {
-				return plugin_mgr.Wrap(
-					plugin_mgr.CodeLifecycleError,
-					err,
-					plugin_mgr.WithOp("install_file.force_replace.tenant_instance_check"),
-					plugin_mgr.WithPlugin(id),
-					plugin_mgr.WithVersion(version),
-				)
-			}
-			if count > 0 {
-				return plugin_mgr.NewError(
-					plugin_mgr.CodeConflict,
-					plugin_mgr.WithOp("install_file.force_replace.tenant_instance_check"),
-					plugin_mgr.WithPlugin(id),
-					plugin_mgr.WithVersion(version),
-					plugin_mgr.WithMsg("plugin has %d active tenant instances; drain required before replacing enabled runtime", count),
-				)
-			}
-		}
-		if err := m.Disable(ctx, id); err != nil {
-			return plugin_mgr.Wrap(
-				plugin_mgr.CodeLifecycleError,
-				err,
-				plugin_mgr.WithOp("install_file.force_replace.disable"),
-				plugin_mgr.WithPlugin(id),
-				plugin_mgr.WithVersion(version),
-			)
-		}
-	}
-
-	if err := m.opts.Registry.Remove(ctx, id, version); err != nil {
-		return plugin_mgr.Wrap(
-			plugin_mgr.CodeRegistryError,
-			err,
-			plugin_mgr.WithOp("install_file.force_replace.registry_remove"),
-			plugin_mgr.WithPlugin(id),
-			plugin_mgr.WithVersion(version),
-		)
-	}
-	if err := m.opts.Registry.Save(ctx); err != nil {
-		return plugin_mgr.Wrap(
-			plugin_mgr.CodeRegistryError,
-			err,
-			plugin_mgr.WithOp("install_file.force_replace.registry_save"),
-			plugin_mgr.WithPlugin(id),
-			plugin_mgr.WithVersion(version),
-		)
-	}
-
-	if err := os.RemoveAll(destRoot); err != nil {
-		return plugin_mgr.Wrap(
-			plugin_mgr.CodeIOError,
-			err,
-			plugin_mgr.WithOp("install_file.force_replace.cleanup"),
-			plugin_mgr.WithPlugin(id),
-			plugin_mgr.WithVersion(version),
-			plugin_mgr.WithPath(destRoot),
-		)
-	}
-	return nil
 }
 
 func validateInstallPackagePlatform(man plugin_mgr.Manifest, root string) error {

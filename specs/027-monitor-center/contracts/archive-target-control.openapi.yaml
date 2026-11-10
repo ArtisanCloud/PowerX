@@ -1,0 +1,321 @@
+openapi: 3.0.3
+info:
+  title: Root archive target control
+  version: 1.0.0
+  description: Platform Root human access session only. No API Key or STS access. Saving does not enable
+    archiving. API prefix is deployment configured.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /admin/ops/backup/archives/target-configuration:
+    get:
+      operationId: getArchiveTargetConfiguration
+      responses:
+        '200':
+          description: Standard envelope with TargetConfiguration in data
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TargetConfiguration'
+        '503':
+          description: Control database or schema unavailable
+        '401':
+          description: Missing or invalid human access session
+        '403':
+          description: Platform Root human user required; API Key and STS are forbidden
+  /admin/ops/backup/archives/target-configuration/adoptions:
+    post:
+      operationId: adoptArchiveTargetConfiguration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - legacy_digest
+              - confirm
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                legacy_digest:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+      responses:
+        '200':
+          description: Standard envelope with TargetMutation in data; publication may still be pending
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TargetMutation'
+        '409':
+          description: Source changed or request/version conflict
+        '503':
+          description: Control or worker unavailable; unknown commit must use receipt query
+        '401':
+          description: Missing or invalid human access session
+        '403':
+          description: Platform Root human user required; API Key and STS are forbidden
+  /admin/ops/backup/archives/targets:
+    post:
+      operationId: saveArchiveTargetConfiguration
+      description: Breaking replacement of the legacy Target body. Empty target_id creates the target
+        using request_id as its UUID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - expected_revision
+              - settings
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                expected_target_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  default: 0
+                target_id:
+                  type: string
+                  description: Empty for new; canonical UUID for updates
+                  default: ''
+                settings:
+                  $ref: '#/components/schemas/TargetSettings'
+      responses:
+        '200':
+          description: Standard envelope with TargetMutation in data; does not imply executor activation
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TargetMutation'
+        '400':
+          description: Invalid typed body or forbidden fields
+        '409':
+          description: Catalog/target CAS or idempotency conflict
+        '428':
+          description: Explicit catalog adoption required
+        '503':
+          description: Unknown write result or unavailable control; query original UUID
+        '401':
+          description: Missing or invalid human access session
+        '403':
+          description: Platform Root human user required; API Key and STS are forbidden
+  /admin/ops/backup/archives/target-configuration/requests/{request_id}:
+    get:
+      operationId: getArchiveTargetConfigurationRequest
+      parameters:
+      - in: path
+        name: request_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Original operation revision plus current TargetConfiguration; no replay
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TargetMutation'
+        '403':
+          description: Platform Root human user required; API Key and STS are forbidden
+        '404':
+          description: Receipt not visible yet; never authorizes resubmission
+        '503':
+          description: Receipt store unavailable
+        '401':
+          description: Missing or invalid human access session
+  /admin/ops/backup/archives/targets/{target_id}/test:
+    post:
+      operationId: verifyPublishedArchiveTarget
+      description: Verify from the actual executor. Does not enable policy or change configuration revision.
+        Verification objects are version-read and then removed.
+      parameters:
+      - in: path
+        name: target_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '200':
+          description: Standard envelope with data.verified=true
+        '409':
+          description: Publication pending or target changed during verification
+        '428':
+          description: Target catalog adoption required
+        '503':
+          description: Control or target service unavailable
+        '401':
+          description: Missing or invalid human access session
+        '403':
+          description: Platform Root human user required; API Key and STS are forbidden
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    TargetSettings:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - credential_ref
+      description: S3 requires HTTPS (loopback HTTP explicitly allowed for tests), private versioned bucket
+        and dedicated prefix. SSH uses fixed deployed credential references.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        driver:
+          type: string
+          enum:
+          - s3
+          - ssh
+          - ''
+          description: Empty or omitted only for a legacy SSH definition; new UI targets explicitly use
+            s3.
+        endpoint:
+          type: string
+        bucket:
+          type: string
+        prefix:
+          type: string
+          maxLength: 256
+        region:
+          type: string
+        force_path_style:
+          type: boolean
+        credential_ref:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+        user:
+          type: string
+        directory:
+          type: string
+    TargetConfiguration:
+      type: object
+      required:
+      - authority
+      - ready
+      - state
+      - desired_revision
+      - applied_revision
+      - snapshot_revision
+      - legacy_digest
+      - legacy_count
+      - targets
+      properties:
+        authority:
+          type: string
+          enum:
+          - database
+          - legacy
+          - unavailable
+        ready:
+          type: boolean
+          description: Write worker and schema readiness; not target verification
+        state:
+          type: string
+          enum:
+          - legacy
+          - pending
+          - applied
+          - failed
+          - unconfirmed
+          - unavailable
+        desired_revision:
+          type: integer
+          format: int64
+        applied_revision:
+          type: integer
+          format: int64
+        snapshot_revision:
+          type: integer
+          format: int64
+          nullable: true
+        legacy_digest:
+          type: string
+        legacy_count:
+          type: integer
+        problem:
+          type: string
+        targets:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            description: Desired target definitions; overview overlays valid effective verification proofs
+    TargetMutation:
+      type: object
+      required:
+      - request_id
+      - operation_revision
+      - configuration
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        operation_revision:
+          type: integer
+          format: int64
+        target_id:
+          type: string
+          format: uuid
+          description: Present for target save; omitted for catalog adoption
+        configuration:
+          $ref: '#/components/schemas/TargetConfiguration'

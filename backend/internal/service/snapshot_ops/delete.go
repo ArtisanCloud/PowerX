@@ -50,7 +50,7 @@ func (s *Service) Delete(ctx context.Context, id, confirmation string, deletePro
 		return out, err
 	}
 	switch point.Status {
-	case "ready", "failed", "interrupted", "pruned", "deleting", "delete_failed":
+	case "ready", "failed", "interrupted", "pruned", "deleting", "delete_failed", "admission_unconfirmed", "pruning", "prune_unconfirmed":
 	default:
 		return out, failure(409, "SNAPSHOT_IN_USE", "快照仍在采集或校验，请完成后再删除")
 	}
@@ -93,6 +93,9 @@ func (s *Service) Delete(ctx context.Context, id, confirmation string, deletePro
 		return out, dto.NewErrorWithCode(500, point.ErrorCode, point.Error, cause)
 	}
 	if err = os.RemoveAll(s.data(id)); err != nil {
+		return failed(err)
+	}
+	if err = s.removeRetentionQuarantine(point); err != nil {
 		return failed(err)
 	}
 	if coordinator != nil && coordinator.CleanupSnapshotWork != nil {

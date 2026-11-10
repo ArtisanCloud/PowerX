@@ -1,0 +1,92 @@
+{
+  "recorded_at": "2026-11-01T19:02:54.585346+08:00",
+  "status": "implemented_and_controlled_validation_passed_live_provider_not_invoked",
+  "scope": "Mac local Core AI Settings single-image trial",
+  "flow": [
+    "Vision Analysis: Try an image opens a separate dialog.",
+    "Upload PNG/JPEG/WebP up to 5 MB, or enter HTTP(S) image URL; enter prompt and explicitly execute.",
+    "Use saved tenant/environment credentials and current temporary parameters through test/call execute=true and the formal VLM service.",
+    "Show nonempty analysis text, elapsed time, model, trace and usage; preserve drafts on error and section changes.",
+    "Close/stop/navigation abort waiting and discard late results; environment/tenant/session identity changes clear drafts."
+  ],
+  "api": {
+    "route": "POST /admin/agents/test/call",
+    "new_explicit_field": "execute=true (vlm only)",
+    "credential": "reuseCredential=true; temporary credential/endpoint overrides rejected",
+    "inference_deadline": "Deps.CapabilityAIMultimodalHTTPTimeout, propagated into driver context",
+    "browser_timeout_ms": 0,
+    "browser_retry": 0,
+    "changed_capability_bindings": false,
+    "changed_live_grants": false,
+    "changed_database_config": false
+  },
+  "validation": {
+    "backend_packages_passed": [
+      "internal/service/ai",
+      "internal/transport/http/admin/agent",
+      "internal/transport/http/openapi/ai",
+      "internal/server/ai/drivers/openai"
+    ],
+    "http_trial": "Real handler + saved-credential service + actual VLM driver against httptest provider; URL/base64, explicit flag, RBAC denial, saved-connection enforcement, structured upstream errors, configured deadline and generation-profile preservation passed.",
+    "frontend_unit_tests_passed": 63,
+    "frontend_typecheck": "passed",
+    "go_vet": "passed",
+    "core_build": "darwin/arm64 passed",
+    "frontend_production_build": "passed",
+    "capability_check": "passed",
+    "browser_new_trial_scenarios": {
+      "desktop": "passed",
+      "narrow": "passed",
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "isolation": "Fixture session and intercepted HTTP; no developer database writes"
+    },
+    "browser_regressions": {
+      "initial_full_run": "11 passed, 1 failed because keyboard fill occurred while another selector retained focus",
+      "final_existing_vision_settings": "2 passed after explicitly focusing and verifying the edited budget",
+      "unique_scenarios_verified": 12
+    },
+    "live_openai_inference": false
+  },
+  "runtime": {
+    "user_core_pid_before": 13300,
+    "user_core_pid_observed_after": 20488,
+    "user_core_started_at": "2026-11-01T18:57:54+08:00",
+    "runtime_binary_contains_new_trial_handler": true,
+    "runtime_binary_identical_to_validation_build": false,
+    "user_frontend_pid": 11794,
+    "agent_restarted_user_service": false
+  },
+  "processes": {
+    "temporary_frontend": {
+      "pid": 9731,
+      "command": [
+        "node",
+        "node_modules/nuxt/bin/nuxt.mjs",
+        "dev",
+        "--open=false",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "3045"
+      ],
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "port": 3045,
+      "ownership": "agent-temporary",
+      "build_dir": ".nuxt-vision-trial-20261101-185441"
+    },
+    "cleanup": {
+      "pid": 9731,
+      "owned_group_remaining": [],
+      "port3045_released": true,
+      "stopped_at": "2026-11-01T19:02:54.584728+08:00"
+    }
+  },
+  "private_evidence_directory": "/tmp/powerx-vision-trial-20261101-180752",
+  "core_binary_sha256": "038defa6cd4c5c10b0bf0757e038ca8721c2b170db7113bf342a4dc1091b300e",
+  "remaining": [
+    "Real-provider image inference and business-image quality evaluation are not certified by controlled fixtures."
+  ]
+}

@@ -25,6 +25,8 @@ const (
 type BackupJob struct {
 	coremodel.PowerUUIDModel
 
+	PolicyRevision int64 `gorm:"column:policy_revision;not null;default:0" json:"policy_revision"`
+
 	PolicyID     uint64            `gorm:"column:policy_id;not null;index:idx_ops_backup_job_policy" json:"policy_id"`
 	Protected    bool              `gorm:"column:protected;not null;default:false" json:"protected"`
 	Status       BackupJobStatus   `gorm:"column:status;type:varchar(32);not null;index:idx_ops_backup_job_status" json:"status"`

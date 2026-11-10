@@ -215,3 +215,24 @@ describe('personal notification isolation', () => {
     expect(n.notifications.value.map(v=>v.id)).toEqual(['mine']);
   });
 });
+
+
+it('binds a late displayed read to its original version after a newer same-ID event', async () => {
+  const n = scope.run(useNotifications)!;
+  const id = '00000000-0000-4000-8000-000000000019';
+  await n.addNotification({id, userId: a, revision: 1, isRead: false});
+  const displayed = n.notifications.value[0]!;
+  const pending = deferred(); api.markRead.mockReturnValueOnce(pending.promise);
+  const reading = n.markAsRead(id, displayed);
+  expect(api.markRead).toHaveBeenLastCalledWith(id, 1);
+  await n.addNotification({id, userId: a, revision: 2, isRead: false});
+  pending.resolve({}); await reading;
+  expect(n.notifications.value).toHaveLength(1);
+  expect(n.notifications.value[0]!.revision).toBe(2);
+  expect(n.notifications.value[0]!.isRead).toBe(false);
+  const receipt = {eventType: 'notification_read', payload_version: 1, contract: 'notification_read_receipt.v1', tenant_uuid: tenant, userId: a, notification_uuids: [id]};
+  n.applyReadReceipt({...receipt, revisions: {[id]: 1}});
+  expect(n.isNotificationRead(n.notifications.value[0]!)).toBe(false);
+  n.applyReadReceipt({...receipt, revisions: {[id]: 2}});
+  expect(n.isNotificationRead(n.notifications.value[0]!)).toBe(true);
+});

@@ -5,6 +5,9 @@ import { defineComponent } from 'vue';
 import zh from '../../../i18n/locales/zh.json';
 import Workspace from '~/components/monitor/storage/StorageGovernanceWorkspace.vue';
 import { policy } from './fixtures';
+import { beginArchiveRunIntent } from '~/utils/archive-run-request';
+const archiveSession = vi.hoisted(() => ({ sessionId: 'storage-root', tenantUuid: 'storage-tenant', status: 'active' }));
+vi.mock('~/utils/auth-session', () => ({ AUTH_SESSION_EVENT: 'powerx:auth-session-changed', readAuthSession: () => archiveSession }));
 
 const api = vi.hoisted(() => ({ overview: vi.fn(), estimate: vi.fn(), policy: vi.fn() }));
 vi.mock('~/composables/api/services/storageGovernanceService', () => ({ useStorageGovernanceService: () => api }));
@@ -15,10 +18,11 @@ const snapshot = () => ({
   coverage: 'partial', unattributed_bytes: null, limitations: [],
 });
 const stubs = {
+  StorageResourceConfiguration: true,
   NuxtLink: { template: '<a><slot /></a>' },
   UCard: { template: '<div><slot /></div>' }, UAlert: { props: ['title', 'description'], template: '<div role="status">{{title}} {{description}}</div>' },
   UIcon: true,
-  UModal: true,
+  UModal: { props: ['open'], emits: ['update:open'], template: '<section v-if="open"><slot name="body" /></section>' },
   UCheckbox: true,
   UButton: { props: ['loading', 'to'], template: '<button :disabled="loading"><slot /></button>' },
   UForm: { emits: ['submit'], template: '<form @submit.prevent="$emit(\'submit\')"><slot /></form>' },
@@ -30,10 +34,18 @@ function view() {
   const wrapper = mount(Workspace, { props: { allowed: true, identityKey: 'root-A' }, global: { plugins: [createI18n({ legacy: false, locale: 'zh', messages: { zh } })], stubs } });
   wrappers.push(wrapper); return wrapper;
 }
-beforeEach(() => { vi.clearAllMocks(); api.overview.mockResolvedValue(snapshot()); api.policy.mockResolvedValue(policy()); });
+beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); api.overview.mockResolvedValue(snapshot()); api.policy.mockResolvedValue(policy()); });
 afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()); vi.useRealTimers(); });
 
 describe('read-only storage workspace', () => {
+  it('shows a persisted unknown archive warning immediately on the default overview without mounting archive actions', async () => {
+    beginArchiveRunIntent(sessionStorage, { version: 1, owner: archiveSession, request_id: crypto.randomUUID(), policy_id: crypto.randomUUID(), policy_revision: 3, source_id: 'logs', created_at: new Date().toISOString() });
+    const w=view();await flushPromises();expect(w.find('[data-testid="storage-archive-attention"]').exists()).toBe(true);expect(w.find('[data-testid="archive-governance"]').exists()).toBe(false);
+  });
+  it('restores persisted attention when Root permissions become ready after mount', async () => {
+    beginArchiveRunIntent(sessionStorage, { version: 1, owner: archiveSession, request_id: crypto.randomUUID(), policy_id: crypto.randomUUID(), policy_revision: 3, source_id: 'logs', created_at: new Date().toISOString() });
+    const w=mount(Workspace,{props:{allowed:false,identityKey:'loading'},global:{plugins:[createI18n({legacy:false,locale:'zh',messages:{zh}})],stubs}});wrappers.push(w);await flushPromises();expect(w.find('[data-testid="storage-archive-attention"]').exists()).toBe(false);await w.setProps({allowed:true,identityKey:'root-ready'});await flushPromises();expect(w.find('[data-testid="storage-archive-attention"]').exists()).toBe(true);
+  });
   it('shows scanned partial bytes separately and explains missing sources', async () => {
     const data = snapshot(); data.resources = [
       { id: 'snapshot', name: 'Large snapshot', scope: 'dev', state: 'partial', physical_bytes: null, attributed_bytes: null, partial_bytes: 8192, problem: 'scan_limit_reached' },
@@ -61,8 +73,9 @@ describe('read-only storage workspace', () => {
   });
   it('preserves drafts across sections and clears stale estimates after editing', async () => {
     const w = view(); await flushPromises();
-    await w.findAll('[role="tab"]')[1]!.trigger('click');
+    await w.findAll('[role="tab"]').find(tab => tab.text() === '资源保留策略')!.trigger('click');
     await flushPromises();
+    await w.get('[data-testid="storage-advanced-draft"]').trigger('click');
     await w.get('[data-testid="storage-policy-count"]').setValue('30');
     await w.findAll('[role="tab"]')[0]!.trigger('click');
     await w.get('[data-section-select]').setValue('policies');

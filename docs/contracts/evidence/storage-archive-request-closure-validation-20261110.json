@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "date": "2026-11-10",
+  "task": "T158 registered 无终态请求的人工核对与受控结案",
+  "implementation": {
+    "state": "implemented",
+    "outcome": "closed_unknown",
+    "fixed_action": "close_unknown_keep_protection",
+    "authority": "human platform Root session; existing formal published paused policy Guard",
+    "effects": "atomic original request ledger only; task and CAS untouched",
+    "no_new_migration_or_queue": true,
+    "closure_uuid_reuse_blocked": true,
+    "legacy_pause_rechecked_after_config_lock": true
+  },
+  "validation": {
+    "service": "root, immutable inputs, unknown history, concurrent closure, locks, stale preview, epoch changes, task rollback/missing, corruption, closure UUID reuse, config-lock race",
+    "full_backend_race_vet": "three packages passed before final legacy config-lock recheck; final affected tests across all three packages passed after that change",
+    "native_postgres": "owned PostgreSQL14 Unix socket, formal TaskBus/published policy; disconnected control pool blocks review and commit; reconnect permits explicit commit; interruption protection remains",
+    "http": "real Service with signed Root JWT; default/custom prefix, negative identities, read-only review, close and original lookup/replay",
+    "frontend": {
+      "passed": 65,
+      "failed": 0,
+      "files": 9
+    },
+    "browser": {
+      "passed": true,
+      "checks": [
+        "light 1440 task navigation and closure draft preserved",
+        "light 390 task navigation and closure draft preserved",
+        "dark 1440 task navigation and closure draft preserved",
+        "dark 390 task navigation and closure draft preserved",
+        "Lost successful closure response, bad receipts and reload preserve original request and closure UUIDs",
+        "Original GET confirms one atomic closure; original job and source unchanged, no replay, no idle polling"
+      ],
+      "application_submits": 1,
+      "wire_posts": 1,
+      "fault": "after native success, headers delivered then truncated JSON and socket close; original GET only after manual reconciliation",
+      "resolutions": "404/503/mismatched receipt, reload and SSE reconnect keep original identity and task protection",
+      "viewports": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "fixture": "controlled own registered request + own interrupted capture record; real user Nuxt shell and real owned HTTP backend, unrelated mutation blocked except normal authentication",
+      "runtime_errors": []
+    },
+    "capability_check": "passed full repository; declared=1244 referenced=84 rest_routes=1182 candidates=1308 ignored_route_rules=154; no customer declarations changed or daily seed"
+  },
+  "cleanup": {
+    "owner": "codex archive request closure validation",
+    "owned_pids": [
+      1473,
+      1903,
+      12338,
+      12339,
+      13058,
+      14583,
+      14586,
+      14634,
+      14635,
+      14650,
+      91697,
+      94079,
+      94383,
+      94580,
+      99327,
+      99328
+    ],
+    "owned_ports": [
+      59957,
+      60149
+    ],
+    "all_recorded_owned_processes_exited": true,
+    "reused_pids_not_touched": [],
+    "all_owned_listeners_closed": true,
+    "owned_pg_root_removed": true,
+    "private_jwt_file_removed": true,
+    "daily_nuxt_pid": 34360,
+    "daily_core_pid": 58697,
+    "agent_restarted_daily_services": false
+  },
+  "not_performed": [
+    "daily Core restart/migration/policy changes",
+    "production deployment or resource takeover",
+    "real Alibaba OSS transfer and source-loss retrieval",
+    "entire Core/DB or external pg_dump/SSH/rsync drain",
+    "full filesystem rollback independent UUID tombstones",
+    "legacy executor field handoff",
+    "dual environment and 7/14 day live acceptance"
+  ],
+  "next": {
+    "task": "T158 归档外部采集命令退出与排空回归",
+    "criterion": "owned real pg_dump/SSH/rsync executing during cancel/process stop: original child ownership, exit/FD/listener release and original UUID/content preserved; component locks alone never assert external drain",
+    "prerequisites": "owned PostgreSQL/protocol services with recorded process groups; no daily restart or OSS required"
+  },
+  "source_sha256": {
+    "backend/internal/service/archive_ops/interruption_request_closure.go": "1c223394104b21b8ca4b2c665f3a711eb0ae13a31678bf478c15066d4505afe3",
+    "backend/internal/service/archive_ops/interruption_request_closure_test.go": "3662d506cacc1c56bd4dc6cbe7a35154f9c74ca16bb599fe156ea93df86a3641",
+    "backend/internal/service/archive_ops/interruption_disposition.go": "0d54677e683522911154ff12397ae3cba67add7538866081fefa40a863e1ecbd",
+    "backend/internal/service/archive_ops/types.go": "374b0b41b4456d2393da50bad117e970097c580779dc5e8682d3e2bd71f171a2",
+    "backend/internal/service/archive_ops/service.go": "ae597f56a4027dd2216ac3bf099a655415d9b1086a743fa837eafd9c78f76a29",
+    "backend/internal/service/archive_ops/changes.go": "11356776f51a879638805c7e8c142cff4aa43d5fce9cc43275bdcbf7a7010305",
+    "backend/internal/transport/http/admin/backup/archive_interruption_handler.go": "2cd751ee82eccf56411a6e7ada2c0b18766267e744161cd1df03f0936d71b7c0",
+    "backend/internal/transport/http/admin/backup/archive_interruption_test.go": "4da2f81592a56202a3d526c8a2f84efddd414b030ef43bf1bd34527d0087b91a",
+    "backend/internal/transport/http/admin/backup/routes.go": "ece01e3c95bfa6e0efdef950c6d47e651382f24fc1e5447f611bb5383d8dc1b9",
+    "backend/internal/service/storage_governance/archive_disposition_postgres_test.go": "38bca70eda71e1ed51ed83b8f1fcfdd28ccc6622b067d7c41338b79b5538b5b6",
+    "backend/internal/service/storage_governance/archive_policy_control.go": "9e20b600acde32e323babc0d95ad19da0b902188c40e1f4613cc5d83e198351e",
+    "backend/config/capability_audit_ignore.yaml": "06c87123862c8b656c41569bfe9b47407ca00700372ad6e6ad4dfdec196da7b7",
+    "web-admin/app/utils/archive-disposition.ts": "0ec6eb58873b0fc64af4673457427f5b9b05b88a9670e1548f47bbece9344dd5",
+    "web-admin/app/composables/api/services/archiveDispositionService.ts": "0e61a51be698e5b2baceaa8aa3d317797bd2499a281f95fc40252edea05b01b6",
+    "web-admin/app/composables/api/services/archiveOpsService.ts": "b417b3f76895899b40300557cae8d035ef705fc97c48a52be7a48925fe50f0a7",
+    "web-admin/app/components/ops/backup/ArchiveInterruptionDialog.vue": "9d1d7bb6171eb03a044e3ac4c0ee5592eef9ef1f34d942bd2ec32da95a21e595",
+    "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "4d17f0d77e8ab6ed66b578a110921144a25d259a5bf2a83580facd47a53d961a",
+    "web-admin/tests/unit/storage/archive-disposition.spec.ts": "3f87075b7f0ab310f57bef817c0b6534b220cb12a9834ed428b45e921dfe0524",
+    "web-admin/i18n/locales/en.json": "bdb73d8958c4f3cb0642c51f0d14fd7aef69e764900c26ccbcbe8562b103f3f5",
+    "web-admin/i18n/locales/zh.json": "d28608215ee2c24542def9a9f725842128f24cc2c5511637d01547ff5741e334",
+    "scripts/ops/test-storage-archive-request-closure-ui.mjs": "d7925b7a58910da1d96230bc864a2b49a1397c4f449c3a9d78f3cec2b9bdc437",
+    "docs/contracts/storage-archive-request-closure.md": "c0c0d4a2f5a0298b2464f25a569aab77fb80053b3f59a4a40785f20f8ce8ca02",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-archive-request-closure.md": "7f704549595cf62b5a99c5e6a9b5b278c8afff35d0eab35d1089807a035480b0",
+    "docs/guides/deploy/027-monitor-center/guide.md": "7bbdb7b3af090db7436d8f0aceda659ad169b757b5c5789fefab2d8ad9269e9b",
+    "specs/027-monitor-center/tasks.md": "c72d95b1455b45069d55f199937e308f9c8c5889cd613debbb72f804b8921147"
+  },
+  "artifacts": {
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/PLAN.md": "e0efdf554633b264ed4b5846f4d916cbab405b0ec0578960a0c61c7b2c9f907b",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/backend-tests.log": "570586ece624356861521ce825ec629392941dd1c8291019e8a293305420c902",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/backend-final.log": "da47aae826372a9a64339b072e481f2862aee469d56b247153943395684fa036",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/final-affected.log": "7ed755a1e8c8d0a040ba17d8a37ba4f86c04ec974d33eb429f3e87d7236f2e89",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/service-final.log": "637093165148abcc87cd3c33c0f50e36096a3970b685d8a3f18c8c475d8bfaab",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/native-tests.log": "5e3907d5ef92bcd8309fe7e17952388fe2708404185b7d912a4c0c84f4db7ced",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/frontend-final.log": "21dfc9a5a8272f14057f8aa29d38db4d6063bd7799e4d2563efa48e1abc62176",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/ui.log": "59a2f67cf20833c90840c06c5ffe2b4b88da9ed9384ded0632f7af25272afec7",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/ui-result.json": "40df6bfce1f86efe6c20a04017d5617b6ac4d41a692de32c5aee8bf1fe64f939",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/http-owner.json": "9baf281015a280ecaf1df71cf1483effcf611cc28ea82d111a0fb1bd8cdd9512",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/ui-owner.json": "5bec6d8abfad19a1c52e6c4b882dff0a670cc2107f7b9f92d427a338613ffc26",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/browser-test-owner.json": "40493f1628aafe28f0d2a8f7b998c28e2cc773106514348faada71365b9768d1",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/cleanup-result.json": "d87977e36504686b50662f0cd84aa4b34e1ba5a7cdfde4e354d48265e7f82f86",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/capability-check.log": "141d69a3c743850aca56596b17ab160dafef52c9c43de32c66eee1337d2d921c",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/light-1440-closure.png": "3f89d001aaa5b9315cdefb41aa450630d7c790f9a5a59e442623fca383acfbd8",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/light-390-closure.png": "5781a46cedd4d238eff22afdde97bf272b984e4513712f448d73c074b46c6f27",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/dark-1440-closure.png": "97ae715bbb80104d368dbf5290d3401156376b72b588ee3dfd85aa5e48485c3c",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/dark-390-closure.png": "00ce3d7de9a21123f2c716f8576025940b2bfb334ab4f61e8cdaee822e26f2a8",
+    "docs/contracts/evidence/storage-archive-request-closure-20261110/frontend-summary.json": "07ea4718b6f28fe066c9e0092049cda7231a3fe0529b96c42b249940ea4b45be"
+  }
+}

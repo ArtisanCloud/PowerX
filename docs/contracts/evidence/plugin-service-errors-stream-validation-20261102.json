@@ -1,0 +1,110 @@
+{
+  "schema": "powerx.plugin-service-errors-stream-validation/v1",
+  "recorded_at": "2026-11-01T17:15:47.524590+00:00",
+  "scope": "Mac local Core source and controlled HTTP regression; no Framework source edits",
+  "validation": {
+    "tests": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-service-fix-tests.log",
+      "sha256": "ff8518356281d38e6581b4fc31a80cf1516488f87eaa4fbcdf80a846f60ea802",
+      "summary": [
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/service/capability_registry\t1.471s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/service/capability_registry/router\t(cached)",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/service/plugin_identity\t1.973s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry\t2.134s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/bootstrap\t3.404s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/transport/http/openapi/iam\t0.702s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/service/iam\t1.031s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/pkg/auth/middleware\t(cached)",
+        "?   \tgithub.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware\t[no test files]",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/transport/grpc/auth\t(cached)",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/pkg/corex/iam/stsproof\t(cached)"
+      ]
+    },
+    "race": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-service-fix-race.log",
+      "sha256": "db4ddbcb2eca4fd78d4dd6dd4292f7250f38a4f22a9bb73c52f47b2e275e9974",
+      "summary": [
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/service/capability_registry\t10.819s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry\t2.546s",
+        "ok  \tgithub.com/ArtisanCloud/PowerX/internal/service/plugin_identity\t3.647s"
+      ]
+    },
+    "vet": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-service-fix-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-service-fix-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "capability-check": {
+      "exit_code": 0,
+      "log_path": "/tmp/powerx-service-fix-capability-check.log",
+      "sha256": "a3055cb173dfb6b49a4870545afe303ad2a4faf4621c2e5adbe97ea7e9aa0341"
+    }
+  },
+  "contract_cases": {
+    "plugin_errors": [
+      "flat error_code",
+      "SCRM success=false + error.code/details",
+      "409 idempotency conflict",
+      "503 retryable failure",
+      "upstream request/trace identifiers",
+      "next_action_code allowlist",
+      "invalid or reserved codes fallback",
+      "raw messages/details redacted"
+    ],
+    "runtime_errors": [
+      "409 version mismatch with expected/actual version",
+      "503 disabled/unavailable",
+      "fail before ticket and target request"
+    ],
+    "stream": [
+      "same Selector/authorizer and InvocationService preflight",
+      "real API-key middleware and isolated tenant DB",
+      "fixed declared Core origin/path",
+      "authorized SSE success",
+      "revoked grant/key",
+      "unpublished/unknown capability",
+      "latest registration disabled",
+      "cross-tenant registration",
+      "model/version/Selector denial",
+      "arbitrary URL/method/auth/context rejected",
+      "adapter drift rejected",
+      "plugin ticket stream unsupported",
+      "redirect/non-SSE/failed upstream redacted"
+    ]
+  },
+  "acceptance_boundaries": {
+    "http_error_fixture": "Official HTTP routes + real InvocationService + isolated SQLite + actual API-key middleware + httptest target; controlled ticket issuer isolates HTTP error transport.",
+    "ticket_identity": "Full issuance/verification/revocation tests run separately in internal/service/plugin_identity.",
+    "live_scrm_framework_e2e": "Pending deployment/restart and plugin-owner integration.",
+    "daily_core_service": "User-owned 8077 service was not stopped or restarted.",
+    "temporary_services": "Only test-owned httptest servers; test cleanup closes them; no agent-owned daily service retained.",
+    "database_grants": "No running-environment writes, grant expansion or Profile edits in this fix.",
+    "formal_capability_metadata": "Unchanged; capability-check passed; no reseed required for this runtime correction."
+  },
+  "files": {
+    "backend/internal/service/capability_registry/plugin_service_error.go": "d311ab830e12e47e91aa302b560150a4362f62db7c6ba3e5f2c5efb549b82833",
+    "backend/internal/service/capability_registry/stream_invocation.go": "b3e3326186656104238dc59ef38656374d0ed5c007ce16a90a40d8c4a7778bcc",
+    "backend/internal/service/capability_registry/invocation_service.go": "f7e469a2da146cf1b060691b71b1f04a435e2307a54db63c0817e2b10f060898",
+    "backend/internal/service/capability_registry/plugin_service_invocation.go": "9c4e53e6aa8932b6fa82be80ae2c8fd474fecaa03ca181b0f5dc1328c1f2aa8b",
+    "backend/internal/service/capability_registry/selector.go": "821eb6354c7ea8e7978535af12bb9ea825a662bcf6d0171d1d332ee712d208a5",
+    "backend/internal/bootstrap/plugin.go": "380b7924d170c0859397a7784c0ada2a85e822111fb19488a80f92a96346e3df",
+    "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go": "b672a71f325e52428fbbada8f8f438b843210b3361843778b4f950fa4c67ade5",
+    "backend/internal/service/capability_registry/plugin_service_error_test.go": "9189a709d7c9e11102f2f159fb533ca59577fe5b9a53bfdeac61b27bb7e642be",
+    "backend/internal/transport/http/openapi/capability_registry/tenant_stream_handler_test.go": "98f2a6b77e58590abaf253adc1bc17d5bfd339e41fa781fb1b9aba42274e0483",
+    "backend/internal/transport/http/openapi/capability_registry/tenant_plugin_error_contract_test.go": "01ba700b9eadc8fb6463bb54206d62229ce77fc883bd8ab2a10952e16d54b428",
+    "docs/contracts/plugin-service-authorization.md": "a8b1de3bd640f8429cae20923a1a76b79333198b3fbb26763e99b7c0ddd83e58",
+    "docs/contracts/plugin-service-authorization.openapi.yaml": "fb5471ea55b93833a2f69a9e7f9ba8f208bbc055306eea8f057572507235aa6f"
+  },
+  "binary": {
+    "path": "/tmp/powerx-service-fix-core",
+    "sha256": "bc3bfb83c3c7fe6c75aa0ee0b3ec5da8b06b348bea8dd7a86317248984bb608c",
+    "started": false
+  }
+}

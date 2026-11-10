@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/storage_governance"
@@ -62,8 +64,10 @@ type sampleDocument struct {
 	Resources  []ResourceSample `json:"resources,omitempty"`
 }
 type sampleDatabase struct {
-	DatabaseBytes *int64 `json:"database_bytes"`
-	Problem       string `json:"problem,omitempty"`
+	DatabaseBytes    *int64                `json:"database_bytes"`
+	Problem          string                `json:"problem,omitempty"`
+	TableFingerprint string                `json:"table_fingerprint,omitempty"`
+	Tables           []DatabaseTableSample `json:"tables,omitempty"`
 }
 
 // ObservationHistory 不把占用差值解释为清理前新增量，也不冒充文件／远端真实历史覆盖。
@@ -104,6 +108,33 @@ func (s *Service) CaptureSample(ctx context.Context) error {
 		if out.Database.DatabaseBytes == nil && record.Database.Problem == "" {
 			record.Database.Problem = "database_unavailable"
 		}
+		if collector, ok := s.opts.DatabaseCollector.(SystemTableMetricsCollector); ok {
+			items, e := collector.CollectSystemTableMetrics(ctx)
+			if e != nil {
+				return ErrStateUnavailable
+			}
+			if len(items) > 96 {
+				return ErrStateUnavailable
+			}
+			seen := map[string]bool{}
+			schema, databaseIdentity := "", ""
+			relations := []string{}
+			for _, item := range items {
+				if !registeredSystemTable(item.Name) || seen[item.Name] || item.State != "observed" && item.State != "not_present" && item.State != "unavailable" || item.State == "observed" && item.TotalBytes == nil || item.State != "observed" && item.TotalBytes != nil || item.TotalBytes != nil && (*item.TotalBytes < 0 || *item.TotalBytes > maxSafeBytes) {
+					return ErrStateUnavailable
+				}
+				if len(seen) > 0 && (schema != item.Schema || databaseIdentity != item.DatabaseIdentity) {
+					return ErrStateUnavailable
+				}
+				seen[item.Name] = true
+				schema = item.Schema
+				databaseIdentity = item.DatabaseIdentity
+				relations = append(relations, fmt.Sprintf("%s/%d", item.Name, item.RelationID))
+				record.Database.Tables = append(record.Database.Tables, DatabaseTableSample{ID: item.Name, State: item.State, Bytes: item.TotalBytes})
+			}
+			sort.Strings(relations)
+			record.Database.TableFingerprint = fmt.Sprintf("%x", sha256.Sum256([]byte(out.Database.ClusterID+"\x00"+databaseIdentity+"\x00"+schema+"\x00"+strings.Join(relations, "\x00")+"\x00allocated-system-tables/v1")))
+		}
 	}
 	var basis string
 	for _, r := range out.Resources {
@@ -113,12 +144,15 @@ func (s *Service) CaptureSample(ctx context.Context) error {
 		record.Resources = append(record.Resources, ResourceSample{ID: r.ID, Fingerprint: fmt.Sprintf("%x", sha256.Sum256([]byte(sourceFingerprint(r.Resource, r.FilesystemID)+basis))), State: r.State, Bytes: r.AttributedBytes, Files: r.Files, Problem: r.Problem})
 	}
 	raw, err := json.Marshal(record)
-	if err != nil || len(raw) > 32768 {
+	if err != nil || len(raw) > 65536 {
 		return ErrStateUnavailable
 	}
 	row := &m.Sample{TenantID: 0, InstanceID: s.opts.Identity.InstanceID, Slot: out.ObservedAt.Truncate(SampleInterval), MetricVersion: SampleMetricVersion, Document: datatypes.JSON(raw)}
 	if s.store.SaveSample(ctx, row) != nil {
 		return ErrStateUnavailable
+	}
+	if record.Database != nil && len(record.Database.Tables) > 0 {
+		s.PublishChange("database_tables_sampled")
 	}
 	return nil
 }

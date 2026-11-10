@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	PluginPermission "github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -16,11 +17,13 @@ import (
 const PluginManifestFile = "plugin.yaml"
 
 type Descriptor struct {
+	Revision        string
 	Manifest        plugin_mgr.Manifest
 	Paths           plugin_mgr.InstalledPaths
 	HostConfig      *plugin_mgr.HostConfig
 	Migration       *plugin_mgr.MigrationRecord
 	InstallMetadata plugin_mgr.InstallMetadata
+	InstallOrigin   plugin_mgr.InstallOrigin
 }
 
 type Loader interface {
@@ -140,6 +143,16 @@ func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor,
 
 func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root string) error {
 	var ferrs []plugin_mgr.FieldError
+	seenPresentations := map[string]bool{}
+	for _, binding := range m.NotificationPresentations {
+		if err := binding.Validate(); err != nil {
+			ferrs = append(ferrs, plugin_mgr.FieldError{Field: "notification_presentations", Reason: err.Error()})
+		}
+		if seenPresentations[binding.BusinessType+"\x00"+binding.Contract] {
+			ferrs = append(ferrs, plugin_mgr.FieldError{Field: "notification_presentations", Reason: "duplicate business_type and contract"})
+		}
+		seenPresentations[binding.BusinessType+"\x00"+binding.Contract] = true
+	}
 
 	req := func(field, val string) {
 		if strings.TrimSpace(val) == "" {
@@ -217,6 +230,9 @@ func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root str
 			basePath = strings.TrimSpace(m.Routes.BasePath)
 		}
 		for i := range m.Permissions {
+			if err := validateManifestAPIKeyPermission(m.ID, m.Permissions[i]); err != nil {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: "permissions[" + strconv.Itoa(i) + "].api_key", Reason: err.Error()})
+			}
 			path := strings.TrimSpace(m.Permissions[i].Path)
 			if path == "" {
 				continue
@@ -339,4 +355,26 @@ func anyString(v any) string {
 		}
 		return strings.TrimSpace(fmt.Sprint(typed))
 	}
+}
+
+// Both installation and publication require an explicit, tenant-scoped service
+// declaration. A legacy admin permission cannot opt in with a boolean alone.
+func validateManifestAPIKeyPermission(pluginID string, spec plugin_mgr.PermissionSpec) error {
+	if spec.APIKey == nil {
+		if spec.AllowAPIKey {
+			return fmt.Errorf("PLUGIN_API_KEY_DECLARATION_REQUIRED")
+		}
+		return nil
+	}
+	code := strings.TrimSpace(spec.PermissionCode)
+	separator := strings.LastIndex(code, ":")
+	if spec.Type != "api" || !spec.Independent || spec.BusinessPermissionCode != "" || separator <= 0 || spec.APIKey.Action != code[separator+1:] {
+		return fmt.Errorf("PLUGIN_API_KEY_SERVICE_PERMISSION_REQUIRED")
+	}
+	serviceBinding := len(spec.ProtocolBindings) > 0
+	for _, binding := range spec.ProtocolBindings {
+		serviceBinding = serviceBinding && (binding.ActorContext == "service_actor" && binding.ResourceScope == "tenant")
+	}
+	_, err := PluginPermission.ExplicitAPIKeyMetadata(spec.APIKey, pluginID, "", serviceBinding)
+	return err
 }

@@ -1,0 +1,14 @@
+{
+  "result": "failed",
+  "code": "UPGRADE_PAYLOAD_CHANGED",
+  "exit_code": 1,
+  "groups": [
+    {
+      "group": "core",
+      "registered": "d217755d3d3ac1a33f4384f319906def362e0613c5531484147b2a5a219fa2cd",
+      "current": "39d0fc61ff8ee925f396cb0dd9cd42cec5f9e0994cbf8ca632317f3c246eb0be"
+    }
+  ],
+  "scope": "Current shared worktree. This slice changes no COMMON/GROUPS production input; do not regenerate unrelated migration IDs automatically.",
+  "registry_mutated_by_agent": false
+}

@@ -27,6 +27,29 @@ func NewRoleRepository(db *gorm.DB) *RoleRepository {
 	}
 }
 
+// UpsertPreservingIdentity 以角色的 scope/tenant/code 维护元数据。
+// 已有角色的 ID、UUID 和创建时间不参与冲突更新；回读数据库中的实际
+// 对象，避免把 BeforeCreate 临时生成但未落库的新 UUID 返回给调用方。
+func (r *RoleRepository) UpsertPreservingIdentity(ctx context.Context, role *dbm.Role) (*dbm.Role, error) {
+	if role == nil {
+		return nil, gorm.ErrInvalidData
+	}
+	err := r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "scope"}, {Name: "tenant_uuid"}, {Name: "code"}},
+		DoUpdates: clause.AssignmentColumns([]string{"name", "description", "builtin", "updated_at", "deleted_at"}),
+	}).Create(role).Error
+	if err != nil {
+		return nil, err
+	}
+	var stored dbm.Role
+	err = r.db.WithContext(ctx).Unscoped().Where("scope=? AND tenant_uuid=? AND code=?", role.Scope, role.TenantUUID, role.Code).Take(&stored).Error
+	if err != nil {
+		return nil, err
+	}
+	*role = stored
+	return role, nil
+}
+
 // ---------- 你已有 ----------
 
 // FindByCode 在 scope+tenant 上按 code 查找

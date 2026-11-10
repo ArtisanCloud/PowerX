@@ -109,6 +109,23 @@ func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 	actor := c.GetHeader("X-Actor-ID")
 	payload := req.toPayload()
 	payload.Version = *req.Version
+	current, err := h.svc.GetRegistration(c.Request.Context(), capabilityID, tenantUUID, registry.GetRegistrationOptions{IncludeDisabled: true})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	// An omitted activation flag must preserve an existing adapter's state.
+	// Newly declared adapters retain the create default of active=true.
+	for i, adapter := range req.Adapters {
+		if adapter.IsActive == nil {
+			for _, existing := range current.Adapters {
+				if existing.AdapterID == adapter.AdapterID {
+					payload.Adapters[i].IsActive = existing.IsActive
+					break
+				}
+			}
+		}
+	}
 	input := registry.UpdateRegistrationInput{
 		Registration: payload,
 		Actor:        actor,
@@ -191,6 +208,7 @@ func registrationDetail(reg registry.Registration) gin.H {
 			"weight":         adapter.Weight,
 			"timeout_ms":     adapter.TimeoutMS,
 			"labels":         adapter.Labels,
+			"is_active":      adapter.IsActive,
 		}
 		if adapter.MaxConcurrency != nil {
 			ad["max_concurrency"] = *adapter.MaxConcurrency
@@ -289,6 +307,7 @@ type adapterRequest struct {
 	MaxConcurrency *int               `json:"max_concurrency"`
 	Labels         map[string]string  `json:"labels"`
 	Visibility     *visibilityRequest `json:"visibility"`
+	IsActive       *bool              `json:"is_active"`
 }
 
 type visibilityRequest struct {
@@ -332,6 +351,10 @@ func (r registrationRequest) toPayload() registry.RegistrationPayload {
 	}
 	adapters := make([]registry.AdapterEndpoint, 0, len(r.Adapters))
 	for _, adapter := range r.Adapters {
+		isActive := true
+		if adapter.IsActive != nil {
+			isActive = *adapter.IsActive
+		}
 		vis := registry.VisibilityPolicy{}
 		if adapter.Visibility != nil {
 			if adapter.Visibility.Environments != nil {
@@ -357,6 +380,7 @@ func (r registrationRequest) toPayload() registry.RegistrationPayload {
 			MaxConcurrency: adapter.MaxConcurrency,
 			Labels:         adapter.Labels,
 			Visibility:     vis,
+			IsActive:       isActive,
 		})
 	}
 	routing := registry.RoutingPolicy{

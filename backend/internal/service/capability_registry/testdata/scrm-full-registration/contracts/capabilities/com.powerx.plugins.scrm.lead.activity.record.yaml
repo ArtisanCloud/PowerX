@@ -1,0 +1,17 @@
+id: com.powerx.plugins.scrm.lead.activity.record
+type: API
+version: 1.0.0
+description: "通过 PowerX Gateway 记录外部插件产生的线索相关行为，用于 SCRM 时间线展示，不同步外部对象本体。"
+rbac:
+  resource: scrm.leads
+  actions: [write]
+metadata:
+  bridge:
+    scope: external_activity
+    object_sync_policy: notify_only
+    source_plugins: [com.powerx.plugins.crm]
+    transport: powerx_gateway
+  protocols:
+    capability:
+      action: record
+      subject: scrm.lead.activity

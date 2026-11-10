@@ -5,6 +5,7 @@ import (
 	"context"
 	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	lifecycle "github.com/ArtisanCloud/PowerX/internal/infra/storage_lifecycle"
+	storagerecovery "github.com/ArtisanCloud/PowerX/internal/infra/storage_recovery"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger/writer"
 	"gorm.io/gorm"
 	"time"
@@ -69,6 +70,7 @@ type Collector interface {
 
 // Options 由 shared/bootstrap 构造；没有运行时调用者可控的路径。
 type Options struct {
+	LegacyHandoffBlocked     bool
 	Identity                 Identity
 	FilesystemPath           string
 	Resources                []Resource
@@ -76,6 +78,10 @@ type Options struct {
 	CacheTTL                 time.Duration
 	Now                      func() time.Time
 	DB                       *gorm.DB
+	Control                  *ControlService
+	ControlWorkerEnabled     bool
+	RecoveryAnchor           *storagerecovery.Store
+	RequireRecoveryAnchor    bool
 	DatabaseCollector        DatabaseCollector
 	SamplingConfigured       bool
 	SamplingWorkerEnabled    bool

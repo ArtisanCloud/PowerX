@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -35,9 +36,10 @@ func (p ExecutionCapacityPolicy) fingerprint() string {
 }
 
 type ExecutionCapacity struct {
-	client redis.UniversalClient
-	policy ExecutionCapacityPolicy
-	env    string
+	namespace string
+	client    redis.UniversalClient
+	policy    ExecutionCapacityPolicy
+	env       string
 }
 type ExecutionLease struct {
 	Identity Snapshot
@@ -45,11 +47,15 @@ type ExecutionLease struct {
 }
 
 // NewExecutionCapacity 发布环境级固定策略。部署配置漂移不能静默扩大配额。
-func NewExecutionCapacity(ctx context.Context, client redis.UniversalClient, env string, policy ExecutionCapacityPolicy) (*ExecutionCapacity, error) {
+func NewExecutionCapacity(ctx context.Context, client redis.UniversalClient, env string, policy ExecutionCapacityPolicy, namespace ...string) (*ExecutionCapacity, error) {
 	if client == nil || !validArchiveEnv(env) || policy.Validate() != nil {
 		return nil, ErrInvalid
 	}
-	key := "agent:scheduling:{" + env + "}:policy"
+	scope := ""
+	if len(namespace) > 0 {
+		scope = namespace[0]
+	}
+	key := redisnamespace.Key(scope, "agent:scheduling:{"+env+"}:policy")
 	if err := client.SetNX(ctx, key, policy.fingerprint(), 0).Err(); err != nil {
 		return nil, err
 	}
@@ -60,7 +66,7 @@ func NewExecutionCapacity(ctx context.Context, client redis.UniversalClient, env
 	if value != policy.fingerprint() {
 		return nil, ErrSchedulingPolicyDrift
 	}
-	return &ExecutionCapacity{client: client, policy: policy, env: env}, nil
+	return &ExecutionCapacity{client: client, policy: policy, env: env, namespace: scope}, nil
 }
 
 func executionCapacityKeys(id Snapshot) []string {
@@ -88,7 +94,7 @@ func (c *ExecutionCapacity) Acquire(ctx context.Context, id Snapshot) (Execution
 		return ExecutionLease{}, ErrInvalid
 	}
 	lease := ExecutionLease{Identity: id, Token: uuid.NewString()}
-	n, err := acquireExecutionCapacity.Run(ctx, c.client, executionCapacityKeys(id), c.policy.fingerprint(), c.policy.TenantLimit, c.policy.RunLimit, c.policy.LeaseTTL.Milliseconds(), lease.Token).Int64()
+	n, err := acquireExecutionCapacity.Run(ctx, c.client, c.keys(id), c.policy.fingerprint(), c.policy.TenantLimit, c.policy.RunLimit, c.policy.LeaseTTL.Milliseconds(), lease.Token).Int64()
 	if err != nil {
 		return ExecutionLease{}, err
 	}
@@ -117,7 +123,7 @@ func (c *ExecutionCapacity) Renew(ctx context.Context, lease ExecutionLease) err
 	if c == nil || !validScope(lease.Identity) || lease.Identity.Env != c.env || lease.Token == "" {
 		return ErrInvalid
 	}
-	n, err := renewExecutionCapacity.Run(ctx, c.client, executionCapacityKeys(lease.Identity), lease.Token, c.policy.LeaseTTL.Milliseconds(), c.policy.fingerprint()).Int64()
+	n, err := renewExecutionCapacity.Run(ctx, c.client, c.keys(lease.Identity), lease.Token, c.policy.LeaseTTL.Milliseconds(), c.policy.fingerprint()).Int64()
 	if err != nil {
 		return err
 	}
@@ -133,7 +139,7 @@ func (c *ExecutionCapacity) Release(ctx context.Context, lease ExecutionLease) e
 	if c == nil || !validScope(lease.Identity) || lease.Identity.Env != c.env || lease.Token == "" {
 		return ErrInvalid
 	}
-	return releaseExecutionCapacity.Run(ctx, c.client, executionCapacityKeys(lease.Identity)[:2], lease.Token).Err()
+	return releaseExecutionCapacity.Run(ctx, c.client, c.keys(lease.Identity)[:2], lease.Token).Err()
 }
 
 // Execute 在续租失败时取消执行上下文，旧 Worker 不得继续发起业务调用。
@@ -172,4 +178,12 @@ func (c *ExecutionCapacity) Execute(ctx context.Context, lease ExecutionLease, e
 	defer cancelCleanup()
 	releaseErr := c.Release(cleanup, lease)
 	return errors.Join(err, renewErr, releaseErr)
+}
+
+func (c *ExecutionCapacity) keys(id Snapshot) []string {
+	keys := executionCapacityKeys(id)
+	for i := range keys {
+		keys[i] = redisnamespace.Key(c.namespace, keys[i])
+	}
+	return keys
 }

@@ -25,6 +25,7 @@ export class ApiEndpoints {
   static readonly ADMIN_AGENTS = {
     PROVIDERS: `${API_CONFIG.ADMIN_AGENTS}/providers`,
     MODELS: `${API_CONFIG.ADMIN_AGENTS}/models`,
+    ONLINE_MODELS_SYNC: `${API_CONFIG.ADMIN_AGENTS}/models/sync`,
     SETTINGS_SAVE: `${API_CONFIG.ADMIN_AGENTS}/settings/save`,
     SETTINGS_ACTIVE: `${API_CONFIG.ADMIN_AGENTS}/settings/active`,
     TEST_CONNECTION: `${API_CONFIG.ADMIN_AGENTS}/test/connection`,

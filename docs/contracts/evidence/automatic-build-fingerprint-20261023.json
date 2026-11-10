@@ -1,0 +1,156 @@
+{
+  "record_schema": "powerx.validation-evidence/v1",
+  "recorded_at": "2026-10-23T10:50:51.395481+00:00",
+  "scope": "Automatic development build fingerprint generation/reporting and Marketplace visibility; not trusted release ingestion or public site association acceptance.",
+  "behavior": [
+    "Missing development sidecar hashes the actual executable at startup without creating files; product state remains development.",
+    "Available release manifests retain original self-check; missing/invalid production sidecars and invalid development sidecars do not fall back.",
+    "Existing startup worker automatically sends build_info on registration and heartbeat; restart preserves instance ID and credential.",
+    "Authenticated Marketplace list and instance detail expose the received build_info; no manual import or public_site_url is required.",
+    "Instance reports do not populate the trusted release fingerprint library.",
+    "Deployment response server_time and challenge expires_at retain exactly three UTC fractional digits, including .000/.010/.100/.120.",
+    "Marketplace list/cards show reported build identity; detail separates overview, build fingerprint and site association."
+  ],
+  "checks": [
+    {
+      "name": "actual_core_worker_to_actual_marketplace_handlers",
+      "status": "passed",
+      "cwd": "PowerXPluginMarket/backend",
+      "command": "MARKET_DEPLOYMENT_AUTOMATIC_POWERX_CHECK=1 go test ./internal/http/identity -run ^TestAutomaticPowerXFingerprintVisibleWithoutManifestImport$ -count=1 -timeout=100s -v",
+      "detail": "Private SQLite; real Core LoadExecutable and startup/restart worker; actual Market routes, registration, list and detail; exactly one instance and zero trusted release imports."
+    },
+    {
+      "name": "core_race_regression",
+      "status": "passed",
+      "cwd": "PowerX/backend",
+      "command": "go test -race ./internal/productinfo ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/transport/http/public/product -count=1 -timeout=150s"
+    },
+    {
+      "name": "marketplace_race_regression",
+      "status": "passed",
+      "cwd": "PowerXPluginMarket/backend",
+      "command": "go test -race ./internal/deployment ./internal/http/identity ./internal/services/identity -run 'TestDeliveryJSON|TestDeployment|TestDistribution|TestAutomatic' -count=1 -timeout=150s"
+    },
+    {
+      "name": "native_main_executable_self_check",
+      "status": "passed",
+      "cwd": "PowerX/backend",
+      "commands": [
+        "go build -o <owned temporary directory>/powerx ./cmd/app",
+        "<temporary binary> --product-info"
+      ],
+      "build_id": "864d4894ba9a6b5eb45adce762150f61874b3cde789f15ce1fe5bad1fe0447c3",
+      "actual_executable_sha256": "ec93a276a6b35e8c5bb0472380179efe2dcc61b2a91b53662d12c9b682f5e7d6",
+      "detail": "Independent hash calculation agreed; repeated self-check returned same identity; no DB access or listener; temporary binary removed."
+    },
+    {
+      "name": "local_upload_regression",
+      "status": "passed",
+      "cwd": "PowerX/backend",
+      "command": "go test ./internal/transport/http/admin/plugin -run 'TestLocalUpload|TestUploadedDir' -count=1 -timeout=60s"
+    },
+    {
+      "name": "go_vet",
+      "status": "passed",
+      "detail": "Core productinfo/service plugin_marketplace; Market deployment/HTTP identity."
+    },
+    {
+      "name": "frontend_units",
+      "status": "passed",
+      "cwd": "PowerXPluginMarket/web-admin",
+      "command": "npx vitest run tests/unit/instance-build-fingerprint.spec.ts tests/unit/deployment.workspace.spec.ts tests/unit/distribution.spec.ts",
+      "tests": 10
+    },
+    {
+      "name": "eslint",
+      "status": "passed",
+      "detail": "Modified component/page and new unit test."
+    },
+    {
+      "name": "full_frontend_typecheck",
+      "status": "passed",
+      "command": "npm run typecheck"
+    },
+    {
+      "name": "frontend_production_build",
+      "status": "passed",
+      "command": "NUXT_BUILD_DIR=.nuxt-fingerprint-auto-check NUXT_OUTPUT_DIR=.output-fingerprint-auto-check NUXT_API_BASE=http://127.0.0.1:8088 npm run build",
+      "log": "/tmp/market-fingerprint-auto-build-final.log",
+      "existing_warnings": [
+        "Vite chunk size warning"
+      ]
+    },
+    {
+      "name": "shared_protocol_integrity",
+      "status": "passed",
+      "detail": "Frozen shared protocol snapshots remain byte-identical; no new wire fields."
+    }
+  ],
+  "initial_failures_resolved": [
+    "Actual HTTP automatic startup failed on default Go timestamp serialization removing trailing fractional zero; response fields now use fixed UTC milliseconds and regression covers each edge.",
+    "Nuxt typecheck rejected gray AlertColor; informational empty state uses installed Nuxt UI blue color and full check passed."
+  ],
+  "not_verified": [
+    "Actual user service reload after these edits",
+    "Real desktop/narrow/light/dark browser interaction: CUA inventory empty and IAB unavailable",
+    "Public HTTPS site proof, two deployed production instances, Docker image acceptance",
+    "Release pipeline automatic trusted manifest ingestion"
+  ],
+  "safety": {
+    "user_services_restarted_or_stopped": false,
+    "application_database_migrated": false,
+    "application_database_written_by_tests": false,
+    "plugin_install_triggered": false,
+    "plugin_business_source_modified": false,
+    "branch_changed": false
+  },
+  "owned_processes": [
+    {
+      "pid": 9958,
+      "port": 58470,
+      "result": "initial fixture failed; process exited; listener released"
+    },
+    {
+      "pid": 19358,
+      "port": 60024,
+      "result": "final fixture passed; process exited; listener released"
+    },
+    {
+      "pid": 31892,
+      "ports": [],
+      "result": "native build helper exited; temporary executable directory removed"
+    }
+  ],
+  "source_file_sha256": {
+    "PowerX": {
+      "backend/internal/productinfo/runtime.go": "01be7570af2e18bd4f9302e37a889eaf81b609fe91638a43cc37e33d5409f6de",
+      "backend/internal/productinfo/manifest_test.go": "475fa9b89c1ab4b792f945c6d50e0615e9925c4a1d8bbfd2a04827e6283c90d3",
+      "backend/internal/service/plugin_marketplace/deployment.go": "f32bfa4a9e6741fefc83f64155aea16c7ab3b3f5ccc5935f414e7beab60404d1",
+      "backend/internal/service/plugin_marketplace/deployment_automatic_fingerprint_test.go": "6e39ccbf9aaf7c16c2b5259df43b38f0266c4ba932c105710e2953edb3fed36c",
+      "docs/guides/deploy/powerx-deployment-fingerprint/guide.md": "510675a312433b97e98a826e6903affd5ddd03c33e85a2d66fd90f275a4b9059",
+      "docs/guides/deploy/powerx-deployment-fingerprint/usecase-build-and-identify.md": "208976f8d0c7590f73803d236ceb8e1f7ec8f671820790f83a32227a60bf9297"
+    },
+    "PowerXPluginMarket": {
+      "backend/internal/deployment/contract.go": "c30d2984b67dddde89144a0c460fb84db7342749d9fbbe145f78ee994de848b5",
+      "backend/internal/deployment/delivery_time_test.go": "f5fdab011dd682f82382ba300d97b15a0091c33e1300985b74907a29d40c1b57",
+      "backend/internal/http/identity/deployment.go": "f8b2cb5592284288fa8d528850e54e8bbba741e8d00011fc2b5692110788b770",
+      "backend/internal/http/identity/deployment_automatic_powerx_test.go": "0d6c281ea5f347483d4e8ea91fbba546dc3ae1f00295488ba75a3265e29b976a",
+      "web-admin/app/components/distribution/InstanceBuildFingerprint.vue": "4ff8e412941df0cca2ff574623bbd20990f9139ceedd5d35c5766f43a6fcc062",
+      "web-admin/app/components/distribution/InstanceDeployment.vue": "a7aa914f2e7fcaaaddca561e3cc3567ca71306ce9b29c6626dc974d85ef3a24c",
+      "web-admin/app/pages/admin/distribution.vue": "dee90d85060b9953765a457b9c3307247f29f9183e2ce5173393797b305d3add",
+      "web-admin/app/locales/zh-CN.json": "7d755ab0c79ec740debad144cf9459395956ffa6da29cc50fcf2ccf7cde3ccdc",
+      "web-admin/app/locales/en-US.json": "89743651fd10f6545879a1ea6fe7a9a00fd3d38703eef5fdd3749ee4fd8eef98",
+      "web-admin/tests/unit/instance-build-fingerprint.spec.ts": "723982cb50c29e12418ad1c9d495dc111f3ff0a570b037440199c1c6e23f717d",
+      "web-admin/scripts/check-deployment.mjs": "8045c64d8759641f93e1b6438b27bfdfad6618014b9f44e04e65f0e6d90caecd",
+      "web-admin/scripts/check-distribution.mjs": "9c5399d7b0ba3525f0a32d002b460a51c286caf21173b68371a8166111bc89c5",
+      "docs/marketplace/deployment-fingerprint-delivery.md": "00e3a7f36bb679b24519ffedca1c609b5bef66fa4891d44aebfb359a510e967f"
+    }
+  },
+  "cleanup": {
+    "fixture_listeners_released": true,
+    "recorded_processes_exited": true,
+    "owned_nuxt_build_directories_removed": true,
+    "native_binary_directory_removed": true,
+    "user_service_processes_untouched": true
+  }
+}

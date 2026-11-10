@@ -22,7 +22,8 @@ dist-systemd:
 	if [ -z "$$RUNNER_DIR" ] && [ -d runner ]; then RUNNER_DIR="runner"; fi; \
 	mkdir -p "$(DIST_OUT_DIR)/backend" "$(DIST_OUT_DIR)/runner" "$(DIST_OUT_DIR)/web-admin" "$(DIST_OUT_DIR)/systemd" "$(DIST_OUT_DIR)/config"; \
 	echo "[dist] build backend binary"; \
-	(cd backend && go build -o "../$(DIST_OUT_DIR)/backend/powerx" ./cmd/app); \
+	(cd backend && go build -ldflags "-X github.com/ArtisanCloud/PowerX/internal/productinfo.ReleaseID=$(DIST_VERSION) -X github.com/ArtisanCloud/PowerX/internal/productinfo.SourceCommit=$(DIST_SOURCE_COMMIT) -X github.com/ArtisanCloud/PowerX/internal/productinfo.BuiltAt=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/powerx" ./cmd/app); \
+	(cd backend && go run ./cmd/build_fingerprint -binary "../$(DIST_OUT_DIR)/backend/powerx" -release "$(DIST_VERSION)" -commit "$(DIST_SOURCE_COMMIT)" -built-at "$(DIST_BUILD_TIME)"); \
 	echo "[dist] build database tool"; \
 	(cd backend && go build -ldflags "-X main.version=$(DIST_VERSION) -X main.commit=$(DIST_SOURCE_COMMIT) -X main.buildTime=$(DIST_BUILD_TIME)" -o "../$(DIST_OUT_DIR)/backend/database" ./cmd/database); \
 	echo "[dist] build archive worker"; \
@@ -154,13 +155,13 @@ dist-systemd:
 	fi; \
 	echo "[dist] build web-admin"; \
 	if [ "$(NPM_INSTALL)" = "1" ]; then (cd web-admin && npm ci); fi; \
-	rm -rf web-admin/.nuxt web-admin/.output web-admin/node_modules/.cache/nuxt; \
+	rm -rf web-admin/.nuxt-build web-admin/.output; \
 	if [ -f web-admin/.env.prod ]; then \
 		echo "[dist] web-admin env: use web-admin/.env.prod"; \
-		(cd web-admin && set -a && . ./.env.prod && set +a && NUXT_BUILD_DIR=.nuxt npm run build); \
+		(cd web-admin && set -a && . ./.env.prod && set +a && POWERX_VERSION="$(DIST_VERSION)" POWERX_SOURCE_SHA="$(DIST_SOURCE_COMMIT)" POWERX_BUILD_TIME="$(DIST_BUILD_TIME)" npm run build); \
 	else \
 		echo "[dist] web-admin env: use built-in prod defaults"; \
-		(cd web-admin && NUXT_BUILD_DIR=.nuxt POWERX_ENV=prod POWERX_BUILD_TARGET=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws npm run build); \
+		(cd web-admin && POWERX_VERSION="$(DIST_VERSION)" POWERX_SOURCE_SHA="$(DIST_SOURCE_COMMIT)" POWERX_BUILD_TIME="$(DIST_BUILD_TIME)" POWERX_ENV=prod POWERX_BUILD_TARGET=prod POWERX_BACKEND=http://127.0.0.1:8080 WS_UPSTREAM=ws://127.0.0.1:8080/api/ws npm run build); \
 	fi; \
 	cp -R web-admin/.output "$(DIST_OUT_DIR)/web-admin/"; \
 	echo "[dist] copy systemd units"; \

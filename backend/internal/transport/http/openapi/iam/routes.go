@@ -1,7 +1,9 @@
 package iam
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -95,11 +97,13 @@ type memberDirectoryPageQuery struct {
 }
 
 type authorizationCheckRequest struct {
-	MemberUUID string `json:"member_uuid" validate:"required"`
-	UserUUID   string `json:"user_uuid" validate:"required"`
-	Resource   string `json:"resource" validate:"required"`
-	Action     string `json:"action" validate:"required"`
-	TraceID    string `json:"trace_id"`
+	PluginID       string `json:"plugin_id"`
+	PermissionCode string `json:"permission_code"`
+	MemberUUID     string `json:"member_uuid" validate:"required"`
+	UserUUID       string `json:"user_uuid" validate:"required"`
+	Resource       string `json:"resource"`
+	Action         string `json:"action"`
+	TraceID        string `json:"trace_id"`
 }
 
 func RegisterTenantRoutes(protectedGroup *gin.RouterGroup, deps *shared.Deps) {
@@ -478,8 +482,14 @@ func (h *handler) listPermissions(c *gin.Context) {
 
 func (h *handler) checkAuthorization(c *gin.Context) {
 	var req authorizationCheckRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+	dec := json.NewDecoder(io.LimitReader(c.Request.Body, 16385))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
 		dto.RespondErrorFrom(c, iamsvc.DirectoryInvalidArgumentError(err))
+		return
+	}
+	if dec.Decode(&struct{}{}) != io.EOF || len(c.Request.URL.Query()) != 0 {
+		dto.RespondErrorFrom(c, iamsvc.DirectoryInvalidArgumentError(errors.New("unexpected authorization query fields")))
 		return
 	}
 	tenantUUID, err := h.authorizeAuthorizationCheck(c)
@@ -495,11 +505,11 @@ func (h *handler) checkAuthorization(c *gin.Context) {
 		dto.RespondErrorFrom(c, iamsvc.DirectoryInvalidArgumentError(err))
 		return
 	}
-	if strings.TrimSpace(req.Resource) != "iam.member" || strings.TrimSpace(req.Action) != "read" {
+	if req.PluginID == "" && req.PermissionCode == "" && (strings.TrimSpace(req.Resource) != "iam.member" || strings.TrimSpace(req.Action) != "read") {
 		dto.RespondErrorFrom(c, iamsvc.DirectoryInvalidArgumentError(errors.New("unsupported IAM authorization resource/action")))
 		return
 	}
-	result, err := h.directory.CheckAuthorization(c.Request.Context(), tenantUUID, iamsvc.AuthorizationCheckInput{MemberUUID: req.MemberUUID, UserUUID: req.UserUUID, Resource: req.Resource, Action: req.Action, TraceID: req.TraceID})
+	result, err := h.directory.CheckAuthorization(c.Request.Context(), tenantUUID, iamsvc.AuthorizationCheckInput{PluginID: req.PluginID, PermissionCode: req.PermissionCode, MemberUUID: req.MemberUUID, UserUUID: req.UserUUID, Resource: req.Resource, Action: req.Action, TraceID: req.TraceID})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		dto.RespondErrorFrom(c, iamsvc.DirectoryMemberNotFoundError(err))
 		return

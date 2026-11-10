@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	storagebudget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
+	"github.com/ArtisanCloud/PowerX/internal/productinfo"
 	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -28,6 +29,7 @@ import (
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	monitorlogs "github.com/ArtisanCloud/PowerX/internal/service/monitor_logs"
+	recoveryops "github.com/ArtisanCloud/PowerX/internal/service/system_recovery"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -61,6 +63,16 @@ func composePostgresDSNFromDB(driver string, host string, port int, user string,
 }
 
 func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error) {
+	// Every entry point, including maintenance commands, uses the same identity
+	// and cache generation before constructing any Redis client or worker.
+	environmentID, err := cfg.RedisNamespace()
+	if err != nil {
+		return nil, err
+	}
+	cfg.Cache.Namespace, err = recoveryops.CurrentCacheNamespace(cfg, config.GetGlobalConfigPath())
+	if err != nil {
+		return nil, err
+	}
 
 	// 初始化全局 Logger
 	effectiveLogConfig := cfg.EffectiveLogConfig()
@@ -85,13 +97,20 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		logger.ErrorF(ctx, "初始化数据库失败: %v", err)
 		return nil, fmt.Errorf("%w: 连接数据库失败: %v", ErrBootstrapDependencyUnavailable, err)
 	}
+	// 在启动缓存、插件和业务 worker 前检查结构；启动不承担隐式迁移。
+	if err = database.CheckTaskHistorySchema(db.WithContext(ctx)); err != nil {
+		if pool, poolErr := db.DB(); poolErr == nil {
+			_ = pool.Close()
+		}
+		return nil, err
+	}
 	// Core 授权记录独立于插件通知启用；正常启动补齐所有适用租户，维护只读启动不写库。
 	if err = initializeAuthorizationBaselines(ctx, cfg, db); err != nil {
 		return nil, err
 	}
 
 	// 初始化缓存
-	_, err = cache.InitCache(&cfg.Cache)
+	cacheStore, err := cache.InitCache(&cfg.Cache)
 	if err != nil {
 		logger.ErrorF(ctx, "初始化缓存失败: %s", err.Error())
 		return nil, fmt.Errorf("%w: 初始化缓存失败: %v", ErrBootstrapDependencyUnavailable, err)
@@ -128,6 +147,9 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 
 	// 初始化事件总线（EventBus）
 	eventBusCfg := buildEventBusConfig(cfg, queueRedisAddr, queueRedisPassword, queueRedisDB)
+	if eventBusCfg.Redis != nil {
+		eventBusCfg.Redis.Namespace = environmentID
+	}
 	err = event_bus.InitEventBus(eventBusCfg)
 	if err != nil {
 		logger.ErrorF(ctx, "初始化事件总线失败: %s", err.Error())
@@ -203,6 +225,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		auditFile.MaxBackups = 0
 	}
 	opts := &shared.DepsOptions{
+		RuntimeHostRedis:         runtimeHostRedisClient(cacheStore),
+		EnvironmentID:            environmentID,
 		DisableBackgroundWorkers: config.BackgroundWorkersDisabled(cfg),
 		PreserveInstalledCatalog: cfg.Install.EffectiveStatus() == "installed",
 		PluginRequestIdentity:    requestidentity.Options{Namespace: identityTicketNamespace(cfg), UserIssuer: cfg.Auth.Issuer, UserAudience: cfg.Auth.AudienceUser},
@@ -241,8 +265,9 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			IncludeMeta:      cfg.Audit.File.IncludeMeta,
 		},
 		Storage: mediasvc.StorageOptions{
-			DefaultDriver: cfg.Storage.DefaultDriver,
-			TTLSeconds:    cfg.Storage.TTLSeconds,
+			DefaultDriver:    cfg.Storage.DefaultDriver,
+			TTLSeconds:       cfg.Storage.TTLSeconds,
+			ImageDerivatives: mediasvc.ImageDerivativeOptions{MaxSourceBytes: cfg.Storage.ImageDerivatives.MaxSourceBytes, MaxPixels: cfg.Storage.ImageDerivatives.MaxPixels, MaxWorkingBytes: cfg.Storage.ImageDerivatives.MaxWorkingBytes, MaxParallelJobs: cfg.Storage.ImageDerivatives.MaxParallelJobs},
 			Local: mediasvc.StorageLocalOptions{
 				BasePath:           cfg.Storage.Local.BasePath,
 				PublicBaseURL:      cfg.Storage.Local.PublicBaseURL,
@@ -360,16 +385,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				InvocationFailed:    cfg.IntegrationGateway.EventTopics.InvocationFailed,
 			},
 		},
-		CapabilityRegistry: shared.CapabilityRegistryOptions{
-			DefaultHTTPTimeout:      time.Duration(cfg.CapabilityRegistry.DefaultHTTPTimeoutSeconds) * time.Second,
-			AIMultimodalHTTPTimeout: time.Duration(cfg.CapabilityRegistry.AIMultimodalHTTPTimeoutSeconds) * time.Second,
-			Notifications: shared.CapabilityRegistryNotificationOptions{
-				IMWebhook:        cfg.CapabilityRegistry.Notifications.IMWebhook,
-				RetryInterval:    time.Duration(cfg.CapabilityRegistry.Notifications.RetryIntervalSec) * time.Second,
-				RetryMaxAttempts: cfg.CapabilityRegistry.Notifications.RetryMaxAttempts,
-				HTTPTimeout:      time.Duration(cfg.CapabilityRegistry.Notifications.HTTPTimeoutSec) * time.Second,
-			},
-		},
+		CapabilityRegistry: capabilityRegistryOptions(cfg),
 		AgentLifecycle: shared.AgentLifecycleOptions{
 			RedisAddr:                cfg.AgentLifecycle.RedisAddr,
 			RedisPassword:            cfg.AgentLifecycle.RedisPassword,
@@ -496,6 +512,13 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				AggregateReportPath: cfg.KnowledgeSpace.Release.AggregateReportPath,
 			},
 		},
+		PluginMarketplaceAPI:            cfg.Plugin.Marketplace.APIRoot,
+		PluginMarketplacePublicSite:     cfg.Plugin.Marketplace.PublicSiteURL,
+		ProductInformation:              productinfo.LoadExecutable(),
+		PluginMarketplaceToken:          cfg.Plugin.Marketplace.DownloadToken,
+		PluginMarketplaceEnrollment:     cfg.Plugin.Marketplace.EnrollmentToken,
+		PluginMarketplaceStateDirectory: marketplaceStateDirectory(cfg),
+		PluginMarketplaceHeartbeat:      time.Duration(cfg.Plugin.Marketplace.HeartbeatSeconds) * time.Second,
 		PluginRelease: shared.PluginReleaseOptions{
 			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{
 				EnableLocalInstall:        cfg.Plugin.Release.FeatureFlags.EnableLocalInstall,
@@ -618,7 +641,10 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	if err := configureDurableSessions(ctx, cfg, deps, db); err != nil {
 		return nil, fmt.Errorf("%w: Agent durable sessions: %v", ErrBootstrapDependencyUnavailable, err)
 	}
-	backupops.RegisterPolicyScheduler(ctx, db, time.Duration(globalSchedulerInterval)*time.Second)
+	deps.DatabaseBackupPolicies = backupops.NewPolicyService(db, deps.RuntimeIdentity.DeploymentEnv)
+	deps.DatabaseBackupPolicies.RequireControl()
+	deps.DatabaseBackupJobs = backupops.NewJobService(db)
+	deps.DatabaseBackupJobs.RequireControl()
 	deps.RestoreCopies = backupops.NewRestoreCopyService(ctx, db, backupops.RestoreCopyOptions{})
 	mediaRoot, _ := filepath.Abs(cfg.Storage.Local.BasePath)
 	archDirectory := archiveops.DefaultDirectory()
@@ -637,13 +663,22 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	defaults.Sources = append(defaults.Sources, registeredArchiveLogs(cfg)...)
 	archCfg, archErr := archiveops.RuntimeConfig(defaults)
 	if err := configureStorageGovernance(cfg, deps, archCfg, archErr, defaults.Sources[1].Directory); err != nil {
-		logger.WarnF(ctx, "storage governance observer unavailable: %v", err)
+		logger.WarnF(ctx, "storage governance observer unavailable: %s", err.Error())
+	}
+	if deps.StorageGovernance != nil {
+		if err := deps.StorageGovernance.BindDatabaseBackupControl(deps.DatabaseBackupPolicies, deps.DatabaseBackupJobs, deps.RuntimeIdentity.DeploymentEnv); err != nil {
+			logger.WarnF(ctx, "database backup policy control unavailable")
+		}
+	}
+	if !config.BackgroundWorkersDisabled(cfg) {
+		deps.DatabaseBackupJobs.RegisterPolicyScheduler(ctx, time.Duration(globalSchedulerInterval)*time.Second)
 	}
 	if archErr != nil {
 		logger.WarnF(ctx, "archive config unavailable: %v", archErr)
 	}
 	archCfg.StorageBudget = storagebudget.DefaultConfig()
-	deps.Archives = archiveops.NewService(ctx, archCfg, archiveops.Options{ConfigError: archErr, RestoreDatabase: func(run context.Context, path string, older bool, operator, trace string) (string, string, error) {
+	archCfg.RemoteExecutionBlocked = !cfg.StorageGovernance.AdvancedOperationsEnabled
+	deps.Archives = archiveops.NewService(ctx, archCfg, archiveops.Options{RequirePolicyControl: true, RequireTargetControl: true, ConfigError: archErr, RestoreDatabase: func(run context.Context, path string, older bool, operator, trace string) (string, string, error) {
 		run = reqctx.WithIsRoot(run, true)
 		f, err := os.Open(path)
 		if err != nil {
@@ -657,6 +692,11 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		row, err := deps.RestoreCopies.Create(run, backupops.CreateRestoreCopy{RestoreSource: backupops.RestoreSource{ImportID: uploaded.ID}, IdempotencyKey: uuid.NewString(), AllowOlderServer: older, Operator: operator, TraceID: trace})
 		return row.ID, row.Database, err
 	}})
+	if deps.StorageGovernance != nil {
+		if err := deps.StorageGovernance.BindArchiveControl(deps.Archives); err != nil {
+			logger.WarnF(ctx, "archive target control unavailable")
+		}
+	}
 	if archErr == nil && !config.BackgroundWorkersDisabled(cfg) {
 		if err := deps.Archives.PublishRuntimeConfig(); err != nil {
 			logger.WarnF(ctx, "archive runtime config unavailable: %v", err)
@@ -674,6 +714,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			deps.StorageGovernance.StartSampling(ctx, func(err error) { logger.WarnF(ctx, "storage observation sampling unavailable: %v", err) })
 		}
 		if deps.StorageGovernance != nil {
+			deps.StorageGovernance.StartControl(ctx, func(err error) { logger.WarnF(ctx, "storage configuration publication unavailable") })
 			deps.StorageGovernance.StartRuntime(ctx, func(err error) { logger.WarnF(ctx, "storage runtime check failed") })
 		}
 	}

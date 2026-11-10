@@ -21,6 +21,8 @@ GROUPS = {
     'knowledge': ['backend/pkg/corex/db/migration/*knowledge*.go', 'backend/pkg/corex/db/persistence/vectorstore/**/*.go'],
     'catalog': ['backend/config/platform_capabilities/*.yaml',
                 'backend/internal/service/integration_gateway/base_capabil*.go',
+                'backend/internal/service/integration_gateway/platform_capability_config.go',
+                'backend/pkg/corex/db/persistence/repository/tenant/tenant_repo.go',
                 'backend/internal/service/integration_gateway/apikeypermissions/*.go',
                 'backend/pkg/corex/db/persistence/repository/capability_registry/*.go',
                 'backend/pkg/corex/db/persistence/repository/iam/permission*.go'],

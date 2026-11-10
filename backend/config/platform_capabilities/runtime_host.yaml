@@ -1,6 +1,10 @@
 version: 1
 locales:
   zh-CN:
+    realtime.publish: &realtime_publish 发布插件实时事件
+    realtime.stream: &realtime_stream 订阅插件实时事件
+    realtime.publish.description: &realtime_publish_description 向当前租户和服务主体隔离的有界实时缓冲发布事件。
+    realtime.stream.description: &realtime_stream_description 按独立游标订阅当前租户和服务主体的实时事件，支持副本回送和有界断流恢复。
     cache.read.description: &cache_read_description 读取当前租户及插件服务主体的缓存值与过期时间。
     cache.manage.description: &cache_manage_description 写入带有效期的缓存或删除当前租户及插件服务主体的缓存。
     taskcenter.read.description: &taskcenter_read_description 读取当前租户及插件服务主体的持久化任务状态。
@@ -10,6 +14,10 @@ locales:
     taskcenter.read: &taskcenter_read 读取插件任务
     taskcenter.manage: &taskcenter_manage 管理插件任务
   en-US:
+    realtime.publish: &realtime_publish_en Publish service realtime events
+    realtime.stream: &realtime_stream_en Subscribe to service realtime events
+    realtime.publish.description: &realtime_publish_description_en Publish events to a bounded realtime buffer scoped to the current tenant and service actor.
+    realtime.stream.description: &realtime_stream_description_en Subscribe to tenant and service actor events with replica cursors and bounded reconnection recovery.
     cache.read.description: &cache_read_description_en Read cached values and expiry times owned by the current tenant and plugin service actor.
     cache.manage.description: &cache_manage_description_en Write expiring cache entries or delete cache entries owned by the current tenant and plugin service actor.
     taskcenter.read.description: &taskcenter_read_description_en Read persisted task state owned by the current tenant and plugin service actor.
@@ -149,3 +157,107 @@ capabilities:
         sts_direct: true
         tool_scope: runtime.taskcenter.manage
         schema_ref: specs/contracts/runtime-host.openapi.yaml
+
+  - capability_id: com.corex.runtime.cache.service_read
+    module: runtime_cache
+    title: Read service cache
+    description: Read cache owned by the current tenant and service actor, distinguishing misses from failures.
+    title_i18n: {zh-CN: 读取插件服务缓存, en: Read service cache}
+    description_i18n: {zh-CN: 读取当前租户和服务主体隔离的缓存，区分未命中和故障。, en: Read cache owned by the current tenant and service actor, distinguishing misses from failures.}
+    permission_code: corex.runtime_cache.service_read.read
+    agent_usable: false
+    risk_level: low
+    categories: [runtime, cache]
+    intents: [runtime.cache.service_read]
+    tool_scopes: [runtime.cache.service_read]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/cache-service-v1.md]
+    protocols:
+      - channel: core_internal
+        endpoint: core://runtime/cache
+        method: INVOKE
+        schema_ref: docs/contracts/cache-service-v1.openapi.yaml#/components/schemas/CacheOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: runtime.cache.service_read
+        api_key: {scope: _scope.runtime.cache.read, action: read, resource_type: capability, resource_pattern: runtime_cache_read}
+
+  - capability_id: com.corex.runtime.cache.service_manage
+    module: runtime_cache
+    title: Manage service cache
+    description: Write or delete cache owned by the current tenant and service actor with explicit expiry.
+    title_i18n: {zh-CN: 管理插件服务缓存, en: Manage service cache}
+    description_i18n: {zh-CN: 写入或删除当前租户和服务主体隔离的缓存，保持原有效期。, en: Write or delete cache owned by the current tenant and service actor with explicit expiry.}
+    permission_code: corex.runtime_cache.service_manage.manage
+    agent_usable: false
+    risk_level: medium
+    categories: [runtime, cache]
+    intents: [runtime.cache.service_manage]
+    tool_scopes: [runtime.cache.service_manage]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/cache-service-v1.md]
+    protocols:
+      - channel: core_internal
+        endpoint: core://runtime/cache
+        method: INVOKE
+        schema_ref: docs/contracts/cache-service-v1.openapi.yaml#/components/schemas/CacheOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: runtime.cache.service_manage
+        api_key: {scope: _scope.runtime.cache.manage, action: manage, resource_type: capability, resource_pattern: runtime_cache_manage}
+
+  - capability_id: com.corex.runtime.realtime.service_publish
+    module: runtime_realtime
+    title: *realtime_publish_en
+    description: *realtime_publish_description_en
+    title_i18n: {zh-CN: *realtime_publish, en: *realtime_publish_en}
+    description_i18n: {zh-CN: *realtime_publish_description, en: *realtime_publish_description_en}
+    permission_code: corex.runtime_realtime.service_publish.publish
+    agent_usable: false
+    risk_level: low
+    categories: [runtime, realtime]
+    intents: [runtime.realtime.service_publish]
+    tool_scopes: [runtime.realtime.service_publish]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/realtime-service-v1.md]
+    protocols:
+      - channel: core_internal
+        endpoint: core://runtime/realtime
+        method: INVOKE
+        schema_ref: docs/contracts/realtime-service-v1.openapi.yaml#/components/schemas/RealtimeOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: runtime.realtime.service_publish
+        api_key: {scope: _scope.runtime.realtime.publish, action: publish, resource_type: capability, resource_pattern: runtime_realtime_service_publish}
+
+  - capability_id: com.corex.runtime.realtime.stream
+    module: runtime_realtime
+    title: *realtime_stream_en
+    description: *realtime_stream_description_en
+    title_i18n: {zh-CN: *realtime_stream, en: *realtime_stream_en}
+    description_i18n: {zh-CN: *realtime_stream_description, en: *realtime_stream_description_en}
+    permission_code: corex.runtime_realtime.stream.subscribe
+    agent_usable: false
+    risk_level: low
+    categories: [runtime, realtime]
+    intents: [runtime.realtime.stream]
+    tool_scopes: [runtime.realtime.stream]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/realtime-service-v1.md]
+    protocols:
+      - channel: core_internal
+        endpoint: core://runtime/realtime
+        method: INVOKE
+        schema_ref: docs/contracts/realtime-service-v1.openapi.yaml#/components/schemas/RealtimeOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        sts_direct: false
+        tool_scope: runtime.realtime.stream
+        api_key: {scope: _scope.runtime.realtime.subscribe, action: subscribe, resource_type: capability, resource_pattern: runtime_realtime_stream}

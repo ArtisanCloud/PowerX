@@ -39,7 +39,7 @@ beforeEach(async () => {
     create: (hooks: any) => async (url: string, options: any = {}) => {
       const context = { options };
       hooks.onRequest(context);
-      const response = await network(url);
+      const response = await network(url, options);
       hooks.onResponse(context);
       if (response?.fail) {
         hooks.onResponseError(context);
@@ -104,6 +104,13 @@ describe("request loading ownership", () => {
     const { useMenuService } = await import("~/composables/api/services/menuService");
     const menus = await useMenuService().getUserMenus();
     expect(menus.categories[0]?.children[0]?.path).toBe("/agent/sessions");
+    expect(network).toHaveBeenCalledWith(
+      "/api/v1/admin/menus?locale=zh-CN",
+      expect.objectContaining({ cache: "no-store" })
+    );
+    const calls = network.mock.calls.length;
+    await useMenuService().getUserMenus();
+    expect(network).toHaveBeenCalledTimes(calls);
     expect(state.pending.value).toBe(0); expect(state.auto.value).toBe(false);
   });
 });

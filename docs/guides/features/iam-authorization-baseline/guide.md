@@ -647,6 +647,8 @@ Core 不提供跨请求基线缓存，不更改旧身份 PolicyVersion 含义。
 
 ### 12.2 Core 管理 Root 来源（2026-10-19）
 
+2026-11-09 一致性补充：数字角色／权限主键与 UUID 关联冲突时，显式目录同步明确返回 `IAM_ROOT_ROLE_CATALOG_INCONSISTENT`，不把 `ON CONFLICT DO NOTHING` 当作完成。正常启动告警并保留受影响的 Root 历史，普通成员停用／撤权继续完成；Root 身份撤销仍正常生效。历史悬空 Root 关联须通过默认只读的[独立定向修复流程](../../../contracts/iam-root-catalog-repair.md)审阅后执行；v2 预览同时固定目录、受影响成员及授权历史版本，不混入启动、迁移或查询。有效／已删除角色的 UUID 归属、普通成员授权与既有历史均不得据数字 ID 猜测覆盖。
+
 复用系统内置 `root`，以实时账号与有效租户成员派生正式授权路径。系统角色目录随权限登记同步维护，角色及权限接口禁止人工修改 Root；租户 `role_admin` 和既有业务角色不扩权。正常迁移／启动按精确旧指纹追加 Root 来源，保留 `known_since` 与历史、延续既有允许区间；新增来源不追溯到账号创建、登录或插件事件时间。旧的插件专用成本角色只是历史补丁，不能作为服务器部署步骤。
 
 回归及安装边界见 [Root 来源修复证据](../../../contracts/evidence/iam-managed-root-validation-20261019.json)。部署新 Core 后重新启用插件并使用真实成员与服务凭据验收；Framework 合同不变。

@@ -1,0 +1,117 @@
+{
+  "contract": "powerx.storage.local-restart-observation/v0.7.1",
+  "checked_at": "2026-11-04T17:33:03.28033+08:00",
+  "scope": "actual local dev 3030 -> 8077 after user VS Code restart; production not checked or modified",
+  "root_auth": "normal UI and official login endpoint; no fabricated claims or saved tokens",
+  "backend_http": {
+    "monitoring": 200,
+    "runtime": 200,
+    "probe_retention": 200,
+    "cache_retention": 200,
+    "database_retention": 200
+  },
+  "table_count": 63,
+  "device_binding_restored": true,
+  "device_rebinding_audit_recorded": true,
+  "sampling": {
+    "initial_restart_sample": "2026-11-04T08:43:09.825151Z",
+    "original_window_interrupted_by_confirmed_system_sleep": true,
+    "continuous_window_start": "2026-11-04T17:17:40+08:00",
+    "continuous_window_elapsed_seconds": 923.290459,
+    "samples": [
+      {
+        "slot": "2026-11-04T17:20:00+08:00",
+        "at": "2026-11-04T09:22:23.461888Z",
+        "table_count": 63
+      },
+      {
+        "slot": "2026-11-04T17:25:00+08:00",
+        "at": "2026-11-04T09:27:23.462778Z",
+        "table_count": 63
+      },
+      {
+        "slot": "2026-11-04T17:30:00+08:00",
+        "at": "2026-11-04T09:32:23.463124Z",
+        "table_count": 63
+      }
+    ],
+    "intervals_seconds": [
+      300.00089,
+      300.000346
+    ],
+    "passed": true
+  },
+  "scheduler": {
+    "state": "completed",
+    "started_at": "2026-11-04T09:32:23.017862Z",
+    "finished_at": "2026-11-04T09:32:23.024065Z",
+    "consecutive_failures": 0,
+    "scheduled_cycle_observed": true,
+    "actual_cleanup_not_exercised": true
+  },
+  "postgres_logging": {
+    "log_statement": "mod",
+    "logging_collector": "on"
+  },
+  "ui": {
+    "real_frontend": "http://127.0.0.1:3030",
+    "real_core": "http://127.0.0.1:8077",
+    "normal_ui_root_login": true,
+    "mocked_endpoints": false,
+    "widths": [
+      1440,
+      390,
+      320
+    ],
+    "passed": true,
+    "no_page_or_modal_horizontal_overflow": true,
+    "correct_selected_tab": true,
+    "idle_periodic_storage_reads": false,
+    "storage_mutations": 0,
+    "missing_index_gate_visible": true,
+    "missing_cleanup_health_displayed_as_unknown": true
+  },
+  "policy_state": {
+    "table_alert_policy_enabled": false,
+    "file_cleanup_enabled": false,
+    "invocation_audit_cleanup_enabled": false,
+    "typed_cleanup_enabled": false,
+    "new_typed_indexes_ready": false
+  },
+  "cleanup": {
+    "checked_at": "2026-11-04T09:40:04.742963+00:00",
+    "owner": "storage-safety-live-ui",
+    "browser_closed": true,
+    "owned_processes": [
+      {
+        "pid": 80783,
+        "exited": true
+      },
+      {
+        "pid": 80788,
+        "exited": true
+      },
+      {
+        "pid": 80790,
+        "exited": true
+      },
+      {
+        "pid": 80791,
+        "exited": true
+      },
+      {
+        "pid": 80806,
+        "exited": true
+      }
+    ],
+    "all_owned_processes_exited": true,
+    "owned_listener_ports": [],
+    "user_service_restarted_by_agent": false,
+    "production_operations": false
+  },
+  "remaining": [
+    "Explicitly configure and enable table alert policy in UI",
+    "Prepare the two new indexes via normal migration",
+    "Separately approve retention rules and perform safe preview / cleanup acceptance"
+  ]
+}

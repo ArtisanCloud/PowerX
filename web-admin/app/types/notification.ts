@@ -1,5 +1,7 @@
 // 消息通知类型定义
 export interface Notification {
+  revision?: number;
+  sourceRevision?: number;
   id: string;
   title: string;
   content: string;

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateBatchCloneInput",
+  "type": "object",
+  "properties": {
+    "source_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "copies": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 1,
+      "description": "每个源模板要克隆的副本数量，默认 1，最大 50。"
+    },
+    "name_prefix": {
+      "type": "string",
+      "description": "可选的名称前缀，用于区分克隆出来的模板。"
+    },
+    "description_prefix": {
+      "type": "string",
+      "description": "可选的描述前缀，拼接在原描述前。"
+    },
+    "notes": {
+      "type": "string",
+      "description": "管理端填入的备注，不会对能力输出造成影响。"
+    }
+  },
+  "required": ["source_ids"],
+  "additionalProperties": false
+}

@@ -6,14 +6,15 @@ RUN apk add --no-cache git ca-certificates
 
 COPY backend/ ./
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/powerx-app ./cmd/app && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/platform_capability_seed ./cmd/platform_capability_seed
-
-# Keep the compiled Go cache when only the release identity changes between
-# acceptance attempts. The database binary still embeds the exact target SHA.
 ARG POWERX_SOURCE_SHA=unknown
 ARG POWERX_VERSION=unversioned
-ARG POWERX_BUILD_TIME=unknown
+ARG POWERX_BUILD_TIME
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X github.com/ArtisanCloud/PowerX/internal/productinfo.ReleaseID=$POWERX_VERSION -X github.com/ArtisanCloud/PowerX/internal/productinfo.SourceCommit=$POWERX_SOURCE_SHA -X github.com/ArtisanCloud/PowerX/internal/productinfo.BuiltAt=$POWERX_BUILD_TIME" -o /out/powerx-app ./cmd/app && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/platform_capability_seed ./cmd/platform_capability_seed
+
+# 侧车在最终编译后生成；build_id 不嵌回主程序，避免摘要自引用。
+RUN build_timestamp="${POWERX_BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" && \
+    go run ./cmd/build_fingerprint -binary /out/powerx-app -release "$POWERX_VERSION" -commit "$POWERX_SOURCE_SHA" -built-at "$build_timestamp" -os linux -arch "$TARGETARCH"
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.commit=$POWERX_SOURCE_SHA -X main.version=$POWERX_VERSION -X main.buildTime=$POWERX_BUILD_TIME" -o /out/database ./cmd/database
 
 FROM alpine:3.22
@@ -24,6 +25,7 @@ RUN apk add --no-cache bash ca-certificates curl tzdata python3 py3-yaml nodejs 
     mkdir -p /app/backend/config /app/backend/reports/_state /data/uploads
 
 COPY --from=builder /out/powerx-app /app/powerx-app
+COPY --from=builder /out/powerx-app.build.json /app/powerx-app.build.json
 COPY --from=builder /out/database /app/database
 COPY --from=builder /out/platform_capability_seed /app/platform_capability_seed
 COPY backend/config/ /app/backend/config/

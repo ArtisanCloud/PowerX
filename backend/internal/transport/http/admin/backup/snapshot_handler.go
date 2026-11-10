@@ -49,12 +49,13 @@ func (h *handler) CreateSnapshot(c *gin.Context) {
 		return
 	}
 	var input struct {
-		PolicyID string `json:"policy_id"`
+		PolicyID       string `json:"policy_id"`
+		PolicyRevision int64  `json:"policy_revision"`
 	}
 	if !bindRestoreJSON(c, &input) {
 		return
 	}
-	out, e := h.snapshots.StartForPolicy(c.Request.Context(), c.GetHeader("Idempotency-Key"), input.PolicyID)
+	out, e := h.snapshots.StartForPolicyRevision(c.Request.Context(), c.GetHeader("Idempotency-Key"), input.PolicyID, input.PolicyRevision)
 	if e != nil {
 		dto.RespondErrorFrom(c, e)
 		return

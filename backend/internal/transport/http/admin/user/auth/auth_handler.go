@@ -52,9 +52,9 @@ type RefreshReq struct {
 type LoginResp struct {
 	TokenType    string `json:"token_type"` // "Bearer"
 	AccessToken  string `json:"access_token"`
-	ExpiresIn    int    `json:"expires_in"`    // access 的过期秒数
-	RefreshToken string `json:"refresh_token"` // 首次登录返回；刷新时可不返
-	Scope        string `json:"scope"`         // "access"
+	ExpiresIn    int    `json:"expires_in"`              // access 的过期秒数
+	RefreshToken string `json:"refresh_token,omitempty"` // 首次登录返回；刷新时省略以保留原固定会话
+	Scope        string `json:"scope"`                   // "access"
 }
 
 // ---------- Handlers ----------
@@ -136,7 +136,7 @@ func (h *AuthUserHandler) LoginHandler(s *authsvc.AuthService) gin.HandlerFunc {
 		resp := &LoginResp{
 			TokenType:    "Bearer",
 			AccessToken:  access,
-			ExpiresIn:    int(s.AccessTTL.Seconds()),
+			ExpiresIn:    s.AccessExpiresIn(access),
 			RefreshToken: refresh,
 			Scope:        "access",
 		}
@@ -153,14 +153,19 @@ func (h *AuthUserHandler) RefreshHandler(s *authsvc.AuthService) gin.HandlerFunc
 		}
 		access, err := s.Refresh(c.Request.Context(), req.RefreshToken)
 		if err != nil {
-			dtoRequest.ResponseError(c, http.StatusUnauthorized, err.Error(), nil)
+			var business *dtoRequest.AppError
+			if errors.As(err, &business) {
+				dtoRequest.RespondErrorFrom(c, business)
+			} else {
+				dtoRequest.RespondErrorFrom(c, &dtoRequest.AppError{HTTPCode: 503, Code: "AUTH_SESSION_UNAVAILABLE", Message: "AUTH_SESSION_UNAVAILABLE"})
+			}
 			return
 		}
 
 		resp := &LoginResp{
 			TokenType:   "Bearer",
 			AccessToken: access,
-			ExpiresIn:   int(s.AccessTTL.Seconds()),
+			ExpiresIn:   s.AccessExpiresIn(access),
 			Scope:       "access",
 		}
 		dtoRequest.ResponseSuccess(c, resp)

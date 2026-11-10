@@ -69,7 +69,7 @@ func (s *Service) Catalog(ctx context.Context, in CatalogFilter) (CatalogPage, e
 				continue
 			}
 		}
-		copy := j.Job
+		copy := s.observedJob(j)
 		copy.Files = nil
 		rows = append(rows, copy)
 	}

@@ -1,0 +1,282 @@
+{
+  "checks": [
+    "Root inventory discovers a settled artifact; exact request filter applied without file reads",
+    "Actual current-state dropdown filters to empty and back; sort direction submitted explicitly",
+    "light 1440 list/filter/navigation/context",
+    "light 390 list/filter/navigation/context",
+    "dark 1440 list/filter/navigation/context",
+    "dark 390 list/filter/navigation/context",
+    "lost terminal SSE produces incomplete diagnosis and never changes quarantine",
+    "restored synthetic file passes full read but remains quarantined and has no restore proof",
+    "light 1440 history/inspection/result retention",
+    "light 390 history/inspection/result retention",
+    "dark 1440 history/inspection/result retention",
+    "dark 390 history/inspection/result retention",
+    "controlled SQL marker replay displays historical quarantine and current non-quarantine separately; native pg_dump/restore proof is separate",
+    "metadata outage retains previous rows and global warning; explicit read restores current context",
+    "shared SSE syncs metadata; zero idle queries, automatic scans or browser mutations"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/monitor/backup/overview",
+      "method": "GET",
+      "at": 1794231950088
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/policies",
+      "method": "GET",
+      "at": 1794231950089
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-drills",
+      "method": "GET",
+      "at": 1794231950089
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/alerts",
+      "method": "GET",
+      "at": 1794231950089
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794231950089
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/policy-configuration",
+      "method": "GET",
+      "at": 1794231950089
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/recovery",
+      "method": "GET",
+      "at": 1794231950091
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794231950093
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794231950094
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794231950104
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/policy-configuration",
+      "method": "GET",
+      "at": 1794231950105
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/policy-configuration",
+      "method": "GET",
+      "at": 1794231950105
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794231950106
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794231950113
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794231950114
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/recovery",
+      "method": "GET",
+      "at": 1794231950116
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794231950120
+    },
+    {
+      "path": "/api/v1/admin/monitor/backup/overview",
+      "method": "GET",
+      "at": 1794231950124
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794231950127
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/alerts",
+      "method": "GET",
+      "at": 1794231950128
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794231950129
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794231950133
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794231950134
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794231950141
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231950671
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231950782
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231951120
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231951485
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c",
+      "method": "GET",
+      "at": 1794231953384
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c/inspection",
+      "method": "GET",
+      "at": 1794231953760
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c",
+      "method": "GET",
+      "at": 1794231953833
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c/inspection",
+      "method": "GET",
+      "at": 1794231953971
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c/inspection",
+      "method": "GET",
+      "at": 1794231954090
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794231955872
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794231955872
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794231955873
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231955873
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c",
+      "method": "GET",
+      "at": 1794231955873
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794231956030
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794231956031
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794231956031
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231956031
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c",
+      "method": "GET",
+      "at": 1794231956031
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory/16cfcc27-9144-4e5e-9879-4aa9140e609c",
+      "method": "GET",
+      "at": 1794231956123
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231956448
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794231956470
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794231956470
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794231956470
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantine-inventory",
+      "method": "GET",
+      "at": 1794231956470
+    }
+  ],
+  "errors": [],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    }
+  ],
+  "result": "passed"
+}

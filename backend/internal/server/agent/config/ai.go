@@ -130,13 +130,14 @@ type AIRuntime struct {
 // PhysicalModelPool declares deployment capacity rather than a tenant Model
 // Profile limit. PoolID is shared by every Core instance using the deployment.
 type PhysicalModelPool struct {
-	PoolID     string        `yaml:"pool_id" mapstructure:"pool_id"`
-	Provider   string        `yaml:"provider" mapstructure:"provider"`
-	Endpoint   string        `yaml:"endpoint" mapstructure:"endpoint"`
-	Model      string        `yaml:"model" mapstructure:"model"`
-	Capacity   int           `yaml:"capacity" mapstructure:"capacity"`
-	MaxWaiting int           `yaml:"max_waiting" mapstructure:"max_waiting"`
-	LeaseTTL   time.Duration `yaml:"lease_ttl" mapstructure:"lease_ttl"`
+	PoolID     string `yaml:"pool_id" mapstructure:"pool_id"`
+	Provider   string `yaml:"provider" mapstructure:"provider"`
+	Endpoint   string `yaml:"endpoint" mapstructure:"endpoint"`
+	Model      string `yaml:"model" mapstructure:"model"`
+	Capacity   int    `yaml:"capacity" mapstructure:"capacity"`
+	MaxWaiting int    `yaml:"max_waiting" mapstructure:"max_waiting"`
+	// LeaseTTL is a configured floor; runtime covers request_timeout plus the lease safety window.
+	LeaseTTL time.Duration `yaml:"lease_ttl" mapstructure:"lease_ttl"`
 }
 
 func RuntimeBudgetLimits() (AIRuntime, error) {

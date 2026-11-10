@@ -1,0 +1,67 @@
+id: agnes
+name: Agnes AI
+aliases: [agnes-ai]
+drivers:
+  image: agnes
+  video: agnes
+auth:
+  scheme: bearer
+  fields: [api_key, base_url]
+  defaults:
+    base_url: https://apihub.agnes-ai.com/v1
+modalities:
+  image:
+    models:
+      - id: agnes-image-2.5-flash
+        label: Agnes Image 2.5 Flash
+        defaults: &image_defaults
+          size: 1K
+          ratio: '1:1'
+        operations: &image_operations
+          image_generation:
+            driver: agnes
+            async: false
+            input_types: [text, image_url]
+            max_images: 3
+            max_videos: 0
+            parameters:
+              size: {type: string, enum: [1K, 2K, 3K, 4K], default: 1K}
+              ratio: {type: string, enum: ['1:1', '3:4', '4:3', '16:9', '9:16', '2:3', '3:2', '21:9'], default: '1:1'}
+      - id: agnes-image-2.1-flash
+        label: Agnes Image 2.1 Flash
+        defaults: *image_defaults
+        operations: *image_operations
+  video:
+    models:
+      - id: agnes-video-2.5
+        label: Agnes Video 2.5
+        defaults: &video_defaults
+          resolution: 720p
+          max_duration_sec: 5
+          aspect_ratio: '16:9'
+          mode: text
+        operations:
+          video_generation:
+            driver: agnes
+            async: true
+            input_types: [text, image_url]
+            max_images: 8
+            max_videos: 0
+            parameters: &video_parameters
+              resolution: {type: string, enum: [720p, 1080p, 2K], default: 720p}
+              max_duration_sec: {type: integer, minimum: 4, maximum: 12, default: 5}
+              aspect_ratio: {type: string, enum: ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'], default: '16:9'}
+              mode: {type: string, enum: [text, keyframe, reference], default: text}
+      - id: agnes-video-2.5-flash
+        label: Agnes Video 2.5 Flash
+        defaults: *video_defaults
+        operations:
+          video_generation:
+            driver: agnes
+            async: true
+            input_types: [text, image_url]
+            max_images: 5
+            max_videos: 0
+            parameters:
+              <<: *video_parameters
+              resolution: {type: string, enum: [720p], default: 720p}

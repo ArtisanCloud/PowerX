@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: PowerX backup historical retention coverage
+  version: 2026-11-09
+  description: Root human access only. Relative to configured API prefix. No service capability or API Key grant. Copies historical metadata only; never protects or deletes artifacts. Completed proof is historical, not current recovery authorization.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /admin/ops/backup/cleanup-retention-history:
+    get:
+      operationId: getBackupRetentionHistory
+      description: Bounded current-scope inventory. Reject unknown or duplicate query fields. Foreign scopes are counted but not imported. Filters and pages never narrow the import batch.
+      parameters:
+        - in: query
+          name: page
+          schema: {type: integer, minimum: 1, maximum: 10000, default: 1}
+        - in: query
+          name: page_size
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - in: query
+          name: coverage
+          schema: {type: string, enum: [all, covered, missing, conflict, invalid], default: all}
+      responses:
+        '200':
+          description: Current observation, not a durable import proof
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Inventory'}
+        '400': {description: Invalid or unknown query}
+        '403': {description: Root human access session required}
+        '409': {description: Recovery generation changed while observing}
+        '503': {description: SQL source, control schema or independent ledger unavailable}
+  /admin/ops/backup/cleanup-retention-imports:
+    get:
+      operationId: listBackupRetentionImports
+      description: No query parameters. Latest 20 receipts for current installation Scope; independent of SQL history table availability.
+      responses:
+        '200':
+          description: Bounded durable history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        maxItems: 20
+                        items: {$ref: '#/components/schemas/Receipt'}
+        '400': {description: Query parameters not allowed}
+        '403': {description: Root human access session required}
+        '503': {description: Independent history unavailable}
+    post:
+      operationId: importBackupRetentionHistory
+      description: No query parameters. Explicit confirmed published pause required. Freeze UUID, actor, scope, snapshot and reason; immutable identical retry only. Persist pending before accepted, then records and terminal proof in a single independent checkpoint. SQL is read-only. Stream errors, EOF or uncertain leave outcome unknown; reconcile GET original UUID. No automatic POST.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ImportInput'}
+      responses:
+        '200':
+          description: accepted with pending Receipt, complete with terminal Receipt; uncertain has request_id only. Terminal replay emits complete without repeating work. Rejected terminal is not successful coverage.
+          content:
+            text/event-stream:
+              schema: {type: string}
+        '400': {description: Strict DTO or query rejected}
+        '403': {description: Root human access required or UUID belongs to another actor/scope}
+        '409': {description: Immutable input conflict}
+        '503': {description: Unavailable before acceptance; after acceptance outcome remains unknown}
+        '507': {description: Independent bounded history full}
+  /admin/ops/backup/cleanup-retention-imports/{request_id}:
+    get:
+      operationId: getBackupRetentionImport
+      description: No query parameters. Read-only independent receipt. A 404 never proves non-execution. Pending can_resume is actor eligibility only; final guard still checks generation and paused control.
+      parameters:
+        - in: path
+          name: request_id
+          required: true
+          schema: {$ref: '#/components/schemas/UUID'}
+      responses:
+        '200':
+          description: Immutable request identity and historical result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Receipt'}
+        '400': {description: UUID invalid or query present}
+        '403': {description: Root human access required or other installation scope}
+        '404': {description: Unknown request; no inference of non-execution}
+        '503': {description: Independent history unavailable}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      description: Canonical lower-case nonzero UUID
+    Hash:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    ImportInput:
+      type: object
+      additionalProperties: false
+      required: [request_id, expected_snapshot, reason, confirm]
+      properties:
+        request_id: {$ref: '#/components/schemas/UUID'}
+        expected_snapshot: {$ref: '#/components/schemas/Hash'}
+        reason: {type: string, minLength: 3, maxLength: 256, description: Trimmed explicit audit reason}
+        confirm: {type: boolean, enum: [true]}
+    Receipt:
+      type: object
+      required: [request_id, actor_id, expected_snapshot, reason, state, total, covered, imported, unknown, complete, created_at, completed_at, can_resume]
+      properties:
+        request_id: {$ref: '#/components/schemas/UUID'}
+        actor_id: {type: string, pattern: '^[1-9][0-9]*$'}
+        expected_snapshot: {$ref: '#/components/schemas/Hash'}
+        reason: {type: string}
+        state: {type: string, enum: [pending, completed, rejected]}
+        problem: {type: string}
+        source_digest: {$ref: '#/components/schemas/Hash'}
+        total: {type: integer, minimum: 0}
+        covered: {type: integer, minimum: 0}
+        imported: {type: integer, minimum: 0}
+        unknown: {type: integer, minimum: 0, description: Covered identities whose original result remains checking}
+        complete: {type: boolean, description: True only for completed proof of the frozen source snapshot}
+        created_at: {type: string, format: date-time}
+        completed_at: {type: string, format: date-time, nullable: true}
+        can_resume: {type: boolean}
+    Inventory:
+      type: object
+      required: [snapshot, source_digest, observed_at, total, foreign, covered, missing, conflicts, invalid, unknown, complete, restore_ready, can_import, pause_ready, remaining, page, page_size, filtered, items]
+      properties:
+        snapshot: {$ref: '#/components/schemas/Hash'}
+        source_digest: {$ref: '#/components/schemas/Hash'}
+        observed_at: {type: string, format: date-time}
+        total: {type: integer, minimum: 0}
+        foreign: {type: integer, minimum: 0}
+        covered: {type: integer, minimum: 0}
+        missing: {type: integer, minimum: 0}
+        conflicts: {type: integer, minimum: 0}
+        invalid: {type: integer, minimum: 0}
+        unknown: {type: integer, minimum: 0}
+        complete: {type: boolean}
+        restore_ready: {type: boolean, description: Current SQL identity coverage only; false when foreign scopes exist. Not artifact/protection or whole-system recovery proof.}
+        can_import: {type: boolean}
+        pause_ready: {type: boolean}
+        problem: {type: string}
+        remaining: {type: integer, minimum: 0}
+        page: {type: integer, minimum: 1}
+        page_size: {type: integer, minimum: 1, maximum: 50}
+        filtered: {type: integer, minimum: 0}
+        items:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [row_id, request_id, artifact_id, actor_id, state, coverage, created_at]
+            properties:
+              row_id: {type: string}
+              request_id: {type: string, description: Raw source identity so invalid entries remain visible}
+              artifact_id: {type: string}
+              actor_id: {type: string}
+              state: {type: string}
+              coverage: {type: string, enum: [covered, missing, conflict, invalid]}
+              problem: {type: string}
+              created_at: {type: string, format: date-time}

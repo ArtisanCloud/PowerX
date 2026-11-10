@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-22",
+  "scope": "PowerX server-side Marketplace instance registration, heartbeat and distribution result reporting",
+  "validation_mode": "controlled HTTP fixtures, temporary private journals and real plugin installer",
+  "checks": [
+    {
+      "command": "go test -p 2 ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/infra/plugin/manager ./internal/transport/http/admin/plugin -count=1 -timeout=120s",
+      "result": "passed",
+      "log": "/tmp/powerx-distribution-complete-final.log"
+    },
+    {
+      "command": "go test -race -p 2 ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace -count=1 -timeout=90s",
+      "result": "passed",
+      "log": "/tmp/powerx-distribution-race-final.log"
+    },
+    {
+      "command": "go test -p 2 ./config ./internal/bootstrap ./internal/app/shared ./cmd/app -run 'TestMarketplace|^$' -count=1 -timeout=120s",
+      "result": "config test passed; bootstrap, DI and application compile passed",
+      "log": "/tmp/powerx-distribution-wiring-final.log"
+    },
+    {
+      "command": "go vet -p 2 ./internal/infra/plugin/marketplace ./internal/service/plugin_marketplace ./internal/infra/plugin/manager ./internal/transport/http/admin/plugin ./internal/app/shared ./internal/bootstrap ./cmd/app ./config",
+      "result": "passed",
+      "log": "/tmp/powerx-distribution-vet-final.log"
+    },
+    { "command": "git diff --check", "result": "passed" }
+  ],
+  "coverage": [
+    "independent environment identities and restart credential reuse",
+    "single-use enrollment response ambiguity without automatic re-registration",
+    "instance credentials and fingerprint headers; no credential redirects or object-store leakage",
+    "persistent download attempt idempotency keys and ticket recovery without reinstalling",
+    "actual SHA256 and size verification before installation",
+    "ordered durable reports with unchanged event IDs, payloads and timestamps across retries",
+    "automatic retry at the persisted deadline and shutdown cancellation",
+    "retention of rejected events and disabling instance credentials after 401/403",
+    "real installer success, checksum failure, journal failure and install rollback",
+    "HTTP install success versus installed-but-enable-poststep-failure",
+    "revision and checksum reconciliation; unconfirmed enable result remains pending review",
+    "later manual enable association by current installation revision and tenant",
+    "existing local directory/archive upload and replacement regression tests"
+  ],
+  "not_performed": [
+    "registration with a real Marketplace administrator enrollment code",
+    "two independently deployed PowerX services against a real Marketplace",
+    "installation or enablement of a user-owned plugin",
+    "browser UI changes or production deployment"
+  ],
+  "operations": {
+    "user_services_restarted": false,
+    "user_database_migrated": false,
+    "plugin_business_source_modified": false,
+    "temporary_services": "httptest servers and worker goroutines were scoped to tests; test commands exited successfully"
+  }
+}

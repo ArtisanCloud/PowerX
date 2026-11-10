@@ -26,12 +26,15 @@ func Serve(c *gin.Context, client *redis.Client, svc *mediasvc.MediaService, ten
 		dto.RespondErrorFrom(c, mediasvc.MediaUpstreamDependencyError(errors.New("media service unavailable")))
 		return
 	}
-	serve(c, client, tenant, asset, authorize, func(ctx context.Context) (*mediasvc.ImageDerivatives, error) {
+	serveChannel(c, client, tenant, asset, svc.DerivativeEventChannel(tenant, asset), authorize, func(ctx context.Context) (*mediasvc.ImageDerivatives, error) {
 		return svc.ImageDerivativeStatus(ctx, tenant, asset)
 	}, time.Minute, 15*time.Second)
 }
 
 func serve(c *gin.Context, client *redis.Client, tenant, asset string, authorize Authorize, status func(context.Context) (*mediasvc.ImageDerivatives, error), lifetime, heartbeatInterval time.Duration) {
+	serveChannel(c, client, tenant, asset, mediasvc.ImageDerivativeEventChannel(tenant, asset), authorize, status, lifetime, heartbeatInterval)
+}
+func serveChannel(c *gin.Context, client *redis.Client, tenant, asset, channel string, authorize Authorize, status func(context.Context) (*mediasvc.ImageDerivatives, error), lifetime, heartbeatInterval time.Duration) {
 	id, err := uuid.Parse(asset)
 	if err != nil || id == uuid.Nil || id.String() != asset || c.Request.URL.RawQuery != "" {
 		dto.RespondErrorFrom(c, mediasvc.MediaInvalidArgumentError(errors.New("invalid derivative event request")))
@@ -60,7 +63,7 @@ func serve(c *gin.Context, client *redis.Client, tenant, asset string, authorize
 		dto.RespondErrorFrom(c, err)
 		return
 	}
-	sub := client.Subscribe(ctx, mediasvc.ImageDerivativeEventChannel(tenant, asset))
+	sub := client.Subscribe(ctx, channel)
 	defer sub.Close()
 	if _, err = sub.Receive(ctx); err != nil {
 		dto.RespondErrorFrom(c, mediasvc.MediaUpstreamDependencyError(err))

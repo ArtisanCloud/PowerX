@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: PowerX optional log archives and verified retrieval
-  version: 0.6.0
+  version: 0.7.0
   description: Extends resource-archives.openapi.yaml. Root user JWT only, no delegated
     service grants. Archive defaults off; save, verify and enable are distinct. New
     S3 profiles never inherit business storage.s3. Disabling transfers does not enable
@@ -13,6 +13,39 @@ servers:
 security:
 - RootUserJWT: []
 paths:
+  /admin/ops/backup/archives/policies/{policy_id}/requests/{request_id}:
+    get:
+      summary: Read the original manual archive request without executing or retrying it
+      description: Root human JWT only. Reads original job evidence without resolving
+        the current policy or querying control authority. A positive result proves a
+        matching persisted job, not completion or current deletion eligibility. No
+        query or request body is accepted. A missing record never proves non-execution.
+      parameters:
+      - in: path
+        name: policy_id
+        required: true
+        schema: { type: string, format: uuid }
+      - in: path
+        name: request_id
+        required: true
+        schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Fixed original identity and current recorded status; Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer }
+                  data:
+                    $ref: '#/components/schemas/ArchiveRunRequestReceipt'
+        '400': { description: Invalid UUID or unexpected query or body }
+        '401': { description: Human user login required }
+        '403': { description: Platform Root required; API keys and service actors rejected }
+        '404': { description: Original request unconfirmed; retain its UUID and submission lock }
+        '409': { description: Original request context conflict; retain its UUID }
+        '503': { description: Catalog missing, damaged, oversized or ambiguous; outcome remains unknown }
   /admin/ops/backup/archives/catalog:
     get:
       summary: Search durable source-gone history by original filename, source and
@@ -391,6 +424,21 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    ArchiveRunRequestReceipt:
+      type: object
+      additionalProperties: false
+      required: [request_id, policy_id, job_id, policy_revision, source_id, status, phase, remote_state, created_at, updated_at]
+      properties:
+        request_id: { type: string, format: uuid }
+        policy_id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid }
+        policy_revision: { type: integer, format: int64, minimum: 1 }
+        source_id: { type: string }
+        status: { type: string }
+        phase: { type: string }
+        remote_state: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     CredentialInput:
       type: object
       additionalProperties: false

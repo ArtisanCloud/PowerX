@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-30",
+  "issue": "Successful AI settings save leaves submitted API Key in the form and Provider draft; online model dialog treats any typed Key as an unsaved credential and blocks discovery",
+  "fix": {
+    "confirmed_save_only": true,
+    "credential_readback_before_acknowledgement": true,
+    "clear_only_unchanged_submitted_api_key_and_secret_key": true,
+    "clear_matching_provider_draft": true,
+    "preserve_new_input_during_save": true,
+    "preserve_failed_save_input": true,
+    "discovery_uses_saved_server_credentials": true
+  },
+  "validation": {
+    "vitest": "4 files, 30 tests passed: online-model-catalog, provider-model-form, provider-endpoint, connection-test",
+    "typecheck": "npm exec --no -- vue-tsc --noEmit passed",
+    "playwright": "2 tests passed, desktop 1440x1000 and narrow 390x844",
+    "browser_cases": [
+      "Unsaved new Key blocks discovery and sends no model sync request",
+      "Save new Key then immediately sync online models without page reload",
+      "Provider round trip does not restore the submitted Key as an unsaved draft",
+      "Save response ok=false reports failure, retains input and blocks discovery",
+      "Key edited while save is pending survives the old successful response",
+      "Saving the newer draft clears only that submitted value",
+      "Sync body contains only typed context and action; no credentials or generation request"
+    ],
+    "browser_scope": "API fixtures in isolated browser sessions against existing frontend; no live provider account or development database writes",
+    "test_focus_race": "Wait for Provider listbox to close and assert input focus before typing; no SecretInput source change needed",
+    "git_diff_check": "passed",
+    "user_service_action": "Existing frontend PID 83752 on port 3030 left running; Core not restarted",
+    "temporary_app_servers_started": 0,
+    "owned_playwright_processes_remaining": 0
+  },
+  "changed_files": [
+    "web-admin/app/pages/settings/ai/index.vue",
+    "web-admin/tests/e2e/ai/online-models.spec.ts"
+  ]
+}

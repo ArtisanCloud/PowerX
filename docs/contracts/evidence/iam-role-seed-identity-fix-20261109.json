@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-09",
+  "status": "role_initialization_source_fixed_not_deployed_daily_data_unchanged",
+  "reproduced_cause": {
+    "input": "Repeated system role initialization using inherited generic Upsert",
+    "numeric_id_preserved": true,
+    "uuid_overwritten": true,
+    "existing_permission_links_keep_old_uuid": true,
+    "reproduction": "/tmp/powerx-root-seed-cause-confirmed.json",
+    "historical_limit": "Specific daily execution that produced 523 stale links remains unproven."
+  },
+  "source_fix": {
+    "method": "RoleRepository.UpsertPreservingIdentity",
+    "callers": [
+      "SeedBuiltInRolesAndGrants: root",
+      "SeedBuiltInRolesAndGrants: system_monitor"
+    ],
+    "immutable_fields": [
+      "ID",
+      "UUID",
+      "CreatedAt"
+    ],
+    "returned_object": "actual persisted role reloaded and copied into caller object",
+    "other_role_permissions": "tenant admin, readonly and custom viewer retained simultaneous read grants",
+    "schema_queries": "two permission-selection queries use model table name, preserving public by default and supporting isolated schema tests"
+  },
+  "validation": {
+    "go_race": [
+      {
+        "dialect": "sqlite",
+        "pass_records": 23,
+        "log": "/tmp/powerx-role-identity-fix-unit-final.jsonl",
+        "sha256": "d32c135388966717b07ae7b4997f916cf3eb4e9291850d9a33002f83540fcc6d"
+      },
+      {
+        "dialect": "postgres",
+        "pass_records": 3,
+        "log": "/tmp/powerx-role-identity-fix-native-final.jsonl",
+        "sha256": "697b9716c1776eee6779af3d6d55a31acf1949664ada3c2c3f7b394a94d2cf73"
+      }
+    ],
+    "vet_exit": 0,
+    "database_command_build_exit": 0,
+    "binary": "/tmp/powerx-role-identity-database",
+    "owned_postgres": {
+      "pid": 34070,
+      "pid_exited": true,
+      "socket_released": true,
+      "directory_removed": true
+    }
+  },
+  "files": [
+    {
+      "path": "backend/pkg/corex/db/persistence/repository/iam/role_repo.go",
+      "sha256": "5699f413167cb9d111e5fb7a084d572813076a0688bb48105e469e7706e1ab61"
+    },
+    {
+      "path": "backend/cmd/database/seed/seed_permission.go",
+      "sha256": "72f4f42944be4df5ff0281f593d2b57655673970e2ae9c36ffeb7217be094f07"
+    },
+    {
+      "path": "docs/contracts/iam-root-catalog-repair.md",
+      "sha256": "0e7a7b323fcff2e3028867be14853bde2b4842d8f1a41f0a6217dd438e73caa8"
+    },
+    {
+      "path": "backend/cmd/database/seed/seed_role_identity_test.go",
+      "sha256": "265eaaff7ba51202a2ab1217bb94dc81f526fc9c9de80ccfd359c25cd3853d2e"
+    }
+  ],
+  "boundaries": {
+    "daily_seed_executed": false,
+    "daily_repair_applied": false,
+    "daily_authorizations_changed": false,
+    "source_deployed": false,
+    "user_core_or_plugin_restarted": false,
+    "framework_or_plugin_source_modified": false,
+    "generic_base_repository_globally_changed": false
+  },
+  "next": "Verify existing Root business/history visibility semantics before reviewing/applying stale-catalog data repair; current data plan remains held."
+}

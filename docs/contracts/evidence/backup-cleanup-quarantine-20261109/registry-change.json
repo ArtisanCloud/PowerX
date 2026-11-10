@@ -1,0 +1,12 @@
+{
+  "changes": [
+    {
+      "group": "core",
+      "previous_slice_checksum": "914671b741d72fa385f446e9b8ccb39f9d63ecafb02264cb20d8d23151c83f76",
+      "current_checksum": "2515069dd7c288cf776a00565b3bd3aad3474c8b06d918845dd2051cd80fed0f"
+    }
+  ],
+  "generator": "official upgrade_registry.py",
+  "applied_to_database": false,
+  "boundary": "core model schema changes; unrelated shared source release review remains open"
+}

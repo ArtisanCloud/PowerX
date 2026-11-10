@@ -46,9 +46,9 @@ func EnsureInitialized(db *gorm.DB) error {
 				return err
 			}
 		}
-		_, err := rootrole.Ensure(tx)
-		if err != nil {
-			return err
+		_, catalogErr := rootrole.Ensure(tx)
+		if catalogErr != nil && !errors.Is(catalogErr, rootrole.ErrCatalogInconsistent) {
+			return catalogErr
 		}
 		at, err := transactionTime(tx)
 		if err != nil {
@@ -59,11 +59,13 @@ func EnsureInitialized(db *gorm.DB) error {
 			return err
 		}
 		// 启动/迁移只补新登记；既有流发生外部漂移时仍由读取明确报错，不能伪造增量历史。
-		if err := reconcileTracks(tx, at, tracks); err != nil {
+		if err := reconcileAvailableTracks(tx, at, tracks, catalogErr == nil); err != nil {
 			return err
 		}
-		if err := upgradeRootSources(tx, at); err != nil {
-			return err
+		if catalogErr == nil {
+			if err := upgradeRootSources(tx, at); err != nil {
+				return err
+			}
 		}
 		if coordinated != nil && !wasDirty {
 			// 本次仅有受控 root 目录及账本维护，已按精确旧指纹迁移。
@@ -81,21 +83,23 @@ func upgradeRootSources(db *gorm.DB, at time.Time) error {
 	if err := db.Where("status = ?", "ready").Find(&tracks).Error; err != nil {
 		return err
 	}
-	return reconcileTracksWhere(db, at, tracks, func(sources []Source, root bool, stream im.AuthorizationStream, exists bool) bool {
-		if !exists || !root {
-			return false
+	return reconcileTracksWhere(db, at, tracks, canUpgradeRootSources)
+}
+
+func canUpgradeRootSources(sources []Source, root bool, stream im.AuthorizationStream, exists bool) bool {
+	if !exists || !root {
+		return false
+	}
+	legacy := make([]Source, 0, len(sources))
+	hasRoot := false
+	for _, source := range sources {
+		if strings.HasPrefix(source.ID, rootSourcePrefix) {
+			hasRoot = true
+		} else {
+			legacy = append(legacy, source)
 		}
-		legacy := make([]Source, 0, len(sources))
-		hasRoot := false
-		for _, source := range sources {
-			if strings.HasPrefix(source.ID, rootSourcePrefix) {
-				hasRoot = true
-			} else {
-				legacy = append(legacy, source)
-			}
-		}
-		return hasRoot && stream.FactsHash == Digest([]any{legacy, root})
-	})
+	}
+	return hasRoot && stream.FactsHash == Digest([]any{legacy, root})
 }
 
 func transactionTime(db *gorm.DB) (time.Time, error) {

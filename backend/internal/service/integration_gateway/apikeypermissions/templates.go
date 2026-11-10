@@ -27,13 +27,33 @@ func EnsureTemplatePermissions(ctx context.Context, repo *iamrepo.PermissionRepo
 
 // EnsureUpgradePermissions 不改变任何角色、Profile、Key grants 或 owner。
 func EnsureUpgradePermissions(ctx context.Context, db *gorm.DB) error {
+	return EnsureUpgradePermissionsForCapabilities(ctx, db, nil)
+}
+
+// EnsureUpgradePermissionsForCapabilities 支持受控目录修复；仍不写任何 grants。
+func EnsureUpgradePermissionsForCapabilities(ctx context.Context, db *gorm.DB, capabilityIDs []string) error {
 	rows, err := BuildPlatformCapabilityPermissions()
 	if err != nil {
 		return err
 	}
 	formal := make([]modelsiam.Permission, 0, len(rows))
+	wanted := map[string]bool{}
+	for _, id := range capabilityIDs {
+		wanted[id] = true
+	}
 	for _, row := range rows {
 		if row.Source == platformPermissionSource {
+			if len(wanted) > 0 {
+				var meta struct {
+					CapabilityID string `json:"capability_id"`
+				}
+				if err := json.Unmarshal(row.Meta, &meta); err != nil {
+					return err
+				}
+				if !wanted[meta.CapabilityID] {
+					continue
+				}
+			}
 			formal = append(formal, row)
 		}
 	}

@@ -1,0 +1,376 @@
+{
+  "date": "2026-11-07",
+  "scope": "SG-11 system snapshot policy authority in default same-process mode",
+  "status": "controlled validation passed; whole commercial rollout incomplete",
+  "branch": "024-ai-engineering-skills",
+  "authority": "snapshot-policies control document in existing platform control tables, catalog and per-plan CAS, immutable original UUID receipts and formal TaskBus publication; runtime/recovery records remain independent",
+  "migration": "No additional table or startup migration in this slice. Isolated PostgreSQL reuses the centralized storage control migration.",
+  "tests": {
+    "native_postgres": {
+      "new_cases": 5,
+      "adoption_and_original_files": "original JSON definitions and anchors retained, adoption paused with no default; legacy API writers blocked",
+      "concurrency": "one CAS winner, immutable request replay, pending disable/current/source fencing",
+      "failure_cases": [
+        "projection tamper and DB-only reset fail closed, including when projection is missing",
+        "out-of-band legacy change before first publication blocks approval",
+        "updated worker without authority cannot write legacy plans or admit a new policy capture",
+        "synthetic captures preserve latest/protected records, remove expired owned data and retain pruned history",
+        "pause during capture stops stale retention",
+        "unconfirmed isolated directory is retained until explicit Root per-snapshot deletion"
+      ]
+    },
+    "race": {
+      "distinct_cases": 14,
+      "runs": 42,
+      "repetitions": 3,
+      "coverage": "snapshot authority plus existing database backup/shared control regressions",
+      "local_boundary_cases": 2,
+      "local_boundary_runs": 6,
+      "local_boundaries": [
+        "deadline/source admission checks and independent internal maintenance capture",
+        "linked quarantine parent rejected; external sentinel retained"
+      ]
+    },
+    "http": {
+      "real_Gin_JWT_Postgres_TaskBus_SSE": true,
+      "Redis_transport": "miniredis",
+      "authorization": "Root human session, non-Root/service identities rejected; old setters require new contract",
+      "capture_revision": "missing policy revision returns 428; stale revision with a valid idempotency key returns 409",
+      "fixture": "configuration-only HTTP backend; actual capture/retention mechanics validated separately with synthetic artifacts"
+    },
+    "frontend": {
+      "files": 31,
+      "tests": 221,
+      "passed": true,
+      "coverage": "draft CAS, explicit current/activation, original receipt reconciliation, no idle polling, both resource wrappers, manual capture confirmation revision and same-ID revision changes"
+    },
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "Root adoption and paused create through actual HTTP/PG/TaskBus/SSE",
+        "paused current selection and separate schedule activation preserve exact revisions",
+        "concurrent save conflicts without replacing draft; explicit reload advances CAS",
+        "lost committed response reconciles original UUID with GET only",
+        "light 1440 navigation/draft/primary action/no overflow",
+        "light 390 navigation/draft/primary action/no overflow",
+        "dark 1440 navigation/draft/primary action/no overflow",
+        "dark 390 navigation/draft/primary action/no overflow",
+        "storage governance and backup center show the same persisted policy"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "runtime_errors": [],
+      "idle_control_requests": [],
+      "idle_observation_seconds": 2.5,
+      "traffic": "All snapshot/plan/events writes use owned HTTP fixture. Daily login authorized; unrelated daily API requests read-only."
+    },
+    "checks": [
+      "focused backend, bootstrap and system recovery regressions passed",
+      "go vet passed",
+      "make capability-check passed",
+      "scoped git diff --check passed"
+    ]
+  },
+  "runtime_contract": [
+    "manual capture carries the confirmed plan revision",
+    "only approved current and enabled plan can schedule or retain; approved paused current plan remains manually capturable",
+    "45 minute admission deadline also bounds queued execution and retries",
+    "bounded metadata/atomic quarantine inside SQL guard; traversal/capture/recursive removal outside SQL locks",
+    "imported, latest, protected and known recovery references retained",
+    "durable pruning token; no automatic retry after unknown isolation/removal",
+    "real private quarantine directory required, links/escape rejected",
+    "existing internal maintenance capture and read-only recovery progress remain independent of ordinary policy DB"
+  ],
+  "limitations": [
+    "legacy independent coordinator automatic plan activation is explicitly rejected; admitted manual capture may finish but cannot run retention without DB authority",
+    "no real pg_dump or independent restore proof; capture adapters generate synthetic artifacts",
+    "no new byte budgets, minimum business-verified recovery points or unified cross-module references",
+    "joint DB/runtime recovery epoch and old-binary handoff remain T171",
+    "database retention control and SG-09 real target/7 day/14 day evidence remain pending"
+  ],
+  "not_performed": [
+    "daily or production DB migration/adoption",
+    "restart/stop of user-owned services",
+    "production cleanup/deployment",
+    "credential or user business-data migration",
+    "commit or push"
+  ],
+  "cleanup": {
+    "postgres_stopped": true,
+    "owned_postgres_root_removed": true,
+    "owned_http_proxy_ports_closed": [
+      49586,
+      49540
+    ],
+    "owned_browser_children_remaining": [],
+    "temporary_jwt_removed": true,
+    "daily_services": {
+      "3030": "listening; not managed by this cleanup",
+      "8077": "listening; not managed by this cleanup"
+    }
+  },
+  "sources": [
+    {
+      "file": "backend/internal/service/snapshot_ops/service.go",
+      "sha256": "767daf7b64b015c3b5a71dccd3369de6c308659f5ef08db9005728245a003a8f",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/policies.go",
+      "sha256": "592777c66856caa16400b529bac02e77bfdba6961674c3b8ca61d3ed3be0f917",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/types.go",
+      "sha256": "c6938760e73b453f2facbc576363b79066ad63e3376b26f42f52133383153b8e",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/coordinator_access.go",
+      "sha256": "e7b92ad2cb88827064396f49bb9bf5dc9c00be3dbf191d2b0e14c2c04f7bf18f",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/delete.go",
+      "sha256": "16678f529f507e124bd2aff04aa5ea681d2185174165050fbbea082e62cb61e0",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/bootstrap/system_snapshots.go",
+      "sha256": "2786db9d29fb81d488c6a8d242812d8529f854583d8feebffae76ec27fcf95db",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/bootstrap/app.go",
+      "sha256": "81645cc08254256da682207abe4f30c98f4171ea9b8cd2865030347026dc6d22",
+      "changed_since_captured_baseline": false
+    },
+    {
+      "file": "backend/internal/infra/storage_budget/coordinator.go",
+      "sha256": "7edb72fd1a60c2489a839e1b0948a47c219d80c5ddc1ab99c16b5d7c778be40a",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/routes.go",
+      "sha256": "cab84faeba0677c1f9438e017dbef4ee92b83eaec6876c695a71a96b88997aa2",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/events_handler.go",
+      "sha256": "9a5e6b77a8d3edc6d034cc201b2c0e2840b83cce5cffc11a452af880a0ead722",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "backend/config/capability_audit_ignore.yaml",
+      "sha256": "5cd5d6a9279a5a38bab17717d748f7faf6962eb054710c208575393a4843dfdd",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "web-admin/app/components/ops/backup/SystemSnapshotsPanel.vue",
+      "sha256": "7a48d5cc44bfa7e1938b1f98994aa615985e42e4bd92b3bdb0aa65a2cddeb728",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "web-admin/app/components/monitor/storage/StorageBackupConfiguration.vue",
+      "sha256": "e69ffccb369400febc07f088ea45a9ca64555d9f4ed2682f538d18310dc609e5",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "web-admin/app/composables/api/services/systemSnapshotService.ts",
+      "sha256": "e34e8ea293f4aa67df944135599dd16626ae1c70a1a4605b3fa69aae16aafd69",
+      "changed_since_captured_baseline": true
+    },
+    {
+      "file": "web-admin/app/composables/useBackupEvents.ts",
+      "sha256": "53fd31a7879e22e918609cfc423cb2932c789c62015592a353bc8498cecc97b3",
+      "changed_since_captured_baseline": false
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/policy_control.go",
+      "sha256": "342f2f11a74d5df47399c2047b01ab729cd71546084b3bb4892a0a9c41a23f0d",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/policy_retention.go",
+      "sha256": "91e7b14398dc3c7f5f2e176324ad6ae8180d2c938bd6f1731fa3ded62058092f",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/policy_control_test.go",
+      "sha256": "627f7b2dee6b3fcb3bbad928510982b24984c9d6236fc0135ca35e2fbeaea901",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/service/snapshot_ops/capture_retry.go",
+      "sha256": "2fab5fadb39c67571f9c5dc6b4075345ed74728f6ee2fcf6b4fb41790e04134c",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/service/storage_governance/snapshot_policy_control.go",
+      "sha256": "2ccdcabcbfb22e329f6e7a16edf33304a9e04435773b50e8cf3e99f8b1b9a7e1",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/service/storage_governance/snapshot_policy_control_postgres_test.go",
+      "sha256": "0a6318d79f08221b22adfdec24a5c8e390f88c3f3a06a1703e4124299c376d25",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/snapshot_policy_control_handler.go",
+      "sha256": "557a88e7f879b13f73205e94df1870dfc7159dcbfe30a050b42d16da204ce1d5",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/snapshot_policy_control_postgres_test.go",
+      "sha256": "e0ec8b533dbfd7d531b5094bb2cf6b1a8dd81c5f8c31384286cd60d8a5a1e67e",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/snapshot_handler.go",
+      "sha256": "904604175cf5c6f32fd30cadc9774ce4951494f51e3c2c937320b62c183896e7",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/app/components/ops/backup/SystemSnapshotPolicies.vue",
+      "sha256": "ce72fc9ef37d05052b2b55756573d0c07d97e6e6989b5598e6b5380b65722325",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/app/composables/api/services/snapshotPolicyService.ts",
+      "sha256": "4f8159dafe58a3e1f84c205f78119f925d18f147d222757c0b757a010456871c",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/tests/unit/backup/snapshot-policy-control.spec.ts",
+      "sha256": "37d88dc208403d86a9a621c75d6b6b22e244444f068bdcf1f28a61132b446730",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/tests/unit/backup/system-snapshots.spec.ts",
+      "sha256": "901650a59b79d1cafa37e66c8186e5e69a90f179d1a8d361121c19e86aafc6c6",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/tests/unit/storage/storage-resource-configuration.spec.ts",
+      "sha256": "060989fe98948107cca8101f376333636e35ac6c1fb4829508924a2c1ed0cca3",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "docs/contracts/snapshot-policy-control.md",
+      "sha256": "ce431ce600f71936475ad20a1f3aa23c23db57977da9a28f8dd3007bf1306422",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "docs/contracts/database-backup-policy-control.md",
+      "sha256": "3acc4a8ea63a73940657c89ef4c54f4e023116829797c445cfb9a89426ea89e4",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "docs/contracts/system-snapshots.openapi.yaml",
+      "sha256": "4b4317db65b5782ee4bb120a2cd2c003381e06ea80199a7888a712d65b8f7ee4",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "docs/plan/deploy/storage-governance-commercial.md",
+      "sha256": "0fec447d3fd240a004c8cf0c593160af59acefb1a2d0e68628b42960b3c9b33c",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "docs/plan/deploy/storage-governance-tasks.md",
+      "sha256": "1492bfaf3e57b1e0e0a1c2826f663c3ef72af25c9515fdf80e8961c1c3316db0",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "specs/027-monitor-center/tasks.md",
+      "sha256": "8418345a4c97ed3e0e7082000c3e9850bc4aca6786f07dc9f010801c6e432304",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "specs/027-monitor-center/data-model.md",
+      "sha256": "81e97588fafb7a16f550b9832f538a996152921f7fbfd60be4c9e7fba064a8ae",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "specs/027-monitor-center/contracts/snapshot-policy-control.openapi.yaml",
+      "sha256": "e62b75bece868ea613f3320d9ab631a5c8a7b7bca89df1996f054e8fba5bc1e6",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "tmp/storage-governance-archive-ui-optimization-plan-20261031.md",
+      "sha256": "1089ed0b4ed3f591e81cab3e6c9255affa6707dd9808ce04df56c3ef6b300d8c",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/i18n/locales/zh.json",
+      "sha256": "83c651de27ee8fdeaa267ecf99f57f8e741c7a3c110e4253c3b4c1200f2eef90",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/i18n/locales/en.json",
+      "sha256": "a2fd874f403c62e624ab5505e14d0036a9f80916feb0ae4039311962867d4af8",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/i18n/locales/ja.json",
+      "sha256": "ce3418a64976d58d66197a5b66a6833947c99af5401b1f2cae49b5967bfad25d",
+      "changed_since_captured_baseline": null
+    },
+    {
+      "file": "web-admin/i18n/locales/ko.json",
+      "sha256": "5f98f06b64a228edd4892f5d0385c1e92e45b1947aede3fdd3f4a4bc4f34038e",
+      "changed_since_captured_baseline": null
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/native-tests.log",
+      "sha256": "10d7619421e608b52519e244da26d7cba708690597b5c74c10162d3537870a1b"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/race.log",
+      "sha256": "d53caa669b01aaf6063958159765b09b9be28ce33ea2b6c7e29fbc4940268cf2"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/local-boundary-race.log",
+      "sha256": "5bb47d7697d36fc9acabba9873ab8432042a3c1d933cf97c9f05f5c74d79a1ae"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/http-final.log",
+      "sha256": "1c4d6396198165706e4ae3f34c8d0a9fbbf25df75cea0376d1d31b03b7a247f3"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/browser-http.log",
+      "sha256": "09856d78e22d48b4fde3ea52be0090e447d6faea25b2d0a91c7aac9812af4be1"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/ui-result.json",
+      "sha256": "214c6beabe2632b11fb6f289222e991c2b8c98d2739476826da0b170e8598ffa"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/backend-completion.log",
+      "sha256": "bfd323479a1fa726d241e6c1ce998e27d2b17a145ccaeaa5117ac5cfbf9b8634"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/vet-completion.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/frontend-completion.log",
+      "sha256": "b685a04f11a40327b14db2db5554d602f92ca3450c57e09abc964358696a17fc"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/capability-check.log",
+      "sha256": "20d8d29e1f8f367095e9fe31915ba01bb3c51bbe2a49821e0a9519a360a07902"
+    },
+    {
+      "path": "tmp/storage-commercial-snapshot-20261107/cleanup.json",
+      "sha256": "039f4797bcd4a760b798164acd3c89efb5197175d8fe8ae48b74ec380367ed44"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 openapi: 3.0.3
-info: {title: Core notification member delivery, version: 1.1.0}
+info: {title: Core notification member delivery, version: 1.2.0}
 paths:
   /notifications:
     post:
@@ -30,6 +30,7 @@ paths:
         '400': {description: Invalid payload or inactive recipient}
         '401': {description: Service credential required}
         '403': {description: Grant or notification ownership check failed; no partial writes}
+        '409': {description: Stale or missing card revision; no partial writes}
         '503': {description: Dependency unavailable}
 components:
   schemas:
@@ -62,6 +63,7 @@ components:
       required: [member_uuid, notification_uuids]
       properties:
         member_uuid: {type: string, format: uuid}
+        revisions: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991}, description: Required exact Core revision for every dynamic business card.}
         notification_uuids: {type: array, minItems: 1, maxItems: 100, uniqueItems: true, items: {type: string, format: uuid}}
     ReadReceiptOperation:
       type: object
@@ -70,6 +72,7 @@ components:
       properties:
         operation: {type: string, enum: [acknowledge_read]}
         member_uuid: {type: string, format: uuid}
+        revisions: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991}, description: Required exact Core revision for every dynamic business card.}
         notification_uuids: {type: array, minItems: 1, maxItems: 100, uniqueItems: true, items: {type: string, format: uuid}}
     ReadReceipt:
       type: object
@@ -78,4 +81,5 @@ components:
       properties:
         contract: {type: string, enum: [notification_read_receipt.v1]}
         member_uuid: {type: string, format: uuid}
+        revisions: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1, maximum: 9007199254740991}, description: Required exact Core revision for every dynamic business card.}
         notification_uuids: {type: array, minItems: 1, maxItems: 100, uniqueItems: true, items: {type: string, format: uuid}}

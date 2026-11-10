@@ -1,0 +1,48 @@
+{
+  "initial_site": "https://a.example/console/",
+  "cases": [
+    {
+      "event": "configure",
+      "value": "https://b.example/console/",
+      "local_proof": "cleared_immediately",
+      "instance_id": "unchanged",
+      "on_next_authenticated_heartbeat": {
+        "public_site_url": "https://b.example/console/"
+      },
+      "market_result": [
+        "cancel_old_pending_challenges",
+        "invalidate_this_instance_current_link",
+        "retain_history",
+        "preserve_other_instances"
+      ]
+    },
+    {
+      "event": "clear",
+      "value": "",
+      "local_proof": "cleared_immediately",
+      "on_next_authenticated_heartbeat": {
+        "public_site_url": ""
+      },
+      "market_result": [
+        "cancel_old_pending_challenges",
+        "invalidate_this_instance_current_link",
+        "retain_history"
+      ]
+    },
+    {
+      "event": "omit_field",
+      "on_next_authenticated_heartbeat": {},
+      "market_result": [
+        "keep_saved_declaration"
+      ]
+    },
+    {
+      "event": "configure_previous_site",
+      "value": "https://a.example/console/",
+      "market_result": [
+        "requires_new_challenge",
+        "do_not_restore_old_link"
+      ]
+    }
+  ]
+}

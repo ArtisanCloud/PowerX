@@ -1,0 +1,237 @@
+{
+  "date": "2026-11-07T00:27:40.431726+08:00",
+  "scope": "SG-11 host-budget DB authority and shared host admission slice; uncommitted source and owned isolated validation, not production or full commercial release",
+  "source": {
+    "branch": "024-ai-engineering-skills",
+    "base_commit": "a1956aa3601786ed05a59236477ed3a67cfc7a67",
+    "uncommitted": true,
+    "fingerprints": {
+      "backend/config/capability_audit_ignore.yaml": "7bb2d71efc88fb21c7854a05581d106c8c49867440dcd316686f09de773ba778",
+      "backend/internal/infra/storage_budget/control.go": "de6edbf361de6d6a5e74b6ea119c22a07159b0400e6251b24964186c42be8007",
+      "backend/internal/infra/storage_budget/coordinator.go": "89727da94c47427520adbe3b7ee5f46567a854bee381c05e7def08467911262d",
+      "backend/internal/service/storage_governance/budget_control.go": "aac41da9ba0af9ad1309403ae7394107815e19b813e84551093961253038f30f",
+      "backend/internal/service/storage_governance/budget_control_postgres_test.go": "e1f81acabb5aae858063345b06476bb1ec180c8eb87934a219bf18c6d81395f2",
+      "backend/internal/service/storage_governance/control_service.go": "93add393912f87628ab1c88842813d1ce377b064e8686fb63c6fd9c268593e5e",
+      "backend/internal/service/storage_governance/runtime.go": "284426f310b0dcfe4c0e608712cfb172c5cc9f258121ddcde583ff1b0e360803",
+      "backend/internal/service/storage_governance/service.go": "aa10a8b00ee09d88e90472791311cff4d581629fbb73a5c17c09078b47ff63d8",
+      "backend/internal/transport/http/admin/storage/api.go": "8d8c0c3751bf46de5e223ffb1738fda53a3d08824ab04f32071654543c1854b3",
+      "backend/internal/transport/http/admin/storage/budget_control_postgres_test.go": "4b94efdacc546f2884e901d301a8364643094fdbe34e15e9d83420d0cee13afe",
+      "backend/internal/transport/http/admin/storage/runtime_handler.go": "d3aff375c113760259970a159bab9fb80b582662afb1e81c13b7385afb352cc0",
+      "docs/contracts/storage-control-authority.md": "2e427a672721f8faa006b597bbcc7154e473837b87060c909f9b5a3d1b36fab1",
+      "docs/contracts/storage-host-budget-control.md": "642b97d75cc00647b90b4a0962517ffb9f43c88a5d6217aec889420c96102149",
+      "docs/plan/deploy/storage-governance-commercial.md": "e18eee6facd4b3526b57b8054987ecf4e72bd03f5a9e755cf89e8b0f0359f684",
+      "specs/027-monitor-center/contracts/host-budget-control.openapi.yaml": "8aadcf90f52f5b1ae7431154a6b044ba91b8f2d33bf32c16bfcac842022fb3fb",
+      "specs/027-monitor-center/data-model.md": "f93f9bee8f22d56697f181725b2e688ae2cd085eda8826ea03511274d736e11c",
+      "specs/027-monitor-center/tasks.md": "b7694f391c0c077d067ae39014b6fdc0c48cbf7b3f2845bd58be4fbe32d1f8a7",
+      "web-admin/app/components/monitor/storage/HostBudgetControl.vue": "5d1963684a6e88963fed43b252ede98ee6b11be54c6a3973858d17f460d62010",
+      "web-admin/app/components/monitor/storage/StorageRuntimePanel.vue": "24a894ae8bcb32b6ae5437814fe396181a089c6daaeaae3f57bcaab00ef53833",
+      "web-admin/app/composables/api/services/storageRuntimeService.ts": "39901fe50dc50dff4045450559d4149448248aedece1210cd48232500a9d9fb3",
+      "web-admin/i18n/locales/en.json": "d1fee582c63d4b7d8e40e404f4c5d965505fdf53fd55f2b605c28418a2f880d9",
+      "web-admin/i18n/locales/ja.json": "a51ecb99e2409ee9d9c57e3dda068cf9e24eba19f9c54a0ee5e912b5a6e2a443",
+      "web-admin/i18n/locales/ko.json": "1ba875b9f945838868ec052e9638e4bcfcad564395914a28a1f30a2b66e88e5c",
+      "web-admin/i18n/locales/zh.json": "9ff13966c0b47368d3f53784b07457c09dd739c2e2ca295fa1fc587538bc2545",
+      "web-admin/tests/unit/storage/host-budget-control.spec.ts": "a2b736b489db74b5189f24798a5e3943de5a7a0f37c02eb679c8eba7f157906b"
+    }
+  },
+  "implementation": [
+    "Fixed host-budget settings and origin, CAS, immutable actor-bound UUID receipt and formal TaskBus publication in existing control tables",
+    "Adoption preserves existing legacy protection; the first confirmed host publication selects owner installation and authority UUID; competing publications cannot overwrite it",
+    "Other instances sharing the same trusted DB and private host coordinator consume the owner scope without a second service or private queue",
+    "DB resource lock precedes host ledger lock; final scope/version/binding checks guard new reservations and progress; release is independent of DB availability",
+    "Pending relaxation cannot enlarge allowance; pending tightening merges conservatively until publication",
+    "Separate private host budget binding prevents missing projections from reverting secondary instances or new standalone workers to legacy admission",
+    "Old flat HTTP budget DTO and legacy controlled setters reject writes; zero max-used preserves other limits",
+    "Shared modal separates overview, settings and reservations; retains draft/CAS across push and navigation; unknown requests reconcile with GET original UUID only",
+    "Control publication tasks rely on immutable SQL request receipts and TaskBus UUID task IDs; recovery copies no longer reuse the original immutable-envelope idempotency key; durable task history and leases prevent double application"
+  ],
+  "verification": {
+    "native_postgres": {
+      "result": "passed",
+      "tests": 6,
+      "transport": "owned PostgreSQL14 private unix socket, disposable schemas, formal StreamDriver and miniredis transport",
+      "log": "tmp/storage-commercial-budget-20261107/race.log",
+      "covers": [
+        "adoption preserves old limits and active reservation",
+        "actor/UUID receipts, CAS and concurrent single-winner saves",
+        "pending tighten and delayed relax",
+        "single SQL connection admission without nested borrowing",
+        "DB outage blocks new/expanded reservations but permits release",
+        "two installations share occupancy and only one publication owns the host",
+        "unbound new worker rejects legacy fallback",
+        "tampered projection fails closed",
+        "missing projection remains blocked on secondary instance due independent binding",
+        "recovery copies do not repeat configuration mutation"
+      ]
+    },
+    "actual_http_jwt_sse": {
+      "result": "passed",
+      "test": "TestHostBudgetNativeHTTPAndSSE",
+      "logs": [
+        "tmp/storage-commercial-budget-20261107/race.log",
+        "tmp/storage-commercial-budget-20261107/browser-http.log"
+      ],
+      "covers": [
+        "registered custom-prefix routes",
+        "anonymous/API-key header, tenant user and plugin/STS claimed identities denied on all four routes",
+        "Root adoption/save/receipt",
+        "legacy flat body400, stale revision409, unknown receipt404",
+        "actual durable TaskBus publication and SSE confirmation",
+        "real owned reservation and release"
+      ]
+    },
+    "backend_packages": {
+      "result": "passed",
+      "packages": [
+        "internal/infra/storage_budget",
+        "internal/service/storage_governance",
+        "internal/transport/http/admin/storage",
+        "internal/transport/http/admin/backup",
+        "internal/bootstrap"
+      ],
+      "log": "tmp/storage-commercial-budget-20261107/backend-tests.log",
+      "whole_repository_suite_claimed": false,
+      "final_legacy_setter_guard_rechecked": "tmp/storage-commercial-budget-20261107/budget-unit-final.log"
+    },
+    "race": {
+      "result": "passed",
+      "packages_with_matching_tests": [
+        "storage_governance",
+        "http/admin/storage"
+      ],
+      "compiled_package_with_no_matching_filter_tests": "storage_budget",
+      "repeat": 3,
+      "tests_per_round": 7,
+      "tests": [
+        "TestHostBudgetNativeHTTPAndSSE",
+        "TestHostBudgetNativePostgresAdoptionCASAndReceipts",
+        "TestHostBudgetNativePostgresLostProjectionCannotRevertOtherInstancesToLegacy",
+        "TestHostBudgetNativePostgresPendingLimitsAndReleaseWithoutDatabase",
+        "TestHostBudgetNativePostgresPublicationRecoveryDoesNotReplayMutation",
+        "TestHostBudgetNativePostgresSharedOwnerAndCompetingAdoption",
+        "TestHostBudgetNativePostgresTamperedProjectionFailsClosed"
+      ],
+      "log": "tmp/storage-commercial-budget-20261107/race.log"
+    },
+    "vet": {
+      "result": "passed",
+      "packages": 5,
+      "logs": [
+        "tmp/storage-commercial-budget-20261107/vet.log",
+        "tmp/storage-commercial-budget-20261107/vet-budget-final.log"
+      ]
+    },
+    "frontend_units": {
+      "result": "passed",
+      "files": 29,
+      "tests": 213,
+      "command": "npx vitest run tests/unit/storage tests/unit/backup",
+      "log": "tmp/storage-commercial-budget-20261107/frontend-tests.log",
+      "whole_frontend_suite_claimed": false
+    },
+    "browser": {
+      "result": "passed",
+      "daily_frontend": "existing user-owned Nuxt3030; authorized Root login",
+      "storage_http_and_sse": "all /admin/ops/storage routes redirected to owned real HTTP/PG/TaskBus fixture; no daily storage mutation",
+      "checks": [
+        "Root explicitly adopts existing host protection through actual HTTP/PG/TaskBus and receives publication through SSE",
+        "SSE preserves edited limits and original CAS; conflict requires explicit reload",
+        "committed response loss blocks writes and reconciles original UUID with GET only",
+        "light 1440: overview/settings/reservations navigation retains draft and exposes primary action without overflow",
+        "light 390: overview/settings/reservations navigation retains draft and exposes primary action without overflow",
+        "dark 1440: overview/settings/reservations navigation retains draft and exposes primary action without overflow",
+        "dark 390: overview/settings/reservations navigation retains draft and exposes primary action without overflow"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "errors": [],
+      "idle_state_requests": [],
+      "artifact": "tmp/storage-commercial-budget-20261107/ui-result.json",
+      "screenshots": [
+        "tmp/storage-commercial-budget-20261107/light-1440-overview.png",
+        "tmp/storage-commercial-budget-20261107/light-390-settings.png",
+        "tmp/storage-commercial-budget-20261107/dark-390-settings.png"
+      ],
+      "visually_inspected": [
+        "light-1440-overview.png",
+        "dark-390-settings.png"
+      ]
+    },
+    "capability_check": {
+      "result": "passed",
+      "declared": 1242,
+      "candidates": 1232,
+      "ignored_route_rules": 107,
+      "log": "tmp/storage-commercial-budget-20261107/capability-check.log",
+      "service_contract_or_grant_changed": false
+    },
+    "openapi": {
+      "result": "YAML parsed, four operations and all local refs resolved; no full validator installed",
+      "operations": 4
+    },
+    "scoped_diff_check": {
+      "result": "passed",
+      "paths": 25
+    }
+  },
+  "environment": {
+    "daily_database_migration_or_policy_change": false,
+    "daily_service_stopped_or_restarted_by_this_task": false,
+    "production_access_or_change": false,
+    "real_customer_data_used_or_deleted": false,
+    "native_schemas_and_files": "owned temporary only; no customer/production resources"
+  },
+  "cleanup": {
+    "date": "2026-11-07T00:26:47.044693+08:00",
+    "browser_and_proxy_pids_exited": {
+      "66498": true,
+      "66492": true,
+      "66547": true,
+      "66609": true,
+      "66610": true,
+      "66628": true
+    },
+    "http_proxy_ports_closed": {
+      "54543": true,
+      "54534": true
+    },
+    "temporary_credential_removed": true,
+    "owned_schemas_remaining": [],
+    "owned_database_clients_remaining": 0,
+    "postgres": {
+      "pid": 364,
+      "stopped": true,
+      "unix_socket_removed": true,
+      "directory_removed": true
+    },
+    "daily_services": {
+      "3030": {
+        "listening_pids": [
+          "34360"
+        ],
+        "stopped_or_restarted_by_this_task": false
+      },
+      "8077": {
+        "listening_pids": [
+          "67227"
+        ],
+        "stopped_or_restarted_by_this_task": false
+      }
+    },
+    "daily_database_migration_or_policy_mutation": false,
+    "production_access_or_mutation": false
+  },
+  "remaining_release_gates": [
+    "backup/snapshot and database retention configuration authority",
+    "joint recovery epoch across configuration DB, private ledger/binding and credentials",
+    "controlled legacy binary/executor handoff and owner transfer",
+    "trusted shared DB and single host coordinator directory deployment acceptance",
+    "external KMS and independent key custody/recovery",
+    "SG-09 real cloud retrieval and 7/14-day target environment acceptance"
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-04T06:45:59.864163+00:00",
+  "scope": "Core source and isolated acceptance only; daily Core/database/credentials unchanged",
+  "application_contract": "event_fabric.service.v1",
+  "proto_package": "powerx.event_fabric.v1",
+  "capabilities": [
+    "com.corex.eventfabric.service_publish",
+    "com.corex.eventfabric.service_consume"
+  ],
+  "required_migration": {
+    "scope": "event-fabric-service-identity",
+    "table": "event_delivery_attempts",
+    "field": "claimed_by",
+    "type": "varchar(64) NOT NULL DEFAULT empty string",
+    "applied_to_daily_database": false,
+    "isolated_official_command_and_repeat": "passed",
+    "legacy_row_check": {
+      "rows": 1,
+      "legacy_pending": 1,
+      "empty_claim_subject": 1
+    }
+  },
+  "checks": {
+    "affected_race_packages": "passed",
+    "native_postgresql_race": "passed",
+    "native_tests": [
+      "TestPublishDurableFanoutIdempotencyAndAck",
+      "TestAuthenticatedTenantOwnerAndReservedIdentity",
+      "TestRevocationBeforeDeliveryAndDuringStream",
+      "TestDisconnectRestartRedeliveryAndStaleReceipt",
+      "TestNackTimeoutExhaustionAndNoDuplicateDeadLetter",
+      "TestPublishRollbackAndDependencyFailure",
+      "TestAPIKeyRequiresExactGrantAndPluginOwner",
+      "TestConcurrentClaimsOneActiveReceipt",
+      "TestInvokerRejectsRawProxyAndRecoversAfterSendFailure",
+      "TestLiveCredentialRevocationAndSanitizedAudit",
+      "TestNackRollbackLeavesOriginalReceiptValid",
+      "TestSamePluginDifferentCredentialCannotSettleReceipt",
+      "TestSchemaPreflightRequiresFormalMigration"
+    ],
+    "all_packages_compile_without_running_tests": "passed",
+    "affected_vet": "passed",
+    "core_app_build": "passed",
+    "capability_check": "passed declared=1242 referenced=83 rest_routes=1175 candidates=1175 ignored_route_rules=81",
+    "upgrade_payload_registry": "passed at final source snapshot",
+    "formal_catalog_and_registration_repeat": {
+      "scope": "isolated PostgreSQL validation only",
+      "repeat_stable": true,
+      "registrations": [
+        {
+          "capability_id": "com.corex.eventfabric.service_consume",
+          "provider_version": "2025.01",
+          "capabilities_hash": "b05ad4a187aaeb2e79e55174dda32d75091dc0fa946e6391519e1ce05421135b",
+          "protocol_hash": "3fa60e403608c22bad61571ae31079388f86d06e1f01c7bfec93764008a68e27",
+          "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+          "registration_version": 1,
+          "status": "published"
+        },
+        {
+          "capability_id": "com.corex.eventfabric.service_publish",
+          "provider_version": "2025.01",
+          "capabilities_hash": "25168bca0493a9c49a57b67b79d5e46aa51e7908969b747ee27f3c1711a7a998",
+          "protocol_hash": "3de3c38ff2c9c4777da3d6d1863c7a95343012255b33e000b1a1825258343885",
+          "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+          "registration_version": 1,
+          "status": "published"
+        }
+      ]
+    },
+    "final_migration_tests": "passed"
+  },
+  "full_backend_suite": {
+    "status": "failed; not claimed green",
+    "remaining_failure_packages": [
+      "FAIL"
+    ],
+    "event_fabric_mapping_and_contract_failures_fixed": true,
+    "log": "/tmp/powerx-eventfabric-full-tests.log"
+  },
+  "artifacts": {
+    "core_binary": "/tmp/powerx-eventfabric-core",
+    "core_binary_sha256": "8bd9bce014a26f433b64d63f25c04b296a68894e6509d536c6636b2cd0247d74",
+    "framework_handoff": "docs/contracts/event-fabric-service-v1.md",
+    "openapi": "docs/contracts/event-fabric-service-v1.openapi.yaml"
+  },
+  "deployment": {
+    "daily_core_restarted": false,
+    "daily_catalog_seeded": false,
+    "daily_key_grants_changed": false,
+    "framework_source_modified": false,
+    "scrm_source_modified": false,
+    "live_framework_scrm_acceptance": false
+  },
+  "temporary_postgresql": {
+    "owner": "codex-eventfabric-validation",
+    "pid": 41837,
+    "port": 49673,
+    "pid_exited": true,
+    "port_released": true,
+    "data_directory_removed": true
+  },
+  "source_snapshot_captured_at": "2026-11-04T06:54:08.267296+00:00",
+  "parallel_workspace_changes_observed": [
+    "backend/pkg/corex/db/persistence/model/runtime_scheduler/run.go",
+    "backend/pkg/corex/db/database/migration.go",
+    "backend/internal/service/storage_governance/"
+  ],
+  "upgrade_payload_manifest_sha256": "2019bcf9304c909280c8600be5dbf1f6ccec80f85e931023cfcb662b1a9544f4"
+}

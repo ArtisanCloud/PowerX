@@ -1,0 +1,349 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Runtime TaskQueue v2",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/api/v1/admin/runtime/task-queue/v2/invoke": {
+      "post": {
+        "operationId": "runtimeTaskqueueAdminInvoke",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TASK_QUEUE_CONFIRMED"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RuntimeRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract_version": {
+                "const": "taskqueue.v2"
+              },
+              "operation": {
+                "const": "enqueue"
+              },
+              "tenant_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "message": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "contract_version",
+              "operation",
+              "tenant_key",
+              "message"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract_version": {
+                "const": "taskqueue.v2"
+              },
+              "operation": {
+                "const": "dequeue"
+              },
+              "tenant_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "subscriber_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "worker_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "max_items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "wait_timeout_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 30000
+              }
+            },
+            "required": [
+              "contract_version",
+              "operation",
+              "tenant_key",
+              "subscriber_id",
+              "worker_id",
+              "max_items",
+              "wait_timeout_ms"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract_version": {
+                "const": "taskqueue.v2"
+              },
+              "operation": {
+                "const": "ack"
+              },
+              "tenant_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "subscriber_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "message_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "receipt_uuid": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "outcome": {
+                "enum": [
+                  "completed",
+                  "failed"
+                ]
+              },
+              "metadata": {
+                "type": "object",
+                "maxProperties": 32,
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 1048576
+                }
+              }
+            },
+            "required": [
+              "contract_version",
+              "operation",
+              "tenant_key",
+              "subscriber_id",
+              "message_id",
+              "receipt_uuid",
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract_version": {
+                "const": "taskqueue.v2"
+              },
+              "operation": {
+                "const": "nack"
+              },
+              "tenant_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "subscriber_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "message_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "receipt_uuid": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "metadata": {
+                "type": "object",
+                "maxProperties": 32,
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 1048576
+                }
+              },
+              "retry_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "contract_version",
+              "operation",
+              "tenant_key",
+              "subscriber_id",
+              "message_id",
+              "receipt_uuid",
+              "reason"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "contract_version": {
+                "const": "taskqueue.v2"
+              },
+              "operation": {
+                "const": "renew"
+              },
+              "tenant_key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "subscriber_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "message_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "receipt_uuid": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "contract_version",
+              "operation",
+              "tenant_key",
+              "subscriber_id",
+              "message_id",
+              "receipt_uuid"
+            ]
+          }
+        ]
+      },
+      "Message": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tenant_key",
+          "subscriber_id",
+          "topic",
+          "payload_base64",
+          "idempotency_key"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "tenant_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "subscriber_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "payload_base64": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "headers": {
+            "type": "object",
+            "maxProperties": 32,
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 1048576
+            }
+          },
+          "trace_id": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "visible_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object",
+            "maxProperties": 32,
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 1048576
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "Lease": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "receipt_uuid",
+          "fence",
+          "expires_at"
+        ],
+        "properties": {
+          "receipt_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

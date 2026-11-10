@@ -27,7 +27,7 @@ func TestInstallFromFileForceRejectsEnabledRuntimeWithTenantInstances(t *testing
 			Registry:      registry,
 			Loader:        NewFSLoader(),
 			CoreConfig: &coreconfig.Config{
-				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			},
 			TenantInstanceCount: func(ctx context.Context, pluginID string) (int64, error) {
 				require.Equal(t, "com.powerx.plugins.replace-test", pluginID)
@@ -43,7 +43,7 @@ func TestInstallFromFileForceRejectsEnabledRuntimeWithTenantInstances(t *testing
 	require.NoError(t, registry.UpdateState(ctx, installed.ID, installed.Version, plugin_mgr.StateEnabled))
 
 	srcV2 := writeReplaceTestPlugin(t, filepath.Join(root, "src-v2"), "second")
-	_, err = m.InstallFromFile(ctx, srcV2, plugin_mgr.InstallOptions{Force: true})
+	_, err = m.InstallFromFile(ctx, srcV2, plugin_mgr.InstallOptions{Force: true, ExpectedRevision: installed.Revision})
 	require.Error(t, err)
 	require.True(t, plugin_mgr.IsCode(err, plugin_mgr.CodeConflict), "err=%v", err)
 
@@ -71,7 +71,7 @@ func TestSwitchVersionRejectsEnabledRuntimeWithTenantInstances(t *testing.T) {
 			Registry:      registry,
 			Loader:        NewFSLoader(),
 			CoreConfig: &coreconfig.Config{
-				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+				Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 			},
 			TenantInstanceCount: func(ctx context.Context, pluginID string) (int64, error) {
 				require.Equal(t, "com.powerx.plugins.replace-test", pluginID)
@@ -87,8 +87,11 @@ func TestSwitchVersionRejectsEnabledRuntimeWithTenantInstances(t *testing.T) {
 	require.NoError(t, registry.UpdateState(ctx, installed.ID, installed.Version, plugin_mgr.StateEnabled))
 
 	v2 := writeReplaceTestPluginVersion(t, filepath.Join(root, "src-v2"), "0.2.0", "second")
-	_, err = m.InstallFromFile(ctx, v2, plugin_mgr.InstallOptions{})
+	// 模拟升级前已存在的历史多版本记录；新安装入口不再允许新增并列版本。
+	desc, err := NewFSLoader().LoadDescriptor(ctx, v2)
 	require.NoError(t, err)
+	desc.HostConfig = installed.HostConfig
+	require.NoError(t, registry.Put(ctx, desc, plugin_mgr.StateInstalled))
 
 	_, err = m.SwitchVersion(ctx, installed.ID, "0.2.0", true)
 	require.Error(t, err)
@@ -107,6 +110,9 @@ func writeReplaceTestPluginVersion(t *testing.T, root, version, binaryContent st
 	require.NoError(t, os.WriteFile(filepath.Join(root, "plugin.yaml"), []byte(`
 id: com.powerx.plugins.replace-test
 name: Replace Test
+provider:
+  id: developer-test
+  authority: https://market.example/api/v1
 version: `+version+`
 runtime:
   kind: process

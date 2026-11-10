@@ -1,26 +1,29 @@
 package config
 
 import (
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/modelparams"
 	"time"
 )
 
 // 统一配置（融合运行时请求 + agent 默认配置）
 type ModelConfig struct {
-	Provider     string         `yaml:"provider" json:"provider"`
-	Endpoint     string         `yaml:"endpoint" json:"endpoint"`
-	APIKey       string         `yaml:"api_key" json:"api_key"`
-	SecretID     string         `yaml:"secret_id" json:"secret_id"`
-	SecretKey    string         `yaml:"secret_key" json:"secret_key"`
-	Region       string         `yaml:"region" json:"region"`
-	Model        string         `yaml:"model" json:"model"`
-	SystemPrompt string         `yaml:"system_prompt" json:"system_prompt"`
-	Temperature  float64        `yaml:"temperature" json:"temperature"`
-	MaxTokens    int            `yaml:"max_tokens" json:"max_tokens"`
-	TopP         float32        `yaml:"top_p" json:"top_p"`
-	Extra        map[string]any `yaml:"extra" json:"extra"`
+	ParameterProfile *modelparams.Profile `yaml:"-" json:"-"`
+	Provider         string               `yaml:"provider" json:"provider"`
+	Endpoint         string               `yaml:"endpoint" json:"endpoint"`
+	APIKey           string               `yaml:"api_key" json:"api_key"`
+	SecretID         string               `yaml:"secret_id" json:"secret_id"`
+	SecretKey        string               `yaml:"secret_key" json:"secret_key"`
+	Region           string               `yaml:"region" json:"region"`
+	Model            string               `yaml:"model" json:"model"`
+	SystemPrompt     string               `yaml:"system_prompt" json:"system_prompt"`
+	Temperature      float64              `yaml:"temperature" json:"temperature"`
+	MaxTokens        int                  `yaml:"max_tokens" json:"max_tokens"`
+	TopP             float32              `yaml:"top_p" json:"top_p"`
+	Extra            map[string]any       `yaml:"extra" json:"extra"`
 
 	// TemperatureSet distinguishes an explicit zero from an omitted runtime override.
 	TemperatureSet bool `yaml:"-" json:"-"`
+	TopPSet        bool `yaml:"-" json:"-"`
 	// ResponseSchema is a provider-neutral JSON Schema requested by a typed
 	// caller. Individual provider adapters translate it to their wire format.
 	ResponseSchema map[string]any `yaml:"response_schema" json:"response_schema"`
@@ -61,6 +64,9 @@ func MergeConfig(base *ModelConfig, override *ModelConfig) *ModelConfig {
 	// string fields
 	if override.Provider != "" {
 		out.Provider = override.Provider
+	}
+	if override.ParameterProfile != nil {
+		out.ParameterProfile = override.ParameterProfile
 	}
 	if override.Endpoint != "" {
 		out.Endpoint = override.Endpoint
@@ -113,8 +119,9 @@ func MergeConfig(base *ModelConfig, override *ModelConfig) *ModelConfig {
 	if override.MaxTokens > 0 {
 		out.MaxTokens = override.MaxTokens
 	}
-	if override.TopP > 0 {
+	if override.TopPSet || override.TopP > 0 {
 		out.TopP = override.TopP
+		out.TopPSet = override.TopPSet
 	}
 	if override.Timeout > 0 {
 		out.Timeout = override.Timeout

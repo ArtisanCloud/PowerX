@@ -1,0 +1,193 @@
+{
+  "checks": [
+    "light 1440 task navigation and closure draft preserved",
+    "light 390 task navigation and closure draft preserved",
+    "dark 1440 task navigation and closure draft preserved",
+    "dark 390 task navigation and closure draft preserved",
+    "Lost successful closure response, bad receipts and reload preserve original request and closure UUIDs",
+    "Original GET confirms one atomic closure; original job and source unchanged, no replay, no idle polling"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794282235747
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794282235749
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794282235751
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794282235763
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794282235764
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/a00ed855-3c36-48dd-bac5-de00c573918f",
+      "method": "GET",
+      "at": 1794282235831
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/478f6386-bf97-432e-bb10-353584b5e625/review",
+      "method": "GET",
+      "at": 1794282236371
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/478f6386-bf97-432e-bb10-353584b5e625/closures",
+      "method": "POST",
+      "at": 1794282239222,
+      "request_id": "345743a5-dc3b-4697-ada9-93b2268093a6"
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794282239255
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794282239255
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/a00ed855-3c36-48dd-bac5-de00c573918f",
+      "method": "GET",
+      "at": 1794282239255
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/478f6386-bf97-432e-bb10-353584b5e625",
+      "method": "GET",
+      "at": 1794282239375
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/478f6386-bf97-432e-bb10-353584b5e625",
+      "method": "GET",
+      "at": 1794282239430
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/478f6386-bf97-432e-bb10-353584b5e625",
+      "method": "GET",
+      "at": 1794282239490
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794282242018
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794282242022
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794282242023
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794282242041
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794282242048
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/a00ed855-3c36-48dd-bac5-de00c573918f",
+      "method": "GET",
+      "at": 1794282242117
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794282242723
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794282242744
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794282242745
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/jobs/a00ed855-3c36-48dd-bac5-de00c573918f",
+      "method": "GET",
+      "at": 1794282242747
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/interruption-requests/478f6386-bf97-432e-bb10-353584b5e625",
+      "method": "GET",
+      "at": 1794282245459
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794282245485
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794282245485
+    }
+  ],
+  "errors": [],
+  "application_submits": [
+    "345743a5-dc3b-4697-ada9-93b2268093a6"
+  ],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    }
+  ],
+  "result": "passed",
+  "job_id": "a00ed855-3c36-48dd-bac5-de00c573918f",
+  "original_request_id": "478f6386-bf97-432e-bb10-353584b5e625"
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -22,6 +23,7 @@ import (
 )
 
 type AdminOverviewHandlerOptions struct {
+	Namespace string
 	DB        *gorm.DB
 	Directory *directory.DirectoryService
 	Redis     *redis.Client
@@ -29,6 +31,7 @@ type AdminOverviewHandlerOptions struct {
 }
 
 type AdminOverviewHandler struct {
+	namespace string
 	db        *gorm.DB
 	directory *directory.DirectoryService
 	redis     *redis.Client
@@ -38,6 +41,7 @@ type AdminOverviewHandler struct {
 
 func NewAdminOverviewHandler(opts AdminOverviewHandlerOptions) *AdminOverviewHandler {
 	return &AdminOverviewHandler{
+		namespace: opts.Namespace,
 		db:        opts.DB,
 		directory: opts.Directory,
 		redis:     opts.Redis,
@@ -404,7 +408,7 @@ func (h *AdminOverviewHandler) queryTaskQueueStats(c *gin.Context, tenantUUID, s
 		}, nil
 	}
 
-	prefix := "event_fabric:task"
+	prefix := redisnamespace.Key(h.namespace, "event_fabric:task")
 	ordered := []taskQueueSubscriberStats{}
 	type pair struct {
 		TenantKey    string
@@ -489,7 +493,7 @@ func (h *AdminOverviewHandler) queryTaskQueueStats(c *gin.Context, tenantUUID, s
 				return nil, err
 			}
 			for _, key := range keys {
-				parts := strings.Split(key, ":")
+				parts := strings.Split(strings.TrimPrefix(key, redisnamespace.Key(h.namespace, "")), ":")
 				if len(parts) < 5 {
 					continue
 				}
@@ -687,7 +691,7 @@ func (h *AdminOverviewHandler) readTaskQueueState(c *gin.Context, state, tenantK
 	if limit <= 0 {
 		limit = 20
 	}
-	key := "event_fabric:task:" + state + ":" + strings.TrimSpace(tenantKey) + ":" + strings.TrimSpace(subscriberID)
+	key := redisnamespace.Key(h.namespace, "event_fabric:task:"+state+":"+strings.TrimSpace(tenantKey)+":"+strings.TrimSpace(subscriberID))
 	ctx := c.Request.Context()
 
 	var raws []string

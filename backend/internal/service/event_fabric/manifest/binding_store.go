@@ -53,6 +53,10 @@ func NewBindingStore(repo *eventfabricrepo.ManifestBindingRepository) BindingSto
 	return &bindingStore{repo: repo}
 }
 
+func (s *bindingStore) TopicOwners(ctx context.Context, tenant, topicID string) ([]string, error) {
+	return s.repo.TopicOwners(ctx, tenant, topicID)
+}
+
 func (s *bindingStore) GetTopic(ctx context.Context, tenantUUID, pluginID, topicKey string) (*TopicBindingRecord, error) {
 	model, err := s.repo.GetTopicBinding(ctx, tenantUUID, pluginID, topicKey)
 	if err != nil || model == nil {

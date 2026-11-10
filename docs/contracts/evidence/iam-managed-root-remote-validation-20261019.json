@@ -1,0 +1,150 @@
+{
+  "schema": "powerx.iam.managed-root.remote-validation.v1",
+  "recorded_at": "2026-10-19T07:04:59.018442+00:00",
+  "environment": "powerx-dev",
+  "database": "powerx_dev",
+  "tenant_uuid": "1edd4132-1644-412d-abb4-d5f1e9487052",
+  "runtime": {
+    "release": "dev-20261019-1452",
+    "core_pid": 1285892,
+    "core_started_at": "2026-10-19T14:56:09+08:00",
+    "core_active": true,
+    "core_binary": "/opt/powerx-dev/releases/dev-20261019-1452/backend/powerx",
+    "core_sha256": "37ced98332f879385c0b564fb4425227ca571bc8b02b84caab1f67934547cc9e",
+    "managed_root_marker_found": true,
+    "web_admin_active": true,
+    "plugin_version": "0.1.77",
+    "plugin_pid": 1285938
+  },
+  "database_read_only_check": {
+    "root_role_id": 1,
+    "root_role_code": "root",
+    "root_role_scope": "system",
+    "builtin": true,
+    "active_permission_count": 1169,
+    "missing_active_permission_count": 0,
+    "ai_craft_specific_role_count": 0,
+    "baseline_tracking_all_ready": true,
+    "known_since_preserved": "2026-10-19T11:10:35.744544+08:00",
+    "root_formal_source_effective_from": "2026-10-19T14:56:09.845502+08:00"
+  },
+  "plugin_activation": {
+    "state": "ready",
+    "error_code": "",
+    "enabled_at": "2026-10-19T11:10:38.217586+08:00",
+    "core_evaluated_at": "2026-10-19T11:10:38.129805+08:00",
+    "enabled_at_preserved": true,
+    "host_notifications_enabled": true,
+    "content_changes_enabled": true,
+    "initialize_on_install": true,
+    "configuration_source": "installed host-values.yaml installation_defaults, applied by plugin configuration loader"
+  },
+  "actual_service_credentials": {
+    "source": "installed plugin .runtime-credentials.json (values never printed or stored)",
+    "sts_http_equivalent_code": 200,
+    "grant_status_http_status": 200,
+    "grants": [
+      {
+        "capability_id": "com.corex.iam.authorization_baseline.service_read",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.corex.iam.directory.read",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.corex.iam.identity_context.service_read",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.corex.capabilities.grant_status.read",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.corex.notifications.create",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      },
+      {
+        "capability_id": "com.corex.notifications.read_receipts",
+        "status": "granted",
+        "reason_code": "CAPABILITY_GRANTED"
+      }
+    ],
+    "baseline_http_status": 200,
+    "protocol_used": "core_internal",
+    "trace_id": "864bd079-5030-4d89-ab79-a0445799d225",
+    "result": {
+      "schema": "powerx.iam.authorization-baseline-result/v1",
+      "tenant_uuid": "1edd4132-1644-412d-abb4-d5f1e9487052",
+      "plugin_id": "com.powerx.plugins.ai-craft",
+      "evaluated_at": "2026-10-19T07:02:59.694315Z",
+      "items": [
+        {
+          "member_uuid": "83a724e9-55b7-4bf4-accc-65196a842752",
+          "permission_code": "production.sample_track:read",
+          "status": "decided",
+          "allowed": true,
+          "baseline_kind": "native",
+          "granted_at": "2026-10-19T06:56:09.845502Z",
+          "known_since": "2026-10-19T03:10:35.744544Z",
+          "visible_since": "2026-10-19T06:56:09.845502Z",
+          "authorization_revision": "facbe4abddb3fe4d66876daaf3b13f297730635e22c32842f3d050422272505a",
+          "data_scope": "TENANT",
+          "scope_fingerprint": "sha256:df87b7b143ce10782dc66b9c4a626af5f6771c63f571c9a2065a4111b5c62ecf",
+          "valid_until": null,
+          "recheck_at": null
+        },
+        {
+          "member_uuid": "83a724e9-55b7-4bf4-accc-65196a842752",
+          "permission_code": "production.bulk_order:read",
+          "status": "decided",
+          "allowed": true,
+          "baseline_kind": "native",
+          "granted_at": "2026-10-19T06:56:09.845502Z",
+          "known_since": "2026-10-19T03:10:35.744544Z",
+          "visible_since": "2026-10-19T06:56:09.845502Z",
+          "authorization_revision": "1583f646463e23afaa1329b85871af430dcc413375837e7bbe2d5700ad0a2e40",
+          "data_scope": "TENANT",
+          "scope_fingerprint": "sha256:df87b7b143ce10782dc66b9c4a626af5f6771c63f571c9a2065a4111b5c62ecf",
+          "valid_until": null,
+          "recheck_at": null
+        },
+        {
+          "member_uuid": "83a724e9-55b7-4bf4-accc-65196a842752",
+          "permission_code": "operations.business_dashboard.cost:read",
+          "status": "decided",
+          "allowed": true,
+          "baseline_kind": "native",
+          "granted_at": "2026-10-19T06:56:09.845502Z",
+          "known_since": "2026-10-19T03:10:35.744544Z",
+          "visible_since": "2026-10-19T06:56:09.845502Z",
+          "authorization_revision": "28f7ab6ad4197e5253291b64cd34660e12a75cc3b7dcc21a3550e6bd1bf4169e",
+          "data_scope": "TENANT",
+          "scope_fingerprint": "sha256:df87b7b143ce10782dc66b9c4a626af5f6771c63f571c9a2065a4111b5c62ecf",
+          "valid_until": null,
+          "recheck_at": null
+        }
+      ]
+    }
+  },
+  "diagnostic_boundary": {
+    "first_request": "An extraneous tenant-uuid header in the diagnostic invocation was rejected as capability.tenant_override; retry using tenant identity solely from verified STS claims returned 200. No Core or Framework changes needed.",
+    "raw_result_path": "test-results/iam-managed-root-remote/live-service-check.json",
+    "raw_result_sha256": "a45a96f5df0e93773cee92b929b1382a77b9aa54e3e04be8a6e1943ed2e072bf"
+  },
+  "scope": {
+    "database_queries_read_only": true,
+    "configuration_changed": false,
+    "roles_or_grants_written": false,
+    "business_content_changed": false,
+    "test_notification_created": false,
+    "user_services_restarted": false,
+    "temporary_ssh_forward_stopped": true,
+    "actual_business_change_to_bell_acceptance": "pending: another member changes order content and root verifies receipt/read isolation"
+  }
+}

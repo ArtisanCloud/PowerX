@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"io"
 	"net/http"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +29,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 const (
@@ -42,7 +43,6 @@ type tenantHandler struct {
 	selector         *capservice.Selector
 	skillAdapter     *skillservice.AdapterService
 	memberSvc        *iamsvc.MemberService
-	httpClient       *http.Client
 	grantStatus      grantStatusReader
 	credentialAccess *capservice.GrantStatusService
 }
@@ -110,7 +110,6 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 		selector:         selector,
 		skillAdapter:     skillAdapter,
 		memberSvc:        memberSvc,
-		httpClient:       &http.Client{},
 		grantStatus:      capservice.NewGrantStatusService(deps.DB),
 		credentialAccess: capservice.NewGrantStatusService(deps.DB),
 	}
@@ -476,7 +475,7 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	}
 	var req capabilityInvokeRequest
 	if err := decodeInvocationRequest(c, &req); err != nil {
-		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
+		respondInvocationDecodeError(c, err)
 		return
 	}
 	if req.CapabilityID == runtimeidentity.CapabilityID {
@@ -540,7 +539,16 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		payload = map[string]interface{}{}
 	}
 	// 固定 typed Core binding 使用可信 request context，不拼接 HTTP 代理头。
-	if !strings.EqualFold(strings.TrimSpace(req.PreferredProtocol), "core_internal") {
+	injectProxyHeaders := !strings.EqualFold(strings.TrimSpace(req.PreferredProtocol), "core_internal")
+	if injectProxyHeaders && capservice.ServiceCredential(c.Request.Context()) && req.CapabilityID != "" {
+		usesTicket, err := h.catalog.UsesConstrainedServicePayload(c.Request.Context(), req.CapabilityID, req.PreferredProtocol)
+		if err != nil {
+			capability_registrydto.RespondError(c, selectInvokeErrorTemplate(err), nil)
+			return
+		}
+		injectProxyHeaders = !usesTicket
+	}
+	if injectProxyHeaders {
 		injectDefaultHeaders(payload, c)
 	}
 	contextMap := cloneContext(req.Context)
@@ -558,18 +566,11 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 		Context:           contextMap,
 	})
 	if err != nil {
-		if strings.HasPrefix(dto.CodeOf(err), "RUNTIME_IDENTITY_") {
-			err = dto.Wrap(err, dto.RuntimeIdentityErrorMessage(c.GetHeader("Accept-Language"), dto.CodeOf(err)))
+		traceID := result.TraceID
+		if traceID == "" {
+			traceID = req.TraceID
 		}
-		template := selectInvokeErrorTemplate(err)
-		details := capservice.InvocationFailureDetails(err)
-		if traceID := strings.TrimSpace(req.TraceID); traceID != "" {
-			if details == nil {
-				details = map[string]interface{}{}
-			}
-			details["trace_id"] = traceID
-		}
-		capability_registrydto.RespondError(c, template, err, details)
+		respondInvocationFailure(c, err, traceID)
 		return
 	}
 
@@ -691,174 +692,98 @@ func (h *tenantHandler) GetInvocation(c *gin.Context) {
 	dto.ResponseSuccess(c, resp)
 }
 
+func respondInvocationFailure(c *gin.Context, err error, traceID string) {
+	err = capservice.PublicStorageAdmissionError(err)
+	if traceID == "" {
+		traceID = uuid.NewString()
+	}
+	var restErr *capservice.RESTUpstreamError
+	if errors.As(err, &restErr) && restErr.PreserveStatus() {
+		err = dto.NewErrorWithCode(restErr.StatusCode, restErr.BusinessCode, restErr.Cause, err)
+	}
+	if strings.HasPrefix(dto.CodeOf(err), "RUNTIME_IDENTITY_") {
+		err = dto.Wrap(err, dto.RuntimeIdentityErrorMessage(c.GetHeader("Accept-Language"), dto.CodeOf(err)))
+	}
+	template := selectInvokeErrorTemplate(err)
+	details := capservice.InvocationFailureDetails(err)
+	if traceID = strings.TrimSpace(traceID); traceID != "" {
+		if details == nil {
+			details = map[string]interface{}{}
+		}
+		details["trace_id"] = traceID
+	}
+	capability_registrydto.RespondError(c, template, err, details)
+}
+
 func (h *tenantHandler) InvokeCapabilityStream(c *gin.Context) {
-	if h == nil || h.httpClient == nil {
+	if h == nil || h.selector == nil {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	var req capabilityInvokeRequest
 	if err := decodeInvocationRequest(c, &req); err != nil {
-		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
+		respondInvocationDecodeError(c, err)
 		return
 	}
 	if strings.TrimSpace(req.CapabilityID) == "" {
 		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
 		return
 	}
-	tenantUUID, err := tenantUUIDFromRequest(c)
+	tenant, err := tenantUUIDFromRequest(c)
 	if err != nil {
 		respondTenantIdentityError(c, err)
 		return
 	}
-	_ = tenantUUID
-
-	restPayload, err := buildStreamRESTPayload(req.Payload)
-	if err != nil {
-		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint(err.Error()), err)
-		return
+	if req.TraceID == "" {
+		req.TraceID = uuid.NewString()
 	}
-	targetURL, err := resolveStreamTargetURL(c, restPayload.Endpoint)
-	if err != nil {
-		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("invalid endpoint"), err)
-		return
+	if req.PreferredProtocol == "" {
+		req.PreferredProtocol = "rest"
 	}
-	if len(restPayload.Query) > 0 {
-		values := targetURL.Query()
-		for k, v := range restPayload.Query {
-			values.Set(k, v)
+	if req.Payload == nil {
+		req.Payload = map[string]interface{}{}
+	}
+	if env := c.Query("env"); env != "" {
+		query, exists := req.Payload["query"]
+		if !exists {
+			query = map[string]interface{}{}
+			req.Payload["query"] = query
 		}
-		targetURL.RawQuery = values.Encode()
-	}
-
-	outReq, err := http.NewRequestWithContext(c.Request.Context(), restPayload.Method, targetURL.String(), bytes.NewReader(restPayload.Body))
-	if err != nil {
-		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
-		return
-	}
-	for k, v := range restPayload.Headers {
-		if strings.TrimSpace(v) == "" {
-			continue
+		if values, ok := query.(map[string]interface{}); ok {
+			if _, exists := values["env"]; !exists {
+				values["env"] = env
+			}
 		}
-		outReq.Header.Set(k, v)
 	}
-	if outReq.Header.Get("Authorization") == "" {
-		outReq.Header.Set("Authorization", c.GetHeader("Authorization"))
-	}
-	if outReq.Header.Get("Content-Type") == "" && len(restPayload.Body) > 0 {
-		outReq.Header.Set("Content-Type", "application/json")
-	}
-	if outReq.Header.Get("Accept") == "" {
-		outReq.Header.Set("Accept", "text/event-stream")
-	}
-
-	resp, err := h.httpClient.Do(outReq)
+	stream, err := h.selector.OpenStream(c.Request.Context(), capservice.CapabilityInvokeRequest{
+		CapabilityID: req.CapabilityID, TenantUUID: tenant, ToolScope: req.ToolScope,
+		ToolGrantIDs: normalizeToolGrantIDs(req.ToolGrantIDs), PreferredProtocol: req.PreferredProtocol,
+		IdempotencyKey: req.IdempotencyKey, TraceID: req.TraceID, Payload: req.Payload, Context: req.Context,
+	}, c.GetHeader("Authorization"))
 	if err != nil {
-		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal.WithHint("upstream request failed"), err)
+		respondInvocationFailure(c, err, req.TraceID)
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		raw, _ := io.ReadAll(resp.Body)
-		c.JSON(resp.StatusCode, gin.H{
-			"code":    "upstream_error",
-			"message": strings.TrimSpace(string(raw)),
-		})
-		return
-	}
-	if ct := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(ct, "text/event-stream") {
-		raw, _ := io.ReadAll(resp.Body)
-		c.JSON(http.StatusBadGateway, gin.H{
-			"code":    "upstream_not_sse",
-			"message": "upstream response is not text/event-stream",
-			"detail":  string(raw),
-		})
-		return
-	}
-
+	defer stream.Body.Close()
 	c.Header("Content-Type", "text/event-stream; charset=utf-8")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
+	c.Header("X-Trace-ID", stream.TraceID)
 	c.Status(http.StatusOK)
-
 	buf := make([]byte, 4096)
 	for {
-		n, readErr := resp.Body.Read(buf)
+		n, readErr := stream.Body.Read(buf)
 		if n > 0 {
-			if _, wErr := c.Writer.Write(buf[:n]); wErr != nil {
+			if _, err := c.Writer.Write(buf[:n]); err != nil {
 				return
 			}
-			if f, ok := c.Writer.(http.Flusher); ok {
-				f.Flush()
-			}
+			c.Writer.Flush()
 		}
 		if readErr != nil {
-			if errors.Is(readErr, io.EOF) {
-				return
-			}
 			return
 		}
 	}
-}
-
-type streamRESTPayload struct {
-	Method   string
-	Endpoint string
-	Headers  map[string]string
-	Query    map[string]string
-	Body     []byte
-}
-
-func buildStreamRESTPayload(payload map[string]interface{}) (streamRESTPayload, error) {
-	if payload == nil {
-		return streamRESTPayload{}, errors.New("payload is required")
-	}
-	method := strings.ToUpper(strings.TrimSpace(getString(payload["method"])))
-	if method == "" {
-		method = http.MethodPost
-	}
-	endpoint := strings.TrimSpace(getString(payload["endpoint"]))
-	if endpoint == "" {
-		return streamRESTPayload{}, errors.New("payload.endpoint is required")
-	}
-	headers := mapStringString(payload["headers"])
-	query := mapStringString(payload["query"])
-
-	var body []byte
-	if b, ok := payload["body"]; ok && b != nil {
-		raw, err := json.Marshal(b)
-		if err != nil {
-			return streamRESTPayload{}, err
-		}
-		body = raw
-	}
-	return streamRESTPayload{
-		Method:   method,
-		Endpoint: endpoint,
-		Headers:  headers,
-		Query:    query,
-		Body:     body,
-	}, nil
-}
-
-func resolveStreamTargetURL(c *gin.Context, endpoint string) (*url.URL, error) {
-	if strings.HasPrefix(strings.ToLower(endpoint), "http://") || strings.HasPrefix(strings.ToLower(endpoint), "https://") {
-		return url.Parse(endpoint)
-	}
-	scheme := "http"
-	if c != nil && c.Request != nil && c.Request.TLS != nil {
-		scheme = "https"
-	} else if c != nil && strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
-		scheme = "https"
-	}
-	host := ""
-	if c != nil && c.Request != nil {
-		host = c.Request.Host
-	}
-	if strings.TrimSpace(host) == "" {
-		return nil, errors.New("request host is empty")
-	}
-	return url.Parse(scheme + "://" + host + "/" + strings.TrimLeft(endpoint, "/"))
 }
 
 func mapStringString(v interface{}) map[string]string {
@@ -940,7 +865,15 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 }
 
 func decodeInvocationRequest(c *gin.Context, req *capabilityInvokeRequest) error {
-	decoder := json.NewDecoder(http.MaxBytesReader(c.Writer, c.Request.Body, 8<<20))
+	raw, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, contract.MediaRequestMaxBytes))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			return &dto.AppError{HTTPCode: 422, Code: "AI_INPUT_LIMIT_EXCEEDED", Message: "AI_INPUT_LIMIT_EXCEEDED"}
+		}
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(req); err != nil {
 		return err
@@ -948,7 +881,20 @@ func decodeInvocationRequest(c *gin.Context, req *capabilityInvokeRequest) error
 	if decoder.Decode(&struct{}{}) != io.EOF {
 		return errors.New("capability.invalid_body")
 	}
+	// 只有正式图片服务调用扩展到媒体上限；其他能力保留原有 8 MiB 限制。
+	if len(raw) > 8<<20 && (req.CapabilityID != "com.corex.ai.image.invoke" || req.PreferredProtocol != "core_internal") {
+		return errors.New("capability.invalid_body_size")
+	}
 	return nil
+}
+
+func respondInvocationDecodeError(c *gin.Context, err error) {
+	var failure *dto.AppError
+	if errors.As(err, &failure) {
+		dto.RespondErrorFrom(c, failure)
+		return
+	}
+	capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 }
 
 func respondTenantIdentityError(c *gin.Context, err error) {
@@ -978,12 +924,26 @@ func buildErrorObject(summary string) map[string]string {
 }
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
+	if code, hint, ok := capservice.StorageAdmissionFailure(err); ok {
+		return capability_registrydto.ErrUnavailable.WithDetails(map[string]interface{}{"reason_code": code}).WithHint(hint)
+	}
+	var restErr *capservice.RESTUpstreamError
+	if errors.As(err, &restErr) && restErr.PreserveStatus() {
+		// Only an explicit machine code from the REST response preserves its business status.
+		base := capability_registrydto.ErrInvokeFailed
+		base.HTTPStatus = restErr.StatusCode
+		return base.WithDetails(map[string]interface{}{"reason_code": restErr.BusinessCode})
+	}
 	var businessErr *dto.AppError
-	if errors.As(err, &businessErr) && (strings.HasPrefix(businessErr.Code, "METADATA_") || strings.HasPrefix(businessErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(businessErr.Code, "KNOWLEDGE_") || strings.HasPrefix(businessErr.Code, "SCHEDULER_") || strings.HasPrefix(businessErr.Code, "IAM_CONTEXT_") || strings.HasPrefix(businessErr.Code, "IAM_BASELINE_")) {
+	if errors.As(err, &businessErr) && (strings.HasPrefix(businessErr.Code, "AI_") || strings.HasPrefix(businessErr.Code, "METADATA_") || strings.HasPrefix(businessErr.Code, "RUNTIME_IDENTITY_") || strings.HasPrefix(businessErr.Code, "KNOWLEDGE_") || strings.HasPrefix(businessErr.Code, "SCHEDULER_") || strings.HasPrefix(businessErr.Code, "IAM_CONTEXT_") || strings.HasPrefix(businessErr.Code, "IAM_BASELINE_") || strings.HasPrefix(businessErr.Code, "IAM_SERVICE_INVOCATION_") || strings.HasPrefix(businessErr.Code, "CAPABILITY_SERVICE_") || strings.HasPrefix(businessErr.Code, "CAPABILITY_PLUGIN_") || businessErr.Code == "IAM_INVALID_ARGUMENT" || businessErr.Code == "IAM_UNAUTHORIZED" || businessErr.Code == "IAM_FORBIDDEN" || businessErr.Code == "IAM_PLUGIN_PERMISSION_NOT_REGISTERED" || businessErr.Code == "IAM_MEMBER_NOT_FOUND" || businessErr.Code == "IAM_SUBJECT_MISMATCH" || businessErr.Code == "IAM_UPSTREAM_DEPENDENCY") {
 		// typed Core 业务错误保留原始 HTTP 状态，不能降为通用上游 502。
 		base := capability_registrydto.ErrInvalidRequest
 		base.HTTPStatus = businessErr.HTTPCode
-		return base.WithDetails(map[string]interface{}{"reason_code": businessErr.Code})
+		details := map[string]interface{}{"reason_code": businessErr.Code}
+		for key, value := range businessErr.Details {
+			details[key] = value
+		}
+		return base.WithDetails(details)
 	}
 	var accessErr *capservice.DirectGrantError
 	if errors.As(err, &accessErr) {

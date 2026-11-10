@@ -94,8 +94,8 @@ func (FallbackPlan) TableName() string {
 
 // HealthProbeResult 保存适配器的健康探测结果。
 type HealthProbeResult struct {
-	AdapterID        string    `gorm:"column:adapter_id;type:varchar(512);not null;primaryKey"`
-	ProbeWindowStart time.Time `gorm:"column:probe_window_start;not null;primaryKey"`
+	AdapterID        string    `gorm:"column:adapter_id;type:varchar(512);not null;primaryKey;index:idx_registry_probe_retention,priority:2"`
+	ProbeWindowStart time.Time `gorm:"column:probe_window_start;not null;primaryKey;index:idx_registry_probe_retention,priority:1"`
 
 	Status       string  `gorm:"column:status;type:varchar(32);not null"`
 	Reason       string  `gorm:"column:reason;type:text" json:"reason,omitempty"`
@@ -120,7 +120,7 @@ type DiscoveryCacheEntry struct {
 	ClientID        string    `gorm:"column:client_id;type:varchar(128);not null;primaryKey"`
 	SnapshotVersion uint64    `gorm:"column:snapshot_version;not null"`
 	PayloadHash     string    `gorm:"column:payload_hash;type:varchar(128);not null"`
-	ExpiresAt       time.Time `gorm:"column:expires_at;not null"`
+	ExpiresAt       time.Time `gorm:"column:expires_at;not null;index:idx_registry_discovery_expiry"`
 	IssuedAt        time.Time `gorm:"column:issued_at;not null"`
 	Source          string    `gorm:"column:source;type:varchar(32);not null"`
 	PolicyDigest    string    `gorm:"column:policy_digest;type:varchar(128)"`

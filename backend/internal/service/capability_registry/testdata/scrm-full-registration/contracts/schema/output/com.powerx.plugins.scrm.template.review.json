@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TemplateReviewOutput",
+  "type": "object",
+  "properties": {
+    "template_id": { "type": "string" },
+    "status": { "type": "string", "enum": ["approved", "rejected", "pending"] },
+    "reviewer": { "type": "string" }
+  },
+  "required": ["template_id", "status"],
+  "additionalProperties": true
+}

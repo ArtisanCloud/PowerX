@@ -1,14 +1,464 @@
 openapi: 3.0.3
 info:
   title: PowerX Storage Governance — Explicit File Lifecycle and Shared Admission
-  version: 0.6.0
-  description: Root 用户的存储观察、显式文件清理模式与独立数据库期限。归档和直接到期删除分别授权；旧无 cleanup_mode 策略停用。数据库仅处理当前实例登记租户的能力调用审计及其发布通知，默认停用，需完成列与索引迁移再明确开启；不处理业务队列、不关闭
+  version: 0.8.0
+  description: Root 用户的存储观察、显式文件清理模式与独立数据库期限。归档和直接到期删除分别授权；旧无 cleanup_mode 策略停用。数据库调用审计仅处理当前实例登记租户的追踪及其发布通知；另有默认停用的旧探测及已退休缓存固定规则，默认停用，需完成列与索引迁移再明确开启；不处理业务队列、不关闭
     SQL 日志、不自动 VACUUM FULL 或删除 WAL。状态由 SSE 推送失效后读取，页面不轮询。
 servers:
 - url: /api/v1
 security:
 - RootUserJWT: []
 paths:
+  /admin/ops/storage/database-tables:
+    get:
+      operationId: listStorageSystemTables
+      summary: 当前数据库系统表容量与有界时间范围
+      description: 平台 Root 用户 JWT 专用，不接受任意 schema、表名覆盖或 SQL。只返回容量和时间边界，不修改数据／索引／策略。时间范围包含未物理清除的软删除记录，不代表允许删除。列表缓存最多两分钟，每表时间查询最多100ms、整体10秒；单表重新采集时间查询最多2秒。未知量保留 null。
+      responses:
+        '200':
+          description: 固定目录观测（未建表／未知量仍保留）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SystemTableInventory'
+        '403':
+          description: 需要平台 Root 用户会话；STS 与 API Key 拒绝
+        '503':
+          description: 观测服务暂不可用
+  /admin/ops/storage/database-tables/{table_id}:
+    get:
+      operationId: getStorageSystemTable
+      summary: 重新采集固定目录中的一张表
+      description: 平台 Root 用户 JWT 专用，不接受任意 schema、表名覆盖或 SQL。只返回容量和时间边界，不修改数据／索引／策略。时间范围包含未物理清除的软删除记录，不代表允许删除。列表缓存最多两分钟，每表时间查询最多100ms、整体10秒；单表重新采集时间查询最多2秒。未知量保留 null。
+      responses:
+        '200':
+          description: 固定目录观测（未建表／未知量仍保留）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SystemTableInventory'
+        '403':
+          description: 需要平台 Root 用户会话；STS 与 API Key 拒绝
+        '503':
+          description: 观测服务暂不可用
+        '404':
+          description: 表 ID 未登记
+      parameters:
+      - in: path
+        name: table_id
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,100}$
+  /admin/ops/storage/database-tables/monitoring:
+    get:
+      operationId: getStorageTableMonitoring
+      summary: 读取逐表监控与清理健康状态
+      description: 真实平台 Root 用户 access JWT 专用。返回旧配置来源、数据库期望／确认版本及本地快照版本；旧配置只读，显式接管后才能修改。数据库或快照不明时暂停监控；不执行数据清理。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TableMonitoringStatus'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: saveStorageTableMonitoring
+      summary: 明确保存逐表告警阈值
+      description: 数据库配置唯一写入口。必须先显式接管，带请求 UUID 和 expected_revision 执行 CAS；保存不表示生效。响应不明时只读查询原请求，不重放。旧客户端的
+        revision／owner_instance／actor 等元数据输入拒绝。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TableMonitoringMutation'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '428':
+          description: 旧调用缺少版本／请求条件，需要升级客户端
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_revision
+              - request_id
+              - policy
+              - confirm
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                request_id:
+                  type: string
+                  format: uuid
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+                policy:
+                  $ref: '#/components/schemas/TableMonitoringSettings'
+  /admin/ops/storage/database-tables/monitoring/adoptions:
+    post:
+      operationId: adoptStorageTableMonitoring
+      summary: 显式接管旧表监控配置并暂停告警
+      description: 校验旧版本与完整来源摘要。保存旧来源、阈值和原启用值，数据库新配置默认停用，旧 JSON 不覆盖。重复请求返回原回执。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TableMonitoringMutation'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '428':
+          description: 旧调用缺少版本／请求条件，需要升级客户端
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - legacy_revision
+              - legacy_digest
+              - confirm
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                legacy_revision:
+                  type: integer
+                  minimum: 0
+                legacy_digest:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+  /admin/ops/storage/database-tables/monitoring/requests/{request_id}:
+    get:
+      operationId: getStorageTableMonitoringRequest
+      summary: 只读核对表监控原提交回执
+      description: 仅原提交 Root 用户可读取。返回原请求策略与版本，当前配置版本单独返回。404 不证明仍在途的写入失败，不可自动重放。
+      parameters:
+      - in: path
+        name: request_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TableMonitoringMutation'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 未查到当前范围内的原请求；保持结果待核对
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '428':
+          description: 旧调用缺少版本／请求条件，需要升级客户端
+
+  /admin/ops/storage/database-tables/{table_id}/history:
+    get:
+      operationId: getStorageTableHistory
+      summary: 最近24小时已分配空间；净变化不是写入量
+      description: 人类 Root JWT 专用；拒绝 API Key、STS、服务 actor 和 query。默认关闭，需要 UI 明确启用。拒绝任意表、schema、时间列和 SQL；未知量保留 null。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TableHistory'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - in: path
+        name: table_id
+        required: true
+        schema:
+          type: string
+  /admin/ops/storage/database-tables/{table_id}/retention:
+    get:
+      operationId: getSystemTableRetention
+      summary: 固定适配器策略与运行记录
+      description: 人类 Root JWT 专用；拒绝 API Key、STS、服务 actor 和 query。默认关闭，需要 UI 明确启用。拒绝任意表、schema、时间列和 SQL；未知量保留 null。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SystemTableRetentionStatus'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      parameters:
+      - in: path
+        name: table_id
+        required: true
+        schema:
+          type: string
+          enum:
+          - capability_registry_health_probe_results
+          - capability_registry_discovery_cache
+    put:
+      deprecated: true
+      operationId: saveSystemTableRetention
+      summary: 旧共享 JSON 写入口停用，返回 428
+      description: 人类 Root JWT 专用；旧写入口拒绝修改。独立接管、CAS 变更与回执见 system-table-retention-control.openapi.yaml。
+      responses:
+        '428':
+          description: 使用新的独立接管和版本化变更入口
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - expected_revision
+              - confirm
+              - policy
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+                policy:
+                  $ref: '#/components/schemas/SystemTableRetentionPolicy'
+              additionalProperties: false
+      parameters:
+      - in: path
+        name: table_id
+        required: true
+        schema:
+          type: string
+          enum:
+          - capability_registry_health_probe_results
+          - capability_registry_discovery_cache
+  /admin/ops/storage/database-tables/{table_id}/retention/previews:
+    post:
+      operationId: previewSystemTableRetention
+      summary: 有界预览，不改数据库记录
+      description: 人类 Root JWT 专用；拒绝 API Key、STS、服务 actor 和 query。默认关闭，需要 UI 明确启用。拒绝任意表、schema、时间列和 SQL；未知量保留 null。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SystemTableRetentionRun'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - expected_revision
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+              additionalProperties: false
+      parameters:
+      - in: path
+        name: table_id
+        required: true
+        schema:
+          type: string
+          enum:
+          - capability_registry_health_probe_results
+          - capability_registry_discovery_cache
+  /admin/ops/storage/database-tables/{table_id}/retention/runs:
+    post:
+      operationId: runSystemTableRetention
+      summary: 确认预览后执行有界批次；结果未知时禁止自动重放
+      description: 人类 Root JWT 专用；拒绝 API Key、STS、服务 actor 和 query。默认关闭，需要 UI 明确启用。拒绝任意表、schema、时间列和 SQL；未知量保留 null。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SystemTableRetentionRun'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 固定目录或适配器未批准
+        '409':
+          description: 策略版本变化，或预览缺失、超过五分钟
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - expected_revision
+              - confirm
+              - request_id
+              - preview_id
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+                request_id:
+                  type: string
+                  format: uuid
+                preview_id:
+                  type: string
+                  format: uuid
+              additionalProperties: false
+      parameters:
+      - in: path
+        name: table_id
+        required: true
+        schema:
+          type: string
+          enum:
+          - capability_registry_health_probe_results
+          - capability_registry_discovery_cache
   /admin/ops/storage/overview:
     get:
       operationId: getStorageObservation
@@ -532,10 +982,31 @@ paths:
               - confirm
               additionalProperties: false
   /admin/ops/storage/runtime/policies/{source_id}:
+    get:
+      operationId: getStorageLifecycleConfiguration
+      summary: 读取单个日志来源的配置权威与发布版本
+      responses:
+        '200':
+          description: 旧来源证据、期望策略、确认版本和执行快照版本；不触发接管或清理
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LifecycleConfiguration'
+        '403':
+          description: 仅平台 Root 用户 access JWT
+      parameters:
+      - in: path
+        name: source_id
+        required: true
+        schema:
+          type: string
     put:
       operationId: saveStorageRuntimePolicy
-      summary: 保存并明确启用或暂停封存日志策略
-      description: 显式部署 allow_enforce 以及旧清理器已退出均为前置条件；不能降低来源强制归档保护。
+      summary: 以独立版本保存已接管的封存日志策略
+      description: 数据库是唯一配置写入权威。须先显式接管并默认暂停，再编辑启用；保存与 TaskBus 发布确认分离。每个来源独立 CAS。每份文件最终删除前持数据库版本锁，停用保存成功后不接受旧版本的新删除。
       responses:
         '200':
           description: 权威运行状态或已保存结果；响应丢失后先读回，不盲目重发执行。
@@ -547,7 +1018,7 @@ paths:
                   code:
                     type: integer
                   data:
-                    $ref: '#/components/schemas/RuntimePolicy'
+                    $ref: '#/components/schemas/LifecycleMutation'
                 required:
                 - code
                 - data
@@ -575,10 +1046,13 @@ paths:
                   format: int64
                   minimum: 1
                 require_archive: *id005
+                request_id:
+                  type: string
+                  format: uuid
                 expected_revision:
                   type: integer
                   format: int64
-                  minimum: 0
+                  minimum: 1
                 confirm:
                   type: boolean
                   enum:
@@ -591,6 +1065,7 @@ paths:
                   - archive_then_delete
                   default: disabled
               required:
+              - request_id
               - enabled
               - retention_days
               - max_bytes
@@ -605,6 +1080,94 @@ paths:
         required: true
         schema: &id006
           type: string
+  /admin/ops/storage/runtime/policies/{source_id}/adoptions:
+    post:
+      operationId: adoptStorageLifecycleConfiguration
+      summary: 显式接管单个日志来源并默认暂停
+      description: 验证 legacy_revision 与完整旧策略摘要；保留不可变来源证据，禁止修改旧 JSON 配置。
+      responses:
+        '200':
+          description: 原操作不可变策略及版本，与当前发布状态分别返回
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LifecycleMutation'
+        '400':
+          description: 严格 DTO、确认或请求 UUID 无效
+        '403':
+          description: 需要平台 Root 用户会话；回执限原提交者
+        '409':
+          description: 来源变化、版本冲突或请求键载荷冲突
+        '503':
+          description: 数据库、迁移、队列或发布器尚未就绪
+      parameters:
+      - in: path
+        name: source_id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [request_id, legacy_revision, legacy_digest, confirm]
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                legacy_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                legacy_digest:
+                  type: string
+                  pattern: '^[a-f0-9]{64}$'
+                confirm:
+                  type: boolean
+                  enum: [true]
+  /admin/ops/storage/runtime/policies/{source_id}/requests/{request_id}:
+    get:
+      operationId: getStorageLifecycleRequest
+      summary: 只读核对原日志策略请求回执
+      description: 不重放写入；404 不能证明在途操作未发生，客户端保持待核对。
+      responses:
+        '200':
+          description: 原操作不可变策略及版本，与当前发布状态分别返回
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LifecycleMutation'
+        '400':
+          description: 严格 DTO、确认或请求 UUID 无效
+        '403':
+          description: 需要平台 Root 用户会话；回执限原提交者
+        '409':
+          description: 来源变化、版本冲突或请求键载荷冲突
+        '503':
+          description: 数据库、迁移、队列或发布器尚未就绪
+        '404':
+          description: 尚无该请求回执；不得据此自动再次提交
+      parameters:
+      - in: path
+        name: source_id
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: request_id
+        required: true
+        schema:
+          type: string
+          format: uuid
   /admin/ops/storage/runtime/previews:
     post:
       operationId: previewStorageRuntimePolicy
@@ -788,10 +1351,13 @@ paths:
           description: Root user JWT required; service actors and API keys rejected
         '409':
           description: Revision, protection, enablement or identity conflict
+        '428':
+          description: Explicit control adoption or current preview required; legacy PUT never writes
         '503':
           description: Storage, schema or executor unavailable
     put:
-      summary: Root 显式保存数据库期限；failure_days 必须不小于 success_days，开启前校验迁移和外部引用
+      deprecated: true
+      summary: 旧 JSON 策略写入口停用；使用 database-retention-control.openapi.yaml 的显式接管和版本化变更
       requestBody:
         required: true
         content:
@@ -815,29 +1381,19 @@ paths:
               - policy
               - confirm
       responses:
-        '200':
-          description: Root operation result; errors preserve originals and do not
-            imply completion
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                  data:
-                    $ref: '#/components/schemas/DatabaseRetentionPolicy'
         '400':
           description: Invalid typed request
         '403':
           description: Root user JWT required; service actors and API keys rejected
         '409':
           description: Revision, protection, enablement or identity conflict
+        '428':
+          description: Explicit control adoption or current preview required; legacy PUT never writes
         '503':
           description: Storage, schema or executor unavailable
   /admin/ops/storage/database-retention/previews:
     post:
-      summary: 只读检查有界批次
+      summary: 只读检查调用记录并保存五分钟治理预览凭据，需已确认版本
       requestBody:
         required: true
         content:
@@ -871,11 +1427,13 @@ paths:
           description: Root user JWT required; service actors and API keys rejected
         '409':
           description: Revision, protection, enablement or identity conflict
+        '428':
+          description: Explicit control adoption or current preview required; legacy PUT never writes
         '503':
           description: Storage, schema or executor unavailable
   /admin/ops/storage/database-retention/runs:
     post:
-      summary: 重新检查版本、租户、终态及引用后执行一次有界批次；未确认请求只回读，不自动重放
+      summary: 同事务消费已确认预览、处理调用记录并保存回执；响应不确定只 GET 原请求，不重放
       requestBody:
         required: true
         content:
@@ -891,10 +1449,14 @@ paths:
                 request_id:
                   type: string
                   format: uuid
+                preview_id:
+                  type: string
+                  format: uuid
                 confirm: *id007
               required:
               - expected_revision
               - request_id
+              - preview_id
               - confirm
       responses:
         '200':
@@ -915,6 +1477,8 @@ paths:
           description: Root user JWT required; service actors and API keys rejected
         '409':
           description: Revision, protection, enablement or identity conflict
+        '428':
+          description: Explicit control adoption or current preview required; legacy PUT never writes
         '503':
           description: Storage, schema or executor unavailable
 components:
@@ -1880,6 +2444,86 @@ components:
       - supported
       description: 可信部署来源；require_archive 是旧配置的保守默认。显式 cleanup_mode=expire_delete
         可在完成执行接管后使用全部文件保护检查进行直接到期删除。
+    LifecycleSettings:
+      type: object
+      additionalProperties: false
+      required: [enabled, cleanup_mode, retention_days, max_bytes]
+      properties:
+        enabled:
+          type: boolean
+        cleanup_mode:
+          type: string
+          enum: [disabled, expire_delete, archive_then_delete]
+        retention_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        max_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1125899906842624
+      description: enabled=true 不得搭配 disabled。字节为整数，不接受环境、目录或操作者覆盖。
+    LifecycleConfiguration:
+      type: object
+      required: [source_id, authority, ready, can_enable, state, desired_revision, applied_revision, snapshot_revision, desired_policy, legacy_revision, legacy_digest, legacy_enabled]
+      properties:
+        source_id:
+          type: string
+        authority:
+          type: string
+          enum: [database, legacy, unavailable]
+        ready:
+          type: boolean
+        can_enable:
+          type: boolean
+        state:
+          type: string
+          enum: [legacy, unavailable, unconfigured, pending, applied, failed, unconfirmed]
+        desired_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        applied_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        snapshot_revision:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+        desired_policy:
+          allOf:
+          - $ref: '#/components/schemas/LifecycleSettings'
+          nullable: true
+        legacy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        legacy_digest:
+          type: string
+        legacy_enabled:
+          type: boolean
+        problem:
+          type: string
+    LifecycleMutation:
+      type: object
+      required: [source_id, request_id, operation_revision, operation_policy, configuration]
+      properties:
+        source_id:
+          type: string
+        request_id:
+          type: string
+          format: uuid
+        operation_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        operation_policy:
+          $ref: '#/components/schemas/LifecycleSettings'
+        configuration:
+          $ref: '#/components/schemas/LifecycleConfiguration'
     RuntimePolicy:
       type: object
       properties:
@@ -1887,7 +2531,7 @@ components:
         revision:
           type: integer
           format: int64
-          minimum: 1
+          minimum: 0
         enabled: *id005
         retention_days: *id013
         max_bytes: *id014
@@ -1897,7 +2541,7 @@ components:
         operator_id:
           type: integer
           format: int64
-          minimum: 1
+          minimum: 0
         updated_at: *id012
         cleanup_mode: *id015
       required:
@@ -2117,6 +2761,12 @@ components:
     StorageRuntime:
       type: object
       properties:
+        lifecycle_configurations:
+          type: object
+          nullable: true
+          maxProperties: 64
+          additionalProperties:
+            $ref: '#/components/schemas/LifecycleConfiguration'
         configured: *id005
         worker_enabled: *id005
         admission_enabled: *id005
@@ -2291,3 +2941,644 @@ components:
         physical_reclaim: *id016
         worker_enabled:
           type: boolean
+
+    SystemTableObservation:
+      type: object
+      required:
+      - id
+      - schema
+      - category
+      - cleanup_mechanism
+      - protection
+      - time_column
+      - state
+      - time_state
+      - heap_bytes
+      - indexes_bytes
+      - toast_bytes
+      - total_bytes
+      - estimated_rows
+      - oldest_at
+      - newest_at
+      properties:
+        id:
+          type: string
+        schema:
+          type: string
+        category:
+          type: string
+          enum:
+          - observability
+          - runtime
+          - security
+          - usage
+          - recovery
+          - protected
+        cleanup_mechanism:
+          type: string
+          enum:
+          - invocation_policy
+          - typed_policy
+          - metadata_window
+          - review_required
+          - protected
+        protection:
+          type: string
+        time_column:
+          type: string
+        state:
+          type: string
+          enum:
+          - observed
+          - not_present
+          - unavailable
+        time_state:
+          type: string
+          enum:
+          - observed
+          - empty
+          - no_timestamps
+          - unavailable
+        heap_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        indexes_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        toast_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        total_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        estimated_rows:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        oldest_at:
+          type: string
+          format: date-time
+          nullable: true
+        newest_at:
+          type: string
+          format: date-time
+          nullable: true
+        problem:
+          type: string
+        time_problem:
+          type: string
+    SystemTableInventory:
+      type: object
+      required:
+      - observed_at
+      - expires_at
+      - identity
+      - scope
+      - items
+      - invocation_policy
+      - monitoring
+      properties:
+        observed_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        identity:
+          type: object
+          properties:
+            instance_id:
+              type: string
+            environment:
+              type: string
+        scope:
+          type: string
+          enum:
+          - current_database_registered_tables_including_soft_deleted
+        items:
+          type: array
+          maxItems: 96
+          items:
+            $ref: '#/components/schemas/SystemTableObservation'
+        invocation_policy:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/DatabaseRetentionPolicy'
+        monitoring:
+          $ref: '#/components/schemas/TableMonitoringStatus'
+        policy_problem:
+          type: string
+
+    TableMonitoringPolicy:
+      type: object
+      required:
+      - revision
+      - owner_instance
+      - enabled
+      - warning_bytes
+      - growth_bytes
+      - growth_window_minutes
+      - stale_after_minutes
+      - failure_limit
+      - updated_at
+      - actor
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        owner_instance:
+          type: string
+        enabled:
+          type: boolean
+        warning_bytes:
+          type: integer
+          format: int64
+          minimum: 67108864
+          maximum: 1125899906842624
+        growth_bytes:
+          type: integer
+          format: int64
+          minimum: 1048576
+          maximum: 1125899906842624
+        growth_window_minutes:
+          type: integer
+          format: int64
+          minimum: 5
+          maximum: 1440
+        stale_after_minutes:
+          type: integer
+          format: int64
+          minimum: 15
+          maximum: 1440
+        failure_limit:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 20
+        updated_at:
+          type: string
+          format: date-time
+        actor:
+          type: integer
+          format: int64
+          minimum: 0
+    TableHealth:
+      type: object
+      required:
+      - id
+      - state
+      - bytes
+      - observed_at
+      - baseline_at
+      - net_change_bytes
+      - level
+      properties:
+        id:
+          type: string
+        state:
+          type: string
+          enum:
+          - observed
+          - not_present
+          - unavailable
+        bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        observed_at:
+          type: string
+          format: date-time
+        baseline_at:
+          type: string
+          format: date-time
+          nullable: true
+        net_change_bytes:
+          type: integer
+          format: int64
+          nullable: true
+        level:
+          type: string
+          enum:
+          - normal
+          - warning
+          - unknown
+        problem:
+          type: string
+    CleanupHealth:
+      type: object
+      required:
+      - owner_instance
+      - cycle_id
+      - state
+      - started_at
+      - finished_at
+      - last_success_at
+      - consecutive_failures
+      properties:
+        owner_instance:
+          type: string
+        cycle_id:
+          type: string
+        state:
+          type: string
+          enum:
+          - not_started
+          - running
+          - completed
+          - failed
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_success_at:
+          type: string
+          format: date-time
+          nullable: true
+        consecutive_failures:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 1000
+      nullable: true
+    DatabaseBacklog:
+      type: object
+      required:
+      - owner_instance
+      - state
+      - observed_at
+      - since
+      - eligible_present
+      - quarantine_present
+      - policy_revision
+      properties:
+        owner_instance:
+          type: string
+        state:
+          type: string
+          enum:
+          - not_checked
+          - disabled
+          - observed
+          - unavailable
+        observed_at:
+          type: string
+          format: date-time
+          nullable: true
+        since:
+          type: string
+          format: date-time
+          nullable: true
+        eligible_present:
+          type: boolean
+        quarantine_present:
+          type: boolean
+        policy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+      nullable: true
+    TableMonitoringStatus:
+      type: object
+      required:
+      - state
+      - state_configured
+      - sampling_configured
+      - worker_enabled
+      - policy
+      - sampled_at
+      - tables
+      - alerts
+      - cleanup
+      - backlog
+      properties:
+        configuration:
+          $ref: '#/components/schemas/TableMonitoringConfiguration'
+        state:
+          type: string
+          enum:
+          - disabled
+          - observed
+          - unavailable
+          - sampling_required
+          - stale
+        state_configured:
+          type: boolean
+        sampling_configured:
+          type: boolean
+        worker_enabled:
+          type: boolean
+        policy:
+          $ref: '#/components/schemas/TableMonitoringPolicy'
+        sampled_at:
+          type: string
+          format: date-time
+          nullable: true
+        tables:
+          type: array
+          maxItems: 96
+          items:
+            $ref: '#/components/schemas/TableHealth'
+        alerts:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required:
+            - code
+            - level
+            properties:
+              code:
+                type: string
+              level:
+                type: string
+                enum:
+                - warning
+                - critical
+                - unknown
+              resource_id:
+                type: string
+        cleanup:
+          $ref: '#/components/schemas/CleanupHealth'
+        backlog:
+          $ref: '#/components/schemas/DatabaseBacklog'
+        problem:
+          type: string
+    TableHistory:
+      type: object
+      required:
+      - id
+      - window_hours
+      - metric
+      - points
+      properties:
+        id:
+          type: string
+        window_hours:
+          type: integer
+          enum:
+          - 24
+        metric:
+          type: string
+          enum:
+          - allocated_bytes_net_change_not_ingress
+        points:
+          type: array
+          maxItems: 289
+          items:
+            type: object
+            required:
+            - observed_at
+            - state
+            - bytes
+            properties:
+              observed_at:
+                type: string
+                format: date-time
+              state:
+                type: string
+                enum:
+                - observed
+                - not_present
+                - unavailable
+              bytes:
+                type: integer
+                format: int64
+                minimum: 0
+                nullable: true
+    SystemTableRetentionPolicy:
+      type: object
+      required:
+      - enabled
+      - retention_days
+      - batch_limit
+      properties:
+        enabled:
+          type: boolean
+        retention_days:
+          type: integer
+          format: int64
+          minimum: 7
+          maximum: 3650
+        batch_limit:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 500
+        actor:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      additionalProperties: false
+    SystemTableRetentionRun:
+      type: object
+      required:
+      - id
+      - table_id
+      - revision
+      - state
+      - at
+      - actor
+      - cutoff
+      - rows
+      - policy_snapshot
+      properties:
+        id:
+          type: string
+          format: uuid
+        table_id:
+          type: string
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        state:
+          type: string
+          enum:
+          - preview
+          - completed
+          - failed
+          - unconfirmed
+        at:
+          type: string
+          format: date-time
+        actor:
+          type: integer
+          format: int64
+          minimum: 0
+        cutoff:
+          type: string
+          format: date-time
+        rows:
+          type: integer
+          format: int64
+          minimum: 0
+        policy_snapshot:
+          $ref: '#/components/schemas/SystemTableRetentionPolicy'
+        problem:
+          type: string
+    SystemTableRetentionStatus:
+      type: object
+      required:
+      - id
+      - revision
+      - policy
+      - state_configured
+      - enforcement_allowed
+      - worker_enabled
+      - ready
+      - runs
+      properties:
+        id:
+          type: string
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        policy:
+          $ref: '#/components/schemas/SystemTableRetentionPolicy'
+        state_configured:
+          type: boolean
+        enforcement_allowed:
+          type: boolean
+        worker_enabled:
+          type: boolean
+        ready:
+          type: boolean
+        runs:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/SystemTableRetentionRun'
+        problem:
+          type: string
+
+    TableMonitoringSettings:
+      type: object
+      additionalProperties: false
+      required:
+      - enabled
+      - warning_bytes
+      - growth_bytes
+      - growth_window_minutes
+      - stale_after_minutes
+      - failure_limit
+      properties:
+        enabled:
+          type: boolean
+        warning_bytes:
+          type: integer
+          format: int64
+          minimum: 67108864
+          maximum: 1125899906842624
+        growth_bytes:
+          type: integer
+          format: int64
+          minimum: 1048576
+          maximum: 1125899906842624
+        growth_window_minutes:
+          type: integer
+          format: int64
+          minimum: 5
+          maximum: 1440
+        stale_after_minutes:
+          type: integer
+          format: int64
+          minimum: 15
+          maximum: 1440
+        failure_limit:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 20
+    TableMonitoringConfiguration:
+      type: object
+      required:
+      - authority
+      - ready
+      - state
+      - desired_revision
+      - applied_revision
+      - snapshot_revision
+      - desired_policy
+      - legacy_revision
+      - legacy_digest
+      - legacy_enabled
+      properties:
+        authority:
+          type: string
+          enum:
+          - legacy
+          - database
+          - unavailable
+        ready:
+          type: boolean
+        state:
+          type: string
+          enum:
+          - legacy
+          - pending
+          - applied
+          - failed
+          - unconfirmed
+          - unavailable
+        desired_revision:
+          type: integer
+          minimum: 0
+        applied_revision:
+          type: integer
+          minimum: 0
+        snapshot_revision:
+          type: integer
+          minimum: 1
+          nullable: true
+        desired_policy:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/TableMonitoringSettings'
+        legacy_revision:
+          type: integer
+          minimum: 0
+        legacy_digest:
+          type: string
+        legacy_enabled:
+          type: boolean
+        problem:
+          type: string
+    TableMonitoringMutation:
+      type: object
+      required:
+      - request_id
+      - operation_revision
+      - operation_policy
+      - configuration
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        operation_revision:
+          type: integer
+          minimum: 1
+        operation_policy:
+          $ref: '#/components/schemas/TableMonitoringSettings'
+        configuration:
+          $ref: '#/components/schemas/TableMonitoringConfiguration'

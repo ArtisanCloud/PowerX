@@ -147,6 +147,9 @@ func (s *RestoreCopyService) archive(ctx context.Context, source RestoreSource) 
 	if err != nil {
 		return restoreArchive{}, err
 	}
+	if artifact != nil && artifact.CleanupState == "quarantined" {
+		return restoreArchive{}, controlFailure(409, "BACKUP_ARTIFACT_QUARANTINED")
+	}
 	root, err := resolveBackupArtifactBaseDir()
 	if err != nil {
 		return restoreArchive{}, err

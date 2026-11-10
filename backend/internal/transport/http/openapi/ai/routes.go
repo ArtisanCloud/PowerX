@@ -27,6 +27,15 @@ func Register(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group.POST("/video/invoke", handler.videoInvoke)
 	group.POST("/tts/invoke", handler.ttsInvoke)
 	group.POST("/embedding/invoke", handler.embeddingInvoke)
+	group.GET("/media/tasks/:task_uuid", handler.getMediaTask)
+	group.POST("/media/tasks/:task_uuid/cancel", handler.cancelMediaTask)
+	group.GET("/media/tasks/:task_uuid/events", func(c *gin.Context) {
+		if deps.EventFabric == nil {
+			handler.mediaTaskEvents(c, nil)
+			return
+		}
+		handler.mediaTaskEvents(c, deps.EventFabric.RedisClient)
+	})
 
 	if public != nil {
 		public.GET("/ai/status", func(c *gin.Context) {

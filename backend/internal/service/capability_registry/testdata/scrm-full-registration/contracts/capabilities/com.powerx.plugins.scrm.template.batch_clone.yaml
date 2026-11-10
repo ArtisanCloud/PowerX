@@ -1,0 +1,32 @@
+id: com.powerx.plugins.scrm.template.batch_clone
+type: API
+version: 1.0.0
+description: "批量克隆模板，生成多份带前缀的草稿，供后续流程批量处理。"
+rbac:
+  resource: template
+  actions: [create]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.batch_clone.v1
+    path: schema/input/com.powerx.plugins.scrm.template.batch_clone.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.batch_clone.v1
+    path: schema/output/com.powerx.plugins.scrm.template.batch_clone.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    rest:
+      method: POST
+      path: /api/v1/templates/batch-clone
+      description: "PowerX Gateway 统一鉴权后的批量克隆入口"
+    grpc:
+      service: powerx.template.TemplateService
+      method: BatchCloneTemplates
+    workflow:
+      template: contracts/exposure/workflow/template-quality-distribute.json
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.batch_clone
+      scope: agent.template.batch_clone
+      transport: http
+      endpoint: /api/v1/templates/batch-clone

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modeltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
@@ -97,10 +98,44 @@ func NewTenantKeyServiceWithWrapper(db *gorm.DB, w KeyWrapper) *TenantKeyService
 	return &TenantKeyService{db: db, kpRepo: repotenant.NewTenantKeyPairRepository(db), wrapper: w}
 }
 
+// SQLite test consumers share this process lock. PostgreSQL uses a transaction
+// advisory lock so separate Core instances serialize the same tenant key scope.
+var localKeyScopeMu sync.Mutex
+
+func (s *TenantKeyService) withScopeLock(ctx context.Context, env, tenantUUID string, run func(*TenantKeyService) (*modeltenant.TenantKeyPair, error)) (*modeltenant.TenantKeyPair, error) {
+	if s.db.Dialector.Name() != "postgres" {
+		localKeyScopeMu.Lock()
+		defer localKeyScopeMu.Unlock()
+		return run(s)
+	}
+	var pair *modeltenant.TenantKeyPair
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Use the same connection for lock, lookup and key creation. Holding a pool
+		// connection while requesting another could deadlock first-time registration.
+		scope := coremodel.PowerXSchema + "|" + env + "|" + tenantUUID
+		if e := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "tenant-key|"+scope).Error; e != nil {
+			return e
+		}
+		scoped := NewTenantKeyServiceWithWrapper(tx, s.wrapper)
+		var e error
+		pair, e = run(scoped)
+		return e
+	})
+	return pair, err
+}
+
 // EnsureActiveKeyPair：确保 (env, tenantID) 有激活密钥对；没有则生成一把。
 func (s *TenantKeyService) EnsureActiveKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
+	return s.withScopeLock(ctx, env, tenantUUID, func(scoped *TenantKeyService) (*modeltenant.TenantKeyPair, error) {
+		return scoped.ensureActiveKeyPair(ctx, env, tenantUUID)
+	})
+}
+
+func (s *TenantKeyService) ensureActiveKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
 	if kp, err := s.kpRepo.GetActiveByScope(ctx, env, tenantUUID); err == nil {
 		return kp, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	pubPEM, privPEM, err := crypto.GenerateRSA()
@@ -141,6 +176,12 @@ func (s *TenantKeyService) ActiveKeyPair(ctx context.Context, env string, tenant
 
 // RotateKeyPair 生成新密钥对并替换为激活状态。
 func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
+	return s.withScopeLock(ctx, env, tenantUUID, func(scoped *TenantKeyService) (*modeltenant.TenantKeyPair, error) {
+		return scoped.rotateKeyPair(ctx, env, tenantUUID)
+	})
+}
+
+func (s *TenantKeyService) rotateKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
 	old, _ := s.kpRepo.GetActiveByScope(ctx, env, tenantUUID)
 
 	pubPEM, privPEM, err := crypto.GenerateRSA()
@@ -251,7 +292,10 @@ func (s *TenantKeyService) UnsealSensitive(ctx context.Context, env string, tena
 		return err
 	}
 
-	kp, err := s.kpRepo.GetActiveByScope(ctx, env, tenantUUID)
+	if strings.TrimSpace(sealed.KID) == "" {
+		return errors.New("sealed key id missing")
+	}
+	kp, err := s.kpRepo.GetByScopeAndKeyID(ctx, env, tenantUUID, sealed.KID)
 	if err != nil {
 		return err
 	}

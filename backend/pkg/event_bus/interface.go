@@ -104,16 +104,17 @@ type QueueDriverCapability struct {
 
 // TaskMessage 是任务驱动层的统一消息信封。
 type TaskMessage struct {
-	ID           string
-	TenantKey    string
-	SubscriberID string
-	Topic        string
-	Payload      []byte
-	Headers      map[string]string
-	Attempt      int
-	TraceID      string
-	VisibleAt    time.Time
-	Metadata     map[string]string
+	ID             string
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
+	TenantKey      string
+	SubscriberID   string
+	Topic          string
+	Payload        []byte
+	Headers        map[string]string
+	Attempt        int
+	TraceID        string
+	VisibleAt      time.Time
+	Metadata       map[string]string
 }
 
 // DequeueRequest 描述一次任务拉取请求。

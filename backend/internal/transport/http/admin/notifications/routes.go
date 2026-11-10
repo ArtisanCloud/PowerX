@@ -11,6 +11,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	adminGroup.GET("", h.List)
 	adminGroup.DELETE("", h.ClearAll)
 	adminGroup.GET("/:uuid", h.Get)
+	adminGroup.GET("/:uuid/presentation-source", h.PresentationSource)
 	adminGroup.PATCH("/:uuid/read", h.MarkRead)
 	adminGroup.DELETE("/:uuid", h.Delete)
 	adminGroup.POST("/test", h.PushTestNotification)

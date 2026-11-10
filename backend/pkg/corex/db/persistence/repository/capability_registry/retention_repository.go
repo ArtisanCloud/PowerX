@@ -16,10 +16,14 @@ import (
 
 // RetentionCutoffs 是 Service 已确认的期限，不接受表名或任意过滤表达式。
 type RetentionCutoffs struct {
-	Success, Failure, Pending, Quarantine time.Time
-	Limit                                 int
-	AdoptLegacy                           bool
+	Success     time.Time `json:"success"`
+	Failure     time.Time `json:"failure"`
+	Pending     time.Time `json:"pending"`
+	Quarantine  time.Time `json:"quarantine"`
+	Limit       int       `json:"limit"`
+	AdoptLegacy bool      `json:"adopt_legacy"`
 }
+
 type RetentionBatch struct {
 	Traces      int64 `json:"traces"`
 	Events      int64 `json:"events"`
@@ -115,6 +119,16 @@ func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, app
 			}
 			if err := tx.Exec("SET LOCAL statement_timeout='8s'").Error; err != nil {
 				return err
+			}
+		}
+		if apply && tx.Dialector.Name() == "postgres" {
+			// 固定表的 ROW EXCLUSIVE 与普通写兼容，阻止预检后新增级联外键／删表的 DDL 竞态。
+			// 取得锁后在同一事务重检来源结构；外键不能在本批删除前悄悄变成 ON DELETE CASCADE。
+			if e := tx.Exec("LOCK TABLE " + m.InvocationTrace{}.TableName() + ", " + m.CapabilityEventPublication{}.TableName() + " IN ROW EXCLUSIVE MODE").Error; e != nil {
+				return e
+			}
+			if e := NewRetentionRepository(tx).Ready(ctx); e != nil {
+				return e
 			}
 		}
 		lock := clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}

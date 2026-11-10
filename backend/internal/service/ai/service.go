@@ -19,12 +19,14 @@ import (
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	aiconfig "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
+	openaidriver "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/openai"
 	imagefactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/image"
 	llmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/llm"
 	ttsfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/tts"
 	videofactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/video"
 	vlmfactory "github.com/ArtisanCloud/PowerX/internal/server/ai/factory/vlm"
 	agentsettings "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"gorm.io/gorm"
 )
 
@@ -37,6 +39,7 @@ var (
 )
 
 type Service struct {
+	db       *gorm.DB
 	settings *agentsettings.AgentSettingService
 	profiles *repoai.AIModelProfileRepository
 	catalog  *catalog.Registry
@@ -53,6 +56,7 @@ func NewService(db *gorm.DB) *Service {
 		return nil
 	}
 	return &Service{
+		db:       db,
 		settings: agentsettings.NewAgentSettingService(db),
 		profiles: repoai.NewAIModelProfileRepository(db),
 	}
@@ -80,7 +84,7 @@ func (s *Service) LLMInvoke(
 	if provider == "" || model == "" {
 		return nil, ErrInvalidModelKey
 	}
-	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "llm", provider, model)
+	prof, err := s.profiles.FindByEquivalentScopeModalityProviderModel(ctx, env, &tenantUUID, "llm", provider, model)
 	defaults, _ := resolveDefaults("llm", provider, model)
 	if prof == nil || err != nil {
 		if !s.allowUnprofiled(ctx, env, tenantUUID, "llm", provider) {
@@ -185,7 +189,7 @@ func (s *Service) LLMStream(
 	if provider == "" || model == "" {
 		return "", ErrInvalidModelKey
 	}
-	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "llm", provider, model)
+	prof, err := s.profiles.FindByEquivalentScopeModalityProviderModel(ctx, env, &tenantUUID, "llm", provider, model)
 	defaults, _ := resolveDefaults("llm", provider, model)
 	if prof == nil || err != nil {
 		if !s.allowUnprofiled(ctx, env, tenantUUID, "llm", provider) {
@@ -285,7 +289,28 @@ func applyTimeoutFromContext(ctx context.Context, mc *aiconfig.ModelConfig) {
 }
 
 func applyLLMRuntimeExtras(provider string, mc *aiconfig.ModelConfig, defaults map[string]any, params map[string]interface{}) {
-	if mc == nil || !strings.EqualFold(strings.TrimSpace(provider), "ollama") {
+	if mc == nil {
+		return
+	}
+	for _, values := range []map[string]any{defaults, params} {
+		if value, ok := values["temperature"]; ok {
+			mc.Temperature = floatFromAny(value)
+			mc.TemperatureSet = true
+		}
+		for _, key := range []string{"topP", "top_p"} {
+			if value, ok := values[key]; ok {
+				mc.TopP = float32(floatFromAny(value))
+				mc.TopPSet = true
+			}
+		}
+		if effort, ok := values["reasoning_effort"].(string); ok {
+			if mc.Extra == nil {
+				mc.Extra = map[string]any{}
+			}
+			mc.Extra["reasoning_effort"] = effort
+		}
+	}
+	if !strings.EqualFold(strings.TrimSpace(provider), "ollama") {
 		return
 	}
 	if mc.Extra == nil {
@@ -634,7 +659,7 @@ func (s *Service) EmbeddingInvoke(
 	if provider == "" || model == "" {
 		return nil, ErrInvalidModelKey
 	}
-	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "embedding", provider, model)
+	prof, err := s.profiles.FindByEquivalentScopeModalityProviderModel(ctx, env, &tenantUUID, "embedding", provider, model)
 	defaults, ok := resolveDefaults("embedding", provider, model)
 	if prof == nil || err != nil {
 		if !s.allowUnprofiled(ctx, env, tenantUUID, "embedding", provider) {
@@ -663,366 +688,111 @@ func (s *Service) EmbeddingInvoke(
 	return vec.Embed(ctx, inputs)
 }
 
-func (s *Service) ImageInvoke(
-	ctx context.Context,
-	env string,
-	tenantUUID string,
-	modelKey string,
-	inputs []ContentItem,
-	params map[string]interface{},
-) (map[string]interface{}, error) {
-	if s == nil || s.settings == nil || s.profiles == nil {
-		return nil, errors.New("ai service unavailable")
-	}
-	provider, model := splitModelKey(modelKey)
-	if provider == "" || model == "" {
-		return nil, ErrInvalidModelKey
-	}
-	imageDriver := resolveProviderDriver(provider, "image")
-	// Qwen 的 image 模态在当前实现上是 VLM 能力（图像/视觉问答），
-	// 不支持 imagefactory 的生图协议，需分流到 VLM 客户端。
-	if imageDriver == "qwen" {
-		return s.VLMInvoke(ctx, env, tenantUUID, modelKey, inputs, params)
-	}
-	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "image", provider, model)
-	defaults, ok := resolveDefaults("image", provider, model)
-	if prof == nil || err != nil {
-		if !s.allowUnprofiled(ctx, env, tenantUUID, "image", provider) {
-			return nil, ErrModelNotConfigured
-		}
-		if !ok {
-			return nil, ErrInvalidModelKey
-		}
-	} else {
-		defaults = prof.Defaults
-	}
-	prompt := BuildPrompt(inputs)
-	if strings.TrimSpace(prompt) == "" {
-		return nil, ErrPromptRequired
-	}
-	refImages := buildImageRefParts(inputs)
-	if hint := stringFromAny(defaults["promptHint"]); hint != "" {
-		prompt = strings.TrimSpace(prompt + "\n" + hint)
-	}
-
-	size := stringFromAny(defaults["size"])
-	quality := stringFromAny(defaults["quality"])
-	format := stringFromAny(defaults["format"])
-	if params != nil {
-		if v := stringFromAny(params["size"]); v != "" {
-			size = v
-		}
-		if v := stringFromAny(params["quality"]); v != "" {
-			quality = v
-		}
-		if v := stringFromAny(params["format"]); v != "" {
-			format = v
-		}
-		if v := stringFromAny(params["output_format"]); v != "" {
-			format = v
-		}
-	}
-
-	mc, err := s.settings.BuildImageConfig(ctx, env, &tenantUUID, provider, model, "", "", "", "", "", "")
+// 媒体入口共用逐型号能力、参数和实时授权校验，供应商选择来自正式 operation。
+func (s *Service) ImageInvoke(ctx context.Context, env, tenant, modelKey string, inputs []ContentItem, params map[string]any) (map[string]any, error) {
+	model, mc, p, err := s.prepareMedia(ctx, env, tenant, modelKey, catalog.ImageGeneration, inputs, params)
 	if err != nil {
 		return nil, err
 	}
-	cli, err := imagefactory.NewClient(imageDriver)
+	cli, err := imagefactory.NewClient(model.Model.Operations[catalog.ImageGeneration].Driver)
+	if err != nil {
+		return nil, MediaError(422, "AI_DRIVER_UNSUPPORTED")
+	}
+	runtime := map[string]any{"config": mc}
+	for k, v := range p {
+		runtime[k] = v
+	}
+	resp, err := cli.Generate(ctx, contract.ImageRequest{Prompt: BuildPrompt(inputs), Size: stringFromAny(p["size"]), Quality: stringFromAny(p["quality"]), Format: stringFromAny(p["format"]), RefImages: buildImageRefParts(inputs), Runtime: runtime})
 	if err != nil {
 		return nil, err
 	}
-	req := contract.ImageRequest{
-		Prompt:    prompt,
-		Size:      size,
-		Quality:   quality,
-		Format:    format,
-		RefImages: refImages,
-		Runtime: map[string]any{
-			"config": mc,
-		},
+	if resp == nil || len(resp.Images)+len(resp.ImageURLs) == 0 {
+		return nil, MediaError(502, "AI_OUTPUT_INVALID")
 	}
-	resp, err := cli.Generate(ctx, req)
+	return map[string]any{"type": "image", "provider": model.Provider, "model": model.Model.ID, "images": resp.Images, "image_urls": resp.ImageURLs, "usage": resp.Usage, "trace_id": resp.TraceID}, nil
+}
+func (s *Service) VLMInvoke(ctx context.Context, env, tenant, modelKey string, inputs []ContentItem, params map[string]any) (map[string]any, error) {
+	model, mc, p, err := s.prepareMedia(ctx, env, tenant, modelKey, catalog.VisionUnderstanding, inputs, params)
 	if err != nil {
 		return nil, err
 	}
-
-	out := map[string]interface{}{
-		"provider": resp.Provider,
-		"model":    resp.Model,
-	}
-	if len(resp.Images) > 0 {
-		out["images"] = resp.Images
-	}
-	if len(resp.ImageURLs) > 0 {
-		out["image_urls"] = resp.ImageURLs
-	}
-	if resp.Usage != nil {
-		out["usage"] = resp.Usage
-	}
-	if resp.LatencyMS > 0 {
-		out["latency_ms"] = resp.LatencyMS
-	}
-	if resp.TraceID != "" {
-		out["trace_id"] = resp.TraceID
-	}
-	return out, nil
+	return s.invokeVision(ctx, model, mc, inputs, p)
 }
 
-func (s *Service) VLMInvoke(
-	ctx context.Context,
-	env string,
-	tenantUUID string,
-	modelKey string,
-	inputs []ContentItem,
-	params map[string]interface{},
-) (map[string]interface{}, error) {
-	if s == nil || s.settings == nil || s.profiles == nil {
-		return nil, errors.New("ai service unavailable")
-	}
-	provider, model := splitModelKey(modelKey)
-	if provider == "" || model == "" {
-		return nil, ErrInvalidModelKey
-	}
-	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "image", provider, model)
-	defaults, ok := resolveDefaults("image", provider, model)
-	if prof == nil || err != nil {
-		if !s.allowUnprofiled(ctx, env, tenantUUID, "image", provider) {
-			return nil, ErrModelNotConfigured
-		}
-		if !ok {
-			return nil, ErrInvalidModelKey
-		}
-	} else {
-		defaults = prof.Defaults
-	}
-
-	mc, err := s.settings.BuildModelConfig(ctx, env, &tenantUUID, "image", provider, model, "", "", "", "", "", "")
+// invokeVision 共用正式驱动与解析；配置来源由正式调用或管理试跑各自决定。
+func (s *Service) invokeVision(ctx context.Context, model *catalog.MediaModel, mc *aiconfig.ModelConfig, inputs []ContentItem, p map[string]any) (map[string]any, error) {
+	var err error
+	inputs, err = normalizeVisionInputs(inputs)
 	if err != nil {
 		return nil, err
 	}
-	vlmDriver := resolveProviderDriver(provider, "image")
-	cli, err := vlmfactory.NewClient(vlmDriver)
+	if model.Provider == "openai" {
+		if err := openaidriver.ValidateVLMParameters(model.Model.ID, p); err != nil {
+			return nil, err
+		}
+	}
+	cli, err := vlmfactory.NewClient(model.Model.Operations[catalog.VisionUnderstanding].Driver)
 	if err != nil {
-		return nil, err
+		return nil, MediaError(422, "AI_DRIVER_UNSUPPORTED")
 	}
-
-	req := contract.VLMRequest{
-		Messages:    buildVLMMessage(inputs),
-		Temperature: floatFromAny(defaults["temperature"]),
-		TopP:        floatFromAny(defaults["top_p"]),
-		MaxTokens:   intFromAny(defaults["max_tokens"]),
-		Runtime: map[string]any{
-			"config": mc,
-		},
-	}
-	if req.MaxTokens <= 0 {
-		req.MaxTokens = intFromAny(defaults["maxTokens"])
-	}
-	if params != nil {
-		if v, ok := params["temperature"]; ok {
-			if val := floatFromAny(v); val > 0 {
-				req.Temperature = val
-			}
-		}
-		if v, ok := params["top_p"]; ok {
-			if val := floatFromAny(v); val > 0 {
-				req.TopP = val
-			}
-		}
-		if v, ok := params["max_tokens"]; ok {
-			if val := intFromAny(v); val > 0 {
-				req.MaxTokens = val
-			}
-		}
-		if v, ok := params["json_mode"]; ok {
-			if b, ok2 := v.(bool); ok2 {
-				req.JSONMode = b
-			}
-		}
-	}
-
-	resp, err := cli.Invoke(ctx, req)
+	_, tempSet := p["temperature"]
+	_, topPSet := p["top_p"]
+	applyTimeoutFromContext(ctx, mc)
+	resp, err := cli.Invoke(ctx, contract.VLMRequest{Messages: buildVLMMessage(inputs), Temperature: floatFromAny(p["temperature"]), TopP: floatFromAny(p["top_p"]), MaxTokens: intFromAny(p["max_tokens"]), JSONMode: p["json_mode"] == true, Runtime: map[string]any{"config": mc, "temperature_set": tempSet, "top_p_set": topPSet, "reasoning_effort": p["reasoning_effort"]}})
 	if err != nil {
-		return nil, err
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, MediaError(504, "AI_PROVIDER_TIMEOUT")
+		}
+		var business *dto.AppError
+		if errors.As(err, &business) {
+			return nil, business
+		}
+		return nil, MediaError(502, "AI_PROVIDER_FAILED")
 	}
-	return map[string]interface{}{
-		"provider": resp.Provider,
-		"model":    resp.Model,
-		"text":     resp.Text,
-		"usage":    resp.Usage,
-	}, nil
+	if resp == nil || strings.TrimSpace(resp.Text) == "" {
+		return nil, MediaError(502, "AI_OUTPUT_INVALID")
+	}
+	return map[string]any{"type": "analysis", "provider": model.Provider, "model": model.Model.ID, "text": resp.Text, "usage": resp.Usage}, nil
 }
-
-func (s *Service) VideoInvoke(
-	ctx context.Context,
-	env string,
-	tenantUUID string,
-	modelKey string,
-	inputs []ContentItem,
-	params map[string]interface{},
-) (map[string]interface{}, error) {
-	if s == nil || s.settings == nil || s.profiles == nil {
-		return nil, errors.New("ai service unavailable")
-	}
-	provider, model := splitModelKey(modelKey)
-	if provider == "" || model == "" {
-		return nil, ErrInvalidModelKey
-	}
-	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "video", provider, model)
-	defaults, ok := resolveDefaults("video", provider, model)
-	if prof == nil || err != nil {
-		if !s.allowUnprofiled(ctx, env, tenantUUID, "video", provider) {
-			return nil, ErrModelNotConfigured
-		}
-		if !ok {
-			return nil, ErrInvalidModelKey
-		}
-	} else {
-		defaults = prof.Defaults
-	}
-
-	prompt := BuildPrompt(inputs)
-	if strings.TrimSpace(prompt) == "" {
-		return nil, ErrPromptRequired
-	}
-	mc, err := s.settings.BuildModelConfig(ctx, env, &tenantUUID, "video", provider, model, "", "", "", "", "", "")
+func (s *Service) VideoInvoke(ctx context.Context, env, tenant, modelKey string, inputs []ContentItem, params map[string]any) (map[string]any, error) {
+	model, mc, p, err := s.prepareMedia(ctx, env, tenant, modelKey, catalog.VideoGeneration, inputs, params)
 	if err != nil {
 		return nil, err
 	}
-	videoDriver := resolveProviderDriver(provider, "video")
-	cli, err := videofactory.NewClient(videoDriver)
+	cli, err := videofactory.NewClient(model.Model.Operations[catalog.VideoGeneration].Driver)
+	if err != nil {
+		return nil, MediaError(422, "AI_DRIVER_UNSUPPORTED")
+	}
+	resp, err := cli.Generate(ctx, contract.VideoRequest{Prompt: BuildPrompt(inputs), Resolution: stringFromAny(p["resolution"]), FPS: intFromAny(p["fps"]), MaxDurationS: intFromAny(p["max_duration_sec"]), RefImages: buildImageRefParts(inputs), RefVideos: buildVideoRefParts(inputs), Runtime: map[string]any{"config": mc}})
 	if err != nil {
 		return nil, err
 	}
-	req := contract.VideoRequest{
-		Prompt:       prompt,
-		Resolution:   stringFromAny(defaults["resolution"]),
-		FPS:          intFromAny(defaults["fps"]),
-		MaxDurationS: intFromAny(defaults["maxDurationSec"]),
-		RefImages:    buildImageRefParts(inputs),
-		RefVideos:    buildVideoRefParts(inputs),
-		Runtime: map[string]any{
-			"config": mc,
-		},
+	if resp == nil {
+		return nil, MediaError(502, "AI_OUTPUT_INVALID")
 	}
-	if params != nil {
-		if v := stringFromAny(params["resolution"]); v != "" {
-			req.Resolution = v
-		}
-		if v := intFromAny(params["fps"]); v > 0 {
-			req.FPS = v
-		}
-		if v := intFromAny(params["max_duration_sec"]); v > 0 {
-			req.MaxDurationS = v
-		}
-	}
-	resp, err := cli.Generate(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]interface{}{
-		"provider": resp.Provider,
-		"model":    resp.Model,
-	}
-	if len(resp.VideoURLs) > 0 {
-		out["video_urls"] = resp.VideoURLs
-	}
-	if resp.TaskID != "" {
-		out["task_id"] = resp.TaskID
-	}
-	if resp.PollURL != "" {
-		out["poll_url"] = resp.PollURL
-	}
-	if resp.Usage != nil {
-		out["usage"] = resp.Usage
-	}
-	if resp.TraceID != "" {
-		out["trace_id"] = resp.TraceID
-	}
-	return out, nil
+	return map[string]any{"type": "video", "provider": model.Provider, "model": model.Model.ID, "video_urls": resp.VideoURLs, "task_id": resp.TaskID, "poll_url": resp.PollURL, "trace_id": resp.TraceID}, nil
 }
-
-func (s *Service) TTSInvoke(
-	ctx context.Context,
-	env string,
-	tenantUUID string,
-	modelKey string,
-	inputs []ContentItem,
-	params map[string]interface{},
-) (map[string]interface{}, error) {
-	if s == nil || s.settings == nil || s.profiles == nil {
-		return nil, errors.New("ai service unavailable")
-	}
-	provider, model := splitModelKey(modelKey)
-	if provider == "" || model == "" {
-		return nil, ErrInvalidModelKey
-	}
-	prof, err := s.profiles.FindByScopeModalityProviderModel(ctx, env, &tenantUUID, "audio_tts", provider, model)
-	defaults, ok := resolveDefaults("audio_tts", provider, model)
-	if prof == nil || err != nil {
-		if !s.allowUnprofiled(ctx, env, tenantUUID, "audio_tts", provider) {
-			return nil, ErrModelNotConfigured
-		}
-		if !ok {
-			return nil, ErrInvalidModelKey
-		}
-	} else {
-		defaults = prof.Defaults
-	}
-	text := BuildPrompt(inputs)
-	if strings.TrimSpace(text) == "" {
-		return nil, ErrPromptRequired
-	}
-	mc, err := s.settings.BuildModelConfig(ctx, env, &tenantUUID, "audio_tts", provider, model, "", "", "", "", "", "")
+func (s *Service) TTSInvoke(ctx context.Context, env, tenant, modelKey string, inputs []ContentItem, params map[string]any) (map[string]any, error) {
+	model, mc, p, err := s.prepareMedia(ctx, env, tenant, modelKey, catalog.SpeechSynthesis, inputs, params)
 	if err != nil {
 		return nil, err
 	}
-	ttsDriver := resolveProviderDriver(provider, "audio_tts")
-	cli, err := ttsfactory.NewClient(ttsDriver)
+	cli, err := ttsfactory.NewClient(model.Model.Operations[catalog.SpeechSynthesis].Driver)
+	if err != nil {
+		return nil, MediaError(422, "AI_DRIVER_UNSUPPORTED")
+	}
+	runtime := map[string]any{"config": mc}
+	for k, v := range p {
+		runtime[k] = v
+	}
+	resp, err := cli.Synthesize(ctx, contract.TTSRequest{Text: BuildPrompt(inputs), Voice: stringFromAny(p["voice"]), Speed: floatFromAny(p["speed"]), Format: stringFromAny(p["format"]), Runtime: runtime})
 	if err != nil {
 		return nil, err
 	}
-	req := contract.TTSRequest{
-		Text:   text,
-		Voice:  stringFromAny(defaults["voice"]),
-		Speed:  floatFromAny(defaults["speed"]),
-		Format: stringFromAny(defaults["format"]),
-		Runtime: map[string]any{
-			"config": mc,
-		},
+	if resp == nil || len(resp.Audio) == 0 && resp.AudioURL == "" {
+		return nil, MediaError(502, "AI_OUTPUT_INVALID")
 	}
-	if params != nil {
-		if v := stringFromAny(params["voice"]); v != "" {
-			req.Voice = v
-		}
-		if v := floatFromAny(params["speed"]); v > 0 {
-			req.Speed = v
-		}
-		if v := stringFromAny(params["format"]); v != "" {
-			req.Format = v
-		}
-	}
-	resp, err := cli.Synthesize(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]interface{}{
-		"provider": resp.Provider,
-		"model":    resp.Model,
-	}
-	if resp.AudioURL != "" {
-		out["audio_url"] = resp.AudioURL
-	}
-	if len(resp.Audio) > 0 {
-		out["audio_base64"] = base64.StdEncoding.EncodeToString(resp.Audio)
-	}
-	if resp.Usage != nil {
-		out["usage"] = resp.Usage
-	}
-	if resp.TraceID != "" {
-		out["trace_id"] = resp.TraceID
-	}
-	return out, nil
+	return map[string]any{"type": "audio", "provider": model.Provider, "model": model.Model.ID, "audio_base64": base64.StdEncoding.EncodeToString(resp.Audio), "audio_url": resp.AudioURL, "usage": resp.Usage, "trace_id": resp.TraceID}, nil
 }
 
 type ContentItem struct {
@@ -1076,11 +846,11 @@ func (s *Service) ListLLMModels(ctx context.Context, env, tenantUUID, providerFi
 		}
 	}
 
-	tenantProfiles, err := s.profiles.ListByScope(ctx, env, tenantPtr, "llm")
+	tenantProfiles, err := s.profiles.ListByEquivalentScope(ctx, env, tenantPtr, "llm")
 	if err != nil {
 		return nil, err
 	}
-	globalProfiles, err := s.profiles.ListByScope(ctx, env, nil, "llm")
+	globalProfiles, err := s.profiles.ListByEquivalentScope(ctx, env, nil, "llm")
 	if err != nil {
 		return nil, err
 	}
@@ -1393,9 +1163,6 @@ func splitAppModel(model string) (string, string) {
 func findModelManifest(modality, provider, app, model string) *catalog.ModelManifest {
 	reg := catalog.GetGlobalAIRegister()
 	candidates := []string{strings.TrimSpace(strings.ToLower(modality))}
-	if candidates[0] == "audio_tts" || candidates[0] == "audio_asr" {
-		candidates = append(candidates, "audio")
-	}
 	for _, mod := range candidates {
 		models, err := reg.ModelsByApp(mod, provider, app)
 		if err != nil {

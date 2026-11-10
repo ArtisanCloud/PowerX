@@ -1,0 +1,300 @@
+{
+  "date": "2026-11-10",
+  "task": "T158 controlled retain-and-close disposition of original interrupted incomplete archive capture",
+  "status": "source and bounded owned acceptance passed; full workspace capability release gate blocked by five customer routes; daily deployment and entire T158/SG-09/SG-11 remain open",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "implemented": [
+    "fixed human Root retain_and_close, strict UUID/version/reason/confirmation DTO and no client path/SQL/target input",
+    "private request ledger registered before effects; original job, conservative retained references, permanent audit and terminal proof atomically committed together; file and parent-directory sync",
+    "formal published policy pause Guard plus independent recovery epoch; no new readiness schema, business admission or permissions",
+    "bounded single-request full CAS verification with no soft/hard links, SHA/identity checks, no background task or polling",
+    "conservative entire existing CAS retention because incomplete capture has no reliable per-job complete manifest; staging unchanged and uncertified",
+    "retained task cannot ordinary-unprotect, download, retry or restore; GC preserves retained references but can reclaim later unreferenced objects outside that set",
+    "old UUID is readonly on replay and cannot change input; registered-without-terminal remains unconfirmed; missing/corrupt/conflicting evidence cannot become non-execution proof",
+    "request-file loss can recover positive evidence from original job without writing; task rollback keeps old receipt historical, not current protection or execution permission",
+    "UI task sections, narrow-screen selection, preserved reason and explicit confirmation, event invalidation of old proof, session-scoped minimal original request identity and visible corrupted-context handling",
+    "persisted audit available in dialog, storage catalog and media archive list; retained state is not a complete archive or reclaimed space"
+  ],
+  "validation": {
+    "backend": {
+      "packages": [
+        "archive_ops",
+        "storage_governance",
+        "admin/backup"
+      ],
+      "race": "passed",
+      "vet": "passed",
+      "root_http_sse": "passed with custom prefix, strict rejection identities, original request GET and same-ID replay",
+      "scenes": [
+        "busy executor/GC lock",
+        "content mutation",
+        "symlink and hardlink",
+        "policy change",
+        "recovery epoch change",
+        "request cancellation",
+        "concurrent replay and conflicting input",
+        "empty retained set",
+        "registered unknown does not reexecute",
+        "missing request-file positive recovery",
+        "task rollback historical-only receipt",
+        "retained reference corruption stops GC and lookup",
+        "ordinary unprotect/retry denied",
+        "GC can reclaim later unreferenced object outside held set"
+      ]
+    },
+    "native_postgresql": {
+      "result": "passed",
+      "formal_taskbus_publication": true,
+      "scenes": [
+        "published paused policy permits retention",
+        "actually published policy revision invalidates old review",
+        "fresh review succeeds without auto-enable",
+        "closed independent control DB pool retains original interruption and exposes local unconfirmed receipt"
+      ],
+      "database": "owned Unix-socket PostgreSQL with independent schema",
+      "redis": "miniredis protocol fixture",
+      "entire_database_shutdown_tested": false
+    },
+    "owned_os_process": {
+      "result": "passed",
+      "race": true,
+      "scenes": [
+        "original capture SIGKILL after CAS writes and owned PostgreSQL read lock; restarted process explicitly pauses, verifies and retains same original job",
+        "object ACK loss SIGKILL regression",
+        "manifest ACK loss SIGKILL regression"
+      ],
+      "all_prior_cas_sha_preserved": true,
+      "replacement_job_created": false,
+      "boundary": "production archive component in a test executable, not whole cmd/app Core, external command drain or power loss; this run did not repeat the previous slice minute-scheduler wait"
+    },
+    "frontend": {
+      "success": true,
+      "numTotalTests": 62,
+      "numPassedTests": 62,
+      "numFailedTests": 0,
+      "files": [
+        {
+          "name": "web-admin/tests/unit/backup/resource-archives.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-credentials.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-disposition.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-execution.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-governance.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-policies.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-run-request.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/archive-targets.spec.ts",
+          "status": "passed"
+        },
+        {
+          "name": "web-admin/tests/unit/storage/storage-resource-configuration.spec.ts",
+          "status": "passed"
+        }
+      ]
+    },
+    "actual_nuxt": {
+      "result": "passed",
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "viewports": [
+        1440,
+        390
+      ],
+      "checks": [
+        "light 1440 task tabs, reason and approval retained; responsive confirmation",
+        "light 390 task tabs, reason and approval retained; responsive confirmation",
+        "dark 1440 task tabs, reason and approval retained; responsive confirmation",
+        "dark 390 task tabs, reason and approval retained; responsive confirmation",
+        "Native Core commits retained original job; truncated successful response preserves UUID and blocks repeated submit",
+        "Missing, unavailable and mismatched receipts stay locked; reload restores the original pending request from the default overview",
+        "Disconnect is visible inside dialog; reconnect preserves original context with no idle status queries",
+        "Original UUID read resolves lost response; partial capture protected, source untouched, no new job or policy enablement; one explicit write",
+        "Leaving route releases the production SSE"
+      ],
+      "runtime_errors": [],
+      "application_submits": 1,
+      "wire_posts": [
+        {
+          "path": "/api/v1/admin/ops/backup/archives/jobs/0191063d-6741-45f5-b5c7-b76f405aa628/interruption-retentions",
+          "method": "POST",
+          "at": 1794278487056,
+          "request_id": "870642b1-93eb-419d-95d0-6dac04b9e42c"
+        }
+      ],
+      "idle_window_seconds": 1.8,
+      "manual_visual_checks": [
+        "light-1440-confirm.png",
+        "dark-390-confirm.png"
+      ],
+      "boundary": "daily Nuxt shell, owned signed Root HTTP/SSE fixture with controlled partial-job metadata; separate from native control DB and real OS capture fault"
+    },
+    "before_headers_loss": {
+      "result": "passed",
+      "application_submits": 1,
+      "wire_posts": [
+        {
+          "path": "/api/v1/admin/ops/backup/archives/jobs/bf5a6b80-0761-49ab-828e-c0b520a4db0c/interruption-retentions",
+          "method": "POST",
+          "at": 1794278900065,
+          "request_id": "bac8d768-2059-4093-9fba-1d6078adbda6"
+        }
+      ],
+      "checks": [
+        "light 1440 task tabs, reason and approval retained; responsive confirmation",
+        "light 390 task tabs, reason and approval retained; responsive confirmation",
+        "dark 1440 task tabs, reason and approval retained; responsive confirmation",
+        "dark 390 task tabs, reason and approval retained; responsive confirmation",
+        "Before-header loss: application submits=1, wire POST=1, same original UUID and exactly one retained task"
+      ],
+      "runtime_errors": []
+    },
+    "fault_harness_note": "An earlier unflushed socket cutoff produced two wire POSTs and a positive UI result, but application-call attribution was not instrumented, so no cause is asserted. Final body-loss scene flushes headers and then cuts the reply; a separate before-header scene records application calls and exact wire request UUIDs. Both final scenes observed one application submit and one wire POST; this does not promise all transports never replay.",
+    "capability": {
+      "full_workspace": "failed",
+      "missing_formal_declarations": 0,
+      "uncovered_http_routes": 5,
+      "uncovered_owner": "admin/customer/api.go client-apps routes outside this storage task",
+      "backup_route_scope": "passed",
+      "scoped_output": "capability-audit: ok, declared=1243 referenced=84 rest_routes=1176 candidates=1303 ignored_route_rules=152",
+      "new_root_routes_explicitly_ignored": 3,
+      "daily_seed_run": false
+    }
+  },
+  "cleanup": {
+    "owner": "codex archive disposition acceptance",
+    "owned_pids": [
+      2543,
+      8020,
+      8447,
+      19674,
+      20293,
+      36515,
+      36518,
+      36603,
+      36604,
+      36619,
+      46998,
+      55243,
+      55526,
+      55555,
+      55672,
+      55729,
+      55730,
+      55745,
+      57131,
+      57343,
+      57348,
+      57352,
+      57450,
+      57451,
+      57453,
+      57483,
+      57493,
+      74509
+    ],
+    "owned_ports": [
+      51584,
+      51598,
+      52392,
+      56830,
+      56855,
+      65124
+    ],
+    "all_original_owned_processes_exited": true,
+    "reused_pids_not_touched": [],
+    "all_owned_listeners_closed": true,
+    "owned_pg_root_removed": true,
+    "private_jwt_files_removed": true,
+    "daily_core_listening_pids": [
+      21228
+    ],
+    "daily_nuxt_pid": 34360,
+    "agent_restarted_daily_services": false,
+    "note": "Core runtime PID changed externally during this task; it was not stopped or started by this agent."
+  },
+  "runtime_boundaries": {
+    "agent_restarted_daily_services": false,
+    "daily_schema_migrated": false,
+    "daily_archive_policy_changed": false,
+    "business_data_deleted": false,
+    "production_deployed_by_agent": false,
+    "real_oss_tested": false,
+    "legacy_executor_taken_over": false,
+    "business_admission_modified": false,
+    "note": "Daily authentication was used only for the Nuxt shell; archive writes were proxied exclusively to owned fixtures. Do not claim zero daily authentication/audit writes."
+  },
+  "limitations": [
+    "registered without a terminal outcome remains locked pending next controlled human resolution; no automatic retry",
+    "conservative shared CAS retention may retain extra content and does not reclaim disk space",
+    "retained incomplete-content expiry/export approval not implemented",
+    "old executors must not concurrently reclaim roots containing new retained references; downgrade/handoff requires a paused maintenance review",
+    "whole Core restart, external pg_dump/SSH/rsync/remote receiver drain, complete filesystem recovery and real cloud targets are not proven"
+  ],
+  "next": {
+    "task": "T158 human read-only inspection and controlled conclusion for registered disposition requests without a terminal outcome",
+    "acceptance": "bind original UUID/input/epoch/current job and executor drain; retain audit and protection; cover concurrency, rollback/DB outage and response loss with actual UI; do not fabricate non-execution, replay, reuse IDs or delete content",
+    "prerequisite": "owned resources and frozen resolution contract; no daily restart needed to develop"
+  },
+  "remaining": [
+    "T155 real Alibaba OSS transfer, full verification and exact source-gone retrieval",
+    "whole Core/worker, DB outage and external command/remote executor drain acceptance",
+    "legacy executor live handoff and explicit per-resource adoption",
+    "whole-site recovery, independent UUID coverage across full filesystem rollback and external keys",
+    "dual environments, 7/14-day evidence and final release review"
+  ],
+  "source_sha256": {
+    "backend/internal/service/archive_ops/interruption_disposition.go": "99b17ba38be20c9147cefa5bef9d768d652534b577b790a9535fa15e1270e2a4",
+    "backend/internal/service/archive_ops/interruption_disposition_test.go": "5124c3dd103a1fb5ffb7cb50dbce163aa6f7f3896c3c16e3689a0a9ea3cb0625",
+    "backend/internal/service/archive_ops/types.go": "2be37717fbdf51420a699973905cca2bdfdcc74683c1265572b9d68f25f69322",
+    "backend/internal/service/archive_ops/service.go": "6512793de68c1b38e1fbf569c581a2768e4212f1e9d611aaf4b8f7865ccf67b5",
+    "backend/internal/service/archive_ops/store.go": "c3693bc10c5b85251613b8bca66b842f4747fa8db342b9ba0629a53c516b19c9",
+    "backend/internal/service/archive_ops/restore.go": "cf32ac7577c12ac66227fe4fed12267327b40582935f5ca25a31ff545dc5b9a5",
+    "backend/internal/service/archive_ops/changes.go": "11356776f51a879638805c7e8c142cff4aa43d5fce9cc43275bdcbf7a7010305",
+    "backend/internal/service/archive_ops/process_restart_test.go": "8b5c4776e7ad0c4cd31707040365d6f03569a0c523cfc8b471704106ef3cc345",
+    "backend/internal/service/storage_governance/archive_policy_control.go": "9e20b600acde32e323babc0d95ad19da0b902188c40e1f4613cc5d83e198351e",
+    "backend/internal/service/storage_governance/archive_disposition_postgres_test.go": "6178a7eeabda415f42d0240e0260483b8f834552d3a0a167dee4462e4ebbd99b",
+    "backend/internal/transport/http/admin/backup/archive_interruption_handler.go": "546f5d7b7c2c18b62bb381ae91b3e24a0f22e1694af3dfd39a58808bf598f8dc",
+    "backend/internal/transport/http/admin/backup/archive_interruption_test.go": "7db3f5b54df9238ba6f76b0696181eb5c395eac7c563cf21e200503fb2d0f831",
+    "backend/internal/transport/http/admin/backup/routes.go": "73af38503fc56ecdab2b63475e3e6be959ed403eec2b38d3c07ea60966f13bd2",
+    "backend/config/capability_audit_ignore.yaml": "af9131fd7c36d18e2586a92f05aae97cb70afa358d1f486980f0cda2bdb94770",
+    "web-admin/app/utils/archive-disposition.ts": "4a6d3ed238f66c90ec20de6f76ab928ae33b3d74210cb72fb4e46a92f353fb0f",
+    "web-admin/app/composables/api/services/archiveDispositionService.ts": "266638a433a3a1f7823a426109231ef8c8dd56d3d5d8e9122326733158a044d9",
+    "web-admin/app/composables/api/services/archiveOpsService.ts": "eaa7781d714fa439a82816e02549ead985ac86c5b03590c25923f42f6ff2c425",
+    "web-admin/app/components/ops/backup/ArchiveInterruptionDialog.vue": "b4cbb0ca63861bcdf520537cdc0753eba5f781975820c1a562534454f4e2f9c1",
+    "web-admin/app/components/ops/backup/ArchiveCaptureRetentionDetails.vue": "c4c868786b23e590a7a80c25d9992e7f0d2ded5410227483158c27722926f758",
+    "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "8bf12aa8132f8510e61f406aaaf0de63ac289587fa65cf703ea1578f7b9b1fa2",
+    "web-admin/app/components/ops/backup/ResourceArchivesPanel.vue": "157cc012600174f9a0c09f04c79c31052ce0de1ef20a7018500d716862da493c",
+    "web-admin/app/components/monitor/storage/StorageGovernanceWorkspace.vue": "fba84e52048741afffa6e3df3624811df4b0043258712a288a63ccc4e782a355",
+    "web-admin/i18n/locales/zh.json": "bc604cfaddbd5c09fd3e9665221b9be45f9da544cb967159f90b57dfb36a7759",
+    "web-admin/i18n/locales/en.json": "cfd39a804c91fce913665d925d037a1ebf5627c2c227a0d7d015bf4c530d4fb5",
+    "web-admin/tests/unit/storage/archive-disposition.spec.ts": "f7e14e966785b68878ccd2fefc56d2c5b40b25b19a0ce68dac7c44ef4c2e54fe",
+    "web-admin/tests/unit/backup/resource-archives.spec.ts": "4752dadac9819418bfccdafb72b69a8ec01af992700f4ad4bca66ece89a72929",
+    "scripts/ops/test-storage-archive-disposition-ui.mjs": "0371eaf2c578783d59830810da51fb5f89ed2477b44aa0aa4bc58ba96e0ae060",
+    "docs/contracts/storage-archive-interruption-retention.md": "05e38fa8907ac2fcd7ab8e1a18320ab0a338438ec03621be267026fd4e51d0f9",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-archive-interruption-retention.md": "bdd4434caec58bff878e8d7bf5765222586bf842330c238762d5cc7b378ef2da",
+    "docs/guides/deploy/027-monitor-center/guide.md": "31bf104833e2eaa93da50f7c51a89dd6e3028f3b687a405570af0e01bff635ae",
+    "specs/027-monitor-center/tasks.md": "b5b699ebee087d210cd0c2fc92aa1a0930e1350b3e436d83c7dd4423f4648c2c"
+  }
+}

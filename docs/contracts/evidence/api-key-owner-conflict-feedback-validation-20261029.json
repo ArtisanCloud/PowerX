@@ -1,0 +1,98 @@
+{
+  "validated_at": "2026-10-29T15:44:43.626245+08:00",
+  "scope": "API Key Profile／owner 配置冲突的错误明细与页面反馈",
+  "http_contract": {
+    "status": 400,
+    "error_code": "API_KEY_PLUGIN_OWNER_CONFLICT",
+    "details": [
+      "profile_id",
+      "profile_name",
+      "conflict_count",
+      "conflicting_key_count",
+      "conflicts[].key_id",
+      "conflicts[].key_name",
+      "conflicts[].permission_id",
+      "conflicts[].permission_name",
+      "conflicts[].capability_id",
+      "conflicts[].required_plugin_id",
+      "conflicts[].owner_plugin_ids",
+      "conflicts[].permission_owner_plugin_ids",
+      "conflicts[].scope/action/resource",
+      "trace_id"
+    ],
+    "max_conflict_items": 200,
+    "counts_untruncated": true,
+    "clearing_owners_is_not_a_bypass": true
+  },
+  "checks": {
+    "backend_tests": {
+      "status": "passed",
+      "packages": [
+        "./internal/service/integration_gateway/apikeypermissions",
+        "./internal/transport/http/admin/integration_gateway"
+      ],
+      "cases": [
+        "多 Key、权限聚合和整体回滚",
+        "旧权限元组的 owner 精确隔离",
+        "绑定清空仍拒绝固定插件冲突",
+        "截断明细的真实完整计数",
+        "真实 HTTP PUT／append／owner 清空返回 400、稳定错误码、明细与 trace",
+        "跨租户拒绝且不暴露冲突数据",
+        "响应不含 Key 明文、前缀、哈希"
+      ]
+    },
+    "go_vet": "passed",
+    "go_build_cmd_app": "passed",
+    "frontend_unit": {
+      "status": "passed",
+      "files": 7,
+      "tests": 44,
+      "command": "npx vitest run tests/unit/iam"
+    },
+    "browser": {
+      "status": "passed",
+      "tests": 3,
+      "viewports": [
+        {
+          "width": 1440,
+          "height": 1000
+        },
+        {
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "command": "npx playwright test --config playwright.api-key-conflicts.config.ts --reporter=line",
+      "fixture": "现有本地 Nuxt 前端＋隔离 API 响应，不修改开发库",
+      "cases": [
+        "Profile 保存失败明细分组、保留勾选、修正后重试",
+        "owner 清空失败保留输入与原绑定、嵌套详情弹层",
+        "切换 Profile 后忽略迟到的失败结果"
+      ]
+    },
+    "nuxt_build": "passed",
+    "scoped_git_diff_check": "passed"
+  },
+  "runtime": {
+    "core_pid": 53928,
+    "port": 8077,
+    "running_binary_has_new_conflict_fields": false,
+    "restart_required": true,
+    "live_profile_save_acceptance": "pending user restart and retry"
+  },
+  "authorization_changes": false,
+  "business_database_writes": false,
+  "agent_started_services": [],
+  "artifacts_dir": "/tmp/powerx-api-key-conflict-20261029-151951",
+  "source_sha256": {
+    "backend/internal/service/integration_gateway/apikeypermissions/owner_conflict.go": "7986371b361cc1e7addaeffc580133ca3233297c9c4381bd90874150b16307ca",
+    "backend/internal/service/integration_gateway/apikeypermissions/owner_service.go": "1d3c46ef5b44481a1255c3a67a1c3414669b6c5883f0a571de6c5f31ae237d89",
+    "backend/internal/transport/http/admin/integration_gateway/apikey_permission_error.go": "9bcb05ef0ff37176d2509e56343218608c7dd710489860fd7aefdcfb24ca0d6d",
+    "backend/internal/transport/http/admin/integration_gateway/apikey_handler.go": "c9a86a32526bd5c1ca6d16a45d371a9ede21baf9fccb6da79823ff3b8cf726b5",
+    "backend/internal/transport/http/admin/integration_gateway/apikey_owner_handler.go": "98988a069c4edba125ce4ff506cb711b8fae224c3f7bdaff55c776b73c2273e5",
+    "web-admin/app/utils/apiKeyOwnerConflicts.ts": "131e3c3afa65c9d1471b61144148ea67ba3bf16c0ab467454da718a938c28337",
+    "web-admin/app/components/settings/ApiKeyOwnerConflictNotice.vue": "28a68a7f7900456e05e587ac4d38a3902cfd68de79caf1ec505149f8989d9d0c",
+    "web-admin/app/pages/settings/integration-api-keys.vue": "1f772209f1b71e6b2e47076bc3499754861f6a0442cbfec5b1434c94fa87792e"
+  },
+  "built_core_sha256": "f0b7a11b5ad2677ffacef5bbbd1936112eb2d9c885fa1dec787254519eb1d4f2"
+}

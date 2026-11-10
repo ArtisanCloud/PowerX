@@ -3,8 +3,10 @@ package shared
 // internal/app/shared/options.go
 
 import (
+	"github.com/ArtisanCloud/PowerX/internal/productinfo"
 	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
+	"github.com/redis/go-redis/v9"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
@@ -17,6 +19,9 @@ import (
 )
 
 type DepsOptions struct {
+	// RuntimeHostRedis 使用 Core 主缓存的已配置连接，不依赖网关限流配置。
+	RuntimeHostRedis         redis.UniversalClient
+	EnvironmentID            string
 	DisableBackgroundWorkers bool
 	PreserveInstalledCatalog bool
 	RuntimeIdentity          runtimeidentity.CoreInfo
@@ -30,17 +35,24 @@ type DepsOptions struct {
 	Storage                  mediasvc.StorageOptions
 	Queue                    QueueOptions
 	// 以后需要别的也放在这里（如默认租户、开关等）
-	EventFabric        EventFabricOptions
-	Workflow           WorkflowOptions
-	IntegrationGateway IntegrationGatewayOptions
-	CapabilityRegistry CapabilityRegistryOptions
-	AgentLifecycle     AgentLifecycleOptions
-	KnowledgeSpace     KnowledgeSpaceOptions
-	DevHotload         DevHotloadOptions
-	PluginRelease      PluginReleaseOptions
-	PluginBootstrap    PluginBootstrapOptions
-	PluginDebug        PluginDebugOptions
-	Server             ServerOptions
+	EventFabric                     EventFabricOptions
+	Workflow                        WorkflowOptions
+	IntegrationGateway              IntegrationGatewayOptions
+	CapabilityRegistry              CapabilityRegistryOptions
+	AgentLifecycle                  AgentLifecycleOptions
+	KnowledgeSpace                  KnowledgeSpaceOptions
+	DevHotload                      DevHotloadOptions
+	PluginRelease                   PluginReleaseOptions
+	PluginBootstrap                 PluginBootstrapOptions
+	PluginDebug                     PluginDebugOptions
+	PluginMarketplaceAPI            string
+	PluginMarketplacePublicSite     string
+	ProductInformation              productinfo.Information
+	PluginMarketplaceToken          string
+	PluginMarketplaceEnrollment     string
+	PluginMarketplaceStateDirectory string
+	PluginMarketplaceHeartbeat      time.Duration
+	Server                          ServerOptions
 }
 
 // QueueOptions 描述任务驱动的配置入口。
@@ -89,6 +101,7 @@ type GRPCServerOptions struct {
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。
 type EventFabricOptions struct {
+	EnvironmentID     string
 	AckTimeoutSeconds int
 	DefaultMaxRetry   int
 	RedisAddr         string
@@ -248,6 +261,9 @@ type CapabilityRegistryOptions struct {
 	Notifications           CapabilityRegistryNotificationOptions
 	DefaultHTTPTimeout      time.Duration
 	AIMultimodalHTTPTimeout time.Duration
+	// 来自主配置 ai.defaults.llm / ai.runtime，不提供独立于主配置的时限。
+	LLMRequestTimeout   time.Duration
+	LLMQueueWaitTimeout time.Duration
 }
 
 // CapabilityRegistryNotificationOptions 定义告警通知。

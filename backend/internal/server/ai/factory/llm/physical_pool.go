@@ -13,6 +13,7 @@ import (
 	modelconfig "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -55,9 +56,17 @@ func ConfigurePhysicalModelPools(ctx context.Context, client redis.UniversalClie
 		if strings.TrimSpace(rule.PoolID) == "" || strings.TrimSpace(rule.Provider) == "" ||
 			strings.TrimSpace(rule.Endpoint) == "" || strings.TrimSpace(rule.Model) == "" ||
 			rule.Capacity < 1 || rule.Capacity > 10000 || rule.MaxWaiting < 1 || rule.MaxWaiting > 100000 ||
-			rule.LeaseTTL < RequestTimeout()+10*time.Second || rule.LeaseTTL > time.Hour {
+			rule.LeaseTTL <= 0 || rule.LeaseTTL > time.Hour {
 			return fmt.Errorf("physical model pool rule is invalid for %q", rule.PoolID)
 		}
+		effectiveTTL, err := effectivePhysicalLeaseTTL(rule.LeaseTTL, RequestTimeout())
+		if err != nil {
+			return fmt.Errorf("physical model pool %q: %w", rule.PoolID, err)
+		}
+		if rule.LeaseTTL != effectiveTTL {
+			logger.InfoF(ctx, "[ai.timeout] physical lease aligned pool=%s model=%s configured_lease_ms=%d effective_lease_ms=%d request_timeout_ms=%d", rule.PoolID, rule.Model, rule.LeaseTTL.Milliseconds(), effectiveTTL.Milliseconds(), RequestTimeout().Milliseconds())
+		}
+		rule.LeaseTTL = effectiveTTL
 		if _, duplicate := byTarget[key]; duplicate {
 			return fmt.Errorf("duplicate physical model target %q", key)
 		}
@@ -69,6 +78,19 @@ func ConfigurePhysicalModelPools(ctx context.Context, client redis.UniversalClie
 	}
 	configuredPhysicalPool.Store(&physicalPoolRuntime{pool: pool, rules: byTarget, queueWait: queueWait})
 	return nil
+}
+
+// effectivePhysicalLeaseTTL 让配置的推理期限优先，较短的旧租约配置按安全下限补齐。
+// 租约不增加业务推理时间；显式更长值及现有一小时安全上限保持有效。
+func effectivePhysicalLeaseTTL(configured, request time.Duration) (time.Duration, error) {
+	if configured <= 0 || configured > time.Hour || request <= 0 || request > time.Hour-10*time.Second {
+		return 0, fmt.Errorf("lease_ttl must be positive and at most 1h; request_timeout must leave a 10s lease window within 1h")
+	}
+	required := request + 10*time.Second
+	if configured > required {
+		return configured, nil
+	}
+	return required, nil
 }
 
 func modelTargetKey(provider, endpoint, model string) string {
@@ -84,11 +106,33 @@ func modelTargetKey(provider, endpoint, model string) string {
 // for one physical deployment slot. The provider request timeout starts only
 // after this function returns. The returned completion function is idempotent.
 func acquireModelCallLease(ctx context.Context, mc *modelconfig.ModelConfig) (context.Context, func() error, error) {
-	profileRelease, err := acquireModelConcurrencyLease(ctx, mc)
-	if err != nil {
-		return nil, nil, err
-	}
 	runtime := configuredPhysicalPool.Load()
+	// 两级排队共享同一时限；推理上下文仍从原始 caller ctx 创建，
+	// 所以排队不会侵占配置中的单次推理时间。
+	defaults := agentconfig.AIConfig{}
+	defaults.SetDefaults()
+	queueWait := defaults.Runtime.QueueWaitTimeout
+	if cfg := agentconfig.GetGlobalAIConfig(); cfg != nil && cfg.Runtime.QueueWaitTimeout > 0 {
+		queueWait = cfg.Runtime.QueueWaitTimeout
+	}
+	if runtime != nil {
+		queueWait = runtime.queueWait
+	}
+	waitCtx, waitCancel := context.WithTimeout(ctx, queueWait)
+	defer waitCancel()
+	queueError := func(err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
+			return fmt.Errorf("%w: %v", ErrModelQueueTimeout, err)
+		}
+		return err
+	}
+	profileRelease, err := acquireModelConcurrencyLease(waitCtx, mc)
+	if err != nil {
+		return nil, nil, queueError(err)
+	}
 	if runtime == nil {
 		return ctx, func() error { profileRelease(); return nil }, nil
 	}
@@ -104,19 +148,13 @@ func acquireModelCallLease(ctx context.Context, mc *modelconfig.ModelConfig) (co
 		}
 		return ctx, func() error { profileRelease(); return nil }, nil
 	}
-	waitCtx, waitCancel := context.WithTimeout(ctx, runtime.queueWait)
-	owner := firstNonEmpty(strings.TrimSpace(reqctx.GetTenantUUID(ctx)), "global") + ":" +
-		firstNonEmpty(strings.TrimSpace(reqctx.GetEnv(ctx)), "default")
+	owner := firstNonEmpty(strings.TrimSpace(reqctx.GetTenantUUID(ctx)), "global") + ":" + firstNonEmpty(strings.TrimSpace(reqctx.GetEnv(ctx)), "default")
 	lease, err := runtime.pool.WaitAcquire(waitCtx, rule.PoolID, owner, rule.Capacity, rule.MaxWaiting, rule.LeaseTTL)
-	waitTimedOut := errors.Is(waitCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil
-	waitCancel()
 	if err != nil {
 		profileRelease()
-		if waitTimedOut {
-			return nil, nil, fmt.Errorf("%w: %v", ErrModelQueueTimeout, err)
-		}
-		if ctx.Err() != nil {
-			return nil, nil, ctx.Err()
+		classified := queueError(err)
+		if ctx.Err() != nil || errors.Is(classified, ErrModelQueueTimeout) {
+			return nil, nil, classified
 		}
 		return nil, nil, errors.Join(ErrPhysicalModelPoolUnavailable, err)
 	}

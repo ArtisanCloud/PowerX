@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: PowerX Media Image Derivatives
-  version: 1.0.0
+  version: 2.0.0
 security: [{bearerAuth: []}]
 servers:
   - url: /api/v1
@@ -81,17 +81,25 @@ components:
         asset_uuid: {type: string, format: uuid}
         upload_state: {type: string, description: 原图上传状态，独立于派生任务}
         status: {type: string, enum: [not_requested, waiting_upload, waiting_source, queued, processing, ready, failed, scheduling_failed, unsupported, unavailable]}
-        recipe: {type: string, enum: [standard-image-v1]}
+        recipe: {type: string, enum: [standard-image-v2]}
         job_uuid: {type: string, format: uuid}
         attempts: {type: integer}
         error_code: {type: string}
         retryable: {type: boolean}
         items:
           type: array
+          minItems: 3
           items:
             type: object
             required: [variant, status]
             properties:
-              variant: {type: string, enum: [preview, thumbnail]}
+              variant: {type: string, enum: [preview, thumbnail, thumbnail_64]}
               variant_uuid: {type: string, format: uuid}
-              status: {type: string}
+              status: {type: string, enum: [not_requested, waiting_upload, waiting_source, queued, processing, ready, failed, scheduling_failed, unsupported, unavailable], description: 'Ready requires a valid variant_uuid; ready items remain readable while the overall recipe is queued or failed.'}
+              error_code: {type: string}
+              retryable: {type: boolean}
+            oneOf:
+            - required: [variant_uuid]
+              properties: {status: {type: string, enum: [ready]}}
+            - not: {required: [variant_uuid]}
+              properties: {status: {type: string, enum: [not_requested, waiting_upload, waiting_source, queued, processing, failed, scheduling_failed, unsupported, unavailable]}}

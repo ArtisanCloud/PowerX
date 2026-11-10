@@ -1,0 +1,459 @@
+{
+  "cases": [
+    {
+      "name": "manifest",
+      "definition": "Manifest",
+      "data": {
+        "schema": "powerx.build-fingerprint/v1",
+        "product": "powerx",
+        "component": "web-admin",
+        "release_id": "1.0.0-fixture",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "target": {
+          "os": "any",
+          "arch": "any"
+        },
+        "artifacts": [
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/theme.css",
+            "sha256": "471a3e6ffa6ba8d329ba369277bab2005772524b93583f1cc3f42d9082ab597e",
+            "size": 36
+          },
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/entry.js",
+            "sha256": "19941f7b83582b455abe1c878f17e8dbc085c9734ab04556a64d8020f9996fa0",
+            "size": 33
+          }
+        ],
+        "built_at": "2026-10-23T00:00:00.000Z",
+        "build_id": "61407a34f8ed53d317015fbcbfbed17b69c2a3eea3724a0892a2e10ef024def7"
+      },
+      "valid": true
+    },
+    {
+      "name": "build-info-summary",
+      "definition": "BuildInfo",
+      "data": {
+        "schema": "powerx.build-fingerprint/v1",
+        "component": "backend",
+        "release_id": "1.0.0-fixture",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "build_id": "89fc7e814d66ca932dba6a07cc0e03f8cf08aaa266ba030fdf8856f891da2223"
+      },
+      "valid": true
+    },
+    {
+      "name": "discovery-old",
+      "definition": "Discovery",
+      "data": {
+        "service": "powerx-marketplace",
+        "protocol": "powerx.instance-registration/v1"
+      },
+      "valid": true
+    },
+    {
+      "name": "discovery-extended",
+      "definition": "Discovery",
+      "data": {
+        "service": "powerx-marketplace",
+        "protocol": "powerx.instance-registration/v1",
+        "heartbeat_seconds": 300,
+        "features": [
+          "powerx.deployment-fingerprint/v1"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "name": "register-old",
+      "definition": "RegisterLegacy",
+      "data": {
+        "fingerprint_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "powerx_version": "1.0.0",
+        "os": "linux",
+        "arch": "arm64",
+        "name": "PowerX fixture"
+      },
+      "valid": true
+    },
+    {
+      "name": "register-extended",
+      "definition": "RegisterExtended",
+      "data": {
+        "fingerprint_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "powerx_version": "1.0.0",
+        "os": "linux",
+        "arch": "arm64",
+        "name": "PowerX fixture",
+        "features": [
+          "powerx.deployment-fingerprint/v1"
+        ],
+        "build_info": {
+          "schema": "powerx.build-fingerprint/v1",
+          "component": "backend",
+          "release_id": "1.0.0-fixture",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567",
+          "build_id": "89fc7e814d66ca932dba6a07cc0e03f8cf08aaa266ba030fdf8856f891da2223"
+        },
+        "public_site_url": "https://admin.example.com/console/"
+      },
+      "valid": true
+    },
+    {
+      "name": "heartbeat-old",
+      "definition": "HeartbeatLegacy",
+      "data": {
+        "powerx_version": "1.0.0"
+      },
+      "valid": true
+    },
+    {
+      "name": "heartbeat-clear-url",
+      "definition": "HeartbeatExtended",
+      "data": {
+        "powerx_version": "1.0.0",
+        "features": [
+          "powerx.deployment-fingerprint/v1"
+        ],
+        "public_site_url": ""
+      },
+      "valid": true
+    },
+    {
+      "name": "heartbeat-omit-url",
+      "definition": "HeartbeatExtended",
+      "data": {
+        "powerx_version": "1.0.0",
+        "features": [
+          "powerx.deployment-fingerprint/v1"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "name": "challenge",
+      "definition": "Challenge",
+      "data": {
+        "schema": "powerx.instance-proof/v1",
+        "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+        "site_url": "https://admin.example.com/console/",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expires_at": "2026-10-23T00:10:00.000Z",
+        "expires_in_ms": 600000
+      },
+      "valid": true
+    },
+    {
+      "name": "proof",
+      "definition": "Proof",
+      "data": {
+        "schema": "powerx.instance-proof/v1",
+        "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expires_at": "2026-10-23T00:10:00.000Z"
+      },
+      "valid": true
+    },
+    {
+      "name": "heartbeat-response-empty",
+      "definition": "HeartbeatResponseExtended",
+      "data": {
+        "status": "recorded",
+        "server_time": "2026-10-23T00:00:00.000Z",
+        "site_challenges": []
+      },
+      "valid": true
+    },
+    {
+      "name": "heartbeat-response",
+      "definition": "HeartbeatResponseExtended",
+      "data": {
+        "status": "recorded",
+        "server_time": "2026-10-23T00:00:00.000Z",
+        "site_challenges": [
+          {
+            "schema": "powerx.instance-proof/v1",
+            "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+            "site_url": "https://admin.example.com/console/",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-10-23T00:10:00.000Z",
+            "expires_in_ms": 600000
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "name": "register-response",
+      "definition": "RegisterResponseExtended",
+      "data": {
+        "protocol": "powerx.instance-registration/v1",
+        "instance": {
+          "id": "b09b9208-157d-4ad3-b951-5bfa2c13ab5c"
+        },
+        "server_time": "2026-10-23T00:00:00.000Z",
+        "site_challenges": [
+          {
+            "schema": "powerx.instance-proof/v1",
+            "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+            "site_url": "https://admin.example.com/console/",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-10-23T00:10:00.000Z",
+            "expires_in_ms": 600000
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "name": "development-info",
+      "definition": "ProductInformation",
+      "data": {
+        "product": "powerx",
+        "state": "development"
+      },
+      "valid": true
+    },
+    {
+      "name": "legacy-handler-rejects-extension",
+      "definition": "HeartbeatLegacy",
+      "data": {
+        "powerx_version": "1.0.0",
+        "features": [
+          "powerx.deployment-fingerprint/v1"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "missing-server-time",
+      "definition": "HeartbeatResponseExtended",
+      "data": {
+        "status": "recorded",
+        "site_challenges": []
+      },
+      "valid": false
+    },
+    {
+      "name": "missing-complete-set",
+      "definition": "HeartbeatResponseExtended",
+      "data": {
+        "status": "recorded",
+        "server_time": "2026-10-23T00:00:00.000Z"
+      },
+      "valid": false
+    },
+    {
+      "name": "null-is-not-clear-url",
+      "definition": "HeartbeatExtended",
+      "data": {
+        "powerx_version": "1.0.0",
+        "features": [
+          "powerx.deployment-fingerprint/v1"
+        ],
+        "public_site_url": null
+      },
+      "valid": false
+    },
+    {
+      "name": "null-is-not-empty-challenges",
+      "definition": "HeartbeatResponseExtended",
+      "data": {
+        "status": "recorded",
+        "server_time": "2026-10-23T00:00:00.000Z",
+        "site_challenges": null
+      },
+      "valid": false
+    },
+    {
+      "name": "too-many-challenges",
+      "definition": "ChallengeSet",
+      "data": {
+        "server_time": "2026-10-23T00:00:00.000Z",
+        "site_challenges": [
+          {
+            "schema": "powerx.instance-proof/v1",
+            "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+            "site_url": "https://admin.example.com/console/",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-10-23T00:10:00.000Z",
+            "expires_in_ms": 600000
+          },
+          {
+            "schema": "powerx.instance-proof/v1",
+            "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+            "site_url": "https://admin.example.com/console/",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-10-23T00:10:00.000Z",
+            "expires_in_ms": 600000
+          },
+          {
+            "schema": "powerx.instance-proof/v1",
+            "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+            "site_url": "https://admin.example.com/console/",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-10-23T00:10:00.000Z",
+            "expires_in_ms": 600000
+          },
+          {
+            "schema": "powerx.instance-proof/v1",
+            "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+            "site_url": "https://admin.example.com/console/",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-10-23T00:10:00.000Z",
+            "expires_in_ms": 600000
+          },
+          {
+            "schema": "powerx.instance-proof/v1",
+            "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+            "site_url": "https://admin.example.com/console/",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-10-23T00:10:00.000Z",
+            "expires_in_ms": 600000
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "public-proof-must-not-expose-instance",
+      "definition": "Proof",
+      "data": {
+        "schema": "powerx.instance-proof/v1",
+        "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expires_at": "2026-10-23T00:10:00.000Z",
+        "instance_token": "must-not-escape"
+      },
+      "valid": false
+    },
+    {
+      "name": "invalid-nonce-invalid+padding=",
+      "definition": "Challenge",
+      "data": {
+        "schema": "powerx.instance-proof/v1",
+        "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+        "site_url": "https://admin.example.com/console/",
+        "nonce": "invalid+padding=",
+        "expires_at": "2026-10-23T00:10:00.000Z",
+        "expires_in_ms": 600000
+      },
+      "valid": false
+    },
+    {
+      "name": "invalid-expires_in_ms-600001",
+      "definition": "Challenge",
+      "data": {
+        "schema": "powerx.instance-proof/v1",
+        "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+        "site_url": "https://admin.example.com/console/",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expires_at": "2026-10-23T00:10:00.000Z",
+        "expires_in_ms": 600001
+      },
+      "valid": false
+    },
+    {
+      "name": "invalid-expires_in_ms-0",
+      "definition": "Challenge",
+      "data": {
+        "schema": "powerx.instance-proof/v1",
+        "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+        "site_url": "https://admin.example.com/console/",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expires_at": "2026-10-23T00:10:00.000Z",
+        "expires_in_ms": 0
+      },
+      "valid": false
+    },
+    {
+      "name": "submillisecond-expiry-invalid",
+      "definition": "Challenge",
+      "data": {
+        "schema": "powerx.instance-proof/v1",
+        "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+        "site_url": "https://admin.example.com/console/",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expires_at": "2026-10-23T00:10:00.000001Z",
+        "expires_in_ms": 600000
+      },
+      "valid": false
+    },
+    {
+      "name": "unsafe-size",
+      "definition": "Manifest",
+      "data": {
+        "schema": "powerx.build-fingerprint/v1",
+        "product": "powerx",
+        "component": "web-admin",
+        "release_id": "1.0.0-fixture",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "target": {
+          "os": "any",
+          "arch": "any"
+        },
+        "artifacts": [
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/theme.css",
+            "sha256": "471a3e6ffa6ba8d329ba369277bab2005772524b93583f1cc3f42d9082ab597e",
+            "size": 9007199254740992
+          },
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/entry.js",
+            "sha256": "19941f7b83582b455abe1c878f17e8dbc085c9734ab04556a64d8020f9996fa0",
+            "size": 33
+          }
+        ],
+        "built_at": "2026-10-23T00:00:00.000Z",
+        "build_id": "61407a34f8ed53d317015fbcbfbed17b69c2a3eea3724a0892a2e10ef024def7"
+      },
+      "valid": false
+    },
+    {
+      "name": "uppercase-sha",
+      "definition": "Manifest",
+      "data": {
+        "schema": "powerx.build-fingerprint/v1",
+        "product": "powerx",
+        "component": "web-admin",
+        "release_id": "1.0.0-fixture",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "target": {
+          "os": "any",
+          "arch": "any"
+        },
+        "artifacts": [
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/theme.css",
+            "sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "size": 36
+          },
+          {
+            "kind": "public_asset",
+            "path": "_nuxt/entry.js",
+            "sha256": "19941f7b83582b455abe1c878f17e8dbc085c9734ab04556a64d8020f9996fa0",
+            "size": 33
+          }
+        ],
+        "built_at": "2026-10-23T00:00:00.000Z",
+        "build_id": "61407a34f8ed53d317015fbcbfbed17b69c2a3eea3724a0892a2e10ef024def7"
+      },
+      "valid": false
+    },
+    {
+      "name": "go-zero-millisecond-format",
+      "definition": "HeartbeatResponseExtended",
+      "data": {
+        "status": "recorded",
+        "server_time": "2026-10-23T00:00:00Z",
+        "site_challenges": []
+      },
+      "valid": true
+    }
+  ]
+}

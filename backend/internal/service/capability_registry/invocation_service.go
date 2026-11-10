@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,38 +34,42 @@ import (
 
 // InvocationServiceOptions 配置能力调用服务。
 type InvocationServiceOptions struct {
-	Catalog           *RegistryService
-	Router            *router.Service
-	TraceRepo         *repo.InvocationTraceRepository
-	EventRepo         *repo.CapabilityEventPublicationRepository
-	EventBus          event_bus.EventBus
-	Auditor           auditpkg.Auditor
-	Metrics           *capmetrics.CapabilityRegistryMetrics
-	Audit             *AuditService
-	Clock             func() time.Time
-	VersionLock       VersionLock
-	HTTPClient        *http.Client
-	AIModalHTTPClient *http.Client
-	HTTPBaseURL       string
-	GRPCConn          *grpc.ClientConn
-	ModelVerifier     ModelKeyVerifier
-	CoreInvoker       CoreCapabilityInvoker
+	Catalog               *RegistryService
+	Router                *router.Service
+	TraceRepo             *repo.InvocationTraceRepository
+	EventRepo             *repo.CapabilityEventPublicationRepository
+	EventBus              event_bus.EventBus
+	Auditor               auditpkg.Auditor
+	Metrics               *capmetrics.CapabilityRegistryMetrics
+	Audit                 *AuditService
+	Clock                 func() time.Time
+	VersionLock           VersionLock
+	HTTPClient            *http.Client
+	AIModalHTTPClient     *http.Client
+	HTTPBaseURL           string
+	GRPCConn              *grpc.ClientConn
+	ModelVerifier         ModelKeyVerifier
+	CoreInvoker           CoreCapabilityInvoker
+	ServiceIdentityIssuer ServiceInvocationIdentityIssuer
 }
 
 // InvocationService 负责触发能力调用并记录追踪。
 type InvocationService struct {
-	catalog           *RegistryService
-	router            *router.Service
-	traces            *repo.InvocationTraceRepository
-	audit             *AuditService
-	versionLock       VersionLock
-	modelVerifier     ModelKeyVerifier
-	now               func() time.Time
-	httpClient        *http.Client
-	aiModalHTTPClient *http.Client
-	httpBaseURL       string
-	grpcConn          *grpc.ClientConn
-	coreInvoker       CoreCapabilityInvoker
+	catalog               *RegistryService
+	router                *router.Service
+	traces                *repo.InvocationTraceRepository
+	audit                 *AuditService
+	versionLock           VersionLock
+	modelVerifier         ModelKeyVerifier
+	now                   func() time.Time
+	httpClient            *http.Client
+	aiModalHTTPClient     *http.Client
+	httpBaseURL           string
+	grpcConn              *grpc.ClientConn
+	coreInvoker           CoreCapabilityInvoker
+	serviceIdentityIssuer ServiceInvocationIdentityIssuer
+	pluginTargetMu        sync.RWMutex
+	pluginTargetResolver  PluginServiceTargetResolver
 }
 
 // ModelKeyVerifier validates tenant-scoped model_key access.
@@ -95,12 +100,20 @@ type CoreCapabilityInvokeInput struct {
 // Core REST capability. Callers must not have to parse a JSON fragment from an
 // error string to identify a provider timeout.
 type RESTUpstreamError struct {
-	StatusCode int
-	Method     string
-	Endpoint   string
-	RemoteCode string
-	Details    map[string]interface{}
-	Cause      string
+	StatusCode    int
+	Method        string
+	Endpoint      string
+	RemoteCode    string
+	BusinessCode  string
+	RemoteTraceID string
+	Details       map[string]interface{}
+	Cause         string
+	// SafePlugin marks diagnostics sanitized by the service-ticket response parser.
+	SafePlugin bool
+}
+
+func (e *RESTUpstreamError) PreserveStatus() bool {
+	return e != nil && e.BusinessCode != "" && e.StatusCode >= 400 && (e.StatusCode < 500 || e.SafePlugin && e.StatusCode < 600)
 }
 
 func (e *RESTUpstreamError) Error() string {
@@ -114,12 +127,20 @@ func (e *RESTUpstreamError) Error() string {
 // are explicitly returned by the invoked capability.
 func InvocationFailureDetails(err error) map[string]interface{} {
 	var upstreamErr *RESTUpstreamError
-	if !errors.As(err, &upstreamErr) || len(upstreamErr.Details) == 0 {
+	if !errors.As(err, &upstreamErr) || (len(upstreamErr.Details) == 0 && upstreamErr.BusinessCode == "" && upstreamErr.RemoteTraceID == "") {
 		return nil
 	}
 	details := make(map[string]interface{}, len(upstreamErr.Details))
 	for key, value := range upstreamErr.Details {
 		details[key] = value
+	}
+	if upstreamErr.BusinessCode != "" {
+		details["reason_code"] = upstreamErr.BusinessCode
+		details["upstream_error_code"] = upstreamErr.BusinessCode
+		details["upstream_status"] = upstreamErr.StatusCode
+	}
+	if upstreamErr.RemoteTraceID != "" {
+		details["upstream_trace_id"] = upstreamErr.RemoteTraceID
 	}
 	return details
 }
@@ -175,18 +196,19 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 		aiModalHTTPClient = httpClient
 	}
 	return &InvocationService{
-		catalog:           opts.Catalog,
-		router:            opts.Router,
-		traces:            opts.TraceRepo,
-		audit:             audit,
-		versionLock:       opts.VersionLock,
-		modelVerifier:     opts.ModelVerifier,
-		now:               clock,
-		httpClient:        httpClient,
-		aiModalHTTPClient: aiModalHTTPClient,
-		httpBaseURL:       strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
-		grpcConn:          opts.GRPCConn,
-		coreInvoker:       opts.CoreInvoker,
+		catalog:               opts.Catalog,
+		router:                opts.Router,
+		traces:                opts.TraceRepo,
+		audit:                 audit,
+		versionLock:           opts.VersionLock,
+		modelVerifier:         opts.ModelVerifier,
+		now:                   clock,
+		httpClient:            httpClient,
+		aiModalHTTPClient:     aiModalHTTPClient,
+		httpBaseURL:           strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
+		grpcConn:              opts.GRPCConn,
+		coreInvoker:           opts.CoreInvoker,
+		serviceIdentityIssuer: opts.ServiceIdentityIssuer,
 	}
 }
 
@@ -199,53 +221,47 @@ type VersionLock interface {
 // ErrManualUpgradeRequired 表示能力调用前需要管理员确认升级。
 var ErrManualUpgradeRequired = errors.New("capability manual upgrade required")
 
-// Invoke 触发能力调用并记录追踪。
-func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (InvocationResult, error) {
-	var result InvocationResult
+// prepareInvocation is the common admission, live grant, publication, model and
+// version gate for both ordinary and streaming calls.
+func (s *InvocationService) prepareInvocation(ctx context.Context, in InvocationInput) (context.Context, *models.CapabilityRecord, error) {
 	if s == nil {
-		return result, errors.New("invocation service unavailable")
+		return ctx, nil, errors.New("invocation service unavailable")
 	}
 	if s.router == nil {
-		return result, errors.New("invocation router unavailable")
+		return ctx, nil, errors.New("invocation router unavailable")
 	}
 	if err := s.audit.checkStorageAdmission(ctx); err != nil {
-		return result, err
+		return ctx, nil, err
 	}
 	capabilityID := strings.TrimSpace(in.CapabilityID)
 	tenantUUID := strings.TrimSpace(in.TenantUUID)
 	if capabilityID == "" || tenantUUID == "" {
-		return result, errors.New("capability_id and tenant_uuid are required")
+		return ctx, nil, errors.New("capability_id and tenant_uuid are required")
 	}
 	if ServiceCredential(ctx) {
 		access, err := s.catalog.credentialAccess.CurrentAccess(ctx)
 		if err != nil {
-			return result, err
+			return ctx, nil, err
 		}
 		if err = access.Require(capabilityID); err != nil {
-			return result, err
+			return ctx, nil, err
 		}
 		if tenantUUID != reqctx.GetTenantUUID(ctx) {
-			return result, &DirectGrantError{403}
+			return ctx, nil, &DirectGrantError{403}
 		}
 		ctx = context.WithValue(ctx, callerContextKey{}, access.Subject)
 	}
 
-	traceID := strings.TrimSpace(in.TraceID)
-	if traceID == "" {
-		traceID = uuid.NewString()
-	}
-	result.TraceID = traceID
-
 	view, err := s.catalog.GetCapability(ctx, capabilityID, false)
 	if err != nil {
-		return result, err
+		return ctx, nil, err
 	}
 	record := view.Record
 	if record == nil {
-		return result, fmt.Errorf("capability %s not found", capabilityID)
+		return ctx, nil, fmt.Errorf("capability %s not found", capabilityID)
 	}
 	if !strings.EqualFold(strings.TrimSpace(record.Status), "published") {
-		return result, fmt.Errorf("capability %s is not published", capabilityID)
+		return ctx, nil, fmt.Errorf("capability %s is not published", capabilityID)
 	}
 	if s.modelVerifier != nil && strings.HasPrefix(strings.ToLower(capabilityID), "com.corex.ai.") {
 		modality := extractStringFromBody(in.Payload, "modality")
@@ -258,11 +274,11 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 		}
 		if !shouldSkipModelKeyVerification(capabilityID, in.Payload, modelKey) {
 			if modelKey == "" && strings.Contains(strings.ToLower(capabilityID), ".stream") {
-				return result, fmt.Errorf("model_key required")
+				return ctx, nil, fmt.Errorf("model_key required")
 			}
 			env := extractQueryString(in.Payload, "env")
 			if err := s.modelVerifier.VerifyModelKey(ctx, tenantUUID, env, modality, modelKey); err != nil {
-				return result, err
+				return ctx, nil, err
 			}
 		}
 	}
@@ -270,11 +286,30 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	if s.versionLock != nil && strings.TrimSpace(record.CapabilitiesHash) != "" {
 		if err := s.versionLock.Enforce(ctx, tenantUUID, capabilityID, strings.TrimSpace(record.CapabilitiesHash)); err != nil {
 			if s.versionLock.IsUpgradeError(err) {
-				return result, fmt.Errorf("%w: %v", ErrManualUpgradeRequired, err)
+				return ctx, nil, fmt.Errorf("%w: %v", ErrManualUpgradeRequired, err)
 			}
-			return result, err
+			return ctx, nil, err
 		}
 	}
+
+	return ctx, record, nil
+}
+
+// Invoke 触发能力调用并记录追踪。
+func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (InvocationResult, error) {
+	var result InvocationResult
+	traceID := strings.TrimSpace(in.TraceID)
+	if traceID == "" {
+		traceID = uuid.NewString()
+	}
+	result.TraceID = traceID
+
+	ctx, record, err := s.prepareInvocation(ctx, in)
+	if err != nil {
+		return result, err
+	}
+	capabilityID := strings.TrimSpace(in.CapabilityID)
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
 
 	payloadBytes, err := json.Marshal(in.Payload)
 	if err != nil {
@@ -293,6 +328,9 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	latency := s.now().Sub(start)
 
 	responseMap := decodeJSONPayload(routerResult.Payload)
+	if invokeErr == nil && routerResult.FallbackUsed && hasServiceTicketBinding(record) {
+		invokeErr = pluginServiceError(503, "CAPABILITY_SERVICE_FALLBACK_FORBIDDEN")
+	}
 	if invokeErr != nil {
 		result.Status = "failed"
 		result.ProtocolUsed = routerResult.Transport
@@ -415,6 +453,9 @@ func (s *InvocationService) GetTrace(ctx context.Context, traceID string) (*mode
 }
 
 func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult router.InvokeResult, in InvocationInput, traceID string) (map[string]interface{}, error) {
+	if payload, handled, err := s.invokeTrustedPluginService(ctx, routerResult, in, traceID); handled {
+		return payload, err
+	}
 	transport := strings.ToLower(strings.TrimSpace(routerResult.Transport))
 	if transport == "" {
 		transport = strings.ToLower(strings.TrimSpace(in.PreferredProtocol))
@@ -827,11 +868,17 @@ func (s *InvocationService) invokeREST(ctx context.Context, capabilityID string,
 
 func newRESTUpstreamError(statusCode int, method, endpoint string, raw []byte) error {
 	remote := struct {
-		Message string                 `json:"message"`
-		Error   string                 `json:"error"`
-		Details map[string]interface{} `json:"details"`
+		ErrorCode string                 `json:"error_code"`
+		TraceID   string                 `json:"trace_id"`
+		Message   string                 `json:"message"`
+		Error     string                 `json:"error"`
+		Details   map[string]interface{} `json:"details"`
 	}{}
-	_ = json.Unmarshal(raw, &remote)
+	decodeErr := json.Unmarshal(raw, &remote)
+	businessCode := strings.TrimSpace(remote.ErrorCode)
+	if decodeErr != nil || !validRESTBusinessCode(businessCode) {
+		businessCode = ""
+	}
 	cause := strings.TrimSpace(remote.Error)
 	if cause == "" {
 		cause = strings.TrimSpace(remote.Message)
@@ -842,14 +889,36 @@ func newRESTUpstreamError(statusCode int, method, endpoint string, raw []byte) e
 	if len(cause) > 512 {
 		cause = cause[:512]
 	}
-	return &RESTUpstreamError{
-		StatusCode: statusCode,
-		Method:     strings.ToUpper(strings.TrimSpace(method)),
-		Endpoint:   strings.TrimSpace(endpoint),
-		RemoteCode: strings.TrimSpace(remote.Message),
-		Details:    remote.Details,
-		Cause:      cause,
+	remoteCode := businessCode
+	if remoteCode == "" {
+		remoteCode = strings.TrimSpace(remote.Message)
 	}
+	return &RESTUpstreamError{
+		StatusCode:    statusCode,
+		Method:        strings.ToUpper(strings.TrimSpace(method)),
+		Endpoint:      strings.TrimSpace(endpoint),
+		RemoteCode:    remoteCode,
+		BusinessCode:  businessCode,
+		RemoteTraceID: strings.TrimSpace(remote.TraceID),
+		Details:       remote.Details,
+		Cause:         cause,
+	}
+}
+
+func validRESTBusinessCode(code string) bool {
+	if len(code) < 3 || len(code) > 128 {
+		return false
+	}
+	for i, ch := range code {
+		if ch >= 'A' && ch <= 'Z' {
+			continue
+		}
+		if i > 0 && (ch == '_' || ch >= '0' && ch <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func firstRESTContextString(ctx context.Context, keys ...string) string {
@@ -1244,6 +1313,15 @@ func isModelListCapability(capabilityID string) bool {
 }
 
 func shouldSkipModelKeyVerification(capabilityID string, payload map[string]interface{}, modelKey string) bool {
+	// 媒体 v2 在固定 Core binding 内校验型号能力、配置和可信租户环境；
+	// 任务读取/取消使用 task_uuid，不能套用旧的 env query + model_key 验证器。
+	switch strings.ToLower(strings.TrimSpace(capabilityID)) {
+	case "com.corex.ai.connection.test":
+		// 只读连接探测不要求型号；严格 DTO 与租户配置由固定 Core binding 校验。
+		return true
+	case "com.corex.ai.vlm.invoke", "com.corex.ai.image.invoke", "com.corex.ai.video.invoke", "com.corex.ai.tts.invoke", "com.corex.ai.media.tasks.read", "com.corex.ai.media.tasks.cancel":
+		return true
+	}
 	// Catalog reads select available tenant configuration; they are not model
 	// invocations. Their access boundary is the granted catalog capability, not
 	// an individual model_key. Keep this an exact allowlist so no other AI

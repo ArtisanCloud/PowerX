@@ -65,6 +65,9 @@ func (s *Service) remoteGCRuns() ([]RemoteGCResult, error) {
 	return visible, nil
 }
 func (s *Service) buildRemoteGC(ctx context.Context, p Policy, t Target, ignore ...string) (remoteGCPlan, error) {
+	if e := s.requireCommandsDrained(false); e != nil {
+		return remoteGCPlan{}, e
+	}
 	out := remoteGCPlan{RemoteGCResult: RemoteGCResult{ID: uuid.NewString(), PolicyID: p.ID, PolicyRevision: p.Revision, State: "preview", CreatedAt: time.Now().UTC(), ExpiresAt: time.Now().UTC().Add(5 * time.Minute), Protected: map[string]int{}}, Target: t, Jobs: []string{}, Versions: []minio.ObjectVersion{}}
 	idsRuns, e := s.records("remote-gc")
 	if e != nil {
@@ -110,6 +113,10 @@ func (s *Service) buildRemoteGC(ctx context.Context, p Policy, t Target, ignore 
 			continue
 		}
 		if j.PolicyID == p.ID && j.Target != nil && j.Target.ID == t.ID {
+			if !sameArchiveStorage(*j.Target, t) {
+				out.Protected["historical_target_configuration"]++
+				continue
+			}
 			jobs[id] = j
 			if j.CreatedAt.After(latest) {
 				latest = j.CreatedAt
@@ -248,7 +255,7 @@ func (s *Service) PreviewRemoteGC(ctx context.Context, policyID string) (RemoteG
 	if err != nil {
 		return RemoteGCResult{}, err
 	}
-	t, err := s.target(p.TargetID)
+	t, err := s.targetContext(ctx, p.TargetID)
 	if err != nil {
 		return RemoteGCResult{}, err
 	}
@@ -292,6 +299,13 @@ func (s *Service) StartRemoteGC(ctx context.Context, id string) (RemoteGCResult,
 		unlock()
 		return plan.RemoteGCResult, failure(409, "ARCHIVE_PREVIEW_EXPIRED", "清理预览已过期，请重新预览")
 	}
+	if s.policyControlRequired() {
+		p, e := s.policy(ctx, plan.PolicyID)
+		if e != nil || !p.RemoteCleanupEnabled || p.Revision != plan.PolicyRevision {
+			unlock()
+			return plan.RemoteGCResult, failure(409, "ARCHIVE_POLICY_DISABLED", "策略已停用或版本变化，请重新预览")
+		}
+	}
 	plan.State = "queued"
 	if err = writeJSON(s.path("remote-gc", id), plan); err != nil {
 		unlock()
@@ -321,6 +335,29 @@ func (s *Service) StartRemoteGC(ctx context.Context, id string) (RemoteGCResult,
 	return response, nil
 }
 func (s *Service) executeRemoteGC(ctx context.Context, plan *remoteGCPlan) {
+	if !s.policyControlRequired() {
+		s.executeRemoteGCApproved(ctx, plan)
+		return
+	}
+	p, e := s.policy(ctx, plan.PolicyID)
+	if e != nil || p.Revision != plan.PolicyRevision || !p.RemoteCleanupEnabled {
+		plan.State = "blocked"
+		plan.Problem = "策略已停用或版本变化"
+		_ = writeJSON(s.path("remote-gc", plan.ID), plan)
+		return
+	}
+	e = s.guardPolicyAction(ctx, p, "remote-cleanup", func(run context.Context) error { s.executeRemoteGCApproved(run, plan); return run.Err() })
+	if e != nil {
+		if plan.DeletedVersions > 0 {
+			plan.State = "unconfirmed"
+		} else {
+			plan.State = "blocked"
+		}
+		plan.Problem = "策略、目标或执行条件发生变化，已停止本批操作"
+		_ = writeJSON(s.path("remote-gc", plan.ID), plan)
+	}
+}
+func (s *Service) executeRemoteGCApproved(ctx context.Context, plan *remoteGCPlan) {
 	finish := func(state, problem string) {
 		plan.State = state
 		plan.Problem = problem
@@ -332,18 +369,21 @@ func (s *Service) executeRemoteGC(ctx context.Context, plan *remoteGCPlan) {
 		return
 	}
 	defer unlock()
-	settings, err := s.lock(ctx, "settings")
+	settings := func() {}
+	if !s.policyControlRequired() {
+		settings, err = s.lock(ctx, "settings")
+	}
 	if err != nil {
 		finish("blocked", "策略正在修改，请重新预览")
 		return
 	}
 	defer settings()
 	p, err := s.policy(ctx, plan.PolicyID)
-	if err != nil || p.Revision != plan.PolicyRevision {
+	if err != nil || p.Revision != plan.PolicyRevision || s.policyControlRequired() && !p.RemoteCleanupEnabled {
 		finish("blocked", "策略版本已变化")
 		return
 	}
-	t, err := s.target(p.TargetID)
+	t, err := s.targetContext(ctx, p.TargetID)
 	if err != nil || t.Revision != plan.Target.Revision || t.VerifiedFingerprint != plan.Target.VerifiedFingerprint {
 		finish("blocked", "归档目标已变化")
 		return
@@ -385,7 +425,9 @@ func (s *Service) executeRemoteGC(ctx context.Context, plan *remoteGCPlan) {
 			finish("unconfirmed", "清理中断，需核对具体版本结果")
 			return
 		}
-		err = c.RemoveObject(ctx, t.Bucket, v.Key, minio.RemoveObjectOptions{VersionID: v.VersionID})
+		err = s.guardPolicyAction(ctx, p, "remote-cleanup", func(run context.Context) error {
+			return c.RemoveObject(run, t.Bucket, v.Key, minio.RemoveObjectOptions{VersionID: v.VersionID})
+		})
 		if err != nil {
 			finish("unconfirmed", "版本删除结果未确认，停止后续删除")
 			return
@@ -435,7 +477,7 @@ func (s *Service) tickRemoteGC(ctx context.Context, p Policy) error {
 	if err := readJSON(marker, &previous); err == nil && time.Since(previous.At) < time.Hour {
 		return nil
 	}
-	t, err := s.target(p.TargetID)
+	t, err := s.targetContext(ctx, p.TargetID)
 	if err != nil {
 		return err
 	}
@@ -457,4 +499,9 @@ func (s *Service) tickRemoteGC(ctx context.Context, p Policy) error {
 	}
 	s.pruneRemoteGCPreviews()
 	return nil
+}
+
+// sameArchiveStorage 只判断远端命名空间；改名或凭据轮换不改变存储位置。
+func sameArchiveStorage(a, b Target) bool {
+	return a.Driver == b.Driver && a.Endpoint == b.Endpoint && a.Bucket == b.Bucket && a.Prefix == b.Prefix && a.Host == b.Host && a.Port == b.Port && a.User == b.User && a.Directory == b.Directory
 }

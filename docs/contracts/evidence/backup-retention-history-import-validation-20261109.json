@@ -1,0 +1,272 @@
+{
+  "date": "2026-11-09",
+  "task": "T171 legacy SQL retention history inventory, explicit import and coverage proof",
+  "status": "source and owned isolated acceptance complete; shared-worktree release registry check failed; T171 / SG-11 overall and live adoption remain open",
+  "branch": "024-ai-engineering-skills",
+  "scope": {
+    "root_human_access_only": true,
+    "fixed_source": "current database Core schema ops_backup_cleanup_retentions",
+    "new_sql_schema": false,
+    "normal_plugin_admission_changed": false,
+    "new_code_mutates_sql_history_or_business_rows": false,
+    "job_protection_or_cleanup_token_changed": false,
+    "maintenance_protocol": "powerx.storage-recovery/v5",
+    "ledger_protocol": "powerx.backup-retention-ledger/v2",
+    "bounded_records": 4096,
+    "bounded_import_audits": 1024,
+    "bounded_bytes": 16777216
+  },
+  "implementation": [
+    "Read-only current-scope source with foreign count, fixed paging/filter and frozen source/record/generation snapshot",
+    "Independent pending UUID before accepted; exact actor/input replay; published pause/recovery guard; maintenance-root lock then SQL control guard then fixed SHARE source lock",
+    "All historical identities and terminal import audit committed in one file checkpoint; original actors and checking unknown outcomes preserved",
+    "Real v4/v1 upgrade and legal interruption preserve historical identities; missing recorded v4/v5 file cannot be recreated",
+    "Current-runtime SQL restore and database compensation check current all-scope identity coverage before overwrite or epoch advance; ordinary plugin admission unchanged",
+    "Vertical task sections preserve drafts/unknown UUID; terminal result before explicit new form; shared SSE with no state polling; abort on identity change/unmount"
+  ],
+  "validation": {
+    "backend": {
+      "race_packages": 6,
+      "result": "passed",
+      "native_checks": [
+        "Root and non-Root/API-key/service-actor/plugin claims",
+        "foreign scope gap and invalid row",
+        "4097 source limit refuses entire batch and preflight",
+        "confirmed pause and recovery control guards",
+        "original Actor9 preserved when Root2 imports",
+        "immutable UUID/actor/body, strict HTTP query/body, accepted/complete SSE, terminal replay",
+        "snapshot drift, identity conflict, atomic file failure, accepted-response loss and epoch changes",
+        "real owned schema pg_dump/pg_restore retains import proof and post-snapshot identities",
+        "actual CurrentRuntime preflight blocks missing history before epoch advance and permits covered history",
+        "genuine v4/v1 upgrade, legal interrupted upgrade, missing file, 1024 import audit bound"
+      ],
+      "queue": "formal TaskBus wrapper with real PG and miniredis transport; not production distributed transport"
+    },
+    "frontend": {
+      "vitest_files": 18,
+      "vitest_tests": 145,
+      "result": "passed",
+      "browser": "real daily Nuxt frontend with all backup API operations routed to owned native JWT/HTTP/SSE/PG fixture; user-authorized daily Root login only",
+      "checks": [
+        "Root read-only inventory shows missing historical identity and explicit filter",
+        "light 1440 inventory/primary action/navigation",
+        "light 390 inventory/primary action/navigation",
+        "dark 1440 inventory/primary action/navigation",
+        "dark 390 inventory/primary action/navigation",
+        "independent vertical sections preserve the Root import draft",
+        "lost committed SSE response and failed GET preserve original UUID without automatic retry",
+        "GET original UUID reconciles the atomic independent coverage proof",
+        "light 1440 proof/recent receipt/context/navigation",
+        "light 390 proof/recent receipt/context/navigation",
+        "dark 1440 proof/recent receipt/context/navigation",
+        "dark 390 proof/recent receipt/context/navigation",
+        "shared SSE invalidation refreshes state with zero idle queries or repeated mutation"
+      ],
+      "page_errors": [],
+      "faults": "drop real committed terminal SSE frame and temporarily deny receipt GET",
+      "widths": [
+        1440,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "localization": "zh/en complete, ja/ko key coverage with some English; not full linguistic acceptance"
+    },
+    "checks": {
+      "go_vet": "passed six affected packages",
+      "capability_check": "passed declared=1242 referenced=83 rest_routes=1175 candidates=1266 ignored_route_rules=137",
+      "upgrade_registry_check": {
+        "result": "failed",
+        "code": "UPGRADE_PAYLOAD_CHANGED",
+        "exit_code": 1,
+        "groups": [
+          {
+            "group": "core",
+            "registered": "d217755d3d3ac1a33f4384f319906def362e0613c5531484147b2a5a219fa2cd",
+            "current": "39d0fc61ff8ee925f396cb0dd9cd42cec5f9e0994cbf8ca632317f3c246eb0be"
+          }
+        ],
+        "scope": "Current shared worktree. This slice changes no COMMON/GROUPS production input; do not regenerate unrelated migration IDs automatically.",
+        "registry_mutated_by_agent": false
+      },
+      "this_slice_upgrade_payload_input_intersection": [],
+      "openapi_refs_and_locale_json": "passed",
+      "source_whitespace_and_scoped_diff": "passed"
+    }
+  },
+  "process_cleanup": {
+    "owned_pids_exited": [
+      52702,
+      52997,
+      53903,
+      53984,
+      53995,
+      53996,
+      54023,
+      76630
+    ],
+    "http_proxy_ports_released": [
+      62730,
+      62871
+    ],
+    "postgres_socket_port": 55442,
+    "postgres_stopped": true,
+    "owned_schema_count_before_stop": 0,
+    "owned_cluster_removed": true,
+    "credential_file_absent": true,
+    "daily_observation": {
+      "core_pid": 16175,
+      "core_port": 8077,
+      "nuxt_pid": 34360,
+      "nuxt_port": 3030,
+      "not_restarted_or_stopped": true
+    }
+  },
+  "limitations": [
+    "No daily/production migration, service restart, live policy/target/executor adoption, cleanup or legacy-history import occurred.",
+    "Owned schema dump/restore and protocol-file upgrades are not production whole-site recovery or tests of an actual old deployed executable.",
+    "Historical complete proof is not current artifact/protection/task-drain proof; current SQL coverage is rechecked before replacement.",
+    "Checking stays unknown; no cross-generation unknown-intent terminal resolution, token unlock or deletion authority.",
+    "Private SHA256 is not an external signature; whole-volume rollback/host loss requires independent backup.",
+    "No cross-scope auto-import or automatic history pruning; limits fail closed.",
+    "Shared worktree core upgrade registry drift must be reviewed with its owning changes before release; registry not regenerated here.",
+    "T155 permanent S3/OSS retrieval, old executor handoff, external keys, dual environment and 7/14 day evidence remain open."
+  ],
+  "next_task": {
+    "id": "T172",
+    "action": "Contract then implementation of explicit non-deleting retained/quarantine resolution for cross-generation unknown cleanup intent.",
+    "completion": "Recheck exact artifact/token/content and executor drain, immutable UUID/CAS/audit, concurrency/restore/disconnect boundaries; preserve original unknown outcome and never delete as a side effect.",
+    "isolated_development_requires_user_restart": false
+  },
+  "files": [
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/backend-final.log",
+      "sha256": "1959e7ff8e0fca1e2cd50347fa0945d130b8ab18c1309ebaea8c909d15e4f30a"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/native-final.log",
+      "sha256": "48bdbae8f3b31a13e37393d8c844d603d12a0f8699cbca990be45352482b8b2e"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/native-recovery-final.log",
+      "sha256": "458624c1a40ddaf6653382dede6b022911fe92443918ca9f3bb6ef94e3b8462e"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/auth-boundaries-final.log",
+      "sha256": "d0c146f708b35640aa37cccc909a958055394e41bfc336abc35009d14b96be69"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/frontend-final.log",
+      "sha256": "45eb1fb3d4a0ac90493b463d3d3261639cd2916eb12de6f734a35f88031a0f7e"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/vet-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/capability-check.log",
+      "sha256": "adedb92a30cb84b557a0c87c2ca64ef37eff9d53a37b2567164654c0d08d9126"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/upgrade-registry.log",
+      "sha256": "555722ce82fc8040705c0578ddd76fdccd0bf92bd451f9d48de34504baac5349"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/upgrade-registry-drift.json",
+      "sha256": "fae9fc5824deaace62fe296ec625d76ed51a5506e1aebe69f7eb5a5a85fe064b"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/browser-http.log",
+      "sha256": "a3dedf202153333bbf72b98fee6403baee6c9c2311dbd6774b70fa89c7ca5ae8"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/browser-ui.log",
+      "sha256": "fe49a7cf60671bb1f6677332844bbfcac22f3d701155a17c76a05397e25fad1f"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/ui-result.json",
+      "sha256": "69a594210d25fea4c832c4238d8114cc10fd116316d955db6032ce71d31df51a"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/process-cleanup.json",
+      "sha256": "d8f400f3fc787a2e662863410e3f3fd7e0ca200e4ed8d5e6fe910eb709218f24"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/dark-1440-inventory.png",
+      "sha256": "623f8485f74cbfed02ac5fd38b5ae233c84252e1477b19a107b90f5ebc845706"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/dark-1440-proof.png",
+      "sha256": "0e05253b176c586453f65e6a7242b0e5714697e645a5ec45d88d0beac45994ae"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/dark-390-inventory.png",
+      "sha256": "58140d99ecee0e8407e4718e14abdb188fdd5a825c791ea7b952344759d2ba2c"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/dark-390-proof.png",
+      "sha256": "bdabb223949aacc7863f894a512fd4ca8d513bf12ed7d48dd3221487cdd1e4f5"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/light-1440-inventory.png",
+      "sha256": "6e228e34dbedc14066c0471eb7806472ec3d8d8e4bcbb69df90f65efec8d59d1"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/light-1440-proof.png",
+      "sha256": "1bb794381cc8b8ad5653ef959abeddedb9a4dae01276e09f3162a1bd0e9fb29a"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/light-390-inventory.png",
+      "sha256": "1a6b99f6bf66ef065503b95c6302422d6e567fcf16195dcd704fd11ae28e7f26"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/light-390-proof.png",
+      "sha256": "c4dcb47bea1b89ea7c749d03686ea725f334169b89a5f21537710256cd36d8e1"
+    },
+    {
+      "path": "docs/contracts/evidence/backup-retention-history-import-20261109/unknown-1440.png",
+      "sha256": "3d110152c28eef25ee039a13fdd6960e9de6202d9850f0abcab75b24060aa5d3"
+    }
+  ],
+  "source_sha256": {
+    "backend/internal/infra/storage_recovery/anchor.go": "f8d2fd2b7e1a4ae9f436386dec2b9dbd70ff9419248f8b6677847df59dd70f20",
+    "backend/internal/infra/storage_recovery/retention.go": "27acd612ac1d26912271676f8b8dfc66af69ce15562e13a4789e05f841b24a92",
+    "backend/internal/infra/storage_recovery/retention_import.go": "80218da93c80f35c3dfa5725fd1d27792107ae95ac9a1d3633c7a99a39012724",
+    "backend/internal/infra/storage_recovery/retention_test.go": "2a698e970721a64e5eadf84c38081bc52cdb76aa3f6b8b6951682a6e4a7a498f",
+    "backend/internal/infra/storage_recovery/upgrade_test.go": "6a74043c356e4006c0273c3a9fd6afbfa144592b682660359c9833a8128a2057",
+    "backend/internal/infra/storage_recovery/retention_import_test.go": "da577c4808202c4c2aa736b66ed958551b160109a87e429a21676c17f231db66",
+    "backend/internal/service/backup_ops/retention_history.go": "58a07289851fb4edd85e171e32773cbf774286aa25e07f0b4f350a595bbb0e7f",
+    "backend/internal/service/backup_ops/retention_coverage.go": "f07e2562ce3969c88e4d7bb724642439ec21ccd3c354e9a45c5589cc1c762d5b",
+    "backend/internal/service/storage_governance/backup_policy_control.go": "223c63f740a787eb1fb11863517c03a4a7ae83e036759d6a9cc8c38afdb09bcc",
+    "backend/internal/service/storage_governance/execution_control.go": "bbaa41333e183359504c3f5a7d0a354997b35c6aa88727170f3596e7bb46faf2",
+    "backend/internal/service/storage_governance/recovery_control.go": "f103314ae019b25ca13af521069835f2a74c7a045f2a8b74f85a2f9df0c26c04",
+    "backend/internal/service/storage_governance/retention_history_postgres_test.go": "77c86966ad3d304ae17ef0964381e945a305a08bb70e0f8dda8a363fa7262bb6",
+    "backend/internal/service/system_recovery/current_storage.go": "86b770847cdc2eb39767254898a3684fa6741e11ec026e1889b32d709b675d32",
+    "backend/internal/service/system_recovery/current_restore.go": "3246886257cab47115317e1aa9f08e94e5fc63271e66ddd1b1c355917e043ac5",
+    "backend/internal/service/system_recovery/current_storage_test.go": "13c8336cae83c23550cc3d7b5beea7e7464c1a17d58cde9ea901e8ece28a9f95",
+    "backend/internal/service/system_recovery/current_storage_history_postgres_test.go": "7b10d3813ff94ad89e2348d201870df7fd982e30a508a7249e88f048848fe240",
+    "backend/pkg/corex/db/persistence/repository/ops/backup_cleanup_retention_repository.go": "2b4428126cf88cb311c9f9119a7ecd1b11cbced2af47d0d2c42739d3e076b8e2",
+    "backend/internal/transport/http/admin/backup/routes.go": "849a8fdc1db73c175c97ac5e6ef5015a1d4c062c05bbab10795d22218a433a0c",
+    "backend/internal/transport/http/admin/backup/retention_history_handler.go": "d6a621703e9a1a98d8ba3d1e0738635d2a7f9670679463ec401f8a74bd63ecb4",
+    "backend/internal/transport/http/admin/backup/retention_history_test.go": "93917cd11805a6a4aa067bdb8d84ef6f39fa6275ab30555823187e11b32599fb",
+    "backend/internal/transport/http/admin/backup/cleanup_review_postgres_test.go": "d13dc1601ad92c9c8eeecff6852a8484136fc9555fa04c1d270c280a44b9211e",
+    "backend/config/capability_audit_ignore.yaml": "4d3fcc67b09aacbdd71d79314866d3d919c3cc9fce3c6fa4b89403f252a4f810",
+    "web-admin/app/components/ops/backup/BackupRetentionHistory.vue": "2505b8094afde4609c3a9ca707c7a16a1501d3884d20b029c2322c4f977fefdd",
+    "web-admin/app/composables/api/services/backupHistoryService.ts": "9d3b51ed8e904c1a88ac581cf6056a71571c15361b6a587e840c7ad52f2d8382",
+    "web-admin/app/pages/ops/backup.vue": "3b55e1379c0d353312c4e2042cfe63241e7f3a69409cbeda67c50c67f2bafe52",
+    "web-admin/tests/unit/backup/history-import.spec.ts": "145e90bb200866e0b2c645f6e0b83831453b1163886c3f9f66ba8d204b056c3f",
+    "web-admin/tests/unit/backup/backup-workspace.spec.ts": "6748bb7288fcc8b88f94958431b81f27b469fd299d3f6f3e6203be2c7316045f",
+    "docs/contracts/backup-retention-history-import.md": "b048df4c40af8ab63503f92bb9075c67eb5388c7038d27c0593551a6a1f4bc83",
+    "docs/contracts/backup-retention-history.openapi.yaml": "0ed7900d9aaf22e5b796bd39b8ee2ed3cb4097091afb0cd99cf9887747d1931f",
+    "docs/contracts/backup-retention-recovery-ledger.md": "d45f68eddaf82922449bfef91a9055d1d0b27b9603763a190caed36b3b4780cd",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-backup-history.md": "f47a2fe2adc096389ecce04e50c39b12912a79754102094f18caac17a58954ef",
+    "docs/guides/deploy/027-monitor-center/guide.md": "8a70b11664056a6f9cd7fccc983f6aa338801f4b951573b1487c1e32308f16b0",
+    "specs/027-monitor-center/tasks.md": "fdf2f1b03c756b95dcdd4634381504cecb24ecb48b95e1fceb85f9f4f377b6cb",
+    "web-admin/i18n/locales/zh.json": "b3712b416594cfb0ceb9f7a11987b0da4bc79afea3c11658794fa78bab8bc5d8",
+    "web-admin/i18n/locales/en.json": "3f938a54d33e95b2d837ca7c1cb68b45a4b0a9c2ae8ee4bf302bde4ec673ba77",
+    "web-admin/i18n/locales/ja.json": "dfb97598abf19df179ac4b379a449941fc384d06789c92797a8fb0f1d334f6a1",
+    "web-admin/i18n/locales/ko.json": "a85558bfd021cb0b22fb6162f15dfa776ce9ab9d1093ba937279c689728339d9"
+  }
+}

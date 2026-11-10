@@ -11,6 +11,8 @@ type PluginConfig struct {
 	AllowDestructiveDBCleanup bool `yaml:"allow_destructive_db_cleanup"`
 	// 启动时自动恢复已启用插件的并发度（默认1，建议本地2~4）
 	AutoRestoreParallelism int `yaml:"auto_restore_parallelism"`
+	// EventFabricNamespaceOwners 为旧命名或共享命名指定唯一插件归属；只能由 Core 配置维护。
+	EventFabricNamespaceOwners map[string]string `yaml:"event_fabric_namespace_owners"`
 
 	// 预留（里程碑后续用）
 	ReadTimeoutSec  int `yaml:"read_timeout_sec"`
@@ -35,16 +37,36 @@ func DefaultPluginConfig() PluginConfig {
 // PluginAggregateConfig 聚合所有插件相关模块配置，作为单一入口暴露。
 type PluginAggregateConfig struct {
 	PluginConfig `yaml:",inline"`
+	Marketplace  MarketplaceConfig     `yaml:"marketplace"`
 	Release      PluginReleaseConfig   `yaml:"release"`
 	DevHotload   DevHotloadConfig      `yaml:"dev_hotload"`
 	Bootstrap    PluginBootstrapConfig `yaml:"bootstrap"`
 	Debug        PluginDebugConfig     `yaml:"debug"`
 }
 
+// DefaultMarketplaceAPIRoot 是新部署的官方市场入口；配置文件和环境变量可覆盖。
+const DefaultMarketplaceAPIRoot = "https://marketplace.artisan-cloud.com/api/v1"
+
+// MarketplaceConfig 下载凭证只能保存在服务端环境，不得通过公开配置返回。
+type MarketplaceConfig struct {
+	APIRoot       string `yaml:"api_root"`
+	PublicSiteURL string `yaml:"public_site_url"` // 可选网站入口，与对象存储地址无关。
+	DownloadToken string `yaml:"download_token" json:"-"`
+	// EnrollmentToken 仅兼容旧版手工接入；正常启动自动登记，无需配置。不导出到 YAML/JSON。
+	EnrollmentToken  string `yaml:"-" json:"-"`
+	HeartbeatSeconds int    `yaml:"heartbeat_seconds"`
+}
+
+// DefaultMarketplaceConfig 统一源码、Setup、容器和分发二进制的市场默认值。
+func DefaultMarketplaceConfig() MarketplaceConfig {
+	return MarketplaceConfig{APIRoot: DefaultMarketplaceAPIRoot, HeartbeatSeconds: 300}
+}
+
 // DefaultPluginAggregateConfig 返回聚合后的默认配置。
 func DefaultPluginAggregateConfig() PluginAggregateConfig {
 	return PluginAggregateConfig{
 		PluginConfig: DefaultPluginConfig(),
+		Marketplace:  DefaultMarketplaceConfig(),
 		Release:      DefaultPluginReleaseConfig(),
 		DevHotload:   DefaultDevHotloadConfig(),
 		Bootstrap:    DefaultPluginBootstrapConfig(),

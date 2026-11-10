@@ -1,0 +1,36 @@
+id: com.powerx.plugins.scrm.runtime_ops.invoke
+type: API
+version: 1.0.0
+description: "插件运行时内部事件总线、ws-bus 与 session 调用能力，供宿主安装启用时注册。"
+rbac:
+  resource: runtime.ops
+  actions: [invoke, manage, observe, read]
+metadata:
+  protocols:
+    rest:
+      - method: POST
+        path: /api/v1/admin/runtime/bootstrap
+      - method: POST
+        path: /api/v1/admin/runtime/sessions/register
+      - method: POST
+        path: /api/v1/admin/runtime/sessions/{sessionID}/ack
+      - method: POST
+        path: /api/v1/admin/runtime/sessions/{sessionID}/heartbeat
+      - method: POST
+        path: /api/v1/admin/runtime/sessions/{sessionID}/close
+      - method: POST
+        path: /api/v1/admin/runtime/sessions/{sessionID}/invoke
+      - method: GET
+        path: /api/v1/admin/runtime/quota/status
+      - method: GET
+        path: /api/v1/admin/runtime/metrics
+      - method: POST
+        path: /api/v1/admin/runtime/internal/event-fabric/topics
+      - method: POST
+        path: /api/v1/admin/runtime/internal/ws-bus/publish
+      - method: POST
+        path: /api/v1/admin/runtime/internal/ws-bus/test-notification
+      - method: POST
+        path: /api/v1/admin/runtime/internal/ws-bus/grant
+      - method: POST
+        path: /api/v1/admin/runtime/internal/ws-bus/register

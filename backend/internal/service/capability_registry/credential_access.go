@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	owners "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/apikeypermissions"
 	"time"
 
 	setting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
@@ -22,6 +23,12 @@ func ServiceCredential(ctx context.Context) bool {
 type CredentialAccess struct {
 	Subject string
 	Granted map[string]bool
+	// PluginOwners 仅来自已认证 STS 主体或 Key 的显式 owner 绑定，不能从被调用插件推导。
+	PluginOwners []string
+}
+
+func (a CredentialAccess) OwnsPlugin(id string) bool {
+	return grantStatusContains(a.PluginOwners, id)
 }
 
 type callerContextKey struct{}
@@ -51,6 +58,15 @@ func (s *GrantStatusService) CurrentAccess(ctx context.Context) (CredentialAcces
 			return result, &DirectGrantError{503}
 		}
 		result.Subject = "api_key:" + key.UUID.String()
+		if len(key.PluginOwnerPolicy) > 0 && string(key.PluginOwnerPolicy) != "null" {
+			policy, err := owners.ResolveOwnerPolicy(key.PluginOwnerPolicy, nil)
+			if err != nil {
+				return result, &DirectGrantError{503}
+			}
+			if policy.Mode == "key" {
+				result.PluginOwners = append([]string(nil), policy.Owners()...)
+			}
+		}
 		allowed, _, e = s.allowedForGatewayAPIKey(ctx, tenant)
 		if e != nil {
 			return result, &DirectGrantError{503}
@@ -82,6 +98,7 @@ func (s *GrantStatusService) CurrentAccess(ctx context.Context) (CredentialAcces
 			return result, &DirectGrantError{401}
 		}
 		result.Subject = "sts:" + c.PluginID + ":" + c.Subject
+		result.PluginOwners = []string{c.PluginID}
 		allowed = map[string]bool{}
 		for _, id := range credential.Allowed {
 			allowed[id] = true

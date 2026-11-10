@@ -117,12 +117,7 @@ it('keeps read history in the notification center and its entry visible when the
   ready(); wrapper = mount({ ...Header, render: () => null }); await flushPromises();
   const state = wrapper.vm.$.setupState as any;
   expect(state.unreadCount).toBe(0);
-  expect(state.notificationItems[0]).toEqual([{ label: 'header.notifications.empty', icon: 'i-heroicons-bell-slash', disabled: true }]);
-  const center = state.notificationItems[1][0];
-  expect(center.label).toBe('header.notifications.viewAll');
-  await center.onSelect();
-  expect(navigateTo).toHaveBeenCalledWith('/notifications');
-  expect(state.notificationItems.flat().some((n: any) => n.label === 'header.notifications.clear')).toBe(false);
+  expect(state.recentNotifications).toEqual([]);
   const historyView = scope.run(useNotifications)!;
   await historyView.fetchNotifications();
   expect(historyView.notifications.value.map(n => n.id)).toEqual([currentNotice, oldNotice]);
@@ -137,8 +132,8 @@ it('shows five unread items while the bell badge uses the server unread total ac
   const state = wrapper.vm.$.setupState as any;
   expect(api.list.mock.calls[0][0].isRead).toBe(false);
   expect(state.unreadCount).toBe(25);
-  expect(state.notificationItems[0].map((n: any) => n.label)).toEqual(unread.slice(0, 5).map(n => n.title));
-  expect(state.notificationItems[1][0].badge).toBe('25');
+  expect(state.recentNotifications.map((n: any) => n.title)).toEqual(unread.slice(0, 5).map(n => n.title));
+  expect(state.recentNotifications).toHaveLength(5);
 });
 
 it('releases the old socket and waits for the new member context after login changes', async () => {

@@ -59,8 +59,8 @@ const defaults = reactive<{
 
 const providerItems = computed(() =>
   (providers.value || []).map((p) => ({
-    label: p.Name || p.ID,
-    value: p.ID,
+    label: p.name,
+    value: p.id,
   }))
 );
 

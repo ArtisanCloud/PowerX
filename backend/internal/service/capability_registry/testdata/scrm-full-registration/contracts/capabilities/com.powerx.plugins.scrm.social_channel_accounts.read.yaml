@@ -1,0 +1,54 @@
+id: com.powerx.plugins.scrm.social_channel_accounts.read
+type: API
+version: 1.0.0
+description: "读取渠道账号、企微授权、同步状态、冲突和渠道基础配置的管理端能力。"
+rbac:
+  resource: scrm.social_channel_accounts
+  actions: [read]
+metadata:
+  protocols:
+    rest:
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/authorized-apps
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/authorize/owners
+      - method: GET
+        path: /api/v1/admin/social/channel-schema
+      - method: GET
+        path: /api/v1/admin/social/channel-accounts
+      - method: GET
+        path: /api/v1/admin/social/channel-accounts/deleted
+      - method: GET
+        path: /api/v1/admin/social/channel-accounts/{account_uuid}
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/authorize/status
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/foundation/access/status
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/bindings
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/sync/jobs
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/sync/conflicts
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/sync/dashboard
+      - method: GET
+        path: /api/v1/admin/social/openwork/wecom/go-live-gates
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/sync/overview
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/sync/metrics
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/capabilities
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/staff-tags
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/staff-tags/{tag_uuid}/members
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/staff-members
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/customers
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/customers/records
+      - method: GET
+        path: /api/v1/admin/social/openwork/foundation/customer-tags

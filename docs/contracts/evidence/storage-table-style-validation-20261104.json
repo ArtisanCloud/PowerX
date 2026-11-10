@@ -1,0 +1,100 @@
+{
+  "recorded_at": "2026-11-04T14:45:05.522Z",
+  "scope": "local system-table list styling only; existing filter, sorting, configuration and cleanup behavior preserved",
+  "result": "passed",
+  "changes": [
+    "grouped and aligned filter controls",
+    "fixed table columns and compact spacing",
+    "truncated table identifiers with full-name titles and existing detail access",
+    "compact localized time ranges retaining ISO datetime and local timezone",
+    "subtle cleanup state badges",
+    "separate success/failure retention lines",
+    "aligned primary and secondary actions; sticky action column on desktop",
+    "light and dark themes"
+  ],
+  "validation": {
+    "unit_tests": 20,
+    "browser_checks": [
+      "normal_root_login",
+      "separate_cleanup_and_retention_columns",
+      "sort_capacity",
+      "sort_growth",
+      "sort_oldest",
+      "sort_newest",
+      "sort_retention",
+      "sort_name",
+      "combined_filters_and_section_context",
+      "configuration_navigation_without_save",
+      "protection_reason_visible",
+      "typed_configuration_without_enable",
+      "theme_light",
+      "theme_dark",
+      "full_name_available",
+      "empty_state_and_reset",
+      "mobile_390",
+      "mobile_320"
+    ],
+    "widths": [
+      1440,
+      1280,
+      390,
+      320
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "desktop_primary_action_in_viewport": true,
+    "narrow_actions_reachable_with_table_scroll": true,
+    "browser_errors": [],
+    "storage_write_requests": 0,
+    "policy_documents_unchanged": true,
+    "transient_issue": "one browser login-document load timed out; follow-up frontend/Core HTTP probes succeeded and final full browser rerun passed without service restart"
+  },
+  "cleanup": {
+    "checked_at": "2026-11-04T14:47:10.263152+00:00",
+    "owner": "storage-table-style-20261104",
+    "exited_pids": [
+      86414,
+      86385,
+      86389,
+      86394,
+      86395,
+      95688,
+      95627,
+      95671,
+      95672,
+      95645,
+      7777,
+      7810,
+      7819,
+      7820,
+      7835,
+      18914,
+      18915,
+      18932,
+      18906,
+      18910
+    ],
+    "services_started": [],
+    "user_services_preserved": [
+      {
+        "pid": 76613,
+        "port": 8077
+      },
+      {
+        "pid": 76292,
+        "port": 3030
+      }
+    ]
+  },
+  "artifacts": [
+    "tmp/storage-table-style-20261104/REPORT.md",
+    "tmp/storage-table-style-20261104/task-delta.patch",
+    "tmp/storage-table-style-20261104/unit.log",
+    "tmp/storage-table-style-20261104/ui-result.json",
+    "tmp/storage-table-style-20261104/dark-1440.png",
+    "tmp/storage-table-style-20261104/light-1280.png",
+    "tmp/storage-table-style-20261104/actions-320.png"
+  ]
+}

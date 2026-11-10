@@ -32,7 +32,7 @@ func redactIdentityTicketPayload(capabilityID string, payload map[string]interfa
 		case map[string]interface{}:
 			out := map[string]interface{}{}
 			for k, x := range v {
-				if k == "context_ticket" || k == "ws_revalidation_handle" {
+				if k == "context_ticket" || k == "ws_revalidation_handle" || k == "invocation_ticket" {
 					out[k] = "[REDACTED]"
 				} else {
 					out[k] = redact(x)

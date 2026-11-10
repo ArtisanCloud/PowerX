@@ -135,3 +135,6 @@ reports/
 # Isolated Nuxt build/output directories used by browser acceptance
 /web-admin/.nuxt-*/
 /web-admin/.output-*/
+
+# Plugin replacement recovery artifacts (contains host configuration)
+.powerx-install-backups/

@@ -1,0 +1,359 @@
+{
+  "date": "2026-11-07",
+  "scope": "SG-11 database backup policy authority slice",
+  "status": "controlled validation passed; commercial rollout incomplete",
+  "branch": "024-ai-engineering-skills",
+  "authority": "Existing ops_backup_policies only; atomic coupled rows, immutable ops_storage_control_revisions, formal TaskBus intent; private read-only execution projection",
+  "tests": {
+    "native_postgres": {
+      "tests": 5,
+      "fixture_only": true,
+      "capture_script": "owned shell writes synthetic dump; no real pg_dump or independent restore claim"
+    },
+    "race": {
+      "distinct_tests": 15,
+      "runs": 45,
+      "repetitions": 3,
+      "includes": "new backup policy cases and shared control/host budget regressions"
+    },
+    "http": {
+      "real_Gin_JWT_Postgres_TaskBus_SSE": true,
+      "Redis_transport": "miniredis",
+      "authorization": "Root human access session; tenant, service/API Key boundary, strict body; legacy setters rejected"
+    },
+    "frontend": {
+      "files": 30,
+      "tests": 213,
+      "passed": true,
+      "followup_tests": 18
+    },
+    "browser": {
+      "result": "passed",
+      "checks": [
+        "Root adoption and paused create through actual HTTP/PG/TaskBus/SSE",
+        "separate enable and current schedule confirmations preserve exact revisions",
+        "concurrent save conflicts without replacing draft; explicit reload advances CAS",
+        "lost committed response reconciles original UUID with GET only",
+        "light 1440 navigation/draft/primary action/no overflow",
+        "light 390 navigation/draft/primary action/no overflow",
+        "dark 1440 navigation/draft/primary action/no overflow",
+        "dark 390 navigation/draft/primary action/no overflow",
+        "storage governance and backup center show the same persisted policy"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "runtime_errors": [],
+      "idle_observation_seconds": 2.5,
+      "idle_control_requests": [],
+      "operations": "Owned isolated configuration writes only; actual daily login authorized, unrelated daily API requests read-only"
+    },
+    "checks": [
+      "focused Go packages and database/bootstrap regression passed",
+      "go vet passed",
+      "make capability-check passed",
+      "scoped git diff --check passed"
+    ]
+  },
+  "safety_proof": [
+    "paused adoption and definition save; separate enable/current CAS",
+    "single current plan, same-row identities and retained origin snapshot",
+    "one-winner concurrent CAS, immutable UUID replay and TaskBus-register rollback",
+    "single-connection bounded configuration guard; whole capture requires at least two pool connections",
+    "source drift, row/projection tamper and missing authority fence new actions",
+    "protected/latest artifacts retained; expired files removed with durable intent and historical jobs retained",
+    "pause during synthetic capture stops stale post-capture retention and creates alert",
+    "unconfirmed deletion intent blocks automatic retries",
+    "checksum outside SQL locks; replacement or cancellation blocks deletion"
+  ],
+  "not_performed": [
+    "daily/production migration or configuration adoption",
+    "restart or stop of user-owned services",
+    "remote server cleanup/deployment",
+    "real pg_dump, independent restore or automatic restore drill",
+    "external object-storage validation or 7/14 day run"
+  ],
+  "remaining": [
+    "system snapshot and database retention authority",
+    "controlled automatic restore drill admission",
+    "manual unknown-deletion reconciliation product UI",
+    "SG-07 shared object references/byte budgets and minimum verified restore points",
+    "T171 old-binary handoff and joint DB/runtime recovery epoch",
+    "SG-09 real targets and long-run acceptance; full SG-11 release gate"
+  ],
+  "cleanup": {
+    "postgres_stopped": true,
+    "owned_postgres_root_removed": true,
+    "owned_http_proxy_ports_closed": [
+      63342,
+      63307
+    ],
+    "owned_browser_children_remaining": [],
+    "temporary_jwt_removed": true,
+    "daily_services": {
+      "3030": "listening; not managed by this cleanup",
+      "8077": "listening; not managed by this cleanup"
+    }
+  },
+  "sources": [
+    {
+      "file": "backend/internal/service/backup_ops/policy_service.go",
+      "sha256": "9007c581ca8dbf4b60559e4d77e0edb4ad73228631c2a47491b45c845088b99d"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/job_service.go",
+      "sha256": "74ef18f7838eebe082c8899af7c1684add02f56aad687d86f3419cd28feff473"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/artifact_cleanup_service.go",
+      "sha256": "48dff4c171d3533e03055c0278d6c7e2b34f0fb7136be4fb3765ccbf30fb1386"
+    },
+    {
+      "file": "backend/internal/service/storage_governance/control_service.go",
+      "sha256": "5d92a1a30df42868947baea4f501bf683ce416e2b86178271ecf55090abc91fb"
+    },
+    {
+      "file": "backend/pkg/corex/db/persistence/model/ops/backup_policy.go",
+      "sha256": "d7d48f82401a81c2bb4995813bcfa97805c052489c438076de1235cb2fff7725"
+    },
+    {
+      "file": "backend/pkg/corex/db/persistence/model/ops/backup_job.go",
+      "sha256": "00434b4b57aa889e1e3b2dccfa6c6415a7ec903e094be7d5eeee2063cccc01f8"
+    },
+    {
+      "file": "backend/pkg/corex/db/persistence/model/ops/backup_artifact.go",
+      "sha256": "6c5b730de7d160d4fd0e1ff701866deb011eebc4b32489dc63607a113bbe6939"
+    },
+    {
+      "file": "backend/pkg/corex/db/database/migration.go",
+      "sha256": "0d4107c1f3aacfd399a528abeff25353269dbbfefa73ed4297837d451da6e6fe"
+    },
+    {
+      "file": "backend/internal/bootstrap/app.go",
+      "sha256": "81645cc08254256da682207abe4f30c98f4171ea9b8cd2865030347026dc6d22"
+    },
+    {
+      "file": "backend/internal/app/shared/deps.go",
+      "sha256": "ee0d4506fd232162ad89ea5ae5c0498f8fc76a648f96e47b7eeffac1f8d40ec4"
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/handler.go",
+      "sha256": "80bc8af2fb238d0a3715c529886a2199bfacdcdad388192ce349317a2ae903cf"
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/routes.go",
+      "sha256": "c7e5f7841a08b931ff57081acc5e782da819989ea084df8ce37aeabd4b486417"
+    },
+    {
+      "file": "backend/internal/transport/grpc/ops/deploy_handler.go",
+      "sha256": "9a7eabead7c36a2fb9719149bffe865faf3ee09d21f8c66148b5f9c3ff8a64fa"
+    },
+    {
+      "file": "web-admin/app/components/monitor/storage/StorageBackupConfiguration.vue",
+      "sha256": "a1899829dd9f74bd45bc7e01e68d284c68a838ec0e54a00bf8f0d28b936819cc"
+    },
+    {
+      "file": "web-admin/app/pages/ops/backup.vue",
+      "sha256": "e6428b744ab22d8656a103ce67f2c3e457a9074da9308b33d8428b69b0bed6f6"
+    },
+    {
+      "file": "web-admin/app/composables/api/services/backupOpsService.ts",
+      "sha256": "89d1ccc2540191d7928795e5ffa5f1367f402ee289e849d6740540f65b992a7f"
+    },
+    {
+      "file": "backend/config/capability_audit_ignore.yaml",
+      "sha256": "121e5c98fcb346bc2685a7197fa0818148e850e9343b398dc6461685c89c3d36"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/policy_control.go",
+      "sha256": "a3a6cc39fb0d43e745fb2d98b82a1468e4f12aab8c8e0b0037426d9d5b08205d"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/policy_admission.go",
+      "sha256": "80c807d195229e2b2c0fb41d0591c2037c89251405e0dece78d75684e457ccd0"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/policy_cleanup.go",
+      "sha256": "3bf14e4329b1392009f4b74e524116173c4bbd64fad4d59f2975c723ec8e5727"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/policy_cleanup_file.go",
+      "sha256": "cc9147ba25960574860a2b597d38b8ac5deec6dee9713aeba1ba5992c6579c09"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/policy_cleanup_file_test.go",
+      "sha256": "daec03d417b397bf836bf8e2d511bcc00481d5554ae1ff8da01923f227eb6975"
+    },
+    {
+      "file": "backend/internal/service/backup_ops/scheduler_bootstrap.go",
+      "sha256": "9edcd1de7f39d43f2edbb5e0a9f5462ab5f528b4a6f94c2aa0f43efa491c0afb"
+    },
+    {
+      "file": "backend/internal/service/storage_governance/backup_policy_control.go",
+      "sha256": "8fce42cb2e5f120dfd9f9ad9d1780ecd790a86ba0c9c046dfab94db118ecaa3c"
+    },
+    {
+      "file": "backend/internal/service/storage_governance/backup_policy_control_postgres_test.go",
+      "sha256": "82eb2655754ba731dbff024f6da317e3f730824e51ba31aa0542b9e50a343944"
+    },
+    {
+      "file": "backend/pkg/corex/db/persistence/repository/ops/backup_control_repository.go",
+      "sha256": "1a654241f25f5c4bedd9bda100237e07fcb8eade6591e3748a19501387d44402"
+    },
+    {
+      "file": "backend/internal/infra/storage_budget/coordinator.go",
+      "sha256": "5b2836cd273ebde5bd3c0df93150906b76aa852e0b4b0d23d4adefca53c22de7"
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/policy_control_handler.go",
+      "sha256": "dc029ec07d15c1c52a4095ae88e1406ba3dcb0ca18b36b97dbb0b10a492de015"
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/policy_control_postgres_test.go",
+      "sha256": "6fa3f8eae8968fd53ca694e5e7ff38f8b9114fd7c5c998ae710d7fdfd26aeec3"
+    },
+    {
+      "file": "backend/internal/transport/http/admin/backup/events_handler.go",
+      "sha256": "1db8901d5345eacf9ff5dcc96816ab661ec3b6717ea0ef62ad744fb078e9bf47"
+    },
+    {
+      "file": "backend/internal/transport/grpc/ops/backup_handler.go",
+      "sha256": "a458cbcd7eb7972c06045c3d619a212ea92758ed44c03a226d1431cc9014501a"
+    },
+    {
+      "file": "backend/internal/transport/grpc/ops/backup_control_test.go",
+      "sha256": "930745f00678b5995824dd58a497d7025f7f5205b01dd207462267b04fe3c491"
+    },
+    {
+      "file": "web-admin/app/components/ops/backup/DatabaseBackupPolicies.vue",
+      "sha256": "6b288c3b2a66cdd68737e129dd4da80df49d9aeaa63c5c78686b03a54d44978c"
+    },
+    {
+      "file": "web-admin/app/composables/api/services/databaseBackupPolicyService.ts",
+      "sha256": "ce894425b4064218fbdef8b6165626e9e67bb619c0adc543ea239891f90a5d27"
+    },
+    {
+      "file": "web-admin/app/composables/useBackupEvents.ts",
+      "sha256": "53fd31a7879e22e918609cfc423cb2932c789c62015592a353bc8498cecc97b3"
+    },
+    {
+      "file": "web-admin/tests/unit/backup/database-policy-control.spec.ts",
+      "sha256": "df27341e631ef031400a927ec0b43adf481f69665532156cfc4864714c1c5f9c"
+    },
+    {
+      "file": "web-admin/tests/unit/backup/backup-workspace.spec.ts",
+      "sha256": "6713a56f450b68de67918966f7613509fb5c53be63a499112c0ffce774be71fa"
+    },
+    {
+      "file": "web-admin/tests/unit/storage/storage-resource-configuration.spec.ts",
+      "sha256": "8bee311aa7a47fe1540deadd75a6919abcd1bea6c50f5da13b91d8916bbcdf94"
+    },
+    {
+      "file": "docs/contracts/database-backup-policy-control.md",
+      "sha256": "18d6490a063b8167df0c770d1b6945f81e0d70dd5a637d33a049cd1882d5516c"
+    },
+    {
+      "file": "docs/plan/deploy/storage-governance-commercial.md",
+      "sha256": "6824615152e51256d84289fcac68f1ab5e6e226520d9af32bf0562e95dd234ce"
+    },
+    {
+      "file": "specs/027-monitor-center/tasks.md",
+      "sha256": "ef9d819695e9d3700b047b324472ab28c1c62565a44a662f5cb1158a8fdde36f"
+    },
+    {
+      "file": "specs/027-monitor-center/data-model.md",
+      "sha256": "3c0addf75fc43491607783749b9963548a5c7530ac99e232276425b01c8c19cb"
+    },
+    {
+      "file": "specs/027-monitor-center/contracts/database-backup-policy-control.openapi.yaml",
+      "sha256": "2ddb1c3b302b814e6f050afa56bfaac9fae6c48a10f61bd9f8eabf81da84a414"
+    },
+    {
+      "file": "specs/027-monitor-center/contracts/backup-center.openapi.yaml",
+      "sha256": "6a0c6903b1c7fcb6edce6b6dbbaa06a70d94cc3a0a33f199a745b63f0fb27350"
+    },
+    {
+      "file": "tmp/storage-governance-archive-ui-optimization-plan-20261031.md",
+      "sha256": "f75ae61ee306570ccf44c11f75e665602677472d044a54adde85a77a04c6e155"
+    },
+    {
+      "file": "web-admin/i18n/locales/zh.json",
+      "sha256": "1071c8dd0b8f56de26e70fd1c47d72da131808222c1bfd6e44a3dda8d124e9a0"
+    },
+    {
+      "file": "web-admin/i18n/locales/en.json",
+      "sha256": "f8884f41f23da8143de9373ca6c2efe6508828eaf0cadb811df3c1c44857af23"
+    },
+    {
+      "file": "web-admin/i18n/locales/ja.json",
+      "sha256": "038aa80166c3f39855adeaa15c0af49ab298e08d7a8295ed9b67f4d196b82754"
+    },
+    {
+      "file": "web-admin/i18n/locales/ko.json",
+      "sha256": "dc2c5a39c5bb82c9e861c5b9d7b6ccb7e0e849ecb8a3459d833ff239ff6a8162"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/native-tests.log",
+      "sha256": "b250a0b8564415fa8f047511e35e06d975acd3b51f63f064e4a81e543f33460d"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/race.log",
+      "sha256": "0c70572332929c64513244bed33e42f0659b9323b76dab089bfd8052d70217bb"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/http-tests.log",
+      "sha256": "50b689ce0e22f6a26659eadfab4a6e55fd4be411e8bc86196746137123f92c67"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/browser-http.log",
+      "sha256": "783569616b07d333d604be7def033b30f2eaf7023d3611632fbd3c689a28f84d"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/ui-result.json",
+      "sha256": "68528ddb1ae8745febf92996aaac69dfb959ba018a8901e195e47da208b9b86b"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/backend-final.log",
+      "sha256": "388940f32d3211c2a7d344cf4a2f76e91319fe0467ef81420bf20a095657e6f3"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/backend-followup-final.log",
+      "sha256": "5aed0e5a1547810d82c4b7621a094f1fcf314a0867551c60a4462831b8512029"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/backend-completion.log",
+      "sha256": "786327ad386dcf796c1780fe476bba7131bcc92686481e6da3c15b59c502eddd"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/vet-completion.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/vet-followup-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/frontend-final.log",
+      "sha256": "64f2fe0d8390d10799b0192d779b5710d94be212aceb0822d8a4a3934db4a59d"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/frontend-followup.log",
+      "sha256": "be2f7a4c488fc09e345389cc4c718c86f2258ebeaeef8741e1a6f3127e8ed202"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/capability-check.log",
+      "sha256": "41a0464ddfc4afb0637b6f611458a78d32fdb87030fc99bbe7893c4f7ba4ec09"
+    },
+    {
+      "path": "tmp/storage-commercial-db-backup-20261107/cleanup.json",
+      "sha256": "38487bda8e9f4fe9f8b14e1ab3403914b0c442686b51301e8789cfd53654d5f7"
+    }
+  ]
+}

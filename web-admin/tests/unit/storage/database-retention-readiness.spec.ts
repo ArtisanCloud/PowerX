@@ -4,7 +4,7 @@ import { createI18n } from 'vue-i18n';
 import zh from '../../../i18n/locales/zh.json';
 import Panel from '~/components/monitor/storage/DatabaseRetentionPanel.vue';
 
-const api = vi.hoisted(() => ({ databaseStatus: vi.fn(), saveDatabasePolicy: vi.fn(), previewDatabase: vi.fn(), runDatabase: vi.fn() }));
+const api = vi.hoisted(() => ({ databaseStatus: vi.fn(), saveDatabasePolicy: vi.fn(), previewDatabase: vi.fn(), runDatabase: vi.fn(),adoptDatabasePolicy:vi.fn(),changeDatabasePolicy:vi.fn(),databasePolicyRequest:vi.fn(),databaseRunRequest:vi.fn() }));
 vi.mock('~/composables/api/services/storageRuntimeService', () => ({ useStorageRuntimeService: () => api }));
 const stubs = {
   UAlert: { props: ['title', 'description'], template: '<section><p>{{title}} {{description}}</p><slot name="actions"/></section>' },
@@ -21,7 +21,7 @@ let wrapper: ReturnType<typeof mount>;
 const button = (label: string) => wrapper.findAll('button').find(b => b.text() === label)!;
 beforeEach(() => {
   vi.resetAllMocks();
-  status = { state_configured: false, enforcement_allowed: false, migration_ready: false, worker_enabled: false, ready: false, problem: 'database_retention_runtime_not_configured', migration_problem: 'database_retention_migration_required', relation_bytes: 1024, runs: [], policy: { revision: 0, enabled: false, reject_new_when_full: false, adopt_legacy: false, success_days: 30, failure_days: 90, pending_hours: 24, quarantine_days: 30, batch_limit: 200, max_bytes: 8 * 1024 ** 3 } };
+  status = { configuration:{authority:'database',state:'applied',ready:true,execution_ready:true,desired_revision:1,applied_revision:1,snapshot_revision:1,legacy_digest:'a'.repeat(64),effective_capacity:null},state_configured: false, enforcement_allowed: false, migration_ready: false, worker_enabled: false, ready: false, problem: 'database_retention_runtime_not_configured', migration_problem: 'database_retention_migration_required', relation_bytes: 1024, runs: [], policy: { revision: 0, enabled: false, reject_new_when_full: false, adopt_legacy: false, success_days: 30, failure_days: 90, pending_hours: 24, quarantine_days: 30, batch_limit: 200, max_bytes: 8 * 1024 ** 3 } };
   api.databaseStatus.mockImplementation(async () => structuredClone(status));
   wrapper = mount(Panel, { global: { plugins: [createI18n({ legacy: false, locale: 'zh', messages: { zh } })], stubs } });
 });
@@ -69,6 +69,7 @@ it('preserves open form edits during push refresh and disables activation when d
   expect((first.element as HTMLInputElement).value).toBe('14');
   const activation = wrapper.findAll('input[type="checkbox"]');
   expect(activation[1]!.attributes('disabled')).toBeDefined();
-  expect(activation[2]!.attributes('disabled')).toBeDefined();
+  expect(wrapper.text()).toContain('保存期限后自动清理保持暂停');
+  expect(wrapper.text()).not.toContain('独立开启两张调用审计表的期限治理');
   expect(api.saveDatabasePolicy).not.toHaveBeenCalled();
 });

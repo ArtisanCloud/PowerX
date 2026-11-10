@@ -1,0 +1,14 @@
+events:
+  topics:
+    - key: org_sync.progress
+      actions: [publish, subscribe]
+      description: 组织同步进度实时事件
+    - key: powerx.org_sync.progress.v1
+      actions: [publish, subscribe]
+      description: 组织同步进度实时事件（v1）
+    - key: powerx.lead.sync.requested.v1
+      actions: [publish]
+      description: 线索同步任务提交事件
+    - key: powerx.lead.conversation.updated.v1
+      actions: [publish, subscribe]
+      description: 线索会话实时更新事件

@@ -1,5 +1,7 @@
 # 生产日志方案：Loki + Grafana（含 Docker / 非 Docker）
 
+> 2026-10-28：日志采集拓扑之外，新增[双环境存储治理方案](storage-governance.md)及[开发任务](storage-governance-tasks.md)，覆盖 PostgreSQL／journal 持续记录、本地容量与历史窗口、远端归档、活动文件保护和物理占用。完整方案待实施；本地只读切片不代表已开启保留或更改服务。本文早期采集器示例仅供核对既有部署，后续新部署需核实采集器支持周期与实际配置；不能通过只缩短 Loki 保留时间宣称整盘治理完成。
+
 ## 1. 目标
 
 - 将 PowerX 的 backend / web-admin / nginx / 插件运行日志统一汇聚到 Loki

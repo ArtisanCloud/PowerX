@@ -1,0 +1,200 @@
+{
+  "date": "2026-11-09",
+  "task": "T158 accepted archive transfer faults, bounded source and isolated acceptance slice",
+  "status": "source and isolated native/browser acceptance passed; T158 and SG-09/SG-11 remain open",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "implementation": {
+    "backend_runtime_semantics_changed": false,
+    "schema_or_policy_defaults_changed": false,
+    "ui": [
+      "separate local capture and remote result; original archive job ID visible",
+      "partial remote receipt warning; unknown remote states never shown as success",
+      "responsive search/date grid; narrow search remains usable"
+    ],
+    "new_regressions": [
+      "owned versioned S3 protocol peer with real accepted-write acknowledgement loss",
+      "native PostgreSQL/control transaction + formal TaskBus publication fault regression",
+      "owned HTTP/archive/fsnotify/SSE actual Nuxt browser runner"
+    ]
+  },
+  "validation": {
+    "native": {
+      "postgres": "owned Unix-socket PostgreSQL 14, randomly owned schema and formal concentrated migration",
+      "taskbus": "formal driver and publication path; Redis transport uses miniredis fixture",
+      "existing_native_target_policy_tests": 11,
+      "accepted_fault_scenarios": [
+        "object PUT accepted, acknowledgement socket closed",
+        "manifest PUT accepted, acknowledgement socket closed",
+        "provider denies credentials after accepting first object",
+        "owned PostgreSQL backend connection terminated inside guarded write"
+      ],
+      "fault_assertions": [
+        "same request returns original Job ID; no second job",
+        "nonempty local CAS SHA256 and source content retained",
+        "remote failed, not success; source cleanup proof false",
+        "no new remote DELETE",
+        "explicit original-job retry after recovery completes full readback with attempts=2",
+        "content object versions reused; manifest may acquire another version"
+      ],
+      "race": "passed; final native log contains no skipped test",
+      "boundary": "control connection termination, not entire database shutdown or Core/worker restart"
+    },
+    "backend_packages": {
+      "go_test_race": [
+        "archive_ops",
+        "admin/backup"
+      ],
+      "result": "passed"
+    },
+    "go_vet": {
+      "packages": [
+        "archive_ops",
+        "storage_governance",
+        "admin/backup",
+        "testutil/archivefault"
+      ],
+      "result": "passed"
+    },
+    "frontend": {
+      "vitest_files": 4,
+      "tests": 25,
+      "result": "passed"
+    },
+    "actual_browser": {
+      "result": "passed",
+      "checks": [
+        "Real lost object PUT acknowledgement shows local capture completed and remote incomplete with original job ID",
+        "light 1440 failure/identity/navigation/draft retention",
+        "light 390 failure/identity/navigation/draft retention",
+        "dark 1440 failure/identity/navigation/draft retention",
+        "dark 390 failure/identity/navigation/draft retention",
+        "Metadata HTTP503 preserves original row, local result, remote failure and draft",
+        "Original job recovery and full readback arrive through native fsnotify and shared production SSE",
+        "Disconnected SSE is visible, retains task and draft, and sends no periodic detail reads",
+        "Reconnection synchronizes current metadata; zero idle polling or browser mutation",
+        "Leaving the page releases the archive SSE connection"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "viewports": [
+        1440,
+        390
+      ],
+      "uncaught_errors": [],
+      "controlled_request_count": 22,
+      "controlled_mutations": 0,
+      "auth": "daily allowed Root login only for Nuxt shell; archive routes use isolated signed Root fixture JWT",
+      "backend": "real archive service/HTTP/fsnotify/shared SSE with owned protocol service; no native control DB bound in UI fixture",
+      "idle_observation_ms": [
+        1600,
+        1800
+      ],
+      "reviewed_screenshots": [
+        "light-390-failure.png",
+        "dark-1440-failure.png"
+      ]
+    }
+  },
+  "deployment": {
+    "daily_core_restarted": false,
+    "daily_nuxt_restarted": false,
+    "daily_db_or_config_changed": false,
+    "production_connected": false,
+    "real_cloud_target_used": false,
+    "resource_takeover": false
+  },
+  "cleanup": {
+    "owned_schemas_remaining": 0,
+    "owned_databases_remaining": 0,
+    "owned_processes_exited": [
+      403,
+      506,
+      4081,
+      4377,
+      6690,
+      6693,
+      6697,
+      6698,
+      6713,
+      14306,
+      14942,
+      23908,
+      23942,
+      23986,
+      24013,
+      24028,
+      28431,
+      28637
+    ],
+    "owned_listener_ports_released": [
+      50116,
+      50123,
+      50133,
+      50138,
+      50660,
+      50668,
+      50679,
+      50686,
+      51388,
+      51392,
+      51401,
+      51407,
+      51617,
+      51717,
+      51803,
+      51914,
+      52065,
+      52157,
+      52160,
+      52333,
+      52351,
+      52366,
+      52379,
+      52742,
+      52746,
+      53277,
+      55277,
+      55279,
+      57111,
+      58161,
+      58189,
+      58207,
+      58223
+    ],
+    "private_jwt_metadata_removed": true,
+    "owned_ui_directories_removed": true,
+    "owned_postgres_pid": 88526,
+    "owned_postgres_exited": true,
+    "owned_cluster_and_unix_socket_removed": true,
+    "daily": {
+      "8077": {
+        "pid": 74295,
+        "original_listener_present": true,
+        "restarted_by_agent": false
+      },
+      "3030": {
+        "pid": 34360,
+        "original_listener_present": true,
+        "restarted_by_agent": false
+      }
+    },
+    "production_touched": false
+  },
+  "next": {
+    "task": "T158 manual archive acceptance response loss and original-request reconciliation",
+    "gap": "runPolicy creates a fresh UUID on each click; accepted POST with a lost browser response can be followed by a second task",
+    "completion": "freeze original UUID and policy context; read-only original request reconciliation; keep unknown visible/locked; no new UUID or automatic POST on tabs/push/errors; 404 is not proof of non-execution; test lost reply, repeat clicks, metadata failure and reconnect",
+    "preconditions": "owned local fixture only; no daily restart required now"
+  },
+  "remaining": [
+    "T155 Alibaba Cloud OSS real transfer/full verification/source-gone exact retrieval when user provisions target",
+    "remaining joint T158 faults including complete database outage and Core/worker restart",
+    "legacy executor live handoff and explicit per-resource adoption",
+    "whole-site business restore, external key custody, dual-environment and 7/14 day evidence",
+    "commercial release review and delivery"
+  ],
+  "artifacts": "storage-archive-faults-20261109/"
+}

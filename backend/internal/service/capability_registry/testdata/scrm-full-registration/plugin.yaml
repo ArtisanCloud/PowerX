@@ -1,0 +1,259 @@
+id: com.powerx.plugins.scrm
+name: PowerX SCRM Plugin
+version: 0.1.0
+description: "PowerX SCRM 插件描述"
+corex_version: ">=0.1.0"
+security_baseline_version: "2025.10"
+
+data_usage:
+  - purpose: tenant_data_classification
+    type: pii_inventory
+    retention: 365d
+    requires_consent: true
+
+runtime:
+  kind: process
+  entry: backend/bin/plugin
+  env:
+    POWERX_BIND_ADDR: ":__POWERX_DYNAMIC_PORT__"
+    POWERX_PROVIDER_MODE: "delegated"
+    POWERX_PROXY: "1"
+    POWERX_PLUGIN_ID: "com.powerx.plugins.scrm"
+    POWERX_PLUGIN_REGISTRATION_MODE: "installed"
+    POWERX_SECURITY_JWT_ISSUER: "powerx-auth"
+    POWERX_SECURITY_JWT_AUDIENCE: "plugin:com.powerx.plugins.scrm"
+    POWERX_SECURITY_JWT_SECRET: "${POWERX_AUTH_JWTSECRET}"
+  health:
+    http: /healthz
+    interval: 10s
+    timeout: 3s
+
+backend:
+  entry: backend/bin/plugin
+  port: 0
+  health: /healthz
+
+endpoints:
+  http_base_path: /api/v1
+
+catalogs:
+  capabilities: ./plugin.d/capabilities.yaml
+  exposure: ./plugin.d/exposure.yaml
+  agent_tools: ./plugin.d/agent_tools.yaml
+  events: ./plugin.d/events.yaml
+  rbac: ./plugin.d/rbac.yaml
+
+frontend:
+  admin:
+    kind: process
+    process:
+      entry: node
+      args: ["./web-admin/.output/server/index.mjs"]
+      env:
+        NODE_ENV: production
+        NITRO_HOST: 127.0.0.1
+        POWERX_PROVIDER_MODE: "delegated"
+        NUXT_PUBLIC_POWERX_PROVIDER_MODE: "delegated"
+        NUXT_PUBLIC_POWERX_PROXY: "1"
+        POWERX_PROXY: "1"
+      health:
+        http: /healthz
+        interval: 5s
+        timeout: 2s
+    static_dir: web-admin/.output/public
+    i18n:
+      dir: web-admin/i18n
+      format: i18next
+      default_namespace: menus
+      namespaces: [menus]
+      locales: [zh-CN, en]
+    menus:
+      - id: plugins.com.powerx.plugins.scrm
+        title: SCRM
+        title_i18n:
+          namespace: menus
+          key: menu.com.powerx.plugins.scrm.root.title
+          default: SCRM
+        icon: i-heroicons-users
+        path: /scrm/org_sync
+        route: scrm/org_sync
+        order: 20
+        slot: group.plugins
+        children:
+          - id: plugins.com.powerx.plugins.scrm.lead_operations
+            title: 线索运营
+            title_i18n:
+              namespace: menus
+              key: menu.com.powerx.plugins.scrm.lead_operations.title
+              default: 线索运营
+            icon: i-heroicons-funnel
+            path: /scrm/lead_capture
+            route: scrm/lead_capture
+            order: 2
+            children:
+              - id: plugins.com.powerx.plugins.scrm.leads
+                title: 线索管理
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.leads.title
+                  default: 线索管理
+                icon: i-heroicons-bolt
+                path: /scrm/lead_capture
+                route: scrm/lead_capture
+                order: 1
+                required_policies: ["scrm.leads:read"]
+          - id: plugins.com.powerx.plugins.scrm.channel_org_tags
+            title: 渠道组织与标签
+            title_i18n:
+              namespace: menus
+              key: menu.com.powerx.plugins.scrm.channel_org_tags.title
+              default: 渠道组织与标签
+            icon: i-heroicons-squares-2x2
+            path: /scrm/org_sync
+            route: scrm/org_sync
+            order: 1
+            required_policies: ["scrm.social_channel_accounts:read"]
+            children:
+              - id: plugins.com.powerx.plugins.scrm.channel_access.accounts
+                title: 账号接入
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.channel_access.accounts
+                  default: 账号接入
+                icon: i-heroicons-link
+                path: /scrm/social_channel_governance/unified-access
+                route: scrm/social_channel_governance/unified-access
+                order: 1
+                required_policies: ["scrm.social_channel_accounts:read"]
+              - id: plugins.com.powerx.plugins.scrm.org_management
+                title: 组织管理
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.org_management.title
+                  default: 组织管理
+                icon: i-heroicons-home-modern
+                path: /scrm/org_sync
+                route: scrm/org_sync
+                order: 2
+                required_policies: ["scrm.social_channel_accounts:read"]
+              - id: plugins.com.powerx.plugins.scrm.org_staff_tags
+                title: 员工标签
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.org_staff_tags.title
+                  default: 员工标签
+                icon: i-heroicons-tag
+                path: /scrm/org_staff_tags
+                route: scrm/org_staff_tags
+                order: 4
+                required_policies: ["scrm.social_channel_accounts:read"]
+
+          - id: plugins.com.powerx.plugins.scrm.customer_operations
+            title: 客户运营
+            title_i18n:
+              namespace: menus
+              key: menu.com.powerx.plugins.scrm.customer_operations.title
+              default: 客户运营
+            icon: i-heroicons-user-group
+            path: /scrm/customers
+            route: scrm/customers
+            order: 3
+            required_policies: ["scrm.social_channel_accounts:read"]
+            children:
+              - id: plugins.com.powerx.plugins.scrm.customers
+                title: 客户管理
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.customers.title
+                  default: 客户管理
+                icon: i-heroicons-user-group
+                path: /scrm/customers
+                route: scrm/customers
+                order: 1
+                required_policies: ["scrm.social_channel_accounts:read"]
+              - id: plugins.com.powerx.plugins.scrm.customer_tags
+                title: 标签管理
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.customer_tags.title
+                  default: 标签管理
+                icon: i-heroicons-tag
+                path: /scrm/enterprise_customer_tags
+                route: scrm/enterprise_customer_tags
+                order: 2
+                required_policies: ["scrm.social_channel_accounts:read"]
+
+              - id: plugins.com.powerx.plugins.scrm.customer_groups
+                title: 客户群管理
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.customer_groups.title
+                  default: 客户群管理
+                icon: i-heroicons-users
+                path: /scrm/acquisition_group_manage
+                route: scrm/acquisition_group_manage
+                order: 3
+                required_policies: ["acquisition.group_chat:read"]
+              - id: plugins.com.powerx.plugins.scrm.group_analysis
+                title: 群分析
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.group_analysis.title
+                  default: 群分析
+                icon: i-heroicons-chart-bar-square
+                path: /scrm/acquisition_group_analysis
+                route: scrm/acquisition_group_analysis
+                order: 4
+                required_policies: ["acquisition.group_chat:read", "acquisition.group_tag:read"]
+
+          - id: plugins.com.powerx.plugins.scrm.engagement
+            title: menu.com.powerx.plugins.scrm.engagement.title
+            title_i18n:
+              namespace: menus
+              key: menu.com.powerx.plugins.scrm.engagement.title
+            icon: i-heroicons-chat-bubble-left-right
+            path: /scrm/messaging
+            route: scrm/messaging
+            order: 4
+            required_policies: ["scrm.messaging_endpoints:read", "scrm.messaging_conversations:read"]
+            children:
+              - id: plugins.com.powerx.plugins.scrm.messaging
+                title: menu.com.powerx.plugins.scrm.messaging.title
+                title_i18n:
+                  namespace: menus
+                  key: menu.com.powerx.plugins.scrm.messaging.title
+                icon: i-heroicons-chat-bubble-left-right
+                path: /scrm/messaging
+                route: scrm/messaging
+                order: 1
+                required_policies: ["scrm.messaging_endpoints:read", "scrm.messaging_conversations:read"]
+
+agents: []
+
+tools: []
+
+dependencies:
+  requires: []
+
+migrations:
+  driver: go
+  entry: backend/bin/migrate
+  args: ["setup"]
+  workdir: .
+  once: true
+  timeout: 60s
+
+assets:
+  public_dir: ./web-admin/public
+  webAdminPath: ./web-admin/.output
+
+checksums:
+  package_sha256: ""
+
+signature:
+  enabled: false
+
+metadata:
+  author: PowerX SCRM Team
+  icon: icon.svg
+  license: MIT

@@ -34,6 +34,9 @@ func captureTest(t *testing.T, s *Service, p Policy) Job {
 	require.NoError(t, e)
 	require.Eventually(t, func() bool { j, e := s.Job(archiveRoot(), j.ID); return e == nil && j.Status != "running" }, 10*time.Second, 20*time.Millisecond)
 	require.Eventually(t, func() bool {
+		if _, active := s.executions.Load(j.ID); active {
+			return false
+		}
 		u, e := s.lock(archiveRoot(), p.ID)
 		if e != nil {
 			return false

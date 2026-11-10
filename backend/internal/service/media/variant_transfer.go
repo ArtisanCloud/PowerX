@@ -1,16 +1,19 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/infra/media/driver"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"image"
 	"io"
 	"strconv"
 	"time"
@@ -59,7 +62,7 @@ func (s *MediaService) IssueVariantTransferTicket(ctx context.Context, tenant, a
 		if action == "upload" && (v.UploadState != m.UploadStatePending || v.UploadExpiresAt == nil || !time.Now().Before(*v.UploadExpiresAt)) {
 			return ErrInvalidStatusTransition
 		}
-		if action == "download" && v.UploadState != m.UploadStateReady {
+		if action == "download" && (v.UploadState != m.UploadStateReady || (v.Variant == "thumbnail_64" && !variantRecordUsable(p, v))) {
 			return ErrInvalidStatusTransition
 		}
 		expires := time.Now().Add(ttl).UTC()
@@ -112,7 +115,7 @@ func (s *MediaService) ConsumeVariantTransfer(ctx context.Context, asset, varian
 			return ErrUploadTicketExpired
 		}
 		if action == "download" {
-			if v.UploadState != m.UploadStateReady {
+			if v.UploadState != m.UploadStateReady || (v.Variant == "thumbnail_64" && !variantRecordUsable(p, v)) {
 				return ErrInvalidStatusTransition
 			}
 			var err error
@@ -190,6 +193,9 @@ func (s *MediaService) CompleteVariantUpload(ctx context.Context, tenant, asset,
 			return ErrUploadValidationFailed
 		}
 		if v.UploadState == m.UploadStateReady {
+			if v.Variant == "thumbnail_64" && !variantRecordUsable(p, v) {
+				return ErrUploadValidationFailed
+			}
 			result = toAssetVariant(v)
 			return nil
 		}
@@ -207,6 +213,34 @@ func (s *MediaService) CompleteVariantUpload(ctx context.Context, tenant, asset,
 		validation, err = validateUploadedObject(object.Body, object.Size, v.SizeBytes, v.MimeType, v.ExpectedChecksum, normalized)
 		if err != nil {
 			return err
+		}
+		if validation.Reason == "" && v.Variant == "thumbnail_64" {
+			// Bound the actual object, decode it, and record only server-validated facts.
+			obj, err := s.manager.Get(ctx, v.Driver, driver.GetObjectInput{Bucket: v.Bucket, ObjectKey: v.StorageKey})
+			if err != nil {
+				return err
+			}
+			if obj == nil || obj.Body == nil {
+				return fmt.Errorf("media.object_missing")
+			}
+			raw, err := io.ReadAll(io.LimitReader(obj.Body, Thumbnail64MaxBytes+1))
+			_ = obj.Body.Close()
+			if err != nil {
+				return err
+			}
+			cfg, format, err := image.DecodeConfig(bytes.NewReader(raw))
+			if err == nil && cfg.Width > 0 && cfg.Height > 0 && cfg.Width <= 64 && cfg.Height <= 64 {
+				_, _, err = image.Decode(bytes.NewReader(raw))
+			} else if err == nil {
+				err = fmt.Errorf("thumbnail dimensions exceed 64")
+			}
+			if err != nil || len(raw) > Thumbnail64MaxBytes || (format != "jpeg" && format != "png") {
+				validation.Reason = "thumbnail_64_invalid"
+			} else {
+				meta := extractMeta(v.Meta)
+				meta["width"], meta["height"], meta["source_checksum"], meta["validated_profile"] = cfg.Width, cfg.Height, p.ExpectedChecksum, "thumbnail_64"
+				v.Meta, _ = json.Marshal(meta)
+			}
 		}
 		invalid = validation.Reason != ""
 		v.TicketVersion++
@@ -228,6 +262,7 @@ func (s *MediaService) CompleteVariantUpload(ctx context.Context, tenant, asset,
 	}
 	if e == nil {
 		s.emitAudit(ctx, tenant, "media.variant.complete_upload", variant, nil, map[string]any{"asset_uuid": asset})
+		s.publishDerivative(ctx, tenant, asset)
 	}
 	return result, variantError(e)
 }

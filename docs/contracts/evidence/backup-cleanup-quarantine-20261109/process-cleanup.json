@@ -1,0 +1,28 @@
+{
+  "owned_schemas_remaining": 0,
+  "owned_databases_remaining": 0,
+  "http_browser_and_children_exited": true,
+  "owned_ports_released": [
+    59581,
+    59356
+  ],
+  "owned_jwt_file_removed": true,
+  "owned_postgres_pid": 3734,
+  "owned_postgres_exited": true,
+  "owned_cluster_removed": true,
+  "daily_processes": {
+    "8077": {
+      "pid": 16175,
+      "original_process_present": true,
+      "listener_present": true,
+      "restarted_by_agent": false
+    },
+    "3030": {
+      "pid": 34360,
+      "original_process_present": true,
+      "listener_present": true,
+      "restarted_by_agent": false
+    }
+  },
+  "production_touched": false
+}

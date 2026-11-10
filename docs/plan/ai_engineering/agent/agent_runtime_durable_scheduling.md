@@ -78,7 +78,7 @@ Task: pending_dependency -> queued -> leased -> running -> verifying
 4. Worker 领取后取得带 TTL 和 fencing token 的租约，续租失败必须停止新副作用并取消可取消的在途调用。状态更新使用 token/版本 CAS；租约过期由恢复器重领。
 5. 模型池按实际部署实例及 endpoint/model 统一计量容量，另设租户与 Run 上限。租户不能各自获得同一 Ollama 单槽的完整配额。公平调度避免单租户长期占用；队列长度、等待时限和优先级有界。
 
-现有 LLM 同步与流式入口已接入显式配置的 Redis 物理模型池。部署时在 `ai.runtime.physical_model_pools` 为每个 Ollama endpoint/model 指定稳定的 `pool_id`、真实 `capacity`、`max_waiting` 与长于 `request_timeout` 的 `lease_ttl`；启动时要求 Event Fabric Redis 通过 AOF/`noeviction` 门禁。Profile `max_concurrent_requests` 仍作为租户策略限额；物理槽位跨 Core 实例共享。等待先于单次请求期限开始，队列超时单独返回；租约续期失败会取消调用上下文。若已启用物理池但 Ollama 目标没有精确匹配的部署规则，调用失败关闭。正式 Agent Session Worker、RunState 订阅与归档的接线仍须独立完成。
+现有 LLM 同步与流式入口已接入显式配置的 Redis 物理模型池。部署时在 `ai.runtime.physical_model_pools` 为每个 Ollama endpoint/model 指定稳定的 `pool_id`、真实 `capacity`、`max_waiting` 与租约下限 `lease_ttl`（运行时至少覆盖 `request_timeout + 10s`）；启动时要求 Event Fabric Redis 通过 AOF/`noeviction` 门禁。Profile `max_concurrent_requests` 仍作为租户策略限额；物理槽位跨 Core 实例共享。等待先于单次请求期限开始，队列超时单独返回；租约续期失败会取消调用上下文。若已启用物理池但 Ollama 目标没有精确匹配的部署规则，调用失败关闭。正式 Agent Session Worker、RunState 订阅与归档的接线仍须独立完成。
 6. Capability/Skill/Workflow 执行时重新校验授权快照和当前对象权限。可重试动作必须有业务幂等键；无幂等保证且无法确认副作用结果的动作以 `manual_review_required` 原因阻断 Run，不得自动重复调用。
 7. 任务完成后持久化结果引用和事件，更新依赖并唤醒后继；Run 的最终 Outcome、答复与归档由同一状态机推进。消费语义是至少一次投递与幂等处理，不宣称恰好执行一次。
 
@@ -137,3 +137,5 @@ UI 显示等待依赖、排队原因与时长、执行中、验证中、部分�
 恢复授权取当前数据库主体与权限，并校验冻结合同；凭据只在执行时重新加载。受理期限不超过冻结授权有效期。`pending_create` 可以幂等恢复，已 admitted 丢失 Redis 状态失败关闭。
 
 源码回归、前端构建与管理端表迁移已完成；尚未执行更新后的真实营销 HTTP/SSE 验收。追踪聚合列表、完整刷新恢复、前置响应规划持久化、归档清理/背压和跨实例故障演练仍需完成。详情见 `specs/031-agent-runtime-durable-scheduling/tasks.md` 的当日记录；不得仅凭启用开关将整个目标架构标记交付。
+
+AI 内部代理、排队与物理租约的实际时限按主配置统一计算，见 [AI 请求时限与配置对齐](../../../contracts/ai-timeout-policy.md)。

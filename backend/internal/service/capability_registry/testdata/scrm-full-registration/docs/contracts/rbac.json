@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PowerX Plugin RBAC Report",
+  "type": "object",
+  "required": ["pluginId", "roles"],
+  "properties": {
+    "pluginId": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$"
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "permissions"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9.-]+\\.[a-z0-9.-]+\\.[a-z0-9.-]+$"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "defaultAssignments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hostRole", "pluginRole"],
+        "properties": {
+          "hostRole": {
+            "type": "string"
+          },
+          "pluginRole": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

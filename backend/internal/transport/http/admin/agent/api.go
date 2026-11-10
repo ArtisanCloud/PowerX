@@ -58,6 +58,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	{
 		agentAdminGroup.GET("/providers", settingH.listProviders)
 		agentAdminGroup.GET("/models", settingH.listModels)
+		agentAdminGroup.POST("/models/sync", requireOnlineModelCatalogAdmin(deps), settingH.syncOnlineModels)
 
 		agentAdminGroup.POST("/settings/save", settingH.saveSettings)     // 先占位：以后接DB
 		agentAdminGroup.POST("/test/connection", settingH.testConnection) // 真连通测试

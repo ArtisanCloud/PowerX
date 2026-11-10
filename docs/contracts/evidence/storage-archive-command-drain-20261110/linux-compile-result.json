@@ -1,0 +1,8 @@
+{
+  "platform": "linux/amd64",
+  "cgo": false,
+  "compiled": true,
+  "sha256": "945d9bae8937b891906a5449f9f11b2cabac0edbb450a4b650dd9096673cf784",
+  "runtime_tested": false,
+  "binary_removed": true
+}

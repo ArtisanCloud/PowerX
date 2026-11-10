@@ -12,11 +12,24 @@ import (
 )
 
 type ArtifactCleanupService struct {
-	db           *gorm.DB
-	policyRepo   *repoops.BackupPolicyRepository
-	jobRepo      *repoops.BackupJobRepository
-	artifactRepo *repoops.BackupArtifactRepository
+	changed        func()
+	authority      PolicyAuthority
+	requireControl bool
+	db             *gorm.DB
+	policyRepo     *repoops.BackupPolicyRepository
+	jobRepo        *repoops.BackupJobRepository
+	artifactRepo   *repoops.BackupArtifactRepository
 }
+
+func (s *ArtifactCleanupService) notifyChanged() {
+	if s.changed != nil {
+		s.changed()
+	}
+}
+
+// SetCleanupChangeNotifier 仅由 bootstrap 在接收请求和启动 worker 前设置。
+func (s *JobService) SetCleanupChangeNotifier(changed func()) { s.cleanupSvc.changed = changed }
+
 type CleanupResult struct {
 	DeletedArtifacts int `json:"deleted_artifacts"`
 	DeletedJobs      int `json:"deleted_jobs"`
@@ -46,6 +59,12 @@ func (s *ArtifactCleanupService) CleanupByPolicy(ctx context.Context, policyID u
 	return s.cleanupPolicy(ctx, policy)
 }
 func (s *ArtifactCleanupService) cleanupPolicy(ctx context.Context, policy *modelops.BackupPolicy) (*CleanupResult, error) {
+	if policy.ID != 0 && (s.requireControl || policy.ControlScopeID != "") {
+		if s.authority == nil {
+			return nil, controlFailure(503, "BACKUP_POLICY_CONTROL_UNAVAILABLE")
+		}
+		return s.cleanupControlled(ctx, policy)
+	}
 	root, err := resolveBackupArtifactBaseDir()
 	if err != nil {
 		return nil, err
@@ -71,6 +90,9 @@ func (s *ArtifactCleanupService) cleanupPolicy(ctx context.Context, policy *mode
 		}
 		for i := range artifacts {
 			artifact := artifacts[i]
+			if artifact.CleanupState != "" {
+				return result, controlFailure(409, "BACKUP_RETENTION_UNCONFIRMED")
+			}
 			path, e := validatedArtifactPath(root, &artifact)
 			if e != nil && !errors.Is(e, os.ErrNotExist) {
 				return result, fmt.Errorf("artifact %d: %w", artifact.ID, e)
@@ -87,6 +109,7 @@ func (s *ArtifactCleanupService) cleanupPolicy(ctx context.Context, policy *mode
 				return result, e
 			}
 			result.DeletedArtifacts++
+			s.notifyChanged()
 		}
 	}
 	return result, nil

@@ -1925,12 +1925,19 @@ components:
               items: { $ref: '#/components/schemas/IAMDirectoryPermission' }
     IAMAuthorizationCheckRequest:
       type: object
-      required: [member_uuid, user_uuid, resource, action]
+      additionalProperties: false
+      required: [member_uuid, user_uuid]
+      oneOf:
+        - required: [plugin_id, permission_code]
+        - required: [resource, action]
+          not: {anyOf: [{required: [plugin_id]}, {required: [permission_code]}]}
       properties:
         member_uuid: { type: string, format: uuid }
         user_uuid: { type: string, format: uuid }
-        resource: { type: string, enum: [iam.member] }
-        action: { type: string, enum: [read] }
+        plugin_id: { type: string, minLength: 1 }
+        permission_code: { type: string, minLength: 1 }
+        resource: { type: string, description: 'Legacy iam.member, or optional exact plugin permission resource.' }
+        action: { type: string, description: 'Legacy read, or optional exact plugin permission action.' }
         trace_id: { type: string }
     IAMAuthorizationCheck:
       type: object
@@ -1941,8 +1948,10 @@ components:
         tenant_uuid: { type: string, format: uuid }
         member_uuid: { type: string, format: uuid }
         user_uuid: { type: string, format: uuid }
-        resource: { type: string, enum: [iam.member] }
-        action: { type: string, enum: [read] }
+        plugin_id: { type: string }
+        permission_code: { type: string }
+        resource: { type: string }
+        action: { type: string }
         trace_id: { type: string }
     IAMAuthorizationCheckResponse:
       type: object

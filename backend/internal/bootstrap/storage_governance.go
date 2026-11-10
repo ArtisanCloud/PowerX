@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
@@ -16,7 +18,9 @@ import (
 	monitorlogs "github.com/ArtisanCloud/PowerX/internal/service/monitor_logs"
 	snapshotops "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
 	storagegov "github.com/ArtisanCloud/PowerX/internal/service/storage_governance"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 func configureStorageGovernance(cfg *config.Config, deps *shared.Deps, archives archiveops.Config, archiveError error, backupDirectory string) error {
@@ -36,9 +40,11 @@ func configureStorageGovernance(cfg *config.Config, deps *shared.Deps, archives 
 		}
 	}
 	opts := storagegov.Options{
-		Identity:       storagegov.Identity{HostID: c.HostID, InstanceID: cfg.EnvironmentID, Environment: cfg.Deployment.Env, FilesystemID: c.FilesystemID},
-		FilesystemPath: path, Collector: storageobserver.Collector{},
+		LegacyHandoffBlocked: !c.AdvancedOperationsEnabled,
+		Identity:             storagegov.Identity{HostID: c.HostID, InstanceID: cfg.EnvironmentID, Environment: cfg.Deployment.Env, FilesystemID: c.FilesystemID},
+		FilesystemPath:       path, Collector: storageobserver.Collector{},
 		DB:                    deps.DB,
+		RequireRecoveryAnchor: cfg.Recovery.ProfileFile == "" && !cfg.Recovery.ReadOnly(),
 		SamplingConfigured:    c.SamplingEnabled,
 		SamplingWorkerEnabled: c.SamplingEnabled && !config.BackgroundWorkersDisabled(cfg),
 	}
@@ -179,11 +185,39 @@ func configureStorageGovernance(cfg *config.Config, deps *shared.Deps, archives 
 	if err := configureStorageRuntime(cfg, deps, &opts, logs); err != nil {
 		return err
 	}
+	if opts.Budget != nil && deps.DB != nil {
+		controlOpts := storagegov.ControlOptions{Scope: storagegov.ControlScope{HostID: c.HostID, FilesystemID: c.FilesystemID, InstanceID: cfg.EnvironmentID}, Changed: func() {
+			if deps.StorageGovernance != nil {
+				deps.StorageGovernance.PublishChange("configuration_changed")
+			}
+		}}
+		if deps.EventFabric != nil {
+			controlOpts.Queue = deps.EventFabric.StreamTasks
+		}
+		control, err := storagegov.NewControlService(deps.DB, controlOpts)
+		if err != nil {
+			return err
+		}
+		opts.Control = control
+		opts.ControlWorkerEnabled = !config.BackgroundWorkersDisabled(cfg)
+	}
 	svc, err := storagegov.NewService(opts)
 	if err != nil {
 		return err
 	}
 	deps.StorageGovernance = svc
+	if opts.Control != nil || opts.SamplingConfigured {
+		// 只读预检：保留登录、升级与 Root 诊断入口；依赖治理的调用继续失效关闭。
+		check, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		checkDB := deps.DB
+		if checkDB != nil && checkDB.Config != nil {
+			checkDB = checkDB.WithContext(check)
+		}
+		if err := database.CheckStorageGovernanceSchema(checkDB); err != nil {
+			logger.WarnF(check, "[storage-governance] migration/readiness required before dependent calls: %v; run the formal database upgrade/migrate", err)
+		}
+		cancel()
+	}
 	if deps.CapabilityRegistryAudit != nil {
 		deps.CapabilityRegistryAudit.SetStorageAdmission(svc.CheckDatabaseAdmission)
 	}

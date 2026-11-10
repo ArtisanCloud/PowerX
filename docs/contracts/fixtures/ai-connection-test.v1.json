@@ -1,0 +1,27 @@
+{
+  "capability_id": "com.corex.ai.connection.test",
+  "preferred_protocol": "core_internal",
+  "payload": {
+    "body": {
+      "contract_version": 1,
+      "operation": "test_connection",
+      "modality": "llm",
+      "provider": "ollama"
+    }
+  },
+  "expected_result": {
+    "contract_version": 1,
+    "ok": true,
+    "env": "dev",
+    "modality": "llm",
+    "verification": {
+      "provider": "ollama",
+      "probe": "ollama_tags",
+      "endpoint_reachable": true,
+      "api_key_verified": false,
+      "authentication": "not_required",
+      "model_access_verified": false,
+      "generation_submitted": false
+    }
+  }
+}

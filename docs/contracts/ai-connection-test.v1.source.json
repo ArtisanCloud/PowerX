@@ -1,0 +1,10 @@
+{
+  "schema": "powerx.ai_connection_test.source.v1",
+  "contract_version": 1,
+  "capability_id": "com.corex.ai.connection.test",
+  "sha256": {
+    "docs/contracts/ai-settings-connection-test.md": "4de6266dcd4c96150c7cddef93c32562035c9144d578d39f87a5517ce4ef2e7d",
+    "docs/contracts/ai-connection-test.v1.openapi.yaml": "a34a629f64122d1bc606e7769f0de10716afadf42b2691355e29c517c5e59a3c",
+    "docs/contracts/fixtures/ai-connection-test.v1.json": "6c1097684fef0d9bad5d775f59de38dcc3e262c3b4e1c96691b373832dbd76b7"
+  }
+}

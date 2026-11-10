@@ -1,0 +1,23 @@
+[Unit]
+Description=Send PowerX personal disk daily report
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=3600
+StartLimitBurst=7
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/powerx-ops/disk-daily/disk_daily.py --send
+TimeoutStartSec=40
+Restart=on-failure
+RestartSec=300
+Nice=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/powerx-ops/disk-daily
+StandardOutput=journal
+StandardError=journal

@@ -163,9 +163,9 @@ func (h *APIKeyAdminHandler) CreateAPIKey(c *gin.Context) {
 	}
 
 	plain, keyHash, keyPrefix := generateAPIKeyMaterial()
-	perms, err := h.resolveProfileAPIKeyPermissions(c.Request.Context(), req.ProfileID)
+	perms, err := apikeypermissions.NewAPIKeyOwnerService(h.db).ProfileResourceGrants(c.Request.Context(), h.db, req.ProfileID)
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("profile permissions invalid", err))
+		respondAPIKeyPermissionError(c, dto.Wrap(err, "Profile 权限无效"))
 		return
 	}
 	actor := actorFromHeader(c)
@@ -221,11 +221,7 @@ func (h *APIKeyAdminHandler) CreateAPIKey(c *gin.Context) {
 			return e
 		}
 
-		base, err := apikeypermissions.NewAPIKeyOwnerService(tx).ProfileGrants(c.Request.Context(), tx, req.ProfileID)
-		if err != nil {
-			return err
-		}
-		permissionModels, err := apikeypermissions.BindPluginOwners(created.UUID, base, owners)
+		permissionModels, err := apikeypermissions.NewAPIKeyOwnerService(tx).BindProfileGrants(c.Request.Context(), tx, tenantUUID, req.ProfileID, created.UUID, apikeypermissions.OwnerPolicy{Version: 1, Mode: "key", PluginIDs: owners})
 		if err != nil {
 			return err
 		}
@@ -457,10 +453,6 @@ func (h *APIKeyAdminHandler) RotateAPIKey(c *gin.Context) {
 			return err
 		}
 		oldItem = locked
-		base, err := ownerSvc.ProfileGrants(c.Request.Context(), tx, locked.ProfileID)
-		if err != nil {
-			return err
-		}
 		keyRepo := repo.NewIntegrationGatewayAPIKeyRepository(tx)
 		permRepo := repo.NewIntegrationGatewayAPIKeyPermissionRepository(tx)
 		iamKeyRepo := iamrepo.NewAPIKeyRepository(tx)
@@ -500,7 +492,7 @@ func (h *APIKeyAdminHandler) RotateAPIKey(c *gin.Context) {
 		if e != nil {
 			return e
 		}
-		rotatedPermissions, e = apikeypermissions.BindOwnerPolicy(created.UUID, base, *policy)
+		rotatedPermissions, e = ownerSvc.BindProfileGrants(c.Request.Context(), tx, canonical, locked.ProfileID, created.UUID, *policy)
 		if e != nil {
 			return e
 		}
@@ -919,6 +911,10 @@ func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
+	if err := apikeypermissions.RequireOwnerAdministrator(c.Request.Context(), canonical); err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	profile, err := h.resolveAPIKeyProfile(c.Request.Context(), canonical, c.Param("profile_id"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("load api key profile failed", err))
@@ -997,7 +993,11 @@ func (h *APIKeyAdminHandler) SetAPIKeyProfilePermissions(c *gin.Context) {
 		return err
 	})
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewInternal("save profile permissions failed", err))
+		message := "Profile 权限保存失败"
+		if dto.CodeOf(err) != "" {
+			message += "：" + dto.MessageOf(err)
+		}
+		respondAPIKeyPermissionError(c, dto.Wrap(err, message))
 		return
 	}
 	logger.InfoF(
@@ -1029,6 +1029,10 @@ func (h *APIKeyAdminHandler) AppendAPIKeyProfilePermissions(c *gin.Context) {
 	}
 	canonical, err := h.resolveTenantScope(c, "")
 	if err != nil {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
+	if err := apikeypermissions.RequireOwnerAdministrator(c.Request.Context(), canonical); err != nil {
 		dto.RespondErrorFrom(c, err)
 		return
 	}
@@ -1106,7 +1110,11 @@ func (h *APIKeyAdminHandler) AppendAPIKeyProfilePermissions(c *gin.Context) {
 		return err
 	})
 	if err != nil {
-		dto.RespondErrorFrom(c, dto.NewInternal("append profile permissions failed", err))
+		message := "Profile 权限追加失败"
+		if dto.CodeOf(err) != "" {
+			message += "：" + dto.MessageOf(err)
+		}
+		respondAPIKeyPermissionError(c, dto.Wrap(err, message))
 		return
 	}
 

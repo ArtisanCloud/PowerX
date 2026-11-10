@@ -1,0 +1,30 @@
+id: com.powerx.plugins.scrm.template.delete
+type: API
+version: 1.0.0
+description: "删除模板的原子能力，供 REST/gRPC 使用。"
+rbac:
+  resource: template
+  actions: [delete]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.delete.v1
+    path: schema/input/com.powerx.plugins.scrm.template.delete.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.delete.v1
+    path: schema/output/com.powerx.plugins.scrm.template.delete.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    rest:
+      method: DELETE
+      path: /api/v1/templates/{id}
+      description: "PowerX Gateway 统一鉴权后的 REST 删除入口"
+    grpc:
+      service: powerx.template.TemplateService
+      method: DeleteTemplate
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.delete
+      scope: agent.template.delete
+      transport: http
+      endpoint: /api/v1/templates/{id}

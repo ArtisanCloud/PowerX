@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: PowerX media and remote archives
-  version: 1.1.0
-  description: Root user sessions only. Policy state lives outside the business database.
+  version: 1.2.0
+  description: Root user sessions only. Configuration uses database authority after explicit adoption; original job/request evidence stays in the managed archive directory.
     No arbitrary source paths, shell commands or SSH keys in API requests. These are
     component archives. A media archive may include its own paired database dump;
     restore uses that dump and creates an independent directory and asynchronous database
@@ -20,7 +20,7 @@ paths:
       responses:
         '200':
           description: 'data.overview: instance, directory, sources, credential references,
-            policies, targets, jobs, restores and pending_transfers. Credentials and
+            policies, targets, jobs, restores, pending_transfers and run_request_version=1. New UI blocks manual submissions when that version is absent or unsupported. Credentials and
             DSNs are never returned.'
   /policies:
     post:
@@ -84,11 +84,28 @@ paths:
           type: string
           format: uuid
       requestBody:
-        $ref: '#/components/requestBodies/Empty'
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expected_policy_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+            examples:
+              boundRevision:
+                value: { expected_policy_revision: 3 }
+              legacy:
+                value: {}
       responses:
         '202':
           description: data.job is a durable asynchronous job; a replay returns the
-            original job
+            original job. New UI freezes the request UUID and viewed policy revision; unknown
+            outcomes are reconciled with the read-only requests endpoint, never replayed
+            by the application. Old empty bodies remain supported.
         '409':
           description: Another operation owns the policy lock
   /jobs:

@@ -1,0 +1,33 @@
+{
+  "owner": "codex archive fault browser proxy",
+  "pid": 14583,
+  "command": "node scripts/ops/test-storage-archive-request-closure-ui.mjs",
+  "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+  "ports": [
+    60149
+  ],
+  "children": [
+    {
+      "pid": 14586,
+      "ppid": 14583,
+      "binary": "/Users/michaelhu/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+    },
+    {
+      "pid": 14634,
+      "ppid": 14586,
+      "binary": "/Users/michaelhu/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+    },
+    {
+      "pid": 14635,
+      "ppid": 14586,
+      "binary": "/Users/michaelhu/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+    },
+    {
+      "pid": 14650,
+      "ppid": 14583,
+      "binary": "ps"
+    }
+  ],
+  "browser_closed": true,
+  "proxy_closed": true
+}

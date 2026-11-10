@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
+	auditpayload "github.com/ArtisanCloud/PowerX/pkg/corex/audit/payload"
 	"time"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -94,14 +95,23 @@ func NewService(opts ServiceOptions) Service {
 }
 
 func (s *serviceImpl) Emit(ctx context.Context, evt *dbm.AuditEvent) error {
-	AttachSupportSessionMeta(ctx, evt)
-	item := queuedAuditEvent{ctx: ctx, evt: evt}
+	if evt == nil {
+		return gorm.ErrInvalidData
+	}
+	// 在进入队列前处理独立副本，避免保留巨型载荷或后台修改调用方持有的事件。
+	copy := *evt
+	if len(copy.Meta) > 64<<10 {
+		copy.Meta, _ = auditpayload.JSON(copy.Meta, s.opt.MaxPayloadSize)
+	}
+	AttachSupportSessionMeta(ctx, &copy)
+	s.prepare(&copy)
+	item := queuedAuditEvent{ctx: ctx, evt: &copy}
 	select {
 	case s.ch <- item:
 		return nil
 	default:
 		// 背压降级：Meta 只留摘要
-		evt.Meta = mustJSON(map[string]any{"_dropped_detail": true})
+		copy.Meta = mustJSON(map[string]any{"_dropped_detail": true})
 		s.ch <- item
 		return nil
 	}
@@ -118,11 +128,10 @@ func (s *serviceImpl) loop() {
 		if len(buf) == 0 {
 			return
 		}
-		// 预处理（截断/哈希）
+		// 入队前已完成脱敏、限额和哈希；此处不再次修改载荷结构。
 		rows := make([]dbm.AuditEvent, 0, len(buf))
 		for _, item := range buf {
 			e := item.evt
-			s.prepare(e)
 			rows = append(rows, *e)
 		}
 		now := time.Now()
@@ -188,10 +197,16 @@ func (s *serviceImpl) prepare(e *dbm.AuditEvent) {
 		e.ClientIP = nil
 	}
 
-	// 截断 Meta
-	if s.opt.MaxPayloadSize > 0 && len(e.Meta) > s.opt.MaxPayloadSize {
-		e.Meta = mustJSON(map[string]any{"_truncated": true, "size": len(e.Meta)})
-	}
+	// 四个可扩张载荷字段均使用公共硬上限；配置只能收紧，不能取消保护。
+	var redacted bool
+	e.Meta, _ = auditpayload.JSON(e.Meta, s.opt.MaxPayloadSize)
+	e.ChangesBefore, redacted = auditpayload.JSON(e.ChangesBefore, s.opt.MaxPayloadSize)
+	e.ChangesRedacted = e.ChangesRedacted || redacted
+	e.ChangesAfter, redacted = auditpayload.JSON(e.ChangesAfter, s.opt.MaxPayloadSize)
+	e.ChangesRedacted = e.ChangesRedacted || redacted
+	e.ChangesDiff, redacted = auditpayload.JSON(e.ChangesDiff, s.opt.MaxPayloadSize)
+	e.ChangesRedacted = e.ChangesRedacted || redacted
+	e.ClientUA = auditpayload.SafeText(e.ClientUA)
 
 	// （可选）哈希
 	if s.opt.EnableHash && len(s.opt.HashSecret) > 0 {

@@ -382,8 +382,9 @@ func GetDefaults() *Config {
 			EnableSaaSSignupVerificationCode: false,
 		},
 		Storage: StorageConfig{
-			DefaultDriver: "local",
-			TTLSeconds:    43200,
+			DefaultDriver:    "local",
+			TTLSeconds:       43200,
+			ImageDerivatives: ImageDerivativeConfig{MaxSourceBytes: 64 << 20, MaxPixels: 80_000_000, MaxWorkingBytes: 512 << 20, MaxParallelJobs: 1},
 			Local: LocalStorageConfig{
 				BasePath:           "/opt/powerx/storage/media",
 				PublicBaseURL:      "http://localhost:8077/media",

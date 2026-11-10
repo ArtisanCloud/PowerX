@@ -1,0 +1,119 @@
+{
+  "validated_at": "2026-10-29T16:40:19.277587+00:00",
+  "scope": "Core online provider model catalog synchronization; controlled HTTP providers, isolated in-memory databases, browser API fixtures",
+  "entry": "POST /admin/agents/models/sync; prefix from Core config",
+  "authorization": "user JWT Root/current tenant owner/admin only; reject API Key and STS; existing typed read/grants unchanged",
+  "discovery_protocols": {
+    "openai": [
+      "openai",
+      "openrouter",
+      "deepseek",
+      "moonshot",
+      "huggingface",
+      "openai_compatible"
+    ],
+    "dashscope": [
+      "qwen-cn",
+      "qwen-intl"
+    ],
+    "anthropic": [
+      "anthropic"
+    ],
+    "gemini": [
+      "google"
+    ],
+    "ollama": [
+      "ollama"
+    ]
+  },
+  "storage": "tenant setting snapshot keyed by tenant/env/provider/app; connection fingerprint excludes timeout; source YAML and active profiles unchanged",
+  "matching": "exact local match, explicit native text/embedding declaration, or explicit administrator candidate assignment; no media operation inference",
+  "failure_semantics": "upstream/auth/format/pagination/save failures preserve prior snapshot; assignment revision checked; authoritative transactional readback",
+  "checks": {
+    "backend_tests": {
+      "result": "passed",
+      "packages": 4,
+      "log": "/tmp/powerx-online-models-20261030-001746/backend_tests.log"
+    },
+    "race": {
+      "result": "passed",
+      "packages": 3,
+      "log": "/tmp/powerx-online-models-20261030-001746/race.log"
+    },
+    "vet": {
+      "result": "passed",
+      "log": "/tmp/powerx-online-models-20261030-001746/vet.log"
+    },
+    "build": {
+      "result": "passed",
+      "binary": "/tmp/powerx-online-models-core",
+      "sha256": "74f9c619a97705e7648333c8d48fd1dbff9e736d981d6c620feca0b556c41925"
+    },
+    "frontend_unit": {
+      "result": "passed",
+      "tests": 46,
+      "files": 6,
+      "log": "/tmp/powerx-online-models-20261030-001746/frontend_unit.log"
+    },
+    "typecheck": {
+      "result": "passed",
+      "log": "/tmp/powerx-online-models-20261030-001746/typecheck.log"
+    },
+    "browser": {
+      "result": "passed",
+      "tests": 4,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "log": "/tmp/powerx-online-models-20261030-001746/browser.log",
+      "screenshots": {
+        "desktop": "docs/contracts/evidence/ai-online-model-catalog-20261030/desktop.png",
+        "narrow": "docs/contracts/evidence/ai-online-model-catalog-20261030/narrow.png"
+      }
+    },
+    "capability_check": {
+      "result": "passed",
+      "declared": 1233,
+      "rest_routes": 1174,
+      "candidates": 1147,
+      "ignored_rules": 60,
+      "log": "/tmp/powerx-online-models-20261030-001746/capability_check.log"
+    }
+  },
+  "acceptance_boundaries": {
+    "real_provider_accounts": "not used; no generation requests submitted",
+    "private_config_and_credentials": "unchanged",
+    "database_migration": "not required; reuse existing cfg_tenant_settings",
+    "new_permissions_or_grants": "none; admin mutation explicitly excluded from tenant/plugin publication",
+    "user_owned_services": "not restarted/stopped; 8077 PID 4773 still running pre-change build; user restart required",
+    "retained_agent_services": []
+  },
+  "source_sha256": {
+    "backend/internal/server/ai/modeldiscovery/client.go": "fdf0f042c03dc8aa81c96cd949c5c85acc1294eaf638e07f3705258872c1297a",
+    "backend/internal/server/ai/modeldiscovery/client_test.go": "c0b6a702a26e082bca480cbc2e52623f0e99aa8d72cd72e0d34cd005a3211381",
+    "backend/internal/service/agent/online_model_catalog.go": "c0a687b4c6253e91ce748b94da6fcad2efc3ded32f6e0e7cefa6edcc3e352bf8",
+    "backend/internal/service/agent/online_model_catalog_test.go": "2b54385ede62c4c66c0a34383b17b87787944de4ce8df17926e6f324fab7e6c8",
+    "backend/internal/service/agent/agent_setting_service.go": "bdb9a8a7830452ce475d7990ca3cac2ed866a3c39399150da00ebbccee9778a9",
+    "backend/internal/service/agent/connection_verification.go": "153d57552283fb4aa26d80f8058e5cd5363fdd6f4353a03220e85c83146b1c50",
+    "backend/internal/transport/http/admin/agent/online_model_handler.go": "0ce52631e766671f371b32891e1799a7b19a37118804911d9dc8bb32a280d265",
+    "backend/internal/transport/http/admin/agent/online_model_handler_test.go": "1b63114a2bcb898c2681fe349ad1589525face02caa26f1b87b052b6a8b486c7",
+    "backend/internal/transport/http/admin/agent/api.go": "42c1064e876aae8584483811045d0d0f42d3b4c591878ae0cdb22456589e5e77",
+    "backend/internal/transport/http/admin/agent/setting_handler.go": "859d28f1ce7492f9651a8abf3f6912dffaddb1d181faf632a0131fb8a8870425",
+    "backend/pkg/corex/db/persistence/repository/setting/tenant_setting_repo.go": "de6e8ae169bd46a33aa96b83ef5c525623171c8d71e8b5e958e65572960050b7",
+    "backend/config/capability_audit_ignore.yaml": "9bb91bbd0e32c6710b55631082a4f442a74eab269ded24e2df9fb3356f5846ea",
+    "web-admin/app/composables/api/config.ts": "a4bb860f8507ccd18c642c18e85e775d92695fa7f16c7237466e14b2c20db1b3",
+    "web-admin/app/composables/api/services/aiSettingService.ts": "219031a566e78598c1f3e682eb2a7f723f10245f18a925e7ff4ecea93b6725e7",
+    "web-admin/app/components/settings/ai/ProviderModelForm.vue": "cc66f4c6bc0eb0642102798a28e0698f06a8d82142ea4716880230804cd05d2f",
+    "web-admin/app/components/settings/ai/OnlineModelCatalogModal.vue": "eba36d52854286feca6e55e828da33faf4029eaa638328377b3a7649b2dac3e5",
+    "web-admin/app/pages/settings/ai/index.vue": "852a8a398128b7b8292287e0127e3826f89ce798c12c75ed14e936ddf746abce",
+    "web-admin/i18n/locales/zh.json": "58f0b9b0c168145de2ee26bcb196830686430e097388e297b46cf9a0cdc5015c",
+    "web-admin/i18n/locales/en.json": "aa87718a68cef5f9ddb358cc62702bcf2fe7c28bb0a44ab283788b7fce49edba",
+    "web-admin/tests/unit/ai/provider-model-form.spec.ts": "26a1253385b2c011ce38d956a18d2fd92f8f9dbfc9ebdc19a052847b95836c45",
+    "web-admin/tests/unit/ai/online-model-catalog.spec.ts": "fc2a0f4a71673487d56f3b7fd492eec01d96d3bfe0df858150638f071b0d1a1f",
+    "web-admin/tests/e2e/ai/online-models.spec.ts": "737b965bb8e8427680b7ec33229a9935b978ad6b7ad3797c2155011b25189d7e",
+    "web-admin/playwright.ai-models.config.ts": "cf4fba37727b53efb3961d17abdc4cd48383b57bf7269ddc2eb030868b037ac9",
+    "docs/contracts/ai-online-model-catalog.md": "17cd1dbe2cc12ce12d84d0d96fb78d5371952b57e0f3b2dff479b7d8b006a9b8",
+    "docs/contracts/ai-settings-llm-catalog.v1.md": "5034b868a200b598002c17f038e3747cc2d5148eec79adfc77481de506b6d945"
+  }
+}

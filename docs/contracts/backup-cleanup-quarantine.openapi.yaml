@@ -1,0 +1,311 @@
+openapi: 3.0.3
+info:
+  title: PowerX non-deleting damaged backup quarantine
+  version: '2026-11-09'
+  description: Root human access only. Fixed quarantine_cleanup operation. No deletion,
+    valid-backup claim or schedule change. Private maintenance v7 / ledger v4.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /admin/ops/backup/cleanup-reviews/{artifact_id}/quarantine-preview:
+    get:
+      operationId: previewCleanupQuarantine
+      description: Explicit on-demand read-only SSE full diagnosis, max five minutes.
+        No persistent job or automatic rescan. Only expected_token query. Result is
+        a frozen preview, not final execution authority. Failure after progress is
+        incomplete/EOF.
+      parameters:
+      - &id001
+        name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[1-9][0-9]*$
+      - &id002
+        name: expected_token
+        in: query
+        required: true
+        schema: &id007
+          type: string
+          format: uuid
+          description: Canonical lowercase nonzero UUID
+      responses:
+        '200':
+          description: 'text/event-stream: progress CleanupVerification frames, then
+            complete data directly matching Preview (no data envelope).'
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400': &id003
+          description: Invalid, unknown or duplicate input
+        '403': &id004
+          description: Root human access session required; no API Key/STS or other
+            actor/scope
+        '409': &id005
+          description: Immutable input, intent or review changed
+        '503': &id006
+          description: Source, optional audit schema or independent ledger unavailable
+  /admin/ops/backup/cleanup-reviews/{artifact_id}/quarantines:
+    get:
+      operationId: listCleanupQuarantines
+      parameters:
+      - *id001
+      - *id002
+      description: Latest 20 independent receipts for exact artifact/token; accepted
+        history remains after the current intent leaves the attention list.
+      responses:
+        '200':
+          description: Root read-only observation or historical receipt. Historical
+            success is not current protection proof.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                    - items
+                    properties:
+                      items:
+                        type: array
+                        maxItems: 20
+                        items:
+                          $ref: '#/components/schemas/Receipt'
+        '400': *id003
+        '403': *id004
+        '409': *id005
+        '503': *id006
+    post:
+      operationId: resolveCleanupIntentQuarantined
+      description: Strict frozen UUID/actor/scope/artifact/token/version/history/diagnosis/digest/reason.
+        Independent reservation before SQL. Repeat safe no-follow bounded diagnosis
+        under cooperating policy lock and published pause/recovery Fence; final CAS
+        updates cleanup_state=quarantined and audit only. Does not change Job.status/protected,
+        files or original history. SSE accepted/progress/complete or uncertain; EOF
+        unknown. Explicit original UUID reconciliation only. Historical receipt never
+        replays quarantine.
+      parameters:
+      - *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Input'
+      responses:
+        '200':
+          description: SSE accepted/checking, progress, complete retained/rejected.
+            Complete checking is allowed only as a non-executable recovery_blocked
+            historical result. SQLCommitted with incomplete independent checkpoint
+            requires explicit same request to persist history only.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400': *id003
+        '403': *id004
+        '409': *id005
+        '503': *id006
+        '507':
+          description: Shared bounded independent history full
+  /admin/ops/backup/cleanup-quarantines/{request_id}:
+    get:
+      operationId: getCleanupQuarantine
+      description: No query. GET never repairs or replays. A 404 is not evidence of
+        non-execution. Missing SQL history or changed epoch returns blocked unknown;
+        SQL terminal with incomplete checkpoint reports checking and CHECKPOINT_REQUIRED.
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema: *id007
+      responses:
+        '200':
+          description: Root read-only observation or historical receipt. Historical
+            success is not current protection proof.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Receipt'
+        '400': *id003
+        '403': *id004
+        '409': *id005
+        '503': *id006
+        '404':
+          description: UUID unknown; preserve original request
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Input:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - expected_token
+      - review_version
+      - history_digest
+      - reason
+      - confirm
+      - expected_diagnosis
+      - diagnostic_digest
+      properties:
+        request_id: *id007
+        expected_token: *id007
+        review_version: &id008
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        history_digest: *id008
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 256
+        confirm:
+          type: boolean
+          enum:
+          - true
+        expected_diagnosis:
+          type: string
+          enum: &id009
+          - missing
+          - size_changed
+          - checksum_mismatch
+          - sidecars_missing
+          - sidecar_mismatch
+          - metadata_invalid
+        diagnostic_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+    Preview:
+      type: object
+      required:
+      - item
+      - review_version
+      - history_digest
+      - unknown_records
+      - can_quarantine
+      - observed_at
+      - diagnosis
+      - diagnostic_digest
+      properties:
+        item:
+          type: object
+          required:
+          - artifact_id
+          - token
+          properties:
+            artifact_id:
+              type: string
+            token: *id007
+        review_version:
+          type: string
+          description: Empty if blocked; otherwise canonical SHA256
+        history_digest:
+          type: string
+          description: Empty if unavailable; otherwise canonical SHA256
+        unknown_records:
+          type: integer
+          minimum: 0
+        problem:
+          type: string
+        observed_at:
+          type: string
+          format: date-time
+        can_quarantine:
+          type: boolean
+        diagnosis:
+          type: string
+          description: Known damage or noneligible diagnosis; empty when a prerequisite
+            blocks the probe.
+        diagnostic_digest:
+          type: string
+          description: SHA256 bound to stable file evidence; empty when unavailable.
+            Required nonempty only for eligible preview.
+    Receipt:
+      type: object
+      required:
+      - request_id
+      - artifact_id
+      - token
+      - review_version
+      - history_digest
+      - reason
+      - actor_id
+      - state
+      - created_at
+      - completed_at
+      - can_resume
+      - recovery_blocked
+      - independent_complete
+      - sql_committed
+      - original_history_preserved
+      - expected_diagnosis
+      - diagnostic_digest
+      - operation
+      - valid_backup_proof
+      properties:
+        request_id: *id007
+        artifact_id:
+          type: string
+        token: *id007
+        review_version: *id008
+        history_digest: *id008
+        reason:
+          type: string
+        actor_id:
+          type: string
+        state:
+          type: string
+          enum:
+          - checking
+          - quarantined
+          - rejected
+        problem:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        can_resume:
+          type: boolean
+        recovery_blocked:
+          type: boolean
+        independent_complete:
+          type: boolean
+        sql_committed:
+          type: boolean
+        original_history_preserved:
+          type: boolean
+          enum:
+          - true
+        expected_diagnosis:
+          type: string
+          enum: *id009
+        diagnostic_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        operation:
+          type: string
+          enum:
+          - quarantine_cleanup
+        valid_backup_proof:
+          type: boolean
+          enum:
+          - false

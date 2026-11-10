@@ -1,0 +1,78 @@
+{
+  "validated_at": "2026-10-29T16:02:05.523228+00:00",
+  "scope": "Core timeout configuration alignment; source and controlled tests only",
+  "configuration_policy": {
+    "inference": "ai.defaults.llm.request_timeout",
+    "queue": "ai.runtime.queue_wait_timeout; one deadline shared across Profile and physical model queues",
+    "ai_proxy": "max(configured proxy timeout, configured queue + configured inference + 10s)",
+    "physical_lease": "max(configured lease TTL, configured inference + 10s); original positive and one-hour validation retained",
+    "caller_deadline": "an earlier caller deadline always wins",
+    "non_llm_handler_timeout": "existing configured timeout retained"
+  },
+  "development_config_example_seconds": {
+    "inference": 600,
+    "queue": 600,
+    "configured_proxy": 310,
+    "effective_proxy": 1210,
+    "configured_lease": 360,
+    "effective_lease": 610
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/app/shared ./internal/bootstrap ./internal/server/ai/factory/llm ./internal/service/capability_registry ./internal/transport/http/openapi/ai ./config -count=1",
+      "result": "passed",
+      "log": "/tmp/powerx-ai-timeout-alignment-20261029-235004/tests-final.log"
+    },
+    {
+      "command": "go test -race -v ./internal/server/ai/factory/llm ./internal/app/shared ./internal/transport/http/openapi/ai",
+      "result": "passed",
+      "log": "/tmp/powerx-ai-timeout-alignment-20261029-235004/race-final.log"
+    },
+    {
+      "command": "go vet ./internal/app/shared ./internal/bootstrap ./internal/server/ai/factory/llm ./internal/transport/http/openapi/ai ./config",
+      "result": "passed"
+    },
+    {
+      "command": "go build -o /tmp/powerx-ai-timeout-alignment-20261029-235004/powerx ./cmd/app",
+      "result": "passed",
+      "sha256": "f10223577732c8432afa03b79e7d8d2092917509f79d92cf72089a993f9d8679"
+    },
+    {
+      "command": "git diff --check -- <changed timeout files>",
+      "result": "passed"
+    }
+  ],
+  "test_processes": {
+    "isolated_redis": "temporary private Unix socket, TCP disabled; PID/command/cwd recorded by test; cleanup waits for exit and asserts listener released",
+    "retained_services": []
+  },
+  "acceptance_boundaries": {
+    "user_core_8077": "not restarted; observed PID 4773 started 2026-10-29 23:21:09; restart through existing user startup command required",
+    "real_provider_inference": "not submitted",
+    "private_configuration": "not modified",
+    "model_installation": "not changed",
+    "plugin_client_deadlines": "outside this Core change; shorter plugin deadlines still cancel first",
+    "unrelated_dirty_worktree": "preserved"
+  },
+  "source_sha256": {
+    "backend/internal/app/shared/ai_timeout.go": "5e33e39b31797d44003aa173452417fcbb62932731f0677287fb9fbef8674df9",
+    "backend/internal/app/shared/ai_timeout_test.go": "62948faf29d1ed6f0d3ebfd7cd7e12590d38af6d8baaa210feca94160b3f7f89",
+    "backend/internal/app/shared/deps.go": "af48836b7409b7cd7a33b582d126516067bc836e33fe09885bf083205af19abe",
+    "backend/internal/app/shared/options.go": "4522ddcdbf8d56691b366b165245a1db49caf0be6794eecb53a572dfab2cc302",
+    "backend/internal/bootstrap/ai_timeout.go": "7bb4ed91ca1cf7227a0ad7c73066d2d1cb19d8f74ce4266404dd66ee94f8ff73",
+    "backend/internal/bootstrap/ai_timeout_test.go": "1ab6566ba173fcfd58541e648ba5435642d574c5026990a7420630679a238fba",
+    "backend/internal/bootstrap/app.go": "192a483510ab4a41cdd11879a18c0c1bd4aa9a396742c04ca0e0f21f2c4f8467",
+    "backend/config/config.go": "8f435b5b2137dcf72066c35107f822899ed5728a8894eeeda3573d02bba82842",
+    "backend/internal/server/ai/factory/llm/physical_pool.go": "e9b88a1d409b018fd198b8d213b978f49000e581ab045308333c1962e71735f0",
+    "backend/internal/server/ai/factory/llm/queue_timeout_test.go": "1334edfb6923e20a3f8e89a4ca6194b3df9000c48aabcc9df063d72694f9996a",
+    "backend/internal/server/ai/factory/llm/lease_timeout_test.go": "3b38663378029ed3c520f7cd147baab3643db65cf78288b072c9b33d216f27b5",
+    "backend/internal/server/ai/factory/llm/chatutil_test.go": "1ba7974bde042ef9e0d981375995cec17e288b5edb5c71ffc093e0b4ffb2f47a",
+    "backend/internal/server/agent/config/ai.go": "47071447df15ee648c1b07889017c4c18a6ec5a0c7b9d0ea68125c6895210ec8",
+    "backend/internal/transport/http/openapi/ai/handler.go": "8da63321ee232893eafeea9dc24a803585dec824f9e04e7602ff471375093134",
+    "backend/internal/transport/http/openapi/ai/handler_timeout_policy_test.go": "1a8447a79443e7c92da387606b73638e7e9db03f1abaebdd66af4e5b4d4d6981",
+    "backend/etc/config_example.yaml": "f8c6fc81b3afa5a8df76978db1ee0fe6da8b4ab1c30878d5d39dd6ead76308ec",
+    "backend/etc/config_example.prod.yaml": "fd73a0f70144de969f312cafd0515463a24320a835e1d032576ed4dc94c43273",
+    "docs/contracts/ai-timeout-policy.md": "1a34299368fe1875f8b82c362e83740ea66f32f4c614374aba88b346dee50886",
+    "docs/plan/ai_engineering/agent/agent_runtime_durable_scheduling.md": "8b198c795567ce0d84f7b329c3e27a1aa34c8fc146ad903ee249e205faa3b076"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-30",
+  "scope": "Mac web-admin validation build artifacts only",
+  "approved_policy": {
+    "keepGroups": 3,
+    "minAgeDays": 7
+  },
+  "trigger": "npm predev lifecycle; no background cleanup daemon",
+  "manual_commands": [
+    "npm run artifacts:preview",
+    "npm run artifacts:clean"
+  ],
+  "validation": {
+    "command": "./node_modules/.bin/vitest run tests/unit/plugins/dev-artifact-cleanup.spec.ts tests/unit/plugins/dev-watch-ignore.spec.ts",
+    "test_files_passed": 2,
+    "tests_passed": 11,
+    "cleanup_tests": 8,
+    "fixture_deletion": "Five paired groups aged 16-20 days: oldest two groups deleted; newest three retained",
+    "protection_checks": [
+      "Seven-day minimum and newly modified descendants",
+      "Default development, production build and recovery directories",
+      "Symlinks, missing generated markers and Git-tracked files",
+      "Configured output paths and live process references",
+      "Other running project Node tasks and incomplete usage inspection",
+      "Recheck process usage and directory identity before applying"
+    ],
+    "real_os_usage_probe": "Idle fixture accepted; owned running wrapper protected; child terminated in test finally block",
+    "cli_symlink": "Help command succeeds through symlink without touching generated artifacts",
+    "npm_lifecycle": "npm run dev -- --help invoked predev automatically, then printed Nuxt help without starting a server",
+    "syntax_and_diff_checks": "passed"
+  },
+  "live_apply": {
+    "inspection_available": true,
+    "project_busy": true,
+    "protected_groups": 11,
+    "removed_groups": 0,
+    "reason": "Existing user-owned frontend still running; all groups protected",
+    "user_listener": {
+      "pid": 35758,
+      "port": 3030,
+      "action": "untouched"
+    },
+    "temporary_app_servers_started": 0,
+    "physical_disk_reclamation_claimed": false
+  },
+  "changed_files": [
+    "web-admin/dev-artifacts.config.json",
+    "web-admin/scripts/cleanup-dev-artifacts.mjs",
+    "web-admin/tests/unit/plugins/dev-artifact-cleanup.spec.ts",
+    "web-admin/package.json",
+    "web-admin/README.md"
+  ]
+}

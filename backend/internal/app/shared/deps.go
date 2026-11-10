@@ -7,7 +7,9 @@ import (
 	"fmt"
 	authorizationbaselinesvc "github.com/ArtisanCloud/PowerX/internal/service/authorization_baseline"
 	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
+	marketsvc "github.com/ArtisanCloud/PowerX/internal/service/plugin_marketplace"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,6 +32,7 @@ import (
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_run"
 	agentsession "github.com/ArtisanCloud/PowerX/internal/service/agent_session"
+	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	archiveops "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
@@ -54,6 +57,7 @@ import (
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	cronschedulersvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/scheduler"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
+	servicechannel "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/service_channel"
 	eventshared "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	taskqueue "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/task_queue"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
@@ -112,6 +116,7 @@ import (
 	kafkadriver "github.com/ArtisanCloud/PowerX/pkg/event_bus/drivers/kafka"
 	natsdriver "github.com/ArtisanCloud/PowerX/pkg/event_bus/drivers/nats"
 	rabbitdriver "github.com/ArtisanCloud/PowerX/pkg/event_bus/drivers/rabbitmq"
+	"github.com/ArtisanCloud/PowerX/pkg/redisnamespace"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -209,6 +214,7 @@ type CurrentRecoveryRuntime interface {
 }
 
 type Deps struct {
+	PluginMarketplace      *marketsvc.Service
 	RecoveryReadOnly       bool
 	RuntimeIdentity        runtimeidentity.CoreInfo
 	RuntimeHostSvc         *runtimehost.Service
@@ -217,6 +223,8 @@ type Deps struct {
 	AgentAdminRun          *agentruntime.AdminRunService
 	SkillDependencies      *skillsvc.DependencyService
 	DB                     *gorm.DB
+	DatabaseBackupPolicies *backupops.PolicyService
+	DatabaseBackupJobs     *backupops.JobService
 	RestoreCopies          *backupops.RestoreCopyService
 	Archives               *archiveops.Service
 	SystemSnapshots        *snapshotops.Service
@@ -226,6 +234,7 @@ type Deps struct {
 	ctx                    *context.Context
 	AuthUser               *authsvc.AuthService
 	AuthCustomer           *authsvc.AuthService
+	CustomerClientApps     *customersvc.ClientApplicationService
 	CustomerImports        *customersvc.AccountImportService
 	CustomerContactRepairs *customersvc.ContactRepairService
 	MeService              *authsvc.MeService
@@ -239,6 +248,7 @@ type Deps struct {
 	TenantSvc     *tenantsvc.TenantService
 	MediaMgr      *mediamgr.MediaManager
 	MediaSvc      *mediasvc.MediaService
+	AIMediaSvc    *aisvc.MediaRuntime
 	Notifications *notificationssvc.Service
 
 	EventBus                          event_bus.EventBus
@@ -290,14 +300,15 @@ type TenantBuiltinObjectBootstrapper interface {
 type TenantBuiltinObjectBootstrapperFactory func(db *gorm.DB) TenantBuiltinObjectBootstrapper
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
+	opts = scopedRedisOptions(opts)
 	ctx := context.Background()
 	defaultHTTPTimeout := opts.CapabilityRegistry.DefaultHTTPTimeout
 	if defaultHTTPTimeout <= 0 {
 		defaultHTTPTimeout = 20 * time.Second
 	}
-	aiMultimodalHTTPTimeout := opts.CapabilityRegistry.AIMultimodalHTTPTimeout
-	if aiMultimodalHTTPTimeout <= 0 {
-		aiMultimodalHTTPTimeout = 5*time.Minute + 10*time.Second
+	aiMultimodalHTTPTimeout := resolveAIMultimodalHTTPTimeout(opts.CapabilityRegistry)
+	if configured := opts.CapabilityRegistry.AIMultimodalHTTPTimeout; configured > 0 && configured < aiMultimodalHTTPTimeout {
+		pxlog.InfoF(ctx, "[ai.timeout] proxy response budget aligned configured_proxy_ms=%d effective_proxy_ms=%d request_timeout_ms=%d queue_wait_timeout_ms=%d response_grace_ms=%d", configured.Milliseconds(), aiMultimodalHTTPTimeout.Milliseconds(), opts.CapabilityRegistry.LLMRequestTimeout.Milliseconds(), opts.CapabilityRegistry.LLMQueueWaitTimeout.Milliseconds(), aiResponseGrace.Milliseconds())
 	}
 	authUser := authsvc.NewAuthService(db, opts.AuthUser)
 	authCustomer := authsvc.NewAuthService(db, opts.AuthCustomer)
@@ -354,6 +365,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 	// --- Media Manager & Service ---
 	mediaManager, mediaSvc := mediasvc.BuildMediaStack(ctx, db, svc, opts.Storage)
+	aiMediaSvc := aisvc.NewMediaRuntime(db, mediaSvc)
+	if aiMediaSvc != nil {
+		aiMediaSvc.SetAudit(svc)
+	}
 
 	permSvc := iamsvc.NewPermissionService(db)
 	if err := capabilityRegistry.EnsureAdminPermissions(ctx, permSvc); err != nil {
@@ -433,8 +448,16 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	if eventFabricDeps != nil && eventFabricDeps.RedisClient != nil {
 		if eventFabricDeps.StreamTasks != nil {
 			mediaSvc.ConfigureDerivativeQueue(eventFabricDeps.StreamTasks)
+			mediaSvc.SetDerivativeEventNamespace(opts.EnvironmentID)
+			if aiMediaSvc != nil {
+				aiMediaSvc.Configure(eventFabricDeps.StreamTasks, func(ctx context.Context, tenant, task string) {
+					if err := eventFabricDeps.RedisClient.Publish(ctx, aiMediaSvc.EventChannel(tenant, task), task).Err(); err != nil {
+						pxlog.WarnF(ctx, "AI media task event publication failed task=%s", task)
+					}
+				}, opts.EnvironmentID)
+			}
 			mediaSvc.SetDerivativeEvents(func(ctx context.Context, tenant, asset string) {
-				if err := eventFabricDeps.RedisClient.Publish(ctx, mediasvc.ImageDerivativeEventChannel(tenant, asset), asset).Err(); err != nil {
+				if err := eventFabricDeps.RedisClient.Publish(ctx, mediaSvc.DerivativeEventChannel(tenant, asset), asset).Err(); err != nil {
 					pxlog.WarnF(ctx, "media derivative notification: %v", err)
 				}
 			})
@@ -452,12 +475,28 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		}
 	}
 	var workflowSvc *workflowsvc.Service
+	var schedulerTaskPublisher runtimescheduler.TaskPublisher
+	if eventFabricDeps != nil && eventFabricDeps.StreamTasks != nil {
+		schedulerTaskPublisher = workers.NewRuntimeSchedulerTaskPublisher(db, taskqueue.NewRuntimeService(eventFabricDeps.StreamTasks))
+	}
 	runtimeSchedulerSvc := runtimescheduler.NewService(runtimescheduler.Options{
-		DB:       db,
-		EventBus: bus,
-		Clock:    time.Now,
+		DB:            db,
+		EventBus:      bus,
+		Clock:         time.Now,
+		TaskPublisher: schedulerTaskPublisher,
 	})
 	notificationsSvc := notificationssvc.NewService(db)
+	// Resolve the assembled manager lazily: plugin bootstrap follows service assembly.
+	notificationsSvc.LookupPresentationPlugin = func(ctx context.Context, id string) (plugin_mgr.Plugin, error) {
+		if opts.RuntimeIdentity.Manager == nil {
+			return plugin_mgr.Plugin{}, fmt.Errorf("notification presentation manager unavailable")
+		}
+		manager, err := opts.RuntimeIdentity.Manager()
+		if err != nil {
+			return plugin_mgr.Plugin{}, err
+		}
+		return manager.Get(ctx, id)
+	}
 	var runtimeSchedulerWorker *workers.RuntimeSchedulerDispatcher
 	var runtimeSchedulerNotificationProbe *workers.RuntimeSchedulerNotificationProbe
 	if runtimeSchedulerSvc != nil {
@@ -488,8 +527,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	if integrationGatewayDeps != nil {
 		versionLockRedis = integrationGatewayDeps.RedisClient
 	}
+	runtimeHostSvc := runtimehost.NewService(db, opts.RuntimeHostRedis, opts.EnvironmentID)
 	versionLockStore := toolstore.NewVersionLockStore(toolstore.VersionLockStoreOptions{
 		Redis:    versionLockRedis,
+		Prefix:   redisnamespace.Key(opts.EnvironmentID, "toolstore:version_lock"),
 		EventBus: bus,
 		Clock:    time.Now,
 	})
@@ -511,8 +552,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			redisClient = integrationGatewayDeps.RedisClient
 		}
 		workflowTemplateRepo := caprepo.NewWorkflowTemplateRepository(db)
-		recordRepo := caprepo.NewCapabilityRecordRepository(db, redisClient)
+		recordRepo := caprepo.NewCapabilityRecordRepository(db, redisClient, caprepo.CapabilityRecordRepositoryOptions{CachePrefix: redisnamespace.Key(opts.EnvironmentID, "capability_registry:cache")})
 		capabilityCatalogSvc = capabilitycatalog.NewRegistryService(capabilitycatalog.RegistryServiceOptions{
+			RecordRepo:   recordRepo,
 			DB:           db,
 			Redis:        redisClient,
 			TemplateRepo: workflowTemplateRepo,
@@ -533,7 +575,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		policyGenerator := capabilitycatalog.NewPolicyGenerator(capabilitycatalog.PolicyGeneratorOptions{
 			RecordRepo: recordRepo,
 			Cache: capabilitycatalog.NewCacheManager(capabilitycatalog.CacheManagerOptions{
-				Redis: redisClient,
+				Redis:            redisClient,
+				CapabilityPrefix: redisnamespace.Key(opts.EnvironmentID, "capability_registry:cache"),
+				PolicyPrefix:     redisnamespace.Key(opts.EnvironmentID, "toolstore:policy"),
+				BroadcastChannel: redisnamespace.Key(opts.EnvironmentID, "capability_registry:broadcast"),
 			}),
 			Clock: time.Now,
 		})
@@ -597,10 +642,17 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			GRPCConn:          invocationGRPCConn,
 			ModelVerifier:     capabilitycatalog.NewTenantModelKeyVerifier(db),
 			CoreInvoker: capabilitycatalog.NewCoreCapabilityMux(
+				&iamsvc.AuthorizationInvoker{Service: iamsvc.NewTenantDirectoryService(db)},
+				taskqueue.NewRuntimeInvoker(db, eventFabricDeps.StreamTasks),
+				&servicechannel.Invoker{Service: newEventFabricServiceChannel(db, eventFabricDeps)},
+				runtimehost.NewCacheInvoker(db, runtimeHostSvc),
+				runtimehost.NewRealtimeInvoker(db, runtimeHostSvc),
 				&notificationssvc.CapabilityInvoker{Service: notificationsSvc, Publish: func(ctx context.Context, tenant string, payload any) {
 					wsbus.DefaultHub.PublishWithContext(ctx, tenant, eventbus.TopicSystemNotification, payload, reqctx.GetTraceID(ctx))
 				}},
 				&mediasvc.ImageDerivativeInvoker{Service: mediaSvc},
+				&aisvc.MediaInvoker{Service: aiMediaSvc},
+				&aisvc.LLMStreamInvoker{Service: aisvc.NewService(db)},
 				runtimescheduler.NewCleanupInvoker(runtimeSchedulerSvc),
 				customersvc.NewCapabilityInvoker(customersvc.NewAccountService(db), customersvc.NewContactService(db)),
 				metadatasvc.NewTagCapabilityInvoker(db),
@@ -619,6 +671,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 					return knowledgeDeps.HostDocuments
 				}),
 			),
+			ServiceIdentityIssuer: requestIdentitySvc,
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
 		if toolStore != nil {
@@ -633,7 +686,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		var safeModeStore capabilitycatalog.SafeModeStore
 		if redisClient != nil {
 			safeModeStore = capabilitycatalog.NewRedisSafeModeStore(capabilitycatalog.SafeModeStoreOptions{
-				Redis: redisClient,
+				Redis:     redisClient,
+				KeyPrefix: redisnamespace.Key(opts.EnvironmentID, "agent:modelhub:safe_mode"),
 			})
 		}
 		capabilityAuthorizer = capabilitycatalog.NewAuthorizationService(capabilitycatalog.AuthorizationOptions{
@@ -668,11 +722,13 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		workflowCatalog = capabilitycatalog.NewWorkflowCatalog(capabilitycatalog.WorkflowCatalogOptions{
 			TemplateRepo: workflowTemplateRepo,
 			RecordRepo:   recordRepo,
+			CacheKey:     redisnamespace.Key(opts.EnvironmentID, "capability_registry:workflow_catalog"),
 			Redis:        redisClient,
 			Clock:        time.Now,
 			Telemetry:    workflowTelemetry,
 		})
 		capabilitySyncWorker = capabilitycatalog.NewSyncWorker(capabilitycatalog.SyncWorkerConfig{
+			CachePrefix:     redisnamespace.Key(opts.EnvironmentID, "capability_registry:cache"),
 			DB:              db,
 			Redis:           redisClient,
 			EventBus:        bus,
@@ -895,14 +951,16 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
+		PluginMarketplace:                 newPluginMarketplace(opts),
 		RuntimeIdentity:                   opts.RuntimeIdentity,
 		SkillDependencies:                 skillsvc.NewRuntimeDependencyService(db),
 		AgentSessionSvc:                   agentsession.NewServiceWithExecutor(db, agentruntime.NewServiceSessionExecutor(db)),
-		RuntimeHostSvc:                    runtimehost.NewService(db, versionLockRedis),
+		RuntimeHostSvc:                    runtimeHostSvc,
 		DB:                                db,
 		TenantSvc:                         tenantSvc,
 		AuthUser:                          authUser,
 		AuthCustomer:                      authCustomer,
+		CustomerClientApps:                customersvc.NewClientApplicationService(db, nil),
 		CustomerImports:                   customersvc.NewAccountImportService(db),
 		CustomerContactRepairs:            customersvc.NewContactRepairService(db),
 		MeService:                         meSvc,
@@ -911,6 +969,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:                           aud,
 		MediaMgr:                          mediaManager,
 		MediaSvc:                          mediaSvc,
+		AIMediaSvc:                        aiMediaSvc,
 		Notifications:                     notificationsSvc,
 		EventBus:                          bus,
 		CapabilityRegistrySvc:             capRegistrySvc,
@@ -945,7 +1004,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		PluginCompat:                      pluginCompatSvc,
 		WorkflowStepAdapter:               workflowStepAdapter,
 		CapabilityDefaultHTTPTimeout:      defaultHTTPTimeout,
-		CapabilityAIMultimodalHTTPTimeout: aiMultimodalHTTPTimeout,
+		CapabilityAIMultimodalHTTPTimeout: resolveAIHandlerTimeout(opts.CapabilityRegistry),
 		EventFabric:                       eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
@@ -1013,8 +1072,17 @@ func convertDevHotloadOptions(src DevHotloadOptions) devhotloadservice.Options {
 	}
 }
 
+// 未装配 Event Fabric 时保持不可用，不启用另一条隐式运行通道。
+func newEventFabricServiceChannel(db *gorm.DB, deps *EventFabricDeps) *servicechannel.Service {
+	if deps == nil || deps.Delivery == nil {
+		return nil
+	}
+	return servicechannel.NewService(db, deps.Audit)
+}
+
 // EventFabricDeps 聚合事件骨干运行时依赖。
 type EventFabricDeps struct {
+	EnvironmentID        string
 	RedisClient          *redis.Client
 	EventBus             event_bus.EventBus
 	Config               EventFabricRuntimeConfig
@@ -1206,13 +1274,13 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 	retryWorkerFallbackEnabled := false
 	retryWorkerDriverName := ""
 	if redisClient != nil {
-		if base, err := event_bus.NewRedisStreamTaskDriver(redisClient, 2*time.Minute); err == nil {
+		if base, err := event_bus.NewRedisStreamTaskDriver(redisClient, 2*time.Minute, opts.EnvironmentID); err == nil {
 			streamTasks = taskqueue.NewStreamDriver(db, base)
 		}
-		reliableQueue = event_bus.NewRedisReliableQueue(redisClient)
+		reliableQueue = event_bus.NewRedisReliableQueue(redisClient, opts.EnvironmentID)
 		redisTaskDriver := event_bus.NewRedisTaskDriver(event_bus.RedisTaskDriverOptions{
 			Client:           redisClient,
-			Prefix:           "event_fabric:task",
+			Prefix:           redisnamespace.Key(opts.EnvironmentID, "event_fabric:task"),
 			BlockingTimeout:  cfg.SchedulerInterval,
 			ProcessingExpiry: cfg.AckTimeout * 2,
 		})
@@ -1274,7 +1342,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 			if redisClient == nil {
 				return nil
 			}
-			return cache.NewRedisCache(redisClient)
+			return cache.NewRedisCache(redisClient, opts.EnvironmentID)
 		}(),
 		TTL:     180 * time.Second,
 		MissTTL: 30 * time.Second,
@@ -1380,7 +1448,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 
 	var retryWorker *workers.EventFabricRetryWorker
 	if deliverySvc != nil && bus != nil {
-		tenantProvider := newRetryQueueTenantKeyProvider(redisClient, 10*time.Second)
+		tenantProvider := newRetryQueueTenantKeyProvider(redisClient, 10*time.Second, opts.EnvironmentID)
 		if tenantProvider == nil {
 			tenantProvider = newCachedTenantKeyProvider(tenantSvc, 30*time.Second)
 		}
@@ -1451,7 +1519,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 
 		cache := authorizationService.NewCache(authorizationService.CacheOptions{
 			RedisClient:       authRedis,
-			KeyPrefix:         "event_fabric:authorization",
+			KeyPrefix:         redisnamespace.Key(opts.EnvironmentID, "event_fabric:authorization"),
 			RedisTTL:          time.Duration(authCfg.CacheTTLSeconds) * time.Second,
 			LocalTTL:          time.Duration(authCfg.LocalCacheTTLSeconds) * time.Second,
 			LocalCapacity:     512,
@@ -1552,6 +1620,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, queueOpts QueueOpt
 	}
 
 	return &EventFabricDeps{
+		EnvironmentID:        opts.EnvironmentID,
 		RedisClient:          redisClient,
 		EventBus:             bus,
 		Config:               cfg,
@@ -2113,14 +2182,17 @@ func newIntegrationGatewayDeps(db *gorm.DB, opts IntegrationGatewayOptions, bus 
 	}
 }
 
-func newRetryQueueTenantKeyProvider(redisClient *redis.Client, ttl time.Duration) func(context.Context) ([]string, error) {
+func newRetryQueueTenantKeyProvider(redisClient *redis.Client, ttl time.Duration, namespace ...string) func(context.Context) ([]string, error) {
 	if redisClient == nil {
 		return nil
 	}
 	if ttl <= 0 {
 		ttl = 10 * time.Second
 	}
-	const retryKeyPrefix = "event:retry:"
+	retryKeyPrefix := "event:retry:"
+	if len(namespace) > 0 {
+		retryKeyPrefix = redisnamespace.Key(namespace[0], retryKeyPrefix)
+	}
 	var mu sync.Mutex
 	var cached []string
 	var expireAt time.Time

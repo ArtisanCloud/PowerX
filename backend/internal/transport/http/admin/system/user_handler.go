@@ -138,9 +138,11 @@ func toMemberWithProfileDTO(item svciam.MemberWithProfile) MemberWithProfileDTO 
 
 type ListUsersReq struct {
 	dto.PaginationRequest
-	TenantUUID string `form:"tenant_uuid" validate:"required"`
-	Keyword    string `form:"q"`
-	Status     *int16 `form:"status"`
+	TenantUUID string  `form:"tenant_uuid" validate:"required"`
+	Keyword    string  `form:"q"`
+	Status     *int16  `form:"status"`
+	DeptID     *uint64 `form:"dept_id"`
+	Recursive  bool    `form:"recursive,default=true"`
 }
 
 // 创建用户并把该用户加入租户时需要的扩展字段（模型字段直接来自 m.User）
@@ -155,13 +157,14 @@ type CreateSystemUserReq struct {
 }
 
 type UpdateUserReq struct {
-	TenantUUID  string  `json:"tenant_uuid" validate:"required"`
-	UserName    *string `json:"username" validate:"omitempty,min=3,max=64"`
-	Email       *string `json:"email" validate:"omitempty,email"`
-	Phone       *string `json:"phone"`
-	DisplayName *string `json:"display_name"`
-	AvatarURL   *string `json:"avatar_url"`
-	Status      *int16  `json:"status"`
+	TenantUUID  string    `json:"tenant_uuid" validate:"required"`
+	UserName    *string   `json:"username" validate:"omitempty,min=3,max=64"`
+	Email       *string   `json:"email" validate:"omitempty,email"`
+	Phone       *string   `json:"phone"`
+	DisplayName *string   `json:"display_name"`
+	AvatarURL   *string   `json:"avatar_url"`
+	Status      *int16    `json:"status"`
+	DeptIDs     *[]uint64 `json:"dept_ids"`
 }
 
 type SetStatusReq struct {
@@ -211,6 +214,8 @@ func (h *UserHandler) List(c *gin.Context) {
 		TenantUUID: tenantCtx.UUID(),
 		Keyword:    req.Keyword,
 		Status:     req.Status,
+		DeptID:     req.DeptID,
+		Recursive:  req.Recursive,
 		Page:       req.Page,
 		Size:       req.PageSize,
 		OrderBy:    strings.TrimSpace(req.SortOrder),
@@ -352,13 +357,13 @@ func (h *UserHandler) Update(c *gin.Context) {
 	if req.Status != nil {
 		updates["status"] = *req.Status
 	}
-	if len(updates) == 0 && req.UserName == nil {
+	if len(updates) == 0 && req.UserName == nil && req.DeptIDs == nil {
 		dto.ResponseSuccess(c, gin.H{"ok": true})
 		return
 	}
 
 	// Service：UpdateUserInTenant(ctx, id, tenant_uuid, updates, username) error
-	if err := h.S.UpdateUserInTenant(ctx, id, tenantCtx.UUID(), updates, req.UserName); err != nil {
+	if err := h.S.UpdateUserInTenant(ctx, id, tenantCtx.UUID(), updates, req.UserName, req.DeptIDs); err != nil {
 		if dto.CodeOf(err) == svciam.CodeMemberDisplayNameConflict {
 			dto.RespondErrorFrom(c, err)
 			return

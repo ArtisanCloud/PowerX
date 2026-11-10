@@ -1,0 +1,932 @@
+{
+  "thumbnailImage": {
+    "width": 64,
+    "height": 36,
+    "bytes": 208
+  },
+  "previewImage": {
+    "width": 1600,
+    "height": 900,
+    "bytes": 6993
+  },
+  "downloads": [
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/preview-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1017,
+      "responseBodySize": 7006,
+      "responseHeadersSize": 355,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1015,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1013,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1055,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1053,
+      "responseBodySize": 219,
+      "responseHeadersSize": 351,
+      "failure": null
+    },
+    {
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "status": 200,
+      "requestBodySize": 0,
+      "requestHeadersSize": 1055,
+      "responseBodySize": 219,
+      "responseHeadersSize": 353,
+      "failure": null
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/setup/status",
+      "query": "",
+      "authenticated": false,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/user/auth/me/context",
+      "query": "",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/menus",
+      "query": "?locale=zh-CN",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20&is_read=false",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/preview-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20&is_read=false",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20&is_read=false",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-2",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20&is_read=false",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20&is_read=false",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/setup/status",
+      "query": "",
+      "authenticated": false,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/user/auth/me/context",
+      "query": "",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/menus",
+      "query": "?locale=zh-CN",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333",
+      "query": "",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20&is_read=false",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/read",
+      "query": "",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications",
+      "query": "?page=1&page_size=20&is_read=false",
+      "authenticated": true,
+      "language": "zh-CN"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/44444444-4444-4444-8444-444444444444/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/presentation-source",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/presentation",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/bulk_order/images/thumb-1",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "GET",
+      "path": "/_p/plugin.cards/api/v1/admin/notification-cards/sample_track/images/thumb-4",
+      "query": "",
+      "authenticated": true,
+      "language": "zh"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/notifications/33333333-3333-4333-8333-333333333333/read",
+      "query": "",
+      "authenticated": true,
+      "language": "zh-CN"
+    }
+  ],
+  "console": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    }
+  ],
+  "pageErrors": []
+}

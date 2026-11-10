@@ -48,6 +48,21 @@ Authorization: Bearer <管理员用户 JWT>
 
 新建 Key 请求支持可选 `plugin_ids`；Key 列表、详情、创建和轮换响应均返回 `plugin_ids` 与 `binding_mode`。轮换继承原 Key 的完整 owner 策略。
 
+## 配置冲突的反馈
+
+保存／追加 Profile 权限以及修改单个 Key 的 owner 时，未被验证为正式插件服务声明的固定资源权限与 Key 范围不一致返回 `400 / API_KEY_PLUGIN_OWNER_CONFLICT`。业务冲突不再被包装成通用 500。Profile 同步在同一锁和事务中检查全部启用 Key，发现冲突后整体回滚，保留此前的 Profile 权限、Key owner 与有效 grant；不会静默跳过某个 Key 或自动扩大插件范围。
+
+错误响应 `details` 包含：
+
+- `profile_id`、`profile_name`、`conflict_count`、`conflicting_key_count`。
+- `conflicts[]`：Key ID／名称、Permission ID／名称、capability ID、要求的 `required_plugin_id`、已配置的 `owner_plugin_ids`、具体 scope/action/resource。
+- 旧细分策略额外提供 `binding_mode=legacy_permissions` 和 `permission_owner_plugin_ids`，区分整个 Key 的 owner 集合与本项权限原有的范围。
+- `trace_id` 用于关联请求；不返回 Key 明文、前缀、哈希或完整策略。明细最多 200 项，完整计数不截断，更多项通过 `truncated=true` 明确告知。
+
+页面在权限配置区显示持久失败提示，保留当前勾选；“查看冲突详情”按 Key 分组展示具体权限。owner 编辑失败时保留输入及原有绑定；明细中的插件范围明确标为“本次提交的插件范围”，避免把失败的输入误认为已保存状态。切换租户或 Profile 后释放旧报告，迟到的保存结果不会覆盖新范围的页面状态。
+
+清空 `plugin_ids` 表示撤销 owner 授权，不表示允许所有插件。Profile 仍含固定插件权限时，空集合仍会产生冲突；需要 owner 的调度、身份接口也会失去相应访问。管理员可在 Profile 直接勾选正式声明的跨插件服务能力。后台分别处理服务提供方和调用方资源 owner，不能用扩大资源 owner 范围替代服务能力授权。
+
 ## 保存与兼容
 
 - `integration_gateway_api_keys.plugin_owner_policy` 为独立 JSONB 列，由集中 `migrateIntegrationGatewayModels` 的既有 AutoMigrate 注册迁移。
@@ -79,3 +94,9 @@ Authorization: Bearer <管理员用户 JWT>
 7. 用 CRM 当前 Key 重试 .NET 任务预览；再次保存 Profile、刷新 owner 回读和重复预览。新保存链路只有新后台代码加载后才生效，旧进程再次保存 Profile 仍会重建旧的无 owner 授权。
 
 没有遗留临时服务。所有代码变更保持在当前分支，提交、推送、合并由用户执行。
+
+## Profile 中的插件服务能力
+
+Profile 仍是统一权限配置入口。经过规范显式声明、发布和租户注册校验的插件服务权限，按声明的 provider 生成精确 grant，不要求 provider 等于 Key 的资源 owner；原有资源权限继续匹配 Key owner。
+
+例如：WorkspaceX owner 的 Key 可以通过 Profile 获得 Ecommerce 套餐读取 grant，其资源 owner 仍是 WorkspaceX。取消 Profile 的套餐读取并保存会撤销继承授权。新建 Key 不会从服务提供方反推资源 owner；轮换和 owner 变更同样分别保持两种语义。后台不自动修改任何 Profile 勾选或已有 Key 授权。

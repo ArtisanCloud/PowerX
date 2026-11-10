@@ -29,14 +29,15 @@ const (
 
 // Options 定义本地驱动的初始化参数。
 type Options struct {
-	Name          string
-	BasePath      string
-	PublicBaseURL string
-	DirPerm       os.FileMode
-	FilePerm      os.FileMode
-	EnableUpload  bool
-	UploadToken   string
-	MaxUploadSize int64
+	RequireExistingPath bool // 维护 dry-run 不创建存储目录
+	Name                string
+	BasePath            string
+	PublicBaseURL       string
+	DirPerm             os.FileMode
+	FilePerm            os.FileMode
+	EnableUpload        bool
+	UploadToken         string
+	MaxUploadSize       int64
 }
 
 // Driver 为本地文件系统驱动实现。
@@ -63,7 +64,15 @@ func New(opts Options) (*Driver, error) {
 	if opts.FilePerm == 0 {
 		opts.FilePerm = 0o644
 	}
-	if err := os.MkdirAll(base, opts.DirPerm); err != nil {
+	if opts.RequireExistingPath {
+		info, err := os.Stat(base)
+		if err != nil {
+			return nil, fmt.Errorf("local driver: 只读目录不可用: %w", err)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("local driver: base path 不是目录")
+		}
+	} else if err := os.MkdirAll(base, opts.DirPerm); err != nil {
 		return nil, fmt.Errorf("local driver: 初始化目录失败: %w", err)
 	}
 

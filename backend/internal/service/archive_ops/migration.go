@@ -52,7 +52,7 @@ func (s *Service) MigrateArchive(ctx context.Context, id, policy, key, operator 
 		if old.MigratedFrom != id || old.PolicyID != policy {
 			return Job{}, failure(409, "ARCHIVE_IDEMPOTENCY_CONFLICT", "同一请求不能迁移另一归档")
 		}
-		return old.Job, nil
+		return s.observedJob(old), nil
 	}
 	if err = s.catalogCapacity(); err != nil {
 		unlock()
@@ -60,20 +60,28 @@ func (s *Service) MigrateArchive(ctx context.Context, id, policy, key, operator 
 	}
 	now := time.Now().UTC()
 	j := jobRecord{Job: Job{ID: jobID, PolicyID: p.ID, PolicyRevision: p.Revision, SourceID: p.SourceID, Kind: origin.Kind, Status: "running", Phase: "migration", RemoteState: "pending", CreatedAt: now, Target: &t, Protected: true, ProvenanceVerified: origin.ProvenanceVerified, SourceFileName: origin.SourceFileName, FileCount: origin.FileCount, SizeBytes: origin.SizeBytes, RemoteRetentionDays: p.RemoteRetentionDays, RemoteRetentionCount: p.RemoteRetentionCount, Operator: operator, Warnings: []string{"迁移完成后旧目标继续保留；新副本默认保护"}, MigratedFrom: id, OriginManifest: origin.RemotePath, OriginManifestVersion: origin.RemoteManifestVersion, OriginManifestSHA256: origin.RemoteManifestSHA256}, RequestKey: request}
+	finishExecution, err := s.beginExecution(&j)
+	if err != nil {
+		unlock()
+		return Job{}, err
+	}
 	if err = s.saveJob(&j); err != nil {
+		finishExecution()
 		unlock()
 		return Job{}, err
 	}
 	s.mu.Lock()
 	if s.ctx.Err() != nil {
+		finishExecution()
 		s.mu.Unlock()
 		unlock()
 		return Job{}, failure(503, "ARCHIVE_STOPPED", "归档服务已停止")
 	}
 	s.workers.Add(1)
 	s.mu.Unlock()
-	response := j.Job
+	response := s.observedJob(j)
 	go func() {
+		defer finishExecution()
 		defer s.workers.Done()
 		defer unlock()
 		run, cancel := context.WithTimeout(s.ctx, 30*time.Minute)
@@ -90,6 +98,13 @@ func (s *Service) MigrateArchive(ctx context.Context, id, policy, key, operator 
 					return e
 				}
 				defer release()
+				blocked, e := s.policyHasInterruptedExcept(run, pid, j.ID)
+				if e != nil {
+					return e
+				}
+				if blocked {
+					return failure(409, "ARCHIVE_INTERRUPTED_JOB_PENDING", "原策略有中断待核对任务，停止迁移")
+				}
 			}
 			current, e := s.readJob(origin.ID)
 			if e != nil {

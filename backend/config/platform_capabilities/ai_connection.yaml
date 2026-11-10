@@ -1,0 +1,46 @@
+version: 1
+capabilities:
+- capability_id: com.corex.ai.connection.test
+  module: ai
+  title: AI Connection Test
+  description: Verify the current tenant's saved provider endpoint and authentication without invoking a model or saving configuration.
+  permission_code: corex.ai.connection:test
+  agent_usable: false
+  risk_level: low
+  categories: [ai, connection]
+  intents: [ai.connection.test]
+  tool_scopes: [ai.connection.test]
+  policy:
+    prefer: core_internal
+  docs:
+  - docs/contracts/ai-settings-connection-test.md
+  - docs/contracts/ai-connection-test.v1.openapi.yaml
+  protocols:
+  - channel: core_internal
+    endpoint: core://ai/connection
+    method: INVOKE
+    schema_ref: docs/contracts/ai-connection-test.v1.openapi.yaml#/components/schemas/ConnectionTestOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: ai.connection.test
+    api_key:
+      scope: _scope.ai.connection.test
+      action: test
+      resource_type: api
+      resource_pattern: ai-connection-test
+  - channel: rest
+    endpoint: /api/v1/admin/agents/test/connection
+    method: POST
+    schema_ref: docs/contracts/ai-connection-test.v1.openapi.yaml#/paths/~1admin~1agents~1test~1connection/post
+    auth_type: user_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: ai.connection.test
+  title_i18n:
+    en: AI Connection Test
+    zh-CN: AI 连接检测
+  description_i18n:
+    en: Verify a saved provider endpoint and credentials without model generation or configuration changes.
+    zh-CN: 检查当前租户已保存的供应商入口和鉴权，不执行模型生成或修改配置。

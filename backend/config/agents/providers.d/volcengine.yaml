@@ -24,7 +24,7 @@ auth:
       scheme: "bearer"
       fields: ["api_key", "base_url"]
       defaults:
-        base_url: "https://operator.las.cn-beijing.volces.com"
+        base_url: "https://ark.cn-beijing.volces.com"
 
 modalities:
   audio_tts:
@@ -190,33 +190,120 @@ apps:
       video:
         models:
           - id: "doubao-seedance-1-5-pro-251215"
+            operations:
+              video_generation:
+                driver: volcengine
+                async: true
+                input_types:
+                - text
+                - image_url
+                max_images: 1
+                max_videos: 0
+                parameters:
+                  resolution:
+                    type: string
+                    enum:
+                    - 480p
+                    - 720p
+                    - 1080p
+                    default: 720p
+                  max_duration_sec:
+                    type: integer
+                    minimum: 4
+                    maximum: 12
+                    default: 5
             label: "Seedance 1.5 Pro"
             tags: ["video", "volcengine", "seedance"]
             defaults:
-              base_url: "https://operator.las.cn-beijing.volces.com"
-              api_path_submit: "/api/v1/contents/generations/tasks"
-              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+              base_url: "https://ark.cn-beijing.volces.com"
+              api_path_submit: "/api/v3/contents/generations/tasks"
+              api_path_poll: "/api/v3/contents/generations/tasks/%s"
           - id: "doubao-seedance-1-0-pro-250528"
+            operations:
+              video_generation:
+                driver: volcengine
+                async: true
+                input_types:
+                - text
+                - image_url
+                max_images: 1
+                max_videos: 0
+                parameters:
+                  resolution:
+                    type: string
+                    enum:
+                    - 480p
+                    - 720p
+                    - 1080p
+                    default: 720p
+                  max_duration_sec:
+                    type: integer
+                    minimum: 2
+                    maximum: 12
+                    default: 5
             label: "Seedance 1.0 Pro"
             tags: ["video", "volcengine", "seedance"]
             defaults:
-              base_url: "https://operator.las.cn-beijing.volces.com"
-              api_path_submit: "/api/v1/contents/generations/tasks"
-              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+              base_url: "https://ark.cn-beijing.volces.com"
+              api_path_submit: "/api/v3/contents/generations/tasks"
+              api_path_poll: "/api/v3/contents/generations/tasks/%s"
           - id: "doubao-seedance-1-0-pro-fast-251015"
+            operations:
+              video_generation:
+                driver: volcengine
+                async: true
+                input_types:
+                - text
+                - image_url
+                max_images: 1
+                max_videos: 0
+                parameters:
+                  resolution:
+                    type: string
+                    enum:
+                    - 480p
+                    - 720p
+                    - 1080p
+                    default: 720p
+                  max_duration_sec:
+                    type: integer
+                    minimum: 2
+                    maximum: 12
+                    default: 5
             label: "Seedance 1.0 Pro Fast"
             tags: ["video", "volcengine", "seedance"]
             defaults:
-              base_url: "https://operator.las.cn-beijing.volces.com"
-              api_path_submit: "/api/v1/contents/generations/tasks"
-              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+              base_url: "https://ark.cn-beijing.volces.com"
+              api_path_submit: "/api/v3/contents/generations/tasks"
+              api_path_poll: "/api/v3/contents/generations/tasks/%s"
           - id: "doubao-seedance-1-0-lite-t2v-250428"
+            operations:
+              video_generation:
+                driver: volcengine
+                async: true
+                input_types:
+                - text
+                max_images: 0
+                max_videos: 0
+                parameters:
+                  resolution:
+                    type: string
+                    enum:
+                    - 480p
+                    - 720p
+                    - 1080p
+                    default: 720p
+                  max_duration_sec:
+                    type: integer
+                    minimum: 2
+                    maximum: 12
+                    default: 5
             label: "Seedance 1.0 Lite T2V"
             tags: ["video", "volcengine", "seedance"]
             defaults:
-              base_url: "https://operator.las.cn-beijing.volces.com"
-              api_path_submit: "/api/v1/contents/generations/tasks"
-              api_path_poll: "/api/v1/contents/generations/tasks/%s"
+              base_url: "https://ark.cn-beijing.volces.com"
+              api_path_submit: "/api/v3/contents/generations/tasks"
+              api_path_poll: "/api/v3/contents/generations/tasks/%s"
           - id: "*"
             label: "Seedance Video (Any)"
             tags: ["video", "volcengine", "seedance", "wildcard"]

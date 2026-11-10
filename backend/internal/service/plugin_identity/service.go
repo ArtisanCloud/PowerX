@@ -27,6 +27,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -36,11 +37,12 @@ type Options struct {
 	UserAudience string
 }
 type Service struct {
-	db    *gorm.DB
-	repo  *iamrepo.PluginIdentityRepository
-	store cache.ICache
-	opts  Options
-	clock func() time.Time
+	db              *gorm.DB
+	repo            *iamrepo.PluginIdentityRepository
+	store           cache.ICache
+	opts            Options
+	clock           func() time.Time
+	rejectionLogger func(context.Context, string, ...zap.Field)
 }
 type proof struct {
 	Version            int       `json:"version"`
@@ -94,22 +96,40 @@ func (s *Service) ready() bool {
 
 // Issue is called only by the Core gateway after user and route authorization.
 // It deliberately accepts verified claims, never a browser-provided identity DTO.
-func (s *Service) Issue(ctx context.Context, in IssueInput) (string, error) {
+func (s *Service) Issue(ctx context.Context, in IssueInput) (ticket string, err error) {
+	p := issueProof(in)
+	defer func() { s.logRejected(ctx, "issue", p, err) }()
 	if !s.ready() {
-		return "", failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return "", rejected(503, "IAM_CONTEXT_UNAVAILABLE", "service_not_ready")
 	}
 	c := in.Claims
 	now := s.clock().UTC()
-	if c.Issuer != s.opts.UserIssuer || !has(c.Audience, s.opts.UserAudience) || c.Scope != "access" || c.ExpiresAt == nil || !now.Before(c.ExpiresAt.Time) || c.ID == "" {
-		return "", failure(401, "IAM_CONTEXT_USER_SESSION_INVALID")
+	reason := ""
+	switch {
+	case c.Issuer != s.opts.UserIssuer:
+		reason = "user_issuer_mismatch"
+	case !has(c.Audience, s.opts.UserAudience):
+		reason = "user_audience_mismatch"
+	case c.Scope != "access":
+		reason = "user_scope_invalid"
+	case c.ExpiresAt == nil:
+		reason = "user_access_expiry_missing"
+	case !now.Before(c.ExpiresAt.Time):
+		reason = "user_access_expired"
+	case c.ID == "":
+		reason = "session_id_missing"
 	}
-	p := proof{Version: 1, PluginID: in.PluginID, TenantUUID: canonical(c.TenantUUID), UserUUID: canonical(c.UserUUID), MemberUUID: canonical(c.MemberUUID), SessionJTI: c.ID, IsRoot: c.IsRoot, UserExpiresAt: c.ExpiresAt.Time.UTC(), Method: in.Method, Path: in.Path, Transport: in.Transport, RequestID: in.RequestID, TraceID: in.TraceID}
-	p.RequiredPermission = in.RequiredPermission
+	if reason != "" {
+		return "", rejected(401, "IAM_CONTEXT_USER_SESSION_INVALID", reason)
+	}
 	if !pluginPattern.MatchString(p.PluginID) || p.TenantUUID == "" || p.UserUUID == "" || p.Path == "" || p.Method == "" || in.TraceID == "" || in.RequestID == "" {
-		return "", failure(401, "IAM_CONTEXT_USER_SESSION_INVALID")
+		return "", rejected(401, "IAM_CONTEXT_USER_SESSION_INVALID", "request_identity_fields_invalid",
+			zap.Bool("plugin_id_valid", pluginPattern.MatchString(p.PluginID)), zap.Bool("tenant_uuid_valid", p.TenantUUID != ""),
+			zap.Bool("user_uuid_valid", p.UserUUID != ""), zap.Bool("path_present", p.Path != ""),
+			zap.Bool("method_present", p.Method != ""), zap.Bool("trace_id_present", in.TraceID != ""), zap.Bool("request_id_present", in.RequestID != ""))
 	}
 	if p.Transport != "http" && p.Transport != "ws_grant" && p.Transport != "ws_upgrade" {
-		return "", failure(400, "IAM_CONTEXT_INVALID_ARGUMENT")
+		return "", rejected(400, "IAM_CONTEXT_INVALID_ARGUMENT", "transport_invalid")
 	}
 	if _, _, err := s.subject(ctx, p); err != nil {
 		return "", err
@@ -120,12 +140,12 @@ func (s *Service) Issue(ctx context.Context, in IssueInput) (string, error) {
 	}
 	random := make([]byte, 32)
 	if _, err := rand.Read(random); err != nil {
-		return "", failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return "", rejected(503, "IAM_CONTEXT_UNAVAILABLE", "ticket_random_failed")
 	}
-	ticket := "pxctx_v1_" + base64.RawURLEncoding.EncodeToString(random)
+	ticket = "pxctx_v1_" + base64.RawURLEncoding.EncodeToString(random)
 	raw, _ := json.Marshal(p)
 	if err := s.store.Set(ctx, s.key(ticket), raw, p.ExpiresAt.Sub(now)); err != nil {
-		return "", failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return "", rejected(503, "IAM_CONTEXT_UNAVAILABLE", "ticket_store_failed")
 	}
 	logger.InfoF(ctx, "iam_request_identity_issued plugin_id=%s tenant_uuid=%s source_request_id=%s source_trace_id=%s transport=%s", p.PluginID, p.TenantUUID, p.RequestID, p.TraceID, p.Transport)
 	return ticket, nil
@@ -135,58 +155,67 @@ func (s *Service) subject(ctx context.Context, p proof) (models.User, models.Mem
 	var member models.Member
 	now := s.clock()
 	if !now.Before(p.UserExpiresAt) {
-		return models.User{}, member, failure(401, "IAM_CONTEXT_USER_SESSION_EXPIRED")
+		return models.User{}, member, rejected(401, "IAM_CONTEXT_USER_SESSION_EXPIRED", "user_access_expired")
 	}
 	session, err := s.repo.Session(ctx, p.SessionJTI)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return models.User{}, member, failure(401, "IAM_CONTEXT_USER_SESSION_INVALID")
+		return models.User{}, member, rejected(401, "IAM_CONTEXT_USER_SESSION_INVALID", "session_not_found")
 	}
 	if err != nil {
-		return models.User{}, member, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return models.User{}, member, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "session_lookup_failed")
 	}
-	if session.RevokedAt != nil || session.ExpiresAt <= now.UnixMilli() || session.UserUUID != p.UserUUID || session.TenantUUID != p.TenantUUID || session.MemberUUID != p.MemberUUID {
-		return models.User{}, member, failure(401, "IAM_CONTEXT_USER_SESSION_INVALID")
+	fields := []zap.Field{zap.String("session_expires_at", time.UnixMilli(session.ExpiresAt).UTC().Format(time.RFC3339Nano)),
+		zap.Bool("session_user_matches", session.UserUUID == p.UserUUID), zap.Bool("session_tenant_matches", session.TenantUUID == p.TenantUUID), zap.Bool("session_member_matches", session.MemberUUID == p.MemberUUID)}
+	if session.RevokedAt != nil {
+		fields = append(fields, zap.String("session_revoked_at", time.UnixMilli(*session.RevokedAt).UTC().Format(time.RFC3339Nano)))
+		return models.User{}, member, rejected(401, "IAM_CONTEXT_USER_SESSION_INVALID", "session_revoked", fields...)
+	}
+	if session.ExpiresAt <= now.UnixMilli() {
+		return models.User{}, member, rejected(401, "IAM_CONTEXT_USER_SESSION_INVALID", "session_expired", fields...)
+	}
+	if session.UserUUID != p.UserUUID || session.TenantUUID != p.TenantUUID || session.MemberUUID != p.MemberUUID {
+		return models.User{}, member, rejected(401, "IAM_CONTEXT_USER_SESSION_INVALID", "session_identity_mismatch", fields...)
 	}
 	user, err := s.repo.User(ctx, p.UserUUID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return user, member, failure(401, "IAM_CONTEXT_USER_SESSION_INVALID")
+		return user, member, rejected(401, "IAM_CONTEXT_USER_SESSION_INVALID", "user_not_found")
 	}
 	if err != nil {
-		return user, member, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return user, member, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "user_lookup_failed")
 	}
 	if user.Status != models.UserStatusActive || user.IsRoot != p.IsRoot {
-		return user, member, failure(403, "IAM_CONTEXT_USER_FORBIDDEN")
+		return user, member, rejected(403, "IAM_CONTEXT_USER_FORBIDDEN", "user_state_changed", zap.Int("user_status", int(user.Status)), zap.Bool("user_root_matches", user.IsRoot == p.IsRoot))
 	}
 	ten, err := s.repo.Tenant(ctx, p.TenantUUID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return user, member, failure(403, "IAM_CONTEXT_USER_FORBIDDEN")
+		return user, member, rejected(403, "IAM_CONTEXT_USER_FORBIDDEN", "tenant_not_found")
 	}
 	if err != nil {
-		return user, member, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return user, member, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "tenant_lookup_failed")
 	}
 	if ten.Status != 1 {
-		return user, member, failure(403, "IAM_CONTEXT_USER_FORBIDDEN")
+		return user, member, rejected(403, "IAM_CONTEXT_USER_FORBIDDEN", "tenant_disabled")
 	}
 	if !user.IsRoot || p.MemberUUID != "" {
 		if p.MemberUUID == "" {
-			return user, member, failure(403, "IAM_CONTEXT_MEMBER_REQUIRED")
+			return user, member, rejected(403, "IAM_CONTEXT_MEMBER_REQUIRED", "member_required")
 		}
 		member, err = s.repo.Member(ctx, p.TenantUUID, p.UserUUID, p.MemberUUID)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return user, member, failure(403, "IAM_CONTEXT_USER_FORBIDDEN")
+			return user, member, rejected(403, "IAM_CONTEXT_USER_FORBIDDEN", "member_not_found")
 		}
 		if err != nil {
-			return user, member, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+			return user, member, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "member_lookup_failed")
 		}
 		if member.Status != 1 {
-			return user, member, failure(403, "IAM_CONTEXT_USER_FORBIDDEN")
+			return user, member, rejected(403, "IAM_CONTEXT_USER_FORBIDDEN", "member_disabled")
 		}
 	}
 	if err := plugin.NewTenantPluginInstanceService(s.db).RequireEnabled(ctx, p.TenantUUID, p.PluginID); err != nil {
 		if dto.StatusCode(err) == 403 {
-			return user, member, failure(403, "IAM_CONTEXT_PLUGIN_FORBIDDEN")
+			return user, member, rejected(403, "IAM_CONTEXT_PLUGIN_FORBIDDEN", "plugin_not_enabled")
 		}
-		return user, member, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return user, member, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "plugin_state_lookup_failed")
 	}
 	return user, member, nil
 }
@@ -276,10 +305,11 @@ func (s *Service) Resolve(ctx context.Context, in Query) (Result, error) {
 func (s *Service) ResolveAdmin(ctx context.Context, in Query) (Result, error) {
 	return s.resolve(ctx, in, true)
 }
-func (s *Service) resolve(ctx context.Context, in Query, admin bool) (Result, error) {
-	var out Result
+func (s *Service) resolve(ctx context.Context, in Query, admin bool) (out Result, err error) {
+	var p proof
+	defer func() { s.logRejected(ctx, "resolve", p, err) }()
 	if !s.ready() {
-		return out, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return out, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "service_not_ready")
 	}
 	tenant, err := canonical(reqctx.GetTenantUUID(ctx)), error(nil)
 	if !admin {
@@ -291,42 +321,41 @@ func (s *Service) resolve(ctx context.Context, in Query, admin bool) (Result, er
 		}
 	}
 	if err != nil {
-		return out, err
+		return out, explainRejection(err, "caller_credential_rejected")
 	}
 	if in.Schema != QuerySchema {
-		return out, failure(400, "IAM_CONTEXT_INVALID_ARGUMENT")
+		return out, rejected(400, "IAM_CONTEXT_INVALID_ARGUMENT", "query_schema_invalid")
 	}
 	if in.ContextTicket == "" {
-		return out, failure(401, "IAM_CONTEXT_PROOF_REQUIRED")
+		return out, rejected(401, "IAM_CONTEXT_PROOF_REQUIRED", "proof_required")
 	}
 	if !ticketPattern.MatchString(in.ContextTicket) {
-		return out, failure(401, "IAM_CONTEXT_PROOF_INVALID")
+		return out, rejected(401, "IAM_CONTEXT_PROOF_INVALID", "proof_format_invalid")
 	}
 	raw, err := s.store.Get(ctx, s.key(in.ContextTicket))
 	if err != nil {
-		return out, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return out, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "proof_store_read_failed")
 	}
 	if len(raw) == 0 {
-		return out, failure(401, "IAM_CONTEXT_PROOF_EXPIRED")
+		return out, rejected(401, "IAM_CONTEXT_PROOF_EXPIRED", "proof_not_found")
 	}
-	var p proof
 	if json.Unmarshal(raw, &p) != nil || p.Version != 1 {
-		return out, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return out, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "proof_decode_failed")
 	}
 	if !s.clock().Before(p.ExpiresAt) {
-		return out, failure(401, "IAM_CONTEXT_PROOF_EXPIRED")
+		return out, rejected(401, "IAM_CONTEXT_PROOF_EXPIRED", "proof_expired")
 	}
 	if p.TenantUUID != tenant {
-		return out, failure(403, "IAM_CONTEXT_TENANT_FORBIDDEN")
+		return out, rejected(403, "IAM_CONTEXT_TENANT_FORBIDDEN", "proof_tenant_mismatch")
 	}
 	if !admin {
 		if err = s.owner(ctx, tenant, p.PluginID); err != nil {
-			return out, err
+			return out, explainRejection(err, "plugin_owner_rejected")
 		}
 	} else {
 		c := reqctx.GetClaims(ctx)
 		if canonical(c.UserUUID) != p.UserUUID || c.ID != p.SessionJTI {
-			return out, failure(403, "IAM_CONTEXT_USER_FORBIDDEN")
+			return out, rejected(403, "IAM_CONTEXT_USER_FORBIDDEN", "admin_session_mismatch")
 		}
 	}
 	out, err = s.resolveProof(ctx, p, admin)
@@ -356,15 +385,15 @@ func (s *Service) resolveProof(ctx context.Context, p proof, admin bool) (Result
 	if admin {
 		allowed, e := rbac.NewRBACService(s.db).EnforceWithSource(ctx, rbac.ActorContext{TenantUUID: tenant, IsRoot: user.IsRoot}, tenant, member.ID, "iam", "identity_context", "read", "platform_capability")
 		if e != nil {
-			return out, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+			return out, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "admin_permission_lookup_failed")
 		}
 		if !allowed {
-			return out, failure(403, "IAM_CONTEXT_USER_FORBIDDEN")
+			return out, rejected(403, "IAM_CONTEXT_USER_FORBIDDEN", "admin_permission_denied")
 		}
 	}
 	roles, rows, err := s.repo.Snapshot(ctx, p.TenantUUID, p.MemberUUID, member.ID, p.PluginID, user.IsRoot, s.clock())
 	if err != nil {
-		return out, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return out, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "permission_snapshot_failed")
 	}
 	permissions := []string{}
 	seen := map[string]bool{}
@@ -378,7 +407,7 @@ func (s *Service) resolveProof(ctx context.Context, p proof, admin bool) (Result
 	sort.Strings(roles)
 	sort.Strings(permissions)
 	if !user.IsRoot && p.RequiredPermission != "" && p.RequiredPermission != "runtime.contract:tenant_context" && !has(permissions, p.RequiredPermission) {
-		return out, failure(403, "IAM_CONTEXT_REQUEST_FORBIDDEN")
+		return out, rejected(403, "IAM_CONTEXT_REQUEST_FORBIDDEN", "request_permission_denied")
 	}
 	state, _ := json.Marshal([]any{p.PluginID, p.TenantUUID, p.UserUUID, p.MemberUUID, user.IsRoot, roles, permissions})
 	out = Result{Schema: ResultSchema, Mode: "delegated", PluginID: p.PluginID, TenantUUID: p.TenantUUID, UserUUID: p.UserUUID, IsRoot: user.IsRoot, Roles: roles, Permissions: permissions, PolicyVersion: hash(string(state)), PermsHash: hash(strings.Join(permissions, "\n")), SourceMethod: p.Method, SourcePath: p.Path, Transport: p.Transport, SourceRequestID: p.RequestID, SourceTraceID: p.TraceID, TraceID: reqctx.GetTraceID(ctx), ProofExpiresAt: p.ExpiresAt.UTC().Format(time.RFC3339Nano), UserSessionExpiresAt: p.UserExpiresAt.UTC().Format(time.RFC3339Nano)}
@@ -390,12 +419,12 @@ func (s *Service) resolveProof(ctx context.Context, p proof, admin bool) (Result
 	// Live grant and subject checks fence revocation that raced snapshot hydration.
 	if !admin {
 		if _, err = s.serviceActor(ctx); err != nil {
-			return Result{}, err
+			return Result{}, explainRejection(err, "caller_credential_rejected")
 		}
 	}
 	if !admin {
 		if err = s.owner(ctx, tenant, p.PluginID); err != nil {
-			return Result{}, err
+			return Result{}, explainRejection(err, "plugin_owner_rejected")
 		}
 	}
 	if _, _, err = s.subject(ctx, p); err != nil {
@@ -403,7 +432,7 @@ func (s *Service) resolveProof(ctx context.Context, p proof, admin bool) (Result
 	}
 	latestRoles, latestRows, e := s.repo.Snapshot(ctx, p.TenantUUID, p.MemberUUID, member.ID, p.PluginID, user.IsRoot, s.clock())
 	if e != nil {
-		return Result{}, failure(503, "IAM_CONTEXT_UNAVAILABLE")
+		return Result{}, rejected(503, "IAM_CONTEXT_UNAVAILABLE", "permission_snapshot_recheck_failed")
 	}
 	latestPermissions := []string{}
 	latestSeen := map[string]bool{}
@@ -418,7 +447,7 @@ func (s *Service) resolveProof(ctx context.Context, p proof, admin bool) (Result
 	sort.Strings(latestPermissions)
 	latestState, _ := json.Marshal([]any{p.PluginID, p.TenantUUID, p.UserUUID, p.MemberUUID, user.IsRoot, latestRoles, latestPermissions})
 	if hash(string(latestState)) != out.PolicyVersion {
-		return Result{}, failure(409, "IAM_CONTEXT_POLICY_CHANGED")
+		return Result{}, rejected(409, "IAM_CONTEXT_POLICY_CHANGED", "permission_snapshot_changed")
 	}
 	logger.InfoF(ctx, "iam_request_identity_resolved plugin_id=%s tenant_uuid=%s source_request_id=%s source_trace_id=%s transport=%s", p.PluginID, p.TenantUUID, p.RequestID, p.TraceID, p.Transport)
 	return out, nil

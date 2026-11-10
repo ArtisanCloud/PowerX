@@ -15,13 +15,14 @@ import (
 const legacyPolicyID = "be7d75ac-57ec-4c90-a513-000000000001"
 
 type policyRecord struct {
+	Revision int64 `json:"-"`
 	Policy
 	ID     string    `json:"id,omitempty"`
 	Name   string    `json:"name,omitempty"`
 	Anchor time.Time `json:"schedule_anchor,omitempty"`
 }
 
-// 所有策略及默认选择在同一账本中原子提交，跨进程同样不允许两个启用项。
+// 旧策略只读来源与兼容账本；接管后写入统一数据库控制面，禁止继续修改此文件。
 type policyState struct {
 	Version   int            `json:"version"`
 	DefaultID string         `json:"default_policy_id"`
@@ -113,7 +114,7 @@ func nextPolicyRun(p policyRecord, snapshots []Snapshot) *time.Time {
 }
 
 func exposePolicy(p policyRecord, defaultID string) NamedPolicy {
-	return NamedPolicy{Policy: p.Policy, ID: p.ID, Name: p.Name, Default: p.ID == defaultID}
+	return NamedPolicy{Revision: p.Revision, Policy: p.Policy, ID: p.ID, Name: p.Name, Default: p.ID == defaultID}
 }
 
 // SavePolicy 兼容旧单策略接口，只更新当前默认策略。
@@ -160,6 +161,9 @@ func applyPolicy(record *policyRecord, p Policy, now time.Time) {
 }
 
 func (s *Service) changePolicies(ctx context.Context, action, id string, change func(*policyState) error) error {
+	if s.controlRequired() {
+		return failure(428, "SNAPSHOT_POLICY_CONTROL_REQUIRED", "请使用带版本的快照计划配置接口")
+	}
 	if e := s.check(ctx); e != nil {
 		return e
 	}
@@ -168,6 +172,9 @@ func (s *Service) changePolicies(ctx context.Context, action, id string, change 
 		return e
 	}
 	defer unlock()
+	if s.controlRequired() {
+		return failure(428, "SNAPSHOT_POLICY_CONTROL_REQUIRED", "请使用带版本的快照计划配置接口")
+	}
 	state, e := s.policyState()
 	if e != nil {
 		return e

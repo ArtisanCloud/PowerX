@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/pluginbinding"
 	capmodels "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	reposetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
@@ -40,7 +41,8 @@ type TenantPluginInstance struct {
 }
 
 type TenantPluginInstanceService struct {
-	repo *reposetting.PluginInstanceConfigRepository
+	repo            *reposetting.PluginInstanceConfigRepository
+	namespaceOwners map[string]string
 }
 
 func NewTenantPluginInstanceService(db *gorm.DB) *TenantPluginInstanceService {
@@ -49,6 +51,15 @@ func NewTenantPluginInstanceService(db *gorm.DB) *TenantPluginInstanceService {
 
 func NewTenantPluginInstanceServiceWithRepository(repo *reposetting.PluginInstanceConfigRepository) *TenantPluginInstanceService {
 	return &TenantPluginInstanceService{repo: repo}
+}
+
+// WithEventFabricNamespaceOwners 接受 Core 注入的归属配置，不读取插件或请求体中的命名空间授权。
+func (s *TenantPluginInstanceService) WithEventFabricNamespaceOwners(owners map[string]string) *TenantPluginInstanceService {
+	s.namespaceOwners = map[string]string{}
+	for key, value := range owners {
+		s.namespaceOwners[key] = value
+	}
+	return s
 }
 
 func (s *TenantPluginInstanceService) List(ctx context.Context, tenantUUID string, plugins []plugin_mgr.Plugin) ([]TenantPluginInstance, error) {
@@ -146,6 +157,28 @@ func (s *TenantPluginInstanceService) Enable(ctx context.Context, tenantUUID str
 		cfg.ValueJSON = datatypes.JSON(mergePluginInstanceConfig(cfg.ValueJSON, clientID, config))
 		if err := NewTenantPluginInstanceService(tx).syncRequiredCapabilities(ctx, tenantUUID, p, &cfg); err != nil {
 			return err
+		}
+		if pluginbinding.Declared(p) {
+			var value map[string]any
+			if err := json.Unmarshal(cfg.ValueJSON, &value); err != nil {
+				return err
+			}
+			tenantConfig, _ := value["config"].(map[string]any)
+			if tenantConfig == nil {
+				tenantConfig = map[string]any{}
+			}
+			tenantPlugin := pluginbinding.TenantPlugin(p, tenantConfig)
+			path, err := pluginbinding.ManifestPath(tenantPlugin)
+			if err != nil {
+				return err
+			}
+			if err := pluginbinding.NewService(tx).WithNamespaceOwners(s.namespaceOwners).Prepare(ctx, tenantPlugin, tenantUUID, path, true, func(_ *gorm.DB, bindings map[string]string) error {
+				pluginbinding.SetBindings(tenantConfig, tenantUUID, bindings)
+				cfg.ValueJSON = datatypes.JSON(mergePluginInstanceConfig(cfg.ValueJSON, clientID, tenantConfig))
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 		cfg.Enabled = true
 		cfg.Status = dbsetting.PluginInstanceStatusEnabled
@@ -494,7 +527,9 @@ func mergePluginInstanceConfig(raw datatypes.JSON, clientID string, config map[s
 	if strings.TrimSpace(clientID) != "" {
 		doc["client_id"] = strings.TrimSpace(clientID)
 	}
-	doc["config"] = normalizeConfig(config)
+	if config != nil || doc["config"] == nil {
+		doc["config"] = normalizeConfig(config)
+	}
 	out, _ := json.Marshal(doc)
 	return out
 }

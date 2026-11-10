@@ -45,7 +45,7 @@ func (r *TaskHistoryRepository) WithRecord(ctx context.Context, tenant, subscrib
 	})
 }
 
-// Recoverable 只供统一任务驱动启动补投使用，不是业务模块的私有轮询队列。
+// Recoverable 只供统一任务驱动启动或传输恢复时补投使用，不是业务模块的私有轮询队列。
 func (r *TaskHistoryRepository) Recoverable(ctx context.Context, subscriber string, after uint64, limit int) ([]eventfabricmodel.TaskHistory, error) {
 	var rows []eventfabricmodel.TaskHistory
 	err := r.db.WithContext(ctx).Where("subscriber_id = ? AND id > ? AND status IN ?", subscriber, after, []string{eventfabricmodel.TaskHistoryStatusPending, eventfabricmodel.TaskHistoryStatusDeferred, eventfabricmodel.TaskHistoryStatusRunning}).Order("id").Limit(limit).Find(&rows).Error

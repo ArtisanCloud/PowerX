@@ -105,7 +105,7 @@ func (s *RedisStore) ArchiveRun(ctx context.Context, identity Snapshot, objects 
 	}
 	report.Tasks = append(report.Tasks, planning...)
 	for revision := uint64(1); revision <= run.PlanRevision; revision++ {
-		planKey, _, _ := schedulingKeys(identity)
+		planKey, _, _ := s.schedulingKeys(identity)
 		raw, err := s.client.HGet(ctx, planKey, fmt.Sprintf("%d", revision)).Bytes()
 		if err != nil {
 			return "", err
@@ -161,7 +161,7 @@ func (s *RedisStore) ArchiveRun(ctx context.Context, identity Snapshot, objects 
 	if _, err := ReadRunReport(ctx, identity, objects); err != nil {
 		return "", err
 	}
-	stateKey, _ := runKeys(identity)
+	stateKey, _ := s.runKeys(identity)
 	for attempt := 0; attempt < 5; attempt++ {
 		err := s.client.Watch(ctx, func(tx *redis.Tx) error {
 			values, err := tx.HGetAll(ctx, stateKey).Result()

@@ -36,7 +36,7 @@ func (r *BackupJobRepository) ListWithView(ctx context.Context, policyID uint64,
 	if view == "available" {
 		// 与详情及恢复使用的“最新未软删产物”一致，不能退回较旧的文件登记。
 		latest := r.db.WithContext(ctx).Model(&modelops.BackupArtifact{}).Select("MAX(id)").Group("job_id")
-		artifacts := r.db.WithContext(ctx).Model(&modelops.BackupArtifact{}).Select("job_id").Where("id IN (?)", latest).Where("TRIM(storage_uri) <> ?", "")
+		artifacts := r.db.WithContext(ctx).Model(&modelops.BackupArtifact{}).Select("job_id").Where("id IN (?)", latest).Where("TRIM(storage_uri) <> ?", "").Where("cleanup_state <> ?", "quarantined")
 		q = q.Where("status = ?", modelops.BackupJobStatusSuccess).Where("id IN (?)", artifacts)
 	}
 	if policyID > 0 {

@@ -1,0 +1,457 @@
+{
+  "date": "2026-11-10",
+  "scope": "user-approved core-only storage release candidate",
+  "scope_accepted": true,
+  "all_original_tasks_complete": false,
+  "original_unchecked_counts": {
+    "monitor_center": 80,
+    "storage_US9": 65,
+    "SG09_and_SG11_gates": 15
+  },
+  "branch": "024-ai-engineering-skills",
+  "head": "e79841431ba0cbb442fdd5d6ad696cc18c9d0fb7",
+  "working_tree_uncommitted": true,
+  "verdict": "approved_core_scope_source_isolation_and_local_readonly_runtime_passed_joint_commit_and_production_not_performed",
+  "completed": [
+    "RC1 scope inventory",
+    "RC2 snapshot execution registration compatibility",
+    "RC3 remote archives and handoff disabled by default at backend and UI",
+    "RC4 isolated builds and joint acceptance",
+    "RC5 user-restarted Core actual management readiness and original credential SDK read-only replay"
+  ],
+  "remaining_today": [
+    "jointly summarize storage changes and required dependencies for commit, then upload and tag according to user workflow",
+    "formal deployment and policy adoption/enabling require the corresponding operations; not performed in this turn"
+  ],
+  "remote_and_handoff_field_acceptance": "not accepted; remain disabled",
+  "latest_package_results": {
+    "github.com/ArtisanCloud/PowerX/internal/service/backup_ops": {
+      "status": "pass",
+      "log": "storage-race-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/storage_governance": {
+      "status": "skip",
+      "log": "storage-race-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry": {
+      "status": "pass",
+      "log": "storage-race-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/pkg/corex/db/database": {
+      "status": "pass",
+      "log": "native-migration-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/service/archive_ops": {
+      "status": "pass",
+      "log": "storage-race-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops": {
+      "status": "pass",
+      "log": "storage-race-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/storage": {
+      "status": "pass",
+      "log": "native-storage-http-current.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/backup": {
+      "status": "pass",
+      "log": "storage-race-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/service/storage_governance": {
+      "status": "pass",
+      "log": "storage-race-final.log",
+      "selection": "full package"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/service/capability_registry": {
+      "status": "pass",
+      "log": "admission-regression-final.log",
+      "selection": "Test.*(Storage|Admission|Schema)"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry": {
+      "status": "pass",
+      "log": "admission-regression-final.log",
+      "selection": "Test.*(Storage|Admission|Schema)"
+    },
+    "github.com/ArtisanCloud/PowerX/internal/bootstrap": {
+      "status": "pass",
+      "log": "admission-regression-final.log",
+      "selection": "Test.*(Storage|Admission|Schema)"
+    },
+    "github.com/ArtisanCloud/PowerX/cmd/database": {
+      "status": "pass",
+      "log": "admission-regression-final.log",
+      "selection": "Test.*(Storage|Admission|Schema)"
+    }
+  },
+  "full_package_passes": 8,
+  "filtered_package_passes": 4,
+  "repository_packages_without_tests": 1,
+  "event_coverage_with_superseded_errors": {
+    "storage-race-final.log": {
+      "test_pass_events": 552,
+      "skip_events": 15,
+      "fail_events": 11
+    },
+    "native-migration-final.log": {
+      "test_pass_events": 23,
+      "skip_events": 1,
+      "fail_events": 0
+    },
+    "native-storage-http-current.log": {
+      "test_pass_events": 25,
+      "skip_events": 0,
+      "fail_events": 0
+    },
+    "admission-regression-final.log": {
+      "test_pass_events": 30,
+      "skip_events": 4,
+      "fail_events": 0
+    }
+  },
+  "superseded_failures": {
+    "snapshot_bug": "fixed by original execution registration; current native manual/scheduled online A/B restore passed",
+    "initial_restore_copy": "owned Unix socket could not provide client access; loopback-only TCP fixture used, protection unchanged",
+    "initial_migration_and_http": "dedicated name/port/logging preconditions corrected only on owned clusters; inventory assertion uses complete fixed registry instead of stale count",
+    "initial_capability_final_command": "harness incorrectly requested capability-check-final; corrected capability-check-current.log passes",
+    "initial_ui": "proxy URL parsed as absolute URL; corrected readonly fixture; current browser passes"
+  },
+  "frontend": {
+    "files": 46,
+    "tests": 374,
+    "availability_cases_included": 14,
+    "real_browser_passed": true,
+    "handoff_widths": [
+      1440,
+      390
+    ],
+    "archive_themes": [
+      "light",
+      "dark"
+    ],
+    "archive_widths": [
+      1440,
+      390
+    ],
+    "application_submits": 1,
+    "wire_posts": 1,
+    "errors": [],
+    "handoff_configuration_is_UI_fixture": true,
+    "server_handoff_rejection_is_native_SQL_test": true
+  },
+  "builds": [
+    {
+      "name": "backend-linux-build",
+      "exit_code": 0
+    },
+    {
+      "name": "web-production-build",
+      "exit_code": 0
+    }
+  ],
+  "backend_binary": {
+    "path": "tmp/storage-release-20261110/powerx-linux-amd64",
+    "sha256": "ddc7045612804a4c02613bd2a0df65f7864af2c2c3b7d3d94b3554ad8968e60f",
+    "bytes": 112329022,
+    "platform": "linux/amd64",
+    "native_runtime_tested": false,
+    "official_release": false
+  },
+  "web_fingerprint": {
+    "schema": "powerx.build-fingerprint/v1",
+    "product": "powerx",
+    "component": "web-admin",
+    "release_id": "storage-release-check-20261110",
+    "source_commit": "uncommitted",
+    "target": {
+      "os": "any",
+      "arch": "any"
+    },
+    "artifacts": [
+      {
+        "kind": "public_asset",
+        "path": "_nuxt/CFrrrxEX.js",
+        "sha256": "7ea6aedb1473040d6fbd9604b0c5b5e5b7b720132ed86a27e5b7841ffafd0d8f",
+        "size": 514601
+      },
+      {
+        "kind": "public_asset",
+        "path": "_nuxt/entry.BVWOrNbc.css",
+        "sha256": "76bc59806ee7b999d7f5250314c018dbf7fbe1be07269b7af0757a67f99418ff",
+        "size": 298793
+      },
+      {
+        "kind": "public_asset",
+        "path": "_nuxt/-DHff1it.js",
+        "sha256": "7394316865ec0fd30911f273f44fd47306e0e383b54b829dc55e2f8e13415f96",
+        "size": 1253
+      },
+      {
+        "kind": "public_asset",
+        "path": "_nuxt/0kGkmEAz.js",
+        "sha256": "f4c86db35b09d3f5efe088ff36c38e53fff9243b6851107fcf17cfde40932e59",
+        "size": 219025
+      }
+    ],
+    "built_at": "2026-11-10T13:22:52.912Z",
+    "build_id": "1cebad5bb102a86db399495a239e6edc72526dd37e4fe9fb0ee17169efe3884a"
+  },
+  "whole_repository_unit_suite_run": false,
+  "daily_database_migrated": false,
+  "daily_policies_changed": false,
+  "daily_services_restarted": false,
+  "production_deployed": false,
+  "committed_or_pushed": false,
+  "capability_seed_performed": false,
+  "actual_WorkspaceX_lookup_replayed": true,
+  "cleanup": {
+    "owner": "codex core release acceptance",
+    "recorded_owned_pids": [
+      3844,
+      4059,
+      8234,
+      10129,
+      10179,
+      10383,
+      12081,
+      12101,
+      12111,
+      12112,
+      12127,
+      44620,
+      44621,
+      48885,
+      48910,
+      56875,
+      58806,
+      59780,
+      64118,
+      64134,
+      70943,
+      70953,
+      85100,
+      85223,
+      85224,
+      94204,
+      94363,
+      95405,
+      97524,
+      98175,
+      98178
+    ],
+    "recorded_owned_tcp_ports": [
+      54682,
+      55454,
+      55949,
+      56337
+    ],
+    "owned_processes_exited": true,
+    "owned_databases_removed": true,
+    "owned_pg_roots_removed": [
+      "/tmp/powerx-control-owned-db-release-xhu1ug29",
+      "/tmp/pxst-release-mm24bx_y"
+    ],
+    "private_ui_token_removed": true,
+    "daily_core_pid": 58697,
+    "daily_nuxt_pid": 34360,
+    "daily_services_restarted": false,
+    "candidate_builds_retained": true,
+    "ports_closed": true
+  },
+  "sources": {
+    "backend/config/storage_governance.go": "4530b6ce0d0923aadc2956423364f74f846a0a8149bff15c1018b4bc5dfd8785",
+    "backend/etc/config_example.yaml": "54d1d9985e8282f295e4a630131b451ed2f1511d9fd301148648600ae614aff6",
+    "backend/etc/config_example.prod.yaml": "6fb58dad0991b134eb1d9efd211c17fdd45306f281e6b351c0fed54401e1c3e0",
+    "backend/internal/bootstrap/app.go": "6765301c1be014124ac1e63f42952723e0f5b839324eda4797cd21815c33844c",
+    "backend/internal/bootstrap/storage_governance.go": "6aae9f93483b4b1d65ade81871323ab1afed43a97d44029a1b519cd0785fa806",
+    "backend/internal/service/archive_ops/system_component.go": "74e193a2a4b7c7961a1dbe91ef03e7f28dcaf437f059b2f8c664fce3f95d061d",
+    "backend/internal/service/archive_ops/release_gate.go": "aada58fda60c01ae11f7c67e84f47fa1f7e648b386c26b482da5f4ed41416391",
+    "backend/internal/service/archive_ops/release_gate_test.go": "0e91230dafbc9852f6abd6687887ea5da2bf1d5f7cb04eded0a7e1b189598a36",
+    "backend/internal/service/archive_ops/types.go": "7a06dba7d840064d766262572d1cf9f5149f42de3ae6ce1f95b4e856f516fdb2",
+    "backend/internal/service/archive_ops/service.go": "afcee9cb74e893c670f66a1ca5cf433df15fb3e91f8d348c9266d0dbd3b8c051",
+    "backend/internal/service/archive_ops/policy_control.go": "fd86f35a50706b732aa1a54694de26eb616ad7fc2c6b8d3a1d332a641ed0ea3c",
+    "backend/internal/service/archive_ops/control.go": "f5c929d44d232fea11ac91ea2d0e4ae1257952a01ec2f0c3522974d7cbf30647",
+    "backend/internal/service/archive_ops/remote.go": "12aeaf8ff3a650ca0bfd33373ff8917b2bd7944c89ab1a42d8c647a3b5243314",
+    "backend/internal/service/archive_ops/s3_target.go": "5d876296389bc99bf53a52884f08523ce28efe3178b7df7055131c9192b4d699",
+    "backend/internal/service/storage_governance/types.go": "ff5fafb1835b091c6642b7f514f8ba1fba42e76c8848fe63b4234d64103bd7ea",
+    "backend/internal/service/storage_governance/execution_control.go": "578068aef9c4bc25e7db87f05252953e3d2b1419edd9c08cd5f140c9ea63088e",
+    "backend/internal/service/storage_governance/execution_control_postgres_test.go": "6a3941b6153144ea21af8e5569b6c5a1da47015b749c9d0a0190e7e6ce0b2828",
+    "backend/internal/transport/http/admin/backup/archive_probe_command_confirmation_test.go": "732f890c2333c5146459f80fe0653e7ac47f39852475bc1699ff57fe70a565e1",
+    "backend/internal/transport/http/admin/storage/database_tables_postgres_test.go": "d40a0ea184dde63ece6c199d2815adbc2e9ee717aa45ce3302884a6f795be2dc",
+    "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "70d33da7ab594e2af3f706f16d42e8234bf6493c584d6f7600651ceb052b3f93",
+    "web-admin/app/components/monitor/storage/StorageExecutionControl.vue": "8a5870b6539161efc6b6c6c55f5e1f6230af53d78be0ccb37e2441c8792ac31f",
+    "web-admin/app/composables/api/services/archiveOpsService.ts": "63305a828518e87e5aa93b5f09b7c8cb273cda0d70a154ad768dc348de170297",
+    "web-admin/app/composables/api/services/storageExecutionService.ts": "c1940e87e9b1a07bf7bf630d3d9a3fafc090d5fee721798b374d43df18d67960",
+    "web-admin/tests/unit/storage/execution-control.spec.ts": "6808c21c7eb6f2df94455b64cc8da32a4da59c5c1880d04af447271caf542a67",
+    "web-admin/i18n/locales/zh.json": "ea6c86c0197eea8b822c9d63bd54e62032aa91f98ce13fd1fbc3f5e8e220c690",
+    "web-admin/i18n/locales/en.json": "897d1e6c91660655e7d852f516f49b12fd876418a88d8ef88853d341c7c399cf",
+    "scripts/ops/test-storage-core-release-ui.mjs": "115a0d57b8fedf5df806416e12b529c7879e205025ddecf53a1de5c2d2f09371",
+    "docs/contracts/storage-core-release.md": "84869fd04fc0a658b3d710ba712c7cbd317fef5081bf625e4328a1f2e7cf52bc",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-core-release.md": "1d274c5cc411c192fa027b8cb9212067b3a11efd9f48b995159ebed63dca088d",
+    "docs/guides/deploy/027-monitor-center/guide.md": "e8cc6b6786303801f2ab24cf6d31db5b33be3d7c919b1570a238baa78bd564da",
+    "specs/027-monitor-center/tasks.md": "9e8c3d34f4db71746a15b8391b77027ceda964264dcafe23ce1e618c3db629c6"
+  },
+  "artifacts": {
+    "tmp/storage-release-20261110/storage-race-final.log": "7e6b29ea870ed7c90dcc18999cfb0c2ea90471af8a645482194d8c72df674091",
+    "tmp/storage-release-20261110/native-migration-final.log": "bf534b166c4454ebd2bc35c3c6aec0ef6910046719e090f17a1a74ea30888e26",
+    "tmp/storage-release-20261110/native-storage-http-current.log": "58e96cf117d9a3ca7561ee1ee97e68e1e321b50c9275a8d1c9641012fe900d31",
+    "tmp/storage-release-20261110/admission-regression-final.log": "cb55997946e54c7ab1430835ff67c015df5777503b1c22d5725350eb835b7079",
+    "tmp/storage-release-20261110/restore-snapshot-fix.log": "43aa4a8d8b85ab5c09309d9bc31a1387949592110d9b59fbb0743b3b1beafb68",
+    "tmp/storage-release-20261110/build-results.json": "ee99e71933766757f221c93e9fb803bf9178cc1418150abfdd402d031799de2e",
+    "tmp/storage-release-20261110/backend-linux-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tmp/storage-release-20261110/web-production-build.log": "8819627585d32d23625803a412706ed1d1da8912dedf9869a984b36ab5868c87",
+    "tmp/storage-release-20261110/storage-vet-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tmp/storage-release-20261110/storage-http-vet-current.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tmp/storage-release-20261110/availability-frontend-final.log": "1b2dc4da0fe248f7f483bec4addce3cb37ed751a2c2cc8e416dcccb8e16d565f",
+    "tmp/storage-release-20261110/storage-frontend-final.log": "55a1640ef4e0d3bfc892383109ebd1e11ba51280e79fa237d0d26041f870ab0f",
+    "tmp/storage-release-20261110/capability-check-current.log": "705397ada909cc88d29359a6eadaf2c058005095fa0694d6620974ede1d92d84",
+    "tmp/storage-release-20261110/cleanup-result.json": "59767a22ec31da98aa903934986d87e07103e6665bf75c1c0f883cf24b46e0e4",
+    "tmp/storage-release-20261110/PLAN.md": "e87dcfb335ce9ae6008439e000b6cdeef1e6f6c3ba76249353b2fff912a5e9a3",
+    "tmp/storage-release-20261110/ui/ui-result.json": "126c8a78e69f0dbad175679ecb46a78b9747604babf23b183457b6df4f781975",
+    "tmp/storage-release-20261110/ui/run-current.log": "587ddd6223904f45992d0fa465f49b6f6b12b435753b8daa29a6c5514e5e3431",
+    "tmp/storage-release-20261110/web-output/public/.well-known/powerx.json": "afd1ef0dc783b64444586c9682d72430570091b263661bb610205f087fc3884d",
+    "tmp/storage-release-20261110/ui/dark-1440-command-confirmation.png": "d12cc81d94470a621037c301230756865f43678b3d6704717af0d737ee7b5e5d",
+    "tmp/storage-release-20261110/ui/core-release-1440-handoff.png": "a1fed750e10b945ac5a8e517097c10f8159cc46740c939567525d1180ef92f3f",
+    "tmp/storage-release-20261110/ui/dark-390-probe-review.png": "af84710677367f48d798b0e86dbe9656655bf11d91251ccc0ca7e51b220b226c",
+    "tmp/storage-release-20261110/ui/light-1440-command-confirmation.png": "ddabaa53acad5b6ea107d83ec4689ed3ea380488fc90309e58a9128777e5eb74",
+    "tmp/storage-release-20261110/ui/core-release-390-handoff.png": "f0f576ee6a84a2df331e8cd14394027d7529042803e72ba441712f3389e414ab",
+    "tmp/storage-release-20261110/ui/dark-390-command-confirmation.png": "1d966ae747add5336716cd559bc2bfd6ac40dffba96095ac24b4bef9cd61dcdc",
+    "tmp/storage-release-20261110/ui/light-1440-probe-review.png": "77fc83068dffd51eceee81a7d4e5ae82f89febe10919b2501f67a8be85cfec20",
+    "tmp/storage-release-20261110/ui/dark-1440-probe-review.png": "e1312423d91382db91e40faa60048b8826339e3addb3fedfbf88d4b30e75c7ff",
+    "tmp/storage-release-20261110/ui/light-390-probe-review.png": "59a5e953f81858d02dabc7f9c00ead4577af7740356c16d122f5e9aa2e660198",
+    "tmp/storage-release-20261110/ui/light-390-command-confirmation.png": "b50b96d18c5024c20cf9709d64a5d9138e1927d87e772c449db3fe2c2afdb474",
+    "tmp/storage-release-20261110/live-core-readiness.json": "ff0c078b3a2f7761fcaa6f14ede5e808bfa3f2a82f0c29fb0b9a53b3a5068f19",
+    "tmp/storage-release-20261110/live-runtime-acceptance.json": "ac42400c722ee1910b8654da11a107c86992418340e30c096e93521e3ca01414",
+    "tmp/storage-release-20261110/sdk-readonly-probe-result.jsonl.v028": "1d41c49004328e5b7e7bd72fe45e1ecaa8d135d734a0ab69d347bf2b5a201a92",
+    "tmp/storage-release-20261110/sdk-latest-readonly-probe-result.jsonl": "1698ab0f0dffe58cf28fa4747e37821ad57b8af4c47dff8628292922c173d6b7",
+    "tmp/storage-release-20261110/sdk-latest-cleanup.json": "ee3c052c9d8eafc222ab6acec28a8e89e069c171267b560c4ae54198b0258e12",
+    "tmp/storage-release-20261110/latest-sdk.json": "2bc648cac747b67442a6e5d2a83cea4e35faf790706277ab0a5b33b4b2ba5b63",
+    "tmp/storage-release-20261110/latest-sdk-download.json": "f8dcbe2a3456cc817c7a6f44dc3968b79044b0f27296ec9b2ff22953c4554348",
+    "tmp/storage-release-20261110/public-sdk-proxy-checksums.json": "90fe71bf92120181025cbd903ad11caed41f0789dc601e821ee4c05a3b758c3e",
+    "tmp/storage-release-20261110/sdk-readonly-probe.go": "50f50182a0bb1a313a0e58095060565f8add7aeb57fafd87738a5f99f238cfe2",
+    "tmp/storage-release-20261110/sdk-latest-readonly-probe.go": "c6528b1b9223e5d49cc4974c4be85b12360b05bbe8c949d0bfc4859d7d3e77f8",
+    "tmp/storage-release-20261110/COMMIT_DRAFT.md": "1e9a7f230d92dda493bd7cbec7990248785c5f3ea514f880ec8d494a41600399"
+  },
+  "live_runtime_acceptance": {
+    "user_restarted_core": true,
+    "current_core_pid": 56782,
+    "nuxt_pid": 34360,
+    "agent_restarted_user_services": false,
+    "management_gets_all_200": true,
+    "schema_and_control_ready": true,
+    "database_retention_adoption": "pending; intentionally not enabled or changed by agent",
+    "remote_archives_enabled": false,
+    "legacy_handoff_available": false,
+    "original_plugin_grants_still_granted": true,
+    "official_sdk_readonly_lookup_success": true,
+    "found": false,
+    "trace_id": "301511e5-2dcc-4770-8565-05a1ba1af1ab",
+    "sdk": "Framework v0.0.28",
+    "customer_order_payment_writes": 0,
+    "permissions_or_credential_changes": false,
+    "owned_relay_stopped": true,
+    "owned_remote_listener_released": true,
+    "owned_remote_probe_removed": true,
+    "installed_WorkspaceX_runtime_configuration_changed": false,
+    "production_deployed": false,
+    "latest_published_sdk": "v0.0.29",
+    "latest_sdk_module_replace_absent": true,
+    "latest_sdk_readonly_lookup_success": true,
+    "latest_sdk_trace_id": "571926de-940c-4432-8ede-afed59bebd35",
+    "latest_sdk_credential_unchanged": true,
+    "latest_sdk_temporary_probe_removed": true,
+    "latest_sdk_relay_stopped": true
+  },
+  "latest_sdk": {
+    "version": "v0.0.29",
+    "official_release": "https://github.com/ArtisanCloud/PowerXPlugin/releases/tag/framework%2Fbackend%2Fgo%2Fv0.0.29",
+    "go_proxy_metadata": {
+      "Path": "github.com/ArtisanCloud/PowerXPlugin/framework/backend/go",
+      "Version": "v0.0.29",
+      "Query": "latest",
+      "Time": "2026-11-10T02:15:22Z",
+      "Dir": "/Users/michaelhu/go/pkg/mod/github.com/!artisan!cloud/!power!x!plugin/framework/backend/go@v0.0.29",
+      "GoMod": "/Users/michaelhu/go/pkg/mod/cache/download/github.com/!artisan!cloud/!power!x!plugin/framework/backend/go/@v/v0.0.29.mod",
+      "GoVersion": "1.24.0",
+      "Origin": {
+        "VCS": "git",
+        "URL": "https://github.com/ArtisanCloud/PowerXPlugin",
+        "Subdir": "framework/backend/go",
+        "Hash": "ebbf423af65de561a4f1dd7776558551bad01f9b",
+        "TagPrefix": "framework/backend/go/",
+        "TagSum": "t1:jbized9cJ2wUZi7aKDZCeIajrzlfpiyDpMlwheGrVwc=",
+        "Ref": "refs/tags/framework/backend/go/v0.0.29"
+      }
+    },
+    "official_module_download": {
+      "Path": "github.com/ArtisanCloud/PowerXPlugin/framework/backend/go",
+      "Version": "v0.0.29",
+      "Info": "/Users/michaelhu/go/pkg/mod/cache/download/github.com/!artisan!cloud/!power!x!plugin/framework/backend/go/@v/v0.0.29.info",
+      "GoMod": "/Users/michaelhu/go/pkg/mod/cache/download/github.com/!artisan!cloud/!power!x!plugin/framework/backend/go/@v/v0.0.29.mod",
+      "Zip": "/Users/michaelhu/go/pkg/mod/cache/download/github.com/!artisan!cloud/!power!x!plugin/framework/backend/go/@v/v0.0.29.zip",
+      "Dir": "/Users/michaelhu/go/pkg/mod/github.com/!artisan!cloud/!power!x!plugin/framework/backend/go@v0.0.29",
+      "Sum": "h1:kj/Jeusufluapv6fSdHlkStUPIW/MVoKpE8osBHJUWQ=",
+      "GoModSum": "h1:Xmb97ZEMwaN9kaz32/7GHXR/oQESdc3ILbiCtOHh+2w=",
+      "Origin": {
+        "VCS": "git",
+        "URL": "https://github.com/ArtisanCloud/PowerXPlugin",
+        "Subdir": "framework/backend/go",
+        "Hash": "ebbf423af65de561a4f1dd7776558551bad01f9b",
+        "Ref": "refs/tags/framework/backend/go/v0.0.29"
+      }
+    },
+    "actual_readonly_result": {
+      "checked_at": "2026-11-10T14:05:41Z",
+      "core_permissions_changed": false,
+      "credential_identity": "dev-workspacex-customer-identity-lab",
+      "customer_writes_attempted": 0,
+      "existing_credential_unchanged": true,
+      "found": false,
+      "grants": [
+        {
+          "capability_id": "com.corex.customer.external_identities.service_read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.customer.external_identities.service_manage",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        }
+      ],
+      "lookup_success": true,
+      "orders_or_payments_attempted": 0,
+      "plugin_id": "com.powerx.plugins.workspacex",
+      "readonly": true,
+      "schema_version": 1,
+      "sdk": "official Framework v0.0.29",
+      "sdk_module_version": "v0.0.29",
+      "sdk_replace_absent": true,
+      "trace_id": "571926de-940c-4432-8ede-afed59bebd35"
+    },
+    "no_consumer_go_mod_or_running_plugin_upgrade": true,
+    "public_module_proxy_assets_sha256": {
+      "zip": "a8384709debf97c8634a208e8111ba87c2b7edc69d0bbb3905c33ac48486d5e0",
+      "mod": "7e07b6d896470e34473738b54f2346ec97bf01f29b39f905c4021bb2b1327d84",
+      "info": "7a520d5ae3059acb1dfdb293aa13c086635423d32c71efd0d924e8e545e80b80"
+    }
+  },
+  "post_runtime_cleanup": {
+    "remote_listener_released": true,
+    "probe_removed": true,
+    "owned_relay_exited": true,
+    "probe_process_exited": true,
+    "core_pid": 56782,
+    "nuxt_pid": 34360,
+    "agent_restarted_user_services": false,
+    "private_key_copied_to_Mac": false,
+    "workspace_config_or_dependency_changed": false
+  }
+}

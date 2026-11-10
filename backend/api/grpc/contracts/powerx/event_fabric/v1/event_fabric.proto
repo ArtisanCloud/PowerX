@@ -179,17 +179,25 @@ message PublishEventRequest {
   string payload_format = 7;
   string idempotency_key = 8;
   map<string, string> attributes = 9;
+  string contract_version = 10;
+  string plugin_id = 11;
 }
 
 message AckDeliveryRequest {
   string delivery_id = 1;
   string subscriber_id = 2;
+  string tenant_uuid = 3;
+  string plugin_id = 4;
+  string contract_version = 5;
 }
 
 message NackDeliveryRequest {
   string delivery_id = 1;
   string subscriber_id = 2;
   string reason = 3;
+  string tenant_uuid = 4;
+  string plugin_id = 5;
+  string contract_version = 6;
 }
 
 message NackDeliveryResponse {
@@ -205,6 +213,8 @@ message SubscribeRequest {
   int32 batch_size = 4;
   VersionCompatibilityMode compatibility_mode = 5;
   repeated string supported_versions = 6;
+  string plugin_id = 7;
+  string contract_version = 8;
 }
 
 message DeliveryMessage {
@@ -221,6 +231,12 @@ message DeliveryMessage {
   int32 remaining_attempts = 11;
   google.protobuf.Timestamp ack_deadline = 12;
   string subscriber_id = 13;
+  string tenant_uuid = 14;
+  string contract_version = 15;
+  string published_by = 16;
+  string publisher_plugin_id = 17;
+  string idempotency_key = 18;
+  map<string, string> attributes = 19;
 }
 
 // ---------- DLQ Service ----------

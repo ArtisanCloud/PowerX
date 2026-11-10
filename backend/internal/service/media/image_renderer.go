@@ -13,21 +13,48 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+
+	"golang.org/x/image/riff"
+	"golang.org/x/image/vp8"
+	"golang.org/x/image/vp8l"
+	_ "golang.org/x/image/webp"
 )
 
-const maxImageSourceBytes = 32 << 20
-const maxImagePixels int64 = 24_000_000
+const maxImageSourceBytes = 64 << 20
+const maxImagePixels int64 = 80_000_000
 
 type imageRenderError struct{ code string }
 
 func (e *imageRenderError) Error() string { return e.code }
 
+type imageContextReader struct {
+	context.Context
+	io.Reader
+}
+
+func (r imageContextReader) Read(p []byte) (int, error) {
+	if err := r.Err(); err != nil {
+		return 0, err
+	}
+	return r.Reader.Read(p)
+}
+
 func renderSource(ctx context.Context, body io.Reader, checksum string) (image.Image, string, error) {
-	raw, err := io.ReadAll(io.LimitReader(body, maxImageSourceBytes+1))
+	return renderSourceWithOptions(ctx, body, checksum, defaultImageDerivativeOptions())
+}
+
+func renderSourceWithOptions(ctx context.Context, body io.Reader, checksum string, options ImageDerivativeOptions) (image.Image, string, error) {
+	if err := options.validate(); err != nil {
+		return nil, "", err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+	raw, err := io.ReadAll(io.LimitReader(imageContextReader{ctx, body}, options.MaxSourceBytes+1))
 	if err != nil {
 		return nil, "", err
 	}
-	if len(raw) > maxImageSourceBytes {
+	if int64(len(raw)) > options.MaxSourceBytes {
 		return nil, "", &imageRenderError{"MEDIA_IMAGE_BYTE_LIMIT"}
 	}
 	sum := sha256.Sum256(raw)
@@ -38,23 +65,87 @@ func renderSource(ctx context.Context, body io.Reader, checksum string) (image.I
 	if err != nil {
 		return nil, "", &imageRenderError{"MEDIA_IMAGE_DECODE_FAILED"}
 	}
-	if cfg.Width < 1 || cfg.Height < 1 || int64(cfg.Width) > maxImagePixels/int64(cfg.Height) {
-		return nil, "", &imageRenderError{"MEDIA_IMAGE_PIXEL_LIMIT"}
+	if err := validateImageDimensions(cfg, int64(len(raw)), options); err != nil {
+		return nil, "", err
 	}
-	if format != "jpeg" && format != "png" && format != "gif" {
+	if format != "jpeg" && format != "png" && format != "gif" && format != "webp" {
 		return nil, "", &imageRenderError{"MEDIA_IMAGE_FORMAT_UNSUPPORTED"}
+	}
+	if format == "webp" {
+		if err := validateWebPFrame(raw, cfg, options); err != nil {
+			return nil, "", err
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, "", err
 	}
-	img, _, err := image.Decode(bytes.NewReader(raw))
+	img, _, err := image.Decode(imageContextReader{ctx, bytes.NewReader(raw)})
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, "", ctx.Err()
+		}
 		return nil, "", &imageRenderError{"MEDIA_IMAGE_DECODE_FAILED"}
 	}
 	if format == "jpeg" {
 		img = orientImage(img, jpegOrientation(raw))
 	}
 	return img, format, nil
+}
+
+// VP8X canvas dimensions can differ from the embedded VP8/VP8L frame header.
+// Check both before allocating pixels; DecodeConfig alone reads only the canvas.
+func validateWebPFrame(raw []byte, canvas image.Config, options ImageDerivativeOptions) error {
+	fail := func() error { return &imageRenderError{"MEDIA_IMAGE_DECODE_FAILED"} }
+	_, chunks, err := riff.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return fail()
+	}
+	for {
+		kind, n, body, err := chunks.Next()
+		if err != nil {
+			return fail()
+		}
+		var width, height int
+		switch string(kind[:]) {
+		case "VP8X":
+			var header [10]byte
+			if n != 10 {
+				return fail()
+			}
+			if _, err := io.ReadFull(body, header[:]); err != nil || header[0]&2 != 0 {
+				return fail()
+			}
+			continue
+		case "ANIM", "ANMF":
+			return fail()
+		case "VP8 ":
+			if int64(n) > options.MaxSourceBytes {
+				return fail()
+			}
+			decoder := vp8.NewDecoder()
+			decoder.Init(body, int(n))
+			frame, err := decoder.DecodeFrameHeader()
+			if err != nil {
+				return fail()
+			}
+			width, height = frame.Width, frame.Height
+		case "VP8L":
+			frame, err := vp8l.DecodeConfig(body)
+			if err != nil {
+				return fail()
+			}
+			width, height = frame.Width, frame.Height
+		default:
+			continue
+		}
+		if err := validateImageDimensions(image.Config{Width: width, Height: height}, int64(len(raw)), options); err != nil {
+			return err
+		}
+		if width != canvas.Width || height != canvas.Height {
+			return fail()
+		}
+		return nil
+	}
 }
 
 // 仅提取 JPEG EXIF 的 Orientation；原始 EXIF 和原图字节始终保留。

@@ -1,0 +1,284 @@
+{
+  "date": "2026-11-06T15:14:53.703959+08:00",
+  "scope": "SG-11 archive policy database authority and guarded execution slice; not full release or production acceptance",
+  "source": {
+    "branch": "024-ai-engineering-skills",
+    "base_commit": "a1956aa3601786ed05a59236477ed3a67cfc7a67",
+    "uncommitted": true,
+    "fingerprints": {
+      "backend/config/capability_audit_ignore.yaml": "edea3586c6792cb1532d0523846e8bb5a6d37c43e7873d574ac73db69a734838",
+      "backend/internal/bootstrap/app.go": "0b7a84c3e3d661de281c88ce1b53df138cf6fbbe70ec4d53f9d88915af5e5096",
+      "backend/internal/infra/storage_budget/coordinator.go": "2d19a54153b431306fe952a25215821744a17a177a7ac2317b08979a9a44121d",
+      "backend/internal/service/archive_ops/changes.go": "0b7d435a9f5bef29fe68a5666d33dca4e6e3795db9fff2facdaa49fc7f6d37c5",
+      "backend/internal/service/archive_ops/control.go": "abdbe9080ffc764d1df020b9174ec11efbfa0057f10449eb1e4e210e678ab5f3",
+      "backend/internal/service/archive_ops/custody_control.go": "9994f137f41e58b5e9cf3bfe0e97cb3a3c1784ade7d3f661fb6e87cc91915524",
+      "backend/internal/service/archive_ops/policy_control.go": "6d52a578f143a0db62d10ec7be49c5ff30b9d754181cbcdb43da9a2fa15a79b1",
+      "backend/internal/service/archive_ops/policy_control_test.go": "7a0c863bc6d30d0bd05f9eee1471dfa890e4cc4767fb65c1baebecff9eb34bef",
+      "backend/internal/service/archive_ops/remote_gc.go": "695c66c492cf5b3a5bfdb14f9a8f2d21b21a413f6f10a90a95473757a7a59002",
+      "backend/internal/service/archive_ops/restore.go": "553741003559138252997d8e1b6a95c3e1e1cbc0a1b36f966f403f2ef121e962",
+      "backend/internal/service/archive_ops/runtime.go": "669012b444ccee8c9616144524ed089c9198492b83f3953c998befa8d2e868e4",
+      "backend/internal/service/archive_ops/s3_transfer.go": "b5253b5aa257e973e8ebaa6a2b35b29bad1147ccce4ef280b8f726b95af186d3",
+      "backend/internal/service/archive_ops/service.go": "f714a28314d9e252e593a421b6d4d7c7ac842304a6df3227b4abe65996276f59",
+      "backend/internal/service/archive_ops/store.go": "b1c387cd020c715ae4f28dfb68c9c4843d1d859245f6c5cb3fd23ec5617c1a60",
+      "backend/internal/service/archive_ops/types.go": "f0637b6fe683d32fa8b5f7a19d1df2f956345598491209cb9ebc3adbdeca3c03",
+      "backend/internal/service/storage_governance/archive_policy_control.go": "a0fec3b3f28b9ad97b0c9dc5fe425801c7aee084f28607632150240ef3b59c1b",
+      "backend/internal/service/storage_governance/archive_policy_control_postgres_test.go": "990f7a410357839d9c119b77d56aaf5a5e4dafa8162fd900d5f3b4d0a93f0ba9",
+      "backend/internal/service/storage_governance/archive_projection_test.go": "9b49148421114b0e5bb56539dde9e201f99a9c5bc9ed6954b8c978cfee1ddca9",
+      "backend/internal/service/storage_governance/archive_target_control.go": "5a83c8fd44617c2f2d7f3cd307f35e5698accc0bd117379902b1594541e398eb",
+      "backend/internal/transport/http/admin/backup/archive_handler.go": "82eaeba9e0b508afc88af385ea6eefd75f96753014100be94e8784a53cc97c44",
+      "backend/internal/transport/http/admin/backup/archive_handler_test.go": "8cb1bf437d9de15dc3aab467188983e84a9e4fe0bc04540d19e610a4c8a8ed95",
+      "backend/internal/transport/http/admin/backup/routes.go": "d55f2d03b30ec6d5d4fddaa9f60a56c7c23e8fb771120e901539678d172bdff8",
+      "backend/internal/transport/http/admin/backup/target_control_postgres_test.go": "3ff4d050b6e54986cc53d9911f64b046b65442cd9abb61eb40ff578307787220",
+      "backend/pkg/corex/db/persistence/repository/storage_governance/control_repo.go": "da499a4c05223b63f4d559ce6a2804d79f12ce7b586ac87940d3c4f1672641d2",
+      "docs/contracts/archive-credential-vault.md": "c45048d8fd89becb8866c805ab3ba18b29581cccf6af9697278f61cde118c2a1",
+      "docs/contracts/archive-policy-control.md": "5660355100a3568431fd15ff1b5e9f80c78802ecb67ccd97baf142629e532d5a",
+      "docs/contracts/archive-target-control.md": "a545e96a7eb7344078d1e83650cc5b18468b641a74ebe4c890c429200e5c6dd5",
+      "docs/contracts/storage-control-authority.md": "0abd85a590390c983a3f5058684e09b92eefb5a7cb4252e8e79c3edcf0d36f7e",
+      "docs/plan/deploy/storage-governance-commercial.md": "546a26353373b8d6bf7c9473ab70cf15125246825adefd154a855a1062eb345c",
+      "specs/027-monitor-center/contracts/archive-policy-control.openapi.yaml": "fa329b38e9640f18ab710f37c80d552c7d05931ea4fe890f684eed253f358d4d",
+      "specs/027-monitor-center/data-model.md": "71330e311ae26249fa36aeababab0ceab3cebf185b2b86d93a5c5e05176f4e72",
+      "specs/027-monitor-center/tasks.md": "a4c116068155c6ef737092bc90ce55adf265af6211607aa7a1749d1d5dda4268",
+      "web-admin/app/components/ops/backup/ArchiveGovernanceBody.vue": "cd7ee90cd488d6290319e650441e0102e1399d90b08b674c94962443a1cce5d5",
+      "web-admin/app/components/ops/backup/ArchivePolicyControlStatus.vue": "eb902666f7a924b7ee9fe61aceb0ff0b464716099be12b689b5c73df77abcfd3",
+      "web-admin/app/components/ops/backup/ResourceArchivesPanel.vue": "d179ced837f886d89124eeb47c8eeb6963c580a14fea6a7e3dd91f3cb78a2b88",
+      "web-admin/app/composables/api/services/archiveOpsService.ts": "fe9b18fd9b676b383a4523815460952cf0653e13545b92eaa6ebd07264e9c5b3",
+      "web-admin/i18n/locales/en.json": "8bcc8387265d5c9cec8690727865a647251a97334bcdd90eb735b415282ec8c2",
+      "web-admin/i18n/locales/ja.json": "63cee657062ba0dc85c8d48d9a21c0fa044a60679f75a851c355663ba87064ae",
+      "web-admin/i18n/locales/ko.json": "a42c1fbef9c3a5731c5ee00d19b838ebdcc4ba78510f7b8ba5b750606eab01a2",
+      "web-admin/i18n/locales/zh.json": "2c2750e6977f693c89740f11b97e998a72a885343b85c579053b36d6bddf546d"
+    }
+  },
+  "implementation": [
+    "Fixed archive-policies DB catalog, independent policy revision and catalog CAS, origin/source fingerprints, actor-bound immutable UUID receipts",
+    "Explicit legacy adoption and definition saves pause both flags; archive enable and remote cleanup enable are separate confirmed actions",
+    "Formal TaskBus and fsynced private scope/revision/digest-verified execution projection; no fallback to legacy policy JSON",
+    "Start admission, each S3 write/manifest, local derived-cache retention and remote cleanup batch check current authority; policy then target locks share one SQL connection",
+    "Pause-all does not require target readiness; target/source/credential drift blocks execution; historical namespaces and protected/pending/paused references are retained",
+    "Request or Tick cancellation does not cancel subsequent bounded service-owned retention; original business source files remain intact",
+    "Read and publication admission tolerate short projection-lock contention for at most 500ms; entered mutation callbacks are never replayed by this helper",
+    "Storage governance and backup-center media schedules use one versioned editor, including local-only media schedules; no legacy policy/SSH configuration writes remain",
+    "Shared editor retains drafts and CAS basis across SSE, handles conflict explicitly and reconciles response loss by GET of original UUID without another POST"
+  ],
+  "verification": {
+    "native_postgres": {
+      "result": "passed",
+      "policy_tests": 6,
+      "transport": "owned PostgreSQL14 unix socket and unique disposable schemas; formal StreamDriver with miniredis",
+      "final_log": "tmp/storage-commercial-policies-20261106/race-final.log",
+      "covers": [
+        "paused adoption and immutable original file",
+        "CAS, idempotency, actor/request receipts",
+        "concurrent create and projection tamper/rollback",
+        "single and two-connection guarded save serialization",
+        "superseded initial adoption still checks origin",
+        "local media schedule and cache pruning after caller cancellation"
+      ]
+    },
+    "native_file_and_s3_protocol": {
+      "result": "passed",
+      "log": "tmp/storage-commercial-policies-20261106/race-final.log",
+      "covers": [
+        "protected, expiry_pending and paused-policy cache references survive cleanup",
+        "new worker cannot use legacy policy JSON",
+        "historical target namespaces remain protected after configuration changes",
+        "actual owned object writes, version readback and eligible version deletion via HTTP positive path",
+        "single connection pool executes policy/target guarded S3 actions without nested connection borrowing"
+      ],
+      "provider": "owned S3 version protocol simulation, not a cloud provider"
+    },
+    "http_jwt_sse": {
+      "result": "passed",
+      "logs": [
+        "tmp/storage-commercial-policies-20261106/race-final.log",
+        "tmp/storage-commercial-policies-20261106/browser-http.log"
+      ],
+      "covers": [
+        "real registered Gin routes and Root JWT authorization",
+        "legacy Policy DTO rejected400 and unavailable authority503",
+        "wrong reviewed target proof rejected409",
+        "separate enable/remote-cleanup/pause",
+        "formal TaskBus publication and actual SSE events"
+      ]
+    },
+    "backend_packages": {
+      "result": "passed",
+      "packages": [
+        "internal/service/archive_ops",
+        "internal/service/storage_governance",
+        "internal/transport/http/admin/backup",
+        "internal/infra/storage_budget",
+        "internal/bootstrap"
+      ],
+      "compile_only_package": "pkg/corex/db/persistence/repository/storage_governance (no test files)",
+      "log": "tmp/storage-commercial-policies-20261106/backend-tests.log",
+      "whole_repository_suite_claimed": false
+    },
+    "race": {
+      "result": "passed",
+      "repeat": 3,
+      "top_level_tests_per_round": 11,
+      "tests": [
+        "TestArchiveControlProjectionWaitsOnlyForReadContention",
+        "TestArchivePolicyLocalRetentionPreservesProtectedPendingAndPausedObjects",
+        "TestArchivePolicyNativeHTTPAndSSE",
+        "TestArchivePolicyNativePostgresAdoptionDraftCASAndImmutableReceipts",
+        "TestArchivePolicyNativePostgresConcurrentCreationAndProjectionRollback",
+        "TestArchivePolicyNativePostgresExplicitStatusAndPausedGuard",
+        "TestArchivePolicyNativePostgresGuardSerializesSaveWithSingleConnection",
+        "TestArchivePolicyNativePostgresMediaLocalScheduleRemainsAvailable",
+        "TestArchivePolicyNativePostgresSupersededAdoptionStillChecksOrigin",
+        "TestArchivePolicyTargetNamespaceChangePreservesHistoricalArchives",
+        "TestArchivePolicyWriteFailurePreservesOnlySafeControlCode"
+      ],
+      "filter": "^TestArchive(Policy|ControlProjection)",
+      "packages": [
+        "archive_ops",
+        "storage_governance",
+        "http/admin/backup"
+      ],
+      "log": "tmp/storage-commercial-policies-20261106/race-final.log"
+    },
+    "vet": {
+      "result": "passed",
+      "packages": 6,
+      "log": "tmp/storage-commercial-policies-20261106/vet.log"
+    },
+    "capability_check": {
+      "result": "passed",
+      "declared": 1242,
+      "candidates": 1229,
+      "ignored_route_rules": 104,
+      "log": "tmp/storage-commercial-policies-20261106/capability-check.log",
+      "service_capability_or_grant_changed": false
+    },
+    "frontend_units": {
+      "result": "passed",
+      "command": "npx vitest run tests/unit/storage tests/unit/backup",
+      "files": 28,
+      "tests": 207,
+      "log": "tmp/storage-commercial-policies-20261106/frontend-tests.log",
+      "whole_frontend_suite_claimed": false
+    },
+    "browser": {
+      "result": "passed",
+      "frontend": "existing user-owned Nuxt3030, authorized Root login",
+      "archive_http_sse": "all archive API and backup SSE requests redirected to owned actual HTTP/PG/TaskBus/S3 fixture; daily unrelated reads remain read-only",
+      "checks": [
+        "Root explicitly adopts verified target and paused legacy policy; no automatic archive or cleanup",
+        "draft save stays paused; SSE preserves form; conflict requires explicit reload of the original CAS basis",
+        "separate verified-target activation followed by actual owned log capture and S3 write/readback; progress arrives through SSE",
+        "target edit invalidates active policy execution and is visible without changing its enabled configuration",
+        "pause-all works with an invalid target; committed response loss is reconciled through GET of the original UUID",
+        "light 1440: vertical section navigation, retained policy draft and primary actions without overflow",
+        "light 390: vertical section navigation, retained policy draft and primary actions without overflow",
+        "dark 1440: vertical section navigation, retained policy draft and primary actions without overflow",
+        "dark 390: vertical section navigation, retained policy draft and primary actions without overflow",
+        "backup center shares versioned editor; media local-only schedule saves, explicitly activates and pauses without legacy DTO writes",
+        "backup center shared media editor remains navigable on narrow screen"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "runtime_errors": [],
+      "idle_archive_state_requests": [],
+      "artifact": "tmp/storage-commercial-policies-20261106/ui-result.json",
+      "screenshots": [
+        "tmp/storage-commercial-policies-20261106/light-1440.png",
+        "tmp/storage-commercial-policies-20261106/light-390.png",
+        "tmp/storage-commercial-policies-20261106/dark-1440.png",
+        "tmp/storage-commercial-policies-20261106/dark-390-editor.png",
+        "tmp/storage-commercial-policies-20261106/backup-media-390.png"
+      ],
+      "visually_inspected": [
+        "light-1440.png",
+        "dark-390-editor.png",
+        "backup-media-390.png"
+      ]
+    },
+    "openapi": {
+      "result": "YAML parsed and local schema references resolved",
+      "operations": 4,
+      "formal_openapi_validator_run": false
+    },
+    "scoped_diff_check": {
+      "result": "passed",
+      "paths": 40
+    }
+  },
+  "resolved_findings": [
+    {
+      "problem": "short nonblocking host-ledger read contention aborted owned archive writes",
+      "fix": "bounded read-only projection lock admission, no stale-cache fallback",
+      "before_fix_log": "tmp/storage-commercial-policies-20261106/race-http-diagnostic.log"
+    },
+    {
+      "problem": "short ledger contention could defer formal configuration publication",
+      "fix": "wait only before publication callback entry; callback errors are returned to formal TaskBus without local replay",
+      "before_fix_log": "tmp/storage-commercial-policies-20261106/http-tests.log"
+    },
+    {
+      "problem": "HTTP or Tick cancellation skipped post-job local retention",
+      "fix": "bounded service context and fresh authority check, proven by deleting only old owned cache after canceled caller"
+    }
+  ],
+  "environment": {
+    "production_access": false,
+    "production_mutation": false,
+    "daily_service_restart": false,
+    "daily_database_migration_or_policy_change": false,
+    "daily_root_login_authorized": true,
+    "real_customer_business_data_used_or_deleted": false,
+    "existing_mac_archive_objects_deleted": false,
+    "agent_test_resources_cleaned": true
+  },
+  "cleanup": {
+    "date": "2026-11-06T15:13:58.177541+08:00",
+    "browser_and_proxy_pids_exited": {
+      "35122": true,
+      "35102": true,
+      "35224": true,
+      "35234": true,
+      "35235": true,
+      "35250": true
+    },
+    "http_proxy_s3_ports_closed": {
+      "55889": true,
+      "55874": true,
+      "55873": true
+    },
+    "temporary_credential_removed": true,
+    "owned_schemas_remaining": [],
+    "owned_database_clients_remaining": 0,
+    "postgres": {
+      "pid": 50975,
+      "stopped": true,
+      "unix_socket_removed": true,
+      "directory_removed": true
+    },
+    "daily_services": {
+      "3030": {
+        "pid": 34360,
+        "original_process_still_listening": true
+      },
+      "8077": {
+        "pid": 3394,
+        "original_process_still_listening": true
+      }
+    },
+    "daily_restart_or_policy_mutation": false,
+    "production_access_or_mutation": false
+  },
+  "remaining_release_gates": [
+    "database authority for other configuration domains including host budget, backup/snapshot and database retention",
+    "joint recovery epoch across DB, private projection, bindings and credential state",
+    "controlled handoff of legacy deployed executors; no dual run",
+    "SSH guarded execution contract",
+    "external KMS and independent key custody/recovery",
+    "real private cloud upload and retrieval plus SG-09 seven/fourteen-day and target-environment acceptance"
+  ]
+}

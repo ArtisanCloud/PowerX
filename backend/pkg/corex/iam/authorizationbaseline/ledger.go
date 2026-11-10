@@ -12,11 +12,26 @@ import (
 
 // Reconcile 只在共同事务边界的生命周期初始化或源事务提交前调用，不能从 GET 调用。
 func Reconcile(db *gorm.DB, at time.Time) error {
+	return reconcileWithCatalog(db, at, true)
+}
+
+func reconcileWithCatalog(db *gorm.DB, at time.Time, rootCatalogHealthy bool) error {
 	var tracks []im.AuthorizationTracking
 	if err := db.Where("status = ?", "ready").Order("tenant_uuid, plugin_id, permission_code").Find(&tracks).Error; err != nil {
 		return err
 	}
-	return reconcileTracks(db, at, tracks)
+	return reconcileAvailableTracks(db, at, tracks, rootCatalogHealthy)
+}
+
+// 坏 Root 目录不能阻止普通成员停用、撤权；同时不借无关事务重算
+// 仍具有 Root 身份的历史。Root 身份已撤销或失效时仍必须记下拒绝。
+func reconcileAvailableTracks(db *gorm.DB, at time.Time, tracks []im.AuthorizationTracking, rootCatalogHealthy bool) error {
+	if rootCatalogHealthy {
+		return reconcileTracks(db, at, tracks)
+	}
+	return reconcileTracksWhere(db, at, tracks, func(_ []Source, root bool, _ im.AuthorizationStream, _ bool) bool {
+		return !root
+	})
 }
 
 func reconcileTracks(db *gorm.DB, at time.Time, tracks []im.AuthorizationTracking) error {

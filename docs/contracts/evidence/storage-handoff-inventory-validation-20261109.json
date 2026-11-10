@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-09T11:10:59.460626+08:00",
+  "branch": "024-ai-engineering-skills",
+  "scope": "T171 read-only executor inventory and handoff dry-run preparation; not a source ownership cutover",
+  "implemented": [
+    "bounded program/protocol/hash, systemd and override, cron and visible process inventory",
+    "source binding identity, publication freshness and unknown quarantine checks",
+    "private new report and advisory comparison; no apply or automatic Core approval",
+    "fixed systemctl show only; no command arguments, credentials or raw unit/cron content exported",
+    "failed, enabled inactive timer, unavailable and zero work remain distinct",
+    "freshness-bound legacy capacity summary and Go RFC3339 Z/nanosecond compatibility"
+  ],
+  "validation": {
+    "python_suite": {
+      "checked_at": "2026-11-09T11:07:52.398573+08:00",
+      "run": 54,
+      "passed": 54,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "success": true
+    },
+    "new_test_methods": 25,
+    "native_linux_probe": {
+      "host": "47.116.10.200",
+      "mode": "live_linux",
+      "observed_at": "2026-11-09T03:09:01.398821+00:00",
+      "summary": {
+        "programs_present": 2,
+        "active_or_scheduled_units": 1,
+        "failed_units": 1,
+        "cron_matches": 0,
+        "visible_active_executors": 0,
+        "registered_sources": 0,
+        "pending_quarantine_sources": 0,
+        "review_items": 8
+      },
+      "units": [
+        {
+          "name": "powerx-space-guard.service",
+          "state": "failed",
+          "properties": {
+            "LoadState": "loaded",
+            "ActiveState": "failed",
+            "SubState": "failed",
+            "UnitFileState": "static",
+            "MainPID": "0",
+            "Result": "exit-code",
+            "ExecMainCode": "1",
+            "ExecMainStatus": "2"
+          }
+        },
+        {
+          "name": "powerx-space-guard.timer",
+          "state": "active",
+          "properties": {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "SubState": "waiting",
+            "UnitFileState": "enabled",
+            "Result": "success"
+          }
+        }
+      ],
+      "binding_state": "unavailable",
+      "control_state": "unavailable",
+      "observer": {
+        "pid": 2325342,
+        "cwd": "/root",
+        "ports": []
+      },
+      "source_sha256": "4a688301127fad90b57736b97c3b1d6705db885dbf02c2f5b03f63aefc75aab1",
+      "ssh_exit_code": 0,
+      "hard_timeout_seconds": 40,
+      "remote_file_write": false,
+      "service_mutation": false,
+      "guard_run": {
+        "state": "observed",
+        "status": "critical",
+        "finished_at": "2026-11-09T03:05:55.924194+00:00",
+        "fresh": true,
+        "error_count": 0,
+        "available_bytes": 9718960128,
+        "used_ratio": 0.8806605559944317
+      },
+      "masked_unit_file_count": 10,
+      "report_authorizes_switch": false
+    },
+    "first_observation": {
+      "observed_at": "2026-11-09T02:48:57.628405+00:00",
+      "unit_properties": [
+        {
+          "LoadState": "loaded",
+          "ActiveState": "failed",
+          "SubState": "failed",
+          "UnitFileState": "static",
+          "MainPID": "0"
+        }
+      ],
+      "note": "Initial probe exposed incorrect inactive summary for ActiveState=failed; implementation now has explicit failed state, Result/exit status and regression tests. Subsequent automatic cycle succeeded without agent repair."
+    },
+    "known_findings": [
+      "deployed guard.py and audit_custody.py do not declare required control protocol",
+      "Core source binding is missing",
+      "timer remains enabled; no real handoff performed",
+      "latest guard report is fresh critical, zero runtime errors; systemd exit=2 must not be treated as a crash diagnosis"
+    ],
+    "local_core_readonly_observation": {
+      "paths": [
+        "/api/v1/admin/ops/backup/archives/target-configuration",
+        "/api/v1/admin/ops/storage/execution-control"
+      ],
+      "http_statuses": [
+        200,
+        200
+      ],
+      "target_count": 0,
+      "target_authority": "legacy",
+      "execution_mode": "unmanaged",
+      "confirmed": false,
+      "diagnostic_session_logged_out": true
+    },
+    "browser_or_ui_source_changed": false,
+    "intermediate_automatic_success_observed": true
+  },
+  "boundaries": {
+    "daily_or_remote_service_started_stopped_restarted": false,
+    "daily_or_remote_policy_or_binding_written": false,
+    "database_migration_or_business_data_access": false,
+    "data_or_archive_removed": false,
+    "server_probe_installed": false,
+    "credentials_exposed": false,
+    "git_branch_changed_or_commit_created": false,
+    "report_authorizes_switch": false
+  },
+  "coverage_limits": [
+    "known PowerX guard programs, system units and bounded cron directories",
+    "visible current processes; not an atomic process snapshot",
+    "registered source identities and quarantine entry counts",
+    "does not scan at jobs, containers or user systemd managers",
+    "does not prove unknown wrappers, other hosts, admitted-job drain or new Core publication"
+  ],
+  "next_task": {
+    "priority": "complete step 3 long-lived private target acceptance before actual handoff",
+    "prerequisites": [
+      "explicit UI target name or endpoint/bucket/region/credential reference",
+      "dedicated validation source and prefix",
+      "actual Core with governed configuration and restore code"
+    ],
+    "acceptance": "verified archive, source/cache removed for owned canary, exact-version retrieval and SHA-256 equality, protected files retained and owned fixtures cleaned"
+  },
+  "remaining": [
+    "production program upgrade and source binding under approved maintenance",
+    "actual old executor handoff and admitted-job reconciliation",
+    "per-resource adoption and long-term actual policies",
+    "whole-site business restore and independent external key custody",
+    "dual-environment 7-day cycles / 14-day samples and release"
+  ],
+  "artifacts": "tmp/storage-handoff-inventory-20261109",
+  "source_sha256": {
+    "scripts/ops/powerx-space-guard/handoff_inventory.py": "4a688301127fad90b57736b97c3b1d6705db885dbf02c2f5b03f63aefc75aab1",
+    "scripts/ops/powerx-space-guard/test_handoff_inventory.py": "c5625fbfda2d6d62fca7b82a62f20b11c222d4cd9234b9bd29c2f22c1d1ec53f",
+    "scripts/ops/powerx-space-guard/README.md": "cdba31907927663570c96475e454b3264307937279042b662631cdcaf7baf7cf",
+    "docs/contracts/storage-executor-handoff-inventory.md": "1a366aeb08773d387f9dcc6f1b233372560c9c201feaf8738ebc75ba478521e8",
+    "docs/guides/deploy/027-monitor-center/usecase-us9-storage-execution.md": "598c41a30789da1414efb88d25db2ce0a3c3e44ba9e1270b61677df903bdb887"
+  }
+}

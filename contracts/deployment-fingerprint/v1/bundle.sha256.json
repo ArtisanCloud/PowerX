@@ -1,0 +1,25 @@
+{
+  "contract_revision": "1.1",
+  "files": {
+    ".gitignore": "4d56952b0fb13bf8f9b6c13a6d4c34a075bac3af447636a1df4335d7576e2f97",
+    "README.md": "1eff6dda1d07b6480936a4f7c50085294e289701df1422d7f51659fc9876e16c",
+    "compatibility-cases.json": "1e55800450629cdefd19fdf784fe269038402f182497fb682f5d34be6bb8b5e8",
+    "conformance.go": "52bea0fc784e6112ea49a8e8b042aea5b1a3939bb6d0a64b16bb47338ca26ed4",
+    "conformance.mjs": "1aa37970a78f0fc1aacfa9d4e0c831dbdba6d4aecd59839ab93dea2dceed8776",
+    "conformance.test.mjs": "b4766dbd49d6341b5fc098ddaa2ffcb768262ab45f6ac0312e165847e890d0c3",
+    "conformance_test.go": "8e9b94d395ad4247a3e196c5d62a52fee3ae8f8ae5ab86d2442f62ee6262feb7",
+    "constants.json": "d1ca61c1313d89e1f50a633f4460aa6c7b5910cc5380c7093acd4a2ea352e4d6",
+    "errors.json": "8f48e11b3ddfd19a607036441119958b862493584bc23cb0ed388b31df87e59c",
+    "go.mod": "002001801e1543befffa9de815d92e8e3fadb8595d30dea97adb7c311c88a8cd",
+    "go.sum": "44040141be21bff6f85c7a9ecb8a436c22cd4de2347b7ede5e70d452626b5c71",
+    "golden-manifests.json": "780305b26ec444c6e7057d600cc48c302666c6497aaf4e0b2ccc27341bd4234e",
+    "openapi.yaml": "d509058be1cb945792c43ccfd466b19e670bad0895c004de68dd0ff39e828723",
+    "package-lock.json": "47adf96e4e23292eae6a6c614acb3d8425351f02d601c0974f2bbed8e097ad35",
+    "package.json": "351b3e7954fb74b58623026138b9f156bfe7e874d6b28d8ee9b51f52909ed312",
+    "probe-policy-cases.json": "06624552f4db9c63d7c80ac1693c57605d09a3bbd6c68996f7ab3596ef4b5a59",
+    "protocol.schema.json": "ed01dc43e3b05943b33fc6f2bc0495ab503da62a10e3dc00215dfe11cee66a99",
+    "schema-cases.json": "1360cb9182c7ea60ccce95c970d9174163c16fe17168fc19cccebf44c77f5706",
+    "semantic-cases.json": "fbe26f8a11a05466cdf5d65a481567d9b06bc7f106b3f4b950f17d9470487bc6",
+    "site-state-cases.json": "535b43a8edc75f3171f4071b60ad8721818f14cfc6f9771988450cb533e84abf"
+  }
+}

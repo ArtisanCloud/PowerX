@@ -1,0 +1,242 @@
+{
+  "checks": [
+    "Owned PostgreSQL, formal TaskBus, target verification and explicit policy enablement prepared without daily mutation",
+    "Native Core accepted exactly one task; lost 202 response retains original UUID and blocks duplicate click",
+    "light 1440 original UUID, blocked action and task navigation",
+    "light 390 original UUID, blocked action and task navigation",
+    "dark 1440 original UUID, blocked action and task navigation",
+    "dark 390 original UUID, blocked action and task navigation",
+    "Browser refresh restores the same pending request before any write",
+    "404, HTTP503 and mismatched positive receipt preserve the original identity and submission lock",
+    "Route leave releases SSE; route return and reconnect preserve the pending request without POST replay",
+    "Actual readonly Root request endpoint settles only the matching original UUID and opens its original job",
+    "One native task, one browser POST, full remote verification and zero idle state queries"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794238076935
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238076936
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238076936
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238076954
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238076956
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/policies/2127435f-696e-498d-aad4-ab356db6dc50/run",
+      "method": "POST",
+      "at": 1794238077331,
+      "request_id": "aeb15fd6-193a-45bc-a342-6a9681cb0748"
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238077411
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238077411
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238077477
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238077478
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238077481
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238077481
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238077492
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238077493
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238078269
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238078269
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794238081113
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238081113
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238081113
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238081120
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238081121
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/policies/2127435f-696e-498d-aad4-ab356db6dc50/requests/aeb15fd6-193a-45bc-a342-6a9681cb0748",
+      "method": "GET",
+      "at": 1794238081361
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/policies/2127435f-696e-498d-aad4-ab356db6dc50/requests/aeb15fd6-193a-45bc-a342-6a9681cb0748",
+      "method": "GET",
+      "at": 1794238081429
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/policies/2127435f-696e-498d-aad4-ab356db6dc50/requests/aeb15fd6-193a-45bc-a342-6a9681cb0748",
+      "method": "GET",
+      "at": 1794238081527
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794238083409
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238083409
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238083409
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238083421
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238083423
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794238083952
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238083961
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238083961
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/policies/2127435f-696e-498d-aad4-ab356db6dc50/requests/aeb15fd6-193a-45bc-a342-6a9681cb0748",
+      "method": "GET",
+      "at": 1794238084358
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives",
+      "method": "GET",
+      "at": 1794238084366
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238084367
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/archives/catalog",
+      "method": "GET",
+      "at": 1794238084427
+    }
+  ],
+  "errors": [],
+  "application_submits": [
+    {
+      "request_id": "aeb15fd6-193a-45bc-a342-6a9681cb0748",
+      "at": 1794238077332
+    }
+  ],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    }
+  ],
+  "request_id": "aeb15fd6-193a-45bc-a342-6a9681cb0748",
+  "job_id": "55b09814-2cb8-4c73-81a6-3c0288318ab3",
+  "result": "passed"
+}

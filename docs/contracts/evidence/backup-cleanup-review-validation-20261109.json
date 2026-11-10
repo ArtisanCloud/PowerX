@@ -1,0 +1,106 @@
+{
+  "date": "2026-11-09",
+  "task": "T172 bounded read-only backup cleanup review",
+  "status": "source_and_isolated_acceptance_passed",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "scope": {
+    "daily_core_restarted": false,
+    "daily_database_migrated": false,
+    "production_mutated": false,
+    "business_data_deleted": false,
+    "cleanup_intents_cleared": false,
+    "capability_grants_expanded": false,
+    "new_schema_or_admission_dependency": false,
+    "owned_resources_only": true,
+    "browser": "Actual Nuxt HMR frontend; all backup APIs and shared SSE routed to owned native HTTP/PG fixture. Root login uses existing daily authentication; unrelated mutations blocked."
+  },
+  "native": {
+    "result": "passed",
+    "command": "go test -race ./internal/transport/http/admin/backup ./internal/service/backup_ops -run ^TestCleanupReview -count=1 -v -timeout=90s",
+    "postgres": "owned PostgreSQL14 Unix socket, user storage_control_test, unique schema using central migrations; removed afterward",
+    "log": "backup-cleanup-review-20261109/native-final.log",
+    "checks": [
+      "Real JWT Root success; nonroot, API key and service planes rejected",
+      "Typed 400/404/409/503 boundaries; duplicate query rejected; missing schema column redacted",
+      "Pending and unconfirmed records include orphaned and soft-deleted records without action eligibility",
+      "Wrong token conflicts; concurrent state change during metadata read conflicts",
+      "No hash/proof; same-size corrupt dump remains explicitly unverified",
+      "Symlink dump/sidecar/parent, hardlink, outside-root and nonregular file rejected",
+      "Partial and complete file absence do not clear unknown intent",
+      "Real shared SSE emits backup_cleanup invalidation",
+      "Original dump bytes and original unknown marker survive read-only inspection"
+    ]
+  },
+  "regression": {
+    "frontend": "15 files / 115 tests passed; final affected panel + workspace 18 tests passed",
+    "backend": "four affected packages passed go test -race",
+    "vet": "four affected packages passed go vet",
+    "capability_check": "passed, declared=1242 referenced=83 rest_routes=1175 candidates=1256 ignored_route_rules=129; no capability contract/grant changes"
+  },
+  "browser": {
+    "result": "passed",
+    "checks": [
+      "unknown cleanup is discoverable outside its section",
+      "no idle review requests",
+      "shared SSE refreshes list, preserves frozen detail and marks stale",
+      "light 1440 navigation, retained state, actions, no overflow",
+      "light 390 navigation, retained state, actions, no overflow",
+      "dark 1440 navigation, retained state, actions, no overflow",
+      "dark 390 navigation, retained state, actions, no overflow",
+      "read failure remains discoverable and retains rows"
+    ],
+    "page_errors": [],
+    "viewports": [
+      1440,
+      390
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "screenshots": [
+      "backup-cleanup-review-20261109/dark-1440-detail.png",
+      "backup-cleanup-review-20261109/dark-1440-list.png",
+      "backup-cleanup-review-20261109/dark-390-detail.png",
+      "backup-cleanup-review-20261109/dark-390-list.png",
+      "backup-cleanup-review-20261109/light-1440-detail.png",
+      "backup-cleanup-review-20261109/light-1440-list.png",
+      "backup-cleanup-review-20261109/light-390-detail.png",
+      "backup-cleanup-review-20261109/light-390-list.png"
+    ],
+    "idle_scope": "2.2 seconds without review requests, plus 60s fake timer unit check; not long-duration deployment evidence",
+    "push": "one shared SSE; event refreshes list and marks frozen detail stale without reinspecting",
+    "screenshots_note": "Screenshots captured before the final explanatory hint clarification: pending can be in progress as well as unconfirmed; no action/layout changed."
+  },
+  "cleanup": {
+    "result": "passed",
+    "record": "backup-cleanup-review-20261109/process-cleanup.json",
+    "owned_processes_exited": 9,
+    "loopback_listeners_released": 4,
+    "private_test_token_removed": true,
+    "owned_postgres_cluster_removed": true,
+    "user_core_pid_unchanged": 3164,
+    "user_nuxt_pid_unchanged": 34360
+  },
+  "remaining": [
+    "Automatic content hashing and reconcile/unlock mutation UI are not implemented; preserve unknown locks",
+    "T155 long-lived private S3/OSS target acceptance needs UI-prepared endpoint/bucket/region/credential reference; no substitute with Mac MinIO",
+    "Actual executor handoff/resource adoption, whole-system business restore, external key custody, dual-environment 7-day/14-day run evidence and release remain incomplete"
+  ],
+  "next": {
+    "task": "T155 long-lived target acceptance",
+    "prerequisite": "Prepare the private S3/OSS target through the formal UI and server credential reference; never send credentials in chat",
+    "done_when": "Independent-prefix archive and full verification pass; remove owned source and retrieve the exact artifact successfully, then clean test objects. Only afterward proceed to authorized executor handoff."
+  },
+  "source_sha256": {
+    "backend/internal/service/backup_ops/cleanup_review.go": "fa5ca511ce3f7e779887cfa4027a02c9aac02a0b181230ae1a7e80ea70ceed22",
+    "backend/internal/service/backup_ops/cleanup_review_test.go": "84825e373caf3ad16d90308a077e6fe8bfab65f026034a530a2717bfa382039a",
+    "backend/internal/transport/http/admin/backup/cleanup_review_handler.go": "7ebe96486aaa0244a981c2cc5e1f3cf5c28a3f73c3b6c655ff29587fe0ef1a9d",
+    "backend/internal/transport/http/admin/backup/cleanup_review_postgres_test.go": "c1f3b44e955b5455ffbd79429123b27237d9df96c2435c36052571190697ee4a",
+    "backend/pkg/corex/db/persistence/repository/ops/backup_artifact_repository.go": "f6c5ff72664585e664c8ea5cb03f4c25dbc400947969420237bfbbdf0bb8f87f",
+    "web-admin/app/components/ops/backup/BackupCleanupReviews.vue": "97d256d3f923455481ddbed7ac3d405083b226379fdff4aa290e87d27f4b8964",
+    "web-admin/app/composables/api/services/backupCleanupReviewService.ts": "5b74e34aef9496e86a6b45e3dfe45b7b2a10b526c6ef32cb27c6d0c2201a27ee",
+    "web-admin/app/pages/ops/backup.vue": "c64ca6937626be928015554110b6f0d22083c4a9db8f43c1fc20c7772567e0d1"
+  }
+}

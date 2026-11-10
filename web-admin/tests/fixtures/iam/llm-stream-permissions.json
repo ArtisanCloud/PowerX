@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "module": "ai",
+    "resource": "ai_llm_stream",
+    "action": "create",
+    "status": "active",
+    "meta": {
+      "type": "api",
+      "label": "LLM Stream",
+      "capability_id": "com.corex.ai.llm.stream",
+      "http_method": "POST",
+      "api_endpoint": "/api/v1/ai/llm/stream",
+      "api_key": {
+        "scope": "_scope.ai.ai_llm_stream.create",
+        "action": "create",
+        "resource_type": "api",
+        "resource_pattern": "POST:/api/v1/ai/llm/stream"
+      }
+    }
+  },
+  {
+    "id": 2,
+    "module": "ai",
+    "resource": "llm",
+    "action": "stream",
+    "status": "active",
+    "meta": {
+      "type": "capability_service",
+      "label": "LLM Stream",
+      "capability_id": "com.corex.ai.llm.stream",
+      "api_key_explicit": true,
+      "core_internal_endpoint": "core://ai/llm/stream",
+      "api_key": {
+        "scope": "_scope.ai.llm.stream",
+        "action": "stream",
+        "resource_type": "capability",
+        "resource_pattern": "ai_llm_stream"
+      }
+    }
+  }
+]

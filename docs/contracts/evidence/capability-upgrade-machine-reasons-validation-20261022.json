@@ -1,0 +1,179 @@
+{
+  "evidence_date": "2026-10-22",
+  "scope": "Core capability upgrade structured machine reasons and Framework current-source decoder compatibility",
+  "source": {
+    "source_repository": "ArtisanCloud/PowerX",
+    "source_commit": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+    "source_worktree_uncommitted": true,
+    "snapshot_date": "2026-10-22",
+    "sha256": {
+      "ai-media-v2.md": "0abf7992153c206779ba1e8faba66f49d25ff4a049b99e718d859a11a0a75e4f",
+      "ai-media-v2.openapi.yaml": "ea8be3e47ddc28c4e35a8051ac5e02ed3d1b93f28944d7a443e72088309e16ad",
+      "fixtures/ai-media-v2.json": "eb456d570a615ce449b4acfebf3dbcca210dd843216946ee3124aabdd98bc33c",
+      "fixtures/capability-version-upgrade-errors.v1.json": "ff70b10ec2099bf96fe026fe1b91d55306e8ef1a5e24942aafc4bb9504a57faf"
+    }
+  },
+  "source_code_sha256": {
+    "backend/internal/service/capability_registry/version_upgrade.go": "cd9874844b20d0849710974a3091d43d455fe6e3e97767575afa9cc0c3a9c07d",
+    "backend/internal/service/capability_registry/version_upgrade_test.go": "006d0e4076806c158927e977196d40f19302f8a1d8ca33774a126acf0ece7fe2",
+    "backend/internal/transport/http/admin/capability_registry/version_upgrade_handler.go": "3470190c27f407bfe5e51f4a541cb721e45327fa1380f8633e5f471d3a67a10b",
+    "backend/internal/transport/http/admin/capability_registry/version_upgrade_handler_test.go": "11619e6d2b84e8017ac107efc24323ae305dbab23b90f6f11435ed2705f8da24"
+  },
+  "contract": {
+    "id": "capability_version_upgrade_error.v1",
+    "fixture": "docs/contracts/fixtures/capability-version-upgrade-errors.v1.json",
+    "cases": 10,
+    "handler_auth_scope": "human Admin JWT; pre-handler authentication/Admin middleware errors remain under their existing contracts",
+    "media_openapi_changed": false,
+    "base_media_fixture_changed": false,
+    "new_framework_method_required": false,
+    "legacy_message_preserved": true,
+    "raw_diagnostic_exposed": false
+  },
+  "controlled_validation": {
+    "full_related_packages_race": {
+      "log": "/private/tmp/powerx-upgrade-machine-reasons-final-race-20261022.jsonl",
+      "passed": true,
+      "passing_tests_including_subtests": {
+        "github.com/ArtisanCloud/PowerX/internal/service/capability_registry": 90,
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry": 19,
+        "github.com/ArtisanCloud/PowerX/internal/service/ai": 29
+      },
+      "packages_passed": [
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry",
+        "github.com/ArtisanCloud/PowerX/internal/service/capability_registry",
+        "github.com/ArtisanCloud/PowerX/internal/service/ai"
+      ],
+      "failures": []
+    },
+    "final_handler_race_after_legacy_message_preservation": {
+      "log": "/private/tmp/powerx-upgrade-machine-reasons-final-handler-20261022.jsonl",
+      "passed": true,
+      "passing_tests_including_subtests": {
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry": 21
+      },
+      "packages_passed": [
+        "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
+      ],
+      "failures": []
+    },
+    "regressions": [
+      "existing legacy tenant registration upgraded with original credentials",
+      "strict JSON and API-key rejection",
+      "fixed status/error_code/reason_code/details and trace/request_id for 10 cases",
+      "unknown diagnostic text cannot impersonate a business sentinel",
+      "runtime phase classification takes priority over nested record-not-found",
+      "approval persistence failure prevents runtime apply",
+      "runtime apply failure retains committed approval and supports manual retry",
+      "audit finalization failure retains confirmed runtime state",
+      "early parsing and Service validation failures preserve their distinct legacy messages"
+    ],
+    "vet": {
+      "passed": true,
+      "packages": [
+        "./internal/service/capability_registry",
+        "./internal/transport/http/admin/capability_registry",
+        "./internal/service/ai"
+      ],
+      "latest_handler_rerun": true
+    },
+    "core_build": {
+      "passed": true,
+      "command": "go build -o /private/tmp/powerx-upgrade-machine-reasons-core-20261022 ./cmd/app",
+      "artifact": "/private/tmp/powerx-upgrade-machine-reasons-core-20261022",
+      "latest_handler_included": true
+    },
+    "capability_check": {
+      "passed": true,
+      "command": "make capability-check",
+      "log": "/private/tmp/powerx-upgrade-machine-reasons-capability-check-20261022.log",
+      "declared": 1111,
+      "referenced": 74,
+      "rest_routes": 1042,
+      "candidates": 1124,
+      "ignored_route_rules": 50
+    },
+    "upgrade_payload_check": {
+      "passed": true,
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "payload_regeneration_needed_for_this_error_change": false
+    },
+    "framework_decoder": {
+      "cases": 10,
+      "consumer": "existing Framework DecodeHTTPError",
+      "framework_source_modified": false,
+      "http_calls": 0,
+      "passed": true,
+      "command": "GOWORK=off GOFLAGS=-mod=readonly go run /private/tmp/powerx-upgrade-error-consumer-20261022.go <Core fixture path>",
+      "working_directory": "../Plugins/PowerXPlugin/framework/backend/go",
+      "asserted": [
+        "StatusCode",
+        "ErrorCode",
+        "ReasonCode",
+        "TraceID",
+        "RequestID",
+        "Details",
+        "Body"
+      ],
+      "published_or_installed_sdk_proof": false
+    },
+    "source_contract_comparison": [
+      {
+        "file": "ai-media-v2.md",
+        "core_sha256": "0abf7992153c206779ba1e8faba66f49d25ff4a049b99e718d859a11a0a75e4f",
+        "framework_sha256": "0c7c3cc097fcecb7db7f844adf26702306fa93b487548ad85ecae70140cb591e",
+        "identical": false
+      },
+      {
+        "file": "ai-media-v2.openapi.yaml",
+        "core_sha256": "ea8be3e47ddc28c4e35a8051ac5e02ed3d1b93f28944d7a443e72088309e16ad",
+        "framework_sha256": "ea8be3e47ddc28c4e35a8051ac5e02ed3d1b93f28944d7a443e72088309e16ad",
+        "identical": true
+      },
+      {
+        "file": "fixtures/ai-media-v2.json",
+        "core_sha256": "eb456d570a615ce449b4acfebf3dbcca210dd843216946ee3124aabdd98bc33c",
+        "framework_sha256": "eb456d570a615ce449b4acfebf3dbcca210dd843216946ee3124aabdd98bc33c",
+        "identical": true
+      },
+      {
+        "file": "fixtures/capability-version-upgrade-errors.v1.json",
+        "core_sha256": "ff70b10ec2099bf96fe026fe1b91d55306e8ef1a5e24942aafc4bb9504a57faf",
+        "framework_sha256": null,
+        "identical": false
+      }
+    ]
+  },
+  "framework_handoff": "docs/contracts/ai-media-v2-upgrade-error-framework-handoff.md",
+  "acceptance_boundary": {
+    "user_reported_mediaxstudio_catalog_result": {
+      "source": "latest user-provided MediaXStudio feedback; not rerun as part of this error-contract change",
+      "provider_catalog_groups": 4,
+      "model_catalog_groups": 10,
+      "http_status": 200,
+      "contract_version": 2,
+      "protocol_used": "core_internal",
+      "fallback_used": false
+    },
+    "source_changes_uncommitted": true,
+    "published": false,
+    "running_core_restarted": false,
+    "live_upgrade_confirmation_executed": false,
+    "live_machine_reason_acceptance": "pending user-owned Core restart and authorized Admin acceptance",
+    "framework_files_modified": false,
+    "business_database_writes": 0,
+    "supplier_calls": 0,
+    "paid_calls": 0,
+    "agent_owned_servers_started": 0,
+    "mediaxstudio_next": "05/06/08 configuration acceptance may proceed with current compatible media client snapshot",
+    "outstanding": [
+      "Framework fixture/source snapshot/evidence refresh",
+      "video credential and model configuration in Core, including Agnes if selected",
+      "director save/reload",
+      "real VLM/image/TTS/video generation and result playback",
+      "real task refresh/recovery",
+      "installed STS authorization",
+      "public SDK/package release"
+    ]
+  }
+}

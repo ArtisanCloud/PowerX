@@ -54,7 +54,7 @@ func (c *vlmClient) Invoke(ctx context.Context, in contract.VLMRequest) (*contra
 
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("openai vlm status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return nil, core.MediaHTTPError(resp.StatusCode, resp.Header, raw)
 	}
 
 	var out struct {
@@ -63,7 +63,7 @@ func (c *vlmClient) Invoke(ctx context.Context, in contract.VLMRequest) (*contra
 				Content any `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
-		Usage map[string]int `json:"usage"`
+		Usage map[string]json.RawMessage `json:"usage"`
 		Error *struct {
 			Message string `json:"message"`
 		} `json:"error,omitempty"`
@@ -78,9 +78,16 @@ func (c *vlmClient) Invoke(ctx context.Context, in contract.VLMRequest) (*contra
 		return nil, errors.New("openai vlm: empty choices")
 	}
 
+	usage := map[string]int{}
+	for key, raw := range out.Usage {
+		var count int
+		if json.Unmarshal(raw, &count) == nil {
+			usage[key] = count
+		}
+	}
 	return &contract.VLMResponse{
 		Text:     contentToText(out.Choices[0].Message.Content),
-		Usage:    out.Usage,
+		Usage:    usage,
 		Provider: strings.TrimSpace(mc.Provider),
 		Model:    strings.TrimSpace(mc.Model),
 	}, nil
@@ -181,25 +188,55 @@ func (c *vlmClient) makeBody(mc *config.ModelConfig, in contract.VLMRequest, str
 		"messages": buildVLMMessages(in.Messages),
 		"stream":   streaming,
 	}
-	if in.Temperature > 0 {
+	policy := (&openaiClient{}).chatPolicy(mc)
+	modern := policy.TokenParameter == "max_completion_tokens"
+	effort, _ := in.Runtime["reasoning_effort"].(string)
+	if effort == "" {
+		effort, _ = mc.Extra["reasoning_effort"].(string)
+	}
+	if modern && effort != "" {
+		switch effort {
+		case "none", "low", "medium", "high", "xhigh", "max":
+		default:
+			return nil, errors.New("openai vlm: invalid reasoning_effort")
+		}
+		req["reasoning_effort"] = effort
+	}
+	if !modern && effort != "" {
+		req["reasoning_effort"] = effort
+	}
+	if in.Temperature > 0 || in.Runtime["temperature_set"] == true {
+		if !policy.SupportsSampling(effort) || !policy.Supports("temperature") {
+			return nil, errors.New("openai vlm: temperature requires reasoning_effort=none")
+		}
 		req["temperature"] = in.Temperature
 	}
-	if in.TopP > 0 {
+	if in.TopP > 0 || in.Runtime["top_p_set"] == true {
+		if !policy.SupportsSampling(effort) || !policy.Supports("top_p") {
+			return nil, errors.New("openai vlm: top_p requires reasoning_effort=none")
+		}
 		req["top_p"] = in.TopP
 	}
 	if in.MaxTokens > 0 {
-		req["max_tokens"] = in.MaxTokens
+		if modern || mc.Provider == "openai" {
+			req["max_completion_tokens"] = in.MaxTokens
+		} else {
+			req["max_tokens"] = in.MaxTokens
+		}
 	}
 	if in.JSONMode {
 		req["response_format"] = map[string]any{"type": "json_object"}
 	}
 	for k, v := range mc.Extra {
 		switch k {
-		case "model", "messages", "stream", "temperature", "top_p", "max_tokens":
+		case "model", "messages", "stream", "temperature", "top_p", "max_tokens", "maxTokens", "max_completion_tokens", "base_url", "api_path", "reasoning_effort":
 			continue
 		default:
 			req[k] = v
 		}
+	}
+	if err := applyChatParameterPolicy(req, policy); err != nil {
+		return nil, err
 	}
 	return json.Marshal(req)
 }

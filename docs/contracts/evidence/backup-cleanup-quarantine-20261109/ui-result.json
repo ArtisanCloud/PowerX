@@ -1,0 +1,260 @@
+{
+  "checks": [
+    "Explicit on-demand diagnosis, Root current-intent conditions and explicit confirmation; draft survives vertical task switches",
+    "light 1440 form/confirmation/primary action/navigation",
+    "light 390 form/confirmation/primary action/navigation",
+    "dark 1440 form/confirmation/primary action/navigation",
+    "dark 390 form/confirmation/primary action/navigation",
+    "lost committed terminal SSE frame and unavailable GET preserve UUID and dialog lock without automatic retry",
+    "GET original UUID reconciles independent terminal receipt without repeating current-state changes",
+    "light 1440 historical receipt/context/close/navigation",
+    "light 390 historical receipt/context/close/navigation",
+    "dark 1440 historical receipt/context/close/navigation",
+    "dark 390 historical receipt/context/close/navigation",
+    "settled current intent leaves attention list; original history remains separate",
+    "shared SSE updates current lists; zero idle state queries and no duplicate mutation"
+  ],
+  "requests": [
+    {
+      "path": "/api/v1/admin/monitor/backup/overview",
+      "method": "GET",
+      "at": 1794224532729
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/policies",
+      "method": "GET",
+      "at": 1794224532729
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-drills",
+      "method": "GET",
+      "at": 1794224532730
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/alerts",
+      "method": "GET",
+      "at": 1794224532730
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/events",
+      "method": "GET",
+      "at": 1794224532732
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/policy-configuration",
+      "method": "GET",
+      "at": 1794224532732
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/recovery",
+      "method": "GET",
+      "at": 1794224532751
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794224532754
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794224532759
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794224532764
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794224532766
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794224532769
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/policy-configuration",
+      "method": "GET",
+      "at": 1794224532769
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/policy-configuration",
+      "method": "GET",
+      "at": 1794224532814
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794224532815
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794224532816
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/policy-configuration",
+      "method": "GET",
+      "at": 1794224532817
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794224532818
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots/recovery",
+      "method": "GET",
+      "at": 1794224532819
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794224532821
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/alerts",
+      "method": "GET",
+      "at": 1794224532822
+    },
+    {
+      "path": "/api/v1/admin/monitor/backup/overview",
+      "method": "GET",
+      "at": 1794224532823
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794224532834
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794224532837
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794224532880
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/system-snapshots",
+      "method": "GET",
+      "at": 1794224532881
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/restore-copies",
+      "method": "GET",
+      "at": 1794224532897
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews/1",
+      "method": "GET",
+      "at": 1794224533434
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews/1/quarantines",
+      "method": "GET",
+      "at": 1794224533859
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews/1/quarantine-preview",
+      "method": "GET",
+      "at": 1794224533932
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews/1/quarantines",
+      "method": "POST",
+      "at": 1794224536314
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794224536382
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794224536382
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794224536382
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews/1/quarantines",
+      "method": "GET",
+      "at": 1794224536382
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794224536410
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794224536410
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794224536410
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews/1/quarantines",
+      "method": "GET",
+      "at": 1794224536410
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantines/d7db4fe2-4441-4544-8f65-7e7642881ed1",
+      "method": "GET",
+      "at": 1794224536525
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-quarantines/d7db4fe2-4441-4544-8f65-7e7642881ed1",
+      "method": "GET",
+      "at": 1794224537730
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-history",
+      "method": "GET",
+      "at": 1794224539383
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-retention-imports",
+      "method": "GET",
+      "at": 1794224539383
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews",
+      "method": "GET",
+      "at": 1794224539383
+    },
+    {
+      "path": "/api/v1/admin/ops/backup/cleanup-reviews/1/quarantines",
+      "method": "GET",
+      "at": 1794224539383
+    }
+  ],
+  "errors": [],
+  "ws_tunnels": [
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 3030
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 8077
+    }
+  ],
+  "result": "passed"
+}

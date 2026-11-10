@@ -1,4 +1,13 @@
 import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { generate as generateBuildFingerprint } from "./scripts/build-fingerprint.mjs";
+import { createGeneratedWatchIgnore, generatedSourceIgnores } from "./scripts/dev-watch-ignore.mjs";
+
+const ignoreGeneratedOutput = createGeneratedWatchIgnore(
+  fileURLToPath(new URL(".", import.meta.url)),
+  process.env.POWERX_NUXT_BUILD_DIR || ".nuxt",
+);
 
 /**
  * 端口策略（固定约定）：
@@ -51,8 +60,24 @@ const POWERX_CORE_BASE =
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  // 历史构建／验收产物不参与源码扫描，避免 macOS 开发监听打开上万个句柄。
+  ignore: generatedSourceIgnores,
+  // 开发服务与生产构建必须隔离中间产物，避免 build 覆盖运行中的 Vite manifest。
   buildDir: process.env.POWERX_NUXT_BUILD_DIR || ".nuxt",
+  $production: {
+    buildDir: process.env.POWERX_NUXT_BUILD_DIR || ".nuxt-build",
+  },
   ssr: false,
+  hooks: {
+    "nitro:build:public-assets": async (nitro) => {
+      await generateBuildFingerprint(nitro.options.output.publicDir,
+        process.env.POWERX_VERSION || "development", process.env.POWERX_SOURCE_SHA || "unknown",
+        process.env.POWERX_BUILD_TIME || new Date().toISOString(),
+        resolve(process.env.POWERX_NUXT_BUILD_DIR || ".nuxt-build", "dist/server/client.manifest.mjs"));
+    },
+  },
+  app: { baseURL: process.env.NUXT_APP_BASE_URL || "/", head: { meta: [{ name: "generator", content: "PowerX" }] } },
+  routeRules: { "/.well-known/powerx.json": { headers: { "cache-control": "no-cache" } } },
   router: {
     options: {
       strict: false, // 将 strict 设为 false
@@ -106,6 +131,7 @@ export default defineNuxtConfig({
 
   // 添加开发服务器代理配置
   nitro: {
+    watchOptions: { ignored: ignoreGeneratedOutput },
     ...(process.env.POWERX_NITRO_OUTPUT_DIR
       ? { output: { dir: process.env.POWERX_NITRO_OUTPUT_DIR } }
       : {}),
@@ -188,6 +214,7 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()], // ✅ 官方 v4 推荐做法
     // dev 下浏览器请求会先打到 Vite dev server；加一层代理，避免 nitro.devProxy 在某些模式/版本下未生效导致 404。
     server: {
+      watch: { ignored: ignoreGeneratedOutput },
       proxy: {
         [API_BASE_PREFIX]: {
           target: upstreamOrigin,

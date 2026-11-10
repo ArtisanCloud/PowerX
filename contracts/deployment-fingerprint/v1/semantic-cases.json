@@ -1,0 +1,106 @@
+{
+  "manifest_invalid_paths": [
+    "../escape.js",
+    "/absolute.js",
+    "_nuxt/../escape.js",
+    "https://outside.example/a.js",
+    "_nuxt/a.js?x=1",
+    "_nuxt/a.js#x",
+    "_nuxt\\a.js",
+    "_nuxt/%2e%2e/escape.js"
+  ],
+  "sites": [
+    {
+      "input": "https://ADMIN.EXAMPLE.COM:443/console",
+      "output": "https://admin.example.com/console/"
+    },
+    {
+      "input": "https://admin.example.com",
+      "output": "https://admin.example.com/"
+    },
+    {
+      "input": "https://admin.example.com/console/",
+      "output": "https://admin.example.com/console/"
+    },
+    {
+      "input": "https://[2001:4860:4860::8888]:443/console",
+      "output": "https://[2001:4860:4860::8888]/console/"
+    }
+  ],
+  "invalid_sites": [
+    "http://admin.example.com/",
+    "https://user:pass@admin.example.com/",
+    "https://admin.example.com/?x=1",
+    "https://admin.example.com/#x",
+    "https://admin.example.com/a/../b/",
+    "https://admin.example.com/%2e%2e/",
+    "https://admin.example.com\\@outside.example/",
+    "https://127.1/",
+    "https://0177.0.0.1/",
+    "https://0x7f.0.0.1/",
+    "https://admin..example.com/",
+    "https://admin.example.com/a//b/",
+    "https://-bad.example.com/"
+  ],
+  "time_cases": [
+    {
+      "name": "normal",
+      "rtt_ms": 250,
+      "wall_clock_shift_ms": 0,
+      "expires_in_ms": 600000,
+      "expected_remaining_ms": 598750
+    },
+    {
+      "name": "clock-fast",
+      "rtt_ms": 250,
+      "wall_clock_shift_ms": 900000,
+      "expires_in_ms": 600000,
+      "expected_remaining_ms": 598750
+    },
+    {
+      "name": "clock-slow",
+      "rtt_ms": 250,
+      "wall_clock_shift_ms": -900000,
+      "expires_in_ms": 600000,
+      "expected_remaining_ms": 598750
+    },
+    {
+      "name": "delay-exhausts-ttl",
+      "rtt_ms": 599500,
+      "expires_in_ms": 600000,
+      "expected_remaining_ms": 0
+    },
+    {
+      "name": "repeated-delivery-does-not-extend",
+      "rtt_ms": 250,
+      "expires_in_ms": 600000,
+      "existing_remaining_ms": 20000,
+      "expected_remaining_ms": 20000
+    },
+    {
+      "name": "inconsistent-duration",
+      "rtt_ms": 250,
+      "expires_in_ms": 599000,
+      "expected_error": true
+    }
+  ],
+  "challenge": {
+    "schema": "powerx.instance-proof/v1",
+    "challenge_id": "e657f211-1e0a-4f24-941d-87ea293c1fba",
+    "site_url": "https://admin.example.com/console/",
+    "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "expires_at": "2026-10-23T00:10:00.000Z",
+    "expires_in_ms": 600000
+  },
+  "server_time": "2026-10-23T00:00:00.000Z",
+  "identify_sites": [
+    {
+      "input": "http://ADMIN.EXAMPLE.COM:80/console",
+      "output": "http://admin.example.com/console/"
+    },
+    {
+      "input": "https://admin.example.com/console/",
+      "output": "https://admin.example.com/console/"
+    }
+  ]
+}

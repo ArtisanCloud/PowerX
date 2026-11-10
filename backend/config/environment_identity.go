@@ -9,6 +9,15 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/instanceidentity"
 )
 
+// RedisNamespace is derived only from the existing runtime environment ID.
+// It is not a YAML setting and does not depend on database names or credentials.
+func (c *Config) RedisNamespace() (string, error) {
+	if !instanceidentity.Valid(c.EnvironmentID) {
+		return "", fmt.Errorf("environment identity is not initialized")
+	}
+	return c.EnvironmentID, nil
+}
+
 func (c *Config) EnvironmentIdentityFile() string { return c.environmentIdentityFile }
 
 // ReadEnvironmentIdentity is read-only. A fresh installation is initialized by

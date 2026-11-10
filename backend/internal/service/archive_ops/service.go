@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	vault "github.com/ArtisanCloud/PowerX/internal/infra/archive_credentials"
+	storagerecovery "github.com/ArtisanCloud/PowerX/internal/infra/storage_recovery"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"net"
@@ -19,12 +21,21 @@ import (
 )
 
 type Service struct {
+	recoveryAnchor   *storagerecovery.Store
+	policyAuthority  PolicyAuthority
+	targetAuthority  TargetAuthority
+	vault            *vault.Store
+	vaultErr         error
 	cfg              Config
 	opts             Options
 	ctx              context.Context
 	cancel           context.CancelFunc
 	mu               sync.Mutex
 	workers          sync.WaitGroup
+	commandWorkers   sync.WaitGroup
+	commandMu        sync.Mutex
+	commandClosed    bool
+	executions       sync.Map
 	schedulerRunning bool
 	hostIdentity     string
 	initErr          error
@@ -48,7 +59,7 @@ func NewService(ctx context.Context, c Config, opts Options) *Service {
 	if s.initErr = validateConfig(&s.cfg); s.initErr != nil {
 		return s
 	}
-	for _, name := range []string{"policies", "targets", "jobs", "locks", "objects", "restores", "staging", "secrets", "audit", "remote-gc"} {
+	for _, name := range []string{"policies", "targets", "target-verifications", "jobs", "locks", "objects", "restores", "staging", "secrets", "audit", "remote-gc", "interruption-requests", "command-executions", "command-confirmations", "command-confirmation-rejections"} {
 		if e := os.MkdirAll(filepath.Join(s.cfg.Directory, name), 0700); e != nil {
 			s.initErr = e
 			return s
@@ -65,12 +76,35 @@ func NewService(ctx context.Context, c Config, opts Options) *Service {
 			s.cfg.Sources[i].Directory = path
 		}
 	}
+	if e := s.readTargetControlBinding(); e != nil {
+		s.initErr = e
+		return s
+	}
+	if e := s.readPolicyControlBinding(); e != nil {
+		s.initErr = e
+		return s
+	}
+	s.initCredentialVault()
 	if err := s.publishCustodyControl(); err != nil {
 		s.initErr = err
 	}
+	if s.initErr == nil {
+		s.initErr = s.reconcileInterrupted(run)
+	}
 	return s
 }
-func (s *Service) Close() { s.mu.Lock(); s.cancel(); s.mu.Unlock(); s.workers.Wait() }
+
+// Close 停止新接纳并等待所属 worker 和本机外部命令结束。
+func (s *Service) Close() {
+	s.mu.Lock()
+	s.commandMu.Lock()
+	s.commandClosed = true
+	s.cancel()
+	s.commandMu.Unlock()
+	s.mu.Unlock()
+	s.workers.Wait()
+	s.commandWorkers.Wait()
+}
 func (s *Service) check(ctx context.Context) error {
 	if e := requireRoot(ctx); e != nil {
 		return e
@@ -124,7 +158,10 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 	s.mu.Lock()
 	out.SchedulerStarted = s.schedulerRunning
 	s.mu.Unlock()
-	out = Overview{SchedulerStarted: out.SchedulerStarted, Instance: s.cfg.Instance, Directory: s.cfg.Directory, Policies: []Policy{}, Targets: []Target{}, Jobs: []Job{}, Restores: []Restore{}, Credentials: []string{}, Sources: []Source{}}
+	out = Overview{RemoteExecution: RemoteExecutionAvailability{Enabled: !s.cfg.RemoteExecutionBlocked}, ProbeCommandConfirmationVersion: 1, CommandConfirmationVersion: 1, CommandExecution: s.commandOverview(), InterruptionRequestClosureVersion: 1, InterruptionResolutionVersion: 1, ExecutionVersion: 1, RunRequestVersion: 1, SchedulerStarted: out.SchedulerStarted, Instance: s.cfg.Instance, Directory: s.cfg.Directory, Policies: []Policy{}, Targets: []Target{}, Jobs: []Job{}, Restores: []Restore{}, Credentials: []string{}, Sources: []Source{}}
+	if s.cfg.RemoteExecutionBlocked {
+		out.RemoteExecution.Problem = "ARCHIVE_RELEASE_NOT_ACCEPTED"
+	}
 	for _, source := range s.cfg.Sources {
 		out.Sources = append(out.Sources, sourceStatus(source))
 	}
@@ -136,6 +173,7 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 		return out, err
 	}
 	out.S3Credentials = refs
+	out.CredentialOverview = s.credentialOverview(ctx)
 	out.Custody = s.custodyStatus()
 	out.RemoteRuns, err = s.remoteGCRuns()
 	if err != nil {
@@ -143,6 +181,40 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 	}
 	sort.Strings(out.Credentials)
 	for _, kind := range []string{"policies", "targets", "jobs", "restores"} {
+		if kind == "policies" && s.policyControlRequired() {
+			out.PolicyConfiguration = PolicyConfiguration{Authority: "unavailable", State: "unavailable", Problem: "ARCHIVE_POLICY_CONTROL_UNAVAILABLE", Policies: []Policy{}}
+			if s.policyAuthority != nil {
+				configuration, _ := s.policyAuthority.Configuration(ctx)
+				out.PolicyConfiguration = configuration
+			}
+			for _, p := range out.PolicyConfiguration.Policies {
+				if active, e := s.policy(ctx, p.ID); e == nil {
+					p.ExecutionReady = active.Enabled || active.RemoteCleanupEnabled
+				} else {
+					p.ExecutionProblem = "ARCHIVE_POLICY_NOT_CONFIRMED"
+				}
+				out.Policies = append(out.Policies, p)
+			}
+			continue
+		}
+		if kind == "targets" && s.targetControlRequired() {
+			out.TargetConfiguration = TargetConfiguration{Authority: "unavailable", State: "unavailable", Problem: "ARCHIVE_TARGET_CONTROL_UNAVAILABLE", Targets: []Target{}}
+			if s.targetAuthority != nil {
+				var e error
+				out.TargetConfiguration, e = s.targetAuthority.Configuration(ctx)
+				if e != nil {
+					out.TargetConfiguration.Problem = "ARCHIVE_TARGET_CONTROL_UNAVAILABLE"
+				}
+			}
+			for _, t := range out.TargetConfiguration.Targets {
+				if resolved, e := s.target(t.ID); e == nil {
+					t = resolved
+				}
+				t.Executor = "powerx:" + s.cfg.ExecutionNodeID
+				out.Targets = append(out.Targets, t)
+			}
+			continue
+		}
 		ids, e := s.records(kind)
 		if e != nil {
 			return out, e
@@ -165,7 +237,10 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 				var j jobRecord
 				j, e = s.readJob(id)
 				if e == nil {
-					copy := j.Job
+					copy := s.observedJob(j)
+					if copy.ExecutionState == "interrupted" || copy.ExecutionState == "unconfirmed" {
+						out.ExecutionAttention = append(out.ExecutionAttention, ExecutionAttention{ID: j.ID, PolicyID: j.PolicyID, ExecutionState: copy.ExecutionState})
+					}
 					copy.Files = nil
 					out.Jobs = append(out.Jobs, copy)
 					if j.RemoteState == "pending" || j.RemoteState == "failed" || j.RemoteState == "unconfirmed" {
@@ -190,11 +265,27 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 	if len(out.Jobs) > 100 {
 		out.Jobs = out.Jobs[:100]
 	}
+	if s.cfg.RemoteExecutionBlocked {
+		for i := range out.Policies {
+			if out.Policies[i].TargetID != "" || out.Policies[i].RemoteCleanupEnabled {
+				out.Policies[i].ExecutionReady = false
+				out.Policies[i].ExecutionProblem = "ARCHIVE_RELEASE_NOT_ACCEPTED"
+			}
+		}
+	}
 	return out, nil
 }
 func (s *Service) SavePolicy(ctx context.Context, p Policy) (Policy, error) {
+	if s.policyControlRequired() {
+		return p, failure(428, "ARCHIVE_POLICY_CONTROL_REQUIRED", "请使用带版本和动作的策略配置接口")
+	}
 	if e := s.check(ctx); e != nil {
 		return p, e
+	}
+	if (p.Enabled && p.TargetID != "") || p.RemoteCleanupEnabled {
+		if e := s.remoteExecutionAllowed(); e != nil {
+			return p, e
+		}
 	}
 	source, e := s.source(p.SourceID)
 	if e != nil {
@@ -283,6 +374,9 @@ func (s *Service) SaveTarget(ctx context.Context, t Target) (Target, error) {
 	if e := s.check(ctx); e != nil {
 		return t, e
 	}
+	if s.targetControlRequired() {
+		return t, failure(428, "ARCHIVE_TARGET_CONTROL_REQUIRED", "请使用带请求标识和版本的目标配置接口")
+	}
 	t.Name = strings.TrimSpace(t.Name)
 	if t.Driver == "s3" {
 		return s.saveS3Target(ctx, t)
@@ -319,7 +413,23 @@ func (s *Service) SaveTarget(ctx context.Context, t Target) (Target, error) {
 	e = writeJSON(s.path("targets", t.ID), t)
 	return t, e
 }
-func (s *Service) target(id string) (Target, error) {
+func (s *Service) target(id string) (Target, error) { return s.targetContext(s.ctx, id) }
+func (s *Service) targetContext(ctx context.Context, id string) (Target, error) {
+	if target, ok := ctx.Value(guardedTargetContext{}).(*Target); ok && target != nil && target.ID == id {
+		return *target, nil
+	}
+	if s.targetControlRequired() {
+		if s.targetAuthority == nil {
+			return Target{}, failure(503, "ARCHIVE_TARGET_CONTROL_UNAVAILABLE", "目标控制面不可用")
+		}
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		t, e := s.targetAuthority.Resolve(ctx, id)
+		if e != nil {
+			return t, e
+		}
+		return s.targetWithProof(t), nil
+	}
 	var t Target
 	if !validID(id) {
 		return t, failure(400, "ARCHIVE_TARGET_INVALID", "异地目标标识无效")
@@ -337,6 +447,9 @@ func (s *Service) start(ctx context.Context, policyID, key, operator, trace stri
 	p, e := s.policy(ctx, policyID)
 	if e != nil {
 		return Job{}, e
+	}
+	if s.policyControlRequired() && !p.Enabled {
+		return Job{}, failure(409, "ARCHIVE_POLICY_DISABLED", "策略已暂停，请先明确启用或使用按需媒体导出")
 	}
 	return s.startPolicy(ctx, p, key, operator, trace, synchronous)
 }
@@ -363,6 +476,9 @@ func oneTimeMediaPolicy() Policy {
 }
 
 func (s *Service) startPolicy(ctx context.Context, p Policy, key, operator, trace string, synchronous bool) (Job, error) {
+	return s.startPolicyAtRevision(ctx, p, key, operator, trace, synchronous, 0)
+}
+func (s *Service) startPolicyAtRevision(ctx context.Context, p Policy, key, operator, trace string, synchronous bool, expectedRevision int64) (Job, error) {
 	if !validID(key) {
 		return Job{}, failure(400, "ARCHIVE_IDEMPOTENCY_REQUIRED", "归档请求需要 UUID Idempotency-Key")
 	}
@@ -383,64 +499,100 @@ func (s *Service) startPolicy(ctx context.Context, p Policy, key, operator, trac
 			return Job{}, e
 		}
 		if j.RequestKey == hash {
-			if j.PolicyID != p.ID || (p.ID == "" && (!j.OneTime || j.SourceID != p.SourceID)) {
-				return Job{}, failure(409, "ARCHIVE_IDEMPOTENCY_CONFLICT", "同一标识不能用于另一策略")
+			if j.PolicyID != p.ID || (p.ID == "" && (!j.OneTime || j.SourceID != p.SourceID)) || expectedRevision > 0 && j.PolicyRevision != expectedRevision {
+				return Job{}, failure(409, "ARCHIVE_IDEMPOTENCY_CONFLICT", "同一标识不能用于另一策略或策略版本")
 			}
-			return j.Job, nil
+			return s.observedJob(j), nil
+		}
+	}
+	if p.TargetID != "" || p.RemoteCleanupEnabled {
+		if e := s.remoteExecutionAllowed(); e != nil {
+			return Job{}, e
 		}
 	}
 	if e = s.catalogCapacity(); e != nil {
 		return Job{}, e
 	}
-	unlock, e := s.lock(ctx, p.ID)
-	if e != nil {
-		return Job{}, failure(409, "ARCHIVE_BUSY", "该策略正在执行")
+	var unlock func()
+	var source Source
+	var j jobRecord
+	var finishExecution func()
+	admit := func(ctx context.Context) error {
+		unlock, e = s.lock(ctx, p.ID)
+		if e != nil {
+			return failure(409, "ARCHIVE_BUSY", "该策略正在执行")
+		}
+		source, e = s.source(p.SourceID)
+		if e != nil {
+			return e
+		}
+		status := sourceStatus(source)
+		if !status.Ready {
+			return failure(422, "ARCHIVE_SOURCE_UNAVAILABLE", status.Problem)
+		}
+		if isLogSource(source.Kind) && !p.Enabled {
+			return failure(409, "ARCHIVE_DISABLED", "请先在页面明确开启日志归档")
+		}
+		blocked, err := s.policyHasInterrupted(ctx, p.ID)
+		if err != nil {
+			return err
+		}
+		if blocked {
+			return failure(409, "ARCHIVE_INTERRUPTED_JOB_PENDING", "原策略有执行中或中断待核对任务，不能创建替代任务")
+		}
+
+		now := time.Now().UTC()
+		j = jobRecord{Job: Job{PolicyRevision: p.Revision, ID: uuid.NewString(), PolicyID: p.ID, SourceID: p.SourceID, Kind: source.Kind, Status: "running", Phase: "capturing", CreatedAt: now, Warnings: []string{}, RemoteState: "not_requested", Operator: operator, TraceID: trace, RemoteRetentionDays: p.RemoteRetentionDays, RemoteRetentionCount: p.RemoteRetentionCount}, RequestKey: hash}
+		j.OneTime = p.ID == ""
+		if p.TargetID != "" {
+			target, e := s.targetContext(ctx, p.TargetID)
+			if e != nil {
+				return e
+			}
+			if (isLogSource(source.Kind) || target.Driver == "s3") && (!p.Enabled || !s.targetVerified(target) || p.TargetRevision != target.Revision || p.TargetFingerprint != target.VerifiedFingerprint) {
+				return failure(409, "ARCHIVE_DISABLED", "归档尚未开启或目标配置验证已失效")
+			}
+			j.Target = &target
+			j.RemoteState = "pending"
+		}
+		finishExecution, e = s.beginExecution(&j)
+		if e != nil {
+			return e
+		}
+		if e = s.saveJob(&j); e != nil {
+			return e
+		}
+		return nil
 	}
-	source, e := s.source(p.SourceID)
-	if e != nil {
-		unlock()
-		return Job{}, e
+	var admissionErr error
+	if s.policyControlRequired() && p.ID != "" {
+		admissionErr = s.guardPolicyAction(ctx, p, "start", admit)
+	} else {
+		admissionErr = admit(ctx)
 	}
-	status := sourceStatus(source)
-	if !status.Ready {
-		unlock()
-		return Job{}, failure(422, "ARCHIVE_SOURCE_UNAVAILABLE", status.Problem)
-	}
-	if isLogSource(source.Kind) && !p.Enabled {
-		unlock()
-		return Job{}, failure(409, "ARCHIVE_DISABLED", "请先在页面明确开启日志归档")
-	}
-	// 同一策略的执行锁已接管，旧 running 清单对应进程已经退出。
-	for _, id := range ids {
-		j, e := s.readJob(id)
-		if e == nil && j.PolicyID == p.ID && j.Status == "running" {
+	if admissionErr != nil {
+		if finishExecution != nil {
+			finishExecution()
+		}
+		if j.ID != "" && (j.CommandProtocol == 1 || j.CommandProtocol == 2) {
 			j.Status = "failed"
-			j.Error = "上次归档进程中断"
+			j.Phase = "failed"
+			j.Error = "执行授权未确认，未启动归档"
 			_ = s.saveJob(&j)
 		}
-	}
-	now := time.Now().UTC()
-	j := jobRecord{Job: Job{PolicyRevision: p.Revision, ID: uuid.NewString(), PolicyID: p.ID, SourceID: p.SourceID, Kind: source.Kind, Status: "running", Phase: "capturing", CreatedAt: now, Warnings: []string{}, RemoteState: "not_requested", Operator: operator, TraceID: trace, RemoteRetentionDays: p.RemoteRetentionDays, RemoteRetentionCount: p.RemoteRetentionCount}, RequestKey: hash}
-	j.OneTime = p.ID == ""
-	if p.TargetID != "" {
-		target, e := s.target(p.TargetID)
-		if e != nil {
+		if unlock != nil {
 			unlock()
-			return Job{}, e
 		}
-		if (isLogSource(source.Kind) || target.Driver == "s3") && (!p.Enabled || !s.targetVerified(target) || p.TargetRevision != target.Revision || p.TargetFingerprint != target.VerifiedFingerprint) {
-			unlock()
-			return Job{}, failure(409, "ARCHIVE_DISABLED", "归档尚未开启或目标配置验证已失效")
-		}
-		j.Target = &target
-		j.RemoteState = "pending"
+		return Job{}, admissionErr
 	}
-	if e = s.saveJob(&j); e != nil {
-		unlock()
-		return Job{}, e
+	response := s.observedJob(j)
+	run := func() {
+		defer finishExecution()
+		func() { defer unlock(); s.execute(&j, p, source) }()
+		tidy, cancel := context.WithTimeout(s.ctx, 15*time.Second)
+		defer cancel()
+		_, _ = s.cleanup(tidy, p.ID)
 	}
-	response := j.Job
-	run := func() { func() { defer unlock(); s.execute(&j, p, source) }(); _, _ = s.cleanup(ctx, p.ID) }
 	if synchronous {
 		s.mu.Unlock()
 		run()
@@ -458,8 +610,11 @@ func (s *Service) Tick(ctx context.Context) error {
 	if err := s.publishCustodyControl(); err != nil {
 		return err
 	}
+	if err := s.reconcileInterrupted(ctx); err != nil {
+		return err
+	}
 	s.pruneExpiredCatalog(ctx)
-	ids, e := s.records("policies")
+	ids, e := s.policyIDs(ctx)
 	if e != nil {
 		return e
 	}
@@ -468,6 +623,16 @@ func (s *Service) Tick(ctx context.Context) error {
 		p, e := s.policy(ctx, id)
 		if e != nil {
 			failures = append(failures, e.Error())
+			continue
+		}
+		if s.cfg.RemoteExecutionBlocked && (p.TargetID != "" || p.RemoteCleanupEnabled) {
+			continue
+		}
+		blocked, err := s.policyHasInterrupted(ctx, p.ID)
+		if err != nil {
+			return err
+		}
+		if blocked {
 			continue
 		}
 		if !p.Enabled {
@@ -530,7 +695,7 @@ func (s *Service) Tick(ctx context.Context) error {
 	jobs, _ := s.records("jobs")
 	for _, id := range jobs {
 		j, e := s.readJob(id)
-		if e == nil && j.Status == "success" && j.Target != nil && (j.RemoteState == "pending" || j.RemoteState == "failed") && j.Attempts < 5 && !time.Now().Before(j.RetryAt) {
+		if e == nil && !interruptionPending(j) && j.Status == "success" && j.Target != nil && (j.RemoteState == "pending" || j.RemoteState == "failed") && j.Attempts < 5 && !time.Now().Before(j.RetryAt) {
 			retried, retryErr := s.retry(ctx, id, true)
 			if retryErr != nil && dto.StatusCode(retryErr) == 409 {
 				continue
@@ -562,6 +727,14 @@ func (s *Service) execute(j *jobRecord, p Policy, source Source) {
 		j.Status = "failed"
 		j.Phase = "failed"
 		j.Error = e.Error()
+		if ctx.Err() != nil || s.jobCommandState(*j) != "drained" {
+			now := time.Now().UTC()
+			j.Status = "interrupted"
+			j.Phase = "interrupted"
+			j.InterruptionPending = true
+			j.InterruptedAt = &now
+			j.InterruptedPhase = "capturing"
+		}
 		_ = s.saveJob(j)
 		return
 	}
@@ -588,6 +761,11 @@ func (s *Service) retry(ctx context.Context, id string, synchronous bool) (Job, 
 	if e != nil {
 		return Job{}, e
 	}
+	if j.Target != nil {
+		if e := s.remoteExecutionAllowed(); e != nil {
+			return Job{}, e
+		}
+	}
 	if err := s.transferAllowed(ctx, j); err != nil {
 		return Job{}, failure(409, "ARCHIVE_DISABLED", "归档已关闭或配置已改变，不能继续重传旧任务")
 	}
@@ -598,14 +776,30 @@ func (s *Service) retry(ctx context.Context, id string, synchronous bool) (Job, 
 	if e != nil {
 		return Job{}, failure(409, "ARCHIVE_BUSY", "策略正在执行")
 	}
-	j.RemoteState = "pending"
-	j.RemoteError = ""
-	if e = s.saveJob(&j); e != nil {
+	// 锁之前的快照可能已经由另一执行更新；只在原锁内重读后登记本次重传。
+	j, e = s.readJob(id)
+	if e != nil || j.Status != "success" || j.Target == nil {
+		unlock()
+		if e != nil {
+			return Job{}, e
+		}
+		return Job{}, failure(409, "ARCHIVE_TRANSFER_NOT_READY", "只能重传已有完整快照")
+	}
+	finishExecution, e := s.beginExecution(&j)
+	if e != nil {
 		unlock()
 		return Job{}, e
 	}
-	out := j.Job
+	j.RemoteState = "pending"
+	j.RemoteError = ""
+	if e = s.saveJob(&j); e != nil {
+		finishExecution()
+		unlock()
+		return Job{}, e
+	}
+	out := s.observedJob(j)
 	run := func() {
+		defer finishExecution()
 		defer unlock()
 		ctx, cancel := context.WithTimeout(s.ctx, 30*time.Minute)
 		defer cancel()

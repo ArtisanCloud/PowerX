@@ -1,0 +1,299 @@
+{
+  "contract": "docs/contracts/ai-settings-llm-catalog.v1.md",
+  "recorded_at": "2026-10-25T14:52:08.210506+00:00",
+  "runtime": {
+    "endpoint": "http://127.0.0.1:8077/api/v1",
+    "pid": 12870,
+    "started_at": "2026-10-25T22:48:10+08:00",
+    "restart_owner": "user",
+    "new_operations_loaded": true,
+    "proof": "Both settings operations succeed through the existing HTTP invocation endpoint after restart; the old process returned AI_OPERATION_INVALID.",
+    "agent_started_persistent_services": false
+  },
+  "source": {
+    "git_head": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+    "working_tree": "dirty; existing changes preserved, not committed",
+    "sha256": {
+      "backend/internal/service/ai/settings_catalog.go": "723e56b3855423a8d8253c2ecad960dd2800a765e60ee9a51d15f2eab0a52604",
+      "backend/internal/service/ai/settings_catalog_test.go": "c78ccbae8f8abbe93f5d2c85dc5754dc3be169b954d870d38f2a1ef4a42aafe7",
+      "backend/internal/service/ai/settings_catalog_authorization_test.go": "f2ae0c0996007807079502f7e372d4b13f41fc15b655f889022f25c14754e63f",
+      "backend/internal/service/ai/media_invoker.go": "6d166d741b3b691d82c029482b53f7be515eb6a30d2f3511f5fec7a4ee13d544",
+      "backend/config/platform_capabilities/ai_catalog.yaml": "66e9baa0022c9cc694799c39de0ee2a548eed777c192458e8691f97238541b82",
+      "docs/contracts/ai-media-v2.openapi.yaml": "17c5b91f554513cc071dab78df37e729ce28cd5dffb4aa1cea4840bd07cf1ae7",
+      "docs/contracts/ai-settings-llm-catalog.v1.md": "d6d45d91dbe58115ae39fd08864171f356deadb80b6fe55901b07a900e8f439e"
+    }
+  },
+  "live_api_key": {
+    "checked_at": "2026-10-25T14:48:49.013014+00:00",
+    "credential": "existing Framework Host API key",
+    "core_api": "http://127.0.0.1:8077/api/v1",
+    "grant_status": {
+      "http_status": 200,
+      "data": {
+        "items": [
+          {
+            "capability_id": "com.corex.ai.catalog.providers.read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          },
+          {
+            "capability_id": "com.corex.ai.catalog.models.read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          }
+        ]
+      }
+    },
+    "operations": {
+      "list_settings_providers": {
+        "http_status": 200,
+        "error_code": null,
+        "protocol_used": "core_internal",
+        "fallback_used": false,
+        "trace_id": "36406430-87c3-4d15-ab43-eba1ae9a8c5a",
+        "result": {
+          "contract_version": 1,
+          "catalog_kind": "ai_settings",
+          "env": "dev",
+          "modality": "llm",
+          "providers": [
+            {
+              "id": "anthropic",
+              "name": "Anthropic",
+              "apps": []
+            },
+            {
+              "id": "baidu",
+              "name": "Baidu Qianfan",
+              "apps": []
+            },
+            {
+              "id": "coze",
+              "name": "Coze",
+              "apps": []
+            },
+            {
+              "id": "deepseek",
+              "name": "DeepSeek",
+              "apps": []
+            },
+            {
+              "id": "huggingface",
+              "name": "Hugging Face Inference",
+              "apps": []
+            },
+            {
+              "id": "moonshot",
+              "name": "Moonshot AI (Kimi)",
+              "apps": []
+            },
+            {
+              "id": "ollama",
+              "name": "Ollama (Local)",
+              "apps": []
+            },
+            {
+              "id": "openai",
+              "name": "OpenAI",
+              "apps": []
+            },
+            {
+              "id": "openai_compatible",
+              "name": "OpenAI Compatible",
+              "apps": []
+            },
+            {
+              "id": "qwen-cn",
+              "name": "Qwen（官方国内）",
+              "apps": []
+            },
+            {
+              "id": "qwen-intl",
+              "name": "Qwen（官方国际）",
+              "apps": []
+            },
+            {
+              "id": "volcengine",
+              "name": "Volcengine (ByteDance)",
+              "apps": [
+                {
+                  "id": "coze",
+                  "name": "Coze"
+                }
+              ]
+            },
+            {
+              "id": "hunyuan",
+              "name": "腾讯混元 (Hunyuan)",
+              "apps": []
+            }
+          ]
+        }
+      },
+      "list_settings_models": {
+        "http_status": 200,
+        "error_code": null,
+        "protocol_used": "core_internal",
+        "fallback_used": false,
+        "trace_id": "7575ccb9-cde7-4a01-80c4-7bf0f8c3ec8e",
+        "result": {
+          "contract_version": 1,
+          "catalog_kind": "ai_settings",
+          "env": "dev",
+          "modality": "llm",
+          "provider": "ollama",
+          "app": "",
+          "items": [
+            {
+              "model_key": "ollama/qwen3:14b",
+              "provider": "ollama",
+              "model": "qwen3:14b",
+              "label": "qwen3:14b"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "previous_runtime": {
+    "checked_at": "2026-10-25T14:42:13.771166+00:00",
+    "operations": {
+      "list_settings_providers": {
+        "http_status": 400,
+        "error_code": "AI_OPERATION_INVALID",
+        "reason_code": "AI_OPERATION_INVALID",
+        "protocol_used": null
+      },
+      "list_settings_models": {
+        "http_status": 400,
+        "error_code": "AI_OPERATION_INVALID",
+        "reason_code": "AI_OPERATION_INVALID",
+        "protocol_used": null
+      }
+    }
+  },
+  "management_service_parity": {
+    "source": "AgentSettingService.Providers and ModelsForTenant",
+    "method": "Direct calls to the same AgentSettingService methods used by Admin, against the running instance database in a SQL read-only transaction, rolled back. Tenant derived from the existing authenticated Host API key record.",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "env": "dev",
+    "compared_provider_fields": [
+      "id",
+      "name",
+      "apps"
+    ],
+    "provider_count": 13,
+    "providers_exact_match": true,
+    "ollama_models": [
+      "qwen3:14b"
+    ],
+    "ollama_models_exact_match": true,
+    "saved_connection": true,
+    "browser_or_plugin_ui_acceptance": false
+  },
+  "live_negative_checks": [
+    {
+      "case": "caller_address_override",
+      "http_status": 400,
+      "error_code": "AI_OPERATION_INVALID",
+      "passed": true
+    },
+    {
+      "case": "operation_capability_mismatch",
+      "http_status": 400,
+      "error_code": "AI_OPERATION_INVALID",
+      "passed": true
+    },
+    {
+      "case": "undeclared_app",
+      "http_status": 422,
+      "error_code": "AI_SETTINGS_APP_INVALID",
+      "passed": true
+    }
+  ],
+  "authorization_regressions": {
+    "environment": "isolated integration fixtures using formal platform capability metadata, Registry, Router, InvocationService and live grant evaluation",
+    "test": "TestSettingsCatalogAPIKeySTSGrantsRevocationAndTenantIsolation",
+    "passed": true,
+    "actors": [
+      "API Key",
+      "STS"
+    ],
+    "cases": [
+      "no grant denied",
+      "providers-only grant cannot read models",
+      "both grants allow their corresponding operations",
+      "grant-status granted",
+      "API Key and STS model grant revocation takes immediate effect",
+      "cross-tenant denial",
+      "unpublished capability denial",
+      "disabled tenant registration denial",
+      "caller address override rejected"
+    ],
+    "live_sts_acceptance": false
+  },
+  "catalog_regressions": {
+    "tests": [
+      "TestSettingsCatalogPreservesManagementProvidersAppsAndSchema",
+      "TestSettingsCatalogRejectsOverridesAndWrongCapability",
+      "TestSettingsCatalogOllamaUsesOnlySavedTenantEnvironmentConnection"
+    ],
+    "passed": true,
+    "cases": [
+      "Provider display names and Apps preserved",
+      "native model tags and model_key",
+      "strict request and response schemas",
+      "missing tenant environment",
+      "no saved Ollama connection does not probe default instance",
+      "tenant and environment isolation",
+      "saved blank address uses Core provider default",
+      "Ollama discovery failure has no static fallback",
+      "empty model list is an empty array"
+    ]
+  },
+  "verification": [
+    {
+      "command": "go test ./internal/service/ai -run TestSettingsCatalog -count=1",
+      "cwd": "backend",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./internal/service/integration_gateway ./internal/service/ai ./internal/service/integration_gateway/apikeypermissions ./internal/service/capability_registry ./internal/http ./internal/transport/http/openapi/ai",
+      "cwd": "backend",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./internal/service/ai ./internal/service/integration_gateway/apikeypermissions ./internal/service/agent",
+      "cwd": "backend",
+      "result": "passed"
+    },
+    {
+      "command": "go build -o /tmp/powerx-ai-settings-catalog-app ./cmd/app",
+      "cwd": "backend",
+      "result": "passed; binary built, not launched by agent"
+    },
+    {
+      "command": "make capability-check",
+      "cwd": ".",
+      "result": "passed",
+      "declared": 1111,
+      "referenced": 74,
+      "rest_routes": 1042,
+      "candidates": 1130,
+      "ignored_route_rules": 50
+    },
+    {
+      "command": "go test ./runtime/aisettings -run TestSettingsCatalog -count=1",
+      "cwd": "../Plugins/PowerXPlugin/framework/backend/go",
+      "result": "passed; no Framework files modified"
+    }
+  ],
+  "capability_seed": {
+    "command": "make capability-seed CAPABILITY_SEED_FLAGS=\"-capability-ids com.corex.ai.catalog.providers.read,com.corex.ai.catalog.models.read\"",
+    "config": "existing instance configuration, passed via CAPABILITY_SEED_CONFIG",
+    "result": "platform capability seed ok",
+    "preserve_installed_state": true,
+    "api_key_grants_changed": false
+  },
+  "acceptance_boundary": "Real existing Host API key + Core HTTP directory + management service parity accepted. STS authorization accepted in isolated tests. Plugin browser selection and live STS token exchange were not exercised. Only read catalog requests were submitted; no model generation or credential changes."
+}

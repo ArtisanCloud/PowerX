@@ -73,6 +73,8 @@ func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (*dbm.Us
 // 说明：租户内列表请用 MemberRepository.List（见下方补充）
 type UserListFilter struct {
 	TenantUUID string
+	DeptID     *uint64
+	Recursive  bool
 	Keyword    string
 	Status     *int16
 	Page       int

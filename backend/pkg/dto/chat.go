@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+import (
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/modelparams"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+)
 
 // ======= 已有：保持不变 =======
 
@@ -14,15 +17,20 @@ type ChatRequest struct {
 
 // ChatConfig：保留，用于 LLM 与执行
 type ChatConfig struct {
-	ModelName    string  `json:"model_name,omitempty" example:"gpt-4o" description:"模型名称"`
-	Provider     string  `json:"provider,omitempty" example:"openai" description:"提供商"`
-	Endpoint     string  `json:"endpoint,omitempty" example:"https://api.openai.com/v1" description:"API端点"`
-	APIKey       string  `json:"api_key,omitempty" description:"API密钥"`
-	Temperature  float64 `json:"temperature,omitempty" validate:"omitempty,min=0,max=2" example:"0.7" description:"温度参数"`
-	MaxTokens    int     `json:"max_tokens,omitempty" validate:"omitempty,min=1,max=8192" example:"2000" description:"最大令牌数"`
-	SystemPrompt string  `json:"system_prompt,omitempty" description:"系统提示词"`
-	EnableStream bool    `json:"enable_stream,omitempty" description:"是否启用流式响应"`
-	CacheMode    string  `json:"cache_mode,omitempty" description:"提示词缓存策略: auto|force_off|force_on"`
+	ReasoningEffort  string               `json:"reasoning_effort,omitempty"`
+	TopP             float32              `json:"top_p,omitempty" validate:"omitempty,min=0,max=1"`
+	TemperatureSet   bool                 `json:"-"`
+	TopPSet          bool                 `json:"-"`
+	ParameterProfile *modelparams.Profile `json:"-"`
+	ModelName        string               `json:"model_name,omitempty" example:"gpt-4o" description:"模型名称"`
+	Provider         string               `json:"provider,omitempty" example:"openai" description:"提供商"`
+	Endpoint         string               `json:"endpoint,omitempty" example:"https://api.openai.com/v1" description:"API端点"`
+	APIKey           string               `json:"api_key,omitempty" description:"API密钥"`
+	Temperature      float64              `json:"temperature,omitempty" validate:"omitempty,min=0,max=2" example:"0.7" description:"温度参数"`
+	MaxTokens        int                  `json:"max_tokens,omitempty" validate:"omitempty,min=1,max=8192" example:"2000" description:"最大令牌数"`
+	SystemPrompt     string               `json:"system_prompt,omitempty" description:"系统提示词"`
+	EnableStream     bool                 `json:"enable_stream,omitempty" description:"是否启用流式响应"`
+	CacheMode        string               `json:"cache_mode,omitempty" description:"提示词缓存策略: auto|force_off|force_on"`
 	// MaxConcurrentRequests is populated from the resolved AI model profile.
 	// It is a server-side execution policy, not a client-selected setting.
 	MaxConcurrentRequests int `json:"-"`

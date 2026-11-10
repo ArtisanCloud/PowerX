@@ -15,7 +15,19 @@ import (
 // --- 签发 ---
 
 func GenerateAccessJWT(c reqctx.CoreXClaims, issuer string, audiences []string, ttl time.Duration, secret []byte) (string, error) {
+	return GenerateAccessJWTUntil(c, issuer, audiences, ttl, secret, time.Time{})
+}
+
+// GenerateAccessJWTUntil 将访问凭证限制在已有登录会话的固定期限内，不延长会话。
+func GenerateAccessJWTUntil(c reqctx.CoreXClaims, issuer string, audiences []string, ttl time.Duration, secret []byte, deadline time.Time) (string, error) {
 	now := time.Now()
+	expires := now.Add(ttl)
+	if !deadline.IsZero() && deadline.Before(expires) {
+		expires = deadline
+	}
+	if !deadline.IsZero() && expires.Unix() <= now.Unix() {
+		return "", errors.New("access session expired")
+	}
 	sessionID := c.ID
 	if sessionID == "" {
 		sessionID = uuid.NewString()
@@ -25,7 +37,7 @@ func GenerateAccessJWT(c reqctx.CoreXClaims, issuer string, audiences []string, 
 		Issuer:    issuer,
 		Subject:   c.MemberUUID,                // sub = member.uuid
 		Audience:  jwt.ClaimStrings(audiences), // 支持多 audience
-		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+		ExpiresAt: jwt.NewNumericDate(expires),
 		IssuedAt:  jwt.NewNumericDate(now),
 		NotBefore: jwt.NewNumericDate(now),
 		ID:        sessionID,

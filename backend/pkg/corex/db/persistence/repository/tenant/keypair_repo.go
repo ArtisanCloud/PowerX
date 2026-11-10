@@ -35,3 +35,13 @@ func (r *TenantKeyPairRepository) DeactivateAll(ctx context.Context, env string,
 		Where("env = ? AND tenant_uuid = ?", env, tenantUUID).
 		Update("active", false).Error
 }
+
+// GetByScopeAndKeyID includes retained inactive versions, never another tenant's key.
+func (r *TenantKeyPairRepository) GetByScopeAndKeyID(ctx context.Context, env, tenantUUID, keyID string) (*dbmodel.TenantKeyPair, error) {
+	var pair dbmodel.TenantKeyPair
+	err := r.db.WithContext(ctx).Where("env = ? AND tenant_uuid = ? AND k_id = ?", env, tenantUUID, keyID).First(&pair).Error
+	if err != nil {
+		return nil, err
+	}
+	return &pair, nil
+}

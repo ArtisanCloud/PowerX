@@ -54,7 +54,7 @@ func isInstallAllowedPath(cfg *config.Config, path string) bool {
 		// 非 API 前缀请求（例如静态资源）不做安装态硬拦截。
 		return true
 	}
-	if path == prefix+"/health" {
+	if path == prefix+"/health" || path == prefix+"/system/product" || path == prefix+"/system/marketplace-proof" {
 		return true
 	}
 	if path == prefix+"/admin/setup/status" ||

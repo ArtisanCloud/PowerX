@@ -3,17 +3,22 @@ package ops
 import (
 	"context"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"strconv"
 	"strings"
 
 	platformopsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/platform_ops/v1"
 	backupops "github.com/ArtisanCloud/PowerX/internal/service/backup_ops"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func (h *DeployHandler) ListBackupPolicies(ctx context.Context, req *platformopsv1.ListBackupPoliciesRequest) (*platformopsv1.ListBackupPoliciesResponse, error) {
+	if err := requireBackupRoot(ctx); err != nil {
+		return nil, err
+	}
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
@@ -38,6 +43,9 @@ func (h *DeployHandler) ListBackupPolicies(ctx context.Context, req *platformops
 }
 
 func (h *DeployHandler) UpsertBackupPolicy(ctx context.Context, req *platformopsv1.UpsertBackupPolicyRequest) (*platformopsv1.UpsertBackupPolicyResponse, error) {
+	if err := requireBackupRoot(ctx); err != nil {
+		return nil, err
+	}
 	if req == nil || req.GetPolicy() == nil {
 		return nil, status.Error(codes.InvalidArgument, "policy is required")
 	}
@@ -58,6 +66,9 @@ func (h *DeployHandler) UpsertBackupPolicy(ctx context.Context, req *platformops
 }
 
 func (h *DeployHandler) TriggerBackupJob(ctx context.Context, req *platformopsv1.TriggerBackupJobRequest) (*platformopsv1.TriggerBackupJobResponse, error) {
+	if err := requireBackupRoot(ctx); err != nil {
+		return nil, err
+	}
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
@@ -70,6 +81,9 @@ func (h *DeployHandler) TriggerBackupJob(ctx context.Context, req *platformopsv1
 }
 
 func (h *DeployHandler) ListBackupJobs(ctx context.Context, req *platformopsv1.ListBackupJobsRequest) (*platformopsv1.ListBackupJobsResponse, error) {
+	if err := requireBackupRoot(ctx); err != nil {
+		return nil, err
+	}
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
@@ -97,6 +111,9 @@ func (h *DeployHandler) ListBackupJobs(ctx context.Context, req *platformopsv1.L
 }
 
 func (h *DeployHandler) TriggerRestoreDrill(ctx context.Context, req *platformopsv1.TriggerRestoreDrillRequest) (*platformopsv1.TriggerRestoreDrillResponse, error) {
+	if err := requireBackupRoot(ctx); err != nil {
+		return nil, err
+	}
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
@@ -108,7 +125,39 @@ func (h *DeployHandler) TriggerRestoreDrill(ctx context.Context, req *platformop
 	return &platformopsv1.TriggerRestoreDrillResponse{DrillId: strconv.FormatUint(uint64(row.ID), 10)}, nil
 }
 
+// requireBackupRoot 在统一 JWT 拦截器之后检查用户身份；整机接口不接受服务面授权。
+func requireBackupRoot(ctx context.Context) error {
+	claims := reqctx.GetClaims(ctx)
+	if claims == nil || claims.UserID == 0 {
+		return status.Error(codes.Unauthenticated, "ROOT_USER_SESSION_REQUIRED")
+	}
+	if !auth.IsPlatformRootSession(ctx) {
+		return status.Error(codes.PermissionDenied, "BACKUP_ROOT_REQUIRED")
+	}
+	return nil
+}
+
 func mapBackupError(err error) error {
+	var application *dto.AppError
+	if errors.As(err, &application) {
+		code := codes.Internal
+		switch dto.StatusCode(err) {
+		case 400, 422:
+			code = codes.InvalidArgument
+		case 401:
+			code = codes.Unauthenticated
+		case 403:
+			code = codes.PermissionDenied
+		case 404:
+			code = codes.NotFound
+		case 409, 428:
+			code = codes.FailedPrecondition
+		case 503:
+			code = codes.Unavailable
+		}
+		return status.Error(code, dto.CodeOf(err))
+	}
+
 	switch {
 	case errors.Is(err, backupops.ErrInvalidBackupPolicy), errors.Is(err, backupops.ErrInvalidBackupRequest), errors.Is(err, backupops.ErrInvalidRestoreDrillRequest):
 		return status.Error(codes.InvalidArgument, err.Error())

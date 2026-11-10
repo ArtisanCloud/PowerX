@@ -171,7 +171,7 @@ func TestImageDerivativesUploadReuseRepairAndIsolation(t *testing.T) {
 	state, err := f.s.ImageDerivativeStatus(f.ctx, mediaTenantUUID, a.UUID)
 	require.NoError(t, err)
 	require.Equal(t, "ready", state.Status)
-	require.Len(t, state.Items, 2)
+	require.Len(t, state.Items, 3)
 	// 兼容尚未迁移的客户端：Core 标准预览可复用，调用方不必生成相同 JPEG/PNG 字节。
 	legacy, err := f.s.CreateAssetVariant(f.ctx, CreateAssetVariantInput{TenantUUID: mediaTenantUUID, AssetUUID: a.UUID, Variant: "preview", MimeType: "image/jpeg", SizeBytes: 42, Checksum: strings.Repeat("a", 64)})
 	require.NoError(t, err)
@@ -387,5 +387,5 @@ func TestImageDerivativesConcurrentLegacyVariantPostgres(t *testing.T) {
 	require.Equal(t, "ready", state.Status)
 	variants, err := f.s.repo.ListVariants(f.ctx, mediaTenantUUID, a.UUID, false)
 	require.NoError(t, err)
-	require.Len(t, variants, 2)
+	require.Len(t, variants, 3)
 }

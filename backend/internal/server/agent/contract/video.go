@@ -10,6 +10,24 @@ type VideoClient interface {
 	Health(ctx context.Context) error
 }
 
+// AsyncVideoClient 的原生任务句柄仅在 Core 内部持久化，不向插件发布。
+type AsyncVideoClient interface {
+	Submit(context.Context, VideoRequest) (*VideoTaskStatus, error)
+	Query(context.Context, string, map[string]any) (*VideoTaskStatus, error)
+	Cancel(context.Context, string, map[string]any) (*VideoTaskStatus, error)
+}
+
+// VideoRequestValidator 是可选的提交前组合校验，不产生供应商请求。
+type VideoRequestValidator interface{ Validate(VideoRequest) error }
+type VideoTaskStatus struct {
+	TaskID       string
+	Status       string
+	VideoURLs    []string
+	ErrorCode    string
+	TraceID      string
+	CancelStatus string
+}
+
 type VideoRequest struct {
 	Prompt       string
 	RefImages    []ContentPart // 参考帧（image_url/base64）

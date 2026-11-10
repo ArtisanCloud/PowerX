@@ -515,9 +515,22 @@ capabilities:
   intents: [iam.authorization.check]
   tool_scopes: [iam.authorization.check]
   policy:
-    prefer: rest
+    prefer: core_internal
   docs: [specs/026-iam/contracts/http-openapi.yaml]
   protocols:
+  - channel: core_internal
+    endpoint: core://iam/authorization
+    method: INVOKE
+    schema_ref: docs/contracts/plugin-service-authorization.openapi.yaml#/components/schemas/AuthorizationOperation
+    auth_type: api_key_or_bearer
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: iam.authorization.check
+    api_key:
+      scope: _scope.iam.authorization.check
+      action: read
+      resource_type: api
+      resource_pattern: authorization-check
   - channel: rest
     endpoint: "/api/v1/tenant/iam/authorization:check"
     method: POST

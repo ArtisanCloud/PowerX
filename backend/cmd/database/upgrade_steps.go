@@ -71,6 +71,17 @@ func installedUpgradeSteps(cfg *config.Config) ([]database.UpgradeStep, string, 
 			checksum = hex.EncodeToString(h[:])
 		}
 		step := database.UpgradeStep{ID: "20261011_" + p.Name + "_" + checksum, Checksum: checksum, DependsOn: []string{}, Transactional: p.Name != "knowledge", Recovery: "retry_after_new_plan", Apply: callbacks[p.Name]}
+		if p.Name == "core" {
+			step.Verify = func(ctx context.Context, db *gorm.DB) error {
+				if err := database.CheckTaskHistorySchema(db.WithContext(ctx)); err != nil {
+					return err
+				}
+				if err := database.CheckEventServiceDeliverySchema(db.WithContext(ctx)); err != nil {
+					return err
+				}
+				return database.CheckStorageGovernanceSchema(db.WithContext(ctx))
+			}
+		}
 		if len(steps) > 0 {
 			step.DependsOn = append(step.DependsOn, steps[len(steps)-1].ID)
 		}

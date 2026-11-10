@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 
+test.use({ storageState: { cookies: [], origins: [] } });
 const id = '33333333-3333-4333-8333-333333333333';
 const missingID = '55555555-5555-4555-8555-555555555555';
 test.beforeEach(async ({request}) => { await request.delete('/api/v1/__notification_fixture'); });
@@ -35,8 +36,8 @@ for (const narrow of [false, true]) {
       state = await (await request.get('/api/v1/__notification_fixture')).json();
       expect(state.requests.filter((r: any) => r.path.includes('/admin/notifications')).length).toBe(count);
       await page.locator('header').getByRole('button', {name: '查看所有通知', exact: true}).click();
-      await expect(page.getByRole('menuitem', {name: /恢复验证失败/})).toBeVisible();
-      await expect(page.getByRole('menuitem', {name: /不应进入铃铛的临时任务/})).toHaveCount(0);
+      await expect(page.getByRole('button', {name: /恢复验证失败/})).toBeVisible();
+      await expect(page.getByRole('button', {name: /不应进入铃铛的临时任务/})).toHaveCount(0);
       await page.keyboard.press('Escape');
 
       await page.goto(`/notifications?id=${missingID}`);

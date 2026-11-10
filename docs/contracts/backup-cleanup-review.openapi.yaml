@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: PowerX backup cleanup review
+  version: 1.4.0
+  description: >-
+    Real platform Root user sessions only. Read-only metadata inspection of existing
+    pending/unconfirmed cleanup intents, including orphaned or soft-deleted records.
+    Metadata inspection performs no content hashing. Explicit /verification performs a cancellable request-scoped full read. No deletion, retry, unlock, or reconciliation mutation is provided.
+    Existence is not integrity proof; absence is not completed cleanup.
+servers:
+  - url: /api/v1/admin/ops/backup
+security:
+  - rootJWT: []
+paths:
+  /cleanup-reviews:
+    get:
+      parameters:
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100000, default: 1}
+        - name: page_size
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Standard response envelope; data is a page ordered by updated_at DESC and artifact ID DESC. No source paths or SQL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, data]
+                properties:
+                  code: {type: integer, enum: [200]}
+                  data:
+                    type: object
+                    required: [items, total, page, page_size, observed_at]
+                    properties:
+                      items: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/Review'}}
+                      total: {type: integer, minimum: 0}
+                      page: {type: integer, minimum: 1}
+                      page_size: {type: integer, minimum: 1, maximum: 100}
+                      observed_at: {type: string, format: date-time}
+        '400': {description: Invalid pagination, duplicate or unknown query parameter}
+        '401': {description: Missing or invalid user JWT}
+        '403': {description: Platform Root user required; API Key and service identities rejected}
+        '503': {description: BACKUP_CLEANUP_REVIEW_SCHEMA_NOT_READY or BACKUP_CLEANUP_REVIEW_UNAVAILABLE}
+  /cleanup-reviews/{artifact_id}:
+    get:
+      parameters:
+        - name: artifact_id
+          in: path
+          required: true
+          schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}
+        - name: expected_token
+          in: query
+          required: true
+          description: Canonical nonzero UUID identifying the exact cleanup intent; a concurrency condition, not an authorization credential.
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Metadata snapshot only. File states do not authorize cleanup. Invalid records remain visible but cannot be inspected in UI.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, data]
+                properties:
+                  code: {type: integer, enum: [200]}
+                  data: {$ref: '#/components/schemas/Inspection'}
+        '400': {description: Invalid artifact ID, token, duplicate or unknown query parameter}
+        '401': {description: Missing or invalid user JWT}
+        '403': {description: Platform Root user required}
+        '404': {description: BACKUP_REVIEW_NOT_FOUND; not evidence of successful cleanup}
+        '409': {description: BACKUP_REVIEW_INTENT_CHANGED before or during inspection; reload explicitly}
+        '503': {description: Schema or metadata service unavailable; no SQL, path or underlying error leaked}
+  /cleanup-reviews/{artifact_id}/verification:
+    get:
+      description: >-
+        Explicit one-shot read-only integrity diagnostic. Not a detached background job.
+        No queue, receipt, persistent proof, automatic reconnect or retry is created.
+        The current request owns the read. Closing/cancelling/disconnecting stops it.
+        Existing backup policy advisory lock is required. Computation is capped at five
+        minutes and at registered dump size; DB preflight/read/acquisition/release are
+        bounded. At least two DB connections are needed. No SQL transaction encloses
+        the long read. JWT expiry also ends the stream. Cleanup markers remain unchanged.
+      parameters:
+        - name: artifact_id
+          in: path
+          required: true
+          schema: {type: string, pattern: '^[1-9][0-9]{0,19}$'}
+        - name: expected_token
+          in: query
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: >-
+            text/event-stream. progress events carry running Verification reports;
+            complete carries a terminal Verification report. interrupted, premature EOF,
+            invalid/mismatched reports or disconnect are never success and must not be
+            reconnected automatically. A 100-percent byte count is not completion.
+            Only state=verified with content_verified=true confirms the sampled dump
+            SHA256 plus both sidecars match registered metadata. This is not a restore
+            test or authorization to unlock/delete. Results are ephemeral diagnostics.
+          content:
+            text/event-stream:
+              schema: {type: string}
+        '400': {description: Invalid canonical artifact ID/token, duplicate or unknown query}
+        '401': {description: Missing or invalid user JWT}
+        '403': {description: Real platform Root user required; service credentials rejected}
+        '404': {description: Review intent not found; no cleanup completion is inferred}
+        '409': {description: BACKUP_REVIEW_BUSY or BACKUP_REVIEW_INTENT_CHANGED before the stream starts}
+        '503': {description: Schema/service unavailable or BACKUP_REVIEW_DATABASE_POOL_INSUFFICIENT; no SQL or paths exposed}
+  /cleanup-reviews/{artifact_id}/retentions:
+    get:
+      description: Real Root only, recent 20 requests for this exact intent in the current installation. This is audit, not current deletion permission.
+      parameters:
+        - {name: artifact_id, in: path, required: true, schema: {type: string}}
+        - {name: expected_token, in: query, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Standard envelope containing data.items, newest first. can_resume applies only to the original Actor.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items: {type: array, maxItems: 20, items: {$ref: '#/components/schemas/RetentionReceipt'}}
+        '400': {description: Invalid ID/token or duplicate/unknown query parameter}
+        '401': {description: User JWT required}
+        '403': {description: Real platform Root human required}
+        '503': {description: Independent ledger integrity/identity unavailable, or SQL-only history unavailable; independent of capability admission}
+    post:
+      description: >-
+        Explicit retain-and-protect, not cleanup completion. Requires published global
+        pause and paused owned policy, recovery fence, exact token/review version,
+        existing policy session lock and no pending/running backup or restore drill.
+        Server rechecks full dump and sidecars. The final bounded transaction locks
+        source metadata rows, verifies the captured fence/version, protects the Job
+        and commits its immutable receipt. Artifact cleanup_state/token are untouched.
+        No browser verified flag, paths or policy settings accepted. UUID and input are
+        durably reserved in the independent maintenance ledger before SQL admission. SQL-confirmed terminal facts are saved independently before success. Same completed request replays without protection mutation;
+        checking may only be resumed explicitly by the same Actor with the same input and matching current generation and SQL history. Missing or conflicting history is read-only and recovery_blocked. A complete SSE event may contain checking with recovery_blocked=true; it ends reconciliation without claiming protection success.
+        No detached worker, automatic retry or reconnect. No query parameters allowed.
+      parameters:
+        - {name: artifact_id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RetentionInput'}
+      responses:
+        '200':
+          description: >-
+            One-shot SSE. accepted contains a durable checking RetentionReceipt;
+            progress contains a running Verification report; complete contains a
+            retained/rejected RetentionReceipt or a read-only checking receipt with recovery_blocked=true. uncertain, EOF or disconnect requires
+            GET original UUID or explicit same-UUID/input resume. No new UUID or POST
+            is generated automatically. The receipt describes that operation in its
+            retained database or maintenance history, not current protection, file integrity or restore success.
+          content:
+            text/event-stream: {schema: {type: string}}
+        '400': {description: Invalid body or unknown fields. Reason is 3-256 characters and confirm must be true.}
+        '401': {description: User JWT required}
+        '403': {description: Root human required, or Actor mismatch for mutation replay}
+        '409': {description: Request currently held or original UUID input/scope conflict}
+        '503': {description: Optional schema/unique request constraint unavailable or admission/commit outcome unknown; preserve UUID}
+        '507': {description: Independent UUID ledger capacity exhausted; existing history is preserved}
+  /cleanup-retentions/{request_id}:
+    get:
+      description: Read immutable operation receipt. Missing is not proof no future/inflight operation exists. Historical protection is not current deletion permission.
+      parameters:
+        - {name: request_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Standard envelope, data is RetentionReceipt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {$ref: '#/components/schemas/RetentionReceipt'}
+        '400': {description: Invalid UUID or nonempty query}
+        '401': {description: User JWT required}
+        '403': {description: Root human required or different installation Scope}
+        '404': {description: Original request receipt not found; keep its UUID and do not infer rollback}
+        '503': {description: Schema, receipt integrity or metadata service unavailable}
+components:
+  securitySchemes:
+    rootJWT: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    Review:
+      type: object
+      required: [artifact_id, job_id, policy_id, state, token, size_bytes, updated_at, protected, inspectable]
+      properties:
+        review_version: {type: string, pattern: '^[a-f0-9]{64}$', description: Opaque metadata and independent recovery-generation binding. Omitted if control or anchor proof is unavailable; read-only inspection remains available.}
+        artifact_id: {type: string}
+        job_id: {type: string}
+        policy_id: {type: string}
+        state: {type: string, enum: [pending, unconfirmed]}
+        token: {type: string, maxLength: 36}
+        size_bytes: {type: integer, format: int64, description: Registered size; negative corrupt metadata is displayed as unknown, not trusted for actions.}
+        updated_at: {type: string, format: date-time}
+        protected: {type: boolean}
+        inspectable: {type: boolean}
+        problem: {type: string, enum: [BACKUP_REVIEW_INTENT_INVALID, BACKUP_REVIEW_RECORD_UNAVAILABLE]}
+    Inspection:
+      type: object
+      required: [item, state, files, observed_at, content_verified, read_only]
+      properties:
+        item: {$ref: '#/components/schemas/Review'}
+        state: {type: string, enum: [present_unverified, missing, partial, size_changed, unsafe, unavailable, metadata_invalid]}
+        files:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [role, state]
+            properties:
+              role: {type: string, enum: [dump, manifest, checksum]}
+              state: {type: string, enum: [present, missing, unsafe, size_changed, unavailable]}
+              size_bytes: {type: integer, format: int64, minimum: 0}
+        observed_at: {type: string, format: date-time}
+        content_verified: {type: boolean, enum: [false]}
+        read_only: {type: boolean, enum: [true]}
+
+    Verification:
+      type: object
+      required: [artifact_id, token, state, bytes_read, total_bytes, dump_matched, content_verified, read_only, cleanup_unchanged, observed_at]
+      properties:
+        artifact_id: {type: string}
+        token: {type: string, format: uuid}
+        state: {type: string, enum: [running, verified, checksum_mismatch, sidecar_mismatch, sidecars_missing, missing, unsafe, metadata_invalid, size_changed, changed, unavailable, interrupted]}
+        bytes_read: {type: integer, format: int64, minimum: 0}
+        total_bytes: {type: integer, format: int64, minimum: 0}
+        dump_matched: {type: boolean, description: Dump SHA256 matched; this alone is not complete verification.}
+        content_verified: {type: boolean, description: True only for terminal verified with full byte count and both sidecars matched.}
+        read_only: {type: boolean, enum: [true]}
+        cleanup_unchanged: {type: boolean, enum: [true], description: The diagnostic never changes cleanup markers. Concurrent external changes invalidate its result.}
+        observed_at: {type: string, format: date-time}
+
+    RetentionInput:
+      type: object
+      additionalProperties: false
+      required: [request_id, expected_token, review_version, reason, confirm]
+      properties:
+        request_id: {type: string, format: uuid}
+        expected_token: {type: string, format: uuid}
+        review_version: {type: string, pattern: '^[a-f0-9]{64}$'}
+        reason: {type: string, minLength: 3, maxLength: 256}
+        confirm: {type: boolean, enum: [true]}
+    RetentionReceipt:
+      type: object
+      required: [request_id, artifact_id, token, review_version, reason, state, actor_id, created_at, completed_at, can_resume, protected, cleanup_lock_preserved, record_source, recovery_blocked]
+      properties:
+        request_id: {type: string, format: uuid}
+        artifact_id: {type: string}
+        token: {type: string, format: uuid}
+        review_version: {type: string, pattern: '^[a-f0-9]{64}$'}
+        reason: {type: string, minLength: 3, maxLength: 256}
+        state: {type: string, enum: [checking, retained, rejected]}
+        problem: {type: string}
+        actor_id: {type: string}
+        created_at: {type: string, format: date-time}
+        completed_at: {type: string, format: date-time, nullable: true}
+        can_resume: {type: boolean, description: True only for original Actor and matching independent/SQL checking history in the same generation. Still requires all server checks. Missing, conflicting or restored history cannot resume.}
+        protected: {type: boolean, description: True only for retained, a historical operation fact and not current protection status.}
+        cleanup_lock_preserved: {type: boolean, enum: [true]}
+        record_source: {type: string, enum: [database, maintenance], description: Source of this historical receipt; not current protection authority.}
+        recovery_blocked: {type: boolean, description: No execution permitted from this response. This is not proof that another in-flight request has drained. If checking, the historical outcome is unknown and can_resume must be false.}

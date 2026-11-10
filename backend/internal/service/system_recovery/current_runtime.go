@@ -16,11 +16,12 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/infra/opswatch"
+	storagerecovery "github.com/ArtisanCloud/PowerX/internal/infra/storage_recovery"
 	snapshots "github.com/ArtisanCloud/PowerX/internal/service/snapshot_ops"
-	"github.com/google/uuid"
+	"github.com/ArtisanCloud/PowerX/pkg/instanceidentity"
 )
 
-const CurrentRecoveryProtocol = "powerx.current-recovery/v1"
+const CurrentRecoveryProtocol = instanceidentity.CurrentProtocol
 
 // currentSpec 只记录当前安装的身份和路径，不保存密码，也不创建第二套业务环境。
 type currentSpec struct {
@@ -35,21 +36,22 @@ type currentSpec struct {
 	Executable        string   `json:"executable"`
 	Args              []string `json:"args"`
 	ConnectionHash    string   `json:"connection_hash"`
+	StorageProtocol   string   `json:"storage_protocol,omitempty"`
 }
 
 // CurrentRuntime 随 Core 启动，只在恢复时 exec 为维护模式；没有常驻子进程或新端口。
 type CurrentRuntime struct {
-	spec        currentSpec
-	Coordinator *Coordinator
-	requested   atomic.Bool
-	closeOnce   sync.Once
-	close       func()
-	lifecycle   context.Context
+	spec          currentSpec
+	Coordinator   *Coordinator
+	requested     atomic.Bool
+	closeOnce     sync.Once
+	close         func()
+	lifecycle     context.Context
+	storageAnchor *storagerecovery.Store
 }
 
 func currentDirectory(snapshotDirectory, configFile string) string {
-	sum := sha256.Sum256([]byte(configFile))
-	return filepath.Join(snapshotDirectory, "current-recovery", hex.EncodeToString(sum[:12]))
+	return instanceidentity.CurrentDirectory(snapshotDirectory, configFile)
 }
 
 func privateDirectory(path string) error {
@@ -93,6 +95,9 @@ func NewCurrentRuntime(ctx context.Context, cfg *config.Config, configFile strin
 	if err != nil {
 		return nil, err
 	}
+	if err := EnsureEnvironmentIdentity(cfg, file); err != nil {
+		return nil, err
+	}
 	// 快照服务已初始化目录；使用同一个物理路径判断与业务文件的边界。
 	source.Directory, err = filepath.EvalSymlinks(source.Directory)
 	if err != nil {
@@ -104,11 +109,11 @@ func NewCurrentRuntime(ctx context.Context, cfg *config.Config, configFile strin
 	}
 	var spec currentSpec
 	err = snapshots.ReadCoordinatorJSON(filepath.Join(directory, "installation.json"), &spec)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err != nil {
 		return nil, err
 	}
-	if spec.ID == "" {
-		spec.ID = uuid.NewString()
+	if cfg.EnvironmentID != spec.ID {
+		return nil, errors.New("当前环境身份与安装记录不一致")
 	}
 	if spec.ConfigFile != "" && spec.ConfigFile != file {
 		return nil, errors.New("当前恢复配置身份不匹配")
@@ -139,6 +144,10 @@ func NewCurrentRuntime(ctx context.Context, cfg *config.Config, configFile strin
 		return nil, err
 	}
 	r := &CurrentRuntime{spec: spec}
+	if err = r.openStorageAnchor(); err != nil {
+		return nil, err
+	}
+	spec = r.spec
 	store.SnapshotStore = service
 	d := Deployment{ID: spec.ID, Root: root, ConfigFile: file, CoreBinary: executable, CorePort: cfg.Server.Port, SourceManaged: true}
 	r.Coordinator = &Coordinator{Store: store, Initial: d, SnapshotStore: service}

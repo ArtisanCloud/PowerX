@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 var (
@@ -41,6 +43,7 @@ type BaseCapabilitySeederOptions struct {
 	PluginID               string
 	PluginVersion          string
 	PreserveInstalledState bool
+	CapabilityIDs          []string
 }
 
 // BaseCapabilitySeeder 负责在 Capability Registry 中写入 CoreX 内置能力。
@@ -53,6 +56,7 @@ type BaseCapabilitySeeder struct {
 	pluginID               string
 	pluginVersion          string
 	preserveInstalledState bool
+	capabilityIDs          []string
 }
 
 // NewBaseCapabilitySeeder 构造 Seeder。
@@ -81,6 +85,7 @@ func NewBaseCapabilitySeeder(opts BaseCapabilitySeederOptions) *BaseCapabilitySe
 		pluginID:               pluginID,
 		pluginVersion:          pluginVersion,
 		preserveInstalledState: opts.PreserveInstalledState,
+		capabilityIDs:          append([]string(nil), opts.CapabilityIDs...),
 	}
 }
 
@@ -89,11 +94,58 @@ func (s *BaseCapabilitySeeder) Ensure(ctx context.Context) error {
 	if s == nil || s.repo == nil {
 		return fmt.Errorf("base capability seeder is not configured")
 	}
+	defs, err := s.definitions()
+	if err != nil {
+		return err
+	}
+	// 目录、注册新版本和审计在同一事务中提交；不向 Redis 发布未提交的数据。
+	err = s.repo.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		next := *s
+		next.repo = repo.NewCapabilityRecordRepository(tx, nil)
+		if s.registry != nil {
+			next.registry = repo.NewCapabilityRegistryRepository(tx)
+		}
+		if s.tenantRepo != nil {
+			next.tenantRepo = tenantRepo.NewTenantRepository(tx)
+		}
+		return next.ensure(ctx, defs)
+	})
+	if err != nil {
+		return err
+	}
+	for _, def := range defs {
+		s.repo.InvalidateCache(ctx, def.CapabilityID)
+	}
+	return nil
+}
+
+func (s *BaseCapabilitySeeder) definitions() ([]platformCapabilityDefinition, error) {
+	all := platformCapabilityDefinitions()
+	if len(s.capabilityIDs) == 0 {
+		return all, nil
+	}
+	wanted := map[string]bool{}
+	for _, id := range s.capabilityIDs {
+		wanted[strings.TrimSpace(id)] = true
+	}
+	var selected []platformCapabilityDefinition
+	for _, def := range all {
+		if wanted[def.CapabilityID] {
+			selected = append(selected, def)
+			delete(wanted, def.CapabilityID)
+		}
+	}
+	if len(wanted) != 0 {
+		return nil, fmt.Errorf("UPGRADE_CAPABILITY_ID_UNKNOWN")
+	}
+	return selected, nil
+}
+
+func (s *BaseCapabilitySeeder) ensure(ctx context.Context, defs []platformCapabilityDefinition) error {
 	now := s.clock()
-	defs := platformCapabilityDefinitions()
 	for _, def := range defs {
 		record := def.toRecord(s.pluginID, s.pluginVersion, now)
-		if s.preserveInstalledState {
+		if s.preserveInstalledState || mediaRegistrationEndpoint(def.CapabilityID) != "" {
 			old, err := s.repo.GetByCapabilityID(ctx, record.CapabilityID)
 			if err != nil && !errors.Is(err, repo.ErrCapabilityRecordNotFound) {
 				return err
@@ -114,7 +166,7 @@ func (s *BaseCapabilitySeeder) Ensure(ctx context.Context) error {
 	if s.logger != nil {
 		s.logger.InfoF(ctx, "[integration_gateway] platform capabilities seeded count=%d", len(defs))
 	}
-	if s.registry != nil && s.tenantRepo != nil {
+	if s.registry != nil {
 		if err := s.ensurePlatformRegistrations(ctx, defs); err != nil {
 			return err
 		}
@@ -833,20 +885,49 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 }
 
 func (s *BaseCapabilitySeeder) ensurePlatformRegistrations(ctx context.Context, defs []platformCapabilityDefinition) error {
-	tenantUUIDs, err := s.tenantRepo.ListActiveUUIDs(ctx)
+	var tenantUUIDs []string
+	var err error
+	if s.tenantRepo != nil {
+		tenantUUIDs, err = s.tenantRepo.ListActiveUUIDs(ctx)
+	}
 	if err != nil {
 		return fmt.Errorf("list tenants for platform registrations failed: %w", err)
 	}
-	if len(tenantUUIDs) == 0 {
-		if s.logger != nil {
-			s.logger.WarnF(ctx, "[integration_gateway] skip platform registrations seeding: no active tenants")
-		}
-		return nil
+	active := map[string]bool{}
+	for _, tenant := range tenantUUIDs {
+		active[tenant] = true
 	}
+	// 已禁用租户也升级已有媒体注册，但不给它创建额外能力或恢复授权。
+	var mediaIDs []string
+	for _, def := range defs {
+		if mediaRegistrationEndpoint(def.CapabilityID) != "" {
+			mediaIDs = append(mediaIDs, def.CapabilityID)
+		}
+	}
+	existing, err := s.registry.ListRegisteredTenants(ctx, mediaIDs)
+	if err != nil {
+		return err
+	}
+	for _, tenant := range existing {
+		if !active[tenant] {
+			tenantUUIDs = append(tenantUUIDs, tenant)
+		}
+	}
+	sort.Strings(tenantUUIDs)
 	var errs []error
 	now := s.clock()
 	for _, tenantUUID := range tenantUUIDs {
 		for _, def := range defs {
+			if !active[tenantUUID] {
+				if mediaRegistrationEndpoint(def.CapabilityID) == "" {
+					continue
+				}
+				if _, err := s.registry.GetLatest(ctx, nil, def.CapabilityID, tenantUUID); errors.Is(err, repo.ErrNotFound) {
+					continue
+				} else if err != nil {
+					return err
+				}
+			}
 			if err := s.ensureTenantRegistration(ctx, tenantUUID, def, now); err != nil {
 				errs = append(errs, err)
 			}
@@ -868,14 +949,17 @@ func (s *BaseCapabilitySeeder) ensureTenantRegistration(ctx context.Context, ten
 	if tenantUUID == "" || def.CapabilityID == "" {
 		return nil
 	}
-	_, err := s.registry.GetLatest(ctx, nil, def.CapabilityID, tenantUUID)
+	current, err := s.registry.GetLatest(ctx, nil, def.CapabilityID, tenantUUID)
 	if err == nil {
-		return nil
+		return s.upgradeMediaRegistration(ctx, current, def, publishedAt)
 	}
 	if !errors.Is(err, repo.ErrNotFound) {
 		return fmt.Errorf("load registration %s/%s failed: %w", tenantUUID, def.CapabilityID, err)
 	}
 	reg := s.buildPlatformRegistration(def, tenantUUID, publishedAt)
+	if target := mediaRegistrationEndpoint(def.CapabilityID); target != "" && (len(reg.Adapters) != 1 || reg.Adapters[0].TransportType != "core_internal" || reg.Adapters[0].Endpoint != target) {
+		return fmt.Errorf("UPGRADE_CAPABILITY_CONTRACT_INVALID: %s", def.CapabilityID)
+	}
 	if len(reg.Adapters) == 0 {
 		return fmt.Errorf("platform registration %s missing adapters", def.CapabilityID)
 	}
@@ -935,6 +1019,12 @@ func (s *BaseCapabilitySeeder) buildPlatformRegistration(def platformCapabilityD
 		UpdatedBy:    platformActor,
 	}
 	reg.PublishedAt = &publishedAt
+	if mediaRegistrationEndpoint(def.CapabilityID) != "" {
+		reg.ContractRef = "docs/contracts/ai-media-v2.openapi.yaml"
+	}
+	if def.CapabilityID == "com.corex.ai.connection.test" {
+		reg.ContractRef = "docs/contracts/ai-connection-test.v1.openapi.yaml"
+	}
 	return reg
 }
 
@@ -943,6 +1033,11 @@ func (s *BaseCapabilitySeeder) buildAdapters(def platformCapabilityDefinition) [
 	seenChannels := make(map[string]struct{}, len(def.Protocols))
 	for idx, binding := range def.Protocols {
 		channel := strings.ToLower(strings.TrimSpace(binding.Channel))
+		// Admin/REST 仍在正式目录中发布；服务注册只执行固定的 typed binding。
+		serviceEvents := def.CapabilityID == "com.corex.eventfabric.service_publish" || def.CapabilityID == "com.corex.eventfabric.service_consume"
+		if (mediaRegistrationEndpoint(def.CapabilityID) != "" || serviceEvents) && channel != "core_internal" {
+			continue
+		}
 		if channel == "" {
 			continue
 		}

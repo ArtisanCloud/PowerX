@@ -104,6 +104,13 @@ func NewSelector(opts SelectorOptions) *Selector {
 
 // Invoke resolves the capability + protocol preference then delegates to InvocationService.
 func (s *Selector) Invoke(ctx context.Context, req CapabilityInvokeRequest) (CapabilityInvokeResponse, error) {
+	if s == nil || s.invoker == nil {
+		return CapabilityInvokeResponse{}, ErrSelectorUnavailable
+	}
+	return s.invoke(ctx, req, s.invoker.Invoke)
+}
+
+func (s *Selector) invoke(ctx context.Context, req CapabilityInvokeRequest, invoke func(context.Context, InvocationInput) (InvocationResult, error)) (CapabilityInvokeResponse, error) {
 	var resp CapabilityInvokeResponse
 	if s == nil || s.invoker == nil {
 		return resp, ErrSelectorUnavailable
@@ -170,7 +177,7 @@ func (s *Selector) Invoke(ctx context.Context, req CapabilityInvokeRequest) (Cap
 		}
 	}
 
-	result, err := s.invoker.Invoke(ctx, InvocationInput{
+	result, err := invoke(ctx, InvocationInput{
 		CapabilityID:      capabilityID,
 		TenantUUID:        tenant,
 		PreferredProtocol: preferred,
@@ -180,6 +187,7 @@ func (s *Selector) Invoke(ctx context.Context, req CapabilityInvokeRequest) (Cap
 		Context:           cloneContextMap(req.Context),
 		ResolvedToolScope: resolvedScope,
 	})
+	resp.TraceID = result.TraceID
 	if err != nil {
 		return resp, err
 	}

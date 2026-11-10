@@ -1,0 +1,386 @@
+openapi: 3.0.3
+info:
+  title: Root database backup policy authority
+  version: 1.0.0
+  description: Pre-release controlled replacement of legacy plan writes. Existing
+    policy table is the sole editable source; catalog and policy CAS, explicit paused
+    adoption, TaskBus publication, guarded jobs and retention. No service capability.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /admin/ops/backup/policy-configuration:
+    get:
+      operationId: getDatabaseBackupPolicyConfiguration
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Configuration'
+        '400': &id001
+          description: Invalid typed request or confirmation
+        '401': &id002
+          description: Human access session required
+        '403': &id003
+          description: Platform Root only; service identities rejected
+        '409': &id004
+          description: CAS, ownership, origin or UUID request conflict
+        '428': &id005
+          description: Legacy contract or adoption required
+        '503': &id006
+          description: Authority unavailable or unknown commit; query original UUID
+  /admin/ops/backup/policy-configuration/adoptions:
+    post:
+      operationId: adoptDatabaseBackupPolicies
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '409': *id004
+        '428': *id005
+        '503': *id006
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Adoption'
+  /admin/ops/backup/policy-configuration/changes:
+    post:
+      operationId: changeDatabaseBackupPolicy
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '409': *id004
+        '428': *id005
+        '503': *id006
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Change'
+  /admin/ops/backup/policy-configuration/requests/{request_id}:
+    get:
+      operationId: getDatabaseBackupPolicyRequest
+      responses:
+        '200':
+          description: Configuration or immutable receipt; save does not mean publication.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '409': *id004
+        '428': *id005
+        '503': *id006
+        '404':
+          description: Receipt absent; do not automatically resubmit.
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema: &id007
+          type: string
+          format: uuid
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Settings:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - schedule
+      - retention_count
+      - retention_days
+      - retention_mode
+      - timezone
+      - drill_enabled
+      - drill_interval_days
+      - target_ref
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        schedule:
+          type: string
+          pattern: ^[1-9][0-9]*[mhd]$
+          description: Canonical interval; production at least one hour.
+        retention_count:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10000
+        retention_days:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 3650
+        retention_mode:
+          type: string
+          enum:
+          - count
+          - age_and_count
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        drill_enabled:
+          type: boolean
+          enum:
+          - false
+        drill_interval_days:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 3650
+        target_ref:
+          type: string
+          enum:
+          - local_dump
+    Entry:
+      type: object
+      additionalProperties: false
+      required:
+      - uuid
+      - revision
+      - execution_fingerprint
+      - settings
+      - enabled
+      - current
+      properties:
+        uuid: *id007
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        execution_fingerprint: &id009
+          type: string
+        settings:
+          $ref: '#/components/schemas/ObservedSettings'
+        enabled: &id008
+          type: boolean
+        current: *id008
+    Configuration:
+      type: object
+      additionalProperties: false
+      required:
+      - authority
+      - state
+      - ready
+      - desired_revision
+      - applied_revision
+      - snapshot_revision
+      - legacy_digest
+      - policies
+      - execution_ready
+      properties:
+        authority:
+          type: string
+          enum:
+          - legacy
+          - database
+          - unavailable
+        state:
+          type: string
+          enum:
+          - legacy
+          - pending
+          - applied
+          - failed
+          - unconfirmed
+          - unavailable
+        ready: *id008
+        desired_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        applied_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        snapshot_revision:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        legacy_digest: *id009
+        policies:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/Entry'
+        execution_ready:
+          type: object
+          additionalProperties: *id008
+        problem: *id009
+    Adoption:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - legacy_digest
+      - confirm
+      properties:
+        request_id: *id007
+        legacy_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        confirm:
+          type: boolean
+          enum:
+          - true
+    Change:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - expected_revision
+      - expected_policy_revision
+      - policy_uuid
+      - action
+      - confirm
+      properties:
+        request_id: *id007
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        expected_policy_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        policy_uuid:
+          type: string
+          description: Empty for creation; UUID otherwise.
+        action:
+          type: string
+          enum:
+          - save
+          - status
+          - current
+        settings:
+          $ref: '#/components/schemas/Settings'
+        enabled: *id008
+        confirm:
+          type: boolean
+          enum:
+          - true
+      description: save requires settings only and always pauses; status requires
+        enabled only; current rejects settings and enabled. Creation row revision
+        must be zero.
+    Mutation:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - operation_revision
+      - policy_uuid
+      - configuration
+      properties:
+        request_id: *id007
+        operation_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        policy_uuid: *id009
+        configuration:
+          $ref: '#/components/schemas/Configuration'
+    ObservedSettings:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - schedule
+      - retention_count
+      - retention_days
+      - retention_mode
+      - timezone
+      - drill_enabled
+      - drill_interval_days
+      - target_ref
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        schedule:
+          type: string
+          pattern: ^[1-9][0-9]*[mhd]$
+          description: Canonical interval; production at least one hour.
+        retention_count:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000
+        retention_days:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 3650
+        retention_mode:
+          type: string
+          enum:
+          - count
+          - age_and_count
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        drill_enabled:
+          type: boolean
+        drill_interval_days:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 3650
+        target_ref:
+          type: string

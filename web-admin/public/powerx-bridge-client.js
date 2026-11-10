@@ -41,8 +41,12 @@
         if (payload.type === 'auth-token' && lastAuthPayload === payload && bindingId === instanceId) {
           send({ type: 'auth:applied', sequence: payload.sequence, sessionId: payload.sessionId, revision: payload.revision });
         }
-      }).catch(function () {
-        if (lastAuthPayload === payload && bindingId === instanceId) send({ type: 'auth:rejected', sequence: payload.sequence });
+      }).catch(function (error) {
+        var body = error && (error.data || (error.response && error.response._data));
+        var code = body && (body.error_code || body.reason_code) || error && error.code;
+        if (lastAuthPayload === payload && bindingId === instanceId) send({ type: 'auth:rejected', sequence: payload.sequence,
+          sessionId: payload.sessionId, revision: payload.revision,
+          code: code === 'IAM_CONTEXT_USER_SESSION_INVALID' ? code : undefined });
       });
   }
 
@@ -142,6 +146,13 @@
     },
     requestSync: function () { send({ type: 'request-sync' }); },
     requestAuth: function () { send({ type: 'auth-token:request' }); },
+    reportSessionInvalid: function (failure) {
+      var payload = lastAuthPayload;
+      if (!failure || failure.code !== 'IAM_CONTEXT_USER_SESSION_INVALID' || !payload || payload.type !== 'auth-token' ||
+        failure.sessionId !== payload.sessionId || failure.revision !== payload.revision) return;
+      send({ type: 'auth:required', sequence: payload.sequence, sessionId: payload.sessionId,
+        revision: payload.revision, code: failure.code });
+    },
     getLastSyncAt: function () { return lastSyncAt; },
   };
 })();

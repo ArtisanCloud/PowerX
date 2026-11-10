@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-21",
+  "scope": "Core implementation and controlled validation; no installed AI Craft acceptance",
+  "branch": "024-ai-engineering-skills",
+  "base_commit": "0be9945cf7544bf18d0ed58be1043a313bba9de8",
+  "uncommitted": true,
+  "preexisting_work_preserved": true,
+  "implemented": [
+    "registered fixed plugin presentation/image bindings",
+    "member-scoped JWT Gateway reads and authenticated raster Blob previews",
+    "shared bell/list/detail card, no-image/loading/retry/forbidden/gone states and i18n",
+    "stable same-notification updates with source/Core revisions and duplicate/out-of-order suppression",
+    "content/access invalidation reasons",
+    "owned legacy notification adoption without creating another notification",
+    "version-aware Admin and service read receipts; no order reading cursor mutation",
+    "identity/permission/reconnect invalidation, abort and Blob cleanup",
+    "additive model defaults, regenerated upgrade payload registry"
+  ],
+  "checks": {
+    "go_race": "passed affected notification/service/transport/repository/plugin-manager/shared-deps and API-key permission tests; see logs",
+    "go_vet": "passed",
+    "postgres": "passed concurrent same-version dedup (16 writers -> one update), stale receipts, persistence re-read, additive old-row defaults, owned binding and permission grants",
+    "capability_check": {
+      "status": "passed",
+      "declared": 1111,
+      "referenced": 74,
+      "rest_routes": 1042,
+      "candidates": 1123
+    },
+    "capability_seed": {
+      "status": "passed in owned isolated Postgres",
+      "new_published_records": 2,
+      "explicit_invalidate_api_key_permission": true,
+      "real_development_host_key_grant_status": "not validated"
+    },
+    "frontend_unit": {
+      "passed": 398,
+      "skipped": 1,
+      "existing_skip": "tests/unit/agent/actual-evidence-refresh.spec.ts",
+      "notification_tests": 46
+    },
+    "nuxt_build": "passed",
+    "shared_schema_fixtures": {
+      "passed": 7
+    },
+    "browser_cards": {
+      "passed": 2,
+      "checks": [
+        "two business types",
+        "48x48 contained thumbnail",
+        "enlarge without Core/order read",
+        "same-ID change",
+        "duplicate causes no new requests",
+        "idle no polling",
+        "reconnect reconciliation",
+        "per-order revoke/grant",
+        "refresh and detail reading",
+        "navigation through existing action",
+        "no horizontal overflow"
+      ],
+      "artifacts": [
+        {
+          "artifact": "web-admin/test-results/business-card/notifications-business-car-463e5-efresh-duplicate-and-revoke-chromium/network-and-console.json",
+          "viewport": "390x844",
+          "page_errors": [],
+          "console_resource_errors": "expected 403 from deliberate order permission revocation only",
+          "authenticated_gateway_requests": 50,
+          "idle_state_polling_requests_delta": 0,
+          "idle_observation_ms": 1200
+        },
+        {
+          "artifact": "web-admin/test-results/business-card/notifications-business-car-5dba6-efresh-duplicate-and-revoke-chromium/network-and-console.json",
+          "viewport": "1440x1000",
+          "page_errors": [],
+          "console_resource_errors": "expected 403 from deliberate order permission revocation only",
+          "authenticated_gateway_requests": 49,
+          "idle_state_polling_requests_delta": 0,
+          "idle_observation_ms": 1200
+        }
+      ]
+    },
+    "legacy_browser": {
+      "passed": 2,
+      "viewports": [
+        "1440x1000 light",
+        "390x844 dark"
+      ],
+      "checks": [
+        "generic persisted notification detail",
+        "bell navigation",
+        "backup/restore links",
+        "missing notification retry/back"
+      ]
+    },
+    "upgrade_registry_generate": "passed",
+    "upgrade_registry_check": "passed",
+    "historical_migrations_rewritten": false,
+    "git_diff_check": "passed"
+  },
+  "pending": [
+    "AI Craft presentation/image handlers, manifest API/RBAC bindings and live permission/cost cropping",
+    "AI Craft per-recipient visible revision producer, reliable invalidation delivery and legacy notice adoption",
+    "Framework manifest models/templates, typed InvalidateCard and versioned read-receipt DTOs; released SDKs",
+    "actual installed tenant, real member authorization/cost redaction and business reading-cursor acceptance",
+    "real development Host API-key grant-status after deployment"
+  ],
+  "cleanup": {
+    "owned_http_ports": {
+      "3491": "released",
+      "3492": "released"
+    },
+    "owned_postgres_stopped": true,
+    "owned_postgres_socket_removed": true,
+    "temporary_go_helper_removed": true,
+    "user_services_restarted": false,
+    "production_tenant_modified": false
+  },
+  "logs": "test-results/business-notification-card/",
+  "source_sha256": {
+    "backend/internal/service/notifications/business_card.go": "16badcbac7b76058ec73884d099b79ded3f72cbf231e6297d45b69ba0dbab08b",
+    "backend/pkg/corex/db/persistence/repository/notification/business_card.go": "125fd495d7ed93ce29e8549018053f4592443445b9629cbd2ba30232bc401a8c",
+    "backend/pkg/corex/db/persistence/model/notification/notification.go": "ba9e06c98ce4f563c6d92dd7264465ed27cf4bba0506d8f9bdd6140ab130efdf",
+    "web-admin/app/components/notifications/NotificationBusinessCard.vue": "4c467f29467733f3de1350fe248cbe8837d44ccd7af256830052f315b8077e7e",
+    "web-admin/app/composables/useNotifications.ts": "2acb36d4ddb1069ea05ff8f5ac79246ed10e7e029ae963368767b9b39dc4e88c",
+    "web-admin/app/composables/useNotificationPresentation.ts": "df42c482f62baadc843efcd59eb4838e10931ee5154b2906640eddaabd45161a",
+    "web-admin/app/composables/api/services/notificationPresentationService.ts": "dc725cfd1128bf263737f52f9ab192f18f1b53a2eac96e65493bcae6e727d2ee",
+    "docs/contracts/business-notification-card.openapi.yaml": "cfcedd3139058ff45c6a8d3b9cea09dec7b7953674cbad42248b856e80394a51"
+  }
+}

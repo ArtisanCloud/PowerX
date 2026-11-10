@@ -7,6 +7,8 @@ import (
 )
 
 func (m *managerImpl) SwitchVersion(ctx context.Context, id, version string, enable bool) (plugin_mgr.Plugin, error) {
+	ctx, unlock := m.lockInstallMutation(ctx)
+	defer unlock()
 	if id == "" || version == "" {
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
 			plugin_mgr.CodeInvalidArg, plugin_mgr.WithOp("switch_version"),
@@ -81,7 +83,7 @@ func (m *managerImpl) SwitchVersion(ctx context.Context, id, version string, ena
 
 	// 4) 需要的话，启用新版本
 	if enable {
-		if err := m.Enable(ctx, id); err != nil {
+		if err := m.Enable(plugin_mgr.WithEventFabricProvisioning(ctx), id); err != nil {
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 				plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("switch_version.enable"))
 		}

@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"os"
 
+	coreconfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/autoseed"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/pluginbinding"
 	pluginservice "github.com/ArtisanCloud/PowerX/internal/service/plugin"
 	"github.com/ArtisanCloud/PowerX/internal/service/setting"
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
@@ -80,7 +82,7 @@ func TenantPluginInstanceListHandler(deps *shared.Deps) gin.HandlerFunc {
 			dtoRequest.ResponseError(c, http.StatusInternalServerError, "加载插件失败", err)
 			return
 		}
-		svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+		svc := configuredTenantPluginService(deps)
 		items, err := svc.List(c.Request.Context(), tenantUUID, plugins)
 		if err != nil {
 			dtoRequest.RespondErrorFrom(c, err)
@@ -128,7 +130,7 @@ func enableTenantPluginInstance(c *gin.Context, deps *shared.Deps, id, tenantUUI
 		dtoRequest.ResponseError(c, http.StatusConflict, "全局插件包未启用", fmt.Errorf("plugin %s state=%s", p.ID, p.State))
 		return
 	}
-	svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+	svc := configuredTenantPluginService(deps)
 	instance, clientID, clientSecret, err := svc.Enable(c.Request.Context(), tenantUUID, p, config)
 	if err != nil {
 		dtoRequest.RespondErrorFrom(c, err)
@@ -170,7 +172,7 @@ func TenantPluginInstanceDisableHandler(deps *shared.Deps) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+		svc := configuredTenantPluginService(deps)
 		instance, err := svc.Disable(c.Request.Context(), tenantUUID, id)
 		if err != nil {
 			dtoRequest.RespondErrorFrom(c, err)
@@ -340,6 +342,11 @@ func ensureTenantEventFabricTopics(c *gin.Context, deps *shared.Deps, tenantUUID
 		return fmt.Errorf("load plugin %s failed: %w", pluginID, err)
 	}
 
+	if pluginbinding.Declared(plugin) {
+		_, _, _, err := configuredTenantPluginService(deps).Enable(c.Request.Context(), tenantUUID, plugin, nil)
+		return err
+	}
+
 	manifestPath, err := autoseed.ResolveManifestPath(plugin)
 	if err != nil {
 		return fmt.Errorf("resolve event manifest failed: %w", err)
@@ -409,4 +416,12 @@ func PluginTenantDeleteHandler(deps *shared.Deps) gin.HandlerFunc {
 			"plugin_id":   id,
 		})
 	}
+}
+
+func configuredTenantPluginService(deps *shared.Deps) *pluginservice.TenantPluginInstanceService {
+	svc := pluginservice.NewTenantPluginInstanceService(deps.DB)
+	if cfg := coreconfig.GetGlobalConfig(); cfg != nil {
+		svc.WithEventFabricNamespaceOwners(cfg.Plugin.EventFabricNamespaceOwners)
+	}
+	return svc
 }

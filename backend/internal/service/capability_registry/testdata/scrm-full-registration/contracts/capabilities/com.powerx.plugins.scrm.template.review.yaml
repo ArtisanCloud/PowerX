@@ -1,0 +1,27 @@
+id: com.powerx.plugins.scrm.template.review
+type: API
+version: 1.0.0
+description: "审核模板草稿，附带意见与敏感字段校验。"
+rbac:
+  resource: template
+  actions: [update]
+provides:
+  - id: schema/input/com.powerx.plugins.scrm.template.review.v1
+    path: schema/input/com.powerx.plugins.scrm.template.review.json
+    kind: input
+    version: 1.0.0
+  - id: schema/output/com.powerx.plugins.scrm.template.review.v1
+    path: schema/output/com.powerx.plugins.scrm.template.review.json
+    kind: output
+    version: 1.0.0
+metadata:
+  protocols:
+    rest:
+      method: POST
+      path: /api/v1/templates/{id}/review
+      description: "供审核人提交复核意见"
+    agent_tool:
+      id: com.powerx.plugins.scrm.template.review
+      scope: agent.template.review
+      transport: http
+      endpoint: /api/v1/templates/{id}/review

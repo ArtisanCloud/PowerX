@@ -3,10 +3,10 @@ version: 1
 capabilities:
 - capability_id: com.corex.eventfabric.publish
   module: event_fabric
-  title: Event Fabric Publish & Subscribe
+  title: Event Fabric Legacy Publish
   description: 使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。
   permission_code: corex.event_fabric:publish
-  agent_usable: true
+  agent_usable: false
   risk_level: medium
   categories:
   - event
@@ -26,14 +26,8 @@ capabilities:
     schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService
     auth_type: tenant_jwt
     tool_scope: event.fabric
-  - channel: grpc
-    endpoint: powerx.event_fabric.v1.EventSubscriberService
-    rpc: Subscribe
-    schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventSubscriberService
-    auth_type: tenant_jwt
-    tool_scope: event.fabric
   title_i18n:
-    en: Event Fabric Publish & Subscribe
+    en: Event Fabric Legacy Publish
   description_i18n:
     en: 使用 CoreX Event Fabric 发布事件、订阅回执并执行业务回放。
 - capability_id: com.corex.eventfabric.topic_bootstrap
@@ -70,3 +64,86 @@ capabilities:
     en: Event Fabric Topic Bootstrap
   description_i18n:
     en: 允许插件服务态在租户范围内幂等创建自身运行所需的 Event Fabric topic。
+
+- capability_id: com.corex.eventfabric.service_publish
+  module: event_fabric
+  title: 发布可靠服务事件
+  description: 使用 event_fabric.service.v1 发布可靠服务事件或只读解析已准备的发布主题映射，逐次校验租户、插件 owner、实时服务授权和 topic ACL。
+  title_i18n: {zh-CN: 发布可靠服务事件, en: Event Fabric service publish}
+  description_i18n: {zh-CN: 在当前租户及插件身份下发布可靠服务事件，使用实时授权和 topic ACL。, en: Typed reliable service publish with live tenant registration grants and topic ACL.}
+  permission_code: corex.event_fabric.service_publish.publish
+  agent_usable: false
+  risk_level: medium
+  categories: [event, integration, runtime]
+  intents: [event.fabric.service.publish]
+  tool_scopes: [event.fabric.service.publish]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/event-fabric-service-v1.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://event-fabric/service
+    method: INVOKE
+    schema_ref: docs/contracts/event-fabric-service-v1.openapi.yaml#/components/schemas/Request
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: event.fabric.service.publish
+    api_key: {scope: _scope.event_fabric.service.publish, action: publish, resource_type: capability, resource_pattern: event_fabric_service_publish}
+  - channel: grpc
+    endpoint: powerx.event_fabric.v1.EventDeliveryService
+    rpc: PublishEvent
+    schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: event.fabric.service.publish
+- capability_id: com.corex.eventfabric.service_consume
+  module: event_fabric
+  title: 消费及确认可靠服务事件
+  description: 使用 event_fabric.service.v1 消费及确认可靠服务事件或只读解析已准备的订阅主题映射，逐次校验租户、插件 owner、实时服务授权和 topic ACL。
+  title_i18n: {zh-CN: 消费及确认可靠服务事件, en: Event Fabric service consume}
+  description_i18n: {zh-CN: 在当前租户及插件身份下消费及确认可靠服务事件，使用实时授权和 topic ACL。, en: Typed reliable service consume with live tenant registration grants and topic ACL.}
+  permission_code: corex.event_fabric.service_consume.consume
+  agent_usable: false
+  risk_level: medium
+  categories: [event, integration, runtime]
+  intents: [event.fabric.service.consume]
+  tool_scopes: [event.fabric.service.consume]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/event-fabric-service-v1.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://event-fabric/service
+    method: INVOKE
+    schema_ref: docs/contracts/event-fabric-service-v1.openapi.yaml#/components/schemas/Request
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: event.fabric.service.consume
+    api_key: {scope: _scope.event_fabric.service.consume, action: consume, resource_type: capability, resource_pattern: event_fabric_service_consume}
+  - channel: grpc
+    endpoint: powerx.event_fabric.v1.EventSubscriberService
+    rpc: Subscribe
+    schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventSubscriberService
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: event.fabric.service.consume
+  - channel: grpc
+    endpoint: powerx.event_fabric.v1.EventDeliveryService
+    rpc: AckDelivery
+    schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: event.fabric.service.consume
+  - channel: grpc
+    endpoint: powerx.event_fabric.v1.EventDeliveryService
+    rpc: NackDelivery
+    schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService
+    auth_type: sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: event.fabric.service.consume

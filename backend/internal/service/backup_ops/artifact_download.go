@@ -35,6 +35,9 @@ func (s *JobService) OpenDownload(ctx context.Context, id uint64, operator strin
 	if artifact == nil {
 		return fail(restoreFailure(410, "BACKUP_FILE_UNAVAILABLE", "备份文件已清理或不可用，请重新备份"))
 	}
+	if artifact.CleanupState == "quarantined" {
+		return fail(controlFailure(409, "BACKUP_ARTIFACT_QUARANTINED"))
+	}
 	path, err := validatedArtifactPath(s.artifactBaseDir, artifact)
 	if err != nil {
 		if os.IsNotExist(err) {

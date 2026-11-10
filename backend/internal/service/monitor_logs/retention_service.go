@@ -127,6 +127,9 @@ func (s *RetentionService) UpdatePolicy(ctx context.Context, policy RetentionPol
 	if s.lifecycleOwned && policy.Enabled {
 		return RetentionPolicy{}, fmt.Errorf("日志生命周期已移交存储治理，旧清理器不能重新启用")
 	}
+	if len(policy.DBTables) > 0 {
+		return RetentionPolicy{}, fmt.Errorf("通用数据库清理已禁用，请在存储治理中配置已批准的类型化清理策略")
+	}
 	cfg := normalizeRetentionConfig(fromRetentionPolicy(policy))
 	if err := validateRetentionConfig(cfg); err != nil {
 		return RetentionPolicy{}, err

@@ -16,6 +16,11 @@ import (
 )
 
 func (h *handler) stateError(c *gin.Context, err error) {
+	var appError *dto.AppError
+	if errors.As(err, &appError) {
+		dto.RespondErrorFrom(c, err)
+		return
+	}
 	switch {
 	case errors.Is(err, lifecycle.ErrBlocked), errors.Is(err, budget.ErrInsufficient):
 		fail(c, 409, "STORAGE_RUNTIME_BLOCKED", "来源、空间、归档或旧执行器条件未满足，请核对运行状态")

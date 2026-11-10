@@ -19,6 +19,8 @@ import (
 )
 
 type aiHandler struct {
+	mediaHeartbeat  time.Duration
+	media           *aisvc.MediaRuntime
 	svc             aiService
 	sessions        *llmSessionStore
 	aiInvokeTimeout time.Duration
@@ -124,6 +126,7 @@ func newAIHandler(deps *shared.Deps) *aiHandler {
 		timeout = deps.CapabilityAIMultimodalHTTPTimeout
 	}
 	return &aiHandler{
+		media:           deps.AIMediaSvc,
 		svc:             aisvc.NewService(deps.DB),
 		sessions:        newSessionStore(),
 		aiInvokeTimeout: timeout,
@@ -368,10 +371,10 @@ func (h *aiHandler) llmSessionStream(c *gin.Context) {
 		ModelKey:  sess.ModelKey,
 		SessionID: sessionID,
 	}, func(onDelta func(string)) (string, error) {
-		ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
-		defer cancel()
+		// Session streaming follows the same configured queue/provider policy
+		// as the direct LLM endpoints, without a second legacy Handler deadline.
 		return h.svc.LLMStream(
-			ctx,
+			c.Request.Context(),
 			env,
 			tenantUUID,
 			sess.ModelKey,
@@ -413,125 +416,13 @@ func (h *aiHandler) embeddingInvoke(c *gin.Context) {
 	dto.ResponseSuccess(c, embeddingInvokeResponse{Vectors: vecs})
 }
 
-func (h *aiHandler) imageInvoke(c *gin.Context) {
-	if h == nil || h.svc == nil {
-		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
-		return
-	}
-	tenantUUID, err := tenantUUIDFromRequest(c)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
-		return
-	}
-	env, err := pickEnv(c, tenantUUID, h.svc)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
-		return
-	}
-	var req modalInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseValidationError(c, err)
-		return
-	}
-	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
-	defer cancel()
-	out, err := h.svc.ImageInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
-	if err != nil {
-		respondAIError(c, err)
-		return
-	}
-	dto.ResponseSuccess(c, out)
-}
+func (h *aiHandler) imageInvoke(c *gin.Context) { h.invokeMedia(c, "image_generation") }
 
-func (h *aiHandler) vlmInvoke(c *gin.Context) {
-	if h == nil || h.svc == nil {
-		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
-		return
-	}
-	tenantUUID, err := tenantUUIDFromRequest(c)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
-		return
-	}
-	env, err := pickEnv(c, tenantUUID, h.svc)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
-		return
-	}
-	var req modalInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseValidationError(c, err)
-		return
-	}
-	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
-	defer cancel()
-	out, err := h.svc.VLMInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
-	if err != nil {
-		respondAIError(c, err)
-		return
-	}
-	dto.ResponseSuccess(c, out)
-}
+func (h *aiHandler) vlmInvoke(c *gin.Context) { h.invokeMedia(c, "vision_understanding") }
 
-func (h *aiHandler) videoInvoke(c *gin.Context) {
-	if h == nil || h.svc == nil {
-		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
-		return
-	}
-	tenantUUID, err := tenantUUIDFromRequest(c)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
-		return
-	}
-	env, err := pickEnv(c, tenantUUID, h.svc)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
-		return
-	}
-	var req modalInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseValidationError(c, err)
-		return
-	}
-	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
-	defer cancel()
-	out, err := h.svc.VideoInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
-	if err != nil {
-		respondAIError(c, err)
-		return
-	}
-	dto.ResponseSuccess(c, out)
-}
+func (h *aiHandler) videoInvoke(c *gin.Context) { h.invokeMedia(c, "video_generation") }
 
-func (h *aiHandler) ttsInvoke(c *gin.Context) {
-	if h == nil || h.svc == nil {
-		dto.ResponseError(c, http.StatusServiceUnavailable, "ai service unavailable", nil)
-		return
-	}
-	tenantUUID, err := tenantUUIDFromRequest(c)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant uuid missing", err)
-		return
-	}
-	env, err := pickEnv(c, tenantUUID, h.svc)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
-		return
-	}
-	var req modalInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseValidationError(c, err)
-		return
-	}
-	ctx, cancel := h.withAIInvokeTimeout(c.Request.Context())
-	defer cancel()
-	out, err := h.svc.TTSInvoke(ctx, env, tenantUUID, req.ModelKey, toServiceItems(req.Inputs), req.Params)
-	if err != nil {
-		respondAIError(c, err)
-		return
-	}
-	dto.ResponseSuccess(c, out)
-}
+func (h *aiHandler) ttsInvoke(c *gin.Context) { h.invokeMedia(c, "speech_synthesis") }
 
 type llmStreamMeta struct {
 	TraceID      string
@@ -671,6 +562,9 @@ func (h *aiHandler) withAIInvokeTimeout(ctx context.Context) (context.Context, c
 
 func respondAIError(c *gin.Context, err error) {
 	if err == nil {
+		return
+	}
+	if respondMediaError(c, err) {
 		return
 	}
 	if errors.Is(err, aisvc.ErrInvalidLLMParams) {

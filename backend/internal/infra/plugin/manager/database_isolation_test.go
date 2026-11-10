@@ -42,7 +42,7 @@ func TestPluginDatabaseRoleIncludesDeploymentWhileSchemaRemainsStable(t *testing
 func TestValidatePluginDatabaseBindingRejectsMissingAndMismatchedEnvironment(t *testing.T) {
 	pluginID := "com.powerx.plugin.demo"
 	m := &managerImpl{opts: Options{CoreConfig: &coreconfig.Config{
-		Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev},
+		Deployment: coreconfig.DeploymentConfig{Env: coreconfig.DeploymentEnvDev}, EnvironmentID: "existing-environment-test",
 	}}}
 
 	if err := m.validatePluginDatabaseBinding(pluginID, nil); err == nil || !strings.Contains(err.Error(), "reinstall") {

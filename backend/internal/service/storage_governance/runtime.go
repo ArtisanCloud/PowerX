@@ -15,19 +15,21 @@ import (
 )
 
 type RuntimeStatus struct {
-	Configured              bool                      `json:"configured"`
-	WorkerEnabled           bool                      `json:"worker_enabled"`
-	AdmissionEnabled        bool                      `json:"admission_enabled"`
-	Budget                  *budget.Snapshot          `json:"budget,omitempty"`
-	BudgetPolicy            *budget.BudgetPolicy      `json:"budget_policy,omitempty"`
-	Lifecycle               *lifecycle.Status         `json:"lifecycle,omitempty"`
-	LogDelivery             *writer.LokiDeliveryStats `json:"log_delivery,omitempty"`
-	NotificationsConfigured bool                      `json:"notifications_configured"`
-	LastObservedAt          *time.Time                `json:"last_observed_at,omitempty"`
-	LastNotificationAt      *time.Time                `json:"last_notification_at,omitempty"`
-	NotificationProblem     string                    `json:"notification_problem,omitempty"`
-	Problem                 string                    `json:"problem,omitempty"`
-	DatabaseCleanupEnabled  bool                      `json:"database_cleanup_enabled"`
+	BudgetConfiguration     *HostBudgetConfiguration          `json:"budget_configuration,omitempty"`
+	LifecycleConfigurations map[string]LifecycleConfiguration `json:"lifecycle_configurations"`
+	Configured              bool                              `json:"configured"`
+	WorkerEnabled           bool                              `json:"worker_enabled"`
+	AdmissionEnabled        bool                              `json:"admission_enabled"`
+	Budget                  *budget.Snapshot                  `json:"budget,omitempty"`
+	BudgetPolicy            *budget.BudgetPolicy              `json:"budget_policy,omitempty"`
+	Lifecycle               *lifecycle.Status                 `json:"lifecycle,omitempty"`
+	LogDelivery             *writer.LokiDeliveryStats         `json:"log_delivery,omitempty"`
+	NotificationsConfigured bool                              `json:"notifications_configured"`
+	LastObservedAt          *time.Time                        `json:"last_observed_at,omitempty"`
+	LastNotificationAt      *time.Time                        `json:"last_notification_at,omitempty"`
+	NotificationProblem     string                            `json:"notification_problem,omitempty"`
+	Problem                 string                            `json:"problem,omitempty"`
+	DatabaseCleanupEnabled  bool                              `json:"database_cleanup_enabled"`
 }
 type RuntimeEvent struct {
 	Version    uint64    `json:"version"`
@@ -64,6 +66,13 @@ func (s *Service) runtimeSnapshot(ctx context.Context) RuntimeStatus {
 		out.LogDelivery = s.opts.LogDelivery()
 	}
 	if s.opts.Budget != nil {
+		if s.opts.Control != nil {
+			snapshot, e := s.opts.Budget.ControlSnapshot(ctx)
+			if e == nil {
+				c, _, _, _ := s.loadHostBudget(ctx, snapshot)
+				out.BudgetConfiguration = &c
+			}
+		}
 		b, err := s.opts.Budget.Status(ctx)
 		if err != nil {
 			out.Problem = "budget_unavailable"
@@ -95,12 +104,19 @@ func (s *Service) runtimeSnapshot(ctx context.Context) RuntimeStatus {
 				out.Problem = l.Problem
 			}
 		}
-	}
-	if s.opts.Budget != nil {
-		if raw, e := s.opts.Budget.Document(ctx, "database-retention", nil); e == nil {
-			if d, e := s.databaseDocument(raw); e == nil {
-				out.DatabaseCleanupEnabled = d.Policy.Enabled
+		out.LifecycleConfigurations = map[string]LifecycleConfiguration{}
+		for _, source := range s.opts.Lifecycle.RegisteredSources() {
+			if source.Supported {
+				c, e := s.lifecycleConfiguration(ctx, source.ID)
+				if e == nil {
+					out.LifecycleConfigurations[source.ID] = c
+				}
 			}
+		}
+	}
+	if s.opts.Control != nil {
+		if p, c, e := s.loadRetentionControl(ctx); e == nil {
+			out.DatabaseCleanupEnabled = p.Enabled && c.ExecutionReady && s.opts.DatabaseRetentionAllowed && s.opts.LifecycleWorkerEnabled
 		}
 	}
 	return out
@@ -112,6 +128,9 @@ func (s *Service) Runtime(ctx context.Context) (RuntimeStatus, error) {
 	return s.runtimeSnapshot(ctx), nil
 }
 func (s *Service) SaveRuntimePolicy(ctx context.Context, id string, revision int64, p lifecycle.Policy) (lifecycle.Policy, error) {
+	if s.opts.Control != nil {
+		return p, controlError(428, "STORAGE_CONTROL_PRECONDITION_REQUIRED")
+	}
 	actor := rootActor(ctx)
 	if actor == 0 {
 		return p, ErrRootRequired
@@ -131,6 +150,9 @@ func (s *Service) SaveRuntimePolicy(ctx context.Context, id string, revision int
 func (s *Service) SaveRuntimeBudget(ctx context.Context, revision int64, p budget.BudgetPolicy) (budget.BudgetPolicy, error) {
 	if rootActor(ctx) == 0 {
 		return p, ErrRootRequired
+	}
+	if s.opts.Control != nil {
+		return p, controlError(428, "STORAGE_CONTROL_PRECONDITION_REQUIRED")
 	}
 	if s.opts.Budget == nil {
 		return p, ErrStateUnavailable
@@ -204,11 +226,13 @@ func (s *Service) observeCapacity(ctx context.Context) error {
 	s.mu.Lock()
 	s.cached = nil
 	s.mu.Unlock()
+	s.observeDatabaseBacklog(ctx)
 	out, err := s.Overview(ctx)
 	if err != nil {
 		return err
 	}
 	alerts := append([]CapacityAlert(nil), out.Alerts...)
+	// 逐表与容量告警共用持久化去重、重试和显式接收人；不新增消息队列。
 	sort.Slice(alerts, func(i, j int) bool { return alerts[i].Code+alerts[i].ResourceID < alerts[j].Code+alerts[j].ResourceID })
 	raw, _ := json.Marshal(alerts)
 	signature := fmt.Sprintf("%x", sha256.Sum256(raw))
@@ -316,9 +340,29 @@ func (s *Service) observeRuntime(ctx context.Context, onError func(error)) {
 }
 
 func (s *Service) runRuntimeLifecycle(ctx context.Context, onError func(error)) {
-	if s.dbRetention != nil && s.opts.DatabaseRetentionAllowed {
-		s.runDatabaseRetentionCycle(ctx, onError)
+	cycleID, healthErr := s.startCleanupHealth(ctx)
+	if healthErr != nil {
+		if onError != nil {
+			onError(healthErr)
+		}
+		return
 	}
+	failed := false
+	reportError := func(err error) {
+		failed = true
+		if onError != nil {
+			onError(err)
+		}
+	}
+	defer func() {
+		if err := s.finishCleanupHealth(ctx, cycleID, failed || ctx.Err() != nil); err != nil && onError != nil {
+			onError(err)
+		}
+	}()
+	if s.dbRetention != nil && s.opts.DatabaseRetentionAllowed {
+		s.runDatabaseRetentionCycle(ctx, reportError)
+	}
+	s.runSystemTableRetention(ctx, reportError)
 
 	if s.opts.Lifecycle == nil {
 		return
@@ -327,9 +371,7 @@ func (s *Service) runRuntimeLifecycle(ctx context.Context, onError func(error)) 
 	defer stop()
 	state, err := s.opts.Lifecycle.Status(cycle)
 	if err != nil {
-		if onError != nil {
-			onError(err)
-		}
+		reportError(err)
 		return
 	}
 	for _, p := range state.Policies {
@@ -337,10 +379,13 @@ func (s *Service) runRuntimeLifecycle(ctx context.Context, onError func(error)) 
 			continue
 		}
 		run, cancel := context.WithTimeout(cycle, 20*time.Second)
-		_, err = s.opts.Lifecycle.Run(run, p.SourceID)
+		result, err := s.opts.Lifecycle.Run(run, p.SourceID)
 		cancel()
-		if err != nil && onError != nil {
-			onError(err)
+		if err != nil {
+			reportError(err)
+		}
+		if result.State != "completed" {
+			failed = true
 		}
 		if cycle.Err() != nil {
 			return

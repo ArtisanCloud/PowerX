@@ -1,0 +1,40 @@
+{
+  "count": 50,
+  "requestedSmallImages": 6,
+  "pixels": {
+    "width": 64,
+    "height": 36
+  },
+  "measured": [
+    {
+      "url": "http://127.0.0.1:3491/_p/plugin.cards/api/v1/admin/notification-cards/sample_track-4/images/thumb-1",
+      "encodedBodySize": 208,
+      "transferSize": 508
+    },
+    {
+      "url": "http://127.0.0.1:3491/_p/plugin.cards/api/v1/admin/notification-cards/sample_track-0/images/thumb-1",
+      "encodedBodySize": 208,
+      "transferSize": 508
+    },
+    {
+      "url": "http://127.0.0.1:3491/_p/plugin.cards/api/v1/admin/notification-cards/sample_track-3/images/thumb-1",
+      "encodedBodySize": 208,
+      "transferSize": 508
+    },
+    {
+      "url": "http://127.0.0.1:3491/_p/plugin.cards/api/v1/admin/notification-cards/sample_track-1/images/thumb-1",
+      "encodedBodySize": 208,
+      "transferSize": 508
+    },
+    {
+      "url": "http://127.0.0.1:3491/_p/plugin.cards/api/v1/admin/notification-cards/sample_track-5/images/thumb-1",
+      "encodedBodySize": 208,
+      "transferSize": 508
+    },
+    {
+      "url": "http://127.0.0.1:3491/_p/plugin.cards/api/v1/admin/notification-cards/sample_track-2/images/thumb-1",
+      "encodedBodySize": 208,
+      "transferSize": 508
+    }
+  ]
+}

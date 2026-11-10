@@ -1,0 +1,11 @@
+[Unit]
+Description=Bounded verified PowerX baseline audit retention every three minutes
+
+[Timer]
+OnBootSec=120s
+OnUnitInactiveSec=180s
+AccuracySec=5s
+Unit=powerx-baseline-retention.service
+
+[Install]
+WantedBy=timers.target

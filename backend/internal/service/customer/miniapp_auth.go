@@ -79,7 +79,10 @@ func (s *CustomerAuthService) resolveClientApp(ctx context.Context, tenantUUID, 
 	if s.clientApps == nil {
 		return ClientApp{}, "", ErrCustomerClientAppNotFound
 	}
-	app, ok := s.clientApps.Lookup(platform, appID)
+	app, ok, lookupErr := s.clientApps.Lookup(ctx, tenantUUID, pluginID, platform, appID)
+	if lookupErr != nil {
+		return ClientApp{}, "", lookupErr
+	}
 	if !ok {
 		return ClientApp{}, "", ErrCustomerClientAppNotFound
 	}

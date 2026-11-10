@@ -1,0 +1,53 @@
+id: com.powerx.plugins.scrm.messaging.conversations.list
+type: API
+version: 1.0.0
+status: active
+description: scrm.messaging.capability.conversations.list
+rbac:
+  resource: scrm.messaging_service_conversations
+  actions: [read]
+consumes:
+  - id: messaging.ConversationRequest
+    path: docs/contracts/messaging-service.openapi.yaml
+    kind: input
+    version: 1.0.0
+provides:
+  - id: messaging.ConversationPage
+    path: docs/contracts/messaging-service.openapi.yaml
+    kind: output
+    version: 1.0.0
+permissions:
+  - type: api
+    permission_code: scrm.messaging_service_conversations:read
+    independent: true
+    title_i18n: {zh-CN: 查询消息会话, en: List messaging conversations}
+    description_i18n: {zh-CN: 查询消息会话, en: List messaging conversations}
+    risk_level: high
+    data_scope: tenant
+    default_role_grants: []
+    module: scrm
+    resource: messaging_service_conversations
+    action: read
+    protocol_bindings:
+      - channel: rest
+        method: POST
+        path: /api/v1/service/messaging/conversations.list
+        actor_context: service_actor
+        resource_scope: tenant
+    api_key:
+      capability_id: com.powerx.plugins.scrm.messaging.conversations.list
+      plugin_id: com.powerx.plugins.scrm
+      scope: _scope.scrm.messaging.conversations.list
+      action: read
+      resource_type: capability
+      resource_pattern: messaging.conversations.list
+      effect: allow
+metadata:
+  protocols:
+    rest:
+      method: POST
+      path: /api/v1/service/messaging/conversations.list
+      auth_type: core_service_ticket
+      actor_context: service_actor
+      resource_scope: tenant
+      schema_ref: docs/contracts/messaging-service.openapi.yaml#/components/schemas/ConversationRequest

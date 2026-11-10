@@ -1,0 +1,137 @@
+{
+  "cases": [
+    {
+      "name": "old-market",
+      "initial_support": false,
+      "post_status": 200,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": false,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": false
+    },
+    {
+      "name": "new-market",
+      "initial_support": true,
+      "post_status": 200,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": false,
+      "expected_posts": 1,
+      "expected_extended_result": true,
+      "support_after_error": true
+    },
+    {
+      "name": "online-rollback",
+      "initial_support": true,
+      "post_status": 400,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": false,
+      "expected_posts": 2,
+      "expected_extended_result": false,
+      "support_after_error": false
+    },
+    {
+      "name": "invalid-input-still-supported",
+      "initial_support": true,
+      "post_status": 400,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": true
+    },
+    {
+      "name": "rediscovery-network-failure",
+      "initial_support": true,
+      "post_status": 400,
+      "rediscovery_failure": true,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": true
+    },
+    {
+      "name": "legacy-400-no-fallback",
+      "initial_support": false,
+      "post_status": 400,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": false
+    },
+    {
+      "name": "auth-401",
+      "initial_support": true,
+      "post_status": 401,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": true
+    },
+    {
+      "name": "auth-403",
+      "initial_support": true,
+      "post_status": 403,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": true
+    },
+    {
+      "name": "rate-429",
+      "initial_support": true,
+      "post_status": 429,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": true
+    },
+    {
+      "name": "upstream-500",
+      "initial_support": true,
+      "post_status": 500,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": true
+    },
+    {
+      "name": "missing-response-extension",
+      "initial_support": true,
+      "post_status": 200,
+      "rediscovery_failure": false,
+      "missing_response_fields": true,
+      "expect_error": true,
+      "expected_posts": 1,
+      "expected_extended_result": false,
+      "support_after_error": true
+    },
+    {
+      "name": "fallback-old-format-also-400",
+      "initial_support": true,
+      "support_after_error": false,
+      "post_status": 400,
+      "rediscovery_failure": false,
+      "missing_response_fields": false,
+      "expect_error": true,
+      "expected_posts": 2,
+      "expected_extended_result": false,
+      "retry_status": 400
+    }
+  ]
+}

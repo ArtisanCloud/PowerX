@@ -20,8 +20,8 @@ func (s *RedisStore) StartPlanning(ctx context.Context, identity Snapshot) (Snap
 	if s == nil || s.client == nil || !validScope(identity) {
 		return Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
-	_, taskKey, outboxKey := schedulingKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
+	_, taskKey, outboxKey := s.schedulingKeys(identity)
 	for attempt := 0; attempt < 5; attempt++ {
 		var updated Snapshot
 		err := s.client.Watch(ctx, func(tx *redis.Tx) error {
@@ -101,8 +101,8 @@ func (s *RedisStore) CompletePlanning(ctx context.Context, identity Snapshot, ex
 		strings.TrimSpace(resultRef) == "" || strings.TrimSpace(evidenceRef) == "" {
 		return Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
-	planKey, taskKey, _ := schedulingKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
+	planKey, taskKey, _ := s.schedulingKeys(identity)
 	rawPlan, err := json.Marshal(plan)
 	if err != nil {
 		return Snapshot{}, err
@@ -192,8 +192,8 @@ func (s *RedisStore) ExpirePlanning(ctx context.Context, identity Snapshot) (Sna
 	if s == nil || s.client == nil || !validScope(identity) {
 		return Snapshot{}, ErrInvalid
 	}
-	stateKey, eventsKey := runKeys(identity)
-	_, taskKey, _ := schedulingKeys(identity)
+	stateKey, eventsKey := s.runKeys(identity)
+	_, taskKey, _ := s.schedulingKeys(identity)
 	for attempt := 0; attempt < 5; attempt++ {
 		var updated Snapshot
 		err := s.client.Watch(ctx, func(tx *redis.Tx) error {

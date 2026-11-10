@@ -1,0 +1,56 @@
+{
+  "menu": {
+    "com": {
+      "powerx": {
+        "plugins": {
+          "scrm": {
+            "root": {
+              "title": "SCRM"
+            },
+            "channel_access": {
+              "title": "渠道接入",
+              "dashboard": "触点看板",
+              "accounts": "账号接入"
+            },
+            "lead_operations": {
+              "title": "线索运营"
+            },
+            "leads": {
+              "title": "线索采集池"
+            },
+            "channel_org_tags": {
+              "title": "渠道组织与标签"
+            },
+            "org_management": {
+              "title": "组织管理"
+            },
+            "org_staff_tags": {
+              "title": "员工标签"
+            },
+            "customer_operations": {
+              "title": "客户运营"
+            },
+            "customers": {
+              "title": "客户管理"
+            },
+            "customer_tags": {
+              "title": "标签管理"
+            },
+            "customer_groups": {
+              "title": "客户群管理"
+            },
+            "group_analysis": {
+              "title": "群分析"
+            },
+            "engagement": {
+              "title": "互动与协同"
+            },
+            "messaging": {
+              "title": "消息中心"
+            }
+          }
+        }
+      }
+    }
+  }
+}

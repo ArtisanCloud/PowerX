@@ -273,9 +273,10 @@ func (t *trackedTransaction) GetDBConn() (*sql.DB, error) { return t.pool.GetDBC
 func (t *trackedTransaction) Commit() error {
 	if t.dirty && t.ready {
 		t.internal = true
-		if _, err := rootrole.Ensure(t.database()); err != nil {
+		_, catalogErr := rootrole.Ensure(t.database())
+		if catalogErr != nil && !errors.Is(catalogErr, rootrole.ErrCatalogInconsistent) {
 			_ = t.commit.Rollback()
-			return fmt.Errorf("IAM_ROOT_ROLE_SYNC_FAILED: %w", err)
+			return fmt.Errorf("IAM_ROOT_ROLE_SYNC_FAILED: %w", catalogErr)
 		}
 		at, err := transactionTime(t.database())
 		if err != nil {
@@ -288,7 +289,7 @@ func (t *trackedTransaction) Commit() error {
 				return fmt.Errorf("IAM_BASELINE_INITIALIZATION_FAILED: %w", err)
 			}
 		}
-		if err := Reconcile(t.database(), at); err != nil {
+		if err := reconcileWithCatalog(t.database(), at, catalogErr == nil); err != nil {
 			_ = t.commit.Rollback()
 			return fmt.Errorf("IAM_BASELINE_RECONCILE_FAILED: %w", err)
 		}

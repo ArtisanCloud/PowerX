@@ -41,6 +41,9 @@ type Topic struct {
 
 // CreateTopicInput 主题创建入参。
 type CreateTopicInput struct {
+	// PluginOwner 仅由 Core 的受控安装服务填写，不能从 HTTP/manifest 反序列化。
+	PluginOwner     string                 `json:"-" yaml:"-"`
+	PluginTopicKey  string                 `json:"-" yaml:"-"`
 	TenantUUID      string                 `json:"tenant_uuid,omitempty"`
 	Namespace       string                 `json:"namespace"`
 	Name            string                 `json:"name"`
@@ -175,9 +178,22 @@ func (s *DirectoryService) prepareTopicDefinition(ctx context.Context, input Cre
 		return nil, fmt.Errorf("invalid retention policy: %w", err)
 	}
 
+	metadata := make(map[string]interface{}, len(input.Metadata)+1)
+	for key, value := range input.Metadata {
+		if key == PluginOwnerMetadataKey || key == PluginTopicKeysMetadataKey {
+			return nil, fmt.Errorf("reserved topic metadata: %s", key)
+		}
+		metadata[key] = value
+	}
+	if input.PluginOwner != "" {
+		metadata[PluginOwnerMetadataKey] = input.PluginOwner
+		if input.PluginTopicKey != "" {
+			metadata[PluginTopicKeysMetadataKey] = []string{input.PluginTopicKey}
+		}
+	}
 	metadataJSON := []byte("{}")
-	if len(input.Metadata) > 0 {
-		metadataJSON, err = json.Marshal(input.Metadata)
+	if len(metadata) > 0 {
+		metadataJSON, err = json.Marshal(metadata)
 		if err != nil {
 			return nil, fmt.Errorf("invalid metadata: %w", err)
 		}
@@ -231,6 +247,29 @@ func (s *DirectoryService) UpsertTopic(ctx context.Context, input UpsertTopicInp
 		return convertTopic(result), true, nil
 	}
 
+	// 旧同步也必须保留 Core 归属，不能通过普通 metadata 更新擦除或换主。
+	if owner := PluginOwner(existing); owner != "" {
+		if input.PluginOwner != "" && input.PluginOwner != owner {
+			return nil, false, fmt.Errorf("topic owner conflict")
+		}
+		var metadata map[string]any
+		if err := json.Unmarshal(prepared.Metadata, &metadata); err != nil {
+			return nil, false, err
+		}
+		metadata[PluginOwnerMetadataKey] = owner
+		var previous map[string]any
+		if err := json.Unmarshal(existing.Metadata, &previous); err != nil {
+			return nil, false, err
+		}
+		if keys, ok := previous[PluginTopicKeysMetadataKey]; ok {
+			metadata[PluginTopicKeysMetadataKey] = keys
+		}
+		raw, err := json.Marshal(metadata)
+		if err != nil {
+			return nil, false, err
+		}
+		prepared.Metadata = raw
+	}
 	existing.PayloadFormat = prepared.PayloadFormat
 	existing.RetentionPolicy = prepared.RetentionPolicy
 	existing.VersioningMode = prepared.VersioningMode

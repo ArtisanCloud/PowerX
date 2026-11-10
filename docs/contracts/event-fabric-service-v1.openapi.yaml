@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: PowerX Event Fabric Service
+  version: event_fabric.service.v1
+paths: {}
+components:
+  schemas:
+    Request:
+      type: object
+      additionalProperties: false
+      required: [contract_version, operation, tenant_uuid, plugin_id]
+      properties:
+        contract_version: {type: string, enum: [event_fabric.service.v1]}
+        operation: {type: string, enum: [publish, subscribe, ack, nack, resolve_topics]}
+        tenant_uuid: {type: string, format: uuid}
+        plugin_id: {type: string, minLength: 1, maxLength: 128}
+        subscriber_id: {type: string, minLength: 1, maxLength: 128, description: Must equal the authenticated plugin_id.}
+        topic_keys: {type: array, minItems: 1, maxItems: 1000, uniqueItems: true, items: {type: string, minLength: 1, maxLength: 255}, description: Business keys for read-only resolve_topics; forbidden on all other operations.}
+        topics: {type: array, minItems: 1, maxItems: 100, items: {type: string, maxLength: 255}}
+        batch_size: {type: integer, minimum: 1, maximum: 100}
+        supported_versions: {type: array, minItems: 1, maxItems: 32, items: {type: string, minLength: 1, maxLength: 32}}
+        compatibility_mode: {type: string, enum: [strict, backward, any]}
+        event: {$ref: '#/components/schemas/Event'}
+        delivery_id: {type: string, format: uuid}
+        reason: {type: string, maxLength: 256}
+    Event:
+      type: object
+      additionalProperties: false
+      required: [event_id, idempotency_key, topic, version, payload]
+      properties:
+        event_id: {type: string, minLength: 1, maxLength: 128}
+        idempotency_key: {type: string, minLength: 1, maxLength: 128}
+        topic: {type: string, minLength: 1, maxLength: 255}
+        version: {type: string, minLength: 1, maxLength: 32}
+        payload: {description: JSON business payload, max 1 MiB.}
+        trace_id: {type: string, maxLength: 128}
+        attributes: {type: object, maxProperties: 64, additionalProperties: {type: string, maxLength: 2048}}
+    Message:
+      type: object
+      additionalProperties: false
+      required: [contract_version, tenant_uuid, subscriber_id, delivery_id, event_id, idempotency_key, topic, version, payload, trace_id, published_by, publisher_plugin_id, attempt, max_attempts, ack_deadline]
+      properties:
+        contract_version: {type: string, enum: [event_fabric.service.v1]}
+        tenant_uuid: {type: string, format: uuid}
+        subscriber_id: {type: string}
+        delivery_id: {type: string, format: uuid}
+        event_id: {type: string}
+        idempotency_key: {type: string}
+        attributes: {type: object, additionalProperties: {type: string}}
+        topic: {type: string}
+        version: {type: string}
+        payload: {description: JSON payload.}
+        trace_id: {type: string}
+        published_by: {type: string, description: Core-derived authenticated service subject.}
+        publisher_plugin_id: {type: string}
+        attempt: {type: integer, minimum: 1}
+        max_attempts: {type: integer, minimum: 1}
+        ack_deadline: {type: string, format: date-time}

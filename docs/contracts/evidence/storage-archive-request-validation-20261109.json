@@ -1,0 +1,246 @@
+{
+  "date": "2026-11-09",
+  "task": "T158 manual saved-policy archive acceptance response loss and original-request reconciliation",
+  "status": "source and owned native/actual Nuxt acceptance passed; no daily Core restart or resource takeover; entire T158/SG-09/SG-11 still open",
+  "branch": "024-ai-engineering-skills",
+  "committed": false,
+  "implemented": {
+    "service": [
+      "Root fixed readonly request lookup from existing managed job evidence, no current-policy/control-database resolution",
+      "canonical policy/request UUIDs; bounded scan and fail-closed missing/corrupt/duplicate/incomplete evidence",
+      "minimal positive receipt, no credential/target/file/operator/hash fields",
+      "optional positive expected_policy_revision; old empty body compatible; reused key cannot bind another policy revision",
+      "overview run_request_version=1; old backends block new UI submission"
+    ],
+    "ui": [
+      "persist minimal original request UUID/policy version/source before POST in login-session scoped sessionStorage",
+      "no JWT, cloud credential or recovery ticket in this cache",
+      "unknown result blocks repeat submissions; only matching positive receipt settles",
+      "404/503/mismatched receipt do not unlock; explicit readonly original-request button",
+      "refresh/route/task navigation preserve same-login context; account isolation and stale-reply rejection",
+      "default overview warning restored even when Root permissions become ready after mount",
+      "view original task by job UUID; metadata updated by existing SSE; no timed state reads"
+    ]
+  },
+  "validation": {
+    "backend_go_test_race": {
+      "packages": [
+        "archive_ops",
+        "admin/backup"
+      ],
+      "result": "passed",
+      "cases": [
+        "actual accepted HTTP socket response loss followed by readonly lookup",
+        "service recreation and removed policy retain original request identity",
+        "missing/corrupt/incomplete/duplicate/wrong-context evidence fail closed",
+        "eight concurrent original-key replays keep one job and revision mismatch creates no job",
+        "null/zero/noninteger revision rejected",
+        "128 registered routes against eight denied identity types; allowed signed Root reads"
+      ]
+    },
+    "native_control_regression": {
+      "existing_target_policy_tests": 11,
+      "accepted_transfer_faults": 4,
+      "race": "passed",
+      "postgres": "owned PostgreSQL Unix socket and formal scoped model migration",
+      "taskbus": "formal control publication/driver; miniredis protocol fixture",
+      "s3": "owned in-memory versioned S3 protocol peer; no actual OSS"
+    },
+    "frontend": {
+      "vitest_files": 6,
+      "tests": 41,
+      "result": "passed"
+    },
+    "vet": "passed",
+    "capability_check": {
+      "result": "passed",
+      "declared": 1242,
+      "referenced": 83,
+      "rest_routes": 1175,
+      "candidates": 1285,
+      "ignored_route_rules": 149,
+      "runtime_seed_run": false
+    },
+    "actual_browser": {
+      "result": "passed",
+      "checks": [
+        "Owned PostgreSQL, formal TaskBus, target verification and explicit policy enablement prepared without daily mutation",
+        "Native Core accepted exactly one task; lost 202 response retains original UUID and blocks duplicate click",
+        "light 1440 original UUID, blocked action and task navigation",
+        "light 390 original UUID, blocked action and task navigation",
+        "dark 1440 original UUID, blocked action and task navigation",
+        "dark 390 original UUID, blocked action and task navigation",
+        "Browser refresh restores the same pending request before any write",
+        "404, HTTP503 and mismatched positive receipt preserve the original identity and submission lock",
+        "Route leave releases SSE; route return and reconnect preserve the pending request without POST replay",
+        "Actual readonly Root request endpoint settles only the matching original UUID and opens its original job",
+        "One native task, one browser POST, full remote verification and zero idle state queries"
+      ],
+      "theme": [
+        "light",
+        "dark"
+      ],
+      "widths": [
+        1440,
+        390
+      ],
+      "partial_202_body": {
+        "application_fetch_calls": 1,
+        "http_post_requests": 1,
+        "native_jobs": 1,
+        "original_request_id": "aeb15fd6-193a-45bc-a342-6a9681cb0748",
+        "original_job_id": "55b09814-2cb8-4c73-81a6-3c0288318ab3"
+      },
+      "before_headers_socket_loss": {
+        "application_fetch_calls": 1,
+        "http_post_requests": 2,
+        "native_jobs": 1,
+        "all_use_original_idempotency_key": true,
+        "note": "browser transport transparently replayed one application fetch; no application replay or second task"
+      },
+      "auth_boundary": "allowed daily Root login for Nuxt shell; archive endpoints routed to isolated signed Root fixture JWT and owned native control database",
+      "no_periodic_detail_reads": true,
+      "route_leave_releases_sse": true,
+      "uncaught_errors": [],
+      "reviewed_screenshots": [
+        "dark-1440-pending.png",
+        "light-390-pending.png"
+      ]
+    }
+  },
+  "deployment": {
+    "backend_source_changed": true,
+    "daily_core_restarted": false,
+    "daily_nuxt_restarted": false,
+    "daily_policy_config_migration_or_business_mutation": false,
+    "daily_auth_login_for_shell": true,
+    "production_connected": false,
+    "real_oss_used": false,
+    "resource_takeover": false,
+    "activation_action": "User rebuilds/restarts daily Core through their existing VS Code flow; new UI remains disabled for submissions until supported version is advertised"
+  },
+  "cleanup": {
+    "owned_schemas_remaining": 0,
+    "owned_tables_remaining": 0,
+    "owned_databases_remaining": 0,
+    "owned_processes_exited": [
+      211,
+      1420,
+      4377,
+      4794,
+      9662,
+      10081,
+      11514,
+      11660,
+      11678,
+      11680,
+      11696,
+      18718,
+      18858,
+      20587,
+      20664,
+      20679,
+      20680,
+      20695,
+      25592,
+      25913,
+      29628,
+      29763,
+      29768,
+      29769,
+      29784,
+      44651,
+      44936,
+      47296,
+      47575,
+      51499,
+      51635,
+      51663,
+      51664,
+      51680,
+      60543,
+      60802,
+      64374,
+      64545,
+      64561,
+      64562,
+      64577,
+      85890,
+      88065,
+      88674,
+      91363,
+      91426,
+      91466,
+      91467,
+      91482,
+      99610
+    ],
+    "owned_listener_ports_released": [
+      49653,
+      51972,
+      51973,
+      51974,
+      52172,
+      52683,
+      52843,
+      52844,
+      52846,
+      53322,
+      55057,
+      55060,
+      55870,
+      55873,
+      57107,
+      57108,
+      57121,
+      57407,
+      58801,
+      58802,
+      58803,
+      59151,
+      60670,
+      60672,
+      60678,
+      61402,
+      64664,
+      64684,
+      64716,
+      64744,
+      65133,
+      65134,
+      65135
+    ],
+    "owned_ui_source_directories_removed": true,
+    "private_fixture_tokens_removed": true,
+    "owned_postgres_pid": 85201,
+    "owned_postgres_exited": true,
+    "owned_cluster_and_socket_removed": true,
+    "daily": {
+      "8077": {
+        "pid": 74295,
+        "original_listener_present": true,
+        "restarted_by_agent": false
+      },
+      "3030": {
+        "pid": 34360,
+        "original_listener_present": true,
+        "restarted_by_agent": false
+      }
+    },
+    "daily_configuration_policy_migration_or_business_mutation": false,
+    "production_connected": false
+  },
+  "remaining": [
+    "T158 actual process interruption/restart while capture or remote write is in progress",
+    "full database outage and other remaining joint faults",
+    "T155 real Alibaba Cloud OSS transfer/readback/source-gone exact retrieval when configured",
+    "legacy executor live handoff, per-resource explicit adoption, whole-site restore, external keys, dual environment and 7/14 day evidence",
+    "release review/commit/publish not performed"
+  ],
+  "next": {
+    "task": "T158 Core/worker interruption and actual process restart acceptance",
+    "completion": "owned process/source/target only; preserve original request/job identity and local content; old running must not imply current active or completed; no automatic replacement job or stale remote proof allowing deletion",
+    "precondition": "owned isolated resources; no need to stop or restart daily services"
+  },
+  "artifacts": "storage-archive-request-20261109/"
+}

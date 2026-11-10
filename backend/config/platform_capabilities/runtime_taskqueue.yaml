@@ -1,0 +1,75 @@
+version: 1
+capabilities:
+- capability_id: com.corex.runtime.taskqueue.service_enqueue
+  module: runtime_taskqueue
+  title_i18n: &title_enqueue {en: Task Queue enqueue, zh-CN: 任务队列入队}
+  description_i18n: &desc_enqueue {en: Typed taskqueue.v2 enqueue with live service grants., zh-CN: 通过实时服务授权调用可靠队列入队合同。}
+  title: Task Queue enqueue
+  description: Typed taskqueue.v2 enqueue contract.
+  permission_code: corex.runtime_taskqueue.service_enqueue.enqueue
+  agent_usable: false
+  risk_level: medium
+  categories: [runtime, taskqueue]
+  intents: [runtime.taskqueue.enqueue]
+  tool_scopes: [runtime.taskqueue.enqueue]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/runtime-taskqueue-v2.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://runtime/taskqueue
+    method: INVOKE
+    schema_ref: docs/contracts/runtime-taskqueue-v2.openapi.yaml#/components/schemas/RuntimeRequest
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: runtime.taskqueue.enqueue
+    api_key: {scope: _scope.runtime.taskqueue.enqueue, action: enqueue, resource_type: capability, resource_pattern: runtime_taskqueue_enqueue}
+- capability_id: com.corex.runtime.taskqueue.service_consume
+  module: runtime_taskqueue
+  title_i18n: &title_consume {en: Task Queue consume, zh-CN: 任务队列消费}
+  description_i18n: &desc_consume {en: Typed taskqueue.v2 consume with live service grants., zh-CN: 通过实时服务授权调用可靠队列领取及确认合同。}
+  title: Task Queue consume
+  description: Typed taskqueue.v2 consume contract.
+  permission_code: corex.runtime_taskqueue.service_consume.consume
+  agent_usable: false
+  risk_level: medium
+  categories: [runtime, taskqueue]
+  intents: [runtime.taskqueue.consume]
+  tool_scopes: [runtime.taskqueue.consume]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/runtime-taskqueue-v2.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://runtime/taskqueue
+    method: INVOKE
+    schema_ref: docs/contracts/runtime-taskqueue-v2.openapi.yaml#/components/schemas/RuntimeRequest
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: runtime.taskqueue.consume
+    api_key: {scope: _scope.runtime.taskqueue.consume, action: consume, resource_type: capability, resource_pattern: runtime_taskqueue_consume}
+- capability_id: com.corex.runtime.taskqueue.admin_invoke
+  module: runtime_taskqueue
+  title_i18n: &title_admin {en: Task Queue Admin, zh-CN: 任务队列管理}
+  description_i18n: &desc_admin {en: User-owned taskqueue.v2 diagnostics through user JWT and live RBAC., zh-CN: 使用用户会话及实时角色权限管理当前用户命名空间的队列。}
+  title: Task Queue admin
+  description: Typed taskqueue.v2 admin contract.
+  permission_code: corex.runtime_taskqueue.admin_runtime_taskqueue_v2:invoke
+  agent_usable: false
+  risk_level: high
+  categories: [runtime, taskqueue]
+  intents: [runtime.taskqueue.admin]
+  tool_scopes: [runtime.taskqueue.admin]
+  docs: [docs/contracts/runtime-taskqueue-v2.md]
+  protocols:
+  - channel: rest
+    endpoint: /api/v1/admin/runtime/task-queue/v2/invoke
+    method: POST
+    schema_ref: docs/contracts/runtime-taskqueue-v2.openapi.yaml#/components/schemas/RuntimeRequest
+    auth_type: tenant_jwt
+    actor_context: admin_user
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: runtime.taskqueue.admin

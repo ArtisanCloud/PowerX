@@ -40,7 +40,7 @@ type hostCompleteUploadRequest struct {
 }
 type hostCreateVariantRequest struct {
 	Checksum    string `json:"checksum" binding:"required,len=64,hexadecimal"`
-	VariantType string `json:"variant_type" binding:"required,oneof=preview thumbnail"`
+	VariantType string `json:"variant_type" binding:"required,oneof=preview thumbnail thumbnail_64"`
 	Name        string `json:"name"`
 	MimeType    string `json:"mime_type" binding:"required"`
 	SizeBytes   int64  `json:"size_bytes" binding:"gt=0"`

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check PowerX transition headroom every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=powerx-transition-capacity.service
+
+[Install]
+WantedBy=timers.target

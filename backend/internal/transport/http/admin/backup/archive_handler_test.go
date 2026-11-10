@@ -76,27 +76,21 @@ func TestArchiveHTTPAndBrowserFixture(t *testing.T) {
 	onceKey := uuid.NewString()
 	status, raw := call("POST", "/jobs", `{"source_id":"media"}`, map[string]string{"Idempotency-Key": onceKey})
 	require.Equal(t, 202, status, string(raw))
-	status, raw = call("POST", "/jobs", `{"source_id":"media","directory":"/etc"}`, map[string]string{"Idempotency-Key": onceKey})
-	require.Equal(t, 400, status, string(raw))
-	initial, e := svc.Overview(reqctx.WithIsRoot(ctx, true))
-	require.NoError(t, e)
-	require.Empty(t, initial.Policies)
-	status, raw = call("POST", "/policies", `{"name":"media","source_id":"media","interval_minutes":60,"retention_days":7,"retention_count":168,"remote_retention_days":90,"remote_retention_count":2160,"include_database":false,"enabled":false}`, nil)
-	require.Equal(t, 200, status, string(raw))
-	var p struct {
-		Data struct {
-			Policy archiveops.Policy `json:"policy"`
-		}
-	}
-	require.NoError(t, json.Unmarshal(raw, &p))
-	status, raw = call("POST", "/policies/"+p.Data.Policy.ID+"/run", `{}`, map[string]string{"Idempotency-Key": uuid.NewString()})
-	require.Equal(t, 202, status, string(raw))
 	var started struct {
 		Data struct {
 			Job archiveops.Job `json:"job"`
 		}
 	}
 	require.NoError(t, json.Unmarshal(raw, &started))
+	status, raw = call("POST", "/jobs", `{"source_id":"media","directory":"/etc"}`, map[string]string{"Idempotency-Key": onceKey})
+	require.Equal(t, 400, status, string(raw))
+	initial, e := svc.Overview(reqctx.WithIsRoot(ctx, true))
+	require.NoError(t, e)
+	require.Empty(t, initial.Policies)
+	status, raw = call("POST", "/policies", `{"name":"media","source_id":"media","interval_minutes":60,"retention_days":7,"retention_count":168,"remote_retention_days":90,"remote_retention_count":2160,"include_database":false,"enabled":false}`, nil)
+	require.Equal(t, 400, status, string(raw)) // 旧策略 DTO 已明确拒绝。
+	status, raw = call("POST", "/policies", `{"request_id":"`+uuid.NewString()+`","expected_revision":1,"action":"save","settings":{"name":"media","source_id":"media"}}`, nil)
+	require.Equal(t, 503, status, string(raw)) // 无数据库控制面不回退 JSON；完整配置验收另有原生 PostgreSQL fixture。
 	root := reqctx.WithIsRoot(ctx, true)
 	require.Eventually(t, func() bool { j, e := svc.Job(root, started.Data.Job.ID); return e == nil && j.Status == "success" }, 5*time.Second, 20*time.Millisecond)
 	status, raw = call("GET", "/jobs/"+started.Data.Job.ID, "", nil)

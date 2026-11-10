@@ -3,6 +3,7 @@ package storagegov
 import (
 	"context"
 	"errors"
+	archive "github.com/ArtisanCloud/PowerX/internal/service/archive_ops"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/storage_governance"
 	"github.com/google/uuid"
@@ -18,16 +19,22 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 
 // Service 缓存只读观测，避免页面刷新反复遍历文件系统；不启动后台清理。
 type Service struct {
-	dbRetention *caprepo.RetentionRepository
-	opts        Options
-	mu          sync.Mutex
-	policyMu    sync.Mutex // 保存保护规则与本实例的有界手动清理互斥。
-	cached      *Overview
-	store       stateStore
-	runs        cleanupStore
-	eventMu     sync.Mutex
-	listeners   map[chan RuntimeEvent]struct{}
-	runtimeOnce sync.Once
+	recoveryArchives  *archive.Service
+	recoverySnapshots *snapshotPolicyControl
+	recoveryBackups   *backupPolicyControl
+	dbRetention       *caprepo.RetentionRepository
+	systemRetention   *repo.SystemRetentionRepository
+	opts              Options
+	mu                sync.Mutex
+	policyMu          sync.Mutex // 保存保护规则与本实例的有界手动清理互斥。
+	cached            *Overview
+	tablesMu          sync.Mutex
+	tablesCached      *DatabaseTableInventory
+	store             stateStore
+	runs              cleanupStore
+	eventMu           sync.Mutex
+	listeners         map[chan RuntimeEvent]struct{}
+	runtimeOnce       sync.Once
 }
 
 // NewService 严格验证登记来源，错误配置不静默跳过或推断环境。
@@ -78,8 +85,29 @@ func NewService(opts Options) (*Service, error) {
 		opts.Now = time.Now
 	}
 	s := &Service{opts: opts, listeners: map[chan RuntimeEvent]struct{}{}}
+	if opts.Control != nil {
+		if err := s.bindExecutionControl(); err != nil {
+			return nil, err
+		}
+		if err := opts.Control.Bind(ControlTableMonitoring, s.monitoringBinding()); err != nil {
+			return nil, err
+		}
+		if err := s.bindBudgetControl(); err != nil {
+			return nil, err
+		}
+		if err := s.bindSystemTableRetentionControl(); err != nil {
+			return nil, err
+		}
+		if err := s.bindDatabaseRetentionControl(); err != nil {
+			return nil, err
+		}
+		if err := s.bindLifecycleControl(); err != nil {
+			return nil, err
+		}
+	}
 	if opts.DB != nil {
 		s.dbRetention = caprepo.NewRetentionRepository(opts.DB)
+		s.systemRetention = repo.NewSystemRetentionRepository(opts.DB)
 		s.store = repo.NewStateRepository(opts.DB)
 		s.runs = repo.NewCleanupRepository(opts.DB)
 	}
@@ -133,6 +161,9 @@ func (s *Service) Overview(ctx context.Context) (Overview, error) {
 		}
 	}
 	out.Alerts = EvaluateCapacity(out)
+	if s.opts.Budget != nil {
+		out.Alerts = append(out.Alerts, s.tableMonitoring(ctx).Alerts...)
+	}
 	if out.Filesystem.UsedBytes != nil {
 		var known int64
 		for _, r := range out.Resources {

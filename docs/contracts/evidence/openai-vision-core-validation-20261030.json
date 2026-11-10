@@ -1,0 +1,195 @@
+{
+  "task": "openai-vision-core",
+  "as_of": "2026-10-30T15:27:33.328780+00:00",
+  "status": "source_ready_runtime_restart_pending",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "model_key": "openai/gpt-6-luna",
+  "controlled_validation": {
+    "backend_packages": 7,
+    "backend_packages_passed": true,
+    "final_media_and_http_regression_passed": true,
+    "go_vet_passed": true,
+    "vue_tsc_passed": true,
+    "frontend_unit_tests_passed": 55,
+    "capability_check": "passed; declared=1233 referenced=75 rest_routes=1174 candidates=1159 ignored_route_rules=67",
+    "ui": {
+      "passed": 2,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "checks": [
+        "vision/generation modality selection",
+        "draft retention across modality switches",
+        "parameter check and connection probe use vlm",
+        "save reuses stored credential without resending secret",
+        "save then reload retains model/budget/reasoning",
+        "online model refresh uses vlm and excludes image candidates",
+        "image profile unchanged",
+        "no generation requests during settings actions",
+        "no horizontal body overflow"
+      ],
+      "screenshots": [
+        "docs/contracts/evidence/openai-vision-core-20261030/vision-settings-desktop.png",
+        "docs/contracts/evidence/openai-vision-core-20261030/vision-settings-narrow.png"
+      ],
+      "log": "/tmp/powerx-openai-vision-20261030-224712/playwright-vision-complete.log"
+    },
+    "build": {
+      "platform": "darwin/arm64",
+      "artifact": "/tmp/powerx-openai-vision-20261030-224712/powerx-app",
+      "sha256": "7b2f5bc54929c623628e96123b3ff6bfee9402527d1f3b87d8a2bcd44badc811",
+      "started_as_service": false
+    }
+  },
+  "actual_service_key": {
+    "name": "Media Studio Development Key",
+    "grants": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "items": [
+          {
+            "capability_id": "com.corex.ai.catalog.providers.read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          },
+          {
+            "capability_id": "com.corex.ai.catalog.models.read",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          },
+          {
+            "capability_id": "com.corex.ai.vlm.invoke",
+            "status": "granted",
+            "reason_code": "CAPABILITY_GRANTED"
+          }
+        ]
+      },
+      "timestamp": 1793372511,
+      "request_id": "10b522c6-8e71-4f20-9e40-5da9a3833e1a"
+    },
+    "new_key_created": false,
+    "profile_permissions_changed": false,
+    "framework_local_snapshot": "MediaXStudio third_party/powerx-framework/backend/go (existing v0.0.20 replace)",
+    "current_runtime_catalog": [
+      {
+        "check": "service_catalog_providers",
+        "ok": true,
+        "result": {
+          "contract_version": 2,
+          "providers": [
+            {
+              "provider": "qwen-cn",
+              "label": "Qwen（官方国内）"
+            },
+            {
+              "provider": "qwen-intl",
+              "label": "Qwen（官方国际）"
+            }
+          ]
+        }
+      },
+      {
+        "check": "service_catalog_models",
+        "ok": true,
+        "result": {
+          "contract_version": 2,
+          "items": []
+        }
+      }
+    ]
+  },
+  "existing_runtime": {
+    "port": 8077,
+    "pid": 13572,
+    "started_at_local": "2026-10-30 22:13:43 +08:00",
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+    "owner": "user; not restarted by agent",
+    "includes_this_fix": false
+  },
+  "image_active_before": {
+    "configured": true,
+    "env": "dev",
+    "modality": "image",
+    "profile": {
+      "id": 187,
+      "createdAt": "2026-10-23T17:55:46.658056+08:00",
+      "updatedAt": "2026-10-23T17:55:46.658056+08:00",
+      "DeletedAt": null,
+      "modality": "image",
+      "provider": "agnes",
+      "model": "agnes-image-2.5-flash",
+      "label": "Agnes Image 2.5 Flash",
+      "defaults": {
+        "format": "",
+        "promptHint": "",
+        "quality": "",
+        "ratio": "1:1",
+        "size": "1K"
+      },
+      "capCache": {},
+      "tags": [
+        "image"
+      ]
+    }
+  },
+  "runtime_acceptance": {
+    "vlm_profile_save": "pending updated Core restart; reuse existing stored provider credential",
+    "same_plugin_key_catalog": "pending updated Core restart",
+    "real_single_image_inference": "pending updated Core restart",
+    "mediax_vision_and_director_05_save_refresh": "pending joint plugin acceptance; no browser surface exposed",
+    "director_06_unchanged": "no runtime configuration writes performed; before snapshot retained"
+  },
+  "source_sha256": {
+    "backend/config/agents/providers.d/openai.yaml": "652a73be9ee0d384f89a11d89bb402fc8bde985fa803f80eb933398845554ff3",
+    "backend/internal/server/agent/catalog/registry.go": "b44eebcfdbebc06e2f425641d068d5588b6a49a163b7a230bc8e3e9c9bda5b74",
+    "backend/internal/server/agent/catalog/vision_modality.go": "e967a572d8cb171f6b1dde0b4d69ffbbacce94220edaece1dc21b71da5a7beef",
+    "backend/internal/server/ai/drivers/openai/vlm.go": "3b7ac3a268fe82438d73b84c651d28587c944c1da17254ef55241cfd5a811092",
+    "backend/internal/server/ai/drivers/openai/vlm_parameters.go": "20d09c6e969c9d3535e872ef4de7afb58f4d528217b51d25082d24ecdffbe212",
+    "backend/internal/service/ai/service.go": "2682ea0d5ffe49addc8094cd6bed0c54f50a0711b0cb4a1e40f875d6888e876f",
+    "backend/internal/service/ai/vision_inputs.go": "7483c7bf90a8e2a4d4b0783d3dfc0ee4d3d9a6845aba801aeec5cbd8d1fa7302",
+    "backend/internal/service/ai/media_catalog.go": "a33b6fc40c7bccda88a7bde623ed2e7315ba7523813914787c83af1b7752db2e",
+    "backend/internal/service/agent/agent_setting_service.go": "0563339923fd4ee6bc3db2af7a5d962d489d28ed92e57d67f0f68a368e5fdfe6",
+    "backend/internal/service/agent/vision_settings.go": "9d7a8b28b2c732221fe208a5a0d38719caf306d3084999a33c76491a47ba5397",
+    "backend/internal/transport/http/admin/agent/setting_handler.go": "2026708b7899d9ed554cbd96217ad9e4ee8dea2fa4955079ea50464fd2a84b67",
+    "web-admin/app/pages/settings/ai/index.vue": "4807fa5d12c277c97712220aadf5731baebc174c3c11d49925f5b68198a8c2ca",
+    "web-admin/app/components/settings/ai/ModalityParamsForm.vue": "9a83db857c277b920316e5f666be5a4577089d09d4b2ae32c76ac6a418ea0a66",
+    "web-admin/app/stores/aiSettings.ts": "bc2c5526d3aed87b82730213934ba891f479742a005d24aae50da0b5925bf5af",
+    "web-admin/app/composables/api/services/aiSettingService.ts": "f8b1461b308e029b24e6099d7a82996538967d01b2a1979af745292fcef7093e",
+    "web-admin/i18n/locales/zh.json": "55115a93fd21105dbd7a524cdbd52ee9c1c93e25501d8685ec39ff58c080b91c",
+    "web-admin/i18n/locales/en.json": "37f5e99b17235967878ea4f72b973eaf2df496c482c268c6071bdd5aeffd864c"
+  },
+  "private_validation_dir": "/tmp/powerx-openai-vision-20261030-224712",
+  "temporary_services": {
+    "port": 3041,
+    "pid": 96356,
+    "command": [
+      "node",
+      "node_modules/nuxt/bin/nuxt.mjs",
+      "dev",
+      "--open=false",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "3041"
+    ],
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+    "owned_processes_before": [
+      "5078 96356 /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/node_modules/sass-embedded-darwin-arm64/dart-sass/src/dart /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/node_modules/sass-embedded-darwin-arm64/dart-sass/src/sass.snapshot --embedded",
+      "96356 96356 node node_modules/nuxt/bin/nuxt.mjs dev --open=false --host 127.0.0.1 --port 3041",
+      "97136 96356 /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/node_modules/@esbuild/darwin-arm64/bin/esbuild --service=0.27.1 --ping",
+      "97154 96356 /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/node_modules/nitropack/node_modules/@esbuild/darwin-arm64/bin/esbuild --service=0.25.12 --ping",
+      "97276 96356 /Users/michaelhu/.nvm/versions/node/v22.13.0/bin/node --enable-source-maps /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/node_modules/@nuxt/cli/dist/dev/index.mjs --open=false --host 127.0.0.1 --port 3041",
+      "97277 96356 /Users/michaelhu/.nvm/versions/node/v22.13.0/bin/node --enable-source-maps /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin/node_modules/@nuxt/cli/dist/dev/index.mjs --open=false --host 127.0.0.1 --port 3041"
+    ],
+    "processes_remaining": [],
+    "port_released": true
+  },
+  "private_acceptance_tools": {
+    "framework_client": "/tmp/powerx-openai-vision-20261030-224712/framework-acceptance",
+    "configuration_script": "/tmp/powerx-openai-vision-20261030-224712/configure-after-restart.py",
+    "credentials": "read existing plugin environment in memory; no new key file",
+    "real_inference_executed": false
+  }
+}

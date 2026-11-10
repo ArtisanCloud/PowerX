@@ -39,13 +39,17 @@ func configureDurableSessions(ctx context.Context, cfg *config.Config, deps *sha
 	if err := config.ValidateDeploymentEnv(cfg.Deployment.Env); err != nil {
 		return err
 	}
+	namespace, err := cfg.RedisNamespace()
+	if err != nil {
+		return err
+	}
 	gateCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	if err := agent_run.ValidateProductionRedis(gateCtx, deps.EventFabric.RedisClient); err != nil {
 		return err
 	}
 	capacity, err := agent_run.NewExecutionCapacity(gateCtx, deps.EventFabric.RedisClient, cfg.Deployment.Env,
-		agent_run.ExecutionCapacityPolicy{TenantLimit: c.TenantConcurrency, RunLimit: cfg.AI.Runtime.MaxConcurrentTasks, LeaseTTL: c.LeaseTTL})
+		agent_run.ExecutionCapacityPolicy{TenantLimit: c.TenantConcurrency, RunLimit: cfg.AI.Runtime.MaxConcurrentTasks, LeaseTTL: c.LeaseTTL}, namespace)
 	if err != nil {
 		return fmt.Errorf("Agent execution capacity: %w", err)
 	}
@@ -82,11 +86,11 @@ func configureDurableSessions(ctx context.Context, cfg *config.Config, deps *sha
 	if !bytes.Equal(actual, payload) {
 		return fmt.Errorf("report bucket readback mismatch")
 	}
-	store, err := agent_run.NewRedisStoreWithQueueWaitTimeout(deps.EventFabric.RedisClient, cfg.AI.Runtime.QueueWaitTimeout)
+	store, err := agent_run.NewRedisStoreWithQueueWaitTimeout(deps.EventFabric.RedisClient, cfg.AI.Runtime.QueueWaitTimeout, namespace)
 	if err != nil {
 		return err
 	}
-	queue, err := event_bus.NewRedisStreamTaskDriver(deps.EventFabric.RedisClient, c.LeaseTTL)
+	queue, err := event_bus.NewRedisStreamTaskDriver(deps.EventFabric.RedisClient, c.LeaseTTL, namespace)
 	if err != nil {
 		return err
 	}

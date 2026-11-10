@@ -1,0 +1,197 @@
+openapi: 3.0.3
+info:
+  title: scrm.messaging.service.contract
+  version: 1.0.0
+servers:
+- url: /api/v1
+x-catalog-status: registered_runtime_gated
+x-runtime-gate: T023
+paths:
+  /service/messaging/endpoints.list:
+    post:
+      operationId: serviceMessagingEndpointsList
+      x-capability-id: com.powerx.plugins.scrm.messaging.endpoints.list
+      security:
+      - CoreServiceTicket: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageRequest'
+      responses:
+        '200':
+          description: scrm.messaging.service.result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointPage'
+        default:
+          description: scrm.messaging.service.failure
+          content:
+            application/json:
+              schema:
+                $ref: ./messaging.openapi.yaml#/components/schemas/Failure
+  /service/messaging/conversations.list:
+    post:
+      operationId: serviceMessagingConversationsList
+      x-capability-id: com.powerx.plugins.scrm.messaging.conversations.list
+      security:
+      - CoreServiceTicket: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+      responses:
+        '200':
+          description: scrm.messaging.service.result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationPage'
+        default:
+          description: scrm.messaging.service.failure
+          content:
+            application/json:
+              schema:
+                $ref: ./messaging.openapi.yaml#/components/schemas/Failure
+  /service/messaging/messages.list:
+    post:
+      operationId: serviceMessagingMessagesList
+      x-capability-id: com.powerx.plugins.scrm.messaging.messages.list
+      security:
+      - CoreServiceTicket: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+      responses:
+        '200':
+          description: scrm.messaging.service.result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePage'
+        default:
+          description: scrm.messaging.service.failure
+          content:
+            application/json:
+              schema:
+                $ref: ./messaging.openapi.yaml#/components/schemas/Failure
+  /service/messaging/executions.reply:
+    post:
+      operationId: serviceMessagingExecutionsReply
+      x-capability-id: com.powerx.plugins.scrm.messaging.executions.reply
+      security:
+      - CoreServiceTicket: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+      responses:
+        '202':
+          description: scrm.messaging.service.accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+        default:
+          description: scrm.messaging.service.failure
+          content:
+            application/json:
+              schema:
+                $ref: ./messaging.openapi.yaml#/components/schemas/Failure
+  /service/messaging/executions.read:
+    post:
+      operationId: serviceMessagingExecutionsRead
+      x-capability-id: com.powerx.plugins.scrm.messaging.executions.read
+      security:
+      - CoreServiceTicket: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutionRequest'
+      responses:
+        '200':
+          description: scrm.messaging.service.result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+        default:
+          description: scrm.messaging.service.failure
+          content:
+            application/json:
+              schema:
+                $ref: ./messaging.openapi.yaml#/components/schemas/Failure
+components:
+  securitySchemes:
+    CoreServiceTicket:
+      type: apiKey
+      in: header
+      name: X-PowerX-Service-Invocation
+  schemas:
+    PageRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - limit
+      properties:
+        cursor: &id001
+          type: string
+          maxLength: 2048
+        limit: &id002
+          type: integer
+          minimum: 1
+          maximum: 100
+    ConversationRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - endpoint_uuid
+      - limit
+      properties:
+        endpoint_uuid: &id003
+          type: string
+          format: uuid
+        cursor: *id001
+        limit: *id002
+    MessageRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - endpoint_uuid
+      - conversation_uuid
+      - limit
+      properties:
+        endpoint_uuid: *id003
+        conversation_uuid: *id003
+        cursor: *id001
+        limit: *id002
+    ExecutionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - endpoint_uuid
+      - execution_uuid
+      properties:
+        endpoint_uuid: *id003
+        execution_uuid: *id003
+    ReplyRequest:
+      $ref: ./messaging.openapi.yaml#/components/schemas/SubmitReply
+    EndpointPage:
+      $ref: ./messaging.openapi.yaml#/components/schemas/EndpointListResponse
+    ConversationPage:
+      $ref: ./messaging.openapi.yaml#/components/schemas/ConversationListResponse
+    MessagePage:
+      $ref: ./messaging.openapi.yaml#/components/schemas/MessageListResponse
+    Execution:
+      $ref: ./messaging.openapi.yaml#/components/schemas/ExecutionResponse

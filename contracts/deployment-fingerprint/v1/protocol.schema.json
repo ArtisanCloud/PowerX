@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:powerx:deployment-fingerprint:v1",
+  "title": "PowerX deployment fingerprint v1.1 shared wire schemas",
+  "$defs": {
+    "Artifact": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "binary",
+            "public_asset"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "path",
+        "sha256",
+        "size"
+      ],
+      "additionalProperties": false
+    },
+    "Manifest": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "powerx.build-fingerprint/v1"
+        },
+        "product": {
+          "const": "powerx"
+        },
+        "component": {
+          "enum": [
+            "backend",
+            "web-admin"
+          ]
+        },
+        "release_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "source_commit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "os": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "arch": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            }
+          },
+          "required": [
+            "os",
+            "arch"
+          ],
+          "additionalProperties": false
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "maxItems": 256,
+          "minItems": 1
+        },
+        "build_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "built_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        }
+      },
+      "required": [
+        "schema",
+        "product",
+        "component",
+        "release_id",
+        "source_commit",
+        "target",
+        "artifacts",
+        "build_id"
+      ],
+      "additionalProperties": false
+    },
+    "BuildInfo": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "powerx.build-fingerprint/v1"
+        },
+        "component": {
+          "const": "backend"
+        },
+        "release_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "source_commit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "build_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema",
+        "component",
+        "release_id",
+        "source_commit",
+        "build_id"
+      ],
+      "additionalProperties": false
+    },
+    "Discovery": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "const": "powerx-marketplace"
+        },
+        "protocol": {
+          "const": "powerx.instance-registration/v1"
+        },
+        "heartbeat_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "service",
+        "protocol"
+      ],
+      "additionalProperties": true
+    },
+    "RegisterLegacy": {
+      "type": "object",
+      "properties": {
+        "fingerprint_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "powerx_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "arch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "required": [
+        "fingerprint_sha256",
+        "powerx_version",
+        "os",
+        "arch"
+      ],
+      "additionalProperties": false
+    },
+    "HeartbeatLegacy": {
+      "type": "object",
+      "properties": {
+        "powerx_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "powerx_version"
+      ],
+      "additionalProperties": false
+    },
+    "RegisterExtended": {
+      "type": "object",
+      "properties": {
+        "fingerprint_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "powerx_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "arch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 16,
+          "uniqueItems": true,
+          "contains": {
+            "const": "powerx.deployment-fingerprint/v1"
+          }
+        },
+        "build_info": {
+          "$ref": "#/$defs/BuildInfo"
+        },
+        "public_site_url": {
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "type": "string",
+              "maxLength": 2048,
+              "format": "uri",
+              "pattern": "^https?://"
+            }
+          ]
+        }
+      },
+      "required": [
+        "fingerprint_sha256",
+        "powerx_version",
+        "os",
+        "arch",
+        "features"
+      ],
+      "additionalProperties": false
+    },
+    "HeartbeatExtended": {
+      "type": "object",
+      "properties": {
+        "powerx_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 16,
+          "uniqueItems": true,
+          "contains": {
+            "const": "powerx.deployment-fingerprint/v1"
+          }
+        },
+        "build_info": {
+          "$ref": "#/$defs/BuildInfo"
+        },
+        "public_site_url": {
+          "anyOf": [
+            {
+              "const": ""
+            },
+            {
+              "type": "string",
+              "maxLength": 2048,
+              "format": "uri",
+              "pattern": "^https?://"
+            }
+          ]
+        }
+      },
+      "required": [
+        "powerx_version",
+        "features"
+      ],
+      "additionalProperties": false
+    },
+    "Challenge": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "powerx.instance-proof/v1"
+        },
+        "challenge_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        },
+        "site_url": {
+          "type": "string",
+          "maxLength": 2048,
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        },
+        "expires_in_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        }
+      },
+      "required": [
+        "schema",
+        "challenge_id",
+        "site_url",
+        "nonce",
+        "expires_at",
+        "expires_in_ms"
+      ],
+      "additionalProperties": false
+    },
+    "Proof": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "powerx.instance-proof/v1"
+        },
+        "challenge_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        }
+      },
+      "required": [
+        "schema",
+        "challenge_id",
+        "nonce",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "ChallengeSet": {
+      "type": "object",
+      "properties": {
+        "server_time": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        },
+        "site_challenges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Challenge"
+          },
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "server_time",
+        "site_challenges"
+      ],
+      "additionalProperties": false
+    },
+    "RegisterResponseLegacy": {
+      "type": "object",
+      "properties": {
+        "instance": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": true
+        },
+        "protocol": {
+          "const": "powerx.instance-registration/v1"
+        }
+      },
+      "required": [
+        "instance",
+        "protocol"
+      ],
+      "additionalProperties": true
+    },
+    "RegisterResponseExtended": {
+      "type": "object",
+      "properties": {
+        "instance": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": true
+        },
+        "protocol": {
+          "const": "powerx.instance-registration/v1"
+        },
+        "server_time": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        },
+        "site_challenges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Challenge"
+          },
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "instance",
+        "protocol",
+        "server_time",
+        "site_challenges"
+      ],
+      "additionalProperties": true
+    },
+    "HeartbeatResponseLegacy": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "recorded"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "HeartbeatResponseExtended": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "recorded"
+        },
+        "server_time": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        },
+        "site_challenges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Challenge"
+          },
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "status",
+        "server_time",
+        "site_challenges"
+      ],
+      "additionalProperties": false
+    },
+    "ProductInformation": {
+      "type": "object",
+      "properties": {
+        "product": {
+          "const": "powerx"
+        },
+        "state": {
+          "enum": [
+            "development",
+            "available",
+            "missing",
+            "invalid",
+            "digest_mismatch"
+          ]
+        },
+        "build_info": {
+          "$ref": "#/$defs/BuildInfo"
+        }
+      },
+      "required": [
+        "product",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "IdentifyRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "site_url"
+      ],
+      "properties": {
+        "site_url": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "pattern": "^https?://"
+        }
+      }
+    }
+  }
+}

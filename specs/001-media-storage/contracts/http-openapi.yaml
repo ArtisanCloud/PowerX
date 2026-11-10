@@ -101,10 +101,11 @@ components:
     AssetUpdate: {type: object, additionalProperties: false, properties: {name: {type: string}, tags: {type: array, items: {type: string}}}}
     CompleteUpload: {type: object, additionalProperties: false, required: [checksum], properties: {checksum: {type: string}}}
     VariantCreate:
+      description: 'thumbnail_64 requires JPEG/PNG, 1..32768 bytes and decoded width/height <=64. Core-generated variants can be reused; consume the returned MIME and size.'
       type: object
       additionalProperties: false
       required: [variant_type, mime_type, size_bytes, checksum]
-      properties: {variant_type: {type: string, enum: [preview, thumbnail]}, name: {type: string}, mime_type: {type: string}, size_bytes: {type: integer, format: int64, minimum: 1}, checksum: {type: string, pattern: '^[a-fA-F0-9]{64}$'}}
+      properties: {variant_type: {type: string, enum: [preview, thumbnail, thumbnail_64]}, name: {type: string}, mime_type: {type: string}, size_bytes: {type: integer, format: int64, minimum: 1}, checksum: {type: string, pattern: '^[a-fA-F0-9]{64}$'}}
     VariantPresign: {type: object, additionalProperties: false, properties: {expires_in_seconds: {type: integer, minimum: 60, maximum: 3600, default: 900}}}
     Asset:
       type: object

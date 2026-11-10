@@ -1,0 +1,125 @@
+{
+  "schema": "powerx.upgrade-payload-registry.validation.v1",
+  "recorded_at": "2026-10-19T07:16:11.497697+00:00",
+  "reported_source_sha": "dc8583939bfb524dbd349fe645652e746deffc74",
+  "inspected_worktree_head": "cdec986b5a452f71eb67dccc13db0ae6d76d93e3",
+  "branch": "024-ai-engineering-skills",
+  "source_trees_equal_before_fix": true,
+  "failed_ci": "https://github.com/ArtisanCloud/PowerX/actions/runs/39212440252",
+  "result": "local_fix_validated_not_committed_or_merged",
+  "cause": "Authorization baseline migration implementation changed without regenerating its content-addressed Core payload manifest.",
+  "migration_review": {
+    "entry": "installedUpgradeSteps.core -> database.MigrateCoreModels -> authorizationbaseline.EnsureInitialized -> rootrole.Ensure + upgradeRootSources",
+    "additional_step_required": false,
+    "reason": "The existing transactional Core callback already performs the required incremental data migration; regenerating the payload creates a new immutable step ID.",
+    "old_core_id": "20261011_core_140b925afeb7b8c9e80b9fb28933218b885dcdd146c2d6a612503b503edd7342",
+    "new_core_id": "20261011_core_ebd0e98226681ef7f43b7dca6c1da6d8ecf1af9480c422e40438f2ec208751ac",
+    "unchanged_groups": [
+      "agent",
+      "knowledge",
+      "catalog"
+    ],
+    "newly_hashed_dependencies": [
+      "backend/pkg/corex/iam/rootrole/*.go",
+      "backend/pkg/corex/iam/const.go"
+    ],
+    "old_journal_and_authorization_history_preserved": true,
+    "new_root_source_begins_at_upgrade_time": true,
+    "business_role_bindings_added": false,
+    "repeat_apply_skips_completed_step": true
+  },
+  "validation": [
+    {
+      "command": "python3 deploy/powerx/container/upgrade_registry.py",
+      "result": "passed; only Core checksum changed"
+    },
+    {
+      "command": "python3 deploy/powerx/container/upgrade_registry.py --check",
+      "result": "passed; original failure reproduced before fix"
+    },
+    {
+      "command": "python3 deploy/powerx/container/test_init.py",
+      "result": "passed; 2 tests"
+    },
+    {
+      "command": "python3 -m unittest discover -s deploy/powerx/container -p 'test_upgrade*.py'",
+      "result": "passed; 23 tests including 3 new registry tests"
+    },
+    {
+      "command": "sh -n deploy/powerx/container/entrypoint.sh deploy/powerx/container/run.sh",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./cmd/database -run '^TestInstalledCoreUpgradeMigratesLegacyRootBaselineWithNewIdentity$' -count=1 -v",
+      "result": "passed on disposable PostgreSQL 14.15; real published callback and old migration journal exercised"
+    },
+    {
+      "command": "go test ./cmd/database ./config ./pkg/corex/db/database ./internal/service/integration_gateway/apikeypermissions ./pkg/corex/db/persistence/repository/iam ./pkg/corex/iam/authorizationbaseline ./pkg/corex/iam/rootrole",
+      "result": "passed; isolated upgrade and baseline migration DSNs enabled"
+    },
+    {
+      "command": "go test ./internal/service/integration_gateway -run '^TestUpgrade' -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./pkg/corex/iam/authorizationbaseline ./internal/service/authorization_baseline ./internal/service/iam -count=1",
+      "result": "passed"
+    },
+    {
+      "command": "go test ./pkg/corex/iam/authorizationbaseline -count=1",
+      "result": "passed with isolated POWERX_BASELINE_POSTGRES_DSN; concurrency and transaction tests enabled"
+    },
+    {
+      "command": "go vet ./cmd/database ./pkg/corex/db/database ./pkg/corex/iam/authorizationbaseline ./pkg/corex/iam/rootrole",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "resolved_test_fixture_issues": [
+    "Initial new test incorrectly queried member_uuid on the segment table; corrected to look up the stream first.",
+    "A retry against the first test database reused a permission key; randomized the fixture module and reran on a newly recreated disposable test database."
+  ],
+  "remaining_verification": [
+    "make unit-test fails because backend/test-silent.sh is absent in the reported source; no global suite pass claimed.",
+    "New release CI regression is configured for PostgreSQL 16 with vector; local verification used PostgreSQL 14.15.",
+    "No new OCI images, installed-image upgrade acceptance, PR, merge or deployment was executed."
+  ],
+  "runtime": {
+    "owner": "codex-upgrade-payload-validation",
+    "pid": 84250,
+    "command": [
+      "/opt/homebrew/opt/postgresql@14/bin/pg_ctl",
+      "-D",
+      "/tmp/powerx-upgrade-payload-ggat5mtc/data",
+      "-l",
+      "/tmp/powerx-upgrade-payload-ggat5mtc/postgres.log",
+      "-o",
+      "-F -k /tmp/powerx-upgrade-payload-ggat5mtc/socket -p 54931 -h ''",
+      "-w",
+      "start"
+    ],
+    "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX",
+    "tcp_listen": false,
+    "unix_socket_port": 54931,
+    "socket_directory": "/tmp/powerx-upgrade-payload-ggat5mtc/socket",
+    "created_at": "2026-10-19T07:08:14Z",
+    "stopped_at": "2026-10-19T07:16:11.390186+00:00",
+    "stop_command": [
+      "/opt/homebrew/opt/postgresql@14/bin/pg_ctl",
+      "-D",
+      "/tmp/powerx-upgrade-payload-ggat5mtc/data",
+      "-m",
+      "fast",
+      "-w",
+      "stop"
+    ],
+    "process_and_socket_released": true
+  },
+  "logs": "test-results/upgrade-payload-20261019/",
+  "unrelated_changes_preserved": [
+    "docs/contracts/evidence/iam-managed-root-remote-validation-20261019.json"
+  ]
+}

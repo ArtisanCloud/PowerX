@@ -2,6 +2,8 @@ package notifications
 
 import (
 	"context"
+	"errors"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"strings"
 	"time"
 
@@ -16,9 +18,10 @@ import (
 )
 
 type Service struct {
-	db   *gorm.DB
-	repo *repo.NotificationRepository
-	now  func() time.Time
+	db                       *gorm.DB
+	repo                     *repo.NotificationRepository
+	now                      func() time.Time
+	LookupPresentationPlugin func(context.Context, string) (plugin_mgr.Plugin, error)
 }
 
 func NewService(db *gorm.DB) *Service {
@@ -103,6 +106,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Notifi
 		}
 		item.ServiceOwner = owner
 	}
+	if err := s.validateBusinessCard(ctx, item); err != nil {
+		return nil, err
+	}
+	item.Revision = 1
 	return s.repo.Create(ctx, item)
 }
 
@@ -135,7 +142,7 @@ func (s *Service) Get(ctx context.Context, tenantUUID, memberUUID, uuid string) 
 }
 
 func (s *Service) MarkRead(ctx context.Context, tenantUUID, memberUUID, uuid string) error {
-	return s.repo.MarkRead(ctx, tenantUUID, memberUUID, uuid, s.now())
+	return s.MarkReadVersion(ctx, tenantUUID, memberUUID, uuid, 0)
 }
 
 func (s *Service) Delete(ctx context.Context, tenantUUID, memberUUID, uuid string) error {
@@ -144,4 +151,13 @@ func (s *Service) Delete(ctx context.Context, tenantUUID, memberUUID, uuid strin
 
 func (s *Service) DeleteAll(ctx context.Context, tenantUUID, memberUUID string) (int64, error) {
 	return s.repo.DeleteAll(ctx, tenantUUID, memberUUID)
+}
+
+// MarkReadVersion rejects unversioned/stale receipts for dynamic cards.
+func (s *Service) MarkReadVersion(ctx context.Context, tenant, member, id string, expected int64) error {
+	err := s.repo.MarkReadVersion(ctx, tenant, member, id, expected, s.now())
+	if errors.Is(err, repo.ErrRevisionConflict) {
+		return receiptError(409, "NOTIFICATION_REVISION_CONFLICT")
+	}
+	return err
 }

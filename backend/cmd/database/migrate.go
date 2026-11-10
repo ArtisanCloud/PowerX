@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"github.com/jackc/pgx/v5"
 	"gorm.io/gorm"
 )
 
@@ -28,8 +30,52 @@ func validateMigrationScope(command, scope string) error {
 	if scope == "" {
 		return nil
 	}
-	if command != "migrate" || (scope != "storage-governance" && scope != "capability-retention") {
-		return fmt.Errorf("scope 仅支持 migrate -scope storage-governance 或 capability-retention")
+	if command != "migrate" || (scope != "customer-client-apps" && scope != "backup-cleanup-resolution" && scope != "backup-cleanup-retention" && scope != "storage-governance" && scope != "capability-retention" && scope != "system-table-retention" && scope != "task-history-idempotency" && scope != "event-fabric-service-identity" && scope != "scheduler-task-dispatch") {
+		return fmt.Errorf("scope 仅支持 migrate -scope customer-client-apps、backup-cleanup-resolution、backup-cleanup-retention、storage-governance、capability-retention、system-table-retention、task-history-idempotency 、event-fabric-service-identity 或 scheduler-task-dispatch")
+	}
+	return nil
+}
+
+// validateSystemTableRetentionTarget 将这次本地准备绑定到明确的数据库／schema 和回环连接。
+func validateSystemTableRetentionTarget(ctx context.Context, db *gorm.DB, cfg *config.Config, name, schema string) error {
+	if cfg == nil || name == "" || schema == "" || schema != model.PowerXSchema {
+		return fmt.Errorf("system-table-retention requires exact -confirm-database and -confirm-schema")
+	}
+	local := func(host string) bool {
+		if host == "localhost" || strings.HasPrefix(host, "/") {
+			return true
+		}
+		ip := net.ParseIP(host)
+		return ip != nil && ip.IsLoopback()
+	}
+	if cfg.Database.DSN != "" {
+		conn, err := pgx.ParseConfig(cfg.Database.DSN)
+		if err != nil || !local(conn.Host) {
+			return fmt.Errorf("system-table-retention requires a configured local database endpoint")
+		}
+		for _, fallback := range conn.Fallbacks {
+			if !local(fallback.Host) {
+				return fmt.Errorf("system-table-retention rejects remote fallback endpoints")
+			}
+		}
+	} else if !local(cfg.Database.Host) {
+		return fmt.Errorf("system-table-retention requires a configured local database endpoint")
+	}
+	if cfg.StorageGovernance.PostgresClusterID == "" {
+		return fmt.Errorf("system-table-retention requires registered PostgreSQL cluster identity")
+	}
+	var target struct {
+		Database string
+		Cluster  string
+	}
+	if err := db.WithContext(ctx).Raw("SELECT current_database() AS database,'pg-' || system_identifier::text AS cluster FROM pg_control_system()").Scan(&target).Error; err != nil {
+		return err
+	}
+	if target.Database != name {
+		return fmt.Errorf("system-table-retention database confirmation mismatch")
+	}
+	if target.Cluster != cfg.StorageGovernance.PostgresClusterID {
+		return fmt.Errorf("system-table-retention PostgreSQL cluster identity mismatch")
 	}
 	return nil
 }
@@ -56,8 +102,29 @@ func MigrateDatabaseScope(ctx context.Context, db *gorm.DB, cfg *config.Config, 
 			if err := tx.Exec("SET LOCAL lock_timeout='3s'").Error; err != nil {
 				return err
 			}
+			if scope == "customer-client-apps" {
+				return database.MigrateCustomerClientAppModels(tx)
+			}
+			if scope == "backup-cleanup-resolution" {
+				return database.MigrateBackupCleanupResolutionModels(tx)
+			}
+			if scope == "backup-cleanup-retention" {
+				return database.MigrateBackupCleanupRetentionModels(tx)
+			}
+			if scope == "system-table-retention" {
+				return database.MigrateSystemTableRetentionIndexes(tx)
+			}
+			if scope == "scheduler-task-dispatch" {
+				return database.MigrateSchedulerTaskDispatch(tx)
+			}
 			if scope == "capability-retention" {
 				return database.MigrateCapabilityRetentionModels(tx)
+			}
+			if scope == "task-history-idempotency" {
+				return database.MigrateTaskHistoryIdempotency(tx)
+			}
+			if scope == "event-fabric-service-identity" {
+				return database.MigrateEventServiceDeliveryIdentity(tx)
 			}
 			return database.MigrateStorageGovernanceModels(tx)
 		})

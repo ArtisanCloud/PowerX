@@ -8,7 +8,7 @@ const backendPort = Number(process.env.POWERX_SESSION_TEST_BACKEND_PORT || 3474)
 if (![webPort, backendPort].every(port => Number.isInteger(port) && port > 1024 && port < 65536) || webPort === backendPort) {
   throw new Error('Session browser tests require two distinct unprivileged ports');
 }
-const entry = resolve('.output/server/index.mjs');
+const entry = resolve(process.env.POWERX_WEB_OUTPUT || '.output', 'server/index.mjs');
 if (!existsSync(entry)) throw new Error('Run npm run build before the session browser tests');
 
 const pluginId = 'com.powerx.plugins.ai-craft';
@@ -17,6 +17,8 @@ const token = () => `header.${Buffer.from(JSON.stringify({ tid: tenantUuid, exp:
 const requests = [];
 let rejectDocuments = false;
 let rejectNextDocuments = 0;
+let sessionState = 'active';
+let contextCode = '';
 const context = {
   is_root: true, current_tenant_uuid: tenantUuid, current_member_id: 1,
   user: { id: 1, email: 'fixture@example.invalid', phone: '', display_name: 'Session fixture', avatar_url: '', status: 1, is_root: true },
@@ -35,10 +37,10 @@ addEventListener('DOMContentLoaded', function () {
   client.onAuthToken(async function (payload) {
     if (payload.type === 'auth-cleared') { document.body.dataset.auth = 'cleared'; return; }
     var response = await fetch('/api/v1/admin/user/auth/me/context', {
-      headers: { Authorization: 'Bearer ' + payload.accessToken }
+      headers: { Authorization: 'Bearer ' + payload.accessToken, 'X-Session-Fixture-Plugin': '1' }
     });
-    if (!response.ok) throw new Error('Context verification failed');
-    await response.json();
+    var result = await response.json();
+    if (!response.ok) throw Object.assign(new Error('Context verification failed'), {status: response.status, data: result});
     document.body.dataset.auth = 'applied';
   });
 });
@@ -51,13 +53,15 @@ function json(response, status, data) {
 const backend = createServer(async (request, response) => {
   const url = new URL(request.url || '/', `http://127.0.0.1:${backendPort}`);
   if (url.pathname === '/api/v1/__session_test/state') {
-    if (request.method === 'DELETE') { requests.length = 0; rejectDocuments = false; rejectNextDocuments = 0; }
+    if (request.method === 'DELETE') { requests.length = 0; rejectDocuments = false; rejectNextDocuments = 0; sessionState = 'active'; contextCode = ''; }
     if (request.method === 'PUT') {
       let body = '';
       for await (const chunk of request) body += chunk;
       const options = JSON.parse(body);
       rejectDocuments = options.rejectDocuments === true;
       rejectNextDocuments = Math.max(0, Number(options.rejectNextDocuments || 0));
+      sessionState = options.sessionState || 'active';
+      contextCode = options.contextCode || '';
     }
     json(response, 200, { requests });
     return;
@@ -76,8 +80,13 @@ const backend = createServer(async (request, response) => {
     json(response, 200, { data: { configured: true, requires_login: true, restart_required: false, install_status: 'installed' } });
   } else if (url.pathname.endsWith('/user/auth/refresh')) {
     json(response, 200, { data: { access_token: token(), refresh_token: 'fixture-refresh-renewed', expires_in: 3600, token_type: 'Bearer', scope: 'access' } });
+  } else if (url.pathname.endsWith('/user/auth/me/session')) {
+    if (sessionState === 'unavailable') json(response, 503, { error_code: 'AUTH_SESSION_UNAVAILABLE' });
+    else if (sessionState === 'expired') json(response, 401, { error_code: 'AUTH_SESSION_EXPIRED' });
+    else json(response, hasBearer ? 200 : 401, hasBearer ? { data: { status: 'active', session_expires_at: Date.now()+3600000 } } : { error_code: 'AUTH_SESSION_INVALID' });
   } else if (url.pathname.endsWith('/user/auth/me/context')) {
-    json(response, hasBearer ? 200 : 401, hasBearer ? { data: context } : { error: 'missing bearer' });
+    if (contextCode && request.headers['x-session-fixture-plugin'] === '1') json(response, contextCode === 'IAM_CONTEXT_USER_FORBIDDEN' ? 403 : 401, { error_code: contextCode });
+    else json(response, hasBearer ? 200 : 401, hasBearer ? { data: context } : { error: 'missing bearer' });
   } else if (url.pathname.endsWith('/admin/menus')) {
     json(response, 200, { data: { categories: [{ id: 'fixture', title: 'Session fixture', order: 1, origin: 'plugin', children: [
       { id: `plugin:${pluginId}:tracks`, title: 'Tracks', path: '/operations/ai-craft/tracks', origin: 'plugin', visible: true },

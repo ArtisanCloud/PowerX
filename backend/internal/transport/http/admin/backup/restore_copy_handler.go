@@ -15,26 +15,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RequireRestoreRoot 与普通备份策略权限分离；整库副本不能由插件或租户管理员调用。
+// RequireRestoreRoot 与整机备份复用真实 Root 用户会话检查，保留恢复专用错误码。
 func RequireRestoreRoot() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		claims := reqctx.GetClaims(c.Request.Context())
-		service := false
-		if claims != nil {
-			service = claims.Issuer == "powerx-sts"
-			for _, plane := range claims.Platforms {
-				if plane == "api_key" {
-					service = true
-				}
-			}
-		}
-		if !reqctx.IsRoot(c.Request.Context()) || service {
-			dto.RespondErrorFrom(c, dto.NewErrorWithCode(403, "RESTORE_ROOT_REQUIRED", "完整数据库恢复仅允许平台 Root 用户会话", nil))
-			c.Abort()
-			return
-		}
-		c.Next()
-	}
+	return requirePlatformRootSession("RESTORE_ROOT_REQUIRED", "完整数据库恢复仅允许平台 Root 用户会话")
 }
 
 type restoreCopyRequest struct {

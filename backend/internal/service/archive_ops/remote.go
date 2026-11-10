@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -39,19 +38,10 @@ func (s *Service) sshArgs(t Target) ([]string, error) {
 	}
 	return []string{"-F", "/dev/null", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + c.KnownHostsFile, "-o", "ConnectTimeout=10", "-i", c.KeyFile, "-p", strconv.Itoa(t.Port)}, nil
 }
-func archiveCommand(ctx context.Context, program string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, program, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		if cmd.Process == nil {
-			return nil
-		}
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
-	}
-	cmd.WaitDelay = 5 * time.Second
-	return cmd
-}
 func (s *Service) remote(ctx context.Context, t Target, op, policyID, jobID string, params map[string]any) (map[string]any, error) {
+	if e := s.remoteExecutionAllowed(); e != nil {
+		return nil, e
+	}
 	if t.Driver == "s3" {
 		if op != "read" && op != "verify" {
 			return nil, errors.New("S3 归档操作不支持")
@@ -87,12 +77,16 @@ func (s *Service) remote(ctx context.Context, t Target, op, policyID, jobID stri
 		quoted = append(quoted, quoteShell(arg))
 	}
 	args = append(args, t.User+"@"+t.Host, strings.Join(quoted, " "))
-	cmd := archiveCommand(ctx, "ssh", args...)
+	cmd := exec.Command("ssh", args...)
+	commandID, e := s.commandForRemote(jobID, t)
+	if e != nil {
+		return nil, e
+	}
 	cmd.Stdin = strings.NewReader(receiverScript)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = io.Discard
-	if e = cmd.Run(); e != nil {
+	if e = s.runArchiveCommand(ctx, cmd, commandID, "ssh"); e != nil {
 		return nil, errors.New("远端接收器失败，请检查 SSH 信任、Python3、目录权限及文件校验")
 	}
 	var result map[string]any
@@ -101,7 +95,10 @@ func (s *Service) remote(ctx context.Context, t Target, op, policyID, jobID stri
 	}
 	return result, nil
 }
-func (s *Service) rsync(ctx context.Context, t Target, from, to string, pull bool) error {
+func (s *Service) rsync(ctx context.Context, t Target, from, to string, pull bool, jobID string) error {
+	if e := s.remoteExecutionAllowed(); e != nil {
+		return e
+	}
 	args, e := s.sshArgs(t)
 	if e != nil {
 		return e
@@ -122,10 +119,14 @@ func (s *Service) rsync(ctx context.Context, t Target, from, to string, pull boo
 	} else {
 		values = append(values, from, remote)
 	}
-	cmd := archiveCommand(ctx, "rsync", values...)
+	cmd := exec.Command("rsync", values...)
+	commandID, e := s.commandForRemote(jobID, t)
+	if e != nil {
+		return e
+	}
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
-	if e = cmd.Run(); e != nil {
+	if e = s.runArchiveCommand(ctx, cmd, commandID, "rsync"); e != nil {
 		return errors.New("rsync 传输失败，请检查连接、磁盘空间及远端 rsync 安装")
 	}
 	return nil
@@ -138,11 +139,18 @@ func (s *Service) upload(ctx context.Context, j *jobRecord) {
 	e := s.uploadSnapshot(ctx, j)
 	if e != nil {
 		j.RemoteState = "failed"
+		if ctx.Err() != nil {
+			j.InterruptionPending = true
+			j.RemoteState = "unconfirmed"
+			j.Phase = "interrupted"
+		}
 		j.RemoteError = e.Error()
 		delay := time.Duration(1<<min(j.Attempts, 8)) * time.Minute
 		j.RetryAt = time.Now().UTC().Add(delay)
 	} else {
 		j.RemoteState = "success"
+		j.InterruptionPending = false
+		j.Phase = "completed"
 		j.RemoteError = ""
 		j.RetryAt = time.Time{}
 	}
@@ -191,15 +199,15 @@ func (s *Service) uploadSnapshot(ctx context.Context, j *jobRecord) error {
 			}
 		}
 	}
-	if e = s.rsync(ctx, t, filepath.Join(stage, "objects")+"/", expected+"/objects/", false); e != nil {
+	if e = s.rsync(ctx, t, filepath.Join(stage, "objects")+"/", expected+"/objects/", false, j.ID); e != nil {
 		return e
 	}
 	// 验证后的快照清单最后发布，未完成传输不会成为可恢复归档。
 	manifestPath := filepath.Join(stage, j.ID+".json")
-	if e = writeJSON(manifestPath, j.Job); e != nil {
+	if e = writeJSON(manifestPath, archiveManifest(j.Job)); e != nil {
 		return e
 	}
-	if e = s.rsync(ctx, t, manifestPath, expected+"/incoming/"+j.ID+".json", false); e != nil {
+	if e = s.rsync(ctx, t, manifestPath, expected+"/incoming/"+j.ID+".json", false, j.ID); e != nil {
 		return e
 	}
 	if e = s.transferAllowed(ctx, *j); e != nil {
@@ -212,12 +220,28 @@ func (s *Service) uploadSnapshot(ctx context.Context, j *jobRecord) error {
 	return nil
 }
 func (s *Service) TestTarget(ctx context.Context, id string) error {
+	if s.targetControlRequired() {
+		if e := s.targetControlCheck(ctx); e != nil {
+			return e
+		}
+	}
 	if e := s.check(ctx); e != nil {
 		return e
 	}
 	return s.testTarget(ctx, id)
 }
 func (s *Service) testTarget(ctx context.Context, id string) error {
+	if e := s.remoteExecutionAllowed(); e != nil {
+		return e
+	}
+	if !validID(id) {
+		return failure(400, "ARCHIVE_TARGET_INVALID", "目标编号必须是 UUID")
+	}
+	probeUnlock, e := s.lock(ctx, "probe-target-"+id)
+	if e != nil {
+		return failure(409, "ARCHIVE_BUSY", "该目标探测正在执行，请保留原记录")
+	}
+	defer probeUnlock()
 	t, e := s.target(id)
 	if e != nil {
 		return e
@@ -234,6 +258,9 @@ func (s *Service) testTarget(ctx context.Context, id string) error {
 	}
 	if e != nil {
 		return e
+	}
+	if s.targetControlRequired() {
+		return s.confirmTargetVerification(ctx, t, before)
 	}
 	unlock, e := s.lock(ctx, "settings")
 	if e != nil {
@@ -316,7 +343,7 @@ func (s *Service) ensureObjects(ctx context.Context, j jobRecord) error {
 		if e = os.MkdirAll(filepath.Dir(dest), 0700); e != nil {
 			return e
 		}
-		if e = s.rsync(ctx, *j.Target, filepath.Dir(dest)+"/", namespace+"/objects/"+entry.SHA256[:2]+"/"+entry.SHA256, true); e != nil {
+		if e = s.rsync(ctx, *j.Target, filepath.Dir(dest)+"/", namespace+"/objects/"+entry.SHA256[:2]+"/"+entry.SHA256, true, j.ID); e != nil {
 			return e
 		}
 		if e = verifyObject(ctx, dest, entry); e != nil {

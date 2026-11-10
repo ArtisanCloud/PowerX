@@ -12,6 +12,7 @@ import (
 	settingmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	gwrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	settingrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/setting"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/pluginpermission"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/gorm"
 )
@@ -173,6 +174,7 @@ func (s *GrantStatusService) allowedForGatewayAPIKey(ctx context.Context, tenant
 			CapabilityID string `json:"capability_id"`
 			Explicit     bool   `json:"api_key_explicit"`
 			APIKey       struct {
+				PluginID     string `json:"plugin_id"`
 				Scope        string `json:"scope"`
 				Action       string `json:"action"`
 				ResourceType string `json:"resource_type"`
@@ -186,7 +188,23 @@ func (s *GrantStatusService) allowedForGatewayAPIKey(ctx context.Context, tenant
 		if !meta.Explicit || meta.CapabilityID == "" || meta.APIKey.Effect != "allow" {
 			continue
 		}
-		granted := gwrepo.APIKeyPermissionGranted(permissions, meta.APIKey.Scope, meta.APIKey.Action, meta.APIKey.ResourceType, meta.APIKey.Resource)
+		granted := false
+		if strings.HasPrefix(definition.Source, "plugin:") || !strings.HasPrefix(meta.CapabilityID, "com.corex.") {
+			owner := strings.TrimPrefix(definition.Source, "plugin:")
+			if !strings.HasPrefix(definition.Source, "plugin:") || owner == "" {
+				continue
+			}
+			// IAM 来源和声明 owner 必须一致，不能借用 Core 的 scope 或另一个插件的 grant。
+			spec := pluginpermission.APIKeySpec{CapabilityID: meta.CapabilityID, PluginID: meta.APIKey.PluginID,
+				Scope: meta.APIKey.Scope, Action: meta.APIKey.Action, ResourceType: meta.APIKey.ResourceType,
+				ResourcePattern: meta.APIKey.Resource, Effect: meta.APIKey.Effect}
+			if _, err := pluginpermission.ExplicitAPIKeyMetadata(&spec, owner, meta.CapabilityID, true); err != nil {
+				continue
+			}
+			granted = gwrepo.APIKeyPermissionGrantedForPlugin(permissions, owner, meta.APIKey.Scope, meta.APIKey.Action, meta.APIKey.ResourceType, meta.APIKey.Resource)
+		} else {
+			granted = gwrepo.APIKeyPermissionGranted(permissions, meta.APIKey.Scope, meta.APIKey.Action, meta.APIKey.ResourceType, meta.APIKey.Resource)
+		}
 		if granted {
 			allowed[meta.CapabilityID] = true
 		}

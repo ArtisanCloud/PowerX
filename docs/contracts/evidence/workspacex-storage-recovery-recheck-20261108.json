@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-11-08T06:06:44.752167182Z",
+  "customer_writes_attempted": 0,
+  "found": false,
+  "gateway_success": true,
+  "grant_status_success": true,
+  "grants": [
+    {
+      "capability_id": "com.corex.customer.external_identities.service_read",
+      "status": "granted",
+      "reason_code": "CAPABILITY_GRANTED"
+    },
+    {
+      "capability_id": "com.corex.customer.external_identities.service_manage",
+      "status": "granted",
+      "reason_code": "CAPABILITY_GRANTED"
+    }
+  ],
+  "lookup_success": true,
+  "orders_or_payments_attempted": 0,
+  "readonly": true,
+  "schema_version": 1,
+  "evidence_capture": "official_Framework_v0.0.28_with_existing_dedicated_Key",
+  "previous_storage_blocker_reproduced": false,
+  "existing_credential_unchanged": true,
+  "core_source_configuration_permissions_or_process_changed_by_WorkspaceX": false,
+  "temporary_relay_stopped": true,
+  "temporary_probe_removed": true,
+  "temporary_relay_listener_released": true,
+  "imported_by": "PowerX storage reconciliation; existing WorkspaceX evidence, no new credential or live call in this change",
+  "source_file": "/private/var/www/html/ArtisanCloud/X/WorkspaceX/specs/013-distribution-and-licensing/evidence/core-customer-identity-20261108/core-recovery-recheck.json",
+  "source_sha256": "b3d64869c19332e74e6828dc9adb806fb7618fe1abea3e7fc77e7177f7cf1be7"
+}

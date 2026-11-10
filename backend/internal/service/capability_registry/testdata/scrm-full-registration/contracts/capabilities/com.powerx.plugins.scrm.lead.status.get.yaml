@@ -1,0 +1,16 @@
+id: com.powerx.plugins.scrm.lead.status.get
+type: API
+version: 1.0.0
+description: "通过 PowerX Gateway 查询 SCRM 私域运营漏斗状态与最近桥接状态。"
+rbac:
+  resource: scrm.leads
+  actions: [read]
+metadata:
+  bridge:
+    scope: status_projection
+    funnel: private_domain_operations
+    transport: powerx_gateway
+  protocols:
+    capability:
+      action: get
+      subject: scrm.lead.status

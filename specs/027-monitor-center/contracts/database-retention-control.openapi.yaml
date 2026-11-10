@@ -1,0 +1,641 @@
+openapi: 3.0.3
+info:
+  title: Root invocation audit retention authority
+  version: 1.0.0
+  description: Fixed two-table adapter. Explicit paused adoption, CAS, immutable original UUID receipts,
+    formal TaskBus publication and atomic database cleanup receipts. No tenant or service-actor grant.
+servers:
+- url: /api/v1
+security:
+- RootUserJWT: []
+paths:
+  /admin/ops/storage/database-retention:
+    get:
+      summary: Read desired policy, three publication versions, prerequisites, physical bytes and recent
+        receipts
+      responses:
+        '200':
+          description: Status with database/legacy/unavailable configuration authority; readiness does
+            not mean enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Status'
+        '403':
+          description: Root human access session required
+    put:
+      deprecated: true
+      summary: Legacy JSON writer disabled
+      responses:
+        '428':
+          description: Use explicit adoption and typed changes
+  /admin/ops/storage/database-retention/adoptions:
+    post:
+      summary: Adopt current legacy digest with cleanup paused; unconfirmed historical outcomes block
+        adoption
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - legacy_digest
+              - confirm
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                legacy_digest:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+      responses:
+        '200':
+          description: Original request receipt and current publication state; enqueue is not execution
+            approval
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '409':
+          description: Legacy drift
+          unconfirmed results or conflicting request identity: null
+        '503':
+          description: Schema
+          source or worker unavailable: null
+  /admin/ops/storage/database-retention/changes:
+    post:
+      summary: Save fixed settings paused, or separately confirm enabled status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - request_id
+              - expected_revision
+              - action
+              - confirm
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                action:
+                  type: string
+                  enum:
+                  - save
+                  - status
+                settings:
+                  $ref: '#/components/schemas/Settings'
+                enabled:
+                  type: boolean
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+              description: save requires settings and forbids enabled; status requires enabled and forbids
+                settings. Save pauses cleanup. Pending capacity relaxation cannot remove existing protection.
+      responses:
+        '200':
+          description: Original request ID
+          operation_revision and current configuration: null
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '409':
+          description: CAS or original request payload conflict
+        '428':
+          description: Explicit adoption required
+        '503':
+          description: Prerequisites unavailable
+  /admin/ops/storage/database-retention/requests/{request_id}:
+    get:
+      summary: Read original policy receipt without resubmitting a change
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Original operation revision and current configuration; current read failure does
+            not erase a committed receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Mutation'
+        '403':
+          description: Root session and original actor required
+        '404':
+          description: Keep outcome unconfirmed; do not automatically retry POST
+  /admin/ops/storage/database-retention/previews:
+    post:
+      summary: Read-only invocation candidate check and five-minute governance preview receipt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_revision
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+      responses:
+        '200':
+          description: Preview UUID
+          revision: null
+          actor: null
+          fixed cutoffs: null
+          expires_at: null
+          policy_snapshot and counts; preview metadata is persisted: null
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Run'
+        '409':
+          description: Revision not current or publication pending
+        '503':
+          description: PostgreSQL adapter
+          indexes: null
+          schema or deployment unavailable: null
+  /admin/ops/storage/database-retention/runs:
+    post:
+      summary: Atomically consume the exact preview, process eligible rows and persist completion receipt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_revision
+              - request_id
+              - preview_id
+              - confirm
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                request_id:
+                  type: string
+                  format: uuid
+                preview_id:
+                  type: string
+                  format: uuid
+                confirm:
+                  type: boolean
+                  enum:
+                  - true
+      responses:
+        '200':
+          description: Completed original receipt; same exact request returns the original result without
+            deleting again
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Run'
+        '409':
+          description: Expired/consumed preview
+          actor/version change: null
+          pending publication: null
+          disabled policy or request mismatch: null
+        '428':
+          description: Preview UUID required
+        '503':
+          description: Unavailable or transaction outcome not confirmed; read original request only
+  /admin/ops/storage/database-retention/runs/{request_id}:
+    get:
+      summary: Read original manual execution receipt; no status polling or retry side effects
+      parameters:
+      - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Completed receipt retained for at least 30 days; cutoffs and actor are immutable
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - code
+                - data
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Run'
+        '403':
+          description: Root human session and original actor required
+        '404':
+          description: Unconfirmed outcome; never interpreted as permission to retry
+components:
+  securitySchemes:
+    RootUserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    RequestID:
+      in: path
+      name: request_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    Settings:
+      type: object
+      additionalProperties: false
+      required:
+      - success_days
+      - failure_days
+      - pending_hours
+      - quarantine_days
+      - batch_limit
+      - max_bytes
+      - adopt_legacy
+      - reject_new_when_full
+      properties:
+        success_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        failure_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+          description: Must be at least success_days
+        pending_hours:
+          type: integer
+          minimum: 1
+          maximum: 720
+        quarantine_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        batch_limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        max_bytes:
+          type: integer
+          format: int64
+          minimum: 67108864
+          maximum: 1125899906842624
+        adopt_legacy:
+          type: boolean
+        reject_new_when_full:
+          type: boolean
+    Policy:
+      type: object
+      additionalProperties: false
+      required:
+      - success_days
+      - failure_days
+      - pending_hours
+      - quarantine_days
+      - batch_limit
+      - max_bytes
+      - adopt_legacy
+      - reject_new_when_full
+      - revision
+      - enabled
+      - owner_instance
+      - updated_at
+      - actor
+      properties:
+        success_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        failure_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+          description: Must be at least success_days
+        pending_hours:
+          type: integer
+          minimum: 1
+          maximum: 720
+        quarantine_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        batch_limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        max_bytes:
+          type: integer
+          format: int64
+          minimum: 67108864
+          maximum: 1125899906842624
+        adopt_legacy:
+          type: boolean
+        reject_new_when_full:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        enabled:
+          type: boolean
+        owner_instance:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        actor:
+          type: integer
+          format: int64
+          minimum: 0
+    Configuration:
+      type: object
+      required:
+      - authority
+      - state
+      - ready
+      - execution_ready
+      - desired_revision
+      - applied_revision
+      - snapshot_revision
+      - legacy_digest
+      - effective_capacity
+      properties:
+        authority:
+          type: string
+          enum:
+          - database
+          - legacy
+          - unavailable
+        state:
+          type: string
+          enum:
+          - legacy
+          - unconfigured
+          - pending
+          - applied
+          - failed
+          - unconfirmed
+          - unavailable
+        ready:
+          type: boolean
+        execution_ready:
+          type: boolean
+        desired_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        applied_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        snapshot_revision:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        legacy_digest:
+          type: string
+        problem:
+          type: string
+        effective_capacity:
+          allOf:
+          - $ref: '#/components/schemas/Settings'
+          nullable: true
+    Mutation:
+      type: object
+      required:
+      - request_id
+      - operation_revision
+      - configuration
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        operation_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        configuration:
+          $ref: '#/components/schemas/Configuration'
+    Cutoffs:
+      type: object
+      required:
+      - success
+      - failure
+      - pending
+      - quarantine
+      - limit
+      - adopt_legacy
+      properties:
+        success:
+          type: string
+          format: date-time
+        failure:
+          type: string
+          format: date-time
+        pending:
+          type: string
+          format: date-time
+        quarantine:
+          type: string
+          format: date-time
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        adopt_legacy:
+          type: boolean
+    Run:
+      type: object
+      required:
+      - id
+      - revision
+      - state
+      - at
+      - actor
+      - counts
+      - policy_snapshot
+      - cutoffs
+      - trigger
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+        state:
+          type: string
+          enum:
+          - preview
+          - completed
+        at:
+          type: string
+          format: date-time
+        actor:
+          type: integer
+          format: int64
+          minimum: 0
+        counts:
+          type: object
+          required:
+          - traces
+          - events
+          - quarantined
+          - classified
+          properties:
+            traces:
+              type: integer
+              format: int64
+              minimum: 0
+            events:
+              type: integer
+              format: int64
+              minimum: 0
+            quarantined:
+              type: integer
+              format: int64
+              minimum: 0
+            classified:
+              type: integer
+              format: int64
+              minimum: 0
+        policy_snapshot:
+          $ref: '#/components/schemas/Policy'
+        cutoffs:
+          $ref: '#/components/schemas/Cutoffs'
+        expires_at:
+          type: string
+          format: date-time
+        preview_id:
+          type: string
+          format: uuid
+        trigger:
+          type: string
+          enum:
+          - manual
+          - scheduled
+    Status:
+      type: object
+      required:
+      - state_configured
+      - enforcement_allowed
+      - migration_ready
+      - unconfirmed_runs
+      - worker_enabled
+      - policy
+      - runs
+      - ready
+      - relation_bytes
+      - scope
+      - physical_reclaim
+      properties:
+        state_configured:
+          type: boolean
+        enforcement_allowed:
+          type: boolean
+        migration_ready:
+          type: boolean
+        worker_enabled:
+          type: boolean
+        ready:
+          type: boolean
+        unconfirmed_runs:
+          type: integer
+          format: int64
+          minimum: 0
+        policy:
+          $ref: '#/components/schemas/Policy'
+        configuration:
+          $ref: '#/components/schemas/Configuration'
+        runs:
+          type: array
+          maxItems: 1100
+          items:
+            type: object
+            description: New preview/completed receipts follow Run; retained legacy evidence may also
+              carry failed/unconfirmed states and missing historical metadata.
+        relation_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        migration_problem:
+          type: string
+        problem:
+          type: string
+        scope:
+          type: string
+          enum:
+          - instance_registered_tenants_invocation_audit_only
+        physical_reclaim:
+          type: string
+          enum:
+          - deleted_rows_reusable_after_vacuum_not_immediate_filesystem_release

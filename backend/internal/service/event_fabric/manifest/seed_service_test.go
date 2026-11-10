@@ -244,3 +244,26 @@ func (s *seedBindingStoreStub) DeleteACLByTopic(_ context.Context, _, _, topicKe
 	delete(s.acls, topicKey)
 	return nil
 }
+
+func TestPreparePlanPreservesExistingTopicsAndManualPolicy(t *testing.T) {
+	ctx := context.Background()
+	tenant, plugin := "tenant-seed", "com.powerx.plugins.fixture"
+	id := uuid.New()
+	dir := &seedDirectoryStub{existing: map[string]*eventfabricmodel.TopicDefinition{
+		"tenant-seed|fixture.event|v1": {PowerUUIDModel: coremodel.PowerUUIDModel{UUID: id}, TenantKey: tenant, Namespace: "fixture.event", Name: "v1", FullTopic: "tenant-seed.fixture.event.v1", MaxRetry: 19, AckTimeoutSec: 73, Lifecycle: eventfabricmodel.TopicLifecycleActive},
+	}}
+	bindings := &seedBindingStoreStub{topics: map[string]TopicBindingRecord{"fixture.event.v1": {TenantUUID: tenant, PluginID: plugin, TopicKey: "fixture.event.v1", TopicID: id.String(), FullTopic: "tenant-seed.fixture.event.v1"}, "old.event": {TenantUUID: tenant, PluginID: plugin, TopicKey: "old.event", TopicID: uuid.NewString()}}, acls: map[string]struct{}{"old.event": {}}}
+	svc := NewSeedService(SeedServiceOptions{Directory: dir, ACL: seedACLStub{}, Bindings: bindings})
+	plan := &SeedPlan{Topics: []TopicPlan{{Key: "fixture.event.v1", FullTopic: "incorrect-planned-receipt", Topic: directory.CreateTopicInput{TenantUUID: tenant, Namespace: "fixture.event", Name: "v1", MaxRetry: 1, AckTimeoutSec: 1}}}}
+	for i := 0; i < 2; i++ {
+		got, err := svc.PreparePlan(ctx, plan, SeedContext{TenantUUID: tenant, PluginID: plugin, PluginVersion: "1.0.0"})
+		require.NoError(t, err)
+		require.Equal(t, id.String(), got.Topics[0].TopicID)
+		require.Equal(t, "tenant-seed.fixture.event.v1", got.Topics[0].FullTopic)
+	}
+	require.Empty(t, dir.retired)
+	require.Contains(t, bindings.topics, "old.event")
+	require.Contains(t, bindings.acls, "old.event")
+	require.Equal(t, 19, dir.existing["tenant-seed|fixture.event|v1"].MaxRetry)
+	require.Equal(t, 73, dir.existing["tenant-seed|fixture.event|v1"].AckTimeoutSec)
+}

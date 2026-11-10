@@ -1,7 +1,6 @@
 import { useApiClient } from "../index";
 import type {
   ApiResponse,
-  PaginatedResponse,
   PaginationParams,
 } from "../types/types";
 
@@ -41,11 +40,24 @@ export interface MemberWithProfile {
 }
 
 export interface UserListParams extends PaginationParams {
+  dept_id?: number;
+  recursive?: boolean;
+  page_size?: number;
   q?: string; // 关键词搜索
   tenant_uuid: string; // 租户筛选
   status?: number; // 状态筛选
   sort_by?: string;
   sort_order?: string;
+}
+
+export interface UserListResponse {
+  items: MemberWithProfile[];
+  pagination: {
+    total: number;
+    page: number;
+    page_size: number;
+    pages: number;
+  };
 }
 
 export interface CreateSystemUserParams {
@@ -67,6 +79,7 @@ export interface CreateSystemUserParams {
 }
 
 export interface UpdateUserParams {
+  dept_ids?: number[];
   tenant_uuid: string;
   username: string;
   email?: string;
@@ -121,7 +134,7 @@ export const useUserService = () => {
      * GET /api/admin/system/users
      */
     getUsers: (params: UserListParams) => {
-      return apiClient.get<ApiResponse<PaginatedResponse<MemberWithProfile>>>(
+      return apiClient.get<ApiResponse<UserListResponse>>(
         baseUrl,
         {
           params,

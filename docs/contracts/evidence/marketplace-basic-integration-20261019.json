@@ -1,0 +1,450 @@
+{
+  "checked_at": "2026-10-19T07:47:38.058771+00:00",
+  "checks": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8088/api/v1/plugins?os=darwin&arch=arm64&page=1&size=12",
+      "status": 200,
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "categories": [],
+              "created_at": "2026-10-10T14:42:01.486313+08:00",
+              "id": "com.powerx.plugins.ai-craft",
+              "name": "AICraft",
+              "owner_dev_id": "afc0d6b6-9e3f-4f64-9281-f94676289a6d",
+              "summary": "",
+              "updated_at": "2026-10-16T16:02:25.237554+08:00"
+            }
+          ],
+          "total": 1,
+          "page": 1,
+          "size": 12
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8088/api/v1/plugins/com.powerx.plugins.ai-craft/versions?os=darwin&arch=arm64&page=1&size=20",
+      "status": 500,
+      "body": {
+        "code": 500,
+        "message": "decode dependency_matrix for version d3d67a22-0cef-4225-b084-afeab742cbf8: json: cannot unmarshal object into Go value of type []versions.Dependency"
+      }
+    }
+  ],
+  "acceptance": "Live Marketplace catalog, versions, download authorization, object storage GET, size and SHA256 passed. User restarted Marketplace and PowerX; the new protected Core catalog route responds 401 without JWT instead of the old 404. Authenticated user-session readback not directly verified. Real Core installation not performed: current Core v1.0.0 does not meet min_core 1.0.2.",
+  "controlled_tests": [
+    "Marketplace API client/service/handler tests",
+    "ZIP and gzip TAR installer contract tests",
+    "RemoteMarketplace component tests",
+    "Nuxt production build"
+  ],
+  "rechecked_at": "2026-10-19T07:56:34.548090+00:00",
+  "rechecks": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8088/api/v1/plugins?os=darwin&arch=arm64&page=1&size=12",
+      "status": 200,
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "categories": [],
+              "created_at": "2026-10-10T14:42:01.486313+08:00",
+              "id": "com.powerx.plugins.ai-craft",
+              "name": "AICraft",
+              "owner_dev_id": "afc0d6b6-9e3f-4f64-9281-f94676289a6d",
+              "summary": "",
+              "updated_at": "2026-10-16T16:02:25.237554+08:00"
+            }
+          ],
+          "total": 1,
+          "page": 1,
+          "size": 12
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8088/api/v1/plugins/com.powerx.plugins.ai-craft/versions?os=darwin&arch=arm64&page=1&size=20",
+      "status": 200,
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "items": [
+            {
+              "arch": "arm64",
+              "availability_status": "published",
+              "change_log": {},
+              "change_type": "non_breaking",
+              "channel": "stable",
+              "compatibility": [],
+              "created_at": "2026-10-14T21:20:08.390955+08:00",
+              "dependency_diff": {
+                "added": [],
+                "removed": [],
+                "updated": []
+              },
+              "dependency_matrix": [],
+              "id": "d3d67a22-0cef-4225-b084-afeab742cbf8",
+              "listing_id": null,
+              "min_core": "1.0.2",
+              "os": "darwin",
+              "plugin_id": "com.powerx.plugins.ai-craft",
+              "semver": "0.1.76",
+              "sha256": "9bee64a7742c5e29f39c39d1b953e4e2a2bbb9083eecc5bbbdc3bc0382629648",
+              "size": 67110444,
+              "storage_key": "s3://bucket.px-plugins/developers/afc0d6b6-9e3f-4f64-9281-f94676289a6d/plugins/com.powerx.plugins.ai-craft/versions/0.1.76/darwin-arm64/9bee64a7742c5e29f39c39d1b953e4e2a2bbb9083eecc5bbbdc3bc0382629648.pxp",
+              "targets": [
+                {
+                  "arch": "arm64",
+                  "os": "darwin",
+                  "sha256": "9bee64a7742c5e29f39c39d1b953e4e2a2bbb9083eecc5bbbdc3bc0382629648",
+                  "size": 67110444
+                }
+              ],
+              "updated_at": "2026-10-16T16:02:25.234395+08:00"
+            }
+          ],
+          "total": 1,
+          "page": 1,
+          "size": 20
+        }
+      }
+    }
+  ],
+  "live_download": {
+    "status": "passed",
+    "plugin_id": "com.powerx.plugins.ai-craft",
+    "version": "0.1.76",
+    "os": "darwin",
+    "arch": "arm64",
+    "bytes": 67110444,
+    "sha256": "9bee64a7742c5e29f39c39d1b953e4e2a2bbb9083eecc5bbbdc3bc0382629648",
+    "source_test": "TestLiveMarketplaceCatalogDownload",
+    "installed": false,
+    "enabled": false,
+    "audit": "Marketplace normal download audit; no PowerX tenant context supplied by this standalone contract probe"
+  },
+  "core_version": "v1.0.0",
+  "plugin_min_core": "1.0.2",
+  "browser_qa": {
+    "production_preview": {
+      "passed": 3,
+      "log": "/tmp/powerx-marketplace-e2e-delivery.log"
+    },
+    "development_server": {
+      "desktop_and_narrow_passed": 2,
+      "log": "/tmp/powerx-marketplace-e2e-dev-verified.log",
+      "upstream_error_case_passed_on_focused_rerun": true,
+      "focused_log": "/tmp/powerx-marketplace-e2e-dev-error-verified.log"
+    },
+    "fixtures": "PowerX API responses controlled in browser tests; live Marketplace download tested separately",
+    "component_tests_passed": 4
+  },
+  "powerx_runtime_probe": {
+    "pid": 52924,
+    "catalog_endpoint_without_authorization": 401,
+    "old_process_exited": true,
+    "new_route_registered": true,
+    "authenticated_browser_readback": "Not verified with the user session; browser regression used controlled API responses."
+  },
+  "temporary_preview_processes": {
+    "pids": [
+      91299,
+      25878
+    ],
+    "stopped": true,
+    "port_3346_released": true
+  },
+  "powerx_runtime_probe_history": [
+    {
+      "pid": 38046,
+      "started_local": "2026-10-19 10:41:50",
+      "new_catalog_endpoint_status": 404,
+      "existing_marketplace_endpoint_without_authorization": 401,
+      "reason": "Existing PowerX runtime has not loaded the new routes; owner-managed restart required."
+    }
+  ],
+  "source_separation": {
+    "checked_at": "2026-10-19T08:37:25.137170+00:00",
+    "scope": "Separate local manual installation, remote Marketplace catalog, and source-labelled installed inventory.",
+    "identity": "Match marketplace source_id and type before plugin ID; same-ID local, different-market and unknown origins are conflicts.",
+    "persistence": "Install origin is stored per version, retained on bootstrap, and never inferred from the manifest or client metadata.",
+    "legacy_readonly_probe": [
+      {
+        "id": "com.powerx.plugins.base",
+        "version": "0.1.4",
+        "origin": "unknown",
+        "reason": "Existing registry has no install_origin field; no live registry mutation performed by this check."
+      }
+    ],
+    "verification": {
+      "go_test": "Passed client, service (including cross-page installation filtering), admin plugin handler, and real installer contract suites.",
+      "go_vet": "Passed affected client, service, handler, manager, and DTO packages.",
+      "vitest": "6 component tests passed, including source conflict, filter selection and no periodic requests.",
+      "playwright": "5 Chromium tests passed against the user-owned dev frontend with controlled API responses; desktop 1440x1000 and narrow 390x844.",
+      "browser_assertions": [
+        "same-ID local plugin is not market-installed",
+        "local route makes no Marketplace API requests",
+        "local source group switches retain query",
+        "installed table displays and filters source",
+        "download authorization and upstream failures block installation"
+      ],
+      "build": "Isolated Nuxt production build passed.",
+      "lint": "New source navigation, local page, remote component and Marketplace client passed Nuxt ESLint rules.",
+      "visual_review": "Desktop dark source conflict modal and narrow light local/unknown group screenshots inspected."
+    },
+    "runtime_boundary": "User must restart PowerX to load the new source fields; authenticated live readback of this source contract remains pending. Existing min_core compatibility boundary is unchanged.",
+    "processes": "No temporary services were started for this source-separation change; user-owned 3030, 8077 and 8088 were not stopped or restarted.",
+    "identity_superseded_by": "single_install_replacement: origin is independent; compare provider identity + plugin ID, with explicit Root legacy binding."
+  },
+  "ui_redesign": {
+    "checked_at": "2026-10-19T09:02:10.732855+00:00",
+    "changes": [
+      "Localized source navigation and origin labels; corrected plugin page breadcrumbs.",
+      "Shared page header and 208px section rail across marketplace, local and installed views.",
+      "All is the default in every view; local all includes source-unknown legacy records with explicit labels.",
+      "Consistent plugin tiles, compact status badges and a width-aware installed list; compact cards below an 800px content width.",
+      "Single-line mobile plugin breadcrumbs and horizontally scrollable section navigation."
+    ],
+    "verification": {
+      "component_tests": "6 passed",
+      "browser_tests": "7 passed; Chinese and English, desktop dark and narrow light, installation selection, source conflicts, grouping and preserved search.",
+      "geometry": "Three desktop rails share x/y origin, 208px width and content x. Installed table has no horizontal overflow and Manage action fits within content.",
+      "build": "Nuxt production build passed with isolated /tmp output.",
+      "lint": "Shared plugin components, remote component, local and installed pages passed Nuxt ESLint rules.",
+      "visual_review": [
+        "desktop-market-redesign.png",
+        "desktop-local-redesign.png",
+        "desktop-installed-redesign.png",
+        "narrow-local-unknown-source.png"
+      ]
+    },
+    "failed_attempts": [
+      "First browser pass found a new locale group under an incorrect JSON parent; moved it under plugins.presentation and reran successfully.",
+      "Visual review found clipped desktop actions and mobile breadcrumb wrapping; adjusted table sizing, content-container breakpoints and mobile breadcrumbs, then reran successfully."
+    ],
+    "boundary": "Controlled API browser data, not a real plugin installation. Frontend-only redesign requires no PowerX backend restart. User services were not restarted; no temporary services were started."
+  },
+  "single_install_live_readonly_probe": {
+    "checked_at": "2026-10-19T14:03:24.218475+00:00",
+    "checks": [
+      {
+        "label": "core",
+        "status": 200,
+        "data": {
+          "checks": {
+            "ai_profiles": 0,
+            "tenants": 4,
+            "users": 14
+          },
+          "completed_by_kv": true,
+          "config_source": {
+            "desired_ports": "runtime_config",
+            "effective_ports": "runtime_config"
+          },
+          "configured": true,
+          "deployment_env": "dev",
+          "desired_ports": {
+            "backend_port": 8077,
+            "web_admin_port": 3030
+          },
+          "effective_ports": {
+            "backend_port": 8077,
+            "web_admin_port": 3030
+          },
+          "guard_mode": "strict",
+          "install_status": "installed",
+          "requires_login": true,
+          "restart_required": false,
+          "saas_signup_enabled": false,
+          "version": "v1.0.0"
+        }
+      },
+      {
+        "label": "versions",
+        "status": 200,
+        "data": [
+          {
+            "arch": "arm64",
+            "min_core": "1.0.2",
+            "os": "darwin",
+            "plugin_id": "com.powerx.plugins.ai-craft",
+            "semver": "0.1.76"
+          }
+        ]
+      }
+    ]
+  },
+  "single_install_replacement": {
+    "checked_at": "2026-10-19T14:10:24.288777+00:00",
+    "status": "Implemented and verified in source and controlled tests; authenticated live Core install remains unverified.",
+    "shared_pipeline": [
+      "server catalog owner_dev_id -> provider identity",
+      "ResolveDownload -> exact version/platform/core/hash/size",
+      "InstallFromURL -> download and SHA256 -> ZIP/PXP extraction",
+      "InstallFromFile -> identity/revision/Drain checks -> single-install transaction",
+      "installDirectory -> host config/credentials/migrations/permissions -> optional runtime enable",
+      "finishPluginInstallation -> current tenant credentials and Topic registration"
+    ],
+    "identity": {
+      "key": "provider.id + provider.authority + plugin ID",
+      "source": "an attribute, not an installation identity",
+      "known_mismatch": "reject even when force/legacy-binding flags are supplied",
+      "legacy": "target identity must be known; Root must explicitly confirm old identity binding and replacement with expected_revision"
+    },
+    "transaction": {
+      "registry": "one version for new installs and replacements",
+      "concurrency": "serialized mutations in the single Core process; optimistic revision validation",
+      "backup": "parent of InstalledRoot/.powerx-install-backups/replace-*/previous; excluded from discovery",
+      "recovery": "recovery journal before old artifact move; bootstrap restores interrupted replacements, preserves committed revision",
+      "historical_multi_version": "blocks replacement without deleting existing user data"
+    },
+    "verification": {
+      "go_test": {
+        "passed": true,
+        "packages": [
+          "internal/infra/plugin/manager",
+          "internal/service/plugin_marketplace",
+          "internal/infra/plugin/marketplace",
+          "internal/transport/http/admin/plugin"
+        ],
+        "logs": [
+          "/tmp/powerx-market-install-go-delivery.log",
+          "/tmp/powerx-market-install-handler-delivery.log"
+        ]
+      },
+      "go_vet": {
+        "passed": true,
+        "log": "/tmp/powerx-market-install-vet.log"
+      },
+      "component_tests": {
+        "passed": 9,
+        "log": "/tmp/powerx-market-install-vitest-final.log"
+      },
+      "browser_tests": {
+        "passed": 11,
+        "batches": [
+          {
+            "passed": 9,
+            "log": "/tmp/powerx-market-install-e2e-verified.log"
+          },
+          {
+            "passed": 2,
+            "log": "/tmp/powerx-market-install-local-e2e-verified.log"
+          }
+        ],
+        "fixtures": "controlled API responses; user-owned frontend 3030; desktop 1440x1000 and narrow 390x844; zh/en"
+      },
+      "build": {
+        "passed": true,
+        "log": "/tmp/powerx-market-install-build-final.log",
+        "output": "/tmp/powerx-market-install-output-final"
+      },
+      "lint": {
+        "new_remote_component_and_market_client": "passed Nuxt ESLint rules",
+        "touched_legacy_files": "InstallDialog 17 existing any errors + 3 existing style warnings; adminPluginsService 21 existing any errors. Baseline and current rule counts match; no increase.",
+        "baseline_log": "/tmp/powerx-market-install-lint-baseline.json"
+      },
+      "visual_review": [
+        "desktop legacy publisher binding and replacement modal",
+        "narrow light marketplace version modal",
+        "desktop and narrow manual URL replacement confirmation"
+      ],
+      "diff_check": "passed"
+    },
+    "failed_attempts": [
+      "Recovery validation initially rejected snapshots without a current pointer for never-enabled plugins. Allowed empty current, then reran manager recovery tests successfully.",
+      "An orphan-directory credential test incorrectly reused a revision after removing its registration. Corrected the fixture to perform a fresh install; credential preflight still preserves the original directory on failure.",
+      "A browser assertion still expected the old source-conflict heading in the publisher mismatch dialog. Updated it to the current publisher mismatch text; all nine tests passed.",
+      "One verification run compiled while test imports were being edited and failed with an unresolved runtime import. Stable reruns and explicit go vet passed.",
+      "An extra local-browser invocation used the repository root instead of web-admin and found no chromium project. Reran from web-admin; both desktop and narrow cases passed.",
+      "Full-file lint retains pre-existing diagnostics. Compared the two touched legacy files against HEAD and confirmed unchanged counts."
+    ],
+    "boundaries": [
+      "Real local services still report Core v1.0.0 versus AICraft min_core 1.0.2; no real install or enable performed.",
+      "No user service stopped or restarted. User must restart PowerX with make dev to load backend source changes.",
+      "File/config/registry rollback does not automatically undo plugin DB migrations or permission-hook external side effects.",
+      "Tenant enable poststeps can fail after the package has committed; HTTP response states plugin installed but poststep failed.",
+      "No signature verification or parallel namespaces for different providers sharing an ID.",
+      "No agent-owned temporary services remain; only controlled test subprocesses were used."
+    ]
+  },
+  "local_upload_compatibility_20261020": {
+    "checked_at": "2026-10-20T05:50:05.033570+00:00",
+    "request": "During Marketplace integration, keep the original local upload installation workflow; the user will test local uploads only.",
+    "baseline_findings": [
+      "The earlier integration had turned off force by default and disabled its switch before preview.",
+      "The earlier common transaction rejected reinstallation of old provider-less local packages and required extra revision/provider confirmation."
+    ],
+    "corrections": [
+      "Local upload mode restores the original force=true default and enabled overwrite switch; selecting files preserves the selection.",
+      "Ordinary uploads send the original multipart fields: files/file_paths_json or file, enable, force, metadata; no new identity/revision fields are required.",
+      "Only the server recognizes multipart local uploads as the compatibility entry. JSON payloads cannot enable it; URL and Marketplace entries keep their existing checks.",
+      "Provider-less old local or unknown-origin installs can be reinstalled. Known provider metadata is preserved when old packages omit it; unknown identity remains unknown; explicit known publisher conflicts remain rejected.",
+      "Permissions sync and force=false same-version behavior remain compatible, while the single installed version and transaction recovery are retained.",
+      "Local uploads retain the supplied install metadata and the original runtime/tenant enable pipeline."
+    ],
+    "verification": {
+      "go_packages": {
+        "passed": true,
+        "packages": [
+          "internal/infra/plugin/manager",
+          "internal/transport/http/admin/plugin",
+          "internal/service/plugin_marketplace"
+        ],
+        "log": "/tmp/powerx-local-upload-compat-go-final.log"
+      },
+      "legacy_unknown_origin": {
+        "passed": true,
+        "log": "/tmp/powerx-local-upload-compat-legacy.log"
+      },
+      "handler_coverage": "Actual multipart directory and gzip TAR parsing; enable true/false forwarding; temporary upload cleanup; no Marketplace dependency; JSON cannot opt into upload compatibility. The enable=true poststep intentionally fails when DB is absent, rather than falsely returning successful tenant enable.",
+      "manager_coverage": "Provider-less same-version and different-version reinstallation, historical unknown origin, credential/config retention, updated install metadata, non-force artifact retention and permissions sync, known provider preservation, mismatch and stale revision rejection, cross-market confirmation preserved.",
+      "browser": {
+        "passed": 6,
+        "local_upload_cases": 4,
+        "url_confirmation_regressions": 2,
+        "viewports": [
+          "1440x1000 dark",
+          "390x844 light"
+        ],
+        "log": "/tmp/powerx-local-upload-compat-e2e.log",
+        "assertions": [
+          "default force and immediate-enable switches remain selected",
+          "directory and archive directory selection both work",
+          "one multipart request to original endpoint",
+          "original parameter fields and metadata",
+          "no expected_revision or provider confirmation request",
+          "no Marketplace requests",
+          "success closes the existing dialog"
+        ]
+      },
+      "visual_review": [
+        "local-upload-1440-directory.png",
+        "local-upload-390-directory.png"
+      ],
+      "go_vet": {
+        "passed": true,
+        "log": "/tmp/powerx-local-upload-compat-vet.log"
+      },
+      "production_build": {
+        "passed": true,
+        "log": "/tmp/powerx-local-upload-compat-build.log",
+        "output": "/tmp/powerx-local-upload-compat-output"
+      },
+      "lint": "InstallDialog retains the same baseline 17 any errors and 3 style warnings; no added diagnostics. Log: /tmp/powerx-local-upload-compat-lint.log",
+      "diff_check": "passed"
+    },
+    "acceptance_boundary": "Controlled browser responses and temporary-package manager/HTTP tests. No user plugin registry, tenant database, or real plugin process was changed. No live user-upload-and-enable acceptance is claimed.",
+    "services": "No agent-owned services started; user-owned services not stopped or restarted. Restart the original PowerX make dev command before testing the backend compatibility change."
+  }
+}

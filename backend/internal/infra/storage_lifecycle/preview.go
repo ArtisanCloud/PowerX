@@ -12,7 +12,11 @@ func (e *Engine) PreviewPolicy(ctx context.Context, id string, p Policy) (Previe
 	if err != nil {
 		return Preview{}, err
 	}
-	p.Revision = d.Policies[id].Revision
+	current, err := e.resolvePolicy(ctx, &d, id)
+	if err != nil {
+		return Preview{}, err
+	}
+	p.Revision = current.Revision
 	p.SourceID = id
 	p.Fingerprint = s.Fingerprint
 	p.RequireArchive = p.RequireArchive || s.RequireArchive

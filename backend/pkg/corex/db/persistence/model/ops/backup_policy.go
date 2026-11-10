@@ -18,6 +18,11 @@ const (
 type BackupPolicy struct {
 	coremodel.PowerUUIDModel
 
+	ControlScopeID  string `gorm:"column:control_scope_id;type:varchar(64);not null;default:'';index;uniqueIndex:uk_ops_backup_control_current,where:control_scope_id <> '' AND is_current = true" json:"control_scope_id"`
+	ControlRevision int64  `gorm:"column:control_revision;not null;default:0" json:"control_revision"`
+
+	ExecutionFingerprint string `gorm:"column:execution_fingerprint;type:varchar(64);not null;default:''" json:"execution_fingerprint"`
+
 	Name              string     `gorm:"column:name;type:varchar(128);not null;index:idx_ops_backup_policy_name" json:"name"`
 	BackupType        BackupType `gorm:"column:backup_type;type:varchar(32);not null;index:idx_ops_backup_policy_type" json:"backup_type"`
 	Schedule          string     `gorm:"column:schedule;type:varchar(128);not null" json:"schedule"`

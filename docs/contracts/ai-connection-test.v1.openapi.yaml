@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: PowerX AI Connection Test
+  version: 1.0.0
+paths:
+  /admin/agents/test/connection:
+    post:
+      description: Existing Admin user operation. On success it also saves credentials; service credentials cannot call this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminConnectionTest'
+      responses:
+        '200':
+          description: Endpoint and authentication verified; credentials saved by the Admin operation.
+components:
+  schemas:
+    ConnectionTestOperation:
+      type: object
+      additionalProperties: false
+      required: [contract_version, operation, modality, provider]
+      properties:
+        contract_version: {type: integer, enum: [1]}
+        operation: {type: string, enum: [test_connection]}
+        modality:
+          type: string
+          enum: [llm, vlm, image, video, embedding, audio_tts, audio_asr, model3d, rerank]
+        provider: {type: string, minLength: 1}
+        model:
+          type: string
+          description: Optional native model identifier. Never causes model inference.
+    ConnectionTestResult:
+      type: object
+      additionalProperties: false
+      required: [contract_version, ok, env, modality, verification]
+      properties:
+        contract_version: {type: integer, enum: [1]}
+        ok: {type: boolean, enum: [true]}
+        env: {type: string, minLength: 1}
+        modality: {type: string}
+        verification:
+          $ref: '#/components/schemas/ConnectionVerification'
+    ConnectionVerification:
+      type: object
+      additionalProperties: false
+      required: [provider, probe, endpoint_reachable, api_key_verified, authentication, model_access_verified, generation_submitted]
+      properties:
+        provider: {type: string}
+        probe: {type: string, enum: [models, key_info, ollama_tags]}
+        endpoint_reachable: {type: boolean, enum: [true]}
+        api_key_verified: {type: boolean}
+        authentication: {type: string, enum: [api_key, not_required]}
+        model_access_verified: {type: boolean, enum: [false]}
+        generation_submitted: {type: boolean, enum: [false]}
+    AdminConnectionTest:
+      type: object
+      required: [env, modality]
+      properties:
+        env: {type: string, minLength: 1}
+        modality: {type: string, enum: [llm, image, video, embedding, audio_tts, audio_asr, model3d, rerank]}
+        llm: {$ref: '#/components/schemas/AdminConnection'}
+        image: {$ref: '#/components/schemas/AdminConnection'}
+        video: {$ref: '#/components/schemas/AdminConnection'}
+        embedding: {$ref: '#/components/schemas/AdminConnection'}
+        audio_tts: {$ref: '#/components/schemas/AdminConnection'}
+        audio_asr: {$ref: '#/components/schemas/AdminConnection'}
+        model3d: {$ref: '#/components/schemas/AdminConnection'}
+        rerank: {$ref: '#/components/schemas/AdminConnection'}
+    AdminConnection:
+      type: object
+      required: [provider]
+      properties:
+        provider: {type: string, minLength: 1}
+        model: {type: string}
+        app: {type: string}
+        baseURL: {type: string}
+        apiKey: {type: string, writeOnly: true}
+        authMode: {type: string}
+        secretId: {type: string, writeOnly: true}
+        secretKey: {type: string, writeOnly: true}
+        region: {type: string}
+        organization: {type: string}
+        azureDeployment: {type: string}
