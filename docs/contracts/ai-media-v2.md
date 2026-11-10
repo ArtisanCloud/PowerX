@@ -179,6 +179,14 @@ VLM 返回 `type: analysis`、`text`、provider/model、usage、trace_id。生�
 
 在供应商不支持提交幂等的情况下，Core 不能承诺供应商侧 exactly-once。提交前先持久化 submitting；若崩溃后没有取得原生句柄，任务以 `AI_SUBMISSION_OUTCOME_UNKNOWN` 明确失败，绝不盲目重提。该错误不保证供应商没有接单或没有计费，应由部署负责人核查后决定新尝试。
 
+### 临时转存的磁盘保护
+
+部署已开启共享写入准入时，供应商成果在创建临时文件之前，先按进程实际临时目录所在的文件系统申请租约。初始流式窗口为 1 MiB，后续每次写入使用既有预算 Writer，在超过预留前重新申请扩容；单份成果仍以 512 MiB 为大小上限。下载到默认临时目录和内存成果落盘都经过同一路径。临时目录取 `os.TempDir()`，不把另一块未登记磁盘当作已受当前预算保护；无法核验时拒绝写入。未开启准入的部署保持原兼容行为，大小限制和取消检查仍生效。
+
+租约覆盖临时文件及后续同盘正式转存，两个副本共存时的新增字节一并计量；嵌套写入复用同一租约，避免并发上限为 1 时与自身竞争。临时文件关闭、删除后再释放租约；创建失败、读取失败、超限及取消同样走释放路径。
+
+临时写入的容量不足在任务快照中返回 `AI_MEDIA_STORAGE_CAPACITY_EXHAUSTED`；预算繁忙、配置权威或磁盘身份不可用返回 `AI_MEDIA_STORAGE_UNAVAILABLE`。这些本地存储原因不标为供应商失败，沿用正式 TaskBus 的转存延后机制，保留原任务和供应商成果，不重新提交生成。它们不新增 API、配置入口或清理／容量保护旁路。
+
 ## 取消与推送
 
 取消结果通过 `cancel_status` 表达 `none/requested/confirmed/unsupported`。排队中尚未提交的 Core 任务可直接 confirmed。供应商任务仅在供应商确认取消后进入 cancelled；请求取消不承诺停止计费或退款。Seedance 仅取消 queued，running 明确 unsupported；不会对已完成任务调用 DELETE 删除原生记录。

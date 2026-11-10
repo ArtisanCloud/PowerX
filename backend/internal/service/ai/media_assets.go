@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -111,20 +112,23 @@ func (s *MediaRuntime) materialize(ctx context.Context, tenant, task string, out
 	return results, nil
 }
 func (s *MediaRuntime) storeOutput(ctx context.Context, tenant, task string, index int, kind string, body io.Reader) (*MediaAssetResult, error) {
-	file, err := os.CreateTemp("", "powerx-ai-media-*")
+	directory := os.TempDir()
+	// 先为实际临时磁盘预留流式写入窗口；同盘正式转存继续共用租约并按需扩容。
+	ctx, release, err := budget.BeginPath(ctx, directory, "ai_media_download", 1<<20)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	file, err := os.CreateTemp(directory, "powerx-ai-media-*")
 	if err != nil {
 		return nil, err
 	}
 	defer os.Remove(file.Name())
 	defer file.Close()
-	hash := sha256.New()
 	const limit int64 = 512 << 20
-	size, err := io.Copy(io.MultiWriter(file, hash), io.LimitReader(body, limit+1))
+	size, checksum, err := copyMediaOutput(ctx, file, body, limit)
 	if err != nil {
 		return nil, err
-	}
-	if size == 0 || size > limit {
-		return nil, MediaError(502, "AI_MEDIA_SIZE_INVALID")
 	}
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
 		return nil, err
@@ -135,10 +139,22 @@ func (s *MediaRuntime) storeOutput(ctx context.Context, tenant, task string, ind
 	if !strings.HasPrefix(mime, kind+"/") {
 		return nil, MediaError(502, "AI_OUTPUT_TYPE_MISMATCH")
 	}
-	checksum := hex.EncodeToString(hash.Sum(nil))
 	asset, err := s.media.StoreGenerated(ctx, tenant, task, index, kind, mime, checksum, size, file)
 	if err != nil {
 		return nil, MediaError(502, "AI_MEDIA_TRANSFER_FAILED")
 	}
 	return &MediaAssetResult{asset.UUID, kind, asset.MimeType, size, checksum, "sha256"}, nil
+}
+
+// copyMediaOutput 同时限制单份成果大小和新增磁盘字节；摘要只在完整写入后返回。
+func copyMediaOutput(ctx context.Context, destination io.Writer, body io.Reader, limit int64) (int64, string, error) {
+	hash := sha256.New()
+	size, err := io.Copy(io.MultiWriter(budget.Writer(ctx, destination), hash), io.LimitReader(body, limit+1))
+	if err != nil {
+		return size, "", err
+	}
+	if size == 0 || size > limit {
+		return size, "", MediaError(502, "AI_MEDIA_SIZE_INVALID")
+	}
+	return size, hex.EncodeToString(hash.Sum(nil)), nil
 }

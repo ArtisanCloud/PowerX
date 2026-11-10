@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	aiconfig "github.com/ArtisanCloud/PowerX/internal/server/ai/drivers/config"
@@ -453,6 +454,12 @@ func mediaErrorCode(err error) string {
 	var e *dto.AppError
 	if errors.As(err, &e) {
 		return e.Code
+	}
+	if errors.Is(err, budget.ErrInsufficient) {
+		return "AI_MEDIA_STORAGE_CAPACITY_EXHAUSTED"
+	}
+	if errors.Is(err, budget.ErrBusy) || errors.Is(err, budget.ErrUnavailable) || errors.Is(err, budget.ErrDeviceChanged) || errors.Is(err, budget.ErrControlRequired) || errors.Is(err, budget.ErrControlChanged) {
+		return "AI_MEDIA_STORAGE_UNAVAILABLE"
 	}
 	return "AI_PROVIDER_FAILED"
 }
