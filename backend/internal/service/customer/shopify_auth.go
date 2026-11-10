@@ -33,11 +33,14 @@ type ShopifyStorefrontConfig struct {
 type VerifiedShopifyCustomer struct{ Subject, DisplayName, GivenName, FamilyName, Email, Phone string }
 
 type CustomerAuthService struct {
-	db          *gorm.DB
-	accounts    *AccountService
-	memberships *MembershipService
-	tokens      *CustomerTokenService
-	client      *http.Client
+	db             *gorm.DB
+	accounts       *AccountService
+	memberships    *MembershipService
+	tokens         *CustomerTokenService
+	client         *http.Client
+	clientApps     ClientAppRegistry
+	verifiers      map[string]MiniAppCodeVerifier
+	phoneVerifiers map[string]MiniAppPhoneVerifier
 }
 
 func NewCustomerAuthService(db *gorm.DB, tokens *CustomerTokenService) *CustomerAuthService {
@@ -62,7 +65,8 @@ func (s *CustomerAuthService) RecordAttempt(ctx context.Context, tenantUUID, plu
 	if s == nil || s.db == nil {
 		return
 	}
-	_ = s.db.WithContext(ctx).Create(&modelcustomer.LoginEvent{TenantUUID: tenantUUID, PluginID: strings.TrimSpace(pluginID), Channel: strings.TrimSpace(channel), IdentifierHash: customerIdentifierHash(identifier), IdentityProvider: ShopifyStorefrontChannel, EventType: eventType, OK: ok, ErrorCode: strings.TrimSpace(code), IP: strings.TrimSpace(ip)}).Error
+	// 尝试记录不关联客户：customer_uuid 是 uuid 列，空字符串在 PostgreSQL 会写入失败，故省略该列。
+	_ = s.db.WithContext(ctx).Omit("CustomerUUID").Create(&modelcustomer.LoginEvent{TenantUUID: tenantUUID, PluginID: strings.TrimSpace(pluginID), Channel: strings.TrimSpace(channel), IdentifierHash: customerIdentifierHash(identifier), IdentityProvider: strings.TrimSpace(channel), EventType: eventType, OK: ok, ErrorCode: strings.TrimSpace(code), IP: strings.TrimSpace(ip)}).Error
 }
 
 func customerIdentifierHash(identifier string) string {
@@ -75,63 +79,72 @@ func (s *CustomerAuthService) RegisterShopify(ctx context.Context, tenantUUID, c
 	if err != nil {
 		return TokenPair{}, Membership{}, err
 	}
-	resolved, err := s.accounts.resolveVerifiedExternalIdentity(ctx, ResolveExternalIdentityInput{TenantUUID: tenantUUID, ProviderSubject: verified.Subject, DisplayName: verified.DisplayName, GivenName: verified.GivenName, FamilyName: verified.FamilyName, Email: verified.Email, Phone: verified.Phone})
-	if err != nil {
-		return TokenPair{}, Membership{}, err
-	}
-	m, err := s.memberships.ResolveCurrent(ctx, tenantUUID, resolved.CustomerUUID)
-	if err != nil {
-		return TokenPair{}, Membership{}, err
-	}
-	if err := s.ensureShopifyPrimaryContact(ctx, m); err != nil {
-		return TokenPair{}, Membership{}, err
-	}
-	if err := s.markVerified(ctx, pluginID, verified.Subject); err != nil {
-		return TokenPair{}, Membership{}, err
-	}
-	pair, err := s.tokens.IssuePair(ctx, m)
-	return pair, m, err
+	return s.registerVerified(ctx, pluginID, ResolveExternalIdentityInput{TenantUUID: tenantUUID, ProviderSubject: verified.Subject, DisplayName: verified.DisplayName, GivenName: verified.GivenName, FamilyName: verified.FamilyName, Email: verified.Email, Phone: verified.Phone})
 }
 func (s *CustomerAuthService) LoginShopify(ctx context.Context, tenantUUID, credential string) (TokenPair, Membership, error) {
 	verified, pluginID, err := s.verifyShopify(ctx, tenantUUID, credential)
 	if err != nil {
 		return TokenPair{}, Membership{}, err
 	}
-	provider, err := externalProviderKey(pluginID)
+	return s.loginVerified(ctx, pluginID, ResolveExternalIdentityInput{TenantUUID: tenantUUID, ProviderSubject: verified.Subject, DisplayName: verified.DisplayName, GivenName: verified.GivenName, FamilyName: verified.FamilyName, Email: verified.Email, Phone: verified.Phone})
+}
+
+// registerVerified 对 Core 已向上游渠道校验过的 subject 查找或创建客户，并签发 token。
+func (s *CustomerAuthService) registerVerified(ctx context.Context, pluginID string, in ResolveExternalIdentityInput) (TokenPair, Membership, error) {
+	resolved, err := s.accounts.resolveVerifiedExternalIdentity(ctx, in)
 	if err != nil {
 		return TokenPair{}, Membership{}, err
 	}
-	var identity modelcustomer.AuthIdentity
-	if err := s.db.WithContext(ctx).Where("provider = ? AND provider_subject = ? AND status = ?", provider, verified.Subject, modelcustomer.StatusActive).First(&identity).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return TokenPair{}, Membership{}, ErrCustomerIdentityNotFound
-		}
-		return TokenPair{}, Membership{}, ErrCustomerUpstreamDependency
-	}
-	m, err := s.memberships.ResolveCurrent(ctx, tenantUUID, identity.CustomerUUID)
+	m, err := s.memberships.ResolveCurrent(ctx, in.TenantUUID, resolved.CustomerUUID)
 	if err != nil {
 		return TokenPair{}, Membership{}, err
 	}
-	// Login never creates a new identity or membership. After both are found,
-	// the verified Core path may repair only a missing primary contact binding.
-	if _, err := s.accounts.resolveVerifiedExternalIdentity(ctx, ResolveExternalIdentityInput{TenantUUID: tenantUUID, ProviderSubject: verified.Subject, DisplayName: verified.DisplayName, GivenName: verified.GivenName, FamilyName: verified.FamilyName, Email: verified.Email, Phone: verified.Phone}); err != nil {
+	if err := s.ensureExternalPrimaryContact(ctx, m); err != nil {
 		return TokenPair{}, Membership{}, err
 	}
-	m, err = s.memberships.ResolveCurrent(ctx, tenantUUID, identity.CustomerUUID)
-	if err != nil {
-		return TokenPair{}, Membership{}, err
-	}
-	if err := s.ensureShopifyPrimaryContact(ctx, m); err != nil {
-		return TokenPair{}, Membership{}, err
-	}
-	if err := s.markVerified(ctx, pluginID, verified.Subject); err != nil {
+	if err := s.markVerified(ctx, pluginID, in.ProviderSubject); err != nil {
 		return TokenPair{}, Membership{}, err
 	}
 	pair, err := s.tokens.IssuePair(ctx, m)
 	return pair, m, err
 }
 
-func (s *CustomerAuthService) ensureShopifyPrimaryContact(ctx context.Context, m Membership) error {
+// loginVerified 只为 Core 已校验 subject 的既有身份签发 token。
+func (s *CustomerAuthService) loginVerified(ctx context.Context, pluginID string, in ResolveExternalIdentityInput) (TokenPair, Membership, error) {
+	provider, err := externalProviderKey(pluginID)
+	if err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	var identity modelcustomer.AuthIdentity
+	if err := s.db.WithContext(ctx).Where("provider = ? AND provider_subject = ? AND status = ?", provider, in.ProviderSubject, modelcustomer.StatusActive).First(&identity).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return TokenPair{}, Membership{}, ErrCustomerIdentityNotFound
+		}
+		return TokenPair{}, Membership{}, ErrCustomerUpstreamDependency
+	}
+	if _, err := s.memberships.ResolveCurrent(ctx, in.TenantUUID, identity.CustomerUUID); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	// Login never creates a new identity or membership. After both are found,
+	// the verified Core path may repair only a missing primary contact binding.
+	if _, err := s.accounts.resolveVerifiedExternalIdentity(ctx, in); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	m, err := s.memberships.ResolveCurrent(ctx, in.TenantUUID, identity.CustomerUUID)
+	if err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	if err := s.ensureExternalPrimaryContact(ctx, m); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	if err := s.markVerified(ctx, pluginID, in.ProviderSubject); err != nil {
+		return TokenPair{}, Membership{}, err
+	}
+	pair, err := s.tokens.IssuePair(ctx, m)
+	return pair, m, err
+}
+
+func (s *CustomerAuthService) ensureExternalPrimaryContact(ctx context.Context, m Membership) error {
 	if (m.Type != modelcustomer.AccountTypePerson && m.Type != modelcustomer.AccountTypeCompany) || m.PrimaryContactUUID == "" {
 		return customerrepo.ErrExternalIdentityContactRequired
 	}
@@ -145,12 +158,12 @@ func (s *CustomerAuthService) ensureShopifyPrimaryContact(ctx context.Context, m
 	return nil
 }
 func (s *CustomerAuthService) verifyShopify(ctx context.Context, tenantUUID, credential string) (VerifiedShopifyCustomer, string, error) {
-	claims := reqctx.GetClaims(ctx)
-	if claims == nil || !strings.EqualFold(claims.Issuer, "powerx-sts") || strings.TrimSpace(claims.PluginID) == "" {
-		return VerifiedShopifyCustomer{}, "", ErrCustomerUnauthorized
+	pluginID, err := stsPluginID(ctx)
+	if err != nil {
+		return VerifiedShopifyCustomer{}, "", err
 	}
 	var cfgRow settingmodel.PluginInstanceConfig
-	if err := s.db.WithContext(ctx).Where("tenant_uuid = ? AND plugin_id = ? AND key = ? AND enabled = ?", tenantUUID, claims.PluginID, ShopifyStorefrontConfigKey, true).First(&cfgRow).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("tenant_uuid = ? AND plugin_id = ? AND key = ? AND enabled = ?", tenantUUID, pluginID, ShopifyStorefrontConfigKey, true).First(&cfgRow).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return VerifiedShopifyCustomer{}, "", ErrCustomerForbidden
 		}
@@ -187,7 +200,16 @@ func (s *CustomerAuthService) verifyShopify(ctx context.Context, tenantUUID, cre
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || out.Data.Customer == nil || out.Data.Customer.ID == "" {
 		return VerifiedShopifyCustomer{}, "", ErrCustomerCredentialInvalid
 	}
-	return VerifiedShopifyCustomer{Subject: ShopifyExternalIdentitySubject(cfg.ShopDomain, out.Data.Customer.ID), DisplayName: out.Data.Customer.DisplayName, GivenName: out.Data.Customer.FirstName, FamilyName: out.Data.Customer.LastName, Email: out.Data.Customer.Email, Phone: out.Data.Customer.Phone}, claims.PluginID, nil
+	return VerifiedShopifyCustomer{Subject: ShopifyExternalIdentitySubject(cfg.ShopDomain, out.Data.Customer.ID), DisplayName: out.Data.Customer.DisplayName, GivenName: out.Data.Customer.FirstName, FamilyName: out.Data.Customer.LastName, Email: out.Data.Customer.Email, Phone: out.Data.Customer.Phone}, pluginID, nil
+}
+
+// stsPluginID 从 PowerX STS 凭证取调用方插件，插件身份不接受请求体传入。
+func stsPluginID(ctx context.Context) (string, error) {
+	claims := reqctx.GetClaims(ctx)
+	if claims == nil || !strings.EqualFold(claims.Issuer, "powerx-sts") || strings.TrimSpace(claims.PluginID) == "" {
+		return "", ErrCustomerUnauthorized
+	}
+	return claims.PluginID, nil
 }
 func externalProviderKey(pluginID string) (string, error) {
 	return customerrepo.ExternalIdentityProviderKey(pluginID)

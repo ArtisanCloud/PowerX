@@ -21,6 +21,11 @@ func (c *Config) Validate() error {
 		errors = append(errors, err.Error())
 	}
 
+	// --- Customer client apps ---
+	if err := c.CustomerAuth.Validate(); err != nil {
+		errors = append(errors, err.Error())
+	}
+
 	// --- Server ---
 	if strings.TrimSpace(c.Server.Host) == "" {
 		errors = append(errors, "server.host 不能为空")

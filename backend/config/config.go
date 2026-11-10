@@ -306,6 +306,7 @@ type Config struct {
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
 	WebAdminPort       int                      `yaml:"web_admin_port"`      // Web Admin 公开访问端口（setup/install 写入）
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
+	CustomerAuth       CustomerAuthConfig       `yaml:"customer_auth"`       // 客户委派登录：客户端应用注册表（小程序等）
 	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
 	Queue              QueueConfig              `yaml:"queue"`               // 全局队列驱动
 	Scheduler          SchedulerConfig          `yaml:"scheduler"`           // 全局调度器
@@ -975,6 +976,7 @@ func loadFromEnvironment(cfg *Config, lookup environmentLookup) error {
 	if v := getenv("CORE_X_AUTH_REFRESH_TTL"); v != "" {
 		cfg.Auth.RefreshTTLStr = v
 	}
+	resolveClientAppSecrets(cfg, getenv)
 
 	// EventBus配置
 	if busType := getenv("CORE_X_EVENT_BUS_TYPE"); busType != "" {

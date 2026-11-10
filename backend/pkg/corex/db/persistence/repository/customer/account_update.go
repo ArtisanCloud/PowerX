@@ -14,11 +14,18 @@ func (r *AccountRepository) UpdateProfile(ctx context.Context, tenantUUID, custo
 	if err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_uuid = ? AND customer_uuid = ?", tenantUUID, customerUUID).First(&membership).Error; err != nil {
 		return err
 	}
+	var account modelcustomer.Account
+	if err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ?", customerUUID).First(&account).Error; err != nil {
+		return err
+	}
 	updates := map[string]any{}
 	for _, key := range []string{"display_name", "nickname", "given_name", "family_name", "primary_email", "primary_phone", "avatar_url", "locale", "timezone", "status"} {
 		if value, ok := fields[key]; ok {
 			updates[key] = value
 		}
+	}
+	if err := invalidateChangedPhone(account, updates); err != nil {
+		return err
 	}
 	result := r.db.WithContext(ctx).Model(&modelcustomer.Account{}).Where("uuid = ?", customerUUID).Updates(updates)
 	if result.Error != nil {
@@ -32,7 +39,6 @@ func (r *AccountRepository) UpdateProfile(ctx context.Context, tenantUUID, custo
 			return err
 		}
 	}
-	var account modelcustomer.Account
 	if err := r.db.WithContext(ctx).Where("uuid = ?", customerUUID).First(&account).Error; err != nil {
 		return err
 	}
