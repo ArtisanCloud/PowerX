@@ -37,7 +37,7 @@
 
         <PluginInstallRecovery v-if="recovery" :state="recovery" :checking="checkingRecovery" :busy="installing" :error="recoveryError" @check="checkInstallation" @resume="resumeInstallation" @done="completeRecovery" @view="viewInstalled" />
         <div v-show="!recovery" class="mt-4">
-          <UForm :state="state" class="space-y-4">
+          <UForm :key="currentSession.key" :state="state" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm mb-1 text-[var(--text-secondary)]"
@@ -253,6 +253,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { shallowRef } from "vue";
 import type { MarketplacePlugin } from "~/components/plugins/PluginCard.vue";
 import PluginInstallRecovery from '~/components/plugins/PluginInstallRecovery.vue';
 import { canResumeInstall, installPackageIdentity, readLocalInstallIdentity, reconcileInstall, uncertainInstallError, type InstallRecovery } from '~/utils/plugin-install-recovery';
@@ -273,7 +274,6 @@ const emit = defineEmits<{
   ): void;
 }>();
 
-const plugin = computed(() => props.plugin);
 
 const open = computed({
   get: () => props.modelValue,
@@ -306,83 +306,135 @@ const releaseChannelOptions = [
   { label: "canary", value: "canary" },
 ];
 
-const state = reactive({
-  installMode: "url" as InstallMode,
-  url: "",
-  sha256: "",
-  enableAfterInstall: true,
-  localDirFiles: [] as File[],
-  localDirName: "",
-  scope: resolveDefaultScope(),
-  namespace: "",
-  releaseChannel: releaseChannelOptions[0].value,
-  autoUpdate: true,
-  forceInstall: false,
-  perms: {
-    network: true,
-    storage: true,
-    files: true,
-  },
-  notes: "",
-});
+function createInstallForm() {
+  return {
+    installMode: "url" as InstallMode,
+    url: "",
+    sha256: "",
+    enableAfterInstall: true,
+    localDirFiles: [] as File[],
+    localDirName: "",
+    scope: resolveDefaultScope(),
+    namespace: "",
+    releaseChannel: releaseChannelOptions[0].value,
+    autoUpdate: true,
+    forceInstall: false,
+    perms: {
+      network: true,
+      storage: true,
+      files: true,
+    },
+    notes: "",
+  };
+}
 
 interface ReplacementPreview { requires_provider_confirmation?: boolean; current: { version: string; revision: string; provider: { id: string; authority: string } }; target: { version: string; provider: { id: string; authority: string } } }
-const replacementPreview = ref<ReplacementPreview>();
-const providerBindingConfirmed = ref(false);
-const installing = ref(false);
-const recovery = ref<InstallRecovery>();
-const recoveryError = ref('');
-const checkingRecovery = ref(false);
-let recoveryController: AbortController | undefined;
-let recoveryOwner = '';
+interface InstallSession {
+  key: number;
+  target?: InstallRecovery['target'];
+  state: ReturnType<typeof createInstallForm>;
+  plugin?: MarketplacePlugin;
+  replacementPreview?: ReplacementPreview;
+  providerBindingConfirmed: boolean;
+  installing: boolean;
+  recovery?: InstallRecovery;
+  recoveryError: string;
+  checkingRecovery: boolean;
+  controller?: AbortController;
+  owner: string;
+  creatingDrain: boolean;
+  drainRequired: boolean;
+  drainCreated: boolean;
+  drainPluginId: string;
+}
+
+// 一个待核对安装只阻止同一插件；切换目标保留原表单、文件及恢复记录。
+const sessions = new Map<string, InstallSession>();
+let sessionSequence = 0;
+function pendingSession(id: string, except?: InstallSession) {
+  return [...sessions.values()].find(session => session !== except && (session.recovery?.target?.id === id || (session.installing && session.target?.id === id)));
+}
+function sessionFor(plugin?: MarketplacePlugin): InstallSession {
+  const key = plugin?.id || '';
+  const pending = key ? pendingSession(key) : undefined;
+  if (pending) return pending;
+  let session = sessions.get(key);
+  if (!session) {
+    session = reactive({ key: ++sessionSequence, state: createInstallForm(), plugin: plugin ? { ...plugin } : undefined, providerBindingConfirmed: false,
+      installing: false, recoveryError: '', checkingRecovery: false, owner: '', creatingDrain: false,
+      drainRequired: false, drainCreated: false, drainPluginId: '' });
+    sessions.set(key, session);
+  } else if (!session.recovery) session.plugin = plugin ? { ...plugin } : undefined;
+  return session;
+}
+const currentSession = shallowRef<InstallSession>(sessionFor(props.plugin));
+const plugin = computed(() => currentSession.value.plugin);
+const state = computed(() => currentSession.value.state);
+function sessionField<K extends keyof InstallSession>(key: K) {
+  return computed({ get: () => currentSession.value[key], set: (value: InstallSession[K]) => { currentSession.value[key] = value; } });
+}
+const replacementPreview = sessionField('replacementPreview');
+const providerBindingConfirmed = sessionField('providerBindingConfirmed');
+const installing = sessionField('installing');
+const recovery = sessionField('recovery');
+const recoveryError = sessionField('recoveryError');
+const checkingRecovery = sessionField('checkingRecovery');
+const creatingDrain = sessionField('creatingDrain');
+const drainRequired = sessionField('drainRequired');
+const drainCreated = sessionField('drainCreated');
+const drainPluginId = sessionField('drainPluginId');
 let disposed = false;
 const installOwner = () => `${userStore.user?.id || ''}:${userStore.currentTenantUuid || ''}`;
 watch(installOwner, (owner) => {
-  if (recovery.value && recoveryOwner !== owner) {
-    recoveryController?.abort();
-    recovery.value = { ...recovery.value, outcome: 'changed', inspection: undefined };
-    recoveryError.value = t('plugins.installRecovery.sessionChanged');
+  for (const session of sessions.values()) {
+    if (session.recovery && session.owner !== owner) {
+      session.controller?.abort();
+      session.recovery = { ...session.recovery, outcome: 'changed', inspection: undefined };
+      session.recoveryError = t('plugins.installRecovery.sessionChanged');
+    }
   }
 });
-watch(() => props.modelValue, visible => { if (!visible) recoveryController?.abort(); });
-onBeforeUnmount(() => { disposed = true; recoveryController?.abort(); });
+watch(() => [props.plugin?.id, props.plugin?.version], () => {
+  currentSession.value.controller?.abort();
+  currentSession.value = sessionFor(props.plugin);
+});
+watch(() => props.modelValue, visible => { if (!visible) currentSession.value.controller?.abort(); });
+onBeforeUnmount(() => { disposed = true; for (const session of sessions.values()) session.controller?.abort(); });
 
 function clearRecovery() { recovery.value = undefined; recoveryError.value = ''; }
 function viewInstalled() { close(); void router.push('/plugins/local'); }
 function completeRecovery() {
-  if (recovery.value?.outcome !== 'ready' || recoveryOwner !== installOwner()) return;
+  if (recovery.value?.outcome !== 'ready' || currentSession.value.owner !== installOwner()) return;
   notifyMenuRefresh();
-  emit('installed', { plugin: props.plugin || null, state: JSON.parse(JSON.stringify(state)) });
+  emit('installed', { plugin: plugin.value || null, state: JSON.parse(JSON.stringify(state.value)) });
   clearRecovery(); close();
 }
-async function checkInstallation() {
-  const current = recovery.value;
-  if (disposed || !current?.target || checkingRecovery.value || recoveryOwner !== installOwner()) return;
-  checkingRecovery.value = true; recoveryError.value = '';
-  recoveryController?.abort(); const controller = new AbortController(); recoveryController = controller;
+async function checkInstallation(session = currentSession.value) {
+  const current = session.recovery;
+  if (disposed || !current?.target || session.checkingRecovery || session.owner !== installOwner()) return;
+  session.checkingRecovery = true; session.recoveryError = '';
+  session.controller?.abort(); const controller = new AbortController(); session.controller = controller;
   try {
     const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
     const inspected = await useAdminPluginsService().inspectInstallation(current.target.id, controller.signal);
-    if (!controller.signal.aborted && recoveryOwner === installOwner() && recovery.value === current) recovery.value = reconcileInstall(current, inspected);
+    if (!controller.signal.aborted && session.owner === installOwner() && session.recovery === current) session.recovery = reconcileInstall(current, inspected);
   } catch (error: any) {
-    if (!controller.signal.aborted) recoveryError.value = error?.message || t('plugins.installRecovery.checkFailed');
-  } finally { if (recoveryController === controller) checkingRecovery.value = false; }
+    if (!controller.signal.aborted) session.recoveryError = error?.message || t('plugins.installRecovery.checkFailed');
+  } finally { if (session.controller === controller) session.checkingRecovery = false; }
 }
 async function resumeInstallation() {
-  const current = recovery.value;
-  if (!current || !canResumeInstall(current) || checkingRecovery.value || installing.value || recoveryOwner !== installOwner()) return;
-  installing.value = true; recoveryError.value = '';
+  const session = currentSession.value;
+  const current = session.recovery;
+  if (!current || !canResumeInstall(current) || session.checkingRecovery || session.installing || session.owner !== installOwner()) return;
+  session.installing = true; session.recoveryError = '';
   try {
     const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
+    if (disposed || session.owner !== installOwner() || currentSession.value !== session || !props.modelValue) return;
     await useAdminPluginsService().enable(current.target!.id, { expected_version: current.target!.version, expected_revision: current.inspection!.installation.revision! });
-    if (!disposed) await checkInstallation();
-  } catch (error: any) { recoveryError.value = error?.message || t('plugins.installRecovery.checkFailed'); }
-  finally { installing.value = false; }
+    if (!disposed && currentSession.value === session && props.modelValue) await checkInstallation(session);
+  } catch (error: any) { session.recoveryError = error?.message || t('plugins.installRecovery.checkFailed'); }
+  finally { session.installing = false; }
 }
-const creatingDrain = ref(false);
-const drainRequired = ref(false);
-const drainCreated = ref(false);
-const drainPluginId = ref("");
 const localDirInputRef = ref<HTMLInputElement | null>(null);
 const menuRefreshToken = useState<number>("px-menu-refresh-token", () => 0);
 const multipartDirectoryPackageThreshold = 400;
@@ -391,16 +443,15 @@ watch(
   () => props.modelValue,
   async (visible) => {
     if (!visible) return;
-    replacementPreview.value = undefined;
-    state.forceInstall = state.installMode === 'local'; providerBindingConfirmed.value = false;
+    const session = currentSession.value;
     if (!userStore.context) {
       try {
         await userStore.fetchUserContext();
       } catch {
         // ignore and fallback to current store snapshot
       }
+      if (currentSession.value === session && !session.recovery) session.state.scope = resolveDefaultScope();
     }
-    state.scope = resolveDefaultScope();
   }
 );
 
@@ -408,7 +459,7 @@ function close() {
   open.value = false;
 }
 
-const drainTargetPluginId = computed(() => drainPluginId.value || props.plugin?.id || "");
+const drainTargetPluginId = computed(() => drainPluginId.value || plugin.value?.id || "");
 const drainNoticeText = computed(() =>
   drainCreated.value
     ? t("plugins.installDialog.drain.noticeCreated")
@@ -423,26 +474,31 @@ function goDrainDetail() {
 }
 
 async function createDrainFromInstall() {
+  const session = currentSession.value;
+  const owner = installOwner();
   const id = drainTargetPluginId.value;
-  if (!id || creatingDrain.value) return;
-  creatingDrain.value = true;
+  if (!id || session.creatingDrain) return;
+  session.creatingDrain = true;
   const toast = useToast();
   try {
     const { useAdminPluginsService } = await import(
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
+    if (disposed || owner !== installOwner() || currentSession.value !== session) return;
     await svc.createDrainJob(id, {
       reason: "install requires plugin drain",
       mode: "drain",
     });
+    session.drainCreated = true;
+    if (disposed || owner !== installOwner() || currentSession.value !== session) return;
     toast.add({
       title: t("plugins.installDialog.toast.drainCreatedTitle"),
       description: t("plugins.installDialog.toast.drainCreatedDesc"),
       color: "success",
     });
-    drainCreated.value = true;
   } catch (error: any) {
+    if (disposed || owner !== installOwner() || currentSession.value !== session) return;
     console.error("create drain failed:", error);
     toast.add({
       title: t("plugins.installDialog.toast.drainCreateFailedTitle"),
@@ -450,34 +506,34 @@ async function createDrainFromInstall() {
       color: "error",
     });
   } finally {
-    creatingDrain.value = false;
+    session.creatingDrain = false;
   }
 }
 
-function buildInstallMetadataPayload() {
+function buildInstallMetadataPayload(form = state.value) {
   return {
-    scope: state.scope || "system",
-    namespace: (state.namespace || "").trim(),
-    release_channel: state.releaseChannel || "",
-    auto_update: Boolean(state.autoUpdate),
+    scope: form.scope || "system",
+    namespace: (form.namespace || "").trim(),
+    release_channel: form.releaseChannel || "",
+    auto_update: Boolean(form.autoUpdate),
     permissions: {
-      network: Boolean(state.perms.network),
-      storage: Boolean(state.perms.storage),
-      files: Boolean(state.perms.files),
+      network: Boolean(form.perms.network),
+      storage: Boolean(form.perms.storage),
+      files: Boolean(form.perms.files),
     },
-    notes: (state.notes || "").trim(),
+    notes: (form.notes || "").trim(),
   };
 }
 
-async function buildLocalInstallFormData(files: File[]) {
+async function buildLocalInstallFormData(files: File[], directoryName: string) {
   const formData = new FormData();
   const shouldPackage =
     files.length >= multipartDirectoryPackageThreshold &&
     typeof (globalThis as any).CompressionStream === "function";
 
   if (shouldPackage) {
-    const archive = await createTarGzFromFiles(files);
-    const name = safeArchiveName(state.localDirName || "plugin-upload");
+    const archive = await createTarGzFromFiles(files, directoryName);
+    const name = safeArchiveName(directoryName || "plugin-upload");
     formData.append("file", archive, `${name}.tar.gz`);
     return formData;
   }
@@ -500,7 +556,7 @@ function safeArchiveName(name: string) {
   return cleaned || "plugin-upload";
 }
 
-async function createTarGzFromFiles(files: File[]) {
+async function createTarGzFromFiles(files: File[], directoryName: string) {
   const chunks: BlobPart[] = [];
   const archivePaths = archiveRelativePaths(files);
   for (const file of files) {
@@ -518,7 +574,7 @@ async function createTarGzFromFiles(files: File[]) {
   const CompressionStreamCtor = (globalThis as any).CompressionStream;
   const compressed = tarBlob.stream().pipeThrough(new CompressionStreamCtor("gzip"));
   const gzipBlob = await new Response(compressed).blob();
-  return new File([gzipBlob], `${safeArchiveName(state.localDirName || "plugin-upload")}.tar.gz`, {
+  return new File([gzipBlob], `${safeArchiveName(directoryName || "plugin-upload")}.tar.gz`, {
     type: "application/gzip",
   });
 }
@@ -621,8 +677,8 @@ function onLocalDirChange(event: Event) {
     return name.endsWith(".tar.gz") || name.endsWith(".tgz");
   });
   if (files.length > 0 && !hasPluginYAML && !hasPackageArchive) {
-    state.localDirFiles = [];
-    state.localDirName = "";
+    state.value.localDirFiles = [];
+    state.value.localDirName = "";
     target.value = "";
     toast.add({
       title: t("plugins.installDialog.toast.invalidDirectoryTitle"),
@@ -631,17 +687,17 @@ function onLocalDirChange(event: Event) {
     });
     return;
   }
-  state.localDirFiles = files;
+  state.value.localDirFiles = files;
   if (files.length > 0) {
     const rel = (files[0] as any)?.webkitRelativePath || "";
-    state.localDirName = rel ? String(rel).split("/")[0] : t("plugins.installDialog.selectedDirectoryFallback");
+    state.value.localDirName = rel ? String(rel).split("/")[0] : t("plugins.installDialog.selectedDirectoryFallback");
   } else {
-    state.localDirName = "";
+    state.value.localDirName = "";
   }
 }
 
-watch(() => state.installMode, (mode) => { state.forceInstall = mode === 'local'; });
-watch(() => [state.url, state.installMode, state.localDirFiles], () => { replacementPreview.value = undefined; if (state.installMode !== 'local') state.forceInstall = false; providerBindingConfirmed.value = false; });
+watch(() => [currentSession.value, state.value.installMode] as const, ([session, mode], [previous]) => { if (session === previous) session.state.forceInstall = mode === 'local'; });
+watch(() => [currentSession.value, state.value.url, state.value.installMode, state.value.localDirFiles] as const, ([session], [previous]) => { if (session !== previous) return; session.replacementPreview = undefined; if (session.state.installMode !== 'local') session.state.forceInstall = false; session.providerBindingConfirmed = false; });
 
 function openLocalDirSelector() {
   localDirInputRef.value?.click();
@@ -695,7 +751,7 @@ function isDrainRequiredError(error: any): boolean {
 
 function resolveDrainPluginId(error: any): string {
   const details = getErrorDetails(error);
-  return String(details?.plugin_id || props.plugin?.id || "").trim();
+  return String(details?.plugin_id || plugin.value?.id || "").trim();
 }
 
 function isPlatformIncompatibleError(error: any): boolean {
@@ -721,12 +777,14 @@ function buildPlatformIncompatibleMessage(error: any): string {
 }
 
 async function confirmInstall() {
-  if (installing.value || recovery.value) return;
-  if (replacementPreview.value && (!state.forceInstall || (replacementPreview.value.requires_provider_confirmation && !providerBindingConfirmed.value))) return;
-  drainRequired.value = false;
-  drainCreated.value = false;
-  drainPluginId.value = "";
-  if (state.installMode === "url" && !state.url) {
+  const session = currentSession.value;
+  const form = session.state;
+  if (session.installing || session.recovery) return;
+  if (session.replacementPreview && (!form.forceInstall || (session.replacementPreview.requires_provider_confirmation && !session.providerBindingConfirmed))) return;
+  session.drainRequired = false;
+  session.drainCreated = false;
+  session.drainPluginId = "";
+  if (form.installMode === "url" && !form.url) {
     const toast = useToast();
     toast.add({
       title: t("common.error"),
@@ -736,8 +794,8 @@ async function confirmInstall() {
     return;
   }
   if (
-    state.installMode === "local" &&
-    state.localDirFiles.length === 0
+    form.installMode === "local" &&
+    form.localDirFiles.length === 0
   ) {
     const toast = useToast();
     toast.add({
@@ -748,68 +806,76 @@ async function confirmInstall() {
     return;
   }
 
-  installing.value = true;
+  session.installing = true;
   const toast = useToast();
   const owner = installOwner();
-  recoveryOwner = owner;
+  session.owner = owner;
   let submitted = false;
-  let attempt: InstallRecovery = { force: !!state.forceInstall, enable: !!state.enableAfterInstall, outcome: 'unknown' };
+  let attempt: InstallRecovery = { force: !!form.forceInstall, enable: !!form.enableAfterInstall, outcome: 'unknown' };
 
   try {
-    attempt.target = state.installMode === 'local'
-      ? await readLocalInstallIdentity(state.localDirFiles)
-      : installPackageIdentity(props.plugin?.id, props.plugin?.version);
+    attempt.target = form.installMode === 'local'
+      ? await readLocalInstallIdentity(form.localDirFiles)
+      : installPackageIdentity(session.plugin?.id, session.plugin?.version);
+    session.target = attempt.target;
     if (attempt.target) {
+      const pending = pendingSession(attempt.target.id, session);
+      if (pending) { if (currentSession.value === session) currentSession.value = pending; return; }
       const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
       const baseline = await useAdminPluginsService().inspectInstallation(attempt.target.id);
       if (!baseline.installation.version && baseline.installation.reason !== 'PLUGIN_NOT_INSTALLED') throw new Error(t('plugins.installRecovery.checkFailed'));
       attempt.baselineRevision = baseline.installation.revision;
     }
     if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
-    if (state.installMode === "url" && state.url) {
+    if (disposed || currentSession.value !== session || !props.modelValue) return;
+    if (form.installMode === "url" && form.url) {
       const { useAdminPluginsService } = await import(
         "~/composables/api/services/adminPluginsService"
       );
       const svc = useAdminPluginsService();
       if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
+      if (disposed || currentSession.value !== session || !props.modelValue) return;
       submitted = true;
       await svc.installFromUrl({
-        url: state.url,
-        sha256: state.sha256 || undefined,
-        enable: !!state.enableAfterInstall,
-        force: !!state.forceInstall,
-        expected_revision: replacementPreview.value?.current.revision,
-        confirm_legacy_provider: providerBindingConfirmed.value,
-        metadata: buildInstallMetadataPayload(),
+        url: form.url,
+        sha256: form.sha256 || undefined,
+        enable: !!form.enableAfterInstall,
+        force: !!form.forceInstall,
+        expected_revision: session.replacementPreview?.current.revision,
+        confirm_legacy_provider: session.providerBindingConfirmed,
+        metadata: buildInstallMetadataPayload(form),
       });
 
       if (disposed) return;
-      if (owner !== installOwner()) { recovery.value = { ...attempt, outcome: 'changed' }; recoveryError.value = t('plugins.installRecovery.sessionChanged'); return; }
+      if (owner !== installOwner()) { session.recovery = { ...attempt, outcome: 'changed' }; session.recoveryError = t('plugins.installRecovery.sessionChanged'); return; }
+      if (currentSession.value !== session) return;
       toast.add({
         title: t("plugins.installDialog.toast.successTitle"),
         description: t("plugins.installDialog.toast.successDesc"),
         color: "green",
       });
     } else if (
-      state.installMode === "local" &&
-      state.localDirFiles.length > 0
+      form.installMode === "local" &&
+      form.localDirFiles.length > 0
     ) {
       const { useAdminPluginsService } = await import(
         "~/composables/api/services/adminPluginsService"
       );
       const svc = useAdminPluginsService();
-      const formData = await buildLocalInstallFormData(state.localDirFiles);
+      const formData = await buildLocalInstallFormData(form.localDirFiles, form.localDirName);
       if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
-      formData.append("enable", String(!!state.enableAfterInstall));
-      formData.append("force", String(!!state.forceInstall));
-      if (replacementPreview.value) formData.append("expected_revision", replacementPreview.value.current.revision);
-      if (providerBindingConfirmed.value) formData.append("confirm_legacy_provider", "true");
-      formData.append("metadata", JSON.stringify(buildInstallMetadataPayload()));
+      if (disposed || currentSession.value !== session || !props.modelValue) return;
+      formData.append("enable", String(!!form.enableAfterInstall));
+      formData.append("force", String(!!form.forceInstall));
+      if (session.replacementPreview) formData.append("expected_revision", session.replacementPreview.current.revision);
+      if (session.providerBindingConfirmed) formData.append("confirm_legacy_provider", "true");
+      formData.append("metadata", JSON.stringify(buildInstallMetadataPayload(form)));
       submitted = true;
       await svc.installFromLocal(formData);
 
       if (disposed) return;
-      if (owner !== installOwner()) { recovery.value = { ...attempt, outcome: 'changed' }; recoveryError.value = t('plugins.installRecovery.sessionChanged'); return; }
+      if (owner !== installOwner()) { session.recovery = { ...attempt, outcome: 'changed' }; session.recoveryError = t('plugins.installRecovery.sessionChanged'); return; }
+      if (currentSession.value !== session) return;
       toast.add({
         title: t("plugins.installDialog.toast.successTitle"),
         description: t("plugins.installDialog.toast.successDesc"),
@@ -826,26 +892,27 @@ async function confirmInstall() {
 
     notifyMenuRefresh();
     emit("installed", {
-      plugin: props.plugin || null,
-      state: JSON.parse(JSON.stringify(state)),
+      plugin: session.plugin || null,
+      state: JSON.parse(JSON.stringify(form)),
     });
     close();
   } catch (error: any) {
     if (disposed) return;
     if (getErrorDetails(error).code === 'PLUGIN_REPLACEMENT_REQUIRED') {
-      replacementPreview.value = getErrorDetails(error) as ReplacementPreview;
-      state.forceInstall = false; providerBindingConfirmed.value = false;
+      session.replacementPreview = getErrorDetails(error) as ReplacementPreview;
+      form.forceInstall = false; session.providerBindingConfirmed = false;
       return;
     }
     console.error("plugin install failed:", error);
     const details = getErrorDetails(error);
     if (details.code === 'PLUGIN_INSTALL_FINALIZATION_REQUIRED' || (submitted && uncertainInstallError(error))) {
       const target = installPackageIdentity(details.plugin_id, details.installed?.version) || attempt.target;
-      recovery.value = { ...attempt, target, receiptRevision: typeof details.installed?.revision === 'string' ? details.installed.revision : undefined };
-      if (owner !== installOwner()) { recovery.value.outcome = 'changed'; recoveryError.value = t('plugins.installRecovery.sessionChanged'); }
-      else await checkInstallation();
+      session.recovery = { ...attempt, target, receiptRevision: typeof details.installed?.revision === 'string' ? details.installed.revision : undefined };
+      if (owner !== installOwner()) { session.recovery.outcome = 'changed'; session.recoveryError = t('plugins.installRecovery.sessionChanged'); }
+      else if (currentSession.value === session && props.modelValue) await checkInstallation(session);
       return;
     }
+    if (currentSession.value !== session) return;
     if (isAlreadyInstalledConflict(error)) {
       toast.add({
         title: t("plugins.installDialog.toast.alreadyInstalledTitle"),
@@ -856,8 +923,8 @@ async function confirmInstall() {
       return;
     }
     if (isDrainRequiredError(error)) {
-      drainRequired.value = true;
-      drainPluginId.value = resolveDrainPluginId(error);
+      session.drainRequired = true;
+      session.drainPluginId = resolveDrainPluginId(error);
       toast.add({
         title: t("plugins.installDialog.toast.drainRequiredTitle"),
         description: t("plugins.installDialog.toast.drainRequiredDesc"),
@@ -879,7 +946,7 @@ async function confirmInstall() {
       color: "error",
     });
   } finally {
-    installing.value = false;
+    session.installing = false;
   }
 }
 </script>

@@ -92,7 +92,6 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 
 	var (
 		backendInfo supervisor.ProcInfo
-		adminInfo   supervisor.ProcInfo
 		hasBackend  bool
 		hasAdmin    bool
 	)
@@ -101,8 +100,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 			backendInfo = info
 			hasBackend = true
 		}
-		if info, ok := m.sup.Status(p.ID + "_admin"); ok {
-			adminInfo = info
+		if _, ok := m.sup.Status(p.ID + "_admin"); ok {
 			hasAdmin = true
 		}
 	}
@@ -112,9 +110,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 		backendInfo.State != supervisor.ProcExited &&
 		backendInfo.State != supervisor.ProcCrashed
 
-	adminAlive := hasAdmin && adminInfo.State != supervisor.ProcStopped && adminInfo.State != supervisor.ProcExited && adminInfo.State != supervisor.ProcCrashed
-	adminAvailable := p.Frontend.Admin.Kind != plugin_mgr.FrontendKindProcess || adminAlive || adminStaticFallbackReady(p)
-	if p.State == plugin_mgr.StateEnabled && backendAlive && adminAvailable {
+	if p.State == plugin_mgr.StateEnabled && backendAlive && installationAdminReady(m, p) {
 		return plugin_mgr.NewError(
 			plugin_mgr.CodeAlreadyEnabled,
 			plugin_mgr.WithOp("enable"),

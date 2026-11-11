@@ -1,0 +1,120 @@
+{
+  "date": "2026-11-11",
+  "source_parent": "030183b9c33746a51804959fd155096129bac528",
+  "scope": "PR #427 P2 review fixes: per-target install recovery and active static admin routing readiness",
+  "review_findings": [
+    {
+      "url": "https://github.com/ArtisanCloud/PowerX/pull/427#discussion_r4534568861",
+      "fix": "Preserve independent target sessions and drafts; same plugin identity cannot bypass pending recovery; abort old reads and scope late results."
+    },
+    {
+      "url": "https://github.com/ArtisanCloud/PowerX/pull/427#discussion_r4534568871",
+      "fix": "Readiness and Enable share actual static route checks, reject retained proxy fallback, and permit explicit runtime recovery."
+    }
+  ],
+  "source_files_sha256": {
+    "backend/internal/infra/plugin/manager/enable_cancellation_test.go": "793ccd7bbdf55c768adf76fbea3a393dc5ada1a0236ced6a246962bc3c157d96",
+    "backend/internal/infra/plugin/manager/interop.go": "5f37de0312583dec66b3946616cce19a61f5569f2888d45fed7c2b407a30caea",
+    "backend/internal/infra/plugin/manager/lifecycle.go": "11f64a606cd0aec53d0492b847be49a7cb24e3781d1cf9a2229422395eae83ff",
+    "backend/internal/infra/plugin/manager/router/admin_readiness_test.go": "dfd15abadd0c7ab0f901d2f1ec1168f941da1dcc0b92da80532b77796e6dde79",
+    "backend/internal/infra/plugin/manager/router/router.go": "a89ef374be2ca0c8a28a06e48cc3b09a7255cb291b7af813a0555f6ca6e97393",
+    "docs/contracts/plugin-install-request-recovery.md": "3e5dd47c06215c492acc705e7e6b86785248d20f25dafd79e8b52d13d51a8f29",
+    "web-admin/app/components/plugins/InstallDialog.vue": "acc34ab78551172d1d2c57cc42f3404df689393e0bd154995a128b7a8f8c887f",
+    "web-admin/playwright.plugin-install.config.ts": "fabcd7b3c123caec685e238cb11a22542efbad096d7326ad662324c8ebe0d7d1",
+    "web-admin/tests/e2e/plugins/install-recovery.spec.ts": "6743eb140416e4aa405c808f46633d9c1319c224daa3ed49525c974942ebec3e",
+    "web-admin/tests/fixtures/plugin-install-recovery/install.vue": "b1e43088f6f3f98059493b184f82b505eb4a7af3634fbbb10cdcf28c4b073129",
+    "web-admin/tests/fixtures/plugin-install-recovery/nuxt.config.ts": "f73fffacd621536ee3aae3224adf8014262d1f85fcf924a67951b4d0e97d85a8",
+    "web-admin/tests/unit/plugins/install-dialog-recovery.spec.ts": "851e9c6c420e719bc81d41cf7c5701ad7dfca25095c2a6c3c72a42b31e21edfa"
+  },
+  "validation": {
+    "go_race": {
+      "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager": {
+        "passed_cases_including_subtests": 292,
+        "passed_top_level_tests": 108,
+        "skipped": 3,
+        "status": "pass"
+      },
+      "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router": {
+        "passed_cases_including_subtests": 88,
+        "passed_top_level_tests": 27,
+        "skipped": 0,
+        "status": "pass"
+      },
+      "github.com/ArtisanCloud/PowerX/internal/service/plugin": {
+        "passed_cases_including_subtests": 21,
+        "passed_top_level_tests": 21,
+        "skipped": 1,
+        "status": "pass"
+      },
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin": {
+        "passed_cases_including_subtests": 44,
+        "passed_top_level_tests": 21,
+        "skipped": 0,
+        "status": "pass"
+      },
+      "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr": {
+        "passed_cases_including_subtests": 3,
+        "passed_top_level_tests": 3,
+        "skipped": 0,
+        "status": "pass"
+      }
+    },
+    "go_vet": "passed for all five affected packages",
+    "linux_amd64_core_build": "passed (CGO_ENABLED=0)",
+    "nuxt_product_build": "passed, using independent build/output directories; fixture route absent",
+    "nuxt_browser_build": "passed with explicit test-only Nuxt layer",
+    "frontend_unit_tests": {
+      "files": 8,
+      "passed": 46
+    },
+    "browser": {
+      "passed": 4,
+      "widths": [
+        1440,
+        390
+      ],
+      "controlled_api_fixture": true,
+      "scenarios": [
+        "A pending -> B install -> A recovery with preserved draft and one upload per target",
+        "existing local installation timeout recovery"
+      ],
+      "no_periodic_inspection": true,
+      "screenshots_visually_checked": true
+    },
+    "api_response_shape_check": "passed",
+    "ws_taskbus_contract_check": "passed",
+    "upgrade_registry_check": "passed"
+  },
+  "test_environment_adjustments": [
+    "The first full race run exposed a test-only admin child warmup interval of 10ms; changed this new fixture to 1s/2s without changing production probes. The final full race run passed.",
+    "The browser harness initially lacked a menu fixture entry; added its explicit route without changing product guards. Chromium omits File bytes in intercepted multipart bodies, so the fixture identifies a/b through file_paths_json and checks draft isolation. Final 4 browser tests passed."
+  ],
+  "cleanup": {
+    "browser_process_record": {
+      "owner": "owned-plugin-install-review-browser",
+      "cwd": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/web-admin",
+      "startedAt": "2026-11-11T09:48:59.936Z",
+      "fixturePid": 35076,
+      "fixturePort": 39456,
+      "corePid": 35077,
+      "corePort": 39455,
+      "command": [
+        "/opt/homebrew/Cellar/node/24.2.0/bin/node",
+        "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/tmp/pr427-review-20261111/nuxt-output/server/index.mjs"
+      ],
+      "stoppedAt": "2026-11-11T09:49:17.266Z",
+      "coreExitedAt": "2026-11-11T09:49:17.273Z"
+    },
+    "browser_pids_exited": true,
+    "ports_39455_39456_released": true,
+    "go_owned_children_stopped_and_port_closure_asserted": true
+  },
+  "boundaries": {
+    "schema_or_migration_changed": false,
+    "daily_services_restarted": false,
+    "remote_server_or_database_changed": false,
+    "deployed_acceptance": false,
+    "real_plugin_provider_or_tenant_mapping_acceptance": false,
+    "github_bot_re_review_completed_for_this_patch": false
+  }
+}

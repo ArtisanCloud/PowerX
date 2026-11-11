@@ -12,22 +12,22 @@ let user: any;
 const pending = () => ({ plugin_id: id, installation: { version: '1.0.0', revision: 'new', state: 'enabled', ready: false, tenant_ready: false, runtime_ready: true } });
 const absent = () => ({ plugin_id: id, installation: { ready: false, reason: 'PLUGIN_NOT_INSTALLED' } });
 
-function render() {
-  return mount(InstallDialog, { props: { modelValue: true }, global: { stubs: {
+function render(plugin?: any) {
+  return mount(InstallDialog, { props: { modelValue: true, plugin }, global: { stubs: {
     UModal: { template: '<div><slot name="body" /><slot name="footer" /></div>' },
     UForm: { template: '<form><slot /></form>' },
     UAlert: { props: ['title', 'description'], template: '<div role="status">{{title}} {{description}}</div>' },
     UButton: { props: ['disabled', 'loading'], emits: ['click'], template: '<button :disabled="disabled || loading" @click="$emit(\'click\')"><slot /></button>' },
     USelect: { props: ['modelValue', 'items'], emits: ['update:modelValue'], template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="item in items" :value="item.value">{{item.label}}</option></select>' },
-    UInput: { template: '<input />' }, UTextarea: { template: '<textarea />' }, USwitch: { template: '<span />' }, UCheckbox: { template: '<span />' }, UIcon: { template: '<i />' },
+    UInput: { template: '<input />' }, UTextarea: { props: ['modelValue'], emits: ['update:modelValue'], template: '<textarea :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />' }, USwitch: { template: '<span />' }, UCheckbox: { template: '<span />' }, UIcon: { template: '<i />' },
   } } });
 }
 function button(wrapper: any, key: string) { return wrapper.findAll('button').find((b: any) => b.text() === key); }
-async function submit(wrapper: any) {
+async function submit(wrapper: any, target = id) {
   await wrapper.find('select').setValue('local');
-  const file = new File([`id: ${id}\nversion: 1.0.0\n`], 'plugin.yaml');
+  const file = new File([`id: ${target}\nversion: 1.0.0\n`], 'plugin.yaml');
   Object.defineProperty(file, 'webkitRelativePath', { value: 'linux-amd64/plugin.yaml' });
-  Object.defineProperty(file, 'text', { value: async () => `id: ${id}\nversion: 1.0.0\n` });
+  Object.defineProperty(file, 'text', { value: async () => `id: ${target}\nversion: 1.0.0\n` });
   const input = wrapper.find('input[type="file"]'); Object.defineProperty(input.element, 'files', { value: [file] });
   await input.trigger('change'); await button(wrapper, 'plugins.installDialog.actions.install').trigger('click'); await flushPromises(); await flushPromises();
 }
@@ -74,5 +74,86 @@ describe('安装弹窗超时恢复', () => {
     await button(wrapper, 'plugins.installRecovery.resume').trigger('click'); await flushPromises();
     expect(wrapper.text()).toContain('安装已变化，请重新核对'); expect(calls.upload).toHaveBeenCalledTimes(1); expect(wrapper.emitted('installed')).toBeUndefined();
     expect(wrapper.find('input[type="file"]').element.files?.length).toBe(1); wrapper.unmount();
+  });
+
+  it('A 待恢复不阻止 B 安装，返回 A 后保留原表单且仍禁止重传', async () => {
+    const a = { id, name: 'A', version: '1.0.0' };
+    const b = { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' };
+    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending()).mockResolvedValueOnce({ ...absent(), plugin_id: b.id });
+    calls.upload.mockRejectedValueOnce(new Error('请求超时')).mockResolvedValueOnce({ ok: true });
+    const wrapper = render(a); await wrapper.find('textarea').setValue('A 的备注'); await submit(wrapper);
+    await wrapper.setProps({ modelValue: false }); await wrapper.setProps({ plugin: b, modelValue: true });
+    expect(wrapper.find('[data-testid="install-recovery"]').exists()).toBe(false);
+    expect(wrapper.find('textarea').element.value).toBe('');
+    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeDefined();
+    await submit(wrapper, b.id);
+    expect(calls.upload).toHaveBeenCalledTimes(2);
+    expect(wrapper.emitted('installed')?.[0]?.[0]).toMatchObject({ plugin: { id: b.id } });
+    await wrapper.setProps({ modelValue: false }); await wrapper.setProps({ plugin: a, modelValue: true });
+    expect(wrapper.text()).toContain('plugins.installRecovery.pendingTitle');
+    expect(wrapper.find('textarea').element.value).toBe('A 的备注');
+    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeUndefined();
+    expect(calls.upload).toHaveBeenCalledTimes(2); wrapper.unmount();
+  });
+
+  it('切换到同一插件的新版本仍保留旧请求恢复，不能绕过未知写入保护', async () => {
+    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
+    calls.upload.mockRejectedValue(new Error('请求超时'));
+    const wrapper = render({ id, name: 'A', version: '1.0.0' }); await submit(wrapper);
+    await wrapper.setProps({ modelValue: false }); await wrapper.setProps({ plugin: { id, name: 'A v2', version: '2.0.0' }, modelValue: true });
+    expect(wrapper.find('[data-testid="install-recovery"]').text()).toContain('1.0.0');
+    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeUndefined();
+    expect(calls.upload).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+
+  it('通过另一个入口上传同一插件时恢复原记录，不再次上传', async () => {
+    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
+    calls.upload.mockRejectedValue(new Error('请求超时'));
+    const wrapper = render({ id, name: 'A', version: '1.0.0' }); await submit(wrapper);
+    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
+    await submit(wrapper, id);
+    expect(wrapper.text()).toContain('plugins.installRecovery.pendingTitle');
+    expect(calls.upload).toHaveBeenCalledTimes(1); expect(calls.inspect).toHaveBeenCalledTimes(2); wrapper.unmount();
+  });
+
+  it('切换目标会取消 A 核对，迟到结果不能替换 B 的界面', async () => {
+    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
+    calls.upload.mockRejectedValue(new Error('请求超时'));
+    const a = { id, name: 'A', version: '1.0.0' };
+    const wrapper = render(a); await submit(wrapper);
+    let finish: (value: any) => void = () => {};
+    calls.inspect.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await button(wrapper, 'plugins.installRecovery.check').trigger('click'); await flushPromises();
+    const signal = calls.inspect.mock.calls.at(-1)?.[1] as AbortSignal;
+    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
+    expect(signal.aborted).toBe(true);
+    finish({ ...pending(), installation: { ...pending().installation, ready: true, tenant_ready: true } }); await flushPromises();
+    expect(wrapper.find('[data-testid="install-recovery"]').exists()).toBe(false);
+    await wrapper.setProps({ plugin: a });
+    expect(wrapper.text()).toContain('plugins.installRecovery.pendingTitle');
+    expect(button(wrapper, 'plugins.installRecovery.done')).toBeUndefined(); wrapper.unmount();
+  });
+
+  it('A 的迟到启用结果不核对、关闭或改写当前 B', async () => {
+    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
+    calls.upload.mockRejectedValue(new Error('请求超时'));
+    const wrapper = render({ id, name: 'A', version: '1.0.0' }); await submit(wrapper);
+    let finish: (value: any) => void = () => {};
+    calls.enable.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await button(wrapper, 'plugins.installRecovery.resume').trigger('click'); await flushPromises();
+    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
+    finish({ ok: true }); await flushPromises();
+    expect(calls.inspect).toHaveBeenCalledTimes(2); expect(wrapper.emitted('installed')).toBeUndefined();
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    expect(button(wrapper, 'plugins.installDialog.actions.install').attributes('disabled')).toBeUndefined(); wrapper.unmount();
+  });
+
+  it('租户变化也使非当前目标的恢复记录失效', async () => {
+    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending()); calls.upload.mockRejectedValue(new Error('请求超时'));
+    const a = { id, name: 'A', version: '1.0.0' }; const wrapper = render(a); await submit(wrapper);
+    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
+    user.currentTenantUuid = 'tenant-b'; await nextTick(); await wrapper.setProps({ plugin: a });
+    expect(wrapper.text()).toContain('plugins.installRecovery.sessionChanged');
+    expect(button(wrapper, 'plugins.installRecovery.resume')).toBeUndefined(); expect(calls.enable).not.toHaveBeenCalled(); wrapper.unmount();
   });
 });

@@ -142,6 +142,60 @@ func TestAdminStaticFallbackRequiresEntryPage(t *testing.T) {
 	require.True(t, adminStaticFallbackReady(p))
 }
 
+func TestAdminExitWithBackupIndexRequiresExplicitRuntimeRecovery(t *testing.T) {
+	m, id := cancellationManager(t, true)
+	p, ok := m.opts.Registry.Get(context.Background(), id)
+	require.True(t, ok)
+	p.Frontend.Admin.Process.Env["PX_TEST_ENABLE_FIXTURE"] = "admin-ready"
+	// race 子进程启动需要更长的预热时间；本例核对退出后的路由，不测试快速探针失败。
+	p.Frontend.Admin.Process.Health.Interval = "1s"
+	p.Frontend.Admin.Process.Health.Timeout = "2s"
+	p.Paths.FrontendAdminDir = t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(p.Paths.FrontendAdminDir, "index.html"), []byte("backup"), 0600))
+	desc := Descriptor{Manifest: plugin_mgr.Manifest{ID: p.ID, Version: p.Version, Runtime: p.Runtime, Frontend: p.Frontend}, Paths: p.Paths, HostConfig: p.HostConfig, Revision: p.Revision}
+	require.NoError(t, m.opts.Registry.Put(context.Background(), desc, plugin_mgr.StateInstalled))
+	require.NoError(t, m.Enable(context.Background(), id))
+	p, ok = m.opts.Registry.Get(context.Background(), id)
+	require.True(t, ok)
+	require.True(t, InstallationRuntimeReady(m, p))
+	var ports []int
+	record := func() {
+		for _, procID := range []string{id, id + "_admin"} {
+			info, exists := m.sup.Status(procID)
+			require.True(t, exists)
+			cwd, err := os.Getwd()
+			require.NoError(t, err)
+			t.Logf("owned fixture pid=%d command=test-binary cwd=%s port=%d", info.PID, cwd, info.Port)
+			ports = append(ports, info.Port)
+		}
+	}
+	t.Cleanup(func() {
+		require.NoError(t, m.sup.Stop(id+"_admin"))
+		require.NoError(t, m.sup.Stop(id))
+		for _, port := range ports {
+			conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), 100*time.Millisecond)
+			if conn != nil {
+				conn.Close()
+			}
+			require.Error(t, err, "owned listener must be released")
+		}
+	})
+	record()
+	// 只终止测试自己启动的管理进程，保留其代理路由，复现退出后的现场。
+	require.NoError(t, m.sup.Stop(id+"_admin"))
+	require.True(t, adminStaticFallbackReady(p), "备用 index.html 仍存在")
+	require.False(t, InstallationRuntimeReady(m, p), "旧代理不可访问，不能误报完成")
+	require.NoError(t, m.Enable(context.Background(), id), "不能因备用文件存在而返回 already_enabled")
+	record()
+	p, ok = m.opts.Registry.Get(context.Background(), id)
+	require.True(t, ok)
+	require.True(t, InstallationRuntimeReady(m, p))
+	require.NoError(t, m.sup.Stop(id+"_admin"))
+	require.False(t, InstallationRuntimeReady(m, p))
+	m.http.MountAdminStatic(id, p.Paths.FrontendAdminDir)
+	require.True(t, InstallationRuntimeReady(m, p), "真实切换到静态路由后才可报告就绪")
+}
+
 func TestCommittedFirstInstallRetainsArtifactsWhenActivationFails(t *testing.T) {
 	m, root := newCredentialInstallManager(t)
 	m.opts.CoreConfig.Server.Port = 8077
