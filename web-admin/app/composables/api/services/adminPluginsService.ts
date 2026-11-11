@@ -1,4 +1,5 @@
 import { useApiClient } from "../index";
+import type { InstallInspection } from '~/utils/plugin-install-recovery';
 
 export interface PluginProviderIdentity { id: string; authority: string }
 
@@ -74,10 +75,16 @@ export const useAdminPluginsService = () => {
     },
 
     // 系统启用/停用（启用可能耗时，单独放宽超时时间）
-    enable: (id: string) =>
-      api.post(`${base}/${encodeURIComponent(id)}/enable`, undefined, {
+    enable: (id: string, expected?: { expected_version: string; expected_revision: string }) =>
+      api.post(`${base}/${encodeURIComponent(id)}/enable`, expected, {
         timeout: 120000, // 120s 防止启动耗时导致超时
+        retry: 0,
       }),
+    inspectInstallation: async (id: string, signal?: AbortSignal): Promise<InstallInspection> => {
+      const data = unwrap(await api.get(`${base}/${encodeURIComponent(id)}/tenant_config`, { signal, retry: 0, useGlobalLoading: false }));
+      if (!data || data.plugin_id !== id || !data.installation || typeof data.installation.ready !== 'boolean') throw new Error('PLUGIN_INSTALL_STATE_INVALID');
+      return data as InstallInspection;
+    },
     disable: (id: string) =>
       api.post(`${base}/${encodeURIComponent(id)}/disable`, undefined, {
         timeout: 120000,
@@ -87,12 +94,14 @@ export const useAdminPluginsService = () => {
     installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; force?: boolean; expected_revision?: string; confirm_legacy_provider?: boolean; metadata?: Record<string, any> }) =>
       api.post(`${base}/install/url`, payload, {
         timeout: 120000, // 构建/解压/启用可能超过默认 30s
+        retry: 0,
       }),
 
     // 本地安装（文件上传）
     installFromLocal: (formData: FormData) =>
       api.upload(`${base}/install/local`, formData, {
         timeout: 120000, // 大包上传 + 安装流程可能超过默认 30s
+        retry: 0,
       }),
 
     // 卸载（可扩展 purge 等参数）

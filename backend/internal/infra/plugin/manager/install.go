@@ -97,9 +97,10 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 		)
 	}
 	// 首次安装失败也不能留下可被 Bootstrap 误识别的半成品。
+	artifactCommitted := false
 	if commit == nil {
 		defer func() {
-			if installErr == nil {
+			if installErr == nil || artifactCommitted {
 				return
 			}
 			recoveryCtx := context.WithoutCancel(ctx)
@@ -196,11 +197,19 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 		}
 	}
 
+	// 提交前的错误清理半成品；已提交产物的激活失败允许显式恢复，不能重复迁移/上传。
+	artifactCommitted = true
 	// 6) 可选：安装后立即启用
 	installedState := plugin_mgr.StateInstalled
 	if opts.AutoEnable {
 		// 安装后必须切到“本次安装版本”再启用，避免命中旧 current 版本导致 already_enabled。
 		if _, err := m.SwitchVersion(ctx, man.ID, man.Version, true); err != nil {
+			if commit == nil {
+				installed, ok := m.opts.Registry.Get(context.WithoutCancel(ctx), man.ID)
+				if ok && installed.Version == man.Version {
+					return installed, plugin_mgr.PendingInstallation(installed, "runtime_activation", err)
+				}
+			}
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.enable"))
 		}
 		installedState = plugin_mgr.StateEnabled

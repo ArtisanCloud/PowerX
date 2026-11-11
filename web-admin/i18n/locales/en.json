@@ -5211,6 +5211,26 @@
         "url": "Remote URL",
         "local": "Local upload"
       }
+    },
+    "installRecovery": {
+      "unknownTitle": "Installation result needs verification",
+      "unknownDescription": "The request was interrupted. The server may have completed some steps. Verify its current state before continuing.",
+      "pendingTitle": "Installed; activation needs completion",
+      "pendingDescription": "The package is retained, but its runtime or tenant setup is incomplete. Continue activation without uploading it again.",
+      "readyTitle": "Installation completed",
+      "readyDescription": "The target version and installation result have been verified.",
+      "not_installedTitle": "No installation record found yet",
+      "not_installedDescription": "This does not prove the original request has finished. Check again or view installed plugins before submitting another request.",
+      "changedTitle": "Installation or session changed",
+      "changedDescription": "The version, revision, or current tenant differs from this attempt. Review it on the installed plugins page.",
+      "plugin": "Plugin",
+      "version": "Target version",
+      "check": "Verify installation result",
+      "resume": "Complete activation",
+      "done": "Done",
+      "view": "View installed plugins",
+      "checkFailed": "The installation result could not be verified. Keep the current information and check manually.",
+      "sessionChanged": "The signed-in identity or tenant changed. Review the installation again on the installed plugins page."
     }
   },
   "agentCapabilityApprovals": {

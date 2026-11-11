@@ -3,11 +3,13 @@
     v-model:open="open"
     :title="t('plugins.installDialog.title')"
     :description="plugin ? plugin.name || '' : t('plugins.installDialog.subtitle')"
-    :ui="{ width: 'sm:max-w-lg' }"
+    :ui="{ content: 'w-[calc(100vw-2rem)] sm:max-w-lg' }"
+    :dismissible="!installing"
+    :close="!installing"
   >
-    <template #content>
-      <div class="p-4 max-h-[80vh] overflow-y-auto">
-        <div class="flex items-start gap-3">
+    <template #body>
+      <div class="max-h-[70vh] overflow-y-auto">
+        <div v-if="plugin && !recovery" class="flex items-start gap-3">
           <img
             v-if="plugin?.icon"
             :src="plugin?.icon"
@@ -33,7 +35,8 @@
           </div>
         </div>
 
-        <div class="mt-4">
+        <PluginInstallRecovery v-if="recovery" :state="recovery" :checking="checkingRecovery" :busy="installing" :error="recoveryError" @check="checkInstallation" @resume="resumeInstallation" @done="completeRecovery" @view="viewInstalled" />
+        <div v-show="!recovery" class="mt-4">
           <UForm :state="state" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -230,8 +233,11 @@
           </UForm>
         </div>
 
-        <div class="mt-5 flex items-center justify-end gap-2">
-          <UButton variant="ghost" @click="close">{{ t("plugins.installDialog.actions.cancel") }}</UButton>
+      </div>
+    </template>
+    <template v-if="!recovery" #footer>
+        <div class="flex w-full items-center justify-end gap-2">
+          <UButton variant="ghost" :disabled="installing" @click="close">{{ t("plugins.installDialog.actions.cancel") }}</UButton>
           <UButton
             color="primary"
             :loading="installing"
@@ -241,7 +247,6 @@
             >{{ t("plugins.installDialog.actions.install") }}</UButton
           >
         </div>
-      </div>
     </template>
   </UModal>
 </template>
@@ -249,6 +254,8 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import type { MarketplacePlugin } from "~/components/plugins/PluginCard.vue";
+import PluginInstallRecovery from '~/components/plugins/PluginInstallRecovery.vue';
+import { canResumeInstall, installPackageIdentity, readLocalInstallIdentity, reconcileInstall, uncertainInstallError, type InstallRecovery } from '~/utils/plugin-install-recovery';
 
 const router = useRouter();
 const { t } = useI18n();
@@ -323,6 +330,55 @@ interface ReplacementPreview { requires_provider_confirmation?: boolean; current
 const replacementPreview = ref<ReplacementPreview>();
 const providerBindingConfirmed = ref(false);
 const installing = ref(false);
+const recovery = ref<InstallRecovery>();
+const recoveryError = ref('');
+const checkingRecovery = ref(false);
+let recoveryController: AbortController | undefined;
+let recoveryOwner = '';
+let disposed = false;
+const installOwner = () => `${userStore.user?.id || ''}:${userStore.currentTenantUuid || ''}`;
+watch(installOwner, (owner) => {
+  if (recovery.value && recoveryOwner !== owner) {
+    recoveryController?.abort();
+    recovery.value = { ...recovery.value, outcome: 'changed', inspection: undefined };
+    recoveryError.value = t('plugins.installRecovery.sessionChanged');
+  }
+});
+watch(() => props.modelValue, visible => { if (!visible) recoveryController?.abort(); });
+onBeforeUnmount(() => { disposed = true; recoveryController?.abort(); });
+
+function clearRecovery() { recovery.value = undefined; recoveryError.value = ''; }
+function viewInstalled() { close(); void router.push('/plugins/local'); }
+function completeRecovery() {
+  if (recovery.value?.outcome !== 'ready' || recoveryOwner !== installOwner()) return;
+  notifyMenuRefresh();
+  emit('installed', { plugin: props.plugin || null, state: JSON.parse(JSON.stringify(state)) });
+  clearRecovery(); close();
+}
+async function checkInstallation() {
+  const current = recovery.value;
+  if (disposed || !current?.target || checkingRecovery.value || recoveryOwner !== installOwner()) return;
+  checkingRecovery.value = true; recoveryError.value = '';
+  recoveryController?.abort(); const controller = new AbortController(); recoveryController = controller;
+  try {
+    const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
+    const inspected = await useAdminPluginsService().inspectInstallation(current.target.id, controller.signal);
+    if (!controller.signal.aborted && recoveryOwner === installOwner() && recovery.value === current) recovery.value = reconcileInstall(current, inspected);
+  } catch (error: any) {
+    if (!controller.signal.aborted) recoveryError.value = error?.message || t('plugins.installRecovery.checkFailed');
+  } finally { if (recoveryController === controller) checkingRecovery.value = false; }
+}
+async function resumeInstallation() {
+  const current = recovery.value;
+  if (!current || !canResumeInstall(current) || checkingRecovery.value || installing.value || recoveryOwner !== installOwner()) return;
+  installing.value = true; recoveryError.value = '';
+  try {
+    const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
+    await useAdminPluginsService().enable(current.target!.id, { expected_version: current.target!.version, expected_revision: current.inspection!.installation.revision! });
+    if (!disposed) await checkInstallation();
+  } catch (error: any) { recoveryError.value = error?.message || t('plugins.installRecovery.checkFailed'); }
+  finally { installing.value = false; }
+}
 const creatingDrain = ref(false);
 const drainRequired = ref(false);
 const drainCreated = ref(false);
@@ -665,6 +721,7 @@ function buildPlatformIncompatibleMessage(error: any): string {
 }
 
 async function confirmInstall() {
+  if (installing.value || recovery.value) return;
   if (replacementPreview.value && (!state.forceInstall || (replacementPreview.value.requires_provider_confirmation && !providerBindingConfirmed.value))) return;
   drainRequired.value = false;
   drainCreated.value = false;
@@ -693,13 +750,29 @@ async function confirmInstall() {
 
   installing.value = true;
   const toast = useToast();
+  const owner = installOwner();
+  recoveryOwner = owner;
+  let submitted = false;
+  let attempt: InstallRecovery = { force: !!state.forceInstall, enable: !!state.enableAfterInstall, outcome: 'unknown' };
 
   try {
+    attempt.target = state.installMode === 'local'
+      ? await readLocalInstallIdentity(state.localDirFiles)
+      : installPackageIdentity(props.plugin?.id, props.plugin?.version);
+    if (attempt.target) {
+      const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
+      const baseline = await useAdminPluginsService().inspectInstallation(attempt.target.id);
+      if (!baseline.installation.version && baseline.installation.reason !== 'PLUGIN_NOT_INSTALLED') throw new Error(t('plugins.installRecovery.checkFailed'));
+      attempt.baselineRevision = baseline.installation.revision;
+    }
+    if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
     if (state.installMode === "url" && state.url) {
       const { useAdminPluginsService } = await import(
         "~/composables/api/services/adminPluginsService"
       );
       const svc = useAdminPluginsService();
+      if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
+      submitted = true;
       await svc.installFromUrl({
         url: state.url,
         sha256: state.sha256 || undefined,
@@ -710,6 +783,8 @@ async function confirmInstall() {
         metadata: buildInstallMetadataPayload(),
       });
 
+      if (disposed) return;
+      if (owner !== installOwner()) { recovery.value = { ...attempt, outcome: 'changed' }; recoveryError.value = t('plugins.installRecovery.sessionChanged'); return; }
       toast.add({
         title: t("plugins.installDialog.toast.successTitle"),
         description: t("plugins.installDialog.toast.successDesc"),
@@ -724,13 +799,17 @@ async function confirmInstall() {
       );
       const svc = useAdminPluginsService();
       const formData = await buildLocalInstallFormData(state.localDirFiles);
+      if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
       formData.append("enable", String(!!state.enableAfterInstall));
       formData.append("force", String(!!state.forceInstall));
       if (replacementPreview.value) formData.append("expected_revision", replacementPreview.value.current.revision);
       if (providerBindingConfirmed.value) formData.append("confirm_legacy_provider", "true");
       formData.append("metadata", JSON.stringify(buildInstallMetadataPayload()));
+      submitted = true;
       await svc.installFromLocal(formData);
 
+      if (disposed) return;
+      if (owner !== installOwner()) { recovery.value = { ...attempt, outcome: 'changed' }; recoveryError.value = t('plugins.installRecovery.sessionChanged'); return; }
       toast.add({
         title: t("plugins.installDialog.toast.successTitle"),
         description: t("plugins.installDialog.toast.successDesc"),
@@ -752,12 +831,21 @@ async function confirmInstall() {
     });
     close();
   } catch (error: any) {
+    if (disposed) return;
     if (getErrorDetails(error).code === 'PLUGIN_REPLACEMENT_REQUIRED') {
       replacementPreview.value = getErrorDetails(error) as ReplacementPreview;
       state.forceInstall = false; providerBindingConfirmed.value = false;
       return;
     }
     console.error("plugin install failed:", error);
+    const details = getErrorDetails(error);
+    if (details.code === 'PLUGIN_INSTALL_FINALIZATION_REQUIRED' || (submitted && uncertainInstallError(error))) {
+      const target = installPackageIdentity(details.plugin_id, details.installed?.version) || attempt.target;
+      recovery.value = { ...attempt, target, receiptRevision: typeof details.installed?.revision === 'string' ? details.installed.revision : undefined };
+      if (owner !== installOwner()) { recovery.value.outcome = 'changed'; recoveryError.value = t('plugins.installRecovery.sessionChanged'); }
+      else await checkInstallation();
+      return;
+    }
     if (isAlreadyInstalledConflict(error)) {
       toast.add({
         title: t("plugins.installDialog.toast.alreadyInstalledTitle"),

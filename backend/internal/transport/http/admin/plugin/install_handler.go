@@ -643,12 +643,12 @@ func finishPluginInstallation(c *gin.Context, deps *shared.Deps, p plugin_mgr.Pl
 		var err error
 		instance, err = enableInstalledPluginForCurrentTenant(c, deps, p)
 		if err != nil {
-			dtoRequest.ResponseError(c, http.StatusInternalServerError, "插件已安装，但当前租户启用失败，请到已安装页面重试", err)
+			respondPluginInstallError(c, "插件已安装，但当前租户启用失败，请继续完成配置", plugin_mgr.PendingInstallation(p, "tenant_activation", err))
 			return
 		}
 		seeded, err = ensureEnabledTenantEventFabricTopics(c, deps, p.ID)
 		if err != nil {
-			dtoRequest.ResponseError(c, http.StatusInternalServerError, "插件已安装，但 Topic 注册失败，请到已安装页面处理", err)
+			respondPluginInstallError(c, "插件已安装，但 Topic 注册失败，请继续完成配置", plugin_mgr.PendingInstallation(p, "topic_registration", err))
 			return
 		}
 	}
@@ -682,6 +682,15 @@ func enableInstalledPluginForCurrentTenant(c *gin.Context, deps *shared.Deps, p 
 }
 
 func respondPluginInstallError(c *gin.Context, message string, err error) {
+	var pending *plugin_mgr.InstallCompletionError
+	if errors.As(err, &pending) {
+		dtoRequest.ResponseErrorWithDetails(c, http.StatusInternalServerError, pending.Error(), nil, gin.H{
+			"code": "PLUGIN_INSTALL_FINALIZATION_REQUIRED", "plugin_id": pending.PluginID,
+			"installed": gin.H{"id": pending.PluginID, "version": pending.Version, "revision": pending.Revision, "state": pending.State},
+			"stage":     pending.Stage, "tenant_ready": false, "retry_action": "enable",
+		})
+		return
+	}
 	var replacement *plugin_mgr.ReplacementRequiredError
 	if errors.As(err, &replacement) {
 		dtoRequest.ResponseErrorWithDetails(c, 409, replacement.Error(), nil, gin.H{"code": "PLUGIN_REPLACEMENT_REQUIRED", "plugin_id": replacement.PluginID, "current": replacement.Current, "target": replacement.Target, "requires_provider_confirmation": replacement.RequiresProviderConfirmation})

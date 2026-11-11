@@ -52,13 +52,39 @@ func PluginTenantConfigHandler(deps *shared.Deps) gin.HandlerFunc {
 			clientID = cc.ClientID
 		}
 		dtoRequest.ResponseSuccess(c, gin.H{
-			"tenant_uuid": tenantUUID,
-			"plugin_id":   id,
-			"exists":      exists,
-			"enabled":     enabled,
-			"client_id":   clientID,
+			"tenant_uuid":  tenantUUID,
+			"plugin_id":    id,
+			"exists":       exists,
+			"enabled":      enabled,
+			"client_id":    clientID,
+			"installation": installationReadiness(c, deps, id),
 		})
 	}
+}
+
+// 只读取正式启用产生的配置；普通 GET 不恢复授权或修复现场。
+func installationReadiness(c *gin.Context, deps *shared.Deps, id string) any {
+	manager, err := tryGetPluginManager()
+	if err != nil {
+		return gin.H{"ready": false, "reason": "PLUGIN_RUNTIME_UNAVAILABLE"}
+	}
+	p, err := manager.Get(c.Request.Context(), id)
+	if err != nil {
+		return gin.H{"ready": false, "reason": "PLUGIN_NOT_INSTALLED"}
+	}
+	tenant, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		return gin.H{"ready": false, "reason": "TENANT_PLUGIN_TENANT_MISSING"}
+	}
+	status, err := configuredTenantPluginService(deps).InstallationReadiness(c.Request.Context(), tenant, p)
+	if err != nil {
+		return gin.H{"ready": false, "reason": "PLUGIN_INSTALL_STATE_UNAVAILABLE", "version": p.Version, "revision": p.Revision}
+	}
+	runtimeReady := pmimpl.InstallationRuntimeReady(manager, p)
+	if status.Ready && !runtimeReady {
+		status.Reason = "PLUGIN_RUNTIME_NOT_READY"
+	}
+	return gin.H{"ready": runtimeReady && status.Ready, "tenant_ready": status.Ready, "runtime_ready": runtimeReady, "reason": status.Reason, "version": p.Version, "revision": p.Revision, "state": p.State}
 }
 
 type tenantEnableReq struct {

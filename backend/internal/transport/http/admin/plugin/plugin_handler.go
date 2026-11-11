@@ -1,7 +1,9 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -119,6 +121,25 @@ func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 			return
 		}
 		ctx := c.Request.Context()
+		// 恢复收尾必须绑定用户刚核对的版本，不能对已经替换的安装继续执行。
+		var expected struct {
+			Version  string `json:"expected_version"`
+			Revision string `json:"expected_revision"`
+		}
+		if c.Request.Body != nil {
+			if err := json.NewDecoder(c.Request.Body).Decode(&expected); err != nil && err != io.EOF {
+				dtoRequest.ResponseError(c, http.StatusBadRequest, "启用请求无效", nil)
+				return
+			}
+		}
+		if expected.Version != "" || expected.Revision != "" {
+			current, err := mgr.Get(ctx, id)
+			if err != nil || current.Version != expected.Version || current.Revision != expected.Revision {
+				dtoRequest.ResponseErrorWithDetails(c, http.StatusConflict, "安装已变化，请重新核对", nil, gin.H{"code": "PLUGIN_INSTALL_CHANGED"})
+				return
+			}
+			ctx = pluginMgr.WithExpectedInstallation(ctx, expected.Version, expected.Revision)
+		}
 		tenantUUID := optionalTenantContext(c)
 		if deps.PluginMarketplace != nil {
 			if current, err := mgr.Get(ctx, id); err == nil {
@@ -130,10 +151,11 @@ func PluginEnableHandler(deps *shared.Deps) gin.HandlerFunc {
 		if tenantUUID != "" {
 			ctx = reqctx.WithTenantUUID(ctx, tenantUUID)
 		}
-		if err := mgr.Enable(pluginMgr.WithEventFabricProvisioning(ctx), id); err != nil {
+		if err := mgr.Enable(pluginMgr.WithEventFabricProvisioning(ctx), id); err != nil && !pluginMgr.IsCode(err, pluginMgr.CodeAlreadyEnabled) {
 			dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
 			return
 		}
+		c.Request = c.Request.WithContext(ctx)
 		if err := enablePluginForCurrentTenantIfPresent(c, deps, id); err != nil {
 			dtoRequest.ResponseError(c, http.StatusInternalServerError, "启用插件失败：租户插件启用失败", err)
 			return
