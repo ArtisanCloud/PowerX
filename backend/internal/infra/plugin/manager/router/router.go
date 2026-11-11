@@ -199,6 +199,26 @@ func (r *DynamicRouter) MountAdminStatic(id, absDir string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.adminDirs[id] = absDir
+	delete(r.adminUps, id)
+}
+
+// AdminStaticReady 核对当前路由确实使用指定静态目录，备用文件存在不等于降级已生效。
+func (r *DynamicRouter) AdminStaticReady(id, expectedDir string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if up, ok := r.adminUps[id]; ok && up.target != nil {
+		return false
+	}
+	dir := r.adminDirs[id]
+	if strings.TrimSpace(dir) == "" || strings.TrimSpace(expectedDir) == "" {
+		return false
+	}
+	abs, err := filepath.Abs(expectedDir)
+	if err != nil || filepath.Clean(dir) != abs {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(dir, "index.html"))
+	return err == nil && info.Mode().IsRegular()
 }
 
 func (r *DynamicRouter) MountAdminProxy(id string, upstream *url.URL) {

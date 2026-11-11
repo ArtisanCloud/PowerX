@@ -2,6 +2,8 @@
 
 更新：2026-11-05。本合同接替最初将主题写入直接挂到所有 Enable 的方案。可靠事件传输继续使用 `event_fabric.service.v1`，参见 [服务合同](event-fabric-service-v1.md)。
 
+2026-11-11：安装请求取消后的状态边界、只读就绪核对与管理员显式收尾见[安装请求恢复合同](plugin-install-request-recovery.md)。全局主题已准备不代表当前租户运行映射已提交，查询不会自动补授权。
+
 ## 职责与入口
 
 | 场景 | Core 行为 |

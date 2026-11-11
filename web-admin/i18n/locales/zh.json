@@ -5476,6 +5476,26 @@
         "url": "远程 URL",
         "local": "本地上传"
       }
+    },
+    "installRecovery": {
+      "unknownTitle": "安装结果待确认",
+      "unknownDescription": "请求已中断，服务器可能已完成部分操作。请先核对实际结果，再决定后续操作。",
+      "pendingTitle": "已安装，待完成启用",
+      "pendingDescription": "安装包已保留，当前版本的运行或租户配置尚未就绪。可继续完成启用，无需再次上传。",
+      "readyTitle": "安装已完成",
+      "readyDescription": "已核对目标版本，安装结果已确认。",
+      "not_installedTitle": "暂未查到安装记录",
+      "not_installedDescription": "这不能证明原请求已经结束。请继续核对或查看已安装列表，暂不重复提交。",
+      "changedTitle": "安装或会话已变化",
+      "changedDescription": "当前版本、修订或登录租户与本次提交不同，请到已安装页面核对。",
+      "plugin": "插件",
+      "version": "目标版本",
+      "check": "核对安装结果",
+      "resume": "继续完成启用",
+      "done": "完成",
+      "view": "查看已安装插件",
+      "checkFailed": "暂时无法核对安装结果，请保留当前信息后手动核对。",
+      "sessionChanged": "登录身份或租户已变化，请在已安装页面重新核对。"
     }
   },
   "agentCapabilityApprovals": {

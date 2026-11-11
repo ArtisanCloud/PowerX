@@ -32,6 +32,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	// 进程生命周期不能绑定在 HTTP 请求上下文上：
 	// 安装/启用 API 返回后请求 ctx 会被取消，若直接传给 exec.CommandContext
 	// 将导致刚拉起的插件进程被意外杀掉（表现为安装后首访 502，重启后恢复）。
@@ -40,6 +43,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 
 	if err != nil {
 		return err
+	}
+	if version, revision, expected := plugin_mgr.ExpectedInstallation(ctx); expected && (p.Version != version || p.Revision != revision) {
+		return plugin_mgr.NewError(plugin_mgr.CodeConflict, plugin_mgr.WithOp("PLUGIN_INSTALL_CHANGED"), plugin_mgr.WithPlugin(id), plugin_mgr.WithMsg("installation changed; inspect the current version before resuming"))
 	}
 	if err := m.validatePluginDatabaseBinding(p.ID, p.HostConfig); err != nil {
 		return plugin_mgr.Wrap(
@@ -104,7 +110,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 		backendInfo.State != supervisor.ProcExited &&
 		backendInfo.State != supervisor.ProcCrashed
 
-	if p.State == plugin_mgr.StateEnabled && backendAlive {
+	if p.State == plugin_mgr.StateEnabled && backendAlive && installationAdminReady(m, p) {
 		return plugin_mgr.NewError(
 			plugin_mgr.CodeAlreadyEnabled,
 			plugin_mgr.WithOp("enable"),
@@ -307,6 +313,24 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 		_ = m.sup.Stop(p.ID)
 		return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 	}
+	stateChanged := false
+	// 只清理本次 Enable 创建的进程；已启用分支在这里之前返回，避免影响原有实例。
+	defer func() {
+		if enableErr == nil {
+			return
+		}
+		enableErr = errors.Join(enableErr, m.sup.Stop(p.ID), m.sup.Stop(p.ID+"_admin"))
+		m.http.Unmount(p.ID)
+		if stateChanged || p.State == plugin_mgr.StateEnabled {
+			restore := p.State
+			if restore == plugin_mgr.StateEnabled {
+				restore = plugin_mgr.StateDisabled
+			}
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			enableErr = errors.Join(enableErr, m.opts.Registry.UpdateState(cleanup, p.ID, p.Version, restore), m.opts.Registry.Save(cleanup))
+		}
+	}()
 	apiBaseURL := "http://127.0.0.1:" + strconv.Itoa(apiPort)
 
 	// 健康
@@ -316,6 +340,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 		}
 		_ = m.sup.Stop(p.ID)
 		return plugin_mgr.Wrap(plugin_mgr.CodeHealthcheckFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if err := m.probeGatewayContract(ctx, p.ID, apiBaseURL, apiHealthPath, envAPI, false, ""); err != nil {
 		recordGatewayContractValid(p.ID, false)
@@ -494,6 +521,12 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 		// ★ 关键：按插件给的 entry/args 原样执行（entry 仅做绝对路径解析）
 		adminPort, err := m.sup.Start(procCtx, adminProcID, adminEntry, adminArgs, envADM, adminSup)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if p.Paths.FrontendAdminDir != "" && !adminStaticFallbackReady(p) {
+				return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable.admin"), plugin_mgr.WithPlugin(id))
+			}
 			logger.WarnF(ctx, "[plugin-enable] plugin=%s admin process start failed: %v (fallback)", p.ID, err)
 			// 回退：若有静态目录挂静态，否则复用后端端口
 			if p.Paths.FrontendAdminDir != "" {
@@ -522,6 +555,13 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 			}
 		}
 		if !ready {
+			// 请求取消不是可降级的前端探针失败，不能继续将插件登记为 enabled。
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if p.Paths.FrontendAdminDir != "" && !adminStaticFallbackReady(p) {
+				return plugin_mgr.NewError(plugin_mgr.CodeHealthcheckFailed, plugin_mgr.WithOp("enable.admin"), plugin_mgr.WithPlugin(id), plugin_mgr.WithMsg("admin runtime is not healthy and static fallback has no index.html"))
+			}
 			_ = m.sup.Stop(adminProcID)
 			if p.Paths.FrontendAdminDir != "" {
 				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
@@ -543,6 +583,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 
 	}
 
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if m.opts.PostEnablePlugin != nil {
 		if err := m.opts.PostEnablePlugin(ctx, p, apiBaseURL); err != nil {
 			_ = m.sup.Stop(p.ID)
@@ -559,13 +602,26 @@ func (m *managerImpl) Enable(ctx context.Context, id string) (enableErr error) {
 	}
 
 	// ---------- 状态 ----------
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := m.opts.Registry.UpdateState(ctx, p.ID, p.Version, plugin_mgr.StateEnabled); err != nil {
 		return err
 	}
+	stateChanged = true
 	if err := m.opts.Registry.Save(ctx); err != nil {
 		return err
 	}
-	return nil
+	return ctx.Err()
+}
+
+// SSR 的 public 目录只含资源，不能在进程探针失败后冒充完整静态管理页。
+func adminStaticFallbackReady(p plugin_mgr.Plugin) bool {
+	if p.Paths.FrontendAdminDir == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(p.Paths.FrontendAdminDir, "index.html"))
+	return err == nil && info.Mode().IsRegular()
 }
 
 func (m *managerImpl) injectGlobalGatewayRuntimeEnv(env map[string]string, pluginID string, runtimeCred *PluginRuntimeCredential) error {

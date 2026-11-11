@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-11",
+  "scope": "Core synchronous plugin installation cancellation safety and explicit finalization recovery",
+  "source_head": "498d544733a70a267cba0dd69f2d8e547151d509",
+  "source_files_sha256": {
+    "backend/internal/infra/plugin/manager/enable_cancellation_test.go": "bb520ab71c474441a1a9a3fc364816ff4523ab621a13aeaa4afa44ef58570df7",
+    "backend/internal/infra/plugin/manager/install.go": "eb7328f16059b589fa7d4ba368b7d79219cd19287ab4516f98b8e74877208637",
+    "backend/internal/infra/plugin/manager/interop.go": "75ea684145b4d5250b3043e347c70a28690900ad1e99a51dc5aa6719d0536f9d",
+    "backend/internal/infra/plugin/manager/lifecycle.go": "98a1fbf29397ca5c78c2062c74e74c2847d537bd48bf19063f8dc86016366fba",
+    "backend/internal/service/plugin/installation_readiness.go": "fdd4d154fc48acc5c2201ec71a61804c09a833da5de319cc0d6ebd0774409759",
+    "backend/internal/service/plugin/installation_readiness_test.go": "fcdd12101552a53f6ea5976df8bca1a27776e84fd4827313d3bb32f0660cbb9e",
+    "backend/internal/service/plugin/tenant_instance_service.go": "e7c87422873cdd403ae469027a8599b2f6d19f0f523c4ec28748b7b633e193d5",
+    "backend/internal/transport/http/admin/plugin/install_handler.go": "c21305eb33a7a3c6ecd5d9f6ba90a5e5b95dedb0520ba36dc0efe12b98451aae",
+    "backend/internal/transport/http/admin/plugin/install_recovery_test.go": "77ef6759c5ac7016031ac5574c61d4c16922345c4ca2481ea09b4a555bd4b613",
+    "backend/internal/transport/http/admin/plugin/plugin_handler.go": "f3a05316a1d6df5399d05f2a571f399a104596229301e64358dfd97ab174afee",
+    "backend/internal/transport/http/admin/plugin/tenant_handler.go": "f6cabf6b78144625d87b48714c99a2cd53db4f78725b793975963b65b8e792d0",
+    "backend/pkg/plugin_mgr/install_completion.go": "a2b8d489e791ee569a5cc951813abbf640c1e4f3ceb0ee19d77c25c786e07041",
+    "docs/contracts/plugin-event-fabric-install.md": "b9fdcb0c8216662f592baac61ff3ef95c40b903c0f892de3b84a399efe6ec8d0",
+    "docs/contracts/plugin-install-request-recovery.md": "60595d3869a81995a9c6306c31bf6fa295868521e7c90d49d8b5ac8d722f6990",
+    "web-admin/app/components/plugins/InstallDialog.vue": "f50788162f1306882a2cddd3cb4767873fcb4ddbdcaa34587fde0d7c4490fbce",
+    "web-admin/app/components/plugins/PluginInstallRecovery.vue": "a66a374b89a8ecff561461550e1250b6ac7d5e204f3ea65a12570c13023eae8c",
+    "web-admin/app/composables/api/services/adminPluginsService.ts": "71cc8101e113e1504c8598c2ba56858a54baeb72e871fdb1fee998915a21688c",
+    "web-admin/app/utils/plugin-install-recovery.ts": "73c3dc8b73e6cf86bdc6c8b808e24d447f92bace02d0ba5a4dc19f4f0f12ab43",
+    "web-admin/i18n/locales/en.json": "7f57653bbd8692ad4fe114f67570cf53fc752ab05dbf720d84e2f6dfa89533b6",
+    "web-admin/i18n/locales/zh.json": "3a809019e237bb333f7aeacfc63174a0f7cb311712bd85246f45642a8e7559a3",
+    "web-admin/tests/e2e/plugins/install-recovery.spec.ts": "a6916d678648ff539625b6ad47a06780e21afcde67684f22085154cc56c7f247",
+    "web-admin/tests/unit/plugins/install-dialog-recovery.spec.ts": "07faeb1e1d03da11957220073903150f604a634c968cec0a343ee84b4e136b18",
+    "web-admin/tests/unit/plugins/install-recovery.spec.ts": "120258137d758bb84e84cdf97b62600f3930894cbaad1d1a846f79c9ea6dbcab"
+  },
+  "validation": {
+    "go_race": {
+      "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager": {
+        "passed_cases_including_subtests": 291,
+        "passed_top_level_tests": 107,
+        "skipped": 3,
+        "failed": [],
+        "package_status": "pass"
+      },
+      "github.com/ArtisanCloud/PowerX/internal/service/plugin": {
+        "passed_cases_including_subtests": 21,
+        "passed_top_level_tests": 21,
+        "skipped": 1,
+        "failed": [],
+        "package_status": "pass"
+      },
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin": {
+        "passed_cases_including_subtests": 44,
+        "passed_top_level_tests": 21,
+        "skipped": 0,
+        "failed": [],
+        "package_status": "pass"
+      },
+      "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr": {
+        "passed_cases_including_subtests": 3,
+        "passed_top_level_tests": 3,
+        "skipped": 0,
+        "failed": [],
+        "package_status": "pass"
+      }
+    },
+    "go_vet": "passed for all four affected packages and final service/HTTP changes",
+    "linux_amd64_core_build": "passed (CGO_ENABLED=0)",
+    "nuxt_production_build": "passed using separate build and output directories",
+    "frontend_unit_tests": {
+      "files": 3,
+      "passed": 12
+    },
+    "browser": {
+      "passed": 2,
+      "viewports": [
+        1440,
+        390
+      ],
+      "api": "controlled fixtures only; no Core or production database",
+      "checks": [
+        "unknown upload result preserves selected files and form",
+        "no repeated upload and no periodic status reads",
+        "explicit resume sends expected version and revision",
+        "tenant-not-ready is not reported as complete",
+        "buttons and dialog remain usable without horizontal overflow"
+      ]
+    },
+    "api_response_shape": "passed",
+    "upgrade_payloads_check": "passed; payload contents unchanged",
+    "diff_check": "passed",
+    "ws_taskbus_contract_check": "passed"
+  },
+  "process_cleanup": {
+    "owned_nuxt_pids_exited": [
+      31871,
+      42689
+    ],
+    "owned_go_fixture_pids_exited": [
+      39085
+    ],
+    "test_port": 39455,
+    "test_port_released": true,
+    "persistent_agent_services": 0
+  },
+  "boundaries": {
+    "daily_local_core_or_database_used": false,
+    "remote_state_changed_this_source_fix": false,
+    "deployed_to_200": false,
+    "tenant_mapping_recovered_on_200": false,
+    "new_database_migration": false,
+    "async_taskbus_installation_implemented": false
+  },
+  "next": "Build and deploy both Core backend and web-admin to the 200 development environment, then use the formal explicit resume flow for the installed package and verify tenant mappings 13/13, plugin identity and admin page."
+}

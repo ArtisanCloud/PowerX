@@ -139,6 +139,9 @@ func (s *TenantPluginInstanceService) Enable(ctx context.Context, tenantUUID str
 	if pluginID == "" {
 		return nil, "", "", dto.NewErrorWithCode(http.StatusBadRequest, ErrCodeTenantPluginNotFound, "缺少插件ID", errors.New("plugin_id required"))
 	}
+	if version, revision, expected := plugin_mgr.ExpectedInstallation(ctx); expected && (p.Version != version || p.Revision != revision) {
+		return nil, "", "", plugin_mgr.NewError(plugin_mgr.CodeConflict, plugin_mgr.WithOp("PLUGIN_INSTALL_CHANGED"), plugin_mgr.WithMsg("installation changed before tenant finalization"))
+	}
 	if err := s.EnsurePluginAcceptsNewUsage(ctx, pluginID); err != nil {
 		return nil, "", "", err
 	}
