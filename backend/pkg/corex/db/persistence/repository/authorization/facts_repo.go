@@ -58,7 +58,10 @@ func (r *Repository) LoadPermissionFacts(ctx context.Context, tenant, plugin str
 		return f, err
 	}
 	// 网关快照和基线共享 root 的实时成员/账号事实，不能从 JWT role 字符串推断。
-	if err := db.Where("tenant_uuid = ?", tenant).Find(&f.Members).Error; err != nil {
+	// 只读取授权决策需要的稳定列。迁移可能在同一连接增添组织等字段，
+	// SELECT * 会使此前的 PostgreSQL 缓存计划在事务提交时失效。
+	if err := db.Select("id", "uuid", "tenant_uuid", "user_id", "user_uuid", "status", "deleted_at").
+		Where("tenant_uuid = ?", tenant).Find(&f.Members).Error; err != nil {
 		return f, err
 	}
 	userUUIDs := make([]string, 0, len(f.Members))

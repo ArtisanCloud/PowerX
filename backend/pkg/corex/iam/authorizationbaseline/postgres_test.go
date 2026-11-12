@@ -85,6 +85,31 @@ func TestPostgresConcurrentRolePermissionAndNewRoleMember(t *testing.T) {
 	}
 }
 
+func TestPostgresMemberColumnAdditionPreservesAuthorizationReconciliation(t *testing.T) {
+	f := postgresFixture(t)
+	pool, err := f.db.DB()
+	require.NoError(t, err)
+	// Use one physical connection so the second write must encounter the
+	// statements prepared by reconciliation before the schema change.
+	pool.SetMaxIdleConns(1)
+	pool.SetMaxOpenConns(1)
+	require.NoError(t, f.db.Model(&f.member).Update("status", 1).Error)
+	_, before := f.current(t)
+	require.Equal(t, Allowed, before.State)
+	require.NoError(t, f.db.Exec("ALTER TABLE "+(&im.Member{}).TableName()+" ADD COLUMN migration_test_extra text").Error)
+	// The extra column is not an authorization fact. Revocation must still
+	// commit with its denied segment; no permission or ledger bypass is allowed.
+	require.NoError(t, f.db.Model(&f.member).Update("status", 2).Error)
+	_, after := f.current(t)
+	require.Equal(t, Denied, after.State)
+	var member im.Member
+	require.NoError(t, f.db.Where("uuid=?", f.member.UUID).Take(&member).Error)
+	require.EqualValues(t, 2, member.Status)
+	require.NoError(t, f.db.Model(&f.member).Update("status", 1).Error)
+	_, restored := f.current(t)
+	require.Equal(t, Allowed, restored.State)
+}
+
 func TestPostgresOneReadSnapshotCannotMixCostAndReadRevisions(t *testing.T) {
 	f := postgresFixture(t)
 	first, _ := f.current(t)
