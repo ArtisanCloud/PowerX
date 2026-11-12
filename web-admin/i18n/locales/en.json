@@ -1178,6 +1178,7 @@
         "event_scheduled_task_runs": "Event scheduled task runs",
         "event_scheduled_tasks": "Event scheduled tasks",
         "event_subscription_offsets": "Event subscription offsets",
+        "plugin_installations": "Plugin installation tasks and checkpoints",
         "event_task_histories": "Event task histories",
         "iam_authorization_segments": "Iam authorization segments",
         "iam_authorization_streams": "Iam authorization streams",
@@ -5210,6 +5211,70 @@
       "mode": {
         "url": "Remote URL",
         "local": "Local upload"
+      }
+    },
+    "installTask": {
+      "creationUnknown": "Creation request needs reconciliation",
+      "creationUnknownDescription": "Core may have accepted this request. Original settings are preserved. Continue with the same request ID to recover or finish the original task without submitting a second installation.",
+      "continueRequest": "Reconcile original request",
+      "recent": "Recent installations",
+      "phase": "Current phase",
+      "connection": "Progress connection",
+      "receipt": "Task receipt",
+      "upload": "Select source and resume upload",
+      "discard": "Cancel upload",
+      "review": "Review and adjust installation",
+      "refresh": "Check task",
+      "close": "Close and check later",
+      "invalidPackage": "Choose a package directory with a plugin.yaml declaring its ID and version.",
+      "sourceMismatch": "The selected source does not match this task. Select the original package.",
+      "requestFailed": "The connection was interrupted. Check the same task before creating another installation.",
+      "status": {
+        "awaiting_upload": "Waiting for package",
+        "queued": "Installation queued",
+        "running": "Installing in background",
+        "succeeded": "Installation completed",
+        "failed": "Installation failed",
+        "needs_attention": "Installation needs review",
+        "cancelled": "Upload cancelled"
+      },
+      "description": {
+        "awaiting_upload": "The task is saved. Reselect the same package after an interrupted upload. Execution starts only after upload completes.",
+        "queued": "The worker will continue even after you close this page.",
+        "running": "Execution is independent of this connection. Reopen the task to see progress.",
+        "succeeded": "Installation and the requested activation steps completed.",
+        "failed": "Review the reason and adjust settings. This failed installation will not run again automatically.",
+        "needs_attention": "Check the installed revision and server logs first. An interrupted migration is never replayed blindly.",
+        "cancelled": "Execution did not start. Private upload staging has been removed."
+      },
+      "phases": {
+        "upload": "Uploading package",
+        "queued": "Waiting for execution",
+        "validating": "Validating source",
+        "copying": "Copying files",
+        "migrating": "Running plugin migration",
+        "committing": "Committing installation",
+        "installed": "Package installed",
+        "activating": "Starting and checking plugin",
+        "tenant_activation": "Applying tenant grants and event mappings",
+        "completed": "Finished"
+      },
+      "connections": {
+        "idle": "No connection required",
+        "connecting": "Connecting",
+        "connected": "Live connection healthy",
+        "disconnected": "Disconnected; reconnecting"
+      },
+      "errors": {
+        "default": "Check server logs and the installed revision before continuing.",
+        "PLUGIN_REPLACEMENT_REQUIRED": "Review the current version and publisher before confirming replacement.",
+        "PLUGIN_DRAIN_REQUIRED": "Complete drain before installing again.",
+        "PLUGIN_PACKAGE_PLATFORM_INCOMPATIBLE": "Choose an artifact built for this server platform.",
+        "PLUGIN_INSTALL_ACTIVATION_FAILED": "The package is saved, but startup checks failed. Review logs and installation readiness.",
+        "PLUGIN_INSTALL_TENANT_FINALIZATION_FAILED": "Runtime started, but tenant activation or event mapping failed. Check installation readiness.",
+        "PLUGIN_INSTALL_INTERRUPTED_REVIEW_REQUIRED": "Core stopped before a verified commit. Check logs and database state before any migration retry.",
+        "PLUGIN_INSTALL_ACTOR_REVOKED": "The administrator or tenant is no longer active. Execution stopped.",
+        "PLUGIN_INSTALL_SOURCE_CHANGED": "The uploaded source changed. Execution stopped."
       }
     },
     "installRecovery": {

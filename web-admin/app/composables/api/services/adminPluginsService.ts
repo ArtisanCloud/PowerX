@@ -1,3 +1,4 @@
+import type { PluginInstallTask } from "~/utils/plugin-install-task";
 import { useApiClient } from "../index";
 import type { InstallInspection } from '~/utils/plugin-install-recovery';
 
@@ -53,6 +54,17 @@ export const useAdminPluginsService = () => {
   };
 
   return {
+    createInstallation: async (input: Record<string, unknown>, signal?: AbortSignal): Promise<PluginInstallTask> =>
+      unwrap(await api.post(`${base}/installations`, input, { signal, useGlobalLoading: false, useGlobalError: false })),
+    uploadInstallation: async (id: string, body: FormData, signal: AbortSignal): Promise<PluginInstallTask> =>
+      unwrap(await api.put(`${base}/installations/${encodeURIComponent(id)}/package`, body, { signal, timeout: 0, useGlobalLoading: false, useGlobalError: false })),
+    getInstallationTask: async (id: string, signal?: AbortSignal): Promise<PluginInstallTask> =>
+      unwrap(await api.get(`${base}/installations/${encodeURIComponent(id)}`, { signal, useGlobalLoading: false, useGlobalError: false })),
+    listInstallationTasks: async (signal?: AbortSignal): Promise<PluginInstallTask[]> =>
+      unwrap(await api.get(`${base}/installations`, { signal, useGlobalLoading: false, useGlobalError: false })).items || [],
+    discardInstallationSource: async (id: string): Promise<PluginInstallTask> =>
+      unwrap(await api.delete(`${base}/installations/${encodeURIComponent(id)}/source`, { useGlobalLoading: false, useGlobalError: false })),
+    installationEvents: (id: string, signal: AbortSignal) => api.stream(`${base}/installations/${encodeURIComponent(id)}/events`, signal),
     // 市场列表
     getMarketplace: async (): Promise<AdminPluginItem[]> => {
       const r = await api.get<any>(`${base}/marketplace/plugins`);

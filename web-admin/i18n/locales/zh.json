@@ -1178,6 +1178,7 @@
         "event_scheduled_task_runs": "事件定时触发记录",
         "event_scheduled_tasks": "当前事件定时任务",
         "event_subscription_offsets": "事件消费游标",
+        "plugin_installations": "插件安装任务与收尾记录",
         "event_task_histories": "TaskBus 恢复与去重记录",
         "iam_authorization_segments": "连续授权时间段",
         "iam_authorization_streams": "权限事实修订",
@@ -5475,6 +5476,70 @@
       "mode": {
         "url": "远程 URL",
         "local": "本地上传"
+      }
+    },
+    "installTask": {
+      "creationUnknown": "创建请求需要核对",
+      "creationUnknownDescription": "暂时无法确认 Core 是否已收到创建请求。已保留原设置，继续操作会使用同一请求编号找回或完成原任务，不会提交第二个安装。",
+      "continueRequest": "核对并继续原请求",
+      "recent": "最近安装任务",
+      "phase": "当前阶段",
+      "connection": "进度连接",
+      "receipt": "查看任务编号",
+      "upload": "选择来源并继续上传",
+      "discard": "取消这次上传",
+      "review": "查看原因并调整安装",
+      "refresh": "核对任务",
+      "close": "关闭，稍后查看",
+      "invalidPackage": "无法确认安装包的插件 ID 和版本，请选择含 plugin.yaml 的打包目录。",
+      "sourceMismatch": "所选来源与此任务的插件或版本不一致，请重新选择原安装包。",
+      "requestFailed": "连接中断，请按同一任务核对，勿重复创建安装。",
+      "status": {
+        "awaiting_upload": "等待上传安装包",
+        "queued": "已进入安装队列",
+        "running": "正在后台安装",
+        "succeeded": "安装已完成",
+        "failed": "安装未完成",
+        "needs_attention": "安装需要核对",
+        "cancelled": "上传已取消"
+      },
+      "description": {
+        "awaiting_upload": "任务已保存。上传中断时可重新选择同一安装包继续；上传完成后才开始执行。",
+        "queued": "后台会继续执行，关闭页面不会取消安装。",
+        "running": "安装与当前页面连接无关；重新打开后可继续查看这个任务。",
+        "succeeded": "安装及本次要求的启用步骤已完成。",
+        "failed": "请查看原因并调整设置。不会自动重复运行这次失败的安装。",
+        "needs_attention": "请先核对已安装版本和服务日志。中断发生在无法安全重放的阶段时，不会自动重跑迁移。",
+        "cancelled": "未开始后台安装，已清理这次上传的临时来源。"
+      },
+      "phases": {
+        "upload": "上传安装包",
+        "queued": "等待执行",
+        "validating": "校验安装来源",
+        "copying": "复制安装文件",
+        "migrating": "执行插件迁移",
+        "committing": "登记安装版本",
+        "installed": "已保存安装版本",
+        "activating": "启动并检查插件",
+        "tenant_activation": "完成租户授权与事件映射",
+        "completed": "执行结束"
+      },
+      "connections": {
+        "idle": "当前无需连接",
+        "connecting": "正在连接",
+        "connected": "实时连接正常",
+        "disconnected": "连接已断开，正在重连"
+      },
+      "errors": {
+        "default": "请核对服务日志和当前安装版本，再决定下一步。",
+        "PLUGIN_REPLACEMENT_REQUIRED": "已有安装，请先查看版本和发布者并确认替换。",
+        "PLUGIN_DRAIN_REQUIRED": "插件仍被使用，请先完成 drain，再重新安装。",
+        "PLUGIN_PACKAGE_PLATFORM_INCOMPATIBLE": "安装包平台不匹配，请选择此服务器对应的平台包。",
+        "PLUGIN_INSTALL_ACTIVATION_FAILED": "安装包已保存，插件启动检查失败；请查看日志并核对安装结果。",
+        "PLUGIN_INSTALL_TENANT_FINALIZATION_FAILED": "插件已启动，租户启用或事件映射未完成，请核对安装结果。",
+        "PLUGIN_INSTALL_INTERRUPTED_REVIEW_REQUIRED": "Core 在安装提交前中断。为避免重复迁移，需要管理员先检查日志与数据库状态。",
+        "PLUGIN_INSTALL_ACTOR_REVOKED": "发起任务的管理员或租户已不可用，执行已停止。",
+        "PLUGIN_INSTALL_SOURCE_CHANGED": "上传来源已改变，执行已停止。"
       }
     },
     "installRecovery": {

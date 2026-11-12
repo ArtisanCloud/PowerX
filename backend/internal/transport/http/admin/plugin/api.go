@@ -40,6 +40,13 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		grp.GET("/", tenantAdmin, PluginListHandler)       // GET  /api/v1/admin/plugins
 		grp.GET("/menus", tenantAdmin, PluginMenusHandler) // GET  /api/v1/admin/plugins/menus
 
+		grp.POST("/installations", rootOnly, PluginInstallationCreate(deps))
+		grp.GET("/installations", rootOnly, PluginInstallationList(deps))
+		grp.GET("/installations/:task_id", rootOnly, PluginInstallationGet(deps))
+		grp.PUT("/installations/:task_id/package", rootOnly, PluginInstallationUpload(deps))
+		grp.DELETE("/installations/:task_id/source", rootOnly, PluginInstallationDiscard(deps))
+		grp.GET("/installations/:task_id/events", rootOnly, PluginInstallationEvents(deps))
+
 		// 系统级：启停/重启/状态/安装/卸载/切换版本
 		grp.POST("/:id/enable", rootOnly, PluginEnableHandler(deps))   // POST /api/v1/admin/plugins/:id/enable
 		grp.POST("/:id/disable", rootOnly, PluginDisableHandler(deps)) // POST /api/v1/admin/plugins/:id/disable

@@ -13,6 +13,11 @@ import (
 // ------- 安装与运行期公共类型 -------
 
 type InstallOptions struct {
+	// InstallationRevision/Progress are host-only TaskBus checkpoints. They are
+	// never decoded from an installation HTTP body or plugin manifest.
+	RequireAbsent        bool                                        `json:"-" yaml:"-"`
+	InstallationRevision string                                      `json:"-" yaml:"-"`
+	Progress             func(context.Context, string, Plugin) error `json:"-" yaml:"-"`
 	// LocalUpload 仅由本地 multipart 上传入口设置，兼容原有 force 上传流程。
 	// 市场及 URL 安装不能通过请求体启用此模式。
 	LocalUpload           bool

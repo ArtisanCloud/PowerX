@@ -23,7 +23,7 @@ import (
 )
 
 func TestBootstrapKeepsManagerAvailableWhenPermissionSyncFails(t *testing.T) {
-	t.Parallel()
+	// gin.SetMode 修改全局状态，不能与其他 Gin 测试并行。
 
 	ctx := context.Background()
 	root := t.TempDir()
@@ -185,7 +185,7 @@ func TestRestoreEnabledPluginsMountsEnabledPlugin(t *testing.T) {
 }
 
 func TestBootstrapKeepsManagerAvailableWhenEnabledPluginRestoreFails(t *testing.T) {
-	t.Parallel()
+	// gin.SetMode 修改全局状态，不能与其他 Gin 测试并行。
 
 	ctx := context.Background()
 	root := t.TempDir()
@@ -232,7 +232,7 @@ func TestBootstrapKeepsManagerAvailableWhenEnabledPluginRestoreFails(t *testing.
 }
 
 func TestMountDebugHostUsesExactLocalPluginID(t *testing.T) {
-	t.Parallel()
+	// gin.SetMode 修改全局状态，不能与其他 Gin 测试并行。
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()

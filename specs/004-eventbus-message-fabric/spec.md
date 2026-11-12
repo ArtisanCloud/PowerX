@@ -327,3 +327,16 @@ Agent Run Worker 是此 TaskBus 的受约束消费者：`specs/031-agent-runtime
 - 新租户无需额外创建 Topic，即可在 ACL 页看到共享 Topic 并完成角色授权。
 - 授权后 WS subscribe/publish 与 replay 按 ACL 生效；无授权时返回一致 4xx 业务错误。
 - 从监控页可一键跳转 ACL 页并保留 topic 上下文。
+
+
+### Core 插件安装消费者（2026-11-12）
+
+Root 管理安装使用正式 `StreamDriver` 和共享 `event_task_histories`，不是插件业务队列或新的 TaskDriver。`plugin_installations` 只保存安装意图、上传摘要和阶段；租约、续租、消费组、重试、恢复与 fencing 仍由正式 TaskBus 提供。
+
+- 内部 topic 固定为 `powerx.plugin.install.v1`；路由 tenant key 为 `core-plugin-install`，subscriber 为当前环境身份及私有暂存根目录派生的 `plugin-install-v1:<scope>`。业务记录 tenant 由 `taskbus_record_tenant` 固定为受鉴权的真实租户，`taskbus_record_id` 固定为服务器生成的任务 UUID，不能接受客户端自选执行身份。
+- 任务载荷只包含 `tenant_uuid` 和 `task_id`，不发布安装 URL、HostConfig、凭据或可执行路径。创建意图与正式任务登记在同一数据库事务提交；本地包必须完整持久化后才登记投递。
+- Worker 随 Core 生命周期启动并阻塞消费；浏览器断开不取消已入队安装。每次投递恢复原发起 Root／租户身份并检查其仍有效；正式租约续租失败停止执行，阶段／结果写入使用同一 TaskBus fencing。不得用私有 DB 轮询替代消费。
+- 安装修订为任务 UUID。Core 中断后，仅在当前登记版本／修订能证实属于该任务时继续启用与租户收尾；无法确认提交的迁移进入人工核对，不自动重放。原版本 CAS、首次登记不存在约束、drain、发布者确认及替换回滚保持有效。
+- 进度通过 owner／tenant 限定的 Root HTTP SSE 快照发布；心跳不查询任务状态。此消费者不修改 WSBus envelope 或 `/internal/ws-bus` 授权合同，也不向插件发布安装运维 capability。
+
+接口、状态、上传边界及验收见 `docs/contracts/plugin-install-request-recovery.md`；完整现场部署验收单独进行，不由 TaskBus ACK 或受控浏览器测试代替。

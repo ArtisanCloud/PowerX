@@ -4,12 +4,12 @@
     :title="t('plugins.installDialog.title')"
     :description="plugin ? plugin.name || '' : t('plugins.installDialog.subtitle')"
     :ui="{ content: 'w-[calc(100vw-2rem)] sm:max-w-lg' }"
-    :dismissible="!installing"
-    :close="!installing"
+    :dismissible="true"
+    :close="true"
   >
     <template #body>
       <div class="max-h-[70vh] overflow-y-auto">
-        <div v-if="plugin && !recovery" class="flex items-start gap-3">
+        <div v-if="plugin && !recovery && !showTask" class="flex items-start gap-3">
           <img
             v-if="plugin?.icon"
             :src="plugin?.icon"
@@ -35,8 +35,18 @@
           </div>
         </div>
 
+        <PluginInstallTaskProgress v-if="showTask && currentSession.task" :task="currentSession.task" :connection="currentSession.connection" :busy="installing || checkingRecovery" :error="recoveryError"
+          @check="checkTask()" @upload="currentSession.taskVisible = false" @discard="discardTask" @retry="reviewTask" @recover="recoverTask" @done="completeTask" @close="close" />
+        <details v-if="!showTask && !recovery && recentTasks.length" class="my-3 rounded-lg border border-[var(--border-color)] p-3 text-sm">
+          <summary>{{ t('plugins.installTask.recent') }}</summary>
+          <div class="mt-2 grid gap-2"><button v-for="item in recentTasks.slice(0, 8)" :key="item.task_id" type="button" class="rounded-lg border border-[var(--border-color)] p-2 text-left hover:bg-[var(--bg-tertiary)]" @click="openTask(item)">
+            <span class="block break-all">{{ item.plugin_id || '—' }} · {{ item.version || '—' }}</span><span class="text-xs text-[var(--text-secondary)]">{{ t(`plugins.installTask.status.${item.status}`) }}</span>
+          </button></div>
+        </details>
         <PluginInstallRecovery v-if="recovery" :state="recovery" :checking="checkingRecovery" :busy="installing" :error="recoveryError" @check="checkInstallation" @resume="resumeInstallation" @done="completeRecovery" @view="viewInstalled" />
-        <div v-show="!recovery" class="mt-4">
+        <UAlert v-if="currentSession.creationUncertain && !currentSession.task" class="mt-4" color="warning" variant="soft" :title="t('plugins.installTask.creationUnknown')" :description="t('plugins.installTask.creationUnknownDescription')" />
+        <div v-show="!recovery && !showTask && !currentSession.creationUncertain" class="mt-4">
+          <p v-if="recoveryError" role="alert" class="mb-3 break-words text-sm text-red-500">{{ recoveryError }}</p>
           <UForm :key="currentSession.key" :state="state" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -235,7 +245,7 @@
 
       </div>
     </template>
-    <template v-if="!recovery" #footer>
+    <template v-if="!recovery && !showTask" #footer>
         <div class="flex w-full items-center justify-end gap-2">
           <UButton variant="ghost" :disabled="installing" @click="close">{{ t("plugins.installDialog.actions.cancel") }}</UButton>
           <UButton
@@ -244,7 +254,7 @@
             :disabled="!!replacementPreview && (!state.forceInstall || (replacementPreview.requires_provider_confirmation && !providerBindingConfirmed))"
             @click="confirmInstall"
             icon="i-heroicons-arrow-down-tray"
-            >{{ t("plugins.installDialog.actions.install") }}</UButton
+            >{{ currentSession.creationUncertain ? t("plugins.installTask.continueRequest") : t("plugins.installDialog.actions.install") }}</UButton
           >
         </div>
     </template>
@@ -253,10 +263,15 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { useAdminPluginsService } from '~/composables/api/services/adminPluginsService';
 import { shallowRef } from "vue";
+import PluginInstallTaskProgress from '~/components/plugins/PluginInstallTaskProgress.vue';
+import { acceptInstallTask, installTaskTerminal, type PluginInstallTask } from '~/utils/plugin-install-task';
+import { connectBackupEvents } from '~/utils/backup-sse';
+import { readAuthSession, AUTH_SESSION_EVENT } from '~/utils/auth-session';
 import type { MarketplacePlugin } from "~/components/plugins/PluginCard.vue";
 import PluginInstallRecovery from '~/components/plugins/PluginInstallRecovery.vue';
-import { canResumeInstall, installPackageIdentity, readLocalInstallIdentity, reconcileInstall, uncertainInstallError, type InstallRecovery } from '~/utils/plugin-install-recovery';
+import { canResumeInstall, installPackageIdentity, readLocalInstallIdentity, reconcileInstall, type InstallRecovery } from '~/utils/plugin-install-recovery';
 
 const router = useRouter();
 const { t } = useI18n();
@@ -330,6 +345,13 @@ function createInstallForm() {
 
 interface ReplacementPreview { requires_provider_confirmation?: boolean; current: { version: string; revision: string; provider: { id: string; authority: string } }; target: { version: string; provider: { id: string; authority: string } } }
 interface InstallSession {
+  task?: PluginInstallTask;
+  taskVisible: boolean;
+  creationUncertain: boolean;
+  requestID?: string;
+  taskInput?: Record<string, unknown>;
+  stopTask?: () => void;
+  connection: string;
   key: number;
   target?: InstallRecovery['target'];
   state: ReturnType<typeof createInstallForm>;
@@ -352,7 +374,7 @@ interface InstallSession {
 const sessions = new Map<string, InstallSession>();
 let sessionSequence = 0;
 function pendingSession(id: string, except?: InstallSession) {
-  return [...sessions.values()].find(session => session !== except && (session.recovery?.target?.id === id || (session.installing && session.target?.id === id)));
+  return [...sessions.values()].find(session => session !== except && (session.recovery?.target?.id === id || (session.task?.plugin_id === id && !installTaskTerminal(session.task)) || (session.installing && session.target?.id === id)));
 }
 function sessionFor(plugin?: MarketplacePlugin): InstallSession {
   const key = plugin?.id || '';
@@ -361,7 +383,7 @@ function sessionFor(plugin?: MarketplacePlugin): InstallSession {
   let session = sessions.get(key);
   if (!session) {
     session = reactive({ key: ++sessionSequence, state: createInstallForm(), plugin: plugin ? { ...plugin } : undefined, providerBindingConfirmed: false,
-      installing: false, recoveryError: '', checkingRecovery: false, owner: '', creatingDrain: false,
+      creationUncertain: false, taskVisible: true, connection: 'idle', installing: false, recoveryError: '', checkingRecovery: false, owner: '', creatingDrain: false,
       drainRequired: false, drainCreated: false, drainPluginId: '' });
     sessions.set(key, session);
   } else if (!session.recovery) session.plugin = plugin ? { ...plugin } : undefined;
@@ -384,9 +406,18 @@ const drainRequired = sessionField('drainRequired');
 const drainCreated = sessionField('drainCreated');
 const drainPluginId = sessionField('drainPluginId');
 let disposed = false;
-const installOwner = () => `${userStore.user?.id || ''}:${userStore.currentTenantUuid || ''}`;
+const identityEvent = () => { for (const session of sessions.values()) { if (session.owner && session.owner !== installOwner()) { session.stopTask?.(); session.stopTask = undefined; session.controller?.abort(); session.task = undefined; session.taskInput = undefined; session.requestID = undefined; session.creationUncertain = false; session.state = createInstallForm(); session.recoveryError = t('plugins.installRecovery.sessionChanged'); } }; recentTasks.value = []; };
+onMounted(() => window.addEventListener(AUTH_SESSION_EVENT, identityEvent));
+onBeforeUnmount(() => window.removeEventListener(AUTH_SESSION_EVENT, identityEvent));
+const installOwner = () => `${userStore.user?.id || ''}:${userStore.currentTenantUuid || ''}:${readAuthSession()?.sessionId || ''}`;
+const recentTasks = ref<PluginInstallTask[]>([]);
+const showTask = computed(() => !!currentSession.value.task && currentSession.value.taskVisible && !recovery.value);
 watch(installOwner, (owner) => {
+  recentTasks.value = [];
   for (const session of sessions.values()) {
+    if (session.owner && session.owner !== owner) {
+      session.stopTask?.(); session.stopTask = undefined; session.controller?.abort(); session.task = undefined; session.taskInput = undefined; session.requestID = undefined; session.creationUncertain = false; session.state = createInstallForm(); session.recoveryError = t('plugins.installRecovery.sessionChanged');
+    }
     if (session.recovery && session.owner !== owner) {
       session.controller?.abort();
       session.recovery = { ...session.recovery, outcome: 'changed', inspection: undefined };
@@ -395,11 +426,15 @@ watch(installOwner, (owner) => {
   }
 });
 watch(() => [props.plugin?.id, props.plugin?.version], () => {
-  currentSession.value.controller?.abort();
+  currentSession.value.controller?.abort(); currentSession.value.stopTask?.(); currentSession.value.stopTask = undefined;
   currentSession.value = sessionFor(props.plugin);
+  if (props.modelValue) void loadTasks();
 });
-watch(() => props.modelValue, visible => { if (!visible) currentSession.value.controller?.abort(); });
-onBeforeUnmount(() => { disposed = true; for (const session of sessions.values()) session.controller?.abort(); });
+watch(() => props.modelValue, visible => {
+  if (!visible) { currentSession.value.controller?.abort(); currentSession.value.stopTask?.(); currentSession.value.stopTask = undefined; }
+  else void loadTasks();
+});
+onBeforeUnmount(() => { disposed = true; for (const session of sessions.values()) { session.controller?.abort(); session.stopTask?.(); } });
 
 function clearRecovery() { recovery.value = undefined; recoveryError.value = ''; }
 function viewInstalled() { close(); void router.push('/plugins/local'); }
@@ -407,7 +442,7 @@ function completeRecovery() {
   if (recovery.value?.outcome !== 'ready' || currentSession.value.owner !== installOwner()) return;
   notifyMenuRefresh();
   emit('installed', { plugin: plugin.value || null, state: JSON.parse(JSON.stringify(state.value)) });
-  clearRecovery(); close();
+  clearRecovery(); currentSession.value.task = undefined; close();
 }
 async function checkInstallation(session = currentSession.value) {
   const current = session.recovery;
@@ -707,246 +742,113 @@ function notifyMenuRefresh() {
   menuRefreshToken.value += 1;
 }
 
-function isAlreadyInstalledConflict(error: any): boolean {
-  const message = String(
-    error?.message ||
-      error?.data?.error ||
-      error?.response?._data?.error ||
-      error?.cause?.data?.error ||
-      error?.cause?.response?._data?.error ||
-      ""
-  ).toLowerCase();
-  const status = Number(error?.status || error?.statusCode || error?.cause?.status || 0);
-  return (
-    status === 409 &&
-    (message.includes("already_exists") ||
-      message.includes("already installed") ||
-      message.includes("already_installed") ||
-      message.includes("version already installed") ||
-      message.includes("plugin version already installed"))
-  );
-}
-
-function getErrorDetails(error: any): Record<string, any> {
-  return (
-    error?.details ||
-    error?.data?.details ||
-    error?.response?._data?.details ||
-    error?.response?.data?.details ||
-    error?.cause?.details ||
-    {}
-  );
-}
-
-function isDrainRequiredError(error: any): boolean {
-  const details = getErrorDetails(error);
-  const message = String(error?.message || error?.data?.error || error?.response?._data?.error || "").toLowerCase();
-  return (
-    details?.requires_drain === true ||
-    details?.code === "PLUGIN_DRAIN_REQUIRED" ||
-    message.includes("drain required") ||
-    message.includes("plugin_drain_required")
-  );
-}
-
-function resolveDrainPluginId(error: any): string {
-  const details = getErrorDetails(error);
-  return String(details?.plugin_id || plugin.value?.id || "").trim();
-}
-
-function isPlatformIncompatibleError(error: any): boolean {
-  const details = getErrorDetails(error);
-  return details?.code === "PLUGIN_PACKAGE_PLATFORM_INCOMPATIBLE";
-}
-
-function buildPlatformIncompatibleMessage(error: any): string {
-  const details = getErrorDetails(error);
-  const reason = String(details?.reason || "").trim();
-  const path = String(details?.path || "").trim();
-  const match = reason.match(/package target\s+([^\s]+)\s+\([^)]+\),\s+host target\s+([^\s]+)/i);
-  if (match) {
-    return t("plugins.installDialog.toast.platformIncompatibleTargets", {
-      packageTarget: match[1],
-      hostTarget: match[2],
-    });
-  }
-  if (path) {
-    return t("plugins.installDialog.toast.platformIncompatiblePath", { path });
-  }
-  return t("plugins.installDialog.toast.platformIncompatibleDesc");
-}
-
 async function confirmInstall() {
-  const session = currentSession.value;
-  const form = session.state;
-  if (session.installing || session.recovery) return;
+  const session = currentSession.value, form = session.state;
+  if (session.installing || session.recovery || (session.task && session.task.status !== 'awaiting_upload')) return;
   if (session.replacementPreview && (!form.forceInstall || (session.replacementPreview.requires_provider_confirmation && !session.providerBindingConfirmed))) return;
-  session.drainRequired = false;
-  session.drainCreated = false;
-  session.drainPluginId = "";
-  if (form.installMode === "url" && !form.url) {
-    const toast = useToast();
-    toast.add({
-      title: t("common.error"),
-      description: t("plugins.installDialog.toast.urlRequired"),
-      color: "red",
-    });
-    return;
-  }
-  if (
-    form.installMode === "local" &&
-    form.localDirFiles.length === 0
-  ) {
-    const toast = useToast();
-    toast.add({
-      title: t("common.error"),
-      description: t("plugins.installDialog.toast.localDirectoryRequired"),
-      color: "red",
-    });
-    return;
-  }
-
-  session.installing = true;
-  const toast = useToast();
-  const owner = installOwner();
-  session.owner = owner;
-  let submitted = false;
-  let attempt: InstallRecovery = { force: !!form.forceInstall, enable: !!form.enableAfterInstall, outcome: 'unknown' };
-
+  session.installing = true; session.recoveryError = ''; session.owner = installOwner();
+  const owner = session.owner;
+  session.controller?.abort(); const controller = new AbortController(); session.controller = controller;
   try {
-    attempt.target = form.installMode === 'local'
-      ? await readLocalInstallIdentity(form.localDirFiles)
-      : installPackageIdentity(session.plugin?.id, session.plugin?.version);
-    session.target = attempt.target;
-    if (attempt.target) {
-      const pending = pendingSession(attempt.target.id, session);
-      if (pending) { if (currentSession.value === session) currentSession.value = pending; return; }
-      const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
-      const baseline = await useAdminPluginsService().inspectInstallation(attempt.target.id);
-      if (!baseline.installation.version && baseline.installation.reason !== 'PLUGIN_NOT_INSTALLED') throw new Error(t('plugins.installRecovery.checkFailed'));
-      attempt.baselineRevision = baseline.installation.revision;
+    const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
+    const svc = useAdminPluginsService();
+    const target = form.installMode === 'local' ? await readLocalInstallIdentity(form.localDirFiles) : installPackageIdentity(session.plugin?.id, session.plugin?.version);
+    if (form.installMode === 'local' && !target) throw new Error(t('plugins.installTask.invalidPackage'));
+    if (form.installMode === 'url' && !form.url) throw new Error(t('plugins.installDialog.toast.urlRequired'));
+    session.target = target;
+    if (target) { const pending = pendingSession(target.id, session); if (pending) { currentSession.value = pending; followTask(pending); return; } }
+    if (controller.signal.aborted || owner !== installOwner()) return;
+    if (!session.task) {
+      session.requestID ||= crypto.randomUUID();
+      session.taskInput ||= { request_id: session.requestID, source_kind: form.installMode, plugin_id: target?.id || '', version: target?.version || '',
+        url: form.installMode === 'url' ? form.url : undefined, sha256: form.sha256 || undefined, enable: !!form.enableAfterInstall,
+        force: !!form.forceInstall, expected_revision: session.replacementPreview?.current.revision,
+        confirm_legacy_provider: session.providerBindingConfirmed, metadata: buildInstallMetadataPayload(form) };
+      const created = await svc.createInstallation(session.taskInput, controller.signal);
+      if (owner !== installOwner()) return;
+      session.task = created; session.creationUncertain = false;
     }
-    if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
-    if (disposed || currentSession.value !== session || !props.modelValue) return;
-    if (form.installMode === "url" && form.url) {
-      const { useAdminPluginsService } = await import(
-        "~/composables/api/services/adminPluginsService"
-      );
-      const svc = useAdminPluginsService();
-      if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
-      if (disposed || currentSession.value !== session || !props.modelValue) return;
-      submitted = true;
-      await svc.installFromUrl({
-        url: form.url,
-        sha256: form.sha256 || undefined,
-        enable: !!form.enableAfterInstall,
-        force: !!form.forceInstall,
-        expected_revision: session.replacementPreview?.current.revision,
-        confirm_legacy_provider: session.providerBindingConfirmed,
-        metadata: buildInstallMetadataPayload(form),
-      });
-
-      if (disposed) return;
-      if (owner !== installOwner()) { session.recovery = { ...attempt, outcome: 'changed' }; session.recoveryError = t('plugins.installRecovery.sessionChanged'); return; }
-      if (currentSession.value !== session) return;
-      toast.add({
-        title: t("plugins.installDialog.toast.successTitle"),
-        description: t("plugins.installDialog.toast.successDesc"),
-        color: "green",
-      });
-    } else if (
-      form.installMode === "local" &&
-      form.localDirFiles.length > 0
-    ) {
-      const { useAdminPluginsService } = await import(
-        "~/composables/api/services/adminPluginsService"
-      );
-      const svc = useAdminPluginsService();
-      const formData = await buildLocalInstallFormData(form.localDirFiles, form.localDirName);
-      if (owner !== installOwner()) throw new Error(t('plugins.installRecovery.sessionChanged'));
-      if (disposed || currentSession.value !== session || !props.modelValue) return;
-      formData.append("enable", String(!!form.enableAfterInstall));
-      formData.append("force", String(!!form.forceInstall));
-      if (session.replacementPreview) formData.append("expected_revision", session.replacementPreview.current.revision);
-      if (session.providerBindingConfirmed) formData.append("confirm_legacy_provider", "true");
-      formData.append("metadata", JSON.stringify(buildInstallMetadataPayload(form)));
-      submitted = true;
-      await svc.installFromLocal(formData);
-
-      if (disposed) return;
-      if (owner !== installOwner()) { session.recovery = { ...attempt, outcome: 'changed' }; session.recoveryError = t('plugins.installRecovery.sessionChanged'); return; }
-      if (currentSession.value !== session) return;
-      toast.add({
-        title: t("plugins.installDialog.toast.successTitle"),
-        description: t("plugins.installDialog.toast.successDesc"),
-        color: "green",
-      });
-    } else {
-      toast.add({
-        title: t("plugins.installDialog.toast.noticeTitle"),
-        description: t("plugins.installDialog.toast.sourceMissingDesc"),
-        color: "warning",
-      });
-      return;
+    session.taskVisible = true;
+    if (session.task.status === 'awaiting_upload') {
+      if (session.task.plugin_id !== target?.id || session.task.version !== target?.version) throw new Error(t('plugins.installTask.sourceMismatch'));
+      const body = await buildLocalInstallFormData(form.localDirFiles, form.localDirName);
+      if (controller.signal.aborted || owner !== installOwner()) return;
+      const uploaded = await svc.uploadInstallation(session.task.task_id, body, controller.signal);
+      if (owner !== installOwner()) return;
+      session.task = uploaded;
     }
-
-    notifyMenuRefresh();
-    emit("installed", {
-      plugin: session.plugin || null,
-      state: JSON.parse(JSON.stringify(form)),
-    });
-    close();
+    if (!disposed && props.modelValue && currentSession.value === session) followTask(session);
   } catch (error: any) {
-    if (disposed) return;
-    if (getErrorDetails(error).code === 'PLUGIN_REPLACEMENT_REQUIRED') {
-      session.replacementPreview = getErrorDetails(error) as ReplacementPreview;
-      form.forceInstall = false; session.providerBindingConfirmed = false;
-      return;
+    if (owner === installOwner() && !session.task && session.taskInput) {
+      const status = Number(error?.status || error?.statusCode || error?.response?.status || 0);
+      if (status >= 400 && status < 500 && ![408,409].includes(status)) { session.taskInput = undefined; session.requestID = undefined; session.creationUncertain = false; }
+      else session.creationUncertain = true;
     }
-    console.error("plugin install failed:", error);
-    const details = getErrorDetails(error);
-    if (details.code === 'PLUGIN_INSTALL_FINALIZATION_REQUIRED' || (submitted && uncertainInstallError(error))) {
-      const target = installPackageIdentity(details.plugin_id, details.installed?.version) || attempt.target;
-      session.recovery = { ...attempt, target, receiptRevision: typeof details.installed?.revision === 'string' ? details.installed.revision : undefined };
-      if (owner !== installOwner()) { session.recovery.outcome = 'changed'; session.recoveryError = t('plugins.installRecovery.sessionChanged'); }
-      else if (currentSession.value === session && props.modelValue) await checkInstallation(session);
-      return;
-    }
-    if (currentSession.value !== session) return;
-    if (isAlreadyInstalledConflict(error)) {
-      toast.add({
-        title: t("plugins.installDialog.toast.alreadyInstalledTitle"),
-        description: t("plugins.installDialog.toast.alreadyInstalledDesc"),
-        color: "warning",
-      });
-      notifyMenuRefresh();
-      return;
-    }
-    if (isDrainRequiredError(error)) {
-      session.drainRequired = true;
-      session.drainPluginId = resolveDrainPluginId(error);
-      toast.add({
-        title: t("plugins.installDialog.toast.drainRequiredTitle"),
-        description: t("plugins.installDialog.toast.drainRequiredDesc"),
-        color: "warning",
-      });
-      return;
-    }
-    if (isPlatformIncompatibleError(error)) {
-      toast.add({
-        title: t("plugins.installDialog.toast.platformIncompatibleTitle"),
-        description: buildPlatformIncompatibleMessage(error),
-        color: "warning",
-      });
-      return;
-    }
-    toast.add({
-      title: t("plugins.installDialog.toast.installFailedTitle"),
-      description: error?.message || t("plugins.installDialog.toast.installFailedDesc"),
-      color: "error",
-    });
-  } finally {
-    session.installing = false;
-  }
+    if (owner === installOwner() && !controller.signal.aborted) session.recoveryError = error?.message || t('plugins.installTask.requestFailed');
+    if (session.task && !disposed && props.modelValue && currentSession.value === session) followTask(session);
+  } finally { session.installing = false; }
 }
+
+function applyTask(session: InstallSession, next: PluginInstallTask) {
+  if (session.owner !== installOwner() || !session.task || !acceptInstallTask(session.task, next)) return;
+  session.task = next;
+  if (installTaskTerminal(next)) { session.stopTask?.(); session.stopTask = undefined; session.connection = 'idle'; }
+}
+function followTask(session = currentSession.value) {
+  session.stopTask?.(); session.stopTask = undefined; session.connection = 'idle';
+  if (disposed || !props.modelValue || session !== currentSession.value || session.owner !== installOwner() || !session.task || installTaskTerminal(session.task)) return;
+  const id = session.task.task_id;
+  const svc = useAdminPluginsService();
+  session.stopTask = connectBackupEvents(signal => svc.installationEvents(id, signal), event => {
+    if (event.name === 'status') applyTask(session, event.data);
+  }, value => { if (session === currentSession.value && session.owner === installOwner()) session.connection = value; });
+}
+async function checkTask(session = currentSession.value) {
+  if (!session.task || session.checkingRecovery || session.owner !== installOwner()) return;
+  session.checkingRecovery = true; session.recoveryError = '';
+  try { const next = await useAdminPluginsService().getInstallationTask(session.task.task_id); applyTask(session, next); followTask(session); }
+  catch (error: any) { if (session.owner === installOwner()) session.recoveryError = error?.message || t('plugins.installTask.requestFailed'); }
+  finally { session.checkingRecovery = false; }
+}
+function openTask(task: PluginInstallTask) {
+  const session = currentSession.value; session.stopTask?.(); session.task = task; session.owner = installOwner(); session.requestID = task.request_id;
+  session.taskVisible = true; session.creationUncertain = false; session.recovery = undefined; session.recoveryError = ''; followTask(session);
+}
+async function loadTasks() {
+  const session = currentSession.value, owner = installOwner();
+  try {
+    const tasks = await useAdminPluginsService().listInstallationTasks();
+    if (disposed || !props.modelValue || currentSession.value !== session || owner !== installOwner()) return;
+    recentTasks.value = tasks;
+    if (!session.task) {
+      const found = tasks.find(item => item.request_id === session.requestID) || (!session.requestID ? tasks.find(item => !installTaskTerminal(item) && (!session.plugin || item.plugin_id === session.plugin.id)) : undefined);
+      if (found) openTask(found);
+    } else { session.owner = owner; await checkTask(session); }
+  } catch (error: any) { if (owner === installOwner()) session.recoveryError = error?.message || t('plugins.installTask.requestFailed'); }
+}
+async function discardTask() {
+  const session = currentSession.value; if (!session.task || session.task.status !== 'awaiting_upload') return;
+  try { applyTask(session, await useAdminPluginsService().discardInstallationSource(session.task.task_id)); }
+  catch (error: any) { session.recoveryError = error?.message || t('plugins.installTask.requestFailed'); }
+}
+function reviewTask() {
+  const session = currentSession.value, task = session.task; if (!task || !['failed','cancelled'].includes(task.status)) return;
+  const details = task.failure_details;
+  if (task.error_code === 'PLUGIN_REPLACEMENT_REQUIRED' && details?.current && details?.target) { session.replacementPreview = details as unknown as ReplacementPreview; session.state.forceInstall = false; session.providerBindingConfirmed = false; }
+  if (task.error_code === 'PLUGIN_DRAIN_REQUIRED') { session.drainRequired = true; session.drainPluginId = task.plugin_id; }
+  session.task = undefined; session.taskInput = undefined; session.requestID = undefined; session.taskVisible = false; session.creationUncertain = false; session.recoveryError = '';
+}
+async function recoverTask() {
+  const session = currentSession.value, task = session.task;
+  if (!task || task.status !== 'needs_attention' || !task.installed_revision) return;
+  session.stopTask?.(); session.stopTask = undefined;
+  session.recovery = { target: { id: task.plugin_id, version: task.version }, receiptRevision: task.installed_revision, enable: true, force: false, outcome: 'unknown' };
+  await checkInstallation(session);
+}
+function completeTask() {
+  const session = currentSession.value; if (session.task?.status !== 'succeeded' || session.owner !== installOwner()) return;
+  notifyMenuRefresh(); emit('installed', { plugin: session.plugin || null, state: JSON.parse(JSON.stringify(session.state)) });
+  session.task = undefined; session.taskInput = undefined; session.requestID = undefined; close();
+}
+
 </script>

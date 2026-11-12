@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/runtimecredential"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
 
@@ -27,6 +29,15 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, src string, opts plug
 	man, err := loadManifestWithCatalogs(src)
 	if err != nil {
 		return result, err
+	}
+	if opts.InstallationRevision != "" {
+		id, err := uuid.Parse(opts.InstallationRevision)
+		if err != nil || id == uuid.Nil || id.String() != opts.InstallationRevision {
+			return result, installConflict("PLUGIN_INSTALL_TASK_INVALID", "安装任务修订无效")
+		}
+	}
+	if (opts.ExpectedPluginID != "" && opts.ExpectedPluginID != man.ID) || (opts.ExpectedVersion != "" && opts.ExpectedVersion != man.Version) {
+		return result, installConflict("PLUGIN_INSTALL_SOURCE_CHANGED", "安装包身份与已确认目标不一致")
 	}
 	for _, component := range []string{man.ID, man.Version} {
 		if component == "." || component == ".." || strings.ContainsAny(component, "/\\") {
@@ -54,12 +65,15 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, src string, opts plug
 		man.Provider = man.Provider.Normalized()
 	}
 	old, exists := m.opts.Registry.Get(ctx, man.ID)
+	if opts.RequireAbsent && exists {
+		return result, installConflict("PLUGIN_INSTALL_CHANGED", "插件已由另一安装任务登记，请刷新并确认替换")
+	}
 	if !exists {
 		if opts.ExpectedRevision != "" {
 			return result, installConflict("PLUGIN_INSTALL_CHANGED", "原安装已变化，请刷新后重试")
 		}
 		opts.Force = false
-		return m.installDirectory(ctx, src, opts, installRevision(""), nil, nil)
+		return m.installDirectory(ctx, src, opts, installRevision(opts.InstallationRevision), nil, nil)
 	}
 	if opts.ExpectedRevision != "" && old.Revision != opts.ExpectedRevision {
 		return result, installConflict("PLUGIN_INSTALL_CHANGED", "当前安装已变化，请刷新后重新确认替换")
@@ -153,7 +167,17 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, src string, opts plug
 		return result, err
 	}
 	stage, backup := filepath.Join(work, "target"), filepath.Join(work, "previous")
-	if err := copyDir(src, stage); err != nil {
+	sourceBytes, reserveErr := budget.TreeBytes(ctx, src)
+	if reserveErr != nil {
+		return result, reserveErr
+	}
+	stageCtx, release, reserveErr := budget.BeginPath(ctx, base, "plugin-install-replacement", sourceBytes*2+(1<<20))
+	if reserveErr != nil {
+		return result, reserveErr
+	}
+	defer release()
+	ctx = stageCtx
+	if err := copyDirContext(ctx, src, stage); err != nil {
 		_ = os.RemoveAll(work)
 		return result, err
 	}
@@ -184,7 +208,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, src string, opts plug
 			}
 		}
 	}
-	revision := installRevision("")
+	revision := installRevision(opts.InstallationRevision)
 	journal := installRecovery{PluginID: old.ID, InstalledRoot: m.opts.InstalledRoot, PreviousRoot: old.Paths.Root, BackupRoot: backup, TargetRoot: targetRoot, Revision: revision, Snapshot: snapshot}
 	if err := journal.write(work); err != nil {
 		return result, err

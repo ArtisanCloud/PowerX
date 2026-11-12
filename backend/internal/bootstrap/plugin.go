@@ -184,6 +184,7 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		logger.WarnF(ctx, "install policies: list failed: %v", err)
 	}
 
+	configurePluginInstallations(ctx, deps, cfg, mgr)
 	return mgr, nil
 }
 

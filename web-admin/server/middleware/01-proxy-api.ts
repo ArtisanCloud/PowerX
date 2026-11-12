@@ -24,6 +24,6 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "x-px-proxy-target", target);
   setResponseHeader(event, "x-px-proxy-hit", "1");
   setResponseHeader(event, "x-nitro-no-render", "1");
-  if (event.method === "GET" && p.endsWith("/admin/ops/backup/events")) return proxyBackupStream(event, target);
+  if (event.method === "GET" && (p.endsWith("/admin/ops/backup/events") || /\/admin\/plugins\/installations\/[^/]+\/events$/.test(p))) return proxyBackupStream(event, target);
   return proxyRequest(event, target);
 });
