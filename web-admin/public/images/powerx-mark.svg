@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="currentColor" role="img" aria-labelledby="powerx-title">
+  <title id="powerx-title">PowerX</title>
+  <style>:root { color: #111111; } @media (prefers-color-scheme: dark) { :root { color: #fafafa; } }</style>
+  <path d="M5 6h11l6 10v6h-6L5 6Zm27 0h11L32 22h-6v-6l6-10ZM5 42h11l6-10v-6h-6L5 42Zm27 0h11L32 26h-6v6l6 10Z" />
+</svg>

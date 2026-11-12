@@ -23,8 +23,9 @@ const (
 // CapabilityInvoker exposes customer account management as a service_actor Core
 // capability for /tenant/invocations without opening admin HTTP routes to STS.
 type CapabilityInvoker struct {
-	accounts *AccountService
-	contacts *ContactCoreBinding
+	accounts    *AccountService
+	contacts    *ContactCoreBinding
+	memberships *MembershipVerificationService
 }
 
 // ExternalIdentityResolveRequest is the Core-internal payload for a
@@ -53,6 +54,9 @@ func (r ExternalIdentityResolveRequest) toServiceInput(tenantUUID string) Resolv
 
 func NewCapabilityInvoker(accounts *AccountService, contacts ...*ContactService) *CapabilityInvoker {
 	invoker := &CapabilityInvoker{accounts: accounts}
+	if accounts != nil {
+		invoker.memberships = NewMembershipVerificationService(accounts.db)
+	}
 	if len(contacts) > 0 && contacts[0] != nil {
 		invoker.contacts = NewContactCoreBinding(contacts[0])
 	}
@@ -60,6 +64,12 @@ func NewCapabilityInvoker(accounts *AccountService, contacts ...*ContactService)
 }
 
 func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in capabilityregistry.CoreCapabilityInvokeInput) (map[string]interface{}, error) {
+	if in.CapabilityID == CustomerMembershipsServiceReadCapabilityID {
+		if i == nil {
+			return nil, ErrVerificationUnavailable
+		}
+		return i.invokeMembershipVerification(ctx, in)
+	}
 	if i == nil || i.accounts == nil {
 		return nil, errors.New("customer capability invoker unavailable")
 	}

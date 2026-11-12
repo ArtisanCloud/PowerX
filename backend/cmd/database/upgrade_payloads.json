@@ -1,7 +1,7 @@
 [
   {
     "name": "core",
-    "checksum": "27eff33393e52511928e87862832dc75b6091f5c8f48066d3cc46a6fa491f892"
+    "checksum": "ba4e3f744bf8310f221e4d36deb6f82f6ff5aded9ff844acec5292abd6c516b1"
   },
   {
     "name": "agent",
@@ -13,6 +13,6 @@
   },
   {
     "name": "catalog",
-    "checksum": "9f341dcd524b17a699e4b034f68dfba62cc7f28dedf3cf65105e139457372716"
+    "checksum": "efc5e83e2e3451df4eb77fb1752b92a6fb6028917e2535f3a1d7771436d8af9a"
   }
 ]

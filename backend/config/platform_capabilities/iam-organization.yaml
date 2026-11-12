@@ -1,0 +1,26 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.iam.organization.service_read
+    module: iam
+    title: Member Organization Authority
+    description: Read explicit member roles, active departments and configured reporting relationships.
+    title_i18n: {en: Member Organization Authority, zh-CN: 成员组织关系依据}
+    description_i18n: {en: Read bounded UUID member authority facts without making business authorization decisions., zh-CN: 按明确成员 UUID 批量读取实际组织关系，不代替业务授权决定。}
+    permission_code: corex.iam.organization:read
+    agent_usable: false
+    risk_level: high
+    categories: [iam, organization]
+    intents: [iam.organization.read]
+    tool_scopes: [iam.organization.read]
+    policy: {prefer: core_internal}
+    docs: [docs/contracts/iam-member-authority.md]
+    protocols:
+      - channel: core_internal
+        endpoint: core://iam/organization
+        method: INVOKE
+        schema_ref: docs/contracts/iam-member-authority.openapi.yaml#/components/schemas/AuthorityOperation
+        auth_type: api_key_or_sts
+        actor_context: service_actor
+        resource_scope: tenant
+        tool_scope: iam.organization.read
+        api_key: {scope: _scope.iam.organization.service_read, action: read, resource_type: capability, resource_pattern: iam_organization}

@@ -15,6 +15,34 @@ const AuthorizationCheckEndpoint = "core://iam/authorization"
 type AuthorizationInvoker struct{ Service *TenantDirectoryService }
 
 func (i *AuthorizationInvoker) InvokeCoreCapability(ctx context.Context, in cap.CoreCapabilityInvokeInput) (map[string]interface{}, error) {
+	if in.CapabilityID == MemberAuthorityCapability {
+		if in.Endpoint != MemberAuthorityEndpoint || in.Method != "INVOKE" || len(in.Query) != 0 || len(in.Context) != 0 || in.TenantUUID != reqctx.GetTenantUUID(ctx) {
+			return nil, DirectoryInvalidArgumentError(nil)
+		}
+		for key := range in.Payload {
+			if key != "body" {
+				return nil, DirectoryInvalidArgumentError(nil)
+			}
+		}
+		var op struct {
+			Operation string               `json:"operation"`
+			Request   MemberAuthorityQuery `json:"request"`
+		}
+		raw, _ := json.Marshal(in.Body)
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&op) != nil || decoder.Decode(&struct{}{}) != io.EOF || op.Operation != "read_member_authority" {
+			return nil, DirectoryInvalidArgumentError(nil)
+		}
+		if i == nil || i.Service == nil {
+			return nil, organizationError(503, "IAM_ORGANIZATION_UNAVAILABLE")
+		}
+		result, err := i.Service.ReadMemberAuthority(ctx, op.Request)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"result": result}, nil
+	}
 	if in.CapabilityID != directoryAuthorizationCheckCapabilityID {
 		return nil, cap.ErrCoreCapabilityNotHandled
 	}

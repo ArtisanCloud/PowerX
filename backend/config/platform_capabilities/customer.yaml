@@ -1,6 +1,31 @@
 ---
 version: 1
 capabilities:
+- capability_id: com.corex.customer.memberships.service_read
+  module: customer
+  title: Customer Membership Verification
+  description: Verify one tenant customer, current membership and primary contact using an explicitly authorized service identity. This is not customer authentication or transaction authorization.
+  permission_code: corex.customer.memberships.service_read
+  agent_usable: false
+  risk_level: high
+  categories: [customer, authorization]
+  intents: [customer.memberships.service_read]
+  tool_scopes: [customer.memberships.service_read]
+  policy: {prefer: core_internal}
+  docs: [docs/contracts/customer-membership-service-verification.md]
+  protocols:
+  - channel: core_internal
+    endpoint: core://customer/memberships
+    method: INVOKE
+    schema_ref: docs/contracts/customer-membership-service-verification.openapi.yaml#/components/schemas/VerifyCustomerRequest
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: false
+    tool_scope: customer.memberships.service_read
+    api_key: {scope: _scope.customer.memberships.service_read, action: read, resource_type: capability, resource_pattern: customer_memberships_service_read}
+  title_i18n: {en: Customer Membership Verification, zh-CN: 客户成员关系服务核验}
+  description_i18n: {en: Verify a tenant customer and primary contact without granting customer identity., zh-CN: 按正式服务授权核验当前租户中的客户、成员关系和主联系人，不授予客户登录身份。}
 - capability_id: com.corex.customer.memberships.delegated_read
   module: customer
   title: Customer Membership Delegated Read

@@ -1,0 +1,17 @@
+{
+  "font": "Geist Medium, weight 500",
+  "source_css": "https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap",
+  "font_url": "https://fonts.gstatic.com/s/geist/v5/gyBhhwUxId8gMGYQMKR3pzfaWI_RruM4nQ.ttf",
+  "sha256": "a8eefb873ba9c9020665f8a98302697ce1f3b79ab2deef6ee508c0ca6a82e876",
+  "bytes": 72996,
+  "license_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/geist/OFL.txt",
+  "license": "SIL Open Font License 1.1",
+  "use": "Power glyphs converted to outlines in powerx-wordmark.svg; no font is loaded at runtime",
+  "assets": [
+    "powerx-mark.svg",
+    "powerx-wordmark.svg",
+    "powerx-mark.png",
+    "powerx-wordmark.png"
+  ],
+  "geometric_x_path": "M5 6h11l6 10v6h-6L5 6Zm27 0h11L32 22h-6v-6l6-10ZM5 42h11l6-10v-6h-6L5 42Zm27 0h11L32 26h-6v6l6 10Z"
+}

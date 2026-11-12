@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: Customer Membership Service Verification
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      not: {enum: ['00000000-0000-0000-0000-000000000000']}
+    VerifyCustomerRequest:
+      type: object
+      additionalProperties: false
+      required: [operation, schema_version, customer_uuid]
+      properties:
+        operation: {type: string, enum: [verify_customer]}
+        schema_version: {type: integer, enum: [1]}
+        customer_uuid: {$ref: '#/components/schemas/UUID'}
+    VerifiedCustomer:
+      type: object
+      additionalProperties: false
+      required: [schema_version, tenant_uuid, customer_uuid, membership_uuid, primary_contact_uuid, status, expires_at, checked_at, revision]
+      properties:
+        schema_version: {type: integer, enum: [1]}
+        tenant_uuid: {$ref: '#/components/schemas/UUID'}
+        customer_uuid: {$ref: '#/components/schemas/UUID'}
+        membership_uuid: {$ref: '#/components/schemas/UUID'}
+        primary_contact_uuid: {$ref: '#/components/schemas/UUID'}
+        status: {type: string, enum: [active]}
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Membership expiry. Null means no configured expiry, not permission to cache the result.
+        checked_at: {type: string, format: date-time}
+        revision:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: Opaque snapshot fingerprint; not a monotonic counter, identity proof or transaction grant.
+    VerifyCustomerPayload:
+      type: object
+      additionalProperties: false
+      required: [item]
+      properties:
+        item: {$ref: '#/components/schemas/VerifiedCustomer'}

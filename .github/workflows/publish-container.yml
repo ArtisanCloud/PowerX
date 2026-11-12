@@ -1,4 +1,5 @@
 name: Publish PowerX Container Distribution
+run-name: PowerX request=${{ inputs.request_id || format('push-{0}', github.run_id) }} mode=${{ inputs.build_mode || 'release' }} sha=${{ inputs.expected_source_sha || github.sha }}
 on:
   push:
     branches: [develop, main, master]
@@ -10,14 +11,79 @@ on:
       - .dockerignore
       - .github/workflows/publish-container.yml
       - docs/contracts/powerx-upgrade*.json
+      - docs/contracts/powerx-build*.json
   workflow_dispatch:
+    inputs:
+      request_id:
+        description: XDocker request ID (8-128 ASCII letters, digits, dot, underscore or hyphen)
+        required: true
+        type: string
+      expected_source_sha:
+        description: Expected full lowercase 40-character source SHA
+        required: true
+        type: string
+      build_mode:
+        description: verify checks only; build isolated candidate; release immutable verified bundle
+        required: true
+        type: choice
+        options: [verify, build, release]
 permissions:
   contents: read
 concurrency:
-  group: powerx-container-${{ github.ref }}
-  cancel-in-progress: true
+  group: powerx-container-request-${{ inputs.request_id || github.run_id }}
+  cancel-in-progress: false
 jobs:
-  images:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      source_sha: ${{ steps.request.outputs.source_sha }}
+      mode: ${{ steps.request.outputs.mode }}
+      channel: ${{ steps.request.outputs.channel }}
+      version: ${{ steps.request.outputs.version }}
+      build_time: ${{ steps.request.outputs.build_time }}
+      fresh: ${{ steps.claim.outputs.fresh }}
+      duplicate_of: ${{ steps.claim.outputs.duplicate_of }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate request and exact checkout identity
+        id: request
+        run: python3 deploy/powerx/container/build_contract.py prepare --output request-context.json
+      - uses: actions/upload-artifact@v6
+        with:
+          name: powerx-build-request-${{ github.run_id }}-${{ github.run_attempt }}
+          path: request-context.json
+          if-no-files-found: error
+      - name: Correlate duplicate request without rebuilding
+        id: claim
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 deploy/powerx/container/build_contract.py deduplicate --request request-context.json
+      - name: Record phase evidence
+        if: always()
+        env:
+          BUILD_STEPS_JSON: ${{ toJSON(steps) }}
+          BUILD_PHASE_RESULT: ${{ job.status }}
+          BUILD_PHASE_ERROR: ${{ steps.claim.outputs.error_code || steps.request.outputs.error_code }}
+        run: python3 deploy/powerx/container/build_contract.py phase --name preflight --result "$BUILD_PHASE_RESULT" --output phase-preflight.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-phase-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phase-preflight.json
+          if-no-files-found: error
+  checks:
+    needs: preflight
+    if: needs.preflight.outputs.fresh == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
@@ -31,19 +97,22 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U powerx"
           --health-interval 5s --health-timeout 3s --health-retries 30
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: Validate deployment initializer
         run: |
-          python3 -m pip install pyyaml
+          python3 -m pip install pyyaml jsonschema
           python3 deploy/powerx/container/test_init.py
           python3 -m unittest discover -s deploy/powerx/container -p 'test_upgrade*.py'
+          python3 -m unittest discover -s deploy/powerx/container -p 'test_build*.py'
+          python3 -m unittest discover -s deploy/powerx/container -p 'test_release_publish.py'
+          python3 -m unittest discover -s deploy/powerx/container -p 'test_publish_workflow.py'
           python3 deploy/powerx/container/upgrade_registry.py --check
           sh -n deploy/powerx/container/entrypoint.sh deploy/powerx/container/run.sh
       - uses: actions/setup-go@v6
@@ -68,15 +137,38 @@ jobs:
           createdb -h 127.0.0.1 -p 5432 -U powerx powerx_baseline_migration_test_ci
           go test ./cmd/database -run '^TestInstalledCoreUpgradeMigratesLegacyRootBaselineWithNewIdentity$' -count=1
           go test ./pkg/corex/db/database -run '^TestPostgresMigration' -count=1
-      - name: Release identity
-        id: identity
+      - name: Record phase evidence
+        if: always()
         env:
-          SOURCE_SHA: ${{ github.sha }}
-          SOURCE_BRANCH: ${{ github.ref_name }}
-        run: |
-          case "$SOURCE_BRANCH" in main|master) prefix=release ;; *) prefix=dev ;; esac
-          echo "version=$prefix-${SOURCE_SHA:0:12}" >> "$GITHUB_OUTPUT"
-          echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          BUILD_STEPS_JSON: ${{ toJSON(steps) }}
+          BUILD_PHASE_RESULT: ${{ job.status }}
+        run: python3 deploy/powerx/container/build_contract.py phase --name checks --result "$BUILD_PHASE_RESULT" --output phase-checks.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-phase-checks-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phase-checks.json
+          if-no-files-found: error
+  images:
+    needs: [preflight, checks]
+    if: needs.preflight.outputs.fresh == 'true' && needs.preflight.outputs.mode != 'verify'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      COMPOSE_PROJECT_NAME: powerx-fresh-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Recheck source before registry writes
+        run: python3 deploy/powerx/container/build_contract.py prepare --output request-check.json
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -91,15 +183,16 @@ jobs:
           context: .
           file: deploy/powerx/docker/dockerfiles/backend.Dockerfile
           platforms: linux/amd64,linux/arm64
+          provenance: mode=max
           push: true
-          tags: ghcr.io/artisancloud/powerx-backend:sha-${{ github.sha }}
+          tags: ghcr.io/artisancloud/powerx-backend:ci-${{ github.run_id }}-${{ github.run_attempt }}
           build-args: |
-            POWERX_SOURCE_SHA=${{ github.sha }}
-            POWERX_VERSION=${{ steps.identity.outputs.version }}
-            POWERX_BUILD_TIME=${{ steps.identity.outputs.build_time }}
+            POWERX_SOURCE_SHA=${{ needs.preflight.outputs.source_sha }}
+            POWERX_VERSION=${{ needs.preflight.outputs.version }}
+            POWERX_BUILD_TIME=${{ needs.preflight.outputs.build_time }}
           labels: |
             org.opencontainers.image.source=https://github.com/ArtisanCloud/PowerX
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ needs.preflight.outputs.source_sha }}
           cache-from: type=gha,scope=powerx-backend
           cache-to: type=gha,mode=max,scope=powerx-backend
       - name: Build web admin
@@ -109,32 +202,36 @@ jobs:
           context: .
           file: deploy/powerx/docker/dockerfiles/web-admin.Dockerfile
           platforms: linux/amd64,linux/arm64
+          provenance: mode=max
           push: true
-          tags: ghcr.io/artisancloud/powerx-web-admin:sha-${{ github.sha }}
+          tags: ghcr.io/artisancloud/powerx-web-admin:ci-${{ github.run_id }}-${{ github.run_attempt }}
+          build-args: |
+            POWERX_SOURCE_SHA=${{ needs.preflight.outputs.source_sha }}
+            POWERX_VERSION=${{ needs.preflight.outputs.version }}
+            POWERX_BUILD_TIME=${{ needs.preflight.outputs.build_time }}
           labels: |
             org.opencontainers.image.source=https://github.com/ArtisanCloud/PowerX
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ needs.preflight.outputs.source_sha }}
           cache-from: type=gha,scope=powerx-web
           cache-to: type=gha,mode=max,scope=powerx-web
       - name: Freeze and verify paired OCI image digests
         env:
-          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
           BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
           WEB_DIGEST: ${{ steps.web.outputs.digest }}
-        run: |
-          python3 deploy/powerx/container/upgrade_release.py resolve --source-sha "$SOURCE_SHA" --backend "$BACKEND_DIGEST" --web-admin "$WEB_DIGEST" --output target-pair.json
+        run: python3 deploy/powerx/container/upgrade_release.py resolve --source-sha "$SOURCE_SHA" --backend "$BACKEND_DIGEST" --web-admin "$WEB_DIGEST" --output target-pair.json
       - uses: actions/upload-artifact@v6
         with:
-          name: powerx-target-pair-${{ github.sha }}
+          name: powerx-target-pair-${{ github.run_id }}-${{ github.run_attempt }}
           path: target-pair.json
+          if-no-files-found: error
       - name: Fresh database, login, frontend and API smoke test
         env:
-          POWERX_SOURCE_SHA: ${{ github.sha }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
         run: |
           set -eu
+          python3 deploy/powerx/container/build_contract.py environment --pair target-pair.json --source-sha "$SOURCE_SHA" --template deploy/powerx/container/.env.example --output deploy/powerx/container/.env
           cd deploy/powerx/container
-          cp .env.example .env
-          sed -i "s/REPLACE_WITH_PUBLISHED_TAG/sha-$POWERX_SOURCE_SHA/g" .env
           sh run.sh start
           python3 smoke.py
       - name: Cleanup smoke environment
@@ -142,8 +239,25 @@ jobs:
         run: |
           cd deploy/powerx/container
           if test -f .env; then docker compose --profile standalone down --volumes; fi
+      - name: Record phase evidence
+        if: always()
+        env:
+          BUILD_STEPS_JSON: ${{ toJSON(steps) }}
+          BUILD_PHASE_RESULT: ${{ job.status }}
+          BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+          BUILD_BACKEND_METADATA: ${{ steps.backend.outputs.metadata }}
+          BUILD_WEB_METADATA: ${{ steps.web.outputs.metadata }}
+        run: python3 deploy/powerx/container/build_contract.py phase --name images --result "$BUILD_PHASE_RESULT" --output phase-images.json --backend "$BACKEND_DIGEST" --web "$WEB_DIGEST"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-phase-images-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phase-images.json
+          if-no-files-found: error
   installed-upgrade:
-    needs: images
+    needs: [preflight, images]
+    if: needs.preflight.outputs.fresh == 'true' && needs.preflight.outputs.mode != 'verify'
     strategy:
       fail-fast: false
       matrix:
@@ -156,96 +270,202 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
+    env:
+      POWERX_UPGRADE_CI: '1'
+      COMPOSE_PROJECT_NAME: powerx-upgrade-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - run: python3 -m pip install pyyaml
       - uses: actions/download-artifact@v5
         with:
-          name: powerx-target-pair-${{ github.sha }}
+          name: powerx-target-pair-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Installed baseline to target, preservation and restore rollback
         working-directory: deploy/powerx/container
-        env:
-          POWERX_UPGRADE_CI: '1'
-          COMPOSE_PROJECT_NAME: powerx-upgrade-${{ github.run_id }}-${{ matrix.arch }}
         run: python3 upgrade_smoke.py --pair ../../../target-pair.json --platform '${{ matrix.platform }}' --report ../../../reports/upgrade-report-linux-${{ matrix.arch }}.json
       - uses: actions/upload-artifact@v6
         if: always()
         with:
-          name: powerx-upgrade-report-${{ github.sha }}-${{ matrix.arch }}
+          name: powerx-upgrade-report-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.arch }}
           path: reports/upgrade-report-*.json
+          if-no-files-found: error
       - name: Remove all CI-owned containers and volumes
         if: always()
         working-directory: deploy/powerx/container
-        env:
-          COMPOSE_PROJECT_NAME: powerx-upgrade-${{ github.run_id }}-${{ matrix.arch }}
         run: if test -f .env; then docker compose --profile standalone down --volumes; fi
+      - name: Record platform phase evidence
+        if: always()
+        env:
+          BUILD_STEPS_JSON: ${{ toJSON(steps) }}
+          BUILD_PHASE_RESULT: ${{ job.status }}
+        run: python3 deploy/powerx/container/build_contract.py phase --name upgrade-${{ matrix.arch }} --result "$BUILD_PHASE_RESULT" --output phase-upgrade-${{ matrix.arch }}.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-phase-upgrade-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.arch }}
+          path: phase-upgrade-${{ matrix.arch }}.json
+          if-no-files-found: error
   upgrade-metadata:
-    needs: [images, installed-upgrade]
+    needs: [preflight, images, installed-upgrade]
+    if: needs.preflight.outputs.fresh == 'true' && needs.preflight.outputs.mode != 'verify'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - run: python3 -m pip install pyyaml jsonschema
       - uses: actions/download-artifact@v5
         with:
-          name: powerx-target-pair-${{ github.sha }}
+          name: powerx-target-pair-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/download-artifact@v5
         with:
-          pattern: powerx-upgrade-report-${{ github.sha }}-*
+          pattern: powerx-upgrade-report-${{ github.run_id }}-${{ github.run_attempt }}-*
           path: reports
           merge-multiple: true
       - name: Publishable contract only after both upgrade platforms pass
         env:
           CI_RUN_URL: https://github.com/ArtisanCloud/PowerX/actions/runs/${{ github.run_id }}
-          SOURCE_BRANCH: ${{ github.ref_name }}
+          CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
-          case "$SOURCE_BRANCH" in main|master) channel=stable ;; *) channel=development ;; esac
-          python3 deploy/powerx/container/upgrade_release.py manifest --pair target-pair.json --reports-dir reports --ci-run-url "$CI_RUN_URL" --channel "$channel" --output powerx-upgrade-manifest.json
+          python3 deploy/powerx/container/upgrade_release.py manifest --pair target-pair.json --reports-dir reports --ci-run-url "$CI_RUN_URL" --channel "$CHANNEL" --require-all-platforms --output powerx-upgrade-manifest.json
           python3 -c 'import json,jsonschema; jsonschema.validate(json.load(open("powerx-upgrade-manifest.json")),json.load(open("docs/contracts/powerx-upgrade-manifest.schema.json")))'
       - name: Export verified paired deployment bundle
+        env:
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
         run: |
-          mkdir /tmp/powerx-docker
-          cp deploy/powerx/container/{compose.yml,compose.restore-access.yml,gateway.conf,run.sh,README.md,.env.example} /tmp/powerx-docker/
-          cp powerx-upgrade-manifest.json docs/contracts/powerx-upgrade*.schema.json /tmp/powerx-docker/
-          cp reports/upgrade-report-*.json /tmp/powerx-docker/
-          python3 -c 'import json,pathlib; p=json.load(open("target-pair.json")); f=pathlib.Path("/tmp/powerx-docker/.env.example"); s=f.read_text(); s=s.replace("ghcr.io/artisancloud/powerx-backend:REPLACE_WITH_PUBLISHED_TAG",p["images"]["backend"]["repository"]+"@"+p["images"]["backend"]["index_digest"]); s=s.replace("ghcr.io/artisancloud/powerx-web-admin:REPLACE_WITH_PUBLISHED_TAG",p["images"]["web_admin"]["repository"]+"@"+p["images"]["web_admin"]["index_digest"]); f.write_text(s)'
-          tar -czf powerx-docker.tar.gz -C /tmp powerx-docker
+          set -eu
+          mkdir "$RUNNER_TEMP/powerx-docker"
+          cp deploy/powerx/container/{compose.yml,compose.restore-access.yml,gateway.conf,run.sh,README.md,.env.example} "$RUNNER_TEMP/powerx-docker/"
+          cp powerx-upgrade-manifest.json docs/contracts/powerx-upgrade*.schema.json "$RUNNER_TEMP/powerx-docker/"
+          cp reports/upgrade-report-*.json "$RUNNER_TEMP/powerx-docker/"
+          python3 deploy/powerx/container/build_contract.py environment --pair target-pair.json --source-sha "$SOURCE_SHA" --template deploy/powerx/container/.env.example --output "$RUNNER_TEMP/powerx-docker/.env.example"
+          tar -czf powerx-docker.tar.gz -C "$RUNNER_TEMP" powerx-docker
           sha256sum powerx-docker.tar.gz > powerx-docker.tar.gz.sha256
           sha256sum powerx-upgrade-manifest.json > powerx-upgrade-manifest.json.sha256
       - uses: actions/upload-artifact@v6
         with:
-          name: powerx-docker-${{ github.sha }}
+          name: powerx-docker-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             powerx-docker.tar.gz
             powerx-docker.tar.gz.sha256
             powerx-upgrade-manifest.json
             powerx-upgrade-manifest.json.sha256
+          if-no-files-found: error
+      - name: Record phase evidence
+        if: always()
+        env:
+          BUILD_STEPS_JSON: ${{ toJSON(steps) }}
+          BUILD_PHASE_RESULT: ${{ job.status }}
+        run: python3 deploy/powerx/container/build_contract.py phase --name metadata --result "$BUILD_PHASE_RESULT" --output phase-metadata.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-phase-metadata-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phase-metadata.json
+          if-no-files-found: error
   bundle-release:
-    needs: upgrade-metadata
+    needs: [preflight, upgrade-metadata]
+    if: needs.preflight.outputs.fresh == 'true' && needs.preflight.outputs.mode == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    concurrency:
+      group: powerx-immutable-release-${{ needs.preflight.outputs.channel }}-${{ needs.preflight.outputs.version }}
+      cancel-in-progress: false
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
       - uses: actions/download-artifact@v5
         with:
-          name: powerx-docker-${{ github.sha }}
+          name: powerx-build-request-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/download-artifact@v5
+        with:
+          name: powerx-docker-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Publish the verified deployment bundle
+        id: publication
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SOURCE_SHA: ${{ github.sha }}
-          REPO: ${{ github.repository }}
-          SOURCE_BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 deploy/powerx/container/release_publish.py --request request-context.json --directory . --output publication.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: publication.json
+          if-no-files-found: error
+      - name: Record phase evidence
+        if: always()
+        env:
+          BUILD_STEPS_JSON: ${{ toJSON(steps) }}
+          BUILD_PHASE_RESULT: ${{ job.status }}
+          BUILD_PHASE_ERROR: ${{ steps.publication.outputs.error_code }}
+        run: python3 deploy/powerx/container/build_contract.py phase --name release --result "$BUILD_PHASE_RESULT" --output phase-release.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-phase-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phase-release.json
+          if-no-files-found: error
+  build-receipt:
+    if: always()
+    needs: [preflight, checks, images, installed-upgrade, upgrade-metadata, bundle-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python3 -m pip install jsonschema
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: powerx-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build-evidence
+          merge-multiple: false
+      - uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          pattern: powerx-*-${{ github.run_id }}-${{ github.run_attempt }}-amd64
+          path: build-evidence
+          merge-multiple: false
+      - uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          pattern: powerx-*-${{ github.run_id }}-${{ github.run_attempt }}-arm64
+          path: build-evidence
+          merge-multiple: false
+      - name: Produce request-bound build receipt
+        env:
+          BUILD_JOBS_JSON: ${{ toJSON(needs) }}
+        run: python3 deploy/powerx/container/build_contract.py receipt --evidence build-evidence --output powerx-build-receipt.json
+      - name: Validate receipt schema and checksum
+        if: always()
         run: |
-          set -eu
-          case "$SOURCE_BRANCH" in main|master) tag="docker-release-${SOURCE_SHA:0:12}"; release_flags=() ;; *) tag="docker-dev-${SOURCE_SHA:0:12}"; release_flags=(--prerelease) ;; esac
-          printf 'Verified paired PowerX images for source %s. See powerx-upgrade-manifest.json for supported baseline digests, migration contract, platform evidence and restore-required rollback. This release does not authorize image-only rollback.\n' "$SOURCE_SHA" > /tmp/release-notes.txt
-          if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
-            gh release upload "$tag" powerx-docker.tar.gz powerx-docker.tar.gz.sha256 powerx-upgrade-manifest.json powerx-upgrade-manifest.json.sha256 --repo "$REPO" --clobber
-          else
-            gh release create "$tag" powerx-docker.tar.gz powerx-docker.tar.gz.sha256 powerx-upgrade-manifest.json powerx-upgrade-manifest.json.sha256 --repo "$REPO" --target "$SOURCE_SHA" "${release_flags[@]}" --title "PowerX Docker ${SOURCE_SHA:0:12}" --notes-file /tmp/release-notes.txt
-          fi
+          python3 -c 'import json,jsonschema; jsonschema.validate(json.load(open("powerx-build-receipt.json")),json.load(open("docs/contracts/powerx-build-receipt.schema.json")))'
+          sha256sum powerx-build-receipt.json > powerx-build-receipt.json.sha256
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: powerx-build-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            powerx-build-receipt.json
+            powerx-build-receipt.json.sha256
+          if-no-files-found: error

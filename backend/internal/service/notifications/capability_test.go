@@ -29,7 +29,7 @@ func TestNotificationServiceGrantsAndTypedCreate(t *testing.T) {
 	for _, f := range stmt.Schema.Fields {
 		f.DefaultValue = strings.TrimSuffix(f.DefaultValue, "::jsonb")
 	}
-	require.NoError(t, db.AutoMigrate(&nm.Notification{}, &im.User{}, &im.Member{}, &im.APIKeyProfile{}, &im.Permission{}, &im.APIKeyProfilePermission{}, &gm.IntegrationGatewayAPIKey{}, &gm.IntegrationGatewayAPIKeyPermission{}))
+	require.NoError(t, db.AutoMigrate(&nm.Notification{}, &nm.CreationReceipt{}, &im.User{}, &im.Member{}, &im.APIKeyProfile{}, &im.Permission{}, &im.APIKeyProfilePermission{}, &gm.IntegrationGatewayAPIKey{}, &gm.IntegrationGatewayAPIKeyPermission{}))
 	tenant := uuid.NewString()
 	ctx, credential := hosttest.Actor(t, db, tenant, "plugin.notification.test")
 	u := im.User{Email: "notice@fixture.test", Status: 1}
@@ -90,6 +90,13 @@ func TestNotificationServiceGrantsAndTypedCreate(t *testing.T) {
 	grant := gm.IntegrationGatewayAPIKeyPermission{APIKeyUUID: key.UUID, Scope: "_scope.notifications.create", Action: "create", ResourceType: "capability", ResourcePattern: "notifications", Effect: "allow"}
 	require.NoError(t, db.Create(&grant).Error)
 	require.NoError(t, s.AuthorizeCreate(keyCtx))
+	idempotent := IdempotentCreateInput{IdempotencyKey: "fixture_api_key", MemberUUID: member.UUID.String(), Title: "fixture_title", Content: "fixture_content"}
+	created, err := s.CreateIdempotent(keyCtx, idempotent)
+	require.NoError(t, err)
+	replayed, err := s.CreateIdempotent(keyCtx, idempotent)
+	require.NoError(t, err)
+	require.True(t, replayed.Replayed)
+	require.Equal(t, created.Notification["id"], replayed.Notification["id"])
 	require.NoError(t, db.Create(&cm.CapabilityRecord{CapabilityID: ReadReceiptCapabilityID, PluginID: "core", PluginVersion: "1", Status: "published"}).Error)
 	require.NoError(t, db.Create(&cm.CapabilityRegistration{CapabilityID: ReadReceiptCapabilityID, TenantUUID: tenant, ContractRef: "v1", Status: "published", Version: 1, RoutingPolicyID: uuid.New()}).Error)
 	notice, err := s.Create(keyCtx, CreateInput{TenantUUID: tenant, MemberUUID: member.UUID.String(), Title: "fixture_title", Content: "fixture_content"})

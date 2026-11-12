@@ -120,7 +120,7 @@ sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION} --with
 ```
 说明：
 - 当前版本下，`runner` 是可选组件。
-- 传入 `--with-runner` 且发布目录不存在 `runner/dist/main.js` 时，脚本会给出 warning，并进入 noop-runner 模式；`powerx-runner.service` 会因 `ConditionPathExists` 被跳过，不影响 backend/web-admin 启动。
+- 传入 `--with-runner` 且发布目录不存在 `runner/dist/main.js` 时，脚本会给出 warning，并进入 noop-runner 模式；`powerx-runner.service` 由 `ExecCondition` 跳过，配合 `Restart=on-failure` 避免反复启动，不影响 backend/web-admin 启动。
 - 若不需要 runner，可直接不带参数执行：
 ```bash
 sudo bash backend/scripts/ops/switch-release-systemd.sh ${POWERX_VERSION}
@@ -245,7 +245,7 @@ runner（可选）日志：
 sudo journalctl -fu powerx-runner --no-pager
 sudo journalctl -u powerx-runner -n 200 --no-pager
 ```
-说明：当发布包没有 `runner/dist/main.js` 时，`powerx-runner.service` 会因 `ConditionPathExists` 被跳过，属于预期行为。
+说明：当发布包没有 `runner/dist/main.js` 时，`powerx-runner.service` 会由 `ExecCondition` 跳过，属于预期行为。inactive 不代表 Runner 已运行，发布脚本会明确报告 optional runner skipped。
 
 ## 11. 首次安装（仅未安装实例）
 访问：`http://<host>:<web-admin-port>/setup`

@@ -1,0 +1,886 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "powerx.build-receipt/v1"
+    },
+    "run": {
+      "$ref": "#/$defs/run"
+    },
+    "request": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/request"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "rejected",
+        "cancelled",
+        "duplicate"
+      ]
+    },
+    "deployable": {
+      "type": "boolean"
+    },
+    "duplicate_of": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "input_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "run_id",
+            "attempt",
+            "input_sha256"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preflight": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "enum": [
+                "success",
+                "failure",
+                "cancelled",
+                "skipped"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "enum": [
+                "success",
+                "failure",
+                "cancelled",
+                "skipped"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "images": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "enum": [
+                "success",
+                "failure",
+                "cancelled",
+                "skipped"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "installed-upgrade": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "enum": [
+                "success",
+                "failure",
+                "cancelled",
+                "skipped"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "upgrade-metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "enum": [
+                "success",
+                "failure",
+                "cancelled",
+                "skipped"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "bundle-release": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "enum": [
+                "success",
+                "failure",
+                "cancelled",
+                "skipped"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        }
+      },
+      "required": []
+    },
+    "phase_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preflight": {
+          "$ref": "#/$defs/phase"
+        },
+        "checks": {
+          "$ref": "#/$defs/phase"
+        },
+        "images": {
+          "$ref": "#/$defs/phase"
+        },
+        "upgrade-amd64": {
+          "$ref": "#/$defs/phase"
+        },
+        "upgrade-arm64": {
+          "$ref": "#/$defs/phase"
+        },
+        "metadata": {
+          "$ref": "#/$defs/phase"
+        },
+        "release": {
+          "$ref": "#/$defs/phase"
+        }
+      },
+      "required": []
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            {
+              "$ref": "#/$defs/image"
+            }
+          ]
+        },
+        "web_admin": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            {
+              "$ref": "#/$defs/image"
+            }
+          ]
+        }
+      },
+      "required": []
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "type": "string",
+            "pattern": "^powerx-[a-z0-9-]+$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "artifact",
+          "path",
+          "sha256",
+          "size"
+        ]
+      }
+    },
+    "publication": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/publication"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(BUILD|UPGRADE)_[A-Z0-9_]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "definition_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run",
+    "request",
+    "status",
+    "deployable",
+    "duplicate_of",
+    "phases",
+    "phase_evidence",
+    "images",
+    "artifacts",
+    "publication",
+    "error_code",
+    "definition_sha256"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://powerx.artisan-cloud.com/contracts/powerx-build-receipt.schema.json",
+  "$defs": {
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "const": "ArtisanCloud/PowerX"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/publish-container.yml"
+        },
+        "workflow_ref": {
+          "type": "string",
+          "pattern": "^ArtisanCloud/PowerX/\\.github/workflows/publish-container\\.yml@refs/heads/(develop|main|master)$"
+        },
+        "workflow_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "head_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "ref": {
+          "enum": [
+            "refs/heads/develop",
+            "refs/heads/main",
+            "refs/heads/master"
+          ]
+        }
+      },
+      "required": [
+        "repository",
+        "workflow_path",
+        "workflow_ref",
+        "workflow_sha",
+        "run_id",
+        "attempt",
+        "head_sha",
+        "ref"
+      ]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "powerx.build-request/v1"
+        },
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{7,127}$"
+        },
+        "expected_source_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "build_mode": {
+          "enum": [
+            "verify",
+            "build",
+            "release"
+          ]
+        },
+        "ref": {
+          "enum": [
+            "refs/heads/develop",
+            "refs/heads/main",
+            "refs/heads/master"
+          ]
+        },
+        "input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "actual_source_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "channel": {
+          "enum": [
+            "development",
+            "stable"
+          ]
+        },
+        "run": {
+          "$ref": "#/$defs/run"
+        },
+        "definition_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "build_time": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "schema_version",
+        "request_id",
+        "expected_source_sha",
+        "build_mode",
+        "ref",
+        "input_sha256",
+        "actual_source_sha",
+        "channel",
+        "run",
+        "definition_sha256",
+        "build_time"
+      ]
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "powerx.build-phase/v1"
+        },
+        "phase": {
+          "enum": [
+            "preflight",
+            "checks",
+            "images",
+            "upgrade-amd64",
+            "upgrade-arm64",
+            "metadata",
+            "release"
+          ]
+        },
+        "result": {
+          "enum": [
+            "success",
+            "failure",
+            "cancelled",
+            "skipped"
+          ]
+        },
+        "run": {
+          "$ref": "#/$defs/run"
+        },
+        "tools": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "image_digests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "backend": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "web_admin": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          },
+          "required": []
+        },
+        "steps": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "success",
+              "failure",
+              "cancelled",
+              "skipped"
+            ]
+          }
+        },
+        "action_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_./-]+@[A-Za-z0-9_.-]+$"
+          },
+          "uniqueItems": true
+        },
+        "build_metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "backend": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "buildx.build.ref": {
+                  "type": "string"
+                },
+                "buildx.build.provenance": {
+                  "type": "object"
+                },
+                "containerimage.digest": {
+                  "type": "string",
+                  "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "image.name": {
+                  "type": "string"
+                }
+              }
+            },
+            "web_admin": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "buildx.build.ref": {
+                  "type": "string"
+                },
+                "buildx.build.provenance": {
+                  "type": "object"
+                },
+                "containerimage.digest": {
+                  "type": "string",
+                  "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "image.name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(BUILD|UPGRADE)_[A-Z0-9_]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "phase",
+        "result",
+        "run",
+        "tools",
+        "image_digests",
+        "steps",
+        "action_refs",
+        "build_metadata",
+        "error_code"
+      ]
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "enum": [
+            "ghcr.io/artisancloud/powerx-backend",
+            "ghcr.io/artisancloud/powerx-web-admin"
+          ]
+        },
+        "index_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "platforms": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "linux/amd64": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "digest": {
+                  "type": "string",
+                  "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "source_revision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40}$"
+                }
+              },
+              "required": [
+                "digest",
+                "source_revision"
+              ]
+            },
+            "linux/arm64": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "digest": {
+                  "type": "string",
+                  "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "source_revision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40}$"
+                }
+              },
+              "required": [
+                "digest",
+                "source_revision"
+              ]
+            }
+          },
+          "required": [
+            "linux/amd64",
+            "linux/arm64"
+          ]
+        }
+      },
+      "required": [
+        "repository",
+        "index_digest",
+        "platforms"
+      ]
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "release_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^docker-(dev|release)-[a-f0-9]{12}$"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://github.com/ArtisanCloud/PowerX/releases/tag/docker-(dev|release)-[a-f0-9]{12}$"
+        },
+        "published": {
+          "const": true
+        },
+        "reused": {
+          "type": "boolean"
+        },
+        "assets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "powerx-docker.tar.gz": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "size": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "id",
+                "sha256",
+                "size"
+              ]
+            },
+            "powerx-docker.tar.gz.sha256": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "size": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "id",
+                "sha256",
+                "size"
+              ]
+            },
+            "powerx-upgrade-manifest.json": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "size": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "id",
+                "sha256",
+                "size"
+              ]
+            },
+            "powerx-upgrade-manifest.json.sha256": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "size": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "id",
+                "sha256",
+                "size"
+              ]
+            }
+          },
+          "required": [
+            "powerx-docker.tar.gz",
+            "powerx-docker.tar.gz.sha256",
+            "powerx-upgrade-manifest.json",
+            "powerx-upgrade-manifest.json.sha256"
+          ]
+        }
+      },
+      "required": [
+        "source_sha",
+        "release_id",
+        "tag",
+        "url",
+        "published",
+        "reused",
+        "assets"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "deployable": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "succeeded"
+          },
+          "request": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/request"
+              },
+              {
+                "properties": {
+                  "build_mode": {
+                    "const": "release"
+                  }
+                }
+              }
+            ]
+          },
+          "publication": {
+            "$ref": "#/$defs/publication"
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "backend": {
+                "$ref": "#/$defs/image"
+              },
+              "web_admin": {
+                "$ref": "#/$defs/image"
+              }
+            },
+            "required": [
+              "backend",
+              "web_admin"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "succeeded"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "request": {
+            "$ref": "#/$defs/request"
+          },
+          "duplicate_of": {
+            "type": "null"
+          },
+          "error_code": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "duplicate"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "request": {
+            "$ref": "#/$defs/request"
+          },
+          "duplicate_of": {
+            "type": "object"
+          },
+          "deployable": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "failed",
+              "rejected",
+              "cancelled"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "deployable": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}

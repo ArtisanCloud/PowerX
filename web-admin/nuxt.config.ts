@@ -76,7 +76,13 @@ export default defineNuxtConfig({
         resolve(process.env.POWERX_NUXT_BUILD_DIR || ".nuxt-build", "dist/server/client.manifest.mjs"));
     },
   },
-  app: { baseURL: process.env.NUXT_APP_BASE_URL || "/", head: { meta: [{ name: "generator", content: "PowerX" }] } },
+  app: {
+    baseURL: process.env.NUXT_APP_BASE_URL || "/",
+    head: {
+      meta: [{ name: "generator", content: "PowerX" }],
+      link: [{ rel: "icon", type: "image/svg+xml", href: "/images/powerx-mark.svg" }],
+    },
+  },
   routeRules: { "/.well-known/powerx.json": { headers: { "cache-control": "no-cache" } } },
   router: {
     options: {

@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-11T13:13:05.747839+00:00",
+  "capability_id": "com.corex.customer.memberships.service_read",
+  "scope": "Core source implementation; Framework alignment contract only",
+  "source_sha256": {
+    "backend/config/capability_audit_required.yaml": "0170b2af574e66a28c1699ec4a0064bad85a0d50fcb0f3ee0d0bcec56b81577a",
+    "backend/config/platform_capabilities/customer.yaml": "a727fa2c0678d2cabb2c738bb19b98e4a7596c0935496cc6aeaaf385082e25f7",
+    "backend/internal/service/customer/capability_invoker.go": "bc539d8545cf8ef0d2175824c7e284558f0ce7786bb22679f585b31775fb739b",
+    "backend/internal/service/customer/membership_verification_service.go": "5c49e429c0c9175d13e6c474afd9ef644ceef237d158b96d4f3f2c76cda6aebb",
+    "backend/internal/service/customer/membership_verification_invoker.go": "35889260488a397cf341a2511f24d0a90ff0a9dfa8b6807db9fad42312aaabfc",
+    "backend/internal/service/customer/membership_verification_service_test.go": "cce0637acf315cb367b0e2d223561281d5450da7aed10eea6d8ad1b64936b612",
+    "backend/internal/service/customer/membership_verification_postgres_test.go": "f9307d5e599f4aefe71cb83b7526ed475231726d63e85e28fc6905e10000dcbf",
+    "backend/pkg/corex/db/persistence/repository/customer/membership_verification.go": "4584634f840304da12071733b508842e05565966fef50d1d2b9a555e63e72ef6",
+    "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go": "05e62c8748d20c0b3504381cb2757fa93f31c0c9eb1af184e0fbc844ba89be11",
+    "backend/internal/transport/http/openapi/capability_registry/customer_verification_errors.go": "d961613dc81854b0b27124dccd0dae875b19df24b1d5d6a146645bdd16aae28b",
+    "backend/internal/transport/http/openapi/capability_registry/customer_verification_test.go": "0345f2280579088c7959391d1e4ea4951e7fb62892f16b160c332e62461e2a74",
+    "docs/contracts/customer-membership-service-verification.md": "d78ea721a5cad6aae3b893b343e5cc120470f31ef81a750fb24d66070a4bcc6e",
+    "docs/contracts/customer-membership-service-verification.openapi.yaml": "df4f2daa9015ff729161eea1c297caf29dcbaf3ce92a648aa8566bfd4b4e0b38"
+  },
+  "checks": {
+    "five_package_regression": "passed",
+    "affected_customer_and_http_race": "passed",
+    "affected_vet": "passed",
+    "core_app_build": "passed",
+    "capability_check": "passed: declared=1245 referenced=85 rest_routes=1182 candidates=1316 ignored_route_rules=157",
+    "postgres_uuid_expiry_ownership_and_concurrent_snapshot": "passed",
+    "api_key_http_invocation_grant_status_and_revocation": "passed",
+    "capability_seed": "passed against dedicated temporary PostgreSQL; scoped to new capability and existing grant-status contract",
+    "post_seed_native_grants": {
+      "api_key_and_sts_snapshot_equal": true,
+      "capability": "com.corex.customer.memberships.service_read",
+      "catalog_hash": "711c90c4cea94d1474ec0fa02d3829338dfd02c2510977dd00a3f05e941f0849",
+      "database": "px_customer_verify_20261111",
+      "development_host": "isolated fixture only",
+      "grant_after": "not_granted",
+      "grant_before": "granted",
+      "permission_allow_api_key": true,
+      "permission_api_key_explicit": true,
+      "protocol_hash": "24efe7cf4e6abe254559fe02317f3b870ab080ad005c99fd981ef294203e495a",
+      "registration_status": "published",
+      "registration_version": 1,
+      "status": "published",
+      "verified": {
+        "schema_version": 1,
+        "tenant_uuid": "cd527da3-cdb7-437a-b943-5296a80593c6",
+        "customer_uuid": "d39c1bb9-7995-4b3b-9e65-1ed9943d76d9",
+        "membership_uuid": "841c75b9-ed65-4c8e-a74b-c16f88cf4635",
+        "primary_contact_uuid": "3fb1e493-109c-422d-bf8f-f3cb3f99eb35",
+        "status": "active",
+        "expires_at": null,
+        "checked_at": "2026-11-11T13:11:40.975257Z",
+        "revision": "sha256:9306a0ad821d821ba58a9de8fef1204d4665caf933bffdad7084a1b438883944"
+      }
+    },
+    "contract_yaml": "parsed and request is closed",
+    "diff_check": "passed"
+  },
+  "log_sha256": {
+    "regression.log": "eeb9c9d6565df33239dadbe893cc72ec9303b385a8ad17957acae31a3aa35074",
+    "postgres-test.log": "3032235454dfcaadf9ce2b7882674a8acefdb0c327f153aa2da40bcd80bf8c07",
+    "http-test.log": "f969291d710f695c822de441b62e73a3add456320a335486e76ae3d8b2567dfc",
+    "race-final.log": "6f67c6a56b4d0cb2877c546fed0c920df919447a3075a083504e83acaca9dbbb",
+    "vet.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "capability-check.log": "50bb0416e3ce90682b898f6730c4b19e916596eb065621c3a4c22a9d93807138",
+    "capability-seed-isolated.log": "c6b8a6f93aabb5925ce8b2f04b2c626c5128d946ac03d792db85b718c5525ed0",
+    "capability-seed-isolated-with-status.log": "e2afa28b62f6ae3044366dcc4d8ec768ced7ff03cd90e41a4bbf26f01b4fbaf5",
+    "native-grant-verification.log": "d626e5456c6bb1162b1be95d6da3fc58619fe6143fad291f8b183efd3c510329"
+  },
+  "process_cleanup": {
+    "owner": "codex-customer-verification",
+    "pid": 89359,
+    "port": 55462,
+    "listen": "private Unix socket only",
+    "pid_exited": true,
+    "socket_released": true,
+    "owned_directory_removed": true
+  },
+  "boundaries": {
+    "business_schema_added": false,
+    "daily_database_modified": false,
+    "daily_service_restarted": false,
+    "existing_key_or_profile_grants_changed": false,
+    "framework_source_changed": false,
+    "framework_sdk_released": false,
+    "ecommerce_source_changed": false,
+    "live_ecommerce_acceptance_complete": false
+  },
+  "next_step": "Framework implements and releases ServiceMembershipVerifier under runtime/customerfw. Core owner then publishes the scoped capability to the intended instance, restarts their Core process, grants ecommerce only the precise service read permission, and verifies actual SDK calls before binding CheckoutCustomers."
+}

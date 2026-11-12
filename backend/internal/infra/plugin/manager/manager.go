@@ -127,24 +127,13 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 				plugin_mgr.WithVersion(ver),
 			)
 		}
-		// 启动扫描时补做一次权限同步（upsert 幂等），修复历史安装遗漏。
-		if m.opts.PostInstallManifest != nil {
-			if err := m.opts.PostInstallManifest(ctx, d.Manifest); err != nil {
-				wrapped := plugin_mgr.Wrap(plugin_mgr.CodeInternal, err,
-					plugin_mgr.WithOp("bootstrap.register_permissions"),
-					plugin_mgr.WithPlugin(id),
-					plugin_mgr.WithVersion(ver),
-				)
-				logger.WarnF(ctx, "[plugin-bootstrap] plugin permission sync failed, keep manager available: id=%s ver=%s err=%v", id, ver, wrapped)
-				continue
-			}
-		}
 	}
 
-	// 4) 持久化一次（可选）
+	// 4) 先保存安装清单，再按选定版本同步；历史产物不能覆盖生效权限。
 	if err := m.opts.Registry.Save(ctx); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("bootstrap"))
 	}
+	m.syncBootstrapManifests(ctx, descs)
 
 	if !m.opts.Enabled {
 		// 插件系统处于禁用模式，仅同步注册表快照

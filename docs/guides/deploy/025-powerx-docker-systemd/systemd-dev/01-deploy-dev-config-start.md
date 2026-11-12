@@ -221,6 +221,10 @@ sudo -E bash backend/scripts/ops/install-develop-systemd-units.sh --with-runner
 
 这些 unit 会读取 `/etc/powerx-dev/powerx.env`，并通过 `POWERX_CONFIG=/etc/powerx-dev/config.yaml` 使用 dev runtime config。
 
+前端启动逻辑由安装脚本同步至 `/etc/powerx-dev/start-web-admin.sh`，unit 仅使用 `/bin/bash` 执行该文件。端口读取不再嵌套于 systemd 的内联 awk 命令；注释中的数字不会拼入端口。刷新 unit 后，由服务负责人重启 Web 才加载新入口；发布切换默认不覆盖 dev unit，因此仅切换 release 不会修复旧的启动命令。
+
+Runner 为可选组件。没有 `runner/dist/main.js` 时，`ExecCondition` 跳过启动，`Restart=on-failure` 避免持续重试。此时 inactive 属于明确的未启动状态，不表示 Runner 已运行；Core 内部 TaskBus worker 与该可选 Node 服务分别核验。
+
 说明：
 - `install-develop-systemd-units.sh` 默认使用 `powerx:powerx`。
 - 后续 `switch-develop-systemd.sh` 会调用底层 `switch-release-systemd.sh`；底层脚本在 sudo 场景默认使用 `SUDO_USER`（通常是 `ubuntu`）作为 service 用户。
@@ -252,6 +256,23 @@ sudo systemctl enable --now powerx-dev-web-admin.service
 # runner 可选
 sudo systemctl enable --now powerx-dev-runner.service
 ```
+
+### 11.1 显式接入存储观测，不接管旧清理器
+
+已有开发实例缺少 `storage_governance` 时，可使用 `backend/scripts/ops/configure-develop-storage.py`。需要 Python 3、PyYAML，以及已经完成的 Core 集中迁移。先核对实际主机、文件系统 UUID、PostgreSQL `system_identifier` 和 Core 服务用户，不复制另一安装的标识或运行账本。
+
+```bash
+python3 backend/scripts/ops/configure-develop-storage.py --config /etc/powerx-dev/config.yaml --storage-root /opt/powerx-dev/storage --host-id '<verified-host-id>' --filesystem-id '<verified-filesystem-id>' --postgres-cluster-id '<verified-postgres-cluster-id>' --service-user '<actual-core-service-user>' --output-plan /absolute/private/storage-observation-plan.json
+sudo python3 backend/scripts/ops/configure-develop-storage.py --apply-plan /absolute/private/storage-observation-plan.json --backup /absolute/private/config.before.yaml
+```
+
+第一条只读生成 0600 计划。第二条在核对原配置摘要后原子追加观测配置，并创建由实际 Core 服务用户持有的 0700 元数据目录；配置文件原属主保持。备份目录必须为 0700。现有配置、运行目录、身份或文件内容变化时拒绝，不清空旧账本。其他模块原文和配置保持，正式环境及链接目标不允许执行。
+
+此入口接入容量／数据库采样和配置控制所需运行时，保持 `allow_enforce`、`manage_native_retention`、`admission_enabled`、`advanced_operations_enabled` 为 false。不删除文件／数据库数据，不接管旧脚本，不停旧 timer，也不保存或启用 UI 策略。已有保护入口不会由本命令关闭；该命令只适用于此前尚无本模块配置的实例。
+
+应用后由服务负责人重启 Core。验收当前实例身份、运行时依赖与实际插件只读调用；出现样本后再核对用量历史。UI 应区分运行时就绪和策略尚未接入。清理策略、容量准入及旧执行器交接仍按[存储操作手册](../../027-monitor-center/usecase-us9-storage-execution.md)单独审阅和启用，当前核心发布不开放高级远端归档／现场接管。
+
+启动前需要撤回时，先确认 Core 仍为原 PID、没有使用新配置，保留备份并由配置负责人恢复原文；已启动并形成账本／UI 策略后不得直接还原旧文件或删除元数据目录，应按正式暂停、核对和恢复流程处理。
 
 ## 12. 后续切换 dev release
 切换 dev release 有两种方式。推荐使用 `switch-develop-systemd.sh`，它会固定 dev root、dev service name 与 dev health url，避免误操作生产 service。

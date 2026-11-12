@@ -149,6 +149,7 @@ func registerMemberRoutes(protectedGroup *gin.RouterGroup, hMember *MemberHandle
 		gMember.DELETE("/:id", hMember.Delete)
 		gMember.PUT("/:id/restore", hMember.Restore)
 		gMember.PUT("/:id/departments", hMember.PutDepartments)
+		gMember.PUT("/:id/reporting-manager", hMember.SetReportingManager)
 		gMember.POST("/:id/force-logout", hMember.ForceMemberLogout)
 		gMember.GET("/:id/roles", hMember.ListRoles)
 		gMember.PUT("/:id/roles", hMember.SetRoles)
