@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, getHeader, getRequestURL, proxyRequest, setResponseHeader } from "h3";
-import { proxyBackupStream } from "../utils/backup-stream-proxy";
+import { proxyEventStream } from "../utils/event-stream-proxy";
 
 // 同一站点、同一 Core 地址；维护模式接管原端口，无需额外状态服务。
 // 旧部署的状态地址仅对严格限定的只读 jobs 路径保留兼容。
@@ -32,6 +32,6 @@ export default defineEventHandler(async (event) => {
   const headers = { authorization, host: target.host, ...(origin ? { origin: target.origin } : {}) };
   setResponseHeader(event, "Cache-Control", "no-store");
   setResponseHeader(event, "X-Accel-Buffering", "no");
-  if (url.pathname.endsWith("/events")) return proxyBackupStream(event, `${target.origin}${url.pathname}`, headers);
+  if (url.pathname.endsWith("/events")) return proxyEventStream(event, `${target.origin}${url.pathname}`, headers);
   return proxyRequest(event, `${target.origin}${url.pathname}`, { headers });
 });

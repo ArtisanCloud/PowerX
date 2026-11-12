@@ -1,5 +1,5 @@
-import { defineEventHandler, getRequestURL, proxyRequest, setResponseHeader } from "h3";
-import { proxyBackupStream } from "../utils/backup-stream-proxy";
+import { defineEventHandler, getHeader, getRequestURL, proxyRequest, setResponseHeader } from "h3";
+import { proxyEventStream, requestsEventStream } from "../utils/event-stream-proxy";
 
 export default defineEventHandler(async (event) => {
   const u = getRequestURL(event);
@@ -24,6 +24,10 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "x-px-proxy-target", target);
   setResponseHeader(event, "x-px-proxy-hit", "1");
   setResponseHeader(event, "x-nitro-no-render", "1");
-  if (event.method === "GET" && (p.endsWith("/admin/ops/backup/events") || /\/admin\/plugins\/installations\/[^/]+\/events$/.test(p))) return proxyBackupStream(event, target);
-  return proxyRequest(event, target);
+  // h3's default proxy header filter drops content negotiation, including SSE.
+  const accept = getHeader(event, "accept");
+  const headers = accept ? { accept } : undefined;
+  const knownEventRoute = event.method === "GET" && (p.endsWith("/admin/ops/backup/events") || /\/admin\/plugins\/installations\/[^/]+\/events$/.test(p));
+  if (knownEventRoute || requestsEventStream(accept)) return proxyEventStream(event, target, headers);
+  return proxyRequest(event, target, { headers });
 });

@@ -1,11 +1,18 @@
 import { proxyRequest, type H3Event } from "h3";
 
-// 当前 h3 的响应流转发不会自动把下游关闭传给 fetch；显式取消上游，
-// 使离开备份页或切换身份时，Core／协调器及时释放文件监听和连接。
-export async function proxyBackupStream(event: H3Event, target: string, headers?: Record<string, string>) {
+// Only detect the listed media type; the upstream still owns negotiation and
+// its response status/content type. This never turns a JSON response into SSE.
+export function requestsEventStream(accept?: string) {
+  return accept?.split(",").some(range => range.split(";")[0]?.trim().toLowerCase() === "text/event-stream") ?? false;
+}
+
+// h3 does not propagate downstream closure to fetch. Share this lifecycle for
+// plugin, Core, backup, installation and maintenance event subscriptions.
+export async function proxyEventStream(event: H3Event, target: string, headers?: Record<string, string>) {
   const controller = new AbortController();
   const cancel = () => controller.abort();
   event.node.res.once("close", cancel);
+  if (event.node.res.destroyed || event.node.res.writableEnded) cancel();
   try {
     return await proxyRequest(event, target, { headers, fetchOptions: { signal: controller.signal } });
   } catch (error) {

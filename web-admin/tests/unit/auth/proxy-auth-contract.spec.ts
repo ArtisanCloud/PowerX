@@ -16,7 +16,7 @@ describe('host session proxy boundary',()=>{
   });
   it('keeps context read on the checked Core user route',async()=>{
     await (handler as any)({url:'/_p/plugin/api/v1/admin/user/auth/me/context',node:{req:{headers:{}}}});
-    expect(stubs.proxy).toHaveBeenCalledWith(expect.anything(),'http://localhost:8077/api/v1/admin/user/auth/me/context');
+    expect(stubs.proxy).toHaveBeenCalledWith(expect.anything(),'http://localhost:8077/api/v1/admin/user/auth/me/context',{headers:undefined});
   });
   it('leaves the normal host login route to its existing handler',async()=>{
     expect(await (handler as any)({url:'/api/v1/admin/user/auth/login'})).toBeUndefined();expect(stubs.status).not.toHaveBeenCalled();

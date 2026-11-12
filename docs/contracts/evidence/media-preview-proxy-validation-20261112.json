@@ -1,0 +1,128 @@
+{
+  "date": "2026-11-12",
+  "scope": "Core Web Admin proxy Accept preservation",
+  "base_commit": "1ead89105483b3d5c60205348afe9fe2483d9a82",
+  "source_state": "Pre-commit validation snapshot; HEAD archive plus explicitly staged changes",
+  "root_cause": {
+    "request_accept": "text/event-stream",
+    "h3_default_proxy_accept": "*/*",
+    "observed_response_content_type": "application/json; charset=utf-8",
+    "client_error_code": "ASSET_PREVIEW_STREAM_INVALID",
+    "reproduced_before_fix": true
+  },
+  "files_sha256": {
+    "web-admin/server/middleware/00-proxy-plugins.ts": "db3b7b0d81ebd9c963f4cad3b407c96268e7772016e5c219f210dec382e25f9a",
+    "web-admin/server/middleware/01-proxy-api.ts": "efd0cd1ac9e2ac8d255ec47ff8ac961a31a078f3a9363c9881a7d2618aedf079",
+    "web-admin/tests/unit/proxy/content-negotiation.spec.ts": "27e727cc01a32d9f5351ef5b17e1aa9186b8ffb9749bd86e6f208c8fad270f3e",
+    "web-admin/tests/unit/auth/proxy-auth-contract.spec.ts": "1a97f011ac4cc1407bbc21274e4c053cc91c1da17053b1adec52859bfa6d2c8a",
+    "docs/contracts/media-image-derivatives.md": "d2fcf587afc4df19e0e0c653fdd42b941bcd2b2e16a9a9dcf4e831327c46d0a2"
+  },
+  "unit_regression": {
+    "runner": "Vitest 3.2.4",
+    "files_passed": 16,
+    "tests_passed": 133,
+    "command": "npx vitest run tests/unit/proxy/content-negotiation.spec.ts tests/unit/auth tests/unit/backup/backup-proxy.spec.ts tests/unit/backup/recovery-proxy.spec.ts tests/unit/backup/backup-sse.spec.ts tests/unit/backup/backup-events.spec.ts --maxWorkers=1"
+  },
+  "production_build": {
+    "command": "npm run build with isolated POWERX_NUXT_BUILD_DIR and POWERX_NITRO_OUTPUT_DIR",
+    "passed": true
+  },
+  "built_output_http_acceptance": {
+    "isolated_build_acceptance": true,
+    "cases": [
+      {
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true,
+        "fixture_auth_preserved": true
+      },
+      {
+        "path": "/__up/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true,
+        "fixture_auth_preserved": true
+      },
+      {
+        "path": "/api/v1/admin/media/assets/fixture/derivatives/events",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true,
+        "fixture_auth_preserved": true
+      },
+      {
+        "path": "/api/v1/admin/ops/backup/events",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true,
+        "fixture_auth_preserved": true
+      },
+      {
+        "path": "/api/v1/admin/plugins/installations/fixture/events",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true,
+        "fixture_auth_preserved": true
+      },
+      {
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "application/json",
+        "status": 200,
+        "content_type": "application/json",
+        "first_event_before_completion": false,
+        "fixture_auth_preserved": true
+      },
+      {
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "image/*",
+        "status": 200,
+        "content_type": "application/json",
+        "first_event_before_completion": false,
+        "fixture_auth_preserved": true
+      },
+      {
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "text/event-stream",
+        "status": 401,
+        "content_type": "application/json",
+        "first_event_before_completion": false,
+        "fixture_auth_preserved": false
+      }
+    ],
+    "upstream": "isolated HTTP fixture, not the deployed Core or plugin",
+    "iam_boundary": "fixture credential forwarding and upstream rejection only; existing authentication regression listed above"
+  },
+  "cleanup": {
+    "unit_test_listeners_closed": true,
+    "built_nitro_process_exited": true,
+    "built_fixture_listener_closed": true,
+    "built_nitro_unix_socket_removed": true
+  },
+  "boundaries": {
+    "deployed_to_200": false,
+    "real_browser_preview_accepted": false,
+    "plugin_source_changed": false,
+    "database_modified": false,
+    "user_services_restarted": false,
+    "committed": false
+  },
+  "next_acceptance": "Deploy the corrected Core Web Admin; verify the existing uploaded AI Craft image receives text/event-stream frames and renders its authenticated preview without reupload or regeneration.",
+  "staged_snapshot_revalidation": {
+    "source": "git archive HEAD plus the six explicitly staged files; no branch or worktree created",
+    "other_worktree_changes_excluded": true,
+    "source_hashes_verified": true,
+    "preparation": "npx nuxi prepare using the default generated TypeScript configuration directory",
+    "test_files_passed": 16,
+    "tests_passed": 133,
+    "production_build_passed": true,
+    "built_output_http_cases_passed": 8,
+    "ws_taskbus_contract_check_passed": true,
+    "temporary_services_and_socket_cleaned": true
+  }
+}
