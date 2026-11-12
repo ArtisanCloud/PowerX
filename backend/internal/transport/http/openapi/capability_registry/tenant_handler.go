@@ -697,6 +697,10 @@ func respondInvocationFailure(c *gin.Context, err error, traceID string) {
 	if traceID == "" {
 		traceID = uuid.NewString()
 	}
+	if template, ok := customerVerificationErrorTemplate(err); ok {
+		capability_registrydto.RespondError(c, template, nil, map[string]interface{}{"trace_id": traceID})
+		return
+	}
 	var restErr *capservice.RESTUpstreamError
 	if errors.As(err, &restErr) && restErr.PreserveStatus() {
 		err = dto.NewErrorWithCode(restErr.StatusCode, restErr.BusinessCode, restErr.Cause, err)
@@ -924,6 +928,9 @@ func buildErrorObject(summary string) map[string]string {
 }
 
 func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
+	if template, ok := customerVerificationErrorTemplate(err); ok {
+		return template
+	}
 	if code, hint, ok := capservice.StorageAdmissionFailure(err); ok {
 		return capability_registrydto.ErrUnavailable.WithDetails(map[string]interface{}{"reason_code": code}).WithHint(hint)
 	}

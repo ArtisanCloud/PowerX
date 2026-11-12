@@ -1,4 +1,10 @@
 required_capabilities:
+  - capability_id: com.corex.notifications.creation_receipts.read
+    source: corex.notifications
+    reason: Plugins need an explicit read-only service grant for owned creation receipt reconciliation.
+  - capability_id: com.corex.customer.memberships.service_read
+    source: corex.customer.memberships
+    reason: Checkout requires exact live customer membership and primary contact verification under a service grant.
   - capability_id: com.corex.ai.catalog.models.read
     source: corex.ai.catalog
     reason: External plugins require an API Key grantable AI model catalog capability.

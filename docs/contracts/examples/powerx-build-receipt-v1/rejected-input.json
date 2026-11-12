@@ -1,0 +1,79 @@
+{
+  "artifacts": [],
+  "definition_sha256": "e62eaa990af06bf998685d1a7322061e21c89ad7694e65e3d1ee16f0ca4853e6",
+  "deployable": false,
+  "duplicate_of": null,
+  "error_code": "BUILD_MODE_UNSUPPORTED",
+  "images": {},
+  "phase_evidence": {
+    "preflight": {
+      "action_refs": [
+        "actions/checkout@v6",
+        "actions/download-artifact@v5",
+        "actions/setup-go@v6",
+        "actions/setup-python@v6",
+        "actions/upload-artifact@v6",
+        "docker/login-action@v4",
+        "docker/setup-buildx-action@v4",
+        "docker/setup-qemu-action@v4"
+      ],
+      "build_metadata": {},
+      "error_code": "BUILD_MODE_UNSUPPORTED",
+      "image_digests": {},
+      "phase": "preflight",
+      "result": "failure",
+      "run": {
+        "attempt": 1,
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ref": "refs/heads/develop",
+        "repository": "ArtisanCloud/PowerX",
+        "run_id": 100,
+        "workflow_path": ".github/workflows/publish-container.yml",
+        "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+        "workflow_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "schema_version": "powerx.build-phase/v1",
+      "steps": {},
+      "tools": {
+        "buildx": "fixture",
+        "docker": "fixture",
+        "go": "fixture",
+        "python": "3.13.0"
+      }
+    }
+  },
+  "phases": {
+    "bundle-release": {
+      "result": "skipped"
+    },
+    "checks": {
+      "result": "skipped"
+    },
+    "images": {
+      "result": "skipped"
+    },
+    "installed-upgrade": {
+      "result": "skipped"
+    },
+    "preflight": {
+      "result": "failure"
+    },
+    "upgrade-metadata": {
+      "result": "skipped"
+    }
+  },
+  "publication": null,
+  "request": null,
+  "run": {
+    "attempt": 1,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ref": "refs/heads/develop",
+    "repository": "ArtisanCloud/PowerX",
+    "run_id": 100,
+    "workflow_path": ".github/workflows/publish-container.yml",
+    "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+    "workflow_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "schema_version": "powerx.build-receipt/v1",
+  "status": "rejected"
+}

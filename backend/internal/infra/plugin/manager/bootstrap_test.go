@@ -32,6 +32,7 @@ func TestBootstrapKeepsManagerAvailableWhenPermissionSyncFails(t *testing.T) {
 	pluginRoot := filepath.Join(installedRoot, "com.powerx.plugins.bad-permission", "0.1.0")
 	writeBootstrapTestPlugin(t, pluginRoot)
 
+	syncCalls := 0
 	m := &managerImpl{
 		opts: Options{
 			Enabled:       true,
@@ -39,12 +40,14 @@ func TestBootstrapKeepsManagerAvailableWhenPermissionSyncFails(t *testing.T) {
 			Registry:      registry,
 			Loader:        NewFSLoader(),
 			PostInstallManifest: func(ctx context.Context, manifest plugin_mgr.Manifest) error {
+				syncCalls++
 				return errors.New("permission resource is too long")
 			},
 		},
 	}
 
 	require.NoError(t, m.Bootstrap(ctx))
+	require.Equal(t, 1, syncCalls)
 
 	items, err := m.List(ctx)
 	require.NoError(t, err)

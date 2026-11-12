@@ -11,6 +11,8 @@ import type { MenuCategory, MenuItem, UserMenusResult } from "~/composables/api/
 
 const { t, te } = useI18n();
 const route = useRoute();
+const emit = defineEmits<{ "toggle-sidebar": [] }>();
+const sidebarCollapsed = useState<boolean>("sidebar-collapsed", () => false);
 const localePath = useLocalePath() as (path: string) => string;
 const userStore = useUserStore();
 const userContactLabel = computed(() => {
@@ -405,10 +407,21 @@ const getSearchResultTypeIcon = (type: string) => {
 
 <template>
   <header
-    class="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200/60 dark:border-gray-700/60 shadow-sm h-16 flex items-center justify-between px-6 sticky top-0 z-40"
+    class="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200/60 dark:border-gray-700/60 shadow-sm h-16 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40"
   >
     <!-- 左侧：面包屑导航 -->
     <div class="flex min-w-0 items-center space-x-4">
+      <button
+        type="button"
+        class="flex size-11 shrink-0 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50 dark:text-gray-300 dark:hover:bg-white/5 md:hidden"
+        :aria-label="t('common.expand', '展开侧栏')"
+        :aria-expanded="!sidebarCollapsed"
+        aria-controls="powerx-sidebar"
+        data-testid="mobile-sidebar-toggle"
+        @click="emit('toggle-sidebar')"
+      >
+        <UIcon name="i-heroicons-bars-3" class="size-5" />
+      </button>
       <nav class="flex min-w-0" aria-label="Breadcrumb">
         <ol class="flex min-w-0 items-center space-x-2">
           <li class="shrink-0">

@@ -10,7 +10,7 @@ import {
 import { cloneWithFilteredChildren } from "~/composables/useCopy";
 import { useUserStore } from "~/stores/user";
 import SidebarMenuItem from "~/components/layout/SidebarMenuItem.vue";
-import { LOGO_M_URL } from "~/utils/assets";
+import PowerXBrand from "~/components/brand/PowerXBrand.vue";
 
 /* ---------- stores / utils ---------- */
 const route = useRoute();
@@ -516,34 +516,27 @@ function onTreeKeydown(e: KeyboardEvent) {
 
 <template>
   <aside
+    id="powerx-sidebar"
     :class="collapsed ? 'w-16' : 'w-64'"
-    class="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-r border-gray-200/60 dark:border-gray-700/60 shadow-lg flex flex-col h-screen relative z-30 transition-[width] duration-200"
+    class="bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col h-screen relative z-30 transition-[width] duration-200"
   >
     <!-- 顶部：Logo + 折叠按钮 -->
     <div
-      class="flex items-center justify-between h-16 border-b border-gray-200/60 dark:border-gray-700/60 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 px-2"
+      class="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 dark:border-gray-800"
+      :class="collapsed ? 'gap-1 px-1' : 'gap-3 px-4'"
+      data-testid="sidebar-brand-header"
     >
-      <NuxtLink :to="$localePath('/')" class="flex items-center gap-2 px-2 min-w-0">
-        <img :src="LOGO_M_URL" alt="Logo" class="w-8 h-8 rounded-lg" />
-        <div v-if="!collapsed" class="flex flex-col justify-center min-w-0 leading-none">
-          <span
-            class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent truncate"
-          >
-            PowerX
-          </span>
-          <UBadge
-            v-if="appVersion"
-            size="xs"
-            color="neutral"
-            variant="soft"
-            class="mt-1 w-fit max-w-full truncate"
-          >
-            {{ appVersion }}
-          </UBadge>
-        </div>
+      <NuxtLink
+        :to="$localePath('/')"
+        class="inline-flex min-w-0 items-center text-gray-950 outline-offset-4 focus-visible:outline-2 dark:text-white"
+        aria-label="PowerX"
+      >
+        <PowerXBrand :compact="collapsed" />
       </NuxtLink>
       <button
-        class="p-2 rounded-lg hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
+        type="button"
+        class="flex h-8 w-6 shrink-0 items-center justify-center rounded-md hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50 dark:hover:bg-white/5 max-md:h-11 max-md:w-11"
+        data-testid="sidebar-collapse-toggle"
         @click="collapsed = !collapsed"
         :aria-label="
           collapsed
@@ -700,12 +693,14 @@ function onTreeKeydown(e: KeyboardEvent) {
 
     <!-- 底部用户信息 + 快捷开关 -->
     <div
-      class="mt-auto border-t border-gray-200/60 dark:border-gray-700/60 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800/50 dark:to-blue-900/30 px-2 py-3 h-[73px] flex items-center"
+      class="mt-auto shrink-0 border-t border-gray-200 bg-white py-3 dark:border-gray-800 dark:bg-gray-950"
+      :class="collapsed ? 'px-1' : 'px-4'"
+      data-testid="sidebar-footer"
     >
-      <div class="flex items-center gap-3 flex-1 min-w-0">
+      <div class="flex min-w-0 items-center" :class="collapsed ? 'flex-col gap-2' : 'gap-3'">
         <div
           v-if="userStore.avatarUrl"
-          class="w-8 h-8 rounded-full overflow-hidden bg-gray-300"
+          class="w-8 h-8 shrink-0 rounded-full overflow-hidden bg-gray-300"
         >
           <img
             :src="userStore.avatarUrl"
@@ -715,7 +710,7 @@ function onTreeKeydown(e: KeyboardEvent) {
         </div>
         <div
           v-else
-          class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center"
+          class="w-8 h-8 shrink-0 bg-gray-300 rounded-full flex items-center justify-center"
         >
           <UIcon class="w-5 h-5 text-gray-600" name="i-heroicons-user" />
         </div>
@@ -730,9 +725,10 @@ function onTreeKeydown(e: KeyboardEvent) {
           </p>
         </div>
 
-        <div class="flex items-center gap-1">
+        <div class="flex shrink-0 items-center gap-1">
           <button
-            class="p-1.5 rounded-md hover:bg-slate-900/5 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40"
+            type="button"
+            class="flex h-8 w-6 items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50"
             @click="density = density === 'compact' ? 'comfortable' : 'compact'"
             :aria-label="t('common.toggleDensity', '切换密度')"
             title="切换密度"
@@ -747,7 +743,8 @@ function onTreeKeydown(e: KeyboardEvent) {
             />
           </button>
           <button
-            class="p-1.5 rounded-lg hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
+            type="button"
+            class="flex h-8 w-6 items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/50"
             @click="collapsed = !collapsed"
             :aria-label="
               collapsed
@@ -770,6 +767,18 @@ function onTreeKeydown(e: KeyboardEvent) {
             />
           </button>
         </div>
+      </div>
+      <div
+        v-if="appVersion"
+        class="mt-3 flex min-w-0 items-center gap-2 text-[11px] leading-4 text-gray-500 dark:text-gray-400"
+        :class="collapsed ? 'justify-center' : 'justify-between'"
+      >
+        <span v-if="!collapsed" class="truncate">PowerX Core</span>
+        <span
+          class="max-w-full truncate font-mono"
+          :title="appVersion"
+          data-testid="sidebar-version"
+        >{{ appVersion }}</span>
       </div>
     </div>
   </aside>

@@ -1,0 +1,84 @@
+{
+  "schema_version": "powerx.build-dispatch-local-validation/v1",
+  "recorded_at": "2026-11-12T13:43:14.754416+00:00",
+  "working_tree_base_head": "67530619fc23db1396dbdbf52212ef8de42609ce",
+  "branch": "024-ai-engineering-skills",
+  "fixed_workflow_commit": null,
+  "files": {
+    ".github/workflows/publish-container.yml": "e62eaa990af06bf998685d1a7322061e21c89ad7694e65e3d1ee16f0ca4853e6",
+    "deploy/powerx/container/build_contract.py": "0f67ceb5ee395eacb43f25b7db7dd144acc986b4f2ed28fad058fe7db0449b40",
+    "deploy/powerx/container/release_publish.py": "aa43e7f6cd94744a8514856e69cc161bb4b606d181390bd935f24f75737f9b47",
+    "deploy/powerx/container/upgrade_release.py": "5db31175d227d4e8eafcf181b713debb894bb65e646a44436d4aa60030ae69d0",
+    "deploy/powerx/container/test_build_contract.py": "42548cb04c5ff49eee43f486e663ba1e110fb0d467b6d65710d69a42cf1924b4",
+    "deploy/powerx/container/test_release_publish.py": "490a4be0832c626a7e98a53312a92af4c9958d074c5b53d93bbd3734d94192b2",
+    "deploy/powerx/container/test_publish_workflow.py": "9ce96ce49c728496d219e1c9108fd8f994101e1c45b05dc0a4817cd7b684f260",
+    "docs/contracts/powerx-build-receipt.schema.json": "188b33ea33985b25b57f1528a447207be08596f378de93fb895574ee8bfdbd34",
+    "docs/contracts/powerx-core-build-dispatch.md": "cd587c6e907b78005fd0a2e030ccb410f070b5129c727017f8f1cb36d8b6fd72",
+    "docs/contracts/examples/powerx-build-receipt-v1/build.json": "82633a4b89032727f8c433d7dd5c1e8a5a17dd7d870dc59555cdbfc3bc843878",
+    "docs/contracts/examples/powerx-build-receipt-v1/cancelled.json": "79e5320baac0ea8a2ad26ce3d1b38125cd5bc780524edad4372136b90b093cdd",
+    "docs/contracts/examples/powerx-build-receipt-v1/invalid-mode.json": "e39e8e421e1f8cd87b4f90cb8c03df42448c7f1949a6aa131cc819da9e13a43d",
+    "docs/contracts/examples/powerx-build-receipt-v1/invalid-source-sha.json": "de1a3fe1f58546c77289d4644c35dd0196427972883499bbe69e662448843fce",
+    "docs/contracts/examples/powerx-build-receipt-v1/invalid-verify-deployable.json": "50a4b95b24db1740d762340b7fee03d5e2c4699ce287edecd759342ca9ffce47",
+    "docs/contracts/examples/powerx-build-receipt-v1/rejected-input.json": "fbeab4ac79ca8dc4edd760518bed90368a0cafa6976eeea1c81a115d6d8a4a7c",
+    "docs/contracts/examples/powerx-build-receipt-v1/release.json": "b3357d4780741a278115455625106efba352de42a7fea5ffe928cc8c3d7ae641",
+    "docs/contracts/examples/powerx-build-receipt-v1/semantic-sha-mismatch.json": "ceede65d9d1e5ff7adfe66ea213e5fda05236b3bb7b43810eaa7f3ae5251a552",
+    "docs/contracts/examples/powerx-build-receipt-v1/verify.json": "af6636358cf2fd11459943cbd707bd2a73bae8cecb0dea4c8b6d0d7177b27dd0"
+  },
+  "checks": [
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/powerx/container -p 'test_*.py'",
+      "status": "passed",
+      "tests": 52,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "command": "GOWORK=off go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 -shellcheck= -pyflakes= .github/workflows/publish-container.yml",
+      "status": "passed"
+    },
+    {
+      "command": "bash -n on every workflow shell step with expressions replaced by inert values",
+      "status": "passed",
+      "covered_by": "test_shell_steps_parse"
+    },
+    {
+      "command": "git diff --check -- .github/workflows/publish-container.yml deploy/powerx/container/upgrade_release.py",
+      "status": "passed"
+    }
+  ],
+  "controlled_cases": [
+    "strict_inputs_and_modes",
+    "unsupported_ref",
+    "checkout_and_expected_sha_mismatch",
+    "dirty_checkout",
+    "duplicate_request_and_conflict",
+    "missing_previous_receipt",
+    "cancelled_and_failed_non_deployable",
+    "attempt_isolation",
+    "paired_digests",
+    "both_upgrade_platforms_required",
+    "tampered_checksums",
+    "partial_release_upload_resume",
+    "publication_response_loss",
+    "same_sha_changed_digest_no_overwrite",
+    "release_tag_source_mismatch",
+    "schema_positive_negative_and_semantic_examples"
+  ],
+  "runtime": {
+    "github_actions_triggered": false,
+    "registry_written": false,
+    "release_created": false,
+    "docker_daemon_available": false,
+    "real_dual_arch_upgrade": "not_run",
+    "saas_servers_updated": false,
+    "databases_migrated": false,
+    "services_restarted": false
+  },
+  "remaining": [
+    "maintainer_review_and_fixed_workflow_commit",
+    "publish_supported_workflow_refs_without_unintended_push_release",
+    "isolated_verify_and_build_actions_acceptance",
+    "xdocker_request_receipt_adapter_and_real_dispatch",
+    "explicit_release_acceptance_when_authorized"
+  ]
+}

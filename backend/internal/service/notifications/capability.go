@@ -60,6 +60,9 @@ type CapabilityInvoker struct {
 }
 
 func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in cap.CoreCapabilityInvokeInput) (map[string]interface{}, error) {
+	if in.CapabilityID == CreationReceiptReadCapabilityID {
+		return i.invokeCreationReceiptLookup(ctx, in)
+	}
 	if in.CapabilityID == InvalidateCardCapabilityID {
 		return i.invokeInvalidateCard(ctx, in)
 	}
@@ -83,6 +86,31 @@ func (i *CapabilityInvoker) InvokeCoreCapability(ctx context.Context, in cap.Cor
 	raw, err := json.Marshal(in.Body)
 	if err != nil {
 		return bad()
+	}
+	var selector struct {
+		Operation string `json:"operation"`
+	}
+	if json.Unmarshal(raw, &selector) == nil && selector.Operation == "create_idempotent" {
+		var op struct {
+			Operation string `json:"operation"`
+			IdempotentCreateInput
+		}
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&op) != nil || decoder.Decode(&struct{}{}) != io.EOF {
+			return bad()
+		}
+		if i == nil || i.Service == nil || i.Publish == nil {
+			return nil, receiptError(503, "NOTIFICATION_UNAVAILABLE")
+		}
+		receipt, err := i.Service.CreateIdempotent(ctx, op.IdempotentCreateInput)
+		if err != nil {
+			return nil, err
+		}
+		if !receipt.Replayed {
+			i.Publish(ctx, in.TenantUUID, receipt.Notification)
+		}
+		return map[string]interface{}{"result": receipt}, nil
 	}
 	var op CreateOperation
 	decoder := json.NewDecoder(bytes.NewReader(raw))

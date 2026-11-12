@@ -1,6 +1,28 @@
 openapi: 3.0.3
-info: {title: Core notification member delivery, version: 1.2.0}
+info: {title: Core notification member delivery, version: 1.4.0}
 paths:
+  /notifications/creation-receipts/lookup:
+    post:
+      description: Read-only typed lookup under the live creation_receipts.read service grant. Tenant and original service owner come from authentication. Historical inactive members may be verified against the owner's receipt; no creation, acknowledgement, resurrection or event publication. Missing receipt is not proof of no historical delivery.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreationReceiptLookupInput'}
+      responses:
+        '200':
+          description: Scoped result in the standard data envelope; the notification is the frozen creation snapshot, not current read state.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/CreationReceiptLookup'}
+        '400': {description: Invalid or unknown selector fields}
+        '401': {description: Service credential required}
+        '403': {description: Independent lookup grant or original member mismatch}
+        '503': {description: Dependency unavailable or original proof invalid; never treated as not found}
   /notifications:
     post:
       description: Existing service notification creation route. Requires a published, tenant-registered capability and live STS or explicit API-key grant. Nonempty member_uuid must identify an active member and user in the authenticated tenant. Empty target retains tenant broadcast semantics.
@@ -32,9 +54,64 @@ paths:
         '403': {description: Grant or notification ownership check failed; no partial writes}
         '409': {description: Stale or missing card revision; no partial writes}
         '503': {description: Dependency unavailable}
+  /notifications/idempotent:
+    post:
+      description: Creates one explicit-member notification with a durable notification_create.v1 receipt. Scope is authenticated tenant plus live service owner plus key. Replay revalidates grants and active recipient, returns the original creation snapshot, and does not republish a created event. Missing schema fails without creating a notification. Never falls back to ordinary create. Persistence is not WebSocket or business-read acknowledgement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/IdempotentCreateInput'}
+      responses:
+        '200':
+          description: Created or replayed original receipt in the data envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/CreateReceipt'}
+        '400': {description: Invalid input or inactive recipient. Broadcast is not supported.}
+        '401': {description: Service credential required}
+        '403': {description: Live service grant required}
+        '409': {description: NOTIFICATION_IDEMPOTENCY_CONFLICT - key already used with a different request}
+        '503': {description: Schema or dependency unavailable. Retry only with the same key and payload after business revalidation.}
 components:
   schemas:
+    CreationReceiptLookupInput:
+      type: object
+      additionalProperties: false
+      required: [idempotency_key, member_uuid]
+      properties:
+        idempotency_key: {type: string, minLength: 1, maxLength: 256, pattern: '^[!-~]+$'}
+        member_uuid: {type: string, format: uuid}
+    CreationReceiptLookupOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, idempotency_key, member_uuid]
+      properties:
+        operation: {type: string, enum: [lookup_creation_receipt]}
+        idempotency_key: {type: string, minLength: 1, maxLength: 256, pattern: '^[!-~]+$'}
+        member_uuid: {type: string, format: uuid}
+    CreationReceiptLookup:
+      type: object
+      required: [contract, tenant_uuid, service_owner, idempotency_key, member_uuid, found, notification_state, checked_at]
+      properties:
+        contract: {type: string, enum: [notification_create_receipt.v1]}
+        tenant_uuid: {type: string, format: uuid}
+        service_owner: {type: string, description: Authenticated plugin or API-key owner; never a credential value.}
+        idempotency_key: {type: string}
+        member_uuid: {type: string, format: uuid}
+        found: {type: boolean}
+        notification_state: {type: string, enum: [not_found, present, deleted, receipt_only]}
+        checked_at: {type: string, format: date-time}
+        notification: {type: object, description: Frozen original creation snapshot, absent when found=false.}
     CreateOperation:
+      oneOf:
+      - {$ref: '#/components/schemas/OrdinaryCreateOperation'}
+      - {$ref: '#/components/schemas/IdempotentCreateOperation'}
+    OrdinaryCreateOperation:
       type: object
       additionalProperties: false
       required: [operation, title, content]
@@ -49,6 +126,59 @@ components:
         metadata: {type: object, additionalProperties: true}
         navigation:
           $ref: '#/components/schemas/NotificationNavigation'
+    IdempotentCreateInput:
+      type: object
+      additionalProperties: false
+      required: [idempotency_key, title, content, member_uuid]
+      properties:
+        idempotency_key: {type: string, minLength: 1, maxLength: 256, pattern: '^[!-~]+$'}
+        title: {type: string, minLength: 1, maxLength: 255}
+        content: {type: string, minLength: 1, maxLength: 32768}
+        member_uuid: {type: string, format: uuid, description: Canonical nonzero active member UUID.}
+        type: {type: string, maxLength: 32, default: info}
+        category: {type: string, maxLength: 64, default: system}
+        is_important: {type: boolean}
+        metadata: {type: object, nullable: true, additionalProperties: true, description: Up to 64 KiB. Keys are canonicalized recursively; JSON number lexical forms remain significant for conflict detection.}
+        navigation: {$ref: '#/components/schemas/NotificationNavigation'}
+    IdempotentCreateOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, idempotency_key, title, content, member_uuid]
+      properties:
+        operation: {type: string, enum: [create_idempotent]}
+        idempotency_key: {type: string, minLength: 1, maxLength: 256, pattern: '^[!-~]+$'}
+        title: {type: string, minLength: 1, maxLength: 255}
+        content: {type: string, minLength: 1, maxLength: 32768}
+        member_uuid: {type: string, format: uuid}
+        type: {type: string, maxLength: 32}
+        category: {type: string, maxLength: 64}
+        is_important: {type: boolean}
+        metadata: {type: object, nullable: true, additionalProperties: true}
+        navigation: {$ref: '#/components/schemas/NotificationNavigation'}
+    CreateReceipt:
+      type: object
+      additionalProperties: false
+      required: [contract, idempotency_key, replayed, notification]
+      properties:
+        contract: {type: string, enum: [notification_create.v1]}
+        idempotency_key: {type: string}
+        replayed: {type: boolean}
+        notification:
+          type: object
+          required: [id, userId, title, content, type, category, isRead, isImportant, createdAt, updatedAt]
+          properties:
+            id: {type: string, format: uuid}
+            userId: {type: string, format: uuid}
+            title: {type: string}
+            content: {type: string}
+            type: {type: string}
+            category: {type: string}
+            isRead: {type: boolean}
+            isImportant: {type: boolean}
+            createdAt: {type: string, format: date-time}
+            updatedAt: {type: string, format: date-time}
+            metadata: {type: object, nullable: true, additionalProperties: true}
+            actions: {type: array, items: {type: object}}
     NotificationNavigation:
       type: object
       additionalProperties: false

@@ -130,6 +130,8 @@ def main():
     publish.add_argument('--ci-run-url', required=True)
     publish.add_argument('--channel', choices=['development', 'stable'], required=True)
     publish.add_argument('--output', required=True)
+    publish.add_argument('--require-all-platforms', action='store_true',
+                         help='正式容器流水线要求 amd64 与 arm64 两份完整验收')
     args = parser.parse_args()
     if args.command == 'resolve':
         result = {'release_id': 'sha-' + args.source_sha, 'source_sha': args.source_sha,
@@ -137,6 +139,8 @@ def main():
     else:
         reports = [{'report':json.loads(p.read_text()),'artifact':p.name,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(Path(args.reports_dir).rglob('upgrade-report-*.json'))]
         result = build_manifest(json.loads(Path(args.pair).read_text()), json.loads(BASELINE.read_text()), reports, args.ci_run_url, args.channel)
+        if args.require_all_platforms and set(result['verification']['tested_upgrade_platforms']) != {'linux/amd64', 'linux/arm64'}:
+            raise ValueError('UPGRADE_ACCEPTANCE_PLATFORMS_INCOMPLETE')
     Path(args.output).write_text(json.dumps(result, indent=2) + '\n')
 
 

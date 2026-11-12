@@ -60,8 +60,15 @@ RUNNER_SERVICE="${POWERX_DEV_RUNNER_SERVICE:-powerx-dev-runner}"
 SERVICE_USER="${POWERX_SERVICE_USER:-powerx}"
 SERVICE_GROUP="${POWERX_SERVICE_GROUP:-powerx}"
 ENV_FILE="${RUNTIME_ROOT}/powerx.env"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ ! -f "${SCRIPT_DIR}/start-develop-web-admin.sh" ]]; then
+  echo "[install-dev-units] missing web-admin startup helper" >&2
+  exit 1
+fi
 
 install -d -m 0755 "${RUNTIME_ROOT}" "${LINKS_ROOT}"
+install -m 0755 "${SCRIPT_DIR}/start-develop-web-admin.sh" "${RUNTIME_ROOT}/start-web-admin.sh"
 if [[ ! -f "${ENV_FILE}" ]]; then
   touch "${ENV_FILE}"
 fi
@@ -101,7 +108,7 @@ User=${SERVICE_USER}
 Group=${SERVICE_GROUP}
 WorkingDirectory=/
 EnvironmentFile=-${ENV_FILE}
-ExecStart=/bin/sh -c 'ROOT=\${POWERX_RUNTIME_ROOT:-${RUNTIME_ROOT}}; CFG=\${POWERX_CONFIG:-\$ROOT/config.yaml}; [ -f "\$CFG" ] || CFG=\${POWERX_LINKS_ROOT:-${LINKS_ROOT}}/backend/etc/config.yaml; BPORT=\$(awk "function indent(s){match(s,/[^[:space:]]/); return RSTART>0 ? RSTART-1 : -1} BEGIN{in_server=0; direct_indent=-1} /^server:[[:space:]]*\$/{in_server=1; direct_indent=-1; next} in_server && /^[^[:space:]]/{in_server=0} in_server && /^[[:space:]]*[^[:space:]]/{cur_indent=indent(\\\$0); if (direct_indent<0) direct_indent=cur_indent; if (cur_indent==direct_indent && \\\$0 ~ /^[[:space:]]*port:[[:space:]]*[0-9]+/){gsub(/[^0-9]/, \"\", \\\$0); print; exit}}" "\$CFG"); WPORT=\$(awk "/^[[:space:]]*web_admin_port:[[:space:]]*[0-9]+/{gsub(/[^0-9]/, \"\", \\\$0); print; exit}" "\$CFG"); [ -z "\$BPORT" ] && BPORT=8081; [ -z "\$WPORT" ] && WPORT=3001; export POWERX_BACKEND=http://127.0.0.1:\$BPORT; export NUXT_PUBLIC_POWERX_CORE_BASE=\${POWERX_PUBLIC_BASE_URL:-\${POWERX_GATEWAY_BASE_URL:-http://127.0.0.1:\$BPORT}}; export NUXT_PUBLIC_WS_ORIGIN=\${POWERX_PUBLIC_WS_ORIGIN:-\${POWERX_GATEWAY_WS_BASE_URL:-ws://127.0.0.1:\$BPORT}}; export NUXT_PUBLIC_WS_PATH=/api/ws; PORT=\$WPORT exec "\${NODE_BIN:-/usr/bin/node}" \${POWERX_LINKS_ROOT:-${LINKS_ROOT}}/web-admin/.output/server/index.mjs'
+ExecStart=/bin/bash "${RUNTIME_ROOT}/start-web-admin.sh"
 Restart=always
 RestartSec=3
 
@@ -124,7 +131,7 @@ WorkingDirectory=/
 EnvironmentFile=-${ENV_FILE}
 ExecCondition=/bin/sh -c 'test -f "\${POWERX_LINKS_ROOT:-${LINKS_ROOT}}/runner/dist/main.js"'
 ExecStart=/bin/sh -c 'ROOT=\${POWERX_LINKS_ROOT:-${LINKS_ROOT}}; exec "\${NODE_BIN:-/usr/bin/node}" "\$ROOT/runner/dist/main.js"'
-Restart=always
+Restart=on-failure
 RestartSec=3
 
 [Install]

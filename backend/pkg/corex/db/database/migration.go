@@ -209,7 +209,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = db.AutoMigrate(&mediaModel.MediaAsset{}, &mediaModel.MediaAssetVariant{}); err != nil {
 		return err
 	}
-	if err = db.AutoMigrate(&modelNotification.Notification{}); err != nil {
+	if err = db.AutoMigrate(&modelNotification.Notification{}, &modelNotification.CreationReceipt{}); err != nil {
 		return err
 	}
 

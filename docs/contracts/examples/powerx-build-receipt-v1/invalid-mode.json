@@ -1,0 +1,154 @@
+{
+  "artifacts": [
+    {
+      "artifact": "powerx-build-request-100-1",
+      "path": "request-context.json",
+      "sha256": "16fab0a33e144d387cf9122bc2f9c4cee12fbd9c5095c19697f2565e8bf5d836",
+      "size": 945
+    },
+    {
+      "artifact": "powerx-phase-checks-100-1",
+      "path": "phase-checks.json",
+      "sha256": "09babec187ba4afb64a8e015dd8c897df40c4ef3a4d7373a76b5982751813f6b",
+      "size": 938
+    },
+    {
+      "artifact": "powerx-phase-preflight-100-1",
+      "path": "phase-preflight.json",
+      "sha256": "bb5c6c8d7c44abf700a3c4e10efde930ccd4c9a9c2f1e4e6c67345bdfceb1949",
+      "size": 941
+    }
+  ],
+  "definition_sha256": "e62eaa990af06bf998685d1a7322061e21c89ad7694e65e3d1ee16f0ca4853e6",
+  "deployable": false,
+  "duplicate_of": null,
+  "error_code": null,
+  "images": {},
+  "phase_evidence": {
+    "checks": {
+      "action_refs": [
+        "actions/checkout@v6",
+        "actions/download-artifact@v5",
+        "actions/setup-go@v6",
+        "actions/setup-python@v6",
+        "actions/upload-artifact@v6",
+        "docker/login-action@v4",
+        "docker/setup-buildx-action@v4",
+        "docker/setup-qemu-action@v4"
+      ],
+      "build_metadata": {},
+      "error_code": null,
+      "image_digests": {},
+      "phase": "checks",
+      "result": "success",
+      "run": {
+        "attempt": 1,
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ref": "refs/heads/develop",
+        "repository": "ArtisanCloud/PowerX",
+        "run_id": 100,
+        "workflow_path": ".github/workflows/publish-container.yml",
+        "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+        "workflow_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "schema_version": "powerx.build-phase/v1",
+      "steps": {},
+      "tools": {
+        "buildx": "fixture",
+        "docker": "fixture",
+        "go": "fixture",
+        "python": "3.13.0"
+      }
+    },
+    "preflight": {
+      "action_refs": [
+        "actions/checkout@v6",
+        "actions/download-artifact@v5",
+        "actions/setup-go@v6",
+        "actions/setup-python@v6",
+        "actions/upload-artifact@v6",
+        "docker/login-action@v4",
+        "docker/setup-buildx-action@v4",
+        "docker/setup-qemu-action@v4"
+      ],
+      "build_metadata": {},
+      "error_code": null,
+      "image_digests": {},
+      "phase": "preflight",
+      "result": "success",
+      "run": {
+        "attempt": 1,
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ref": "refs/heads/develop",
+        "repository": "ArtisanCloud/PowerX",
+        "run_id": 100,
+        "workflow_path": ".github/workflows/publish-container.yml",
+        "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+        "workflow_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "schema_version": "powerx.build-phase/v1",
+      "steps": {},
+      "tools": {
+        "buildx": "fixture",
+        "docker": "fixture",
+        "go": "fixture",
+        "python": "3.13.0"
+      }
+    }
+  },
+  "phases": {
+    "bundle-release": {
+      "result": "skipped"
+    },
+    "checks": {
+      "result": "success"
+    },
+    "images": {
+      "result": "skipped"
+    },
+    "installed-upgrade": {
+      "result": "skipped"
+    },
+    "preflight": {
+      "result": "success"
+    },
+    "upgrade-metadata": {
+      "result": "skipped"
+    }
+  },
+  "publication": null,
+  "request": {
+    "actual_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "build_mode": "deploy",
+    "build_time": "2026-11-12T13:31:11Z",
+    "channel": "development",
+    "definition_sha256": "e62eaa990af06bf998685d1a7322061e21c89ad7694e65e3d1ee16f0ca4853e6",
+    "expected_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "input_sha256": "25179a0963eab9e7c406fbd3617e26b920406c9debd43e977e7c1295781fd50d",
+    "ref": "refs/heads/develop",
+    "request_id": "example-not-live-0001",
+    "run": {
+      "attempt": 1,
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref": "refs/heads/develop",
+      "repository": "ArtisanCloud/PowerX",
+      "run_id": 100,
+      "workflow_path": ".github/workflows/publish-container.yml",
+      "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+      "workflow_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "schema_version": "powerx.build-request/v1"
+  },
+  "run": {
+    "attempt": 1,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ref": "refs/heads/develop",
+    "repository": "ArtisanCloud/PowerX",
+    "run_id": 100,
+    "workflow_path": ".github/workflows/publish-container.yml",
+    "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+    "workflow_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "schema_version": "powerx.build-receipt/v1",
+  "status": "succeeded"
+}

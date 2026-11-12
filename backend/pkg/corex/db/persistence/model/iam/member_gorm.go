@@ -2,6 +2,7 @@ package iam
 
 import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
@@ -15,6 +16,8 @@ type Member struct {
 	AvatarURL   string         `gorm:"column:avatar_url;type:varchar(512)" json:"avatar_url,omitempty"`
 	Status      int16          `gorm:"column:status;default:1;index" json:"status"`
 	Meta        datatypes.JSON `gorm:"column:meta;type:jsonb" json:"meta,omitempty"`
+	// 只能由显式 reporting-manager 操作维护，普通成员 DTO 不接受此字段。
+	DirectManagerMemberUUID *uuid.UUID `gorm:"column:direct_manager_member_uuid;type:uuid;index" json:"-"`
 }
 
 func (mdl *Member) TableName() string { return model.PowerXSchema + "." + model.TableIAMMember }

@@ -1,0 +1,292 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-12T06:04:24.192375+00:00",
+  "stage_1_status": "complete: daily instance publication, restart, exact ecommerce STS approval and public SDK acceptance",
+  "daily_instance": {
+    "config_path": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/etc/config.yaml",
+    "database": "powerx",
+    "deployment_env": "dev",
+    "base_url": "http://127.0.0.1:8077",
+    "version": "v1.0.0",
+    "product": {
+      "product": "powerx",
+      "state": "development",
+      "build_info": {
+        "schema": "powerx.build-fingerprint/v1",
+        "component": "backend",
+        "release_id": "development",
+        "source_commit": "1ead89105483b3d5c60205348afe9fe2483d9a82",
+        "build_id": "a2fcd6afb0f81d4f90c83d8a5627f6dddcc9378a3ba6a0ba67ff229905f67d46"
+      }
+    },
+    "process": {
+      "authorization": "User explicitly requested Core build and restart for customer membership publication",
+      "owner": "user-requested daily Core service",
+      "previous_pid": 56782,
+      "previous_command": "/var/folders/zh/215y91n14h36h244d2c9tbv40000gn/T/go-build932425020/b001/exe/app",
+      "workdir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend",
+      "ports": [
+        8077,
+        9001
+      ],
+      "migration_executed": false,
+      "release_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/bin/customer-verification-20261112",
+      "catalog_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/bin/customer-verification-20261112/platform_capabilities",
+      "status": "running",
+      "pid": 64437,
+      "command": "set -a; [ ! -f ./.env ] || source ./.env; set +a; export PLATFORM_CAPABILITIES_DIR=/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/bin/customer-verification-20261112/platform_capabilities; exec /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/bin/customer-verification-20261112/powerx",
+      "health_http": 200,
+      "health_path": "/healthz",
+      "binary_sha256": "819e6a8acd23bfa8eaea9a9fe9c25a6f7c8455ff56409b0cd88018e3d04e02c8",
+      "retained_by_explicit_user_request": true
+    }
+  },
+  "build_scope": {
+    "base_commit": "1ead89105483b3d5c60205348afe9fe2483d9a82",
+    "authorized_scope": "customer membership service verification only",
+    "go_overlay": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/tmp/customer-verification-live-20261112/build-overlay.json",
+    "excluded_uncommitted_go_files": [
+      "backend/internal/service/iam/authorization_invoker.go",
+      "backend/internal/service/notifications/capability.go",
+      "backend/internal/service/notifications/capability_test.go",
+      "backend/internal/transport/http/admin/iam/api.go",
+      "backend/internal/transport/http/openapi/notifications/routes.go",
+      "backend/pkg/corex/db/database/migration.go",
+      "backend/pkg/corex/db/persistence/model/iam/member_gorm.go",
+      "backend/internal/service/iam/member_authority.go",
+      "backend/internal/service/iam/member_authority_test.go",
+      "backend/internal/service/iam/reporting_manager.go",
+      "backend/internal/service/notifications/idempotent_create.go",
+      "backend/internal/service/notifications/idempotent_create_test.go",
+      "backend/internal/testutil/notification_contract_fixture/main.go",
+      "backend/internal/transport/http/admin/iam/reporting_manager.go",
+      "backend/internal/transport/http/openapi/notifications/idempotent.go",
+      "backend/internal/transport/http/openapi/notifications/idempotent_test.go",
+      "backend/pkg/corex/db/persistence/model/notification/creation_receipt.go"
+    ],
+    "authorized_sources": {
+      "backend/internal/service/customer/capability_invoker.go": "bc539d8545cf8ef0d2175824c7e284558f0ce7786bb22679f585b31775fb739b",
+      "backend/internal/service/customer/membership_verification_invoker.go": "35889260488a397cf341a2511f24d0a90ff0a9dfa8b6807db9fad42312aaabfc",
+      "backend/internal/service/customer/membership_verification_postgres_test.go": "f9307d5e599f4aefe71cb83b7526ed475231726d63e85e28fc6905e10000dcbf",
+      "backend/internal/service/customer/membership_verification_service.go": "5c49e429c0c9175d13e6c474afd9ef644ceef237d158b96d4f3f2c76cda6aebb",
+      "backend/internal/service/customer/membership_verification_service_test.go": "cce0637acf315cb367b0e2d223561281d5450da7aed10eea6d8ad1b64936b612",
+      "backend/internal/transport/http/openapi/capability_registry/customer_verification_errors.go": "d961613dc81854b0b27124dccd0dae875b19df24b1d5d6a146645bdd16aae28b",
+      "backend/internal/transport/http/openapi/capability_registry/customer_verification_test.go": "0345f2280579088c7959391d1e4ea4951e7fb62892f16b160c332e62461e2a74",
+      "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go": "05e62c8748d20c0b3504381cb2757fa93f31c0c9eb1af184e0fbc844ba89be11",
+      "backend/pkg/corex/db/persistence/repository/customer/membership_verification.go": "4584634f840304da12071733b508842e05565966fef50d1d2b9a555e63e72ef6"
+    },
+    "catalog": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/bin/customer-verification-20261112/platform_capabilities",
+    "catalog_hashes": {
+      "plugin_release.yaml": "4c849045243d02bd9482b887fb159f1aba1265575890bad0526d52d6fe197578",
+      "iam-authorization-baseline.yaml": "5a12c1d27104de2c0d36854819287f22007429bc415ce6be8784e01085a7893b",
+      "ai.yaml": "1f6ba3ab125b1b506328c0901aef107f70f47b0af310363c0913f7cfe2cec461",
+      "capability_registry.yaml": "b431de70f60f953b2c231dfe48b9ae648b5f3b1ac10bd7ca886c1d85a9e7988a",
+      "workflow.yaml": "ebff2d87c561ed5e69053dae91016a6d31c272d42b8d9f5a26b9b3a2345c4c86",
+      "iam.yaml": "e4bb96bda35302ea241eb66008a0a0333e30dc4e6df7c7974991b69f00295c2f",
+      "iam_member_accounts.yaml": "aaad466f8335c55f25650ca0368d6700e2080c585fe0f0fa171220409405c6d6",
+      "runtime_host.yaml": "03adf4324392e8e17fd8ed5d0562ee36318b8e2ab971514e662aaec70bfa43cb",
+      "runtime_taskqueue.yaml": "c501df4045990055f39efa38e8454a8f81ae2028077e2c7f49a0a69f2d30e41c",
+      "agent.yaml": "f6e265a878924dae7492ccddf8a3f406498a46e0419e7a56796c42126b85abcc",
+      "metadata.yaml": "6717905a493e591a39a8cfed3ae7979f5904785a02d705df46e9bf3340ab7998",
+      "ai_connection.yaml": "4e31b3e4bc9829319a10121b69bff78430f91106262f1e3290b8c7872f50cbcd",
+      "generated.auto.yaml": "62cbc770547d7fb437b288eaec8c806bb1daa156f8562370aeade09c82dff79c",
+      "event_fabric.yaml": "f2fc09379822a5c7b6b564055662d0adfcc5caf588072f24f3a69431d9872a26",
+      "ai_media_tasks.yaml": "8ce4f83ae2f57bf7e41374816199dde99f715b50c12f5d31c4d192eba958fbd4",
+      "notifications.yaml": "f50df26c44f8d63ca2198ffcff7afa980ba7817b4e3033b70ecbdc7570d16052",
+      "integration_api_key_owners.yaml": "eef98e5180a1fff05fedc77a06b22512946f6da8589dba534f75d7303467ef94",
+      "runtime_identity.yaml": "601318817d40e182ed32c6fdd1862fb05a33954474d2459d03fd2010839c7419",
+      "ai-llm-models.yaml": "c9c759dafa78152d42b770be0889c400c21e906137e4dbd8a93d24b82263d182",
+      "media.yaml": "6e72cff74ecd9c4356d9d84235dd4241fa66645d2bce104dfcfb1bb783b09357",
+      "ai_catalog.yaml": "66e9baa0022c9cc694799c39de0ee2a548eed777c192458e8691f97238541b82",
+      "agent_lifecycle.yaml": "5cc24fe3dcc5d465913987f8e922352711779ad84b8c79b9656cdb021ed4d2a8",
+      "plugin-request-identity.yaml": "7bb2af929088b06d25e44504051e5b4d7683618f90bb5135dc2a0d1ba4093653",
+      "customer.yaml": "a727fa2c0678d2cabb2c738bb19b98e4a7596c0935496cc6aeaaf385082e25f7",
+      "knowledge-content-overview.yaml": "f765da1c09deb101f4a2456f18510b8527594fab69161b13f8d6a7cde4c8fb02",
+      "media-image-derivatives.yaml": "2d26020934892d5488223da89717b3a703f23eca2289ff27c74976f4e0051bdc",
+      "knowledge.yaml": "973e9f3d10bdc111de9ea0c7a92244d113f6f1898158e9a7e8d9c5fffb6d0d72"
+    },
+    "previous_binary_sha256": "33f8de30f7da7e3e3671d186db36f20a9709360304ae23fd227e921c6e0cb0bb",
+    "previous_pid": 56782,
+    "release_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/bin/customer-verification-20261112"
+  },
+  "source_sha256": {
+    "backend/internal/service/customer/capability_invoker.go": "bc539d8545cf8ef0d2175824c7e284558f0ce7786bb22679f585b31775fb739b",
+    "backend/internal/service/customer/membership_verification_service.go": "5c49e429c0c9175d13e6c474afd9ef644ceef237d158b96d4f3f2c76cda6aebb",
+    "backend/internal/service/customer/membership_verification_invoker.go": "35889260488a397cf341a2511f24d0a90ff0a9dfa8b6807db9fad42312aaabfc",
+    "backend/pkg/corex/db/persistence/repository/customer/membership_verification.go": "4584634f840304da12071733b508842e05565966fef50d1d2b9a555e63e72ef6",
+    "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go": "05e62c8748d20c0b3504381cb2757fa93f31c0c9eb1af184e0fbc844ba89be11",
+    "backend/internal/transport/http/openapi/capability_registry/customer_verification_errors.go": "d961613dc81854b0b27124dccd0dae875b19df24b1d5d6a146645bdd16aae28b",
+    "backend/config/platform_capabilities/customer.yaml": "a727fa2c0678d2cabb2c738bb19b98e4a7596c0935496cc6aeaaf385082e25f7"
+  },
+  "publication": {
+    "capabilities_hash": "711c90c4cea94d1474ec0fa02d3829338dfd02c2510977dd00a3f05e941f0849",
+    "capability_id": "com.corex.customer.memberships.service_read",
+    "plugin_id": "corex.platform",
+    "plugin_version": "2025.01",
+    "protocol_hash": "24efe7cf4e6abe254559fe02317f3b870ab080ad005c99fd981ef294203e495a",
+    "protocols": "[{\"method\": \"INVOKE\", \"channel\": \"core_internal\", \"endpoint\": \"core://customer/memberships\", \"auth_type\": \"api_key_or_sts\", \"schema_ref\": \"docs/contracts/customer-membership-service-verification.openapi.yaml#/components/schemas/VerifyCustomerRequest\", \"tool_scope\": \"customer.memberships.service_read\", \"actor_context\": \"service_actor\", \"resource_scope\": \"tenant\"}]",
+    "status": "published"
+  },
+  "target_registration": {
+    "contract_ref": "docs/contracts/customer-membership-service-verification.md",
+    "status": "published",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "updated_at": "2026-11-12T13:55:41.678022+08:00",
+    "version": 1
+  },
+  "active_tenant_registrations": [
+    {
+      "contract_ref": "docs/contracts/customer-membership-service-verification.md",
+      "status": "published",
+      "tenant_uuid": "051779a0-1e4a-4c83-a4fc-64bd22596d60",
+      "updated_at": "2026-11-12T13:55:41.660715+08:00",
+      "version": 1
+    },
+    {
+      "contract_ref": "docs/contracts/customer-membership-service-verification.md",
+      "status": "published",
+      "tenant_uuid": "48c3d7c0-6e01-43c3-a16e-da5b5af2bd92",
+      "updated_at": "2026-11-12T13:55:41.675262+08:00",
+      "version": 1
+    },
+    {
+      "contract_ref": "docs/contracts/customer-membership-service-verification.md",
+      "status": "published",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "updated_at": "2026-11-12T13:55:41.678022+08:00",
+      "version": 1
+    },
+    {
+      "contract_ref": "docs/contracts/customer-membership-service-verification.md",
+      "status": "published",
+      "tenant_uuid": "bb24df7d-9a7c-4be3-bc5e-7010b482cca8",
+      "updated_at": "2026-11-12T13:55:41.679212+08:00",
+      "version": 1
+    }
+  ],
+  "ecommerce_service": {
+    "plugin_id": "com.powerx.plugins.ecommerce",
+    "runtime_version": "0.4.6",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "active_approval": {
+      "approved_by_user_uuid": "8256bb0c-9e1b-4c11-9882-5915f3042338",
+      "capability_id": "com.corex.customer.memberships.service_read",
+      "plugin_id": "com.powerx.plugins.ecommerce",
+      "revoked_at": null,
+      "status": "active",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "uuid": "4fd9a911-4e91-4537-b70b-9d467faf8492"
+    },
+    "allowed_capabilities": [
+      "com.corex.capabilities.grant_status.read",
+      "com.corex.customer.auth.validate",
+      "com.corex.customer.memberships.delegated_read",
+      "com.corex.customer.memberships.service_read",
+      "com.corex.runtime.taskqueue.service_consume",
+      "com.corex.scheduler.jobs.service_read"
+    ],
+    "authorization_method": "Core SetIndependentCapabilityApproval under explicitly authorized local Root maintenance; no Admin bearer used for verification"
+  },
+  "sdk": {
+    "module": "github.com/ArtisanCloud/PowerXPlugin/framework/backend/go",
+    "version": "v0.0.30",
+    "replace": false,
+    "module_sum": "h1:HMigMc+tYQaL7yAfxuxEar6JqWbU01Fdnt6S3hUV9G8=",
+    "same_sts_token_fingerprint": "bd0f2b8f9dbbfd401a4db6d7a79a14aadb739755e038f9c8b752fcd47626f21f",
+    "results": {
+      "allowed": {
+        "caller_plugin_id": "com.powerx.plugins.ecommerce",
+        "customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+        "expect": "allowed",
+        "passed": true,
+        "sdk_replace": false,
+        "sdk_version": "v0.0.30",
+        "status": "allowed",
+        "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+        "trace_id": "69a88781-13d8-4ba7-8854-89723b68c215",
+        "verification": {
+          "schema_version": 1,
+          "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+          "customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+          "membership_uuid": "99c935c3-b4b8-4922-add6-d716b530e58b",
+          "primary_contact_uuid": "f529d578-bf3f-4f13-8bc0-847f173b9d40",
+          "status": "active",
+          "expires_at": null,
+          "checked_at": "2026-11-12T05:59:36.55644Z",
+          "revision": "sha256:e8d59fab881e2e1fce96f5aeeae2ecf6bc0b5741de8aaae2c18bba3cdf571460",
+          "trace_id": "69a88781-13d8-4ba7-8854-89723b68c215"
+        }
+      },
+      "revoked": {
+        "caller_plugin_id": "com.powerx.plugins.ecommerce",
+        "customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+        "error_code": "CAPABILITY_FORBIDDEN",
+        "expect": "denied",
+        "http_status": 403,
+        "passed": true,
+        "reason_code": "CAPABILITY_FORBIDDEN",
+        "sdk_replace": false,
+        "sdk_version": "v0.0.30",
+        "status": "denied",
+        "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+        "trace_id": "fce96881-8f96-44af-aebd-d1dee3cbf97f"
+      },
+      "restored": {
+        "caller_plugin_id": "com.powerx.plugins.ecommerce",
+        "customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+        "expect": "allowed",
+        "passed": true,
+        "sdk_replace": false,
+        "sdk_version": "v0.0.30",
+        "status": "allowed",
+        "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+        "trace_id": "578c62a3-f6ee-4b6f-a6b0-a63e19389bae",
+        "verification": {
+          "schema_version": 1,
+          "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+          "customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+          "membership_uuid": "99c935c3-b4b8-4922-add6-d716b530e58b",
+          "primary_contact_uuid": "f529d578-bf3f-4f13-8bc0-847f173b9d40",
+          "status": "active",
+          "expires_at": null,
+          "checked_at": "2026-11-12T05:59:58.660836Z",
+          "revision": "sha256:e8d59fab881e2e1fce96f5aeeae2ecf6bc0b5741de8aaae2c18bba3cdf571460",
+          "trace_id": "578c62a3-f6ee-4b6f-a6b0-a63e19389bae"
+        }
+      }
+    }
+  },
+  "persisted_invocation_traces": [
+    {
+      "caller_subject": "sts:com.powerx.plugins.ecommerce:client:com.powerx.plugins.ecommerce.6b5d0240-9920-46da-b707-88200e0f51ea",
+      "capability_id": "com.corex.customer.memberships.service_read",
+      "protocol_used": "core_internal",
+      "status": "completed",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "trace_id": "578c62a3-f6ee-4b6f-a6b0-a63e19389bae"
+    },
+    {
+      "caller_subject": "sts:com.powerx.plugins.ecommerce:client:com.powerx.plugins.ecommerce.6b5d0240-9920-46da-b707-88200e0f51ea",
+      "capability_id": "com.corex.customer.memberships.service_read",
+      "protocol_used": "core_internal",
+      "status": "completed",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "trace_id": "69a88781-13d8-4ba7-8854-89723b68c215"
+    }
+  ],
+  "preservation": {
+    "existing_ecommerce_api_key_names_profiles_status_and_owner_policies_unchanged": true,
+    "migration_executed": false,
+    "pending_unrelated_schema_unchanged": true,
+    "orders_payments_purchase_options_modified_by_this_task": false,
+    "existing_product_configuration_key_reused": false
+  },
+  "stage_3": {
+    "status": "waiting_for_ecommerce_deployment",
+    "published_checkout_capabilities": [],
+    "workspacex_transaction_key_created": false,
+    "private_key_file": null,
+    "next_requirement": "Ecommerce owner upgrades SDK, binds CheckoutCustomers, deploys and publishes/registers all five checkout capabilities. Core then creates a separate WorkspaceX Lab transaction identity with exact plugin owner grants and minimal SDK read scopes."
+  },
+  "credentials": "STS secrets and token were used only via mode-0600 temporary files; those files are removed after acceptance."
+}

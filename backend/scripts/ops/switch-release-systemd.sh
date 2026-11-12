@@ -886,5 +886,9 @@ trap - ERR
 echo "[switch-release] success: switched to ${TARGET_REF}"
 systemctl --no-pager --full status "${BACKEND_SERVICE}" "${WEB_ADMIN_SERVICE}" | sed -n '1,40p'
 if [[ "$WITH_RUNNER" == "1" ]]; then
-  systemctl --no-pager --full status "${RUNNER_SERVICE}" | sed -n '1,20p'
+  if [[ -f "${TARGET_RUNNER}/dist/main.js" ]]; then
+    systemctl --no-pager --full status "${RUNNER_SERVICE}" | sed -n '1,20p'
+  else
+    echo "[switch-release] optional runner skipped: no runner/dist/main.js in this release"
+  fi
 fi

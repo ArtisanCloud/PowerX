@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info: {title: Member organization authority, version: 1.0.0}
+paths:
+  /admin/iam/members/{uuid}/reporting-manager:
+    put:
+      description: Explicit user-JWT member-account management action. UUID-only target, nullable manager, source timestamp and reason required. Tenant-serialized cycle checks, compare-and-set and audit are atomic. No service actor can change relationships.
+      parameters:
+      - {in: path, name: uuid, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReportingManagerInput'}
+      responses:
+        '200': {description: Saved explicit relationship}
+        '400': {description: Invalid or omitted explicit nullable manager field}
+        '403': {description: Member-account management grant required}
+        '409': {description: Stale version, unavailable manager or cycle}
+components:
+  schemas:
+    AuthorityOperation:
+      type: object
+      additionalProperties: false
+      required: [operation, request]
+      properties:
+        operation: {type: string, enum: [read_member_authority]}
+        request: {$ref: '#/components/schemas/AuthorityQuery'}
+    AuthorityQuery:
+      type: object
+      additionalProperties: false
+      required: [schema, member_uuids]
+      properties:
+        schema: {type: string, enum: [powerx.iam.member-authority-query.v1]}
+        member_uuids: {type: array, minItems: 1, maxItems: 200, uniqueItems: true, items: {type: string, format: uuid}}
+    AuthorityBatch:
+      type: object
+      additionalProperties: false
+      required: [schema, tenant_uuid, evaluated_at, members, departments]
+      properties:
+        schema: {type: string, enum: [powerx.iam.member-authority.v1]}
+        tenant_uuid: {type: string, format: uuid}
+        evaluated_at: {type: string, format: date-time}
+        members: {type: array, maxItems: 200, items: {$ref: '#/components/schemas/MemberAuthority'}}
+        departments: {type: array, maxItems: 2000, items: {$ref: '#/components/schemas/AuthorityDepartment'}}
+    MemberAuthority:
+      type: object
+      additionalProperties: false
+      required: [member_uuid, status, role_codes, department_uuids, direct_manager_member_uuid, manager_status]
+      properties:
+        member_uuid: {type: string, format: uuid}
+        user_uuid: {type: string, format: uuid}
+        status: {type: string, enum: [active, not_found]}
+        role_codes: {type: array, uniqueItems: true, maxItems: 4000, items: {type: string}}
+        department_uuids: {type: array, uniqueItems: true, maxItems: 2000, items: {type: string, format: uuid}}
+        direct_manager_member_uuid: {type: string, format: uuid, nullable: true}
+        manager_status: {type: string, enum: [unset, active, unavailable]}
+        updated_at: {type: string, format: date-time}
+    AuthorityDepartment:
+      type: object
+      additionalProperties: false
+      required: [department_uuid, name, parent_department_uuid, leader_member_uuid, leader_status]
+      properties:
+        department_uuid: {type: string, format: uuid}
+        name: {type: string}
+        parent_department_uuid: {type: string, format: uuid, nullable: true}
+        leader_member_uuid: {type: string, format: uuid, nullable: true}
+        leader_status: {type: string, enum: [unset, active, unavailable]}
+    ReportingManagerInput:
+      type: object
+      additionalProperties: false
+      required: [manager_member_uuid, expected_updated_at, reason]
+      properties:
+        manager_member_uuid: {type: string, format: uuid, nullable: true}
+        expected_updated_at: {type: string, format: date-time}
+        reason: {type: string, minLength: 1, maxLength: 500}

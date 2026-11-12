@@ -39,12 +39,56 @@ capabilities:
     sts_direct: true
     tool_scope: notifications.create
     api_key: {scope: _scope.notifications.create, action: create, resource_type: capability, resource_pattern: notifications}
+  - channel: rest
+    endpoint: "/api/v1/notifications/idempotent"
+    method: POST
+    schema_ref: docs/contracts/notification-member-delivery.openapi.yaml#/components/schemas/IdempotentCreateInput
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: notifications.create
+    api_key: {scope: _scope.notifications.create, action: create, resource_type: capability, resource_pattern: notifications}
   title_i18n:
     en: Create Tenant Notification
     zh-CN: 创建租户通知
   description_i18n:
     en: Create a tenant-scoped notification for an optional member recipient.
     zh-CN: 为可选的成员接收人创建租户范围通知。
+
+- capability_id: com.corex.notifications.creation_receipts.read
+  module: notifications
+  title: Read Owned Notification Creation Receipt
+  description: Read the original creation receipt without sending, acknowledging or reviving a notification.
+  title_i18n: {en: Read Owned Notification Creation Receipt, zh-CN: 读取本服务通知创建凭据}
+  description_i18n: {en: Read the original creation receipt without changing notification state., zh-CN: 只读核对原创建结果，不发送、已读或恢复通知。}
+  permission_code: corex.notifications:creation_receipts_read
+  agent_usable: false
+  risk_level: low
+  categories: [notification, tenant]
+  intents: [notifications.creation_receipts.read]
+  tool_scopes: [notifications.creation_receipts.read]
+  policy: {prefer: core_internal}
+  protocols:
+  - channel: core_internal
+    endpoint: core://notifications
+    method: INVOKE
+    schema_ref: docs/contracts/notification-member-delivery.openapi.yaml#/components/schemas/CreationReceiptLookupOperation
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    tool_scope: notifications.creation_receipts.read
+    api_key: {scope: _scope.notifications.creation_receipts, action: read, resource_type: capability, resource_pattern: notifications}
+  - channel: rest
+    endpoint: /api/v1/notifications/creation-receipts/lookup
+    method: POST
+    schema_ref: docs/contracts/notification-member-delivery.openapi.yaml#/components/schemas/CreationReceiptLookupInput
+    auth_type: api_key_or_sts
+    actor_context: service_actor
+    resource_scope: tenant
+    sts_direct: true
+    tool_scope: notifications.creation_receipts.read
+    api_key: {scope: _scope.notifications.creation_receipts, action: read, resource_type: capability, resource_pattern: notifications}
 
 - capability_id: com.corex.notifications.read_receipts
   module: notifications
