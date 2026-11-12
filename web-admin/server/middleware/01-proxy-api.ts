@@ -1,5 +1,5 @@
 import { defineEventHandler, getHeader, getRequestURL, proxyRequest, setResponseHeader } from "h3";
-import { proxyBackupStream } from "../utils/backup-stream-proxy";
+import { proxyEventStream, requestsEventStream } from "../utils/event-stream-proxy";
 
 export default defineEventHandler(async (event) => {
   const u = getRequestURL(event);
@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
   // h3's default proxy header filter drops content negotiation, including SSE.
   const accept = getHeader(event, "accept");
   const headers = accept ? { accept } : undefined;
-  if (event.method === "GET" && (p.endsWith("/admin/ops/backup/events") || /\/admin\/plugins\/installations\/[^/]+\/events$/.test(p))) return proxyBackupStream(event, target, headers);
+  const knownEventRoute = event.method === "GET" && (p.endsWith("/admin/ops/backup/events") || /\/admin\/plugins\/installations\/[^/]+\/events$/.test(p));
+  if (knownEventRoute || requestsEventStream(accept)) return proxyEventStream(event, target, headers);
   return proxyRequest(event, target, { headers });
 });

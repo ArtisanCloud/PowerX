@@ -8,7 +8,7 @@ vi.mock('h3', () => ({
   proxyRequest: calls.request,
   setResponseHeader: vi.fn(),
 }));
-vi.mock('../../../server/utils/backup-stream-proxy', () => ({ proxyBackupStream: calls.stream }));
+vi.mock('../../../server/utils/event-stream-proxy', () => ({ proxyEventStream: calls.stream }));
 import handler from '../../../server/middleware/00-recovery-progress';
 const event = (path: string, method = 'GET', headers: Record<string, string> = {}) => ({ url: `http://127.0.0.1:3030${path}`, method, headers }) as any;
 beforeEach(() => {

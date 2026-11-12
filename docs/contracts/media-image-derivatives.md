@@ -72,11 +72,15 @@ storage:
 
 浏览器经 `/_p/<plugin-id>/api/**`、`/__up/_p/<plugin-id>/api/**` 或 Core 的 `/api/v1/**` 代理访问时，管理前端必须原样转发调用方的 `Accept` 请求头。插件可以在同一个元数据读取入口用 `Accept: text/event-stream` 显式协商状态事件流；普通 JSON 和图片读取保留各自的内容协商。不能把响应类型改成 JSON，也不能将 JSON 响应标记为 SSE。
 
-当前 h3 的 `proxyRequest` 默认过滤 `Accept`，因此 `00-proxy-plugins.ts` 与 `01-proxy-api.ts` 显式补回此头；其余代理头仍按原有安全规则处理。备份与插件安装事件保留既有的下游关闭 → 取消上游机制。此修复不改用户身份、RBAC、插件 Service grant 或媒体生成任务。
+当前 h3 的 `proxyRequest` 默认过滤 `Accept`，因此 `00-proxy-plugins.ts` 与 `01-proxy-api.ts` 显式补回此头；其余代理头仍按原有安全规则处理。此修复不改用户身份、RBAC、插件 Service grant 或媒体生成任务。
+
+内容协商和连接释放必须同时完成。h3 默认不会把浏览器断连传给上游 fetch；插件、直通和 Core API 中列出 `text/event-stream` 的请求统一使用 `server/utils/event-stream-proxy.ts`，将下游响应的 `close` 绑定到上游 `AbortController`，结束时移除监听。GET 与 POST 均须遵守，响应头返回前取消和收到首帧后取消都须释放上游。客户端离页或身份切换仍须先取消旧订阅；代理不得靠等待业务任务完成或授权到期来释放它。
+
+备份／安装的既有事件路径和维护恢复继续复用同一机制，不要求旧事件请求额外增加 Accept。维护恢复保留原有同源、固定路径和只读票据检查。正常完成不会误取消已完成请求；响应头之前的上游错误保留原状态，流已开始后出现错误则关闭下游，不在 SSE 内容中追加 JSON。事件流检测只用于连接生命周期管理，响应格式及授权仍由上游决定。
 
 排障时，HTTP 200 不等于状态订阅成功：同时检查响应 `Content-Type: text/event-stream` 和实际事件帧。若客户端报告 `ASSET_PREVIEW_STREAM_INVALID`，且 `stage=content_type`、`content_type=application/json`，先检查代理是否丢失内容协商。已有原稿和变体的完成状态须分别核实，不能据此重传原稿、重试生成或修改数据库。
 
-真实 h3 中间件回归见 `web-admin/tests/unit/proxy/content-negotiation.spec.ts`：覆盖插件／直通／Core API 的事件流、JSON、图片 Accept、授权头、上传字节、首帧及时转发，以及备份／安装事件断开后的上游释放。测试使用临时本地监听并在结束时关闭，不替代安装实例中的真实图片页面验收。源码、生产构建与隔离 HTTP 验收结果见 [2026-11-12 验证记录](evidence/media-preview-proxy-validation-20261112.json)。
+真实 h3 中间件回归见 `web-admin/tests/unit/proxy/content-negotiation.spec.ts`：覆盖插件／直通／Core API 的事件流、JSON、图片 Accept、授权头、上传字节、首帧及时转发，以及上述订阅断开后的上游释放。测试使用临时本地监听并在结束时关闭，不替代安装实例中的真实图片页面验收。内容协商修复见 [2026-11-12 验证记录](evidence/media-preview-proxy-validation-20261112.json)，断连修复与构建产物复验见 [断连验证记录](evidence/media-preview-proxy-disconnect-validation-20261112.json)。
 
 ## 状态与重试
 

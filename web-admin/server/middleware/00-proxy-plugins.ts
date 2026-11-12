@@ -7,6 +7,7 @@ import {
   setResponseHeader,
   setResponseStatus,
 } from "h3";
+import { proxyEventStream, requestsEventStream } from "../utils/event-stream-proxy";
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -178,5 +179,7 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "x-nitro-no-render", "1");
   // h3 filters Accept by default. Preserve the caller's value so plugin
   // endpoints can negotiate SSE, JSON and protected image responses.
-  return proxyRequest(event, target, { headers: requestAccept ? { accept: requestAccept } : undefined });
+  const headers = requestAccept ? { accept: requestAccept } : undefined;
+  if (requestsEventStream(requestAccept)) return proxyEventStream(event, target, headers);
+  return proxyRequest(event, target, { headers });
 });

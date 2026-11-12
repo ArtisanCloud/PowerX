@@ -1,0 +1,236 @@
+{
+  "date": "2026-11-12",
+  "scope": "Core SSE downstream-close propagation",
+  "base_commit": "9ba0ed766f48c7c802dab4a370e31b7e578b6286",
+  "source_state": "Pre-commit staged snapshot exported without unrelated worktree changes",
+  "review": {
+    "pr": 429,
+    "comment_url": "https://github.com/ArtisanCloud/PowerX/pull/429#discussion_r4547444532",
+    "severity": "P1",
+    "finding": "newly negotiated SSE streams retained upstream subscriptions after browser disconnect"
+  },
+  "before_fix": {
+    "actual_http_regression_failed": [
+      "plugin GET",
+      "upstream-bypass GET",
+      "Core API GET",
+      "Core API POST"
+    ],
+    "existing_backup_and_install_cancellation_passed": true
+  },
+  "implementation": {
+    "shared_utility": "web-admin/server/utils/event-stream-proxy.ts",
+    "previous_utility_removed": "web-admin/server/utils/backup-stream-proxy.ts",
+    "lifecycle": "downstream close aborts upstream fetch; close listener removed on completion",
+    "covers": [
+      "plugin",
+      "upstream-bypass",
+      "Core API GET and POST",
+      "backup",
+      "plugin installation",
+      "maintenance recovery"
+    ],
+    "authorization_or_response_format_changed": false
+  },
+  "source_files_sha256": {
+    "docs/contracts/media-image-derivatives.md": "016a2b362cd31385ff7302314fadec83b6dbc6f6d69735b9c470e7962ad1d364",
+    "web-admin/server/middleware/00-proxy-plugins.ts": "e483ad1510f912244ab8c6f17cead67b4249f2ef884322f02f78df08992e0623",
+    "web-admin/server/middleware/00-recovery-progress.ts": "34e47ab092b00041f9ab08233ae4ab89e90e88109af8378394ea11dffae02e72",
+    "web-admin/server/middleware/01-proxy-api.ts": "16b666cfe324dd699f9bdd4b8962a2c175bcac458a25e8b14b23028e9d108c44",
+    "web-admin/server/utils/backup-stream-proxy.ts": null,
+    "web-admin/server/utils/event-stream-proxy.ts": "9b9eb231891ee67a7821d5068866074fd0e78dd09cee0fa6d73d38be7434b8d1",
+    "web-admin/tests/unit/backup/backup-proxy.spec.ts": "3b5829ced5c19956f2f023acc31cb7f6f8a637f82e1cd9c05df0128b97444b0b",
+    "web-admin/tests/unit/backup/recovery-proxy.spec.ts": "803728be3bd2013a757abdce25267d1fe36d0770f7e754880b6c4b3266f2fd15",
+    "web-admin/tests/unit/proxy/content-negotiation.spec.ts": "4864d8dabf9ef386cf16f3ff4d73413686d8a8dfa5fb0803678f2d6f24caa3c9"
+  },
+  "verification": {
+    "source_export": "git archive HEAD plus explicitly staged blobs; no branch or worktree created",
+    "nuxt_prepare_passed": true,
+    "test_files_passed": 16,
+    "tests_passed": 141,
+    "production_build_passed": true,
+    "built_output_http_cases_passed": 19,
+    "built_output_disconnect_cases_passed": 11,
+    "ws_taskbus_contract_check_passed": true,
+    "refactor_check_passed": true,
+    "commands": [
+      "npx nuxi prepare",
+      "npx vitest run tests/unit/proxy/content-negotiation.spec.ts tests/unit/auth tests/unit/backup/backup-proxy.spec.ts tests/unit/backup/recovery-proxy.spec.ts tests/unit/backup/backup-sse.spec.ts tests/unit/backup/backup-events.spec.ts --maxWorkers=1",
+      "npm run build",
+      "bash scripts/specs/check_ws_taskbus_contracts.sh",
+      "bash web-admin/scripts/check-refactor.sh"
+    ]
+  },
+  "built_output_http_validation": {
+    "isolated_built_output_validation": true,
+    "cases": [
+      {
+        "kind": "content-negotiation",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true
+      },
+      {
+        "kind": "content-negotiation",
+        "path": "/__up/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true
+      },
+      {
+        "kind": "content-negotiation",
+        "path": "/api/v1/admin/media/assets/fixture/derivatives/events",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true
+      },
+      {
+        "kind": "content-negotiation",
+        "path": "/api/v1/admin/ops/backup/events",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true
+      },
+      {
+        "kind": "content-negotiation",
+        "path": "/api/v1/admin/plugins/installations/fixture/events",
+        "accept": "text/event-stream",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "first_event_before_completion": true
+      },
+      {
+        "kind": "content-negotiation",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "application/json",
+        "status": 200,
+        "content_type": "application/json",
+        "first_event_before_completion": false
+      },
+      {
+        "kind": "content-negotiation",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "image/*",
+        "status": 200,
+        "content_type": "application/json",
+        "first_event_before_completion": false
+      },
+      {
+        "kind": "content-negotiation",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "accept": "text/event-stream",
+        "status": 401,
+        "content_type": "application/json",
+        "first_event_before_completion": false
+      },
+      {
+        "kind": "disconnect",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/__up/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/api/v1/admin/media/assets/fixture/derivatives/events",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/api/v1/admin/ops/backup/events",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/api/v1/admin/plugins/installations/fixture/events",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/api/v1/admin/ops/backup/cleanup-reviews/fixture/retentions",
+        "method": "POST",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/__powerx_recovery/jobs/00000000-0000-4000-8000-000000000001/events",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta?defer_headers=1",
+        "method": "GET",
+        "before_response_headers": true,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "disconnect",
+        "path": "/api/v1/admin/ops/backup/cleanup-reviews/fixture/retentions?defer_headers=1",
+        "method": "POST",
+        "before_response_headers": true,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "identity-switch-old",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta?identity=old",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      },
+      {
+        "kind": "identity-switch-next",
+        "path": "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta?identity=next",
+        "method": "GET",
+        "before_response_headers": false,
+        "upstream_closed": true,
+        "credential_preserved": true
+      }
+    ],
+    "upstream": "isolated fixture, not deployed Core/plugin or production database",
+    "identity_switch_boundary": "fixture clients cancel old credential request before opening the new one; existing host-session regression also passed"
+  },
+  "cleanup": {
+    "temporary_test_listeners_closed": true,
+    "nitro_exited": true,
+    "core_listener_closed": true,
+    "unix_socket_removed": true
+  },
+  "boundaries": {
+    "deployed_to_200": false,
+    "real_business_browser_accepted": false,
+    "database_modified": false,
+    "user_owned_services_restarted": false
+  },
+  "next_acceptance": "Deploy corrected Core Web Admin; confirm the existing uploaded image renders and old subscriptions are released on navigation and login identity changes."
+}

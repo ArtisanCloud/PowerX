@@ -6,9 +6,12 @@ import pluginProxy from "../../../server/middleware/00-proxy-plugins";
 import apiProxy from "../../../server/middleware/01-proxy-api";
 
 const token = "Bearer fixture-proxy-token";
+const nextToken = "Bearer fixture-next-identity";
 const pluginPath = "/_p/com.powerx.plugins.ai-craft/api/v1/admin/operations/assets/00000000-0000-4000-8000-000000000001/meta";
 const requests: Array<{ path: string; accept?: string; authorization?: string; tenant?: string; method?: string; body: string }> = [];
-const streams = new Map<string, { finish: () => void; closed: Promise<void> }>();
+type Stream = { finish: () => void; closed: Promise<void> };
+const streams = new Map<string, Stream>();
+const arrivals = new Map<string, (stream: Stream) => void>();
 let upstream: Server;
 let gateway: Server;
 let origin: string;
@@ -32,6 +35,16 @@ async function close(server?: Server) {
   expect(server.listening).toBe(false);
 }
 
+async function expectUpstreamClosed(stream: { closed: Promise<void> }) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      stream.closed,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("UPSTREAM_NOT_CANCELLED")), 1000); }),
+    ]);
+  } finally { clearTimeout(timer); }
+}
+
 beforeAll(async () => {
   vi.stubEnv("POWERX_BACKEND", "");
   upstream = createServer(async (req, res) => {
@@ -43,19 +56,27 @@ beforeAll(async () => {
       method: req.method, body: Buffer.concat(chunks).toString("base64"),
     };
     requests.push(request);
-    if (request.authorization !== token) {
+    if (![token, nextToken].includes(request.authorization || "")) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ code: "FIXTURE_UNAUTHORIZED" }));
       return;
     }
     if (request.accept === "text/event-stream") {
-      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", "X-Accel-Buffering": "no" });
-      const hold = new URL(request.path, "http://fixture.invalid").searchParams.get("hold");
+      const query = new URL(request.path, "http://fixture.invalid").searchParams;
+      const hold = query.get("hold");
       if (hold) {
         const closed = new Promise<void>(resolve => res.once("close", resolve));
-        streams.set(hold, { closed, finish: () => res.end('event: state\ndata: {"preview_state":"ready"}\n\n') });
+        streams.set(hold, { closed, finish: () => {
+          if (!res.destroyed && !res.writableEnded) res.end('event: state\ndata: {"preview_state":"ready"}\n\n');
+        } });
+        arrivals.get(hold)?.(streams.get(hold)!);
+        if (query.has("defer_headers")) return;
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", "X-Accel-Buffering": "no" });
         res.write('event: state\ndata: {"preview_state":"processing"}\n\n');
-      } else res.end('event: state\ndata: {"preview_state":"ready"}\n\n');
+      } else {
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", "X-Accel-Buffering": "no" });
+        res.end('event: state\ndata: {"preview_state":"ready"}\n\n');
+      }
       return;
     }
     res.writeHead(req.method === "POST" ? 201 : 200, { "Content-Type": "application/json; charset=utf-8" });
@@ -122,16 +143,64 @@ describe("Core proxy content negotiation through real h3 middleware", () => {
     } finally { await reader.cancel(); reader.releaseLock(); }
   });
 
-  it.each(["/api/v1/admin/ops/backup/events", "/api/v1/admin/plugins/installations/fixture/events"])("keeps stream negotiation and upstream cancellation on %s", async path => {
+  it.each([
+    [pluginPath, "GET"],
+    [`/__up${pluginPath}`, "GET"],
+    ["/api/v1/admin/media/assets/fixture/derivatives/events", "GET"],
+    ["/api/v1/admin/ops/backup/cleanup-reviews/fixture/retentions", "POST"],
+    ["/api/v1/admin/ops/backup/events", "GET"],
+    ["/api/v1/admin/plugins/installations/fixture/events", "GET"],
+  ])("keeps stream negotiation and upstream cancellation on %s (%s)", async (path, method) => {
     const controller = new AbortController();
-    const response = await fetch(`${origin}${path}?hold=${encodeURIComponent(path)}`, { headers: { Accept: "text/event-stream", Authorization: token }, signal: controller.signal });
+    const response = await fetch(`${origin}${path}?hold=${encodeURIComponent(path)}`, { method, headers: { Accept: "text/event-stream", Authorization: token }, signal: controller.signal });
     expect(response.headers.get("content-type")).toBe("text/event-stream");
     const reader = response.body!.getReader();
     try {
       expect(new TextDecoder().decode((await reader.read()).value)).toContain("processing");
       controller.abort();
-      await streams.get(path)!.closed;
+      await expectUpstreamClosed(streams.get(path)!);
     } finally { controller.abort(); await reader.cancel().catch(() => {}); reader.releaseLock(); }
+  });
+
+  it("cancels an upstream request even before it sends response headers", async () => {
+    const key = "before-headers";
+    const arrived = new Promise<Stream>(resolve => arrivals.set(key, resolve));
+    const controller = new AbortController();
+    const pending = fetch(`${origin}${pluginPath}?hold=${key}&defer_headers=1`, {
+      headers: { Accept: "text/event-stream", Authorization: token }, signal: controller.signal,
+    }).catch(error => error);
+    try {
+      const stream = await arrived;
+      controller.abort();
+      expect((await pending).name).toBe("AbortError");
+      await expectUpstreamClosed(stream);
+    } finally { controller.abort(); arrivals.delete(key); }
+  });
+
+  it("releases an old identity subscription before another identity opens its stream", async () => {
+    const oldIdentity = new AbortController(), nextIdentity = new AbortController();
+    const readers: ReadableStreamDefaultReader<Uint8Array>[] = [];
+    try {
+      const old = await fetch(`${origin}${pluginPath}?hold=identity-old`, {
+        headers: { Accept: "text/event-stream", Authorization: token }, signal: oldIdentity.signal,
+      });
+      const oldReader = old.body!.getReader(); readers.push(oldReader);
+      await oldReader.read();
+      oldIdentity.abort();
+      await expectUpstreamClosed(streams.get("identity-old")!);
+
+      const next = await fetch(`${origin}${pluginPath}?hold=identity-next`, {
+        headers: { Accept: "text/event-stream", Authorization: nextToken }, signal: nextIdentity.signal,
+      });
+      const nextReader = next.body!.getReader(); readers.push(nextReader);
+      expect(new TextDecoder().decode((await nextReader.read()).value)).toContain("processing");
+      expect(requests.at(-1)?.authorization).toBe(nextToken);
+      nextIdentity.abort();
+      await expectUpstreamClosed(streams.get("identity-next")!);
+    } finally {
+      oldIdentity.abort(); nextIdentity.abort();
+      for (const reader of readers) { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+    }
   });
 
   it("keeps the host cookie fallback for plugin requests without replacing explicit credentials", async () => {
