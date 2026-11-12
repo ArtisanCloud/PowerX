@@ -1,0 +1,85 @@
+{
+  "recorded_at": "2026-11-12T14:42:53.294090+00:00",
+  "scope": "Core IAM member projection during schema upgrade",
+  "red_reproduction": {
+    "same_connection_warmed_before_add_column": true,
+    "failed_as_expected": true,
+    "observed_code": "0A000",
+    "observed_message": "IAM_BASELINE_RECONCILE_FAILED: cached plan must not change result type"
+  },
+  "green_postgres": {
+    "pass_records": 12,
+    "leaf_tests_passed": 11,
+    "skipped": 0,
+    "failed": 0,
+    "tests": [
+      "TestPostgresConcurrentRolePermissionAndNewRoleMember/permission",
+      "TestPostgresConcurrentRolePermissionAndNewRoleMember/member",
+      "TestPostgresMemberColumnAdditionPreservesAuthorizationReconciliation",
+      "TestPostgresOneReadSnapshotCannotMixCostAndReadRevisions",
+      "TestPostgresExplicitConnectionKeepsTheTransactionCoordinator",
+      "TestPostgresRepairPlanRejectsNewlyAffectedRootHistory",
+      "TestPostgresBadRootCatalogAllowsUserDeactivation",
+      "TestPostgresRootCatalogRepairPreservesHistoryAndOrdinaryMembers",
+      "TestPostgresRootCatalogRepair523DanglingLinks",
+      "TestPostgresMigrationAutomaticallyInitializesAllTenants",
+      "TestPostgresMigrationUpgradesRootWithoutBusinessRolesOrBackdatedHistory"
+    ]
+  },
+  "unit_regression": {
+    "target_packages": 7,
+    "packages_with_test_pass_records": 6,
+    "pass_records": 144,
+    "leaf_tests_passed": 133,
+    "skipped_records": 37,
+    "failed": 0
+  },
+  "changes": {
+    "member_projection": [
+      "id",
+      "uuid",
+      "tenant_uuid",
+      "user_id",
+      "user_uuid",
+      "status",
+      "deleted_at"
+    ],
+    "permission_baseline_enabled": true,
+    "postgres_statement_cache_disabled": false,
+    "changed_upgrade_payloads": [
+      "core"
+    ],
+    "new_schema": false
+  },
+  "verification": {
+    "go_vet": "passed",
+    "linux_amd64_migration_cli": "passed",
+    "upgrade_payload_check": "passed",
+    "ws_taskbus_contract_check": "passed",
+    "make_unit_test": "blocked_by_existing_missing_backend_test_silent_sh",
+    "whole_repository_tests_passed": false
+  },
+  "remote": {
+    "operations": "read_only_schema_and_runtime_check",
+    "database": "powerx_dev",
+    "running_version_observed": "dev-20261112-2220",
+    "partial_schema_observed": [
+      "plugin_installations",
+      "iam_member.direct_manager_member_uuid"
+    ],
+    "missing_schema_observed": [
+      "system_notification_creation_receipts"
+    ],
+    "migration_executed_by_agent": false,
+    "service_restarted_by_agent": false
+  },
+  "cleanup": {
+    "red_temporary_postgres_removed": true,
+    "green_temporary_postgres_removed": true
+  },
+  "source_sha256": {
+    "backend/pkg/corex/db/persistence/repository/authorization/facts_repo.go": "3a8d21b7fa3d90ff726a196008644287d7b57f185259ab0d0ee50aae4b32b66e",
+    "backend/pkg/corex/iam/authorizationbaseline/postgres_test.go": "ea0b10abcf9b3c1efe1d8b5f86005986621fa327c725b7b000307efc745d29a4",
+    "backend/cmd/database/upgrade_payloads.json": "17bea4e1925012aa19f92e189d585ad53429e0a7d484496a3f7bd66d05ae932a"
+  }
+}

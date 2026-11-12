@@ -16,7 +16,7 @@
 
 ## 开发环境升级
 
-这批 Core 改动需要数据库迁移，区别于无需新增迁移的 AI Craft 删除补丁。新增结构为成员的 `direct_manager_member_uuid` 及通知创建凭据表 `system_notification_creation_receipts`；升级载荷只更新 `core` 和 `catalog` 校验和。
+这批 Core 改动需要数据库迁移，区别于无需新增迁移的 AI Craft 删除补丁。新增结构为 `iam_member.direct_manager_member_uuid` 及通知创建凭据表 `system_notification_creation_receipts`；升级载荷只更新 `core` 和 `catalog` 校验和。
 
 先核对目标为开发实例及其已有备份，按原流程编译产物，然后从 PowerX 仓库根目录用目标配置执行：
 
@@ -26,6 +26,8 @@ make capability-seed CAPABILITY_SEED_CONFIG=/etc/powerx-dev/config.yaml CAPABILI
 ```
 
 能力同步默认保留安装状态，只更新选定目录与正式权限元数据。服务读取／创建能力仍需给实际插件或 Host 身份明确授予最小权限，再核对 grant-status；不能把 Admin 权限当服务授权。随后使用现有 release 切换流程更新 Core 后端和管理前端并重启开发实例。
+
+若遇到 `IAM_BASELINE_RECONCILE_FAILED` 包裹 `cached plan must not change result type (SQLSTATE 0A000)`，先更新包含[成员增列缓存计划修复](migration-member-column-cache.md)的源码，再重新执行目标配置迁移；不能通过关闭权限基线或删除授权记录绕过。一次失败可能已有部分 DDL 落地，必须以完整迁移成功及结构核对为准。
 
 此次提交不自动应用开发存储配置，也不自动开启清理、归档或旧脚本接管。存储观测脚本发现已有配置时要求先核对，不覆盖历史策略。
 
