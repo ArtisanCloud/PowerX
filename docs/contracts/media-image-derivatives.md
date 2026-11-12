@@ -68,6 +68,16 @@ storage:
 
 本机真实图片受控验收使用 `POWERX_MEDIA_LARGE_IMAGE_FIXTURES=/path/to/images go test ./internal/service/media -run '^TestLargeImageOriginalFixturesThroughTaskBus$' -count=1`（在 backend 目录执行，且不设置 `POWERX_MEDIA_TEST_DSN`）。仅只读原文件；上传、TaskBus 与结果读取使用临时 SQLite、miniredis 和临时对象目录。覆盖原稿哈希、三种变体真实像素／大小／哈希、完成状态及复用。受控验收不等同于已经部署或实际租户浏览器验收。
 
+## 经 Core 管理前端访问事件流
+
+浏览器经 `/_p/<plugin-id>/api/**`、`/__up/_p/<plugin-id>/api/**` 或 Core 的 `/api/v1/**` 代理访问时，管理前端必须原样转发调用方的 `Accept` 请求头。插件可以在同一个元数据读取入口用 `Accept: text/event-stream` 显式协商状态事件流；普通 JSON 和图片读取保留各自的内容协商。不能把响应类型改成 JSON，也不能将 JSON 响应标记为 SSE。
+
+当前 h3 的 `proxyRequest` 默认过滤 `Accept`，因此 `00-proxy-plugins.ts` 与 `01-proxy-api.ts` 显式补回此头；其余代理头仍按原有安全规则处理。备份与插件安装事件保留既有的下游关闭 → 取消上游机制。此修复不改用户身份、RBAC、插件 Service grant 或媒体生成任务。
+
+排障时，HTTP 200 不等于状态订阅成功：同时检查响应 `Content-Type: text/event-stream` 和实际事件帧。若客户端报告 `ASSET_PREVIEW_STREAM_INVALID`，且 `stage=content_type`、`content_type=application/json`，先检查代理是否丢失内容协商。已有原稿和变体的完成状态须分别核实，不能据此重传原稿、重试生成或修改数据库。
+
+真实 h3 中间件回归见 `web-admin/tests/unit/proxy/content-negotiation.spec.ts`：覆盖插件／直通／Core API 的事件流、JSON、图片 Accept、授权头、上传字节、首帧及时转发，以及备份／安装事件断开后的上游释放。测试使用临时本地监听并在结束时关闭，不替代安装实例中的真实图片页面验收。源码、生产构建与隔离 HTTP 验收结果见 [2026-11-12 验证记录](evidence/media-preview-proxy-validation-20261112.json)。
+
 ## 状态与重试
 
 响应形如：

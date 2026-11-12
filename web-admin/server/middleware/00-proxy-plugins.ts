@@ -51,7 +51,8 @@ export default defineEventHandler(async (event) => {
 
   const cfg = useRuntimeConfig(event);
   const upstream = String(process.env.POWERX_BACKEND || cfg.upstream || "http://127.0.0.1:8077").replace(/\/+$/, "");
-  const accept = String(getHeader(event, "accept") || "").toLowerCase();
+  const requestAccept = getHeader(event, "accept");
+  const accept = String(requestAccept || "").toLowerCase();
   if (isPluginRoute) {
     const secFetchDest = String(getHeader(event, "sec-fetch-dest") || "").toLowerCase();
     const isHtml = accept.includes("text/html");
@@ -175,5 +176,7 @@ export default defineEventHandler(async (event) => {
 
   setResponseHeader(event, "x-px-proxy-target", target);
   setResponseHeader(event, "x-nitro-no-render", "1");
-  return proxyRequest(event, target);
+  // h3 filters Accept by default. Preserve the caller's value so plugin
+  // endpoints can negotiate SSE, JSON and protected image responses.
+  return proxyRequest(event, target, { headers: requestAccept ? { accept: requestAccept } : undefined });
 });
