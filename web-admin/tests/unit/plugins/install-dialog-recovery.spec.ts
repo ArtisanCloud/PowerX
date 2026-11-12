@@ -1,12 +1,15 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import InstallDialog from '~/components/plugins/InstallDialog.vue';
 
-const calls = vi.hoisted(() => ({ inspect: vi.fn(), upload: vi.fn(), enable: vi.fn(), push: vi.fn(), toast: vi.fn() }));
-vi.mock('~/composables/api/services/adminPluginsService', () => ({ useAdminPluginsService: () => ({ inspectInstallation: calls.inspect, installFromLocal: calls.upload, enable: calls.enable }) }));
+const calls = vi.hoisted(() => ({ create: vi.fn(), list: vi.fn(), get: vi.fn(), stream: vi.fn(), disconnect: vi.fn(), discard: vi.fn(), inspect: vi.fn(), upload: vi.fn(), enable: vi.fn(), push: vi.fn(), toast: vi.fn() }));
+vi.mock('~/composables/api/services/adminPluginsService', () => ({ useAdminPluginsService: () => ({ inspectInstallation: calls.inspect, uploadInstallation: calls.upload, enable: calls.enable, createInstallation: calls.create, listInstallationTasks: calls.list, getInstallationTask: calls.get, installationEvents: calls.stream, discardInstallationSource: calls.discard }) }));
 vi.mock('pinia', () => ({ storeToRefs: (store: any) => ({ isRoot: computed(() => store.isRoot), isCurrentTenantAdmin: computed(() => store.isCurrentTenantAdmin) }) }));
 
+let receive: (event: any) => void = () => {};
+vi.mock('~/utils/backup-sse', () => ({ connectBackupEvents: (_open: any, callback: any) => { receive = callback; return calls.disconnect; } }));
+vi.mock('~/utils/auth-session', () => ({ readAuthSession: () => ({ sessionId: 'session-a' }), AUTH_SESSION_EVENT: 'session-changed' }));
 const id = 'com.powerx.plugins.fixture';
 let user: any;
 const pending = () => ({ plugin_id: id, installation: { version: '1.0.0', revision: 'new', state: 'enabled', ready: false, tenant_ready: false, runtime_ready: true } });
@@ -33,127 +36,61 @@ async function submit(wrapper: any, target = id) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks(); calls.inspect.mockReset(); calls.upload.mockReset(); calls.enable.mockReset();
+  vi.clearAllMocks(); calls.inspect.mockReset(); calls.upload.mockReset(); calls.enable.mockReset(); calls.create.mockReset(); calls.list.mockReset(); calls.get.mockReset(); calls.disconnect.mockReset(); calls.list.mockResolvedValue([]);
+  calls.create.mockImplementation(async (input) => task({ request_id: input.request_id, plugin_id: input.plugin_id, status: 'awaiting_upload', phase: 'upload' }));
+  calls.upload.mockImplementation(async () => task()); calls.get.mockImplementation(async () => task());
   user = reactive({ isRoot: true, isCurrentTenantAdmin: true, user: { id: 1 }, currentTenantUuid: 'tenant-a', context: {} });
-  for (const [name, value] of Object.entries({ ref, computed, reactive, watch, onBeforeUnmount, useUserStore: () => user, useI18n: () => ({ t: (k: string) => k }), useRouter: () => ({ push: calls.push }), useToast: () => ({ add: calls.toast }), useState: (_k: string, init: () => unknown) => ref(init()) })) vi.stubGlobal(name, value);
+  for (const [name, value] of Object.entries({ ref, computed, reactive, watch, onBeforeUnmount, onMounted, useUserStore: () => user, useI18n: () => ({ t: (k: string) => k }), useRouter: () => ({ push: calls.push }), useToast: () => ({ add: calls.toast }), useState: (_k: string, init: () => unknown) => ref(init()) })) vi.stubGlobal(name, value);
 });
 
-describe('安装弹窗超时恢复', () => {
-  it('超时保留文件和表单，阻止再次上传；显式恢复只调用启用接口', async () => {
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending()).mockResolvedValueOnce({ ...pending(), installation: { ...pending().installation, ready: true, tenant_ready: true } });
-    calls.upload.mockRejectedValue(new Error('请求超时，请稍后重试')); calls.enable.mockResolvedValue({ ok: true });
-    const wrapper = render(); await submit(wrapper);
-    expect(calls.upload).toHaveBeenCalledTimes(1); expect(calls.enable).not.toHaveBeenCalled();
-    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeUndefined();
-    expect(wrapper.find('form').isVisible()).toBe(false);
-    expect(wrapper.find('input[type="file"]').element.files?.length).toBe(1);
-    await button(wrapper, 'plugins.installRecovery.resume').trigger('click'); await flushPromises(); await flushPromises();
-    expect(calls.enable).toHaveBeenCalledWith(id, { expected_version: '1.0.0', expected_revision: 'new' });
-    expect(calls.upload).toHaveBeenCalledTimes(1);
-    await button(wrapper, 'plugins.installRecovery.done').trigger('click'); expect(wrapper.emitted('installed')).toHaveLength(1); wrapper.unmount();
+
+const task = (change: Record<string, any> = {}) => ({ task_id: 'task-a', request_id: 'request-a', plugin_id: id, version: '1.0.0', status: 'queued', phase: 'queued', revision: 2, source_kind: 'local', created_at: '', updated_at: '', ...change });
+describe('持久安装任务与推送恢复', () => {
+  it('先持久创建任务再上传，事件更新完成，不周期读状态或调用旧同步安装', async () => {
+    const wrapper=render(); await submit(wrapper);
+    expect(calls.create).toHaveBeenCalledOnce(); expect(calls.upload).toHaveBeenCalledOnce();
+    expect(calls.create.mock.invocationCallOrder[0]).toBeLessThan(calls.upload.mock.invocationCallOrder[0]);
+    expect(wrapper.find('[data-testid="install-task"]').exists()).toBe(true);
+    const count=calls.get.mock.calls.length; await new Promise(resolve=>setTimeout(resolve,50)); expect(calls.get).toHaveBeenCalledTimes(count);
+    receive({name:'status',data:task({revision:3,status:'succeeded',phase:'completed'})});await nextTick();
+    expect(wrapper.text()).toContain('plugins.installTask.status.succeeded');expect(calls.disconnect).toHaveBeenCalled();
+    await button(wrapper,'plugins.installRecovery.done').trigger('click');expect(wrapper.emitted('installed')).toHaveLength(1);wrapper.unmount();
   });
-  it('超时后暂未查到安装时只允许继续核对，不自动重试', async () => {
-    calls.inspect.mockResolvedValue(absent()); calls.upload.mockRejectedValue(new Error('请求超时'));
-    const wrapper = render(); await submit(wrapper);
-    expect(wrapper.text()).toContain('plugins.installRecovery.not_installedTitle');
-    expect(button(wrapper, 'plugins.installRecovery.resume')).toBeUndefined();
-    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeUndefined();
-    expect(calls.upload).toHaveBeenCalledTimes(1); expect(wrapper.emitted('installed')).toBeUndefined(); wrapper.unmount();
+  it('上传断开仍保留同一任务和原文件，重传仅使用该任务，不重复创建', async () => {
+    calls.upload.mockRejectedValueOnce(new Error('connection interrupted'));
+    const wrapper=render();await submit(wrapper);expect(wrapper.text()).toContain('connection interrupted');
+    await button(wrapper,'plugins.installTask.upload').trigger('click'); await button(wrapper,'plugins.installDialog.actions.install').trigger('click');await flushPromises();
+    expect(calls.create).toHaveBeenCalledOnce();expect(calls.upload).toHaveBeenCalledTimes(2);expect(calls.upload.mock.calls[1][0]).toBe('task-a');wrapper.unmount();
   });
-  it('登录租户变化后禁止恢复旧租户的操作', async () => {
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending()); calls.upload.mockRejectedValue(new Error('请求超时'));
-    const wrapper = render(); await submit(wrapper); user.currentTenantUuid = 'tenant-b'; await nextTick();
-    expect(wrapper.text()).toContain('plugins.installRecovery.sessionChanged'); expect(button(wrapper, 'plugins.installRecovery.resume')).toBeUndefined();
-    await button(wrapper, 'plugins.installRecovery.check').trigger('click'); await flushPromises(); expect(calls.inspect).toHaveBeenCalledTimes(2); expect(calls.enable).not.toHaveBeenCalled(); wrapper.unmount();
+  it('关闭释放连接，重新打开核对同一任务，不重复上传', async()=>{
+    const wrapper=render();await submit(wrapper);await wrapper.setProps({modelValue:false});expect(calls.disconnect).toHaveBeenCalled();
+    await wrapper.setProps({modelValue:true});await flushPromises();expect(calls.get).toHaveBeenCalledWith('task-a');expect(calls.upload).toHaveBeenCalledOnce();wrapper.unmount();
   });
-  it('服务端明确待完成时使用提交回执；恢复版本冲突时保留现场', async () => {
-    calls.inspect.mockResolvedValueOnce({ ...pending(), installation: { ...pending().installation, revision: 'old' } }).mockResolvedValueOnce(pending());
-    calls.upload.mockRejectedValue(Object.assign(new Error('PLUGIN_INSTALL_FINALIZATION_REQUIRED'), { status: 500, data: { details: { code: 'PLUGIN_INSTALL_FINALIZATION_REQUIRED', plugin_id: id, installed: { version: '1.0.0', revision: 'new' } } } }));
-    calls.enable.mockRejectedValue(Object.assign(new Error('安装已变化，请重新核对'), { status: 409 }));
-    const wrapper = render(); await submit(wrapper);
-    await button(wrapper, 'plugins.installRecovery.resume').trigger('click'); await flushPromises();
-    expect(wrapper.text()).toContain('安装已变化，请重新核对'); expect(calls.upload).toHaveBeenCalledTimes(1); expect(wrapper.emitted('installed')).toBeUndefined();
-    expect(wrapper.find('input[type="file"]').element.files?.length).toBe(1); wrapper.unmount();
+  it('A 到 B 到 A 保留任务和表单，迟到 A 事件不改写 B',async()=>{
+    const a={id,name:'A',version:'1.0.0'},b={id:'com.powerx.plugins.other',name:'B',version:'1.0.0'};
+    const wrapper=render(a);await submit(wrapper);const oldReceive=receive;await wrapper.setProps({plugin:b});await flushPromises();
+    oldReceive({name:'status',data:task({revision:3,status:'succeeded',phase:'completed'})});await nextTick();expect(wrapper.find('[data-testid="install-task"]').exists()).toBe(false);
+    await wrapper.setProps({plugin:a});await flushPromises();expect(wrapper.text()).toContain(id);expect(calls.upload).toHaveBeenCalledOnce();wrapper.unmount();
+  });
+  it('新页面从正式列表恢复运行任务，不自动提交新的安装',async()=>{
+    calls.list.mockResolvedValue([task()]);const wrapper=render();await wrapper.setProps({modelValue:false});await wrapper.setProps({modelValue:true});await flushPromises();
+    expect(wrapper.find('[data-testid="install-task"]').exists()).toBe(true);expect(calls.create).not.toHaveBeenCalled();expect(calls.upload).not.toHaveBeenCalled();wrapper.unmount();
+  });
+  it('旧租户不能接纳迟到事件或手动恢复',async()=>{
+    const wrapper=render();await submit(wrapper);user.currentTenantUuid='tenant-b';await nextTick();const reads=calls.get.mock.calls.length;
+    receive({name:'status',data:task({status:'succeeded',revision:100})});await nextTick();expect(wrapper.text()).not.toContain('plugins.installTask.status.succeeded');expect(calls.get).toHaveBeenCalledTimes(reads);expect(calls.enable).not.toHaveBeenCalled();wrapper.unmount();
+  });
+  it('创建结果未知时锁定原意图，再次继续沿用同一请求编号',async()=>{
+    calls.create.mockRejectedValueOnce(new Error('network interrupted'));
+    const wrapper=render();await submit(wrapper);expect(wrapper.text()).toContain('plugins.installTask.creationUnknown');expect(wrapper.find('form').isVisible()).toBe(false);
+    const original=calls.create.mock.calls[0][0];await button(wrapper,'plugins.installTask.continueRequest').trigger('click');await flushPromises();
+    expect(calls.create).toHaveBeenCalledTimes(2);expect(calls.create.mock.calls[1][0]).toEqual(original);expect(calls.upload).toHaveBeenCalledOnce();wrapper.unmount();
+  });
+  it('异常提交回执只核对并显式启用，不重复上传或迁移',async()=>{
+    calls.upload.mockResolvedValue(task({status:'needs_attention',phase:'activating',revision:3,installed_revision:'new'}));calls.inspect.mockResolvedValue(pending());calls.enable.mockResolvedValue({});
+    const wrapper=render();await submit(wrapper);await button(wrapper,'plugins.installRecovery.check').trigger('click');await flushPromises();
+    expect(wrapper.find('[data-testid="install-recovery"]').exists()).toBe(true);calls.inspect.mockResolvedValue({...pending(),installation:{...pending().installation,ready:true,tenant_ready:true}});
+    await button(wrapper,'plugins.installRecovery.resume').trigger('click');await flushPromises();expect(calls.enable).toHaveBeenCalledWith(id,{expected_version:'1.0.0',expected_revision:'new'});expect(calls.upload).toHaveBeenCalledOnce();expect(wrapper.text()).toContain('plugins.installRecovery.readyTitle');wrapper.unmount();
   });
 
-  it('A 待恢复不阻止 B 安装，返回 A 后保留原表单且仍禁止重传', async () => {
-    const a = { id, name: 'A', version: '1.0.0' };
-    const b = { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' };
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending()).mockResolvedValueOnce({ ...absent(), plugin_id: b.id });
-    calls.upload.mockRejectedValueOnce(new Error('请求超时')).mockResolvedValueOnce({ ok: true });
-    const wrapper = render(a); await wrapper.find('textarea').setValue('A 的备注'); await submit(wrapper);
-    await wrapper.setProps({ modelValue: false }); await wrapper.setProps({ plugin: b, modelValue: true });
-    expect(wrapper.find('[data-testid="install-recovery"]').exists()).toBe(false);
-    expect(wrapper.find('textarea').element.value).toBe('');
-    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeDefined();
-    await submit(wrapper, b.id);
-    expect(calls.upload).toHaveBeenCalledTimes(2);
-    expect(wrapper.emitted('installed')?.[0]?.[0]).toMatchObject({ plugin: { id: b.id } });
-    await wrapper.setProps({ modelValue: false }); await wrapper.setProps({ plugin: a, modelValue: true });
-    expect(wrapper.text()).toContain('plugins.installRecovery.pendingTitle');
-    expect(wrapper.find('textarea').element.value).toBe('A 的备注');
-    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeUndefined();
-    expect(calls.upload).toHaveBeenCalledTimes(2); wrapper.unmount();
-  });
-
-  it('切换到同一插件的新版本仍保留旧请求恢复，不能绕过未知写入保护', async () => {
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
-    calls.upload.mockRejectedValue(new Error('请求超时'));
-    const wrapper = render({ id, name: 'A', version: '1.0.0' }); await submit(wrapper);
-    await wrapper.setProps({ modelValue: false }); await wrapper.setProps({ plugin: { id, name: 'A v2', version: '2.0.0' }, modelValue: true });
-    expect(wrapper.find('[data-testid="install-recovery"]').text()).toContain('1.0.0');
-    expect(button(wrapper, 'plugins.installDialog.actions.install')).toBeUndefined();
-    expect(calls.upload).toHaveBeenCalledTimes(1); wrapper.unmount();
-  });
-
-  it('通过另一个入口上传同一插件时恢复原记录，不再次上传', async () => {
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
-    calls.upload.mockRejectedValue(new Error('请求超时'));
-    const wrapper = render({ id, name: 'A', version: '1.0.0' }); await submit(wrapper);
-    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
-    await submit(wrapper, id);
-    expect(wrapper.text()).toContain('plugins.installRecovery.pendingTitle');
-    expect(calls.upload).toHaveBeenCalledTimes(1); expect(calls.inspect).toHaveBeenCalledTimes(2); wrapper.unmount();
-  });
-
-  it('切换目标会取消 A 核对，迟到结果不能替换 B 的界面', async () => {
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
-    calls.upload.mockRejectedValue(new Error('请求超时'));
-    const a = { id, name: 'A', version: '1.0.0' };
-    const wrapper = render(a); await submit(wrapper);
-    let finish: (value: any) => void = () => {};
-    calls.inspect.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    await button(wrapper, 'plugins.installRecovery.check').trigger('click'); await flushPromises();
-    const signal = calls.inspect.mock.calls.at(-1)?.[1] as AbortSignal;
-    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
-    expect(signal.aborted).toBe(true);
-    finish({ ...pending(), installation: { ...pending().installation, ready: true, tenant_ready: true } }); await flushPromises();
-    expect(wrapper.find('[data-testid="install-recovery"]').exists()).toBe(false);
-    await wrapper.setProps({ plugin: a });
-    expect(wrapper.text()).toContain('plugins.installRecovery.pendingTitle');
-    expect(button(wrapper, 'plugins.installRecovery.done')).toBeUndefined(); wrapper.unmount();
-  });
-
-  it('A 的迟到启用结果不核对、关闭或改写当前 B', async () => {
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending());
-    calls.upload.mockRejectedValue(new Error('请求超时'));
-    const wrapper = render({ id, name: 'A', version: '1.0.0' }); await submit(wrapper);
-    let finish: (value: any) => void = () => {};
-    calls.enable.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    await button(wrapper, 'plugins.installRecovery.resume').trigger('click'); await flushPromises();
-    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
-    finish({ ok: true }); await flushPromises();
-    expect(calls.inspect).toHaveBeenCalledTimes(2); expect(wrapper.emitted('installed')).toBeUndefined();
-    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
-    expect(button(wrapper, 'plugins.installDialog.actions.install').attributes('disabled')).toBeUndefined(); wrapper.unmount();
-  });
-
-  it('租户变化也使非当前目标的恢复记录失效', async () => {
-    calls.inspect.mockResolvedValueOnce(absent()).mockResolvedValueOnce(pending()); calls.upload.mockRejectedValue(new Error('请求超时'));
-    const a = { id, name: 'A', version: '1.0.0' }; const wrapper = render(a); await submit(wrapper);
-    await wrapper.setProps({ plugin: { id: 'com.powerx.plugins.other', name: 'B', version: '1.0.0' } });
-    user.currentTenantUuid = 'tenant-b'; await nextTick(); await wrapper.setProps({ plugin: a });
-    expect(wrapper.text()).toContain('plugins.installRecovery.sessionChanged');
-    expect(button(wrapper, 'plugins.installRecovery.resume')).toBeUndefined(); expect(calls.enable).not.toHaveBeenCalled(); wrapper.unmount();
-  });
 });

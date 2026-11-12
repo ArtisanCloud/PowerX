@@ -7,6 +7,7 @@ import (
 	"fmt"
 	authorizationbaselinesvc "github.com/ArtisanCloud/PowerX/internal/service/authorization_baseline"
 	requestidentity "github.com/ArtisanCloud/PowerX/internal/service/plugin_identity"
+	plugininstall "github.com/ArtisanCloud/PowerX/internal/service/plugin_install"
 	marketsvc "github.com/ArtisanCloud/PowerX/internal/service/plugin_marketplace"
 	runtimeidentity "github.com/ArtisanCloud/PowerX/internal/service/runtime_identity"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -214,6 +215,7 @@ type CurrentRecoveryRuntime interface {
 }
 
 type Deps struct {
+	PluginInstallations    *plugininstall.Service
 	PluginMarketplace      *marketsvc.Service
 	RecoveryReadOnly       bool
 	RuntimeIdentity        runtimeidentity.CoreInfo

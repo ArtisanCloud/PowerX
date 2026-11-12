@@ -3,6 +3,8 @@ package manager
 import (
 	"context"
 	"fmt"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -63,6 +65,17 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 		)
 	}
 
+	sourceBytes, err := budget.TreeBytes(ctx, absSrc)
+	if err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+	writeCtx, release, err := budget.BeginPath(ctx, m.opts.InstalledRoot, "plugin-install-files", sourceBytes+(1<<20))
+	if err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+	defer release()
+	ctx = writeCtx
+
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
 	// 在删除旧产物前恢复并验证凭证，避免 Force 删除唯一保存明文 secret 的配置。
@@ -96,6 +109,15 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file"), plugin_mgr.WithPath(destRoot),
 		)
 	}
+	checkpoint := func(phase string) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if opts.Progress != nil {
+			return opts.Progress(ctx, phase, plugin_mgr.Plugin{ID: man.ID, Version: man.Version, Revision: revision})
+		}
+		return nil
+	}
 	// 首次安装失败也不能留下可被 Bootstrap 误识别的半成品。
 	artifactCommitted := false
 	if commit == nil {
@@ -116,7 +138,10 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 	}
 
 	// 3) 拷贝整个目录
-	if err := copyDir(absSrc, destRoot); err != nil {
+	if err := checkpoint("copying"); err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+	if err := copyDirContext(ctx, absSrc, destRoot); err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file"),
 			plugin_mgr.WithPath(fmt.Sprintf("%s -> %s", absSrc, destRoot)),
@@ -166,6 +191,9 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 		InstallOrigin:   opts.Origin,
 	}
 
+	if err := checkpoint("migrating"); err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
 	if rec, err := m.runPluginMigrate(ctx, desc, opts); err != nil {
 		return plugin_mgr.Plugin{}, err
 	} else if rec != nil {
@@ -184,6 +212,9 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 	}
 
 	// 5) 所有入口共用这一提交点；替换入口在这里原子切换单份安装登记。
+	if err := checkpoint("committing"); err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
 	if commit != nil {
 		if err := commit(desc); err != nil {
 			return plugin_mgr.Plugin{}, err
@@ -203,7 +234,11 @@ func (m *managerImpl) installDirectory(ctx context.Context, srcDir string, opts 
 	installedState := plugin_mgr.StateInstalled
 	if opts.AutoEnable {
 		// 安装后必须切到“本次安装版本”再启用，避免命中旧 current 版本导致 already_enabled。
-		if _, err := m.SwitchVersion(ctx, man.ID, man.Version, true); err != nil {
+		activationErr := checkpoint("activating")
+		if activationErr == nil {
+			_, activationErr = m.SwitchVersion(ctx, man.ID, man.Version, true)
+		}
+		if err := activationErr; err != nil {
 			if commit == nil {
 				installed, ok := m.opts.Registry.Get(context.WithoutCancel(ctx), man.ID)
 				if ok && installed.Version == man.Version {
@@ -424,8 +459,12 @@ func machoArch(cpuType uint32) string {
 }
 
 // 轻量目录拷贝（忽略 .git / .DS_Store）
-func copyDir(src, dst string) error {
+func copyDir(src, dst string) error { return copyDirContext(context.Background(), src, dst) }
+func copyDirContext(ctx context.Context, src, dst string) error {
 	return filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return err
 		}
@@ -458,14 +497,24 @@ func copyDir(src, dst string) error {
 		if d.IsDir() {
 			return os.MkdirAll(target, info.Mode())
 		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		return os.WriteFile(target, data, info.Mode())
+		in, e := os.Open(p)
+		if e != nil {
+			return e
+		}
+		defer in.Close()
+		out, e := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+		if e != nil {
+			return e
+		}
+		_, e = io.Copy(budget.Writer(ctx, out), in)
+		closed := out.Close()
+		if e != nil {
+			return e
+		}
+		return closed
 	})
 }
 

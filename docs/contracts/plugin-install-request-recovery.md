@@ -1,6 +1,8 @@
-# 插件安装请求取消与收尾恢复
+# 插件安装任务、请求取消与收尾恢复
 
-日期：2026-11-11。范围是 Core 本地／URL 安装、显式启用及安装弹窗；不修改插件权限清单，不自动修复现场授权或租户映射。
+日期：2026-11-12。范围是 Core 本地／URL 安装、显式启用及安装弹窗；不修改插件权限清单，不自动修复现场授权或租户映射。
+
+管理页面现在使用持久安装任务，下述同步请求取消规则继续用于兼容入口和显式启用。浏览器断开只停止上传／进度连接，不取消已入队安装。
 
 ## 状态和写入边界
 
@@ -23,33 +25,77 @@
 
 现有 `GET /api/v1/admin/plugins/{id}/tenant_config` 增补 `installation`：版本、修订、全局状态、`runtime_ready`、`tenant_ready`、`ready` 和原因码。租户就绪通过已持久化配置及 `pluginbinding.Prepare(provision=false)` 核对实时 ACL；读取不创建主题、授权、凭据或映射。运行就绪同时核对后端与进程型管理前端。
 
+## 持久安装任务合同
+
+Root 用户 JWT、当前租户和发起用户 UUID 共同限定任务访问；普通管理员、插件 STS 和 API Key 不使用这些接口。任务归属固定在当前环境身份与暂存根目录，不能移交到另一个实例执行。
+
+| 接口 | 行为 |
+|---|---|
+| `POST /api/v1/admin/plugins/installations` | 先保存安装意图，返回 `task_id`；`request_id` 是用户生成的 UUID，同一用户／租户同一输入幂等，输入改变返回冲突 |
+| `PUT /api/v1/admin/plugins/installations/{task_id}/package` | 仅本地任务，上传文件夹或 tar.gz；持久化完整来源后，在同一数据库事务登记正式 TaskBus；重复上传核对同一任务 |
+| `GET /api/v1/admin/plugins/installations` | 最近 50 条本人当前租户和环境的任务；不触发执行 |
+| `GET /api/v1/admin/plugins/installations/{task_id}` | 只读任务回执；不补权限、映射或重跑安装 |
+| `GET /api/v1/admin/plugins/installations/{task_id}/events` | SSE 当前快照与变更快照；鉴权在 Header，不在 URL；每分钟重新连接鉴权 |
+| `DELETE /api/v1/admin/plugins/installations/{task_id}/source` | 取消尚未入队的上传，或清理终态私有来源；禁止删除排队／运行任务；保留回执，不卸载插件 |
+
+新增 `plugin_installations` 只保存安装意图、上传摘要和执行阶段。租约、续租、fencing、重试和投递恢复全部使用正式 `event_task_histories` / Stream TaskBus，不建立私有队列。任务中只传递租户和任务 UUID；URL、元数据等私有输入使用当前 Core 主密钥派生的 AES-GCM 密钥加密保存，租户和任务 UUID 绑定为 AAD，不返回 HostConfig 或凭据。主密钥、环境身份和来源目录应在升级时保持稳定。
+
+Worker 生命周期属于 Core，不属于创建／上传 HTTP 请求；单次执行上限 15 分钟。后台 worker 被禁用、未运行，或任务结构未迁移时拒绝接受新执行，不伪装成磁盘已满。原同步 `/install/local`、`/install/url` 继续兼容旧客户端，其请求生命周期合同不变。
+
+执行保留原 Manager 的安装锁、版本 CAS、发布者确认、drain、迁移、替换事务和启用回滚。后台任务请求启用时仍在原安装事务内启动，替换启动失败恢复原安装；首次提交后的启动失败保留产物，进入 `needs_attention`。随后按同一修订完成当前租户凭据和已启用租户 Event Fabric 配置，不扩大权限或忽略被撤销的 ACL。
+
+本地来源拒绝链接、特殊文件、越界路径、重复归档项和校验过程中变化的文件；完整来源上限 1 GiB、10000 个文件。上传、暂存、复制和 URL 下载／解压使用现有空间准入及受约束 Writer；空间准入明确开启时必须成功预留才写入，续租失败停止。URL 沿用原下载／展开大小限制，并受 6 GiB 累计写入预算约束；替换暂存与安装复制共享预算。不同文件系统无法核对到现有受管磁盘时保持拒绝，不能绕过保护。安装前应为临时来源及替换副本预留额外空间。
+
+暂存位置为配置 `plugin.installed_dir` 的同级 `install-tasks/{task_id}`，权限 0700，不接受客户端路径字段。终态清理私有来源；未完成上传可显式取消。进程异常退出留下的 `staging-{UUID}` 在同一任务上传锁内重试或取消时清理，不删除未知目录、已安装产物或业务数据。回执属于执行／恢复状态，已加入存储治理的系统表只读观测目录，不进入普通日志删除白名单。
+
+### Core 中断后的处理
+
+安装修订固定为任务 UUID，并在复制、迁移、登记和启用阶段保存受 TaskBus 租约约束的检查点。
+
+- 尚未执行的队列任务：通过正式 TaskBus 恢复执行。
+- 已进入执行且登记版本／修订与本任务一致：仅继续启用和租户收尾，不再次复制或迁移。
+- 已进入执行但无法证实登记提交，或被其他安装替换：进入 `needs_attention`，人工核对日志、迁移结果与安装登记；不自动重跑迁移。
+- 回执已经终态：不自动再执行；来源清理不改变安装回执。
+
 ## 页面行为
 
-本地目录先只读取最外层清单的字面量 ID 和版本；清单身份只是查询目标，正式安装仍由 Core 验包。已知目标在提交前读取当前修订，避免将同版本旧安装误认成本次替换成功。
+页面先读取本地包字面量 ID／版本，创建持久任务，再上传完整安装包。上传中断允许在同一任务重新选择相同来源、重新上传整个包；这不是分块断点续传。来源持久化成功后显示排队、校验、复制、迁移、登记、启动检查、租户收尾等真实阶段，不用固定等待时间宣告成功。
 
-请求超时、网络结果未知或服务返回待完成错误时，弹窗保留文件与表单，切换到结果核对视图。读取一次状态后提供手动核对、显式继续启用及已安装页面入口，不周期查询。暂未发现记录不证明原请求已经结束，因此不提供盲目重传按钮。
+关闭弹窗取消当前上传／读取连接；已经入队的任务继续。重新打开或刷新后从正式列表找回任务，无需再次创建安装。SSE 发送初始快照和变更，心跳只保活；无变更时不周期查询详情／列表。手动核对、重新进入、断线重连可以同步一次状态。连接异常明确显示并按有上限退避重连；身份／租户变化立即释放旧连接、拒绝迟到结果，表单与进行中的任务按目标隔离。URL 或凭据不写入浏览器持久存储。
 
-仅在版本、修订及请求所需阶段都得到确认后显示完成。恢复操作只调用启用接口，不再上传原包。登录身份／租户变化后禁止继续原操作；关闭弹窗或离开组件释放旧的核对请求。
-
-弹窗复用时按安装目标保存独立的表单、文件对象及恢复记录。A 待核对不阻止用户明确选择 B 安装；返回 A 仍显示原记录，不重新上传。更换同一插件的目标版本或从其他入口选择同一清单不能绕过恢复保护。切换目标取消原核对，迟到的核对／启用响应不更新或关闭其他目标的界面；身份变化也会使非当前目标的恢复记录失效。记录只在当前组件生命周期内保存，不写入浏览器持久存储。
+失败回执显示阶段和安全原因码；替换确认与 drain 失败允许返回表单调整，再创建新意图。`needs_attention` 且有已安装修订时进入原只读安装核对与显式启用流程，绑定目标版本和修订，不重新上传。没有可核实修订时要求管理员先核对，不提供盲目重跑迁移按钮。人工恢复后原任务仍保留“需要核对”的历史回执，当前运行就绪以正式只读安装核对结果为准。
 
 ## 验证与部署
 
 回归覆盖请求取消后的进程退出与监听端口释放、已提交产物保留、健康旧实例保护、修订变化拒绝、已启用实例继续收尾、错误回包凭据裁剪、缺映射只读检查及撤权保持。前端验证表单／文件保留、无自动重传、显式恢复和身份切换；浏览器使用受控 API 检查桌面及窄屏实际布局。
 
-PR #427 审查回归增加管理进程退出后旧代理未卸载、显式恢复、真实静态挂载，以及 A → B → A 的表单和恢复隔离。专用 Nuxt layer 仅在测试构建时加入选择目标的受控页面，不进入正常产品构建。可在 `web-admin` 运行以下两条命令（产物及浏览器记录均在仓库 `tmp/`）：
+历史 PR #427 的同步取消与收尾保护继续由原 Manager／Handler 测试覆盖。当前任务化增加真实隔离 PostgreSQL／Redis、HTTP／SSE、请求断开、迁移前后中断、撤权、来源篡改、替换回滚、上传目录／归档边界及桌面／390px 窄屏回归。浏览器使用受控回环 API，验证页面刷新后找回同一任务、仅一次创建／上传、实时完成、无轮询、关闭连接与状态保留；这与真实服务器安装验收分别记录。
+
+发布前另从 HEAD 与暂存 blob 导出待提交源码复核，排除工作区的通知、IAM、客户和品牌等改动。核对新增迁移只改变 `core` 载荷校验和，并重跑隔离后端、前端和浏览器验收。三个旧 Bootstrap 测试会修改 Gin 全局模式，改为不与其他测试并行，不修改业务断言。仓库 `make unit-test` 仍引用缺失的 `backend/test-silent.sh`，不能据此宣称整仓测试通过；相关包使用下列明确命令验收。
+
+页面证据：[桌面](evidence/plugin-install-tasks-20261112/desktop.png)、[390px 窄屏](evidence/plugin-install-tasks-20261112/mobile.png)，均为合成数据的回环 fixture。
+
+可复现检查（数据库名称必须以 `powerx_install_test_` 开头；Redis 应是专用隔离实例，不可指向日常或服务器资源）：
 
 ```sh
-POWERX_NUXT_BUILD_DIR=../tmp/pr427-review-20261111/nuxt-build POWERX_NITRO_OUTPUT_DIR=../tmp/pr427-review-20261111/nuxt-output NUXT_PUBLIC_E2E_SKIP_AUTH=true npx nuxt build --extends ./tests/fixtures/plugin-install-recovery
-npx playwright test --config playwright.plugin-install.config.ts
+POWERX_INSTALL_TEST_DSN='<隔离 PostgreSQL DSN>' POWERX_INSTALL_TEST_REDIS='127.0.0.1:<专用端口>' GOWORK=off go test -C backend -race ./internal/service/plugin_install ./internal/transport/http/admin/plugin ./internal/infra/plugin/manager ./internal/infra/storage_budget
+# web-admin：构建与日常 Vite 产物隔离；无需额外 fixture 页面。
+POWERX_NUXT_BUILD_DIR=../tmp/plugin-install-tasks-20261112/nuxt-product-build POWERX_NITRO_OUTPUT_DIR=../tmp/plugin-install-tasks-20261112/nuxt-product-output npm run build
+npm exec -- playwright test --config playwright.plugin-install-tasks.config.ts
 ```
 
-浏览器只使用隔离的回环 fixture；配置拒绝复用已存在的端口，并记录自有进程 PID、命令和退出状态。正常构建不传 `--extends`。受控页面、API fixture 和隔离进程验收不等于真实插件安装、授权或服务器验收。
+本地验证记录见 [任务化验收回执](evidence/plugin-install-tasks-20261112.json)。浏览器 fixture 固定占用 127.0.0.1:39581／39582，不复用已运行服务，记录 PID 和命令并关闭自己启动的进程。实际部署仍待用户操作；源码、隔离测试和构建不等于 200 服务器验收。
 
-本轮审查修复的源码指纹、回归范围与资源清理记录见 [PR #427 验证记录](evidence/plugin-install-request-recovery-review-20261111.json)。首次补丁的验证记录保留为对应源码版本的历史证据。
+### 升级与服务器验收
 
-源码及隔离验证不等于 200 服务器验收。更新 Core 后应通过正式管理流程恢复现场已有版本，验收当前租户 13 项映射、真实插件身份调用和管理页面；本补丁不在迁移或启动时自动补写现场数据。
+1. 按现有发布流程备份数据库／运行配置并准备新 Core 前后端；保留主密钥、环境身份、插件数据和安装目录。该补丁只新增结构，不自动补写历史授权／映射。
+2. 在新源码仓库根目录明确开发环境配置执行 `make migrate CONFIG=/etc/powerx-dev/config.yaml`；不要执行全量 seed、reset 或未经审核的 rollback。迁移包含仓库当前其它模块，发布者应按完整版本范围审阅。
+3. 通过现有 systemd 发布切换新 Core／管理端，确认常驻 worker 已启用、TaskBus PostgreSQL／Redis 及任务结构就绪；不要同时启动第二个 Core 执行器。Agent 不擅自重启用户服务。
+4. Root 在开发站按正常流程安装**准备升级的包**。记录 task UUID，看到任务进度后关闭弹窗，再打开或刷新；应找回同一任务，无重复安装／迁移，最后成功完成所需阶段。
+5. 核对包内与回执的版本／修订、进程健康、当前租户就绪，以及该包实际声明的事件映射和 SDK 权限；业务只读验证与插件真实队列验证由相应现场验收继续。不为验收卸载已正常运行的插件或重跑业务。
 
-此补丁保持同步安装合同，不引入分离于请求的后台安装或私有队列。上传分阶段、正式 TaskBus 安装任务、WebSocket／SSE 进度及崩溃恢复是独立后续范围，不能把当前有界收尾恢复宣称为完整异步安装任务化。
+排障：`PLUGIN_INSTALL_SCHEMA_NOT_READY` 检查本环境迁移；`PLUGIN_INSTALL_WORKER_DISABLED` 检查运行模式与 worker 生命周期；`PLUGIN_INSTALL_ACTOR_REVOKED` 检查任务发起 Root／租户仍有效；`PLUGIN_INSTALL_INTERRUPTED_REVIEW_REQUIRED` 先核对迁移和登记，不重传；启动／租户收尾失败走绑定修订的正式核对与恢复。SSE 连接失败检查 `/installations/{task_id}/events` 代理流、Header 会话和 Redis，不能改成定时状态轮询。
 
-代码入口：`manager/install.go`、`manager/lifecycle.go`、`service/plugin/installation_readiness.go`、`admin/plugin/install_handler.go`、`admin/plugin/plugin_handler.go`、`admin/plugin/tenant_handler.go`、`InstallDialog.vue`、`PluginInstallRecovery.vue`。
+回滚：先通过既有维护流程停止接纳新安装并确认无在途任务，再切回旧应用产物；保留新增任务表、暂存来源、安装备份和现有业务数据，不自动反向迁移或删除安装目录。旧 UI 恢复为同步请求合同，不能据此宣称历史任务已经完成；需要核对的任务必须由管理员单独处理。已经执行的插件数据库迁移不由宿主文件回滚代替。
+
+代码入口：`service/plugin_install`、`bootstrap/plugin_installations.go`、`model/plugin_install`、`repository/plugin_install`、`database/migration.go`、`manager/install*.go`、`admin/plugin/installation*.go`、`InstallDialog.vue`、`PluginInstallTaskProgress.vue`、`PluginInstallRecovery.vue`、`server/middleware/01-proxy-api.ts`。

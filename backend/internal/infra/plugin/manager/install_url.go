@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	budget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -30,6 +31,14 @@ func (m *managerImpl) InstallFromURL(ctx context.Context, url, sha256sum, signat
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("a valid SHA256 is required"))
 	}
 
+	// Bound the simultaneous compressed, expanded and installed copies. All
+	// writers share this lease, including nested InstallFromFile on the same FS.
+	run, release, err := budget.BeginPath(ctx, os.TempDir(), "plugin-install-url", 6<<30)
+	if err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+	defer release()
+	ctx = run
 	// 1) 下载到临时文件
 	tmpFile, err := m.downloadToTemp(ctx, url)
 	if err != nil {
@@ -80,7 +89,7 @@ func (m *managerImpl) InstallFromURL(ctx context.Context, url, sha256sum, signat
 	// 如果失败也希望尽量清理
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	if err := extractRemotePackage(tmpFile, tmpDir); err != nil {
+	if err := extractRemotePackageContext(ctx, tmpFile, tmpDir); err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_url.unzip"))
 	}
 
@@ -133,7 +142,7 @@ func (m *managerImpl) downloadToTemp(ctx context.Context, url string) (string, e
 	}()
 
 	const maxDownloadBytes = 2 << 30
-	n, err := io.Copy(f, io.LimitReader(resp.Body, maxDownloadBytes+1))
+	n, err := io.Copy(budget.Writer(ctx, f), io.LimitReader(resp.Body, maxDownloadBytes+1))
 	if err != nil {
 		return "", plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_url.save"))
 	}
@@ -146,6 +155,9 @@ func (m *managerImpl) downloadToTemp(ctx context.Context, url string) (string, e
 
 // Marketplace 制品可能是 ZIP 或 gzip TAR（包括 .pxp），按内容识别，不依赖预签名 URL 后缀。
 func extractRemotePackage(source, dest string) error {
+	return extractRemotePackageContext(context.Background(), source, dest)
+}
+func extractRemotePackageContext(ctx context.Context, source, dest string) error {
 	f, err := os.Open(source)
 	if err != nil {
 		return err
@@ -157,7 +169,7 @@ func extractRemotePackage(source, dest string) error {
 		return err
 	}
 	if magic != [2]byte{0x1f, 0x8b} {
-		return unzipSafe(source, dest)
+		return unzipSafeContext(ctx, source, dest)
 	}
 	f, err = os.Open(source)
 	if err != nil {
@@ -200,7 +212,7 @@ func extractRemotePackage(source, dest string) error {
 			if err != nil {
 				return err
 			}
-			_, copyErr := io.CopyN(out, reader, h.Size)
+			_, copyErr := io.CopyN(budget.Writer(ctx, out), reader, h.Size)
 			closeErr := out.Close()
 			if copyErr != nil {
 				return copyErr
@@ -250,6 +262,9 @@ func verifySHA256File(path string, expectedHex string) (string, error) {
 
 // 解压 zip（路径穿越保护）
 func unzipSafe(zipPath, dest string) error {
+	return unzipSafeContext(context.Background(), zipPath, dest)
+}
+func unzipSafeContext(ctx context.Context, zipPath, dest string) error {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return err
@@ -290,7 +305,7 @@ func unzipSafe(zipPath, dest string) error {
 			rc.Close()
 			return err
 		}
-		if _, err := io.Copy(out, rc); err != nil {
+		if _, err := io.Copy(budget.Writer(ctx, out), rc); err != nil {
 			out.Close()
 			rc.Close()
 			return err

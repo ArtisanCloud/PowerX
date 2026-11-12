@@ -27,6 +27,7 @@ import (
 	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
 	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
 	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
+	modelPluginInstall "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_install"
 	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	modelPluginSandbox "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_sandbox"
 	modelRuntimeHost "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/runtime_host"
@@ -58,6 +59,9 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = db.AutoMigrate(&modelAIMedia.MediaTask{}); err != nil {
+		return err
+	}
+	if err = migratePluginInstallModels(db); err != nil {
 		return err
 	}
 
@@ -1252,4 +1256,10 @@ func migrateSkillsModels(db *gorm.DB) error {
 // MigrateCustomerClientAppModels 仅准备租户客户端应用及 Provider 连接表。
 func MigrateCustomerClientAppModels(db *gorm.DB) error {
 	return db.AutoMigrate(&modelCustomer.ClientApplication{}, &modelCustomer.ClientAppBinding{})
+}
+
+// migratePluginInstallModels only adds the durable installation intent schema;
+// no historical installation, authorization or business repair runs here.
+func migratePluginInstallModels(db *gorm.DB) error {
+	return db.AutoMigrate(&modelPluginInstall.Installation{})
 }

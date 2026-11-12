@@ -42,6 +42,7 @@ func SystemTableCatalog() []SystemTableDefinition {
 		{Name: "event_scheduled_task_runs", Category: "runtime", TimeColumn: "created_at", CleanupMechanism: "review_required", Protection: "delivery_and_recovery_window"},
 		{Name: "event_scheduled_tasks", Category: "protected", TimeColumn: "created_at", CleanupMechanism: "protected", Protection: "excluded_from_log_cleanup"},
 		{Name: "event_subscription_offsets", Category: "protected", TimeColumn: "created_at", CleanupMechanism: "protected", Protection: "excluded_from_log_cleanup"},
+		{Name: "plugin_installations", Category: "runtime", TimeColumn: "created_at", CleanupMechanism: "review_required", Protection: "delivery_and_recovery_window"},
 		{Name: "event_task_histories", Category: "runtime", TimeColumn: "created_at", CleanupMechanism: "review_required", Protection: "delivery_and_recovery_window"},
 		{Name: "iam_authorization_segments", Category: "protected", TimeColumn: "created_at", CleanupMechanism: "protected", Protection: "excluded_from_log_cleanup"},
 		{Name: "iam_authorization_streams", Category: "protected", TimeColumn: "created_at", CleanupMechanism: "protected", Protection: "excluded_from_log_cleanup"},

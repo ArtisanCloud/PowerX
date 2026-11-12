@@ -660,3 +660,27 @@ routes:
     path: /api/v1/admin/ops/backup/archives/command-confirmation-requests/:request_id
     category: root_runtime_control
     reason: Human Root read-only original command confirmation receipt
+  - method: POST
+    path: /api/v1/admin/plugins/installations
+    category: root_runtime_control
+    reason: Human Root user JWT only; owner and tenant scoped durable executable-package installation, upload staging and progress must not be delegated to plugins, STS or API Keys.
+  - method: GET
+    path: /api/v1/admin/plugins/installations
+    category: root_runtime_control
+    reason: Human Root user JWT only; owner and tenant scoped durable executable-package installation, upload staging and progress must not be delegated to plugins, STS or API Keys.
+  - method: GET
+    path: /api/v1/admin/plugins/installations/:task_id
+    category: root_runtime_control
+    reason: Human Root user JWT only; owner and tenant scoped durable executable-package installation, upload staging and progress must not be delegated to plugins, STS or API Keys.
+  - method: PUT
+    path: /api/v1/admin/plugins/installations/:task_id/package
+    category: root_runtime_control
+    reason: Human Root user JWT only; owner and tenant scoped durable executable-package installation, upload staging and progress must not be delegated to plugins, STS or API Keys.
+  - method: DELETE
+    path: /api/v1/admin/plugins/installations/:task_id/source
+    category: root_runtime_control
+    reason: Human Root user JWT only; owner and tenant scoped durable executable-package installation, upload staging and progress must not be delegated to plugins, STS or API Keys.
+  - method: GET
+    path: /api/v1/admin/plugins/installations/:task_id/events
+    category: root_runtime_control
+    reason: Human Root user JWT only; owner and tenant scoped durable executable-package installation, upload staging and progress must not be delegated to plugins, STS or API Keys.
