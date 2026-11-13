@@ -144,6 +144,55 @@ def retention_status():
     return result
 
 
+def observe(apply):
+    """升级后仅观测与通知；不调用旧计划开关、期限删除或接管入口。"""
+    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock = (STATE / 'capacity.lock').open('a')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(json.dumps({'status': 'skipped', 'reason': 'already_running'}))
+        return
+    prior = json.loads((STATE / 'capacity-latest.json').read_text()) if (STATE / 'capacity-latest.json').exists() else {}
+    fs = filesystem()
+    health, health_at = runtime_health(prior)
+    retention = retention_status()
+    severity = ('critical' if fs['available_bytes'] < 12 * GIB or fs['used_ratio'] >= .88
+                or not health.get('healthy') else 'warning' if fs['available_bytes'] < 20 * GIB else 'ok')
+    # 完整保留旧调度所有权、水位及未知结果；只读监控不处理这些写入职责。
+    report = {**prior, 'at': dt.datetime.now(dt.timezone.utc).isoformat(),
+              'severity': severity, 'filesystem': fs, 'runtime_health': health,
+              'health_checked_at': health_at, 'retention_executor': retention,
+              'guard_kind': 'monitor_only_no_schedule_changes_or_deletion',
+              'automatic_cleanup_active': False, 'handoff_complete': False,
+              'changes': [], 'failure': None}
+    changed = severity != prior.get('severity') or report['guard_kind'] != prior.get('guard_kind')
+    due = time.time() - prior.get('notification_at', 0) > 3600
+    if apply and (changed or severity != 'ok' and due):
+        report['event_id'] = str(time.time_ns()) if changed else prior.get('event_id') or str(time.time_ns())
+        text = ('PowerX 运维%s\n服务器：47.116.10.200\n临时磁盘监控已运行（仅监控与通知）'
+                '\n可用空间：%.2f GiB\n物理使用率：%.2f%%'
+                '\n旧计划调节与数据库期限删除未执行；新版接管尚未确认。'
+                % ('恢复' if severity == 'ok' else '告警', fs['available_bytes']/GIB,
+                   fs['used_ratio']*100))
+        try:
+            report['notification'] = send_personal(text, 'powerx-monitor-' + report['event_id'])
+            if report['notification']['status'] == 'api_accepted':
+                report['notification_at'] = time.time()
+        except Exception as error:
+            report['notification'] = {'status': 'failed', 'error_type': type(error).__name__}
+    if apply:
+        atomic_json(STATE / 'capacity-latest.json', report)
+        history = STATE / 'capacity-observations'
+        history.mkdir(exist_ok=True, mode=0o700)
+        atomic_json(history / (str(time.time_ns()) + '.json'), report)
+        for path in sorted(history.glob('*.json'))[:-2160]:
+            if re.fullmatch(r'\d+\.json', path.name) and not path.is_symlink():
+                path.unlink()
+    print(json.dumps(report, ensure_ascii=False))
+    return report
+
+
 def run(apply):
     STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
     lock = (STATE / 'capacity.lock').open('a')
@@ -211,8 +260,13 @@ def run(apply):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--observe-only', action='store_true', help='仅监控与个人告警，允许新版 Core；不改变计划或删除数据库行')
     args = parser.parse_args()
-    try: run(args.apply)
+    try:
+        if args.observe_only:
+            observe(args.apply)
+        else:
+            run(args.apply)
     except Exception as error:
         failed = {'status': 'failed', 'error_type': type(error).__name__,
                   'reason': str(error) if isinstance(error, RuntimeError) else 'operation_failed'}

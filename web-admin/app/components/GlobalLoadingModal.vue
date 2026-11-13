@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useColorMode } from "#imports";
-import { LOGO_M_URL } from "~/utils/assets";
+import PowerXBrand from "~/components/brand/PowerXBrand.vue";
 
 const props = defineProps<{
   message?: string;
@@ -117,11 +117,7 @@ const progressValue = computed(() =>
             <div
               class="absolute inset-3 w-26 h-26 flex items-center justify-center"
             >
-              <img
-                :src="LOGO_M_URL"
-                alt="PowerX Logo"
-                class="w-22 h-22 drop-shadow-2xl animate-pulse-gentle"
-              />
+              <PowerXBrand compact size="hero" class="drop-shadow-2xl animate-pulse-gentle" />
             </div>
           </div>
 

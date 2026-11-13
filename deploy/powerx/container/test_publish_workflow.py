@@ -2,6 +2,7 @@ import unittest
 import fnmatch
 import re
 import subprocess
+import sys
 
 import yaml
 import build_contract
@@ -33,6 +34,34 @@ class PublishWorkflowTests(unittest.TestCase):
                 self.assertEqual(name, "bundle-release")
                 self.assertIn("mode == 'release'", job["if"])
         self.assertNotIn("--clobber", self.text)
+        self.assertIn("inputs.build_mode || 'verify'", self.workflow["run-name"])
+
+    def test_each_runner_installs_its_own_required_python_dependencies(self):
+        images = self.jobs["images"]["steps"]
+        setup = next(i for i, step in enumerate(images) if step.get("uses", "").startswith("actions/setup-python@"))
+        install = next(i for i, step in enumerate(images) if "pip install PyYAML" in step.get("run", ""))
+        imports = next(i for i, step in enumerate(images) if "import smoke, upgrade_smoke" in step.get("run", ""))
+        login = next(i for i, step in enumerate(images) if step.get("uses", "").startswith("docker/login-action@"))
+        self.assertLess(setup, install)
+        self.assertLess(install, imports)
+        self.assertLess(imports, login)
+        self.assertTrue(any("pip install jsonschema" in step.get("run", "") for step in self.jobs["preflight"]["steps"]))
+
+    def test_smoke_import_does_not_start_setup_or_docker(self):
+        result = subprocess.run([sys.executable, "-c", "import smoke, upgrade_smoke; print('imports-only')"],
+                                cwd=build_contract.ROOT / "deploy/powerx/container",
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "imports-only")
+
+    def test_processing_decision_is_persisted_before_other_jobs(self):
+        steps = self.jobs["preflight"]["steps"]
+        claim = next(i for i, step in enumerate(steps) if step.get("id") == "claim")
+        commit = next(i for i, step in enumerate(steps)
+                      if step.get("with", {}).get("path") == "request-decision.json")
+        self.assertLess(claim, commit)
+        self.assertEqual(steps[commit]["with"]["if-no-files-found"], "error")
+        self.assertIn("preflight", self.jobs["checks"]["needs"])
 
     def test_source_pair_and_attempt_identity_are_preserved(self):
         for job in self.jobs.values():

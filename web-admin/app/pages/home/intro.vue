@@ -2,7 +2,8 @@
 import FooterBar from "~/components/layout/FooterBar.vue";
 import { useUserStore } from "~/stores/user";
 import { useAuth } from "~/composables/useAuth";
-import { LOGO_M_URL } from "~/utils/assets";
+import PowerXBrand from "~/components/brand/PowerXBrand.vue";
+import CoreVersionBadge from "~/components/brand/CoreVersionBadge.vue";
 
 definePageMeta({
   layout: false, // 禁用layout
@@ -131,7 +132,6 @@ const products = computed(() => [
   {
     name: "PowerX Admin",
     description: t("intro.products.admin.description"),
-    image: LOGO_M_URL,
     features: [
       t("intro.products.admin.features.userManagement"),
       t("intro.products.admin.features.permissionControl"),
@@ -142,7 +142,6 @@ const products = computed(() => [
   {
     name: "PowerX Analytics",
     description: t("intro.products.analytics.description"),
-    image: LOGO_M_URL,
     features: [
       t("intro.products.analytics.features.realTimeAnalysis"),
       t("intro.products.analytics.features.visualReports"),
@@ -153,7 +152,6 @@ const products = computed(() => [
   {
     name: "PowerX Cloud",
     description: t("intro.products.cloud.description"),
-    image: LOGO_M_URL,
     features: [
       t("intro.products.cloud.features.cloudStorage"),
       t("intro.products.cloud.features.multiDeviceSync"),
@@ -272,17 +270,9 @@ onUnmounted(() => {
             <div class="flex items-center">
               <div class="flex-shrink-0">
                 <NuxtLink :to="$localePath('/')">
-                  <div class="flex items-center space-x-3">
-                    <img
-                      :src="LOGO_M_URL"
-                      alt="PowerX Logo"
-                      class="w-10 h-10"
-                    />
-                    <h1
-                      class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-                    >
-                      PowerX
-                    </h1>
+                  <div class="inline-flex flex-col items-start gap-0.5">
+                    <PowerXBrand />
+                    <CoreVersionBadge data-testid="intro-version" />
                   </div>
                 </NuxtLink>
               </div>
@@ -448,17 +438,13 @@ onUnmounted(() => {
       <section class="relative py-20 px-4 sm:px-6 lg:px-8">
         <div class="max-w-4xl mx-auto text-center">
           <h1
-            class="text-4xl md:text-6xl font-bold text-white mb-6 animate-fade-in"
+            class="flex flex-wrap items-center justify-center gap-3 text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 animate-fade-in"
           >
-            {{ $t("intro.hero.welcomeTo") }}
-            <span
-              class="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent"
-            >
-              PowerX
-            </span>
+            {{ $t("welcome") }}
+            <PowerXBrand size="hero" />
           </h1>
           <p
-            class="text-xl text-blue-100 dark:text-emerald-100 mb-8 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
+            class="text-xl text-gray-600 dark:text-emerald-100 mb-8 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
           >
             {{ $t("intro.hero.dashboardPreview") }}
           </p>
@@ -470,12 +456,12 @@ onUnmounted(() => {
         <div class="max-w-6xl mx-auto">
           <div class="text-center mb-16">
             <h2
-              class="text-3xl md:text-4xl font-bold text-white mb-4 animate-fade-in"
+              class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4 animate-fade-in"
             >
               {{ $t("intro.features.title") }}
             </h2>
             <p
-              class="text-xl text-blue-100 dark:text-emerald-100 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
+              class="text-xl text-gray-600 dark:text-emerald-100 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
             >
               {{ $t("intro.features.subtitle") }}
             </p>
@@ -489,11 +475,11 @@ onUnmounted(() => {
               :style="{ animationDelay: index * 100 + 400 + 'ms' }"
             >
               <div class="text-4xl mb-4">{{ feature.icon }}</div>
-              <h3 class="text-xl font-semibold text-white mb-2">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                 {{ feature.title }}
               </h3>
               <p
-                class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
               >
                 {{ feature.description }}
               </p>
@@ -507,12 +493,12 @@ onUnmounted(() => {
         <div class="max-w-6xl mx-auto">
           <div class="text-center mb-16">
             <h2
-              class="text-3xl md:text-4xl font-bold text-white mb-4 animate-fade-in"
+              class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4 animate-fade-in"
             >
               {{ $t("intro.products.title") }}
             </h2>
             <p
-              class="text-xl text-blue-100 dark:text-emerald-100 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
+              class="text-xl text-gray-600 dark:text-emerald-100 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
             >
               {{ $t("intro.products.subtitle") }}
             </p>
@@ -525,17 +511,15 @@ onUnmounted(() => {
               class="bg-white/10 dark:bg-gray-900/20 backdrop-blur-md rounded-xl overflow-hidden border border-white/20 dark:border-gray-700/30 hover:bg-white/20 dark:hover:bg-gray-900/30 transition-all duration-300 animate-fade-in"
               :style="{ animationDelay: index * 100 + 600 + 'ms' }"
             >
-              <img
-                :src="product.image"
-                :alt="product.name"
-                class="w-full h-48 object-cover"
-              />
+              <div class="flex h-48 items-center justify-center">
+                <PowerXBrand compact size="hero" :alt="product.name" />
+              </div>
               <div class="p-6">
-                <h3 class="text-xl font-semibold text-white mb-2">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   {{ product.name }}
                 </h3>
                 <p
-                  class="text-blue-100 dark:text-emerald-100 mb-4 transition-colors duration-500"
+                  class="text-gray-600 dark:text-emerald-100 mb-4 transition-colors duration-500"
                 >
                   {{ product.description }}
                 </p>
@@ -543,7 +527,7 @@ onUnmounted(() => {
                   <li
                     v-for="(feature, featureIndex) in product.features"
                     :key="featureIndex"
-                    class="text-sm text-blue-200 dark:text-emerald-200 flex items-center transition-colors duration-500"
+                    class="text-sm text-gray-600 dark:text-emerald-200 flex items-center transition-colors duration-500"
                   >
                     <span
                       class="w-2 h-2 bg-emerald-400 rounded-full mr-2"
@@ -567,12 +551,12 @@ onUnmounted(() => {
         <div class="max-w-6xl mx-auto">
           <div class="text-center mb-16">
             <h2
-              class="text-3xl md:text-4xl font-bold text-white mb-4 animate-fade-in"
+              class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4 animate-fade-in"
             >
               {{ $t("intro.about.title") }}
             </h2>
             <p
-              class="text-xl text-blue-100 dark:text-emerald-100 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
+              class="text-xl text-gray-600 dark:text-emerald-100 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
             >
               {{ $t("intro.about.subtitle") }}
             </p>
@@ -580,11 +564,11 @@ onUnmounted(() => {
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div class="animate-fade-in delay-400">
-              <h3 class="text-2xl font-semibold text-white mb-4">
+              <h3 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
                 {{ $t("intro.about.mission.title") }}
               </h3>
               <div
-                class="space-y-4 text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                class="space-y-4 text-gray-600 dark:text-emerald-100 transition-colors duration-500"
               >
                 <p>
                   {{ $t("intro.about.mission.paragraph1") }}
@@ -605,7 +589,7 @@ onUnmounted(() => {
                     1000+
                   </div>
                   <div
-                    class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                    class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
                   >
                     {{ $t("intro.about.stats.companies") }}
                   </div>
@@ -615,7 +599,7 @@ onUnmounted(() => {
                     50K+
                   </div>
                   <div
-                    class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                    class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
                   >
                     {{ $t("intro.about.stats.users") }}
                   </div>
@@ -625,7 +609,7 @@ onUnmounted(() => {
                     99.9%
                   </div>
                   <div
-                    class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                    class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
                   >
                     {{ $t("intro.about.stats.uptime") }}
                   </div>
@@ -635,11 +619,11 @@ onUnmounted(() => {
               <div
                 class="bg-white/10 dark:bg-gray-900/20 backdrop-blur-md rounded-xl p-6 border border-white/20 dark:border-gray-700/30"
               >
-                <h4 class="text-xl font-semibold text-white mb-3">
+                <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">
                   {{ $t("intro.about.enterprise.title") }}
                 </h4>
                 <p
-                  class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                  class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
                 >
                   {{ $t("intro.about.enterprise.description") }}
                 </p>
@@ -648,36 +632,36 @@ onUnmounted(() => {
           </div>
 
           <div class="mt-16 animate-fade-in delay-800">
-            <h3 class="text-2xl font-semibold text-white mb-8 text-center">
+            <h3 class="text-2xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
               {{ $t("intro.about.values.title") }}
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div class="text-center">
-                <h4 class="text-xl font-semibold text-white mb-3">
+                <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">
                   {{ $t("intro.about.values.innovation.title") }}
                 </h4>
                 <p
-                  class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                  class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
                 >
                   {{ $t("intro.about.values.innovation.description") }}
                 </p>
               </div>
               <div class="text-center">
-                <h4 class="text-xl font-semibold text-white mb-3">
+                <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">
                   {{ $t("intro.about.values.userFirst.title") }}
                 </h4>
                 <p
-                  class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                  class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
                 >
                   {{ $t("intro.about.values.userFirst.description") }}
                 </p>
               </div>
               <div class="text-center">
-                <h4 class="text-xl font-semibold text-white mb-3">
+                <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">
                   {{ $t("intro.about.values.excellence.title") }}
                 </h4>
                 <p
-                  class="text-blue-100 dark:text-emerald-100 transition-colors duration-500"
+                  class="text-gray-600 dark:text-emerald-100 transition-colors duration-500"
                 >
                   {{ $t("intro.about.values.excellence.description") }}
                 </p>
@@ -717,12 +701,12 @@ onUnmounted(() => {
           class="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative z-10"
         >
           <h2
-            class="text-3xl md:text-4xl font-bold text-white mb-6 animate-fade-in"
+            class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6 animate-fade-in"
           >
             {{ $t("intro.cta.title") }}
           </h2>
           <p
-            class="text-xl text-blue-100 dark:text-emerald-100 mb-8 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
+            class="text-xl text-gray-600 dark:text-emerald-100 mb-8 max-w-2xl mx-auto transition-colors duration-500 animate-fade-in delay-200"
           >
             {{ $t("intro.cta.subtitle") }}
           </p>

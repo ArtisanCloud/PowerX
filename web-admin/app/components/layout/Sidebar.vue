@@ -11,15 +11,14 @@ import { cloneWithFilteredChildren } from "~/composables/useCopy";
 import { useUserStore } from "~/stores/user";
 import SidebarMenuItem from "~/components/layout/SidebarMenuItem.vue";
 import PowerXBrand from "~/components/brand/PowerXBrand.vue";
+import CoreVersionBadge from "~/components/brand/CoreVersionBadge.vue";
 
 /* ---------- stores / utils ---------- */
 const route = useRoute();
 const menuService = useMenuService();
-const setupStatus = useSetupStatus();
 const userStore = useUserStore();
 const { t, te, locale } = useI18n({ useScope: "global" });
 const localePath = useLocalePath() as (p: string) => string;
-const appVersion = useState<string>("app-runtime-version", () => "");
 const userContactLabel = computed(() => {
   const user = userStore.user;
   return user?.email || user?.phone || "";
@@ -208,23 +207,6 @@ const reloadMenus = async () => {
   invalidateUserMenusCache();
   await refreshMenus();
 };
-
-const loadRuntimeVersion = async () => {
-  try {
-    const payload: any = await setupStatus.load({ ttlMs: 5000 });
-    const version = String(payload?.version || "").trim();
-    if (version) {
-      appVersion.value = version;
-    }
-  } catch {
-    // 不阻断主流程：版本号仅用于展示
-  }
-};
-onMounted(() => {
-  if (!appVersion.value) {
-    void loadRuntimeVersion();
-  }
-});
 
 /* ---------- 子级排序（顶层不排序） ---------- */
 const sortChildren = (a: MenuItem, b: MenuItem) => {
@@ -528,10 +510,11 @@ function onTreeKeydown(e: KeyboardEvent) {
     >
       <NuxtLink
         :to="$localePath('/')"
-        class="inline-flex min-w-0 items-center text-gray-950 outline-offset-4 focus-visible:outline-2 dark:text-white"
+        class="inline-flex min-w-0 flex-col items-start gap-0.5 text-gray-950 outline-offset-4 focus-visible:outline-2 dark:text-white"
         aria-label="PowerX"
       >
         <PowerXBrand :compact="collapsed" />
+        <CoreVersionBadge v-if="!collapsed" data-testid="sidebar-version" />
       </NuxtLink>
       <button
         type="button"
@@ -767,18 +750,6 @@ function onTreeKeydown(e: KeyboardEvent) {
             />
           </button>
         </div>
-      </div>
-      <div
-        v-if="appVersion"
-        class="mt-3 flex min-w-0 items-center gap-2 text-[11px] leading-4 text-gray-500 dark:text-gray-400"
-        :class="collapsed ? 'justify-center' : 'justify-between'"
-      >
-        <span v-if="!collapsed" class="truncate">PowerX Core</span>
-        <span
-          class="max-w-full truncate font-mono"
-          :title="appVersion"
-          data-testid="sidebar-version"
-        >{{ appVersion }}</span>
       </div>
     </div>
   </aside>

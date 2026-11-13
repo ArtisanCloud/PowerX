@@ -75,6 +75,17 @@ systemctl disable --now powerx-disk-daily.timer  # 停止日报
 
 ## 交接、回退与边界
 
+### 升级后保留临时监控
+
+正式 Core 已升级但新策略尚未接管时，可显式使用 `capacity.py --apply --observe-only`。
+该模式不检查旧 commit，不调用 `policies()`／`set_enabled()`，不修改备份或快照开关，也不执行数据库期限删除；原默认入口和 `retention.py` 的版本保护保持。
+
+监控模式继续采集磁盘、Core／Loki 健康和旧期限执行器状态，通过原私有飞书个人配置发送阈值告警及恢复通知，并保留有界采样。首次切换模式发送明确说明；相同严重状态每小时提醒，重复发送复用事件身份。`owned_pauses` 和未知执行结果保留，不能因为改为监控就擅自恢复旧计划。
+
+回执固定标记 `guard_kind=monitor_only_no_schedule_changes_or_deletion`、`automatic_cleanup_active=false`、`handoff_complete=false`。任务退出 0 仅表示监控轮次成功，不能作为自动清理或新版接管的证明。独立的 00:05 磁盘日报及原文件日志守护继续保留。
+
+47.116.10.200 本轮正式部署的配置、执行及验收边界见[正式观测说明](../../../docs/contracts/production-storage-observation.md)。
+
 维护入口源码位于 `backend/tmp/ops-transition-20261109/` 和 `backend/tmp/ops-baseline-retention-20261109/`，仅编译独立工具，不替换 Core 程序，不执行数据库迁移、不修改业务附件、不提交或推送。
 
 工具、systemd 单元及私有回执分别位于 `/opt/powerx-ops/transition-20261109/`、`/etc/systemd/system/`、`/var/lib/powerx-ops/transition-20261109/`。策略调用与删除使用正式服务；快照元数据保持业务进程属主，暂缓恢复保持原 schedule anchor。配置被用户或其他执行器修改时不擅自重新启用。
