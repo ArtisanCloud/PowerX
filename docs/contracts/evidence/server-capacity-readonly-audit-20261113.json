@@ -1,0 +1,738 @@
+{
+  "contract": "powerx.server_capacity_readonly_audit.v1",
+  "host": "47.116.10.200",
+  "checked_at": "2026-11-13T13:33:08.980730+08:00",
+  "scope": {
+    "read_only": true,
+    "database_transaction_read_only": true,
+    "services_restarted": false,
+    "configuration_changed": false,
+    "business_data_changed": false,
+    "notifications_sent": false,
+    "authenticated_business_acceptance_performed": false
+  },
+  "disk": {
+    "total_bytes": 126424895488,
+    "used_bytes": 107513053184,
+    "available_bytes": 13543325696,
+    "reserved_unavailable_bytes": 5368516608,
+    "inodes_total": 7840784,
+    "inodes_free": 7372531
+  },
+  "environments": {
+    "prod": {
+      "http": {
+        "loopback_core": {
+          "http": 200,
+          "content_type": "application/json; charset=utf-8",
+          "health": {
+            "status": "ok",
+            "configured": true,
+            "version": "prod-20261113-1002",
+            "core_version": "prod-20261113-1002",
+            "deployment_env": "prod",
+            "install_status": "installed"
+          }
+        },
+        "loopback_web": {
+          "http": 200,
+          "content_type": "text/html;charset=utf-8"
+        },
+        "public_core": {
+          "http": 200,
+          "content_type": "application/json; charset=utf-8",
+          "health": {
+            "status": "ok",
+            "configured": true,
+            "version": "prod-20261113-1002",
+            "core_version": "prod-20261113-1002",
+            "deployment_env": "prod",
+            "install_status": "installed"
+          }
+        },
+        "public_web": {
+          "http": 200,
+          "content_type": "text/html;charset=utf-8"
+        }
+      },
+      "plugin": {
+        "version": "0.1.78",
+        "revision": "44a7714e-6d74-47ba-9fd8-2c8113934813",
+        "state": "enabled",
+        "migration": {
+          "last_status": "success",
+          "executed_at": "2026-11-13T02:42:15.504638901Z"
+        },
+        "health": {
+          "http": 200,
+          "content_type": "application/json"
+        }
+      },
+      "services": {
+        "powerx-backend": {
+          "Result": "success",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Fri 2026-11-13 10:38:06 CST",
+          "ExecMainStatus": "0",
+          "ActiveState": "active",
+          "SubState": "running",
+          "UnitFileState": "enabled",
+          "observe_only": null
+        },
+        "powerx-web-admin": {
+          "Result": "success",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Fri 2026-11-13 10:38:06 CST",
+          "ExecMainStatus": "0",
+          "ActiveState": "active",
+          "SubState": "running",
+          "UnitFileState": "enabled",
+          "observe_only": null
+        },
+        "powerx-runner": {
+          "Result": "exec-condition",
+          "NRestarts": "4252953",
+          "ExecMainStartTimestamp": "n/a",
+          "ExecMainStatus": "0",
+          "ActiveState": "inactive",
+          "SubState": "dead",
+          "UnitFileState": "enabled",
+          "observe_only": null
+        }
+      },
+      "database": {
+        "kind": "database",
+        "name": "powerx_pro",
+        "bytes": 45088996375,
+        "read_only": "on"
+      },
+      "largest_tables": [
+        {
+          "kind": "table",
+          "name": "public.capability_registry_invocation_traces",
+          "bytes": 34811904000,
+          "heap_bytes": 30398013440,
+          "dead_estimate": 6480,
+          "live_estimate": 12332673,
+          "last_autovacuum": "2026-11-13T13:26:28.286601+08:00"
+        },
+        {
+          "kind": "table",
+          "name": "public.capability_registry_event_publications",
+          "bytes": 10179723264,
+          "heap_bytes": 7406837760,
+          "dead_estimate": 78420,
+          "live_estimate": 11062463,
+          "last_autovacuum": "2026-11-13T11:59:04.04065+08:00"
+        }
+      ],
+      "samples": [
+        {
+          "kind": "sample",
+          "slot": "2026-11-13T01:35:00+08:00",
+          "tables": 68,
+          "database": {
+            "database_bytes": 44899499031,
+            "table_fingerprint": "3c80103cac601f347cd22c97bd2f154afbc00408583745dcdf65fe998905f99f"
+          },
+          "resources": 5,
+          "created_at": "2026-11-13T01:35:37.822461+08:00",
+          "filesystem": {
+            "id": "kernel-fsid:a50353a1:6eb01c98",
+            "view": "process_filesystem",
+            "state": "observed",
+            "used_bytes": 105151332352,
+            "total_bytes": 126424895488,
+            "reserved_bytes": 5368516608,
+            "available_bytes": 15905046528
+          }
+        },
+        {
+          "kind": "sample",
+          "slot": "2026-11-13T13:25:00+08:00",
+          "tables": 68,
+          "database": {
+            "database_bytes": 45087579159,
+            "table_fingerprint": "3c80103cac601f347cd22c97bd2f154afbc00408583745dcdf65fe998905f99f"
+          },
+          "resources": 5,
+          "created_at": "2026-11-13T13:28:09.929661+08:00",
+          "filesystem": {
+            "id": "kernel-fsid:a50353a1:6eb01c98",
+            "view": "process_filesystem",
+            "state": "observed",
+            "used_bytes": 107464790016,
+            "total_bytes": 126424895488,
+            "reserved_bytes": 5368516608,
+            "available_bytes": 13591588864
+          }
+        }
+      ],
+      "sample_window_growth_bytes": 188080128,
+      "installation_status_counts": [
+        {
+          "kind": "task_counts",
+          "count": 1,
+          "oldest": "2026-11-13T10:39:45.923582+08:00",
+          "status": "cancelled"
+        },
+        {
+          "kind": "task_counts",
+          "count": 2,
+          "oldest": "2026-11-13T00:07:08.119198+08:00",
+          "status": "succeeded"
+        }
+      ],
+      "latest_installation": {
+        "kind": "installation",
+        "phase": "completed",
+        "status": "succeeded",
+        "task_id": "44a7714e-6d74-47ba-9fd8-2c8113934813",
+        "version": "0.1.78",
+        "revision": 11,
+        "plugin_id": "com.powerx.plugins.ai-craft",
+        "created_at": "2026-11-13T10:40:08.135473+08:00",
+        "error_code": "",
+        "updated_at": "2026-11-13T10:42:31.656101+08:00",
+        "completed_at": "2026-11-13T10:42:31.656085+08:00",
+        "source_bytes": 247273942
+      },
+      "storage_flags": {
+        "sampling_enabled": true,
+        "postgres_enabled": true,
+        "lifecycle_enabled": true,
+        "admission_enabled": false,
+        "allow_enforce": false,
+        "manage_native_retention": false,
+        "advanced_operations_enabled": false
+      },
+      "recent_queue_call_profile": [
+        {
+          "kind": "consume_profile",
+          "last": "2026-11-13T13:36:43.561671+08:00",
+          "count": 3581,
+          "first": "2026-11-13T13:30:44.455464+08:00",
+          "operation": "dequeue",
+          "subscriber_id": "ai_craft.wecom.work.v1",
+          "wait_timeout_ms": 50,
+          "caller_is_ai_craft": true
+        },
+        {
+          "kind": "consume_profile",
+          "last": "2026-11-13T13:36:43.383657+08:00",
+          "count": 1231,
+          "first": "2026-11-13T13:30:44.588212+08:00",
+          "operation": "dequeue",
+          "subscriber_id": "ai_craft.shopify_webhook_worker.v1",
+          "wait_timeout_ms": 250,
+          "caller_is_ai_craft": true
+        },
+        {
+          "kind": "consume_profile",
+          "last": "2026-11-13T13:36:41.632054+08:00",
+          "count": 176,
+          "first": "2026-11-13T13:30:44.676895+08:00",
+          "operation": "dequeue",
+          "subscriber_id": "ai_craft.llm_job_worker",
+          "wait_timeout_ms": 2000,
+          "caller_is_ai_craft": true
+        }
+      ]
+    },
+    "dev": {
+      "http": {
+        "loopback_core": {
+          "http": 200,
+          "content_type": "application/json; charset=utf-8",
+          "health": {
+            "status": "ok",
+            "configured": true,
+            "version": "dev-20261113-1002",
+            "core_version": "dev-20261113-1002",
+            "deployment_env": "dev",
+            "install_status": "installed"
+          }
+        },
+        "loopback_web": {
+          "http": 200,
+          "content_type": "text/html;charset=utf-8"
+        },
+        "public_core": {
+          "http": 200,
+          "content_type": "application/json; charset=utf-8",
+          "health": {
+            "status": "ok",
+            "configured": true,
+            "version": "dev-20261113-1002",
+            "core_version": "dev-20261113-1002",
+            "deployment_env": "dev",
+            "install_status": "installed"
+          }
+        },
+        "public_web": {
+          "http": 200,
+          "content_type": "text/html;charset=utf-8"
+        }
+      },
+      "plugin": {
+        "version": "0.1.78",
+        "revision": "10a3cd4f-429d-46a7-8693-e54b44e0c419",
+        "state": "enabled",
+        "migration": {
+          "last_status": "success",
+          "executed_at": "2026-11-13T02:35:08.124278656Z"
+        },
+        "health": {
+          "http": 200,
+          "content_type": "application/json"
+        }
+      },
+      "services": {
+        "powerx-dev-backend": {
+          "Result": "success",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Fri 2026-11-13 10:31:49 CST",
+          "ExecMainStatus": "0",
+          "ActiveState": "active",
+          "SubState": "running",
+          "UnitFileState": "enabled",
+          "observe_only": null
+        },
+        "powerx-dev-web-admin": {
+          "Result": "success",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "Fri 2026-11-13 10:31:49 CST",
+          "ExecMainStatus": "0",
+          "ActiveState": "active",
+          "SubState": "running",
+          "UnitFileState": "enabled",
+          "observe_only": null
+        },
+        "powerx-dev-runner": {
+          "Result": "exec-condition",
+          "NRestarts": "0",
+          "ExecMainStartTimestamp": "n/a",
+          "ExecMainStatus": "0",
+          "ActiveState": "inactive",
+          "SubState": "dead",
+          "UnitFileState": "enabled",
+          "observe_only": null
+        }
+      },
+      "database": {
+        "kind": "database",
+        "name": "powerx_dev",
+        "bytes": 5631728663,
+        "read_only": "on"
+      },
+      "largest_tables": [
+        {
+          "kind": "table",
+          "name": "public.capability_registry_invocation_traces",
+          "bytes": 3334045696,
+          "heap_bytes": 2469158912,
+          "dead_estimate": 162639,
+          "live_estimate": 1966470,
+          "last_autovacuum": "2026-11-13T10:17:04.88799+08:00"
+        },
+        {
+          "kind": "table",
+          "name": "public.capability_registry_event_publications",
+          "bytes": 2153037824,
+          "heap_bytes": 1547452416,
+          "dead_estimate": 53813,
+          "live_estimate": 1911843,
+          "last_autovacuum": "2026-11-13T12:28:37.947192+08:00"
+        }
+      ],
+      "samples": [
+        {
+          "kind": "sample",
+          "slot": "2026-11-13T01:35:00+08:00",
+          "tables": 68,
+          "database": {
+            "database_bytes": 3980672023,
+            "table_fingerprint": "e08766afa38041ce2616cfff37240f4ad62c1a1f3a7058070a293e90754c2b00"
+          },
+          "resources": 5,
+          "created_at": "2026-11-13T01:37:14.272366+08:00",
+          "filesystem": {
+            "id": "kernel-fsid:a50353a1:6eb01c98",
+            "view": "process_filesystem",
+            "state": "observed",
+            "used_bytes": 105152757760,
+            "total_bytes": 126424895488,
+            "reserved_bytes": 5368516608,
+            "available_bytes": 15903621120
+          }
+        },
+        {
+          "kind": "sample",
+          "slot": "2026-11-13T13:30:00+08:00",
+          "tables": 68,
+          "database": {
+            "database_bytes": 5629279255,
+            "table_fingerprint": "e08766afa38041ce2616cfff37240f4ad62c1a1f3a7058070a293e90754c2b00"
+          },
+          "resources": 5,
+          "created_at": "2026-11-13T13:31:51.748097+08:00",
+          "filesystem": {
+            "id": "kernel-fsid:a50353a1:6eb01c98",
+            "view": "process_filesystem",
+            "state": "observed",
+            "used_bytes": 107500806144,
+            "total_bytes": 126424895488,
+            "reserved_bytes": 5368516608,
+            "available_bytes": 13555572736
+          }
+        }
+      ],
+      "sample_window_growth_bytes": 1648607232,
+      "installation_status_counts": [
+        {
+          "kind": "task_counts",
+          "count": 2,
+          "oldest": "2026-11-12T23:05:24.828213+08:00",
+          "status": "succeeded"
+        }
+      ],
+      "latest_installation": {
+        "kind": "installation",
+        "phase": "completed",
+        "status": "succeeded",
+        "task_id": "10a3cd4f-429d-46a7-8693-e54b44e0c419",
+        "version": "0.1.78",
+        "revision": 11,
+        "plugin_id": "com.powerx.plugins.ai-craft",
+        "created_at": "2026-11-13T10:32:59.765744+08:00",
+        "error_code": "",
+        "updated_at": "2026-11-13T10:35:24.436308+08:00",
+        "completed_at": "2026-11-13T10:35:24.436287+08:00",
+        "source_bytes": 247273942
+      },
+      "storage_flags": {
+        "sampling_enabled": true,
+        "postgres_enabled": true,
+        "lifecycle_enabled": true,
+        "admission_enabled": false,
+        "allow_enforce": false,
+        "manage_native_retention": false,
+        "advanced_operations_enabled": false
+      },
+      "recent_queue_call_profile": [
+        {
+          "kind": "consume_profile",
+          "last": "2026-11-13T13:36:43.661187+08:00",
+          "count": 3572,
+          "first": "2026-11-13T13:30:45.761181+08:00",
+          "operation": "dequeue",
+          "subscriber_id": "ai_craft.wecom.work.v1",
+          "wait_timeout_ms": 50,
+          "caller_is_ai_craft": true
+        },
+        {
+          "kind": "consume_profile",
+          "last": "2026-11-13T13:36:43.68208+08:00",
+          "count": 1229,
+          "first": "2026-11-13T13:30:45.732533+08:00",
+          "operation": "dequeue",
+          "subscriber_id": "ai_craft.shopify_webhook_worker.v1",
+          "wait_timeout_ms": 250,
+          "caller_is_ai_craft": true
+        },
+        {
+          "kind": "consume_profile",
+          "last": "2026-11-13T13:36:43.080642+08:00",
+          "count": 176,
+          "first": "2026-11-13T13:30:45.781346+08:00",
+          "operation": "dequeue",
+          "subscriber_id": "ai_craft.llm_job_worker",
+          "wait_timeout_ms": 2000,
+          "caller_is_ai_craft": true
+        }
+      ]
+    }
+  },
+  "monitor_units": {
+    "powerx-transition-capacity.timer": {
+      "NextElapseUSecRealtime": "",
+      "LastTriggerUSec": "Fri 2026-11-13 13:32:35 CST",
+      "Result": "success",
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled",
+      "observe_only": null
+    },
+    "powerx-transition-capacity.service": {
+      "Result": "success",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Fri 2026-11-13 13:32:35 CST",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "UnitFileState": "static",
+      "observe_only": true,
+      "receipts": []
+    },
+    "powerx-space-guard.timer": {
+      "NextElapseUSecRealtime": "",
+      "LastTriggerUSec": "Fri 2026-11-13 13:28:15 CST",
+      "Result": "success",
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled",
+      "observe_only": null
+    },
+    "powerx-space-guard.service": {
+      "Result": "success",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Fri 2026-11-13 13:28:15 CST",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "UnitFileState": "static",
+      "observe_only": null,
+      "receipts": []
+    },
+    "powerx-disk-daily.timer": {
+      "NextElapseUSecRealtime": "Sat 2026-11-14 00:05:00 CST",
+      "LastTriggerUSec": "Fri 2026-11-13 00:05:00 CST",
+      "Result": "success",
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled",
+      "observe_only": null
+    },
+    "powerx-disk-daily.service": {
+      "Result": "success",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Fri 2026-11-13 00:05:00 CST",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "SubState": "dead",
+      "UnitFileState": "static",
+      "observe_only": null,
+      "receipts": []
+    },
+    "powerx-baseline-retention.timer": {
+      "NextElapseUSecRealtime": "",
+      "LastTriggerUSec": "Fri 2026-11-13 13:32:15 CST",
+      "Result": "success",
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled",
+      "observe_only": null
+    },
+    "powerx-baseline-retention.service": {
+      "Result": "exit-code",
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Fri 2026-11-13 13:32:15 CST",
+      "ExecMainStatus": "1",
+      "ActiveState": "failed",
+      "SubState": "failed",
+      "UnitFileState": "static",
+      "observe_only": null
+    }
+  },
+  "directory_accounting": [
+    {
+      "requested_path": "/var/lib/postgresql",
+      "measurements": [
+        {
+          "bytes": 20480,
+          "path": "/var/lib/postgresql"
+        }
+      ],
+      "complete": false,
+      "unreadable_or_missing_entries": 1
+    },
+    {
+      "requested_path": "/var/log",
+      "measurements": [
+        {
+          "bytes": 2546065408,
+          "path": "/var/log"
+        }
+      ],
+      "complete": false,
+      "unreadable_or_missing_entries": 8
+    },
+    {
+      "requested_path": "/var/lib/docker",
+      "measurements": [
+        {
+          "bytes": 4096,
+          "path": "/var/lib/docker"
+        }
+      ],
+      "complete": false,
+      "unreadable_or_missing_entries": 1
+    },
+    {
+      "requested_path": "/var/lib/loki",
+      "measurements": [
+        {
+          "bytes": 4096,
+          "path": "/var/lib/loki"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/opt/powerx/storage",
+      "measurements": [
+        {
+          "bytes": 9121841152,
+          "path": "/opt/powerx/storage/system-snapshots"
+        },
+        {
+          "bytes": 2955685888,
+          "path": "/opt/powerx/storage/archives"
+        },
+        {
+          "bytes": 7798841344,
+          "path": "/opt/powerx/storage/backups"
+        },
+        {
+          "bytes": 20098396160,
+          "path": "/opt/powerx/storage"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/opt/powerx-dev/storage",
+      "measurements": [
+        {
+          "bytes": 729448448,
+          "path": "/opt/powerx-dev/storage"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/opt/powerx/releases",
+      "measurements": [
+        {
+          "bytes": 1136648192,
+          "path": "/opt/powerx/releases"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/opt/powerx-dev/releases",
+      "measurements": [
+        {
+          "bytes": 769286144,
+          "path": "/opt/powerx-dev/releases"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/home/ubuntu/.cache/go-build",
+      "measurements": [
+        {
+          "bytes": 2575605760,
+          "path": "/home/ubuntu/.cache/go-build"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/home/ubuntu/go/pkg/mod",
+      "measurements": [
+        {
+          "bytes": 920494080,
+          "path": "/home/ubuntu/go/pkg/mod"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/home/ubuntu/.vscode-server",
+      "measurements": [
+        {
+          "bytes": 3107807232,
+          "path": "/home/ubuntu/.vscode-server"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/var/tmp/powerx-disk-relief-20261028",
+      "measurements": [
+        {
+          "bytes": 4096,
+          "path": "/var/tmp/powerx-disk-relief-20261028"
+        }
+      ],
+      "complete": false,
+      "unreadable_or_missing_entries": 1
+    },
+    {
+      "requested_path": "/home/ubuntu/workspace/PowerX",
+      "measurements": [
+        {
+          "bytes": 1951268864,
+          "path": "/home/ubuntu/workspace/PowerX"
+        }
+      ],
+      "complete": true,
+      "unreadable_or_missing_entries": 0
+    },
+    {
+      "requested_path": "/var/loki",
+      "measurements": [
+        {
+          "bytes": 3377319936,
+          "path": "/var/loki"
+        }
+      ],
+      "complete": false,
+      "note": "Parent du had permission-denied entries; this is observed allocated usage only."
+    }
+  ],
+  "findings": [
+    {
+      "status": "healthy",
+      "finding": "Prod/dev Core, Web and plugin health probes succeeded. Latest plugin tasks and migration hooks succeeded; no queued/running installations at observation."
+    },
+    {
+      "status": "attention",
+      "owner": "AI Craft consumer configuration and Core audit/retention",
+      "finding": "Over 99 percent of each latest 5000-call sample is TaskQueue consume. AI Craft WeCom requests 50ms waits, Shopify requests 250ms waits, LLM requests 2000ms. Each invocation creates Core audit and notification rows. Notification sample is unrouted.",
+      "boundary": "Messages are redacted in audit copies, so an empty dequeue is not established from the stored payload; no business queue was consumed for this audit."
+    },
+    {
+      "status": "attention",
+      "finding": "Dev database grew 1648607232 bytes in the sampled 01:35–13:30 interval; prod grew 188080128 bytes in 01:35–13:25. Logical allocation and live estimates do not prove filesystem reclamation."
+    },
+    {
+      "status": "observation_only",
+      "finding": "Core sampling persists fresh 68-table/5-resource samples in both environments. Enforcement, admission and native-retention takeover flags remain false. Legacy baseline-retention service is failed."
+    },
+    {
+      "status": "running",
+      "finding": "Temporary capacity and file guard timers are active and their latest services exited 0. Daily timer remains enabled with next run at 2026-11-14 00:05 CST.",
+      "boundary": "Current root-only notification receipts and retention failure logs are unreadable to ubuntu; new Feishu delivery and exact current retention failure reason were not verified."
+    },
+    {
+      "status": "limited_read_access",
+      "finding": "PostgreSQL directory, root-only archive and some logs are not readable through du. Database sizes are authoritative SQL allocation measurements; directory totals are not added to their children or SQL database totals."
+    },
+    {
+      "status": "next",
+      "finding": "Prioritize reducing plugin consumer request frequency with the formal blocking TaskBus contract, then preview and explicitly approve Core retention/enforcement before any cleanup or backup/snapshot resumption. Do not bypass guards or delete recovery copies."
+    }
+  ]
+}

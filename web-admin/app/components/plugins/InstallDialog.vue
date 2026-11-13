@@ -35,7 +35,7 @@
           </div>
         </div>
 
-        <PluginInstallTaskProgress v-if="showTask && currentSession.task" :task="currentSession.task" :connection="currentSession.connection" :busy="installing || checkingRecovery" :error="recoveryError"
+        <PluginInstallTaskProgress v-if="showTask && currentSession.task" :task="currentSession.task" :connection="currentSession.connection" :busy="installing || checkingRecovery || currentSession.cancellingUpload" :uploading="installing && currentSession.task.status === 'awaiting_upload'" :cancelling="currentSession.cancellingUpload" :error="recoveryError"
           @check="checkTask()" @upload="currentSession.taskVisible = false" @discard="discardTask" @retry="reviewTask" @recover="recoverTask" @done="completeTask" @close="close" />
         <details v-if="!showTask && !recovery && recentTasks.length" class="my-3 rounded-lg border border-[var(--border-color)] p-3 text-sm">
           <summary>{{ t('plugins.installTask.recent') }}</summary>
@@ -363,6 +363,9 @@ interface InstallSession {
   recoveryError: string;
   checkingRecovery: boolean;
   controller?: AbortController;
+  uploadDone?: Promise<void>;
+  cancellingUpload: boolean;
+  cancelController?: AbortController;
   owner: string;
   creatingDrain: boolean;
   drainRequired: boolean;
@@ -383,7 +386,7 @@ function sessionFor(plugin?: MarketplacePlugin): InstallSession {
   let session = sessions.get(key);
   if (!session) {
     session = reactive({ key: ++sessionSequence, state: createInstallForm(), plugin: plugin ? { ...plugin } : undefined, providerBindingConfirmed: false,
-      creationUncertain: false, taskVisible: true, connection: 'idle', installing: false, recoveryError: '', checkingRecovery: false, owner: '', creatingDrain: false,
+      creationUncertain: false, taskVisible: true, connection: 'idle', installing: false, cancellingUpload: false, recoveryError: '', checkingRecovery: false, owner: '', creatingDrain: false,
       drainRequired: false, drainCreated: false, drainPluginId: '' });
     sessions.set(key, session);
   } else if (!session.recovery) session.plugin = plugin ? { ...plugin } : undefined;
@@ -406,7 +409,8 @@ const drainRequired = sessionField('drainRequired');
 const drainCreated = sessionField('drainCreated');
 const drainPluginId = sessionField('drainPluginId');
 let disposed = false;
-const identityEvent = () => { for (const session of sessions.values()) { if (session.owner && session.owner !== installOwner()) { session.stopTask?.(); session.stopTask = undefined; session.controller?.abort(); session.task = undefined; session.taskInput = undefined; session.requestID = undefined; session.creationUncertain = false; session.state = createInstallForm(); session.recoveryError = t('plugins.installRecovery.sessionChanged'); } }; recentTasks.value = []; };
+function abortSessionRequests(session: InstallSession) { session.controller?.abort(); session.cancelController?.abort(); }
+const identityEvent = () => { for (const session of sessions.values()) { if (session.owner && session.owner !== installOwner()) { session.stopTask?.(); session.stopTask = undefined; abortSessionRequests(session); session.task = undefined; session.taskInput = undefined; session.requestID = undefined; session.creationUncertain = false; session.state = createInstallForm(); session.recoveryError = t('plugins.installRecovery.sessionChanged'); } }; recentTasks.value = []; };
 onMounted(() => window.addEventListener(AUTH_SESSION_EVENT, identityEvent));
 onBeforeUnmount(() => window.removeEventListener(AUTH_SESSION_EVENT, identityEvent));
 const installOwner = () => `${userStore.user?.id || ''}:${userStore.currentTenantUuid || ''}:${readAuthSession()?.sessionId || ''}`;
@@ -416,7 +420,7 @@ watch(installOwner, (owner) => {
   recentTasks.value = [];
   for (const session of sessions.values()) {
     if (session.owner && session.owner !== owner) {
-      session.stopTask?.(); session.stopTask = undefined; session.controller?.abort(); session.task = undefined; session.taskInput = undefined; session.requestID = undefined; session.creationUncertain = false; session.state = createInstallForm(); session.recoveryError = t('plugins.installRecovery.sessionChanged');
+      session.stopTask?.(); session.stopTask = undefined; abortSessionRequests(session); session.task = undefined; session.taskInput = undefined; session.requestID = undefined; session.creationUncertain = false; session.state = createInstallForm(); session.recoveryError = t('plugins.installRecovery.sessionChanged');
     }
     if (session.recovery && session.owner !== owner) {
       session.controller?.abort();
@@ -426,15 +430,15 @@ watch(installOwner, (owner) => {
   }
 });
 watch(() => [props.plugin?.id, props.plugin?.version], () => {
-  currentSession.value.controller?.abort(); currentSession.value.stopTask?.(); currentSession.value.stopTask = undefined;
+  abortSessionRequests(currentSession.value); currentSession.value.stopTask?.(); currentSession.value.stopTask = undefined;
   currentSession.value = sessionFor(props.plugin);
   if (props.modelValue) void loadTasks();
 });
 watch(() => props.modelValue, visible => {
-  if (!visible) { currentSession.value.controller?.abort(); currentSession.value.stopTask?.(); currentSession.value.stopTask = undefined; }
+  if (!visible) { abortSessionRequests(currentSession.value); currentSession.value.stopTask?.(); currentSession.value.stopTask = undefined; }
   else void loadTasks();
 });
-onBeforeUnmount(() => { disposed = true; for (const session of sessions.values()) { session.controller?.abort(); session.stopTask?.(); } });
+onBeforeUnmount(() => { disposed = true; for (const session of sessions.values()) { abortSessionRequests(session); session.stopTask?.(); } });
 
 function clearRecovery() { recovery.value = undefined; recoveryError.value = ''; }
 function viewInstalled() { close(); void router.push('/plugins/local'); }
@@ -560,14 +564,15 @@ function buildInstallMetadataPayload(form = state.value) {
   };
 }
 
-async function buildLocalInstallFormData(files: File[], directoryName: string) {
+async function buildLocalInstallFormData(files: File[], directoryName: string, signal?: AbortSignal) {
+  signal?.throwIfAborted();
   const formData = new FormData();
   const shouldPackage =
     files.length >= multipartDirectoryPackageThreshold &&
     typeof (globalThis as any).CompressionStream === "function";
 
   if (shouldPackage) {
-    const archive = await createTarGzFromFiles(files, directoryName);
+    const archive = await createTarGzFromFiles(files, directoryName, signal);
     const name = safeArchiveName(directoryName || "plugin-upload");
     formData.append("file", archive, `${name}.tar.gz`);
     return formData;
@@ -591,7 +596,8 @@ function safeArchiveName(name: string) {
   return cleaned || "plugin-upload";
 }
 
-async function createTarGzFromFiles(files: File[], directoryName: string) {
+async function createTarGzFromFiles(files: File[], directoryName: string, signal?: AbortSignal) {
+  signal?.throwIfAborted();
   const chunks: BlobPart[] = [];
   const archivePaths = archiveRelativePaths(files);
   for (const file of files) {
@@ -607,8 +613,9 @@ async function createTarGzFromFiles(files: File[], directoryName: string) {
 
   const tarBlob = new Blob(chunks, { type: "application/x-tar" });
   const CompressionStreamCtor = (globalThis as any).CompressionStream;
-  const compressed = tarBlob.stream().pipeThrough(new CompressionStreamCtor("gzip"));
+  const compressed = tarBlob.stream().pipeThrough(new CompressionStreamCtor("gzip"), { signal });
   const gzipBlob = await new Response(compressed).blob();
+  signal?.throwIfAborted();
   return new File([gzipBlob], `${safeArchiveName(directoryName || "plugin-upload")}.tar.gz`, {
     type: "application/gzip",
   });
@@ -744,11 +751,13 @@ function notifyMenuRefresh() {
 
 async function confirmInstall() {
   const session = currentSession.value, form = session.state;
-  if (session.installing || session.recovery || (session.task && session.task.status !== 'awaiting_upload')) return;
+  if (session.installing || session.cancellingUpload || session.recovery || (session.task && session.task.status !== 'awaiting_upload')) return;
   if (session.replacementPreview && (!form.forceInstall || (session.replacementPreview.requires_provider_confirmation && !session.providerBindingConfirmed))) return;
   session.installing = true; session.recoveryError = ''; session.owner = installOwner();
   const owner = session.owner;
   session.controller?.abort(); const controller = new AbortController(); session.controller = controller;
+  let finishUpload!: () => void;
+  const uploadDone = new Promise<void>(resolve => { finishUpload = resolve; }); session.uploadDone = uploadDone;
   try {
     const { useAdminPluginsService } = await import('~/composables/api/services/adminPluginsService');
     const svc = useAdminPluginsService();
@@ -771,11 +780,11 @@ async function confirmInstall() {
     session.taskVisible = true;
     if (session.task.status === 'awaiting_upload') {
       if (session.task.plugin_id !== target?.id || session.task.version !== target?.version) throw new Error(t('plugins.installTask.sourceMismatch'));
-      const body = await buildLocalInstallFormData(form.localDirFiles, form.localDirName);
+      const body = await buildLocalInstallFormData(form.localDirFiles, form.localDirName, controller.signal);
       if (controller.signal.aborted || owner !== installOwner()) return;
       const uploaded = await svc.uploadInstallation(session.task.task_id, body, controller.signal);
-      if (owner !== installOwner()) return;
-      session.task = uploaded;
+      if (controller.signal.aborted || session.cancellingUpload || owner !== installOwner()) return;
+      applyTask(session, uploaded);
     }
     if (!disposed && props.modelValue && currentSession.value === session) followTask(session);
   } catch (error: any) {
@@ -785,8 +794,12 @@ async function confirmInstall() {
       else session.creationUncertain = true;
     }
     if (owner === installOwner() && !controller.signal.aborted) session.recoveryError = error?.message || t('plugins.installTask.requestFailed');
-    if (session.task && !disposed && props.modelValue && currentSession.value === session) followTask(session);
-  } finally { session.installing = false; }
+    if (session.task && !session.cancellingUpload && !disposed && props.modelValue && currentSession.value === session) followTask(session);
+  } finally {
+    if (session.controller === controller) session.installing = false;
+    finishUpload();
+    if (session.uploadDone === uploadDone) session.uploadDone = undefined;
+  }
 }
 
 function applyTask(session: InstallSession, next: PluginInstallTask) {
@@ -804,7 +817,7 @@ function followTask(session = currentSession.value) {
   }, value => { if (session === currentSession.value && session.owner === installOwner()) session.connection = value; });
 }
 async function checkTask(session = currentSession.value) {
-  if (!session.task || session.checkingRecovery || session.owner !== installOwner()) return;
+  if (!session.task || session.checkingRecovery || session.cancellingUpload || session.owner !== installOwner()) return;
   session.checkingRecovery = true; session.recoveryError = '';
   try { const next = await useAdminPluginsService().getInstallationTask(session.task.task_id); applyTask(session, next); followTask(session); }
   catch (error: any) { if (session.owner === installOwner()) session.recoveryError = error?.message || t('plugins.installTask.requestFailed'); }
@@ -827,9 +840,32 @@ async function loadTasks() {
   } catch (error: any) { if (owner === installOwner()) session.recoveryError = error?.message || t('plugins.installTask.requestFailed'); }
 }
 async function discardTask() {
-  const session = currentSession.value; if (!session.task || session.task.status !== 'awaiting_upload') return;
-  try { applyTask(session, await useAdminPluginsService().discardInstallationSource(session.task.task_id)); }
-  catch (error: any) { session.recoveryError = error?.message || t('plugins.installTask.requestFailed'); }
+  const session = currentSession.value;
+  if (!session.task || session.task.status !== 'awaiting_upload' || session.cancellingUpload || session.owner !== installOwner()) return;
+  const id = session.task.task_id, owner = session.owner, uploadDone = session.uploadDone;
+  const controller = new AbortController(); session.cancelController = controller;
+  session.cancellingUpload = true; session.recoveryError = '';
+  session.stopTask?.(); session.stopTask = undefined;
+  session.controller?.abort();
+  const active = () => !disposed && !controller.signal.aborted && owner === installOwner() && session.task?.task_id === id;
+  const reconcile = (next: PluginInstallTask) => {
+    if (!active()) return;
+    applyTask(session, next);
+    session.recoveryError = session.task?.status === 'cancelled' ? '' : t(session.task?.status === 'awaiting_upload' ? 'plugins.installTask.cancelUnconfirmed' : 'plugins.installTask.cancelTooLate');
+  };
+  try {
+    await uploadDone;
+    if (!active()) return;
+    reconcile(await useAdminPluginsService().discardInstallationSource(id, controller.signal));
+  } catch {
+    if (!active()) return;
+    // Reconcile this explicit cancellation once; never poll task status.
+    try { reconcile(await useAdminPluginsService().getInstallationTask(id, controller.signal)); }
+    catch { if (active()) session.recoveryError = t('plugins.installTask.cancelUnconfirmed'); }
+  } finally {
+    if (session.cancelController === controller) { session.cancellingUpload = false; session.cancelController = undefined; }
+    if (active() && props.modelValue && currentSession.value === session) followTask(session);
+  }
 }
 function reviewTask() {
   const session = currentSession.value, task = session.task; if (!task || !['failed','cancelled'].includes(task.status)) return;

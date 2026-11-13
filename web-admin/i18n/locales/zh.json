@@ -5479,6 +5479,12 @@
       }
     },
     "installTask": {
+      "uploadingTitle": "正在准备并上传安装包",
+      "uploadingDescription": "安装包正在准备或上传，后台安装尚未开始。可以取消上传；仅在服务器确认后显示已取消。",
+      "cancellingTitle": "正在取消上传",
+      "cancellingDescription": "正在中断上传并核对服务器回执。请等待确认，不要重复提交安装。",
+      "cancelUnconfirmed": "暂时无法确认取消结果。请核对同一任务，不要重新创建安装。",
+      "cancelTooLate": "任务已结束或进入安装执行阶段，未将其改为取消。请继续查看本任务的实际结果。",
       "creationUnknown": "创建请求需要核对",
       "creationUnknownDescription": "暂时无法确认 Core 是否已收到创建请求。已保留原设置，继续操作会使用同一请求编号找回或完成原任务，不会提交第二个安装。",
       "continueRequest": "核对并继续原请求",
