@@ -158,7 +158,7 @@ func NewCurrentRuntime(ctx context.Context, cfg *config.Config, configFile strin
 	if err = snapshots.WriteCoordinatorJSON(filepath.Join(directory, "installation.json"), spec); err != nil {
 		return nil, err
 	}
-	if err = snapshots.WriteCoordinatorJSON(file+".recovery.json", map[string]string{"protocol": CurrentRecoveryProtocol, "config_file": file, "directory": directory}); err != nil {
+	if err = saveCurrentPointer(file, directory); err != nil {
 		return nil, err
 	}
 	if err = service.SaveCoordinatorSource(source); err != nil {
