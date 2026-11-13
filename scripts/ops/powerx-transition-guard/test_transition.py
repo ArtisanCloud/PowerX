@@ -11,6 +11,47 @@ import verify_recovery
 
 
 class TransitionTests(unittest.TestCase):
+    def test_upgraded_observation_never_calls_legacy_mutations_and_preserves_ownership(self):
+        with tempfile.TemporaryDirectory() as root:
+            state = Path(root)
+            prior = {'owned_pauses': {'prod-backup': 'preserved-marker'},
+                     'pending_verification': True, 'notification_at': 0}
+            (state/'capacity-latest.json').write_text(json.dumps(prior))
+            fs = {'available_bytes': 7*capacity.GIB, 'used_ratio': .91}
+            with patch.object(capacity, 'STATE', state), \
+                    patch.object(capacity, 'legacy_runtime', return_value=False) as legacy, \
+                    patch.object(capacity, 'filesystem', return_value=fs), \
+                    patch.object(capacity, 'runtime_health', return_value=({'healthy': True}, 123)), \
+                    patch.object(capacity, 'retention_status', return_value={'service_result': 'exit-code'}), \
+                    patch.object(capacity, 'policies') as policies, \
+                    patch.object(capacity, 'set_enabled') as mutate, \
+                    patch.object(capacity, 'send_personal', return_value={'status': 'api_accepted'}) as send:
+                first = capacity.observe(True)
+                second = capacity.observe(True)
+            legacy.assert_not_called()
+            policies.assert_not_called()
+            mutate.assert_not_called()
+            send.assert_called_once()
+            self.assertEqual(first['severity'], 'critical')
+            self.assertEqual(second['owned_pauses'], prior['owned_pauses'])
+            self.assertTrue(second['pending_verification'])
+            self.assertFalse(second['handoff_complete'])
+            self.assertFalse(second['automatic_cleanup_active'])
+            self.assertEqual(json.loads((state/'capacity-latest.json').read_text())['owned_pauses'], prior['owned_pauses'])
+
+    def test_observation_preview_does_not_send_or_save(self):
+        with tempfile.TemporaryDirectory() as root:
+            state = Path(root)
+            with patch.object(capacity, 'STATE', state), \
+                    patch.object(capacity, 'filesystem', return_value={'available_bytes': 30*capacity.GIB, 'used_ratio': .5}), \
+                    patch.object(capacity, 'runtime_health', return_value=({'healthy': True}, 123)), \
+                    patch.object(capacity, 'retention_status', return_value={'state': 'idle'}), \
+                    patch.object(capacity, 'send_personal') as send:
+                result = capacity.observe(False)
+            self.assertEqual(result['severity'], 'ok')
+            send.assert_not_called()
+            self.assertFalse((state/'capacity-latest.json').exists())
+
     def test_peak_headroom_pauses_and_resume_has_hysteresis(self):
         g = capacity.GIB
         self.assertEqual(capacity.decision(16*g, 5*g, False), 'pause')

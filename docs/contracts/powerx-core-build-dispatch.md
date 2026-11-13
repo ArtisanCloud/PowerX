@@ -8,7 +8,7 @@
 
 源码实现和本地受控测试已完成；最终工作流提交以本次发布 PR 的合并 SHA 为准。
 尚未在 GitHub 上执行新工作流，本地验证不能替代实际 Actions 和镜像验收。
-本机 Docker daemon 不可用；真实双架构升级、数据保留及恢复需在隔离 CI 验收。
+本机 Docker daemon 尚未用于本轮验证；真实双架构升级、数据保留及恢复需在隔离 CI 验收。
 固定工作流提交应取最终包含本修复的 commit，不能将开发前 HEAD 或文件摘要当作已发布提交。
 
 ## 1. 正式入口
@@ -46,10 +46,10 @@ ref 使用 GitHub 调度请求自身的字段，不重复放入 inputs：
       }
     }
 
-新入口必须先进入 GitHub 默认分支及实际调度的受支持 ref，再由 XDocker 启用。
-不能向尚未升级的旧工作流发送这些 inputs。原 push 入口保留，按 release
-规范化，生成 push- 加 run_id 的请求 ID。因此推送到受支持分支可能触发自动发行，
-首次联调的提交/推送流程需由维护者明确控制，不能把推送当作无外部写入的验证。
+默认分支必须保留 workflow_dispatch 入口；新版定义必须先进入实际调度的受支持 ref，再由 XDocker 启用。
+不能向尚未升级的旧工作流发送这些 inputs。首次引入阶段，push 入口固定按 verify 规范化，生成 push- 加 run_id 的请求 ID。
+首次合入只运行只读检查和回执，不会登录/写入 Registry，也不会创建 Release。
+build/release 只接受显式调度。将来恢复自动发行，须另行冻结分支、条件和开关并补齐验收。
 
 ## 2. 模式、权限和产物
 
@@ -78,8 +78,8 @@ build 是明确允许写临时 Registry 的候选模式，不等于完全无外�
 请求指纹为以下规范化 JSON（排序键、无空白、UTF-8）的 SHA-256：
 request_id、expected_source_sha、build_mode、完整 refs/heads/... ref。
 
-- 同 ID、同指纹：读取先前运行的 request artifact，返回 status=duplicate 与
-  duplicate_of.run_id/attempt/input_sha256，不再次构建。
+- 同 ID、同指纹：依据已确认的处理归属记录和终态回执，返回 status=duplicate 与
+  duplicate_of.run_id/attempt/input_sha256，不再次构建；run ID 大小不表示实际执行顺序。
 - 同 ID、不同指纹：BUILD_REQUEST_ID_CONFLICT。
 - 历史请求证据缺失、过期、损坏或不能确认归属：阻断，不自动再次执行。
 - 同请求组串行，不取消进行中的旧运行。GitHub concurrency 不是请求账本或无限 FIFO；
@@ -90,6 +90,27 @@ request_id、expected_source_sha、build_mode、完整 refs/heads/... ref。
   各 attempt 的上下文、镜像、报告和回执分开保存。
 - 仅重新运行失败 jobs 不保证上游证据同属新 attempt；缺失时明确失败，
   不混用旧证据。首期使用 Re-run all jobs。
+
+### 处理归属和乱序执行
+
+preflight 在现有同请求串行机制内先确认处理归属，再上传独立的
+powerx-request-decision-RUN-ATTEMPT artifact，内容为 request-decision.json。
+仅归属上传成功且整个 preflight 成功后，checks 和镜像 job 才能执行。
+[处理记录 Schema](powerx-build-decision.schema.json) 使用 powerx.build-decision/v1；
+powerx.build-receipt/v1 的字段和 Schema 保持不变，回执通过既有 artifacts 引用该记录及摘要。
+
+- 输入 context 只证明收到参数，不等同于处理归属。
+- 首次 attempt 尚未开始任何 job、没有处理记录的排队运行不占用归属；后到的 run 101
+  可以先处理，run 100 随后应关联已确认的 101，不再次构建。
+- 已开始、已完成或已进入重跑却缺少处理记录/回执时，状态为未确认，阻断重放。
+- 处理记录、context、最终回执及文件校验和必须对应同一 run/attempt、指纹、源码和定义。
+- 多个独立 owner、duplicate 指向 duplicate、循环、自引用和跨 attempt 冒用均拒绝。
+- duplicate 直接指向真正 owner。原 owner 显式重跑时，可创建自己的新 attempt；其他运行
+  使用经完整核验的 owner 最新 attempt，若该 attempt 仍排队或证据不全则阻断，不能退回旧结果。
+- 缺少新处理记录的旧生产者回执不能作为本轮归属证据，不自动重放其历史请求。
+
+images 在自己的 Runner 显式安装 PyYAML 并验证 smoke/upgrade_smoke 导入；preflight
+在自己的 Runner 显式安装 jsonschema。smoke.py 使用 main 入口，导入不触发 Setup、数据库或 Docker 操作。
 
 最终回执 job 使用 always() 尽力执行；Runner 故障、排队取消或强制终止仍可能没有回执。
 XDocker 结合 GitHub 最终 conclusion 和阶段 artifact 恢复观察；缺回执或状态不明时
@@ -115,7 +136,7 @@ XDocker 结合 GitHub 最终 conclusion 和阶段 artifact 恢复观察；缺回
 
 最终 artifact：powerx-build-receipt- 加 run_id、attempt。
 内容为 powerx-build-receipt.json 和同名 .sha256。
-request、phase、pair、report、bundle、publication artifact 同样隔离 run/attempt。
+request、decision、phase、pair、report、bundle、publication artifact 同样隔离 run/attempt。
 
 回执包含输入和指纹、预期/实际 SHA、模式和通道；工作流路径/ref/SHA/文件摘要；
 run ID 和 attempt；阶段结果、受控错误码、工具版本、Action refs、构建 metadata/provenance；
@@ -138,6 +159,19 @@ XDocker 对齐步骤：
 原有消费者使用的 Build backend、Build web admin、空库 smoke、双架构升级和 bundle
 发布步骤名称保持。新回执适配由 XDocker 单独完成，Core 不修改其 Ready 标志，
 不放宽现有 head_sha、通道和升级证据检查。
+
+### 模式的必需 jobs 和允许跳过项
+
+| 结果/模式 | 必需 jobs | 允许跳过 |
+|---|---|---|
+| verify（包括 push） | preflight、checks、build-receipt | images、installed-upgrade、upgrade-metadata、bundle-release |
+| build | preflight、checks、images、installed-upgrade、upgrade-metadata、build-receipt | bundle-release |
+| release | 上述全部，加 bundle-release | 无业务门禁可跳过 |
+| duplicate | preflight、build-receipt，且已核验原处理归属 | checks、images、installed-upgrade、upgrade-metadata、bundle-release |
+
+build/release 的 installed-upgrade 必须同时包含 linux/amd64 与 linux/arm64，两个平台均需
+完成原有旧实例升级、数据保留和 restore_rollback。任一必需 job 失败、取消或缺证据都不可部署。
+首次真实联调只运行 verify 和 build，各用不同 request_id、同一完整源码 SHA；不运行 release。
 
 ## 6. 样例与验收
 
@@ -169,3 +203,20 @@ restore_required 继续要求匹配数据库、配置原密钥、运行文件及
 | deploy/powerx/container/release_publish.py | 草稿准备、不可覆盖上传、tag/资产回查 |
 | deploy/powerx/container/upgrade_release.py | 既有升级合同；正式流水线要求双平台报告 |
 | docs/contracts/powerx-build-receipt.schema.json | 独立、严格 v1 回执结构 |
+
+
+## 7. 本轮补齐与远端交付顺序（2026-11-12）
+
+本轮修复 images 独立安装 PyYAML、乱序归属判定及 push 默认 verify；没有修改
+powerx.build-receipt/v1 的 Schema。新增独立 decision Schema，明确收到输入与已处理归属的区别。
+本地隔离 venv 验证先复现缺 yaml，再仅安装 PyYAML 6.0.3，成功导入 smoke/upgrade_smoke；
+导入不调用 Docker、Setup 或数据库。64 项本地测试、actionlint 和工作流 Shell 语法检查通过。
+
+只读远端核对：默认分支 release/v1.0.0 已有 dispatch 入口；develop 是合同允许的目标 ref。
+当前工作分支 024-ai-engineering-skills 不能冒充已接入版本。远端 develop 已领先本轮开发基线，
+发布前须重新核对最新头部，只合入本轮限定文件，不能强推或带入其他任务的改动。
+
+经明确批准发布后，交回实际 develop 完整 SHA、该提交内工作流 SHA256、回执 Schema 摘要，
+以及 verify/build 的真实 run ID、attempt、request_id、回执 artifact、成对镜像 digest、
+amd64/arm64 升级报告。两次模式使用不同 ID，绑定同一完整 SHA；不执行 release，不更新 SaaS。
+缺少发布或真实 CI 证据时，第 4、5 项保持未完成，不能用本地数字替代。

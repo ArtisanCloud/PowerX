@@ -1,0 +1,166 @@
+{
+  "contract": "powerx.production_followup_validation.v1",
+  "checked_at": "2026-11-13T00:53:40.942225+08:00",
+  "target": {
+    "host": "47.116.10.200",
+    "environment": "prod",
+    "version": "prod-20261112-2311",
+    "core_commit": "1643f69268c17f013bd25cacda72422544cc4e89",
+    "database": "powerx_pro"
+  },
+  "server_scope": {
+    "P1": {
+      "completed": true,
+      "published_capabilities": 5,
+      "existing_apikey_grants_unchanged": true
+    },
+    "P2": {
+      "completed": true,
+      "historical_acl_added": 12,
+      "installed_topics": 13,
+      "matching_bindings": 13,
+      "plugin_publish_grants": 13,
+      "enqueue_allowed": true,
+      "consume_allowed": true,
+      "observed_consume_requests_without_errors": 4768,
+      "business_completion_not_asserted": true
+    },
+    "P3": {
+      "completed": true,
+      "scope_assets": 123,
+      "tasks": 123,
+      "task_statuses": {
+        "completed": 123
+      },
+      "failures": [],
+      "verified_originals": 123,
+      "original_bytes": 150781068,
+      "verified_derivatives": 369,
+      "derivative_bytes": 31494658,
+      "pending_generation": false,
+      "success": true,
+      "plugin_projection": {
+        "success": true,
+        "images": 127,
+        "ready_images": 127,
+        "source_fields_preserved": true,
+        "failures": []
+      }
+    },
+    "P4": {
+      "completed": true,
+      "status": "FACTORY_DUPLICATE_REMOVED",
+      "count": 1,
+      "before_bindings": 6,
+      "after_bindings": 5,
+      "removed_id": 1,
+      "keeper_id": 2,
+      "keeper_and_unrelated_unchanged": true,
+      "business_unchanged": true,
+      "remaining_numeric_candidates": 0,
+      "remaining_blocked": 0,
+      "business_comparison_scope": "during_factory_repair_only"
+    },
+    "P5": {
+      "completed_observation": true,
+      "automatic_samples": 12,
+      "table_count": 68,
+      "resource_count": 5,
+      "latest_sample_slot": "2026-11-13T00:50:00+08:00",
+      "temporary_monitor_exit_code": 0,
+      "daily_0005_exit_code": 0,
+      "initial_notification_api_status": "api_accepted",
+      "new_notification_user_receipt_verified": false
+    },
+    "P6": {
+      "completed": true,
+      "backend_port": 8080,
+      "web_port": 3000,
+      "core_and_web_running": true,
+      "core_and_web_unexpected_restarts": 0,
+      "runner_inactive_no_retry_loop": true
+    }
+  },
+  "plugin_installation": {
+    "version": "0.1.78",
+    "revision": "b81e14d2-b9c4-4d4b-ae41-544a334bf44d",
+    "performed_by": "user_root_ui",
+    "backend_sha256": "3bfebdb10dce85da30198a8f3d83b54e5e1a26df96d727d820982837a09d669d"
+  },
+  "space_relief": {
+    "action": "go_clean_build_cache",
+    "scope": "/home/ubuntu/.cache/go-build",
+    "rebuildable_only": true,
+    "started_at": 1794502168.773205,
+    "finished_at": 1794502169.2950597,
+    "owned_pid": 2782217,
+    "process_exited": true,
+    "exit_code": 0,
+    "free_before_bytes": 7409582080,
+    "free_after_bytes": 15729577984,
+    "cache_remaining_bytes": 12288,
+    "business_data_modified": false
+  },
+  "free_disk_bytes_at_check": 15697047552,
+  "database_growth": {
+    "from": "2026-11-12T23:55:00+08:00",
+    "to": "2026-11-13T00:50:00+08:00",
+    "bytes": 16769024,
+    "long_term_projection_asserted": false
+  },
+  "missing_asset_review": {
+    "batch_uuid": "2de9b1ea-d99e-46c9-98e5-a78acf457c82",
+    "missing_asset_uuid": "9e354cc9-3d5d-4641-879e-bf84691f4320",
+    "plugin_record_found": false,
+    "core_record_found": false,
+    "source_design_task_remaining": false,
+    "source_orders_remaining": 0,
+    "shared_asset_preserved": true,
+    "unknown_file_deleted": false,
+    "failure_record_preserved": true,
+    "recoverable_file_identity_available": false
+  },
+  "boundaries": {
+    "new_automatic_cleanup_enabled": false,
+    "old_executor_handoff_complete": false,
+    "ssh_oss_enabled": false,
+    "backups_snapshots_resumed": false,
+    "agent_restarted_daily_services": false,
+    "agent_deleted_business_orders": false,
+    "plugin_notice_fix_production_installed": false,
+    "plugin_notice_fix_real_browser_acceptance_pending": true
+  },
+  "tests": {
+    "temporary_guard": 12,
+    "storage_configuration": 11,
+    "startup": 8,
+    "bash_syntax": "passed",
+    "python_compile": "passed",
+    "capability_check": "passed",
+    "scope": "ops_changes_and_targeted_contracts",
+    "guard_test_resource_warning": "existing_lock_file_resource_warning_observed"
+  },
+  "owned_cli_cleanup": {
+    "active": [],
+    "uploaded_completed_binaries_removed": 2,
+    "removed_bytes": 96839851,
+    "private_recovery_receipts_retained": true
+  },
+  "source_sha256": {
+    "scripts/ops/powerx-transition-guard/capacity.py": "1f8c8091916404c29e608322b46885a2a2f1f423c904681f2e4d173e253a4609",
+    "scripts/ops/powerx-transition-guard/test_transition.py": "1f19a1177ac15656dff82570d237db6e95d3367c8c71ff781fb18c874f67ac11",
+    "backend/scripts/ops/configure-production-storage.py": "aa9d7bb3fadf13b36c2d802191ecb27a408bdbe94679d25f61a9b56c503d0724",
+    "backend/scripts/ops/test_production_storage.py": "54c43ab43559f3be46fc1df13b723400f0b98709e5d3a40d5b767bde092e9920",
+    "backend/scripts/ops/start-production-web-admin.sh": "d7091393399a78ff7cce2ce4468e903256ac06c49616d301c5bd0bef57f44338",
+    "backend/scripts/ops/test_production_startup.py": "941cb94e1686c872e171768dc2134b633d26e4e1e4e1e4ce6cb83efa1e5b5500"
+  },
+  "source_commit_status": "uncommitted_current_branch_unrelated_work_preserved",
+  "last_read_only_recheck": {
+    "checked_at": "2026-11-13T01:02:16.036448+08:00",
+    "samples": 14,
+    "latest_slot": "2026-11-13T01:00:00+08:00",
+    "free_disk_bytes": 15809769472,
+    "core_web_unexpected_restarts": 0,
+    "temporary_monitor_exit_code": 0
+  }
+}

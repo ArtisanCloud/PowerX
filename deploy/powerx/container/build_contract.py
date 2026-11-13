@@ -90,7 +90,7 @@ def prepare(event, env, actual_sha):
     else:
         require(event.get("ref") == run["ref"] and event.get("after") == run["head_sha"],
                 "BUILD_PUSH_IDENTITY_INVALID")
-        request_id, expected, mode = "push-" + str(run["run_id"]), run["head_sha"], "release"
+        request_id, expected, mode = "push-" + str(run["run_id"]), run["head_sha"], "verify"
     require(isinstance(request_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{7,127}", request_id),
             "BUILD_REQUEST_ID_INVALID")
     require(isinstance(expected, str) and upgrade_release.SHA.fullmatch(expected), "BUILD_EXPECTED_SHA_INVALID")
@@ -180,45 +180,182 @@ class GitHub:
             return loads(response.read(2**20))
 
 
-def deduplicate(request, github):
+def validate_schema(value, filename, error_code):
+    import jsonschema
+    try:
+        jsonschema.validate(value, read(ROOT / "docs/contracts" / filename))
+    except (jsonschema.ValidationError, jsonschema.SchemaError):
+        raise ValueError(error_code) from None
+
+
+def decision_record(request, duplicate=None):
     validate_request(request)
-    if request["request_id"].startswith("push-") and request["request_id"] == "push-" + str(request["run"]["run_id"]):
+    return {"schema_version": "powerx.build-decision/v1", "request_id": request["request_id"],
+            "input_sha256": request["input_sha256"], "run": request["run"],
+            "decision": "duplicate" if duplicate else "owner",
+            "owner": duplicate or {"run_id": request["run"]["run_id"], "attempt": request["run"]["attempt"],
+                                   "input_sha256": request["input_sha256"]}}
+
+
+def validate_decision(value, request):
+    validate_schema(value, "powerx-build-decision.schema.json", "BUILD_DECISION_INVALID")
+    require(value["run"] == request["run"] and value["request_id"] == request["request_id"] and
+            value["input_sha256"] == request["input_sha256"] == value["owner"]["input_sha256"],
+            "BUILD_DECISION_REQUEST_MISMATCH")
+    if value["decision"] == "owner":
+        require(value == decision_record(request), "BUILD_DECISION_OWNER_INVALID")
+    else:
+        require(value["owner"]["run_id"] != request["run"]["run_id"], "BUILD_DUPLICATE_CHAIN_INVALID")
+    return value
+
+
+class RequestEvidence:
+    """只读核对处理记录；run ID 的大小和列表顺序都不代表实际归属。"""
+    def __init__(self, request, github):
+        self.current, self.github = request, github
+        self.latest_cache, self.attempt_cache, self.artifact_cache, self.processed_cache = {}, {}, {}, {}
+
+    def metadata(self, run_id, attempt=None):
+        cache = self.latest_cache if attempt is None else self.attempt_cache
+        key = run_id if attempt is None else (run_id, attempt)
+        if key not in cache:
+            path = "/repos/" + REPOSITORY + "/actions/runs/" + str(run_id)
+            if attempt is not None:
+                path += "/attempts/" + str(attempt)
+            value = self.github.request(path)
+            require(isinstance(value, dict) and value.get("id") == run_id and
+                    type(value.get("run_attempt")) is int and value["run_attempt"] > 0 and
+                    (attempt is None or value["run_attempt"] == attempt) and
+                    value.get("event") == "workflow_dispatch" and
+                    value.get("path", "").split("@")[0] == WORKFLOW and
+                    value.get("repository", {}).get("full_name") == REPOSITORY,
+                    "BUILD_PREVIOUS_RUN_INVALID")
+            cache[key] = value
+        return cache[key]
+
+    def artifact(self, meta, prefix, filename, optional=False, checksum=False):
+        run_id, attempt = meta["id"], meta["run_attempt"]
+        if run_id not in self.artifact_cache:
+            self.artifact_cache[run_id] = self.github.pages(
+                "/repos/" + REPOSITORY + "/actions/runs/" + str(run_id) + "/artifacts", "artifacts")
+        name = prefix + "-" + str(run_id) + "-" + str(attempt)
+        matches = [item for item in self.artifact_cache[run_id] if item.get("name") == name]
+        if not matches and optional:
+            return None
+        require(len(matches) == 1 and not matches[0].get("expired"), "BUILD_PREVIOUS_EVIDENCE_UNCONFIRMED")
+        item = matches[0]
+        require(type(item.get("id")) is int and item["id"] > 0, "BUILD_PREVIOUS_ARTIFACT_INVALID")
+        raw = self.github.request("/repos/" + REPOSITORY + "/actions/artifacts/" + str(item["id"]) + "/zip",
+                                  accept="application/octet-stream", limit=4 * 2**20)
+        require(isinstance(raw, bytes) and len(raw) <= 4 * 2**20, "BUILD_PREVIOUS_ARTIFACT_INVALID")
+        if item.get("digest"):
+            require(item["digest"] == "sha256:" + digest(raw), "BUILD_PREVIOUS_ARTIFACT_DIGEST_MISMATCH")
+        expected = {filename, filename + ".sha256"} if checksum else {filename}
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                require(len(archive.namelist()) == len(expected) and set(archive.namelist()) == expected and
+                        sum(info.file_size for info in archive.infolist()) <= 4 * 2**20,
+                        "BUILD_PREVIOUS_ARTIFACT_INVALID")
+                content = archive.read(filename)
+                if checksum:
+                    require(archive.read(filename + ".sha256").decode().strip() == digest(content) + "  " + filename,
+                            "BUILD_PREVIOUS_RECEIPT_CHECKSUM_MISMATCH")
+        except (zipfile.BadZipFile, UnicodeDecodeError):
+            raise ValueError("BUILD_PREVIOUS_ARTIFACT_INVALID") from None
+        return {"value": loads(content), "artifact": name, "path": filename,
+                "sha256": digest(content), "size": len(content)}
+
+    def unstarted(self, meta, record):
+        if record is not None or meta["run_attempt"] != 1 or meta.get("status") not in {
+                "queued", "requested", "waiting", "pending", "in_progress"}:
+            return False
+        jobs = self.github.pages("/repos/" + REPOSITORY + "/actions/runs/" + str(meta["id"]) +
+            "/attempts/1/jobs", "jobs")
+        return all(job.get("status") in {"queued", "requested", "waiting", "pending"} and
+                   not job.get("started_at") and not job.get("conclusion") for job in jobs)
+
+    def processed(self, meta):
+        key = (meta["id"], meta["run_attempt"])
+        if key in self.processed_cache:
+            return self.processed_cache[key]
+        record = self.artifact(meta, "powerx-request-decision", "request-decision.json", optional=True)
+        if self.unstarted(meta, record):
+            return None
+        require(meta.get("status") == "completed" and meta.get("conclusion") is not None and record is not None,
+                "BUILD_PREVIOUS_RESULT_UNCONFIRMED")
+        context = self.artifact(meta, "powerx-build-request", "request-context.json")
+        previous = validate_request(context["value"])
+        require(previous["run"]["run_id"] == meta["id"] and previous["run"]["attempt"] == meta["run_attempt"] and
+                previous["actual_source_sha"] == meta.get("head_sha") and
+                previous["ref"] == "refs/heads/" + str(meta.get("head_branch")) and
+                previous["request_id"] == self.current["request_id"], "BUILD_PREVIOUS_RUN_INVALID")
+        value = validate_decision(record["value"], previous)
+        require(previous["input_sha256"] == self.current["input_sha256"], "BUILD_REQUEST_ID_CONFLICT")
+        require(previous["definition_sha256"] == self.current["definition_sha256"],
+                "BUILD_PREVIOUS_DEFINITION_MISMATCH")
+        receipt = self.artifact(meta, "powerx-build-receipt", "powerx-build-receipt.json", checksum=True)["value"]
+        validate_schema(receipt, "powerx-build-receipt.schema.json", "BUILD_PREVIOUS_RECEIPT_INVALID")
+        require(receipt["request"] == previous and receipt["run"] == previous["run"] and
+                receipt["definition_sha256"] == previous["definition_sha256"], "BUILD_PREVIOUS_RECEIPT_MISMATCH")
+        for proof in (context, record):
+            reference = {key: proof[key] for key in ("artifact", "path", "sha256", "size")}
+            require(receipt["artifacts"].count(reference) == 1, "BUILD_PREVIOUS_RECEIPT_MISMATCH")
+        accepted_conclusions = {"succeeded": {"success"}, "duplicate": {"success"},
+                                "failed": {"failure", "timed_out", "startup_failure", "action_required"},
+                                "cancelled": {"cancelled", "failure"}}
+        require(meta["conclusion"] in accepted_conclusions.get(receipt["status"], set()),
+                "BUILD_PREVIOUS_RESULT_UNCONFIRMED")
+        if value["decision"] == "duplicate":
+            require(receipt["status"] == "duplicate" and receipt["duplicate_of"] == value["owner"],
+                    "BUILD_DUPLICATE_CHAIN_INVALID")
+        else:
+            require(receipt["status"] != "duplicate" and receipt["duplicate_of"] is None,
+                    "BUILD_DUPLICATE_CHAIN_INVALID")
+        self.processed_cache[key] = value
+        return value
+
+    def owner(self, value):
+        owner = value["owner"]
+        if value["decision"] == "duplicate":
+            original = self.processed(self.metadata(owner["run_id"], owner["attempt"]))
+            require(original is not None and original["decision"] == "owner" and original["owner"] == owner,
+                    "BUILD_DUPLICATE_CHAIN_INVALID")
+        if owner["run_id"] == self.current["run"]["run_id"]:
+            # 显式 Re-run all jobs 可创建当前 run 的新 attempt；旧 duplicate
+            # 不得让原处理者反过来认领自己，或把旧 attempt 混入本次证据。
+            require(owner["attempt"] < self.current["run"]["attempt"], "BUILD_DUPLICATE_CHAIN_INVALID")
+            return None
+        latest = self.metadata(owner["run_id"])
+        require(latest["run_attempt"] >= owner["attempt"], "BUILD_PREVIOUS_RUN_INVALID")
+        if latest["run_attempt"] != owner["attempt"]:
+            current_owner = self.processed(latest)
+            require(current_owner is not None and current_owner["decision"] == "owner",
+                    "BUILD_PREVIOUS_RESULT_UNCONFIRMED")
+            owner = current_owner["owner"]
+        return owner
+
+
+def deduplicate(request, github, event_name="workflow_dispatch"):
+    validate_request(request)
+    if event_name == "push":
+        require(request["request_id"] == "push-" + str(request["run"]["run_id"]) and
+                request["build_mode"] == "verify", "BUILD_PUSH_IDENTITY_INVALID")
         return None
+    require(event_name == "workflow_dispatch", "BUILD_EVENT_UNSUPPORTED")
     prefix = "PowerX request=" + request["request_id"] + " "
     runs = github.pages("/repos/" + REPOSITORY + "/actions/workflows/publish-container.yml/runs?event=workflow_dispatch",
                         "workflow_runs")
-    older = sorted((run for run in runs if isinstance(run.get("id"), int) and
-                    run["id"] < request["run"]["run_id"] and run.get("display_title", "").startswith(prefix)),
-                   key=lambda run: run["id"])
-    if not older:
-        return None
-    run = older[0]
-    require(run.get("path", "").split("@")[0] == WORKFLOW and
-            run.get("repository", {}).get("full_name") == REPOSITORY, "BUILD_PREVIOUS_RUN_INVALID")
-    attempt = run.get("run_attempt")
-    require(isinstance(attempt, int) and attempt > 0, "BUILD_PREVIOUS_RUN_INVALID")
-    name = "powerx-build-request-" + str(run["id"]) + "-" + str(attempt)
-    artifacts = github.pages("/repos/" + REPOSITORY + "/actions/runs/" + str(run["id"]) + "/artifacts", "artifacts")
-    matches = [artifact for artifact in artifacts if artifact.get("name") == name and not artifact.get("expired")]
-    require(len(matches) == 1, "BUILD_PREVIOUS_REQUEST_UNCONFIRMED")
-    artifact = matches[0]
-    raw = github.request("/repos/" + REPOSITORY + "/actions/artifacts/" + str(int(artifact["id"])) + "/zip",
-                         accept="application/octet-stream", limit=2**20)
-    require(isinstance(raw, bytes), "BUILD_PREVIOUS_REQUEST_UNCONFIRMED")
-    if artifact.get("digest"):
-        require(artifact["digest"] == "sha256:" + digest(raw), "BUILD_PREVIOUS_ARTIFACT_DIGEST_MISMATCH")
-    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-        require(archive.namelist() == ["request-context.json"], "BUILD_PREVIOUS_ARTIFACT_INVALID")
-        info = archive.getinfo("request-context.json")
-        require(info.file_size <= 65536, "BUILD_PREVIOUS_ARTIFACT_INVALID")
-        previous = validate_request(loads(archive.read(info)))
-    require(previous["run"]["run_id"] == run["id"] and previous["run"]["attempt"] == attempt and
-            previous["actual_source_sha"] == run.get("head_sha") and
-            previous["run"]["ref"] == "refs/heads/" + str(run.get("head_branch")),
-            "BUILD_PREVIOUS_RUN_INVALID")
-    require(previous["request_id"] == request["request_id"], "BUILD_PREVIOUS_REQUEST_UNCONFIRMED")
-    require(previous["input_sha256"] == request["input_sha256"], "BUILD_REQUEST_ID_CONFLICT")
-    return {"run_id": run["id"], "attempt": attempt, "input_sha256": previous["input_sha256"]}
+    peers = [run for run in runs if type(run.get("id")) is int and
+             run["id"] != request["run"]["run_id"] and run.get("display_title", "").startswith(prefix)]
+    reader, owners = RequestEvidence(request, github), {}
+    for peer in sorted(peers, key=lambda run: run["id"]):
+        value = reader.processed(reader.metadata(peer["id"]))
+        if value is not None:
+            owner = reader.owner(value)
+            if owner is not None:
+                owners[(owner["run_id"], owner["attempt"])] = owner
+    require(len(owners) <= 1, "BUILD_REQUEST_OWNERSHIP_CONFLICT")
+    return next(iter(owners.values()), None)
 
 
 def tool_versions():
@@ -321,6 +458,12 @@ def make_receipt(evidence_root, env, jobs):
         if path.is_file():
             receipt["artifacts"].append(file_reference(path, root, request))
     duplicate = jobs.get("preflight", {}).get("outputs", {}).get("duplicate_of", "")
+    decisions = list(root.rglob("request-decision.json"))
+    require(len(decisions) <= 1, "BUILD_DECISION_EVIDENCE_DUPLICATE")
+    if jobs.get("preflight", {}).get("result") == "success":
+        require(len(decisions) == 1, "BUILD_DECISION_EVIDENCE_MISSING")
+        expected = decision_record(request, loads(duplicate) if duplicate else None)
+        require(validate_decision(read(decisions[0]), request) == expected, "BUILD_DECISION_REQUEST_MISMATCH")
     if duplicate:
         require(jobs["preflight"]["result"] == "success", "BUILD_DUPLICATE_UNCONFIRMED")
         receipt["duplicate_of"] = loads(duplicate)
@@ -419,6 +562,7 @@ def main():
     prepare_parser.add_argument("--output", required=True)
     dedup_parser = commands.add_parser("deduplicate")
     dedup_parser.add_argument("--request", required=True)
+    dedup_parser.add_argument("--output", required=True)
     phase = commands.add_parser("phase")
     phase.add_argument("--name", required=True)
     phase.add_argument("--result", required=True)
@@ -442,7 +586,9 @@ def main():
                         "request_id": result["request_id"], "build_time": result["build_time"],
                         "version": ("dev-" if result["channel"] == "development" else "release-") + actual[:12]})
     elif args.command == "deduplicate":
-        duplicate = deduplicate(read(args.request), GitHub(os.environ.get("GH_TOKEN")))
+        request = read(args.request)
+        duplicate = deduplicate(request, GitHub(os.environ.get("GH_TOKEN")), os.environ["GITHUB_EVENT_NAME"])
+        write(args.output, decision_record(request, duplicate))
         github_outputs({"fresh": "false" if duplicate else "true",
                         "duplicate_of": canonical(duplicate).decode() if duplicate else ""})
     elif args.command == "phase":

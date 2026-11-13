@@ -1,5 +1,5 @@
 name: Publish PowerX Container Distribution
-run-name: PowerX request=${{ inputs.request_id || format('push-{0}', github.run_id) }} mode=${{ inputs.build_mode || 'release' }} sha=${{ inputs.expected_source_sha || github.sha }}
+run-name: PowerX request=${{ inputs.request_id || format('push-{0}', github.run_id) }} mode=${{ inputs.build_mode || 'verify' }} sha=${{ inputs.expected_source_sha || github.sha }}
 on:
   push:
     branches: [develop, main, master]
@@ -55,6 +55,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - name: Install request-evidence validator
+        run: python3 -m pip install jsonschema
       - name: Validate request and exact checkout identity
         id: request
         run: python3 deploy/powerx/container/build_contract.py prepare --output request-context.json
@@ -67,7 +69,13 @@ jobs:
         id: claim
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 deploy/powerx/container/build_contract.py deduplicate --request request-context.json
+        run: python3 deploy/powerx/container/build_contract.py deduplicate --request request-context.json --output request-decision.json
+      - name: Commit request processing decision before allowing build jobs
+        uses: actions/upload-artifact@v6
+        with:
+          name: powerx-request-decision-${{ github.run_id }}-${{ github.run_attempt }}
+          path: request-decision.json
+          if-no-files-found: error
       - name: Record phase evidence
         if: always()
         env:
@@ -167,6 +175,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - name: Install smoke-test dependencies
+        run: python3 -m pip install PyYAML
+      - name: Verify smoke-test imports on this runner
+        working-directory: deploy/powerx/container
+        run: python3 -c 'import smoke, upgrade_smoke'
       - name: Recheck source before registry writes
         run: python3 deploy/powerx/container/build_contract.py prepare --output request-check.json
       - uses: docker/login-action@v4

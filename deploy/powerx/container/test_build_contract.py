@@ -40,6 +40,7 @@ def scenario(root, mode="build"):
         return target
 
     store("powerx-build-request", "request-context.json", ctx)
+    store("powerx-request-decision", "request-decision.json", contract.decision_record(ctx))
     jobs = {name: {"result": "success" if name in ("preflight", "checks") else "skipped"}
             for name in ("preflight", "checks", "images", "installed-upgrade", "upgrade-metadata", "bundle-release")}
     phases = ["preflight", "checks"]
@@ -119,7 +120,7 @@ class RequestTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, error):
                     contract.prepare(event, env, actual)
 
-    def test_push_is_explicit_release_and_rerun_keeps_request_identity(self):
+    def test_push_is_verify_and_rerun_keeps_request_identity(self):
         env = environment()
         env["GITHUB_EVENT_NAME"] = "push"
         event = {"ref": env["GITHUB_REF"], "after": env["GITHUB_SHA"]}
@@ -128,7 +129,7 @@ class RequestTests(unittest.TestCase):
         retry = contract.prepare(event, env, env["GITHUB_SHA"])
         self.assertEqual(original["input_sha256"], retry["input_sha256"])
         self.assertNotEqual(original["run"]["attempt"], retry["run"]["attempt"])
-        self.assertEqual(retry["build_mode"], "release")
+        self.assertEqual(retry["build_mode"], "verify")
 
     def test_unknown_json_and_request_fields_rejected(self):
         with self.assertRaisesRegex(ValueError, "BUILD_DUPLICATE_JSON_KEY"):
@@ -156,39 +157,6 @@ class RequestTests(unittest.TestCase):
         with patch.object(api, "request", return_value={"total_count": 2, "artifacts": [{"id": 1}]}):
             with self.assertRaisesRegex(ValueError, "BUILD_GITHUB_LIST_INCOMPLETE"):
                 api.pages("/repos/ArtisanCloud/PowerX/actions/runs/1/artifacts", "artifacts")
-
-
-class DuplicateTests(unittest.TestCase):
-    def fake_api(self, previous):
-        class API:
-            def pages(self, path, field):
-                if field == "workflow_runs":
-                    return [{"id": 99, "display_title": "PowerX request=xdocker-request-0001 mode=build sha=" + "a" * 40,
-                             "path": contract.WORKFLOW, "repository": {"full_name": contract.REPOSITORY},
-                             "head_sha": "a" * 40, "head_branch": "develop", "run_attempt": 1}]
-                return [{"name": "powerx-build-request-99-1", "id": 1, "expired": False}]
-
-            def request(self, *args, **kwargs):
-                data = io.BytesIO()
-                with zipfile.ZipFile(data, "w") as archive:
-                    archive.writestr("request-context.json", json.dumps(previous))
-                return data.getvalue()
-        return API()
-
-    def test_same_request_links_existing_run_and_changed_payload_conflicts(self):
-        previous = request(env=environment(run=99))
-        api = self.fake_api(previous)
-        self.assertEqual(contract.deduplicate(request(), api)["run_id"], 99)
-        for mode in ("verify", "release"):
-            with self.assertRaisesRegex(ValueError, "BUILD_REQUEST_ID_CONFLICT"):
-                contract.deduplicate(request(mode), api)
-
-    def test_missing_or_expired_request_artifact_blocks_replay(self):
-        api = self.fake_api(request(env=environment(run=99)))
-        original = api.pages
-        api.pages = lambda path, field: [] if field == "artifacts" else original(path, field)
-        with self.assertRaisesRegex(ValueError, "BUILD_PREVIOUS_REQUEST_UNCONFIRMED"):
-            contract.deduplicate(request(), api)
 
 
 class ReceiptTests(unittest.TestCase):
@@ -221,6 +189,8 @@ class ReceiptTests(unittest.TestCase):
             env, jobs = scenario(Path(temp), "verify")
             jobs["preflight"]["outputs"] = {"duplicate_of": json.dumps(
                 {"run_id": 99, "attempt": 1, "input_sha256": request("verify")["input_sha256"]})}
+            contract.write(next(Path(temp).rglob("request-decision.json")), contract.decision_record(
+                request("verify"), contract.loads(jobs["preflight"]["outputs"]["duplicate_of"])))
             jobs["checks"]["result"] = "skipped"
             receipt = contract.make_receipt(temp, env, jobs)
             jsonschema.validate(receipt, self.schema())

@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://powerx.artisan-cloud.com/contracts/powerx-build-decision.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "powerx.build-decision/v1"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{7,127}$"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "run": {
+      "$ref": "#/$defs/run"
+    },
+    "decision": {
+      "enum": [
+        "owner",
+        "duplicate"
+      ]
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "input_sha256"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "request_id",
+    "input_sha256",
+    "run",
+    "decision",
+    "owner"
+  ],
+  "$defs": {
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "const": "ArtisanCloud/PowerX"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/publish-container.yml"
+        },
+        "workflow_ref": {
+          "type": "string",
+          "pattern": "^ArtisanCloud/PowerX/\\.github/workflows/publish-container\\.yml@refs/heads/(develop|main|master)$"
+        },
+        "workflow_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "head_sha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "ref": {
+          "enum": [
+            "refs/heads/develop",
+            "refs/heads/main",
+            "refs/heads/master"
+          ]
+        }
+      },
+      "required": [
+        "repository",
+        "workflow_path",
+        "workflow_ref",
+        "workflow_sha",
+        "run_id",
+        "attempt",
+        "head_sha",
+        "ref"
+      ]
+    }
+  }
+}

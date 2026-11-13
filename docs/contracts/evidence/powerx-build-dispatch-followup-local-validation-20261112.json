@@ -1,0 +1,49 @@
+{
+  "schema_version": "powerx.build-dispatch-followup-local-validation/v1",
+  "recorded_at": "2026-11-12T15:47:05.403847+00:00",
+  "base_head": "1965dd75e272458c454cb4e7d08f49f215d089b4",
+  "branch": "024-ai-engineering-skills",
+  "files": {
+    ".github/workflows/publish-container.yml": "c9618bb9adff98fa0358c97d1d75ab5087aa909a2ce287834c78637a93422216",
+    "deploy/powerx/container/build_contract.py": "27b1e82f146b1a1525a7136c63a31966313354d3a1f64a15354c1567cda89280",
+    "deploy/powerx/container/smoke.py": "d7fc25731da1ab92ab91668093c6f8c8493bf38b77d39d6186ec6fbd7e3836b3",
+    "deploy/powerx/container/test_build_contract.py": "dc03f7cb53ffbb0ac8eadaf430f6585ae73ee92e2854c0067dd6177b8de6c00a",
+    "deploy/powerx/container/test_build_request_claim.py": "b5b99f43fbeea9a082631e8dd6fe986db3ae3eda9b12fd41f15d5e3052f26725",
+    "deploy/powerx/container/test_publish_workflow.py": "a7e56a93e1da0452c80cc7c991f68dee3d553f6a541d4201d71ec17007b3c892",
+    "docs/contracts/powerx-core-build-dispatch.md": "983a61e60f99982cbdd3677de0bd7319ad8314d1d8b44d9cd871a23cb8dcc3db",
+    "docs/contracts/powerx-build-decision.schema.json": "77328addbc2b880e9293d96c021da9193e62bcbe3b22b422a3aab3a44571f63b"
+  },
+  "receipt_schema_version": "powerx.build-receipt/v1",
+  "receipt_schema_changed": false,
+  "receipt_schema_sha256": "188b33ea33985b25b57f1528a447207be08596f378de93fb895574ee8bfdbd34",
+  "unit_tests": {
+    "tests": 64,
+    "failed": 0,
+    "skipped": 0
+  },
+  "actionlint": "passed",
+  "shell_parse": "passed",
+  "clean_venv": {
+    "before_install": "yaml missing",
+    "installed": "PyYAML 6.0.3",
+    "after_install": "passive imports smoke and upgrade_smoke",
+    "cleaned": true,
+    "python": "3.13.5",
+    "jsonschema": "available"
+  },
+  "remote_observation": {
+    "default_branch": "release/v1.0.0",
+    "proposed_dispatch_ref": "develop",
+    "observed_develop_sha": "1643f69268c17f013bd25cacda72422544cc4e89",
+    "read_only": true
+  },
+  "fixed_workflow_commit": null,
+  "remote_ci_runs": [],
+  "registry_written": false,
+  "release_created": false,
+  "saas_updated": false,
+  "pending": [
+    "approved_ref_publication",
+    "real_verify_build_ci_acceptance"
+  ]
+}

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import FooterBar from "~/components/layout/FooterBar.vue";
 import { useAuth } from "~/composables/useAuth";
-import { LOGO_M_URL } from "~/utils/assets";
+import PowerXBrand from "~/components/brand/PowerXBrand.vue";
+import CoreVersionBadge from "~/components/brand/CoreVersionBadge.vue";
 
 definePageMeta({
   alias: ["/"], // 让 /home 这个页面同时匹配 "/"
@@ -289,14 +290,10 @@ onUnmounted(() => {
       <!-- 顶部Logo区域 -->
       <div class="flex justify-between items-center p-6 animate-fade-in">
         <!-- Logo -->
-        <div class="flex items-center space-x-3">
-          <img :src="LOGO_M_URL" alt="PowerX Logo" class="w-10 h-10" />
-          <h1
-            class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-          >
-            PowerX
-          </h1>
-        </div>
+        <NuxtLink :to="$localePath('/')" class="inline-flex flex-col items-start gap-0.5" aria-label="PowerX">
+          <PowerXBrand />
+          <CoreVersionBadge data-testid="home-version" />
+        </NuxtLink>
 
         <!-- 右侧区域：语言切换器、登录注册按钮或用户信息 -->
         <div class="flex items-center space-x-4">
@@ -444,16 +441,12 @@ onUnmounted(() => {
                     >
                       $ system --status
                     </div>
-                    <div
-                      class="text-gray-800 dark:text-white text-2xl md:text-4xl font-bold transition-colors duration-500"
+                    <h1
+                      class="flex flex-wrap items-center gap-3 text-gray-800 dark:text-white text-2xl md:text-4xl font-bold transition-colors duration-500"
                     >
                       {{ $t("welcome") }}
-                      <span
-                        class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-emerald-400 animate-gradient-x"
-                      >
-                        PowerX
-                      </span>
-                    </div>
+                      <PowerXBrand size="hero" />
+                    </h1>
                   </div>
 
                   <!-- 系统信息面板 -->
@@ -561,11 +554,7 @@ onUnmounted(() => {
                                     <div
                                       class="absolute inset-0 flex items-center justify-center"
                                     >
-                                      <img
-                                        :src="LOGO_M_URL"
-                                        alt="PowerX Logo"
-                                        class="w-40 h-40 drop-shadow-2xl filter brightness-110 hover:brightness-125 transition-all duration-300 animate-float-gentle"
-                                      />
+                                      <PowerXBrand compact size="hero" inverse class="drop-shadow-2xl animate-float-gentle" />
                                     </div>
                                   </div>
                                 </div>
