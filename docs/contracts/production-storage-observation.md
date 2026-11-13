@@ -12,7 +12,7 @@ PowerX 在 Core 生命周期内每五分钟采样磁盘、当前数据库、系�
 
 ## 正式配置入口
 
-`backend/scripts/ops/configure-production-storage.py` 默认只生成带原配置摘要的计划，拒绝 dev、非 PostgreSQL、非回环连接、错误的确认数据库，以及已有治理配置／运行目录。URL DSN 中的额外 host 覆盖同样拒绝。开发入口保持原有 prod 拒绝行为，不能拿 dev 计划改路径后应用。
+`backend/scripts/ops/configure-production-storage.py` 默认只生成带原配置摘要的计划，拒绝 dev、非 PostgreSQL、非回环连接、错误的确认数据库，以及已有治理配置／运行目录。URL DSN 查询参数中的 `host`、`hostaddr`、`dbname`、`database` 覆盖一律拒绝，包括空值和编码后的参数名；计划和应用都会重新检查，旧工具生成的有效签封也不能绕过。普通连接选项如 `sslmode`、`application_name` 保留。开发入口保持原有 prod 拒绝行为，不能拿 dev 计划改路径后应用。
 
 先核实真实主机、文件系统 UUID、`pg_control_system()` 的集群 ID 和实际 Core 服务用户，再从仓库根目录准备：
 

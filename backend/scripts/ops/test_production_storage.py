@@ -64,6 +64,55 @@ class ProductionStoragePlanTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'POSTGRES_REQUIRED'):
             self.plan()
 
+    def test_url_database_and_host_query_overrides_are_rejected(self):
+        queries = [
+            'dbname=powerx_dev', 'database=powerx_dev',
+            'db%6eame=powerx_dev', 'd%61tabase=powerx_dev',
+            'dbname=', 'database=', 'dbname', 'host=', 'hostaddr=',
+            'dbname=powerx_pro&dbname=powerx_dev',
+        ]
+        for scheme in ['postgres', 'postgresql']:
+            for query in queries:
+                with self.subTest(scheme=scheme, query=query):
+                    raw = yaml.safe_dump({'deployment': {'env': 'prod'}, 'database': {
+                        'dsn': f'{scheme}://fixture@127.0.0.1/powerx_pro?{query}'}}).encode()
+                    self.config.write_bytes(raw)
+                    with self.assertRaisesRegex(ValueError, 'STORAGE_PROD_DATABASE_SCOPE_MISMATCH'):
+                        self.plan()
+                    self.assertEqual(self.config.read_bytes(), raw)
+                    self.assertFalse((self.media/'storage-governance').exists())
+
+    def test_previous_url_override_plans_are_rejected_before_any_write(self):
+        for key in ['dbname', 'database']:
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                config, media, backup = root/'config.yaml', root/'storage', root/'before.yaml'
+                root.chmod(0o700)
+                config.write_bytes(self.original)
+                config.chmod(0o600)
+                media.mkdir()
+                plan = storage.make_plan(config, media, 'host-fixture', 'fs-fixture', 'pg-fixture', expected_database='powerx_pro')
+                raw = yaml.safe_dump({'deployment': {'env': 'prod'}, 'database': {
+                    'dsn': f'postgres://fixture@127.0.0.1/powerx_pro?{key}=powerx_dev'}}).encode()
+                config.write_bytes(raw)
+                # A valid old-tool plan binds these exact bytes but confirmed only the URL path.
+                plan['before_sha256'] = storage.sha(raw)
+                plan['seal'] = storage.sha(json.dumps({k: v for k, v in plan.items() if k != 'seal'}, sort_keys=True).encode())
+                with self.assertRaisesRegex(ValueError, 'STORAGE_PROD_DATABASE_SCOPE_MISMATCH'):
+                    storage.apply_plan(plan, backup)
+                self.assertEqual(config.read_bytes(), raw)
+                self.assertFalse(backup.exists())
+                self.assertFalse((media/'storage-governance').exists())
+
+    def test_confirmed_url_with_non_scope_options_still_applies(self):
+        raw = yaml.safe_dump({'deployment': {'env': 'prod'}, 'database': {
+            'dsn': 'postgresql://fixture@127.0.0.1/powerx_pro?sslmode=disable&application_name=fixture'}}).encode()
+        self.config.write_bytes(raw)
+        result = storage.apply_plan(self.plan(), self.backups/'before.yaml')
+        self.assertTrue(result['applied'])
+        self.assertEqual((self.backups/'before.yaml').read_bytes(), raw)
+        self.assertFalse(result['automatic_cleanup_enabled'])
+
     def test_changed_configuration_is_not_overwritten(self):
         plan = self.plan()
         changed = self.original+b'web_admin_port: 3000\n'

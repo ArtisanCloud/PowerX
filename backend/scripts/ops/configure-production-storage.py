@@ -40,8 +40,9 @@ def read_config(path, expected_database):
     if dsn.startswith(('postgres://', 'postgresql://')):
         parsed = urllib.parse.urlsplit(dsn)
         host, name = parsed.hostname, parsed.path.lstrip('/')
-        overrides = urllib.parse.parse_qs(parsed.query)
-        if 'host' in overrides or 'hostaddr' in overrides:
+        # pgx applies URL query settings after the host/path, including empty values.
+        overrides = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        if {'host', 'hostaddr', 'dbname', 'database'}.intersection(overrides):
             raise ValueError('STORAGE_PROD_DATABASE_SCOPE_MISMATCH')
     elif dsn:
         values = dict(part.split('=', 1) for part in shlex.split(dsn) if '=' in part)
