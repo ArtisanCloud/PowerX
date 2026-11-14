@@ -58,18 +58,14 @@ func CurrentBeforeConfig() (*CurrentRuntime, error) {
 		if err != nil {
 			return nil, err
 		}
-		var pointer map[string]string
-		if info, e := os.Lstat(file + ".recovery.json"); e == nil && (!info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0) {
-			return nil, errors.New("恢复启动指针必须是私有普通文件")
-		}
-		err = snapshots.ReadCoordinatorJSON(file+".recovery.json", &pointer)
+		pointer, err := loadCurrentPointer(file)
 		if errors.Is(err, os.ErrNotExist) {
 			if _, found := os.Stat(file); found == nil {
 				return nil, nil
 			}
 			continue
 		}
-		if err != nil || pointer["protocol"] != CurrentRecoveryProtocol || pointer["config_file"] != file {
+		if err != nil {
 			return nil, errors.New("当前恢复启动指针无效")
 		}
 		r, err := openCurrent(pointer["directory"])

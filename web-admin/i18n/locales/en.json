@@ -5214,6 +5214,12 @@
       }
     },
     "installTask": {
+      "uploadingTitle": "Preparing and uploading package",
+      "uploadingDescription": "The package is being prepared or uploaded; background installation has not started. Cancellation is shown only after server confirmation.",
+      "cancellingTitle": "Cancelling upload",
+      "cancellingDescription": "Stopping the upload and confirming the server receipt. Wait for confirmation; do not submit another installation.",
+      "cancelUnconfirmed": "Cancellation could not be confirmed. Check this same task instead of creating another installation.",
+      "cancelTooLate": "The task has finished or entered installation. It was not marked cancelled. Continue checking this task for its actual result.",
       "creationUnknown": "Creation request needs reconciliation",
       "creationUnknownDescription": "Core may have accepted this request. Original settings are preserved. Continue with the same request ID to recover or finish the original task without submitting a second installation.",
       "continueRequest": "Reconcile original request",

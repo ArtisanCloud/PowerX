@@ -1,0 +1,71 @@
+{
+  "checked_at": "2026-11-13T23:43:02+08:00",
+  "issue": "STORAGE_RECOVERY_ANCHOR_UNAVAILABLE",
+  "cause": "NewCurrentRuntime attempted to create an atomic startup pointer beside a configuration file in a root-owned, non-writable /etc directory; initialization returned before BindRecoveryAnchor",
+  "host": "47.116.10.200",
+  "observations": {
+    "service_uid": 1000,
+    "config_directory_owner": 0,
+    "config_directory_mode": "0755",
+    "startup_log_errno": 13,
+    "existing_recovery_protocol": "powerx.storage-recovery/v7",
+    "dev": {
+      "version": "dev-20261113-1002",
+      "health": "ok",
+      "policy_revision": 2,
+      "applied_revision": 2,
+      "policy_enabled": true,
+      "reject_new_when_full": false,
+      "adopt_legacy": false,
+      "cleanup_state": "failed"
+    },
+    "prod": {
+      "version": "prod-20261113-1002",
+      "health": "ok",
+      "policy_revision": 2,
+      "applied_revision": 2,
+      "policy_enabled": true,
+      "reject_new_when_full": false,
+      "adopt_legacy": false,
+      "cleanup_state": "failed"
+    },
+    "temporary_capacity_timer": "active",
+    "temporary_monitor_notification_status": "api_accepted",
+    "space_guard_timer": "active",
+    "daily_report_timer": "active"
+  },
+  "source_fix": {
+    "installed_pointer": "$POWERX_LINKS_ROOT/storage/recovery-bootstrap/<config-path-sha256-prefix24>.json",
+    "local_pointer_without_installation_root": "<config>.recovery.json",
+    "read_before_config": true,
+    "preserves_legacy_pointer": true,
+    "rejects_conflicting_or_damaged_pointers": true,
+    "existing_anchor_and_epoch_preserved": true,
+    "migration_required": false,
+    "etc_permissions_changed": false,
+    "guard_bypassed": false
+  },
+  "validation": {
+    "go_test_system_recovery": "passed",
+    "go_test_storage_recovery": "passed",
+    "go_vet_system_recovery": "passed",
+    "linux_amd64_test_binary": "compiled",
+    "host_isolated_tests": {
+      "uid": 1000,
+      "passed": [
+        "TestCurrentRuntimeReadOnlyConfigDirectoryKeepsExistingAnchor",
+        "TestCurrentPointerLegacyCompatibilityAndConflicts",
+        "TestCurrentPointerRejectsUnsafeDeploymentPaths"
+      ],
+      "temporary_fixture_removed": true,
+      "services_restarted": false,
+      "core_replaced": false
+    }
+  },
+  "acceptance": {
+    "source_fix": "implemented_and_isolated_tests_passed",
+    "deployed_fix": false,
+    "live_cleanup_acceptance": "pending_updated_Core_and_successful_preview_or_scheduled_cycle",
+    "operator_next_step": "publish the reviewed Core change, update and restart dev first, verify the original recovery anchor and successful cleanup cycle, then update prod; existing policy v2 remains in place"
+  }
+}

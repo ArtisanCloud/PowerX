@@ -62,8 +62,8 @@ export const useAdminPluginsService = () => {
       unwrap(await api.get(`${base}/installations/${encodeURIComponent(id)}`, { signal, useGlobalLoading: false, useGlobalError: false })),
     listInstallationTasks: async (signal?: AbortSignal): Promise<PluginInstallTask[]> =>
       unwrap(await api.get(`${base}/installations`, { signal, useGlobalLoading: false, useGlobalError: false })).items || [],
-    discardInstallationSource: async (id: string): Promise<PluginInstallTask> =>
-      unwrap(await api.delete(`${base}/installations/${encodeURIComponent(id)}/source`, { useGlobalLoading: false, useGlobalError: false })),
+    discardInstallationSource: async (id: string, signal?: AbortSignal): Promise<PluginInstallTask> =>
+      unwrap(await api.delete(`${base}/installations/${encodeURIComponent(id)}/source`, { signal, useGlobalLoading: false, useGlobalError: false })),
     installationEvents: (id: string, signal: AbortSignal) => api.stream(`${base}/installations/${encodeURIComponent(id)}/events`, signal),
     // 市场列表
     getMarketplace: async (): Promise<AdminPluginItem[]> => {

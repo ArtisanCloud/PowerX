@@ -6,12 +6,12 @@ import {randomUUID} from 'node:crypto';
 const webPort=39581,apiPort=39582;
 const dir=resolve('../tmp/plugin-install-tasks-20261112/browser');mkdirSync(dir,{recursive:true});
 const entry=resolve(process.env.POWERX_PLUGIN_INSTALL_UI_ENTRY || '../tmp/plugin-install-tasks-20261112/nuxt-product-output/server/index.mjs');
-const tenant='00000000-0000-4000-8000-000000000001';let task;const streams=new Set();const requests=[];const timers=new Set();
+const tenant='00000000-0000-4000-8000-000000000001';let task,mode='';const streams=new Set();const uploads=new Set();const requests=[];const timers=new Set();
 const json=(res,data,code=200)=>{res.writeHead(code,{'content-type':'application/json'});res.end(JSON.stringify({code,message:'success',data}));};
 const notify=()=>{for(const res of streams)res.write(`event: status\ndata: ${JSON.stringify(task)}\n\n`);};
 const server=createServer(async(req,res)=>{
- const path=new URL(req.url,'http://127.0.0.1').pathname;
- if(path==='/__fixture/reset'){for(const stream of streams)stream.end();streams.clear();task=undefined;requests.length=0;json(res,{});return;}
+ const url=new URL(req.url,'http://127.0.0.1'),path=url.pathname;
+ if(path==='/__fixture/reset'){for(const timer of timers)clearTimeout(timer);timers.clear();for(const stream of streams)stream.end();streams.clear();for(const upload of uploads)upload.end();uploads.clear();task=undefined;mode=url.searchParams.get('mode')||'';requests.length=0;json(res,{});return;}
  if(path==='/__fixture/status'){json(res,{task,requests,subscribers:streams.size});return;}
  if(path==='/__fixture/complete'){task={...task,status:'succeeded',phase:'completed',revision:task.revision+1};notify();json(res,{});return;}
  requests.push({method:req.method,path,at:Date.now()});
@@ -21,8 +21,14 @@ const server=createServer(async(req,res)=>{
  }
  if(path.endsWith('/installations')){json(res,{items:task?[task]:[]});return;}
  if(/\/installations\/[^/]+\/package$/.test(path)){
-   for await(const _chunk of req){};task={...task,status:'queued',phase:'queued',revision:2};json(res,task);
+   try{for await(const _chunk of req){}}catch{return;}
+   if(mode.startsWith('held')){uploads.add(res);res.once('close',()=>uploads.delete(res));return;}
+   task={...task,status:'queued',phase:'queued',revision:2};json(res,task);
    const timer=setTimeout(()=>{timers.delete(timer);task={...task,status:'running',phase:'activating',revision:3};notify();},100);timers.add(timer);return;
+ }
+ if(/\/installations\/[^/]+\/source$/.test(path)&&req.method==='DELETE'){
+   if(mode==='held-race'){task={...task,status:'running',phase:'migrating',revision:3};json(res,{error_code:'PLUGIN_INSTALL_TASK_ACTIVE'},409);return;}
+   task={...task,status:'cancelled',phase:'completed',revision:2};json(res,task);return;
  }
  if(/\/installations\/[^/]+\/events$/.test(path)){
    res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-store','x-accel-buffering':'no'});res.write(`event: status\ndata: ${JSON.stringify(task)}\n\n`);streams.add(res);res.once('close',()=>streams.delete(res));return;
@@ -40,5 +46,5 @@ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(a
 const child=spawn(process.execPath,[entry],{env:{...process.env,PORT:String(webPort),HOST:'127.0.0.1',POWERX_BACKEND:`http://127.0.0.1:${apiPort}`},stdio:'inherit'});
 writeFileSync(resolve(dir,'owned-processes.json'),JSON.stringify({owner:'Codex plugin install browser fixture',cwd:process.cwd(),processes:[{pid:process.pid,command:'node scripts/plugin-install-browser-fixture.mjs',port:apiPort},{pid:child.pid,command:`node ${entry}`,port:webPort}]},null,2));
 let closing=false;
-async function close(){if(closing)return;closing=true;for(const timer of timers)clearTimeout(timer);for(const res of streams)res.end();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));child.kill('SIGTERM');await new Promise(resolve=>{child.once('exit',resolve);setTimeout(()=>{child.kill('SIGKILL');resolve();},4000).unref();});writeFileSync(resolve(dir,'requests.json'),JSON.stringify(requests,null,2));process.exit(0);}
+async function close(){if(closing)return;closing=true;for(const timer of timers)clearTimeout(timer);for(const res of streams)res.end();for(const res of uploads)res.end();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));child.kill('SIGTERM');await new Promise(resolve=>{child.once('exit',resolve);setTimeout(()=>{child.kill('SIGKILL');resolve();},4000).unref();});writeFileSync(resolve(dir,'requests.json'),JSON.stringify(requests,null,2));process.exit(0);}
 process.on('SIGTERM',close);process.on('SIGINT',close);child.once('exit',()=>{if(!closing)void close();});

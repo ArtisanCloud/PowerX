@@ -1,0 +1,70 @@
+{
+  "contract": "powerx.plugin_upload_cancellation_validation.v1",
+  "checked_at": "2026-11-13T13:40:36.552597+08:00",
+  "source_sha256": {
+    "web-admin/app/components/plugins/InstallDialog.vue": "9b8e003f3fd1103329f31381855c35c26f79c50c3c67c036f4656e8853504217",
+    "web-admin/app/components/plugins/PluginInstallTaskProgress.vue": "1c99fca25a1a256c1678207bd10f0d688da629291be25ad976646a44f372936b",
+    "web-admin/app/composables/api/services/adminPluginsService.ts": "c815d7c1e32d63b8e6c93dd9e2dc0e5b7bf9c5e4fdfa9fc2df0e6207cb211a8a",
+    "web-admin/i18n/locales/zh.json": "5fc6cb9b86388cbc358ec1cc3794447593dca7868f9c57cb4f9e49d20ab583e1",
+    "web-admin/i18n/locales/en.json": "c53c6cf184644e6b84596d363bf2c3cd9694624ffe9168a71e917ff2b94b4380"
+  },
+  "root_cause": "Cancel was disabled by the generic busy flag while upload was in progress.",
+  "implemented": [
+    "Allow cancellation during package preparation and upload",
+    "Abort compression and browser upload before cancelling the same durable task",
+    "Confirm cancellation only from a server receipt; reconcile an uncertain response once",
+    "Preserve queued/running/terminal task truth on upload-versus-cancel races",
+    "Abort old requests on close, unmount and identity change; ignore stale receipts"
+  ],
+  "validation": {
+    "unit": {
+      "command": "node node_modules/vitest/vitest.mjs run tests/unit/plugins/install-dialog-recovery.spec.ts tests/unit/plugins/install-task.spec.ts",
+      "passed": 17
+    },
+    "backend": {
+      "command": "GOWORK=off go test ./internal/service/plugin_install -count=1",
+      "result": "passed"
+    },
+    "browser": {
+      "command": "POWERX_PLUGIN_INSTALL_UI_ENTRY=<isolated-build>/server/index.mjs node node_modules/playwright/cli.js test --config playwright.plugin-install-tasks.config.ts",
+      "passed": 8,
+      "viewports": [
+        1440,
+        390
+      ],
+      "scenarios": [
+        "durable task push and reopen",
+        "cancel upload",
+        "cancel after server accepted upload",
+        "cancel during compression"
+      ],
+      "no_periodic_status_requests": true,
+      "close_releases_subscriptions": true,
+      "no_horizontal_overflow": true,
+      "browser_page_errors": 0,
+      "fixture_only": true
+    },
+    "production_build": "passed using independent Nuxt build and Nitro output directories",
+    "owned_servers": {
+      "fixture_pid": 30007,
+      "nitro_pid": 30008,
+      "ports": [
+        39582,
+        39581
+      ],
+      "processes_exited": true,
+      "ports_released": true
+    }
+  },
+  "deployment": {
+    "deployed": false,
+    "database_schema_changed": false,
+    "migration_required": false,
+    "plugin_reinstallation_required": false,
+    "required_update": "PowerX Web Admin"
+  },
+  "screenshots": {
+    "desktop": "plugin-upload-cancel-20261113-desktop.png",
+    "mobile": "plugin-upload-cancel-20261113-mobile.png"
+  }
+}

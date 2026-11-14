@@ -36,9 +36,10 @@ async function submit(wrapper: any, target = id) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks(); calls.inspect.mockReset(); calls.upload.mockReset(); calls.enable.mockReset(); calls.create.mockReset(); calls.list.mockReset(); calls.get.mockReset(); calls.disconnect.mockReset(); calls.list.mockResolvedValue([]);
+  vi.clearAllMocks(); calls.inspect.mockReset(); calls.upload.mockReset(); calls.enable.mockReset(); calls.create.mockReset(); calls.list.mockReset(); calls.get.mockReset(); calls.discard.mockReset(); calls.disconnect.mockReset(); calls.list.mockResolvedValue([]);
   calls.create.mockImplementation(async (input) => task({ request_id: input.request_id, plugin_id: input.plugin_id, status: 'awaiting_upload', phase: 'upload' }));
   calls.upload.mockImplementation(async () => task()); calls.get.mockImplementation(async () => task());
+  calls.discard.mockImplementation(async () => task({status:'cancelled',phase:'completed',revision:3}));
   user = reactive({ isRoot: true, isCurrentTenantAdmin: true, user: { id: 1 }, currentTenantUuid: 'tenant-a', context: {} });
   for (const [name, value] of Object.entries({ ref, computed, reactive, watch, onBeforeUnmount, onMounted, useUserStore: () => user, useI18n: () => ({ t: (k: string) => k }), useRouter: () => ({ push: calls.push }), useToast: () => ({ add: calls.toast }), useState: (_k: string, init: () => unknown) => ref(init()) })) vi.stubGlobal(name, value);
 });
@@ -46,6 +47,74 @@ beforeEach(() => {
 
 const task = (change: Record<string, any> = {}) => ({ task_id: 'task-a', request_id: 'request-a', plugin_id: id, version: '1.0.0', status: 'queued', phase: 'queued', revision: 2, source_kind: 'local', created_at: '', updated_at: '', ...change });
 describe('持久安装任务与推送恢复', () => {
+  function abortableUpload() {
+    calls.upload.mockImplementation((_id, _body, signal: AbortSignal) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('ABORTED', 'AbortError')), {once:true});
+    }));
+  }
+  it('allows_cancel_during_upload_and_waits_for_server_confirmation', async () => {
+    abortableUpload(); let confirm!: (value: unknown) => void;
+    calls.discard.mockImplementation(() => new Promise(resolve => {confirm=resolve;}));
+    const wrapper=render();await submit(wrapper);
+    expect(wrapper.text()).toContain('plugins.installTask.uploadingTitle');
+    expect(button(wrapper,'plugins.installTask.discard').element.disabled).toBe(false);
+    await button(wrapper,'plugins.installTask.discard').trigger('click');await flushPromises();
+    expect(calls.upload.mock.calls[0][2].aborted).toBe(true);
+    expect(calls.discard).toHaveBeenCalledOnce();
+    expect(button(wrapper,'plugins.installTask.discard').element.disabled).toBe(true);
+    expect(wrapper.text()).toContain('plugins.installTask.cancellingTitle');
+    expect(wrapper.text()).not.toContain('plugins.installTask.status.cancelled');
+    confirm(task({status:'cancelled',phase:'completed',revision:3}));await flushPromises();
+    expect(wrapper.text()).toContain('plugins.installTask.status.cancelled');
+    expect(calls.create).toHaveBeenCalledOnce();expect(wrapper.emitted('installed')).toBeUndefined();wrapper.unmount();
+  });
+  it('ignores_late_upload_response_after_cancellation_was_requested', async () => {
+    let complete!: (value: unknown) => void;
+    calls.upload.mockImplementation(() => new Promise(resolve => {complete=resolve;}));
+    const wrapper=render();await submit(wrapper);
+    await button(wrapper,'plugins.installTask.discard').trigger('click');await flushPromises();
+    expect(calls.upload.mock.calls[0][2].aborted).toBe(true);expect(calls.discard).not.toHaveBeenCalled();
+    complete(task());await flushPromises();
+    expect(wrapper.text()).toContain('plugins.installTask.status.cancelled');
+    expect(wrapper.text()).not.toContain('plugins.installTask.status.queued');expect(calls.discard).toHaveBeenCalledOnce();wrapper.unmount();
+  });
+  it('reconciles_upload_commit_race_without_claiming_installation_was_cancelled', async () => {
+    abortableUpload();calls.discard.mockRejectedValue(new Error('PLUGIN_INSTALL_TASK_ACTIVE'));
+    calls.get.mockResolvedValue(task({status:'running',phase:'migrating',revision:4}));
+    const wrapper=render();await submit(wrapper);await button(wrapper,'plugins.installTask.discard').trigger('click');await flushPromises();
+    expect(calls.get).toHaveBeenCalledOnce();expect(wrapper.text()).toContain('plugins.installTask.status.running');
+    expect(wrapper.text()).toContain('plugins.installTask.cancelTooLate');expect(wrapper.text()).not.toContain('plugins.installTask.status.cancelled');
+    expect(calls.create).toHaveBeenCalledOnce();expect(calls.enable).not.toHaveBeenCalled();wrapper.unmount();
+  });
+  it('retains_uncertain_cancellation_without_resubmitting_or_polling', async () => {
+    abortableUpload();calls.discard.mockRejectedValue(new Error('DISCONNECTED'));calls.get.mockRejectedValue(new Error('DISCONNECTED'));
+    const wrapper=render();await submit(wrapper);await button(wrapper,'plugins.installTask.discard').trigger('click');await flushPromises();
+    expect(wrapper.text()).toContain('plugins.installTask.cancelUnconfirmed');expect(wrapper.text()).toContain('task-a');
+    expect(wrapper.text()).not.toContain('plugins.installTask.status.cancelled');expect(calls.get).toHaveBeenCalledOnce();
+    expect(calls.create).toHaveBeenCalledOnce();expect(calls.upload).toHaveBeenCalledOnce();wrapper.unmount();
+  });
+  it('accepts_cancel_receipt_from_one_explicit_read_when_the_response_was_lost', async () => {
+    abortableUpload();calls.discard.mockRejectedValue(new Error('DISCONNECTED'));calls.get.mockResolvedValue(task({status:'cancelled',phase:'completed',revision:3}));
+    const wrapper=render();await submit(wrapper);await button(wrapper,'plugins.installTask.discard').trigger('click');await flushPromises();
+    expect(wrapper.text()).toContain('plugins.installTask.status.cancelled');expect(wrapper.text()).not.toContain('plugins.installTask.cancelUnconfirmed');
+    expect(calls.get).toHaveBeenCalledOnce();wrapper.unmount();
+  });
+  it('aborts_cancel_request_and_rejects_its_late_receipt_after_identity_change', async () => {
+    abortableUpload();let complete!: (value: unknown) => void;
+    calls.discard.mockImplementation(() => new Promise(resolve => {complete=resolve;}));
+    const wrapper=render();await submit(wrapper);await button(wrapper,'plugins.installTask.discard').trigger('click');await flushPromises();
+    const signal=calls.discard.mock.calls[0][1];user.currentTenantUuid='tenant-b';await nextTick();expect(signal.aborted).toBe(true);
+    complete(task({status:'cancelled',phase:'completed',revision:3}));await flushPromises();
+    expect(wrapper.find('[data-testid="install-task"]').exists()).toBe(false);expect(calls.get).not.toHaveBeenCalled();wrapper.unmount();
+  });
+  it('releases_cancel_request_when_the_dialog_closes', async () => {
+    abortableUpload();let complete!: (value: unknown) => void;
+    calls.discard.mockImplementation(() => new Promise(resolve => {complete=resolve;}));
+    const wrapper=render();await submit(wrapper);await button(wrapper,'plugins.installTask.discard').trigger('click');await flushPromises();
+    const signal=calls.discard.mock.calls[0][1];await wrapper.setProps({modelValue:false});expect(signal.aborted).toBe(true);
+    complete(task({status:'cancelled',phase:'completed',revision:3}));await flushPromises();
+    expect(calls.create).toHaveBeenCalledOnce();expect(calls.upload).toHaveBeenCalledOnce();wrapper.unmount();
+  });
   it('先持久创建任务再上传，事件更新完成，不周期读状态或调用旧同步安装', async () => {
     const wrapper=render(); await submit(wrapper);
     expect(calls.create).toHaveBeenCalledOnce(); expect(calls.upload).toHaveBeenCalledOnce();
