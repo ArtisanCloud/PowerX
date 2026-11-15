@@ -107,7 +107,8 @@ func (a *AuditService) PublishCatalogEvent(ctx context.Context, topic string, ev
 	}
 }
 
-// RecordInvocation 记录调用 Trace、写入事件并打点。
+// RecordInvocation records durable invocation evidence, except verified successful
+// empty TaskQueue reads, which retain only aggregate invocation metrics.
 func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAuditInput) {
 	if a == nil {
 		return
@@ -119,6 +120,14 @@ func (a *AuditService) RecordInvocation(ctx context.Context, input InvocationAud
 	defer cancel()
 	// 仅修改值副本中的错误摘要；业务调用返回和原始 map 保持原样。
 	input.ErrorSummary = auditpayload.SafeText(input.ErrorSummary)
+	if idleTaskQueueObservation(input) {
+		// Never turn idle reads into a new metric series per request. Keep the
+		// caller's trace ID and payloads unchanged for the actual response.
+		metricInput := input
+		metricInput.TraceID = ""
+		a.emitInvocationMetric(ctx, metricInput, nil)
+		return
+	}
 
 	invocationUUID, traceErr := a.insertInvocationTrace(ctx, input)
 

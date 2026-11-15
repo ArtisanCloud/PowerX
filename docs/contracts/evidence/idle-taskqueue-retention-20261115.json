@@ -1,0 +1,115 @@
+{
+  "recorded_at": "2026-11-15T14:40:15.315737+00:00",
+  "host": "47.116.10.200",
+  "user_approved_retention_days": 7,
+  "scope": "verified successful empty taskqueue.v2 dequeue by AI Craft STS and unique never-delivered invocation notification only",
+  "preserves": [
+    "last_seven_days",
+    "nonempty_messages",
+    "enqueue_ack_retry",
+    "failed_calls",
+    "fallback",
+    "unclassified_or_mismatched_proof",
+    "other_actors",
+    "business_task_history_and_orders"
+  ],
+  "source": "scripts/ops/powerx-transition-guard/idle_taskqueue",
+  "guards": {
+    "minimum_available_bytes": 8589934592,
+    "per_run_max_pairs": 20000,
+    "per_batch_max_pairs": 500,
+    "new_transactions_stop_after_seconds": 25,
+    "rollback_backups_total_budget_bytes": 4294967296,
+    "backup_readback_and_exact_restore_required": true,
+    "unknown_commit_auto_retry": false,
+    "runtime_or_native_cleanup_change_stops_temporary_writes": true,
+    "preview_receipts_bounded_per_database": 32
+  },
+  "validation": {
+    "go_race_pass_events_including_subtests": 31,
+    "python_tests_passed": 22,
+    "go_vet": "passed",
+    "linux_amd64_helper_build": "passed",
+    "postgres_fixture_cleanup": {
+      "pid": 38415,
+      "stop_exit": 0,
+      "pidfile_removed": true,
+      "unix_socket_removed": true
+    }
+  },
+  "deployment": {
+    "timer": "powerx-idle-taskqueue-retention.timer",
+    "timer_enabled": true,
+    "service_first_runs_succeeded": true,
+    "existing_capacity_monitor_extended": true,
+    "core_restarted": false,
+    "postgresql_restarted": false,
+    "full_vacuum_or_repack_executed": false,
+    "database_extension_installed": false,
+    "cache_space_freed_first_phase_bytes": 4265172992
+  },
+  "live": {
+    "latest": {
+      "at": "2026-11-15T14:35:54.959755+00:00",
+      "retention_days": 7,
+      "scope": "verified_successful_empty_taskqueue_dequeue_and_unique_undelivered_notification",
+      "databases": {
+        "dev": {
+          "state": "active",
+          "mode": "apply",
+          "reason": null,
+          "relation_bytes_before": 13310631936,
+          "dead_rows_estimate": 831531,
+          "cursor": 2792000,
+          "highwater": 4819996,
+          "pairs_seen_or_deleted_in_sweep": 0,
+          "pairs_this_run": 0,
+          "sweep_complete": false,
+          "sweep_cutoff": "2026-11-08T14:28:55Z",
+          "relation_bytes_after": 13311483904,
+          "relation_bytes_reclaimed_observed": -851968,
+          "deleted_pairs_this_run": 0
+        },
+        "prod": {
+          "state": "active",
+          "mode": "apply",
+          "reason": null,
+          "relation_bytes_before": 47771475968,
+          "dead_rows_estimate": 153975,
+          "cursor": 14096000,
+          "highwater": 26734912,
+          "pairs_seen_or_deleted_in_sweep": 0,
+          "pairs_this_run": 0,
+          "sweep_complete": false,
+          "sweep_cutoff": "2026-11-08T14:29:20Z",
+          "relation_bytes_after": 47771729920,
+          "relation_bytes_reclaimed_observed": -253952,
+          "deleted_pairs_this_run": 0
+        }
+      },
+      "automatic_physical_compaction": false,
+      "available_bytes": 8925425664
+    },
+    "available_bytes": 8877797376,
+    "filesystem_used_ratio": 0.8873140141503836,
+    "health": {
+      "dev": "200",
+      "prod": "200"
+    },
+    "capacity_observation_at": "2026-11-15T14:39:51.292074+00:00",
+    "new_worker_in_existing_monitor": true,
+    "failure_escalation_present": true,
+    "cached_bytes_freed_second_phase": 3695259648,
+    "scripts": {
+      "/opt/powerx-ops/transition-20261109/capacity.py": "cf443307b6a66e0fddd942bbc727938d428c1249a8dadf6ea0729d5780ccd7ac",
+      "/opt/powerx-ops/taskqueue-idle-20261115/idle_retention.py": "17be1ccdeb86cd94e3ee5c97b634a75ea3179e169f40a302b960fbd436089bae",
+      "/opt/powerx-ops/taskqueue-idle-20261115/idle-taskqueue-retention": "6fdb20a807b047e789a60301240c548f7309254a832ae4d8416401d564505a16"
+    }
+  },
+  "remaining": [
+    "finish_frozen_sweeps_and_record_exact_eligible_and_deleted_pairs",
+    "review_required_extra_space_and_lock_window_before_physical_compaction",
+    "fix_Core_per_empty_consume_trace_and_notification_generation",
+    "verify_native_retention_handoff_before_retiring_temporary_executor"
+  ]
+}

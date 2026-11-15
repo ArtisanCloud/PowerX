@@ -144,6 +144,32 @@ def retention_status():
     return result
 
 
+def idle_retention_status():
+    """仅汇总独立空消费维护回执；监控进程自身不删表或重写 PostgreSQL。"""
+    path = Path('/var/lib/powerx-idle-retention/latest.json')
+    if not path.exists():
+        return {'state': 'not_installed'}
+    try:
+        if path.is_symlink():
+            raise ValueError('symlink')
+        value = json.loads(path.read_text())
+        at = dt.datetime.fromisoformat(value['at'])
+        stale = (dt.datetime.now(dt.timezone.utc)-at).total_seconds() > 600
+        databases = value['databases']
+        return {'state': 'stale' if stale else 'reported', 'at': value['at'],
+                'retention_days': value['retention_days'], 'databases': databases,
+                'automatic_physical_compaction': False}
+    except Exception:
+        return {'state': 'receipt_unavailable'}
+
+
+def idle_retention_failed(value):
+    if value.get('state') in ('stale', 'receipt_unavailable'):
+        return True
+    return any(item.get('state') == 'stopped' or item.get('helper_problem')
+               for item in value.get('databases', {}).values())
+
+
 def observe(apply):
     """升级后仅观测与通知；不调用旧计划开关、期限删除或接管入口。"""
     STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -157,24 +183,31 @@ def observe(apply):
     fs = filesystem()
     health, health_at = runtime_health(prior)
     retention = retention_status()
+    idle = idle_retention_status()
+    idle_failed = idle_retention_failed(idle)
     severity = ('critical' if fs['available_bytes'] < 12 * GIB or fs['used_ratio'] >= .88
-                or not health.get('healthy') else 'warning' if fs['available_bytes'] < 20 * GIB else 'ok')
+                or not health.get('healthy') or idle_failed else 'warning' if fs['available_bytes'] < 20 * GIB else 'ok')
     # 完整保留旧调度所有权、水位及未知结果；只读监控不处理这些写入职责。
     report = {**prior, 'at': dt.datetime.now(dt.timezone.utc).isoformat(),
               'severity': severity, 'filesystem': fs, 'runtime_health': health,
               'health_checked_at': health_at, 'retention_executor': retention,
+              'idle_taskqueue_retention': idle,
+              'idle_retention_failed': idle_failed,
               'guard_kind': 'monitor_only_no_schedule_changes_or_deletion',
               'automatic_cleanup_active': False, 'handoff_complete': False,
               'changes': [], 'failure': None}
-    changed = severity != prior.get('severity') or report['guard_kind'] != prior.get('guard_kind')
+    changed = (severity != prior.get('severity') or report['guard_kind'] != prior.get('guard_kind')
+               or idle_failed != prior.get('idle_retention_failed', False))
     due = time.time() - prior.get('notification_at', 0) > 3600
     if apply and (changed or severity != 'ok' and due):
         report['event_id'] = str(time.time_ns()) if changed else prior.get('event_id') or str(time.time_ns())
         text = ('PowerX 运维%s\n服务器：47.116.10.200\n临时磁盘监控已运行（仅监控与通知）'
                 '\n可用空间：%.2f GiB\n物理使用率：%.2f%%'
-                '\n旧计划调节与数据库期限删除未执行；新版接管尚未确认。'
+                '\n旧执行器未接管；七天空消费维护：dev=%s，prod=%s。'
                 % ('恢复' if severity == 'ok' else '告警', fs['available_bytes']/GIB,
-                   fs['used_ratio']*100))
+                   fs['used_ratio']*100,
+                   idle.get('databases', {}).get('dev', {}).get('state', idle['state']),
+                   idle.get('databases', {}).get('prod', {}).get('state', idle['state'])))
         try:
             report['notification'] = send_personal(text, 'powerx-monitor-' + report['event_id'])
             if report['notification']['status'] == 'api_accepted':

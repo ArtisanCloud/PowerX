@@ -1,0 +1,17 @@
+[Unit]
+Description=Temporary verified seven-day empty TaskQueue audit retention
+After=postgresql@16-main.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+StateDirectory=powerx-idle-retention
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /opt/powerx-ops/taskqueue-idle-20261115/idle_retention.py
+TimeoutStartSec=300
+KillMode=control-group
+Nice=15
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal

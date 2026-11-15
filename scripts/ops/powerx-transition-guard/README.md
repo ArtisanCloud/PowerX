@@ -1,6 +1,42 @@
 # 47.116.10.200 新版上线前的临时容量保护
 
-本目录仅用于 `prod-20261019-1452` / `dc8583939bfb524dbd349fe645652e746deffc74` 的过渡维护。用户在 2026-11-09 明确批准以下保留范围；不是新版存储控制面已经接管。
+## 2026-11-15：七天空消费审计维护
+
+用户追加授权：仅清理七天以前的成功空闲 TaskQueue 消费审计及其唯一匹配的未投递通知。
+固定目标为 `powerx_dev`、`powerx_pro` 的 `capability_registry_invocation_traces` 与
+`capability_registry_event_publications`。真实消息、enqueue/ack/retry 等操作、失败、
+fallback、近期变动、其他调用者、已投递通知、未登记租户和无法核验的关联均保留。
+这不改变 Core 的全局 30/90 天策略，也不操作业务 TaskBus 队列、TaskHistory 或订单表。
+
+- `idle_taskqueue/main.go` 复用原执行器的逐批二进制 COPY 导出、哈希读回、事务临时表恢复及完整行比较；
+  `scope.go` 固定空消费证明。取得与普通写兼容的表锁后重新检查外键和触发器，避免 DDL 引入级联删除。
+- 每批最多 500 对；主键窗口 2,000；单轮最多 20,000 对及 25 秒后不再启动新事务。提交不明或收据缺失停止，禁止自动重试。
+- 原始行保存在 `/var/lib/powerx-idle-retention-archives/`，最多 4 GiB，每轮最多 128 MiB；
+  不自动删除恢复副本。只读扫描收据每库保留最近 32 轮，扫描游标与删除游标独立。
+- 可用空间低于原有 8 GiB 底线时仅预览，不写表、不做数据库重写。helper 还按实际文件系统保留块验证 Loki 所在盘的空间底线。
+- 绑定安装时核验的 Core source commit 及原生清理最后成功标记。Core 升级或原生执行状态变化后停止临时写入，等待明确交接。
+- `powerx-idle-taskqueue-retention.timer` 每轮结束三分钟后运行；配置 `/etc/powerx-idle-retention.json`，
+  回执 `/var/lib/powerx-idle-retention/latest.json`。现有容量监控增加只读回执汇总和飞书告警状态，不恢复旧调度或旧基线清理器。
+- 删除累计达到一万对且相隔至少一小时后，可执行有界普通 `VACUUM (ANALYZE, TRUNCATE FALSE, PARALLEL 0)`。
+  普通 VACUUM 用于库内复用；回执分别记录删除对数、表体积与文件系统可用空间，不宣称 DELETE 已释放操作系统空间。
+
+物理缩小是独立维护任务：`VACUUM FULL` 需要额外空间和独占表锁，`pg_repack` 也需要额外空间及扩展。
+不得放进分钟监控自动执行。当前临时任务不安装扩展、不迁移表、不重启 Core 或 PostgreSQL。
+
+验证命令：在 backend 模块内对 `../scripts/ops/powerx-transition-guard/idle_taskqueue/*.go` 执行 Go test/vet；
+集成测试必须使用 `PX_IDLE_FIXTURE_DSN` 指向独立的 `px_idle_fixture`，拒绝开发/正式数据库。
+Python supervisor 与监控测试使用 `python3 -m unittest discover -s scripts/ops/powerx-transition-guard -p 'test_*.py'`。
+
+临时任务仅控制获准的过期空消费存量。Core 源码已修正成功空消费逐次写审计与通知的策略，
+须部署新 Core 才生效；详见 [调用审计合同](../../../docs/contracts/taskqueue-idle-invocation-audit.md)。
+截至 2026-11-15 核查时，dev/prod 仍运行旧 Core。只读抽样的空消费记录分别始于
+11 月 11 日和 11 月 13 日，未见七天前的空消费候选；这是抽样证据，不是全表结论。
+不能为了获得空间擅自缩短用户选择的七天保留期，也不能将扫描游标当作删除数量。
+
+## 原过渡执行器（2026-11-09）
+
+以下旧版容量调度与鉴权基线执行器仅用于 `prod-20261019-1452` / `dc8583939bfb524dbd349fe645652e746deffc74` 的过渡维护。
+上面的七天空消费维护使用独立版本绑定，不恢复或放宽旧执行器的限制。用户在 2026-11-09 明确批准以下保留范围；不是新版存储控制面已经接管。
 
 ## 已批准范围与执行组件
 
