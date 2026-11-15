@@ -24,6 +24,8 @@ const ServiceInvocationSchema = "powerx.iam.service-invocation/v1"
 const ServiceInvocationQuerySchema = "powerx.iam.service-invocation-query/v1"
 
 var serviceTicketPattern = regexp.MustCompile(`^pxsvc_v1_[A-Za-z0-9_-]{43}$`)
+var apiKeyPrincipalPattern = regexp.MustCompile(`^apikey:[1-9][0-9]*$`)
+
 var sha256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type ServiceInvocationQuery struct {
@@ -63,7 +65,11 @@ func (s *Service) IssueServiceInvocation(ctx context.Context, binding cap.Servic
 		return "", failure(503, "IAM_SERVICE_INVOCATION_UNAVAILABLE")
 	}
 	c := reqctx.GetClaims(ctx)
-	if !cap.ServiceCredential(ctx) || c == nil || c.IsRoot || c.UserUUID != "" || c.MemberUUID != "" {
+	// API Key middleware carries a synthetic principal in MemberUUID for legacy
+	// authorization. It is not a tenant member, and is accepted only with the
+	// middleware's private authenticated-key proof and matching subject.
+	syntheticKeyPrincipal := c != nil && reqctx.AuthenticatedAPIKeyHash(ctx) != "" && apiKeyPrincipalPattern.MatchString(c.MemberUUID) && c.MemberUUID == reqctx.GetSubject(ctx)
+	if !cap.ServiceCredential(ctx) || c == nil || c.IsRoot || c.UserUUID != "" || c.UserID != 0 || (c.MemberUUID != "" && !syntheticKeyPrincipal) {
 		return "", failure(401, "IAM_SERVICE_INVOCATION_CALLER_INVALID")
 	}
 	if err := s.requireIssuedServiceCredential(ctx, c); err != nil {

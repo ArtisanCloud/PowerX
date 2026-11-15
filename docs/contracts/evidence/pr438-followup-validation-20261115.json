@@ -7,7 +7,8 @@
     "AI draft connection discovery and provider protocol alignment",
     "dev/test notification dependency migration",
     "IAM organization typed invocation error status",
-    "existing checkout and distribution acceptance receipts"
+    "existing checkout and distribution acceptance receipts",
+    "authenticated API-key service ticket compatibility with strict caller proof"
   ],
   "go_race": {
     "test_events_including_subtests": {
@@ -80,5 +81,14 @@
     "merge and deploy dev Core and web-admin",
     "verify actual provider connection/catalog and storage write suppression on deployed runtime",
     "accept dev before prod update and reconcile native retention handoff"
-  ]
+  ],
+  "additional_service_identity_validation": {
+    "recorded_at": "2026-11-15T15:42:03.722941+00:00",
+    "owner": "PowerX Core",
+    "change": "accept authenticated API-key middleware synthetic member subject only with private key proof and matching subject; retain live key and exact grant checks",
+    "race_pass_events_including_subtests": 60,
+    "go_vet": "passed",
+    "linux_amd64_core_build": "passed",
+    "runtime_restart_performed_by_this_followup": false
+  }
 }

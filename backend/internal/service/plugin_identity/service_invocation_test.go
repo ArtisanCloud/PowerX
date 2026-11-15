@@ -2,8 +2,12 @@ package plugin_identity
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -175,13 +179,15 @@ func TestServiceInvocationDispatchUsesFixedRouteAndNoAdminBearer(t *testing.T) {
 
 func TestServiceInvocationAPIKeyRetainsCallerAndExactGrant(t *testing.T) {
 	f, _, b := serviceCallFixture(t)
+	require.NoError(t, f.db.AutoMigrate(&im.APIKey{}))
 	spec := pluginpermission.APIKeySpec{CapabilityID: b.CapabilityID, PluginID: f.plugin, Scope: "_scope.messages.reply", Action: "create", ResourceType: "capability", ResourcePattern: "message_reply", Effect: "allow"}
 	meta, err := pluginpermission.ExplicitAPIKeyMetadata(&spec, f.plugin, b.CapabilityID, true)
 	require.NoError(t, err)
 	raw, _ := json.Marshal(meta)
 	require.NoError(t, f.db.Create(&im.Permission{Module: "messages", Resource: "service_reply", Action: "create", Effect: "allow", Status: im.PermissionStatusActive, AllowAPIKey: true, Source: "plugin:" + f.plugin, Meta: raw}).Error)
-	key := gw.IntegrationGatewayAPIKey{TenantUUID: f.tenant, ProfileID: f.key.ProfileID, Name: "AI caller", Status: "active", KeyHash: "private-fixture-source-hash", PluginOwnerPolicy: datatypes.JSON(`{"version":1,"mode":"key","plugin_ids":["com.example.ai"]}`)}
+	key := gw.IntegrationGatewayAPIKey{TenantUUID: f.tenant, ProfileID: f.key.ProfileID, Name: "AI caller", Status: "active", KeyHash: fmt.Sprintf("%x", sha256.Sum256([]byte("service-fixture-key"))), PluginOwnerPolicy: datatypes.JSON(`{"version":1,"mode":"key","plugin_ids":["com.example.ai"]}`)}
 	require.NoError(t, f.db.Create(&key).Error)
+	require.NoError(t, f.db.Create(&im.APIKey{TenantUUID: f.tenant, ProfileID: key.ProfileID, KeyHash: key.KeyHash, CreatedAtMs: time.Now().UnixMilli()}).Error)
 	grant := gw.IntegrationGatewayAPIKeyPermission{APIKeyUUID: key.UUID, PluginID: f.plugin, Scope: spec.Scope, Action: spec.Action, ResourceType: spec.ResourceType, ResourcePattern: spec.ResourcePattern, Effect: "allow"}
 	require.NoError(t, f.db.Create(&grant).Error)
 	grantStatusID := cap.GrantStatusCapabilityID
@@ -190,6 +196,33 @@ func TestServiceInvocationAPIKeyRetainsCallerAndExactGrant(t *testing.T) {
 	require.NoError(t, f.db.Create(&im.Permission{Module: "capability_registry", Resource: "grant-status", Action: "read", Effect: "allow", Status: im.PermissionStatusActive, AllowAPIKey: true, Meta: datatypes.JSON(`{"capability_id":"com.corex.capabilities.grant_status.read","api_key_explicit":true,"api_key":{"scope":"_scope.capabilities.grant_status.read","action":"read","resource_type":"api","resource_pattern":"grant-status","effect":"allow"}}`)}).Error)
 	require.NoError(t, f.db.Create(&gw.IntegrationGatewayAPIKeyPermission{APIKeyUUID: key.UUID, Scope: "_scope.capabilities.grant_status.read", Action: "read", ResourceType: "api", ResourcePattern: "grant-status", Effect: "allow"}).Error)
 	ctx := reqctx.WithAuthenticatedAPIKeyHash(reqctx.WithClaims(reqctx.WithTenantUUID(context.Background(), f.tenant), &reqctx.CoreXClaims{TenantUUID: f.tenant, Platforms: []string{"api_key"}}), key.KeyHash)
+
+	// Exercise the actual HTTP middleware, including its synthetic MemberUUID.
+	engine := gin.New()
+	engine.GET("/service-probe", middleware.APIKeyOrJwtMiddleware(f.db, []byte("fixture-secret"), "powerx-auth", []string{"user"}, nil, nil), func(c *gin.Context) { ctx = c.Request.Context(); c.Status(204) })
+	for i := 0; i < 2; i++ {
+		request := httptest.NewRequest("GET", "/service-probe", nil)
+		request.Header.Set("Authorization", "ApiKey service-fixture-key")
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, request)
+		require.Equal(t, 204, response.Code, response.Body.String())
+		require.True(t, apiKeyPrincipalPattern.MatchString(reqctx.GetClaims(ctx).MemberUUID))
+		require.Equal(t, reqctx.GetSubject(ctx), reqctx.GetClaims(ctx).MemberUUID)
+		issued, e := f.s.IssueServiceInvocation(ctx, b)
+		require.NoError(t, e)
+		resolved, e := f.s.ResolveServiceInvocation(f.svc, invocationQuery(issued, b))
+		require.NoError(t, e)
+		require.Equal(t, "api_key:"+key.UUID.String(), resolved.CallerSubject)
+		_ = issued
+	}
+	for _, invalid := range []string{uuid.NewString(), "apikey:0", "apikey:999999"} {
+		claims := *reqctx.GetClaims(ctx)
+		claims.MemberUUID = invalid
+		_, e := f.s.IssueServiceInvocation(reqctx.WithClaims(ctx, &claims), b)
+		require.Equal(t, "IAM_SERVICE_INVOCATION_CALLER_INVALID", dto.CodeOf(e))
+	}
+	_, e := f.s.IssueServiceInvocation(reqctx.WithAuthenticatedAPIKeyHash(ctx, ""), b)
+	require.Equal(t, "IAM_SERVICE_INVOCATION_CALLER_INVALID", dto.CodeOf(e))
 	statuses, err := cap.NewGrantStatusService(f.db).CheckCurrentCredential(ctx, []string{b.CapabilityID})
 	require.NoError(t, err)
 	require.Equal(t, cap.GrantStatusGranted, statuses[0].Status)
