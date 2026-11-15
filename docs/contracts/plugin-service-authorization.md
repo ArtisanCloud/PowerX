@@ -114,6 +114,9 @@ Core 仅缓存该次签发的鉴权字段摘要；知道旧共享 JWT 密钥、�
 这个操作只在 typed core_internal 入口开放，不新增 Admin 检查入口。
 普通用户／root Admin JWT 不能调用此操作，也不能签发服务票据。
 
+API Key HTTP 中间件为旧鉴权入口携带的 `MemberUUID=apikey:<技术记录ID>` 是服务技术主体，不是租户成员。票据签发仅在请求带中间件私有的已认证 Key hash、该技术标识格式有效且与私有请求 subject 完全一致时接受它；仍拒绝 root、用户 UUID／ID、真实成员 UUID、伪造技术 subject 或缺失 Key 认证证明。随后必须继续执行 Key 实时有效性、精确 grant、发布和租户 registration 校验。该修复不允许从请求头或 payload 提供这些可信字段。
+
+
 返回 `schema=powerx.iam.service-invocation/v1`、`actor_type=service_actor`、
 tenant、真实 caller_subject、可确定时的 caller_plugin_id、目标插件、能力、契约与
 provider 版本、catalog/protocol hash、固定 method/path、body 摘要、Core request_id、trace_id、expiry。

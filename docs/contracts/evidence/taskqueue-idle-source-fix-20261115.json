@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-15",
+  "owner": "PowerX Core",
+  "root_cause": "Each successful empty taskqueue.v2 dequeue wrote an invocation trace and a result publication, often unrouted.",
+  "source_fix": {
+    "capability_id": "com.corex.runtime.taskqueue.service_consume",
+    "publisher": "corex.platform",
+    "protocol": "core_internal",
+    "operation": "dequeue",
+    "verified_empty_success": "aggregate_metrics_only_without_trace_id_label",
+    "other_outcomes": "existing_durable_audit_and_publication",
+    "caller_skip_audit_flag": "not_supported",
+    "migration_required_by_this_change": false,
+    "plugin_reinstallation_required_by_this_change": false,
+    "authorization_or_queue_contract_changed": false
+  },
+  "validation": {
+    "reproduced_before_fix": "100 idle calls persisted 100 invocation rows",
+    "race_pass_events_including_subtests": 213,
+    "skipped_external_environment_checks": [
+      "TestRuntimeQueuePrepareIsolatedCatalog",
+      "TestRuntimeQueueSeededAPIKeyGrantStatus",
+      "TestRuntimeQueueRealRedisPostgresSettlement"
+    ],
+    "packages": ["internal/service/capability_registry", "internal/service/event_fabric/task_queue"],
+    "typed_queue_lifecycle": "idle_enqueue_lease_ack_idle_with_task_history_and_three_operation_audits_preserved",
+    "go_vet": "passed",
+    "linux_amd64_core_build": "passed",
+    "temporary_monitor_python_tests": 22
+  },
+  "readonly_runtime_observation": {
+    "host": "47.116.10.200",
+    "at": "2026-11-15T22:55:27+08:00",
+    "dev": {"health": 200, "version": "dev-20261113-1002", "recent_sample": 2000, "idle_consume_in_sample": 1995},
+    "prod": {"health": 200, "version": "prod-20261113-1002", "recent_sample": 2000, "idle_consume_in_sample": 1981},
+    "filesystem_df_used_percent": 93,
+    "filesystem_available_bytes": 8756789248,
+    "source_fix_deployed": false,
+    "temporary_cleanup_deleted_pairs_so_far": 0,
+    "temporary_cleanup_sweeps_complete": false,
+    "physical_compaction_executed": false
+  },
+  "physical_compaction_assessment": {
+    "prod_trace_total_bytes": 35715538944,
+    "prod_publication_total_bytes": 12067274752,
+    "live_row_counts_and_column_widths_are_estimates": true,
+    "enough_verified_headroom_for_full_table_rewrite": false,
+    "ordinary_vacuum": "internal_page_reuse_does_not_prove_filesystem_reclamation",
+    "full_vacuum": "extra_space_and_access_exclusive_lock_required",
+    "pg_repack_available_on_server": false,
+    "next_steps": ["deploy_and_accept_Core_source_fix_on_dev_then_prod", "finish_authorized_seven_day_retention_inventory", "verify_recovery_backups_and_plan_extra_volume_or_maintenance_window_before_compaction"]
+  },
+  "remaining": [
+    "deploy_Core_and_verify_actual_idle_write_rate_and_real_task_audits",
+    "verify_native_retention_execution_and_explicit_temporary_executor_handoff",
+    "finish_frozen_retention_sweeps_and_record_exact_deleted_pairs",
+    "physical_shrink_requires_a_separate_verified_space_and_lock_plan"
+  ]
+}

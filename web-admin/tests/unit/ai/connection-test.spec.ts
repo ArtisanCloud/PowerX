@@ -164,4 +164,16 @@ describe("检测面板", () => {
     expect(wrapper.findAll("button")[1].text()).toBe("试跑文本（调用模型）");
     wrapper.unmount();
   });
+
+  it("未适配的连接检测明确停用，已有型号的参数检查仍可操作", async () => {
+    const onTestConnection = vi.fn();
+    const wrapper = render({ connectionSupported: false, onTestConnection });
+    const buttons = wrapper.findAll('button');
+    expect((buttons[0].element as HTMLButtonElement).disabled).toBe(true);
+    expect((buttons[1].element as HTMLButtonElement).disabled).toBe(false);
+    expect(wrapper.text()).toContain(t('settings.ai.connectionTest.errors.AI_CONNECTION_PROBE_UNSUPPORTED'));
+    await buttons[0].trigger('click');
+    expect(onTestConnection).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
 });

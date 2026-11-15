@@ -69,12 +69,30 @@ func Error(status int, code string, details map[string]any) error {
 	return &dto.AppError{HTTPCode: status, Code: code, Message: code, Details: details}
 }
 
-// Fetch 使用保存的连接地址和固定协议路径；分页完整结束后才返回成功。
-func Fetch(ctx context.Context, in Input) (resultValue *Result, failure error) {
-	spec, ok := ProviderSpec(in.Provider)
-	if !ok {
-		return nil, Error(422, "AI_MODEL_SYNC_UNSUPPORTED", nil)
+// SetHeaders applies protocol-specific authentication without URL credentials.
+func SetHeaders(req *http.Request, in Input, spec Spec) {
+	switch spec.Protocol {
+	case "gemini":
+		req.Header.Set("x-goog-api-key", in.APIKey)
+	case "anthropic":
+		req.Header.Set("x-api-key", in.APIKey)
+		version := in.AnthropicVersion
+		if version == "" {
+			version = "2023-06-01"
+		}
+		req.Header.Set("anthropic-version", version)
+	default:
+		if in.APIKey != "" {
+			req.Header.Set("Authorization", "Bearer "+in.APIKey)
+		}
 	}
+	if in.Organization != "" && in.Provider == "openai" {
+		req.Header.Set("OpenAI-Organization", in.Organization)
+	}
+}
+
+// Target resolves only the fixed catalog path declared for this provider.
+func Target(in Input, spec Spec) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(in.Endpoint), "/"))
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, Error(422, "AI_MODEL_DISCOVERY_CONFIG_INVALID", nil)
@@ -102,6 +120,19 @@ func Fetch(ctx context.Context, in Input) (resultValue *Result, failure error) {
 		u.Path = strings.TrimRight(u.Path, "/") + "/" + spec.Path
 	}
 	u.RawPath = ""
+	return u, nil
+}
+
+// Fetch 使用保存的连接地址和固定协议路径；分页完整结束后才返回成功。
+func Fetch(ctx context.Context, in Input) (resultValue *Result, failure error) {
+	spec, ok := ProviderSpec(in.Provider)
+	if !ok {
+		return nil, Error(422, "AI_MODEL_SYNC_UNSUPPORTED", nil)
+	}
+	u, err := Target(in, spec)
+	if err != nil {
+		return nil, err
+	}
 	source := u.String()
 	defer func() {
 		var appErr *dto.AppError
@@ -130,24 +161,7 @@ func Fetch(ctx context.Context, in Input) (resultValue *Result, failure error) {
 		if body != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
-		switch spec.Protocol {
-		case "gemini":
-			req.Header.Set("x-goog-api-key", in.APIKey)
-		case "anthropic":
-			req.Header.Set("x-api-key", in.APIKey)
-			version := in.AnthropicVersion
-			if version == "" {
-				version = "2023-06-01"
-			}
-			req.Header.Set("anthropic-version", version)
-		default:
-			if in.APIKey != "" {
-				req.Header.Set("Authorization", "Bearer "+in.APIKey)
-			}
-		}
-		if in.Organization != "" && in.Provider == "openai" {
-			req.Header.Set("OpenAI-Organization", in.Organization)
-		}
+		SetHeaders(req, in, spec)
 		resp, e := client.Do(req)
 		if e != nil {
 			if ctx.Err() != nil {

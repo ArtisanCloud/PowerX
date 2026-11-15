@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import ModalityParamsForm from "~/components/settings/ai/ModalityParamsForm.vue";
 import { agnesImageSizes, agnesVideoResolutions, syncAgnesMediaSettings } from "~/utils/agnesMediaSettings";
+import zh from '../../../i18n/locales/zh.json';
+
+const t = (key: string) => key.split('.').reduce((value: any, part) => value?.[part], zh) ?? key;
 
 describe("Agnes 媒体配置", () => {
   it("切换供应商后选择合法尺寸，保留已填写的合法参数", () => {
@@ -41,7 +44,7 @@ describe("Agnes 媒体配置", () => {
       audioQualityOptions: [], languageOptions: [], responseFormatOptions: [], topKOptions: [],
     },
     global: {
-      mocks: { $t: (key: string) => key },
+      mocks: { $t: t },
       stubs: {
         USlider: true,
         UCheckbox: true,

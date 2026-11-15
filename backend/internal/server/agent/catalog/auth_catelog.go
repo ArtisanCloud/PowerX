@@ -34,6 +34,11 @@ func AuthReqFromCatalog(provider string) authReq {
 		DefaultBaseURL: "",
 	}
 
+	// Compatible gateways may advertise an API Key input without requiring one.
+	if strings.EqualFold(m.ID, "openai_compatible") {
+		req.NeedKey = false
+	}
+
 	// base_url 要求与默认值
 	if _, ok := fields["base_url"]; ok {
 		req.NeedBaseURL = true

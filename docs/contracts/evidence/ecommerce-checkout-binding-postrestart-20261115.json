@@ -1,0 +1,240 @@
+{
+  "checked_at": "2026-11-15T15:42:28.756298+00:00",
+  "orders_created": false,
+  "payments_created": false,
+  "requests": [
+    {
+      "market": "CN",
+      "http_status": 200,
+      "response": {
+        "code": 200,
+        "message": "success",
+        "data": {
+          "payload": {
+            "amounts": {
+              "currency": "CNY",
+              "scale": 2,
+              "total_amount": 1,
+              "unit_amount": 1
+            },
+            "channels": [
+              {
+                "name": "支付宝（当面付扫码）",
+                "pay_method": "alipay_qr",
+                "provider_uuid": "2bb1bb1d-8bd3-46e5-948e-56438167b07a"
+              },
+              {
+                "name": "微信支付（网页扫码）",
+                "pay_method": "wechat_native",
+                "provider_uuid": "4638eae9-18ee-4455-a757-096c79f3ef6d"
+              }
+            ],
+            "market": "CN",
+            "purchase_option": {
+              "auto_renew": false,
+              "charge_type": "one_time",
+              "code": "WX-LAB-CHECKOUT-20261115-SKU",
+              "editable": false,
+              "name": "WorkspaceX 扫码交易 Lab 购买选项（仅测试）",
+              "object_type": "purchase_configuration",
+              "period_months": 0,
+              "prices": [
+                {
+                  "currency": "CNY",
+                  "price_decimal": "0.01",
+                  "references": [
+                    {
+                      "object_type": "pricebook",
+                      "uuid": "0d8d574d-3ef7-477c-af81-fd2433690c49"
+                    },
+                    {
+                      "object_type": "pricebook_version",
+                      "uuid": "388c5df6-9c9c-48b2-8c25-0911e1090045"
+                    },
+                    {
+                      "object_type": "pricebook_item",
+                      "uuid": "8703188b-1bcf-4261-87cb-e1af10f114f2"
+                    }
+                  ],
+                  "status": "active"
+                }
+              ],
+              "purpose": "initial_purchase",
+              "references": [
+                {
+                  "object_type": "spu",
+                  "uuid": "c1d32728-b6a9-4ec0-9308-81bcfce28229"
+                },
+                {
+                  "object_type": "spu_version",
+                  "uuid": "f37b50e7-2bba-4d15-8062-d55d3f2661c9"
+                },
+                {
+                  "object_type": "sku",
+                  "uuid": "acc19344-5755-4d59-ac45-9bb439097f6a"
+                }
+              ],
+              "regions": [
+                "CN"
+              ],
+              "revision": "450f757edcddf58aefc71d17f718fa71184f9a44c13e3fd9db24a23e1567bf86",
+              "spu_uuid": "c1d32728-b6a9-4ec0-9308-81bcfce28229",
+              "status": "online",
+              "uuid": "0a5a93c9-df7f-4f37-bf48-91aaf0929bd1"
+            },
+            "quantity": 1,
+            "quote_expires_at": "2026-11-15T15:47:31.304082Z",
+            "quote_revision": "b9f10637e30695cd850ad8714ad572e8d781a21f980f9a1ee52e4f750d8b42d6",
+            "schema_version": 1
+          },
+          "trace_id": "36fb488e-7d73-40f5-b98f-cee2025183f3",
+          "status": "completed",
+          "protocol_used": "rest",
+          "result": {
+            "amounts": {
+              "currency": "CNY",
+              "scale": 2,
+              "total_amount": 1,
+              "unit_amount": 1
+            },
+            "channels": [
+              {
+                "name": "支付宝（当面付扫码）",
+                "pay_method": "alipay_qr",
+                "provider_uuid": "2bb1bb1d-8bd3-46e5-948e-56438167b07a"
+              },
+              {
+                "name": "微信支付（网页扫码）",
+                "pay_method": "wechat_native",
+                "provider_uuid": "4638eae9-18ee-4455-a757-096c79f3ef6d"
+              }
+            ],
+            "market": "CN",
+            "purchase_option": {
+              "auto_renew": false,
+              "charge_type": "one_time",
+              "code": "WX-LAB-CHECKOUT-20261115-SKU",
+              "editable": false,
+              "name": "WorkspaceX 扫码交易 Lab 购买选项（仅测试）",
+              "object_type": "purchase_configuration",
+              "period_months": 0,
+              "prices": [
+                {
+                  "currency": "CNY",
+                  "price_decimal": "0.01",
+                  "references": [
+                    {
+                      "object_type": "pricebook",
+                      "uuid": "0d8d574d-3ef7-477c-af81-fd2433690c49"
+                    },
+                    {
+                      "object_type": "pricebook_version",
+                      "uuid": "388c5df6-9c9c-48b2-8c25-0911e1090045"
+                    },
+                    {
+                      "object_type": "pricebook_item",
+                      "uuid": "8703188b-1bcf-4261-87cb-e1af10f114f2"
+                    }
+                  ],
+                  "status": "active"
+                }
+              ],
+              "purpose": "initial_purchase",
+              "references": [
+                {
+                  "object_type": "spu",
+                  "uuid": "c1d32728-b6a9-4ec0-9308-81bcfce28229"
+                },
+                {
+                  "object_type": "spu_version",
+                  "uuid": "f37b50e7-2bba-4d15-8062-d55d3f2661c9"
+                },
+                {
+                  "object_type": "sku",
+                  "uuid": "acc19344-5755-4d59-ac45-9bb439097f6a"
+                }
+              ],
+              "regions": [
+                "CN"
+              ],
+              "revision": "450f757edcddf58aefc71d17f718fa71184f9a44c13e3fd9db24a23e1567bf86",
+              "spu_uuid": "c1d32728-b6a9-4ec0-9308-81bcfce28229",
+              "status": "online",
+              "uuid": "0a5a93c9-df7f-4f37-bf48-91aaf0929bd1"
+            },
+            "quantity": 1,
+            "quote_expires_at": "2026-11-15T15:47:31.304082Z",
+            "quote_revision": "b9f10637e30695cd850ad8714ad572e8d781a21f980f9a1ee52e4f750d8b42d6",
+            "schema_version": 1
+          },
+          "fallback_used": false
+        },
+        "timestamp": 1794757351,
+        "request_id": "25d34227-3f3e-45c9-a29d-b974ae8e181b"
+      },
+      "trace_id_header": "ac7bf0f7-27d6-4893-9bab-0dfabc89b71b"
+    },
+    {
+      "market": "US",
+      "http_status": 403,
+      "response": {
+        "code": 403,
+        "message": "integration.invoke_failed",
+        "error": "Plugin rejected the capability invocation: proxy REST POST /api/v1/plugin/commerce/checkout/offers/query failed: status=403 code=COMMERCE_CHECKOUT_FORBIDDEN cause=Plugin rejected the capability invocation",
+        "error_code": "COMMERCE_CHECKOUT_FORBIDDEN",
+        "reason_code": "COMMERCE_CHECKOUT_FORBIDDEN",
+        "details": {
+          "code": "integration.invoke_failed",
+          "hint": "能力调用失败，请参考 trace_id 排查",
+          "next_steps": [
+            "检查事件总线与 Plugin 状态，确保协议通道可用",
+            "若错误提示手动升级，请在 Workflow/Admin 控制台确认模板升级"
+          ],
+          "reason_code": "COMMERCE_CHECKOUT_FORBIDDEN",
+          "trace_id": "1fd29060-67d1-44d2-bc86-b796aaa0c7f3",
+          "upstream_error_code": "COMMERCE_CHECKOUT_FORBIDDEN",
+          "upstream_status": 403,
+          "upstream_trace_id": "80923a4d-348f-42e9-8e4c-bf36833a20f6"
+        },
+        "timestamp": 1794757352,
+        "request_id": "895e02f7-d3fe-444b-85aa-19e787fd4325"
+      },
+      "trace_id_header": "64006c5c-49be-41a0-9871-ed4184132e8d"
+    }
+  ],
+  "grant_status": {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "items": [
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        }
+      ]
+    },
+    "timestamp": 1794757348,
+    "request_id": "ac559e25-49a9-4910-b004-f43d8dbcf407"
+  }
+}

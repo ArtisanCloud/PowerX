@@ -116,9 +116,13 @@ func TestSettingsConnectionNeverGenerates(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		require.Equal(t, "GET", r.Method)
-		require.Equal(t, "/v1/models", r.URL.Path)
+		require.Contains(t, []string{"/v1/models", "/v1/api/v1/models"}, r.URL.Path)
 		if r.Header.Get("Authorization") != "Bearer test-key" {
 			w.WriteHeader(401)
+			return
+		}
+		if r.URL.Path == "/v1/api/v1/models" {
+			_, _ = w.Write([]byte(`{"output":{"models":[]}}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"data":[]}`))

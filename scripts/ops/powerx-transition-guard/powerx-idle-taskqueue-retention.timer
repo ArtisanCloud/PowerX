@@ -1,0 +1,11 @@
+[Unit]
+Description=Bounded temporary empty TaskQueue audit retention
+
+[Timer]
+OnBootSec=120s
+OnUnitInactiveSec=180s
+AccuracySec=10s
+Unit=powerx-idle-taskqueue-retention.service
+
+[Install]
+WantedBy=timers.target

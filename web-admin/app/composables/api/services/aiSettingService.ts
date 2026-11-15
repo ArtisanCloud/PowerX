@@ -5,6 +5,8 @@ import type { ApiResponse } from "../types/types";
 import type { PowerModel } from "../types";
 
 export interface Provider {
+  online_models_supported?: boolean;
+  connection_probe_supported?: boolean;
   id: string;
   name: string;
   apps?: { id: string; name: string }[];
@@ -93,7 +95,10 @@ export interface OnlineModelCatalog {
   corrected_count?: number;
 }
 
+export interface OnlineModelDraftConnection { base_url: string; api_key?: string; auth_mode?: string; organization?: string; anthropic_version?: string; azure_deployment?: string }
+
 export interface OnlineModelSyncRequest {
+  connection?: OnlineModelDraftConnection;
   env: string;
   provider: string;
   app: string;
@@ -181,6 +186,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     temperature?: number;
     reasoningEffort?: string;
     maxTokens?: number;
@@ -201,6 +207,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     size?: string;
     quality?: string;
     format?: string;
@@ -215,6 +222,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     dimensions?: number;
     truncate?: string;
     batch?: number;
@@ -228,6 +236,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     voice?: string;
     speed?: number;
     format?: string;
@@ -242,6 +251,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     language?: string;
     responseFormat?: string;
     temperature?: number;
@@ -256,6 +266,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     resolution?: string;
     fps?: number;
     maxDurationSec?: number;
@@ -270,6 +281,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     outputFormat?: string;
     promptHint?: string;
   };
@@ -282,6 +294,7 @@ export interface SaveSettingsPayload {
     organization?: string;
     region?: string;
     azureDeployment?: string;
+    anthropicVersion?: string;
     topK?: number;
     returnDocuments?: boolean;
     maxChunksPerDoc?: number;

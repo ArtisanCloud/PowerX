@@ -1,0 +1,120 @@
+{
+  "schema": "powerx.workspacex.checkout-core-handoff/v2",
+  "created_at": "2026-11-15T15:43:06.554807+00:00",
+  "core_base_url": "http://127.0.0.1:8077",
+  "api_prefix": "/api/v1",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "key_id": "12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+  "caller_subject": "api_key:12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+  "auth_scheme": "ApiKey",
+  "credential_file": "/Users/michaelhu/.config/powerx/private/workspacex-checkout-lab-20261115.json",
+  "secret_delivery": "Local private file only; server-side use; do not embed in app or browser",
+  "pins": [
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 2,
+      "capabilities_hash": "3f796449b944d4a75938f6956594cc34d8b31efb3f97a39081d473ae22672487",
+      "protocol_hash": "1af7c6920c1429fecc1fd1e2681d00461db554bab330e66758806fb56790b29b",
+      "method": "POST",
+      "path": "/api/v1/plugin/commerce/checkout/offers/query"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 2,
+      "capabilities_hash": "9688e24bda16058a08fa5070913a57b12e14912603e095f46588f7986537aa97",
+      "protocol_hash": "60076930c8d755785808e415c294fbc22618cd488e85a7fc37c387bca8186341",
+      "method": "POST",
+      "path": "/api/v1/plugin/commerce/checkout/orders/create"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 2,
+      "capabilities_hash": "8d02d232f4df4376b805ee8b213f0c35db2a958f5689a020f9733bf458b04601",
+      "protocol_hash": "b3d8e40975f1d5c322b8d1d5a8676605560fef7bf84ac003c4cb8470e7a1e2fa",
+      "method": "POST",
+      "path": "/api/v1/plugin/commerce/checkout/orders/query"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 2,
+      "capabilities_hash": "3d7f23e7cfeeea5403caef8bcb7d04a767bffe94b1d9301f3a9d2a244354f9f2",
+      "protocol_hash": "ab5699123744a2d56b51ba9d3ba608ab25c421b7588e93b6bd6a0b9a99fbdfb8",
+      "method": "POST",
+      "path": "/api/v1/plugin/commerce/checkout/payments/create"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 2,
+      "capabilities_hash": "58cfa55eae76af9a653c8c1422c87af4a5c01a30616b93e0251f967d3ad10d41",
+      "protocol_hash": "f584d4a4b64dd2b1e8d127ef915ed99553d51de29089238f8225945755f47b84",
+      "method": "POST",
+      "path": "/api/v1/plugin/commerce/checkout/payments/query"
+    }
+  ],
+  "ecommerce_next": {
+    "owner": "ecommerce maintainer",
+    "customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+    "caller_subject": "api_key:12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+    "required_work": [
+      "Verify current daily database and writers, then dry-run/backfill/finalize historical payment UUIDs",
+      "Create and publish dedicated CN/CNY 0.01 one-time Lab product/SKU/price/purchase-option for plugin_checkout",
+      "Bind exact caller, customer, option, CN, actual provider UUID and payment method allowlist"
+    ],
+    "return_fields": [
+      "UUID maintenance receipt",
+      "purchase_option_uuid",
+      "sku_uuid",
+      "product_version",
+      "price_version",
+      "provider_uuid",
+      "payment_method",
+      "allowlist readback receipt"
+    ]
+  },
+  "workspacex_next": {
+    "owner": "WorkspaceX maintainer",
+    "precondition": "Replace known-bad pending pins with this handoff; preserve original credential and allowlists",
+    "required_work": [
+      "Re-read current five pins and validate quote through deployed WorkspaceX SDK; adopt actual full service paths",
+      "Create and validate new Lab software fulfillment mapping through formal WorkspaceX management flow; preserve six existing drafts",
+      "Before order/payment writes durably persist request UUID; verify order, same-key retry/recover and cross-customer isolation",
+      "Obtain official QR payment code; verify CNY 0.01, expected provider/order ownership and future expiry before user scan"
+    ],
+    "scan_ready": false
+  },
+  "acceptance": "Original dedicated API Key: real CN quote HTTP 200, CNY 0.01, both QR channels; out-of-scope US rejected by ecommerce with HTTP 403 COMMERCE_CHECKOUT_FORBIDDEN. No order, payment, recovery or payment code acceptance in this run.",
+  "supersedes_sha256": "3551370f55dd37735cd61f498a4dd7b6abebf36b27e48c7201ec9326137e43f9",
+  "supersedes_reason": "Five service ticket paths now include actual /api/v1 prefix; registration and both hashes changed",
+  "state": "core_binding_and_api_key_ticket_live_verified",
+  "lab": {
+    "purchase_option_uuid": "0a5a93c9-df7f-4f37-bf48-91aaf0929bd1",
+    "core_customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+    "market": "CN",
+    "currency": "CNY",
+    "amount_minor": 1,
+    "scale": 2
+  },
+  "source_fix": {
+    "file": "backend/internal/service/plugin_identity/service_invocation.go",
+    "reason": "Authenticated API Key synthetic MemberUUID is not a human member; require private key proof and matching request subject",
+    "daily_core_restarted": true,
+    "restarted_by": "user"
+  },
+  "live_verification": {
+    "receipt": "docs/contracts/evidence/ecommerce-checkout-binding-postrestart-20261115.json",
+    "quote_trace_id": "36fb488e-7d73-40f5-b98f-cee2025183f3",
+    "out_of_scope_trace_id": "1fd29060-67d1-44d2-bc86-b796aaa0c7f3",
+    "scope_test": "CN allowed; US denied; other object/channel scopes remain for WorkspaceX acceptance",
+    "five_current_pins_rechecked": true
+  }
+}

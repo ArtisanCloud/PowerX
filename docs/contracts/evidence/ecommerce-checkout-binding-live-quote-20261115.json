@@ -1,0 +1,62 @@
+{
+  "checked_at": "2026-11-15T15:33:21.442786+00:00",
+  "grant_status": {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "items": [
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        }
+      ]
+    },
+    "timestamp": 1794756801,
+    "request_id": "507690da-312d-4eb8-bea7-4be68c3a9739"
+  },
+  "requests": [
+    {
+      "market": "CN",
+      "http_status": 401,
+      "trace_id_header": "7dc11c10-b976-4fbf-b338-174f233ddba8",
+      "response": {
+        "code": 401,
+        "message": "registry.invalid_request",
+        "error": "IAM_SERVICE_INVOCATION_CALLER_INVALID",
+        "error_code": "IAM_SERVICE_INVOCATION_CALLER_INVALID",
+        "reason_code": "IAM_SERVICE_INVOCATION_CALLER_INVALID",
+        "details": {
+          "code": "registry.invalid_request",
+          "hint": "请求缺少必填字段或格式不合法",
+          "reason_code": "IAM_SERVICE_INVOCATION_CALLER_INVALID",
+          "trace_id": "2a6ccb19-e002-4ecf-9130-0590def7e6de"
+        },
+        "timestamp": 1794756801,
+        "request_id": "308941a1-2519-441d-8aaa-f49a7a1579fd"
+      }
+    }
+  ],
+  "orders_created": false,
+  "payments_created": false
+}

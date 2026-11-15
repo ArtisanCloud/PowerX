@@ -28,6 +28,8 @@ func TestStorageMigrationScopeRejectsOtherCommandsAndEnvironments(t *testing.T) 
 	require.NoError(t, validateMigrationScope("migrate", "task-history-idempotency"))
 	require.NoError(t, validateMigrationScope("migrate", "event-fabric-service-identity"))
 	require.NoError(t, validateMigrationScope("migrate", "scheduler-task-dispatch"))
+	require.NoError(t, validateMigrationScope("migrate", "notification-reminder-dependencies"))
+	require.Error(t, validateMigrationScope("seed", "notification-reminder-dependencies"))
 	require.Error(t, validateMigrationScope("seed", "scheduler-task-dispatch"))
 	require.Error(t, validateMigrationScope("seed", "event-fabric-service-identity"))
 	require.Error(t, validateMigrationScope("seed", "task-history-idempotency"))
@@ -35,7 +37,7 @@ func TestStorageMigrationScopeRejectsOtherCommandsAndEnvironments(t *testing.T) 
 	require.Error(t, validateMigrationScope("seed", "storage-governance"))
 	require.Error(t, validateMigrationScope("migrate", "everything"))
 	for _, env := range []string{"prod", "staging", ""} {
-		for _, scope := range []string{"backup-cleanup-resolution", "backup-cleanup-retention", "storage-governance", "capability-retention", "system-table-retention", "task-history-idempotency", "event-fabric-service-identity", "scheduler-task-dispatch"} {
+		for _, scope := range []string{"backup-cleanup-resolution", "backup-cleanup-retention", "storage-governance", "capability-retention", "system-table-retention", "task-history-idempotency", "event-fabric-service-identity", "scheduler-task-dispatch", "notification-reminder-dependencies"} {
 			err := MigrateDatabaseScope(context.Background(), nil, &config.Config{Deployment: config.DeploymentConfig{Env: env}}, scope)
 			require.Error(t, err)
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/modeldiscovery"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	aisvc "github.com/ArtisanCloud/PowerX/internal/service/ai"
 	capabilitysvc "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
@@ -45,12 +46,14 @@ type AgentSettingHandler struct {
 // identity fields aligned with catalog.ProviderItem and the gRPC DTO: JSON
 // field names are lower camel case, never Go field names.
 type providerView struct {
-	ID         string                         `json:"id"`
-	Name       string                         `json:"name"`
-	Apps       []providerAppView              `json:"apps,omitempty"`
-	Configured bool                           `json:"configured"`
-	Health     *agentSvc.ProviderHealthRecord `json:"health,omitempty"`
-	Auth       *providerAuthView              `json:"auth,omitempty"`
+	OnlineModelsSupported    bool                           `json:"online_models_supported"`
+	ConnectionProbeSupported bool                           `json:"connection_probe_supported"`
+	ID                       string                         `json:"id"`
+	Name                     string                         `json:"name"`
+	Apps                     []providerAppView              `json:"apps,omitempty"`
+	Configured               bool                           `json:"configured"`
+	Health                   *agentSvc.ProviderHealthRecord `json:"health,omitempty"`
+	Auth                     *providerAuthView              `json:"auth,omitempty"`
 }
 
 type providerAppView struct {
@@ -93,18 +96,19 @@ func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
 }
 
 type baseConn struct {
-	Name            string `form:"name"`
-	Provider        string `json:"provider" validate:"required"`
-	App             string `json:"app"`
-	Model           string `json:"model"    validate:"required"`
-	AuthMode        string `json:"authMode"`
-	APIKey          string `json:"apiKey"`
-	SecretID        string `json:"secretId"`
-	SecretKey       string `json:"secretKey"`
-	BaseURL         string `json:"baseURL"`
-	Region          string `json:"region"`
-	Organization    string `json:"organization"`
-	AzureDeployment string `json:"azureDeployment"`
+	Name             string `form:"name"`
+	Provider         string `json:"provider" validate:"required"`
+	App              string `json:"app"`
+	Model            string `json:"model"    validate:"required"`
+	AuthMode         string `json:"authMode"`
+	APIKey           string `json:"apiKey"`
+	SecretID         string `json:"secretId"`
+	SecretKey        string `json:"secretKey"`
+	BaseURL          string `json:"baseURL"`
+	Region           string `json:"region"`
+	Organization     string `json:"organization"`
+	AzureDeployment  string `json:"azureDeployment"`
+	AnthropicVersion string `json:"anthropicVersion"`
 }
 type modLLM struct {
 	baseConn
@@ -238,18 +242,19 @@ type saveSettingsReq struct {
 
 // connectionTestConn 仅检查供应商入口；型号为可选信息，保存和调用仍使用 baseConn 的必填约束。
 type connectionTestConn struct {
-	Name            string `form:"name"`
-	Provider        string `json:"provider" validate:"required"`
-	App             string `json:"app"`
-	Model           string `json:"model"`
-	AuthMode        string `json:"authMode"`
-	APIKey          string `json:"apiKey"`
-	SecretID        string `json:"secretId"`
-	SecretKey       string `json:"secretKey"`
-	BaseURL         string `json:"baseURL"`
-	Region          string `json:"region"`
-	Organization    string `json:"organization"`
-	AzureDeployment string `json:"azureDeployment"`
+	Name             string `form:"name"`
+	Provider         string `json:"provider" validate:"required"`
+	App              string `json:"app"`
+	Model            string `json:"model"`
+	AuthMode         string `json:"authMode"`
+	APIKey           string `json:"apiKey"`
+	SecretID         string `json:"secretId"`
+	SecretKey        string `json:"secretKey"`
+	BaseURL          string `json:"baseURL"`
+	Region           string `json:"region"`
+	Organization     string `json:"organization"`
+	AzureDeployment  string `json:"azureDeployment"`
+	AnthropicVersion string `json:"anthropicVersion"`
 }
 
 type testReq struct {
@@ -300,6 +305,7 @@ func normalizeBaseConn(v *baseConn) {
 	v.Region = strings.TrimSpace(v.Region)
 	v.Organization = strings.TrimSpace(v.Organization)
 	v.AzureDeployment = strings.TrimSpace(v.AzureDeployment)
+	v.AnthropicVersion = strings.TrimSpace(v.AnthropicVersion)
 }
 
 func normalizeSettingsRequest(req *saveSettingsReq) {
@@ -472,7 +478,9 @@ func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 		for _, a := range it.Apps {
 			apps = append(apps, providerAppView{ID: a.ID, Name: a.Name})
 		}
+		_, onlineSupported := modeldiscovery.ProviderSpec(it.ID)
 		out = append(out, providerView{
+			OnlineModelsSupported: onlineSupported, ConnectionProbeSupported: agentSvc.SupportsConnectionProbe(it.ID, ""),
 			ID:         it.ID,
 			Name:       it.Name,
 			Apps:       apps,
@@ -803,7 +811,7 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 	}
 	conn.Model = applyAppToModel(conn.App, conn.Model)
 	verification, err := h.svc.VerifyConnection(c.Request.Context(), req.Env, tenantCtx.UUIDPtr(), req.Modality, agentSvc.ConnectionInput{
-		Provider: conn.Provider, Model: conn.Model, BaseURL: conn.BaseURL, APIKey: conn.APIKey, AuthMode: conn.AuthMode, Organization: conn.Organization,
+		Provider: conn.Provider, Model: conn.Model, BaseURL: conn.BaseURL, APIKey: conn.APIKey, AuthMode: conn.AuthMode, Organization: conn.Organization, AnthropicVersion: conn.AnthropicVersion, AzureDeployment: conn.AzureDeployment,
 	})
 	if err != nil {
 		status := "unhealthy"
@@ -822,7 +830,7 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		scheme = manifest.Auth.Scheme
 	}
 	cred := &dbmodel.AIProviderCredential{Env: req.Env, TenantUUID: tenantCtx.UUIDPtr(), Name: utils.Slug(req.Env + "-" + provider), Provider: provider, AuthScheme: scheme,
-		Data: datatypes.JSONMap{"api_key": conn.APIKey, "secret_id": conn.SecretID, "secret_key": conn.SecretKey, "auth_mode": conn.AuthMode, "base_url": conn.BaseURL, "region": conn.Region, "organization": conn.Organization, "azure_deployment": conn.AzureDeployment},
+		Data: datatypes.JSONMap{"api_key": conn.APIKey, "secret_id": conn.SecretID, "secret_key": conn.SecretKey, "auth_mode": conn.AuthMode, "base_url": conn.BaseURL, "region": conn.Region, "organization": conn.Organization, "anthropic_version": conn.AnthropicVersion, "azure_deployment": conn.AzureDeployment},
 	}
 	if err := h.svc.SaveCredentialOnly(c.Request.Context(), req.Env, tenantCtx.UUIDPtr(), cred); err != nil {
 		h.emitAuditEvent(c, tenantCtx.UUID(), req.Env, auditOpTestConnection, req.Modality, provider, conn.Model, false, "credential_save_failed")
@@ -1068,7 +1076,7 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		v := req.VLM
 		credProvider, credName = v.Provider, utils.Slug(req.Env+"-"+v.Provider)
 		if !v.ReuseCredential {
-			cred = datatypes.JSONMap{"api_key": v.APIKey, "base_url": v.BaseURL, "organization": v.Organization, "region": v.Region, "secret_id": v.SecretID, "secret_key": v.SecretKey, "auth_mode": v.AuthMode}
+			cred = datatypes.JSONMap{"api_key": v.APIKey, "base_url": v.BaseURL, "organization": v.Organization, "region": v.Region, "secret_id": v.SecretID, "secret_key": v.SecretKey, "auth_mode": v.AuthMode, "anthropic_version": v.AnthropicVersion, "azure_deployment": v.AzureDeployment}
 		}
 		prof = &dbmodel.AIModelProfile{Env: req.Env, TenantUUID: tenantUUID, Modality: "vlm", Provider: v.Provider, Model: v.Model, Defaults: datatypes.JSONMap(v.parameters()), Tags: []string{"vlm"}}
 	case contract.ModLLM:
@@ -1085,14 +1093,15 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.LLM.Provider
 		credName = utils.Slug(req.Env + "-" + req.LLM.Provider) // e.g. "default-ollama"
 		cred = datatypes.JSONMap{
-			"api_key":          req.LLM.APIKey, // 允许为空（本地 ollama 不需要）
-			"secret_id":        req.LLM.SecretID,
-			"secret_key":       req.LLM.SecretKey,
-			"auth_mode":        req.LLM.AuthMode,
-			"base_url":         req.LLM.BaseURL,
-			"region":           req.LLM.Region,
-			"organization":     req.LLM.Organization,
-			"azure_deployment": req.LLM.AzureDeployment,
+			"api_key":           req.LLM.APIKey, // 允许为空（本地 ollama 不需要）
+			"secret_id":         req.LLM.SecretID,
+			"secret_key":        req.LLM.SecretKey,
+			"auth_mode":         req.LLM.AuthMode,
+			"base_url":          req.LLM.BaseURL,
+			"region":            req.LLM.Region,
+			"organization":      req.LLM.Organization,
+			"anthropic_version": req.LLM.AnthropicVersion,
+			"azure_deployment":  req.LLM.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,
@@ -1116,14 +1125,15 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.Image.Provider
 		credName = utils.Slug(req.Env + "-" + req.Image.Provider)
 		cred = datatypes.JSONMap{
-			"api_key":          req.Image.APIKey,
-			"secret_id":        req.Image.SecretID,
-			"secret_key":       req.Image.SecretKey,
-			"auth_mode":        req.Image.AuthMode,
-			"base_url":         req.Image.BaseURL,
-			"region":           req.Image.Region,
-			"organization":     req.Image.Organization,
-			"azure_deployment": req.Image.AzureDeployment,
+			"api_key":           req.Image.APIKey,
+			"secret_id":         req.Image.SecretID,
+			"secret_key":        req.Image.SecretKey,
+			"auth_mode":         req.Image.AuthMode,
+			"base_url":          req.Image.BaseURL,
+			"region":            req.Image.Region,
+			"organization":      req.Image.Organization,
+			"anthropic_version": req.Image.AnthropicVersion,
+			"azure_deployment":  req.Image.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,
@@ -1152,14 +1162,15 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.Embedding.Provider
 		credName = utils.Slug(req.Env + "-" + req.Embedding.Provider)
 		cred = datatypes.JSONMap{
-			"api_key":          req.Embedding.APIKey,
-			"secret_id":        req.Embedding.SecretID,
-			"secret_key":       req.Embedding.SecretKey,
-			"auth_mode":        req.Embedding.AuthMode,
-			"base_url":         req.Embedding.BaseURL,
-			"region":           req.Embedding.Region,
-			"organization":     req.Embedding.Organization,
-			"azure_deployment": req.Embedding.AzureDeployment,
+			"api_key":           req.Embedding.APIKey,
+			"secret_id":         req.Embedding.SecretID,
+			"secret_key":        req.Embedding.SecretKey,
+			"auth_mode":         req.Embedding.AuthMode,
+			"base_url":          req.Embedding.BaseURL,
+			"region":            req.Embedding.Region,
+			"organization":      req.Embedding.Organization,
+			"anthropic_version": req.Embedding.AnthropicVersion,
+			"azure_deployment":  req.Embedding.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,
@@ -1190,14 +1201,15 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.Video.Provider
 		credName = utils.Slug(req.Env + "-" + req.Video.Provider)
 		cred = datatypes.JSONMap{
-			"api_key":          req.Video.APIKey,
-			"secret_id":        req.Video.SecretID,
-			"secret_key":       req.Video.SecretKey,
-			"auth_mode":        req.Video.AuthMode,
-			"base_url":         req.Video.BaseURL,
-			"region":           req.Video.Region,
-			"organization":     req.Video.Organization,
-			"azure_deployment": req.Video.AzureDeployment,
+			"api_key":           req.Video.APIKey,
+			"secret_id":         req.Video.SecretID,
+			"secret_key":        req.Video.SecretKey,
+			"auth_mode":         req.Video.AuthMode,
+			"base_url":          req.Video.BaseURL,
+			"region":            req.Video.Region,
+			"organization":      req.Video.Organization,
+			"anthropic_version": req.Video.AnthropicVersion,
+			"azure_deployment":  req.Video.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,
@@ -1225,14 +1237,14 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.Model3D.Provider
 		credName = utils.Slug(req.Env + "-" + req.Model3D.Provider)
 		cred = datatypes.JSONMap{
-			"api_key":          req.Model3D.APIKey,
-			"secret_id":        req.Model3D.SecretID,
-			"secret_key":       req.Model3D.SecretKey,
-			"auth_mode":        req.Model3D.AuthMode,
-			"base_url":         req.Model3D.BaseURL,
-			"region":           req.Model3D.Region,
-			"organization":     req.Model3D.Organization,
-			"azure_deployment": req.Model3D.AzureDeployment,
+			"api_key":           req.Model3D.APIKey,
+			"secret_id":         req.Model3D.SecretID,
+			"secret_key":        req.Model3D.SecretKey,
+			"auth_mode":         req.Model3D.AuthMode,
+			"base_url":          req.Model3D.BaseURL,
+			"region":            req.Model3D.Region,
+			"organization":      req.Model3D.Organization,
+			"anthropic_version": req.Model3D.AnthropicVersion, "azure_deployment": req.Model3D.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,
@@ -1259,14 +1271,15 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.AudioTTS.Provider
 		credName = utils.Slug(req.Env + "-" + req.AudioTTS.Provider)
 		cred = datatypes.JSONMap{
-			"api_key":          req.AudioTTS.APIKey,
-			"secret_id":        req.AudioTTS.SecretID,
-			"secret_key":       req.AudioTTS.SecretKey,
-			"auth_mode":        req.AudioTTS.AuthMode,
-			"base_url":         req.AudioTTS.BaseURL,
-			"region":           req.AudioTTS.Region,
-			"organization":     req.AudioTTS.Organization,
-			"azure_deployment": req.AudioTTS.AzureDeployment,
+			"api_key":           req.AudioTTS.APIKey,
+			"secret_id":         req.AudioTTS.SecretID,
+			"secret_key":        req.AudioTTS.SecretKey,
+			"auth_mode":         req.AudioTTS.AuthMode,
+			"base_url":          req.AudioTTS.BaseURL,
+			"region":            req.AudioTTS.Region,
+			"organization":      req.AudioTTS.Organization,
+			"anthropic_version": req.AudioTTS.AnthropicVersion,
+			"azure_deployment":  req.AudioTTS.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,
@@ -1295,14 +1308,15 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.AudioASR.Provider
 		credName = utils.Slug(req.Env + "-" + req.AudioASR.Provider)
 		cred = datatypes.JSONMap{
-			"api_key":          req.AudioASR.APIKey,
-			"secret_id":        req.AudioASR.SecretID,
-			"secret_key":       req.AudioASR.SecretKey,
-			"auth_mode":        req.AudioASR.AuthMode,
-			"base_url":         req.AudioASR.BaseURL,
-			"region":           req.AudioASR.Region,
-			"organization":     req.AudioASR.Organization,
-			"azure_deployment": req.AudioASR.AzureDeployment,
+			"api_key":           req.AudioASR.APIKey,
+			"secret_id":         req.AudioASR.SecretID,
+			"secret_key":        req.AudioASR.SecretKey,
+			"auth_mode":         req.AudioASR.AuthMode,
+			"base_url":          req.AudioASR.BaseURL,
+			"region":            req.AudioASR.Region,
+			"organization":      req.AudioASR.Organization,
+			"anthropic_version": req.AudioASR.AnthropicVersion,
+			"azure_deployment":  req.AudioASR.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,
@@ -1331,14 +1345,15 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantUUID *string) (credNam
 		credProvider = req.Rerank.Provider
 		credName = utils.Slug(req.Env + "-" + req.Rerank.Provider)
 		cred = datatypes.JSONMap{
-			"api_key":          req.Rerank.APIKey,
-			"secret_id":        req.Rerank.SecretID,
-			"secret_key":       req.Rerank.SecretKey,
-			"auth_mode":        req.Rerank.AuthMode,
-			"base_url":         req.Rerank.BaseURL,
-			"region":           req.Rerank.Region,
-			"organization":     req.Rerank.Organization,
-			"azure_deployment": req.Rerank.AzureDeployment,
+			"api_key":           req.Rerank.APIKey,
+			"secret_id":         req.Rerank.SecretID,
+			"secret_key":        req.Rerank.SecretKey,
+			"auth_mode":         req.Rerank.AuthMode,
+			"base_url":          req.Rerank.BaseURL,
+			"region":            req.Rerank.Region,
+			"organization":      req.Rerank.Organization,
+			"anthropic_version": req.Rerank.AnthropicVersion,
+			"azure_deployment":  req.Rerank.AzureDeployment,
 		}
 		prof = &dbmodel.AIModelProfile{
 			Env:        req.Env,

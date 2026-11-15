@@ -43,7 +43,7 @@ func main() {
 	}
 	fs := flag.NewFlagSet("database", flag.ContinueOnError)
 	configPath := fs.String("config", defaultConfigPath, "配置文件路径")
-	migrationScope := fs.String("scope", "", "仅 dev/test migrate 支持：customer-client-apps、backup-cleanup-retention、storage-governance、capability-retention、system-table-retention、task-history-idempotency 、event-fabric-service-identity 或 scheduler-task-dispatch；留空执行完整迁移")
+	migrationScope := fs.String("scope", "", "仅 dev/test migrate 支持：customer-client-apps、backup-cleanup-retention、storage-governance、capability-retention、system-table-retention、task-history-idempotency、event-fabric-service-identity、scheduler-task-dispatch 或 notification-reminder-dependencies；留空执行完整迁移")
 	confirm := fs.Bool("confirm", false, "确认执行修复")
 	pluginID := fs.String("plugin-id", "", "要修复运行凭证的插件 ID")
 	confirmDatabase := fs.String("confirm-database", "", "refresh 或 system-table-retention 限定迁移必须填写实际数据库名")

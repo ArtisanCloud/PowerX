@@ -313,6 +313,107 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	return authorizationbaseline.EnsureInitialized(db)
 }
 
+// MigrateNotificationReminderDependencies 仅补充直属上级列及通知创建凭据结构。
+// 不对成员整表 AutoMigrate，不推测上级或补造历史回执；不兼容的既有结构明确失败。
+// dev/test 限定入口复用迁移锁；事务保证任一步失败后不留下局部结构。
+func MigrateNotificationReminderDependencies(db *gorm.DB) error {
+	if db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
+		return fmt.Errorf("notification reminder dependencies require PostgreSQL")
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		member, receipt := &modelIAM.Member{}, &modelNotification.CreationReceipt{}
+		migrator := tx.Migrator()
+		if !migrator.HasTable(member) || !migrator.HasTable(&modelNotification.Notification{}) {
+			return fmt.Errorf("notification reminder dependencies require existing member and notification tables")
+		}
+		if !migrator.HasColumn(member, "DirectManagerMemberUUID") {
+			if err := migrator.AddColumn(member, "DirectManagerMemberUUID"); err != nil {
+				return err
+			}
+		}
+		if !migrator.HasIndex(member, "DirectManagerMemberUUID") {
+			if err := migrator.CreateIndex(member, "DirectManagerMemberUUID"); err != nil {
+				return err
+			}
+		}
+		if !migrator.HasTable(receipt) {
+			if err := migrator.CreateTable(receipt); err != nil {
+				return err
+			}
+		}
+		if !migrator.HasIndex(receipt, "ux_notification_creation_scope") {
+			if err := migrator.CreateIndex(receipt, "ux_notification_creation_scope"); err != nil {
+				return err
+			}
+		}
+		// 核对类型及可空性，不通过改列或重建来掩盖不兼容的既有结构。
+		for _, table := range []struct {
+			name    string
+			columns map[string]string
+		}{
+			{member.TableName(), map[string]string{"direct_manager_member_uuid": "uuid"}},
+			{receipt.TableName(), map[string]string{
+				"uuid": "uuid", "tenant_uuid": "uuid", "service_owner": "character varying(512)",
+				"key_hash": "character(64)", "request_hash": "character(64)",
+				"notification_uuid": "uuid", "response_json": "jsonb",
+			}},
+		} {
+			var columns []struct {
+				Name, Type string
+				NotNull    bool
+			}
+			if err := tx.Raw(`SELECT attname AS name, format_type(atttypid,atttypmod) AS type, attnotnull AS not_null
+				FROM pg_catalog.pg_attribute WHERE attrelid=to_regclass(?) AND attnum>0 AND NOT attisdropped`, table.name).Scan(&columns).Error; err != nil {
+				return err
+			}
+			for _, column := range columns {
+				want, required := table.columns[column.Name]
+				if !required {
+					continue
+				}
+				if column.Type != want || column.NotNull != (table.name == receipt.TableName()) {
+					return fmt.Errorf("notification reminder column definition mismatch: %s.%s", table.name, column.Name)
+				}
+				delete(table.columns, column.Name)
+			}
+			if len(table.columns) != 0 {
+				return fmt.Errorf("notification reminder required columns missing: %s", table.name)
+			}
+		}
+		statement := &gorm.Statement{DB: tx}
+		if err := statement.Parse(member); err != nil {
+			return err
+		}
+		managerIndex := statement.Schema.LookIndex("DirectManagerMemberUUID")
+		if managerIndex == nil {
+			return fmt.Errorf("notification reminder manager index declaration missing")
+		}
+		for _, index := range []struct {
+			table, name, columns string
+			unique, primary      bool
+		}{
+			{member.TableName(), managerIndex.Name, "direct_manager_member_uuid", false, false},
+			{receipt.TableName(), "ux_notification_creation_scope", "tenant_uuid,service_owner,key_hash", true, false},
+			{receipt.TableName(), "", "uuid", true, true},
+		} {
+			var valid bool
+			if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_index x
+				JOIN pg_catalog.pg_class i ON i.oid=x.indexrelid JOIN pg_catalog.pg_am am ON am.oid=i.relam
+				WHERE x.indrelid=to_regclass(?) AND (?='' OR i.relname=?) AND x.indisunique=? AND x.indisprimary=?
+				AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL AND am.amname='btree'
+				AND (SELECT string_agg(a.attname,',' ORDER BY k.ord) FROM unnest(x.indkey) WITH ORDINALITY k(attnum,ord)
+				JOIN pg_catalog.pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum)=?)`,
+				index.table, index.name, index.name, index.unique, index.primary, index.columns).Scan(&valid).Error; err != nil {
+				return err
+			}
+			if !valid {
+				return fmt.Errorf("notification reminder index definition mismatch: %s (%s)", index.table, index.columns)
+			}
+		}
+		return nil
+	})
+}
+
 // MigrateStorageGovernanceModels 复用完整迁移的注册；开发限定入口只迁移治理元数据表。
 func MigrateStorageGovernanceModels(db *gorm.DB) error {
 	if err := db.AutoMigrate(&modelStorageGov.ControlConfiguration{}, &modelStorageGov.ControlRevision{}, &modelStorageGov.Policy{}, &modelStorageGov.PolicyRevision{}, &modelStorageGov.Sample{}, &modelStorageGov.CleanupRun{}); err != nil {

@@ -657,7 +657,7 @@ func (s *AgentSettingService) resolveConnFromCredential(ctx context.Context, env
 	}
 	// 再补 api_key（仅后端内部使用，不回前端）。只有 provider 明确要求 key 时才解封敏感字段；
 	// 例如 Ollama 只需要 base_url，不能因为没有 api_key 阻断运行时。
-	if apiKey == "" && req.NeedKey {
+	if apiKey == "" && (req.NeedKey || provider == "openai_compatible") {
 		// 兼容：历史记录可能未加密 api_key（明文存放）
 		if v, ok := cred.Data["api_key"].(string); ok && strings.TrimSpace(v) != "" {
 			apiKey = strings.TrimSpace(v)
@@ -676,7 +676,7 @@ func (s *AgentSettingService) resolveConnFromCredential(ctx context.Context, env
 					apiKey = strings.TrimSpace(v)
 				}
 			}
-			if apiKey == "" {
+			if apiKey == "" && req.NeedKey {
 				keys := make([]string, 0, len(sec))
 				for k := range sec {
 					keys = append(keys, k)
@@ -687,7 +687,7 @@ func (s *AgentSettingService) resolveConnFromCredential(ctx context.Context, env
 		} else if cred.Data != nil && cred.Data["__sealed"] != nil {
 			logger.WarnF(ctx, "[agent_setting] unseal api_key failed env=%s tenant=%s provider=%s err=%v", env, s.tenantScopeKey(tenantUUID), provider, e)
 			return baseURL, apiKey, fmt.Errorf("解封已保存 api_key 失败 env=%s tenant=%s provider=%s: %w", env, s.tenantScopeKey(tenantUUID), provider, e)
-		} else {
+		} else if req.NeedKey {
 			logger.WarnF(ctx, "[agent_setting] credential missing __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 			return baseURL, apiKey, fmt.Errorf("已保存凭据缺少 __sealed env=%s tenant=%s provider=%s", env, s.tenantScopeKey(tenantUUID), provider)
 		}
@@ -2205,6 +2205,9 @@ func (s *AgentSettingService) resolveModelRule(modality, provider, model string)
 			if lf == "base_url" {
 				reqBase = true
 			}
+		}
+		if strings.EqualFold(m.ID, "openai_compatible") {
+			reqAPI = false
 		}
 		// 2) 默认 base_url: model.defaults 覆盖 auth.defaults
 		def := ""

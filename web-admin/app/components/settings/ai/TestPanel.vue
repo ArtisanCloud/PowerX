@@ -17,7 +17,7 @@
           color="primary"
           size="sm"
           class="whitespace-nowrap"
-          :disabled="disabled || connectionTesting || quickTesting || !currentState.provider"
+          :disabled="disabled || connectionSupported === false || connectionTesting || quickTesting || !currentState.provider"
           :loading="connectionTesting"
           @click="onTestConnection?.()"
         >
@@ -38,6 +38,7 @@
       <UButton v-if="onTestVision" type="button" icon="i-heroicons-photo" size="sm" variant="soft"
         data-testid="ai-vision-trial" :disabled="disabled || connectionTesting || quickTesting || !currentState.provider || !String(currentState.model || '').trim()"
         @click="onTestVision()">{{ $t('settings.ai.visionTrial.open') }}</UButton>
+      <p v-if="connectionSupported === false" role="status" class="text-xs text-warning">{{ $t("settings.ai.connectionTest.errors.AI_CONNECTION_PROBE_UNSUPPORTED") }}</p>
       <p class="text-xs text-[var(--text-secondary)]">{{ $t("settings.ai.connectionTest.hint") }}</p>
       <p v-if="!String(currentState.model || '').trim()" class="text-xs text-[var(--text-secondary)]">
         {{ $t("settings.ai.connectionTest.selectModelBeforeRun") }}
@@ -78,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+withDefaults(defineProps<{
   currentTitle: string;
   currentState: {
     provider: string;
@@ -93,10 +94,11 @@ defineProps<{
   disabled?: boolean;
   disabledReason?: string;
   connectionTesting?: boolean;
+  connectionSupported?: boolean;
   quickTesting?: boolean;
   quickCallValidates?: boolean;
   onTestConnection?: () => void;
   onTestQuickCall?: () => void;
   onTestVision?: () => void;
-}>();
+}>(), { connectionSupported: true });
 </script>

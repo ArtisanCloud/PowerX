@@ -1,0 +1,190 @@
+{
+  "completed_at": "2026-11-15T14:36:56.022722+00:00",
+  "scope": "Core IAM_ORGANIZATION typed business HTTP status preservation",
+  "branch": "024-ai-engineering-skills",
+  "core_head": "06390792ceef788b6767033f7c7fbc9493c342db",
+  "files": [
+    {
+      "path": "backend/internal/transport/http/openapi/capability_registry/tenant_handler.go",
+      "sha256": "cb63c8c76ec4ab9f8f417690a5d0f77d5f8b30f9841fd2bc55b40442ad9ec64b"
+    },
+    {
+      "path": "backend/internal/transport/http/openapi/capability_registry/tenant_iam_organization_error_test.go",
+      "sha256": "b9fc3b93ce0c609322c2a58645fd2a11e4186655470d3dbd091de5a290ca0eb8"
+    },
+    {
+      "path": "docs/contracts/iam-member-authority.md",
+      "sha256": "cc7fe233473d2a48de0a1294a7c84b3695da029bf14024dc92616f05f861ec89"
+    }
+  ],
+  "regression_before_fix": {
+    "organization_subtests_failed": 14,
+    "unclassified_failure_test_passed": true
+  },
+  "after_fix": {
+    "top_level_tests": {
+      "pass": 5,
+      "fail": 0,
+      "skip": 0
+    },
+    "subtests": {
+      "pass": 50,
+      "fail": 0,
+      "skip": 0
+    },
+    "skipped_tests": [],
+    "packages": [
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry",
+        "result": "pass"
+      }
+    ]
+  },
+  "affected_tests": {
+    "top_level_tests": {
+      "pass": 160,
+      "fail": 0,
+      "skip": 1
+    },
+    "subtests": {
+      "pass": 218,
+      "fail": 0,
+      "skip": 0
+    },
+    "skipped_tests": [
+      "TestReportingManagerPostgresConcurrentCycleCannotCommit"
+    ],
+    "packages": [
+      {
+        "package": "github.com/ArtisanCloud/PowerX/pkg/dto",
+        "result": "skip"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/iam",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/ArtisanCloud/PowerX/internal/service/capability_registry",
+        "result": "pass"
+      }
+    ]
+  },
+  "go_vet": "passed",
+  "framework_member_authority_tests": {
+    "passed": 37,
+    "failed": 0,
+    "skipped": 0
+  },
+  "actual_core_http_to_framework": [
+    {
+      "source_status": 400,
+      "received_status": 400,
+      "original_code": "IAM_ORGANIZATION_INVALID",
+      "reason_code": "IAM_ORGANIZATION_INVALID",
+      "request_id": "fixture_core_body_request",
+      "trace_id": "984a7313-1f39-4cc5-857e-a37c786dd523",
+      "header_diagnostics": false,
+      "passed": true
+    },
+    {
+      "source_status": 400,
+      "received_status": 400,
+      "original_code": "IAM_ORGANIZATION_INVALID",
+      "reason_code": "IAM_ORGANIZATION_INVALID",
+      "request_id": "fixture_core_header_request",
+      "trace_id": "fixture_core_header_trace",
+      "header_diagnostics": true,
+      "passed": true
+    },
+    {
+      "source_status": 403,
+      "received_status": 403,
+      "original_code": "IAM_ORGANIZATION_TENANT_UNAVAILABLE",
+      "reason_code": "IAM_ORGANIZATION_TENANT_UNAVAILABLE",
+      "request_id": "fixture_core_body_request",
+      "trace_id": "9729f6cb-6c83-4adb-a660-3ff048f8b0e4",
+      "header_diagnostics": false,
+      "passed": true
+    },
+    {
+      "source_status": 403,
+      "received_status": 403,
+      "original_code": "IAM_ORGANIZATION_TENANT_UNAVAILABLE",
+      "reason_code": "IAM_ORGANIZATION_TENANT_UNAVAILABLE",
+      "request_id": "fixture_core_header_request",
+      "trace_id": "fixture_core_header_trace",
+      "header_diagnostics": true,
+      "passed": true
+    },
+    {
+      "source_status": 503,
+      "received_status": 503,
+      "original_code": "IAM_ORGANIZATION_SCHEMA_NOT_READY",
+      "reason_code": "IAM_ORGANIZATION_SCHEMA_NOT_READY",
+      "request_id": "fixture_core_body_request",
+      "trace_id": "b8c13465-ba46-4a38-a4f4-936d92673420",
+      "header_diagnostics": false,
+      "passed": true
+    },
+    {
+      "source_status": 503,
+      "received_status": 503,
+      "original_code": "IAM_ORGANIZATION_SCHEMA_NOT_READY",
+      "reason_code": "IAM_ORGANIZATION_SCHEMA_NOT_READY",
+      "request_id": "fixture_core_header_request",
+      "trace_id": "fixture_core_header_trace",
+      "header_diagnostics": true,
+      "passed": true
+    }
+  ],
+  "http_scope": "production Gin tenant invocation route and error serializer with injected business errors; no database or actual grants",
+  "framework_client_sha256": "21882fc2bfc68edad6e2c3e6f81929e14b93bdd019c5686ef88fbeff6254d97e",
+  "tested_framework_assembly_sha256": "4c308d4570e674a30c5f0d66e78553a9ff9e529823d682c84960e2df2f67fc0d",
+  "probe_build": "compiled current Framework assembly; isolated package-free probe config after inaccessible global NuGet cache",
+  "fixture_cleanup": {
+    "pid": 13214,
+    "process_exited": true,
+    "exit_code": 0,
+    "ports": [
+      {
+        "port": 52016,
+        "released": true
+      },
+      {
+        "port": 52017,
+        "released": true
+      },
+      {
+        "port": 52018,
+        "released": true
+      },
+      {
+        "port": 52019,
+        "released": true
+      },
+      {
+        "port": 52020,
+        "released": true
+      },
+      {
+        "port": 52021,
+        "released": true
+      }
+    ]
+  },
+  "boundaries": {
+    "daily_service_restarted": false,
+    "database_connected": false,
+    "grants_changed": false,
+    "business_notification_sent": false,
+    "framework_source_modified": false,
+    "crm_modified_or_verified": false,
+    "sdk_published": false,
+    "daily_runtime_or_crm_acceptance": false
+  },
+  "next_task": "Restart the user-owned Core at port 8077 through its existing launch method, then verify the runtime and CRM tenant/member mapping read-only"
+}

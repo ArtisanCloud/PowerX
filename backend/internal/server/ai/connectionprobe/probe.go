@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/modeldiscovery"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -22,7 +23,7 @@ const (
 )
 
 type Input struct {
-	Provider, Endpoint, APIKey, Organization, Strategy string
+	Provider, Endpoint, APIKey, Organization, AnthropicVersion, Strategy string
 }
 
 type Result struct {
@@ -46,8 +47,24 @@ func Verify(ctx context.Context, in Input) (*Result, error) {
 	var field string
 	switch in.Strategy {
 	case Models:
-		u.Path += "/models"
-		field = "data"
+		if spec, ok := modeldiscovery.ProviderSpec(in.Provider); ok {
+			target, e := modeldiscovery.Target(modeldiscovery.Input{Provider: in.Provider, Endpoint: in.Endpoint, APIKey: in.APIKey}, spec)
+			if e != nil {
+				return nil, failure(422, "AI_CONNECTION_CONFIG_INVALID", 0)
+			}
+			u = target
+			switch spec.Protocol {
+			case "gemini", "ollama":
+				field = "models"
+			case "dashscope":
+				field = "output"
+			default:
+				field = "data"
+			}
+		} else {
+			u.Path += "/models"
+			field = "data"
+		}
 	case KeyInfo:
 		u.Path += "/auth/key"
 		field = "data"
@@ -57,7 +74,7 @@ func Verify(ctx context.Context, in Input) (*Result, error) {
 	default:
 		return nil, failure(501, "AI_CONNECTION_PROBE_UNSUPPORTED", 0)
 	}
-	if in.Strategy != OllamaTags && strings.TrimSpace(in.APIKey) == "" {
+	if in.Strategy != OllamaTags && in.Provider != "openai_compatible" && strings.TrimSpace(in.APIKey) == "" {
 		return nil, failure(422, "AI_CONNECTION_CONFIG_INVALID", 0)
 	}
 	u.RawPath = ""
@@ -70,12 +87,17 @@ func Verify(ctx context.Context, in Input) (*Result, error) {
 			return 0, nil, failure(422, "AI_CONNECTION_CONFIG_INVALID", 0)
 		}
 		req.Header.Set("Accept", "application/json")
-		if key != "" {
-			req.Header.Set("Authorization", "Bearer "+key)
+		if spec, ok := modeldiscovery.ProviderSpec(in.Provider); ok && in.Strategy == Models {
+			modeldiscovery.SetHeaders(req, modeldiscovery.Input{Provider: in.Provider, APIKey: key, Organization: in.Organization, AnthropicVersion: in.AnthropicVersion}, spec)
+		} else {
+			if key != "" {
+				req.Header.Set("Authorization", "Bearer "+key)
+			}
+			if in.Organization != "" {
+				req.Header.Set("OpenAI-Organization", in.Organization)
+			}
 		}
-		if in.Organization != "" {
-			req.Header.Set("OpenAI-Organization", in.Organization)
-		}
+
 		res, e := client.Do(req)
 		if e != nil {
 			if ctx.Err() != nil {
@@ -118,7 +140,14 @@ func Verify(ctx context.Context, in Input) (*Result, error) {
 	if !exists || string(value) == "null" {
 		return nil, failure(502, "AI_CONNECTION_RESPONSE_INVALID", status)
 	}
-	if in.Strategy == KeyInfo {
+	if field == "output" {
+		var output struct {
+			Models []json.RawMessage `json:"models"`
+		}
+		if json.Unmarshal(value, &output) != nil || output.Models == nil {
+			return nil, failure(502, "AI_CONNECTION_RESPONSE_INVALID", status)
+		}
+	} else if in.Strategy == KeyInfo {
 		var object map[string]any
 		if json.Unmarshal(value, &object) != nil || len(object) == 0 {
 			return nil, failure(502, "AI_CONNECTION_RESPONSE_INVALID", status)
@@ -130,7 +159,7 @@ func Verify(ctx context.Context, in Input) (*Result, error) {
 		}
 	}
 	result := &Result{Provider: in.Provider, Probe: in.Strategy, EndpointReachable: true, Authentication: "not_required"}
-	if in.Strategy != OllamaTags {
+	if in.Strategy != OllamaTags && strings.TrimSpace(in.APIKey) != "" {
 		// 公开目录或接受任意 Bearer 的入口不能证明当前 Key 有效。
 		controlStatus, _, controlErr := request("powerx-deliberately-invalid-probe-key")
 		if controlErr != nil {

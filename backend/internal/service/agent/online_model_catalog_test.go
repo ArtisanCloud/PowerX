@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/internal/server/ai/modeldiscovery"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -192,4 +194,139 @@ func TestCompatibleCatalogPreservesOptionalSavedKeyAndInjectedTimeout(t *testing
 	require.Equal(t, prior, connectionFingerprint(in), "query timeout is not credential identity")
 	_, err = configured.SyncOnlineModels(context.Background(), onlineTestTenant, OnlineModelSyncRequest{Provider: "openai_compatible", Env: "dev", Modality: "llm", Action: "refresh"})
 	require.NoError(t, err)
+}
+
+func TestOnlineCatalogDraftConnectionWithoutSavingCredentials(t *testing.T) {
+	s, _ := onlineCatalogFixture(t)
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		require.Equal(t, "GET", r.Method)
+		require.Equal(t, "/v1/models", r.URL.Path)
+		require.Equal(t, "Bearer draft-only-key", r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte(`{"data":[{"id":"gpt-4o"}]}`))
+	}))
+	defer srv.Close()
+	result, err := s.SyncOnlineModels(context.Background(), onlineTestTenant, OnlineModelSyncRequest{Env: "dev", Provider: "openai", Modality: "llm", Action: "refresh", Connection: &OnlineModelDraftConnection{BaseURL: srv.URL + "/v1", APIKey: "draft-only-key"}})
+	require.NoError(t, err)
+	require.Len(t, result.Models, 1)
+	require.Equal(t, 1, calls)
+	var count int64
+	require.NoError(t, s.db.Model(&am.AIProviderCredential{}).Count(&count).Error)
+	require.Zero(t, count)
+	raw, err := json.Marshal(result)
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), "draft-only-key")
+}
+
+func TestOnlineCatalogDraftDoesNotSendSavedKeyToChangedEndpoint(t *testing.T) {
+	s, _ := onlineCatalogFixture(t)
+	savedOnlineCredential(t, s, onlineTestTenant, "dev", "openai", "https://saved.example/v1")
+	conn, err := s.onlineCatalogConnection(context.Background(), onlineTestTenant, OnlineModelSyncRequest{Env: "dev", Provider: "openai", Connection: &OnlineModelDraftConnection{BaseURL: "https://new.example/v1"}})
+	require.NoError(t, err)
+	require.Empty(t, conn.APIKey)
+	conn, err = s.onlineCatalogConnection(context.Background(), onlineTestTenant, OnlineModelSyncRequest{Env: "dev", Provider: "openai", Connection: &OnlineModelDraftConnection{BaseURL: "https://saved.example/v1"}})
+	require.NoError(t, err)
+	require.Equal(t, "fixture-key", conn.APIKey)
+}
+
+func TestCompatibleDraftDiscoveryAndProbeWithOptionalKey(t *testing.T) {
+	for _, key := range []string{"", "compatible-draft-key"} {
+		t.Run(key, func(t *testing.T) {
+			s, _ := onlineCatalogFixture(t)
+			require.False(t, catalog.AuthReqFromCatalog("openai_compatible").NeedKey)
+			require.False(t, s.resolveModelRule("llm", "openai_compatible", "custom-text").RequireAPIKey)
+			calls := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				if r.Header.Get("Authorization") == "Bearer powerx-deliberately-invalid-probe-key" {
+					w.WriteHeader(401)
+					return
+				}
+				require.Equal(t, "GET", r.Method)
+				require.Equal(t, "/v1/models", r.URL.Path)
+				expected := ""
+				if key != "" {
+					expected = "Bearer " + key
+				}
+				require.Equal(t, expected, r.Header.Get("Authorization"))
+				_, _ = w.Write([]byte(`{"data":[{"id":"custom-text","output_modalities":["text"]}]}`))
+			}))
+			defer srv.Close()
+			_, err := s.SyncOnlineModels(context.Background(), onlineTestTenant, OnlineModelSyncRequest{Env: "dev", Provider: "openai_compatible", Modality: "llm", Action: "refresh", Connection: &OnlineModelDraftConnection{BaseURL: srv.URL + "/v1", APIKey: key}})
+			require.NoError(t, err)
+			_, err = s.VerifyConnection(context.Background(), "dev", nil, "llm", ConnectionInput{Provider: "openai_compatible", BaseURL: srv.URL + "/v1", APIKey: key})
+			require.NoError(t, err)
+			expectedCalls := 2
+			if key != "" {
+				expectedCalls = 3
+			}
+			require.Equal(t, expectedCalls, calls)
+		})
+	}
+}
+
+func TestProviderReadOnlyAlignment(t *testing.T) {
+	for _, provider := range []string{"openai", "openai_compatible", "deepseek", "moonshot", "huggingface", "qwen-cn", "qwen-intl", "anthropic", "google", "ollama"} {
+		t.Run(provider, func(t *testing.T) {
+			s, _ := onlineCatalogFixture(t)
+			spec, ok := modeldiscovery.ProviderSpec(provider)
+			require.True(t, ok)
+			calls := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				require.Equal(t, "GET", r.Method)
+				key := r.Header.Get("Authorization")
+				if provider == "anthropic" {
+					key = r.Header.Get("x-api-key")
+					require.Equal(t, "2023-06-01", r.Header.Get("anthropic-version"))
+				}
+				if provider == "google" {
+					key = r.Header.Get("x-goog-api-key")
+				}
+				if strings.Contains(key, "powerx-deliberately-invalid") {
+					w.WriteHeader(401)
+					return
+				}
+				require.NotContains(t, r.URL.RawQuery, "fixture")
+				switch spec.Protocol {
+				case "gemini", "ollama":
+					_, _ = w.Write([]byte(`{"models":[]}`))
+				case "dashscope":
+					require.Equal(t, "/api/v1/models", r.URL.Path)
+					_, _ = w.Write([]byte(`{"output":{"models":[]}}`))
+				default:
+					_, _ = w.Write([]byte(`{"data":[]}`))
+				}
+			}))
+			defer srv.Close()
+			base := srv.URL + "/v1"
+			if spec.Protocol == "dashscope" {
+				base = srv.URL + "/compatible-mode/v1"
+			}
+			if spec.Protocol == "gemini" {
+				base = srv.URL + "/v1beta"
+			}
+			mode := ""
+			if provider == "hunyuan" {
+				mode = "openai"
+			}
+			result, err := s.VerifyConnection(context.Background(), "dev", nil, "llm", ConnectionInput{Provider: provider, BaseURL: base, APIKey: "fixture-key", AuthMode: mode, AnthropicVersion: "2023-06-01"})
+			require.NoError(t, err)
+			require.False(t, result.GenerationSubmitted)
+			_, err = s.SyncOnlineModels(context.Background(), onlineTestTenant, OnlineModelSyncRequest{Env: "dev", Provider: provider, Modality: "llm", Action: "refresh", Connection: &OnlineModelDraftConnection{BaseURL: base, APIKey: "fixture-key", AuthMode: mode, AnthropicVersion: "2023-06-01"}})
+			require.NoError(t, err)
+			require.LessOrEqual(t, calls, 3)
+		})
+	}
+}
+
+func TestUnsupportedAuthenticationDoesNotSendRequest(t *testing.T) {
+	s, _ := onlineCatalogFixture(t)
+	for _, mode := range []string{"tc3", "aksk"} {
+		_, err := s.SyncOnlineModels(context.Background(), onlineTestTenant, OnlineModelSyncRequest{Env: "dev", Provider: "hunyuan", Modality: "llm", Action: "refresh", Connection: &OnlineModelDraftConnection{BaseURL: "http://127.0.0.1:1", AuthMode: mode}})
+		require.ErrorContains(t, err, "AI_MODEL_SYNC_UNSUPPORTED")
+		_, err = s.VerifyConnection(context.Background(), "dev", nil, "llm", ConnectionInput{Provider: "hunyuan", BaseURL: "http://127.0.0.1:1", AuthMode: mode})
+		require.ErrorContains(t, err, "AI_CONNECTION_PROBE_UNSUPPORTED")
+	}
 }
