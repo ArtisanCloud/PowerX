@@ -1,6 +1,6 @@
 {
   "schema": "powerx.workspacex.checkout-core-handoff/v2",
-  "created_at": "2026-11-15T15:36:28.009665+00:00",
+  "created_at": "2026-11-15T15:43:06.554807+00:00",
   "core_base_url": "http://127.0.0.1:8077",
   "api_prefix": "/api/v1",
   "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
@@ -83,17 +83,19 @@
   },
   "workspacex_next": {
     "owner": "WorkspaceX maintainer",
-    "precondition": "Ecommerce return fields and allowlist completed",
+    "precondition": "Replace known-bad pending pins with this handoff; preserve original credential and allowlists",
     "required_work": [
-      "Load credential file into server-side configuration with ApiKey authorization",
-      "Use exact pins and customer/purchase option/provider mapping",
-      "Verify real quote, order and same-key recovery, official QR amount and expiry before requesting user scan"
-    ]
+      "Re-read current five pins and validate quote through deployed WorkspaceX SDK; adopt actual full service paths",
+      "Create and validate new Lab software fulfillment mapping through formal WorkspaceX management flow; preserve six existing drafts",
+      "Before order/payment writes durably persist request UUID; verify order, same-key retry/recover and cross-customer isolation",
+      "Obtain official QR payment code; verify CNY 0.01, expected provider/order ownership and future expiry before user scan"
+    ],
+    "scan_ready": false
   },
-  "acceptance": "Published bindings corrected; real quote now passes binding check but running Core rejects synthetic API-key principal with IAM_SERVICE_INVOCATION_CALLER_INVALID; source fix pending runtime load. No order or payment created.",
+  "acceptance": "Original dedicated API Key: real CN quote HTTP 200, CNY 0.01, both QR channels; out-of-scope US rejected by ecommerce with HTTP 403 COMMERCE_CHECKOUT_FORBIDDEN. No order, payment, recovery or payment code acceptance in this run.",
   "supersedes_sha256": "3551370f55dd37735cd61f498a4dd7b6abebf36b27e48c7201ec9326137e43f9",
   "supersedes_reason": "Five service ticket paths now include actual /api/v1 prefix; registration and both hashes changed",
-  "state": "binding_fixed_apikey_ticket_source_fix_pending_runtime_restart",
+  "state": "core_binding_and_api_key_ticket_live_verified",
   "lab": {
     "purchase_option_uuid": "0a5a93c9-df7f-4f37-bf48-91aaf0929bd1",
     "core_customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
@@ -105,6 +107,14 @@
   "source_fix": {
     "file": "backend/internal/service/plugin_identity/service_invocation.go",
     "reason": "Authenticated API Key synthetic MemberUUID is not a human member; require private key proof and matching request subject",
-    "daily_core_restarted": false
+    "daily_core_restarted": true,
+    "restarted_by": "user"
+  },
+  "live_verification": {
+    "receipt": "docs/contracts/evidence/ecommerce-checkout-binding-postrestart-20261115.json",
+    "quote_trace_id": "36fb488e-7d73-40f5-b98f-cee2025183f3",
+    "out_of_scope_trace_id": "1fd29060-67d1-44d2-bc86-b796aaa0c7f3",
+    "scope_test": "CN allowed; US denied; other object/channel scopes remain for WorkspaceX acceptance",
+    "five_current_pins_rechecked": true
   }
 }

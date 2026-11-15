@@ -1149,12 +1149,13 @@
     "service_target_router_tests": "passed",
     "plugin_identity_package_tests": "passed",
     "authentication_middleware_package_tests": "passed",
-    "real_http_quote": "binding check passed; blocked by old running Core API-key synthetic principal guard",
-    "real_quote_receipt": "ecommerce-checkout-binding-live-quote-20261115.json",
+    "real_http_quote": "HTTP 200; CNY 0.01; two payment channels",
+    "real_quote_receipt": "docs/contracts/evidence/ecommerce-checkout-binding-postrestart-20261115.json",
     "source_fix": "backend/internal/service/plugin_identity/service_invocation.go",
-    "restart_authorization": "User will restart Core; runtime probing paused",
+    "restart_authorization": "User restarted Core; loaded fix verified using original real API Key",
     "orders_created": false,
-    "payments_created": false
+    "payments_created": false,
+    "out_of_scope_market": "US: HTTP 403 COMMERCE_CHECKOUT_FORBIDDEN"
   },
   "publication_inputs_note": "Canonical service descriptors in this receipt contain matching full paths for metadata.protocols and explicit permission bindings; future packaging/sync must retain these paths rather than strip /api/v1."
 }
