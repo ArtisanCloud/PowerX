@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/internal/service"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -78,7 +77,7 @@ func (h *RBACHandler) GrantByIDs(c *gin.Context) {
 		return
 	}
 	if err := h.svc.GrantPermsByIDs(c.Request.Context(), actor, roleID, req.PermIDs); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "授予权限失败", err)
+		respondRoleManagementError(c, "授予权限失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"granted": len(req.PermIDs)})
@@ -110,7 +109,7 @@ func (h *RBACHandler) GrantByTriples(c *gin.Context) {
 		ts = append(ts, iamsvc.PermTriple{Module: module, Resource: it.Resource, Action: it.Action})
 	}
 	if err := h.svc.GrantPermsByTriples(c.Request.Context(), actor, roleID, ts); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "授予权限失败", err)
+		respondRoleManagementError(c, "授予权限失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"granted": len(ts)})
@@ -130,7 +129,7 @@ func (h *RBACHandler) RevokeByIDs(c *gin.Context) {
 		return
 	}
 	if err := h.svc.RevokePermissionsFromRole(c.Request.Context(), actor, roleID, req.PermIDs); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "撤销权限失败", err)
+		respondRoleManagementError(c, "撤销权限失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"revoked": len(req.PermIDs)})
@@ -140,9 +139,13 @@ func (h *RBACHandler) RevokeByIDs(c *gin.Context) {
 // GET /api/v1/admin/iam/roles/:id/permissions
 func (h *RBACHandler) ListPermsOfRole(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	perms, err := h.svc.ListPermsOfRole(c.Request.Context(), roleID)
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	perms, err := h.svc.ListPermsOfRole(c.Request.Context(), actor, roleID)
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "查询角色权限失败", err)
+		respondRoleManagementError(c, "查询角色权限失败", err)
 		return
 	}
 	dto.ResponseList(c, perms, nil)
@@ -166,7 +169,7 @@ func (h *RBACHandler) BindRoleToMember(c *gin.Context) {
 		return
 	}
 	if err := h.svc.BindRoleToMember(c.Request.Context(), actor, tenantUUID, roleID, req.MemberID); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "绑定角色失败", err)
+		respondRoleManagementError(c, "绑定角色失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"bound": true})
@@ -185,7 +188,7 @@ func (h *RBACHandler) UnbindRoleFromMember(c *gin.Context) {
 		return
 	}
 	if err := h.svc.UnbindRoleFromMember(c.Request.Context(), actor, tenantUUID, bindingID); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "解绑角色失败", err)
+		respondRoleManagementError(c, "解绑角色失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"unbound": true})
@@ -272,14 +275,7 @@ func (h *RBACHandler) ListPermIDs(c *gin.Context) {
 	}
 	ids, err := h.svc.ListPermissionIDs(c.Request.Context(), actor, roleID)
 	if err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, service.ErrForbidden) {
-			status = http.StatusForbidden
-		}
-		if errors.Is(err, service.ErrRoleNotFound) {
-			status = http.StatusNotFound
-		}
-		dto.ResponseError(c, status, err.Error(), err)
+		respondRoleManagementError(c, "查询角色权限失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ids": ids})
@@ -301,14 +297,7 @@ func (h *RBACHandler) SetPermIDs(c *gin.Context) {
 	}
 	res, err := h.svc.SetPermissionIDs(c.Request.Context(), actor, roleID, req.IDs)
 	if err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, service.ErrForbidden) {
-			status = http.StatusForbidden
-		}
-		if errors.Is(err, service.ErrRoleNotFound) {
-			status = http.StatusNotFound
-		}
-		dto.ResponseError(c, status, err.Error(), err)
+		respondRoleManagementError(c, "设置角色权限失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, res)

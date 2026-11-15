@@ -16,6 +16,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 
@@ -48,6 +49,9 @@ type PermTriple struct{ Module, Resource, Action string }
 
 // A. 通过权限ID授予（最快路径）
 func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, roleID uint64, permIDs []uint64) error {
+	if err := s.AuthorizeManagement(ctx, actor, "write"); err != nil {
+		return err
+	}
 	if len(permIDs) == 0 {
 		return nil
 	}
@@ -57,6 +61,9 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 	}
 	if rootrole.IsManaged(*cur) {
 		return rootrole.ErrManaged
+	}
+	if err := requireRoleTenant(actor, cur); err != nil {
+		return err
 	}
 	// 非 root：仅允许给本租户的 tenant 角色授权
 	if !actor.IsRoot {
@@ -76,6 +83,9 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, actor ActorContext, r
 
 // B. 通过 (module,resource,action) 授予（便于API）
 func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContext, roleID uint64, triples []PermTriple) error {
+	if err := s.AuthorizeManagement(ctx, actor, "write"); err != nil {
+		return err
+	}
 	if len(triples) == 0 {
 		return nil
 	}
@@ -89,13 +99,20 @@ func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContex
 	if rootrole.IsManaged(*role) {
 		return rootrole.ErrManaged
 	}
+	if err := requireRoleTenant(actor, role); err != nil {
+		return err
+	}
 	// 1) 先 upsert 权限行（幂等）
 	toUpsert := make([]dbm.Permission, 0, len(triples))
 	for _, t := range triples {
 		toUpsert = append(toUpsert, dbm.Permission{Module: t.Module, Resource: t.Resource, Action: t.Action})
 	}
-	if err := s.pr.UpsertBatch(ctx, toUpsert); err != nil { // :contentReference[oaicite:10]{index=10}
-		return err
+	// Only Root may create global permission catalog entries through this legacy
+	// operation. Tenant managers may grant existing catalog permissions only.
+	if actor.IsRoot {
+		if err := s.pr.UpsertBatch(ctx, toUpsert); err != nil {
+			return err
+		}
 	}
 	// 2) 查回这些权限ID
 	var permIDs []uint64
@@ -105,18 +122,46 @@ func (s *RBACService) GrantPermsByTriples(ctx context.Context, actor ActorContex
 		Pluck("id", &permIDs).Error; err != nil {
 		return err
 	}
+	if !actor.IsRoot {
+		unique := map[PermTriple]struct{}{}
+		for _, triple := range triples {
+			unique[triple] = struct{}{}
+		}
+		if len(permIDs) != len(unique) {
+			return dto.NewBadRequest("只能授予已注册的权限", nil)
+		}
+	}
 	return s.GrantPermsByIDs(ctx, actor, roleID, permIDs)
 }
 
-func (s *RBACService) ListPermsOfRole(ctx context.Context, roleID uint64) ([]dbm.Permission, error) {
+func (s *RBACService) ListPermsOfRole(ctx context.Context, actor ActorContext, roleID uint64) ([]dbm.Permission, error) {
+	if err := s.AuthorizeManagement(ctx, actor, "read"); err != nil {
+		return nil, err
+	}
+	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if err := requireRoleTenant(actor, role); err != nil {
+		return nil, err
+	}
 	return s.rpr.ListRolePermissions(ctx, roleID) // :contentReference[oaicite:11]{index=11}
 }
 
 // ========== 2) 角色 ⇄ 主体（成员/部门/…） ==========
 func (s *RBACService) BindRoleToMember(ctx context.Context, actor ActorContext, tenantUUID string, roleID, memberID uint64) error {
+	if err := s.AuthorizeManagement(ctx, actor, "bind"); err != nil {
+		return err
+	}
 	cur, err := s.rr.GetFirst(ctx, map[string]any{"id": roleID})
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
+	}
+	if err := requireRoleTenant(actor, cur); err != nil {
+		return err
 	}
 	if strings.ToLower(cur.Scope) == string(iam.RoleScopeSystem) {
 		return errors.New("cannot bind system-scope role")
@@ -172,6 +217,9 @@ func (s *RBACService) BindRoleToMember(ctx context.Context, actor ActorContext, 
 }
 
 func (s *RBACService) UnbindRoleFromMember(ctx context.Context, actor ActorContext, tenantUUID string, roleBindingID uint64) error {
+	if err := s.AuthorizeManagement(ctx, actor, "bind"); err != nil {
+		return err
+	}
 	if !actor.IsRoot {
 		ctxTenant := strings.TrimSpace(actor.TenantUUID)
 		if ctxTenant == "" {
@@ -248,6 +296,9 @@ func triplesToTuples(ts []PermTriple) [][3]string {
 
 // RevokePermissionsFromRole：按权限ID列表撤销角色的权限
 func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor ActorContext, roleID uint64, permIDs []uint64) error {
+	if err := s.AuthorizeManagement(ctx, actor, "write"); err != nil {
+		return err
+	}
 	if len(permIDs) == 0 {
 		return nil
 	}
@@ -259,6 +310,9 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor Actor
 	}
 	if rootrole.IsManaged(*cur) {
 		return rootrole.ErrManaged
+	}
+	if err := requireRoleTenant(actor, cur); err != nil {
+		return err
 	}
 	if !actor.IsRoot {
 		ctxTenant := strings.TrimSpace(actor.TenantUUID)
@@ -281,6 +335,9 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, actor Actor
 }
 
 func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64, wantIDs []uint64) (SetIDsResult, error) {
+	if err := s.AuthorizeManagement(ctx, actor, "write"); err != nil {
+		return SetIDsResult{}, err
+	}
 	// 集合覆盖的读取、差集和写入也受共同源锁保护，避免使用事务外的过期差集。
 	if baseline.Managed(s.db) && !baseline.InTransaction(s.db) {
 		var out SetIDsResult
@@ -308,8 +365,8 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, actor ActorContext, 
 	}
 
 	// 鉴权：非 root 只能改本租户
-	if !actor.IsRoot && strings.TrimSpace(role.TenantUUID) != strings.TrimSpace(actor.TenantUUID) {
-		return SetIDsResult{}, service.ErrForbidden
+	if err := requireRoleTenant(actor, role); err != nil {
+		return SetIDsResult{}, err
 	}
 	// 如果你模型里有 IsSystem 并且想限制，可加：
 	// if !ac.IsRoot && role.IsSystem { return SetIDsResult{}, ErrForbidden }
@@ -588,6 +645,9 @@ func invalidateAgentEffectivePermissionsIAMCache(ctx context.Context, tenantUUID
 }
 
 func (s *RBACService) ListPermissionIDs(ctx context.Context, actor ActorContext, roleID uint64) ([]uint64, error) {
+	if err := s.AuthorizeManagement(ctx, actor, "read"); err != nil {
+		return nil, err
+	}
 	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
 	if err != nil {
 		return nil, err
@@ -596,8 +656,8 @@ func (s *RBACService) ListPermissionIDs(ctx context.Context, actor ActorContext,
 		return nil, service.ErrRoleNotFound
 	}
 
-	if !actor.IsRoot && strings.TrimSpace(role.TenantUUID) != strings.TrimSpace(actor.TenantUUID) {
-		return nil, service.ErrForbidden
+	if err := requireRoleTenant(actor, role); err != nil {
+		return nil, err
 	}
 	return s.rpr.ListPermissionIDsOfRole(ctx, roleID)
 }

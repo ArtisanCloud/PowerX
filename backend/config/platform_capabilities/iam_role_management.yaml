@@ -1,0 +1,75 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.iam.role_management.admin_read
+    module: iam
+    title: Read Tenant Role Administration
+    description: Read roles and their permissions within the authenticated administrator's tenant.
+    title_i18n: {en: Read Tenant Role Administration, zh-CN: 查看底座角色管理}
+    description_i18n: {en: Read current tenant roles and role permissions., zh-CN: 查看当前租户角色及角色权限；需要独立的底座管理授权。}
+    permission_code: corex.iam.role_management:read
+    agent_usable: false
+    risk_level: low
+    categories: [iam, admin]
+    intents: [iam.role_management.admin_read]
+    tool_scopes: [iam.role_management.admin_read]
+    policy: {prefer: rest}
+    docs: [docs/contracts/iam-role-management-authorization.md]
+    protocols:
+      - {channel: rest, endpoint: /api/v1/admin/iam/roles, method: GET, schema_ref: "backend/internal/transport/http/admin/iam/role_handler.go#List", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_read}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id", method: GET, schema_ref: "backend/internal/transport/http/admin/iam/role_handler.go#Get", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_read}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/permissions", method: GET, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#ListPermsOfRole", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_read}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/permissions/ids", method: GET, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#ListPermIDs", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_read}
+  - capability_id: com.corex.iam.role_management.admin_write
+    module: iam
+    title: Manage Tenant Roles and Permission Grants
+    description: Create and edit current tenant roles and grant, revoke or replace their permissions; does not authorize member role binding.
+    title_i18n: {en: Manage Tenant Roles and Permission Grants, zh-CN: 管理底座角色与授权}
+    description_i18n: {en: Manage current tenant roles and role permission sets., zh-CN: 创建、修改当前租户角色及其权限集合；不包含成员角色绑定。}
+    permission_code: corex.iam.role_management:write
+    agent_usable: false
+    risk_level: high
+    categories: [iam, admin]
+    intents: [iam.role_management.admin_write]
+    tool_scopes: [iam.role_management.admin_write]
+    policy: {prefer: rest}
+    docs: [docs/contracts/iam-role-management-authorization.md]
+    protocols:
+      - {channel: rest, endpoint: /api/v1/admin/iam/roles, method: POST, schema_ref: "backend/internal/transport/http/admin/iam/role_handler.go#Create", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id", method: PATCH, schema_ref: "backend/internal/transport/http/admin/iam/role_handler.go#Update", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/permissions/grant-ids", method: POST, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#GrantByIDs", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/permissions/grant", method: POST, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#GrantByTriples", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/permissions/revoke-ids", method: POST, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#RevokeByIDs", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_write}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/permissions/set-ids", method: PUT, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#SetPermIDs", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_write}
+  - capability_id: com.corex.iam.role_management.admin_delete
+    module: iam
+    title: Delete Tenant Roles
+    description: Delete current tenant roles while preserving protected and referenced roles.
+    title_i18n: {en: Delete Tenant Roles, zh-CN: 删除底座角色}
+    description_i18n: {en: Delete eligible current tenant roles., zh-CN: 删除当前租户符合条件的角色，保留受保护角色。}
+    permission_code: corex.iam.role_management:delete
+    agent_usable: false
+    risk_level: high
+    categories: [iam, admin]
+    intents: [iam.role_management.admin_delete]
+    tool_scopes: [iam.role_management.admin_delete]
+    policy: {prefer: rest}
+    docs: [docs/contracts/iam-role-management-authorization.md]
+    protocols:
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id", method: DELETE, schema_ref: "backend/internal/transport/http/admin/iam/role_handler.go#Delete", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_delete}
+  - capability_id: com.corex.iam.role_management.admin_bind
+    module: iam
+    title: Assign Tenant Roles to Members
+    description: Assign and remove current tenant member role bindings, excluding system roles and foreign tenants.
+    title_i18n: {en: Assign Tenant Roles to Members, zh-CN: 分配底座成员角色}
+    description_i18n: {en: Manage direct role bindings for current tenant members., zh-CN: 为当前租户成员绑定或解绑角色，禁止系统角色和跨租户绑定。}
+    permission_code: corex.iam.role_management:bind
+    agent_usable: false
+    risk_level: high
+    categories: [iam, admin]
+    intents: [iam.role_management.admin_bind]
+    tool_scopes: [iam.role_management.admin_bind]
+    policy: {prefer: rest}
+    docs: [docs/contracts/iam-role-management-authorization.md]
+    protocols:
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/bind/member", method: POST, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#BindRoleToMember", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_bind}
+      - {channel: rest, endpoint: "/api/v1/admin/iam/roles/:id/bindings/:binding_id", method: DELETE, schema_ref: "backend/internal/transport/http/admin/iam/rbac_handler.go#UnbindRoleFromMember", auth_type: user_jwt, actor_context: admin_user, resource_scope: tenant, sts_direct: false, tool_scope: iam.role_management.admin_bind}

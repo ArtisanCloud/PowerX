@@ -8,6 +8,7 @@ import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -15,7 +16,7 @@ import (
 
 func TestSetPermissionIDsExpandsPluginMenuToMatchingPageRead(t *testing.T) {
 	db := setupRBACServiceTestDB(t)
-	ctx := context.Background()
+	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{UserID: 1, IsRoot: true, Scope: "access"})
 	tenantUUID := "6b5d0240-9920-46da-b707-88200e0f51ea"
 	role := dbm.Role{
 		Scope:      string(coreiam.RoleScopeTenant),
