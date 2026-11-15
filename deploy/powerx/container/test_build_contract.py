@@ -145,6 +145,23 @@ class RequestTests(unittest.TestCase):
                                                               "https://objects.githubusercontent.com/file")
         self.assertIsNone(redirected.get_header("Authorization"))
 
+    def test_artifact_download_uses_json_accept_and_reads_binary_archive(self):
+        raw = b"PK\x03\x04binary archive, not JSON"
+        api = contract.GitHub("test-token")
+        with patch.object(api.opener, "open", return_value=io.BytesIO(raw)) as opened:
+            result = api.request("/repos/ArtisanCloud/PowerX/actions/artifacts/123/zip", binary=True)
+        self.assertEqual(result, raw)
+        self.assertEqual(opened.call_args.args[0].get_header("Accept"), "application/vnd.github+json")
+
+    def test_release_asset_download_keeps_octet_stream_accept(self):
+        raw = b"release asset, not JSON"
+        api = contract.GitHub("test-token")
+        with patch.object(api.opener, "open", return_value=io.BytesIO(raw)) as opened:
+            result = api.request("/repos/ArtisanCloud/PowerX/releases/assets/123",
+                                 accept="application/octet-stream")
+        self.assertEqual(result, raw)
+        self.assertEqual(opened.call_args.args[0].get_header("Accept"), "application/octet-stream")
+
     def test_dirty_checkout_is_rejected(self):
         with patch.object(contract.subprocess, "check_output", side_effect=["a" * 40 + "\n", " M backend/go.mod\n"]):
             with self.assertRaisesRegex(ValueError, "BUILD_CHECKOUT_DIRTY"):

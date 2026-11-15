@@ -1,0 +1,1656 @@
+{
+  "acceptance": {
+    "all_five_items_complete": false,
+    "bad_sha_rejected": true,
+    "build": false,
+    "cancelled_not_successful": true,
+    "confirmed_owner_local_fixed_client_real_history": true,
+    "duplicate_without_build_ci": false,
+    "missing_processing_evidence_blocked": true,
+    "mode_conflict_ci": false,
+    "mode_conflict_ci_actual_error": "BUILD_GITHUB_HTTP_415",
+    "mode_conflict_local_fixed_client_real_history": true,
+    "verify_at_original_sha": true
+  },
+  "all_started_ci_runs_terminal": true,
+  "dispatch_ref": "develop",
+  "local_fix": {
+    "base_head": "2dbdfe6bcb3dee44a1d85dfed7b0585af8051159",
+    "diff_check": "passed",
+    "files": {
+      "deploy/powerx/container/build_contract.py": "e12f9c0999de80c00db9d98c2ca640829fb5f50399c8f35ac6b9087952fa0f14",
+      "deploy/powerx/container/test_build_contract.py": "3aa9deb3a230172b65a2ea8532ae31dc5a44e65315a1de253239e68caf6c1fdf",
+      "deploy/powerx/container/test_build_request_claim.py": "8d31da3b6022ea048c4bb3f8bf271e1c8b418fc45122b315d728f6d4da841fce",
+      "docs/contracts/powerx-core-build-dispatch.md": "763f103ba2facbf36546410ea262cf264252f5e0796f34fddfc9be2a635ec91f"
+    },
+    "published": false,
+    "real_history_read_only_regression": {
+      "binary_response_read": true,
+      "confirmed_owner": {
+        "attempt": 1,
+        "input_sha256": "fc63bd2406758cc0f14858e8226570c69bf01b7d9f197ce46ed2910aa3bef1c3",
+        "run_id": 43452179450
+      },
+      "conflicting_mode_result": "BUILD_REQUEST_ID_CONFLICT",
+      "fixed_ci_dispatch": false,
+      "historical_attempt": 1,
+      "historical_run_id": 43452179450,
+      "local_patch": true,
+      "read_only": true,
+      "real_github_archive_accept": "application/vnd.github+json",
+      "recorded_at": "2026-11-13T15:36:13.988334+00:00"
+    },
+    "receipt_schema_changed": false,
+    "unit_tests": [
+      {
+        "failed": 0,
+        "python": "3.10",
+        "skipped": 0,
+        "tests": 66
+      },
+      {
+        "failed": 0,
+        "python": "3.13 isolated venv",
+        "skipped": 0,
+        "tests": 66
+      }
+    ],
+    "workflow_changed": false
+  },
+  "local_processes_started": false,
+  "pending": [
+    "publish_archive_media_fix_to_supported_ref_after_separate_authorization",
+    "deliver_new_full_commit_and_verify_definition_and_schema_digests",
+    "fixed_source_verify_build_acceptance_with_distinct_request_ids",
+    "duplicate_and_mode_conflict_ci_replay",
+    "complete_multiarch_image_digests_and_upgrade_restore_reports"
+  ],
+  "protocol_reproduction": {
+    "endpoint": "GET /repos/ArtisanCloud/PowerX/actions/artifacts/14051826654/zip",
+    "fixed_accept": "application/vnd.github+json",
+    "fixed_zip_read": true,
+    "fixed_zip_sha256": "8c7ab39fa2dbb8c9035984cc11891da10c6bc6cda8e5e3b4ef3d4c5f94209843",
+    "old_accept": "application/octet-stream",
+    "old_error": "Unsupported 'Accept' header: 'application/octet-stream'. Must accept 'application/json'.",
+    "old_status": 415,
+    "read_only": true
+  },
+  "receipt_schema": "powerx.build-receipt/v1",
+  "receipt_schema_sha256": "188b33ea33985b25b57f1528a447207be08596f378de93fb895574ee8bfdbd34",
+  "recorded_at": "2026-11-13T15:39:54.987606+00:00",
+  "registry_observation": {
+    "backend_output_digest": null,
+    "blob_write_status": "unconfirmed",
+    "cancelled_on_user_local_only_scope": true,
+    "candidate_tag_readback": {
+      "read_only": true,
+      "repositories": {
+        "powerx-backend": {
+          "digest": null,
+          "status": 404
+        },
+        "powerx-web-admin": {
+          "digest": null,
+          "status": 404
+        }
+      },
+      "tag": "ci-43452696563-1"
+    },
+    "fresh_database_smoke_executed": false,
+    "installed_upgrade_executed": false,
+    "login_succeeded": true,
+    "registry_delete_performed": false,
+    "run_id": 43452696563,
+    "web_admin_output_digest": null
+  },
+  "release_requested": false,
+  "repository": "ArtisanCloud/PowerX",
+  "request_prefix": "core-accept-20261113T152333Z",
+  "runs": {
+    "badsha": {
+      "archive_digests_verified": true,
+      "artifact_references_verified": true,
+      "artifacts": [
+        {
+          "digest": "sha256:72d6fc2b888eb3ead7a3a8cdfda92db8264a0cd80af176a77d31216767104aad",
+          "id": 14053030151,
+          "name": "powerx-build-receipt-43452290322-1",
+          "size_in_bytes": 1258
+        },
+        {
+          "digest": "sha256:27e6007f9f8d9043dae069a06c560b3bea07c7b564f7ac232de68a6b35b3691c",
+          "id": 14050976636,
+          "name": "powerx-phase-preflight-43452290322-1",
+          "size_in_bytes": 745
+        }
+      ],
+      "attempt": 1,
+      "conclusion": "failure",
+      "deployable": false,
+      "dispatch_state": "accepted",
+      "duplicate_of": null,
+      "error_code": "BUILD_SOURCE_SHA_MISMATCH",
+      "event": "workflow_dispatch",
+      "expected_error": "BUILD_SOURCE_SHA_MISMATCH",
+      "head_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+      "images": {},
+      "jobs": [
+        {
+          "conclusion": "failure",
+          "id": 131977287479,
+          "name": "preflight",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Install request-evidence validator"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Validate request and exact checkout identity"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Correlate duplicate request without rebuilding"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Commit request processing decision before allowing build jobs"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131977662913,
+          "name": "checks",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131977663917,
+          "name": "installed-upgrade",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131977664444,
+          "name": "images",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "failure",
+          "id": 131977664717,
+          "name": "build-receipt",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run python3 -m pip install jsonschema"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Produce request-bound build receipt"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate receipt schema and checksum"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131977665754,
+          "name": "upgrade-metadata",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131977667471,
+          "name": "bundle-release",
+          "status": "completed",
+          "steps": []
+        }
+      ],
+      "mode": "verify",
+      "payload": {
+        "inputs": {
+          "build_mode": "verify",
+          "expected_source_sha": "0000000000000000000000000000000000000000",
+          "request_id": "core-accept-20261113T152333Z-badsha"
+        },
+        "ref": "develop"
+      },
+      "receipt_checksum_and_schema_verified": true,
+      "receipt_sha256": "e402b0467d50ae46d33edff520aedc4c6bdd108c2d1a8ade2424ba5f5d142211",
+      "receipt_status": "rejected",
+      "request_id": "core-accept-20261113T152333Z-badsha",
+      "run_id": 43452290322,
+      "url": "https://github.com/ArtisanCloud/PowerX/actions/runs/43452290322"
+    },
+    "build": {
+      "archive_digests_verified": true,
+      "artifact_references_verified": true,
+      "artifacts": [
+        {
+          "digest": "sha256:3ad2ffab221fd4f47d0615ac6951ebb58fc59057ee01424db5c8afc596dcc5a0",
+          "id": 14053202222,
+          "name": "powerx-phase-images-43452696563-1",
+          "size_in_bytes": 703
+        },
+        {
+          "digest": "sha256:484a7d2ed999970ab37a6fd1f51e77ff6c9abf29cd5ee5e5be975617c3e9e47d",
+          "id": 14053030755,
+          "name": "powerx-phase-checks-43452696563-1",
+          "size_in_bytes": 710
+        },
+        {
+          "digest": "sha256:fea98dc15516df062acdaeb21545901cc2592e92b9f14aa18888dea2e5538893",
+          "id": 14052802149,
+          "name": "powerx-build-receipt-43452696563-1",
+          "size_in_bytes": 1889
+        },
+        {
+          "digest": "sha256:bd3ad3c3018e980a463f314b1820de52199ff7fe03b852ca01cb61844c7f70ad",
+          "id": 14051992100,
+          "name": "powerx-request-decision-43452696563-1",
+          "size_in_bytes": 513
+        },
+        {
+          "digest": "sha256:2c1d30a6dbccf1f873ee09174461c5bfa8ff8c504b289d932fb26ebc34949669",
+          "id": 14051842210,
+          "name": "powerx-build-request-43452696563-1",
+          "size_in_bytes": 600
+        },
+        {
+          "digest": "sha256:79a3d44e3b89bd1531c6d03105fb2500a6027b32b3e615c73a887f7a9ba52210",
+          "id": 14051562648,
+          "name": "powerx-phase-preflight-43452696563-1",
+          "size_in_bytes": 709
+        }
+      ],
+      "attempt": 1,
+      "conclusion": "cancelled",
+      "deployable": false,
+      "dispatch_state": "accepted",
+      "duplicate_of": null,
+      "error_code": "BUILD_CANCELLED",
+      "event": "workflow_dispatch",
+      "head_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+      "images": {},
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 131978831715,
+          "name": "preflight",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Install request-evidence validator"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate request and exact checkout identity"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Correlate duplicate request without rebuilding"
+            },
+            {
+              "conclusion": "success",
+              "name": "Commit request processing decision before allowing build jobs"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "success",
+          "id": 131979076164,
+          "name": "checks",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Initialize containers"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate deployment initializer"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-go@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Migration failure, retry, concurrency and configuration gates"
+            },
+            {
+              "conclusion": "success",
+              "name": "Authorization baseline migration and published step regression"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-go@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Stop containers"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131980253090,
+          "name": "images",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Install smoke-test dependencies"
+            },
+            {
+              "conclusion": "success",
+              "name": "Verify smoke-test imports on this runner"
+            },
+            {
+              "conclusion": "success",
+              "name": "Recheck source before registry writes"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run docker/login-action@v4"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run docker/setup-qemu-action@v4"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run docker/setup-buildx-action@v4"
+            },
+            {
+              "conclusion": "cancelled",
+              "name": "Build backend"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Build web admin"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Freeze and verify paired OCI image digests"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Fresh database, login, frontend and API smoke test"
+            },
+            {
+              "conclusion": "success",
+              "name": "Cleanup smoke environment"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Build backend"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run docker/setup-buildx-action@v4"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run docker/setup-qemu-action@v4"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run docker/login-action@v4"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "failure",
+          "id": 131985173491,
+          "name": "build-receipt",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run python3 -m pip install jsonschema"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Produce request-bound build receipt"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate receipt schema and checksum"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131985174367,
+          "name": "installed-upgrade",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131985175258,
+          "name": "bundle-release",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131985175798,
+          "name": "upgrade-metadata",
+          "status": "completed",
+          "steps": []
+        }
+      ],
+      "mode": "build",
+      "payload": {
+        "inputs": {
+          "build_mode": "build",
+          "expected_source_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+          "request_id": "core-accept-20261113T152333Z-build"
+        },
+        "ref": "develop"
+      },
+      "receipt_checksum_and_schema_verified": true,
+      "receipt_sha256": "3f00e8ec1b1b806c5eb94f5dc8e74c91bf70c4a9c28f3e660c85882a9d508498",
+      "receipt_status": "cancelled",
+      "request_id": "core-accept-20261113T152333Z-build",
+      "run_id": 43452696563,
+      "url": "https://github.com/ArtisanCloud/PowerX/actions/runs/43452696563"
+    },
+    "cancelled": {
+      "archive_digests_verified": true,
+      "artifact_references_verified": true,
+      "artifacts": [
+        {
+          "digest": "sha256:4a50dda587080fba69c9feb9cd0584ccc00a880e5a001eec254a173b2b28e143",
+          "id": 14053740532,
+          "name": "powerx-build-receipt-43452900024-1",
+          "size_in_bytes": 1645
+        },
+        {
+          "digest": "sha256:8c2dc8ae2e85b9b78c7972409a2e2df2ea4c88a00c3778287c158f5545852d05",
+          "id": 14052227022,
+          "name": "powerx-build-request-43452900024-1",
+          "size_in_bytes": 607
+        },
+        {
+          "digest": "sha256:b310d1eea2ef30b5c1e132f820b0abd24025995e38f287c609938a4f24493a39",
+          "id": 14051657675,
+          "name": "powerx-phase-preflight-43452900024-1",
+          "size_in_bytes": 709
+        },
+        {
+          "digest": "sha256:26a73f9a8147414f009e7925e0e4bd8f28c451507a1434585f2f2714711f63cc",
+          "id": 14051477642,
+          "name": "powerx-request-decision-43452900024-1",
+          "size_in_bytes": 515
+        }
+      ],
+      "attempt": 1,
+      "conclusion": "cancelled",
+      "deployable": false,
+      "dispatch_state": "accepted",
+      "duplicate_of": null,
+      "error_code": "BUILD_CANCELLED",
+      "event": "workflow_dispatch",
+      "head_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+      "images": {},
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 131979463812,
+          "name": "preflight",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Install request-evidence validator"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate request and exact checkout identity"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Correlate duplicate request without rebuilding"
+            },
+            {
+              "conclusion": "success",
+              "name": "Commit request processing decision before allowing build jobs"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131979717448,
+          "name": "checks",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "cancelled",
+              "name": "Initialize containers"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Validate deployment initializer"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Run actions/setup-go@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Migration failure, retry, concurrency and configuration gates"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Authorization baseline migration and published step regression"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Stop containers"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131979936143,
+          "name": "installed-upgrade",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "failure",
+          "id": 131979936326,
+          "name": "build-receipt",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run python3 -m pip install jsonschema"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Produce request-bound build receipt"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate receipt schema and checksum"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131979936982,
+          "name": "images",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131979937083,
+          "name": "bundle-release",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "cancelled",
+          "id": 131979937845,
+          "name": "upgrade-metadata",
+          "status": "completed",
+          "steps": []
+        }
+      ],
+      "mode": "verify",
+      "payload": {
+        "inputs": {
+          "build_mode": "verify",
+          "expected_source_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+          "request_id": "core-accept-20261113T152333Z-cancel"
+        },
+        "ref": "develop"
+      },
+      "receipt_checksum_and_schema_verified": true,
+      "receipt_sha256": "ba0940f9bbd449f2cbfdfe58697e9f3213c32db522353479f8850ec4d19f141f",
+      "receipt_status": "cancelled",
+      "request_id": "core-accept-20261113T152333Z-cancel",
+      "run_id": 43452900024,
+      "url": "https://github.com/ArtisanCloud/PowerX/actions/runs/43452900024"
+    },
+    "mode-conflict": {
+      "archive_digests_verified": true,
+      "artifact_references_verified": true,
+      "artifacts": [
+        {
+          "digest": "sha256:0dfda94ccaa8e33dc1ae3b48b342a0b3d8b17021e5888977c65d44ad6ca95c6e",
+          "id": 14053905293,
+          "name": "powerx-build-receipt-43452793408-1",
+          "size_in_bytes": 1591
+        },
+        {
+          "digest": "sha256:c49ec658835277fe91fb2db4afe4f3171a08a8c34535be192aae785124aeed27",
+          "id": 14053235475,
+          "name": "powerx-phase-preflight-43452793408-1",
+          "size_in_bytes": 737
+        },
+        {
+          "digest": "sha256:121553120a744e1623e58955ffb47467a03a1bb99df6c709b131031e27677feb",
+          "id": 14052775692,
+          "name": "powerx-build-request-43452793408-1",
+          "size_in_bytes": 605
+        }
+      ],
+      "attempt": 1,
+      "conclusion": "failure",
+      "deployable": false,
+      "dispatch_state": "accepted",
+      "duplicate_of": null,
+      "error_code": "BUILD_GITHUB_HTTP_415",
+      "event": "workflow_dispatch",
+      "head_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+      "images": {},
+      "jobs": [
+        {
+          "conclusion": "failure",
+          "id": 131979084680,
+          "name": "preflight",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Install request-evidence validator"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate request and exact checkout identity"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Correlate duplicate request without rebuilding"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Commit request processing decision before allowing build jobs"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979416537,
+          "name": "checks",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979417779,
+          "name": "images",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "failure",
+          "id": 131979418885,
+          "name": "build-receipt",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run python3 -m pip install jsonschema"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Produce request-bound build receipt"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate receipt schema and checksum"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979419898,
+          "name": "upgrade-metadata",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979419957,
+          "name": "installed-upgrade",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979421016,
+          "name": "bundle-release",
+          "status": "completed",
+          "steps": []
+        }
+      ],
+      "mode": "build",
+      "payload": {
+        "inputs": {
+          "build_mode": "build",
+          "expected_source_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+          "request_id": "core-accept-20261113T152333Z-verify"
+        },
+        "ref": "develop"
+      },
+      "receipt_checksum_and_schema_verified": true,
+      "receipt_sha256": "c4afc18f9e2a5baa5e59b1b72ebc4b02c05edaa56f7ad435fb77c535785b36dd",
+      "receipt_status": "failed",
+      "request_id": "core-accept-20261113T152333Z-verify",
+      "run_id": 43452793408,
+      "url": "https://github.com/ArtisanCloud/PowerX/actions/runs/43452793408"
+    },
+    "unconfirmed": {
+      "archive_digests_verified": true,
+      "artifact_references_verified": true,
+      "artifacts": [
+        {
+          "digest": "sha256:eec79eb0ead0727eba6b850d9b2f5b5e228ab58df146ad8ad773508cfd801044",
+          "id": 14052935814,
+          "name": "powerx-phase-preflight-43452877093-1",
+          "size_in_bytes": 753
+        },
+        {
+          "digest": "sha256:79f67064c15639e9a6a0a55c306614a833945f7a6e67f8e047ead146cf40c1a0",
+          "id": 14052700798,
+          "name": "powerx-build-request-43452877093-1",
+          "size_in_bytes": 606
+        },
+        {
+          "digest": "sha256:ba8402cc2c8ad37e1b2a590678611966f05df7c6e536c8a144c6ecda0dbca07b",
+          "id": 14051682633,
+          "name": "powerx-build-receipt-43452877093-1",
+          "size_in_bytes": 1614
+        }
+      ],
+      "attempt": 1,
+      "conclusion": "failure",
+      "deployable": false,
+      "dispatch_state": "accepted",
+      "duplicate_of": null,
+      "error_code": "BUILD_PREVIOUS_RESULT_UNCONFIRMED",
+      "event": "workflow_dispatch",
+      "head_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+      "images": {},
+      "jobs": [
+        {
+          "conclusion": "failure",
+          "id": 131979382738,
+          "name": "preflight",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Install request-evidence validator"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate request and exact checkout identity"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Correlate duplicate request without rebuilding"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Commit request processing decision before allowing build jobs"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979557041,
+          "name": "checks",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979557538,
+          "name": "installed-upgrade",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "failure",
+          "id": 131979558054,
+          "name": "build-receipt",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run python3 -m pip install jsonschema"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "failure",
+              "name": "Produce request-bound build receipt"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate receipt schema and checksum"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "skipped",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979558223,
+          "name": "images",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979560315,
+          "name": "upgrade-metadata",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131979561035,
+          "name": "bundle-release",
+          "status": "completed",
+          "steps": []
+        }
+      ],
+      "mode": "verify",
+      "payload": {
+        "inputs": {
+          "build_mode": "verify",
+          "expected_source_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+          "request_id": "core-accept-20261113T152333Z-badsha"
+        },
+        "ref": "develop"
+      },
+      "receipt_checksum_and_schema_verified": true,
+      "receipt_sha256": "bc58aac6903c3d753c24a7f46a48257a8e9faf2b67a891f750a59ee52d027bf9",
+      "receipt_status": "failed",
+      "request_id": "core-accept-20261113T152333Z-badsha",
+      "run_id": 43452877093,
+      "url": "https://github.com/ArtisanCloud/PowerX/actions/runs/43452877093"
+    },
+    "verify": {
+      "archive_digests_verified": true,
+      "artifact_references_verified": true,
+      "artifacts": [
+        {
+          "digest": "sha256:cd69bc15a1aa5ef1f1acef138355ac619635e5f7c34141708bc4e2270fa3072c",
+          "id": 14053150215,
+          "name": "powerx-phase-checks-43452179450-1",
+          "size_in_bytes": 710
+        },
+        {
+          "digest": "sha256:f83cc5f0c93e2e260b4c0805b51f3f911adec223efb9e4484fc763698dc24a50",
+          "id": 14053025408,
+          "name": "powerx-build-receipt-43452179450-1",
+          "size_in_bytes": 1729
+        },
+        {
+          "digest": "sha256:8c7ab39fa2dbb8c9035984cc11891da10c6bc6cda8e5e3b4ef3d4c5f94209843",
+          "id": 14051826654,
+          "name": "powerx-build-request-43452179450-1",
+          "size_in_bytes": 604
+        },
+        {
+          "digest": "sha256:0f3309d340f4dc5b0bde98aa20d5d96156187adef847ced114373c7f9d530482",
+          "id": 14051691719,
+          "name": "powerx-request-decision-43452179450-1",
+          "size_in_bytes": 515
+        },
+        {
+          "digest": "sha256:a2a0b24d377d7f7e8b39858f74730e8beb9fe8d86fb9565b9626e910b6b20289",
+          "id": 14051396931,
+          "name": "powerx-phase-preflight-43452179450-1",
+          "size_in_bytes": 709
+        }
+      ],
+      "attempt": 1,
+      "conclusion": "success",
+      "deployable": false,
+      "dispatch_state": "accepted",
+      "duplicate_of": null,
+      "error_code": null,
+      "event": "workflow_dispatch",
+      "head_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+      "images": {},
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 131976903858,
+          "name": "preflight",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Install request-evidence validator"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate request and exact checkout identity"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Correlate duplicate request without rebuilding"
+            },
+            {
+              "conclusion": "success",
+              "name": "Commit request processing decision before allowing build jobs"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "success",
+          "id": 131977074392,
+          "name": "checks",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Initialize containers"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate deployment initializer"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-go@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Migration failure, retry, concurrency and configuration gates"
+            },
+            {
+              "conclusion": "success",
+              "name": "Authorization baseline migration and published step regression"
+            },
+            {
+              "conclusion": "success",
+              "name": "Record phase evidence"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-go@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Stop containers"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "success",
+          "id": 131978193071,
+          "name": "build-receipt",
+          "status": "completed",
+          "steps": [
+            {
+              "conclusion": "success",
+              "name": "Set up job"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run python3 -m pip install jsonschema"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/download-artifact@v5"
+            },
+            {
+              "conclusion": "success",
+              "name": "Produce request-bound build receipt"
+            },
+            {
+              "conclusion": "success",
+              "name": "Validate receipt schema and checksum"
+            },
+            {
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/setup-python@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v6"
+            },
+            {
+              "conclusion": "success",
+              "name": "Complete job"
+            }
+          ]
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131978193380,
+          "name": "installed-upgrade",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131978193828,
+          "name": "images",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131978194975,
+          "name": "upgrade-metadata",
+          "status": "completed",
+          "steps": []
+        },
+        {
+          "conclusion": "skipped",
+          "id": 131978195345,
+          "name": "bundle-release",
+          "status": "completed",
+          "steps": []
+        }
+      ],
+      "mode": "verify",
+      "payload": {
+        "inputs": {
+          "build_mode": "verify",
+          "expected_source_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+          "request_id": "core-accept-20261113T152333Z-verify"
+        },
+        "ref": "develop"
+      },
+      "receipt_checksum_and_schema_verified": true,
+      "receipt_sha256": "b45ea9038fd9fec3368d40e0e4f4d1e528ef1b5abbd3327dfa042e4b93c23284",
+      "receipt_status": "succeeded",
+      "request_id": "core-accept-20261113T152333Z-verify",
+      "run_id": 43452179450,
+      "url": "https://github.com/ArtisanCloud/PowerX/actions/runs/43452179450"
+    }
+  },
+  "saas_updated": false,
+  "schema_version": "powerx.build-ci-acceptance/v1",
+  "source_sha": "c84848176809279e78b8ef8dd7ab22381e42f139",
+  "started_at": "2026-11-13T15:23:33.586455+00:00",
+  "user_scope": {
+    "branch": "024-ai-engineering-skills",
+    "branch_created_or_switched": false,
+    "committed": false,
+    "final_instruction": "local fixes on current branch only",
+    "further_dispatch_allowed": false,
+    "merged": false,
+    "pull_request_created": false,
+    "pushed": false
+  },
+  "workflow_path": ".github/workflows/publish-container.yml",
+  "workflow_sha256": "c9618bb9adff98fa0358c97d1d75ab5087aa909a2ce287834c78637a93422216"
+}
