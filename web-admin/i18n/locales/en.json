@@ -972,6 +972,12 @@
     "archives": "Log archives and retrieval",
     "databaseRetention": "Database retention",
     "dbRetention": {
+      "queryTimeout": "Candidate check timed out. Try checking again later. If this occurred during cleanup, reconcile the original execution receipt first; cleanup will not be submitted again automatically.",
+      "checkpointInvalid": "Historical scan progress could not be verified. Cleanup has stopped; ask an administrator to inspect the governance ledger.",
+      "scanPartial": "These are candidates in this batch only. The historical scan is incomplete and will continue in background batches. Zero in this batch does not mean the database has no candidates.",
+      "scanWindowEnd": "This batch reaches the end of the current scan. Counts apply only to this batch. Protected and newly written records will be checked in later scans.",
+      "scanContinuing": "Historical records are being checked in batches. Progress has been saved.",
+      "scanComplete": "This historical scan is complete. Later cycles will recheck protected and newly written records.",
       "title": "Database retention",
       "blocked": "Database enforcement is not ready",
       "scope": "Only invocation audits and publication notifications for registered tenants of this instance; business event queues are excluded.",

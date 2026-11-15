@@ -49,3 +49,16 @@ it('binds execution to confirmed preview and reconciles a lost result without re
 it('does not poll and aborts read on unmount',async()=>{await flushPromises();vi.useFakeTimers();const count=api.databaseStatus.mock.calls.length;await vi.advanceTimersByTimeAsync(3600000);expect(api.databaseStatus).toHaveBeenCalledTimes(count);const signal=api.databaseStatus.mock.calls.at(-1)![0];wrapper.unmount();expect(signal.aborted).toBe(true)});
 
 it('shows effective capacity and keeps alerts during pending relaxation',async()=>{status.configuration.applied_revision=1;status.configuration.desired_revision=2;status.configuration.state='pending';status.configuration.effective_capacity={...status.policy,reject_new_when_full:true,max_bytes:64*2**20};status.policy.max_bytes=8*2**30;status.policy.reject_new_when_full=false;status.relation_bytes=100*2**20;await wrapper.setProps({revision:2});await flushPromises();expect(wrapper.text()).toContain('64 MiB');expect(wrapper.text()).toContain('当前占用已达到预算');expect(wrapper.text()).toContain('待发布的放宽设置尚未生效');});
+
+it('identifies an empty partial window and preserves the frozen preview after a query timeout',async()=>{
+ status.policy.enabled=true;await wrapper.setProps({revision:1});await flushPromises();
+ const scan={window:{before:{traces:0,events:0},end:{traces:2048,events:2048},highwater:{traces:1000000,events:1000000}},next:{traces:2048,events:2048},complete:false};
+ const preview={id:crypto.randomUUID(),revision:1,state:'preview',counts:{traces:0,events:0,quarantined:0,classified:0},scan};
+ api.previewDatabase.mockResolvedValue(preview);await byId('db-retention-preview').trigger('click');await flushPromises();
+ expect(byId('db-retention-scan-hint').text()).toContain('本批为 0 不代表全库没有候选');
+ api.runDatabase.mockRejectedValue(Object.assign(new Error('DATABASE_RETENTION_QUERY_TIMEOUT'),{status:503,data:{code:503,message:'DATABASE_RETENTION_QUERY_TIMEOUT'}}));
+ await byId('db-retention-run').trigger('click');await flushPromises();
+ expect(wrapper.text()).toContain('候选检查超时');expect(wrapper.text()).not.toContain('观测存储未就绪');
+ expect(byId('db-retention-scan-hint').exists()).toBe(true);expect(api.runDatabase).toHaveBeenCalledTimes(1);
+ expect(byId('db-retention-unknown').exists()).toBe(true);
+});

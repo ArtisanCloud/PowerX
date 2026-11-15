@@ -1,0 +1,153 @@
+{
+  "date": "2026-11-16",
+  "scope": "native Core invocation audit retention candidate scan; no live deployment",
+  "cause": {
+    "query": "pending invocation-notification eligibility before LIMIT",
+    "old_dev_readonly_query_elapsed_seconds": 8.071,
+    "sqlstate": "57014",
+    "misleading_http_fallback": "STORAGE_STATE_UNAVAILABLE"
+  },
+  "implementation": {
+    "tables": [
+      "capability_registry_invocation_traces",
+      "capability_registry_event_publications"
+    ],
+    "scan_keys_per_table": 2048,
+    "candidate_limit_unchanged": true,
+    "sql_timeout_seconds": 8,
+    "transaction_timeout_seconds": 10,
+    "cycle_max_batches": 100,
+    "cycle_seconds": 60,
+    "checkpoint": "one row in existing cleanup ledger namespace db-retention-scan:<scope>",
+    "checkpoint_and_receipt_same_transaction": true,
+    "manual_preview_frozen_window": true,
+    "manual_confirmation_does_not_overwrite_background_cursor": true,
+    "retention_floors_unchanged": true,
+    "schema_migration_added": false,
+    "plugin_reinstall_required": false
+  },
+  "validation": {
+    "postgresql_scale": {
+      "owned_isolated_cluster": true,
+      "rows_per_table": 1000000,
+      "adopt_legacy": true,
+      "protected_window_size": 2048,
+      "elapsed_ms": 53.699417,
+      "passed": true
+    },
+    "actual_dev_readonly": [
+      {
+        "counts": {
+          "traces": 0,
+          "events": 0,
+          "quarantined": 0,
+          "classified": 0
+        },
+        "elapsed_ms": 3376,
+        "read_only": true,
+        "scan": {
+          "window": {
+            "before": {
+              "traces": 0,
+              "events": 0
+            },
+            "end": {
+              "traces": 2048,
+              "events": 2048
+            },
+            "highwater": {
+              "traces": 4893082,
+              "events": 4893615
+            }
+          },
+          "next": {
+            "traces": 2048,
+            "events": 2048
+          },
+          "complete": false
+        }
+      },
+      {
+        "counts": {
+          "traces": 0,
+          "events": 0,
+          "quarantined": 0,
+          "classified": 0
+        },
+        "elapsed_ms": 382,
+        "read_only": true,
+        "scan": {
+          "window": {
+            "before": {
+              "traces": 4891034,
+              "events": 4891567
+            },
+            "end": {
+              "traces": 4893082,
+              "events": 4893615
+            },
+            "highwater": {
+              "traces": 4893082,
+              "events": 4893615
+            }
+          },
+          "next": {
+            "traces": 4893082,
+            "events": 4893615
+          },
+          "complete": true
+        }
+      }
+    ],
+    "go_race": [
+      "entire capability_registry repository package",
+      "database-retention service cases plus native system-table retention runtime",
+      "entire admin/storage HTTP package"
+    ],
+    "go_vet": "affected repository, service, transport and bootstrap packages passed",
+    "linux_amd64_core_build": "passed",
+    "frontend_production_build": "passed",
+    "frontend_storage_unit_tests": {
+      "passed": 190,
+      "files": 25
+    },
+    "browser_fixture": {
+      "widths": [
+        1440,
+        390,
+        320
+      ],
+      "passed": 3,
+      "checks": [
+        "partial-window zero count message",
+        "localized timeout using real API client",
+        "draft retained across sections",
+        "no periodic status requests",
+        "no horizontal page overflow"
+      ],
+      "real_service_or_production_acceptance": false
+    }
+  },
+  "verification_limits": [
+    "make unit-test remains blocked by pre-existing missing backend/test-silent.sh",
+    "Expanded full storage_governance package race run was interrupted after 269 seconds while an unrelated lifecycle test was still executing; full package success is not claimed. The affected retention cases and full HTTP package were rerun successfully."
+  ],
+  "cleanup": {
+    "owned_postgres_stopped_and_removed": true,
+    "browser_fixture_and_children_exited": true,
+    "browser_ports_released": [
+      33481,
+      33482
+    ],
+    "remote_readonly_helper_removed": true
+  },
+  "live_changes": {
+    "core_replaced": false,
+    "service_restarted": false,
+    "retention_policy_changed": false,
+    "business_or_audit_rows_deleted": false,
+    "migration_executed": false,
+    "physical_pg_reclaim_executed": false
+  },
+  "next_acceptance": "Deploy this Core/web-admin build to dev; Root checks a fresh preview; verify a successful scheduled cycle and checkpoint/receipt advancement before prod. DELETE permits PostgreSQL reuse and does not prove filesystem shrink."
+}

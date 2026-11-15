@@ -17,6 +17,25 @@ type RetentionRunRepository struct {
 func NewRetentionRunRepository(db *gorm.DB, scope string) *RetentionRunRepository {
 	return &RetentionRunRepository{repository.NewBaseRepository[m.CleanupRun](db), "db-retention:" + scope}
 }
+
+// NewRetentionScanRepository 隔离单行检查点，不混入执行回执或其过期清理。
+func NewRetentionScanRepository(db *gorm.DB, scope string) *RetentionRunRepository {
+	return &RetentionRunRepository{repository.NewBaseRepository[m.CleanupRun](db), "db-retention-scan:" + scope}
+}
+
+// ReplaceCheckpoint 仅更新已验证的检查点；调用方必须持有同域的控制事务锁。
+func (r *RetentionRunRepository) ReplaceCheckpoint(ctx context.Context, tx *gorm.DB, row *m.CleanupRun) error {
+	result := tx.WithContext(ctx).Model(&m.CleanupRun{}).
+		Where("tenant_id = ? AND instance_id = ? AND run_id = ? AND version = ? AND state = ?", 0, r.instance, row.RunID, 1, "checkpoint").
+		Updates(map[string]any{"document": row.Document, "expires_at": row.ExpiresAt})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrRevisionConflict
+	}
+	return nil
+}
 func (r *RetentionRunRepository) Get(ctx context.Context, tx *gorm.DB, id string) (*m.CleanupRun, error) {
 	var out m.CleanupRun
 	e := tx.WithContext(ctx).Where("tenant_id = ? AND instance_id = ? AND run_id = ?", 0, r.instance, id).First(&out).Error
