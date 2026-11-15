@@ -6,9 +6,9 @@
 不执行 SaaS 更新、线上迁移、插件安装或生产恢复。严格的 powerx.upgrade-manifest/v1
 不增加字段；请求关联使用独立 [powerx.build-receipt/v1 Schema](powerx-build-receipt.schema.json)。
 
-源码实现和本地受控测试已完成；最终工作流提交以本次发布 PR 的合并 SHA 为准。
-尚未在 GitHub 上执行新工作流，本地验证不能替代实际 Actions 和镜像验收。
-本机 Docker daemon 尚未用于本轮验证；真实双架构升级、数据保留及恢复需在隔离 CI 验收。
+源码实现和本地受控测试已完成；实际 Actions 验收进度见第 8 节和对应运行回执。
+已运行的 verify 不代表 build 或发行验收；本地验证不能替代实际 Actions 和镜像验收。
+本轮不使用本机 Docker daemon；真实双架构升级、数据保留及恢复由隔离 CI 验收。
 固定工作流提交应取最终包含本修复的 commit，不能将开发前 HEAD 或文件摘要当作已发布提交。
 
 ## 1. 正式入口
@@ -220,3 +220,51 @@ powerx.build-receipt/v1 的 Schema。新增独立 decision Schema，明确收到
 以及 verify/build 的真实 run ID、attempt、request_id、回执 artifact、成对镜像 digest、
 amd64/arm64 升级报告。两次模式使用不同 ID，绑定同一完整 SHA；不执行 release，不更新 SaaS。
 缺少发布或真实 CI 证据时，第 4、5 项保持未完成，不能用本地数字替代。
+
+## 8. 真实 CI 验收发现的 artifact 下载修复（2026-11-13）
+
+PR #432 已合入 develop，受支持提交为 c84848176809279e78b8ef8dd7ab22381e42f139。
+该提交的工作流 SHA256 为 c9618bb9adff98fa0358c97d1d75ab5087aa909a2ce287834c78637a93422216；
+回执 Schema 仍为 powerx.build-receipt/v1，摘要为
+188b33ea33985b25b57f1528a447207be08596f378de93fb895574ee8bfdbd34。
+
+显式 verify 运行 43452179450/1 成功，preflight、checks 和回执成功，镜像与发行 jobs 跳过。
+错误 SHA 运行 43452290322/1 在 preflight 被 BUILD_SOURCE_SHA_MISMATCH 拒绝；
+历史处理证据缺失运行 43452877093/1 返回 BUILD_PREVIOUS_RESULT_UNCONFIRMED；
+取消运行 43452900024/1 的真实 conclusion 与回执均为 cancelled，错误码 BUILD_CANCELLED。
+这些回执均不可部署，已核验 archive 摘要、回执校验和、Schema 和引用的文件摘要。
+
+模式冲突运行 43452793408/1 暴露了本地替身未覆盖的协议错误：读取历史 Actions artifact 时，
+客户端发送 Accept: application/octet-stream，GitHub 返回 HTTP 415，尚未进入指纹冲突判断。
+该运行不能计为模式冲突验收通过。Actions archive API 应使用 application/vnd.github+json，
+重定向后的响应按 ZIP 字节读取；Release asset API 继续使用 application/octet-stream。
+依据：[GitHub Actions artifact 下载合同](https://docs.github.com/en/rest/actions/artifacts#download-an-artifact)。
+
+本地修复将 Accept 协商与响应解码分开，保留重定向去凭证、大小限制和所有历史证据校验。
+Python 3.10 与隔离 Python 3.13 环境各有 66 项测试通过，归属替身也会按真实 API 拒绝错误 Accept。
+修复后的客户端已只读核验真实 owner 的 context、decision 和终态回执，并对原模式冲突上下文返回
+BUILD_REQUEST_ID_CONFLICT。该检查使用本地补丁，不属于修复后工作流的实际 dispatch 验收。
+工作流和回执 Schema 不变。
+修复须先进入受支持 ref，随后对新的同一完整源码 SHA 重跑不同 ID 的 verify/build，
+并补齐 duplicate、模式冲突与双平台升级/恢复门禁；原提交的运行不能冒充修复后的验收。
+
+用户要求本次修复仅保留当前分支本地差异；没有创建或切换分支、提交、推送、创建 PR 或合入。
+限制确认后取消了已发出的原提交 build 43452696563/1，最终 conclusion 与回执均为 cancelled。
+该运行 preflight/checks 成功、Registry 登录成功，后端构建中取消，未执行空库 smoke 和双平台升级。
+没有候选镜像输出 digest；只读回查两个仓库的 ci-43452696563-1 标签均返回 404，blob 写入状态未确认。
+所有本轮运行均已结束。修复发布、新固定版本及完整 verify/build/duplicate 验收保持待办。
+
+当前逐项进度和真实 artifact 身份见
+[CI 验收记录](evidence/powerx-build-ci-acceptance-20261113.json)。不执行 release，不更新 SaaS。
+
+## 9. 补丁发布与新版本验收（2026-11-15）
+
+已获授权沿用当前分支，仅提交本补丁的三个 Python 文件、本文和上述历史验收记录，
+经 PR 审查合入 develop 后执行候选 CI。第 8 节的本地范围限制是 2026-11-13 的历史状态。
+
+合入后须从远端固定新完整 SHA，重新核对工作流 SHA256、回执 Schema 和摘要。
+verify/build 使用不同的全新请求 ID、同一新 SHA；成功 build 的原 ID 和输入用于重复请求，
+成功 verify 的原 ID 仅改变模式用于冲突拒绝。不得复用旧 415、取消或未确认运行的请求 ID。
+重复运行必须关联原 owner、跳过镜像构建，模式冲突必须返回 BUILD_REQUEST_ID_CONFLICT。
+最终交回 run/attempt、回执 artifact、成对镜像 digest 和双平台升级/恢复报告。
+build 只写既有 GHCR 仓库的 ci-RUN-ATTEMPT 候选标签；不执行 release，不更新 SaaS。

@@ -138,7 +138,8 @@ class GitHub:
         self.token = token
         self.opener = urllib.request.build_opener(SafeRedirect())
 
-    def request(self, path, method="GET", data=None, accept="application/vnd.github+json", limit=2**20):
+    def request(self, path, method="GET", data=None, accept="application/vnd.github+json", limit=2**20,
+                binary=False):
         require(path.startswith("/") and not path.startswith("//"), "BUILD_GITHUB_PATH_INVALID")
         request = urllib.request.Request("https://api.github.com" + path, method=method,
             data=None if data is None else canonical(data),
@@ -148,7 +149,7 @@ class GitHub:
             with self.opener.open(request, timeout=60) as response:
                 raw = response.read(limit + 1)
             require(len(raw) <= limit, "BUILD_GITHUB_RESPONSE_TOO_LARGE")
-            return raw if accept == "application/octet-stream" else loads(raw)
+            return raw if binary or accept == "application/octet-stream" else loads(raw)
         except urllib.error.HTTPError as error:
             if error.code == 404:
                 return None
@@ -245,8 +246,10 @@ class RequestEvidence:
         require(len(matches) == 1 and not matches[0].get("expired"), "BUILD_PREVIOUS_EVIDENCE_UNCONFIRMED")
         item = matches[0]
         require(type(item.get("id")) is int and item["id"] > 0, "BUILD_PREVIOUS_ARTIFACT_INVALID")
+        # Actions archive downloads negotiate the API JSON media type before
+        # redirecting to ZIP bytes; octet-stream is only for Release assets.
         raw = self.github.request("/repos/" + REPOSITORY + "/actions/artifacts/" + str(item["id"]) + "/zip",
-                                  accept="application/octet-stream", limit=4 * 2**20)
+                                  binary=True, limit=4 * 2**20)
         require(isinstance(raw, bytes) and len(raw) <= 4 * 2**20, "BUILD_PREVIOUS_ARTIFACT_INVALID")
         if item.get("digest"):
             require(item["digest"] == "sha256:" + digest(raw), "BUILD_PREVIOUS_ARTIFACT_DIGEST_MISMATCH")

@@ -87,6 +87,9 @@ class ClaimAPI:
     def request(self, path, **kwargs):
         self.calls.append(("request", path))
         if "/artifacts/" in path:
+            # GitHub rejects octet-stream negotiation on Actions archives (415).
+            if kwargs.get("accept", "application/vnd.github+json") != "application/vnd.github+json":
+                raise ValueError("BUILD_GITHUB_HTTP_415")
             return self.archives[int(path.split("/artifacts/")[1].split("/")[0])]
         run_id = int(path.split("/runs/")[1].split("/")[0])
         if "/attempts/" in path:
