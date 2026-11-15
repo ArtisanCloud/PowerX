@@ -6,6 +6,7 @@ import (
 
 	im "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	coreiam "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -13,7 +14,7 @@ import (
 
 func TestRootRoleIsCoreManagedAcrossRoleAndRBACWrites(t *testing.T) {
 	db := setupRBACServiceTestDB(t)
-	ctx := context.Background()
+	ctx := reqctx.WithClaims(context.Background(), &reqctx.CoreXClaims{UserID: 1, IsRoot: true, Scope: "access"})
 	_, err := rootrole.Ensure(db)
 	require.NoError(t, err)
 	var root im.Role

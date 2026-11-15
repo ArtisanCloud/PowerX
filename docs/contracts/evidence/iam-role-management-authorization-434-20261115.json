@@ -1,0 +1,122 @@
+{
+  "recorded_at": "2026-11-15T14:11:37.322609+08:00",
+  "issue": "https://github.com/ArtisanCloud/PowerX/issues/434",
+  "root_cause": "User JWT authentication and target tenant checks did not require the caller to hold role administration authority before granting permissions, binding roles or creating a role with permissions.",
+  "baseline_reproduction": {
+    "method": "Go compiler overlay of the exact unpatched RBAC service from committed source; isolated in-memory fixture only; no branch or worktree changes",
+    "source_commit": "1ed76613c7fa7ad311a07decb9258bee73bc4e2c",
+    "matches_deployed_commit_rbac_blob": true,
+    "rbac_blob": "5ff901e5936031fc6106f1932678330bc77ba74e",
+    "ordinary_member_backup_permission_before": false,
+    "grant_call_succeeded": true,
+    "ordinary_member_backup_permission_after": true
+  },
+  "deployment_read_only_observation": {
+    "host": "47.116.10.200",
+    "checked_at": "2026-11-15T13:30:35+08:00",
+    "dev_version": "dev-20261113-1002",
+    "prod_version": "prod-20261113-1002",
+    "both_build_source_commit": "c84848176809279e78b8ef8dd7ab22381e42f139",
+    "core_health": "ok",
+    "affected_builds": true,
+    "legacy_iam_role_read_write_delete_source": "plugin:com.powerx.plugins.ai-craft",
+    "legacy_iam_role_bind_source": "core",
+    "source_catalog_check_at": "2026-11-15T13:40:09+08:00",
+    "exploit_attempted_on_server": false,
+    "services_restarted": false,
+    "permissions_or_data_changed": false,
+    "compromise_status": "not_determined_no_complete_incident_audit"
+  },
+  "fix": {
+    "protected_role_routes": 13,
+    "service_checks": true,
+    "real_root_session_required_for_root_bypass": true,
+    "live_permission_sources_and_uuid_bindings": true,
+    "same_session_revocation_effective": true,
+    "dedicated_permission_namespace": "corex.iam.role_management",
+    "actions": [
+      "read",
+      "write",
+      "delete",
+      "bind"
+    ],
+    "legacy_core_owned_grants_preserved": true,
+    "plugin_owned_legacy_grants_not_used_for_core_authority": true,
+    "plugin_catalog_and_existing_grants_preserved": true,
+    "tenant_managers_cannot_create_catalog_entries": true,
+    "initial_role_and_permission_write_atomic": true,
+    "api_key_or_sts_access_added": false,
+    "database_schema_migration_required": false
+  },
+  "validation": {
+    "race": {
+      "test_events": {
+        "pass": 128,
+        "skip": 2
+      },
+      "skipped_postgres_concurrency_tests": [
+        "TestReportingManagerPostgresConcurrentCycleCannotCommit",
+        "TestOwnerPostgresConcurrentProfileSaveAndOwnerChange"
+      ],
+      "reason": "dedicated PostgreSQL test DSNs were not configured"
+    },
+    "signed_jwt_http": "all 13 ordinary-user role routes denied with 403; database unchanged; Root and explicitly granted manager paths passed",
+    "scoped_catalog_metadata_and_registry_publication": "passed in isolated databases; repeated publication stable; no new role grants; original plugin permission owner and UUID unchanged",
+    "go_vet": "passed",
+    "native_core_build": "passed",
+    "linux_amd64_core_build": "passed",
+    "capability_check": "passed: declared=1251 referenced=88 rest_routes=1198 candidates=1330 ignored_route_rules=163",
+    "existing_unrelated_failure": {
+      "test": "TestTenantMemberDirectoryHTTPContract",
+      "expected_required_fields": [
+        "member_uuid",
+        "user_uuid",
+        "resource",
+        "action"
+      ],
+      "actual_required_fields": [
+        "member_uuid",
+        "user_uuid"
+      ],
+      "test_and_openapi_inputs_match_HEAD": true,
+      "openapi_path": "specs/026-iam/contracts/http-openapi.yaml",
+      "changed_by_this_fix": false
+    }
+  },
+  "catalog_publication_read_only_preflight": {
+    "read_only": true,
+    "checked_at": "2026-11-15T14:07:52.267458+08:00",
+    "environments": {
+      "dev": {
+        "exit": 0,
+        "catalog_pairs": 17,
+        "incompatible": [],
+        "new_operation_permissions": 4,
+        "error_lines": 0
+      },
+      "prod": {
+        "exit": 0,
+        "catalog_pairs": 17,
+        "incompatible": [],
+        "new_operation_permissions": 4,
+        "error_lines": 0
+      }
+    },
+    "units": {}
+  },
+  "release_acceptance": {
+    "source_implemented": true,
+    "deployed": false,
+    "live_security_acceptance": "pending dev then prod deployment and isolated-account verification",
+    "required_steps": [
+      "update Core binary and capability YAML",
+      "publish the four scoped formal role-management capabilities with preserve-installed-state",
+      "Root explicitly grants required new operations to approved management roles whose old permissions are plugin-owned",
+      "verify ordinary-user denials, legitimate administration, same-session revocation and tenant isolation on dev, then prod"
+    ],
+    "full_database_migrate_required": false,
+    "plugin_reinstall_required": false,
+    "business_data_rewrite_required": false,
+    "automatic_role_grant_backfill": false
+  }
+}

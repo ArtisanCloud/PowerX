@@ -107,6 +107,15 @@ func (s *MemberService) authorizeMemberAccountPermission(ctx context.Context, re
 	if tenant == "" || memberID == 0 {
 		return dto.NewUnauthorized("缺少租户成员身份", nil)
 	}
+	if resource == "role" {
+		allowed, err := repo.NewPermissionRepository(s.DB).MemberHasLivePermissionFromSources(ctx, tenant, reqctx.GetMemberUUID(ctx), memberID, "iam", "role_management", action, []string{"platform_capability"})
+		if err != nil {
+			return err
+		}
+		if allowed {
+			return nil
+		}
+	}
 	sources := []string{"platform_capability"}
 	if resource == "role" {
 		sources = append(sources, "core") // 既有 Core 角色绑定权限仍有效。

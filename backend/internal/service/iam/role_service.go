@@ -7,6 +7,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/domain/model"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	baseline "github.com/ArtisanCloud/PowerX/pkg/corex/iam/authorizationbaseline"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/rootrole"
 
 	"gorm.io/gorm"
@@ -49,6 +50,9 @@ type ListOpt struct {
 // Create 直接用 GORM 实体；对必要字段做最小校验与修整
 // Create：root 可创建 system/tenant；非 root 仅能在自己租户创建 tenant
 func (s *RoleService) Create(ctx context.Context, scope RoleContext, in *dbm.Role) (*dbm.Role, error) {
+	if err := authorizeRoleManagement(ctx, s.db, roleContextToActor(scope), "write"); err != nil {
+		return nil, err
+	}
 	if strings.EqualFold(strings.TrimSpace(string(in.Code)), string(iam.CodeSystemRoot)) {
 		return nil, rootrole.ErrManaged
 	}
@@ -105,30 +109,47 @@ func (s *RoleService) CreateWithPerms(
 	in *dbm.Role,
 	permIDs []uint64,
 ) (*dbm.Role, *SetIDsResult, error) {
-	// 1) 先创建角色（沿用 Create 的校验与租户/Root限制）
+	if err := authorizeRoleManagement(ctx, s.db, roleContextToActor(scope), "write"); err != nil {
+		return nil, nil, err
+	}
+	// A rejected initial permission set must not leave a partially created role.
+	if len(permIDs) > 0 {
+		var out *dbm.Role
+		var result *SetIDsResult
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if baseline.Managed(tx) {
+				if err := baseline.Lock(tx); err != nil {
+					return err
+				}
+			}
+			var err error
+			out, err = NewRoleService(tx).Create(ctx, scope, in)
+			if err != nil {
+				return err
+			}
+			res, err := NewRBACService(tx).SetPermissionIDs(ctx, roleContextToActor(scope), out.ID, permIDs)
+			result = &res
+			return err
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		return out, result, nil
+	}
+	// No initial permission set.
 	out, err := s.Create(ctx, scope, in)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// 2) 不带 perm_ids 就直接返回
-	if len(permIDs) == 0 {
-		return out, nil, nil
-	}
-
-	// 3) 复用 RBACService 的 SetPermissionIDs（从 ctx 自动取 Root/Tenant）
-	rbac := NewRBACService(s.db)
-	res, err := rbac.SetPermissionIDs(ctx, roleContextToActor(scope), out.ID, permIDs)
-	if err != nil {
-		// 如果你想要“原子性”，这里可按需做补偿删除角色或改为事务
-		return out, nil, err
-	}
-
-	return out, &res, nil
+	return out, nil, nil
 }
 
 // Update：root 直接放行；非 root 必须匹配本租户（仅改 name/description）
 func (s *RoleService) Update(ctx context.Context, scope RoleContext, id uint64, patch *dbm.Role) error {
+	if err := authorizeRoleManagement(ctx, s.db, roleContextToActor(scope), "write"); err != nil {
+		return err
+	}
 	cur, err := s.repo.GetFirst(ctx, map[string]any{"id": id})
 	if err != nil {
 		return err
@@ -138,6 +159,9 @@ func (s *RoleService) Update(ctx context.Context, scope RoleContext, id uint64, 
 	}
 	if rootrole.IsManaged(*cur) {
 		return rootrole.ErrManaged
+	}
+	if err := requireRoleTenant(roleContextToActor(scope), cur); err != nil {
+		return err
 	}
 
 	ctxTenant := strings.TrimSpace(scope.TenantUUID)
@@ -168,6 +192,9 @@ func (s *RoleService) Update(ctx context.Context, scope RoleContext, id uint64, 
 
 // Delete：root 放行（仍禁止删除 builtin）；非 root 仅能删本租户 tenant 角色
 func (s *RoleService) Delete(ctx context.Context, scope RoleContext, id uint64) error {
+	if err := authorizeRoleManagement(ctx, s.db, roleContextToActor(scope), "delete"); err != nil {
+		return err
+	}
 	cur, err := s.repo.GetFirst(ctx, map[string]any{"id": id})
 	if err != nil {
 		return err
@@ -177,6 +204,9 @@ func (s *RoleService) Delete(ctx context.Context, scope RoleContext, id uint64) 
 	}
 	if rootrole.IsManaged(*cur) {
 		return rootrole.ErrManaged
+	}
+	if err := requireRoleTenant(roleContextToActor(scope), cur); err != nil {
+		return err
 	}
 	if cur.Builtin {
 		return errors.New("builtin role cannot be deleted")
@@ -204,6 +234,9 @@ func (s *RoleService) Delete(ctx context.Context, scope RoleContext, id uint64) 
 
 // Get：root 可看任意；非 root 只能看自己租户（system 不可见）
 func (s *RoleService) Get(ctx context.Context, scope RoleContext, id uint64) (*dbm.Role, error) {
+	if err := authorizeRoleManagement(ctx, s.db, roleContextToActor(scope), "read"); err != nil {
+		return nil, err
+	}
 	m, err := s.repo.GetFirst(ctx, map[string]any{"id": id})
 	if err != nil || m == nil {
 		return m, err
@@ -226,6 +259,9 @@ func (s *RoleService) Get(ctx context.Context, scope RoleContext, id uint64) (*d
 
 // List：root 可全局筛选；非 root 强制 scope=tenant 且 tenant_uuid=ctxTenant
 func (s *RoleService) List(ctx context.Context, scope RoleContext, opt ListOpt) (model.Page[dbm.Role], error) {
+	if err := authorizeRoleManagement(ctx, s.db, roleContextToActor(scope), "read"); err != nil {
+		return model.Page[dbm.Role]{}, err
+	}
 	ctxTenant := strings.TrimSpace(scope.TenantUUID)
 
 	if !scope.IsRoot {

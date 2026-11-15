@@ -38,32 +38,12 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	}
 
 	h := NewRoleHandler(deps)
-	gRoles := protectedGroup.Group("admin/iam/roles")
-	{
-		gRoles.POST("", h.Create)
-		gRoles.GET("", h.List)
-		gRoles.GET(":id", h.Get)
-		gRoles.PATCH(":id", h.Update)
-		gRoles.DELETE(":id", h.Delete)
-	}
 
 	// RBAC
 	hRBAC := NewRBACHandler(deps)
+	registerRoleRoutes(protectedGroup, h, hRBAC)
 	gRBAC := protectedGroup.Group("/admin/iam")
 	{
-		// 角色 ⇄ 权限
-		gRoles.POST("/:id/permissions/grant-ids", hRBAC.GrantByIDs)
-		gRoles.POST("/:id/permissions/grant", hRBAC.GrantByTriples)
-		gRoles.POST("/:id/permissions/revoke-ids", hRBAC.RevokeByIDs)
-		gRoles.GET("/:id/permissions", hRBAC.ListPermsOfRole)
-
-		// 角色 ⇄ 成员（直绑）
-		gRoles.POST("/:id/bind/member", hRBAC.BindRoleToMember)
-		gRoles.DELETE("/:id/bindings/:binding_id", hRBAC.UnbindRoleFromMember)
-
-		gRoles.GET("/:id/permissions/ids", hRBAC.ListPermIDs)
-		gRoles.PUT("/:id/permissions/set-ids", hRBAC.SetPermIDs)
-
 		// 当前登录人鉴权检查。
 		gRBAC.GET("/me/check", hRBAC.CheckPermission)
 	}

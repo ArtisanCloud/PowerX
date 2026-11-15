@@ -109,8 +109,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 
 	out, bindRes, err := h.svc.CreateWithPerms(c.Request.Context(), roleCtx, role, req.PermIDs)
 	if err != nil {
-		// Service 内已区分 forbidden/invalid 等错误，这里直接 400/403 的细分可按需再加
-		dto.ResponseError(c, http.StatusBadRequest, "创建角色失败", err)
+		respondRoleManagementError(c, "创建角色失败", err)
 		return
 	}
 
@@ -145,7 +144,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.svc.Update(c.Request.Context(), roleCtx, roleID, patch); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "更新角色失败", err)
+		respondRoleManagementError(c, "更新角色失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"updated": true})
@@ -158,11 +157,7 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.svc.Delete(c.Request.Context(), roleCtx, roleID); err != nil {
-		status := http.StatusBadRequest
-		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			status = http.StatusNotFound
-		}
-		dto.ResponseError(c, status, "删除角色失败", err)
+		respondRoleManagementError(c, "删除角色失败", err)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"deleted": true})
@@ -176,7 +171,7 @@ func (h *RoleHandler) Get(c *gin.Context) {
 	}
 	m, err := h.svc.Get(c.Request.Context(), roleCtx, roleID)
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "查询角色失败", err)
+		respondRoleManagementError(c, "查询角色失败", err)
 		return
 	}
 	if m == nil {
@@ -217,7 +212,7 @@ func (h *RoleHandler) List(c *gin.Context) {
 		Sort:       q.Sort,
 	})
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "查询角色列表失败", err)
+		respondRoleManagementError(c, "查询角色列表失败", err)
 		return
 	}
 
