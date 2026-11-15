@@ -6,12 +6,13 @@ import zh from '../../../i18n/locales/zh.json';
 const { sync } = vi.hoisted(() => ({ sync: vi.fn() }));
 vi.mock('~/composables/api/services/aiSettingService', () => ({ AISettingService: { syncOnlineModels: sync } }));
 const t = (key: string, params: Record<string, unknown> = {}) => Object.entries(params).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), key.split('.').reduce((o: any, part) => o?.[part], zh) || key);
+const connection = { base_url: 'https://provider.invalid/v1', api_key: 'fixture-draft-key', auth_mode: '', organization: '' };
 const response = () => ({ provider: 'openai', env: 'dev', app: '', protocol: 'openai', source: 'https://provider.invalid/v1/models', updated_at: '2026-10-30T00:00:00Z', revision: 'revision-1', models: [
   { id: 'gpt-4o', label: 'GPT 4o', modalities: ['llm'], reported_modalities: ['llm'], manual_modalities: [], match: 'local' },
   { id: 'brand-new', label: 'Brand new', modalities: [], manual_modalities: [], match: 'unmatched' },
 ] });
 function render(props: Record<string, unknown> = {}) {
-  return mount(Modal, { props: { provider: 'openai', providerName: 'OpenAI', env: 'dev', app: '', modality: 'llm', connectionDirty: false, ...props }, global: { mocks: { $t: t }, stubs: {
+  return mount(Modal, { props: { provider: 'openai', providerName: 'OpenAI', env: 'dev', app: '', modality: 'llm', connection, ...props }, global: { mocks: { $t: t }, stubs: {
     UModal: { template: '<div><slot name="body" /><slot name="footer" /></div>' },
     UButton: { props: ['disabled', 'loading'], template: '<button type="button" :disabled="disabled"><slot /></button>' },
     UInput: { props: ['modelValue'], emits: ['update:modelValue'], template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />' },
@@ -26,7 +27,7 @@ describe('在线目录获取和匹配保存', () => {
   it('完整展示在线型号，未知用途不需要再写入本地候选', async () => {
     sync.mockResolvedValueOnce(response());
     const wrapper = render(); await flushPromises();
-    expect(sync).toHaveBeenCalledExactlyOnceWith({ provider: 'openai', env: 'dev', app: '', modality: 'llm', action: 'refresh' });
+    expect(sync).toHaveBeenCalledExactlyOnceWith({ provider: 'openai', env: 'dev', app: '', modality: 'llm', action: 'refresh', connection });
     expect(wrapper.get('[data-testid="online-model-summary"]').text()).toContain('在线获取 2 个型号');
     expect(wrapper.get('[data-testid="online-model-list"]').text()).toContain('brand-new');
     expect(wrapper.text()).toContain('https://provider.invalid/v1/models');
@@ -47,9 +48,14 @@ describe('在线目录获取和匹配保存', () => {
     expect(wrapper.emitted('saved')).toHaveLength(1);
     wrapper.unmount();
   });
-  it('连接未保存时保留提示，媒体用途也完整显示在线型号', async () => {
-    const dirty = render({ connectionDirty: true }); await flushPromises();
-    expect(sync).not.toHaveBeenCalled(); expect(dirty.text()).toContain('请先关闭此窗口并保存连接配置'); dirty.unmount();
+  it('使用当前未保存连接获取型号，保留连接草稿并显示完整媒体目录', async () => {
+    sync.mockResolvedValueOnce(response());
+    const draft = { ...connection, api_key: 'fixture-unsaved-key' };
+    const dirty = render({ connection: draft }); await flushPromises();
+    expect(sync).toHaveBeenCalledExactlyOnceWith({ provider: 'openai', env: 'dev', app: '', modality: 'llm', action: 'refresh', connection: draft });
+    expect(dirty.props('connection')).toEqual(draft);
+    expect(dirty.emitted('saved')).toHaveLength(1);
+    expect(dirty.text()).not.toContain('请先关闭此窗口并保存连接配置'); dirty.unmount();
     sync.mockResolvedValueOnce(response()); const media = render({ modality: 'vlm' }); await flushPromises();
     expect(media.text()).toContain('brand-new'); expect(media.text()).toContain('按当前用途保存');
     expect(media.find('[data-testid="online-model-assign"]').exists()).toBe(false); media.unmount();

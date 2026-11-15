@@ -1,0 +1,139 @@
+{
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "profile_id": 14,
+  "key_id": "12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+  "caller_subject": "api_key:12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+  "auth_scheme": "ApiKey",
+  "key": {
+    "key_id": "12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+    "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+    "profile_id": 14,
+    "plugin_ids": [],
+    "binding_mode": "key",
+    "name": "WorkspaceX checkout Lab 20261115",
+    "description": "Dedicated Lab checkout; five ecommerce service capabilities plus own grant-status only",
+    "key_prefix": "pxk_KajmLmXY",
+    "status": "active",
+    "created_at": "2026-11-15T17:21:22+08:00",
+    "updated_at": "2026-11-15T17:21:22+08:00",
+    "permissions": [
+      {
+        "scope": "_scope.capabilities.grant_status.read",
+        "action": "read",
+        "resource_type": "api",
+        "resource_pattern": "grant-status",
+        "effect": "allow"
+      },
+      {
+        "scope": "_scope.ecommerce.checkout.orders.read",
+        "action": "read",
+        "resource_type": "capability",
+        "resource_pattern": "checkout_checkout_orders_service",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      },
+      {
+        "scope": "_scope.ecommerce.checkout.payments.create",
+        "action": "create",
+        "resource_type": "capability",
+        "resource_pattern": "checkout_checkout_payments_service",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      },
+      {
+        "scope": "_scope.ecommerce.checkout.orders.create",
+        "action": "create",
+        "resource_type": "capability",
+        "resource_pattern": "checkout_checkout_orders_service",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      },
+      {
+        "scope": "_scope.ecommerce.checkout.offers.read",
+        "action": "read",
+        "resource_type": "capability",
+        "resource_pattern": "checkout_checkout_offers_service",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      },
+      {
+        "scope": "_scope.ecommerce.checkout.payments.read",
+        "action": "read",
+        "resource_type": "capability",
+        "resource_pattern": "checkout_checkout_payments_service",
+        "plugin_id": "com.powerx.plugins.ecommerce",
+        "effect": "allow"
+      }
+    ]
+  },
+  "verification": {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "items": [
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.capabilities.grant_status.read",
+          "status": "granted",
+          "reason_code": "CAPABILITY_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.iam.identity_context.service_read",
+          "status": "not_granted",
+          "reason_code": "CAPABILITY_NOT_GRANTED"
+        },
+        {
+          "capability_id": "com.corex.customer.memberships.service_read",
+          "status": "not_granted",
+          "reason_code": "CAPABILITY_NOT_GRANTED"
+        }
+      ]
+    },
+    "timestamp": 1794734500,
+    "request_id": "eaf102ab-11b0-438f-ac14-819f22ed7c4e"
+  },
+  "owner_policy": {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "key_id": "12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+      "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+      "plugin_ids": [],
+      "binding_mode": "key",
+      "updated_at": "2026-11-15T09:21:22.834571Z"
+    },
+    "timestamp": 1794734500,
+    "request_id": "bbb07b08-ca0b-4537-96d3-1cda35969ff4"
+  },
+  "private_credential_path": "/Users/michaelhu/.config/powerx/private/workspacex-checkout-lab-20261115.json",
+  "real_order_or_payment_created": false,
+  "admin_access_check": {
+    "http_status": 403,
+    "request_id": "ffc4ec69-ce1f-41a2-9695-2f87cb380c17"
+  },
+  "credential_file_mode": "0o600"
+}

@@ -1,0 +1,710 @@
+{
+  "verified_at": "2026-11-15T08:52:46.960594+00:00",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "capabilities": [
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+      "catalog": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+            "plugin_id": "com.powerx.plugins.ecommerce",
+            "plugin_version": "0.4.7",
+            "title": "读取顾客交易报价",
+            "description": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。",
+            "source": "plugin",
+            "tool_scope": [
+              "com.powerx.plugins.ecommerce.commerce.checkout_offers_service:read"
+            ],
+            "policy": {},
+            "protocols": [
+              {
+                "channel": "rest",
+                "endpoint": "/plugin/commerce/checkout/offers/query",
+                "schema_ref": "contracts/schema/input/com.powerx.plugins.ecommerce.checkout.offers.read.json",
+                "method": "POST",
+                "auth_type": "core_service_ticket"
+              }
+            ],
+            "composite_graphs": [],
+            "annotations": {
+              "agent_usable": true,
+              "description_i18n": {
+                "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+              },
+              "descriptor": "contracts/capabilities/com.powerx.plugins.ecommerce.checkout.offers.read.yaml",
+              "permission_codes": [
+                "com.powerx.plugins.ecommerce.commerce.checkout_offers_service:read"
+              ],
+              "permissions": [
+                {
+                  "action": "read",
+                  "api_key": {
+                    "action": "read",
+                    "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+                    "effect": "allow",
+                    "plugin_id": "com.powerx.plugins.ecommerce",
+                    "resource_pattern": "checkout_checkout_offers_service",
+                    "resource_type": "capability",
+                    "scope": "_scope.ecommerce.checkout.offers.read"
+                  },
+                  "data_scope": "tenant",
+                  "description_i18n": {
+                    "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                    "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+                  },
+                  "independent": true,
+                  "module": "commerce",
+                  "permission_code": "commerce.checkout_offers_service:read",
+                  "protocol_bindings": [
+                    {
+                      "actor_context": "service_actor",
+                      "channel": "rest",
+                      "method": "POST",
+                      "path": "/plugin/commerce/checkout/offers/query",
+                      "resource_scope": "tenant"
+                    }
+                  ],
+                  "resource": "checkout_offers_service",
+                  "risk_level": "low",
+                  "title_i18n": {
+                    "en": "Read customer checkout offers",
+                    "zh-CN": "读取顾客交易报价"
+                  },
+                  "type": "api"
+                }
+              ],
+              "title_i18n": {
+                "en": "Read customer checkout offers",
+                "zh-CN": "读取顾客交易报价"
+              },
+              "version": "1.0.0"
+            },
+            "capabilities_hash": "ba2d5e0730c67e771fe0c39650f6415ee856a89c0a145f41b9e4e5ac70b1430b",
+            "protocol_hash": "facd1d15a78c16f8dbf26d67f7347d40eb3927618252a1d3686609ea4974dd5c",
+            "status": "published",
+            "published_at": "2026-11-15T08:51:36Z"
+          },
+          "timestamp": 1794732766,
+          "request_id": "7097e321-ca4f-4a93-bfc6-3d6cf150ac10"
+        }
+      },
+      "registration": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "adapters": [
+              {
+                "adapter_id": "com.powerx.plugins.ecommerce.checkout.offers.read.POST.d563efcec42665895caba979c244d0b2d0e72453ddf396825d2fe1e874ebd7ba",
+                "endpoint": "/_p/com.powerx.plugins.ecommerce/plugin/commerce/checkout/offers/query",
+                "is_active": true,
+                "labels": {
+                  "method": "POST",
+                  "source": "plugin_catalog"
+                },
+                "service_ref": "",
+                "timeout_ms": 30000,
+                "transport_type": "rest",
+                "weight": 100
+              }
+            ],
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+            "contract_ref": "1.0.0",
+            "created_at": "2026-11-15T16:51:48+08:00",
+            "disable_reason": "",
+            "environment_policies": {},
+            "published_at": "2026-11-15T16:51:48+08:00",
+            "routing_policy": {
+              "cooldown_seconds": 60,
+              "fallback_sequence": null,
+              "rate_limit": {},
+              "sticky_keys": null,
+              "strategy": "weighted_round_robin",
+              "tenant_strategies": null
+            },
+            "status": "published",
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "tool_grant_ids": [],
+            "updated_at": "2026-11-15T16:51:48+08:00",
+            "updated_by": "capability_sync",
+            "version": 1
+          },
+          "timestamp": 1794732766,
+          "request_id": "fae2ed86-04bf-47fe-99b3-4c1ea0e9c838"
+        }
+      }
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+      "catalog": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+            "plugin_id": "com.powerx.plugins.ecommerce",
+            "plugin_version": "0.4.7",
+            "title": "创建顾客交易订单",
+            "description": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。",
+            "source": "plugin",
+            "tool_scope": [
+              "com.powerx.plugins.ecommerce.commerce.checkout_orders_service:create"
+            ],
+            "policy": {},
+            "protocols": [
+              {
+                "channel": "rest",
+                "endpoint": "/plugin/commerce/checkout/orders/create",
+                "schema_ref": "contracts/schema/input/com.powerx.plugins.ecommerce.checkout.orders.create.json",
+                "method": "POST",
+                "auth_type": "core_service_ticket"
+              }
+            ],
+            "composite_graphs": [],
+            "annotations": {
+              "agent_usable": true,
+              "description_i18n": {
+                "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+              },
+              "descriptor": "contracts/capabilities/com.powerx.plugins.ecommerce.checkout.orders.create.yaml",
+              "permission_codes": [
+                "com.powerx.plugins.ecommerce.commerce.checkout_orders_service:create"
+              ],
+              "permissions": [
+                {
+                  "action": "create",
+                  "api_key": {
+                    "action": "create",
+                    "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+                    "effect": "allow",
+                    "plugin_id": "com.powerx.plugins.ecommerce",
+                    "resource_pattern": "checkout_checkout_orders_service",
+                    "resource_type": "capability",
+                    "scope": "_scope.ecommerce.checkout.orders.create"
+                  },
+                  "data_scope": "tenant",
+                  "description_i18n": {
+                    "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                    "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+                  },
+                  "independent": true,
+                  "module": "commerce",
+                  "permission_code": "commerce.checkout_orders_service:create",
+                  "protocol_bindings": [
+                    {
+                      "actor_context": "service_actor",
+                      "channel": "rest",
+                      "method": "POST",
+                      "path": "/plugin/commerce/checkout/orders/create",
+                      "resource_scope": "tenant"
+                    }
+                  ],
+                  "resource": "checkout_orders_service",
+                  "risk_level": "medium",
+                  "title_i18n": {
+                    "en": "Create customer checkout orders",
+                    "zh-CN": "创建顾客交易订单"
+                  },
+                  "type": "api"
+                }
+              ],
+              "title_i18n": {
+                "en": "Create customer checkout orders",
+                "zh-CN": "创建顾客交易订单"
+              },
+              "version": "1.0.0"
+            },
+            "capabilities_hash": "7ba599140e3cdbbb110abacde8fda072d038b8f55adb8a479823a2355f1b1a0f",
+            "protocol_hash": "0c409598376606f5ce86e0cb265b79f70931858907e65eb6590ba0f4a9e87f86",
+            "status": "published",
+            "published_at": "2026-11-15T08:51:36Z"
+          },
+          "timestamp": 1794732766,
+          "request_id": "412db412-00d9-4965-847e-a6ad81e26f17"
+        }
+      },
+      "registration": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "adapters": [
+              {
+                "adapter_id": "com.powerx.plugins.ecommerce.checkout.orders.create.POST.735123112d7b933f1b406ebdd1fa93d5b0a636c3b290b2e8deb420e9936c0a88",
+                "endpoint": "/_p/com.powerx.plugins.ecommerce/plugin/commerce/checkout/orders/create",
+                "is_active": true,
+                "labels": {
+                  "method": "POST",
+                  "source": "plugin_catalog"
+                },
+                "service_ref": "",
+                "timeout_ms": 30000,
+                "transport_type": "rest",
+                "weight": 100
+              }
+            ],
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+            "contract_ref": "1.0.0",
+            "created_at": "2026-11-15T16:51:48+08:00",
+            "disable_reason": "",
+            "environment_policies": {},
+            "published_at": "2026-11-15T16:51:48+08:00",
+            "routing_policy": {
+              "cooldown_seconds": 60,
+              "fallback_sequence": null,
+              "rate_limit": {},
+              "sticky_keys": null,
+              "strategy": "weighted_round_robin",
+              "tenant_strategies": null
+            },
+            "status": "published",
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "tool_grant_ids": [],
+            "updated_at": "2026-11-15T16:51:48+08:00",
+            "updated_by": "capability_sync",
+            "version": 1
+          },
+          "timestamp": 1794732766,
+          "request_id": "830c8473-7a24-405f-baa4-fbc8008254d1"
+        }
+      }
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+      "catalog": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+            "plugin_id": "com.powerx.plugins.ecommerce",
+            "plugin_version": "0.4.7",
+            "title": "读取顾客交易订单",
+            "description": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。",
+            "source": "plugin",
+            "tool_scope": [
+              "com.powerx.plugins.ecommerce.commerce.checkout_orders_service:read"
+            ],
+            "policy": {},
+            "protocols": [
+              {
+                "channel": "rest",
+                "endpoint": "/plugin/commerce/checkout/orders/query",
+                "schema_ref": "contracts/schema/input/com.powerx.plugins.ecommerce.checkout.orders.read.json",
+                "method": "POST",
+                "auth_type": "core_service_ticket"
+              }
+            ],
+            "composite_graphs": [],
+            "annotations": {
+              "agent_usable": true,
+              "description_i18n": {
+                "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+              },
+              "descriptor": "contracts/capabilities/com.powerx.plugins.ecommerce.checkout.orders.read.yaml",
+              "permission_codes": [
+                "com.powerx.plugins.ecommerce.commerce.checkout_orders_service:read"
+              ],
+              "permissions": [
+                {
+                  "action": "read",
+                  "api_key": {
+                    "action": "read",
+                    "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+                    "effect": "allow",
+                    "plugin_id": "com.powerx.plugins.ecommerce",
+                    "resource_pattern": "checkout_checkout_orders_service",
+                    "resource_type": "capability",
+                    "scope": "_scope.ecommerce.checkout.orders.read"
+                  },
+                  "data_scope": "tenant",
+                  "description_i18n": {
+                    "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                    "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+                  },
+                  "independent": true,
+                  "module": "commerce",
+                  "permission_code": "commerce.checkout_orders_service:read",
+                  "protocol_bindings": [
+                    {
+                      "actor_context": "service_actor",
+                      "channel": "rest",
+                      "method": "POST",
+                      "path": "/plugin/commerce/checkout/orders/query",
+                      "resource_scope": "tenant"
+                    }
+                  ],
+                  "resource": "checkout_orders_service",
+                  "risk_level": "low",
+                  "title_i18n": {
+                    "en": "Read customer checkout orders",
+                    "zh-CN": "读取顾客交易订单"
+                  },
+                  "type": "api"
+                }
+              ],
+              "title_i18n": {
+                "en": "Read customer checkout orders",
+                "zh-CN": "读取顾客交易订单"
+              },
+              "version": "1.0.0"
+            },
+            "capabilities_hash": "fdfd0d08f8357900bbcea305d068f20f405dce9d6443e51e5f76ca674cd9c50c",
+            "protocol_hash": "d89fc6d749144f6edeed178bcd1b3402353b64089c82f42b899408973421a992",
+            "status": "published",
+            "published_at": "2026-11-15T08:51:36Z"
+          },
+          "timestamp": 1794732766,
+          "request_id": "0a234744-3216-438b-91ff-1d737e961901"
+        }
+      },
+      "registration": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "adapters": [
+              {
+                "adapter_id": "com.powerx.plugins.ecommerce.checkout.orders.read.POST.49af599fbbf385d7202485633d9b7b101ced17cdd49c312e18588fb58895d62f",
+                "endpoint": "/_p/com.powerx.plugins.ecommerce/plugin/commerce/checkout/orders/query",
+                "is_active": true,
+                "labels": {
+                  "method": "POST",
+                  "source": "plugin_catalog"
+                },
+                "service_ref": "",
+                "timeout_ms": 30000,
+                "transport_type": "rest",
+                "weight": 100
+              }
+            ],
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+            "contract_ref": "1.0.0",
+            "created_at": "2026-11-15T16:51:49+08:00",
+            "disable_reason": "",
+            "environment_policies": {},
+            "published_at": "2026-11-15T16:51:49+08:00",
+            "routing_policy": {
+              "cooldown_seconds": 60,
+              "fallback_sequence": null,
+              "rate_limit": {},
+              "sticky_keys": null,
+              "strategy": "weighted_round_robin",
+              "tenant_strategies": null
+            },
+            "status": "published",
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "tool_grant_ids": [],
+            "updated_at": "2026-11-15T16:51:49+08:00",
+            "updated_by": "capability_sync",
+            "version": 1
+          },
+          "timestamp": 1794732766,
+          "request_id": "50d0441e-5749-4d19-9fb4-edef05e34dc1"
+        }
+      }
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+      "catalog": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+            "plugin_id": "com.powerx.plugins.ecommerce",
+            "plugin_version": "0.4.7",
+            "title": "创建顾客扫码支付",
+            "description": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。",
+            "source": "plugin",
+            "tool_scope": [
+              "com.powerx.plugins.ecommerce.commerce.checkout_payments_service:create"
+            ],
+            "policy": {},
+            "protocols": [
+              {
+                "channel": "rest",
+                "endpoint": "/plugin/commerce/checkout/payments/create",
+                "schema_ref": "contracts/schema/input/com.powerx.plugins.ecommerce.checkout.payments.create.json",
+                "method": "POST",
+                "auth_type": "core_service_ticket"
+              }
+            ],
+            "composite_graphs": [],
+            "annotations": {
+              "agent_usable": true,
+              "description_i18n": {
+                "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+              },
+              "descriptor": "contracts/capabilities/com.powerx.plugins.ecommerce.checkout.payments.create.yaml",
+              "permission_codes": [
+                "com.powerx.plugins.ecommerce.commerce.checkout_payments_service:create"
+              ],
+              "permissions": [
+                {
+                  "action": "create",
+                  "api_key": {
+                    "action": "create",
+                    "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+                    "effect": "allow",
+                    "plugin_id": "com.powerx.plugins.ecommerce",
+                    "resource_pattern": "checkout_checkout_payments_service",
+                    "resource_type": "capability",
+                    "scope": "_scope.ecommerce.checkout.payments.create"
+                  },
+                  "data_scope": "tenant",
+                  "description_i18n": {
+                    "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                    "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+                  },
+                  "independent": true,
+                  "module": "commerce",
+                  "permission_code": "commerce.checkout_payments_service:create",
+                  "protocol_bindings": [
+                    {
+                      "actor_context": "service_actor",
+                      "channel": "rest",
+                      "method": "POST",
+                      "path": "/plugin/commerce/checkout/payments/create",
+                      "resource_scope": "tenant"
+                    }
+                  ],
+                  "resource": "checkout_payments_service",
+                  "risk_level": "medium",
+                  "title_i18n": {
+                    "en": "Create customer QR payments",
+                    "zh-CN": "创建顾客扫码支付"
+                  },
+                  "type": "api"
+                }
+              ],
+              "title_i18n": {
+                "en": "Create customer QR payments",
+                "zh-CN": "创建顾客扫码支付"
+              },
+              "version": "1.0.0"
+            },
+            "capabilities_hash": "c90ae4d34788a145172bd5dcacee6f6f8f77afeb67fe42012ac02632d7b92352",
+            "protocol_hash": "1d0e86c046b5a51584fc4ca74083deda24015e0b926b0ce2515538e5a10e6ecf",
+            "status": "published",
+            "published_at": "2026-11-15T08:51:36Z"
+          },
+          "timestamp": 1794732766,
+          "request_id": "979b5bbf-f451-4634-a751-4f346f6efa96"
+        }
+      },
+      "registration": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "adapters": [
+              {
+                "adapter_id": "com.powerx.plugins.ecommerce.checkout.payments.create.POST.adb1908afc0515829fa00a8afd697770ec4c14c1a6cf192e44490f0d1de594d1",
+                "endpoint": "/_p/com.powerx.plugins.ecommerce/plugin/commerce/checkout/payments/create",
+                "is_active": true,
+                "labels": {
+                  "method": "POST",
+                  "source": "plugin_catalog"
+                },
+                "service_ref": "",
+                "timeout_ms": 30000,
+                "transport_type": "rest",
+                "weight": 100
+              }
+            ],
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+            "contract_ref": "1.0.0",
+            "created_at": "2026-11-15T16:51:49+08:00",
+            "disable_reason": "",
+            "environment_policies": {},
+            "published_at": "2026-11-15T16:51:49+08:00",
+            "routing_policy": {
+              "cooldown_seconds": 60,
+              "fallback_sequence": null,
+              "rate_limit": {},
+              "sticky_keys": null,
+              "strategy": "weighted_round_robin",
+              "tenant_strategies": null
+            },
+            "status": "published",
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "tool_grant_ids": [],
+            "updated_at": "2026-11-15T16:51:49+08:00",
+            "updated_by": "capability_sync",
+            "version": 1
+          },
+          "timestamp": 1794732766,
+          "request_id": "13411741-675b-4e96-b33e-4a167c5cfa9f"
+        }
+      }
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+      "catalog": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+            "plugin_id": "com.powerx.plugins.ecommerce",
+            "plugin_version": "0.4.7",
+            "title": "读取顾客支付状态",
+            "description": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。",
+            "source": "plugin",
+            "tool_scope": [
+              "com.powerx.plugins.ecommerce.commerce.checkout_payments_service:read"
+            ],
+            "policy": {},
+            "protocols": [
+              {
+                "channel": "rest",
+                "endpoint": "/plugin/commerce/checkout/payments/query",
+                "schema_ref": "contracts/schema/input/com.powerx.plugins.ecommerce.checkout.payments.read.json",
+                "method": "POST",
+                "auth_type": "core_service_ticket"
+              }
+            ],
+            "composite_graphs": [],
+            "annotations": {
+              "agent_usable": true,
+              "description_i18n": {
+                "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+              },
+              "descriptor": "contracts/capabilities/com.powerx.plugins.ecommerce.checkout.payments.read.yaml",
+              "permission_codes": [
+                "com.powerx.plugins.ecommerce.commerce.checkout_payments_service:read"
+              ],
+              "permissions": [
+                {
+                  "action": "read",
+                  "api_key": {
+                    "action": "read",
+                    "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+                    "effect": "allow",
+                    "plugin_id": "com.powerx.plugins.ecommerce",
+                    "resource_pattern": "checkout_checkout_payments_service",
+                    "resource_type": "capability",
+                    "scope": "_scope.ecommerce.checkout.payments.read"
+                  },
+                  "data_scope": "tenant",
+                  "description_i18n": {
+                    "en": "Restricted to Core-verified service identities within authorized tenant and customer scope.",
+                    "zh-CN": "仅限经 Core 核验的服务身份在获准的租户和客户范围内操作。"
+                  },
+                  "independent": true,
+                  "module": "commerce",
+                  "permission_code": "commerce.checkout_payments_service:read",
+                  "protocol_bindings": [
+                    {
+                      "actor_context": "service_actor",
+                      "channel": "rest",
+                      "method": "POST",
+                      "path": "/plugin/commerce/checkout/payments/query",
+                      "resource_scope": "tenant"
+                    }
+                  ],
+                  "resource": "checkout_payments_service",
+                  "risk_level": "low",
+                  "title_i18n": {
+                    "en": "Read customer payment status",
+                    "zh-CN": "读取顾客支付状态"
+                  },
+                  "type": "api"
+                }
+              ],
+              "title_i18n": {
+                "en": "Read customer payment status",
+                "zh-CN": "读取顾客支付状态"
+              },
+              "version": "1.0.0"
+            },
+            "capabilities_hash": "7aa03e0fd14ef9d450413780e938374dc018893f04fa90c73cbedb12a55d2e81",
+            "protocol_hash": "fa500c95379daf8f7e44736fddf18903a4952d663a85a0305025786101e37d47",
+            "status": "published",
+            "published_at": "2026-11-15T08:51:36Z"
+          },
+          "timestamp": 1794732766,
+          "request_id": "cb2eb1c1-a2b1-4dbb-8011-cf77936baa64"
+        }
+      },
+      "registration": {
+        "http_status": 200,
+        "response": {
+          "code": 200,
+          "message": "success",
+          "data": {
+            "adapters": [
+              {
+                "adapter_id": "com.powerx.plugins.ecommerce.checkout.payments.read.POST.e1a071e9e6b74986767b63e8d4169080a49e1b8263b799f51b474e9f89366e43",
+                "endpoint": "/_p/com.powerx.plugins.ecommerce/plugin/commerce/checkout/payments/query",
+                "is_active": true,
+                "labels": {
+                  "method": "POST",
+                  "source": "plugin_catalog"
+                },
+                "service_ref": "",
+                "timeout_ms": 30000,
+                "transport_type": "rest",
+                "weight": 100
+              }
+            ],
+            "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+            "contract_ref": "1.0.0",
+            "created_at": "2026-11-15T16:51:49+08:00",
+            "disable_reason": "",
+            "environment_policies": {},
+            "published_at": "2026-11-15T16:51:49+08:00",
+            "routing_policy": {
+              "cooldown_seconds": 60,
+              "fallback_sequence": null,
+              "rate_limit": {},
+              "sticky_keys": null,
+              "strategy": "weighted_round_robin",
+              "tenant_strategies": null
+            },
+            "status": "published",
+            "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+            "tool_grant_ids": [],
+            "updated_at": "2026-11-15T16:51:49+08:00",
+            "updated_by": "capability_sync",
+            "version": 1
+          },
+          "timestamp": 1794732766,
+          "request_id": "4a8d4bb7-ad82-42db-ae6b-07dc7009d673"
+        }
+      }
+    }
+  ],
+  "sync": {
+    "endpoint": "POST /api/v1/internal/plugins/capabilities/catalog",
+    "http_status": 200,
+    "full_installed_catalog_count": 236,
+    "installed_assets_count": 707,
+    "provider_version": "0.4.7",
+    "path_handling": "Expanded optional plugin HTTP base placeholder to plugin-relative paths matching explicit permission bindings; no installed files modified"
+  },
+  "boundaries": {
+    "workspaceX_key_created": false,
+    "business_allowlist_configured": false,
+    "history_payment_uuid_finalized": false,
+    "real_order_or_payment_created": false
+  }
+}

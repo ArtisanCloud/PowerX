@@ -1,0 +1,26 @@
+{
+  "scope": "Draft online model discovery and optional OpenAI-compatible API key",
+  "source_implemented": true,
+  "daily_core_restarted": false,
+  "real_provider_accepted": false,
+  "checks": {
+    "go_agent_targeted": "passed",
+    "go_connectionprobe": "passed",
+    "go_modeldiscovery": "passed",
+    "go_admin_agent_handler_targeted": "passed",
+    "frontend_unit_tests": 13,
+    "playwright_chromium_desktop": "passed",
+    "playwright_chromium_narrow": "passed",
+    "diff_check": "passed"
+  },
+  "behaviour": [
+    "Current form connection is sent to online-model sync without saving credentials or active profile",
+    "Changed endpoint does not inherit old saved secret",
+    "Compatible provider supports optional API Key and models-only connection probe",
+    "Directory results retain model metadata and form drafts; no generation requests"
+  ],
+  "remaining": [
+    "Recompile and restart user-owned Core to load backend and provider metadata",
+    "Refresh admin page and verify real provider connection/catalog"
+  ]
+}

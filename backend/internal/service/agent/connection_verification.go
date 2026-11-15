@@ -14,7 +14,7 @@ import (
 )
 
 type ConnectionInput struct {
-	Provider, Model, BaseURL, APIKey, AuthMode, Organization string
+	Provider, Model, BaseURL, APIKey, AuthMode, Organization, AnthropicVersion, AzureDeployment string
 }
 
 // VerifyConnection 只验证入口及鉴权；不调用文本、图片、视频或 embedding 生成。
@@ -36,6 +36,8 @@ func (s *AgentSettingService) VerifySavedConnection(ctx context.Context, env, te
 		return nil, &dto.AppError{HTTPCode: 503, Code: "AI_DEPENDENCY_UNAVAILABLE", Message: "AI_DEPENDENCY_UNAVAILABLE", Details: map[string]any{"generation_submitted": false}}
 	}
 	authMode, _ := cred.Data["auth_mode"].(string)
+	version, _ := cred.Data["anthropic_version"].(string)
+	deployment, _ := cred.Data["azure_deployment"].(string)
 	organization, _ := cred.Data["organization"].(string)
 	if _, err := connectionProbeStrategy(provider, authMode); err != nil {
 		return nil, err
@@ -44,7 +46,7 @@ func (s *AgentSettingService) VerifySavedConnection(ctx context.Context, env, te
 	if err != nil {
 		return nil, connectionConfigError()
 	}
-	return s.verifyConnection(ctx, env, &tenant, modality, ConnectionInput{Provider: provider, Model: model, BaseURL: base, APIKey: key, AuthMode: authMode, Organization: organization}, true)
+	return s.verifyConnection(ctx, env, &tenant, modality, ConnectionInput{Provider: provider, Model: model, BaseURL: base, APIKey: key, AuthMode: authMode, Organization: organization, AnthropicVersion: version, AzureDeployment: deployment}, true)
 }
 
 func (s *AgentSettingService) verifyConnection(ctx context.Context, env string, tenantUUID *string, modality contract.Modality, in ConnectionInput, credentialsResolved bool) (*connectionprobe.Result, error) {
@@ -54,6 +56,9 @@ func (s *AgentSettingService) verifyConnection(ctx context.Context, env string, 
 		return nil, connectionConfigError()
 	}
 	// 入口／鉴权与型号使用分离：首次连接尚无在线目录，不能先要求型号已登记。
+	if strings.TrimSpace(in.AzureDeployment) != "" {
+		return nil, &dto.AppError{HTTPCode: 501, Code: "AI_CONNECTION_PROBE_UNSUPPORTED", Message: "AI_CONNECTION_PROBE_UNSUPPORTED"}
+	}
 	strategy, err := connectionProbeStrategy(p, in.AuthMode)
 	if err != nil {
 		return nil, err
@@ -65,7 +70,13 @@ func (s *AgentSettingService) verifyConnection(ctx context.Context, env string, 
 		if err != nil || strings.TrimSpace(base) == "" {
 			return nil, connectionConfigError()
 		}
-		base, key, err = s.prepareAuthInputs(ctx, env, tenantUUID, p, base, key, false, rule.DefaultBaseURL, strategy != connectionprobe.OllamaTags)
+		tenant := ""
+		if tenantUUID != nil {
+			tenant = *tenantUUID
+		}
+		conn, resolveErr := s.onlineCatalogConnection(ctx, tenant, OnlineModelSyncRequest{Env: env, Provider: p, Connection: &OnlineModelDraftConnection{BaseURL: base, APIKey: key, AuthMode: in.AuthMode, Organization: in.Organization, AnthropicVersion: in.AnthropicVersion, AzureDeployment: in.AzureDeployment}})
+		base, key, err = conn.Endpoint, conn.APIKey, resolveErr
+
 		if err != nil {
 			return nil, connectionConfigError()
 		}
@@ -73,7 +84,7 @@ func (s *AgentSettingService) verifyConnection(ctx context.Context, env string, 
 	if strings.TrimSpace(base) == "" {
 		base = rule.DefaultBaseURL
 	}
-	return connectionprobe.Verify(ctx, connectionprobe.Input{Provider: p, Endpoint: base, APIKey: key, Organization: in.Organization, Strategy: strategy})
+	return connectionprobe.Verify(ctx, connectionprobe.Input{Provider: p, Endpoint: base, APIKey: key, Organization: in.Organization, AnthropicVersion: in.AnthropicVersion, Strategy: strategy})
 }
 
 func connectionProbeStrategy(p, authMode string) (string, error) {
@@ -83,7 +94,7 @@ func connectionProbeStrategy(p, authMode string) (string, error) {
 	}
 	strategy := ""
 	switch p {
-	case "agnes", "openai", "qwen", "qwen-cn":
+	case "agnes", "openai", "openai_compatible", "qwen", "qwen-cn", "qwen-intl", "anthropic", "google", "deepseek", "moonshot", "huggingface":
 		strategy = connectionprobe.Models
 	case "openrouter":
 		strategy = connectionprobe.KeyInfo
@@ -94,7 +105,7 @@ func connectionProbeStrategy(p, authMode string) (string, error) {
 			strategy = connectionprobe.Models
 		}
 	}
-	if strategy == "" || strings.EqualFold(authMode, "tc3") {
+	if strategy == "" || strings.EqualFold(authMode, "tc3") || strings.EqualFold(authMode, "aksk") {
 		return "", &dto.AppError{HTTPCode: 501, Code: "AI_CONNECTION_PROBE_UNSUPPORTED", Message: "AI_CONNECTION_PROBE_UNSUPPORTED", Details: map[string]any{"generation_submitted": false}}
 	}
 	return strategy, nil
@@ -102,4 +113,9 @@ func connectionProbeStrategy(p, authMode string) (string, error) {
 
 func connectionConfigError() *dto.AppError {
 	return &dto.AppError{HTTPCode: 422, Code: "AI_CONNECTION_CONFIG_INVALID", Message: "AI_CONNECTION_CONFIG_INVALID", Details: map[string]any{"generation_submitted": false}}
+}
+
+func SupportsConnectionProbe(provider, authMode string) bool {
+	_, err := connectionProbeStrategy(provider, authMode)
+	return err == nil
 }

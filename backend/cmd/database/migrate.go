@@ -30,8 +30,8 @@ func validateMigrationScope(command, scope string) error {
 	if scope == "" {
 		return nil
 	}
-	if command != "migrate" || (scope != "customer-client-apps" && scope != "backup-cleanup-resolution" && scope != "backup-cleanup-retention" && scope != "storage-governance" && scope != "capability-retention" && scope != "system-table-retention" && scope != "task-history-idempotency" && scope != "event-fabric-service-identity" && scope != "scheduler-task-dispatch") {
-		return fmt.Errorf("scope 仅支持 migrate -scope customer-client-apps、backup-cleanup-resolution、backup-cleanup-retention、storage-governance、capability-retention、system-table-retention、task-history-idempotency 、event-fabric-service-identity 或 scheduler-task-dispatch")
+	if command != "migrate" || (scope != "customer-client-apps" && scope != "backup-cleanup-resolution" && scope != "backup-cleanup-retention" && scope != "storage-governance" && scope != "capability-retention" && scope != "system-table-retention" && scope != "task-history-idempotency" && scope != "event-fabric-service-identity" && scope != "scheduler-task-dispatch" && scope != "notification-reminder-dependencies") {
+		return fmt.Errorf("scope 仅支持 migrate -scope customer-client-apps、backup-cleanup-resolution、backup-cleanup-retention、storage-governance、capability-retention、system-table-retention、task-history-idempotency、event-fabric-service-identity、scheduler-task-dispatch 或 notification-reminder-dependencies")
 	}
 	return nil
 }
@@ -116,6 +116,9 @@ func MigrateDatabaseScope(ctx context.Context, db *gorm.DB, cfg *config.Config, 
 			}
 			if scope == "scheduler-task-dispatch" {
 				return database.MigrateSchedulerTaskDispatch(tx)
+			}
+			if scope == "notification-reminder-dependencies" {
+				return database.MigrateNotificationReminderDependencies(tx)
 			}
 			if scope == "capability-retention" {
 				return database.MigrateCapabilityRetentionModels(tx)

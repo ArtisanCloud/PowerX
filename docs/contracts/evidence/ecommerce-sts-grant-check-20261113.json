@@ -1,0 +1,15 @@
+{
+  "plugin_id": "com.powerx.plugins.ecommerce",
+  "installed_version": "0.4.7",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "verification": "Fresh Core STS Exchange using installed host credentials, then grant-status with that service token; no tenant override header",
+  "http_status": 200,
+  "request_id": "44305f7f-53e6-4909-8e0f-ae25e5a93aff",
+  "items": [
+    {"capability_id":"com.corex.customer.memberships.service_read","status":"granted","reason_code":"CAPABILITY_GRANTED"},
+    {"capability_id":"com.corex.iam.identity_context.service_read","status":"granted","reason_code":"CAPABILITY_GRANTED"}
+  ],
+  "new_grants_written_by_verifier": false,
+  "credentials_retained": false,
+  "checkout_payment_acceptance": "pending"
+}

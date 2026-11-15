@@ -1,0 +1,95 @@
+{
+  "completed_at": "2026-11-14T00:02:49+08:00",
+  "scope": "notification-reminder-dependencies",
+  "target": {
+    "deployment_env": "dev",
+    "host": "localhost",
+    "port": 5432,
+    "database": "powerx",
+    "schema": "public"
+  },
+  "implementation": {
+    "migration_registry": "backend/pkg/corex/db/database/migration.go",
+    "cli": "backend/cmd/database/migrate.go",
+    "command_from_backend": "go run ./cmd/database migrate -config etc/config.yaml -scope notification-reminder-dependencies",
+    "shared_migration_lock": true,
+    "transactional": true,
+    "seed_executed": false,
+    "full_member_automigrate_executed": false
+  },
+  "before": {
+    "manager_column_present": false,
+    "creation_receipt_table_present": false,
+    "member_count": 16,
+    "notification_count": 171
+  },
+  "after": {
+    "manager_column": {
+      "name": "iam_member.direct_manager_member_uuid",
+      "type": "uuid",
+      "nullable": true,
+      "index": "idx_public_iam_member_direct_manager_member_uuid",
+      "configured_value_count": 0
+    },
+    "creation_receipt_table": {
+      "name": "system_notification_creation_receipts",
+      "row_count": 0,
+      "primary_key": ["uuid"],
+      "unique_index": {
+        "name": "ux_notification_creation_scope",
+        "columns": ["tenant_uuid", "service_owner", "key_hash"]
+      }
+    },
+    "member_count": 16,
+    "notification_count": 171,
+    "member_and_notification_row_digests_unchanged": true,
+    "added_tables": 1,
+    "added_columns": 8,
+    "added_indexes_including_primary_key": 3,
+    "removed_or_modified_existing_structure": false,
+    "historical_manager_or_receipt_backfill": false
+  },
+  "backup": {
+    "format": "PostgreSQL custom archive",
+    "bytes": 106212040,
+    "sha256": "0648e4735f7a820a31bf37b480f80095bf4cf743bc4f7ece36b38e5fa1788f2e",
+    "readback": "pg_restore --list and full SQL extraction succeeded",
+    "archive_storage": "private local artifacts outside repository"
+  },
+  "validation": {
+    "owned_postgresql_migration_scenarios": [
+      "preserve source rows, create empty receipts, preserve explicit manager and receipt on repeat, enforce exact tenant-owner-key uniqueness",
+      "missing member source rejected",
+      "missing notification source rejected",
+      "incompatible manager type rejected",
+      "manager index name collision rejected",
+      "receipt index name collision rejected",
+      "nonunique receipt index rejected",
+      "reordered receipt index rejected",
+      "incompatible receipt column type rejected"
+    ],
+    "failed_migrations_leave_no_partial_structure": true,
+    "environment_and_command_scope_guards": "passed",
+    "related_go_test_packages": [
+      "./cmd/database",
+      "./pkg/corex/db/database",
+      "./internal/service/iam",
+      "./internal/service/notifications",
+      "./internal/transport/http/openapi/notifications"
+    ],
+    "related_go_tests": "passed",
+    "go_vet_cmd_database_and_db_database": "passed",
+    "compiled_cli_on_owned_postgresql": "passed",
+    "development_database_migration_exit_code": 0,
+    "git_diff_check": "passed"
+  },
+  "boundaries": {
+    "user_core_service_restarted": false,
+    "grants_changed": false,
+    "business_notification_sent": false,
+    "framework_modified": false,
+    "crm_mapping_modified_or_verified": false,
+    "real_crm_workflow_accepted": false,
+    "owned_postgresql_process_socket_and_data_cleaned_up": true
+  }
+}

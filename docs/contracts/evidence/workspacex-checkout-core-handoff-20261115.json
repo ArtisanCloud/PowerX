@@ -1,0 +1,94 @@
+{
+  "schema": "powerx.workspacex.checkout-core-handoff/v1",
+  "created_at": "2026-11-15T09:22:03.888838+00:00",
+  "core_base_url": "http://127.0.0.1:8077",
+  "api_prefix": "/api/v1",
+  "tenant_uuid": "6b5d0240-9920-46da-b707-88200e0f51ea",
+  "key_id": "12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+  "caller_subject": "api_key:12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+  "auth_scheme": "ApiKey",
+  "credential_file": "/Users/michaelhu/.config/powerx/private/workspacex-checkout-lab-20261115.json",
+  "secret_delivery": "Local private file only; server-side use; do not embed in app or browser",
+  "pins": [
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.offers.read",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 1,
+      "capabilities_hash": "ba2d5e0730c67e771fe0c39650f6415ee856a89c0a145f41b9e4e5ac70b1430b",
+      "protocol_hash": "facd1d15a78c16f8dbf26d67f7347d40eb3927618252a1d3686609ea4974dd5c",
+      "method": "POST",
+      "path": "/plugin/commerce/checkout/offers/query"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.create",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 1,
+      "capabilities_hash": "7ba599140e3cdbbb110abacde8fda072d038b8f55adb8a479823a2355f1b1a0f",
+      "protocol_hash": "0c409598376606f5ce86e0cb265b79f70931858907e65eb6590ba0f4a9e87f86",
+      "method": "POST",
+      "path": "/plugin/commerce/checkout/orders/create"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.orders.read",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 1,
+      "capabilities_hash": "fdfd0d08f8357900bbcea305d068f20f405dce9d6443e51e5f76ca674cd9c50c",
+      "protocol_hash": "d89fc6d749144f6edeed178bcd1b3402353b64089c82f42b899408973421a992",
+      "method": "POST",
+      "path": "/plugin/commerce/checkout/orders/query"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.create",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 1,
+      "capabilities_hash": "c90ae4d34788a145172bd5dcacee6f6f8f77afeb67fe42012ac02632d7b92352",
+      "protocol_hash": "1d0e86c046b5a51584fc4ca74083deda24015e0b926b0ce2515538e5a10e6ecf",
+      "method": "POST",
+      "path": "/plugin/commerce/checkout/payments/create"
+    },
+    {
+      "capability_id": "com.powerx.plugins.ecommerce.checkout.payments.read",
+      "provider_version": "0.4.7",
+      "contract_version": "1.0.0",
+      "registration_version": 1,
+      "capabilities_hash": "7aa03e0fd14ef9d450413780e938374dc018893f04fa90c73cbedb12a55d2e81",
+      "protocol_hash": "fa500c95379daf8f7e44736fddf18903a4952d663a85a0305025786101e37d47",
+      "method": "POST",
+      "path": "/plugin/commerce/checkout/payments/query"
+    }
+  ],
+  "ecommerce_next": {
+    "owner": "ecommerce maintainer",
+    "customer_uuid": "cf2cf9f0-938d-474b-af63-9cfc7aab0162",
+    "caller_subject": "api_key:12c09c34-4cfc-42e0-9046-7bf849b0c8c1",
+    "required_work": [
+      "Verify current daily database and writers, then dry-run/backfill/finalize historical payment UUIDs",
+      "Create and publish dedicated CN/CNY 0.01 one-time Lab product/SKU/price/purchase-option for plugin_checkout",
+      "Bind exact caller, customer, option, CN, actual provider UUID and payment method allowlist"
+    ],
+    "return_fields": [
+      "UUID maintenance receipt",
+      "purchase_option_uuid",
+      "sku_uuid",
+      "product_version",
+      "price_version",
+      "provider_uuid",
+      "payment_method",
+      "allowlist readback receipt"
+    ]
+  },
+  "workspacex_next": {
+    "owner": "WorkspaceX maintainer",
+    "precondition": "Ecommerce return fields and allowlist completed",
+    "required_work": [
+      "Load credential file into server-side configuration with ApiKey authorization",
+      "Use exact pins and customer/purchase option/provider mapping",
+      "Verify real quote, order and same-key recovery, official QR amount and expiry before requesting user scan"
+    ]
+  },
+  "acceptance": "Core configuration complete; actual business routes, orders and payments not yet accepted"
+}

@@ -25,15 +25,25 @@ import (
 )
 
 // OnlineModelSyncRequest 只接受受保护管理页的目录操作，不接受任意 HTTP 代理参数。
+type OnlineModelDraftConnection struct {
+	AnthropicVersion string `json:"anthropic_version"`
+	AzureDeployment  string `json:"azure_deployment"`
+	BaseURL          string `json:"base_url"`
+	APIKey           string `json:"api_key"`
+	AuthMode         string `json:"auth_mode"`
+	Organization     string `json:"organization"`
+}
+
 type OnlineModelSyncRequest struct {
-	Env            string   `json:"env"`
-	Provider       string   `json:"provider"`
-	App            string   `json:"app"`
-	Modality       string   `json:"modality"`
-	Action         string   `json:"action"`
-	Revision       string   `json:"revision"`
-	Models         []string `json:"models"`
-	ConfirmUnknown bool     `json:"confirm_unknown"`
+	Connection     *OnlineModelDraftConnection `json:"connection,omitempty"`
+	Env            string                      `json:"env"`
+	Provider       string                      `json:"provider"`
+	App            string                      `json:"app"`
+	Modality       string                      `json:"modality"`
+	Action         string                      `json:"action"`
+	Revision       string                      `json:"revision"`
+	Models         []string                    `json:"models"`
+	ConfirmUnknown bool                        `json:"confirm_unknown"`
 }
 type OnlineCatalogModel struct {
 	Operations       map[string]catalog.MediaOperation `json:"operations,omitempty"`
@@ -93,6 +103,10 @@ func (s *AgentSettingService) savedCatalogConnection(ctx context.Context, env, t
 	if err != nil {
 		return in, syncError(503, "AI_DEPENDENCY_UNAVAILABLE")
 	}
+	mode, _ := cred.Data["auth_mode"].(string)
+	if strings.EqualFold(mode, "tc3") || strings.EqualFold(mode, "aksk") {
+		return in, syncError(422, "AI_MODEL_SYNC_UNSUPPORTED")
+	}
 	in.Endpoint, in.APIKey, err = s.resolveConnFromCredential(ctx, env, &tenant, provider, cred, "", "")
 	if err != nil {
 		return in, syncError(409, "AI_MODEL_DISCOVERY_CONFIG_INVALID")
@@ -128,6 +142,33 @@ func decodeOnlineCatalog(item *dbsetting.TenantSetting) (*storedOnlineCatalog, e
 	return &value, nil
 }
 
+// Draft discovery never writes credentials or the active model profile.
+func (s *AgentSettingService) onlineCatalogConnection(ctx context.Context, tenant string, in OnlineModelSyncRequest) (modeldiscovery.Input, error) {
+	if in.Connection == nil {
+		return s.savedCatalogConnection(ctx, in.Env, tenant, in.Provider)
+	}
+	draft := in.Connection
+	if strings.EqualFold(draft.AuthMode, "tc3") || strings.EqualFold(draft.AuthMode, "aksk") || strings.TrimSpace(draft.AzureDeployment) != "" {
+		return modeldiscovery.Input{}, syncError(422, "AI_MODEL_SYNC_UNSUPPORTED")
+	}
+	base, err := ResolveFormBaseURL(in.Provider, draft.AuthMode, draft.BaseURL)
+	if err != nil {
+		return modeldiscovery.Input{}, connectionConfigError()
+	}
+	conn := modeldiscovery.Input{Provider: in.Provider, Endpoint: base, APIKey: strings.TrimSpace(draft.APIKey), Organization: strings.TrimSpace(draft.Organization), AnthropicVersion: strings.TrimSpace(draft.AnthropicVersion), Timeout: s.modelDiscoveryTimeout}
+	// A blank secret can reuse only this provider's saved connection at the same origin/path.
+	if conn.APIKey == "" {
+		saved, e := s.savedCatalogConnection(ctx, in.Env, tenant, in.Provider)
+		if e == nil && strings.TrimRight(saved.Endpoint, "/") == strings.TrimRight(base, "/") && saved.Organization == conn.Organization {
+			conn.APIKey = saved.APIKey
+			if conn.AnthropicVersion == "" {
+				conn.AnthropicVersion = saved.AnthropicVersion
+			}
+		}
+	}
+	return conn, nil
+}
+
 // SyncOnlineModels 抓取完整清单后原子保存；不会写源码目录或改变任何活动模型。
 func (s *AgentSettingService) SyncOnlineModels(ctx context.Context, tenant string, in OnlineModelSyncRequest) (*OnlineModelCatalog, error) {
 	reg := catalog.GetGlobalAIRegister()
@@ -158,7 +199,7 @@ func (s *AgentSettingService) SyncOnlineModels(ctx context.Context, tenant strin
 	if in.Action == "assign" && !in.ConfirmUnknown {
 		return nil, syncError(422, "AI_MODEL_SYNC_CONFIRMATION_REQUIRED")
 	}
-	conn, err := s.savedCatalogConnection(ctx, in.Env, tenant, in.Provider)
+	conn, err := s.onlineCatalogConnection(ctx, tenant, in)
 	if err != nil {
 		return nil, err
 	}
@@ -185,12 +226,14 @@ func (s *AgentSettingService) SyncOnlineModels(ctx context.Context, tenant strin
 			return e
 		}
 		// 连接在抓取期间被改动，不能把旧账号的清单写入新连接。
-		current, e := NewAgentSettingService(tx).savedCatalogConnection(ctx, in.Env, tenant, in.Provider)
-		if e != nil {
-			return e
-		}
-		if connectionFingerprint(current) != fingerprint {
-			return syncError(409, "AI_MODEL_SYNC_CONNECTION_CHANGED")
+		if in.Connection == nil {
+			current, e := NewAgentSettingService(tx).savedCatalogConnection(ctx, in.Env, tenant, in.Provider)
+			if e != nil {
+				return e
+			}
+			if connectionFingerprint(current) != fingerprint {
+				return syncError(409, "AI_MODEL_SYNC_CONNECTION_CHANGED")
+			}
 		}
 		if in.Action == "refresh" {
 			saved = storedOnlineCatalog{OnlineModelCatalog: OnlineModelCatalog{Provider: in.Provider, Env: in.Env, App: in.App, Protocol: remote.Protocol, Source: remote.Source, UpdatedAt: time.Now().UTC().Format(time.RFC3339), Models: []OnlineCatalogModel{}}, Fingerprint: fingerprint}

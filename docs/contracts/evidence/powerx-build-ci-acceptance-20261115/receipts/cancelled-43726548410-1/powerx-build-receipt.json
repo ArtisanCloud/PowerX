@@ -1,0 +1,167 @@
+{
+  "artifacts": [
+    {
+      "artifact": "powerx-build-request-43726548410-1",
+      "path": "request-context.json",
+      "sha256": "211e35ec253742a1347ea9fafc0a70c5564eca75ee42a6a731c1fb2ea303fcc9",
+      "size": 967
+    },
+    {
+      "artifact": "powerx-phase-checks-43726548410-1",
+      "path": "phase-checks.json",
+      "sha256": "2e43eb60cb6933885dc8552b3cc66c7c926dac6af71f57d1dfe2285254af5453",
+      "size": 1213
+    },
+    {
+      "artifact": "powerx-phase-preflight-43726548410-1",
+      "path": "phase-preflight.json",
+      "sha256": "f1f7f370a24fa35c58c4b47d50193ff7454900a9bed1d80eeb04cf75c287e679",
+      "size": 1213
+    },
+    {
+      "artifact": "powerx-request-decision-43726548410-1",
+      "path": "request-decision.json",
+      "sha256": "221fd1376bd5d6da64a530a412f0d05c8a129682ef61f2441eb31d1b91d9bf90",
+      "size": 789
+    }
+  ],
+  "definition_sha256": "c9618bb9adff98fa0358c97d1d75ab5087aa909a2ce287834c78637a93422216",
+  "deployable": false,
+  "duplicate_of": null,
+  "error_code": "BUILD_CANCELLED",
+  "images": {},
+  "phase_evidence": {
+    "checks": {
+      "action_refs": [
+        "actions/checkout@v6",
+        "actions/download-artifact@v5",
+        "actions/setup-go@v6",
+        "actions/setup-python@v6",
+        "actions/upload-artifact@v6",
+        "docker/login-action@v4",
+        "docker/setup-buildx-action@v4",
+        "docker/setup-qemu-action@v4"
+      ],
+      "build_metadata": {},
+      "error_code": null,
+      "image_digests": {},
+      "phase": "checks",
+      "result": "cancelled",
+      "run": {
+        "attempt": 1,
+        "head_sha": "d063b1baa62d888bac7287b098aa837c19ef069d",
+        "ref": "refs/heads/develop",
+        "repository": "ArtisanCloud/PowerX",
+        "run_id": 43726548410,
+        "workflow_path": ".github/workflows/publish-container.yml",
+        "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+        "workflow_sha": "d063b1baa62d888bac7287b098aa837c19ef069d"
+      },
+      "schema_version": "powerx.build-phase/v1",
+      "steps": {
+        "69ad88ce572b4ade963a64191d3e77bd": "success"
+      },
+      "tools": {
+        "buildx": "github.com/docker/buildx v0.38.2 3c4cbd35852fc1a476923627a780a7836c28b654",
+        "docker": "Docker version 29.4.2, build 055a478",
+        "gh": "gh version 2.103.3 (2026-10-26)",
+        "go": "go version go1.26.11 linux/amd64",
+        "python": "3.13.18"
+      }
+    },
+    "preflight": {
+      "action_refs": [
+        "actions/checkout@v6",
+        "actions/download-artifact@v5",
+        "actions/setup-go@v6",
+        "actions/setup-python@v6",
+        "actions/upload-artifact@v6",
+        "docker/login-action@v4",
+        "docker/setup-buildx-action@v4",
+        "docker/setup-qemu-action@v4"
+      ],
+      "build_metadata": {},
+      "error_code": null,
+      "image_digests": {},
+      "phase": "preflight",
+      "result": "success",
+      "run": {
+        "attempt": 1,
+        "head_sha": "d063b1baa62d888bac7287b098aa837c19ef069d",
+        "ref": "refs/heads/develop",
+        "repository": "ArtisanCloud/PowerX",
+        "run_id": 43726548410,
+        "workflow_path": ".github/workflows/publish-container.yml",
+        "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+        "workflow_sha": "d063b1baa62d888bac7287b098aa837c19ef069d"
+      },
+      "schema_version": "powerx.build-phase/v1",
+      "steps": {
+        "claim": "success",
+        "request": "success"
+      },
+      "tools": {
+        "buildx": "github.com/docker/buildx v0.38.2 3c4cbd35852fc1a476923627a780a7836c28b654",
+        "docker": "Docker version 29.4.2, build 055a478",
+        "gh": "gh version 2.103.3 (2026-10-26)",
+        "go": "go version go1.26.11 linux/amd64",
+        "python": "3.13.18"
+      }
+    }
+  },
+  "phases": {
+    "bundle-release": {
+      "result": "cancelled"
+    },
+    "checks": {
+      "result": "cancelled"
+    },
+    "images": {
+      "result": "cancelled"
+    },
+    "installed-upgrade": {
+      "result": "cancelled"
+    },
+    "preflight": {
+      "result": "success"
+    },
+    "upgrade-metadata": {
+      "result": "cancelled"
+    }
+  },
+  "publication": null,
+  "request": {
+    "actual_source_sha": "d063b1baa62d888bac7287b098aa837c19ef069d",
+    "build_mode": "verify",
+    "build_time": "2026-11-15T14:50:47Z",
+    "channel": "development",
+    "definition_sha256": "c9618bb9adff98fa0358c97d1d75ab5087aa909a2ce287834c78637a93422216",
+    "expected_source_sha": "d063b1baa62d888bac7287b098aa837c19ef069d",
+    "input_sha256": "c23e9d8cc9db89c1e67506406c44a6abe3259fb039be23fad3925cf1609849ce",
+    "ref": "refs/heads/develop",
+    "request_id": "core-accept-20261115T144528Z-cancel",
+    "run": {
+      "attempt": 1,
+      "head_sha": "d063b1baa62d888bac7287b098aa837c19ef069d",
+      "ref": "refs/heads/develop",
+      "repository": "ArtisanCloud/PowerX",
+      "run_id": 43726548410,
+      "workflow_path": ".github/workflows/publish-container.yml",
+      "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+      "workflow_sha": "d063b1baa62d888bac7287b098aa837c19ef069d"
+    },
+    "schema_version": "powerx.build-request/v1"
+  },
+  "run": {
+    "attempt": 1,
+    "head_sha": "d063b1baa62d888bac7287b098aa837c19ef069d",
+    "ref": "refs/heads/develop",
+    "repository": "ArtisanCloud/PowerX",
+    "run_id": 43726548410,
+    "workflow_path": ".github/workflows/publish-container.yml",
+    "workflow_ref": "ArtisanCloud/PowerX/.github/workflows/publish-container.yml@refs/heads/develop",
+    "workflow_sha": "d063b1baa62d888bac7287b098aa837c19ef069d"
+  },
+  "schema_version": "powerx.build-receipt/v1",
+  "status": "cancelled"
+}

@@ -1,0 +1,84 @@
+{
+  "recorded_at": "2026-11-15T15:37:13.224362+00:00",
+  "pull_request": 438,
+  "branch": "024-ai-engineering-skills",
+  "parent_commit": "a90393acda5d762432004cfc03101b264a63bad4",
+  "source_groups": [
+    "AI draft connection discovery and provider protocol alignment",
+    "dev/test notification dependency migration",
+    "IAM organization typed invocation error status",
+    "existing checkout and distribution acceptance receipts"
+  ],
+  "go_race": {
+    "test_events_including_subtests": {
+      "pass": 342,
+      "skip": 36
+    },
+    "passed_packages": [
+      "github.com/ArtisanCloud/PowerX/internal/server/agent/catalog",
+      "github.com/ArtisanCloud/PowerX/internal/server/ai/modeldiscovery",
+      "github.com/ArtisanCloud/PowerX/internal/server/ai/connectionprobe",
+      "github.com/ArtisanCloud/PowerX/internal/service/agent",
+      "github.com/ArtisanCloud/PowerX/pkg/corex/db/database",
+      "github.com/ArtisanCloud/PowerX/cmd/database",
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent",
+      "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/capability_registry"
+    ]
+  },
+  "isolated_postgres_migration": {
+    "test_events_including_subtests": {
+      "pass": 10
+    },
+    "passed_packages": [
+      "github.com/ArtisanCloud/PowerX/cmd/database"
+    ]
+  },
+  "go_vet": "passed",
+  "linux_amd64_core_build": "passed",
+  "frontend_build": "passed",
+  "frontend_ai_unit_tests": {
+    "passed": 81,
+    "failed": 0
+  },
+  "playwright_chromium": {
+    "desktop_and_390px_narrow": 2,
+    "failed": 0,
+    "flaky": 0,
+    "fixture_api_only": true,
+    "screenshots_inspected": true
+  },
+  "upgrade_payload_registry_check": "passed_after_regeneration",
+  "make_unit_test": {
+    "status": "blocked_by_existing_missing_runner",
+    "missing_file": "backend/test-silent.sh",
+    "alternative": "affected Go packages and isolated PostgreSQL migration checks passed"
+  },
+  "cleanup": {
+    "temporary_postgres_stopped_and_removed": true,
+    "temporary_web_preview_pid": 16019,
+    "web_process_exited": true,
+    "port_3309_released": true
+  },
+  "this_followup_remote_changes": {
+    "core_restarted": false,
+    "database_migrated": false,
+    "credentials_modified": false,
+    "business_jobs_retried": false
+  },
+  "historical_evidence_boundary": "Attached earlier checkout and CI receipts describe their recorded targets and commits, not this follow-up deployment.",
+  "deployment_requirements": {
+    "core_backend_and_web_admin_update_required": true,
+    "plugin_reinstall_required_by_source_changes": false,
+    "new_scoped_migration_allowed_environments": [
+      "dev",
+      "test"
+    ],
+    "prod_schema_changes": "existing complete upgrade plan; not the dev/test scope"
+  },
+  "remaining": [
+    "PR CI and review",
+    "merge and deploy dev Core and web-admin",
+    "verify actual provider connection/catalog and storage write suppression on deployed runtime",
+    "accept dev before prod update and reconcile native retention handoff"
+  ]
+}

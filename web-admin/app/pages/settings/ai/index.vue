@@ -204,6 +204,7 @@
           :quick-testing="aiSettingsStore.testingAction === 'quick'"
           :quick-call-validates="modality !== 'llm'"
           :disabled="configurationLoads > 0 || aiSettingsStore.loading || !aiSettingsStore.initialized"
+          :connection-supported="activeProviderForForm?.connection_probe_supported !== false && !['tc3','aksk'].includes(String(currentState.authMode || '').toLowerCase()) && !String(currentState.azureDeployment || '').trim()"
           :on-test-connection="testConnection"
           :on-test-quick-call="testQuickCall"
           :on-test-vision="modality === 'vlm' ? openVisionTrial : undefined"
@@ -477,6 +478,7 @@ type BaseConn = {
   region: string;
   organization: string;
   azureDeployment?: string;
+ anthropicVersion?: string;
 };
 
 const llm = reactive<
@@ -879,6 +881,7 @@ function getDraftableFields(modalityVal?: string | null): string[] {
     "organization",
     "region",
     "azureDeployment",
+    "anthropicVersion",
   ];
   switch (m) {
     case "llm":
@@ -1037,6 +1040,7 @@ function restoreProviderDraft(
   state.secretId = getString("secret_id");
   state.baseURL = getString("base_url");
   state.organization = getString("organization");
+ state.anthropicVersion = getString("anthropic_version");
   state.region = getString("region");
   if ("azureDeployment" in state) state.azureDeployment = getString("azure_deployment");
 }
@@ -1178,6 +1182,7 @@ function buildPayloadForCurrentModality(promptOverride?: string, connectionProbe
     secretKey: cleanSecret(currentState.value.secretKey),
     baseURL: clean(currentState.value.baseURL),
     organization: clean(currentState.value.organization),
+    anthropicVersion: clean(currentState.value.anthropicVersion),
     region: clean(currentState.value.region),
     azureDeployment: clean(currentState.value.azureDeployment),
   };
@@ -1201,7 +1206,7 @@ function buildPayloadForCurrentModality(promptOverride?: string, connectionProbe
     case "vlm": {
       const saved = aiSettingsStore.getCredentialByProvider(vlm.provider)?.data as Record<string, any> | undefined;
       const sameURL = (value: unknown) => resolveAIFormBaseURL(value, activeProviderForForm.value, vlm.authMode).replace(/\/+$/, "");
-      const reuse = !connectionProbe && !!saved && !baseConn.apiKey && !baseConn.secretId && !baseConn.secretKey && sameURL(baseConn.baseURL) === sameURL(saved.base_url) && baseConn.organization === clean(saved.organization) && baseConn.region === clean(saved.region);
+      const reuse = !connectionProbe && !!saved && !baseConn.apiKey && !baseConn.secretId && !baseConn.secretKey && sameURL(baseConn.baseURL) === sameURL(saved.base_url) && baseConn.organization === clean(saved.organization) && baseConn.region === clean(saved.region) && baseConn.anthropicVersion === clean(saved.anthropic_version) && baseConn.authMode === clean(saved.auth_mode) && baseConn.azureDeployment === clean(saved.azure_deployment);
       const modern = Boolean(selectedParameterProfile.value?.reasoning_efforts?.length) || vlm.provider === "openai" && vlm.model === "gpt-6-luna";
       body = {
         ...(reuse ? { provider: baseConn.provider, app: baseConn.app, model: baseConn.model, reuseCredential: true } : baseConn),
@@ -1698,23 +1703,20 @@ async function retryModels() {
   }
 }
 
-const onlineModelsContext = ref<{ provider: string; providerName: string; env: string; app: string; modality: string; connectionDirty: boolean } | null>(null);
+const onlineModelsContext = ref<{ provider: string; providerName: string; env: string; app: string; modality: string; connection: { base_url: string; api_key: string; auth_mode: string; organization: string; anthropic_version: string; azure_deployment: string } } | null>(null);
 
 function openOnlineModels() {
   const state = currentState.value;
-  const saved = aiSettingsStore.getCredentialByProvider(state.provider)?.data as Record<string, any> | undefined;
-  const effectiveBase = (value: unknown) => resolveAIFormBaseURL(value, activeProviderForForm.value, state.authMode).replace(/\/+$/, '');
-  const connectionDirty = Boolean(String(state.apiKey || '').trim()) ||
-    effectiveBase(state.baseURL) !== effectiveBase(saved?.base_url) ||
-    String(state.organization || '').trim() !== String(saved?.organization || '').trim();
-  onlineModelsContext.value = { provider: state.provider, providerName: activeProviderForForm.value?.name || state.provider, env: env.value, app: String(state.app || ''), modality: modality.value, connectionDirty };
+  onlineModelsContext.value = { provider: state.provider, providerName: activeProviderForForm.value?.name || state.provider, env: env.value, app: String(state.app || ''), modality: modality.value, connection: { base_url: state.baseURL || '', api_key: state.apiKey || '', auth_mode: state.authMode || '', organization: state.organization || '', anthropic_version: state.anthropicVersion || '', azure_deployment: state.azureDeployment || '' } };
 }
 
 async function onOnlineModelsSaved(result: OnlineModelCatalog) {
   const context = onlineModelsContext.value;
   if (!context || result.provider !== currentState.value.provider || result.env !== env.value || result.app !== String(currentState.value.app || '') || context.modality !== modality.value) return;
   // 同步目录不自动换型号、不清空参数或用户草稿。
-  try { await aiSettingsStore.fetchModels(result.provider, context.modality, result.env, result.app, currentState.value.baseURL); } catch { /* 已保存结果保留在弹窗中，目录读取可重试。 */ }
+  aiSettingsStore.models = result.models.filter(item => !item.modalities.length || item.modalities.includes(context.modality) || item.manual_modalities?.includes(context.modality)).map(item => item.id);
+  aiSettingsStore.modelsCatalog = { models: aiSettingsStore.models, catalog_source: 'online', source: result.source, updated_at: result.updated_at, items: result.models };
+  aiSettingsStore.modelsError = false;
 }
 
 watch([env, modality, () => currentState.value.provider, () => currentState.value.app], () => { onlineModelsContext.value = null; });

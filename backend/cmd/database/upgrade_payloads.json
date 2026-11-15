@@ -1,18 +1,18 @@
 [
   {
     "name": "core",
-    "checksum": "197ff873764b853f96fc7d36467424e7a94e3b4b6b48c5a9df50dbaac2cd8eea"
+    "checksum": "9e0d0d80a3fb567ececa2f44193772ad478e32d383bdd1a07ea76c747dc2635d"
   },
   {
     "name": "agent",
-    "checksum": "6e4cf5e813c5e8d0977f460f8153f39d9abf0741ff078837df51c244199c8246"
+    "checksum": "65b34ca2b7940532a23dc883067d3372a22f6bba5c6f17483525e33f76c4cf31"
   },
   {
     "name": "knowledge",
-    "checksum": "58b27cd13bde50ebcadf17f98f16c1caa99066d5e9a3315c0f908fecf9ca73df"
+    "checksum": "72e1302113d6dba70412f71534eb91b66051c95fe32d4046511820ec9edda722"
   },
   {
     "name": "catalog",
-    "checksum": "771ddf788fd879799fc9e2ee5536611398a8d865bbd7081c73b0b3db337d3163"
+    "checksum": "0496fd05cfcb71b565ac47e21b153d4e6d117f13010838b8e6079d2d0ef5b648"
   }
 ]

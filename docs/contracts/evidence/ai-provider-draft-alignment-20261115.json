@@ -1,0 +1,234 @@
+{
+  "checked_at": "2026-11-15T15:27:16.252871+00:00",
+  "providers": [
+    {
+      "provider": "agnes",
+      "online_models_supported": false,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "anthropic",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url",
+        "anthropic_version"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "baidu",
+      "online_models_supported": false,
+      "connection_probe_supported": false,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "comfyui",
+      "online_models_supported": false,
+      "connection_probe_supported": false,
+      "auth_fields": [
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "coze",
+      "online_models_supported": false,
+      "connection_probe_supported": false,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "deepseek",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "google",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "hash",
+      "online_models_supported": false,
+      "connection_probe_supported": false,
+      "auth_fields": [],
+      "auth_modes": []
+    },
+    {
+      "provider": "huggingface",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "hunyuan",
+      "online_models_supported": false,
+      "connection_probe_supported": false,
+      "auth_fields": [],
+      "auth_modes": [
+        {
+          "id": "openai",
+          "fields": [
+            "api_key",
+            "base_url"
+          ],
+          "read_only_probe_supported": false,
+          "online_models_supported": false
+        },
+        {
+          "id": "tc3",
+          "fields": [
+            "secret_id",
+            "secret_key",
+            "region",
+            "base_url"
+          ],
+          "read_only_probe_supported": false,
+          "online_models_supported": false
+        }
+      ]
+    },
+    {
+      "provider": "moonshot",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "ollama",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "openai",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "openai_compatible",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "qwen-cn",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "qwen-intl",
+      "online_models_supported": true,
+      "connection_probe_supported": true,
+      "auth_fields": [
+        "api_key",
+        "base_url"
+      ],
+      "auth_modes": []
+    },
+    {
+      "provider": "sentence-transformers",
+      "online_models_supported": false,
+      "connection_probe_supported": false,
+      "auth_fields": [],
+      "auth_modes": []
+    },
+    {
+      "provider": "volcengine",
+      "online_models_supported": false,
+      "connection_probe_supported": false,
+      "auth_fields": [
+        "base_url",
+        "region"
+      ],
+      "auth_modes": [
+        {
+          "id": "aksk",
+          "fields": [
+            "secret_id",
+            "secret_key",
+            "base_url",
+            "region"
+          ],
+          "read_only_probe_supported": false,
+          "online_models_supported": false
+        },
+        {
+          "id": "api_key",
+          "fields": [
+            "api_key",
+            "base_url"
+          ],
+          "read_only_probe_supported": false,
+          "online_models_supported": false
+        }
+      ]
+    }
+  ],
+  "checks": {
+    "go_modeldiscovery_full": "passed",
+    "go_connectionprobe_full": "passed",
+    "go_admin_agent_handlers_full": "passed",
+    "go_agent_targeted_and_provider_matrix": "passed",
+    "frontend_unit_tests": 13,
+    "playwright_chromium_desktop_and_narrow": 2,
+    "git_diff_check": "passed"
+  },
+  "daily_core_restarted": false,
+  "real_provider_acceptance": false,
+  "no_generation_requests": true,
+  "source_files_changed_only_no_credentials_updated": true,
+  "official_references_reviewed": [
+    "https://cloud.tencent.com/document/product/1729/111007",
+    "https://github.com/AgnesAI-Labs/AgnesAI-Models"
+  ]
+}

@@ -104,7 +104,7 @@
       </div>
       <div class="ml-auto flex shrink-0 items-center gap-2">
         <UButton v-if="hasCatalogInfo || selectedVision" type="button" size="xs" color="neutral" variant="link" data-testid="ai-model-details-toggle" :aria-expanded="showModelDetails" aria-controls="ai-model-details" :trailing-icon="showModelDetails ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" @click="showModelDetails = !showModelDetails">{{ $t('settings.ai.modelDetails.title') }}</UButton>
-        <UButton v-if="catalogSource !== 'local' && !dynamicModels" type="button" size="xs" color="neutral" variant="link" icon="i-heroicons-arrow-path" data-testid="ai-online-models" :disabled="modelsLoading || !state.provider" @click="emit('updateOnlineModels')">{{ $t('settings.ai.onlineModels.update') }}</UButton>
+        <UButton v-if="catalogSource !== 'local' && !dynamicModels && onlineModelsSupported" type="button" size="xs" color="neutral" variant="link" icon="i-heroicons-arrow-path" data-testid="ai-online-models" :disabled="modelsLoading || !state.provider" @click="emit('updateOnlineModels')">{{ $t('settings.ai.onlineModels.update') }}</UButton>
         <UButton v-if="dynamicModels" type="button" size="xs" color="neutral" variant="link" icon="i-heroicons-arrow-path" data-testid="ai-instance-models-refresh" :loading="modelsLoading" :disabled="modelsLoading" @click="emit('retryModels')">{{ $t('settings.ai.catalog.refreshModels') }}</UButton>
       </div>
     </div>
@@ -131,6 +131,7 @@
         <label class="block text-sm mb-1 text-[var(--text-secondary)]">接入方式</label>
         <USelect
           v-model="state.authMode"
+          data-testid="ai-auth-mode"
           :items="authModeOptions"
           icon="i-heroicons-adjustments-horizontal"
           class="w-full"
@@ -139,6 +140,7 @@
       </div>
     </div>
 
+    <p v-if="state.provider && !onlineModelsSupported" role="status" class="text-sm text-muted" data-testid="ai-catalog-unsupported">{{ $t('settings.ai.onlineModels.errors.AI_MODEL_SYNC_UNSUPPORTED') }}</p>
     <!-- 动态认证字段 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div
@@ -153,7 +155,9 @@
         <SecretInput
           v-if="field.type === 'password'"
           :key="`${state.provider}:${state.authMode}:${field.key}`"
-          v-model="state[getStateKey(field.key)]"
+          :model-value="state[getStateKey(field.key)]"
+          @update:model-value="value => state[getStateKey(field.key)] = value"
+          @input="event => onSecretInput(field.key, event)"
           :placeholder="hasSavedCredentials ? $t('settings.ai.sharedCredential.reusePlaceholder') : field.placeholder"
           :required="field.required && !hasSavedCredentials"
           :disabled="providersLoading"
@@ -206,6 +210,7 @@ const props = withDefaults(
     activeProvider?: {
       id: string;
       name: string;
+      online_models_supported?: boolean;
       auth?: {
         scheme: string;
         fields: string[];
@@ -316,6 +321,7 @@ const modelColClass = computed(() =>
   hasApp.value ? "min-w-0 md:col-span-6" : "min-w-0"
 );
 
+const onlineModelsSupported = computed(() => props.activeProvider?.online_models_supported !== false && !['tc3','aksk'].includes(String(props.state.authMode || '').toLowerCase()) && !String(props.state.azureDeployment || '').trim());
 const isAzure = computed(() => props.state.provider === "Azure OpenAI");
 
 const authModeOptions = computed(() => {
@@ -410,6 +416,7 @@ const fieldMap: Record<
     placeholder: "如 ap-guangzhou / eastus",
     required: false,
   },
+  anthropic_version: { label: t("settings.ai.connectionTest.anthropicVersion"), type: "text", placeholder: "2023-06-01", required: false },
   azure_deployment: {
     label: "Azure Deployment（可选）",
     type: "text",
@@ -503,6 +510,7 @@ const authFields = computed(() => {
           placeholder: "",
           required: false,
         } as const);
+      if (field === "api_key" && props.state.provider === "openai_compatible") return { ...base, required: false };
       const defaults = props.activeProvider?.auth?.defaults ?? {};
       if (field === "base_url") {
         const required =
@@ -528,10 +536,16 @@ const authFields = computed(() => {
   }));
 });
 
+function onSecretInput(key: string, event: Event) {
+  const input = event.target;
+  if (input instanceof HTMLInputElement) props.state[getStateKey(key)] = input.value;
+}
+
 // 字段映射函数
 const getStateKey = (backendKey: string) => {
   const keyMap: Record<string, string> = {
     api_key: "apiKey",
+    anthropic_version: "anthropicVersion",
     base_url: "baseURL",
     organization: "organization",
     region: "region",

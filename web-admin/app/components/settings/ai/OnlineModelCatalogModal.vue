@@ -3,13 +3,12 @@
     <template #body>
       <div class="space-y-4 min-w-0">
         <p class="text-sm text-muted">{{ $t('settings.ai.onlineModels.connectionHint') }}</p>
-        <div v-if="connectionDirty" role="alert" class="rounded-lg bg-warning/10 p-3 text-sm text-warning">{{ $t('settings.ai.onlineModels.saveConnectionFirst') }}</div>
         <div v-if="busy" role="status" class="flex items-center gap-2 text-sm"><UIcon name="i-heroicons-arrow-path" class="animate-spin" />{{ $t('settings.ai.onlineModels.working') }}</div>
         <div v-if="errorCode" role="alert" class="rounded-lg border border-error/40 bg-error/10 p-3 space-y-2">
           <p>{{ errorMessage }}</p>
           <p class="text-xs text-muted break-all">{{ errorCode }}<span v-if="traceId"> · {{ traceId }}</span></p>
           <p v-if="attemptSource" class="text-xs text-muted break-all">{{ $t('settings.ai.onlineModels.source') }}：{{ attemptSource }}<span v-if="upstreamStatus"> · HTTP {{ upstreamStatus }}</span></p>
-          <UButton type="button" size="sm" variant="soft" :disabled="busy || connectionDirty" @click="update">{{ $t('settings.ai.catalog.retry') }}</UButton>
+          <UButton type="button" size="sm" variant="soft" :disabled="busy" @click="update">{{ $t('settings.ai.catalog.retry') }}</UButton>
         </div>
         <template v-if="catalog">
           <div class="rounded-lg bg-primary/10 p-3 space-y-1" role="status" data-testid="online-model-summary">
@@ -48,7 +47,7 @@
     <template #footer>
       <div class="flex w-full flex-wrap justify-end gap-2">
         <UButton type="button" color="neutral" variant="soft" :disabled="busy" @click="emit('close')">{{ $t('settings.ai.onlineModels.close') }}</UButton>
-        <UButton type="button" icon="i-heroicons-cloud-arrow-down" :loading="busy" :disabled="busy || connectionDirty" @click="update">{{ $t('settings.ai.onlineModels.update') }}</UButton>
+        <UButton type="button" icon="i-heroicons-cloud-arrow-down" :loading="busy" :disabled="busy" @click="update">{{ $t('settings.ai.onlineModels.update') }}</UButton>
       </div>
     </template>
   </UModal>
@@ -60,7 +59,7 @@ import { AISettingService, type OnlineModelCatalog } from '~/composables/api/ser
 import { visionDocumentationURL, visionUsageKey } from '~/utils/ai-vision-model-choice';
 import ModelParameterInfo from './ModelParameterInfo.vue';
 
-const props = defineProps<{ provider: string; providerName: string; env: string; app: string; modality: string; connectionDirty: boolean }>();
+const props = defineProps<{ provider: string; providerName: string; env: string; app: string; modality: string; connection: { base_url: string; api_key?: string; auth_mode?: string; organization?: string; anthropic_version?: string; azure_deployment?: string } }>();
 const emit = defineEmits<{ (e: 'close'): void; (e: 'saved', catalog: OnlineModelCatalog): void }>();
 const { t } = useI18n();
 const catalog = ref<OnlineModelCatalog | null>(null);
@@ -87,11 +86,11 @@ function switchTab(event: KeyboardEvent) {
   document.getElementById(`online-tab-${tab.value}`)?.focus();
 }
 async function update() {
-  if (busy.value || props.connectionDirty) return;
+  if (busy.value) return;
   busy.value = true; errorCode.value = ''; traceId.value = '';
   attemptSource.value = ''; upstreamStatus.value = undefined; upstreamReason.value = '';
   try {
-    const result = await AISettingService.syncOnlineModels({ env: props.env, provider: props.provider, app: props.app, modality: props.modality, action: 'refresh' });
+    const result = await AISettingService.syncOnlineModels({ env: props.env, provider: props.provider, app: props.app, modality: props.modality, action: 'refresh', connection: props.connection });
     if (!active) return;
     catalog.value = result; emit('saved', result);
   } catch (error: any) {

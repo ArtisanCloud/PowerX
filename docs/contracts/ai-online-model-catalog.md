@@ -1,6 +1,6 @@
 # AI 在线模型目录
 
-在「设置 → 模型配置」选择 Provider。已配置连接时，下拉框优先读取当前连接最近成功获取的完整在线清单；首次读取没有快照时自动获取。点击 Model 旁的「更新在线模型」可以主动获取最新结果。首次配置可先填写地址与 Key，执行不调用模型的「测试连接」，通过后保存连接并读取在线清单。有未保存的连接修改时，更新弹窗会提示先保存，避免误用旧地址或旧 Key。
+在「设置 → 模型配置」选择 Provider。已配置连接时，下拉框优先读取当前连接最近成功获取的完整在线清单；首次读取没有快照时自动获取。点击 Model 旁的「更新在线模型」可以主动获取最新结果。首次配置可先填写地址与 Key，执行不调用模型的「测试连接」，再用当前表单读取在线清单、选择型号，最后显式保存。目录更新接受可选 `connection: {base_url, api_key, auth_mode, organization}` 草稿；不提供该对象的已有调用仍读取已保存连接。草稿读取只更新目录快照，不保存凭据或活动模型。空 Key 仅在同租户、环境、Provider 且有效地址与组织一致时复用已存 Key；地址改变时须输入新 Key，不向新地址发送旧 Key。OpenAI Compatible 显示可选 API Key，支持带 Key 的远程兼容服务与免 Key 的本地服务。
 
 `default` 是 `dev` 的历史别名。页面、HTTP／gRPC 配置接口、在线目录与运行时使用同一套读取规则：先读取同租户的 `dev` 对应记录，缺失时读取旧 `default` 记录。规范环境已有记录时整条优先，不拼接旧 Key、地址或参数；也不跨到生产环境或其他租户。旧密文仍按记录实际存储的环境解封。
 
@@ -133,3 +133,24 @@
 成功响应必须同时具有 `ok=true`、`generation_submitted=true`、`result.type=analysis`、非空 `text` 和 `trace_id`，并返回 `env`、`elapsed_ms` 以及可用的 `usage`。连接或参数检查成功不能当作识别成功。旧 Core 若仍返回 `generation_submitted=false`，页面明确提示 `AI_VISION_TRIAL_NOT_SUPPORTED`，需要重启更新后的 Core。
 
 试跑遵守 `capability_registry.ai_multimodal_http_timeout_seconds` 配置（通过启动依赖传入）；前端此请求不使用通用 30 秒超时，也不自动重试。审计记录调用人、租户、环境、型号、成功与否及 trace，不记录图片、完整提示词或识别正文。该入口使用当前表单的连接与显式环境；只有 Key 留空才读取同租户、同环境凭据，不修改租户运行环境。
+
+## Provider 草稿流程支持矩阵（2026-11-15）
+
+配置目录的 18 个 Provider 均按自身认证声明显示字段，不要求先保存才能执行已支持的只读操作。`GET /admin/agents/providers` 新增 `online_models_supported` 和 `connection_probe_supported`，前端据此显示目录入口、禁用没有正式只读探测实现的连接测试，并显示原因。TC3／AKSK 和 Azure deployment 模式额外拒绝通用目录操作；它们不能降级成 Bearer 或伪装为测试成功。
+
+| Provider | 连接测试 | 在线目录 |
+| --- | --- | --- |
+| OpenAI、OpenAI Compatible、DeepSeek、Moonshot、Hugging Face | 固定 models 路径；兼容服务 Key 可选 | 支持 |
+| Qwen 国内／国际 | DashScope 原生 models 路径与 output.models | 支持 |
+| Anthropic | x-api-key、anthropic-version、原生 models 路径 | 支持 |
+| Google | x-goog-api-key、models 响应 | 支持 |
+| Ollama | 本地 api/tags；不要求 Key | 支持 |
+| Agnes | 保留既有只读探测；实际接口拒绝时明确报错 | 未提供正式适配 |
+| 混元、Volcengine、百度、Coze | 未提供正式只读适配；签名模式不发伪 OpenAI 请求 | 未提供正式适配 |
+| ComfyUI、Hash、Sentence Transformers | 本地引擎／内置算法，不要求云端 Key；未提供通用只读探测 | 使用已声明目录，无在线适配 |
+
+连接测试与目录读取共享目标路径和鉴权头构造，不再各自猜测供应商协议。二者都不提交生成请求；连接测试至多两个 GET（有 Key 时第二次用故意无效 Key 验证鉴权边界），完整目录仍按既有分页上限读取。新旧地址不同且未填新 Key 时，不会把旧地址的保存凭据发送到新地址。
+
+Anthropic 版本通过 `anthropicVersion`（表单／连接测试／保存）及 `connection.anthropic_version`（目录）传递；持久化为凭据元数据 `anthropic_version`。Provider 草稿隔离、恢复及显式保存均保留该字段，空值使用协议默认版本。目录读取仍只持久化目录快照，不持久化草稿连接。
+
+矩阵验证使用隔离数据库、本地 HTTP 供应商夹具，以及桌面／390px 窄屏页面请求拦截；不代表各真实供应商、Key、账户额度或模型生成均已验收。日常 Core 需由所有者重新编译启动后加载新版后端和 Provider 元数据。
