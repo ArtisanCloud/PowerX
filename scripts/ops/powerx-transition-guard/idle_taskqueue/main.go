@@ -57,17 +57,20 @@ type progress struct {
 	Problem        string    `json:"problem,omitempty"`
 }
 type runner struct {
-	conn         *pgx.Conn
-	out          string
-	cutoff       time.Time
-	batch        int
-	span         int64
-	minFree      uint64
-	maxBackup    int64
-	schema       map[string]string
-	p            progress
-	afterArchive func(string) error
-	stopBefore   time.Time
+	conn               *pgx.Conn
+	out                string
+	cutoff             time.Time
+	batch              int
+	span               int64
+	minFree            uint64
+	maxBackup          int64
+	schema             map[string]string
+	p                  progress
+	afterArchive       func(string) error
+	stopBefore         time.Time
+	runtimeGuard       func() error
+	devUnroutedReceipt bool
+	devScope           string
 }
 
 func safeError(err error) string {
@@ -205,8 +208,12 @@ func (r *runner) state(state string, err error) error {
 	r.p.AvailableBytes, _ = freeBytes(r.out)
 	return atomicJSON(filepath.Join(r.out, "progress.json"), r.p)
 }
-func candidates(ctx context.Context, tx pgx.Tx, cursor, upper int64, cutoff time.Time, limit int, apply bool) ([]pair, error) {
-	sql := "SELECT t.id,e.id" + scopeSQL + " ORDER BY t.id LIMIT $4"
+func candidates(ctx context.Context, tx pgx.Tx, cursor, upper int64, cutoff time.Time, limit int, apply bool, devReceipt bool) ([]pair, error) {
+	scope := scopeSQL
+	if devReceipt {
+		scope = developmentScopeSQL()
+	}
+	sql := "SELECT t.id,e.id" + scope + " ORDER BY t.id LIMIT $4"
 	if apply {
 		sql += " FOR UPDATE OF t,e SKIP LOCKED"
 	}
@@ -317,6 +324,11 @@ func (r *runner) one(ctx context.Context, cursor, upper int64, apply bool) (coun
 		return 0, 0, err
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
+	if apply && r.devScope != "" {
+		if err = guardDevelopmentExecution(ctx, tx, r.devScope); err != nil {
+			return 0, 0, err
+		}
+	}
 	if apply {
 		// 与普通写入兼容，同时固定本批的 DDL/外键边界。
 		if _, err = tx.Exec(ctx, "LOCK TABLE "+traces+", "+events+" IN ROW EXCLUSIVE MODE"); err != nil {
@@ -326,7 +338,7 @@ func (r *runner) one(ctx context.Context, cursor, upper int64, apply bool) (coun
 			return 0, 0, err
 		}
 	}
-	ps, err := candidates(ctx, tx, cursor, upper, r.cutoff, r.batch, apply)
+	ps, err := candidates(ctx, tx, cursor, upper, r.cutoff, r.batch, apply, r.devUnroutedReceipt)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -437,6 +449,11 @@ func (r *runner) run(ctx context.Context, mode string, highwater, maxPairs int64
 		return err
 	}
 	for r.p.Cursor < highwater {
+		if r.runtimeGuard != nil {
+			if err := r.runtimeGuard(); err != nil {
+				return err
+			}
+		}
 		// 在事务外让出执行权；不因定时器切断一次提交并自动重试未知结果。
 		if !r.stopBefore.IsZero() && time.Now().After(r.stopBefore) {
 			return r.state("bounded_complete", nil)
@@ -477,6 +494,9 @@ func (r *runner) run(ctx context.Context, mode string, highwater, maxPairs int64
 }
 func main() {
 	mode := flag.String("mode", "preview", "preview or apply")
+	devHours := flag.Int("dev-keep-hours", 0, "explicit dev-only exception: 24 hours; zero keeps the seven-day contract")
+	devScope := flag.String("expected-dev-scope", "", "optional Core scope fence for reviewed dev maintenance")
+	expectedCommit := flag.String("expected-dev-commit", "", "required deployed source commit for the dev-only 24h maintenance")
 	database := flag.String("database", "powerx_pro", "fixed prod or development database")
 	cut := flag.String("cutoff", "", "explicit seven-day cutoff RFC3339")
 	out := flag.String("out", "", "new private job directory")
@@ -489,13 +509,17 @@ func main() {
 	min := flag.Uint64("min-free", 8<<30, "minimum available bytes; apply enforces the host guard and Loki headroom")
 	budget := flag.Int64("backup-budget", 2<<30, "maximum compressed rollback backup bytes")
 	flag.Parse()
-	if (*database != "powerx_pro" && *database != "powerx_dev") || (*mode != "preview" && *mode != "apply") || *out == "" || *limit < 1 || *limit > 1000 || *span < 1 || *span > 100000 || *budget < 1 || *start < 0 || *seconds < 1 || *seconds > 180 {
+	if (*database != "powerx_pro" && *database != "powerx_dev") || (*mode != "preview" && *mode != "apply") || *out == "" || *limit < 1 || *limit > maximumRetentionBatch(*devHours) || *span < 1 || *span > 100000 || *budget < 1 || *start < 0 || *seconds < 1 || *seconds > 180 {
 		fmt.Fprintln(os.Stderr, "invalid_cleanup_parameters")
 		os.Exit(2)
 	}
 	cutoff, err := time.Parse(time.RFC3339, *cut)
-	if err != nil || time.Since(cutoff) < 7*24*time.Hour {
-		fmt.Fprintln(os.Stderr, "cutoff_must_keep_at_least_seven_days")
+	if err != nil || validRetentionCutoff(*database, *devHours, *expectedCommit, cutoff, time.Now()) != nil {
+		fmt.Fprintln(os.Stderr, "retention_cutoff_or_development_exception_invalid")
+		os.Exit(2)
+	}
+	if *devScope != "" && (*devHours != 24 || !validDevelopmentScope(*devScope)) {
+		fmt.Fprintln(os.Stderr, "invalid_development_control_scope")
 		os.Exit(2)
 	}
 	if err = os.Mkdir(*out, 0700); err != nil {
@@ -538,6 +562,13 @@ func main() {
 		os.Exit(2)
 	}
 	r := &runner{conn: conn, out: *out, cutoff: cutoff, batch: *limit, span: *span, minFree: *min, maxBackup: *budget}
+	if *devHours == 24 {
+		r.devUnroutedReceipt = true
+		r.devScope = *devScope
+		r.runtimeGuard = func() error {
+			return checkDevelopmentCommit("/opt/powerx-dev/backend/powerx.build.json", *expectedCommit)
+		}
+	}
 	r.p.Cursor = *start
 	r.stopBefore = time.Now().Add(time.Duration(*seconds) * time.Second)
 	var db string
@@ -552,7 +583,7 @@ func main() {
 		err = conn.QueryRow(ctx, "SELECT COALESCE(max(id),0) FROM "+traces).Scan(end)
 	}
 	if err == nil {
-		err = atomicJSON(filepath.Join(*out, "run-contract.json"), map[string]any{"scope": "successful typed taskqueue.v2 empty dequeue from AI Craft only; paired unrouted or never-attempted pending notifications; minimum seven days; original rows archived and restored before deletion", "cutoff": cutoff, "highwater": *end, "schema": r.schema, "postgres_version": conn.PgConn().ParameterStatus("server_version"), "backup_review_after": time.Now().UTC().Add(7 * 24 * time.Hour), "automatic_backup_deletion": false})
+		err = atomicJSON(filepath.Join(*out, "run-contract.json"), map[string]any{"scope": "successful typed taskqueue.v2 empty dequeue from AI Craft only; paired unrouted or never-attempted pending notifications; explicit cutoff enforced before scan; default seven days, dev-only 24h exception; original rows archived and restored before deletion", "cutoff": cutoff, "highwater": *end, "schema": r.schema, "postgres_version": conn.PgConn().ParameterStatus("server_version"), "retention_hours": effectiveRetentionHours(*devHours), "expected_dev_commit": *expectedCommit, "backup_review_after": time.Now().UTC().Add(7 * 24 * time.Hour), "automatic_backup_deletion": false})
 	}
 	if err == nil {
 		err = r.run(ctx, *mode, *end, *maxPairs)

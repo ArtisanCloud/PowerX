@@ -138,5 +138,46 @@ class IdleRetentionTests(unittest.TestCase):
             self.assertEqual(report['mode'], 'preview')
 
 
+
+    def test_development_exception_cannot_change_prod_or_expand_unbounded_scope(self):
+        self.assertTrue(idle.development_binding('dev', {'retention_hours': 24, 'highwater': 123, 'scope_id': 'a'*64}))
+        self.assertFalse(idle.development_binding('prod', {}))
+        for name, value in [('prod', {'retention_hours': 24, 'highwater': 123, 'scope_id': 'a'*64}),
+                            ('dev', {'retention_hours': 24}), ('dev', {'retention_hours': 1, 'highwater': 123})]:
+            with self.assertRaisesRegex(RuntimeError, 'scope_invalid'):
+                idle.development_binding(name, value)
+
+    def test_development_arguments_preserve_default_seven_day_binary(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(idle, 'ARCHIVES', Path(directory)), \
+                patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=0, pw_gid=0)), patch.object(idle.os, 'chown'):
+            sweep = {'cutoff': 'cut', 'cursor': 0, 'highwater': 10}
+            legacy, _ = idle.execute('powerx_pro', 'preview', dict(sweep), 20*idle.GIB)
+            self.assertEqual(legacy[4], idle.BINARY)
+            self.assertNotIn('-dev-keep-hours', legacy)
+            dev, _ = idle.execute('powerx_dev', 'preview', dict(sweep), 20*idle.GIB, {'source_commit': 'a'*40, 'scope_id':'b'*64})
+            self.assertEqual(dev[4], idle.DEV_BINARY)
+            self.assertEqual(dev[dev.index('-dev-keep-hours')+1], '24')
+            self.assertEqual(dev[dev.index('-batch')+1], '5000')
+
+    def test_development_requires_pinned_runtime_and_healthy_native_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root/'backend/powerx.build.json'
+            manifest.parent.mkdir()
+            manifest.write_text(json.dumps({'source_commit': 'a'*40}))
+            health = root/'storage/storage-governance/cleanup-health.json'
+            health.parent.mkdir(parents=True)
+            health.write_text(json.dumps({'state': 'completed', 'last_success_at': 'now'}))
+            binding = {'retention_hours': 24, 'highwater': 123, 'scope_id': 'b'*64, 'source_commit': 'a'*40}
+            with patch.object(idle, 'TARGETS', {'dev': ('powerx_dev', str(root))}):
+                idle.runtime_guard('dev', binding)
+                health.write_text(json.dumps({'state': 'failed', 'last_success_at': 'now'}))
+                with self.assertRaisesRegex(RuntimeError, 'native_cleanup_unhealthy'):
+                    idle.runtime_guard('dev', binding)
+                manifest.write_text(json.dumps({'source_commit': 'c'*40}))
+                with self.assertRaisesRegex(RuntimeError, 'runtime_changed'):
+                    idle.runtime_guard('dev', binding)
+
+
 if __name__ == '__main__':
     unittest.main()
