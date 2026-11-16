@@ -410,6 +410,10 @@ func (s *Service) maintenanceSafety(ctx context.Context, v DatabaseMaintenanceRu
 	if e != nil {
 		return controlError(503, "DATABASE_MAINTENANCE_BUDGET_UNAVAILABLE")
 	}
+	return maintenanceBudgetSafety(snap, v.Mode, leaseID)
+}
+
+func maintenanceBudgetSafety(snap budget.Snapshot, mode, leaseID string) error {
 	var own int64
 	found := false
 	for _, r := range snap.Active {
@@ -421,7 +425,7 @@ func (s *Service) maintenanceSafety(ctx context.Context, v DatabaseMaintenanceRu
 	if !found {
 		return controlError(409, "DATABASE_MAINTENANCE_LEASE_UNCONFIRMED")
 	}
-	if v.Mode == "compact" && snap.AvailableBytes-(snap.ReservedBytes-own) < snap.CriticalFreeBytes+(1<<30) {
+	if snap.AvailableBytes-(snap.ReservedBytes-own) < snap.CriticalFreeBytes || mode == "compact" && snap.AvailableBytes-(snap.ReservedBytes-own) < snap.CriticalFreeBytes+(1<<30) {
 		return controlError(409, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT")
 	}
 	return nil

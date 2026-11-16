@@ -716,6 +716,9 @@
       "nativeManaged": "Native rotation and compression continue. Sealed retention is managed by governance; pausing keeps the files."
     },
     "archive": {
+      "recoveryTitle": "Historical audit recovery archive",
+      "recoveryHint": "Only committed batches with original restore proof and matching COPY data are accepted. New managed copies are protected until Root review. Released copies follow published retention; the latest point stays protected. Source and operator copies are preserved.",
+      "recoveryDefaults": "Use 30 days for local and remote retention",
       "title": "Log archives and retrieval",
       "optIn": "Archiving requires explicit activation",
       "scopeHint": "Configure and test a target before enabling. Saving a draft never transfers logs; source cleanup has its own safety policy.",

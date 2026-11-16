@@ -236,7 +236,20 @@ func (c *Coordinator) Reserve(ctx context.Context, operation string, peak int64,
 	return c.reserve(ctx, operation, peak, ttl, false)
 }
 
-// ReserveReclamation 仅供固定的数据库回收任务使用；软总预算不应阻断释放空间，物理余量和并发保护仍适用。
+// ReclamationFloor 区分普通回收和整表重写：普通 VACUUM 使用已批准的紧急底线，重写仍使用正常写入底线。
+// 它不修改策略，也不允许调用方提交任意任务类型来降低保护。
+func ReclamationFloor(operation string, state Snapshot) (int64, error) {
+	switch operation {
+	case "database-vacuum":
+		return state.CriticalFreeBytes, nil
+	case "database-compaction":
+		return state.MinFreeBytes, nil
+	default:
+		return 0, ErrUnavailable
+	}
+}
+
+// ReserveReclamation 仅供固定数据库回收使用；保留任务峰值、其他预留、并发及操作对应的空间底线。
 func (c *Coordinator) ReserveReclamation(ctx context.Context, operation string, peak int64, ttl time.Duration) (*Lease, error) {
 	if operation != "database-vacuum" && operation != "database-compaction" {
 		return nil, ErrUnavailable
@@ -283,7 +296,14 @@ func (c *Coordinator) reserve(ctx context.Context, operation string, peak int64,
 		if len(s.Reservations) >= s.Policy.MaxConcurrent {
 			return ErrBusy
 		}
-		if current.AvailableBytes < peak+current.ReservedBytes+s.Policy.MinFreeBytes || current.AvailableBytes < s.Policy.CriticalFreeBytes {
+		floor := current.MinFreeBytes
+		if reclaim {
+			floor, e = ReclamationFloor(operation, current)
+			if e != nil {
+				return e
+			}
+		}
+		if current.AvailableBytes < peak+current.ReservedBytes+floor || current.AvailableBytes < s.Policy.CriticalFreeBytes {
 			return ErrInsufficient
 		}
 		if !reclaim && s.Policy.MaxUsedBytes > 0 && current.UsedBytes+current.ReservedBytes+peak > s.Policy.MaxUsedBytes {

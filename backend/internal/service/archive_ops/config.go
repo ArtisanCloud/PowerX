@@ -83,6 +83,9 @@ func validateConfig(c *Config) error {
 		if !filepath.IsAbs(source.Directory) {
 			return fmt.Errorf("source directory must be absolute")
 		}
+		if source.AuditRecoveryDatabase != "" && (source.Kind != "database_files" || source.FileOwnerUID == nil || !labelPattern.MatchString(source.AuditRecoveryDatabase) || filepath.Base(source.Directory) != source.AuditRecoveryDatabase) {
+			return fmt.Errorf("audit recovery requires a fixed database_files directory, matching database name and explicit file owner")
+		}
 		if source.CurrentLogfiles != "" && !filepath.IsAbs(source.CurrentLogfiles) {
 			return fmt.Errorf("current_logfiles must be absolute")
 		}

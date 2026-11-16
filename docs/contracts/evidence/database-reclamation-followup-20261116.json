@@ -1,0 +1,70 @@
+{
+  "date": "2026-11-16",
+  "scope": "database vacuum admission and historical idle audit recovery archive adapter",
+  "source_implementation": true,
+  "deployed_this_round": false,
+  "dev_prod_mutated_this_round": false,
+  "admission": {
+    "normal_min_free_bytes_unchanged": 21474836480,
+    "critical_default_free_bytes": 10737418240,
+    "vacuum_uses": "critical floor + task peak + other reservations",
+    "compaction_uses": "normal minimum floor + task peak + other reservations",
+    "ongoing_vacuum": "critical floor and other leases checked; fixed worker lease and cancellation fencing retained"
+  },
+  "archive": {
+    "contract": "fixed committed idle_taskqueue COPY pairs with historical restore proof",
+    "copy_structure_and_hashes_verified": true,
+    "real_postgresql_copy_format_verified": true,
+    "online_restore_performed": false,
+    "default_protected": true,
+    "latest_copy_preserved": true,
+    "minimum_days_not_shortened_by_count": true,
+    "max_input_bytes": 4294967296,
+    "source_and_operator_files_deleted": false,
+    "source_retirement_implemented": false,
+    "suggested_retention_days": 30,
+    "root_publication_required": true,
+    "requires_explicit_source_configuration": true
+  },
+  "validation": {
+    "race_full_packages": [
+      "internal/infra/storage_budget",
+      "internal/service/storage_governance",
+      "internal/service/archive_ops",
+      "internal/bootstrap",
+      "config"
+    ],
+    "race_full": "passed; own PostgreSQL with isolated schemas and miniredis",
+    "final_archive_race": "passed after final recovery framing, cancellation and retention changes",
+    "go_vet": "passed affected packages",
+    "linux_amd64_build": "passed Core app, CGO disabled",
+    "nuxt_build": "passed",
+    "vitest": {
+      "tests": 28,
+      "passed": 28,
+      "files": 4
+    },
+    "chromium": {
+      "tests": 2,
+      "passed": 2,
+      "widths": [
+        1440,
+        390
+      ],
+      "draft_retained": true,
+      "suggestion_causes_no_writes": true,
+      "normal_source_hides_recovery_hint": true,
+      "horizontal_overflow": false,
+      "backend": "controlled fixtures; no daily or remote database"
+    },
+    "make_unit_test": "blocked before tests: pre-existing missing backend/test-silent.sh"
+  },
+  "pending_runtime_acceptance": [
+    "merge and update dev Core frontend/backend",
+    "ordinary maintenance preview above critical floor and below normal floor",
+    "explicit private recovery source access and target handoff",
+    "Root publish archive retention and verify managed recovery receipt before releasing protection",
+    "prod acceptance after dev"
+  ],
+  "process_cleanup": "verified own preview and isolated PostgreSQL exited; TCP 3351 and private socket 19438 released"
+}

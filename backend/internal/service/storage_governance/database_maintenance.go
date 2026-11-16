@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	storagebudget "github.com/ArtisanCloud/PowerX/internal/infra/storage_budget"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/storage_governance"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/storage_governance"
@@ -290,7 +291,11 @@ func (s *Service) PreviewDatabaseMaintenance(ctx context.Context, in DatabaseMai
 	if e != nil {
 		return out, maintenanceError(e)
 	}
-	if budget.AvailableBytes-budget.ReservedBytes-budget.MinFreeBytes < peak {
+	floor, e := storagebudget.ReclamationFloor(maintenanceOperation(in.Mode), budget)
+	if e != nil {
+		return out, maintenanceError(e)
+	}
+	if budget.AvailableBytes-budget.ReservedBytes-floor < peak {
 		return out, controlError(409, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT")
 	}
 	ids := append([]string(nil), in.Tables...)
