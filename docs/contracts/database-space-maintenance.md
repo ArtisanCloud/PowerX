@@ -1,0 +1,56 @@
+# 数据库空间维护
+
+## 用户流程与边界
+
+存储治理的数据库维护分为记录保留、空间整理和执行记录。记录保留继续使用已有正式策略；空间整理不删除业务行，也不把 dev 的临时 24 小时例外改成全局审计保留期。
+
+Root 在“监控中心 → 存储治理 → 数据库空间维护”选择固定系统表和整理方式，先生成五分钟有效的检查结果，再确认启动持久任务。普通整理用于库内复用；物理缩容重写选定表及索引，可能在整个步骤期间阻塞该表读写，需要额外确认。任务通过正式 TaskBus 执行，页面复用存储治理 SSE，只在初次加载、手动刷新、变更和重连时读取状态。
+
+第一版固定支持调用审计和调用通知两张表；不接受数据库名、SQL、schema、路径、表名或 PID。数据库始终来自当前 Core 连接；预览绑定安装 scope、数据库指纹、表 OID、Root 和方式。部署可通过 `storage_governance.postgres_data_directory` 登记同机 PostgreSQL 数据目录，服务端检查路径、文件系统及数据库端目录，无法核实时禁止物理缩容。自定义表空间暂不执行。
+
+## 执行保护
+
+- 启动和每一步复核当前 Root、恢复锚点、全局执行保护、目标身份、索引状态和空间预算。
+- 回收任务可使用独立的回收预算准入：允许临时超过软总量，但不绕过最小可用、临界保护、已有预留和并发约束。普通写任务的预算规则不变。
+- 同一数据库只运行一项维护；使用 PostgreSQL advisory 锁固定连接。普通整理每表最多 60 秒，物理缩容每表最多 15 分钟，取锁最多两秒。会话设置在归还连接前恢复，失败则丢弃连接。
+- 预留空间采用选定表体积与 `max_wal_size` 的保守估算；它不是 PostgreSQL 的磁盘硬上限，并发写入仍会影响余量。不把 dead tuple 数量冒充可回收字节。真实回收量只由执行前后实测表体积、数据库体积和文件系统可用空间报告。
+- 长步骤期间监测保护状态和临界空间；暂停、身份变化、预算不可读或临界空间不足即取消当前数据库命令。取消接口只能作用于本任务记录的数据库会话。
+- 启动意图、步骤和终态持久化并审计。重复提交返回原任务；中断和提交不明停止，重投不自动重做。Root 需核对已退出会话后结束未知任务，再重新检查和确认。
+- 全程续租正式 TaskBus，步骤通过 `Apply` 围栏更新，结果通过 `Complete` 与共享任务终态同事务提交，然后 ACK。丢失租约不能接纳结果；允许队列重投核对，禁止 SQL 自动重放。
+- 启动响应丢失时，页面保留原请求与检查编号；取消原请求会保存取消墓碑，延迟到达的启动请求不能执行。切换登录身份后释放旧连接并隐藏旧任务，原意图按会话和租户隔离保存。
+- 已知终态、失效检查与已使用检查保留 30 天；最近最多展示 100 项实际任务。进行中和结果不明的意图不自动回收，保留现有 2,000 项账本上限。
+- 不自动安装扩展、不调用 shell/sudo、不启动第二个 Core，不在启动时迁移。复用现有治理账本和 TaskBus 表。
+
+## 部署与接口
+
+本次复用既有治理账本和 TaskBus 结构，不新增数据库表或迁移。部署需更新 Core 后端和管理前端，插件无需重装。当前实例须已有有效部署身份、治理结构、执行控制、恢复保护、主机预算和后台 worker 准入；维护接口不会绕过这些既有保护。物理缩容额外需要在当前 Core 配置中登记经运维核实的同机 PostgreSQL 数据目录并重启 Core：
+
+```yaml
+storage_governance:
+  postgres_data_directory: /verified/postgresql/data
+```
+
+该路径仅是示例，不能照抄到服务器。省略登记不会启动扫描或创建目录；普通整理仍可使用，物理缩容明确阻止。自定义表空间、WAL 归档、复制槽或超过 30 秒的事务会阻止物理缩容。第一版仅支持这两张固定表，不能整理整个数据库、插件独立数据库或其他宿主目录。
+
+所有接口位于 `/api/v1/admin/ops/storage`，仅平台 Root 用户会话可用；STS、API Key、普通租户用户均拒绝。它们是宿主运行控制接口，已逐条进入能力审计忽略清单，不发布给插件或 Agent。
+
+| 方法和路径 | 作用 |
+| --- | --- |
+| `GET /database-maintenance` | 实测、准入状态、当前任务和记录 |
+| `POST /database-maintenance/previews` | `{mode,tables}`，检查并保存短期检查结果 |
+| `POST /database-maintenance/runs` | `{request_id,preview_id,confirm,exclusive_lock_confirmed}`，登记原子任务 |
+| `GET /database-maintenance/runs/:request_id` | 核对原任务 |
+| `POST /database-maintenance/runs/:request_id/cancellations` | `{confirm:true,preview_id?}`，取消已知任务或保存原请求取消墓碑 |
+| `POST /database-maintenance/runs/:request_id/reviews` | `{confirm:true}`，核对结果不明且会话已退出的任务 |
+
+故障后可先取消本任务的数据库命令；停止 Core 不等于撤销已完成的整理。任务部分完成或命令超时均保留实际步骤，不能用重复启动代替核对。回滚前端或二进制不会修改保留策略或自动重放任务；有未确认任务时须先核对数据库会话、空间和账本，再重新生成检查结果。
+
+## 接管与验收
+
+这项功能接管数据库物理整理；临时历史空轮询归档的保留授权不隐式转移。实际部署后先在 dev 验证目标绑定、预算不足、暂停/取消、连接恢复、重启中断、数据行保留、实际空间变化与 SSE；通过后再单独验收 prod。源码、隔离测试及运行验收分别记录。
+
+本地使用 Agent 自有 PostgreSQL、隔离 schema 和内存 Redis 验证原生 VACUUM、固定会话取消、连接设置恢复、正式 TaskBus 终态、数据摘要及实际体积；浏览器使用 Nuxt 产物和受控 API/SSE，覆盖 1440、390、320 像素及原请求核对。这里的通过不代表 dev/prod 已部署或资源已接管。
+
+本轮验收范围与限制见 [2026-11-16 验证回执](evidence/database-maintenance-20261116.json)，页面截图为受控数据：[桌面](evidence/database-maintenance-20261116-desktop-light.png)、[窄屏确认](evidence/database-maintenance-20261116-mobile-dark.png)。
+
+参考：[PostgreSQL VACUUM](https://www.postgresql.org/docs/16/sql-vacuum.html)、[维护进度](https://www.postgresql.org/docs/16/progress-reporting.html)。

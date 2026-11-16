@@ -233,6 +233,44 @@ func (c *Coordinator) Status(ctx context.Context) (Snapshot, error) {
 	return out, err
 }
 func (c *Coordinator) Reserve(ctx context.Context, operation string, peak int64, ttl time.Duration) (*Lease, error) {
+	return c.reserve(ctx, operation, peak, ttl, false)
+}
+
+// ReserveReclamation 仅供固定的数据库回收任务使用；软总预算不应阻断释放空间，物理余量和并发保护仍适用。
+func (c *Coordinator) ReserveReclamation(ctx context.Context, operation string, peak int64, ttl time.Duration) (*Lease, error) {
+	if operation != "database-vacuum" && operation != "database-compaction" {
+		return nil, ErrUnavailable
+	}
+	return c.reserve(ctx, operation, peak, ttl, true)
+}
+
+// ID 可记录在本实例的维护账本中，供重启后的 Root 显式核对和释放。
+func (l *Lease) ID() string {
+	if l == nil {
+		return ""
+	}
+	return l.id
+}
+
+// ReleaseReclamation 仅释放当前实例、固定回收类型的租约；调用方必须先核对持久任务和数据库会话。
+func (c *Coordinator) ReleaseReclamation(ctx context.Context, id, operation string) error {
+	if operation != "database-vacuum" && operation != "database-compaction" {
+		return ErrUnavailable
+	}
+	return c.locked(ctx, true, func(s *ledger) error {
+		r, ok := s.Reservations[id]
+		if !ok {
+			return nil
+		}
+		if r.InstanceID != c.cfg.InstanceID || r.Operation != operation {
+			return ErrUnavailable
+		}
+		delete(s.Reservations, id)
+		return nil
+	})
+}
+
+func (c *Coordinator) reserve(ctx context.Context, operation string, peak int64, ttl time.Duration, reclaim bool) (*Lease, error) {
 	if peak < 0 || peak > 1<<50 || ttl <= 0 || ttl > 24*time.Hour || len(operation) > 80 || operation == "" {
 		return nil, ErrUnavailable
 	}
@@ -248,7 +286,7 @@ func (c *Coordinator) Reserve(ctx context.Context, operation string, peak int64,
 		if current.AvailableBytes < peak+current.ReservedBytes+s.Policy.MinFreeBytes || current.AvailableBytes < s.Policy.CriticalFreeBytes {
 			return ErrInsufficient
 		}
-		if s.Policy.MaxUsedBytes > 0 && current.UsedBytes+current.ReservedBytes+peak > s.Policy.MaxUsedBytes {
+		if !reclaim && s.Policy.MaxUsedBytes > 0 && current.UsedBytes+current.ReservedBytes+peak > s.Policy.MaxUsedBytes {
 			return ErrInsufficient
 		}
 		now := c.cfg.Now().UTC()

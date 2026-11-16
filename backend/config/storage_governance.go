@@ -11,6 +11,7 @@ type StorageGovernanceConfig struct {
 	SamplingEnabled           bool                    `yaml:"sampling_enabled,omitempty" json:"sampling_enabled,omitempty"`
 	PostgresEnabled           bool                    `yaml:"postgres_enabled,omitempty" json:"postgres_enabled,omitempty"`
 	PostgresClusterID         string                  `yaml:"postgres_cluster_id,omitempty" json:"postgres_cluster_id,omitempty"`
+	PostgresDataDirectory     string                  `yaml:"postgres_data_directory,omitempty" json:"-"` // 受信任部署登记；物理整理时核对数据库及同盘身份。
 	FilesystemPath            string                  `yaml:"filesystem_path,omitempty" json:"-"`
 	Sources                   []StorageObserverSource `yaml:"sources,omitempty" json:"-"`
 	RuntimeDirectory          string                  `yaml:"runtime_directory,omitempty" json:"-"`

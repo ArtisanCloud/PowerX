@@ -716,6 +716,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		}
 		if deps.StorageGovernance != nil {
 			deps.StorageGovernance.StartControl(ctx, func(err error) { logger.WarnF(ctx, "storage configuration publication unavailable") })
+			deps.StorageGovernance.StartDatabaseMaintenance(ctx, func(err error) { logger.WarnF(ctx, "database maintenance worker unavailable: %s", dto.CodeOf(err)) })
 			deps.StorageGovernance.StartRuntime(ctx, func(err error) {
 				code := dto.CodeOf(err)
 				if code == "" {
