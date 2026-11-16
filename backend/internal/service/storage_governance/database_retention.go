@@ -28,24 +28,26 @@ type DatabaseRetentionPolicy struct {
 	Actor             uint64    `json:"actor"`
 }
 type DatabaseRetentionRun struct {
-	PreviewID      string                    `json:"preview_id,omitempty"`
-	Cutoffs        *caprepo.RetentionCutoffs `json:"cutoffs,omitempty"`
-	ExpiresAt      *time.Time                `json:"expires_at,omitempty"`
-	Trigger        string                    `json:"trigger,omitempty"`
-	PolicySnapshot *DatabaseRetentionPolicy  `json:"policy_snapshot,omitempty"`
-	ID             string                    `json:"id"`
-	Revision       int64                     `json:"revision"`
-	State          string                    `json:"state"`
-	At             time.Time                 `json:"at"`
-	Actor          uint64                    `json:"actor"`
-	Counts         caprepo.RetentionBatch    `json:"counts"`
-	Problem        string                    `json:"problem,omitempty"`
+	Scan           *caprepo.RetentionProgress `json:"scan,omitempty"`
+	PreviewID      string                     `json:"preview_id,omitempty"`
+	Cutoffs        *caprepo.RetentionCutoffs  `json:"cutoffs,omitempty"`
+	ExpiresAt      *time.Time                 `json:"expires_at,omitempty"`
+	Trigger        string                     `json:"trigger,omitempty"`
+	PolicySnapshot *DatabaseRetentionPolicy   `json:"policy_snapshot,omitempty"`
+	ID             string                     `json:"id"`
+	Revision       int64                      `json:"revision"`
+	State          string                     `json:"state"`
+	At             time.Time                  `json:"at"`
+	Actor          uint64                     `json:"actor"`
+	Counts         caprepo.RetentionBatch     `json:"counts"`
+	Problem        string                     `json:"problem,omitempty"`
 }
 type databaseRetentionDocument struct {
 	Policy DatabaseRetentionPolicy `json:"policy"`
 	Runs   []DatabaseRetentionRun  `json:"runs"`
 }
 type DatabaseRetentionStatus struct {
+	Scan             *caprepo.RetentionProgress      `json:"scan,omitempty"`
 	Configuration    *DatabaseRetentionConfiguration `json:"configuration,omitempty"`
 	StateConfigured  bool                            `json:"state_configured"`
 	EnforceAllowed   bool                            `json:"enforcement_allowed"`
@@ -98,6 +100,12 @@ func (s *Service) DatabaseRetention(ctx context.Context) (DatabaseRetentionStatu
 			out.Policy = p
 		}
 		if s.opts.DB != nil {
+			checkpoint, scanError := s.readRetentionCheckpoint(ctx, s.opts.DB)
+			if scanError != nil {
+				out.Problem = "DATABASE_RETENTION_CHECKPOINT_INVALID"
+			} else if checkpoint != nil && checkpoint.Revision == out.Policy.Revision {
+				out.Scan = &checkpoint.Progress
+			}
 			rows, e := s.retentionLedger().List(ctx)
 			if e != nil {
 				out.Problem = "DATABASE_RETENTION_LEDGER_UNAVAILABLE"
@@ -245,7 +253,7 @@ func (s *Service) runDatabaseRetentionCycle(ctx context.Context, onError func(er
 			}
 			return
 		}
-		if out.Counts.Traces+out.Counts.Events+out.Counts.Quarantined == 0 {
+		if out.Scan == nil || out.Scan.Complete {
 			return
 		}
 	}

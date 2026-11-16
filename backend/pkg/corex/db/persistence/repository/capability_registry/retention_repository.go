@@ -107,10 +107,13 @@ func eventExpired(db *gorm.DB, alias string, c RetentionCutoffs) *gorm.DB {
 	return db.Where(alias+"record_class = ? AND "+alias+"terminal_at IS NOT NULL", m.InvocationNotificationClass).
 		Where("(("+alias+"status IN ? AND "+alias+"terminal_at < ?) OR ("+alias+"status IN ? AND "+alias+"terminal_at < ?) OR ("+alias+"status = ? AND "+alias+"terminal_at < ?))", []string{"published", "dispatched"}, c.Success, []string{"failed", "unrouted"}, c.Failure, "quarantined", c.Quarantine)
 }
-func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, apply bool) (RetentionBatch, error) {
+
+// BatchWindow 仅核验给定窗口；确认与进度提交由上层治理事务控制。
+func (r *RetentionRepository) BatchWindow(ctx context.Context, c RetentionCutoffs, apply bool, window RetentionWindow) (RetentionBatch, RetentionProgress, error) {
 	out := RetentionBatch{}
+	progress := RetentionProgress{Window: window, Next: window.End}
 	if c.Limit < 1 || c.Limit > 1000 {
-		return out, errors.New("invalid_batch_limit")
+		return out, RetentionProgress{}, errors.New("invalid_batch_limit")
 	}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if tx.Dialector.Name() == "postgres" {
@@ -120,6 +123,22 @@ func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, app
 			if err := tx.Exec("SET LOCAL statement_timeout='8s'").Error; err != nil {
 				return err
 			}
+		}
+		if !window.Valid() {
+			return errors.New("invalid_retention_window")
+		}
+		// 先通过主键索引取出有限键，再核验状态与引用；防止优化器选择全表状态扫描。
+		bounded := NewRetentionRepository(tx)
+		traceKeys, err := bounded.scanKeys(ctx, m.InvocationTrace{}.TableName(), window.Before.Traces, window.End.Traces)
+		if err != nil {
+			return err
+		}
+		eventKeys, err := bounded.scanKeys(ctx, m.CapabilityEventPublication{}.TableName(), window.Before.Events, window.End.Events)
+		if err != nil {
+			return err
+		}
+		if len(traceKeys) > RetentionScanKeys || len(eventKeys) > RetentionScanKeys {
+			return errors.New("invalid_retention_window")
 		}
 		if apply && tx.Dialector.Name() == "postgres" {
 			// 固定表的 ROW EXCLUSIVE 与普通写兼容，阻止预检后新增级联外键／删表的 DDL 竞态。
@@ -134,7 +153,7 @@ func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, app
 		lock := clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}
 		// 超时通知只允许已分类记录，或显式采用且有同租户终态链路与负载一致的旧通知。
 		var pending []m.CapabilityEventPublication
-		q := registered(tx.Model(&m.CapabilityEventPublication{}).Table(m.CapabilityEventPublication{}.TableName()+" AS pe"), "pe").Select("pe.uuid,pe.tenant_uuid,pe.trace_id,pe.topic,pe.payload,pe.status,pe.created_at,pe.record_class,pe.publish_time,pe.attempts").Where("pe.status IN ? AND pe.created_at < ?", []string{"pending", "unconfirmed"}, c.Pending)
+		q := registered(tx.Model(&m.CapabilityEventPublication{}).Table(m.CapabilityEventPublication{}.TableName()+" AS pe"), "pe").Select("pe.id,pe.uuid,pe.tenant_uuid,pe.trace_id,pe.topic,pe.payload,pe.status,pe.created_at,pe.record_class,pe.publish_time,pe.attempts").Where("pe.id IN ?", eventKeys).Where("pe.status IN ? AND pe.created_at < ?", []string{"pending", "unconfirmed"}, c.Pending)
 		if c.AdoptLegacy {
 			q = q.Where("(pe.record_class = ? OR (pe.record_class = ? AND pe.attempts = 0 AND pe.publish_time IS NULL))", m.InvocationNotificationClass, "legacy_unclassified")
 		} else {
@@ -147,14 +166,17 @@ func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, app
 			}
 			return "json_extract(pe.payload, '$." + field + "')"
 		}
-		// 在有界扫描前排除不一致通知，防止旧未知记录占住批次而使可核验记录永久饥饿。
+		// 唯一引用只读取至多两条；重复引用仍保护，不扫描全部重复引用。
 		proofTable := m.InvocationTrace{}.TableName()
-		q = q.Where("(SELECT count(*) FROM " + proofTable + " AS all_ref WHERE all_ref.event_publication_id=pe.uuid)=1").Where("EXISTS (SELECT 1 FROM " + proofTable + " AS matched WHERE matched.event_publication_id=pe.uuid AND CAST(matched.tenant_uuid AS TEXT)=" + jsonField("tenant_uuid") + " AND matched.trace_id=" + jsonField("trace_id") + " AND matched.capability_id=" + jsonField("capability_id") + " AND matched.plugin_id=" + jsonField("plugin_id") + " AND matched.status=" + jsonField("status") + ")")
+		q = q.Where("(SELECT count(*) FROM (SELECT 1 FROM " + proofTable + " AS all_ref WHERE all_ref.event_publication_id=pe.uuid LIMIT 2) AS bounded_refs)=1").Where("EXISTS (SELECT 1 FROM " + proofTable + " AS matched WHERE matched.event_publication_id=pe.uuid AND CAST(matched.tenant_uuid AS TEXT)=" + jsonField("tenant_uuid") + " AND matched.trace_id=" + jsonField("trace_id") + " AND matched.capability_id=" + jsonField("capability_id") + " AND matched.plugin_id=" + jsonField("plugin_id") + " AND matched.status=" + jsonField("status") + ")")
 		if apply {
 			q = q.Clauses(lock)
 		}
-		if err := q.Order("pe.created_at, pe.id").Limit(c.Limit).Find(&pending).Error; err != nil {
+		if err := q.Order("pe.id").Limit(c.Limit).Find(&pending).Error; err != nil {
 			return err
+		}
+		if len(pending) == c.Limit {
+			progress.Next.Events = int64(pending[len(pending)-1].ID)
 		}
 		eventIDs := make([]uuid.UUID, 0, len(pending))
 		for _, e := range pending {
@@ -203,15 +225,18 @@ func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, app
 		}
 		// 先删过期终态审计；关联通知尚未到期、来源不明或仍待核实时保护链路。
 		var traces []m.InvocationTrace
-		tq := registered(tx.Model(&m.InvocationTrace{}).Table(m.InvocationTrace{}.TableName()+" AS tr"), "tr").Select("tr.uuid,tr.tenant_uuid,tr.event_publication_id,tr.completed_at,tr.status").Where("tr.record_class = ? AND tr.completed_at IS NOT NULL", m.InvocationAuditClass).
+		tq := registered(tx.Model(&m.InvocationTrace{}).Table(m.InvocationTrace{}.TableName()+" AS tr"), "tr").Select("tr.id,tr.uuid,tr.tenant_uuid,tr.event_publication_id,tr.completed_at,tr.status").Where("tr.id IN ?", traceKeys).Where("tr.record_class = ? AND tr.completed_at IS NOT NULL", m.InvocationAuditClass).
 			Where("((tr.status IN ? AND tr.completed_at < ?) OR (tr.status IN ? AND tr.completed_at < ?))", []string{"completed", "success", "succeeded"}, c.Success, []string{"failed", "error", "denied"}, c.Failure)
 		eligiblePublication := eventExpired(tx.Unscoped().Model(&m.CapabilityEventPublication{}).Table(m.CapabilityEventPublication{}.TableName()+" AS valid_pub").Select("1").Where("valid_pub.uuid=tr.event_publication_id AND valid_pub.tenant_uuid=tr.tenant_uuid"), "valid_pub", c)
 		tq = tq.Where("tr.event_publication_id IS NULL OR EXISTS (?)", eligiblePublication)
 		if apply {
 			tq = tq.Clauses(lock)
 		}
-		if err := tq.Order("tr.completed_at, tr.id").Limit(c.Limit).Find(&traces).Error; err != nil {
+		if err := tq.Order("tr.id").Limit(c.Limit).Find(&traces).Error; err != nil {
 			return err
+		}
+		if len(traces) == c.Limit {
+			progress.Next.Traces = int64(traces[len(traces)-1].ID)
 		}
 		linkedIDs := make([]uuid.UUID, 0, len(traces))
 		for _, tr := range traces {
@@ -246,13 +271,16 @@ func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, app
 		}
 		var events []m.CapabilityEventPublication
 		eq := registered(tx.Model(&m.CapabilityEventPublication{}).Table(m.CapabilityEventPublication{}.TableName()+" AS ep"), "ep")
-		eq = eventExpired(eq, "ep", c)
+		eq = eventExpired(eq.Where("ep.id IN ?", eventKeys), "ep", c)
 		eq = eq.Where("NOT EXISTS (SELECT 1 FROM " + m.InvocationTrace{}.TableName() + " AS ref WHERE ref.event_publication_id=ep.uuid)")
 		if apply {
 			eq = eq.Clauses(lock)
 		}
-		if err := eq.Select("ep.uuid,ep.tenant_uuid").Order("ep.terminal_at, ep.id").Limit(c.Limit).Find(&events).Error; err != nil {
+		if err := eq.Select("ep.id,ep.uuid,ep.tenant_uuid").Order("ep.id").Limit(c.Limit).Find(&events).Error; err != nil {
 			return err
+		}
+		if len(events) == c.Limit && int64(events[len(events)-1].ID) < progress.Next.Events {
+			progress.Next.Events = int64(events[len(events)-1].ID)
 		}
 		for _, e := range events {
 			out.Events++
@@ -265,9 +293,10 @@ func (r *RetentionRepository) Batch(ctx context.Context, c RetentionCutoffs, app
 		return nil
 	})
 	if err != nil {
-		return RetentionBatch{}, err
+		return RetentionBatch{}, RetentionProgress{}, err
 	}
-	return out, nil
+	progress.Complete = progress.Next == window.Highwater
+	return out, progress, nil
 }
 
 func verifiedNotification(e m.CapabilityEventPublication, traces []m.InvocationTrace) bool {

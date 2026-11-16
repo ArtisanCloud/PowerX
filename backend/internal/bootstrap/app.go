@@ -37,6 +37,7 @@ import (
 	milvuscfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/milvus"
 	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
 	pineconecfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pinecone"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -715,7 +716,13 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		}
 		if deps.StorageGovernance != nil {
 			deps.StorageGovernance.StartControl(ctx, func(err error) { logger.WarnF(ctx, "storage configuration publication unavailable") })
-			deps.StorageGovernance.StartRuntime(ctx, func(err error) { logger.WarnF(ctx, "storage runtime check failed") })
+			deps.StorageGovernance.StartRuntime(ctx, func(err error) {
+				code := dto.CodeOf(err)
+				if code == "" {
+					code = "unclassified"
+				}
+				logger.WarnF(ctx, "storage runtime check failed: code=%s", code)
+			})
 		}
 	}
 

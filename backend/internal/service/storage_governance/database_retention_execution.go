@@ -22,7 +22,7 @@ func (s *Service) retentionCutoffs(p DatabaseRetentionPolicy, now time.Time) cap
 }
 func decodeRetentionRun(row *m.CleanupRun) (DatabaseRetentionRun, error) {
 	var r DatabaseRetentionRun
-	if row == nil || json.Unmarshal(row.Document, &r) != nil || row.Version != 1 || r.ID != row.RunID || r.Actor != row.ActorID || r.PolicySnapshot == nil || !validDatabasePolicy(*r.PolicySnapshot) || r.Revision < 1 || r.PolicySnapshot.Revision != r.Revision || r.Cutoffs == nil || r.Cutoffs.Limit != r.PolicySnapshot.BatchLimit || r.Counts.Traces < 0 || r.Counts.Events < 0 || r.Counts.Quarantined < 0 || r.Counts.Classified < 0 || r.State != "preview" && r.State != "completed" {
+	if row == nil || json.Unmarshal(row.Document, &r) != nil || row.Version != 1 || r.ID != row.RunID || r.Actor != row.ActorID || r.PolicySnapshot == nil || !validDatabasePolicy(*r.PolicySnapshot) || r.Revision < 1 || r.PolicySnapshot.Revision != r.Revision || r.Cutoffs == nil || r.Cutoffs.Limit != r.PolicySnapshot.BatchLimit || r.Counts.Traces < 0 || r.Counts.Events < 0 || r.Counts.Quarantined < 0 || r.Counts.Classified < 0 || r.State != "preview" && r.State != "completed" || r.Scan != nil && !r.Scan.Valid() {
 		return r, ErrStateUnavailable
 	}
 	return r, nil
@@ -87,7 +87,7 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 	run, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if e := s.dbRetention.Ready(run); e != nil {
-		return out, e
+		return out, retentionExecutionError(e)
 	}
 	ledger := s.retentionLedger()
 	if !ledger.Ready(run) {
@@ -148,7 +148,10 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 			if scheduled && !s.opts.LifecycleWorkerEnabled {
 				return ErrStateUnavailable
 			}
-			cutoffs := s.retentionCutoffs(p, out.At)
+			window, cutoffs, checkpointExists, e := s.retentionScanWindow(run, tx, p, out.At)
+			if e != nil {
+				return e
+			}
 			if apply && !scheduled {
 				previous, e := ledger.Get(run, tx, preview)
 				if e != nil {
@@ -158,9 +161,10 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 				if e != nil {
 					return e
 				}
-				if previous.State != "preview" || r.Actor != out.Actor || r.Revision != revision || r.ExpiresAt == nil || out.At.After(*r.ExpiresAt) || out.At.Before(r.At) {
+				if previous.State != "preview" || r.Scan == nil || r.Actor != out.Actor || r.Revision != revision || r.ExpiresAt == nil || out.At.After(*r.ExpiresAt) || out.At.Before(r.At) {
 					return controlError(409, "DATABASE_RETENTION_PREVIEW_EXPIRED")
 				}
+				window = r.Scan.Window
 				cutoffs = *r.Cutoffs
 				if cutoffs.Limit != p.BatchLimit || cutoffs.AdoptLegacy != p.AdoptLegacy {
 					return ErrStateUnavailable
@@ -170,7 +174,9 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 				}
 			}
 			out.Cutoffs = &cutoffs
-			out.Counts, e = caprepo.NewRetentionRepository(tx).Batch(run, cutoffs, apply)
+			var progress caprepo.RetentionProgress
+			out.Counts, progress, e = caprepo.NewRetentionRepository(tx).BatchWindow(run, cutoffs, apply, window)
+			out.Scan = &progress
 			if e != nil {
 				return e
 			}
@@ -179,6 +185,11 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 			} else {
 				expiry := out.At.Add(5 * time.Minute)
 				out.ExpiresAt = &expiry
+			}
+			if scheduled {
+				if e = s.saveRetentionCheckpoint(run, tx, out, checkpointExists); e != nil {
+					return e
+				}
 			}
 			if scheduled && out.Counts == (caprepo.RetentionBatch{}) {
 				return nil
@@ -198,7 +209,7 @@ func (s *Service) databaseBatchConfirmed(ctx context.Context, revision int64, ke
 		})
 	})
 	if e != nil {
-		return DatabaseRetentionRun{ID: out.ID, State: "unconfirmed", At: out.At}, e
+		return DatabaseRetentionRun{ID: out.ID, State: "unconfirmed", At: out.At}, retentionExecutionError(e)
 	}
 	if apply {
 		s.PublishChange("database_retention_completed")

@@ -636,10 +636,6 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "视觉分析的供应商和型号不能为空", nil)
 			return
 		}
-		if err := h.svc.ValidateVLMProfile(c.Request.Context(), req.Env, tenantRef, req.VLM.Provider, req.VLM.Model, req.VLM.parameters()); err != nil {
-			respondVisionSettingsError(c, err)
-			return
-		}
 		if req.VLM.ReuseCredential {
 			if req.VLM.APIKey != "" || req.VLM.SecretID != "" || req.VLM.SecretKey != "" || req.VLM.BaseURL != "" || req.VLM.Organization != "" || req.VLM.Region != "" || req.VLM.AuthMode != "" || req.VLM.AzureDeployment != "" {
 				dtoRequest.ResponseError(c, http.StatusBadRequest, "复用已保存凭据时不能同时修改连接信息", nil)

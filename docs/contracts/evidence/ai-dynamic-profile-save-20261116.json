@@ -1,0 +1,38 @@
+{
+  "checked_at": "2026-11-15T16:32:44.394831+00:00",
+  "issue": "Online discovery used the submitted connection but profile save validated unknown models against stale saved credentials before writing submitted credentials",
+  "fix": "Atomic transaction stages submitted credential, validates matching dynamic catalog/model and parameters using transaction-scoped services, then commits credential/profile/route together; failure rolls back",
+  "providers": [
+    "openai",
+    "openai_compatible",
+    "deepseek",
+    "moonshot",
+    "huggingface",
+    "qwen-cn",
+    "qwen-intl",
+    "anthropic",
+    "google",
+    "ollama"
+  ],
+  "matrix_scenarios_per_provider": [
+    "first configuration",
+    "replace invalid persisted endpoint after successful draft discovery"
+  ],
+  "additional_assertions": [
+    "Unknown model rejected without profile insertion",
+    "Upstream authentication failure retains previous credential and profile",
+    "Compatible and Ollama first configuration without API key",
+    "Unsupported Google image execution contract rejects without persistence"
+  ],
+  "checks": {
+    "agent_service_package": "passed",
+    "admin_agent_http_package": "passed",
+    "matrix_scenarios": 20,
+    "compatible_and_ollama_no_key": "passed",
+    "invalid_model_and_upstream_failure_rollback": "passed",
+    "diff_check": "passed"
+  },
+  "server_deployed": false,
+  "real_server_save_verified": false,
+  "no_business_database_or_credentials_modified": true
+}
