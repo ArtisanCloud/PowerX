@@ -35,6 +35,7 @@ type Service struct {
 	eventMu           sync.Mutex
 	listeners         map[chan RuntimeEvent]struct{}
 	runtimeOnce       sync.Once
+	maintenance       *databaseMaintenance
 }
 
 // NewService 严格验证登记来源，错误配置不静默跳过或推断环境。
@@ -111,6 +112,7 @@ func NewService(opts Options) (*Service, error) {
 		s.store = repo.NewStateRepository(opts.DB)
 		s.runs = repo.NewCleanupRepository(opts.DB)
 	}
+	s.maintenance = newDatabaseMaintenance(s)
 	return s, nil
 }
 

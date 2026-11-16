@@ -684,3 +684,33 @@ routes:
     path: /api/v1/admin/plugins/installations/:task_id/events
     category: root_runtime_control
     reason: Human Root user JWT only; owner and tenant scoped durable executable-package installation, upload staging and progress must not be delegated to plugins, STS or API Keys.
+
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-maintenance
+    category: root_runtime_control
+    reason: Human Root current-install database maintenance observation
+
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-maintenance/previews
+    category: root_runtime_control
+    reason: Human Root fixed-table maintenance preflight
+
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-maintenance/runs
+    category: root_runtime_control
+    reason: Human Root explicitly confirmed asynchronous database maintenance
+
+  - method: GET
+    path: /api/v1/admin/ops/storage/database-maintenance/runs/:request_id
+    category: root_runtime_control
+    reason: Human Root scoped maintenance receipt
+
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-maintenance/runs/:request_id/cancellations
+    category: root_runtime_control
+    reason: Human Root cancellation bound to the recorded maintenance session
+
+  - method: POST
+    path: /api/v1/admin/ops/storage/database-maintenance/runs/:request_id/reviews
+    category: root_runtime_control
+    reason: Human Root acknowledgement of an interrupted maintenance result

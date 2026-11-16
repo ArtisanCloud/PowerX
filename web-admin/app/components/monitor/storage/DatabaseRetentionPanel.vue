@@ -10,6 +10,7 @@
     <UAlert v-if="status?.relation_bytes != null && status.relation_bytes >= (capacityPolicy?.max_bytes ?? status.policy.max_bytes)" color="warning" :title="t('storageGov.dbRetention.overBudget')" />
     <template v-if="status">
       <UCard><p class="font-medium">{{ t(status.policy.enabled && configuration?.execution_ready && status.worker_enabled && status.enforcement_allowed ? 'storageGov.runtime.enabled' : 'storageGov.runtime.disabled') }} · {{ bytes(status.relation_bytes) }}</p><p class="mt-2 text-sm">{{ t((configuration?.effective_capacity?.reject_new_when_full ?? status.policy.reject_new_when_full) ? 'storageGov.dbRetention.guardOn' : 'storageGov.dbRetention.guardOff') }} · {{ bytes(capacityPolicy?.max_bytes) }}</p><p v-if="configuration && configuration.desired_revision > configuration.applied_revision && capacityPolicy?.reject_new_when_full" class="mt-2 text-sm text-warning">{{ t('storageGov.dbControl.pendingCapacity') }}</p><p class="mt-2 text-sm text-muted">{{ t('storageGov.dbRetention.scope') }}</p><p class="mt-2 text-sm">{{ t('storageGov.dbRetention.summary', { success: status.policy.success_days, failure: status.policy.failure_days, quarantine: status.policy.quarantine_days }) }}</p></UCard>
+      <UButton color="neutral" variant="outline" @click="$emit('openMaintenance')">{{ t('storageGov.dbMaintenance.open') }}</UButton>
       <p v-if="status.scan" class="text-sm text-muted" data-testid="db-retention-scan-status">{{ t(status.scan.complete ? 'storageGov.dbRetention.scanComplete' : 'storageGov.dbRetention.scanContinuing') }}</p>
       <p class="text-sm text-muted">{{ t('storageGov.dbRetention.reclaim') }}</p>
       <div class="flex flex-wrap gap-3">
@@ -53,6 +54,7 @@ import * as v from 'valibot';
 import { useStorageRuntimeService, type DatabaseRetentionStatus, type DatabaseRetentionRun, type DatabaseRetentionSettings, type DatabaseRetentionMutation } from '~/composables/api/services/storageRuntimeService';
 import { formatStorageBytes as bytes } from '~/utils/storage-capacity';
 const props = defineProps<{ revision?: number }>();
+defineEmits<{ openMaintenance: [] }>();
 const { t } = useI18n(), api = useStorageRuntimeService(), GiB = 1024 ** 3;
 const status = ref<DatabaseRetentionStatus>(), preview = ref<DatabaseRetentionRun>();
 const busy = ref(false), error = ref(''), editorOpen = ref(false), previewOpen = ref(false), runsOpen = ref(false), confirmed = ref(false);

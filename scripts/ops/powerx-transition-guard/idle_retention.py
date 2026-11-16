@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""临时七天空消费审计维护；固定两表，先只读扫描，逐批归档验证，未知提交停止。"""
+"""临时空消费审计维护；默认七天，显式 dev 历史范围可保留 24 小时。"""
 import datetime as dt
 import fcntl
 import json
@@ -14,6 +14,7 @@ STATE = Path('/var/lib/powerx-idle-retention')
 ARCHIVES = Path('/var/lib/powerx-idle-retention-archives')
 CONFIG = Path('/etc/powerx-idle-retention.json')
 BINARY = '/opt/powerx-ops/taskqueue-idle-20261115/idle-taskqueue-retention'
+DEV_BINARY = '/opt/powerx-ops/dev-reclaim-20261116/dev-idle-retention-controlled'
 TARGETS = {'dev': ('powerx_dev', '/opt/powerx-dev'), 'prod': ('powerx_pro', '/opt/powerx')}
 
 
@@ -43,15 +44,33 @@ def configuration(path=CONFIG):
             or not isinstance(value.get('apply'), bool)
             or set(value.get('targets', {})) != set(TARGETS)):
         raise RuntimeError('idle_retention_configuration_invalid')
-    for item in value['targets'].values():
+    for name, item in value['targets'].items():
+        development_binding(name, item)
         if (not re.fullmatch(r'[0-9a-f]{40}', item.get('source_commit', ''))
                 or not item.get('native_last_success_at')):
             raise RuntimeError('idle_retention_runtime_binding_invalid')
     return value
 
 
+def development_binding(name, binding):
+    hours = binding.get('retention_hours', 168)
+    if hours == 168:
+        return False
+    if name != 'dev' or hours != 24 or not isinstance(binding.get('highwater'), int) or binding['highwater'] <= 0 or not re.fullmatch(r'[0-9a-f]{64}', binding.get('scope_id','')):
+        raise RuntimeError('development_retention_scope_invalid')
+    return True
+
+
 def runtime_guard(name, binding):
     _, installation = TARGETS[name]
+    if development_binding(name, binding):
+        manifest = json.loads(Path(installation, 'backend/powerx.build.json').read_text())
+        if manifest.get('source_commit') != binding['source_commit']:
+            raise RuntimeError('runtime_changed_handoff_review_required')
+        health = json.loads(Path(installation, 'storage/storage-governance/cleanup-health.json').read_text())
+        if health.get('state') not in ('completed', 'running') or not health.get('last_success_at'):
+            raise RuntimeError('native_cleanup_unhealthy_review_required')
+        return
     manifest = Path(installation, 'backend').resolve().parent / 'manifest.txt'
     values = dict(line.split('=', 1) for line in manifest.read_text().splitlines() if '=' in line)
     if values.get('commit') != binding['source_commit']:
@@ -90,7 +109,7 @@ def metadata(database):
     return next(json.loads(line) for line in result.stdout.splitlines() if line.startswith('{'))
 
 
-def execute(database, mode, sweep, available):
+def execute(database, mode, sweep, available, development=None):
     # preview 与 apply 使用独立游标，预览不会被当作已删除进度。
     directory = ARCHIVES / database
     directory.mkdir(mode=0o700, exist_ok=True)
@@ -108,6 +127,13 @@ def execute(database, mode, sweep, available):
                  '-end-id', str(sweep['highwater']), '-batch', '500', '-span', '2000',
                  '-max-pairs', '20000', '-max-seconds', '25', '-min-free', str(8*GIB),
                  '-backup-budget', str(min(128*1024**2, max(1, 4*GIB-allocated_bytes(ARCHIVES))))]
+    if development is not None:
+        if database != 'powerx_dev':
+            raise RuntimeError('development_retention_scope_invalid')
+        arguments[4] = DEV_BINARY
+        arguments += ['-dev-keep-hours', '24', '-expected-dev-commit', development['source_commit'], '-expected-dev-scope', development['scope_id']]
+        for flag, value in [('-batch', '5000'), ('-max-pairs', '100000')]:
+            arguments[arguments.index(flag)+1] = value
     return arguments, output
 
 
@@ -153,9 +179,13 @@ def reconcile(database, mode, sweep):
         sweep['completed_at'] = time.time()
 
 
-def vacuum(database):
+def vacuum(database, development=False):
     # 正常 VACUUM 供库内复用；不在后台获取 TRUNCATE/FULL 的独占锁。
-    settings = "SET lock_timeout='1s'; SET statement_timeout='60s'; SET vacuum_cost_delay='10ms'; SET vacuum_cost_limit=500;"
+    if development and database != 'powerx_dev':
+        raise RuntimeError('development_retention_scope_invalid')
+    # 10ms/500 在 dev 整理后的约 1.6 GiB 上仍会用尽 60 秒；仅 dev 专项提高吞吐。
+    delay = '2ms' if development else '10ms'
+    settings = "SET lock_timeout='1s'; SET statement_timeout='60s'; SET vacuum_cost_delay='"+delay+"'; SET vacuum_cost_limit=500;"
     result = subprocess.run(['runuser', '-u', 'postgres', '--', 'psql', '-X', '-q',
                              '-v', 'ON_ERROR_STOP=1', '-d', database, '-c', settings,
                              '-c', 'VACUUM (ANALYZE, TRUNCATE FALSE, PARALLEL 0) public.capability_registry_invocation_traces, public.capability_registry_event_publications'],
@@ -166,12 +196,17 @@ def vacuum(database):
 
 def maintain(name, config, report):
     database, _ = TARGETS[name]
-    runtime_guard(name, config['targets'][name])
-    path = STATE / (name + '.json')
+    binding = config['targets'][name]
+    development = development_binding(name, binding)
+    runtime_guard(name, binding)
+    path = STATE / (name + ('-24h' if development else '') + '.json')
     state = json.loads(path.read_text()) if path.exists() else {}
     if state.get('stopped'):
         raise RuntimeError(state['stopped'])
     before = metadata(database)
+    if development:
+        before['highwater'] = min(before['highwater'], binding['highwater'])
+    report.update({'retention_hours': 24 if development else 168, 'frozen_source_highwater': binding.get('highwater')})
     volume = os.statvfs('/')
     available = volume.f_bavail * volume.f_frsize
     remaining = 4*GIB - allocated_bytes(ARCHIVES)
@@ -191,10 +226,11 @@ def maintain(name, config, report):
                        'sweep_cutoff': sweep['cutoff'], 'mode': mode})
         atomic_json(path, state); return
     if not sweep or sweep.get('completed_at'):
-        sweep = {'cutoff': (dt.datetime.now(dt.timezone.utc)-dt.timedelta(days=7,seconds=1)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        sweep = {'cutoff': (dt.datetime.now(dt.timezone.utc)-dt.timedelta(hours=24 if development else 168,seconds=1)).strftime('%Y-%m-%dT%H:%M:%SZ'),
                  'highwater': before['highwater'], 'cursor': 0, 'pairs': 0}
         state[mode] = sweep
-    arguments, output = execute(database, mode, sweep, available)
+    arguments, output = (execute(database, mode, sweep, available, binding) if development
+                         else execute(database, mode, sweep, available))
     atomic_json(path, state)
     if mode == 'preview': prune_previews(database)
     result = subprocess.run(arguments, capture_output=True, text=True, timeout=70, cwd='/')
@@ -215,7 +251,7 @@ def maintain(name, config, report):
     # 不删除归档；至少一万对已删并且间隔一小时后再做有界普通 VACUUM。
     state['since_vacuum'] = state.get('since_vacuum', 0) + report['deleted_pairs_this_run']
     if mode == 'apply' and state['since_vacuum'] >= 10000 and time.time()-state.get('vacuum_at', 0) >= 3600:
-        report['vacuum'] = vacuum(database)
+        report['vacuum'] = vacuum(database, development=True) if development else vacuum(database)
         state['vacuum_at'] = time.time()
         if report['vacuum']['success']: state['since_vacuum'] = 0
         atomic_json(path, state)

@@ -1,0 +1,193 @@
+{
+  "recorded_at": "2026-11-16T04:34:02.417241+00:00",
+  "database": "powerx_dev",
+  "deployed_core_source": "29db1827e91250c61525edd560d43e6503bcfdc4",
+  "approved_retention_hours": 24,
+  "frozen_highwater": 4894326,
+  "cutoff": "2026-11-15T03:23:01Z",
+  "deleted_pairs": 4180838,
+  "raw_copy_restore_verified_before_delete": true,
+  "offhost": {
+    "pairs": 4180838,
+    "archive_files": 1674,
+    "archive_bytes": 867210398,
+    "automatic_deletion": false,
+    "custody_manifest_sha256": "bd91d8512ed6d500f0301bb826c70a4463cb976dc82abe72733b48d963e12c9d"
+  },
+  "tests": {
+    "go_race_pass_including_subtests": 43,
+    "go_vet": "passed",
+    "linux_amd64_helper_build": "passed",
+    "python_unittest": 14,
+    "isolated_test_database_removed": true
+  },
+  "new_rows_since_frozen_highwater": 70,
+  "new_empty_dequeue_audits": 0,
+  "before": {
+    "relations": [
+      {
+        "table": "capability_registry_event_publications",
+        "heap_bytes": 3644465152,
+        "indexes_bytes": 1491746816,
+        "total_bytes": 5137252352
+      },
+      {
+        "table": "capability_registry_invocation_traces",
+        "heap_bytes": 6196019200,
+        "indexes_bytes": 2134089728,
+        "total_bytes": 8345927680
+      }
+    ],
+    "database_bytes": 13632953367,
+    "available_bytes": 9144537088
+  },
+  "after": {
+    "relations": [
+      {
+        "table": "capability_registry_event_publications",
+        "heap_bytes": 488423424,
+        "indexes_bytes": 167313408,
+        "total_bytes": 655884288
+      },
+      {
+        "table": "capability_registry_invocation_traces",
+        "heap_bytes": 855384064,
+        "indexes_bytes": 200581120,
+        "total_bytes": 1070596096
+      }
+    ],
+    "database_bytes": 1876261911,
+    "available_bytes": 20965261312
+  },
+  "compaction_operations": [
+    {
+      "kind": "reindex_idx_capability_trace_retention",
+      "exit": 0,
+      "elapsed_seconds": 158.4327940940857
+    },
+    {
+      "kind": "reindex_idx_capability_event_retention",
+      "exit": 0,
+      "elapsed_seconds": 87.3794960975647
+    },
+    {
+      "kind": "vacuum_full_capability_registry_event_publications",
+      "exit": 0,
+      "elapsed_seconds": 22.449511289596558
+    },
+    {
+      "kind": "vacuum_full_capability_registry_invocation_traces",
+      "exit": 0,
+      "elapsed_seconds": 66.06386613845825
+    }
+  ],
+  "retained_rows": {
+    "capability_registry_event_publications": {
+      "rows": 714083,
+      "sha256": "837250e02cb9102499c0476c40b4c82ed1d2c039b7965c810d4058ff470ae9cb"
+    },
+    "capability_registry_invocation_traces": {
+      "rows": 713550,
+      "sha256": "59d19f9385997c2d9aa472399d77dce22ffc908a8086b1398fcfb5fb995e8b54"
+    }
+  },
+  "retained_rows_unchanged": true,
+  "all_target_indexes_valid_and_ready": true,
+  "active_maintenance_sessions": 0,
+  "agent_owned_fixture_stopped": true,
+  "services_restarted": false,
+  "health_http": {
+    "dev": 200,
+    "prod": 200
+  },
+  "database_space_reclaimed_bytes": 11756691456,
+  "native_cleanup_after_compaction": {
+    "owner_instance": "22164c23-28b9-440d-9377-5792a438d0e5",
+    "cycle_id": "fa0f4c8c-983f-467f-a0e7-21609babc783",
+    "state": "completed",
+    "started_at": "2026-11-16T04:28:10.750774407Z",
+    "finished_at": "2026-11-16T04:28:31.320073201Z",
+    "last_success_at": "2026-11-16T04:28:31.320073201Z",
+    "consecutive_failures": 0
+  },
+  "dev_periodic_24h_activation": {
+    "retention_hours": 24,
+    "frozen_highwater": 4894326,
+    "first_apply_deleted_pairs": 54474,
+    "first_scheduled_followup": {
+      "retention_hours": 24,
+      "frozen_source_highwater": 4894326,
+      "state": "active",
+      "mode": "apply",
+      "reason": null,
+      "relation_bytes_before": 1726939136,
+      "dead_rows_estimate": 108998,
+      "cursor": 4894326,
+      "highwater": 4894326,
+      "pairs_seen_or_deleted_in_sweep": 54474,
+      "pairs_this_run": 0,
+      "sweep_complete": true,
+      "sweep_cutoff": "2026-11-15T04:28:43Z",
+      "relation_bytes_after": 1726939136,
+      "relation_bytes_reclaimed_observed": 0,
+      "deleted_pairs_this_run": 0
+    },
+    "prod_binding_unchanged": true,
+    "timer_modified": false,
+    "controlled_helper_sha256": "3d8978f33df6422b603e978c494f1964df170c6ff09e2e4dbf7fc392d64a6d40",
+    "worker_sha256": "d3ab9951aae52e0531f4881c13e32ba29af4c2511a5ba2ce3bb53a7e3906c1ca"
+  },
+  "retained_highwaters_before_compaction": {
+    "capability_registry_event_publications": 4894921,
+    "capability_registry_invocation_traces": 4894388
+  },
+  "ordinary_vacuum_followup": {
+    "initial_60s_run_success": false,
+    "dev_only_cost_delay_ms": 2,
+    "prod_cost_delay_ms_unchanged": 10,
+    "statement_timeout_seconds_unchanged": 60,
+    "verified_success": true,
+    "elapsed_seconds": 17.944374322891235
+  },
+  "total_deleted_pairs_including_followup": 4235312,
+  "final_database_measurement": [
+    {
+      "table": "capability_registry_event_publications",
+      "heap_bytes": 488464384,
+      "index_bytes": 167370752,
+      "total_bytes": 655998976
+    },
+    {
+      "table": "capability_registry_invocation_traces",
+      "heap_bytes": 855457792,
+      "index_bytes": 200663040,
+      "total_bytes": 1071046656
+    },
+    {
+      "database_bytes": 1876900887
+    },
+    {
+      "maintenance_sessions": 0
+    }
+  ],
+  "final_filesystem": {
+    "total_bytes": 126424895488,
+    "available_bytes": 20978298880,
+    "free_bytes": 26346815488
+  },
+  "df_used_percent": 83,
+  "health": {
+    "dev": {
+      "http": 200,
+      "version": "dev-20261116-1053",
+      "environment": "dev"
+    },
+    "prod": {
+      "http": 200,
+      "version": "prod-20261113-1002",
+      "environment": "prod"
+    }
+  },
+  "owned_maintenance_processes_exited": true,
+  "prod_policy_or_runtime_modified": false
+}

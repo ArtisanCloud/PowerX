@@ -43,10 +43,11 @@ func configureStorageGovernance(cfg *config.Config, deps *shared.Deps, archives 
 		LegacyHandoffBlocked: !c.AdvancedOperationsEnabled,
 		Identity:             storagegov.Identity{HostID: c.HostID, InstanceID: cfg.EnvironmentID, Environment: cfg.Deployment.Env, FilesystemID: c.FilesystemID},
 		FilesystemPath:       path, Collector: storageobserver.Collector{},
-		DB:                    deps.DB,
-		RequireRecoveryAnchor: cfg.Recovery.ProfileFile == "" && !cfg.Recovery.ReadOnly(),
-		SamplingConfigured:    c.SamplingEnabled,
-		SamplingWorkerEnabled: c.SamplingEnabled && !config.BackgroundWorkersDisabled(cfg),
+		MaintenanceDataDirectory: bindStorageSourcePath(c.PostgresDataDirectory),
+		DB:                       deps.DB,
+		RequireRecoveryAnchor:    cfg.Recovery.ProfileFile == "" && !cfg.Recovery.ReadOnly(),
+		SamplingConfigured:       c.SamplingEnabled,
+		SamplingWorkerEnabled:    c.SamplingEnabled && !config.BackgroundWorkersDisabled(cfg),
 	}
 	if c.SamplingEnabled && (deps.DB == nil || cfg.EnvironmentID == "" || cfg.Deployment.Env == "") {
 		return fmt.Errorf("storage sampling requires database and deployment identity")

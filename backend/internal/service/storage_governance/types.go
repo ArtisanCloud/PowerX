@@ -91,6 +91,8 @@ type Options struct {
 	Lifecycle                *lifecycle.Engine
 	LifecycleWorkerEnabled   bool
 	DatabaseRetentionAllowed bool
+	MaintenanceDataDirectory string
+	MaintenanceBackend       DatabaseMaintenanceBackend // 测试/同一持久化合同注入；默认使用当前 Core DB。
 	AdmissionEnabled         bool
 	LogDelivery              func() *writer.LokiDeliveryStats
 	Notify                   func(context.Context, CapacityNotification) error

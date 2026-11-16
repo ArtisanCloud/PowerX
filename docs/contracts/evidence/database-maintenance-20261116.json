@@ -1,0 +1,84 @@
+{
+  "date": "2026-11-16",
+  "source_branch": "024-ai-engineering-skills",
+  "source_base_commit": "29e6e4814943416e986e422a2e045daf4f3aa3ac",
+  "scope": "Core source and isolated validation only; no new dev/prod live mutations",
+  "postgresql": {
+    "major_version": 14,
+    "owned_temporary_instance": true,
+    "isolated_random_schemas": true,
+    "redis": "in-process miniredis",
+    "checks": [
+      "TaskBus Apply/Complete lease fencing and terminal receipt",
+      "VACUUM FULL reduces allocated table/index size and preserves retained-row MD5 digests",
+      "ordinary VACUUM runs outside transaction and restores pooled connection settings",
+      "cancellation matches recorded backend PID, backend_start, application_name, database and role",
+      "expired delivery cannot persist results or replay SQL",
+      "interruption, target change, Root revocation, cancellation tombstones, fixed-table and WAL/disk guards",
+      "metadata retention preserves unconfirmed intent"
+    ]
+  },
+  "validation": {
+    "go_race_related_packages": "passed (7 packages; repository has no separate tests)",
+    "final_go_race_maintenance": "passed (3 packages, includes 3 native PostgreSQL tests)",
+    "go_vet": "passed",
+    "capability_check": "passed; six explicit Root runtime-control exclusions",
+    "frontend_unit": "11 tests passed in 4 files",
+    "browser": "4 Chromium scenarios passed: 1440 light, 390/320 dark, unknown-result reload and original cancellation; SSE update/reconnect, no idle polling, identity-change disconnection",
+    "nuxt_build": "passed",
+    "linux_amd64_core_build": "passed",
+    "make_unit_test": "blocked by existing missing backend/test-silent.sh; targeted meaningful regression above completed"
+  },
+  "temporary_process_cleanup": {
+    "owned_postgres_stopped": true,
+    "owned_postgres_socket_removed": true,
+    "owned_web_stopped": true,
+    "ports_3346_and_19434_listeners": false,
+    "browser_contexts_and_sse_fixture_servers_closed": true
+  },
+  "deployment": {
+    "feature_deployed_to_dev": false,
+    "feature_deployed_to_prod": false,
+    "plugin_changes": false,
+    "new_schema_or_migration": false,
+    "compaction_requires_trusted_current_Core_postgres_data_directory": true,
+    "first_release_tables": [
+      "capability_registry_invocation_traces",
+      "capability_registry_event_publications"
+    ],
+    "physical_compaction_automatic_scheduler": false
+  },
+  "screenshots": {
+    "desktop-light": "docs/contracts/evidence/database-maintenance-20261116-desktop-light.png",
+    "mobile-dark": "docs/contracts/evidence/database-maintenance-20261116-mobile-dark.png"
+  },
+  "local_validation_log_hashes": {
+    "regression-race.log": {
+      "sha256": "84a94d51785aaf890fda518e719009a3d2d8d6bf26fdaacda33ed1ec483673b9"
+    },
+    "final-maintenance-race.log": {
+      "sha256": "6d7ac4cc095d26e8926e7146ac3b4ca68e2278a84b4f8779e3a38dad5e5bde08"
+    },
+    "frontend-unit.log": {
+      "sha256": "61fd4230908131ebb682ab85df1addec42ad1590f066ff56ef2772708731bb04"
+    },
+    "browser-tests.log": {
+      "sha256": "b8a8c89031620bef91d09621efba179bf8e7a0ed65d0d54ff842c38930a2d7c3"
+    },
+    "web-build.log": {
+      "sha256": "4070c0f4ebda8cbfb075af3a5100b1c61e941af0a3b8dc6ebe83700f8a8519df"
+    },
+    "linux-build.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "go-vet.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "capability-check.log": {
+      "sha256": "182437b1338e91d06884f691752fb67c30cddde00bfbc50444f5d2aa437777c2"
+    },
+    "make-unit-test.log": {
+      "sha256": "fbd9495375fc85f386eed7a36d58adf07cbac695575f62d38ff6baa24619dc86"
+    }
+  }
+}
