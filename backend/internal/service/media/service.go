@@ -90,6 +90,8 @@ type assetRepository interface {
 }
 
 type MediaService struct {
+	// externalProbeClient is a package-private test seam; nil always uses the public-address guard.
+	externalProbeClient      *http.Client
 	imageProcessing          *imageProcessingPolicy
 	derivativeEventNamespace string
 	derivatives              derivativeRepository
@@ -1821,7 +1823,7 @@ func (s *MediaService) populateExternalLinkMetadata(ctx context.Context, in *Cre
 	if rawURL == "" {
 		return ErrExternalURLRequired
 	}
-	size, mime, err := probeExternalObject(ctx, rawURL)
+	size, mime, err := probeExternalObjectWithClient(ctx, rawURL, s.externalProbeClient)
 	if err != nil {
 		return err
 	}
@@ -1835,6 +1837,10 @@ func (s *MediaService) populateExternalLinkMetadata(ctx context.Context, in *Cre
 }
 
 func probeExternalObject(ctx context.Context, target string) (int64, string, error) {
+	return probeExternalObjectWithClient(ctx, target, nil)
+}
+
+func probeExternalObjectWithClient(ctx context.Context, target string, client *http.Client) (int64, string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -1846,7 +1852,11 @@ func probeExternalObject(ctx context.Context, target string) (int64, string, err
 	if scheme != "http" && scheme != "https" {
 		return 0, "", fmt.Errorf("unsupported external url scheme: %s", parsed.Scheme)
 	}
-	client := newGuardedHTTPClient(externalProbeTimeout)
+	if client == nil {
+		client = newGuardedHTTPClient(externalProbeTimeout)
+		// Each probe owns its transport. Do not retain idle sockets and goroutines.
+		defer client.CloseIdleConnections()
+	}
 	if size, mime, err := issueProbeRequest(ctx, client, http.MethodHead, parsed.String()); err == nil {
 		return size, mime, nil
 	}
@@ -1956,7 +1966,7 @@ func guardedDialControl(_ string, address string, _ syscall.RawConn) error {
 }
 
 func isDisallowedProbeIP(ip net.IP) bool {
-	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+	if !ip.IsGlobalUnicast() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
 		ip.IsMulticast() || ip.IsUnspecified() || ip.IsPrivate() {
 		return true
 	}
