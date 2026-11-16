@@ -36,12 +36,22 @@ func (r *TenantKeyPairRepository) DeactivateAll(ctx context.Context, env string,
 		Update("active", false).Error
 }
 
-// GetByScopeAndKeyID includes retained inactive versions, never another tenant's key.
-func (r *TenantKeyPairRepository) GetByScopeAndKeyID(ctx context.Context, env, tenantUUID, keyID string) (*dbmodel.TenantKeyPair, error) {
-	var pair dbmodel.TenantKeyPair
-	err := r.db.WithContext(ctx).Where("env = ? AND tenant_uuid = ? AND k_id = ?", env, tenantUUID, keyID).First(&pair).Error
-	if err != nil {
-		return nil, err
+// ListByScopeAndKeyID retains inactive historical keys but excludes deleted keys.
+// Legacy installations can contain multiple rows with the same key identifier.
+func (r *TenantKeyPairRepository) ListByScopeAndKeyID(ctx context.Context, env, tenantUUID, keyID string) ([]dbmodel.TenantKeyPair, error) {
+	var pairs []dbmodel.TenantKeyPair
+	err := r.db.WithContext(ctx).Where("env = ? AND tenant_uuid = ? AND k_id = ?", env, tenantUUID, keyID).
+		Order("active DESC").Order("id DESC").Find(&pairs).Error
+	if err == nil && len(pairs) == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
-	return &pair, nil
+	return pairs, err
+}
+
+// KeyIDsByScope includes deleted records so an identifier is never reused.
+func (r *TenantKeyPairRepository) KeyIDsByScope(ctx context.Context, env, tenantUUID string) ([]string, error) {
+	var ids []string
+	err := r.db.WithContext(ctx).Unscoped().Model(&dbmodel.TenantKeyPair{}).
+		Where("env = ? AND tenant_uuid = ?", env, tenantUUID).Pluck("k_id", &ids).Error
+	return ids, err
 }

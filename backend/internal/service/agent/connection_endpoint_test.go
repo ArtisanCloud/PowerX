@@ -63,6 +63,18 @@ func TestEndpointClearPreservesStoredSecretButOmissionPreservesCustomEndpoint(t 
 	for _, fullSave := range []bool{false, true} {
 		t.Run(map[bool]string{false: "credential_only", true: "full_profile"}[fullSave], func(t *testing.T) {
 			s := environmentAliasFixture(t)
+			expectedDefault := "https://api.openai.com/v1"
+			if fullSave {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					require.Equal(t, "/v1/models", r.URL.Path)
+					require.Equal(t, "Bearer fixture-key", r.Header.Get("Authorization"))
+					_, _ = w.Write([]byte(`{"data":[{"id":"gpt-4o"}]}`))
+				}))
+				defer server.Close()
+				expectedDefault = server.URL + "/v1"
+				manifest, _ := catalog.GetGlobalAIRegister().Manifest("openai")
+				manifest.Auth.Defaults["base_url"] = expectedDefault
+			}
 			ctx, tenant := context.Background(), onlineTestTenant
 			savedOnlineCredential(t, s, tenant, "default", "openai", "https://old-proxy.invalid/v1")
 			require.NoError(t, s.SaveCredentialOnly(ctx, "dev", &tenant, &am.AIProviderCredential{Name: "dev-openai", Provider: "openai", Data: datatypes.JSONMap{}}))
@@ -79,7 +91,7 @@ func TestEndpointClearPreservesStoredSecretButOmissionPreservesCustomEndpoint(t 
 			require.NoError(t, err)
 			base, key, err = s.ResolveConnFromStore(ctx, "dev", &tenant, "openai", "", "")
 			require.NoError(t, err)
-			require.Equal(t, "https://api.openai.com/v1", base)
+			require.Equal(t, expectedDefault, base)
 			require.Equal(t, "fixture-key", key)
 			legacy, err := s.credRepo.FindByScopeNameProvider(ctx, "default", &tenant, "default-openai", "openai")
 			require.NoError(t, err)

@@ -1,6 +1,7 @@
 package tenantkeys
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64" // 仅 DirectWrapper 构造时可能用到
 	"encoding/json"
@@ -149,7 +150,10 @@ func (s *TenantKeyService) ensureActiveKeyPair(ctx context.Context, env string, 
 		return nil, err
 	}
 
-	kid := s.nextKeyPrefix(tenantUUID) + ":v1"
+	kid, err := s.nextAvailableKeyID(ctx, env, tenantUUID)
+	if err != nil {
+		return nil, err
+	}
 
 	kp := &modeltenant.TenantKeyPair{
 		ScopeRef:   coremodel.ScopeRef{Env: env, TenantUUID: tenantUUID},
@@ -182,7 +186,10 @@ func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenant
 }
 
 func (s *TenantKeyService) rotateKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
-	old, _ := s.kpRepo.GetActiveByScope(ctx, env, tenantUUID)
+	kid, err := s.nextAvailableKeyID(ctx, env, tenantUUID)
+	if err != nil {
+		return nil, err
+	}
 
 	pubPEM, privPEM, err := crypto.GenerateRSA()
 	if err != nil {
@@ -198,7 +205,7 @@ func (s *TenantKeyService) rotateKeyPair(ctx context.Context, env string, tenant
 			Env:        env,
 			TenantUUID: tenantUUID,
 		},
-		KID:       s.nextKeyID(old, tenantUUID),
+		KID:       kid,
 		Alg:       "RSA-OAEP-256",
 		PublicPEM: string(pubPEM),
 		EncPrivate: datatypes.JSONMap{
@@ -295,21 +302,34 @@ func (s *TenantKeyService) UnsealSensitive(ctx context.Context, env string, tena
 	if strings.TrimSpace(sealed.KID) == "" {
 		return errors.New("sealed key id missing")
 	}
-	kp, err := s.kpRepo.GetByScopeAndKeyID(ctx, env, tenantUUID, sealed.KID)
+	pairs, err := s.kpRepo.ListByScopeAndKeyID(ctx, env, tenantUUID, sealed.KID)
 	if err != nil {
 		return err
 	}
-	w, err := wrappedFromJSONMap(kp.EncPrivate)
-	if err != nil {
-		return err
+	// A legacy KID may name multiple RSA keys. Unwrapping alone is insufficient:
+	// only the key that decrypts this exact ciphertext is a valid match.
+	for _, kp := range pairs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		w, err := wrappedFromJSONMap(kp.EncPrivate)
+		if err != nil {
+			continue
+		}
+		privPEM, err := s.wrapper.UnwrapPrivateKey(&w)
+		if err != nil {
+			continue
+		}
+		var plain json.RawMessage
+		if err := crypto.UnsealJSONWithPriv(privPEM, &sealed, &plain); err != nil {
+			continue
+		}
+		decoder := json.NewDecoder(bytes.NewReader(plain))
+		decoder.DisallowUnknownFields()
+		return decoder.Decode(out)
 	}
-
-	// 使用注入的 wrapper 解包（不再读环境变量）
-	privPEM, err := s.wrapper.UnwrapPrivateKey(&w)
-	if err != nil {
-		return err
-	}
-	return crypto.UnsealJSONWithPriv(privPEM, &sealed, out)
+	// Do not expose private material or low-level errors in caller responses.
+	return errors.New("tenant credential decryption failed: no matching readable key")
 }
 
 // --- helpers ---
@@ -331,17 +351,25 @@ func wrappedFromJSONMap(m datatypes.JSONMap) (crypto.Wrapped, error) {
 	return w, nil
 }
 
-func (s *TenantKeyService) nextKeyID(old *modeltenant.TenantKeyPair, tenantUUID string) string {
-	prefix := s.nextKeyPrefix(tenantUUID)
-	version := 1
-	if old != nil {
-		if idx := strings.LastIndex(old.KID, ":v"); idx != -1 {
-			if v, err := strconv.Atoi(old.KID[idx+2:]); err == nil {
-				version = v + 1
+// Called under withScopeLock: retained and deleted versions both reserve their IDs.
+func (s *TenantKeyService) nextAvailableKeyID(ctx context.Context, env, tenantUUID string) (string, error) {
+	ids, err := s.kpRepo.KeyIDsByScope(ctx, env, tenantUUID)
+	if err != nil {
+		return "", err
+	}
+	prefix := s.nextKeyPrefix(tenantUUID) + ":v"
+	version := 0
+	for _, id := range ids {
+		if strings.HasPrefix(id, prefix) {
+			if n, err := strconv.Atoi(strings.TrimPrefix(id, prefix)); err == nil && n > version {
+				version = n
 			}
 		}
 	}
-	return fmt.Sprintf("%s:v%d", prefix, version)
+	if version == int(^uint(0)>>1) {
+		return "", errors.New("tenant key version exhausted")
+	}
+	return fmt.Sprintf("%s%d", prefix, version+1), nil
 }
 
 func (s *TenantKeyService) nextKeyPrefix(tenantUUID string) string {

@@ -441,35 +441,24 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 	prof *dbmodel.AIModelProfile,
 	setActive bool, // ← 新增开关，通常传 true
 ) error {
+	if cred == nil || prof == nil {
+		return syncError(422, "AI_SETTINGS_PROVIDER_NOT_CONFIGURED")
+	}
+	reg := catalog.GetGlobalAIRegister()
+	provider := reg.CanonicalProvider(cred.Provider)
+	if provider == "" || provider != reg.CanonicalProvider(prof.Provider) {
+		return syncError(422, "AI_MODEL_SYNC_REQUEST_INVALID")
+	}
+	cred.Provider, prof.Provider = provider, provider
 	env = dbmodel.CanonicalAIEnvironment(env)
 	cred.Name = dbmodel.AICredentialNameForEnvironment(cred.Name, env, utils.Slug(cred.Provider))
 	cred.Env, cred.TenantUUID = env, tenantUUID
 	prof.Env, prof.TenantUUID = env, tenantUUID
-	if prof.Modality == "llm" {
-		if err := s.ValidateLLMParameters(ctx, env, tenantUUID, prof.Provider, prof.Model, prof.Defaults); err != nil {
-			return err
-		}
-	}
-	if prof.Modality == "vlm" {
-		if err := s.ValidateVLMProfile(ctx, env, tenantUUID, prof.Provider, prof.Model, prof.Defaults); err != nil {
-			return err
-		}
-	}
-	s.applyManifestToProfile(prof)
-	if prof.Modality == "image" {
+
+	// Static operation schemas validate payload shape only, not account availability.
+	if prof.Modality == "image" && findModelManifest("image", prof.Provider, prof.Model) != nil {
 		if err := s.normalizeImageProfile(ctx, env, tenantUUID, prof); err != nil {
 			return err
-		}
-	}
-	if findModelManifest(prof.Modality, prof.Provider, prof.Model) == nil {
-		if _, online := modeldiscovery.ProviderSpec(prof.Provider); online {
-			model, err := s.TenantModelManifest(ctx, env, tenantUUID, prof.Modality, prof.Provider, prof.Model)
-			if err != nil {
-				return err
-			}
-			if len(model.Operations) > 0 {
-				prof.Tags = append(prof.Tags, catalog.OnlineUsageSelectedTag)
-			}
 		}
 	}
 	if err := normalizeCredentialEndpoint(cred); err != nil {
@@ -479,75 +468,29 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 	// 是否提交了新密钥？
 	sensKeys := []string{"api_key", "secret_id", "secret_key", "access_token", "client_secret", "secret"}
 	hasNewSecret, placeholderKeys := normalizeCredentialSecretInput(cred.Data, sensKeys...)
+	connectionChanged := hasNewSecret
 
-	baseURL := ""
-	if v, _ := cred.Data["base_url"].(string); v != "" {
-		baseURL = v
-	}
-
-	// 有新密钥则严格直连校验（只用这次入参，不读库）
-	if hasNewSecret {
-		// LLM：真实连通性校验（会实际调用第三方）
-		if strings.EqualFold(prof.Modality, "llm") {
-			apiKey := ""
-			if v, _ := cred.Data["api_key"].(string); strings.TrimSpace(v) != "" {
-				apiKey = strings.TrimSpace(v)
-			}
-			secretID := ""
-			if v, _ := cred.Data["secret_id"].(string); strings.TrimSpace(v) != "" {
-				secretID = strings.TrimSpace(v)
-			}
-			secretKey := ""
-			if v, _ := cred.Data["secret_key"].(string); strings.TrimSpace(v) != "" {
-				secretKey = strings.TrimSpace(v)
-			}
-			region := ""
-			if v, _ := cred.Data["region"].(string); strings.TrimSpace(v) != "" {
-				region = strings.TrimSpace(v)
-			}
-			// 腾讯混元：支持两种接入方式（OpenAI SDK / 腾讯云 SDK）
-			if strings.EqualFold(strings.TrimSpace(prof.Provider), "hunyuan") {
-				mode := ""
-				if v, _ := cred.Data["auth_mode"].(string); strings.TrimSpace(v) != "" {
-					mode = strings.TrimSpace(v)
-				}
-				if err := s.PingHunyuan(ctx, env, tenantUUID, mode, prof.Model, baseURL, apiKey, secretID, secretKey, region); err != nil {
-					return fmt.Errorf("连通性校验失败: %w", err)
-				}
-			} else {
-				if err := s.PingStrict(ctx, prof.Modality, prof.Provider, prof.Model,
-					baseURL,
-					apiKey,
-					secretID,
-					secretKey,
-					region,
-				); err != nil {
-					return fmt.Errorf("连通性校验失败: %w", err)
-				}
-			}
-		} else {
-			// 非 LLM：目前只做结构校验（模型是否存在、base_url 是否合法、鉴权字段是否齐）
-			if err := s.PingGeneric(
-				ctx,
-				env,
-				tenantUUID,
-				contract.Modality(strings.ToLower(strings.TrimSpace(prof.Modality))),
-				prof.Provider,
-				prof.Model,
-				baseURL,
-				utils.FirstJSONNonEmpty(cred.Data, sensKeys...),
-			); err != nil {
-				return fmt.Errorf("连通性校验失败: %w", err)
-			}
-		}
-	} else {
-		// 未提交新密钥时保留密文；只有省略 base_url 才继承旧地址，显式空值使用默认地址。
+	// Resolve unchanged secrets before entering the atomic save. Validation below
+	// reads the submitted connection from the transaction, never the old profile.
+	if !hasNewSecret {
 		if old, err := s.credRepo.FindByEquivalentScopeNameProvider(ctx, env, tenantUUID, cred.Name, cred.Provider); err == nil && old != nil {
+			for _, field := range []string{"base_url", "auth_mode", "organization", "anthropic_version", "azure_deployment"} {
+				if incoming, present := cred.Data[field]; present {
+					newText, _ := incoming.(string)
+					oldText, _ := old.Data[field].(string)
+					if strings.TrimSpace(newText) != strings.TrimSpace(oldText) {
+						connectionChanged = true
+					}
+				}
+			}
+
 			if err := s.inheritCredentialForEnvironment(ctx, env, tenantUUID, cred, old); err != nil {
 				return err
 			}
 		} else if len(placeholderKeys) > 0 {
 			return fmt.Errorf("密钥字段为占位符且没有可保留的已保存密钥：%s", strings.Join(placeholderKeys, ","))
+		} else {
+			connectionChanged = true
 		}
 	}
 
@@ -564,6 +507,44 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 		if err := repoai.NewAIProviderCredentialRepository(tx).
 			UpsertByScopeNameProvider(ctx, env, tenantUUID, cred); err != nil {
 			return err
+		}
+		scoped := NewAgentSettingService(tx)
+		scoped.modelDiscoveryTimeout = s.modelDiscoveryTimeout
+		if _, supported := modeldiscovery.ProviderSpec(prof.Provider); supported && tenantUUID != nil && (connectionChanged || findModelManifest(prof.Modality, prof.Provider, prof.Model) == nil) {
+			mode, _ := cred.Data["auth_mode"].(string)
+			deployment, _ := cred.Data["azure_deployment"].(string)
+			if mode != "tc3" && mode != "aksk" && strings.TrimSpace(deployment) == "" {
+				// Refresh only when the current connection fingerprint has no snapshot.
+				if _, _, err := scoped.onlineModels(ctx, env, tenantUUID, prof.Modality, prof.Provider, func() string {
+					app, _ := splitAppModel(catalog.GetGlobalAIRegister(), prof.Provider, prof.Model)
+					return app
+				}()); err != nil {
+					return err
+				}
+				model, err := scoped.TenantModelManifest(ctx, env, tenantUUID, prof.Modality, prof.Provider, prof.Model)
+				if err != nil {
+					return err
+				}
+				if len(model.Operations) > 0 {
+					prof.Tags = append(prof.Tags, catalog.OnlineUsageSelectedTag)
+				}
+			}
+		}
+		if prof.Modality == "llm" {
+			if err := scoped.ValidateLLMParameters(ctx, env, tenantUUID, prof.Provider, prof.Model, prof.Defaults); err != nil {
+				return err
+			}
+		}
+		if prof.Modality == "vlm" {
+			if err := scoped.ValidateVLMProfile(ctx, env, tenantUUID, prof.Provider, prof.Model, prof.Defaults); err != nil {
+				return err
+			}
+		}
+		scoped.applyManifestToProfile(prof)
+		if prof.Modality == "image" {
+			if err := scoped.normalizeImageProfile(ctx, env, tenantUUID, prof); err != nil {
+				return err
+			}
 		}
 		if err := repoai.NewAIModelProfileRepository(tx).
 			UpsertByScopeModalityProviderModel(ctx, env, tenantUUID, prof); err != nil {
