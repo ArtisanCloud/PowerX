@@ -178,6 +178,18 @@ class IdleRetentionTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'runtime_changed'):
                     idle.runtime_guard('dev', binding)
 
+    def test_development_vacuum_throughput_keeps_production_settings_and_timeout(self):
+        with patch.object(idle.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
+            self.assertTrue(idle.vacuum('powerx_pro')['success'])
+            self.assertIn("vacuum_cost_delay='10ms'", run.call_args.args[0][-3])
+            self.assertTrue(idle.vacuum('powerx_dev', development=True)['success'])
+            self.assertIn("vacuum_cost_delay='2ms'", run.call_args.args[0][-3])
+            self.assertIn("statement_timeout='60s'", run.call_args.args[0][-3])
+            self.assertIn('TRUNCATE FALSE', run.call_args.args[0][-1])
+            with self.assertRaisesRegex(RuntimeError, 'scope_invalid'):
+                idle.vacuum('powerx_pro', development=True)
+            self.assertEqual(run.call_count, 2)
+
 
 if __name__ == '__main__':
     unittest.main()

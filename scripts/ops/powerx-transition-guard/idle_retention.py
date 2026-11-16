@@ -179,9 +179,13 @@ def reconcile(database, mode, sweep):
         sweep['completed_at'] = time.time()
 
 
-def vacuum(database):
+def vacuum(database, development=False):
     # 正常 VACUUM 供库内复用；不在后台获取 TRUNCATE/FULL 的独占锁。
-    settings = "SET lock_timeout='1s'; SET statement_timeout='60s'; SET vacuum_cost_delay='10ms'; SET vacuum_cost_limit=500;"
+    if development and database != 'powerx_dev':
+        raise RuntimeError('development_retention_scope_invalid')
+    # 10ms/500 在 dev 整理后的约 1.6 GiB 上仍会用尽 60 秒；仅 dev 专项提高吞吐。
+    delay = '2ms' if development else '10ms'
+    settings = "SET lock_timeout='1s'; SET statement_timeout='60s'; SET vacuum_cost_delay='"+delay+"'; SET vacuum_cost_limit=500;"
     result = subprocess.run(['runuser', '-u', 'postgres', '--', 'psql', '-X', '-q',
                              '-v', 'ON_ERROR_STOP=1', '-d', database, '-c', settings,
                              '-c', 'VACUUM (ANALYZE, TRUNCATE FALSE, PARALLEL 0) public.capability_registry_invocation_traces, public.capability_registry_event_publications'],
@@ -247,7 +251,7 @@ def maintain(name, config, report):
     # 不删除归档；至少一万对已删并且间隔一小时后再做有界普通 VACUUM。
     state['since_vacuum'] = state.get('since_vacuum', 0) + report['deleted_pairs_this_run']
     if mode == 'apply' and state['since_vacuum'] >= 10000 and time.time()-state.get('vacuum_at', 0) >= 3600:
-        report['vacuum'] = vacuum(database)
+        report['vacuum'] = vacuum(database, development=True) if development else vacuum(database)
         state['vacuum_at'] = time.time()
         if report['vacuum']['success']: state['since_vacuum'] = 0
         atomic_json(path, state)
