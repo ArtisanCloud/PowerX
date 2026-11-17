@@ -58,6 +58,7 @@ type recoveryPlan struct {
 var recoveryRunName = regexp.MustCompile(`^apply-(?:[0-9]+|pilot)$`)
 var recoveryBatchName = regexp.MustCompile(`^batch-[0-9]{8}$`)
 var errRecoveryInvalid = errors.New("审计恢复归档不完整、已变更或无法核验，原始副本保持受保护")
+var errRecoveryReceiptMissing = errors.New("审计恢复批次尚未生成回执，原始副本保持受保护")
 
 // recoveryOpen 固定根目录后逐级 openat；中间目录、叶子软链及硬链接都不能改变读入对象。
 func recoveryOpen(source Source, name string) (*os.File, error) {
@@ -84,10 +85,21 @@ func recoveryOpen(source Source, name string) (*os.File, error) {
 			flags |= unix.O_DIRECTORY
 		}
 		next, e := unix.Openat(fd, part, flags, 0)
-		unix.Close(fd)
 		if e != nil {
+			// 原清理器先导出并恢复核验，之后才首次写回执。仅确认安全父目录
+			// 内的回执叶子不存在时允许跳过；软链、父目录缺失或其他 IO 错误仍拒绝。
+			missingReceipt := false
+			if i == len(parts)-1 && part == "receipt.json" && errors.Is(e, unix.ENOENT) {
+				var leaf unix.Stat_t
+				missingReceipt = errors.Is(unix.Fstatat(fd, part, &leaf, unix.AT_SYMLINK_NOFOLLOW), unix.ENOENT)
+			}
+			unix.Close(fd)
+			if missingReceipt {
+				return nil, errRecoveryReceiptMissing
+			}
 			return nil, errRecoveryInvalid
 		}
+		unix.Close(fd)
 		fd = next
 		if unix.Fstat(fd, &st) != nil || st.Uid != *source.FileOwnerUID || st.Mode&0022 != 0 {
 			unix.Close(fd)
@@ -273,6 +285,10 @@ func auditRecoveryPlan(ctx context.Context, source Source, fullVerification ...b
 			name := run.Name() + "/" + batch.Name() + "/receipt.json"
 			var receipt auditRecoveryReceipt
 			file, e := recoveryJSON(source, name, &receipt)
+			if errors.Is(e, errRecoveryReceiptMissing) {
+				out.Protected++
+				continue
+			}
 			if e != nil {
 				return out, e
 			}

@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-17",
+  "pr": 442,
+  "review_thread": "PRRT_kwDOHvBWQM633HSh",
+  "finding": "a receipt absent after interrupted COPY export or restore verification must not block committed sibling batches",
+  "fix": {
+    "missing_receipt": "skip and count as protected only after trusted parent openat traversal and leaf ENOENT confirmed using fstatat AT_SYMLINK_NOFOLLOW",
+    "invalid_existing_receipt": "still abort entire capture",
+    "missing_copy_or_parent": "still abort entire capture",
+    "source_files": "preserved; no fabricated receipt or cleanup"
+  },
+  "regressions": [
+    "committed sibling + empty missing-receipt directory + partial COPY and receipt temporary file",
+    "full verification and fast unchanged check both accept safe incomplete batches",
+    "managed job succeeds with one eligible and two protected batches; original partial bytes remain unchanged",
+    "no eligible batches cannot create verified managed copy",
+    "malformed/non-private/directory/valid or dangling symlink receipts and writable parent still reject",
+    "missing COPY and wrong content SHA still reject capture before any copy",
+    "only receipt leaf absence yields the dedicated missing-receipt error"
+  ],
+  "validation": {
+    "archive_ops_race": {
+      "pass": {
+        "top_level": 77,
+        "including_subtests": 142
+      },
+      "fail": {
+        "top_level": 0,
+        "including_subtests": 0,
+        "tests": []
+      },
+      "skip": {
+        "top_level": 7,
+        "including_subtests": 7,
+        "tests": [
+          "TestAuditRecoveryAcceptsActualOwnedPostgresBinaryCOPY",
+          "TestCommandDrainRealPostgresDumpBlockedThenServiceClose",
+          "TestArchiveCommandOwnedChild",
+          "TestLiveS3Governance",
+          "TestMediaDatabaseSnapshotNativePostgres",
+          "TestArchiveRestartOwnedChild",
+          "TestArchiveOwnedProcessRestart"
+        ]
+      }
+    },
+    "vet": "passed archive_ops",
+    "linux_amd64_compile": "passed archive_ops with CGO_ENABLED=0",
+    "make_unit_test": "cannot start: pre-existing missing backend/test-silent.sh"
+  },
+  "live_changes": {
+    "dev_prod_configuration": false,
+    "database_or_archive_deletion": false,
+    "service_restart": false,
+    "manual_debug_service_started": false
+  },
+  "pending": "merge and deploy dev Core, verify archive source with interrupted batch; prod acceptance follows dev"
+}

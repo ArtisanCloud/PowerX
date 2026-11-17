@@ -86,6 +86,149 @@ func TestAuditRecoveryCapturesOnlyVerifiedCommittedBatchesAndDeduplicates(t *tes
 	require.False(t, unchanged)
 }
 
+func TestAuditRecoveryMissingReceiptsAreProtectedBesideCommittedBatch(t *testing.T) {
+	source, dir, _ := recoveryFixture(t)
+	ctx := context.Background()
+	before, e := auditRecoveryPlan(ctx, source)
+	require.NoError(t, e)
+	// 覆盖建目录后即中断，以及写出部分 COPY / 回执临时文件后中断。
+	empty := filepath.Join(filepath.Dir(dir), "batch-00000002")
+	partial := filepath.Join(filepath.Dir(dir), "batch-00000003")
+	require.NoError(t, os.Mkdir(empty, 0700))
+	require.NoError(t, os.Mkdir(partial, 0700))
+	for _, name := range []string{"traces.copy.gz", "receipt.json.tmp"} {
+		require.NoError(t, os.WriteFile(filepath.Join(partial, name), []byte("interrupted-original"), 0600))
+	}
+	for _, verify := range []bool{true, false} {
+		plan, e := auditRecoveryPlan(ctx, source, verify)
+		require.NoError(t, e)
+		require.Equal(t, 1, plan.Batches)
+		require.Equal(t, 2, plan.Protected)
+		require.Equal(t, before.Files, plan.Files)
+		require.Equal(t, before.Fingerprint, plan.Fingerprint)
+	}
+	s := NewService(ctx, Config{Directory: t.TempDir(), Instance: "owned", Sources: []Source{source}}, Options{})
+	t.Cleanup(s.Close)
+	p, e := s.SavePolicy(archiveRoot(), Policy{Name: "恢复归档", SourceID: source.ID, IntervalMinutes: 5, RetentionDays: 30, RetentionCount: 1, RemoteRetentionDays: 30, RemoteRetentionCount: 100, RemoteMaxBytes: 4 << 30})
+	require.NoError(t, e)
+	j, e := s.start(archiveRoot(), p.ID, uuidFixture(0), "test.root", "", true)
+	require.NoError(t, e)
+	require.Equal(t, "success", j.Status)
+	require.True(t, j.Protected)
+	require.True(t, j.ProvenanceVerified)
+	require.Equal(t, 1, j.AuditRecoveryBatches)
+	require.Equal(t, 2, j.AuditRecoveryProtectedBatches)
+	require.Len(t, j.Files, 4)
+	stored, e := s.readJob(j.ID)
+	require.NoError(t, e)
+	unchanged, e := s.sealedUnchanged(ctx, source, stored, p)
+	require.NoError(t, e)
+	require.True(t, unchanged)
+	for _, path := range []string{empty, partial} {
+		_, e := os.Lstat(filepath.Join(path, "receipt.json"))
+		require.True(t, os.IsNotExist(e), "must not manufacture a receipt for incomplete input")
+	}
+	items, e := os.ReadDir(empty)
+	require.NoError(t, e)
+	require.Empty(t, items)
+	for _, name := range []string{"traces.copy.gz", "receipt.json.tmp"} {
+		raw, e := os.ReadFile(filepath.Join(partial, name))
+		require.NoError(t, e)
+		require.Equal(t, "interrupted-original", string(raw))
+	}
+}
+
+func TestAuditRecoveryOnlyMissingReceiptsCannotProduceManagedCopy(t *testing.T) {
+	source, dir, _ := recoveryFixture(t)
+	require.NoError(t, os.Remove(filepath.Join(dir, "receipt.json")))
+	plan, e := auditRecoveryPlan(context.Background(), source)
+	require.NoError(t, e)
+	require.Zero(t, plan.Batches)
+	require.Equal(t, 1, plan.Protected)
+	require.Empty(t, plan.Files)
+	s := NewService(context.Background(), Config{Directory: t.TempDir(), Instance: "owned", Sources: []Source{source}}, Options{})
+	t.Cleanup(s.Close)
+	j := jobRecord{}
+	entries := map[string]Entry{}
+	require.Error(t, s.captureAuditRecovery(context.Background(), &j, source, entries))
+	require.False(t, j.ProvenanceVerified)
+	require.Empty(t, entries)
+	for _, name := range []string{"traces.copy.gz", "events.copy.gz"} {
+		_, e := os.Stat(filepath.Join(dir, name))
+		require.NoError(t, e, "original COPY files must be preserved")
+	}
+}
+
+func TestAuditRecoveryInvalidReceiptStillBlocksMixedCapture(t *testing.T) {
+	for _, kind := range []string{"malformed", "non_private", "directory", "dangling_symlink", "symlink", "writable_parent_without_receipt", "missing_copy", "bad_hash"} {
+		t.Run(kind, func(t *testing.T) {
+			source, dir, r := recoveryFixture(t)
+			bad := filepath.Join(filepath.Dir(dir), "batch-00000002")
+			require.NoError(t, os.Mkdir(bad, 0700))
+			for _, name := range []string{"receipt.json", "traces.copy.gz", "events.copy.gz"} {
+				raw, e := os.ReadFile(filepath.Join(dir, name))
+				require.NoError(t, e)
+				require.NoError(t, os.WriteFile(filepath.Join(bad, name), raw, 0600))
+			}
+			receipt := filepath.Join(bad, "receipt.json")
+			switch kind {
+			case "malformed":
+				require.NoError(t, os.WriteFile(receipt, []byte("{"), 0600))
+			case "non_private":
+				require.NoError(t, os.Chmod(receipt, 0644))
+			case "directory":
+				require.NoError(t, os.Remove(receipt))
+				require.NoError(t, os.Mkdir(receipt, 0700))
+			case "dangling_symlink", "symlink":
+				require.NoError(t, os.Remove(receipt))
+				target := filepath.Join(dir, "receipt.json")
+				if kind == "dangling_symlink" {
+					target += ".missing"
+				}
+				require.NoError(t, os.Symlink(target, receipt))
+			case "writable_parent_without_receipt":
+				require.NoError(t, os.Remove(receipt))
+				require.NoError(t, os.Chmod(bad, 0770))
+			case "missing_copy":
+				require.NoError(t, os.Remove(filepath.Join(bad, "traces.copy.gz")))
+			case "bad_hash":
+				r["archives"].([]map[string]any)[0]["sha256"] = strings.Repeat("a", 64)
+				writeFixtureJSON(t, receipt, r)
+			}
+			for _, verify := range []bool{true, false} {
+				if kind == "bad_hash" && !verify {
+					continue // 快速检查不解析 COPY 内容，实际捕获始终完整核验。
+				}
+				_, e := auditRecoveryPlan(context.Background(), source, verify)
+				require.ErrorIs(t, e, errRecoveryInvalid)
+			}
+			s := NewService(context.Background(), Config{Directory: t.TempDir(), Instance: "owned", Sources: []Source{source}}, Options{})
+			t.Cleanup(s.Close)
+			entries := map[string]Entry{}
+			j := jobRecord{}
+			require.Error(t, s.captureAuditRecovery(context.Background(), &j, source, entries))
+			require.Empty(t, entries, "invalid proof must stop capture before copying any batch")
+			require.False(t, j.ProvenanceVerified)
+		})
+	}
+}
+
+func TestAuditRecoveryOnlyAbsentReceiptLeafIsSkippable(t *testing.T) {
+	source, dir, _ := recoveryFixture(t)
+	require.NoError(t, os.Remove(filepath.Join(dir, "receipt.json")))
+	var receipt auditRecoveryReceipt
+	_, e := recoveryJSON(source, "apply-123/batch-00000001/receipt.json", &receipt)
+	require.ErrorIs(t, e, errRecoveryReceiptMissing)
+	_, e = recoveryJSON(source, "apply-123/batch-00000099/receipt.json", &receipt)
+	require.ErrorIs(t, e, errRecoveryInvalid, "missing parent is not an incomplete batch")
+	_, e = recoveryOpen(source, "apply-123/batch-00000001/absent.copy.gz")
+	require.ErrorIs(t, e, errRecoveryInvalid, "missing COPY is never a skippable receipt")
+	uid := uint32(os.Geteuid() + 1)
+	source.FileOwnerUID = &uid
+	_, e = recoveryJSON(source, "apply-123/batch-00000001/receipt.json", &receipt)
+	require.ErrorIs(t, e, errRecoveryInvalid, "untrusted owner is not a missing receipt")
+}
+
 func TestAuditRecoveryUnknownOrMalformedProofNeverBecomesManagedCopy(t *testing.T) {
 	for _, kind := range []string{"delete_intent", "restore_unverified", "foreign_file", "missing_pair", "bad_compressed_hash", "bad_raw_hash", "missing_schema", "future_time", "symlink", "hardlink", "owner", "contract", "gzip_tail"} {
 		t.Run(kind, func(t *testing.T) {
