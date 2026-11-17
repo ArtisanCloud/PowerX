@@ -110,7 +110,12 @@ func (s *Service) captureWithMode(ctx context.Context, j *jobRecord, p Policy, s
 		}
 	}
 	var e error
-	if !online && isLogSource(source.Kind) && source.RotationFormat != "" {
+	if source.AuditRecoveryDatabase != "" {
+		if online {
+			return errRecoveryInvalid
+		}
+		e = s.captureAuditRecovery(ctx, j, source, entries)
+	} else if !online && isLogSource(source.Kind) && source.RotationFormat != "" {
 		e = s.captureSealedLogs(ctx, j, source, entries)
 	} else if !online {
 		e = filepath.WalkDir(source.Directory, func(path string, d os.DirEntry, walkErr error) error {

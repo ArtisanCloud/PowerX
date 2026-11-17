@@ -80,6 +80,16 @@ func sealedSnapshot(source Source, c lifecycle.Candidate) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%s:%d:%d:%d:%d:%d", source.ID, source.Directory, source.Kind, c.Device, c.Inode, c.Bytes, c.ModifiedNS, c.ChangedNS))))
 }
 func (s *Service) sealedUnchanged(ctx context.Context, source Source, last jobRecord, p Policy) (bool, error) {
+	if source.AuditRecoveryDatabase != "" {
+		plan, e := auditRecoveryPlan(ctx, source, false)
+		if e != nil {
+			return false, e
+		}
+		if plan.Batches == 0 {
+			return true, nil
+		}
+		return last.Status == "success" && last.AuditRecoveryFingerprint == plan.Fingerprint && last.PolicyRevision == p.Revision && (last.Target == nil || last.RemoteState == "success"), nil
+	}
 	if !isLogSource(source.Kind) || source.RotationFormat == "" {
 		return false, nil
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -123,7 +124,7 @@ func (f *maintenanceFixtureBus) Reject(context.Context, event_bus.StreamTaskDeli
 	return nil
 }
 
-func maintenanceFixture(t *testing.T) (*Service, *maintenanceFixtureBackend, *maintenanceFixtureBus) {
+func maintenanceFixture(t *testing.T, configure ...func(*budget.Config)) (*Service, *maintenanceFixtureBackend, *maintenanceFixtureBus) {
 	t.Helper()
 	old := coremodel.PowerXSchema
 	coremodel.PowerXSchema = "main"
@@ -140,7 +141,11 @@ func maintenanceFixture(t *testing.T) (*Service, *maintenanceFixtureBackend, *ma
 	ctrl, e := NewControlService(db, ControlOptions{Scope: scope, Queue: queue})
 	require.NoError(t, e)
 	root := t.TempDir()
-	coordinator, e := budget.New(budget.Config{Directory: filepath.Join(root, "runtime"), FilesystemPath: root, HostID: scope.HostID, FilesystemID: scope.FilesystemID, InstanceID: scope.InstanceID, MinFreeBytes: 1 << 20, CriticalFreeBytes: 1, MaxConcurrent: 1})
+	budgetConfig := budget.Config{Directory: filepath.Join(root, "runtime"), FilesystemPath: root, HostID: scope.HostID, FilesystemID: scope.FilesystemID, InstanceID: scope.InstanceID, MinFreeBytes: 1 << 20, CriticalFreeBytes: 1, MaxConcurrent: 1}
+	for _, fn := range configure {
+		fn(&budgetConfig)
+	}
+	coordinator, e := budget.New(budgetConfig)
 	require.NoError(t, e)
 	fake := &maintenanceFixtureBackend{snapshot: repo.MaintenanceSnapshot{DatabaseOID: 1, Fingerprint: strings.Repeat("a", 64), DatabaseBytes: 1 << 20, LocalDiskVerified: true, WALBudgetBytes: 1 << 30, RewriteSafe: true, Tables: []repo.MaintenanceTable{{ID: "capability-event-publications", OID: 1, TotalBytes: 8192, CanMaintain: true, IndexesValid: true, DefaultTablespace: true}, {ID: "capability-invocation-traces", OID: 2, TotalBytes: 8192, CanMaintain: true, IndexesValid: true, DefaultTablespace: true}}}}
 	s, e := NewService(Options{DB: db, Control: ctrl, Budget: coordinator, FilesystemPath: root, Collector: &fixtureCollector{}, Identity: Identity{HostID: scope.HostID, FilesystemID: scope.FilesystemID, InstanceID: scope.InstanceID, Environment: "test"}, ControlWorkerEnabled: true, DatabaseRetentionAllowed: true, MaintenanceBackend: fake})
@@ -220,6 +225,30 @@ func TestDatabaseMaintenanceRequiresRootFixedTablesAndPreview(t *testing.T) {
 	}
 	_, e = s.StartDatabaseMaintenanceRequest(controlRoot(), DatabaseMaintenanceRequest{RequestID: uuid.NewString(), Confirm: true})
 	require.Equal(t, "DATABASE_MAINTENANCE_PREVIEW_REQUIRED", dto.CodeOf(e))
+}
+
+func TestDatabaseMaintenanceVacuumPreviewAndWorkerUseSameCriticalFloor(t *testing.T) {
+	s, f, _ := maintenanceFixture(t, func(c *budget.Config) {
+		var st unix.Statfs_t
+		require.NoError(t, unix.Statfs(c.FilesystemPath, &st))
+		available := int64(st.Bavail) * int64(st.Bsize)
+		c.MinFreeBytes = available + (1 << 30)
+		c.CriticalFreeBytes = available / 2
+	})
+	ctx := context.Background()
+	_, e := s.PreviewDatabaseMaintenance(controlRoot(), DatabaseMaintenancePreview{Mode: "compact", Tables: []string{"capability-invocation-traces"}})
+	require.Equal(t, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT", dto.CodeOf(e))
+	r := maintenancePreviewAndQueue(t, s, "reuse")
+	require.NoError(t, s.applyDatabaseMaintenance(ctx, maintenanceDelivery(s, r)))
+	require.EqualValues(t, 1, f.executed.Load())
+}
+
+func TestDatabaseMaintenanceRunningVacuumHonorsCriticalAndOtherReservations(t *testing.T) {
+	snap := budget.Snapshot{AvailableBytes: 15 << 30, CriticalFreeBytes: 10 << 30, MinFreeBytes: 20 << 30, ReservedBytes: 3 << 30, Active: []budget.Reservation{{ID: "own", PeakBytes: 1 << 30}, {ID: "other", PeakBytes: 2 << 30}}}
+	require.NoError(t, maintenanceBudgetSafety(snap, "reuse", "own"))
+	snap.AvailableBytes = 11 << 30
+	require.Equal(t, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT", dto.CodeOf(maintenanceBudgetSafety(snap, "reuse", "own")))
+	require.Equal(t, "DATABASE_MAINTENANCE_LEASE_UNCONFIRMED", dto.CodeOf(maintenanceBudgetSafety(snap, "reuse", "missing")))
 }
 func TestDatabaseMaintenanceIdempotencyRegistrationAndSingleActiveJob(t *testing.T) {
 	s, f, bus := maintenanceFixture(t)

@@ -152,6 +152,7 @@
     </UModal>
     <UModal v-model:open="policyOpen" :title="t('storageGov.archive.newPolicy')" :description="t('storageGov.archive.policyHint')" :dismissible="!busy" :close="!busy">
       <template #body><p class="mb-3 text-sm text-muted">{{ t('storageGov.policyControl.editHint',{revision:policyBaseRevision}) }}</p><UForm id="log-archive-policy" :state="policyForm" :schema="policySchema" class="space-y-4" @submit="savePolicy">
+        <UAlert v-if="policyIsAuditRecovery" color="warning" :title="t('storageGov.archive.recoveryTitle')" :description="t('storageGov.archive.recoveryHint')" data-testid="audit-recovery-policy-hint"><template #actions><UButton type="button" color="neutral" :disabled="busy || !!pendingConfiguration" data-testid="audit-recovery-policy-defaults" @click="policyForm.retention_days = 30; policyForm.remote_retention_days = 30">{{ t('storageGov.archive.recoveryDefaults') }}</UButton></template></UAlert>
         <UFormField name="name" :label="t('storageGov.archive.name')"><UInput :disabled="busy || !!pendingConfiguration" v-model="policyForm.name" data-testid="policy-field-name" class="w-full" /></UFormField>
         <UFormField name="source_id" :label="t('storageGov.archive.source')"><USelect :disabled="busy || !!pendingConfiguration" v-model="policyForm.source_id" data-testid="policy-field-source_id" :items="sources.map(s => ({ value: s.id, label: s.name }))" class="w-full" /></UFormField>
         <UFormField name="target_id" :label="t('storageGov.archive.target')"><USelect :disabled="busy || !!pendingConfiguration" v-model="policyTargetChoice" data-testid="policy-field-target_id" :items="policyTargetOptions" class="w-full" /></UFormField>
@@ -230,7 +231,7 @@ let runOwner: ArchiveRunOwner | undefined, operationGeneration = 0;
 let disposed = false, overviewController: AbortController | undefined, catalogController: AbortController | undefined;
 const sections = computed(() => (props.mediaMode?['policies','targets']:['catalog', 'policies', 'targets']).map(value => ({ value, label: t('storageGov.archive.' + value) })));
 const logKinds = new Set(['postgresql_logs', 'system_logs', 'audit_logs', 'application_logs', 'journal']);
-const sources = computed(() => overview.value?.sources.filter(s => props.mediaMode?s.kind==='media':logKinds.has(s.kind)) || []);
+const sources = computed(() => overview.value?.sources.filter(s => props.mediaMode?s.kind==='media':logKinds.has(s.kind)||(s.kind==='database_files'&&!!s.audit_recovery_database)) || []);
 const policies = computed(() => overview.value?.policies.filter(p => sources.value.some(s => s.id === p.source_id)) || []);
 const targets = computed(() => overview.value?.targets.filter(s => s.driver === 's3') || []);
 const currentPolicy = computed(() => policies.value.find(p => p.id === selectedPolicyId.value));
@@ -241,7 +242,7 @@ const targetCanWrite = computed(() => targetControl.value?.authority === 'databa
 const currentTarget = computed(() => currentPolicy.value ? targets.value.find(t => t.id === currentPolicy.value!.target_id) : targets.value[0]);
 watch(policies, items => { if (!items.some(p => p.id === selectedPolicyId.value)) selectedPolicyId.value = items[0]?.id || ''; });
 watch(()=>busy.value||credentialBusy.value||dispositionBusy.value||commandConfirmationBusy.value, value => emit('busy', value));
-const lastSuccess = computed(() => overview.value?.jobs.filter(j => logKinds.has(j.kind) && j.remote_state === 'success').sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]?.created_at);
+const lastSuccess = computed(() => overview.value?.jobs.filter(j => sources.value.some(s=>s.id===j.source_id) && j.remote_state === 'success').sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]?.created_at);
 const sourceName = (id: string) => overview.value?.sources.find(s => s.id === id)?.name || id;
 const targetName = (id: string) => overview.value?.targets.find(s => s.id === id)?.name || '—';
 const time = (value?: string) => value ? new Date(value).toLocaleString() : '—';
@@ -254,6 +255,7 @@ const targetForm = reactive(targetDefaults());
 const policyDefaults = (): ArchivePolicy => ({ name: '', revision: 0, remote_cleanup_enabled: false, source_id: '', target_id: '', enabled: false, include_database: false, interval_minutes: 5, retention_days: 7, retention_count: 168, remote_retention_days: 180, remote_retention_count: 10000, remote_max_bytes: GiB });
 const policyForm = reactive(policyDefaults()), policyBudget = ref(1);
 const policyIsMedia=computed(()=>sources.value.find(s=>s.id===policyForm.source_id)?.kind==='media');
+const policyIsAuditRecovery=computed(()=>!!sources.value.find(s=>s.id===policyForm.source_id)?.audit_recovery_database);
 const policyTargetChoice=computed({get:()=>policyForm.target_id||(policyIsMedia.value?'local-only':undefined),set:(value:string|undefined)=>{policyForm.target_id=value==='local-only'?'':value||''}});
 const policyTargetOptions=computed(()=>[...(policyIsMedia.value?[{value:'local-only',label:t('backupCenter.archives.localOnly')}]:[]),...targets.value.map(t=>({value:t.id!,label:t.name}))]);
 

@@ -306,10 +306,22 @@ func (s *Service) cleanupApproved(ctx context.Context, policyID string) (int, er
 		if i == 0 || j.Protected || (j.Target != nil && j.RemoteState != "success") {
 			continue
 		}
+		age := time.Since(j.CreatedAt)
+		source, sourceErr := s.source(j.SourceID)
+		if j.AuditRecoveryFingerprint != "" || sourceErr == nil && source.AuditRecoveryDatabase != "" {
+			now := time.Now()
+			if s.opts.RetentionNow != nil {
+				now = s.opts.RetentionNow()
+			}
+			age = now.Sub(j.CreatedAt)
+			if !j.ProvenanceVerified || j.AuditRecoveryFingerprint == "" || age < time.Duration(p.RetentionDays)*24*time.Hour {
+				continue
+			}
+		}
 		if s.policyControlRequired() && j.Target != nil && (j.Target.Revision != p.TargetRevision || j.Target.VerifiedFingerprint != p.TargetFingerprint) {
 			continue
 		}
-		if i < p.RetentionCount && time.Since(j.CreatedAt) < time.Duration(p.RetentionDays)*24*time.Hour {
+		if i < p.RetentionCount && age < time.Duration(p.RetentionDays)*24*time.Hour {
 			continue
 		}
 		j.Status = "pruned"
