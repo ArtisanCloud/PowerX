@@ -152,3 +152,46 @@ func TestDatabaseRetentionQueryTimeoutHasDistinctSafeCode(t *testing.T) {
 	require.Equal(t, "DATABASE_RETENTION_QUERY_TIMEOUT", dto.CodeOf(err))
 	require.NotContains(t, err.Error(), "private SQL")
 }
+
+func TestDatabaseRetentionNativeDefersBatchWithoutFullTimeBudget(t *testing.T) {
+	s, apply, db := retentionNative(t)
+	p := adoptRetentionNative(t, s, apply)
+	enableRetentionNative(t, s, apply, p.Revision)
+	seedRetentionNative(t, db)
+	before := retentionRows(t, db)
+	ctx, cancel := context.WithTimeout(context.Background(), 9*time.Second)
+	defer cancel()
+	var failures []error
+	s.runDatabaseRetentionCycle(ctx, func(err error) { failures = append(failures, err) })
+	require.Empty(t, failures)
+	require.Equal(t, before, retentionRows(t, db), "剩余时间不足完整批次预算时，不得再启动删除事务")
+	checkpoint, err := s.readRetentionCheckpoint(context.Background(), db)
+	require.NoError(t, err)
+	require.Nil(t, checkpoint)
+	// 下一调度窗口仍按同一策略正常处理，不需要重新发布或回退进度。
+	s.runDatabaseRetentionCycle(context.Background(), func(err error) { failures = append(failures, err) })
+	require.Empty(t, failures)
+	require.Equal(t, before-1, retentionRows(t, db))
+}
+
+func TestDatabaseRetentionNativeCycleStillReportsBatchFailure(t *testing.T) {
+	s, apply, db := retentionNative(t)
+	p := adoptRetentionNative(t, s, apply)
+	enableRetentionNative(t, s, apply, p.Revision)
+	seedRetentionNative(t, db)
+	before := retentionRows(t, db)
+	name := "owned_cycle_receipt_failure"
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register(name, func(tx *gorm.DB) {
+		if row, ok := tx.Statement.Dest.(*m.CleanupRun); ok && row.State == "completed" {
+			tx.AddError(context.DeadlineExceeded)
+		}
+	}))
+	t.Cleanup(func() { require.NoError(t, db.Callback().Create().Remove(name)) })
+	var failures []error
+	s.runDatabaseRetentionCycle(context.Background(), func(err error) { failures = append(failures, err) })
+	require.Len(t, failures, 1, "预算充足时已启动批次的超时不能被当成正常让出")
+	require.Equal(t, before, retentionRows(t, db), "失败批次的删除必须回滚")
+	checkpoint, err := s.readRetentionCheckpoint(context.Background(), db)
+	require.NoError(t, err)
+	require.Nil(t, checkpoint, "失败批次不得提交游标")
+}

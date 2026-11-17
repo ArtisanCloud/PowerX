@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-17",
+  "scope": "database-retention scheduled cycle admission",
+  "source_change": {
+    "before": "A batch could start with less than its 10-second transaction budget remaining in the 60-second cycle.",
+    "after": "Yield before starting another batch when less than 10 seconds remain; keep committed checkpoints for the next scheduled cycle.",
+    "real_batch_failure": "Still reported; transaction mutations and checkpoint roll back together.",
+    "schema_change": false,
+    "policy_change": false,
+    "plugin_change": false
+  },
+  "owned_postgres_regression": {
+    "daily_database_used": false,
+    "remaining_cycle_seconds": 9,
+    "before_fix": {"test_exit": 1, "rows_before": 4, "rows_after": 3},
+    "after_fix": {"test_exit": 0, "rows_before": 4, "rows_after": 4, "checkpoint_created": false},
+    "next_full_cycle": {"rows_after": 3, "failure_reported": false},
+    "injected_started_batch_timeout": {"failure_reports": 1, "rows_after": 4, "checkpoint_created": false}
+  },
+  "validation": {
+    "storage_governance_race": {"exit": 0, "passed": 220, "skipped": 7},
+    "affected_package_vet": "passed",
+    "linux_amd64_package_build": "passed",
+    "make_unit_test": "blocked by existing missing backend/test-silent.sh",
+    "owned_postgres_stopped": true,
+    "owned_pid_exited": true,
+    "owned_socket_released": true
+  },
+  "production_read_only_observation": {
+    "observed_at": "2026-11-17T16:53:46+08:00",
+    "deployed_source": "dd3778ed5705481a9373ba080b8755d5390702df",
+    "policy_revision": 4,
+    "completed_scheduled_batches": 105,
+    "quarantined_notifications": 21000,
+    "classified_invocations": 21000,
+    "deleted_notifications": 0,
+    "deleted_invocations": 0,
+    "first_cycle_health": "failed after 60 seconds; 59 earlier batches remained committed",
+    "second_cycle": "observed continuing from saved progress",
+    "new_source_deployed": false,
+    "agent_mutated_production": false,
+    "physical_reclamation_claimed": false
+  }
+}
