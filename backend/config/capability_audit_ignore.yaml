@@ -1,5 +1,9 @@
 routes:
   - method: GET
+    path: /api/v1/admin/monitor/host
+    category: root_runtime_control
+    reason: Platform Root human session only; on-demand current deployment hardware diagnostics, never a tenant, plugin or agent capability.
+  - method: GET
     path: /api/v1/admin/ops/backup/archives/policies/:policy_id/requests/:request_id
     category: root_runtime_control
     reason: Root human only; read-only reconciliation of an original archive request. No execution, unlock, tenant capability or delegated service grant.

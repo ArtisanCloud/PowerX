@@ -1,13 +1,13 @@
 <template>
-  <MonitorCenterWorkspace forced-tab="event-fabric" :hide-top-tabs="true" />
+  <HostOverviewWorkspace :allowed="user.isRoot" :identity-key="identityKey" />
 </template>
 
 <script setup lang="ts">
-import MonitorCenterWorkspace from "~/components/monitor/MonitorCenterWorkspace.vue";
+import { computed } from 'vue';
+import { useUserStore } from '~/stores/user';
+import HostOverviewWorkspace from '~/components/monitor/host/HostOverviewWorkspace.vue';
 
-definePageMeta({
-  title: "监控中心",
-  layout: "default",
-});
+definePageMeta({ title: '主机概览', layout: 'default' });
+const user = useUserStore();
+const identityKey = computed(() => `${user.user?.id || ''}:${user.currentTenantUuid || ''}`);
 </script>
-

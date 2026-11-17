@@ -11,6 +11,10 @@ func registerProtectedRoutes(protected *gin.RouterGroup, deps *shared.Deps) {
 	if protected == nil {
 		return
 	}
+	protected.GET("/admin/monitor/host", HostOverview)
+	if deps == nil {
+		return
+	}
 	h := NewHandler(deps.DB)
 	if h == nil {
 		return

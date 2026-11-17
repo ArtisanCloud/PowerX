@@ -1829,6 +1829,7 @@
     "metadataGovernance": "元数据治理",
     "integrationApiKeys": "API Key 管理",
     "monitorCenter": "监控中心",
+    "hostOverview": "主机概览",
     "pluginsMarket": "应用市场",
     "pluginsInstalled": "已安装",
     "loadFailed": "菜单加载失败",

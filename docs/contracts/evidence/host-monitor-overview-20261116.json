@@ -1,0 +1,65 @@
+{
+  "status": "source_and_isolated_validation_complete_not_deployed",
+  "date": "2026-11-16",
+  "route": "/monitor/host",
+  "api": "GET /api/v1/admin/monitor/host",
+  "authorization": "platform_root_human_session_only",
+  "validation": {
+    "frontend_unit_tests": 17,
+    "browser_viewports_passed": [
+      1440,
+      390,
+      320
+    ],
+    "browser_uses_fixture_api": true,
+    "backend_target_tests": "passed",
+    "go_vet": "passed",
+    "capability_check": "passed"
+  },
+  "live_collectors": {
+    "macos": {
+      "os": "darwin",
+      "arch": "arm64",
+      "duration_ms": 1035,
+      "cpu": "ok",
+      "memory": "ok",
+      "network": "partial",
+      "gpu": "unsupported",
+      "disk_count": 13
+    },
+    "linux_200": {
+      "os": "linux",
+      "arch": "amd64",
+      "duration_ms": 200,
+      "cpu": "ok",
+      "memory": "ok",
+      "network": "ok",
+      "gpu": "unsupported",
+      "disk_count": 23
+    }
+  },
+  "services_restarted": false,
+  "limitations": [
+    "No real NVIDIA device acceptance; unsupported collector state verified",
+    "No historical time series or network transfer rates",
+    "Container scope labeling validated with fixtures; live cgroup quota collection is not included",
+    "200 backend and web-admin not deployed by this task",
+    "Remote one-shot diagnostic binary and directory removed"
+  ],
+  "network_correction": {
+    "macos_missing_link_address_column": "fixed and fixture/live checked",
+    "disabled_name_star_normalized": true,
+    "enabled_and_loopback_flags_reported": true,
+    "default_view": "enabled_connections_with_usable_IP",
+    "other_interfaces": "on_demand_details",
+    "live_loopback_rx_tx": "both present, equal, nonzero"
+  },
+  "mount_scope_correction": {
+    "simulator_images": "details_only_no_capacity_alert",
+    "readonly_mounts": "details_only_except_visible_system_root_no_capacity_alert",
+    "internal_mounts": "details_only_no_capacity_alert",
+    "vm_guest_root_and_data_disks": "retained",
+    "macos_readonly_flag_live_check": "passed; both simulator mounts read-only",
+    "linux_cross_compile": "passed"
+  }
+}
