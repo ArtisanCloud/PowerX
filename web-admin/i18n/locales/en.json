@@ -1829,6 +1829,7 @@
     "metadataGovernance": "Metadata Governance",
     "integrationApiKeys": "API Key Management",
     "monitorCenter": "Monitor Center",
+    "hostOverview": "Host Overview",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
     "loadFailed": "Menu failed to load",

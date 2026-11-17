@@ -14,6 +14,7 @@ import urllib.request
 import re
 import yaml
 from notify import send_personal
+import log_output_health
 
 GIB = 1024 ** 3
 STATE = Path('/var/lib/powerx-ops/transition-20261109')
@@ -102,26 +103,34 @@ def set_enabled(target, enabled):
 
 
 def runtime_health(prior):
-    if time.time() - prior.get('health_checked_at', 0) < 300:
-        return prior.get('runtime_health', {}), prior.get('health_checked_at', 0)
-    result = {}
-    start = time.monotonic()
-    try:
-        with urllib.request.urlopen('http://127.0.0.1:8080/api/v1/admin/setup/status', timeout=5) as response:
-            result['core_status'] = response.status
-        result['core_seconds'] = round(time.monotonic() - start, 4)
-    except Exception:
-        result['core_status'] = 0
-    try:
-        payload = {'streams': [{'stream': {'service': 'powerx-ops-diagnostic', 'module': 'runtime'},
-                                'values': [[str(time.time_ns()), 'Temporary capacity guard health probe']]}]}
-        request = urllib.request.Request('http://127.0.0.1:3100/loki/api/v1/push',
-                                        data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
-        with urllib.request.urlopen(request, timeout=5) as response: result['loki_push_status'] = response.status
-    except Exception:
-        result['loki_push_status'] = 0
-    result['healthy'] = result['core_status'] == 200 and result.get('core_seconds', 99) < 2 and result['loki_push_status'] == 204
-    return result, time.time()
+    # Always re-read process identity and active configuration, even inside the
+    # HTTP probe cache window. A deploy must not reuse old logging health.
+    outputs = log_output_health.check_services()
+    old = prior.get('runtime_health', {})
+    old_pids = [r.get('pid') for r in old.get('log_outputs', {}).get('services', [])]
+    pids = [r.get('pid') for r in outputs.get('services', [])]
+    fresh = (time.time() - prior.get('health_checked_at', 0) < 300
+             and old.get('log_outputs', {}).get('version') == log_output_health.VERSION and old_pids == pids)
+    result = dict(old) if fresh else {}
+    checked = prior.get('health_checked_at', 0) if fresh else time.time()
+    if not fresh:
+        for prefix, port in [('', 8080), ('dev_', 8081)]:
+            start = time.monotonic()
+            try:
+                with urllib.request.urlopen('http://127.0.0.1:%d/api/v1/health' % port, timeout=5) as response:
+                    result[prefix + 'core_status'] = response.status
+                result[prefix + 'core_seconds'] = round(time.monotonic() - start, 4)
+            except Exception:
+                result[prefix + 'core_status'] = 0
+                result[prefix + 'core_seconds'] = None
+    result['log_outputs'] = outputs
+    enabled = [s for row in outputs.get('services', []) for name, s in row.get('sinks', {}).items() if name == 'loki' and s['enabled']]
+    result['loki_push_status'] = (204 if all(s['available'] for s in enabled) else 0) if enabled else None
+    result['healthy'] = (all(result.get(prefix + 'core_status') == 200
+                             and isinstance(result.get(prefix + 'core_seconds'), (float, int))
+                             and result[prefix + 'core_seconds'] < 2 for prefix in ('', 'dev_'))
+                         and outputs['healthy'])
+    return result, checked
 
 
 def retention_status():
@@ -186,7 +195,7 @@ def observe(apply):
     idle = idle_retention_status()
     idle_failed = idle_retention_failed(idle)
     severity = ('critical' if fs['available_bytes'] < 12 * GIB or fs['used_ratio'] >= .88
-                or not health.get('healthy') or idle_failed else 'warning' if fs['available_bytes'] < 20 * GIB else 'ok')
+                or not health.get('healthy') or idle_failed else 'warning' if fs['available_bytes'] < 20 * GIB or health.get('log_outputs', {}).get('degraded') else 'ok')
     # 完整保留旧调度所有权、水位及未知结果；只读监控不处理这些写入职责。
     report = {**prior, 'at': dt.datetime.now(dt.timezone.utc).isoformat(),
               'severity': severity, 'filesystem': fs, 'runtime_health': health,
@@ -197,7 +206,7 @@ def observe(apply):
               'automatic_cleanup_active': False, 'handoff_complete': False,
               'changes': [], 'failure': None}
     changed = (severity != prior.get('severity') or report['guard_kind'] != prior.get('guard_kind')
-               or idle_failed != prior.get('idle_retention_failed', False))
+               or idle_failed != prior.get('idle_retention_failed', False) or log_output_health.changed(prior, health))
     due = time.time() - prior.get('notification_at', 0) > 3600
     if apply and (changed or severity != 'ok' and due):
         report['event_id'] = str(time.time_ns()) if changed else prior.get('event_id') or str(time.time_ns())
@@ -209,7 +218,7 @@ def observe(apply):
                    idle.get('databases', {}).get('dev', {}).get('state', idle['state']),
                    idle.get('databases', {}).get('prod', {}).get('state', idle['state'])))
         try:
-            report['notification'] = send_personal(text, 'powerx-monitor-' + report['event_id'])
+            report['notification'] = send_personal(text + log_output_health.alert_text(health), 'powerx-monitor-' + report['event_id'])
             if report['notification']['status'] == 'api_accepted':
                 report['notification_at'] = time.time()
         except Exception as error:
@@ -257,14 +266,14 @@ def run(apply):
             atomic_json(STATE / 'capacity-latest.json', {**prior, 'owned_pauses': owned, 'pending_verification': True})
         if choice: changes.append({'target': target, 'state': choice, 'applied': apply})
     executor_failed = retention.get('state') in ('stopped_error', 'commit_unknown') or retention.get('service_result') not in ('success', 'unknown')
-    severity = 'critical' if fs['available_bytes'] < 12*GIB or fs['used_ratio'] >= .88 or not health.get('healthy') or executor_failed else ('warning' if fs['available_bytes'] < 20*GIB or owned else 'ok')
+    severity = 'critical' if fs['available_bytes'] < 12*GIB or fs['used_ratio'] >= .88 or not health.get('healthy') or executor_failed else ('warning' if fs['available_bytes'] < 20*GIB or owned or health.get('log_outputs', {}).get('degraded') else 'ok')
     report = {'at': dt.datetime.now(dt.timezone.utc).isoformat(), 'severity': severity,
               'filesystem': fs, 'owned_pauses': owned, 'changes': changes,
               'per_job_peak_bytes': {key: row['peak_bytes'] for key, row in rows.items()},
               'runtime_health': health, 'health_checked_at': health_at, 'retention_executor': retention,
               'guard_kind': 'legacy_schedule_pause_with_headroom_not_atomic_core_admission',
               'notification': prior.get('notification', {'status': 'not_configured'})}
-    changed = severity != prior.get('severity') or bool(changes)
+    changed = severity != prior.get('severity') or bool(changes) or log_output_health.changed(prior, health)
     due = time.time() - prior.get('notification_at', 0) > 3600
     if apply and (changed or severity != 'ok' and due):
         identity = prior.get('event_id') if not changed else None
@@ -273,7 +282,7 @@ def run(apply):
                 % ('恢复' if severity == 'ok' else '告警', fs['available_bytes']/GIB,
                    fs['used_ratio']*100, ', '.join(owned) or '无'))
         try:
-            report['notification'] = send_personal(text, 'powerx-capacity-' + report['event_id'])
+            report['notification'] = send_personal(text + log_output_health.alert_text(health), 'powerx-capacity-' + report['event_id'])
             if report['notification']['status'] == 'api_accepted': report['notification_at'] = time.time()
         except Exception as error:
             report['notification'] = {'status': 'failed', 'error_type': type(error).__name__}

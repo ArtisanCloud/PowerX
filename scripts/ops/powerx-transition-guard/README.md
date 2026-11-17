@@ -143,3 +143,30 @@ systemctl show powerx-baseline-retention.service -p ActiveState -p MainPID
 ```
 
 Loki 原配置保存在私有维护目录 `loki-config-before.yml`；恢复该配置需要校验后受控重启 Loki。保留数量可通过正式服务恢复，但已删除的旧恢复点无法由调回策略重新生成。表 autovacuum 参数的原值保存在 `table-autovacuum-before.json`。
+
+## 日志出口健康检查（2026-11-17）
+
+容量监控不再把 Loki 当作无条件必需项。每次调度都重新检查正式、开发 Core 的 MainPID、进程参数／POWERX_CONFIG 和实际配置路径；配置在进程启动后被修改时，报告生效状态未核实，不将文件中的新值当作已生效。Core 重启后不复用旧进程的 HTTP 健康缓存。
+
+检查已启用的出口：
+
+- Console：确认 stdout 是 journal 路由、journald 活跃且持久存储可用；这是路由就绪，不是 Core 业务日志投递收据。
+- 文件：以 Core 的有效 UID/GID/补充组检查两个日志文件或父目录的可写权限及磁盘余量，不向业务日志追加测试内容。
+- Loki：仅在启用时向其配置地址发送固定诊断记录，要求 HTTP 204。两个 Core 共用同一端点时只探测一次；禁用时完全跳过，不因 Loki 服务停用误报。单独运行 helper 默认只读，可用 `--probe-loki` 明确启用诊断写入。
+
+无可用出口为 critical；有可用回退出口、但其他已启用出口失败为 warning。检查异常为未核实，不能冒充健康。结构化结果写入现有 capacity-latest.json 和有界历史；日志状态变化会突破原小时告警节流一次，复用现有个人告警通道，稳定故障不重复轰炸。API 接受不等于本人已读。
+
+输出只含白名单状态、原因码、PID 和配置路径，不输出配置正文、命令行、环境变量、密钥、DSN 或 Loki 响应正文。监控不自动修改 Core 配置、不重启服务，也不修改现有磁盘、备份、审计清理边界。
+
+本次针对线上当前 capacity.py 生成最小补丁，保留版本门禁、现有清理／暂停所有权及通知逻辑，不能用仓库中的其他版本整份覆盖线上旧脚本。安装器按 manifest 校验原脚本和新文件哈希，先备份，再原子安装依赖和监控脚本；版本变化即拒绝覆盖。既有 timer 下一轮自动加载，无需重启 Core 或 timer。
+
+```sh
+python3 -m unittest discover -s scripts/ops/powerx-transition-guard -p 'test_*.py'
+# 在 200 上运行：只读核对（需要足够权限读取进程配置与 journal 状态）
+python3 /opt/powerx-ops/transition-20261109/log_output_health.py
+```
+
+源码测试、服务器只读探测、root 安装和首次定时收据是不同阶段，未完成安装前不得宣称定时监控已经上线。安装包放在 200 的私有用户目录，由 root 运行 `install.py --apply`，这一步不修改 Core 日志配置；当前无出口问题仍需要后续切换配置并由用户重启 Core。
+
+
+现场安装时间、部署哈希、临时路径和通知回执属于本地运维记录，不纳入源码版本；应在部署现场独立保存并核验。

@@ -65,7 +65,7 @@ class TransitionTests(unittest.TestCase):
         self.assertEqual(retention.confirmed_cursor({'state': 'bounded_complete', 'cursor': 25}), 25)
 
     def test_runtime_probe_failure_is_visible_without_response_payload(self):
-        with patch.object(capacity.urllib.request, 'urlopen', side_effect=OSError('fixture')):
+        with patch.object(capacity.urllib.request, 'urlopen', side_effect=OSError('fixture')), patch.object(capacity.log_output_health, 'check_services', return_value={'version': 1, 'healthy': False, 'services': [{'sinks': {'loki': {'enabled': True, 'available': False}}}]}):
             result, checked_at = capacity.runtime_health({})
         self.assertFalse(result['healthy'])
         self.assertEqual(result['core_status'], 0)
