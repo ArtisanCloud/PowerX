@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/google/uuid"
 )
@@ -237,8 +237,14 @@ func (s *Service) runDatabaseRetentionCycle(ctx context.Context, onError func(er
 	if configuration.Authority != "database" || !configuration.ExecutionReady || !policy.Enabled {
 		return
 	}
+	const batchTimeout = 10 * time.Second
 	for batch := 0; batch < 100 && cycle.Err() == nil; batch++ {
-		run, cancelBatch := context.WithTimeout(cycle, 10*time.Second)
+		// 为下一批留足完整事务预算；主动让出本轮，保留已提交的游标供下轮继续。
+		// 不吞掉已启动批次的错误，真实超时或回滚仍须上报失败。
+		if deadline, ok := cycle.Deadline(); ok && time.Until(deadline) < batchTimeout {
+			return
+		}
+		run, cancelBatch := context.WithTimeout(cycle, batchTimeout)
 		out, err := s.databaseBatch(run, 0, uuid.NewString(), true, true)
 		cancelBatch()
 		if err != nil {
