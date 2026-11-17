@@ -470,6 +470,7 @@ func TestCreateAsset_ReturnsExistingForSameExternalURL(t *testing.T) {
 	repo := newStubAssetRepo()
 	audit := &stubAuditService{}
 	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
+	svc.externalProbeClient = server.Client()
 	externalURL := server.URL + "/design.png"
 
 	first, err := svc.CreateAsset(context.Background(), CreateAssetInput{
@@ -612,6 +613,7 @@ func TestMediaService_PopulateExternalLinkMetadata(t *testing.T) {
 
 	repo := newStubAssetRepo()
 	svc := NewMediaService(nil, repo, nil, &stubAuditService{}, 12*time.Hour)
+	svc.externalProbeClient = server.Client()
 	input := CreateAssetInput{
 		ExternalURL: server.URL + "/banner.png",
 	}
