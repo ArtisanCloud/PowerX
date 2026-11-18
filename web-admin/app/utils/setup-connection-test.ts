@@ -21,7 +21,7 @@ export function describeSetupConnectionError(error: unknown, kind: SetupConnecti
   const traceId = typeof data.trace_id === 'string' ? data.trace_id
     : typeof headers?.get === 'function' ? headers.get('x-trace-id') : null;
   return {
-    messageKey: redisCode ? messages[redisCode] : undefined,
+    messageKey: detail?.startsWith("setup.connection.") ? detail : redisCode ? messages[redisCode] : undefined,
     detail,
     diagnosticId: traceId || (typeof data.request_id === 'string' ? data.request_id : ''),
   };

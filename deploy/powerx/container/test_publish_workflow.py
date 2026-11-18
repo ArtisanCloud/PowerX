@@ -79,8 +79,10 @@ class PublishWorkflowTests(unittest.TestCase):
                 self.assertIn("POWERX_VERSION=", step["with"]["build-args"])
                 self.assertIn(":ci-", step["with"]["tags"])
                 self.assertNotIn(":sha-", step["with"]["tags"])
-        smoke = next(step for step in images if step.get("name", "").startswith("Fresh database"))
+        # XDocker 使用完整步骤名核验镜像验收证据。
+        smoke = next(step for step in images if step.get("name") == "Fresh database, login, frontend and API smoke test")
         self.assertIn("build_contract.py environment --pair target-pair.json", smoke["run"])
+        self.assertIn("python3 smoke.py", smoke["run"])
 
     def test_original_upgrade_migration_and_restore_gates_remain(self):
         matrix = self.jobs["installed-upgrade"]["strategy"]["matrix"]["include"]

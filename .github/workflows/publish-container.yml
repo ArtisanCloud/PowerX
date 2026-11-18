@@ -133,6 +133,7 @@ jobs:
           POWERX_UPGRADE_TEST_DSN: host=127.0.0.1 port=5432 user=powerx password=ci-upgrade-test-only dbname=powerx_upgrade_test_ci sslmode=disable
         run: |
           go test ./cmd/database ./config ./pkg/corex/db/database ./internal/service/integration_gateway/apikeypermissions ./pkg/corex/db/persistence/repository/iam
+          go test ./internal/transport/http/admin/system
           go test ./internal/service/integration_gateway -run '^TestUpgrade'
       - name: Authorization baseline migration and published step regression
         working-directory: backend
@@ -176,7 +177,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install smoke-test dependencies
-        run: python3 -m pip install PyYAML
+        run: |
+          python3 -m pip install PyYAML playwright==1.57.0
+          python3 -m playwright install --with-deps chromium
       - name: Verify smoke-test imports on this runner
         working-directory: deploy/powerx/container
         run: python3 -c 'import smoke, upgrade_smoke'

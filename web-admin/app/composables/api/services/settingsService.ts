@@ -165,6 +165,37 @@ export interface CacheSettings {
   memcachedPort?: number;
 }
 
+export type SetupConnectionSource = "instance" | "manual";
+
+export interface SetupDatabaseConnection {
+  source?: SetupConnectionSource;
+  password_configured?: boolean;
+  type?: string;
+  host?: string;
+  port?: number;
+  name?: string;
+  username?: string;
+  password?: string;
+  charset?: string;
+  ssl_mode?: string;
+  sqlite_path?: string;
+}
+
+export interface SetupCacheConnection {
+  source?: SetupConnectionSource;
+  password_configured?: boolean;
+  type?: string;
+  redis_host?: string;
+  redis_port?: number;
+  redis_db?: number;
+  redis_password?: string;
+}
+
+export interface SetupInstanceConnections {
+  database: SetupDatabaseConnection;
+  cache: SetupCacheConnection;
+}
+
 export interface SetupConfig {
   deployment: {
     env: "dev" | "test" | "staging" | "prod";
@@ -191,12 +222,7 @@ export interface SetupConfig {
     endpoint?: string;
     public_url?: string;
   };
-  cache: {
-    type: "redis" | "memcached" | "file" | string;
-    redis_host?: string;
-    redis_port?: number;
-    redis_db?: number;
-  };
+  cache: SetupCacheConnection;
   email: {
     enabled: boolean;
     smtp_host?: string;
@@ -215,17 +241,7 @@ export interface SetupConfig {
     max_tokens?: number;
     stream?: boolean;
   };
-  database?: {
-    type?: "mysql" | "postgresql" | "sqlite" | string;
-    host?: string;
-    port?: number;
-    name?: string;
-    username?: string;
-    password?: string;
-    charset?: string;
-    ssl_mode?: string;
-    sqlite_path?: string;
-  };
+  database?: SetupDatabaseConnection;
   ports?: {
     backend_port?: number;
     web_admin_port?: number;
@@ -465,7 +481,7 @@ export const useSettingsService = () => {
     },
 
     getSetupConfig: () => {
-      return apiClient.get<ApiResponse<{ config: SetupConfig }>>(
+      return apiClient.get<ApiResponse<{ config: SetupConfig; instance_connections?: SetupInstanceConnections | null }>>(
         "/admin/setup/config",
         { skipAuth: true }
       );
