@@ -3,7 +3,7 @@ import type { ApiRequestConfig } from '../types/types';
 
 export const databaseMaintenanceTables = ['capability-event-publications', 'capability-invocation-traces'] as const;
 export type MaintenanceTableID = typeof databaseMaintenanceTables[number];
-export type MaintenanceMode = 'reuse' | 'compact';
+export type MaintenanceMode = 'reuse' | 'compact' | 'incremental';
 export type MaintenanceState = 'preview' | 'consumed' | 'queued' | 'running' | 'cancel_requested' | 'cancelled' | 'completed' | 'failed' | 'unconfirmed' | 'reviewed';
 export interface MaintenanceTable {
   id: MaintenanceTableID; oid: number; heap_bytes: number; index_bytes: number; total_bytes: number;
@@ -11,7 +11,7 @@ export interface MaintenanceTable {
 }
 export interface MaintenanceSnapshot {
   database_oid: number; database_fingerprint: string; database_bytes: number; local_disk_verified: boolean;
-  wal_budget_bytes: number; rewrite_safe: boolean; tables: MaintenanceTable[];
+  wal_budget_bytes: number; rewrite_safe: boolean; incremental_problem?: string; tables: MaintenanceTable[];
 }
 export interface DatabaseMaintenanceRun {
   id: string; version: number; scope_id: string; state: MaintenanceState; mode: MaintenanceMode; actor: number;
@@ -36,6 +36,7 @@ export function decodeMaintenanceSnapshot(raw: unknown): MaintenanceSnapshot {
   const d: any = raw;
   if (!d || !digest(d.database_fingerprint) || !size(d.database_oid) || !d.database_oid || !size(d.database_bytes) || !size(d.wal_budget_bytes) ||
       typeof d.local_disk_verified !== 'boolean' || typeof d.rewrite_safe !== 'boolean' || !Array.isArray(d.tables) || d.tables.length !== 2 ||
+      d.incremental_problem !== undefined && typeof d.incremental_problem !== 'string' ||
       new Set(d.tables.map((x: any) => x.id)).size !== 2 || !d.tables.every((x: any) => x && table(x.id) && size(x.oid) && x.oid > 0 &&
         ['heap_bytes', 'index_bytes', 'total_bytes', 'live_rows_estimate', 'dead_rows_estimate'].every(k => size(x[k])) && x.total_bytes >= x.heap_bytes + x.index_bytes &&
         ['can_maintain', 'indexes_valid', 'default_tablespace'].every(k => typeof x[k] === 'boolean'))) invalid();
@@ -45,7 +46,7 @@ export function decodeDatabaseMaintenanceRun(raw: unknown, expectedID?: string):
   const d: any = unwrap(raw);
   if (!d || !uuid(d.id) || expectedID && d.id !== expectedID || !size(d.version) || !d.version || !digest(d.scope_id) ||
       !['preview', 'consumed', 'queued', 'running', 'cancel_requested', 'cancelled', 'completed', 'failed', 'unconfirmed', 'reviewed'].includes(d.state) ||
-      !['reuse', 'compact'].includes(d.mode) || !size(d.actor) || !d.actor || !time(d.at) || !time(d.updated_at) || Date.parse(d.updated_at) < Date.parse(d.at) ||
+      !['reuse', 'compact', 'incremental'].includes(d.mode) || !size(d.actor) || !d.actor || !time(d.at) || !time(d.updated_at) || Date.parse(d.updated_at) < Date.parse(d.at) ||
       !Array.isArray(d.tables) || !d.tables.length || d.tables.length > 2 || !d.tables.every(table) || new Set(d.tables).size !== d.tables.length || !size(d.peak_bytes) ||
       d.expires_at !== undefined && (!time(d.expires_at) || Date.parse(d.expires_at) <= Date.parse(d.at)) || d.state === 'preview' && !d.expires_at ||
       d.preview_id !== undefined && !uuid(d.preview_id) || d.state !== 'preview' && d.state !== 'consumed' && !uuid(d.preview_id) ||
@@ -53,6 +54,7 @@ export function decodeDatabaseMaintenanceRun(raw: unknown, expectedID?: string):
       !d.steps.every((x: any) => x && d.tables.includes(x.table_id) && ['running', 'completed'].includes(x.state) && time(x.started_at) &&
         (x.state === 'completed' ? time(x.finished_at) && Date.parse(x.finished_at) >= Date.parse(x.started_at) : x.finished_at === undefined)) ||
       ['filesystem_available_before', 'filesystem_available_after'].some(k => d[k] !== undefined && !size(d[k]))) invalid();
+  if (d.mode === 'incremental' && (d.tables.length !== 1 || d.tables[0] !== 'capability-event-publications')) invalid();
   decodeMaintenanceSnapshot(d.before); if (d.after !== undefined) decodeMaintenanceSnapshot(d.after);
   if (d.state === 'completed' && (d.steps.length !== d.tables.length || d.steps.some((x: any) => x.state !== 'completed'))) invalid();
   return d;

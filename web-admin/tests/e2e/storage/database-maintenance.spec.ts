@@ -21,7 +21,7 @@ async function fixture(browser: Browser, baseURL: string, width: number) {
   const context = await browser.newContext({ viewport: { width, height: 1000 }, colorScheme: width < 640 ? 'dark' : 'light', locale: 'zh-CN', storageState: { cookies: [], origins: [{ origin, localStorage: [{ name: 'powerx.session', value: JSON.stringify(session) }, { name: 'welcome_guide_completed', value: 'true' }, { name: 'powerx-color-mode', value: width < 640 ? 'dark' : 'light' }] }] } });
   const page = await context.newPage();
   const status = { scope_id: maintenanceScope, ready: true, worker_enabled: true, worker_running: true, snapshot: maintenanceSnapshot(), runs: [] as any[], active: undefined as any };
-  const calls = { reads: 0, starts: [] as any[], cancels: [] as any[], loseStart: false };
+  const calls = { reads: 0, previews: [] as any[], starts: [] as any[], cancels: [] as any[], loseStart: false };
   let preview = maintenanceRun();
   await page.route('**/api/v1/admin/user/auth/me/context', route => route.fulfill({ json: { code: 200, data: { is_root: true, current_tenant_uuid: 'maintenance-fixture', current_member_id: 1, user: { id: 1, email: 'fixture@example.invalid', display_name: '维护验收 Root', status: 1 }, members: [{ tenant_uuid: 'maintenance-fixture', tenant_name: '受控验收', member_id: 1, is_admin: true }] } } }));
   await page.route('**/api/v1/admin/menus**', route => route.fulfill({ json: { code: 200, data: { categories: [{ id: 'ops', title: '监控中心', children: [{ id: 'storage', title: '存储治理', path: '/monitor/storage', origin: 'core', visible: true }] }] } } }));
@@ -31,7 +31,7 @@ async function fixture(browser: Browser, baseURL: string, width: number) {
     let data: any;
     if (path === 'overview') data = { mode: 'observe', cleanup_enabled: false, identity: { environment: 'dev', instance_id: 'fixture-install' }, observed_at: new Date().toISOString(), expires_at: new Date(Date.now() + 300000).toISOString(), filesystem: { id: 'disk', view: 'process_filesystem', state: 'observed', total_bytes: 120 * 2 ** 30, used_bytes: 90 * 2 ** 30, available_bytes: 30 * 2 ** 30, reserved_bytes: 0 }, resources: [], coverage: 'partial', unattributed_bytes: null, limitations: [], alerts: [] };
     else if (path === 'database-maintenance') { calls.reads++; data = status; }
-    else if (path === 'database-maintenance/previews') { preview = maintenanceRun(); Object.assign(preview, request.postDataJSON()); data = preview; }
+    else if (path === 'database-maintenance/previews') { const input = request.postDataJSON(); calls.previews.push(input); preview = { ...maintenanceRun(), ...input }; data = preview; }
     else if (path === 'database-maintenance/runs') {
       const input = request.postDataJSON(); calls.starts.push(input);
       if (calls.loseStart) return route.abort('failed');
@@ -69,14 +69,34 @@ async function fixture(browser: Browser, baseURL: string, width: number) {
 
 for (const width of [1440, 390, 320]) test(`native maintenance confirmation, push and preserved draft at ${width}px`, async ({ browser, baseURL }, info) => {
   const f = await fixture(browser, baseURL!, width), page = f.page;
+  const incremental = width !== 320;
+  const mode = incremental ? 'incremental' : 'compact';
+  const label = incremental ? '分批物理缩容' : '物理缩容（归还磁盘）';
+  const table = incremental ? 'capability-event-publications' : 'capability-invocation-traces';
+  const notifications = page.getByTestId('maintenance-table-capability-event-publications');
   try {
     await f.open();
-    await page.getByTestId('maintenance-mode').click(); await page.getByRole('option', { name: '物理缩容（归还磁盘）' }).click();
-    await page.getByTestId('maintenance-table-capability-event-publications').uncheck();
+    await notifications.uncheck();
+    await page.getByTestId('maintenance-mode').click(); await page.getByRole('option', { name: label, exact: true }).click();
     await f.choose('容量概览', 'overview'); await f.choose('数据库空间维护', 'databaseMaintenance');
-    await expect(page.getByTestId('maintenance-table-capability-event-publications')).not.toBeChecked();
-    await expect(page.getByTestId('maintenance-mode')).toContainText('物理缩容');
+    if (incremental) {
+      await expect(notifications).toBeChecked();
+      await expect(notifications).toBeDisabled();
+      await expect(page.getByTestId('maintenance-table-capability-invocation-traces')).toHaveCount(0);
+      await expect.poll(() => f.streams.size).toBe(1);
+      f.status.snapshot = { ...maintenanceSnapshot(), incremental_problem: 'DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED' };
+      f.emit();
+      await expect(page.getByTestId('maintenance-preview')).toBeDisabled();
+      await expect(page.getByRole('status').filter({ hasText: 'pg_freespacemap' })).toBeVisible();
+      f.status.snapshot = maintenanceSnapshot();
+      f.emit();
+      await expect(page.getByTestId('maintenance-preview')).toBeEnabled();
+    } else {
+      await expect(notifications).not.toBeChecked();
+    }
+    await expect(page.getByTestId('maintenance-mode')).toContainText(label);
     await page.getByTestId('maintenance-preview').click();
+    await expect.poll(() => f.calls.previews).toEqual([{ mode, tables: [table] }]);
     await expect(page.getByTestId('maintenance-start')).toBeDisabled();
     await page.getByTestId('maintenance-confirm').click(); await expect(page.getByTestId('maintenance-start')).toBeDisabled();
     await page.getByTestId('maintenance-confirm-lock').click();
@@ -92,7 +112,7 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
       await expect(page.getByTestId('database-maintenance-run')).toContainText('等待执行');
     }
     const reads = f.calls.reads; await page.waitForTimeout(1600); expect(f.calls.reads).toBe(reads);
-    const done = { ...maintenanceRun('completed', f.calls.starts[0].request_id), tables: ['capability-invocation-traces'], version: 8, preview_id: f.calls.starts[0].preview_id };
+    const done = { ...maintenanceRun('completed', f.calls.starts[0].request_id), mode, tables: [table], version: 8, preview_id: f.calls.starts[0].preview_id };
     done.steps = done.steps.filter(row => done.tables.includes(row.table_id)); f.status.runs = [done]; f.status.active = undefined; f.status.snapshot = done.after!; f.emit();
     await expect(page.getByTestId('database-maintenance-run')).toContainText('已完成');
     await expect(page.getByTestId('database-maintenance-run')).toContainText('选定表占用变化');

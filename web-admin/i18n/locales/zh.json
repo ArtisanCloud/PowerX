@@ -1653,6 +1653,7 @@
       "expires": "本次检查有效至",
       "lockTitle": "物理缩容会阻塞选定表读写",
       "lockHint": "每张表最多执行 15 分钟，取锁最多等待 2 秒。请安排维护窗口；取消会停止未完成的步骤，已完成的整理会保留。",
+      "incrementalLockHint": "每次最多处理 1,024 个尾部页。释放文件尾部时会尝试取得通知表的独占锁，请在低峰执行。",
       "confirm": "我已核对目标及工作空间，确认启动维护",
       "confirmLock": "我已安排维护窗口，允许暂时阻塞选定系统表的读写",
       "expired": "本次检查已过期，请关闭后重新检查。",
@@ -1680,10 +1681,12 @@
       "requestFailed": "请求未完成，请刷新观测或核对原任务。",
       "modes": {
         "reuse": "普通整理（库内复用）",
+        "incremental": "分批物理缩容",
         "compact": "物理缩容（归还磁盘）"
       },
       "modeHints": {
         "reuse": "整理无效版本供数据库内部复用，通常不减少磁盘占用。",
+        "incremental": "每次仅整理调用结果通知表尾部的一段，利用表内已有空闲页。回收量以实测为准。",
         "compact": "重写选定表及索引，将可释放的空间归还磁盘；回收量以执行后实测为准。"
       },
       "tables": {
@@ -1720,6 +1723,12 @@
         "DATABASE_MAINTENANCE_WAL_PROTECTED": "存在复制槽、WAL 归档或长事务，暂不能物理缩容。",
         "DATABASE_MAINTENANCE_OWNER_REQUIRED": "当前数据库连接没有选定表的维护权限。",
         "DATABASE_MAINTENANCE_INDEXES_INVALID": "索引状态异常，请先核对索引，当前未启动整理。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_UNSUPPORTED": "当前 PostgreSQL 版本、运行状态或通知表结构不满足分批缩容条件。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED": "请由数据库管理员在当前数据库启用 pg_freespacemap，并检查运行账号的读取权限。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_NO_HEADROOM": "表前部可复用空间不足，或记录未能移出尾部。此次已停止。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_PROTECTED_TAIL": "尾部含有未核验、未终结或超出本次处理范围的记录。此次已停止。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_LIMIT": "达到本次分批缩容的记录数、写入量或 WAL 保护上限。",
+        "DATABASE_MAINTENANCE_INCREMENTAL_NO_RECLAIM": "本次未确认表的文件占用减少，请查看前后实测值。",
         "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT": "工作空间不足或已有其他预留，已停止维护准入。",
         "DATABASE_MAINTENANCE_TARGET_CHANGED": "当前数据库或安装身份已变化，请重新核对目标。",
         "DATABASE_MAINTENANCE_PREVIEW_STALE": "目标占用已超过检查时的工作空间，请重新检查。",

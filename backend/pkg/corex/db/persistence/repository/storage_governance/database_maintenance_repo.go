@@ -48,13 +48,14 @@ type MaintenanceTable struct {
 	DefaultTablespace bool   `json:"default_tablespace"`
 }
 type MaintenanceSnapshot struct {
-	DatabaseOID       int64              `json:"database_oid"`
-	Fingerprint       string             `json:"database_fingerprint"`
-	DatabaseBytes     int64              `json:"database_bytes"`
-	Tables            []MaintenanceTable `json:"tables"`
-	LocalDiskVerified bool               `json:"local_disk_verified"`
-	WALBudgetBytes    int64              `json:"wal_budget_bytes"`
-	RewriteSafe       bool               `json:"rewrite_safe"`
+	DatabaseOID        int64              `json:"database_oid"`
+	Fingerprint        string             `json:"database_fingerprint"`
+	DatabaseBytes      int64              `json:"database_bytes"`
+	Tables             []MaintenanceTable `json:"tables"`
+	LocalDiskVerified  bool               `json:"local_disk_verified"`
+	WALBudgetBytes     int64              `json:"wal_budget_bytes"`
+	RewriteSafe        bool               `json:"rewrite_safe"`
+	IncrementalProblem string             `json:"incremental_problem,omitempty"`
 }
 type MaintenanceSession struct {
 	PID         int       `json:"pid"`
@@ -155,6 +156,16 @@ func (r *DatabaseMaintenanceRepository) inspect(ctx context.Context, c *sql.Conn
 		canonical, resolveError := filepath.EvalSymlinks(serverDirectory)
 		out.LocalDiskVerified = e == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 && resolveError == nil && canonical == r.dataDirectory && unix.Stat(r.dataDirectory, &data) == nil && unix.Stat(r.filesystem, &root) == nil && data.Dev == root.Dev && uint64(data.Dev) == r.directoryDevice && data.Ino == r.directoryInode
 	}
+	if _, _, e := r.incrementalReady(ctx, c, out); e != nil {
+		switch {
+		case errors.Is(e, ErrMaintenanceDisk):
+			out.IncrementalProblem = "DATABASE_MAINTENANCE_DISK_UNVERIFIED"
+		case errors.Is(e, ErrIncrementalFSM):
+			out.IncrementalProblem = "DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED"
+		default:
+			out.IncrementalProblem = "DATABASE_MAINTENANCE_INCREMENTAL_UNSUPPORTED"
+		}
+	}
 	return out, ctx.Err()
 }
 func SameMaintenanceTarget(expected, actual MaintenanceSnapshot, ids []string) bool {
@@ -181,8 +192,8 @@ func SameMaintenanceTarget(expected, actual MaintenanceSnapshot, ids []string) b
 }
 
 // Execute 在单一固定连接上执行自动提交的维护语句；不把 VACUUM 放入事务块。
-func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, before func(string, MaintenanceSession) error, after func(string) error) error {
-	if !ValidMaintenanceTables(ids) || mode != "reuse" && mode != "compact" {
+func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode string, expected MaintenanceSnapshot, ids []string, before func(string, MaintenanceSession) error, after func(string) error, guard func(context.Context) error) error {
+	if !ValidMaintenanceRequest(mode, ids) || mode == IncrementalMaintenanceMode && guard == nil {
 		return ErrMaintenanceTarget
 	}
 	p, e := r.pool()
@@ -222,6 +233,9 @@ func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode
 	}
 	// 所有会话级设置必须恢复；恢复失败时强制丢弃物理连接，不能污染业务池。
 	settings := []string{"application_name", "statement_timeout", "lock_timeout", "maintenance_work_mem", "vacuum_cost_delay", "vacuum_cost_limit"}
+	if mode == IncrementalMaintenanceMode {
+		settings = append(settings, "search_path")
+	}
 	old := map[string]string{}
 	defer func() {
 		clean, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -273,11 +287,15 @@ func (r *DatabaseMaintenanceRepository) Execute(ctx context.Context, runID, mode
 		if e = before(id, session); e != nil {
 			return e
 		}
-		command := "VACUUM (ANALYZE, TRUNCATE FALSE, PARALLEL 0) "
-		if mode == "compact" {
-			command = "VACUUM (FULL, ANALYZE) "
+		switch mode {
+		case IncrementalMaintenanceMode:
+			e = r.executeIncremental(ctx, c, actual, guard)
+		case "compact":
+			_, e = c.ExecContext(ctx, "VACUUM (FULL, ANALYZE) "+pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize())
+		default:
+			_, e = c.ExecContext(ctx, "VACUUM (ANALYZE, TRUNCATE FALSE, PARALLEL 0) "+pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize())
 		}
-		if _, e = c.ExecContext(ctx, command+pgx.Identifier{r.schema, maintenanceTables[id]}.Sanitize()); e != nil {
+		if e != nil {
 			return e
 		}
 		if e = after(id); e != nil {

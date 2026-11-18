@@ -3,7 +3,9 @@ package storagegov
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	mevent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/storage_governance"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -123,7 +126,7 @@ func TestDatabaseMaintenanceNativePostgresAutocommitAndConnectionSettingsRestore
 	snapshot, e := r.Inspect(context.Background())
 	require.NoError(t, e)
 	var session repo.MaintenanceSession
-	require.NoError(t, r.Execute(context.Background(), uuid.NewString(), "reuse", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { session = x; return nil }, func(string) error { return nil }))
+	require.NoError(t, r.Execute(context.Background(), uuid.NewString(), "reuse", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { session = x; return nil }, func(string) error { return nil }, nil))
 	require.Equal(t, before, read())
 	active, e := r.SessionActive(context.Background(), session, false)
 	require.NoError(t, e)
@@ -145,7 +148,7 @@ func TestDatabaseMaintenanceNativePostgresCancellationUsesPinnedSessionAndPreser
 	ready := make(chan repo.MaintenanceSession, 1)
 	result := make(chan error, 1)
 	go func() {
-		result <- r.Execute(context.Background(), uuid.NewString(), "compact", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { ready <- x; return nil }, func(string) error { return nil })
+		result <- r.Execute(context.Background(), uuid.NewString(), "compact", snapshot, []string{"capability-invocation-traces"}, func(_ string, x repo.MaintenanceSession) error { ready <- x; return nil }, func(string) error { return nil }, nil)
 	}()
 	session := <-ready
 	require.Eventually(t, func() bool {
@@ -170,4 +173,116 @@ func TestDatabaseMaintenanceNativePostgresCancellationUsesPinnedSessionAndPreser
 	active, e = r.SessionActive(context.Background(), session, true)
 	require.NoError(t, e)
 	require.False(t, active, "connection returned to pool must not remain cancellable as this job")
+}
+
+func TestDatabaseMaintenanceNativePostgresIncrementalReclaimsOnlyNotificationTail(t *testing.T) {
+	s, r := maintenanceNative(t)
+	db := s.opts.DB
+	ctx := controlRoot()
+	name := pgx.Identifier{coremodel.PowerXSchema, "capability_registry_event_publications"}.Sanitize()
+	business := pgx.Identifier{coremodel.PowerXSchema, "orders"}.Sanitize()
+	require.NoError(t, db.Exec("DROP TABLE "+name+"; CREATE TABLE "+name+` (
+ id bigserial PRIMARY KEY, uuid uuid, created_at timestamptz, updated_at timestamptz, deleted_at timestamptz,
+ tenant_uuid char(36) NOT NULL, topic varchar(256) NOT NULL, payload jsonb NOT NULL,
+ status varchar(32) NOT NULL, attempts bigint NOT NULL DEFAULT 0, last_error text,
+ trace_id varchar(128) NOT NULL, publish_time timestamptz, record_class varchar(64) NOT NULL,
+ terminal_at timestamptz, delivery_receipt varchar(512) NOT NULL DEFAULT ''
+) WITH (autovacuum_enabled=false)`).Error)
+	require.NoError(t, db.Exec("INSERT INTO "+name+` (id,uuid,created_at,updated_at,tenant_uuid,topic,payload,status,trace_id,record_class,terminal_at)
+SELECT n,md5(n::text)::uuid,now(),now(),md5('fixture-tenant')::uuid::text,
+ '_topic.integration.gateway.invocation.succeeded',jsonb_build_object('body',repeat(md5(n::text),12),'terminal',true),
+ 'quarantined',md5(n::text),CASE WHEN n=80000 THEN 'legacy_unclassified' ELSE 'capability_invocation_notification' END,now()
+FROM generate_series(1,80000) n`).Error)
+	for i, columns := range []string{"uuid", "trace_id", "status", "topic", "deleted_at", "tenant_uuid", "tenant_uuid,status,terminal_at"} {
+		require.NoError(t, db.Exec(fmt.Sprintf("CREATE INDEX notification_test_%d ON %s (%s)", i, name, columns)).Error)
+	}
+	require.NoError(t, db.Exec("DELETE FROM "+name+" WHERE id<=47000").Error)
+	require.NoError(t, db.Exec("VACUUM (TRUNCATE FALSE, INDEX_CLEANUP ON, PARALLEL 0) "+name).Error)
+	require.NoError(t, db.Exec("CREATE TABLE "+business+" (id int PRIMARY KEY, amount int); INSERT INTO "+business+" VALUES(901,123)").Error)
+
+	var version string
+	require.NoError(t, db.Raw("SHOW server_version").Scan(&version).Error)
+	if !strings.HasPrefix(version, "16.") {
+		t.Skip("incremental compaction requires PostgreSQL 16")
+	}
+	require.NoError(t, db.Exec("CREATE EXTENSION IF NOT EXISTS pg_freespacemap").Error)
+	businessBefore := maintenanceDataDigest(t, db, "capability_registry_invocation_traces")
+	digest := func() string {
+		var out string
+		require.NoError(t, db.Raw("SELECT md5(string_agg(md5(entry::text),'' ORDER BY id)) FROM "+name+" entry").Scan(&out).Error)
+		return out
+	}
+	protectedDigest := digest()
+	input := DatabaseMaintenancePreview{Mode: repo.IncrementalMaintenanceMode, Tables: []string{repo.IncrementalMaintenanceTable}}
+	for _, ids := range [][]string{{"orders"}, {"capability-invocation-traces"}, {repo.IncrementalMaintenanceTable, "capability-invocation-traces"}} {
+		_, e := s.PreviewDatabaseMaintenance(ctx, DatabaseMaintenancePreview{Mode: input.Mode, Tables: ids})
+		require.Equal(t, "DATABASE_MAINTENANCE_INPUT_INVALID", dto.CodeOf(e))
+	}
+	// A dependency on a business table must prevent any write, even for valid notifications.
+	require.NoError(t, db.Exec("ALTER TABLE "+name+" ADD COLUMN order_id int REFERENCES "+business+"(id)").Error)
+	_, e := s.PreviewDatabaseMaintenance(ctx, input)
+	require.Equal(t, "DATABASE_MAINTENANCE_INCREMENTAL_UNSUPPORTED", dto.CodeOf(e), "%v", e)
+	require.NoError(t, db.Exec("ALTER TABLE "+name+" DROP COLUMN order_id").Error)
+	require.Equal(t, protectedDigest, digest())
+
+	snapshot, e := r.Inspect(ctx)
+	require.NoError(t, e)
+	require.Empty(t, snapshot.IncrementalProblem)
+	_, e = s.PreviewDatabaseMaintenance(ctx, input)
+	require.Equal(t, "DATABASE_MAINTENANCE_INCREMENTAL_PROTECTED_TAIL", dto.CodeOf(e), "%v", e)
+	require.Equal(t, protectedDigest, digest())
+	require.NoError(t, db.Exec("UPDATE "+name+" SET record_class='capability_invocation_notification' WHERE record_class='legacy_unclassified'").Error)
+	expected := digest()
+
+	runCtx, stop := context.WithCancel(context.Background())
+	s.StartControl(runCtx, nil)
+	s.StartDatabaseMaintenance(runCtx, nil)
+	t.Cleanup(func() {
+		stop()
+		<-s.maintenance.done
+		<-s.opts.Control.Done()
+	})
+	heapBytes := func(snapshot repo.MaintenanceSnapshot) int64 {
+		for _, table := range snapshot.Tables {
+			if table.ID == repo.IncrementalMaintenanceTable {
+				return table.HeapBytes
+			}
+		}
+		t.Fatal("notification table measurement missing")
+		return 0
+	}
+	var previous int64
+	for batch := 1; batch <= 2; batch++ {
+		preview, e := s.PreviewDatabaseMaintenance(ctx, input)
+		require.NoError(t, e)
+		require.EqualValues(t, 256<<20, preview.PeakBytes)
+		req := DatabaseMaintenanceRequest{RequestID: uuid.NewString(), PreviewID: preview.ID, Confirm: true}
+		_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
+		require.Equal(t, "DATABASE_MAINTENANCE_LOCK_CONFIRMATION_REQUIRED", dto.CodeOf(e))
+		req.ExclusiveLockConfirmed = true
+		_, e = s.StartDatabaseMaintenanceRequest(ctx, req)
+		require.NoError(t, e)
+		var final DatabaseMaintenanceRun
+		require.Eventually(t, func() bool {
+			final, e = s.DatabaseMaintenanceRun(ctx, req.RequestID)
+			return e == nil && (final.State == "completed" || final.State == "failed" || final.State == "unconfirmed" || final.State == "cancelled")
+		}, 30*time.Second, 50*time.Millisecond)
+		require.Equal(t, "completed", final.State, "%+v", final)
+		require.Len(t, final.Steps, 1)
+		require.Equal(t, repo.IncrementalMaintenanceTable, final.Steps[0].TableID)
+		require.NotNil(t, final.After)
+		beforeBytes, afterBytes := heapBytes(final.Before), heapBytes(*final.After)
+		if batch > 1 {
+			require.Equal(t, previous, beforeBytes)
+		}
+		require.Positive(t, afterBytes)
+		require.Less(t, afterBytes, beforeBytes)
+		previous = afterBytes
+		t.Logf("batch %d notification heap: %d -> %d bytes", batch, beforeBytes, afterBytes)
+		require.Equal(t, expected, digest())
+		require.Equal(t, businessBefore, maintenanceDataDigest(t, db, "capability_registry_invocation_traces"))
+	}
+	var amount int
+	require.NoError(t, db.Raw("SELECT amount FROM "+business+" WHERE id=901").Scan(&amount).Error)
+	require.Equal(t, 123, amount)
 }

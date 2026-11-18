@@ -67,6 +67,18 @@ func maintenanceError(e error) error {
 		code = "DATABASE_MAINTENANCE_INDEXES_INVALID"
 	case errors.Is(e, repo.ErrMaintenanceBusy):
 		code = "DATABASE_MAINTENANCE_BUSY"
+	case errors.Is(e, repo.ErrIncrementalUnsupported):
+		code = "DATABASE_MAINTENANCE_INCREMENTAL_UNSUPPORTED"
+	case errors.Is(e, repo.ErrIncrementalFSM):
+		code = "DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED"
+	case errors.Is(e, repo.ErrIncrementalCapacity):
+		code = "DATABASE_MAINTENANCE_INCREMENTAL_NO_HEADROOM"
+	case errors.Is(e, repo.ErrIncrementalProtected):
+		code = "DATABASE_MAINTENANCE_INCREMENTAL_PROTECTED_TAIL"
+	case errors.Is(e, repo.ErrIncrementalLimit):
+		code = "DATABASE_MAINTENANCE_INCREMENTAL_LIMIT"
+	case errors.Is(e, repo.ErrIncrementalNoReclaim):
+		code = "DATABASE_MAINTENANCE_INCREMENTAL_NO_RECLAIM"
 	case errors.Is(e, repo.ErrRevisionConflict):
 		code = "DATABASE_MAINTENANCE_CONFLICT"
 	}
@@ -89,7 +101,7 @@ func (s *Service) maintenanceGate(ctx context.Context) error {
 }
 func decodeMaintenance(row *m.CleanupRun, scope string) (DatabaseMaintenanceRun, error) {
 	var out DatabaseMaintenanceRun
-	if row == nil || json.Unmarshal(row.Document, &out) != nil || out.ID != row.RunID || out.Version != row.Version || out.State != row.State || out.Actor != row.ActorID || out.ScopeID != scope || !validTargetUUID(out.ID) || !repo.ValidMaintenanceTables(out.Tables) || out.Mode != "reuse" && out.Mode != "compact" || out.Version < 1 || out.Before.Fingerprint == "" || out.PeakBytes < 0 {
+	if row == nil || json.Unmarshal(row.Document, &out) != nil || out.ID != row.RunID || out.Version != row.Version || out.State != row.State || out.Actor != row.ActorID || out.ScopeID != scope || !validTargetUUID(out.ID) || !repo.ValidMaintenanceRequest(out.Mode, out.Tables) || out.Version < 1 || out.Before.Fingerprint == "" || out.PeakBytes < 0 {
 		return out, ErrStateUnavailable
 	}
 	if out.Session != nil && (out.Session.PID <= 0 || out.Session.StartedAt.IsZero() || out.Session.Application != "px.dbmaint."+out.ID) {
@@ -221,7 +233,7 @@ func maintenancePeak(mode string, snapshot repo.MaintenanceSnapshot, ids []strin
 	return (need+unit-1)/unit*unit + unit, nil
 }
 func maintenanceRequirement(mode string, snapshot repo.MaintenanceSnapshot, ids []string) (int64, error) {
-	if !repo.ValidMaintenanceTables(ids) || mode != "reuse" && mode != "compact" {
+	if !repo.ValidMaintenanceRequest(mode, ids) {
 		return 0, controlError(400, "DATABASE_MAINTENANCE_INPUT_INVALID")
 	}
 	peak := int64(64 << 20)
@@ -251,6 +263,15 @@ func maintenanceRequirement(mode string, snapshot repo.MaintenanceSnapshot, ids 
 		if !found {
 			return 0, repo.ErrMaintenanceTarget
 		}
+	}
+	if mode == repo.IncrementalMaintenanceMode {
+		if !snapshot.LocalDiskVerified {
+			return 0, repo.ErrMaintenanceDisk
+		}
+		if snapshot.IncrementalProblem != "" {
+			return 0, controlError(409, snapshot.IncrementalProblem)
+		}
+		return repo.IncrementalMaintenanceWorkingBytes, nil
 	}
 	if mode == "compact" {
 		if !snapshot.RewriteSafe || snapshot.WALBudgetBytes <= 0 {
@@ -297,6 +318,11 @@ func (s *Service) PreviewDatabaseMaintenance(ctx context.Context, in DatabaseMai
 	}
 	if budget.AvailableBytes-budget.ReservedBytes-floor < peak {
 		return out, controlError(409, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT")
+	}
+	if in.Mode == repo.IncrementalMaintenanceMode {
+		if e = s.maintenance.backend.CheckIncremental(run, snapshot); e != nil {
+			return out, maintenanceError(e)
+		}
 	}
 	ids := append([]string(nil), in.Tables...)
 	sort.Strings(ids)
@@ -370,7 +396,7 @@ func (s *Service) StartDatabaseMaintenanceRequest(ctx context.Context, in Databa
 				if preview.State != "preview" || preview.Actor != rootActor(ctx) || preview.ExpiresAt == nil || now.Before(preview.At) || !now.Before(*preview.ExpiresAt) {
 					return controlError(409, "DATABASE_MAINTENANCE_PREVIEW_EXPIRED")
 				}
-				if preview.Mode == "compact" && !in.ExclusiveLockConfirmed {
+				if preview.Mode != "reuse" && !in.ExclusiveLockConfirmed {
 					return controlError(428, "DATABASE_MAINTENANCE_LOCK_CONFIRMATION_REQUIRED")
 				}
 				out = preview
@@ -568,8 +594,12 @@ func (s *Service) ReviewDatabaseMaintenance(ctx context.Context, id string) (Dat
 	})
 }
 func maintenanceOperation(mode string) string {
-	if mode == "compact" {
+	switch mode {
+	case "compact":
 		return "database-compaction"
+	case repo.IncrementalMaintenanceMode:
+		return "database-incremental-compaction"
+	default:
+		return "database-vacuum"
 	}
-	return "database-vacuum"
 }
