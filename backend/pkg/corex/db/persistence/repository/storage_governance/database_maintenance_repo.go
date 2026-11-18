@@ -123,7 +123,8 @@ func (r *DatabaseMaintenanceRepository) inspect(ctx context.Context, c *sql.Conn
 	var database, version, started, address string
 	var oid int64
 	var defaultSpace bool
-	if e := c.QueryRowContext(ctx, `SELECT current_database(),d.oid::bigint,current_setting('server_version_num'),extract(epoch FROM pg_postmaster_start_time())::text,COALESCE(inet_server_addr()::text,''),pg_database_size(d.oid),d.dattablespace=1663 FROM pg_database d WHERE d.datname=current_database()`).Scan(&database, &oid, &version, &started, &address, &out.DatabaseBytes, &defaultSpace); e != nil {
+	// inet::text 会带上掩码。用 host() 取得净地址，同时保留 Unix socket 的 NULL。
+	if e := c.QueryRowContext(ctx, `SELECT current_database(),d.oid::bigint,current_setting('server_version_num'),extract(epoch FROM pg_postmaster_start_time())::text,COALESCE(pg_catalog.host(pg_catalog.inet_server_addr()),''),pg_database_size(d.oid),d.dattablespace=1663 FROM pg_database d WHERE d.datname=current_database()`).Scan(&database, &oid, &version, &started, &address, &out.DatabaseBytes, &defaultSpace); e != nil {
 		return out, e
 	}
 	out.DatabaseOID = oid

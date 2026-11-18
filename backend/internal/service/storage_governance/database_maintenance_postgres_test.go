@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,7 +18,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -51,6 +54,41 @@ func maintenanceDataDigest(t *testing.T, db *gorm.DB, name string) string {
 	require.NoError(t, db.Raw("SELECT md5(string_agg(id::text||':'||payload,',' ORDER BY id)) FROM "+pgx.Identifier{coremodel.PowerXSchema, name}.Sanitize()).Scan(&value).Error)
 	return value
 }
+
+func TestDatabaseMaintenanceNativePostgresLoopbackTCPVerifiesLocalDisk(t *testing.T) {
+	s, _ := maintenanceNative(t)
+	var listeners string
+	require.NoError(t, s.opts.DB.Raw("SHOW listen_addresses").Scan(&listeners).Error)
+	if !strings.Contains(listeners, "127.0.0.1") {
+		t.Skip("owned PostgreSQL fixture does not listen on IPv4 loopback")
+	}
+	// Use the TCP listener of the same isolated cluster as the owned socket.
+	cfg, err := pgx.ParseConfig(os.Getenv("POWERX_STORAGE_CONTROL_TEST_DSN"))
+	require.NoError(t, err)
+	cfg.Host = "127.0.0.1"
+	cfg.Fallbacks = nil
+	pool := stdlib.OpenDB(*cfg)
+	defer pool.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var directory, address string
+	require.NoError(t, pool.QueryRowContext(ctx, "SELECT current_setting('data_directory'), inet_server_addr()::text").Scan(&directory, &address))
+	require.Equal(t, s.opts.MaintenanceDataDirectory, directory)
+	require.Equal(t, "127.0.0.1/32", address, "exercise the inet-to-text form that previously failed the IP check")
+
+	tcp, err := gorm.Open(postgres.New(postgres.Config{Conn: pool}), &gorm.Config{})
+	require.NoError(t, err)
+	r := repo.NewDatabaseMaintenanceRepository(tcp, directory, s.opts.FilesystemPath)
+	snapshot, err := r.Inspect(ctx)
+	require.NoError(t, err)
+	require.True(t, snapshot.LocalDiskVerified, "same-device maintenance must admit a local TCP connection")
+
+	r = repo.NewDatabaseMaintenanceRepository(tcp, t.TempDir(), s.opts.FilesystemPath)
+	snapshot, err = r.Inspect(ctx)
+	require.NoError(t, err)
+	require.False(t, snapshot.LocalDiskVerified, "loopback alone must not admit an unrelated data directory")
+}
+
 func TestDatabaseMaintenanceNativePostgresTaskBusCompactionPreservesRowsAndScope(t *testing.T) {
 	s, _ := maintenanceNative(t)
 	db := s.opts.DB
