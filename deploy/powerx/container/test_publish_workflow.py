@@ -48,7 +48,8 @@ class PublishWorkflowTests(unittest.TestCase):
         self.assertTrue(any("pip install jsonschema" in step.get("run", "") for step in self.jobs["preflight"]["steps"]))
 
     def test_smoke_import_does_not_start_setup_or_docker(self):
-        result = subprocess.run([sys.executable, "-c", "import smoke, upgrade_smoke; print('imports-only')"],
+        program = "import sys\nsys.modules['playwright'] = None\nimport smoke, upgrade_smoke\nprint('imports-only')"
+        result = subprocess.run([sys.executable, "-c", program],
                                 cwd=build_contract.ROOT / "deploy/powerx/container",
                                 capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)

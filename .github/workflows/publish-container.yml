@@ -182,7 +182,7 @@ jobs:
           python3 -m playwright install --with-deps chromium
       - name: Verify smoke-test imports on this runner
         working-directory: deploy/powerx/container
-        run: python3 -c 'import smoke, upgrade_smoke'
+        run: python3 -c 'import smoke, upgrade_smoke, setup_browser_smoke'
       - name: Recheck source before registry writes
         run: python3 deploy/powerx/container/build_contract.py prepare --output request-check.json
       - uses: docker/login-action@v4
