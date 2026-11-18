@@ -2,6 +2,10 @@
 import type { StepperItem } from "@nuxt/ui";
 import {
   useSettingsService,
+  type SetupCacheConnection,
+  type SetupConnectionSource,
+  type SetupDatabaseConnection,
+  type SetupInstanceConnections,
   type SetupStatus,
 } from "~/composables/api/services/settingsService";
 import { AISettingService } from "~/composables/api/services/aiSettingService";
@@ -171,6 +175,10 @@ const step1Data = reactive({
   telemetryEnabled: false,
 });
 
+const instanceConnections = shallowRef<SetupInstanceConnections | null>(null);
+const setupConfigPending = ref(true);
+const setupConfigFailed = ref(false);
+
 const step2Data = reactive({
   domain: "",
   apiSubdomain: "",
@@ -186,7 +194,7 @@ const inferDefaultDomainFromLocation = (): string => {
   if (typeof window === "undefined") return "";
   const host = String(window.location.hostname || "").trim().toLowerCase();
   if (!host) return "";
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return "";
+  if (!instanceConnections.value && ["localhost", "127.0.0.1", "[::1]"].includes(host)) return "";
   return host;
 };
 
@@ -209,8 +217,9 @@ const applyStep2SmartDefaults = () => {
 const step3Data = reactive({
   backendPort: 8080,
   webAdminPort: 3000,
+  dbSource: "manual" as SetupConnectionSource,
+  dbSSLMode: "disable",
   dbType: "postgresql",
-  dbVersion: "",
   dbHost: "localhost",
   dbPort: 5432,
   dbName: "powerx",
@@ -218,6 +227,7 @@ const step3Data = reactive({
   dbUsername: "root",
   dbPassword: "",
   sqlitePath: "/data/powerx.db",
+  cacheSource: "manual" as SetupConnectionSource,
   cacheType: "redis",
   redisHost: "localhost",
   redisPort: 6379,
@@ -626,6 +636,75 @@ const dbTestState = reactive({
   provisioned: false,
 });
 
+const connectionSources = computed(() => [
+  { label: t("setup.connection.instanceSource"), value: "instance" as const },
+  { label: t("setup.connection.manualSource"), value: "manual" as const },
+]);
+const usesInstanceDatabase = computed(() => step3Data.dbSource === "instance");
+const usesInstanceCache = computed(() => step3Data.cacheSource === "instance");
+const instanceDatabaseReady = computed(() => !!instanceConnections.value?.database.password_configured);
+const instanceCacheReady = computed(() => !!instanceConnections.value?.cache.password_configured);
+
+const applyDatabaseFields = (database: SetupDatabaseConnection) => {
+  step3Data.dbType = database.type ?? "postgresql";
+  step3Data.dbHost = database.host ?? "";
+  step3Data.dbPort = database.port ?? 5432;
+  step3Data.dbName = database.name ?? "";
+  step3Data.dbUsername = database.username ?? "";
+  step3Data.dbCharset = database.charset ?? "utf8mb4";
+  step3Data.dbSSLMode = database.ssl_mode ?? "disable";
+  step3Data.sqlitePath = database.sqlite_path ?? step3Data.sqlitePath;
+  step3Data.dbPassword = "";
+};
+
+const applyCacheFields = (cache: SetupCacheConnection) => {
+  step3Data.cacheType = cache.type ?? "redis";
+  step3Data.redisHost = cache.redis_host ?? "";
+  step3Data.redisPort = cache.redis_port ?? 6379;
+  step3Data.redisDb = cache.redis_db ?? 0;
+  step3Data.redisPassword = "";
+};
+
+const switchDatabaseSource = (source: SetupConnectionSource) => {
+  step3Data.dbSource = source;
+  step3Data.dbPassword = "";
+  if (source === "instance" && instanceConnections.value) {
+    applyDatabaseFields(instanceConnections.value.database);
+  }
+};
+const switchCacheSource = (source: SetupConnectionSource) => {
+  step3Data.cacheSource = source;
+  step3Data.redisPassword = "";
+  if (source === "instance" && instanceConnections.value) {
+    applyCacheFields(instanceConnections.value.cache);
+  }
+};
+
+const databasePayload = computed<SetupDatabaseConnection>(() => usesInstanceDatabase.value
+  ? { source: "instance" }
+  : {
+      source: instanceConnections.value ? "manual" : undefined,
+      type: step3Data.dbType,
+      host: step3Data.dbHost,
+      port: Number(step3Data.dbPort || 0),
+      name: step3Data.dbName,
+      username: step3Data.dbUsername,
+      password: step3Data.dbPassword,
+      charset: step3Data.dbCharset,
+      ssl_mode: step3Data.dbSSLMode,
+      sqlite_path: step3Data.sqlitePath,
+    });
+const cachePayload = computed<SetupCacheConnection>(() => usesInstanceCache.value
+  ? { source: "instance" }
+  : {
+      source: instanceConnections.value ? "manual" : undefined,
+      type: step3Data.cacheType,
+      redis_host: step3Data.redisHost,
+      redis_port: Number(step3Data.redisPort || 0),
+      redis_db: Number(step3Data.redisDb || 0),
+      redis_password: step3Data.redisPassword,
+    });
+
 const setupPayload = computed(() => ({
   deployment: {
     env: step1Data.deploymentEnv,
@@ -650,13 +729,7 @@ const setupPayload = computed(() => ({
     bucket: step3Data.storageBucket,
     region: step3Data.storageRegion,
   },
-  cache: {
-    type: step3Data.cacheType,
-    redis_host: step3Data.redisHost,
-    redis_port: Number(step3Data.redisPort || 0),
-    redis_db: Number(step3Data.redisDb || 0),
-    redis_password: step3Data.redisPassword,
-  },
+  cache: cachePayload.value,
   email: {
     enabled: step3Data.emailEnabled,
     smtp_host: step3Data.emailSmtpHost,
@@ -687,17 +760,7 @@ const setupPayload = computed(() => ({
     max_tokens: Number(step6Data.maxTokens || 0),
     stream: !!step6Data.stream,
   },
-  database: {
-    type: step3Data.dbType,
-    host: step3Data.dbHost,
-    port: Number(step3Data.dbPort || 0),
-    name: step3Data.dbName,
-    username: step3Data.dbUsername,
-    password: step3Data.dbPassword,
-    charset: step3Data.dbCharset,
-    ssl_mode: "disable",
-    sqlite_path: step3Data.sqlitePath,
-  },
+  database: databasePayload.value,
   ports: {
     backend_port: Number(step3Data.backendPort || 0),
     web_admin_port: Number(step3Data.webAdminPort || 0),
@@ -716,14 +779,16 @@ const resolveSetupError = (error: any): string => {
 
 const setupTestDatabaseConnection = async () => {
   if (dbTestState.database.testing) return;
+  const input = databasePayload.value;
   dbTestState.database.testing = true;
   try {
     const resp: any = await $fetch("/api/v1/admin/setup/test/database", {
       method: "POST",
       body: {
-        database: setupPayload.value.database,
+        database: input,
       },
     });
+    if (input !== databasePayload.value) return;
     const data = resp?.data ?? resp;
     if (!data || data.ok !== true) {
       throw new Error(t("setup.connection.invalidResponse"));
@@ -732,9 +797,10 @@ const setupTestDatabaseConnection = async () => {
     dbTestState.database.message = t("setup.connection.database.success");
     dbTestState.database.diagnosticId = "";
   } catch (error: any) {
+    if (input !== databasePayload.value) return;
     dbTestState.database.ok = false;
     const failure = describeSetupConnectionError(error, "database");
-    dbTestState.database.message = failure.detail || t("setup.connection.failedFallback");
+    dbTestState.database.message = failure.messageKey ? t(failure.messageKey) : failure.detail || t("setup.connection.failedFallback");
     dbTestState.database.diagnosticId = failure.diagnosticId;
     toast.add({ title: t("setup.connection.database.failed"), description: dbTestState.database.message, color: "error" });
   } finally {
@@ -744,14 +810,16 @@ const setupTestDatabaseConnection = async () => {
 
 const setupTestCacheConnection = async () => {
   if (dbTestState.cache.testing) return;
+  const input = cachePayload.value;
   dbTestState.cache.testing = true;
   try {
     const resp: any = await $fetch("/api/v1/admin/setup/test/cache", {
       method: "POST",
       body: {
-        cache: setupPayload.value.cache,
+        cache: input,
       },
     });
+    if (input !== cachePayload.value) return;
     const data = resp?.data ?? resp;
     if (!data || data.ok !== true) {
       throw new Error(t("setup.connection.invalidResponse"));
@@ -760,6 +828,7 @@ const setupTestCacheConnection = async () => {
     dbTestState.cache.message = t("setup.connection.cache.success");
     dbTestState.cache.diagnosticId = "";
   } catch (error: any) {
+    if (input !== cachePayload.value) return;
     dbTestState.cache.ok = false;
     const failure = describeSetupConnectionError(error, "cache");
     dbTestState.cache.message = failure.messageKey ? t(failure.messageKey) : failure.detail || t("setup.connection.failedFallback");
@@ -804,24 +873,18 @@ const provisionSetupAtDatabaseStep = async (): Promise<boolean> => {
   }
 };
 
-watch(
-  () => [
-    step3Data.dbType,
-    step3Data.dbHost,
-    step3Data.dbPort,
-    step3Data.dbName,
-    step3Data.dbUsername,
-    step3Data.dbPassword,
-    step3Data.sqlitePath,
-    step3Data.cacheType,
-    step3Data.redisHost,
-    step3Data.redisPort,
-    step3Data.redisDb,
-    step3Data.redisPassword,
-  ],
-  () => {
-    dbTestState.provisioned = false;
-  }
+watch(databasePayload, () => {
+  Object.assign(dbTestState.database, { ok: false, message: "", diagnosticId: "" });
+  dbTestState.provisioned = false;
+});
+watch(cachePayload, () => {
+  Object.assign(dbTestState.cache, { ok: false, message: "", diagnosticId: "" });
+  dbTestState.provisioned = false;
+});
+
+const connectionTestsPassed = computed(() =>
+  (step3Data.dbType === "sqlite" || dbTestState.database.ok) &&
+  (step3Data.cacheType !== "redis" || dbTestState.cache.ok)
 );
 
 // 验证当前步骤
@@ -829,12 +892,16 @@ const validateCurrentStep = () => {
   switch (currentStep.value) {
     case 0:
       return (
+        !setupConfigPending.value && !setupConfigFailed.value &&
         ["dev", "test", "staging", "prod"].includes(step1Data.deploymentEnv) &&
         step1Data.licenseAccepted &&
         step1Data.termsAccepted
       );
     case 1:
-      return step3Data.dbType === "sqlite" || step3Data.dbHost.trim() !== "";
+      return (
+        (step3Data.dbType === "sqlite" || step3Data.dbHost.trim() !== "") &&
+        (!instanceConnections.value || connectionTestsPassed.value)
+      );
     case 2:
       return (
         step2Data.domain.trim() !== "" &&
@@ -1138,11 +1205,17 @@ const denormalizeStorageType = (raw: string): string => {
 };
 
 const loadSetupConfig = async () => {
+  setupConfigPending.value = true;
+  setupConfigFailed.value = false;
   try {
     const resp: any = await settingsService.getSetupConfig();
     const payload = resp?.data ?? resp;
     const cfg = payload?.config;
-    if (!cfg) return;
+    if (!cfg) {
+      setupConfigFailed.value = true;
+      return;
+    }
+    instanceConnections.value = payload.instance_connections ?? null;
     step1Data.deploymentEnv = String(cfg.deployment?.env || "");
 
     step2Data.domain = String(cfg.domain?.domain || step2Data.domain);
@@ -1162,20 +1235,10 @@ const loadSetupConfig = async () => {
     step3Data.storageBucket = String(cfg.storage?.bucket || step3Data.storageBucket);
     step3Data.storageRegion = String(cfg.storage?.region || step3Data.storageRegion);
 
-    step3Data.cacheType = String(cfg.cache?.type || step3Data.cacheType);
-    step3Data.redisHost = String(cfg.cache?.redis_host || step3Data.redisHost);
-    step3Data.redisPort = Number(cfg.cache?.redis_port || step3Data.redisPort);
-    step3Data.redisDb = Number(cfg.cache?.redis_db || step3Data.redisDb);
-    step3Data.redisPassword = String(cfg.cache?.redis_password || step3Data.redisPassword);
-
-    step3Data.dbType = String(cfg.database?.type || step3Data.dbType);
-    step3Data.dbHost = String(cfg.database?.host || step3Data.dbHost);
-    step3Data.dbPort = Number(cfg.database?.port || step3Data.dbPort);
-    step3Data.dbName = String(cfg.database?.name || step3Data.dbName);
-    step3Data.dbUsername = String(cfg.database?.username || step3Data.dbUsername);
-    step3Data.dbPassword = String(cfg.database?.password || step3Data.dbPassword);
-    step3Data.dbCharset = String(cfg.database?.charset || step3Data.dbCharset);
-    step3Data.sqlitePath = String(cfg.database?.sqlite_path || step3Data.sqlitePath);
+    step3Data.cacheSource = cfg.cache?.source ?? "manual";
+    step3Data.dbSource = cfg.database?.source ?? "manual";
+    if (cfg.cache) applyCacheFields(cfg.cache);
+    if (cfg.database) applyDatabaseFields(cfg.database);
 
     const llmEnabled = cfg.llm?.enabled !== false;
     step6Data.skipLLMSetup = !llmEnabled;
@@ -1207,7 +1270,9 @@ const loadSetupConfig = async () => {
     step3Data.backendPort = Number(cfg.ports?.backend_port || step3Data.backendPort);
     step3Data.webAdminPort = Number(cfg.ports?.web_admin_port || step3Data.webAdminPort);
   } catch {
-    // 首次没有配置时忽略
+    setupConfigFailed.value = true;
+  } finally {
+    setupConfigPending.value = false;
   }
 };
 
@@ -1267,6 +1332,17 @@ onMounted(async () => {
           <template #system-check>
             <UCard class="shadow-lg mt-6">
               <div class="p-6">
+                <UAlert v-if="setupConfigFailed" class="mb-4" color="error" variant="soft"
+                  :title="t('setup.connection.configLoadFailed')"
+                >
+                  <template #actions>
+                    <UButton color="neutral" variant="outline" :loading="setupConfigPending"
+                      @click="loadSetupConfig().then(applyStep2SmartDefaults)"
+                    >
+                      {{ t('setup.connection.retryConfig') }}
+                    </UButton>
+                  </template>
+                </UAlert>
                 <h3 class="text-lg font-semibold mb-6">{{ uiCopy.step1Title }}</h3>
                 <p v-if="setupStatus?.version" class="text-sm text-gray-500 mb-4">
                   {{ uiCopy.versionLabel }}{{ setupStatus.version }}
@@ -1740,10 +1816,19 @@ onMounted(async () => {
                 <!-- 数据库配置 -->
                 <div class="mb-8">
                   <h4 class="text-md font-medium mb-4">数据库设置</h4>
-                  <div class="grid grid-cols-2 gap-4 mb-4">
+                  <UFormField v-if="instanceConnections" :label="t('setup.connection.source')" class="mb-4">
+                    <USelect class="w-full sm:max-w-xs"
+                      data-testid="setup-database-source"
+                      :model-value="step3Data.dbSource"
+                      :items="connectionSources"
+                      @update:model-value="switchDatabaseSource"
+                    />
+                  </UFormField>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <UFormField label="数据库类型" required>
                       <USelect class="w-full"
                         v-model="step3Data.dbType"
+                        :disabled="usesInstanceDatabase"
                         :portal="false"
                         :items="[
                           { label: 'MySQL', value: 'mysql' },
@@ -1753,22 +1838,25 @@ onMounted(async () => {
                       />
                     </UFormField>
 
-                    <UFormField label="数据库版本">
-                      <UInput class="w-full"
-                        v-model="step3Data.dbVersion"
-                        placeholder="例如：8.0"
-                        :disabled="step3Data.dbType === 'sqlite'"
+                    <UFormField v-if="step3Data.dbType === 'postgresql' && !usesInstanceDatabase"
+                      :label="isZh ? 'SSL 模式' : 'SSL mode'"
+                    >
+                      <USelect class="w-full"
+                        v-model="step3Data.dbSSLMode"
+                        :items="['disable', 'prefer', 'require', 'verify-ca', 'verify-full']"
                       />
                     </UFormField>
                   </div>
 
                   <div
                     v-if="step3Data.dbType !== 'sqlite'"
-                    class="grid grid-cols-2 gap-4 mb-4"
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"
                   >
                     <UFormField label="主机地址" required>
                       <UInput class="w-full"
                         v-model="step3Data.dbHost"
+                        data-testid="setup-db-host"
+                        :readonly="usesInstanceDatabase"
                         placeholder="localhost"
                         icon="i-lucide-server"
                       />
@@ -1777,6 +1865,8 @@ onMounted(async () => {
                     <UFormField label="端口" required>
                       <UInput class="w-full"
                         v-model="step3Data.dbPort"
+                        data-testid="setup-db-port"
+                        :readonly="usesInstanceDatabase"
                         type="number"
                         :placeholder="
                           step3Data.dbType === 'mysql' ? '3306' : '5432'
@@ -1787,11 +1877,13 @@ onMounted(async () => {
 
                   <div
                     v-if="step3Data.dbType !== 'sqlite'"
-                    class="grid grid-cols-2 gap-4 mb-4"
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"
                   >
                     <UFormField label="数据库名" required>
                       <UInput class="w-full"
                         v-model="step3Data.dbName"
+                        data-testid="setup-db-name"
+                        :readonly="usesInstanceDatabase"
                         placeholder="powerx"
                         icon="i-lucide-database"
                       />
@@ -1800,6 +1892,7 @@ onMounted(async () => {
                     <UFormField label="字符集">
                       <USelect class="w-full"
                         v-model="step3Data.dbCharset"
+                        :disabled="usesInstanceDatabase"
                         :portal="false"
                         :items="[
                           { label: 'utf8mb4', value: 'utf8mb4' },
@@ -1814,13 +1907,22 @@ onMounted(async () => {
                       <UFormField label="用户名" required>
                         <UInput class="w-full"
                           v-model="step3Data.dbUsername"
+                        data-testid="setup-db-username"
+                        :readonly="usesInstanceDatabase"
                           placeholder="root"
                           icon="i-lucide-user"
                         />
                       </UFormField>
 
-                      <UFormField label="密码" required>
-                        <SecretInput class="w-full"
+                      <UFormField label="密码" :required="!usesInstanceDatabase">
+                        <UInput v-if="usesInstanceDatabase" class="w-full"
+                          data-testid="setup-db-instance-password"
+                          :model-value="instanceDatabaseReady ? t('setup.connection.passwordConfigured') : t('setup.connection.passwordMissing')"
+                          icon="i-lucide-lock"
+                          readonly
+                        />
+                        <SecretInput v-else class="w-full"
+                          data-testid="setup-db-manual-password"
                           v-model="step3Data.dbPassword"
                           placeholder="数据库密码"
                           icon="i-lucide-lock"
@@ -1829,6 +1931,9 @@ onMounted(async () => {
                     </div>
 
                     <div class="mt-4 space-y-3">
+                      <UAlert v-if="usesInstanceDatabase && !instanceDatabaseReady" color="error" variant="soft"
+                        :description="t('setup.connection.instanceDatabaseUnavailable')"
+                      />
                       <SetupConnectionFeedback kind="database" v-bind="dbTestState.database" />
                       <div class="flex justify-start">
                         <UButton
@@ -1836,7 +1941,7 @@ onMounted(async () => {
                           variant="soft"
                           type="button"
                           :loading="dbTestState.database.testing"
-                          :disabled="dbTestState.database.testing"
+                          :disabled="dbTestState.database.testing || (usesInstanceDatabase && !instanceDatabaseReady)"
                           @click="setupTestDatabaseConnection"
                         >
                           {{ t('setup.connection.database.test') }}
@@ -1860,9 +1965,18 @@ onMounted(async () => {
                 <div class="mb-8">
                   <h4 class="text-md font-medium mb-4">缓存配置</h4>
                   <div class="space-y-4">
+                    <UFormField v-if="instanceConnections" :label="t('setup.connection.source')">
+                      <USelect class="w-full sm:max-w-xs"
+                        data-testid="setup-cache-source"
+                        :model-value="step3Data.cacheSource"
+                        :items="connectionSources"
+                        @update:model-value="switchCacheSource"
+                      />
+                    </UFormField>
                     <UFormField label="缓存类型">
                       <USelect class="w-full"
                         v-model="step3Data.cacheType"
+                        :disabled="!!instanceConnections"
                         :portal="false"
                         :items="[
                           { label: 'Redis', value: 'redis' },
@@ -1879,6 +1993,8 @@ onMounted(async () => {
                       <UFormField label="Redis 主机">
                         <UInput class="w-full"
                           v-model="step3Data.redisHost"
+                          data-testid="setup-redis-host"
+                          :readonly="usesInstanceCache"
                           placeholder="localhost"
                           icon="i-lucide-server"
                         />
@@ -1887,6 +2003,8 @@ onMounted(async () => {
                       <UFormField label="Redis 端口">
                         <UInput class="w-full"
                           v-model="step3Data.redisPort"
+                          data-testid="setup-redis-port"
+                          :readonly="usesInstanceCache"
                           type="number"
                           placeholder="6379"
                         />
@@ -1897,18 +2015,29 @@ onMounted(async () => {
                       v-if="step3Data.cacheType === 'redis'"
                       class="grid grid-cols-1 sm:grid-cols-2 gap-4"
                     >
-                      <UFormField label="Redis 密码">
-                        <SecretInput class="w-full"
+                      <UFormField label="Redis 密码" :required="!!instanceConnections && !usesInstanceCache">
+                        <UInput v-if="usesInstanceCache" class="w-full"
+                          data-testid="setup-redis-instance-password"
+                          :model-value="instanceCacheReady ? t('setup.connection.passwordConfigured') : t('setup.connection.passwordMissing')"
+                          icon="i-lucide-lock"
+                          readonly
+                        />
+                        <SecretInput v-else class="w-full"
+                          data-testid="setup-redis-manual-password"
                           v-model="step3Data.redisPassword"
-                          placeholder="Redis 密码（可选）"
+                          placeholder="Redis 密码"
                           icon="i-lucide-lock"
                         />
-                        <template #help>{{ t('setup.connection.redisPasswordHelp') }}</template>
+                        <template v-if="!usesInstanceCache" #help>
+                          {{ t(instanceConnections ? 'setup.connection.cachePasswordRequired' : 'setup.connection.redisPasswordHelp') }}
+                        </template>
                       </UFormField>
 
                       <UFormField label="数据库索引">
                         <UInput class="w-full"
                           v-model="step3Data.redisDb"
+                          data-testid="setup-redis-index"
+                          :readonly="usesInstanceCache"
                           type="number"
                           placeholder="0"
                         />
@@ -1919,6 +2048,9 @@ onMounted(async () => {
                       v-if="step3Data.cacheType === 'redis'"
                       class="mt-2 space-y-3"
                     >
+                      <UAlert v-if="usesInstanceCache && !instanceCacheReady" color="error" variant="soft"
+                        :description="t('setup.connection.instanceCacheUnavailable')"
+                      />
                       <SetupConnectionFeedback kind="cache" v-bind="dbTestState.cache" />
                       <div class="flex justify-start">
                         <UButton
@@ -1926,7 +2058,7 @@ onMounted(async () => {
                           variant="soft"
                           type="button"
                           :loading="dbTestState.cache.testing"
-                          :disabled="dbTestState.cache.testing"
+                          :disabled="dbTestState.cache.testing || (usesInstanceCache && !instanceCacheReady)"
                           @click="setupTestCacheConnection"
                         >
                           {{ t('setup.connection.cache.test') }}

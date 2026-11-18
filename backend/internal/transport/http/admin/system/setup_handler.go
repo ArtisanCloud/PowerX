@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -31,13 +33,13 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 const setupCompletedKey = "platform.setup.completed"
@@ -75,11 +77,13 @@ type setupStorageConfig struct {
 }
 
 type setupCacheConfig struct {
-	Type      string `json:"type"` // redis/memcached/file
-	RedisHost string `json:"redis_host,omitempty"`
-	RedisPort int    `json:"redis_port,omitempty"`
-	RedisDB   int    `json:"redis_db,omitempty"`
-	RedisPass string `json:"redis_password,omitempty"`
+	Source             string `json:"source,omitempty"`
+	PasswordConfigured bool   `json:"password_configured,omitempty"`
+	Type               string `json:"type"` // redis/memcached/file
+	RedisHost          string `json:"redis_host,omitempty"`
+	RedisPort          int    `json:"redis_port,omitempty"`
+	RedisDB            int    `json:"redis_db,omitempty"`
+	RedisPass          string `json:"redis_password,omitempty"`
 }
 
 type setupEmailConfig struct {
@@ -91,15 +95,17 @@ type setupEmailConfig struct {
 }
 
 type setupDatabaseConfig struct {
-	Type       string `json:"type,omitempty"` // mysql/postgresql/sqlite
-	Host       string `json:"host,omitempty"`
-	Port       int    `json:"port,omitempty"`
-	Name       string `json:"name,omitempty"`
-	Username   string `json:"username,omitempty"`
-	Password   string `json:"password,omitempty"`
-	Charset    string `json:"charset,omitempty"`
-	SSLMode    string `json:"ssl_mode,omitempty"`
-	SQLitePath string `json:"sqlite_path,omitempty"`
+	Source             string `json:"source,omitempty"`
+	PasswordConfigured bool   `json:"password_configured,omitempty"`
+	Type               string `json:"type,omitempty"` // mysql/postgresql/sqlite
+	Host               string `json:"host,omitempty"`
+	Port               int    `json:"port,omitempty"`
+	Name               string `json:"name,omitempty"`
+	Username           string `json:"username,omitempty"`
+	Password           string `json:"password,omitempty"`
+	Charset            string `json:"charset,omitempty"`
+	SSLMode            string `json:"ssl_mode,omitempty"`
+	SQLitePath         string `json:"sqlite_path,omitempty"`
 }
 
 type setupLLMConfig struct {
@@ -155,6 +161,8 @@ type SetupHandler struct {
 	agentSvc *agentsetting.AgentSettingService
 }
 
+var setupConfigMu sync.RWMutex
+
 func NewSetupHandler(db *gorm.DB) *SetupHandler {
 	h := &SetupHandler{db: db}
 	if db != nil {
@@ -188,6 +196,8 @@ type setupCacheTestRequest struct {
 }
 
 func (h *SetupHandler) Status(c *gin.Context) {
+	setupConfigMu.RLock()
+	defer setupConfigMu.RUnlock()
 	installStatus := "installed"
 	guardMode := "strict"
 	version := ""
@@ -287,16 +297,36 @@ func setupStatusTraceEnabled() bool {
 }
 
 func (h *SetupHandler) GetConfig(c *gin.Context) {
+	setupConfigMu.RLock()
+	defer setupConfigMu.RUnlock()
 	cfg := defaultSetupConfig()
-	if draft, ok := h.loadDraftConfig(); ok {
+	draft, hasDraft := h.loadDraftConfig()
+	if hasDraft && setupWriteAllowed() {
 		cfg = draft
+	}
+	var instance *setupInstanceConnections
+	if setupInstanceAvailable() {
+		instance = readSetupInstanceConnections()
+		if !hasDraft {
+			cfg.HTTPS.Mode = "disable"
+		}
+		if !hasDraft || cfg.Database.Source == setupSourceInstance {
+			cfg.Database = instance.Database
+		}
+		if !hasDraft || cfg.Cache.Source == setupSourceInstance {
+			cfg.Cache = instance.Cache
+		}
+		instance = instance.public()
 	}
 	applyRuntimeDeploymentConfig(&cfg)
 	applyRuntimePortOverrides(&cfg)
-	dto.ResponseSuccess(c, gin.H{"config": cfg})
+	c.Header("Cache-Control", "no-store")
+	dto.ResponseSuccess(c, gin.H{"config": publicSetupConfig(cfg), "instance_connections": instance})
 }
 
 func (h *SetupHandler) SaveConfig(c *gin.Context) {
+	setupConfigMu.Lock()
+	defer setupConfigMu.Unlock()
 	if !setupWriteAllowed() {
 		dto.ResponseError(c, http.StatusConflict, "系统已安装，禁止再次修改初始化向导配置", nil)
 		return
@@ -307,19 +337,26 @@ func (h *SetupHandler) SaveConfig(c *gin.Context) {
 		return
 	}
 	normalizeSetupPorts(&req)
-	if err := validateSetupDraftConfig(req); err != nil {
+	resolved, err := resolveSetupConnections(req)
+	if err == nil {
+		err = validateSetupDraftConfig(resolved)
+	}
+	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	if err := h.storeDraftConfig(req); err != nil {
+	if err := h.storeDraftConfig(setupDraftForStorage(resolved)); err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "保存初始化配置失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"ok": true, "config": req})
+	c.Header("Cache-Control", "no-store")
+	dto.ResponseSuccess(c, gin.H{"ok": true, "config": publicSetupConfig(resolved)})
 }
 
 func (h *SetupHandler) Complete(c *gin.Context) {
+	setupConfigMu.Lock()
+	defer setupConfigMu.Unlock()
 	if !setupWriteAllowed() {
 		dto.ResponseError(c, http.StatusConflict, "系统已安装，禁止再次执行初始化", nil)
 		return
@@ -338,8 +375,15 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "尚未保存安装向导配置", nil)
 		return
 	}
-	if err := validateSetupConfig(draft); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
+	draft, err := resolveSetupConnections(draft)
+	if err == nil {
+		err = validateSetupConfig(draft)
+	}
+	if err == nil {
+		err = checkContainerSetupConnections(c.Request.Context(), draft)
+	}
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
@@ -360,34 +404,43 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		return
 	}
 
-	if err := writeRuntimeConfig(runtimePath, draft, "configuring"); err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "写入安装中配置失败", err)
+	phasePath, err := prepareSetupPhaseConfig(runtimePath, original, draft)
+	if err != nil {
+		h.respondSetupPhaseError(c, err)
 		return
 	}
-	if err := h.applySetupPortConfig(c.Request.Context(), runtimePath, draft); err != nil {
-		_ = os.WriteFile(runtimePath, original, 0o644)
+	if phasePath != runtimePath {
+		defer os.Remove(phasePath)
+	}
+	rollback := func() {
+		if phasePath == runtimePath {
+			_ = os.WriteFile(runtimePath, original, 0o600)
+		}
+	}
+	if err := h.applySetupPortConfig(c.Request.Context(), phasePath, draft); err != nil {
+		rollback()
 		dto.ResponseError(c, http.StatusInternalServerError, "写入端口配置失败", err)
 		return
 	}
 
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("POWERX_SETUP_SIMULATE_PHASE2_FAIL")), "true") {
-		_ = os.WriteFile(runtimePath, original, 0o644)
+		rollback()
 		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", errors.New("setup phase2 simulated failure"))
 		return
 	}
-	if err := runSetupProvisionSteps(runtimePath); err != nil {
-		_ = os.WriteFile(runtimePath, original, 0o644)
-		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", err)
+	if err := runSetupProvisionSteps(phasePath); err != nil {
+		rollback()
+		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", publicSetupProvisionError(err))
 		return
 	}
 	if err := h.persistSetupLLM(c.Request.Context(), draft); err != nil {
-		_ = os.WriteFile(runtimePath, original, 0o644)
-		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", err)
+		rollback()
+		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", publicSetupProvisionError(err))
 		return
 	}
 	if err := h.ensureSetupDefaultRegistrationPolicy(c.Request.Context(), draft); err != nil {
-		_ = os.WriteFile(runtimePath, original, 0o644)
-		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", err)
+		rollback()
+		dto.ResponseError(c, http.StatusInternalServerError, "安装初始化失败，请修复后重试", publicSetupProvisionError(err))
 		return
 	}
 
@@ -397,7 +450,7 @@ func (h *SetupHandler) Complete(c *gin.Context) {
 		return
 	}
 	if err := h.applySetupPortConfig(c.Request.Context(), runtimePath, draft); err != nil {
-		_ = os.WriteFile(runtimePath, original, 0o644)
+		_ = writePrivateSetupFile(runtimePath, original)
 		dto.ResponseError(c, http.StatusInternalServerError, "写入端口配置失败", err)
 		return
 	}
@@ -469,6 +522,8 @@ func (h *SetupHandler) ensureSetupDefaultRegistrationPolicy(ctx context.Context,
 }
 
 func (h *SetupHandler) Provision(c *gin.Context) {
+	setupConfigMu.Lock()
+	defer setupConfigMu.Unlock()
 	if !setupWriteAllowed() {
 		dto.ResponseError(c, http.StatusConflict, "系统已安装，禁止再次执行数据库初始化", nil)
 		return
@@ -487,8 +542,15 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "尚未保存安装向导配置", nil)
 		return
 	}
-	if err := validateSetupDraftConfig(draft); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
+	draft, err := resolveSetupConnections(draft)
+	if err == nil {
+		err = validateSetupDraftConfig(draft)
+	}
+	if err == nil {
+		err = checkContainerSetupConnections(c.Request.Context(), draft)
+	}
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
@@ -508,19 +570,27 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		dto.ResponseError(c, http.StatusInternalServerError, "读取运行配置失败", err)
 		return
 	}
-	if err := writeRuntimeConfig(runtimePath, draft, "configuring"); err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "写入安装中配置失败", err)
+	phasePath, err := prepareSetupPhaseConfig(runtimePath, original, draft)
+	if err != nil {
+		h.respondSetupPhaseError(c, err)
 		return
 	}
-	if err := h.applySetupPortConfig(c.Request.Context(), runtimePath, draft); err != nil {
-		_ = os.WriteFile(runtimePath, original, 0o644)
+	if phasePath != runtimePath {
+		defer os.Remove(phasePath)
+	}
+	if err := h.applySetupPortConfig(c.Request.Context(), phasePath, draft); err != nil {
+		if phasePath == runtimePath {
+			_ = os.WriteFile(runtimePath, original, 0o600)
+		}
 		dto.ResponseError(c, http.StatusInternalServerError, "写入端口配置失败", err)
 		return
 	}
 	// 数据库步骤先于管理员确认，仅迁移表结构；完整种子在 Complete 中执行。
-	if err := runSetupMigrationStep(runtimePath); err != nil {
-		_ = os.WriteFile(runtimePath, original, 0o644)
-		dto.ResponseError(c, http.StatusInternalServerError, "数据库初始化失败，请检查配置后重试", err)
+	if err := runSetupMigrationStep(phasePath); err != nil {
+		if phasePath == runtimePath {
+			_ = os.WriteFile(runtimePath, original, 0o600)
+		}
+		dto.ResponseError(c, http.StatusInternalServerError, "数据库初始化失败，请检查配置后重试", publicSetupProvisionError(err))
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{
@@ -528,6 +598,14 @@ func (h *SetupHandler) Provision(c *gin.Context) {
 		"install_status": "configuring",
 		"provisioned":    true,
 	})
+}
+
+func (h *SetupHandler) respondSetupPhaseError(c *gin.Context, err error) {
+	if isContainerSetup() {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	dto.ResponseError(c, http.StatusInternalServerError, "写入安装中配置失败", err)
 }
 
 func (h *SetupHandler) TestLLMConnection(c *gin.Context) {
@@ -538,7 +616,8 @@ func (h *SetupHandler) TestLLMConnection(c *gin.Context) {
 	}
 	env := resolveSetupAIEnv(req.Env)
 
-	svc := h.resolveAgentService(c.Request.Context())
+	svc, _, closeDB := h.resolveAgentService(c.Request.Context())
+	defer closeDB()
 	if svc != nil {
 		if err := svc.TestConnectionPreferInput(
 			c.Request.Context(),
@@ -619,7 +698,8 @@ func (h *SetupHandler) TestLLMQuickCall(c *gin.Context) {
 		result *agentcfg.InvokeResult
 		err    error
 	)
-	svc := h.resolveAgentService(c.Request.Context())
+	svc, _, closeDB := h.resolveAgentService(c.Request.Context())
+	defer closeDB()
 	if svc != nil {
 		result, err = svc.QuickCallLLMResult(
 			c.Request.Context(),
@@ -657,33 +737,28 @@ func (h *SetupHandler) TestLLMQuickCall(c *gin.Context) {
 	dto.ResponseSuccess(c, out)
 }
 
-func (h *SetupHandler) resolveAgentService(ctx context.Context) *agentsetting.AgentSettingService {
-	if h == nil {
-		return nil
-	}
+func (h *SetupHandler) resolveAgentService(ctx context.Context) (*agentsetting.AgentSettingService, *gorm.DB, func()) {
 	if h.agentSvc != nil {
-		return h.agentSvc
+		return h.agentSvc, h.db, func() {}
 	}
-	if h.db == nil {
-		if db, err := tryOpenProvisionedDB(ctx, h); err == nil && db != nil {
-			h.db = db
+	db, err := tryOpenProvisionedDB(ctx, h)
+	if err != nil {
+		return nil, nil, func() {}
+	}
+	return agentsetting.NewAgentSettingService(db), db, func() {
+		if conn, err := db.DB(); err == nil {
+			_ = conn.Close()
 		}
 	}
-	if h.db == nil {
-		return nil
-	}
-	if h.s == nil {
-		h.s = settingsvc.NewSettingService(h.db)
-	}
-	h.agentSvc = agentsetting.NewAgentSettingService(h.db)
-	return h.agentSvc
 }
 
 func tryOpenProvisionedDB(ctx context.Context, h *SetupHandler) (*gorm.DB, error) {
 	candidates := make([]setupDatabaseConfig, 0, 2)
 	if h != nil {
 		if draft, ok := h.loadDraftConfig(); ok {
-			candidates = append(candidates, draft.Database)
+			if db, err := resolveSetupDatabase(draft.Database, nil); err == nil {
+				candidates = append(candidates, db)
+			}
 		}
 	}
 	if runtimeCfg, ok := loadRuntimeDatabaseConfig(); ok {
@@ -1024,57 +1099,38 @@ func validateSetupBaseURL(raw string) error {
 }
 
 func (h *SetupHandler) TestDatabaseConnection(c *gin.Context) {
+	setupConfigMu.RLock()
+	defer setupConfigMu.RUnlock()
 	var req setupDatabaseTestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "请求参数格式错误", err)
+		dto.ResponseError(c, http.StatusBadRequest, "请求参数格式错误", nil)
 		return
 	}
-	dbCfg := req.Database
-	if strings.TrimSpace(dbCfg.Type) == "" {
-		dbCfg.Type = "postgresql"
+	db, err := resolveSetupDatabase(req.Database, nil)
+	if err == nil {
+		err = testSetupDatabase(c.Request.Context(), db)
 	}
-	if err := validateDatabaseOnly(dbCfg); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
-		return
-	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-	defer cancel()
-	if err := pingDatabase(ctx, dbCfg); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "数据库连接测试失败", err)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 func (h *SetupHandler) TestCacheConnection(c *gin.Context) {
+	setupConfigMu.RLock()
+	defer setupConfigMu.RUnlock()
 	var req setupCacheTestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "请求参数格式错误", err)
+		dto.ResponseError(c, http.StatusBadRequest, "请求参数格式错误", nil)
 		return
 	}
-	cacheCfg := req.Cache
-	cacheType := strings.ToLower(strings.TrimSpace(cacheCfg.Type))
-	if cacheType == "" {
-		cacheType = "redis"
+	cache, err := resolveSetupCache(req.Cache, nil)
+	if err == nil {
+		err = testSetupCache(c.Request.Context(), cache)
 	}
-	if cacheType != "redis" {
-		dto.ResponseSuccess(c, gin.H{"ok": true, "message": "仅 Redis 提供在线连接测试"})
-		return
-	}
-	if strings.TrimSpace(cacheCfg.RedisHost) == "" || cacheCfg.RedisPort <= 0 {
-		dto.ResponseError(c, http.StatusBadRequest, "cache.type=redis 时必须提供 redis_host/redis_port", nil)
-		return
-	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-	defer cancel()
-	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", strings.TrimSpace(cacheCfg.RedisHost), cacheCfg.RedisPort),
-		Password: strings.TrimSpace(cacheCfg.RedisPass),
-		DB:       cacheCfg.RedisDB,
-	})
-	defer func() { _ = client.Close() }()
-	if err := client.Ping(ctx).Err(); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "Redis 连接测试失败", err)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ok": true})
@@ -1150,7 +1206,7 @@ func (h *SetupHandler) storeDraftConfig(payload setupConfigPayload) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, buf, 0o644)
+	return writePrivateSetupFile(path, buf)
 }
 
 func resolveSetupDraftPath() string {
@@ -1247,6 +1303,9 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 		return err
 	}
 	root["database"] = db
+	if isContainerSetup() {
+		applySetupCacheConfig(root, payload.Cache)
+	}
 
 	if err := applyStorageConfig(root, payload.Storage); err != nil {
 		return err
@@ -1265,6 +1324,9 @@ func writeRuntimeConfig(path string, payload setupConfigPayload, installStatus s
 	data, err := yaml.Marshal(root)
 	if err != nil {
 		return err
+	}
+	if isContainerSetup() {
+		return writePrivateSetupFile(path, data)
 	}
 	return os.WriteFile(path, data, 0o644)
 }
@@ -1616,7 +1678,8 @@ func (h *SetupHandler) persistSetupLLM(ctx context.Context, payload setupConfigP
 	if provider == "" || model == "" {
 		return nil
 	}
-	svc := h.resolveAgentService(ctx)
+	svc, db, closeDB := h.resolveAgentService(ctx)
+	defer closeDB()
 	if svc == nil {
 		return fmt.Errorf("setup ai service unavailable")
 	}
@@ -1644,7 +1707,7 @@ func (h *SetupHandler) persistSetupLLM(ctx context.Context, payload setupConfigP
 		return fmt.Errorf("保存 setup LLM 配置失败: %w", err)
 	}
 
-	tenantUUID, err := h.resolveSetupTenantUUID(ctx, payload)
+	tenantUUID, err := resolveSetupTenantUUID(ctx, db, payload)
 	if err != nil {
 		logger.WarnF(
 			ctx,
@@ -1732,8 +1795,8 @@ func (h *SetupHandler) persistSetupLLM(ctx context.Context, payload setupConfigP
 	return nil
 }
 
-func (h *SetupHandler) resolveSetupTenantUUID(ctx context.Context, payload setupConfigPayload) (string, error) {
-	if h == nil || h.db == nil {
+func resolveSetupTenantUUID(ctx context.Context, db *gorm.DB, payload setupConfigPayload) (string, error) {
+	if db == nil {
 		return "", nil
 	}
 	tenantKey := strings.TrimSpace(payload.Admin.TenantCode)
@@ -1742,7 +1805,7 @@ func (h *SetupHandler) resolveSetupTenantUUID(ctx context.Context, payload setup
 	}
 
 	var tenant tenantmodel.Tenant
-	err := h.db.WithContext(ctx).
+	err := db.WithContext(ctx).
 		Model(&tenantmodel.Tenant{}).
 		Where("key = ?", tenantKey).
 		First(&tenant).Error
@@ -1753,7 +1816,7 @@ func (h *SetupHandler) resolveSetupTenantUUID(ctx context.Context, payload setup
 		return "", err
 	}
 
-	err = h.db.WithContext(ctx).
+	err = db.WithContext(ctx).
 		Model(&tenantmodel.Tenant{}).
 		Order("id asc").
 		First(&tenant).Error
@@ -2202,9 +2265,7 @@ func applyDatabaseConfig(db map[string]any, in setupDatabaseConfig) error {
 		if v := strings.TrimSpace(in.Username); v != "" {
 			db["username"] = v
 		}
-		if in.Password != "" {
-			db["password"] = in.Password
-		}
+		db["password"] = in.Password
 		sslMode := strings.TrimSpace(in.SSLMode)
 		if sslMode == "" {
 			sslMode = "disable"
@@ -2229,9 +2290,7 @@ func applyDatabaseConfig(db map[string]any, in setupDatabaseConfig) error {
 		if v := strings.TrimSpace(in.Username); v != "" {
 			db["username"] = v
 		}
-		if in.Password != "" {
-			db["password"] = in.Password
-		}
+		db["password"] = in.Password
 		dsn, err := buildDatabaseDSN("mysql", in)
 		if err != nil {
 			return err
@@ -2266,14 +2325,12 @@ func buildDatabaseDSN(driver string, in setupDatabaseConfig) (string, error) {
 		if sslMode == "" {
 			sslMode = "disable"
 		}
-		return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-			url.QueryEscape(user),
-			url.QueryEscape(in.Password),
-			host,
-			in.Port,
-			name,
-			url.QueryEscape(sslMode),
-		), nil
+		dsn := url.URL{
+			Scheme: "postgres", User: url.UserPassword(user, in.Password),
+			Host: net.JoinHostPort(host, strconv.Itoa(in.Port)), Path: "/" + name,
+			RawQuery: url.Values{"sslmode": {sslMode}}.Encode(),
+		}
+		return dsn.String(), nil
 	case "mysql":
 		charset := strings.TrimSpace(in.Charset)
 		if charset == "" {
@@ -2329,21 +2386,22 @@ func pingDatabase(ctx context.Context, in setupDatabaseConfig) error {
 		db  *gorm.DB
 		err error
 	)
+	opts := &gorm.Config{DisableAutomaticPing: true, Logger: gormlogger.Discard}
 	switch driver {
 	case "postgresql", "postgres":
 		dsn, dsnErr := buildDatabaseDSN("postgres", in)
 		if dsnErr != nil {
 			return dsnErr
 		}
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		db, err = gorm.Open(postgres.Open(dsn), opts)
 	case "mysql":
 		dsn, dsnErr := buildDatabaseDSN("mysql", in)
 		if dsnErr != nil {
 			return dsnErr
 		}
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		db, err = gorm.Open(mysql.New(mysql.Config{DSN: dsn, SkipInitializeWithVersion: true}), opts)
 	case "sqlite":
-		db, err = gorm.Open(sqlite.Open(strings.TrimSpace(in.SQLitePath)), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(strings.TrimSpace(in.SQLitePath)), opts)
 	default:
 		return fmt.Errorf("unsupported database.type: %s", in.Type)
 	}
