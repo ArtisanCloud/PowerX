@@ -37,6 +37,7 @@ class PublishWorkflowTests(unittest.TestCase):
         self.assertIn("inputs.build_mode || 'verify'", self.workflow["run-name"])
 
     def test_each_runner_installs_its_own_required_python_dependencies(self):
+        self.assertEqual(self.jobs["images"]["runs-on"], "ubuntu-24.04")
         images = self.jobs["images"]["steps"]
         setup = next(i for i, step in enumerate(images) if step.get("uses", "").startswith("actions/setup-python@"))
         install = next(i for i, step in enumerate(images) if "pip install PyYAML" in step.get("run", ""))

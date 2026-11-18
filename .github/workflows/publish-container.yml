@@ -161,7 +161,8 @@ jobs:
   images:
     needs: [preflight, checks]
     if: needs.preflight.outputs.fresh == 'true' && needs.preflight.outputs.mode != 'verify'
-    runs-on: ubuntu-latest
+    # Playwright 1.57 的 Chromium 使用 Ubuntu 24.04 runner。
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read
