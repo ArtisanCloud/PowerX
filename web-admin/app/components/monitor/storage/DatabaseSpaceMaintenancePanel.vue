@@ -13,8 +13,8 @@
     <UCard>
       <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-sm text-muted">{{ t('storageGov.dbMaintenance.databaseSize') }}</p><p class="mt-1 text-xl font-semibold tabular-nums">{{ bytes(status?.snapshot?.database_bytes) }}</p></div><p class="max-w-xl text-sm text-muted">{{ t('storageGov.dbMaintenance.scope') }}</p></div>
       <fieldset class="mt-5 space-y-3" :disabled="busy || !!pending || intentDamaged"><legend class="mb-2 text-sm font-medium">{{ t('storageGov.dbMaintenance.selectTables') }}</legend>
-        <label v-for="row in status?.snapshot?.tables || []" :key="row.id" class="flex min-w-0 items-start gap-3 rounded-lg border border-default p-3">
-          <input v-model="selected" type="checkbox" :value="row.id" :disabled="!row.can_maintain || !row.indexes_valid" class="mt-1 size-4 shrink-0 accent-emerald-500" :data-testid="'maintenance-table-' + row.id" />
+        <label v-for="row in availableTables" :key="row.id" class="flex min-w-0 items-start gap-3 rounded-lg border border-default p-3">
+          <input v-model="selectedForMode" type="checkbox" :value="row.id" :disabled="incremental || !row.can_maintain || !row.indexes_valid" class="mt-1 size-4 shrink-0 accent-emerald-500" :data-testid="'maintenance-table-' + row.id" />
           <span class="min-w-0 flex-1"><span class="block font-medium">{{ tableLabel(row.id) }}</span><span class="mt-1 block text-xs text-muted">{{ t('storageGov.dbMaintenance.deadEstimate', { count: row.dead_rows_estimate }) }}</span><span v-if="!row.can_maintain || !row.indexes_valid" class="block text-xs text-warning">{{ problemText(!row.can_maintain ? 'DATABASE_MAINTENANCE_OWNER_REQUIRED' : 'DATABASE_MAINTENANCE_INDEXES_INVALID') }}</span></span>
           <span class="shrink-0 text-sm tabular-nums">{{ bytes(row.total_bytes) }}</span>
         </label>
@@ -22,7 +22,7 @@
       </fieldset>
       <UFormField class="mt-5" :label="t('storageGov.dbMaintenance.mode')"><USelect v-model="mode" :items="modes" value-key="value" class="w-full sm:w-80" :disabled="busy || !!pending || intentDamaged" data-testid="maintenance-mode" /></UFormField>
       <p class="mt-2 text-sm text-muted">{{ t('storageGov.dbMaintenance.modeHints.' + mode) }}</p>
-      <p v-if="compactProblem" role="status" class="mt-3 text-sm text-warning">{{ problemText(compactProblem) }}</p>
+      <p v-if="modeProblem" role="status" class="mt-3 text-sm text-warning">{{ problemText(modeProblem) }}</p>
       <div class="mt-5 flex flex-wrap items-center gap-3"><UButton :disabled="!canPreview" :loading="busy" data-testid="maintenance-preview" @click="check">{{ t('storageGov.dbMaintenance.check') }}</UButton><p class="text-xs text-muted">{{ t('storageGov.dbMaintenance.checkHint') }}</p></div>
     </UCard>
 
@@ -30,13 +30,13 @@
       <template #body><div v-if="preview" class="space-y-4" data-testid="maintenance-preview-detail">
         <p class="font-medium">{{ t('storageGov.dbMaintenance.modes.' + preview.mode) }}</p><ul class="space-y-2"><li v-for="id in preview.tables" :key="id">{{ tableLabel(id) }}</li></ul>
         <dl class="grid grid-cols-2 gap-3 text-sm"><dt>{{ t('storageGov.dbMaintenance.workSpace') }}</dt><dd class="tabular-nums">{{ bytes(preview.peak_bytes) }}</dd><dt>{{ t('storageGov.dbMaintenance.expires') }}</dt><dd>{{ new Date(preview.expires_at!).toLocaleTimeString() }}</dd></dl>
-        <UAlert v-if="preview.mode === 'compact'" color="warning" :title="t('storageGov.dbMaintenance.lockTitle')" :description="t('storageGov.dbMaintenance.lockHint')" />
+        <UAlert v-if="preview.mode !== 'reuse'" color="warning" :title="t('storageGov.dbMaintenance.lockTitle')" :description="t('storageGov.dbMaintenance.' + (preview.mode === 'incremental' ? 'incrementalLockHint' : 'lockHint'))" />
         <UCheckbox v-model="confirmed" :disabled="busy || !!pending" :label="t('storageGov.dbMaintenance.confirm')" data-testid="maintenance-confirm" />
-        <UCheckbox v-if="preview.mode === 'compact'" v-model="exclusiveConfirmed" :disabled="busy || !!pending" :label="t('storageGov.dbMaintenance.confirmLock')" data-testid="maintenance-confirm-lock" />
+        <UCheckbox v-if="preview.mode !== 'reuse'" v-model="exclusiveConfirmed" :disabled="busy || !!pending" :label="t('storageGov.dbMaintenance.confirmLock')" data-testid="maintenance-confirm-lock" />
         <p v-if="expired" role="alert" class="text-warning">{{ t('storageGov.dbMaintenance.expired') }}</p><p v-if="error" role="alert" class="text-error">{{ error }}</p>
         <div v-if="pending" class="flex flex-wrap gap-2"><UButton :disabled="busy" @click="reconcile">{{ t('storageGov.dbMaintenance.reconcile') }}</UButton><UButton :disabled="busy || pending.scopeId !== status?.scope_id" color="neutral" @click="cancelPending">{{ t('storageGov.dbMaintenance.cancelRequest') }}</UButton></div>
       </div></template>
-      <template #footer><UButton :disabled="!preview || !confirmed || expired || busy || !!pending || intentDamaged || preview.mode === 'compact' && !exclusiveConfirmed" :loading="busy" data-testid="maintenance-start" @click="start">{{ t('storageGov.dbMaintenance.start') }}</UButton><UButton color="neutral" variant="ghost" @click="previewOpen = false">{{ t('storageGov.dbMaintenance.close') }}</UButton></template>
+      <template #footer><UButton :disabled="!preview || !confirmed || expired || busy || !!pending || intentDamaged || preview.mode !== 'reuse' && !exclusiveConfirmed" :loading="busy" data-testid="maintenance-start" @click="start">{{ t('storageGov.dbMaintenance.start') }}</UButton><UButton color="neutral" variant="ghost" @click="previewOpen = false">{{ t('storageGov.dbMaintenance.close') }}</UButton></template>
     </UModal>
     <UModal v-model:open="recordsOpen" :title="t('storageGov.dbMaintenance.records')" :description="t('storageGov.dbMaintenance.recordsHint')" :ui="{ content: 'max-w-3xl' }">
       <template #body>
@@ -64,13 +64,33 @@ const previewOpen = ref(false), recordsOpen = ref(false), detailID = ref(''), tr
 const loading = ref(false), busy = ref(false), error = ref(''), confirmed = ref(false), exclusiveConfirmed = ref(false), expired = ref(false), intentDamaged = ref(false);
 let readController: AbortController | undefined, actionController: AbortController | undefined, expiryTimer: ReturnType<typeof setTimeout> | undefined, disposed = false, initialized = false;
 let owner: ReturnType<typeof identity> | undefined;
-const modes = computed(() => (['reuse', 'compact'] as const).map(value => ({ value, label: t('storageGov.dbMaintenance.modes.' + value) })));
+const modes = computed(() => (['reuse', 'incremental', 'compact'] as const).map(value => ({ value, label: t('storageGov.dbMaintenance.modes.' + value) })));
 const tableLabel = (id: MaintenanceTableID) => t('storageGov.dbMaintenance.tables.' + id);
 const current = computed(() => runs.value[status.value?.active?.id || trackedID.value]);
 const detail = computed(() => runs.value[detailID.value]);
 const history = computed(() => Object.values(runs.value).filter(x => !['preview', 'consumed'].includes(x.state)).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)));
-const compactProblem = computed(() => mode.value !== 'compact' || !status.value?.snapshot ? '' : !status.value.snapshot.local_disk_verified || status.value.snapshot.tables.some(row => selected.value.includes(row.id) && !row.default_tablespace) ? 'DATABASE_MAINTENANCE_DISK_UNVERIFIED' : !status.value.snapshot.rewrite_safe ? 'DATABASE_MAINTENANCE_WAL_PROTECTED' : '');
-const canPreview = computed(() => !!status.value?.ready && selected.value.length > 0 && !busy.value && !pending.value && !intentDamaged.value && !status.value.active && !compactProblem.value);
+const notificationTable = 'capability-event-publications';
+const incremental = computed(() => mode.value === 'incremental');
+const availableTables = computed(() => (status.value?.snapshot?.tables || []).filter(row => !incremental.value || row.id === notificationTable));
+const selectedForMode = computed<MaintenanceTableID[]>({
+  get: () => incremental.value ? availableTables.value.map(row => row.id) : selected.value,
+  set: value => { if (!incremental.value) selected.value = value; },
+});
+const modeProblem = computed(() => {
+  const snapshot = status.value?.snapshot;
+  if (mode.value === 'reuse' || !snapshot) return '';
+  if (!snapshot.local_disk_verified || availableTables.value.some(row => selectedForMode.value.includes(row.id) && !row.default_tablespace)) {
+    return 'DATABASE_MAINTENANCE_DISK_UNVERIFIED';
+  }
+  if (incremental.value) {
+    const notification = availableTables.value[0];
+    if (notification && !notification.can_maintain) return 'DATABASE_MAINTENANCE_OWNER_REQUIRED';
+    if (notification && !notification.indexes_valid) return 'DATABASE_MAINTENANCE_INDEXES_INVALID';
+    return snapshot.incremental_problem || '';
+  }
+  return snapshot.rewrite_safe ? '' : 'DATABASE_MAINTENANCE_WAL_PROTECTED';
+});
+const canPreview = computed(() => !!status.value?.ready && selectedForMode.value.length > 0 && !busy.value && !pending.value && !intentDamaged.value && !status.value.active && !modeProblem.value);
 function identity() { const s = readAuthSession(); if (!s || s.status !== 'active') throw new Error('AUTH_SESSION_CHANGED'); return { sessionId: s.sessionId, tenantUuid: s.tenantUuid || '' }; }
 function sessionChanged() {
   const next = readAuthSession();
@@ -107,14 +127,14 @@ async function load() {
 function action() { actionController?.abort(); actionController = new AbortController(); busy.value = true; error.value = ''; return actionController.signal; }
 async function check() {
   if (!canPreview.value) return; const signal = action();
-  try { const value = await api.preview(mode.value, [...selected.value], signal); if (disposed || signal.aborted) return;
+  try { const value = await api.preview(mode.value, [...selectedForMode.value], signal); if (disposed || signal.aborted) return;
     preview.value = value; confirmed.value = false; exclusiveConfirmed.value = false; expired.value = Date.parse(value.expires_at!) <= Date.now(); previewOpen.value = true;
     clearTimeout(expiryTimer); expiryTimer = setTimeout(() => { expired.value = true; }, Math.max(0, Date.parse(value.expires_at!) - Date.now()));
   } catch (e) { if (!disposed && !signal.aborted) error.value = problemText(e); }
   finally { if (!disposed && !signal.aborted) busy.value = false; }
 }
 async function start() {
-  if (!preview.value || !confirmed.value || expired.value || pending.value || intentDamaged.value || preview.value.mode === 'compact' && !exclusiveConfirmed.value) return;
+  if (!preview.value || !confirmed.value || expired.value || pending.value || intentDamaged.value || preview.value.mode !== 'reuse' && !exclusiveConfirmed.value) return;
   const signal = action(), value = preview.value; let attemptID = '';
   try {
     const intent: MaintenanceIntent = { ...identity(), version: 1, scopeId: value.scope_id, requestId: crypto.randomUUID(), previewId: value.id, exclusiveLockConfirmed: exclusiveConfirmed.value, at: Date.now() };
@@ -146,7 +166,7 @@ async function updateRun(run: DatabaseMaintenanceRun, review: boolean) {
   finally { if (!disposed && !signal.aborted) { busy.value = false; await load(); } }
 }
 watch(() => props.revision, () => { void load(); });
-watch([mode, () => selected.value.join(',')], () => { if (!previewOpen.value) { preview.value = undefined; clearTimeout(expiryTimer); } });
+watch([mode, () => selectedForMode.value.join(',')], () => { if (!previewOpen.value) { preview.value = undefined; clearTimeout(expiryTimer); } });
 onMounted(() => { try { owner = identity(); } catch { sessionChanged(); } window.addEventListener(AUTH_SESSION_EVENT, sessionChanged); void load(); });
 onBeforeUnmount(() => { disposed = true; readController?.abort(); actionController?.abort(); clearTimeout(expiryTimer); window.removeEventListener(AUTH_SESSION_EVENT, sessionChanged); });
 </script>

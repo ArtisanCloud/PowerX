@@ -240,7 +240,7 @@ func (c *Coordinator) Reserve(ctx context.Context, operation string, peak int64,
 // 它不修改策略，也不允许调用方提交任意任务类型来降低保护。
 func ReclamationFloor(operation string, state Snapshot) (int64, error) {
 	switch operation {
-	case "database-vacuum":
+	case "database-vacuum", "database-incremental-compaction":
 		return state.CriticalFreeBytes, nil
 	case "database-compaction":
 		return state.MinFreeBytes, nil
@@ -251,7 +251,7 @@ func ReclamationFloor(operation string, state Snapshot) (int64, error) {
 
 // ReserveReclamation 仅供固定数据库回收使用；保留任务峰值、其他预留、并发及操作对应的空间底线。
 func (c *Coordinator) ReserveReclamation(ctx context.Context, operation string, peak int64, ttl time.Duration) (*Lease, error) {
-	if operation != "database-vacuum" && operation != "database-compaction" {
+	if _, e := ReclamationFloor(operation, Snapshot{}); e != nil {
 		return nil, ErrUnavailable
 	}
 	return c.reserve(ctx, operation, peak, ttl, true)
@@ -267,7 +267,7 @@ func (l *Lease) ID() string {
 
 // ReleaseReclamation 仅释放当前实例、固定回收类型的租约；调用方必须先核对持久任务和数据库会话。
 func (c *Coordinator) ReleaseReclamation(ctx context.Context, id, operation string) error {
-	if operation != "database-vacuum" && operation != "database-compaction" {
+	if _, e := ReclamationFloor(operation, Snapshot{}); e != nil {
 		return ErrUnavailable
 	}
 	return c.locked(ctx, true, func(s *ledger) error {

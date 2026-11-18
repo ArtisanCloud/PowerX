@@ -19,6 +19,12 @@ it('validates original identity, monotonic steps and measured results', () => {
   expect(() => decodeDatabaseMaintenanceRun({ ...run, filesystem_available_after: -1 })).toThrow();
   expect(decodeDatabaseMaintenanceRun(maintenanceRun('unconfirmed')).after).toBeUndefined();
 });
+it('accepts incremental receipts only for the invocation-notification table', () => {
+  const run = { ...maintenanceRun(), mode: 'incremental' };
+  expect(decodeDatabaseMaintenanceRun({ ...run, tables: ['capability-event-publications'] }).mode).toBe('incremental');
+  expect(() => decodeDatabaseMaintenanceRun(run)).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
+  expect(() => decodeDatabaseMaintenanceRun({ ...run, tables: ['capability-invocation-traces'] })).toThrow('DATABASE_MAINTENANCE_RESPONSE_INVALID');
+});
 it('uses fixed maintenance contracts, no write retry, and the same request identity', async () => {
   const service = useStorageDatabaseMaintenanceService(), run = maintenanceRun('queued'), signal = new AbortController().signal;
   api.post.mockResolvedValue({ data: run });

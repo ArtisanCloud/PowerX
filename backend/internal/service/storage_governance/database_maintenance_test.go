@@ -50,7 +50,10 @@ func (f *maintenanceFixtureBackend) SessionActive(_ context.Context, _ repo.Main
 	}
 	return active, nil
 }
-func (f *maintenanceFixtureBackend) Execute(ctx context.Context, id, mode string, expected repo.MaintenanceSnapshot, ids []string, before func(string, repo.MaintenanceSession) error, after func(string) error) error {
+func (f *maintenanceFixtureBackend) CheckIncremental(context.Context, repo.MaintenanceSnapshot) error {
+	return nil
+}
+func (f *maintenanceFixtureBackend) Execute(ctx context.Context, id, mode string, expected repo.MaintenanceSnapshot, ids []string, before func(string, repo.MaintenanceSession) error, after func(string) error, _ func(context.Context) error) error {
 	f.active.Store(true)
 	defer f.active.Store(false)
 	for _, table := range ids {
@@ -249,6 +252,28 @@ func TestDatabaseMaintenanceRunningVacuumHonorsCriticalAndOtherReservations(t *t
 	snap.AvailableBytes = 11 << 30
 	require.Equal(t, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT", dto.CodeOf(maintenanceBudgetSafety(snap, "reuse", "own")))
 	require.Equal(t, "DATABASE_MAINTENANCE_LEASE_UNCONFIRMED", dto.CodeOf(maintenanceBudgetSafety(snap, "reuse", "missing")))
+}
+
+func TestDatabaseMaintenanceIncrementalUsesBoundedReservationAndRuntimeMargin(t *testing.T) {
+	s, _, _ := maintenanceFixture(t, func(c *budget.Config) {
+		var st unix.Statfs_t
+		require.NoError(t, unix.Statfs(c.FilesystemPath, &st))
+		available := int64(st.Bavail) * int64(st.Bsize)
+		c.MinFreeBytes = available + 1<<30
+		c.CriticalFreeBytes = available - 512<<20
+	})
+	input := DatabaseMaintenancePreview{Mode: repo.IncrementalMaintenanceMode, Tables: []string{repo.IncrementalMaintenanceTable}}
+	preview, e := s.PreviewDatabaseMaintenance(controlRoot(), input)
+	require.NoError(t, e)
+	require.EqualValues(t, 256<<20, preview.PeakBytes)
+	snapshot := budget.Snapshot{
+		CriticalFreeBytes: 10 << 30, AvailableBytes: (10 << 30) + (96 << 20),
+		Active:        []budget.Reservation{{ID: "own", PeakBytes: preview.PeakBytes}, {ID: "other", PeakBytes: 32 << 20}},
+		ReservedBytes: preview.PeakBytes + 32<<20,
+	}
+	require.NoError(t, maintenanceBudgetSafety(snapshot, input.Mode, "own"))
+	snapshot.AvailableBytes--
+	require.Equal(t, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT", dto.CodeOf(maintenanceBudgetSafety(snapshot, input.Mode, "own")))
 }
 func TestDatabaseMaintenanceIdempotencyRegistrationAndSingleActiveJob(t *testing.T) {
 	s, f, bus := maintenanceFixture(t)

@@ -14,7 +14,8 @@ import (
 // DatabaseMaintenanceBackend 隔离 PostgreSQL 自动提交操作，测试不使用日常数据库。
 type DatabaseMaintenanceBackend interface {
 	Inspect(context.Context) (repo.MaintenanceSnapshot, error)
-	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, func(string, repo.MaintenanceSession) error, func(string) error) error
+	CheckIncremental(context.Context, repo.MaintenanceSnapshot) error
+	Execute(context.Context, string, string, repo.MaintenanceSnapshot, []string, func(string, repo.MaintenanceSession) error, func(string) error, func(context.Context) error) error
 	SessionActive(context.Context, repo.MaintenanceSession, bool) (bool, error)
 	RootActive(context.Context, uint64) error
 }

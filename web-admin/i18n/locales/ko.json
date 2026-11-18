@@ -1366,6 +1366,7 @@
       "expires": "This check expires at",
       "lockTitle": "Compaction blocks reads and writes on selected tables",
       "lockHint": "Each table has a 15-minute limit and a 2-second lock wait. Use a maintenance window. Cancellation stops unfinished steps; completed maintenance remains.",
+      "incrementalLockHint": "한 번에 끝부분의 최대 1,024페이지를 처리합니다. 공간을 반환할 때 알림 테이블에 배타적 잠금을 시도하므로 사용량이 적은 시간에 실행하세요.",
       "confirm": "I have checked the targets and working space and confirm maintenance",
       "confirmLock": "A maintenance window is arranged; selected system tables may temporarily block reads and writes",
       "expired": "This check has expired. Close it and check again.",
@@ -1393,10 +1394,12 @@
       "requestFailed": "The request did not finish. Refresh the observation or reconcile the original task.",
       "modes": {
         "reuse": "Ordinary maintenance (internal reuse)",
+        "incremental": "단계별 디스크 공간 회수",
         "compact": "Physical compaction (release disk space)"
       },
       "modeHints": {
         "reuse": "Reclaims obsolete versions for database reuse; disk allocation usually stays unchanged.",
+        "incremental": "호출 알림 테이블 내부의 빈 페이지를 사용해 끝부분을 한 구간씩 정리합니다. 회수량은 실행 후 측정값으로 확인할 수 있습니다.",
         "compact": "Rewrites selected tables and indexes to release unused allocation. Reclaimed bytes are measured afterwards."
       },
       "tables": {
@@ -1433,6 +1436,12 @@
         "DATABASE_MAINTENANCE_WAL_PROTECTED": "Replication slots, WAL archiving or long transactions currently block compaction.",
         "DATABASE_MAINTENANCE_OWNER_REQUIRED": "The current database connection cannot maintain this table.",
         "DATABASE_MAINTENANCE_INDEXES_INVALID": "An index is invalid. Review it before maintenance.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_UNSUPPORTED": "PostgreSQL 버전, 데이터베이스 실행 상태 또는 알림 테이블 구조가 단계별 회수 조건을 충족하지 않습니다.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_FSM_REQUIRED": "데이터베이스 관리자에게 이 데이터베이스에서 pg_freespacemap을 활성화하고 실행 역할의 읽기 권한을 확인하도록 요청하세요.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_NO_HEADROOM": "앞쪽 페이지에 재사용할 공간이 부족하거나 끝부분에서 행을 옮길 수 없어 실행을 중단했습니다.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_PROTECTED_TAIL": "끝부분에 확인되지 않았거나, 완료되지 않았거나, 범위에 포함되지 않는 레코드가 있어 실행을 중단했습니다.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_LIMIT": "이 일괄 작업의 행 수, 쓰기 또는 WAL 한도에 도달했습니다.",
+        "DATABASE_MAINTENANCE_INCREMENTAL_NO_RECLAIM": "테이블 파일 크기가 줄었는지 확인할 수 없습니다. 작업 전후 측정값을 확인하세요.",
         "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT": "Working space is insufficient or already reserved; maintenance admission is blocked.",
         "DATABASE_MAINTENANCE_TARGET_CHANGED": "The database or installation identity changed. Check the target again.",
         "DATABASE_MAINTENANCE_PREVIEW_STALE": "Target size exceeded the checked working-space reservation. Check again.",

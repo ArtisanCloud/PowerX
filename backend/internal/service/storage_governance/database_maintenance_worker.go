@@ -288,6 +288,9 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 	}
 	v, e = s.maintenanceDeliveryChange(run, item, v.ID, false, func(x *DatabaseMaintenanceRun) error {
 		x.ReservationID = lease.ID()
+		if x.Mode == repo.IncrementalMaintenanceMode {
+			x.Before = actual
+		}
 		if x.Before.LocalDiskVerified {
 			x.FilesystemAvailableBefore = &snapshot.AvailableBytes
 		}
@@ -351,6 +354,8 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			return ErrStateUnavailable
 		})
 		return e
+	}, func(ctx context.Context) error {
+		return s.maintenanceSafety(ctx, v, lease.ID())
 	})
 	close(done)
 	<-monitorDone
@@ -376,7 +381,7 @@ func (s *Service) executeDatabaseMaintenance(ctx context.Context, item event_bus
 			} else {
 				problem = "DATABASE_MAINTENANCE_COMMAND_FAILED"
 			}
-		case dto.CodeOf(e) != "" || errors.Is(e, repo.ErrMaintenanceTarget) || errors.Is(e, repo.ErrMaintenanceBusy) || errors.Is(e, repo.ErrMaintenanceDisk):
+		case dto.CodeOf(e) != "" || errors.Is(e, repo.ErrMaintenanceTarget) || errors.Is(e, repo.ErrMaintenanceBusy) || errors.Is(e, repo.ErrMaintenanceDisk) || repo.IncrementalMaintenanceError(e):
 			finalState = "failed"
 		default:
 			finalState = "unconfirmed"
@@ -425,7 +430,14 @@ func maintenanceBudgetSafety(snap budget.Snapshot, mode, leaseID string) error {
 	if !found {
 		return controlError(409, "DATABASE_MAINTENANCE_LEASE_UNCONFIRMED")
 	}
-	if snap.AvailableBytes-(snap.ReservedBytes-own) < snap.CriticalFreeBytes || mode == "compact" && snap.AvailableBytes-(snap.ReservedBytes-own) < snap.CriticalFreeBytes+(1<<30) {
+	floor := snap.CriticalFreeBytes
+	switch mode {
+	case "compact":
+		floor += 1 << 30
+	case repo.IncrementalMaintenanceMode:
+		floor += 64 << 20
+	}
+	if snap.AvailableBytes-(snap.ReservedBytes-own) < floor {
 		return controlError(409, "DATABASE_MAINTENANCE_SPACE_INSUFFICIENT")
 	}
 	return nil
