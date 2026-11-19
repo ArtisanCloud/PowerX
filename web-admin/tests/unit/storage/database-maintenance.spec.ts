@@ -40,6 +40,15 @@ it('preserves a measured WAL stop and accepts the historical receipt format', ()
   expect(() => decodeDatabaseMaintenanceRun({ ...run, wal_stop: { ...stop, observed_bytes: stop.limit_bytes - 1 } })).toThrow();
   expect(() => decodeDatabaseMaintenanceRun({ ...run, wal_stop: { ...stop, metric: 'wal_quiet_interval_bytes' } })).toThrow();
 });
+it('validates batch timings, retries and the failed slice even with no bytes reclaimed', () => {
+  const run = { ...maintenanceRun('failed'), problem: 'DATABASE_MAINTENANCE_INCREMENTAL_NO_RECLAIM', mode: 'incremental', tables: ['capability-event-publications'] };
+  const stopped = { elapsed_ms: 5316, vacuum_attempts: 3, heap_reclaimed_bytes: 0, table_change_bytes: 0, stop_phase: 'tail_not_truncated' };
+  const step = { table_id: 'capability-event-publications', state: 'running', started_at: run.at, incremental_batches: [stopped] };
+  expect(decodeDatabaseMaintenanceRun({ ...run, steps: [step] }).steps[0]?.incremental_batches).toEqual([stopped]);
+  for (const batch of [{ ...stopped, elapsed_ms: -1 }, { ...stopped, vacuum_attempts: 4 }, { ...stopped, stop_phase: 'unknown' }, { ...stopped, heap_reclaimed_bytes: 1 }]) {
+    expect(() => decodeDatabaseMaintenanceRun({ ...run, steps: [{ ...step, incremental_batches: [batch] }] })).toThrow();
+  }
+});
 it('uses fixed maintenance contracts, no write retry, and the same request identity', async () => {
   const service = useStorageDatabaseMaintenanceService(), run = maintenanceRun('queued'), signal = new AbortController().signal;
   api.post.mockResolvedValue({ data: run });

@@ -13,11 +13,26 @@ export interface MaintenanceSnapshot {
   database_oid: number; database_fingerprint: string; database_bytes: number; local_disk_verified: boolean;
   wal_budget_bytes: number; rewrite_safe: boolean; incremental_problem?: string; tables: MaintenanceTable[];
 }
+const incrementalStopPhases = ['checks', 'measurement', 'eligibility', 'relocation', 'vacuum', 'tail_refilled', 'tail_not_truncated', 'table_not_smaller'] as const;
+const incrementalStopReasons = ['time_budget', 'batch_limit'] as const;
+export interface MaintenanceIncrementalBatch {
+  elapsed_ms: number;
+  vacuum_attempts: number;
+  truncate_lock_waits?: number;
+  heap_reclaimed_bytes: number;
+  table_change_bytes?: number;
+  stop_phase?: typeof incrementalStopPhases[number];
+}
 export interface DatabaseMaintenanceRun {
   id: string; version: number; scope_id: string; state: MaintenanceState; mode: MaintenanceMode; actor: number;
   at: string; updated_at: string; expires_at?: string; preview_id?: string; tables: MaintenanceTableID[];
   before: MaintenanceSnapshot; after?: MaintenanceSnapshot; peak_bytes: number;
-  steps: { incremental?: { slices_completed: number; heap_reclaimed_bytes: number }; table_id: MaintenanceTableID; state: 'running' | 'completed'; started_at: string; finished_at?: string }[];
+  steps: {
+    incremental?: { slices_completed: number; heap_reclaimed_bytes: number };
+    incremental_batches?: MaintenanceIncrementalBatch[];
+    incremental_stop_reason?: typeof incrementalStopReasons[number];
+    table_id: MaintenanceTableID; state: 'running' | 'completed'; started_at: string; finished_at?: string;
+  }[];
   problem?: string; cancelled_by?: number; reviewed_by?: number;
   wal_stop?: {
     phase: 'relocation' | 'vacuum';
@@ -38,6 +53,26 @@ const time = (v: unknown): v is string => typeof v === 'string' && Number.isFini
 const table = (v: unknown): v is MaintenanceTableID => databaseMaintenanceTables.includes(v as MaintenanceTableID);
 const unwrap = (raw: any) => raw && typeof raw === 'object' && 'data' in raw ? raw.data : raw;
 function invalid(): never { throw new Error('DATABASE_MAINTENANCE_RESPONSE_INVALID'); }
+function validIncrementalBatches(step: DatabaseMaintenanceRun['steps'][number], mode: MaintenanceMode): boolean {
+  const batches = step.incremental_batches;
+  if (step.incremental_stop_reason !== undefined && (mode !== 'incremental' || !incrementalStopReasons.includes(step.incremental_stop_reason))) return false;
+  if (batches === undefined) return step.incremental_stop_reason === undefined;
+  if (mode !== 'incremental' || !Array.isArray(batches) || !batches.length || batches.length > 64) return false;
+  let slices = 0, reclaimed = 0;
+  for (const [index, batch] of batches.entries()) {
+    if (!batch || !size(batch.elapsed_ms) || !size(batch.vacuum_attempts) || batch.vacuum_attempts > 3 || !size(batch.heap_reclaimed_bytes) ||
+        batch.truncate_lock_waits !== undefined && (!size(batch.truncate_lock_waits) || batch.truncate_lock_waits > batch.vacuum_attempts) ||
+        batch.table_change_bytes !== undefined && !Number.isSafeInteger(batch.table_change_bytes)) return false;
+    if (batch.stop_phase !== undefined) {
+      if (!incrementalStopPhases.includes(batch.stop_phase) || index !== batches.length - 1 || step.incremental_stop_reason !== undefined) return false;
+    } else if (!batch.vacuum_attempts || !batch.heap_reclaimed_bytes || batch.table_change_bytes === undefined || batch.table_change_bytes >= 0) return false;
+    if (batch.heap_reclaimed_bytes > 0) {
+      slices++;
+      reclaimed += batch.heap_reclaimed_bytes;
+    }
+  }
+  return slices === (step.incremental?.slices_completed ?? 0) && reclaimed === (step.incremental?.heap_reclaimed_bytes ?? 0);
+}
 export function decodeMaintenanceSnapshot(raw: unknown): MaintenanceSnapshot {
   const d: any = raw;
   if (!d || !digest(d.database_fingerprint) || !size(d.database_oid) || !d.database_oid || !size(d.database_bytes) || !size(d.wal_budget_bytes) ||
@@ -62,7 +97,8 @@ export function decodeDatabaseMaintenanceRun(raw: unknown, expectedID?: string):
         (x.state === 'completed' ? time(x.finished_at) && Date.parse(x.finished_at) >= Date.parse(x.started_at) : x.finished_at === undefined) &&
         (x.incremental === undefined || d.mode === 'incremental' && x.incremental &&
           size(x.incremental.slices_completed) && x.incremental.slices_completed > 0 &&
-          size(x.incremental.heap_reclaimed_bytes) && x.incremental.heap_reclaimed_bytes > 0)) ||
+          size(x.incremental.heap_reclaimed_bytes) && x.incremental.heap_reclaimed_bytes > 0) &&
+        validIncrementalBatches(x, d.mode)) ||
       ['filesystem_available_before', 'filesystem_available_after'].some(k => d[k] !== undefined && !size(d[k]))) invalid();
   if (d.mode === 'incremental' && d.tables.length !== 1) invalid();
   if (d.wal_stop !== undefined) {

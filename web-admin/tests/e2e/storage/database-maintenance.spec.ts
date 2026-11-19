@@ -125,7 +125,13 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     const partial = width === 390;
     const done = { ...maintenanceRun('completed', f.calls.starts[0].request_id), mode, tables: [table], version: 8, preview_id: f.calls.starts[0].preview_id };
     done.steps = done.steps.filter(row => done.tables.includes(row.table_id)).map(step => {
-      const incrementalProgress = incremental ? { incremental: { slices_completed: 1, heap_reclaimed_bytes: 8388608 } } : {};
+      const batches: NonNullable<typeof step.incremental_batches> = [{ elapsed_ms: 8250, vacuum_attempts: 2, truncate_lock_waits: 1, heap_reclaimed_bytes: 8388608, table_change_bytes: -8388608 }];
+      if (partial) batches.push({ elapsed_ms: 14324, vacuum_attempts: 1, heap_reclaimed_bytes: 0, stop_phase: 'vacuum' });
+      const incrementalProgress = incremental ? {
+        incremental: { slices_completed: 1, heap_reclaimed_bytes: 8388608 },
+        incremental_batches: batches,
+        ...(partial ? {} : { incremental_stop_reason: 'time_budget' as const }),
+      } : {};
       return { ...step, ...incrementalProgress, ...(partial ? { state: 'running' as const, finished_at: undefined } : {}) };
     });
     if (partial) {
@@ -138,7 +144,17 @@ for (const width of [1440, 390, 320]) test(`native maintenance confirmation, pus
     const receipt = page.getByTestId('database-maintenance-run');
     await expect(receipt).toContainText(finalLabel);
     await expect(receipt).toContainText('选定表占用变化');
-    if (incremental) await expect(receipt).toContainText('已完成 1 批');
+    if (incremental) {
+      await expect(receipt).toContainText('已完成 1 批');
+      const batchDetails = receipt.getByTestId('maintenance-batch-details');
+      await expect(batchDetails.getByText('重试 1 次')).toBeHidden();
+      await batchDetails.getByText('查看每批结果').click();
+      await expect(batchDetails).toContainText('重试 1 次');
+      await expect(batchDetails).toContainText('有 1 次尝试等过截短锁');
+      await expect(batchDetails).toContainText('表占用 −8 MiB');
+      if (partial) await expect(batchDetails).toContainText('清理索引或截短表尾时停止');
+      else await expect(receipt).toContainText('本轮剩余时间不足以开始下一批');
+    }
     if (partial) {
       await expect(receipt).not.toContainText('正在整理');
       await expect(receipt).toContainText('清理索引与截断阶段检测到WAL 文件占用为 848 MiB，上限为 848 MiB');
